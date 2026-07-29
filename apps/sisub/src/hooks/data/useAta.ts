@@ -133,8 +133,14 @@ export function useCreateAtaDraft() {
 
 export function useUpdateAtaDraft() {
 	return useMutation({
-		mutationFn: (params: { draftId: string; title?: string; notes?: string; wizardStep?: number; kitchenSelections?: AtaWizardState["kitchenSelections"] }) =>
-			updateAtaDraftFn({ data: params }),
+		mutationFn: (params: {
+			draftId: string
+			title?: string
+			notes?: string
+			wizardStep?: number
+			validityMonths?: number
+			kitchenSelections?: AtaWizardState["kitchenSelections"]
+		}) => updateAtaDraftFn({ data: params }),
 		onError: (error) => toast.error(`Erro ao salvar rascunho: ${error.message}`),
 	})
 }

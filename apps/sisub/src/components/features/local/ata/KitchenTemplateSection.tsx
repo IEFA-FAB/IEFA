@@ -5,33 +5,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
+import type { KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
 interface KitchenTemplateSectionProps {
 	kitchenState: KitchenSelectionState
 	templates: TemplateWithItemCounts[]
 	isLoadingTemplates?: boolean
-	selectionType: "templateSelections" | "eventSelections"
-	onUpdateSelection: (kitchenId: number, selectionType: "templateSelections" | "eventSelections", selections: TemplateSelection[]) => void
+	selectionType: SelectionBucket
+	/** Vigência da ata, em meses — usada para projetar as ocorrências mensais das exceções. */
+	validityMonths?: number
+	onUpdateSelection: (kitchenId: number, selectionType: SelectionBucket, selections: TemplateSelection[]) => void
 }
 
-export function KitchenTemplateSection({ kitchenState, templates, isLoadingTemplates, selectionType, onUpdateSelection }: KitchenTemplateSectionProps) {
+export function KitchenTemplateSection({
+	kitchenState,
+	templates,
+	isLoadingTemplates,
+	selectionType,
+	validityMonths = 1,
+	onUpdateSelection,
+}: KitchenTemplateSectionProps) {
 	const currentSelections = kitchenState[selectionType]
+	const isExceptionBucket = selectionType === "exceptionSelections"
 
 	const isSelected = (templateId: string) => currentSelections.some((s) => s.templateId === templateId)
 	const getRepetitions = (templateId: string) => currentSelections.find((s) => s.templateId === templateId)?.repetitions ?? 1
 
 	const handleToggle = (template: TemplateWithItemCounts, checked: boolean) => {
 		if (checked) {
-			// Exceções pré-preenchem as repetições com as ocorrências mensais esperadas.
-			const defaultReps = template.template_type === "exception" ? (template.expected_monthly_occurrences ?? 1) : 1
+			// Exceção: repetições são DERIVADAS (ocorrências/mês × vigência), não digitadas.
+			// Sem isso, o número mensal entrava direto como total e subdimensionava a compra
+			// por um fator igual aos meses de vigência.
+			const monthly = template.expected_monthly_occurrences ?? 1
 			onUpdateSelection(kitchenState.kitchenId, selectionType, [
 				...currentSelections,
 				{
 					templateId: template.id,
 					templateName: template.name || "",
-					repetitions: defaultReps,
+					repetitions: isExceptionBucket ? monthly * validityMonths : 1,
+					...(isExceptionBucket && { monthlyOccurrences: monthly }),
 				},
 			])
 		} else {
@@ -144,7 +157,17 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 											)}
 										</div>
 									</div>
-									{selected && (
+									{selected && isExceptionBucket && (
+										// Somente leitura: a conta vem das ocorrências mensais do próprio
+										// cardápio de exceção (editáveis no módulo Exceções da cozinha).
+										<div className="flex items-center gap-1.5 shrink-0 text-xs tabular-nums text-muted-foreground">
+											<span>
+												{template.expected_monthly_occurrences ?? 1}×/mês × {validityMonths} {validityMonths === 1 ? "mês" : "meses"} =
+											</span>
+											<span className="text-subheading text-foreground">{reps}×</span>
+										</div>
+									)}
+									{selected && !isExceptionBucket && (
 										<div className="flex items-center gap-1.5 shrink-0">
 											<Button
 												size="icon"

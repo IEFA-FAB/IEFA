@@ -333,7 +333,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmCorpOrgaoAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmCorpOrgaoDTO"
                 }
               }
             }
@@ -503,7 +503,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmCorpUasgAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmCorpUasgDTO"
                 }
               }
             }
@@ -819,7 +819,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmServicoItemAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmServicoItemDTO"
                 }
               }
             }
@@ -1554,7 +1554,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/FtPesqPrecoCompraServicoDetalheAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOFtPesqPrecoCompraServicoDetalheDTO"
                 }
               }
             }
@@ -1700,7 +1700,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -1754,7 +1755,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/FtPesqPrecoCompraServicoAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOFtPesqPrecoCompraServicoDTO"
                 }
               }
             }
@@ -1828,7 +1829,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -1954,7 +1956,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/FtPesqPrecoCompraMaterialDetalheAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOFtPesqPrecoCompraMaterialDetalheDTO"
                 }
               }
             }
@@ -2062,12 +2064,23 @@
             }
           },
           {
-            "name": "codigoItemCatalogo",
+            "name": "tipo",
             "in": "query",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string",
+              "enum": [
+                "codigoItemCatalogo",
+                "codigoPdm"
+              ]
+            }
+          },
+          {
+            "name": "codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -2100,7 +2113,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -2163,7 +2177,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/FtPesqPrecoCompraMaterialAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOFtPesqPrecoCompraMaterialDTO"
                 }
               }
             }
@@ -2199,12 +2213,23 @@
             }
           },
           {
-            "name": "codigoItemCatalogo",
+            "name": "tipo",
             "in": "query",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string",
+              "enum": [
+                "codigoItemCatalogo",
+                "codigoPdm"
+              ]
+            }
+          },
+          {
+            "name": "codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -2237,7 +2262,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -2404,7 +2430,8 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 10
             }
           },
           {
@@ -2423,7 +2450,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmMaterialCaracteristicasAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialCaracteristicasDTO"
                 }
               }
             }
@@ -2454,7 +2481,8 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 10
             }
           },
           {
@@ -2481,7 +2509,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmMaterialUnidadeFornecimentoAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialUnidadeFornecimentoDTO"
                 }
               }
             }
@@ -2512,7 +2540,8 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 10
             }
           },
           {
@@ -2547,7 +2576,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmMaterialNaturezaDespesaAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialNaturezaDespesaDTO"
                 }
               }
             }
@@ -2578,7 +2607,8 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 10
             }
           },
           {
@@ -2657,7 +2687,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmMaterialItemAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialItemDTO"
                 }
               }
             }
@@ -2688,7 +2718,8 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 10
             }
           },
           {
@@ -2742,7 +2773,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DmMaterialPDMAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialPDMDTO"
                 }
               }
             }
@@ -4810,7 +4841,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwDmPNCPItemResultadoAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwDmPNCPItemResultadoDTO"
                 }
               }
             }
@@ -4870,7 +4901,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwDmPNCPItemResultadoAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwDmPNCPItemResultadoDTO"
                 }
               }
             }
@@ -5032,6 +5063,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "codigoPdm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5040,7 +5079,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwFtPNCPCompraItemAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwFtPNCPCompraItemDTO"
                 }
               }
             }
@@ -5100,7 +5139,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwFtPNCPCompraItemAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwFtPNCPCompraItemDTO"
                 }
               }
             }
@@ -5239,7 +5278,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwFtPNCPCompraAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwFtPNCPCompraDTO"
                 }
               }
             }
@@ -5291,7 +5330,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwFtPNCPCompraAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwFtPNCPCompraDTO"
                 }
               }
             }
@@ -5375,7 +5414,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/VwFtArpAdesoesItemAPIResponseDTO"
+                  "$ref": "#/components/schemas/GenericAPIResponseDTOVwFtArpAdesoesItemDTO"
                 }
               }
             }
@@ -6241,35 +6280,6 @@
           }
         }
       },
-      "DmCorpOrgaoAPIResponseDTO": {
-        "type": "object",
-        "properties": {
-          "resultado": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DmCorpOrgaoDTO"
-            }
-          },
-          "totalRegistros": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de registros encontrados",
-            "example": 0
-          },
-          "totalPaginas": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de páginas",
-            "example": 0
-          },
-          "paginasRestantes": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Páginas restantes",
-            "example": 0
-          }
-        }
-      },
       "DmCorpOrgaoDTO": {
         "type": "object",
         "properties": {
@@ -6337,13 +6347,14 @@
           }
         }
       },
-      "DmCorpUasgAPIResponseDTO": {
+      "GenericAPIResponseDTODmCorpOrgaoDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/DmCorpUasgDTO"
+              "$ref": "#/components/schemas/DmCorpOrgaoDTO"
             }
           },
           "totalRegistros": {
@@ -6451,6 +6462,36 @@
           }
         }
       },
+      "GenericAPIResponseDTODmCorpUasgDTO": {
+        "type": "object",
+        "properties": {
+          "resultado": {
+            "type": "array",
+            "description": "Lista de resultados da consulta",
+            "items": {
+              "$ref": "#/components/schemas/DmCorpUasgDTO"
+            }
+          },
+          "totalRegistros": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de registros encontrados",
+            "example": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de páginas",
+            "example": 0
+          },
+          "paginasRestantes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Páginas restantes",
+            "example": 0
+          }
+        }
+      },
       "DmServicoNaturezaDespesaAPIResponseDTO": {
         "type": "object",
         "properties": {
@@ -6547,35 +6588,6 @@
           }
         }
       },
-      "DmServicoItemAPIResponseDTO": {
-        "type": "object",
-        "properties": {
-          "resultado": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DmServicoItemDTO"
-            }
-          },
-          "totalRegistros": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de registros encontrados",
-            "example": 0
-          },
-          "totalPaginas": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de páginas",
-            "example": 0
-          },
-          "paginasRestantes": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Páginas restantes",
-            "example": 0
-          }
-        }
-      },
       "DmServicoItemDTO": {
         "type": "object",
         "properties": {
@@ -6643,6 +6655,36 @@
             "format": "date-time",
             "description": "YYYY-MM-DD",
             "example": "2024-01-15T10:30:00"
+          }
+        }
+      },
+      "GenericAPIResponseDTODmServicoItemDTO": {
+        "type": "object",
+        "properties": {
+          "resultado": {
+            "type": "array",
+            "description": "Lista de resultados da consulta",
+            "items": {
+              "$ref": "#/components/schemas/DmServicoItemDTO"
+            }
+          },
+          "totalRegistros": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de registros encontrados",
+            "example": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de páginas",
+            "example": 0
+          },
+          "paginasRestantes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Páginas restantes",
+            "example": 0
           }
         }
       },
@@ -7254,42 +7296,6 @@
           }
         }
       },
-      "FtPesqPrecoCompraServicoDetalheAPIResponseDTO": {
-        "type": "object",
-        "properties": {
-          "resultado": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FtPesqPrecoCompraServicoDetalheDTO"
-            }
-          },
-          "totalRegistros": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de registros encontrados",
-            "example": 0
-          },
-          "totalPaginas": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de páginas",
-            "example": 0
-          },
-          "paginasRestantes": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Páginas restantes",
-            "example": 0
-          },
-          "dataHoraConsulta": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "timeZoneAtual": {
-            "type": "string"
-          }
-        }
-      },
       "FtPesqPrecoCompraServicoDetalheDTO": {
         "type": "object",
         "properties": {
@@ -7314,16 +7320,21 @@
           },
           "descricaoDetalhadaItem": {
             "type": "string"
+          },
+          "dataAtualizacaoFato": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "FtPesqPrecoCompraServicoAPIResponseDTO": {
+      "GenericAPIResponseDTOFtPesqPrecoCompraServicoDetalheDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/FtPesqPrecoCompraServicoDTO"
+              "$ref": "#/components/schemas/FtPesqPrecoCompraServicoDetalheDTO"
             }
           },
           "totalRegistros": {
@@ -7343,13 +7354,6 @@
             "format": "int64",
             "description": "Páginas restantes",
             "example": 0
-          },
-          "dataHoraConsulta": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "timeZoneAtual": {
-            "type": "string"
           }
         }
       },
@@ -7473,16 +7477,21 @@
           },
           "descricaoDetalhadaItem": {
             "type": "string"
+          },
+          "dataAtualizacaoFato": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "FtPesqPrecoCompraMaterialDetalheAPIResponseDTO": {
+      "GenericAPIResponseDTOFtPesqPrecoCompraServicoDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/FtPesqPrecoCompraMaterialDetalheDTO"
+              "$ref": "#/components/schemas/FtPesqPrecoCompraServicoDTO"
             }
           },
           "totalRegistros": {
@@ -7502,13 +7511,6 @@
             "format": "int64",
             "description": "Páginas restantes",
             "example": 0
-          },
-          "dataHoraConsulta": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "timeZoneAtual": {
-            "type": "string"
           }
         }
       },
@@ -7536,14 +7538,208 @@
           },
           "descricaoDetalhadaItem": {
             "type": "string"
+          },
+          "dataAtualizacaoFato": {
+            "type": "string",
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15T10:30:00"
           }
         }
       },
-      "FtPesqPrecoCompraMaterialAPIResponseDTO": {
+      "GenericAPIResponseDTOFtPesqPrecoCompraMaterialDetalheDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
+            "items": {
+              "$ref": "#/components/schemas/FtPesqPrecoCompraMaterialDetalheDTO"
+            }
+          },
+          "totalRegistros": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de registros encontrados",
+            "example": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de páginas",
+            "example": 0
+          },
+          "paginasRestantes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Páginas restantes",
+            "example": 0
+          }
+        }
+      },
+      "FtPesqPrecoCompraMaterialDTO": {
+        "type": "object",
+        "properties": {
+          "idCompra": {
+            "type": "integer",
+            "format": "int64",
+            "example": 0
+          },
+          "dataCompra": {
+            "type": "string",
+            "format": "date"
+          },
+          "forma": {
+            "type": "string"
+          },
+          "modalidade": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dataHoraAtualizacaoCompra": {
+            "type": "string",
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15T10:30:00"
+          },
+          "idItemCompra": {
+            "type": "integer",
+            "format": "int64",
+            "example": 0
+          },
+          "numeroItemCompra": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "niFornecedor": {
+            "type": "string"
+          },
+          "codigoItemCatalogo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "quantidade": {
+            "type": "number"
+          },
+          "precoUnitario": {
+            "type": "number"
+          },
+          "descricaoItem": {
+            "type": "string"
+          },
+          "siglaUnidadeFornecimento": {
+            "type": "string"
+          },
+          "nomeUnidadeFornecimento": {
+            "type": "string"
+          },
+          "capacidadeUnidadeFornecimento": {
+            "type": "number"
+          },
+          "siglaUnidadeMedida": {
+            "type": "string"
+          },
+          "nomeUnidadeMedida": {
+            "type": "string"
+          },
+          "criterioJulgamento": {
+            "type": "string"
+          },
+          "percentualMaiorDesconto": {
+            "type": "number"
+          },
+          "nomeFornecedor": {
+            "type": "string"
+          },
+          "marca": {
+            "type": "string"
+          },
+          "dataResultado": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataHoraAtualizacaoItem": {
+            "type": "string",
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15T10:30:00"
+          },
+          "codigoUasg": {
+            "type": "string"
+          },
+          "nomeUasg": {
+            "type": "string"
+          },
+          "codigoOrgao": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "nomeOrgao": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string"
+          },
+          "codigoMunicipio": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "municipio": {
+            "type": "string"
+          },
+          "poder": {
+            "type": "string"
+          },
+          "esfera": {
+            "type": "string"
+          },
+          "dataHoraAtualizacaoUasg": {
+            "type": "string",
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15T10:30:00"
+          },
+          "codigoClasse": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "nomeClasse": {
+            "type": "string"
+          },
+          "idCompraItem": {
+            "type": "string"
+          },
+          "objetoCompra": {
+            "type": "string"
+          },
+          "descricaoDetalhadaItem": {
+            "type": "string"
+          },
+          "dataAtualizacaoFato": {
+            "type": "string",
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15T10:30:00"
+          },
+          "codigoPdm": {
+            "type": "string"
+          },
+          "nomePdm": {
+            "type": "string"
+          }
+        }
+      },
+      "GenericAPIResponseDTOFtPesqPrecoCompraMaterialDTO": {
+        "type": "object",
+        "properties": {
+          "resultado": {
+            "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
               "$ref": "#/components/schemas/FtPesqPrecoCompraMaterialDTO"
             }
@@ -7565,158 +7761,6 @@
             "format": "int64",
             "description": "Páginas restantes",
             "example": 0
-          },
-          "dataHoraConsulta": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "timeZoneAtual": {
-            "type": "string"
-          }
-        }
-      },
-      "FtPesqPrecoCompraMaterialDTO": {
-        "type": "object",
-        "properties": {
-          "idCompra": {
-            "type": "string"
-          },
-          "idItemCompra": {
-            "type": "integer"
-          },
-          "forma": {
-            "type": "string"
-          },
-          "modalidade": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "criterioJulgamento": {
-            "type": "string"
-          },
-          "numeroItemCompra": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "descricaoItem": {
-            "type": "string"
-          },
-          "codigoItemCatalogo": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "nomeUnidadeMedida": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "siglaUnidadeMedida": {
-            "type": "string"
-          },
-          "nomeUnidadeFornecimento": {
-            "type": "string"
-          },
-          "siglaUnidadeFornecimento": {
-            "type": "string"
-          },
-          "capacidadeUnidadeFornecimento": {
-            "type": "number"
-          },
-          "quantidade": {
-            "type": "number"
-          },
-          "precoUnitario": {
-            "type": "number"
-          },
-          "percentualMaiorDesconto": {
-            "type": "number"
-          },
-          "niFornecedor": {
-            "type": "string"
-          },
-          "nomeFornecedor": {
-            "type": "string"
-          },
-          "marca": {
-            "type": "string"
-          },
-          "codigoUasg": {
-            "type": "string"
-          },
-          "nomeUasg": {
-            "type": "string"
-          },
-          "codigoMunicipio": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "municipio": {
-            "type": "string"
-          },
-          "estado": {
-            "type": "string"
-          },
-          "codigoOrgao": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "nomeOrgao": {
-            "type": "string"
-          },
-          "poder": {
-            "type": "string"
-          },
-          "esfera": {
-            "type": "string"
-          },
-          "dataCompra": {
-            "type": "string",
-            "format": "date",
-            "description": "YYYY-MM-DD",
-            "example": "2024-01-15"
-          },
-          "dataHoraAtualizacaoCompra": {
-            "type": "string",
-            "format": "date-time",
-            "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
-          },
-          "dataHoraAtualizacaoItem": {
-            "type": "string",
-            "format": "date-time",
-            "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
-          },
-          "dataResultado": {
-            "type": "string",
-            "format": "date",
-            "description": "YYYY-MM-DD",
-            "example": "2024-01-15"
-          },
-          "dataHoraAtualizacaoUasg": {
-            "type": "string",
-            "format": "date-time",
-            "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
-          },
-          "codigoClasse": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "nomeClasse": {
-            "type": "string"
-          },
-          "objetoCompra": {
-            "type": "string"
-          },
-          "descricaoDetalhadaItem": {
-            "type": "string"
           }
         }
       },
@@ -8219,35 +8263,6 @@
           }
         }
       },
-      "DmMaterialCaracteristicasAPIResponseDTO": {
-        "type": "object",
-        "properties": {
-          "resultado": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DmMaterialCaracteristicasDTO"
-            }
-          },
-          "totalRegistros": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de registros encontrados",
-            "example": 0
-          },
-          "totalPaginas": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total de páginas",
-            "example": 0
-          },
-          "paginasRestantes": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Páginas restantes",
-            "example": 0
-          }
-        }
-      },
       "DmMaterialCaracteristicasDTO": {
         "type": "object",
         "properties": {
@@ -8295,13 +8310,14 @@
           }
         }
       },
-      "DmMaterialUnidadeFornecimentoAPIResponseDTO": {
+      "GenericAPIResponseDTODmMaterialCaracteristicasDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/DmMaterialUnidadeFornecimentoDTO"
+              "$ref": "#/components/schemas/DmMaterialCaracteristicasDTO"
             }
           },
           "totalRegistros": {
@@ -8355,6 +8371,9 @@
           "statusUnidadeFornecimentoPdm": {
             "type": "boolean"
           },
+          "statusUnidadeFornecimento": {
+            "type": "boolean"
+          },
           "dataHoraAtualizacao": {
             "type": "string",
             "format": "date-time",
@@ -8363,13 +8382,14 @@
           }
         }
       },
-      "DmMaterialNaturezaDespesaAPIResponseDTO": {
+      "GenericAPIResponseDTODmMaterialUnidadeFornecimentoDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/DmMaterialNaturezaDespesaDTO"
+              "$ref": "#/components/schemas/DmMaterialUnidadeFornecimentoDTO"
             }
           },
           "totalRegistros": {
@@ -8407,17 +8427,18 @@
             "type": "string"
           },
           "statusNaturezaDespesa": {
-            "type": "boolean"
+            "type": "string"
           }
         }
       },
-      "DmMaterialItemAPIResponseDTO": {
+      "GenericAPIResponseDTODmMaterialNaturezaDespesaDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/DmMaterialItemDTO"
+              "$ref": "#/components/schemas/DmMaterialNaturezaDespesaDTO"
             }
           },
           "totalRegistros": {
@@ -8498,13 +8519,14 @@
           }
         }
       },
-      "DmMaterialPDMAPIResponseDTO": {
+      "GenericAPIResponseDTODmMaterialItemDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
-              "$ref": "#/components/schemas/DmMaterialPDMDTO"
+              "$ref": "#/components/schemas/DmMaterialItemDTO"
             }
           },
           "totalRegistros": {
@@ -8562,6 +8584,36 @@
             "format": "date-time",
             "description": "YYYY-MM-DD",
             "example": "2024-01-15T10:30:00"
+          }
+        }
+      },
+      "GenericAPIResponseDTODmMaterialPDMDTO": {
+        "type": "object",
+        "properties": {
+          "resultado": {
+            "type": "array",
+            "description": "Lista de resultados da consulta",
+            "items": {
+              "$ref": "#/components/schemas/DmMaterialPDMDTO"
+            }
+          },
+          "totalRegistros": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de registros encontrados",
+            "example": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de páginas",
+            "example": 0
+          },
+          "paginasRestantes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Páginas restantes",
+            "example": 0
           }
         }
       },
@@ -8712,19 +8764,27 @@
         "properties": {
           "data_abertura_proposta": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15"
           },
           "data_entrega_edital": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15"
           },
           "data_entrega_proposta": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15"
           },
           "data_publicacao": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "description": "YYYY-MM-DD",
+            "example": "2024-01-15"
           },
           "endereco_entrega_edital": {
             "type": "string"
@@ -8747,7 +8807,8 @@
             "example": 0
           },
           "nome_responsavel": {
-            "type": "string"
+            "type": "string",
+            "example": 0
           },
           "numero_aviso": {
             "type": "integer",
@@ -8819,150 +8880,140 @@
       "TbVwCompraItensSemLicitacaoDTO": {
         "type": "object",
         "properties": {
-          "id": {
+          "co_conjunto_materiais": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "isn_sidec_resultado_compra": {
+          "co_servico": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "coServico": {
-            "type": "integer",
-            "format": "int32",
-            "example": 0
-          },
-          "dsDetalhada": {
+          "ds_detalhada": {
             "type": "string"
           },
-          "inTipoFornecedorVencedor": {
+          "in_tipo_fornecedor_vencedor": {
             "type": "string"
           },
-          "noFornecedorVencedor": {
+          "no_fornecedor_vencedor": {
             "type": "string"
           },
-          "noConjuntoMateriais": {
+          "no_conjunto_materiais": {
             "type": "string"
           },
-          "noMarcaMaterial": {
+          "no_marca_material": {
             "type": "string"
           },
-          "noServico": {
+          "no_servico": {
             "type": "string"
           },
-          "noUnidadeMedida": {
+          "no_unidade_medida": {
             "type": "string"
           },
-          "nuCnpjVencedor": {
+          "nu_cnpj_vencedor": {
             "type": "string"
           },
-          "nuCpfVencedor": {
+          "nu_cpf_vencedor": {
             "type": "string"
           },
-          "nuCpfCnpjFiltro": {
-            "type": "string"
-          },
-          "qtMaterialAlt": {
+          "qt_material_alt": {
             "type": "integer",
             "format": "int64",
             "example": 0
           },
-          "vrEstimado": {
+          "vr_estimado": {
             "type": "number"
           },
-          "inMaterialServico": {
+          "in_material_servico": {
             "type": "string"
           },
-          "dtPublicacao": {
+          "dt_publicacao": {
             "type": "string",
-            "format": "date",
-            "description": "YYYY-MM-DD",
-            "example": "2024-01-15"
+            "format": "date"
           },
-          "idCompra": {
+          "id_compra": {
             "type": "string"
           },
-          "idCompraItem": {
+          "id_compra_item": {
             "type": "string"
           },
-          "coUasg": {
+          "co_uasg": {
             "type": "integer"
           },
-          "coModalidadeLicitacao": {
+          "co_modalidade_licitacao": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "noModalidadeLicitacao": {
+          "no_modalidade_licitacao": {
             "type": "string"
           },
-          "nuAvisoLicitacao": {
+          "nu_aviso_licitacao": {
             "type": "integer"
           },
-          "dtAnoAvisoLicitacao": {
+          "dt_ano_aviso_licitacao": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "nuInciso": {
+          "nu_inciso": {
             "type": "string"
           },
-          "nuProcesso": {
+          "nu_processo": {
             "type": "string"
           },
-          "qtTotalItem": {
+          "qt_total_item": {
             "type": "integer"
           },
-          "dsObjetoLicitacao": {
+          "ds_objeto_licitacao": {
             "type": "string"
           },
-          "dsFundamentoLegal": {
+          "ds_fundamento_legal": {
             "type": "string"
           },
-          "dsJustificativa": {
+          "ds_justificativa": {
             "type": "string"
           },
-          "nuCpfRespDeclDisp": {
+          "nu_cpf_resp_decl_disp": {
             "type": "string"
           },
-          "nuCpfRespRatificacao": {
+          "nu_cpf_resp_ratificacao": {
             "type": "string"
           },
-          "nuCpfRespPublicacao": {
+          "nu_cpf_resp_publicacao": {
             "type": "string"
           },
-          "noResponsavelDeclDisp": {
+          "no_responsavel_decl_disp": {
             "type": "string"
           },
-          "noCargoRespDeclDisp": {
+          "no_cargo_resp_decl_disp": {
             "type": "string"
           },
-          "noResponsavelRatificacao": {
+          "no_responsavel_ratificacao": {
             "type": "string"
           },
-          "noCargoRespRatificacao": {
+          "no_cargo_resp_ratificacao": {
             "type": "string"
           },
-          "nuItemMaterial": {
+          "nu_item_material": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "vrEstimadoItem": {
+          "vr_estimado_item": {
             "type": "number"
           },
-          "dsFabricante": {
+          "ds_fabricante": {
             "type": "string"
           },
-          "dtAlteracao": {
+          "dt_alteracao": {
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
             "example": "2024-01-15T10:30:00"
           },
-          "coOrgao": {
+          "co_orgao": {
             "type": "string"
           }
         }
@@ -9000,7 +9051,7 @@
       "TbVwComprasSemLicitacaoDTO": {
         "type": "object",
         "properties": {
-          "idCompra": {
+          "id_compra": {
             "type": "string"
           },
           "co_orgao": {
@@ -9062,19 +9113,19 @@
           "no_cargo_resp_ratificacao": {
             "type": "string"
           },
-          "dtDeclaracaoDispensa": {
+          "dt_declaracao_dispensa": {
             "type": "string",
             "format": "date",
             "description": "YYYY-MM-DD",
             "example": "2024-01-15"
           },
-          "dtRatificacao": {
+          "dt_ratificacao": {
             "type": "string",
             "format": "date",
             "description": "YYYY-MM-DD",
             "example": "2024-01-15"
           },
-          "dtPublicacao": {
+          "dt_publicacao": {
             "type": "string",
             "format": "date",
             "description": "YYYY-MM-DD",
@@ -9082,8 +9133,7 @@
           },
           "dt_ano_aviso": {
             "type": "integer",
-            "format": "int32",
-            "example": 0
+            "format": "int32"
           },
           "dt_alteracao": {
             "type": "string",
@@ -9129,72 +9179,80 @@
       "TbVwItensPregaoDTO": {
         "type": "object",
         "properties": {
-          "idCompra": {
+          "id_compra": {
             "type": "string"
           },
-          "idCompraItem": {
+          "id_compra_item": {
             "type": "string"
           },
-          "decreto7174": {
+          "decreto_7174": {
             "type": "string"
           },
-          "situacaoItem": {
+          "situacao_item": {
             "type": "string"
           },
-          "descricaoItem": {
+          "descricao_item": {
             "type": "string"
           },
-          "descricaoDetalhadaItem": {
+          "descricao_detalhada_item": {
             "type": "string"
           },
-          "margemPreferencial": {
+          "margem_preferencial": {
             "type": "string"
           },
-          "tratamentoDiferenciado": {
+          "tratamento_diferenciado": {
             "type": "string"
           },
-          "quantidadeItem": {
+          "quantidade_item": {
             "type": "string"
           },
-          "unidadeFornecimento": {
+          "unidade_fornecimento": {
             "type": "string"
           },
-          "valorEstimadoItem": {
+          "valor_estimado_item": {
             "type": "string"
           },
-          "menorLance": {
+          "menor_lance": {
             "type": "string"
           },
-          "valorNegociado": {
+          "valor_negociado": {
             "type": "string"
           },
-          "valorHomologadoItem": {
+          "valor_homologado_item": {
             "type": "string"
           },
-          "fornecedorVencedor": {
+          "fornecedor_vencedor": {
             "type": "string"
           },
-          "noAdjudic": {
+          "no_adjudic": {
             "type": "string"
           },
-          "noHom": {
+          "no_hom": {
             "type": "string"
           },
-          "dtEncerramento": {
+          "dt_encerramento": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "description": "ISO Date Time",
+            "example": "2026-07-06T19:53:33.156Z"
           },
-          "dtAdjudic": {
+          "dt_adjudic": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "description": "ISO Date Time",
+            "example": "2026-07-06T19:53:33.156Z"
           },
-          "dtHom": {
+          "dt_hom": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "description": "ISO Date Time",
+            "example": "2026-07-06T19:53:33.156Z"
           },
-          "dtAlteracao": {
+          "dt_alteracao": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "ISO Date Time",
+            "example": "2026-07-06T19:53:33.156Z"
           }
         }
       },
@@ -9273,10 +9331,10 @@
           "tx_objeto": {
             "type": "string"
           },
-          "vl_estimado_total": {
+          "valor_estimado_total": {
             "type": "string"
           },
-          "vl_homologado_total": {
+          "valor_homologado_total": {
             "type": "string"
           },
           "dt_portaria": {
@@ -9345,12 +9403,7 @@
       "TbVwItemLicitacaoDTO": {
         "type": "object",
         "properties": {
-          "isnSidecResultadoCompra": {
-            "type": "integer",
-            "format": "int64",
-            "example": 0
-          },
-          "numeroLicitacao": {
+          "numero_licitacao": {
             "type": "string"
           },
           "uasg": {
@@ -9358,7 +9411,7 @@
             "format": "int64",
             "example": 0
           },
-          "nomeUasg": {
+          "nome_uasg": {
             "type": "string"
           },
           "modalidade": {
@@ -9366,39 +9419,39 @@
             "format": "int32",
             "example": 0
           },
-          "nomeModalidade": {
+          "nome_modalidade": {
             "type": "string"
           },
-          "numeroAviso": {
+          "numero_aviso": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "numeroItemLicitacao": {
+          "numero_item_licitacao": {
             "type": "integer",
             "format": "int32",
             "example": 0
           },
-          "codigoItemMaterial": {
+          "codigo_item_material": {
             "type": "integer",
             "format": "int64",
             "example": 0
           },
-          "nomeMaterial": {
+          "nome_material": {
             "type": "string"
           },
-          "codigoItemServico": {
+          "codigo_item_servico": {
             "type": "integer",
             "format": "int64",
             "example": 0
           },
-          "nomeServico": {
+          "nome_servico": {
             "type": "string"
           },
-          "cnpjFornecedor": {
+          "cnpj_fornecedor": {
             "type": "string"
           },
-          "nomeFornecedor": {
+          "nome_fornecedor": {
             "type": "string"
           },
           "quantidade": {
@@ -9407,25 +9460,25 @@
           "unidade": {
             "type": "string"
           },
-          "descricaoItem": {
+          "descricao_item": {
             "type": "string"
           },
           "beneficio": {
             "type": "string"
           },
-          "valorEstimado": {
+          "valor_estimado": {
             "type": "number"
           },
-          "decreto7174": {
+          "decreto_7174": {
             "type": "string"
           },
-          "criterioJulgamento": {
+          "criterio_julgamento": {
             "type": "string"
           },
-          "cpfVencedor": {
+          "cpf_vencedor": {
             "type": "string"
           },
-          "nomeVencedorPf": {
+          "nome_vencedor_pf": {
             "type": "string"
           },
           "sustentavel": {
@@ -9433,16 +9486,16 @@
             "format": "int32",
             "example": 0
           },
-          "dtAlteracao": {
+          "dt_alteracao": {
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
             "example": "2024-01-15T10:30:00"
           },
-          "idCompra": {
+          "id_compra": {
             "type": "string"
           },
-          "idCompraItem": {
+          "id_compra_item": {
             "type": "string"
           }
         }
@@ -10120,11 +10173,12 @@
           }
         }
       },
-      "VwDmPNCPItemResultadoAPIResponseDTO": {
+      "GenericAPIResponseDTOVwDmPNCPItemResultadoDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
               "$ref": "#/components/schemas/VwDmPNCPItemResultadoDTO"
             }
@@ -10309,11 +10363,12 @@
           }
         }
       },
-      "VwFtPNCPCompraItemAPIResponseDTO": {
+      "GenericAPIResponseDTOVwFtPNCPCompraItemDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
               "$ref": "#/components/schemas/VwFtPNCPCompraItemDTO"
             }
@@ -10497,14 +10552,21 @@
           },
           "numeroControlePNCPCompra": {
             "type": "string"
+          },
+          "codigoPdm": {
+            "type": "string"
+          },
+          "nomePdm": {
+            "type": "string"
           }
         }
       },
-      "VwFtPNCPCompraAPIResponseDTO": {
+      "GenericAPIResponseDTOVwFtPNCPCompraDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
               "$ref": "#/components/schemas/VwFtPNCPCompraDTO"
             }
@@ -10598,14 +10660,18 @@
           "unidadeOrgaoMunicipioNome": {
             "type": "string"
           },
-          "unidade_subrogada_municipio_nome": {
+          "unidadeSubrogadaMunicipioNome": {
             "type": "string"
           },
           "unidadeOrgaoCodigoIbge": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int32",
+            "example": 0
           },
           "unidadeSubrogadaCodigoIbge": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int32",
+            "example": 0
           },
           "numeroCompra": {
             "type": "string"
@@ -10624,7 +10690,8 @@
             "type": "string"
           },
           "srp": {
-            "type": "boolean"
+            "type": "boolean",
+            "example": 0
           },
           "modoDisputaIdPncp": {
             "type": "integer",
@@ -10657,7 +10724,8 @@
             "type": "string"
           },
           "existeResultado": {
-            "type": "boolean"
+            "type": "boolean",
+            "example": 0
           },
           "orcamentoSigilosoCodigo": {
             "type": "integer",
@@ -10696,42 +10764,44 @@
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
+            "example": "2024-01-15 10:30:00"
           },
           "dataAtualizacaoPncp": {
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
+            "example": "2024-01-15 10:30:00"
           },
           "dataPublicacaoPncp": {
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
+            "example": "2024-01-15 10:30:00"
           },
           "dataAberturaPropostaPncp": {
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
+            "example": "2024-01-15 10:30:00"
           },
           "dataEncerramentoPropostaPncp": {
             "type": "string",
             "format": "date-time",
             "description": "YYYY-MM-DD",
-            "example": "2024-01-15T10:30:00"
+            "example": "2024-01-15 10:30:00"
           },
           "contratacaoExcluida": {
-            "type": "boolean"
+            "type": "boolean",
+            "example": 0
           }
         }
       },
-      "VwFtArpAdesoesItemAPIResponseDTO": {
+      "GenericAPIResponseDTOVwFtArpAdesoesItemDTO": {
         "type": "object",
         "properties": {
           "resultado": {
             "type": "array",
+            "description": "Lista de resultados da consulta",
             "items": {
               "$ref": "#/components/schemas/VwFtArpAdesoesItemDTO"
             }

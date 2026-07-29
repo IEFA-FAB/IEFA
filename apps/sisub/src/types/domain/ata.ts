@@ -88,7 +88,13 @@ export interface DraftWithSelections extends KitchenAtaDraft {
 export interface TemplateSelection {
 	templateId: string
 	templateName: string
+	/** Vezes que o cardápio é produzido dentro da vigência da ata (mesma unidade nos três regimes). */
 	repetitions: number
+	/**
+	 * Só para exceções: ocorrências mensais esperadas do template. `repetitions` é
+	 * derivado daqui × meses de vigência, e é recalculado quando a vigência muda.
+	 */
+	monthlyOccurrences?: number
 }
 
 /**
@@ -100,7 +106,11 @@ export interface KitchenSelectionState {
 	deliveryNotes: string
 	templateSelections: TemplateSelection[] // template_type = 'weekly'
 	eventSelections: TemplateSelection[] // template_type = 'event'
+	exceptionSelections: TemplateSelection[] // template_type = 'exception'
 }
+
+/** Chaves dos buckets de seleção — uma por regime de produção. */
+export type SelectionBucket = "templateSelections" | "eventSelections" | "exceptionSelections"
 
 /**
  * Estado completo do wizard da ATA
@@ -108,5 +118,7 @@ export interface KitchenSelectionState {
 export interface AtaWizardState {
 	title: string
 	notes: string
+	/** Vigência em meses; multiplica as ocorrências mensais das exceções. */
+	validityMonths: number
 	kitchenSelections: KitchenSelectionState[]
 }

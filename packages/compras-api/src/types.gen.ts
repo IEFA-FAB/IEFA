@@ -1294,27 +1294,6 @@ export interface components {
 			excluidoSuspenso?: boolean
 			razaoExclusaoSuspensao?: string
 		}
-		DmCorpOrgaoAPIResponseDTO: {
-			resultado?: components["schemas"]["DmCorpOrgaoDTO"][]
-			/**
-			 * Format: int64
-			 * @description Total de registros encontrados
-			 * @example 0
-			 */
-			totalRegistros?: number
-			/**
-			 * Format: int64
-			 * @description Total de páginas
-			 * @example 0
-			 */
-			totalPaginas?: number
-			/**
-			 * Format: int64
-			 * @description Páginas restantes
-			 * @example 0
-			 */
-			paginasRestantes?: number
-		}
 		DmCorpOrgaoDTO: {
 			/**
 			 * Format: int32
@@ -1355,8 +1334,9 @@ export interface components {
 			 */
 			dataHoraMovimento?: string
 		}
-		DmCorpUasgAPIResponseDTO: {
-			resultado?: components["schemas"]["DmCorpUasgDTO"][]
+		GenericAPIResponseDTODmCorpOrgaoDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmCorpOrgaoDTO"][]
 			/**
 			 * Format: int64
 			 * @description Total de registros encontrados
@@ -1426,6 +1406,28 @@ export interface components {
 			 */
 			dataHoraMovimento?: string
 		}
+		GenericAPIResponseDTODmCorpUasgDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmCorpUasgDTO"][]
+			/**
+			 * Format: int64
+			 * @description Total de registros encontrados
+			 * @example 0
+			 */
+			totalRegistros?: number
+			/**
+			 * Format: int64
+			 * @description Total de páginas
+			 * @example 0
+			 */
+			totalPaginas?: number
+			/**
+			 * Format: int64
+			 * @description Páginas restantes
+			 * @example 0
+			 */
+			paginasRestantes?: number
+		}
 		DmServicoNaturezaDespesaAPIResponseDTO: {
 			resultado?: components["schemas"]["DmServicoNaturezaDespesaDTO"][]
 			/**
@@ -1488,27 +1490,6 @@ export interface components {
 			nomeUnidadeMedida?: string
 			statusUnidadeMedida?: boolean
 		}
-		DmServicoItemAPIResponseDTO: {
-			resultado?: components["schemas"]["DmServicoItemDTO"][]
-			/**
-			 * Format: int64
-			 * @description Total de registros encontrados
-			 * @example 0
-			 */
-			totalRegistros?: number
-			/**
-			 * Format: int64
-			 * @description Total de páginas
-			 * @example 0
-			 */
-			totalPaginas?: number
-			/**
-			 * Format: int64
-			 * @description Páginas restantes
-			 * @example 0
-			 */
-			paginasRestantes?: number
-		}
 		DmServicoItemDTO: {
 			/**
 			 * Format: int64
@@ -1559,6 +1540,28 @@ export interface components {
 			 * @example 2024-01-15T10:30:00
 			 */
 			dataHoraAtualizacao?: string
+		}
+		GenericAPIResponseDTODmServicoItemDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmServicoItemDTO"][]
+			/**
+			 * Format: int64
+			 * @description Total de registros encontrados
+			 * @example 0
+			 */
+			totalRegistros?: number
+			/**
+			 * Format: int64
+			 * @description Total de páginas
+			 * @example 0
+			 */
+			totalPaginas?: number
+			/**
+			 * Format: int64
+			 * @description Páginas restantes
+			 * @example 0
+			 */
+			paginasRestantes?: number
 		}
 		DmServicoSubClasseAPIResponseDTO: {
 			resultado?: components["schemas"]["DmServicoSubClasseDTO"][]
@@ -1999,7 +2002,26 @@ export interface components {
 			 */
 			paginasRestantes?: number
 		}
-		FtPesqPrecoCompraServicoDetalheAPIResponseDTO: {
+		FtPesqPrecoCompraServicoDetalheDTO: {
+			idCompra?: string
+			idItemCompra?: number
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			numeroItemCompra?: number
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			codigoItemCatalogo?: number
+			objetoCompra?: string
+			descricaoDetalhadaItem?: string
+			/** Format: date-time */
+			dataAtualizacaoFato?: string
+		}
+		GenericAPIResponseDTOFtPesqPrecoCompraServicoDetalheDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["FtPesqPrecoCompraServicoDetalheDTO"][]
 			/**
 			 * Format: int64
@@ -2019,49 +2041,6 @@ export interface components {
 			 * @example 0
 			 */
 			paginasRestantes?: number
-			/** Format: date-time */
-			dataHoraConsulta?: string
-			timeZoneAtual?: string
-		}
-		FtPesqPrecoCompraServicoDetalheDTO: {
-			idCompra?: string
-			idItemCompra?: number
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			numeroItemCompra?: number
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			codigoItemCatalogo?: number
-			objetoCompra?: string
-			descricaoDetalhadaItem?: string
-		}
-		FtPesqPrecoCompraServicoAPIResponseDTO: {
-			resultado?: components["schemas"]["FtPesqPrecoCompraServicoDTO"][]
-			/**
-			 * Format: int64
-			 * @description Total de registros encontrados
-			 * @example 0
-			 */
-			totalRegistros?: number
-			/**
-			 * Format: int64
-			 * @description Total de páginas
-			 * @example 0
-			 */
-			totalPaginas?: number
-			/**
-			 * Format: int64
-			 * @description Páginas restantes
-			 * @example 0
-			 */
-			paginasRestantes?: number
-			/** Format: date-time */
-			dataHoraConsulta?: string
-			timeZoneAtual?: string
 		}
 		FtPesqPrecoCompraServicoDTO: {
 			idCompra?: string
@@ -2140,8 +2119,55 @@ export interface components {
 			dataHoraAtualizacaoUasg?: string
 			objetoCompra?: string
 			descricaoDetalhadaItem?: string
+			/** Format: date-time */
+			dataAtualizacaoFato?: string
 		}
-		FtPesqPrecoCompraMaterialDetalheAPIResponseDTO: {
+		GenericAPIResponseDTOFtPesqPrecoCompraServicoDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["FtPesqPrecoCompraServicoDTO"][]
+			/**
+			 * Format: int64
+			 * @description Total de registros encontrados
+			 * @example 0
+			 */
+			totalRegistros?: number
+			/**
+			 * Format: int64
+			 * @description Total de páginas
+			 * @example 0
+			 */
+			totalPaginas?: number
+			/**
+			 * Format: int64
+			 * @description Páginas restantes
+			 * @example 0
+			 */
+			paginasRestantes?: number
+		}
+		FtPesqPrecoCompraMaterialDetalheDTO: {
+			idCompra?: string
+			idItemCompra?: number
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			numeroItemCompra?: number
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			codigoItemCatalogo?: number
+			objetoCompra?: string
+			descricaoDetalhadaItem?: string
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15T10:30:00
+			 */
+			dataAtualizacaoFato?: string
+		}
+		GenericAPIResponseDTOFtPesqPrecoCompraMaterialDetalheDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["FtPesqPrecoCompraMaterialDetalheDTO"][]
 			/**
 			 * Format: int64
@@ -2161,27 +2187,103 @@ export interface components {
 			 * @example 0
 			 */
 			paginasRestantes?: number
-			/** Format: date-time */
-			dataHoraConsulta?: string
-			timeZoneAtual?: string
 		}
-		FtPesqPrecoCompraMaterialDetalheDTO: {
-			idCompra?: string
+		FtPesqPrecoCompraMaterialDTO: {
+			/**
+			 * Format: int64
+			 * @example 0
+			 */
+			idCompra?: number
+			/** Format: date */
+			dataCompra?: string
+			forma?: string
+			/** Format: int32 */
+			modalidade?: number
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15T10:30:00
+			 */
+			dataHoraAtualizacaoCompra?: string
+			/**
+			 * Format: int64
+			 * @example 0
+			 */
 			idItemCompra?: number
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
 			numeroItemCompra?: number
+			niFornecedor?: string
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
 			codigoItemCatalogo?: number
+			quantidade?: number
+			precoUnitario?: number
+			descricaoItem?: string
+			siglaUnidadeFornecimento?: string
+			nomeUnidadeFornecimento?: string
+			capacidadeUnidadeFornecimento?: number
+			siglaUnidadeMedida?: string
+			nomeUnidadeMedida?: string
+			criterioJulgamento?: string
+			percentualMaiorDesconto?: number
+			nomeFornecedor?: string
+			marca?: string
+			/** Format: date */
+			dataResultado?: string
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15T10:30:00
+			 */
+			dataHoraAtualizacaoItem?: string
+			codigoUasg?: string
+			nomeUasg?: string
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			codigoOrgao?: number
+			nomeOrgao?: string
+			estado?: string
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			codigoMunicipio?: number
+			municipio?: string
+			poder?: string
+			esfera?: string
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15T10:30:00
+			 */
+			dataHoraAtualizacaoUasg?: string
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
+			codigoClasse?: number
+			nomeClasse?: string
+			idCompraItem?: string
 			objetoCompra?: string
 			descricaoDetalhadaItem?: string
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15T10:30:00
+			 */
+			dataAtualizacaoFato?: string
+			codigoPdm?: string
+			nomePdm?: string
 		}
-		FtPesqPrecoCompraMaterialAPIResponseDTO: {
+		GenericAPIResponseDTOFtPesqPrecoCompraMaterialDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["FtPesqPrecoCompraMaterialDTO"][]
 			/**
 			 * Format: int64
@@ -2201,101 +2303,6 @@ export interface components {
 			 * @example 0
 			 */
 			paginasRestantes?: number
-			/** Format: date-time */
-			dataHoraConsulta?: string
-			timeZoneAtual?: string
-		}
-		FtPesqPrecoCompraMaterialDTO: {
-			idCompra?: string
-			idItemCompra?: number
-			forma?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			modalidade?: number
-			criterioJulgamento?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			numeroItemCompra?: number
-			descricaoItem?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			codigoItemCatalogo?: number
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			nomeUnidadeMedida?: number
-			siglaUnidadeMedida?: string
-			nomeUnidadeFornecimento?: string
-			siglaUnidadeFornecimento?: string
-			capacidadeUnidadeFornecimento?: number
-			quantidade?: number
-			precoUnitario?: number
-			percentualMaiorDesconto?: number
-			niFornecedor?: string
-			nomeFornecedor?: string
-			marca?: string
-			codigoUasg?: string
-			nomeUasg?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			codigoMunicipio?: number
-			municipio?: string
-			estado?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			codigoOrgao?: number
-			nomeOrgao?: string
-			poder?: string
-			esfera?: string
-			/**
-			 * Format: date
-			 * @description YYYY-MM-DD
-			 * @example 2024-01-15
-			 */
-			dataCompra?: string
-			/**
-			 * Format: date-time
-			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
-			 */
-			dataHoraAtualizacaoCompra?: string
-			/**
-			 * Format: date-time
-			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
-			 */
-			dataHoraAtualizacaoItem?: string
-			/**
-			 * Format: date
-			 * @description YYYY-MM-DD
-			 * @example 2024-01-15
-			 */
-			dataResultado?: string
-			/**
-			 * Format: date-time
-			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
-			 */
-			dataHoraAtualizacaoUasg?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			codigoClasse?: number
-			nomeClasse?: string
-			objetoCompra?: string
-			descricaoDetalhadaItem?: string
 		}
 		AdditionalIdentifierDTO: {
 			id?: string
@@ -2460,27 +2467,6 @@ export interface components {
 			links?: components["schemas"]["LinksDTO"]
 			uri?: string
 		}
-		DmMaterialCaracteristicasAPIResponseDTO: {
-			resultado?: components["schemas"]["DmMaterialCaracteristicasDTO"][]
-			/**
-			 * Format: int64
-			 * @description Total de registros encontrados
-			 * @example 0
-			 */
-			totalRegistros?: number
-			/**
-			 * Format: int64
-			 * @description Total de páginas
-			 * @example 0
-			 */
-			totalPaginas?: number
-			/**
-			 * Format: int64
-			 * @description Páginas restantes
-			 * @example 0
-			 */
-			paginasRestantes?: number
-		}
 		DmMaterialCaracteristicasDTO: {
 			/**
 			 * Format: int64
@@ -2507,8 +2493,9 @@ export interface components {
 			 */
 			dataHoraAtualizacao?: string
 		}
-		DmMaterialUnidadeFornecimentoAPIResponseDTO: {
-			resultado?: components["schemas"]["DmMaterialUnidadeFornecimentoDTO"][]
+		GenericAPIResponseDTODmMaterialCaracteristicasDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmMaterialCaracteristicasDTO"][]
 			/**
 			 * Format: int64
 			 * @description Total de registros encontrados
@@ -2545,6 +2532,7 @@ export interface components {
 			 */
 			numeroSequencialUnidadeFornecimento?: number
 			statusUnidadeFornecimentoPdm?: boolean
+			statusUnidadeFornecimento?: boolean
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
@@ -2552,8 +2540,9 @@ export interface components {
 			 */
 			dataHoraAtualizacao?: string
 		}
-		DmMaterialNaturezaDespesaAPIResponseDTO: {
-			resultado?: components["schemas"]["DmMaterialNaturezaDespesaDTO"][]
+		GenericAPIResponseDTODmMaterialUnidadeFornecimentoDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmMaterialUnidadeFornecimentoDTO"][]
 			/**
 			 * Format: int64
 			 * @description Total de registros encontrados
@@ -2581,10 +2570,11 @@ export interface components {
 			codigoPdm?: number
 			codigoNaturezaDespesa?: string
 			nomeNaturezaDespesa?: string
-			statusNaturezaDespesa?: boolean
+			statusNaturezaDespesa?: string
 		}
-		DmMaterialItemAPIResponseDTO: {
-			resultado?: components["schemas"]["DmMaterialItemDTO"][]
+		GenericAPIResponseDTODmMaterialNaturezaDespesaDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmMaterialNaturezaDespesaDTO"][]
 			/**
 			 * Format: int64
 			 * @description Total de registros encontrados
@@ -2641,8 +2631,9 @@ export interface components {
 			 */
 			dataHoraAtualizacao?: string
 		}
-		DmMaterialPDMAPIResponseDTO: {
-			resultado?: components["schemas"]["DmMaterialPDMDTO"][]
+		GenericAPIResponseDTODmMaterialItemDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmMaterialItemDTO"][]
 			/**
 			 * Format: int64
 			 * @description Total de registros encontrados
@@ -2688,6 +2679,28 @@ export interface components {
 			 * @example 2024-01-15T10:30:00
 			 */
 			dataHoraAtualizacao?: string
+		}
+		GenericAPIResponseDTODmMaterialPDMDTO: {
+			/** @description Lista de resultados da consulta */
+			resultado?: components["schemas"]["DmMaterialPDMDTO"][]
+			/**
+			 * Format: int64
+			 * @description Total de registros encontrados
+			 * @example 0
+			 */
+			totalRegistros?: number
+			/**
+			 * Format: int64
+			 * @description Total de páginas
+			 * @example 0
+			 */
+			totalPaginas?: number
+			/**
+			 * Format: int64
+			 * @description Páginas restantes
+			 * @example 0
+			 */
+			paginasRestantes?: number
 		}
 		DmMaterialClasseDTO: {
 			/**
@@ -2792,13 +2805,29 @@ export interface components {
 			paginasRestantes?: number
 		}
 		TbVwRdcDTO: {
-			/** Format: date-time */
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15
+			 */
 			data_abertura_proposta?: string
-			/** Format: date-time */
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15
+			 */
 			data_entrega_edital?: string
-			/** Format: date-time */
+			/**
+			 * Format: date-time
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15
+			 */
 			data_entrega_proposta?: string
-			/** Format: date */
+			/**
+			 * Format: date
+			 * @description YYYY-MM-DD
+			 * @example 2024-01-15
+			 */
 			data_publicacao?: string
 			endereco_entrega_edital?: string
 			forma_de_realizacao_licitacao?: string
@@ -2810,6 +2839,7 @@ export interface components {
 			 * @example 0
 			 */
 			modalidade?: number
+			/** @example 0 */
 			nome_responsavel?: string
 			/**
 			 * Format: int32
@@ -2864,82 +2894,72 @@ export interface components {
 			 * Format: int32
 			 * @example 0
 			 */
-			id?: number
+			co_conjunto_materiais?: number
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
-			isn_sidec_resultado_compra?: number
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
-			coServico?: number
-			dsDetalhada?: string
-			inTipoFornecedorVencedor?: string
-			noFornecedorVencedor?: string
-			noConjuntoMateriais?: string
-			noMarcaMaterial?: string
-			noServico?: string
-			noUnidadeMedida?: string
-			nuCnpjVencedor?: string
-			nuCpfVencedor?: string
-			nuCpfCnpjFiltro?: string
+			co_servico?: number
+			ds_detalhada?: string
+			in_tipo_fornecedor_vencedor?: string
+			no_fornecedor_vencedor?: string
+			no_conjunto_materiais?: string
+			no_marca_material?: string
+			no_servico?: string
+			no_unidade_medida?: string
+			nu_cnpj_vencedor?: string
+			nu_cpf_vencedor?: string
 			/**
 			 * Format: int64
 			 * @example 0
 			 */
-			qtMaterialAlt?: number
-			vrEstimado?: number
-			inMaterialServico?: string
-			/**
-			 * Format: date
-			 * @description YYYY-MM-DD
-			 * @example 2024-01-15
-			 */
-			dtPublicacao?: string
-			idCompra?: string
-			idCompraItem?: string
-			coUasg?: number
+			qt_material_alt?: number
+			vr_estimado?: number
+			in_material_servico?: string
+			/** Format: date */
+			dt_publicacao?: string
+			id_compra?: string
+			id_compra_item?: string
+			co_uasg?: number
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
-			coModalidadeLicitacao?: number
-			noModalidadeLicitacao?: string
-			nuAvisoLicitacao?: number
+			co_modalidade_licitacao?: number
+			no_modalidade_licitacao?: string
+			nu_aviso_licitacao?: number
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
-			dtAnoAvisoLicitacao?: number
-			nuInciso?: string
-			nuProcesso?: string
-			qtTotalItem?: number
-			dsObjetoLicitacao?: string
-			dsFundamentoLegal?: string
-			dsJustificativa?: string
-			nuCpfRespDeclDisp?: string
-			nuCpfRespRatificacao?: string
-			nuCpfRespPublicacao?: string
-			noResponsavelDeclDisp?: string
-			noCargoRespDeclDisp?: string
-			noResponsavelRatificacao?: string
-			noCargoRespRatificacao?: string
+			dt_ano_aviso_licitacao?: number
+			nu_inciso?: string
+			nu_processo?: string
+			qt_total_item?: number
+			ds_objeto_licitacao?: string
+			ds_fundamento_legal?: string
+			ds_justificativa?: string
+			nu_cpf_resp_decl_disp?: string
+			nu_cpf_resp_ratificacao?: string
+			nu_cpf_resp_publicacao?: string
+			no_responsavel_decl_disp?: string
+			no_cargo_resp_decl_disp?: string
+			no_responsavel_ratificacao?: string
+			no_cargo_resp_ratificacao?: string
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
-			nuItemMaterial?: number
-			vrEstimadoItem?: number
-			dsFabricante?: string
+			nu_item_material?: number
+			vr_estimado_item?: number
+			ds_fabricante?: string
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
 			 * @example 2024-01-15T10:30:00
 			 */
-			dtAlteracao?: string
-			coOrgao?: string
+			dt_alteracao?: string
+			co_orgao?: string
 		}
 		GenericAPIResponseDTOTbVwComprasSemLicitacaoDTO: {
 			/** @description Lista de resultados da consulta */
@@ -2964,7 +2984,7 @@ export interface components {
 			paginasRestantes?: number
 		}
 		TbVwComprasSemLicitacaoDTO: {
-			idCompra?: string
+			id_compra?: string
 			co_orgao?: string
 			co_orgao_superior?: string
 			/**
@@ -3003,23 +3023,20 @@ export interface components {
 			 * @description YYYY-MM-DD
 			 * @example 2024-01-15
 			 */
-			dtDeclaracaoDispensa?: string
+			dt_declaracao_dispensa?: string
 			/**
 			 * Format: date
 			 * @description YYYY-MM-DD
 			 * @example 2024-01-15
 			 */
-			dtRatificacao?: string
+			dt_ratificacao?: string
 			/**
 			 * Format: date
 			 * @description YYYY-MM-DD
 			 * @example 2024-01-15
 			 */
-			dtPublicacao?: string
-			/**
-			 * Format: int32
-			 * @example 0
-			 */
+			dt_publicacao?: string
+			/** Format: int32 */
 			dt_ano_aviso?: number
 			/**
 			 * Format: date
@@ -3052,31 +3069,47 @@ export interface components {
 			paginasRestantes?: number
 		}
 		TbVwItensPregaoDTO: {
-			idCompra?: string
-			idCompraItem?: string
-			decreto7174?: string
-			situacaoItem?: string
-			descricaoItem?: string
-			descricaoDetalhadaItem?: string
-			margemPreferencial?: string
-			tratamentoDiferenciado?: string
-			quantidadeItem?: string
-			unidadeFornecimento?: string
-			valorEstimadoItem?: string
-			menorLance?: string
-			valorNegociado?: string
-			valorHomologadoItem?: string
-			fornecedorVencedor?: string
-			noAdjudic?: string
-			noHom?: string
-			/** Format: date */
-			dtEncerramento?: string
-			/** Format: date */
-			dtAdjudic?: string
-			/** Format: date */
-			dtHom?: string
-			/** Format: date-time */
-			dtAlteracao?: string
+			id_compra?: string
+			id_compra_item?: string
+			decreto_7174?: string
+			situacao_item?: string
+			descricao_item?: string
+			descricao_detalhada_item?: string
+			margem_preferencial?: string
+			tratamento_diferenciado?: string
+			quantidade_item?: string
+			unidade_fornecimento?: string
+			valor_estimado_item?: string
+			menor_lance?: string
+			valor_negociado?: string
+			valor_homologado_item?: string
+			fornecedor_vencedor?: string
+			no_adjudic?: string
+			no_hom?: string
+			/**
+			 * Format: date
+			 * @description ISO Date Time
+			 * @example 2026-07-06T19:53:33.156Z
+			 */
+			dt_encerramento?: string
+			/**
+			 * Format: date
+			 * @description ISO Date Time
+			 * @example 2026-07-06T19:53:33.156Z
+			 */
+			dt_adjudic?: string
+			/**
+			 * Format: date
+			 * @description ISO Date Time
+			 * @example 2026-07-06T19:53:33.156Z
+			 */
+			dt_hom?: string
+			/**
+			 * Format: date-time
+			 * @description ISO Date Time
+			 * @example 2026-07-06T19:53:33.156Z
+			 */
+			dt_alteracao?: string
 		}
 		GenericAPIResponseDTOTbVwPregaoDTO: {
 			/** @description Lista de resultados da consulta */
@@ -3125,8 +3158,8 @@ export interface components {
 			ds_tipo_pregao?: string
 			ds_tipo_pregao_compra?: string
 			tx_objeto?: string
-			vl_estimado_total?: string
-			vl_homologado_total?: string
+			valor_estimado_total?: string
+			valor_homologado_total?: string
 			/** Format: date-time */
 			dt_portaria?: string
 			/** Format: date-time */
@@ -3166,57 +3199,52 @@ export interface components {
 			paginasRestantes?: number
 		}
 		TbVwItemLicitacaoDTO: {
-			/**
-			 * Format: int64
-			 * @example 0
-			 */
-			isnSidecResultadoCompra?: number
-			numeroLicitacao?: string
+			numero_licitacao?: string
 			/**
 			 * Format: int64
 			 * @example 0
 			 */
 			uasg?: number
-			nomeUasg?: string
+			nome_uasg?: string
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
 			modalidade?: number
-			nomeModalidade?: string
+			nome_modalidade?: string
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
-			numeroAviso?: number
+			numero_aviso?: number
 			/**
 			 * Format: int32
 			 * @example 0
 			 */
-			numeroItemLicitacao?: number
+			numero_item_licitacao?: number
 			/**
 			 * Format: int64
 			 * @example 0
 			 */
-			codigoItemMaterial?: number
-			nomeMaterial?: string
+			codigo_item_material?: number
+			nome_material?: string
 			/**
 			 * Format: int64
 			 * @example 0
 			 */
-			codigoItemServico?: number
-			nomeServico?: string
-			cnpjFornecedor?: string
-			nomeFornecedor?: string
+			codigo_item_servico?: number
+			nome_servico?: string
+			cnpj_fornecedor?: string
+			nome_fornecedor?: string
 			quantidade?: number
 			unidade?: string
-			descricaoItem?: string
+			descricao_item?: string
 			beneficio?: string
-			valorEstimado?: number
-			decreto7174?: string
-			criterioJulgamento?: string
-			cpfVencedor?: string
-			nomeVencedorPf?: string
+			valor_estimado?: number
+			decreto_7174?: string
+			criterio_julgamento?: string
+			cpf_vencedor?: string
+			nome_vencedor_pf?: string
 			/**
 			 * Format: int32
 			 * @example 0
@@ -3227,9 +3255,9 @@ export interface components {
 			 * @description YYYY-MM-DD
 			 * @example 2024-01-15T10:30:00
 			 */
-			dtAlteracao?: string
-			idCompra?: string
-			idCompraItem?: string
+			dt_alteracao?: string
+			id_compra?: string
+			id_compra_item?: string
 		}
 		GenericAPIResponseDTOTbVwLicitacaoDTO: {
 			/** @description Lista de resultados da consulta */
@@ -3642,7 +3670,8 @@ export interface components {
 			contratoExcluido?: boolean
 			unidadesRequisitantes?: string
 		}
-		VwDmPNCPItemResultadoAPIResponseDTO: {
+		GenericAPIResponseDTOVwDmPNCPItemResultadoDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["VwDmPNCPItemResultadoDTO"][]
 			/**
 			 * Format: int64
@@ -3760,7 +3789,8 @@ export interface components {
 			paisOrigemProdutoServicoId?: string
 			timezoneCotacaoMoedaEstrangeira?: string
 		}
-		VwFtPNCPCompraItemAPIResponseDTO: {
+		GenericAPIResponseDTOVwFtPNCPCompraItemDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["VwFtPNCPCompraItemDTO"][]
 			/**
 			 * Format: int64
@@ -3869,8 +3899,11 @@ export interface components {
 			codigoNCM?: string
 			descricaoNCM?: string
 			numeroControlePNCPCompra?: string
+			codigoPdm?: string
+			nomePdm?: string
 		}
-		VwFtPNCPCompraAPIResponseDTO: {
+		GenericAPIResponseDTOVwFtPNCPCompraDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["VwFtPNCPCompraDTO"][]
 			/**
 			 * Format: int64
@@ -3924,8 +3957,16 @@ export interface components {
 			unidadeOrgaoUfSigla?: string
 			unidadeSubrogadaUfSigla?: string
 			unidadeOrgaoMunicipioNome?: string
-			unidade_subrogada_municipio_nome?: string
+			unidadeSubrogadaMunicipioNome?: string
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
 			unidadeOrgaoCodigoIbge?: number
+			/**
+			 * Format: int32
+			 * @example 0
+			 */
 			unidadeSubrogadaCodigoIbge?: number
 			numeroCompra?: string
 			/**
@@ -3939,6 +3980,7 @@ export interface components {
 			 */
 			codigoModalidade?: number
 			modalidadeNome?: string
+			/** @example 0 */
 			srp?: boolean
 			/**
 			 * Format: int32
@@ -3960,6 +4002,7 @@ export interface components {
 			informacaoComplementar?: string
 			processo?: string
 			objetoCompra?: string
+			/** @example 0 */
 			existeResultado?: boolean
 			/**
 			 * Format: int32
@@ -3985,36 +4028,38 @@ export interface components {
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
+			 * @example 2024-01-15 10:30:00
 			 */
 			dataInclusaoPncp?: string
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
+			 * @example 2024-01-15 10:30:00
 			 */
 			dataAtualizacaoPncp?: string
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
+			 * @example 2024-01-15 10:30:00
 			 */
 			dataPublicacaoPncp?: string
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
+			 * @example 2024-01-15 10:30:00
 			 */
 			dataAberturaPropostaPncp?: string
 			/**
 			 * Format: date-time
 			 * @description YYYY-MM-DD
-			 * @example 2024-01-15T10:30:00
+			 * @example 2024-01-15 10:30:00
 			 */
 			dataEncerramentoPropostaPncp?: string
+			/** @example 0 */
 			contratacaoExcluida?: boolean
 		}
-		VwFtArpAdesoesItemAPIResponseDTO: {
+		GenericAPIResponseDTOVwFtArpAdesoesItemDTO: {
+			/** @description Lista de resultados da consulta */
 			resultado?: components["schemas"]["VwFtArpAdesoesItemDTO"][]
 			/**
 			 * Format: int64
@@ -4503,7 +4548,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmCorpOrgaoAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmCorpOrgaoDTO"]
 				}
 			}
 		}
@@ -4560,7 +4605,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmCorpUasgAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmCorpUasgDTO"]
 				}
 			}
 		}
@@ -4670,7 +4715,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmServicoItemAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmServicoItemDTO"]
 				}
 			}
 		}
@@ -4976,7 +5021,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["FtPesqPrecoCompraServicoDetalheAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOFtPesqPrecoCompraServicoDetalheDTO"]
 				}
 			}
 		}
@@ -5039,7 +5084,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["FtPesqPrecoCompraServicoAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOFtPesqPrecoCompraServicoDTO"]
 				}
 			}
 		}
@@ -5102,7 +5147,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["FtPesqPrecoCompraMaterialDetalheAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOFtPesqPrecoCompraMaterialDetalheDTO"]
 				}
 			}
 		}
@@ -5140,7 +5185,8 @@ export interface operations {
 			query: {
 				pagina?: number
 				tamanhoPagina?: number
-				codigoItemCatalogo: number
+				tipo: "codigoItemCatalogo" | "codigoPdm"
+				codigo: string
 				codigoUasg?: string
 				estado?: string
 				codigoMunicipio?: number
@@ -5166,7 +5212,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["FtPesqPrecoCompraMaterialAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOFtPesqPrecoCompraMaterialDTO"]
 				}
 			}
 		}
@@ -5176,7 +5222,8 @@ export interface operations {
 			query: {
 				pagina?: number
 				tamanhoPagina?: number
-				codigoItemCatalogo: number
+				tipo: "codigoItemCatalogo" | "codigoPdm"
+				codigo: string
 				codigoUasg?: string
 				estado?: string
 				codigoMunicipio?: number
@@ -5255,7 +5302,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmMaterialCaracteristicasAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmMaterialCaracteristicasDTO"]
 				}
 			}
 		}
@@ -5280,7 +5327,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmMaterialUnidadeFornecimentoAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmMaterialUnidadeFornecimentoDTO"]
 				}
 			}
 		}
@@ -5306,7 +5353,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmMaterialNaturezaDespesaAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmMaterialNaturezaDespesaDTO"]
 				}
 			}
 		}
@@ -5337,7 +5384,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmMaterialItemAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmMaterialItemDTO"]
 				}
 			}
 		}
@@ -5365,7 +5412,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["DmMaterialPDMAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTODmMaterialPDMDTO"]
 				}
 			}
 		}
@@ -6066,7 +6113,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwDmPNCPItemResultadoAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwDmPNCPItemResultadoDTO"]
 				}
 			}
 		}
@@ -6092,7 +6139,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwDmPNCPItemResultadoAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwDmPNCPItemResultadoDTO"]
 				}
 			}
 		}
@@ -6119,6 +6166,7 @@ export interface operations {
 				bps?: boolean
 				margemPreferenciaNormal?: boolean
 				codigoNCM?: string
+				codigoPdm?: string
 			}
 			header?: never
 			path?: never
@@ -6132,7 +6180,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwFtPNCPCompraItemAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwFtPNCPCompraItemDTO"]
 				}
 			}
 		}
@@ -6158,7 +6206,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwFtPNCPCompraItemAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwFtPNCPCompraItemDTO"]
 				}
 			}
 		}
@@ -6195,7 +6243,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwFtPNCPCompraAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwFtPNCPCompraDTO"]
 				}
 			}
 		}
@@ -6220,7 +6268,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwFtPNCPCompraAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwFtPNCPCompraDTO"]
 				}
 			}
 		}
@@ -6249,7 +6297,7 @@ export interface operations {
 					[name: string]: unknown
 				}
 				content: {
-					"*/*": components["schemas"]["VwFtArpAdesoesItemAPIResponseDTO"]
+					"*/*": components["schemas"]["GenericAPIResponseDTOVwFtArpAdesoesItemDTO"]
 				}
 			}
 		}

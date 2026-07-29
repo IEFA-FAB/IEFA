@@ -6,9 +6,9 @@ import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 // o módulo para evitar carregar o runtime de server function no teste.
 vi.mock("@/server/price-research.fn", () => ({ searchMaterialPricesFn: vi.fn() }))
 
-const { autoSelectPrice } = await import("./price-research-utils")
+const { autoSelectPrice, filterByPeriod, periodCutoff } = await import("./price-research-utils")
 
-function priceResult(precoUnitario: number | null, codigoUasg: string | null = null): ComprasMaterialPriceResult {
+function priceResult(precoUnitario: number | null, codigoUasg: string | null = null, dataResultado: string | null = null): ComprasMaterialPriceResult {
 	return {
 		idCompra: "c",
 		idItemCompra: 1,
@@ -37,7 +37,7 @@ function priceResult(precoUnitario: number | null, codigoUasg: string | null = n
 		codigoOrgao: null,
 		nomeOrgao: null,
 		dataCompra: null,
-		dataResultado: null,
+		dataResultado,
 	}
 }
 
@@ -103,5 +103,47 @@ describe("autoSelectPrice", () => {
 	test("uniqueSources conta UASGs distintas e ignora nulos", () => {
 		const r = autoSelectPrice([priceResult(10, "A"), priceResult(11, "A"), priceResult(12, "B"), priceResult(13, null)])
 		expect(r?.stats.uniqueSources).toBe(2)
+	})
+
+	test("uniqueSources ignora UASGs que só aparecem em outliers", () => {
+		// C só sustenta a amostra descartada pelo IQR — não pode contar como fonte
+		// para o critério de conformidade (≥ 3 UASGs).
+		const r = autoSelectPrice([priceResult(10, "A"), priceResult(11, "A"), priceResult(12, "B"), priceResult(13, "B"), priceResult(1000, "C")])
+		expect(r?.outlierCount).toBe(1)
+		expect(r?.stats.uniqueSources).toBe(2)
+	})
+})
+
+describe("janela de recência", () => {
+	const NOW = new Date("2026-07-28T12:00:00Z")
+
+	test("periodCutoff volta os meses pedidos", () => {
+		expect(periodCutoff(12, NOW)).toBe("2025-07-28")
+		expect(periodCutoff(6, NOW)).toBe("2026-01-28")
+	})
+
+	test("filterByPeriod descarta amostras antigas e mantém as sem data", () => {
+		const recente = priceResult(10, "A", "2026-06-01")
+		const antiga = priceResult(99, "B", "2020-01-01")
+		const semData = priceResult(11, "C", null)
+		expect(filterByPeriod([recente, antiga, semData], 12, NOW)).toEqual([recente, semData])
+	})
+
+	test("autoSelectPrice aplica a janela padrão e registra o funil", () => {
+		const antiga = priceResult(1000, "Z", "2015-01-01")
+		const r = autoSelectPrice([priceResult(10, "A", "2026-06-01"), priceResult(12, "B", "2026-05-01"), antiga], { periodMonths: 12, now: NOW })
+		// rawCount = tudo que veio da API com preço; dateFilteredCount = pós-janela
+		expect(r?.rawCount).toBe(3)
+		expect(r?.dateFilteredCount).toBe(2)
+		expect(r?.periodMonths).toBe(12)
+		expect(r?.validSamples).toHaveLength(2)
+		expect(r?.stats.max).toBe(12)
+	})
+
+	test("periodMonths null considera todo o histórico", () => {
+		const r = autoSelectPrice([priceResult(10, "A", "2026-06-01"), priceResult(20, "B", "2015-01-01")], { periodMonths: null })
+		expect(r?.dateFilteredCount).toBe(2)
+		expect(r?.periodMonths).toBeNull()
+		expect(r?.stats.max).toBe(20)
 	})
 })

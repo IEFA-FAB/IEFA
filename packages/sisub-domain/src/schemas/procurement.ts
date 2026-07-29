@@ -113,12 +113,23 @@ export type FetchUnitDashboard = z.infer<typeof FetchUnitDashboardSchema>
 
 // ─── ATA lifecycle (procurement_list) ────────────────────────────────────────
 
+/** Vigência da ata em meses — espelha o CHECK de procurement_list.validity_months. */
+export const ValidityMonthsSchema = z.number().int().min(1).max(120)
+
+/**
+ * Um bucket por regime de produção (kitchen.menu_template.template_type).
+ * `repetitions` tem o mesmo significado nos três: quantas vezes o cardápio é
+ * produzido dentro da vigência da ata. Para exceção o valor é derivado
+ * (ocorrências mensais × validityMonths), não digitado.
+ */
 export const KitchenSelectionSchema = z.object({
 	kitchenId: z.number(),
 	kitchenName: z.string(),
 	deliveryNotes: z.string(),
 	templateSelections: z.array(TemplateSelectionSchema),
 	eventSelections: z.array(TemplateSelectionSchema),
+	// Opcional: rascunhos e payloads anteriores ao passo de exceções não trazem o campo.
+	exceptionSelections: z.array(TemplateSelectionSchema).optional().default([]),
 })
 export type KitchenSelectionInput = z.infer<typeof KitchenSelectionSchema>
 
@@ -134,7 +145,8 @@ export const UpdateAtaDraftSchema = z.object({
 	draftId: UuidSchema,
 	title: z.string().optional(),
 	notes: z.string().optional(),
-	wizardStep: z.number().min(1).max(4).optional(),
+	wizardStep: z.number().min(1).max(5).optional(),
+	validityMonths: ValidityMonthsSchema.nullable().optional(),
 	kitchenSelections: z.array(KitchenSelectionSchema).optional(),
 })
 export type UpdateAtaDraft = z.infer<typeof UpdateAtaDraftSchema>

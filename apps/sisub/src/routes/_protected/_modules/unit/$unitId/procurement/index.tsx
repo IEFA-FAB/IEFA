@@ -100,7 +100,7 @@ function ProcurementIndexPage() {
 									</div>
 									{isWizardInProgress(ata) ? (
 										<Badge variant="secondary" className="bg-info/15 text-info">
-											Preenchendo (passo {ata.wizard_step}/4)
+											Preenchendo (passo {ata.wizard_step}/5)
 										</Badge>
 									) : (
 										<Badge variant={STATUS_VARIANTS[ata.status] || "secondary"}>{STATUS_LABELS[ata.status] || ata.status}</Badge>

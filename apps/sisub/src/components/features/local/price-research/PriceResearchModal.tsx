@@ -15,7 +15,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ArrowDown, ArrowUp, ArrowUpDown, Info, ListFilter, RefreshCw, TrendingUp } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, Info, ListFilter, RefreshCw, TrendingUp } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,8 +27,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/cn"
-import { savePrecoAuditFn, searchMaterialPricesFn } from "@/server/price-research.fn"
-import type { ComprasMaterialPricePage, ComprasMaterialPriceResult } from "@/types/domain/price-research"
+import { autoSelectPrice, DEFAULT_PERIOD_MONTHS, fetchAllPagesForCatmat, filterByPeriod, MAX_PAGES } from "@/lib/price-research-utils"
+import { savePrecoAuditFn } from "@/server/price-research.fn"
+import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -50,20 +51,6 @@ function calcMediana(values: number[]): number {
 	const sorted = values.toSorted((a, b) => a - b)
 	const mid = Math.floor(sorted.length / 2)
 	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
-}
-
-function removeOutliersIQR(values: number[]): { valid: number[]; outlierCount: number } {
-	if (values.length < 4) return { valid: values, outlierCount: 0 }
-	const sorted = values.toSorted((a, b) => a - b)
-	const n = sorted.length
-	const q1 = sorted[Math.floor(n * 0.25)]
-	const q3 = sorted[Math.floor(n * 0.75)]
-	const iqr = q3 - q1
-	if (iqr === 0) return { valid: values, outlierCount: 0 }
-	const lower = q1 - 1.5 * iqr
-	const upper = q3 + 1.5 * iqr
-	const valid = values.filter((v) => v >= lower && v <= upper)
-	return { valid, outlierCount: values.length - valid.length }
 }
 
 interface PriceStats {
@@ -90,6 +77,18 @@ function getRecommendation(cv: number): { text: string; colorClass: string } {
 	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-success" }
 	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-warning" }
 	return { text: "Alta variabilidade — mediana recomendada (IN SEGES 65/2021 Art. 5º).", colorClass: "text-destructive" }
+}
+
+/** Recorte usado no cálculo do preço de referência (seleção manual ou todos os resultados exibidos). */
+interface Analysis {
+	stats: PriceStats & { uniqueSources: number }
+	/** Amostras com preço consideradas neste recorte (pós-janela e pós-filtros de coluna). */
+	consideredCount: number
+	validCount: number
+	outlierCount: number
+	validSamples: ComprasMaterialPriceResult[]
+	outlierSamples: ComprasMaterialPriceResult[]
+	fromSelection: boolean
 }
 
 const multiSelectFilter: FilterFn<ComprasMaterialPriceResult> = (row, columnId, filterValue: string[]) => {
@@ -260,11 +259,17 @@ interface PriceResearchModalProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/** Referência estável para o estado vazio — evita recriar o array a cada render. */
+const EMPTY_RESULTS: ComprasMaterialPriceResult[] = []
+
 export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, ataId, ataItemId, onApplyPrice }: PriceResearchModalProps) {
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 	const [tableContainer, setTableContainer] = useState<HTMLDivElement | null>(null)
+	// Janela de recência (IN SEGES 65/2021 Art. 5º) aplicada antes da tabela — o
+	// que o usuário vê é exatamente o que entra no cálculo e na memória de auditoria.
+	const [periodMonths, setPeriodMonths] = useState<number | null>(DEFAULT_PERIOD_MONTHS)
 	const queryClient = useQueryClient()
 
 	// Reseta o estado da tabela quando o item muda — ajustado durante o render
@@ -275,36 +280,21 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		setRowSelection({})
 		setColumnFilters([])
 		setSorting([])
+		setPeriodMonths(DEFAULT_PERIOD_MONTHS)
 	}
 
 	// ── Data fetching (all pages) ─────────────────────────────────────────────
 
-	const {
-		data: allResults = [],
-		isLoading,
-		isError,
-	} = useQuery({
+	const { data, isLoading, isError } = useQuery({
 		queryKey: ["compras", "price-research", "all", catmatCode],
-		queryFn: async () => {
-			const first = (await searchMaterialPricesFn({
-				data: { codigoItemCatalogo: catmatCode, pagina: 1, tamanhoPagina: 500 },
-			})) as ComprasMaterialPricePage
-
-			if (first.totalPaginas <= 1) return first.resultado
-
-			const rest = await Promise.all(
-				Array.from({ length: first.totalPaginas - 1 }, (_, i) =>
-					searchMaterialPricesFn({
-						data: { codigoItemCatalogo: catmatCode, pagina: i + 2, tamanhoPagina: 500 },
-					}).then((r) => r as ComprasMaterialPricePage)
-				)
-			)
-
-			return [...first.resultado, ...rest.flatMap((p) => p.resultado)]
-		},
+		queryFn: () => fetchAllPagesForCatmat(catmatCode),
 		enabled: open,
 		staleTime: 5 * 60 * 1000,
 	})
+	const allResults = data?.results ?? EMPTY_RESULTS
+
+	const scopedResults = useMemo(() => (periodMonths ? filterByPeriod(allResults, periodMonths) : allResults), [allResults, periodMonths])
+	const outOfPeriodCount = allResults.length - scopedResults.length
 
 	// ── Columns ───────────────────────────────────────────────────────────────
 
@@ -444,7 +434,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	// ── Table instance ────────────────────────────────────────────────────────
 
 	const table = useReactTable({
-		data: allResults,
+		data: scopedResults,
 		columns,
 		state: { sorting, columnFilters, rowSelection },
 		onSortingChange: setSorting,
@@ -481,26 +471,44 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	const selectedRows = table.getSelectedRowModel().rows
 	const filteredRows = table.getFilteredRowModel().rows
 
-	// Full analysis: IQR on all filtered rows — used when nothing is selected
-	const fullAnalysis = useMemo(() => {
-		const prices = filteredRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
-		if (prices.length === 0) return null
-		const { valid, outlierCount } = removeOutliersIQR(prices)
-		const stats = computeStats(valid)
-		if (!stats) return null
-		const uniqueSources = new Set(filteredRows.map((r) => r.original.codigoUasg).filter(Boolean)).size
-		return { stats, outlierCount, rawCount: prices.length, validCount: valid.length, uniqueSources }
+	// Full analysis: IQR sobre as linhas exibidas — mesma função usada na pesquisa
+	// em lote, para que manual e automático não divirjam. As linhas já vêm
+	// recortadas pela janela de recência, daí periodMonths: null aqui.
+	const fullAnalysis = useMemo<Analysis | null>(() => {
+		const selected = autoSelectPrice(
+			filteredRows.map((r) => r.original),
+			{ periodMonths: null }
+		)
+		if (!selected) return null
+		return {
+			stats: selected.stats,
+			consideredCount: selected.dateFilteredCount,
+			validCount: selected.validCount,
+			outlierCount: selected.outlierCount,
+			validSamples: selected.validSamples,
+			outlierSamples: selected.outlierSamples,
+			fromSelection: false,
+		}
 	}, [filteredRows])
 
 	// Active analysis: selected rows (no IQR — user chose those explicitly) OR full analysis
-	const activeAnalysis = useMemo(() => {
-		if (selectedRows.length === 0) return fullAnalysis ? { ...fullAnalysis, fromSelection: false } : null
-		const prices = selectedRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
-		if (prices.length === 0) return fullAnalysis ? { ...fullAnalysis, fromSelection: false } : null
+	const activeAnalysis = useMemo<Analysis | null>(() => {
+		if (selectedRows.length === 0) return fullAnalysis
+		const samples = selectedRows.map((r) => r.original)
+		const prices = samples.map((s) => s.precoUnitario).filter((p): p is number => p !== null)
+		if (prices.length === 0) return fullAnalysis
 		const stats = computeStats(prices)
 		if (!stats) return null
-		const uniqueSources = new Set(selectedRows.map((r) => r.original.codigoUasg).filter(Boolean)).size
-		return { stats, outlierCount: 0, rawCount: prices.length, validCount: prices.length, uniqueSources, fromSelection: true }
+		const uniqueSources = new Set(samples.flatMap((s) => (s.codigoUasg ? [s.codigoUasg] : []))).size
+		return {
+			stats: { ...stats, uniqueSources },
+			consideredCount: prices.length,
+			validCount: prices.length,
+			outlierCount: 0,
+			validSamples: samples,
+			outlierSamples: [],
+			fromSelection: true,
+		}
 	}, [selectedRows, fullAnalysis])
 
 	// ── Audit save ────────────────────────────────────────────────────────────
@@ -516,45 +524,21 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		setIsSavingMethod(method)
 		let auditIds: PriceResearchAuditIds | null = null
 		try {
-			// Compute valid / outlier split for the audit record
-			let validSamples: ComprasMaterialPriceResult[]
-			let outlierSamples: ComprasMaterialPriceResult[]
-			if (activeAnalysis.fromSelection) {
-				validSamples = selectedRows.map((r) => r.original)
-				outlierSamples = []
-			} else {
-				const prices = filteredRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
-				if (prices.length >= 4) {
-					const sorted = prices.toSorted((a, b) => a - b)
-					const n = sorted.length
-					const q1 = sorted[Math.floor(n * 0.25)]
-					const q3 = sorted[Math.floor(n * 0.75)]
-					const iqr = q3 - q1
-					const lower = q1 - 1.5 * iqr
-					const upper = q3 + 1.5 * iqr
-					validSamples = filteredRows
-						.filter((r) => r.original.precoUnitario === null || (r.original.precoUnitario >= lower && r.original.precoUnitario <= upper))
-						.map((r) => r.original)
-					outlierSamples = filteredRows
-						.filter((r) => r.original.precoUnitario !== null && (r.original.precoUnitario < lower || r.original.precoUnitario > upper))
-						.map((r) => r.original)
-				} else {
-					validSamples = filteredRows.map((r) => r.original)
-					outlierSamples = []
-				}
-			}
 			const result = await saveAudit({
 				data: {
 					catmatCodigo: catmatCode,
 					catmatDescricao: catmatDescription ?? null,
 					method,
 					referencePrice: price,
-					stats: { ...activeAnalysis.stats, uniqueSources: activeAnalysis.uniqueSources },
-					rawCount: activeAnalysis.rawCount,
+					stats: activeAnalysis.stats,
+					// Funil auditável: bruto da API → recorte considerado → válidas pós-IQR.
+					rawCount: allResults.filter((r) => r.precoUnitario !== null).length,
+					dateFilteredCount: activeAnalysis.consideredCount,
+					periodMonths,
 					validCount: activeAnalysis.validCount,
 					outlierCount: activeAnalysis.outlierCount,
-					validSamples,
-					outlierSamples,
+					validSamples: activeAnalysis.validSamples,
+					outlierSamples: activeAnalysis.outlierSamples,
 					ataId: ataId ?? undefined,
 					ataItemId: ataItemId ?? undefined,
 				},
@@ -593,6 +577,23 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					{!isLoading && allResults.length > 0 && (
 						<span className="text-xs text-muted-foreground">{allResults.length.toLocaleString("pt-BR")} registros totais</span>
 					)}
+					{!isLoading && allResults.length > 0 && (
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={() => setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))}
+							className="h-7 px-2 text-xs gap-1.5"
+						>
+							<CalendarClock className="size-3.5" aria-hidden="true" />
+							{periodMonths ? `Últimos ${periodMonths} meses${outOfPeriodCount > 0 ? ` (${outOfPeriodCount} fora)` : ""}` : "Todo o histórico"}
+						</Button>
+					)}
+					{data?.truncated && (
+						<span className="text-xs text-warning">
+							Amostra parcial: {allResults.length.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES}{" "}
+							páginas)
+						</span>
+					)}
 					{columnFilters.length > 0 && (
 						<Button size="sm" variant="ghost" onClick={() => setColumnFilters([])} className="h-7 px-2 text-xs">
 							Limpar filtros
@@ -614,7 +615,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 					<div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
 						{/* Sample info header */}
 						<p className="text-[11px] text-muted-foreground">
-							{activeAnalysis.fromSelection ? "Seleção manual" : "Todos os resultados"}
+							{activeAnalysis.fromSelection ? "Seleção manual" : periodMonths ? `Resultados dos últimos ${periodMonths} meses` : "Todo o histórico"}
 							{" · "}
 							<span className="font-medium text-foreground">{activeAnalysis.validCount}</span> amostras válidas
 							{activeAnalysis.outlierCount > 0 && (
@@ -624,7 +625,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 								</>
 							)}
 							{" · "}
-							{activeAnalysis.uniqueSources} UASG(s)
+							{activeAnalysis.stats.uniqueSources} UASG(s)
 						</p>
 
 						{/* 4-column grid: Média | Mediana | Mínimo | Máximo */}
@@ -745,6 +746,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 							{filteredRows.length === allResults.length
 								? `${allResults.length.toLocaleString("pt-BR")} resultados`
 								: `${filteredRows.length.toLocaleString("pt-BR")} de ${allResults.length.toLocaleString("pt-BR")} resultados`}
+							{periodMonths && outOfPeriodCount > 0 && <span> · {outOfPeriodCount.toLocaleString("pt-BR")} fora da janela</span>}
 							{selectedRows.length > 0 && <span className="font-medium text-foreground"> · {selectedRows.length} selecionados</span>}
 						</span>
 					</div>
