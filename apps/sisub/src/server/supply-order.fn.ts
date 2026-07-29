@@ -132,13 +132,23 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 
 		const { data: empenhos, error } = await finance
 			.from("empenho")
-			.select("id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, arp_item_id, arp_item:arp_item_id (ni_fornecedor, nome_fornecedor)")
+			.select("id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, arp_item_id")
 			.eq("unit_id", unitId)
 			.eq("status", "ativo")
 			.order("data_empenho", { ascending: false })
 			.limit(100)
 		if (error) throw new Error(`Erro ao listar empenhos: ${error.message}`)
-		return empenhos ?? []
+		const list = empenhos ?? []
+
+		// fornecedor vem da ARP — query separada: embed cross-schema
+		// (finance → procurement) não resolve no PostgREST (pego pelo E2E)
+		const arpItemIds = [...new Set(list.map((e: { arp_item_id: string | null }) => e.arp_item_id).filter(Boolean))]
+		const supplierByArpItem = new Map<string, { ni_fornecedor: string | null; nome_fornecedor: string | null }>()
+		if (arpItemIds.length > 0) {
+			const { data: arpItems } = await procurement().from("procurement_arp_item").select("id, ni_fornecedor, nome_fornecedor").in("id", arpItemIds)
+			for (const item of arpItems ?? []) supplierByArpItem.set(item.id, item)
+		}
+		return list.map((e: { arp_item_id: string | null }) => ({ ...e, arp_item: e.arp_item_id ? (supplierByArpItem.get(e.arp_item_id) ?? null) : null }))
 	})
 
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })
