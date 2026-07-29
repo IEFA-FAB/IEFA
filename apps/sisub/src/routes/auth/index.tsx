@@ -23,6 +23,7 @@ import { useEffect, useReducer, useState } from "react"
 import { z } from "zod"
 // Hooks + Services
 import { useLoginRateLimiter } from "@/auth/rate-limiter"
+import { authQueryOptions } from "@/auth/service"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -113,6 +114,7 @@ function AuthPage() {
 	const { signIn, signUp, resetPassword } = useAuth()
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
+	const { queryClient } = Route.useRouteContext()
 
 	const hasOtp = !!(search.token_hash && search.type === "email")
 	const [view, setView] = useState<AuthView>(hasOtp ? "verify-loading" : "tabs")
@@ -137,6 +139,12 @@ function AuthPage() {
 
 	const handleSignIn = async (email: string, password: string) => {
 		await signIn(email, password)
+		// O cookie da sessão acabou de ser gravado, mas o cache da auth query ainda
+		// tem `user: null`. O beforeLoad do root lê esse cache via ensureQueryData —
+		// que devolve dado stale/em voo sem esperar — então navegar antes do refetch
+		// resolver faz o _protected mandar de volta pra /auth (o famoso "clicar duas
+		// vezes em Entrar"). Espera o refetch antes de sair da página.
+		await queryClient.refetchQueries({ queryKey: authQueryOptions().queryKey })
 		await navigate({ to: search.redirect || "/hub" })
 	}
 

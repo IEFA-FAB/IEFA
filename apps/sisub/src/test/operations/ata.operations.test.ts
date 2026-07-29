@@ -89,6 +89,7 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 					deliveryNotes: "entregar cedo",
 					templateSelections: [{ templateId, templateName: "T", repetitions: 2 }],
 					eventSelections: [],
+					exceptionSelections: [],
 				},
 			],
 			items: [{ ingredient_id: ingredientId, ingredient_name: "Arroz", folder_description: "Grãos", measure_unit: "KG", total_quantity: 12.5 }],
@@ -161,6 +162,7 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 			deliveryNotes: "",
 			templateSelections: [{ templateId, templateName: "T", repetitions }],
 			eventSelections: [],
+			exceptionSelections: [],
 		})
 
 		await updateAtaDraft(db, ctx, { draftId, kitchenSelections: [mkSel(templateA, 1)] })
@@ -174,7 +176,7 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		expect(details?.kitchens[0].selections[0].repetitions).toBe(3)
 	})
 
-	test("saveAtaDraftItems insere itens novos, seta wizard_step 4 e retorna savedIds", async () => {
+	test("saveAtaDraftItems insere itens novos, seta wizard_step 5 e retorna savedIds", async () => {
 		if (!reachable || !seeder || !db) return
 		const unitId = await seeder.seedUnit()
 		const ingredientId = await seeder.seedIngredient()
@@ -190,7 +192,7 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		expect(savedIds[0].ataItemId).toBeTruthy()
 
 		const details = await fetchAtaDetails(db, ctx, { ataId: draftId })
-		expect(details?.wizard_step).toBe(4)
+		expect(details?.wizard_step).toBe(5)
 		expect(details?.items).toHaveLength(1)
 		expect(details?.items[0].ingredient_name).toBe("Óleo")
 	})
@@ -212,6 +214,7 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 					deliveryNotes: "",
 					templateSelections: [{ templateId, templateName: "T", repetitions: 2 }],
 					eventSelections: [],
+					exceptionSelections: [],
 				},
 			],
 		})

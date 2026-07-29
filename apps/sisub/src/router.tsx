@@ -58,20 +58,29 @@ export const getRouter = () => {
 		supabase.auth.onAuthStateChange((event, session) => {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				// Authentic path: never trust session.user — it comes from the
-				// storage medium (cookies) and is not server-verified. Invalidate the
-				// auth query so it refetches getServerSessionFn() → supabase.auth.getUser(),
+				// storage medium (cookies) and is not server-verified. Refetch the
+				// auth query so it re-runs getServerSessionFn() → supabase.auth.getUser(),
 				// which validates the token against the Supabase Auth server.
-				rqContext.queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
-				// When signing in from the auth page, navigate directly instead of
-				// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
-				// throws a redirect from the /auth/ index route — TanStack Router then
-				// fails to match /auth/ as a source path, producing a spurious error.
-				if (router.state.location.pathname.startsWith("/auth")) {
-					const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
-					router.navigate({ to: redirectTo })
-				} else {
-					router.invalidate()
-				}
+				//
+				// O refetch precisa RESOLVER antes de navegar: o beforeLoad do root usa
+				// ensureQueryData, que devolve o cache existente mesmo stale/em voo. Navegar
+				// antes faria o _protected ler `user: null` e devolver o usuário para /auth.
+				// Não dá pra `await` dentro do callback do Supabase (segura o lock do auth),
+				// então encadeia via .then().
+				rqContext.queryClient
+					.refetchQueries({ queryKey: authQueryOptions().queryKey })
+					.catch(() => {})
+					.then(() => {
+						// When signing in from the auth page, navigate directly instead of
+						// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
+						// throws a redirect from the /auth/ index route — TanStack Router then
+						// fails to match /auth/ as a source path, producing a spurious error.
+						if (router.state.location.pathname.startsWith("/auth")) {
+							const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
+							return router.navigate({ to: redirectTo })
+						}
+						return router.invalidate()
+					})
 			}
 
 			if (event === "SIGNED_OUT") {

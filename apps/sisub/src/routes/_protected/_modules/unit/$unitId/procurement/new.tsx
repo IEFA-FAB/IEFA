@@ -23,10 +23,10 @@ import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
-import type { AtaWizardState, KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
+import type { AtaWizardState, KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
 
 const searchSchema = z.object({
-	step: z.coerce.number().min(1).max(4).optional().default(1),
+	step: z.coerce.number().min(1).max(5).optional().default(1),
 	draft: z.string().uuid().optional(),
 })
 
@@ -38,6 +38,9 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 		meta: [{ title: "Nova Ata de Registro de Preços" }],
 	}),
 })
+
+/** Vigência típica de uma ARP (Lei 14.133/2021, Art. 84: até 1 ano, prorrogável). */
+const DEFAULT_VALIDITY_MONTHS = 12
 
 // ─── Hook para cozinhas da unidade ────────────────────────────────────────────
 
@@ -52,30 +55,40 @@ function useUnitKitchens(unitId: number | null) {
 
 // ─── Seção de uma cozinha com rascunho ────────────────────────────────────────
 
+/** Regime de produção que alimenta cada bucket do wizard. */
+const TEMPLATE_TYPE_BY_BUCKET: Record<SelectionBucket, string> = {
+	templateSelections: "weekly",
+	eventSelections: "event",
+	exceptionSelections: "exception",
+}
+
 function KitchenStepSection({
 	kitchenState,
 	selectionType,
+	validityMonths,
 	onUpdateSelection,
 }: {
 	kitchenState: KitchenSelectionState
-	selectionType: "templateSelections" | "eventSelections"
-	onUpdateSelection: (kitchenId: number, type: "templateSelections" | "eventSelections", selections: TemplateSelection[]) => void
+	selectionType: SelectionBucket
+	validityMonths: number
+	onUpdateSelection: (kitchenId: number, type: SelectionBucket, selections: TemplateSelection[]) => void
 }) {
 	const { data: templates, isLoading } = useMenuTemplates(kitchenState.kitchenId)
 	const { data: pendingDraft } = usePendingDraft(kitchenState.kitchenId)
 
-	// Step "Cardápios Semanais" = weekly; Step "Eventos / Refeições Especiais" = event + exception.
+	// Um passo por template_type. Template sem tipo (legado) conta como weekly.
+	const expectedType = TEMPLATE_TYPE_BY_BUCKET[selectionType]
 	const filteredTemplates =
 		templates?.filter((t) => {
 			if (t.kitchen_id === null) return false
 			const type = (t as typeof t & { template_type?: string }).template_type
-			if (selectionType === "templateSelections") return type === "weekly" || !type
-			return type === "event" || type === "exception"
+			return type === expectedType || (expectedType === "weekly" && !type)
 		}) || []
 
-	const handleImport = (_kitchenId: number, templateSels: TemplateSelection[], eventSels: TemplateSelection[]) => {
+	const handleImport = (_kitchenId: number, templateSels: TemplateSelection[], eventSels: TemplateSelection[], exceptionSels: TemplateSelection[]) => {
 		onUpdateSelection(kitchenState.kitchenId, "templateSelections", templateSels)
 		onUpdateSelection(kitchenState.kitchenId, "eventSelections", eventSels)
+		onUpdateSelection(kitchenState.kitchenId, "exceptionSelections", exceptionSels)
 	}
 
 	return (
@@ -86,6 +99,7 @@ function KitchenStepSection({
 				templates={filteredTemplates}
 				isLoadingTemplates={isLoading}
 				selectionType={selectionType}
+				validityMonths={validityMonths}
 				onUpdateSelection={onUpdateSelection}
 			/>
 		</div>
@@ -119,6 +133,7 @@ function NewAtaPage() {
 	const [wizardState, setWizardState] = useState<AtaWizardState>({
 		title: "",
 		notes: "",
+		validityMonths: DEFAULT_VALIDITY_MONTHS,
 		kitchenSelections: [],
 	})
 
@@ -126,6 +141,14 @@ function NewAtaPage() {
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
 	const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
+
+	// O save da descrição é debounced em 800ms; sem estes refs o timer gravaria os
+	// preços/itens do render em que a tecla foi digitada, regredindo no banco um
+	// preço aplicado dentro da janela (modal ou pesquisa em lote).
+	const priceOverridesRef = useRef(priceOverrides)
+	priceOverridesRef.current = priceOverrides
+	const savedItemsRef = useRef(savedItems)
+	savedItemsRef.current = savedItems
 
 	// Criar draft se ainda não existe
 	useEffect(() => {
@@ -148,37 +171,45 @@ function NewAtaPage() {
 		if (!existingDraft || draftRestoredRef.current) return
 		draftRestoredRef.current = true
 
+		const restoredValidity = (existingDraft as typeof existingDraft & { validity_months?: number | null }).validity_months ?? DEFAULT_VALIDITY_MONTHS
+
 		setWizardState({
 			title: existingDraft.title === "Sem nome" ? "" : existingDraft.title,
 			notes: existingDraft.notes || "",
+			validityMonths: restoredValidity,
 			kitchenSelections: [],
 		})
 
 		if (existingDraft.kitchens?.length) {
+			// Cada seleção volta para o bucket do seu template_type; sem tipo (legado) = weekly.
+			const bucketOf = (s: unknown): SelectionBucket => {
+				const type = (s as { template?: { template_type?: string } }).template?.template_type
+				if (type === "event") return "eventSelections"
+				if (type === "exception") return "exceptionSelections"
+				return "templateSelections"
+			}
 			const restored: KitchenSelectionState[] = existingDraft.kitchens.map((k) => {
 				const kWithDetails = k as typeof k & { kitchen?: { display_name?: string | null } }
+				const buckets: Record<SelectionBucket, TemplateSelection[]> = { templateSelections: [], eventSelections: [], exceptionSelections: [] }
+				for (const s of k.selections) {
+					const sw = s as typeof s & { template?: { name?: string | null; expected_monthly_occurrences?: number | null } }
+					const bucket = bucketOf(s)
+					buckets[bucket].push({
+						templateId: s.template_id,
+						templateName: sw.template?.name || "",
+						repetitions: s.repetitions,
+						// Preserva a base mensal da exceção para reprojetar quando a vigência mudar.
+						// Sem o dado no payload, deriva da própria persistência (reps / meses).
+						...(bucket === "exceptionSelections" && {
+							monthlyOccurrences: sw.template?.expected_monthly_occurrences ?? Math.max(1, Math.round(s.repetitions / Math.max(1, restoredValidity))),
+						}),
+					})
+				}
 				return {
 					kitchenId: k.kitchen_id,
 					kitchenName: kWithDetails.kitchen?.display_name || `Cozinha ${k.kitchen_id}`,
 					deliveryNotes: k.delivery_notes || "",
-					templateSelections: k.selections
-						.filter((s) => {
-							const sw = s as typeof s & { template?: { template_type?: string } }
-							return sw.template?.template_type === "weekly" || !sw.template?.template_type
-						})
-						.map((s) => {
-							const sw = s as typeof s & { template?: { name?: string | null } }
-							return { templateId: s.template_id, templateName: sw.template?.name || "", repetitions: s.repetitions }
-						}),
-					eventSelections: k.selections
-						.filter((s) => {
-							const sw = s as typeof s & { template?: { template_type?: string } }
-							return sw.template?.template_type === "event" || sw.template?.template_type === "exception"
-						})
-						.map((s) => {
-							const sw = s as typeof s & { template?: { name?: string | null } }
-							return { templateId: s.template_id, templateName: sw.template?.name || "", repetitions: s.repetitions }
-						}),
+					...buckets,
 				}
 			})
 			setWizardState((prev) => ({ ...prev, kitchenSelections: restored }))
@@ -223,11 +254,12 @@ function NewAtaPage() {
 					deliveryNotes: "",
 					templateSelections: [],
 					eventSelections: [],
+					exceptionSelections: [],
 				}
 			)
 		}) || []
 
-	const handleUpdateSelection = (kitchenId: number, type: "templateSelections" | "eventSelections", selections: TemplateSelection[]) => {
+	const handleUpdateSelection = (kitchenId: number, type: SelectionBucket, selections: TemplateSelection[]) => {
 		setWizardState((prev) => {
 			const exists = prev.kitchenSelections.some((ks) => ks.kitchenId === kitchenId)
 			const kitchenName = kitchens?.find((k) => k.id === kitchenId)?.display_name || `Cozinha ${kitchenId}`
@@ -247,10 +279,26 @@ function NewAtaPage() {
 						deliveryNotes: "",
 						templateSelections: type === "templateSelections" ? selections : [],
 						eventSelections: type === "eventSelections" ? selections : [],
+						exceptionSelections: type === "exceptionSelections" ? selections : [],
 					},
 				],
 			}
 		})
+	}
+
+	/**
+	 * A vigência é o multiplicador das exceções, então mexer nela reprojeta todas as
+	 * seleções de exceção já feitas. Weekly/event não têm base mensal e ficam intactos.
+	 */
+	const handleValidityMonthsChange = (months: number) => {
+		setWizardState((prev) => ({
+			...prev,
+			validityMonths: months,
+			kitchenSelections: prev.kitchenSelections.map((ks) => ({
+				...ks,
+				exceptionSelections: ks.exceptionSelections.map((s) => ({ ...s, repetitions: (s.monthlyOccurrences ?? 1) * months })),
+			})),
+		}))
 	}
 
 	const rawItems: ProcurementNeed[] = useMemo(
@@ -305,13 +353,14 @@ function NewAtaPage() {
 		// Debounce: evita mutação por keystroke — captura closure dos valores atuais na última chamada
 		clearTimeout(descriptionSaveTimerRef.current)
 		descriptionSaveTimerRef.current = setTimeout(() => {
-			const researchLinks = Object.entries(priceOverrides)
+			const currentPrices = priceOverridesRef.current
+			const researchLinks = Object.entries(currentPrices)
 				.filter(([, v]) => v.researchId && v.researchItemId)
 				.map(([ingId, v]) => ({ ingredientId: ingId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
-			const updatedItems = savedItems.map((item) => ({
+			const updatedItems = savedItemsRef.current.map((item) => ({
 				...item,
 				item_description: item.ingredient_id in nextOverrides ? (nextOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
-				unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
+				unit_price: item.ingredient_id in currentPrices ? currentPrices[item.ingredient_id].price : item.unit_price,
 			}))
 			saveDraftItems({ draftId: draftId as string, items: updatedItems, researchLinks })
 		}, 800)
@@ -330,6 +379,7 @@ function NewAtaPage() {
 				wizardStep: s,
 				title: wizardState.title || undefined,
 				notes: wizardState.notes || undefined,
+				validityMonths: wizardState.validityMonths,
 			})
 		}
 		navigate({
@@ -358,7 +408,7 @@ function NewAtaPage() {
 		} else {
 			setSavedItems(needs)
 		}
-		goToStep(4)
+		goToStep(5)
 	}
 
 	const handleSave = () => {
@@ -404,7 +454,7 @@ function NewAtaPage() {
 		link.click()
 	}
 
-	const hasAnySelection = kitchenSelections.some((ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0)
+	const hasAnySelection = kitchenSelections.some((ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0 || ks.exceptionSelections.length > 0)
 
 	if (isLoadingKitchens || (draftId && isLoadingDraft) || isCreatingDraft) {
 		return (
@@ -435,7 +485,13 @@ function NewAtaPage() {
 					) : (
 						<div className="space-y-4">
 							{kitchenSelections.map((ks) => (
-								<KitchenStepSection key={ks.kitchenId} kitchenState={ks} selectionType="templateSelections" onUpdateSelection={handleUpdateSelection} />
+								<KitchenStepSection
+									key={ks.kitchenId}
+									kitchenState={ks}
+									selectionType="templateSelections"
+									validityMonths={wizardState.validityMonths}
+									onUpdateSelection={handleUpdateSelection}
+								/>
 							))}
 						</div>
 					)}
@@ -451,7 +507,9 @@ function NewAtaPage() {
 			{/* ── Step 2: Eventos ────────────────────────────────────────────── */}
 			{currentStep === 2 && (
 				<div className="space-y-4">
-					<p className="text-sm text-muted-foreground">Selecione eventos e refeições especiais para cada cozinha.</p>
+					<p className="text-sm text-muted-foreground">
+						Selecione os eventos pontuais de cada cozinha e informe quantas vezes cada um ocorre durante a vigência da ata.
+					</p>
 					{kitchenSelections.length === 0 ? (
 						<Card>
 							<CardContent className="py-10 text-center text-sm text-muted-foreground">Nenhuma cozinha associada a esta unidade.</CardContent>
@@ -459,7 +517,13 @@ function NewAtaPage() {
 					) : (
 						<div className="space-y-4">
 							{kitchenSelections.map((ks) => (
-								<KitchenStepSection key={ks.kitchenId} kitchenState={ks} selectionType="eventSelections" onUpdateSelection={handleUpdateSelection} />
+								<KitchenStepSection
+									key={ks.kitchenId}
+									kitchenState={ks}
+									selectionType="eventSelections"
+									validityMonths={wizardState.validityMonths}
+									onUpdateSelection={handleUpdateSelection}
+								/>
 							))}
 						</div>
 					)}
@@ -469,6 +533,69 @@ function NewAtaPage() {
 							Cardápios
 						</Button>
 						<Button onClick={() => goToStep(3, true)} className="gap-2">
+							Próximo: Exceções
+							<ArrowRight className="size-4" aria-hidden="true" />
+						</Button>
+					</div>
+				</div>
+			)}
+
+			{/* ── Step 3: Exceções previsíveis ───────────────────────────────── */}
+			{currentStep === 3 && (
+				<div className="space-y-4">
+					<p className="text-sm text-muted-foreground">
+						Produções fora da rotina que não são eventos — lanches de bordo, cafés de reunião. A quantidade vem das ocorrências mensais cadastradas no módulo
+						Exceções da cozinha, projetadas pela vigência da ata.
+					</p>
+
+					<Card>
+						<CardContent className="pt-6">
+							<FieldGroup>
+								<Field>
+									<FieldLabel htmlFor="ata-validity">Vigência da ata (meses)</FieldLabel>
+									<Input
+										id="ata-validity"
+										type="number"
+										min={1}
+										max={120}
+										value={wizardState.validityMonths}
+										onChange={(e) => {
+											const n = Number.parseInt(e.target.value, 10)
+											if (Number.isFinite(n) && n >= 1 && n <= 120) handleValidityMonthsChange(n)
+										}}
+										className="w-28 tabular-nums"
+									/>
+									<p className="text-xs text-muted-foreground">
+										Multiplica as ocorrências mensais de cada exceção. Alterar aqui reprojeta as seleções já feitas.
+									</p>
+								</Field>
+							</FieldGroup>
+						</CardContent>
+					</Card>
+
+					{kitchenSelections.length === 0 ? (
+						<Card>
+							<CardContent className="py-10 text-center text-sm text-muted-foreground">Nenhuma cozinha associada a esta unidade.</CardContent>
+						</Card>
+					) : (
+						<div className="space-y-4">
+							{kitchenSelections.map((ks) => (
+								<KitchenStepSection
+									key={ks.kitchenId}
+									kitchenState={ks}
+									selectionType="exceptionSelections"
+									validityMonths={wizardState.validityMonths}
+									onUpdateSelection={handleUpdateSelection}
+								/>
+							))}
+						</div>
+					)}
+					<div className="flex justify-between pt-2">
+						<Button variant="outline" onClick={() => goToStep(2, true)} className="gap-2">
+							<ArrowLeft className="size-4" aria-hidden="true" />
+							Eventos
+						</Button>
+						<Button onClick={() => goToStep(4, true)} className="gap-2">
 							Próximo: Resumo
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
@@ -476,8 +603,8 @@ function NewAtaPage() {
 				</div>
 			)}
 
-			{/* ── Step 3: Resumo e geração ────────────────────────────────────── */}
-			{currentStep === 3 && (
+			{/* ── Step 4: Resumo e geração ────────────────────────────────────── */}
+			{currentStep === 4 && (
 				<div className="space-y-6">
 					{/* Metadados da Ata */}
 					<Card>
@@ -518,7 +645,7 @@ function NewAtaPage() {
 								<p className="text-subheading mb-3">Seleções por cozinha:</p>
 								<div className="space-y-3">
 									{kitchenSelections.map((ks) => {
-										const total = [...ks.templateSelections, ...ks.eventSelections]
+										const total = [...ks.templateSelections, ...ks.eventSelections, ...ks.exceptionSelections]
 										return (
 											<div key={ks.kitchenId}>
 												<p className="text-subheading">{ks.kitchenName}</p>
@@ -537,9 +664,9 @@ function NewAtaPage() {
 
 					{/* Calcular */}
 					<div className="flex items-center justify-between pt-2">
-						<Button variant="outline" onClick={() => goToStep(2)} className="gap-2">
+						<Button variant="outline" onClick={() => goToStep(3)} className="gap-2">
 							<ArrowLeft className="size-4" aria-hidden="true" />
-							Eventos
+							Exceções
 						</Button>
 						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
 							<Calculator className="size-5" aria-hidden="true" />
@@ -549,8 +676,8 @@ function NewAtaPage() {
 				</div>
 			)}
 
-			{/* ── Step 4: Revisão dos Itens de Compra ────────────────────── */}
-			{currentStep === 4 &&
+			{/* ── Step 5: Revisão dos Itens de Compra ────────────────────── */}
+			{currentStep === 5 &&
 				(() => {
 					const matchedCount = displayItems.filter((i) => i.purchase_item_id !== null).length
 					const unmatchedItems = displayItems.filter((i) => i.purchase_item_id === null)
@@ -617,7 +744,7 @@ function NewAtaPage() {
 
 							{/* Ações finais */}
 							<div className="flex items-center justify-between pt-2">
-								<Button variant="outline" onClick={() => goToStep(3)} className="gap-2">
+								<Button variant="outline" onClick={() => goToStep(4)} className="gap-2">
 									<ArrowLeft className="size-4" aria-hidden="true" />
 									Resumo
 								</Button>
@@ -646,6 +773,11 @@ function NewAtaPage() {
 					}}
 					catmatCode={priceResearchItem.catmat_item_codigo}
 					catmatDescription={priceResearchItem.catmat_item_descricao}
+					// Sem estes dois, a memória de cálculo nasce órfã (ata_id/ata_item_id nulos)
+					// e o escopo da chave de idempotência vira global por CATMAT — duas unidades
+					// pesquisando o mesmo item no mesmo dia compartilhariam o registro.
+					ataId={draftId}
+					ataItemId={priceResearchItem.ata_item_id ?? undefined}
 					onApplyPrice={(price, auditIds) => {
 						const newOverrides = {
 							...priceOverrides,

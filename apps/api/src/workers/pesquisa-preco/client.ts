@@ -20,11 +20,14 @@ export interface ConsultaPrecoParams {
 // ─── Fetch de uma página com retry exponencial ───────────────────────────────
 
 async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoParams, page: number): Promise<ComprasMaterialPrecoPage> {
+	// Contrato atual da API: o item vai no par `tipo`/`codigo`.
+	// O antigo `codigoItemCatalogo=<n>` responde 404 (Resource not found).
 	const qs = new URLSearchParams({
-		codigoItemCatalogo: String(catmatCode),
+		tipo: "codigoItemCatalogo",
+		codigo: String(catmatCode),
 		pagina: String(page),
 		tamanhoPagina: String(PAGE_SIZE),
-		dataResultado: "1", // apenas compras com resultado homologado
+		dataResultado: "true", // apenas compras com resultado homologado
 	})
 	if (params.estado) qs.set("estado", params.estado)
 	if (params.codigoUasg) qs.set("codigoUasg", params.codigoUasg)
@@ -46,7 +49,11 @@ async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoPara
 			if (!res.ok) {
 				throw new Error(`HTTP ${res.status} ao consultar API Compras`)
 			}
-			return (await res.json()) as ComprasMaterialPrecoPage
+			// `idCompra` vem como inteiro de 17 dígitos, acima de Number.MAX_SAFE_INTEGER:
+			// JSON.parse corromperia os últimos dígitos e ele é chave do dedup de amostras.
+			// Promove o literal a string antes do parse (idempotente se já vier com aspas).
+			const raw = await res.text()
+			return JSON.parse(raw.replace(/"idCompra"\s*:\s*(-?\d+)/g, '"idCompra":"$1"')) as ComprasMaterialPrecoPage
 		} catch (err) {
 			lastErr = err
 		}

@@ -6,13 +6,14 @@ import type { DraftWithSelections, KitchenSelectionState, TemplateSelection } fr
 interface DraftImportBadgeProps {
 	draft: DraftWithSelections
 	kitchenState: KitchenSelectionState
-	onImport: (kitchenId: number, templateSelections: TemplateSelection[], eventSelections: TemplateSelection[]) => void
+	onImport: (kitchenId: number, templateSelections: TemplateSelection[], eventSelections: TemplateSelection[], exceptionSelections: TemplateSelection[]) => void
 }
 
 export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportBadgeProps) {
 	const handleImport = () => {
 		const templateSelections: TemplateSelection[] = []
 		const eventSelections: TemplateSelection[] = []
+		const exceptionSelections: TemplateSelection[] = []
 
 		for (const sel of draft.selections) {
 			const item: TemplateSelection = {
@@ -20,15 +21,17 @@ export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportB
 				templateName: sel.template.name || "",
 				repetitions: sel.repetitions,
 			}
-			// Eventos e exceções vão para o balde "Eventos / Refeições Especiais".
-			if (sel.template.template_type === "event" || sel.template.template_type === "exception") {
+			// Um balde por regime de produção — o passo do wizard espelha o tipo do template.
+			if (sel.template.template_type === "event") {
 				eventSelections.push(item)
+			} else if (sel.template.template_type === "exception") {
+				exceptionSelections.push(item)
 			} else {
 				templateSelections.push(item)
 			}
 		}
 
-		onImport(kitchenState.kitchenId, templateSelections, eventSelections)
+		onImport(kitchenState.kitchenId, templateSelections, eventSelections, exceptionSelections)
 	}
 
 	return (

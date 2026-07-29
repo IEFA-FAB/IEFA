@@ -45,8 +45,8 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 
 		const processItem = async (item: BulkResearchItem) => {
 			try {
-				const allResults = await fetchAllPagesForCatmat(item.catmat_item_codigo as number)
-				const selected = autoSelectPrice(allResults)
+				const { results: samples } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number)
+				const selected = autoSelectPrice(samples)
 
 				if (!selected) {
 					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1 }))
@@ -63,6 +63,8 @@ export function useBulkPriceResearch(items: BulkResearchItem[], ataId?: string, 
 							referencePrice: selected.price,
 							stats: selected.stats,
 							rawCount: selected.rawCount,
+							dateFilteredCount: selected.dateFilteredCount,
+							periodMonths: selected.periodMonths,
 							validCount: selected.validCount,
 							outlierCount: selected.outlierCount,
 							validSamples: selected.validSamples,
