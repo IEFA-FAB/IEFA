@@ -22,6 +22,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
+import { requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
 import type {
@@ -219,11 +220,8 @@ function buildTemplateMealRows(templateId: string, meals: TemplateMeal[]): (type
 }
 
 export async function createTemplate(db: SisubDb, ctx: UserContext, input: CreateTemplate): Promise<MenuTemplate> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// kitchenId ausente = template GLOBAL (plano da SDAB) → exige global:2, não kitchen:2.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const items = input.items ?? []
 	const meals = input.meals ?? []
@@ -266,11 +264,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 }
 
 export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: CreateBlankTemplate): Promise<MenuTemplate> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const [created] = await runQuery("INSERT_FAILED", () =>
 		db
@@ -313,11 +307,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 
 	const targetKitchenId = input.targetKitchenId ?? null
 
-	if (targetKitchenId !== null) {
-		requireKitchen(ctx, 2, targetKitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// Destino sem cozinha = fork PARA o catálogo global → exige global:2.
+	requireAssetWriteForScope(ctx, targetKitchenId)
 
 	const sourceItems = source.menuTemplateItemsInKitchens
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
@@ -379,11 +370,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 export async function updateTemplate(db: SisubDb, ctx: UserContext, input: UpdateTemplate): Promise<MenuTemplate> {
 	const template = await validateTemplateAccess(db, input.templateId, null)
 
-	if (template.kitchen_id !== null) {
-		requireKitchen(ctx, 2, template.kitchen_id)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// Autoriza pelo DONO da linha, já resolvido acima — template global exige global:2.
+	requireAssetWriteForScope(ctx, template.kitchen_id)
 
 	const updates: Partial<typeof menuTemplateInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
@@ -445,11 +433,7 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 export async function deleteTemplate(db: SisubDb, ctx: UserContext, input: DeleteTemplate): Promise<void> {
 	const template = await validateTemplateAccess(db, input.templateId, null)
 
-	if (template.kitchen_id !== null) {
-		requireKitchen(ctx, 2, template.kitchen_id)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	requireAssetWriteForScope(ctx, template.kitchen_id)
 
 	await runQuery("DELETE_FAILED", () =>
 		db
@@ -471,11 +455,7 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 	if (!row) throw new NotFoundError("menu_template", input.templateId)
 	if (!row.deletedAt) throw new DomainError("NOT_DELETED", "Template is not deleted")
 
-	if (row.kitchenId !== null) {
-		requireKitchen(ctx, 2, row.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	requireAssetWriteForScope(ctx, row.kitchenId)
 
 	await runQuery("RESTORE_FAILED", () =>
 		db

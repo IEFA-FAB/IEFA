@@ -13,6 +13,7 @@
 import { menuTemplateInKitchen, menuTemplateItemsInKitchen, recipeIngredientsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
 import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
+import { assertVersionBaseScope, authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
@@ -223,11 +224,8 @@ async function buildIngredientIdMap(db: SisubDb, sourceRecipeId: string, inserte
 }
 
 export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateRecipe): Promise<Recipe> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// kitchenId ausente = receita GLOBAL (catálogo da SDAB) → exige global:2, não kitchen:2.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -253,18 +251,12 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
  * Autoriza mutação destrutiva sobre UMA receita conforme a posse:
  * receita local → exige nível 2 NAQUELA cozinha; receita global → exige "global" nível 2.
  * Evita IDOR: sem isso, qualquer usuário kitchen-2 apagaria receitas de outras cozinhas/globais.
+ *
+ * Delega ao guard compartilhado — este comportamento era o correto e virou a regra geral
+ * para todo ativo global/local (ver guards/asset-ownership.ts).
  */
 async function authorizeRecipeMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
-	const recipe = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, recipeId) })
-	)
-	if (!recipe) throw new NotFoundError("recipe", recipeId)
-
-	if (recipe.kitchenId == null) {
-		requirePermission(ctx, "global", 2)
-	} else {
-		requireKitchen(ctx, 2, recipe.kitchenId)
-	}
+	await authorizeAssetMutation(db, ctx, "recipe", recipeId)
 }
 
 /** Soft delete: marca deleted_at. A receita some das listagens (exceto includeDeleted). */
@@ -304,10 +296,17 @@ export async function renameRecipe(db: SisubDb, ctx: UserContext, input: RenameR
 }
 
 export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: CreateRecipeVersion): Promise<Recipe> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
+	// Versionar receita GLOBAL exige global:2 — era aqui que kitchen:2 alterava o catálogo
+	// da FAB inteira: a dedup por família em listRecipes mantém a maior versão, então a
+	// versão nova virava a receita canônica para todas as unidades.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
+	// A base tem de pertencer ao mesmo escopo da versão criada — nada de encadear versão
+	// na linha de outra cozinha, nem forjar versão global a partir de base local.
+	await assertVersionBaseScope(db, "recipe", input.baseRecipeId, input.kitchenId ?? null)
+	// Idem para a receita-fonte do copy-forward do fluxo: copiar o grafo de outra cozinha
+	// seria leitura de dado alheio disfarçada de escrita própria.
+	if (input.sourceRecipeId && input.sourceRecipeId !== input.baseRecipeId) {
+		await assertVersionBaseScope(db, "recipe", input.sourceRecipeId, input.kitchenId ?? null)
 	}
 
 	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>

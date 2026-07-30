@@ -2,11 +2,16 @@
 
 // Guards
 export {
+	type AssetKind,
+	assertVersionBaseScope,
+	authorizeAssetMutation,
 	requireAnyPermission,
+	requireAssetWriteForScope,
 	requireKitchen,
 	requireMessHall,
 	requirePermission,
 	requireUnit,
+	resolveAssetOwner,
 	resolveKitchenFromMenu,
 	resolveKitchenFromMenuItem,
 	resolveKitchenFromTemplate,

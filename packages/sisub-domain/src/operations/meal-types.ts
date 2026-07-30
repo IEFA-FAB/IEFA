@@ -8,6 +8,7 @@
 import { mealTypeInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, isNull, or, type SQL } from "drizzle-orm"
+import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type { CreateMealType, DeleteMealType, FetchMealTypes, RestoreMealType, UpdateMealType } from "../schemas/meal-types.ts"
 import type { UserContext } from "../types/context.ts"
@@ -50,11 +51,8 @@ export async function fetchMealTypes(db: SisubDb, ctx: UserContext, input: Fetch
 }
 
 export async function createMealType(db: SisubDb, ctx: UserContext, input: CreateMealType): Promise<MealType> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// kitchenId ausente = tipo de refeição GLOBAL (da SDAB) → exige global:2, não kitchen:2.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -66,12 +64,18 @@ export async function createMealType(db: SisubDb, ctx: UserContext, input: Creat
 }
 
 export async function updateMealType(db: SisubDb, ctx: UserContext, input: UpdateMealType): Promise<MealType> {
-	requirePermission(ctx, "kitchen", 2)
+	// Autoriza pelo DONO da linha (lido do banco), não pelo escopo vindo da requisição.
+	await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
 
 	const updates: Partial<typeof mealTypeInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
 	if (input.sortOrder != null) updates.sortOrder = input.sortOrder
-	if ("kitchenId" in input) updates.kitchenId = input.kitchenId ?? null
+	// Reparentar é mover de escopo: exige permissão no DESTINO também, senão `kitchenId: null`
+	// promoveria um tipo local a global (kitchen:2 criando conteúdo da SDAB).
+	if ("kitchenId" in input) {
+		requireAssetWriteForScope(ctx, input.kitchenId ?? null)
+		updates.kitchenId = input.kitchenId ?? null
+	}
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
@@ -82,7 +86,7 @@ export async function updateMealType(db: SisubDb, ctx: UserContext, input: Updat
 }
 
 export async function deleteMealType(db: SisubDb, ctx: UserContext, input: DeleteMealType): Promise<void> {
-	requirePermission(ctx, "kitchen", 2)
+	await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
 
 	await mutateOrFail("DELETE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db
@@ -94,7 +98,7 @@ export async function deleteMealType(db: SisubDb, ctx: UserContext, input: Delet
 }
 
 export async function restoreMealType(db: SisubDb, ctx: UserContext, input: RestoreMealType): Promise<void> {
-	requirePermission(ctx, "kitchen", 2)
+	await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
 
 	await mutateOrFail("RESTORE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db.update(mealTypeInKitchen).set({ deletedAt: null }).where(eq(mealTypeInKitchen.id, input.mealTypeId)).returning({ id: mealTypeInKitchen.id })
