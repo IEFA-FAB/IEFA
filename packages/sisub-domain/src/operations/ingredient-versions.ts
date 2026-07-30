@@ -315,7 +315,7 @@ export async function recordIngredientVersion(
 	input: RecordIngredientVersion,
 	actor?: VersionActor
 ): Promise<IngredientVersionRow | null> {
-	requirePermission(ctx, "kitchen", 1)
+	requirePermission(ctx, "global", 2)
 
 	const snapshot = await buildIngredientSnapshot(db, input.ingredientId)
 
@@ -389,7 +389,7 @@ export async function restoreIngredientVersion(
 	input: RestoreIngredientVersion,
 	actor?: VersionActor
 ): Promise<IngredientVersionRow | null> {
-	requirePermission(ctx, "kitchen", 1)
+	requirePermission(ctx, "global", 2)
 
 	const version = await runQuery("QUERY_FAILED", () =>
 		db.query.ingredientVersionInKitchen.findFirst({

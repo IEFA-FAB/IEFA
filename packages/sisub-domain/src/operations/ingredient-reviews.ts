@@ -34,7 +34,7 @@ export interface IngredientLastReview {
  * Cada chamada cria uma nova linha — o histórico de revisões é preservado.
  */
 export async function recordIngredientReview(db: SisubDb, ctx: UserContext, input: RecordIngredientReview, actor?: VersionActor): Promise<IngredientReviewRow> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 2)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db

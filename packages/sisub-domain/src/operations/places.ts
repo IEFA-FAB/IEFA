@@ -19,6 +19,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, count, eq } from "drizzle-orm"
+import { requirePermission } from "../guards/require-permission.ts"
 import type {
 	AddOtherPresence,
 	ApplyPlacesDiff,
@@ -78,7 +79,11 @@ export async function fetchPlacesGraph(db: SisubDb, _ctx: UserContext): Promise<
 
 // ─── Org-graph mutations ────────────────────────────────────────────────────
 
-export async function updatePlacesEntity(db: SisubDb, _ctx: UserContext, input: UpdateEntityInput) {
+export async function updatePlacesEntity(db: SisubDb, ctx: UserContext, input: UpdateEntityInput) {
+	// A estrutura organizacional (OM, cozinha, refeitório) é da SDAB — sem este gate
+	// qualquer usuário autenticado renomeava unidades e refeitórios da FAB inteira.
+	requirePermission(ctx, "global", 2)
+
 	await runQuery("UPDATE_FAILED", () => {
 		if (input.entityType === "unit") {
 			return db
@@ -105,7 +110,11 @@ const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId"
 >
 const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInCore.$inferInsert>
 
-export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: ApplyPlacesDiff) {
+export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: ApplyPlacesDiff) {
+	// Idem: o diff reparenteia cozinhas e refeitórios. Sem gate, qualquer sessão válida
+	// remontava a hierarquia.
+	requirePermission(ctx, "global", 2)
+
 	await Promise.all(
 		input.diffs.map(async (diff) => {
 			try {
