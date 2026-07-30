@@ -25,6 +25,7 @@
       "name": "@iefa/alpha",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
+        "@iefa/agent-web": "workspace:*",
         "@iefa/ai-provider": "workspace:*",
         "@iefa/alpha-client": "workspace:*",
         "@langchain/core": "^1.2.3",
