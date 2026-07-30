@@ -10,7 +10,8 @@ import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useAnularEmpenho, useCreateEmpenho, useEmpenhos, useSyncArpBalance } from "@/hooks/data/useArp"
+import { useAnularEmpenho, useArpLocalCommitments, useCreateEmpenho, useEmpenhos, useSyncArpBalance } from "@/hooks/data/useArp"
+import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
 
@@ -23,6 +24,14 @@ function fmtDate(iso: string | null | undefined): string {
 	return `${d}/${m}/${y}`
 }
 
+/** Snapshot exige hora, não só data: "sincronizado hoje" às 08h ≠ às 17h. */
+function fmtDateTime(iso: string | null | undefined): string {
+	if (!iso) return "—"
+	const dt = new Date(iso)
+	if (Number.isNaN(dt.getTime())) return fmtDate(iso)
+	return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(dt)
+}
+
 function saldoPct(item: ProcurementArpItem): number | null {
 	if (!item.quantidade_homologada || !item.quantidade_empenhada) return null
 	const pct = (Number(item.quantidade_empenhada) / Number(item.quantidade_homologada)) * 100
@@ -31,8 +40,8 @@ function saldoPct(item: ProcurementArpItem): number | null {
 
 // ─── Linha de empenho ─────────────────────────────────────────────────────────
 
-function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: string }) {
-	const { mutate: anular, isPending } = useAnularEmpenho(arpItemId)
+function EmpenhoRow({ empenho, arpItemId, arpId }: { empenho: Empenho; arpItemId: string; arpId: string }) {
+	const { mutate: anular, isPending } = useAnularEmpenho(arpItemId, arpId)
 	const [confirming, setConfirming] = useState(false)
 
 	if (empenho.status === "anulado") {
@@ -101,17 +110,18 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 interface EmpenhoFormProps {
 	unitId: number
 	arpItemId: string
+	arpId: string
 	onSuccess: () => void
 }
 
-function EmpenhoForm({ unitId, arpItemId, onSuccess }: EmpenhoFormProps) {
+function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) {
 	const [numero, setNumero] = useState("")
 	const [data, setData] = useState(new Date().toISOString().substring(0, 10))
 	const [qtd, setQtd] = useState("")
 	const [valor, setValor] = useState("")
 	const [nota, setNota] = useState("")
 
-	const { mutate: create, isPending } = useCreateEmpenho(arpItemId)
+	const { mutate: create, isPending } = useCreateEmpenho(arpItemId, arpId)
 
 	const valorTotal = Number(qtd) > 0 && Number(valor) > 0 ? Number(qtd) * Number(valor) : null
 
@@ -211,9 +221,11 @@ function EmpenhoForm({ unitId, arpItemId, onSuccess }: EmpenhoFormProps) {
 interface ArpItemRowProps {
 	item: ProcurementArpItem
 	unitId: number
+	arpId: string
+	local: LocalCommitment | undefined
 }
 
-function ArpItemRow({ item, unitId }: ArpItemRowProps) {
+function ArpItemRow({ item, unitId, arpId, local }: ArpItemRowProps) {
 	const [expanded, setExpanded] = useState(false)
 	const [showForm, setShowForm] = useState(false)
 
@@ -221,7 +233,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 
 	const qtdHom = Number(item.quantidade_homologada ?? 0)
 	const qtdEmp = Number(item.quantidade_empenhada ?? 0)
-	const saldo = item.saldo_empenho != null ? Number(item.saldo_empenho) : qtdHom - qtdEmp
+	const saldo = resolveSaldoOficial(item)
 	const pct = saldoPct(item)
 	const saldoBaixo = pct != null && pct >= 90
 
@@ -252,8 +264,23 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 								<TooltipContent>Mais de 90% do saldo empenhado</TooltipContent>
 							</Tooltip>
 						)}
-						<span className={saldoBaixo ? "text-warning text-subheading" : ""}>{NUM.format(saldo)}</span>
+						<Tooltip>
+							<TooltipTrigger className={saldoBaixo ? "text-warning text-subheading" : ""}>{NUM.format(saldo)}</TooltipTrigger>
+							<TooltipContent>Snapshot Compras.gov de {fmtDateTime(item.synced_at)}</TooltipContent>
+						</Tooltip>
 					</div>
+				</td>
+				<td className="py-2.5 px-2 text-xs text-right tabular-nums">
+					{local && local.count > 0 ? (
+						<Tooltip>
+							<TooltipTrigger className="text-foreground">{NUM.format(local.quantidade)}</TooltipTrigger>
+							<TooltipContent>
+								{local.count} empenho{local.count > 1 ? "s" : ""} ativo{local.count > 1 ? "s" : ""} — {BRL.format(local.valorTotal)}
+							</TooltipContent>
+						</Tooltip>
+					) : (
+						<span className="text-muted-foreground">0</span>
+					)}
 				</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{item.valor_unitario != null ? BRL.format(item.valor_unitario) : "—"}</td>
 				<td className="py-2.5 px-2 text-xs">
@@ -272,7 +299,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 			{/* Painel expandido: lista de empenhos + formulário */}
 			{expanded && (
 				<tr>
-					<td colSpan={9} className="px-3 pb-3 bg-muted/20">
+					<td colSpan={10} className="px-3 pb-3 bg-muted/20">
 						<div className="ml-6 space-y-1">
 							{isLoading ? (
 								<div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
@@ -284,7 +311,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 							) : (
 								<div className="divide-y divide-border/50">
 									{empenhos.map((emp) => (
-										<EmpenhoRow key={emp.id} empenho={emp} arpItemId={item.id} />
+										<EmpenhoRow key={emp.id} empenho={emp} arpItemId={item.id} arpId={arpId} />
 									))}
 								</div>
 							)}
@@ -304,7 +331,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 								</Button>
 							) : (
 								<div>
-									<EmpenhoForm unitId={unitId} arpItemId={item.id} onSuccess={() => setShowForm(false)} />
+									<EmpenhoForm unitId={unitId} arpItemId={item.id} arpId={arpId} onSuccess={() => setShowForm(false)} />
 									<Button size="sm" variant="ghost" className="h-7 text-xs mt-1" onClick={() => setShowForm(false)}>
 										Cancelar
 									</Button>
@@ -328,9 +355,19 @@ interface EmpenhoBalancePanelProps {
 
 export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelProps) {
 	const { mutate: syncBalance, isPending: isSyncing } = useSyncArpBalance(ataId)
+	const { data: localCommitments = {} } = useArpLocalCommitments(arp.id)
 
 	const vigenciaFim = arp.data_vigencia_fim
 	const isVencida = vigenciaFim ? new Date(vigenciaFim) < new Date() : false
+
+	// O upsert dos itens e o update do last_synced_at são requests separados:
+	// se o segundo falhar, os itens ficam mais novos que o header. Exibe o
+	// máximo efetivo para nunca mostrar snapshot "mais velho" que os itens.
+	const effectiveSyncedAt =
+		[arp.last_synced_at, ...arp.items.map((item) => item.synced_at)]
+			.filter((ts): ts is string => ts != null)
+			.sort()
+			.at(-1) ?? null
 
 	return (
 		<Card>
@@ -350,7 +387,9 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 						{arp.objeto && <p className="text-xs text-foreground/80 max-w-lg line-clamp-2">{arp.objeto}</p>}
 						<p className="text-xs text-muted-foreground">
 							Vigência: {fmtDate(arp.data_vigencia_inicio)} → {fmtDate(arp.data_vigencia_fim)}
-							{arp.last_synced_at && <span className="ml-3">Saldo sincronizado em {fmtDate(arp.last_synced_at)}</span>}
+							<span suppressHydrationWarning className="ml-3">
+								{effectiveSyncedAt ? `Saldo oficial sincronizado em ${fmtDateTime(effectiveSyncedAt)}` : "Saldo oficial nunca sincronizado"}
+							</span>
 						</p>
 					</div>
 					<Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
@@ -375,15 +414,30 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 									<th className="py-2 px-2 text-left text-label w-24">CATMAT</th>
 									<th className="py-2 px-2 text-left text-label">Descrição / Fornecedor</th>
 									<th className="py-2 px-2 text-right text-label w-32">Qtd Registrada</th>
-									<th className="py-2 px-2 text-right text-label w-28">Qtd Empenhada</th>
-									<th className="py-2 px-2 text-right text-label w-28">Saldo</th>
+									<th className="py-2 px-2 text-right text-label w-32">
+										<Tooltip>
+											<TooltipTrigger className="cursor-help underline decoration-dotted">Empenhado (oficial)</TooltipTrigger>
+											<TooltipContent className="max-w-xs">
+												Snapshot do Compras.gov — inclui empenhos de outras UASGs (caronas). Só muda ao sincronizar.
+											</TooltipContent>
+										</Tooltip>
+									</th>
+									<th className="py-2 px-2 text-right text-label w-28">Saldo (oficial)</th>
+									<th className="py-2 px-2 text-right text-label w-32">
+										<Tooltip>
+											<TooltipTrigger className="cursor-help underline decoration-dotted">Empenhado (local)</TooltipTrigger>
+											<TooltipContent className="max-w-xs">
+												Soma dos empenhos ativos registrados nesta unidade — em tempo real. Grandeza distinta do oficial; não se somam.
+											</TooltipContent>
+										</Tooltip>
+									</th>
 									<th className="py-2 px-2 text-right text-label w-28">Valor Unit.</th>
 									<th className="py-2 px-2 text-center text-label w-24">ATA</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{arp.items.map((item) => (
-									<ArpItemRow key={item.id} item={item} unitId={unitId} />
+									<ArpItemRow key={item.id} item={item} unitId={unitId} arpId={arp.id} local={localCommitments[item.id]} />
 								))}
 							</tbody>
 						</table>
