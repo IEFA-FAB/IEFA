@@ -3,6 +3,7 @@ import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
 import { gs1AdminRoutes } from "./api/routes/gs1-admin.ts"
+import { nfeAdminRoutes } from "./api/routes/nfe-admin.ts"
 import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
 import { api } from "./api/routes.js"
@@ -47,6 +48,7 @@ const typedApp = app
 	.route("/api", api)
 	.route("/api/admin/compras", comprasAdminRoutes)
 	.route("/api/admin/gs1", gs1AdminRoutes)
+	.route("/api/admin/nfe", nfeAdminRoutes)
 	.route("/api/admin/nutrition", nutritionAdminRoutes)
 	.route("/api/admin/price-research", priceResearchRoutes)
 	.get("/health", (c) => {

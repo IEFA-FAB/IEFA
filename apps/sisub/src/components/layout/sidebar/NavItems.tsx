@@ -17,6 +17,7 @@ import {
 	type LucideIcon,
 	MapPin,
 	MessageSquare,
+	Package,
 	QrCode,
 	RefreshCw,
 	Sandwich,
@@ -34,7 +35,7 @@ import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
-export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics"
+export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "storage" | "global" | "analytics" | "local-analytics"
 
 export type GroupColor = "success" | "primary" | "warning" | "governance"
 
@@ -122,6 +123,13 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "primary",
 		hubUrl: "/kitchen-production",
 		items: [{ title: "Painel", url: "/kitchen-production/", icon: LayoutDashboard }],
+	},
+	{
+		id: "storage",
+		name: "Estoque",
+		icon: Package,
+		color: "primary",
+		items: [{ title: "Notas Fiscais (NF-e)", url: "/storage/nfe", icon: FileText }],
 	},
 	{
 		id: "global",

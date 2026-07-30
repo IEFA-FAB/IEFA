@@ -95,6 +95,14 @@ export {
 export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	type IngredientItemLink,
+	matchNfeItem,
+	type NfeItemForMatch,
+	type NfeMatchCandidates,
+	type NfeMatchResult,
+	type NfeMatchStatus,
+} from "./nfe-matching.ts"
+export {
 	createUserPermission,
 	deleteUserPermission,
 	fetchUserPermissionsAdmin,
