@@ -41,16 +41,16 @@
 
 ## 5. Fase 3 — Motor de estoque
 
-- [ ] 5.1 [database] Migration `inventory.stock_lot` + `inventory.stock_movement`: XOR `ingredient_id`/`frozen_preparation_id` (`num_nonnulls = 1`), **trigger `BEFORE UPDATE OR DELETE` de imutabilidade** (service role bypassa RLS), tipos CHECK, quantidade > 0, `kitchen_id` bigint, índices
-- [ ] 5.2 [database] View `inventory.v_stock_balance` (por cozinha×item e por lote) + função SQL transacional de custo médio ponderado
-- [ ] 5.3 [database] Migration `inventory.inventory_count` (+ itens por lote) — contagem não move saldo; ajustes derivados referenciam a contagem
-- [ ] 5.4 [database] RLS/policies do schema `inventory` alinhadas ao PBAC `storage` (1 leitura, 2 movimentar, 3 ajustar/fechar); incluir no `audit-rls.ts`
-- [ ] 5.5 [sisub-domain] Operation `inventory`: registrar movimento (lote sintético `SEM-LOTE-<data>` quando ausente; bloqueio com mensagem clara para ingrediente com unidade pendente de revisão), consultar saldo, ajuste com justificativa obrigatória
-- [ ] 5.6 [sisub-domain] Transferência entre cozinhas: par atômico `transfer_out`/`transfer_in` com referência cruzada; lote destino herda código/validade/custo
-- [ ] 5.7 [sisub] Server fns `stock.fn.ts` (`fetchStockBalanceFn`, `fetchStockMovementsFn`, `createAdjustmentFn`, `createTransferFn`) + rota `/storage/$kitchenId/dashboard` (saldo por pasta, movimentos recentes, alertas de validade) com `requirePermission("storage", 1)`
-- [ ] 5.8 [sisub] Fluxo de contagem física (criar contagem → registrar contado por lote → confirmar → ajustes gerados)
+- [x] 5.1 [database] Migration `inventory.stock_lot` + `inventory.stock_movement`: XOR `ingredient_id`/`frozen_preparation_id` (`num_nonnulls = 1`), **trigger `BEFORE UPDATE OR DELETE` de imutabilidade** (service role bypassa RLS), tipos CHECK, quantidade > 0, `kitchen_id` bigint, índices
+- [x] 5.2 [database] View `inventory.v_stock_balance` (por cozinha×item e por lote) + função SQL transacional de custo médio ponderado
+- [x] 5.3 [database] Migration `inventory.inventory_count` (+ itens por lote) — contagem não move saldo; ajustes derivados referenciam a contagem
+- [x] 5.4 [database] RLS/policies do schema `inventory` alinhadas ao PBAC `storage` (1 leitura, 2 movimentar, 3 ajustar/fechar); incluir no `audit-rls.ts`
+- [x] 5.5 [sisub-domain] Operation `inventory`: registrar movimento (lote sintético `SEM-LOTE-<data>` quando ausente; bloqueio com mensagem clara para ingrediente com unidade pendente de revisão), consultar saldo, ajuste com justificativa obrigatória
+- [x] 5.6 [sisub-domain] Transferência entre cozinhas: par atômico `transfer_out`/`transfer_in` com referência cruzada; lote destino herda código/validade/custo
+- [x] 5.7 [sisub] Server fns `stock.fn.ts` (`fetchStockBalanceFn`, `fetchStockMovementsFn`, `createAdjustmentFn`, `createTransferFn`) + rota `/storage/$kitchenId/dashboard` (saldo por pasta, movimentos recentes, alertas de validade) com `requirePermission("storage", 1)`
+- [x] 5.8 [sisub] Fluxo de contagem física (criar contagem → registrar contado por lote → confirmar → ajustes gerados)
 - [x] 5.9 [sisub] NavItems: módulo `storage` (ícone Package)
-- [ ] 5.10 [sisub] Testes: imutabilidade (UPDATE/DELETE abortados pelo trigger, inclusive via service role), XOR, custo médio, saldo após sequência, ajuste, contagem com/sem divergência, transferência atômica (falha parcial reverte)
+- [x] 5.10 [sisub] Testes: imutabilidade (UPDATE/DELETE abortados pelo trigger, inclusive via service role), XOR, custo médio, saldo após sequência, ajuste, contagem com/sem divergência, transferência atômica (falha parcial reverte)
 
 ## 6. Fase 4 — OF + Recebimento em dois estágios
 

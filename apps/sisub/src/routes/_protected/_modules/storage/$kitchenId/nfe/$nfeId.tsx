@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { fetchNfeDocumentFn, fetchNfeItemSuggestionsFn, type NfeItemRow, resolveNfeItemFn, runNfeMatchingFn } from "@/server/nfe.fn"
 
-export const Route = createFileRoute("/_protected/_modules/storage/nfe/$nfeId")({
+export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nfe/$nfeId")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
 	loader: ({ params }) => fetchNfeDocumentFn({ data: { nfeDocumentId: params.nfeId } }),
 	component: NfeDetailPage,
@@ -123,7 +123,13 @@ function NfeDetailPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title={`NF-e ${doc.supplier_name ?? doc.access_key}`} description={`Chave ${doc.access_key}`}>
-				<Button variant="ghost" size="sm" className="gap-1.5" render={<Link to="/storage/nfe" />} nativeButton={false}>
+				<Button
+					variant="ghost"
+					size="sm"
+					className="gap-1.5"
+					render={<Link to="/storage/$kitchenId/nfe" params={{ kitchenId: Route.useParams().kitchenId }} />}
+					nativeButton={false}
+				>
 					<ArrowLeft className="size-4" />
 					Voltar
 				</Button>
