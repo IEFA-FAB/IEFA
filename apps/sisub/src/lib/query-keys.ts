@@ -43,6 +43,18 @@ export const queryKeys = {
 		trash: (kitchenId: number | null) => ["planning", "trash", kitchenId] as const,
 	},
 
+	training: {
+		scope: () => ["training", "scope"] as const,
+		resets: () => ["training", "resets"] as const,
+	},
+
+	policies: {
+		all: () => ["policies"] as const,
+		detail: (policyId: string | null) => ["policies", policyId] as const,
+		ofUser: (userId: string | null) => ["policies", "user", userId] as const,
+		effective: (userId: string | null) => ["policies", "effective", userId] as const,
+	},
+
 	templates: {
 		all: () => ["menu_templates"] as const,
 		list: (kitchenId: number | null) => ["menu_templates", kitchenId] as const,
