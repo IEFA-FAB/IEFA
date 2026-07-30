@@ -1,0 +1,17 @@
+{
+  "name": "@iefa/agent-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "test": "bun test $(find src -name '*.test.ts' -print)"
+  },
+  "dependencies": {
+    "node-html-markdown": "^2.0.0",
+    "node-html-parser": "^9.0.1"
+  }
+}
