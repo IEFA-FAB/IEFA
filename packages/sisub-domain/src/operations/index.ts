@@ -88,8 +88,11 @@ export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, update
 export {
 	createUserPermission,
 	deleteUserPermission,
+	type EffectivePermissionWithOrigin,
 	fetchUserPermissionsAdmin,
 	listEffectiveUserPermissions,
+	listEffectiveUserPermissionsWithOrigin,
+	type PermissionOrigin,
 	searchUsersByEmail,
 	updateUserPermission,
 } from "./permissions.ts"
@@ -119,6 +122,24 @@ export {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "./planning.ts"
+export {
+	addPolicyStatement,
+	attachPolicy,
+	createPolicy,
+	deletePolicy,
+	detachPolicy,
+	fetchPolicy,
+	listPolicies,
+	listUserPolicies,
+	listUserPolicyPermissions,
+	type PolicyDetail,
+	type PolicyRow,
+	type PolicyStatementRow,
+	type PolicySummary,
+	removePolicyStatement,
+	updatePolicy,
+	updatePolicyStatement,
+} from "./policies.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
 export {
