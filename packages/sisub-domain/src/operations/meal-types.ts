@@ -27,6 +27,21 @@ const MEAL_TYPE_COLS = {
 	deleted_at: mealTypeInKitchen.deletedAt,
 } as const
 
+/**
+ * Predicado de mutação amarrado ao dono que FOI autorizado.
+ *
+ * A checagem de posse e a mutação são queries separadas: entre uma e outra, outra requisição
+ * pode reparentar a linha, e um `where id = ?` cru aplicaria a escrita a um ativo que já não
+ * pertence à cozinha autorizada. Repetir o dono no predicado faz a mutação simplesmente não
+ * casar nada nesse caso — `mutateOrFail` então falha, em vez de escrever no lugar errado.
+ */
+function ownedBy(mealTypeId: string, ownerKitchenId: number | null) {
+	return and(
+		eq(mealTypeInKitchen.id, mealTypeId),
+		ownerKitchenId == null ? isNull(mealTypeInKitchen.kitchenId) : eq(mealTypeInKitchen.kitchenId, ownerKitchenId)
+	)
+}
+
 export async function fetchMealTypes(db: SisubDb, ctx: UserContext, input: FetchMealTypes): Promise<MealType[]> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
@@ -65,7 +80,7 @@ export async function createMealType(db: SisubDb, ctx: UserContext, input: Creat
 
 export async function updateMealType(db: SisubDb, ctx: UserContext, input: UpdateMealType): Promise<MealType> {
 	// Autoriza pelo DONO da linha (lido do banco), não pelo escopo vindo da requisição.
-	await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
+	const ownerKitchenId = await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
 
 	const updates: Partial<typeof mealTypeInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
@@ -80,27 +95,27 @@ export async function updateMealType(db: SisubDb, ctx: UserContext, input: Updat
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
 	const row = await insertOneOrFail("UPDATE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
-		db.update(mealTypeInKitchen).set(updates).where(eq(mealTypeInKitchen.id, input.mealTypeId)).returning(MEAL_TYPE_COLS)
+		db.update(mealTypeInKitchen).set(updates).where(ownedBy(input.mealTypeId, ownerKitchenId)).returning(MEAL_TYPE_COLS)
 	)
 	return row
 }
 
 export async function deleteMealType(db: SisubDb, ctx: UserContext, input: DeleteMealType): Promise<void> {
-	await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
+	const ownerKitchenId = await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
 
 	await mutateOrFail("DELETE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db
 			.update(mealTypeInKitchen)
 			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(mealTypeInKitchen.id, input.mealTypeId))
+			.where(ownedBy(input.mealTypeId, ownerKitchenId))
 			.returning({ id: mealTypeInKitchen.id })
 	)
 }
 
 export async function restoreMealType(db: SisubDb, ctx: UserContext, input: RestoreMealType): Promise<void> {
-	await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
+	const ownerKitchenId = await authorizeAssetMutation(db, ctx, "meal_type", input.mealTypeId)
 
 	await mutateOrFail("RESTORE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
-		db.update(mealTypeInKitchen).set({ deletedAt: null }).where(eq(mealTypeInKitchen.id, input.mealTypeId)).returning({ id: mealTypeInKitchen.id })
+		db.update(mealTypeInKitchen).set({ deletedAt: null }).where(ownedBy(input.mealTypeId, ownerKitchenId)).returning({ id: mealTypeInKitchen.id })
 	)
 }
