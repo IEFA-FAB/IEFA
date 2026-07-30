@@ -1,5 +1,5 @@
-export { type AgentServerEntry, type AgentServerEntryConfig, createAgentServerEntry, type FetchHandler } from "./entry.ts"
-export { DEFAULT_CONTENT_SELECTORS, htmlToMarkdown, type MarkdownDocument } from "./html-to-markdown.ts"
+export { type AgentServerEntry, type AgentServerEntryConfig, createAgentServerEntry, type FetchHandler } from "./entry"
+export { DEFAULT_CONTENT_SELECTORS, htmlToMarkdown, type MarkdownDocument } from "./html-to-markdown"
 export {
 	asHtmlRequest,
 	buildDiscoveryLinkHeader,
@@ -7,4 +7,4 @@ export {
 	notAcceptableResponse,
 	prefersMarkdown,
 	withDiscoveryLinks,
-} from "./negotiation.ts"
+} from "./negotiation"

@@ -16,7 +16,7 @@
  * única costura possível é envelopar o handler no entry do servidor.
  */
 
-import type { DiscoveryDocument } from "../catalog.ts"
+import type { DiscoveryDocument } from "../catalog"
 
 /** Corpo exato emitido pelo `executeRouter` do Start quando o `Accept` não é suportado. */
 const START_UNSUPPORTED_ACCEPT_BODY = '{"error":"Only HTML requests are supported here"}'

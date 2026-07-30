@@ -7,7 +7,7 @@ export {
 	type PublicPage,
 	pagesBySection,
 	type SiteCatalog,
-} from "./catalog.ts"
+} from "./catalog"
 export {
 	type ApiCatalogEntry,
 	type ApiCatalogLink,
@@ -23,5 +23,5 @@ export {
 	renderSitemap,
 	type SitemapEntry,
 	TRAINING_USER_AGENTS,
-} from "./documents.ts"
-export { type AgentSkill, assertValidSkills, renderSkillsIndex, skillByName, skillDigest, skillUrlPath } from "./skills.ts"
+} from "./documents"
+export { type AgentSkill, assertValidSkills, renderSkillsIndex, skillByName, skillDigest, skillUrlPath } from "./skills"
