@@ -4,6 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
+import {
+	getScopeOptions,
+	LEVEL_CONFIG,
+	MODULE_LABELS,
+	MODULE_SCOPES,
+	type ScopeType,
+	type SisubModule,
+	scopeTypeOf,
+} from "@/components/features/global/policies/labels"
+import { UserAccessPanel } from "@/components/features/global/policies/UserAccessPanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -25,51 +35,8 @@ import {
 } from "@/server/permissions.fn"
 import type { AppModule } from "@/types/domain/permissions"
 
-// ─── Label Maps ──────────────────────────────────────────────────────────────
-
-// sisub gerencia apenas os próprios módulos; "rumaer" e "sucont" são geridos nos
-// próprios apps, mesmo compartilhando a tabela access_control.user_permissions.
-type SisubModule = Exclude<AppModule, "rumaer" | "sucont">
-
-const MODULE_LABELS: Record<SisubModule, string> = {
-	diner: "Comensal",
-	messhall: "Fiscal de Rancho",
-	unit: "Gestão Unidade",
-	kitchen: "Gestão Cozinha",
-	"kitchen-production": "Produção Cozinha",
-	global: "SDAB (Global)",
-	analytics: "Análises — Visão Global",
-	"local-analytics": "Análises — Unidade",
-	storage: "Estoque",
-}
-
-const LEVEL_CONFIG: Record<number, { label: string; variant: "destructive" | "secondary" | "default" }> = {
-	0: { label: "Negado", variant: "destructive" },
-	1: { label: "Leitura", variant: "secondary" },
-	2: { label: "Escrita", variant: "default" },
-}
-
-type ScopeType = "global" | "unit" | "kitchen" | "mess_hall"
-
-const MODULE_SCOPES: Partial<Record<AppModule, ScopeType[]>> = {
-	messhall: ["global", "mess_hall"],
-	unit: ["global", "unit"],
-	kitchen: ["global", "kitchen"],
-	"kitchen-production": ["global", "kitchen"],
-	"local-analytics": ["global", "unit"],
-}
-
-const ALL_SCOPE_OPTIONS: { value: ScopeType; label: string }[] = [
-	{ value: "global", label: "Global (todas as unidades)" },
-	{ value: "unit", label: "Por Unidade (OM)" },
-	{ value: "kitchen", label: "Por Cozinha" },
-	{ value: "mess_hall", label: "Por Refeitório" },
-]
-
-function getScopeOptions(module: AppModule) {
-	const allowed = MODULE_SCOPES[module] ?? ["global"]
-	return ALL_SCOPE_OPTIONS.filter((o) => allowed.includes(o.value))
-}
+// Rótulos, escopos e helpers de escopo vivem em `policies/labels.ts`: o console de
+// políticas usa exatamente os mesmos, e duplicá-los faria as duas telas divergirem.
 
 type FormState = {
 	module: SisubModule
@@ -95,13 +62,6 @@ function scopeFromForm(form: FormState) {
 		kitchen_id: form.scopeType === "kitchen" && form.scopeId ? Number(form.scopeId) : null,
 		mess_hall_id: form.scopeType === "mess_hall" && form.scopeId ? Number(form.scopeId) : null,
 	}
-}
-
-function scopeTypeOf(perm: PermissionRow): ScopeType {
-	if (perm.unit_id) return "unit"
-	if (perm.kitchen_id) return "kitchen"
-	if (perm.mess_hall_id) return "mess_hall"
-	return "global"
 }
 
 // ─── Display Helpers ──────────────────────────────────────────────────────────
@@ -643,6 +603,8 @@ function UserPermissionsPanel({
 				<span className="text-subheading">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma
 				permissão <span className="text-subheading">diner — Negado</span>.
 			</p>
+
+			<UserAccessPanel userId={user.id} maps={{ unitMap, kitchenMap, messHallMap }} />
 		</div>
 	)
 }
