@@ -3,7 +3,7 @@
  * `SiteCatalog` do app mais os dados dinâmicos que ele quiser injetar.
  */
 
-import { absoluteUrl, indexablePages, pagesBySection, type SiteCatalog } from "./catalog.ts"
+import { absoluteUrl, indexablePages, pagesBySection, type SiteCatalog } from "./catalog"
 
 // ─── llms.txt ─────────────────────────────────────────────────────────────────
 
