@@ -88,7 +88,6 @@ export function parseNfeXml(xml: string): ParsedNfe {
 		throw new NfeParseError("XML malformado — não foi possível interpretar o arquivo")
 	}
 
-	// biome-ignore lint/suspicious/noExplicitAny: navegação em XML externo sem contrato TS
 	const anyDoc = doc as any
 	const nfe = anyDoc.nfeProc?.NFe ?? anyDoc.NFe
 	const infNfe = nfe?.infNFe
@@ -105,7 +104,6 @@ export function parseNfeXml(xml: string): ParsedNfe {
 	const dets = asArray(infNfe.det)
 	if (dets.length === 0) throw new NfeParseError("NF-e sem itens (<det>)")
 
-	// biome-ignore lint/suspicious/noExplicitAny: navegação em XML externo sem contrato TS
 	const items: ParsedNfeItem[] = dets.map((det: any, index: number) => {
 		const prod = det.prod ?? {}
 		const rastro = asArray(prod.rastro)[0] ?? {}

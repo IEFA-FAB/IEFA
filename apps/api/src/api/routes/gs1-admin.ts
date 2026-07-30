@@ -32,10 +32,6 @@ function getSupabase() {
 
 const ErrorSchema = z.object({ error: z.string() })
 
-// Anti-SSRF: allowlist + bloqueio de redirects vivem no worker (fonte única);
-// o import do worker também valida — a checagem aqui só antecipa o erro 400.
-export { isAllowedGpcUrl } from "../../workers/gs1-sync/gpc.ts"
-
 const GtinLookupSchema = z.object({
 	gtin: z.string(),
 	description: z.string().nullable(),
@@ -111,7 +107,6 @@ const VBG_UNIT_TO_CANONICAL: Record<string, string> = {
 }
 
 /** Mapeia o payload do VbG (chaves variam por versão) para as colunas da entidade. */
-// biome-ignore lint/suspicious/noExplicitAny: payload externo sem contrato estável
 export function mapVbgPayload(payload: any): {
 	description: string | null
 	brand: string | null

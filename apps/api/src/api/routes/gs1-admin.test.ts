@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { isAllowedGpcUrl, mapVbgPayload } from "./gs1-admin.ts"
+import { isAllowedGpcUrl } from "../../workers/gs1-sync/gpc.ts"
+import { mapVbgPayload } from "./gs1-admin.ts"
 
 describe("isAllowedGpcUrl (anti-SSRF)", () => {
 	test("aceita https em gs1.org e subdomínios", () => {

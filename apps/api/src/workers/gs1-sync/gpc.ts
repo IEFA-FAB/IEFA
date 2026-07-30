@@ -32,7 +32,6 @@ export function isAllowedGpcUrl(raw: string): boolean {
 	}
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: mesmo padrão de SupabaseAny dos importadores nutricionais
 type SupabaseAny = ReturnType<typeof createClient<any, any, any>>
 
 const CHUNK_SIZE = 500
