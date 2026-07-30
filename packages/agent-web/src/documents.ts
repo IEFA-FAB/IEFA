@@ -36,7 +36,11 @@ function renderSection(section: LlmsSection): string {
 export function renderLlmsTxt(catalog: SiteCatalog, options: RenderLlmsTxtOptions = {}): string {
 	const summary = catalog.longDescription ? `${catalog.description} ${catalog.longDescription}` : catalog.description
 
-	const header = [`# ${catalog.name}`, "", `> ${summary}`, "", ...(options.notes ?? []).flatMap((note) => [note, ""])].join("\n")
+	// Cada entrada de `notes` é uma linha, não um parágrafo: quem escreve controla
+	// os parágrafos com entradas vazias. Emitir um branco após cada linha quebraria
+	// qualquer nota escrita em várias linhas.
+	const notes = options.notes ?? []
+	const header = [`# ${catalog.name}`, "", `> ${summary}`, "", ...(notes.length > 0 ? [...notes, ""] : [])].join("\n")
 
 	const catalogSections: LlmsSection[] = pagesBySection(catalog).map(({ section, pages }) => ({
 		heading: section,
