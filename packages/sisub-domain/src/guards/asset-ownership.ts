@@ -22,7 +22,7 @@
 import { mealTypeInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb, stepTemplateInKitchen, utensilInKitchen } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
 import type { UserContext } from "../types/context.ts"
-import { DomainError, NotFoundError } from "../types/errors.ts"
+import { NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 import { requireKitchen, requirePermission } from "./require-permission.ts"
 
@@ -80,35 +80,4 @@ export async function authorizeAssetMutation(db: SisubDb, ctx: UserContext, kind
 	const ownerKitchenId = await resolveAssetOwner(db, kind, id)
 	requireAssetWriteForScope(ctx, ownerKitchenId)
 	return ownerKitchenId
-}
-
-/**
- * Asserts that a row used as the BASE of a new version belongs to the same scope as the
- * version being created. Without this, a version could be chained onto another kitchen's
- * row, or a global version forged from a local base.
- *
- * A local version built on a GLOBAL base is legitimate — that is a fork — and is allowed
- * here; the fork path is responsible for the rest of the semantics.
- *
- * @throws {DomainError} when base and target scopes are incompatible.
- */
-export async function assertVersionBaseScope(db: SisubDb, kind: AssetKind, baseId: string, targetKitchenId: number | null): Promise<void> {
-	const baseKitchenId = await resolveAssetOwner(db, kind, baseId)
-
-	// Global target: the base must also be global. A global version must never inherit
-	// from one kitchen's local adaptation — that would publish local content FAB-wide.
-	if (targetKitchenId == null) {
-		if (baseKitchenId != null) {
-			throw new DomainError("VERSION_BASE_SCOPE_MISMATCH", `Cannot create a global ${kind} version from a base owned by kitchen ${baseKitchenId}`)
-		}
-		return
-	}
-
-	// Local target: the base is either the same kitchen (plain version) or global (fork).
-	if (baseKitchenId != null && baseKitchenId !== targetKitchenId) {
-		throw new DomainError(
-			"VERSION_BASE_SCOPE_MISMATCH",
-			`Cannot create a ${kind} version for kitchen ${targetKitchenId} from a base owned by kitchen ${baseKitchenId}`
-		)
-	}
 }

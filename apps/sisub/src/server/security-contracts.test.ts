@@ -139,7 +139,7 @@ describe("server function security contracts", () => {
 
 		// Criação: o escopo vem da intenção do chamador, mas destino nulo = global → global:2.
 		for (const { file, ops } of [
-			{ file: "packages/sisub-domain/src/operations/recipes.ts", ops: ["createRecipe", "createRecipeVersion"] },
+			{ file: "packages/sisub-domain/src/operations/recipes.ts", ops: ["createRecipe", "saveRecipeEdit"] },
 			{
 				file: "packages/sisub-domain/src/operations/templates.ts",
 				ops: ["createTemplate", "createBlankTemplate", "forkTemplate", "updateTemplate", "deleteTemplate", "restoreTemplate"],
@@ -158,16 +158,41 @@ describe("server function security contracts", () => {
 		}
 	})
 
-	test("recipe versioning validates that the base row belongs to the target scope", () => {
+	test("saveRecipeEdit decides fork vs global version from the declared context, never from permissions", () => {
 		const source = readPackageFile("packages/sisub-domain/src/operations/recipes.ts")
-		const start = source.indexOf("export async function createRecipeVersion(")
+		const start = source.indexOf("export async function saveRecipeEdit(")
+		expect(start).toBeGreaterThan(-1)
 		const nextFn = source.indexOf("\nexport async function ", start + 1)
 		const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
 
-		// Sem isso, uma versão global poderia ser forjada a partir de base local (publicando
-		// adaptação de uma cozinha para a FAB), ou encadeada na linha de outra cozinha.
-		expect(opSource).toContain('assertVersionBaseScope(db, "recipe", input.baseRecipeId')
-		expect(opSource).toContain('assertVersionBaseScope(db, "recipe", input.sourceRecipeId')
+		// O destino sai do contexto DECLARADO na requisição. Inferir da permissão faria quem
+		// tem global:2 e kitchen:2 alterar o catálogo global ao editar pela tela da cozinha.
+		expect(opSource).toContain('input.context.scope === "kitchen" ? input.context.kitchenId : null')
+
+		// Base local só pode ser editada pela cozinha dona — nem por outra, nem promovida a global.
+		expect(opSource).toContain("base.kitchenId != null && base.kitchenId !== targetKitchenId")
+		expect(opSource).toContain("RECIPE_SCOPE_MISMATCH")
+
+		// Autorização pelo destino resolvido, não pelo escopo que veio do cliente.
+		expect(opSource).toContain("requireAssetWriteForScope(ctx, targetKitchenId)")
+
+		// base_recipe_id aponta para a RAIZ da linhagem, e a versão é calculada no servidor.
+		expect(opSource).toContain("baseRecipeId: rootId")
+		expect(opSource).toContain("version: nextVersion")
+	})
+
+	test("the edit input carries no client-controlled version or scope", () => {
+		const schema = readPackageFile("packages/sisub-domain/src/schemas/recipes.ts")
+		const start = schema.indexOf("export const SaveRecipeEditSchema")
+		expect(start).toBeGreaterThan(-1)
+		const end = schema.indexOf("export type SaveRecipeEdit", start)
+		const schemaSource = schema.slice(start, end)
+
+		// `version` do cliente permitia fixar a própria linha como canônica (a dedup mantém a
+		// maior versão); `kitchenId` do cliente era o vetor da edição global a partir da cozinha.
+		expect(schemaSource).toContain("CreateRecipeSchema.omit({ kitchenId: true })")
+		expect(schemaSource).not.toMatch(/\bversion:\s*z\./)
+		expect(schemaSource).toContain("context: EditScopeSchema")
 	})
 
 	test("places and settings write functions require authentication before service-role writes", () => {

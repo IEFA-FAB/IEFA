@@ -1,7 +1,8 @@
+import type { EditScope } from "@iefa/sisub-domain"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { queryKeys } from "@/lib/query-keys"
-import { createRecipeFn, createRecipeVersionFn } from "@/server/recipes.fn"
+import { createRecipeFn, saveRecipeEditFn } from "@/server/recipes.fn"
 import type { RecipeFormData, RecipeFormIngredient } from "@/types/domain/recipes"
 
 function mapIngredients(ingredients: RecipeFormIngredient[] | undefined) {
@@ -42,12 +43,21 @@ export function useCreateRecipe() {
 	})
 }
 
-export function useVersionRecipe() {
+/**
+ * Salva a edição de uma receita existente.
+ *
+ * O `context` diz de QUAL tela a edição partiu e é obrigatório — o servidor usa isso para
+ * decidir entre nova versão global e fork local. Antes o destino era derivado do
+ * `kitchen_id` da receita carregada, o que fazia a edição de uma receita global feita na
+ * tela de uma cozinha virar uma nova versão global, válida para toda a FAB. O número de
+ * versão também não vem mais do cliente.
+ */
+export function useSaveRecipeEdit() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ baseRecipeId, data, newVersion }: { baseRecipeId: string; data: RecipeFormData; newVersion: number }) =>
-			createRecipeVersionFn({
+		mutationFn: ({ baseRecipeId, data, context }: { baseRecipeId: string; data: RecipeFormData; context: EditScope }) =>
+			saveRecipeEditFn({
 				data: {
 					name: data.name,
 					preparationMethod: data.preparation_method ?? undefined,
@@ -55,15 +65,14 @@ export function useVersionRecipe() {
 					preparationTimeMinutes: data.preparation_time_minutes ?? undefined,
 					cookingFactor: data.cooking_factor ?? undefined,
 					rationalId: data.rational_id ?? undefined,
-					kitchenId: data.kitchen_id ?? null,
 					baseRecipeId,
-					version: newVersion,
+					context,
 					ingredients: mapIngredients(data.ingredients),
 				},
 			}),
-		onSuccess: () => {
+		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.all() })
-			toast.success("Nova versão criada com sucesso")
+			toast.success(result.forked ? "Cópia local criada — a preparação global segue intacta" : "Nova versão criada com sucesso")
 		},
 		onError: (error) => {
 			toast.error(`Erro ao atualizar Preparação: ${error.message}`)

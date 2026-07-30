@@ -158,7 +158,6 @@ export {
 } from "./recipe-reviews.ts"
 export {
 	createRecipe,
-	createRecipeVersion,
 	deleteRecipe,
 	fetchRecipe,
 	listRecipeMenuUsage,
@@ -166,6 +165,7 @@ export {
 	listRecipeVersions,
 	renameRecipe,
 	restoreRecipe,
+	saveRecipeEdit,
 } from "./recipes.ts"
 export {
 	getReviewMetrics,

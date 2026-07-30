@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import type { UserContext, UserPermission } from "../types/context.ts"
-import { DomainError, NotFoundError, PermissionDeniedError } from "../types/errors.ts"
-import { type AssetKind, assertVersionBaseScope, authorizeAssetMutation, requireAssetWriteForScope, resolveAssetOwner } from "./asset-ownership.ts"
+import { NotFoundError, PermissionDeniedError } from "../types/errors.ts"
+import { type AssetKind, authorizeAssetMutation, requireAssetWriteForScope, resolveAssetOwner } from "./asset-ownership.ts"
 
 function ctx(permissions: UserPermission[]): UserContext {
 	return { userId: "user-1", permissions }
@@ -114,32 +114,5 @@ describe("authorizeAssetMutation", () => {
 	test("id inexistente lança NotFoundError antes de checar permissão", async () => {
 		// Mesmo erro para id desconhecido e para id de outra cozinha: sondar não revela posse.
 		await expect(authorizeAssetMutation(fakeDbMissing(), ctx([]), "recipe", "nope")).rejects.toThrow(NotFoundError)
-	})
-})
-
-describe("assertVersionBaseScope", () => {
-	test("base global + destino global é aceito", async () => {
-		await expect(assertVersionBaseScope(fakeDb(null), "recipe", "base", null)).resolves.toBeUndefined()
-	})
-
-	test("base local + destino global é rejeitado", async () => {
-		// Publicaria a adaptação de uma cozinha como conteúdo da FAB inteira.
-		await expect(assertVersionBaseScope(fakeDb(7), "recipe", "base", null)).rejects.toThrow(DomainError)
-	})
-
-	test("base da mesma cozinha + destino local é aceito", async () => {
-		await expect(assertVersionBaseScope(fakeDb(7), "recipe", "base", 7)).resolves.toBeUndefined()
-	})
-
-	test("base global + destino local é aceito (é fork)", async () => {
-		await expect(assertVersionBaseScope(fakeDb(null), "recipe", "base", 7)).resolves.toBeUndefined()
-	})
-
-	test("base de outra cozinha + destino local é rejeitado", async () => {
-		await expect(assertVersionBaseScope(fakeDb(9), "recipe", "base", 7)).rejects.toThrow("owned by kitchen 9")
-	})
-
-	test("base inexistente lança NotFoundError", async () => {
-		await expect(assertVersionBaseScope(fakeDbMissing(), "recipe", "nope", 7)).rejects.toThrow(NotFoundError)
 	})
 })
