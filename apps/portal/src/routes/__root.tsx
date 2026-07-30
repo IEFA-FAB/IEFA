@@ -14,6 +14,7 @@ import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { ThemeProvider, ThemeScript } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
+import { WebMcpTools } from "@/components/WebMcpTools"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
 import AppStyles from "@/styles.css?url"
@@ -161,6 +162,7 @@ function RootDocument() {
 					</ThemeProvider>
 				</HotkeysProvider>
 				<AuthSync />
+				<WebMcpTools />
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[

@@ -18,6 +18,17 @@ export function getJournalServerClient() {
 }
 
 /**
+ * Cliente Supabase com service role para o schema "iefa" (apps da suíte,
+ * facilidades e favoritos do portal).
+ */
+export function getPortalServerClient() {
+	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
+		db: { schema: "iefa" },
+		auth: { persistSession: false },
+	})
+}
+
+/**
  * Cliente Supabase SSR para operações de autenticação.
  * Lê e escreve cookies de sessão do usuário — necessário para
  * auth.getUser() / auth.getSession() funcionar corretamente no servidor.
