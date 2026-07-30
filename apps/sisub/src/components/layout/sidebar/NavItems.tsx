@@ -10,6 +10,7 @@ import {
 	ChefHat,
 	ClipboardCheck,
 	ClipboardList,
+	FileSpreadsheet,
 	FileText,
 	FlameKindling,
 	KeyRound,
@@ -139,6 +140,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Recebimentos", url: "/storage/receiving", icon: PackageCheck },
 			{ title: "Baixa por Produção", url: "/storage/production-issue", icon: FlameKindling, minLevel: 2 },
 			{ title: "Contagem Física", url: "/storage/counts", icon: ClipboardCheck, minLevel: 3 },
+			{ title: "Relatórios MCASP", url: "/storage/reports", icon: FileSpreadsheet },
 		],
 	},
 	{
