@@ -19,16 +19,9 @@
  * no entry padrão embutido e o arquivo vira código morto.
  */
 
-import { assertAsciiTitles, type DiscoveryDocument } from "../catalog.ts"
-import { DEFAULT_CONTENT_SELECTORS, htmlToMarkdown } from "./html-to-markdown.ts"
-import {
-	asHtmlRequest,
-	buildDiscoveryLinkHeader,
-	isUnsupportedAcceptResponse,
-	notAcceptableResponse,
-	prefersMarkdown,
-	withDiscoveryLinks,
-} from "./negotiation.ts"
+import { assertAsciiTitles, type DiscoveryDocument } from "../catalog"
+import { DEFAULT_CONTENT_SELECTORS, htmlToMarkdown } from "./html-to-markdown"
+import { asHtmlRequest, buildDiscoveryLinkHeader, isUnsupportedAcceptResponse, notAcceptableResponse, prefersMarkdown, withDiscoveryLinks } from "./negotiation"
 
 export type FetchHandler<TOptions> = (request: Request, opts: TOptions) => Promise<Response> | Response
 

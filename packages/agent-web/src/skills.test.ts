@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type AgentSkill, assertValidSkills, renderSkillsIndex, skillByName, skillDigest } from "./skills.ts"
+import { type AgentSkill, assertValidSkills, renderSkillsIndex, skillByName, skillDigest } from "./skills"
 
 const SKILLS: AgentSkill[] = [
 	{ name: "consultar-app", description: "Consultar o app.", content: "---\nname: consultar-app\n---\n\n# Consultar\n" },
