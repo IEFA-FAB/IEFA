@@ -18,6 +18,7 @@ import {
 	MapPin,
 	MessageSquare,
 	Package,
+	PackageCheck,
 	QrCode,
 	RefreshCw,
 	Sandwich,
@@ -134,6 +135,8 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Painel", url: "/storage/dashboard", icon: LayoutDashboard },
 			{ title: "Notas Fiscais (NF-e)", url: "/storage/nfe", icon: FileText },
+			{ title: "Ordens de Fornecimento", url: "/storage/supply-orders", icon: ShoppingCart, minLevel: 2 },
+			{ title: "Recebimentos", url: "/storage/receiving", icon: PackageCheck },
 			{ title: "Contagem Física", url: "/storage/counts", icon: ClipboardCheck, minLevel: 3 },
 		],
 	},
