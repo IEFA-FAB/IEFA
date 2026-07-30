@@ -18,7 +18,7 @@ import {
 	listDeletedTemplates,
 	listTemplates,
 	restoreTemplate,
-	updateTemplate,
+	saveTemplateEdit,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -136,7 +136,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(list.find((t) => t.id === weekly.id)?.monthly_headcount_total).toBeNull()
 	})
 
-	test("updateTemplate limpa description e expected_monthly_occurrences quando null", async () => {
+	test("saveTemplateEdit limpa description e expected_monthly_occurrences quando null", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId } = await base()
 
@@ -152,7 +152,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(tpl.expected_monthly_occurrences).toBe(12)
 
 		// null = limpar (não deve ser tratado como undefined/"não mexe")
-		await updateTemplate(db, ctx, { templateId: tpl.id, description: null, expectedMonthlyOccurrences: null })
+		await saveTemplateEdit(db, ctx, { templateId: tpl.id, context: { scope: "global" }, description: null, expectedMonthlyOccurrences: null })
 
 		const after = await getTemplate(db, ctx, { templateId: tpl.id })
 		expect(after.description).toBeNull()
@@ -210,7 +210,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forkItems).toHaveLength(1)
 	})
 
-	test("updateTemplate renomeia e substitui itens (destrutivo)", async () => {
+	test("saveTemplateEdit renomeia e substitui itens (destrutivo)", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, recipeId } = await base()
 		const tpl = await createTemplate(db, ctx, {
@@ -222,7 +222,8 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		trackTemplate(tpl.id)
 
 		const novoNome = uid("[TEST] Depois ")
-		const updated = await updateTemplate(db, ctx, {
+		const { template: updated } = await saveTemplateEdit(db, ctx, {
+			context: { scope: "global" },
 			templateId: tpl.id,
 			name: novoNome,
 			items: [

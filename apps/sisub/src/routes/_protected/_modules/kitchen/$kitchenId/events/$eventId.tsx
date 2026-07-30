@@ -1,12 +1,14 @@
+import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { CalendarPlus, Check, Loader2, Save } from "lucide-react"
-import { useEffect, useReducer, useRef, useState } from "react"
+import { CalendarPlus, Check, GitFork, Loader2, Save } from "lucide-react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
 import type { RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
 import { MealTypeSection } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -14,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
-import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
+import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 /**
@@ -99,8 +101,16 @@ function EventEditorPage() {
 	const { data: template, isLoading: templateLoading } = useTemplate(eventId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
 	const { data: allRecipes } = useRecipes()
-	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
-	const { mutate: autoSave } = useUpdateTemplate({ silent: true })
+	// Contexto da edição = a rota. Template global editado aqui vira cópia local desta
+	// cozinha; o global não é tocado. `menu_template` não é versionado, então a edição
+	// in-place de um global sobrescreveria o plano da FAB inteira sem histórico.
+	const editContext = useMemo<EditScope>(() => ({ scope: "kitchen", kitchenId }), [kitchenId])
+
+	// Template global aberto numa cozinha: salvar vai forkar.
+	const willFork = template != null && template.kitchen_id == null
+
+	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit()
+	const { mutate: autoSave } = useSaveTemplateEdit({ silent: true })
 
 	const [editorState, dispatch] = useReducer(eventEditorReducer, initialEventEditorState)
 	const { name, description, items, initialized, selectorOpen, selectedMealTypeId } = editorState
@@ -133,6 +143,10 @@ function EventEditorPage() {
 			return
 		}
 		if (!name.trim()) return
+		// Auto-save NÃO forka: criar uma cópia local no primeiro caractere digitado seria
+		// uma bifurcação silenciosa. Num template global a cópia sai só do salvamento
+		// explícito, depois do aviso.
+		if (willFork) return
 		setSaveStatus("idle")
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		autoSaveTimerRef.current = setTimeout(() => {
@@ -140,6 +154,7 @@ function EventEditorPage() {
 			autoSave(
 				{
 					id: eventId as string,
+					context: editContext,
 					updates: { name: name.trim(), description: description.trim() || null },
 					items: items.map((i) => ({
 						day_of_week: EVENT_DAY,
@@ -157,7 +172,7 @@ function EventEditorPage() {
 		return () => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
-	}, [name, description, items, initialized, autoSave, eventId])
+	}, [name, description, items, initialized, willFork, editContext, autoSave, eventId])
 
 	// ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -207,9 +222,10 @@ function EventEditorPage() {
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-		updateTemplate(
+		saveTemplate(
 			{
 				id: eventId as string,
+				context: editContext,
 				updates: {
 					name: name.trim(),
 					description: description.trim() || null,
@@ -310,6 +326,17 @@ function EventEditorPage() {
 						</Button>
 					</div>
 				</PageHeader>
+
+				{willFork && (
+					<Alert>
+						<GitFork className="size-4" />
+						<AlertTitle>Modelo global</AlertTitle>
+						<AlertDescription>
+							Este evento é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas alterações — o modelo global permanece
+							intacto e as demais unidades continuam vendo o original. O salvamento automático fica desligado até lá.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				<div className="space-y-6">
 					{/* Metadata */}

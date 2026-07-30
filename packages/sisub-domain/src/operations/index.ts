@@ -186,7 +186,7 @@ export {
 	listDeletedTemplates,
 	listTemplates,
 	restoreTemplate,
-	updateTemplate,
+	saveTemplateEdit,
 } from "./templates.ts"
 export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
 export { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"
