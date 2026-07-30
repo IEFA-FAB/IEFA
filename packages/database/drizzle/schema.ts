@@ -112,6 +112,8 @@ export const kitchenInCore = core.table("kitchen", {
 	addressMunicipio: text("address_municipio"),
 	addressUf: text("address_uf"),
 	addressCep: text("address_cep"),
+	// Sentinela do ambiente de treino. Índice único parcial no banco garante no máximo uma.
+	isTraining: boolean("is_training").default(false).notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.kitchenId],
@@ -910,6 +912,8 @@ export const unitsInCore = core.table("units", {
 	addressMunicipio: text("address_municipio"),
 	addressUf: text("address_uf"),
 	addressCep: text("address_cep"),
+	// Sentinela do ambiente de treino. Índice único parcial no banco garante no máximo uma.
+	isTraining: boolean("is_training").default(false).notNull(),
 }, (table) => [
 	unique("units_code_key").on(table.code),
 ]);
@@ -1495,6 +1499,8 @@ export const messHallsInCore = core.table("mess_halls", {
 	displayName: text("display_name"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	// Sentinela do ambiente de treino. Índice único parcial no banco garante no máximo um.
+	isTraining: boolean("is_training").default(false).notNull(),
 }, (table) => [
 	index("mess_halls_unit_id_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")),
 	foreignKey({
@@ -2069,3 +2075,74 @@ export const recipeLastReviewInKitchen = kitchen.view("recipe_last_review", {	re
 	reviewedBy: uuid("reviewed_by"),
 	reviewedByName: text("reviewed_by_name"),
 }).as(sql`SELECT DISTINCT ON (recipe_id) recipe_id, reviewed_at, reviewed_by, reviewed_by_name FROM kitchen.recipe_review ORDER BY recipe_id, reviewed_at DESC`);
+
+// ─── Políticas de acesso (modelo IAM) ────────────────────────────────────────
+//
+// PONTE TEMPORÁRIA. Escritas à mão em paridade com
+// 20260730160000_access_control_policy.sql e 20260730180000_training_reset_log.sql, para
+// que a camada de domínio compile antes de as migrations serem aplicadas. Assim que forem,
+// `bun run db:drizzle:pull` regenera estas definições a partir do banco vivo e estas linhas
+// são substituídas pelo que a introspecção produzir. O mesmo vale para as colunas
+// `isTraining` acima.
+
+export const policyInAccessControl = accessControl.table("policy", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	/** Política criada por seed: imutável pela UI. */
+	managed: boolean().default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+});
+
+export const policyStatementInAccessControl = accessControl.table("policy_statement", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	policyId: uuid("policy_id").notNull(),
+	module: text().notNull(),
+	level: smallint().notNull(),
+	unitId: bigint("unit_id", { mode: "number" }),
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	messHallId: bigint("mess_hall_id", { mode: "number" }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("policy_statement_policy_idx").using("btree", table.policyId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.policyId],
+			foreignColumns: [policyInAccessControl.id],
+			name: "policy_statement_policy_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+export const userPolicyAttachmentInAccessControl = accessControl.table("user_policy_attachment", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	policyId: uuid("policy_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdBy: uuid("created_by"),
+}, (table) => [
+	index("user_policy_attachment_user_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
+	index("user_policy_attachment_policy_idx").using("btree", table.policyId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.policyId],
+			foreignColumns: [policyInAccessControl.id],
+			name: "user_policy_attachment_policy_id_fkey"
+		}).onDelete("cascade"),
+	unique("user_policy_attachment_unique").on(table.userId, table.policyId),
+]);
+
+// ─── Auditoria do reset de treino ────────────────────────────────────────────
+
+export const trainingResetLogInCore = core.table("training_reset_log", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	actorId: uuid("actor_id").notNull(),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	durationMs: integer("duration_ms"),
+	/** Contagem de linhas removidas por tabela, na ordem topológica do reset. */
+	deletedCounts: jsonb("deleted_counts").default({}).notNull(),
+	status: text().default('running').notNull(),
+	errorMessage: text("error_message"),
+}, (table) => [
+	index("training_reset_log_started_idx").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
+]);
