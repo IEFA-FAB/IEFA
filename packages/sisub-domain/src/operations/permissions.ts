@@ -15,25 +15,18 @@
  */
 
 import { type SisubDb, userDataInCore, userPermissionsInAccessControl } from "@iefa/database/drizzle/sisub"
+import { resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { asc, eq, ilike } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
 import { mutateOrFail, runQuery } from "../utils/index.ts"
 
-type EffectivePermission = {
-	module: string
-	level: number
-	mess_hall_id: number | null
-	kitchen_id: number | null
-	unit_id: number | null
-}
-
 /**
- * Effective permission set for a user: strips deny entries (level=0) and injects
- * an implicit "diner" allow when no explicit diner rule exists. NOT raw DB rows.
+ * Effective permission set for a user: applies deny precedence and injects an implicit
+ * "diner" allow when no explicit diner rule exists. NOT raw DB rows.
  */
-export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUserPermissions): Promise<EffectivePermission[]> {
+export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUserPermissions): Promise<UserPermission[]> {
 	const permissions = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
@@ -47,16 +40,13 @@ export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUser
 			.where(eq(userPermissionsInAccessControl.userId, input.userId))
 	)
 
-	// Implicit Allow: every valid user is a diner (module "diner") unless there
-	// is an explicit deny entry (level 0).
-	const hasDinerRule = permissions.some((p) => p.module === "diner")
-	if (!hasDinerRule) {
-		permissions.push({ module: "diner", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null })
-	}
-
-	// Level 0 = explicit deny — drop from the final list so downstream
-	// hasPermission checks (level >= min) stay simple.
-	return permissions.filter((p) => p.level > 0)
+	// Resolução compartilhada com rumaer/sucont (@iefa/pbac): comensal implícito +
+	// precedência de deny. Quando as políticas nomeadas existirem, os statements delas
+	// entram aqui como uma segunda origem — a assinatura de `resolveEffectivePermissions`
+	// é variádica justamente para isso.
+	// `module` é text no banco; o contrato do PBAC usa o union de módulos. Os valores são
+	// escritos pelo próprio console de permissões, que só oferece módulos válidos.
+	return resolveEffectivePermissions(permissions as UserPermission[])
 }
 
 export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: SearchUsersByEmail) {
