@@ -40,6 +40,19 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		const inv = inventory()
 
+		// refs cruzadas precisam ser da MESMA cozinha (review: receipt podia
+		// apontar NF-e/OF de outra cozinha e movimentar o ledger errado)
+		const { data: doc } = await inv.from("nfe_document").select("kitchen_id").eq("id", data.nfeDocumentId).maybeSingle()
+		if (!doc) throw new Error("NF-e não encontrada")
+		if (doc.kitchen_id != null && Number(doc.kitchen_id) !== data.kitchenId) {
+			throw new Error("NF-e pertence a outra cozinha")
+		}
+		if (data.supplyOrderId) {
+			const proc = getServerClient("procurement") as unknown as LooseClient
+			const { data: order } = await proc.from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
+			if (!order || Number(order.kitchen_id) !== data.kitchenId) throw new Error("OF não encontrada ou de outra cozinha")
+		}
+
 		const { data: items, error: itemsError } = await inv
 			.from("nfe_item")
 			.select("id, ingredient_id, ingredient_item_id, purchase_item_id, matched_qty_base, unit_price, commercial_qty, lot_code, expiry_date, match_status")
@@ -62,7 +75,10 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			})
 			.select("id")
 			.single()
-		if (error || !receipt) throw new Error(`Erro ao criar recebimento: ${error?.message}`)
+		if (error || !receipt) {
+			if (error?.code === "23505") throw new Error("Esta NF-e já tem um recebimento em andamento ou efetivado")
+			throw new Error(`Erro ao criar recebimento: ${error?.message}`)
+		}
 
 		const rows = resolvable.map(
 			(item: {

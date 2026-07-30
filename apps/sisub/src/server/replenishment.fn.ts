@@ -16,6 +16,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
+import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -132,11 +133,24 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 					unitPrice: link.purchase_item?.unit_price != null ? Number(link.purchase_item.unit_price) : null,
 					conversionFactor: Number(link.conversion_factor ?? 1) || 1,
 				})
-				if (purchaseItemIds.includes(link.purchase_item_id)) {
-					// qty_ingrediente = qty_compra × conversion_factor (inversa de purchase_qty = total/factor)
-					const qty = (purchaseQty.get(link.purchase_item_id) ?? 0) * Number(link.conversion_factor ?? 1)
-					transitById.set(link.ingredient_id, (transitById.get(link.ingredient_id) ?? 0) + qty)
-				}
+			}
+		}
+		// conversão do trânsito por PURCHASE_ITEM da OF — sem exigir is_default
+		// (review: OF de item não-default ficava fora do trânsito). Um link por
+		// purchase_item, preferindo o default.
+		if (purchaseItemIds.length > 0) {
+			const { data: transitLinks } = await proc
+				.from("purchase_item_ingredient")
+				.select("ingredient_id, purchase_item_id, conversion_factor, is_default")
+				.in("purchase_item_id", purchaseItemIds)
+				.order("is_default", { ascending: false })
+			const seen = new Set<string>()
+			for (const link of transitLinks ?? []) {
+				if (seen.has(link.purchase_item_id)) continue
+				seen.add(link.purchase_item_id)
+				if (!ingredientIds.includes(link.ingredient_id)) continue
+				const qty = (purchaseQty.get(link.purchase_item_id) ?? 0) * (Number(link.conversion_factor ?? 1) || 1)
+				transitById.set(link.ingredient_id, (transitById.get(link.ingredient_id) ?? 0) + qty)
 			}
 		}
 		for (const [ingredientId, received] of receivedByIngredient) {
@@ -145,31 +159,37 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 
 		// (5) saldo oficial de ARP própria vigente (via ata_item → ingrediente)
 		const arpBalanceById = new Map<string, number>()
+		const expectedSupplierByIngredient = new Map<string, string>()
 		{
 			const { data: arpItems } = await proc
 				.from("procurement_arp_item")
-				.select("saldo_empenho, ata_item:ata_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
+				.select("saldo_empenho, ni_fornecedor, ata_item:ata_item_id (ingredient_id), arp:arp_id (data_vigencia_fim)")
 				.not("ata_item_id", "is", null)
 			for (const item of arpItems ?? []) {
 				const ingredientId = item.ata_item?.ingredient_id
 				if (!ingredientId || !ingredientIds.includes(ingredientId)) continue
 				if (item.arp?.data_vigencia_fim != null && item.arp.data_vigencia_fim < today) continue
 				arpBalanceById.set(ingredientId, (arpBalanceById.get(ingredientId) ?? 0) + Number(item.saldo_empenho ?? 0))
+				if (item.ni_fornecedor != null) expectedSupplierByIngredient.set(ingredientId, String(item.ni_fornecedor))
 			}
 		}
 
 		// (6) política + lead time observado
 		const { data: policies } = await inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", ingredientIds)
 		const policyById = new Map((policies ?? []).map((p: { ingredient_id: string }) => [p.ingredient_id, p]))
-		const { data: leadTimes } = await inv.from("v_supplier_lead_time").select("purchase_item_id, lead_time_days").limit(1000)
+		const { data: leadTimes } = await inv.from("v_supplier_lead_time").select("purchase_item_id, ni_fornecedor, lead_time_days").limit(1000)
 		// por item de compra — mediana global misturava fornecedores/itens sem
 		// relação (review) e contaminava a recomendação de canal
 		const observedByPurchaseItem = new Map<string, number[]>()
 		for (const row of leadTimes ?? []) {
 			if (row.purchase_item_id == null || !Number.isFinite(Number(row.lead_time_days))) continue
-			const list = observedByPurchaseItem.get(row.purchase_item_id) ?? []
-			list.push(Number(row.lead_time_days))
-			observedByPurchaseItem.set(row.purchase_item_id, list)
+			// chave composta fornecedor:item; fallback só-item quando o fornecedor
+			// esperado é desconhecido (review: mediana misturava fornecedores)
+			for (const key of [row.ni_fornecedor != null ? `${row.ni_fornecedor}:${row.purchase_item_id}` : null, row.purchase_item_id].filter(Boolean) as string[]) {
+				const list = observedByPurchaseItem.get(key) ?? []
+				list.push(Number(row.lead_time_days))
+				observedByPurchaseItem.set(key, list)
+			}
 		}
 
 		return needs
@@ -190,7 +210,15 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				const dailyDemand = grossDemand / data.horizonDays
 				const coverageDays = dailyDemand > 0 ? Math.floor(stock.available / dailyDemand) : data.horizonDays
 				const defaultPurchaseId = defaultPurchaseByIngredient.get(need.ingredient_id)
-				const observedDays = defaultPurchaseId != null ? (observedByPurchaseItem.get(defaultPurchaseId) ?? []) : []
+				// prefere o histórico do FORNECEDOR esperado (ARP vigente) para o item;
+				// sem fornecedor conhecido, cai no histórico do item (todos fornecedores)
+				const expectedSupplier = expectedSupplierByIngredient.get(need.ingredient_id)
+				const observedDays =
+					defaultPurchaseId == null
+						? []
+						: ((expectedSupplier != null ? observedByPurchaseItem.get(`${expectedSupplier}:${defaultPurchaseId}`) : undefined) ??
+							observedByPurchaseItem.get(defaultPurchaseId) ??
+							[])
 				const leadTime = estimateLeadTime(observedDays, null, policy?.coverage_days ?? 7)
 				// valor estimado ≈ (necessidade ÷ fator de conversão) × preço unitário
 				// do item de compra; limite de dispensa por valor (art. 75, I/II da
@@ -238,19 +266,5 @@ export const checkSupplierSicafFn = createServerFn({ method: "GET" })
 	.validator(z.object({ cnpj: z.string().regex(/^\d{14}$/) }))
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("storage", 1)
-		try {
-			const res = await fetch(`https://dadosabertos.compras.gov.br/modulo-fornecedor/1_consultarFornecedor?cnpj=${data.cnpj}`, {
-				signal: AbortSignal.timeout(15_000),
-				headers: { accept: "application/json" },
-			})
-			if (!res.ok) return { status: "indeterminado" as const, detail: `API respondeu ${res.status}` }
-			const body = (await res.json()) as { resultado?: { situacaoFornecedor?: string; statusFornecedor?: string }[] }
-			const supplier = body.resultado?.[0]
-			if (!supplier) return { status: "nao_encontrado" as const, detail: "Fornecedor não localizado no SICAF" }
-			const situation = supplier.situacaoFornecedor ?? supplier.statusFornecedor ?? "desconhecida"
-			const regular = /ativ|credenciad|regular/i.test(situation)
-			return { status: regular ? ("regular" as const) : ("irregular" as const), detail: situation }
-		} catch {
-			return { status: "indeterminado" as const, detail: "API SICAF indisponível — decisão manual com registro" }
-		}
+		return checkSupplierSicaf(data.cnpj)
 	})

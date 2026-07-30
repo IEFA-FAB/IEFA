@@ -12,6 +12,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -85,6 +86,25 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		const proc = procurement()
 
+		// SICAF SERVER-SIDE (review: evidência vinda do cliente podia ser de
+		// outro fornecedor/defasada): o CNPJ vem do fornecedor do EMPENHO
+		// (arp_item.ni_fornecedor) e a consulta acontece aqui, na emissão.
+		let sicafStatus: string | null = null
+		const finance = getServerClient("finance") as unknown as LooseClient
+		const { data: empenhoRow } = await finance.from("empenho").select("arp_item_id, unit_id").eq("id", data.empenhoId).single()
+		if (!empenhoRow) throw new Error("Empenho não encontrado")
+		if (empenhoRow.arp_item_id != null) {
+			const { data: arpItem } = await proc.from("procurement_arp_item").select("ni_fornecedor").eq("id", empenhoRow.arp_item_id).maybeSingle()
+			const cnpj = arpItem?.ni_fornecedor?.replace(/\D/g, "") ?? ""
+			if (cnpj.length === 14) {
+				const sicaf = await checkSupplierSicaf(cnpj)
+				sicafStatus = `${sicaf.status}: ${sicaf.detail} (CNPJ ${cnpj}, verificado na emissão)`
+				if (sicaf.status !== "regular" && !data.sicafAcknowledged) {
+					throw new Error(`Fornecedor ${cnpj} com situação "${sicaf.detail}" no SICAF — confirme explicitamente para emitir mesmo assim`)
+				}
+			}
+		}
+
 		const { data: order, error } = await proc
 			.from("supply_order")
 			.insert({
@@ -94,7 +114,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 				sent_at: new Date().toISOString().substring(0, 10),
 				expected_delivery: data.expectedDelivery,
 				status: "sent",
-				sicaf_status: data.sicafStatus ?? null,
+				sicaf_status: sicafStatus,
 				sicaf_ack_by: data.sicafAcknowledged ? userId : null,
 				created_by: userId,
 			})

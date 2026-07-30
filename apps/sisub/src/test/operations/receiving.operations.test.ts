@@ -92,7 +92,7 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					expect(ofRow.status).toBe("received")
 
 					// efetivar de novo → rejeita
-					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(/status atual/)
+					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(/já efetivado/)
 
 					throw new Rollback()
 				})
