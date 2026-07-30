@@ -41,6 +41,17 @@ describe("renderLlmsTxt", () => {
 	test("seção vazia não vira cabeçalho órfão", () => {
 		expect(renderLlmsTxt(CATALOG, { sections: [{ heading: "Vazia", links: [] }] })).not.toContain("## Vazia")
 	})
+
+	// Nota escrita em várias linhas tem que sair como prosa contínua; quem escreve
+	// controla os parágrafos com entradas vazias.
+	test("notas de várias linhas não ganham branco entre cada linha", () => {
+		const output = renderLlmsTxt(CATALOG, { notes: ["Primeira linha", "segunda linha.", "", "Novo parágrafo."] })
+		expect(output).toContain("Primeira linha\nsegunda linha.\n\nNovo parágrafo.")
+	})
+
+	test("sem notas, não sobra linha em branco extra antes da primeira seção", () => {
+		expect(renderLlmsTxt(CATALOG)).not.toContain("\n\n\n")
+	})
 })
 
 describe("sitemap", () => {
