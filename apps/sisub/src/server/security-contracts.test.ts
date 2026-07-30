@@ -81,6 +81,95 @@ describe("server function security contracts", () => {
 		}
 	})
 
+	/**
+	 * Tabelas que guardam ativo GLOBAL (`kitchen_id IS NULL`, da SDAB) e LOCAL na mesma
+	 * estrutura eram guardadas por um fallback que autorizava mutação do global com
+	 * `kitchen:2`:
+	 *
+	 *     if (input.kitchenId != null) requireKitchen(ctx, 2, input.kitchenId)
+	 *     else requirePermission(ctx, "kitchen", 2)
+	 *
+	 * Doze ocorrências (recipes 2, templates 6, meal-types 4). O caminho explorável ia de
+	 * `/kitchen/$kitchenId/recipes/$recipeId` até `createRecipeVersion`, e como a dedup por
+	 * família mantém a maior versão, a edição de uma cozinha virava a receita canônica da
+	 * FAB inteira. A autorização agora passa por `guards/asset-ownership.ts`, que resolve o
+	 * dono no banco. Este contrato impede o 13º sítio.
+	 */
+	test("no domain operation authorizes a global asset mutation with kitchen level 2", () => {
+		const OPERATION_FILES = [
+			"packages/sisub-domain/src/operations/recipes.ts",
+			"packages/sisub-domain/src/operations/templates.ts",
+			"packages/sisub-domain/src/operations/meal-types.ts",
+			"packages/sisub-domain/src/operations/recipe-flow.ts",
+		]
+
+		for (const file of OPERATION_FILES) {
+			const source = readPackageFile(file)
+			// O nível 2 de `kitchen` só é legítimo COM escopo (requireKitchen). Sem escopo,
+			// ele é o fallback que abria o ativo global.
+			expect(source, `${file} still uses the unscoped kitchen:2 fallback`).not.toContain('requirePermission(ctx, "kitchen", 2)')
+			// `requireAnyPermission(["kitchen", "global"], 2)` tinha o mesmo efeito: kitchen:2
+			// sozinho satisfazia o "any" e criava ativo global.
+			expect(source, `${file} accepts kitchen:2 as sufficient for a global asset`).not.toMatch(/requireAnyPermission\(ctx, \["kitchen", "global"\], 2\)/)
+		}
+	})
+
+	test("global/local asset mutations resolve ownership through the shared guard", () => {
+		const guardSource = readPackageFile("packages/sisub-domain/src/guards/asset-ownership.ts")
+
+		// O guard decide pelo dono LIDO DO BANCO: global → global:2; local → kitchen:2 escopado.
+		expect(guardSource).toContain('requirePermission(ctx, "global", 2)')
+		expect(guardSource).toContain("requireKitchen(ctx, 2, targetKitchenId)")
+
+		// Cada operação que muta ativo global/local existente passa pelo guard.
+		for (const { file, ops } of [
+			{ file: "packages/sisub-domain/src/operations/meal-types.ts", ops: ["updateMealType", "deleteMealType", "restoreMealType"] },
+			{ file: "packages/sisub-domain/src/operations/recipes.ts", ops: ["authorizeRecipeMutation"] },
+			{ file: "packages/sisub-domain/src/operations/recipe-flow.ts", ops: ["authorizeFlowMutation"] },
+		]) {
+			const source = readPackageFile(file)
+			for (const op of ops) {
+				const start = source.indexOf(`function ${op}(`)
+				expect(start, `${op} not found in ${file}`).toBeGreaterThan(-1)
+				const nextFn = source.indexOf("\nexport async function ", start + 1)
+				const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+				expect(opSource, `${op} does not authorize through the ownership guard`).toContain("authorizeAssetMutation(db, ctx,")
+			}
+		}
+
+		// Criação: o escopo vem da intenção do chamador, mas destino nulo = global → global:2.
+		for (const { file, ops } of [
+			{ file: "packages/sisub-domain/src/operations/recipes.ts", ops: ["createRecipe", "createRecipeVersion"] },
+			{
+				file: "packages/sisub-domain/src/operations/templates.ts",
+				ops: ["createTemplate", "createBlankTemplate", "forkTemplate", "updateTemplate", "deleteTemplate", "restoreTemplate"],
+			},
+			{ file: "packages/sisub-domain/src/operations/meal-types.ts", ops: ["createMealType"] },
+			{ file: "packages/sisub-domain/src/operations/recipe-flow.ts", ops: ["createStepTemplate", "createUtensil"] },
+		]) {
+			const source = readPackageFile(file)
+			for (const op of ops) {
+				const start = source.indexOf(`export async function ${op}(`)
+				expect(start, `${op} not found in ${file}`).toBeGreaterThan(-1)
+				const nextFn = source.indexOf("\nexport async function ", start + 1)
+				const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+				expect(opSource, `${op} does not gate the target scope`).toContain("requireAssetWriteForScope(ctx,")
+			}
+		}
+	})
+
+	test("recipe versioning validates that the base row belongs to the target scope", () => {
+		const source = readPackageFile("packages/sisub-domain/src/operations/recipes.ts")
+		const start = source.indexOf("export async function createRecipeVersion(")
+		const nextFn = source.indexOf("\nexport async function ", start + 1)
+		const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+
+		// Sem isso, uma versão global poderia ser forjada a partir de base local (publicando
+		// adaptação de uma cozinha para a FAB), ou encadeada na linha de outra cozinha.
+		expect(opSource).toContain('assertVersionBaseScope(db, "recipe", input.baseRecipeId')
+		expect(opSource).toContain('assertVersionBaseScope(db, "recipe", input.sourceRecipeId')
+	})
+
 	test("places and settings write functions require authentication before service-role writes", () => {
 		for (const fileName of ["places.fn.ts", "unit-settings.fn.ts", "kitchen-settings.fn.ts"]) {
 			const source = readServerFile(fileName)
