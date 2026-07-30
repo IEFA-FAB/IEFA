@@ -109,9 +109,20 @@ export function createSisubReachabilityClient(env: SupabaseTestEnv) {
 
 // ── Drizzle (query layer da migração) ────────────────────────────────────────
 
-/** URL do pooler (porta 6543) usada pelo getDb()/Drizzle; null quando ausente → testes fazem early-return. */
+/**
+ * URL do pooler (porta 6543) usada pelo getDb()/Drizzle; null quando ausente → testes fazem early-return.
+ *
+ * Com SISUB_INTEGRATION_REQUIRED=true (CI), credencial ausente é FALHA — sem
+ * isso o gate de integração renderizava "4 skipped, exit 0", o verde falso
+ * exato que o guard existe para impedir (o throw só cobria o caminho do
+ * client Supabase, não este).
+ */
 export function getSisubDatabaseUrl(): string | null {
-	return process.env.SISUB_DATABASE_URL ?? null
+	const url = process.env.SISUB_DATABASE_URL ?? null
+	if (!url && integrationEnabled && integrationRequired) {
+		throw new Error("Missing required Supabase integration env: SISUB_DATABASE_URL")
+	}
+	return url
 }
 
 /**

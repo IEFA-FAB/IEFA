@@ -111,7 +111,18 @@ jobs:
         if: inputs.health_url != ''
         env:
           HEALTH_URL: ${{ inputs.health_url }}
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
         run: |
+          # Serviço escalado a zero (lever de custo — ex.: sisub-mcp com
+          # desired_count = 0 no terraform): não há target atrás do ALB e o
+          # health externo devolveria 503 para sempre. O rollout ECS já
+          # validou o deploy; pular o smoke em vez de falhar o pipeline.
+          DESIRED="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE"             --query 'services[0].desiredCount' --output text 2>/dev/null || echo unknown)"
+          if [[ "$DESIRED" == "0" ]]; then
+            echo "⏭  service desiredCount=0 (scaled to zero) — skipping external health check"
+            exit 0
+          fi
           for i in {1..10}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
             if [[ "${status:0:1}" == "2" ]]; then echo "✅ ${{ inputs.concurrency_suffix }} health check passed"; exit 0; fi
