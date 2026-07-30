@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { checkSupplierSicafFn } from "@/server/replenishment.fn"
 import { cancelSupplyOrderFn, createSupplyOrderFn, listEmpenhosForKitchenFn, listSupplyOrdersFn } from "@/server/supply-order.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/supply-orders")({
@@ -45,10 +46,40 @@ function SupplyOrdersPage() {
 	const [qty, setQty] = useState("")
 	const [expected, setExpected] = useState("")
 	const [number, setNumber] = useState("")
+	const [sicafCnpj, setSicafCnpj] = useState("")
+	const [sicaf, setSicaf] = useState<{ status: string; detail: string } | null>(null)
+	const [sicafAck, setSicafAck] = useState(false)
+
+	async function checkSicaf() {
+		const cnpj = sicafCnpj.replace(/\D/g, "")
+		if (cnpj.length !== 14) {
+			toast.error("Informe um CNPJ com 14 dígitos")
+			return
+		}
+		setBusy(true)
+		try {
+			setSicaf(await checkSupplierSicafFn({ data: { cnpj } }))
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Falha na consulta SICAF")
+		} finally {
+			setBusy(false)
+		}
+	}
 
 	async function emit(e: React.FormEvent) {
 		e.preventDefault()
 		if (!empenhoId || !qty || !expected) return
+		// SICAF é vinculado ao fornecedor do empenho: com CNPJ conhecido, a
+		// consulta é obrigatória antes de emitir (review: resultado ausente passava
+		// e um resultado antigo sobrevivia à troca de empenho — agora zera na troca)
+		if (sicafCnpj.replace(/\D/g, "").length === 14 && sicaf == null) {
+			toast.error("Consulte a situação do fornecedor no SICAF antes de emitir a OF")
+			return
+		}
+		if (sicaf != null && sicaf.status !== "regular" && !sicafAck) {
+			toast.error("Fornecedor com pendência/indeterminado no SICAF — confirme explicitamente para prosseguir")
+			return
+		}
 		const empenho = empenhos.find((emp: { id: string }) => emp.id === empenhoId)
 		setBusy(true)
 		try {
@@ -59,6 +90,8 @@ function SupplyOrdersPage() {
 					number: number || undefined,
 					expectedDelivery: expected,
 					items: [{ arpItemId: empenho?.arp_item_id ?? undefined, orderedQty: Number(qty), unitPrice: empenho?.valor_unitario ?? undefined }],
+					sicafStatus: sicaf ? `${sicaf.status}: ${sicaf.detail}` : undefined,
+					sicafAcknowledged: sicafAck,
 				},
 			})
 			toast.success("OF emitida")
@@ -105,7 +138,13 @@ function SupplyOrdersPage() {
 									<button
 										key={emp.id}
 										type="button"
-										onClick={() => setEmpenhoId(emp.id)}
+										onClick={() => {
+											setEmpenhoId(emp.id)
+											const cnpj = (emp as { arp_item?: { ni_fornecedor?: string | null } | null }).arp_item?.ni_fornecedor?.replace(/\D/g, "") ?? ""
+											setSicafCnpj(cnpj)
+											setSicaf(null)
+											setSicafAck(false)
+										}}
 										className={`w-full text-left text-xs px-2 py-1 rounded ${empenhoId === emp.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
 									>
 										<span className="font-mono">{emp.numero_empenho}</span>
@@ -130,6 +169,31 @@ function SupplyOrdersPage() {
 							{busy ? <Spinner className="size-3.5" /> : <Send className="size-3.5" />}
 							Emitir
 						</Button>
+						<div className="sm:col-span-5 rounded-md bg-muted/40 p-2.5 space-y-1.5">
+							<div className="flex items-center gap-2">
+								<Label className="text-xs shrink-0">SICAF (fornecedor)</Label>
+								<Input
+									className="h-7 text-xs w-44 font-mono"
+									placeholder="CNPJ (14 dígitos)"
+									value={sicafCnpj}
+									onChange={(e) => setSicafCnpj(e.target.value)}
+								/>
+								<Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={busy} onClick={checkSicaf}>
+									Consultar
+								</Button>
+								{sicaf && (
+									<Badge variant={sicaf.status === "regular" ? "secondary" : "destructive"} className="text-[10px]">
+										{sicaf.status}: {sicaf.detail}
+									</Badge>
+								)}
+							</div>
+							{sicaf != null && sicaf.status !== "regular" && (
+								<label className="flex items-center gap-2 text-xs text-warning">
+									<input type="checkbox" checked={sicafAck} onChange={(e) => setSicafAck(e.target.checked)} />
+									Ciente da pendência no SICAF — decido prosseguir (registrado com meu usuário na OF)
+								</label>
+							)}
+						</div>
 					</form>
 				</CardContent>
 			</Card>

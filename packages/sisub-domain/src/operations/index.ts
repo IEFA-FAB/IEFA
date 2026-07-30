@@ -192,6 +192,18 @@ export {
 	restoreRecipe,
 } from "./recipes.ts"
 export {
+	applyCorrectionFactors,
+	type ChannelDecision,
+	type ChannelDecisionInput,
+	type CorrectionInput,
+	calculateNetNeed,
+	decideChannel,
+	estimateLeadTime,
+	type LeadTimeSource,
+	type NetNeedInput,
+	type PurchaseChannel,
+} from "./replenishment.ts"
+export {
 	getReviewMetrics,
 	type ReviewActivityDay,
 	type ReviewActivityEntry,
