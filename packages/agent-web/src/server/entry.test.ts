@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { DiscoveryDocument } from "../catalog.ts"
-import { createAgentServerEntry } from "./entry.ts"
+import type { DiscoveryDocument } from "../catalog"
+import { createAgentServerEntry } from "./entry"
 
 const DOCS: DiscoveryDocument[] = [{ path: "/llms.txt", rel: "describedby", type: "text/plain", title: "Guide" }]
 

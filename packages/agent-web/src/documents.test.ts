@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { assertAsciiTitles, type SiteCatalog } from "./catalog.ts"
-import { catalogSitemapEntries, renderApiCatalog, renderLlmsTxt, renderSitemap } from "./documents.ts"
+import { assertAsciiTitles, type SiteCatalog } from "./catalog"
+import { catalogSitemapEntries, renderApiCatalog, renderLlmsTxt, renderSitemap } from "./documents"
 
 const CATALOG: SiteCatalog = {
 	name: "App de Teste",

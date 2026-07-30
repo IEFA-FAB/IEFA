@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { htmlToMarkdown } from "./html-to-markdown.ts"
+import { htmlToMarkdown } from "./html-to-markdown"
 
 function page(body: string, head = "<title>Título</title><meta name='description' content='Resumo.'>") {
 	return `<!DOCTYPE html><html><head>${head}</head><body>${body}</body></html>`

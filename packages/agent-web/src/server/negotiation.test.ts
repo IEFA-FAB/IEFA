@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { DiscoveryDocument } from "../catalog.ts"
-import { buildDiscoveryLinkHeader, isUnsupportedAcceptResponse, notAcceptableResponse, prefersMarkdown, withDiscoveryLinks } from "./negotiation.ts"
+import type { DiscoveryDocument } from "../catalog"
+import { buildDiscoveryLinkHeader, isUnsupportedAcceptResponse, notAcceptableResponse, prefersMarkdown, withDiscoveryLinks } from "./negotiation"
 
 const DOCS: DiscoveryDocument[] = [
 	{ path: "/llms.txt", rel: "describedby", type: "text/plain", title: "Guide" },
