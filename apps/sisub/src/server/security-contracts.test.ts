@@ -308,6 +308,33 @@ describe("server function security contracts", () => {
 		}
 	})
 
+	test("policy rule mutations require global level 2", () => {
+		// Regras de política de revisão são do catálogo da SDAB e não passam por operação de
+		// domínio — o gate vive no próprio server fn. Antes bastava `requireAuth()`.
+		const source = readServerFile("policy.fn.ts")
+		for (const fn of ["createPolicyRuleFn", "updatePolicyRuleFn", "deletePolicyRuleFn"]) {
+			const start = source.indexOf(`export const ${fn}`)
+			expect(start, `${fn} not found`).toBeGreaterThan(-1)
+			const next = source.indexOf("export const ", start + 1)
+			const fnSource = source.slice(start, next === -1 ? undefined : next)
+			expect(fnSource, `${fn} does not require global:2`).toContain('requireAuthWithPermission("global", 2)')
+		}
+	})
+
+	test("sync triggers stay behind global level 2", () => {
+		// Estes endpoints carregam o ADMIN_SECRET nos headers, então nem a LEITURA de status
+		// é aberta a global:1 — exceção consciente ao "global:1 lê todas as telas".
+		for (const fileName of ["compras-sync.fn.ts", "nutrition-sync.fn.ts"]) {
+			const source = readServerFile(fileName)
+			expect(source).toContain('requireAuthWithPermission("global", 2)')
+			const handlers = source.match(/export const \w+Fn = createServerFn[\s\S]*?(?=\nexport const |$)/g) ?? []
+			expect(handlers.length).toBeGreaterThan(0)
+			for (const handler of handlers) {
+				expect(handler, `a sync endpoint in ${fileName} skips the admin guard`).toContain("requireSyncAdmin()")
+			}
+		}
+	})
+
 	test("places and settings write functions require authentication before service-role writes", () => {
 		for (const fileName of ["places.fn.ts", "unit-settings.fn.ts", "kitchen-settings.fn.ts"]) {
 			const source = readServerFile(fileName)
