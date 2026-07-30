@@ -382,6 +382,8 @@ export {
 	TemplateItemSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"
+export type { ListTrainingResets, ResetTrainingScope } from "./training.ts"
+export { ListTrainingResetsSchema, ResetTrainingScopeSchema } from "./training.ts"
 export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from "./units.ts"
 export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"
 export type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "./user.ts"
