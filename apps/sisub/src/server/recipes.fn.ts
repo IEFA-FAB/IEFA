@@ -10,9 +10,7 @@
 
 import {
 	CreateRecipeSchema,
-	CreateRecipeVersionSchema,
 	createRecipe,
-	createRecipeVersion,
 	DeleteRecipeSchema,
 	deleteRecipe,
 	FetchRecipeSchema,
@@ -30,6 +28,8 @@ import {
 	recordRecipeReview,
 	renameRecipe,
 	restoreRecipe,
+	SaveRecipeEditSchema,
+	saveRecipeEdit,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
@@ -85,11 +85,11 @@ export const createRecipeFn = createServerFn({ method: "POST" })
 		return createRecipe(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-export const createRecipeVersionFn = createServerFn({ method: "POST" })
-	.validator(CreateRecipeVersionSchema)
+export const saveRecipeEditFn = createServerFn({ method: "POST" })
+	.validator(SaveRecipeEditSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createRecipeVersion(getDb(), ctx, data).catch(handleDomainError)
+		return saveRecipeEdit(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteRecipeFn = createServerFn({ method: "POST" })

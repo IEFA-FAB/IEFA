@@ -5,9 +5,9 @@
 
 import {
 	CreateRecipeSchema,
-	CreateRecipeVersionSchema,
+	SaveRecipeEditSchema,
 	createRecipe,
-	createRecipeVersion,
+	saveRecipeEdit,
 	FetchRecipeSchema,
 	fetchRecipe,
 	ListRecipeVersionsSchema,
@@ -90,17 +90,18 @@ const createRecipeTool: ToolDefinition = {
 // create_recipe_version
 // ---------------------------------------------------------------------------
 
-const createRecipeVersionTool: ToolDefinition = {
+const saveRecipeEditTool: ToolDefinition = {
 	schema: {
-		name: "create_recipe_version",
-		description: "Cria uma nova versão de uma receita existente, vinculando baseRecipeId. Funciona como um branch git-like. Requer permissão kitchen nível 2.",
-		inputSchema: toJsonSchema(CreateRecipeVersionSchema),
+		name: "save_recipe_edit",
+		description:
+			"Salva a edição de uma receita existente. Exige `context`: com {scope:'kitchen',kitchenId} a edição de uma receita GLOBAL não a altera — cria uma cópia local daquela cozinha (fork copy-on-write, git-like), exigindo kitchen nível 2 ali. Com {scope:'global'} cria nova versão global, exigindo global nível 2. A versão e o escopo são calculados no servidor.",
+		inputSchema: toJsonSchema(SaveRecipeEditSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			const input = CreateRecipeVersionSchema.parse(args)
-			return toolResult(await createRecipeVersion(getDb(), ctx, input))
+			const input = SaveRecipeEditSchema.parse(args)
+			return toolResult(await saveRecipeEdit(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -111,4 +112,4 @@ const createRecipeVersionTool: ToolDefinition = {
 // Exportação
 // ---------------------------------------------------------------------------
 
-export const recipeTools: ToolDefinition[] = [getRecipe, listRecipeVersionsTool, createRecipeTool, createRecipeVersionTool]
+export const recipeTools: ToolDefinition[] = [getRecipe, listRecipeVersionsTool, createRecipeTool, saveRecipeEditTool]

@@ -306,8 +306,8 @@ export {
 } from "./recipe-flow.ts"
 export type {
 	CreateRecipe,
-	CreateRecipeVersion,
 	DeleteRecipe,
+	EditScope,
 	FetchRecipe,
 	Ingredient,
 	ListRecipeLastReviews,
@@ -316,10 +316,10 @@ export type {
 	RecordRecipeReview,
 	RenameRecipe,
 	RestoreRecipe,
+	SaveRecipeEdit,
 } from "./recipes.ts"
 export {
 	CreateRecipeSchema,
-	CreateRecipeVersionSchema,
 	DeleteRecipeSchema,
 	FetchRecipeSchema,
 	IngredientSchema,
@@ -329,6 +329,7 @@ export {
 	RecordRecipeReviewSchema,
 	RenameRecipeSchema,
 	RestoreRecipeSchema,
+	SaveRecipeEditSchema,
 } from "./recipes.ts"
 export type { GetReviewMetrics } from "./review-metrics.ts"
 export { GetReviewMetricsSchema } from "./review-metrics.ts"

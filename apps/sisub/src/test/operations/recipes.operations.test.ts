@@ -8,7 +8,6 @@
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	createRecipe,
-	createRecipeVersion,
 	deleteRecipe,
 	fetchRecipe,
 	listRecipeMenuUsage,
@@ -16,6 +15,7 @@ import {
 	listRecipeVersions,
 	renameRecipe,
 	restoreRecipe,
+	saveRecipeEdit,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -91,12 +91,11 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		if (!reachable || !seeder || !db) return
 		const v1 = await createRecipe(db, ctx, { name: uid("[TEST] Família "), portionYield: 100, kitchenId: null })
 		seeder.track("recipes", v1.id)
-		const v2 = await createRecipeVersion(db, ctx, {
+		const { recipe: v2 } = await saveRecipeEdit(db, ctx, {
 			name: v1.name,
 			portionYield: 120,
-			kitchenId: null,
 			baseRecipeId: v1.id,
-			version: 2,
+			context: { scope: "global" },
 		})
 		seeder.track("recipes", v2.id)
 
@@ -136,21 +135,41 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		expect(restaurada.map((r) => r.id)).toContain(recipeId)
 	})
 
-	test("createRecipeVersion cria nova linha com version incrementada e base_recipe_id", async () => {
+	test("saveRecipeEdit no contexto global cria nova versão com base_recipe_id na raiz", async () => {
 		if (!reachable || !seeder || !db) return
 		const v1 = await seeder.seedRecipe({ name: uid("[TEST] Versionada ") })
 
-		const v2 = await createRecipeVersion(db, ctx, {
+		const { recipe: v2, forked } = await saveRecipeEdit(db, ctx, {
 			name: "[TEST] Versionada v2",
 			portionYield: 130,
-			kitchenId: null,
 			baseRecipeId: v1,
-			version: 2,
+			context: { scope: "global" },
 		})
 		seeder.track("recipes", v2.id)
 
+		expect(forked).toBe(false)
 		expect(v2.version).toBe(2)
 		expect(v2.base_recipe_id).toBe(v1)
+		expect(v2.kitchen_id).toBeNull()
+
+		// A terceira versão continua apontando para a RAIZ, não para o pai imediato —
+		// senão a família se parte e duas versões aparecem juntas na listagem.
+		const { recipe: v3 } = await saveRecipeEdit(db, ctx, {
+			name: "[TEST] Versionada v3",
+			portionYield: 140,
+			baseRecipeId: v2.id,
+			context: { scope: "global" },
+		})
+		seeder.track("recipes", v3.id)
+
+		expect(v3.version).toBe(3)
+		expect(v3.base_recipe_id).toBe(v1)
+
+		const listadas = await listRecipes(db, ctx, { kitchenId: null })
+		const ids = listadas.map((r) => r.id)
+		expect(ids).toContain(v3.id)
+		expect(ids).not.toContain(v2.id)
+		expect(ids).not.toContain(v1)
 	})
 
 	test("listRecipeVersions retorna a família ordenada por version asc", async () => {

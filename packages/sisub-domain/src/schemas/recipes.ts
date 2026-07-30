@@ -60,16 +60,35 @@ export const CreateRecipeSchema = z.object({
 })
 export type CreateRecipe = z.infer<typeof CreateRecipeSchema>
 
-export const CreateRecipeVersionSchema = CreateRecipeSchema.extend({
+/**
+ * Contexto explícito de uma edição: de QUAL tela ela partiu.
+ *
+ * Decide fork local vs. nova versão global e é obrigatório — sem default. Inferir da
+ * permissão do usuário produziria comportamento dependente de quem ele é: alguém com
+ * `global:2` **e** `kitchen:2` editando pela tela da cozinha alteraria o catálogo global
+ * sem querer.
+ */
+export const EditScopeSchema = z.discriminatedUnion("scope", [
+	z.object({ scope: z.literal("global") }),
+	z.object({ scope: z.literal("kitchen"), kitchenId: KitchenIdSchema }),
+])
+export type EditScope = z.infer<typeof EditScopeSchema>
+
+/**
+ * Salvar a edição de uma receita existente.
+ *
+ * Sem `version` e sem `kitchenId`: ambos são resolvidos no servidor. O número de versão
+ * vinha do cliente e, como a listagem deduplica por família mantendo a maior versão,
+ * bastava enviar um número alto para fixar a própria linha como canônica. O escopo vinha
+ * do dado carregado, o que fazia a edição de uma receita global no contexto de uma
+ * cozinha virar uma nova versão global.
+ */
+export const SaveRecipeEditSchema = CreateRecipeSchema.omit({ kitchenId: true }).extend({
+	/** Versão que o usuário abriu para editar. A raiz da linhagem é resolvida no servidor. */
 	baseRecipeId: UuidSchema,
-	version: z.number().int().positive(),
-	/**
-	 * Receita-fonte (versão sendo editada). Quando presente, o fluxo de produção
-	 * dessa versão é copiado para a nova (copy-forward), remapeando os insumos.
-	 */
-	sourceRecipeId: UuidSchema.optional(),
+	context: EditScopeSchema,
 })
-export type CreateRecipeVersion = z.infer<typeof CreateRecipeVersionSchema>
+export type SaveRecipeEdit = z.infer<typeof SaveRecipeEditSchema>
 
 // ── Revisão de preparações (conferência pelos nutricionistas) ────────────────
 

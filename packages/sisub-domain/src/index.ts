@@ -3,7 +3,6 @@
 // Guards
 export {
 	type AssetKind,
-	assertVersionBaseScope,
 	authorizeAssetMutation,
 	requireAnyPermission,
 	requireAssetWriteForScope,
