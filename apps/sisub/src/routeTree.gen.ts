@@ -74,6 +74,7 @@ import { Route as ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport } fr
 import { Route as ProtectedModulesMesshallMessHallIdIndexRouteImport } from './routes/_protected/_modules/messhall/$messHallId/index'
 import { Route as ProtectedModulesStorageKitchenIdCountsRouteImport } from './routes/_protected/_modules/storage/$kitchenId/counts'
 import { Route as ProtectedModulesStorageKitchenIdDashboardRouteImport } from './routes/_protected/_modules/storage/$kitchenId/dashboard'
+import { Route as ProtectedModulesStorageKitchenIdProductionIssueRouteImport } from './routes/_protected/_modules/storage/$kitchenId/production-issue'
 import { Route as ProtectedModulesStorageKitchenIdSupplyOrdersRouteImport } from './routes/_protected/_modules/storage/$kitchenId/supply-orders'
 import { Route as ProtectedModulesUnitUnitIdIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/index'
 import { Route as ProtectedModulesUnitUnitIdChatRouteImport } from './routes/_protected/_modules/unit/$unitId/chat'
@@ -485,6 +486,12 @@ const ProtectedModulesStorageKitchenIdDashboardRoute =
     path: '/storage/$kitchenId/dashboard',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
+const ProtectedModulesStorageKitchenIdProductionIssueRoute =
+  ProtectedModulesStorageKitchenIdProductionIssueRouteImport.update({
+    id: '/storage/$kitchenId/production-issue',
+    path: '/storage/$kitchenId/production-issue',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesStorageKitchenIdSupplyOrdersRoute =
   ProtectedModulesStorageKitchenIdSupplyOrdersRouteImport.update({
     id: '/storage/$kitchenId/supply-orders',
@@ -757,6 +764,7 @@ export interface FileRoutesByFullPath {
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  '/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   '/storage/$kitchenId/supply-orders': typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
@@ -850,6 +858,7 @@ export interface FileRoutesByTo {
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  '/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   '/storage/$kitchenId/supply-orders': typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
@@ -951,6 +960,7 @@ export interface FileRoutesById {
   '/_protected/_modules/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/_protected/_modules/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/_protected/_modules/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  '/_protected/_modules/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   '/_protected/_modules/storage/$kitchenId/supply-orders': typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   '/_protected/_modules/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
@@ -1052,6 +1062,7 @@ export interface FileRouteTypes {
     | '/local-analytics/$unitId/indicators'
     | '/storage/$kitchenId/counts'
     | '/storage/$kitchenId/dashboard'
+    | '/storage/$kitchenId/production-issue'
     | '/storage/$kitchenId/supply-orders'
     | '/unit/$unitId/chat'
     | '/unit/$unitId/dashboard'
@@ -1145,6 +1156,7 @@ export interface FileRouteTypes {
     | '/local-analytics/$unitId/indicators'
     | '/storage/$kitchenId/counts'
     | '/storage/$kitchenId/dashboard'
+    | '/storage/$kitchenId/production-issue'
     | '/storage/$kitchenId/supply-orders'
     | '/unit/$unitId/chat'
     | '/unit/$unitId/dashboard'
@@ -1245,6 +1257,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/local-analytics/$unitId/indicators'
     | '/_protected/_modules/storage/$kitchenId/counts'
     | '/_protected/_modules/storage/$kitchenId/dashboard'
+    | '/_protected/_modules/storage/$kitchenId/production-issue'
     | '/_protected/_modules/storage/$kitchenId/supply-orders'
     | '/_protected/_modules/unit/$unitId/chat'
     | '/_protected/_modules/unit/$unitId/dashboard'
@@ -1753,6 +1766,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesStorageKitchenIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
+    '/_protected/_modules/storage/$kitchenId/production-issue': {
+      id: '/_protected/_modules/storage/$kitchenId/production-issue'
+      path: '/storage/$kitchenId/production-issue'
+      fullPath: '/storage/$kitchenId/production-issue'
+      preLoaderRoute: typeof ProtectedModulesStorageKitchenIdProductionIssueRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
     '/_protected/_modules/storage/$kitchenId/supply-orders': {
       id: '/_protected/_modules/storage/$kitchenId/supply-orders'
       path: '/storage/$kitchenId/supply-orders'
@@ -2248,6 +2268,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesGlobalWeeklyPlansNewRoute: typeof ProtectedModulesGlobalWeeklyPlansNewRoute
   ProtectedModulesStorageKitchenIdCountsRoute: typeof ProtectedModulesStorageKitchenIdCountsRoute
   ProtectedModulesStorageKitchenIdDashboardRoute: typeof ProtectedModulesStorageKitchenIdDashboardRoute
+  ProtectedModulesStorageKitchenIdProductionIssueRoute: typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
   ProtectedModulesStorageKitchenIdSupplyOrdersRoute: typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   ProtectedModulesGlobalFrozenPreparationsIndexRoute: typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   ProtectedModulesGlobalIngredientsIndexRoute: typeof ProtectedModulesGlobalIngredientsIndexRoute
@@ -2317,6 +2338,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesStorageKitchenIdCountsRoute,
   ProtectedModulesStorageKitchenIdDashboardRoute:
     ProtectedModulesStorageKitchenIdDashboardRoute,
+  ProtectedModulesStorageKitchenIdProductionIssueRoute:
+    ProtectedModulesStorageKitchenIdProductionIssueRoute,
   ProtectedModulesStorageKitchenIdSupplyOrdersRoute:
     ProtectedModulesStorageKitchenIdSupplyOrdersRoute,
   ProtectedModulesGlobalFrozenPreparationsIndexRoute:

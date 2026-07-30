@@ -147,6 +147,13 @@ export {
 	updateProductionTaskStatus,
 } from "./production.ts"
 export {
+	computeTheoreticalConsumption,
+	leftoverExpiryDate,
+	type RecipeSnapshotForIssue,
+	type SnapshotIngredientRow,
+	type TheoreticalConsumption,
+} from "./production-issue.ts"
+export {
 	createPurchaseItem,
 	deletePurchaseItem,
 	deletePurchaseItemIngredient,

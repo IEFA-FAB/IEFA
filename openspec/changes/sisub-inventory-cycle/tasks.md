@@ -66,12 +66,12 @@
 
 ## 7. Fase 5 — Baixa por produção
 
-- [ ] 7.1 [sisub-domain] Operation `production-issue`: consumo teórico a partir do **snapshot `menu_items.recipe`** (nunca a receita viva), alocação FEFO multi-lote, override com justificativa
-- [ ] 7.2 [sisub] Fluxo de confirmação de saída ao concluir `production_task` (pré-preenchido do snapshot, editável) + server fns
-- [ ] 7.3 [sisub] Badge de suficiência de estoque no kitchen-production (N/M disponíveis, sem bloquear produção)
-- [ ] 7.4 [sisub-domain] Sobras: `leftover_return` cria lote da **preparação congelada** (XOR do ledger) com validade via `shelf_life_days`; descarte como `waste` com motivo
-- [ ] 7.5 [sisub] Relatório de variância teórico × real por período/ingrediente
-- [ ] 7.6 [sisub] Testes: FEFO atravessando lotes, override, sobra congelada (lote de frozen_preparation), variância, consumo usa snapshot mesmo após edição da receita
+- [x] 7.1 [sisub-domain] Operation `production-issue`: consumo teórico a partir do **snapshot `menu_items.recipe`** (nunca a receita viva), alocação FEFO multi-lote, override com justificativa
+- [x] 7.2 [sisub] Fluxo de confirmação de saída ao concluir `production_task` (pré-preenchido do snapshot, editável) + server fns
+- [x] 7.3 [sisub] Badge de suficiência de estoque no kitchen-production (N/M disponíveis, sem bloquear produção)
+- [x] 7.4 [sisub-domain] Sobras: `leftover_return` cria lote da **preparação congelada** (XOR do ledger) com validade via `shelf_life_days`; descarte como `waste` com motivo
+- [x] 7.5 [sisub] Relatório de variância teórico × real por período/ingrediente
+- [x] 7.6 [sisub] Testes: FEFO atravessando lotes, override, sobra congelada (lote de frozen_preparation), variância, consumo usa snapshot mesmo após edição da receita
 
 ## 8. Fase 6 — MCASP + fechamento
 
