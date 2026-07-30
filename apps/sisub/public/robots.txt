@@ -1,14 +1,73 @@
-# Public: permitir rastreamento do site
+# https://www.robotstxt.org/robotstxt.html
+#
+# O SISUB é sistema de uso interno do COMAER. Só a vitrine pública
+# (/, /tutorial, /changelog e as páginas legais) deve ser rastreada — o resto
+# exige sessão de usuário.
+#
+# Content-Signal (https://contentsignals.org) declara a intenção sobre o uso do
+# conteúdo público:
+#   search=yes    indexação e citação com link são bem-vindas
+#   ai-input=yes  uso como contexto/grounding em respostas de IA é permitido
+#   ai-train=no   uso do conteúdo para treinar modelos não é autorizado
+# Alterar esses valores é decisão institucional, não técnica.
+
 User-agent: *
-# Bloqueie apenas áreas internas/privadas e utilitárias
-Disallow: /auth/
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+Disallow: /auth
+Disallow: /hub
+Disallow: /analytics
+Disallow: /local-analytics/
+Disallow: /unit/
+Disallow: /messhall/
+Disallow: /kitchen/
+Disallow: /kitchen-production/
+Disallow: /diner/
+Disallow: /global/
 Disallow: /profile
-Disallow: /rancho
-Disallow: /checkin
-Disallow: /fiscal
-Disallow: /admin
-Disallow: /superadmin
 Disallow: /health
 
-# Sitemap
-Sitemap: https://app.previsaosisub.com.br/sitemap.xml
+# --- Assistentes de IA e buscadores com IA -------------------------------
+# Leitura sob demanda e busca: permitidas, mesmas restrições do grupo geral.
+
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: DuckAssistBot
+User-agent: Applebot-Extended
+User-agent: Google-Extended
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+Disallow: /auth
+Disallow: /hub
+Disallow: /analytics
+Disallow: /local-analytics/
+Disallow: /unit/
+Disallow: /messhall/
+Disallow: /kitchen/
+Disallow: /kitchen-production/
+Disallow: /diner/
+Disallow: /global/
+Disallow: /profile
+Disallow: /health
+
+# --- Coletores voltados a treinamento de modelos -------------------------
+# Bloqueados por coerência com ai-train=no.
+
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: CCBot
+User-agent: Bytespider
+User-agent: meta-externalagent
+User-agent: Amazonbot
+User-agent: cohere-ai
+User-agent: Diffbot
+User-agent: omgili
+Content-Signal: search=no, ai-input=no, ai-train=no
+Disallow: /
+
+Sitemap: https://sisub.iefa.com.br/sitemap.xml

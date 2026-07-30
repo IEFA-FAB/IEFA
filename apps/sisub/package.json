@@ -25,6 +25,7 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@grafana/faro-web-sdk": "^2.8.2",
+        "@iefa/agent-web": "workspace:*",
         "@iefa/ai-provider": "workspace:*",
         "@iefa/alpha-client": "workspace:*",
         "@iefa/database": "workspace:*",
