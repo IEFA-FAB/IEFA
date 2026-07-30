@@ -89,7 +89,7 @@ function buildResponse(session_id: string, state: any): MessageResponse {
 }
 
 async function logQuery(session_id: string, user_id: string, query: string, state: any, latency_ms: number, langsmith_run_id: string | null = null) {
-	await supabase.from("query_logs").insert({
+	await supabase.from("query_log").insert({
 		session_id,
 		user_id,
 		original_query: query,
@@ -135,7 +135,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const { message } = c.req.valid("json")
 
 		if (role === "app_requisitante") {
-			const { data: existing } = await supabase.from("query_logs").select("user_id").eq("session_id", session_id).limit(1).single()
+			const { data: existing } = await supabase.from("query_log").select("user_id").eq("session_id", session_id).limit(1).single()
 			if (existing && existing.user_id !== user.id) {
 				return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 			}
@@ -160,7 +160,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const { message } = c.req.valid("json")
 
 		if (role === "app_requisitante") {
-			const { data: existing } = await supabase.from("query_logs").select("user_id").eq("session_id", session_id).limit(1).single()
+			const { data: existing } = await supabase.from("query_log").select("user_id").eq("session_id", session_id).limit(1).single()
 			if (existing && existing.user_id !== user.id) {
 				return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 			}
@@ -204,7 +204,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const role = c.get("role") as AppRole
 
 		if (role === "app_requisitante") {
-			const { data: existing } = await supabase.from("query_logs").select("user_id").eq("session_id", session_id).limit(1).single()
+			const { data: existing } = await supabase.from("query_log").select("user_id").eq("session_id", session_id).limit(1).single()
 			if (existing && existing.user_id !== user.id) {
 				return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 			}
@@ -226,7 +226,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.get("/api/v1/chunks/:id", async (c) => {
 		const id = c.req.param("id")
 		const { data, error } = await supabase
-			.from("document_chunks")
+			.from("document_chunk")
 			.select("id, content, chapter, article, section, chunk_index, token_count, metadata, document_id")
 			.eq("id", id)
 			.single()

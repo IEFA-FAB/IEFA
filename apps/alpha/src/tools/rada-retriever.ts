@@ -41,6 +41,10 @@ const THRESHOLD = env.RERANK_THRESHOLD
 const RRF_K = env.RRF_K
 const RERANK_TOP_N = env.RERANK_TOP_N
 
+// As RPCs `alpha.match_chunks_cosine` / `alpha.match_chunks_fts` já restringem o
+// resultado à versão vigente (`document_chunk.is_current`, espelho de
+// `document.superseded_at is null`). Versões superseded seguem legíveis por ID,
+// para auditoria de pareceres antigos, mas nunca entram na busca.
 async function semanticSearch(queryVector: number[], filters: RADARetrieverInput["filters"], topK: number) {
 	const vectorStr = `[${queryVector.join(",")}]`
 	let query = supabase.rpc("match_chunks_cosine", {

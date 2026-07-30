@@ -116,7 +116,7 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 	const title = frontmatter.title ?? source
 	const year = frontmatter.year ?? new Date().getFullYear()
 
-	const { data: existing } = await supabase.from("documents").select("id").eq("source", source).single()
+	const { data: existing } = await supabase.from("document").select("id").eq("source", source).single()
 
 	let documentId: string
 
@@ -124,7 +124,7 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 		documentId = existing.id
 	} else {
 		const { data: doc, error } = await supabase
-			.from("documents")
+			.from("document")
 			.insert({ source, document_type: documentType, title, year, raw_content: markdown })
 			.select("id")
 			.single()
@@ -141,7 +141,7 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 		const batch = chunks.slice(i, i + BATCH)
 
 		const { data: existingChunks } = await supabase
-			.from("document_chunks")
+			.from("document_chunk")
 			.select("chunk_index")
 			.eq("document_id", documentId)
 			.in(
@@ -171,7 +171,7 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 			metadata: { source, document_type: documentType, year },
 		}))
 
-		const { error: insertError } = await supabase.from("document_chunks").insert(rows)
+		const { error: insertError } = await supabase.from("document_chunk").insert(rows)
 		if (insertError) throw new Error(`Failed to insert chunks: ${insertError.message}`)
 
 		created += toCreate.length
