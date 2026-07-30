@@ -1,8 +1,18 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import type { LocalCommitment } from "@/lib/arp-balance"
 import { queryKeys } from "@/lib/query-keys"
-import { anularEmpenhoFn, createEmpenhoFn, fetchArpForAtaFn, fetchEmpenhosFn, importArpItemsFn, searchArpFn, syncArpBalanceFn } from "@/server/arp.fn"
+import {
+	anularEmpenhoFn,
+	createEmpenhoFn,
+	fetchArpForAtaFn,
+	fetchArpLocalCommitmentsFn,
+	fetchEmpenhosFn,
+	importArpItemsFn,
+	searchArpFn,
+	syncArpBalanceFn,
+} from "@/server/arp.fn"
 import type { ArpWithItems, ComprasArpPage, CreateEmpenhoPayload } from "@/types/domain/arp"
 
 // ─── Query: ARP vinculada à ATA ───────────────────────────────────────────────
@@ -23,6 +33,17 @@ export function useEmpenhos(arpItemId: string | null) {
 		queryKey: queryKeys.ata.empenhos(arpItemId),
 		queryFn: () => fetchEmpenhosFn({ data: { arpItemId: arpItemId as string } }) as Promise<Empenho[]>,
 		enabled: arpItemId !== null,
+		staleTime: 1 * 60 * 1000,
+	})
+}
+
+// ─── Query: Comprometimento local (empenhos ativos) por item da ARP ──────────
+
+export function useArpLocalCommitments(arpId: string | null) {
+	return useQuery({
+		queryKey: queryKeys.ata.arpCommitments(arpId),
+		queryFn: () => fetchArpLocalCommitmentsFn({ data: { arpId: arpId as string } }) as Promise<Record<string, LocalCommitment>>,
+		enabled: arpId !== null,
 		staleTime: 1 * 60 * 1000,
 	})
 }
@@ -67,27 +88,29 @@ export function useSyncArpBalance(ataId: string) {
 
 // ─── Mutation: Registrar empenho ──────────────────────────────────────────────
 
-export function useCreateEmpenho(arpItemId: string) {
+export function useCreateEmpenho(arpItemId: string, arpId?: string) {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (payload: CreateEmpenhoPayload) => createEmpenhoFn({ data: payload }),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
+			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
 			toast.success(`Empenho ${data.numero_empenho} registrado com sucesso`)
 		},
-		onError: (error) => toast.error(`Erro ao registrar empenho: ${error.message}`),
+		onError: (error) => toast.error(error.message),
 	})
 }
 
 // ─── Mutation: Anular empenho ─────────────────────────────────────────────────
 
-export function useAnularEmpenho(arpItemId: string) {
+export function useAnularEmpenho(arpItemId: string, arpId?: string) {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (empenhoId: string) => anularEmpenhoFn({ data: { empenhoId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
-			toast.success("Empenho anulado")
+			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
+			toast.success("Empenho anulado — comprometimento local recomposto")
 		},
 		onError: (error) => toast.error(`Erro ao anular empenho: ${error.message}`),
 	})

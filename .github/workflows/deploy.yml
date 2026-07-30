@@ -530,6 +530,11 @@ jobs:
           bunx turbo run test --filter=./packages/pbac
           bunx turbo run test --filter=./packages/sisub-domain
         env:
+          # SISUB_DATABASE_URL faltava: os testes de integração via Drizzle
+          # skipavam em silêncio ("verde vazio") — o guard SISUB_INTEGRATION_REQUIRED
+          # do harness passou a expor isso como falha. Com o secret, a suíte
+          # inteira roda contra o banco real também no deploy.
+          SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
           SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}

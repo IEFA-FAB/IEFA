@@ -1083,6 +1083,27 @@ export type Database = {
 					},
 				]
 			}
+			measure_unit: {
+				Row: {
+					code: string
+					created_at: string
+					description: string
+					dimension: string
+				}
+				Insert: {
+					code: string
+					created_at?: string
+					description: string
+					dimension: string
+				}
+				Update: {
+					code?: string
+					created_at?: string
+					description?: string
+					dimension?: string
+				}
+				Relationships: []
+			}
 			mess_halls: {
 				Row: {
 					code: string
@@ -1453,6 +1474,15 @@ export type Database = {
 			}
 		}
 		Views: {
+			v_measure_unit_review: {
+				Row: {
+					raw_value: string | null
+					source_description: string | null
+					source_id: string | null
+					source_table: string | null
+				}
+				Relationships: []
+			}
 			v_user_identity: {
 				Row: {
 					display_name: string | null
@@ -1932,10 +1962,162 @@ export type Database = {
 	}
 	gs1_integration: {
 		Tables: {
-			[_ in never]: never
+			gpc_brick: {
+				Row: {
+					brick_code: string
+					brick_title: string
+					class_code: string
+					class_title: string
+					family_code: string
+					family_title: string
+					segment_code: string
+					segment_title: string
+					synced_at: string
+				}
+				Insert: {
+					brick_code: string
+					brick_title: string
+					class_code: string
+					class_title: string
+					family_code: string
+					family_title: string
+					segment_code: string
+					segment_title: string
+					synced_at?: string
+				}
+				Update: {
+					brick_code?: string
+					brick_title?: string
+					class_code?: string
+					class_title?: string
+					family_code?: string
+					family_title?: string
+					segment_code?: string
+					segment_title?: string
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			gtin: {
+				Row: {
+					brand: string | null
+					created_at: string
+					description: string | null
+					gpc_brick_code: string | null
+					gtin: string
+					ncm: string | null
+					net_content: number | null
+					net_content_unit: string | null
+					parent_gtin: string | null
+					raw_payload: Json | null
+					source: string
+					units_per_parent: number | null
+					updated_at: string
+					verified_at: string | null
+				}
+				Insert: {
+					brand?: string | null
+					created_at?: string
+					description?: string | null
+					gpc_brick_code?: string | null
+					gtin: string
+					ncm?: string | null
+					net_content?: number | null
+					net_content_unit?: string | null
+					parent_gtin?: string | null
+					raw_payload?: Json | null
+					source: string
+					units_per_parent?: number | null
+					updated_at?: string
+					verified_at?: string | null
+				}
+				Update: {
+					brand?: string | null
+					created_at?: string
+					description?: string | null
+					gpc_brick_code?: string | null
+					gtin?: string
+					ncm?: string | null
+					net_content?: number | null
+					net_content_unit?: string | null
+					parent_gtin?: string | null
+					raw_payload?: Json | null
+					source?: string
+					units_per_parent?: number | null
+					updated_at?: string
+					verified_at?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "gtin_parent_gtin_fkey"
+						columns: ["parent_gtin"]
+						isOneToOne: false
+						referencedRelation: "gtin"
+						referencedColumns: ["gtin"]
+					},
+				]
+			}
+			supplier_product_map: {
+				Row: {
+					confidence: string
+					created_at: string
+					id: string
+					ingredient_item_id: string | null
+					purchase_item_id: string | null
+					supplier_cnpj: string
+					supplier_code: string
+				}
+				Insert: {
+					confidence?: string
+					created_at?: string
+					id?: string
+					ingredient_item_id?: string | null
+					purchase_item_id?: string | null
+					supplier_cnpj: string
+					supplier_code: string
+				}
+				Update: {
+					confidence?: string
+					created_at?: string
+					id?: string
+					ingredient_item_id?: string | null
+					purchase_item_id?: string | null
+					supplier_cnpj?: string
+					supplier_code?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "supplier_product_map_ingredient_item_id_fkey"
+						columns: ["ingredient_item_id"]
+						isOneToOne: false
+						referencedRelation: "v_barcode_review"
+						referencedColumns: ["ingredient_item_id"]
+					},
+				]
+			}
 		}
 		Views: {
-			[_ in never]: never
+			v_barcode_review: {
+				Row: {
+					description: string | null
+					ingredient_id: string | null
+					ingredient_item_id: string | null
+					raw_barcode: string | null
+				}
+				Insert: {
+					description?: never
+					ingredient_id?: string | null
+					ingredient_item_id?: string | null
+					raw_barcode?: string | null
+				}
+				Update: {
+					description?: never
+					ingredient_id?: string | null
+					ingredient_item_id?: string | null
+					raw_barcode?: string | null
+				}
+				Relationships: []
+			}
 		}
 		Functions: {
 			[_ in never]: never
@@ -2203,13 +2385,665 @@ export type Database = {
 	}
 	inventory: {
 		Tables: {
-			[_ in never]: never
+			goods_receipt: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					definitive_at: string | null
+					definitive_by: string | null
+					empenho_id: string | null
+					id: string
+					kitchen_id: number
+					nfe_document_id: string | null
+					notes: string | null
+					provisional_at: string | null
+					provisional_by: string | null
+					status: string
+					supply_order_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					definitive_at?: string | null
+					definitive_by?: string | null
+					empenho_id?: string | null
+					id?: string
+					kitchen_id: number
+					nfe_document_id?: string | null
+					notes?: string | null
+					provisional_at?: string | null
+					provisional_by?: string | null
+					status?: string
+					supply_order_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					definitive_at?: string | null
+					definitive_by?: string | null
+					empenho_id?: string | null
+					id?: string
+					kitchen_id?: number
+					nfe_document_id?: string | null
+					notes?: string | null
+					provisional_at?: string | null
+					provisional_by?: string | null
+					status?: string
+					supply_order_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "goods_receipt_nfe_document_id_fkey"
+						columns: ["nfe_document_id"]
+						isOneToOne: false
+						referencedRelation: "nfe_document"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "goods_receipt_supply_order_id_fkey"
+						columns: ["supply_order_id"]
+						isOneToOne: false
+						referencedRelation: "v_supplier_lead_time"
+						referencedColumns: ["supply_order_id"]
+					},
+				]
+			}
+			goods_receipt_item: {
+				Row: {
+					divergence_reason: string | null
+					expiry_date: string | null
+					frozen_preparation_id: string | null
+					id: string
+					ingredient_id: string | null
+					ingredient_item_id: string | null
+					invoiced_qty_base: number | null
+					lot_code: string | null
+					nfe_item_id: string | null
+					purchase_item_id: string | null
+					receipt_id: string
+					received_qty_base: number
+					unit_cost: number | null
+				}
+				Insert: {
+					divergence_reason?: string | null
+					expiry_date?: string | null
+					frozen_preparation_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_item_id?: string | null
+					invoiced_qty_base?: number | null
+					lot_code?: string | null
+					nfe_item_id?: string | null
+					purchase_item_id?: string | null
+					receipt_id: string
+					received_qty_base: number
+					unit_cost?: number | null
+				}
+				Update: {
+					divergence_reason?: string | null
+					expiry_date?: string | null
+					frozen_preparation_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_item_id?: string | null
+					invoiced_qty_base?: number | null
+					lot_code?: string | null
+					nfe_item_id?: string | null
+					purchase_item_id?: string | null
+					receipt_id?: string
+					received_qty_base?: number
+					unit_cost?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "goods_receipt_item_nfe_item_id_fkey"
+						columns: ["nfe_item_id"]
+						isOneToOne: false
+						referencedRelation: "nfe_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "goods_receipt_item_receipt_id_fkey"
+						columns: ["receipt_id"]
+						isOneToOne: false
+						referencedRelation: "goods_receipt"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			inventory_count: {
+				Row: {
+					confirmed_at: string | null
+					confirmed_by: string | null
+					created_at: string
+					created_by: string | null
+					id: string
+					kitchen_id: number
+					notes: string | null
+					status: string
+				}
+				Insert: {
+					confirmed_at?: string | null
+					confirmed_by?: string | null
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					kitchen_id: number
+					notes?: string | null
+					status?: string
+				}
+				Update: {
+					confirmed_at?: string | null
+					confirmed_by?: string | null
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					kitchen_id?: number
+					notes?: string | null
+					status?: string
+				}
+				Relationships: []
+			}
+			inventory_count_item: {
+				Row: {
+					count_id: string
+					counted_qty: number
+					id: string
+					ledger_qty: number | null
+					lot_id: string
+				}
+				Insert: {
+					count_id: string
+					counted_qty: number
+					id?: string
+					ledger_qty?: number | null
+					lot_id: string
+				}
+				Update: {
+					count_id?: string
+					counted_qty?: number
+					id?: string
+					ledger_qty?: number | null
+					lot_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "inventory_count_item_count_id_fkey"
+						columns: ["count_id"]
+						isOneToOne: false
+						referencedRelation: "inventory_count"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "inventory_count_item_lot_id_fkey"
+						columns: ["lot_id"]
+						isOneToOne: false
+						referencedRelation: "stock_lot"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			monthly_closing: {
+				Row: {
+					balance_snapshot: Json
+					closed_at: string
+					closed_by: string | null
+					closing_value: number
+					competencia: string
+					id: string
+					kitchen_id: number
+					opening_value: number
+					total_in: number
+					total_out: number
+					value_in: number
+					value_out: number
+				}
+				Insert: {
+					balance_snapshot: Json
+					closed_at?: string
+					closed_by?: string | null
+					closing_value?: number
+					competencia: string
+					id?: string
+					kitchen_id: number
+					opening_value?: number
+					total_in?: number
+					total_out?: number
+					value_in?: number
+					value_out?: number
+				}
+				Update: {
+					balance_snapshot?: Json
+					closed_at?: string
+					closed_by?: string | null
+					closing_value?: number
+					competencia?: string
+					id?: string
+					kitchen_id?: number
+					opening_value?: number
+					total_in?: number
+					total_out?: number
+					value_in?: number
+					value_out?: number
+				}
+				Relationships: []
+			}
+			nfe_document: {
+				Row: {
+					access_key: string
+					created_at: string
+					created_by: string | null
+					dest_cnpj: string | null
+					id: string
+					issued_at: string | null
+					kitchen_id: number | null
+					status: string
+					supplier_cnpj: string | null
+					supplier_name: string | null
+					total_value: number | null
+					xml: string
+				}
+				Insert: {
+					access_key: string
+					created_at?: string
+					created_by?: string | null
+					dest_cnpj?: string | null
+					id?: string
+					issued_at?: string | null
+					kitchen_id?: number | null
+					status?: string
+					supplier_cnpj?: string | null
+					supplier_name?: string | null
+					total_value?: number | null
+					xml: string
+				}
+				Update: {
+					access_key?: string
+					created_at?: string
+					created_by?: string | null
+					dest_cnpj?: string | null
+					id?: string
+					issued_at?: string | null
+					kitchen_id?: number | null
+					status?: string
+					supplier_cnpj?: string | null
+					supplier_name?: string | null
+					total_value?: number | null
+					xml?: string
+				}
+				Relationships: []
+			}
+			nfe_item: {
+				Row: {
+					cest: string | null
+					cfop: string | null
+					commercial_qty: number | null
+					commercial_unit: string | null
+					created_at: string
+					description: string | null
+					expiry_date: string | null
+					gtin: string | null
+					gtin_trib: string | null
+					id: string
+					ingredient_id: string | null
+					ingredient_item_id: string | null
+					lot_code: string | null
+					lot_qty: number | null
+					match_status: string
+					matched_qty_base: number | null
+					mfg_date: string | null
+					n_item: number
+					ncm: string | null
+					nfe_document_id: string
+					purchase_item_id: string | null
+					supplier_code: string | null
+					unit_price: number | null
+					updated_at: string
+				}
+				Insert: {
+					cest?: string | null
+					cfop?: string | null
+					commercial_qty?: number | null
+					commercial_unit?: string | null
+					created_at?: string
+					description?: string | null
+					expiry_date?: string | null
+					gtin?: string | null
+					gtin_trib?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_item_id?: string | null
+					lot_code?: string | null
+					lot_qty?: number | null
+					match_status?: string
+					matched_qty_base?: number | null
+					mfg_date?: string | null
+					n_item: number
+					ncm?: string | null
+					nfe_document_id: string
+					purchase_item_id?: string | null
+					supplier_code?: string | null
+					unit_price?: number | null
+					updated_at?: string
+				}
+				Update: {
+					cest?: string | null
+					cfop?: string | null
+					commercial_qty?: number | null
+					commercial_unit?: string | null
+					created_at?: string
+					description?: string | null
+					expiry_date?: string | null
+					gtin?: string | null
+					gtin_trib?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_item_id?: string | null
+					lot_code?: string | null
+					lot_qty?: number | null
+					match_status?: string
+					matched_qty_base?: number | null
+					mfg_date?: string | null
+					n_item?: number
+					ncm?: string | null
+					nfe_document_id?: string
+					purchase_item_id?: string | null
+					supplier_code?: string | null
+					unit_price?: number | null
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "nfe_item_nfe_document_id_fkey"
+						columns: ["nfe_document_id"]
+						isOneToOne: false
+						referencedRelation: "nfe_document"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			stock_cost: {
+				Row: {
+					avg_unit_cost: number
+					frozen_preparation_id: string | null
+					ingredient_id: string | null
+					kitchen_id: number
+					quantity: number
+					updated_at: string
+				}
+				Insert: {
+					avg_unit_cost?: number
+					frozen_preparation_id?: string | null
+					ingredient_id?: string | null
+					kitchen_id: number
+					quantity?: number
+					updated_at?: string
+				}
+				Update: {
+					avg_unit_cost?: number
+					frozen_preparation_id?: string | null
+					ingredient_id?: string | null
+					kitchen_id?: number
+					quantity?: number
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			stock_lot: {
+				Row: {
+					created_at: string
+					expiry_date: string | null
+					frozen_preparation_id: string | null
+					goods_receipt_item_id: string | null
+					id: string
+					ingredient_id: string | null
+					kitchen_id: number
+					lot_code: string
+					unit_cost: number | null
+				}
+				Insert: {
+					created_at?: string
+					expiry_date?: string | null
+					frozen_preparation_id?: string | null
+					goods_receipt_item_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					kitchen_id: number
+					lot_code: string
+					unit_cost?: number | null
+				}
+				Update: {
+					created_at?: string
+					expiry_date?: string | null
+					frozen_preparation_id?: string | null
+					goods_receipt_item_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					kitchen_id?: number
+					lot_code?: string
+					unit_cost?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "stock_lot_goods_receipt_item_id_fkey"
+						columns: ["goods_receipt_item_id"]
+						isOneToOne: false
+						referencedRelation: "goods_receipt_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			stock_movement: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					frozen_preparation_id: string | null
+					goods_receipt_item_id: string | null
+					id: string
+					ingredient_id: string | null
+					inventory_count_id: string | null
+					justification: string | null
+					kitchen_id: number
+					lot_id: string | null
+					production_task_id: string | null
+					quantity: number
+					total_cost: number | null
+					transfer_pair_id: string | null
+					type: string
+					unit_cost: number | null
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					frozen_preparation_id?: string | null
+					goods_receipt_item_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					inventory_count_id?: string | null
+					justification?: string | null
+					kitchen_id: number
+					lot_id?: string | null
+					production_task_id?: string | null
+					quantity: number
+					total_cost?: number | null
+					transfer_pair_id?: string | null
+					type: string
+					unit_cost?: number | null
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					frozen_preparation_id?: string | null
+					goods_receipt_item_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					inventory_count_id?: string | null
+					justification?: string | null
+					kitchen_id?: number
+					lot_id?: string | null
+					production_task_id?: string | null
+					quantity?: number
+					total_cost?: number | null
+					transfer_pair_id?: string | null
+					type?: string
+					unit_cost?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "stock_movement_count_fk"
+						columns: ["inventory_count_id"]
+						isOneToOne: false
+						referencedRelation: "inventory_count"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "stock_movement_goods_receipt_item_id_fkey"
+						columns: ["goods_receipt_item_id"]
+						isOneToOne: false
+						referencedRelation: "goods_receipt_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "stock_movement_lot_id_fkey"
+						columns: ["lot_id"]
+						isOneToOne: false
+						referencedRelation: "stock_lot"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			stock_policy: {
+				Row: {
+					coverage_days: number
+					created_at: string
+					id: string
+					ingredient_id: string
+					kitchen_id: number
+					min_stock: number
+					updated_at: string
+					urgency_threshold_days: number | null
+				}
+				Insert: {
+					coverage_days?: number
+					created_at?: string
+					id?: string
+					ingredient_id: string
+					kitchen_id: number
+					min_stock?: number
+					updated_at?: string
+					urgency_threshold_days?: number | null
+				}
+				Update: {
+					coverage_days?: number
+					created_at?: string
+					id?: string
+					ingredient_id?: string
+					kitchen_id?: number
+					min_stock?: number
+					updated_at?: string
+					urgency_threshold_days?: number | null
+				}
+				Relationships: []
+			}
 		}
 		Views: {
-			[_ in never]: never
+			v_stock_balance: {
+				Row: {
+					balance: number | null
+					balance_value: number | null
+					expiry_date: string | null
+					frozen_preparation_id: string | null
+					ingredient_id: string | null
+					kitchen_id: number | null
+					last_movement_at: string | null
+					lot_code: string | null
+					lot_id: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "stock_movement_lot_id_fkey"
+						columns: ["lot_id"]
+						isOneToOne: false
+						referencedRelation: "stock_lot"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			v_supplier_lead_time: {
+				Row: {
+					deviation_days: number | null
+					expected_delivery: string | null
+					lead_time_days: number | null
+					ni_fornecedor: string | null
+					purchase_item_id: string | null
+					received_at: string | null
+					sent_at: string | null
+					supply_order_id: string | null
+				}
+				Relationships: []
+			}
 		}
 		Functions: {
-			[_ in never]: never
+			close_month: {
+				Args: { p_competencia: string; p_kitchen_id: number; p_user: string }
+				Returns: {
+					closing_id: string
+					items: number
+				}[]
+			}
+			confirm_inventory_count: {
+				Args: { p_count_id: string; p_user: string }
+				Returns: {
+					adjustments: number
+				}[]
+			}
+			finalize_goods_receipt: {
+				Args: { p_receipt_id: string; p_user: string }
+				Returns: {
+					movements: number
+				}[]
+			}
+			register_leftover: {
+				Args: {
+					p_discard: boolean
+					p_expiry_date: string
+					p_frozen_preparation_id: string
+					p_kitchen_id: number
+					p_lot_code: string
+					p_quantity: number
+					p_reason: string
+					p_task_id: string
+					p_user: string
+				}
+				Returns: {
+					lot_id: string
+				}[]
+			}
+			register_production_issue: {
+				Args: { p_movements: Json; p_task_id: string; p_user: string }
+				Returns: {
+					movements: number
+				}[]
+			}
+			suggest_purchase_items: {
+				Args: { p_description: string; p_gpc_brick?: string; p_limit?: number }
+				Returns: {
+					description: string
+					purchase_item_id: string
+					score: number
+				}[]
+			}
+			transfer_stock: {
+				Args: {
+					p_lot_id: string
+					p_quantity: number
+					p_to_kitchen: number
+					p_user: string
+				}
+				Returns: {
+					transfer_pair_id: string
+				}[]
+			}
 		}
 		Enums: {
 			[_ in never]: never
@@ -3162,6 +3996,7 @@ export type Database = {
 					created_at: string
 					deleted_at: string | null
 					description: string | null
+					gtin: string | null
 					id: string
 					ingredient_id: string | null
 					purchase_item_id: string | null
@@ -3174,6 +4009,7 @@ export type Database = {
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					gtin?: string | null
 					id?: string
 					ingredient_id?: string | null
 					purchase_item_id?: string | null
@@ -3186,6 +4022,7 @@ export type Database = {
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					gtin?: string | null
 					id?: string
 					ingredient_id?: string | null
 					purchase_item_id?: string | null
@@ -5805,6 +6642,103 @@ export type Database = {
 						columns: ["purchase_item_id"]
 						isOneToOne: false
 						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			supply_order: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					empenho_id: string
+					expected_delivery: string | null
+					id: string
+					kitchen_id: number
+					notes: string | null
+					number: string | null
+					sent_at: string | null
+					sicaf_ack_by: string | null
+					sicaf_status: string | null
+					status: string
+					updated_at: string
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					empenho_id: string
+					expected_delivery?: string | null
+					id?: string
+					kitchen_id: number
+					notes?: string | null
+					number?: string | null
+					sent_at?: string | null
+					sicaf_ack_by?: string | null
+					sicaf_status?: string | null
+					status?: string
+					updated_at?: string
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					empenho_id?: string
+					expected_delivery?: string | null
+					id?: string
+					kitchen_id?: number
+					notes?: string | null
+					number?: string | null
+					sent_at?: string | null
+					sicaf_ack_by?: string | null
+					sicaf_status?: string | null
+					status?: string
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			supply_order_item: {
+				Row: {
+					arp_item_id: string | null
+					id: string
+					ordered_qty: number
+					purchase_item_id: string | null
+					supply_order_id: string
+					unit_price: number | null
+				}
+				Insert: {
+					arp_item_id?: string | null
+					id?: string
+					ordered_qty: number
+					purchase_item_id?: string | null
+					supply_order_id: string
+					unit_price?: number | null
+				}
+				Update: {
+					arp_item_id?: string | null
+					id?: string
+					ordered_qty?: number
+					purchase_item_id?: string | null
+					supply_order_id?: string
+					unit_price?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "supply_order_item_arp_item_id_fkey"
+						columns: ["arp_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_arp_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "supply_order_item_purchase_item_id_fkey"
+						columns: ["purchase_item_id"]
+						isOneToOne: false
+						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "supply_order_item_supply_order_id_fkey"
+						columns: ["supply_order_id"]
+						isOneToOne: false
+						referencedRelation: "supply_order"
 						referencedColumns: ["id"]
 					},
 				]
