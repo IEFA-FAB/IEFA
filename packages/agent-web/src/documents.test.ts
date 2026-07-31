@@ -42,6 +42,28 @@ describe("renderLlmsTxt", () => {
 		expect(renderLlmsTxt(CATALOG, { sections: [{ heading: "Vazia", links: [] }] })).not.toContain("## Vazia")
 	})
 
+	// Títulos vêm de banco e CMS: um `]` solto associaria o rótulo à URL errada.
+	test("escapa colchetes no título do link", () => {
+		const output = renderLlmsTxt(CATALOG, {
+			sections: [{ heading: "Dinâmica", links: [{ title: "App [beta]", url: "https://x.test/a", summary: "Resumo." }] }],
+		})
+		expect(output).toContain("- [App \\[beta\\]](https://x.test/a): Resumo.")
+	})
+
+	test("colapsa quebra de linha em título e resumo", () => {
+		const output = renderLlmsTxt(CATALOG, {
+			sections: [{ heading: "Dinâmica", links: [{ title: "Duas\nlinhas", url: "https://x.test/a", summary: "Resumo\ncom quebra." }] }],
+		})
+		expect(output).toContain("- [Duas linhas](https://x.test/a): Resumo com quebra.")
+	})
+
+	test("escapa parêntese e espaço na URL", () => {
+		const output = renderLlmsTxt(CATALOG, {
+			sections: [{ heading: "Dinâmica", links: [{ title: "T", url: "https://x.test/a (1)/b c", summary: "S." }] }],
+		})
+		expect(output).toContain("(https://x.test/a%20%281%29/b%20c)")
+	})
+
 	// Nota escrita em várias linhas tem que sair como prosa contínua; quem escreve
 	// controla os parágrafos com entradas vazias.
 	test("notas de várias linhas não ganham branco entre cada linha", () => {
