@@ -111,19 +111,18 @@ function stripFrontmatter(raw: string): string {
 /**
  * Conteúdo integral da documentação, um arquivo só. A leitura é do MDX em disco:
  * é a fonte real, sem passar por render nem por conversão de HTML.
+ *
+ * Falha de leitura **propaga de propósito**: isso roda no prerender, que tem
+ * `failOnError: true`. Engolir o erro publicaria um `llms-full.txt` incompleto
+ * no CDN sem ninguém perceber, e sem servidor em runtime não há como corrigir
+ * sob demanda depois.
  */
 export async function buildLlmsFullTxt(): Promise<string> {
 	const pages = collectPages()
 
 	const documents = await Promise.all(
 		pages.map(async (page) => {
-			let body: string
-			try {
-				body = stripFrontmatter(await readFile(join(process.cwd(), CONTENT_DIR, page.sourcePath), "utf8")).trim()
-			} catch {
-				// Página que não pôde ser lida ainda vale como entrada com título e URL.
-				body = "_(conteúdo indisponível)_"
-			}
+			const body = stripFrontmatter(await readFile(join(process.cwd(), CONTENT_DIR, page.sourcePath), "utf8")).trim()
 
 			return [`# ${page.title}`, "", `> ${page.description}`, "", `Fonte: <${page.url}>`, "", body].join("\n")
 		})
