@@ -44,12 +44,8 @@ from (values
         ('CLA',    2, 'Maranhão')
 ) as v(om, total_vagas, estado);
 
--- Escolhas de OMs que saíram do quadro deixam de valer.
+-- A rodada registrada na edição 2026 usou o quadro antigo (43/43 preenchidas), que
+-- deixa de valer com o quadro definitivo. Zera as escolhas e o estado de telão.
 update assignment_selection.person
-set localidade = null, estado = null
-where edition_id = (select id from assignment_selection.edition where name = '2026')
-	and localidade is not null
-	and localidade not in (
-		select om from assignment_selection.vacancy
-		where edition_id = (select id from assignment_selection.edition where name = '2026')
-	);
+set localidade = null, estado = null, show_card = false, show_om = false, hide_card = false
+where edition_id = (select id from assignment_selection.edition where name = '2026');
