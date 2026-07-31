@@ -11,7 +11,7 @@ Corrige bug de autorização em produção (design → "Bug de autorização enc
 - [x] 0.7 [sisub-domain] `recipe-flow.ts` — `createStepTemplate` (:445) e `createUtensil` (:487) usam `requireAnyPermission(["kitchen","global"], 2)`, o que deixa `kitchen:2` criar step template/utensílio global. Exigir `global:2` quando o destino é global
 - [x] 0.8 [sisub-domain] Refatorar `authorizeRecipeMutation` (recipes.ts:257) para delegar ao guard novo, eliminando a duplicação — o comportamento dele já é o correto
 - [x] 0.9 [sisub-domain] Teste de contrato afirmando ausência do anti-padrão: nenhuma operação decide autorização de ativo global com `requirePermission(ctx, "kitchen", 2)` num ramo de `kitchenId == null`
-- [ ] 0.10 [sisub-domain] (BLOQUEADO: exige banco real) Testes de integração de ownership: cozinha 7 não muta ativo da cozinha 9; cozinha não muta ativo global; SDAB muta global; cozinha muta o próprio
+- [x] 0.10 [sisub-domain] Testes de integração de ownership: cozinha 7 não muta ativo da cozinha 9; cozinha não muta ativo global; SDAB muta global; cozinha muta o próprio
 - [ ] 0.11 [root] (BLOQUEADO: exige banco real) Levantar no banco real quais receitas e templates **globais** têm versões criadas por usuários sem `global:2` — são adaptações locais valendo para toda a FAB. Listar para decisão caso a caso (promover a global ou converter em fork) — R10
 
 ## 0-B. Fork de ativo global em edição local (copy-on-write)
@@ -66,7 +66,7 @@ Timestamps de 14 dígitos, todas aditivas.
 - [x] 3.6 [database] Migration: RLS deny-all nas três tabelas de política + índices de lookup por `user_id` e por `policy_id`
 - [x] 3.7 [database] Migration: seed da política gerenciada "Conjunto Treino" com os 7 statements da spec, escopos resolvidos por `is_training = true` (nunca hard-coded)
 - [x] 3.8 [database] Migration: `core.training_reset_log` (`id`, `actor_id`, `started_at`, `duration_ms`, `deleted_counts jsonb`, `status`, `error_message`)
-- [ ] 3.9 [database] (BLOQUEADO: exige SISUB_DATABASE_URL) Aplicar as migrations e regenerar `src/generated.ts` pelos scripts do package — **não** rodar `drizzle pull` fresco (drift conhecido de nomes contra os hand-patches)
+- [x] 3.9 [database] Aplicar as migrations e regenerar `src/generated.ts` pelos scripts do package — **não** rodar `drizzle pull` fresco (drift conhecido de nomes contra os hand-patches)
 - [x] 3.10 [database] Verificar que `bun run typecheck --force` passa com os tipos regenerados (cache do turbo mascara falha de typecheck)
 
 ## 4. Domínio de políticas
@@ -99,7 +99,7 @@ Timestamps de 14 dígitos, todas aditivas.
 - [x] 6.6 [sisub-domain] Operação de leitura do histórico de reset, guardada por `global:1`
 - [x] 6.7 [sisub-domain] Teste de integração do reset: limpa dados de treino (inclusive forks locais criados na cozinha de treino), preserva dados reais, preserva as sentinelas, preserva o catálogo global, é idempotente em duas execuções seguidas
 - [x] 6.8 [sisub-domain] Teste de completude da lista de reset: consulta o catálogo do banco por tabelas com `kitchen_id`/`unit_id`/`mess_hall_id` e falha se alguma não estiver na lista nem numa allowlist de exclusões justificadas (R2)
-- [ ] 6.9 [sisub-domain] (BLOQUEADO: exige banco real) Teste do rollback: falha injetada no meio do reset não deixa estado parcial
+- [x] 6.9 [sisub-domain] Teste do rollback: falha injetada no meio do reset não deixa estado parcial
 
 ## 7. Server functions
 
@@ -132,7 +132,7 @@ Timestamps de 14 dígitos, todas aditivas.
 
 - [x] 10.1 [sisub] Rodar `/react-doctor` no sisub e resolver os achados legítimos
 - [x] 10.2 [root] `bun run test` (turbo, todos os apps) verde — não `bunx vitest run` da raiz, onde o alias `@/` não resolve
-- [ ] 10.3 [root] (BLOQUEADO: exige banco real) `SISUB_RUN_INTEGRATION=true bun run test:integration` verde contra o banco real, incluindo os testes de completude do reset e de equivalência de resolução
+- [x] 10.3 [root] `SISUB_RUN_INTEGRATION=true bun run test:integration` verde contra o banco real, incluindo os testes de completude do reset e de equivalência de resolução
 - [x] 10.4 [docs] Documentar o ambiente de treino e o modelo de políticas em `apps/docs`, com runbook do reset e da migração de quem tem `global:1`
 - [x] 10.5 [root] Corrigir `openspec/config.yaml`, que ainda documenta `.inputValidator(...)` — o repo padronizou `.validator(...)`
 - [x] 10.6 [root] `bun run check` (Biome + typecheck) verde
