@@ -53,4 +53,4 @@
 - [x] 6.4 [sisub] Smoke Playwright das 5 telas novas (read-only, padrão do `storage.spec.ts`)
 - [x] 6.5 [database] Adicionar as suítes novas ao `test:integration:gate` do CI
 - [x] 6.6 [root] `bun run check` + `bun run test` + gate de integração verdes
-- [ ] 6.7 [docs] Página de execução orçamentária em `apps/docs` (fluxo, o que vem do SIAFI, limites do espelho)
+- [x] 6.7 [docs] Página de execução orçamentária em `apps/docs` (fluxo, o que vem do SIAFI, limites do espelho)
