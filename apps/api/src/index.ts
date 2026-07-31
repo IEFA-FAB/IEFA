@@ -7,6 +7,7 @@ import { gs1AdminRoutes } from "./api/routes/gs1-admin.ts"
 import { nfeAdminRoutes } from "./api/routes/nfe-admin.ts"
 import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
+import { siafiAdminRoutes } from "./api/routes/siafi-admin.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
@@ -52,6 +53,7 @@ const typedApp = app
 	.route("/api/admin/nfe", nfeAdminRoutes)
 	.route("/api/admin/nutrition", nutritionAdminRoutes)
 	.route("/api/admin/price-research", priceResearchRoutes)
+	.route("/api/admin/siafi", siafiAdminRoutes)
 	.get("/health", (c) => {
 		const mem = process.memoryUsage()
 		const rss = mem.rss
