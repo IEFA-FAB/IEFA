@@ -46,7 +46,7 @@ import {
 	unitsInCore,
 	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
-import { desc, eq, inArray, sql } from "drizzle-orm"
+import { desc, eq, inArray, type SQL, sql } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
@@ -161,6 +161,16 @@ async function deleteByParent(tx: TrainingTx, table: Parameters<TrainingTx["dele
 	return result.length
 }
 
+/**
+ * `DELETE` por SQL cru, devolvendo a contagem. Para as tabelas de execução
+ * orçamentária, que ainda não têm definição Drizzle — o reset não pode ficar
+ * esperando o regen dos tipos para limpar o que o aluno gera.
+ */
+async function deleteRaw(tx: TrainingTx, statement: SQL): Promise<number> {
+	const result = (await tx.execute(statement)) as unknown
+	return Array.isArray(result) ? result.length : 0
+}
+
 /** `DELETE` devolvendo a contagem de linhas afetadas. */
 async function deleteCounting(tx: TrainingTx, table: Parameters<TrainingTx["delete"]>[0], where: ReturnType<typeof eq>): Promise<number> {
 	const result = await tx.delete(table).where(where).returning({ ok: sql<number>`1` })
@@ -258,6 +268,40 @@ const RESET_STEPS: ResetStep[] = [
 	{ table: "kitchen.step_template", run: (tx, scope) => deleteCounting(tx, stepTemplateInKitchen, eq(stepTemplateInKitchen.kitchenId, scope.kitchen_id)) },
 	{ table: "kitchen.utensil", run: (tx, scope) => deleteCounting(tx, utensilInKitchen, eq(utensilInKitchen.kitchenId, scope.kitchen_id)) },
 	{ table: "kitchen.meal_type", run: (tx, scope) => deleteCounting(tx, mealTypeInKitchen, eq(mealTypeInKitchen.kitchenId, scope.kitchen_id)) },
+
+	// ── Execução orçamentária ──
+	// O Conjunto Treino concede `unit` nível 2 na unidade sentinela, e é
+	// exatamente o nível que as telas de crédito, empenho, liquidação, pagamento
+	// e conciliação exigem: o aluno GERA esses registros. Logo eles saem no
+	// reset como qualquer outro dado sintético — sem isso, a turma seguinte
+	// herda empenho e pagamento fictícios da anterior.
+	// Ordem: filho antes do pai (pagamento → liquidação → evento → empenho) e
+	// crédito antes do lote de importação que o originou.
+	{ table: "finance.pagamento", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.pagamento where unit_id = ${scope.unit_id} returning 1`) },
+	{ table: "finance.liquidacao", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.liquidacao where unit_id = ${scope.unit_id} returning 1`) },
+	{
+		table: "finance.reconciliation_decision",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from finance.reconciliation_decision where unit_id = ${scope.unit_id} returning 1`),
+	},
+	{
+		table: "finance.empenho_event",
+		run: (tx, scope) =>
+			deleteRaw(tx, sql`delete from finance.empenho_event where empenho_id in (select id from finance.empenho where unit_id = ${scope.unit_id}) returning 1`),
+	},
+	{ table: "finance.empenho", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.empenho where unit_id = ${scope.unit_id} returning 1`) },
+	{ table: "finance.budget_credit", run: (tx, scope) => deleteRaw(tx, sql`delete from finance.budget_credit where unit_id = ${scope.unit_id} returning 1`) },
+	{
+		table: "siafi_integration.import_row",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from siafi_integration.import_row where batch_id in (select id from siafi_integration.import_batch where unit_id = ${scope.unit_id}) returning 1`
+			),
+	},
+	{
+		table: "siafi_integration.import_batch",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from siafi_integration.import_batch where unit_id = ${scope.unit_id} returning 1`),
+	},
 ]
 
 /** Tabelas que o reset alcança — consumido pelo teste de completude. */
