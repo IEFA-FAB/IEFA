@@ -22,9 +22,9 @@ import {
 	listTemplates,
 	RestoreTemplateSchema,
 	restoreTemplate,
+	SaveTemplateEditSchema,
+	saveTemplateEdit,
 	toJsonSchema,
-	UpdateTemplateSchema,
-	updateTemplate,
 } from "@iefa/sisub-domain"
 import { resolveCredential } from "../auth.ts"
 import { getDb } from "../db.ts"
@@ -192,14 +192,14 @@ const updateTemplateTool: ToolDefinition = {
 	schema: {
 		name: "update_template",
 		description:
-			"Atualiza metadados de um template e, opcionalmente, substitui TODOS os seus itens (delete-all + re-insert). Se items for omitido, apenas os metadados são atualizados. Se items=[] vazio, todos os itens são removidos.",
-		inputSchema: toJsonSchema(UpdateTemplateSchema),
+			"Atualiza metadados de um template e, opcionalmente, substitui TODOS os seus itens (delete-all + re-insert). Se items for omitido, apenas os metadados são atualizados. Se items=[] vazio, todos os itens são removidos. Exige `context`: com {scope:'kitchen',kitchenId} a edição de um template GLOBAL não o altera — cria uma cópia local daquela cozinha. Com {scope:'global'} edita o template global (exige permissão global nível 2).",
+		inputSchema: toJsonSchema(SaveTemplateEditSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			const input = UpdateTemplateSchema.parse(args)
-			return toolResult(await updateTemplate(getDb(), ctx, input))
+			const input = SaveTemplateEditSchema.parse(args)
+			return toolResult(await saveTemplateEdit(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

@@ -50,3 +50,17 @@ export type MenuItemGroup = z.infer<typeof MenuItemGroupSchema>
 /** Proporção recomendada de consumo (%). Advisory — sem soma forçada dentro do grupo. */
 export const RecommendedProportionSchema = z.number().min(0).max(100).optional()
 export type RecommendedProportion = z.infer<typeof RecommendedProportionSchema>
+
+/**
+ * Contexto explícito de uma edição: de QUAL tela ela partiu.
+ *
+ * Decide fork local vs. nova versão global e é obrigatório — sem default. Inferir da
+ * permissão do usuário produziria comportamento dependente de quem ele é: alguém com
+ * `global:2` **e** `kitchen:2` editando pela tela da cozinha alteraria o catálogo global
+ * sem querer.
+ */
+export const EditScopeSchema = z.discriminatedUnion("scope", [
+	z.object({ scope: z.literal("global") }),
+	z.object({ scope: z.literal("kitchen"), kitchenId: KitchenIdSchema }),
+])
+export type EditScope = z.infer<typeof EditScopeSchema>

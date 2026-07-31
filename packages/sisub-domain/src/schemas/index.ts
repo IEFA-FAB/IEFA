@@ -1,12 +1,5 @@
-export type { DateRange, DateString, KitchenId, Pagination, SortOrder, Uuid } from "./common.ts"
-export {
-	DateRangeSchema,
-	DateSchema,
-	KitchenIdSchema,
-	PaginationSchema,
-	SortOrderSchema,
-	UuidSchema,
-} from "./common.ts"
+export type { DateRange, DateString, EditScope, KitchenId, Pagination, SortOrder, Uuid } from "./common.ts"
+export { DateRangeSchema, DateSchema, EditScopeSchema, KitchenIdSchema, PaginationSchema, SortOrderSchema, UuidSchema } from "./common.ts"
 export type {
 	CreateFrozenPreparation,
 	DeleteFrozenPreparation,
@@ -307,7 +300,6 @@ export {
 export type {
 	CreateRecipe,
 	DeleteRecipe,
-	EditScope,
 	FetchRecipe,
 	Ingredient,
 	ListRecipeLastReviews,
@@ -343,6 +335,7 @@ export type {
 	GetTemplate,
 	ListTemplates,
 	RestoreTemplate,
+	SaveTemplateEdit,
 	TemplateItem,
 	UpdateTemplate,
 } from "./templates.ts"
@@ -356,6 +349,7 @@ export {
 	GetTemplateSchema,
 	ListTemplatesSchema,
 	RestoreTemplateSchema,
+	SaveTemplateEditSchema,
 	TemplateItemSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"

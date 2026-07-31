@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { DateSchema, KitchenIdSchema, MenuItemGroupSchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
+import { DateSchema, EditScopeSchema, KitchenIdSchema, MenuItemGroupSchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
 
 export const ListTemplatesSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
@@ -79,6 +79,17 @@ export const UpdateTemplateSchema = z.object({
 	meals: z.array(TemplateMealSchema).optional(),
 })
 export type UpdateTemplate = z.infer<typeof UpdateTemplateSchema>
+
+/**
+ * Edição de template com o contexto declarado — mesma regra das preparações.
+ *
+ * `menu_template` NÃO é versionado: sem isso, a edição de um template global feita na tela
+ * de uma cozinha sobrescrevia in-place o plano da FAB inteira, sem histórico.
+ */
+export const SaveTemplateEditSchema = UpdateTemplateSchema.extend({
+	context: EditScopeSchema,
+})
+export type SaveTemplateEdit = z.infer<typeof SaveTemplateEditSchema>
 
 export const DeleteTemplateSchema = z.object({
 	templateId: UuidSchema,

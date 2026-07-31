@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRecipes } from "@/hooks/data/useRecipes"
-import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
+import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
@@ -143,7 +143,8 @@ function GlobalPlanEditorPage() {
 
 	// Receitas globais (kitchenId=null → tudo com kitchen_id=null)
 	const { data: allRecipes } = useRecipes()
-	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
+	// Tela da SDAB: a edição é do plano GLOBAL mesmo. O contexto é declarado, não inferido.
+	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit()
 
 	const [name, setName] = useState("")
 	const [description, setDescription] = useState("")
@@ -249,9 +250,10 @@ function GlobalPlanEditorPage() {
 
 	const handleSave = () => {
 		if (!name.trim()) return
-		updateTemplate(
+		saveTemplate(
 			{
 				id: planId,
+				context: { scope: "global" },
 				updates: {
 					name: name.trim(),
 					description: description.trim() || null,

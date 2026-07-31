@@ -1,4 +1,5 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
+import type { EditScope } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
@@ -13,7 +14,7 @@ import {
 	fetchTemplateFn,
 	fetchTemplateItemsFn,
 	restoreTemplateFn,
-	updateTemplateFn,
+	saveTemplateEditFn,
 } from "@/server/templates.fn"
 import type { ApplyTemplatePayload, MenuTemplateWithItems, TemplateMealDraft, TemplateWithItemCounts } from "@/types/domain/planning"
 
@@ -111,7 +112,18 @@ export function useCreateTemplate() {
 	})
 }
 
-export function useUpdateTemplate(options?: { silent?: boolean }) {
+/**
+ * Salva a edição de um template.
+ *
+ * `context` diz de QUAL tela a edição partiu e é obrigatório. Template global editado a
+ * partir de uma cozinha não é alterado: a cozinha recebe uma cópia local. `menu_template`
+ * não é versionado, então a edição in-place de um template global sobrescrevia o plano da
+ * FAB inteira sem deixar histórico.
+ *
+ * O id do template salvo pode DIFERIR do enviado (quando forka) — quem chama precisa
+ * navegar para `result.template.id`.
+ */
+export function useSaveTemplateEdit(options?: { silent?: boolean }) {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: ({
@@ -119,15 +131,18 @@ export function useUpdateTemplate(options?: { silent?: boolean }) {
 			updates,
 			items,
 			meals,
+			context,
 		}: {
 			id: string
 			updates: MenuTemplateUpdate
 			items?: Omit<MenuTemplateItemInsert, "menu_template_id">[]
 			meals?: TemplateMealDraft[]
+			context: EditScope
 		}) =>
-			updateTemplateFn({
+			saveTemplateEditFn({
 				data: {
 					templateId: id,
+					context,
 					name: updates.name ?? undefined,
 					// Preserva null (limpar) vs undefined (não mexer) — `?? undefined` apagaria o intent de limpar.
 					description: updates.description === undefined ? undefined : updates.description,
@@ -145,11 +160,14 @@ export function useUpdateTemplate(options?: { silent?: boolean }) {
 					meals: meals?.map((m) => ({ dayOfWeek: m.day_of_week, mealTypeId: m.meal_type_id, baseHeadcount: m.base_headcount })),
 				},
 			}),
-		onSuccess: (data) => {
+		onSuccess: (result) => {
+			const saved = result?.template
 			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
-			queryClient.invalidateQueries({ queryKey: queryKeys.templates.detail(data?.id ?? null) })
-			queryClient.invalidateQueries({ queryKey: queryKeys.templates.items(data?.id ?? null) })
-			if (!options?.silent) toast.success(`Template "${data?.name}" atualizado!`)
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.detail(saved?.id ?? null) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.items(saved?.id ?? null) })
+			if (!options?.silent) {
+				toast.success(result?.forked ? `Cópia local de "${saved?.name}" criada — o template global segue intacto` : `Template "${saved?.name}" atualizado!`)
+			}
 		},
 		onError: (error) => {
 			if (!options?.silent) toast.error(`Erro ao atualizar template: ${error.message}`)

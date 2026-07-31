@@ -142,7 +142,7 @@ describe("server function security contracts", () => {
 			{ file: "packages/sisub-domain/src/operations/recipes.ts", ops: ["createRecipe", "saveRecipeEdit"] },
 			{
 				file: "packages/sisub-domain/src/operations/templates.ts",
-				ops: ["createTemplate", "createBlankTemplate", "forkTemplate", "updateTemplate", "deleteTemplate", "restoreTemplate"],
+				ops: ["createTemplate", "createBlankTemplate", "forkTemplate", "saveTemplateEdit", "deleteTemplate", "restoreTemplate"],
 			},
 			{ file: "packages/sisub-domain/src/operations/meal-types.ts", ops: ["createMealType"] },
 			{ file: "packages/sisub-domain/src/operations/recipe-flow.ts", ops: ["createStepTemplate", "createUtensil"] },
@@ -179,6 +179,32 @@ describe("server function security contracts", () => {
 		// base_recipe_id aponta para a RAIZ da linhagem, e a versão é calculada no servidor.
 		expect(opSource).toContain("baseRecipeId: rootId")
 		expect(opSource).toContain("version: nextVersion")
+	})
+
+	test("saveTemplateEdit forks a global template edited from a kitchen instead of mutating it", () => {
+		const source = readPackageFile("packages/sisub-domain/src/operations/templates.ts")
+		const start = source.indexOf("export async function saveTemplateEdit(")
+		expect(start).toBeGreaterThan(-1)
+		const nextFn = source.indexOf("\nexport async function ", start + 1)
+		const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+
+		expect(opSource).toContain('input.context.scope === "kitchen" ? input.context.kitchenId : null')
+		expect(opSource).toContain("TEMPLATE_SCOPE_MISMATCH")
+		expect(opSource).toContain("requireAssetWriteForScope(ctx, targetKitchenId)")
+		// Um fork por cozinha por linhagem: a segunda edição aplica no fork existente.
+		expect(opSource).toContain("existingFork")
+		expect(opSource).toContain("baseTemplateId: rootId")
+	})
+
+	test("no context-free template edit entry point survives", () => {
+		// `updateTemplate` mutava in-place sem contexto; mantê-lo deixaria de pé exatamente o
+		// caminho que este trabalho fecha — inclusive para o servidor MCP, que o consumia.
+		const source = readPackageFile("packages/sisub-domain/src/operations/templates.ts")
+		expect(source).not.toContain("export async function updateTemplate(")
+
+		const mcp = readPackageFile("apps/sisub-mcp/src/tools/templates.ts")
+		expect(mcp).toContain("saveTemplateEdit(getDb(), ctx, input)")
+		expect(mcp).not.toContain("updateTemplate(getDb(), ctx, input)")
 	})
 
 	test("the edit input carries no client-controlled version or scope", () => {

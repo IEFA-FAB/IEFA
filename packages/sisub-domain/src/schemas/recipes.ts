@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { KitchenIdSchema, UuidSchema } from "./common.ts"
+import { EditScopeSchema, KitchenIdSchema, UuidSchema } from "./common.ts"
 
 export const FetchRecipeSchema = z.object({
 	recipeId: UuidSchema,
@@ -59,20 +59,6 @@ export const CreateRecipeSchema = z.object({
 	ingredients: z.array(IngredientSchema).optional(),
 })
 export type CreateRecipe = z.infer<typeof CreateRecipeSchema>
-
-/**
- * Contexto explícito de uma edição: de QUAL tela ela partiu.
- *
- * Decide fork local vs. nova versão global e é obrigatório — sem default. Inferir da
- * permissão do usuário produziria comportamento dependente de quem ele é: alguém com
- * `global:2` **e** `kitchen:2` editando pela tela da cozinha alteraria o catálogo global
- * sem querer.
- */
-export const EditScopeSchema = z.discriminatedUnion("scope", [
-	z.object({ scope: z.literal("global") }),
-	z.object({ scope: z.literal("kitchen"), kitchenId: KitchenIdSchema }),
-])
-export type EditScope = z.infer<typeof EditScopeSchema>
 
 /**
  * Salvar a edição de uma receita existente.
