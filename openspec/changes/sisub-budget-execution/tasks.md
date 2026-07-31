@@ -12,10 +12,10 @@
 
 ## 2. Fase 2 — Crédito disponível
 
-- [ ] 2.1 [database] Migration `finance.budget_credit` (UNIQUE unit×ug×nd×ptres×fonte×competencia, dotação/empenhado/saldo, `snapshot_at`, `import_batch_id`) + RLS
-- [ ] 2.2 [sisub-domain] Cálculo puro do comprometimento local e saldo projetado (empenhos ativos após `snapshot_at`) — com testes unit cobrindo "nunca somar oficial com local"
-- [ ] 2.3 [sisub] `budget.fn.ts` (listar crédito com projeção, aplicar snapshot do lote) + tela `/unit/$unitId/credit` com as três grandezas rotuladas e destaque de snapshot antigo (>7 dias)
-- [ ] 2.4 [sisub] Alerta de crédito na emissão de empenho (não-bloqueante, informando a idade do snapshot; classificação sem crédito → marca "sem verificação")
+- [x] 2.1 [database] Migration `finance.budget_credit` (UNIQUE unit×ug×nd×ptres×fonte×competencia, dotação/empenhado/saldo, `snapshot_at`, `import_batch_id`) + RLS
+- [x] 2.2 [sisub-domain] Cálculo puro do comprometimento local e saldo projetado (empenhos ativos após `snapshot_at`) — com testes unit cobrindo "nunca somar oficial com local"
+- [x] 2.3 [sisub] `budget.fn.ts` (listar crédito com projeção, aplicar snapshot do lote) + tela `/unit/$unitId/credit` com as três grandezas rotuladas e destaque de snapshot antigo (>7 dias)
+- [x] 2.4 [sisub] Alerta de crédito na emissão de empenho (não-bloqueante, informando a idade do snapshot; classificação sem crédito → marca "sem verificação")
 
 ## 3. Fase 3 — Empenho como documento
 

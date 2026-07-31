@@ -86,6 +86,7 @@ import { Route as ProtectedModulesStorageKitchenIdReportsRouteImport } from './r
 import { Route as ProtectedModulesStorageKitchenIdSupplyOrdersRouteImport } from './routes/_protected/_modules/storage/$kitchenId/supply-orders'
 import { Route as ProtectedModulesUnitUnitIdIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/index'
 import { Route as ProtectedModulesUnitUnitIdChatRouteImport } from './routes/_protected/_modules/unit/$unitId/chat'
+import { Route as ProtectedModulesUnitUnitIdCreditRouteImport } from './routes/_protected/_modules/unit/$unitId/credit'
 import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
@@ -563,6 +564,12 @@ const ProtectedModulesUnitUnitIdChatRoute =
     path: '/chat',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdCreditRoute =
+  ProtectedModulesUnitUnitIdCreditRouteImport.update({
+    id: '/credit',
+    path: '/credit',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdDashboardRoute =
   ProtectedModulesUnitUnitIdDashboardRouteImport.update({
     id: '/dashboard',
@@ -828,6 +835,7 @@ export interface FileRoutesByFullPath {
   '/storage/$kitchenId/reports': typeof ProtectedModulesStorageKitchenIdReportsRoute
   '/storage/$kitchenId/supply-orders': typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
+  '/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -930,6 +938,7 @@ export interface FileRoutesByTo {
   '/storage/$kitchenId/reports': typeof ProtectedModulesStorageKitchenIdReportsRoute
   '/storage/$kitchenId/supply-orders': typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
+  '/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/global/frozen-preparations': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
@@ -1040,6 +1049,7 @@ export interface FileRoutesById {
   '/_protected/_modules/storage/$kitchenId/reports': typeof ProtectedModulesStorageKitchenIdReportsRoute
   '/_protected/_modules/storage/$kitchenId/supply-orders': typeof ProtectedModulesStorageKitchenIdSupplyOrdersRoute
   '/_protected/_modules/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
+  '/_protected/_modules/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -1150,6 +1160,7 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/reports'
     | '/storage/$kitchenId/supply-orders'
     | '/unit/$unitId/chat'
+    | '/unit/$unitId/credit'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/procurement'
     | '/unit/$unitId/settings'
@@ -1252,6 +1263,7 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId/reports'
     | '/storage/$kitchenId/supply-orders'
     | '/unit/$unitId/chat'
+    | '/unit/$unitId/credit'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/settings'
     | '/global/frozen-preparations'
@@ -1361,6 +1373,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/storage/$kitchenId/reports'
     | '/_protected/_modules/storage/$kitchenId/supply-orders'
     | '/_protected/_modules/unit/$unitId/chat'
+    | '/_protected/_modules/unit/$unitId/credit'
     | '/_protected/_modules/unit/$unitId/dashboard'
     | '/_protected/_modules/unit/$unitId/procurement'
     | '/_protected/_modules/unit/$unitId/settings'
@@ -1956,6 +1969,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdChatRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/credit': {
+      id: '/_protected/_modules/unit/$unitId/credit'
+      path: '/credit'
+      fullPath: '/unit/$unitId/credit'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdCreditRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
     '/_protected/_modules/unit/$unitId/dashboard': {
       id: '/_protected/_modules/unit/$unitId/dashboard'
       path: '/dashboard'
@@ -2371,6 +2391,7 @@ const ProtectedModulesUnitUnitIdProcurementRouteWithChildren =
 
 interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdChatRoute: typeof ProtectedModulesUnitUnitIdChatRoute
+  ProtectedModulesUnitUnitIdCreditRoute: typeof ProtectedModulesUnitUnitIdCreditRoute
   ProtectedModulesUnitUnitIdDashboardRoute: typeof ProtectedModulesUnitUnitIdDashboardRoute
   ProtectedModulesUnitUnitIdProcurementRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -2380,6 +2401,8 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
 const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRouteRouteChildren =
   {
     ProtectedModulesUnitUnitIdChatRoute: ProtectedModulesUnitUnitIdChatRoute,
+    ProtectedModulesUnitUnitIdCreditRoute:
+      ProtectedModulesUnitUnitIdCreditRoute,
     ProtectedModulesUnitUnitIdDashboardRoute:
       ProtectedModulesUnitUnitIdDashboardRoute,
     ProtectedModulesUnitUnitIdProcurementRoute:

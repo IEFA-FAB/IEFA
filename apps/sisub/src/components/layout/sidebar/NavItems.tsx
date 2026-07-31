@@ -15,6 +15,7 @@ import {
 	FlameKindling,
 	GraduationCap,
 	KeyRound,
+	Landmark,
 	LayoutDashboard,
 	type LucideIcon,
 	MapPin,
@@ -97,6 +98,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
 			{ title: "Atas", url: "/unit/procurement", icon: FileText },
+			{ title: "Crédito Disponível", url: "/unit/credit", icon: Landmark },
 			{ title: "Assistente IA", url: "/unit/chat", icon: MessageSquare },
 			{ title: "Configurações", url: "/unit/settings", icon: Settings },
 		],
