@@ -134,9 +134,11 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 									<TableCell className="text-sm">{scopeLabel(perm, maps)}</TableCell>
 									<TableCell className="text-sm">
 										<div className="flex flex-wrap gap-1">
-											{perm.origins.map((origin) => (
-												<Badge key={origin.kind === "policy" ? origin.policyId : "inline"} variant="outline" className="text-xs">
-													{origin.kind === "policy" ? origin.policyName : "Direto"}
+											{/* Vários grants diretos colapsam numa permissão efetiva: a chave precisa do
+											    índice, senão todos recebem "inline" e o React reconcilia errado. */}
+											{perm.origins.map((origin, index) => (
+												<Badge key={origin.kind === "policy" ? origin.policyId : `${origin.kind}-${index}`} variant="outline" className="text-xs">
+													{origin.kind === "policy" ? origin.policyName : origin.kind === "implicit" ? "Implícito" : "Direto"}
 												</Badge>
 											))}
 										</div>
