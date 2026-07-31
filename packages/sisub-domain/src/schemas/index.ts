@@ -212,6 +212,7 @@ export type {
 	ListUserPolicies,
 	PolicyStatementInput,
 	RemovePolicyStatement,
+	RestorePolicy,
 	UpdatePolicy,
 	UpdatePolicyStatement,
 } from "./policies.ts"
@@ -227,6 +228,7 @@ export {
 	PolicyLevelSchema,
 	PolicyStatementInputSchema,
 	RemovePolicyStatementSchema,
+	RestorePolicySchema,
 	UpdatePolicySchema,
 	UpdatePolicyStatementSchema,
 } from "./policies.ts"
@@ -382,8 +384,8 @@ export {
 	TemplateItemSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"
-export type { ListTrainingResets, ResetTrainingScope } from "./training.ts"
-export { ListTrainingResetsSchema, ResetTrainingScopeSchema } from "./training.ts"
+export type { ListTrainingResets } from "./training.ts"
+export { ListTrainingResetsSchema } from "./training.ts"
 export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from "./units.ts"
 export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"
 export type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "./user.ts"

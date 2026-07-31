@@ -28,6 +28,7 @@ import type {
 	ListUserPolicies,
 	PolicyStatementInput,
 	RemovePolicyStatement,
+	RestorePolicy,
 	UpdatePolicy,
 	UpdatePolicyStatement,
 } from "../schemas/policies.ts"
@@ -244,6 +245,47 @@ export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeleteP
 			.where(and(eq(policyInAccessControl.id, input.policyId), isNull(policyInAccessControl.deletedAt)))
 			.returning({ id: policyInAccessControl.id })
 	)
+}
+
+/**
+ * Reverte o soft delete.
+ *
+ * `deletePolicy` preserva statements e anexos justamente para que uma remoção acidental seja
+ * reversível — sem esta operação, a identidade e os anexos ficavam retidos e inalcançáveis,
+ * o que é o pior dos dois mundos: nem apagado, nem recuperável.
+ *
+ * Recusa se o nome já foi reutilizado por outra política viva: o índice único parcial
+ * rejeitaria o update de qualquer forma, e um erro de constraint cru não diria o motivo.
+ */
+export async function restorePolicy(db: SisubDb, ctx: UserContext, input: RestorePolicy): Promise<PolicyRow> {
+	requirePermission(ctx, "global", 2)
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.select(POLICY_COLS).from(policyInAccessControl).where(eq(policyInAccessControl.id, input.policyId)).limit(1)
+	)
+	const policy = rows[0]
+	if (!policy) throw new NotFoundError("policy", input.policyId)
+	if (policy.deleted_at === null) throw new DomainError("POLICY_NOT_DELETED", `Política "${policy.name}" não está removida`)
+
+	const clash = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: policyInAccessControl.id })
+			.from(policyInAccessControl)
+			.where(and(eq(policyInAccessControl.name, policy.name), isNull(policyInAccessControl.deletedAt)))
+			.limit(1)
+	)
+	if (clash.length > 0) {
+		throw new DomainError("POLICY_NAME_TAKEN", `Já existe uma política ativa chamada "${policy.name}" — renomeie-a antes de restaurar esta`)
+	}
+
+	const row = await insertOneOrFail("UPDATE_FAILED", `policy ${input.policyId} not found`, () =>
+		db
+			.update(policyInAccessControl)
+			.set({ deletedAt: null, updatedAt: new Date().toISOString() })
+			.where(eq(policyInAccessControl.id, input.policyId))
+			.returning(POLICY_COLS)
+	)
+	return row as PolicyRow
 }
 
 // ── Escrita: statements ──────────────────────────────────────────────────────

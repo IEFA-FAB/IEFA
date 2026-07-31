@@ -62,6 +62,9 @@ export type UpdatePolicy = z.infer<typeof UpdatePolicySchema>
 export const DeletePolicySchema = z.object({ policyId: UuidSchema })
 export type DeletePolicy = z.infer<typeof DeletePolicySchema>
 
+export const RestorePolicySchema = z.object({ policyId: UuidSchema })
+export type RestorePolicy = z.infer<typeof RestorePolicySchema>
+
 export const AddPolicyStatementSchema = z.object({
 	policyId: UuidSchema,
 	statement: PolicyStatementInputSchema,

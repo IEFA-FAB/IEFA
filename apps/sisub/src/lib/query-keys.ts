@@ -130,6 +130,7 @@ export const queryKeys = {
 		draft: (draftId: string | null) => ["ata_draft", draftId] as const,
 		needs: (params: { startDate: string; endDate: string; kitchenId?: number; unitId?: number }) => ["procurement", "needs", params] as const,
 		arp: (ataId: string | null) => ["procurement_arp", "ata", ataId] as const,
+		arpCommitments: (arpId: string | null) => ["procurement_arp", "local-commitments", arpId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
 	},
 

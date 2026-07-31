@@ -18,6 +18,7 @@
 import {
 	dailyMenuInKitchen,
 	kitchenAtaDraftInProcurement,
+	kitchenAtaDraftSelectionInProcurement,
 	kitchenInCore,
 	mealForecastsInKitchen,
 	mealPresencesInKitchen,
@@ -29,17 +30,26 @@ import {
 	messHallsInCore,
 	otherPresencesInKitchen,
 	procurementListKitchenInProcurement,
+	procurementListSelectionInProcurement,
 	productionTaskInKitchen,
+	recipeIngredientAlternativesInKitchen,
+	recipeIngredientsInKitchen,
+	recipeStepInKitchen,
+	recipeStepInputInKitchen,
+	recipeStepOutputInKitchen,
+	recipeStepUtensilInKitchen,
 	recipesInKitchen,
 	type SisubDb,
 	stepTemplateInKitchen,
+	stepTemplateUtensilInKitchen,
 	trainingResetLogInCore,
 	unitsInCore,
 	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
 import { desc, eq, inArray, sql } from "drizzle-orm"
+import type { PgColumn } from "drizzle-orm/pg-core"
 import { requirePermission } from "../guards/require-permission.ts"
-import type { ListTrainingResets, ResetTrainingScope } from "../schemas/training.ts"
+import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -134,6 +144,21 @@ type TrainingTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 type ResetIds = {
 	dailyMenuIds: string[]
 	templateIds: string[]
+	recipeIds: string[]
+	recipeStepIds: string[]
+	recipeIngredientIds: string[]
+	stepTemplateIds: string[]
+	ataDraftIds: string[]
+}
+
+/**
+ * `DELETE ... WHERE <coluna> IN (ids)`, devolvendo a contagem. Para os filhos que não
+ * carregam escopo próprio e só são alcançáveis pelo pai.
+ */
+async function deleteByParent(tx: TrainingTx, table: Parameters<TrainingTx["delete"]>[0], column: PgColumn, ids: string[]): Promise<number> {
+	if (ids.length === 0) return 0
+	const result = await tx.delete(table).where(inArray(column, ids)).returning({ ok: sql<number>`1` })
+	return result.length
 }
 
 /** `DELETE` devolvendo a contagem de linhas afetadas. */
@@ -143,42 +168,64 @@ async function deleteCounting(tx: TrainingTx, table: Parameters<TrainingTx["dele
 }
 
 const RESET_STEPS: ResetStep[] = [
-	// ── Cardápio diário ──
+	// ── Fluxo de produção das receitas locais ──
+	// A maioria dos FKs do schema é NO ACTION, não CASCADE: apagar a receita antes destes
+	// filhos faz o Postgres recusar e a transação inteira volta atrás, deixando o ambiente
+	// intocado. A ordem aqui é topológica de verdade, filho a filho.
 	{
-		table: "kitchen.menu_items",
-		run: (tx, _scope, ids) =>
-			ids.dailyMenuIds.length === 0
-				? Promise.resolve(0)
-				: tx
-						.delete(menuItemsInKitchen)
-						.where(inArray(menuItemsInKitchen.dailyMenuId, ids.dailyMenuIds))
-						.returning({ ok: sql<number>`1` })
-						.then((r) => r.length),
+		table: "kitchen.recipe_step_utensil",
+		run: (tx, _s, ids) => deleteByParent(tx, recipeStepUtensilInKitchen, recipeStepUtensilInKitchen.recipeStepId, ids.recipeStepIds),
 	},
+	{
+		table: "kitchen.recipe_step_input",
+		run: (tx, _s, ids) => deleteByParent(tx, recipeStepInputInKitchen, recipeStepInputInKitchen.recipeStepId, ids.recipeStepIds),
+	},
+	{
+		table: "kitchen.recipe_step_output",
+		run: (tx, _s, ids) => deleteByParent(tx, recipeStepOutputInKitchen, recipeStepOutputInKitchen.recipeId, ids.recipeIds),
+	},
+	{ table: "kitchen.recipe_step", run: (tx, _s, ids) => deleteByParent(tx, recipeStepInKitchen, recipeStepInKitchen.recipeId, ids.recipeIds) },
+	{
+		table: "kitchen.recipe_ingredient_alternatives",
+		run: (tx, _s, ids) =>
+			deleteByParent(tx, recipeIngredientAlternativesInKitchen, recipeIngredientAlternativesInKitchen.recipeIngredientId, ids.recipeIngredientIds),
+	},
+	{
+		table: "kitchen.recipe_ingredients",
+		run: (tx, _s, ids) => deleteByParent(tx, recipeIngredientsInKitchen, recipeIngredientsInKitchen.recipeId, ids.recipeIds),
+	},
+
+	// ── Cardápio diário ──
+	{ table: "kitchen.menu_items", run: (tx, _s, ids) => deleteByParent(tx, menuItemsInKitchen, menuItemsInKitchen.dailyMenuId, ids.dailyMenuIds) },
 	{ table: "kitchen.daily_menu", run: (tx, scope) => deleteCounting(tx, dailyMenuInKitchen, eq(dailyMenuInKitchen.kitchenId, scope.kitchen_id)) },
+
+	// ── Compras ──
+	// As seleções apontam para o rascunho E para o template; ambas precisam sair antes.
+	{
+		table: "procurement.kitchen_ata_draft_selection",
+		run: (tx, _s, ids) => deleteByParent(tx, kitchenAtaDraftSelectionInProcurement, kitchenAtaDraftSelectionInProcurement.draftId, ids.ataDraftIds),
+	},
+	{
+		table: "procurement.kitchen_ata_draft",
+		run: (tx, scope) => deleteCounting(tx, kitchenAtaDraftInProcurement, eq(kitchenAtaDraftInProcurement.kitchenId, scope.kitchen_id)),
+	},
+	{
+		table: "procurement.procurement_list_selection",
+		run: (tx, _s, ids) => deleteByParent(tx, procurementListSelectionInProcurement, procurementListSelectionInProcurement.templateId, ids.templateIds),
+	},
+	{
+		table: "procurement.procurement_list_kitchen",
+		run: (tx, scope) => deleteCounting(tx, procurementListKitchenInProcurement, eq(procurementListKitchenInProcurement.kitchenId, scope.kitchen_id)),
+	},
 
 	// ── Templates de cardápio ──
 	{
 		table: "kitchen.menu_template_items",
-		run: (tx, _scope, ids) =>
-			ids.templateIds.length === 0
-				? Promise.resolve(0)
-				: tx
-						.delete(menuTemplateItemsInKitchen)
-						.where(inArray(menuTemplateItemsInKitchen.menuTemplateId, ids.templateIds))
-						.returning({ ok: sql<number>`1` })
-						.then((r) => r.length),
+		run: (tx, _s, ids) => deleteByParent(tx, menuTemplateItemsInKitchen, menuTemplateItemsInKitchen.menuTemplateId, ids.templateIds),
 	},
 	{
 		table: "kitchen.menu_template_meal",
-		run: (tx, _scope, ids) =>
-			ids.templateIds.length === 0
-				? Promise.resolve(0)
-				: tx
-						.delete(menuTemplateMealInKitchen)
-						.where(inArray(menuTemplateMealInKitchen.menuTemplateId, ids.templateIds))
-						.returning({ ok: sql<number>`1` })
-						.then((r) => r.length),
+		run: (tx, _s, ids) => deleteByParent(tx, menuTemplateMealInKitchen, menuTemplateMealInKitchen.menuTemplateId, ids.templateIds),
 	},
 	{ table: "kitchen.menu_template", run: (tx, scope) => deleteCounting(tx, menuTemplateInKitchen, eq(menuTemplateInKitchen.kitchenId, scope.kitchen_id)) },
 
@@ -200,20 +247,14 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) => deleteCounting(tx, otherPresencesInKitchen, eq(otherPresencesInKitchen.messHallId, scope.mess_hall_id)),
 	},
 
-	// ── Compras ──
-	{
-		table: "procurement.kitchen_ata_draft",
-		run: (tx, scope) => deleteCounting(tx, kitchenAtaDraftInProcurement, eq(kitchenAtaDraftInProcurement.kitchenId, scope.kitchen_id)),
-	},
-	{
-		table: "procurement.procurement_list_kitchen",
-		run: (tx, scope) => deleteCounting(tx, procurementListKitchenInProcurement, eq(procurementListKitchenInProcurement.kitchenId, scope.kitchen_id)),
-	},
-
 	// ── Catálogo local da cozinha de treino ──
 	// Inclui os FORKS locais de receitas globais criados durante o treinamento. As receitas
 	// globais (kitchen_id null) não são tocadas — o filtro é por kitchen_id.
 	{ table: "kitchen.recipes", run: (tx, scope) => deleteCounting(tx, recipesInKitchen, eq(recipesInKitchen.kitchenId, scope.kitchen_id)) },
+	{
+		table: "kitchen.step_template_utensil",
+		run: (tx, _s, ids) => deleteByParent(tx, stepTemplateUtensilInKitchen, stepTemplateUtensilInKitchen.stepTemplateId, ids.stepTemplateIds),
+	},
 	{ table: "kitchen.step_template", run: (tx, scope) => deleteCounting(tx, stepTemplateInKitchen, eq(stepTemplateInKitchen.kitchenId, scope.kitchen_id)) },
 	{ table: "kitchen.utensil", run: (tx, scope) => deleteCounting(tx, utensilInKitchen, eq(utensilInKitchen.kitchenId, scope.kitchen_id)) },
 	{ table: "kitchen.meal_type", run: (tx, scope) => deleteCounting(tx, mealTypeInKitchen, eq(mealTypeInKitchen.kitchenId, scope.kitchen_id)) },
@@ -265,12 +306,19 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
 /**
  * Limpa e re-semeia o ambiente de treino.
  *
- * @param actorId - autor da execução. Parâmetro explícito, não lido de sessão, para que um
- *   agendador possa chamar a operação fora de um request.
+ * O autor é `ctx.userId` — o mesmo principal que a autorização checou. Um agendador chama
+ * esta operação montando o próprio contexto, então não há perda de capacidade.
+ *
  * @throws {DomainError} escopo ausente/inseguro, ou falha em qualquer etapa (com rollback).
  */
-export async function resetTrainingScope(db: SisubDb, ctx: UserContext, input: ResetTrainingScope): Promise<TrainingResetResult> {
+export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise<TrainingResetResult> {
 	requirePermission(ctx, "global", 2)
+
+	// O autor sai do MESMO contexto que foi autorizado. Aceitá-lo por parâmetro permitia
+	// autorizar com um principal e registrar outro no log — uma ação destrutiva atribuída
+	// permanentemente a quem não a executou. Um agendador monta o próprio ctx, então nada
+	// se perde em capacidade.
+	const actorId = ctx.userId
 
 	const scope = await resolveTrainingScope(db)
 	const startedAt = new Date()
@@ -278,10 +326,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, input: R
 	// Registro ANTES da transação de dados: uma falha no meio precisa deixar rastro apesar do
 	// rollback. Um reset que quebrou e não registrou nada é o pior dos mundos.
 	const [logRow] = await runQuery("INSERT_FAILED", () =>
-		db
-			.insert(trainingResetLogInCore)
-			.values({ actorId: input.actorId, startedAt: startedAt.toISOString(), status: "running" })
-			.returning({ id: trainingResetLogInCore.id })
+		db.insert(trainingResetLogInCore).values({ actorId, startedAt: startedAt.toISOString(), status: "running" }).returning({ id: trainingResetLogInCore.id })
 	)
 
 	try {
@@ -290,12 +335,40 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext, input: R
 			// ambiente parcialmente limpo. Liberado no commit/rollback da transação.
 			await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
 
-			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id.
-			const [dailyMenus, templates] = await Promise.all([
+			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
+			// são alcançáveis por eles.
+			const [dailyMenus, templates, recipes, stepTemplates, ataDrafts] = await Promise.all([
 				tx.select({ id: dailyMenuInKitchen.id }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.kitchenId, scope.kitchen_id)),
 				tx.select({ id: menuTemplateInKitchen.id }).from(menuTemplateInKitchen).where(eq(menuTemplateInKitchen.kitchenId, scope.kitchen_id)),
+				tx.select({ id: recipesInKitchen.id }).from(recipesInKitchen).where(eq(recipesInKitchen.kitchenId, scope.kitchen_id)),
+				tx.select({ id: stepTemplateInKitchen.id }).from(stepTemplateInKitchen).where(eq(stepTemplateInKitchen.kitchenId, scope.kitchen_id)),
+				tx
+					.select({ id: kitchenAtaDraftInProcurement.id })
+					.from(kitchenAtaDraftInProcurement)
+					.where(eq(kitchenAtaDraftInProcurement.kitchenId, scope.kitchen_id)),
 			])
-			const ids: ResetIds = { dailyMenuIds: dailyMenus.map((r) => r.id), templateIds: templates.map((r) => r.id) }
+			const recipeIds = recipes.map((r) => r.id)
+
+			// Netos: passos e linhas de ficha técnica das receitas locais. Só alcançáveis
+			// depois de saber quais receitas são da cozinha de treino.
+			const [recipeSteps, recipeIngredients] = await Promise.all([
+				recipeIds.length === 0
+					? []
+					: tx.select({ id: recipeStepInKitchen.id }).from(recipeStepInKitchen).where(inArray(recipeStepInKitchen.recipeId, recipeIds)),
+				recipeIds.length === 0
+					? []
+					: tx.select({ id: recipeIngredientsInKitchen.id }).from(recipeIngredientsInKitchen).where(inArray(recipeIngredientsInKitchen.recipeId, recipeIds)),
+			])
+
+			const ids: ResetIds = {
+				dailyMenuIds: dailyMenus.map((r) => r.id),
+				templateIds: templates.map((r) => r.id),
+				recipeIds,
+				recipeStepIds: recipeSteps.map((r) => r.id),
+				recipeIngredientIds: recipeIngredients.map((r) => r.id),
+				stepTemplateIds: stepTemplates.map((r) => r.id),
+				ataDraftIds: ataDrafts.map((r) => r.id),
+			}
 
 			const counts: Record<string, number> = {}
 			for (const step of RESET_STEPS) {

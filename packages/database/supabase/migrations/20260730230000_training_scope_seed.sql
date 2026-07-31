@@ -41,6 +41,11 @@ declare
 	n_units      integer;
 	n_kitchens   integer;
 	n_mess_halls integer;
+	v_unit_id    bigint;
+	v_kitchen_id bigint;
+	v_k_unit_id  bigint;
+	v_mh_unit_id bigint;
+	v_mh_kit_id  bigint;
 begin
 	select count(*) into n_units      from core.units      where is_training;
 	select count(*) into n_kitchens   from core.kitchen    where is_training;
@@ -49,5 +54,22 @@ begin
 	if n_units <> 1 or n_kitchens <> 1 or n_mess_halls <> 1 then
 		raise exception 'Seed do escopo de treino inconsistente: % unidade(s), % cozinha(s), % refeitório(s)',
 			n_units, n_kitchens, n_mess_halls;
+	end if;
+
+	-- Contagem não basta. Se a marcação caiu numa cozinha ou refeitório de OUTRA hierarquia
+	-- — por exemplo alguém marcando `is_training` numa linha de produção —, a contagem
+	-- fecha e a migration seguinte concede escrita de treino sobre entidade REAL.
+	select id into v_unit_id from core.units where is_training;
+	select id, unit_id into v_kitchen_id, v_k_unit_id from core.kitchen where is_training;
+	select unit_id, kitchen_id into v_mh_unit_id, v_mh_kit_id from core.mess_halls where is_training;
+
+	if v_k_unit_id is distinct from v_unit_id then
+		raise exception 'Cozinha de treino pertence à unidade %, esperada %', v_k_unit_id, v_unit_id;
+	end if;
+	if v_mh_unit_id is distinct from v_unit_id then
+		raise exception 'Refeitório de treino pertence à unidade %, esperada %', v_mh_unit_id, v_unit_id;
+	end if;
+	if v_mh_kit_id is distinct from v_kitchen_id then
+		raise exception 'Refeitório de treino aponta para a cozinha %, esperada %', v_mh_kit_id, v_kitchen_id;
 	end if;
 end $$;
