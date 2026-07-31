@@ -33,6 +33,8 @@ interface IngredientsTreeNodeProps {
 	onNavigate?: () => void
 	/** Modo de seleção em massa ativo: exibe checkbox e desativa ações por linha */
 	selectionMode?: boolean
+	/** `false` = leitor (global:1): as ações de escrita não são renderizadas. */
+	canWrite?: boolean
 	/** Se este nó está selecionado (modo de seleção em massa) */
 	selected?: boolean
 	/** Alterna a seleção deste nó */
@@ -123,6 +125,7 @@ export function IngredientsTreeNode({
 	lastReviewedAt,
 	onNavigate,
 	selectionMode,
+	canWrite = true,
 	selected,
 	onSelectChange,
 }: IngredientsTreeNodeProps) {
@@ -333,7 +336,8 @@ export function IngredientsTreeNode({
 				</div>
 
 				{/* Ações — ocultas no modo de seleção em massa */}
-				<div className={cn("flex items-center gap-1", selectionMode && "hidden")}>
+				{/* Leitor navega a árvore inteira, mas não vê ação que o domínio vai recusar. */}
+				<div className={cn("flex items-center gap-1", (selectionMode || !canWrite) && "hidden")}>
 					{isDeleted ? (
 						<Button
 							variant="outline"

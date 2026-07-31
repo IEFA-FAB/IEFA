@@ -61,8 +61,9 @@ function hasAnyDenyForModule(module: AppModule, denies: Map<AppModule, Set<Scope
  *
  * @param sources - listas de permissões cruas (grants inline, statements de política…).
  *   A ordem entre elas é irrelevante: o deny vence venha de onde vier.
- * @returns permissões efetivas, sem entradas de deny — o consumo downstream
- *   (`hasPermission`) segue sendo uma comparação simples de nível.
+ * @returns permissões efetivas: os allows sobreviventes MAIS as entradas de deny, que
+ *   `hasPermission` precisa para negar um escopo coberto por um allow sem escopo. Quem
+ *   percorre a lista em vez de consultar `hasPermission` deve filtrar `level > 0`.
  */
 export function resolveEffectivePermissions(...sources: readonly UserPermission[][]): UserPermission[] {
 	const all = sources.flat()
@@ -78,6 +79,11 @@ export function resolveEffectivePermissions(...sources: readonly UserPermission[
 
 	// Fase 2 — emite os allows que nenhum deny cobre, mantendo o maior nível por
 	// (módulo, escopo). Duas origens podem conceder o mesmo par em níveis diferentes.
+	//
+	// A varredura NÃO resolve tudo: um allow sem escopo não é recortável por um deny
+	// escopado numa lista plana ("vale em todo lugar menos na cozinha 7" não tem
+	// representação). Por isso os denies seguem no resultado e `hasPermission` os aplica
+	// antes de procurar allow — ver a fase 3.
 	const winners = new Map<string, UserPermission>()
 	for (const p of all) {
 		if (p.level <= 0) continue
@@ -89,6 +95,12 @@ export function resolveEffectivePermissions(...sources: readonly UserPermission[
 
 	const effective = Array.from(winners.values())
 
+	// Fase 3 — os denies permanecem no conjunto efetivo. `hasPermission` os consulta antes de
+	// qualquer allow, o que cobre o caso que a fase 2 não consegue: allow sem escopo + deny
+	// escopado. Denies têm `level 0`, então nunca satisfazem `level >= minLevel` e não podem
+	// ser confundidos com concessão — mas quem ITERA o array precisa filtrar `level > 0`.
+	const denyEntries = all.filter((p) => p.level <= 0)
+
 	// Implicit Allow: todo usuário válido é comensal, a menos que exista regra explícita de
 	// `diner` — inclusive um deny, que remove o acesso implícito.
 	const hasExplicitDiner = effective.some((p) => p.module === "diner") || hasAnyDenyForModule("diner", denies)
@@ -96,5 +108,5 @@ export function resolveEffectivePermissions(...sources: readonly UserPermission[
 		effective.push({ module: "diner", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null })
 	}
 
-	return effective
+	return [...effective, ...denyEntries]
 }
