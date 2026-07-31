@@ -52,15 +52,21 @@ Extrator: transforma **ETP/TR em JSON estruturado** com todos os atributos da co
 - Parser de documentos (PDF, DOCX)
 - Schema JSON canônico da contratação
 - Validação de campos obrigatórios
+- Cada campo carrega o trecho literal de origem; sem origem localizável, o campo é descartado
 - **Pré-requisito crítico** — o schema alimenta todas as etapas seguintes
+
+> Implementada. Ver [Fontes federais e conformidade](/docs/alpha/fontes-e-conformidade).
 
 ### Etapa 5 — ComparadorEstrutural
 
 Compara a **estrutura do documento** com o modelo oficial da AGU/CJU.
 
 - Mapeamento seção a seção contra template oficial
-- Detecção de seções ausentes ou fora de ordem
+- Detecção de seções ausentes, extras, renomeadas ou fora de ordem
+- Determinístico: casamento exato → léxico → semântico, sem LLM na classificação
 - Relatório de conformidade estrutural
+
+> Implementada. Ver [Fontes federais e conformidade](/docs/alpha/fontes-e-conformidade).
 
 ### Etapa 6 — AppVerificadorRestrito
 
@@ -69,7 +75,10 @@ Parser bloco a bloco: verifica **inconformidades legais** item a item com base n
 - Loop item a item sobre o JSON da Etapa 4
 - Validação cruzada contra legislação vigente
 - Detecção de cláusulas contraditórias ou ausentes
+- Guard de citação: achado que cita dispositivo inexistente é descartado
 - Output: lista de inconformidades com referência legal
+
+> Implementada. Ver [Fontes federais e conformidade](/docs/alpha/fontes-e-conformidade).
 
 ### Etapa 7 — VerificadorAmplo
 
@@ -81,6 +90,9 @@ Integra etapas 4–6: **conformidade legislativa subjetiva + estrutural**.
   - Referência normativa
   - Sugestão de correção
 - Combina verificação restrita (objetiva) com análise ampla (subjetiva)
+- Declara a cobertura da análise: regras aplicadas, não avaliadas e achados descartados
+
+> Implementada. Ver [Fontes federais e conformidade](/docs/alpha/fontes-e-conformidade).
 
 ### Etapa 8 — Plataforma ACI
 

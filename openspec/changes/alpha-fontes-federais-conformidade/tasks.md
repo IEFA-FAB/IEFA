@@ -94,13 +94,13 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## PR H — Avaliação e fechamento
 
-- [ ] H.1 [alpha] Golden set: 5 a 10 ETP/TR anotados à mão com as inconformidades esperadas
-- [ ] H.2 [alpha] Harness de avaliação: precisão e recall por regra e agregados, executável por comando
-- [ ] H.3 [alpha] Calibrar limiares (fuzzy, semântico, `RERANK_THRESHOLD`) contra o golden set e registrar os valores escolhidos
-- [ ] H.4 [alpha] Revisar e promover o lote inicial de regras semeadas na bancada
-- [ ] H.5 [docs] Atualizar `apps/docs/content/docs/alpha/` com o estado real das etapas 1.4–1.7
-- [ ] H.6 [portal] Atualizar `roadmap.tsx`: 1.4 a 1.7 para `done` ou `in-progress` conforme o entregue
-- [ ] H.7 [alpha] Documentar em `apps/alpha/.env.schema` as variáveis novas (segredo do job, limiares, base URLs de fonte)
+- [x] H.1 [alpha] Golden set com 7 casos anotados em `src/eval/golden/cases.ts` — **sintéticos**, a substituir por ETP/TR reais antes de calibrar para produção
+- [x] H.2 [alpha] `bun run eval` — precisão, recall e F1 por código e agregados; 9 testes sobre a própria métrica
+- [ ] H.3 [alpha] Calibrar limiares contra golden set **real** — hoje: Dice 0.85, semântico 0.80, rerank 0.45, confiança do juiz 0.60
+- [ ] H.4 [alpha] Revisar e promover o lote inicial de regras semeadas na bancada — depende da ingestão real (B.14)
+- [x] H.5 [docs] Página `fontes-e-conformidade.mdx` + etapas 4–7 marcadas como implementadas
+- [x] H.6 [portal] `roadmap.tsx`: 1.4–1.7 em `in-progress` + etapa nova de fontes normativas federais
+- [x] H.7 [alpha] `ALPHA_JOB_SECRET` e `ALPHA_SOURCES_REFRESH_ENABLED` documentados em `.env.schema` e `.env.example`
 
 ## Final
 
