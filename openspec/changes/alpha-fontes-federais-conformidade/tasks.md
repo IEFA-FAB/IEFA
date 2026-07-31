@@ -104,5 +104,5 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## Final
 
-- [ ] Z.1 [root] `bun run check` verde (Biome + typecheck)
-- [ ] Z.2 [root] `bun run test` verde na suíte inteira (não typecheck por arquivo)
+- [x] Z.1 [root] `bun run check` verde (Biome + typecheck)
+- [x] Z.2 [root] `bun run test` verde na suíte inteira — 151 testes no alpha
