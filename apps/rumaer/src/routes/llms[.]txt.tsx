@@ -24,7 +24,10 @@ async function fetchUniformSections() {
 			.is("deleted_at", null)
 			.order("ordem", { ascending: true })
 
-		if (error || !data) return []
+		if (error || !data) {
+			console.error("[llms.txt] falha ao ler uniformes; publicando só as páginas fixas:", error)
+			return []
+		}
 
 		const byGroup = new Map<string, LlmsLink[]>()
 		for (const uniform of data) {
@@ -41,7 +44,8 @@ async function fetchUniformSections() {
 			heading: `Uniformes — ${GRUPO_LABELS[grupo as keyof typeof GRUPO_LABELS] ?? grupo}`,
 			links,
 		}))
-	} catch {
+	} catch (cause) {
+		console.error("[llms.txt] falha ao ler uniformes; publicando só as páginas fixas:", cause)
 		return []
 	}
 }
