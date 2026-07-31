@@ -59,13 +59,13 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## PR E — Extrator (Etapa 1.4)
 
-- [ ] E.1 [alpha] `ContratacaoSchema` (zod) — schema canônico derivado dos campos exigidos pelos modelos AGU de ETP e TR
-- [ ] E.2 [alpha] Dependência `unpdf`; `extraction/to-text.ts` — `.docx` e `.pdf` → texto com offsets preservados
-- [ ] E.3 [alpha] `extraction/extract.ts` — structured output validado, com retry limitado e falha explícita em vez de payload inválido
-- [ ] E.4 [alpha] `source_span` obrigatório: campo sem trecho localizável é gravado como ausente
-- [ ] E.5 [alpha] Storage do arquivo submetido + `POST /api/v1/submissions` (multipart, autenticado) e `POST /api/v1/submissions/:id/extractions`
-- [ ] E.6 [alpha] Testes com dois ETP/TR de fixture: campos obrigatórios, campo ausente, span resolvendo para o trecho certo
-- [ ] E.7 [portal] `/alpha/analise/nova`: upload, disparo de extração e conferência lado a lado com destaque de span
+- [x] E.1 [alpha] `extraction/schema.ts` — `ContratacaoSchema` (19 campos), obrigatórios e rótulos
+- [x] E.2 [alpha] Dependência `unpdf`; `extraction/to-text.ts` — `.docx` e `.pdf` → texto + árvore de seções do documento submetido
+- [x] E.3 [alpha] `extraction/extract.ts` — structured output validado, retry limitado e falha explícita em vez de payload inválido
+- [x] E.4 [alpha] `extraction/locate-span.ts` + `apply-spans.ts` — citação literal reencontrada no texto; sem span o campo vira ausente
+- [x] E.5 [alpha] Bucket privado `alpha-submissions` (migration) + rotas de submissão, extração, histórico e texto
+- [x] E.6 [alpha] 14 testes: span exato, aproximado, inexistente, descarte por evidência não localizada, schema inválido
+- [x] E.7 [portal] `/alpha/analise/nova`: upload, extração e conferência lado a lado com o trecho destacado
 
 ## PR F — Comparador estrutural (Etapa 1.5)
 

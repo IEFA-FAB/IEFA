@@ -14,6 +14,7 @@ import { embedDocuments } from "../sources/embeddings"
 import { ingestSource } from "../sources/pipeline"
 import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
+import { submissionRoutes } from "./submissions"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,8 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 
 const app = new Hono<{ Variables: AppVariables }>()
 	.use("/api/v1/*", authMiddleware)
+	// Submissão e extração (Etapa 1.4) — montadas depois do middleware de auth.
+	.route("/", submissionRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
 	.post("/api/v1/sessions", async (c) => {

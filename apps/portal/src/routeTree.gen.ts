@@ -35,6 +35,7 @@ import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_pub
 import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
 import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
 import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
+import { Route as AlphaAnaliseNovaRouteImport } from './routes/alpha/analise.nova'
 import { Route as AlphaModelosIdRouteImport } from './routes/alpha/modelos.$id'
 import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
 import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
@@ -191,6 +192,11 @@ const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
   path: '/termos-de-uso',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const AlphaAnaliseNovaRoute = AlphaAnaliseNovaRouteImport.update({
+  id: '/analise/nova',
+  path: '/analise/nova',
+  getParentRoute: () => AlphaRouteRoute,
+} as any)
 const AlphaModelosIdRoute = AlphaModelosIdRouteImport.update({
   id: '/modelos/$id',
   path: '/modelos/$id',
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
@@ -385,6 +392,7 @@ export interface FileRoutesByTo {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
@@ -436,6 +444,7 @@ export interface FileRoutesById {
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
   '/_public/_pt/sobre': typeof PublicPtSobreRoute
   '/_public/_pt/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
@@ -487,6 +496,7 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
@@ -584,6 +595,7 @@ export interface FileRouteTypes {
     | '/_public/_pt/roteiro'
     | '/_public/_pt/sobre'
     | '/_public/_pt/termos-de-uso'
+    | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
@@ -800,6 +812,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/alpha/analise/nova': {
+      id: '/alpha/analise/nova'
+      path: '/analise/nova'
+      fullPath: '/alpha/analise/nova'
+      preLoaderRoute: typeof AlphaAnaliseNovaRouteImport
+      parentRoute: typeof AlphaRouteRoute
+    }
     '/alpha/modelos/$id': {
       id: '/alpha/modelos/$id'
       path: '/modelos/$id'
@@ -1013,11 +1032,13 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
 
 interface AlphaRouteRouteChildren {
   AlphaFontesRoute: typeof AlphaFontesRoute
+  AlphaAnaliseNovaRoute: typeof AlphaAnaliseNovaRoute
   AlphaModelosIdRoute: typeof AlphaModelosIdRoute
 }
 
 const AlphaRouteRouteChildren: AlphaRouteRouteChildren = {
   AlphaFontesRoute: AlphaFontesRoute,
+  AlphaAnaliseNovaRoute: AlphaAnaliseNovaRoute,
   AlphaModelosIdRoute: AlphaModelosIdRoute,
 }
 

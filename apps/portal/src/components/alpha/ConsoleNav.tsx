@@ -1,6 +1,9 @@
 import { Link } from "@tanstack/react-router"
 
-const LINKS = [{ to: "/alpha/fontes", label: "Fontes" }] as const
+const LINKS = [
+	{ to: "/alpha/fontes", label: "Fontes" },
+	{ to: "/alpha/analise/nova", label: "Nova análise" },
+] as const
 
 /**
  * Cabeçalho do console.
