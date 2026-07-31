@@ -1,0 +1,52 @@
+---
+title: Estoque (Storage)
+description: Módulo de almoxarifado do SISUB — NF-e, GTIN/GS1, ledger MCASP, recebimento em dois estágios, baixa por produção e MRP.
+---
+
+## Visão geral
+
+O módulo **Estoque** fecha o ciclo da subsistência: planejamento → compra → recebimento → produção → replanejamento. Especificação completa em `openspec/changes/sisub-inventory-cycle/` (proposal, design, 9 specs e tasks).
+
+```
+Planejamento (cardápios + efetivo)
+  → Demanda bruta por ingrediente
+  → MRP: necessidade líquida (× FC ÷ IR − estoque válido − trânsito)
+  → Canal de compra (ARP própria → carona → Supermercado Virtual → Contrata+ → licitação)
+  → Empenho → Ordem de Fornecimento (por cozinha, com data prevista)
+  → NF-e (XML) → matching item→insumo → Recebimento provisório → definitivo
+  → Estoque em lotes (FEFO) → Baixa por produção (snapshot do cardápio)
+  → Fechamento mensal MCASP → realimenta o MRP
+```
+
+## Conceitos-chave
+
+| Conceito | Regra |
+|---|---|
+| **Ledger** (`inventory.stock_movement`) | Append-only por **trigger** (service role não bypassa). Correção = ajuste justificado. Quantidade positiva na unidade base; o sinal vem do `type`. |
+| **Item estocado** | `ingredient_id` XOR `frozen_preparation_id` — sobras reaproveitadas viram lote de preparação congelada com validade pelo `shelf_life_days`. |
+| **Custo** | Médio ponderado (MCASP), mantido em `inventory.stock_cost` por triggers. Custo do lote é informativo. |
+| **FEFO** | Baixa consome lotes por validade crescente (nulos por último); override exige justificativa. |
+| **GTIN** | Entidade própria (`gs1_integration.gtin`, 14 dígitos, check digit validado na aplicação, hierarquia de embalagem `parent_gtin`). Classificação GPC para matching e analytics. |
+| **NF-e** | Entrada nasce do XML (layout 4.0). Matching: GTIN → mapa do fornecedor `(CNPJ, cProd)` → sugestão trigram+GPC → manual (que **aprende**). Sem conversão resolvível, nunca `matched` — `uCom` jamais converte. |
+| **Recebimento** | Dois estágios (Lei 14.133, art. 140). Só o **definitivo** movimenta o ledger e abate o saldo físico do empenho. Divergência exige motivo por item. |
+| **Fechamento** | `inventory.monthly_closing` congela snapshot valorado e **trava o período** (trigger rejeita lançamento retroativo). |
+| **Unidades** | Catálogo canônico `core.measure_unit`. Ingrediente com unidade pendente na fila de revisão **não movimenta estoque**. |
+
+## PBAC
+
+Módulo `storage`: nível **1** leitura (painel, relatórios, sugestões), **2** movimentar (NF-e, OF, recebimento provisório, baixa, transferência), **3** ajustar/contar/efetivar definitivo/fechar competência.
+
+## Telas
+
+Todas escopadas por cozinha em `/storage/$kitchenId/…`: `dashboard` (saldo por item/lote, alertas de validade), `nfe` (upload + matching + resolução), `supply-orders` (OF contra empenho, com checagem SICAF), `receiving` (conferência por scanner + termo imprimível), `production-issue` (baixa FEFO + sobras + variância), `counts` (contagem física), `reports` (balancete RMA, ficha de almoxarifado, CSV CATMAT, empenho × liquidação), `replenishment` (MRP com canal recomendado e memória de cálculo). Filas de revisão de catálogo em `/global/review-queues`.
+
+## Saldos que nunca se somam
+
+O painel ARP distingue **saldo oficial** (snapshot Compras.gov — inclui caronas de outras UASGs, muda só ao sincronizar) de **comprometimento local** (soma dos `finance.empenho` ativos, tempo real). O MRP aplica FC/IR; a ATA publicada não — divergência intencional, com memória de cálculo exposta na UI.
+
+## Operação pós-deploy
+
+1. Aplicar migrations (`bun run db:push` em `packages/database`) e regenerar tipos (`db:types` + `db:drizzle:pull`) — remove os casts `LooseClient` das server fns.
+2. Rodar a suíte de integração: `SISUB_RUN_INTEGRATION=true` (ledger, recebimento, fechamento — transacionais com rollback).
+3. Importar a publicação GPC (`bun run sync:gpc <url>` no apps/api) e, com credenciais, configurar `GS1_VBG_API_URL`/`GS1_VBG_API_KEY` para o lookup Verified by GS1.
+4. Resolver as filas de revisão (unidades não-canônicas e barcodes inválidos) antes de operar o recebimento.

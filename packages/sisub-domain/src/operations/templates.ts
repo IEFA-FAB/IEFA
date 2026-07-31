@@ -21,7 +21,7 @@ import {
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
-import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
@@ -474,31 +474,34 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 	}
 
 	// Global + contexto de cozinha → fork.
+	//
+	// Tudo numa transação sob advisory lock da linhagem+cozinha. Duas razões:
+	//   - a busca por fork existente e o insert são passos separados; dois saves concorrentes
+	//     passariam os dois pela busca e criariam forks duplicados (o índice único parcial no
+	//     banco é o backstop, o lock evita chegar ao erro);
+	//   - `source`, itens e efetivo base precisam vir do MESMO instante. Lidos fora da
+	//     transação, uma edição concorrente do global produziria um fork combinando metadado
+	//     de uma revisão com itens de outra — um estado que nunca existiu na origem.
 	const rootId = await resolveTemplateRoot(db, input.templateId)
-	const existingFork = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInKitchen.findFirst({
-			columns: { id: true },
-			where: and(
-				eq(menuTemplateInKitchen.kitchenId, targetKitchenId),
-				eq(menuTemplateInKitchen.baseTemplateId, rootId),
-				isNull(menuTemplateInKitchen.deletedAt)
-			),
-		})
-	)
 
-	if (existingFork) {
-		const result = await db.transaction((tx) => applyTemplateContent(tx, existingFork.id, input))
-		return { template: toWire<MenuTemplate>(result), forked: true }
-	}
+	const result = await db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`template-fork:${targetKitchenId}:${rootId}`}))`)
 
-	// Fork novo: a linha nasce com nome/tipo do original e recebe o conteúdo editado. Itens
-	// e efetivo base ausentes na entrada são copiados do original, senão o fork nasceria vazio.
-	// Itens e efetivo base ausentes na entrada são copiados do original, senão o fork
-	// nasceria vazio.
-	let sourceItems: TemplateItem[] = input.items ?? []
-	if (input.items === undefined) {
-		const rows = await runQuery("FETCH_FAILED", () =>
-			db
+		const [existingFork] = await tx
+			.select({ id: menuTemplateInKitchen.id })
+			.from(menuTemplateInKitchen)
+			.where(
+				and(eq(menuTemplateInKitchen.kitchenId, targetKitchenId), eq(menuTemplateInKitchen.baseTemplateId, rootId), isNull(menuTemplateInKitchen.deletedAt))
+			)
+			.limit(1)
+
+		if (existingFork) return applyTemplateContent(tx, existingFork.id, input)
+
+		// Itens e efetivo base ausentes na entrada são copiados do original, senão o fork
+		// nasceria vazio.
+		let sourceItems: TemplateItem[] = input.items ?? []
+		if (input.items === undefined) {
+			const rows = await tx
 				.select({
 					dayOfWeek: menuTemplateItemsInKitchen.dayOfWeek,
 					mealTypeId: menuTemplateItemsInKitchen.mealTypeId,
@@ -510,43 +513,42 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 				})
 				.from(menuTemplateItemsInKitchen)
 				.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
-		)
-		sourceItems = rows
-			// Linhas sem dia, refeição ou preparação não compõem um item válido do contrato —
-			// são nullable no schema, mas não há o que copiar para o fork.
-			.filter((r) => r.dayOfWeek != null && r.mealTypeId != null && r.recipeId != null)
-			.map((r) => ({
-				dayOfWeek: r.dayOfWeek as number,
-				mealTypeId: r.mealTypeId as string,
-				recipeId: r.recipeId as string,
-				headcountOverride: r.headcountOverride ?? undefined,
-				// A coluna é text no banco e o contrato usa o enum; os valores vêm da própria
-				// aplicação, então o cast evita revalidar item a item no fork.
-				itemGroup: (r.itemGroup ?? null) as TemplateItem["itemGroup"],
-				sortOrder: r.sortOrder ?? 0,
-				recommendedProportion: r.recommendedProportion != null ? Number(r.recommendedProportion) : null,
-			}))
-	}
-	const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
 
-	const created = await db.transaction(async (tx) => {
-		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
-			tx
-				.insert(menuTemplateInKitchen)
-				.values({
-					name: source.name ?? "",
-					kitchenId: targetKitchenId,
-					baseTemplateId: rootId,
-					templateType: source.template_type ?? "weekly",
-				})
-				.returning()
-		)
+			sourceItems = rows
+				// Linhas sem dia, refeição ou preparação não compõem um item válido do contrato —
+				// são nullable no schema, mas não há o que copiar para o fork.
+				.filter((r) => r.dayOfWeek != null && r.mealTypeId != null && r.recipeId != null)
+				.map((r) => ({
+					dayOfWeek: r.dayOfWeek as number,
+					mealTypeId: r.mealTypeId as string,
+					recipeId: r.recipeId as string,
+					headcountOverride: r.headcountOverride ?? undefined,
+					// A coluna é text no banco e o contrato usa o enum; os valores vêm da própria
+					// aplicação, então o cast evita revalidar item a item no fork.
+					itemGroup: (r.itemGroup ?? null) as TemplateItem["itemGroup"],
+					sortOrder: r.sortOrder ?? 0,
+					recommendedProportion: r.recommendedProportion != null ? Number(r.recommendedProportion) : null,
+				}))
+		}
+
+		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(tx, [input.templateId])).get(input.templateId) ?? []
+
+		const [newTemplate] = await tx
+			.insert(menuTemplateInKitchen)
+			.values({
+				name: source.name ?? "",
+				kitchenId: targetKitchenId,
+				baseTemplateId: rootId,
+				templateType: source.template_type ?? "weekly",
+			})
+			.returning()
+
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
 		return applyTemplateContent(tx, newTemplate.id, { ...input, templateId: newTemplate.id, items: sourceItems, meals: sourceMeals })
 	})
 
-	return { template: toWire<MenuTemplate>(created), forked: true }
+	return { template: toWire<MenuTemplate>(result), forked: true }
 }
 
 /** Raiz da linhagem de um template (`base_template_id ?? id`). */

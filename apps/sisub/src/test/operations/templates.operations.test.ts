@@ -152,7 +152,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(tpl.expected_monthly_occurrences).toBe(12)
 
 		// null = limpar (não deve ser tratado como undefined/"não mexe")
-		await saveTemplateEdit(db, ctx, { templateId: tpl.id, context: { scope: "global" }, description: null, expectedMonthlyOccurrences: null })
+		await saveTemplateEdit(db, ctx, { templateId: tpl.id, context: { scope: "kitchen", kitchenId }, description: null, expectedMonthlyOccurrences: null })
 
 		const after = await getTemplate(db, ctx, { templateId: tpl.id })
 		expect(after.description).toBeNull()
@@ -210,6 +210,49 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forkItems).toHaveLength(1)
 	})
 
+	test("saveTemplateEdit forka template global editado no contexto de uma cozinha", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+
+		// Template GLOBAL (kitchenId ausente) — o catálogo da SDAB.
+		const global = await createTemplate(db, ctx, {
+			name: uid("[TEST] Global "),
+			templateType: "weekly",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId }],
+		})
+		trackTemplate(global.id)
+
+		const { template: fork, forked } = await saveTemplateEdit(db, ctx, {
+			templateId: global.id,
+			context: { scope: "kitchen", kitchenId },
+			name: uid("[TEST] Adaptado "),
+		})
+		trackTemplate(fork.id)
+
+		expect(forked).toBe(true)
+		expect(fork.id).not.toBe(global.id)
+		expect(fork.kitchen_id).toBe(kitchenId)
+		expect(fork.base_template_id).toBe(global.id)
+
+		// O global permanece intacto — é a regra que motiva todo o copy-on-write.
+		const globalAfter = await getTemplate(db, ctx, { templateId: global.id })
+		expect(globalAfter.name).toBe(global.name)
+		expect(globalAfter.kitchen_id).toBeNull()
+
+		// Itens copiados para o fork, já que a edição não os informou.
+		const forkItems = await getTemplateItems(db, ctx, { templateId: fork.id })
+		expect(forkItems.length).toBe(1)
+
+		// Segunda edição aplica NO fork existente, sem bifurcar de novo.
+		const { template: again, forked: forkedAgain } = await saveTemplateEdit(db, ctx, {
+			templateId: global.id,
+			context: { scope: "kitchen", kitchenId },
+			name: uid("[TEST] Readaptado "),
+		})
+		expect(forkedAgain).toBe(true)
+		expect(again.id).toBe(fork.id)
+	})
+
 	test("saveTemplateEdit renomeia e substitui itens (destrutivo)", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, recipeId } = await base()
@@ -223,7 +266,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 
 		const novoNome = uid("[TEST] Depois ")
 		const { template: updated } = await saveTemplateEdit(db, ctx, {
-			context: { scope: "global" },
+			context: { scope: "kitchen", kitchenId },
 			templateId: tpl.id,
 			name: novoNome,
 			items: [
