@@ -67,6 +67,10 @@ export async function fetchPendingDraft(db: SisubDb, _ctx: UserContext, input: F
 }
 
 /** Creates a draft with status "pending" and inserts its template selections (atômico). */
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function createKitchenDraft(db: SisubDb, _ctx: UserContext, input: CreateKitchenDraft) {
 	const draft = await db.transaction(async (tx) => {
 		const inserted = await insertOneOrFail(
@@ -93,6 +97,10 @@ export async function createKitchenDraft(db: SisubDb, _ctx: UserContext, input: 
  * Updates draft metadata and optionally replaces all selections (delete-all + re-insert, atômico).
  * selections=undefined → metadata-only update, existing selections untouched.
  */
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function updateKitchenDraft(db: SisubDb, _ctx: UserContext, input: UpdateKitchenDraft) {
 	const draft = await db.transaction(async (tx) => {
 		const set = { ...toColumns(input.updates), updatedAt: new Date().toISOString() } as Partial<typeof kitchenAtaDraftInProcurement.$inferInsert>
@@ -116,6 +124,10 @@ export async function updateKitchenDraft(db: SisubDb, _ctx: UserContext, input: 
 }
 
 /** Transitions a draft from "pending" to "sent", making it visible to management. */
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function sendKitchenDraft(db: SisubDb, _ctx: UserContext, input: SendKitchenDraft) {
 	await mutateOrFail(
 		"UPDATE_FAILED",
@@ -131,6 +143,10 @@ export async function sendKitchenDraft(db: SisubDb, _ctx: UserContext, input: Se
 }
 
 /** Hard-deletes a draft and its selections (cascade via FK). Only pending drafts should be deleted. */
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function deleteKitchenDraft(db: SisubDb, _ctx: UserContext, input: DeleteKitchenDraft) {
 	await mutateOrFail(
 		"DELETE_FAILED",

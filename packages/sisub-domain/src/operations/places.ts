@@ -221,6 +221,10 @@ export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, i
 	return rows[0]?.value ?? 0
 }
 
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function addOtherPresence(db: SisubDb, _ctx: UserContext, input: AddOtherPresence) {
 	await runQuery("INSERT_FAILED", () =>
 		db.insert(otherPresencesInKitchen).values({ adminId: input.adminId, date: input.date, meal: input.meal, messHallId: input.messHallId })

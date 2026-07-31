@@ -81,6 +81,10 @@ export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input
 	return toWire<KitchenSettings>(row, KITCHEN_RELATIONS)
 }
 
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, input: UpdateKitchenSettings) {
 	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
 	await mutateOrFail("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`, () =>

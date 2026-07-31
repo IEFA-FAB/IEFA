@@ -82,6 +82,10 @@ export async function listForecastMap(db: SisubDb, input: ListForecastMap): Prom
 	return map
 }
 
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function insertPresence(db: SisubDb, _ctx: UserContext, input: InsertPresence) {
 	try {
 		await db.insert(mealPresencesInKitchen).values({ userId: input.user_id, date: input.date, meal: input.meal, messHallId: input.messHallId })
@@ -93,6 +97,10 @@ export async function insertPresence(db: SisubDb, _ctx: UserContext, input: Inse
 	}
 }
 
+// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
+// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
+// novo desde já; esta fica marcada para não passar por esquecimento.
+// nosemgrep: domain-op-discards-user-context
 export async function deletePresence(db: SisubDb, _ctx: UserContext, input: { id: string }) {
 	await runQuery("DELETE_FAILED", () => db.delete(mealPresencesInKitchen).where(eq(mealPresencesInKitchen.id, input.id)))
 }
