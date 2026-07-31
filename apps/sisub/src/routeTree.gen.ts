@@ -43,6 +43,7 @@ import { Route as ProtectedModulesGlobalPlacesManagerRouteImport } from './route
 import { Route as ProtectedModulesGlobalPolicyRouteImport } from './routes/_protected/_modules/global/policy'
 import { Route as ProtectedModulesGlobalReviewQueuesRouteImport } from './routes/_protected/_modules/global/review-queues'
 import { Route as ProtectedModulesGlobalSyncRoutinesRouteImport } from './routes/_protected/_modules/global/sync-routines'
+import { Route as ProtectedModulesGlobalTrainingRouteImport } from './routes/_protected/_modules/global/training'
 import { Route as ProtectedModulesKitchenProductionIndexRouteImport } from './routes/_protected/_modules/kitchen-production/index'
 import { Route as ProtectedModulesKitchenProductionKitchenIdRouteRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/route'
 import { Route as ProtectedModulesKitchenIndexRouteImport } from './routes/_protected/_modules/kitchen/index'
@@ -300,6 +301,12 @@ const ProtectedModulesGlobalSyncRoutinesRoute =
   ProtectedModulesGlobalSyncRoutinesRouteImport.update({
     id: '/global/sync-routines',
     path: '/global/sync-routines',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalTrainingRoute =
+  ProtectedModulesGlobalTrainingRouteImport.update({
+    id: '/global/training',
+    path: '/global/training',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesKitchenProductionIndexRoute =
@@ -756,6 +763,7 @@ export interface FileRoutesByFullPath {
   '/global/policy': typeof ProtectedModulesGlobalPolicyRoute
   '/global/review-queues': typeof ProtectedModulesGlobalReviewQueuesRoute
   '/global/sync-routines': typeof ProtectedModulesGlobalSyncRoutinesRoute
+  '/global/training': typeof ProtectedModulesGlobalTrainingRoute
   '/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
   '/diner/': typeof ProtectedModulesDinerIndexRoute
   '/global/': typeof ProtectedModulesGlobalIndexRoute
@@ -852,6 +860,7 @@ export interface FileRoutesByTo {
   '/global/policy': typeof ProtectedModulesGlobalPolicyRoute
   '/global/review-queues': typeof ProtectedModulesGlobalReviewQueuesRoute
   '/global/sync-routines': typeof ProtectedModulesGlobalSyncRoutinesRoute
+  '/global/training': typeof ProtectedModulesGlobalTrainingRoute
   '/analytics': typeof ProtectedModulesAnalyticsIndexRoute
   '/diner': typeof ProtectedModulesDinerIndexRoute
   '/global': typeof ProtectedModulesGlobalIndexRoute
@@ -956,6 +965,7 @@ export interface FileRoutesById {
   '/_protected/_modules/global/policy': typeof ProtectedModulesGlobalPolicyRoute
   '/_protected/_modules/global/review-queues': typeof ProtectedModulesGlobalReviewQueuesRoute
   '/_protected/_modules/global/sync-routines': typeof ProtectedModulesGlobalSyncRoutinesRoute
+  '/_protected/_modules/global/training': typeof ProtectedModulesGlobalTrainingRoute
   '/_protected/_modules/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
   '/_protected/_modules/diner/': typeof ProtectedModulesDinerIndexRoute
   '/_protected/_modules/global/': typeof ProtectedModulesGlobalIndexRoute
@@ -1060,6 +1070,7 @@ export interface FileRouteTypes {
     | '/global/policy'
     | '/global/review-queues'
     | '/global/sync-routines'
+    | '/global/training'
     | '/analytics/'
     | '/diner/'
     | '/global/'
@@ -1156,6 +1167,7 @@ export interface FileRouteTypes {
     | '/global/policy'
     | '/global/review-queues'
     | '/global/sync-routines'
+    | '/global/training'
     | '/analytics'
     | '/diner'
     | '/global'
@@ -1259,6 +1271,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/policy'
     | '/_protected/_modules/global/review-queues'
     | '/_protected/_modules/global/sync-routines'
+    | '/_protected/_modules/global/training'
     | '/_protected/_modules/analytics/'
     | '/_protected/_modules/diner/'
     | '/_protected/_modules/global/'
@@ -1573,6 +1586,13 @@ declare module '@tanstack/react-router' {
       path: '/global/sync-routines'
       fullPath: '/global/sync-routines'
       preLoaderRoute: typeof ProtectedModulesGlobalSyncRoutinesRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/training': {
+      id: '/_protected/_modules/global/training'
+      path: '/global/training'
+      fullPath: '/global/training'
+      preLoaderRoute: typeof ProtectedModulesGlobalTrainingRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/kitchen-production/': {
@@ -2294,6 +2314,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesGlobalPolicyRoute: typeof ProtectedModulesGlobalPolicyRoute
   ProtectedModulesGlobalReviewQueuesRoute: typeof ProtectedModulesGlobalReviewQueuesRoute
   ProtectedModulesGlobalSyncRoutinesRoute: typeof ProtectedModulesGlobalSyncRoutinesRoute
+  ProtectedModulesGlobalTrainingRoute: typeof ProtectedModulesGlobalTrainingRoute
   ProtectedModulesDinerIndexRoute: typeof ProtectedModulesDinerIndexRoute
   ProtectedModulesGlobalIndexRoute: typeof ProtectedModulesGlobalIndexRoute
   ProtectedModulesKitchenProductionIndexRoute: typeof ProtectedModulesKitchenProductionIndexRoute
@@ -2359,6 +2380,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesGlobalReviewQueuesRoute,
   ProtectedModulesGlobalSyncRoutinesRoute:
     ProtectedModulesGlobalSyncRoutinesRoute,
+  ProtectedModulesGlobalTrainingRoute: ProtectedModulesGlobalTrainingRoute,
   ProtectedModulesDinerIndexRoute: ProtectedModulesDinerIndexRoute,
   ProtectedModulesGlobalIndexRoute: ProtectedModulesGlobalIndexRoute,
   ProtectedModulesKitchenProductionIndexRoute:

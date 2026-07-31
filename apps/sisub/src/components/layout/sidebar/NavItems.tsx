@@ -13,6 +13,7 @@ import {
 	FileSpreadsheet,
 	FileText,
 	FlameKindling,
+	GraduationCap,
 	KeyRound,
 	LayoutDashboard,
 	type LucideIcon,
@@ -159,6 +160,8 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Avaliação", url: "/global/evaluation", icon: Star, minLevel: 2 },
 			{ title: "Sincronização", url: "/global/sync-routines", icon: RefreshCw, minLevel: 2 },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2 },
+			// Nível 1: o painel mostra o estado do ambiente; só o botão de reset exige nível 2.
+			{ title: "Ambiente de Treino", url: "/global/training", icon: GraduationCap },
 
 			{ title: "Assistente IA", url: "/global/chat", icon: MessageSquare },
 		],
