@@ -57,8 +57,14 @@ export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUser
 	return resolveEffectivePermissions(permissions as UserPermission[], policyPermissions)
 }
 
-/** Origem de uma permissão efetiva: grant direto ou uma política nomeada. */
-export type PermissionOrigin = { kind: "inline" } | { kind: "policy"; policyId: string; policyName: string }
+/**
+ * Origem de uma permissão efetiva.
+ *
+ * `implicit` é o comensal que todo usuário válido recebe quando não há regra explícita de
+ * `diner` — não vem de linha nenhuma, mas precisa aparecer no console para o conjunto
+ * efetivo ficar completo.
+ */
+export type PermissionOrigin = { kind: "inline" } | { kind: "implicit" } | { kind: "policy"; policyId: string; policyName: string }
 
 export type EffectivePermissionWithOrigin = UserPermission & {
 	origins: PermissionOrigin[]
@@ -141,12 +147,35 @@ export async function listEffectiveUserPermissionsWithOrigin(
 		unscopedDenies.set(permission.module, [...(unscopedDenies.get(permission.module) ?? []), origin])
 	}
 
-	return Array.from(grouped.values())
+	const rows = Array.from(grouped.values())
 		.filter((entry) => entry.allows.length > 0)
 		.map((entry) => {
-			const deniedBy = [...entry.denies, ...(unscopedDenies.get(entry.permission.module) ?? [])]
+			// Só herda os denies sem escopo quando a própria entrada É escopada — senão o deny
+			// sem escopo apareceria duas vezes (já está em `entry.denies`) e a proveniência
+			// mostraria a mesma origem repetida.
+			const inheritedDenies = scopeKey(entry.permission) === "*" ? [] : (unscopedDenies.get(entry.permission.module) ?? [])
+			const deniedBy = [...entry.denies, ...inheritedDenies]
 			return { ...entry.permission, origins: entry.allows, denied: deniedBy.length > 0, deniedBy }
 		})
+
+	// Comensal implícito: o resolver canônico injeta `diner:1` quando não há regra explícita,
+	// e omiti-lo aqui faria o console reportar um conjunto efetivo incompleto — a tela diria
+	// que a pessoa não é comensal quando ela é.
+	const hasExplicitDiner = tagged.some((t) => t.permission.module === "diner")
+	if (!hasExplicitDiner) {
+		rows.push({
+			module: "diner",
+			level: 1,
+			mess_hall_id: null,
+			kitchen_id: null,
+			unit_id: null,
+			origins: [{ kind: "implicit" }],
+			denied: false,
+			deniedBy: [],
+		})
+	}
+
+	return rows
 }
 
 /** Statements das políticas anexadas, cada um carregando a política de origem. */

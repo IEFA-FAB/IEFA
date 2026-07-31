@@ -154,6 +154,7 @@ export {
 	type PolicyStatementRow,
 	type PolicySummary,
 	removePolicyStatement,
+	restorePolicy,
 	updatePolicy,
 	updatePolicyStatement,
 } from "./policies.ts"
