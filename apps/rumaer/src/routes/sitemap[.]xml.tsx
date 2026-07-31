@@ -12,7 +12,10 @@ async function fetchUniformEntries(): Promise<SitemapEntry[]> {
 	try {
 		const { data, error } = await getRumaerServerClient().from("uniform").select("id, updated_at").is("deleted_at", null).order("ordem", { ascending: true })
 
-		if (error || !data) return []
+		if (error || !data) {
+			console.error("[sitemap] falha ao ler uniformes; publicando só as páginas fixas:", error)
+			return []
+		}
 
 		return data.map((uniform) => ({
 			loc: absoluteUrl(`/uniformes/${uniform.id}`),
@@ -20,7 +23,8 @@ async function fetchUniformEntries(): Promise<SitemapEntry[]> {
 			changefreq: "monthly",
 			priority: 0.8,
 		}))
-	} catch {
+	} catch (cause) {
+		console.error("[sitemap] falha ao ler uniformes; publicando só as páginas fixas:", cause)
 		return []
 	}
 }

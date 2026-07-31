@@ -47,8 +47,19 @@ export interface SiteCatalog {
 	discoveryDocuments: readonly DiscoveryDocument[]
 }
 
+/**
+ * Remove barras finais sem regex: `/\/+$/` sobre uma string de muitas barras faz
+ * backtracking quadrático, e o CodeQL sinaliza isso mesmo quando a entrada é do
+ * próprio app.
+ */
+export function stripTrailingSlashes(value: string): string {
+	let end = value.length
+	while (end > 0 && value.charCodeAt(end - 1) === 47 /* "/" */) end--
+	return value.slice(0, end)
+}
+
 export function absoluteUrl(catalog: Pick<SiteCatalog, "url">, path: string): string {
-	return `${catalog.url.replace(/\/+$/, "")}${path}`
+	return `${stripTrailingSlashes(catalog.url)}${path}`
 }
 
 /** Páginas indexáveis, na ordem declarada. */

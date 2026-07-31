@@ -60,15 +60,21 @@ export function createAgentServerEntry<TOptions>(config: AgentServerEntryConfig<
 		const response = await config.handler(asHtmlRequest(request), opts)
 		if (!response.ok || !isHtml(response)) return response
 
-		const document = htmlToMarkdown(await response.text(), request.url, contentSelectors)
-		if (!document) return response
+		// Ler o corpo o consome. No fallback é preciso devolver o HTML já lido, e não
+		// a resposta original — essa sairia sem corpo nenhum.
+		const html = await response.text()
+
+		const document = htmlToMarkdown(html, request.url, contentSelectors)
+		if (!document) {
+			return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers })
+		}
 
 		const headers = new Headers(response.headers)
 		headers.set("content-type", "text/markdown; charset=utf-8")
 		headers.set("vary", "Accept")
 		headers.delete("content-length")
 
-		return new Response(document.markdown, { status: response.status, headers })
+		return new Response(document.markdown, { status: response.status, statusText: response.statusText, headers })
 	}
 
 	return {
