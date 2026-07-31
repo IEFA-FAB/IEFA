@@ -17,3 +17,14 @@ create index if not exists recipes_kitchen_lineage_idx
 create index if not exists recipes_base_recipe_idx
 	on kitchen.recipes (base_recipe_id)
 	where base_recipe_id is not null;
+
+-- Invariante: uma versão por (linhagem, escopo). O advisory lock em `saveRecipeEdit`
+-- serializa a alocação, mas o índice é o que garante a regra mesmo se alguém inserir por
+-- fora do domínio — e transforma uma corrida remanescente em erro, não em duas linhas com
+-- a mesma versão disputando a listagem.
+--
+-- Parcial em `base_recipe_id IS NOT NULL` porque a raiz é sempre a versão 1 e não carrega
+-- base. `coalesce(kitchen_id, -1)` porque NULL não colide com NULL num índice único.
+create unique index if not exists recipes_lineage_version_unique_idx
+	on kitchen.recipes (base_recipe_id, coalesce(kitchen_id, -1), version)
+	where base_recipe_id is not null;

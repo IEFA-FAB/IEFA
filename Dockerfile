@@ -38,6 +38,9 @@ RUN bun install --frozen-lockfile
 # =============================================================================
 FROM deps AS api-build
 COPY apps/api ./apps/api
+# o bundle da api importa @iefa/sisub-domain/gtin (utils puros de GTIN) —
+# sem o source do package o bun build não resolve o subpath do workspace
+COPY packages/sisub-domain ./packages/sisub-domain
 RUN bun --filter='@iefa/api' run build
 RUN test -f apps/api/dist/index.js || \
     (echo "❌ Build failed: output missing" && exit 1)
