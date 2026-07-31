@@ -9,21 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as AuthRouteRouteImport } from './routes/auth/route'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteRouteImport } from './routes/auth/route'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as RespondIdRouteImport } from './routes/respond/$id'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
+import { Route as AuthenticatedQuestionnairesIdRouteImport } from './routes/_authenticated/questionnaires/$id'
+import { Route as AuthenticatedQuestionnairesNewRouteImport } from './routes/_authenticated/questionnaires/new'
 import { Route as AuthenticatedResponsesIndexRouteImport } from './routes/_authenticated/responses/index'
 import { Route as AuthenticatedResponsesQuestionnaireIdRouteImport } from './routes/_authenticated/responses/$questionnaireId'
-import { Route as AuthenticatedQuestionnairesNewRouteImport } from './routes/_authenticated/questionnaires/new'
-import { Route as AuthenticatedQuestionnairesIdRouteImport } from './routes/_authenticated/questionnaires/$id'
+import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 
-const HealthRoute = HealthRouteImport.update({
-  id: '/health',
-  path: '/health',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -31,14 +40,30 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
@@ -50,11 +75,24 @@ const RespondIdRoute = RespondIdRouteImport.update({
   path: '/respond/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const DotwellKnownAgentSkillsIndexDotjsonRoute =
+  DotwellKnownAgentSkillsIndexDotjsonRouteImport.update({
+    id: '/.well-known/agent-skills/index.json',
+    path: '/.well-known/agent-skills/index.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedQuestionnairesIdRoute =
+  AuthenticatedQuestionnairesIdRouteImport.update({
+    id: '/questionnaires/$id',
+    path: '/questionnaires/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedQuestionnairesNewRoute =
+  AuthenticatedQuestionnairesNewRouteImport.update({
+    id: '/questionnaires/new',
+    path: '/questionnaires/new',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedResponsesIndexRoute =
   AuthenticatedResponsesIndexRouteImport.update({
     id: '/responses/',
@@ -67,41 +105,45 @@ const AuthenticatedResponsesQuestionnaireIdRoute =
     path: '/responses/$questionnaireId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedQuestionnairesNewRoute =
-  AuthenticatedQuestionnairesNewRouteImport.update({
-    id: '/questionnaires/new',
-    path: '/questionnaires/new',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedQuestionnairesIdRoute =
-  AuthenticatedQuestionnairesIdRouteImport.update({
-    id: '/questionnaires/$id',
-    path: '/questionnaires/$id',
-    getParentRoute: () => AuthenticatedRouteRoute,
+const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
+  DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport.update({
+    id: '/.well-known/agent-skills/$skill/SKILL.md',
+    path: '/.well-known/agent-skills/$skill/SKILL.md',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/respond/$id': typeof RespondIdRoute
   '/auth/': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/questionnaires/$id': typeof AuthenticatedQuestionnairesIdRoute
   '/questionnaires/new': typeof AuthenticatedQuestionnairesNewRoute
   '/responses/$questionnaireId': typeof AuthenticatedResponsesQuestionnaireIdRoute
   '/responses/': typeof AuthenticatedResponsesIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/respond/$id': typeof RespondIdRoute
   '/auth': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/questionnaires/$id': typeof AuthenticatedQuestionnairesIdRoute
   '/questionnaires/new': typeof AuthenticatedQuestionnairesNewRoute
   '/responses/$questionnaireId': typeof AuthenticatedResponsesQuestionnaireIdRoute
   '/responses': typeof AuthenticatedResponsesIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -109,13 +151,18 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/respond/$id': typeof RespondIdRoute
   '/auth/': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/_authenticated/questionnaires/$id': typeof AuthenticatedQuestionnairesIdRoute
   '/_authenticated/questionnaires/new': typeof AuthenticatedQuestionnairesNewRoute
   '/_authenticated/responses/$questionnaireId': typeof AuthenticatedResponsesQuestionnaireIdRoute
   '/_authenticated/responses/': typeof AuthenticatedResponsesIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -123,37 +170,52 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/health'
+    | '/llms.txt'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/dashboard'
     | '/respond/$id'
     | '/auth/'
+    | '/.well-known/agent-skills/index.json'
     | '/questionnaires/$id'
     | '/questionnaires/new'
     | '/responses/$questionnaireId'
     | '/responses/'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/health'
+    | '/llms.txt'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/dashboard'
     | '/respond/$id'
     | '/auth'
+    | '/.well-known/agent-skills/index.json'
     | '/questionnaires/$id'
     | '/questionnaires/new'
     | '/responses/$questionnaireId'
     | '/responses'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/health'
+    | '/llms.txt'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/_authenticated/dashboard'
     | '/respond/$id'
     | '/auth/'
+    | '/.well-known/agent-skills/index.json'
     | '/_authenticated/questionnaires/$id'
     | '/_authenticated/questionnaires/new'
     | '/_authenticated/responses/$questionnaireId'
     | '/_authenticated/responses/'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -161,23 +223,21 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   RespondIdRoute: typeof RespondIdRoute
+  DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/health': {
-      id: '/health'
-      path: '/health'
-      fullPath: '/health'
-      preLoaderRoute: typeof HealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -187,12 +247,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/auth/': {
       id: '/auth/'
@@ -208,11 +303,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RespondIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+    '/.well-known/agent-skills/index.json': {
+      id: '/.well-known/agent-skills/index.json'
+      path: '/.well-known/agent-skills/index.json'
+      fullPath: '/.well-known/agent-skills/index.json'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/questionnaires/$id': {
+      id: '/_authenticated/questionnaires/$id'
+      path: '/questionnaires/$id'
+      fullPath: '/questionnaires/$id'
+      preLoaderRoute: typeof AuthenticatedQuestionnairesIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/questionnaires/new': {
+      id: '/_authenticated/questionnaires/new'
+      path: '/questionnaires/new'
+      fullPath: '/questionnaires/new'
+      preLoaderRoute: typeof AuthenticatedQuestionnairesNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/responses/': {
@@ -229,19 +338,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedResponsesQuestionnaireIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/questionnaires/new': {
-      id: '/_authenticated/questionnaires/new'
-      path: '/questionnaires/new'
-      fullPath: '/questionnaires/new'
-      preLoaderRoute: typeof AuthenticatedQuestionnairesNewRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/questionnaires/$id': {
-      id: '/_authenticated/questionnaires/$id'
-      path: '/questionnaires/$id'
-      fullPath: '/questionnaires/$id'
-      preLoaderRoute: typeof AuthenticatedQuestionnairesIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/.well-known/agent-skills/$skill/SKILL.md': {
+      id: '/.well-known/agent-skills/$skill/SKILL.md'
+      path: '/.well-known/agent-skills/$skill/SKILL.md'
+      fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -283,7 +385,14 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HealthRoute: HealthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   RespondIdRoute: RespondIdRoute,
+  DotwellKnownAgentSkillsIndexDotjsonRoute:
+    DotwellKnownAgentSkillsIndexDotjsonRoute,
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute:
+    DotwellKnownAgentSkillsSkillSKILLDotmdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

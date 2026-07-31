@@ -36,7 +36,9 @@ export default defineConfig({
 				// perceber, já que não existe servidor para gerá-la sob demanda depois.
 				failOnError: true,
 				// Rotas sem link apontando para elas: o crawler não as descobre sozinho.
-				routes: ["/", "/docs/", "/api/docs-index", "/api/search"],
+				// Os documentos para agentes entram aqui pelo mesmo motivo — sem
+				// servidor em runtime, o que não for materializado no build não existe.
+				routes: ["/", "/docs/", "/api/docs-index", "/api/search", "/llms.txt", "/llms-full.txt", "/sitemap.xml", "/robots.txt"],
 			},
 			// Cache-control aqui não vale mais nada: quem serve os arquivos é o
 			// CloudFront, e a política de cache vive na distribuição (infra/docs).
