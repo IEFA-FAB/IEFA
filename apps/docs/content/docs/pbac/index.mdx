@@ -27,13 +27,15 @@ Os níveis são inteiros — quanto maior, mais poder:
 
 | Nível | Significado |
 |-------|-------------|
-| `0` | **Deny explícito** — a permissão é removida antes de qualquer verificação |
+| `0` | **Deny explícito** — anula os allows que ele cobre, de qualquer origem |
 | `1` | **Leitura / acesso básico** |
 | `2` | **Escrita / edição** |
 | `3+` | **Administração** |
 
 <Callout type="warn">
-Nível `0` é um bloqueio explícito, não "sem acesso". Ele é removido (stripped) pelo `resolveUserPermissions` antes de chegar ao `hasPermission`, portanto o usuário fica sem aquela permissão — como se nunca tivesse sido cadastrada.
+Nível `0` é um bloqueio explícito, não "sem acesso", e tem **precedência**: um deny anula os allows que ele cobre, venham de grant direto ou de política anexada. Deny sem escopo bloqueia o módulo inteiro; deny escopado bloqueia aquele escopo — inclusive contra um allow sem escopo.
+
+As entradas de deny **permanecem** no conjunto efetivo, porque é o `hasPermission` que as aplica. Com `level 0` elas nunca satisfazem `level >= minLevel`, então não viram concessão; mas código que percorre o array em vez de consultar o guard precisa filtrar `level > 0` — use `resolveModuleScopes` para derivar escopos alcançáveis.
 </Callout>
 
 ### Escopos
@@ -65,8 +67,11 @@ async function resolveUserPermissions(
 Executada **no servidor**, com service role (bypassa RLS). Responsável por:
 
 1. Buscar todas as linhas da tabela `user_permissions` para o `userId`
-2. **Injetar** permissão `diner` nível `1` se o usuário não tiver nenhuma regra de comensal — todo usuário autenticado é implicitamente um comensal
-3. **Remover** entradas com `level = 0` (deny strip) antes de retornar
+2. Delegar a `resolveEffectivePermissions`, que:
+   - **injeta** permissão `diner` nível `1` se não houver regra de comensal em nenhuma origem — todo usuário autenticado é implicitamente um comensal;
+   - aplica a **precedência de deny**, removendo os allows cobertos e mantendo as entradas de deny para o `hasPermission` usar.
+
+No sisub a resolução recebe uma segunda origem: os statements das políticas anexadas ao usuário. Em rumaer e sucont existe só a origem inline, e o resultado é o mesmo de antes.
 
 <Callout>
 Use sempre o cliente Supabase com service role aqui. O client público com RLS pode filtrar linhas que o próprio usuário deveria ver, quebrando a resolução.

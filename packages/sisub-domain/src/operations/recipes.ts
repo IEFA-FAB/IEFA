@@ -12,17 +12,18 @@
 
 import { menuTemplateInKitchen, menuTemplateItemsInKitchen, recipeIngredientsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
-import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
+import { and, eq, ilike, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
+import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
-	CreateRecipeVersion,
 	DeleteRecipe,
 	FetchRecipe,
 	ListRecipes,
 	ListRecipeVersions,
 	RenameRecipe,
 	RestoreRecipe,
+	SaveRecipeEdit,
 } from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
@@ -80,6 +81,24 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
 }
 
+/**
+ * Precedência dentro de uma linhagem, para a dedup da listagem.
+ *
+ * A linha LOCAL sombreia a global **incondicionalmente** — semântica de branch de git: o
+ * fork da cozinha vence o upstream na visão dela. Entre linhas do mesmo escopo, vence a
+ * maior versão.
+ *
+ * Comparar apenas `version` (comportamento anterior) empatava fork e global quando os dois
+ * chegavam ao mesmo número, e o vencedor passava a depender da ordem em que o Postgres
+ * devolvia as linhas — não-determinístico. A listagem de uma cozinha só traz o global e as
+ * linhas dela própria, então "local" aqui só pode ser a cozinha que consultou.
+ */
+function lineageWinner(candidate: { kitchenId: number | null; version: number }, incumbent: { kitchenId: number | null; version: number }): boolean {
+	const candidateIsLocal = candidate.kitchenId != null
+	if (candidateIsLocal !== (incumbent.kitchenId != null)) return candidateIsLocal
+	return candidate.version > incumbent.version
+}
+
 export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListRecipes): Promise<RecipeWithIngredients[]> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
@@ -105,14 +124,14 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 		})
 	)
 
-	// Dedup por família: mantém só a maior versão de cada família (versões inserem novas
-	// linhas com base_recipe_id → raiz). Opera sobre as linhas Drizzle (camelCase) e
-	// só converte para o contrato no final.
+	// Dedup por família: uma linha por linhagem (versões inserem novas linhas com
+	// base_recipe_id → raiz). Opera sobre as linhas Drizzle (camelCase) e só converte
+	// para o contrato no final.
 	const familyMap = new Map<string, (typeof rows)[number]>()
 	for (const recipe of rows) {
 		const rootId = recipe.baseRecipeId ?? recipe.id
 		const existing = familyMap.get(rootId)
-		if (!existing || recipe.version > existing.version) familyMap.set(rootId, recipe)
+		if (!existing || lineageWinner(recipe, existing)) familyMap.set(rootId, recipe)
 	}
 
 	return Array.from(familyMap.values())
@@ -223,11 +242,8 @@ async function buildIngredientIdMap(db: SisubDb, sourceRecipeId: string, inserte
 }
 
 export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateRecipe): Promise<Recipe> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// kitchenId ausente = receita GLOBAL (catálogo da SDAB) → exige global:2, não kitchen:2.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -253,18 +269,12 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
  * Autoriza mutação destrutiva sobre UMA receita conforme a posse:
  * receita local → exige nível 2 NAQUELA cozinha; receita global → exige "global" nível 2.
  * Evita IDOR: sem isso, qualquer usuário kitchen-2 apagaria receitas de outras cozinhas/globais.
+ *
+ * Delega ao guard compartilhado — este comportamento era o correto e virou a regra geral
+ * para todo ativo global/local (ver guards/asset-ownership.ts).
  */
 async function authorizeRecipeMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
-	const recipe = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, recipeId) })
-	)
-	if (!recipe) throw new NotFoundError("recipe", recipeId)
-
-	if (recipe.kitchenId == null) {
-		requirePermission(ctx, "global", 2)
-	} else {
-		requireKitchen(ctx, 2, recipe.kitchenId)
-	}
+	await authorizeAssetMutation(db, ctx, "recipe", recipeId)
 }
 
 /** Soft delete: marca deleted_at. A receita some das listagens (exceto includeDeleted). */
@@ -303,15 +313,78 @@ export async function renameRecipe(db: SisubDb, ctx: UserContext, input: RenameR
 	)
 }
 
-export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: CreateRecipeVersion): Promise<Recipe> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
+/** Resultado de uma edição salva: a linha criada e se ela nasceu como fork local. */
+export type SaveRecipeEditResult = { recipe: Recipe; forked: boolean }
+
+/**
+ * Salva a edição de uma receita existente, criando uma nova linha na linhagem.
+ *
+ * Três caminhos, decididos pelo DONO da base e pelo CONTEXTO declarado na requisição:
+ *
+ *  1. base global + contexto global   → nova versão global (exige `global:2`)
+ *  2. base global + contexto cozinha  → **fork local** (copy-on-write): o global fica
+ *     intacto e a cozinha ganha a própria linha. Exige `kitchen:2` naquela cozinha.
+ *  3. base local  + contexto da mesma cozinha → nova versão do ativo local
+ *
+ * Base local com contexto de outra cozinha (ou contexto global) é rejeitada: nem editar
+ * receita alheia, nem promover adaptação local a conteúdo da FAB.
+ *
+ * `base_recipe_id` aponta sempre para a RAIZ da linhagem, não para o pai imediato. A
+ * dedup da listagem e `listRecipeVersions` resolvem família por `base_recipe_id ?? id` em
+ * um único nível — com o pai imediato, a partir da terceira versão a família se partia e
+ * duas versões apareciam na listagem ao mesmo tempo.
+ *
+ * O número de versão é por ESCOPO: a linhagem do fork tem contador próprio e não compete
+ * com a do global (a precedência do fork não depende de número de versão — ver `listRecipes`).
+ */
+export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveRecipeEdit): Promise<SaveRecipeEditResult> {
+	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
+
+	// Autorização ANTES de qualquer leitura: os erros seguintes distinguem "não existe" de
+	// "é de outra cozinha", e emiti-los primeiro contaria a um usuário sem acesso se um
+	// UUID de receita existe e de quem ele é. O destino sai do contexto declarado, então dá
+	// para autorizar sem tocar o banco.
+	requireAssetWriteForScope(ctx, targetKitchenId)
+
+	const base = await runQuery("FETCH_FAILED", () =>
+		db.query.recipesInKitchen.findFirst({
+			columns: { id: true, kitchenId: true, baseRecipeId: true },
+			where: eq(recipesInKitchen.id, input.baseRecipeId),
+		})
+	)
+	if (!base) throw new NotFoundError("recipe", input.baseRecipeId)
+
+	const rootId = base.baseRecipeId ?? base.id
+
+	if (base.kitchenId != null && base.kitchenId !== targetKitchenId) {
+		throw new DomainError(
+			"RECIPE_SCOPE_MISMATCH",
+			`Recipe ${input.baseRecipeId} belongs to kitchen ${base.kitchenId} and cannot be edited from ${
+				targetKitchenId == null ? "the global context" : `kitchen ${targetKitchenId}`
+			}`
+		)
 	}
 
-	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
-		db
+	const forked = base.kitchenId == null && targetKitchenId != null
+
+	// Alocação de versão + insert na MESMA transação, sob advisory lock da linhagem. Sem o
+	// lock, dois saves concorrentes no mesmo escopo leem o mesmo máximo e inserem a mesma
+	// versão: a listagem passaria a escolher uma das duas arbitrariamente e o histórico
+	// mostraria números repetidos. O lock é liberado no commit/rollback.
+	const recipe = await db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`recipe-lineage:${rootId}`}))`)
+
+		// Linhagem completa (raiz + descendentes) para achar o próximo número de versão no
+		// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
+		// seguinte versiona esse fork em vez de bifurcar de novo.
+		const lineage = await tx
+			.select({ kitchenId: recipesInKitchen.kitchenId, version: recipesInKitchen.version })
+			.from(recipesInKitchen)
+			.where(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)))
+
+		const nextVersion = lineage.filter((r) => r.kitchenId === targetKitchenId).reduce((max, r) => Math.max(max, r.version), 0) + 1
+
+		const [row] = await tx
 			.insert(recipesInKitchen)
 			.values({
 				name: input.name,
@@ -320,23 +393,23 @@ export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: 
 				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
 				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
 				rationalId: input.rationalId ?? null,
-				kitchenId: input.kitchenId ?? null,
-				baseRecipeId: input.baseRecipeId,
-				version: input.version,
+				kitchenId: targetKitchenId,
+				baseRecipeId: rootId,
+				version: nextVersion,
 			})
 			.returning()
-	)
+
+		if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
+		return row
+	})
 
 	const inserted = await insertIngredients(db, recipe.id, input.ingredients)
 
-	// Copy-forward do fluxo de produção: se a edição veio de uma versão com fluxo,
-	// copia o grafo para a nova versão remapeando os insumos. Não-atômico com o
-	// insert da versão (paridade com o comportamento atual); falha aqui não desfaz
-	// a versão já criada — o fluxo pode ser re-salvo manualmente.
-	if (input.sourceRecipeId) {
-		const riIdMap = await buildIngredientIdMap(db, input.sourceRecipeId, inserted)
-		await copyRecipeFlow(db, input.sourceRecipeId, recipe.id, riIdMap)
-	}
+	// Copy-forward do fluxo de produção a partir da versão que o usuário abriu, remapeando
+	// os insumos. Não-atômico com o insert da linha (paridade com o comportamento anterior):
+	// falha aqui não desfaz a linha criada — o fluxo pode ser re-salvo manualmente.
+	const riIdMap = await buildIngredientIdMap(db, base.id, inserted)
+	await copyRecipeFlow(db, base.id, recipe.id, riIdMap)
 
-	return toWire<Recipe>(recipe, RECIPE_RELATIONS)
+	return { recipe: toWire<Recipe>(recipe, RECIPE_RELATIONS), forked }
 }

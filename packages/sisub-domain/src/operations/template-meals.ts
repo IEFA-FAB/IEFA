@@ -27,7 +27,10 @@ function isMenuTemplateMealMissing(err: unknown): boolean {
 /** Retorna as linhas de efetivo base agrupadas por menu_template_id. Degrada para mapa vazio
  * APENAS quando a tabela não existe (migração 20260707120000 pendente); qualquer outra falha
  * de DB é re-lançada para não sub-dimensionar demanda em silêncio depois da migração. */
-export async function fetchTemplateMealsSafe(db: SisubDb, templateIds: string[]): Promise<Map<string, TemplateMealRow[]>> {
+/** Handle de transação — o fork de template lê o efetivo base DENTRO da transação. */
+type TemplateMealsTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
+
+export async function fetchTemplateMealsSafe(db: SisubDb | TemplateMealsTx, templateIds: string[]): Promise<Map<string, TemplateMealRow[]>> {
 	const byTemplate = new Map<string, TemplateMealRow[]>()
 	if (templateIds.length === 0) return byTemplate
 	try {

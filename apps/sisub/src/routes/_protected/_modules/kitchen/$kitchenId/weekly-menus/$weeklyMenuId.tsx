@@ -1,11 +1,13 @@
+import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { Check, CheckCircle2, Circle, GitFork, Loader2, Plus, Printer, Save, Users } from "lucide-react"
-import { useEffect, useReducer, useRef, useState } from "react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
-import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
+import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import type { TemplateItemDraft, TemplateMealDraft } from "@/types/domain/planning"
@@ -190,8 +192,16 @@ function WeeklyMenuEditorPage() {
 	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
 	const { data: allRecipes } = useRecipes()
-	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
-	const { mutate: autoSave } = useUpdateTemplate({ silent: true })
+	// Contexto da edição = a rota. Template global editado aqui vira cópia local desta
+	// cozinha; o global não é tocado. `menu_template` não é versionado, então a edição
+	// in-place de um global sobrescreveria o plano da FAB inteira sem histórico.
+	const editContext = useMemo<EditScope>(() => ({ scope: "kitchen", kitchenId }), [kitchenId])
+
+	// Template global aberto numa cozinha: salvar vai forkar.
+	const willFork = template != null && template.kitchen_id == null
+
+	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit()
+	const { mutate: autoSave } = useSaveTemplateEdit({ silent: true })
 
 	const [editorState, dispatch] = useReducer(weeklyMenuEditorReducer, initialWeeklyMenuEditorState)
 	const { name, description, items, meals, initialized, activeTab, selectorOpen, selectedCell } = editorState
@@ -234,6 +244,10 @@ function WeeklyMenuEditorPage() {
 			return
 		}
 		if (!name.trim()) return
+		// Auto-save NÃO forka: criar uma cópia local no primeiro caractere digitado seria
+		// uma bifurcação silenciosa. Num template global a cópia sai só do salvamento
+		// explícito, depois do aviso.
+		if (willFork) return
 		setSaveStatus("idle")
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		autoSaveTimerRef.current = setTimeout(() => {
@@ -241,6 +255,7 @@ function WeeklyMenuEditorPage() {
 			autoSave(
 				{
 					id: weeklyMenuId as string,
+					context: editContext,
 					updates: { name: name.trim(), description: description.trim() || null },
 					items: items.map((i) => ({
 						day_of_week: i.day_of_week,
@@ -262,7 +277,7 @@ function WeeklyMenuEditorPage() {
 		return () => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
-	}, [name, description, items, meals, initialized, autoSave, weeklyMenuId])
+	}, [name, description, items, meals, initialized, willFork, editContext, autoSave, weeklyMenuId])
 
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
@@ -374,9 +389,10 @@ function WeeklyMenuEditorPage() {
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-		updateTemplate(
+		saveTemplate(
 			{
 				id: weeklyMenuId as string,
+				context: editContext,
 				updates: {
 					name: name.trim(),
 					description: description.trim() || null,
@@ -496,6 +512,17 @@ function WeeklyMenuEditorPage() {
 						</Button>
 					</div>
 				</PageHeader>
+
+				{willFork && (
+					<Alert>
+						<GitFork className="size-4" />
+						<AlertTitle>Modelo global</AlertTitle>
+						<AlertDescription>
+							Este plano semanal é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas alterações — o modelo global
+							permanece intacto e as demais unidades continuam vendo o original. O salvamento automático fica desligado até lá.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				<div className="space-y-6">
 					{/* Metadata */}

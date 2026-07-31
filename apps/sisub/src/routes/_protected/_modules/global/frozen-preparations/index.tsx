@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import { useCreateFrozenPreparation, useDeleteFrozenPreparation, useFrozenPreparations, useUpdateFrozenPreparation } from "@/services/FrozenPreparationsService"
 
 const searchSchema = z.object({ search: z.string().optional() })
@@ -34,6 +35,8 @@ const CATEGORIES: { value: FrozenPreparationCategory; label: string }[] = [
 const categoryLabel = (c: string) => CATEGORIES.find((x) => x.value === c)?.label ?? c
 
 function FrozenPreparationsPage() {
+	// global:1 navega a tela inteira; só não vê os controles de escrita.
+	const canWrite = useGlobalWrite()
 	// Busca é fonte-da-verdade na URL (?search=) — habilita compartilhar link e voltar navegando.
 	const { search = "" } = Route.useSearch()
 	const navigate = Route.useNavigate()
@@ -68,10 +71,12 @@ function FrozenPreparationsPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Preparações Congeladas">
-				<Button size="sm" onClick={openCreate} className="gap-2">
-					<Plus className="size-4" />
-					Nova preparação congelada
-				</Button>
+				{canWrite && (
+					<Button size="sm" onClick={openCreate} className="gap-2">
+						<Plus className="size-4" />
+						Nova preparação congelada
+					</Button>
+				)}
 			</PageHeader>
 
 			<div className="flex flex-wrap items-center gap-2">
@@ -123,12 +128,16 @@ function FrozenPreparationsPage() {
 								<TableCell>{fp.storage_temperature_c ?? "—"}</TableCell>
 								<TableCell className="text-right">
 									<div className="flex justify-end gap-1">
-										<Button variant="ghost" size="icon" onClick={() => openEdit(fp)} aria-label="Editar">
-											<Pencil className="size-4" />
-										</Button>
-										<Button variant="ghost" size="icon" onClick={() => handleDelete(fp)} aria-label="Excluir">
-											<Trash2 className="size-4" />
-										</Button>
+										{canWrite && (
+											<>
+												<Button variant="ghost" size="icon" onClick={() => openEdit(fp)} aria-label="Editar">
+													<Pencil className="size-4" />
+												</Button>
+												<Button variant="ghost" size="icon" onClick={() => handleDelete(fp)} aria-label="Excluir">
+													<Trash2 className="size-4" />
+												</Button>
+											</>
+										)}
 									</div>
 								</TableCell>
 							</TableRow>

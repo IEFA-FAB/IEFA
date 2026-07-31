@@ -18,7 +18,7 @@ context: |
   - **hono-client**: RPC client tipado para o API
 
   ## Conventions
-  - Server functions (TanStack Start): `createServerFn` com `.inputValidator(z.object(...))`
+  - Server functions (TanStack Start): `createServerFn` com `.validator(z.object(...))` — `.inputValidator` está deprecado
   - UI: Base UI (`@base-ui/react/*`) — NUNCA Radix UI
   - Imports: `@/*` → `src/*`
   - Commits: Conventional Commits via cz-git (scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root)

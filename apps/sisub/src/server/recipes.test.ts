@@ -1,4 +1,4 @@
-import { CreateRecipeSchema, CreateRecipeVersionSchema, IngredientSchema } from "@iefa/sisub-domain"
+import { CreateRecipeSchema, IngredientSchema, SaveRecipeEditSchema } from "@iefa/sisub-domain"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { createSisubReachabilityClient, createSisubServiceClient, describeSupabaseIntegration, getSupabaseTestEnv } from "@/test/supabase"
 
@@ -106,36 +106,69 @@ describe("IngredientSchema (em receita)", () => {
 	})
 })
 
-describe("CreateRecipeVersionSchema", () => {
-	test("aceita versão válida com baseRecipeId", () => {
-		const result = CreateRecipeVersionSchema.safeParse({
-			name: "Arroz Integral v2",
+describe("SaveRecipeEditSchema", () => {
+	test("aceita edição no contexto global", () => {
+		const result = SaveRecipeEditSchema.safeParse({
+			name: "Arroz Integral",
 			portionYield: 100,
 			baseRecipeId: UUID_A,
-			version: 2,
+			context: { scope: "global" },
 		})
 		expect(result.success).toBe(true)
 	})
 
-	test("rejeita version zero ou negativo", () => {
-		expect(
-			CreateRecipeVersionSchema.safeParse({
-				name: "Teste",
-				portionYield: 100,
-				baseRecipeId: UUID_A,
-				version: 0,
-			}).success
-		).toBe(false)
+	test("aceita edição no contexto de uma cozinha", () => {
+		const result = SaveRecipeEditSchema.safeParse({
+			name: "Arroz Integral",
+			portionYield: 100,
+			baseRecipeId: UUID_A,
+			context: { scope: "kitchen", kitchenId: 7 },
+		})
+		expect(result.success).toBe(true)
+	})
+
+	test("rejeita payload sem contexto — não há default", () => {
+		// Escolher um default aqui reintroduziria o bug: a edição de uma receita global
+		// feita na tela de uma cozinha viraria nova versão global.
+		const result = SaveRecipeEditSchema.safeParse({
+			name: "Teste",
+			portionYield: 100,
+			baseRecipeId: UUID_A,
+		})
+		expect(result.success).toBe(false)
+	})
+
+	test("rejeita contexto de cozinha sem kitchenId", () => {
+		const result = SaveRecipeEditSchema.safeParse({
+			name: "Teste",
+			portionYield: 100,
+			baseRecipeId: UUID_A,
+			context: { scope: "kitchen" },
+		})
+		expect(result.success).toBe(false)
 	})
 
 	test("rejeita baseRecipeId inválido", () => {
-		const result = CreateRecipeVersionSchema.safeParse({
+		const result = SaveRecipeEditSchema.safeParse({
 			name: "Teste",
 			portionYield: 100,
 			baseRecipeId: "nao-uuid",
-			version: 1,
+			context: { scope: "global" },
 		})
 		expect(result.success).toBe(false)
+	})
+
+	test("não aceita version do cliente — o servidor calcula", () => {
+		// A dedup por família mantém a maior versão; com o número vindo do cliente,
+		// bastava enviar um valor alto para fixar a própria linha como canônica.
+		const result = SaveRecipeEditSchema.safeParse({
+			name: "Teste",
+			portionYield: 100,
+			baseRecipeId: UUID_A,
+			context: { scope: "global" },
+			version: 9999,
+		})
+		expect(result.success && "version" in result.data).toBe(false)
 	})
 })
 
