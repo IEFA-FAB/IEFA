@@ -221,6 +221,97 @@ describe("server function security contracts", () => {
 		expect(schemaSource).toContain("context: EditScopeSchema")
 	})
 
+	/**
+	 * `global:1` tem de ser leitura estrita — é o que a política "Conjunto Treino" promete
+	 * ("pode clicar em tudo na SDAB mas não pode alterar nada") e a única barreira entre um
+	 * treinando e os dados reais de contratação.
+	 *
+	 * O levantamento encontrou três classes de furo:
+	 *   - `ingredients.ts` guardava TODAS as ops (leitura e escrita) em nível 1, então até
+	 *     `kitchen:1` criava e apagava insumos do catálogo global;
+	 *   - `places.ts`, `frozen-preparation.ts` e `purchase-item.ts` recebiam `_ctx` e não
+	 *     autorizavam nada — qualquer sessão válida reescrevia a estrutura organizacional
+	 *     da FAB e os catálogos globais;
+	 *   - as versões/revisões de insumo exigiam apenas `kitchen:1`.
+	 */
+	test("every global-catalog write requires global level 2", () => {
+		const GLOBAL_WRITES: Record<string, string[]> = {
+			"packages/sisub-domain/src/operations/ingredients.ts": [
+				"createFolder",
+				"updateFolder",
+				"deleteFolder",
+				"restoreFolder",
+				"createIngredient",
+				"updateIngredient",
+				"deleteIngredient",
+				"restoreIngredient",
+				"setIngredientSubstitutions",
+				"createIngredientItem",
+				"updateIngredientItem",
+				"deleteIngredientItem",
+				"setIngredientNutritionReference",
+				"setIngredientNutrients",
+			],
+			"packages/sisub-domain/src/operations/ingredient-versions.ts": ["recordIngredientVersion", "restoreIngredientVersion"],
+			"packages/sisub-domain/src/operations/places.ts": ["updatePlacesEntity", "applyPlacesDiff"],
+			"packages/sisub-domain/src/operations/frozen-preparation.ts": ["createFrozenPreparation", "updateFrozenPreparation", "deleteFrozenPreparation"],
+			"packages/sisub-domain/src/operations/purchase-item.ts": [
+				"createPurchaseItem",
+				"updatePurchaseItem",
+				"deletePurchaseItem",
+				"upsertPurchaseItemIngredient",
+				"deletePurchaseItemIngredient",
+				"setDefaultPurchaseItemIngredient",
+			],
+		}
+
+		for (const [file, ops] of Object.entries(GLOBAL_WRITES)) {
+			const source = readPackageFile(file)
+			for (const op of ops) {
+				const start = source.indexOf(`export async function ${op}(`)
+				expect(start, `${op} not found in ${file}`).toBeGreaterThan(-1)
+				const nextFn = source.indexOf("\nexport async function ", start + 1)
+				const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+
+				expect(opSource, `${op} does not require global:2`).toContain('requirePermission(ctx, "global", 2)')
+				// `_ctx` significa que a operação nem recebe o contexto — não há como autorizar.
+				expect(opSource, `${op} still discards the user context`).not.toContain("_ctx: UserContext")
+			}
+		}
+	})
+
+	test("catalog reads stay at level 1 so global:1 can browse everything", () => {
+		// A leitura precisa continuar aberta: o Conjunto Treino dá `global:1` justamente para
+		// o treinando navegar a SDAB inteira. Apertar isso quebraria a política.
+		const source = readPackageFile("packages/sisub-domain/src/operations/ingredients.ts")
+		for (const op of ["listIngredients", "fetchIngredient", "listFolders", "listIngredientItems", "listCatmatItems"]) {
+			const start = source.indexOf(`export async function ${op}(`)
+			expect(start, `${op} not found`).toBeGreaterThan(-1)
+			const nextFn = source.indexOf("\nexport async function ", start + 1)
+			const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
+			expect(opSource, `${op} should stay readable at level 1`).toContain('requireAnyPermission(ctx, ["kitchen", "global"], 1)')
+		}
+	})
+
+	test("catalog review actions authorize by ownership, not by unscoped write level", () => {
+		// Revisar é escrever sobre o ativo revisado. Um `requireAnyPermission` sem escopo
+		// deixava quem tem kitchen:2 numa cozinha revisar preparação global e de qualquer
+		// outra cozinha.
+		const recipeReviews = readPackageFile("packages/sisub-domain/src/operations/recipe-reviews.ts")
+		const recipeStart = recipeReviews.indexOf("export async function recordRecipeReview(")
+		const recipeNext = recipeReviews.indexOf("\nexport async function ", recipeStart + 1)
+		const recipeOp = recipeReviews.slice(recipeStart, recipeNext === -1 ? undefined : recipeNext)
+		expect(recipeOp, "recordRecipeReview does not resolve the recipe owner").toContain('authorizeAssetMutation(db, ctx, "recipe", input.recipeId)')
+		expect(recipeOp).not.toContain('requireAnyPermission(ctx, ["kitchen", "global"], 2)')
+
+		// Insumo não tem forma local, então não há dono a resolver: é sempre da SDAB.
+		const ingredientReviews = readPackageFile("packages/sisub-domain/src/operations/ingredient-reviews.ts")
+		const ingStart = ingredientReviews.indexOf("export async function recordIngredientReview(")
+		const ingNext = ingredientReviews.indexOf("\nexport async function ", ingStart + 1)
+		const ingOp = ingredientReviews.slice(ingStart, ingNext === -1 ? undefined : ingNext)
+		expect(ingOp, "recordIngredientReview does not require global:2").toContain('requirePermission(ctx, "global", 2)')
+	})
+
 	test("places and settings write functions require authentication before service-role writes", () => {
 		for (const fileName of ["places.fn.ts", "unit-settings.fn.ts", "kitchen-settings.fn.ts"]) {
 			const source = readServerFile(fileName)
