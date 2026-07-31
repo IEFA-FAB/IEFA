@@ -67,7 +67,9 @@ export interface NormativeSource {
 
 ### D3 — Notas explicativas da AGU como semente de regra
 
-Os modelos da AGU embutem quadros de *nota explicativa* que citam o dispositivo que fundamenta cada seção ("conforme art. 6º, XXIII, 'a', da Lei nº 14.133/21"). É a própria AGU declarando o mapa seção → dispositivo.
+Os modelos da AGU embutem *notas explicativas* que citam o dispositivo que fundamenta cada seção ("conforme art. 6º, XXIII, 'a', da Lei nº 14.133/21"). É a própria AGU declarando o mapa seção → dispositivo.
+
+**Onde elas ficam, de fato**: são **comentários do Word** (`word/comments.xml`), ancorados ao parágrafo por `w:commentRangeStart`, com o prefixo "Nota Explicativa". Só o Termo de Referência de serviços e obras (mai-26) tem 168 comentários, dos quais 162 são notas — 62 delas citando dispositivo, num total de 114 referências a 26 normas distintas (82 à própria Lei 14.133). Comentário sem o prefixo é orientação de uso do modelo, não nota, e é descartado.
 
 Extrair essas notas e transformá-las em `checklist_rule` semeadas (com `origin = 'agu_note'` e `status = 'draft'`) economiza a maior parte do trabalho manual de escrever regra, e ancora cada regra numa fonte oficial em vez de num prompt inventado.
 
@@ -126,9 +128,16 @@ O projeto antigo fica **somente leitura** até o corpus consolidado ser conferid
 
 | Formato | Escolha | Motivo |
 |---|---|---|
-| `.docx` (modelo AGU e submissão) | `mammoth` + `jszip` | `mammoth` dá HTML com style map custom (headings → nós da árvore); `jszip` abre `word/document.xml` cru quando precisa de realce/quadro de nota, que o `mammoth` achata |
+| `.docx` (modelo AGU e submissão) | `fflate` + scanner OOXML próprio | ver abaixo |
 | `.pdf` (submissão) | `unpdf` | roda em Bun sem binário nativo; devolve texto com posição, necessário para `source_span` |
 | XML LexML (SRU) | `fast-xml-parser` | leve, sem DOM |
+
+**`mammoth` foi descartado** depois de abrir os modelos reais. Ele converte `.docx` para HTML, e os dois sinais que interessam não sobrevivem à conversão:
+
+- a hierarquia está em **estilos de parágrafo próprios** (`Nivel01`, `Nvel02`, `Nvel2-Opcional`), que o mammoth mapearia para `<p>` genérico — e é de `-Opcional` que sai `is_required`;
+- as notas explicativas são **comentários**, que o mammoth simplesmente não emite.
+
+Sobra ler `word/document.xml` e `word/comments.xml` diretamente. `fflate` descompacta (menor e mais rápido que `jszip`) e um scanner de ~120 linhas varre os parágrafos em ordem de documento. `w:p` não aninha em OOXML, o que torna a varredura previsível; a garantia vem dos testes sobre os `.docx` reais em `__fixtures__/`.
 
 ## Schema
 
@@ -302,15 +311,23 @@ create table alpha.compliance_finding (
 ### Ingestão AGU
 
 ```
-discover()  crawl das categorias em /licitacoesecontratos/14133/{categoria}
+discover()  crawl do índice + categorias de /licitacoesecontratos/14133/
             → hrefs .docx → version_label do sufixo (mai-26) → SourceItem[]
-fetch()     GET do .docx (respeita ETag/Last-Modified quando presente)
-parse()     mammoth (style map) → árvore por nível de heading
-            + jszip sobre word/document.xml → quadros de nota e realces
-            + regex de placeholder ([...], (...), campos sublinhados)
+fetch()     GET do .docx
+parse()     fflate → word/document.xml  → árvore por estilo de parágrafo
+                   → word/comments.xml  → notas explicativas + refs legais
+                   → colchetes no texto → placeholders
 upsert      hash igual → no-op | diferente → versão nova + supersede
             notas → explanatory_note → semeia checklist_rule status=draft
 ```
+
+Três características do site, descobertas ao rodar contra ele, moldam o `discover`:
+
+- **uma categoria lista arquivos de outra** — a categoria vem do caminho da URL, não da página onde o link foi achado;
+- **versões antiga e nova convivem na mesma página** (`...-set-25.docx` e `...-abr-26.docx` do mesmo modelo) — a identidade é a URL sem o sufixo de versão, e só a de maior rank é ingerida;
+- **a categoria `modelos-antigos` é arquivo histórico** com 47 modelos revogados — excluída, senão a comparação estrutural conferiria documento novo contra modelo revogado.
+
+Na execução real: 90 arquivos encontrados → 43 modelos vigentes, 47 excluídos por categoria, 4 versões preteridas. Nada é descartado em silêncio; tudo aparece no relatório.
 
 Falha de uma categoria não aborta as demais — cada `SourceItem` é transacionado sozinho e o erro vai para `normative_source.last_error`.
 

@@ -21,19 +21,20 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## PR B — Camada de fontes + adapter AGU (sem LLM)
 
-- [ ] B.1 [alpha] `src/sources/types.ts`: contratos `NormativeSource`, `SourceItem`, `StructuredDoc`, `StructureNode`
-- [ ] B.2 [alpha] `src/sources/pipeline.ts`: `hash → dedup → supersede → chunk → embed → upsert`, transacional por item
-- [ ] B.3 [alpha] `src/sources/registry.ts`: carrega fontes habilitadas do banco e resolve o adapter
-- [ ] B.4 [alpha] Dependências: `mammoth`, `jszip`; verificar bundle e `bun audit`
-- [ ] B.5 [alpha] `sources/agu/discover.ts`: crawl das categorias de `/licitacoesecontratos/14133/`, extração de hrefs `.docx` e derivação de `version_label` do sufixo mês/ano
-- [ ] B.6 [alpha] `sources/agu/discover.ts`: sanity check de contagem mínima por categoria → `last_error` em vez de supersede silencioso
-- [ ] B.7 [alpha] `sources/agu/parse-structure.ts`: `mammoth` com style map → árvore de `structure_node` (path, ordinal, level, `title_norm`)
-- [ ] B.8 [alpha] `sources/agu/parse-notes.ts`: `jszip` sobre `word/document.xml` → notas explicativas + extração de referências legais citadas
-- [ ] B.9 [alpha] `sources/agu/parse-placeholders.ts`: tokens de preenchimento por seção
-- [ ] B.10 [alpha] Semeadura de `checklist_rule` (`origin = 'agu_note'`, `status = 'draft'`) a partir de notas com citação, sem duplicar em reingestão
-- [ ] B.11 [alpha] Fixtures: um `.docx` real por categoria + HTML de listagem; testes de `discover` e `parse` sem rede
-- [ ] B.12 [alpha] CLI `bun run ingest:agu` (dry-run por padrão, `--apply` para gravar)
-- [ ] B.13 [alpha] Rotas `GET /api/v1/sources`, `GET /api/v1/sources/:id/documents`, `GET /api/v1/documents/:id/structure`
+- [x] B.1 [alpha] `src/sources/types.ts`: contratos `NormativeSourceAdapter`, `SourceItem`, `StructuredDoc`, `StructureNodeDraft`
+- [x] B.2 [alpha] `src/sources/pipeline.ts`: `hash → dedup → supersede → chunk → embed → upsert`, por item, com supersede só ao fim
+- [x] B.3 [alpha] `src/sources/registry.ts`: lê fontes de `alpha.normative_source` e resolve o adapter (fonte sem adapter é erro explícito)
+- [x] B.4 [alpha] Dependência `fflate` (OOXML). `mammoth`/`jszip` descartados — ver D9 no design: achatam estilo de parágrafo e não expõem comentários
+- [x] B.5 [alpha] `sources/agu/discover.ts`: crawl do índice + categorias, hrefs `.docx`, `version_label` do sufixo mês/ano, identidade sem versão
+- [x] B.6 [alpha] `sources/agu/discover.ts`: piso de sanidade (`MIN_EXPECTED_MODELS`) e exclusão da categoria de modelos revogados, ambos reportados
+- [x] B.7 [alpha] `sources/docx.ts` + `agu/adapter.ts`: scanner OOXML → árvore de `structure_node` (path, ordinal, level, `title_norm`, `is_required`)
+- [x] B.8 [alpha] `agu/adapter.ts` + `lib/legal-ref.ts`: notas explicativas dos comentários do Word → referências legais estruturadas
+- [x] B.9 [alpha] `agu/adapter.ts`: tokens de preenchimento por seção, deduplicados
+- [x] B.10 [alpha] Semeadura de `checklist_rule` (`origin = 'agu_note'`, `status = 'draft'`) a partir de notas com citação, sem duplicar em reingestão
+- [x] B.11 [alpha] Fixtures reais (2 `.docx` + HTML de categoria); 78 testes de `discover`, `docx`, `adapter`, `chunking`, `legal-ref` e `text`, todos sem rede
+- [x] B.12 [alpha] CLI `bun run ingest:agu` (dry-run por padrão, `--apply` para gravar, `--limit` para calibrar)
+- [x] B.13 [alpha] Rotas `GET /api/v1/sources`, `GET /api/v1/sources/:id/documents`, `GET /api/v1/documents/:id/structure`
+- [ ] B.14 [alpha] Rodar `bun run ingest:agu --apply` contra o banco e conferir o resultado no console (depende de A.8/A.13)
 
 ## PR C — Console: fontes e inspetor de modelo
 

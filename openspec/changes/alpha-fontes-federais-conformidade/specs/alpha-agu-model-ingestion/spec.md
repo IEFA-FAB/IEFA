@@ -30,8 +30,23 @@ O sistema SHALL converter cada modelo `.docx` em uma árvore de `structure_node`
 - **WHEN** um bloco de texto aparece sem título de seção acima dele
 - **THEN** o conteúdo é anexado ao `body` do último nó aberto, sem abortar o parse
 
+### Requirement: Exclusão do acervo de modelos revogados
+O sistema SHALL ignorar as categorias de arquivo histórico da AGU e SHALL registrar quantos arquivos foram ignorados por esse motivo.
+
+#### Scenario: Modelo em categoria de arquivo histórico
+- **WHEN** a descoberta encontra um `.docx` sob a categoria de modelos antigos
+- **THEN** o arquivo não vira item de ingestão e é contabilizado como excluído no relatório
+
+#### Scenario: Comparação nunca usa modelo revogado
+- **WHEN** a comparação estrutural seleciona o modelo aplicável
+- **THEN** nenhum modelo proveniente de categoria de arquivo histórico é candidato
+
 ### Requirement: Extração de notas explicativas com dispositivos citados
-O sistema SHALL identificar os quadros de nota explicativa dos modelos da AGU, associá-los ao nó de seção correspondente e extrair as referências legais citadas.
+O sistema SHALL identificar as notas explicativas dos modelos da AGU — registradas como comentários ancorados ao parágrafo —, associá-las ao nó de seção correspondente e extrair as referências legais citadas.
+
+#### Scenario: Comentário que não é nota explicativa
+- **WHEN** um comentário do documento não é identificado como nota explicativa (por exemplo, orientação geral de uso do modelo)
+- **THEN** ele não é persistido como nota nem gera regra
 
 #### Scenario: Nota citando dispositivo
 - **WHEN** uma nota explicativa contém `"conforme art. 6º, XXIII, 'a', da Lei nº 14.133/21"`

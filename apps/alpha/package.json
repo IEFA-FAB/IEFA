@@ -8,11 +8,13 @@
     "start": "bun run src/index.ts",
     "ingest": "bun run ingest-local.ts",
     "ingest:all": "bash ingest-all.sh",
+    "ingest:agu": "bun run src/cli/ingest-agu.ts",
     "lint": "biome check src/",
     "typecheck": "tsgo --noEmit",
     "test": "bun test"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.9.0",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/alpha-client": "workspace:*",
     "@langchain/core": "^1.2.3",
@@ -20,7 +22,7 @@
     "@langchain/langgraph-checkpoint-postgres": "^1.0.4",
     "@langchain/openai": "^1.5.5",
     "@supabase/supabase-js": "^2.110.7",
-    "@hono/zod-validator": "^0.9.0",
+    "fflate": "^0.8.3",
     "hono": "^4.12.30",
     "uuid": "^14.0.1",
     "zod": "^4.4.3"

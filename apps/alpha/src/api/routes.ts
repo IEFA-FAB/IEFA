@@ -10,6 +10,8 @@ import { supabase } from "../db/supabase"
 import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
 import type { AppRole } from "../middleware/auth"
 import { authMiddleware } from "../middleware/auth"
+import { hasAdapter, listSources } from "../sources/registry"
+import type { NormativeSourceRow } from "../sources/types"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,54 @@ type ChunkResponse = {
 		self: { href: string }
 		document: { href: string }
 	}
+}
+
+type SourcesListResponse = {
+	sources: Array<NormativeSourceRow & { has_adapter: boolean; _links: { self: { href: string }; documents: { href: string } } }>
+	_links: { self: { href: string } }
+}
+
+type DocumentSummary = {
+	id: string
+	title: string
+	document_type: string
+	version_label: string | null
+	effective_from: string | null
+	superseded_at: string | null
+	content_hash: string | null
+	external_id: string | null
+	source: string | null
+}
+
+type SourceDocumentsResponse = {
+	source_id: string
+	documents: Array<DocumentSummary & { _links: { self: { href: string }; structure: { href: string } } }>
+	_links: { self: { href: string } }
+}
+
+type DocumentStructureResponse = {
+	document: {
+		id: string
+		title: string
+		document_type: string
+		version_label: string | null
+		effective_from: string | null
+		superseded_at: string | null
+	}
+	nodes: Array<{
+		id: string
+		path: string
+		ordinal: number
+		level: number
+		title: string
+		title_norm: string
+		ref_label: string | null
+		is_required: boolean
+		body: string | null
+		explanatory_note: Array<{ id: string; content: string; cited_refs: unknown }>
+		placeholder: Array<{ id: string; token: string }>
+	}>
+	_links: { self: { href: string }; document: { href: string } }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -239,6 +289,73 @@ const app = new Hono<{ Variables: AppVariables }>()
 				self: { href: `/api/v1/chunks/${id}` },
 				document: { href: `/api/v1/documents/${data.document_id}` },
 			},
+		})
+	})
+
+	// GET /api/v1/sources — registry de fontes normativas
+	.get("/api/v1/sources", async (c) => {
+		const sources = await listSources()
+		return c.json<SourcesListResponse>({
+			sources: sources.map((source) => ({
+				...source,
+				has_adapter: hasAdapter(source.id),
+				_links: { self: { href: `/api/v1/sources/${source.id}` }, documents: { href: `/api/v1/sources/${source.id}/documents` } },
+			})),
+			_links: { self: { href: "/api/v1/sources" } },
+		})
+	})
+
+	// GET /api/v1/sources/:id/documents — versões ingeridas de uma fonte
+	.get("/api/v1/sources/:id/documents", async (c) => {
+		const id = c.req.param("id")
+		const includeSuperseded = c.req.query("include_superseded") === "true"
+
+		let query = supabase
+			.from("document")
+			.select("id, title, document_type, version_label, effective_from, superseded_at, content_hash, external_id, source")
+			.eq("source_id", id)
+			.order("effective_from", { ascending: false, nullsFirst: false })
+
+		if (!includeSuperseded) query = query.is("superseded_at", null)
+
+		const { data, error } = await query
+		if (error) return c.json({ error: "Internal Server Error", code: "SOURCE_DOCUMENTS_FAILED" }, 500)
+
+		return c.json<SourceDocumentsResponse>({
+			source_id: id,
+			documents: (data ?? []).map((document) => ({
+				...document,
+				_links: { self: { href: `/api/v1/documents/${document.id}` }, structure: { href: `/api/v1/documents/${document.id}/structure` } },
+			})),
+			_links: { self: { href: `/api/v1/sources/${id}/documents` } },
+		})
+	})
+
+	// GET /api/v1/documents/:id/structure — árvore de seções, notas e placeholders
+	.get("/api/v1/documents/:id/structure", async (c) => {
+		const id = c.req.param("id")
+
+		const { data: document, error: documentError } = await supabase
+			.from("document")
+			.select("id, title, document_type, version_label, effective_from, superseded_at")
+			.eq("id", id)
+			.maybeSingle()
+
+		if (documentError) return c.json({ error: "Internal Server Error", code: "DOCUMENT_FAILED" }, 500)
+		if (!document) return c.json({ error: "Not Found", code: "DOCUMENT_NOT_FOUND" }, 404)
+
+		const { data: nodes, error: nodesError } = await supabase
+			.from("structure_node")
+			.select("id, path, ordinal, level, title, title_norm, ref_label, is_required, body, explanatory_note(id, content, cited_refs), placeholder(id, token)")
+			.eq("document_id", id)
+			.order("ordinal")
+
+		if (nodesError) return c.json({ error: "Internal Server Error", code: "STRUCTURE_FAILED" }, 500)
+
+		return c.json<DocumentStructureResponse>({
+			document,
+			nodes: (nodes ?? []) as DocumentStructureResponse["nodes"],
+			_links: { self: { href: `/api/v1/documents/${id}/structure` }, document: { href: `/api/v1/documents/${id}` } },
 		})
 	})
 
