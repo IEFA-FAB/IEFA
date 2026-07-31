@@ -4,6 +4,7 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
+import { hasPermission } from "@iefa/pbac"
 import {
 	createUserPermission,
 	deleteUserPermission,
@@ -49,7 +50,7 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		await closeDb?.()
 	})
 
-	test("listEffectiveUserPermissions injeta diner implícito e descarta deny (level 0)", async () => {
+	test("listEffectiveUserPermissions injeta diner implícito e nega o módulo com deny", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		seeder.trackWhere("user_permissions", "user_id", userId)
@@ -57,10 +58,12 @@ describeSupabaseIntegration("permissions operations (regressão)", () => {
 		await seeder.seedUserPermission({ userId, module: "global", level: 0 }) // deny explícito
 
 		const perms = await listEffectiveUserPermissions(db, { userId })
-		const byModule = new Map(perms.map((p) => [p.module, p.level]))
-		expect(byModule.get("kitchen")).toBe(2)
-		expect(byModule.get("diner")).toBe(1) // injetado (não havia regra diner)
-		expect(byModule.has("global")).toBe(false) // deny removido
+
+		expect(hasPermission(perms, "kitchen", 2)).toBe(true)
+		expect(hasPermission(perms, "diner", 1)).toBe(true) // injetado (não havia regra diner)
+		// O deny permanece no conjunto — é o que permite ao guard negar um allow SEM escopo —,
+		// mas com level 0 nunca concede. A asserção é sobre a DECISÃO, não sobre a lista.
+		expect(hasPermission(perms, "global", 1)).toBe(false)
 	})
 
 	test("listEffectiveUserPermissions NÃO injeta diner quando já existe regra diner", async () => {

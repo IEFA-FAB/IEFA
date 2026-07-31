@@ -130,37 +130,50 @@ describeSupabaseIntegration("training operations (integração)", () => {
 	test("reset preserva o catálogo global", async () => {
 		if (!db) return
 
-		const globalRecipesBefore = (await db.execute(sql`select count(*)::int as total from kitchen.recipes where kitchen_id is null`)) as unknown as Array<{
-			total: number
+		// Ignora as fixtures das outras suítes. Os arquivos de teste rodam em PARALELO: outro
+		// deles cria e apaga receitas globais durante este, então nem contagem nem identidade
+		// sobre a tabela inteira são estáveis. A afirmação real do teste é sobre o dado de
+		// PRODUÇÃO, e o seeder marca tudo que é dele com o prefixo `[TEST]`.
+		const before = (await db.execute(sql`select id from kitchen.recipes where kitchen_id is null and name not like '[TEST]%'`)) as unknown as Array<{
+			id: string
 		}>
-		const globalIngredientsBefore = (await db.execute(sql`select count(*)::int as total from kitchen.ingredient`)) as unknown as Array<{ total: number }>
+		const ingredientsBefore = (await db.execute(sql`select id from kitchen.ingredient where description not like '[TEST]%'`)) as unknown as Array<{
+			id: string
+		}>
 
 		await resetTrainingScope(db, ctx)
 
-		const globalRecipesAfter = (await db.execute(sql`select count(*)::int as total from kitchen.recipes where kitchen_id is null`)) as unknown as Array<{
-			total: number
+		const after = (await db.execute(sql`select id from kitchen.recipes where kitchen_id is null and name not like '[TEST]%'`)) as unknown as Array<{
+			id: string
 		}>
-		const globalIngredientsAfter = (await db.execute(sql`select count(*)::int as total from kitchen.ingredient`)) as unknown as Array<{ total: number }>
+		const ingredientsAfter = (await db.execute(sql`select id from kitchen.ingredient where description not like '[TEST]%'`)) as unknown as Array<{
+			id: string
+		}>
 
-		expect(globalRecipesAfter[0]?.total).toBe(globalRecipesBefore[0]?.total)
-		expect(globalIngredientsAfter[0]?.total).toBe(globalIngredientsBefore[0]?.total)
+		const survivingRecipes = new Set(after.map((r) => r.id))
+		const survivingIngredients = new Set(ingredientsAfter.map((r) => r.id))
+
+		expect(before.filter((r) => !survivingRecipes.has(r.id))).toEqual([])
+		expect(ingredientsBefore.filter((r) => !survivingIngredients.has(r.id))).toEqual([])
 	})
 
 	test("reset preserva dado de cozinhas reais", async () => {
 		if (!db) return
 		const scope = await resolveTrainingScope(db)
 
+		// Idem: só o dado de produção, ignorando as fixtures paralelas.
 		const before = (await db.execute(
-			sql`select count(*)::int as total from kitchen.menu_template where kitchen_id is not null and kitchen_id <> ${scope.kitchen_id}`
-		)) as unknown as Array<{ total: number }>
+			sql`select id from kitchen.menu_template where kitchen_id is not null and kitchen_id <> ${scope.kitchen_id} and name not like '[TEST]%'`
+		)) as unknown as Array<{ id: string }>
 
 		await resetTrainingScope(db, ctx)
 
 		const after = (await db.execute(
-			sql`select count(*)::int as total from kitchen.menu_template where kitchen_id is not null and kitchen_id <> ${scope.kitchen_id}`
-		)) as unknown as Array<{ total: number }>
+			sql`select id from kitchen.menu_template where kitchen_id is not null and kitchen_id <> ${scope.kitchen_id} and name not like '[TEST]%'`
+		)) as unknown as Array<{ id: string }>
 
-		expect(after[0]?.total).toBe(before[0]?.total)
+		const surviving = new Set(after.map((r) => r.id))
+		expect(before.filter((r) => !surviving.has(r.id))).toEqual([])
 	})
 
 	test("cada execução é auditada", async () => {
