@@ -212,6 +212,7 @@ export type {
 	ListUserPolicies,
 	PolicyStatementInput,
 	RemovePolicyStatement,
+	RestorePolicy,
 	UpdatePolicy,
 	UpdatePolicyStatement,
 } from "./policies.ts"
@@ -227,6 +228,7 @@ export {
 	PolicyLevelSchema,
 	PolicyStatementInputSchema,
 	RemovePolicyStatementSchema,
+	RestorePolicySchema,
 	UpdatePolicySchema,
 	UpdatePolicyStatementSchema,
 } from "./policies.ts"
