@@ -99,6 +99,17 @@ describe("createAgentServerEntry", () => {
 		expect(response.headers.get("content-type")).toContain("text/html")
 	})
 
+	// Converter consome o corpo. Devolver a resposta original no fallback entregaria
+	// um HTML vazio ao cliente.
+	test("o HTML do fallback chega com corpo", async () => {
+		const html = "<!DOCTYPE html><html><body></body></html>"
+		const { handler } = fakeStartHandler(new Response(html, { headers: { "content-type": "text/html" } }))
+		const entry = createAgentServerEntry({ handler })
+
+		const response = await entry.fetch(request("text/markdown"), undefined)
+		expect(await response.text()).toBe(html)
+	})
+
 	test("seletor de conteúdo é configurável por app", async () => {
 		const custom = new Response('<html><head><title>T</title></head><body><div id="app">Conteúdo do app</div></body></html>', {
 			headers: { "content-type": "text/html" },

@@ -7,6 +7,8 @@
  * da resposta.
  */
 
+import { stripTrailingSlashes } from "./catalog"
+
 const SCHEMA_URL = "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
 
 const SKILL_NAME_PATTERN = /^[a-z0-9-]{1,64}$/
@@ -54,7 +56,7 @@ export function assertValidSkills(skills: readonly AgentSkill[]): void {
 
 export async function renderSkillsIndex(baseUrl: string, skills: readonly AgentSkill[]): Promise<string> {
 	assertValidSkills(skills)
-	const base = baseUrl.replace(/\/+$/, "")
+	const base = stripTrailingSlashes(baseUrl)
 
 	const entries = await Promise.all(
 		skills.map(async (skill) => ({
