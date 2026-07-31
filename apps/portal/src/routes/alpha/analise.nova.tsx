@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { CloudUpload, WarningTriangle } from "iconoir-react"
 import { useMemo, useRef, useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
+import { useRunCompliance } from "@/lib/alpha/compliance"
 import { CAMPO_LABELS, type ExtractionResponse, submissionTextQueryOptions, useCreateSubmission, useRunExtraction } from "@/lib/alpha/submissions"
 
 export const Route = createFileRoute("/alpha/analise/nova")({
@@ -43,8 +44,10 @@ function NovaAnalisePage() {
 	const [extraction, setExtraction] = useState<ExtractionResponse | null>(null)
 	const [selectedField, setSelectedField] = useState<string | null>(null)
 
+	const navigate = useNavigate()
 	const createSubmission = useCreateSubmission()
 	const runExtraction = useRunExtraction()
+	const runCompliance = useRunCompliance()
 	const documentText = useQuery({ ...submissionTextQueryOptions(token, submissionId ?? ""), enabled: Boolean(submissionId) })
 
 	const fields = useMemo(() => {
@@ -145,6 +148,18 @@ function NovaAnalisePage() {
 			{extraction ? (
 				<>
 					<div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={!submissionId || runCompliance.isPending}
+							onClick={async () => {
+								if (!submissionId) return
+								const run = await runCompliance.mutateAsync({ submission_id: submissionId, extraction_id: extraction.id })
+								navigate({ to: "/alpha/analise/$runId", params: { runId: run.run_id } })
+							}}
+						>
+							{runCompliance.isPending ? "verificando…" : "verificar conformidade"}
+						</Button>
 						<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
 							{preenchidos}/{fields.length} campos
 						</Badge>

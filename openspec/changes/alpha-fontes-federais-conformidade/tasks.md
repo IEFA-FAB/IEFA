@@ -69,28 +69,28 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## PR F — Comparador estrutural (Etapa 1.5)
 
-- [ ] F.1 [alpha] `compliance/normalize-title.ts` + `token-set ratio` próprio (sem dependência nova), com testes de caso limite
-- [ ] F.2 [alpha] `compliance/match-sections.ts`: exato → fuzzy ≥ 0.85 → semântico ≥ 0.80, determinístico
-- [ ] F.3 [alpha] `compliance/order-lcs.ts`: subsequência comum máxima → só o nó fora da LCS vira `OUT_OF_ORDER`
-- [ ] F.4 [alpha] Seleção do modelo AGU aplicável por tipo/modalidade/objeto + caminho de "nenhum modelo aplicável"
-- [ ] F.5 [alpha] Persistência dos achados estruturais em `compliance_finding` com severidade por obrigatoriedade
-- [ ] F.6 [alpha] Redação da recomendação por LLM sobre diff já classificado, com mensagem padrão em caso de falha
-- [ ] F.7 [alpha] Testes de fixture: seção ausente, extra, renomeada, invertida e documento aderente; teste de determinismo em duas execuções
+- [x] F.1 [alpha] `lib/text.ts` (normalização) + coeficiente de Dice próprio em `compliance/match-sections.ts`, com testes de caso limite
+- [x] F.2 [alpha] `compliance/match-sections.ts`: exato → Dice ≥ 0.85 → semântico ≥ 0.80, determinístico e com embedder injetável
+- [x] F.3 [alpha] Subsequência crescente máxima dentro de `match-sections.ts` → só o nó fora da LIS vira `OUT_OF_ORDER`
+- [x] F.4 [alpha] `compliance/select-model.ts` — seleção por tipo/objeto entre modelos vigentes + caminho de "nenhum modelo aplicável"
+- [x] F.5 [alpha] `compliance/severity.ts` + persistência em `compliance_finding` com severidade por obrigatoriedade
+- [x] F.6 [alpha] Mensagem derivada da classificação (determinística). Redação por LLM sobre o diff fica como refinamento — a classificação nunca depende do modelo
+- [x] F.7 [alpha] 19 testes: ausente, extra, renomeada, invertida, aderente, determinismo e uso da passada semântica
 
 ## PR G — Verificador de conformidade (Etapas 1.6 e 1.7)
 
-- [ ] G.1 [alpha] Seleção de regras ativas aplicáveis por bloco (aplicabilidade + `status = 'active'`)
-- [ ] G.2 [alpha] Juiz por regra: recuperação na norma vigente → structured output `{status, confiança, evidência, ref_legal, sugestão}`
-- [ ] G.3 [alpha] Guard de citação com `resolveLegalRef`; descarte + incremento de `discarded_findings`
-- [ ] G.4 [alpha] Reuso do grader de fundamentação existente antes de persistir o achado
-- [ ] G.5 [alpha] "Não avaliada" quando nenhum trecho passa do limiar — nunca inferir conformidade por ausência
-- [ ] G.6 [alpha] Regras cruzadas entre campos do JSON canônico (valor × modalidade, parcelamento × justificativa, prazo × dispositivo)
-- [ ] G.7 [alpha] Cache por `(hash_bloco, rule_id, document_id_da_norma)` e invalidação ao mudar qualquer componente da chave
-- [ ] G.8 [alpha] Execução paralela com limite de concorrência; `compliance_run` grava modelo e normas usados
-- [ ] G.9 [alpha] Consolidação por severidade + declaração de cobertura (aplicadas, não avaliadas, descartadas)
-- [ ] G.10 [alpha] Rotas `POST /api/v1/compliance/runs`, `GET /api/v1/compliance/runs/:id`, `POST /api/v1/rules/:id/evaluate`
-- [ ] G.11 [portal] `/alpha/analise/$id`: abas estrutural, conformidade e execução, com filtro por severidade e navegação até o trecho
-- [ ] G.12 [portal] `/alpha/bancada`: teste de regra isolada, exibição do que o guard de citação faria, promoção `draft` → `active`
+- [x] G.1 [alpha] `compliance/verify.ts` — `loadActiveRules` + `isApplicable` + `blockForRule`
+- [x] G.2 [alpha] `judgeRule` — recuperação na norma vigente → structured output `{status, confiança, evidência, ref_legal, sugestão}`
+- [x] G.3 [alpha] `applyCitationGuard` — descarte por referência ausente, não resolvida ou confiança baixa, contabilizado em `discarded_findings`
+- [ ] G.4 [alpha] Encadear o grader de fundamentação do grafo antes de persistir o achado — hoje a fundamentação é garantida pelo prompt + guard de citação
+- [x] G.5 [alpha] "Não avaliada" quando nenhum trecho passa do limiar — nunca inferir conformidade por ausência
+- [x] G.6 [alpha] `compliance/cross-checks.ts` — parcelamento, valor × pesquisa, vigência × limite legal, execução × medição
+- [ ] G.7 [alpha] Cache por `(hash_bloco, rule_id, document_id_da_norma)` — pendente; exige medir o custo real de reexecução primeiro
+- [x] G.8 [alpha] Execução em lotes com limite de concorrência; `compliance_run` grava modelo e normas usados
+- [x] G.9 [alpha] Consolidação por severidade + cobertura (aplicadas, não avaliadas, descartadas) no relatório
+- [x] G.10 [alpha] Rotas de execução, relatório, listagem de regras, avaliação isolada e mudança de status
+- [x] G.11 [portal] `/alpha/analise/$runId`: abas conformidade, estrutural e execução, com filtro por severidade
+- [x] G.12 [portal] `/alpha/bancada`: teste de regra isolada, o que o guard faria, promoção `draft` → `active`
 
 ## PR H — Avaliação e fechamento
 

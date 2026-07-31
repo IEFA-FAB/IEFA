@@ -14,6 +14,7 @@ import { embedDocuments } from "../sources/embeddings"
 import { ingestSource } from "../sources/pipeline"
 import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
+import { complianceRoutes } from "./compliance"
 import { submissionRoutes } from "./submissions"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -173,6 +174,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.use("/api/v1/*", authMiddleware)
 	// Submissão e extração (Etapa 1.4) — montadas depois do middleware de auth.
 	.route("/", submissionRoutes)
+	// Conformidade e bancada de regras (Etapas 1.5–1.7).
+	.route("/", complianceRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
 	.post("/api/v1/sessions", async (c) => {

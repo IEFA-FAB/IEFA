@@ -15,6 +15,7 @@ import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as JournalRouteRouteImport } from './routes/journal/route'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as AlphaBancadaRouteImport } from './routes/alpha/bancada'
 import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as JournalIndexRouteImport } from './routes/journal/index'
@@ -35,6 +36,7 @@ import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_pub
 import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
 import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
 import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
+import { Route as AlphaAnaliseRunIdRouteImport } from './routes/alpha/analise.$runId'
 import { Route as AlphaAnaliseNovaRouteImport } from './routes/alpha/analise.nova'
 import { Route as AlphaModelosIdRouteImport } from './routes/alpha/modelos.$id'
 import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
@@ -87,6 +89,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AlphaBancadaRoute = AlphaBancadaRouteImport.update({
+  id: '/bancada',
+  path: '/bancada',
+  getParentRoute: () => AlphaRouteRoute,
 } as any)
 const AlphaFontesRoute = AlphaFontesRouteImport.update({
   id: '/fontes',
@@ -191,6 +198,11 @@ const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
   id: '/_pt/termos-de-uso',
   path: '/termos-de-uso',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AlphaAnaliseRunIdRoute = AlphaAnaliseRunIdRouteImport.update({
+  id: '/analise/$runId',
+  path: '/analise/$runId',
+  getParentRoute: () => AlphaRouteRoute,
 } as any)
 const AlphaAnaliseNovaRoute = AlphaAnaliseNovaRouteImport.update({
   id: '/analise/nova',
@@ -325,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
@@ -344,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
@@ -372,6 +386,7 @@ export interface FileRoutesByTo {
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
@@ -392,6 +407,7 @@ export interface FileRoutesByTo {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
@@ -424,6 +440,7 @@ export interface FileRoutesById {
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
@@ -444,6 +461,7 @@ export interface FileRoutesById {
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
   '/_public/_pt/sobre': typeof PublicPtSobreRoute
   '/_public/_pt/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
@@ -477,6 +495,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
@@ -496,6 +515,7 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
     | '/journal/articles/$id'
@@ -524,6 +544,7 @@ export interface FileRouteTypes {
     | '/alpha'
     | '/health'
     | '/journal/editorial'
+    | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
@@ -544,6 +565,7 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
     | '/journal/articles/$id'
@@ -575,6 +597,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
@@ -595,6 +618,7 @@ export interface FileRouteTypes {
     | '/_public/_pt/roteiro'
     | '/_public/_pt/sobre'
     | '/_public/_pt/termos-de-uso'
+    | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
     | '/journal/articles/$id'
@@ -671,6 +695,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/alpha/bancada': {
+      id: '/alpha/bancada'
+      path: '/bancada'
+      fullPath: '/alpha/bancada'
+      preLoaderRoute: typeof AlphaBancadaRouteImport
+      parentRoute: typeof AlphaRouteRoute
     }
     '/alpha/fontes': {
       id: '/alpha/fontes'
@@ -811,6 +842,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/termos-de-uso'
       preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/alpha/analise/$runId': {
+      id: '/alpha/analise/$runId'
+      path: '/analise/$runId'
+      fullPath: '/alpha/analise/$runId'
+      preLoaderRoute: typeof AlphaAnaliseRunIdRouteImport
+      parentRoute: typeof AlphaRouteRoute
     }
     '/alpha/analise/nova': {
       id: '/alpha/analise/nova'
@@ -1031,13 +1069,17 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
 )
 
 interface AlphaRouteRouteChildren {
+  AlphaBancadaRoute: typeof AlphaBancadaRoute
   AlphaFontesRoute: typeof AlphaFontesRoute
+  AlphaAnaliseRunIdRoute: typeof AlphaAnaliseRunIdRoute
   AlphaAnaliseNovaRoute: typeof AlphaAnaliseNovaRoute
   AlphaModelosIdRoute: typeof AlphaModelosIdRoute
 }
 
 const AlphaRouteRouteChildren: AlphaRouteRouteChildren = {
+  AlphaBancadaRoute: AlphaBancadaRoute,
   AlphaFontesRoute: AlphaFontesRoute,
+  AlphaAnaliseRunIdRoute: AlphaAnaliseRunIdRoute,
   AlphaAnaliseNovaRoute: AlphaAnaliseNovaRoute,
   AlphaModelosIdRoute: AlphaModelosIdRoute,
 }

@@ -15,8 +15,7 @@ import { supabase } from "../db/supabase.ts"
 import { extractContratacao } from "../extraction/extract.ts"
 import { toSubmissionText } from "../extraction/to-text.ts"
 import type { AppRole } from "../middleware/auth.ts"
-
-export const SUBMISSION_BUCKET = "alpha-submissions"
+import { SUBMISSION_BUCKET } from "./submission-bucket.ts"
 
 const ACCEPTED_MIME = new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/pdf"])
 
