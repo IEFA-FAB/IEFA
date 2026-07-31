@@ -26,20 +26,31 @@ O sistema SHALL estruturar cada norma em `structure_node` com `ref_label` do dis
 - **WHEN** um dispositivo existe na versão anterior mas não na vigente
 - **THEN** a resolução contra a versão vigente retorna "não resolvido" e a resolução contra a versão antiga, por `document_id`, retorna o nó
 
-### Requirement: Fonte primária estruturada com fallback
-O sistema SHALL usar a fonte de texto articulado estruturado declarada no registry como primária e SHALL recorrer à fonte de fallback apenas quando a primária falhar ou não cobrir a norma.
+### Requirement: Origem verificada por norma
+O sistema SHALL coletar cada norma da URL declarada no registry, e SHALL declarar no registry apenas origens verificadas como acessíveis a partir de servidor.
 
-#### Scenario: Primária disponível
-- **WHEN** a fonte primária responde com o texto articulado da norma
-- **THEN** o fallback não é acionado
+#### Scenario: Norma disponível na origem declarada
+- **WHEN** a coleta busca a norma na URL do registry
+- **THEN** o texto articulado é extraído e a versão é registrada
 
-#### Scenario: Primária indisponível
-- **WHEN** a fonte primária falha ou não cobre a norma solicitada
-- **THEN** o adapter tenta o fallback, registra qual fonte foi efetivamente usada no documento e conclui a ingestão
-
-#### Scenario: Ambas indisponíveis
-- **WHEN** primária e fallback falham
+#### Scenario: Origem indisponível
+- **WHEN** a origem declarada falha ou responde com conteúdo irreconhecível
 - **THEN** nenhuma versão vigente é substituída e o erro é registrado na fonte
+
+#### Scenario: Página muda de estrutura
+- **WHEN** a extração reconhece menos artigos que o piso de sanidade configurado
+- **THEN** a ingestão daquela norma é abortada com erro explícito, sem marcar a versão vigente como substituída
+
+### Requirement: Versionamento de norma por conteúdo
+O sistema SHALL versionar cada norma pelo hash do texto coletado, já que o texto compilado não carrega rótulo de versão próprio.
+
+#### Scenario: Texto inalterado entre coletas
+- **WHEN** a coleta recupera texto idêntico ao da versão vigente
+- **THEN** nenhuma versão nova é criada
+
+#### Scenario: Texto alterado
+- **WHEN** a norma é alterada na origem
+- **THEN** entra versão nova, a anterior recebe `superseded_at` e a análise de impacto é executada
 
 ### Requirement: Recuperação filtrável por norma e vigência
 O sistema SHALL permitir que a busca no corpus seja filtrada por norma, tipo de documento e versão vigente, mantendo compatível o comportamento atual de busca sobre o corpus da FAB.

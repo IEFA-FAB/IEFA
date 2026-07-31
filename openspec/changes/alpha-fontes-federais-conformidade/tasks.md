@@ -47,15 +47,15 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## PR D — Legislação federal + watcher
 
-- [ ] D.1 [alpha] Dependência `fast-xml-parser`; `sources/legislacao/lexml.ts` — busca por URN e leitura do texto articulado
-- [ ] D.2 [alpha] `sources/legislacao/parse-articulado.ts`: `structure_node` com `ref_label` por dispositivo (artigo, parágrafo, inciso, alínea)
-- [ ] D.3 [alpha] `sources/legislacao/fallback-planalto.ts` + registro de qual fonte foi efetivamente usada
-- [ ] D.4 [alpha] `resolveLegalRef(norma, dispositivo, documentId?)` — resolução contra nó existente, com "não resolvido" explícito
-- [ ] D.5 [alpha] Ingerir corpus mínimo: Lei 14.133/21, decretos regulamentadores declarados, INs SEGES de ETP e TR
-- [ ] D.6 [alpha] `POST /internal/jobs/sources/refresh` com autenticação por segredo de serviço e resumo por fonte
-- [ ] D.7 [alpha] Análise de impacto: diff de dispositivo entre versões → `checklist_rule` afetadas para `needs_review`
-- [ ] D.8 [infra] Scheduled task semanal chamando a rota de refresh, no padrão dos sync workers do `api`
-- [ ] D.9 [alpha] Testes: resolução de dispositivo existente, inexistente e revogado; impacto marcando só as regras que citam dispositivo alterado
+- [x] D.1 [alpha] `sources/legislacao/html-text.ts` — decodificação e normalização. **LexML/SRU descartado**: responde verificação anti-bot do Senado, não XML; `fast-xml-parser` deixou de ser necessário
+- [x] D.2 [alpha] `sources/legislacao/parse-articulado.ts`: `structure_node` com `ref_label` por dispositivo (artigo, parágrafo, inciso, alínea), com aninhamento correto
+- [x] D.3 [alpha] `sources/legislacao/adapter.ts` — Planalto (lei/decreto) e DOU (IN) como origens verificadas; migration corrige as URLs do registry
+- [x] D.4 [alpha] `compliance/resolve-legal-ref.ts` + `lib/ref-label.ts` — resolução contra nó existente, com `norma_ausente`/`dispositivo_ausente` explícitos
+- [ ] D.5 [alpha] Ingerir corpus mínimo de fato (Lei 14.133, decretos 11.246 e 11.462, IN SEGES 65) — depende do banco (A.13)
+- [x] D.6 [alpha] `POST /internal/jobs/sources/refresh` com autenticação por segredo de serviço e resumo por fonte
+- [x] D.7 [alpha] Análise de impacto: diff de dispositivo entre versões → `checklist_rule` afetadas para `needs_review`
+- [x] D.8 [alpha] Timer semanal in-process (`jobs/scheduler.ts`), desligado por padrão — mesmo padrão dos workers de sync do `api`, sem infra nova
+- [x] D.9 [alpha] 14 testes sobre a Lei 14.133 real: encoding, rótulo ordinal/cardinal, aninhamento de inciso em parágrafo, dispositivo inexistente
 
 ## PR E — Extrator (Etapa 1.4)
 

@@ -17,6 +17,10 @@ const schema = z.object({
 	RERANK_TOP_N: z.coerce.number().default(5),
 	RERANK_THRESHOLD: z.coerce.number().default(0.45),
 	RRF_K: z.coerce.number().default(60),
+	/** Segredo do job agendado que chama /internal/jobs/sources/refresh. */
+	ALPHA_JOB_SECRET: z.string().min(16).optional(),
+	/** Liga o timer semanal de atualização de fontes. Desligado por padrão. */
+	ALPHA_SOURCES_REFRESH_ENABLED: z.stringbool().default(false),
 	PORT: z.coerce.number().default(3001),
 })
 
