@@ -98,7 +98,7 @@ export async function requireAuth(): Promise<UserContext> {
  *
  * @throws {Error} "UNAUTHORIZED" (401) sem sessão; "Requires {module} level {n}" (403) sem permissão.
  */
-export async function requireAuthWithPermission(module: AppModule, minLevel: 1 | 2 = 1, scope?: PermissionScope): Promise<UserContext> {
+export async function requireAuthWithPermission(module: AppModule, minLevel: 1 | 2 | 3 = 1, scope?: PermissionScope): Promise<UserContext> {
 	const ctx = await requireAuth()
 	try {
 		requirePermission(ctx, module, minLevel, scope)

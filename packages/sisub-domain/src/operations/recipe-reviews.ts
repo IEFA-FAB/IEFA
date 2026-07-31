@@ -7,6 +7,7 @@
 
 import { recipeLastReviewInKitchen, recipeReviewInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
+import { authorizeAssetMutation } from "../guards/asset-ownership.ts"
 import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { VersionActor } from "../schemas/ingredients.ts"
 import type { ListRecipeLastReviews, RecordRecipeReview } from "../schemas/recipes.ts"
@@ -35,7 +36,10 @@ export interface RecipeLastReview {
  * Cada chamada cria uma nova linha — o histórico de revisões é preservado.
  */
 export async function recordRecipeReview(db: SisubDb, ctx: UserContext, input: RecordRecipeReview, actor?: VersionActor): Promise<RecipeReviewRow> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 2)
+	// Autoriza pelo DONO da preparação: receita global exige global:2, receita local exige
+	// kitchen:2 NAQUELA cozinha. Um `requireAnyPermission` sem escopo deixava quem tem
+	// kitchen:2 em uma cozinha revisar preparação global e de qualquer outra cozinha.
+	await authorizeAssetMutation(db, ctx, "recipe", input.recipeId)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db

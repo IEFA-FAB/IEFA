@@ -1,3 +1,4 @@
+import { resolveModuleScopes } from "@iefa/pbac"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ShieldCheck } from "lucide-react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
@@ -18,8 +19,7 @@ function MessHallHubPage() {
 	const { messHalls, units, isLoading } = useMessHalls()
 
 	// IDs permitidos via PBAC. Permissão global (todos os campos nulos) libera todos.
-	const isGlobal = permissions.some((p) => p.module === "messhall" && p.mess_hall_id === null && p.unit_id === null && p.kitchen_id === null)
-	const allowedIds = new Set(permissions.filter((p) => p.module === "messhall" && p.mess_hall_id !== null).map((p) => p.mess_hall_id as number))
+	const { isGlobal, ids: allowedIds } = resolveModuleScopes(permissions, "messhall", "mess_hall")
 
 	const unitById = new Map(units.map((u) => [u.id, u.display_name ?? u.code]))
 

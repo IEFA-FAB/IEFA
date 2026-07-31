@@ -53,11 +53,13 @@ describe("resolveEffectivePermissions — precedência de deny", () => {
 		expect(hasPermission(effective, "kitchen", 2, { type: "kitchen", id: 9 })).toBe(true)
 	})
 
-	test("deny escopado não alcança o allow sem escopo do mesmo módulo", () => {
-		// Allow global vale para qualquer contexto; um deny de UMA cozinha não o derruba.
+	test("allow sem escopo sobrevive fora do escopo negado", () => {
 		const effective = resolveEffectivePermissions([p("kitchen", 2), p("kitchen", 0, { kitchen: 7 })])
 
+		// Consulta sem escopo continua passando: o allow global vale nos demais contextos.
 		expect(hasPermission(effective, "kitchen", 2)).toBe(true)
+		// Mas o escopo explicitamente negado não.
+		expect(hasPermission(effective, "kitchen", 2, { type: "kitchen", id: 7 })).toBe(false)
 	})
 
 	test("deny de um módulo não afeta outro", () => {
@@ -73,10 +75,24 @@ describe("resolveEffectivePermissions — precedência de deny", () => {
 		expect(hasPermission(effective, "kitchen", 2, { type: "kitchen", id: 7 })).toBe(true)
 	})
 
-	test("entradas de deny não vazam no resultado", () => {
+	test("deny escopado derruba allow SEM escopo naquele escopo", () => {
+		// O caso que a lista plana não representa: "vale em todo lugar menos na cozinha 7".
+		// Enquanto o resolver só removia allows cobertos, o allow global sobrevivia e
+		// reautorizava justamente o escopo negado.
+		const effective = resolveEffectivePermissions([p("kitchen", 2)], [p("kitchen", 0, { kitchen: 7 })])
+
+		expect(hasPermission(effective, "kitchen", 1, { type: "kitchen", id: 7 })).toBe(false)
+		expect(hasPermission(effective, "kitchen", 2, { type: "kitchen", id: 9 })).toBe(true)
+	})
+
+	test("entradas de deny permanecem no conjunto, mas nunca concedem", () => {
+		// Ficam para o `hasPermission` conseguir negar; com level 0 jamais satisfazem
+		// `level >= minLevel`, então não viram concessão por acidente.
 		const effective = resolveEffectivePermissions([p("kitchen", 0, { kitchen: 7 }), p("unit", 2, { unit: 3 })])
 
-		expect(effective.every((x) => x.level > 0)).toBe(true)
+		expect(effective.some((x) => x.level === 0)).toBe(true)
+		expect(hasPermission(effective, "kitchen", 1)).toBe(false)
+		expect(hasPermission(effective, "kitchen", 1, { type: "kitchen", id: 7 })).toBe(false)
 	})
 })
 

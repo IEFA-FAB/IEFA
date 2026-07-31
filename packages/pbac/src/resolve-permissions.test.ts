@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { hasPermission } from "./has-permission.ts"
 import { resolveUserPermissions } from "./resolve-permissions.ts"
 import type { UserPermission } from "./types.ts"
 
@@ -32,7 +33,7 @@ describe("resolveUserPermissions", () => {
 		expect(permissions).toContainEqual(rows[0])
 	})
 
-	test("remove deny explícito antes de retornar permissões efetivas", async () => {
+	test("deny explícito não concede, e permanece para o guard poder negar", async () => {
 		const rows: UserPermission[] = [
 			{ module: "kitchen", level: 0, kitchen_id: 11, mess_hall_id: null, unit_id: null },
 			{ module: "unit", level: 2, unit_id: 3, kitchen_id: null, mess_hall_id: null },
@@ -40,7 +41,9 @@ describe("resolveUserPermissions", () => {
 
 		const permissions = await resolveUserPermissions("user-1", createSupabaseStub(rows) as never)
 
-		expect(permissions.some((permission) => permission.level === 0)).toBe(false)
+		// O deny fica no conjunto — é o que permite negar a cozinha 11 mesmo quando um allow
+		// SEM escopo existe. Com level 0 ele nunca satisfaz `level >= minLevel`.
+		expect(hasPermission(permissions, "kitchen", 1, { type: "kitchen", id: 11 })).toBe(false)
 		expect(permissions).toContainEqual(rows[1])
 	})
 
