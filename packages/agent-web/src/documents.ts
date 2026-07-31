@@ -27,9 +27,30 @@ export interface RenderLlmsTxtOptions {
 	optional?: LlmsLink[]
 }
 
+/**
+ * Títulos e resumos vêm de banco e CMS. Um `]` ou uma quebra de linha no título
+ * quebra a sintaxe `[texto](url)` e chega a associar o rótulo à URL errada.
+ */
+function escapeLinkText(value: string): string {
+	return value
+		.replace(/\s+/g, " ")
+		.replace(/[[\]\\]/g, "\\$&")
+		.trim()
+}
+
+/** Espaço e parênteses num destino de link também quebram a sintaxe. */
+function escapeLinkUrl(value: string): string {
+	return value.replace(/\s/g, "%20").replace(/\(/g, "%28").replace(/\)/g, "%29")
+}
+
+/** Resumo é texto solto; só não pode quebrar a linha do item. */
+function escapeSummary(value: string): string {
+	return value.replace(/\s+/g, " ").trim()
+}
+
 function renderSection(section: LlmsSection): string {
 	if (section.links.length === 0) return ""
-	const body = section.links.map((link) => `- [${link.title}](${link.url}): ${link.summary}`).join("\n")
+	const body = section.links.map((link) => `- [${escapeLinkText(link.title)}](${escapeLinkUrl(link.url)}): ${escapeSummary(link.summary)}`).join("\n")
 	return `## ${section.heading}\n\n${body}\n`
 }
 
