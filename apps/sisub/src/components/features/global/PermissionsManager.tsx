@@ -24,12 +24,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
+import { useUserSearch } from "@/hooks/data/useUserSearch"
 import {
 	createUserPermissionFn,
 	deleteUserPermissionFn,
 	fetchUserPermissionsAdminFn,
 	type PermissionRow,
-	searchUsersByEmailFn,
 	type UserSearchResult,
 	updateUserPermissionFn,
 } from "@/server/permissions.fn"
@@ -424,19 +424,8 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 
 function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => void }) {
 	const [emailInput, setEmailInput] = React.useState("")
-	const [debouncedEmail, setDebouncedEmail] = React.useState("")
-
-	React.useEffect(() => {
-		const t = setTimeout(() => setDebouncedEmail(emailInput), 300)
-		return () => clearTimeout(t)
-	}, [emailInput])
-
-	const { data: searchResults = [], isLoading: isSearching } = useQuery({
-		queryKey: ["userSearch", debouncedEmail],
-		queryFn: () => searchUsersByEmailFn({ data: { email: debouncedEmail } }),
-		enabled: debouncedEmail.length >= 3,
-		staleTime: 30_000,
-	})
+	// Debounce e limiar vivem no hook — a turma de treino usa a mesma busca.
+	const { results: searchResults, isSearching, canSearch } = useUserSearch(emailInput)
 
 	return (
 		<div className="rounded-lg border bg-card p-6 space-y-4">
@@ -450,7 +439,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 				<Input value={emailInput} onChange={(e) => setEmailInput(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" />
 			</div>
 
-			{debouncedEmail.length >= 3 && (
+			{canSearch && (
 				<div className="space-y-1">
 					{isSearching ? (
 						<div className="space-y-2 pt-1">
@@ -458,7 +447,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 							<Skeleton className="h-12 w-full rounded-lg" />
 						</div>
 					) : searchResults.length === 0 ? (
-						<p className="text-sm text-muted-foreground py-2">Nenhum usuário encontrado para &ldquo;{debouncedEmail}&rdquo;.</p>
+						<p className="text-sm text-muted-foreground py-2">Nenhum usuário encontrado para &ldquo;{emailInput}&rdquo;.</p>
 					) : (
 						searchResults.map((user) => (
 							<button
@@ -478,7 +467,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 				</div>
 			)}
 
-			{debouncedEmail.length > 0 && debouncedEmail.length < 3 && <p className="text-xs text-muted-foreground">Digite ao menos 3 caracteres para buscar.</p>}
+			{emailInput.length > 0 && !canSearch && <p className="text-xs text-muted-foreground">Digite ao menos 3 caracteres para buscar.</p>}
 		</div>
 	)
 }

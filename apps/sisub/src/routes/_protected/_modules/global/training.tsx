@@ -4,6 +4,7 @@ import { RotateCcw, TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
+import { TrainingRoster } from "@/components/features/global/TrainingRoster"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -137,6 +138,8 @@ function TrainingPage() {
 					) : null}
 				</CardContent>
 			</Card>
+
+			<TrainingRoster />
 
 			<Card>
 				<CardHeader>

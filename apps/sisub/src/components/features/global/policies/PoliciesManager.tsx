@@ -1,6 +1,7 @@
 "use no memo"
 
 import type { PolicyStatementInput } from "@iefa/sisub-domain"
+import { Link } from "@tanstack/react-router"
 import { ArrowLeft, Lock, Pencil, Plus, Trash2 } from "lucide-react"
 import * as React from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -14,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import {
+	TRAINING_POLICY_NAME,
 	useAddPolicyStatement,
 	useCreatePolicy,
 	useDeletePolicy,
@@ -249,7 +251,17 @@ function PolicyDetailPanel({
 					<AlertTitle>Política gerenciada pelo sistema</AlertTitle>
 					<AlertDescription>
 						Criada por migration e imutável: alterar seus escopos transformaria a política que define o ambiente de treino num acesso de escrita à operação
-						real. Ela pode ser anexada e desanexada normalmente.
+						real.
+						{policy.name === TRAINING_POLICY_NAME && (
+							<>
+								{" "}
+								Para adicionar ou remover treinandos, use{" "}
+								<Link to="/global/training" className="underline underline-offset-2">
+									Ambiente de Treino
+								</Link>
+								{" — lá a turma aparece junto do escopo e do reset."}
+							</>
+						)}
 					</AlertDescription>
 				</Alert>
 			)}
