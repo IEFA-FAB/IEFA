@@ -9,6 +9,7 @@ import { IngredientReviewMetricsSheet } from "@/components/features/global/Revie
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import { useExportIngredientsCSV } from "@/hooks/business/useExportIngredientsCSV"
 import { ingredientsTreeQueryOptions } from "@/services/IngredientsService"
 
@@ -40,6 +41,8 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/")
 
 function IngredientsPage() {
 	const { exportCSV } = useExportIngredientsCSV()
+	// global:1 navega a tela inteira; só não vê os controles de escrita.
+	const canWrite = useGlobalWrite()
 	const managerRef = useRef<IngredientsTreeManagerHandle>(null)
 	const [metricsOpen, setMetricsOpen] = useState(false)
 
@@ -59,16 +62,18 @@ function IngredientsPage() {
 					<span className="hidden sm:inline">Exportar CSV</span>
 					<span className="sm:hidden">CSV</span>
 				</Button>
-				<ButtonGroup>
-					<Button variant="outline" size="sm" onClick={() => managerRef.current?.openCreateFolder()} className="gap-2">
-						<FolderPlus className="size-4" />
-						Nova Pasta
-					</Button>
-					<Button size="sm" onClick={() => managerRef.current?.openCreateIngredient()} className="gap-2">
-						<PackagePlus className="size-4" />
-						Novo Insumo
-					</Button>
-				</ButtonGroup>
+				{canWrite && (
+					<ButtonGroup>
+						<Button variant="outline" size="sm" onClick={() => managerRef.current?.openCreateFolder()} className="gap-2">
+							<FolderPlus className="size-4" />
+							Nova Pasta
+						</Button>
+						<Button size="sm" onClick={() => managerRef.current?.openCreateIngredient()} className="gap-2">
+							<PackagePlus className="size-4" />
+							Novo Insumo
+						</Button>
+					</ButtonGroup>
+				)}
 			</PageHeader>
 			<IngredientsTreeManager ref={managerRef} />
 			<IngredientReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
