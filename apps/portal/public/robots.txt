@@ -10,6 +10,9 @@
 User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=no
 Allow: /
+# `Disallow: /auth` é regra de prefixo e pegaria /auth.md, que é justamente o
+# documento que este site publica para agentes. Liberado explicitamente.
+Allow: /auth.md
 Disallow: /auth
 Disallow: /journal/editorial/
 Disallow: /journal/submissions/
@@ -31,6 +34,9 @@ User-agent: Applebot-Extended
 User-agent: Google-Extended
 Content-Signal: search=yes, ai-input=yes, ai-train=no
 Allow: /
+# `Disallow: /auth` é regra de prefixo e pegaria /auth.md, que é justamente o
+# documento que este site publica para agentes. Liberado explicitamente.
+Allow: /auth.md
 Disallow: /auth
 Disallow: /journal/editorial/
 Disallow: /journal/submissions/

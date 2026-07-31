@@ -46,15 +46,37 @@ function qualityFor(entries: AcceptEntry[], types: string[]): number {
 }
 
 /**
- * Verdadeiro quando o cliente prefere Markdown a HTML. Um navegador manda
- * `text/html,...;q=0.9` seguido do coringa com `q=0.8`, e nunca cai aqui.
+ * Melhor qualidade considerando também os coringas que cobrem o tipo
+ * (`text/*` e o coringa geral), conforme a RFC 9110.
+ */
+function qualityWithWildcards(entries: AcceptEntry[], types: readonly string[]): number {
+	let best = 0
+	for (const type of types) {
+		const group = `${type.slice(0, type.indexOf("/"))}/*`
+		for (const entry of entries) {
+			if (entry.type === type || entry.type === group || entry.type === "*/*") {
+				best = Math.max(best, entry.q)
+			}
+		}
+	}
+	return best
+}
+
+/**
+ * Verdadeiro quando o cliente prefere Markdown a HTML.
+ *
+ * Markdown só conta em correspondência **exata**: servir Markdown para quem
+ * mandou apenas o coringa seria trocar o padrão da web por um palpite. HTML, por
+ * outro lado, conta também via coringa — quem manda `text/markdown;q=0.5` junto
+ * com o coringa em `q=1` está dizendo que prefere qualquer outra coisa, e HTML é
+ * uma delas.
  */
 export function prefersMarkdown(request: Request): boolean {
 	if (request.method !== "GET" && request.method !== "HEAD") return false
 	const entries = parseAccept(request.headers.get("accept"))
 	const markdown = qualityFor(entries, MARKDOWN_TYPES)
 	if (markdown === 0) return false
-	return markdown >= qualityFor(entries, ["text/html", "application/xhtml+xml"])
+	return markdown >= qualityWithWildcards(entries, ["text/html", "application/xhtml+xml"])
 }
 
 /** Requisição equivalente pedindo HTML, para obter a renderização do SSR. */

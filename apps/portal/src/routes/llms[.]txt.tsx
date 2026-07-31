@@ -7,9 +7,25 @@ const RECENT_POSTS_LIMIT = 15
 
 type Link = { title: string; url: string; summary: string }
 
+/**
+ * Títulos vêm de `iefa.apps` e do Sanity. Um `]` ou uma quebra de linha no título
+ * quebra a sintaxe `[texto](url)` e chega a associar o rótulo à URL errada.
+ */
+function escapeLinkText(value: string) {
+	return value
+		.replace(/\s+/g, " ")
+		.replace(/[[\]\\]/g, "\\$&")
+		.trim()
+}
+
+/** Espaço e parênteses num destino de link também quebram a sintaxe. */
+function escapeLinkUrl(value: string) {
+	return value.replace(/\s/g, "%20").replace(/\(/g, "%28").replace(/\)/g, "%29")
+}
+
 function renderSection(heading: string, links: Link[]) {
 	if (links.length === 0) return ""
-	const body = links.map((link) => `- [${link.title}](${link.url}): ${link.summary}`).join("\n")
+	const body = links.map((link) => `- [${escapeLinkText(link.title)}](${escapeLinkUrl(link.url)}): ${link.summary.replace(/\s+/g, " ").trim()}`).join("\n")
 	return `## ${heading}\n\n${body}\n`
 }
 
