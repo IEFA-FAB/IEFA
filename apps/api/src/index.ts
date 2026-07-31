@@ -1,6 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
+import { registerAgentDiscovery } from "./api/agent-discovery.ts"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
 import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
@@ -81,7 +82,7 @@ app.openAPIRegistry.registerComponent("securitySchemes", "AdminSecret", {
 })
 
 // Documentação OpenAPI
-app.doc("/doc", {
+const openApiConfig = {
 	openapi: "3.0.0",
 	info: {
 		version: "1.0.0",
@@ -98,7 +99,13 @@ app.doc("/doc", {
 			description: "Local",
 		},
 	],
-})
+}
+
+app.doc("/doc", openApiConfig)
+
+// robots.txt, llms.txt e /.well-known/api-catalog — o llms.txt é derivado do
+// documento OpenAPI acima, então endpoint novo aparece nele sozinho.
+registerAgentDiscovery(app, openApiConfig)
 
 // Interface Scalar para documentação interativa (recomendado: tema 'purple' ou 'moon')
 /* app.get(
