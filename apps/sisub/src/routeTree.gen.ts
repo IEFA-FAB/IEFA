@@ -88,8 +88,12 @@ import { Route as ProtectedModulesUnitUnitIdIndexRouteImport } from './routes/_p
 import { Route as ProtectedModulesUnitUnitIdChatRouteImport } from './routes/_protected/_modules/unit/$unitId/chat'
 import { Route as ProtectedModulesUnitUnitIdCreditRouteImport } from './routes/_protected/_modules/unit/$unitId/credit'
 import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
+import { Route as ProtectedModulesUnitUnitIdEmpenhosRouteImport } from './routes/_protected/_modules/unit/$unitId/empenhos'
+import { Route as ProtectedModulesUnitUnitIdLiquidationsRouteImport } from './routes/_protected/_modules/unit/$unitId/liquidations'
+import { Route as ProtectedModulesUnitUnitIdPaymentsRouteImport } from './routes/_protected/_modules/unit/$unitId/payments'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
+import { Route as ProtectedModulesUnitUnitIdSiafiRouteImport } from './routes/_protected/_modules/unit/$unitId/siafi'
 import { Route as ProtectedModulesGlobalRecipesRecipeIdIndexRouteImport } from './routes/_protected/_modules/global/recipes/$recipeId/index'
 import { Route as ProtectedModulesGlobalRecipesRecipeIdVersionsRouteImport } from './routes/_protected/_modules/global/recipes/$recipeId/versions'
 import { Route as ProtectedModulesGlobalWeeklyPlansPrintPlanIdRouteImport } from './routes/_protected/_modules/global/weekly-plans/print.$planId'
@@ -576,6 +580,24 @@ const ProtectedModulesUnitUnitIdDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdEmpenhosRoute =
+  ProtectedModulesUnitUnitIdEmpenhosRouteImport.update({
+    id: '/empenhos',
+    path: '/empenhos',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesUnitUnitIdLiquidationsRoute =
+  ProtectedModulesUnitUnitIdLiquidationsRouteImport.update({
+    id: '/liquidations',
+    path: '/liquidations',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesUnitUnitIdPaymentsRoute =
+  ProtectedModulesUnitUnitIdPaymentsRouteImport.update({
+    id: '/payments',
+    path: '/payments',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdProcurementRoute =
   ProtectedModulesUnitUnitIdProcurementRouteImport.update({
     id: '/procurement',
@@ -586,6 +608,12 @@ const ProtectedModulesUnitUnitIdSettingsRoute =
   ProtectedModulesUnitUnitIdSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesUnitUnitIdSiafiRoute =
+  ProtectedModulesUnitUnitIdSiafiRouteImport.update({
+    id: '/siafi',
+    path: '/siafi',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
 const ProtectedModulesGlobalRecipesRecipeIdIndexRoute =
@@ -837,8 +865,12 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
+  '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
+  '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
+  '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -940,7 +972,11 @@ export interface FileRoutesByTo {
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
+  '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
+  '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
+  '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/global/frozen-preparations': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes': typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -1051,8 +1087,12 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/_protected/_modules/unit/$unitId/credit': typeof ProtectedModulesUnitUnitIdCreditRoute
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/_protected/_modules/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
+  '/_protected/_modules/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
+  '/_protected/_modules/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
+  '/_protected/_modules/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/_protected/_modules/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/_protected/_modules/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/_protected/_modules/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -1162,8 +1202,12 @@ export interface FileRouteTypes {
     | '/unit/$unitId/chat'
     | '/unit/$unitId/credit'
     | '/unit/$unitId/dashboard'
+    | '/unit/$unitId/empenhos'
+    | '/unit/$unitId/liquidations'
+    | '/unit/$unitId/payments'
     | '/unit/$unitId/procurement'
     | '/unit/$unitId/settings'
+    | '/unit/$unitId/siafi'
     | '/global/frozen-preparations/'
     | '/global/ingredients/'
     | '/global/recipes/'
@@ -1265,7 +1309,11 @@ export interface FileRouteTypes {
     | '/unit/$unitId/chat'
     | '/unit/$unitId/credit'
     | '/unit/$unitId/dashboard'
+    | '/unit/$unitId/empenhos'
+    | '/unit/$unitId/liquidations'
+    | '/unit/$unitId/payments'
     | '/unit/$unitId/settings'
+    | '/unit/$unitId/siafi'
     | '/global/frozen-preparations'
     | '/global/ingredients'
     | '/global/recipes'
@@ -1375,8 +1423,12 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/chat'
     | '/_protected/_modules/unit/$unitId/credit'
     | '/_protected/_modules/unit/$unitId/dashboard'
+    | '/_protected/_modules/unit/$unitId/empenhos'
+    | '/_protected/_modules/unit/$unitId/liquidations'
+    | '/_protected/_modules/unit/$unitId/payments'
     | '/_protected/_modules/unit/$unitId/procurement'
     | '/_protected/_modules/unit/$unitId/settings'
+    | '/_protected/_modules/unit/$unitId/siafi'
     | '/_protected/_modules/global/frozen-preparations/'
     | '/_protected/_modules/global/ingredients/'
     | '/_protected/_modules/global/recipes/'
@@ -1983,6 +2035,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/empenhos': {
+      id: '/_protected/_modules/unit/$unitId/empenhos'
+      path: '/empenhos'
+      fullPath: '/unit/$unitId/empenhos'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdEmpenhosRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/unit/$unitId/liquidations': {
+      id: '/_protected/_modules/unit/$unitId/liquidations'
+      path: '/liquidations'
+      fullPath: '/unit/$unitId/liquidations'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdLiquidationsRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/unit/$unitId/payments': {
+      id: '/_protected/_modules/unit/$unitId/payments'
+      path: '/payments'
+      fullPath: '/unit/$unitId/payments'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdPaymentsRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
     '/_protected/_modules/unit/$unitId/procurement': {
       id: '/_protected/_modules/unit/$unitId/procurement'
       path: '/procurement'
@@ -1995,6 +2068,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/unit/$unitId/settings'
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdSettingsRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/unit/$unitId/siafi': {
+      id: '/_protected/_modules/unit/$unitId/siafi'
+      path: '/siafi'
+      fullPath: '/unit/$unitId/siafi'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdSiafiRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
     '/_protected/_modules/global/recipes/$recipeId/': {
@@ -2393,8 +2473,12 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdChatRoute: typeof ProtectedModulesUnitUnitIdChatRoute
   ProtectedModulesUnitUnitIdCreditRoute: typeof ProtectedModulesUnitUnitIdCreditRoute
   ProtectedModulesUnitUnitIdDashboardRoute: typeof ProtectedModulesUnitUnitIdDashboardRoute
+  ProtectedModulesUnitUnitIdEmpenhosRoute: typeof ProtectedModulesUnitUnitIdEmpenhosRoute
+  ProtectedModulesUnitUnitIdLiquidationsRoute: typeof ProtectedModulesUnitUnitIdLiquidationsRoute
+  ProtectedModulesUnitUnitIdPaymentsRoute: typeof ProtectedModulesUnitUnitIdPaymentsRoute
   ProtectedModulesUnitUnitIdProcurementRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
+  ProtectedModulesUnitUnitIdSiafiRoute: typeof ProtectedModulesUnitUnitIdSiafiRoute
   ProtectedModulesUnitUnitIdIndexRoute: typeof ProtectedModulesUnitUnitIdIndexRoute
 }
 
@@ -2405,10 +2489,17 @@ const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRo
       ProtectedModulesUnitUnitIdCreditRoute,
     ProtectedModulesUnitUnitIdDashboardRoute:
       ProtectedModulesUnitUnitIdDashboardRoute,
+    ProtectedModulesUnitUnitIdEmpenhosRoute:
+      ProtectedModulesUnitUnitIdEmpenhosRoute,
+    ProtectedModulesUnitUnitIdLiquidationsRoute:
+      ProtectedModulesUnitUnitIdLiquidationsRoute,
+    ProtectedModulesUnitUnitIdPaymentsRoute:
+      ProtectedModulesUnitUnitIdPaymentsRoute,
     ProtectedModulesUnitUnitIdProcurementRoute:
       ProtectedModulesUnitUnitIdProcurementRouteWithChildren,
     ProtectedModulesUnitUnitIdSettingsRoute:
       ProtectedModulesUnitUnitIdSettingsRoute,
+    ProtectedModulesUnitUnitIdSiafiRoute: ProtectedModulesUnitUnitIdSiafiRoute,
     ProtectedModulesUnitUnitIdIndexRoute: ProtectedModulesUnitUnitIdIndexRoute,
   }
 

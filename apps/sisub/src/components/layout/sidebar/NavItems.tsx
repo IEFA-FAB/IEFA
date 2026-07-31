@@ -1,6 +1,7 @@
 // ~/components/sidebar/nav-items.ts
 
 import {
+	Banknote,
 	BarChart3,
 	BookOpen,
 	Building2,
@@ -10,6 +11,7 @@ import {
 	ChefHat,
 	ClipboardCheck,
 	ClipboardList,
+	FileSignature,
 	FileSpreadsheet,
 	FileText,
 	FlameKindling,
@@ -23,6 +25,7 @@ import {
 	Package,
 	PackageCheck,
 	QrCode,
+	Receipt,
 	RefreshCw,
 	Sandwich,
 	Settings,
@@ -99,6 +102,10 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
 			{ title: "Atas", url: "/unit/procurement", icon: FileText },
 			{ title: "Crédito Disponível", url: "/unit/credit", icon: Landmark },
+			{ title: "Empenhos", url: "/unit/empenhos", icon: FileSignature },
+			{ title: "Liquidações", url: "/unit/liquidations", icon: Receipt, minLevel: 2 },
+			{ title: "Pagamentos", url: "/unit/payments", icon: Banknote, minLevel: 2 },
+			{ title: "SIAFI", url: "/unit/siafi", icon: RefreshCw, minLevel: 2 },
 			{ title: "Assistente IA", url: "/unit/chat", icon: MessageSquare },
 			{ title: "Configurações", url: "/unit/settings", icon: Settings },
 		],
