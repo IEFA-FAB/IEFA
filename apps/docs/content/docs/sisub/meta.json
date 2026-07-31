@@ -1,4 +1,9 @@
 {
   "title": "SISUB",
-  "pages": ["index", "estoque", "acesso-e-treino"]
+  "pages": [
+    "index",
+    "estoque",
+    "acesso-e-treino",
+    "orcamento"
+  ]
 }

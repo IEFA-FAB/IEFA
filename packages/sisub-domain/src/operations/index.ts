@@ -13,6 +13,16 @@ export {
 	updateAtaStatus,
 } from "./ata.ts"
 export {
+	type BudgetCreditSnapshot,
+	type BudgetProjection,
+	type CreditCheck,
+	type CreditCheckStatus,
+	checkCreditForEmpenho,
+	type LocalEmpenhoEntry,
+	localCommitmentAfterSnapshot,
+	projectBudget,
+} from "./budget-math.ts"
+export {
 	fetchForecasts,
 	fetchMessHalls,
 	fetchPresences,
