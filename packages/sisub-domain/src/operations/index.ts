@@ -254,5 +254,16 @@ export {
 	restoreTemplate,
 	saveTemplateEdit,
 } from "./templates.ts"
+export {
+	fetchTrainingScope,
+	listTrainingResets,
+	RESET_TARGET_TABLES,
+	resetTrainingScope,
+	resolveTrainingScope,
+	type TrainingResetLogRow,
+	type TrainingResetResult,
+	type TrainingScope,
+	type TrainingScopeInfo,
+} from "./training.ts"
 export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
 export { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"

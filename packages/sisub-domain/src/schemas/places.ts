@@ -72,3 +72,14 @@ export type AddOtherPresence = z.infer<typeof AddOtherPresenceSchema>
 
 export const ResolveDisplayNameSchema = z.object({ userId: z.string() })
 export type ResolveDisplayName = z.infer<typeof ResolveDisplayNameSchema>
+
+/**
+ * Opções das listagens de lugares (unidade, cozinha, refeitório).
+ *
+ * O escopo de treino é excluído por padrão: as sentinelas só aparecem para quem pede
+ * explicitamente, que hoje é o painel de treino da SDAB.
+ */
+export const ListPlacesSchema = z.object({
+	includeTraining: z.boolean().optional(),
+})
+export type ListPlaces = z.infer<typeof ListPlacesSchema>
