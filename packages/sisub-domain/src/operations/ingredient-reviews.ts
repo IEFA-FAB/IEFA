@@ -7,7 +7,7 @@
 
 import { ingredientLastReviewInKitchen, ingredientReviewInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
-import { requireAnyPermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type { ListIngredientLastReviews, RecordIngredientReview, VersionActor } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
@@ -34,7 +34,9 @@ export interface IngredientLastReview {
  * Cada chamada cria uma nova linha — o histórico de revisões é preservado.
  */
 export async function recordIngredientReview(db: SisubDb, ctx: UserContext, input: RecordIngredientReview, actor?: VersionActor): Promise<IngredientReviewRow> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	// Insumo não tem forma local (sem kitchen_id): revisar é ato sobre o catálogo da SDAB.
+	// Diferente das preparações, aqui não há "revisar a própria" — então é global:2 direto.
+	requirePermission(ctx, "global", 2)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db

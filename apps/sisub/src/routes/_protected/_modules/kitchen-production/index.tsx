@@ -1,3 +1,4 @@
+import { resolveModuleScopes } from "@iefa/pbac"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ChefHat } from "lucide-react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
@@ -17,8 +18,7 @@ function KitchenProductionHubPage() {
 	const { permissions } = usePBAC()
 	const { data: kitchens, isLoading } = useUserKitchens()
 
-	const isGlobal = permissions.some((p) => p.module === "kitchen-production" && p.kitchen_id === null && p.unit_id === null && p.mess_hall_id === null)
-	const allowedIds = new Set(permissions.filter((p) => p.module === "kitchen-production" && p.kitchen_id !== null).map((p) => p.kitchen_id as number))
+	const { isGlobal, ids: allowedIds } = resolveModuleScopes(permissions, "kitchen-production", "kitchen")
 
 	const allKitchens = kitchens ?? []
 	const items = (isGlobal ? allKitchens : allKitchens.filter((k) => allowedIds.has(k.id))).map((k) => ({

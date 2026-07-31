@@ -1,0 +1,203 @@
+---
+title: Acesso e Ambiente de Treino
+description: Políticas de acesso no modelo IAM, propriedade de ativos globais e o ambiente de treino descartável.
+---
+
+## Modelo de acesso
+
+O SISUB resolve autorização por **módulo**, **nível** e **escopo**.
+
+| Nível | Significado |
+|-------|-------------|
+| 0 | Deny explícito — anula qualquer allow que ele cubra |
+| 1 | Leitura / acesso básico |
+| 2 | Escrita / edição |
+| 3 | Administração do módulo |
+
+Escopo é no máximo um entre unidade, cozinha e refeitório. Sem escopo, a permissão vale
+para qualquer contexto.
+
+### Duas origens
+
+Espelha o IAM da AWS:
+
+- **Grant direto** (`access_control.user_permissions`) — a *inline policy*. Vale só para
+  aquele usuário.
+- **Política anexada** (`access_control.policy` + `policy_statement` +
+  `user_policy_attachment`) — a *managed policy*. Um conjunto nomeado de permissões,
+  reusável entre pessoas.
+
+As permissões efetivas são a **união** das duas. Não existe "conjunto de conjuntos": uma
+política já é o conjunto, e agrupar se faz anexando várias ao mesmo usuário.
+
+### Deny tem precedência
+
+Um `level 0` anula os allows que ele cobre, **venha de onde vier**. Deny sem escopo cobre
+todos os escopos do módulo; deny escopado cobre apenas aquele escopo.
+
+Consequência prática: anexar uma política **não** derruba um deny explícito do
+administrador. Se uma permissão esperada não aparece, o console mostra a linha marcada
+como *Anulada* e diz qual origem a negou.
+
+### Políticas gerenciadas
+
+Políticas criadas por migration têm `managed = true` e são imutáveis pela interface —
+podem ser anexadas e desanexadas, mas não editadas nem removidas. Hoje existe uma: o
+**Conjunto Treino**.
+
+## Propriedade de ativo: global vs. local
+
+Receitas, templates de cardápio, tipos de refeição, step templates e utensílios existem em
+duas formas na mesma tabela:
+
+- `kitchen_id IS NULL` → **ativo global**, do catálogo da SDAB. Alterar exige `global:2`.
+- `kitchen_id = N` → **ativo local** da cozinha N. Alterar exige `kitchen:2` escopado nela.
+
+O dono é sempre lido da linha persistida, nunca aceito da requisição.
+
+### Fork copy-on-write
+
+Uma cozinha **nunca** altera um ativo global. Ao editar uma receita ou um template global a
+partir da tela de uma cozinha, o global permanece intacto e a cozinha recebe uma **cópia
+local** com as alterações — semântica de branch de git.
+
+- A cópia referencia o global como base, então a linhagem é rastreável.
+- Ingredientes e fluxo de produção são copiados para a cópia.
+- Uma cópia por cozinha por linhagem: editar de novo versiona a cópia existente.
+- Na listagem da cozinha, a cópia **sombreia** o global — independentemente de número de
+  versão.
+
+Fork ou versão global é decidido pelo **contexto da tela**, nunca pela permissão de quem
+edita. Alguém com `global:2` e `kitchen:2` editando pela tela da cozinha cria uma cópia
+local; pela tela global, versiona o global.
+
+Nos templates o salvamento automático não forka: numa tela de plano/evento/exceção com
+modelo global, o auto-save fica desligado e a cópia sai só do salvamento explícito.
+
+## `global:1` é leitura estrita
+
+Nível 1 no módulo `global` navega toda a administração da SDAB e **não altera nada**. Toda
+mutação de catálogo global exige nível 2:
+
+- catálogo de insumos, pastas, itens de compra, substituições e vínculos nutricionais
+- receitas e templates globais
+- preparações congeladas
+- estrutura organizacional (unidades, cozinhas, refeitórios)
+- regras de política de revisão
+- administração de acesso (grants, políticas, statements, anexos)
+
+**Exceção consciente:** `/global/sync-routines` permanece atrás de `global:2` até para
+visualizar — aqueles endpoints carregam o `ADMIN_SECRET` nos headers.
+
+## Ambiente de treino
+
+Uma unidade, uma cozinha e um refeitório sentinela, marcados com `is_training`. Um índice
+único parcial garante no máximo um de cada — a trava contra marcar uma unidade real por
+engano, já que o reset é destrutivo.
+
+As entidades de treino ficam **fora** de toda listagem, seletor e indicador de produção.
+Aparecem só para quem tem permissão escopada nelas e no painel da SDAB.
+
+### Conjunto Treino
+
+Política gerenciada, com sete permissões:
+
+| Módulo | Nível | Escopo |
+|--------|-------|--------|
+| `unit` | 2 | unidade de treino |
+| `local-analytics` | 2 | unidade de treino |
+| `kitchen` | 2 | cozinha de treino |
+| `kitchen-production` | 2 | cozinha de treino |
+| `messhall` | 2 | refeitório de treino |
+| `global` | 1 | — |
+| `analytics` | 1 | — |
+
+Escreve em tudo que é treino, lê a SDAB inteira, não altera nada real. O treinando usa o
+catálogo global de insumos e receitas; ao editar uma receita global, ganha uma cópia local
+na cozinha de treino, que o próximo reset remove.
+
+### Reset
+
+Botão em **SDAB → Ambiente de Treino**, exigindo `global:2` e confirmação por digitação.
+Apaga, em transação única, todo o dado operacional do escopo de treino e re-semeia o
+baseline de demonstração.
+
+- **Não** há agendamento automático — o reset é manual, quando você quiser.
+- Cada execução é auditada em `core.training_reset_log`, inclusive as que falham.
+- Execuções concorrentes são serializadas por advisory lock.
+- O catálogo global e as unidades reais nunca são tocados.
+
+O baseline recriado tem os tipos de refeição da cozinha, um template semanal e efetivo base
+por dia/refeição — suficiente para exercitar o fluxo sem cadastro prévio.
+
+## Runbook
+
+### Migrations
+
+**Já aplicadas em produção** (2026-07-30), na faixa `202607302xxxxx`:
+
+1. `20260730200000_recipe_lineage_fork_index`
+2. `20260730210000_template_lineage_fork_index`
+3. `20260730220000_training_scope_flag`
+4. `20260730230000_training_scope_seed`
+5. `20260730240000_access_control_policy`
+6. `20260730250000_training_policy_seed`
+7. `20260730260000_training_reset_log`
+
+A faixa `2026073012xxxx`/`2026073013xxxx` foi abandonada: colidia com
+`20260730120000_inventory_review_hardening`, do ciclo de estoque. Timestamp duplicado quebra
+o histórico da CLI do Supabase — confira `bun run db:migrations` antes de criar migration
+com data do mesmo dia de outra branch.
+
+Os tipos Supabase (`packages/database/src/generated.ts`) foram regenerados por
+`bun run db:types`.
+
+<Callout type="warn">
+Não rode `bun run db:drizzle:pull` como parte deste runbook. O pull tem drift de nomes
+conhecido contra os hand-patches de `packages/database/drizzle/schema.ts`; as definições das
+tabelas novas já estão escritas ali em paridade com as migrations. Um pull fresco é uma
+tarefa própria, com re-patch e revisão.
+</Callout>
+
+### Reparos de dado feitos na aplicação
+
+Aplicar as migrations expôs dois problemas que já existiam:
+
+- **Versões duplicadas.** Três linhas vivas de uma preparação global estavam todas na versão
+  2 da mesma linhagem — efeito do número de versão vir do cliente. Renumeradas para v3 e v4
+  por ordem de criação, preservando as três edições como histórico. O índice único
+  `recipes_lineage_version_unique_idx` impede a repetição.
+- **Forks múltiplos de template.** A cozinha 1 tem dois templates vivos derivados do mesmo
+  original. É legítimo: `forkTemplate` é a ação deliberada de "derive uma cópia" e nada diz
+  que a cozinha só pode derivar uma vez. Por isso o índice de linhagem de template **não** é
+  único; a corrida de fork concorrente é fechada pelo advisory lock em `saveTemplateEdit`.
+
+### Antes do deploy do hardening
+
+O hardening de `global:1` é uma quebra de comportamento. Duas verificações:
+
+1. **Quem tem `global:1` e escreve.** Levantar em `access_control.user_permissions` quem
+   possui nível 1 no módulo `global` e depende de escrever. Subir para nível 2 na mesma
+   janela do deploy.
+2. **Ativos globais criados pelo caminho errado.** Antes da correção de propriedade, uma
+   cozinha conseguia criar versões de receitas e templates **globais**. Essas linhas são
+   adaptações locais valendo para toda a FAB. Levantar e decidir caso a caso: promover a
+   global (a SDAB endossa) ou converter em cópia local da cozinha que a criou.
+
+### Conceder o Conjunto Treino
+
+SDAB → Gestão de Acesso → aba **Usuários** → buscar por email → **Anexar política** →
+Conjunto Treino. Revogar é desanexar: some tudo de uma vez.
+
+### Se o reset falhar
+
+O reset roda em transação única: falha em qualquer etapa reverte tudo e o ambiente fica
+como estava. A linha em `core.training_reset_log` é gravada **fora** do rollback, com
+`status = 'failed'` e a mensagem — o painel a exibe.
+
+Duas recusas são deliberadas e não indicam bug:
+
+- `TRAINING_SCOPE_MISSING` — as migrations de seed não foram aplicadas.
+- `TRAINING_SCOPE_UNSAFE` — alguma entidade marcada como treino não tem `code = 'TREINO'`.
+  É a trava contra `is_training` marcado por engano numa unidade real. Não contorne: confira
+  qual linha está marcada.

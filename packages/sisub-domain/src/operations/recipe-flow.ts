@@ -23,7 +23,8 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { RecipeStep, RecipeStepInput, RecipeStepOutput, RecipeStepUtensil, StepTemplate, StepTemplateUtensil, Utensil } from "@iefa/database/sisub"
 import { and, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm"
-import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
+import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type { CreateStepTemplate, CreateUtensil, FetchRecipeFlow, ListStepTemplates, ListUtensils, SaveRecipeFlow } from "../schemas/recipe-flow.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
@@ -90,14 +91,12 @@ async function hydrateUtensils(db: SisubDb, links: UtensilLink[]): Promise<void>
 	for (const l of links) l.utensilInKitchen = byId.get(l.utensilId) ?? null
 }
 
-/** Autoriza mutação de fluxo conforme a posse da receita (global vs cozinha). */
+/**
+ * Autoriza mutação de fluxo conforme a posse da receita (global vs cozinha).
+ * Delega ao guard compartilhado de ownership (guards/asset-ownership.ts).
+ */
 async function authorizeFlowMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
-	const recipe = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, recipeId) })
-	)
-	if (!recipe) throw new NotFoundError("recipe", recipeId)
-	if (recipe.kitchenId == null) requirePermission(ctx, "global", 2)
-	else requireKitchen(ctx, 2, recipe.kitchenId)
+	await authorizeAssetMutation(db, ctx, "recipe", recipeId)
 }
 
 export async function fetchRecipeFlow(db: SisubDb, ctx: UserContext, input: FetchRecipeFlow): Promise<RecipeFlowWire> {
@@ -441,8 +440,9 @@ export async function listStepTemplates(db: SisubDb, ctx: UserContext, input: Li
 }
 
 export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: CreateStepTemplate): Promise<StepTemplate> {
-	if (input.kitchenId != null) requireKitchen(ctx, 2, input.kitchenId)
-	else requireAnyPermission(ctx, ["kitchen", "global"], 2)
+	// kitchenId ausente = step template GLOBAL → exige global:2. O requireAnyPermission
+	// anterior aceitava kitchen:2 sozinho, deixando uma cozinha publicar no catálogo global.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const template = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -483,8 +483,8 @@ export async function listUtensils(db: SisubDb, ctx: UserContext, input: ListUte
 }
 
 export async function createUtensil(db: SisubDb, ctx: UserContext, input: CreateUtensil): Promise<Utensil> {
-	if (input.kitchenId != null) requireKitchen(ctx, 2, input.kitchenId)
-	else requireAnyPermission(ctx, ["kitchen", "global"], 2)
+	// Idem: utensílio sem cozinha é do catálogo global, não da cozinha do usuário.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const utensil = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db

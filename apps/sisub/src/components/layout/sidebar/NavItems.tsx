@@ -10,18 +10,23 @@ import {
 	ChefHat,
 	ClipboardCheck,
 	ClipboardList,
+	FileSpreadsheet,
 	FileText,
 	FlameKindling,
+	GraduationCap,
 	KeyRound,
 	LayoutDashboard,
 	type LucideIcon,
 	MapPin,
 	MessageSquare,
+	Package,
+	PackageCheck,
 	QrCode,
 	RefreshCw,
 	Sandwich,
 	Settings,
 	ShieldCheck,
+	ShoppingBasket,
 	ShoppingCart,
 	Star,
 	User,
@@ -34,7 +39,7 @@ import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
-export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics"
+export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "storage" | "global" | "analytics" | "local-analytics"
 
 export type GroupColor = "success" | "primary" | "warning" | "governance"
 
@@ -124,6 +129,24 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [{ title: "Painel", url: "/kitchen-production/", icon: LayoutDashboard }],
 	},
 	{
+		id: "storage",
+		name: "Estoque",
+		icon: Package,
+		color: "primary",
+		hubUrl: "/storage",
+		// URLs base — AppShell substitui por /storage/{id}/... quando dentro de um escopo
+		items: [
+			{ title: "Painel", url: "/storage/dashboard", icon: LayoutDashboard },
+			{ title: "Notas Fiscais (NF-e)", url: "/storage/nfe", icon: FileText },
+			{ title: "Ordens de Fornecimento", url: "/storage/supply-orders", icon: ShoppingCart, minLevel: 2 },
+			{ title: "Recebimentos", url: "/storage/receiving", icon: PackageCheck },
+			{ title: "Baixa por Produção", url: "/storage/production-issue", icon: FlameKindling, minLevel: 2 },
+			{ title: "Contagem Física", url: "/storage/counts", icon: ClipboardCheck, minLevel: 3 },
+			{ title: "Relatórios MCASP", url: "/storage/reports", icon: FileSpreadsheet },
+			{ title: "Reposição (MRP)", url: "/storage/replenishment", icon: ShoppingBasket },
+		],
+	},
+	{
 		id: "global",
 		name: "SDAB",
 		icon: Settings,
@@ -137,6 +160,8 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Avaliação", url: "/global/evaluation", icon: Star, minLevel: 2 },
 			{ title: "Sincronização", url: "/global/sync-routines", icon: RefreshCw, minLevel: 2 },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2 },
+			// Nível 1: o painel mostra o estado do ambiente; só o botão de reset exige nível 2.
+			{ title: "Ambiente de Treino", url: "/global/training", icon: GraduationCap },
 
 			{ title: "Assistente IA", url: "/global/chat", icon: MessageSquare },
 		],

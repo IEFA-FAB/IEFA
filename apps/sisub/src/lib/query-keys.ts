@@ -43,6 +43,18 @@ export const queryKeys = {
 		trash: (kitchenId: number | null) => ["planning", "trash", kitchenId] as const,
 	},
 
+	training: {
+		scope: () => ["training", "scope"] as const,
+		resets: () => ["training", "resets"] as const,
+	},
+
+	policies: {
+		all: () => ["policies"] as const,
+		detail: (policyId: string | null) => ["policies", policyId] as const,
+		ofUser: (userId: string | null) => ["policies", "user", userId] as const,
+		effective: (userId: string | null) => ["policies", "effective", userId] as const,
+	},
+
 	templates: {
 		all: () => ["menu_templates"] as const,
 		list: (kitchenId: number | null) => ["menu_templates", kitchenId] as const,
@@ -118,6 +130,7 @@ export const queryKeys = {
 		draft: (draftId: string | null) => ["ata_draft", draftId] as const,
 		needs: (params: { startDate: string; endDate: string; kitchenId?: number; unitId?: number }) => ["procurement", "needs", params] as const,
 		arp: (ataId: string | null) => ["procurement_arp", "ata", ataId] as const,
+		arpCommitments: (arpId: string | null) => ["procurement_arp", "local-commitments", arpId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
 	},
 

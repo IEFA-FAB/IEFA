@@ -450,9 +450,12 @@ export function RecipesManager() {
 													v{recipe.version}
 												</Badge>
 											)}
-											{recipe.base_recipe_id && (
-												<Badge variant="outline" className="text-xs shrink-0">
-													Fork
+											{/* Na listagem de uma cozinha convivem as preparações globais (catálogo da SDAB)
+											    e as cópias locais dela. `base_recipe_id` NÃO distingue as duas: toda versão a
+											    partir da segunda o carrega, seja global ou local. O sinal correto é kitchen_id. */}
+											{kitchenIdNum != null && (
+												<Badge variant={recipe.kitchen_id == null ? "outline" : "secondary"} className="text-xs shrink-0">
+													{recipe.kitchen_id == null ? "Global" : "Cópia local"}
 												</Badge>
 											)}
 										</div>

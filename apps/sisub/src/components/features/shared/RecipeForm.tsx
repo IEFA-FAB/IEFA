@@ -1,13 +1,15 @@
+import type { EditScope } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, Circle, CircleCheck, Loader2, Pencil, Plus, Save, Trash2, TriangleAlert } from "lucide-react"
+import { CalendarCheck, Circle, CircleCheck, GitFork, Loader2, Pencil, Plus, Save, Trash2, TriangleAlert } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
+import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
@@ -98,7 +100,16 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const setTab = (tab: RecipeFormTab) => navigate({ search: ((prev: Record<string, unknown>) => ({ ...prev, tab })) as never, replace: true })
 
 	const createMutation = useCreateRecipe()
-	const versionMutation = useVersionRecipe()
+	const saveEditMutation = useSaveRecipeEdit()
+
+	// Contexto da edição = a ROTA em que o formulário está montado, não o `kitchen_id` do
+	// dado carregado. Editar uma preparação global pela tela de uma cozinha forka; pela
+	// tela global, versiona o global. Derivar do dado fazia a edição na cozinha alterar o
+	// catálogo global (válido para toda a FAB).
+	const editContext: EditScope = kitchenId ? { scope: "kitchen", kitchenId: Number(kitchenId) } : { scope: "global" }
+
+	// Preparação global aberta no contexto de uma cozinha: salvar vai criar cópia local.
+	const willFork = mode !== "create" && !!initialData && initialData.kitchen_id == null && editContext.scope === "kitchen"
 
 	// Revisão (conferência pelos nutricionistas) — só para preparações persistidas em edição.
 	// A UI (e os hooks de revisão) vive em <RecipeReviewActions>, montado só quando há id.
@@ -159,11 +170,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				toast.error("Preencha todos os campos obrigatórios corretamente")
 				return
 			}
-			const isFork = mode === "fork"
-			// Fork é sempre local a uma cozinha (rota /kitchen/$kitchenId/...); kitchenId vem da URL como string.
-			const kitchenIdNew = isFork && kitchenId ? Number(kitchenId) : null
-			const baseRecipeId = isFork ? initialData?.id : undefined
-
 			const mappedIngredients = value.ingredients
 				.filter((i): i is typeof i & { ingredient_id: string; net_quantity: number } => i.ingredient_id !== null && i.net_quantity !== null)
 				.map((i) => ({
@@ -175,26 +181,21 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					rehydration_index: i.rehydration_index,
 				}))
 
-			if (mode === "create" || isFork) {
-				const { ingredients: _ingredients, ...recipeData } = value
+			const { ingredients: _ingredients, ...recipeData } = value
 
+			if (mode === "create") {
 				await createMutation.mutateAsync({
 					...recipeData,
-					kitchen_id: kitchenIdNew,
-					base_recipe_id: baseRecipeId,
+					kitchen_id: editContext.scope === "kitchen" ? editContext.kitchenId : null,
 					ingredients: mappedIngredients,
 				})
-			} else if (mode === "edit" && initialData) {
-				const { ingredients: _ingredients, ...recipeData } = value
-
-				await versionMutation.mutateAsync({
+			} else if (initialData) {
+				// "edit" e "fork" convergem: o servidor decide versionar ou forkar a partir do
+				// dono da base e do contexto. A versão e o escopo não vêm mais do cliente.
+				await saveEditMutation.mutateAsync({
 					baseRecipeId: initialData.id,
-					newVersion: initialData.version + 1,
-					data: {
-						...recipeData,
-						kitchen_id: initialData.kitchen_id,
-						ingredients: mappedIngredients,
-					},
+					context: editContext,
+					data: { ...recipeData, ingredients: mappedIngredients },
 				})
 			}
 
@@ -207,7 +208,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 		},
 	})
 
-	const isPending = createMutation.isPending || versionMutation.isPending
+	const isPending = createMutation.isPending || saveEditMutation.isPending
 
 	// Contexto do modo — distinto do nome (editado no título da página)
 	const modeBadge =
@@ -218,11 +219,11 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 		) : undefined
 
 	const saveCaption =
-		mode === "edit"
-			? "Salvar gera automaticamente uma nova versão desta preparação."
-			: mode === "fork"
-				? "Salvar gera uma nova preparação personalizada a partir desta."
-				: "Salvar cria a preparação."
+		mode === "create"
+			? "Salvar cria a preparação."
+			: willFork
+				? "Salvar cria uma cópia local desta cozinha. A preparação global não é alterada."
+				: "Salvar gera automaticamente uma nova versão desta preparação."
 
 	return (
 		<div className="flex min-h-full flex-col space-y-6">
@@ -255,6 +256,17 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			>
 				{reviewRecipeId && <RecipeReviewActions recipeId={reviewRecipeId} />}
 			</PageHeader>
+
+			{willFork && (
+				<Alert>
+					<GitFork className="size-4" />
+					<AlertTitle>Preparação global</AlertTitle>
+					<AlertDescription>
+						Esta preparação é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas alterações — a preparação global
+						permanece intacta e as demais unidades continuam vendo a versão original.
+					</AlertDescription>
+				</Alert>
+			)}
 
 			{/* Largura total (igual ao PageHeader / container do AppShell). As abas de leitura
 			    recebem cap interno via READING_PANEL; a aba de fluxo usa a largura inteira.

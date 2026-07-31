@@ -21,7 +21,8 @@ import {
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
-import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
+import { requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
 import type {
@@ -34,6 +35,7 @@ import type {
 	GetTemplate,
 	ListTemplates,
 	RestoreTemplate,
+	SaveTemplateEdit,
 	TemplateItem,
 	TemplateMeal,
 	UpdateTemplate,
@@ -219,11 +221,8 @@ function buildTemplateMealRows(templateId: string, meals: TemplateMeal[]): (type
 }
 
 export async function createTemplate(db: SisubDb, ctx: UserContext, input: CreateTemplate): Promise<MenuTemplate> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// kitchenId ausente = template GLOBAL (plano da SDAB) → exige global:2, não kitchen:2.
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const items = input.items ?? []
 	const meals = input.meals ?? []
@@ -266,11 +265,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 }
 
 export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: CreateBlankTemplate): Promise<MenuTemplate> {
-	if (input.kitchenId != null) {
-		requireKitchen(ctx, 2, input.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
 	const [created] = await runQuery("INSERT_FAILED", () =>
 		db
@@ -313,11 +308,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 
 	const targetKitchenId = input.targetKitchenId ?? null
 
-	if (targetKitchenId !== null) {
-		requireKitchen(ctx, 2, targetKitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	// Destino sem cozinha = fork PARA o catálogo global → exige global:2.
+	requireAssetWriteForScope(ctx, targetKitchenId)
 
 	const sourceItems = source.menuTemplateItemsInKitchens
 	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
@@ -376,15 +368,14 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	return toWire<MenuTemplate>(created)
 }
 
-export async function updateTemplate(db: SisubDb, ctx: UserContext, input: UpdateTemplate): Promise<MenuTemplate> {
-	const template = await validateTemplateAccess(db, input.templateId, null)
+type TemplateTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
-	if (template.kitchen_id !== null) {
-		requireKitchen(ctx, 2, template.kitchen_id)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
-
+/**
+ * Aplica os campos escalares + a substituição destrutiva de itens e efetivo base a UM
+ * template, dentro de uma transação já aberta. Compartilhado entre a edição in-place e a
+ * criação de um fork (que nasce com o conteúdo já editado, não com o do original).
+ */
+async function applyTemplateContent(tx: TemplateTx, templateId: string, input: UpdateTemplate): Promise<typeof menuTemplateInKitchen.$inferSelect> {
 	const updates: Partial<typeof menuTemplateInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
 	// nullable: undefined = não mexe; null = limpa a descrição.
@@ -393,63 +384,186 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 	// nullable: undefined = não mexe; null = limpa a recorrência.
 	if (input.expectedMonthlyOccurrences !== undefined) updates.expectedMonthlyOccurrences = input.expectedMonthlyOccurrences
 
-	const result = await db.transaction(async (tx) => {
+	let row: typeof menuTemplateInKitchen.$inferSelect | undefined
+	if (Object.keys(updates).length > 0) {
 		const [updated] = await runQuery("UPDATE_FAILED", () =>
-			tx.update(menuTemplateInKitchen).set(updates).where(eq(menuTemplateInKitchen.id, input.templateId)).returning()
+			tx.update(menuTemplateInKitchen).set(updates).where(eq(menuTemplateInKitchen.id, templateId)).returning()
 		)
-		if (!updated) throw new DomainError("UPDATE_FAILED", "no row returned")
+		row = updated
+	} else {
+		const [current] = await runQuery("FETCH_FAILED", () => tx.select().from(menuTemplateInKitchen).where(eq(menuTemplateInKitchen.id, templateId)).limit(1))
+		row = current
+	}
+	if (!row) throw new DomainError("UPDATE_FAILED", "no row returned")
 
-		// Substituição destrutiva dos itens, se fornecidos (delete-all + re-insert na transação).
-		const newItems = input.items
-		if (newItems !== undefined) {
-			await runQuery("DELETE_ITEMS_FAILED", () =>
+	// Substituição destrutiva dos itens, se fornecidos (delete-all + re-insert na transação).
+	const newItems = input.items
+	if (newItems !== undefined) {
+		await runQuery("DELETE_ITEMS_FAILED", () =>
+			tx
+				.delete(menuTemplateItemsInKitchen)
+				.where(eq(menuTemplateItemsInKitchen.menuTemplateId, templateId))
+				.then(() => undefined)
+		)
+		if (newItems.length > 0) {
+			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
-					.delete(menuTemplateItemsInKitchen)
-					.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
+					.insert(menuTemplateItemsInKitchen)
+					.values(buildTemplateItemRows(templateId, newItems))
 					.then(() => undefined)
 			)
-			if (newItems.length > 0) {
-				await runQuery("INSERT_ITEMS_FAILED", () =>
-					tx
-						.insert(menuTemplateItemsInKitchen)
-						.values(buildTemplateItemRows(input.templateId, newItems))
-						.then(() => undefined)
-				)
-			}
 		}
+	}
 
-		// Substituição destrutiva do efetivo base por refeição, se fornecido.
-		const newMeals = input.meals
-		if (newMeals !== undefined) {
-			await runQuery("DELETE_MEALS_FAILED", () =>
+	// Substituição destrutiva do efetivo base por refeição, se fornecido.
+	const newMeals = input.meals
+	if (newMeals !== undefined) {
+		await runQuery("DELETE_MEALS_FAILED", () =>
+			tx
+				.delete(menuTemplateMealInKitchen)
+				.where(eq(menuTemplateMealInKitchen.menuTemplateId, templateId))
+				.then(() => undefined)
+		)
+		if (newMeals.length > 0) {
+			await runQuery("INSERT_MEALS_FAILED", () =>
 				tx
-					.delete(menuTemplateMealInKitchen)
-					.where(eq(menuTemplateMealInKitchen.menuTemplateId, input.templateId))
+					.insert(menuTemplateMealInKitchen)
+					.values(buildTemplateMealRows(templateId, newMeals))
 					.then(() => undefined)
 			)
-			if (newMeals.length > 0) {
-				await runQuery("INSERT_MEALS_FAILED", () =>
-					tx
-						.insert(menuTemplateMealInKitchen)
-						.values(buildTemplateMealRows(input.templateId, newMeals))
-						.then(() => undefined)
-				)
-			}
 		}
-		return updated
+	}
+
+	return row
+}
+
+/** Resultado de uma edição salva: a linha gravada e se ela nasceu como fork local. */
+export type SaveTemplateEditResult = { template: MenuTemplate; forked: boolean }
+
+/**
+ * Salva a edição de um template de cardápio.
+ *
+ * Mesma regra das preparações: template GLOBAL editado a partir do contexto de uma cozinha
+ * não é alterado — a cozinha ganha uma cópia local com as alterações, referenciando o
+ * global como base. Aqui isso pesa mais do que nas receitas, porque `menu_template` não é
+ * versionado: a edição in-place de um template global sobrescreveria o plano da FAB
+ * inteira, sem histórico.
+ *
+ * Um fork por cozinha por linhagem — se a cozinha já forkou este template, a edição
+ * seguinte é aplicada ao fork existente em vez de criar outro.
+ */
+export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: SaveTemplateEdit): Promise<SaveTemplateEditResult> {
+	const source = await validateTemplateAccess(db, input.templateId, null)
+	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
+
+	if (source.kitchen_id !== null && source.kitchen_id !== targetKitchenId) {
+		throw new DomainError(
+			"TEMPLATE_SCOPE_MISMATCH",
+			`Template ${input.templateId} belongs to kitchen ${source.kitchen_id} and cannot be edited from ${
+				targetKitchenId == null ? "the global context" : `kitchen ${targetKitchenId}`
+			}`
+		)
+	}
+
+	requireAssetWriteForScope(ctx, targetKitchenId)
+
+	// Template local, ou template global editado pela própria SDAB: edição in-place.
+	if (source.kitchen_id !== null || targetKitchenId === null) {
+		const result = await db.transaction((tx) => applyTemplateContent(tx, input.templateId, input))
+		return { template: toWire<MenuTemplate>(result), forked: false }
+	}
+
+	// Global + contexto de cozinha → fork.
+	//
+	// Tudo numa transação sob advisory lock da linhagem+cozinha. Duas razões:
+	//   - a busca por fork existente e o insert são passos separados; dois saves concorrentes
+	//     passariam os dois pela busca e criariam forks duplicados (o índice único parcial no
+	//     banco é o backstop, o lock evita chegar ao erro);
+	//   - `source`, itens e efetivo base precisam vir do MESMO instante. Lidos fora da
+	//     transação, uma edição concorrente do global produziria um fork combinando metadado
+	//     de uma revisão com itens de outra — um estado que nunca existiu na origem.
+	const rootId = await resolveTemplateRoot(db, input.templateId)
+
+	const result = await db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`template-fork:${targetKitchenId}:${rootId}`}))`)
+
+		const [existingFork] = await tx
+			.select({ id: menuTemplateInKitchen.id })
+			.from(menuTemplateInKitchen)
+			.where(
+				and(eq(menuTemplateInKitchen.kitchenId, targetKitchenId), eq(menuTemplateInKitchen.baseTemplateId, rootId), isNull(menuTemplateInKitchen.deletedAt))
+			)
+			.limit(1)
+
+		if (existingFork) return applyTemplateContent(tx, existingFork.id, input)
+
+		// Itens e efetivo base ausentes na entrada são copiados do original, senão o fork
+		// nasceria vazio.
+		let sourceItems: TemplateItem[] = input.items ?? []
+		if (input.items === undefined) {
+			const rows = await tx
+				.select({
+					dayOfWeek: menuTemplateItemsInKitchen.dayOfWeek,
+					mealTypeId: menuTemplateItemsInKitchen.mealTypeId,
+					recipeId: menuTemplateItemsInKitchen.recipeId,
+					itemGroup: menuTemplateItemsInKitchen.itemGroup,
+					sortOrder: menuTemplateItemsInKitchen.sortOrder,
+					recommendedProportion: menuTemplateItemsInKitchen.recommendedProportion,
+					headcountOverride: menuTemplateItemsInKitchen.headcountOverride,
+				})
+				.from(menuTemplateItemsInKitchen)
+				.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
+
+			sourceItems = rows
+				// Linhas sem dia, refeição ou preparação não compõem um item válido do contrato —
+				// são nullable no schema, mas não há o que copiar para o fork.
+				.filter((r) => r.dayOfWeek != null && r.mealTypeId != null && r.recipeId != null)
+				.map((r) => ({
+					dayOfWeek: r.dayOfWeek as number,
+					mealTypeId: r.mealTypeId as string,
+					recipeId: r.recipeId as string,
+					headcountOverride: r.headcountOverride ?? undefined,
+					// A coluna é text no banco e o contrato usa o enum; os valores vêm da própria
+					// aplicação, então o cast evita revalidar item a item no fork.
+					itemGroup: (r.itemGroup ?? null) as TemplateItem["itemGroup"],
+					sortOrder: r.sortOrder ?? 0,
+					recommendedProportion: r.recommendedProportion != null ? Number(r.recommendedProportion) : null,
+				}))
+		}
+
+		const sourceMeals: NonNullable<UpdateTemplate["meals"]> = input.meals ?? (await fetchTemplateMealsSafe(tx, [input.templateId])).get(input.templateId) ?? []
+
+		const [newTemplate] = await tx
+			.insert(menuTemplateInKitchen)
+			.values({
+				name: source.name ?? "",
+				kitchenId: targetKitchenId,
+				baseTemplateId: rootId,
+				templateType: source.template_type ?? "weekly",
+			})
+			.returning()
+
+		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
+
+		return applyTemplateContent(tx, newTemplate.id, { ...input, templateId: newTemplate.id, items: sourceItems, meals: sourceMeals })
 	})
 
-	return toWire<MenuTemplate>(result)
+	return { template: toWire<MenuTemplate>(result), forked: true }
+}
+
+/** Raiz da linhagem de um template (`base_template_id ?? id`). */
+async function resolveTemplateRoot(db: SisubDb, templateId: string): Promise<string> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInKitchen.findFirst({ columns: { id: true, baseTemplateId: true }, where: eq(menuTemplateInKitchen.id, templateId) })
+	)
+	if (!row) throw new NotFoundError("menu_template", templateId)
+	return row.baseTemplateId ?? row.id
 }
 
 export async function deleteTemplate(db: SisubDb, ctx: UserContext, input: DeleteTemplate): Promise<void> {
 	const template = await validateTemplateAccess(db, input.templateId, null)
 
-	if (template.kitchen_id !== null) {
-		requireKitchen(ctx, 2, template.kitchen_id)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	requireAssetWriteForScope(ctx, template.kitchen_id)
 
 	await runQuery("DELETE_FAILED", () =>
 		db
@@ -471,11 +585,7 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 	if (!row) throw new NotFoundError("menu_template", input.templateId)
 	if (!row.deletedAt) throw new DomainError("NOT_DELETED", "Template is not deleted")
 
-	if (row.kitchenId !== null) {
-		requireKitchen(ctx, 2, row.kitchenId)
-	} else {
-		requirePermission(ctx, "kitchen", 2)
-	}
+	requireAssetWriteForScope(ctx, row.kitchenId)
 
 	await runQuery("RESTORE_FAILED", () =>
 		db

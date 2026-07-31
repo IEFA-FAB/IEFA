@@ -8,6 +8,7 @@
 import { purchaseItemIngredientInProcurement, purchaseItemInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, isNull } from "drizzle-orm"
+import { requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreatePurchaseItem,
 	DeletePurchaseItem,
@@ -96,7 +97,10 @@ export async function fetchPurchaseItem(db: SisubDb, _ctx: UserContext, input: F
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-export async function createPurchaseItem(db: SisubDb, _ctx: UserContext, input: CreatePurchaseItem) {
+export async function createPurchaseItem(db: SisubDb, ctx: UserContext, input: CreatePurchaseItem) {
+	// Catálogo global de itens de compra, gerido na tela de insumos da SDAB.
+	requirePermission(ctx, "global", 2)
+
 	const row = await insertOneOrFail(
 		"INSERT_FAILED",
 		"Falha ao criar item de compra: no row returned",
@@ -106,7 +110,9 @@ export async function createPurchaseItem(db: SisubDb, _ctx: UserContext, input: 
 	return toWire<PurchaseItem>(row)
 }
 
-export async function updatePurchaseItem(db: SisubDb, _ctx: UserContext, input: UpdatePurchaseItem) {
+export async function updatePurchaseItem(db: SisubDb, ctx: UserContext, input: UpdatePurchaseItem) {
+	requirePermission(ctx, "global", 2)
+
 	const set = { ...toColumns<Partial<PurchaseItemInsert>>(input.payload), updatedAt: new Date().toISOString() }
 	const row = await insertOneOrFail(
 		"UPDATE_FAILED",
@@ -117,7 +123,9 @@ export async function updatePurchaseItem(db: SisubDb, _ctx: UserContext, input: 
 	return toWire<PurchaseItem>(row)
 }
 
-export async function deletePurchaseItem(db: SisubDb, _ctx: UserContext, input: DeletePurchaseItem) {
+export async function deletePurchaseItem(db: SisubDb, ctx: UserContext, input: DeletePurchaseItem) {
+	requirePermission(ctx, "global", 2)
+
 	await mutateOrFail("DELETE_FAILED", `purchase_item ${input.id} not found`, () =>
 		db
 			.update(purchaseItemInProcurement)
@@ -139,7 +147,9 @@ export async function fetchPurchaseItemIngredients(db: SisubDb, _ctx: UserContex
 	return rows.map((r) => toWire<PurchaseItemIngredientWire>(r, PI_INGREDIENT_RELATIONS))
 }
 
-export async function upsertPurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: UpsertPurchaseItemIngredient) {
+export async function upsertPurchaseItemIngredient(db: SisubDb, ctx: UserContext, input: UpsertPurchaseItemIngredient) {
+	requirePermission(ctx, "global", 2)
+
 	const values = toColumns<PurchaseItemIngredientInsert>(input.payload)
 	const row = await insertOneOrFail(
 		"INSERT_FAILED",
@@ -155,7 +165,9 @@ export async function upsertPurchaseItemIngredient(db: SisubDb, _ctx: UserContex
 	return toWire<PurchaseItemIngredient>(row)
 }
 
-export async function deletePurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: DeletePurchaseItemIngredient) {
+export async function deletePurchaseItemIngredient(db: SisubDb, ctx: UserContext, input: DeletePurchaseItemIngredient) {
+	requirePermission(ctx, "global", 2)
+
 	await mutateOrFail("DELETE_FAILED", `purchase_item_ingredient ${input.id} not found`, () =>
 		db
 			.delete(purchaseItemIngredientInProcurement)
@@ -164,7 +176,9 @@ export async function deletePurchaseItemIngredient(db: SisubDb, _ctx: UserContex
 	)
 }
 
-export async function setDefaultPurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: SetDefaultPurchaseItemIngredient) {
+export async function setDefaultPurchaseItemIngredient(db: SisubDb, ctx: UserContext, input: SetDefaultPurchaseItemIngredient) {
+	requirePermission(ctx, "global", 2)
+
 	// Atômico: zera os defaults da compra e marca o novo — em transação para não deixar
 	// o purchase_item sem default (ou com dois) se o segundo update falhar.
 	await runQuery("UPDATE_FAILED", () =>

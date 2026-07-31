@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
 import { QUICK_FILTER_CATEGORIES, useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -44,7 +45,9 @@ const QUICK_CATEGORY_KEYS = QUICK_FILTER_CATEGORIES.map((c) => c.key)
 const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
 
 export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
-	"use no memo"
+	// global:1 navega o catálogo inteiro; edição, exclusão e ações em massa somem.
+	const canWrite = useGlobalWrite()
+	;("use no memo")
 	const navigate = useNavigate()
 	const navigateRef = useRef(navigate)
 	navigateRef.current = navigate
@@ -279,16 +282,21 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 								</Button>
 							</ButtonGroup>
 
-							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
-								<Replace className="size-4 mr-2" />
-								<span className="hidden sm:inline">Localizar e Substituir</span>
-								<span className="sm:hidden">Substituir</span>
-							</Button>
-							<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
-								<SquareCheckBig className="size-4 mr-2" />
-								<span className="hidden sm:inline">Selecionar Itens</span>
-								<span className="sm:hidden">Selecionar</span>
-							</Button>
+							{/* Localizar-e-substituir e seleção em massa são escrita: somem para o leitor. */}
+							{canWrite && (
+								<>
+									<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
+										<Replace className="size-4 mr-2" />
+										<span className="hidden sm:inline">Localizar e Substituir</span>
+										<span className="sm:hidden">Substituir</span>
+									</Button>
+									<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
+										<SquareCheckBig className="size-4 mr-2" />
+										<span className="hidden sm:inline">Selecionar Itens</span>
+										<span className="sm:hidden">Selecionar</span>
+									</Button>
+								</>
+							)}
 						</>
 					)}
 				</div>
@@ -335,6 +343,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
 											lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
 											selectionMode={selectionMode}
+											canWrite={canWrite}
 											selected={selected.has(node.id)}
 											onSelectChange={(checked) => handleSelectChange(node, checked)}
 											onNavigate={
