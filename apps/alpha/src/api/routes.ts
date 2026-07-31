@@ -9,8 +9,10 @@ import { z } from "zod"
 import { supabase } from "../db/supabase"
 import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
 import type { AppRole } from "../middleware/auth"
-import { authMiddleware } from "../middleware/auth"
-import { hasAdapter, listSources } from "../sources/registry"
+import { authMiddleware, requireRole } from "../middleware/auth"
+import { embedDocuments } from "../sources/embeddings"
+import { ingestSource } from "../sources/pipeline"
+import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -24,6 +26,16 @@ type AppVariables = {
 
 const MessageBodySchema = z.object({
 	message: z.string().min(1),
+})
+
+const SourceDocumentsQuerySchema = z.object({
+	include_superseded: z.enum(["true", "false"]).optional(),
+})
+
+const RefreshBodySchema = z.object({
+	/** Sem `apply`, a coleta só relata o que aconteceria — o padrão é não escrever. */
+	apply: z.boolean().default(false),
+	limit: z.number().int().positive().max(200).optional(),
 })
 
 // ─── Tipos de resposta ────────────────────────────────────────────────────────
@@ -305,10 +317,32 @@ const app = new Hono<{ Variables: AppVariables }>()
 		})
 	})
 
-	// GET /api/v1/sources/:id/documents — versões ingeridas de uma fonte
-	.get("/api/v1/sources/:id/documents", async (c) => {
+	// POST /api/v1/sources/:id/refresh — coleta sob demanda (dry-run por padrão)
+	.post("/api/v1/sources/:id/refresh", requireRole(["app_aci"]), zValidator("json", RefreshBodySchema), async (c) => {
 		const id = c.req.param("id")
-		const includeSuperseded = c.req.query("include_superseded") === "true"
+		const { apply, limit } = c.req.valid("json")
+
+		const source = await getSource(id)
+		if (!source) return c.json({ error: "Not Found", code: "SOURCE_NOT_FOUND" }, 404)
+		if (!hasAdapter(source.id)) return c.json({ error: "Not Implemented", code: "SOURCE_ADAPTER_MISSING" }, 501)
+
+		try {
+			const report = await ingestSource({ sourceId: source.id, adapter: resolveAdapter(source), embed: embedDocuments, apply, limit })
+			return c.json(report)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			await supabase
+				.from("normative_source")
+				.update({ last_checked_at: new Date().toISOString(), last_error: message.slice(0, 500) })
+				.eq("id", source.id)
+			return c.json({ error: "Bad Gateway", code: "SOURCE_REFRESH_FAILED", message }, 502)
+		}
+	})
+
+	// GET /api/v1/sources/:id/documents — versões ingeridas de uma fonte
+	.get("/api/v1/sources/:id/documents", zValidator("query", SourceDocumentsQuerySchema), async (c) => {
+		const id = c.req.param("id")
+		const includeSuperseded = c.req.valid("query").include_superseded === "true"
 
 		let query = supabase
 			.from("document")

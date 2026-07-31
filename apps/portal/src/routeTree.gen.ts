@@ -9,52 +9,69 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PublicRouteRouteImport } from './routes/_public/route'
+import { Route as AlphaRouteRouteImport } from './routes/alpha/route'
+import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as JournalRouteRouteImport } from './routes/journal/route'
-import { Route as AuthRouteRouteImport } from './routes/auth/route'
-import { Route as PublicRouteRouteImport } from './routes/_public/route'
-import { Route as JournalIndexRouteImport } from './routes/journal/index'
-import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
-import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
-import { Route as JournalProfileRouteImport } from './routes/journal/profile'
+import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as JournalIndexRouteImport } from './routes/journal/index'
 import { Route as JournalAboutRouteImport } from './routes/journal/about'
 import { Route as JournalEditorialRouteRouteImport } from './routes/journal/editorial/route'
-import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
-import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/index'
-import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
-import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
-import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
-import { Route as JournalEditorialVolumesRouteImport } from './routes/journal/editorial/volumes'
-import { Route as JournalEditorialSettingsRouteImport } from './routes/journal/editorial/settings'
-import { Route as JournalEditorialPublicationRouteImport } from './routes/journal/editorial/publication'
-import { Route as JournalEditorialMetadataExportRouteImport } from './routes/journal/editorial/metadata-export'
-import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
-import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
-import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
-import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
-import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
-import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_public/_pt/politica-de-privacidade'
-import { Route as PublicPtPoliticaDeInovacaoRouteImport } from './routes/_public/_pt/politica-de-inovacao'
-import { Route as PublicPtPesquisaRouteImport } from './routes/_public/_pt/pesquisa'
-import { Route as PublicPtPainelFiscalRouteImport } from './routes/_public/_pt/painel-fiscal'
-import { Route as PublicEnRoadmapRouteImport } from './routes/_public/_en/roadmap'
-import { Route as PublicEnResearchRouteImport } from './routes/_public/_en/research'
-import { Route as PublicEnOverseerDashboardRouteImport } from './routes/_public/_en/overseerDashboard'
-import { Route as PublicEnInnovationPolicyRouteImport } from './routes/_public/_en/innovation-policy'
-import { Route as PublicEnChatRadaRouteImport } from './routes/_public/_en/chatRada'
+import { Route as JournalProfileRouteImport } from './routes/journal/profile'
+import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
 import { Route as PublicEnAboutRouteImport } from './routes/_public/_en/about'
-import { Route as PublicPtPublicacoesIndexRouteImport } from './routes/_public/_pt/publicacoes/index'
-import { Route as PublicPtInstalacoesIndexRouteImport } from './routes/_public/_pt/instalacoes/index'
-import { Route as PublicEnPostsIndexRouteImport } from './routes/_public/_en/posts/index'
+import { Route as PublicEnChatRadaRouteImport } from './routes/_public/_en/chatRada'
+import { Route as PublicEnInnovationPolicyRouteImport } from './routes/_public/_en/innovation-policy'
+import { Route as PublicEnOverseerDashboardRouteImport } from './routes/_public/_en/overseerDashboard'
+import { Route as PublicEnResearchRouteImport } from './routes/_public/_en/research'
+import { Route as PublicEnRoadmapRouteImport } from './routes/_public/_en/roadmap'
+import { Route as PublicPtPainelFiscalRouteImport } from './routes/_public/_pt/painel-fiscal'
+import { Route as PublicPtPesquisaRouteImport } from './routes/_public/_pt/pesquisa'
+import { Route as PublicPtPoliticaDeInovacaoRouteImport } from './routes/_public/_pt/politica-de-inovacao'
+import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_public/_pt/politica-de-privacidade'
+import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
+import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
+import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
+import { Route as AlphaModelosIdRouteImport } from './routes/alpha/modelos.$id'
+import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
+import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
+import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
+import { Route as JournalEditorialMetadataExportRouteImport } from './routes/journal/editorial/metadata-export'
+import { Route as JournalEditorialPublicationRouteImport } from './routes/journal/editorial/publication'
+import { Route as JournalEditorialSettingsRouteImport } from './routes/journal/editorial/settings'
+import { Route as JournalEditorialVolumesRouteImport } from './routes/journal/editorial/volumes'
+import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/index'
+import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
+import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
+import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
 import { Route as PublicEnFacilitiesIndexRouteImport } from './routes/_public/_en/facilities/index'
-import { Route as JournalReviewAssignmentAssignmentIdRouteImport } from './routes/journal/review/assignment/$assignmentId'
-import { Route as JournalEditorialArticlesArticleIdRouteImport } from './routes/journal/editorial/articles/$articleId'
-import { Route as PublicPtPublicacoesSlugRouteImport } from './routes/_public/_pt/publicacoes/$slug'
-import { Route as PublicPtInstalacoesPregoeiroRouteImport } from './routes/_public/_pt/instalacoes/pregoeiro'
-import { Route as PublicEnPostsSlugRouteImport } from './routes/_public/_en/posts/$slug'
 import { Route as PublicEnFacilitiesPregoeiroRouteImport } from './routes/_public/_en/facilities/pregoeiro'
+import { Route as PublicEnPostsIndexRouteImport } from './routes/_public/_en/posts/index'
+import { Route as PublicEnPostsSlugRouteImport } from './routes/_public/_en/posts/$slug'
+import { Route as PublicPtInstalacoesIndexRouteImport } from './routes/_public/_pt/instalacoes/index'
+import { Route as PublicPtInstalacoesPregoeiroRouteImport } from './routes/_public/_pt/instalacoes/pregoeiro'
+import { Route as PublicPtPublicacoesIndexRouteImport } from './routes/_public/_pt/publicacoes/index'
+import { Route as PublicPtPublicacoesSlugRouteImport } from './routes/_public/_pt/publicacoes/$slug'
+import { Route as JournalEditorialArticlesArticleIdRouteImport } from './routes/journal/editorial/articles/$articleId'
+import { Route as JournalReviewAssignmentAssignmentIdRouteImport } from './routes/journal/review/assignment/$assignmentId'
 
+const PublicRouteRoute = PublicRouteRouteImport.update({
+  id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlphaRouteRoute = AlphaRouteRouteImport.update({
+  id: '/alpha',
+  path: '/alpha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRouteRoute = AuthRouteRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -65,38 +82,24 @@ const JournalRouteRoute = JournalRouteRouteImport.update({
   path: '/journal',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRouteRoute = AuthRouteRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PublicRouteRoute = PublicRouteRouteImport.update({
-  id: '/_public',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JournalIndexRoute = JournalIndexRouteImport.update({
+const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => JournalRouteRoute,
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const AlphaFontesRoute = AlphaFontesRouteImport.update({
+  id: '/fontes',
+  path: '/fontes',
+  getParentRoute: () => AlphaRouteRoute,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const PublicIndexRoute = PublicIndexRouteImport.update({
+const JournalIndexRoute = JournalIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const JournalSubmitRoute = JournalSubmitRouteImport.update({
-  id: '/submit',
-  path: '/submit',
-  getParentRoute: () => JournalRouteRoute,
-} as any)
-const JournalProfileRoute = JournalProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
   getParentRoute: () => JournalRouteRoute,
 } as any)
 const JournalAboutRoute = JournalAboutRouteImport.update({
@@ -109,46 +112,104 @@ const JournalEditorialRouteRoute = JournalEditorialRouteRouteImport.update({
   path: '/editorial',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const JournalSubmissionsIndexRoute = JournalSubmissionsIndexRouteImport.update({
-  id: '/submissions/',
-  path: '/submissions/',
+const JournalProfileRoute = JournalProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const JournalReviewIndexRoute = JournalReviewIndexRouteImport.update({
-  id: '/review/',
-  path: '/review/',
+const JournalSubmitRoute = JournalSubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
   getParentRoute: () => JournalRouteRoute,
+} as any)
+const PublicEnAboutRoute = PublicEnAboutRouteImport.update({
+  id: '/_en/about',
+  path: '/about',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnChatRadaRoute = PublicEnChatRadaRouteImport.update({
+  id: '/_en/chatRada',
+  path: '/chatRada',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnInnovationPolicyRoute =
+  PublicEnInnovationPolicyRouteImport.update({
+    id: '/_en/innovation-policy',
+    path: '/innovation-policy',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicEnOverseerDashboardRoute =
+  PublicEnOverseerDashboardRouteImport.update({
+    id: '/_en/overseerDashboard',
+    path: '/overseerDashboard',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicEnResearchRoute = PublicEnResearchRouteImport.update({
+  id: '/_en/research',
+  path: '/research',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnRoadmapRoute = PublicEnRoadmapRouteImport.update({
+  id: '/_en/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtPainelFiscalRoute = PublicPtPainelFiscalRouteImport.update({
+  id: '/_pt/painel-fiscal',
+  path: '/painel-fiscal',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtPesquisaRoute = PublicPtPesquisaRouteImport.update({
+  id: '/_pt/pesquisa',
+  path: '/pesquisa',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtPoliticaDeInovacaoRoute =
+  PublicPtPoliticaDeInovacaoRouteImport.update({
+    id: '/_pt/politica-de-inovacao',
+    path: '/politica-de-inovacao',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicPtPoliticaDePrivacidadeRoute =
+  PublicPtPoliticaDePrivacidadeRouteImport.update({
+    id: '/_pt/politica-de-privacidade',
+    path: '/politica-de-privacidade',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicPtRoteiroRoute = PublicPtRoteiroRouteImport.update({
+  id: '/_pt/roteiro',
+  path: '/roteiro',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtSobreRoute = PublicPtSobreRouteImport.update({
+  id: '/_pt/sobre',
+  path: '/sobre',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
+  id: '/_pt/termos-de-uso',
+  path: '/termos-de-uso',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const AlphaModelosIdRoute = AlphaModelosIdRouteImport.update({
+  id: '/modelos/$id',
+  path: '/modelos/$id',
+  getParentRoute: () => AlphaRouteRoute,
 } as any)
 const JournalArticlesIndexRoute = JournalArticlesIndexRouteImport.update({
   id: '/articles/',
   path: '/articles/',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const JournalSubmissionsIdRoute = JournalSubmissionsIdRouteImport.update({
-  id: '/submissions/$id',
-  path: '/submissions/$id',
+const JournalArticlesIdRoute = JournalArticlesIdRouteImport.update({
+  id: '/articles/$id',
+  path: '/articles/$id',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const JournalReviewTokenRoute = JournalReviewTokenRouteImport.update({
-  id: '/review/$token',
-  path: '/review/$token',
-  getParentRoute: () => JournalRouteRoute,
-} as any)
-const JournalEditorialVolumesRoute = JournalEditorialVolumesRouteImport.update({
-  id: '/volumes',
-  path: '/volumes',
-  getParentRoute: () => JournalEditorialRouteRoute,
-} as any)
-const JournalEditorialSettingsRoute =
-  JournalEditorialSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => JournalEditorialRouteRoute,
-  } as any)
-const JournalEditorialPublicationRoute =
-  JournalEditorialPublicationRouteImport.update({
-    id: '/publication',
-    path: '/publication',
+const JournalEditorialDashboardRoute =
+  JournalEditorialDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
     getParentRoute: () => JournalEditorialRouteRoute,
   } as any)
 const JournalEditorialMetadataExportRoute =
@@ -157,134 +218,46 @@ const JournalEditorialMetadataExportRoute =
     path: '/metadata-export',
     getParentRoute: () => JournalEditorialRouteRoute,
   } as any)
-const JournalEditorialDashboardRoute =
-  JournalEditorialDashboardRouteImport.update({
-    id: '/dashboard',
-    path: '/dashboard',
+const JournalEditorialPublicationRoute =
+  JournalEditorialPublicationRouteImport.update({
+    id: '/publication',
+    path: '/publication',
     getParentRoute: () => JournalEditorialRouteRoute,
   } as any)
-const JournalArticlesIdRoute = JournalArticlesIdRouteImport.update({
-  id: '/articles/$id',
-  path: '/articles/$id',
+const JournalEditorialSettingsRoute =
+  JournalEditorialSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => JournalEditorialRouteRoute,
+  } as any)
+const JournalEditorialVolumesRoute = JournalEditorialVolumesRouteImport.update({
+  id: '/volumes',
+  path: '/volumes',
+  getParentRoute: () => JournalEditorialRouteRoute,
+} as any)
+const JournalReviewIndexRoute = JournalReviewIndexRouteImport.update({
+  id: '/review/',
+  path: '/review/',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
-  id: '/_pt/termos-de-uso',
-  path: '/termos-de-uso',
-  getParentRoute: () => PublicRouteRoute,
+const JournalReviewTokenRoute = JournalReviewTokenRouteImport.update({
+  id: '/review/$token',
+  path: '/review/$token',
+  getParentRoute: () => JournalRouteRoute,
 } as any)
-const PublicPtSobreRoute = PublicPtSobreRouteImport.update({
-  id: '/_pt/sobre',
-  path: '/sobre',
-  getParentRoute: () => PublicRouteRoute,
+const JournalSubmissionsIndexRoute = JournalSubmissionsIndexRouteImport.update({
+  id: '/submissions/',
+  path: '/submissions/',
+  getParentRoute: () => JournalRouteRoute,
 } as any)
-const PublicPtRoteiroRoute = PublicPtRoteiroRouteImport.update({
-  id: '/_pt/roteiro',
-  path: '/roteiro',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicPtPoliticaDePrivacidadeRoute =
-  PublicPtPoliticaDePrivacidadeRouteImport.update({
-    id: '/_pt/politica-de-privacidade',
-    path: '/politica-de-privacidade',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicPtPoliticaDeInovacaoRoute =
-  PublicPtPoliticaDeInovacaoRouteImport.update({
-    id: '/_pt/politica-de-inovacao',
-    path: '/politica-de-inovacao',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicPtPesquisaRoute = PublicPtPesquisaRouteImport.update({
-  id: '/_pt/pesquisa',
-  path: '/pesquisa',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicPtPainelFiscalRoute = PublicPtPainelFiscalRouteImport.update({
-  id: '/_pt/painel-fiscal',
-  path: '/painel-fiscal',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicEnRoadmapRoute = PublicEnRoadmapRouteImport.update({
-  id: '/_en/roadmap',
-  path: '/roadmap',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicEnResearchRoute = PublicEnResearchRouteImport.update({
-  id: '/_en/research',
-  path: '/research',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicEnOverseerDashboardRoute =
-  PublicEnOverseerDashboardRouteImport.update({
-    id: '/_en/overseerDashboard',
-    path: '/overseerDashboard',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicEnInnovationPolicyRoute =
-  PublicEnInnovationPolicyRouteImport.update({
-    id: '/_en/innovation-policy',
-    path: '/innovation-policy',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicEnChatRadaRoute = PublicEnChatRadaRouteImport.update({
-  id: '/_en/chatRada',
-  path: '/chatRada',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicEnAboutRoute = PublicEnAboutRouteImport.update({
-  id: '/_en/about',
-  path: '/about',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicPtPublicacoesIndexRoute =
-  PublicPtPublicacoesIndexRouteImport.update({
-    id: '/_pt/publicacoes/',
-    path: '/publicacoes/',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicPtInstalacoesIndexRoute =
-  PublicPtInstalacoesIndexRouteImport.update({
-    id: '/_pt/instalacoes/',
-    path: '/instalacoes/',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicEnPostsIndexRoute = PublicEnPostsIndexRouteImport.update({
-  id: '/_en/posts/',
-  path: '/posts/',
-  getParentRoute: () => PublicRouteRoute,
+const JournalSubmissionsIdRoute = JournalSubmissionsIdRouteImport.update({
+  id: '/submissions/$id',
+  path: '/submissions/$id',
+  getParentRoute: () => JournalRouteRoute,
 } as any)
 const PublicEnFacilitiesIndexRoute = PublicEnFacilitiesIndexRouteImport.update({
   id: '/_en/facilities/',
   path: '/facilities/',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const JournalReviewAssignmentAssignmentIdRoute =
-  JournalReviewAssignmentAssignmentIdRouteImport.update({
-    id: '/review/assignment/$assignmentId',
-    path: '/review/assignment/$assignmentId',
-    getParentRoute: () => JournalRouteRoute,
-  } as any)
-const JournalEditorialArticlesArticleIdRoute =
-  JournalEditorialArticlesArticleIdRouteImport.update({
-    id: '/articles/$articleId',
-    path: '/articles/$articleId',
-    getParentRoute: () => JournalEditorialRouteRoute,
-  } as any)
-const PublicPtPublicacoesSlugRoute = PublicPtPublicacoesSlugRouteImport.update({
-  id: '/_pt/publicacoes/$slug',
-  path: '/publicacoes/$slug',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicPtInstalacoesPregoeiroRoute =
-  PublicPtInstalacoesPregoeiroRouteImport.update({
-    id: '/_pt/instalacoes/pregoeiro',
-    path: '/instalacoes/pregoeiro',
-    getParentRoute: () => PublicRouteRoute,
-  } as any)
-const PublicEnPostsSlugRoute = PublicEnPostsSlugRouteImport.update({
-  id: '/_en/posts/$slug',
-  path: '/posts/$slug',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const PublicEnFacilitiesPregoeiroRoute =
@@ -293,13 +266,60 @@ const PublicEnFacilitiesPregoeiroRoute =
     path: '/facilities/pregoeiro',
     getParentRoute: () => PublicRouteRoute,
   } as any)
+const PublicEnPostsIndexRoute = PublicEnPostsIndexRouteImport.update({
+  id: '/_en/posts/',
+  path: '/posts/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnPostsSlugRoute = PublicEnPostsSlugRouteImport.update({
+  id: '/_en/posts/$slug',
+  path: '/posts/$slug',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtInstalacoesIndexRoute =
+  PublicPtInstalacoesIndexRouteImport.update({
+    id: '/_pt/instalacoes/',
+    path: '/instalacoes/',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicPtInstalacoesPregoeiroRoute =
+  PublicPtInstalacoesPregoeiroRouteImport.update({
+    id: '/_pt/instalacoes/pregoeiro',
+    path: '/instalacoes/pregoeiro',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicPtPublicacoesIndexRoute =
+  PublicPtPublicacoesIndexRouteImport.update({
+    id: '/_pt/publicacoes/',
+    path: '/publicacoes/',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicPtPublicacoesSlugRoute = PublicPtPublicacoesSlugRouteImport.update({
+  id: '/_pt/publicacoes/$slug',
+  path: '/publicacoes/$slug',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const JournalEditorialArticlesArticleIdRoute =
+  JournalEditorialArticlesArticleIdRouteImport.update({
+    id: '/articles/$articleId',
+    path: '/articles/$articleId',
+    getParentRoute: () => JournalEditorialRouteRoute,
+  } as any)
+const JournalReviewAssignmentAssignmentIdRoute =
+  JournalReviewAssignmentAssignmentIdRouteImport.update({
+    id: '/review/assignment/$assignmentId',
+    path: '/review/assignment/$assignmentId',
+    getParentRoute: () => JournalRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
+  '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -318,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -341,8 +362,10 @@ export interface FileRoutesByFullPath {
   '/publicacoes/': typeof PublicPtPublicacoesIndexRoute
 }
 export interface FileRoutesByTo {
+  '/alpha': typeof AlphaRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -362,6 +385,7 @@ export interface FileRoutesByTo {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -387,10 +411,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_public': typeof PublicRouteRouteWithChildren
+  '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -410,6 +436,7 @@ export interface FileRoutesById {
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
   '/_public/_pt/sobre': typeof PublicPtSobreRoute
   '/_public/_pt/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -436,10 +463,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/alpha'
     | '/auth'
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -458,6 +487,7 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -481,8 +511,10 @@ export interface FileRouteTypes {
     | '/publicacoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/alpha'
     | '/health'
     | '/journal/editorial'
+    | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -502,6 +534,7 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -526,10 +559,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_public'
+    | '/alpha'
     | '/auth'
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -549,6 +584,7 @@ export interface FileRouteTypes {
     | '/_public/_pt/roteiro'
     | '/_public/_pt/sobre'
     | '/_public/_pt/termos-de-uso'
+    | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -574,6 +610,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
+  AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   JournalRouteRoute: typeof JournalRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
@@ -581,6 +618,27 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alpha': {
+      id: '/alpha'
+      path: '/alpha'
+      fullPath: '/alpha'
+      preLoaderRoute: typeof AlphaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/health': {
       id: '/health'
       path: '/health'
@@ -595,26 +653,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_public': {
-      id: '/_public'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/journal/': {
-      id: '/journal/'
+    '/_public/': {
+      id: '/_public/'
       path: '/'
-      fullPath: '/journal/'
-      preLoaderRoute: typeof JournalIndexRouteImport
-      parentRoute: typeof JournalRouteRoute
+      fullPath: '/'
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/alpha/fontes': {
+      id: '/alpha/fontes'
+      path: '/fontes'
+      fullPath: '/alpha/fontes'
+      preLoaderRoute: typeof AlphaFontesRouteImport
+      parentRoute: typeof AlphaRouteRoute
     }
     '/auth/': {
       id: '/auth/'
@@ -623,25 +674,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_public/': {
-      id: '/_public/'
+    '/journal/': {
+      id: '/journal/'
       path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof PublicIndexRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/journal/submit': {
-      id: '/journal/submit'
-      path: '/submit'
-      fullPath: '/journal/submit'
-      preLoaderRoute: typeof JournalSubmitRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/journal/profile': {
-      id: '/journal/profile'
-      path: '/profile'
-      fullPath: '/journal/profile'
-      preLoaderRoute: typeof JournalProfileRouteImport
+      fullPath: '/journal/'
+      preLoaderRoute: typeof JournalIndexRouteImport
       parentRoute: typeof JournalRouteRoute
     }
     '/journal/about': {
@@ -658,158 +695,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalEditorialRouteRouteImport
       parentRoute: typeof JournalRouteRoute
     }
-    '/journal/submissions/': {
-      id: '/journal/submissions/'
-      path: '/submissions'
-      fullPath: '/journal/submissions/'
-      preLoaderRoute: typeof JournalSubmissionsIndexRouteImport
+    '/journal/profile': {
+      id: '/journal/profile'
+      path: '/profile'
+      fullPath: '/journal/profile'
+      preLoaderRoute: typeof JournalProfileRouteImport
       parentRoute: typeof JournalRouteRoute
     }
-    '/journal/review/': {
-      id: '/journal/review/'
-      path: '/review'
-      fullPath: '/journal/review/'
-      preLoaderRoute: typeof JournalReviewIndexRouteImport
+    '/journal/submit': {
+      id: '/journal/submit'
+      path: '/submit'
+      fullPath: '/journal/submit'
+      preLoaderRoute: typeof JournalSubmitRouteImport
       parentRoute: typeof JournalRouteRoute
     }
-    '/journal/articles/': {
-      id: '/journal/articles/'
-      path: '/articles'
-      fullPath: '/journal/articles/'
-      preLoaderRoute: typeof JournalArticlesIndexRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/journal/submissions/$id': {
-      id: '/journal/submissions/$id'
-      path: '/submissions/$id'
-      fullPath: '/journal/submissions/$id'
-      preLoaderRoute: typeof JournalSubmissionsIdRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/journal/review/$token': {
-      id: '/journal/review/$token'
-      path: '/review/$token'
-      fullPath: '/journal/review/$token'
-      preLoaderRoute: typeof JournalReviewTokenRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/journal/editorial/volumes': {
-      id: '/journal/editorial/volumes'
-      path: '/volumes'
-      fullPath: '/journal/editorial/volumes'
-      preLoaderRoute: typeof JournalEditorialVolumesRouteImport
-      parentRoute: typeof JournalEditorialRouteRoute
-    }
-    '/journal/editorial/settings': {
-      id: '/journal/editorial/settings'
-      path: '/settings'
-      fullPath: '/journal/editorial/settings'
-      preLoaderRoute: typeof JournalEditorialSettingsRouteImport
-      parentRoute: typeof JournalEditorialRouteRoute
-    }
-    '/journal/editorial/publication': {
-      id: '/journal/editorial/publication'
-      path: '/publication'
-      fullPath: '/journal/editorial/publication'
-      preLoaderRoute: typeof JournalEditorialPublicationRouteImport
-      parentRoute: typeof JournalEditorialRouteRoute
-    }
-    '/journal/editorial/metadata-export': {
-      id: '/journal/editorial/metadata-export'
-      path: '/metadata-export'
-      fullPath: '/journal/editorial/metadata-export'
-      preLoaderRoute: typeof JournalEditorialMetadataExportRouteImport
-      parentRoute: typeof JournalEditorialRouteRoute
-    }
-    '/journal/editorial/dashboard': {
-      id: '/journal/editorial/dashboard'
-      path: '/dashboard'
-      fullPath: '/journal/editorial/dashboard'
-      preLoaderRoute: typeof JournalEditorialDashboardRouteImport
-      parentRoute: typeof JournalEditorialRouteRoute
-    }
-    '/journal/articles/$id': {
-      id: '/journal/articles/$id'
-      path: '/articles/$id'
-      fullPath: '/journal/articles/$id'
-      preLoaderRoute: typeof JournalArticlesIdRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/_public/_pt/termos-de-uso': {
-      id: '/_public/_pt/termos-de-uso'
-      path: '/termos-de-uso'
-      fullPath: '/termos-de-uso'
-      preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_pt/sobre': {
-      id: '/_public/_pt/sobre'
-      path: '/sobre'
-      fullPath: '/sobre'
-      preLoaderRoute: typeof PublicPtSobreRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_pt/roteiro': {
-      id: '/_public/_pt/roteiro'
-      path: '/roteiro'
-      fullPath: '/roteiro'
-      preLoaderRoute: typeof PublicPtRoteiroRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_pt/politica-de-privacidade': {
-      id: '/_public/_pt/politica-de-privacidade'
-      path: '/politica-de-privacidade'
-      fullPath: '/politica-de-privacidade'
-      preLoaderRoute: typeof PublicPtPoliticaDePrivacidadeRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_pt/politica-de-inovacao': {
-      id: '/_public/_pt/politica-de-inovacao'
-      path: '/politica-de-inovacao'
-      fullPath: '/politica-de-inovacao'
-      preLoaderRoute: typeof PublicPtPoliticaDeInovacaoRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_pt/pesquisa': {
-      id: '/_public/_pt/pesquisa'
-      path: '/pesquisa'
-      fullPath: '/pesquisa'
-      preLoaderRoute: typeof PublicPtPesquisaRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_pt/painel-fiscal': {
-      id: '/_public/_pt/painel-fiscal'
-      path: '/painel-fiscal'
-      fullPath: '/painel-fiscal'
-      preLoaderRoute: typeof PublicPtPainelFiscalRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_en/roadmap': {
-      id: '/_public/_en/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof PublicEnRoadmapRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_en/research': {
-      id: '/_public/_en/research'
-      path: '/research'
-      fullPath: '/research'
-      preLoaderRoute: typeof PublicEnResearchRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_en/overseerDashboard': {
-      id: '/_public/_en/overseerDashboard'
-      path: '/overseerDashboard'
-      fullPath: '/overseerDashboard'
-      preLoaderRoute: typeof PublicEnOverseerDashboardRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/_en/innovation-policy': {
-      id: '/_public/_en/innovation-policy'
-      path: '/innovation-policy'
-      fullPath: '/innovation-policy'
-      preLoaderRoute: typeof PublicEnInnovationPolicyRouteImport
+    '/_public/_en/about': {
+      id: '/_public/_en/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof PublicEnAboutRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/_en/chatRada': {
@@ -819,25 +723,179 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEnChatRadaRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/_en/about': {
-      id: '/_public/_en/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof PublicEnAboutRouteImport
+    '/_public/_en/innovation-policy': {
+      id: '/_public/_en/innovation-policy'
+      path: '/innovation-policy'
+      fullPath: '/innovation-policy'
+      preLoaderRoute: typeof PublicEnInnovationPolicyRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/_pt/publicacoes/': {
-      id: '/_public/_pt/publicacoes/'
-      path: '/publicacoes'
-      fullPath: '/publicacoes/'
-      preLoaderRoute: typeof PublicPtPublicacoesIndexRouteImport
+    '/_public/_en/overseerDashboard': {
+      id: '/_public/_en/overseerDashboard'
+      path: '/overseerDashboard'
+      fullPath: '/overseerDashboard'
+      preLoaderRoute: typeof PublicEnOverseerDashboardRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/_pt/instalacoes/': {
-      id: '/_public/_pt/instalacoes/'
-      path: '/instalacoes'
-      fullPath: '/instalacoes/'
-      preLoaderRoute: typeof PublicPtInstalacoesIndexRouteImport
+    '/_public/_en/research': {
+      id: '/_public/_en/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof PublicEnResearchRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/roadmap': {
+      id: '/_public/_en/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof PublicEnRoadmapRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/painel-fiscal': {
+      id: '/_public/_pt/painel-fiscal'
+      path: '/painel-fiscal'
+      fullPath: '/painel-fiscal'
+      preLoaderRoute: typeof PublicPtPainelFiscalRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/pesquisa': {
+      id: '/_public/_pt/pesquisa'
+      path: '/pesquisa'
+      fullPath: '/pesquisa'
+      preLoaderRoute: typeof PublicPtPesquisaRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/politica-de-inovacao': {
+      id: '/_public/_pt/politica-de-inovacao'
+      path: '/politica-de-inovacao'
+      fullPath: '/politica-de-inovacao'
+      preLoaderRoute: typeof PublicPtPoliticaDeInovacaoRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/politica-de-privacidade': {
+      id: '/_public/_pt/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PublicPtPoliticaDePrivacidadeRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/roteiro': {
+      id: '/_public/_pt/roteiro'
+      path: '/roteiro'
+      fullPath: '/roteiro'
+      preLoaderRoute: typeof PublicPtRoteiroRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/sobre': {
+      id: '/_public/_pt/sobre'
+      path: '/sobre'
+      fullPath: '/sobre'
+      preLoaderRoute: typeof PublicPtSobreRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/termos-de-uso': {
+      id: '/_public/_pt/termos-de-uso'
+      path: '/termos-de-uso'
+      fullPath: '/termos-de-uso'
+      preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/alpha/modelos/$id': {
+      id: '/alpha/modelos/$id'
+      path: '/modelos/$id'
+      fullPath: '/alpha/modelos/$id'
+      preLoaderRoute: typeof AlphaModelosIdRouteImport
+      parentRoute: typeof AlphaRouteRoute
+    }
+    '/journal/articles/': {
+      id: '/journal/articles/'
+      path: '/articles'
+      fullPath: '/journal/articles/'
+      preLoaderRoute: typeof JournalArticlesIndexRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/journal/articles/$id': {
+      id: '/journal/articles/$id'
+      path: '/articles/$id'
+      fullPath: '/journal/articles/$id'
+      preLoaderRoute: typeof JournalArticlesIdRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/journal/editorial/dashboard': {
+      id: '/journal/editorial/dashboard'
+      path: '/dashboard'
+      fullPath: '/journal/editorial/dashboard'
+      preLoaderRoute: typeof JournalEditorialDashboardRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/editorial/metadata-export': {
+      id: '/journal/editorial/metadata-export'
+      path: '/metadata-export'
+      fullPath: '/journal/editorial/metadata-export'
+      preLoaderRoute: typeof JournalEditorialMetadataExportRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/editorial/publication': {
+      id: '/journal/editorial/publication'
+      path: '/publication'
+      fullPath: '/journal/editorial/publication'
+      preLoaderRoute: typeof JournalEditorialPublicationRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/editorial/settings': {
+      id: '/journal/editorial/settings'
+      path: '/settings'
+      fullPath: '/journal/editorial/settings'
+      preLoaderRoute: typeof JournalEditorialSettingsRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/editorial/volumes': {
+      id: '/journal/editorial/volumes'
+      path: '/volumes'
+      fullPath: '/journal/editorial/volumes'
+      preLoaderRoute: typeof JournalEditorialVolumesRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/review/': {
+      id: '/journal/review/'
+      path: '/review'
+      fullPath: '/journal/review/'
+      preLoaderRoute: typeof JournalReviewIndexRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/journal/review/$token': {
+      id: '/journal/review/$token'
+      path: '/review/$token'
+      fullPath: '/journal/review/$token'
+      preLoaderRoute: typeof JournalReviewTokenRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/journal/submissions/': {
+      id: '/journal/submissions/'
+      path: '/submissions'
+      fullPath: '/journal/submissions/'
+      preLoaderRoute: typeof JournalSubmissionsIndexRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/journal/submissions/$id': {
+      id: '/journal/submissions/$id'
+      path: '/submissions/$id'
+      fullPath: '/journal/submissions/$id'
+      preLoaderRoute: typeof JournalSubmissionsIdRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/_public/_en/facilities/': {
+      id: '/_public/_en/facilities/'
+      path: '/facilities'
+      fullPath: '/facilities/'
+      preLoaderRoute: typeof PublicEnFacilitiesIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/facilities/pregoeiro': {
+      id: '/_public/_en/facilities/pregoeiro'
+      path: '/facilities/pregoeiro'
+      fullPath: '/facilities/pregoeiro'
+      preLoaderRoute: typeof PublicEnFacilitiesPregoeiroRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/_en/posts/': {
@@ -847,32 +905,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEnPostsIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/_en/facilities/': {
-      id: '/_public/_en/facilities/'
-      path: '/facilities'
-      fullPath: '/facilities/'
-      preLoaderRoute: typeof PublicEnFacilitiesIndexRouteImport
+    '/_public/_en/posts/$slug': {
+      id: '/_public/_en/posts/$slug'
+      path: '/posts/$slug'
+      fullPath: '/posts/$slug'
+      preLoaderRoute: typeof PublicEnPostsSlugRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/journal/review/assignment/$assignmentId': {
-      id: '/journal/review/assignment/$assignmentId'
-      path: '/review/assignment/$assignmentId'
-      fullPath: '/journal/review/assignment/$assignmentId'
-      preLoaderRoute: typeof JournalReviewAssignmentAssignmentIdRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/journal/editorial/articles/$articleId': {
-      id: '/journal/editorial/articles/$articleId'
-      path: '/articles/$articleId'
-      fullPath: '/journal/editorial/articles/$articleId'
-      preLoaderRoute: typeof JournalEditorialArticlesArticleIdRouteImport
-      parentRoute: typeof JournalEditorialRouteRoute
-    }
-    '/_public/_pt/publicacoes/$slug': {
-      id: '/_public/_pt/publicacoes/$slug'
-      path: '/publicacoes/$slug'
-      fullPath: '/publicacoes/$slug'
-      preLoaderRoute: typeof PublicPtPublicacoesSlugRouteImport
+    '/_public/_pt/instalacoes/': {
+      id: '/_public/_pt/instalacoes/'
+      path: '/instalacoes'
+      fullPath: '/instalacoes/'
+      preLoaderRoute: typeof PublicPtInstalacoesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/_pt/instalacoes/pregoeiro': {
@@ -882,19 +926,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicPtInstalacoesPregoeiroRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/_en/posts/$slug': {
-      id: '/_public/_en/posts/$slug'
-      path: '/posts/$slug'
-      fullPath: '/posts/$slug'
-      preLoaderRoute: typeof PublicEnPostsSlugRouteImport
+    '/_public/_pt/publicacoes/': {
+      id: '/_public/_pt/publicacoes/'
+      path: '/publicacoes'
+      fullPath: '/publicacoes/'
+      preLoaderRoute: typeof PublicPtPublicacoesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/_en/facilities/pregoeiro': {
-      id: '/_public/_en/facilities/pregoeiro'
-      path: '/facilities/pregoeiro'
-      fullPath: '/facilities/pregoeiro'
-      preLoaderRoute: typeof PublicEnFacilitiesPregoeiroRouteImport
+    '/_public/_pt/publicacoes/$slug': {
+      id: '/_public/_pt/publicacoes/$slug'
+      path: '/publicacoes/$slug'
+      fullPath: '/publicacoes/$slug'
+      preLoaderRoute: typeof PublicPtPublicacoesSlugRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/journal/editorial/articles/$articleId': {
+      id: '/journal/editorial/articles/$articleId'
+      path: '/articles/$articleId'
+      fullPath: '/journal/editorial/articles/$articleId'
+      preLoaderRoute: typeof JournalEditorialArticlesArticleIdRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/review/assignment/$assignmentId': {
+      id: '/journal/review/assignment/$assignmentId'
+      path: '/review/assignment/$assignmentId'
+      fullPath: '/journal/review/assignment/$assignmentId'
+      preLoaderRoute: typeof JournalReviewAssignmentAssignmentIdRouteImport
+      parentRoute: typeof JournalRouteRoute
     }
   }
 }
@@ -951,6 +1009,20 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
   PublicRouteRouteChildren,
+)
+
+interface AlphaRouteRouteChildren {
+  AlphaFontesRoute: typeof AlphaFontesRoute
+  AlphaModelosIdRoute: typeof AlphaModelosIdRoute
+}
+
+const AlphaRouteRouteChildren: AlphaRouteRouteChildren = {
+  AlphaFontesRoute: AlphaFontesRoute,
+  AlphaModelosIdRoute: AlphaModelosIdRoute,
+}
+
+const AlphaRouteRouteWithChildren = AlphaRouteRoute._addFileChildren(
+  AlphaRouteRouteChildren,
 )
 
 interface AuthRouteRouteChildren {
@@ -1026,6 +1098,7 @@ const JournalRouteRouteWithChildren = JournalRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
+  AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   JournalRouteRoute: JournalRouteRouteWithChildren,
   HealthRoute: HealthRoute,

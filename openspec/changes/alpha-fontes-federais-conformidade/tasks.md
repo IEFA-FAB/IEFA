@@ -38,12 +38,12 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 ## PR C — Console: fontes e inspetor de modelo
 
-- [ ] C.1 [portal] Layout autenticado `/alpha` com guard de sessão, fora da navegação pública
-- [ ] C.2 [portal] `/alpha/fontes`: tabela de fontes com autoridade, versão vigente, última verificação, erro e contagem de regras em `needs_review`
-- [ ] C.3 [portal] `/alpha/fontes`: ação de coleta sob demanda com estado de andamento e resumo final
-- [ ] C.4 [portal] `/alpha/modelos/$id`: árvore de seções navegável com obrigatoriedade, notas e dispositivos citados
-- [ ] C.5 [portal] `/alpha/modelos/$id`: diff entre duas versões do mesmo modelo (adicionada, removida, renomeada)
-- [ ] C.6 [portal] Conferir aderência ao `apps/portal/STYLE_CONTRACT.md` (zero radius, sem faixa lateral colorida de acento)
+- [x] C.1 [portal] Layout autenticado `/alpha` com guard de sessão, fora da navegação pública
+- [x] C.2 [portal] `/alpha/fontes`: tabela de fontes com autoridade, versão vigente, última verificação, erro e contagem de regras em `needs_review`
+- [x] C.3 [portal] `/alpha/fontes`: ação de coleta sob demanda com estado de andamento e resumo final
+- [x] C.4 [portal] `/alpha/modelos/$id`: árvore de seções navegável com obrigatoriedade, notas e dispositivos citados
+- [ ] C.5 [portal] `/alpha/modelos/$id`: diff entre duas versões do mesmo modelo — depende de haver duas versões ingeridas (A.13/B.14)
+- [x] C.6 [portal] Conferir aderência ao `apps/portal/STYLE_CONTRACT.md` (zero radius, sem faixa lateral colorida de acento)
 
 ## PR D — Legislação federal + watcher
 
