@@ -41,6 +41,77 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			policy: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					id: string
+					managed: boolean
+					name: string
+					updated_at: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					managed?: boolean
+					name: string
+					updated_at?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					managed?: boolean
+					name?: string
+					updated_at?: string | null
+				}
+				Relationships: []
+			}
+			policy_statement: {
+				Row: {
+					created_at: string
+					id: string
+					kitchen_id: number | null
+					level: number
+					mess_hall_id: number | null
+					module: string
+					policy_id: string
+					unit_id: number | null
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number | null
+					level: number
+					mess_hall_id?: number | null
+					module: string
+					policy_id: string
+					unit_id?: number | null
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number | null
+					level?: number
+					mess_hall_id?: number | null
+					module?: string
+					policy_id?: string
+					unit_id?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "policy_statement_policy_id_fkey"
+						columns: ["policy_id"]
+						isOneToOne: false
+						referencedRelation: "policy"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			profiles_admin: {
 				Row: {
 					created_at: string | null
@@ -106,6 +177,38 @@ export type Database = {
 					user_id?: string
 				}
 				Relationships: []
+			}
+			user_policy_attachment: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					id: string
+					policy_id: string
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					policy_id: string
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					policy_id?: string
+					user_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "user_policy_attachment_policy_id_fkey"
+						columns: ["policy_id"]
+						isOneToOne: false
+						referencedRelation: "policy"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 		}
 		Views: {
@@ -1022,6 +1125,7 @@ export type Database = {
 					created_at: string
 					display_name: string | null
 					id: number
+					is_training: boolean
 					kitchen_id: number | null
 					purchase_unit_id: number | null
 					type: Database["sisub"]["Enums"]["kitchen_type"] | null
@@ -1038,6 +1142,7 @@ export type Database = {
 					created_at?: string
 					display_name?: string | null
 					id?: number
+					is_training?: boolean
 					kitchen_id?: number | null
 					purchase_unit_id?: number | null
 					type?: Database["sisub"]["Enums"]["kitchen_type"] | null
@@ -1054,6 +1159,7 @@ export type Database = {
 					created_at?: string
 					display_name?: string | null
 					id?: number
+					is_training?: boolean
 					kitchen_id?: number | null
 					purchase_unit_id?: number | null
 					type?: Database["sisub"]["Enums"]["kitchen_type"] | null
@@ -1109,6 +1215,7 @@ export type Database = {
 					code: string
 					display_name: string | null
 					id: number
+					is_training: boolean
 					kitchen_id: number | null
 					unit_id: number
 				}
@@ -1116,6 +1223,7 @@ export type Database = {
 					code: string
 					display_name?: string | null
 					id?: number
+					is_training?: boolean
 					kitchen_id?: number | null
 					unit_id: number
 				}
@@ -1123,6 +1231,7 @@ export type Database = {
 					code?: string
 					display_name?: string | null
 					id?: number
+					is_training?: boolean
 					kitchen_id?: number | null
 					unit_id?: number
 				}
@@ -1365,6 +1474,39 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			training_reset_log: {
+				Row: {
+					actor_id: string
+					deleted_counts: Json
+					duration_ms: number | null
+					error_message: string | null
+					finished_at: string | null
+					id: string
+					started_at: string
+					status: string
+				}
+				Insert: {
+					actor_id: string
+					deleted_counts?: Json
+					duration_ms?: number | null
+					error_message?: string | null
+					finished_at?: string | null
+					id?: string
+					started_at?: string
+					status?: string
+				}
+				Update: {
+					actor_id?: string
+					deleted_counts?: Json
+					duration_ms?: number | null
+					error_message?: string | null
+					finished_at?: string | null
+					id?: string
+					started_at?: string
+					status?: string
+				}
+				Relationships: []
+			}
 			units: {
 				Row: {
 					address_bairro: string | null
@@ -1377,6 +1519,7 @@ export type Database = {
 					code: string
 					display_name: string | null
 					id: number
+					is_training: boolean
 					type: Database["sisub"]["Enums"]["unit_type"] | null
 					uasg: string | null
 				}
@@ -1391,6 +1534,7 @@ export type Database = {
 					code: string
 					display_name?: string | null
 					id?: number
+					is_training?: boolean
 					type?: Database["sisub"]["Enums"]["unit_type"] | null
 					uasg?: string | null
 				}
@@ -1405,6 +1549,7 @@ export type Database = {
 					code?: string
 					display_name?: string | null
 					id?: number
+					is_training?: boolean
 					type?: Database["sisub"]["Enums"]["unit_type"] | null
 					uasg?: string | null
 				}
