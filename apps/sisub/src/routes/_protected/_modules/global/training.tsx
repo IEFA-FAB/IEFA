@@ -54,7 +54,11 @@ function TrainingPage() {
 		queryFn: () => fetchTrainingScopeFn(),
 	})
 
-	const { data: resets = [], isLoading: resetsLoading } = useQuery({
+	const {
+		data: resets = [],
+		isLoading: resetsLoading,
+		error: resetsError,
+	} = useQuery({
 		queryKey: queryKeys.training.resets(),
 		queryFn: () => fetchTrainingResetsFn({ data: { limit: 20 } }),
 	})
@@ -153,6 +157,14 @@ function TrainingPage() {
 								<TableRow>
 									<TableCell colSpan={4}>
 										<Skeleton className="h-5 w-full" />
+									</TableCell>
+								</TableRow>
+							) : resetsError ? (
+								// Sem isto a falha virava "nenhum reset executado ainda" — a tela afirmaria
+								// que o ambiente nunca foi resetado quando na verdade não conseguiu ler.
+								<TableRow>
+									<TableCell colSpan={4} className="h-20 text-center text-sm text-destructive">
+										Não foi possível carregar o histórico: {(resetsError as Error).message}
 									</TableCell>
 								</TableRow>
 							) : resets.length === 0 ? (
