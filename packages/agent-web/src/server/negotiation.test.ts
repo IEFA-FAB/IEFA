@@ -45,6 +45,23 @@ describe("prefersMarkdown", () => {
 		expect(prefersMarkdown(get("*/*"))).toBe(false)
 	})
 
+	// O coringa cobre HTML: pedir markdown com q baixo e o coringa com q alto é
+	// dizer que se prefere qualquer outra coisa.
+	test("coringa de q maior vence o markdown explícito", () => {
+		expect(prefersMarkdown(get("text/markdown;q=0.5, */*;q=1"))).toBe(false)
+		expect(prefersMarkdown(get("text/markdown;q=0.5, text/*;q=1"))).toBe(false)
+	})
+
+	test("coringa de q menor não vence o markdown explícito", () => {
+		expect(prefersMarkdown(get("text/markdown;q=1, */*;q=0.5"))).toBe(true)
+	})
+
+	// Coringa cobre HTML, mas não substitui pedir markdown de propósito.
+	test("coringa sozinho nunca conta como pedido de markdown", () => {
+		expect(prefersMarkdown(get("text/*"))).toBe(false)
+		expect(prefersMarkdown(get("*/*;q=1"))).toBe(false)
+	})
+
 	// Server functions postam com Accept de dados e não podem virar markdown.
 	test("só GET e HEAD", () => {
 		expect(prefersMarkdown(get("text/markdown", "POST"))).toBe(false)

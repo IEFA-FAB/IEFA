@@ -9,74 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WorkspaceRouteImport } from './routes/workspace'
-import { Route as SubitensGenericosRouteImport } from './routes/subitens-genericos'
-import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as MonitoramentoRouteImport } from './routes/monitoramento'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as DocumentacaoRouteImport } from './routes/documentacao'
-import { Route as CruzamentoContasRouteImport } from './routes/cruzamento-contas'
-import { Route as ContaGenericaRouteImport } from './routes/conta-generica'
-import { Route as CentroMonitoramentoRouteImport } from './routes/centro-monitoramento'
-import { Route as AuditorRouteImport } from './routes/auditor'
-import { Route as AnalistasaldoalongadoRouteImport } from './routes/analistasaldoalongado'
-import { Route as AnalistaCompatibilidadeRouteImport } from './routes/analista-compatibilidade'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalistaCompatibilidadeRouteImport } from './routes/analista-compatibilidade'
+import { Route as AnalistasaldoalongadoRouteImport } from './routes/analistasaldoalongado'
+import { Route as AuditorRouteImport } from './routes/auditor'
+import { Route as CentroMonitoramentoRouteImport } from './routes/centro-monitoramento'
+import { Route as ContaGenericaRouteImport } from './routes/conta-generica'
+import { Route as CruzamentoContasRouteImport } from './routes/cruzamento-contas'
+import { Route as DocumentacaoRouteImport } from './routes/documentacao'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as MonitoramentoRouteImport } from './routes/monitoramento'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as SubitensGenericosRouteImport } from './routes/subitens-genericos'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
+import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 
-const WorkspaceRoute = WorkspaceRouteImport.update({
-  id: '/workspace',
-  path: '/workspace',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SubitensGenericosRoute = SubitensGenericosRouteImport.update({
-  id: '/subitens-genericos',
-  path: '/subitens-genericos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportsRoute = ReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MonitoramentoRoute = MonitoramentoRouteImport.update({
-  id: '/monitoramento',
-  path: '/monitoramento',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HealthRoute = HealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentacaoRoute = DocumentacaoRouteImport.update({
-  id: '/documentacao',
-  path: '/documentacao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CruzamentoContasRoute = CruzamentoContasRouteImport.update({
-  id: '/cruzamento-contas',
-  path: '/cruzamento-contas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContaGenericaRoute = ContaGenericaRouteImport.update({
-  id: '/conta-generica',
-  path: '/conta-generica',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CentroMonitoramentoRoute = CentroMonitoramentoRouteImport.update({
-  id: '/centro-monitoramento',
-  path: '/centro-monitoramento',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuditorRoute = AuditorRouteImport.update({
-  id: '/auditor',
-  path: '/auditor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalistasaldoalongadoRoute = AnalistasaldoalongadoRouteImport.update({
-  id: '/analistasaldoalongado',
-  path: '/analistasaldoalongado',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalistaCompatibilidadeRoute = AnalistaCompatibilidadeRouteImport.update({
@@ -84,9 +37,64 @@ const AnalistaCompatibilidadeRoute = AnalistaCompatibilidadeRouteImport.update({
   path: '/analista-compatibilidade',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AnalistasaldoalongadoRoute = AnalistasaldoalongadoRouteImport.update({
+  id: '/analistasaldoalongado',
+  path: '/analistasaldoalongado',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditorRoute = AuditorRouteImport.update({
+  id: '/auditor',
+  path: '/auditor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CentroMonitoramentoRoute = CentroMonitoramentoRouteImport.update({
+  id: '/centro-monitoramento',
+  path: '/centro-monitoramento',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContaGenericaRoute = ContaGenericaRouteImport.update({
+  id: '/conta-generica',
+  path: '/conta-generica',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CruzamentoContasRoute = CruzamentoContasRouteImport.update({
+  id: '/cruzamento-contas',
+  path: '/cruzamento-contas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentacaoRoute = DocumentacaoRouteImport.update({
+  id: '/documentacao',
+  path: '/documentacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonitoramentoRoute = MonitoramentoRouteImport.update({
+  id: '/monitoramento',
+  path: '/monitoramento',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubitensGenericosRoute = SubitensGenericosRouteImport.update({
+  id: '/subitens-genericos',
+  path: '/subitens-genericos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
@@ -94,6 +102,18 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   path: '/auth/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownAgentSkillsIndexDotjsonRoute =
+  DotwellKnownAgentSkillsIndexDotjsonRouteImport.update({
+    id: '/.well-known/agent-skills/index.json',
+    path: '/.well-known/agent-skills/index.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
+  DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport.update({
+    id: '/.well-known/agent-skills/$skill/SKILL.md',
+    path: '/.well-known/agent-skills/$skill/SKILL.md',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -105,11 +125,14 @@ export interface FileRoutesByFullPath {
   '/cruzamento-contas': typeof CruzamentoContasRoute
   '/documentacao': typeof DocumentacaoRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/monitoramento': typeof MonitoramentoRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/workspace': typeof WorkspaceRoute
   '/auth/': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -121,11 +144,14 @@ export interface FileRoutesByTo {
   '/cruzamento-contas': typeof CruzamentoContasRoute
   '/documentacao': typeof DocumentacaoRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/monitoramento': typeof MonitoramentoRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/workspace': typeof WorkspaceRoute
   '/auth': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -138,11 +164,14 @@ export interface FileRoutesById {
   '/cruzamento-contas': typeof CruzamentoContasRoute
   '/documentacao': typeof DocumentacaoRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/monitoramento': typeof MonitoramentoRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/workspace': typeof WorkspaceRoute
   '/auth/': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -156,11 +185,14 @@ export interface FileRouteTypes {
     | '/cruzamento-contas'
     | '/documentacao'
     | '/health'
+    | '/llms.txt'
     | '/monitoramento'
     | '/reports'
     | '/subitens-genericos'
     | '/workspace'
     | '/auth/'
+    | '/.well-known/agent-skills/index.json'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -172,11 +204,14 @@ export interface FileRouteTypes {
     | '/cruzamento-contas'
     | '/documentacao'
     | '/health'
+    | '/llms.txt'
     | '/monitoramento'
     | '/reports'
     | '/subitens-genericos'
     | '/workspace'
     | '/auth'
+    | '/.well-known/agent-skills/index.json'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
   id:
     | '__root__'
     | '/'
@@ -188,11 +223,14 @@ export interface FileRouteTypes {
     | '/cruzamento-contas'
     | '/documentacao'
     | '/health'
+    | '/llms.txt'
     | '/monitoramento'
     | '/reports'
     | '/subitens-genericos'
     | '/workspace'
     | '/auth/'
+    | '/.well-known/agent-skills/index.json'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -205,90 +243,23 @@ export interface RootRouteChildren {
   CruzamentoContasRoute: typeof CruzamentoContasRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
   HealthRoute: typeof HealthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   MonitoramentoRoute: typeof MonitoramentoRoute
   ReportsRoute: typeof ReportsRoute
   SubitensGenericosRoute: typeof SubitensGenericosRoute
   WorkspaceRoute: typeof WorkspaceRoute
   AuthIndexRoute: typeof AuthIndexRoute
+  DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workspace': {
-      id: '/workspace'
-      path: '/workspace'
-      fullPath: '/workspace'
-      preLoaderRoute: typeof WorkspaceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/subitens-genericos': {
-      id: '/subitens-genericos'
-      path: '/subitens-genericos'
-      fullPath: '/subitens-genericos'
-      preLoaderRoute: typeof SubitensGenericosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reports': {
-      id: '/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/monitoramento': {
-      id: '/monitoramento'
-      path: '/monitoramento'
-      fullPath: '/monitoramento'
-      preLoaderRoute: typeof MonitoramentoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/health': {
-      id: '/health'
-      path: '/health'
-      fullPath: '/health'
-      preLoaderRoute: typeof HealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documentacao': {
-      id: '/documentacao'
-      path: '/documentacao'
-      fullPath: '/documentacao'
-      preLoaderRoute: typeof DocumentacaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cruzamento-contas': {
-      id: '/cruzamento-contas'
-      path: '/cruzamento-contas'
-      fullPath: '/cruzamento-contas'
-      preLoaderRoute: typeof CruzamentoContasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/conta-generica': {
-      id: '/conta-generica'
-      path: '/conta-generica'
-      fullPath: '/conta-generica'
-      preLoaderRoute: typeof ContaGenericaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/centro-monitoramento': {
-      id: '/centro-monitoramento'
-      path: '/centro-monitoramento'
-      fullPath: '/centro-monitoramento'
-      preLoaderRoute: typeof CentroMonitoramentoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auditor': {
-      id: '/auditor'
-      path: '/auditor'
-      fullPath: '/auditor'
-      preLoaderRoute: typeof AuditorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analistasaldoalongado': {
-      id: '/analistasaldoalongado'
-      path: '/analistasaldoalongado'
-      fullPath: '/analistasaldoalongado'
-      preLoaderRoute: typeof AnalistasaldoalongadoRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analista-compatibilidade': {
@@ -298,11 +269,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalistaCompatibilidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/analistasaldoalongado': {
+      id: '/analistasaldoalongado'
+      path: '/analistasaldoalongado'
+      fullPath: '/analistasaldoalongado'
+      preLoaderRoute: typeof AnalistasaldoalongadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auditor': {
+      id: '/auditor'
+      path: '/auditor'
+      fullPath: '/auditor'
+      preLoaderRoute: typeof AuditorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/centro-monitoramento': {
+      id: '/centro-monitoramento'
+      path: '/centro-monitoramento'
+      fullPath: '/centro-monitoramento'
+      preLoaderRoute: typeof CentroMonitoramentoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conta-generica': {
+      id: '/conta-generica'
+      path: '/conta-generica'
+      fullPath: '/conta-generica'
+      preLoaderRoute: typeof ContaGenericaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cruzamento-contas': {
+      id: '/cruzamento-contas'
+      path: '/cruzamento-contas'
+      fullPath: '/cruzamento-contas'
+      preLoaderRoute: typeof CruzamentoContasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentacao': {
+      id: '/documentacao'
+      path: '/documentacao'
+      fullPath: '/documentacao'
+      preLoaderRoute: typeof DocumentacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/monitoramento': {
+      id: '/monitoramento'
+      path: '/monitoramento'
+      fullPath: '/monitoramento'
+      preLoaderRoute: typeof MonitoramentoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subitens-genericos': {
+      id: '/subitens-genericos'
+      path: '/subitens-genericos'
+      fullPath: '/subitens-genericos'
+      preLoaderRoute: typeof SubitensGenericosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
@@ -310,6 +358,20 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth/'
       preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/agent-skills/index.json': {
+      id: '/.well-known/agent-skills/index.json'
+      path: '/.well-known/agent-skills/index.json'
+      fullPath: '/.well-known/agent-skills/index.json'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/agent-skills/$skill/SKILL.md': {
+      id: '/.well-known/agent-skills/$skill/SKILL.md'
+      path: '/.well-known/agent-skills/$skill/SKILL.md'
+      fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -325,11 +387,16 @@ const rootRouteChildren: RootRouteChildren = {
   CruzamentoContasRoute: CruzamentoContasRoute,
   DocumentacaoRoute: DocumentacaoRoute,
   HealthRoute: HealthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   MonitoramentoRoute: MonitoramentoRoute,
   ReportsRoute: ReportsRoute,
   SubitensGenericosRoute: SubitensGenericosRoute,
   WorkspaceRoute: WorkspaceRoute,
   AuthIndexRoute: AuthIndexRoute,
+  DotwellKnownAgentSkillsIndexDotjsonRoute:
+    DotwellKnownAgentSkillsIndexDotjsonRoute,
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute:
+    DotwellKnownAgentSkillsSkillSKILLDotmdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

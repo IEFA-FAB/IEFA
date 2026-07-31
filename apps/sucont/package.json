@@ -15,10 +15,11 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
+    "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/database": "workspace:*",
     "@iefa/pbac": "workspace:*",
-    "@hookform/resolvers": "^5.4.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "@tailwindcss/vite": "^4.3.3",
