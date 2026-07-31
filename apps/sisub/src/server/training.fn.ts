@@ -2,8 +2,8 @@
  * @module training.fn
  * Ambiente de treino — estado, reset e histórico. Wrappers finos sobre @iefa/sisub-domain.
  *
- * O `actorId` do reset vem da SESSÃO, nunca do cliente: aceitá-lo do corpo permitiria
- * atribuir a execução a outra pessoa no log de auditoria.
+ * O autor do reset é resolvido pela própria operação a partir do contexto autenticado — não
+ * existe parâmetro de autor, então não há como atribuir a execução a outra pessoa no log.
  * @domain core
  * @migration done
  */
@@ -28,5 +28,5 @@ export const fetchTrainingResetsFn = createServerFn({ method: "GET" })
 
 export const resetTrainingScopeFn = createServerFn({ method: "POST" }).handler(async () => {
 	const ctx = await requireAuth()
-	return resetTrainingScope(getDb(), ctx, { actorId: ctx.userId }).catch(handleDomainError)
+	return resetTrainingScope(getDb(), ctx).catch(handleDomainError)
 })
