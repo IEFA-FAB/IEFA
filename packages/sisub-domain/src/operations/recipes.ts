@@ -12,7 +12,7 @@
 
 import { menuTemplateInKitchen, menuTemplateItemsInKitchen, recipeIngredientsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
-import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
+import { and, eq, ilike, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -338,6 +338,14 @@ export type SaveRecipeEditResult = { recipe: Recipe; forked: boolean }
  * com a do global (a precedência do fork não depende de número de versão — ver `listRecipes`).
  */
 export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveRecipeEdit): Promise<SaveRecipeEditResult> {
+	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
+
+	// Autorização ANTES de qualquer leitura: os erros seguintes distinguem "não existe" de
+	// "é de outra cozinha", e emiti-los primeiro contaria a um usuário sem acesso se um
+	// UUID de receita existe e de quem ele é. O destino sai do contexto declarado, então dá
+	// para autorizar sem tocar o banco.
+	requireAssetWriteForScope(ctx, targetKitchenId)
+
 	const base = await runQuery("FETCH_FAILED", () =>
 		db.query.recipesInKitchen.findFirst({
 			columns: { id: true, kitchenId: true, baseRecipeId: true },
@@ -346,7 +354,6 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	)
 	if (!base) throw new NotFoundError("recipe", input.baseRecipeId)
 
-	const targetKitchenId = input.context.scope === "kitchen" ? input.context.kitchenId : null
 	const rootId = base.baseRecipeId ?? base.id
 
 	if (base.kitchenId != null && base.kitchenId !== targetKitchenId) {
@@ -358,23 +365,26 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 		)
 	}
 
-	requireAssetWriteForScope(ctx, targetKitchenId)
-
 	const forked = base.kitchenId == null && targetKitchenId != null
 
-	// Linhagem completa (raiz + descendentes) para achar o próximo número de versão no
-	// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
-	// seguinte versiona esse fork em vez de bifurcar de novo.
-	const lineage = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInKitchen.findMany({
-			columns: { id: true, kitchenId: true, version: true },
-			where: or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)),
-		})
-	)
-	const nextVersion = lineage.filter((r) => r.kitchenId === targetKitchenId).reduce((max, r) => Math.max(max, r.version), 0) + 1
+	// Alocação de versão + insert na MESMA transação, sob advisory lock da linhagem. Sem o
+	// lock, dois saves concorrentes no mesmo escopo leem o mesmo máximo e inserem a mesma
+	// versão: a listagem passaria a escolher uma das duas arbitrariamente e o histórico
+	// mostraria números repetidos. O lock é liberado no commit/rollback.
+	const recipe = await db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`recipe-lineage:${rootId}`}))`)
 
-	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
-		db
+		// Linhagem completa (raiz + descendentes) para achar o próximo número de versão no
+		// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
+		// seguinte versiona esse fork em vez de bifurcar de novo.
+		const lineage = await tx
+			.select({ kitchenId: recipesInKitchen.kitchenId, version: recipesInKitchen.version })
+			.from(recipesInKitchen)
+			.where(or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)))
+
+		const nextVersion = lineage.filter((r) => r.kitchenId === targetKitchenId).reduce((max, r) => Math.max(max, r.version), 0) + 1
+
+		const [row] = await tx
 			.insert(recipesInKitchen)
 			.values({
 				name: input.name,
@@ -388,7 +398,10 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 				version: nextVersion,
 			})
 			.returning()
-	)
+
+		if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
+		return row
+	})
 
 	const inserted = await insertIngredients(db, recipe.id, input.ingredients)
 

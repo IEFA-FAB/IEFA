@@ -32,6 +32,21 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"procurement.procurement_arp": "ARP é registro de preços real, escopado por unidade compradora",
 	"procurement.procurement_list": "ATA da unidade; a unidade de treino não publica ATA",
 	"procurement.procurement_list_snapshot_selection": "snapshot imutável de ATA publicada",
+
+	// ── Estoque ──
+	// O Conjunto Treino NÃO concede o módulo `storage`, então um treinando não consegue
+	// movimentar estoque na cozinha de treino e não há resíduo a limpar. Se algum dia o
+	// treino passar a cobrir estoque, estas entradas saem daqui e entram no reset — este
+	// teste é justamente o que vai forçar a decisão.
+	"inventory.goods_receipt": "estoque fora do escopo de treino — Conjunto Treino não concede o módulo storage",
+	"inventory.inventory_count": "estoque fora do escopo de treino",
+	"inventory.monthly_closing": "estoque fora do escopo de treino; fechamento contábil é imutável",
+	"inventory.nfe_document": "documento fiscal real, nunca sintético",
+	"inventory.stock_cost": "estoque fora do escopo de treino",
+	"inventory.stock_lot": "estoque fora do escopo de treino",
+	"inventory.stock_movement": "ledger append-only — não se apaga movimento de estoque",
+	"inventory.stock_policy": "parâmetro de reposição, não dado operacional de treino",
+	"procurement.supply_order": "ordem de fornecimento é documento real de aquisição",
 }
 
 describeSupabaseIntegration("training operations (integração)", () => {
@@ -85,7 +100,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 		if (!db) return
 		const scopeBefore = await resolveTrainingScope(db)
 
-		const result = await resetTrainingScope(db, ctx, { actorId: ACTOR_ID })
+		const result = await resetTrainingScope(db, ctx)
 
 		expect(result.duration_ms).toBeGreaterThanOrEqual(0)
 		expect(Object.keys(result.deleted_counts).length).toBe(RESET_TARGET_TABLES.length)
@@ -102,10 +117,10 @@ describeSupabaseIntegration("training operations (integração)", () => {
 	test("reset é idempotente em duas execuções seguidas", async () => {
 		if (!db) return
 
-		await resetTrainingScope(db, ctx, { actorId: ACTOR_ID })
+		await resetTrainingScope(db, ctx)
 		const info1 = await fetchTrainingScope(db, ctx)
 
-		await resetTrainingScope(db, ctx, { actorId: ACTOR_ID })
+		await resetTrainingScope(db, ctx)
 		const info2 = await fetchTrainingScope(db, ctx)
 
 		// Estado equivalente: o seed não acumula entre execuções.
@@ -120,7 +135,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 		}>
 		const globalIngredientsBefore = (await db.execute(sql`select count(*)::int as total from kitchen.ingredient`)) as unknown as Array<{ total: number }>
 
-		await resetTrainingScope(db, ctx, { actorId: ACTOR_ID })
+		await resetTrainingScope(db, ctx)
 
 		const globalRecipesAfter = (await db.execute(sql`select count(*)::int as total from kitchen.recipes where kitchen_id is null`)) as unknown as Array<{
 			total: number
@@ -139,7 +154,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			sql`select count(*)::int as total from kitchen.menu_template where kitchen_id is not null and kitchen_id <> ${scope.kitchen_id}`
 		)) as unknown as Array<{ total: number }>
 
-		await resetTrainingScope(db, ctx, { actorId: ACTOR_ID })
+		await resetTrainingScope(db, ctx)
 
 		const after = (await db.execute(
 			sql`select count(*)::int as total from kitchen.menu_template where kitchen_id is not null and kitchen_id <> ${scope.kitchen_id}`
@@ -151,12 +166,12 @@ describeSupabaseIntegration("training operations (integração)", () => {
 	test("cada execução é auditada", async () => {
 		if (!db) return
 
-		await resetTrainingScope(db, ctx, { actorId: ACTOR_ID })
+		await resetTrainingScope(db, ctx)
 		const history = await listTrainingResets(db, ctx, { limit: 5 })
 
 		expect(history.length).toBeGreaterThan(0)
 		expect(history[0]?.status).toBe("succeeded")
-		expect(history[0]?.actor_id).toBe(ACTOR_ID)
+		expect(history[0]?.actor_id).toBe(ctx.userId)
 		expect(history[0]?.duration_ms).not.toBeNull()
 	})
 
@@ -164,7 +179,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 		if (!db) return
 		const readOnly = { userId: ACTOR_ID, permissions: [{ module: "global" as const, level: 1, kitchen_id: null, unit_id: null, mess_hall_id: null }] }
 
-		await expect(resetTrainingScope(db, readOnly, { actorId: ACTOR_ID })).rejects.toThrow(/PERMISSION|Requires global/i)
+		await expect(resetTrainingScope(db, readOnly)).rejects.toThrow(/PERMISSION|Requires global/i)
 	})
 
 	afterAll(async () => {

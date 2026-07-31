@@ -25,7 +25,7 @@ begin
 	select id into v_mess_hall_id from core.mess_halls where is_training;
 
 	if v_unit_id is null or v_kitchen_id is null or v_mess_hall_id is null then
-		raise exception 'Escopo de treino ausente — aplique 20260730150000_training_scope_seed.sql antes';
+		raise exception 'Escopo de treino ausente — aplique 20260730230000_training_scope_seed.sql antes';
 	end if;
 
 	select id into v_policy_id
