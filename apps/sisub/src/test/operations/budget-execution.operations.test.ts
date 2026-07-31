@@ -137,6 +137,35 @@ describeIf("budget execution chain (DB)", () => {
 					expect(Number(saldo3.valor_vigente)).toBe(10000)
 					expect(Number(saldo3.saldo_a_liquidar)).toBe(400)
 
+					// ── hardening (review): anulação abaixo do liquidado é barrada
+					//    pelo BANCO, não só pela server fn (TOCTOU) ───────────────────
+					await expect(
+						tx.savepoint(
+							(sp) => sp`insert into finance.empenho_event (empenho_id, tipo, valor, data, justificativa)
+								values (${empenho.id}, 'anulacao', 9999, current_date, 'Anulação inválida — abaixo do liquidado')`
+						)
+					).rejects.toThrow(/abaixo do já liquidado/)
+
+					// ── hardening (review): crédito com ug/ptres/fonte NULOS ainda
+					//    dedupe (UNIQUE NULLS NOT DISTINCT) — antes duplicava ─────────
+					await tx`
+						insert into finance.budget_credit (unit_id, nd, competencia, dotacao, empenhado_siafi, saldo_siafi)
+						values (${unit.id}, '33903099', date_trunc('month', current_date)::date, 1000, 0, 1000)`
+					await tx`
+						insert into finance.budget_credit (unit_id, nd, competencia, dotacao, empenhado_siafi, saldo_siafi)
+						values (${unit.id}, '33903099', date_trunc('month', current_date)::date, 2000, 0, 2000)
+						on conflict (unit_id, ug, nd, ptres, fonte, competencia)
+						do update set dotacao = excluded.dotacao, saldo_siafi = excluded.saldo_siafi`
+					const nulos = await tx`select dotacao from finance.budget_credit where unit_id = ${unit.id} and nd = '33903099'`
+					expect(nulos).toHaveLength(1)
+					expect(Number(nulos[0]?.dotacao)).toBe(2000)
+
+					// ── hardening (review): lote aplicado não aplica de novo ─────────
+					const [batch] = await tx`
+						insert into siafi_integration.import_batch (unit_id, report_type, file_name, content_hash, status, applied_at)
+						values (${unit.id}, 'ne', 'ne.csv', ${`hash-${unit.id}`}, 'applied', now()) returning id`
+					await expect(tx.savepoint((sp) => sp`select * from siafi_integration.claim_import_batch(${batch.id})`)).rejects.toThrow(/já aplicado/)
+
 					// ── conciliação de documentos: empenho só no sisub ──────────────
 					const [reconc] = await tx`
 						select situacao from finance.v_siafi_reconciliation

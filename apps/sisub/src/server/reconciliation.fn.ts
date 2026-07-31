@@ -87,7 +87,9 @@ export const applyDocumentBatchFn = createServerFn({ method: "POST" })
 		if (batchError || !batch) throw new Error("Lote não encontrado")
 		await requireUnitScope(2, Number(batch.unit_id))
 		if (batch.report_type === "credito") throw new Error("Use a aplicação de crédito para este lote")
-		if (batch.status === "applied") throw new Error("Lote já aplicado")
+		// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
+		const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
+		if (claimError) throw new Error(claimError.message)
 
 		const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
 		const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
