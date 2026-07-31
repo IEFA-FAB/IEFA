@@ -30,6 +30,15 @@ export {
 	updateFrozenPreparation,
 } from "./frozen-preparation.ts"
 export {
+	type GtinHierarchyNode,
+	hasValidCheckDigit,
+	normalizeGtin,
+	parseGtin,
+	type ResolvedGtinContent,
+	resolveGtinContent,
+	SEM_GTIN,
+} from "./gtin.ts"
+export {
 	type IngredientLastReview,
 	type IngredientReviewRow,
 	listIngredientLastReviews,
@@ -86,6 +95,14 @@ export {
 export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	type IngredientItemLink,
+	matchNfeItem,
+	type NfeItemForMatch,
+	type NfeMatchCandidates,
+	type NfeMatchResult,
+	type NfeMatchStatus,
+} from "./nfe-matching.ts"
+export {
 	createUserPermission,
 	deleteUserPermission,
 	type EffectivePermissionWithOrigin,
@@ -137,6 +154,7 @@ export {
 	type PolicyStatementRow,
 	type PolicySummary,
 	removePolicyStatement,
+	restorePolicy,
 	updatePolicy,
 	updatePolicyStatement,
 } from "./policies.ts"
@@ -150,6 +168,13 @@ export {
 	updateProductionTaskRecord,
 	updateProductionTaskStatus,
 } from "./production.ts"
+export {
+	computeTheoreticalConsumption,
+	leftoverExpiryDate,
+	type RecipeSnapshotForIssue,
+	type SnapshotIngredientRow,
+	type TheoreticalConsumption,
+} from "./production-issue.ts"
 export {
 	createPurchaseItem,
 	deletePurchaseItem,
@@ -189,12 +214,32 @@ export {
 	saveRecipeEdit,
 } from "./recipes.ts"
 export {
+	applyCorrectionFactors,
+	type ChannelDecision,
+	type ChannelDecisionInput,
+	type CorrectionInput,
+	calculateNetNeed,
+	decideChannel,
+	estimateLeadTime,
+	type LeadTimeSource,
+	type NetNeedInput,
+	type PurchaseChannel,
+} from "./replenishment.ts"
+export {
 	getReviewMetrics,
 	type ReviewActivityDay,
 	type ReviewActivityEntry,
 	type ReviewMetrics,
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
+export {
+	allocateFefo,
+	type FefoAllocation,
+	type FefoResult,
+	type LotBalance,
+	sortFefo,
+	sufficiency,
+} from "./stock-math.ts"
 export {
 	applyEventTemplate,
 	applyTemplate,

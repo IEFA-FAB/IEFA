@@ -33,6 +33,7 @@
     "test": {
       "outputs": [],
       "env": [
+        "SISUB_DATABASE_URL",
         "API_SUPABASE_URL",
         "API_SUPABASE_SERVICE_ROLE_KEY",
         "ADMIN_SECRET",
@@ -49,6 +50,7 @@
     "test:integration": {
       "outputs": [],
       "env": [
+        "SISUB_DATABASE_URL",
         "SISUB_RUN_INTEGRATION",
         "SISUB_INTEGRATION_REQUIRED",
         "VITE_SISUB_SUPABASE_URL",

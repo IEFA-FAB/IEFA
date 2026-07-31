@@ -1,3 +1,4 @@
+import { resolveModuleScopes } from "@iefa/pbac"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { LayoutDashboard } from "lucide-react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
@@ -17,8 +18,7 @@ function LocalAnalyticsHubPage() {
 	const { permissions } = usePBAC()
 	const { units, isLoading } = useMessHalls()
 
-	const isGlobal = permissions.some((p) => p.module === "local-analytics" && p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null)
-	const allowedIds = new Set(permissions.filter((p) => p.module === "local-analytics" && p.unit_id !== null).map((p) => p.unit_id as number))
+	const { isGlobal, ids: allowedIds } = resolveModuleScopes(permissions, "local-analytics", "unit")
 
 	const items = (isGlobal ? units : units.filter((u) => allowedIds.has(u.id))).map((u) => ({
 		id: u.id,

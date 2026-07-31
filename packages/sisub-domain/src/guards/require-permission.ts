@@ -2,7 +2,7 @@ import { hasPermission } from "@iefa/pbac"
 import type { AppModule, PermissionScope, UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
 
-export function requirePermission(ctx: UserContext, module: AppModule, minLevel: 1 | 2, scope?: PermissionScope): void {
+export function requirePermission(ctx: UserContext, module: AppModule, minLevel: 1 | 2 | 3, scope?: PermissionScope): void {
 	if (!hasPermission(ctx.permissions, module, minLevel, scope)) {
 		throw new PermissionDeniedError(module, minLevel, scope)
 	}
