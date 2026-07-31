@@ -5,7 +5,7 @@ import { useMemo, useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"
-import { complianceRunQueryOptions, type Finding, type Severity, SEVERITY_ORDER } from "@/lib/alpha/compliance"
+import { complianceRunQueryOptions, type Finding, SEVERITY_ORDER, type Severity } from "@/lib/alpha/compliance"
 
 export const Route = createFileRoute("/alpha/analise/$runId")({
 	component: RelatorioPage,
