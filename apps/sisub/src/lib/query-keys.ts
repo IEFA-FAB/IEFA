@@ -53,6 +53,8 @@ export const queryKeys = {
 		detail: (policyId: string | null) => ["policies", policyId] as const,
 		ofUser: (userId: string | null) => ["policies", "user", userId] as const,
 		effective: (userId: string | null) => ["policies", "effective", userId] as const,
+		managed: (name: string) => ["policies", "managed", name] as const,
+		members: (policyId: string | null) => ["policies", "members", policyId] as const,
 	},
 
 	templates: {

@@ -17,13 +17,16 @@ import {
 	DetachPolicySchema,
 	deletePolicy,
 	detachPolicy,
+	FetchManagedPolicySchema,
 	FetchPolicySchema,
 	FetchUserPermissionsSchema,
+	fetchManagedPolicyByName,
 	fetchPolicy,
 	ListPoliciesSchema,
 	ListUserPoliciesSchema,
 	listEffectiveUserPermissionsWithOrigin,
 	listPolicies,
+	listPolicyMembers,
 	listUserPolicies,
 	RemovePolicyStatementSchema,
 	removePolicyStatement,
@@ -49,6 +52,22 @@ export const fetchPolicyFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchPolicy(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** Turma de uma política: quem a tem anexada. Visão reversa de `fetchUserPoliciesFn`. */
+export const fetchPolicyMembersFn = createServerFn({ method: "GET" })
+	.validator(FetchPolicySchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listPolicyMembers(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** Política gerenciada pelo nome — o id vem de migration e varia por ambiente. */
+export const fetchManagedPolicyFn = createServerFn({ method: "GET" })
+	.validator(FetchManagedPolicySchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return fetchManagedPolicyByName(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchUserPoliciesFn = createServerFn({ method: "GET" })

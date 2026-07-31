@@ -9,8 +9,10 @@ import {
 	deletePolicyFn,
 	detachPolicyFn,
 	fetchEffectivePermissionsFn,
+	fetchManagedPolicyFn,
 	fetchPoliciesFn,
 	fetchPolicyFn,
+	fetchPolicyMembersFn,
 	fetchUserPoliciesFn,
 	removePolicyStatementFn,
 	updatePolicyFn,
@@ -46,6 +48,26 @@ export function useEffectivePermissions(userId: string | null) {
 		queryKey: queryKeys.policies.effective(userId),
 		queryFn: () => fetchEffectivePermissionsFn({ data: { userId: userId as string } }),
 		enabled: !!userId,
+	})
+}
+
+/** Nome da política gerenciada que define o ambiente de treino (seeded por migration). */
+export const TRAINING_POLICY_NAME = "Conjunto Treino"
+
+/** A política de treino, resolvida pelo nome — o id é gerado por migration e varia por ambiente. */
+export function useTrainingPolicy() {
+	return useQuery({
+		queryKey: queryKeys.policies.managed(TRAINING_POLICY_NAME),
+		queryFn: () => fetchManagedPolicyFn({ data: { name: TRAINING_POLICY_NAME } }),
+	})
+}
+
+/** Quem tem a política anexada — a turma. */
+export function usePolicyMembers(policyId: string | null) {
+	return useQuery({
+		queryKey: queryKeys.policies.members(policyId),
+		queryFn: () => fetchPolicyMembersFn({ data: { policyId: policyId as string } }),
+		enabled: !!policyId,
 	})
 }
 

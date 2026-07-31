@@ -45,6 +45,10 @@ export type ListPolicies = z.infer<typeof ListPoliciesSchema>
 export const FetchPolicySchema = z.object({ policyId: UuidSchema })
 export type FetchPolicy = z.infer<typeof FetchPolicySchema>
 
+/** Busca de política gerenciada pelo nome — o id vem de migration e varia por ambiente. */
+export const FetchManagedPolicySchema = z.object({ name: z.string().min(1) })
+export type FetchManagedPolicy = z.infer<typeof FetchManagedPolicySchema>
+
 export const CreatePolicySchema = z.object({
 	name: z.string().min(3, "Mínimo de 3 caracteres").max(120),
 	description: z.string().max(500).nullable().optional(),

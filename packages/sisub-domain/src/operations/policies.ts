@@ -13,7 +13,13 @@
  * ambiente de treino num passe de escrita para a FAB inteira.
  */
 
-import { policyInAccessControl, policyStatementInAccessControl, type SisubDb, userPolicyAttachmentInAccessControl } from "@iefa/database/drizzle/sisub"
+import {
+	policyInAccessControl,
+	policyStatementInAccessControl,
+	type SisubDb,
+	userDataInCore,
+	userPolicyAttachmentInAccessControl,
+} from "@iefa/database/drizzle/sisub"
 import type { UserPermission } from "@iefa/pbac"
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
@@ -23,6 +29,7 @@ import type {
 	CreatePolicy,
 	DeletePolicy,
 	DetachPolicy,
+	FetchManagedPolicy,
 	FetchPolicy,
 	ListPolicies,
 	ListUserPolicies,
@@ -168,6 +175,73 @@ export async function listUserPolicies(db: SisubDb, ctx: UserContext, input: Lis
 			.where(and(eq(userPolicyAttachmentInAccessControl.userId, input.userId), isNull(policyInAccessControl.deletedAt)))
 			.orderBy(asc(policyInAccessControl.name))
 	) as Promise<PolicyRow[]>
+}
+
+/** Usuário com uma política anexada — a visão REVERSA de `listUserPolicies`. */
+export type PolicyMember = {
+	user_id: string
+	email: string | null
+	nrOrdem: string | null
+	attached_at: string
+}
+
+/**
+ * Quem tem esta política anexada.
+ *
+ * Sem isto, "quem está em treino" só era respondível abrindo usuário por usuário: só existia
+ * a direção usuário → políticas. Uma política de turma precisa da direção contrária para
+ * ser administrável.
+ */
+export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: FetchPolicy): Promise<PolicyMember[]> {
+	requirePermission(ctx, "global", 2)
+
+	return runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				user_id: userPolicyAttachmentInAccessControl.userId,
+				email: userDataInCore.email,
+				nrOrdem: userDataInCore.nrOrdem,
+				attached_at: userPolicyAttachmentInAccessControl.createdAt,
+			})
+			.from(userPolicyAttachmentInAccessControl)
+			// LEFT: o anexo aponta para auth.users; se o perfil em core.user_data não existir,
+			// a pessoa ainda tem a política e precisa aparecer para poder ser removida.
+			.leftJoin(userDataInCore, eq(userDataInCore.id, userPolicyAttachmentInAccessControl.userId))
+			.where(eq(userPolicyAttachmentInAccessControl.policyId, input.policyId))
+			.orderBy(asc(userDataInCore.email))
+	) as Promise<PolicyMember[]>
+}
+
+/**
+ * Política gerenciada pelo nome exato.
+ *
+ * O painel de treino precisa do id do "Conjunto Treino" para listar e gerenciar a turma, e
+ * o id é gerado por migration — diferente em cada ambiente. Resolver pelo nome evita
+ * hard-code de UUID no cliente, do mesmo jeito que a migration resolve os escopos por
+ * `is_training` em vez de literal.
+ */
+export async function fetchManagedPolicyByName(db: SisubDb, ctx: UserContext, input: FetchManagedPolicy): Promise<PolicyDetail> {
+	requirePermission(ctx, "global", 1)
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select(POLICY_COLS)
+			.from(policyInAccessControl)
+			.where(and(eq(policyInAccessControl.name, input.name), eq(policyInAccessControl.managed, true), isNull(policyInAccessControl.deletedAt)))
+			.limit(1)
+	)
+	const policy = rows[0]
+	if (!policy) throw new NotFoundError("managed policy", input.name)
+
+	const statements = await runQuery("FETCH_FAILED", () =>
+		db
+			.select(STATEMENT_COLS)
+			.from(policyStatementInAccessControl)
+			.where(eq(policyStatementInAccessControl.policyId, policy.id))
+			.orderBy(asc(policyStatementInAccessControl.module))
+	)
+
+	return { ...(policy as PolicyRow), statements: statements as PolicyStatementRow[] }
 }
 
 /**
