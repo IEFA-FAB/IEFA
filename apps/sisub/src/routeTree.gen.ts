@@ -92,6 +92,7 @@ import { Route as ProtectedModulesUnitUnitIdEmpenhosRouteImport } from './routes
 import { Route as ProtectedModulesUnitUnitIdLiquidationsRouteImport } from './routes/_protected/_modules/unit/$unitId/liquidations'
 import { Route as ProtectedModulesUnitUnitIdPaymentsRouteImport } from './routes/_protected/_modules/unit/$unitId/payments'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
+import { Route as ProtectedModulesUnitUnitIdReconciliationRouteImport } from './routes/_protected/_modules/unit/$unitId/reconciliation'
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
 import { Route as ProtectedModulesUnitUnitIdSiafiRouteImport } from './routes/_protected/_modules/unit/$unitId/siafi'
 import { Route as ProtectedModulesGlobalRecipesRecipeIdIndexRouteImport } from './routes/_protected/_modules/global/recipes/$recipeId/index'
@@ -604,6 +605,12 @@ const ProtectedModulesUnitUnitIdProcurementRoute =
     path: '/procurement',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdReconciliationRoute =
+  ProtectedModulesUnitUnitIdReconciliationRouteImport.update({
+    id: '/reconciliation',
+    path: '/reconciliation',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdSettingsRoute =
   ProtectedModulesUnitUnitIdSettingsRouteImport.update({
     id: '/settings',
@@ -869,6 +876,7 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
+  '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
@@ -975,6 +983,7 @@ export interface FileRoutesByTo {
   '/unit/$unitId/empenhos': typeof ProtectedModulesUnitUnitIdEmpenhosRoute
   '/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
+  '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/global/frozen-preparations': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
@@ -1091,6 +1100,7 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/liquidations': typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   '/_protected/_modules/unit/$unitId/payments': typeof ProtectedModulesUnitUnitIdPaymentsRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
+  '/_protected/_modules/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/_protected/_modules/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
   '/_protected/_modules/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
@@ -1206,6 +1216,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/liquidations'
     | '/unit/$unitId/payments'
     | '/unit/$unitId/procurement'
+    | '/unit/$unitId/reconciliation'
     | '/unit/$unitId/settings'
     | '/unit/$unitId/siafi'
     | '/global/frozen-preparations/'
@@ -1312,6 +1323,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/empenhos'
     | '/unit/$unitId/liquidations'
     | '/unit/$unitId/payments'
+    | '/unit/$unitId/reconciliation'
     | '/unit/$unitId/settings'
     | '/unit/$unitId/siafi'
     | '/global/frozen-preparations'
@@ -1427,6 +1439,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/liquidations'
     | '/_protected/_modules/unit/$unitId/payments'
     | '/_protected/_modules/unit/$unitId/procurement'
+    | '/_protected/_modules/unit/$unitId/reconciliation'
     | '/_protected/_modules/unit/$unitId/settings'
     | '/_protected/_modules/unit/$unitId/siafi'
     | '/_protected/_modules/global/frozen-preparations/'
@@ -2063,6 +2076,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/reconciliation': {
+      id: '/_protected/_modules/unit/$unitId/reconciliation'
+      path: '/reconciliation'
+      fullPath: '/unit/$unitId/reconciliation'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdReconciliationRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
     '/_protected/_modules/unit/$unitId/settings': {
       id: '/_protected/_modules/unit/$unitId/settings'
       path: '/settings'
@@ -2477,6 +2497,7 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
   ProtectedModulesUnitUnitIdLiquidationsRoute: typeof ProtectedModulesUnitUnitIdLiquidationsRoute
   ProtectedModulesUnitUnitIdPaymentsRoute: typeof ProtectedModulesUnitUnitIdPaymentsRoute
   ProtectedModulesUnitUnitIdProcurementRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
+  ProtectedModulesUnitUnitIdReconciliationRoute: typeof ProtectedModulesUnitUnitIdReconciliationRoute
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
   ProtectedModulesUnitUnitIdSiafiRoute: typeof ProtectedModulesUnitUnitIdSiafiRoute
   ProtectedModulesUnitUnitIdIndexRoute: typeof ProtectedModulesUnitUnitIdIndexRoute
@@ -2497,6 +2518,8 @@ const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRo
       ProtectedModulesUnitUnitIdPaymentsRoute,
     ProtectedModulesUnitUnitIdProcurementRoute:
       ProtectedModulesUnitUnitIdProcurementRouteWithChildren,
+    ProtectedModulesUnitUnitIdReconciliationRoute:
+      ProtectedModulesUnitUnitIdReconciliationRoute,
     ProtectedModulesUnitUnitIdSettingsRoute:
       ProtectedModulesUnitUnitIdSettingsRoute,
     ProtectedModulesUnitUnitIdSiafiRoute: ProtectedModulesUnitUnitIdSiafiRoute,

@@ -25,7 +25,7 @@
 - [x] 3.4 [sisub-domain] Operation `empenho`: aplicar evento, derivar saldos, inscrever em restos a pagar (com testes unit)
 - [x] 3.5 [sisub] Tela `/unit/$unitId/empenhos` (lista com filtros por ND/exercício/status, detalhe com histórico de eventos e saldos)
 - [x] 3.6 [sisub] Fluxo de encerramento de exercício: inscrição em RP processado/não-processado como ação explícita
-- [ ] 3.7 [sisub] Atualizar o painel da ATA: exibir liquidado/pago/a liquidar por empenho + atalho para o documento (delta `arp-empenho-visibility`); anulação passa a gerar evento
+- [x] 3.7 [sisub] Atualizar o painel da ATA: exibir liquidado/pago/a liquidar por empenho + atalho para o documento (delta `arp-empenho-visibility`); anulação passa a gerar evento
 
 ## 4. Fase 4 — Liquidação e pagamento
 
@@ -35,22 +35,22 @@
 - [x] 4.4 [sisub] `liquidation.fn.ts` + `payment.fn.ts` (guards escopados por unidade; liquidação NUNCA criada automaticamente)
 - [x] 4.5 [sisub] Tela `/unit/$unitId/liquidations` (lista, registro com sugestão pré-preenchida a partir do recebimento, divergência sinalizada)
 - [x] 4.6 [sisub] Tela `/unit/$unitId/payments` (contas a pagar por antiguidade, registro de OB, prazo médio por fornecedor)
-- [ ] 4.7 [sisub] Atalho na tela de recebimento definitivo: "registrar liquidação" com valor pré-preenchido
+- [x] 4.7 [sisub] Atalho na tela de recebimento definitivo: "registrar liquidação" com valor pré-preenchido
 
 ## 5. Fase 5 — Conciliação
 
-- [ ] 5.1 [database] View `finance.v_siafi_reconciliation` (por documento: só sisub / só SIAFI / divergente) + tabela de divergências aceitas com justificativa
-- [ ] 5.2 [sisub] Aplicação do lote ao domínio: crédito substitui snapshot; NE/NS/OB upsert por número; enriquecimento sem sobrescrita silenciosa; marca `origem=siafi` + vínculo com o lote
-- [ ] 5.3 [sisub] Tela `/unit/$unitId/siafi` (importar arquivo, revisar resumo antes de aplicar, lista de lotes)
-- [ ] 5.4 [sisub] Painel de divergências com resolução explícita (adotar SIAFI / manter e justificar) e reaparecimento quando a divergência persiste em novo lote
-- [ ] 5.5 [sisub] Conciliação físico × contábil: recebimento definitivo sem liquidação (>30 dias), liquidação sem recebimento, diferença de valor
+- [x] 5.1 [database] View `finance.v_siafi_reconciliation` (por documento: só sisub / só SIAFI / divergente) + tabela de divergências aceitas com justificativa
+- [x] 5.2 [sisub] Aplicação do lote ao domínio: crédito substitui snapshot; NE/NS/OB upsert por número; enriquecimento sem sobrescrita silenciosa; marca `origem=siafi` + vínculo com o lote
+- [x] 5.3 [sisub] Tela `/unit/$unitId/siafi` (importar arquivo, revisar resumo antes de aplicar, lista de lotes)
+- [x] 5.4 [sisub] Painel de divergências com resolução explícita (adotar SIAFI / manter e justificar) e reaparecimento quando a divergência persiste em novo lote
+- [x] 5.5 [sisub] Conciliação físico × contábil: recebimento definitivo sem liquidação (>30 dias), liquidação sem recebimento, diferença de valor
 
 ## 6. Navegação, testes e encerramento
 
-- [ ] 6.1 [sisub] NavItems: adicionar Crédito, Empenhos, Liquidações, Pagamentos e SIAFI ao módulo `unit` (níveis: 1 leitura, 2 lançar, 3 conciliar/encerrar)
-- [ ] 6.2 [sisub] `requireUnitScope` em `src/lib/unit-auth.server.ts` (irmão do `requireStorageForKitchen`) aplicado em todas as fns novas
-- [ ] 6.3 [sisub] Teste de integração transacional (banco real + rollback): crédito → empenho → reforço → liquidação vinculada ao recebimento → pagamento → invariantes e conciliação
-- [ ] 6.4 [sisub] Smoke Playwright das 5 telas novas (read-only, padrão do `storage.spec.ts`)
-- [ ] 6.5 [database] Adicionar as suítes novas ao `test:integration:gate` do CI
-- [ ] 6.6 [root] `bun run check` + `bun run test` + gate de integração verdes
+- [x] 6.1 [sisub] NavItems: adicionar Crédito, Empenhos, Liquidações, Pagamentos e SIAFI ao módulo `unit` (níveis: 1 leitura, 2 lançar, 3 conciliar/encerrar)
+- [x] 6.2 [sisub] `requireUnitScope` em `src/lib/unit-auth.server.ts` (irmão do `requireStorageForKitchen`) aplicado em todas as fns novas
+- [x] 6.3 [sisub] Teste de integração transacional (banco real + rollback): crédito → empenho → reforço → liquidação vinculada ao recebimento → pagamento → invariantes e conciliação
+- [x] 6.4 [sisub] Smoke Playwright das 5 telas novas (read-only, padrão do `storage.spec.ts`)
+- [x] 6.5 [database] Adicionar as suítes novas ao `test:integration:gate` do CI
+- [x] 6.6 [root] `bun run check` + `bun run test` + gate de integração verdes
 - [ ] 6.7 [docs] Página de execução orçamentária em `apps/docs` (fluxo, o que vem do SIAFI, limites do espelho)

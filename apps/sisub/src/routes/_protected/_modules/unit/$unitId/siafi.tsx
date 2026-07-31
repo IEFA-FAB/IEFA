@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { applyCreditBatchFn } from "@/server/budget.fn"
+import { applyDocumentBatchFn } from "@/server/reconciliation.fn"
 import { type ImportBatchRow, listImportBatchesFn, REPORT_TYPE_LABEL, uploadSiafiReportFn } from "@/server/siafi-import.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/siafi")({
@@ -67,12 +68,15 @@ function SiafiPage() {
 	async function applyBatch(batch: ImportBatchRow) {
 		setBusy(true)
 		try {
-			if (batch.report_type !== "credito") {
-				toast.error("Aplicação de NE/NS/OB ao domínio chega na fase de conciliação — por ora o lote fica estacionado para conferência")
-				return
+			if (batch.report_type === "credito") {
+				const result = await applyCreditBatchFn({ data: { batchId: batch.id } })
+				toast.success(`${result.applied} classificação(ões) de crédito atualizadas`)
+			} else {
+				const result = await applyDocumentBatchFn({ data: { batchId: batch.id } })
+				toast.success(
+					`${result.created} documento(s) criado(s), ${result.enriched} enriquecido(s)${result.divergent > 0 ? ` — ${result.divergent} divergência(s) na conciliação` : ""}`
+				)
 			}
-			const result = await applyCreditBatchFn({ data: { batchId: batch.id } })
-			toast.success(`${result.applied} classificação(ões) de crédito atualizadas`)
 			router.invalidate()
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Falha ao aplicar lote")

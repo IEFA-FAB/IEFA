@@ -444,6 +444,52 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 		return Object.fromEntries(aggregateLocalCommitments(empenhos ?? []))
 	})
 
+/**
+ * Execução orçamentária por item de ARP: vigente/liquidado/pago/a liquidar dos
+ * empenhos locais, lidos da view única finance.v_empenho_saldo (a mesma que a
+ * tela de Empenhos usa). Grandeza LOCAL — não se confunde com o snapshot
+ * oficial da ARP.
+ */
+export const fetchArpExecutionFn = createServerFn({ method: "GET" })
+	.validator(z.object({ arpId: z.string().uuid() }))
+	.handler(async ({ data }): Promise<Record<string, { liquidado: number; pago: number; aLiquidar: number }>> => {
+		await requireUserId()
+		const supabase = getProcurementClient()
+
+		const { data: items } = await supabase.from("procurement_arp_item").select("id").eq("arp_id", data.arpId)
+		const itemIds = (items ?? []).map((item) => item.id)
+		if (itemIds.length === 0) return {}
+
+		const { data: empenhos } = await supabase.schema("finance").from("empenho").select("id, arp_item_id").in("arp_item_id", itemIds).eq("status", "ativo")
+		const empenhoRows = empenhos ?? []
+		if (empenhoRows.length === 0) return {}
+
+		// biome-ignore lint/suspicious/noExplicitAny: view nova fora dos tipos gerados
+		const financeClient = supabase.schema("finance") as any
+		const { data: saldos } = await financeClient
+			.from("v_empenho_saldo")
+			.select("empenho_id, valor_liquidado, valor_pago, saldo_a_liquidar")
+			.in(
+				"empenho_id",
+				empenhoRows.map((e) => e.id)
+			)
+		const saldoByEmpenho = new Map<string, { valor_liquidado: number; valor_pago: number; saldo_a_liquidar: number }>()
+		for (const saldo of saldos ?? []) saldoByEmpenho.set(saldo.empenho_id, saldo)
+
+		const byItem: Record<string, { liquidado: number; pago: number; aLiquidar: number }> = {}
+		for (const empenho of empenhoRows) {
+			if (!empenho.arp_item_id) continue
+			const saldo = saldoByEmpenho.get(empenho.id)
+			if (!saldo) continue
+			const acc = byItem[empenho.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
+			acc.liquidado += Number(saldo.valor_liquidado ?? 0)
+			acc.pago += Number(saldo.valor_pago ?? 0)
+			acc.aLiquidar += Number(saldo.saldo_a_liquidar ?? 0)
+			byItem[empenho.arp_item_id] = acc
+		}
+		return byItem
+	})
+
 // ─── 7. Anular empenho ────────────────────────────────────────────────────────
 
 /**
