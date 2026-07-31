@@ -31,6 +31,7 @@ COPY packages/ai-provider/package.json ./packages/ai-provider/
 COPY packages/compras-api/package.json ./packages/compras-api/
 COPY packages/pbac/package.json ./packages/pbac/
 COPY packages/sisub-domain/package.json ./packages/sisub-domain/
+COPY packages/agent-web/package.json ./packages/agent-web/
 RUN bun install --frozen-lockfile
 
 # =============================================================================
@@ -38,6 +39,7 @@ RUN bun install --frozen-lockfile
 # =============================================================================
 FROM deps AS api-build
 COPY apps/api ./apps/api
+COPY packages/agent-web ./packages/agent-web
 # o bundle da api importa @iefa/sisub-domain/gtin (utils puros de GTIN) —
 # sem o source do package o bun build não resolve o subpath do workspace
 COPY packages/sisub-domain ./packages/sisub-domain
@@ -94,6 +96,7 @@ ARG VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
 COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY apps/rumaer ./apps/rumaer
+COPY packages/agent-web ./packages/agent-web
 RUN rm -rf apps/rumaer/.vite apps/rumaer/.tanstack apps/rumaer/node_modules/.vite
 RUN bun --filter='@iefa/rumaer' run build
 RUN test -f apps/rumaer/.output/server/index.mjs || \
@@ -127,6 +130,7 @@ COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/ai-provider ./packages/ai-provider
 COPY apps/sucont ./apps/sucont
+COPY packages/agent-web ./packages/agent-web
 RUN rm -rf apps/sucont/.vite apps/sucont/.tanstack apps/sucont/node_modules/.vite
 RUN bun --filter='sucont' run build
 RUN test -f apps/sucont/.output/server/index.mjs || \
@@ -158,6 +162,7 @@ ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_URL
 ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
 COPY packages/database ./packages/database
 COPY apps/assignment-selection ./apps/assignment-selection
+COPY packages/agent-web ./packages/agent-web
 RUN rm -rf apps/assignment-selection/.vite apps/assignment-selection/.tanstack apps/assignment-selection/node_modules/.vite
 RUN bun --filter='@iefa/assignment-selection' run build
 RUN test -f apps/assignment-selection/.output/server/index.mjs || \
@@ -204,6 +209,7 @@ COPY packages/ai-provider ./packages/ai-provider
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY apps/sisub ./apps/sisub
+COPY packages/agent-web ./packages/agent-web
 
 # Clear any local cache
 RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
@@ -242,6 +248,7 @@ ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 ARG VITE_APP_TENANT=forms
 COPY packages/database ./packages/database
 COPY apps/forms ./apps/forms
+COPY packages/agent-web ./packages/agent-web
 RUN rm -rf apps/forms/.vite apps/forms/.tanstack apps/forms/node_modules/.vite
 RUN bun --filter='@iefa/forms' run build
 RUN test -f apps/forms/.output/server/index.mjs || \
@@ -272,6 +279,7 @@ FROM deps AS alpha-build
 COPY packages/alpha-client ./packages/alpha-client
 COPY packages/ai-provider ./packages/ai-provider
 COPY apps/alpha ./apps/alpha
+COPY packages/agent-web ./packages/agent-web
 RUN test -f apps/alpha/src/index.ts || \
     (echo "❌ Alpha entrypoint missing" && exit 1)
 
@@ -289,6 +297,7 @@ CMD ["bun", "apps/alpha/src/index.ts"]
 # =============================================================================
 FROM deps AS docs-build
 COPY apps/docs ./apps/docs
+COPY packages/agent-web ./packages/agent-web
 RUN bun --filter='@iefa/docs' run build
 RUN test -f apps/docs/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
