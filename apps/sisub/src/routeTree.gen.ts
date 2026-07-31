@@ -13,6 +13,9 @@ import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as HealthRouteImport } from './routes/health'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known.api-catalog'
 import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_modules/route'
 import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
@@ -22,7 +25,9 @@ import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-d
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
+import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_protected/_modules/analytics/route'
+import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
 import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
@@ -132,6 +137,21 @@ const HealthRoute = HealthRouteImport.update({
   path: '/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownApiCatalogRoute = DotwellKnownApiCatalogRouteImport.update({
+  id: '/.well-known/api-catalog',
+  path: '/.well-known/api-catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProtectedModulesRouteRoute = ProtectedModulesRouteRouteImport.update({
   id: '/_modules',
   getParentRoute: () => ProtectedRouteRoute,
@@ -177,11 +197,23 @@ const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const DotwellKnownAgentSkillsIndexDotjsonRoute =
+  DotwellKnownAgentSkillsIndexDotjsonRouteImport.update({
+    id: '/.well-known/agent-skills/index.json',
+    path: '/.well-known/agent-skills/index.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ProtectedModulesAnalyticsRouteRoute =
   ProtectedModulesAnalyticsRouteRouteImport.update({
     id: '/analytics',
     path: '/analytics',
     getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
+  DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport.update({
+    id: '/.well-known/agent-skills/$skill/SKILL.md',
+    path: '/.well-known/agent-skills/$skill/SKILL.md',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ProtectedModulesAnalyticsIndexRoute =
   ProtectedModulesAnalyticsIndexRouteImport.update({
@@ -733,6 +765,9 @@ export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
@@ -741,11 +776,13 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
   '/analytics': typeof ProtectedModulesAnalyticsRouteRouteWithChildren
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   '/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
   '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -835,6 +872,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
@@ -842,7 +882,9 @@ export interface FileRoutesByTo {
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -933,7 +975,10 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_protected/_modules': typeof ProtectedModulesRouteRouteWithChildren
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/_protected/hub': typeof ProtectedHubRoute
   '/_public/changelog': typeof PublicChangelogRoute
   '/_public/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
@@ -943,11 +988,13 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/_protected/_modules/analytics': typeof ProtectedModulesAnalyticsRouteRouteWithChildren
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/_protected/_modules/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   '/_protected/_modules/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
   '/_protected/_modules/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/_protected/_modules/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -1040,6 +1087,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
+    | '/.well-known/api-catalog'
     | '/hub'
     | '/changelog'
     | '/politica-de-privacidade'
@@ -1048,11 +1098,13 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/'
     | '/analytics'
+    | '/.well-known/agent-skills/index.json'
     | '/kitchen-production/$kitchenId'
     | '/kitchen/$kitchenId'
     | '/local-analytics/$unitId'
     | '/messhall/$messHallId'
     | '/unit/$unitId'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
@@ -1142,6 +1194,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
+    | '/.well-known/api-catalog'
     | '/hub'
     | '/changelog'
     | '/politica-de-privacidade'
@@ -1149,7 +1204,9 @@ export interface FileRouteTypes {
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth'
+    | '/.well-known/agent-skills/index.json'
     | '/local-analytics/$unitId'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
@@ -1239,7 +1296,10 @@ export interface FileRouteTypes {
     | '/_public'
     | '/auth'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/_protected/_modules'
+    | '/.well-known/api-catalog'
     | '/_protected/hub'
     | '/_public/changelog'
     | '/_public/politica-de-privacidade'
@@ -1249,11 +1309,13 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/auth/'
     | '/_protected/_modules/analytics'
+    | '/.well-known/agent-skills/index.json'
     | '/_protected/_modules/kitchen-production/$kitchenId'
     | '/_protected/_modules/kitchen/$kitchenId'
     | '/_protected/_modules/local-analytics/$unitId'
     | '/_protected/_modules/messhall/$messHallId'
     | '/_protected/_modules/unit/$unitId'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/_protected/_modules/analytics/chat'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/diner/forecast'
@@ -1346,6 +1408,11 @@ export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  DotwellKnownApiCatalogRoute: typeof DotwellKnownApiCatalogRoute
+  DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1376,6 +1443,27 @@ declare module '@tanstack/react-router' {
       path: '/health'
       fullPath: '/health'
       preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/api-catalog': {
+      id: '/.well-known/api-catalog'
+      path: '/.well-known/api-catalog'
+      fullPath: '/.well-known/api-catalog'
+      preLoaderRoute: typeof DotwellKnownApiCatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected/_modules': {
@@ -1441,12 +1529,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthResetPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/.well-known/agent-skills/index.json': {
+      id: '/.well-known/agent-skills/index.json'
+      path: '/.well-known/agent-skills/index.json'
+      fullPath: '/.well-known/agent-skills/index.json'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_protected/_modules/analytics': {
       id: '/_protected/_modules/analytics'
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof ProtectedModulesAnalyticsRouteRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/.well-known/agent-skills/$skill/SKILL.md': {
+      id: '/.well-known/agent-skills/$skill/SKILL.md'
+      path: '/.well-known/agent-skills/$skill/SKILL.md'
+      fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_protected/_modules/analytics/': {
       id: '/_protected/_modules/analytics/'
@@ -2492,6 +2594,13 @@ const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HealthRoute: HealthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  DotwellKnownApiCatalogRoute: DotwellKnownApiCatalogRoute,
+  DotwellKnownAgentSkillsIndexDotjsonRoute:
+    DotwellKnownAgentSkillsIndexDotjsonRoute,
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute:
+    DotwellKnownAgentSkillsSkillSKILLDotmdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

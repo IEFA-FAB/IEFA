@@ -1,3 +1,4 @@
+import { registerAgentDiscovery } from "./api/agent-discovery.ts"
 import apiRoutes from "./api/routes.ts"
 import { env } from "./env.ts"
 
@@ -26,6 +27,10 @@ const app = apiRoutes.get("/health", (c) => {
 		rss_mb: Math.round(rss / 1024 / 1024),
 	})
 })
+
+// robots.txt, llms.txt e os documentos em /.well-known — registrados fora da
+// cadeia tipada acima para não interferir nos tipos do RPC do Hono.
+registerAgentDiscovery(app)
 
 const port = env.PORT
 
