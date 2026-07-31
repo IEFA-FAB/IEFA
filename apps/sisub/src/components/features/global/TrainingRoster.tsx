@@ -27,7 +27,10 @@ export function TrainingRoster() {
 
 	const canWrite = useGlobalWrite()
 	const { data: policy, isLoading: policyLoading, error: policyError } = useTrainingPolicy()
-	const { data: members = [], isLoading: membersLoading } = usePolicyMembers(policy?.id ?? null)
+	// A listagem exige `global:2` — o painel em si é visível em `global:1` (inclusive para o
+	// próprio treinando, que ganha esse nível pela política). Sem o gate a query dispararia e
+	// falharia, e a tabela mostraria "ninguém em treino" no lugar do erro.
+	const { data: members = [], isLoading: membersLoading, error: membersError } = usePolicyMembers(policy?.id ?? null, { enabled: canWrite })
 	const attach = useAttachPolicy()
 	const detach = useDetachPolicy()
 
@@ -72,7 +75,21 @@ export function TrainingRoster() {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{policyLoading || membersLoading ? (
+						{!canWrite ? (
+							<TableRow>
+								<TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">
+									A turma do treino é visível para quem administra o acesso da SDAB (nível de escrita).
+								</TableCell>
+							</TableRow>
+						) : membersError ? (
+							// Erro precisa aparecer como erro: cair no estado vazio afirmaria que não há
+							// ninguém em treino quando na verdade a lista não pôde ser lida.
+							<TableRow>
+								<TableCell colSpan={4} className="h-20 text-center text-sm text-destructive">
+									Não foi possível carregar a turma: {(membersError as Error).message}
+								</TableCell>
+							</TableRow>
+						) : policyLoading || membersLoading ? (
 							<TableRow>
 								<TableCell colSpan={4}>
 									<Skeleton className="h-5 w-full" />

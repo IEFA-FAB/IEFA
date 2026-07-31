@@ -62,12 +62,18 @@ export function useTrainingPolicy() {
 	})
 }
 
-/** Quem tem a política anexada — a turma. */
-export function usePolicyMembers(policyId: string | null) {
+/**
+ * Quem tem a política anexada — a turma.
+ *
+ * `enabled` porque a operação exige `global:2`, como todas as de política: membership é
+ * dado de acesso. Telas visíveis em `global:1` precisam pular a busca em vez de disparar
+ * uma query que vai falhar.
+ */
+export function usePolicyMembers(policyId: string | null, options?: { enabled?: boolean }) {
 	return useQuery({
 		queryKey: queryKeys.policies.members(policyId),
 		queryFn: () => fetchPolicyMembersFn({ data: { policyId: policyId as string } }),
-		enabled: !!policyId,
+		enabled: !!policyId && (options?.enabled ?? true),
 	})
 }
 
