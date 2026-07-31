@@ -293,19 +293,23 @@ describe("server function security contracts", () => {
 		}
 	})
 
-	test("catalog review actions require write level", () => {
-		// Revisão é ato de conferência sobre o catálogo — segue aceitando a cozinha (que revisa
-		// as próprias preparações locais), mas exige nível de escrita.
-		for (const { file, op } of [
-			{ file: "packages/sisub-domain/src/operations/ingredient-reviews.ts", op: "recordIngredientReview" },
-			{ file: "packages/sisub-domain/src/operations/recipe-reviews.ts", op: "recordRecipeReview" },
-		]) {
-			const source = readPackageFile(file)
-			const start = source.indexOf(`export async function ${op}(`)
-			const nextFn = source.indexOf("\nexport async function ", start + 1)
-			const opSource = source.slice(start, nextFn === -1 ? undefined : nextFn)
-			expect(opSource, `${op} accepts read-level permission`).toContain('requireAnyPermission(ctx, ["kitchen", "global"], 2)')
-		}
+	test("catalog review actions authorize by ownership, not by unscoped write level", () => {
+		// Revisar é escrever sobre o ativo revisado. Um `requireAnyPermission` sem escopo
+		// deixava quem tem kitchen:2 numa cozinha revisar preparação global e de qualquer
+		// outra cozinha.
+		const recipeReviews = readPackageFile("packages/sisub-domain/src/operations/recipe-reviews.ts")
+		const recipeStart = recipeReviews.indexOf("export async function recordRecipeReview(")
+		const recipeNext = recipeReviews.indexOf("\nexport async function ", recipeStart + 1)
+		const recipeOp = recipeReviews.slice(recipeStart, recipeNext === -1 ? undefined : recipeNext)
+		expect(recipeOp, "recordRecipeReview does not resolve the recipe owner").toContain('authorizeAssetMutation(db, ctx, "recipe", input.recipeId)')
+		expect(recipeOp).not.toContain('requireAnyPermission(ctx, ["kitchen", "global"], 2)')
+
+		// Insumo não tem forma local, então não há dono a resolver: é sempre da SDAB.
+		const ingredientReviews = readPackageFile("packages/sisub-domain/src/operations/ingredient-reviews.ts")
+		const ingStart = ingredientReviews.indexOf("export async function recordIngredientReview(")
+		const ingNext = ingredientReviews.indexOf("\nexport async function ", ingStart + 1)
+		const ingOp = ingredientReviews.slice(ingStart, ingNext === -1 ? undefined : ingNext)
+		expect(ingOp, "recordIngredientReview does not require global:2").toContain('requirePermission(ctx, "global", 2)')
 	})
 
 	test("policy rule mutations require global level 2", () => {

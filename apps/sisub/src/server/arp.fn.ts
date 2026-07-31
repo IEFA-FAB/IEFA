@@ -10,6 +10,7 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getProcurementClient } from "@/lib/supabase.server"
 import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
@@ -87,7 +88,9 @@ export const searchArpFn = createServerFn({ method: "GET" })
  *
  * @remarks
  * SIDE EFFECTS: upserts procurement_arp (conflict: unit_id + numero_ata + uasg_gerenciadora),
- *   DELETES all existing procurement_arp_item for the ARP before reinserting — destructive full sync.
+ *   reconciles procurement_arp_item by numero_item (update matched, insert new, delete stale
+ *   ONLY when no finance.empenho references them — empenho.arp_item_id is ON DELETE CASCADE,
+ *   so a blind delete+reinsert would silently wipe local empenhos).
  * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get ata_item_id = null.
  *
  * @throws {Error} on HTTP failure (after 3 retries) or any Supabase write error.
@@ -167,11 +170,21 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		if (arpError || !arp) throw new Error(`Erro ao salvar ARP: ${arpError?.message}`)
 
-		// ── 4. Deletar itens antigos e reinserir ─────────────────────────────────
+		// ── 4. Reconciliar itens SEM apagar empenhos locais ──────────────────────
+		// Antes: delete + reinsert. Como finance.empenho referencia arp_item_id
+		// com ON DELETE CASCADE, reimportar a ARP apagava silenciosamente todos
+		// os empenhos registrados. Agora: match por numero_item → update;
+		// novos → insert; ausentes na API → delete só se não tiverem empenho.
 
-		await supabase.from("procurement_arp_item").delete().eq("arp_id", arp.id)
+		const now = new Date().toISOString()
+		const { data: existingItems } = await supabase.from("procurement_arp_item").select("id, numero_item").eq("arp_id", arp.id)
 
-		const itemRows = apiItems.map((item) => ({
+		const byNumeroItem = new Map<number, string>()
+		for (const item of existingItems ?? []) {
+			if (item.numero_item != null) byNumeroItem.set(item.numero_item, item.id)
+		}
+
+		const toRow = (item: ComprasArpItemPage["resultado"][number]) => ({
 			arp_id: arp.id,
 			ata_item_id: item.codigoMaterial != null ? (catmatToAtaItemId.get(item.codigoMaterial) ?? null) : null,
 			numero_item: item.numeroItem ?? null,
@@ -184,14 +197,45 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			medida_catmat: item.unidadeFornecimento ?? null,
 			quantidade_empenhada: item.qtdeEmpenhada ?? 0,
 			saldo_empenho: item.saldoEmpenho ?? null,
-			synced_at: new Date().toISOString(),
-		}))
+			synced_at: now,
+		})
 
-		const { data: insertedItems, error: itemsError } = await supabase.from("procurement_arp_item").insert(itemRows).select()
+		const matchedIds = new Set<string>()
+		for (const item of apiItems) {
+			const existingId = item.numeroItem != null ? byNumeroItem.get(item.numeroItem) : undefined
+			if (existingId) {
+				matchedIds.add(existingId)
+				const { error } = await supabase.from("procurement_arp_item").update(toRow(item)).eq("id", existingId)
+				if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${error.message}`)
+			}
+		}
 
-		if (itemsError) throw new Error(`Erro ao salvar itens da ARP: ${itemsError.message}`)
+		const newRows = apiItems.filter((item) => item.numeroItem == null || !byNumeroItem.has(item.numeroItem)).map(toRow)
+		if (newRows.length > 0) {
+			const { error } = await supabase.from("procurement_arp_item").insert(newRows)
+			if (error) throw new Error(`Erro ao salvar itens da ARP: ${error.message}`)
+		}
 
-		return { ...arp, items: insertedItems ?? [] }
+		// Itens locais que a API não retornou: remover apenas os sem empenho local.
+		const staleIds = (existingItems ?? []).map((item) => item.id).filter((id) => !matchedIds.has(id))
+		if (staleIds.length > 0) {
+			const { data: referencedRows } = await supabase.schema("finance").from("empenho").select("arp_item_id").in("arp_item_id", staleIds)
+			const referenced = new Set((referencedRows ?? []).map((row) => row.arp_item_id))
+			const deletableIds = staleIds.filter((id) => !referenced.has(id))
+			if (deletableIds.length > 0) {
+				await supabase.from("procurement_arp_item").delete().in("id", deletableIds)
+			}
+		}
+
+		const { data: finalItems, error: finalError } = await supabase
+			.from("procurement_arp_item")
+			.select("*")
+			.eq("arp_id", arp.id)
+			.order("numero_item", { ascending: true })
+
+		if (finalError) throw new Error(`Erro ao carregar itens da ARP: ${finalError.message}`)
+
+		return { ...arp, items: finalItems ?? [] }
 	})
 
 // ─── 3. Sincronizar saldo de empenhos via Compras.gov.br ─────────────────────
@@ -200,11 +244,14 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
  * Refreshes qtdeEmpenhada and saldoEmpenho for all items of an ARP by re-querying Compras.gov.br.
  *
  * @remarks
- * SIDE EFFECTS: updates procurement_arp_item.{quantidade_empenhada, saldo_empenho, synced_at} for each matched item,
- *   updates procurement_arp.last_synced_at.
- * Matches by numero_item (not catmat). Fires one UPDATE per item in parallel (Promise.all) — no transaction.
+ * SIDE EFFECTS: updates procurement_arp_item.{quantidade_empenhada, saldo_empenho, synced_at} for all matched
+ *   items in a SINGLE upsert (one PostgREST request = one transaction — no mixed snapshot),
+ *   then procurement_arp.last_synced_at.
+ * Matches by numero_item (not catmat). Empty API response is treated as failure:
+ * the previous snapshot (and last_synced_at) is preserved so the UI never shows
+ * "sincronizado agora" over stale numbers.
  *
- * @throws {Error} if ARP not found locally, on HTTP failure (3 retries), or on any individual item update failure.
+ * @throws {Error} if ARP not found locally, on HTTP failure (3 retries), on empty API response, or on any item update failure.
  */
 export const syncArpBalanceFn = createServerFn({ method: "POST" })
 	.validator(z.object({ arpId: z.string().uuid() }))
@@ -229,6 +276,12 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		const page = (await res.json()) as ComprasArpItemPage
 		const apiItems = page.resultado ?? []
 
+		// Resposta vazia = falha (ata pode ter sido despublicada, API instável…):
+		// preserva snapshot e last_synced_at em vez de fingir sync bem-sucedido.
+		if (apiItems.length === 0) {
+			throw new Error("A API do Compras.gov não retornou itens para esta ARP — snapshot anterior mantido")
+		}
+
 		// Buscar itens locais para mapear por numero_item
 		const { data: dbItems } = await supabase.from("procurement_arp_item").select("id, numero_item").eq("arp_id", data.arpId)
 
@@ -237,26 +290,30 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 			if (dbItem.numero_item != null) numeroItemToDbId.set(dbItem.numero_item, dbItem.id)
 		}
 
-		// Atualizar cada item com os saldos frescos
+		// Atualizar TODOS os itens em um único upsert (uma request PostgREST =
+		// uma transação): ou o snapshot inteiro entra, ou nada entra. Os ids vêm
+		// do banco, então o caminho de INSERT do upsert nunca é atingido.
 		const now = new Date().toISOString()
-		await Promise.all(
-			apiItems
-				.filter((item) => item.numeroItem != null && numeroItemToDbId.has(item.numeroItem))
-				.map((item) =>
-					supabase
-						.from("procurement_arp_item")
-						.update({
-							quantidade_empenhada: item.qtdeEmpenhada ?? 0,
-							saldo_empenho: item.saldoEmpenho ?? null,
-							synced_at: now,
-						})
-						// biome-ignore lint/style/noNonNullAssertion: filtrado acima
-						.eq("id", numeroItemToDbId.get(item.numeroItem!)!)
-				)
-		)
+		const updates = apiItems
+			.filter((item) => item.numeroItem != null && numeroItemToDbId.has(item.numeroItem))
+			.map((item) => ({
+				// biome-ignore lint/style/noNonNullAssertion: filtrado acima
+				id: numeroItemToDbId.get(item.numeroItem!)!,
+				arp_id: data.arpId,
+				quantidade_empenhada: item.qtdeEmpenhada ?? 0,
+				saldo_empenho: item.saldoEmpenho ?? null,
+				synced_at: now,
+			}))
+		if (updates.length > 0) {
+			const { error: upsertError } = await supabase.from("procurement_arp_item").upsert(updates, { onConflict: "id" })
+			if (upsertError) {
+				throw new Error(`Sincronização falhou (${upsertError.message}) — snapshot anterior mantido, last_synced_at não atualizado`)
+			}
+		}
 
-		// Atualizar timestamp da ARP
-		await supabase.from("procurement_arp").update({ last_synced_at: now }).eq("id", data.arpId)
+		// Atualizar timestamp da ARP (só chega aqui com todos os itens ok)
+		const { error: tsError } = await supabase.from("procurement_arp").update({ last_synced_at: now }).eq("id", data.arpId)
+		if (tsError) throw new Error(`Erro ao registrar data de sincronização: ${tsError.message}`)
 	})
 
 // ─── 4. Buscar ARP vinculada a uma ATA ───────────────────────────────────────
@@ -324,7 +381,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<Empenho> => {
-		await requireAuth()
+		const { userId } = await requireAuth()
 		const supabase = getProcurementClient()
 		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
 
@@ -341,6 +398,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 				valor_total: valorTotal,
 				nota_lancamento: data.notaLancamento?.trim() || null,
 				status: "ativo",
+				created_by: userId,
 			})
 			.select()
 			.single()
@@ -354,6 +412,36 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		if (!empenho) throw new Error("Empenho não retornado após inserção")
 
 		return empenho
+	})
+
+// ─── 6b. Comprometimento local por item da ARP ───────────────────────────────
+
+/**
+ * Aggregates ACTIVE finance.empenho per ARP item — the "comprometimento local",
+ * computed in real time. This is a different quantity from the official snapshot
+ * (procurement_arp_item.quantidade_empenhada/saldo_empenho), which includes
+ * consumption by other UASGs (caronas) and only changes on sync. The UI must
+ * show both, never sum them.
+ */
+export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ arpId: z.string().uuid() }))
+	.handler(async ({ data }): Promise<Record<string, LocalCommitment>> => {
+		await requireUserId()
+		const supabase = getProcurementClient()
+
+		const { data: items, error: itemsError } = await supabase.from("procurement_arp_item").select("id").eq("arp_id", data.arpId)
+		if (itemsError) throw new Error(`Erro ao buscar itens da ARP: ${itemsError.message}`)
+		const itemIds = (items ?? []).map((item) => item.id)
+		if (itemIds.length === 0) return {}
+
+		const { data: empenhos, error } = await supabase
+			.schema("finance")
+			.from("empenho")
+			.select("arp_item_id, status, quantidade_empenhada, valor_total")
+			.in("arp_item_id", itemIds)
+		if (error) throw new Error(`Erro ao buscar empenhos: ${error.message}`)
+
+		return Object.fromEntries(aggregateLocalCommitments(empenhos ?? []))
 	})
 
 // ─── 7. Anular empenho ────────────────────────────────────────────────────────
