@@ -28,15 +28,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"core.kitchen": "sentinela do ambiente de treino — preservada por definição",
 	"core.mess_halls": "sentinela do ambiente de treino — preservada por definição",
 	"core.units": "sentinela do ambiente de treino — preservada por definição",
-	// ── Execução financeira e SIAFI ──
-	// Escopadas por unidade, mas são documento de execução orçamentária REAL. O Conjunto
-	// Treino não concede módulo financeiro, então a unidade de treino não gera nenhum deles
-	// e não há resíduo a limpar.
-	"finance.empenho": "escopado por unidade, mas é dado financeiro real; a unidade de treino não empenha",
-	"finance.budget_credit": "crédito orçamentário real — a unidade de treino não recebe crédito",
-	"finance.liquidacao": "liquidação de despesa real, documento contábil",
-	"finance.pagamento": "pagamento real, documento contábil",
-	"siafi_integration.import_batch": "lote de importação do SIAFI — dado de origem externa, não sintético",
+	// NOTA: as tabelas de execução orçamentária (crédito, empenho, liquidação,
+	// pagamento, conciliação, lote SIAFI) já foram excluídas aqui sob a premissa
+	// de que "o treino não concede módulo financeiro". A premissa era falsa — o
+	// Conjunto Treino concede `unit` nível 2 na unidade sentinela, que é o nível
+	// exigido por essas telas. Hoje elas entram no reset (ver RESET_STEPS).
 	"procurement.procurement_arp": "ARP é registro de preços real, escopado por unidade compradora",
 	"procurement.procurement_list": "ATA da unidade; a unidade de treino não publica ATA",
 	"procurement.procurement_list_snapshot_selection": "snapshot imutável de ATA publicada",
