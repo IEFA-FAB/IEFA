@@ -48,10 +48,14 @@ Valem para **qualquer** app do monorepo (sisub, portal, rumaer, sucont, alpha, d
 
 Regras de contribuição para **todos** os devs e agentes de IA no repo.
 
-- **Todo trabalho vai por Pull Request** — nunca commitar/mergear direto na `main`. O repo é open-source e elegível ao **Greptile**, que faz code review automatizado nos PRs. Sem PR, não há revisão.
+- **Todo trabalho vai por Pull Request** — nunca commitar/mergear direto na `main`.
   - Criar feature branch → push → `gh pr create --base main`.
-  - NÃO auto-mergear: deixar o PR aberto pro Greptile + revisão humana. Mergear só quando solicitado.
+  - NÃO auto-mergear: deixar o PR aberto para revisão. Mergear só quando solicitado.
   - Push na branch/main dispara deploys per-app via paths-filter.
+- **Revisão semântica é sob demanda, com `/code-review`** — rodar ANTES de pedir merge, e relatar os achados no PR. O Greptile não é mais o revisor: a cota open-source caiu para 100 créditos e foi esgotada; ele parou de comentar a partir de 2026-07-31 (PRs #149, #152, #153, #154 passaram sem revisão nenhuma). Ausência de comentário do bot não significa código limpo — confirme com `gh api repos/IEFA-FAB/IEFA/pulls/<n>/reviews` antes de tratar como revisado.
+  - O que o CI cobre sozinho: biome, typecheck, `opengrep` com as regras do repo (gate bloqueante em ERROR), codeql, trivy, zizmor, gitleaks, `bun audit`, os testes de contrato e o gate de integração contra o banco real.
+  - O que só a revisão sob demanda pega: race entre checagem e mutação, estado vazio que mente sobre falha, ordem de FK, snapshot inconsistente. Nenhum linter enxerga isso.
+  - Padrão que causou bug vira **regra** em `.opengrep/rules/`, não só correção pontual — foi assim que o fallback de `kitchen:2` em ativo global e a operação de domínio que descarta `_ctx` viraram gate.
 - **Mensagens de commit sempre em inglês** — subject E body — mesmo com código, comentários ou diff em português. Conventional Commits: `feat(sisub): add Faro observability`, não `adicionar`.
 - **Rodar `bun run check` + testes antes de mergear** qualquer PR, e confirmar verde. Typecheck por-arquivo não pega tudo.
   - Testes: `bun run test` (turbo, todos os apps) ou `cd apps/sisub && bunx vitest run`. **Não** rodar `bunx vitest run` da raiz — o alias `@/` não resolve e gera ~32 falsos positivos.

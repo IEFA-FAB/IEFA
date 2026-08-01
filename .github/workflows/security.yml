@@ -61,11 +61,23 @@ jobs:
       # `// nosemgrep: <regra>` com o motivo na linha anterior — a exceção fica no
       # código, ao lado de quem a lê, e não numa lista distante.
       # Falso positivo novo se resolve ajustando a regra, não afrouxando o gate.
-      - name: Scan
+      # Duas passadas de propósito. O SARIF leva TUDO para a aba Security — inclusive as
+      # regras WARNING, que sinalizam risco sem impedir merge. O gate bloqueante roda só
+      # sobre ERROR: são os invariantes de autorização, onde um achado é bug, não opinião.
+      # Assim uma regra advisory nova não precisa de triagem retroativa do repo inteiro
+      # para poder existir.
+      - name: Scan (SARIF completo, todas as severidades)
         run: |
           opengrep scan \
             --config .opengrep/rules \
             --sarif --sarif-output=opengrep.sarif \
+            apps packages
+
+      - name: Gate (ERROR — invariantes de autorização)
+        run: |
+          opengrep scan \
+            --config .opengrep/rules \
+            --severity ERROR \
             --error \
             apps packages
 

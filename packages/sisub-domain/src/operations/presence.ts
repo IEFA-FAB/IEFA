@@ -1,9 +1,9 @@
 /**
  * Fiscal presence operations: read presences + forecasts, insert/delete presence. Drizzle query layer.
  *
- * Auth posture preserved from the original server functions, with no
- * module-level PBAC guard: the reads (listPresences, listForecastMap) are
- * unauthenticated like the originals; the mutations require authentication.
+ * Auth: as leituras (listPresences, listForecastMap) seguem sem guard, como antes. Nas escritas,
+ * marcar a PRÓPRIA presença basta estar autenticado; mexer na de outro exige `messhall:2` no
+ * refeitório — em `deletePresence` o refeitório vem da linha, que é o único dado confiável.
  *
  * insertPresence intentionally throws a code-bearing Error (not a DomainError)
  * so callers can detect PG unique violations (code "23505"); its server fn must
@@ -12,8 +12,10 @@
 
 import { mealForecastsInKitchen, mealPresencesInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq, inArray } from "drizzle-orm"
+import { requireMessHall } from "../guards/require-permission.ts"
 import type { InsertPresence, ListForecastMap, ListPresences } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
+import { NotFoundError } from "../types/errors.ts"
 import { runQuery, unwrapPgError } from "../utils/index.ts"
 
 export async function listPresences(db: SisubDb, input: ListPresences) {
@@ -82,7 +84,12 @@ export async function listForecastMap(db: SisubDb, input: ListForecastMap): Prom
 	return map
 }
 
-export async function insertPresence(db: SisubDb, _ctx: UserContext, input: InsertPresence) {
+export async function insertPresence(db: SisubDb, ctx: UserContext, input: InsertPresence) {
+	// Dois chamadores legítimos: o fiscal registrando terceiros no rancho, e o comensal
+	// marcando a si mesmo no self check-in. Só o primeiro precisa de permissão de rancho —
+	// exigir `messhall:2` de todo mundo quebraria o check-in do próprio comensal.
+	if (input.user_id !== ctx.userId) requireMessHall(ctx, 2, input.messHallId)
+
 	try {
 		await db.insert(mealPresencesInKitchen).values({ userId: input.user_id, date: input.date, meal: input.meal, messHallId: input.messHallId })
 	} catch (e) {
@@ -93,6 +100,14 @@ export async function insertPresence(db: SisubDb, _ctx: UserContext, input: Inse
 	}
 }
 
-export async function deletePresence(db: SisubDb, _ctx: UserContext, input: { id: string }) {
+export async function deletePresence(db: SisubDb, ctx: UserContext, input: { id: string }) {
+	// A entrada traz só o id, então o refeitório dono vem da LINHA — sem isso qualquer
+	// autenticado apagava a presença de qualquer pessoa em qualquer rancho.
+	const [row] = await runQuery("FETCH_FAILED", () =>
+		db.select({ messHallId: mealPresencesInKitchen.messHallId }).from(mealPresencesInKitchen).where(eq(mealPresencesInKitchen.id, input.id)).limit(1)
+	)
+	if (!row?.messHallId) throw new NotFoundError("meal_presence", input.id)
+	requireMessHall(ctx, 2, row.messHallId)
+
 	await runQuery("DELETE_FAILED", () => db.delete(mealPresencesInKitchen).where(eq(mealPresencesInKitchen.id, input.id)))
 }

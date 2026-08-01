@@ -2,9 +2,8 @@
  * Kitchen ATA draft operations: pending → sent status lifecycle for
  * kitchen-to-management procurement requests. Drizzle query layer.
  *
- * Auth posture preserved from the original server functions: reads have no PBAC
- * guard; mutations were authenticated-only (no module-level guard). The thin
- * wrappers call requireAuth() and pass ctx; ops do not use it.
+ * Auth: leituras seguem sem guard PBAC; ESCRITA exige `kitchen:2` na cozinha dona do rascunho,
+ * resolvida do banco quando a operação recebe só o id (`authorizeDraft`).
  *
  * Status: "pending" (editable by kitchen) → "sent". Mensagens de erro especiais
  * (`Erro ao ...: message`) preservadas (prefixo + mensagem do driver).
@@ -13,6 +12,7 @@
 import { kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { desc, eq } from "drizzle-orm"
+import { requireKitchen } from "../guards/require-permission.ts"
 import type {
 	CreateKitchenDraft,
 	DeleteKitchenDraft,
@@ -22,6 +22,7 @@ import type {
 	UpdateKitchenDraft,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
+import { NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
 
 type Draft = Tables<"kitchen_ata_draft">
@@ -67,7 +68,27 @@ export async function fetchPendingDraft(db: SisubDb, _ctx: UserContext, input: F
 }
 
 /** Creates a draft with status "pending" and inserts its template selections (atômico). */
-export async function createKitchenDraft(db: SisubDb, _ctx: UserContext, input: CreateKitchenDraft) {
+/**
+ * Autoriza pela cozinha DONA do rascunho, lida da linha.
+ *
+ * A entrada dessas operações traz só o `draftId` — sem resolver o dono, qualquer detentor de
+ * `kitchen:2` em uma cozinha editava, enviava ou apagava o rascunho de ATA de outra.
+ */
+async function authorizeDraft(db: SisubDb, ctx: UserContext, draftId: string): Promise<void> {
+	const [row] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ kitchenId: kitchenAtaDraftInProcurement.kitchenId })
+			.from(kitchenAtaDraftInProcurement)
+			.where(eq(kitchenAtaDraftInProcurement.id, draftId))
+			.limit(1)
+	)
+	if (!row?.kitchenId) throw new NotFoundError("kitchen_ata_draft", draftId)
+	requireKitchen(ctx, 2, row.kitchenId)
+}
+
+export async function createKitchenDraft(db: SisubDb, ctx: UserContext, input: CreateKitchenDraft) {
+	requireKitchen(ctx, 2, input.kitchenId)
+
 	const draft = await db.transaction(async (tx) => {
 		const inserted = await insertOneOrFail(
 			"INSERT_FAILED",
@@ -93,7 +114,9 @@ export async function createKitchenDraft(db: SisubDb, _ctx: UserContext, input: 
  * Updates draft metadata and optionally replaces all selections (delete-all + re-insert, atômico).
  * selections=undefined → metadata-only update, existing selections untouched.
  */
-export async function updateKitchenDraft(db: SisubDb, _ctx: UserContext, input: UpdateKitchenDraft) {
+export async function updateKitchenDraft(db: SisubDb, ctx: UserContext, input: UpdateKitchenDraft) {
+	await authorizeDraft(db, ctx, input.draftId)
+
 	const draft = await db.transaction(async (tx) => {
 		const set = { ...toColumns(input.updates), updatedAt: new Date().toISOString() } as Partial<typeof kitchenAtaDraftInProcurement.$inferInsert>
 		const updated = await insertOneOrFail(
@@ -116,7 +139,9 @@ export async function updateKitchenDraft(db: SisubDb, _ctx: UserContext, input: 
 }
 
 /** Transitions a draft from "pending" to "sent", making it visible to management. */
-export async function sendKitchenDraft(db: SisubDb, _ctx: UserContext, input: SendKitchenDraft) {
+export async function sendKitchenDraft(db: SisubDb, ctx: UserContext, input: SendKitchenDraft) {
+	await authorizeDraft(db, ctx, input.draftId)
+
 	await mutateOrFail(
 		"UPDATE_FAILED",
 		`Erro ao enviar rascunho: rascunho ${input.draftId} não encontrado`,
@@ -131,7 +156,9 @@ export async function sendKitchenDraft(db: SisubDb, _ctx: UserContext, input: Se
 }
 
 /** Hard-deletes a draft and its selections (cascade via FK). Only pending drafts should be deleted. */
-export async function deleteKitchenDraft(db: SisubDb, _ctx: UserContext, input: DeleteKitchenDraft) {
+export async function deleteKitchenDraft(db: SisubDb, ctx: UserContext, input: DeleteKitchenDraft) {
+	await authorizeDraft(db, ctx, input.draftId)
+
 	await mutateOrFail(
 		"DELETE_FAILED",
 		`Erro ao deletar rascunho: rascunho ${input.draftId} não encontrado`,
