@@ -1,13 +1,14 @@
 /**
  * Unit settings operations — UASG code + address fields. Drizzle query layer.
  *
- * Auth posture preserved from the original server functions: authenticated
- * entrypoints with no module-level PBAC guard. `ctx` accepted for uniformity.
+ * Auth: a leitura de settings é apenas autenticada; a ESCRITA (UASG e endereço da OM) exige
+ * `unit:2` na própria unidade.
  */
 
 import { type SisubDb, unitsInCore } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { eq } from "drizzle-orm"
+import { requireUnit } from "../guards/require-permission.ts"
 import type { FetchUnitSettings, UpdateUnitSettings } from "../schemas/units.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
@@ -53,11 +54,11 @@ export async function fetchUnitSettings(db: SisubDb, _ctx: UserContext, input: F
 	return toWire<UnitSettings>(row)
 }
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: UpdateUnitSettings) {
+export async function updateUnitSettings(db: SisubDb, ctx: UserContext, input: UpdateUnitSettings) {
+	// Endereço e UASG da OM: escrita da própria unidade. Só requireAuth() no server fn deixava
+	// qualquer autenticado reconfigurar qualquer OM.
+	requireUnit(ctx, 2, input.unitId)
+
 	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
 	await mutateOrFail("UPDATE_FAILED", `unit ${input.unitId} not found`, () =>
 		db

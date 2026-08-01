@@ -2,9 +2,9 @@
  * Procurement list (ATA) lifecycle operations: needs calculation, creation,
  * status transitions, soft-delete. Drizzle query layer (migração PostgREST→Drizzle).
  *
- * Auth posture preserved from the original server functions: reads have no PBAC
- * guard; mutations were authenticated-only (no module-level guard). The thin
- * wrappers call requireAuth() and pass ctx; ops do not use it.
+ * Auth: leituras seguem sem guard PBAC (a rota do módulo já exige `unit:1`); ESCRITA exige
+ * `unit:2` na unidade DONA da ata. Sete das dez recebem só um id — a unidade sai da linha
+ * persistida, nunca do input (ver `authorizeAtaList`/`authorizeAtaItem` e `ata.authz.test.ts`).
  *
  * Contrato de retorno PRESERVADO (snake_case aninhado) via `toWire()`; o Drizzle
  * devolve colunas camelCase e relations com nomes gerados pelo `drizzle-kit pull`.
@@ -38,6 +38,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { requireUnit } from "../guards/require-permission.ts"
 import type {
 	CalculateAtaNeeds,
 	CreateAta,
@@ -374,11 +375,44 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function createAtaDraft(db: SisubDb, _ctx: UserContext, input: CreateAtaDraft): Promise<{ id: string }> {
+/**
+ * Autoriza pela UNIDADE dona da ATA — ou do rascunho: são a mesma linha de `procurement_list`,
+ * distinguidas por status —, lida do banco e nunca da requisição.
+ *
+ * Estas operações recebem só o id. Sem resolver o dono, qualquer detentor de `unit:2` numa OM
+ * editava preço, descrição e status — ou apagava — a ATA de outra.
+ */
+async function authorizeAtaList(db: SisubDb, ctx: UserContext, listId: string): Promise<void> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.select({ unitId: procurementListInProcurement.unitId }).from(procurementListInProcurement).where(eq(procurementListInProcurement.id, listId)).limit(1)
+	)
+	const unitId = rows[0]?.unitId
+	if (unitId == null) throw new DomainError("NOT_FOUND", `ata ${listId} não encontrada`)
+	requireUnit(ctx, 2, unitId)
+}
+
+/**
+ * Idem, quando só o id do ITEM chega. Devolve a ATA dona para amarrar o predicado da mutação:
+ * entre a checagem e a escrita o item pode ser reparentado, e um `where id = ?` cru aplicaria a
+ * escrita a um item que já pertence a outra ATA.
+ */
+async function authorizeAtaItem(db: SisubDb, ctx: UserContext, ataItemId: string): Promise<string> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ listId: procurementListItemInProcurement.listId })
+			.from(procurementListItemInProcurement)
+			.where(eq(procurementListItemInProcurement.id, ataItemId))
+			.limit(1)
+	)
+	const listId = rows[0]?.listId
+	if (listId == null) throw new DomainError("NOT_FOUND", `item de ata ${ataItemId} não encontrado`)
+	await authorizeAtaList(db, ctx, listId)
+	return listId
+}
+
+export async function createAtaDraft(db: SisubDb, ctx: UserContext, input: CreateAtaDraft): Promise<{ id: string }> {
+	requireUnit(ctx, 2, input.unitId)
+
 	const ata = await insertOneOrFail(
 		"INSERT_FAILED",
 		"Erro ao criar rascunho: no row returned",
@@ -394,11 +428,9 @@ export async function createAtaDraft(db: SisubDb, _ctx: UserContext, input: Crea
 
 // ─── Atualizar metadados e seleções do rascunho ───────────────────────────────
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: UpdateAtaDraft): Promise<void> {
+export async function updateAtaDraft(db: SisubDb, ctx: UserContext, input: UpdateAtaDraft): Promise<void> {
+	await authorizeAtaList(db, ctx, input.draftId)
+
 	await db.transaction(async (tx) => {
 		const updateData: Partial<typeof procurementListInProcurement.$inferInsert> = { updatedAt: new Date().toISOString() }
 		if (input.title !== undefined) updateData.title = input.title
@@ -474,15 +506,13 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
  * transação; opcionalmente relinka pesquisas de preço dos itens novos; seta wizard_step 4.
  * Retorna o mapeamento ingredient_id → ata_item_id para o cliente atualizar o estado local.
  */
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
 export async function saveAtaDraftItems(
 	db: SisubDb,
-	_ctx: UserContext,
+	ctx: UserContext,
 	input: SaveAtaDraftItems
 ): Promise<{ savedIds: Array<{ ingredientId: string; ataItemId: string }>; unlinkedResearchCount: number }> {
+	await authorizeAtaList(db, ctx, input.draftId)
+
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
 	const insertedItemsById = new Map<string, string>() // ingredient_id → new item id
@@ -653,11 +683,9 @@ async function persistDraftItems(
 
 // ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: FinalizeAtaDraft): Promise<ProcurementList> {
+export async function finalizeAtaDraft(db: SisubDb, ctx: UserContext, input: FinalizeAtaDraft): Promise<ProcurementList> {
+	await authorizeAtaList(db, ctx, input.draftId)
+
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
 	const insertedItemsById = new Map<string, string>()
@@ -693,11 +721,9 @@ export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: Fi
  * SIDE EFFECTS: inserts procurement_list (1), procurement_list_kitchen (n), procurement_list_selection (m), procurement_list_item (p).
  * Tudo numa transação Drizzle: falha parcial desfaz tudo (bug fix vs original sem transação). Status default "draft".
  */
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function createAta(db: SisubDb, _ctx: UserContext, input: CreateAta): Promise<ProcurementList> {
+export async function createAta(db: SisubDb, ctx: UserContext, input: CreateAta): Promise<ProcurementList> {
+	requireUnit(ctx, 2, input.unitId)
+
 	const { unitId, title, notes, kitchenSelections, items } = input
 	const stamp = new Date().toISOString()
 
@@ -1110,11 +1136,9 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
  * Transiciona o status da ATA validando o ciclo de vida (draft → published → archived; sem downgrade).
  * Ao publicar, congela a composição num snapshot próprio (memória de cálculo imutável).
  */
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function updateAtaStatus(db: SisubDb, _ctx: UserContext, input: UpdateAtaStatus): Promise<void> {
+export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: UpdateAtaStatus): Promise<void> {
+	await authorizeAtaList(db, ctx, input.ataId)
+
 	await db.transaction(async (tx) => {
 		const current = await getListStatus(tx, input.ataId)
 		if (current === input.status) return // no-op idempotente
@@ -1145,11 +1169,9 @@ export async function updateAtaStatus(db: SisubDb, _ctx: UserContext, input: Upd
 
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function updateAtaItemPrices(db: SisubDb, _ctx: UserContext, input: UpdateAtaItemPrices): Promise<void> {
+export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: UpdateAtaItemPrices): Promise<void> {
+	await authorizeAtaList(db, ctx, input.ataId)
+
 	await db.transaction(async (tx) => {
 		for (const u of input.updates) {
 			await tx
@@ -1172,11 +1194,10 @@ export async function updateAtaItemPrices(db: SisubDb, _ctx: UserContext, input:
 
 // ─── Atualizar descrição de um item de ATA ───────────────────────────────────
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function updateAtaItemDescription(db: SisubDb, _ctx: UserContext, input: UpdateAtaItemDescription): Promise<void> {
+export async function updateAtaItemDescription(db: SisubDb, ctx: UserContext, input: UpdateAtaItemDescription): Promise<void> {
+	// Só o id do ITEM chega — a ATA dona sai do próprio item.
+	const listId = await authorizeAtaItem(db, ctx, input.ataItemId)
+
 	await mutateOrFail(
 		"UPDATE_FAILED",
 		`Erro ao atualizar descrição: item ${input.ataItemId} não encontrado`,
@@ -1184,7 +1205,7 @@ export async function updateAtaItemDescription(db: SisubDb, _ctx: UserContext, i
 			db
 				.update(procurementListItemInProcurement)
 				.set({ itemDescription: input.description || null })
-				.where(eq(procurementListItemInProcurement.id, input.ataItemId))
+				.where(and(eq(procurementListItemInProcurement.id, input.ataItemId), eq(procurementListItemInProcurement.listId, listId)))
 				.returning({ id: procurementListItemInProcurement.id }),
 		{ prefix: "Erro ao atualizar descrição" }
 	)
@@ -1193,11 +1214,9 @@ export async function updateAtaItemDescription(db: SisubDb, _ctx: UserContext, i
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────
 
 /** Soft-deletes an ATA by setting deleted_at — kitchen associations and items remain intact. */
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function deleteAta(db: SisubDb, _ctx: UserContext, input: DeleteAta): Promise<void> {
+export async function deleteAta(db: SisubDb, ctx: UserContext, input: DeleteAta): Promise<void> {
+	await authorizeAtaList(db, ctx, input.ataId)
+
 	await mutateOrFail(
 		"DELETE_FAILED",
 		`Erro ao deletar lista: ata ${input.ataId} não encontrada`,

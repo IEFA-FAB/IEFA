@@ -1,8 +1,8 @@
 /**
  * Org-hierarchy + mess-hall operations. Drizzle query layer.
  *
- * Auth posture preserved: authenticated entrypoints (caller runs requireAuth())
- * with no module-level PBAC guard. `ctx` accepted for signature uniformity.
+ * Auth: leituras da hierarquia são apenas autenticadas (catálogo visível a qualquer sessão);
+ * `addOtherPresence` escreve presença de terceiro e exige `messhall:2` no refeitório.
  *
  * `units`/`mess_halls` têm PK bigserial → o id volta BigInt no Drizzle; `toWire`
  * coage para number (contrato), e updates por id usam `BigInt(input.id)`.
@@ -20,7 +20,7 @@ import {
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, count, eq } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
-import { requirePermission } from "../guards/require-permission.ts"
+import { requireMessHall, requirePermission } from "../guards/require-permission.ts"
 import type {
 	AddOtherPresence,
 	ApplyPlacesDiff,
@@ -221,11 +221,10 @@ export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, i
 	return rows[0]?.value ?? 0
 }
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function addOtherPresence(db: SisubDb, _ctx: UserContext, input: AddOtherPresence) {
+export async function addOtherPresence(db: SisubDb, ctx: UserContext, input: AddOtherPresence) {
+	// Presença de não-cadastrado lançada pelo fiscal do rancho.
+	requireMessHall(ctx, 2, input.messHallId)
+
 	await runQuery("INSERT_FAILED", () =>
 		db.insert(otherPresencesInKitchen).values({ adminId: input.adminId, date: input.date, meal: input.meal, messHallId: input.messHallId })
 	)

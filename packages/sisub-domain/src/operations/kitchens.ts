@@ -4,13 +4,13 @@
  * Auth: leituras de referência (`listKitchens`/`listUnitKitchens`) são apenas autenticadas —
  * o catálogo de cozinhas/unidades é visível a qualquer usuário logado (ex.: o admin `global`
  * monta o seletor de escopo de permissões sem ter `kitchen`). Mesma postura de `listUnits`/
- * `listAllMessHalls`. Os *settings* idem (entrypoint autenticado sem guard PBAC; `ctx` por
- * uniformidade).
+ * `listAllMessHalls`. Já a ESCRITA de settings exige `kitchen:2` na própria cozinha.
  */
 
 import { kitchenInCore, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { asc, eq } from "drizzle-orm"
+import { requireKitchen } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
@@ -81,11 +81,10 @@ export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input
 	return toWire<KitchenSettings>(row, KITCHEN_RELATIONS)
 }
 
-// DÍVIDA: escrita sem autorização — o contexto chega e é descartado. Pendente de
-// triagem por operação (qual guard e qual escopo cada uma exige). O gate cobre código
-// novo desde já; esta fica marcada para não passar por esquecimento.
-// nosemgrep: domain-op-discards-user-context
-export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, input: UpdateKitchenSettings) {
+export async function updateKitchenSettings(db: SisubDb, ctx: UserContext, input: UpdateKitchenSettings) {
+	// Endereço da cozinha: escrita da própria cozinha.
+	requireKitchen(ctx, 2, input.kitchenId)
+
 	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
 	await mutateOrFail("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`, () =>
 		db
