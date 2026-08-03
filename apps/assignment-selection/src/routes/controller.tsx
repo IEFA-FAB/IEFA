@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
+import { Eye, Lock, LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { ConductPanel } from "@/components/ConductPanel"
 import { ControllerTable, type PersonChanges } from "@/components/ControllerTable"
@@ -11,7 +11,7 @@ import { useBoardRealtime } from "@/hooks/useBoardRealtime"
 import { authQueryOptions } from "@/lib/auth"
 import { localidadesFab } from "@/lib/localidades"
 import { boardQueryOptions } from "@/lib/queries"
-import { callPersonFn, resetEditionFn, setActiveEditionFn, updatePersonFn } from "@/server/assignment.fn"
+import { callPersonFn, resetEditionFn, setActiveEditionFn, setEditionLockFn, updatePersonFn } from "@/server/assignment.fn"
 
 type ControllerSearch = { edition?: string }
 
@@ -51,6 +51,10 @@ function ControllerPage() {
 
 	const activeEdition = data.editions.find((e) => e.active)
 	const isActiveOnBoard = !!data.editionId && activeEdition?.id === data.editionId
+	// O bloqueio é sempre da edição que está no telão, não da que o controlador
+	// está olhando — o painel segue a ativa, então bloquear outra seria um no-op
+	// silencioso no meio do evento.
+	const isLocked = activeEdition?.locked ?? false
 
 	// Executa qualquer ação de escrita e revalida o quadro ao terminar.
 	const mutation = useMutation({
@@ -83,6 +87,14 @@ function ControllerPage() {
 							>
 								<MonitorPlay /> {isActiveOnBoard ? "No telão" : "Ativar no telão"}
 							</Button>
+							<Button
+								variant={isLocked ? "default" : "outline"}
+								onClick={() => activeEdition && run(() => setEditionLockFn({ data: { editionId: activeEdition.id, locked: !isLocked } }))}
+								disabled={mutation.isPending || !activeEdition}
+								title={isLocked ? "Tirar a tela de espera do telão" : "Cobrir o telão com a tela de espera"}
+							>
+								{isLocked ? <Eye /> : <Lock />} {isLocked ? "Revelar telão" : "Bloquear telão"}
+							</Button>
 							<div className="flex items-center gap-2 border-l border-slate-200 pl-2">
 								{user?.email && (
 									<span className="hidden max-w-[16ch] truncate text-xs text-slate-400 sm:inline" title={user.email}>
@@ -97,6 +109,17 @@ function ControllerPage() {
 					</header>
 
 					<div className="space-y-6 p-6">
+						{/* O operador conduz de costas para a projeção: sem este aviso ele
+							    chamaria e revelaria militares por trás da tela de espera. */}
+						{isLocked && (
+							<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
+								<Lock className="size-5 shrink-0" />
+								<p className="text-sm font-semibold">
+									Telão bloqueado — a plateia está vendo a tela de espera. Nada do que for chamado ou revelado aparece até "Revelar telão".
+								</p>
+							</div>
+						)}
+
 						{editionId && (
 							<ConductPanel
 								persons={data.persons}
