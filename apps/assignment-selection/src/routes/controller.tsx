@@ -51,7 +51,10 @@ function ControllerPage() {
 
 	const activeEdition = data.editions.find((e) => e.active)
 	const isActiveOnBoard = !!data.editionId && activeEdition?.id === data.editionId
-	const isLocked = data.editions.find((e) => e.id === data.editionId)?.locked ?? false
+	// O bloqueio é sempre da edição que está no telão, não da que o controlador
+	// está olhando — o painel segue a ativa, então bloquear outra seria um no-op
+	// silencioso no meio do evento.
+	const isLocked = activeEdition?.locked ?? false
 
 	// Executa qualquer ação de escrita e revalida o quadro ao terminar.
 	const mutation = useMutation({
@@ -86,8 +89,8 @@ function ControllerPage() {
 							</Button>
 							<Button
 								variant={isLocked ? "default" : "outline"}
-								onClick={() => editionId && run(() => setEditionLockFn({ data: { editionId, locked: !isLocked } }))}
-								disabled={mutation.isPending || !editionId}
+								onClick={() => activeEdition && run(() => setEditionLockFn({ data: { editionId: activeEdition.id, locked: !isLocked } }))}
+								disabled={mutation.isPending || !activeEdition}
 								title={isLocked ? "Tirar a tela de espera do telão" : "Cobrir o telão com a tela de espera"}
 							>
 								{isLocked ? <Eye /> : <Lock />} {isLocked ? "Revelar telão" : "Bloquear telão"}
@@ -106,6 +109,17 @@ function ControllerPage() {
 					</header>
 
 					<div className="space-y-6 p-6">
+						{/* O operador conduz de costas para a projeção: sem este aviso ele
+							    chamaria e revelaria militares por trás da tela de espera. */}
+						{isLocked && (
+							<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
+								<Lock className="size-5 shrink-0" />
+								<p className="text-sm font-semibold">
+									Telão bloqueado — a plateia está vendo a tela de espera. Nada do que for chamado ou revelado aparece até "Revelar telão".
+								</p>
+							</div>
+						)}
+
 						{editionId && (
 							<ConductPanel
 								persons={data.persons}

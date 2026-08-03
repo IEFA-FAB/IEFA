@@ -1,7 +1,6 @@
 import type { Person } from "@iefa/database/assignment-selection"
 import { memo, useCallback, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { useAssetUrl } from "@/lib/asset-cache"
 
 type ImageStatus = "loading" | "loaded" | "error"
 
@@ -55,9 +54,8 @@ ImageWithFallback.displayName = "ImageWithFallback"
  * OM servidos de /public.
  */
 export const PersonCard = memo(({ cardData, editionName }: { cardData: Person; editionName: string }) => {
-	// Resolvidas pelo cache de blobs quando a pré-carga já passou por elas.
-	const personImageUrl = useAssetUrl(`/pessoas/${encodeURIComponent(editionName)}/${cardData.classificacao}.jpg`)
-	const omImageUrl = useAssetUrl(cardData.localidade ? `/dom/${encodeURIComponent(cardData.localidade)}.png` : "")
+	const personImageUrl = `/pessoas/${encodeURIComponent(editionName)}/${cardData.classificacao}.jpg`
+	const omImageUrl = cardData.localidade ? `/dom/${encodeURIComponent(cardData.localidade)}.png` : ""
 
 	return (
 		<div

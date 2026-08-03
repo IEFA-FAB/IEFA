@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react"
-import { useAssetResolver } from "@/lib/asset-cache"
 import { constants, drawPath, stateCode } from "./constants"
 
 export interface StateMarker {
@@ -60,7 +59,6 @@ export function BrazilMap({
 	className,
 }: BrazilMapProps) {
 	const instanceId = useId().replace(/:/g, "")
-	const resolveAsset = useAssetResolver()
 	const svgRef = useRef<SVGSVGElement>(null)
 	const pathRefs = useRef<Record<string, SVGPathElement | null>>({})
 	const [viewBox, setViewBox] = useState("0 0 600 600")
@@ -138,7 +136,7 @@ export function BrazilMap({
 									</clipPath>
 									<circle cx={x} cy={y} r={AVATAR_R + 1.6} fill="#0b1226" stroke="none" />
 									<image
-										href={resolveAsset(`/pessoas/${encodeURIComponent(editionName)}/${p.classificacao}.jpg`)}
+										href={`/pessoas/${encodeURIComponent(editionName)}/${p.classificacao}.jpg`}
 										x={x - AVATAR_R}
 										y={y - AVATAR_R}
 										width={AVATAR_R * 2}

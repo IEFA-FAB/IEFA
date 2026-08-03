@@ -22,12 +22,13 @@ function BoardPage() {
 	const edition = data.editions.find((e) => e.id === data.editionId)
 	const editionName = edition?.name ?? "—"
 
-	// Todo o material visual do evento: uma foto por militar e um brasão por OM do
-	// quadro. Baixado de uma vez, antes da primeira chamada.
+	// Todo o material visual do evento: uma foto por militar, um brasão por OM do
+	// quadro e o brasão da tela de espera. Baixado de uma vez, antes da primeira
+	// chamada. Os brasões vêm primeiro por serem os arquivos mais pesados.
 	const assetSources = useMemo(() => {
-		const photos = data.persons.map((p) => `/pessoas/${encodeURIComponent(editionName)}/${p.classificacao}.jpg`)
 		const crests = data.vacancies.filter((v) => v.om).map((v) => `/dom/${encodeURIComponent(v.om as string)}.png`)
-		return Array.from(new Set([...photos, ...crests]))
+		const photos = data.persons.map((p) => `/pessoas/${encodeURIComponent(editionName)}/${p.classificacao}.jpg`)
+		return Array.from(new Set(["/dom/IEFA.png", ...crests, ...photos]))
 	}, [data.persons, data.vacancies, editionName])
 
 	// `chosen` derivado das pessoas (confirmadas por OM), espelhando a view
@@ -111,7 +112,9 @@ function BoardPage() {
 					</div>
 				</div>
 
-				{featured && <PersonCard cardData={featured} editionName={editionName} />}
+				{/* Desmontado sob bloqueio: cobrir não basta — a revelação da OM tem
+					animação de entrada, que rodaria atrás do véu e chegaria "queimada". */}
+				{featured && !edition?.locked && <PersonCard cardData={featured} editionName={editionName} />}
 
 				{edition?.locked && <LockScreen editionName={editionName} />}
 			</div>

@@ -1,26 +1,22 @@
 import { useState } from "react"
-import { useAssetCacheStatus } from "@/lib/asset-cache"
+import { useAssetPreloadStatus } from "@/lib/asset-cache"
 
-/** Brasão do IEFA; enquanto o arquivo não existir, cai no símbolo do favicon. */
+/** Brasão do IEFA; se o arquivo faltar, cai no símbolo do app. */
 const CREST_SRC = "/dom/IEFA.png"
 const CREST_FALLBACK = "/favicon.svg"
 
 /**
- * Tela de espera do telão, acionada pelo controlador. Cobre o painel inteiro
- * (mapa, quadro e card) com o conteúdo desfocado por trás — o telão pode ficar
- * projetado antes e entre as chamadas sem revelar nada.
+ * Tela de espera do telão, acionada pelo controlador. O painel continua vivo por
+ * trás (o card do militar em cena é desmontado pelo chamador), então o véu é
+ * opaco por si só — `backdrop-blur` é acabamento, não o que esconde: navegador
+ * sem suporte a backdrop-filter deixaria passar um card branco de 1400 px.
  */
 export function LockScreen({ editionName }: { editionName: string }) {
 	const [crest, setCrest] = useState(CREST_SRC)
-	const { loaded, total, done } = useAssetCacheStatus()
+	const { loaded, total, done } = useAssetPreloadStatus()
 
 	return (
-		<div
-			className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 bg-slate-950/70 backdrop-blur-2xl animate-in fade-in duration-500"
-			role="dialog"
-			aria-modal="true"
-			aria-label="Telão em espera"
-		>
+		<div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 bg-slate-950/95 backdrop-blur-2xl animate-in fade-in duration-500">
 			<img
 				src={crest}
 				alt="Brasão do IEFA"
@@ -33,10 +29,10 @@ export function LockScreen({ editionName }: { editionName: string }) {
 				<p className="mt-2 text-3xl font-black tracking-tight text-white/90">Escolha de Vagas {editionName}</p>
 			</div>
 
-			{/* Só aparece enquanto as imagens do evento ainda estão sendo baixadas. */}
+			{/* Legível de longe: é por ele que o operador sabe se já pode começar. */}
 			{total > 0 && !done && (
-				<p className="font-mono text-sm text-white/40">
-					preparando imagens · {loaded}/{total}
+				<p className="text-2xl font-medium tabular-nums text-white/70">
+					Preparando imagens · {loaded} de {total}
 				</p>
 			)}
 		</div>

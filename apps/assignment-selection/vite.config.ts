@@ -20,6 +20,12 @@ export default defineConfig(() => ({
 				"/**": { headers: { "cache-control": "no-cache" } },
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 				"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
+				// Fotos e brasões do telão: sem isso saem como `no-cache` e revalidam a
+				// cada exibição, ou seja, ida à rede no instante da revelação. Um dia de
+				// cache cobre a sessão inteira; `immutable` não serve porque os arquivos
+				// são substituídos mantendo o nome (brasão trocado = brasão velho preso).
+				"/pessoas/**": { headers: { "cache-control": "public, max-age=86400" } },
+				"/dom/**": { headers: { "cache-control": "public, max-age=86400" } },
 			},
 		}),
 		react(),
