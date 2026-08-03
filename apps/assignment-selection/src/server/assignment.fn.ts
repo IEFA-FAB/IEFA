@@ -98,6 +98,16 @@ export const setActiveEditionFn = createServerFn({ method: "POST" })
 		if (on.error) throw new Error(on.error.message)
 	})
 
+/** Liga/desliga a tela de bloqueio do telão para uma edição. */
+export const setEditionLockFn = createServerFn({ method: "POST" })
+	.validator(z.object({ editionId: z.string().uuid(), locked: z.boolean() }))
+	.handler(async ({ data }): Promise<void> => {
+		await requireAccess()
+		const supabase = getAssignmentServerClient()
+		const { error } = await supabase.from("edition").update({ locked: data.locked }).eq("id", data.editionId)
+		if (error) throw new Error(error.message)
+	})
+
 /**
  * Chama um militar ao telão: exibe só o card dele (show_card), esconde os demais
  * e reseta a revelação da OM (show_om=false) até ele anunciar a vaga.

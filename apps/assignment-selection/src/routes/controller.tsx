@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
+import { Eye, Lock, LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { ConductPanel } from "@/components/ConductPanel"
 import { ControllerTable, type PersonChanges } from "@/components/ControllerTable"
@@ -11,7 +11,7 @@ import { useBoardRealtime } from "@/hooks/useBoardRealtime"
 import { authQueryOptions } from "@/lib/auth"
 import { localidadesFab } from "@/lib/localidades"
 import { boardQueryOptions } from "@/lib/queries"
-import { callPersonFn, resetEditionFn, setActiveEditionFn, updatePersonFn } from "@/server/assignment.fn"
+import { callPersonFn, resetEditionFn, setActiveEditionFn, setEditionLockFn, updatePersonFn } from "@/server/assignment.fn"
 
 type ControllerSearch = { edition?: string }
 
@@ -51,6 +51,7 @@ function ControllerPage() {
 
 	const activeEdition = data.editions.find((e) => e.active)
 	const isActiveOnBoard = !!data.editionId && activeEdition?.id === data.editionId
+	const isLocked = data.editions.find((e) => e.id === data.editionId)?.locked ?? false
 
 	// Executa qualquer ação de escrita e revalida o quadro ao terminar.
 	const mutation = useMutation({
@@ -82,6 +83,14 @@ function ControllerPage() {
 								disabled={mutation.isPending || !editionId || isActiveOnBoard}
 							>
 								<MonitorPlay /> {isActiveOnBoard ? "No telão" : "Ativar no telão"}
+							</Button>
+							<Button
+								variant={isLocked ? "default" : "outline"}
+								onClick={() => editionId && run(() => setEditionLockFn({ data: { editionId, locked: !isLocked } }))}
+								disabled={mutation.isPending || !editionId}
+								title={isLocked ? "Tirar a tela de espera do telão" : "Cobrir o telão com a tela de espera"}
+							>
+								{isLocked ? <Eye /> : <Lock />} {isLocked ? "Revelar telão" : "Bloquear telão"}
 							</Button>
 							<div className="flex items-center gap-2 border-l border-slate-200 pl-2">
 								{user?.email && (

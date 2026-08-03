@@ -252,18 +252,21 @@ export type Database = {
 					active: boolean
 					created_at: string
 					id: string
+					locked: boolean
 					name: string
 				}
 				Insert: {
 					active?: boolean
 					created_at?: string
 					id?: string
+					locked?: boolean
 					name: string
 				}
 				Update: {
 					active?: boolean
 					created_at?: string
 					id?: string
+					locked?: boolean
 					name?: string
 				}
 				Relationships: []
