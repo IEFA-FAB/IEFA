@@ -1,10 +1,25 @@
 import type { Person } from "@iefa/database/assignment-selection"
-import { memo, useState } from "react"
+import { memo, useCallback, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 
+type ImageStatus = "loading" | "loaded" | "error"
+
 const ImageWithFallback = memo(({ src, alt, className }: { src: string; alt: string; className: string }) => {
-	const [error, setError] = useState(false)
-	const [loading, setLoading] = useState(true)
+	const [state, setState] = useState<{ src: string; status: ImageStatus }>({ src, status: "loading" })
+
+	// Troca de militar reinicia o estado no mesmo <img> (sem esperar um efeito).
+	if (state.src !== src) setState({ src, status: "loading" })
+
+	// A imagem pode ficar pronta antes do React anexar os handlers — HTML vindo do
+	// SSR, ou arquivo já em cache. Nesse caso onLoad nunca dispara e o card ficaria
+	// preso no spinner, então o estado inicial vem do próprio elemento.
+	const settleFromElement = useCallback((el: HTMLImageElement | null) => {
+		if (!el?.complete) return
+		setState({ src: el.getAttribute("src") ?? "", status: el.naturalWidth > 0 ? "loaded" : "error" })
+	}, [])
+
+	const loading = state.status === "loading"
+	const error = state.status === "error"
 
 	return (
 		<div className={`relative ${className}`}>
@@ -19,14 +34,12 @@ const ImageWithFallback = memo(({ src, alt, className }: { src: string; alt: str
 				</div>
 			) : (
 				<img
+					ref={settleFromElement}
 					src={src}
 					alt={alt}
 					className={`${className} ${loading ? "opacity-0" : "opacity-100"} transition-opacity duration-300`}
-					onError={() => {
-						setError(true)
-						setLoading(false)
-					}}
-					onLoad={() => setLoading(false)}
+					onError={() => setState({ src, status: "error" })}
+					onLoad={() => setState({ src, status: "loaded" })}
 					loading="lazy"
 				/>
 			)}
