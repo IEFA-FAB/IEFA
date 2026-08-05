@@ -72,6 +72,10 @@ function BoardPage() {
 	// Mapa: destaca o estado da OM assim que ela é revelada.
 	const highlightedState = featured?.show_om ? (featured.estado ?? undefined) : undefined
 
+	// Militar no telão que ainda não anunciou: o quadro de vagas vira a lista de
+	// para onde ele pode ir, com as OM já completas apagadas.
+	const awaitingChoice = Boolean(featured && !featured.show_om && !edition?.locked)
+
 	return (
 		<AssetPreloader sources={assetSources}>
 			<div className="relative h-screen w-full overflow-hidden bg-gradient-to-br from-[#0b1226] via-[#0a0f1e] to-[#05070f] text-white">
@@ -92,7 +96,7 @@ function BoardPage() {
 					</header>
 
 					<div className="flex min-h-0 flex-1 gap-6">
-						<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center">
+						<div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center">
 							<BrazilMap
 								size={1100}
 								selected={highlightedState ?? null}
@@ -104,17 +108,20 @@ function BoardPage() {
 								selectColor="#3b82f6"
 								className="drop-shadow-2xl"
 							/>
+
+							{/* Desmontado sob bloqueio: cobrir não basta — a revelação da OM tem
+								animação de entrada, que rodaria atrás do véu e chegaria "queimada".
+								Enquanto a OM não é revelada o card fica preso a esta coluna e o
+								quadro de vagas continua visível ao lado; revelada, ele mesmo passa
+								a tela cheia e cobre o quadro. */}
+							{featured && !edition?.locked && <PersonCard cardData={featured} editionName={editionName} />}
 						</div>
 
 						<div className="min-h-0 w-[34%] max-w-[760px]">
-							<VacancyBoard data={escolhas} />
+							<VacancyBoard data={escolhas} emphasizeAvailable={awaitingChoice} />
 						</div>
 					</div>
 				</div>
-
-				{/* Desmontado sob bloqueio: cobrir não basta — a revelação da OM tem
-					animação de entrada, que rodaria atrás do véu e chegaria "queimada". */}
-				{featured && !edition?.locked && <PersonCard cardData={featured} editionName={editionName} />}
 
 				{edition?.locked && <LockScreen editionName={editionName} />}
 			</div>

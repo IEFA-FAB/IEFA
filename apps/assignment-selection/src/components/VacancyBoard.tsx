@@ -8,17 +8,22 @@ export type Escolha = {
 	state: string
 }
 
-/** Quadro de vagas para projeção — alto contraste, legível à distância. */
-export function VacancyBoard({ data }: { data: Escolha[] }) {
+/**
+ * Quadro de vagas para projeção — alto contraste, legível à distância.
+ *
+ * Com `emphasizeAvailable` (militar chamado, ainda sem anunciar) as OM completas
+ * ficam apagadas: o quadro passa a responder "para onde ainda dá para ir".
+ */
+export function VacancyBoard({ data, emphasizeAvailable = false }: { data: Escolha[]; emphasizeAvailable?: boolean }) {
 	const totalVagas = data.reduce((acc, e) => acc + e.total, 0)
 	const totalChosen = data.reduce((acc, e) => acc + Math.min(e.chosen, e.total), 0)
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl backdrop-blur-sm">
 			<div className="flex items-baseline justify-between border-b border-white/10 px-7 py-4">
-				<h2 className="text-3xl font-bold tracking-wide text-white/95">Quadro de Vagas</h2>
+				<h2 className="text-3xl font-bold tracking-wide text-white/95">{emphasizeAvailable ? "Vagas Disponíveis" : "Quadro de Vagas"}</h2>
 				<span className="font-mono text-lg text-white/55">
-					{totalChosen}/{totalVagas} preenchidas
+					{emphasizeAvailable ? `${totalVagas - totalChosen} restantes` : `${totalChosen}/${totalVagas} preenchidas`}
 				</span>
 			</div>
 
@@ -38,7 +43,14 @@ export function VacancyBoard({ data }: { data: Escolha[] }) {
 							const empty = e.chosen === 0
 							const pct = e.total > 0 ? Math.min(100, (e.chosen / e.total) * 100) : 0
 							return (
-								<tr key={e.id} className={cn("border-b border-white/5 transition-colors", full ? "bg-amber-400/[0.07]" : "hover:bg-white/[0.03]")}>
+								<tr
+									key={e.id}
+									className={cn(
+										"border-b border-white/5 transition-all duration-300",
+										full ? "bg-amber-400/[0.07]" : "hover:bg-white/[0.03]",
+										emphasizeAvailable && full && "opacity-40"
+									)}
+								>
 									<td className="px-7 py-1">
 										<div className="flex items-center gap-4">
 											<span className={cn("whitespace-nowrap text-2xl font-black tracking-tight", full ? "text-amber-300" : "text-white")}>{e.OM}</span>
