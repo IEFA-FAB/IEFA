@@ -104,7 +104,7 @@ jobs:
 
       - name: Configure AWS credentials
         if: steps.tfvars.outputs.has_tfvars == 'true'
-        uses: aws-actions/configure-aws-credentials@v6.2.2
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           role-to-assume: ${{ vars.AWS_TF_PLAN_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}

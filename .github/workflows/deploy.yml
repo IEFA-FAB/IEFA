@@ -711,7 +711,7 @@ jobs:
         run: bunx turbo run build --filter=./apps/docs
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.2.2
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
