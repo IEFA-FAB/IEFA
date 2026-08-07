@@ -129,7 +129,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							value={field.state.value}
 							onChange={(e) => field.handleChange(e.target.value)}
 							onBlur={field.handleBlur}
-							placeholder="Seu nome completo"
+							placeholder="João Silva"
 						/>
 						{field.state.meta.errors?.length > 0 && <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>}
 					</div>
