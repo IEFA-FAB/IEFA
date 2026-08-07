@@ -40,4 +40,10 @@ export type AppType = typeof app
 export default {
 	port,
 	fetch: app.fetch,
+	// > `idle_timeout` do ALB (60 s). Com o padrão do Bun (10 s) quem fecha a
+	// conexão é o servidor, e o ALB devolve 502 sem nenhum 5xx no target — o que
+	// atinge em cheio as respostas de streaming da IA. Mesmo motivo do preload em
+	// `docker/bun-serve-idle-timeout.ts` (o entry export-default do Hono não passa
+	// por `Bun.serve`, então não é interceptado).
+	idleTimeout: 120,
 }
