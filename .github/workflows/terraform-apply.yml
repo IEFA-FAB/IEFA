@@ -39,16 +39,14 @@ on:
         required: true
         type: string
 
-# id-token: write precisa estar AQUI, no caller: as permissions de um workflow
-# reutilizável são limitadas pelas de quem o chama — sem isto o `_terraform-apply.yml`
-# pediria o token OIDC e não receberia.
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   detect:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       foundation: ${{ steps.detect.outputs.foundation }}
       services: ${{ steps.detect.outputs.services }}
@@ -127,10 +125,19 @@ jobs:
   apply-foundation:
     needs: detect
     if: needs.detect.outputs.foundation == 'true' && vars.AWS_TF_APPLY_ROLE_ARN != ''
+    # id-token: write fica NO JOB que chama, não no topo: as permissions de um
+    # workflow reutilizável são limitadas pelas de quem o chama, então sem isto o
+    # `_terraform-apply.yml` pediria o token OIDC e não receberia — e concedê-lo no
+    # topo daria id-token a todo job do arquivo, inclusive ao `detect`, que só lê git.
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_terraform-apply.yml
     with:
       stack: foundation
-    secrets: inherit
+    # Explícito em vez de `secrets: inherit` — o stack só precisa dos tfvars.
+    secrets:
+      TF_TFVARS_JSON: ${{ secrets.TF_TFVARS_JSON }}
 
   apply-services:
     needs: [detect, apply-foundation]
@@ -142,6 +149,9 @@ jobs:
       needs.detect.outputs.services != '[]' &&
       vars.AWS_TF_APPLY_ROLE_ARN != '' &&
       (needs.apply-foundation.result == 'success' || needs.apply-foundation.result == 'skipped')
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -150,4 +160,5 @@ jobs:
     uses: ./.github/workflows/_terraform-apply.yml
     with:
       stack: ${{ matrix.stack }}
-    secrets: inherit
+    secrets:
+      TF_TFVARS_JSON: ${{ secrets.TF_TFVARS_JSON }}

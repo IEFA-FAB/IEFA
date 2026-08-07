@@ -12,10 +12,13 @@ on:
         description: "Nome do diretório em infra/ (ex: foundation, sisub)"
         required: true
         type: string
+    secrets:
+      TF_TFVARS_JSON:
+        description: "JSON map { \"<stack>\": \"<conteúdo do terraform.tfvars>\" } — os tfvars reais ficam fora do repo"
+        required: true
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   apply:
