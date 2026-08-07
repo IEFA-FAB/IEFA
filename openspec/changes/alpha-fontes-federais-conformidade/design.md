@@ -110,19 +110,23 @@ O portal já tem auth Supabase, `getAlphaClient()` tipado (`apps/portal/src/lib/
 
 Rotas ficam sob guard autenticado e **não entram no menu público**. Design segue o Pale Brutalism do portal (`apps/portal/STYLE_CONTRACT.md`): zero radius, sem faixa lateral colorida de acento — severidade de finding distinguida por badge + tint de fundo.
 
-### D8 — Consolidação no projeto Supabase principal, schema `alpha`
+### D8 — Consolidação no projeto Supabase do sisub, schema `alpha`
 
-O alpha roda hoje contra um projeto Supabase próprio (`fjnysdiusivrffprcdus`), separado do projeto principal do IEFA (`jgigqdpdjgnnuwajtayh`) usado por `packages/database`, portal e sisub. As migrations do alpha passam a viver em `packages/database/supabase/migrations/`, sob o schema `alpha`, no mesmo histórico dos demais schemas.
+O alpha roda hoje contra um projeto Supabase próprio (`fjnysdiusivrffprcdus`), separado do projeto do sisub (`jgigqdpdjgnnuwajtayh`) usado por `packages/database`, portal, rumaer e sucont. As migrations do alpha passam a viver em `packages/database/supabase/migrations/`, sob o schema `alpha`, no mesmo histórico dos demais schemas.
 
 Consequências, todas tratadas como tarefa explícita:
 
-- **Cópia do corpus, não reingestão.** O corpus do RADA já indexado (documentos, chunks e embeddings) precisa ser copiado do projeto antigo. Reingerir não é opção: o acesso ao RADA está indisponível. A cópia usa `pg_dump` restrito às tabelas do alpha, com `search_path` reescrito para `alpha` na restauração.
+- **Migração do corpus, não reingestão.** O corpus do RADA já indexado (documentos, chunks e embeddings) precisa ser migrado do projeto antigo. Reingerir não é opção: o acesso ao RADA está indisponível. A migração copia tabela a tabela com lista de colunas explícita, conferindo contagem antes e depois.
 - **Extensões.** O projeto principal ainda não tem `vector` nem `ltree` habilitadas — a primeira migration habilita as duas no schema `extensions`.
 - **Exposição no PostgREST.** Schema novo exige `alter role authenticator set pgrst.db_schemas` incluindo `alpha` + `notify pgrst, 'reload config'`, senão o client JS devolve `PGRST106`.
 - **Cliente e checkpointer.** `createClient(..., { db: { schema: "alpha" } })` e `PostgresSaver.fromConnString(url, { schema: "alpha" })` — a versão 1.0.x do checkpointer aceita a opção `schema` e cria as próprias tabelas nele, em vez de poluir `public`.
 - **Autenticação deixa de ser ambígua.** Com um único projeto, o JWT que o portal emite é o mesmo que `supabase.auth.getUser(token)` do alpha valida. Hoje, com projetos distintos, essa validação depende de o segredo de produção sobrescrever o `.env.example` — o que não é verificável a partir do repositório.
 
-O projeto antigo fica **somente leitura** até o corpus consolidado ser conferido em produção; desativá-lo é follow-up.
+O projeto antigo é **descontinuado** ao fim da migração — o α passa a viver inteiramente no projeto do sisub.
+
+**Secrets herdados, com dívida declarada.** Em produção o α consome os secrets do sisub (`VITE_SISUB_SUPABASE_URL`, `SISUB_SUPABASE_SECRET_KEY`, `SISUB_DATABASE_URL`), como rumaer e sucont já fazem. É o caminho mais curto e consistente com o repositório, e acopla os dois serviços: rotacionar a chave do sisub derruba o α, e não há como dar ao α credencial de menor privilégio nem pooler próprio. O TODO de separar (`ALPHA_SUPABASE_*` apontando para o mesmo projeto) está registrado no `sync-secrets.yml` e no `terraform.tfvars.example`.
+
+O `DATABASE_URL` do sisub é do pooler. O `PostgresSaver` do LangGraph usa `pg.Pool` sem prepared statement nomeado, então funciona em modo transação — mas é o ponto a olhar primeiro se o checkpointer falhar depois da troca.
 
 ### D9 — Bibliotecas de parse
 
@@ -369,7 +373,7 @@ Blocos são verificados em paralelo com limite de concorrência. `compliance_run
 | Falso positivo enterra o ACI em ruído | Regra nasce `draft`; só vira `active` após calibração na bancada contra o golden set. Severidade obriga triagem |
 | Corpus de norma incompleto gera "conforme" enganoso | `compliance_run` registra quais normas foram usadas; relatório declara a cobertura em vez de afirmar conformidade absoluta |
 | Volume de embeddings cresce com versões | Índice HNSW parcial em `superseded_at is null` |
-| **Perda do corpus do RADA na consolidação** — não é reingerível hoje | Cópia por `pg_dump` com conferência de contagem de documentos e chunks antes e depois; projeto antigo fica somente leitura até a conferência em produção |
+| **Perda do corpus do RADA na consolidação** — não é reingerível hoje | Migração com conferência de contagem de documentos e chunks antes e depois; o projeto antigo só é desativado depois de o α estar no ar contra o projeto do sisub |
 | Alpha em produção apontando para o projeto errado durante a troca | Corte por variável de ambiente (`SUPABASE_URL`, `DATABASE_URL`) num único deploy, depois da carga concluída e conferida; rollback = reverter a variável |
 | `vector`/`ltree` ausentes no projeto principal | Habilitadas na primeira migration, no schema `extensions`; migration falha alto se não puder habilitar |
 | Schema `alpha` não exposto no PostgREST | `alter role authenticator set pgrst.db_schemas` + `notify pgrst` na própria migration, como já feito para `rumaer` e `sucont` |
@@ -380,4 +384,5 @@ Blocos são verificados em paralelo com limite de concorrência. `compliance_run
 - **Comparação estrutural por LLM**: não-determinística, mais cara, e impossível de testar por fixture. Ver D4.
 - **Uma tabela `document_version` separada de `document`**: duplicaria FK e reescreveria o retriever atual. Versionar dentro de `document` com `superseded_at` mantém o retriever compatível — ele só ganha um filtro.
 - **Manter o alpha em projeto Supabase próprio**: duplicava administração, deixava a validação de JWT entre portal e alpha dependente de configuração não verificável pelo repositório e mantinha as migrations do alpha fora do histórico de `@iefa/database`.
+- **Criar secrets próprios do α já nesta mudança**: adiaria a consolidação por uma diferença que hoje não muda comportamento — os dois apontariam para o mesmo projeto. Fica como TODO explícito, não como omissão.
 - **Guardar o parecer como texto livre do LLM**: impossível auditar por regra, medir precisão ou marcar regra defasada. Finding estruturado é o que permite o golden set.

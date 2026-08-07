@@ -15,9 +15,10 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] A.9 [alpha] Cliente Supabase com `db: { schema: "alpha" }` e checkpointer com `PostgresSaver.fromConnString(url, { schema: "alpha" })`
 - [x] A.10 [alpha] Renomear referências de tabela no código (`documents` → `document`, `document_chunks` → `document_chunk`, `query_logs` → `query_log`) em `api/routes.ts`, `tools/rada-retriever.ts` e `ingest/markdown-ingest.ts`
 - [x] A.11 [alpha] `rada-retriever.ts`: filtrar `superseded_at IS NULL` e manter o comportamento do ChatRADA
-- [x] A.12 [database] Script de cópia do corpus do projeto antigo (`fjnysdiusivrffprcdus`) para o schema `alpha`, com conferência de contagem de documentos e chunks antes/depois
-- [ ] A.13 [alpha] Executar a cópia, conferir contagens e só então trocar `SUPABASE_URL` / `DATABASE_URL` do deploy; projeto antigo fica somente leitura
+- [x] A.12 [database] `scripts/migrate-alpha-corpus.sh` — migração única do corpus do projeto antigo, com conferência de contagem antes/depois
+- [ ] A.13 [alpha] Executar a migração, conferir contagens, sincronizar os secrets do alpha (herdados do sisub) e desativar o projeto Supabase antigo
 - [x] A.14 [alpha] Corrigir `plans/alpha/spec.md` §2 (schema `alpha`, dimensão 1024, tabelas novas) para parar de divergir do código
+- [x] A.15 [ci] `sync-secrets.yml` + `infra/alpha`: alpha herda os secrets do sisub (RAG_* removidos), com TODO de separação registrado
 
 ## PR B — Camada de fontes + adapter AGU (sem LLM)
 

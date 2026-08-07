@@ -17,11 +17,11 @@ Esta mudança é **independente de acesso ao RADA**: todas as fontes são federa
 
 ## What Changes
 
-- **Consolidação do alpha no projeto Supabase principal, sob o schema `alpha`**: as migrations passam a viver em `packages/database/supabase/migrations/`, no mesmo histórico dos demais schemas. O corpus existente (documentos, chunks com embedding, logs) é **copiado** do projeto antigo, não reingerido — o RADA não é reingerível hoje.
+- **Consolidação do alpha no projeto Supabase do sisub, sob o schema `alpha`**: as migrations passam a viver em `packages/database/supabase/migrations/`, no mesmo histórico dos demais schemas, e o deploy herda os secrets do sisub. O corpus existente (documentos, chunks com embedding, logs) é **migrado** do projeto antigo, não reingerido — o RADA não é reingerível hoje. O projeto antigo é descontinuado ao fim da migração.
 - **Camada de fontes normativas** (`apps/alpha/src/sources/`): registry declarativo com um adapter por fonte e um pipeline comum `discover → fetch → hash → parse → chunk → embed → upsert`. Ingestão idempotente por `content_hash`.
 - **Versionamento de documento — nunca sobrescreve**: nova versão cria linha nova; a anterior recebe `superseded_at`. `document_type` deixa de ser CHECK fechado em documentos da FAB e passa a aceitar `LEI`, `DECRETO`, `IN_SEGES`, `MODELO_AGU`.
 - **Adapter AGU**: crawl das categorias de modelos da Lei 14.133/21, download dos `.docx`, extração de **três** artefatos por modelo — árvore de seções, notas explicativas (que citam o dispositivo legal de cada seção) e placeholders de preenchimento.
-- **Adapter de legislação**: Lei 14.133/21, decretos regulamentadores e INs SEGES via LexML/`normas.leg.br`, com Planalto como fallback.
+- **Adapter de legislação**: Lei 14.133/21, decretos regulamentadores e INs SEGES a partir do Planalto (lei/decreto) e do DOU (IN). LexML/SRU foi descartado por responder verificação anti-bot do Senado a partir de servidor.
 - **Watcher de atualização** + **análise de impacto**: rota interna agendada detecta versão nova, reindexa e marca como `needs_review` toda regra de conformidade que cita dispositivo alterado.
 - **Etapa 1.4 — extrator**: ETP/TR (`.docx`/`.pdf`) → JSON canônico da contratação, com `source_span` obrigatório em cada campo.
 - **Etapa 1.5 — comparador estrutural**: casamento determinístico (exato → fuzzy → embedding) + LCS para ordem, produzindo `missing | extra | out_of_order | renamed`. LLM só redige justificativa.
@@ -48,11 +48,11 @@ Esta mudança é **independente de acesso ao RADA**: todas as fontes são federa
 ## Impact
 
 - **Apps**: `alpha` (núcleo) e `portal` (console de teste). Nenhum efeito em sisub, api, docs ou sisub-mcp.
-- **Banco (`packages/database`, projeto principal, schema `alpha`)**: extensões `vector` e `ltree`; tabelas migradas do projeto antigo (`document`, `document_chunk`, `query_log`) já com versionamento; tabelas novas `normative_source`, `structure_node`, `explanatory_note`, `placeholder`, `checklist_rule`, `submission`, `extraction`, `compliance_run`, `compliance_finding`; RPCs `alpha.match_chunks_cosine` e `alpha.match_chunks_fts`; schema `alpha` exposto no PostgREST (`pgrst.db_schemas` + reload) e incluído nos scripts `db:types` / `db:pull` / `db:diff`.
+- **Banco (`packages/database`, projeto Supabase do sisub, schema `alpha`)**: extensões `vector` e `ltree`; tabelas migradas do projeto antigo (`document`, `document_chunk`, `query_log`) já com versionamento; tabelas novas `normative_source`, `structure_node`, `explanatory_note`, `placeholder`, `checklist_rule`, `submission`, `extraction`, `compliance_run`, `compliance_finding`; RPCs `alpha.match_chunks_cosine` e `alpha.match_chunks_fts`; schema `alpha` exposto no PostgREST (`pgrst.db_schemas` + reload) e incluído nos scripts `db:types` / `db:pull` / `db:diff`.
 - **`apps/alpha/src/`**: cliente Supabase passa a usar `db: { schema: "alpha" }` e o checkpointer LangGraph passa a `PostgresSaver.fromConnString(url, { schema: "alpha" })`; novos diretórios `sources/`, `extraction/`, `compliance/`; `tools/rada-retriever.ts` generalizado para `tools/normative-retriever.ts` (mantendo `radaRetriever` como wrapper para não quebrar o grafo atual); novas rotas `/api/v1/submissions`, `/api/v1/compliance`, `/api/v1/sources`, `/internal/jobs/sources/refresh`.
 - **`apps/portal/src/routes/`**: rotas autenticadas `/alpha/fontes`, `/alpha/modelos/$id`, `/alpha/analise/nova`, `/alpha/analise/$id`, `/alpha/bancada`, consumindo `getAlphaClient()`.
-- **Dependências novas em `alpha`**: `fflate` (OOXML), `unpdf` (PDF), `fast-xml-parser` (LexML SRU).
-- **Infra**: uma scheduled task semanal chamando `/internal/jobs/sources/refresh` (mesmo padrão dos sync workers já usados no `api`).
+- **Dependências novas em `alpha`**: `fflate` (OOXML) e `unpdf` (PDF).
+- **Infra**: timer semanal in-process (desligado por padrão) e rota `/internal/jobs/sources/refresh` para acionamento externo; `sync-secrets.yml` passa a alimentar o alpha a partir dos secrets do sisub, com `ALPHA_JOB_SECRET` novo.
 - **Testes**: fixtures de `.docx` da AGU e de norma; golden set de ETP/TR anotados; suíte de precisão/recall por regra.
 
 ## Não-objetivos
@@ -63,5 +63,5 @@ Esta mudança é **independente de acesso ao RADA**: todas as fontes são federa
 - **Correção automática do documento**: o sistema aponta a inconformidade e sugere; não reescreve o ETP/TR do usuário. A palavra final é do gestor.
 - **Camada de customização por OM**: normas locais subordinadas às sistêmicas ficam para depois; esta fase trata só de norma federal.
 - **Reingestão do RADA**: o corpus da FAB é **copiado** entre projetos, nunca reingerido. O acesso ao RADA está indisponível e nada aqui depende dele.
-- **Desligar o projeto Supabase antigo do alpha**: fica em modo somente leitura como rede de segurança até o corpus consolidado ser conferido em produção. A desativação é follow-up, não faz parte desta mudança.
+- **Secrets próprios do alpha**: em produção o α passa a herdar os secrets do sisub (mesmo projeto), no padrão de rumaer e sucont. Dar a ele `ALPHA_SUPABASE_*` próprios — para permitir rotação independente, credencial de menor privilégio e pooler dimensionado — fica registrado como TODO no `sync-secrets.yml` e no `terraform.tfvars`, e é follow-up.
 - **Unificar a base de usuários entre projetos**: a consolidação move dados do alpha, não identidades. Qualquer ajuste de perfil/role de usuário existente fica fora do escopo.

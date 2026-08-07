@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # ============================================================================
-# copy-alpha-corpus.sh — copia o corpus do Projeto α do projeto Supabase antigo
-# para o schema `alpha` do projeto principal.
+# migrate-alpha-corpus.sh — migração única do corpus do Projeto α, do projeto
+# Supabase antigo para o schema `alpha` do projeto do sisub.
 #
 # Por que existe: o corpus do RADA já indexado (documentos + chunks + embeddings)
-# NÃO é reingerível — o acesso ao RADA está indisponível. Perder esses dados na
-# consolidação seria irreversível na prática.
+# NÃO é reingerível — o acesso ao RADA está indisponível. É a única razão pela
+# qual o projeto antigo ainda precisa ser aberto uma vez.
+#
+# Depois desta migração o projeto antigo é **descontinuado**: o α passa a usar
+# exclusivamente o projeto do sisub, com os mesmos secrets
+# (ver .github/workflows/sync-secrets.yml).
 #
 # Uso:
 #   ALPHA_LEGACY_DATABASE_URL=postgresql://...  # projeto antigo (fjnysdiusivrffprcdus)
-#   ALPHA_TARGET_DATABASE_URL=postgresql://...  # projeto principal (jgigqdpdjgnnuwajtayh)
-#   bash scripts/copy-alpha-corpus.sh preflight   # só inspeciona, não escreve
-#   bash scripts/copy-alpha-corpus.sh copy        # copia e confere
+#   ALPHA_TARGET_DATABASE_URL=postgresql://...  # projeto do sisub (jgigqdpdjgnnuwajtayh)
+#   bash scripts/migrate-alpha-corpus.sh preflight   # só inspeciona, não escreve
+#   bash scripts/migrate-alpha-corpus.sh migrate     # migra e confere
 #
 # Pré-requisito: a migration 20260730120000_create_alpha_schema.sql já aplicada
-# no destino. O projeto antigo deve estar em modo somente leitura durante a
-# cópia — qualquer escrita nele depois disso se perde.
+# no destino. Nenhuma escrita pode ocorrer no projeto antigo durante a migração —
+# o que entrar nele depois deste ponto se perde.
 # ============================================================================
 set -euo pipefail
 
@@ -53,7 +57,7 @@ preflight() {
 
 	echo ""
 	echo "Confira as listas de coluna no topo deste script contra os \\d acima."
-	echo "Se baterem, rode: bash scripts/copy-alpha-corpus.sh copy"
+	echo "Se baterem, rode: bash scripts/migrate-alpha-corpus.sh migrate"
 }
 
 copy_table() {
@@ -89,7 +93,7 @@ do_copy() {
 	printf "query_log      origem=%s destino=%s\n" "$src_logs"   "$dst_logs"
 
 	if [[ "$src_docs" != "$dst_docs" || "$src_chunks" != "$dst_chunks" ]]; then
-		echo "❌ contagem divergente — NÃO trocar SUPABASE_URL/DATABASE_URL do deploy"
+		echo "❌ contagem divergente — NÃO trocar os secrets do deploy nem desativar o projeto antigo"
 		exit 1
 	fi
 
@@ -104,11 +108,13 @@ do_copy() {
 		exit 1
 	fi
 
-	echo "✅ corpus copiado e conferido"
+	echo "✅ corpus migrado e conferido"
+	echo "   Próximo passo: sincronizar os secrets do alpha (que agora herdam os do"
+	echo "   sisub) e, confirmado o α no ar, desativar o projeto Supabase antigo."
 }
 
 case "$MODE" in
 	preflight) preflight ;;
-	copy)      do_copy ;;
-	*) echo "uso: $0 [preflight|copy]"; exit 1 ;;
+	migrate)   do_copy ;;
+	*) echo "uso: $0 [preflight|migrate]"; exit 1 ;;
 esac

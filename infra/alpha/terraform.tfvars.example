@@ -16,8 +16,17 @@ listener_priority = 130
 environment_variables = {
   NODE_ENV = "production"
   PORT     = "8000"
+  # Timer semanal de atualização das fontes normativas. Ligar só depois da
+  # primeira coleta manual conferida.
+  ALPHA_SOURCES_REFRESH_ENABLED = "false"
 }
 
+# SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL vêm dos secrets do
+# sisub (mesmo projeto Supabase, schema `alpha`) — ver .github/workflows/sync-secrets.yml.
+#
+# TODO(manutenibilidade): trocar por secrets próprios do α. Herdar do sisub
+# significa que rotacionar a chave dele derruba o α, e impede dar ao α uma
+# credencial de menor privilégio ou um pooler dimensionado para a carga dele.
 secret_names = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -25,6 +34,7 @@ secret_names = [
   "NVIDIA_API_KEY",
   "ALPHA_AI_API_KEY",
   "LANGCHAIN_API_KEY",
+  "ALPHA_JOB_SECRET",
 ]
 
 
