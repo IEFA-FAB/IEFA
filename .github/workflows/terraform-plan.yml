@@ -1,6 +1,7 @@
 # Terraform PLAN on PRs that touch infra/**. Read-only: surfaces the infra diff
-# as a PR comment for review (Greptile + humans). It NEVER applies — apply stays
-# human/out-of-band by design (see infra/README.md).
+# as a PR comment for review. It NEVER applies — o apply do que foi revisado
+# acontece no merge, em `.github/workflows/terraform-apply.yml`, com uma role
+# separada que só é assumível a partir de `main`.
 #
 # Prereqs (one-time, see infra/README.md → "Terraform plan on PRs"):
 #   - Apply foundation so the read-only plan role exists, then set repo VARIABLES:

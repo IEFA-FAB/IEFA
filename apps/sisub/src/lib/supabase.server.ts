@@ -11,9 +11,17 @@ import { createTimeoutFetch } from "@/lib/timeout-fetch"
  * (GoTrue/PostgREST/gateway) pendura o SSR até o ALB cortar em 60s → 504 + empilha
  * conexão → 502. Auth roda no caminho crítico de TODO TTFB protegido → deadline
  * mais curto; dados service-role toleram um pouco mais, mas ainda limitados.
+ *
+ * O orçamento total é o `idle_timeout` do ALB: 60 s. Uma rota protegida encadeia
+ * auth + N chamadas de dados no mesmo request, então o deadline INDIVIDUAL precisa
+ * caber várias vezes dentro de 60 s — senão duas chamadas lentas em sequência já
+ * estouram o balanceador e o usuário recebe 504/502 em vez da página de erro que
+ * o `__root` sabe renderizar. Com 5 s + 10 s cabem ~5 round-trips ruins antes de
+ * chegar perto do corte; com os 8 s / 15 s anteriores, dois já custavam metade.
+ * Medição que motivou o aperto: p95 de ~11,5 s no target group do sisub.
  */
-const AUTH_FETCH_TIMEOUT_MS = 8_000
-const DATA_FETCH_TIMEOUT_MS = 15_000
+const AUTH_FETCH_TIMEOUT_MS = 5_000
+const DATA_FETCH_TIMEOUT_MS = 10_000
 const authTimeoutFetch = createTimeoutFetch(AUTH_FETCH_TIMEOUT_MS)
 const dataTimeoutFetch = createTimeoutFetch(DATA_FETCH_TIMEOUT_MS)
 

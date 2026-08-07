@@ -41,8 +41,7 @@ secret_names = [
 ]
 
 # Busiest app by far (~90% of ALB requests): two tasks so a Spot reclamation never
-# leaves it down. cpu/memory stay at 512/1024 to protect SSR TTFB even though
-# measured usage is far below that. Internal services stay on the default of 1.
+# leaves it down. Internal services stay on the default of 1.
 desired_count = 2
 
 # Alternative to a second Spot task: pin one on-demand task instead (≈2x the
