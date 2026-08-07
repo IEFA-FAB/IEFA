@@ -29,12 +29,23 @@ const DYNAMIC_IMPORT_FAILURE = /Importing a module script failed|error loading d
 
 // Segunda variante de chunk obsoleto: o import() RESOLVE, mas para um módulo
 // vazio/stale (manifest velho de aba antiga). O `lazyRouteComponent` então lê
-// `res[exportName]` num `res` undefined → TypeError, capturado pelo TanStack e
-// roteado pro `defaultOnCatch` (nunca chega aos listeners de window). Os nomes
-// de export vêm do code-split por rota do TanStack Start (component, errorComponent…).
-// Inclui a variante do Firefox/Spidermonkey (`res is undefined`).
+// `res[exportName ?? "default"]` num `res` undefined → TypeError, capturado pelo
+// TanStack e roteado pro `defaultOnCatch` (nunca chega aos listeners de window).
+// Os nomes de export vêm do code-split por rota do TanStack Start (component,
+// errorComponent…). Cada engine descreve o mesmo TypeError de um jeito:
+//
+//   V8/Chrome:  Cannot read properties of undefined (reading 'component')
+//   WebKit:     undefined is not an object (evaluating 'e[n??`default`]')
+//   Spidermonkey: res is undefined
+//
+// A forma do WebKit é a que aparece no iOS Safari — justamente o engine que
+// motivou esta recuperação (abas/PWA vivas por dias). Ela não cita o nome do
+// export: cita a EXPRESSÃO minificada `e[n??`default`]`, então casamos pela
+// assinatura `?? "default"` dentro do `(evaluating '…')`, que é literalmente o
+// corpo do `lazyRouteComponent` — específica o bastante para não pegar erro de
+// app. As aspas do literal variam com o minificador (backtick, ' ou ").
 const STALE_LAZY_COMPONENT =
-	/Cannot read properties of undefined \(reading '(?:component|errorComponent|pendingComponent|notFoundComponent|default)'\)|res(?:ult)? is undefined/i
+	/Cannot read properties of undefined \(reading '(?:component|errorComponent|pendingComponent|notFoundComponent|default)'\)|res(?:ult)? is undefined|(?:undefined|null) is not an object \(evaluating '[^']*\?\?\s*[`'"]default[`'"]/i
 
 // Fallback em memória para contextos onde sessionStorage lança (Safari em modo
 // privado / storage bloqueado). Não sobrevive ao reload, mas garante que a
