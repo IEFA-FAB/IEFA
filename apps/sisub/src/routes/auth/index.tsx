@@ -616,7 +616,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						id="reg-name"
 						type="text"
 						autoComplete="name"
-						placeholder="Ten. Fulano da Silva"
+						placeholder="João Silva"
 						value={name}
 						onChange={(e) => {
 							dispatch({ type: "SET_NAME", value: e.target.value })

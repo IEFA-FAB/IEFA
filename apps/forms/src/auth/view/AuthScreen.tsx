@@ -578,11 +578,11 @@ function RegisterTabContent({ state, dispatch, actions, onTabChange }: RegisterT
 					{state.error && <ErrorBanner message={state.error} />}
 
 					<div className="space-y-2">
-						<FieldLabel>Nome</FieldLabel>
+						<FieldLabel>Nome completo</FieldLabel>
 						<div className="relative">
 							<User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
 							<Input
-								placeholder="Seu nome completo"
+								placeholder="João Silva"
 								className="h-11 pl-9"
 								value={state.registerData.name}
 								onChange={(e) => dispatch({ type: "REGISTER_DATA", patch: { name: e.target.value } })}

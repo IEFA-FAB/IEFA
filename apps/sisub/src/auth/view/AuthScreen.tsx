@@ -702,11 +702,11 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									</Alert>
 								)}
 								<div className="space-y-2.5">
-									<Label className={labelClasses}>Nome</Label>
+									<Label className={labelClasses}>Nome completo</Label>
 									<div className="relative group">
 										<User className={iconClasses} />
 										<Input
-											placeholder="Seu nome"
+											placeholder="João Silva"
 											className={`${inputClasses} pl-11`}
 											value={registerData.name}
 											onChange={(e) => dispatch({ type: "SET_REGISTER_DATA", value: { name: e.target.value } })}

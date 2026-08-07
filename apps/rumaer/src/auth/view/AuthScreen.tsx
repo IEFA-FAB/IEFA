@@ -463,7 +463,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						{(cls) => (
 							<Input
 								id="register-name"
-								placeholder="Seu nome completo"
+								placeholder="João Silva"
 								className={cls}
 								value={registerData.name}
 								onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
