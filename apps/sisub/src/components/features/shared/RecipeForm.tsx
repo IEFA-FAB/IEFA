@@ -53,26 +53,38 @@ function formatReviewStamp(dateStr: string) {
 }
 
 // Schema Validation
+// Este schema é o validator do form (não só um check no submit), então o tipo de ENTRADA
+// dele tem que ser exatamente o dos valores do formulário: nada de `.default()` (o input
+// viraria `T | undefined`) e `ingredient_id`/`net_quantity` aceitam null, que é como a
+// linha existe na tela — item recém-adicionado nasce sem quantidade. O null é rejeitado
+// no refine, com a mensagem que o usuário lê.
 const ingredientSchema = z.object({
-	ingredient_id: z.string().uuid(),
+	ingredient_id: z
+		.string()
+		.uuid("Insumo inválido")
+		.nullable()
+		.refine((value) => value !== null, "Selecione um insumo"),
 	ingredient_name: z.string(), // Helper for UI
 	measure_unit: z.string(), // Helper for UI
-	net_quantity: z.number().min(0.001, "Quantidade deve ser maior que 0"),
-	is_optional: z.boolean().default(false),
-	priority_order: z.number().default(0),
+	net_quantity: z
+		.number()
+		.nullable()
+		.refine((value) => value != null && value >= 0.001, "Quantidade deve ser maior que 0"),
+	is_optional: z.boolean(),
+	priority_order: z.number(),
 	// Fatores da ficha técnica (opcionais): vazio/null = herda o insumo e, na ausência, vale 1.
-	correction_factor: z.number().positive("FC deve ser maior que 0").nullable().default(null),
-	rehydration_index: z.number().positive("IR deve ser maior que 0").nullable().default(null),
+	correction_factor: z.number().positive("FC deve ser maior que 0").nullable(),
+	rehydration_index: z.number().positive("IR deve ser maior que 0").nullable(),
 })
 
 const recipeSchema = z.object({
 	name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-	preparation_method: z.string().default(""),
+	preparation_method: z.string(),
 	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
-	preparation_time_minutes: z.number().default(0),
-	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20").default(1.0),
+	preparation_time_minutes: z.number(),
+	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20"),
 	/** Pasta de organização — opcional por definição: agrupar é conveniência, não requisito. */
-	folder_id: z.string().uuid().nullable().default(null),
+	folder_id: z.string().uuid().nullable(),
 	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 })
 
@@ -85,6 +97,104 @@ interface IngredientFormItem {
 	priority_order: number
 	correction_factor: number | null
 	rehydration_index: number | null
+}
+
+// ── Validação: um schema, três superfícies ──────────────────────────────────
+// `recipeSchema` é o gate do submit (validators.onChange), a origem do realce em
+// vermelho e o texto do toast de erro. Derivar as três do mesmo lugar evita a
+// divergência clássica — a regra muda e a mensagem continua dizendo outra coisa.
+// Os problemas são recalculados a partir dos valores porque os itens de ingrediente
+// não têm <form.Field> próprio: não existe `meta.errors` por linha para ler.
+
+const TAB_LABEL: Record<RecipeFormTab, string> = {
+	detalhes: "Detalhes",
+	ingredientes: "Ingredientes",
+	preparo: "Modo de preparo",
+	nutricao: "Nutrição",
+	fluxo: "Fluxo de produção",
+}
+
+/** Campo de topo do schema → aba que o contém + rótulo exibido ao usuário. */
+const FIELD_LOCATION: Record<string, { tab: RecipeFormTab; label: string }> = {
+	name: { tab: "detalhes", label: "Nome da preparação" },
+	portion_yield: { tab: "detalhes", label: "Rendimento" },
+	preparation_time_minutes: { tab: "detalhes", label: "Tempo de preparo" },
+	cooking_factor: { tab: "detalhes", label: "Fator de cocção" },
+	folder_id: { tab: "detalhes", label: "Pasta" },
+	preparation_method: { tab: "preparo", label: "Modo de preparo" },
+	ingredients: { tab: "ingredientes", label: "Ingredientes" },
+}
+
+/** Campo do ingrediente → rótulo curto; compõe o "{insumo} — {campo}" do toast. */
+const INGREDIENT_FIELD_LABEL: Record<string, string> = {
+	ingredient_id: "insumo",
+	net_quantity: "quantidade",
+	correction_factor: "fator de correção",
+	rehydration_index: "índice de reidratação",
+}
+
+interface FormProblem {
+	tab: RecipeFormTab
+	label: string
+	message: string
+}
+
+type TabProblemCount = Record<RecipeFormTab, number>
+
+/** Rótulo de um problema de ingrediente: "{insumo} — {campo}". */
+function ingredientProblemLabel(ingredients: IngredientFormItem[], index: number, leaf: PropertyKey | undefined): string {
+	const name = ingredients[index]?.ingredient_name || `Ingrediente ${index + 1}`
+	if (typeof leaf !== "string") return name
+	return `${name} — ${INGREDIENT_FIELD_LABEL[leaf] ?? leaf}`
+}
+
+/**
+ * Tudo que impede o salvamento, já localizado (aba + rótulo do campo). Um problema por
+ * CAMPO: dois issues no mesmo campo viram um só, senão a contagem da aba e a do toast
+ * ("3 campos impedem…") diriam mais campos do que os que estão marcados na tela.
+ */
+function collectProblems(values: unknown): FormProblem[] {
+	const parsed = recipeSchema.safeParse(values)
+	if (parsed.success) return []
+	const ingredients = (values as { ingredients?: IngredientFormItem[] }).ingredients ?? []
+	const byField = new Map<string, FormProblem>()
+	for (const issue of parsed.error.issues) {
+		const [head, index, leaf] = issue.path
+		const problem: FormProblem =
+			head === "ingredients" && typeof index === "number"
+				? { tab: "ingredientes", label: ingredientProblemLabel(ingredients, index, leaf), message: issue.message }
+				: {
+						tab: FIELD_LOCATION[String(head)]?.tab ?? "detalhes",
+						label: FIELD_LOCATION[String(head)]?.label ?? String(head),
+						message: issue.message,
+					}
+		const key = issue.path.map(String).join(".")
+		if (!byField.has(key)) byField.set(key, problem)
+	}
+	return [...byField.values()]
+}
+
+function countProblemsByTab(problems: FormProblem[]): TabProblemCount {
+	const counts: TabProblemCount = { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
+	for (const problem of problems) counts[problem.tab] += 1
+	return counts
+}
+
+/** Erros de UM ingrediente, por campo — realce da linha na aba Ingredientes. */
+function ingredientErrors(item: IngredientFormItem): Partial<Record<keyof IngredientFormItem, string>> {
+	const parsed = ingredientSchema.safeParse(item)
+	if (parsed.success) return {}
+	const errors: Partial<Record<keyof IngredientFormItem, string>> = {}
+	for (const issue of parsed.error.issues) {
+		const key = issue.path[0] as keyof IngredientFormItem | undefined
+		if (key && !errors[key]) errors[key] = issue.message
+	}
+	return errors
+}
+
+/** Erros do TanStack Form (issues do schema, ou strings) no formato do <FieldError>. */
+function toFieldErrors(errors: readonly unknown[]): Array<{ message?: string }> {
+	return errors.map((error) => ({ message: typeof error === "string" ? error : (error as { message?: string } | undefined)?.message }))
 }
 
 interface RecipeFormProps {
@@ -173,14 +283,38 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					rehydration_index: ing.rehydration_index ?? null,
 				})) || [],
 		},
+		// Gate do salvamento. Com o schema aqui, `field.state.meta.errors` passa a ser
+		// preenchido e os realces em vermelho (que já existiam no JSX) acendem sozinhos;
+		// no submit o TanStack roda os validadores onChange antes de chamar onSubmit.
+		validators: {
+			onChange: recipeSchema,
+		},
+		// Submit barrado: leva o usuário à primeira aba com problema e diz QUAIS campos
+		// estão errados. O aviso anterior ("Preencha todos os campos obrigatórios") não
+		// dizia qual campo nem em qual das 5 abas ele estava — com o formulário abaixo da
+		// dobra e o erro em outra aba, não havia como achar.
+		onSubmitInvalid: ({ value }) => {
+			const problems = collectProblems(value)
+			if (problems.length === 0) return
+			const first = problems[0]
+			if (first) setTab(first.tab)
+			const shown = problems.slice(0, 4)
+			const rest = problems.length - shown.length
+			toast.error(problems.length === 1 ? "1 campo impede o salvamento" : `${problems.length} campos impedem o salvamento`, {
+				description: (
+					<ul className="mt-1 list-disc space-y-0.5 pl-4">
+						{shown.map((problem) => (
+							<li key={`${problem.label}:${problem.message}`}>
+								<span className="font-medium">{problem.label}</span> ({TAB_LABEL[problem.tab]}): {problem.message}
+							</li>
+						))}
+						{rest > 0 && <li>e mais {rest}…</li>}
+					</ul>
+				),
+			})
+		},
 		onSubmit: async ({ value }) => {
 			"use no memo"
-			// Validate with Zod before submitting
-			const validation = recipeSchema.safeParse(value)
-			if (!validation.success) {
-				toast.error("Preencha todos os campos obrigatórios corretamente")
-				return
-			}
 			const mappedIngredients = value.ingredients
 				.filter((i): i is typeof i & { ingredient_id: string; net_quantity: number } => i.ingredient_id !== null && i.net_quantity !== null)
 				.map((i) => ({
@@ -241,25 +375,39 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			<PageHeader
 				title={
 					<form.Field name="name">
-						{(field) => (
-							<span className="group/title inline-flex max-w-full items-center gap-1.5">
-								<input
-									aria-label="Nome da preparação"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-									placeholder="Nome da preparação"
-									className={cn(
-										"text-heading leading-tight text-foreground bg-transparent",
-										"field-sizing-content min-w-[10ch] max-w-full",
-										"-mx-2 rounded-md px-2 py-0.5",
-										"outline-none transition-colors hover:bg-muted/60 focus:bg-muted/60",
-										"focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground/60"
+						{(field) => {
+							// O nome mora no título (fora das abas), então o erro dele é mostrado aqui
+							// mesmo — inline, para caber dentro do <h1> do PageHeader.
+							const invalid = field.state.meta.errors.length > 0
+							const nameError = toFieldErrors(field.state.meta.errors)[0]?.message
+							return (
+								<span className="group/title inline-flex max-w-full items-center gap-1.5">
+									<input
+										aria-label="Nome da preparação"
+										aria-invalid={invalid}
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Nome da preparação"
+										className={cn(
+											"text-heading leading-tight text-foreground bg-transparent",
+											"field-sizing-content min-w-[10ch] max-w-full",
+											"-mx-2 rounded-md px-2 py-0.5",
+											"outline-none transition-colors hover:bg-muted/60 focus:bg-muted/60",
+											"focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground/60",
+											"aria-invalid:bg-destructive/5 aria-invalid:ring-[3px] aria-invalid:ring-destructive/40"
+										)}
+									/>
+									{nameError ? (
+										<span role="alert" className="text-caption font-normal text-destructive">
+											{nameError}
+										</span>
+									) : (
+										<Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-within/title:opacity-100" />
 									)}
-								/>
-								<Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-within/title:opacity-100" />
-							</span>
-						)}
+								</span>
+							)
+						}}
 					</form.Field>
 				}
 				badge={modeBadge}
@@ -292,19 +440,47 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
-						<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
-							<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
-							<TabsTrigger value="ingredientes">
-								Ingredientes
-								<form.Subscribe selector={(state) => state.values.ingredients.length}>
-									{(count) => (count > 0 ? <Badge variant="secondary">{count}</Badge> : null)}
-								</form.Subscribe>
-							</TabsTrigger>
-							<TabsTrigger value="preparo">Modo de preparo</TabsTrigger>
-							<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
-							<TabsTrigger value="fluxo">Fluxo de produção</TabsTrigger>
-						</TabsList>
+						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
+						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
+						<form.Subscribe
+							selector={(state) => ({
+								...countProblemsByTab(collectProblems(state.values)),
+								// Só depois da primeira tentativa de salvar: um formulário recém-aberto (ou
+								// "criar", que nasce sem ingredientes) marcaria em vermelho o que o usuário
+								// ainda nem viu.
+								attempted: state.submissionAttempts > 0,
+								ingredientCount: state.values.ingredients.length,
+							})}
+						>
+							{({ attempted, ingredientCount, ...counts }) => (
+								<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
+									{RECIPE_FORM_TABS.map((tab) => {
+										const errorCount = attempted ? counts[tab] : 0
+										// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
+										// com a mesma especificidade, e sem o seletor duplo o vermelho sumiria justo na
+										// aba que o usuário está olhando.
+										return (
+											<TabsTrigger
+												key={tab}
+												value={tab}
+												data-invalid={errorCount > 0 || undefined}
+												className="data-[invalid]:text-destructive data-[invalid]:data-active:text-destructive"
+											>
+												{TAB_LABEL[tab]}
+												{errorCount > 0 ? (
+													<Badge variant="destructive" aria-label={`${errorCount} ${errorCount === 1 ? "campo com erro" : "campos com erro"}`}>
+														{errorCount}
+													</Badge>
+												) : tab === "ingredientes" && ingredientCount > 0 ? (
+													<Badge variant="secondary">{ingredientCount}</Badge>
+												) : null}
+											</TabsTrigger>
+										)
+									})}
+								</TabsList>
+							)}
+						</form.Subscribe>
 
 						{/* Detalhes — rendimento e cocção dimensionam a preparação */}
 						<TabsContent value="detalhes" className={READING_PANEL}>
@@ -325,11 +501,11 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 															type="number"
 															min={1}
 															value={field.state.value}
-															className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+															aria-invalid={field.state.meta.errors.length > 0}
 															onChange={(e) => field.handleChange(Number(e.target.value))}
 														/>
 														<FieldDescription>Base para custo e escala das quantidades.</FieldDescription>
-														<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
+														<FieldError errors={toFieldErrors(field.state.meta.errors)} />
 													</FieldContent>
 												</Field>
 											)}
@@ -362,7 +538,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 														Parâmetro avançado: 1,0 = sem perda de massa; acima disso o alimento perde peso ao cozinhar (ex.: frango ≈ 1,33). Faixa usual:
 														0,5–2,0.
 													</FieldDescription>
-													<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
+													<FieldError errors={toFieldErrors(field.state.meta.errors)} />
 												</FieldContent>
 												<Input
 													id="cooking_factor"
@@ -370,7 +546,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 													step="0.01"
 													placeholder="1,0"
 													value={field.state.value || 1}
-													className={cn("w-28 shrink-0", field.state.meta.errors.length > 0 && "border-destructive")}
+													aria-invalid={field.state.meta.errors.length > 0}
+													className="w-28 shrink-0"
 													onChange={(e) => field.handleChange(Number(e.target.value))}
 												/>
 											</Field>
@@ -441,117 +618,138 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												</div>
 											) : (
 												<ItemGroup>
-													{field.state.value.map((ingredient: IngredientFormItem, index: number) => (
-														<div key={ingredient.ingredient_id || index} className="space-y-2">
-															<Item variant="outline">
-																<ItemContent>
-																	<ItemTitle>{ingredient.ingredient_name}</ItemTitle>
-																</ItemContent>
-																<ItemActions className="gap-2">
-																	<div className="flex items-center gap-1.5">
-																		<Input
-																			aria-label={`Quantidade líquida de ${ingredient.ingredient_name}`}
-																			type="number"
-																			step="0.001"
-																			value={ingredient.net_quantity ?? 0}
-																			onChange={(e) => {
+													{field.state.value.map((ingredient: IngredientFormItem, index: number) => {
+														// Cada linha valida contra o mesmo `ingredientSchema` do submit. Sem isso o
+														// caso mais comum — insumo adicionado entra com quantidade 0 — só aparecia
+														// como um toast genérico depois de tentar salvar.
+														const rowErrors = ingredientErrors(ingredient)
+														const rowMessages = [
+															rowErrors.ingredient_id,
+															rowErrors.net_quantity,
+															rowErrors.correction_factor,
+															rowErrors.rehydration_index,
+														].filter(Boolean)
+														return (
+															<div key={ingredient.ingredient_id || index} className="space-y-2">
+																<Item variant="outline" data-invalid={rowMessages.length > 0 || undefined} className="data-[invalid]:border-destructive/60">
+																	<ItemContent>
+																		<ItemTitle>{ingredient.ingredient_name}</ItemTitle>
+																	</ItemContent>
+																	<ItemActions className="gap-2">
+																		<div className="flex items-center gap-1.5">
+																			<Input
+																				aria-label={`Quantidade líquida de ${ingredient.ingredient_name}`}
+																				type="number"
+																				step="0.001"
+																				aria-invalid={!!rowErrors.net_quantity}
+																				value={ingredient.net_quantity ?? 0}
+																				onChange={(e) => {
+																					const newList = [...field.state.value]
+																					newList[index].net_quantity = Number(e.target.value)
+																					field.handleChange(newList)
+																				}}
+																				className="w-24 text-right"
+																			/>
+																			<span className="text-caption text-muted-foreground w-8 shrink-0">{ingredient.measure_unit}</span>
+																		</div>
+																		<Toggle
+																			variant="outline"
+																			size="sm"
+																			pressed={ingredient.is_optional}
+																			onPressedChange={(pressed) => {
 																				const newList = [...field.state.value]
-																				newList[index].net_quantity = Number(e.target.value)
+																				newList[index].is_optional = pressed
 																				field.handleChange(newList)
 																			}}
-																			className="w-24 text-right"
-																		/>
-																		<span className="text-caption text-muted-foreground w-8 shrink-0">{ingredient.measure_unit}</span>
-																	</div>
-																	<Toggle
-																		variant="outline"
-																		size="sm"
-																		pressed={ingredient.is_optional}
-																		onPressedChange={(pressed) => {
-																			const newList = [...field.state.value]
-																			newList[index].is_optional = pressed
-																			field.handleChange(newList)
-																		}}
-																	>
-																		{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
-																		Opcional
-																	</Toggle>
-																	<Button
-																		type="button"
-																		variant="ghost"
-																		size="icon-sm"
-																		className="text-muted-foreground hover:text-destructive"
-																		aria-label={`Remover ${ingredient.ingredient_name}`}
-																		onClick={() => {
-																			const snapshot = [...field.state.value]
-																			const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
-																			field.handleChange(newList)
-																			toast("Ingrediente removido.", {
-																				action: {
-																					label: "Desfazer",
-																					onClick: () => field.handleChange(snapshot),
-																				},
-																			})
-																		}}
-																	>
-																		<Trash2 className="size-3.5" />
-																	</Button>
-																</ItemActions>
-															</Item>
+																		>
+																			{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+																			Opcional
+																		</Toggle>
+																		<Button
+																			type="button"
+																			variant="ghost"
+																			size="icon-sm"
+																			className="text-muted-foreground hover:text-destructive"
+																			aria-label={`Remover ${ingredient.ingredient_name}`}
+																			onClick={() => {
+																				const snapshot = [...field.state.value]
+																				const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
+																				field.handleChange(newList)
+																				toast("Ingrediente removido.", {
+																					action: {
+																						label: "Desfazer",
+																						onClick: () => field.handleChange(snapshot),
+																					},
+																				})
+																			}}
+																		>
+																			<Trash2 className="size-3.5" />
+																		</Button>
+																	</ItemActions>
+																</Item>
 
-															{/* Fatores da ficha técnica — opcionais; vazio = 1 (não altera). Peso bruto = peso líquido × FC. */}
-															<div className="ml-6 flex flex-wrap items-center gap-x-4 gap-y-2 pl-3 text-caption text-muted-foreground">
-																<div className="flex items-center gap-1.5">
-																	<span>Fator de correção</span>
-																	<Input
-																		aria-label={`Fator de correção de ${ingredient.ingredient_name}`}
-																		type="number"
-																		step="0.01"
-																		min={0}
-																		placeholder="1"
-																		value={ingredient.correction_factor ?? ""}
-																		onChange={(e) => {
-																			const newList = [...field.state.value]
-																			newList[index].correction_factor = e.target.value === "" ? null : Number(e.target.value)
-																			field.handleChange(newList)
-																		}}
-																		className="w-20 text-right"
-																	/>
+																{/* Fatores da ficha técnica — opcionais; vazio = 1 (não altera). Peso bruto = peso líquido × FC. */}
+																<div className="ml-6 flex flex-wrap items-center gap-x-4 gap-y-2 pl-3 text-caption text-muted-foreground">
+																	<div className="flex items-center gap-1.5">
+																		<span>Fator de correção</span>
+																		<Input
+																			aria-label={`Fator de correção de ${ingredient.ingredient_name}`}
+																			type="number"
+																			step="0.01"
+																			min={0}
+																			placeholder="1"
+																			aria-invalid={!!rowErrors.correction_factor}
+																			value={ingredient.correction_factor ?? ""}
+																			onChange={(e) => {
+																				const newList = [...field.state.value]
+																				newList[index].correction_factor = e.target.value === "" ? null : Number(e.target.value)
+																				field.handleChange(newList)
+																			}}
+																			className="w-20 text-right"
+																		/>
+																	</div>
+																	<div className="flex items-center gap-1.5">
+																		<span>Índice de reidratação</span>
+																		<Input
+																			aria-label={`Índice de reidratação de ${ingredient.ingredient_name}`}
+																			type="number"
+																			step="0.01"
+																			min={0}
+																			placeholder="1"
+																			aria-invalid={!!rowErrors.rehydration_index}
+																			value={ingredient.rehydration_index ?? ""}
+																			onChange={(e) => {
+																				const newList = [...field.state.value]
+																				newList[index].rehydration_index = e.target.value === "" ? null : Number(e.target.value)
+																				field.handleChange(newList)
+																			}}
+																			className="w-20 text-right"
+																		/>
+																	</div>
+																	{(ingredient.net_quantity ?? 0) > 0 && (ingredient.correction_factor ?? 0) > 0 && (
+																		<span className="text-foreground">
+																			Peso bruto:{" "}
+																			<strong className="font-medium">
+																				{((ingredient.net_quantity ?? 0) * (ingredient.correction_factor ?? 1)).toLocaleString("pt-BR", {
+																					maximumFractionDigits: 2,
+																				})}
+																			</strong>{" "}
+																			{ingredient.measure_unit}
+																		</span>
+																	)}
 																</div>
-																<div className="flex items-center gap-1.5">
-																	<span>Índice de reidratação</span>
-																	<Input
-																		aria-label={`Índice de reidratação de ${ingredient.ingredient_name}`}
-																		type="number"
-																		step="0.01"
-																		min={0}
-																		placeholder="1"
-																		value={ingredient.rehydration_index ?? ""}
-																		onChange={(e) => {
-																			const newList = [...field.state.value]
-																			newList[index].rehydration_index = e.target.value === "" ? null : Number(e.target.value)
-																			field.handleChange(newList)
-																		}}
-																		className="w-20 text-right"
-																	/>
-																</div>
-																{(ingredient.net_quantity ?? 0) > 0 && (ingredient.correction_factor ?? 0) > 0 && (
-																	<span className="text-foreground">
-																		Peso bruto:{" "}
-																		<strong className="font-medium">
-																			{((ingredient.net_quantity ?? 0) * (ingredient.correction_factor ?? 1)).toLocaleString("pt-BR", {
-																				maximumFractionDigits: 2,
-																			})}
-																		</strong>{" "}
-																		{ingredient.measure_unit}
-																	</span>
+
+																{rowMessages.length > 0 && (
+																	<p role="alert" className="ml-6 pl-3 text-caption text-destructive">
+																		{rowMessages.join(" · ")}
+																	</p>
 																)}
 															</div>
-														</div>
-													))}
+														)
+													})}
 												</ItemGroup>
 											)}
-											{field.state.meta.errors && <FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />}
+											<FieldError errors={toFieldErrors(field.state.meta.errors)} />
 										</CardContent>
 									</Card>
 								)}
@@ -578,7 +776,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
 													/>
-													<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
+													<FieldError errors={toFieldErrors(field.state.meta.errors)} />
 												</FieldContent>
 											</Field>
 										)}
