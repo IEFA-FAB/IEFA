@@ -10,24 +10,36 @@
  *   - fetchRecipe: filtra deleted_at IS NULL (faltava no sisub — devolvia receitas no lixo).
  */
 
-import { menuTemplateInKitchen, menuTemplateItemsInKitchen, recipeIngredientsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
-import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
-import { and, eq, ilike, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
+import {
+	menuTemplateInKitchen,
+	menuTemplateItemsInKitchen,
+	recipeFolderInKitchen,
+	recipeIngredientsInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
+import type { FrozenPreparation, Ingredient, Recipe, RecipeFolder, RecipeIngredient } from "@iefa/database/sisub"
+import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
+	CreateRecipeFolder,
 	DeleteRecipe,
+	DeleteRecipeFolder,
 	FetchRecipe,
+	ListRecipeFolders,
 	ListRecipes,
 	ListRecipeVersions,
 	RenameRecipe,
+	RenameRecipeFolder,
 	RestoreRecipe,
 	SaveRecipeEdit,
+	SetRecipeFolder,
 } from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery, toWire, unwrapPgError } from "../utils/index.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -190,6 +202,131 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 	return rows.map((r) => toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS))
 }
 
+// ── Pastas de preparação (agrupamento plano — organização e filtragem) ───────
+//
+// Deliberadamente mais simples que `kitchen.folder` (pastas de insumo): sem hierarquia, sem
+// caminho, sem herança. A pasta é um rótulo; a listagem continua sendo uma lista.
+//
+// Autorização em dois níveis distintos:
+//   - o CONJUNTO de pastas é catálogo (criar/renomear/excluir → `global:2`);
+//   - ARQUIVAR uma preparação segue a posse dela (`authorizeAssetMutation`), então uma cozinha
+//     organiza as próprias preparações sem poder alterar as pastas de ninguém.
+
+/** Violação da unicidade de nome entre pastas ATIVAS (índice parcial). */
+function isDuplicateFolderName(error: unknown): boolean {
+	const pg = unwrapPgError(error)
+	return pg.code === "23505" && (pg.constraint_name ?? "").startsWith("recipe_folder_name_active")
+}
+
+/**
+ * Garante que a pasta destino existe e está ativa. A FK sozinha barra id inexistente, mas
+ * aceitaria uma pasta soft-deletada — a preparação sumiria num agrupamento invisível.
+ */
+async function assertActiveRecipeFolder(db: SisubDb, folderId: string): Promise<void> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.recipeFolderInKitchen.findFirst({
+			columns: { id: true },
+			where: and(eq(recipeFolderInKitchen.id, folderId), isNull(recipeFolderInKitchen.deletedAt)),
+		})
+	)
+	if (!row) throw new NotFoundError("recipe_folder", folderId)
+}
+
+export async function listRecipeFolders(db: SisubDb, ctx: UserContext, input?: ListRecipeFolders): Promise<RecipeFolder[]> {
+	// Mesmo nível de leitura de `listRecipes`: quem enxerga preparações enxerga o agrupamento delas.
+	requirePermission(ctx, "kitchen", 1)
+	const where = input?.includeDeleted ? undefined : isNull(recipeFolderInKitchen.deletedAt)
+	const rows = await runQuery("FETCH_FAILED", () => db.select().from(recipeFolderInKitchen).where(where).orderBy(asc(recipeFolderInKitchen.name)))
+	return rows.map((r) => toWire<RecipeFolder>(r))
+}
+
+export async function createRecipeFolder(db: SisubDb, ctx: UserContext, input: CreateRecipeFolder): Promise<RecipeFolder> {
+	requirePermission(ctx, "global", 2)
+	try {
+		const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () => db.insert(recipeFolderInKitchen).values({ name: input.name }).returning())
+		return toWire<RecipeFolder>(row)
+	} catch (error) {
+		if (isDuplicateFolderName(error)) throw new DomainError("RECIPE_FOLDER_DUPLICATE", `Já existe uma pasta chamada "${input.name}"`)
+		throw error
+	}
+}
+
+export async function renameRecipeFolder(db: SisubDb, ctx: UserContext, input: RenameRecipeFolder): Promise<RecipeFolder> {
+	requirePermission(ctx, "global", 2)
+	try {
+		const [row] = await mutateOrFail("UPDATE_FAILED", `recipe_folder ${input.id} not found`, () =>
+			db
+				.update(recipeFolderInKitchen)
+				.set({ name: input.name })
+				.where(and(eq(recipeFolderInKitchen.id, input.id), isNull(recipeFolderInKitchen.deletedAt)))
+				.returning()
+		)
+		return toWire<RecipeFolder>(row)
+	} catch (error) {
+		if (isDuplicateFolderName(error)) throw new DomainError("RECIPE_FOLDER_DUPLICATE", `Já existe uma pasta chamada "${input.name}"`)
+		throw error
+	}
+}
+
+/**
+ * Exclui (soft) uma pasta e, na MESMA transação, desarquiva as preparações que estavam nela.
+ *
+ * Excluir só a pasta deixaria as preparações apontando para um agrupamento que nenhuma tela
+ * lista — elas sumiriam de todos os filtros por pasta e continuariam fora de "Sem pasta".
+ * Como a pasta é só um rótulo, apagá-lo devolve as preparações ao estado "sem pasta".
+ *
+ * @returns quantas preparações foram desarquivadas.
+ */
+export async function deleteRecipeFolder(db: SisubDb, ctx: UserContext, input: DeleteRecipeFolder): Promise<{ unfiled: number }> {
+	requirePermission(ctx, "global", 2)
+	return db.transaction(async (tx) => {
+		const unfiled = await tx
+			.update(recipesInKitchen)
+			.set({ folderId: null })
+			.where(eq(recipesInKitchen.folderId, input.id))
+			.returning({ id: recipesInKitchen.id })
+
+		const deleted = await tx
+			.update(recipeFolderInKitchen)
+			.set({ deletedAt: new Date().toISOString() })
+			.where(and(eq(recipeFolderInKitchen.id, input.id), isNull(recipeFolderInKitchen.deletedAt)))
+			.returning({ id: recipeFolderInKitchen.id })
+
+		if (deleted.length === 0) throw new NotFoundError("recipe_folder", input.id)
+		return { unfiled: unfiled.length }
+	})
+}
+
+/**
+ * Arquiva preparações numa pasta (ou as tira de qualquer pasta com `folderId: null`).
+ *
+ * Opera sobre as LINHAS informadas, não sobre a linhagem inteira: a pasta é metadado da versão
+ * e é copiada adiante por `saveRecipeEdit`. Arquivar a versão vigente (a que a listagem mostra)
+ * é o suficiente, e o fork local de uma cozinha pode ficar em pasta diferente da global.
+ *
+ * Autoriza TODAS as preparações antes de escrever qualquer uma — um lote parcialmente aplicado
+ * seria pior que a recusa inteira, e a posse vem sempre da linha persistida (nunca do input).
+ */
+export async function setRecipeFolder(db: SisubDb, ctx: UserContext, input: SetRecipeFolder): Promise<{ updated: number }> {
+	const ids = Array.from(new Set(input.recipeIds))
+
+	const owners = await runQuery("FETCH_FAILED", () =>
+		db.select({ id: recipesInKitchen.id, kitchenId: recipesInKitchen.kitchenId }).from(recipesInKitchen).where(inArray(recipesInKitchen.id, ids))
+	)
+	const ownerById = new Map(owners.map((r) => [r.id, r.kitchenId]))
+	for (const id of ids) {
+		if (!ownerById.has(id)) throw new NotFoundError("recipe", id)
+		requireAssetWriteForScope(ctx, ownerById.get(id) ?? null)
+	}
+
+	if (input.folderId != null) await assertActiveRecipeFolder(db, input.folderId)
+
+	const rows = await runQuery("UPDATE_FAILED", () =>
+		db.update(recipesInKitchen).set({ folderId: input.folderId }).where(inArray(recipesInKitchen.id, ids)).returning({ id: recipesInKitchen.id })
+	)
+	return { updated: rows.length }
+}
+
 /** Linha de insumo recém-inserida — usada para mapear insumo antigo → novo no copy-forward do fluxo. */
 type InsertedIngredient = { id: string; ingredientId: string; priorityOrder: number | null }
 
@@ -245,6 +382,8 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 	// kitchenId ausente = receita GLOBAL (catálogo da SDAB) → exige global:2, não kitchen:2.
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
+	if (input.folderId != null) await assertActiveRecipeFolder(db, input.folderId)
+
 	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(recipesInKitchen)
@@ -256,6 +395,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
 				rationalId: input.rationalId ?? null,
 				kitchenId: input.kitchenId ?? null,
+				folderId: input.folderId ?? null,
 				version: 1,
 			})
 			.returning()
@@ -348,11 +488,16 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 
 	const base = await runQuery("FETCH_FAILED", () =>
 		db.query.recipesInKitchen.findFirst({
-			columns: { id: true, kitchenId: true, baseRecipeId: true },
+			columns: { id: true, kitchenId: true, baseRecipeId: true, folderId: true },
 			where: eq(recipesInKitchen.id, input.baseRecipeId),
 		})
 	)
 	if (!base) throw new NotFoundError("recipe", input.baseRecipeId)
+
+	// Pasta é metadado de agrupamento, não conteúdo da ficha: omitir preserva a da versão base
+	// (senão toda edição desarquivaria a preparação), `null` explícito tira de qualquer pasta.
+	const folderId = input.folderId !== undefined ? input.folderId : base.folderId
+	if (folderId != null) await assertActiveRecipeFolder(db, folderId)
 
 	const rootId = base.baseRecipeId ?? base.id
 
@@ -394,6 +539,7 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
 				rationalId: input.rationalId ?? null,
 				kitchenId: targetKitchenId,
+				folderId,
 				baseRecipeId: rootId,
 				version: nextVersion,
 			})

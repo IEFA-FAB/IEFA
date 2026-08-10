@@ -2,7 +2,22 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ArrowDownAZ, ArrowDownZA, CalendarCheck, ChefHat, GitFork, Globe, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
+import {
+	ArrowDownAZ,
+	ArrowDownZA,
+	CalendarCheck,
+	ChefHat,
+	Folder,
+	FolderCog,
+	GitFork,
+	Globe,
+	Loader2,
+	Replace,
+	Search,
+	SlidersHorizontal,
+	SquareCheckBig,
+	X,
+} from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,18 +27,26 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipe } from "@/hooks/data/useRecipe"
+import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useRecipeLastReviews, useRecipeMenuUsage, useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
+import { RecipeFoldersDialog } from "./RecipeFoldersDialog"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
 import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 
 const ROW_HEIGHT = 48
+
+/** Valores sentinela do filtro por pasta — o Select não representa "todas"/"nenhuma" com id. */
+const FOLDER_FILTER_ALL = "__all__"
+const FOLDER_FILTER_NONE = "__none__"
 
 function formatQty(n: number): string {
 	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
@@ -141,6 +164,9 @@ export function RecipesManager() {
 	const [onlyWeeklyMenu, setOnlyWeeklyMenu] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:onlyWeeklyMenu`, false)
 	// Filtro: mostrar apenas preparações ainda não revisadas (conferência pendente).
 	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:onlyNotReviewed`, false)
+	// Filtro por pasta (agrupamento simples): "todas", "sem pasta" ou o id de uma pasta.
+	const [folderFilter, setFolderFilter] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:folder`, FOLDER_FILTER_ALL)
+	const [foldersDialogOpen, setFoldersDialogOpen] = useState(false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedRecipe>>(new Map())
 	const selectedRecipes = useMemo(() => Array.from(selected.values()), [selected])
 	const showDeletedId = useId()
@@ -162,6 +188,17 @@ export function RecipesManager() {
 	const { usedIds: menuUsageIds } = useRecipeMenuUsage()
 	// Status de revisão (conferência) por preparação — para o badge por linha e o filtro de pendentes.
 	const { reviewedAtById, isLoading: reviewsLoading } = useRecipeLastReviews()
+	// Pastas (agrupamento simples) — a filtragem é client-side, como busca e origem.
+	const { folders, nameById: folderNameById, isLoading: foldersLoading } = useRecipeFolders()
+	const canManageFolders = useGlobalWrite()
+
+	// Pasta excluída (aqui ou por outro usuário): o filtro persistido apontaria para um
+	// agrupamento inexistente e a lista ficaria vazia sem explicação. Volta para "todas".
+	useEffect(() => {
+		if (foldersLoading) return
+		if (folderFilter === FOLDER_FILTER_ALL || folderFilter === FOLDER_FILTER_NONE) return
+		if (!folderNameById.has(folderFilter)) setFolderFilter(FOLDER_FILTER_ALL)
+	}, [foldersLoading, folderFilter, folderNameById, setFolderFilter])
 
 	const filteredRecipes = useMemo(() => {
 		let list = allRecipes
@@ -170,8 +207,10 @@ export function RecipesManager() {
 		// verdadeiro para todas e a lista completa apareceria antes de sumir (flash). O gate de
 		// loading abaixo mostra o spinner nesse meio-tempo.
 		if (onlyNotReviewed && !reviewsLoading) list = list.filter((r) => !reviewedAtById.has(r.id))
+		if (folderFilter === FOLDER_FILTER_NONE) list = list.filter((r) => r.folder_id == null)
+		else if (folderFilter !== FOLDER_FILTER_ALL) list = list.filter((r) => r.folder_id === folderFilter)
 		return list
-	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, reviewsLoading, menuUsageIds, reviewedAtById])
+	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, reviewsLoading, menuUsageIds, reviewedAtById, folderFilter])
 
 	// Enquanto o filtro de pendentes está ativo e o mapa de revisões carrega (1ª visita, sem
 	// cache), exibe loading em vez de uma lista transitoriamente incorreta.
@@ -293,6 +332,45 @@ export function RecipesManager() {
 						</>
 					) : (
 						<>
+							{/* Pasta = agrupamento simples: filtra a listagem, nada mais. */}
+							<div className="flex items-center gap-1">
+								<Select value={folderFilter} onValueChange={(v) => v && setFolderFilter(v)}>
+									<SelectTrigger size="sm" aria-label="Filtrar por pasta" className="min-w-40">
+										<SelectValue>
+											<span className="flex items-center gap-1.5">
+												<Folder className="size-3.5 text-muted-foreground" />
+												{folderFilter === FOLDER_FILTER_ALL
+													? "Todas as pastas"
+													: folderFilter === FOLDER_FILTER_NONE
+														? "Sem pasta"
+														: (folderNameById.get(folderFilter) ?? "Pasta")}
+											</span>
+										</SelectValue>
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value={FOLDER_FILTER_ALL}>Todas as pastas</SelectItem>
+										<SelectItem value={FOLDER_FILTER_NONE}>Sem pasta</SelectItem>
+										{folders.map((f) => (
+											<SelectItem key={f.id} value={f.id}>
+												{f.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{canManageFolders && (
+									<Tooltip>
+										<TooltipTrigger
+											render={
+												<Button variant="ghost" size="icon-sm" onClick={() => setFoldersDialogOpen(true)} aria-label="Gerenciar pastas">
+													<FolderCog className="size-4" />
+												</Button>
+											}
+										/>
+										<TooltipContent>Gerenciar pastas</TooltipContent>
+									</Tooltip>
+								)}
+							</div>
+
 							<ButtonGroup>
 								<Button variant={type === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
 									Todas
@@ -342,6 +420,12 @@ export function RecipesManager() {
 								<p className="text-sm mt-2">Nenhuma preparação pendente de revisão neste filtro</p>
 							) : onlyWeeklyMenu ? (
 								<p className="text-sm mt-2">Nenhuma preparação em plano semanal — ajuste o filtro em Opções</p>
+							) : folderFilter !== FOLDER_FILTER_ALL ? (
+								<p className="text-sm mt-2">
+									{folderFilter === FOLDER_FILTER_NONE
+										? "Todas as preparações estão em alguma pasta"
+										: `Nenhuma preparação na pasta "${folderNameById.get(folderFilter) ?? "selecionada"}"`}
+								</p>
 							) : (
 								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
 							)}
@@ -445,6 +529,12 @@ export function RecipesManager() {
 														<TooltipContent>Preparação ainda não revisada</TooltipContent>
 													</Tooltip>
 												))}
+											{recipe.folder_id && folderNameById.has(recipe.folder_id) && (
+												<Badge variant="outline" className="gap-1 text-muted-foreground shrink-0">
+													<Folder className="size-3" />
+													<span className="hidden sm:inline">{folderNameById.get(recipe.folder_id)}</span>
+												</Badge>
+											)}
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">
 													v{recipe.version}
@@ -521,6 +611,9 @@ export function RecipesManager() {
 
 			{/* Localizar e substituir */}
 			<RecipesFindReplaceDialog isOpen={findReplaceOpen} onClose={() => setFindReplaceOpen(false)} kitchenId={kitchenIdNum} />
+
+			{/* Catálogo de pastas (criar / renomear / excluir) */}
+			{canManageFolders && <RecipeFoldersDialog open={foldersDialogOpen} onOpenChange={setFoldersDialogOpen} />}
 
 			{/* Barra de ações em massa */}
 			{selectionMode && selectedRecipes.length > 0 && (

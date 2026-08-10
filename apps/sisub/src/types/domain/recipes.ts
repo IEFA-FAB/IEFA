@@ -30,6 +30,8 @@ export interface RecipeFormData {
 	rational_id?: string | null
 	kitchen_id?: number | null
 	base_recipe_id?: string | null
+	/** Pasta de organização (agrupamento simples). `null` = sem pasta. */
+	folder_id?: string | null
 	ingredients?: RecipeFormIngredient[]
 }
 

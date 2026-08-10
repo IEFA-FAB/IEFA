@@ -217,14 +217,19 @@ export {
 } from "./recipe-reviews.ts"
 export {
 	createRecipe,
+	createRecipeFolder,
 	deleteRecipe,
+	deleteRecipeFolder,
 	fetchRecipe,
+	listRecipeFolders,
 	listRecipeMenuUsage,
 	listRecipes,
 	listRecipeVersions,
 	renameRecipe,
+	renameRecipeFolder,
 	restoreRecipe,
 	saveRecipeEdit,
+	setRecipeFolder,
 } from "./recipes.ts"
 export {
 	applyCorrectionFactors,

@@ -30,6 +30,7 @@ export function useCreateRecipe() {
 					cookingFactor: data.cooking_factor ?? undefined,
 					rationalId: data.rational_id ?? undefined,
 					kitchenId: data.kitchen_id ?? null,
+					folderId: data.folder_id ?? null,
 					ingredients: mapIngredients(data.ingredients),
 				},
 			}),
@@ -65,6 +66,10 @@ export function useSaveRecipeEdit() {
 					preparationTimeMinutes: data.preparation_time_minutes ?? undefined,
 					cookingFactor: data.cooking_factor ?? undefined,
 					rationalId: data.rational_id ?? undefined,
+					// Explícito (inclusive `null`): o formulário sempre carrega a pasta atual, então
+					// o valor enviado é a intenção do usuário — omitir faria o servidor preservar a
+					// pasta da versão base e o "Sem pasta" escolhido na tela não teria efeito.
+					folderId: data.folder_id ?? null,
 					baseRecipeId,
 					context,
 					ingredients: mapIngredients(data.ingredients),

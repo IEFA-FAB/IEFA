@@ -84,6 +84,9 @@ export const queryKeys = {
 		lastReview: (recipeId: string | undefined) => ["recipes", "last-review", recipeId] as const,
 		/** Prefixo de todas as últimas revisões — usado pelo bulk da listagem e para invalidar em lote. */
 		lastReviews: () => ["recipes", "last-review"] as const,
+		/** Pastas de preparação (agrupamento plano). Fora do prefixo `recipes` para não ser
+		 *  invalidado a cada mutação de preparação — a lista de pastas muda muito menos. */
+		folders: () => ["recipe-folders"] as const,
 	},
 
 	reviewMetrics: {

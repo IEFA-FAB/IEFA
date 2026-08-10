@@ -326,13 +326,20 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	cookingFactor: numeric("cooking_factor"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	legacyId: bigint("legacy_id", { mode: "number" }),
+	folderId: uuid("folder_id"),
 }, (table) => [
 	index("recipes_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
+	index("recipes_folder_id_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInCore.id],
 			name: "recipes_kitchen_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.folderId],
+			foreignColumns: [recipeFolderInKitchen.id],
+			name: "recipes_folder_id_fkey"
+		}).onDelete("set null"),
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 ]);
 
@@ -1790,6 +1797,17 @@ export const folderInKitchen = kitchen.table("folder", {
 	index("folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
 	index("folder_description_idx").using("btree", table.description.asc().nullsLast().op("text_ops")),
 	index("folder_parent_id_idx").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+]);
+
+export const recipeFolderInKitchen = kitchen.table("recipe_folder", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("recipe_folder_name_active_unique").using("btree", sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
+	index("recipe_folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
+	check("recipe_folder_name_not_blank", sql`btrim(name) <> ''::text`),
 ]);
 
 export const ingredientVersionInKitchen = kitchen.table("ingredient_version", {

@@ -332,29 +332,39 @@ export {
 } from "./recipe-flow.ts"
 export type {
 	CreateRecipe,
+	CreateRecipeFolder,
 	DeleteRecipe,
+	DeleteRecipeFolder,
 	FetchRecipe,
 	Ingredient,
+	ListRecipeFolders,
 	ListRecipeLastReviews,
 	ListRecipes,
 	ListRecipeVersions,
 	RecordRecipeReview,
 	RenameRecipe,
+	RenameRecipeFolder,
 	RestoreRecipe,
 	SaveRecipeEdit,
+	SetRecipeFolder,
 } from "./recipes.ts"
 export {
+	CreateRecipeFolderSchema,
 	CreateRecipeSchema,
+	DeleteRecipeFolderSchema,
 	DeleteRecipeSchema,
 	FetchRecipeSchema,
 	IngredientSchema,
+	ListRecipeFoldersSchema,
 	ListRecipeLastReviewsSchema,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
 	RecordRecipeReviewSchema,
+	RenameRecipeFolderSchema,
 	RenameRecipeSchema,
 	RestoreRecipeSchema,
 	SaveRecipeEditSchema,
+	SetRecipeFolderSchema,
 } from "./recipes.ts"
 export type { GetReviewMetrics } from "./review-metrics.ts"
 export { GetReviewMetricsSchema } from "./review-metrics.ts"
