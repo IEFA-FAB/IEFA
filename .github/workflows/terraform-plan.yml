@@ -56,7 +56,11 @@ jobs:
           for d in infra/*/; do
             name="$(basename "$d")"
             case "$name" in modules|scripts|bootstrap) continue ;; esac
-            [ -f "$d/main.tf" ] || continue
+            # backend.tf.example é o marcador certo de "stack planejável por CI": é o
+            # arquivo que o init copia. Testar main.tf excluía a foundation, que não
+            # tem um (alb.tf, ecs.tf, iam.tf…) — ou seja, mudança de foundation nunca
+            # foi planejada em PR nenhum.
+            [ -f "$d/backend.tf.example" ] || continue
             if grep -q "^infra/$name/" <<<"$changed"; then
               stacks+=("$name")
             elif [ "$modules_changed" = true ] && [ "$name" != "foundation" ]; then

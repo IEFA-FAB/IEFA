@@ -8,9 +8,14 @@ aws_region           = "sa-east-1"
 service_name      = "sisub"
 docker_target     = "sisub"
 container_port    = 3000
-# 1 vCPU: Bun é single-thread → uma render SSR pesada em 0.5 vCPU satura o event
-# loop e derruba conexões concorrentes (502/504). 1024 dá folga p/ picos.
-cpu               = 1024
+# O bump para 1024 que estava aqui nunca chegou a ser aplicado — e não teria
+# funcionado: o Fargate não aceita 1024 CPU com 1024 MiB (mínimo 2048 para 1 vCPU),
+# então `RegisterTaskDefinition` devolve 400. A premissa também caiu: o teto de
+# ~11,95 s no TargetResponseTime que motivou o bump não era saturação de CPU, era
+# o `idleTimeout` de 10 s do Bun cortando a conexão antes do ALB. Se um dia a CPU
+# for de fato o gargalo, o par válido é 1024/2048 — e a regra da casa é medir antes
+# (Container Insights temporário), porque vCPU é a linha mais cara da conta.
+cpu               = 512
 memory            = 1024
 health_check_path = "/health"
 listener_priority = 110

@@ -71,7 +71,11 @@ jobs:
             for d in infra/*/; do
               name="$(basename "$d")"
               case "$name" in modules|scripts|bootstrap) continue ;; esac
-              [ -f "$d/main.tf" ] || continue
+              # backend.tf.example é o marcador certo de "stack aplicável por CI":
+              # é o arquivo que o init copia. Testar main.tf excluiria a foundation,
+              # que não tem um (alb.tf, ecs.tf, iam.tf…) — justamente o stack que
+              # precisa ir primeiro.
+              [ -f "$d/backend.tf.example" ] || continue
               echo "$name"
             done
           }
