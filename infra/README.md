@@ -3,6 +3,8 @@
 Terraform for deploying every IEFA app to **AWS ECS Fargate** behind a single
 shared ALB. The CI/CD (`.github/workflows/deploy.yml`) builds each app to ECR and
 forces a new ECS deployment, authenticating with **GitHub OIDC** (no static keys).
+Infra changes follow their own path: `terraform-plan.yml` comments the diff on the
+PR, `terraform-apply.yml` applies it on merge (see below).
 
 ## Layout
 
@@ -110,6 +112,57 @@ CI writes `.[stack]` to `infra/<stack>/terraform.tfvars` at runtime. A stack wit
 no entry is skipped. **Caveat:** because tfvars live in the secret, a PR that only
 changes service *config* (cpu/hosts/…) does not diff here — only `.tf` / module /
 new-resource changes do.
+
+## Terraform apply on merge
+
+`.github/workflows/terraform-apply.yml` applies, on every push to `main` that
+touches `infra/**`, the stacks whose files changed — `foundation` first (service
+stacks read its outputs through `terraform_remote_state`), then the services in
+parallel. Each stack runs `plan -detailed-exitcode` and only applies when there is
+a diff, and applies the **saved plan**, so what lands is exactly what the log
+printed. It authenticates with a third OIDC role, `<prefix>-github-tf-apply`
+(`cicd_apply.tf`): PowerUserAccess plus IAM writes restricted to
+`<prefix>-*` roles/policies, assumable only from `ref:refs/heads/main`, and
+explicitly denied `secretsmanager:GetSecretValue` (no stack ever reads a secret
+value — the module only creates the container).
+
+This exists because `deploy.yml` never ran Terraform, so infra depended on a
+manual apply that in practice did not happen: the `cpu = 1024`, `awslogs` driver
+and ALB access logs from the 502 investigation sat unapplied for weeks while sisub
+served 502s with no logs to debug them.
+
+One-time setup, after applying `foundation` by hand once so the role exists:
+
+| Variable | Kind | Source |
+|---|---|---|
+| `AWS_TF_APPLY_ROLE_ARN` | Variable | foundation output (`github_tf_apply_role_arn`) |
+
+Everything else (`AWS_REGION`, `TF_STATE_BUCKET`, `TF_STATE_DYNAMODB_TABLE`,
+`TF_TFVARS_JSON`) is shared with the plan workflow.
+
+**Same tfvars caveat, and it bites harder here:** a change that lives only in
+`terraform.tfvars` (cpu, hosts, `enable_cloudwatch_logs`, `desired_count`) does
+not touch `infra/**` in the repo, so nothing triggers. Update `TF_TFVARS_JSON`
+and then run the workflow manually:
+
+```bash
+gh workflow run terraform-apply.yml -f stacks=sisub     # or "foundation,sisub", or "all"
+```
+
+`bootstrap` is deliberately excluded from CI — it owns the state backend itself
+and stays hand-applied. To require human approval before each apply, add
+`environment: production` to the jobs in `_terraform-apply.yml` and configure
+required reviewers on that environment.
+
+**Known overlap with `deploy.yml`:** a single push that changes both
+`infra/<service>/**` and that app's code starts two rollouts of the same ECS
+service — Terraform registers a new task definition revision while `_app-deploy.yml`
+issues its own `update-service --force-new-deployment`. ECS converges on the later
+one, but the deploy job polls a specific deployment id and can report the
+superseded one as a rollback, failing the run even though the service is healthy.
+Re-run the deploy job. Serializing them is not worth a shared concurrency group:
+`_app-deploy.yml` uses `cancel-in-progress: true`, which would kill an apply
+mid-flight and strand the state lock.
 
 ## Routing
 

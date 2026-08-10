@@ -83,9 +83,10 @@ FROM ${BUN_IMAGE} AS portal
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=portal-build /app/apps/portal/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # RUMAER
@@ -116,9 +117,10 @@ FROM ${BUN_IMAGE} AS rumaer
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=rumaer-build /app/apps/rumaer/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # SUCONT (HUB SUCONT-4 — acompanhamento contábil)
@@ -150,9 +152,10 @@ FROM ${BUN_IMAGE} AS sucont
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sucont-build /app/apps/sucont/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # ASSIGNMENT-SELECTION (escolha de vagas / CPAINT)
@@ -182,9 +185,10 @@ FROM ${BUN_IMAGE} AS assignment-selection
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=assignment-selection-build /app/apps/assignment-selection/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # SISUB
@@ -235,9 +239,10 @@ FROM ${BUN_IMAGE} AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # FORMS
@@ -268,9 +273,10 @@ FROM ${BUN_IMAGE} AS forms
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=forms-build /app/apps/forms/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # Projeto α (apps/alpha) — Hono + LangGraph + Bun
@@ -316,9 +322,10 @@ FROM base AS docs
 ENV NODE_ENV=production
 ENV PORT=3003
 COPY --from=docs-build /app/apps/docs/.output ./apps/docs/.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3003
-CMD ["bun", "apps/docs/.output/server/index.mjs"]
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", "apps/docs/.output/server/index.mjs"]
 
 # =============================================================================
 # SISUB-MCP — MCP server (bun runtime, HTTP transport)
