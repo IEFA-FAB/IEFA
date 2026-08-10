@@ -148,8 +148,12 @@ jobs:
     # `always()` porque apply-foundation é skipped quando só um serviço mudou —
     # sem isso o job de serviço herdaria o skip. Mas se a foundation FALHOU, os
     # serviços não podem seguir: leriam um remote state inconsistente.
+    # `detect.result == 'success'` é obrigatório junto do always(): se o detect
+    # falhar, `services` vem vazio, `'' != '[]'` é verdadeiro e o matrix cairia num
+    # `fromJSON('')` — erro de sintaxe do workflow em vez de um skip limpo.
     if: >-
       always() &&
+      needs.detect.result == 'success' &&
       needs.detect.outputs.services != '[]' &&
       vars.AWS_TF_APPLY_ROLE_ARN != '' &&
       (needs.apply-foundation.result == 'success' || needs.apply-foundation.result == 'skipped')
