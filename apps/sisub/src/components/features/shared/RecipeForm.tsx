@@ -174,8 +174,36 @@ function collectProblems(values: unknown): FormProblem[] {
 	return [...byField.values()]
 }
 
+function emptyTabProblemCount(): TabProblemCount {
+	return { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
+}
+
+/**
+ * Contagem de erros por aba, codificada em string.
+ *
+ * `form.Subscribe` compara o resultado do seletor por REFERÊNCIA (`===`, não shallow):
+ * devolver um objeto re-renderizaria a barra de abas a cada tecla digitada. A string só
+ * muda quando a contagem muda. E antes da primeira tentativa de salvar nem roda o schema
+ * — não há nada para mostrar, então não se paga um `safeParse` da ficha inteira por tecla.
+ */
+function encodeTabProblems(state: { values: unknown; submissionAttempts: number }): string {
+	if (state.submissionAttempts === 0) return ""
+	const counts = countProblemsByTab(collectProblems(state.values))
+	return RECIPE_FORM_TABS.map((tab) => counts[tab]).join(",")
+}
+
+function decodeTabProblems(encoded: string): TabProblemCount {
+	const counts = emptyTabProblemCount()
+	if (!encoded) return counts
+	const parts = encoded.split(",")
+	RECIPE_FORM_TABS.forEach((tab, index) => {
+		counts[tab] = Number(parts[index]) || 0
+	})
+	return counts
+}
+
 function countProblemsByTab(problems: FormProblem[]): TabProblemCount {
-	const counts: TabProblemCount = { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
+	const counts = emptyTabProblemCount()
 	for (const problem of problems) counts[problem.tab] += 1
 	return counts
 }
@@ -301,6 +329,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			const shown = problems.slice(0, 4)
 			const rest = problems.length - shown.length
 			toast.error(problems.length === 1 ? "1 campo impede o salvamento" : `${problems.length} campos impedem o salvamento`, {
+				// id fixo: clicar em salvar de novo atualiza o mesmo toast em vez de empilhar
+				// uma torre de avisos idênticos.
+				id: "recipe-form-invalid",
 				description: (
 					<ul className="mt-1 list-disc space-y-0.5 pl-4">
 						{shown.map((problem) => (
@@ -443,43 +474,40 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
-						<form.Subscribe
-							selector={(state) => ({
-								...countProblemsByTab(collectProblems(state.values)),
-								// Só depois da primeira tentativa de salvar: um formulário recém-aberto (ou
-								// "criar", que nasce sem ingredientes) marcaria em vermelho o que o usuário
-								// ainda nem viu.
-								attempted: state.submissionAttempts > 0,
-								ingredientCount: state.values.ingredients.length,
-							})}
-						>
-							{({ attempted, ingredientCount, ...counts }) => (
-								<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
-									{RECIPE_FORM_TABS.map((tab) => {
-										const errorCount = attempted ? counts[tab] : 0
-										// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
-										// com a mesma especificidade, e sem o seletor duplo o vermelho sumiria justo na
-										// aba que o usuário está olhando.
-										return (
-											<TabsTrigger
-												key={tab}
-												value={tab}
-												data-invalid={errorCount > 0 || undefined}
-												className="data-[invalid]:text-destructive data-[invalid]:data-active:text-destructive"
-											>
-												{TAB_LABEL[tab]}
-												{errorCount > 0 ? (
-													<Badge variant="destructive" aria-label={`${errorCount} ${errorCount === 1 ? "campo com erro" : "campos com erro"}`}>
-														{errorCount}
-													</Badge>
-												) : tab === "ingredientes" && ingredientCount > 0 ? (
-													<Badge variant="secondary">{ingredientCount}</Badge>
-												) : null}
-											</TabsTrigger>
-										)
-									})}
-								</TabsList>
-							)}
+						<form.Subscribe selector={encodeTabProblems}>
+							{(encoded) => {
+								const counts = decodeTabProblems(encoded)
+								return (
+									<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
+										{RECIPE_FORM_TABS.map((tab) => {
+											const errorCount = counts[tab]
+											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
+											// com a mesma especificidade, e sem o seletor duplo o vermelho sumiria justo na
+											// aba que o usuário está olhando.
+											return (
+												<TabsTrigger
+													key={tab}
+													value={tab}
+													data-invalid={errorCount > 0 || undefined}
+													className="data-[invalid]:text-destructive data-[invalid]:data-active:text-destructive"
+												>
+													{TAB_LABEL[tab]}
+													{errorCount > 0 ? (
+														<Badge variant="destructive">
+															{errorCount}
+															<span className="sr-only">{errorCount === 1 ? " campo com erro" : " campos com erro"}</span>
+														</Badge>
+													) : tab === "ingredientes" ? (
+														<form.Subscribe selector={(state) => state.values.ingredients.length}>
+															{(count) => (count > 0 ? <Badge variant="secondary">{count}</Badge> : null)}
+														</form.Subscribe>
+													) : null}
+												</TabsTrigger>
+											)
+										})}
+									</TabsList>
+								)
+							}}
 						</form.Subscribe>
 
 						{/* Detalhes — rendimento e cocção dimensionam a preparação */}
