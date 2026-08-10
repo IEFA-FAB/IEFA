@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isStaleChunkError } from "./recover-stale-chunk"
+import { importChunk, isStaleChunkError } from "./recover-stale-chunk"
 
 /**
  * A detecção é por mensagem porque é só isso que chega no `defaultOnCatch` do
@@ -42,5 +42,29 @@ describe("isStaleChunkError", () => {
 		expect(isStaleChunkError(new Error("Failed to fetch"))).toBe(false)
 		expect(isStaleChunkError(undefined)).toBe(false)
 		expect(isStaleChunkError(null)).toBe(false)
+	})
+})
+
+/**
+ * Terceiro feitio do chunk obsoleto: o `__vitePreload` do Vite engole a falha
+ * quando o listener de `vite:preloadError` dá `preventDefault()` (o que a nossa
+ * recuperação faz antes de recarregar), e o `import()` RESOLVE com `undefined`.
+ * Sem o guard, todo call-site que destrutura o módulo estoura TypeError e
+ * reporta falha de feature numa página que já está recarregando.
+ */
+describe("importChunk", () => {
+	it("devolve o módulo quando o chunk carrega", async () => {
+		const mod = { downloadCardapioDocx: () => {} }
+		await expect(importChunk(() => Promise.resolve(mod))).resolves.toBe(mod)
+	})
+
+	it("devolve null quando o import resolve vazio (chunk obsoleto)", async () => {
+		await expect(importChunk(() => Promise.resolve(undefined))).resolves.toBeNull()
+		await expect(importChunk(() => Promise.resolve(null))).resolves.toBeNull()
+	})
+
+	it("propaga rejeição — falha real segue para o tratamento do call-site", async () => {
+		const boom = new Error("Failed to fetch dynamically imported module")
+		await expect(importChunk(() => Promise.reject(boom))).rejects.toBe(boom)
 	})
 })

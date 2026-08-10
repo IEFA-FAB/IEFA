@@ -103,6 +103,29 @@ export function isStaleChunkError(error: unknown): boolean {
 }
 
 /**
+ * Envolve um `import()` dinâmico de código do app. Retorna `null` — em vez do
+ * módulo — quando o chunk estava obsoleto e a recuperação já agendou o reload.
+ *
+ * Motivo: todo `import()` com especificador estático passa pelo helper
+ * `__vitePreload` do Vite, que termina em `carregaModulo().catch(onPreloadError)`.
+ * O `onPreloadError` dispara o evento `vite:preloadError` e só re-lança o erro
+ * se ninguém der `preventDefault()`. Como `installStaleChunkRecovery` dá
+ * `preventDefault()` justamente para recarregar a página, esse `.catch` devolve
+ * `undefined` e o import **resolve vazio em vez de rejeitar**. Aí um
+ * `const { fn } = await import(...)` estoura TypeError ("Cannot destructure
+ * property … of '(intermediate value)'") e o call-site reporta uma falha
+ * genérica de feature numa página que já está saindo.
+ *
+ * Terceiro feitio do mesmo chunk obsoleto, portanto: o import falha em silêncio.
+ * Só acontece quando o reload já foi disparado — se o orçamento de recargas
+ * tiver esgotado, `attemptRecovery` devolve `false`, o erro é re-lançado e o
+ * import rejeita normalmente (falha real, tratada pelo call-site).
+ */
+export async function importChunk<T>(load: () => Promise<T>): Promise<T | null> {
+	return (await load()) ?? null
+}
+
+/**
  * Recupera se — e somente se — `error` for de chunk obsoleto. Pensado para o
  * `defaultOnCatch` do router, onde a variante `STALE_LAZY_COMPONENT` aparece
  * (o TanStack captura o TypeError antes que chegue aos listeners de window).
