@@ -10,6 +10,7 @@ import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import { menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
+import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
 
@@ -268,8 +269,19 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const handleDownloadDocx = async () => {
 		if (isExporting) return
 		setIsExporting(true)
+		// Sinaliza que a página está indo embora — o `finally` usa isso para NÃO
+		// reabilitar o botão. Reabilitar convidaria um segundo clique, e é ele que
+		// queimaria o último slot de MAX_RELOADS antes do reload chegar.
+		let reloading = false
 		try {
-			const { downloadCardapioDocx } = await import("@/lib/cardapio-docx")
+			// `null` = chunk obsoleto e o recovery já agendou o hard-reload (ver
+			// importChunkOrNull). Alertar de falha numa página que está saindo só
+			// confunde o usuário e polui o Faro — então sai quieto.
+			const docx = await importChunkOrNull(() => import("@/lib/cardapio-docx"))
+			if (!docx) {
+				reloading = true
+				return
+			}
 			const columns = WEEKDAYS.map((d) => {
 				const date = dayDate(d.num)
 				return { label: d.label, date: date ? format(date, "dd/MM") : null }
@@ -278,7 +290,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				meal: mt.name ?? "",
 				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, proportion: e.proportion }))),
 			}))
-			await downloadCardapioDocx(
+			await docx.downloadCardapioDocx(
 				{
 					organization: header.organization,
 					section: header.section,
@@ -292,11 +304,18 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				`${header.title} - ${template.name ?? "cardapio"}`
 			)
 		} catch (err) {
+			// Outro feitio do chunk obsoleto: o import REJEITA (nenhum listener deu
+			// preventDefault) e o erro é capturado aqui, sem chegar em window. Tenta
+			// o hard-reload antes de tratar como falha de feature.
+			if (recoverIfStaleChunk(err, "docx-export")) {
+				reloading = true
+				return
+			}
 			// biome-ignore lint/suspicious/noConsole: intentional — surface DOCX export failure
 			console.error("Falha ao gerar DOCX:", err)
 			toast.error("Não foi possível gerar o DOCX. Tente novamente.")
 		} finally {
-			setIsExporting(false)
+			if (!reloading) setIsExporting(false)
 		}
 	}
 
