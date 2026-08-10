@@ -9,27 +9,37 @@
  */
 
 import {
+	CreateRecipeFolderSchema,
 	CreateRecipeSchema,
 	createRecipe,
+	createRecipeFolder,
+	DeleteRecipeFolderSchema,
 	DeleteRecipeSchema,
 	deleteRecipe,
+	deleteRecipeFolder,
 	FetchRecipeSchema,
 	fetchRecipe,
+	ListRecipeFoldersSchema,
 	ListRecipeLastReviewsSchema,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
+	listRecipeFolders,
 	listRecipeLastReviews,
 	listRecipeMenuUsage,
 	listRecipes,
 	listRecipeVersions,
 	RecordRecipeReviewSchema,
+	RenameRecipeFolderSchema,
 	RenameRecipeSchema,
 	RestoreRecipeSchema,
 	recordRecipeReview,
 	renameRecipe,
+	renameRecipeFolder,
 	restoreRecipe,
 	SaveRecipeEditSchema,
+	SetRecipeFolderSchema,
 	saveRecipeEdit,
+	setRecipeFolder,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
@@ -111,6 +121,44 @@ export const renameRecipeFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return renameRecipe(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ── Pastas de preparação (agrupamento plano — organização e filtragem) ───────
+
+export const fetchRecipeFoldersFn = createServerFn({ method: "GET" })
+	.validator(ListRecipeFoldersSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listRecipeFolders(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const createRecipeFolderFn = createServerFn({ method: "POST" })
+	.validator(CreateRecipeFolderSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return createRecipeFolder(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const renameRecipeFolderFn = createServerFn({ method: "POST" })
+	.validator(RenameRecipeFolderSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return renameRecipeFolder(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const deleteRecipeFolderFn = createServerFn({ method: "POST" })
+	.validator(DeleteRecipeFolderSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return deleteRecipeFolder(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// Arquiva preparações numa pasta (folderId null = tira de qualquer pasta).
+export const setRecipeFolderFn = createServerFn({ method: "POST" })
+	.validator(SetRecipeFolderSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return setRecipeFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // Registra um evento de revisão (conferência) da preparação pelos nutricionistas.

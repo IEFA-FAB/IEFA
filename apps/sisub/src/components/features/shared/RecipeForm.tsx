@@ -16,11 +16,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
@@ -38,6 +40,9 @@ type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 // min-h reserva altura comum: abas curtas/vazias ocupam o mesmo espaço das cheias, sem
 // "encolher" o layout ao alternar.
 const READING_PANEL = "pt-4 max-w-5xl mx-auto w-full min-h-[32rem]"
+
+/** Sentinela do item "sem pasta" — o Select não representa `null` como valor de item. */
+const NO_FOLDER_VALUE = "__none__"
 
 // Aba de fluxo — largura total (DAG precisa de espaço horizontal), mesma altura mínima que
 // as demais para não haver salto vertical ao alternar de/para as abas de leitura.
@@ -66,6 +71,8 @@ const recipeSchema = z.object({
 	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
 	preparation_time_minutes: z.number().default(0),
 	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20").default(1.0),
+	/** Pasta de organização — opcional por definição: agrupar é conveniência, não requisito. */
+	folder_id: z.string().uuid().nullable().default(null),
 	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 })
 
@@ -101,6 +108,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	const createMutation = useCreateRecipe()
 	const saveEditMutation = useSaveRecipeEdit()
+
+	// Pastas: agrupamento simples da listagem (não hierárquico, sem efeito na ficha técnica).
+	const { folders: recipeFolders, nameById: folderNameById } = useRecipeFolders()
 
 	// Contexto da edição = a ROTA em que o formulário está montado, não o `kitchen_id` do
 	// dado carregado. Editar uma preparação global pela tela de uma cozinha forka; pela
@@ -150,6 +160,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			portion_yield: initialData?.portion_yield || 1,
 			preparation_time_minutes: initialData?.preparation_time_minutes ?? 0,
 			cooking_factor: initialData?.cooking_factor || 1.0,
+			folder_id: initialData?.folder_id ?? null,
 			ingredients:
 				initialData?.ingredients?.map((ing) => ({
 					ingredient_id: ing.ingredient_id,
@@ -362,6 +373,41 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 													className={cn("w-28 shrink-0", field.state.meta.errors.length > 0 && "border-destructive")}
 													onChange={(e) => field.handleChange(Number(e.target.value))}
 												/>
+											</Field>
+										)}
+									</form.Field>
+								</CardContent>
+							</Card>
+
+							{/* Organização — pasta é só agrupamento: não entra na ficha nem gera versão por si só */}
+							<Card className="mt-6">
+								<CardHeader>
+									<CardTitle>Organização</CardTitle>
+								</CardHeader>
+								<CardContent>
+									<form.Field name="folder_id">
+										{(field) => (
+											<Field orientation="horizontal">
+												<FieldContent>
+													<FieldLabel htmlFor="folder_id">Pasta</FieldLabel>
+													<FieldDescription>Agrupamento para organizar e filtrar a listagem de preparações.</FieldDescription>
+												</FieldContent>
+												<Select
+													value={field.state.value ?? NO_FOLDER_VALUE}
+													onValueChange={(value) => field.handleChange(value === NO_FOLDER_VALUE ? null : (value as string))}
+												>
+													<SelectTrigger id="folder_id" className="min-w-48">
+														<SelectValue>{field.state.value ? (folderNameById.get(field.state.value) ?? "Pasta") : "Sem pasta"}</SelectValue>
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value={NO_FOLDER_VALUE}>Sem pasta</SelectItem>
+														{recipeFolders.map((folder) => (
+															<SelectItem key={folder.id} value={folder.id}>
+																{folder.name}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
 											</Field>
 										)}
 									</form.Field>

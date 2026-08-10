@@ -1651,17 +1651,87 @@ export type Database = {
 	}
 	finance: {
 		Tables: {
+			budget_credit: {
+				Row: {
+					competencia: string
+					created_at: string
+					dotacao: number
+					empenhado_siafi: number
+					fonte: string | null
+					id: string
+					import_batch_id: string | null
+					nd: string
+					ptres: string | null
+					saldo_siafi: number
+					snapshot_at: string
+					ug: string | null
+					unit_id: number
+				}
+				Insert: {
+					competencia: string
+					created_at?: string
+					dotacao?: number
+					empenhado_siafi?: number
+					fonte?: string | null
+					id?: string
+					import_batch_id?: string | null
+					nd: string
+					ptres?: string | null
+					saldo_siafi?: number
+					snapshot_at?: string
+					ug?: string | null
+					unit_id: number
+				}
+				Update: {
+					competencia?: string
+					created_at?: string
+					dotacao?: number
+					empenhado_siafi?: number
+					fonte?: string | null
+					id?: string
+					import_batch_id?: string | null
+					nd?: string
+					ptres?: string | null
+					saldo_siafi?: number
+					snapshot_at?: string
+					ug?: string | null
+					unit_id?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "budget_credit_import_batch_id_fkey"
+						columns: ["import_batch_id"]
+						isOneToOne: false
+						referencedRelation: "v_siafi_reconciliation"
+						referencedColumns: ["batch_id"]
+					},
+				]
+			}
 			empenho: {
 				Row: {
 					arp_item_id: string
 					created_at: string
 					created_by: string | null
 					data_empenho: string
+					exercicio: number | null
+					favorecido_cnpj: string | null
+					favorecido_nome: string | null
+					fonte: string | null
 					id: string
+					import_batch_id: string | null
+					nd: string | null
 					nota_lancamento: string | null
 					numero_empenho: string
+					origem: string
+					ptres: string | null
 					quantidade_empenhada: number
+					rp_exercicio: number | null
+					rp_inscrito: boolean
+					rp_tipo: string | null
+					siafi_synced_at: string | null
 					status: string
+					tipo: string | null
+					ug_emitente: string | null
 					unit_id: number
 					valor_total: number
 					valor_unitario: number
@@ -1671,11 +1741,25 @@ export type Database = {
 					created_at?: string
 					created_by?: string | null
 					data_empenho: string
+					exercicio?: number | null
+					favorecido_cnpj?: string | null
+					favorecido_nome?: string | null
+					fonte?: string | null
 					id?: string
+					import_batch_id?: string | null
+					nd?: string | null
 					nota_lancamento?: string | null
 					numero_empenho: string
+					origem?: string
+					ptres?: string | null
 					quantidade_empenhada: number
+					rp_exercicio?: number | null
+					rp_inscrito?: boolean
+					rp_tipo?: string | null
+					siafi_synced_at?: string | null
 					status?: string
+					tipo?: string | null
+					ug_emitente?: string | null
 					unit_id: number
 					valor_total: number
 					valor_unitario: number
@@ -1685,20 +1769,353 @@ export type Database = {
 					created_at?: string
 					created_by?: string | null
 					data_empenho?: string
+					exercicio?: number | null
+					favorecido_cnpj?: string | null
+					favorecido_nome?: string | null
+					fonte?: string | null
 					id?: string
+					import_batch_id?: string | null
+					nd?: string | null
 					nota_lancamento?: string | null
 					numero_empenho?: string
+					origem?: string
+					ptres?: string | null
 					quantidade_empenhada?: number
+					rp_exercicio?: number | null
+					rp_inscrito?: boolean
+					rp_tipo?: string | null
+					siafi_synced_at?: string | null
 					status?: string
+					tipo?: string | null
+					ug_emitente?: string | null
 					unit_id?: number
 					valor_total?: number
 					valor_unitario?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "empenho_import_batch_id_fkey"
+						columns: ["import_batch_id"]
+						isOneToOne: false
+						referencedRelation: "v_siafi_reconciliation"
+						referencedColumns: ["batch_id"]
+					},
+				]
+			}
+			empenho_event: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					data: string
+					documento: string | null
+					empenho_id: string
+					id: string
+					justificativa: string
+					origem: string
+					tipo: string
+					valor: number
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					data?: string
+					documento?: string | null
+					empenho_id: string
+					id?: string
+					justificativa: string
+					origem?: string
+					tipo: string
+					valor: number
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					data?: string
+					documento?: string | null
+					empenho_id?: string
+					id?: string
+					justificativa?: string
+					origem?: string
+					tipo?: string
+					valor?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "empenho_event_empenho_id_fkey"
+						columns: ["empenho_id"]
+						isOneToOne: false
+						referencedRelation: "empenho"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "empenho_event_empenho_id_fkey"
+						columns: ["empenho_id"]
+						isOneToOne: false
+						referencedRelation: "v_empenho_saldo"
+						referencedColumns: ["empenho_id"]
+					},
+					{
+						foreignKeyName: "empenho_event_empenho_id_fkey"
+						columns: ["empenho_id"]
+						isOneToOne: false
+						referencedRelation: "v_empenho_vigente"
+						referencedColumns: ["empenho_id"]
+					},
+				]
+			}
+			liquidacao: {
+				Row: {
+					competencia: string | null
+					created_at: string
+					created_by: string | null
+					data: string
+					empenho_id: string
+					goods_receipt_id: string | null
+					id: string
+					import_batch_id: string | null
+					nfe_document_id: string | null
+					numero_ns: string
+					observacao: string | null
+					origem: string
+					unit_id: number
+					valor: number
+				}
+				Insert: {
+					competencia?: string | null
+					created_at?: string
+					created_by?: string | null
+					data: string
+					empenho_id: string
+					goods_receipt_id?: string | null
+					id?: string
+					import_batch_id?: string | null
+					nfe_document_id?: string | null
+					numero_ns: string
+					observacao?: string | null
+					origem?: string
+					unit_id: number
+					valor: number
+				}
+				Update: {
+					competencia?: string | null
+					created_at?: string
+					created_by?: string | null
+					data?: string
+					empenho_id?: string
+					goods_receipt_id?: string | null
+					id?: string
+					import_batch_id?: string | null
+					nfe_document_id?: string | null
+					numero_ns?: string
+					observacao?: string | null
+					origem?: string
+					unit_id?: number
+					valor?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "liquidacao_empenho_id_fkey"
+						columns: ["empenho_id"]
+						isOneToOne: false
+						referencedRelation: "empenho"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "liquidacao_empenho_id_fkey"
+						columns: ["empenho_id"]
+						isOneToOne: false
+						referencedRelation: "v_empenho_saldo"
+						referencedColumns: ["empenho_id"]
+					},
+					{
+						foreignKeyName: "liquidacao_empenho_id_fkey"
+						columns: ["empenho_id"]
+						isOneToOne: false
+						referencedRelation: "v_empenho_vigente"
+						referencedColumns: ["empenho_id"]
+					},
+					{
+						foreignKeyName: "liquidacao_goods_receipt_id_fkey"
+						columns: ["goods_receipt_id"]
+						isOneToOne: false
+						referencedRelation: "v_physical_accounting_reconciliation"
+						referencedColumns: ["goods_receipt_id"]
+					},
+					{
+						foreignKeyName: "liquidacao_import_batch_id_fkey"
+						columns: ["import_batch_id"]
+						isOneToOne: false
+						referencedRelation: "v_siafi_reconciliation"
+						referencedColumns: ["batch_id"]
+					},
+				]
+			}
+			pagamento: {
+				Row: {
+					agencia: string | null
+					banco: string | null
+					conta: string | null
+					created_at: string
+					created_by: string | null
+					data: string
+					id: string
+					import_batch_id: string | null
+					liquidacao_id: string
+					numero_ob: string
+					origem: string
+					unit_id: number
+					valor: number
+				}
+				Insert: {
+					agencia?: string | null
+					banco?: string | null
+					conta?: string | null
+					created_at?: string
+					created_by?: string | null
+					data: string
+					id?: string
+					import_batch_id?: string | null
+					liquidacao_id: string
+					numero_ob: string
+					origem?: string
+					unit_id: number
+					valor: number
+				}
+				Update: {
+					agencia?: string | null
+					banco?: string | null
+					conta?: string | null
+					created_at?: string
+					created_by?: string | null
+					data?: string
+					id?: string
+					import_batch_id?: string | null
+					liquidacao_id?: string
+					numero_ob?: string
+					origem?: string
+					unit_id?: number
+					valor?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "pagamento_import_batch_id_fkey"
+						columns: ["import_batch_id"]
+						isOneToOne: false
+						referencedRelation: "v_siafi_reconciliation"
+						referencedColumns: ["batch_id"]
+					},
+					{
+						foreignKeyName: "pagamento_liquidacao_id_fkey"
+						columns: ["liquidacao_id"]
+						isOneToOne: false
+						referencedRelation: "liquidacao"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "pagamento_liquidacao_id_fkey"
+						columns: ["liquidacao_id"]
+						isOneToOne: false
+						referencedRelation: "v_physical_accounting_reconciliation"
+						referencedColumns: ["liquidacao_id"]
+					},
+				]
+			}
+			reconciliation_decision: {
+				Row: {
+					decided_at: string
+					decided_by: string | null
+					decisao: string
+					documento_tipo: string
+					id: string
+					justificativa: string | null
+					numero_documento: string
+					unit_id: number
+					valor_siafi: number | null
+					valor_sisub: number | null
+				}
+				Insert: {
+					decided_at?: string
+					decided_by?: string | null
+					decisao: string
+					documento_tipo: string
+					id?: string
+					justificativa?: string | null
+					numero_documento: string
+					unit_id: number
+					valor_siafi?: number | null
+					valor_sisub?: number | null
+				}
+				Update: {
+					decided_at?: string
+					decided_by?: string | null
+					decisao?: string
+					documento_tipo?: string
+					id?: string
+					justificativa?: string | null
+					numero_documento?: string
+					unit_id?: number
+					valor_siafi?: number | null
+					valor_sisub?: number | null
 				}
 				Relationships: []
 			}
 		}
 		Views: {
-			[_ in never]: never
+			v_empenho_saldo: {
+				Row: {
+					ajustes: number | null
+					empenho_id: string | null
+					saldo_a_liquidar: number | null
+					unit_id: number | null
+					valor_a_pagar: number | null
+					valor_liquidado: number | null
+					valor_original: number | null
+					valor_pago: number | null
+					valor_vigente: number | null
+				}
+				Relationships: []
+			}
+			v_empenho_vigente: {
+				Row: {
+					ajustes: number | null
+					empenho_id: string | null
+					unit_id: number | null
+					valor_original: number | null
+					valor_vigente: number | null
+				}
+				Relationships: []
+			}
+			v_physical_accounting_reconciliation: {
+				Row: {
+					definitive_at: string | null
+					dias_desde_recebimento: number | null
+					goods_receipt_id: string | null
+					kitchen_id: number | null
+					liquidacao_id: string | null
+					numero_ns: string | null
+					situacao: string | null
+					valor_liquidado: number | null
+					valor_recebido: number | null
+				}
+				Relationships: []
+			}
+			v_siafi_reconciliation: {
+				Row: {
+					batch_id: string | null
+					decisao: string | null
+					decisao_vigente: boolean | null
+					diferenca: number | null
+					documento_tipo: string | null
+					justificativa: string | null
+					lote_em: string | null
+					numero_documento: string | null
+					situacao: string | null
+					unit_id: number | null
+					valor_siafi: number | null
+					valor_sisub: number | null
+				}
+				Relationships: []
+			}
 		}
 		Functions: {
 			[_ in never]: never
@@ -2542,6 +2959,7 @@ export type Database = {
 					empenho_id: string | null
 					id: string
 					kitchen_id: number
+					liquidacao_id: string | null
 					nfe_document_id: string | null
 					notes: string | null
 					provisional_at: string | null
@@ -2557,6 +2975,7 @@ export type Database = {
 					empenho_id?: string | null
 					id?: string
 					kitchen_id: number
+					liquidacao_id?: string | null
 					nfe_document_id?: string | null
 					notes?: string | null
 					provisional_at?: string | null
@@ -2572,6 +2991,7 @@ export type Database = {
 					empenho_id?: string | null
 					id?: string
 					kitchen_id?: number
+					liquidacao_id?: string | null
 					nfe_document_id?: string | null
 					notes?: string | null
 					provisional_at?: string | null
@@ -4860,6 +5280,27 @@ export type Database = {
 					},
 				]
 			}
+			recipe_folder: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					name: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					name: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					name?: string
+				}
+				Relationships: []
+			}
 			recipe_ingredient_alternatives: {
 				Row: {
 					created_at: string
@@ -5230,6 +5671,7 @@ export type Database = {
 					cooking_factor: number | null
 					created_at: string
 					deleted_at: string | null
+					folder_id: string | null
 					id: string
 					kitchen_id: number | null
 					legacy_id: number | null
@@ -5246,6 +5688,7 @@ export type Database = {
 					cooking_factor?: number | null
 					created_at?: string
 					deleted_at?: string | null
+					folder_id?: string | null
 					id?: string
 					kitchen_id?: number | null
 					legacy_id?: number | null
@@ -5262,6 +5705,7 @@ export type Database = {
 					cooking_factor?: number | null
 					created_at?: string
 					deleted_at?: string | null
+					folder_id?: string | null
 					id?: string
 					kitchen_id?: number | null
 					legacy_id?: number | null
@@ -5273,7 +5717,15 @@ export type Database = {
 					upstream_version_snapshot?: number | null
 					version?: number
 				}
-				Relationships: []
+				Relationships: [
+					{
+						foreignKeyName: "recipes_folder_id_fkey"
+						columns: ["folder_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_folder"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 			step_template: {
 				Row: {
@@ -7245,13 +7697,115 @@ export type Database = {
 	}
 	siafi_integration: {
 		Tables: {
-			[_ in never]: never
+			import_batch: {
+				Row: {
+					applied_at: string | null
+					applied_rows: number
+					competencia: string | null
+					content_hash: string
+					created_at: string
+					created_by: string | null
+					error_message: string | null
+					file_name: string
+					id: string
+					recognized_rows: number
+					report_type: string
+					status: string
+					total_rows: number
+					unit_id: number
+				}
+				Insert: {
+					applied_at?: string | null
+					applied_rows?: number
+					competencia?: string | null
+					content_hash: string
+					created_at?: string
+					created_by?: string | null
+					error_message?: string | null
+					file_name: string
+					id?: string
+					recognized_rows?: number
+					report_type: string
+					status?: string
+					total_rows?: number
+					unit_id: number
+				}
+				Update: {
+					applied_at?: string | null
+					applied_rows?: number
+					competencia?: string | null
+					content_hash?: string
+					created_at?: string
+					created_by?: string | null
+					error_message?: string | null
+					file_name?: string
+					id?: string
+					recognized_rows?: number
+					report_type?: string
+					status?: string
+					total_rows?: number
+					unit_id?: number
+				}
+				Relationships: []
+			}
+			import_row: {
+				Row: {
+					applied_id: string | null
+					applied_table: string | null
+					batch_id: string
+					id: string
+					parse_error: string | null
+					parse_status: string
+					parsed: Json | null
+					raw: Json
+					row_number: number
+				}
+				Insert: {
+					applied_id?: string | null
+					applied_table?: string | null
+					batch_id: string
+					id?: string
+					parse_error?: string | null
+					parse_status?: string
+					parsed?: Json | null
+					raw: Json
+					row_number: number
+				}
+				Update: {
+					applied_id?: string | null
+					applied_table?: string | null
+					batch_id?: string
+					id?: string
+					parse_error?: string | null
+					parse_status?: string
+					parsed?: Json | null
+					raw?: Json
+					row_number?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "import_row_batch_id_fkey"
+						columns: ["batch_id"]
+						isOneToOne: false
+						referencedRelation: "import_batch"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 		}
 		Views: {
 			[_ in never]: never
 		}
 		Functions: {
-			[_ in never]: never
+			claim_import_batch: {
+				Args: { p_batch_id: string }
+				Returns: {
+					claimed: boolean
+					competencia: string
+					report_type: string
+					unit_id: number
+				}[]
+			}
 		}
 		Enums: {
 			[_ in never]: never

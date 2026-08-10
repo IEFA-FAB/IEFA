@@ -175,6 +175,11 @@ export type Folder = Tables<"folder">
 export type FolderInsert = TablesInsert<"folder">
 export type FolderUpdate = TablesUpdate<"folder">
 
+/** Pasta de preparação — agrupamento plano (sem hierarquia), distinto de `Folder` (insumos). */
+export type RecipeFolder = Tables<"recipe_folder">
+export type RecipeFolderInsert = TablesInsert<"recipe_folder">
+export type RecipeFolderUpdate = TablesUpdate<"recipe_folder">
+
 export type MealPresenceWithUser = Views<"v_meal_presences_with_user">
 export type UserIdentity = Views<"v_user_identity">
 
