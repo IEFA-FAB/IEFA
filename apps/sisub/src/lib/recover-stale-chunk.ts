@@ -52,6 +52,13 @@ const STALE_LAZY_COMPONENT =
 // leitura/escrita do guard nunca quebra a recuperação.
 let memoryState: number[] = []
 
+// `true` a partir do momento em que um hard-reload foi disparado. É o que deixa
+// `importChunkOrNull` distinguir "import vazio porque estamos recarregando" de
+// "import vazio por um motivo que não conhecemos" — sem isso, o segundo caso
+// vira clique morto, silencioso até no Faro. Módulo-level de propósito: o reload
+// leva o estado embora, então não precisa (nem deve) ser resetado.
+let recoveryInFlight = false
+
 function readReloadTimestamps(): number[] {
 	try {
 		const raw = sessionStorage.getItem(STORAGE_KEY)
@@ -83,6 +90,7 @@ function attemptRecovery(reason: string): boolean {
 	if (recent.length >= MAX_RELOADS) return false
 
 	writeReloadTimestamps([...recent, now])
+	recoveryInFlight = true
 	reportError(new Error("Stale chunk recovery: hard reload"), {
 		source: "stale-chunk",
 		reason,
@@ -117,12 +125,27 @@ export function isStaleChunkError(error: unknown): boolean {
  * genérica de feature numa página que já está saindo.
  *
  * Terceiro feitio do mesmo chunk obsoleto, portanto: o import falha em silêncio.
- * Só acontece quando o reload já foi disparado — se o orçamento de recargas
+ * Hoje isso só acontece com um reload já disparado — se o orçamento de recargas
  * tiver esgotado, `attemptRecovery` devolve `false`, o erro é re-lançado e o
  * import rejeita normalmente (falha real, tratada pelo call-site).
+ *
+ * Mas o call-site trata `null` saindo quieto, então esse "hoje" precisa ser
+ * verificável: se o módulo vier vazio SEM reload em andamento, o botão vira
+ * clique morto e nada aparece no Faro — o modo de falha mais caro de achar,
+ * justamente o que este helper existe para eliminar. Por isso o `null`
+ * inesperado é reportado em vez de assumido.
  */
-export async function importChunk<T>(load: () => Promise<T>): Promise<T | null> {
-	return (await load()) ?? null
+export async function importChunkOrNull<T>(load: () => Promise<T>): Promise<T | null> {
+	const mod = await load()
+	if (mod != null) return mod
+
+	if (!recoveryInFlight) {
+		reportError(new Error("Import dinâmico resolveu vazio sem recuperação em andamento"), {
+			source: "stale-chunk",
+			reason: "empty-module-no-recovery",
+		})
+	}
+	return null
 }
 
 /**

@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest"
-import { importChunk, isStaleChunkError } from "./recover-stale-chunk"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { reportError } from "@/lib/observability/report-error"
+import { importChunkOrNull, isStaleChunkError } from "./recover-stale-chunk"
+
+vi.mock("@/lib/observability/report-error", () => ({ reportError: vi.fn() }))
 
 /**
  * A detecção é por mensagem porque é só isso que chega no `defaultOnCatch` do
@@ -52,19 +55,38 @@ describe("isStaleChunkError", () => {
  * Sem o guard, todo call-site que destrutura o módulo estoura TypeError e
  * reporta falha de feature numa página que já está recarregando.
  */
-describe("importChunk", () => {
+describe("importChunkOrNull", () => {
+	beforeEach(() => {
+		vi.mocked(reportError).mockClear()
+	})
+
 	it("devolve o módulo quando o chunk carrega", async () => {
 		const mod = { downloadCardapioDocx: () => {} }
-		await expect(importChunk(() => Promise.resolve(mod))).resolves.toBe(mod)
+		await expect(importChunkOrNull(() => Promise.resolve(mod))).resolves.toBe(mod)
+		expect(reportError).not.toHaveBeenCalled()
 	})
 
 	it("devolve null quando o import resolve vazio (chunk obsoleto)", async () => {
-		await expect(importChunk(() => Promise.resolve(undefined))).resolves.toBeNull()
-		await expect(importChunk(() => Promise.resolve(null))).resolves.toBeNull()
+		await expect(importChunkOrNull(() => Promise.resolve(undefined))).resolves.toBeNull()
+		await expect(importChunkOrNull(() => Promise.resolve(null))).resolves.toBeNull()
+	})
+
+	// O call-site trata `null` saindo quieto. Se o módulo vier vazio sem reload em
+	// andamento, esse silêncio vira clique morto — então o caso precisa aparecer no
+	// Faro em vez de sumir. (Sem reload disparado neste processo de teste, é sempre
+	// este o ramo: `recoveryInFlight` continua false.)
+	it("reporta o vazio inesperado, quando nenhuma recuperação está em andamento", async () => {
+		await importChunkOrNull(() => Promise.resolve(undefined))
+
+		expect(reportError).toHaveBeenCalledTimes(1)
+		const [error, context] = vi.mocked(reportError).mock.calls[0]
+		expect((error as Error).message).toMatch(/resolveu vazio sem recuperação/i)
+		expect(context).toMatchObject({ source: "stale-chunk", reason: "empty-module-no-recovery" })
 	})
 
 	it("propaga rejeição — falha real segue para o tratamento do call-site", async () => {
 		const boom = new Error("Failed to fetch dynamically imported module")
-		await expect(importChunk(() => Promise.reject(boom))).rejects.toBe(boom)
+		await expect(importChunkOrNull(() => Promise.reject(boom))).rejects.toBe(boom)
+		expect(reportError).not.toHaveBeenCalled()
 	})
 })
