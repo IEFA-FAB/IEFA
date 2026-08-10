@@ -98,7 +98,12 @@ jobs:
           STACK: ${{ matrix.stack }}
         run: |
           set -euo pipefail
-          content="$(jq -r --arg s "$STACK" '.[$s] // ""' <<<"${TF_TFVARS_JSON:-{}}")"
+          # NÃO usar ${TF_TFVARS_JSON:-{}}: o bash fecha a expansão no PRIMEIRO `}`,
+          # então o default vira `{` e um `}` literal fica colado no fim do valor —
+          # com o secret preenchido isso vira `jq: parse error: Unmatched '}'`.
+          json="${TF_TFVARS_JSON:-}"
+          [ -n "$json" ] || json='{}'
+          content="$(jq -r --arg s "$STACK" '.[$s] // ""' <<<"$json")"
           if [ -z "$content" ]; then
             echo "has_tfvars=false" >> "$GITHUB_OUTPUT"
             echo "No tfvars for stack '$STACK' in TF_TFVARS_JSON — skipping plan."
