@@ -10,6 +10,6 @@
     "test": "bun test $(find src -name '*.test.ts' -print)"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.7"
+    "@supabase/supabase-js": "^2.112.0"
   }
 }

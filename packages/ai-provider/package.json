@@ -19,9 +19,9 @@
     "./langchain-compat": "./src/langchain-compat.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1090.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1101.0",
     "@langchain/openai": "^1.5.5",
-    "@tanstack/ai": "^0.41.0",
+    "@tanstack/ai": "^0.42.0",
     "@tanstack/ai-anthropic": "^0.16.2",
     "@tanstack/ai-gemini": "^0.20.0",
     "@tanstack/ai-groq": "^0.5.2",
