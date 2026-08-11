@@ -13,7 +13,13 @@ import type {
 	Nutrient,
 	PurchaseItem,
 } from "@iefa/database/sisub"
-import type { IngredientEffectiveNutrientsResult, IngredientLastReview, IngredientSubstitution, NutritionReferenceFoodSearchItem } from "@iefa/sisub-domain"
+import type {
+	IngredientEffectiveNutrientsResult,
+	IngredientLastReview,
+	IngredientSubstitution,
+	NutritionReferenceFoodSearchItem,
+	PreparationScope,
+} from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	createFolderFn,
@@ -116,14 +122,18 @@ export const ingredientSubstitutionsQueryOptions = (ingredientId: string) =>
 		staleTime: 10 * 60 * 1000,
 	})
 
-export const ingredientsTreeQueryOptions = (includeDeleted = false) =>
+/**
+ * @param preparations escopo do grupo legado "Preparações" (SISUBWEB). Padrão
+ *   `"exclude"`: a árvore de insumos não os traz. A aba dedicada usa `"only"`.
+ */
+export const ingredientsTreeQueryOptions = (includeDeleted = false, preparations: PreparationScope = "exclude") =>
 	queryOptions({
-		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active"],
+		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active", preparations],
 		// Um único server fn (1 requireAuth, 1 conexão, payload único) em vez de 4
 		// requests `/_serverFn/` concorrentes — reduz a pressão de conexão que
 		// produzia o 502 no gateway. Ver fetchIngredientsTreeFn.
 		queryFn: () =>
-			fetchIngredientsTreeFn({ data: { includeDeleted } }) as Promise<{
+			fetchIngredientsTreeFn({ data: { includeDeleted, preparations } }) as Promise<{
 				folders: Folder[]
 				ingredients: Ingredient[]
 				ingredientItems: IngredientItem[]
@@ -217,8 +227,8 @@ export function useIngredient(ingredientId: string) {
 	return { ingredient: data, error, refetch }
 }
 
-export function useIngredientsTree(includeDeleted = false) {
-	const { data, error, refetch } = useQuery(ingredientsTreeQueryOptions(includeDeleted))
+export function useIngredientsTree(includeDeleted = false, preparations: PreparationScope = "exclude") {
+	const { data, error, refetch } = useQuery(ingredientsTreeQueryOptions(includeDeleted, preparations))
 	return { tree: data, error, refetch }
 }
 

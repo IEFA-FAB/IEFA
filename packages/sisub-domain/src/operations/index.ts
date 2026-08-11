@@ -171,6 +171,15 @@ export {
 	updatePolicy,
 	updatePolicyStatement,
 } from "./policies.ts"
+export type { PreparationScope } from "./preparation-folders.ts"
+export {
+	folderInsidePreparations,
+	folderOutsidePreparations,
+	folderPreparationFilter,
+	ingredientInsidePreparations,
+	ingredientOutsidePreparations,
+	ingredientPreparationFilter,
+} from "./preparation-folders.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
 export {

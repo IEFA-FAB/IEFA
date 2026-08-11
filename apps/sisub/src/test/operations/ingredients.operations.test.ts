@@ -133,6 +133,47 @@ describeSupabaseIntegration("ingredients operations (regressão)", () => {
 		expect((await listIngredients(db, ctx, { folderId })).map((i) => i.id)).toContain(id)
 	})
 
+	test("escopo Preparações: excluído por padrão, isolado em 'only', tudo em 'include'", async () => {
+		if (!reachable || !seeder || !db) return
+
+		// Grupo legado do SISUBWEB: a raiz é reconhecida pela descrição, e a exclusão
+		// desce pela subárvore — por isso o insumo de teste vive numa SUBpasta, não na raiz.
+		const raiz = await createFolder(db, ctx, { description: uid("Preparações [TEST] ") })
+		seeder.track("folder", raiz.id)
+		const subpasta = await createFolder(db, ctx, { description: uid("[TEST] Sub "), parentId: raiz.id })
+		seeder.track("folder", subpasta.id)
+		const preparacao = await seeder.seedIngredient({ folderId: subpasta.id })
+
+		// Controles: um insumo em pasta comum e um sem pasta nenhuma (folder_id null).
+		const pastaComum = await seeder.seedFolder()
+		const insumo = await seeder.seedIngredient({ folderId: pastaComum })
+		const solto = await seeder.seedIngredient({ folderId: null })
+
+		const padrao = (await listIngredients(db, ctx, {})).map((i) => i.id)
+		expect(padrao).not.toContain(preparacao)
+		expect(padrao).toContain(insumo)
+		// `folder_id is null` não é preparação: `null not in (...)` seria null, e a linha sumiria.
+		expect(padrao).toContain(solto)
+
+		const apenasPreparacoes = (await listIngredients(db, ctx, { preparations: "only" })).map((i) => i.id)
+		expect(apenasPreparacoes).toContain(preparacao)
+		expect(apenasPreparacoes).not.toContain(insumo)
+		expect(apenasPreparacoes).not.toContain(solto)
+
+		const tudo = (await listIngredients(db, ctx, { preparations: "include" })).map((i) => i.id)
+		expect(tudo).toEqual(expect.arrayContaining([preparacao, insumo, solto]))
+
+		// Pastas seguem o mesmo escopo — raiz E subpasta saem juntas.
+		const pastasPadrao = (await listFolders(db, ctx, {})).map((f) => f.id)
+		expect(pastasPadrao).not.toContain(raiz.id)
+		expect(pastasPadrao).not.toContain(subpasta.id)
+		expect(pastasPadrao).toContain(pastaComum)
+
+		const pastasSoPreparacoes = (await listFolders(db, ctx, { preparations: "only" })).map((f) => f.id)
+		expect(pastasSoPreparacoes).toEqual(expect.arrayContaining([raiz.id, subpasta.id]))
+		expect(pastasSoPreparacoes).not.toContain(pastaComum)
+	})
+
 	// ── Ingredient items ─────────────────────────────────────────────────────────
 
 	test("createIngredientItem/listIngredientItems normaliza purchase_item e soft-delete", async () => {

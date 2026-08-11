@@ -44,6 +44,7 @@ import {
 	listIngredientVersions,
 	listNutrients,
 	listNutritionReferenceFoods,
+	PreparationScopeSchema,
 	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
@@ -349,14 +350,16 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
  * IngredientsService). Consolidar em 1 fn: 1 requireAuth, 1 conexão, payload único.
  */
 export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
-	.validator(z.object({ includeDeleted: z.boolean().optional() }))
+	.validator(z.object({ includeDeleted: z.boolean().optional(), preparations: PreparationScopeSchema.optional() }))
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const db = getDb()
 		const includeDeleted = data.includeDeleted ?? false
+		// Omitido ⇒ "exclude": a árvore de insumos não traz o grupo legado "Preparações".
+		const preparations = data.preparations
 		const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
-			listFolders(db, ctx, { includeDeleted }),
-			listIngredients(db, ctx, { includeDeleted }),
+			listFolders(db, ctx, { includeDeleted, preparations }),
+			listIngredients(db, ctx, { includeDeleted, preparations }),
 			// Itens de compra/produto sempre ativos: contagem de badges não infla com excluídos.
 			listIngredientItems(db, ctx, {}),
 			// Última revisão por insumo (data exibida na árvore p/ acompanhar a conferência).
