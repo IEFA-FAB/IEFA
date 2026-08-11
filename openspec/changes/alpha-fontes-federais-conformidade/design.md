@@ -116,13 +116,13 @@ O alpha roda hoje contra um projeto Supabase próprio (`fjnysdiusivrffprcdus`), 
 
 Consequências, todas tratadas como tarefa explícita:
 
-- **Migração do corpus, não reingestão.** O corpus do RADA já indexado (documentos, chunks e embeddings) precisa ser migrado do projeto antigo. Reingerir não é opção: o acesso ao RADA está indisponível. A migração copia tabela a tabela com lista de colunas explícita, conferindo contagem antes e depois.
+- **O corpus do RADA foi perdido.** O projeto Supabase antigo foi apagado em 2026-07-31, com documentos, chunks e embeddings dentro, e não há backup. O schema `alpha` nasce vazio e o ChatRADA responde "sem base" até o corpus ser reconstruído por `bun run ingest:all` a partir dos Markdown do RADA em `apps/alpha/knowledge/` — que hoje está vazio e depende de acesso ao RADA.
 - **Extensões.** O projeto principal ainda não tem `vector` nem `ltree` habilitadas — a primeira migration habilita as duas no schema `extensions`.
 - **Exposição no PostgREST.** Schema novo exige `alter role authenticator set pgrst.db_schemas` incluindo `alpha` + `notify pgrst, 'reload config'`, senão o client JS devolve `PGRST106`.
 - **Cliente e checkpointer.** `createClient(..., { db: { schema: "alpha" } })` e `PostgresSaver.fromConnString(url, { schema: "alpha" })` — a versão 1.0.x do checkpointer aceita a opção `schema` e cria as próprias tabelas nele, em vez de poluir `public`.
 - **Autenticação deixa de ser ambígua.** Com um único projeto, o JWT que o portal emite é o mesmo que `supabase.auth.getUser(token)` do alpha valida. Hoje, com projetos distintos, essa validação depende de o segredo de produção sobrescrever o `.env.example` — o que não é verificável a partir do repositório.
 
-O projeto antigo é **descontinuado** ao fim da migração — o α passa a viver inteiramente no projeto do sisub.
+O projeto antigo já não existe — foi apagado em 2026-07-31. O α passa a viver inteiramente no projeto do sisub, com o schema `alpha` começando vazio.
 
 **Secrets herdados, com dívida declarada.** Em produção o α consome os secrets do sisub (`VITE_SISUB_SUPABASE_URL`, `SISUB_SUPABASE_SECRET_KEY`, `SISUB_DATABASE_URL`), como rumaer e sucont já fazem. É o caminho mais curto e consistente com o repositório, e acopla os dois serviços: rotacionar a chave do sisub derruba o α, e não há como dar ao α credencial de menor privilégio nem pooler próprio. O TODO de separar (`ALPHA_SUPABASE_*` apontando para o mesmo projeto) está registrado no `sync-secrets.yml` e no `terraform.tfvars.example`.
 
@@ -373,7 +373,7 @@ Blocos são verificados em paralelo com limite de concorrência. `compliance_run
 | Falso positivo enterra o ACI em ruído | Regra nasce `draft`; só vira `active` após calibração na bancada contra o golden set. Severidade obriga triagem |
 | Corpus de norma incompleto gera "conforme" enganoso | `compliance_run` registra quais normas foram usadas; relatório declara a cobertura em vez de afirmar conformidade absoluta |
 | Volume de embeddings cresce com versões | Índice HNSW parcial em `superseded_at is null` |
-| **Perda do corpus do RADA na consolidação** — não é reingerível hoje | Migração com conferência de contagem de documentos e chunks antes e depois; o projeto antigo só é desativado depois de o α estar no ar contra o projeto do sisub |
+| ~~Perda do corpus do RADA na consolidação~~ — **o risco se materializou**: o projeto antigo foi apagado antes da migração | Não há mitigação retroativa. O caminho é reingerir de Markdown (`ingest:all`), que depende de acesso ao RADA. A lição aplicada: o corpus reconstruído passa a ter sua fonte versionada em `apps/alpha/knowledge/`, dentro do repositório, em vez de existir só como linha em banco |
 | Alpha em produção apontando para o projeto errado durante a troca | Corte por variável de ambiente (`SUPABASE_URL`, `DATABASE_URL`) num único deploy, depois da carga concluída e conferida; rollback = reverter a variável |
 | `vector`/`ltree` ausentes no projeto principal | Habilitadas na primeira migration, no schema `extensions`; migration falha alto se não puder habilitar |
 | Schema `alpha` não exposto no PostgREST | `alter role authenticator set pgrst.db_schemas` + `notify pgrst` na própria migration, como já feito para `rumaer` e `sucont` |

@@ -7,17 +7,23 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 ## O que existe
 
-As etapas 1.4 a 1.7 estão implementadas e cobertas por testes, mas **ainda não rodaram contra o banco de produção**: as migrations precisam ser aplicadas e o corpus do RADA precisa ser copiado antes.
+As etapas 1.4 a 1.7 estão implementadas e cobertas por testes, mas **ainda não rodaram contra o banco**: as migrations precisam ser aplicadas antes.
+
+<Callout type="error">
+**O corpus do RADA foi perdido.** O projeto Supabase antigo do α foi apagado em 2026-07-31, com documentos, chunks e embeddings dentro, e não há backup. O schema `alpha` nasce vazio e o **ChatRADA responde "sem base" a qualquer pergunta** até o corpus ser reconstruído.
+
+A reconstrução é `bun run ingest:all` sobre os Markdown do RADA em `apps/alpha/knowledge/` — pasta hoje vazia. Depende de obter o RADA de novo.
+</Callout>
 
 <Callout type="warn">
-A ordem segura de ativação é: aplicar as migrations → migrar o corpus (`packages/database/scripts/migrate-alpha-corpus.sh`) → conferir contagens → sincronizar os secrets do alpha → `bun run ingest:agu --apply` → desativar o projeto Supabase antigo.
+Ordem de ativação: aplicar as migrations → sincronizar os secrets do alpha → `bun run ingest:agu --apply`. As fontes federais (AGU e legislação) são independentes do RADA e funcionam desde já.
 </Callout>
 
 ## Onde os dados ficam
 
 O α usa o **mesmo projeto Supabase do sisub**, no schema `alpha`, com as migrations em `packages/database`. Em produção herda os secrets do sisub (`VITE_SISUB_SUPABASE_URL`, `SISUB_SUPABASE_SECRET_KEY`, `SISUB_DATABASE_URL`), no mesmo padrão de rumaer e sucont.
 
-O projeto Supabase separado que o α usava foi descontinuado; o corpus do RADA foi migrado, e não é reingerível.
+O projeto Supabase separado que o α usava foi apagado. Nada dele foi recuperado.
 
 <Callout type="warn">
 Herdar os secrets do sisub é conveniente agora e dívida depois: rotacionar a chave do sisub derruba o α junto, e não há como dar ao α credencial de menor privilégio nem pooler próprio. O TODO de separar está registrado em `sync-secrets.yml` e em `infra/alpha/terraform.tfvars.example`.
@@ -87,6 +93,8 @@ Rotas autenticadas em `/alpha/*` no portal, fora da navegação pública.
 ```bash
 bun run ingest:agu            # dry-run da coleta dos modelos
 bun run ingest:agu --apply    # grava
+bun run ingest knowledge/x.md # ingere um Markdown no corpus (reconstrução do RADA)
+bun run ingest:all            # ingere todos os .md de knowledge/
 bun run eval                  # golden set das checagens determinísticas
 ```
 

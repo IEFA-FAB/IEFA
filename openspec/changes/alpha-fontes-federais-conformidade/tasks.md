@@ -15,8 +15,8 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] A.9 [alpha] Cliente Supabase com `db: { schema: "alpha" }` e checkpointer com `PostgresSaver.fromConnString(url, { schema: "alpha" })`
 - [x] A.10 [alpha] Renomear referências de tabela no código (`documents` → `document`, `document_chunks` → `document_chunk`, `query_logs` → `query_log`) em `api/routes.ts`, `tools/rada-retriever.ts` e `ingest/markdown-ingest.ts`
 - [x] A.11 [alpha] `rada-retriever.ts`: filtrar `superseded_at IS NULL` e manter o comportamento do ChatRADA
-- [x] A.12 [database] `scripts/migrate-alpha-corpus.sh` — migração única do corpus do projeto antigo, com conferência de contagem antes/depois
-- [ ] A.13 [alpha] Executar a migração, conferir contagens, sincronizar os secrets do alpha (herdados do sisub) e desativar o projeto Supabase antigo
+- [x] A.12 [alpha] ~~Migrar o corpus do projeto antigo~~ — **impossível: o projeto foi apagado em 2026-07-31 sem backup**. O script foi removido e o CLI `ingest-local.ts` trazido de `plans/` para o app, já que reingerir virou o único caminho
+- [ ] A.13 [alpha] Aplicar as migrations e sincronizar os secrets do alpha (herdados do sisub) — sem etapa de migração de dados: o schema `alpha` nasce vazio
 - [x] A.14 [alpha] Corrigir `plans/alpha/spec.md` §2 (schema `alpha`, dimensão 1024, tabelas novas) para parar de divergir do código
 - [x] A.15 [ci] `sync-secrets.yml` + `infra/alpha`: alpha herda os secrets do sisub (RAG_* removidos), com TODO de separação registrado
 
@@ -102,6 +102,14 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] H.5 [docs] Página `fontes-e-conformidade.mdx` + etapas 4–7 marcadas como implementadas
 - [x] H.6 [portal] `roadmap.tsx`: 1.4–1.7 em `in-progress` + etapa nova de fontes normativas federais
 - [x] H.7 [alpha] `ALPHA_JOB_SECRET` e `ALPHA_SOURCES_REFRESH_ENABLED` documentados em `.env.schema` e `.env.example`
+
+## Follow-up crítico — corpus do RADA
+
+O projeto Supabase antigo foi apagado em 2026-07-31 com o corpus indexado dentro. Não há backup, e reingerir é o único caminho.
+
+- [ ] R.1 [alpha] Obter o(s) Markdown(s) do RADA e colocar em `apps/alpha/knowledge/` — depende de acesso ao RADA
+- [ ] R.2 [alpha] `bun run ingest:all` para reconstruir o corpus; até lá o ChatRADA responde "sem base" a tudo
+- [ ] R.3 [alpha] Conferir que a busca híbrida volta a retornar trechos do RADA
 
 ## Final
 
