@@ -3,7 +3,14 @@ import { z } from "zod"
 const schema = z.object({
 	SUPABASE_URL: z.string().url(),
 	SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-	DATABASE_URL: z.string().min(1),
+	/**
+	 * Conexão Postgres direta, usada pelo checkpointer do LangGraph.
+	 *
+	 * `ALPHA_DATABASE_URL` tem precedência sobre `DATABASE_URL` — é o primeiro
+	 * passo do isolamento do α em relação aos secrets herdados do sisub.
+	 */
+	ALPHA_DATABASE_URL: z.string().min(1).optional(),
+	DATABASE_URL: z.string().min(1).optional(),
 	NVIDIA_API_KEY: z.string().min(1),
 	ALPHA_AI_API_KEY: z.string().min(1).optional(),
 	NVIDIA_BASE_URL: z.string().url().default("https://integrate.api.nvidia.com/v1"),
@@ -24,4 +31,11 @@ const schema = z.object({
 	PORT: z.coerce.number().default(3001),
 })
 
-export const env = schema.parse(process.env)
+const parsed = schema.parse(process.env)
+
+const databaseUrl = parsed.ALPHA_DATABASE_URL ?? parsed.DATABASE_URL
+if (!databaseUrl) {
+	throw new Error("defina ALPHA_DATABASE_URL (preferido) ou DATABASE_URL")
+}
+
+export const env = { ...parsed, DATABASE_URL: databaseUrl }

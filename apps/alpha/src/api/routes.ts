@@ -3,6 +3,7 @@ import { createRunCollector } from "@iefa/alpha-client/tracer"
 import { HumanMessage } from "@langchain/core/messages"
 import type { User } from "@supabase/supabase-js"
 import { Hono } from "hono"
+import { cors } from "hono/cors"
 import { streamSSE } from "hono/streaming"
 import { v4 as uuid } from "uuid"
 import { z } from "zod"
@@ -170,7 +171,27 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 
 // ─── Rotas ────────────────────────────────────────────────────────────────────
 
+/**
+ * Origens que podem chamar o α pelo browser.
+ *
+ * O console e o ChatRADA vivem no portal, em domínio diferente do α, então toda
+ * chamada é cross-origin — sem isto o browser bloqueia antes de sair o request,
+ * e a tela mostra "Failed to fetch" sem nenhum erro do lado do servidor.
+ * `credentials` fica desligado de propósito: a autenticação é por Bearer, não
+ * por cookie.
+ */
+const ALLOWED_ORIGINS = ["https://portal.iefa.com.br", "https://iefa.com.br", "https://www.iefa.com.br", "http://localhost:3000", "http://localhost:3010"]
+
 const app = new Hono<{ Variables: AppVariables }>()
+	.use(
+		"/api/v1/*",
+		cors({
+			origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]),
+			allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+			allowHeaders: ["Content-Type", "Authorization"],
+			maxAge: 300,
+		})
+	)
 	.use("/api/v1/*", authMiddleware)
 	// Submissão e extração (Etapa 1.4) — montadas depois do middleware de auth.
 	.route("/", submissionRoutes)

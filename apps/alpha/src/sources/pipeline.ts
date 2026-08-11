@@ -26,6 +26,15 @@ export interface IngestOptions {
 	apply?: boolean
 	/** Limita quantos itens processar (uso em teste manual e calibração). */
 	limit?: number
+	/**
+	 * Ingere estrutura sem gerar embeddings.
+	 *
+	 * Explícito e opt-in: serve para inspecionar a árvore de um modelo quando o
+	 * provedor de embedding está indisponível. O documento fica sem chunk e,
+	 * portanto, **fora da busca** — por isso o resultado marca `chunks: 0` e o
+	 * console mostra o documento como não pesquisável.
+	 */
+	skipEmbeddings?: boolean
 }
 
 export type ItemOutcome = "unchanged" | "created" | "superseded" | "failed"
@@ -58,6 +67,12 @@ function ruleCode(externalId: string, path: string, position: number): string {
 	return `agu:${slug}:${path}:${position}`
 }
 
+/**
+ * Versão vigente **concluída** de um item.
+ *
+ * `ingested_at is not null` é o que impede tratar como "sem mudança" um
+ * documento que ficou pela metade numa execução interrompida.
+ */
 async function findCurrentDocument(sourceId: string, externalId: string) {
 	const { data, error } = await supabase
 		.from("document")
@@ -65,10 +80,18 @@ async function findCurrentDocument(sourceId: string, externalId: string) {
 		.eq("source_id", sourceId)
 		.eq("external_id", externalId)
 		.is("superseded_at", null)
+		.not("ingested_at", "is", null)
 		.maybeSingle()
 
 	if (error) throw new Error(`consulta da versão vigente falhou: ${error.message}`)
 	return data
+}
+
+/** Apaga restos de execução interrompida (FK em cascata leva seções e chunks). */
+async function discardIncomplete(sourceId: string, externalId: string): Promise<void> {
+	const { error } = await supabase.from("document").delete().eq("source_id", sourceId).eq("external_id", externalId).is("ingested_at", null)
+
+	if (error) throw new Error(`limpeza de ingestão interrompida falhou: ${error.message}`)
 }
 
 async function persist(
@@ -76,7 +99,8 @@ async function persist(
 	item: SourceItem,
 	doc: StructuredDoc,
 	embed: EmbedFn,
-	currentId: string | null
+	currentId: string | null,
+	skipEmbeddings: boolean
 ): Promise<Omit<ItemResult, "external_id" | "title" | "version_label" | "outcome">> {
 	const { data: inserted, error: insertError } = await supabase
 		.from("document")
@@ -174,7 +198,7 @@ async function persist(
 		if (error) throw new Error(`insert de checklist_rule falhou: ${error.message}`)
 	}
 
-	const chunks = buildChunks(doc.nodes)
+	const chunks = skipEmbeddings ? [] : buildChunks(doc.nodes)
 	if (chunks.length > 0) {
 		const vectors = await embed(chunks.map((chunk) => chunk.content))
 		const { error } = await supabase.from("document_chunk").insert(
@@ -193,6 +217,11 @@ async function persist(
 		if (error) throw new Error(`insert de document_chunk falhou: ${error.message}`)
 	}
 
+	// Marca de conclusão antes do supersede: só documento completo pode
+	// substituir o anterior ou ser considerado vigente na próxima execução.
+	const { error: completeError } = await supabase.from("document").update({ ingested_at: new Date().toISOString() }).eq("id", documentId)
+	if (completeError) throw new Error(`marcação de ingestão concluída falhou: ${completeError.message}`)
+
 	// Supersede por último: até aqui, qualquer falha deixa a versão vigente intacta.
 	if (currentId) {
 		const { error } = await supabase.from("document").update({ superseded_at: new Date().toISOString() }).eq("id", currentId)
@@ -207,7 +236,7 @@ async function persist(
 	}
 }
 
-export async function ingestSource({ sourceId, adapter, embed, apply = false, limit }: IngestOptions): Promise<IngestReport> {
+export async function ingestSource({ sourceId, adapter, embed, apply = false, limit, skipEmbeddings = false }: IngestOptions): Promise<IngestReport> {
 	const discovered = await adapter.discover()
 	const items = typeof limit === "number" ? discovered.slice(0, limit) : discovered
 	const results: ItemResult[] = []
@@ -237,7 +266,8 @@ export async function ingestSource({ sourceId, adapter, embed, apply = false, li
 				continue
 			}
 
-			const counts = await persist(sourceId, item, doc, embed, current?.id ?? null)
+			await discardIncomplete(sourceId, item.external_id)
+			const counts = await persist(sourceId, item, doc, embed, current?.id ?? null, skipEmbeddings)
 			results.push({ ...base, outcome: current ? "superseded" : "created", ...counts })
 		} catch (error) {
 			results.push({

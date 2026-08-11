@@ -99,8 +99,10 @@ function ModeloPage() {
 						{structure.data.document.superseded_at ? <span className="text-muted-foreground">· substituída</span> : null}
 					</div>
 
-					<div className="grid gap-6 lg:grid-cols-[1fr_24rem]">
-						<div className="border border-border">
+					{/* `min-w-0` no item de grid: sem isso o título longo de uma seção
+					    expande a coluna e empurra o painel lateral para fora da tela. */}
+					<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+						<div className="min-w-0 border border-border">
 							{structure.data.nodes.map((node) => (
 								<NodeRow key={node.id} node={node} selected={node.path === selectedPath} onSelect={() => setSelectedPath(node.path)} />
 							))}

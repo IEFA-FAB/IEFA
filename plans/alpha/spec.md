@@ -161,7 +161,7 @@ Then: has_sufficient_context = true
 
 > **Atualizado em 2026-07-30.** O schema do α vive em `alpha`, no projeto Supabase
 > principal do IEFA, com migrations em `packages/database/supabase/migrations/`
-> (`20260730120000_create_alpha_schema.sql`). O texto anterior desta seção descrevia
+> (`20260811130000_create_alpha_schema.sql`). O texto anterior desta seção descrevia
 > um projeto Supabase separado com tabelas no plural e embedding de 3072 dimensões —
 > nada disso corresponde ao que roda.
 
@@ -226,7 +226,7 @@ Then: índice HNSW é usado (verificar via EXPLAIN ANALYZE)
 
 | Arquivo | Conteúdo |
 |---|---|
-| `packages/database/supabase/migrations/20260730120000_create_alpha_schema.sql` | Schema `alpha`, extensões `vector`/`ltree`, corpus versionado, fontes normativas, estrutura, regras, submissão/extração/conformidade, `query_log`, RPCs de busca, RLS e exposição no PostgREST |
+| `packages/database/supabase/migrations/20260811130000_create_alpha_schema.sql` | Schema `alpha`, extensões `vector`/`ltree`, corpus versionado, fontes normativas, estrutura, regras, submissão/extração/conformidade, `query_log`, RPCs de busca, RLS e exposição no PostgREST |
 
 Checkpoints do LangGraph não têm migration: o `PostgresSaver` cria as próprias
 tabelas via `setup()`, no schema `alpha` (`fromConnString(url, { schema: "alpha" })`).

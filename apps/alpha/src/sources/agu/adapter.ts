@@ -33,6 +33,15 @@ const PLACEHOLDER_TOKEN = /\[[^[\]]{1,120}\]/g
 /** Comentários com esse prefixo são nota explicativa; os demais são orientação de uso do modelo. */
 const NOTE_PREFIX = /nota\s+explicativa/i
 
+/**
+ * O gov.br responde 403 no download do `.docx` para User-Agent de robô, embora
+ * sirva a listagem HTML normalmente. Descoberto ao rodar a ingestão real.
+ */
+const BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+
+/** Numeração de seção no início do parágrafo: "1.", "2.1", "3.2.1 ". */
+const NUMBERED_HEADING = /^(\d+(?:\.\d+)*)[.)]?\s+\S/
+
 interface StyleInfo {
 	level: number
 	isOptional: boolean
@@ -53,6 +62,25 @@ export function parseStyle(style: string | null): StyleInfo | null {
 	if (!match) return null
 
 	return { level: Number(match[1]), isOptional: normalized.includes("opcional") }
+}
+
+/**
+ * Nível por heurística, para modelos legados que não usam os estilos da AGU.
+ *
+ * Alguns modelos ainda listados — o Aviso de Dispensa Eletrônica de nov/2022,
+ * por exemplo — são anteriores à padronização de estilos. Sem isto a ingestão
+ * falha o item inteiro por "nenhuma seção reconhecida".
+ */
+export function heuristicLevel(text: string): number | null {
+	const numbered = NUMBERED_HEADING.exec(text)
+	if (numbered) return Math.min(numbered[1].split(".").length, 5)
+
+	if (text.length <= 120) {
+		const letters = text.replace(/[^\p{L}]/gu, "")
+		if (letters.length >= 3 && letters === letters.toUpperCase()) return 1
+	}
+
+	return null
 }
 
 function extractPlaceholders(text: string): PlaceholderDraft[] {
@@ -78,7 +106,7 @@ function pathFromCounters(counters: number[]): string {
  * Parágrafo sem estilo de nível (cabeçalho do documento, célula de tabela) é
  * anexado ao corpo do último nó aberto — nunca abre nó nem aborta o parse.
  */
-export function buildNodes(docx: DocxDocument): StructureNodeDraft[] {
+export function buildNodes(docx: DocxDocument, options: { useHeuristic?: boolean } = {}): StructureNodeDraft[] {
 	const nodes: StructureNodeDraft[] = []
 	const counters: number[] = []
 	let ordinal = 0
@@ -100,9 +128,9 @@ export function buildNodes(docx: DocxDocument): StructureNodeDraft[] {
 	}
 
 	for (const paragraph of docx.paragraphs) {
-		const info = parseStyle(paragraph.style)
-
-		if (!info) {
+		const styled = parseStyle(paragraph.style)
+		const info = styled ?? (options.useHeuristic && paragraph.text ? { level: heuristicLevel(paragraph.text), isOptional: false } : null)
+		if (!info || info.level === null) {
 			attachToCurrent(paragraph.text, paragraph.commentIds)
 			continue
 		}
@@ -165,17 +193,20 @@ export function createAguAdapter(baseUrl: string): NormativeSourceAdapter {
 		},
 
 		async fetch(item: SourceItem) {
-			const response = await fetch(item.fetch_url, { headers: { "User-Agent": "iefa-alpha/1.0 (+https://portal.iefa.com.br)" } })
+			const response = await fetch(item.fetch_url, { headers: { "User-Agent": BROWSER_USER_AGENT } })
 			if (!response.ok) throw new Error(`GET ${item.fetch_url} → ${response.status}`)
 			return new Uint8Array(await response.arrayBuffer())
 		},
 
 		async parse(raw: Uint8Array, item: SourceItem): Promise<StructuredDoc> {
 			const docx = parseDocx(raw)
-			const nodes = buildNodes(docx)
+			// Estilos da AGU primeiro; heurística só quando o modelo não os usa.
+			// O piso continua protegendo: documento sem seção nenhuma falha alto.
+			const styledNodes = buildNodes(docx)
+			const nodes = styledNodes.length > 0 ? styledNodes : buildNodes(docx, { useHeuristic: true })
 
 			if (nodes.length === 0) {
-				throw new Error(`AGU: nenhuma seção reconhecida em ${item.fetch_url} — estilos do modelo podem ter mudado`)
+				throw new Error(`AGU: nenhuma seção reconhecida em ${item.fetch_url} — nem por estilo, nem por heurística de numeração/caixa`)
 			}
 
 			const contentHash = await sha256(raw)

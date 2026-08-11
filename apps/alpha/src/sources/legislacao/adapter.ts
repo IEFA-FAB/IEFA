@@ -97,6 +97,20 @@ export const LEGISLACAO_SOURCES: LegislacaoSourceConfig[] = [
 		effectiveFrom: "2021-04-01",
 	},
 	{
+		id: "decreto-11246-2022",
+		documentType: "DECRETO",
+		title: "Decreto nº 11.246, de 27 de outubro de 2022 — agentes de contratação e fiscalização",
+		url: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/D11246.htm",
+		effectiveFrom: "2022-10-27",
+	},
+	{
+		id: "decreto-11462-2023",
+		documentType: "DECRETO",
+		title: "Decreto nº 11.462, de 31 de março de 2023 — Portal Nacional de Contratações Públicas",
+		url: "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2023/decreto/D11462.htm",
+		effectiveFrom: "2023-03-31",
+	},
+	{
 		id: "in-seges-65-2021",
 		documentType: "IN_SEGES",
 		title: "Instrução Normativa SEGES/ME nº 65, de 7 de julho de 2021 — pesquisa de preços",

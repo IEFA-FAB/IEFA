@@ -20,6 +20,7 @@ const args = process.argv.slice(2)
 const apply = args.includes("--apply")
 const limitIndex = args.indexOf("--limit")
 const limit = limitIndex >= 0 ? Number(args[limitIndex + 1]) : undefined
+const skipEmbeddings = args.includes("--skip-embeddings")
 
 const source = await getSource(SOURCE_ID)
 if (!source) {
@@ -29,6 +30,9 @@ if (!source) {
 
 console.info(`📚 ${source.id} — ${source.base_url}`)
 console.info(apply ? "   modo: APLICANDO alterações" : "   modo: dry-run (use --apply para gravar)")
+if (skipEmbeddings) {
+	console.warn("   ⚠️  --skip-embeddings: estrutura sem chunk. Os modelos NÃO ficam pesquisáveis.")
+}
 if (!source.enabled && apply) {
 	console.warn("   ⚠️  fonte está com enabled = false no registry")
 }
@@ -39,6 +43,7 @@ const report = await ingestSource({
 	embed: embedDocuments,
 	apply,
 	limit,
+	skipEmbeddings,
 })
 
 const byOutcome = {

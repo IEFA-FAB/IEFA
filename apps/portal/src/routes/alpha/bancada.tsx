@@ -60,7 +60,7 @@ function BancadaPage() {
 				</p>
 			) : null}
 
-			<div className="grid gap-6 lg:grid-cols-[1fr_28rem]">
+			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem]">
 				<div className="border border-border">
 					{rules.data?.length === 0 ? <p className="p-6 text-center text-muted-foreground text-sm">Nenhuma regra com este status.</p> : null}
 
