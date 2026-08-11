@@ -9,9 +9,14 @@ import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingr
  * para limpar a árvore. Identificadas pela descrição da pasta raiz do grupo
  * (a base não possui flag — o agrupamento é por pasta). Ocultar uma categoria
  * remove a pasta raiz e toda a sua subárvore (subpastas + insumos).
+ *
+ * "Preparações" NÃO está aqui: aquele grupo não é insumo, e por isso deixou de ser
+ * uma preferência de visualização para virar escopo de leitura no servidor
+ * (`preparations: "exclude"`, ver `preparation-folders.ts` no domínio). Ele tem aba
+ * própria em `/global/ingredients?tab=preparacoes`. Como chip, um clique errado
+ * devolvia à árvore nomes que colidem com os das receitas.
  */
 export const QUICK_FILTER_CATEGORIES = [
-	{ key: "preparacoes", label: "Preparações", match: (d: string) => /^prepara[çc][õo]es/i.test(d) },
 	{ key: "pratos-prontos", label: "Pratos Prontos", match: (d: string) => /^pratos?\s+prontos?/i.test(d) },
 	{ key: "lanches-prontos", label: "Lanches Prontos", match: (d: string) => /^lanches?\s+prontos?/i.test(d) },
 ] as const

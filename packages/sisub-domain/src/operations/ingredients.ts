@@ -59,6 +59,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { folderPreparationFilter, ingredientPreparationFilter } from "./preparation-folders.ts"
 
 type Folder = Tables<"folder">
 type Ingredient = Tables<"ingredient">
@@ -133,7 +134,12 @@ function isMissingNutritionReferenceRelation(error: unknown): boolean {
 
 export async function listFolders(db: SisubDb, ctx: UserContext, input?: ListFolders): Promise<Folder[]> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
-	const where = input?.includeDeleted ? undefined : isNull(folderInKitchen.deletedAt)
+	const conditions = [
+		input?.includeDeleted ? undefined : isNull(folderInKitchen.deletedAt),
+		// Sem escopo explícito, "pastas de insumo" não inclui o grupo legado "Preparações".
+		folderPreparationFilter(input?.preparations),
+	].filter((c) => c !== undefined)
+	const where = conditions.length > 0 ? and(...conditions) : undefined
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(folderInKitchen).where(where).orderBy(asc(folderInKitchen.createdAt)))
 	return rows.map((r) => toWire<Folder>(r))
 }
@@ -175,6 +181,9 @@ export async function listIngredients(db: SisubDb, ctx: UserContext, input: List
 	const conditions = []
 	if (!input.includeDeleted) conditions.push(isNull(ingredientInKitchen.deletedAt))
 	if (input.folderId) conditions.push(eq(ingredientInKitchen.folderId, input.folderId))
+	// Sem escopo explícito, "insumos" não inclui o grupo legado "Preparações".
+	const preparationFilter = ingredientPreparationFilter(input.preparations)
+	if (preparationFilter) conditions.push(preparationFilter)
 	const where = conditions.length > 0 ? and(...conditions) : undefined
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ingredientInKitchen).where(where).orderBy(asc(ingredientInKitchen.description)))
 	return rows.map((r) => toWire<Ingredient>(r))

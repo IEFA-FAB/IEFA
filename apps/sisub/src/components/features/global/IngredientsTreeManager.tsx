@@ -33,8 +33,10 @@ const INGREDIENTS_SCROLL_KEY = "sisub:global-ingredients:scroll"
 /**
  * Chips de busca rápida (toggle group, multi-seleção). Modelo "marcado = visível":
  * um chip marcado significa que aquela categoria aparece na árvore.
- * - Categorias (Preparações, Pratos/Lanches Prontos): marcadas por padrão; desmarcar oculta a subárvore.
+ * - Categorias (Pratos/Lanches Prontos): marcadas por padrão; desmarcar oculta a subárvore.
  * - "Excluídos": desmarcado por padrão; marcar mostra os insumos soft-deleted.
+ *
+ * "Preparações" saiu daqui: virou aba própria, não chip. Ver QUICK_FILTER_CATEGORIES.
  */
 const QUICK_FILTER_CHIPS: { key: string; label: string }[] = [
 	...QUICK_FILTER_CATEGORIES.map((c) => ({ key: c.key, label: c.label })),
@@ -43,6 +45,10 @@ const QUICK_FILTER_CHIPS: { key: string; label: string }[] = [
 const QUICK_CATEGORY_KEYS = QUICK_FILTER_CATEGORIES.map((c) => c.key)
 // Categorias visíveis por padrão; "excluidos" começa fora (deleted ocultos).
 const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
+// Chaves ainda reconhecidas. O estado é persistido por aba: sessões abertas antes da
+// remoção do chip "preparacoes" carregam a chave antiga, que não corresponde a chip
+// nenhum — descartá-la na leitura evita um valor órfão preso no ToggleGroup.
+const KNOWN_QUICK_FILTERS = new Set(QUICK_FILTER_CHIPS.map((c) => c.key))
 
 export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
 	// global:1 navega o catálogo inteiro; edição, exclusão e ações em massa somem.
@@ -85,7 +91,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	// Filtro: mostrar apenas insumos ainda não revisados (conferência pendente). Persistido por aba.
 	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState("sisub:global-ingredients:onlyNotReviewed", false)
 	// Busca rápida (toggle group multi-seleção). Persistida por aba.
-	const [quickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
+	const [storedQuickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
+	const quickFilters = useMemo(() => storedQuickFilters.filter((k) => KNOWN_QUICK_FILTERS.has(k)), [storedQuickFilters])
 	const showDeleted = quickFilters.includes("excluidos")
 	// Categorias desmarcadas → ocultar suas subárvores na hierarquia.
 	const hiddenCategoryKeys = useMemo(() => QUICK_CATEGORY_KEYS.filter((k) => !quickFilters.includes(k)), [quickFilters])
