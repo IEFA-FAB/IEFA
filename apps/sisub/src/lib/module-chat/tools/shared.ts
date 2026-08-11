@@ -4,7 +4,9 @@
  */
 
 import type { Database } from "@iefa/database"
+import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
+import type { UserContext } from "@iefa/sisub-domain"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
@@ -19,6 +21,18 @@ export interface ToolContext {
 	scopeId?: number
 	// Schema default kitchen; tools que leem core/procurement usam `.schema()`.
 	supabase: SupabaseClient<Database, "kitchen">
+	/**
+	 * Cliente Drizzle das operations do domínio. Toda tool que lê algo já modelado em
+	 * `@iefa/sisub-domain` deve passar por aqui em vez de montar PostgREST na mão: a
+	 * query crua duplica nome de tabela e de coluna sem nada checar, e foi assim que
+	 * `list_ingredients` acabou ordenando por uma coluna `name` que não existe.
+	 */
+	db: SisubDb
+}
+
+/** Traduz o contexto da tool para o `UserContext` que os guards do domínio esperam. */
+export function domainCtx(ctx: ToolContext): UserContext {
+	return { userId: ctx.userId, permissions: ctx.permissions }
 }
 
 // ── Tool definition (OpenAI function-calling format) ────────────────────────

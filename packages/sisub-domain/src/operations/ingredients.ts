@@ -181,6 +181,9 @@ export async function listIngredients(db: SisubDb, ctx: UserContext, input: List
 	const conditions = []
 	if (!input.includeDeleted) conditions.push(isNull(ingredientInKitchen.deletedAt))
 	if (input.folderId) conditions.push(eq(ingredientInKitchen.folderId, input.folderId))
+	// `%` e `_` do usuário são literais numa busca, não curingas — escapar evita que
+	// um termo com underscore case com qualquer caractere. Mesmo escape de listCeafa.
+	if (input.search) conditions.push(ilike(ingredientInKitchen.description, `%${input.search.replace(/[\\%_]/g, "\\$&")}%`))
 	// Sem escopo explícito, "insumos" não inclui o grupo legado "Preparações".
 	const preparationFilter = ingredientPreparationFilter(input.preparations)
 	if (preparationFilter) conditions.push(preparationFilter)

@@ -34,6 +34,7 @@ function ctx(permissions: UserPermission[]): ToolContext {
 		module: "kitchen",
 		permissions,
 		supabase: {} as ToolContext["supabase"],
+		db: {} as ToolContext["db"],
 	}
 }
 
