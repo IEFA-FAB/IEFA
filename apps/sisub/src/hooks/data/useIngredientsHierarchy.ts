@@ -271,6 +271,17 @@ export function useIngredientsHierarchy(
 		const byId: Record<string, IngredientTreeNode> = {}
 		const byParentId: Record<string, IngredientTreeNode[]> = {}
 
+		/**
+		 * Pastas que de fato entram na árvore, depois de escopo e filtro.
+		 *
+		 * O traversal parte de `byParentId["root"]`, então um nó cujo pai NÃO está aqui
+		 * precisa virar raiz — senão fica órfão e nunca é visitado. Acontece sempre que o
+		 * recorte não alcança a raiz original: o escopo "Preparações" tem uma pasta-topo
+		 * que é filha de uma pasta fora do recorte, e a árvore inteira sumia por isso.
+		 */
+		const renderedFolderIds = new Set(folders.flatMap((f) => (!isFolderExcluded(f.id) && (!isFiltering || includedIds.has(f.id)) ? [f.id] : [])))
+		const parentKeyOf = (parentId: string | null) => (parentId && renderedFolderIds.has(parentId) ? parentId : "root")
+
 		// 1. Criar todos os nós
 		folders.forEach((folder) => {
 			if (isFolderExcluded(folder.id)) return
@@ -291,7 +302,7 @@ export function useIngredientsHierarchy(
 
 			byId[folder.id] = node
 
-			const parentKey = folder.parent_id || "root"
+			const parentKey = parentKeyOf(folder.parent_id)
 			if (!byParentId[parentKey]) {
 				byParentId[parentKey] = []
 			}
@@ -317,7 +328,7 @@ export function useIngredientsHierarchy(
 
 			byId[ingredient.id] = node
 
-			const parentKey = ingredient.folder_id || "root"
+			const parentKey = parentKeyOf(ingredient.folder_id)
 			if (!byParentId[parentKey]) {
 				byParentId[parentKey] = []
 			}
