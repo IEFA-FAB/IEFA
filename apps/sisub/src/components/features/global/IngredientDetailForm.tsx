@@ -734,6 +734,12 @@ function NutrientsTable({ nutrients, values, onChange, readOnly = false, referen
 		return (a.display_order ?? 999) - (b.display_order ?? 999)
 	})
 
+	// Notas de rodapé: só aparecem quando algum nutriente as justifica.
+	// "—" = a tabela vinculada não traz o nutriente (ex.: TACO não mede açúcares).
+	// "**" = VD não estabelecido pela IN 75/2020 (açúcares totais, gorduras trans).
+	const hasAbsentInReference = reference != null && ordered.some((n) => (values[n.id] ?? "") === "")
+	const hasUnestablishedDailyValue = ordered.some((n) => !n.daily_value)
+
 	return (
 		<div>
 			{reference && (
@@ -760,11 +766,16 @@ function NutrientsTable({ nutrients, values, onChange, readOnly = false, referen
 					</tbody>
 				</table>
 			</div>
-			<p className="mt-3 text-caption text-muted-foreground">
-				{reference
-					? `Fonte: ${reference.source_name} ${reference.version_label}, ${reference.display_name}.`
-					: "* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo."}
-			</p>
+			<div className="mt-3 space-y-1 text-caption text-muted-foreground">
+				{reference && <p>{`Fonte: ${reference.source_name} ${reference.version_label}, ${reference.display_name}.`}</p>}
+				<p>* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo.</p>
+				{hasUnestablishedDailyValue && <p>** Valor diário de referência não estabelecido (IN 75/2020).</p>}
+				{hasAbsentInReference && (
+					<p>
+						— Nutriente não informado por {reference.source_name} {reference.version_label}: a tabela não traz esse dado para o alimento vinculado.
+					</p>
+				)}
+			</div>
 		</div>
 	)
 }
@@ -781,25 +792,35 @@ function NutrientRow({ nutrient, value, onChange, readOnly = false }: NutrientRo
 	const numeric = value !== "" ? Number(value) : null
 	const hasValue = numeric != null && !Number.isNaN(numeric)
 	const dailyValue = nutrient.daily_value ? Number(nutrient.daily_value) : null
-	const vd = hasValue && dailyValue && dailyValue > 0 ? (numeric / dailyValue) * 100 : null
-	const vdLabel = vd != null ? `${vd < 1 && vd > 0 ? vd.toFixed(1) : Math.round(vd)}%` : "—"
+	// Açúcares totais e gorduras trans não têm VD estabelecido: marca "**" em vez de "—",
+	// que fica reservado para o dado ausente na tabela vinculada.
+	const hasDailyValue = dailyValue != null && dailyValue > 0
+	const vd = hasValue && hasDailyValue ? (numeric / dailyValue) * 100 : null
+	const vdLabel = vd != null ? `${vd < 1 && vd > 0 ? vd.toFixed(1) : Math.round(vd)}%` : hasDailyValue ? "—" : "**"
 
 	return (
 		<tr className={cn("transition-colors hover:bg-muted/30", nutrient.is_energy_value && "bg-muted/20")}>
 			<td className={cn("px-4 py-1.5 text-foreground", nutrient.is_energy_value && "font-semibold")}>{label}</td>
 			<td className="px-4 py-1.5">
 				<div className="flex items-center justify-end gap-1.5">
-					<Input
-						id={`nutrient-${nutrient.id}`}
-						type="number"
-						step="0.001"
-						min="0"
-						placeholder="—"
-						value={value}
-						disabled={readOnly}
-						onChange={(e) => onChange((prev) => ({ ...prev, [nutrient.id]: e.target.value }))}
-						className="h-8 w-24 text-right text-sm font-mono"
-					/>
+					{readOnly ? (
+						// Vinculado a uma tabela: valor é leitura pura. Sem dado, "—" (ver rodapé),
+						// não um campo vazio, que sugeriria preenchimento pendente.
+						<span className={cn("w-24 text-right text-sm font-mono tabular-nums", hasValue ? "text-foreground" : "text-muted-foreground")}>
+							{hasValue ? formatNumber(numeric) : "—"}
+						</span>
+					) : (
+						<Input
+							id={`nutrient-${nutrient.id}`}
+							type="number"
+							step="0.001"
+							min="0"
+							placeholder="—"
+							value={value}
+							onChange={(e) => onChange((prev) => ({ ...prev, [nutrient.id]: e.target.value }))}
+							className="h-8 w-24 text-right text-sm font-mono"
+						/>
+					)}
 					{unit && <span className="w-8 text-left text-xs text-muted-foreground">{unit}</span>}
 				</div>
 			</td>
