@@ -32,6 +32,8 @@ export const ListIngredientsSchema = z.object({
 	folderId: UuidSchema.optional(),
 	includeDeleted: z.boolean().optional(),
 	preparations: PreparationScopeSchema.optional(),
+	/** Busca parcial na descrição, sem distinguir caixa. Limitada para não virar um LIKE gigante. */
+	search: z.string().trim().min(1).max(200).optional(),
 })
 export type ListIngredients = z.infer<typeof ListIngredientsSchema>
 

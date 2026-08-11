@@ -3,8 +3,14 @@
  * Ported from server functions: recipes.fn.ts, ingredients.fn.ts, templates.fn.ts
  */
 
+import {
+	fetchIngredient as fetchIngredientOp,
+	listIngredientItems as listIngredientItemsOp,
+	listIngredientNutrients as listIngredientNutrientsOp,
+	listIngredients as listIngredientsOp,
+} from "@iefa/sisub-domain"
 import type { ModuleToolDefinition } from "./shared"
-import { requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
@@ -61,56 +67,81 @@ const getRecipe: ModuleToolDefinition = {
 	},
 }
 
+/**
+ * Insumos e preparações passam pelas operations do domínio, não por PostgREST cru.
+ *
+ * A versão anterior montava a query na mão e errava em três pontos ao mesmo tempo,
+ * todos fatais em runtime: ordenava e buscava por uma coluna `name` que
+ * `kitchen.ingredient` não tem (a coluna é `description`), convertia `folder_id`
+ * — um `uuid` — com `Number()`, e embutia `ingredient_nutrients`/`ingredient_items`
+ * no plural quando as tabelas são singulares. Nada disso o typecheck via, porque
+ * `untypedFrom` devolve `any` de propósito.
+ *
+ * Delegar também faz a tool herdar o escopo do catálogo: `list_ingredients` para de
+ * devolver, misturadas, as preparações herdadas do SISUBWEB.
+ */
 const listIngredients: ModuleToolDefinition = {
 	name: "list_ingredients",
-	description: "Lista ingredientes do catálogo com nutrientes e código CATMAT. Suporta busca por nome.",
+	description:
+		"Lista insumos do catálogo global. Suporta busca por descrição. Não inclui as preparações herdadas do SISUBWEB — para essas, use list_preparations.",
 	parameters: {
 		type: "object",
 		properties: {
-			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
-			folderId: { type: "number", description: "ID da pasta/categoria (opcional)" },
+			search: { type: "string", description: "Busca parcial na descrição, sem distinguir caixa" },
+			folderId: { type: "string", description: "ID (UUID) da pasta/categoria (opcional)" },
 		},
 		required: [],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		let query = untypedFrom(ctx, "ingredient").select(`*, folder:folder_id(*)`).is("deleted_at", null).order("name")
+		const search = args.search != null ? String(args.search).slice(0, 200) : undefined
+		const folderId = args.folderId != null ? requireUuid(args.folderId, "folderId") : undefined
+		const rows = await listIngredientsOp(ctx.db, domainCtx(ctx), { search, folderId })
+		return toolOk(rows)
+	},
+}
 
-		if (args.search) {
-			query = query.ilike("name", `%${String(args.search).slice(0, 200)}%`)
-		}
-		if (args.folderId != null) {
-			query = query.eq("folder_id", Number(args.folderId))
-		}
-
-		const { data, error } = await query
-		if (error) return toolErr(sanitizeDbError(error, "list_ingredients"))
-		return toolOk(data ?? [])
+const listPreparations: ModuleToolDefinition = {
+	name: "list_preparations",
+	description: "Lista as preparações herdadas do SISUBWEB. Elas moram na mesma tabela dos insumos mas não são insumos — os nomes colidem com os das receitas.",
+	parameters: {
+		type: "object",
+		properties: {
+			search: { type: "string", description: "Busca parcial na descrição, sem distinguir caixa" },
+		},
+		required: [],
+	},
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		requireGlobalPermission(ctx, 1)
+		const search = args.search != null ? String(args.search).slice(0, 200) : undefined
+		const rows = await listIngredientsOp(ctx.db, domainCtx(ctx), { search, preparations: "only" })
+		return toolOk(rows)
 	},
 }
 
 const getIngredient: ModuleToolDefinition = {
 	name: "get_ingredient",
-	description: "Retorna detalhes de um ingrediente com nutrientes e itens (SKUs).",
+	description: "Retorna detalhes de um insumo com nutrientes e itens de produto (SKUs). Funciona também para uma preparação do SISUBWEB, buscando pelo ID.",
 	parameters: {
 		type: "object",
-		properties: { ingredientId: { type: "string", description: "ID (UUID) do ingrediente" } },
+		properties: { ingredientId: { type: "string", description: "ID (UUID) do insumo" } },
 		required: ["ingredientId"],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
 		const ingredientId = requireUuid(args.ingredientId, "ingredientId")
-
-		const { data, error } = await untypedFrom(ctx, "ingredient")
-			.select(`*, nutrients:ingredient_nutrients(*), items:ingredient_items(*)`)
-			.eq("id", ingredientId)
-			.is("deleted_at", null)
-			.single()
-
-		if (error) return toolErr(sanitizeDbError(error, "get_ingredient"))
-		return toolOk(data)
+		const db = ctx.db
+		const dctx = domainCtx(ctx)
+		// `fetchIngredient` lança NotFoundError; wrapTool converte em erro de tool.
+		const [ingredient, nutrients, items] = await Promise.all([
+			fetchIngredientOp(db, dctx, { id: ingredientId }),
+			listIngredientNutrientsOp(db, dctx, { ingredientId }),
+			listIngredientItemsOp(db, dctx, { ingredientId }),
+		])
+		return toolOk({ ...ingredient, nutrients, items })
 	},
 }
 
@@ -202,4 +233,13 @@ const updateRecipe: ModuleToolDefinition = {
 	},
 }
 
-export const globalTools: ModuleToolDefinition[] = [listRecipes, getRecipe, listIngredients, getIngredient, listMenuTemplates, createRecipe, updateRecipe]
+export const globalTools: ModuleToolDefinition[] = [
+	listRecipes,
+	getRecipe,
+	listIngredients,
+	listPreparations,
+	getIngredient,
+	listMenuTemplates,
+	createRecipe,
+	updateRecipe,
+]

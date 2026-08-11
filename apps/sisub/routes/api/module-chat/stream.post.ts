@@ -22,6 +22,7 @@ import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { hasPermission } from "@/auth/pbac"
 import { getServerCapabilities } from "@/lib/capabilities.server"
+import { getDb } from "@/lib/db.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
 import { type ToolContext, getMaxLevel } from "@/lib/module-chat/tools/shared"
@@ -137,6 +138,8 @@ export default defineHandler(async (event: H3Event) => {
 		module,
 		scopeId,
 		supabase,
+		// Tools que leem algo já modelado no domínio usam este cliente, não PostgREST cru.
+		db: getDb(),
 	}
 
 	const { systemPrompt, tools } = getModuleConfig(module, userLevel, toolCtx)
