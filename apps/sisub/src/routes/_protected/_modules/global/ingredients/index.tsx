@@ -20,8 +20,9 @@ import { ingredientsTreeQueryOptions } from "@/services/IngredientsService"
  *
  * Duas abas sobre a mesma tabela `kitchen.ingredient`, separadas por escopo:
  * "Insumos" (o catálogo de verdade) e "Preparações" (o grupo herdado do SISUBWEB,
- * que não é insumo — ver `preparation-folders.ts` no domínio). Mesma árvore de
- * pastas dos dois lados; só muda o recorte.
+ * que não é insumo — ver `preparation-scope.ts` no domínio). Cada aba tem sua própria
+ * árvore: insumo se organiza em `kitchen.folder`, preparação em
+ * `kitchen.preparation_group`. Mesmo componente de árvore dos dois lados.
  */
 const searchSchema = z.object({
 	search: z.string().optional(),

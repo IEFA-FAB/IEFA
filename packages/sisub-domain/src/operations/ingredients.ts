@@ -25,6 +25,7 @@ import {
 	nutritionNutrientComponentMappingInNutritionReference,
 	nutritionSourceInNutritionReference,
 	nutritionSourceReleaseInNutritionReference,
+	preparationGroupInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
@@ -47,6 +48,7 @@ import type {
 	ListIngredientSubstitutions,
 	ListIngredients,
 	ListNutritionReferenceFoods,
+	ListPreparationGroups,
 	RestoreFolder,
 	RestoreIngredient,
 	SetIngredientNutrients,
@@ -59,7 +61,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { folderPreparationFilter, ingredientPreparationFilter } from "./preparation-folders.ts"
+import { folderOutsidePreparations, ingredientPreparationFilter } from "./preparation-scope.ts"
 
 type Folder = Tables<"folder">
 type Ingredient = Tables<"ingredient">
@@ -136,12 +138,40 @@ export async function listFolders(db: SisubDb, ctx: UserContext, input?: ListFol
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const conditions = [
 		input?.includeDeleted ? undefined : isNull(folderInKitchen.deletedAt),
-		// Sem escopo explícito, "pastas de insumo" não inclui o grupo legado "Preparações".
-		folderPreparationFilter(input?.preparations),
+		// Pasta de insumo é pasta de insumo. Ver preparation-scope.ts.
+		folderOutsidePreparations,
 	].filter((c) => c !== undefined)
-	const where = conditions.length > 0 ? and(...conditions) : undefined
+	const where = and(...conditions)
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(folderInKitchen).where(where).orderBy(asc(folderInKitchen.createdAt)))
 	return rows.map((r) => toWire<Folder>(r))
+}
+
+/**
+ * Grupos das preparações herdadas do SISUBWEB (`kitchen.preparation_group`).
+ *
+ * Devolve no MESMO formato de `Folder` (com `description` no lugar de `name`) de
+ * propósito: a aba de preparações reusa a árvore da tela de insumos inteira — mesmo
+ * hook, mesmo componente de linha. Uma forma própria obrigaria a duplicar aquilo.
+ */
+export async function listPreparationGroups(db: SisubDb, ctx: UserContext, input?: ListPreparationGroups): Promise<Folder[]> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const where = input?.includeDeleted ? undefined : isNull(preparationGroupInKitchen.deletedAt)
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({
+				id: preparationGroupInKitchen.id,
+				description: preparationGroupInKitchen.name,
+				parent_id: preparationGroupInKitchen.parentId,
+				legacy_id: preparationGroupInKitchen.legacyId,
+				created_at: preparationGroupInKitchen.createdAt,
+				deleted_at: preparationGroupInKitchen.deletedAt,
+			})
+			.from(preparationGroupInKitchen)
+			.where(where)
+			.orderBy(asc(preparationGroupInKitchen.createdAt))
+	)
+	// Já selecionado em snake_case: `toWire` transformaria `description` de novo à toa.
+	return rows as Folder[]
 }
 
 export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateFolder): Promise<Folder> {

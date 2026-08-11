@@ -3,15 +3,20 @@ import { UuidSchema } from "./common.ts"
 
 /**
  * Escopo do grupo legado "Preparações" (SISUBWEB) dentro do catálogo de insumos.
- * Omitido ⇒ `exclude`: quem pede insumo recebe insumo. Ver `preparation-folders.ts`.
+ * Omitido ⇒ `exclude`: quem pede insumo recebe insumo. Ver `preparation-scope.ts`.
  */
 export const PreparationScopeSchema = z.enum(["exclude", "only", "include"])
 
 export const ListFoldersSchema = z.object({
 	includeDeleted: z.boolean().optional(),
-	preparations: PreparationScopeSchema.optional(),
 })
 export type ListFolders = z.infer<typeof ListFoldersSchema>
+
+/** Grupos das preparações do SISUBWEB — tabela própria, fora de `kitchen.folder`. */
+export const ListPreparationGroupsSchema = z.object({
+	includeDeleted: z.boolean().optional(),
+})
+export type ListPreparationGroups = z.infer<typeof ListPreparationGroupsSchema>
 
 export const RestoreFolderSchema = z.object({ id: UuidSchema })
 export type RestoreFolder = z.infer<typeof RestoreFolderSchema>
