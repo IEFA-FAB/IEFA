@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Seed nutrient_component_mapping: source components → kitchen.nutrient
 -- ============================================================================
--- The ingredient nutrition table (kitchen.nutrient) is the 10-nutrient Brazilian
--- mandatory label. This maps each source's matching component to those nutrients
+-- Covers the nutrients kitchen.nutrient held at the time (the RDC 360/2003 label
+-- plus colesterol/cálcio/ferro). The RDC 429/2020 additions — açúcares totais,
+-- açúcares adicionados, gorduras trans — are mapped in a later migration.
+-- This maps each source's matching component to those nutrients
 -- so a linked ingredient resolves real values via listIngredientEffectiveNutrients
 -- (which inner-joins nutrient_component_mapping). Units already align 1:1, so
 -- conversion_multiplier = 1 and conversion_offset = 0.
