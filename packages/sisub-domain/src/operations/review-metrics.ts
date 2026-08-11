@@ -9,7 +9,7 @@
  * - Itens com soft-delete (deleted_at) NUNCA entram (não precisam de revisão).
  * - Insumos = catálogo único; preparações = apenas globais (kitchen_id IS NULL).
  * - O grupo legado "Preparações" herdado do SISUBWEB vive em `kitchen.ingredient` mas
- *   não é insumo (ver `preparation-folders.ts`): ficava no denominador da conferência
+ *   não é insumo (ver `preparation-scope.ts`): ficava no denominador da conferência
  *   inflando o total e derrubando o percentual de algo que nutricionista nenhum confere.
  *   Fora da cobertura, do feed diário e da lista recente — nos dois lados do painel.
  */
@@ -20,7 +20,7 @@ import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { GetReviewMetrics } from "../schemas/review-metrics.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
-import { ingredientOutsidePreparations } from "./preparation-folders.ts"
+import { ingredientOutsidePreparations } from "./preparation-scope.ts"
 
 export interface ReviewTypeMetrics {
 	/** Itens ativos (não deletados). Denominador da cobertura. */

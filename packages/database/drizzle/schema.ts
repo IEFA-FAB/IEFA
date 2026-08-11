@@ -581,7 +581,15 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 	ceafaId: uuid("ceafa_id"),
 	densityFactor: numeric("density_factor"),
 	rehydrationIndex: numeric("rehydration_index"),
+	// Preenchido ⇒ é preparação herdada do SISUBWEB, não insumo. Ver preparation-scope.ts.
+	preparationGroupId: uuid("preparation_group_id"),
 }, (table) => [
+	index("ingredient_preparation_group_id_idx").using("btree", table.preparationGroupId.asc().nullsLast().op("uuid_ops")).where(sql`preparation_group_id IS NOT NULL`),
+	foreignKey({
+			columns: [table.preparationGroupId],
+			foreignColumns: [preparationGroupInKitchen.id],
+			name: "ingredient_preparation_group_id_fkey"
+		}),
 	foreignKey({
 			columns: [table.ceafaId],
 			foreignColumns: [ceafaInKitchen.id],
@@ -1808,6 +1816,25 @@ export const recipeFolderInKitchen = kitchen.table("recipe_folder", {
 	uniqueIndex("recipe_folder_name_active_unique").using("btree", sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
 	index("recipe_folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
 	check("recipe_folder_name_not_blank", sql`btrim(name) <> ''::text`),
+]);
+
+export const preparationGroupInKitchen = kitchen.table("preparation_group", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	parentId: uuid("parent_id"),
+	legacyId: integer("legacy_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("preparation_group_parent_id_idx").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+	index("preparation_group_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.parentId],
+			foreignColumns: [table.id],
+			name: "preparation_group_parent_id_fkey"
+		}),
+	check("preparation_group_name_not_blank", sql`btrim(name) <> ''::text`),
+	check("preparation_group_not_self_parent", sql`parent_id IS NULL OR parent_id <> id`),
 ]);
 
 export const ingredientVersionInKitchen = kitchen.table("ingredient_version", {

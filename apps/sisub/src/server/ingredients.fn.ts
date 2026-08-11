@@ -44,6 +44,7 @@ import {
 	listIngredientVersions,
 	listNutrients,
 	listNutritionReferenceFoods,
+	listPreparationGroups,
 	PreparationScopeSchema,
 	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,
@@ -355,10 +356,14 @@ export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
 		const ctx = await requireAuth()
 		const db = getDb()
 		const includeDeleted = data.includeDeleted ?? false
-		// Omitido ⇒ "exclude": a árvore de insumos não traz o grupo legado "Preparações".
+		// Omitido ⇒ "exclude": a árvore de insumos não traz as preparações do SISUBWEB.
 		const preparations = data.preparations
+		// As duas abas são árvores de origens diferentes: insumo se organiza em
+		// `kitchen.folder`, preparação em `kitchen.preparation_group`. `listPreparationGroups`
+		// devolve no formato de Folder de propósito, para o cliente reusar a mesma árvore.
+		const listGroups = preparations === "only" ? listPreparationGroups : listFolders
 		const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
-			listFolders(db, ctx, { includeDeleted, preparations }),
+			listGroups(db, ctx, { includeDeleted }),
 			listIngredients(db, ctx, { includeDeleted, preparations }),
 			// Itens de compra/produto sempre ativos: contagem de badges não infla com excluídos.
 			listIngredientItems(db, ctx, {}),

@@ -69,6 +69,7 @@ export {
 	ListIngredientsSchema,
 	ListIngredientVersionsSchema,
 	ListNutritionReferenceFoodsSchema,
+	ListPreparationGroupsSchema,
 	PreparationScopeSchema,
 	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,

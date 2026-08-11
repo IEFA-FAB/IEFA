@@ -5,7 +5,7 @@
  * upsert de nutrientes e busca (ilike) em CEAFA/CATMAT.
  */
 
-import type { SisubDb } from "@iefa/database/drizzle/sisub"
+import { ingredientInKitchen, preparationGroupInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	createFolder,
 	createIngredient,
@@ -21,6 +21,7 @@ import {
 	listIngredientNutrients,
 	listIngredients,
 	listNutrients,
+	listPreparationGroups,
 	restoreFolder,
 	restoreIngredient,
 	setIngredientNutrients,
@@ -28,6 +29,7 @@ import {
 	updateIngredient,
 	updateIngredientItem,
 } from "@iefa/sisub-domain"
+import { eq } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -133,45 +135,121 @@ describeSupabaseIntegration("ingredients operations (regressão)", () => {
 		expect((await listIngredients(db, ctx, { folderId })).map((i) => i.id)).toContain(id)
 	})
 
+	/**
+	 * `kitchen.preparation_group` não tem CRUD no domínio — o conjunto veio da migration e
+	 * é catálogo fechado. Os helpers escrevem direto pelo Drizzle. A limpeza zera a FK
+	 * antes de apagar o grupo, então não depende da ordem LIFO do seeder.
+	 */
+	async function seedPreparationGroup(name: string, explicitId?: string): Promise<string> {
+		if (!db || !seeder) throw new Error("db/seeder indisponível")
+		const [row] = await db
+			.insert(preparationGroupInKitchen)
+			.values(explicitId ? { id: explicitId, name } : { name })
+			.returning({ id: preparationGroupInKitchen.id })
+		const id = row.id
+		seeder.trackFn(async () => {
+			if (!db) return
+			await db.update(ingredientInKitchen).set({ preparationGroupId: null }).where(eq(ingredientInKitchen.preparationGroupId, id))
+			await db.delete(preparationGroupInKitchen).where(eq(preparationGroupInKitchen.id, id))
+		})
+		return id
+	}
+
+	async function linkPreparation(ingredientId: string, groupId: string): Promise<void> {
+		if (!db) throw new Error("db indisponível")
+		await db.update(ingredientInKitchen).set({ preparationGroupId: groupId }).where(eq(ingredientInKitchen.id, ingredientId))
+	}
+
+	async function renameIngredient(ingredientId: string, description: string): Promise<void> {
+		if (!db) throw new Error("db indisponível")
+		await db.update(ingredientInKitchen).set({ description }).where(eq(ingredientInKitchen.id, ingredientId))
+	}
+
 	test("escopo Preparações: excluído por padrão, isolado em 'only', tudo em 'include'", async () => {
 		if (!reachable || !seeder || !db) return
 
-		// Grupo legado do SISUBWEB: a raiz é reconhecida pela descrição, e a exclusão
-		// desce pela subárvore — por isso o insumo de teste vive numa SUBpasta, não na raiz.
-		const raiz = await createFolder(db, ctx, { description: uid("Preparações [TEST] ") })
-		seeder.track("folder", raiz.id)
-		const subpasta = await createFolder(db, ctx, { description: uid("[TEST] Sub "), parentId: raiz.id })
-		seeder.track("folder", subpasta.id)
-		const preparacao = await seeder.seedIngredient({ folderId: subpasta.id })
+		// A preparação é marcada por COLUNA (`preparation_group_id`), não por estar numa
+		// pasta com certo nome. Um grupo com nome de insumo continua sendo preparação, e
+		// uma pasta chamada "Preparações" continua sendo pasta de insumo — as duas metades
+		// dessa afirmação estão cobertas abaixo, e é o ponto de trocar regex por FK.
+		const grupo = await seedPreparationGroup(uid("Nome Que Não Diz Nada "))
+		const preparacao = await seeder.seedIngredient({})
+		await linkPreparation(preparacao, grupo)
 
-		// Controles: um insumo em pasta comum e um sem pasta nenhuma (folder_id null).
+		// Controles: insumo em pasta comum, insumo sem pasta, e uma armadilha —
+		// pasta de insumo cuja descrição casaria o regex antigo.
 		const pastaComum = await seeder.seedFolder()
 		const insumo = await seeder.seedIngredient({ folderId: pastaComum })
 		const solto = await seeder.seedIngredient({ folderId: null })
+		const pastaArmadilha = await createFolder(db, ctx, { description: uid("Preparações [TEST] ") })
+		seeder.track("folder", pastaArmadilha.id)
+		const insumoNaArmadilha = await seeder.seedIngredient({ folderId: pastaArmadilha.id })
 
 		const padrao = (await listIngredients(db, ctx, {})).map((i) => i.id)
 		expect(padrao).not.toContain(preparacao)
 		expect(padrao).toContain(insumo)
-		// `folder_id is null` não é preparação: `null not in (...)` seria null, e a linha sumiria.
 		expect(padrao).toContain(solto)
+		// O nome da pasta não classifica mais nada.
+		expect(padrao).toContain(insumoNaArmadilha)
 
 		const apenasPreparacoes = (await listIngredients(db, ctx, { preparations: "only" })).map((i) => i.id)
 		expect(apenasPreparacoes).toContain(preparacao)
 		expect(apenasPreparacoes).not.toContain(insumo)
 		expect(apenasPreparacoes).not.toContain(solto)
+		expect(apenasPreparacoes).not.toContain(insumoNaArmadilha)
 
 		const tudo = (await listIngredients(db, ctx, { preparations: "include" })).map((i) => i.id)
-		expect(tudo).toEqual(expect.arrayContaining([preparacao, insumo, solto]))
+		expect(tudo).toEqual(expect.arrayContaining([preparacao, insumo, solto, insumoNaArmadilha]))
 
-		// Pastas seguem o mesmo escopo — raiz E subpasta saem juntas.
-		const pastasPadrao = (await listFolders(db, ctx, {})).map((f) => f.id)
-		expect(pastasPadrao).not.toContain(raiz.id)
-		expect(pastasPadrao).not.toContain(subpasta.id)
-		expect(pastasPadrao).toContain(pastaComum)
+		// Grupo de preparação NÃO é pasta de insumo: vive em outra tabela e não vaza
+		// para `listFolders`. A pasta-armadilha, essa sim, continua sendo pasta.
+		const pastas = (await listFolders(db, ctx, {})).map((f) => f.id)
+		expect(pastas).not.toContain(grupo)
+		expect(pastas).toContain(pastaComum)
+		expect(pastas).toContain(pastaArmadilha.id)
 
-		const pastasSoPreparacoes = (await listFolders(db, ctx, { preparations: "only" })).map((f) => f.id)
-		expect(pastasSoPreparacoes).toEqual(expect.arrayContaining([raiz.id, subpasta.id]))
-		expect(pastasSoPreparacoes).not.toContain(pastaComum)
+		const grupos = (await listPreparationGroups(db, ctx, {})).map((g) => g.id)
+		expect(grupos).toContain(grupo)
+		expect(grupos).not.toContain(pastaComum)
+		expect(grupos).not.toContain(pastaArmadilha.id)
+	})
+
+	test("pasta que também é grupo de preparação não aparece como pasta de insumo", async () => {
+		if (!reachable || !seeder || !db) return
+
+		// Reproduz a janela entre as migrations EXPAND e CONTRACT: a linha existe nas DUAS
+		// tabelas, com o mesmo id. Sem o predicado, a árvore de insumos mostraria a pasta
+		// "Preparações" de volta durante o deploy — e também depois, se um reimport do
+		// SISUBWEB recriasse a pasta.
+		const pastaCompartilhada = await seeder.seedFolder()
+		await seedPreparationGroup(uid("[TEST] Grupo Espelho "), pastaCompartilhada)
+
+		const pastas = (await listFolders(db, ctx, {})).map((f) => f.id)
+		expect(pastas).not.toContain(pastaCompartilhada)
+		// Nem com includeDeleted: o recorte é por identidade, não por soft-delete.
+		expect((await listFolders(db, ctx, { includeDeleted: true })).map((f) => f.id)).not.toContain(pastaCompartilhada)
+	})
+
+	test("busca por descrição respeita o escopo e escapa curinga", async () => {
+		if (!reachable || !seeder || !db) return
+		const marcador = uid("Zsearch")
+		const insumo = await seeder.seedIngredient({})
+		await renameIngredient(insumo, `[TEST] ${marcador} Insumo`)
+
+		const grupo = await seedPreparationGroup(uid("[TEST] Grupo "))
+		const preparacao = await seeder.seedIngredient({})
+		await renameIngredient(preparacao, `[TEST] ${marcador} Preparação`)
+		await linkPreparation(preparacao, grupo)
+
+		const achados = (await listIngredients(db, ctx, { search: marcador })).map((i) => i.id)
+		expect(achados).toEqual([insumo])
+
+		const achadosPrep = (await listIngredients(db, ctx, { search: marcador, preparations: "only" })).map((i) => i.id)
+		expect(achadosPrep).toEqual([preparacao])
+
+		// `_` é literal, não curinga: não pode casar o marcador real.
+		const comUnderscore = await listIngredients(db, ctx, { search: marcador.replace(/.$/, "_") })
+		expect(comUnderscore.map((i) => i.id)).not.toContain(insumo)
 	})
 
 	// ── Ingredient items ─────────────────────────────────────────────────────────

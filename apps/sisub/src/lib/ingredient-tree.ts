@@ -21,7 +21,7 @@ import type { FlatIngredientTree, Folder, Ingredient, IngredientTreeNode } from 
  *
  * "Preparações" NÃO está aqui: aquele grupo não é insumo, e por isso deixou de ser
  * uma preferência de visualização para virar escopo de leitura no servidor
- * (`preparations: "exclude"`, ver `preparation-folders.ts` no domínio). Ele tem aba
+ * (`preparations: "exclude"`, ver `preparation-scope.ts` no domínio). Ele tem aba
  * própria em `/global/ingredients?tab=preparacoes`. Como chip, um clique errado
  * devolvia à árvore nomes que colidem com os das receitas.
  */

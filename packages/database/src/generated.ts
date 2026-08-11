@@ -4512,6 +4512,7 @@ export type Database = {
 					id: string
 					legacy_id: number | null
 					measure_unit: string | null
+					preparation_group_id: string | null
 					rehydration_index: number | null
 				}
 				Insert: {
@@ -4525,6 +4526,7 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
+					preparation_group_id?: string | null
 					rehydration_index?: number | null
 				}
 				Update: {
@@ -4538,9 +4540,17 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
+					preparation_group_id?: string | null
 					rehydration_index?: number | null
 				}
 				Relationships: [
+					{
+						foreignKeyName: "ingredient_preparation_group_id_fkey"
+						columns: ["preparation_group_id"]
+						isOneToOne: false
+						referencedRelation: "preparation_group"
+						referencedColumns: ["id"]
+					},
 					{
 						foreignKeyName: "product_ceafa_id_fkey"
 						columns: ["ceafa_id"]
@@ -5226,6 +5236,41 @@ export type Database = {
 					updated_at?: string | null
 				}
 				Relationships: []
+			}
+			preparation_group: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					legacy_id: number | null
+					name: string
+					parent_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					legacy_id?: number | null
+					name: string
+					parent_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					legacy_id?: number | null
+					name?: string
+					parent_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "preparation_group_parent_id_fkey"
+						columns: ["parent_id"]
+						isOneToOne: false
+						referencedRelation: "preparation_group"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 			production_task: {
 				Row: {
