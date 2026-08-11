@@ -1,3 +1,4 @@
+import type { PreparationScope } from "@iefa/sisub-domain"
 import { useEffect, useMemo, useRef } from "react"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { normalizeForSearch, type SearchSensitivity } from "@/lib/text-search"
@@ -44,6 +45,9 @@ const asArray = <T>(value: readonly T[] | null | undefined): readonly T[] => (Ar
  * @param persistKey quando informado, o estado de expand/collapse é persistido
  *   em `sessionStorage` (preserva as pastas abertas ao navegar e voltar). Omitir
  *   em usos efêmeros (ex: IngredientSelector) para manter o comportamento padrão.
+ * @param preparations escopo do grupo legado "Preparações" (SISUBWEB). Padrão
+ *   `"exclude"`; a aba dedicada usa `"only"` e recebe a MESMA árvore de pastas,
+ *   só que recortada naquele grupo.
  */
 export function useIngredientsHierarchy(
 	filterText = "",
@@ -53,13 +57,14 @@ export function useIngredientsHierarchy(
 	hiddenCategoryKeys: readonly string[] = [],
 	sortDirection: "asc" | "desc" = "asc",
 	defaultCollapsed = false,
-	onlyNotReviewed = false
+	onlyNotReviewed = false,
+	preparations: PreparationScope = "exclude"
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
 	const hiddenKey = useMemo(() => hiddenCategoryKeys.toSorted().join(","), [hiddenCategoryKeys])
 	// Busca dados via service
-	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
+	const { tree, error, refetch } = useIngredientsTree(includeDeleted, preparations)
 
 	// Estado de expand/collapse
 	// Inicializa com todas as pastas de primeiro nível expandidas — exceto quando

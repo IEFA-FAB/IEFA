@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientsTreeManager, type IngredientsTreeManagerHandle } from "@/components/features/global/IngredientsTreeManager"
-import { PreparationsCatalogTable } from "@/components/features/global/PreparationsCatalogTable"
+import { PreparationsTreeManager } from "@/components/features/global/PreparationsTreeManager"
 import { IngredientReviewMetricsSheet } from "@/components/features/global/ReviewMetricsSheet"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,8 @@ import { ingredientsTreeQueryOptions } from "@/services/IngredientsService"
  *
  * Duas abas sobre a mesma tabela `kitchen.ingredient`, separadas por escopo:
  * "Insumos" (o catálogo de verdade) e "Preparações" (o grupo herdado do SISUBWEB,
- * que não é insumo — ver `preparation-folders.ts` no domínio).
+ * que não é insumo — ver `preparation-folders.ts` no domínio). Mesma árvore de
+ * pastas dos dois lados; só muda o recorte.
  */
 const searchSchema = z.object({
 	search: z.string().optional(),
@@ -102,7 +103,7 @@ function IngredientsPage() {
 					<IngredientsTreeManager ref={managerRef} />
 				</TabsContent>
 				<TabsContent value="preparacoes" className="pt-4">
-					<PreparationsCatalogTable />
+					<PreparationsTreeManager />
 				</TabsContent>
 			</Tabs>
 
