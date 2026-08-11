@@ -16,7 +16,7 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] A.10 [alpha] Renomear referências de tabela no código (`documents` → `document`, `document_chunks` → `document_chunk`, `query_logs` → `query_log`) em `api/routes.ts`, `tools/rada-retriever.ts` e `ingest/markdown-ingest.ts`
 - [x] A.11 [alpha] `rada-retriever.ts`: filtrar `superseded_at IS NULL` e manter o comportamento do ChatRADA
 - [x] A.12 [alpha] ~~Migrar o corpus do projeto antigo~~ — **impossível: o projeto foi apagado em 2026-07-31 sem backup**. O script foi removido e o CLI `ingest-local.ts` trazido de `plans/` para o app, já que reingerir virou o único caminho
-- [ ] A.13 [alpha] Aplicar as migrations e sincronizar os secrets do alpha (herdados do sisub) — sem etapa de migração de dados: o schema `alpha` nasce vazio
+- [x] A.13 [alpha] Migrations aplicadas em 2026-08-11 no projeto do sisub; falta só sincronizar os secrets do deploy (`ALPHA_JOB_SECRET` no GitHub + workflow `sync-secrets`)
 - [x] A.14 [alpha] Corrigir `plans/alpha/spec.md` §2 (schema `alpha`, dimensão 1024, tabelas novas) para parar de divergir do código
 - [x] A.15 [ci] `sync-secrets.yml` + `infra/alpha`: alpha herda os secrets do sisub (RAG_* removidos), com TODO de separação registrado
 
@@ -35,7 +35,7 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] B.11 [alpha] Fixtures reais (2 `.docx` + HTML de categoria); 78 testes de `discover`, `docx`, `adapter`, `chunking`, `legal-ref` e `text`, todos sem rede
 - [x] B.12 [alpha] CLI `bun run ingest:agu` (dry-run por padrão, `--apply` para gravar, `--limit` para calibrar)
 - [x] B.13 [alpha] Rotas `GET /api/v1/sources`, `GET /api/v1/sources/:id/documents`, `GET /api/v1/documents/:id/structure`
-- [ ] B.14 [alpha] Rodar `bun run ingest:agu --apply` contra o banco e conferir o resultado no console (depende de A.8/A.13)
+- [x] B.14 [alpha] Ingestão real: 42 modelos, 8.707 seções, 1.990 chunks, 1.111 notas, 423 regras `draft`; 1 item falha por `.docx` corrompido na origem, reportado na UI
 
 ## PR C — Console: fontes e inspetor de modelo
 
@@ -52,7 +52,7 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] D.2 [alpha] `sources/legislacao/parse-articulado.ts`: `structure_node` com `ref_label` por dispositivo (artigo, parágrafo, inciso, alínea), com aninhamento correto
 - [x] D.3 [alpha] `sources/legislacao/adapter.ts` — Planalto (lei/decreto) e DOU (IN) como origens verificadas; migration corrige as URLs do registry
 - [x] D.4 [alpha] `compliance/resolve-legal-ref.ts` + `lib/ref-label.ts` — resolução contra nó existente, com `norma_ausente`/`dispositivo_ausente` explícitos
-- [ ] D.5 [alpha] Ingerir corpus mínimo de fato (Lei 14.133, decretos 11.246 e 11.462, IN SEGES 65) — depende do banco (A.13)
+- [x] D.5 [alpha] Corpus ingerido: Lei 14.133 (1.524 dispositivos), Decretos 11.246 e 11.462, IN SEGES 65; guard de citação resolvendo `Art. 6º, XXIII, "a"`
 - [x] D.6 [alpha] `POST /internal/jobs/sources/refresh` com autenticação por segredo de serviço e resumo por fonte
 - [x] D.7 [alpha] Análise de impacto: diff de dispositivo entre versões → `checklist_rule` afetadas para `needs_review`
 - [x] D.8 [alpha] Timer semanal in-process (`jobs/scheduler.ts`), desligado por padrão — mesmo padrão dos workers de sync do `api`, sem infra nova
@@ -98,7 +98,7 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] H.1 [alpha] Golden set com 7 casos anotados em `src/eval/golden/cases.ts` — **sintéticos**, a substituir por ETP/TR reais antes de calibrar para produção
 - [x] H.2 [alpha] `bun run eval` — precisão, recall e F1 por código e agregados; 9 testes sobre a própria métrica
 - [ ] H.3 [alpha] Calibrar limiares contra golden set **real** — hoje: Dice 0.85, semântico 0.80, rerank 0.45, confiança do juiz 0.60
-- [ ] H.4 [alpha] Revisar e promover o lote inicial de regras semeadas na bancada — depende da ingestão real (B.14)
+- [ ] H.4 [alpha] Revisar e promover o lote de 423 regras semeadas — 6 promovidas para validar o fluxo; as demais dependem de revisão humana
 - [x] H.5 [docs] Página `fontes-e-conformidade.mdx` + etapas 4–7 marcadas como implementadas
 - [x] H.6 [portal] `roadmap.tsx`: 1.4–1.7 em `in-progress` + etapa nova de fontes normativas federais
 - [x] H.7 [alpha] `ALPHA_JOB_SECRET` e `ALPHA_SOURCES_REFRESH_ENABLED` documentados em `.env.schema` e `.env.example`
@@ -110,6 +110,12 @@ O projeto Supabase antigo foi apagado em 2026-07-31 com o corpus indexado dentro
 - [ ] R.1 [alpha] Obter o(s) Markdown(s) do RADA e colocar em `apps/alpha/knowledge/` — depende de acesso ao RADA
 - [ ] R.2 [alpha] `bun run ingest:all` para reconstruir o corpus; até lá o ChatRADA responde "sem base" a tudo
 - [ ] R.3 [alpha] Conferir que a busca híbrida volta a retornar trechos do RADA
+
+## Execução real (2026-08-11)
+
+- [x] X.1 [alpha] Fluxo ponta a ponta validado contra o banco: submissão → extração (spans, truncamento declarado) → conformidade (6 regras, 4 normas, 137 achados)
+- [x] X.2 [alpha] Perfil `app_aci` concedido; promoção de regra e coleta sob demanda respondendo 200
+- [ ] X.3 [alpha] Provedor de embedding — a chave NVIDIA perdeu acesso a chat e a embeddings; LLM migrado para Groq, busca degradada para keyword-only até haver embedder
 
 ## Final
 

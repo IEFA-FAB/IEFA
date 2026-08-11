@@ -18,7 +18,7 @@ import { supabase } from "../db/supabase.ts"
 import type { Contratacao } from "../extraction/schema.ts"
 import { CAMPO_LABELS } from "../extraction/schema.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
-import { getLLM } from "../lib/llm.ts"
+import { structuredLLM } from "../lib/llm.ts"
 import { radaRetriever } from "../tools/rada-retriever.ts"
 import type { LegalRefResolver } from "./resolve-legal-ref.ts"
 import type { Severity } from "./severity.ts"
@@ -140,7 +140,7 @@ export async function judgeRule(rule: ChecklistRule, block: { label: string; tex
 		.map((document, index) => `[${index + 1}] ${document.metadata.source} ${document.metadata.article}: ${document.content}`)
 		.join("\n\n")
 
-	const judge = getLLM(0).withStructuredOutput(judgeSchema)
+	const judge = structuredLLM(judgeSchema)
 	const raw = (await judge.invoke([
 		{ role: "system", content: SYSTEM_PROMPT },
 		{

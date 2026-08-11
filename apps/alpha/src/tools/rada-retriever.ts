@@ -156,9 +156,14 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 	const { query, filters, top_k = 10 } = input
 	const queryWithPrefix = `${env.EMB_QUERY_PREFIX}${query}`
 
-	const queryVector = await embeddings.embedQuery(queryWithPrefix)
+	// Busca semântica é opcional: sem provedor de embedding, a híbrida degrada
+	// para keyword-only em vez de falhar. O `search_metadata` reporta zero
+	// resultados semânticos, então a degradação aparece em vez de passar batida.
+	const semanticPromise = env.ALPHA_EMBEDDINGS_ENABLED
+		? embeddings.embedQuery(queryWithPrefix).then((vector) => semanticSearch(vector, filters, top_k))
+		: Promise.resolve([])
 
-	const [semDocs, keywordDocs] = await Promise.all([semanticSearch(queryVector, filters, top_k), keywordSearch(query, filters, top_k)])
+	const [semDocs, keywordDocs] = await Promise.all([semanticPromise, keywordSearch(query, filters, top_k)])
 
 	const fused = rrfFusion(semDocs, keywordDocs)
 	const fusedArray = [...fused.values()].sort((a, b) => b.rrf_score - a.rrf_score).slice(0, RERANK_TOP_N)
@@ -180,10 +185,14 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 		}
 	}
 
-	const rerankResults = await rerank(
-		query,
-		fusedArray.map((f) => f.doc)
-	)
+	// O reranker é do mesmo provedor dos embeddings. Indisponível, o score do
+	// RRF normalizado assume o lugar — pior ordenação, não ausência de resultado.
+	const rerankResults = env.ALPHA_EMBEDDINGS_ENABLED
+		? await rerank(
+				query,
+				fusedArray.map((f) => f.doc)
+			)
+		: fusedArray.map((f, index) => ({ id: f.doc.id, score: Math.max(THRESHOLD, 1 - index / Math.max(fusedArray.length, 1)) }))
 
 	const rerankMap = new Map(rerankResults.map((r) => [r.id, r.score]))
 

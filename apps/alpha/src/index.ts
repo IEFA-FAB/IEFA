@@ -54,5 +54,12 @@ export type AppType = typeof app
 
 export default {
 	port,
+	/**
+	 * O default do Bun é 10 segundos, e corta a conexão sem resposta — o cliente
+	 * recebe "empty reply" e o log só mostra "request timed out". Extração de
+	 * ETP/TR, verificação de conformidade e coleta de fonte passam disso com
+	 * facilidade. Mesmo problema que gerou os 502 no sisub.
+	 */
+	idleTimeout: 240,
 	fetch: app.fetch,
 }

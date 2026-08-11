@@ -1,7 +1,7 @@
-import { getLLM } from "../../lib/llm"
+import { structuredLLM } from "../../lib/llm"
 import type { AgentState, Intent } from "../state"
 
-const classifier = getLLM(0).withStructuredOutput({
+const classifier = structuredLLM({
 	name: "classify_intent",
 	description: "Classifies user intent",
 	parameters: {

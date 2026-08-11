@@ -10,6 +10,8 @@ import { locateSpan } from "./locate-span.ts"
 import { CAMPO_LABELS, type Contratacao, ContratacaoSchema, type ExtractionSpans } from "./schema.ts"
 
 export interface ExtractionResult {
+	/** O documento não coube inteiro no limite do provedor e foi cortado. */
+	truncated: boolean
 	payload: Contratacao
 	spans: ExtractionSpans
 	model: string
@@ -23,7 +25,7 @@ export interface ExtractionResult {
  * Exportada à parte da chamada ao modelo para ser testável sem rede — é aqui
  * que mora a regra de descarte, e é ela que precisa de cobertura.
  */
-export function applySpans(raw: unknown, documentText: string): Omit<ExtractionResult, "model"> {
+export function applySpans(raw: unknown, documentText: string): Omit<ExtractionResult, "model" | "truncated"> {
 	const parsed = ContratacaoSchema.parse(raw)
 	const spans: ExtractionSpans = {}
 	const dropped: ExtractionResult["dropped"] = []

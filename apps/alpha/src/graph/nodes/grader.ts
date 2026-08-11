@@ -1,4 +1,4 @@
-import { getLLM } from "../../lib/llm"
+import { getLLM, structuredLLM } from "../../lib/llm"
 import type { AgentState, GroundingCheck } from "../state"
 
 const gradingSchema = {
@@ -44,7 +44,7 @@ export async function graderNode(state: AgentState): Promise<Partial<AgentState>
 	])
 	const draft = draftResponse.content.toString()
 
-	const grader = getLLM(0).withStructuredOutput(gradingSchema)
+	const grader = structuredLLM(gradingSchema)
 	const result = (await grader.invoke([
 		{ role: "system", content: GRADING_SYSTEM_PROMPT },
 		{

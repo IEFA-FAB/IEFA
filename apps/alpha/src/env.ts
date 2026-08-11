@@ -28,6 +28,24 @@ const schema = z.object({
 	ALPHA_JOB_SECRET: z.string().min(16).optional(),
 	/** Liga o timer semanal de atualização de fontes. Desligado por padrão. */
 	ALPHA_SOURCES_REFRESH_ENABLED: z.stringbool().default(false),
+	/**
+	 * Liga a geração de embeddings na ingestão.
+	 *
+	 * Desligado, os chunks continuam sendo gravados e indexados por full-text —
+	 * a busca funciona, só perde a parte semântica. É degradação declarada, não
+	 * ausência silenciosa: sem chunk nenhum, a verificação não teria contra o que
+	 * recuperar trecho de norma.
+	 */
+	ALPHA_EMBEDDINGS_ENABLED: z.stringbool().default(true),
+	/**
+	 * Teto de caracteres do documento enviado ao modelo por extração.
+	 *
+	 * Existe por causa do limite de tokens por minuto do provedor: acima disso a
+	 * chamada volta 413 e a extração falha inteira. O default cabe nos tiers
+	 * comuns; documento maior é truncado, e o truncamento é **reportado** na
+	 * resposta em vez de passar batido.
+	 */
+	ALPHA_EXTRACTION_MAX_CHARS: z.coerce.number().default(24_000),
 	PORT: z.coerce.number().default(3001),
 })
 

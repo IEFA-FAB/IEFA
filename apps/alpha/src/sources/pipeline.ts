@@ -27,12 +27,12 @@ export interface IngestOptions {
 	/** Limita quantos itens processar (uso em teste manual e calibração). */
 	limit?: number
 	/**
-	 * Ingere estrutura sem gerar embeddings.
+	 * Grava os chunks sem gerar vetor.
 	 *
-	 * Explícito e opt-in: serve para inspecionar a árvore de um modelo quando o
-	 * provedor de embedding está indisponível. O documento fica sem chunk e,
-	 * portanto, **fora da busca** — por isso o resultado marca `chunks: 0` e o
-	 * console mostra o documento como não pesquisável.
+	 * Os chunks continuam existindo e indexados por full-text — a busca híbrida
+	 * degrada para keyword-only em vez de sumir. É o que mantém a verificação
+	 * funcionando quando o provedor de embedding está indisponível, sem fingir
+	 * que o corpus está completo.
 	 */
 	skipEmbeddings?: boolean
 }
@@ -198,9 +198,11 @@ async function persist(
 		if (error) throw new Error(`insert de checklist_rule falhou: ${error.message}`)
 	}
 
-	const chunks = skipEmbeddings ? [] : buildChunks(doc.nodes)
+	const chunks = buildChunks(doc.nodes)
 	if (chunks.length > 0) {
-		const vectors = await embed(chunks.map((chunk) => chunk.content))
+		// Sem vetor o chunk ainda entra: `document_chunk.fts` é coluna gerada do
+		// próprio conteúdo, então a busca por palavra-chave continua valendo.
+		const vectors = skipEmbeddings ? [] : await embed(chunks.map((chunk) => chunk.content))
 		const { error } = await supabase.from("document_chunk").insert(
 			chunks.map((chunk, position) => ({
 				document_id: documentId,

@@ -10,6 +10,7 @@
  * uma mudança de estrutura no site da AGU seria destrutiva se aplicada às cegas.
  */
 
+import { env } from "../env.ts"
 import { embedDocuments } from "../sources/embeddings.ts"
 import { ingestSource } from "../sources/pipeline.ts"
 import { getSource, resolveAdapter } from "../sources/registry.ts"
@@ -20,7 +21,8 @@ const args = process.argv.slice(2)
 const apply = args.includes("--apply")
 const limitIndex = args.indexOf("--limit")
 const limit = limitIndex >= 0 ? Number(args[limitIndex + 1]) : undefined
-const skipEmbeddings = args.includes("--skip-embeddings")
+// A flag força; sem ela, vale a configuração do ambiente.
+const skipEmbeddings = args.includes("--skip-embeddings") || !env.ALPHA_EMBEDDINGS_ENABLED
 
 const source = await getSource(SOURCE_ID)
 if (!source) {
@@ -31,7 +33,7 @@ if (!source) {
 console.info(`📚 ${source.id} — ${source.base_url}`)
 console.info(apply ? "   modo: APLICANDO alterações" : "   modo: dry-run (use --apply para gravar)")
 if (skipEmbeddings) {
-	console.warn("   ⚠️  --skip-embeddings: estrutura sem chunk. Os modelos NÃO ficam pesquisáveis.")
+	console.warn("   ⚠️  sem vetor: os chunks entram e a busca por palavra-chave funciona, mas não há busca semântica.")
 }
 if (!source.enabled && apply) {
 	console.warn("   ⚠️  fonte está com enabled = false no registry")

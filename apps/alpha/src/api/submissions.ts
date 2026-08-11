@@ -126,6 +126,7 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 					payload: result.payload,
 					spans: result.spans,
 					model: result.model,
+					truncated: result.truncated,
 					dropped: result.dropped,
 					created_at: extraction.created_at,
 				},
