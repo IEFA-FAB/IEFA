@@ -31,14 +31,6 @@ function isEmailUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * O sync de email roda 1x por sessão e é best-effort: quando ele falha, a mensagem é
- * o ÚNICO sinal. `error.message` cru devolvia o SQL do upsert e escondia a causa em
- * `.cause` — foi assim que uma queda de conexão virou "Failed query: insert into
- * core.user_data …" no console, sem uma palavra sobre conexão.
- */
-const errMsg = describeDriverError
-
-/**
  * Upsert idempotente de uma linha de `user_data`, resiliente à colisão de email.
  *
  * Caminho normal: upsert por `id` (cobre "mesmo usuário, atualiza email/nrOrdem").
@@ -61,7 +53,10 @@ async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; ema
 		await upsert()
 		return
 	} catch (e) {
-		if (!isEmailUniqueViolation(e)) throw new DomainError("UPSERT_FAILED", errMsg(e))
+		// `describeDriverError` e não `e.message`: este sync é best-effort e roda 1x por
+		// sessão, então a mensagem é o ÚNICO sinal quando falha. Crua, ela seria o SQL do
+		// upsert, com a causa escondida em `.cause`.
+		if (!isEmailUniqueViolation(e)) throw new DomainError("UPSERT_FAILED", describeDriverError(e))
 	}
 
 	// Email em branco não é reivindicável: o "" é compartilhável entre contas sem
@@ -76,7 +71,7 @@ async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; ema
 	} catch (e) {
 		// Corrida rara: o email foi recriado por outra requisição entre o delete e o retry.
 		if (isEmailUniqueViolation(e)) throw new DomainError("EMAIL_CONFLICT", "Este email já está vinculado a outra conta. Contate o suporte.")
-		throw new DomainError("UPSERT_FAILED", errMsg(e))
+		throw new DomainError("UPSERT_FAILED", describeDriverError(e))
 	}
 }
 
