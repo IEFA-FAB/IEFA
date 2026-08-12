@@ -14,7 +14,7 @@ import { type SisubDb, userDataInCore, userMilitaryDataInCore } from "@iefa/data
 import { and, eq, ne, sql } from "drizzle-orm"
 import type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "../schemas/user.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, unwrapPgError } from "../utils/index.ts"
+import { describeDriverError, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /**
  * `sisub.user_data` tem UNIQUE(email) (constraint `user_email_email_key`) além da
@@ -30,9 +30,13 @@ function isEmailUniqueViolation(error: unknown): boolean {
 	return e?.code === "23505" && ((e.constraint_name?.includes("email") ?? false) || (e.message?.includes("email") ?? false))
 }
 
-function errMsg(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
-}
+/**
+ * O sync de email roda 1x por sessão e é best-effort: quando ele falha, a mensagem é
+ * o ÚNICO sinal. `error.message` cru devolvia o SQL do upsert e escondia a causa em
+ * `.cause` — foi assim que uma queda de conexão virou "Failed query: insert into
+ * core.user_data …" no console, sem uma palavra sobre conexão.
+ */
+const errMsg = describeDriverError
 
 /**
  * Upsert idempotente de uma linha de `user_data`, resiliente à colisão de email.

@@ -50,9 +50,37 @@ describe("runQuery: mensagem de erro", () => {
 		expect(msg).toContain("duplicate key value")
 	})
 
+	test("com prefixo e sem includeCode: código fica de fora, texto da cause entra", async () => {
+		const msg = await messageOf(failing({ code: "23505", message: "duplicate key value" }), { prefix: "Falha ao salvar" })
+		// `includeCode` é quem decide se o SQLSTATE aparece — ver RunQueryOptions.
+		expect(msg).not.toContain("23505")
+		expect(msg).toStartWith("Falha ao salvar: ")
+		expect(msg).toContain("duplicate key value")
+	})
+
+	/**
+	 * `isMissingNutritionReferenceRelation` (ingredients.ts / ingredient-versions.ts)
+	 * casa uma REGEX contra a mensagem do `DomainError` para cair no fallback de
+	 * `nutrition_reference` ausente. Enquanto a mensagem era só o SQL, o texto
+	 * `does not exist` vinha na cause e a regex nunca casava — o fallback estava morto.
+	 */
+	test("texto do Postgres chega à mensagem: o fallback de nutrição depende disso", async () => {
+		const msg = await messageOf(failing({ code: "42P01", message: 'relation "nutrition_reference.food_item" does not exist' }), {
+			prefix: "Falha ao buscar tabela alimentar",
+			includeCode: true,
+		})
+		expect(msg).toMatch(/relation .*nutrition_reference\..* does not exist/i)
+	})
+
 	test("erro sem cause: mensagem preservada como está", async () => {
 		const msg = await messageOf(() => Promise.reject(new Error("boom")))
 		expect(msg).toBe("boom")
+	})
+
+	test("erro do driver sem wrap do drizzle: código entra, mensagem não duplica", async () => {
+		const raw = Object.assign(new Error("write CONNECT_TIMEOUT"), { code: "CONNECT_TIMEOUT" })
+		const msg = await messageOf(() => Promise.reject(raw))
+		expect(msg).toBe("[CONNECT_TIMEOUT] write CONNECT_TIMEOUT")
 	})
 
 	test("DomainError atravessa intacto", async () => {

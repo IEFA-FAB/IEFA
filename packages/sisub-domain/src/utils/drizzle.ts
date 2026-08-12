@@ -85,7 +85,8 @@ export function unwrapPgError(error: unknown): { code?: string; constraint_name?
 }
 
 /**
- * Mensagem útil a partir do erro do driver.
+ * Mensagem útil a partir do erro do driver — use SEMPRE que um `catch` for virar
+ * `DomainError`, inclusive fora do `runQuery` (`error.message` cru perde a causa).
  *
  * `DrizzleQueryError.message` é SÓ o SQL — `"Failed query: select … \nparams: "`. O
  * motivo real (`CONNECT_TIMEOUT`, `23505`, `connection closed`) fica em `.cause`, que
@@ -94,15 +95,17 @@ export function unwrapPgError(error: unknown): { code?: string; constraint_name?
  * quando a conexão cai, cada query falha com uma mensagem diferente (o próprio SQL) e
  * nada indica que a causa das três foi a mesma.
  *
- * `withCode` sai `false` quando quem chama já vai imprimir o código (`includeCode`).
+ * `withCode` sai `false` quando quem chama já vai imprimir o código por conta própria
+ * (`runQuery` com `includeCode`) — evita o SQLSTATE duas vezes na mesma linha.
  */
-function describeDriverError(e: unknown, withCode: boolean): string {
+export function describeDriverError(e: unknown, withCode = true): string {
 	const base = e instanceof Error ? e.message : String(e)
 	const pg = unwrapPgError(e)
-	// Sem cause (ou cause é o próprio erro): não há o que acrescentar.
-	if (!pg.message || pg.message === base) return base
+	// Fora do `runQuery` o erro pode nem passar pelo drizzle (BEGIN/COMMIT, aquisição
+	// de conexão dentro de `db.transaction`) — aí `pg` É o topo e só o código soma.
 	const codeSeg = withCode && pg.code ? `[${pg.code}] ` : ""
-	return `${codeSeg}${pg.message} — ${base}`
+	const detail = pg.message && pg.message !== base ? `${pg.message} — ` : ""
+	return `${codeSeg}${detail}${base}`
 }
 
 export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: RunQueryOptions): Promise<T> {
@@ -110,10 +113,12 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
 		return await op()
 	} catch (e) {
 		if (e instanceof DomainError) throw e
-		if (!opts?.prefix) throw new DomainError(code, describeDriverError(e, true))
+		if (!opts?.prefix) throw new DomainError(code, describeDriverError(e))
+		// Com prefixo o código fica no lugar documentado — `"<prefix> [<pgcode>]: …"` —
+		// e só quando `includeCode` pede. Daí o `withCode: false`: quem escolhe é o opts.
 		const pgCode = opts.includeCode ? unwrapPgError(e).code : undefined
 		const codeSeg = pgCode ? ` [${pgCode}]` : ""
-		throw new DomainError(code, `${opts.prefix}${codeSeg}: ${describeDriverError(e, !opts.includeCode)}`)
+		throw new DomainError(code, `${opts.prefix}${codeSeg}: ${describeDriverError(e, false)}`)
 	}
 }
 
