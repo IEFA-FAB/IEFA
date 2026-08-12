@@ -3,8 +3,9 @@
  * Ported from server functions: ata.fn.ts, arp.fn.ts, unit-dashboard.fn.ts, unit-settings.fn.ts
  */
 
+import { clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { clampLimit, requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 /**
  * Tetos das listagens do chat. O resultado da tool volta inteiro no prompt do

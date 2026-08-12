@@ -3,8 +3,9 @@
  * Read-only: no write operations. Scoped to the current unit via ctx.scopeId.
  */
 
+import { clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { clampLimit, requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 /** Teto das listagens: o resultado volta inteiro no prompt do turno seguinte. */
 const LIST_DEFAULT = 25

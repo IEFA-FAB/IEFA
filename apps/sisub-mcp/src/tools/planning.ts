@@ -15,9 +15,7 @@ import {
 	GetTrashItemsSchema,
 	getTrashItems,
 	ListKitchensSchema,
-	ListRecipesSchema,
 	listKitchens,
-	listRecipes,
 	RemoveMenuItemSchema,
 	RestoreMenuItemSchema,
 	removeMenuItem,
@@ -32,6 +30,7 @@ import {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
+import { AgentListRecipesSchema, agentListRecipes } from "@iefa/sisub-domain/agent"
 import { resolveCredential } from "../auth.ts"
 import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
@@ -128,18 +127,26 @@ const getDayDetails: ToolDefinition = {
 // list_recipes
 // ---------------------------------------------------------------------------
 
+/**
+ * Listagem paginada e enxuta, vinda de `@iefa/sisub-domain/agent` — a mesma que o chat
+ * dos módulos do sisub usa.
+ *
+ * A versão anterior devolvia `listRecipes` cru: as ~2.000 receitas com a ficha técnica
+ * aninhada, 10,9 MB de JSON. Nenhum cliente MCP consegue colocar isso num prompt — o
+ * provider recusa o turno. Quem quer a ficha chama `get_recipe`.
+ */
 const listRecipesTool: ToolDefinition = {
 	schema: {
 		name: "list_recipes",
 		description:
-			"Lista receitas disponíveis para uma cozinha. Retorna receitas globais (kitchen_id null) e, se kitchenId fornecido, também as locais dessa cozinha. Suporta busca por nome via parâmetro search.",
-		inputSchema: toJsonSchema(ListRecipesSchema),
+			"Lista receitas disponíveis para uma cozinha, só com os campos de identificação (id, nome, versão, rendimento). Retorna as globais (kitchen_id null) e, se kitchenId for informado, também as locais dessa cozinha. Suporta busca por nome via search e paginação via limit; o retorno traz total e returned. Para ingredientes e modo de preparo, chame get_recipe.",
+		inputSchema: toJsonSchema(AgentListRecipesSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			const input = ListRecipesSchema.parse(args ?? {})
-			return toolResult(await listRecipes(getDb(), ctx, input))
+			const input = AgentListRecipesSchema.parse(args ?? {})
+			return toolResult(await agentListRecipes(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

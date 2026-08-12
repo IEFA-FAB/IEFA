@@ -7,6 +7,7 @@ import type { Database } from "@iefa/database"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
 import type { UserContext } from "@iefa/sisub-domain"
+import { enforcePayloadBudget } from "@iefa/sisub-domain/agent"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
@@ -131,18 +132,6 @@ export function requireUuid(value: unknown, name: string): string {
 	return value
 }
 
-/**
- * Normaliza o `limit` que o modelo mandou: ausente vira o padrão, fora da faixa
- * é grampeado. Toda tool de listagem precisa de um teto — sem ele a resposta
- * cresce com o catálogo e o turno seguinte estoura o limite do provider.
- */
-export function clampLimit(value: unknown, fallback: number, max: number): number {
-	if (value == null) return fallback
-	const num = Number(value)
-	if (!Number.isFinite(num)) return fallback
-	return Math.min(Math.max(Math.trunc(num), 1), max)
-}
-
 // ── Error classes ───────────────────────────────────────────────────────────
 
 export class ToolPermissionError extends Error {
@@ -156,13 +145,6 @@ export class ToolValidationError extends Error {
 	constructor(message: string) {
 		super(message)
 		this.name = "ToolValidationError"
-	}
-}
-
-export class ToolResultTooLargeError extends Error {
-	constructor(message: string) {
-		super(message)
-		this.name = "ToolResultTooLargeError"
 	}
 }
 
@@ -198,18 +180,6 @@ export function untypedFrom(ctx: ToolContext, table: string): any {
 }
 
 /**
- * Teto de caracteres do resultado de UMA tool, em JSON.
- *
- * O resultado da tool volta ao provider inteiro, dentro do prompt do turno
- * seguinte. Sem teto, uma listagem que cresce com o catálogo (o `list_recipes`
- * chegou a 10 MB com 2.083 receitas e ingredientes aninhados) faz o provider
- * responder 413 — a run morre com RUN_ERROR e o usuário vê só uma bolha vazia.
- * ~24 mil caracteres ≈ 6 mil tokens: cabe com folga em qualquer modelo e ainda
- * deixa espaço para o histórico.
- */
-export const MAX_TOOL_RESULT_CHARS = 24_000
-
-/**
  * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
  * The ToolContext is injected via closure so each request gets its own auth/supabase.
  */
@@ -224,16 +194,9 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerToo
 		const result = await def.handler(args as Record<string, unknown>, ctx)
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
 
-		// Rede de segurança para o payload: falhar aqui devolve um erro de tool que
-		// o modelo lê e pode corrigir (buscar mais estreito, pedir menos itens).
-		// Deixar passar quebra a run inteira no provider, sem mensagem nenhuma.
-		const serialized = JSON.stringify(result.data ?? null)
-		if (serialized.length > MAX_TOOL_RESULT_CHARS) {
-			throw new ToolResultTooLargeError(
-				`Resultado de ${def.name} grande demais (${Math.round(serialized.length / 1000)} mil caracteres; teto ${Math.round(MAX_TOOL_RESULT_CHARS / 1000)} mil). ` +
-					"Refaça a chamada mais estreita: filtre por busca/data/escopo ou reduza o limit."
-			)
-		}
-		return result.data
+		// Mesma rede de segurança do servidor MCP: falhar aqui devolve um erro de tool
+		// que o modelo lê e corrige (buscar mais estreito, pedir menos itens); deixar
+		// passar quebra a run inteira no provider, sem mensagem nenhuma.
+		return enforcePayloadBudget(def.name, result.data)
 	})
 }

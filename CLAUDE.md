@@ -29,6 +29,15 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 - **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 
+### Ferramentas de IA (chat dos módulos + servidor MCP)
+
+Os dois expõem o mesmo domínio para modelos diferentes. Regra para não divergirem:
+
+- **Listagem exposta a modelo mora em `@iefa/sisub-domain/agent`** — entrada (schema Zod), teto (`clampLimit`) e projeção definidos uma vez, consumidos pelo chat (`apps/sisub/src/lib/module-chat/tools/`) e pelo MCP (`apps/sisub-mcp/src/tools/`). Testes de contrato nos dois lados comparam o `inputSchema`/`parameters` com `toJsonSchema(...)` do schema compartilhado.
+- **Toda listagem tem `limit` e devolve `total`** — sem o total o modelo lê 30 itens e conclui que o catálogo tem 30.
+- **Resultado de tool tem orçamento** (`MAX_TOOL_RESULT_CHARS`, 24k caracteres): ele volta INTEIRO no prompt do turno seguinte. Acima disso o provider responde 413 e a run morre sem mensagem. O teto é aplicado no `wrapTool` (chat) e no despacho (MCP); estourar vira erro de tool que o modelo lê e corrige.
+- **Nada de query PostgREST/SQL escrita à mão numa tool** quando a operation existe — foi assim que `list_ingredients` ordenou por coluna inexistente e `list_kitchens` embutiu `units.name`.
+
 ## Design Systems
 
 **sisub** e **portal** têm design systems **incompatíveis** — nunca copiar padrões visuais entre os dois:

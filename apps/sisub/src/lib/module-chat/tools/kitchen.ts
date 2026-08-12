@@ -3,17 +3,12 @@
  * Uses OpenAI function-calling format instead of MCP SDK format.
  */
 
+import { toJsonSchema } from "@iefa/sisub-domain"
+import { AgentListRecipesSchema, agentListRecipes, clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { clampLimit, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Colunas da listagem de receitas. O detalhe (modo de preparo, ingredientes,
- * snapshot de versão) sai por `get_recipe`: embutir tudo aqui multiplicava o
- * catálogo inteiro por receita e estourava o limite de payload do provider.
- */
-const RECIPE_LIST_COLUMNS = "id, name, version, portion_yield, preparation_time_minutes, kitchen_id, folder_id" as const
 
 const RECIPE_LIST_DEFAULT = 30
 const RECIPE_LIST_MAX = 100
@@ -156,37 +151,14 @@ const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
 	description:
 		"Lista receitas disponíveis para uma cozinha (globais + locais), só com os campos de identificação. Suporta busca por nome. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
-	parameters: {
-		type: "object",
-		properties: {
-			kitchenId: { type: "number", description: "ID da cozinha (retorna globais + locais)" },
-			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
-			limit: { type: "number", description: `Quantas receitas retornar (padrão ${RECIPE_LIST_DEFAULT}, máximo ${RECIPE_LIST_MAX})` },
-		},
-		required: [],
-	},
+	// Mesma listagem que o servidor MCP expõe: entrada, teto e projeção vêm de
+	// `@iefa/sisub-domain/agent`, e os guards de escopo são os do domínio.
+	parameters: toJsonSchema(AgentListRecipesSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		const limit = clampLimit(args.limit, RECIPE_LIST_DEFAULT, RECIPE_LIST_MAX)
-		let query = ctx.supabase.from("recipes").select(RECIPE_LIST_COLUMNS, { count: "exact" }).is("deleted_at", null).order("name").limit(limit)
-
-		if (args.kitchenId != null) {
-			const id = safeInt(args.kitchenId, "kitchenId")
-			requireKitchenPermission(ctx, 1, { type: "kitchen", id })
-			query = query.or(`kitchen_id.is.null,kitchen_id.eq.${id}`)
-		} else {
-			requireKitchenPermission(ctx, 1)
-			query = query.is("kitchen_id", null)
-		}
-
-		if (args.search) {
-			const search = String(args.search).slice(0, 200)
-			query = query.ilike("name", `%${search}%`)
-		}
-
-		const { data, error, count } = await query
-		if (error) return toolErr(sanitizeDbError(error, "list_recipes"))
-		return toolOk({ recipes: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
+		const input = AgentListRecipesSchema.parse(args)
+		const { items, ...counts } = await agentListRecipes(ctx.db, domainCtx(ctx), input)
+		return toolOk({ recipes: items, ...counts })
 	},
 }
 

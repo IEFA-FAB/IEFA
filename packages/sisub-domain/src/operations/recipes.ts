@@ -154,6 +154,62 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 		})
 }
 
+/** Linha da listagem sem ficha técnica: identificação, rendimento e onde a receita mora. */
+export type RecipeSummary = Pick<Recipe, "id" | "name" | "version" | "portion_yield" | "preparation_time_minutes" | "kitchen_id" | "folder_id">
+
+/**
+ * Mesma listagem de `listRecipes` — mesmos guards, mesmos filtros, mesma dedup por
+ * família — sem carregar a ficha técnica de cada receita.
+ *
+ * Existe porque o catálogo tem ~2.000 receitas: com os ingredientes aninhados a resposta
+ * passa de 10 MB, o que nenhum consumidor de listagem precisa e nenhum agente aguenta
+ * (o provider recusa o turno seguinte). Quem quer o detalhe chama `fetchRecipe`.
+ */
+export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: ListRecipes): Promise<RecipeSummary[]> {
+	if (input.kitchenId != null) {
+		requireKitchen(ctx, 1, input.kitchenId)
+	} else {
+		requirePermission(ctx, "kitchen", 1)
+	}
+
+	const conditions: (SQL | undefined)[] = []
+	if (!input.includeDeleted) conditions.push(isNull(recipesInKitchen.deletedAt))
+	if (input.kitchenId != null && !input.globalOnly) {
+		conditions.push(or(isNull(recipesInKitchen.kitchenId), eq(recipesInKitchen.kitchenId, input.kitchenId)))
+	} else {
+		conditions.push(isNull(recipesInKitchen.kitchenId))
+	}
+	if (input.search) conditions.push(ilike(recipesInKitchen.name, `%${input.search}%`))
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: recipesInKitchen.id,
+				name: recipesInKitchen.name,
+				version: recipesInKitchen.version,
+				portionYield: recipesInKitchen.portionYield,
+				preparationTimeMinutes: recipesInKitchen.preparationTimeMinutes,
+				kitchenId: recipesInKitchen.kitchenId,
+				folderId: recipesInKitchen.folderId,
+				baseRecipeId: recipesInKitchen.baseRecipeId,
+			})
+			.from(recipesInKitchen)
+			.where(and(...conditions))
+	)
+
+	// Dedup por família — idêntica à de `listRecipes`: uma linha por linhagem.
+	const familyMap = new Map<string, (typeof rows)[number]>()
+	for (const recipe of rows) {
+		const rootId = recipe.baseRecipeId ?? recipe.id
+		const existing = familyMap.get(rootId)
+		if (!existing || lineageWinner(recipe, existing)) familyMap.set(rootId, recipe)
+	}
+
+	return Array.from(familyMap.values())
+		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+		.map(({ baseRecipeId: _baseRecipeId, ...summary }) => toWire<RecipeSummary>(summary))
+}
+
 /**
  * Retorna os IDs das preparações usadas em pelo menos um plano semanal (menu_template
  * com template_type "weekly" e não excluído). Usado para sinalizar, na listagem de

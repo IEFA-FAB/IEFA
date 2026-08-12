@@ -1,12 +1,12 @@
+import { toJsonSchema } from "@iefa/sisub-domain"
+import { AgentListRecipesSchema, clampLimit, MAX_TOOL_RESULT_CHARS, PayloadTooLargeError } from "@iefa/sisub-domain/agent"
 import { describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import { globalTools } from "./global"
 import { kitchenTools } from "./kitchen"
 import { localAnalyticsTools } from "./local-analytics"
 import {
-	clampLimit,
 	getMaxLevel,
-	MAX_TOOL_RESULT_CHARS,
 	type ModuleToolDefinition,
 	requireKitchenPermission,
 	requireUnitPermission,
@@ -16,7 +16,6 @@ import {
 	sanitizeDbError,
 	type ToolContext,
 	ToolPermissionError,
-	ToolResultTooLargeError,
 	ToolValidationError,
 	toolErr,
 	toolOk,
@@ -154,8 +153,19 @@ describe("teto de payload das tools", () => {
 		expect(JSON.stringify(huge).length).toBeGreaterThan(MAX_TOOL_RESULT_CHARS)
 
 		const run = toolReturning(huge)
-		await expect(run({})).rejects.toBeInstanceOf(ToolResultTooLargeError)
+		await expect(run({})).rejects.toBeInstanceOf(PayloadTooLargeError)
 		await expect(run({})).rejects.toThrow(/reduza o limit/i)
+	})
+
+	test("a listagem de receitas do chat usa o mesmo contrato que o servidor MCP", () => {
+		// O chat e o MCP expõem `list_recipes` para modelos diferentes a partir de bases
+		// diferentes (function-calling x MCP). Enquanto cada lado escrevia o próprio JSON
+		// Schema, os dois divergiam sem que nada quebrasse — este teste ancora a origem única.
+		const kitchenListRecipes = kitchenTools.find((t) => t.name === "list_recipes")
+		expect(kitchenListRecipes?.parameters).toEqual(toJsonSchema(AgentListRecipesSchema))
+
+		const globalListRecipes = globalTools.find((t) => t.name === "list_recipes")
+		expect(globalListRecipes?.parameters).toEqual(toJsonSchema(AgentListRecipesSchema.omit({ kitchenId: true })))
 	})
 
 	test("clampLimit aplica padrão e grampeia a faixa", () => {

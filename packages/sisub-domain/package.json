@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./agent": "./src/agent/index.ts",
     "./schemas": "./src/schemas/index.ts",
     "./operations": "./src/operations/index.ts",
     "./gtin": "./src/operations/gtin.ts",
@@ -20,8 +21,7 @@
     "@iefa/pbac": "workspace:*",
     "@supabase/supabase-js": "^2.110.7",
     "drizzle-orm": "^0.45.2",
-    "zod": "^4.4.3",
-    "zod-to-json-schema": "^3.25.2"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
