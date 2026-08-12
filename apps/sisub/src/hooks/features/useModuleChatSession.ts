@@ -60,6 +60,8 @@ export interface UseModuleChatSessionReturn {
 	messages: ModuleChatMessage[]
 	isStreaming: boolean
 	loadingMessages: boolean
+	/** Falha do turno atual (rede, 4xx/5xx do endpoint, RUN_ERROR do provider). */
+	streamError: string | undefined
 	handleSubmit: (message: string) => void
 	handleAbort: () => void
 }
@@ -151,6 +153,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		stop,
 		isLoading,
 		setMessages,
+		error,
 	} = useChat({
 		connection: MODULE_CONNECTION,
 		body,
@@ -198,23 +201,31 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 
 	const lastAssistantIdx = uiMessages.reduce((last, m, i) => (m.role === "assistant" ? i : last), -1)
 
+	// Falha do turno (413 do provider, 401/503 do endpoint, rede). Sem isto o
+	// turno que morre deixa só uma bolha vazia — foi assim que o 413 de payload
+	// das tools passou despercebido.
+	const streamError = error?.message
+
 	const messages: ModuleChatMessage[] = uiMessages
 		.filter((m) => m.role === "user" || m.role === "assistant")
 		.map((m, i) => {
 			const streamingToolCalls = extractToolCalls(m.parts)
 			const storedToolCalls = toolCallsMapRef.current.get(m.id)
+			const isLastAssistant = m.role === "assistant" && i === lastAssistantIdx
 			return {
 				id: m.id,
 				role: m.role as "user" | "assistant",
 				content: extractText(m.parts),
 				toolCalls: streamingToolCalls.length > 0 ? streamingToolCalls : storedToolCalls,
-				isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
+				isStreaming: isLoading && isLastAssistant,
+				error: isLastAssistant && !isLoading ? streamError : undefined,
 				createdAt: m.createdAt ?? new Date(),
 			}
 		})
 		.filter((m) => {
 			if (m.role === "user") return true
 			if (m.isStreaming) return true
+			if (m.error) return true
 			return hasMessagePayload(m.content, m.toolCalls ?? [])
 		})
 
@@ -248,6 +259,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		messages,
 		isStreaming: isLoading,
 		loadingMessages,
+		streamError,
 		handleSubmit,
 		handleAbort,
 	}

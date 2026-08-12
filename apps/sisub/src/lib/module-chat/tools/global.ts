@@ -10,35 +10,58 @@ import {
 	listIngredients as listIngredientsOp,
 } from "@iefa/sisub-domain"
 import type { ModuleToolDefinition } from "./shared"
-import { domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { clampLimit, domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+
+/**
+ * Listagens do chat andam com teto e sem detalhe aninhado. O catálogo global tem
+ * ~2.000 receitas e ~1.900 insumos: devolver tudo (ainda por cima com os
+ * ingredientes embutidos) passava de 10 MB e o provider recusava o turno
+ * seguinte com 413 — a conversa morria numa bolha vazia.
+ */
+const RECIPE_LIST_COLUMNS = "id, name, version, portion_yield, preparation_time_minutes, folder_id" as const
+
+const LIST_DEFAULT = 30
+const LIST_MAX = 100
+
+/**
+ * Insumo/preparação na listagem: identificação e unidade, sem nutrientes nem SKUs.
+ * As operations devolvem em snake_case (contrato preservado por `toWire`).
+ */
+function slimIngredient(row: { id: string; description: string | null; measure_unit?: string | null; folder_id?: string | null }) {
+	return { id: row.id, description: row.description, measure_unit: row.measure_unit ?? null, folder_id: row.folder_id ?? null }
+}
 
 const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
-	description: "Lista receitas globais (padrão SDAB). Suporta busca por nome.",
+	description:
+		"Lista receitas globais (padrão SDAB), só com os campos de identificação. Suporta busca por nome. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
 	parameters: {
 		type: "object",
 		properties: {
 			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
+			limit: { type: "number", description: `Quantas receitas retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
 		required: [],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 		let query = ctx.supabase
 			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
+			.select(RECIPE_LIST_COLUMNS, { count: "exact" })
 			.is("deleted_at", null)
 			.is("kitchen_id", null)
 			.order("name")
+			.limit(limit)
 
 		if (args.search) {
 			query = query.ilike("name", `%${String(args.search).slice(0, 200)}%`)
 		}
 
-		const { data, error } = await query
+		const { data, error, count } = await query
 		if (error) return toolErr(sanitizeDbError(error, "list_recipes"))
-		return toolOk(data ?? [])
+		return toolOk({ recipes: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
 	},
 }
 
@@ -89,6 +112,7 @@ const listIngredients: ModuleToolDefinition = {
 		properties: {
 			search: { type: "string", description: "Busca parcial na descrição, sem distinguir caixa" },
 			folderId: { type: "string", description: "ID (UUID) da pasta/categoria (opcional)" },
+			limit: { type: "number", description: `Quantos insumos retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
 		required: [],
 	},
@@ -97,8 +121,9 @@ const listIngredients: ModuleToolDefinition = {
 		requireGlobalPermission(ctx, 1)
 		const search = args.search != null ? String(args.search).slice(0, 200) : undefined
 		const folderId = args.folderId != null ? requireUuid(args.folderId, "folderId") : undefined
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 		const rows = await listIngredientsOp(ctx.db, domainCtx(ctx), { search, folderId })
-		return toolOk(rows)
+		return toolOk({ ingredients: rows.slice(0, limit).map(slimIngredient), returned: Math.min(rows.length, limit), total: rows.length, limit })
 	},
 }
 
@@ -109,6 +134,7 @@ const listPreparations: ModuleToolDefinition = {
 		type: "object",
 		properties: {
 			search: { type: "string", description: "Busca parcial na descrição, sem distinguir caixa" },
+			limit: { type: "number", description: `Quantas preparações retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
 		},
 		required: [],
 	},
@@ -116,8 +142,9 @@ const listPreparations: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
 		const search = args.search != null ? String(args.search).slice(0, 200) : undefined
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 		const rows = await listIngredientsOp(ctx.db, domainCtx(ctx), { search, preparations: "only" })
-		return toolOk(rows)
+		return toolOk({ preparations: rows.slice(0, limit).map(slimIngredient), returned: Math.min(rows.length, limit), total: rows.length, limit })
 	},
 }
 
@@ -148,10 +175,17 @@ const getIngredient: ModuleToolDefinition = {
 const listMenuTemplates: ModuleToolDefinition = {
 	name: "list_menu_templates",
 	description: "Lista templates semanais globais (SDAB) com contagem de itens.",
-	parameters: { type: "object", properties: {}, required: [] },
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantos templates retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
 		const { data, error } = await ctx.supabase
 			.from("menu_template")
@@ -159,6 +193,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 			.is("deleted_at", null)
 			.is("kitchen_id", null)
 			.order("name")
+			.limit(limit)
 
 		if (error) return toolErr(sanitizeDbError(error, "list_menu_templates"))
 

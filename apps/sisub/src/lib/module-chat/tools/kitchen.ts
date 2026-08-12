@@ -4,9 +4,19 @@
  */
 
 import type { ModuleToolDefinition } from "./shared"
-import { requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { clampLimit, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Colunas da listagem de receitas. O detalhe (modo de preparo, ingredientes,
+ * snapshot de versão) sai por `get_recipe`: embutir tudo aqui multiplicava o
+ * catálogo inteiro por receita e estourava o limite de payload do provider.
+ */
+const RECIPE_LIST_COLUMNS = "id, name, version, portion_yield, preparation_time_minutes, kitchen_id, folder_id" as const
+
+const RECIPE_LIST_DEFAULT = 30
+const RECIPE_LIST_MAX = 100
 
 const dailyMenuSelect = `
   *,
@@ -26,7 +36,13 @@ const listKitchens: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(_args, ctx) {
 		requireKitchenPermission(ctx, 1)
-		const { data, error } = await ctx.supabase.schema("core").from("kitchen").select(`*, unit:units!kitchen_unit_id_fkey(id, name)`).order("id")
+		// `core.units` não tem coluna `name` — é `display_name`. Com o nome errado o
+		// PostgREST devolve erro e a tool ficava 100% quebrada.
+		const { data, error } = await ctx.supabase
+			.schema("core")
+			.from("kitchen")
+			.select(`id, display_name, type, unit_id, unit:units!kitchen_unit_id_fkey(id, display_name)`)
+			.order("id")
 		if (error) return toolErr(sanitizeDbError(error, "list_kitchens"))
 		return toolOk(data ?? [])
 	},
@@ -138,18 +154,21 @@ const getDayDetails: ModuleToolDefinition = {
 
 const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
-	description: "Lista receitas disponíveis para uma cozinha. Inclui receitas globais e locais. Suporta busca por nome.",
+	description:
+		"Lista receitas disponíveis para uma cozinha (globais + locais), só com os campos de identificação. Suporta busca por nome. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
 	parameters: {
 		type: "object",
 		properties: {
 			kitchenId: { type: "number", description: "ID da cozinha (retorna globais + locais)" },
 			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
+			limit: { type: "number", description: `Quantas receitas retornar (padrão ${RECIPE_LIST_DEFAULT}, máximo ${RECIPE_LIST_MAX})` },
 		},
 		required: [],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		let query = ctx.supabase.from("recipes").select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`).is("deleted_at", null).order("name")
+		const limit = clampLimit(args.limit, RECIPE_LIST_DEFAULT, RECIPE_LIST_MAX)
+		let query = ctx.supabase.from("recipes").select(RECIPE_LIST_COLUMNS, { count: "exact" }).is("deleted_at", null).order("name").limit(limit)
 
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")
@@ -165,9 +184,9 @@ const listRecipes: ModuleToolDefinition = {
 			query = query.ilike("name", `%${search}%`)
 		}
 
-		const { data, error } = await query
+		const { data, error, count } = await query
 		if (error) return toolErr(sanitizeDbError(error, "list_recipes"))
-		return toolOk(data ?? [])
+		return toolOk({ recipes: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
 	},
 }
 
@@ -274,10 +293,13 @@ const addMenuItem: ModuleToolDefinition = {
 			return toolErr("Esta receita não está disponível para esta cozinha")
 		}
 
-		const { data, error } = await ctx.supabase.from("menu_items").insert({ daily_menu_id: menuId, recipe_origin_id: recipeId, recipe }).select()
+		// A linha guarda o snapshot inteiro da receita; devolver esse snapshot ao
+		// modelo só gastaria contexto (e poderia bater no teto de payload DEPOIS
+		// da escrita já ter acontecido). Confirmação enxuta basta.
+		const { data, error } = await ctx.supabase.from("menu_items").insert({ daily_menu_id: menuId, recipe_origin_id: recipeId, recipe }).select("id")
 
 		if (error) return toolErr(sanitizeDbError(error, "add_menu_item"))
-		return toolOk(data)
+		return toolOk({ id: data?.[0]?.id ?? null, daily_menu_id: menuId, recipe_origin_id: recipeId, recipe_name: recipe.name })
 	},
 }
 
@@ -344,12 +366,19 @@ const listMenuTemplates: ModuleToolDefinition = {
 		type: "object",
 		properties: {
 			kitchenId: { type: "number", description: "ID da cozinha (opcional, retorna globais + locais)" },
+			limit: { type: "number", description: `Quantos templates retornar (padrão ${RECIPE_LIST_DEFAULT}, máximo ${RECIPE_LIST_MAX})` },
 		},
 		required: [],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		let query = ctx.supabase.from("menu_template").select(`*, items:menu_template_items(count)`, { count: "exact" }).is("deleted_at", null).order("name")
+		const limit = clampLimit(args.limit, RECIPE_LIST_DEFAULT, RECIPE_LIST_MAX)
+		let query = ctx.supabase
+			.from("menu_template")
+			.select(`*, items:menu_template_items(count)`, { count: "exact" })
+			.is("deleted_at", null)
+			.order("name")
+			.limit(limit)
 
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")

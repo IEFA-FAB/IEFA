@@ -4,7 +4,11 @@
  */
 
 import type { ModuleToolDefinition } from "./shared"
-import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { clampLimit, requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+
+/** Teto das listagens: o resultado volta inteiro no prompt do turno seguinte. */
+const LIST_DEFAULT = 25
+const LIST_MAX = 100
 
 function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1]): number {
 	const unitId = safeInt(ctx.scopeId, "scopeId")
@@ -32,30 +36,47 @@ const getUnitOverview: ModuleToolDefinition = {
 
 const getAtas: ModuleToolDefinition = {
 	name: "get_atas",
-	description: "Lista todas as ATAs da unidade atual com status e data de criação. Inclui draft, published e archived.",
-	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+	description: "Lista as ATAs da unidade atual com status e data de criação, das mais recentes para as mais antigas. Inclui draft, published e archived.",
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantas ATAs retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+		additionalProperties: false,
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
 		const { data, error } = await untypedFrom(ctx, "procurement_list")
 			.select("id, title, status, created_at, updated_at")
 			.eq("unit_id", unitId)
 			.is("deleted_at", null)
 			.order("created_at", { ascending: false })
+			.limit(limit)
 		if (error) return toolErr(sanitizeDbError(error, "get_atas"))
-		return toolOk(data ?? [])
+		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, limit })
 	},
 }
 
 const getLowBalanceItems: ModuleToolDefinition = {
 	name: "get_low_balance_items",
 	description:
-		"Lista itens de ARP com consumo ≥80% (saldo crítico) para ATAs publicadas da unidade. Inclui flag se o item aparece em menus dos próximos 30 dias.",
-	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+		"Lista itens de ARP com consumo ≥80% (saldo crítico) para ATAs publicadas da unidade, os mais críticos primeiro. Inclui flag se o item aparece em menus dos próximos 30 dias.",
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantos itens retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+		additionalProperties: false,
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
 		// Published ATAs
 		const { data: allAtas, error: atasError } = await untypedFrom(ctx, "procurement_list")
@@ -176,7 +197,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 			return b.consumption_pct - a.consumption_pct
 		})
 
-		return toolOk({ total_critical: items.length, items })
+		return toolOk({ total_critical: items.length, returned: Math.min(items.length, limit), limit, items: items.slice(0, limit) })
 	},
 }
 
