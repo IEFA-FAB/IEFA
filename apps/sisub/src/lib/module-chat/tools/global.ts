@@ -7,38 +7,40 @@ import {
 	fetchIngredient as fetchIngredientOp,
 	listIngredientItems as listIngredientItemsOp,
 	listIngredientNutrients as listIngredientNutrientsOp,
-	listIngredients as listIngredientsOp,
+	toJsonSchema,
 } from "@iefa/sisub-domain"
+import {
+	AgentListIngredientsSchema,
+	AgentListPreparationsSchema,
+	AgentListRecipesSchema,
+	agentListIngredients,
+	agentListPreparations,
+	agentListRecipes,
+	clampLimit,
+} from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
+const LIST_DEFAULT = 30
+const LIST_MAX = 100
+
+/**
+ * Catálogo global: as listagens vêm de `@iefa/sisub-domain/agent`, as mesmas que o
+ * servidor MCP usa. Entrada, teto e projeção ficam definidos uma vez só — a versão
+ * anterior montava PostgREST na mão aqui e no MCP, e as duas divergiam (esta não
+ * deduplicava versões, e devolvia o catálogo inteiro com os ingredientes: 10,6 MB).
+ */
 const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
-	description: "Lista receitas globais (padrão SDAB). Suporta busca por nome.",
-	parameters: {
-		type: "object",
-		properties: {
-			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
-		},
-		required: [],
-	},
+	description:
+		"Lista receitas globais (padrão SDAB), só com os campos de identificação. Suporta busca por nome. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
+	parameters: toJsonSchema(AgentListRecipesSchema.omit({ kitchenId: true })),
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		let query = ctx.supabase
-			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
-			.is("deleted_at", null)
-			.is("kitchen_id", null)
-			.order("name")
-
-		if (args.search) {
-			query = query.ilike("name", `%${String(args.search).slice(0, 200)}%`)
-		}
-
-		const { data, error } = await query
-		if (error) return toolErr(sanitizeDbError(error, "list_recipes"))
-		return toolOk(data ?? [])
+		const input = AgentListRecipesSchema.omit({ kitchenId: true }).parse(args)
+		const { items, ...counts } = await agentListRecipes(ctx.db, domainCtx(ctx), { ...input, globalOnly: true })
+		return toolOk({ recipes: items, ...counts })
 	},
 }
 
@@ -84,40 +86,26 @@ const listIngredients: ModuleToolDefinition = {
 	name: "list_ingredients",
 	description:
 		"Lista insumos do catálogo global. Suporta busca por descrição. Não inclui as preparações herdadas do SISUBWEB — para essas, use list_preparations.",
-	parameters: {
-		type: "object",
-		properties: {
-			search: { type: "string", description: "Busca parcial na descrição, sem distinguir caixa" },
-			folderId: { type: "string", description: "ID (UUID) da pasta/categoria (opcional)" },
-		},
-		required: [],
-	},
+	parameters: toJsonSchema(AgentListIngredientsSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		const search = args.search != null ? String(args.search).slice(0, 200) : undefined
-		const folderId = args.folderId != null ? requireUuid(args.folderId, "folderId") : undefined
-		const rows = await listIngredientsOp(ctx.db, domainCtx(ctx), { search, folderId })
-		return toolOk(rows)
+		const input = AgentListIngredientsSchema.parse(args)
+		const { items, ...counts } = await agentListIngredients(ctx.db, domainCtx(ctx), input)
+		return toolOk({ ingredients: items, ...counts })
 	},
 }
 
 const listPreparations: ModuleToolDefinition = {
 	name: "list_preparations",
 	description: "Lista as preparações herdadas do SISUBWEB. Elas moram na mesma tabela dos insumos mas não são insumos — os nomes colidem com os das receitas.",
-	parameters: {
-		type: "object",
-		properties: {
-			search: { type: "string", description: "Busca parcial na descrição, sem distinguir caixa" },
-		},
-		required: [],
-	},
+	parameters: toJsonSchema(AgentListPreparationsSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		const search = args.search != null ? String(args.search).slice(0, 200) : undefined
-		const rows = await listIngredientsOp(ctx.db, domainCtx(ctx), { search, preparations: "only" })
-		return toolOk(rows)
+		const input = AgentListPreparationsSchema.parse(args)
+		const { items, ...counts } = await agentListPreparations(ctx.db, domainCtx(ctx), input)
+		return toolOk({ preparations: items, ...counts })
 	},
 }
 
@@ -148,17 +136,25 @@ const getIngredient: ModuleToolDefinition = {
 const listMenuTemplates: ModuleToolDefinition = {
 	name: "list_menu_templates",
 	description: "Lista templates semanais globais (SDAB) com contagem de itens.",
-	parameters: { type: "object", properties: {}, required: [] },
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantos templates retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error } = await ctx.supabase
+		const { data, error, count } = await ctx.supabase
 			.from("menu_template")
 			.select(`*, items:menu_template_items(count)`, { count: "exact" })
 			.is("deleted_at", null)
 			.is("kitchen_id", null)
 			.order("name")
+			.limit(limit)
 
 		if (error) return toolErr(sanitizeDbError(error, "list_menu_templates"))
 
@@ -167,7 +163,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 			item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 
-		return toolOk(templates)
+		return toolOk({ templates, returned: templates.length, total: count ?? templates.length, limit })
 	},
 }
 

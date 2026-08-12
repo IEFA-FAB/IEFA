@@ -7,6 +7,7 @@ import type { Database } from "@iefa/database"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
 import type { UserContext } from "@iefa/sisub-domain"
+import { enforcePayloadBudget } from "@iefa/sisub-domain/agent"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
@@ -192,6 +193,10 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerToo
 	}).server(async (args) => {
 		const result = await def.handler(args as Record<string, unknown>, ctx)
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
-		return result.data
+
+		// Mesma rede de segurança do servidor MCP: falhar aqui devolve um erro de tool
+		// que o modelo lê e corrige (buscar mais estreito, pedir menos itens); deixar
+		// passar quebra a run inteira no provider, sem mensagem nenhuma.
+		return enforcePayloadBudget(def.name, result.data)
 	})
 }

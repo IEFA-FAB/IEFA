@@ -28,6 +28,7 @@ import { kitchenTools } from "./tools/kitchens.ts"
 import { mealTypeTools } from "./tools/meal-types.ts"
 import { planningTools } from "./tools/planning.ts"
 import { recipeTools } from "./tools/recipes.ts"
+import { enforceToolResultBudget } from "./tools/shared.ts"
 import { templateTools } from "./tools/templates.ts"
 
 // Todas as tools registradas
@@ -63,7 +64,7 @@ export function createMcpServer(credential: string): Server {
 			throw new McpError(ErrorCode.MethodNotFound, `Tool não encontrada: ${name}`)
 		}
 
-		return tool.handler(args, credential)
+		return enforceToolResultBudget(name, await tool.handler(args, credential))
 	})
 
 	// ── Resources ─────────────────────────────────────────────────────────────
