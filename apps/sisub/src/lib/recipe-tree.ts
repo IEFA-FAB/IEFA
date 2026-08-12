@@ -10,6 +10,8 @@
  * Ver `recipe-tree.test.ts`.
  */
 
+import { normalizeForSearch, type SearchSensitivity } from "@/lib/text-search"
+
 /** Nó-pasta sintético das preparações sem pasta. Não existe no banco. */
 export const UNFILED_FOLDER_ID = "__sem-pasta__"
 
@@ -54,19 +56,29 @@ export type RecipeTreeNode<TRecipe extends RecipeTreeRecipe = RecipeTreeRecipe> 
 export interface BuildRecipeTreeInput<TRecipe extends RecipeTreeRecipe> {
 	folders: readonly RecipeTreeFolder[] | null | undefined
 	/**
-	 * Preparações JÁ filtradas (busca, origem, revisão, excluídas). O recorte por
-	 * texto acontece antes, em `useRecipes` — aqui só entra o agrupamento.
+	 * Preparações já recortadas pelos filtros que NÃO são texto (origem, plano semanal,
+	 * revisão, excluídas). A busca textual acontece aqui dentro porque ela também casa
+	 * nome de PASTA — e isso só dá para decidir com a árvore na mão.
 	 */
 	recipes: readonly TRecipe[] | null | undefined
+	/** Texto da busca; vazio desliga o filtro de texto. */
+	filterText?: string
+	sensitivity?: SearchSensitivity
 	sortDirection?: "asc" | "desc"
-	/** Pastas abertas. Sob filtro, tudo abre e este conjunto é ignorado. */
-	expandedIds?: ReadonlySet<string>
 	/**
-	 * Há filtro ativo na listagem. Muda dois comportamentos, como na árvore de insumos:
-	 * tudo abre, e pasta que ficou sem resultado some (senão o filtro devolve uma parede
-	 * de pastas vazias).
+	 * Pastas FECHADAS. É o complemento do conjunto de abertas de propósito: pasta nova
+	 * (criada depois que a aba abriu, ou por outro usuário) nasce aberta em vez de
+	 * herdar um "não estava na lista de abertas" e sumir com o conteúdo dentro.
 	 */
-	isFiltering?: boolean
+	collapsedIds?: ReadonlySet<string>
+	/** Abre tudo, ignorando `collapsedIds` — o que a busca textual faz. */
+	autoExpand?: boolean
+	/**
+	 * Esconde pasta que ficou sem resultado. Vale para qualquer filtro restritivo (não só
+	 * texto): sem isso, filtrar por uma origem sem correspondência devolve uma parede de
+	 * pastas "0 preparações" e o estado vazio da tela nunca aparece.
+	 */
+	hideEmptyFolders?: boolean
 }
 
 export interface RecipeTree<TRecipe extends RecipeTreeRecipe = RecipeTreeRecipe> {
@@ -74,8 +86,10 @@ export interface RecipeTree<TRecipe extends RecipeTreeRecipe = RecipeTreeRecipe>
 	nodes: RecipeTreeNode<TRecipe>[]
 	/** Pastas reais renderizadas — o nó sintético "Sem pasta" não conta. */
 	folderCount: number
-	/** Total de preparações no recorte, expandidas ou não. */
+	/** Preparações que passaram por todos os filtros, expandidas ou não. */
 	recipeCount: number
+	/** As mesmas preparações do `recipeCount`, para contagens e ações da tela. */
+	matched: TRecipe[]
 }
 
 /** Normaliza um campo para array iterável — ver `asArray` em `lib/ingredient-tree`. */
@@ -85,19 +99,31 @@ export function buildRecipeTree<TRecipe extends RecipeTreeRecipe>(input: BuildRe
 	const folders = asArray(input.folders)
 	const recipes = asArray(input.recipes)
 	const sortDirection = input.sortDirection ?? "asc"
-	const expandedIds = input.expandedIds ?? new Set<string>()
-	const isFiltering = input.isFiltering ?? false
+	const collapsedIds = input.collapsedIds ?? new Set<string>()
+	const autoExpand = input.autoExpand ?? false
+	const hideEmptyFolders = input.hideEmptyFolders ?? false
+
+	const { caseSensitive = false, accentSensitive = false } = input.sensitivity ?? {}
+	const norm = (value: string) => normalizeForSearch(value, { caseSensitive, accentSensitive })
+	const filter = norm(input.filterText ?? "").trim()
 
 	const collator = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true })
 	const dir = sortDirection === "desc" ? -1 : 1
 
-	const folderIds = new Set(folders.map((f) => f.id))
+	const folderById = new Map(folders.map((f) => [f.id, f]))
+	// Pasta cujo NOME casa a busca: tudo que está dentro dela entra, mesmo que o nome da
+	// preparação não case. É o que a árvore de insumos faz com os descendentes.
+	const matchedFolderIds = new Set(filter ? folders.flatMap((f) => (norm(f.name).includes(filter) ? [f.id] : [])) : [])
 
 	// Pasta excluída (ou de outro escopo) deixa a preparação órfã: ela vai para "Sem pasta"
 	// em vez de sumir da listagem — antes da árvore, o filtro por pasta já tratava assim.
+	const folderKeyOf = (recipe: TRecipe) => (recipe.folder_id && folderById.has(recipe.folder_id) ? recipe.folder_id : UNFILED_FOLDER_ID)
+
+	const matched = filter ? recipes.filter((r) => norm(r.name).includes(filter) || matchedFolderIds.has(folderKeyOf(r))) : [...recipes]
+
 	const byFolder = new Map<string, TRecipe[]>()
-	for (const recipe of recipes) {
-		const key = recipe.folder_id && folderIds.has(recipe.folder_id) ? recipe.folder_id : UNFILED_FOLDER_ID
+	for (const recipe of matched) {
+		const key = folderKeyOf(recipe)
 		const bucket = byFolder.get(key)
 		if (bucket) bucket.push(recipe)
 		else byFolder.set(key, [recipe])
@@ -112,11 +138,11 @@ export function buildRecipeTree<TRecipe extends RecipeTreeRecipe>(input: BuildRe
 		const children = byFolder.get(id) ?? []
 		// Sob filtro, pasta vazia é ruído: some. Sem filtro, ela precisa aparecer —
 		// é onde se arquiva uma preparação, e uma pasta recém-criada nasce vazia.
-		if (isFiltering && children.length === 0) return
+		if (hideEmptyFolders && children.length === 0) return
 		// O nó sintético só existe quando há preparação sem pasta.
 		if (isUnfiled && children.length === 0) return
 
-		const isExpanded = isFiltering || expandedIds.has(id)
+		const isExpanded = autoExpand || !collapsedIds.has(id)
 		nodes.push({
 			type: "folder",
 			id,
@@ -140,10 +166,10 @@ export function buildRecipeTree<TRecipe extends RecipeTreeRecipe>(input: BuildRe
 	// não um nome que participa da ordem alfabética.
 	pushFolder(UNFILED_FOLDER_ID, UNFILED_FOLDER_LABEL, true)
 
-	return { nodes, folderCount, recipeCount: recipes.length }
+	return { nodes, folderCount, recipeCount: matched.length, matched }
 }
 
-/** Ids de todas as pastas expansíveis — alimenta o "Expandir Tudo" da listagem. */
+/** Ids de todas as pastas expansíveis — alimenta o "Recolher Tudo" da listagem. */
 export function allRecipeFolderIds(folders: readonly RecipeTreeFolder[] | null | undefined): Set<string> {
 	return new Set([...asArray(folders).map((f) => f.id), UNFILED_FOLDER_ID])
 }

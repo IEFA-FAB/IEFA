@@ -182,8 +182,9 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	const onlyWeeklyMenuId = useId()
 	const onlyNotReviewedId = useId()
 
+	// A busca textual NÃO vai aqui: ela também casa nome de pasta, e isso é decidido na
+	// montagem da árvore (ver `buildRecipeTree`). O resto do recorte continua no hook.
 	const { data: allRecipes = [], isLoading } = useRecipes({
-		search: urlSearch || undefined,
 		origin: type,
 		includeDeleted: showDeleted,
 		caseSensitive: searchCaseSensitive,
@@ -196,7 +197,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	// Status de revisão (conferência) por preparação — para o badge por linha e o filtro de pendentes.
 	const { reviewedAtById, isLoading: reviewsLoading } = useRecipeLastReviews()
 	// Pastas — o agrupamento que estrutura a listagem.
-	const { folders, isLoading: foldersLoading } = useRecipeFolders()
+	const { folders } = useRecipeFolders()
 
 	useImperativeHandle(ref, () => ({ openFoldersDialog: () => setFoldersDialogOpen(true) }), [])
 
@@ -210,41 +211,48 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 		return list
 	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, reviewsLoading, menuUsageIds, reviewedAtById])
 
-	// Estado de expand/collapse das pastas, persistido por aba (preserva o que estava aberto
-	// ao entrar numa preparação e voltar).
-	const [expandedIds, setExpandedIds, expandMeta] = usePersistentState<Set<string>>(`${persistKey}:expanded`, new Set(), {
+	// Estado de expand/collapse persistido por aba (preserva o que estava aberto ao entrar numa
+	// preparação e voltar). Guarda as pastas FECHADAS, não as abertas: o default é tudo ABERTO
+	// — o oposto da árvore de insumos, de propósito. Lá a hierarquia é profunda e tem milhares
+	// de nós; aqui são dois níveis e a maioria das preparações está sem pasta, então abrir
+	// recolhido devolveria uma tela quase vazia. Guardando as fechadas, uma pasta criada depois
+	// (ou por outro usuário) nasce aberta em vez de esconder o que acabou de ser movido para lá.
+	const [collapsedIds, setCollapsedIds] = usePersistentState<Set<string>>(`${persistKey}:collapsed`, new Set(), {
 		serialize: (s) => JSON.stringify([...s]),
 		deserialize: (raw) => new Set(JSON.parse(raw) as string[]),
 	})
-	const initializedRef = useRef(false)
-
-	// Default: tudo ABERTO — o oposto da árvore de insumos, de propósito. Lá a hierarquia é
-	// profunda e tem milhares de nós; aqui são dois níveis, e a maioria das preparações costuma
-	// estar sem pasta — abrir recolhido devolveria uma tela quase vazia onde antes havia lista.
-	useEffect(() => {
-		if (!expandMeta.hydrated || foldersLoading || initializedRef.current) return
-		initializedRef.current = true
-		if (expandMeta.hadStored) return
-		setExpandedIds(allRecipeFolderIds(folders))
-	}, [expandMeta.hydrated, expandMeta.hadStored, foldersLoading, folders, setExpandedIds])
 
 	const toggleExpand = (folderId: string) => {
-		setExpandedIds((prev) => {
+		setCollapsedIds((prev) => {
 			const next = new Set(prev)
 			if (next.has(folderId)) next.delete(folderId)
 			else next.add(folderId)
 			return next
 		})
 	}
-	const expandAll = () => setExpandedIds(allRecipeFolderIds(folders))
-	const collapseAll = () => setExpandedIds(new Set())
+	const expandAll = () => setCollapsedIds(new Set())
+	const collapseAll = () => setCollapsedIds(allRecipeFolderIds(folders))
 
-	// Com filtro ativo, a árvore abre sozinha e pasta sem resultado some (igual aos insumos).
-	const isFiltering = !!urlSearch || onlyWeeklyMenu || onlyNotReviewed
+	// Busca textual abre a árvore inteira (igual aos insumos). Qualquer filtro RESTRITIVO —
+	// inclusive a origem — esconde pasta que ficou sem resultado; sem isso, escolher uma origem
+	// sem correspondência devolvia uma parede de pastas "0 preparações" e o estado vazio da tela
+	// nunca aparecia. "Excluídas" não entra: ela amplia o conjunto, não restringe.
+	const autoExpand = !!urlSearch || onlyWeeklyMenu || onlyNotReviewed
+	const hideEmptyFolders = autoExpand || type !== "all"
 
 	const tree = useMemo(
-		() => buildRecipeTree({ folders, recipes: filteredRecipes, sortDirection, expandedIds, isFiltering }),
-		[folders, filteredRecipes, sortDirection, expandedIds, isFiltering]
+		() =>
+			buildRecipeTree({
+				folders,
+				recipes: filteredRecipes,
+				filterText: urlSearch,
+				sensitivity: { caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
+				sortDirection,
+				collapsedIds,
+				autoExpand,
+				hideEmptyFolders,
+			}),
+		[folders, filteredRecipes, urlSearch, searchCaseSensitive, searchAccentSensitive, sortDirection, collapsedIds, autoExpand, hideEmptyFolders]
 	)
 
 	// Enquanto o filtro de pendentes está ativo e o mapa de revisões carrega (1ª visita, sem
@@ -281,11 +289,13 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 		})
 	}
 
+	// Conta o que sobrou de TODOS os filtros, texto incluso — por isso vem da árvore, e não
+	// de `filteredRecipes`, que ainda não passou pela busca.
 	const stats = useMemo(() => {
-		const total = filteredRecipes.length
-		const global = filteredRecipes.filter((r) => !r.kitchen_id).length
+		const total = tree.matched.length
+		const global = tree.matched.filter((r) => !r.kitchen_id).length
 		return { total, global, local: total - global }
-	}, [filteredRecipes])
+	}, [tree])
 
 	function setOrigin(value: "all" | "global" | "local") {
 		// biome-ignore lint/suspicious/noExplicitAny: shared component, navigate has no from context
@@ -486,41 +496,46 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 											selected={isSelected}
 											onSelectChange={(checked) => toggleSelect(recipe, checked)}
 											onActivate={() => navigateToRecipe(recipe.id)}
+											// Rendimento é leitura: fica no `meta` para não sumir junto com as ações
+											// quando o modo de seleção em massa liga.
+											meta={
+												recipe.portion_yield != null ? (
+													<span className="text-sm text-muted-foreground font-mono">{recipe.portion_yield} porções</span>
+												) : undefined
+											}
 											actions={
-												<>
-													{recipe.portion_yield != null && <span className="text-sm text-muted-foreground font-mono">{recipe.portion_yield} porções</span>}
-													{!recipe.kitchen_id && (
-														<Tooltip>
-															<TooltipTrigger
-																render={
-																	<Button
-																		variant="ghost"
-																		size="icon-xs"
-																		nativeButton={false}
-																		className="hover:bg-accent/10 transition-all"
-																		render={
-																			kitchenId ? (
-																				<Link
-																					to="/kitchen/$kitchenId/recipes/new"
-																					params={{ kitchenId }}
-																					search={{ forkFrom: recipe.id }}
-																					onClick={(e) => e.stopPropagation()}
-																				>
-																					<GitFork className="size-3.5" />
-																				</Link>
-																			) : (
-																				<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }} onClick={(e) => e.stopPropagation()}>
-																					<GitFork className="size-3.5" />
-																				</Link>
-																			)
-																		}
-																	/>
-																}
-															/>
-															<TooltipContent>Criar cópia local</TooltipContent>
-														</Tooltip>
-													)}
-												</>
+												// Fork só existe para preparação global: é a cópia local dela.
+												!recipe.kitchen_id ? (
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	variant="ghost"
+																	size="icon-xs"
+																	nativeButton={false}
+																	className="hover:bg-accent/10 transition-all"
+																	render={
+																		kitchenId ? (
+																			<Link
+																				to="/kitchen/$kitchenId/recipes/new"
+																				params={{ kitchenId }}
+																				search={{ forkFrom: recipe.id }}
+																				onClick={(e) => e.stopPropagation()}
+																			>
+																				<GitFork className="size-3.5" />
+																			</Link>
+																		) : (
+																			<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }} onClick={(e) => e.stopPropagation()}>
+																				<GitFork className="size-3.5" />
+																			</Link>
+																		)
+																	}
+																/>
+															}
+														/>
+														<TooltipContent>Criar cópia local</TooltipContent>
+													</Tooltip>
+												) : undefined
 											}
 										>
 											<HoverCard>

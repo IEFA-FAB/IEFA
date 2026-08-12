@@ -60,6 +60,8 @@ interface TreeRowProps {
 	children: ReactNode
 	/** Ações da linha (editar, excluir…). Ocultas no modo de seleção em massa. */
 	actions?: ReactNode
+	/** Dado à direita (ex.: rendimento). Só leitura, então continua visível na seleção. */
+	meta?: ReactNode
 	/** Clique / Enter / Espaço na linha (navegar, por exemplo). */
 	onActivate?: () => void
 	/** Seleção em massa ativa: exibe checkbox e o clique passa a selecionar. */
@@ -80,6 +82,7 @@ export function TreeRow({
 	tone,
 	children,
 	actions,
+	meta,
 	onActivate,
 	selectionMode = false,
 	selected = false,
@@ -157,8 +160,14 @@ export function TreeRow({
 				{children}
 			</div>
 
-			{/* Ações somem no modo de seleção: ali o clique da linha pertence à seleção. */}
-			{actions && !selectionMode && <div className="flex items-center gap-1 shrink-0 ml-3">{actions}</div>}
+			{/* Ações somem no modo de seleção: ali o clique da linha pertence à seleção. O `meta`
+			    fica — esconder um dado só de leitura por causa do modo não ajuda ninguém. */}
+			{(meta || (actions && !selectionMode)) && (
+				<div className="flex items-center gap-3 shrink-0 ml-3">
+					{meta}
+					{actions && !selectionMode && <div className="flex items-center gap-1">{actions}</div>}
+				</div>
+			)}
 		</div>
 	)
 }
