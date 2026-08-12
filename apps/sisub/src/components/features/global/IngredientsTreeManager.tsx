@@ -217,10 +217,13 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 	return (
 		<div className="space-y-6">
-			{/* Toolbar */}
-			<Card className="flex-col lg:flex-row lg:items-center gap-3 p-4 overflow-visible">
-				{/* Busca + opções de busca (esquerda, cresce até preencher) */}
-				<div className="flex items-center gap-2 flex-1 min-w-0">
+			{/* Toolbar. Mesma regra da listagem de preparações: só vira uma linha quando busca
+			    (~320px) e as quatro ações (~700px) cabem de fato — por volta de 1400px de viewport. */}
+			<Card className="flex-col min-[1400px]:flex-row min-[1400px]:items-center gap-3 p-4 overflow-visible">
+				{/* Busca + opções de busca (esquerda). No modo linha, `basis-80 min-w-80` reserva o
+				    par campo+Opções — sem piso o flex encolhe este bloco e o botão sai por baixo das
+				    ações. Fica no breakpoint porque `basis` no eixo coluna vira ALTURA. */}
+				<div className="flex items-center gap-2 min-[1400px]:flex-1 min-[1400px]:basis-80 min-[1400px]:min-w-80">
 					<div className="relative flex-1 min-w-56">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 						<Input
@@ -258,8 +261,9 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 					</Popover>
 				</div>
 
-				{/* Ações (direita) */}
-				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
+				{/* Ações (direita) — `min-w-0` deixa o bloco quebrar em duas linhas em vez de
+				    transbordar por cima da busca. */}
+				<div className="flex flex-wrap items-center gap-2 min-w-0 min-[1400px]:justify-end">
 					{selectionMode ? (
 						<>
 							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
