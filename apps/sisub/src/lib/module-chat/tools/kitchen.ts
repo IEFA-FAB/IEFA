@@ -361,7 +361,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 			query = query.is("kitchen_id", null)
 		}
 
-		const { data, error } = await query
+		const { data, error, count } = await query
 		if (error) return toolErr(sanitizeDbError(error, "list_menu_templates"))
 
 		const templates = (data ?? []).map((t) => ({
@@ -369,7 +369,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 			item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 
-		return toolOk(templates)
+		return toolOk({ templates, returned: templates.length, total: count ?? templates.length, limit })
 	},
 }
 

@@ -14,6 +14,14 @@ import type { UserContext } from "../types/context.ts"
 import { clampLimit } from "./budget.ts"
 import type { AgentListIngredients, AgentListPreparations, AgentListRecipes } from "./schemas.ts"
 
+/**
+ * A página sai por `slice` em JS, e não por `LIMIT` no SQL, de propósito: o `total` do
+ * envelope precisa ser o tamanho real do resultado (e, no caso das receitas, a dedup por
+ * família só existe depois de ler a linhagem inteira). São catálogos de ~2.000 linhas
+ * enxutas — a listagem de receitas mede 650 ms com a dedup incluída. Se algum deles crescer
+ * uma ordem de grandeza, o caminho é `LIMIT` + `count()` em duas queries, não perder o total.
+ */
+
 /** Envelope comum: a página pedida mais o que o modelo precisa saber sobre o resto. */
 export interface AgentList<T> {
 	items: T[]

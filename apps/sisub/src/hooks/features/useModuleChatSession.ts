@@ -204,6 +204,10 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	// Falha do turno (413 do provider, 401/503 do endpoint, rede). Sem isto o
 	// turno que morre deixa só uma bolha vazia — foi assim que o 413 de payload
 	// das tools passou despercebido.
+	//
+	// Fica solto, fora das mensagens, de propósito: quando o turno morre antes de
+	// qualquer conteúdo, nenhuma mensagem do assistente chegou a existir, e pendurar
+	// o erro na "última" bolha o colaria na RESPOSTA ANTERIOR — que deu certo.
 	const streamError = error?.message
 
 	const messages: ModuleChatMessage[] = uiMessages
@@ -211,21 +215,18 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		.map((m, i) => {
 			const streamingToolCalls = extractToolCalls(m.parts)
 			const storedToolCalls = toolCallsMapRef.current.get(m.id)
-			const isLastAssistant = m.role === "assistant" && i === lastAssistantIdx
 			return {
 				id: m.id,
 				role: m.role as "user" | "assistant",
 				content: extractText(m.parts),
 				toolCalls: streamingToolCalls.length > 0 ? streamingToolCalls : storedToolCalls,
-				isStreaming: isLoading && isLastAssistant,
-				error: isLastAssistant && !isLoading ? streamError : undefined,
+				isStreaming: isLoading && m.role === "assistant" && i === lastAssistantIdx,
 				createdAt: m.createdAt ?? new Date(),
 			}
 		})
 		.filter((m) => {
 			if (m.role === "user") return true
 			if (m.isStreaming) return true
-			if (m.error) return true
 			return hasMessagePayload(m.content, m.toolCalls ?? [])
 		})
 

@@ -49,6 +49,18 @@ describe("enforcePayloadBudget", () => {
 
 	test("o teto é o mesmo para todos os consumidores", () => {
 		// Chat dos módulos e servidor MCP importam esta constante — nenhum define a sua.
-		expect(MAX_TOOL_RESULT_CHARS).toBe(24_000)
+		expect(MAX_TOOL_RESULT_CHARS).toBe(60_000)
+	})
+
+	test("leitura de detalhe pesada passa — ela não tem como estreitar a chamada", () => {
+		// A receita mais pesada do catálogo ("Cozido à Pernambucana", 31 ingredientes) dá
+		// ~24 mil caracteres compactos. Barrá-la mandaria o modelo "reduzir o limit" de uma
+		// tool que não tem limit: erro sem saída.
+		const recipeDetail = {
+			name: "Cozido à Pernambucana",
+			ingredients: Array.from({ length: 31 }, (_, i) => ({ id: `i-${i}`, ingredient: { description: "x".repeat(700) } })),
+		}
+		expect(JSON.stringify(recipeDetail).length).toBeGreaterThan(20_000)
+		expect(() => enforcePayloadBudget("get_recipe", recipeDetail)).not.toThrow()
 	})
 })

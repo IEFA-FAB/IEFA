@@ -65,14 +65,14 @@ const listAtas: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error } = await untypedFrom(ctx, "procurement_list")
-			.select("id, title, status, unit_id, created_at, updated_at")
+		const { data, error, count } = await untypedFrom(ctx, "procurement_list")
+			.select("id, title, status, unit_id, created_at, updated_at", { count: "exact" })
 			.eq("unit_id", unitId)
 			.order("created_at", { ascending: false })
 			.limit(limit)
 
 		if (error) return toolErr(sanitizeDbError(error, "list_atas"))
-		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, limit })
+		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
 	},
 }
 
@@ -266,9 +266,13 @@ const listEmpenhos: ModuleToolDefinition = {
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 
-		const { data, error } = await untypedFrom(ctx, "empenho").select("*").eq("ata_id", ataId).order("created_at", { ascending: false }).limit(limit)
+		const { data, error, count } = await untypedFrom(ctx, "empenho")
+			.select("*", { count: "exact" })
+			.eq("ata_id", ataId)
+			.order("created_at", { ascending: false })
+			.limit(limit)
 		if (error) return toolErr(sanitizeDbError(error, "list_empenhos"))
-		return toolOk({ empenhos: data ?? [], returned: data?.length ?? 0, limit })
+		return toolOk({ empenhos: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
 	},
 }
 

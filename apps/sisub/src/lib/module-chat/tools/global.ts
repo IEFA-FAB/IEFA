@@ -148,7 +148,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 		requireGlobalPermission(ctx, 1)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error } = await ctx.supabase
+		const { data, error, count } = await ctx.supabase
 			.from("menu_template")
 			.select(`*, items:menu_template_items(count)`, { count: "exact" })
 			.is("deleted_at", null)
@@ -163,7 +163,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 			item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 
-		return toolOk(templates)
+		return toolOk({ templates, returned: templates.length, total: count ?? templates.length, limit })
 	},
 }
 

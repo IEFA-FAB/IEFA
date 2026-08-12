@@ -51,14 +51,14 @@ const getAtas: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error } = await untypedFrom(ctx, "procurement_list")
-			.select("id, title, status, created_at, updated_at")
+		const { data, error, count } = await untypedFrom(ctx, "procurement_list")
+			.select("id, title, status, created_at, updated_at", { count: "exact" })
 			.eq("unit_id", unitId)
 			.is("deleted_at", null)
 			.order("created_at", { ascending: false })
 			.limit(limit)
 		if (error) return toolErr(sanitizeDbError(error, "get_atas"))
-		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, limit })
+		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
 	},
 }
 

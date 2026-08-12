@@ -76,10 +76,10 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 	// ── Render ────────────────────────────────────────────────────────────────
 	const virtualItems = virtualizer.getVirtualItems()
 	const hasMessages = visibleMessages.length > 0
-	// A falha já aparece dentro da bolha quando existe resposta do assistente;
-	// o aviso solto cobre o caso em que o turno morre antes de qualquer resposta
-	// (401, 503, 413 na primeira ida ao provider) — antes disso, não aparecia nada.
-	const showErrorNotice = Boolean(streamError) && !visibleMessages.some((m) => m.error)
+	// Um aviso só, acima do input, para qualquer falha do turno (401, 503, 413 na ida ao
+	// provider, rede). Vale inclusive quando o turno morre antes de existir bolha do
+	// assistente — o caso em que a tela não mostrava absolutamente nada.
+	const showErrorNotice = Boolean(streamError)
 
 	return (
 		<div className="flex h-full flex-col">

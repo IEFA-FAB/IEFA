@@ -13,10 +13,16 @@ import { MAX_TOOL_RESULT_CHARS, PayloadTooLargeError } from "@iefa/sisub-domain/
 // toolResult — helper para formatar respostas de tool
 // ---------------------------------------------------------------------------
 
-/** Formata um valor qualquer como conteúdo de texto JSON para MCP. */
+/**
+ * Formata um valor qualquer como conteúdo de texto JSON para MCP.
+ *
+ * JSON compacto: o texto é lido por um modelo, não por uma pessoa, e a indentação custava
+ * ~25% do payload (a receita mais pesada do catálogo caía de 31 KB para 24 KB) sem
+ * acrescentar nada ao que o modelo entende.
+ */
 export function toolResult(data: unknown) {
 	return {
-		content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+		content: [{ type: "text" as const, text: JSON.stringify(data) }],
 	}
 }
 

@@ -21,7 +21,7 @@ import {
 import type { FrozenPreparation, Ingredient, Recipe, RecipeFolder, RecipeIngredient } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
-import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
 	CreateRecipeFolder,
@@ -169,7 +169,11 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
 	} else {
-		requirePermission(ctx, "kitchen", 1)
+		// Sem cozinha, a listagem é do catálogo global — quem administra o catálogo (global)
+		// chega por aqui sem ter nenhuma cozinha. Exigir `kitchen:1`, como faz `listRecipes`,
+		// trancava o usuário só-global fora da própria listagem dele. Mesmo critério do
+		// catálogo de insumos.
+		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
 	const conditions: (SQL | undefined)[] = []

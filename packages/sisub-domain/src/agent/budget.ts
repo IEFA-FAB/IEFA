@@ -14,8 +14,19 @@
 
 import { DomainError } from "../types/errors.ts"
 
-/** ~24 mil caracteres ≈ 6 mil tokens: cabe em qualquer modelo e sobra espaço p/ histórico. */
-export const MAX_TOOL_RESULT_CHARS = 24_000
+/**
+ * Teto de caracteres de UM resultado de tool, em JSON compacto.
+ *
+ * É um freio contra patologia, não o controle de tamanho do dia a dia — quem dimensiona a
+ * resposta normal é o `limit` de cada listagem (teto de 100 itens ≈ 17 KB). Por isso o
+ * valor é folgado: a leitura de detalhe legítima não tem como estreitar a chamada. A
+ * receita mais pesada do catálogo ("Cozido à Pernambucana", 31 ingredientes) dá 24 KB
+ * compactos; barrá-la mandaria o modelo "reduzir o limit" de uma tool que não tem limit.
+ *
+ * 60 mil caracteres ≈ 15 mil tokens: cabe com folga num contexto de 128k e ainda pega o
+ * caso que motivou tudo isto — os 10,6 MB de `list_recipes`.
+ */
+export const MAX_TOOL_RESULT_CHARS = 60_000
 
 /** Padrão e teto de qualquer listagem exposta a um agente. */
 export const AGENT_LIST_DEFAULT = 30
@@ -30,7 +41,8 @@ export class PayloadTooLargeError extends DomainError {
 		super(
 			"PAYLOAD_TOO_LARGE",
 			`Resultado de ${toolName} grande demais (${Math.round(chars / 1000)} mil caracteres; teto ${Math.round(max / 1000)} mil). ` +
-				"Refaça a chamada mais estreita: filtre por busca/data/escopo ou reduza o limit."
+				"Refaça a chamada mais estreita — filtre por busca, período ou escopo, reduza o limit se a tool tiver um, " +
+				"ou peça o recurso em partes."
 		)
 		this.name = "PayloadTooLargeError"
 		Object.setPrototypeOf(this, new.target.prototype)
