@@ -52,7 +52,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery } from "../utils/index.ts"
+import { describeDriverError, runQuery } from "../utils/index.ts"
 
 /** Código exigido nas sentinelas — segunda âncora, além de `is_training`. */
 const TRAINING_CODE = "TREINO"
@@ -419,7 +419,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 				try {
 					counts[step.table] = await step.run(tx, scope, ids)
 				} catch (e) {
-					throw new DomainError("RESET_FAILED", `Falha ao limpar ${step.table}: ${e instanceof Error ? e.message : String(e)}`)
+					throw new DomainError("RESET_FAILED", `Falha ao limpar ${step.table}: ${describeDriverError(e)}`)
 				}
 			}
 
@@ -445,7 +445,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 				finishedAt: new Date().toISOString(),
 				durationMs: Date.now() - startedAt.getTime(),
 				status: "failed",
-				errorMessage: error instanceof Error ? error.message : String(error),
+				errorMessage: describeDriverError(error),
 			})
 			.where(eq(trainingResetLogInCore.id, logRow?.id as string))
 		throw error
