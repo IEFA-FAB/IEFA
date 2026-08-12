@@ -107,8 +107,9 @@ export function PreparationsTreeManager() {
 
 	return (
 		<div className="space-y-6">
-			<Card className="flex-col lg:flex-row lg:items-center gap-3 p-4 overflow-visible">
-				<div className="relative flex-1 min-w-56">
+			{/* Mesma regra de quebra da árvore de insumos — as duas abas vivem lado a lado. */}
+			<Card className="flex-col min-[1400px]:flex-row min-[1400px]:items-center gap-3 p-4 overflow-visible">
+				<div className="relative flex-1 min-w-56 min-[1400px]:basis-80">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 					<Input
 						type="search"
@@ -119,7 +120,7 @@ export function PreparationsTreeManager() {
 						aria-label="Buscar na árvore de preparações"
 					/>
 				</div>
-				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
+				<div className="flex flex-wrap items-center gap-2 min-w-0 min-[1400px]:justify-end">
 					<Button
 						variant="outline"
 						size="sm"
