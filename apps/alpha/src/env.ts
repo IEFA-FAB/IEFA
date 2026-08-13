@@ -11,12 +11,20 @@ const schema = z.object({
 	 */
 	ALPHA_DATABASE_URL: z.string().min(1).optional(),
 	DATABASE_URL: z.string().min(1).optional(),
-	NVIDIA_API_KEY: z.string().min(1),
+	/** Só é exigida quando algum provedor NVIDIA continua em uso. */
+	NVIDIA_API_KEY: z.string().min(1).optional(),
 	ALPHA_AI_API_KEY: z.string().min(1).optional(),
 	NVIDIA_BASE_URL: z.string().url().default("https://integrate.api.nvidia.com/v1"),
 	LLM_MODEL: z.string().default("openai/gpt-oss-120b"),
-	ALPHA_AI_PROVIDER: z.enum(["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama"]).default("nvidia"),
-	ALPHA_AI_MODEL: z.string().default("openai/gpt-oss-120b"),
+	ALPHA_AI_PROVIDER: z.enum(["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama", "bedrock"]).default("bedrock"),
+	ALPHA_AI_MODEL: z.string().default(""),
+	/** Região do Bedrock; cai para a região padrão da AWS quando ausente. */
+	ALPHA_AI_REGION: z.string().default(process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1"),
+	/** Provedor do embedder — independente do provedor do chat. */
+	ALPHA_EMBEDDING_PROVIDER: z.enum(["bedrock", "nvidia"]).default("bedrock"),
+	ALPHA_EMBEDDING_MODEL: z.string().default("amazon.titan-embed-text-v2:0"),
+	/** Modelo de rerank do Bedrock; vazio desliga o rerank. */
+	ALPHA_RERANK_MODEL: z.string().default(""),
 	EMB_MODEL: z.string().default("baai/bge-m3"),
 	EMB_QUERY_PREFIX: z.string().default("Represent this sentence for searching relevant passages:"),
 	EMB_BATCH_SIZE: z.coerce.number().default(128),
@@ -50,6 +58,18 @@ const schema = z.object({
 })
 
 const parsed = schema.parse(process.env)
+
+if (!parsed.ALPHA_AI_MODEL) {
+	throw new Error(
+		`ALPHA_AI_MODEL é obrigatório. Para bedrock, use o id do modelo ou do inference profile da região ${parsed.ALPHA_AI_REGION}; não há default seguro para cravar.`
+	)
+}
+
+// Provedores NVIDIA precisam de chave; Bedrock autentica pela cadeia da AWS.
+const usaNvidia = parsed.ALPHA_AI_PROVIDER === "nvidia" || parsed.ALPHA_EMBEDDING_PROVIDER === "nvidia"
+if (usaNvidia && !parsed.NVIDIA_API_KEY) {
+	throw new Error("NVIDIA_API_KEY é obrigatório quando ALPHA_AI_PROVIDER ou ALPHA_EMBEDDING_PROVIDER é 'nvidia'.")
+}
 
 const databaseUrl = parsed.ALPHA_DATABASE_URL ?? parsed.DATABASE_URL
 if (!databaseUrl) {

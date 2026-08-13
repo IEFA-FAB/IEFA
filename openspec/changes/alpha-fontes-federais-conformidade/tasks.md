@@ -115,7 +115,9 @@ O projeto Supabase antigo foi apagado em 2026-07-31 com o corpus indexado dentro
 
 - [x] X.1 [alpha] Fluxo ponta a ponta validado contra o banco: submissão → extração (spans, truncamento declarado) → conformidade (6 regras, 4 normas, 137 achados)
 - [x] X.2 [alpha] Perfil `app_aci` concedido; promoção de regra e coleta sob demanda respondendo 200
-- [ ] X.3 [alpha] Provedor de embedding — a chave NVIDIA perdeu acesso a chat e a embeddings; LLM migrado para Groq, busca degradada para keyword-only até haver embedder
+- [x] X.3 [alpha] **NVIDIA removida do caminho padrão**: chat, embeddings e rerank passam a ser Bedrock (keyless por task role); `embedding_model` por chunk impede comparar vetores de modelos diferentes
+- [ ] X.4 [alpha] Validar Bedrock com credencial real (esta máquina não tem): confirmar o modelo de chat disponível na região, ligar `ALPHA_EMBEDDINGS_ENABLED` e reingerir o corpus com vetores
+- [ ] X.5 [infra] Aplicar `enable_bedrock_task_access = true` no `foundation` com a região do α em `bedrock_regions` (a policy já ganhou `bedrock:Rerank`)
 
 ## Final
 

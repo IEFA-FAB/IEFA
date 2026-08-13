@@ -12,6 +12,7 @@
  */
 
 import { supabase } from "../db/supabase.ts"
+import { embeddingModelId } from "../lib/embeddings.ts"
 import { estimateTokens } from "../lib/text.ts"
 import { buildChunks } from "./chunking.ts"
 import type { NormativeSourceAdapter, SourceItem, StructuredDoc } from "./types.ts"
@@ -213,7 +214,10 @@ async function persist(
 				chunk_index: chunk.chunk_index,
 				token_count: estimateTokens(chunk.content),
 				metadata: { source_id: sourceId, version_label: doc.version_label },
-				embedding: vectors[position],
+				embedding: vectors[position] ?? null,
+				// Quem gerou o vetor. Sem isto, trocar de modelo faria a busca
+				// comparar espaços vetoriais distintos sem nenhum sinal de erro.
+				embedding_model: vectors[position] ? embeddingModelId() : null,
 			}))
 		)
 		if (error) throw new Error(`insert de document_chunk falhou: ${error.message}`)

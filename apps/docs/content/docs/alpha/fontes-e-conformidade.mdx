@@ -29,6 +29,23 @@ O projeto Supabase separado que o α usava foi apagado. Nada dele foi recuperado
 Herdar os secrets do sisub é conveniente agora e dívida depois: rotacionar a chave do sisub derruba o α junto, e não há como dar ao α credencial de menor privilégio nem pooler próprio. O TODO de separar está registrado em `sync-secrets.yml` e em `infra/alpha/terraform.tfvars.example`.
 </Callout>
 
+## IA — Bedrock
+
+Chat, embeddings e rerank rodam no **AWS Bedrock**, keyless pela task role, no mesmo padrão de sisub e sucont. A permissão vem da policy compartilhada do stack `foundation` (`enable_bedrock_task_access`), que precisa incluir a região do α em `bedrock_regions`.
+
+| Variável | Para quê |
+|---|---|
+| `ALPHA_AI_MODEL` | id do modelo ou inference profile do chat — **sem default**, porque cravar um id que pode não existir na região é pior que exigir a escolha |
+| `ALPHA_EMBEDDING_MODEL` | `amazon.titan-embed-text-v2:0` (1024 dimensões, que é o que o schema fixa) |
+| `ALPHA_RERANK_MODEL` | vazio desliga o rerank; a ordenação passa a ser a do RRF |
+| `ALPHA_AI_REGION` | região do Bedrock |
+
+<Callout type="warn">
+Cada chunk grava `embedding_model`, e a busca semântica só considera chunks do modelo em uso. Vetores de modelos diferentes vivem em espaços diferentes: compará-los não dá erro, dá distância sem significado. **Trocar de modelo de embedding exige reingerir o corpus.**
+</Callout>
+
+Os provedores compatíveis com a API da OpenAI (Groq, NVIDIA, OpenRouter) continuam suportados via `ALPHA_AI_PROVIDER`, para desenvolvimento local sem credencial AWS.
+
 ## Fontes normativas
 
 Cada fonte externa implementa um adapter com `discover` / `fetch` / `parse`. O que vem depois — hash, dedup, supersede, chunk, embed, upsert — é escrito uma vez e vale para todas.

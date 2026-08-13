@@ -83,6 +83,9 @@ data "aws_iam_policy_document" "task_bedrock" {
       "bedrock:InvokeModelWithResponseStream",
       "bedrock:Converse",
       "bedrock:ConverseStream",
+      # Rerank (bedrock-agent-runtime) — usado pelo retriever do alpha para
+      # reordenar os trechos de norma recuperados. Ação distinta de InvokeModel.
+      "bedrock:Rerank",
     ]
     resources = concat(
       [for r in var.bedrock_regions : "arn:aws:bedrock:${r}::foundation-model/*"],

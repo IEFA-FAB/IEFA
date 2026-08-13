@@ -19,6 +19,16 @@ environment_variables = {
   # Timer semanal de atualização das fontes normativas. Ligar só depois da
   # primeira coleta manual conferida.
   ALPHA_SOURCES_REFRESH_ENABLED = "false"
+
+  # IA via Bedrock, keyless pela task role compartilhada. Exige
+  # `enable_bedrock_task_access = true` no stack `foundation` e a região abaixo
+  # listada em `bedrock_regions`.
+  ALPHA_AI_PROVIDER        = "bedrock"
+  ALPHA_AI_REGION          = "sa-east-1"
+  ALPHA_EMBEDDING_PROVIDER = "bedrock"
+  ALPHA_EMBEDDING_MODEL    = "amazon.titan-embed-text-v2:0"
+  # Id do modelo ou inference profile do chat — sem default no código.
+  ALPHA_AI_MODEL = ""
 }
 
 # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL vêm dos secrets do
@@ -31,6 +41,7 @@ secret_names = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "DATABASE_URL",
+  # Só necessários se ALPHA_AI_PROVIDER voltar a um provedor com API key.
   "NVIDIA_API_KEY",
   "ALPHA_AI_API_KEY",
   "LANGCHAIN_API_KEY",

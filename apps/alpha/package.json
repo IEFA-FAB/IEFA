@@ -15,9 +15,11 @@
 		"eval": "bun run src/eval/run-eval.ts"
 	},
 	"dependencies": {
+		"@aws-sdk/client-bedrock-agent-runtime": "^3.1109.0",
 		"@hono/zod-validator": "^0.9.0",
 		"@iefa/ai-provider": "workspace:*",
 		"@iefa/alpha-client": "workspace:*",
+		"@langchain/aws": "^1.4.3",
 		"@langchain/core": "^1.2.3",
 		"@langchain/langgraph": "^1.4.8",
 		"@langchain/langgraph-checkpoint-postgres": "^1.0.4",
