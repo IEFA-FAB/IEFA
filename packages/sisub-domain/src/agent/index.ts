@@ -15,6 +15,7 @@ export {
 	MAX_TOOL_RESULT_CHARS,
 	PayloadTooLargeError,
 } from "./budget.ts"
+export { dropUnexpectedNulls } from "./model-input.ts"
 export type { AgentIngredientSummary, AgentList } from "./reads.ts"
 export { agentListIngredients, agentListPreparations, agentListRecipes } from "./reads.ts"
 export type { AgentListIngredients, AgentListPreparations, AgentListRecipes } from "./schemas.ts"

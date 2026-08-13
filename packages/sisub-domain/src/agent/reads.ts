@@ -36,7 +36,9 @@ function paginate<T>(rows: T[], limit: number): AgentList<T> {
 
 export async function agentListRecipes(db: SisubDb, ctx: UserContext, input: AgentListRecipes & { globalOnly?: boolean }): Promise<AgentList<RecipeSummary>> {
 	const limit = clampLimit(input.limit)
-	const rows = await listRecipeSummaries(db, ctx, { kitchenId: input.kitchenId, search: input.search, globalOnly: input.globalOnly })
+	// `?? undefined`: os schemas aceitam `null` porque é isso que modelo manda para "não
+	// informado" — as operations tipam ausência como `undefined`.
+	const rows = await listRecipeSummaries(db, ctx, { kitchenId: input.kitchenId ?? undefined, search: input.search ?? undefined, globalOnly: input.globalOnly })
 	return paginate(rows, limit)
 }
 
@@ -54,7 +56,7 @@ function slimIngredient(row: { id: string; description: string | null; measure_u
 
 export async function agentListIngredients(db: SisubDb, ctx: UserContext, input: AgentListIngredients): Promise<AgentList<AgentIngredientSummary>> {
 	const limit = clampLimit(input.limit)
-	const rows = await listIngredients(db, ctx, { search: input.search, folderId: input.folderId })
+	const rows = await listIngredients(db, ctx, { search: input.search ?? undefined, folderId: input.folderId ?? undefined })
 	return paginate(rows.map(slimIngredient), limit)
 }
 
@@ -64,6 +66,6 @@ export async function agentListIngredients(db: SisubDb, ctx: UserContext, input:
  */
 export async function agentListPreparations(db: SisubDb, ctx: UserContext, input: AgentListPreparations): Promise<AgentList<AgentIngredientSummary>> {
 	const limit = clampLimit(input.limit)
-	const rows = await listIngredients(db, ctx, { search: input.search, preparations: "only" })
+	const rows = await listIngredients(db, ctx, { search: input.search ?? undefined, preparations: "only" })
 	return paginate(rows.map(slimIngredient), limit)
 }

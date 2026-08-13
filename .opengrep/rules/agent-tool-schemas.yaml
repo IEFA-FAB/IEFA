@@ -1,0 +1,27 @@
+##
+# Invariantes dos schemas de entrada expostos a MODELO (chat dos módulos + servidor MCP).
+#
+# Como as outras regras deste diretório, esta nasceu de um bug que já aconteceu: um
+# `.optional()` sem `.nullish()` em `agent/schemas.ts` derrubou `/global/chat` inteiro.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: agent-schema-optional-without-null
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Parâmetro opcional exposto a modelo declarado com `.optional()` — troque por `.nullish()`.
+      Modelo não omite campo: ele preenche com `null` (`{"limit":2,"search":null}` foi o payload
+      real que o llama-3.3 mandou para `list_recipes`). O schema Zod viaja junto do JSON Schema e
+      é ele quem valida os argumentos no engine do @tanstack/ai, então `.optional()` puro rejeita
+      a chamada; o modelo lê o erro, tenta de novo com sintaxe de function call quebrada e o
+      provider mata a run com 400 `tool_use_failed` — o usuário vê uma bolha vazia. Quem consome
+      normaliza com `?? undefined`.
+    paths:
+      include:
+        - "packages/sisub-domain/src/agent/schemas.ts"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-regex: \.optional\(\)
