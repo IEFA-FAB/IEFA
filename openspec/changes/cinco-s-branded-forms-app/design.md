@@ -65,7 +65,7 @@ Disponível via `useTenant()` hook em qualquer componente. O `__root.tsx` instan
 
 **Racional**: O sistema atual já usa CSS vars para tudo (cores, radius, shadows, fonts). Basta um seletor `[data-tenant="cinco-s"]` que sobrescreve as vars relevantes. Os componentes UI não mudam — só os tokens.
 
-**Direção visual — "Programa VETOR 5S" (baseado nos infográficos de referência em `apps/5s/docs/`):**
+**Direção visual — "Programa VETOR 5S"** (baseado nos infográficos de referência que ficavam em `apps/5s/docs/`; os arquivos saíram da árvore em 2026-08-13 por serem 3,5 MB de fotos sem uso em build ou runtime — recupere com `git log --diff-filter=D -- 'apps/5s/docs/*'`):
 - **Nome oficial**: "Programa VETOR 5S — Melhoria Contínua"
 - **Slogan**: "Direção clara. Esforços alinhados. Excelência contínua."
 - **Organização**: SEFA — Secretaria de Economia, Finanças e Administração da Aeronáutica
@@ -135,7 +135,9 @@ O `TenantProvider` injeta o filtro automaticamente via hook wrapper `useQuestion
 4. **Deploy**: novo app Fly.io (ou machine) com `VITE_APP_TENANT=cinco-s`
 5. **Rollback**: remover classe `data-tenant`, provider retorna sempre `"forms"` — zero impacto funcional
 
-## Conteúdo Institucional (extraído de `apps/5s/docs/`)
+## Conteúdo Institucional
+
+Extraído dos infográficos que ficavam em `apps/5s/docs/` (removidos da árvore; ver nota acima). O conteúdo transcrito abaixo é a fonte de verdade para o app.
 
 O programa se chama **"Programa VETOR 5S"** e opera em **7 fases cíclicas** (NITI DUS):
 
