@@ -1,5 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Refresh } from "iconoir-react"
+import { useEffect, useState } from "react"
 import { z } from "zod"
 import { AuthScreen } from "@/auth/view/AuthScreen"
 import { useAuth } from "@/hooks/useAuth"
@@ -55,6 +56,19 @@ function AuthPage() {
 		},
 	}
 
+	// O link de e-mail volta do Supabase sem token_hash: o client consome os
+	// tokens da URL e anuncia PASSWORD_RECOVERY. É esse evento que distingue
+	// "chegou para redefinir a senha" de "chegou para fazer login".
+	const [isRecoverySession, setIsRecoverySession] = useState(false)
+	useEffect(() => {
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((event) => {
+			if (event === "PASSWORD_RECOVERY") setIsRecoverySession(true)
+		})
+		return () => subscription.unsubscribe()
+	}, [])
+
 	const handleNavigate = async (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => {
 		await router.navigate(options as Parameters<typeof router.navigate>[0])
 	}
@@ -88,6 +102,7 @@ function AuthPage() {
 		<AuthScreen
 			isLoading={isLoading}
 			isAuthenticated={isAuthenticated}
+			isRecoverySession={isRecoverySession}
 			searchParams={search}
 			onNavigate={handleNavigate}
 			onTabChange={handleTabChange}

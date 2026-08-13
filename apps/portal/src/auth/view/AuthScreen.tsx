@@ -34,12 +34,20 @@ function safeRedirect(target: string | null | undefined, fallback = "/"): string
 	return fallback
 }
 
-// view derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
+// view derivada da URL — "reset" ativado por token_hash (ou pela sessão de
+// recuperação que o client abre sozinho), "forgot" por ?view=forgot
 export type AuthView = "auth" | "forgot" | "reset"
 
 export interface AuthScreenProps {
 	isLoading: boolean
 	isAuthenticated: boolean
+	/**
+	 * O template `{{ .ConfirmationURL }}` devolve o link sem token_hash: os tokens
+	 * chegam no hash (ou como `?code=`) e o próprio client os consome, emitindo
+	 * PASSWORD_RECOVERY. Sem esse sinal a tela mostraria o login para quem acabou
+	 * de clicar em "redefinir senha".
+	 */
+	isRecoverySession?: boolean
 	searchParams: {
 		redirect?: string
 		tab?: "login" | "register"
@@ -102,12 +110,21 @@ function SuccessBanner({ message }: { message: string }) {
 
 // ─── AuthScreen ───────────────────────────────────────────────────────────────
 
-export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigate, onTabChange, onViewChange, actions }: AuthScreenProps) {
+export function AuthScreen({
+	isLoading,
+	isAuthenticated,
+	isRecoverySession = false,
+	searchParams,
+	onNavigate,
+	onTabChange,
+	onViewChange,
+	actions,
+}: AuthScreenProps) {
 	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
 
 	// ── View derivada da URL — nunca estado local ─────────────────────────────
 	// Prioridade: token_hash → reset | ?view=forgot → forgot | default → auth tabs
-	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
+	const currentView: AuthView = searchParams.token_hash || isRecoverySession ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
 
 	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
 
