@@ -1,8 +1,9 @@
-import type { Database } from "@iefa/database"
-import { createServerClient } from "@supabase/ssr"
-import { createClient } from "@supabase/supabase-js"
-import { getRequest, setCookie } from "@tanstack/react-start/server"
+import { createServiceRoleClient } from "@iefa/supabase-kit"
+import { createSsrAuthClient } from "@iefa/supabase-kit/start"
 import { envServer } from "./env.server"
+
+const url = () => envServer.VITE_RUMAER_SUPABASE_URL
+const secretKey = () => envServer.RUMAER_SUPABASE_SECRET_KEY
 
 /**
  * Cliente Supabase com service role para operações de dados no schema rumaer.
@@ -10,10 +11,7 @@ import { envServer } from "./env.server"
  * Nunca importe em código client-side.
  */
 export function getRumaerServerClient() {
-	return createClient<Database, "rumaer">(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
-		db: { schema: "rumaer" },
-		auth: { persistSession: false },
-	})
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "rumaer" })
 }
 
 /**
@@ -23,10 +21,7 @@ export function getRumaerServerClient() {
  * é aplicada na camada de app (@iefa/pbac), não por RLS.
  */
 export function getAccessControlClient() {
-	return createClient<Database, "access_control">(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
-		db: { schema: "access_control" },
-		auth: { persistSession: false },
-	})
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "access_control" })
 }
 
 /**
@@ -35,10 +30,7 @@ export function getAccessControlClient() {
  * para core no split de schemas por domínio). Read-only.
  */
 export function getCoreReadClient() {
-	return createClient<Database, "core">(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
-		db: { schema: "core" },
-		auth: { persistSession: false },
-	})
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "core" })
 }
 
 /**
@@ -47,23 +39,5 @@ export function getCoreReadClient() {
  * Use APENAS em auth.fn.ts. Para queries de dados, use getRumaerServerClient().
  */
 export function getRumaerAuthClient() {
-	return createServerClient(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
-		cookies: {
-			getAll() {
-				const request = getRequest()
-				const cookieHeader = request?.headers.get("cookie")
-				if (!cookieHeader) return []
-
-				return cookieHeader.split(";").map((c) => {
-					const [name, ...v] = c.split("=")
-					return { name: name.trim(), value: v.join("=") }
-				})
-			},
-			async setAll(cookies) {
-				for (const { name, value, options } of cookies) {
-					await setCookie(name, value, options)
-				}
-			},
-		},
-	})
+	return createSsrAuthClient({ url: url(), key: envServer.RUMAER_SUPABASE_SECRET_KEY })
 }

@@ -13,6 +13,11 @@
  * Foi exatamente isso que faltou — `portal` e `rumaer` pediam
  * `/auth/reset-password` e `/auth/callback`, que não são rotas de nenhum dos
  * dois. Um teste preso ao sisub não teria visto, então este varre os apps.
+ *
+ * Quem monta a URL absoluta é `createAuthActions` em `@iefa/auth-kit`; cada app
+ * declara só o CAMINHO, em `signUpRedirectPath` / `resetPasswordRedirectPath`.
+ * O extrator abaixo aceita as duas formas — a antiga, com o template de
+ * `window.location.origin` inline no app, e a atual, com o caminho nomeado.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs"
@@ -42,9 +47,14 @@ function appsWithAuthService(): { app: string; serviceFile: string; routesDir: s
 		.filter((entry) => existsSync(entry.serviceFile) && existsSync(entry.routesDir))
 }
 
-/** Extrai os caminhos de `${window.location.origin}<path>` usados como destino de link. */
+/** Extrai os caminhos declarados como destino de link de e-mail pelo app. */
 function emailLinkPaths(source: string): string[] {
 	const paths = new Set<string>()
+	// Forma atual: o app passa o caminho para `createAuthActions`, que o torna absoluto.
+	for (const match of source.matchAll(/(?:signUpRedirectPath|resetPasswordRedirectPath):\s*"([^"]+)"/g)) {
+		paths.add(match[1])
+	}
+	// Forma antiga: template de origin montado dentro do próprio app.
 	for (const match of source.matchAll(/(?:emailRedirectTo|redirectTo)[\s\S]{0,160}?\$\{window\.location\.origin\}([^`]*)`/g)) {
 		paths.add(match[1])
 	}
