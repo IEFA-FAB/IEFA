@@ -34,8 +34,7 @@ const originalServe = Bun.serve
 type ServeOptions = { idleTimeout?: number } & Record<string, unknown>
 
 Bun.serve = function serveWithIdleTimeout(options: ServeOptions, ...rest: unknown[]) {
-	const withDefault =
-		options && typeof options === "object" ? { idleTimeout: DEFAULT_IDLE_TIMEOUT_SECONDS, ...options } : options
+	const withDefault = options && typeof options === "object" ? { idleTimeout: DEFAULT_IDLE_TIMEOUT_SECONDS, ...options } : options
 
 	return (originalServe as (...args: unknown[]) => unknown).call(Bun, withDefault, ...rest)
 } as typeof Bun.serve

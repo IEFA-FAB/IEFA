@@ -1,7 +1,7 @@
-import { createError, readBody, type H3Event } from "nitro/h3"
-import { defineHandler } from "nitro"
-import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { createAdapterFromEnv } from "@iefa/ai-provider"
+import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
+import { defineHandler } from "nitro"
+import { createError, type H3Event, readBody } from "nitro/h3"
 import { UG_INFO } from "#/subitens/constants"
 
 function buildSystemPrompt(contextSummary?: string): string {

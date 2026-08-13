@@ -73,7 +73,7 @@ function buildMigration(data) {
 	const sectionCount = questionnaires.reduce((sum, questionnaire) => sum + questionnaire.sections.length, 0)
 	const questionCount = questionnaires.reduce(
 		(sum, questionnaire) => sum + questionnaire.sections.reduce((sectionSum, section) => sectionSum + section.questions.length, 0),
-		0,
+		0
 	)
 
 	const lines = [
@@ -99,15 +99,13 @@ function buildMigration(data) {
 
 		for (const section of questionnaire.sections) {
 			lines.push("    insert into forms.section (questionnaire_id, title, description, sort_order)")
-			lines.push(
-				`    values (questionnaire_id, ${sqlString(section.title)}, ${sqlString(section.description)}, ${section.sortOrder})`
-			)
+			lines.push(`    values (questionnaire_id, ${sqlString(section.title)}, ${sqlString(section.description)}, ${section.sortOrder})`)
 			lines.push("    returning id into section_id;")
 
 			for (const question of section.questions) {
 				lines.push("    insert into forms.question (section_id, text, description, type, options, required, sort_order)")
 				lines.push(
-					`    values (section_id, ${sqlString(question.text)}, ${sqlString(question.description)}, 'conformity', '{"weight":1,"weightLabel":"Desejável"}'::jsonb, true, ${question.sortOrder});`,
+					`    values (section_id, ${sqlString(question.text)}, ${sqlString(question.description)}, 'conformity', '{"weight":1,"weightLabel":"Desejável"}'::jsonb, true, ${question.sortOrder});`
 				)
 			}
 		}

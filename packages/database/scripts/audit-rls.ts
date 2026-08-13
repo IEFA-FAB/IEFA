@@ -129,7 +129,8 @@ async function auditTables(schemas: string[]): Promise<Finding[]> {
 						severity: "warn",
 						lint: "rls_disabled_no_grant",
 						object,
-						detail: "RLS desligada, mas anon/authenticated não têm nenhum GRANT — inalcançável pela API hoje. Um GRANT futuro a expõe sem barreira: ligue RLS mesmo assim",
+						detail:
+							"RLS desligada, mas anon/authenticated não têm nenhum GRANT — inalcançável pela API hoje. Um GRANT futuro a expõe sem barreira: ligue RLS mesmo assim",
 					},
 				]
 			}
