@@ -32,6 +32,8 @@
     "clean": "bunx turbo run clean && rm -rf node_modules .turbo",
     "clean:cache": "rm -rf .turbo node_modules/.cache",
     "knip": "knip",
+    "generate:deploy": "bun scripts/generate-deploy-artifacts.ts",
+    "check:deploy": "bun scripts/generate-deploy-artifacts.ts --check",
     "upgrade": "bun update --latest",
     "gen-all-types": "turbo run generate",
     "commit": "bun run format:check && bunx turbo run lint typecheck && cz",

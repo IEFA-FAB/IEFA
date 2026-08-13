@@ -1,3 +1,5 @@
+# GERADO por scripts/generate-deploy-artifacts.ts a partir de apps.manifest.json — não editar à mão.
+
 variable "REGISTRY" {
   default = "replace-me.dkr.ecr.sa-east-1.amazonaws.com"
 }
@@ -10,23 +12,7 @@ variable "TAG" {
   default = "latest"
 }
 
-variable "VITE_IEFA_SUPABASE_URL" {
-  default = ""
-}
-
-variable "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY" {
-  default = ""
-}
-
-variable "VITE_RUMAER_SUPABASE_URL" {
-  default = ""
-}
-
-variable "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY" {
-  default = ""
-}
-
-variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_URL" {
+variable "FARO_SOURCEMAP_API_KEY" {
   default = ""
 }
 
@@ -34,23 +20,7 @@ variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY" {
   default = ""
 }
 
-variable "VITE_SUCONT_SUPABASE_URL" {
-  default = ""
-}
-
-variable "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY" {
-  default = ""
-}
-
-variable "VITE_SISUB_SUPABASE_URL" {
-  default = ""
-}
-
-variable "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY" {
-  default = ""
-}
-
-variable "VITE_FARO_COLLECTOR_URL" {
+variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_URL" {
   default = ""
 }
 
@@ -58,20 +28,48 @@ variable "VITE_FARO_APP_NAME" {
   default = ""
 }
 
+variable "VITE_FARO_COLLECTOR_URL" {
+  default = ""
+}
+
 variable "VITE_FARO_ENVIRONMENT" {
   default = ""
 }
 
-variable "FARO_SOURCEMAP_API_KEY" {
+variable "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
+variable "VITE_IEFA_SUPABASE_URL" {
+  default = ""
+}
+
+variable "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
+variable "VITE_RUMAER_SUPABASE_URL" {
+  default = ""
+}
+
+variable "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
+variable "VITE_SISUB_SUPABASE_URL" {
+  default = ""
+}
+
+variable "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
+variable "VITE_SUCONT_SUPABASE_URL" {
   default = ""
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "docs", "alpha", "5s", "sisub-mcp"]
-}
-
-group "apps" {
-  targets = ["portal", "sisub"]
+  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "alpha", "docs", "sisub-mcp", "5s"]
 }
 
 target "base" {
@@ -175,20 +173,28 @@ target "forms" {
   }
 }
 
+target "alpha" {
+  inherits = ["base"]
+  target = "alpha"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/alpha:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=alpha"]
+  cache-to = ["type=gha,scope=alpha,mode=max"]
+}
+
 target "docs" {
   inherits = ["base"]
-  target   = "docs"
-  tags     = ["${REGISTRY}/${REPOSITORY_PREFIX}/docs:${TAG}"]
+  target = "docs"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/docs:${TAG}"]
   cache-from = ["type=gha,scope=deps", "type=gha,scope=docs"]
   cache-to = ["type=gha,scope=docs,mode=max"]
 }
 
-target "alpha" {
+target "sisub-mcp" {
   inherits = ["base"]
-  target   = "alpha"
-  tags     = ["${REGISTRY}/${REPOSITORY_PREFIX}/alpha:${TAG}"]
-  cache-from = ["type=gha,scope=deps", "type=gha,scope=alpha"]
-  cache-to = ["type=gha,scope=alpha,mode=max"]
+  target = "sisub-mcp"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/sisub-mcp:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=sisub-mcp"]
+  cache-to = ["type=gha,scope=sisub-mcp,mode=max"]
 }
 
 target "5s" {
@@ -202,13 +208,4 @@ target "5s" {
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
     VITE_APP_TENANT                    = "cinco-s"
   }
-}
-
-# MCP server (server-side only; no VITE_* build args).
-target "sisub-mcp" {
-  inherits   = ["base"]
-  target     = "sisub-mcp"
-  tags       = ["${REGISTRY}/${REPOSITORY_PREFIX}/sisub-mcp:${TAG}"]
-  cache-from = ["type=gha,scope=deps", "type=gha,scope=sisub-mcp"]
-  cache-to   = ["type=gha,scope=sisub-mcp,mode=max"]
 }
