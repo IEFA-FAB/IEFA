@@ -275,3 +275,25 @@ jobs:
         with:
           sarif_file: trivy-config.sarif
           category: trivy-config
+
+  deploy-artifacts-drift:
+    name: deploy artifacts (manifest drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      # Gate, não relatório: Dockerfile, docker-bake.hcl e .github/paths-filter.yml
+      # são derivados de apps.manifest.json + o grafo de workspace. Editados à mão,
+      # divergem em silêncio — package fora do COPY quebra o build da imagem, e
+      # package fora do paths-filter faz o app não redeployar quando muda.
+      - name: Check generated deploy artifacts
+        run: bun run check:deploy
