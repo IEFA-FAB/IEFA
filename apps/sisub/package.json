@@ -16,6 +16,7 @@
     "test:integration": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts",
     "test:integration:gate": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts --no-file-parallelism src/test/operations/stock-ledger.operations.test.ts src/test/operations/receiving.operations.test.ts src/test/operations/monthly-closing.operations.test.ts src/test/operations/inventory-cycle.e2e.operations.test.ts src/test/operations/budget-execution.operations.test.ts",
     "test:integration:janitor": "bun run scripts/purge-test-fixtures.ts",
+    "trainees:add": "bun run scripts/add-trainees.ts",
     "test:ai": "SISUB_RUN_AI_SMOKE=true vitest run --config vitest.config.ts src/test/ai",
     "test:e2e": "bunx playwright test",
     "test:e2e:ci": "bunx playwright test --project=chromium e2e/tests/smoke.spec.ts e2e/tests/auth.spec.ts e2e/tests/navigation.spec.ts e2e/tests/authz.spec.ts",
