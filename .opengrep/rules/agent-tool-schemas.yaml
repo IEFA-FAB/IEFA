@@ -23,5 +23,7 @@ rules:
         - "packages/sisub-domain/src/agent/schemas.ts"
       exclude:
         - "**/*.test.ts"
+    # Padrão de AST, não regex: o `pattern-regex` casava dentro do próprio comentário que
+    # documenta a regra no topo de `schemas.ts` — dois achados em texto explicativo.
     patterns:
-      - pattern-regex: \.optional\(\)
+      - pattern: $SCHEMA.optional()
