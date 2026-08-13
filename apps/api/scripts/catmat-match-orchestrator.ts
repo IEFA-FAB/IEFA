@@ -98,12 +98,12 @@ const GENERIC_CANDIDATE_HEAD_TOKENS = new Set([
 	"ALIMENTO",
 	"BEBIDA",
 	"CALDA",
-	"CARNE",    // ex: "CARNE DE AVE IN NATURA", "CARNE SALGADA" — categoria ampla
+	"CARNE", // ex: "CARNE DE AVE IN NATURA", "CARNE SALGADA" — categoria ampla
 	"COMPOTA",
 	"CONDIMENTO",
 	"CONSERVA",
 	"DOCE",
-	"FRIOS",    // ex: "FRIOS, VARIEDADE: PEITO DE PERU" — categoria de fatiados
+	"FRIOS", // ex: "FRIOS, VARIEDADE: PEITO DE PERU" — categoria de fatiados
 	"FRUTA",
 	"GELEIA",
 	"GELATINA",
@@ -155,9 +155,32 @@ const READY_MEAL_PATTERNS = [
 ]
 
 const CLASS_HINTS: Array<{ classCode: number; keywords: string[] }> = [
-	{ classCode: 8905, keywords: ["CARNE", "BOVINA", "SUINA", "SUINO", "FRANGO", "GALINHA", "PEIXE", "PESCADO", "ATUM", "SARDINHA", "CAMARAO", "LINGUICA", "BACON", "PERU"] },
+	{
+		classCode: 8905,
+		keywords: ["CARNE", "BOVINA", "SUINA", "SUINO", "FRANGO", "GALINHA", "PEIXE", "PESCADO", "ATUM", "SARDINHA", "CAMARAO", "LINGUICA", "BACON", "PERU"],
+	},
 	{ classCode: 8910, keywords: ["LEITE", "QUEIJO", "IOGURTE", "REQUEIJAO", "MANTEIGA", "OVO", "OVOS", "CREME DE LEITE"] },
-	{ classCode: 8915, keywords: ["BANANA", "MACA", "MAMAO", "LARANJA", "ABACAXI", "MELANCIA", "ALFACE", "TOMATE", "BATATA", "CEBOLA", "ALHO", "CENOURA", "CHUCHU", "BETERRABA", "REPOLHO", "CACAU"] },
+	{
+		classCode: 8915,
+		keywords: [
+			"BANANA",
+			"MACA",
+			"MAMAO",
+			"LARANJA",
+			"ABACAXI",
+			"MELANCIA",
+			"ALFACE",
+			"TOMATE",
+			"BATATA",
+			"CEBOLA",
+			"ALHO",
+			"CENOURA",
+			"CHUCHU",
+			"BETERRABA",
+			"REPOLHO",
+			"CACAU",
+		],
+	},
 	{ classCode: 8920, keywords: ["ARROZ", "FEIJAO", "MACARRAO", "PÃO", "PAO", "FARINHA", "AVEIA", "TRIGO", "MILHO", "CANJICA", "AMIDO", "BISCOITO", "TORRADA"] },
 	{ classCode: 8925, keywords: ["ACUCAR", "AÇUCAR", "DOCE", "BOMBOM", "CHOCOLATE", "CASTANHA", "AMENDOIM", "PAÇOCA", "PACOCA"] },
 	{ classCode: 8930, keywords: ["GELEIA", "CONSERVA", "GELATINA", "COMPOTA", "AZEITONA", "PICLES"] },
@@ -360,9 +383,7 @@ function evaluateCandidate(item: PurchaseItemRow, cleanedDescription: string, ca
 	const pdmScore = candidate.pdm_score ?? 0
 	if ((candidate.score ?? 0) > 0.7) {
 		const normalizedItemDesc = normalizeText(candidate.descricao_item)
-		const ingredientMarkerIdx = normalizedItemDesc.search(
-			/\bCOMPOSICAO\b|\bINGREDIENTES\b|\bINGREDIENTE\b|\bCARACTERISTICAS\b|\bRECHEIO\b|\bSABOR\b/,
-		)
+		const ingredientMarkerIdx = normalizedItemDesc.search(/\bCOMPOSICAO\b|\bINGREDIENTES\b|\bINGREDIENTE\b|\bCARACTERISTICAS\b|\bRECHEIO\b|\bSABOR\b/)
 		const productTokenInDesc = productPrimaryToken ? normalizedItemDesc.indexOf(productPrimaryToken) : -1
 		const matchesViaIngredientList = ingredientMarkerIdx !== -1 && productTokenInDesc > ingredientMarkerIdx
 
@@ -370,10 +391,7 @@ function evaluateCandidate(item: PurchaseItemRow, cleanedDescription: string, ca
 		// secundária (token discriminante), não de falso positivo por ingrediente.
 		// Ex: "BISCOITO COOKIE" → busca secundária "COOKIE" → BISCOITO TIPO COOKIES: primários
 		// "BISCOITO"="BISCOITO" confirmam que é o item correto apesar de pdm_score=0.
-		const primaryTokensMatch =
-			productPrimaryToken != null &&
-			candidatePrimaryToken != null &&
-			productPrimaryToken === candidatePrimaryToken
+		const primaryTokensMatch = productPrimaryToken != null && candidatePrimaryToken != null && productPrimaryToken === candidatePrimaryToken
 
 		if (!primaryTokensMatch) {
 			// Penalidade A: PDM completamente diferente, não genérico — produto é "estranho"
@@ -408,7 +426,8 @@ async function loadPurchaseItems(options: Options): Promise<PurchaseItemRow[]> {
 		const to = from + pageSize - 1
 
 		let query = supabase
-			.schema("procurement").from("purchase_item")
+			.schema("procurement")
+			.from("purchase_item")
 			.select("id, description, purchase_measure_unit")
 			.is("deleted_at", null)
 			.order("description", { ascending: true, nullsFirst: false })
@@ -487,7 +506,8 @@ async function findCandidates(cleanedDescription: string): Promise<CandidateRow[
 
 async function persistDecision(decision: PurchaseItemDecision): Promise<void> {
 	const { error } = await supabase
-		.schema("procurement").from("purchase_item")
+		.schema("procurement")
+		.from("purchase_item")
 		.update({
 			catmat_item_codigo: decision.catmatItemCodigo,
 			catmat_item_descricao: decision.catmatItemDescricao,
@@ -664,9 +684,7 @@ async function run(): Promise<void> {
 		}
 	}
 
-	await Promise.all(
-		Array.from({ length: Math.min(options.batchConcurrency, Math.max(batches.length, 1)) }, (_, index) => worker(index + 1))
-	)
+	await Promise.all(Array.from({ length: Math.min(options.batchConcurrency, Math.max(batches.length, 1)) }, (_, index) => worker(index + 1)))
 
 	const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1)
 	console.log(`[catmat-match] concluído em ${elapsedSeconds}s`)

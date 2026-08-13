@@ -1,4 +1,4 @@
-import { expect, request, test } from "@playwright/test";
+import { expect, request, test } from "@playwright/test"
 
 /**
  * Autorização no TRANSPORTE — o teste que os testes unitários não conseguem fazer.
@@ -18,64 +18,64 @@ import { expect, request, test } from "@playwright/test";
  */
 
 /** Rotas autenticadas que, juntas, exercitam um bom número de server fns. */
-const ROUTES_TO_HARVEST = ["/hub", "/diner/profile", "/diner/forecast"];
+const ROUTES_TO_HARVEST = ["/hub", "/diner/profile", "/diner/forecast"]
 
 /** Endpoints públicos por contrato — ver PUBLIC_SERVER_FNS em server-fn-auth.contract.test.ts. */
-const EXPECTED_PUBLIC_RESPONSES = new Set([200, 204]);
+const EXPECTED_PUBLIC_RESPONSES = new Set([200, 204])
 
-type Harvested = { url: string; from: string };
+type Harvested = { url: string; from: string }
 
 test.describe("Autorização — server functions exigem sessão", () => {
 	test("nenhuma server fn GET responde 200 sem sessão", async ({ page, baseURL }) => {
-		const harvested: Harvested[] = [];
+		const harvested: Harvested[] = []
 
 		page.on("request", (req) => {
-			if (req.method() !== "GET") return;
-			if (!req.url().includes("/_serverFn/")) return;
-			harvested.push({ url: req.url(), from: page.url() });
-		});
+			if (req.method() !== "GET") return
+			if (!req.url().includes("/_serverFn/")) return
+			harvested.push({ url: req.url(), from: page.url() })
+		})
 
 		for (const route of ROUTES_TO_HARVEST) {
-			await page.goto(route);
+			await page.goto(route)
 			// networkidle e não load: as server fns saem depois da hidratação.
 			await page.waitForLoadState("networkidle").catch(() => {
 				/* rota lenta não invalida o que já foi capturado */
-			});
+			})
 		}
 
-		const unique = [...new Map(harvested.map((h) => [h.url, h])).values()];
+		const unique = [...new Map(harvested.map((h) => [h.url, h])).values()]
 
 		// Sem captura, o teste passaria vazio e daria uma falsa sensação de cobertura.
-		expect(unique.length, "nenhuma chamada de server fn capturada — a sessão do storageState expirou?").toBeGreaterThan(0);
+		expect(unique.length, "nenhuma chamada de server fn capturada — a sessão do storageState expirou?").toBeGreaterThan(0)
 
 		// Contexto novo, sem storageState: nenhum cookie de sessão.
-		const anonymous = await request.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+		const anonymous = await request.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
 
-		const leaked: string[] = [];
+		const leaked: string[] = []
 		try {
 			for (const { url } of unique) {
-				const response = await anonymous.get(url);
+				const response = await anonymous.get(url)
 				// 401/403 é o esperado. 404/500 também não vazam dado, mas 200 vaza.
 				if (EXPECTED_PUBLIC_RESPONSES.has(response.status())) {
-					leaked.push(`${response.status()} ${url}`);
+					leaked.push(`${response.status()} ${url}`)
 				}
 			}
 		} finally {
-			await anonymous.dispose();
+			await anonymous.dispose()
 		}
 
 		// Falha listando as URLs — o id da server fn aponta direto para a fn no build.
-		expect(leaked, `server fn respondeu com sucesso SEM sessão:\n${leaked.join("\n")}`).toEqual([]);
-	});
+		expect(leaked, `server fn respondeu com sucesso SEM sessão:\n${leaked.join("\n")}`).toEqual([])
+	})
 
 	test("rota protegida sem sessão redireciona para /auth", async ({ browser }) => {
-		const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-		const page = await context.newPage();
+		const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+		const page = await context.newPage()
 
-		await page.goto("/global/sync-routines");
-		await page.waitForURL(/\/auth/, { timeout: 15_000 });
+		await page.goto("/global/sync-routines")
+		await page.waitForURL(/\/auth/, { timeout: 15_000 })
 
-		expect(page.url()).toContain("/auth");
-		await context.close();
-	});
-});
+		expect(page.url()).toContain("/auth")
+		await context.close()
+	})
+})

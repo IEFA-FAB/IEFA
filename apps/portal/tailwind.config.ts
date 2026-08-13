@@ -1,11 +1,7 @@
-import type { Config } from "tailwindcss";
+import type { Config } from "tailwindcss"
 
 export default {
-    content: [
-        "./index.html",
-        "./app/**/*.{ts,tsx,js,jsx}",
-        "./src/**/*.{ts,tsx,js,jsx}",
-    ],
+	content: ["./index.html", "./app/**/*.{ts,tsx,js,jsx}", "./src/**/*.{ts,tsx,js,jsx}"],
 	theme: {
 		extend: {
 			fontFamily: {
@@ -14,6 +10,6 @@ export default {
 			},
 		},
 	},
-    // opcional: presets/plugins compartilhados
-    // presets: [require('../../tailwind.preset.cjs')],
-} satisfies Config;
+	// opcional: presets/plugins compartilhados
+	// presets: [require('../../tailwind.preset.cjs')],
+} satisfies Config

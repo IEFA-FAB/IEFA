@@ -4,11 +4,7 @@
     "dir": ".tasktrace"
   },
   "git": {
-    "branchPatterns": [
-      "[Cc][Uu]-([a-zA-Z0-9]+)",
-      "([A-Z]+-\\d+)",
-      "#(\\d+)"
-    ],
+    "branchPatterns": ["[Cc][Uu]-([a-zA-Z0-9]+)", "([A-Z]+-\\d+)", "#(\\d+)"],
     "hooks": {
       "preCommit": false,
       "postCommit": true

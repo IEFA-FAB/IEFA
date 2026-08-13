@@ -1,11 +1,7 @@
-import type { Config } from "tailwindcss";
+import type { Config } from "tailwindcss"
 
 export default {
-    content: [
-        "./index.html",
-        "./app/**/*.{ts,tsx,js,jsx}",
-        "./src/**/*.{ts,tsx,js,jsx}",
-    ],
+	content: ["./index.html", "./app/**/*.{ts,tsx,js,jsx}", "./src/**/*.{ts,tsx,js,jsx}"],
 	theme: {
 		extend: {
 			fontFamily: {
@@ -14,4 +10,4 @@ export default {
 			},
 		},
 	},
-} satisfies Config;
+} satisfies Config

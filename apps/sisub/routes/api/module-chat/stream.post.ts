@@ -11,21 +11,21 @@
  * 6. toServerSentEventsResponse() → AG-UI SSE stream
  */
 
-import { createError, getHeader, readBody, setResponseHeader, type H3Event } from "h3"
-import { defineHandler } from "nitro"
-import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
-import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
-import { trace, metrics } from "@opentelemetry/api"
 import { createAdapterFromEnv, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import type { Database } from "@iefa/database"
+import { metrics, trace } from "@opentelemetry/api"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
+import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
+import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
+import { createError, getHeader, type H3Event, readBody, setResponseHeader } from "h3"
+import { defineHandler } from "nitro"
 import { hasPermission } from "@/auth/pbac"
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { getDb } from "@/lib/db.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
-import { type ToolContext, getMaxLevel } from "@/lib/module-chat/tools/shared"
+import { getMaxLevel, type ToolContext } from "@/lib/module-chat/tools/shared"
 import type { ChatModule } from "@/types/domain/module-chat"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 

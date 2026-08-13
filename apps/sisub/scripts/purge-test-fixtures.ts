@@ -128,7 +128,9 @@ async function main() {
 			if (all.length === 0) return []
 			await assertNothingFresh(tx, all, timestamped, minAgeMinutes)
 			if (all.length > maxRows) {
-				throw new Error(`${all.length} linhas casariam com os padrões de fixture (teto --max-rows=${maxRows}). Abortado sem apagar nada — confira se algum padrão passou a casar com dado real.`)
+				throw new Error(
+					`${all.length} linhas casariam com os padrões de fixture (teto --max-rows=${maxRows}). Abortado sem apagar nada — confira se algum padrão passou a casar com dado real.`
+				)
 			}
 
 			await deleteAll(tx, all)
@@ -248,9 +250,14 @@ async function findCandidates(
 		const fresh = hasCreatedAt && minAgeMinutes > 0 ? ` and "created_at" < now() - interval '${minAgeMinutes} minutes'` : ""
 		const candidate = `(${marker})${fresh}`
 		// Prova de origem: marcador + token de execução na MESMA coluna, ou email de domínio reservado.
-		const proven = [...marked.map((col) => `("${col}" ~ '${RUN_TOKEN_RE}' and (${MARKERS.map((m) => `"${col}" like '%${m}%'`).join(" or ")}))`), ...emailPredicates].join(" or ")
+		const proven = [
+			...marked.map((col) => `("${col}" ~ '${RUN_TOKEN_RE}' and (${MARKERS.map((m) => `"${col}" like '%${m}%'`).join(" or ")}))`),
+			...emailPredicates,
+		].join(" or ")
 
-		const rows = await tx.unsafe<{ ctid: string; proven: boolean }[]>(`select ctid::text as ctid, (${proven}) as proven from ${qualified(schema, table)} where ${candidate}`)
+		const rows = await tx.unsafe<{ ctid: string; proven: boolean }[]>(
+			`select ctid::text as ctid, (${proven}) as proven from ${qualified(schema, table)} where ${candidate}`
+		)
 		for (const r of rows) {
 			const row: Row = { schema, table, ctid: r.ctid }
 			if (r.proven) (deferrable(hasCreatedAt) ? deferred : roots).push(row)
@@ -392,7 +399,9 @@ async function deleteAll(tx: postgres.TransactionSql, rows: Row[]) {
 			}
 		}
 		if (stillFailing.length === pending.length) {
-			throw new Error(`não consegui apagar ${stillFailing.map(([k]) => k).join(", ")} — o fecho por FK não cobriu algum filho. Último erro: ${(lastErr as Error)?.message ?? lastErr}`)
+			throw new Error(
+				`não consegui apagar ${stillFailing.map(([k]) => k).join(", ")} — o fecho por FK não cobriu algum filho. Último erro: ${(lastErr as Error)?.message ?? lastErr}`
+			)
 		}
 		pending = stillFailing
 	}

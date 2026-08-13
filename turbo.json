@@ -60,13 +60,7 @@
     },
     "test:e2e": {
       "outputs": ["playwright-report/**", "test-results/**"],
-      "env": [
-        "VITE_SISUB_SUPABASE_URL",
-        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
-        "SISUB_SUPABASE_SECRET_KEY",
-        "E2E_TEST_USER_EMAIL",
-        "E2E_TEST_USER_PASSWORD"
-      ]
+      "env": ["VITE_SISUB_SUPABASE_URL", "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY", "SISUB_SUPABASE_SECRET_KEY", "E2E_TEST_USER_EMAIL", "E2E_TEST_USER_PASSWORD"]
     },
     "test:e2e:ci": {
       "outputs": ["playwright-report/**", "test-results/**"],

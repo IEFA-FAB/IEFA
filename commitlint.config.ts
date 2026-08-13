@@ -1,4 +1,4 @@
-import { defineConfig } from "cz-git";
+import { defineConfig } from "cz-git"
 
 const validScopes = [
 	// apps
@@ -24,7 +24,7 @@ const validScopes = [
 	"ci",
 	"scripts",
 	"root",
-];
+]
 
 export default defineConfig({
 	extends: ["@commitlint/config-conventional"],
@@ -54,4 +54,4 @@ export default defineConfig({
 			{ value: "perf", name: "perf: Melhoria de performance" },
 		],
 	},
-});
+})

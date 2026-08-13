@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page } from "@playwright/test"
 
 /**
  * Espera a hydration do React completar num elemento antes de interagir.
@@ -10,26 +10,16 @@ import type { Page } from "@playwright/test";
  *
  * Detectamos hydration verificando a presença do React fiber no elemento.
  */
-export async function waitForHydration(
-  page: Page,
-  selector: string,
-  timeout = 30_000,
-) {
-  await page.waitForFunction(
-    (sel) => {
-      const el = document.querySelector(sel);
-      // React 19 injects __reactFiber$ / __reactProps$ on hydrated elements
-      return (
-        el != null &&
-        Object.keys(el).some(
-          (k) =>
-            k.startsWith("__reactFiber$") || k.startsWith("__reactProps$"),
-        )
-      );
-    },
-    selector,
-    { timeout },
-  );
+export async function waitForHydration(page: Page, selector: string, timeout = 30_000) {
+	await page.waitForFunction(
+		(sel) => {
+			const el = document.querySelector(sel)
+			// React 19 injects __reactFiber$ / __reactProps$ on hydrated elements
+			return el != null && Object.keys(el).some((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactProps$"))
+		},
+		selector,
+		{ timeout }
+	)
 }
 
 /**
@@ -40,24 +30,18 @@ export async function waitForHydration(
  * 3. Limpa e preenche via teclado (pressSequentially)
  * 4. Verifica que o valor persistiu (React state capturou)
  */
-export async function fillReactInput(
-  page: Page,
-  selector: string,
-  value: string,
-) {
-  await waitForHydration(page, selector);
+export async function fillReactInput(page: Page, selector: string, value: string) {
+	await waitForHydration(page, selector)
 
-  const locator = page.locator(selector);
-  await locator.click();
-  await locator.clear();
-  await locator.pressSequentially(value, { delay: 10 });
+	const locator = page.locator(selector)
+	await locator.click()
+	await locator.clear()
+	await locator.pressSequentially(value, { delay: 10 })
 
-  // Verifica que o valor persistiu após React processar
-  await page.waitForTimeout(100);
-  const actual = await locator.inputValue();
-  if (actual !== value) {
-    throw new Error(
-      `fillReactInput(${selector}): expected "${value}" but got "${actual}"`,
-    );
-  }
+	// Verifica que o valor persistiu após React processar
+	await page.waitForTimeout(100)
+	const actual = await locator.inputValue()
+	if (actual !== value) {
+		throw new Error(`fillReactInput(${selector}): expected "${value}" but got "${actual}"`)
+	}
 }
