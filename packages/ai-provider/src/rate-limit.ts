@@ -15,7 +15,7 @@
  * distribuído (Redis/Postgres) só se justifica quando a frota crescer.
  */
 
-/** Erro de teto atingido. O endpoint traduz em 429 com `Retry-After`. */
+/** Erro de teto atingido. Os endpoints do sisub traduzem em 429 com o header `Retry-After`. */
 export class RateLimitError extends Error {
 	constructor(
 		message: string,
@@ -26,6 +26,15 @@ export class RateLimitError extends Error {
 		this.name = "RateLimitError"
 		Object.setPrototypeOf(this, new.target.prototype)
 	}
+}
+
+/**
+ * Chave de janela com o consumidor embutido. Sem o prefixo, MODULE_CHAT e ANALYTICS
+ * dividiriam o mesmo balde: 12 mensagens no chat dos módulos faziam o assistente de
+ * analytics responder 429 para o mesmo usuário.
+ */
+export function scopedKey(prefix: string | undefined, key: string): string {
+	return prefix ? `${prefix}:${key}` : key
 }
 
 export interface RateLimitConfig {
@@ -69,7 +78,7 @@ export class RateLimitStore {
 	 */
 	checkTokenBudgets(key: string, config: RateLimitConfig, now = Date.now()): void {
 		if (config.tokensPerDay != null) {
-			const day = this.window("tokens:day", DAY_MS, now)
+			const day = this.window(this.dayKey(key), DAY_MS, now)
 			if (day.used >= config.tokensPerDay) {
 				throw new RateLimitError(
 					`Orçamento diário de IA esgotado (${day.used.toLocaleString("pt-BR")} tokens). Tente novamente amanhã ou aumente o teto.`,
@@ -108,11 +117,21 @@ export class RateLimitStore {
 		}
 	}
 
+	/**
+	 * A janela diária é do CONSUMIDOR, não do usuário: é teto de custo, e some todo mundo.
+	 * `MODULE_CHAT:user-1` e `MODULE_CHAT:user-2` caem no mesmo `tokens:day:MODULE_CHAT`,
+	 * enquanto `ANALYTICS:user-1` tem o seu.
+	 */
+	private dayKey(key: string): string {
+		const scope = key.includes(":") ? key.slice(0, key.indexOf(":")) : ""
+		return scope ? `tokens:day:${scope}` : "tokens:day"
+	}
+
 	/** Contabiliza os tokens de um turno já concluído. */
 	recordTokens(key: string, tokens: number, now = Date.now()): void {
 		if (!Number.isFinite(tokens) || tokens <= 0) return
 		this.window(`tokens:minute:${key}`, MINUTE_MS, now).used += tokens
-		this.window("tokens:day", DAY_MS, now).used += tokens
+		this.window(this.dayKey(key), DAY_MS, now).used += tokens
 	}
 
 	/** Uso corrente — para observabilidade e teste. */
@@ -120,7 +139,7 @@ export class RateLimitStore {
 		return {
 			requestsThisMinute: this.window(`requests:minute:${key}`, MINUTE_MS, now).used,
 			tokensThisMinute: this.window(`tokens:minute:${key}`, MINUTE_MS, now).used,
-			tokensToday: this.window("tokens:day", DAY_MS, now).used,
+			tokensToday: this.window(this.dayKey(key), DAY_MS, now).used,
 		}
 	}
 
@@ -132,10 +151,16 @@ export class RateLimitStore {
 /** Estado compartilhado do processo. */
 export const defaultRateLimitStore = new RateLimitStore()
 
-function positiveInt(raw: string | undefined): number | undefined {
+function positiveInt(name: string, raw: string | undefined): number | undefined {
 	if (!raw) return undefined
 	const parsed = Number(raw)
-	if (!Number.isFinite(parsed) || parsed <= 0) return undefined
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		// Sem este aviso, um "1O000" (letra no lugar do zero) desliga o teto e nada denuncia:
+		// a var está setada, o gráfico de custo é que responde, semanas depois.
+		// biome-ignore lint/suspicious/noConsole: aviso de configuração, server-side
+		console.warn(`[ai-provider] ${name}="${raw}" não é um inteiro positivo — teto ignorado.`)
+		return undefined
+	}
 	return Math.trunc(parsed)
 }
 
@@ -147,9 +172,9 @@ function positiveInt(raw: string | undefined): number | undefined {
 export function rateLimitConfigFromEnv(prefix?: string): RateLimitConfig | undefined {
 	const p = prefix ? `${prefix}_` : ""
 	const config: RateLimitConfig = {
-		requestsPerMinute: positiveInt(process.env[`${p}AI_MAX_REQUESTS_PER_MINUTE`]),
-		tokensPerMinute: positiveInt(process.env[`${p}AI_MAX_TOKENS_PER_MINUTE`]),
-		tokensPerDay: positiveInt(process.env[`${p}AI_MAX_TOKENS_PER_DAY`]),
+		requestsPerMinute: positiveInt(`${p}AI_MAX_REQUESTS_PER_MINUTE`, process.env[`${p}AI_MAX_REQUESTS_PER_MINUTE`]),
+		tokensPerMinute: positiveInt(`${p}AI_MAX_TOKENS_PER_MINUTE`, process.env[`${p}AI_MAX_TOKENS_PER_MINUTE`]),
+		tokensPerDay: positiveInt(`${p}AI_MAX_TOKENS_PER_DAY`, process.env[`${p}AI_MAX_TOKENS_PER_DAY`]),
 	}
 	const configured = Object.values(config).some((v) => v != null)
 	return configured ? config : undefined
@@ -162,6 +187,22 @@ function totalTokensOf(value: unknown): number {
 	const prompt = typeof usage.promptTokens === "number" ? usage.promptTokens : 0
 	const completion = typeof usage.completionTokens === "number" ? usage.completionTokens : 0
 	return prompt + completion
+}
+
+/** Cast pontual: os adapters constroem os eventos AG-UI como objetos literais. */
+function asStreamChunk(chunk: Record<string, unknown>): never {
+	return chunk as never
+}
+
+/** Devolve o erro de teto de tokens em vez de lançá-lo — quem chama decide o que fazer. */
+function tokenBudgetError(store: RateLimitStore, key: string, config: RateLimitConfig): RateLimitError | undefined {
+	try {
+		store.checkTokenBudgets(key, config)
+		return undefined
+	} catch (error) {
+		if (error instanceof RateLimitError) return error
+		throw error
+	}
 }
 
 export interface WithRateLimitOptions {
@@ -184,7 +225,16 @@ export function withRateLimit<
 	return {
 		...adapter,
 		chatStream: async function* (options: never) {
-			store.checkTokenBudgets(key, config)
+			// O teto no meio do stream NÃO pode lançar: o @tanstack/ai repassa a exceção do
+			// adapter, o SSE já está aberto e o usuário receberia uma conexão cortada — o
+			// mesmo sintoma que este pacote existe para eliminar. Vira RUN_ERROR, que o
+			// cliente já sabe mostrar.
+			const exceeded = tokenBudgetError(store, key, config)
+			if (exceeded) {
+				yield asStreamChunk({ type: "RUN_ERROR", message: exceeded.message, code: exceeded.limit })
+				return
+			}
+
 			for await (const chunk of adapter.chatStream(options)) {
 				if ((chunk as { type?: string }).type === "RUN_FINISHED") {
 					store.recordTokens(key, totalTokensOf(chunk))
@@ -211,5 +261,5 @@ export function withRateLimit<
 export function enforceRequestRateLimit(prefix: string | undefined, key: string, store: RateLimitStore = defaultRateLimitStore): void {
 	const config = rateLimitConfigFromEnv(prefix)
 	if (!config) return
-	store.admitRequest(key, config)
+	store.admitRequest(scopedKey(prefix, key), config)
 }

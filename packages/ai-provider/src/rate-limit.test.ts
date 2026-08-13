@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { RateLimitError, RateLimitStore, rateLimitConfigFromEnv, withRateLimit } from "./rate-limit.js"
+import { RateLimitError, RateLimitStore, rateLimitConfigFromEnv, scopedKey, withRateLimit } from "./rate-limit.js"
 
 const T0 = 1_700_000_000_000
 
@@ -80,21 +80,57 @@ describe("RateLimitStore — tokens", () => {
 	})
 })
 
+describe("escopo por consumidor", () => {
+	test("chat dos módulos e analytics não dividem o mesmo balde", () => {
+		// Antes do escopo, 12 mensagens no chat faziam o analytics responder 429 ao mesmo usuário.
+		const store = new RateLimitStore()
+		const config = { requestsPerMinute: 1 }
+
+		store.admitRequest(scopedKey("MODULE_CHAT", "user-1"), config, T0)
+
+		expect(() => store.admitRequest(scopedKey("MODULE_CHAT", "user-1"), config, T0)).toThrow(RateLimitError)
+		expect(() => store.admitRequest(scopedKey("ANALYTICS", "user-1"), config, T0)).not.toThrow()
+	})
+
+	test("o orçamento diário é do consumidor e soma todos os usuários dele", () => {
+		const store = new RateLimitStore()
+		const config = { tokensPerDay: 1000 }
+
+		store.recordTokens(scopedKey("MODULE_CHAT", "user-1"), 1000, T0)
+
+		// Mesmo consumidor, outro usuário: o teto de custo é compartilhado.
+		expect(() => store.admitRequest(scopedKey("MODULE_CHAT", "user-2"), config, T0)).toThrow(/Orçamento diário/)
+		// Outro consumidor: orçamento próprio.
+		expect(() => store.admitRequest(scopedKey("ANALYTICS", "user-1"), config, T0)).not.toThrow()
+	})
+})
+
 describe("rateLimitConfigFromEnv", () => {
 	test("devolve undefined quando nenhum teto está setado", () => {
 		expect(rateLimitConfigFromEnv("PREFIX_QUE_NAO_EXISTE_98765")).toBeUndefined()
 	})
 
-	test("lê os três tetos e ignora valor inválido", () => {
+	test("lê os três tetos, ignora valor inválido e avisa em vez de falhar calado", () => {
 		process.env.RLTEST_AI_MAX_REQUESTS_PER_MINUTE = "10"
 		process.env.RLTEST_AI_MAX_TOKENS_PER_DAY = "500000"
 		process.env.RLTEST_AI_MAX_TOKENS_PER_MINUTE = "não-é-número"
 
-		expect(rateLimitConfigFromEnv("RLTEST")).toEqual({
-			requestsPerMinute: 10,
-			tokensPerMinute: undefined,
-			tokensPerDay: 500_000,
-		})
+		const avisos: string[] = []
+		const original = console.warn
+		console.warn = (...args: unknown[]) => avisos.push(args.join(" "))
+
+		try {
+			expect(rateLimitConfigFromEnv("RLTEST")).toEqual({
+				requestsPerMinute: 10,
+				tokensPerMinute: undefined,
+				tokensPerDay: 500_000,
+			})
+		} finally {
+			console.warn = original
+		}
+
+		// Um "1O000" com letra no lugar do zero desligaria o teto sem nada denunciar.
+		expect(avisos.join(" ")).toContain("RLTEST_AI_MAX_TOKENS_PER_MINUTE")
 
 		delete process.env.RLTEST_AI_MAX_REQUESTS_PER_MINUTE
 		delete process.env.RLTEST_AI_MAX_TOKENS_PER_DAY
@@ -128,7 +164,9 @@ describe("withRateLimit", () => {
 		expect(store.snapshot("user-1").tokensToday).toBe(1234)
 	})
 
-	test("barra a próxima chamada quando o orçamento diário já estourou", async () => {
+	test("orçamento estourado vira RUN_ERROR, não exceção — o SSE já está aberto", async () => {
+		// Lançar aqui devolveria ao usuário uma conexão cortada sem mensagem: exatamente o
+		// sintoma que este pacote existe para eliminar. O cliente já sabe mostrar RUN_ERROR.
 		const store = new RateLimitStore()
 		const wrapped = withRateLimit(adapterEmitting({ totalTokens: 1000 }), { key: "user-1", config: { tokensPerDay: 900 }, store })
 
@@ -136,12 +174,13 @@ describe("withRateLimit", () => {
 			// primeira chamada passa: o orçamento só é conhecido depois de gasto
 		}
 
-		await expect(
-			(async () => {
-				for await (const _ of wrapped.chatStream({} as never)) {
-					// deve lançar antes do primeiro chunk
-				}
-			})()
-		).rejects.toThrow(RateLimitError)
+		const chunks: { type?: string; message?: string }[] = []
+		for await (const chunk of wrapped.chatStream({} as never)) {
+			chunks.push(chunk as { type?: string; message?: string })
+		}
+
+		expect(chunks).toHaveLength(1)
+		expect(chunks[0]?.type).toBe("RUN_ERROR")
+		expect(chunks[0]?.message).toMatch(/Orçamento diário/)
 	})
 })

@@ -47,6 +47,17 @@ describe("isRetryableAdapterFailure", () => {
 		expect(isRetryableAdapterFailure({ status: 403, message: "InvalidClientTokenId" })).toBe(false)
 	})
 
+	test("lê o status do $metadata do SDK da AWS — o bedrock é o primário e é ele que lança", () => {
+		// Sem isso, um 503 do Bedrock não acionava a reserva: o nome vem colado
+		// ("InternalServerException") e não casava com nenhum padrão de mensagem.
+		expect(isRetryableAdapterFailure({ name: "InternalServerException", $metadata: { httpStatusCode: 500 } })).toBe(true)
+		expect(isRetryableAdapterFailure({ name: "ServiceUnavailableException", $metadata: { httpStatusCode: 503 } })).toBe(true)
+		expect(isRetryableAdapterFailure({ name: "ThrottlingException", $metadata: { httpStatusCode: 429 } })).toBe(true)
+		expect(isRetryableAdapterFailure({ name: "ModelStreamErrorException", $metadata: { httpStatusCode: 424 } })).toBe(true)
+		// AccessDenied continua propagando: trocar de provider não conserta credencial.
+		expect(isRetryableAdapterFailure({ name: "AccessDeniedException", $metadata: { httpStatusCode: 403 } })).toBe(false)
+	})
+
 	test("reconhece falha transitória sem status, pela mensagem", () => {
 		expect(isRetryableAdapterFailure(new Error("ThrottlingException: rate exceeded"))).toBe(true)
 		expect(isRetryableAdapterFailure(new Error("fetch failed"))).toBe(true)

@@ -78,8 +78,10 @@ real da foundation (o default da variável é `false`).
 `withFallbackChain` (`packages/ai-provider/src/fallback.ts`) troca de adapter **só antes do
 primeiro conteúdo** e **só em falha transitória**.
 
-- **Transitório** = 429, 408, 5xx, `ThrottlingException`, `overloaded`, timeout, queda de
-  conexão. Trocar de provider resolve.
+- **Transitório** = 429, 408, 5xx, mais os nomes de exceção do SDK da AWS
+  (`ThrottlingException`, `InternalServerException`, `ServiceUnavailableException`,
+  `ModelStreamErrorException` — este vem com 424, e o nome é consultado antes de recusar por
+  4xx), `overloaded`, timeout, queda de conexão. Trocar de provider resolve.
 - **Não transitório** = 4xx de schema, credencial inválida, tool malformada. Trocar de
   provider só repetiria a falha, mais devagar e com outra fatura.
 - **Depois do primeiro conteúdo** (texto ou tool call) o erro é propagado. Meia resposta de
@@ -114,6 +116,11 @@ perguntas soltas — contar requisição não enxerga isso.
 para devolver: o erro viraria conexão cortada, sem mensagem. Os tetos de token são checados
 dentro do adapter, a cada chamada ao provider — inclusive nas iterações seguintes do mesmo
 turno.
+
+As janelas são por **consumidor + usuário** (`MODULE_CHAT:<userId>`), e o orçamento diário
+por consumidor — o chat dos módulos não consome a cota do analytics. Estourar o teto de
+tokens no meio de um turno não lança: vira um `RUN_ERROR` no stream, porque o SSE já está
+aberto e uma exceção chegaria ao usuário como conexão cortada.
 
 **Limitação consciente:** o estado é em memória, por processo. Com N tasks no ECS o teto
 efetivo é N × o configurado (sisub roda `desired_count = 2`). Dimensione com isso em mente.

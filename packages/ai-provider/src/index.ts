@@ -7,7 +7,7 @@ import { createGroqAdapter } from "./providers/groq.js"
 import { createNvidiaAdapter } from "./providers/nvidia.js"
 import { createOllamaAdapter } from "./providers/ollama.js"
 import { createOpenRouterAdapter } from "./providers/openrouter.js"
-import { rateLimitConfigFromEnv, withRateLimit } from "./rate-limit.js"
+import { rateLimitConfigFromEnv, scopedKey, withRateLimit } from "./rate-limit.js"
 import type { AdapterConfig, ProviderType } from "./types.js"
 
 export type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
@@ -19,6 +19,7 @@ export {
 	RateLimitError,
 	RateLimitStore,
 	rateLimitConfigFromEnv,
+	scopedKey,
 	type WithRateLimitOptions,
 	withRateLimit,
 } from "./rate-limit.js"
@@ -95,7 +96,8 @@ export function createAdapterFromEnv(prefix?: string, options: AdapterFromEnvOpt
 	const rateLimit = rateLimitConfigFromEnv(prefix)
 	if (!rateLimit) return chained
 
-	return withRateLimit(chained, { key: options.rateLimitKey ?? "__shared__", config: rateLimit })
+	// Chave com o prefixo embutido: o teto do chat dos módulos não pode consumir o do analytics.
+	return withRateLimit(chained, { key: scopedKey(prefix, options.rateLimitKey ?? "__shared__"), config: rateLimit })
 }
 
 export function maxIterationsMiddleware(n: number): ChatMiddleware {

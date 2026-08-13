@@ -11,7 +11,7 @@
  * 6. toServerSentEventsResponse() → AG-UI SSE stream
  */
 
-import { createError, getHeader, readBody, type H3Event } from "h3"
+import { createError, getHeader, readBody, setResponseHeader, type H3Event } from "h3"
 import { defineHandler } from "nitro"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
@@ -150,6 +150,7 @@ export default defineHandler(async (event: H3Event) => {
 		enforceRequestRateLimit("MODULE_CHAT", user.id)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
+			setResponseHeader(event, "Retry-After", String(error.retryAfterSeconds))
 			throw createError({ statusCode: 429, message: error.message, data: { retryAfterSeconds: error.retryAfterSeconds } })
 		}
 		throw error

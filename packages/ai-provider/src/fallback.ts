@@ -25,7 +25,11 @@ const RETRYABLE_PATTERNS = [
 	/throttl/i,
 	/too many requests/i,
 	/rate.?limit/i,
-	/service unavailable/i,
+	// Os nomes do SDK da AWS vêm colados ("ServiceUnavailableException"), então os padrões
+	// não podem exigir o espaço.
+	/service.?unavailable/i,
+	/internal.?server/i,
+	/model.?stream.?error/i,
 	/overloaded/i,
 	/model.?not.?ready/i,
 	/timed? ?out/i,
@@ -37,9 +41,17 @@ const RETRYABLE_PATTERNS = [
 	/network error/i,
 ]
 
+/**
+ * O status HTTP, onde quer que o provider o tenha escondido.
+ *
+ * `$metadata.httpStatusCode` é o do SDK da AWS — e é o que importa mais aqui, porque o
+ * bedrock é o primário e o único adapter que lança de verdade. Sem ler esse campo, um 503
+ * do Bedrock não acionava a reserva: caía no teste por mensagem, que não casava com
+ * `InternalServerException`.
+ */
 function statusOf(value: unknown): number | undefined {
-	const v = value as { status?: unknown; statusCode?: unknown; rawEvent?: { status_code?: unknown } } | null
-	const raw = v?.status ?? v?.statusCode ?? v?.rawEvent?.status_code
+	const v = value as { status?: unknown; statusCode?: unknown; $metadata?: { httpStatusCode?: unknown }; rawEvent?: { status_code?: unknown } } | null
+	const raw = v?.status ?? v?.statusCode ?? v?.$metadata?.httpStatusCode ?? v?.rawEvent?.status_code
 	return typeof raw === "number" ? raw : undefined
 }
 
@@ -57,8 +69,12 @@ function textOf(value: unknown): string {
 export function isRetryableAdapterFailure(value: unknown): boolean {
 	const status = statusOf(value)
 	if (status === 429 || status === 408 || (status != null && status >= 500)) return true
-	if (status != null && status >= 400 && status < 500) return false
-	return RETRYABLE_PATTERNS.some((re) => re.test(textOf(value)))
+
+	// O nome é consultado ANTES de recusar por 4xx: o Bedrock manda `ModelStreamErrorException`
+	// com 424 (Failed Dependency), que é falha do stream do modelo — transitória, apesar do 4xx.
+	if (RETRYABLE_PATTERNS.some((re) => re.test(textOf(value)))) return true
+
+	return false
 }
 
 /** Marcador interno: um `RUN_ERROR` transitório visto antes do commit vira exceção para acionar a troca. */
