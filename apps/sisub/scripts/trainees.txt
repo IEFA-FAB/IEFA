@@ -1,0 +1,36 @@
+# Turma do ambiente de treino — lista de emails, um por linha.
+#
+# Consumida por `bun run scripts/add-trainees.ts`. Linhas em branco e `#` são ignoradas.
+# Manter a lista aqui (em vez de passar por argv) deixa a operação repetível: quem ainda
+# não tinha conta na primeira execução entra numa execução seguinte, sem redigitar nada.
+#
+# Lote de 2026-08-13 — pedido "email da FAB para quem quiser ter acesso ao rancho".
+
+rsverbeno@gmail.com          # skibina
+motamvom@fab.mil.br          # Mota
+nathaliandr@fab.mil.br       # Nathália
+juliajrc@fab.mil.br          # Julia
+pelissonabap@fab.mil.br      # Pelisson
+coelholca@fab.mil.br         # Coelho
+dahergds@fab.mil.br          # Daher
+lucas.nascimento.lustoza@gmail.com  # Lustoza
+castrovnc@fab.mil.br         # Castro
+dominguesjvndc@fab.mil.br    # Domingues
+linsasgls@fab.mil.br         # Lins
+mylenamos@fab.mil.br         # Mylena
+vinicius.luis.prado09@gmail.com     # Luís Prado
+bacelartbc@fab.mil.br        # Bacelar
+anacatarinaacgc@fab.mil.br   # Ana Catarina
+sandiics@fab.mil.br          # Sandi
+saraivancsn@fab.mil.br       # Saraiva
+girotoggo@fab.mil.br         # Giroto
+carolinacsbs@fab.mil.br      # Carolina
+aguiarcfsa@fab.mil.br        # Aguiar
+feitosabgf@fab.mil.br        # Feitosa
+mariagabrielamgss@fab.mil.br # Maria Gabriela
+nascimentomfnn@fab.mil.br    # Nascimento
+guilhermeanaia1@gmail.com    # Anaia
+barretogab@fab.mil.br        # Barreto
+gregorescalg@fab.mil.br      # gregores
+manhaesams@fab.mil.br        # Manhães
+paollapss@fab.mil.br         # Paolla
