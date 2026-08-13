@@ -8,6 +8,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbS
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
+import { buildCrumbs } from "@/lib/breadcrumbs"
 import type { ScopeContext } from "@/types/domain/scope"
 import { AppSidebar } from "./sidebar/AppSidebar"
 import { MainSurface } from "./sidebar/MainSurface"
@@ -16,79 +17,6 @@ const R = {
 	appName: "SISUB",
 	breadcrumbRoot: "Início",
 }
-
-// ── Breadcrumb i18n ────────────────────────────────────────────────────────────
-
-/** Tradução estática de segmentos de URL para português */
-const SEGMENT_PT: Record<string, string> = {
-	// Módulos (raiz)
-	diner: "Comensal",
-	messhall: "Fiscal",
-	unit: "Gestão Unidade",
-	kitchen: "Gestão Cozinha",
-	"kitchen-production": "Produção Cozinha",
-	"local-analytics": "Análises Locais",
-	global: "SDAB",
-	analytics: "Análises",
-	// Páginas
-	hub: "Hub",
-	menu: "Cardápio",
-	forecast: "Previsão",
-	"qr-code": "QR Code",
-	"self-check-in": "Auto Check-in",
-	profile: "Perfil",
-	presence: "Presenças",
-	planning: "Planejamento",
-	procurement: "Suprimentos",
-	suprimentos: "Suprimentos",
-	recipes: "Preparações",
-	"weekly-menus": "Cardápios Semanais",
-	"weekly-plans": "Planos Semanais",
-	ingredients: "Insumos",
-	permissions: "Permissões",
-	evaluation: "Avaliação",
-	changelog: "Registro de Alterações",
-	tutorial: "Tutorial",
-	dashboard: "Painel",
-	indicators: "Indicadores",
-	events: "Eventos",
-	"compras-sync": "Sincronização Compras",
-	"nutrition-sync": "Sincronização Nutrição",
-	"sync-routines": "Rotinas de Sincronização",
-	"places-manager": "Gerenciador de Locais",
-	policy: "Política",
-	// Sub-páginas
-	new: "Novo",
-	print: "Imprimir",
-	fork: "Derivar",
-	versions: "Versões",
-	settings: "Configurações",
-}
-
-/** Quando um segmento é um ID, o rótulo é inferido do segmento anterior */
-const ID_LABEL_BY_PARENT: Record<string, string> = {
-	recipes: "Preparação",
-	"weekly-menus": "Cardápio Semanal",
-	"weekly-plans": "Plano Semanal",
-	events: "Evento",
-	suprimentos: "Rascunho",
-	procurement: "ATA",
-	ingredients: "Insumo",
-}
-
-/** Rótulo contextual para o segmento "new" conforme o segmento pai */
-const NEW_LABEL_BY_PARENT: Record<string, string> = {
-	recipes: "Nova Preparação",
-	"weekly-menus": "Novo Cardápio",
-	"weekly-plans": "Novo Plano",
-	events: "Novo Evento",
-	suprimentos: "Novo Rascunho",
-	procurement: "Nova ATA",
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const NUMERIC_RE = /^\d+$/
-const isId = (seg: string) => UUID_RE.test(seg) || NUMERIC_RE.test(seg)
 
 export function AppShell() {
 	const location = useLocation()
@@ -165,40 +93,13 @@ export function AppShell() {
 
 	// Generate breadcrumbs from current path
 	const navItems: NavItem[] = getNavItemsForPermissions(permissions)
-	const crumbs = (() => {
-		const path = location.pathname.replace(/\/+$/, "")
-		if (!path || path === "/") {
-			return [{ to: "/hub", label: "Hub" }]
-		}
-		const segments = path.split("/").filter(Boolean)
-		const mapLabel = (seg: string, fullPath: string, prevSeg?: string) => {
-			// 1. Correspondência exata no navItems
-			const found = navItems.find((n) => n.to === fullPath)
-			if (found) return found.label
-			// 2. Segmento numérico que corresponde ao escopo → usa o nome do escopo (ex: "GAP-AF")
-			if (isId(seg) && scopeContext && Number(seg) === scopeContext.id) {
-				return scopeContext.name
-			}
-			// 3. Segmento dinâmico (UUID / numérico) → rótulo contextual pelo segmento pai
-			if (isId(seg)) return ID_LABEL_BY_PARENT[prevSeg ?? ""] ?? "Detalhe"
-			// 4. "new" com rótulo contextual
-			if (seg === "new") return NEW_LABEL_BY_PARENT[prevSeg ?? ""] ?? "Novo"
-			// 5. Mapa estático de tradução
-			return SEGMENT_PT[seg] ?? seg
-		}
-		let acc = ""
-		return segments.map((seg, i) => {
-			acc += `/${seg}`
-			const prevSeg = i > 0 ? segments[i - 1] : undefined
-			return { to: acc, label: mapLabel(seg, acc, prevSeg) }
-		})
-	})()
+	const crumbs = buildCrumbs(location.pathname, navItems, scopeContext)
 
 	// Update document title based on breadcrumbs
+	const currentLabel = crumbs[crumbs.length - 1]?.label || "Início"
 	useEffect(() => {
-		const last = crumbs[crumbs.length - 1]?.label || "Início"
-		document.title = `${R.appName} — ${last}`
-	}, [crumbs])
+		document.title = `${R.appName} — ${currentLabel}`
+	}, [currentLabel])
 
 	return (
 		<>
