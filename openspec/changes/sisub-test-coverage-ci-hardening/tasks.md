@@ -10,7 +10,7 @@
 
 - [x] 2.1 [sisub] Criar helper de env de testes que falha no CI quando `SISUB_INTEGRATION_REQUIRED=true` e env obrigatória está ausente
 - [x] 2.2 [sisub] Criar helper Supabase de teste com clientes `service`, `anon` e usuário autenticado, sem non-null assertions
-- [ ] 2.3 [sisub] Criar helpers de seed/cleanup para dados `[TEST]` com soft delete ou hard delete conforme tabela
+- [x] 2.3 [sisub] Criar helpers de seed/cleanup para dados `[TEST]` com soft delete ou hard delete conforme tabela — `src/test/operations-fixtures.ts` (hard delete LIFO, falha alto quando vaza) + `scripts/purge-test-fixtures.ts` (faxina por marcador, cobre morte abrupta do processo)
 - [x] 2.4 [sisub] Migrar `ingredients.test.ts`, `recipes.test.ts` e `useRealtime.test.ts` para skip/fail explícito em vez de `return` silencioso
 - [ ] 2.5 [docs] Documentar env vars, usuários dedicados, política de cleanup e proibição de rodar integração contra produção
 

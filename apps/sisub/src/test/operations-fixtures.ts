@@ -10,6 +10,13 @@
  *   - Nomes/datas únicos por execução via `uid()` / `futureDate()` — evita colidir com
  *     dados reais e com o índice UNIQUE que ignora deleted_at (ver memória do projeto).
  *   - Cleanup é HARD delete (não soft) na ordem inversa de criação → filhos antes de pais.
+ *   - Cleanup que não termina é ERRO (o teste fica vermelho): a suíte roda contra o banco de
+ *     produção, então fixture vazada vira dado visível no app.
+ *
+ * Limite conhecido: `afterEach` não roda se o processo morre de repente (job de CI cancelado,
+ * OOM, Ctrl+C) — foi assim que duas receitas `[TEST]` foram parar em `/global/recipes`. A rede de
+ * segurança para esse caso é `scripts/purge-test-fixtures.ts`, executado antes e depois da suíte
+ * no workflow de integração.
  */
 
 import type { AppModule, UserContext, UserPermission } from "@iefa/sisub-domain"
@@ -89,6 +96,7 @@ export function futureDate(offsetDays = 0): string {
 // ── Seeder com cleanup LIFO ──────────────────────────────────────────────────
 
 type CleanupFn = () => Promise<void>
+type CleanupStep = { label: string; fn: CleanupFn }
 
 export interface Seeder {
 	readonly client: AnyClient
@@ -96,8 +104,8 @@ export interface Seeder {
 	track(table: string, id: string | number): void
 	/** Registra remoção por coluna arbitrária (ex.: filhos por <pai>_id). */
 	trackWhere(table: string, column: string, value: string | number): void
-	/** Registra um thunk de limpeza arbitrário. */
-	trackFn(fn: CleanupFn): void
+	/** Registra um thunk de limpeza arbitrário. `label` aparece no relatório quando a limpeza falha. */
+	trackFn(fn: CleanupFn, label?: string): void
 
 	seedUnit(): Promise<number>
 	seedKitchen(opts?: { unitId?: number }): Promise<{ id: number; unitId: number }>
@@ -150,7 +158,10 @@ export interface Seeder {
 	/** Remove todos os daily_menu (e seus menu_items) de uma cozinha — usado após applyTemplate. */
 	purgeKitchenMenus(kitchenId: number): Promise<void>
 
-	/** Executa todas as limpezas registradas em ordem LIFO (engole erros para não mascarar a falha real). */
+	/**
+	 * Executa todas as limpezas registradas em ordem LIFO. Lança quando alguma linha sobrevive:
+	 * fixture vazada roda contra o banco de PRODUÇÃO, então tem que virar teste vermelho, não silêncio.
+	 */
 	cleanup(): Promise<void>
 }
 
@@ -172,7 +183,7 @@ const TABLE_SCHEMA: Record<string, string> = {
 const schemaFor = (table: string): string => TABLE_SCHEMA[table] ?? "kitchen"
 
 export function makeSeeder(client: AnyClient): Seeder {
-	const cleanups: CleanupFn[] = []
+	const cleanups: CleanupStep[] = []
 	// Roteia cada tabela para seu schema de domínio (client base é só o ponto de entrada).
 	const tbl = (table: string) => client.schema(schemaFor(table)).from(table)
 
@@ -180,19 +191,25 @@ export function makeSeeder(client: AnyClient): Seeder {
 	// (FK ainda pendente, timeout sob carga), precisamos LANÇAR para o retry do cleanup
 	// reprocessar; senão a linha vaza silenciosamente (pending=0, sem erro aparente).
 	const track: Seeder["track"] = (table, id) => {
-		cleanups.push(async () => {
-			const { error } = await tbl(table).delete().eq("id", id)
-			if (error) throw new Error(`delete ${table}#${id}: ${error.message}`)
+		cleanups.push({
+			label: `${table}#${id}`,
+			fn: async () => {
+				const { error } = await tbl(table).delete().eq("id", id)
+				if (error) throw new Error(`delete ${table}#${id}: ${error.message}`)
+			},
 		})
 	}
 	const trackWhere: Seeder["trackWhere"] = (table, column, value) => {
-		cleanups.push(async () => {
-			const { error } = await tbl(table).delete().eq(column, value)
-			if (error) throw new Error(`delete ${table}.${column}=${value}: ${error.message}`)
+		cleanups.push({
+			label: `${table}.${column}=${value}`,
+			fn: async () => {
+				const { error } = await tbl(table).delete().eq(column, value)
+				if (error) throw new Error(`delete ${table}.${column}=${value}: ${error.message}`)
+			},
 		})
 	}
-	const trackFn: Seeder["trackFn"] = (fn) => {
-		cleanups.push(fn)
+	const trackFn: Seeder["trackFn"] = (fn, label = "cleanup fn") => {
+		cleanups.push({ label, fn })
 	}
 
 	async function insertReturningId(table: string, row: Record<string, unknown>): Promise<string | number> {
@@ -340,9 +357,12 @@ export function makeSeeder(client: AnyClient): Seeder {
 			if (error || !data.user) throw new Error(`seed auth user failed: ${error?.message ?? "no user"}`)
 			const id = data.user.id
 			// auth.users é deletado por último (LIFO): as linhas user-scoped o referenciam.
-			cleanups.push(async () => {
-				const { error: delErr } = await client.auth.admin.deleteUser(id)
-				if (delErr) throw new Error(`delete auth user ${id}: ${delErr.message}`)
+			cleanups.push({
+				label: `auth.users#${id}`,
+				fn: async () => {
+					const { error: delErr } = await client.auth.admin.deleteUser(id)
+					if (delErr) throw new Error(`delete auth user ${id}: ${delErr.message}`)
+				},
 			})
 			return id
 		},
@@ -464,22 +484,45 @@ export function makeSeeder(client: AnyClient): Seeder {
 			// haver progresso → a ordem de dependência deixa de importar.
 			let pending = cleanups.splice(0).reverse() // LIFO como ponto de partida
 			let lastErr: unknown = null
-			for (let pass = 0; pass < 8 && pending.length > 0; pass++) {
-				const stillFailing: CleanupFn[] = []
-				for (const fn of pending) {
+			// Passe sem progresso NÃO é prova de dependência insolúvel: sob carga o PostgREST
+			// devolve timeout/502 e TODOS os deletes do passe falham juntos. Desistir no primeiro
+			// deles (comportamento anterior) vazava a fixture inteira em produção. Só desiste
+			// depois de STALL_LIMIT passes seguidos sem progresso, com backoff entre eles.
+			const STALL_LIMIT = 3
+			let stalled = 0
+			// Orçamento total abaixo do timeout de 60s do `afterEach`: cada delete pode levar até
+			// `requestTimeoutMs` (20s), então retry sem teto estoura o hook e a mensagem com as
+			// linhas vazadas é substituída por um "hook timed out" opaco — perdendo justo o dado útil.
+			const deadline = Date.now() + 45_000
+			for (let pass = 0; pass < 12 && pending.length > 0; pass++) {
+				const stillFailing: CleanupStep[] = []
+				for (const step of pending) {
 					try {
-						await fn()
+						await step.fn()
 					} catch (e) {
 						lastErr = e
-						stillFailing.push(fn)
+						stillFailing.push(step)
 					}
 				}
-				if (stillFailing.length === pending.length) break // sem progresso → desiste
+				const progressed = stillFailing.length < pending.length
 				pending = stillFailing
+				if (Date.now() >= deadline) break
+				if (progressed) {
+					stalled = 0
+					continue
+				}
+				stalled += 1
+				if (stalled >= STALL_LIMIT) break
+				await new Promise((resolve) => setTimeout(resolve, 500 * stalled))
 			}
-			if (pending.length > 0 && process.env.DEBUG_CLEANUP) {
-				const fs = await import("node:fs")
-				fs.appendFileSync("/tmp/cleanup-fail.log", `[cleanup] ${pending.length} falharam; erro: ${(lastErr as Error)?.message}\n`)
+			if (pending.length > 0) {
+				// Vazar fixture aqui suja o banco REAL (a suíte roda contra produção, ver
+				// .github/workflows/integration.yml). Falhar alto é o único jeito de alguém ver:
+				// as linhas que sobraram saem nomeadas para o `scripts/purge-test-fixtures.ts`.
+				const leaked = pending.map((s) => s.label).join(", ")
+				throw new Error(
+					`cleanup de fixtures falhou — ${pending.length} linha(s) vazada(s) no banco: ${leaked}. Último erro: ${(lastErr as Error)?.message ?? lastErr}`
+				)
 			}
 		},
 	}

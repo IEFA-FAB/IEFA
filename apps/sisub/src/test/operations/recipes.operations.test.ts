@@ -144,7 +144,10 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		const v1 = await seeder.seedRecipe({ name: uid("[TEST] Versionada ") })
 
 		const { recipe: v2, forked } = await saveRecipeEdit(db, ctx, {
-			name: "[TEST] Versionada v2",
+			// Nome sempre via `uid()`: é o token de execução que prova para o
+			// `scripts/purge-test-fixtures.ts` que a linha é fixture, e não uma receita real
+			// que alguém batizou de "[TEST] ...". Literal aqui vira lixo que a faxina não ousa apagar.
+			name: uid("[TEST] Versionada v2 "),
 			portionYield: 130,
 			baseRecipeId: v1,
 			context: { scope: "global" },
@@ -159,7 +162,7 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		// A terceira versão continua apontando para a RAIZ, não para o pai imediato —
 		// senão a família se parte e duas versões aparecem juntas na listagem.
 		const { recipe: v3 } = await saveRecipeEdit(db, ctx, {
-			name: "[TEST] Versionada v3",
+			name: uid("[TEST] Versionada v3 "),
 			portionYield: 140,
 			baseRecipeId: v2.id,
 			context: { scope: "global" },

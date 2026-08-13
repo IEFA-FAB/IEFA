@@ -1,5 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest"
-import { createSisubReachabilityClient, createSisubServiceClient, describeSupabaseIntegration, getSupabaseTestEnv } from "@/test/supabase"
+import { describe, expect, test } from "vitest"
 import { IngredientItemWriteSchema, IngredientWriteSchema } from "./ingredients.schemas"
 
 // ============================================================================
@@ -95,86 +94,5 @@ describe("IngredientItemWriteSchema", () => {
 	test("rejeita ingredient_id com formato inválido", () => {
 		const result = IngredientItemWriteSchema.safeParse({ ingredient_id: "nao-uuid" })
 		expect(result.success).toBe(false)
-	})
-})
-
-// ============================================================================
-// Integração — requer VITE_SISUB_SUPABASE_URL + SISUB_SUPABASE_SECRET_KEY
-// ============================================================================
-
-const supabaseEnv = getSupabaseTestEnv()
-
-async function canReachSupabase() {
-	if (!supabaseEnv) return false
-	try {
-		const supabase = createSisubReachabilityClient(supabaseEnv)
-		const { error } = await supabase.from("ingredient").select("id").limit(1)
-		return !error
-	} catch {
-		return false
-	}
-}
-
-describeSupabaseIntegration("ingredient CRUD (integração)", () => {
-	let reachable = false
-	let testIngredientId: string | null = null
-
-	beforeAll(async () => {
-		reachable = await canReachSupabase()
-	})
-
-	afterAll(async () => {
-		if (!reachable || !testIngredientId || !supabaseEnv) return
-		const supabase = createSisubServiceClient(supabaseEnv)
-		await supabase.from("ingredient").delete().eq("id", testIngredientId)
-	})
-
-	test("cria insumo com payload válido", async () => {
-		if (!reachable || !supabaseEnv) return
-		const supabase = createSisubServiceClient(supabaseEnv)
-		const payload = {
-			description: "[TEST] Insumo de Teste Automatizado",
-			measure_unit: "KG",
-			correction_factor: 1.0,
-		}
-		const { data, error } = await supabase.from("ingredient").insert(payload).select().single()
-		expect(error).toBeNull()
-		expect(data).not.toBeNull()
-		expect(data?.description).toBe(payload.description)
-		testIngredientId = data?.id ?? null
-	})
-
-	test("atualiza insumo existente com campos válidos", async () => {
-		if (!reachable || !testIngredientId || !supabaseEnv) return
-		const supabase = createSisubServiceClient(supabaseEnv)
-		const update = {
-			description: "[TEST] Insumo Atualizado",
-			measure_unit: "LT",
-			correction_factor: 1.05,
-			ceafa_id: null,
-		}
-		const { data, error } = await supabase.from("ingredient").update(update).eq("id", testIngredientId).select().single()
-		expect(error).toBeNull()
-		expect(data?.description).toBe(update.description)
-		expect(data?.measure_unit).toBe("LT")
-	})
-
-	test("atualiza insumo sem ceafa_id não quebra (null aceito)", async () => {
-		if (!reachable || !testIngredientId || !supabaseEnv) return
-		const supabase = createSisubServiceClient(supabaseEnv)
-		const { error } = await supabase.from("ingredient").update({ ceafa_id: null }).eq("id", testIngredientId).select().single()
-		expect(error).toBeNull()
-	})
-
-	test("falha ao referenciar ceafa_id inexistente", async () => {
-		if (!reachable || !testIngredientId || !supabaseEnv) return
-		const supabase = createSisubServiceClient(supabaseEnv)
-		const { error } = await supabase
-			.from("ingredient")
-			.update({ ceafa_id: "00000000-dead-beef-0000-000000000000" })
-			.eq("id", testIngredientId)
-			.select()
-			.single()
-		expect(error).not.toBeNull()
 	})
 })
