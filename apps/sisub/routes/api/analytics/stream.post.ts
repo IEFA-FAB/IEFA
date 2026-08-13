@@ -1,9 +1,9 @@
-import { createError, getHeader, readBody, type H3Event } from "h3"
+import { createError, getHeader, readBody, setResponseHeader, type H3Event } from "h3"
 import { defineHandler } from "nitro"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import { trace, metrics } from "@opentelemetry/api"
-import { createAdapterFromEnv } from "@iefa/ai-provider"
+import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
 import { createServerClient } from "@supabase/ssr"
 import type { Database } from "@iefa/database"
 import { getServerCapabilities } from "@/lib/capabilities.server"
@@ -63,7 +63,18 @@ export default defineHandler(async (event: H3Event) => {
 
 	const { messages } = params
 
-	const adapter = createAdapterFromEnv("ANALYTICS")
+	// Teto de consumo antes de abrir o SSE — ver comentário equivalente no chat dos módulos.
+	try {
+		enforceRequestRateLimit("ANALYTICS", user.id)
+	} catch (error) {
+		if (error instanceof RateLimitError) {
+			setResponseHeader(event, "Retry-After", String(error.retryAfterSeconds))
+			throw createError({ statusCode: 429, message: error.message, data: { retryAfterSeconds: error.retryAfterSeconds } })
+		}
+		throw error
+	}
+
+	const adapter = createAdapterFromEnv("ANALYTICS", { rateLimitKey: user.id })
 	const stream = chat({
 		adapter,
 		messages,

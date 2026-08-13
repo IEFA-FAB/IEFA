@@ -27,9 +27,16 @@ describe("toJsonSchema", () => {
 	}
 
 	test("mantém as restrições que o modelo precisa respeitar", () => {
-		const limit = toJsonSchema(AgentListRecipesSchema).properties?.limit as { type?: string; maximum?: number; description?: string }
-		expect(limit.type).toBe("integer")
-		expect(limit.maximum).toBe(100)
+		// Opcional é `.nullish()` — o modelo manda `null` para "não informado" —, então o tipo
+		// e a faixa ficam num braço do `anyOf`, não no topo. A restrição continua anunciada.
+		const limit = toJsonSchema(AgentListRecipesSchema).properties?.limit as {
+			description?: string
+			anyOf?: { type?: string; maximum?: number }[]
+		}
+		const numerico = limit.anyOf?.find((branch) => branch.type === "integer")
+
+		expect(numerico?.maximum).toBe(100)
+		expect(limit.anyOf?.some((branch) => branch.type === "null")).toBe(true)
 		expect(limit.description).toContain("máximo")
 	})
 

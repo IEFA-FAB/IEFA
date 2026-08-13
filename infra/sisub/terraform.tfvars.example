@@ -37,12 +37,28 @@ secret_names = [
   "SISUB_DATABASE_URL",
   "ADMIN_SECRET",
   # AI chat/analytics (optional at runtime — absent → "Em breve").
+  # Primary is Bedrock (keyless, via the ECS task role); the *_FALLBACK_* prefix holds the
+  # stand-in provider used only when Bedrock fails before answering. See AI-PROVIDERS.md.
   "MODULE_CHAT_AI_PROVIDER",
   "MODULE_CHAT_AI_MODEL",
   "MODULE_CHAT_AI_API_KEY",
+  "MODULE_CHAT_AI_REGION",
+  "MODULE_CHAT_FALLBACK_AI_PROVIDER",
+  "MODULE_CHAT_FALLBACK_AI_MODEL",
+  "MODULE_CHAT_FALLBACK_AI_API_KEY",
+  "MODULE_CHAT_AI_MAX_REQUESTS_PER_MINUTE",
+  "MODULE_CHAT_AI_MAX_TOKENS_PER_MINUTE",
+  "MODULE_CHAT_AI_MAX_TOKENS_PER_DAY",
   "ANALYTICS_AI_PROVIDER",
   "ANALYTICS_AI_MODEL",
   "ANALYTICS_AI_API_KEY",
+  "ANALYTICS_AI_REGION",
+  "ANALYTICS_FALLBACK_AI_PROVIDER",
+  "ANALYTICS_FALLBACK_AI_MODEL",
+  "ANALYTICS_FALLBACK_AI_API_KEY",
+  "ANALYTICS_AI_MAX_REQUESTS_PER_MINUTE",
+  "ANALYTICS_AI_MAX_TOKENS_PER_MINUTE",
+  "ANALYTICS_AI_MAX_TOKENS_PER_DAY",
 ]
 
 # Busiest app by far (~90% of ALB requests): two tasks so a Spot reclamation never

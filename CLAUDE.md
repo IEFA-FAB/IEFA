@@ -36,7 +36,18 @@ Os dois expõem o mesmo domínio para modelos diferentes. Regra para não diverg
 - **Listagem exposta a modelo mora em `@iefa/sisub-domain/agent`** — entrada (schema Zod), teto (`clampLimit`) e projeção definidos uma vez, consumidos pelo chat (`apps/sisub/src/lib/module-chat/tools/`) e pelo MCP (`apps/sisub-mcp/src/tools/`). Testes de contrato nos dois lados comparam o `inputSchema`/`parameters` com `toJsonSchema(...)` do schema compartilhado.
 - **Toda listagem tem `limit` e devolve `total`** — sem o total o modelo lê 30 itens e conclui que o catálogo tem 30.
 - **Resultado de tool tem orçamento** (`MAX_TOOL_RESULT_CHARS`, 60k caracteres em JSON compacto — freio contra patologia; quem dimensiona a resposta normal é o `limit` de cada listagem): ele volta INTEIRO no prompt do turno seguinte. Acima disso o provider responde 413 e a run morre sem mensagem. O teto é aplicado no `wrapTool` (chat) e no despacho (MCP); estourar vira erro de tool que o modelo lê e corrige.
+- **Parâmetro opcional exposto a modelo é `.nullish()`, nunca `.optional()` puro** — modelo não omite campo, ele manda `null`. Com `.optional()` o engine rejeita a chamada, o modelo tenta de novo com sintaxe quebrada e o provider mata a run com `tool_use_failed`, sem mensagem para o usuário. `null` que o schema não previu vira ausência no `wrapTool`/despacho MCP (`dropUnexpectedNulls`). Guarda: `model-args.test.ts` nos dois lados varre todas as tools.
 - **Nada de query PostgREST/SQL escrita à mão numa tool** quando a operation existe — foi assim que `list_ingredients` ordenou por coluna inexistente e `list_kitchens` embutiu `units.name`.
+
+### Providers de IA — Bedrock primeiro
+
+Referência completa: **`AI-PROVIDERS.md`** na raiz (mapa dos consumidores, semântica da reserva, tetos de consumo, dívida de sucont/alpha). O essencial:
+
+- **Todo consumidor de modelo usa AWS Bedrock no primário** (keyless, pela task role do ECS). Provider com API key existe só como reserva, no prefixo `<PREFIX>_FALLBACK_AI_*`.
+- **Adapter sempre por `createAdapterFromEnv("<PREFIX>", { rateLimitKey: userId })`** — ele monta primário + reserva + tetos a partir do env. Nunca instanciar provider direto num app.
+- **A reserva só troca antes do primeiro conteúdo e só em falha transitória** (429/5xx/throttling/timeout). Erro de schema, credencial ou tool malformada propaga: trocar de provider repetiria a falha.
+- **Endpoint que abre SSE chama `enforceRequestRateLimit` ANTES do stream** e traduz `RateLimitError` em 429 — depois que o SSE começa não há mais status HTTP, o erro vira conexão cortada sem mensagem.
+- **Fluxo de IA nunca quebra o boot**: sem as vars, a tela fica "Em breve" e o endpoint responde 503 (`capabilities.server.ts`).
 
 ## Design Systems
 
