@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
+import { markPasswordRecovery } from "@/auth/recovery-session"
 import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
@@ -83,6 +84,10 @@ function AuthSync() {
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange(async (event, session) => {
+			// Recuperação em andamento: o guard de `/auth` precisa saber que esta
+			// sessão não significa "já entrou", senão redireciona quem ainda vai
+			// digitar a senha nova.
+			if (event === "PASSWORD_RECOVERY") markPasswordRecovery()
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				// Caminho autêntico: nunca confiar em session.user — vem do storage
 				// (cookies) e não é verificado pelo servidor. Invalida a auth query

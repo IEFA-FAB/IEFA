@@ -64,10 +64,18 @@ const targets = appsWithAuthService().flatMap(({ app, serviceFile, routesDir }) 
 
 describe("destinos de link de e-mail do Supabase", () => {
 	test("os services declaram destinos — se pararem de declarar, o resto do arquivo vira vácuo", () => {
-		// Cinco apps compartilham o projeto; menos que isso significa que a extração
-		// quebrou (refactor no service) e os casos abaixo deixaram de testar algo.
-		expect(new Set(targets.map((t) => t.app)).size).toBeGreaterThanOrEqual(4)
-		expect(targets.length).toBeGreaterThanOrEqual(4)
+		// Números exatos de propósito: um `>=` frouxo deixa a extração perder um
+		// caminho (basta um comentário crescer entre `redirectTo` e o template) sem
+		// que nada fique vermelho, e aí os casos abaixo testam menos do que parecem.
+		expect(new Set(targets.map((t) => t.app))).toEqual(new Set(["sisub", "portal", "rumaer", "forms", "sucont"]))
+		expect(targets.map((t) => `${t.app}${t.path}`).sort()).toEqual([
+			"forms/auth",
+			"portal/auth",
+			"rumaer/auth",
+			"sisub/auth",
+			"sisub/auth/reset-password",
+			"sucont/auth",
+		])
 	})
 
 	test.each(targets)("$app: $path existe como rota do app", ({ path, routesDir }) => {
@@ -81,6 +89,21 @@ describe("destinos de link de e-mail do Supabase", () => {
 			const source = readFileSync(join(appsDir, "sisub/src/routes/auth", file), "utf8")
 			expect(source, `${file} fixa type: "email" no verifyOtp — links de recuperação falham`).not.toMatch(/verifyOtp\(\{[^}]*type:\s*"email"/)
 		}
+	})
+
+	// Uma sessão de recuperação autentica o usuário sem que ele tenha terminado o
+	// que veio fazer. Todo guard que reage a "está autenticado" precisa saber
+	// distinguir os dois casos, senão leva o usuário embora do formulário e a
+	// senha antiga continua valendo — falha silenciosa, sem erro em lugar nenhum.
+	test.each(["sisub", "portal", "rumaer"])("%s: o guard de /auth isenta a sessão de recuperação", (app) => {
+		const source = readFileSync(join(appsDir, app, "src/routes/auth/route.tsx"), "utf8")
+		expect(source, `o beforeLoad de /auth do ${app} redireciona quem chegou por link de recuperação`).toMatch(/isPasswordRecovery\(\)/)
+		expect(source, `o beforeLoad de /auth do ${app} não cobre o primeiro load, antes de qualquer evento`).toMatch(/urlLooksLikeRecovery\(\)/)
+	})
+
+	test("o listener de auth do sisub não manda a sessão de recuperação para /hub", () => {
+		const source = readFileSync(join(appsDir, "sisub/src/router.tsx"), "utf8")
+		expect(source, "o listener navega para /hub em qualquer rota /auth — inclusive a de nova senha").toMatch(/isPasswordRecovery\(\)/)
 	})
 
 	test("a tela de nova senha do sisub lê os parâmetros de erro do link", () => {

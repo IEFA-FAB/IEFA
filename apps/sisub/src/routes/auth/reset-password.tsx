@@ -6,12 +6,13 @@ import { AlertCircle, CheckCircle2, ChevronRight, Eye, EyeOff, Loader2, Lock } f
 import { useEffect, useReducer, useRef } from "react"
 // Validation
 import { z } from "zod"
+// Services
+import { clearPasswordRecovery } from "@/auth/recovery-session"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-// Services
 import { parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -30,11 +31,11 @@ function getPasswordError(v: string): string | null {
 
 // O link de recuperação chega em um de três formatos, e o Supabase escolhe qual
 // conforme o template de e-mail e o flow do projeto:
-//   1. `?token_hash=…&type=recovery` — formato do template do projeto hoje;
-//   2. `?code=…` — PKCE, trocado por sessão pelo próprio client;
-//   3. `#access_token=…` — implícito, também consumido pelo client.
-// Declarar os parâmetros aqui é o que permite ler (1) — sem isso a página
-// ignorava o token e caía no fallback, que anunciava "Link inválido".
+//   1. `?code=…` — PKCE, o que o template `{{ .ConfirmationURL }}` em uso produz;
+//   2. `#access_token=…` — implícito, também consumido pelo próprio client;
+//   3. `?token_hash=…&type=recovery` — de um template que exponha `{{ .TokenHash }}`.
+// Os parâmetros de erro são o caso mais comum na prática: é o que volta quando o
+// link já foi usado, expirou, ou o `redirectTo` não está na allow-list.
 const searchSchema = z.object({
 	token_hash: z.string().optional(),
 	type: z.string().optional(),
@@ -157,7 +158,10 @@ function ResetPasswordPage() {
 		// Link já consumido ou expirado: o Supabase manda o motivo no lugar do
 		// token — na query (PKCE) ou no hash (implícito). Não há o que verificar.
 		const hashParams = new URLSearchParams(typeof window === "undefined" ? "" : window.location.hash.slice(1))
-		const rejection = search.error_description ?? search.error ?? hashParams.get("error_description") ?? hashParams.get("error")
+		// O `+` do form-encoding só vira espaço no URLSearchParams; o parser de search
+		// do TanStack entrega "Email+link+is+invalid", que é o que o usuário leria.
+		const fromQuery = search.error_description ?? search.error
+		const rejection = fromQuery?.replace(/\+/g, " ") ?? hashParams.get("error_description") ?? hashParams.get("error")
 		if (rejection) {
 			dispatch({ type: "REJECT_LINK", reason: rejection })
 			return
@@ -181,7 +185,11 @@ function ResetPasswordPage() {
 			if (verifiedTokenRef.current !== tokenHash) {
 				verifiedTokenRef.current = tokenHash
 				supabase.auth.verifyOtp({ token_hash: tokenHash, type: parseOtpType(search.type) }).then(({ error: otpError }) => {
-					dispatch({ type: "RESOLVE_OTP", verified: !otpError })
+					if (otpError) {
+						dispatch({ type: "REJECT_LINK", reason: otpError.message })
+						return
+					}
+					dispatch({ type: "RESOLVE_OTP", verified: true })
 				})
 			}
 			return () => subscription.unsubscribe()
@@ -232,6 +240,7 @@ function ResetPasswordPage() {
 			return
 		}
 
+		clearPasswordRecovery()
 		await supabase.auth.signOut()
 		dispatch({ type: "SET_SUBMITTING", value: false })
 		dispatch({ type: "SET_PAGE_STATE", value: "success" })

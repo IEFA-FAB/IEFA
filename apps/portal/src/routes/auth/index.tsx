@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Refresh } from "iconoir-react"
 import { useEffect, useState } from "react"
 import { z } from "zod"
+import { clearPasswordRecovery, isPasswordRecovery, urlLooksLikeRecovery } from "@/auth/recovery-session"
 import { AuthScreen } from "@/auth/view/AuthScreen"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -48,6 +49,8 @@ function AuthPage() {
 		},
 		updateUserPassword: async (password: string) => {
 			const { error } = await supabase.auth.updateUser({ password })
+			// Senha gravada: a recuperação terminou e o guard de `/auth` volta a valer.
+			if (!error) clearPasswordRecovery()
 			return { error: error ? new Error(error.message) : null }
 		},
 		verifyOtp: async (token_hash: string, type: "email" | "recovery") => {
@@ -59,7 +62,9 @@ function AuthPage() {
 	// O link de e-mail volta do Supabase sem token_hash: o client consome os
 	// tokens da URL e anuncia PASSWORD_RECOVERY. É esse evento que distingue
 	// "chegou para redefinir a senha" de "chegou para fazer login".
-	const [isRecoverySession, setIsRecoverySession] = useState(false)
+	// Estado inicial vindo do módulo: o PASSWORD_RECOVERY pode ter sido emitido
+	// antes deste componente montar, e aí a assinatura abaixo não o veria.
+	const [isRecoverySession, setIsRecoverySession] = useState(() => isPasswordRecovery() || urlLooksLikeRecovery())
 	useEffect(() => {
 		const {
 			data: { subscription },

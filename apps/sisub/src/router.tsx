@@ -1,6 +1,7 @@
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
+import { isPasswordRecovery, markPasswordRecovery } from "@/auth/recovery-session"
 import { type AuthState, authActions, authQueryOptions } from "@/auth/service"
 import { reportError } from "@/lib/observability/report-error"
 import { recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
@@ -56,6 +57,7 @@ export const getRouter = () => {
 	// existing session. SIGNED_IN fires only on actual new sign-ins.
 	if (typeof window !== "undefined") {
 		supabase.auth.onAuthStateChange((event, session) => {
+			if (event === "PASSWORD_RECOVERY") markPasswordRecovery()
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				// Authentic path: never trust session.user — it comes from the
 				// storage medium (cookies) and is not server-verified. Refetch the
@@ -75,6 +77,12 @@ export const getRouter = () => {
 						// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
 						// throws a redirect from the /auth/ index route — TanStack Router then
 						// fails to match /auth/ as a source path, producing a spurious error.
+						// Sessão de recuperação não é login concluído: o usuário está na
+						// tela de nova senha e mandá-lo para /hub o deixaria dentro do app
+						// com a senha antiga, sem ter trocado nada.
+						if (isPasswordRecovery() || router.state.location.pathname.startsWith("/auth/reset-password")) {
+							return router.invalidate()
+						}
 						if (router.state.location.pathname.startsWith("/auth")) {
 							const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
 							return router.navigate({ to: redirectTo })
