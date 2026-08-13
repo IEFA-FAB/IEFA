@@ -7,7 +7,7 @@ import type { Database } from "@iefa/database"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
 import type { UserContext } from "@iefa/sisub-domain"
-import { enforcePayloadBudget } from "@iefa/sisub-domain/agent"
+import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
 import { toolDefinition } from "@tanstack/ai"
@@ -191,7 +191,10 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerToo
 		// biome-ignore lint/suspicious/noExplicitAny: plain JSONSchema accepted at runtime but not yet reflected in SchemaInput types
 		inputSchema: def.parameters as any,
 	}).server(async (args) => {
-		const result = await def.handler(args as Record<string, unknown>, ctx)
+		// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
+		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
+		const input = dropUnexpectedNulls(args as Record<string, unknown>, def.parameters)
+		const result = await def.handler(input, ctx)
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
 
 		// Mesma rede de segurança do servidor MCP: falhar aqui devolve um erro de tool
