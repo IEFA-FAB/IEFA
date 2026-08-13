@@ -1,4 +1,7 @@
 // Routing
+
+// Hooks + Services
+import { useLoginRateLimiter } from "@iefa/auth-kit/react"
 import { createFileRoute } from "@tanstack/react-router"
 // Icons
 import {
@@ -21,8 +24,6 @@ import {
 import { useEffect, useReducer, useState } from "react"
 // Validation
 import { z } from "zod"
-// Hooks + Services
-import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { authQueryOptions } from "@/auth/service"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"

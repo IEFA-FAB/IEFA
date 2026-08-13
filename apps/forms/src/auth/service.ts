@@ -1,3 +1,4 @@
+import { createAuthActions } from "@iefa/auth-kit"
 import type { Session, User } from "@supabase/supabase-js"
 import { queryOptions } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
@@ -22,62 +23,12 @@ export interface AuthContextType {
 	refreshSession: () => Promise<void>
 }
 
-function normalizeEmail(email: string) {
-	return email.trim().toLowerCase()
-}
-
-function getAuthErrorMessage(error: unknown): string {
-	const msg = (error as { message?: string })?.message || "Erro desconhecido"
-	if (/invalid login credentials/i.test(msg)) return "Email ou senha incorretos"
-	if (/email not confirmed/i.test(msg)) return "Por favor, confirme seu email antes de fazer login"
-	if (/user already registered/i.test(msg)) return "Este email já está cadastrado"
-	if (/password should be at least/i.test(msg)) return "A senha deve ter pelo menos 8 caracteres, com maiúscula, minúscula e número"
-	if (/invalid format/i.test(msg)) return "Formato de email inválido"
-	if (/signup is disabled/i.test(msg)) return "Cadastro temporariamente desabilitado"
-	return msg
-}
-
-export const authActions = {
-	signIn: async (email: string, password: string) => {
-		const { error } = await supabase.auth.signInWithPassword({
-			email: normalizeEmail(email),
-			password,
-		})
-		if (error) throw new Error(getAuthErrorMessage(error))
-	},
-
-	signUp: async (email: string, password: string, name?: string) => {
-		const { error } = await supabase.auth.signUp({
-			email: normalizeEmail(email),
-			password,
-			options: {
-				data: name ? { display_name: name } : undefined,
-				// /auth é a única rota de autenticação: lê token_hash/type da URL e faz o verifyOtp.
-				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
-			},
-		})
-		if (error) throw new Error(getAuthErrorMessage(error))
-	},
-
-	signOut: async () => {
-		const { error } = await supabase.auth.signOut()
-		if (error) {
-			await supabase.auth.signOut({ scope: "local" })
-		}
-	},
-
-	resetPassword: async (email: string, redirectTo?: string) => {
-		const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
-			redirectTo: redirectTo ?? (typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined),
-		})
-		if (error) throw new Error(getAuthErrorMessage(error))
-	},
-
-	refreshSession: async () => {
-		const { error } = await supabase.auth.refreshSession()
-		if (error) throw new Error(getAuthErrorMessage(error))
-	},
-}
+export const authActions = createAuthActions({
+	client: supabase,
+	// /auth é a única rota de autenticação: lê token_hash/type da URL e faz o verifyOtp.
+	signUpRedirectPath: "/auth",
+	resetPasswordRedirectPath: "/auth",
+})
 
 export const authQueryOptions = () =>
 	queryOptions({

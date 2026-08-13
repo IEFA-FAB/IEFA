@@ -1,8 +1,9 @@
-import type { Database } from "@iefa/database"
-import { createServerClient } from "@supabase/ssr"
-import { createClient } from "@supabase/supabase-js"
-import { getRequest, setCookie } from "@tanstack/react-start/server"
+import { createServiceRoleClient } from "@iefa/supabase-kit"
+import { createSsrAuthClient } from "@iefa/supabase-kit/start"
 import { envServer } from "#/lib/env.server"
+
+const url = () => envServer.VITE_SUCONT_SUPABASE_URL
+const secretKey = () => envServer.SUCONT_SUPABASE_SECRET_KEY
 
 /**
  * Cliente Supabase com service role para operações de dados no schema `sucont`.
@@ -10,10 +11,7 @@ import { envServer } from "#/lib/env.server"
  * aplicada na camada de app (@iefa/pbac), não por RLS. Nunca importe no cliente.
  */
 export function getSucontServerClient() {
-	return createClient<Database, "sucont">(envServer.VITE_SUCONT_SUPABASE_URL, envServer.SUCONT_SUPABASE_SECRET_KEY, {
-		db: { schema: "sucont" },
-		auth: { persistSession: false },
-	})
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "sucont" })
 }
 
 /**
@@ -22,10 +20,7 @@ export function getSucontServerClient() {
  * Bypass de RLS; use apenas em server functions.
  */
 export function getAccessControlClient() {
-	return createClient<Database, "access_control">(envServer.VITE_SUCONT_SUPABASE_URL, envServer.SUCONT_SUPABASE_SECRET_KEY, {
-		db: { schema: "access_control" },
-		auth: { persistSession: false },
-	})
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "access_control" })
 }
 
 /**
@@ -33,10 +28,7 @@ export function getAccessControlClient() {
  * o perfil do usuário (user_data) na busca por e-mail da gestão de acessos.
  */
 export function getCoreReadClient() {
-	return createClient<Database, "core">(envServer.VITE_SUCONT_SUPABASE_URL, envServer.SUCONT_SUPABASE_SECRET_KEY, {
-		db: { schema: "core" },
-		auth: { persistSession: false },
-	})
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "core" })
 }
 
 /**
@@ -48,23 +40,5 @@ export function getSucontAuthClient() {
 	// Chave anon/publishable (não a service role): getUser() valida o JWT do cookie
 	// no servidor Supabase e o nível de acesso vem do próprio JWT. Inicializar com a
 	// service role faria qualquer query acidental por este client burlar a RLS.
-	return createServerClient(envServer.VITE_SUCONT_SUPABASE_URL, envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY, {
-		cookies: {
-			getAll() {
-				const request = getRequest()
-				const cookieHeader = request?.headers.get("cookie")
-				if (!cookieHeader) return []
-
-				return cookieHeader.split(";").map((c) => {
-					const [name, ...v] = c.split("=")
-					return { name: name.trim(), value: v.join("=") }
-				})
-			},
-			async setAll(cookies) {
-				for (const { name, value, options } of cookies) {
-					await setCookie(name, value, options)
-				}
-			},
-		},
-	})
+	return createSsrAuthClient({ url: url(), key: envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY })
 }

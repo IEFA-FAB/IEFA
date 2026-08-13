@@ -1,7 +1,5 @@
-import type { Database } from "@iefa/database"
-import { createServerClient } from "@supabase/ssr"
-import { createClient } from "@supabase/supabase-js"
-import { getRequest, setCookie } from "@tanstack/react-start/server"
+import { createServiceRoleClient } from "@iefa/supabase-kit"
+import { createSsrAuthClient } from "@iefa/supabase-kit/start"
 import { envServer } from "@/env.server"
 
 /**
@@ -10,9 +8,10 @@ import { envServer } from "@/env.server"
  * Nunca importe em código client-side.
  */
 export function getAssignmentServerClient() {
-	return createClient<Database, "assignment_selection">(envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL, envServer.ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY, {
-		db: { schema: "assignment_selection" },
-		auth: { persistSession: false },
+	return createServiceRoleClient({
+		url: envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL,
+		secretKey: envServer.ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY,
+		schema: "assignment_selection",
 	})
 }
 
@@ -23,27 +22,9 @@ export function getAssignmentServerClient() {
  * respeita a identidade do usuário logado.
  */
 export function getSupabaseAuthClient() {
-	return createServerClient<Database, "assignment_selection">(
-		envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL,
-		envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY,
-		{
-			db: { schema: "assignment_selection" },
-			cookies: {
-				getAll() {
-					const request = getRequest()
-					const cookieHeader = request?.headers.get("cookie")
-					if (!cookieHeader) return []
-					return cookieHeader.split(";").map((c) => {
-						const [name, ...v] = c.split("=")
-						return { name: name.trim(), value: v.join("=") }
-					})
-				},
-				async setAll(cookies) {
-					for (const { name, value, options } of cookies) {
-						await setCookie(name, value, options)
-					}
-				},
-			},
-		}
-	)
+	return createSsrAuthClient({
+		url: envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL,
+		key: envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY,
+		schema: "assignment_selection",
+	})
 }
