@@ -107,6 +107,13 @@ function RootDocument() {
 				window.location.replace(`/auth/reset-password${window.location.search}`)
 				return
 			}
+			// Formato token_hash: o mesmo desvio, mas só para a recuperação — os
+			// demais tipos (signup, invite, magiclink) pertencem a /auth, que os
+			// verifica e manda o usuário para dentro do app.
+			if (params.has("token_hash") && params.get("type") === "recovery") {
+				window.location.replace(`/auth/reset-password${window.location.search}`)
+				return
+			}
 		}
 
 		// Implicit/hash flow: Supabase fires PASSWORD_RECOVERY after parsing the

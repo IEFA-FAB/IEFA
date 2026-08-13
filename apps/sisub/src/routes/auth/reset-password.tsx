@@ -3,13 +3,16 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 // Icons
 import { AlertCircle, CheckCircle2, ChevronRight, Eye, EyeOff, Loader2, Lock } from "lucide-react"
 // React
-import { useEffect, useReducer } from "react"
+import { useEffect, useReducer, useRef } from "react"
+// Validation
+import { z } from "zod"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 // Services
+import { parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
 
@@ -25,7 +28,25 @@ function getPasswordError(v: string): string | null {
    ROUTE DEFINITION
    ======================================================================== */
 
+// O link de recuperação chega em um de três formatos, e o Supabase escolhe qual
+// conforme o template de e-mail e o flow do projeto:
+//   1. `?token_hash=…&type=recovery` — formato do template do projeto hoje;
+//   2. `?code=…` — PKCE, trocado por sessão pelo próprio client;
+//   3. `#access_token=…` — implícito, também consumido pelo client.
+// Declarar os parâmetros aqui é o que permite ler (1) — sem isso a página
+// ignorava o token e caía no fallback, que anunciava "Link inválido".
+const searchSchema = z.object({
+	token_hash: z.string().optional(),
+	type: z.string().optional(),
+	code: z.string().optional(),
+	// Link já consumido ou expirado: o Supabase devolve o motivo em vez do token.
+	error: z.string().optional(),
+	error_code: z.string().optional(),
+	error_description: z.string().optional(),
+})
+
 export const Route = createFileRoute("/auth/reset-password")({
+	validateSearch: searchSchema,
 	head: () => ({
 		meta: [{ title: "Redefinir Senha — SISUB" }],
 	}),
@@ -53,6 +74,7 @@ type ResetPasswordRouteState = {
 type ResetPasswordRouteAction =
 	| { type: "SET_PAGE_STATE"; value: PageState }
 	| { type: "RESOLVE_FALLBACK"; hasSession: boolean }
+	| { type: "RESOLVE_OTP"; verified: boolean }
 	| { type: "SET_NEW_PASSWORD"; value: string }
 	| { type: "SET_CONFIRM"; value: string }
 	| { type: "TOGGLE_SHOW_PASSWORD" }
@@ -79,6 +101,11 @@ function resetPasswordRouteReducer(state: ResetPasswordRouteState, action: Reset
 			// sobrescrever um estado "form" já resolvido pelo onAuthStateChange.
 			if (state.pageState !== "verifying") return state
 			return { ...state, pageState: action.hasSession ? "form" : "invalid" }
+		case "RESOLVE_OTP":
+			// O onAuthStateChange do verifyOtp bem-sucedido pode chegar antes daqui;
+			// nesse caso o formulário já está na tela e não deve piscar de volta.
+			if (state.pageState === "form" || state.pageState === "success") return state
+			return { ...state, pageState: action.verified ? "form" : "invalid" }
 		case "SET_NEW_PASSWORD":
 			return { ...state, newPassword: action.value }
 		case "SET_CONFIRM":
@@ -103,6 +130,7 @@ function resetPasswordRouteReducer(state: ResetPasswordRouteState, action: Reset
 function ResetPasswordPage() {
 	"use no memo"
 	const router = useRouter()
+	const search = Route.useSearch()
 
 	const [state, dispatch] = useReducer(resetPasswordRouteReducer, initialResetPasswordRouteState)
 	const { pageState, newPassword, confirm, showPassword, showConfirm, isSubmitting, error } = state
@@ -110,10 +138,24 @@ function ResetPasswordPage() {
 	const passwordErr = newPassword ? getPasswordError(newPassword) : null
 	const confirmErr = confirm && confirm !== newPassword ? "As senhas não coincidem." : null
 
-	// Aguarda o evento de recuperação de senha do Supabase (via hash do link).
-	// Sem deps reativas: só usa supabase/dispatch (estáveis) e a decisão de
-	// estado mora no reducer (RESOLVE_FALLBACK).
+	// O token de recuperação vale uma vez só: um segundo verifyOtp com o mesmo
+	// token falha e mostraria "Link inválido" à toa. O ref sobrevive ao efeito
+	// duplo do StrictMode e a qualquer re-render disparado pelo SIGNED_IN.
+	const verifiedTokenRef = useRef<string | null>(null)
+
+	// Consome o link de recuperação. Sem deps reativas: os parâmetros vêm da URL
+	// de entrada e não mudam enquanto a página vive; a decisão de estado mora no
+	// reducer para não ler um pageState capturado no mount.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: roda uma vez no mount; search vem da URL de entrada e supabase/dispatch são estáveis
 	useEffect(() => {
+		// Link já consumido ou expirado: o Supabase manda o motivo no lugar do
+		// token — na query (PKCE) ou no hash (implícito). Não há o que verificar.
+		const hashParams = new URLSearchParams(typeof window === "undefined" ? "" : window.location.hash.slice(1))
+		if (search.error || hashParams.has("error")) {
+			dispatch({ type: "SET_PAGE_STATE", value: "invalid" })
+			return
+		}
+
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((event, session) => {
@@ -122,9 +164,23 @@ function ResetPasswordPage() {
 			}
 		})
 
-		// Fallback: se a sessão já estiver ativa (link com token no hash já processado).
-		// A decisão de "ainda verificando?" vai no reducer para não ler pageState
-		// defasado (capturado no mount) e sobrescrever um "form" já resolvido.
+		// Formato token_hash: nenhum client do Supabase troca isso por sessão
+		// sozinho — detectSessionInUrl só enxerga `?code=` e `#access_token=`.
+		// Sem este verifyOtp explícito a página nunca ganha sessão e o fallback
+		// abaixo conclui, erradamente, que o link é inválido.
+		const tokenHash = search.token_hash
+		if (tokenHash) {
+			if (verifiedTokenRef.current !== tokenHash) {
+				verifiedTokenRef.current = tokenHash
+				supabase.auth.verifyOtp({ token_hash: tokenHash, type: parseOtpType(search.type) }).then(({ error: otpError }) => {
+					dispatch({ type: "RESOLVE_OTP", verified: !otpError })
+				})
+			}
+			return () => subscription.unsubscribe()
+		}
+
+		// Fallback dos fluxos PKCE/implícito: aí o próprio client já consumiu o
+		// token da URL, então basta perguntar se existe sessão.
 		const timer = setTimeout(async () => {
 			const {
 				data: { session },

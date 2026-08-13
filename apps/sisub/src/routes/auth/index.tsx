@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
 
@@ -116,15 +117,29 @@ function AuthPage() {
 	const navigate = Route.useNavigate()
 	const { queryClient } = Route.useRouteContext()
 
-	const hasOtp = !!(search.token_hash && search.type === "email")
-	const [view, setView] = useState<AuthView>(hasOtp ? "verify-loading" : "tabs")
+	// Todo link de e-mail do Supabase chega com token_hash + type. O tipo real
+	// precisa ir para o verifyOtp: fixar "email" faz o link de recuperação
+	// (type=recovery) falhar com "Token has expired or is invalid".
+	const otpType = search.token_hash ? parseOtpType(search.type) : null
+	// Recuperação de senha não se resolve aqui — a nova senha é pedida em outra
+	// tela e o token vale uma vez só, então ele é repassado intacto.
+	const isRecovery = otpType === "recovery"
+	const hasOtp = !!search.token_hash && !isRecovery
+	// Qualquer link de e-mail abre no spinner — inclusive o de recuperação, que só
+	// passa por aqui a caminho de /auth/reset-password. Sem isso a tela de login
+	// pisca antes do redirecionamento.
+	const [view, setView] = useState<AuthView>(search.token_hash ? "verify-loading" : "tabs")
 
 	// Verificação de OTP (confirmação de email via link)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount, hasOtp/navigate/search are stable
 	useEffect(() => {
-		if (!hasOtp) return
+		if (isRecovery) {
+			navigate({ to: "/auth/reset-password", search: { token_hash: search.token_hash, type: search.type }, replace: true })
+			return
+		}
+		if (!hasOtp || !otpType) return
 		let timerId: ReturnType<typeof setTimeout>
-		supabase.auth.verifyOtp({ token_hash: search.token_hash as string, type: "email" }).then(({ error }) => {
+		supabase.auth.verifyOtp({ token_hash: search.token_hash as string, type: otpType }).then(({ error }) => {
 			if (error) {
 				setView("verify-error")
 			} else {

@@ -56,7 +56,9 @@ export const authActions = {
 			password,
 			options: {
 				data: name ? { display_name: name } : undefined,
-				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+				// `/auth/callback` não é rota deste app — o link caía em 404. Quem
+				// verifica o token_hash da confirmação de cadastro é `/auth`.
+				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
 			},
 		})
 		if (error) throw new Error(getAuthErrorMessage(error))
