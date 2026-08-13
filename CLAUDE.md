@@ -7,7 +7,11 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | App | Stack | Purpose |
 |-----|-------|---------|
 | `sisub` | React 19 + TanStack Start + Nitro SSR | Sistema de Subsistência — menus, receitas, planejamento, analytics |
-| `portal` | React 19 + Vite + Nitro SSR + TanStack Router | Portal web — CMS (Sanity), drag-drop, markdown |
+| `portal` | React 19 + Vite + Nitro SSR + TanStack Router | Portal web — CMS (Sanity), drag-drop, markdown, journal |
+| `sucont` | React 19 + TanStack Start + Nitro SSR | Hub SUCONT-4 — acompanhamento contábil |
+| `rumaer` | React 19 + TanStack Start + Nitro SSR | Uniformes da FAB (RUMAER) |
+| `forms` | React 19 + TanStack Start + Nitro SSR | Questionários e pesquisas internas; multi-tenant (tenant `cinco-s` = deploy `5s`) |
+| `assignment-selection` | React 19 + TanStack Start + Nitro SSR | Escolha de vagas / CPAINT — telão + controlador |
 | `api` | Bun + Hono + OpenAPI (Scalar) | API pública — alimentos, preços, sync workers |
 | `alpha` | Bun + Hono + LangChain/LangGraph | Projeto α — IA aplicada a contratações públicas da FAB (Lei 14.133/21) |
 | `docs` | React 19 + TanStack Start + Nitro SSR + Fumadocs | Documentação interna |
@@ -17,14 +21,27 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 
 | Package | Purpose |
 |---------|---------|
-| `database` | Tipos TS + migrations Supabase (schemas: sisub, iefa, journal) |
+| `database` | Tipos TS + migrations Supabase (schemas por domínio) |
+| `sisub-domain` | Operações de domínio do sisub (schemas, guards, operations, contrato de tools de IA) |
+| `supabase-kit` | Clients Supabase: service-role, browser e SSR (subpath `/start`), com os deadlines de fetch |
+| `auth-kit` | Ações de auth, tradução de erro do GoTrue e trava de login (subpath `/react`) |
+| `pbac` | Engine de autorização por política (módulo + nível + escopo) |
+| `ai-provider` | Adapter de modelo: Bedrock no primário, reserva com API key, tetos de consumo |
+| `agent-web` | Camada agent-ready dos apps web (negociação de Markdown, llms.txt, descoberta) |
+| `compras-api` | Client gerado da API do Compras.gov |
+| `hono-client` | Client RPC tipado do `apps/api` |
+| `alpha-client` | Client do `apps/alpha` |
+| `tsconfig` | Bases de tsconfig (`base`, `library`, `react-app`, `bun-service`) |
 
 ## Conventions
 
 - **Server functions (TanStack Start)**: `createServerFn` with `.validator(z.object(...))` — NOT `.inputValidator()` (deprecated)
 - **Server fn files**: `src/server/*.fn.ts`
-- **Supabase server client**: `getSupabaseServerClient()` per-request inside `.handler()`, never singleton
-- **Imports**: `@/*` → `src/*`
+- **Supabase client**: sempre via `@iefa/supabase-kit` (`createServiceRoleClient` / `createAppBrowserClient` / `createSsrAuthClient`), chamado per-request dentro do `.handler()`, nunca singleton. Nunca instanciar `createClient` direto num app — foi assim que os deadlines de fetch que seguram o 502 no ALB existiram em 1 de 6 apps.
+- **Auth**: ações e mensagens de erro via `@iefa/auth-kit`; a trava de login é `useLoginRateLimiter` de `@iefa/auth-kit/react`.
+- **tsconfig**: estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara `paths`.
+- **Imports**: `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado)
+- **Deploy**: `Dockerfile`, `docker-bake.hcl` e `.github/paths-filter.yml` são GERADOS de `apps.manifest.json` (`bun run generate:deploy`). App ou package novo entra no manifesto/package.json, nunca editando os três à mão — o CI falha em drift (`bun run check:deploy`).
 - **Route tree**: `routeTree.gen.ts` is auto-generated — run `bun dev` after new routes
 - **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`

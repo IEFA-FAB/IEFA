@@ -56,6 +56,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@iefa/tsconfig": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
     "@sanity/types": "^6.5.0",
     "@tanstack/devtools-vite": "^0.8.1",

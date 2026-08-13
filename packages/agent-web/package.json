@@ -8,10 +8,17 @@
     "./server": "./src/server/index.ts"
   },
   "scripts": {
-    "test": "bun test $(find src -name '*.test.ts' -print)"
+    "test": "bun test $(find src -name '*.test.ts' -print)",
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "node-html-markdown": "^2.0.0",
     "node-html-parser": "^9.0.1"
+  },
+  "devDependencies": {
+    "@iefa/tsconfig": "workspace:*",
+    "@types/bun": "^1.3.14",
+    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+    "typescript": "^7.0.2"
   }
 }

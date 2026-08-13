@@ -35,6 +35,7 @@ COPY packages/hono-client/package.json ./packages/hono-client/
 COPY packages/pbac/package.json ./packages/pbac/
 COPY packages/sisub-domain/package.json ./packages/sisub-domain/
 COPY packages/supabase-kit/package.json ./packages/supabase-kit/
+COPY packages/tsconfig/package.json ./packages/tsconfig/
 RUN bun install --frozen-lockfile
 
 # =============================================================================
@@ -46,6 +47,7 @@ COPY packages/agent-web ./packages/agent-web
 COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/api ./apps/api
 RUN bun --filter='@iefa/api' run build
 RUN test -f apps/api/dist/index.js || \
@@ -68,6 +70,7 @@ ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/portal ./apps/portal
 RUN rm -rf apps/portal/.vite apps/portal/.tanstack apps/portal/node_modules/.vite
 RUN bun --filter='@iefa/portal' run build
@@ -106,6 +109,7 @@ COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/rumaer ./apps/rumaer
 RUN rm -rf apps/rumaer/.vite apps/rumaer/.tanstack apps/rumaer/node_modules/.vite
 RUN bun --filter='@iefa/rumaer' run build
@@ -145,6 +149,7 @@ COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/sucont ./apps/sucont
 RUN rm -rf apps/sucont/.vite apps/sucont/.tanstack apps/sucont/node_modules/.vite
 RUN bun --filter='sucont' run build
@@ -181,6 +186,7 @@ ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
 COPY packages/agent-web ./packages/agent-web
 COPY packages/database ./packages/database
 COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/assignment-selection ./apps/assignment-selection
 RUN rm -rf apps/assignment-selection/.vite apps/assignment-selection/.tanstack apps/assignment-selection/node_modules/.vite
 RUN bun --filter='@iefa/assignment-selection' run build
@@ -231,6 +237,7 @@ COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/sisub ./apps/sisub
 RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
 RUN bun --filter='@iefa/sisub' run build
@@ -269,6 +276,7 @@ COPY packages/agent-web ./packages/agent-web
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/forms ./apps/forms
 RUN rm -rf apps/forms/.vite apps/forms/.tanstack apps/forms/node_modules/.vite
 RUN bun --filter='@iefa/forms' run build
@@ -303,6 +311,7 @@ FROM deps AS alpha-build
 COPY packages/agent-web ./packages/agent-web
 COPY packages/ai-provider ./packages/ai-provider
 COPY packages/alpha-client ./packages/alpha-client
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/alpha ./apps/alpha
 RUN test -f apps/alpha/src/index.ts || \
     (echo "❌ alpha entrypoint missing" && exit 1)
@@ -321,6 +330,7 @@ CMD ["bun", "apps/alpha/src/index.ts"]
 # =============================================================================
 FROM deps AS docs-build
 COPY packages/agent-web ./packages/agent-web
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/docs ./apps/docs
 RUN rm -rf apps/docs/.vite apps/docs/.tanstack apps/docs/node_modules/.vite
 RUN bun --filter='@iefa/docs' run build
@@ -356,6 +366,7 @@ FROM deps AS sisub-mcp-build
 COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
+COPY packages/tsconfig ./packages/tsconfig
 COPY apps/sisub-mcp ./apps/sisub-mcp
 RUN test -f apps/sisub-mcp/src/index.ts || \
     (echo "❌ sisub-mcp entrypoint missing" && exit 1)

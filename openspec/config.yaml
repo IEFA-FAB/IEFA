@@ -3,31 +3,9 @@ schema: spec-driven
 context: |
   # IEFA Monorepo
 
-  Bun monorepo, Turborepo orchestration, Biome formatting/linting.
-
-  ## Apps
-  - **sisub**: React 19 + TanStack Start + Nitro SSR — Sistema de Subsistência (menus, receitas, planejamento, analytics)
-  - **portal**: React 19 + Vite + Nitro SSR + TanStack Router — Portal web (CMS Sanity, drag-drop, markdown)
-  - **api**: Bun + Hono + @hono/zod-openapi + Scalar — API pública (alimentos, preços, sync workers)
-  - **alpha**: Bun + Hono + LangChain/LangGraph — Projeto α (IA aplicada a contratações públicas da FAB)
-  - **docs**: React 19 + TanStack Start + Nitro SSR + Fumadocs — Documentação interna
-  - **sisub-mcp**: Bun + MCP SDK — MCP server (acesso AI aos dados sisub)
-
-  ## Packages
-  - **database**: Tipos TS + migrations Supabase (schemas: sisub, iefa, journal)
-  - **hono-client**: RPC client tipado para o API
-
-  ## Conventions
-  - Server functions (TanStack Start): `createServerFn` com `.validator(z.object(...))` — `.inputValidator` está deprecado
-  - UI: Base UI (`@base-ui/react/*`) — NUNCA Radix UI
-  - Imports: `@/*` → `src/*`
-  - Commits: Conventional Commits via cz-git (scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root)
-  - Formatting: Biome (pre-commit hook)
-  - DB: Supabase (schemas: sisub, iefa, journal)
-
-  ## Design Systems (incompatíveis entre apps)
-  - sisub: Flat design, radius 0.5rem (Card usa rounded-xl)
-  - portal: Pale Brutalism 2026, zero radius
+  O contexto do repo — apps, packages, convenções, design systems, workflow — mora
+  em CLAUDE.md na raiz. Leia de lá; esta chave existia como uma segunda cópia da
+  mesma coisa e as duas divergiram (as duas ainda listavam 6 apps quando já eram 10).
 
   ## Language
   - Codebase: English (code) + Portuguese-BR (user-facing, docs, specs)
@@ -36,7 +14,7 @@ rules:
   proposal:
     - Write in Portuguese-BR
     - Always include a "Não-objetivos" (Non-goals) section
-    - Reference which app(s) the change affects (sisub, portal, api, alpha, docs)
+    - Reference which app(s) the change affects — a lista está em CLAUDE.md
   design:
     - Write in Portuguese-BR
     - Reference existing patterns in the codebase when applicable
