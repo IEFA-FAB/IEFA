@@ -84,6 +84,7 @@
   },
   "devDependencies": {
     "@grafana/faro-rollup-plugin": "^0.11.0",
+    "@iefa/tsconfig": "workspace:*",
     "@playwright/test": "^1.61.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tanstack/devtools-vite": "^0.8.1",

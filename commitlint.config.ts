@@ -1,24 +1,25 @@
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { defineConfig } from "cz-git"
 
+/**
+ * Escopos derivados do repo, não digitados à mão: um workspace novo vira escopo
+ * válido sozinho. A lista manual ficou seis packages atrás da realidade porque
+ * ninguém lembra de vir aqui ao criar um package.
+ */
+function workspaceScopes() {
+	const dirs = ["apps", "packages"].flatMap((group) =>
+		readdirSync(join(import.meta.dirname, group), { withFileTypes: true })
+			.filter((e) => e.isDirectory())
+			.map((e) => e.name)
+	)
+	// `5s` é alvo de deploy (o mesmo build do forms com outro tenant), não diretório.
+	const manifest = JSON.parse(readFileSync(join(import.meta.dirname, "apps.manifest.json"), "utf8")) as { apps: { key: string }[] }
+	return [...new Set([...dirs, ...manifest.apps.map((a) => a.key)])].sort()
+}
+
 const validScopes = [
-	// apps
-	"portal",
-	"rumaer",
-	"sisub",
-	"sisub-mcp",
-	"alpha",
-	"api",
-	"docs",
-	"forms",
-	"5s",
-	"sucont",
-	"assignment-selection",
-	// packages
-	"database",
-	"sisub-domain",
-	"alpha-client",
-	"hono-client",
-	"pbac",
+	...workspaceScopes(),
 	// monorepo raiz
 	"deps",
 	"ci",

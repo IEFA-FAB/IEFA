@@ -38,12 +38,24 @@ function allowsNull(schema: unknown): boolean {
 }
 
 /**
+ * O que sobra depois de `dropUnexpectedNulls`: toda chave vira opcional, em qualquer
+ * profundidade, porque a função apaga campo em objeto aninhado também. Array fica intacto —
+ * a função não mexe em item de array.
+ */
+export type DroppedNulls<T> = {
+	[K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends Record<string, unknown> ? DroppedNulls<T[K]> : T[K]
+}
+
+/**
  * Remove de `args` os campos em `null` que o schema não declara como anuláveis. Recursivo
  * nos objetos aninhados; arrays passam intactos (posição em array é significativa — apagar
  * um item deslocaria os demais).
+ *
+ * Devolve `DroppedNulls<T>` porque apagar chave é justamente o que a função faz: declarar `T`
+ * no retorno prometia ao chamador campos que podem ter acabado de sair.
  */
-export function dropUnexpectedNulls<T extends Record<string, JsonValue>>(args: T, schema?: unknown): T {
-	if (args == null || typeof args !== "object" || Array.isArray(args)) return args
+export function dropUnexpectedNulls<T extends Record<string, JsonValue>>(args: T, schema?: unknown): DroppedNulls<T> {
+	if (args == null || typeof args !== "object" || Array.isArray(args)) return args as DroppedNulls<T>
 
 	const properties = asSchema(schema)?.properties
 	const out: Record<string, JsonValue> = {}
@@ -65,5 +77,5 @@ export function dropUnexpectedNulls<T extends Record<string, JsonValue>>(args: T
 		out[key] = value
 	}
 
-	return out as T
+	return out as DroppedNulls<T>
 }

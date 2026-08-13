@@ -20,6 +20,7 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@iefa/tsconfig": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@types/mdx": "^2.0.14",
     "@types/react": "^19.2.17",
