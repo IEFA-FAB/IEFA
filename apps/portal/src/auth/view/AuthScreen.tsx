@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,12 +34,20 @@ function safeRedirect(target: string | null | undefined, fallback = "/"): string
 	return fallback
 }
 
-// view derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
+// view derivada da URL — "reset" ativado por token_hash (ou pela sessão de
+// recuperação que o client abre sozinho), "forgot" por ?view=forgot
 export type AuthView = "auth" | "forgot" | "reset"
 
 export interface AuthScreenProps {
 	isLoading: boolean
 	isAuthenticated: boolean
+	/**
+	 * O template `{{ .ConfirmationURL }}` devolve o link sem token_hash: os tokens
+	 * chegam no hash (ou como `?code=`) e o próprio client os consome, emitindo
+	 * PASSWORD_RECOVERY. Sem esse sinal a tela mostraria o login para quem acabou
+	 * de clicar em "redefinir senha".
+	 */
+	isRecoverySession?: boolean
 	searchParams: {
 		redirect?: string
 		tab?: "login" | "register"
@@ -56,7 +64,7 @@ export interface AuthScreenProps {
 		signUp: (email: string, password: string, name: string) => Promise<void>
 		resetPassword: (email: string) => Promise<void>
 		updateUserPassword: (password: string) => Promise<{ error: Error | null }>
-		verifyOtp: (token_hash: string, type: "email") => Promise<{ error: Error | null }>
+		verifyOtp: (token_hash: string, type: "email" | "recovery") => Promise<{ error: Error | null }>
 	}
 }
 
@@ -102,12 +110,21 @@ function SuccessBanner({ message }: { message: string }) {
 
 // ─── AuthScreen ───────────────────────────────────────────────────────────────
 
-export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigate, onTabChange, onViewChange, actions }: AuthScreenProps) {
+export function AuthScreen({
+	isLoading,
+	isAuthenticated,
+	isRecoverySession = false,
+	searchParams,
+	onNavigate,
+	onTabChange,
+	onViewChange,
+	actions,
+}: AuthScreenProps) {
 	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
 
 	// ── View derivada da URL — nunca estado local ─────────────────────────────
 	// Prioridade: token_hash → reset | ?view=forgot → forgot | default → auth tabs
-	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
+	const currentView: AuthView = searchParams.token_hash || isRecoverySession ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
 
 	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
 
@@ -310,12 +327,22 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
+	// O token é consumido no primeiro verifyOtp: a partir daí ele já não vale mais.
+	// Guardamos qual token já foi tentado para não re-verificar num re-render
+	// (`actions` muda de identidade a cada render, e o SIGNED_IN da sessão de
+	// recuperação também dispara um), o que mostraria "Link inválido" à toa.
+	const verifiedTokenRef = useRef<string | null>(null)
 	useEffect(() => {
-		// currentView === "reset" ≡ !!searchParams.token_hash — sem necessidade de incluí-lo nos deps
-		if (searchParams.token_hash && searchParams.type === "email") {
-			const tokenHash = searchParams.token_hash
+		// currentView === "reset" ≡ !!searchParams.token_hash — sem necessidade de incluí-lo nos deps.
+		// resetPasswordForEmail gera links com type=recovery; a confirmação de cadastro,
+		// type=email. Encaminhamos o tipo real — fixar "email" fazia a recuperação
+		// falhar com "Auth session missing" na hora de salvar a nova senha.
+		const tokenHash = searchParams.token_hash
+		const otpType = searchParams.type
+		if (tokenHash && (otpType === "email" || otpType === "recovery") && verifiedTokenRef.current !== tokenHash) {
+			verifiedTokenRef.current = tokenHash
 			const verify = async () => {
-				const { error } = await actions.verifyOtp(tokenHash, "email")
+				const { error } = await actions.verifyOtp(tokenHash, otpType)
 				if (error) setError("Link inválido ou expirado. Solicite uma nova recuperação.")
 			}
 			verify()

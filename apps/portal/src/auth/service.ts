@@ -53,7 +53,9 @@ export const authActions = {
 			password,
 			options: {
 				data: name ? { display_name: name } : undefined,
-				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+				// `/auth/callback` não é rota deste app — o link caía em 404. Quem
+				// verifica o token_hash da confirmação de cadastro é `/auth`.
+				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
 			},
 		})
 		if (error) throw new Error(getAuthErrorMessage(error))
@@ -69,7 +71,10 @@ export const authActions = {
 
 	resetPassword: async (email: string, redirectTo?: string) => {
 		const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
-			redirectTo: redirectTo ?? (typeof window !== "undefined" ? `${window.location.origin}/auth/reset-password` : undefined),
+			// `/auth/reset-password` não é rota deste app — o link de recuperação
+			// caía em 404. O formulário de nova senha mora em `/auth`, ativado pelo
+			// token_hash da URL.
+			redirectTo: redirectTo ?? (typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined),
 		})
 		if (error) throw new Error(getAuthErrorMessage(error))
 	},
