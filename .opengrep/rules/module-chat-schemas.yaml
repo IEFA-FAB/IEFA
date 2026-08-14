@@ -1,0 +1,69 @@
+##
+# Schema de destino das queries cruas do chat dos módulos.
+#
+# Como as outras regras deste diretório, esta nasceu de um bug que já aconteceu: o client do
+# chat nasce com `db: { schema: "kitchen" }` e `untypedFrom(ctx, "procurement_list")` pedia
+# `kitchen.procurement_list`, tabela que não existe. O PostgREST devolvia PGRST205, a tool
+# respondia "Erro ao executar…" e o módulo `unit` inteiro (menos `get_ata_details`) mais os
+# quatro tools de `local-analytics` ficaram inúteis sem ninguém perceber — `untypedFrom`
+# devolve `any`, então nem typecheck nem teste de contrato enxergam.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: module-chat-untyped-from-missing-schema
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `untypedFrom` sem schema explícito para uma tabela que não mora em `kitchen`. O client do
+      chat tem `kitchen` como default, então a query vai para `kitchen.<tabela>` e o PostgREST
+      responde PGRST205 (a tool vira "Erro ao executar…"). Passe o schema: `core` para
+      units/kitchen, `procurement` para procurement_*, `finance` para empenho.
+    paths:
+      include:
+        - "apps/sisub/src/lib/module-chat/tools/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: untypedFrom($CTX, "units")
+          - pattern: untypedFrom($CTX, "kitchen")
+          - pattern: untypedFrom($CTX, "empenho")
+          - pattern: untypedFrom($CTX, "procurement_list")
+          - pattern: untypedFrom($CTX, "procurement_list_item")
+          - pattern: untypedFrom($CTX, "procurement_list_kitchen")
+          - pattern: untypedFrom($CTX, "procurement_list_selection")
+          - pattern: untypedFrom($CTX, "procurement_arp")
+          - pattern: untypedFrom($CTX, "procurement_arp_item")
+
+  - id: module-chat-discarded-query-error
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Resultado de query desestruturado sem o `error`. No chat isso não some em silêncio: o
+      `data` vem `null`, a tool devolve lista vazia com cara de sucesso e o modelo AFIRMA ao
+      usuário que não existe nada. Foi exatamente o que `get_unit_dashboard` fez ao selecionar
+      uma coluna `name` que não existe. Leia o `error` e devolva `toolErr(sanitizeDbError(...))`.
+    paths:
+      include:
+        - "apps/sisub/src/lib/module-chat/tools/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      # O alvo é a DESESTRUTURAÇÃO, não a query: casar a chamada não funciona, porque o
+      # `await` recai sobre a cadeia inteira (`.select().eq().limit()`) e não sobre o
+      # `untypedFrom(...)` de dentro. Nestes arquivos, todo `const { data } = await …` é
+      # resposta de PostgREST — se um dia não for, a exceção entra com `// nosemgrep`.
+      - pattern-either:
+          - pattern: |
+              const { data: $D } = await $EXPR
+          - pattern: |
+              const { data } = await $EXPR
+          - pattern: |
+              const { count: $C } = await $EXPR
+      # Desestruturação casa por subconjunto: sem estes `pattern-not`, `{ data, error }`
+      # — o jeito certo — também seria achado.
+      - pattern-not: |
+          const { error: $E } = await $ANY
+      - pattern-not: |
+          const { error } = await $ANY

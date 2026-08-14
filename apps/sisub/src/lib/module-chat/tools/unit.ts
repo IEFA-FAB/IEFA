@@ -1,6 +1,11 @@
 /**
  * Unit module tools — ATAs, ARP, empenhos, dashboard, settings.
  * Ported from server functions: ata.fn.ts, arp.fn.ts, unit-dashboard.fn.ts, unit-settings.fn.ts
+ *
+ * As tabelas deste módulo NÃO moram no schema `kitchen`, que é o default do client do chat:
+ * ATA e ARP em `procurement`, unidade em `core`, empenho em `finance`. Todo `untypedFrom`
+ * daqui passa o schema — sem ele o PostgREST responde PGRST205 e a tool devolve
+ * "Erro ao executar…" para qualquer pergunta.
  */
 
 import { clampLimit } from "@iefa/sisub-domain/agent"
@@ -65,9 +70,12 @@ const listAtas: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error, count } = await untypedFrom(ctx, "procurement_list")
+		// `deleted_at IS NULL` como em `get_atas` do local-analytics: sem ele a ATA na lixeira
+		// aparece como viva e o modelo a oferece para empenhar.
+		const { data, error, count } = await untypedFrom(ctx, "procurement_list", "procurement")
 			.select("id, title, status, unit_id, created_at, updated_at", { count: "exact" })
 			.eq("unit_id", unitId)
+			.is("deleted_at", null)
 			.order("created_at", { ascending: false })
 			.limit(limit)
 
@@ -158,12 +166,12 @@ const updateAtaStatus: ModuleToolDefinition = {
 			return toolErr("Status deve ser: draft, published ou archived")
 		}
 
-		const { data: ata, error: fetchError } = await untypedFrom(ctx, "procurement_list").select("unit_id").eq("id", ataId).single()
+		const { data: ata, error: fetchError } = await untypedFrom(ctx, "procurement_list", "procurement").select("unit_id").eq("id", ataId).single()
 		if (fetchError || !ata) return toolErr("ATA não encontrada")
 
 		requireUnitPermission(ctx, 2, { type: "unit", id: ata.unit_id })
 
-		const { data, error } = await untypedFrom(ctx, "procurement_list").update({ status }).eq("id", ataId).select().single()
+		const { data, error } = await untypedFrom(ctx, "procurement_list", "procurement").update({ status }).eq("id", ataId).select().single()
 		if (error) return toolErr(sanitizeDbError(error, "update_ata_status"))
 		return toolOk(data)
 	},
@@ -171,26 +179,37 @@ const updateAtaStatus: ModuleToolDefinition = {
 
 const getUnitDashboard: ModuleToolDefinition = {
 	name: "get_unit_dashboard",
-	description: "Retorna dados do dashboard da unidade atual da rota: ATAs publicadas, itens com saldo baixo, status ARP.",
+	// A descrição anterior prometia "itens com saldo baixo, status ARP", que esta tool nunca
+	// devolveu — o modelo chamava por isso e depois inventava o que não veio.
+	description: "Retorna o resumo da unidade atual da rota: quantas ATAs publicadas existem e as 10 ATAs mais recentes (título, status, data).",
 	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
 	async handler(_args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
 
 		// Published ATAs count
-		const { count: ataCount } = await untypedFrom(ctx, "procurement_list")
+		const { count: ataCount, error: countError } = await untypedFrom(ctx, "procurement_list", "procurement")
 			.select("id", { count: "exact", head: true })
 			.eq("unit_id", unitId)
 			.eq("status", "published")
+			.is("deleted_at", null)
 
-		// All ATAs for listing
-		const { data: atas } = await ctx.supabase
+		if (countError) return toolErr(sanitizeDbError(countError, "get_unit_dashboard:count"))
+
+		// All ATAs for listing. A coluna é `title` — `name` não existe em
+		// `procurement.procurement_list`, e o erro dela era descartado junto com o `data`:
+		// a tool respondia `recentAtas: []` com cara de sucesso e o modelo afirmava que a
+		// unidade não tinha ATA nenhuma. Falha silenciosa mente pior do que falha barulhenta.
+		const { data: atas, error: listError } = await ctx.supabase
 			.schema("procurement")
 			.from("procurement_list")
-			.select("id, name, status, created_at")
+			.select("id, title, status, created_at")
 			.eq("unit_id", unitId)
+			.is("deleted_at", null)
 			.order("created_at", { ascending: false })
 			.limit(10)
+
+		if (listError) return toolErr(sanitizeDbError(listError, "get_unit_dashboard:list"))
 
 		return toolOk({
 			publishedAtaCount: ataCount ?? 0,
@@ -207,7 +226,7 @@ const getUnitSettings: ModuleToolDefinition = {
 	async handler(_args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
 
-		const { data, error } = await untypedFrom(ctx, "units").select("*").eq("id", unitId).single()
+		const { data, error } = await untypedFrom(ctx, "units", "core").select("*").eq("id", unitId).single()
 		if (error) return toolErr(sanitizeDbError(error, "get_unit_settings"))
 		return toolOk(data)
 	},
@@ -221,7 +240,7 @@ const searchArp: ModuleToolDefinition = {
 	async handler(_args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
 
-		const { data: unit, error } = await untypedFrom(ctx, "units").select("uasg").eq("id", unitId).single()
+		const { data: unit, error } = await untypedFrom(ctx, "units", "core").select("uasg").eq("id", unitId).single()
 		if (error) return toolErr(sanitizeDbError(error, "search_arp:get_unit_uasg"))
 
 		const uasg = String(unit?.uasg ?? "").trim()
@@ -261,12 +280,12 @@ const listEmpenhos: ModuleToolDefinition = {
 		const ataId = requireUuid(args.ataId, "ataId")
 		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data: ata, error: ataError } = await untypedFrom(ctx, "procurement_list").select("unit_id").eq("id", ataId).single()
+		const { data: ata, error: ataError } = await untypedFrom(ctx, "procurement_list", "procurement").select("unit_id").eq("id", ataId).single()
 		if (ataError || !ata) return toolErr("ATA não encontrada")
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 
-		const { data, error, count } = await untypedFrom(ctx, "empenho")
+		const { data, error, count } = await untypedFrom(ctx, "empenho", "finance")
 			.select("*", { count: "exact" })
 			.eq("ata_id", ataId)
 			.order("created_at", { ascending: false })
