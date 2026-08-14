@@ -18,7 +18,7 @@
  */
 
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
-import { setResponseHeader, setResponseStatus } from "@tanstack/react-start/server"
+import { setResponseStatus } from "@tanstack/react-start/server"
 import { getServerCapabilities } from "#/lib/capabilities.server"
 
 /**
@@ -36,9 +36,12 @@ function guardAiRequest(userId: string) {
 		enforceRequestRateLimit("SUCONT", userId)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
-			setResponseHeader("Retry-After", String(error.retryAfterSeconds))
+			// Sem `Retry-After` aqui: o Start remonta a resposta de erro da server function
+			// e só o status sobrevive — o header seria mentira e o `retryAfterSeconds` do
+			// RateLimitError se perde ao virar Error. Por isso a espera vai na MENSAGEM,
+			// que é o único campo que chega à tela.
 			setResponseStatus(429)
-			throw new Error(error.message)
+			throw new Error(`${error.message} (aguarde ${error.retryAfterSeconds}s)`)
 		}
 		throw error
 	}

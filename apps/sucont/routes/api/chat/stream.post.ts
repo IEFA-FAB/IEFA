@@ -3,7 +3,7 @@ import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
 import { createCookieAuthClient } from "@iefa/supabase-kit"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { defineHandler } from "nitro"
-import { createError, getHeader, type H3Event, readBody, setResponseHeader } from "nitro/h3"
+import { createError, getHeader, type H3Event, readBody } from "nitro/h3"
 import { getServerCapabilities } from "#/lib/capabilities.server"
 import { envServer } from "#/lib/env.server"
 import { getAccessControlClient } from "#/lib/supabase.server"
@@ -99,8 +99,15 @@ export default defineHandler(async (event: H3Event) => {
 		enforceRequestRateLimit("SUCONT", user.id)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
-			setResponseHeader(event, "Retry-After", String(error.retryAfterSeconds))
-			throw createError({ statusCode: 429, message: error.message, data: { retryAfterSeconds: error.retryAfterSeconds } })
+			// `Retry-After` vai DENTRO do createError. O h3 v2 monta a resposta de erro a
+			// partir de `error.headers`; um `setResponseHeader` no event é descartado nesse
+			// caminho, e o cliente recebe o 429 sem saber quanto esperar.
+			throw createError({
+				statusCode: 429,
+				message: error.message,
+				headers: { "Retry-After": String(error.retryAfterSeconds) },
+				data: { retryAfterSeconds: error.retryAfterSeconds },
+			})
 		}
 		throw error
 	}

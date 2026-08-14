@@ -80,6 +80,14 @@ describe.each(DIRECT_ADAPTER.map((s) => [s.path, s] as const))("adapter direto �
 		expect(source.text).toContain("Retry-After")
 		expect(source.text).toContain("429")
 	})
+
+	// O h3 v2 monta a resposta de erro a partir de `error.headers`: um
+	// `setResponseHeader` no event é descartado nesse caminho e o 429 chega sem a
+	// espera. O header tem de nascer dentro do próprio createError.
+	it("carrega o Retry-After dentro do createError, não pelo event", () => {
+		expect(source.text).toMatch(/createError\(\{[\s\S]*?headers:\s*\{\s*"Retry-After"/)
+		expect(source.text).not.toMatch(/setResponseHeader\(\s*event\s*,\s*"Retry-After"/)
+	})
 })
 
 describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server — %s", (_path, source) => {

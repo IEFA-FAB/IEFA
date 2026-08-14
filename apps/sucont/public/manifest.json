@@ -13,8 +13,8 @@
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#242127",
-  "background_color": "#F5F1E9",
+  "theme_color": "#173a40",
+  "background_color": "#e7f3ec",
   "scope": "/",
   "lang": "pt-BR",
   "dir": "ltr"

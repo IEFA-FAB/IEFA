@@ -73,7 +73,7 @@ describe("capability gate", () => {
 })
 
 describe("teto de requisições", () => {
-	it("admite até o limite e então lança 429 com Retry-After", () => {
+	it("admite até o limite e então lança 429", () => {
 		configureBedrock()
 		process.env.SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "2"
 
@@ -82,7 +82,18 @@ describe("teto de requisições", () => {
 
 		expect(() => getSucontAdapter("user-1")).toThrow(/limite de mensagens por minuto/i)
 		expect(response.status).toBe(429)
-		expect(Number(response.headers["Retry-After"])).toBeGreaterThan(0)
+	})
+
+	// A espera precisa ir na MENSAGEM: o Start remonta a resposta de erro da server
+	// function e só o status sobrevive — um header `Retry-After` não chegaria à tela,
+	// e o `retryAfterSeconds` do RateLimitError se perde ao virar Error.
+	it("diz na mensagem quantos segundos faltam", () => {
+		configureBedrock()
+		process.env.SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "1"
+		getSucontAdapter("user-1")
+
+		expect(() => getSucontAdapter("user-1")).toThrow(/\(aguarde \d+s\)/)
+		expect(response.headers["Retry-After"]).toBeUndefined()
 	})
 
 	// Sem chave por usuário o teto vira um balde único: o primeiro a estourar

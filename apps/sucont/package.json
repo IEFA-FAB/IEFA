@@ -13,7 +13,7 @@
     "lint": "biome lint",
     "check": "biome check",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test $(find src routes -name '*.test.ts' -print)"
+    "test": "bun test $(find src routes -name '*.test.ts*' -print)"
   },
   "dependencies": {
     "@iefa/agent-web": "workspace:*",
