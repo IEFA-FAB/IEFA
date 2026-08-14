@@ -2,14 +2,15 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "tags": ["-lintignore"],
   "ignoreDependencies": [
-    "tailwindcss",
-    "tw-animate-css",
-    "@tailwindcss/typography",
     "@opentelemetry/exporter-trace-otlp-http",
     "@opentelemetry/resources",
     "@opentelemetry/sdk-trace-node",
     "@opentelemetry/semantic-conventions",
-    "react-doctor"
+    "@tailwindcss/typography",
+    "react-doctor",
+    "tailwindcss",
+    "tslib",
+    "tw-animate-css"
   ],
   "workspaces": {
     ".": {
