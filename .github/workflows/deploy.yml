@@ -596,6 +596,28 @@ jobs:
       - name: Build
         run: bunx turbo run build --filter=./apps/docs
 
+      # O prerender do Nitro NÃO falha o build quando uma rota lança: ele registra
+      # o erro, para de seguir os links daquela página e segue em frente. O sync
+      # abaixo usa --delete, então um prerender truncado APAGA do bucket as páginas
+      # que ainda estavam lá — foi assim que /docs/** sumiu de produção com o build
+      # verde (um helper do tslib que deixou de resolver derrubou o render de /docs/,
+      # e das 23 rotas só 8 saíram). Conferir antes de sincronizar transforma isso
+      # num deploy vermelho em vez de num site vazio.
+      - name: Verify prerender output
+        run: |
+          set -euo pipefail
+          cd apps/docs
+          test -f .output/public/docs/index.html || {
+            echo "::error::prerender não gerou docs/index.html — abortando antes do sync --delete"
+            exit 1
+          }
+          pages=$(find .output/public -name 'index.html' | wc -l)
+          echo "páginas prerenderizadas: $pages"
+          [ "$pages" -ge 12 ] || {
+            echo "::error::só $pages páginas prerenderizadas (esperado >= 12) — prerender truncado, abortando"
+            exit 1
+          }
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.2.2
         with:
