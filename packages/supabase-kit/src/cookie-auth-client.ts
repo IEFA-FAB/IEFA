@@ -33,14 +33,27 @@ export type CookieAuthClientOptions<S extends SchemaName> = {
 	fetch?: typeof fetch
 }
 
-export function createCookieAuthClient<S extends SchemaName>({ url, key, cookieHeader, schema, fetch }: CookieAuthClientOptions<S>) {
-	const parsed = (cookieHeader ?? "")
+/**
+ * Header `Cookie` → pares nome/valor do `@supabase/ssr`.
+ *
+ * Exportada para o teste: os cookies de sessão do Supabase são JWT em base64 e
+ * **contêm `=`** (padding e separadores dos chunks `sb-…-auth-token.0/.1`). Um
+ * `split("=")` ingênuo trunca o token e a sessão simplesmente não é reconhecida —
+ * daí o `join` do resto. Segmento vazio (header terminado em `;`) é descartado:
+ * um par `{ name: "", value: "" }` faz o parser do `@supabase/ssr` errar o chunk.
+ */
+export function parseCookieHeader(cookieHeader: string | undefined): { name: string; value: string }[] {
+	return (cookieHeader ?? "")
 		.split(";")
 		.filter((c) => c.trim() !== "")
 		.map((c) => {
 			const [name, ...v] = c.split("=")
 			return { name: name.trim(), value: v.join("=") }
 		})
+}
+
+export function createCookieAuthClient<S extends SchemaName>({ url, key, cookieHeader, schema, fetch }: CookieAuthClientOptions<S>) {
+	const parsed = parseCookieHeader(cookieHeader)
 
 	return createServerClient<Database, S>(url, key, {
 		...(schema ? { db: { schema } } : {}),
