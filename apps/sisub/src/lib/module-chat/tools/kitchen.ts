@@ -4,7 +4,15 @@
  */
 
 import { toJsonSchema } from "@iefa/sisub-domain"
-import { AgentListRecipesSchema, agentFetchDayMenus, agentFetchMenus, agentGetTemplateItems, agentListRecipes, clampLimit } from "@iefa/sisub-domain/agent"
+import {
+	AgentListRecipesSchema,
+	agentFetchDayMenus,
+	agentFetchMenus,
+	agentGetRecipe,
+	agentGetTemplateItems,
+	agentListRecipes,
+	clampLimit,
+} from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
@@ -12,6 +20,10 @@ import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, sa
 
 const RECIPE_LIST_DEFAULT = 30
 const RECIPE_LIST_MAX = 100
+
+// `sort_order` entra porque é a ordem em que as refeições do dia devem ser listadas;
+// `created_at`/`deleted_at` não dizem nada a quem lê o cardápio.
+const MEAL_TYPE_COLUMNS = "id, name, sort_order, kitchen_id" as const
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 
@@ -51,14 +63,14 @@ const getMealTypes: ModuleToolDefinition = {
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 			const { data, error } = await ctx.supabase
 				.from("meal_type")
-				.select("*")
+				.select(MEAL_TYPE_COLUMNS)
 				.is("deleted_at", null)
 				.order("sort_order")
 				.or(`kitchen_id.is.null,kitchen_id.eq.${id}`)
 			if (error) return toolErr(sanitizeDbError(error, "get_meal_types"))
 			return toolOk(data ?? [])
 		}
-		const { data, error } = await ctx.supabase.from("meal_type").select("*").is("deleted_at", null).is("kitchen_id", null).order("sort_order")
+		const { data, error } = await ctx.supabase.from("meal_type").select(MEAL_TYPE_COLUMNS).is("deleted_at", null).is("kitchen_id", null).order("sort_order")
 		if (error) return toolErr(sanitizeDbError(error, "get_meal_types"))
 		return toolOk(data ?? [])
 	},
@@ -134,7 +146,7 @@ const listRecipes: ModuleToolDefinition = {
 
 const getRecipe: ModuleToolDefinition = {
 	name: "get_recipe",
-	description: "Retorna detalhes de uma receita com ingredientes completos.",
+	description: "Retorna a ficha técnica de uma receita: rendimento, tempo, modo de preparo e os insumos com quantidade e unidade.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -143,19 +155,12 @@ const getRecipe: ModuleToolDefinition = {
 		required: ["recipeId"],
 	},
 	requiredLevel: 1,
+	// Mesma projeção do módulo global: a linha crua trazia ~23 campos por insumo para o
+	// modelo escrever "500 g de arroz".
 	async handler(args, ctx) {
 		const recipeId = requireUuid(args.recipeId, "recipeId")
 		requireKitchenPermission(ctx, 1)
-
-		const { data, error } = await ctx.supabase
-			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
-			.eq("id", recipeId)
-			.is("deleted_at", null)
-			.single()
-
-		if (error) return toolErr(sanitizeDbError(error, "get_recipe"))
-		return toolOk(data)
+		return toolOk(await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId }))
 	},
 }
 
@@ -194,7 +199,7 @@ const createDailyMenu: ModuleToolDefinition = {
 
 		const { data, error } = await untypedFrom(ctx, "daily_menu")
 			.upsert(insert, { onConflict: "service_date,meal_type_id,kitchen_id", ignoreDuplicates: true })
-			.select()
+			.select("id, service_date, meal_type_id, forecasted_headcount, status")
 
 		if (error) return toolErr(sanitizeDbError(error, "create_daily_menu"))
 		return toolOk(data)
@@ -295,7 +300,11 @@ const updateMenuHeadcount: ModuleToolDefinition = {
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
 
-		const { data, error } = await ctx.supabase.from("daily_menu").update({ forecasted_headcount: headcount }).eq("id", menuId).select()
+		const { data, error } = await ctx.supabase
+			.from("daily_menu")
+			.update({ forecasted_headcount: headcount })
+			.eq("id", menuId)
+			.select("id, service_date, forecasted_headcount")
 		if (error) return toolErr(sanitizeDbError(error, "update_menu_headcount"))
 		return toolOk(data)
 	},
@@ -317,7 +326,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 		const limit = clampLimit(args.limit, RECIPE_LIST_DEFAULT, RECIPE_LIST_MAX)
 		let query = ctx.supabase
 			.from("menu_template")
-			.select(`*, items:menu_template_items(count)`, { count: "exact" })
+			.select(`id, name, description, template_type, kitchen_id, items:menu_template_items(count)`, { count: "exact" })
 			.is("deleted_at", null)
 			.order("name")
 			.limit(limit)
@@ -334,9 +343,9 @@ const listMenuTemplates: ModuleToolDefinition = {
 		const { data, error, count } = await query
 		if (error) return toolErr(sanitizeDbError(error, "list_menu_templates"))
 
-		const templates = (data ?? []).map((t) => ({
+		const templates = (data ?? []).map(({ items, ...t }) => ({
 			...t,
-			item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
+			item_count: Array.isArray(items) ? ((items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 
 		return toolOk({ templates, returned: templates.length, total: count ?? templates.length, limit })

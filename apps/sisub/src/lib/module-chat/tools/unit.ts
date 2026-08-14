@@ -21,6 +21,8 @@ const LIST_DEFAULT = 25
 const LIST_MAX = 100
 const ATA_ITEMS_DEFAULT = 30
 const ATA_ITEMS_MAX = 100
+/** Quantos IDs cabem num `in.(…)` sem estourar a linha de requisição do gateway. */
+const EMPENHO_ID_BATCH = 100
 
 const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
 const COMPRAS_TIMEOUT_MS = 30_000
@@ -226,7 +228,12 @@ const getUnitSettings: ModuleToolDefinition = {
 	async handler(_args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
 
-		const { data, error } = await untypedFrom(ctx, "units", "core").select("*").eq("id", unitId).single()
+		const { data, error } = await untypedFrom(ctx, "units", "core")
+			.select(
+				"id, code, display_name, uasg, address_logradouro, address_numero, address_complemento, address_bairro, address_municipio, address_uf, address_cep"
+			)
+			.eq("id", unitId)
+			.single()
 		if (error) return toolErr(sanitizeDbError(error, "get_unit_settings"))
 		return toolOk(data)
 	},
@@ -285,13 +292,51 @@ const listEmpenhos: ModuleToolDefinition = {
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })
 
-		const { data, error, count } = await untypedFrom(ctx, "empenho", "finance")
-			.select("*", { count: "exact" })
-			.eq("ata_id", ataId)
-			.order("created_at", { ascending: false })
-			.limit(limit)
-		if (error) return toolErr(sanitizeDbError(error, "list_empenhos"))
-		return toolOk({ empenhos: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
+		// `finance.empenho` não tem `ata_id` — o vínculo é `arp_item_id`. Filtrar por `ata_id`
+		// (o que esta tool fazia) é coluna inexistente: erro, nunca lista. O caminho é
+		// ATA → ARPs → itens de ARP → empenhos desses itens.
+		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement").select("id").eq("ata_id", ataId)
+		if (arpsError) return toolErr(sanitizeDbError(arpsError, "list_empenhos:arps"))
+
+		const arpIds = (arps ?? []).map((a: { id: string }) => a.id)
+		if (arpIds.length === 0) return toolOk({ empenhos: [], returned: 0, total: 0, limit })
+
+		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item", "procurement")
+			.select("id, numero_item, descricao_item, medida_catmat")
+			.in("arp_id", arpIds)
+		if (itemsError) return toolErr(sanitizeDbError(itemsError, "list_empenhos:arp_items"))
+
+		const itemById = new Map((arpItems ?? []).map((i: { id: string }) => [i.id, i]))
+		if (itemById.size === 0) return toolOk({ empenhos: [], returned: 0, total: 0, limit })
+
+		// Uma ATA grande tem centenas de itens, e `in.(…)` viaja na query string: um `IN` único
+		// com 300 UUIDs estoura o limite de linha de requisição do gateway. Vai em lotes.
+		const itemIds = Array.from(itemById.keys())
+		const rows: Record<string, unknown>[] = []
+		let total = 0
+		for (let start = 0; start < itemIds.length; start += EMPENHO_ID_BATCH) {
+			const { data, error, count } = await untypedFrom(ctx, "empenho", "finance")
+				.select("id, arp_item_id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, valor_total, nota_lancamento, status", { count: "exact" })
+				.in("arp_item_id", itemIds.slice(start, start + EMPENHO_ID_BATCH))
+				.order("data_empenho", { ascending: false })
+				.limit(limit)
+			if (error) return toolErr(sanitizeDbError(error, "list_empenhos"))
+			rows.push(...(data ?? []))
+			total += count ?? data?.length ?? 0
+		}
+
+		// O item entra pela descrição: `arp_item_id` sozinho não diz o que foi empenhado.
+		const empenhos = rows
+			.sort((a, b) => String(b.data_empenho ?? "").localeCompare(String(a.data_empenho ?? "")))
+			.slice(0, limit)
+			.map(({ arp_item_id, ...empenho }) => {
+				const item = itemById.get(String(arp_item_id)) as
+					| { numero_item?: number | null; descricao_item?: string | null; medida_catmat?: string | null }
+					| undefined
+				return { ...empenho, item: item?.descricao_item ?? null, item_numero: item?.numero_item ?? null, item_medida: item?.medida_catmat ?? null }
+			})
+
+		return toolOk({ empenhos, returned: empenhos.length, total, limit })
 	},
 }
 

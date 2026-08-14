@@ -4,6 +4,7 @@
 
 import type { ServerTool } from "@tanstack/ai"
 import type { ChatModule } from "@/types/domain/module-chat"
+import { ANSWER_STYLE_PROMPT } from "../prompts/answer-style"
 import { GLOBAL_SYSTEM_PROMPT } from "../prompts/global"
 import { KITCHEN_SYSTEM_PROMPT } from "../prompts/kitchen"
 import { LOCAL_ANALYTICS_SYSTEM_PROMPT } from "../prompts/local-analytics"
@@ -34,7 +35,18 @@ const MODULE_PROMPTS: Record<ChatModule, string> = {
 	"local-analytics": LOCAL_ANALYTICS_SYSTEM_PROMPT,
 }
 
+/**
+ * As regras de apresentação valem para os quatro módulos — o modelo transcreve o JSON da
+ * tool em qualquer um deles. Ficam no fim, depois do escopo da rota, para serem a última
+ * coisa que o modelo lê antes da conversa.
+ */
 function scopedSystemPrompt(module: ChatModule, basePrompt: string, toolCtx: ToolContext): string {
+	return `${routeScopedPrompt(module, basePrompt, toolCtx)}
+
+${ANSWER_STYLE_PROMPT}`
+}
+
+function routeScopedPrompt(module: ChatModule, basePrompt: string, toolCtx: ToolContext): string {
 	if (module === "unit" && toolCtx.scopeId != null) {
 		return `${basePrompt}
 
