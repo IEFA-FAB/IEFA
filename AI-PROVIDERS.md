@@ -22,6 +22,31 @@ que não cobre), como os tetos de consumo funcionam e o que ainda falta migrar.
 `apps/sisub-mcp` não chama modelo: ele **expõe** ferramentas para o modelo do cliente MCP.
 Portal, rumaer, forms, docs e api não usam IA.
 
+### O que está aplicado em produção (conferido em 2026-08-14 pela CLI)
+
+A tabela acima é o desenho. Isto é o que a conta `103256050857` (`iefa-prod`) tem de fato —
+e os dois **divergem**. As task definitions carregam a config de IA como env **não-secreta**,
+não pelo Secrets Manager:
+
+| | modelo | região | reserva | tetos |
+|---|---|---|---|---|
+| sisub (`MODULE_CHAT` e `ANALYTICS`) | `openai.gpt-oss-120b-1:0` | `sa-east-1` | ❌ não configurada | ❌ nenhum |
+| sucont (`SUCONT`) | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | `us-east-1` | ❌ | ❌ |
+
+Duas consequências, ambas verificadas:
+
+1. **sisub funciona** — o CloudTrail de `sa-east-1` registra `ConverseStream` da task role com
+   `openai.gpt-oss-120b-1:0` sem `errorCode`, inclusive no dia da conferência. Não é Claude
+   Sonnet 4.6, que é o que este arquivo e o `sisub.example.json` diziam.
+2. **o oráculo do sucont está quebrado** — o perfil `us.anthropic.*` está **fora** do escopo
+   que a task role recebeu (ver IAM abaixo): `simulate-principal-policy` devolve
+   `implicitDeny` para `InvokeModelWithResponseStream` **e** para `ConverseStream` nesse ARN,
+   e o CloudTrail de `us-east-1` não tem nenhuma chamada da task role — o caminho nunca
+   funcionou. `AccessDenied` não é falha transitória, então a reserva não entraria nem se
+   existisse. Conserto: `SUCONT_AI_MODEL = global.anthropic.claude-sonnet-4-6` e
+   `SUCONT_AI_REGION = sa-east-1` no `terraform.tfvars` real (que vive no secret
+   `TF_TFVARS_JSON`, fora do repo).
+
 ---
 
 ## Como o adapter é montado
@@ -48,28 +73,63 @@ adapter simples.
 
 O adapter (`packages/ai-provider/src/providers/bedrock.ts`) fala **Converse/ConverseStream**
 do `@aws-sdk/client-bedrock-runtime`, então `_AI_MODEL` é o id do modelo **ou do inference
-profile** — não o id curto da API da Anthropic. Modelos Claude fora de `sa-east-1` exigem
-perfil de inferência multi-região (prefixo `us.`), e é por isso que a região do chat é
-`us-east-1` mesmo com o resto da stack em `sa-east-1`.
+profile** — não o id curto da API da Anthropic.
 
-**Confirme o id exato antes de setar o secret** — o sufixo de versão muda a cada release:
+**Claude atende de `sa-east-1` pelo perfil `global.`** — `global.anthropic.claude-sonnet-4-6`
+responde `Converse` na região da stack, confirmado por chamada real. A afirmação anterior
+("Claude fora de `sa-east-1` exige perfil `us.`, por isso o chat roda em `us-east-1`") estava
+errada e foi o que colocou o sucont num id que a task role não pode invocar. Não cruze região
+sem motivo.
+
+**Confirme o id exato antes de aplicar** — ele não é estável, e nem todo modelo usa o sufixo
+`-v1:0` (o 4.6 é `global.anthropic.claude-sonnet-4-6`, sem sufixo; o 4.5 é
+`global.anthropic.claude-sonnet-4-5-20250929-v1:0`, com):
 
 ```sh
-aws bedrock list-inference-profiles --region us-east-1 \
-  --query "inferenceProfileSummaries[?contains(inferenceProfileId, 'sonnet-4-6')].inferenceProfileId" \
+aws bedrock list-inference-profiles --region sa-east-1 \
+  --query "inferenceProfileSummaries[?starts_with(inferenceProfileId,'global.anthropic')].inferenceProfileId" \
   --output text
 ```
 
-Escolhas atuais (ver `infra/sisub/secrets/sisub.example.json`):
+Escolhas de referência (ver `infra/sisub/secrets/sisub.example.json` — **não** é o que roda em
+produção hoje, ver a seção acima):
 
 - **chat dos módulos**: Claude Sonnet 4.6 — é o que sustenta tool-calling com as ~8 tools do
   módulo sem inventar chamada malformada;
 - **analytics**: mesmo modelo. Se o custo incomodar, Haiku 4.5 é o degrau abaixo — a tool de
   gráfico tem schema pequeno e tolera modelo menor.
 
-O acesso IAM vem de `infra/foundation/iam.tf` (`bedrock:Converse*`, `bedrock:InvokeModel*`),
-atrás da flag `enable_bedrock_task_access` — que precisa estar `true` no `terraform.tfvars`
-real da foundation (o default da variável é `false`).
+### IAM: o que está aplicado ≠ o que o `iam.tf` descreve
+
+`infra/foundation/iam.tf` tem um bloco `task_bedrock` atrás de `enable_bedrock_task_access`,
+com `bedrock:Converse*` + `bedrock:InvokeModel*` em `foundation-model/*` e
+`inference-profile/*`. **Esse bloco não está aplicado**: a flag é `false` no `terraform.tfvars`
+real e a role `iefa-prod-ecs-task` não tem a policy `-ecs-task-bedrock`. O acesso vem da
+policy `-ecs-task-extra`, montada de `task_role_policy_json`, e é bem mais estreita:
+
+```
+Action:   bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream
+Resource: arn:aws:bedrock:*:<conta>:inference-profile/global.anthropic.*
+          arn:aws:bedrock:*::foundation-model/anthropic.*
+          arn:aws:bedrock:*::foundation-model/openai.gpt-oss-*
+```
+
+Duas coisas que decorrem disso, e que valem mais que a intuição:
+
+- **`bedrock:Converse*` não é necessário.** A policy aplicada não concede essas actions e o
+  `ConverseStream` do adapter funciona mesmo assim (CloudTrail, sem `errorCode`): a Converse
+  API é autorizada pelas actions `InvokeModel*`. Ampliar a policy para "consertar" o sucont
+  seria tratar o sintoma errado.
+- **O prefixo do perfil é o que decide.** Só `global.anthropic.*` está liberado. Antes de
+  setar um id novo, simule — é mais barato que descobrir por `AccessDenied` em produção, ainda
+  mais no sucont, que não tem log group no CloudWatch:
+
+```sh
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
+  --action-names bedrock:InvokeModelWithResponseStream \
+  --resource-arns arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
+```
 
 ---
 
@@ -181,9 +241,20 @@ obrigatório** de `generateText`/`generateJson`: não existe assinatura sem dono
 server function nova não consegue chamar o modelo sem passar pelo teto. Ele vem sempre do
 `UserContext` do guard, nunca do input validado.
 
-Falta só a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`, mas a API key
-ainda não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter roda só com o
-primário, que é o comportamento anterior.
+O que falta é **configuração no `terraform.tfvars` real** (secret `TF_TFVARS_JSON`), e a ordem
+importa — o item 1 é o que separa "oráculo quebrado" de "oráculo funcionando":
+
+1. `SUCONT_AI_MODEL = "global.anthropic.claude-sonnet-4-6"` e `SUCONT_AI_REGION = "sa-east-1"`.
+   O que está aplicado hoje (`us.anthropic.claude-sonnet-4-5-20250929-v1:0` em `us-east-1`)
+   é negado pela task role;
+2. os tetos `SUCONT_AI_MAX_*` — estão no `.example`, não no aplicado;
+3. a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`, mas a API key ainda
+   não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter roda só com o
+   primário. Note que reserva **não** cobre o item 1: `AccessDenied` não é transitório.
+
+**sisub** — mesma pendência de configuração, sem o bug: reserva e tetos estão no
+`secret_names` do `.example`, mas a task definition aplicada não tem nenhum deles. O chat roda
+sem freio e sem reserva em produção.
 
 Detalhe que vale para qualquer rota Nitro (`routes/api/**`): ela roda **fora** do contexto de
 request do TanStack Start, então `getRequest()` — e portanto `createSsrAuthClient` e os

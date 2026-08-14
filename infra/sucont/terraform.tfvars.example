@@ -17,11 +17,23 @@ environment_variables = {
   NODE_ENV = "production"
   PORT     = "3000"
   # IA via AWS Bedrock (keyless — usa a task role do ECS). Nao-secretos.
-  # Confirme o id do inference profile antes de aplicar (o sufixo muda a cada release):
-  #   aws bedrock list-inference-profiles --region us-east-1
+  #
+  # O id NAO e livre: a task role so pode invocar o que a policy `-ecs-task-extra`
+  # permite, que hoje e `inference-profile/global.anthropic.*` mais os
+  # foundation-model `anthropic.*` e `openai.gpt-oss-*`. Um perfil `us.anthropic.*`
+  # e negado (implicitDeny) e a chamada morre em AccessDenied — que NAO e falha
+  # transitoria, entao a reserva tambem nao entra. Confira antes de aplicar:
+  #   aws bedrock list-inference-profiles --region sa-east-1 \
+  #     --query "inferenceProfileSummaries[?starts_with(inferenceProfileId,'global.anthropic')].inferenceProfileId"
+  #   aws iam simulate-principal-policy \
+  #     --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
+  #     --action-names bedrock:InvokeModelWithResponseStream \
+  #     --resource-arns arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
+  #
+  # Perfil `global.` atende de sa-east-1: nao ha motivo para cruzar regiao.
   SUCONT_AI_PROVIDER = "bedrock"
-  SUCONT_AI_MODEL    = "us.anthropic.claude-sonnet-4-6-v1:0"
-  SUCONT_AI_REGION   = "us-east-1"
+  SUCONT_AI_MODEL    = "global.anthropic.claude-sonnet-4-6"
+  SUCONT_AI_REGION   = "sa-east-1"
 
   # Tetos de consumo (ver AI-PROVIDERS.md). Por usuário, exceto TOKENS_PER_DAY
   # (por processo — com desired_count = N o teto efetivo é N x o configurado).
