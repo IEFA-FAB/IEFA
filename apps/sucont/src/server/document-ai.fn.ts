@@ -196,7 +196,8 @@ Retorne um JSON com os campos:
 		)
 
 		const generated = await Promise.race([
-			generateJson<FabDocumentData | DataAnalysisData>({ user: prompt, schema: isFab ? fabSchema : analysisSchema }),
+			// Dono da chamada vem da sessão, nunca do input — é a chave dos tetos por usuário.
+			generateJson<FabDocumentData | DataAnalysisData>({ userId: ctx.userId, user: prompt, schema: isFab ? fabSchema : analysisSchema }),
 			timeoutPromise,
 		])
 

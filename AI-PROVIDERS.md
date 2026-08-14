@@ -165,12 +165,25 @@ smoke responde "o provider está de pé?".
 
 ## Dívida registrada
 
-**sucont** — o endpoint agora tem o mesmo encadeamento do sisub (capability gate → auth →
-PBAC `sucont` nível 1 → `enforceRequestRateLimit("SUCONT")` → adapter com `rateLimitKey`), e
-os tetos `SUCONT_AI_MAX_*` estão no `infra/sucont/terraform.tfvars.example` como env
-não-secreto. Falta só a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`,
-mas a API key ainda não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter
-roda só com o primário, que é o comportamento anterior.
+**sucont** — os **três** caminhos até o modelo têm o mesmo encadeamento do sisub (capability
+gate → sessão → permissão → `enforceRequestRateLimit("SUCONT")` → adapter com
+`rateLimitKey`), e os tetos `SUCONT_AI_MAX_*` estão no
+`infra/sucont/terraform.tfvars.example` como env não-secreto:
+
+| Caminho | Onde a cadeia é aplicada |
+|---|---|
+| `routes/api/chat/stream.post.ts` (SSE) | no próprio handler — precisa de status HTTP do h3 antes de abrir o stream |
+| `oracleContaGenericaFn` | `requireSucontAccess` + `lib/ai.server.ts` |
+| `adaptDraftFn` | `requireSucontAccess` + `lib/ai.server.ts` |
+
+`lib/ai.server.ts` é o ponto único das server functions, e o `userId` é **parâmetro
+obrigatório** de `generateText`/`generateJson`: não existe assinatura sem dono, então uma
+server function nova não consegue chamar o modelo sem passar pelo teto. Ele vem sempre do
+`UserContext` do guard, nunca do input validado.
+
+Falta só a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`, mas a API key
+ainda não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter roda só com o
+primário, que é o comportamento anterior.
 
 Detalhe que vale para qualquer rota Nitro (`routes/api/**`): ela roda **fora** do contexto de
 request do TanStack Start, então `getRequest()` — e portanto `createSsrAuthClient` e os
