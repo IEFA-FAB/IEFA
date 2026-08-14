@@ -63,7 +63,14 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	},
 	head: () => ({
 		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "SUCONT-4 HUB" }],
-		links: [{ rel: "stylesheet", href: appCss }],
+		// Ícone e manifesto no mesmo formato dos demais apps do monorepo: um único
+		// favicon.svg (o mesmo arquivo em portal/sisub/rumaer/forms/docs/api).
+		links: [
+			{ rel: "stylesheet", href: appCss },
+			{ rel: "icon", type: "image/svg+xml", sizes: "any", href: "/favicon.svg" },
+			{ rel: "manifest", href: "/manifest.json" },
+			{ rel: "icon", href: "/favicon.svg" },
+		],
 	}),
 	shellComponent: RootDocument,
 })
