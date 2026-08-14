@@ -7,9 +7,17 @@
  */
 
 import { createAdapterFromEnv } from "@iefa/ai-provider"
+import { getServerCapabilities } from "#/lib/capabilities.server"
 
-/** Cria o adapter de IA do SUCONT a partir do env. Lança se provider/model ausentes. */
+/**
+ * Cria o adapter de IA do SUCONT a partir do env.
+ * @throws com mensagem legível quando o ambiente não tem `SUCONT_AI_*` — sem isso o
+ * erro que chega à tela é o do adapter, listando nomes de env var para o usuário final.
+ */
 export function getSucontAdapter() {
+	if (!getServerCapabilities().oracle) {
+		throw new Error("Recurso de IA indisponível — não configurado neste ambiente")
+	}
 	return createAdapterFromEnv("SUCONT")
 }
 

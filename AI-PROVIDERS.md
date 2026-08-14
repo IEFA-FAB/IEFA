@@ -16,7 +16,7 @@ que não cobre), como os tetos de consumo funcionam e o que ainda falta migrar.
 |---|---|---|---|---|
 | sisub — chat dos módulos | `MODULE_CHAT_AI_*` | **bedrock** | groq | ✅ migrado |
 | sisub — assistente de analytics | `ANALYTICS_AI_*` | **bedrock** | groq | ✅ migrado |
-| sucont — oráculo | `SUCONT_AI_*` | bedrock | — | ⚠️ já é bedrock, sem reserva nem teto |
+| sucont — oráculo | `SUCONT_AI_*` | **bedrock** | (não configurada) | ✅ migrado — reserva opcional, ainda sem secret |
 | alpha — grafo LangGraph | `ALPHA_AI_*` | nvidia | — | ❌ dívida (ver abaixo) |
 
 `apps/sisub-mcp` não chama modelo: ele **expõe** ferramentas para o modelo do cliente MCP.
@@ -165,10 +165,19 @@ smoke responde "o provider está de pé?".
 
 ## Dívida registrada
 
-**sucont** — já usa bedrock (`SUCONT_AI_PROVIDER=bedrock`), mas sem reserva e sem teto.
-Migração é só configuração: adicionar `SUCONT_FALLBACK_AI_*` e `SUCONT_AI_MAX_*` ao
-`.env.schema`, ao `secret_names` e ao `sync-secrets.yml`, e chamar `enforceRequestRateLimit`
-em `apps/sucont/routes/api/chat/stream.post.ts`. Nenhuma mudança de código no pacote.
+**sucont** — o endpoint agora tem o mesmo encadeamento do sisub (capability gate → auth →
+PBAC `sucont` nível 1 → `enforceRequestRateLimit("SUCONT")` → adapter com `rateLimitKey`), e
+os tetos `SUCONT_AI_MAX_*` estão no `infra/sucont/terraform.tfvars.example` como env
+não-secreto. Falta só a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`,
+mas a API key ainda não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter
+roda só com o primário, que é o comportamento anterior.
+
+Detalhe que vale para qualquer rota Nitro (`routes/api/**`): ela roda **fora** do contexto de
+request do TanStack Start, então `getRequest()` — e portanto `createSsrAuthClient` e os
+helpers de `auth.server.ts` — não valem ali. A sessão vem do header `Cookie` do `H3Event`,
+via `createCookieAuthClient` do `@iefa/supabase-kit`. O guard de rota do `__root` é
+client-side e **não** cobre essas rotas: sem checagem explícita no handler, um endpoint de
+chat é um caminho aberto para o Bedrock da conta.
 
 **alpha** — o único que não tem caminho para o Bedrock. Ele não usa o adapter do
 `@tanstack/ai`: usa LangChain, e `packages/ai-provider/src/langchain-compat.ts` só sabe
