@@ -30,9 +30,12 @@ environment_variables = {
   #     --action-names bedrock:InvokeModelWithResponseStream \
   #     --resource-arns arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
   #
-  # Perfil `global.` atende de sa-east-1: nao ha motivo para cruzar regiao.
+  # Modelo: mesmo do sisub. E o unico que ja tem historico de producao nesta
+  # conta e nesta task role, e o mais barato entre os que passam no bench do
+  # oraculo (apps/sucont/model-bench.ts) — $0.18/1M entrada, $0.73/1M saida em
+  # sa-east-1, conferido no Pricing API da AWS. Ver AI-PROVIDERS.md.
   SUCONT_AI_PROVIDER = "bedrock"
-  SUCONT_AI_MODEL    = "global.anthropic.claude-sonnet-4-6"
+  SUCONT_AI_MODEL    = "openai.gpt-oss-120b-1:0"
   SUCONT_AI_REGION   = "sa-east-1"
 
   # Tetos de consumo (ver AI-PROVIDERS.md). Por usuário, exceto TOKENS_PER_DAY

@@ -43,9 +43,54 @@ Duas consequências, ambas verificadas:
    `implicitDeny` para `InvokeModelWithResponseStream` **e** para `ConverseStream` nesse ARN,
    e o CloudTrail de `us-east-1` não tem nenhuma chamada da task role — o caminho nunca
    funcionou. `AccessDenied` não é falha transitória, então a reserva não entraria nem se
-   existisse. Conserto: `SUCONT_AI_MODEL = global.anthropic.claude-sonnet-4-6` e
-   `SUCONT_AI_REGION = sa-east-1` no `terraform.tfvars` real (que vive no secret
-   `TF_TFVARS_JSON`, fora do repo).
+   existisse. Conserto: ver a escolha de modelo abaixo.
+
+### Escolha do modelo do oráculo (bench de 2026-08-14)
+
+`SUCONT_AI_MODEL = "openai.gpt-oss-120b-1:0"` em `sa-east-1` — o mesmo do sisub.
+
+A escolha não é por afinidade: os quatro candidatos que a task role **pode** invocar foram
+medidos nos **dois** caminhos reais do app pelo adapter do próprio repo
+(`apps/sucont/model-bench.ts`: `chatStream` com o system prompt inteiro do oráculo, UG_INFO
+incluso, e `structuredOutput` com o `analysisSchema` do document-ai):
+
+| modelo | chat | JSON | tokens (in/out, chat) | latência chat / JSON | preço 1M in/out |
+|---|---|---|---|---|---|
+| **gpt-oss-120b** | ✅ | ✅ | 3954 / 1006 | 7,0 s / 6,1 s | **$0,18 / $0,73** |
+| gpt-oss-20b | ✅ | ✅ | 3954 / 999 | 5,8 s / 5,7 s | $0,08 / $0,36 |
+| `global.anthropic.claude-haiku-4-5-…` | ✅ | ✅ | 4995 / 471 | 5,0 s / 8,7 s | não verificado |
+| `global.anthropic.claude-sonnet-4-6` | ✅ | ✅ | 4996 / 916 | 14,5 s / 30,7 s | não verificado |
+
+Os quatro passam — inclusive no JSON, que era o risco real (a Converse API não tem json-mode
+uniforme, então o adapter instrui e parseia; um modelo fraco devolve prosa e quebra o parse).
+Como capacidade não separa os candidatos nesta carga, o desempate é operacional:
+
+- **gpt-oss-120b já roda em produção nesta conta e nesta task role** (o chat do sisub), com
+  `ConverseStream` sem `errorCode` no CloudTrail. É o único candidato com histórico real aqui;
+- **é o mais barato entre os verificados** — $0,18/$0,73 por 1M em `sa-east-1`, conferido no
+  Pricing API da AWS (`aws pricing get-products --service-code AmazonBedrock`). Pelos tokens
+  medidos: **US$ 0,0015 por conversa** e **US$ 0,0009 por documento**; 1.000 chats + 500
+  documentos por mês ≈ **US$ 1,87**;
+- **o 20b é mais barato e passa**, mas responde bem mais curto no chat (1.287 contra 2.234
+  caracteres na mesma pergunta). Para um oráculo de análise contábil a profundidade é o
+  produto, e a diferença absoluta de custo nesse volume é de centavos;
+- **o Sonnet 4.6 é o mais lento com folga** — 30,7 s no caminho de documento, contra 6,1 s. Um
+  `generateJson` já tem timeout de 60 s no `document-ai.fn.ts`; não vale gastar metade dele.
+
+**Preço do Claude no Bedrock não foi verificado, e isso é limitação, não conclusão:** o
+catálogo do Pricing API só tem geração antiga (Claude 2.x / 3 Haiku / 3 Sonnet), e a página
+pública de preços é renderizada por JS — o fetch devolve conteúdo parcial. Os preços de
+referência da API própria da Anthropic (Haiku 4.5 $1/$5, Sonnet 4.6 $3/$15 por 1M) são de
+**outro** produto: o Bedrock é operado pela AWS e tem preço próprio. Ou seja: sabemos que o
+gpt-oss-120b é o mais barato **entre os que conseguimos precificar**, e sabemos que os dois
+Claude estão numa faixa bem acima na tabela de referência — não que a diferença no Bedrock
+seja exatamente essa.
+
+Refazer o bench quando um modelo novo entrar no escopo da policy:
+
+```sh
+cd apps/sucont && AWS_PROFILE=iefa-prod bun model-bench.ts
+```
 
 ---
 
@@ -244,9 +289,9 @@ server function nova não consegue chamar o modelo sem passar pelo teto. Ele vem
 O que falta é **configuração no `terraform.tfvars` real** (secret `TF_TFVARS_JSON`), e a ordem
 importa — o item 1 é o que separa "oráculo quebrado" de "oráculo funcionando":
 
-1. `SUCONT_AI_MODEL = "global.anthropic.claude-sonnet-4-6"` e `SUCONT_AI_REGION = "sa-east-1"`.
-   O que está aplicado hoje (`us.anthropic.claude-sonnet-4-5-20250929-v1:0` em `us-east-1`)
-   é negado pela task role;
+1. `SUCONT_AI_MODEL = "openai.gpt-oss-120b-1:0"` e `SUCONT_AI_REGION = "sa-east-1"` (ver a
+   seção *Escolha do modelo do oráculo*). O que está aplicado hoje
+   (`us.anthropic.claude-sonnet-4-5-20250929-v1:0` em `us-east-1`) é negado pela task role;
 2. os tetos `SUCONT_AI_MAX_*` — estão no `.example`, não no aplicado;
 3. a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`, mas a API key ainda
    não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter roda só com o
