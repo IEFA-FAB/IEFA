@@ -81,7 +81,11 @@ function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unk
 }
 
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
-	requirePermission(ctx, "kitchen", 1)
+	// Mesmo critério de `listRecipeSummaries`: quem administra o catálogo (global) não tem
+	// cozinha nenhuma, e exigir `kitchen:1` trancava esse usuário fora da receita que ele
+	// acabou de listar. Ler a ficha de UMA receita é menos do que listar o catálogo inteiro,
+	// que `global:1` já pode.
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 
 	// BUG FIX: filtra deleted_at IS NULL — sisub não filtrava.
 	const where = and(eq(recipesInKitchen.id, input.recipeId), isNull(recipesInKitchen.deletedAt))

@@ -143,7 +143,7 @@ const listRecipesTool: ToolDefinition = {
 	schema: {
 		name: "list_recipes",
 		description:
-			"Lista receitas disponíveis para uma cozinha, só com os campos de identificação (id, nome, versão, rendimento). Retorna as globais (kitchen_id null) e, se kitchenId for informado, também as locais dessa cozinha. Suporta busca por nome via search e paginação via limit; o retorno traz total e returned. Para ingredientes e modo de preparo, chame get_recipe.",
+			"Lista receitas disponíveis para uma cozinha, só com os campos de identificação (id, nome, versão, rendimento, pasta pelo nome). Retorna as globais (kitchen_id null) e, se kitchenId for informado, também as locais dessa cozinha. Suporta busca por nome via search e limite de itens via limit; o retorno traz total e returned. O id serve para as chamadas seguintes (get_recipe), não para exibir a quem lê — identifique cada receita pelo nome. Para ingredientes e modo de preparo, chame get_recipe.",
 		inputSchema: toJsonSchema(AgentListRecipesSchema),
 	},
 	async handler(args, credential) {

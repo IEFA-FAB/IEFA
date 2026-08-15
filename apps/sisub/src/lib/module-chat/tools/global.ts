@@ -13,6 +13,7 @@ import {
 	AgentListIngredientsSchema,
 	AgentListPreparationsSchema,
 	AgentListRecipesSchema,
+	agentGetRecipe,
 	agentListIngredients,
 	agentListPreparations,
 	agentListRecipes,
@@ -33,7 +34,7 @@ const LIST_MAX = 100
 const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
 	description:
-		"Lista receitas globais (padrão SDAB), só com os campos de identificação. Suporta busca por nome. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
+		"Lista receitas globais (padrão SDAB), só com os campos de identificação (nome, versão, rendimento, pasta pelo nome). Suporta busca por nome. O id serve para a chamada seguinte (get_recipe, update_recipe), não para exibir na resposta. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
 	parameters: toJsonSchema(AgentListRecipesSchema.omit({ kitchenId: true })),
 	requiredLevel: 1,
 	async handler(args, ctx) {
@@ -46,26 +47,20 @@ const listRecipes: ModuleToolDefinition = {
 
 const getRecipe: ModuleToolDefinition = {
 	name: "get_recipe",
-	description: "Retorna detalhes de uma receita com ingredientes completos.",
+	description: "Retorna a ficha técnica de uma receita: rendimento, tempo, modo de preparo e os insumos com quantidade e unidade.",
 	parameters: {
 		type: "object",
 		properties: { recipeId: { type: "string", description: "ID (UUID) da receita" } },
 		required: ["recipeId"],
 	},
 	requiredLevel: 1,
+	// A versão anterior devolvia a linha crua da receita com a linha crua de cada insumo
+	// aninhada: ~23 campos por insumo (`deleted_at`, `legacy_id`, `ceafa_id`…) para o modelo
+	// escrever "500 g de arroz".
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
 		const recipeId = requireUuid(args.recipeId, "recipeId")
-
-		const { data, error } = await ctx.supabase
-			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
-			.eq("id", recipeId)
-			.is("deleted_at", null)
-			.single()
-
-		if (error) return toolErr(sanitizeDbError(error, "get_recipe"))
-		return toolOk(data)
+		return toolOk(await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId }))
 	},
 }
 
@@ -150,7 +145,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 
 		const { data, error, count } = await ctx.supabase
 			.from("menu_template")
-			.select(`*, items:menu_template_items(count)`, { count: "exact" })
+			.select(`id, name, description, template_type, items:menu_template_items(count)`, { count: "exact" })
 			.is("deleted_at", null)
 			.is("kitchen_id", null)
 			.order("name")
@@ -158,9 +153,9 @@ const listMenuTemplates: ModuleToolDefinition = {
 
 		if (error) return toolErr(sanitizeDbError(error, "list_menu_templates"))
 
-		const templates = (data ?? []).map((t) => ({
+		const templates = (data ?? []).map(({ items, ...t }) => ({
 			...t,
-			item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
+			item_count: Array.isArray(items) ? ((items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 
 		return toolOk({ templates, returned: templates.length, total: count ?? templates.length, limit })
@@ -185,14 +180,19 @@ const createRecipe: ModuleToolDefinition = {
 
 		if (typeof args.name !== "string" || !args.name.trim()) return toolErr("Nome é obrigatório")
 
+		// `version` é NOT NULL e não tem default: sem ele o insert violava a constraint e a
+		// tool nunca criou receita nenhuma. Linhagem nova começa em 1, como no domínio.
 		const insert: Record<string, unknown> = {
 			name: String(args.name).trim(),
 			kitchen_id: null,
+			version: 1,
 		}
-		if (args.preparationTime != null) insert.preparation_time = Number(args.preparationTime)
+		// A coluna é `preparation_time_minutes`. Com `preparation_time` o PostgREST recusava a
+		// inserção inteira (PGRST204) sempre que o modelo informava o tempo de preparo.
+		if (args.preparationTime != null) insert.preparation_time_minutes = Number(args.preparationTime)
 		if (args.cookingFactor != null) insert.cooking_factor = Number(args.cookingFactor)
 
-		const { data, error } = await untypedFrom(ctx, "recipes").insert(insert).select().single()
+		const { data, error } = await untypedFrom(ctx, "recipes").insert(insert).select("id, name, version, preparation_time_minutes, cooking_factor").single()
 		if (error) return toolErr(sanitizeDbError(error, "create_recipe"))
 		return toolOk(data)
 	},
@@ -218,12 +218,17 @@ const updateRecipe: ModuleToolDefinition = {
 
 		const update: Record<string, unknown> = {}
 		if (args.name != null) update.name = String(args.name).trim()
-		if (args.preparationTime != null) update.preparation_time = Number(args.preparationTime)
+		if (args.preparationTime != null) update.preparation_time_minutes = Number(args.preparationTime)
 		if (args.cookingFactor != null) update.cooking_factor = Number(args.cookingFactor)
 
 		if (Object.keys(update).length === 0) return toolErr("Nenhum campo para atualizar")
 
-		const { data, error } = await untypedFrom(ctx, "recipes").update(update).eq("id", recipeId).is("kitchen_id", null).select().single()
+		const { data, error } = await untypedFrom(ctx, "recipes")
+			.update(update)
+			.eq("id", recipeId)
+			.is("kitchen_id", null)
+			.select("id, name, version, preparation_time_minutes, cooking_factor")
+			.single()
 		if (error) return toolErr(sanitizeDbError(error, "update_recipe"))
 		return toolOk(data)
 	},
