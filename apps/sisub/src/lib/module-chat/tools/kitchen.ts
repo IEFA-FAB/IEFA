@@ -4,7 +4,7 @@
  */
 
 import { toJsonSchema } from "@iefa/sisub-domain"
-import { AgentListRecipesSchema, agentListRecipes, clampLimit } from "@iefa/sisub-domain/agent"
+import { AgentListRecipesSchema, agentFetchDayMenus, agentFetchMenus, agentGetTemplateItems, agentListRecipes, clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
@@ -12,15 +12,6 @@ import { domainCtx, requireKitchenPermission, requireUuid, requireValidDates, sa
 
 const RECIPE_LIST_DEFAULT = 30
 const RECIPE_LIST_MAX = 100
-
-const dailyMenuSelect = `
-  *,
-  meal_type:meal_type_id(*),
-  menu_items:menu_items(
-    *,
-    recipe_origin:recipe_origin_id(*)
-  )
-` as const
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 
@@ -73,9 +64,17 @@ const getMealTypes: ModuleToolDefinition = {
 	},
 }
 
+/**
+ * Calendário e dia vêm da projeção de agente do domínio, não do PostgREST cru.
+ *
+ * A versão anterior pedia `menu_items(*, recipe_origin(*))`: cada item trazia o snapshot json
+ * da ficha técnica congelada MAIS a receita atual completa ao lado. Um dia com três refeições
+ * já passava dos 60 mil caracteres de `enforcePayloadBudget` e a tool respondia erro de
+ * payload em vez do cardápio; uma semana ficava uma ordem de grandeza acima do teto.
+ */
 const getPlanningCalendar: ModuleToolDefinition = {
 	name: "get_planning_calendar",
-	description: "Retorna calendário de planejamento de uma cozinha para um período. Inclui menus diários com itens (receitas).",
+	description: "Retorna o calendário de planejamento de uma cozinha num período: cada refeição do dia com os pratos, por nome.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -91,30 +90,14 @@ const getPlanningCalendar: ModuleToolDefinition = {
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 		requireValidDates(args.startDate, args.endDate)
 
-		const { data, error } = await ctx.supabase
-			.from("daily_menu")
-			.select(dailyMenuSelect)
-			.eq("kitchen_id", id)
-			.gte("service_date", args.startDate as string)
-			.lte("service_date", args.endDate as string)
-			.is("deleted_at", null)
-			.order("service_date")
-			.order("meal_type_id")
-
-		if (error) return toolErr(sanitizeDbError(error, "get_planning_calendar"))
-
-		const menus = (data ?? []).map((menu) => ({
-			...menu,
-			menu_items: (menu.menu_items ?? []).filter((item: { deleted_at: string | null }) => !item.deleted_at),
-		}))
-
-		return toolOk(menus)
+		const menus = await agentFetchMenus(ctx.db, domainCtx(ctx), { kitchenId: id, startDate: String(args.startDate), endDate: String(args.endDate) })
+		return toolOk({ menus, total_menus: menus.length })
 	},
 }
 
 const getDayDetails: ModuleToolDefinition = {
 	name: "get_day_details",
-	description: "Retorna todos os menus de uma data específica com receitas. Ideal para ver detalhe antes de editar.",
+	description: "Retorna as refeições de uma data específica com os pratos de cada uma, por nome. Ideal para ver o dia antes de editar.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -129,21 +112,8 @@ const getDayDetails: ModuleToolDefinition = {
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 		requireValidDates(args.date)
 
-		const { data, error } = await ctx.supabase
-			.from("daily_menu")
-			.select(dailyMenuSelect)
-			.eq("kitchen_id", id)
-			.eq("service_date", args.date as string)
-			.is("deleted_at", null)
-
-		if (error) return toolErr(sanitizeDbError(error, "get_day_details"))
-
-		const menus = (data ?? []).map((menu) => ({
-			...menu,
-			menu_items: (menu.menu_items ?? []).filter((item: { deleted_at: string | null }) => !item.deleted_at),
-		}))
-
-		return toolOk(menus)
+		const menus = await agentFetchDayMenus(ctx.db, domainCtx(ctx), { kitchenId: id, date: String(args.date) })
+		return toolOk({ menus, total_menus: menus.length })
 	},
 }
 
@@ -375,7 +345,7 @@ const listMenuTemplates: ModuleToolDefinition = {
 
 const getTemplateItems: ModuleToolDefinition = {
 	name: "get_template_items",
-	description: "Retorna itens de um template semanal, organizados por dia/refeição. Útil para visualizar antes de aplicar.",
+	description: "Retorna os itens de um template semanal, por dia da semana e refeição, com a receita pelo nome. Útil para visualizar antes de aplicar.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -384,27 +354,13 @@ const getTemplateItems: ModuleToolDefinition = {
 		required: ["templateId"],
 	},
 	requiredLevel: 1,
+	// Guards (template de cozinha exige a cozinha, global basta ler cardápio) e projeção ficam
+	// na leitura de agente do domínio — a versão anterior trazia `recipe_origin(*)` por item, e
+	// um template semanal cheio tem ~100 itens.
 	async handler(args, ctx) {
 		const templateId = requireUuid(args.templateId, "templateId")
-
-		const { data: template, error: templateError } = await ctx.supabase.from("menu_template").select("id, kitchen_id, name").eq("id", templateId).single()
-		if (templateError || !template) return toolErr("Template não encontrado")
-
-		if (template.kitchen_id !== null) {
-			requireKitchenPermission(ctx, 1, { type: "kitchen", id: template.kitchen_id })
-		} else {
-			requireKitchenPermission(ctx, 1)
-		}
-
-		const { data, error } = await ctx.supabase
-			.from("menu_template_items")
-			.select(`*, meal_type:meal_type_id(*), recipe_origin:recipe_id(*)`)
-			.eq("menu_template_id", templateId)
-			.order("day_of_week")
-			.order("meal_type_id")
-
-		if (error) return toolErr(sanitizeDbError(error, "get_template_items"))
-		return toolOk(data ?? [])
+		const items = await agentGetTemplateItems(ctx.db, domainCtx(ctx), { templateId })
+		return toolOk({ items, total_items: items.length })
 	},
 }
 

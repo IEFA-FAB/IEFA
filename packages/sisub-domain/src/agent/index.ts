@@ -15,6 +15,8 @@ export {
 	MAX_TOOL_RESULT_CHARS,
 	PayloadTooLargeError,
 } from "./budget.ts"
+export type { AgentDailyMenu, AgentMenuItem, AgentTemplateItem } from "./menus.ts"
+export { agentFetchDayMenus, agentFetchMenus, agentGetTemplateItems } from "./menus.ts"
 export { dropUnexpectedNulls } from "./model-input.ts"
 export type { AgentIngredientSummary, AgentList } from "./reads.ts"
 export { agentListIngredients, agentListPreparations, agentListRecipes } from "./reads.ts"

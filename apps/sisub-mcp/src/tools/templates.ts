@@ -16,7 +16,6 @@ import {
 	forkTemplate,
 	GetTemplateSchema,
 	getTemplate,
-	getTemplateItems,
 	ListTemplatesSchema,
 	listDeletedTemplates,
 	listTemplates,
@@ -26,6 +25,7 @@ import {
 	saveTemplateEdit,
 	toJsonSchema,
 } from "@iefa/sisub-domain"
+import { agentGetTemplateItems } from "@iefa/sisub-domain/agent"
 import { resolveCredential } from "../auth.ts"
 import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
@@ -83,14 +83,18 @@ const getTemplateTool: ToolDefinition = {
 	schema: {
 		name: "get_template",
 		description:
-			"Retorna um template completo (metadados + todos os itens com receitas) por ID. O usuário deve ter permissão de leitura na cozinha do template.",
+			"Retorna um template por ID: metadados, efetivo base por dia/refeição e os itens com a receita pelo nome. O usuário deve ter permissão de leitura na cozinha do template. Para a ficha técnica de um prato, chame get_recipe.",
 		inputSchema: toJsonSchema(GetTemplateSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = GetTemplateSchema.parse(args)
-			return toolResult(await getTemplate(getDb(), ctx, input))
+			// Metadados da operation, itens da projeção de agente: `getTemplate` devolve a linha
+			// completa da receita em cada item e um template semanal cheio tem ~100 itens — o
+			// resultado batia no teto de payload e o cliente MCP não recebia nada.
+			const [{ items: _items, ...template }, items] = await Promise.all([getTemplate(getDb(), ctx, input), agentGetTemplateItems(getDb(), ctx, input)])
+			return toolResult({ ...template, items })
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -105,14 +109,14 @@ const getTemplateItemsTool: ToolDefinition = {
 	schema: {
 		name: "get_template_items",
 		description:
-			"Retorna todos os itens (receitas) de um template semanal, organizados por dia_da_semana e tipo_de_refeição. Útil para visualizar o template antes de aplicá-lo.",
+			"Retorna os itens de um template semanal, por dia_da_semana e tipo_de_refeição, com a receita pelo nome. Útil para visualizar o template antes de aplicá-lo. Para a ficha técnica de um prato, chame get_recipe.",
 		inputSchema: toJsonSchema(GetTemplateSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = GetTemplateSchema.parse(args)
-			return toolResult(await getTemplateItems(getDb(), ctx, input))
+			return toolResult(await agentGetTemplateItems(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

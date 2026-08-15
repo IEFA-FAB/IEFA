@@ -9,8 +9,6 @@ import {
 	DailyMenuFetchSchema,
 	DayDetailsFetchSchema,
 	FetchMealTypesSchema,
-	fetchDailyMenus,
-	fetchDayDetails,
 	fetchMealTypes,
 	GetTrashItemsSchema,
 	getTrashItems,
@@ -30,7 +28,7 @@ import {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
-import { AgentListRecipesSchema, agentListRecipes } from "@iefa/sisub-domain/agent"
+import { AgentListRecipesSchema, agentFetchDayMenus, agentFetchMenus, agentListRecipes } from "@iefa/sisub-domain/agent"
 import { resolveCredential } from "../auth.ts"
 import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
@@ -83,18 +81,24 @@ const getMealTypes: ToolDefinition = {
 // get_planning_calendar
 // ---------------------------------------------------------------------------
 
+/**
+ * Projeção de agente, não a operation crua: cada `menu_items` carrega o snapshot json da ficha
+ * técnica congelada, e a leitura relacional ainda embutia a receita atual completa ao lado. Um
+ * dia com três refeições já estourava o teto de resultado; uma semana, uma ordem de grandeza.
+ * Quem quer a ficha chama `get_recipe`.
+ */
 const getPlanningCalendar: ToolDefinition = {
 	schema: {
 		name: "get_planning_calendar",
 		description:
-			"Retorna o calendário de planejamento de cardápios de uma cozinha para um período. Inclui todos os menus diários com seus itens (receitas). Use para ter uma visão completa do planejamento mensal ou semanal.",
+			"Retorna o calendário de planejamento de cardápios de uma cozinha para um período: cada refeição do dia com os pratos, por nome, mais efetivo previsto e status. Para a ficha técnica de um prato, chame get_recipe.",
 		inputSchema: toJsonSchema(DailyMenuFetchSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DailyMenuFetchSchema.parse(args)
-			return toolResult(await fetchDailyMenus(getDb(), ctx, input))
+			return toolResult(await agentFetchMenus(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -109,14 +113,14 @@ const getDayDetails: ToolDefinition = {
 	schema: {
 		name: "get_day_details",
 		description:
-			"Retorna todos os menus de uma data específica para uma cozinha, com todos os itens (receitas) de cada refeição. Ideal para ver o detalhe completo de um dia antes de editar.",
+			"Retorna as refeições de uma data específica para uma cozinha, com os pratos de cada uma pelo nome. Ideal para ver o dia antes de editar. Para a ficha técnica de um prato, chame get_recipe.",
 		inputSchema: toJsonSchema(DayDetailsFetchSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DayDetailsFetchSchema.parse(args)
-			return toolResult(await fetchDayDetails(getDb(), ctx, input))
+			return toolResult(await agentFetchDayMenus(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
