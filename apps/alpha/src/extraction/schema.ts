@@ -29,26 +29,29 @@ export const FieldSchema = z.object({
 
 export type ExtractedField = z.infer<typeof FieldSchema>
 
+/** Campo ausente na saída do modelo equivale a campo ausente no documento. */
+const OptionalField = FieldSchema.nullish().transform((value) => value ?? null)
+
 export const ContratacaoSchema = z.object({
-	objeto: FieldSchema.nullable(),
-	justificativa_necessidade: FieldSchema.nullable(),
-	descricao_solucao: FieldSchema.nullable(),
-	requisitos: FieldSchema.nullable(),
-	estimativa_quantidades: FieldSchema.nullable(),
-	levantamento_mercado: FieldSchema.nullable(),
-	valor_estimado: FieldSchema.nullable(),
-	justificativa_parcelamento: FieldSchema.nullable(),
-	criterios_sustentabilidade: FieldSchema.nullable(),
-	modelo_execucao: FieldSchema.nullable(),
-	modelo_gestao: FieldSchema.nullable(),
-	criterios_medicao_pagamento: FieldSchema.nullable(),
-	criterios_selecao_fornecedor: FieldSchema.nullable(),
-	garantia: FieldSchema.nullable(),
-	sancoes: FieldSchema.nullable(),
-	prazo_vigencia: FieldSchema.nullable(),
-	fiscalizacao: FieldSchema.nullable(),
-	modalidade: FieldSchema.nullable(),
-	objeto_tipo: ObjetoTipoSchema.nullable(),
+	objeto: OptionalField,
+	justificativa_necessidade: OptionalField,
+	descricao_solucao: OptionalField,
+	requisitos: OptionalField,
+	estimativa_quantidades: OptionalField,
+	levantamento_mercado: OptionalField,
+	valor_estimado: OptionalField,
+	justificativa_parcelamento: OptionalField,
+	criterios_sustentabilidade: OptionalField,
+	modelo_execucao: OptionalField,
+	modelo_gestao: OptionalField,
+	criterios_medicao_pagamento: OptionalField,
+	criterios_selecao_fornecedor: OptionalField,
+	garantia: OptionalField,
+	sancoes: OptionalField,
+	prazo_vigencia: OptionalField,
+	fiscalizacao: OptionalField,
+	modalidade: OptionalField,
+	objeto_tipo: ObjetoTipoSchema.nullish().transform((value) => value ?? null),
 })
 
 export type Contratacao = z.infer<typeof ContratacaoSchema>

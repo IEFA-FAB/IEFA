@@ -38,6 +38,18 @@ export function getLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel {
 }
 
 /**
+ * Descrição da ferramenta de saída estruturada.
+ *
+ * `parameters` é JSON Schema puro — com `type: "object"` na raiz, que é o que
+ * a Converse API exige.
+ */
+export interface ToolSchema {
+	name: string
+	description?: string
+	parameters: Record<string, unknown>
+}
+
+/**
  * LLM com saída estruturada.
  *
  * Força `functionCalling` em vez de `json_schema`: o modo `json_schema` só
@@ -46,6 +58,13 @@ export function getLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel {
  * provedores compatíveis com a OpenAI quanto na Converse API do Bedrock.
  * Centralizado aqui para valer de uma vez para extração, juiz, grader e router.
  */
-export function structuredLLM(schema: Record<string, unknown>, temperature: 0 | 0.3 | 0.7 = 0) {
-	return getLLM(temperature).withStructuredOutput(schema, { method: "functionCalling" })
+export function structuredLLM(schema: ToolSchema, temperature: 0 | 0.3 | 0.7 = 0) {
+	// O JSON Schema vai separado do nome. Passar o envelope inteiro
+	// (`{name, description, parameters}`) funciona nos provedores OpenAI-like,
+	// mas o Bedrock lê o objeto todo como se fosse o schema e rejeita:
+	// "inputSchema.json.type must be one of: object".
+	return getLLM(temperature).withStructuredOutput(schema.parameters, {
+		name: schema.name,
+		method: "functionCalling",
+	})
 }

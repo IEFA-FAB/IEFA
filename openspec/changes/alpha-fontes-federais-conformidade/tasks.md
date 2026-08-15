@@ -116,7 +116,9 @@ O projeto Supabase antigo foi apagado em 2026-07-31 com o corpus indexado dentro
 - [x] X.1 [alpha] Fluxo ponta a ponta validado contra o banco: submissão → extração (spans, truncamento declarado) → conformidade (6 regras, 4 normas, 137 achados)
 - [x] X.2 [alpha] Perfil `app_aci` concedido; promoção de regra e coleta sob demanda respondendo 200
 - [x] X.3 [alpha] **NVIDIA removida do caminho padrão**: chat, embeddings e rerank passam a ser Bedrock (keyless por task role); `embedding_model` por chunk impede comparar vetores de modelos diferentes
-- [ ] X.4 [alpha] Validar Bedrock com credencial real (esta máquina não tem): confirmar o modelo de chat disponível na região, ligar `ALPHA_EMBEDDINGS_ENABLED` e reingerir o corpus com vetores
+- [x] X.4 [alpha] **Bedrock validado com credencial real** (profile `iefa-prod`, sa-east-1): `openai.gpt-oss-120b-1:0` ACTIVE e respondendo por Converse com tool calling; Titan v2 devolvendo 1024 dimensões; extração (11 campos/11 spans) e conformidade rodando pelo Bedrock; 1.990 chunks com vetor via `bun run embed:backfill --apply`
+- [x] X.6 [alpha] `bun run embed:backfill` — preenche vetor de chunk sem embedding ou de modelo antigo, sem reingerir (documento citado por parecer não pode ser apagado)
+- [ ] X.7 [alpha] **Não há modelo de rerank no Bedrock em sa-east-1** — `ALPHA_RERANK_MODEL` fica vazio e a ordenação é a do RRF. Decidir entre chamar rerank cross-region (us-west-2) ou seguir sem
 - [ ] X.5 [infra] Aplicar `enable_bedrock_task_access = true` no `foundation` com a região do α em `bedrock_regions` (a policy já ganhou `bedrock:Rerank`)
 
 ## Final

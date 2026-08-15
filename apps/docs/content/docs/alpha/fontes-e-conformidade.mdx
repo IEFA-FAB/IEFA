@@ -35,9 +35,9 @@ Chat, embeddings e rerank rodam no **AWS Bedrock**, keyless pela task role, no m
 
 | Variável | Para quê |
 |---|---|
-| `ALPHA_AI_MODEL` | id do modelo ou inference profile do chat — **sem default**, porque cravar um id que pode não existir na região é pior que exigir a escolha |
+| `ALPHA_AI_MODEL` | id do modelo ou inference profile do chat — **sem default**, porque cravar um id que pode não existir na região é pior que exigir a escolha. Em uso: `openai.gpt-oss-120b-1:0` |
 | `ALPHA_EMBEDDING_MODEL` | `amazon.titan-embed-text-v2:0` (1024 dimensões, que é o que o schema fixa) |
-| `ALPHA_RERANK_MODEL` | vazio desliga o rerank; a ordenação passa a ser a do RRF |
+| `ALPHA_RERANK_MODEL` | vazio desliga o rerank; a ordenação passa a ser a do RRF. **Não há modelo de rerank no Bedrock em `sa-east-1`** |
 | `ALPHA_AI_REGION` | região do Bedrock |
 
 <Callout type="warn">
@@ -112,6 +112,8 @@ bun run ingest:agu            # dry-run da coleta dos modelos
 bun run ingest:agu --apply    # grava
 bun run ingest knowledge/x.md # ingere um Markdown no corpus (reconstrução do RADA)
 bun run ingest:all            # ingere todos os .md de knowledge/
+bun run embed:backfill        # dry-run: conta chunks sem vetor
+bun run embed:backfill --apply # gera os vetores que faltam, sem reingerir
 bun run eval                  # golden set das checagens determinísticas
 ```
 

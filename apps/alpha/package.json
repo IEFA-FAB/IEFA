@@ -12,7 +12,8 @@
 		"lint": "biome check src/",
 		"typecheck": "tsgo --noEmit",
 		"test": "bun test",
-		"eval": "bun run src/eval/run-eval.ts"
+		"eval": "bun run src/eval/run-eval.ts",
+		"embed:backfill": "bun run src/cli/backfill-embeddings.ts"
 	},
 	"dependencies": {
 		"@aws-sdk/client-bedrock-agent-runtime": "^3.1109.0",

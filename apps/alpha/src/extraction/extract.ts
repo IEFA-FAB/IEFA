@@ -37,9 +37,9 @@ const extractionJsonSchema = {
 			Object.keys(CAMPO_LABELS).map((field) => [
 				field,
 				field === "objeto_tipo"
-					? { type: ["string", "null"], enum: ["COMPRAS", "SERVICOS", "OBRAS", "TIC", null], description: CAMPO_LABELS[field as keyof Contratacao] }
+					? { type: "string", enum: ["COMPRAS", "SERVICOS", "OBRAS", "TIC"], description: CAMPO_LABELS[field as keyof Contratacao] }
 					: {
-							type: ["object", "null"],
+							type: "object",
 							description: CAMPO_LABELS[field as keyof Contratacao],
 							properties: {
 								value: { type: "string" },
@@ -49,7 +49,11 @@ const extractionJsonSchema = {
 						},
 			])
 		),
-		required: Object.keys(CAMPO_LABELS),
+		// Nenhum campo é obrigatório: campo que o documento não traz deve ser
+		// **omitido**. Declará-los todos como `required` (com união `object|null`)
+		// empurra o modelo a preencher de qualquer jeito — o gpt-oss devolvia
+		// string onde o schema pedia objeto, e a extração inteira falhava.
+		required: [] as string[],
 	},
 }
 
