@@ -169,14 +169,27 @@ export function sanitizeDbError(error: { message?: string; code?: string } | Err
 }
 
 /**
- * Untyped .from() helper for tables not yet in the generated Supabase types
- * (e.g., after a migration that hasn't been regenerated).
- * Also useful for tables whose generated types have column-name mismatches.
+ * Schemas do banco que as tools alcançam. O banco foi dividido por domínio: a cozinha
+ * (cardápios, receitas, insumos) mora em `kitchen`, mas unidade e cozinha-entidade moram
+ * em `core`, ATAs e ARPs em `procurement` e empenhos em `finance`.
+ */
+export type ToolTableSchema = "kitchen" | "core" | "procurement" | "finance"
+
+/**
+ * `.from()` sem tipo, para tabelas fora dos tipos gerados (ou com nome de coluna divergente).
+ *
+ * **O schema é obrigatório na cabeça de quem chama.** O client do chat nasce com
+ * `db: { schema: "kitchen" }`, então `untypedFrom(ctx, "procurement_list")` pedia
+ * `kitchen.procurement_list` — tabela que não existe. O PostgREST devolvia PGRST205 e o
+ * módulo `unit` inteiro (menos `get_ata_details`, que já usava `.schema()` explícito) e os
+ * quatro tools de `local-analytics` respondiam "Erro ao executar…" em toda pergunta. Nada
+ * disso o typecheck via: o retorno é `any` de propósito.
  */
 // biome-ignore lint/suspicious/noExplicitAny: dynamic table string — no generated type for runtime-resolved table names
-export function untypedFrom(ctx: ToolContext, table: string): any {
+export function untypedFrom(ctx: ToolContext, table: string, schema: ToolTableSchema = "kitchen"): any {
 	// biome-ignore lint/suspicious/noExplicitAny: dynamic table string — no generated type for runtime-resolved table names
-	return (ctx.supabase as SupabaseClient<any, any>).from(table)
+	const client = ctx.supabase as SupabaseClient<any, any>
+	return (schema === "kitchen" ? client : client.schema(schema)).from(table)
 }
 
 /**
