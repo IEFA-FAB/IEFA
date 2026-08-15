@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -7,17 +7,26 @@
     "defaultBranch": "main"
   },
   "files": {
-    "ignoreUnknown": false,
+    "ignoreUnknown": true,
     "includes": [
-      "**/src/**/*",
-      "**/.vscode/**/*",
-      "**/index.html",
-      "**/vite.config.ts",
-      "**/vite.config.js",
-      "!**/src/routeTree.gen.ts",
-      "!**/src/styles.css",
-      "!**/src/types/supabase.types.ts",
+      "**",
+      "!.agents",
+      "!.claude",
+      "!plans",
       "!**/*.svg",
+      "!**/src/styles.css",
+      "!**/public",
+      "!**/*.gen.ts",
+      "!packages/database/src/generated.ts",
+      "!packages/database/drizzle",
+      "!packages/database/supabase/.temp",
+      "!apps/docs/.source",
+      "!apps/rumaer/docs/style-mockups",
+      "!**/.output",
+      "!**/.nitro",
+      "!**/.tanstack",
+      "!**/playwright-report",
+      "!**/test-results",
       "!**/__fixtures__/**/*"
     ]
   },
@@ -26,7 +35,13 @@
     "indentStyle": "tab",
     "lineWidth": 160
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -93,6 +108,26 @@
       }
     },
     {
+      "includes": ["**/scripts/**/*", "**/e2e/**/*", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.config.ts", "**/*.config.mjs"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/e2e/fixtures/**/*"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/src/components/ui/**/*"],
       "linter": {
         "rules": {
@@ -108,6 +143,16 @@
         "rules": {
           "performance": {
             "noBarrelFile": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/cli/**/*", "**/src/eval/**/*", "**/ingest-local.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }

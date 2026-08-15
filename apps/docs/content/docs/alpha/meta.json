@@ -1,10 +1,4 @@
 {
   "title": "Projeto α",
-  "pages": [
-    "index",
-    "etapas",
-    "fontes-e-conformidade",
-    "roadmap",
-    "riscos"
-  ]
+  "pages": ["index", "etapas", "fontes-e-conformidade", "roadmap", "riscos"]
 }

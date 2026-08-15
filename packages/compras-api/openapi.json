@@ -76,9 +76,7 @@
   "paths": {
     "/usuarios/criar": {
       "post": {
-        "tags": [
-          "99 - USUARIOS"
-        ],
+        "tags": ["99 - USUARIOS"],
         "operationId": "criar",
         "requestBody": {
           "content": {
@@ -111,9 +109,7 @@
     },
     "/autenticacao/login": {
       "post": {
-        "tags": [
-          "AUTENTICACAO"
-        ],
+        "tags": ["AUTENTICACAO"],
         "operationId": "login",
         "requestBody": {
           "content": {
@@ -141,9 +137,7 @@
     },
     "/usuarios/resetSenha/{id}": {
       "patch": {
-        "tags": [
-          "99 - USUARIOS"
-        ],
+        "tags": ["99 - USUARIOS"],
         "operationId": "resetSenha",
         "parameters": [
           {
@@ -177,9 +171,7 @@
     },
     "/usuarios/atualizar/{id}": {
       "patch": {
-        "tags": [
-          "99 - USUARIOS"
-        ],
+        "tags": ["99 - USUARIOS"],
         "operationId": "atualizar",
         "parameters": [
           {
@@ -223,9 +215,7 @@
     },
     "/usuarios/consultar": {
       "get": {
-        "tags": [
-          "99 - USUARIOS"
-        ],
+        "tags": ["99 - USUARIOS"],
         "operationId": "consultar",
         "parameters": [
           {
@@ -262,9 +252,7 @@
     },
     "/modulo-uasg/2_consultarOrgao": {
       "get": {
-        "tags": [
-          "05 - UASG"
-        ],
+        "tags": ["05 - UASG"],
         "operationId": "consultarOrgao",
         "parameters": [
           {
@@ -343,9 +331,7 @@
     },
     "/modulo-uasg/2.1_consultarOrgao_CSV": {
       "get": {
-        "tags": [
-          "05 - UASG"
-        ],
+        "tags": ["05 - UASG"],
         "operationId": "consultarOrgaoCSV",
         "parameters": [
           {
@@ -425,9 +411,7 @@
     },
     "/modulo-uasg/1_consultarUasg": {
       "get": {
-        "tags": [
-          "05 - UASG"
-        ],
+        "tags": ["05 - UASG"],
         "operationId": "consultarUasg",
         "parameters": [
           {
@@ -513,9 +497,7 @@
     },
     "/modulo-uasg/1.1_consultarUasg_CSV": {
       "get": {
-        "tags": [
-          "05 - UASG"
-        ],
+        "tags": ["05 - UASG"],
         "operationId": "consultarUasgCSV",
         "parameters": [
           {
@@ -602,9 +584,7 @@
     },
     "/modulo-servico/8_consultarNaturezaDespesaServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarNaturezaDespesaServico",
         "parameters": [
           {
@@ -659,9 +639,7 @@
     },
     "/modulo-servico/7_consultarUndMedidaServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarUndMedidaServico",
         "parameters": [
           {
@@ -708,9 +686,7 @@
     },
     "/modulo-servico/6_consultarItemServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarItemServico",
         "parameters": [
           {
@@ -829,9 +805,7 @@
     },
     "/modulo-servico/5_consultarSubClasseServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarSubClasseServico",
         "parameters": [
           {
@@ -887,9 +861,7 @@
     },
     "/modulo-servico/4_consultarClasseServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarClasseServico",
         "parameters": [
           {
@@ -945,9 +917,7 @@
     },
     "/modulo-servico/3_consultarGrupoServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarGrupoServico",
         "parameters": [
           {
@@ -1003,9 +973,7 @@
     },
     "/modulo-servico/2_consultarDivisaoServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarDivisaoServico",
         "parameters": [
           {
@@ -1061,9 +1029,7 @@
     },
     "/modulo-servico/1_consultarSecaoServico": {
       "get": {
-        "tags": [
-          "02 - CATÁLOGO - SERVIÇO"
-        ],
+        "tags": ["02 - CATÁLOGO - SERVIÇO"],
         "operationId": "consultarSecaoServico",
         "parameters": [
           {
@@ -1110,9 +1076,7 @@
     },
     "/modulo-pgc/3_consultarPgcAgregacao": {
       "get": {
-        "tags": [
-          "04 - PGC"
-        ],
+        "tags": ["04 - PGC"],
         "operationId": "consultarPgcAgregacao",
         "parameters": [
           {
@@ -1159,9 +1123,7 @@
     },
     "/modulo-pgc/3.1_consultarPgcAgregacao_CSV": {
       "get": {
-        "tags": [
-          "04 - PGC"
-        ],
+        "tags": ["04 - PGC"],
         "operationId": "consultarPgcAgregacao_CSV",
         "parameters": [
           {
@@ -1209,9 +1171,7 @@
     },
     "/modulo-pgc/2_consultarPgcDetalheCatalogo": {
       "get": {
-        "tags": [
-          "04 - PGC"
-        ],
+        "tags": ["04 - PGC"],
         "operationId": "consultarPgcDetalheCatalogo",
         "parameters": [
           {
@@ -1249,10 +1209,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "Servico",
-                "Material"
-              ]
+              "enum": ["Servico", "Material"]
             }
           },
           {
@@ -1283,9 +1240,7 @@
     },
     "/modulo-pgc/2.1_consultarPgcDetalheCatalogo_CSV": {
       "get": {
-        "tags": [
-          "04 - PGC"
-        ],
+        "tags": ["04 - PGC"],
         "operationId": "consultarPgcDetalheCatalogo_CSV",
         "parameters": [
           {
@@ -1323,10 +1278,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "Servico",
-                "Material"
-              ]
+              "enum": ["Servico", "Material"]
             }
           },
           {
@@ -1358,9 +1310,7 @@
     },
     "/modulo-pgc/1_consultarPgcDetalhe": {
       "get": {
-        "tags": [
-          "04 - PGC"
-        ],
+        "tags": ["04 - PGC"],
         "operationId": "consultarPgcDetalhe",
         "parameters": [
           {
@@ -1425,9 +1375,7 @@
     },
     "/modulo-pgc/1.1_consultarPgcDetalhe_CSV": {
       "get": {
-        "tags": [
-          "04 - PGC"
-        ],
+        "tags": ["04 - PGC"],
         "operationId": "consultarPgcDetalhe_CSV",
         "parameters": [
           {
@@ -1493,9 +1441,7 @@
     },
     "/modulo-pesquisa-preco/4_consultarServicoDetalhe": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarServicoDetalhe",
         "parameters": [
           {
@@ -1564,9 +1510,7 @@
     },
     "/modulo-pesquisa-preco/4.1_consultarServicoDetalhe_CSV": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarServicoDetalheCSV",
         "parameters": [
           {
@@ -1636,9 +1580,7 @@
     },
     "/modulo-pesquisa-preco/3_consultarServico": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarServico",
         "parameters": [
           {
@@ -1765,9 +1707,7 @@
     },
     "/modulo-pesquisa-preco/3.1_consultarServico_CSV": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarServicoCSV",
         "parameters": [
           {
@@ -1895,9 +1835,7 @@
     },
     "/modulo-pesquisa-preco/2_consultarMaterialDetalhe": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarMaterialDetalhe",
         "parameters": [
           {
@@ -1966,9 +1904,7 @@
     },
     "/modulo-pesquisa-preco/2.1_consultarMaterialDetalhe_CSV": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarMaterialDetalheCSV",
         "parameters": [
           {
@@ -2038,9 +1974,7 @@
     },
     "/modulo-pesquisa-preco/1_consultarMaterial": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarMaterial",
         "parameters": [
           {
@@ -2069,10 +2003,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "codigoItemCatalogo",
-                "codigoPdm"
-              ]
+              "enum": ["codigoItemCatalogo", "codigoPdm"]
             }
           },
           {
@@ -2187,9 +2118,7 @@
     },
     "/modulo-pesquisa-preco/1.1_consultarMaterial_CSV": {
       "get": {
-        "tags": [
-          "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
-        ],
+        "tags": ["03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"],
         "operationId": "consultarMaterialCSV",
         "parameters": [
           {
@@ -2218,10 +2147,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "codigoItemCatalogo",
-                "codigoPdm"
-              ]
+              "enum": ["codigoItemCatalogo", "codigoPdm"]
             }
           },
           {
@@ -2337,9 +2263,7 @@
     },
     "/modulo-ocds/1_releases": {
       "get": {
-        "tags": [
-          "11 - OCDS"
-        ],
+        "tags": ["11 - OCDS"],
         "operationId": "releases",
         "parameters": [
           {
@@ -2409,9 +2333,7 @@
     },
     "/modulo-material/7_consultarMaterialCaracteristicas": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarMaterialCaracteristicas",
         "parameters": [
           {
@@ -2460,9 +2382,7 @@
     },
     "/modulo-material/6_consultarMaterialUnidadeFornecimento": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarMaterialUnidadeFornecimento",
         "parameters": [
           {
@@ -2519,9 +2439,7 @@
     },
     "/modulo-material/5_consultarMaterialNaturezaDespesa": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarMaterialNaturezaDespesa",
         "parameters": [
           {
@@ -2586,9 +2504,7 @@
     },
     "/modulo-material/4_consultarItemMaterial": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarItemMaterial",
         "parameters": [
           {
@@ -2697,9 +2613,7 @@
     },
     "/modulo-material/3_consultarPdmMaterial": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarPdmMaterial",
         "parameters": [
           {
@@ -2783,9 +2697,7 @@
     },
     "/modulo-material/2_consultarClasseMaterial": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarClasseMaterial",
         "parameters": [
           {
@@ -2850,9 +2762,7 @@
     },
     "/modulo-material/1_consultarGrupoMaterial": {
       "get": {
-        "tags": [
-          "01 - CATÁLOGO - MATERIAL"
-        ],
+        "tags": ["01 - CATÁLOGO - MATERIAL"],
         "operationId": "consultarGrupoMaterial",
         "parameters": [
           {
@@ -2899,9 +2809,7 @@
     },
     "/modulo-legado/7_consultarRdc": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarRdc",
         "parameters": [
           {
@@ -3085,9 +2993,7 @@
     },
     "/modulo-legado/6_consultarCompraItensSemLicitacao": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarCompraItensSemLicitacao",
         "parameters": [
           {
@@ -3187,9 +3093,7 @@
     },
     "/modulo-legado/6.1_consultarItensComprasSemLicitacao_Id": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarItensComprasSemLicitacao_Id",
         "parameters": [
           {
@@ -3235,9 +3139,7 @@
     },
     "/modulo-legado/5_consultarComprasSemLicitacao": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarComprasSemLicitacao",
         "parameters": [
           {
@@ -3377,9 +3279,7 @@
     },
     "/modulo-legado/5.1_consultarCompraSemLicitacao_Id": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarCompraSemLicitacao_Id",
         "parameters": [
           {
@@ -3407,9 +3307,7 @@
     },
     "/modulo-legado/4_consultarItensPregoes": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarItensPregoes",
         "parameters": [
           {
@@ -3494,9 +3392,7 @@
     },
     "/modulo-legado/4.1_consultarItensPregoes_Id": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarItensPregoes_Id",
         "parameters": [
           {
@@ -3542,9 +3438,7 @@
     },
     "/modulo-legado/3_consultarPregoes": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarPregoes",
         "parameters": [
           {
@@ -3647,9 +3541,7 @@
     },
     "/modulo-legado/3.1_consultarPregoes_Id": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarPregoes_Id",
         "parameters": [
           {
@@ -3687,9 +3579,7 @@
     },
     "/modulo-legado/2_consultarItemLicitacao": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarItemLicitacao",
         "parameters": [
           {
@@ -3798,9 +3688,7 @@
     },
     "/modulo-legado/2.1_consultarItemLicitacao_Id": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarItemLicitacao_Id",
         "parameters": [
           {
@@ -3846,9 +3734,7 @@
     },
     "/modulo-legado/1_consultarLicitacao": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarLicitacao",
         "parameters": [
           {
@@ -3943,9 +3829,7 @@
     },
     "/modulo-legado/1.1_consultarLicitacao_Id": {
       "get": {
-        "tags": [
-          "06 - LEGADO"
-        ],
+        "tags": ["06 - LEGADO"],
         "operationId": "consultarLicitacao_Id",
         "parameters": [
           {
@@ -3983,9 +3867,7 @@
     },
     "/modulo-indicadores/2_consultarIndicadoresPorPeriodo": {
       "get": {
-        "tags": [
-          "97 - INDICADORES"
-        ],
+        "tags": ["97 - INDICADORES"],
         "operationId": "consultarIndicadoresPorPeriodo",
         "parameters": [
           {
@@ -4043,9 +3925,7 @@
     },
     "/modulo-indicadores/1_consultarIndicadoresConsolidados": {
       "get": {
-        "tags": [
-          "97 - INDICADORES"
-        ],
+        "tags": ["97 - INDICADORES"],
         "operationId": "consultarIndicadoresConsolidados",
         "responses": {
           "200": {
@@ -4063,9 +3943,7 @@
     },
     "/modulo-fornecedor/1_consultarFornecedor": {
       "get": {
-        "tags": [
-          "10 - FORNECEDOR"
-        ],
+        "tags": ["10 - FORNECEDOR"],
         "operationId": "consultarFornecedor",
         "parameters": [
           {
@@ -4155,9 +4033,7 @@
     },
     "/modulo-contratos/2_consultarContratosItem": {
       "get": {
-        "tags": [
-          "09 - CONTRATOS"
-        ],
+        "tags": ["09 - CONTRATOS"],
         "operationId": "consultarContratosItem",
         "parameters": [
           {
@@ -4279,11 +4155,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "Executivo",
-                "Legislativo",
-                "Judiciário"
-              ]
+              "enum": ["Executivo", "Legislativo", "Judiciário"]
             }
           },
           {
@@ -4292,11 +4164,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "Federal",
-                "Estadual",
-                "Municipal"
-              ]
+              "enum": ["Federal", "Estadual", "Municipal"]
             }
           },
           {
@@ -4324,9 +4192,7 @@
     },
     "/modulo-contratos/2.1_consultarContratosItem_Id": {
       "get": {
-        "tags": [
-          "09 - CONTRATOS"
-        ],
+        "tags": ["09 - CONTRATOS"],
         "operationId": "consultarContratosItem_Id",
         "parameters": [
           {
@@ -4335,10 +4201,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "idCompra",
-                "numeroControlePncpContrato"
-              ]
+              "enum": ["idCompra", "numeroControlePncpContrato"]
             }
           },
           {
@@ -4366,9 +4229,7 @@
     },
     "/modulo-contratos/1_consultarContratos": {
       "get": {
-        "tags": [
-          "09 - CONTRATOS"
-        ],
+        "tags": ["09 - CONTRATOS"],
         "operationId": "consultarContratos",
         "parameters": [
           {
@@ -4500,9 +4361,7 @@
     },
     "/modulo-contratos/1.2_consultarContratos_FimVigencia": {
       "get": {
-        "tags": [
-          "09 - CONTRATOS"
-        ],
+        "tags": ["09 - CONTRATOS"],
         "operationId": "consultarContratos_FimVigencia",
         "parameters": [
           {
@@ -4634,9 +4493,7 @@
     },
     "/modulo-contratos/1.1_consultarContratos_Id": {
       "get": {
-        "tags": [
-          "09 - CONTRATOS"
-        ],
+        "tags": ["09 - CONTRATOS"],
         "operationId": "consultarContratos_Id",
         "parameters": [
           {
@@ -4653,10 +4510,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "idCompra",
-                "numeroControlePncpContrato"
-              ]
+              "enum": ["idCompra", "numeroControlePncpContrato"]
             }
           }
         ],
@@ -4676,9 +4530,7 @@
     },
     "/modulo-contratacoes/3_consultarResultadoItensContratacoes_PNCP_14133": {
       "get": {
-        "tags": [
-          "07 - CONTRATAÇÕES"
-        ],
+        "tags": ["07 - CONTRATAÇÕES"],
         "operationId": "consultarResultadoItensContratacoes_PNCP_14133",
         "parameters": [
           {
@@ -4851,9 +4703,7 @@
     },
     "/modulo-contratacoes/3.1_consultarResultadoItensContratacoes_PNCP_14133_Id": {
       "get": {
-        "tags": [
-          "07 - CONTRATAÇÕES"
-        ],
+        "tags": ["07 - CONTRATAÇÕES"],
         "operationId": "consultarResultadoItensContratacoes_PNCP_14133_Id",
         "parameters": [
           {
@@ -4862,10 +4712,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "idCompra",
-                "numeroControlePNCPCompra"
-              ]
+              "enum": ["idCompra", "numeroControlePNCPCompra"]
             }
           },
           {
@@ -4911,9 +4758,7 @@
     },
     "/modulo-contratacoes/2_consultarItensContratacoes_PNCP_14133": {
       "get": {
-        "tags": [
-          "07 - CONTRATAÇÕES"
-        ],
+        "tags": ["07 - CONTRATAÇÕES"],
         "operationId": "consultarItensContratacoes_PNCP_14133",
         "parameters": [
           {
@@ -5089,9 +4934,7 @@
     },
     "/modulo-contratacoes/2.1_consultarItensContratacoes_PNCP_14133_Id": {
       "get": {
-        "tags": [
-          "07 - CONTRATAÇÕES"
-        ],
+        "tags": ["07 - CONTRATAÇÕES"],
         "operationId": "consultarItensContratacoes_PNCP_14133_Id",
         "parameters": [
           {
@@ -5100,10 +4943,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "idCompra",
-                "numeroControlePNCPCompra"
-              ]
+              "enum": ["idCompra", "numeroControlePNCPCompra"]
             }
           },
           {
@@ -5149,9 +4989,7 @@
     },
     "/modulo-contratacoes/1_consultarContratacoes_PNCP_14133": {
       "get": {
-        "tags": [
-          "07 - CONTRATAÇÕES"
-        ],
+        "tags": ["07 - CONTRATAÇÕES"],
         "operationId": "consultarContratacoes_PNCP_14133",
         "parameters": [
           {
@@ -5288,9 +5126,7 @@
     },
     "/modulo-contratacoes/1.1_consultarContratacoes_PNCP_14133_Id": {
       "get": {
-        "tags": [
-          "07 - CONTRATAÇÕES"
-        ],
+        "tags": ["07 - CONTRATAÇÕES"],
         "operationId": "consultarContratacoes_PNCP_14133_Id",
         "parameters": [
           {
@@ -5299,10 +5135,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": [
-                "idCompra",
-                "numeroControlePNCPCompra"
-              ]
+              "enum": ["idCompra", "numeroControlePNCPCompra"]
             }
           },
           {
@@ -5340,9 +5173,7 @@
     },
     "/modulo-arp/5_consultarAdesoesItem": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarAdesoesItem",
         "parameters": [
           {
@@ -5424,9 +5255,7 @@
     },
     "/modulo-arp/4_consultarEmpenhosSaldoItem": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarEmpenhosItem",
         "parameters": [
           {
@@ -5492,9 +5321,7 @@
     },
     "/modulo-arp/3_consultarUnidadesItem": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarUnidadesItem",
         "parameters": [
           {
@@ -5568,9 +5395,7 @@
     },
     "/modulo-arp/2_consultarARPItem": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarARPItem",
         "parameters": [
           {
@@ -5717,9 +5542,7 @@
     },
     "/modulo-arp/2.1_consultarARPItem_Id": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarARPItem_Id",
         "parameters": [
           {
@@ -5757,9 +5580,7 @@
     },
     "/modulo-arp/1_consultarARP": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarARP",
         "parameters": [
           {
@@ -5863,9 +5684,7 @@
     },
     "/modulo-arp/1.2_consultarARP_FimVigencia": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarARP_FimVigencia",
         "parameters": [
           {
@@ -5969,9 +5788,7 @@
     },
     "/modulo-arp/1.1_consultarARP_Id": {
       "get": {
-        "tags": [
-          "08 - ARP"
-        ],
+        "tags": ["08 - ARP"],
         "operationId": "consultarARP_Id",
         "parameters": [
           {
@@ -6009,9 +5826,7 @@
     },
     "/alice/tickets": {
       "get": {
-        "tags": [
-          "98 - ALICE"
-        ],
+        "tags": ["98 - ALICE"],
         "operationId": "tickets",
         "parameters": [
           {
@@ -6050,9 +5865,7 @@
     },
     "/alice/compras": {
       "get": {
-        "tags": [
-          "98 - ALICE"
-        ],
+        "tags": ["98 - ALICE"],
         "operationId": "compras",
         "parameters": [
           {
@@ -6091,9 +5904,7 @@
     },
     "/alice/avisos-restritos": {
       "get": {
-        "tags": [
-          "98 - ALICE"
-        ],
+        "tags": ["98 - ALICE"],
         "operationId": "avisosRestritos",
         "parameters": [
           {

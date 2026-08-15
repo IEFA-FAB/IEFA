@@ -53,13 +53,15 @@ function decodeEntities(value: string): string {
  * são justamente os caracteres dos rótulos de dispositivo ("Art. 6º").
  */
 export function decodeHtml(bytes: Uint8Array): string {
-	const view = bytes as unknown as ArrayBufferView
-	const head = new TextDecoder("windows-1252").decode(bytes.subarray(0, 4096) as unknown as ArrayBufferView)
+	const head = new TextDecoder("windows-1252").decode(bytes.subarray(0, 4096))
 	const declared = /charset=["']?([\w-]+)/i.exec(head)?.[1]?.toLowerCase()
 
 	if (declared) {
 		try {
-			return new TextDecoder(declared).decode(view)
+			// O tipo do `label` é uma união fechada de encodings conhecidos, mas o
+			// valor vem do HTML e pode ser qualquer coisa — o construtor lança em
+			// charset inválido, que é o caso tratado abaixo.
+			return new TextDecoder(declared as ConstructorParameters<typeof TextDecoder>[0]).decode(bytes)
 		} catch {
 			// charset declarado inválido — cai na detecção abaixo
 		}
@@ -69,9 +71,9 @@ export function decodeHtml(bytes: Uint8Array): string {
 	// Decodificar em modo estrito é o que distingue os dois casos: UTF-8 válido
 	// passa, byte isolado de 1252 (o "º" de "Art. 6º") lança.
 	try {
-		return new TextDecoder("utf-8", { fatal: true }).decode(view)
+		return new TextDecoder("utf-8", { fatal: true }).decode(bytes)
 	} catch {
-		return new TextDecoder("windows-1252").decode(view)
+		return new TextDecoder("windows-1252").decode(bytes)
 	}
 }
 

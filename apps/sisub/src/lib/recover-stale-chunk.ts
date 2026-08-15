@@ -29,17 +29,35 @@ const DYNAMIC_IMPORT_FAILURE = /Importing a module script failed|error loading d
 
 // Segunda variante de chunk obsoleto: o import() RESOLVE, mas para um módulo
 // vazio/stale (manifest velho de aba antiga). O `lazyRouteComponent` então lê
-// `res[exportName]` num `res` undefined → TypeError, capturado pelo TanStack e
-// roteado pro `defaultOnCatch` (nunca chega aos listeners de window). Os nomes
-// de export vêm do code-split por rota do TanStack Start (component, errorComponent…).
-// Inclui a variante do Firefox/Spidermonkey (`res is undefined`).
+// `res[exportName ?? "default"]` num `res` undefined → TypeError, capturado pelo
+// TanStack e roteado pro `defaultOnCatch` (nunca chega aos listeners de window).
+// Os nomes de export vêm do code-split por rota do TanStack Start (component,
+// errorComponent…). Cada engine descreve o mesmo TypeError de um jeito:
+//
+//   V8/Chrome:  Cannot read properties of undefined (reading 'component')
+//   WebKit:     undefined is not an object (evaluating 'e[n??`default`]')
+//   Spidermonkey: res is undefined
+//
+// A forma do WebKit é a que aparece no iOS Safari — justamente o engine que
+// motivou esta recuperação (abas/PWA vivas por dias). Ela não cita o nome do
+// export: cita a EXPRESSÃO minificada `e[n??`default`]`, então casamos pela
+// assinatura `?? "default"` dentro do `(evaluating '…')`, que é literalmente o
+// corpo do `lazyRouteComponent` — específica o bastante para não pegar erro de
+// app. As aspas do literal variam com o minificador (backtick, ' ou ").
 const STALE_LAZY_COMPONENT =
-	/Cannot read properties of undefined \(reading '(?:component|errorComponent|pendingComponent|notFoundComponent|default)'\)|res(?:ult)? is undefined/i
+	/Cannot read properties of undefined \(reading '(?:component|errorComponent|pendingComponent|notFoundComponent|default)'\)|res(?:ult)? is undefined|(?:undefined|null) is not an object \(evaluating '[^']*\?\?\s*[`'"]default[`'"]/i
 
 // Fallback em memória para contextos onde sessionStorage lança (Safari em modo
 // privado / storage bloqueado). Não sobrevive ao reload, mas garante que a
 // leitura/escrita do guard nunca quebra a recuperação.
 let memoryState: number[] = []
+
+// `true` a partir do momento em que um hard-reload foi disparado. É o que deixa
+// `importChunkOrNull` distinguir "import vazio porque estamos recarregando" de
+// "import vazio por um motivo que não conhecemos" — sem isso, o segundo caso
+// vira clique morto, silencioso até no Faro. Módulo-level de propósito: o reload
+// leva o estado embora, então não precisa (nem deve) ser resetado.
+let recoveryInFlight = false
 
 function readReloadTimestamps(): number[] {
 	try {
@@ -72,6 +90,7 @@ function attemptRecovery(reason: string): boolean {
 	if (recent.length >= MAX_RELOADS) return false
 
 	writeReloadTimestamps([...recent, now])
+	recoveryInFlight = true
 	reportError(new Error("Stale chunk recovery: hard reload"), {
 		source: "stale-chunk",
 		reason,
@@ -89,6 +108,44 @@ function attemptRecovery(reason: string): boolean {
 export function isStaleChunkError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error ?? "")
 	return DYNAMIC_IMPORT_FAILURE.test(message) || STALE_LAZY_COMPONENT.test(message)
+}
+
+/**
+ * Envolve um `import()` dinâmico de código do app. Retorna `null` — em vez do
+ * módulo — quando o chunk estava obsoleto e a recuperação já agendou o reload.
+ *
+ * Motivo: todo `import()` com especificador estático passa pelo helper
+ * `__vitePreload` do Vite, que termina em `carregaModulo().catch(onPreloadError)`.
+ * O `onPreloadError` dispara o evento `vite:preloadError` e só re-lança o erro
+ * se ninguém der `preventDefault()`. Como `installStaleChunkRecovery` dá
+ * `preventDefault()` justamente para recarregar a página, esse `.catch` devolve
+ * `undefined` e o import **resolve vazio em vez de rejeitar**. Aí um
+ * `const { fn } = await import(...)` estoura TypeError ("Cannot destructure
+ * property … of '(intermediate value)'") e o call-site reporta uma falha
+ * genérica de feature numa página que já está saindo.
+ *
+ * Terceiro feitio do mesmo chunk obsoleto, portanto: o import falha em silêncio.
+ * Hoje isso só acontece com um reload já disparado — se o orçamento de recargas
+ * tiver esgotado, `attemptRecovery` devolve `false`, o erro é re-lançado e o
+ * import rejeita normalmente (falha real, tratada pelo call-site).
+ *
+ * Mas o call-site trata `null` saindo quieto, então esse "hoje" precisa ser
+ * verificável: se o módulo vier vazio SEM reload em andamento, o botão vira
+ * clique morto e nada aparece no Faro — o modo de falha mais caro de achar,
+ * justamente o que este helper existe para eliminar. Por isso o `null`
+ * inesperado é reportado em vez de assumido.
+ */
+export async function importChunkOrNull<T>(load: () => Promise<T>): Promise<T | null> {
+	const mod = await load()
+	if (mod != null) return mod
+
+	if (!recoveryInFlight) {
+		reportError(new Error("Import dinâmico resolveu vazio sem recuperação em andamento"), {
+			source: "stale-chunk",
+			reason: "empty-module-no-recovery",
+		})
+	}
+	return null
 }
 
 /**

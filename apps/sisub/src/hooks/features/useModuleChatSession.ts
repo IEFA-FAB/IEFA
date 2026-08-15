@@ -60,6 +60,8 @@ export interface UseModuleChatSessionReturn {
 	messages: ModuleChatMessage[]
 	isStreaming: boolean
 	loadingMessages: boolean
+	/** Falha do turno atual (rede, 4xx/5xx do endpoint, RUN_ERROR do provider). */
+	streamError: string | undefined
 	handleSubmit: (message: string) => void
 	handleAbort: () => void
 }
@@ -151,6 +153,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		stop,
 		isLoading,
 		setMessages,
+		error,
 	} = useChat({
 		connection: MODULE_CONNECTION,
 		body,
@@ -198,6 +201,15 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 
 	const lastAssistantIdx = uiMessages.reduce((last, m, i) => (m.role === "assistant" ? i : last), -1)
 
+	// Falha do turno (413 do provider, 401/503 do endpoint, rede). Sem isto o
+	// turno que morre deixa só uma bolha vazia — foi assim que o 413 de payload
+	// das tools passou despercebido.
+	//
+	// Fica solto, fora das mensagens, de propósito: quando o turno morre antes de
+	// qualquer conteúdo, nenhuma mensagem do assistente chegou a existir, e pendurar
+	// o erro na "última" bolha o colaria na RESPOSTA ANTERIOR — que deu certo.
+	const streamError = error?.message
+
 	const messages: ModuleChatMessage[] = uiMessages
 		.filter((m) => m.role === "user" || m.role === "assistant")
 		.map((m, i) => {
@@ -208,7 +220,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 				role: m.role as "user" | "assistant",
 				content: extractText(m.parts),
 				toolCalls: streamingToolCalls.length > 0 ? streamingToolCalls : storedToolCalls,
-				isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
+				isStreaming: isLoading && m.role === "assistant" && i === lastAssistantIdx,
 				createdAt: m.createdAt ?? new Date(),
 			}
 		})
@@ -248,6 +260,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		messages,
 		isStreaming: isLoading,
 		loadingMessages,
+		streamError,
 		handleSubmit,
 		handleAbort,
 	}

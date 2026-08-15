@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
+import { markPasswordRecovery } from "@/auth/recovery-session"
 import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
 import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider"
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
@@ -14,6 +15,7 @@ import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { ThemeProvider, ThemeScript } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
+import { WebMcpTools } from "@/components/WebMcpTools"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
 import AppStyles from "@/styles.css?url"
@@ -108,6 +110,10 @@ function AuthSync() {
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange(async (event, session) => {
+			// Recuperação em andamento: o guard de `/auth` precisa saber que esta
+			// sessão não significa "já entrou", senão redireciona quem ainda vai
+			// digitar a senha nova.
+			if (event === "PASSWORD_RECOVERY") markPasswordRecovery()
 			// INITIAL_SESSION fires on page load/reload (Supabase v2.63+).
 			// SIGNED_IN fires only on actual new sign-ins.
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
@@ -161,6 +167,7 @@ function RootDocument() {
 					</ThemeProvider>
 				</HotkeysProvider>
 				<AuthSync />
+				<WebMcpTools />
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[

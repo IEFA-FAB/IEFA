@@ -75,13 +75,13 @@ async function patchSchema(src: string): Promise<string> {
 			`${anchor}\n` +
 				`// Patched (patch-drizzle-pull.ts): cross-schema/custom-type refs the pull leaves dangling.\n` +
 				`export const usersInAuth = pgSchema("auth").table("users", { id: uuid().primaryKey().notNull() });\n` +
-				`export const userLevels = pgEnum("userLevels", [${literals}]);`,
+				`export const userLevels = pgEnum("userLevels", [${literals}]);`
 		)
 	}
 	// ensure pgEnum is imported (used by the injected enum)
 	if (out.includes("pgEnum(") && !/\bpgEnum\b[^"]*from "drizzle-orm\/pg-core"/.test(out)) {
 		out = out.replace(/import \{ ([^}]*) \} from "drizzle-orm\/pg-core"/, (_m, names) =>
-			names.includes("pgEnum") ? `import { ${names} } from "drizzle-orm/pg-core"` : `import { pgEnum, ${names} } from "drizzle-orm/pg-core"`,
+			names.includes("pgEnum") ? `import { ${names} } from "drizzle-orm/pg-core"` : `import { pgEnum, ${names} } from "drizzle-orm/pg-core"`
 		)
 	}
 

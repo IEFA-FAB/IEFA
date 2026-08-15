@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { CalendarCheck, ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
+import { CalendarCheck, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { TREE_LEAF_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
 import { cn } from "@/lib/cn"
 import { ingredientNutrientsQueryOptions, useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
@@ -33,6 +33,8 @@ interface IngredientsTreeNodeProps {
 	onNavigate?: () => void
 	/** Modo de seleção em massa ativo: exibe checkbox e desativa ações por linha */
 	selectionMode?: boolean
+	/** `false` = leitor (global:1): as ações de escrita não são renderizadas. */
+	canWrite?: boolean
 	/** Se este nó está selecionado (modo de seleção em massa) */
 	selected?: boolean
 	/** Alterna a seleção deste nó */
@@ -123,6 +125,7 @@ export function IngredientsTreeNode({
 	lastReviewedAt,
 	onNavigate,
 	selectionMode,
+	canWrite = true,
 	selected,
 	onSelectChange,
 }: IngredientsTreeNodeProps) {
@@ -141,17 +144,8 @@ export function IngredientsTreeNode({
 
 	const Icon = node.type === "folder" ? FolderIcon : Package
 
-	// Cor por nível via tokens semânticos (STYLE_CONTRACT §4.1 — zero cores hardcoded):
-	// nível 1 → governance (roxo) · nível 2 → success (verde) · nível 3+ → warning (amarelo)
-	const FOLDER_LEVEL_STYLES = [
-		{ iconBg: "bg-governance/10 dark:bg-governance/20", iconColor: "text-governance", border: "border-governance/20" },
-		{ iconBg: "bg-success/10 dark:bg-success/20", iconColor: "text-success", border: "border-success/20" },
-		{ iconBg: "bg-warning/10 dark:bg-warning/20", iconColor: "text-warning", border: "border-warning/20" },
-	]
-
-	const INGREDIENT_STYLE = { iconBg: "bg-primary/10 dark:bg-primary/20", iconColor: "text-primary", border: "border-primary/20" }
-
-	const style = node.type === "folder" ? (FOLDER_LEVEL_STYLES[Math.min(node.level, 2)] ?? FOLDER_LEVEL_STYLES[2]) : INGREDIENT_STYLE
+	// Cor por nível via tokens semânticos (STYLE_CONTRACT §4.1 — zero cores hardcoded).
+	const tone = node.type === "folder" ? treeFolderTone(node.level) : TREE_LEAF_TONE
 	const isNavigable = node.type === "ingredient" && !!onNavigate
 
 	const handleDeleteConfirm = async () => {
@@ -189,201 +183,135 @@ export function IngredientsTreeNode({
 
 	return (
 		<>
-			<div
-				className={cn(
-					"relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50",
-					(isNavigable || selectionMode) && "cursor-pointer",
-					selected && "bg-primary/5"
-				)}
-				style={{ paddingLeft: `${node.level * 24 + 8}px` }}
-				role="treeitem"
-				tabIndex={0}
-				aria-level={node.level + 1}
-				aria-expanded={node.hasChildren ? node.isExpanded : undefined}
-				aria-selected={selectionMode ? !!selected : undefined}
-				onClick={selectionMode ? () => onSelectChange?.(!selected) : isNavigable ? onNavigate : undefined}
-				onKeyDown={
-					selectionMode
-						? (e) => {
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault()
-									onSelectChange?.(!selected)
-								}
-							}
-						: isNavigable
-							? (e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault()
-										onNavigate?.()
-									}
-								}
-							: undefined
+			<TreeRow
+				level={node.level}
+				hasChildren={node.hasChildren}
+				isExpanded={node.isExpanded}
+				onToggle={() => onToggle(node.id)}
+				icon={Icon}
+				tone={tone}
+				label={node.label}
+				selectionMode={selectionMode}
+				selected={selected}
+				onSelectChange={onSelectChange}
+				onActivate={isNavigable ? onNavigate : undefined}
+				actions={
+					// Leitor navega a árvore inteira, mas não vê ação que o domínio vai recusar.
+					canWrite ? (
+						isDeleted ? (
+							<Button
+								variant="outline"
+								size="sm"
+								className="gap-1.5"
+								onClick={(e) => {
+									e.stopPropagation()
+									handleRestore()
+								}}
+								disabled={isBusy}
+								aria-label={`Restaurar ${node.label}`}
+							>
+								<RotateCcw className="size-4" />
+								Restaurar
+							</Button>
+						) : (
+							<>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={(e) => {
+										e.stopPropagation()
+										if (node.type === "ingredient" && onNavigate) {
+											onNavigate()
+										} else {
+											onEdit(node.type, node.data as Folder | Ingredient)
+										}
+									}}
+									disabled={isBusy}
+									aria-label={`Editar ${node.label}`}
+								>
+									<Edit />
+								</Button>
+
+								<Button
+									variant="destructive"
+									size="icon"
+									onClick={(e) => {
+										e.stopPropagation()
+										setIsDeleteDialogOpen(true)
+									}}
+									disabled={isBusy}
+									aria-label={`Excluir ${node.label}`}
+								>
+									<Trash2 />
+								</Button>
+							</>
+						)
+					) : undefined
 				}
 			>
-				{/* Tree connector lines */}
-				{node.level > 0 && (
-					<>
-						<div className="absolute top-0 bottom-1/2 w-px bg-border/40" style={{ left: `${(node.level - 1) * 24 + 20}px` }} />
-						<div
-							className="absolute top-1/2 h-px bg-border/40"
-							style={{
-								left: `${(node.level - 1) * 24 + 20}px`,
-								width: "16px",
-							}}
+				{/* Label — insumos exibem hovercard com dados básicos ao passar o mouse */}
+				{node.type === "ingredient" ? (
+					<HoverCard>
+						<HoverCardTrigger
+							render={
+								<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>
+							}
 						/>
-					</>
+						<HoverCardContent side="right" align="start">
+							<IngredientHoverContent ingredient={node.data as Ingredient} />
+						</HoverCardContent>
+					</HoverCard>
+				) : (
+					<span
+						className={cn(
+							"text-sm truncate leading-normal",
+							// Hierarquia tipo documento de texto por nível (0-indexed → nível doc = level + 1)
+							node.level === 0 && "font-bold uppercase tracking-wide",
+							node.level === 1 && "font-medium uppercase",
+							node.level >= 2 && "font-bold",
+							isDeleted && "line-through text-muted-foreground"
+						)}
+					>
+						{node.label}
+					</span>
 				)}
 
-				{/* Conteúdo */}
-				<div className="flex items-center gap-2 flex-1 min-w-0">
-					{/* Checkbox de seleção em massa */}
-					{selectionMode && (
-						<Checkbox
-							checked={!!selected}
-							onCheckedChange={(checked) => onSelectChange?.(checked === true)}
-							onClick={(e) => e.stopPropagation()}
-							aria-label={`Selecionar ${node.label}`}
-						/>
-					)}
+				{/* Badge de item excluído */}
+				{isDeleted && <Badge variant="destructive">Excluído</Badge>}
 
-					{/* Expand/Collapse — apenas para nós com filhos */}
-					{node.hasChildren ? (
-						<Button
-							variant="ghost"
-							size="icon-xs"
-							onClick={(e) => {
-								e.stopPropagation()
-								onToggle(node.id)
-							}}
-							aria-label={node.isExpanded ? "Recolher" : "Expandir"}
-						>
-							{node.isExpanded ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
-						</Button>
-					) : (
-						<div className="w-5" />
-					)}
+				{/* Badge de unidade de medida */}
+				{node.type === "ingredient" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
 
-					{/* Ícone com fundo colorido */}
-					<div className={cn("flex items-center justify-center size-7 rounded-[var(--radius)] border", style.iconBg, style.border)}>
-						<Icon className={cn("size-3.5", style.iconColor)} />
-					</div>
+				{/* Badge de contagem de itens de compra */}
+				{node.type === "ingredient" && itemCount !== undefined && itemCount > 0 && (
+					<Badge variant="success">
+						{itemCount} {itemCount === 1 ? "item" : "itens"}
+					</Badge>
+				)}
 
-					{/* Label — insumos exibem hovercard com dados básicos ao passar o mouse */}
-					{node.type === "ingredient" ? (
-						<HoverCard>
-							<HoverCardTrigger
+				{/* Status de revisão (conferência pelos nutricionistas) */}
+				{node.type === "ingredient" &&
+					!isDeleted &&
+					lastReviewedAt !== undefined &&
+					(lastReviewedAt ? (
+						<Tooltip>
+							<TooltipTrigger
 								render={
-									<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>
+									<Badge variant="outline" className="gap-1 text-muted-foreground">
+										<CalendarCheck className="size-3" />
+										Revisado {formatReviewDate(lastReviewedAt)}
+									</Badge>
 								}
 							/>
-							<HoverCardContent side="right" align="start">
-								<IngredientHoverContent ingredient={node.data as Ingredient} />
-							</HoverCardContent>
-						</HoverCard>
+							<TooltipContent>Última revisão em {formatReviewDate(lastReviewedAt)}</TooltipContent>
+						</Tooltip>
 					) : (
-						<span
-							className={cn(
-								"text-sm truncate leading-normal",
-								// Hierarquia tipo documento de texto por nível (0-indexed → nível doc = level + 1)
-								node.level === 0 && "font-bold uppercase tracking-wide",
-								node.level === 1 && "font-medium uppercase",
-								node.level >= 2 && "font-bold",
-								isDeleted && "line-through text-muted-foreground"
-							)}
-						>
-							{node.label}
-						</span>
-					)}
-
-					{/* Badge de item excluído */}
-					{isDeleted && <Badge variant="destructive">Excluído</Badge>}
-
-					{/* Badge de unidade de medida */}
-					{node.type === "ingredient" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
-
-					{/* Badge de contagem de itens de compra */}
-					{node.type === "ingredient" && itemCount !== undefined && itemCount > 0 && (
-						<Badge variant="success">
-							{itemCount} {itemCount === 1 ? "item" : "itens"}
-						</Badge>
-					)}
-
-					{/* Status de revisão (conferência pelos nutricionistas) */}
-					{node.type === "ingredient" &&
-						!isDeleted &&
-						lastReviewedAt !== undefined &&
-						(lastReviewedAt ? (
-							<Tooltip>
-								<TooltipTrigger
-									render={
-										<Badge variant="outline" className="gap-1 text-muted-foreground">
-											<CalendarCheck className="size-3" />
-											Revisado {formatReviewDate(lastReviewedAt)}
-										</Badge>
-									}
-								/>
-								<TooltipContent>Última revisão em {formatReviewDate(lastReviewedAt)}</TooltipContent>
-							</Tooltip>
-						) : (
-							<Tooltip>
-								<TooltipTrigger render={<Badge variant="warning">Não revisado</Badge>} />
-								<TooltipContent>Insumo ainda não revisado</TooltipContent>
-							</Tooltip>
-						))}
-				</div>
-
-				{/* Ações — ocultas no modo de seleção em massa */}
-				<div className={cn("flex items-center gap-1", selectionMode && "hidden")}>
-					{isDeleted ? (
-						<Button
-							variant="outline"
-							size="sm"
-							className="gap-1.5"
-							onClick={(e) => {
-								e.stopPropagation()
-								handleRestore()
-							}}
-							disabled={isBusy}
-							aria-label={`Restaurar ${node.label}`}
-						>
-							<RotateCcw className="size-4" />
-							Restaurar
-						</Button>
-					) : (
-						<>
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={(e) => {
-									e.stopPropagation()
-									if (node.type === "ingredient" && onNavigate) {
-										onNavigate()
-									} else {
-										onEdit(node.type, node.data as Folder | Ingredient)
-									}
-								}}
-								disabled={isBusy}
-								aria-label={`Editar ${node.label}`}
-							>
-								<Edit />
-							</Button>
-
-							<Button
-								variant="destructive"
-								size="icon"
-								onClick={(e) => {
-									e.stopPropagation()
-									setIsDeleteDialogOpen(true)
-								}}
-								disabled={isBusy}
-								aria-label={`Excluir ${node.label}`}
-							>
-								<Trash2 />
-							</Button>
-						</>
-					)}
-				</div>
-			</div>
+						<Tooltip>
+							<TooltipTrigger render={<Badge variant="warning">Não revisado</Badge>} />
+							<TooltipContent>Insumo ainda não revisado</TooltipContent>
+						</Tooltip>
+					))}
+			</TreeRow>
 
 			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
 				<AlertDialogContent size="sm">

@@ -1,4 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
+import { AlertCircle } from "lucide-react"
 import { useCallback, useEffect, useRef } from "react"
 import { useModuleChatSession } from "@/hooks/features/useModuleChatSession"
 import type { ModuleChatConfig } from "@/types/domain/module-chat"
@@ -17,7 +18,7 @@ interface ModuleChatInterfaceProps {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export function ModuleChatInterface({ config, sessionId, onSessionCreated }: ModuleChatInterfaceProps) {
-	const { messages, isStreaming, loadingMessages, handleSubmit, handleAbort } = useModuleChatSession({
+	const { messages, isStreaming, loadingMessages, streamError, handleSubmit, handleAbort } = useModuleChatSession({
 		sessionId,
 		module: config.module,
 		scopeId: config.scopeId,
@@ -75,6 +76,10 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 	// ── Render ────────────────────────────────────────────────────────────────
 	const virtualItems = virtualizer.getVirtualItems()
 	const hasMessages = visibleMessages.length > 0
+	// Um aviso só, acima do input, para qualquer falha do turno (401, 503, 413 na ida ao
+	// provider, rede). Vale inclusive quando o turno morre antes de existir bolha do
+	// assistente — o caso em que a tela não mostrava absolutamente nada.
+	const showErrorNotice = Boolean(streamError)
 
 	return (
 		<div className="flex h-full flex-col">
@@ -117,6 +122,15 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 			{/* Input bar */}
 			<div className="shrink-0 border-t border-border bg-background/80 backdrop-blur-sm px-4 py-3">
 				<div className="mx-auto max-w-3xl">
+					{showErrorNotice && (
+						<div
+							role="alert"
+							className="mb-2 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+						>
+							<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+							<span>{streamError}</span>
+						</div>
+					)}
 					<ModuleChatInput onSubmit={onSubmit} onAbort={handleAbort} isStreaming={isStreaming} placeholder={config.placeholder} />
 					<p className="mt-1.5 text-center text-[11px] text-muted-foreground">{config.disclaimer}</p>
 				</div>

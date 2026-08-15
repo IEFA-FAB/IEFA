@@ -1,0 +1,17 @@
+{
+  "name": "@iefa/tsconfig",
+  "version": "0.0.1",
+  "private": true,
+  "files": [
+    "base.json",
+    "library.json",
+    "react-app.json",
+    "bun-service.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./library.json": "./library.json",
+    "./react-app.json": "./react-app.json",
+    "./bun-service.json": "./bun-service.json"
+  }
+}

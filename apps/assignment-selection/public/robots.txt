@@ -1,0 +1,11 @@
+# https://www.robotstxt.org/robotstxt.html
+#
+# App de evento: telão e controle da sessão de escolha de vagas, operados ao vivo
+# por pessoal autorizado. Não há conteúdo público — o padrão é negar tudo.
+#
+# A exceção é /llms.txt, que existe para dizer a um agente o que é este sistema.
+
+User-agent: *
+Content-Signal: search=no, ai-input=no, ai-train=no
+Allow: /llms.txt
+Disallow: /

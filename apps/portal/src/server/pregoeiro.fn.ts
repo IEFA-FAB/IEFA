@@ -9,16 +9,10 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { forbidden, requireSelf, requireUserId } from "@/lib/auth.server"
 import { envServer } from "@/lib/env.server"
+import { getPortalServerClient as getPortalClient } from "@/lib/supabase.server"
 
 function getDefaultClient() {
 	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
-		auth: { persistSession: false },
-	})
-}
-
-function getPortalClient() {
-	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
-		db: { schema: "iefa" },
 		auth: { persistSession: false },
 	})
 }

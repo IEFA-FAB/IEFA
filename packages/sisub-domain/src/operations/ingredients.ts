@@ -25,11 +25,12 @@ import {
 	nutritionNutrientComponentMappingInNutritionReference,
 	nutritionSourceInNutritionReference,
 	nutritionSourceReleaseInNutritionReference,
+	preparationGroupInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm"
-import { requireAnyPermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateFolder,
 	CreateIngredient,
@@ -47,6 +48,7 @@ import type {
 	ListIngredientSubstitutions,
 	ListIngredients,
 	ListNutritionReferenceFoods,
+	ListPreparationGroups,
 	RestoreFolder,
 	RestoreIngredient,
 	SetIngredientNutrients,
@@ -59,6 +61,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { folderOutsidePreparations, ingredientPreparationFilter } from "./preparation-scope.ts"
 
 type Folder = Tables<"folder">
 type Ingredient = Tables<"ingredient">
@@ -133,13 +136,46 @@ function isMissingNutritionReferenceRelation(error: unknown): boolean {
 
 export async function listFolders(db: SisubDb, ctx: UserContext, input?: ListFolders): Promise<Folder[]> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
-	const where = input?.includeDeleted ? undefined : isNull(folderInKitchen.deletedAt)
+	const conditions = [
+		input?.includeDeleted ? undefined : isNull(folderInKitchen.deletedAt),
+		// Pasta de insumo é pasta de insumo. Ver preparation-scope.ts.
+		folderOutsidePreparations,
+	].filter((c) => c !== undefined)
+	const where = and(...conditions)
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(folderInKitchen).where(where).orderBy(asc(folderInKitchen.createdAt)))
 	return rows.map((r) => toWire<Folder>(r))
 }
 
-export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateFolder): Promise<Folder> {
+/**
+ * Grupos das preparações herdadas do SISUBWEB (`kitchen.preparation_group`).
+ *
+ * Devolve no MESMO formato de `Folder` (com `description` no lugar de `name`) de
+ * propósito: a aba de preparações reusa a árvore da tela de insumos inteira — mesmo
+ * hook, mesmo componente de linha. Uma forma própria obrigaria a duplicar aquilo.
+ */
+export async function listPreparationGroups(db: SisubDb, ctx: UserContext, input?: ListPreparationGroups): Promise<Folder[]> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const where = input?.includeDeleted ? undefined : isNull(preparationGroupInKitchen.deletedAt)
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({
+				id: preparationGroupInKitchen.id,
+				description: preparationGroupInKitchen.name,
+				parent_id: preparationGroupInKitchen.parentId,
+				legacy_id: preparationGroupInKitchen.legacyId,
+				created_at: preparationGroupInKitchen.createdAt,
+				deleted_at: preparationGroupInKitchen.deletedAt,
+			})
+			.from(preparationGroupInKitchen)
+			.where(where)
+			.orderBy(asc(preparationGroupInKitchen.createdAt))
+	)
+	// Já selecionado em snake_case: `toWire` transformaria `description` de novo à toa.
+	return rows as Folder[]
+}
+
+export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateFolder): Promise<Folder> {
+	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db.insert(folderInKitchen).values({ description: input.description, parentId: input.parentId }).returning()
 	)
@@ -147,7 +183,7 @@ export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateF
 }
 
 export async function updateFolder(db: SisubDb, ctx: UserContext, input: UpdateFolder): Promise<Folder> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("UPDATE_FAILED", `folder ${input.id} not found`, () =>
 		db.update(folderInKitchen).set({ description: input.description, parentId: input.parentId }).where(eq(folderInKitchen.id, input.id)).returning()
 	)
@@ -155,14 +191,14 @@ export async function updateFolder(db: SisubDb, ctx: UserContext, input: UpdateF
 }
 
 export async function deleteFolder(db: SisubDb, ctx: UserContext, input: DeleteFolder): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	await mutateOrFail("DELETE_FAILED", `folder ${input.id} not found`, () =>
 		db.update(folderInKitchen).set({ deletedAt: new Date().toISOString() }).where(eq(folderInKitchen.id, input.id)).returning({ id: folderInKitchen.id })
 	)
 }
 
 export async function restoreFolder(db: SisubDb, ctx: UserContext, input: RestoreFolder): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	await mutateOrFail("RESTORE_FAILED", `folder ${input.id} not found`, () =>
 		db.update(folderInKitchen).set({ deletedAt: null }).where(eq(folderInKitchen.id, input.id)).returning({ id: folderInKitchen.id })
 	)
@@ -175,6 +211,12 @@ export async function listIngredients(db: SisubDb, ctx: UserContext, input: List
 	const conditions = []
 	if (!input.includeDeleted) conditions.push(isNull(ingredientInKitchen.deletedAt))
 	if (input.folderId) conditions.push(eq(ingredientInKitchen.folderId, input.folderId))
+	// `%` e `_` do usuário são literais numa busca, não curingas — escapar evita que
+	// um termo com underscore case com qualquer caractere. Mesmo escape de listCeafa.
+	if (input.search) conditions.push(ilike(ingredientInKitchen.description, `%${input.search.replace(/[\\%_]/g, "\\$&")}%`))
+	// Sem escopo explícito, "insumos" não inclui o grupo legado "Preparações".
+	const preparationFilter = ingredientPreparationFilter(input.preparations)
+	if (preparationFilter) conditions.push(preparationFilter)
 	const where = conditions.length > 0 ? and(...conditions) : undefined
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ingredientInKitchen).where(where).orderBy(asc(ingredientInKitchen.description)))
 	return rows.map((r) => toWire<Ingredient>(r))
@@ -190,7 +232,7 @@ export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: Fetc
 }
 
 export async function createIngredient(db: SisubDb, ctx: UserContext, input: CreateIngredient): Promise<Ingredient> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(ingredientInKitchen)
@@ -207,7 +249,7 @@ export async function createIngredient(db: SisubDb, ctx: UserContext, input: Cre
 }
 
 export async function updateIngredient(db: SisubDb, ctx: UserContext, input: UpdateIngredient): Promise<Ingredient> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("UPDATE_FAILED", `ingredient ${input.id} not found`, () =>
 		db
 			.update(ingredientInKitchen)
@@ -225,7 +267,7 @@ export async function updateIngredient(db: SisubDb, ctx: UserContext, input: Upd
 }
 
 export async function deleteIngredient(db: SisubDb, ctx: UserContext, input: DeleteIngredient): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	await mutateOrFail("DELETE_FAILED", `ingredient ${input.id} not found`, () =>
 		db
 			.update(ingredientInKitchen)
@@ -236,7 +278,7 @@ export async function deleteIngredient(db: SisubDb, ctx: UserContext, input: Del
 }
 
 export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: RestoreIngredient): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	await mutateOrFail("RESTORE_FAILED", `ingredient ${input.id} not found`, () =>
 		db.update(ingredientInKitchen).set({ deletedAt: null }).where(eq(ingredientInKitchen.id, input.id)).returning({ id: ingredientInKitchen.id })
 	)
@@ -269,7 +311,7 @@ export async function listIngredientSubstitutions(db: SisubDb, ctx: UserContext,
  * Ignora auto-referência (o próprio insumo nunca é seu substituto).
  */
 export async function setIngredientSubstitutions(db: SisubDb, ctx: UserContext, input: SetIngredientSubstitutions): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const rows = input.substitutions
 		.filter((s) => s.substituteIngredientId !== input.ingredientId)
 		.map((s) => ({
@@ -304,7 +346,7 @@ export async function listIngredientItems(db: SisubDb, ctx: UserContext, input: 
 }
 
 export async function createIngredientItem(db: SisubDb, ctx: UserContext, input: CreateIngredientItem): Promise<IngredientItem> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(ingredientItemInKitchen)
@@ -323,7 +365,7 @@ export async function createIngredientItem(db: SisubDb, ctx: UserContext, input:
 }
 
 export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input: UpdateIngredientItem): Promise<IngredientItem> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("UPDATE_FAILED", `ingredient_item ${input.id} not found`, () =>
 		db
 			.update(ingredientItemInKitchen)
@@ -343,7 +385,7 @@ export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input:
 }
 
 export async function deleteIngredientItem(db: SisubDb, ctx: UserContext, input: DeleteIngredientItem): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	await mutateOrFail("DELETE_FAILED", `ingredient_item ${input.id} not found`, () =>
 		db
 			.update(ingredientItemInKitchen)
@@ -496,7 +538,7 @@ export async function listNutritionReferenceFoods(
 }
 
 export async function setIngredientNutritionReference(db: SisubDb, ctx: UserContext, input: SetIngredientNutritionReference): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 
 	if (input.foodRevisionId == null) {
 		await runQuery(
@@ -658,7 +700,7 @@ export async function replaceIngredientNutrients(
 }
 
 export async function setIngredientNutrients(db: SisubDb, ctx: UserContext, input: SetIngredientNutrients): Promise<void> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	requirePermission(ctx, "global", 2)
 	const reference = await fetchIngredientNutritionReference(db, input.ingredientId)
 	if (reference) {
 		throw new DomainError("NUTRITION_REFERENCE_LOCKED", "Nutrientes manuais bloqueados: remova a vinculação com tabela alimentar para editar.")

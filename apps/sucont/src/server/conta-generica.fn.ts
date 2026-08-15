@@ -11,9 +11,11 @@ export const oracleContaGenericaFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireSucontAccess()
+		const ctx = await requireSucontAccess()
 
 		const text = await generateText({
+			// Dono da chamada vem da sessão, nunca do input — é a chave dos tetos por usuário.
+			userId: ctx.userId,
 			system: `${data.systemContext}\nResponda de forma técnica, militar e objetiva. Use negrito para destacar pontos críticos.`,
 			user: data.query,
 		})

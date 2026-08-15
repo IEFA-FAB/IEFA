@@ -10,6 +10,7 @@
 import { frozenPreparationInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { FrozenPreparation } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, isNull } from "drizzle-orm"
+import { requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateFrozenPreparation,
 	DeleteFrozenPreparation,
@@ -56,7 +57,10 @@ export async function fetchFrozenPreparation(db: SisubDb, _ctx: UserContext, inp
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-export async function createFrozenPreparation(db: SisubDb, _ctx: UserContext, input: CreateFrozenPreparation): Promise<FrozenPreparation> {
+export async function createFrozenPreparation(db: SisubDb, ctx: UserContext, input: CreateFrozenPreparation): Promise<FrozenPreparation> {
+	// Catálogo global de preparações congeladas (sem kitchen_id) — escrita é da SDAB.
+	requirePermission(ctx, "global", 2)
+
 	const row = await insertOneOrFail(
 		"INSERT_FAILED",
 		"Falha ao criar preparação congelada: no row returned",
@@ -66,7 +70,9 @@ export async function createFrozenPreparation(db: SisubDb, _ctx: UserContext, in
 	return toWire<FrozenPreparation>(row)
 }
 
-export async function updateFrozenPreparation(db: SisubDb, _ctx: UserContext, input: UpdateFrozenPreparation): Promise<FrozenPreparation> {
+export async function updateFrozenPreparation(db: SisubDb, ctx: UserContext, input: UpdateFrozenPreparation): Promise<FrozenPreparation> {
+	requirePermission(ctx, "global", 2)
+
 	const row = await insertOneOrFail(
 		"UPDATE_FAILED",
 		`Falha ao atualizar preparação congelada: ${input.id} não encontrado`,
@@ -81,7 +87,9 @@ export async function updateFrozenPreparation(db: SisubDb, _ctx: UserContext, in
 	return toWire<FrozenPreparation>(row)
 }
 
-export async function deleteFrozenPreparation(db: SisubDb, _ctx: UserContext, input: DeleteFrozenPreparation): Promise<void> {
+export async function deleteFrozenPreparation(db: SisubDb, ctx: UserContext, input: DeleteFrozenPreparation): Promise<void> {
+	requirePermission(ctx, "global", 2)
+
 	await mutateOrFail("DELETE_FAILED", `frozen_preparation ${input.id} not found`, () =>
 		db
 			.update(frozenPreparationInKitchen)

@@ -11,6 +11,7 @@
  */
 
 import { requireKitchen } from "@iefa/sisub-domain"
+import { dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import {
 	CallToolRequestSchema,
@@ -28,6 +29,7 @@ import { kitchenTools } from "./tools/kitchens.ts"
 import { mealTypeTools } from "./tools/meal-types.ts"
 import { planningTools } from "./tools/planning.ts"
 import { recipeTools } from "./tools/recipes.ts"
+import { enforceToolResultBudget } from "./tools/shared.ts"
 import { templateTools } from "./tools/templates.ts"
 
 // Todas as tools registradas
@@ -63,7 +65,10 @@ export function createMcpServer(credential: string): Server {
 			throw new McpError(ErrorCode.MethodNotFound, `Tool não encontrada: ${name}`)
 		}
 
-		return tool.handler(args, credential)
+		// `null` que o schema da tool não previu é ausência — ver dropUnexpectedNulls.
+		const input = dropUnexpectedNulls(args as Record<string, unknown>, tool.schema.inputSchema)
+
+		return enforceToolResultBudget(name, await tool.handler(input, credential))
 	})
 
 	// ── Resources ─────────────────────────────────────────────────────────────

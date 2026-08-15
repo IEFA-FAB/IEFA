@@ -1,14 +1,14 @@
-import { createError, getHeader, readBody, type H3Event } from "h3"
-import { defineHandler } from "nitro"
+import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
+import type { Database } from "@iefa/database"
+import { metrics, trace } from "@opentelemetry/api"
+import { createServerClient } from "@supabase/ssr"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
-import { trace, metrics } from "@opentelemetry/api"
-import { createAdapterFromEnv } from "@iefa/ai-provider"
-import { createServerClient } from "@supabase/ssr"
-import type { Database } from "@iefa/database"
+import { createError, getHeader, type H3Event, readBody, setResponseHeader } from "h3"
+import { defineHandler } from "nitro"
+import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { envServer } from "@/lib/env.server"
-import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { renderChartTool } from "@/lib/render-chart-tool"
 
 const otel = otelMiddleware({
@@ -63,7 +63,18 @@ export default defineHandler(async (event: H3Event) => {
 
 	const { messages } = params
 
-	const adapter = createAdapterFromEnv("ANALYTICS")
+	// Teto de consumo antes de abrir o SSE — ver comentário equivalente no chat dos módulos.
+	try {
+		enforceRequestRateLimit("ANALYTICS", user.id)
+	} catch (error) {
+		if (error instanceof RateLimitError) {
+			setResponseHeader(event, "Retry-After", String(error.retryAfterSeconds))
+			throw createError({ statusCode: 429, message: error.message, data: { retryAfterSeconds: error.retryAfterSeconds } })
+		}
+		throw error
+	}
+
+	const adapter = createAdapterFromEnv("ANALYTICS", { rateLimitKey: user.id })
 	const stream = chat({
 		adapter,
 		messages,

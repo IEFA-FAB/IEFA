@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
-import { QUICK_FILTER_CATEGORIES, useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
+import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
+import { QUICK_FILTER_CATEGORIES } from "@/lib/ingredient-tree"
 import type { Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
 import { BulkActionsBar } from "./BulkActionsBar"
 import { BulkFindReplaceDialog } from "./BulkFindReplaceDialog"
@@ -32,8 +34,10 @@ const INGREDIENTS_SCROLL_KEY = "sisub:global-ingredients:scroll"
 /**
  * Chips de busca rápida (toggle group, multi-seleção). Modelo "marcado = visível":
  * um chip marcado significa que aquela categoria aparece na árvore.
- * - Categorias (Preparações, Pratos/Lanches Prontos): marcadas por padrão; desmarcar oculta a subárvore.
+ * - Categorias (Pratos/Lanches Prontos): marcadas por padrão; desmarcar oculta a subárvore.
  * - "Excluídos": desmarcado por padrão; marcar mostra os insumos soft-deleted.
+ *
+ * "Preparações" saiu daqui: virou aba própria, não chip. Ver QUICK_FILTER_CATEGORIES.
  */
 const QUICK_FILTER_CHIPS: { key: string; label: string }[] = [
 	...QUICK_FILTER_CATEGORIES.map((c) => ({ key: c.key, label: c.label })),
@@ -42,9 +46,15 @@ const QUICK_FILTER_CHIPS: { key: string; label: string }[] = [
 const QUICK_CATEGORY_KEYS = QUICK_FILTER_CATEGORIES.map((c) => c.key)
 // Categorias visíveis por padrão; "excluidos" começa fora (deleted ocultos).
 const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
+// Chaves ainda reconhecidas. O estado é persistido por aba: sessões abertas antes da
+// remoção do chip "preparacoes" carregam a chave antiga, que não corresponde a chip
+// nenhum — descartá-la na leitura evita um valor órfão preso no ToggleGroup.
+const KNOWN_QUICK_FILTERS = new Set(QUICK_FILTER_CHIPS.map((c) => c.key))
 
 export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
-	"use no memo"
+	// global:1 navega o catálogo inteiro; edição, exclusão e ações em massa somem.
+	const canWrite = useGlobalWrite()
+	;("use no memo")
 	const navigate = useNavigate()
 	const navigateRef = useRef(navigate)
 	navigateRef.current = navigate
@@ -82,7 +92,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	// Filtro: mostrar apenas insumos ainda não revisados (conferência pendente). Persistido por aba.
 	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState("sisub:global-ingredients:onlyNotReviewed", false)
 	// Busca rápida (toggle group multi-seleção). Persistida por aba.
-	const [quickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
+	const [storedQuickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
+	const quickFilters = useMemo(() => storedQuickFilters.filter((k) => KNOWN_QUICK_FILTERS.has(k)), [storedQuickFilters])
 	const showDeleted = quickFilters.includes("excluidos")
 	// Categorias desmarcadas → ocultar suas subárvores na hierarquia.
 	const hiddenCategoryKeys = useMemo(() => QUICK_CATEGORY_KEYS.filter((k) => !quickFilters.includes(k)), [quickFilters])
@@ -206,10 +217,13 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 	return (
 		<div className="space-y-6">
-			{/* Toolbar */}
-			<Card className="flex-col lg:flex-row lg:items-center gap-3 p-4 overflow-visible">
-				{/* Busca + opções de busca (esquerda, cresce até preencher) */}
-				<div className="flex items-center gap-2 flex-1 min-w-0">
+			{/* Toolbar. Mesma regra da listagem de preparações: só vira uma linha quando busca
+			    (~320px) e as quatro ações (~700px) cabem de fato — por volta de 1400px de viewport. */}
+			<Card className="flex-col min-[1400px]:flex-row min-[1400px]:items-center gap-3 p-4 overflow-visible">
+				{/* Busca + opções de busca (esquerda). No modo linha, `basis-80 min-w-80` reserva o
+				    par campo+Opções — sem piso o flex encolhe este bloco e o botão sai por baixo das
+				    ações. Fica no breakpoint porque `basis` no eixo coluna vira ALTURA. */}
+				<div className="flex items-center gap-2 min-[1400px]:flex-1 min-[1400px]:basis-80 min-[1400px]:min-w-80">
 					<div className="relative flex-1 min-w-56">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 						<Input
@@ -247,8 +261,9 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 					</Popover>
 				</div>
 
-				{/* Ações (direita) */}
-				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
+				{/* Ações (direita) — `min-w-0` deixa o bloco quebrar em duas linhas em vez de
+				    transbordar por cima da busca. */}
+				<div className="flex flex-wrap items-center gap-2 min-w-0 min-[1400px]:justify-end">
 					{selectionMode ? (
 						<>
 							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
@@ -279,16 +294,21 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 								</Button>
 							</ButtonGroup>
 
-							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
-								<Replace className="size-4 mr-2" />
-								<span className="hidden sm:inline">Localizar e Substituir</span>
-								<span className="sm:hidden">Substituir</span>
-							</Button>
-							<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
-								<SquareCheckBig className="size-4 mr-2" />
-								<span className="hidden sm:inline">Selecionar Itens</span>
-								<span className="sm:hidden">Selecionar</span>
-							</Button>
+							{/* Localizar-e-substituir e seleção em massa são escrita: somem para o leitor. */}
+							{canWrite && (
+								<>
+									<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
+										<Replace className="size-4 mr-2" />
+										<span className="hidden sm:inline">Localizar e Substituir</span>
+										<span className="sm:hidden">Substituir</span>
+									</Button>
+									<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
+										<SquareCheckBig className="size-4 mr-2" />
+										<span className="hidden sm:inline">Selecionar Itens</span>
+										<span className="sm:hidden">Selecionar</span>
+									</Button>
+								</>
+							)}
 						</>
 					)}
 				</div>
@@ -335,6 +355,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
 											lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
 											selectionMode={selectionMode}
+											canWrite={canWrite}
 											selected={selected.has(node.id)}
 											onSelectChange={(checked) => handleSelectChange(node, checked)}
 											onNavigate={

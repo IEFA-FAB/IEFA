@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": "Packages compartilhados. Inclui DOM s\u00f3 pelos globais web padr\u00e3o (fetch, AbortController, Response) que estes packages usam e que existem tanto no browser quanto no Bun \u2014 nenhum deles toca `document`. verbatimModuleSyntax exige `import type` expl\u00edcito: o consumidor pode ser bundler ou runtime Bun, e o apagamento de tipo tem que ser previs\u00edvel dos dois lados.",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "verbatimModuleSyntax": true,
+    "types": ["bun"]
+  }
+}

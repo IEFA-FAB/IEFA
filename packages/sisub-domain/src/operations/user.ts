@@ -14,7 +14,7 @@ import { type SisubDb, userDataInCore, userMilitaryDataInCore } from "@iefa/data
 import { and, eq, ne, sql } from "drizzle-orm"
 import type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "../schemas/user.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, unwrapPgError } from "../utils/index.ts"
+import { describeDriverError, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /**
  * `sisub.user_data` tem UNIQUE(email) (constraint `user_email_email_key`) além da
@@ -28,10 +28,6 @@ function isEmailUniqueViolation(error: unknown): boolean {
 	// O código real fica em .cause (DrizzleQueryError) — unwrapPgError o resgata.
 	const e = unwrapPgError(error)
 	return e?.code === "23505" && ((e.constraint_name?.includes("email") ?? false) || (e.message?.includes("email") ?? false))
-}
-
-function errMsg(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
 }
 
 /**
@@ -57,7 +53,10 @@ async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; ema
 		await upsert()
 		return
 	} catch (e) {
-		if (!isEmailUniqueViolation(e)) throw new DomainError("UPSERT_FAILED", errMsg(e))
+		// `describeDriverError` e não `e.message`: este sync é best-effort e roda 1x por
+		// sessão, então a mensagem é o ÚNICO sinal quando falha. Crua, ela seria o SQL do
+		// upsert, com a causa escondida em `.cause`.
+		if (!isEmailUniqueViolation(e)) throw new DomainError("UPSERT_FAILED", describeDriverError(e))
 	}
 
 	// Email em branco não é reivindicável: o "" é compartilhável entre contas sem
@@ -72,7 +71,7 @@ async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; ema
 	} catch (e) {
 		// Corrida rara: o email foi recriado por outra requisição entre o delete e o retry.
 		if (isEmailUniqueViolation(e)) throw new DomainError("EMAIL_CONFLICT", "Este email já está vinculado a outra conta. Contate o suporte.")
-		throw new DomainError("UPSERT_FAILED", errMsg(e))
+		throw new DomainError("UPSERT_FAILED", describeDriverError(e))
 	}
 }
 

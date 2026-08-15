@@ -1,3 +1,4 @@
+import { registerAgentDiscovery } from "./api/agent-discovery.ts"
 import apiRoutes from "./api/routes.ts"
 import { env } from "./env.ts"
 import { refreshAllSources } from "./jobs/refresh-sources.ts"
@@ -47,6 +48,10 @@ const app = apiRoutes
 
 startSourcesRefreshWorker(env.ALPHA_SOURCES_REFRESH_ENABLED)
 
+// robots.txt, llms.txt e os documentos em /.well-known — registrados fora da
+// cadeia tipada acima para não interferir nos tipos do RPC do Hono.
+registerAgentDiscovery(app)
+
 const port = env.PORT
 
 // Tipos exportados para Hono RPC (hc<AppType>)
@@ -54,12 +59,18 @@ export type AppType = typeof app
 
 export default {
 	port,
+	fetch: app.fetch,
 	/**
-	 * O default do Bun é 10 segundos, e corta a conexão sem resposta — o cliente
-	 * recebe "empty reply" e o log só mostra "request timed out". Extração de
-	 * ETP/TR, verificação de conformidade e coleta de fonte passam disso com
-	 * facilidade. Mesmo problema que gerou os 502 no sisub.
+	 * Acima do `idle_timeout` do ALB (60 s). Com o padrão do Bun (10 s) quem
+	 * fecha a conexão é o servidor, e o ALB devolve 502 sem nenhum 5xx no target
+	 * — o que atinge em cheio as respostas de streaming da IA. Mesmo motivo do
+	 * preload em `docker/bun-serve-idle-timeout.ts` (o entry export-default do
+	 * Hono não passa por `Bun.serve`, então não é interceptado).
+	 *
+	 * Extração de ETP/TR, verificação de conformidade e coleta de fonte também
+	 * passam de 10 s com facilidade. Vale lembrar que **o teto real em produção
+	 * é o ALB**: operação que ultrapasse os 60 s dele precisa virar assíncrona,
+	 * não ganhar mais timeout aqui.
 	 */
 	idleTimeout: 240,
-	fetch: app.fetch,
 }

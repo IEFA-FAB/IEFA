@@ -7,7 +7,11 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | App | Stack | Purpose |
 |-----|-------|---------|
 | `sisub` | React 19 + TanStack Start + Nitro SSR | Sistema de Subsistência — menus, receitas, planejamento, analytics |
-| `portal` | React 19 + Vite + Nitro SSR + TanStack Router | Portal web — CMS (Sanity), drag-drop, markdown |
+| `portal` | React 19 + Vite + Nitro SSR + TanStack Router | Portal web — CMS (Sanity), drag-drop, markdown, journal |
+| `sucont` | React 19 + TanStack Start + Nitro SSR | Hub SUCONT-4 — acompanhamento contábil |
+| `rumaer` | React 19 + TanStack Start + Nitro SSR | Uniformes da FAB (RUMAER) |
+| `forms` | React 19 + TanStack Start + Nitro SSR | Questionários e pesquisas internas; multi-tenant (tenant `cinco-s` = deploy `5s`) |
+| `assignment-selection` | React 19 + TanStack Start + Nitro SSR | Escolha de vagas / CPAINT — telão + controlador |
 | `api` | Bun + Hono + OpenAPI (Scalar) | API pública — alimentos, preços, sync workers |
 | `alpha` | Bun + Hono + LangChain/LangGraph | Projeto α — IA aplicada a contratações públicas da FAB (Lei 14.133/21) |
 | `docs` | React 19 + TanStack Start + Nitro SSR + Fumadocs | Documentação interna |
@@ -17,17 +21,50 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 
 | Package | Purpose |
 |---------|---------|
-| `database` | Tipos TS + migrations Supabase (schemas: sisub, iefa, journal) |
+| `database` | Tipos TS + migrations Supabase (schemas por domínio) |
+| `sisub-domain` | Operações de domínio do sisub (schemas, guards, operations, contrato de tools de IA) |
+| `supabase-kit` | Clients Supabase: service-role, browser e SSR (subpath `/start`), com os deadlines de fetch |
+| `auth-kit` | Ações de auth, tradução de erro do GoTrue e trava de login (subpath `/react`) |
+| `pbac` | Engine de autorização por política (módulo + nível + escopo) |
+| `ai-provider` | Adapter de modelo: Bedrock no primário, reserva com API key, tetos de consumo |
+| `agent-web` | Camada agent-ready dos apps web (negociação de Markdown, llms.txt, descoberta) |
+| `compras-api` | Client gerado da API do Compras.gov |
+| `hono-client` | Client RPC tipado do `apps/api` |
+| `alpha-client` | Client do `apps/alpha` |
+| `tsconfig` | Bases de tsconfig (`base`, `library`, `react-app`, `bun-service`) |
 
 ## Conventions
 
 - **Server functions (TanStack Start)**: `createServerFn` with `.validator(z.object(...))` — NOT `.inputValidator()` (deprecated)
 - **Server fn files**: `src/server/*.fn.ts`
-- **Supabase server client**: `getSupabaseServerClient()` per-request inside `.handler()`, never singleton
-- **Imports**: `@/*` → `src/*`
+- **Supabase client**: sempre via `@iefa/supabase-kit` (`createServiceRoleClient` / `createAppBrowserClient` / `createSsrAuthClient`), chamado per-request dentro do `.handler()`, nunca singleton. Nunca instanciar `createClient` direto num app — foi assim que os deadlines de fetch que seguram o 502 no ALB existiram em 1 de 6 apps.
+- **Auth**: ações e mensagens de erro via `@iefa/auth-kit`; a trava de login é `useLoginRateLimiter` de `@iefa/auth-kit/react`.
+- **tsconfig**: estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara `paths`.
+- **Imports**: `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado)
+- **Deploy**: `Dockerfile`, `docker-bake.hcl` e `.github/paths-filter.yml` são GERADOS de `apps.manifest.json` (`bun run generate:deploy`). App ou package novo entra no manifesto/package.json, nunca editando os três à mão — o CI falha em drift (`bun run check:deploy`).
 - **Route tree**: `routeTree.gen.ts` is auto-generated — run `bun dev` after new routes
 - **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
+
+### Ferramentas de IA (chat dos módulos + servidor MCP)
+
+Os dois expõem o mesmo domínio para modelos diferentes. Regra para não divergirem:
+
+- **Listagem exposta a modelo mora em `@iefa/sisub-domain/agent`** — entrada (schema Zod), teto (`clampLimit`) e projeção definidos uma vez, consumidos pelo chat (`apps/sisub/src/lib/module-chat/tools/`) e pelo MCP (`apps/sisub-mcp/src/tools/`). Testes de contrato nos dois lados comparam o `inputSchema`/`parameters` com `toJsonSchema(...)` do schema compartilhado.
+- **Toda listagem tem `limit` e devolve `total`** — sem o total o modelo lê 30 itens e conclui que o catálogo tem 30.
+- **Resultado de tool tem orçamento** (`MAX_TOOL_RESULT_CHARS`, 60k caracteres em JSON compacto — freio contra patologia; quem dimensiona a resposta normal é o `limit` de cada listagem): ele volta INTEIRO no prompt do turno seguinte. Acima disso o provider responde 413 e a run morre sem mensagem. O teto é aplicado no `wrapTool` (chat) e no despacho (MCP); estourar vira erro de tool que o modelo lê e corrige.
+- **Parâmetro opcional exposto a modelo é `.nullish()`, nunca `.optional()` puro** — modelo não omite campo, ele manda `null`. Com `.optional()` o engine rejeita a chamada, o modelo tenta de novo com sintaxe quebrada e o provider mata a run com `tool_use_failed`, sem mensagem para o usuário. `null` que o schema não previu vira ausência no `wrapTool`/despacho MCP (`dropUnexpectedNulls`). Guarda: `model-args.test.ts` nos dois lados varre todas as tools.
+- **Nada de query PostgREST/SQL escrita à mão numa tool** quando a operation existe — foi assim que `list_ingredients` ordenou por coluna inexistente e `list_kitchens` embutiu `units.name`.
+
+### Providers de IA — Bedrock primeiro
+
+Referência completa: **`AI-PROVIDERS.md`** na raiz (mapa dos consumidores, semântica da reserva, tetos de consumo, dívida de sucont/alpha). O essencial:
+
+- **Todo consumidor de modelo usa AWS Bedrock no primário** (keyless, pela task role do ECS). Provider com API key existe só como reserva, no prefixo `<PREFIX>_FALLBACK_AI_*`.
+- **Adapter sempre por `createAdapterFromEnv("<PREFIX>", { rateLimitKey: userId })`** — ele monta primário + reserva + tetos a partir do env. Nunca instanciar provider direto num app.
+- **A reserva só troca antes do primeiro conteúdo e só em falha transitória** (429/5xx/throttling/timeout). Erro de schema, credencial ou tool malformada propaga: trocar de provider repetiria a falha.
+- **Endpoint que abre SSE chama `enforceRequestRateLimit` ANTES do stream** e traduz `RateLimitError` em 429 — depois que o SSE começa não há mais status HTTP, o erro vira conexão cortada sem mensagem.
+- **Fluxo de IA nunca quebra o boot**: sem as vars, a tela fica "Em breve" e o endpoint responde 503 (`capabilities.server.ts`).
 
 ## Design Systems
 
@@ -48,10 +85,15 @@ Valem para **qualquer** app do monorepo (sisub, portal, rumaer, sucont, alpha, d
 
 Regras de contribuição para **todos** os devs e agentes de IA no repo.
 
-- **Todo trabalho vai por Pull Request** — nunca commitar/mergear direto na `main`. O repo é open-source e elegível ao **Greptile**, que faz code review automatizado nos PRs. Sem PR, não há revisão.
+- **Todo trabalho vai por Pull Request** — nunca commitar/mergear direto na `main`.
   - Criar feature branch → push → `gh pr create --base main`.
-  - NÃO auto-mergear: deixar o PR aberto pro Greptile + revisão humana. Mergear só quando solicitado.
+  - NÃO auto-mergear: deixar o PR aberto para revisão. Mergear só quando solicitado.
   - Push na branch/main dispara deploys per-app via paths-filter.
+  - **Exceção única: push direto na `main` só com pedido explícito do mantenedor, caso a caso.** Vale apenas para mudança de texto visível (copy, placeholder, label, comentário) ou remoção de código comprovadamente morto — nada que altere lógica, schema, permissão, dependência ou config de deploy. Mesmo aí: `bun run check` + `bun run test` verdes ANTES do push, e conferir o run do CI/CD depois. Um agente nunca decide sozinho por esse caminho; na dúvida, abre PR.
+- **Revisão semântica é sob demanda, com `/code-review`** — rodar ANTES de pedir merge, e relatar os achados no PR. O Greptile não é mais o revisor: a cota open-source caiu para 100 créditos e foi esgotada; ele parou de comentar a partir de 2026-07-31 (PRs #149, #152, #153, #154 passaram sem revisão nenhuma). Ausência de comentário do bot não significa código limpo — confirme com `gh api repos/IEFA-FAB/IEFA/pulls/<n>/reviews` antes de tratar como revisado.
+  - O que o CI cobre sozinho: biome, typecheck, `opengrep` com as regras do repo (gate bloqueante em ERROR), codeql, trivy, zizmor, gitleaks, `bun audit`, os testes de contrato e o gate de integração contra o banco real.
+  - O que só a revisão sob demanda pega: race entre checagem e mutação, estado vazio que mente sobre falha, ordem de FK, snapshot inconsistente. Nenhum linter enxerga isso.
+  - Padrão que causou bug vira **regra** em `.opengrep/rules/`, não só correção pontual — foi assim que o fallback de `kitchen:2` em ativo global e a operação de domínio que descarta `_ctx` viraram gate.
 - **Mensagens de commit sempre em inglês** — subject E body — mesmo com código, comentários ou diff em português. Conventional Commits: `feat(sisub): add Faro observability`, não `adicionar`.
 - **Rodar `bun run check` + testes antes de mergear** qualquer PR, e confirmar verde. Typecheck por-arquivo não pega tudo.
   - Testes: `bun run test` (turbo, todos os apps) ou `cd apps/sisub && bunx vitest run`. **Não** rodar `bunx vitest run` da raiz — o alias `@/` não resolve e gera ~32 falsos positivos.

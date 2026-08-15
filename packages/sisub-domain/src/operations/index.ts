@@ -13,6 +13,16 @@ export {
 	updateAtaStatus,
 } from "./ata.ts"
 export {
+	type BudgetCreditSnapshot,
+	type BudgetProjection,
+	type CreditCheck,
+	type CreditCheckStatus,
+	checkCreditForEmpenho,
+	type LocalEmpenhoEntry,
+	localCommitmentAfterSnapshot,
+	projectBudget,
+} from "./budget-math.ts"
+export {
 	fetchForecasts,
 	fetchMessHalls,
 	fetchPresences,
@@ -29,6 +39,15 @@ export {
 	listFrozenPreparations,
 	updateFrozenPreparation,
 } from "./frozen-preparation.ts"
+export {
+	type GtinHierarchyNode,
+	hasValidCheckDigit,
+	normalizeGtin,
+	parseGtin,
+	type ResolvedGtinContent,
+	resolveGtinContent,
+	SEM_GTIN,
+} from "./gtin.ts"
 export {
 	type IngredientLastReview,
 	type IngredientReviewRow,
@@ -64,6 +83,7 @@ export {
 	listIngredients,
 	listNutrients,
 	listNutritionReferenceFoods,
+	listPreparationGroups,
 	type NutritionReferenceFoodSearchItem,
 	type NutritionReferenceSummary,
 	restoreFolder,
@@ -86,10 +106,21 @@ export {
 export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	type IngredientItemLink,
+	matchNfeItem,
+	type NfeItemForMatch,
+	type NfeMatchCandidates,
+	type NfeMatchResult,
+	type NfeMatchStatus,
+} from "./nfe-matching.ts"
+export {
 	createUserPermission,
 	deleteUserPermission,
+	type EffectivePermissionWithOrigin,
 	fetchUserPermissionsAdmin,
 	listEffectiveUserPermissions,
+	listEffectiveUserPermissionsWithOrigin,
+	type PermissionOrigin,
 	searchUsersByEmail,
 	updateUserPermission,
 } from "./permissions.ts"
@@ -119,6 +150,35 @@ export {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "./planning.ts"
+export {
+	addPolicyStatement,
+	attachPolicy,
+	createPolicy,
+	deletePolicy,
+	detachPolicy,
+	fetchManagedPolicyByName,
+	fetchPolicy,
+	listPolicies,
+	listPolicyMembers,
+	listUserPolicies,
+	listUserPolicyPermissions,
+	type PolicyDetail,
+	type PolicyMember,
+	type PolicyRow,
+	type PolicyStatementRow,
+	type PolicySummary,
+	removePolicyStatement,
+	restorePolicy,
+	updatePolicy,
+	updatePolicyStatement,
+} from "./policies.ts"
+export type { PreparationScope } from "./preparation-scope.ts"
+export {
+	folderOutsidePreparations,
+	ingredientInsidePreparations,
+	ingredientOutsidePreparations,
+	ingredientPreparationFilter,
+} from "./preparation-scope.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
 export {
@@ -129,6 +189,13 @@ export {
 	updateProductionTaskRecord,
 	updateProductionTaskStatus,
 } from "./production.ts"
+export {
+	computeTheoreticalConsumption,
+	leftoverExpiryDate,
+	type RecipeSnapshotForIssue,
+	type SnapshotIngredientRow,
+	type TheoreticalConsumption,
+} from "./production-issue.ts"
 export {
 	createPurchaseItem,
 	deletePurchaseItem,
@@ -158,15 +225,34 @@ export {
 } from "./recipe-reviews.ts"
 export {
 	createRecipe,
-	createRecipeVersion,
+	createRecipeFolder,
 	deleteRecipe,
+	deleteRecipeFolder,
 	fetchRecipe,
+	listRecipeFolders,
 	listRecipeMenuUsage,
+	listRecipeSummaries,
 	listRecipes,
 	listRecipeVersions,
+	type RecipeSummary,
 	renameRecipe,
+	renameRecipeFolder,
 	restoreRecipe,
+	saveRecipeEdit,
+	setRecipeFolder,
 } from "./recipes.ts"
+export {
+	applyCorrectionFactors,
+	type ChannelDecision,
+	type ChannelDecisionInput,
+	type CorrectionInput,
+	calculateNetNeed,
+	decideChannel,
+	estimateLeadTime,
+	type LeadTimeSource,
+	type NetNeedInput,
+	type PurchaseChannel,
+} from "./replenishment.ts"
 export {
 	getReviewMetrics,
 	type ReviewActivityDay,
@@ -174,6 +260,14 @@ export {
 	type ReviewMetrics,
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
+export {
+	allocateFefo,
+	type FefoAllocation,
+	type FefoResult,
+	type LotBalance,
+	sortFefo,
+	sufficiency,
+} from "./stock-math.ts"
 export {
 	applyEventTemplate,
 	applyTemplate,
@@ -186,7 +280,18 @@ export {
 	listDeletedTemplates,
 	listTemplates,
 	restoreTemplate,
-	updateTemplate,
+	saveTemplateEdit,
 } from "./templates.ts"
+export {
+	fetchTrainingScope,
+	listTrainingResets,
+	RESET_TARGET_TABLES,
+	resetTrainingScope,
+	resolveTrainingScope,
+	type TrainingResetLogRow,
+	type TrainingResetResult,
+	type TrainingScope,
+	type TrainingScopeInfo,
+} from "./training.ts"
 export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
 export { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"

@@ -9,28 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as AuthRouteRouteImport } from './routes/auth/route'
-import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
-import { Route as AuthIndexRouteImport } from './routes/auth/index'
-import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
+import { Route as AuthRouteRouteImport } from './routes/auth/route'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminPermissoesRouteImport } from './routes/admin/permissoes'
-import { Route as AdminPecasIndexRouteImport } from './routes/admin/pecas/index'
-import { Route as AdminItensIndexRouteImport } from './routes/admin/itens/index'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as PublicUniformesIndexRouteImport } from './routes/_public/uniformes/index'
+import { Route as AdminItensIndexRouteImport } from './routes/admin/itens/index'
+import { Route as AdminPecasIndexRouteImport } from './routes/admin/pecas/index'
 import { Route as AdminUniformesUniformIdRouteImport } from './routes/admin/uniformes/$uniformId'
+import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as PublicUniformesUniformIdIndexRouteImport } from './routes/_public/uniformes/$uniformId/index'
 
-const HealthRoute = HealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRouteRoute = AuthRouteRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const PublicRouteRoute = PublicRouteRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
@@ -38,28 +36,60 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PublicRouteRoute = PublicRouteRouteImport.update({
-  id: '/_public',
+const AuthRouteRoute = AuthRouteRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthIndexRoute = AuthIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthRouteRoute,
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminRouteRoute,
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminPermissoesRoute = AdminPermissoesRouteImport.update({
   id: '/permissoes',
   path: '/permissoes',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const DotwellKnownAgentSkillsIndexDotjsonRoute =
+  DotwellKnownAgentSkillsIndexDotjsonRouteImport.update({
+    id: '/.well-known/agent-skills/index.json',
+    path: '/.well-known/agent-skills/index.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicUniformesIndexRoute = PublicUniformesIndexRouteImport.update({
+  id: '/uniformes/',
+  path: '/uniformes/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const AdminItensIndexRoute = AdminItensIndexRouteImport.update({
+  id: '/itens/',
+  path: '/itens/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminPecasIndexRoute = AdminPecasIndexRouteImport.update({
@@ -67,21 +97,17 @@ const AdminPecasIndexRoute = AdminPecasIndexRouteImport.update({
   path: '/pecas/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminItensIndexRoute = AdminItensIndexRouteImport.update({
-  id: '/itens/',
-  path: '/itens/',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const PublicUniformesIndexRoute = PublicUniformesIndexRouteImport.update({
-  id: '/uniformes/',
-  path: '/uniformes/',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
 const AdminUniformesUniformIdRoute = AdminUniformesUniformIdRouteImport.update({
   id: '/uniformes/$uniformId',
   path: '/uniformes/$uniformId',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
+  DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport.update({
+    id: '/.well-known/agent-skills/$skill/SKILL.md',
+    path: '/.well-known/agent-skills/$skill/SKILL.md',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicUniformesUniformIdIndexRoute =
   PublicUniformesUniformIdIndexRouteImport.update({
     id: '/uniformes/$uniformId/',
@@ -94,25 +120,33 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/admin/uniformes/$uniformId': typeof AdminUniformesUniformIdRoute
   '/uniformes/': typeof PublicUniformesIndexRoute
   '/admin/itens/': typeof AdminItensIndexRoute
   '/admin/pecas/': typeof AdminPecasIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/uniformes/$uniformId/': typeof PublicUniformesUniformIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/admin/uniformes/$uniformId': typeof AdminUniformesUniformIdRoute
   '/uniformes': typeof PublicUniformesIndexRoute
   '/admin/itens': typeof AdminItensIndexRoute
   '/admin/pecas': typeof AdminPecasIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/uniformes/$uniformId': typeof PublicUniformesUniformIdIndexRoute
 }
 export interface FileRoutesById {
@@ -121,14 +155,18 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/admin/uniformes/$uniformId': typeof AdminUniformesUniformIdRoute
   '/_public/uniformes/': typeof PublicUniformesIndexRoute
   '/admin/itens/': typeof AdminItensIndexRoute
   '/admin/pecas/': typeof AdminPecasIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/_public/uniformes/$uniformId/': typeof PublicUniformesUniformIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -138,25 +176,33 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/admin/permissoes'
     | '/admin/'
     | '/auth/'
+    | '/.well-known/agent-skills/index.json'
     | '/admin/uniformes/$uniformId'
     | '/uniformes/'
     | '/admin/itens/'
     | '/admin/pecas/'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/uniformes/$uniformId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/admin/permissoes'
     | '/'
     | '/admin'
     | '/auth'
+    | '/.well-known/agent-skills/index.json'
     | '/admin/uniformes/$uniformId'
     | '/uniformes'
     | '/admin/itens'
     | '/admin/pecas'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/uniformes/$uniformId'
   id:
     | '__root__'
@@ -164,14 +210,18 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/admin/permissoes'
     | '/_public/'
     | '/admin/'
     | '/auth/'
+    | '/.well-known/agent-skills/index.json'
     | '/admin/uniformes/$uniformId'
     | '/_public/uniformes/'
     | '/admin/itens/'
     | '/admin/pecas/'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/_public/uniformes/$uniformId/'
   fileRoutesById: FileRoutesById
 }
@@ -180,22 +230,19 @@ export interface RootRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/health': {
-      id: '/health'
-      path: '/health'
-      fullPath: '/health'
-      preLoaderRoute: typeof HealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteRouteImport
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -205,26 +252,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_public': {
-      id: '/_public'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicRouteRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/': {
-      id: '/auth/'
-      path: '/'
-      fullPath: '/auth/'
-      preLoaderRoute: typeof AuthIndexRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_public/': {
       id: '/_public/'
@@ -233,11 +287,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/permissoes': {
       id: '/admin/permissoes'
       path: '/permissoes'
       fullPath: '/admin/permissoes'
       preLoaderRoute: typeof AdminPermissoesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/auth/': {
+      id: '/auth/'
+      path: '/'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/.well-known/agent-skills/index.json': {
+      id: '/.well-known/agent-skills/index.json'
+      path: '/.well-known/agent-skills/index.json'
+      fullPath: '/.well-known/agent-skills/index.json'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_public/uniformes/': {
+      id: '/_public/uniformes/'
+      path: '/uniformes'
+      fullPath: '/uniformes/'
+      preLoaderRoute: typeof PublicUniformesIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/admin/itens/': {
+      id: '/admin/itens/'
+      path: '/itens'
+      fullPath: '/admin/itens/'
+      preLoaderRoute: typeof AdminItensIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/pecas/': {
@@ -247,26 +336,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPecasIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/itens/': {
-      id: '/admin/itens/'
-      path: '/itens'
-      fullPath: '/admin/itens/'
-      preLoaderRoute: typeof AdminItensIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/_public/uniformes/': {
-      id: '/_public/uniformes/'
-      path: '/uniformes'
-      fullPath: '/uniformes/'
-      preLoaderRoute: typeof PublicUniformesIndexRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
     '/admin/uniformes/$uniformId': {
       id: '/admin/uniformes/$uniformId'
       path: '/uniformes/$uniformId'
       fullPath: '/admin/uniformes/$uniformId'
       preLoaderRoute: typeof AdminUniformesUniformIdRouteImport
       parentRoute: typeof AdminRouteRoute
+    }
+    '/.well-known/agent-skills/$skill/SKILL.md': {
+      id: '/.well-known/agent-skills/$skill/SKILL.md'
+      path: '/.well-known/agent-skills/$skill/SKILL.md'
+      fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_public/uniformes/$uniformId/': {
       id: '/_public/uniformes/$uniformId/'
@@ -331,6 +413,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HealthRoute: HealthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  DotwellKnownAgentSkillsIndexDotjsonRoute:
+    DotwellKnownAgentSkillsIndexDotjsonRoute,
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute:
+    DotwellKnownAgentSkillsSkillSKILLDotmdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

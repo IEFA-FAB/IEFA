@@ -8,9 +8,14 @@ aws_region           = "sa-east-1"
 service_name      = "sisub"
 docker_target     = "sisub"
 container_port    = 3000
-# 1 vCPU: Bun é single-thread → uma render SSR pesada em 0.5 vCPU satura o event
-# loop e derruba conexões concorrentes (502/504). 1024 dá folga p/ picos.
-cpu               = 1024
+# O bump para 1024 que estava aqui nunca chegou a ser aplicado — e não teria
+# funcionado: o Fargate não aceita 1024 CPU com 1024 MiB (mínimo 2048 para 1 vCPU),
+# então `RegisterTaskDefinition` devolve 400. A premissa também caiu: o teto de
+# ~11,95 s no TargetResponseTime que motivou o bump não era saturação de CPU, era
+# o `idleTimeout` de 10 s do Bun cortando a conexão antes do ALB. Se um dia a CPU
+# for de fato o gargalo, o par válido é 1024/2048 — e a regra da casa é medir antes
+# (Container Insights temporário), porque vCPU é a linha mais cara da conta.
+cpu               = 512
 memory            = 1024
 health_check_path = "/health"
 listener_priority = 110
@@ -32,17 +37,32 @@ secret_names = [
   "SISUB_DATABASE_URL",
   "ADMIN_SECRET",
   # AI chat/analytics (optional at runtime — absent → "Em breve").
+  # Primary is Bedrock (keyless, via the ECS task role); the *_FALLBACK_* prefix holds the
+  # stand-in provider used only when Bedrock fails before answering. See AI-PROVIDERS.md.
   "MODULE_CHAT_AI_PROVIDER",
   "MODULE_CHAT_AI_MODEL",
   "MODULE_CHAT_AI_API_KEY",
+  "MODULE_CHAT_AI_REGION",
+  "MODULE_CHAT_FALLBACK_AI_PROVIDER",
+  "MODULE_CHAT_FALLBACK_AI_MODEL",
+  "MODULE_CHAT_FALLBACK_AI_API_KEY",
+  "MODULE_CHAT_AI_MAX_REQUESTS_PER_MINUTE",
+  "MODULE_CHAT_AI_MAX_TOKENS_PER_MINUTE",
+  "MODULE_CHAT_AI_MAX_TOKENS_PER_DAY",
   "ANALYTICS_AI_PROVIDER",
   "ANALYTICS_AI_MODEL",
   "ANALYTICS_AI_API_KEY",
+  "ANALYTICS_AI_REGION",
+  "ANALYTICS_FALLBACK_AI_PROVIDER",
+  "ANALYTICS_FALLBACK_AI_MODEL",
+  "ANALYTICS_FALLBACK_AI_API_KEY",
+  "ANALYTICS_AI_MAX_REQUESTS_PER_MINUTE",
+  "ANALYTICS_AI_MAX_TOKENS_PER_MINUTE",
+  "ANALYTICS_AI_MAX_TOKENS_PER_DAY",
 ]
 
 # Busiest app by far (~90% of ALB requests): two tasks so a Spot reclamation never
-# leaves it down. cpu/memory stay at 512/1024 to protect SSR TTFB even though
-# measured usage is far below that. Internal services stay on the default of 1.
+# leaves it down. Internal services stay on the default of 1.
 desired_count = 2
 
 # Alternative to a second Spot task: pin one on-demand task instead (≈2x the

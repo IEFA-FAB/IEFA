@@ -32,6 +32,8 @@
     "clean": "bunx turbo run clean && rm -rf node_modules .turbo",
     "clean:cache": "rm -rf .turbo node_modules/.cache",
     "knip": "knip",
+    "generate:deploy": "bun scripts/generate-deploy-artifacts.ts",
+    "check:deploy": "bun scripts/generate-deploy-artifacts.ts --check",
     "upgrade": "bun update --latest",
     "gen-all-types": "turbo run generate",
     "commit": "bun run format:check && bunx turbo run lint typecheck && cz",
@@ -51,16 +53,11 @@
     "cz-git": "^1.13.1",
     "husky": "^9.1.7",
     "knip": "^6.27.0",
-    "turbo": "^2.10.5",
-    "vite-tsconfig-paths": "^6.1.1"
+    "react-doctor": "^0.7.8",
+    "turbo": "^2.10.5"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
-  ],
-  "dependencies": {
-    "@tanstack/cli": "^0.69.6",
-    "greptile": "^3.2.2",
-    "react-doctor": "^0.7.8"
-  }
+  ]
 }

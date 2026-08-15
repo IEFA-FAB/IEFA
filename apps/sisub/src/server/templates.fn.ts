@@ -29,8 +29,8 @@ import {
 	listTemplates,
 	RestoreTemplateSchema,
 	restoreTemplate,
-	UpdateTemplateSchema,
-	updateTemplate,
+	SaveTemplateEditSchema,
+	saveTemplateEdit,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -89,11 +89,11 @@ export const forkTemplateFn = createServerFn({ method: "POST" })
 		return forkTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-export const updateTemplateFn = createServerFn({ method: "POST" })
-	.validator(UpdateTemplateSchema)
+export const saveTemplateEditFn = createServerFn({ method: "POST" })
+	.validator(SaveTemplateEditSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateTemplate(getDb(), ctx, data).catch(handleDomainError)
+		return saveTemplateEdit(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteTemplateFn = createServerFn({ method: "POST" })

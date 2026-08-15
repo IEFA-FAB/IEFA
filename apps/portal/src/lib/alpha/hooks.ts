@@ -7,8 +7,8 @@
  */
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
-import { authQueryOptions } from "@/auth/service"
-import { getAlphaClient } from "@/lib/hono"
+import { useAuth } from "@/hooks/useAuth"
+import { alphaRequest } from "./client"
 
 export interface NormativeSource {
 	id: string
@@ -53,25 +53,10 @@ export interface DocumentStructure {
 	nodes: StructureNode[]
 }
 
-async function authorizedClient(queryClient: ReturnType<typeof useQueryClient>) {
-	const auth = await queryClient.ensureQueryData(authQueryOptions())
-	return getAlphaClient(auth.session?.access_token)
-}
-
-async function fetchJson<T>(response: Response, context: string): Promise<T> {
-	if (!response.ok) throw new Error(`${context}: ${response.status}`)
-	return (await response.json()) as T
-}
-
 export function sourcesQueryOptions(token: string | undefined) {
 	return queryOptions({
 		queryKey: ["alpha", "sources"],
-		queryFn: async () => {
-			const client = getAlphaClient(token)
-			const response = await client.api.v1.sources.$get()
-			const body = await fetchJson<{ sources: NormativeSource[] }>(response, "fontes")
-			return body.sources
-		},
+		queryFn: async () => (await alphaRequest<{ sources: NormativeSource[] }>("/api/v1/sources", token)).sources,
 		staleTime: 30_000,
 	})
 }
@@ -79,40 +64,30 @@ export function sourcesQueryOptions(token: string | undefined) {
 export function sourceDocumentsQueryOptions(token: string | undefined, sourceId: string, includeSuperseded = false) {
 	return queryOptions({
 		queryKey: ["alpha", "sources", sourceId, "documents", includeSuperseded],
-		queryFn: async () => {
-			const client = getAlphaClient(token)
-			const response = await client.api.v1.sources[":id"].documents.$get({
-				param: { id: sourceId },
-				query: { include_superseded: includeSuperseded ? ("true" as const) : ("false" as const) },
-			})
-			const body = await fetchJson<{ documents: AlphaDocument[] }>(response, "documentos da fonte")
-			return body.documents
-		},
+		queryFn: async () =>
+			(await alphaRequest<{ documents: AlphaDocument[] }>(`/api/v1/sources/${sourceId}/documents?include_superseded=${includeSuperseded}`, token)).documents,
 	})
 }
 
 export function documentStructureQueryOptions(token: string | undefined, documentId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "documents", documentId, "structure"],
-		queryFn: async () => {
-			const client = getAlphaClient(token)
-			const response = await client.api.v1.documents[":id"].structure.$get({ param: { id: documentId } })
-			return fetchJson<DocumentStructure>(response, "estrutura do documento")
-		},
+		queryFn: () => alphaRequest<DocumentStructure>(`/api/v1/documents/${documentId}/structure`, token),
 	})
 }
 
 export function useRefreshSource() {
 	const queryClient = useQueryClient()
+	const { session } = useAuth()
 
 	return useMutation({
-		mutationFn: async (sourceId: string) => {
-			const client = await authorizedClient(queryClient)
+		mutationFn: (sourceId: string) =>
 			// Coleta a partir do console é sempre simulação: gravar é decisão de
 			// operação, feita pela CLI ou pelo job agendado, não por clique na tela.
-			const response = await client.api.v1.sources[":id"].refresh.$post({ param: { id: sourceId }, json: { apply: false } })
-			return fetchJson<{ source_id: string; discovered: number; items: Array<{ outcome: string }> }>(response, "coleta da fonte")
-		},
+			alphaRequest<{ source_id: string; discovered: number; items: Array<{ outcome: string }> }>(`/api/v1/sources/${sourceId}/refresh`, session?.access_token, {
+				method: "POST",
+				body: JSON.stringify({ apply: false }),
+			}),
 		onSuccess: (_result, sourceId) => {
 			queryClient.invalidateQueries({ queryKey: ["alpha", "sources"] })
 			queryClient.invalidateQueries({ queryKey: ["alpha", "sources", sourceId] })

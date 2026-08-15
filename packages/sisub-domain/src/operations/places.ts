@@ -1,8 +1,8 @@
 /**
  * Org-hierarchy + mess-hall operations. Drizzle query layer.
  *
- * Auth posture preserved: authenticated entrypoints (caller runs requireAuth())
- * with no module-level PBAC guard. `ctx` accepted for signature uniformity.
+ * Auth: leituras da hierarquia são apenas autenticadas (catálogo visível a qualquer sessão);
+ * `addOtherPresence` escreve presença de terceiro e exige `messhall:2` no refeitório.
  *
  * `units`/`mess_halls` têm PK bigserial → o id volta BigInt no Drizzle; `toWire`
  * coage para number (contrato), e updates por id usam `BigInt(input.id)`.
@@ -19,18 +19,21 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, count, eq } from "drizzle-orm"
+import type { PgColumn } from "drizzle-orm/pg-core"
+import { requireMessHall, requirePermission } from "../guards/require-permission.ts"
 import type {
 	AddOtherPresence,
 	ApplyPlacesDiff,
 	FetchMessHallByCode,
 	FetchOtherPresencesCount,
 	FetchUserMealForecast,
+	ListPlaces,
 	ResolveDisplayName,
 	UpdateEntityInput,
 } from "../schemas/places.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { describeDriverError, runQuery, toWire } from "../utils/index.ts"
 
 type Unit = Tables<"units">
 type Kitchen = Tables<"kitchen">
@@ -38,9 +41,32 @@ type MessHall = Tables<"mess_halls">
 
 // ─── Reference reads ────────────────────────────────────────────────────────
 
-export async function listUnits(db: SisubDb, _ctx: UserContext): Promise<Array<{ id: number; code: string | null; display_name: string | null; type: null }>> {
+/**
+ * Unidades para seleção. Exclui o escopo de treino por padrão — ver `ListPlaces`.
+ */
+/**
+ * Filtro de escopo de treino, ponto ÚNICO por entidade.
+ *
+ * As sentinelas de treino saem de toda listagem de produção por padrão; incluí-las é opt-in
+ * explícito (`includeTraining`), usado só pelo painel da SDAB. Centralizar aqui é o que
+ * impede o modo de falha real: um seletor novo esquecer o filtro e vazar a cozinha de treino
+ * para todo mundo — ou pior, deixar dado de treino entrar num indicador.
+ */
+function trainingFilter(column: PgColumn, input?: ListPlaces) {
+	return input?.includeTraining ? undefined : eq(column, false)
+}
+
+export async function listUnits(
+	db: SisubDb,
+	_ctx: UserContext,
+	input?: ListPlaces
+): Promise<Array<{ id: number; code: string | null; display_name: string | null; type: null }>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.unitsInCore.findMany({ columns: { id: true, code: true, displayName: true }, orderBy: (u, { asc }) => [asc(u.displayName)] })
+		db.query.unitsInCore.findMany({
+			columns: { id: true, code: true, displayName: true },
+			where: trainingFilter(unitsInCore.isTraining, input),
+			orderBy: (u, { asc }) => [asc(u.displayName)],
+		})
 	)
 	return rows.map((r) => {
 		const w = toWire<{ id: number; code: string | null; display_name: string | null }>(r)
@@ -50,23 +76,29 @@ export async function listUnits(db: SisubDb, _ctx: UserContext): Promise<Array<{
 
 export async function listAllMessHalls(
 	db: SisubDb,
-	_ctx: UserContext
+	_ctx: UserContext,
+	input?: ListPlaces
 ): Promise<Array<Pick<MessHall, "id" | "unit_id" | "code" | "display_name" | "kitchen_id">>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.messHallsInCore.findMany({
 			columns: { id: true, unitId: true, code: true, displayName: true, kitchenId: true },
+			where: trainingFilter(messHallsInCore.isTraining, input),
 			orderBy: (m, { asc }) => [asc(m.displayName)],
 		})
 	)
 	return rows.map((r) => toWire(r))
 }
 
-export async function fetchPlacesGraph(db: SisubDb, _ctx: UserContext): Promise<{ units: Unit[]; kitchens: Kitchen[]; messHalls: MessHall[] }> {
+export async function fetchPlacesGraph(
+	db: SisubDb,
+	_ctx: UserContext,
+	input?: ListPlaces
+): Promise<{ units: Unit[]; kitchens: Kitchen[]; messHalls: MessHall[] }> {
 	const [units, kitchens, messHalls] = await runQuery("FETCH_FAILED", () =>
 		Promise.all([
-			db.select().from(unitsInCore).orderBy(asc(unitsInCore.displayName)),
-			db.select().from(kitchenInCore).orderBy(asc(kitchenInCore.displayName)),
-			db.select().from(messHallsInCore).orderBy(asc(messHallsInCore.displayName)),
+			db.select().from(unitsInCore).where(trainingFilter(unitsInCore.isTraining, input)).orderBy(asc(unitsInCore.displayName)),
+			db.select().from(kitchenInCore).where(trainingFilter(kitchenInCore.isTraining, input)).orderBy(asc(kitchenInCore.displayName)),
+			db.select().from(messHallsInCore).where(trainingFilter(messHallsInCore.isTraining, input)).orderBy(asc(messHallsInCore.displayName)),
 		])
 	)
 	return {
@@ -78,7 +110,11 @@ export async function fetchPlacesGraph(db: SisubDb, _ctx: UserContext): Promise<
 
 // ─── Org-graph mutations ────────────────────────────────────────────────────
 
-export async function updatePlacesEntity(db: SisubDb, _ctx: UserContext, input: UpdateEntityInput) {
+export async function updatePlacesEntity(db: SisubDb, ctx: UserContext, input: UpdateEntityInput) {
+	// A estrutura organizacional (OM, cozinha, refeitório) é da SDAB — sem este gate
+	// qualquer usuário autenticado renomeava unidades e refeitórios da FAB inteira.
+	requirePermission(ctx, "global", 2)
+
 	await runQuery("UPDATE_FAILED", () => {
 		if (input.entityType === "unit") {
 			return db
@@ -105,7 +141,11 @@ const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId"
 >
 const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInCore.$inferInsert>
 
-export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: ApplyPlacesDiff) {
+export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: ApplyPlacesDiff) {
+	// Idem: o diff reparenteia cozinhas e refeitórios. Sem gate, qualquer sessão válida
+	// remontava a hierarquia.
+	requirePermission(ctx, "global", 2)
+
 	await Promise.all(
 		input.diffs.map(async (diff) => {
 			try {
@@ -121,7 +161,7 @@ export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: App
 						.where(eq(messHallsInCore.id, BigInt(diff.recordId)))
 				}
 			} catch (e) {
-				throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${e instanceof Error ? e.message : String(e)}`)
+				throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${describeDriverError(e)}`)
 			}
 		})
 	)
@@ -181,7 +221,10 @@ export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, i
 	return rows[0]?.value ?? 0
 }
 
-export async function addOtherPresence(db: SisubDb, _ctx: UserContext, input: AddOtherPresence) {
+export async function addOtherPresence(db: SisubDb, ctx: UserContext, input: AddOtherPresence) {
+	// Presença de não-cadastrado lançada pelo fiscal do rancho.
+	requireMessHall(ctx, 2, input.messHallId)
+
 	await runQuery("INSERT_FAILED", () =>
 		db.insert(otherPresencesInKitchen).values({ adminId: input.adminId, date: input.date, meal: input.meal, messHallId: input.messHallId })
 	)

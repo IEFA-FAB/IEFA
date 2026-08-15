@@ -12,8 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as AlphaRouteRouteImport } from './routes/alpha/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
+import { Route as AuthDotmdRouteImport } from './routes/auth[.]md'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as JournalRouteRouteImport } from './routes/journal/route'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known.api-catalog'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as AlphaBancadaRouteImport } from './routes/alpha/bancada'
 import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
@@ -23,6 +27,7 @@ import { Route as JournalAboutRouteImport } from './routes/journal/about'
 import { Route as JournalEditorialRouteRouteImport } from './routes/journal/editorial/route'
 import { Route as JournalProfileRouteImport } from './routes/journal/profile'
 import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
+import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as PublicEnAboutRouteImport } from './routes/_public/_en/about'
 import { Route as PublicEnChatRadaRouteImport } from './routes/_public/_en/chatRada'
 import { Route as PublicEnInnovationPolicyRouteImport } from './routes/_public/_en/innovation-policy'
@@ -50,6 +55,7 @@ import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/
 import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
 import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
 import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
+import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as PublicEnFacilitiesIndexRouteImport } from './routes/_public/_en/facilities/index'
 import { Route as PublicEnFacilitiesPregoeiroRouteImport } from './routes/_public/_en/facilities/pregoeiro'
 import { Route as PublicEnPostsIndexRouteImport } from './routes/_public/_en/posts/index'
@@ -75,6 +81,11 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthDotmdRoute = AuthDotmdRouteImport.update({
+  id: '/auth.md',
+  path: '/auth.md',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -83,6 +94,21 @@ const HealthRoute = HealthRouteImport.update({
 const JournalRouteRoute = JournalRouteRouteImport.update({
   id: '/journal',
   path: '/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownApiCatalogRoute = DotwellKnownApiCatalogRouteImport.update({
+  id: '/.well-known/api-catalog',
+  path: '/.well-known/api-catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
@@ -130,6 +156,12 @@ const JournalSubmitRoute = JournalSubmitRouteImport.update({
   path: '/submit',
   getParentRoute: () => JournalRouteRoute,
 } as any)
+const DotwellKnownAgentSkillsIndexDotjsonRoute =
+  DotwellKnownAgentSkillsIndexDotjsonRouteImport.update({
+    id: '/.well-known/agent-skills/index.json',
+    path: '/.well-known/agent-skills/index.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEnAboutRoute = PublicEnAboutRouteImport.update({
   id: '/_en/about',
   path: '/about',
@@ -273,6 +305,12 @@ const JournalSubmissionsIdRoute = JournalSubmissionsIdRouteImport.update({
   path: '/submissions/$id',
   getParentRoute: () => JournalRouteRoute,
 } as any)
+const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
+  DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport.update({
+    id: '/.well-known/agent-skills/$skill/SKILL.md',
+    path: '/.well-known/agent-skills/$skill/SKILL.md',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEnFacilitiesIndexRoute = PublicEnFacilitiesIndexRouteImport.update({
   id: '/_en/facilities/',
   path: '/facilities/',
@@ -335,8 +373,12 @@ export interface FileRoutesByFullPath {
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
+  '/auth.md': typeof AuthDotmdRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
@@ -344,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/journal/submit': typeof JournalSubmitRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/about': typeof PublicEnAboutRoute
   '/chatRada': typeof PublicEnChatRadaRoute
   '/innovation-policy': typeof PublicEnInnovationPolicyRoute
@@ -371,6 +414,7 @@ export interface FileRoutesByFullPath {
   '/journal/articles/': typeof JournalArticlesIndexRoute
   '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
   '/posts/$slug': typeof PublicEnPostsSlugRoute
   '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
@@ -384,8 +428,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/alpha': typeof AlphaRouteRouteWithChildren
+  '/auth.md': typeof AuthDotmdRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
@@ -394,6 +442,7 @@ export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
   '/journal': typeof JournalIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/about': typeof PublicEnAboutRoute
   '/chatRada': typeof PublicEnChatRadaRoute
   '/innovation-policy': typeof PublicEnInnovationPolicyRoute
@@ -421,6 +470,7 @@ export interface FileRoutesByTo {
   '/journal/articles': typeof JournalArticlesIndexRoute
   '/journal/review': typeof JournalReviewIndexRoute
   '/journal/submissions': typeof JournalSubmissionsIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
   '/posts/$slug': typeof PublicEnPostsSlugRoute
   '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
@@ -438,8 +488,12 @@ export interface FileRoutesById {
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
+  '/auth.md': typeof AuthDotmdRoute
   '/health': typeof HealthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
@@ -448,6 +502,7 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
+  '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/_public/_en/about': typeof PublicEnAboutRoute
   '/_public/_en/chatRada': typeof PublicEnChatRadaRoute
   '/_public/_en/innovation-policy': typeof PublicEnInnovationPolicyRoute
@@ -475,6 +530,7 @@ export interface FileRoutesById {
   '/journal/articles/': typeof JournalArticlesIndexRoute
   '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
+  '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/_public/_en/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
   '/_public/_en/posts/$slug': typeof PublicEnPostsSlugRoute
   '/_public/_pt/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
@@ -493,8 +549,12 @@ export interface FileRouteTypes {
     | '/alpha'
     | '/auth'
     | '/journal'
+    | '/auth.md'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/journal/editorial'
+    | '/.well-known/api-catalog'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
@@ -502,6 +562,7 @@ export interface FileRouteTypes {
     | '/journal/submit'
     | '/auth/'
     | '/journal/'
+    | '/.well-known/agent-skills/index.json'
     | '/about'
     | '/chatRada'
     | '/innovation-policy'
@@ -529,6 +590,7 @@ export interface FileRouteTypes {
     | '/journal/articles/'
     | '/journal/review/'
     | '/journal/submissions/'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/facilities/pregoeiro'
     | '/posts/$slug'
     | '/instalacoes/pregoeiro'
@@ -542,8 +604,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/alpha'
+    | '/auth.md'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/journal/editorial'
+    | '/.well-known/api-catalog'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
@@ -552,6 +618,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/journal'
+    | '/.well-known/agent-skills/index.json'
     | '/about'
     | '/chatRada'
     | '/innovation-policy'
@@ -579,6 +646,7 @@ export interface FileRouteTypes {
     | '/journal/articles'
     | '/journal/review'
     | '/journal/submissions'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/facilities/pregoeiro'
     | '/posts/$slug'
     | '/instalacoes/pregoeiro'
@@ -595,8 +663,12 @@ export interface FileRouteTypes {
     | '/alpha'
     | '/auth'
     | '/journal'
+    | '/auth.md'
     | '/health'
+    | '/llms.txt'
+    | '/sitemap.xml'
     | '/journal/editorial'
+    | '/.well-known/api-catalog'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
@@ -605,6 +677,7 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/auth/'
     | '/journal/'
+    | '/.well-known/agent-skills/index.json'
     | '/_public/_en/about'
     | '/_public/_en/chatRada'
     | '/_public/_en/innovation-policy'
@@ -632,6 +705,7 @@ export interface FileRouteTypes {
     | '/journal/articles/'
     | '/journal/review/'
     | '/journal/submissions/'
+    | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/_public/_en/facilities/pregoeiro'
     | '/_public/_en/posts/$slug'
     | '/_public/_pt/instalacoes/pregoeiro'
@@ -649,7 +723,13 @@ export interface RootRouteChildren {
   AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   JournalRouteRoute: typeof JournalRouteRouteWithChildren
+  AuthDotmdRoute: typeof AuthDotmdRoute
   HealthRoute: typeof HealthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  DotwellKnownApiCatalogRoute: typeof DotwellKnownApiCatalogRoute
+  DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -675,6 +755,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth.md': {
+      id: '/auth.md'
+      path: '/auth.md'
+      fullPath: '/auth.md'
+      preLoaderRoute: typeof AuthDotmdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/health': {
       id: '/health'
       path: '/health'
@@ -687,6 +774,27 @@ declare module '@tanstack/react-router' {
       path: '/journal'
       fullPath: '/journal'
       preLoaderRoute: typeof JournalRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/api-catalog': {
+      id: '/.well-known/api-catalog'
+      path: '/.well-known/api-catalog'
+      fullPath: '/.well-known/api-catalog'
+      preLoaderRoute: typeof DotwellKnownApiCatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_public/': {
@@ -751,6 +859,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/journal/submit'
       preLoaderRoute: typeof JournalSubmitRouteImport
       parentRoute: typeof JournalRouteRoute
+    }
+    '/.well-known/agent-skills/index.json': {
+      id: '/.well-known/agent-skills/index.json'
+      path: '/.well-known/agent-skills/index.json'
+      fullPath: '/.well-known/agent-skills/index.json'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_public/_en/about': {
       id: '/_public/_en/about'
@@ -940,6 +1055,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/journal/submissions/$id'
       preLoaderRoute: typeof JournalSubmissionsIdRouteImport
       parentRoute: typeof JournalRouteRoute
+    }
+    '/.well-known/agent-skills/$skill/SKILL.md': {
+      id: '/.well-known/agent-skills/$skill/SKILL.md'
+      path: '/.well-known/agent-skills/$skill/SKILL.md'
+      fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
+      preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_public/_en/facilities/': {
       id: '/_public/_en/facilities/'
@@ -1164,7 +1286,15 @@ const rootRouteChildren: RootRouteChildren = {
   AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   JournalRouteRoute: JournalRouteRouteWithChildren,
+  AuthDotmdRoute: AuthDotmdRoute,
   HealthRoute: HealthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  DotwellKnownApiCatalogRoute: DotwellKnownApiCatalogRoute,
+  DotwellKnownAgentSkillsIndexDotjsonRoute:
+    DotwellKnownAgentSkillsIndexDotjsonRoute,
+  DotwellKnownAgentSkillsSkillSKILLDotmdRoute:
+    DotwellKnownAgentSkillsSkillSKILLDotmdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

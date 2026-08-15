@@ -8,6 +8,10 @@
  *   e a lista recente (`recent`).
  * - Itens com soft-delete (deleted_at) NUNCA entram (não precisam de revisão).
  * - Insumos = catálogo único; preparações = apenas globais (kitchen_id IS NULL).
+ * - O grupo legado "Preparações" herdado do SISUBWEB vive em `kitchen.ingredient` mas
+ *   não é insumo (ver `preparation-scope.ts`): ficava no denominador da conferência
+ *   inflando o total e derrubando o percentual de algo que nutricionista nenhum confere.
+ *   Fora da cobertura, do feed diário e da lista recente — nos dois lados do painel.
  */
 
 import { ingredientInKitchen, ingredientReviewInKitchen, recipeReviewInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
@@ -16,6 +20,7 @@ import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { GetReviewMetrics } from "../schemas/review-metrics.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
+import { ingredientOutsidePreparations } from "./preparation-scope.ts"
 
 export interface ReviewTypeMetrics {
 	/** Itens ativos (não deletados). Denominador da cobertura. */
@@ -77,8 +82,8 @@ export async function getReviewMetrics(db: SisubDb, ctx: UserContext, input: Get
 
 	const { from, to } = resolveWindow(input)
 
-	// Itens ativos.
-	const activeIngredient = isNull(ingredientInKitchen.deletedAt)
+	// Itens ativos. Insumo ativo exclui o grupo legado "Preparações" — não é insumo.
+	const activeIngredient = and(isNull(ingredientInKitchen.deletedAt), ingredientOutsidePreparations) as SQL
 	const activeRecipe = and(isNull(recipesInKitchen.deletedAt), isNull(recipesInKitchen.kitchenId)) as SQL
 	const inWindowIngredient = and(gte(ingredientReviewInKitchen.reviewedAt, from), lte(ingredientReviewInKitchen.reviewedAt, to)) as SQL
 	const inWindowRecipe = and(gte(recipeReviewInKitchen.reviewedAt, from), lte(recipeReviewInKitchen.reviewedAt, to)) as SQL

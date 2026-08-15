@@ -61,11 +61,23 @@ jobs:
       # `// nosemgrep: <regra>` com o motivo na linha anterior — a exceção fica no
       # código, ao lado de quem a lê, e não numa lista distante.
       # Falso positivo novo se resolve ajustando a regra, não afrouxando o gate.
-      - name: Scan
+      # Duas passadas de propósito. O SARIF leva TUDO para a aba Security — inclusive as
+      # regras WARNING, que sinalizam risco sem impedir merge. O gate bloqueante roda só
+      # sobre ERROR: são os invariantes de autorização, onde um achado é bug, não opinião.
+      # Assim uma regra advisory nova não precisa de triagem retroativa do repo inteiro
+      # para poder existir.
+      - name: Scan (SARIF completo, todas as severidades)
         run: |
           opengrep scan \
             --config .opengrep/rules \
             --sarif --sarif-output=opengrep.sarif \
+            apps packages
+
+      - name: Gate (ERROR — invariantes de autorização)
+        run: |
+          opengrep scan \
+            --config .opengrep/rules \
+            --severity ERROR \
             --error \
             apps packages
 
@@ -263,3 +275,25 @@ jobs:
         with:
           sarif_file: trivy-config.sarif
           category: trivy-config
+
+  deploy-artifacts-drift:
+    name: deploy artifacts (manifest drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      # Gate, não relatório: Dockerfile, docker-bake.hcl e .github/paths-filter.yml
+      # são derivados de apps.manifest.json + o grafo de workspace. Editados à mão,
+      # divergem em silêncio — package fora do COPY quebra o build da imagem, e
+      # package fora do paths-filter faz o app não redeployar quando muda.
+      - name: Check generated deploy artifacts
+        run: bun run check:deploy

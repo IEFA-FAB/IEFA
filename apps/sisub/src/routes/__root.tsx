@@ -107,6 +107,24 @@ function RootDocument() {
 				window.location.replace(`/auth/reset-password${window.location.search}`)
 				return
 			}
+			// Formato token_hash: o mesmo desvio, mas só para a recuperação.
+			if (params.has("token_hash") && params.get("type") === "recovery") {
+				window.location.replace(`/auth/reset-password${window.location.search}`)
+				return
+			}
+			// Demais tipos de link (signup, invite, magiclink) são de /auth.
+			if (params.has("token_hash")) {
+				window.location.replace(`/auth${window.location.search}`)
+				return
+			}
+			// Link recusado: o Supabase manda o motivo no HASH, e é justamente o que
+			// chega aqui quando o redirectTo não está na allow-list e o caminho some.
+			// Sem repassar o hash, o usuário encara a landing page sem explicação.
+			const hashParams = new URLSearchParams(window.location.hash.slice(1))
+			if (hashParams.has("error")) {
+				window.location.replace(`/auth/reset-password${window.location.hash}`)
+				return
+			}
 		}
 
 		// Implicit/hash flow: Supabase fires PASSWORD_RECOVERY after parsing the

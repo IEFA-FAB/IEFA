@@ -1,9 +1,13 @@
 import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
+import { registerAgentDiscovery } from "./api/agent-discovery.ts"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
+import { gs1AdminRoutes } from "./api/routes/gs1-admin.ts"
+import { nfeAdminRoutes } from "./api/routes/nfe-admin.ts"
 import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
+import { siafiAdminRoutes } from "./api/routes/siafi-admin.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
@@ -45,8 +49,11 @@ type HealthResponse =
 const typedApp = app
 	.route("/api", api)
 	.route("/api/admin/compras", comprasAdminRoutes)
+	.route("/api/admin/gs1", gs1AdminRoutes)
+	.route("/api/admin/nfe", nfeAdminRoutes)
 	.route("/api/admin/nutrition", nutritionAdminRoutes)
 	.route("/api/admin/price-research", priceResearchRoutes)
+	.route("/api/admin/siafi", siafiAdminRoutes)
 	.get("/health", (c) => {
 		const mem = process.memoryUsage()
 		const rss = mem.rss
@@ -81,7 +88,7 @@ app.openAPIRegistry.registerComponent("securitySchemes", "AdminSecret", {
 })
 
 // Documentação OpenAPI
-app.doc("/doc", {
+const openApiConfig = {
 	openapi: "3.0.0",
 	info: {
 		version: "1.0.0",
@@ -98,7 +105,13 @@ app.doc("/doc", {
 			description: "Local",
 		},
 	],
-})
+}
+
+app.doc("/doc", openApiConfig)
+
+// robots.txt, llms.txt e /.well-known/api-catalog — o llms.txt é derivado do
+// documento OpenAPI acima, então endpoint novo aparece nele sozinho.
+registerAgentDiscovery(app, openApiConfig)
 
 // Interface Scalar para documentação interativa (recomendado: tema 'purple' ou 'moon')
 /* app.get(
@@ -136,6 +149,11 @@ export type AppType = typeof typedApp
 export default {
 	port,
 	fetch: app.fetch,
+	// > `idle_timeout` do ALB (60 s). Com o padrão do Bun (10 s) quem fecha a
+	// conexão é o servidor, e o ALB devolve 502 sem nenhum 5xx no target.
+	// Mesmo motivo do preload em `docker/bun-serve-idle-timeout.ts` (o entry
+	// export-default do Hono não passa por `Bun.serve`, então não é interceptado).
+	idleTimeout: 120,
 }
 
 // Worker de sincronização — agendado via Bun.cron

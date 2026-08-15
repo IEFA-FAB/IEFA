@@ -77,123 +77,9 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
-          filters: |
-            api:
-              - 'apps/api/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            portal:
-              - 'apps/portal/**'
-              - 'packages/hono-client/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            rumaer:
-              - 'apps/rumaer/**'
-              - 'packages/database/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            sucont:
-              - 'apps/sucont/**'
-              - 'packages/database/**'
-              - 'packages/pbac/**'
-              - 'packages/ai-provider/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            assignment_selection:
-              - 'apps/assignment-selection/**'
-              - 'packages/database/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            sisub:
-              - 'apps/sisub/**'
-              - 'packages/database/**'
-              - 'packages/hono-client/**'
-              - 'packages/alpha-client/**'
-              - 'packages/ai-provider/**'
-              - 'packages/pbac/**'
-              - 'packages/sisub-domain/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            forms:
-              - 'apps/forms/**'
-              - 'packages/database/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            docs:
-              - 'apps/docs/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            # Deploy do alpha segue suspenso — o filtro alimenta apenas o check-alpha.
-            alpha:
-              - 'apps/alpha/**'
-              - 'packages/alpha-client/**'
-              - 'packages/ai-provider/**'
-              - '.github/workflows/deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            5s:
-              - 'apps/forms/**'
-              - 'packages/database/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-            mcp:
-              - 'apps/sisub-mcp/**'
-              - 'packages/database/**'
-              - 'packages/pbac/**'
-              - 'packages/sisub-domain/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - '.github/workflows/_app-build.yml'
-              - '.github/workflows/_app-deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
-
+          # Lista gerada: .github/paths-filter.yml sai de apps.manifest.json + o grafo
+          # de workspace de cada app (`bun run generate:deploy`).
+          filters: .github/paths-filter.yml
       # workflow_dispatch: use force_* inputs; push: use paths filter
       - name: Resolve outputs
         id: final
@@ -436,8 +322,8 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Lint · types
-        run: bunx turbo run lint typecheck --filter=./apps/sucont
+      - name: Lint · types · tests
+        run: bunx turbo run lint typecheck test --filter=./apps/sucont
 
   build-sucont:
     needs: [check-sucont, warm-deps]
@@ -530,6 +416,11 @@ jobs:
           bunx turbo run test --filter=./packages/pbac
           bunx turbo run test --filter=./packages/sisub-domain
         env:
+          # SISUB_DATABASE_URL faltava: os testes de integração via Drizzle
+          # skipavam em silêncio ("verde vazio") — o guard SISUB_INTEGRATION_REQUIRED
+          # do harness passou a expor isso como falha. Com o secret, a suíte
+          # inteira roda contra o banco real também no deploy.
+          SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
           SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
@@ -704,6 +595,28 @@ jobs:
 
       - name: Build
         run: bunx turbo run build --filter=./apps/docs
+
+      # O prerender do Nitro NÃO falha o build quando uma rota lança: ele registra
+      # o erro, para de seguir os links daquela página e segue em frente. O sync
+      # abaixo usa --delete, então um prerender truncado APAGA do bucket as páginas
+      # que ainda estavam lá — foi assim que /docs/** sumiu de produção com o build
+      # verde (um helper do tslib que deixou de resolver derrubou o render de /docs/,
+      # e das 23 rotas só 8 saíram). Conferir antes de sincronizar transforma isso
+      # num deploy vermelho em vez de num site vazio.
+      - name: Verify prerender output
+        run: |
+          set -euo pipefail
+          cd apps/docs
+          test -f .output/public/docs/index.html || {
+            echo "::error::prerender não gerou docs/index.html — abortando antes do sync --delete"
+            exit 1
+          }
+          pages=$(find .output/public -name 'index.html' | wc -l)
+          echo "páginas prerenderizadas: $pages"
+          [ "$pages" -ge 12 ] || {
+            echo "::error::só $pages páginas prerenderizadas (esperado >= 12) — prerender truncado, abortando"
+            exit 1
+          }
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.2.2

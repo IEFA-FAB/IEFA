@@ -142,12 +142,7 @@ function SortableAuthorItem({ id, author, index, onUpdate, onRemove, canRemove }
 					<Label htmlFor={`author-${index}-name`}>
 						Nome Completo <span className="text-destructive">*</span>
 					</Label>
-					<Input
-						id={`author-${index}-name`}
-						value={author.full_name}
-						onChange={(e) => onUpdate(index, "full_name", e.target.value)}
-						placeholder="Nome completo do autor"
-					/>
+					<Input id={`author-${index}-name`} value={author.full_name} onChange={(e) => onUpdate(index, "full_name", e.target.value)} placeholder="João Silva" />
 				</div>
 
 				<div className="space-y-1">

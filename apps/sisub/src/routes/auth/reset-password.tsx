@@ -3,13 +3,17 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 // Icons
 import { AlertCircle, CheckCircle2, ChevronRight, Eye, EyeOff, Loader2, Lock } from "lucide-react"
 // React
-import { useEffect, useReducer } from "react"
+import { useEffect, useReducer, useRef } from "react"
+// Validation
+import { z } from "zod"
+// Services
+import { clearPasswordRecovery } from "@/auth/recovery-session"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-// Services
+import { parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
 
@@ -25,7 +29,25 @@ function getPasswordError(v: string): string | null {
    ROUTE DEFINITION
    ======================================================================== */
 
+// O link de recuperação chega em um de três formatos, e o Supabase escolhe qual
+// conforme o template de e-mail e o flow do projeto:
+//   1. `?code=…` — PKCE, o que o template `{{ .ConfirmationURL }}` em uso produz;
+//   2. `#access_token=…` — implícito, também consumido pelo próprio client;
+//   3. `?token_hash=…&type=recovery` — de um template que exponha `{{ .TokenHash }}`.
+// Os parâmetros de erro são o caso mais comum na prática: é o que volta quando o
+// link já foi usado, expirou, ou o `redirectTo` não está na allow-list.
+const searchSchema = z.object({
+	token_hash: z.string().optional(),
+	type: z.string().optional(),
+	code: z.string().optional(),
+	// Link já consumido ou expirado: o Supabase devolve o motivo em vez do token.
+	error: z.string().optional(),
+	error_code: z.string().optional(),
+	error_description: z.string().optional(),
+})
+
 export const Route = createFileRoute("/auth/reset-password")({
+	validateSearch: searchSchema,
 	head: () => ({
 		meta: [{ title: "Redefinir Senha — SISUB" }],
 	}),
@@ -48,11 +70,15 @@ type ResetPasswordRouteState = {
 	showConfirm: boolean
 	isSubmitting: boolean
 	error: string
+	/** Motivo devolvido pelo Supabase quando o link não vale mais. */
+	linkError: string
 }
 
 type ResetPasswordRouteAction =
 	| { type: "SET_PAGE_STATE"; value: PageState }
+	| { type: "REJECT_LINK"; reason: string }
 	| { type: "RESOLVE_FALLBACK"; hasSession: boolean }
+	| { type: "RESOLVE_OTP"; verified: boolean }
 	| { type: "SET_NEW_PASSWORD"; value: string }
 	| { type: "SET_CONFIRM"; value: string }
 	| { type: "TOGGLE_SHOW_PASSWORD" }
@@ -68,17 +94,25 @@ const initialResetPasswordRouteState: ResetPasswordRouteState = {
 	showConfirm: false,
 	isSubmitting: false,
 	error: "",
+	linkError: "",
 }
 
 function resetPasswordRouteReducer(state: ResetPasswordRouteState, action: ResetPasswordRouteAction): ResetPasswordRouteState {
 	switch (action.type) {
 		case "SET_PAGE_STATE":
 			return { ...state, pageState: action.value }
+		case "REJECT_LINK":
+			return { ...state, pageState: "invalid", linkError: action.reason }
 		case "RESOLVE_FALLBACK":
 			// Só aplica o fallback se ainda estivermos verificando — evita
 			// sobrescrever um estado "form" já resolvido pelo onAuthStateChange.
 			if (state.pageState !== "verifying") return state
 			return { ...state, pageState: action.hasSession ? "form" : "invalid" }
+		case "RESOLVE_OTP":
+			// O onAuthStateChange do verifyOtp bem-sucedido pode chegar antes daqui;
+			// nesse caso o formulário já está na tela e não deve piscar de volta.
+			if (state.pageState === "form" || state.pageState === "success") return state
+			return { ...state, pageState: action.verified ? "form" : "invalid" }
 		case "SET_NEW_PASSWORD":
 			return { ...state, newPassword: action.value }
 		case "SET_CONFIRM":
@@ -103,17 +137,36 @@ function resetPasswordRouteReducer(state: ResetPasswordRouteState, action: Reset
 function ResetPasswordPage() {
 	"use no memo"
 	const router = useRouter()
+	const search = Route.useSearch()
 
 	const [state, dispatch] = useReducer(resetPasswordRouteReducer, initialResetPasswordRouteState)
-	const { pageState, newPassword, confirm, showPassword, showConfirm, isSubmitting, error } = state
+	const { pageState, newPassword, confirm, showPassword, showConfirm, isSubmitting, error, linkError } = state
 
 	const passwordErr = newPassword ? getPasswordError(newPassword) : null
 	const confirmErr = confirm && confirm !== newPassword ? "As senhas não coincidem." : null
 
-	// Aguarda o evento de recuperação de senha do Supabase (via hash do link).
-	// Sem deps reativas: só usa supabase/dispatch (estáveis) e a decisão de
-	// estado mora no reducer (RESOLVE_FALLBACK).
+	// O token de recuperação vale uma vez só: um segundo verifyOtp com o mesmo
+	// token falha e mostraria "Link inválido" à toa. O ref sobrevive ao efeito
+	// duplo do StrictMode e a qualquer re-render disparado pelo SIGNED_IN.
+	const verifiedTokenRef = useRef<string | null>(null)
+
+	// Consome o link de recuperação. Sem deps reativas: os parâmetros vêm da URL
+	// de entrada e não mudam enquanto a página vive; a decisão de estado mora no
+	// reducer para não ler um pageState capturado no mount.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: roda uma vez no mount; search vem da URL de entrada e supabase/dispatch são estáveis
 	useEffect(() => {
+		// Link já consumido ou expirado: o Supabase manda o motivo no lugar do
+		// token — na query (PKCE) ou no hash (implícito). Não há o que verificar.
+		const hashParams = new URLSearchParams(typeof window === "undefined" ? "" : window.location.hash.slice(1))
+		// O `+` do form-encoding só vira espaço no URLSearchParams; o parser de search
+		// do TanStack entrega "Email+link+is+invalid", que é o que o usuário leria.
+		const fromQuery = search.error_description ?? search.error
+		const rejection = fromQuery?.replace(/\+/g, " ") ?? hashParams.get("error_description") ?? hashParams.get("error")
+		if (rejection) {
+			dispatch({ type: "REJECT_LINK", reason: rejection })
+			return
+		}
+
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((event, session) => {
@@ -122,14 +175,46 @@ function ResetPasswordPage() {
 			}
 		})
 
-		// Fallback: se a sessão já estiver ativa (link com token no hash já processado).
-		// A decisão de "ainda verificando?" vai no reducer para não ler pageState
-		// defasado (capturado no mount) e sobrescrever um "form" já resolvido.
+		// Formato token_hash: nenhum client do Supabase troca isso por sessão
+		// sozinho — detectSessionInUrl só enxerga `?code=` e `#access_token=`.
+		// O template de e-mail em uso hoje é `{{ .ConfirmationURL }}`, que não
+		// produz este formato; o ramo existe porque token_hash é o único formato
+		// que sobrevive a um link aberto fora da origem que pediu a redefinição.
+		const tokenHash = search.token_hash
+		if (tokenHash) {
+			if (verifiedTokenRef.current !== tokenHash) {
+				verifiedTokenRef.current = tokenHash
+				supabase.auth.verifyOtp({ token_hash: tokenHash, type: parseOtpType(search.type) }).then(({ error: otpError }) => {
+					if (otpError) {
+						dispatch({ type: "REJECT_LINK", reason: otpError.message })
+						return
+					}
+					dispatch({ type: "RESOLVE_OTP", verified: true })
+				})
+			}
+			return () => subscription.unsubscribe()
+		}
+
+		// Fallback dos fluxos PKCE/implícito: aí o próprio client já consumiu o
+		// token da URL, então basta perguntar se existe sessão.
 		const timer = setTimeout(async () => {
 			const {
 				data: { session },
 			} = await supabase.auth.getSession()
-			dispatch({ type: "RESOLVE_FALLBACK", hasSession: !!session })
+			if (session) {
+				dispatch({ type: "RESOLVE_FALLBACK", hasSession: true })
+				return
+			}
+			// Chegou um `code` do PKCE e mesmo assim não há sessão: a troca falhou.
+			// O code verifier fica no armazenamento da origem que pediu a redefinição,
+			// então isso é o que se vê quando o link abre em outra origem (o Supabase
+			// devolve para a Site URL quando o redirectTo não está na allow-list),
+			// noutro navegador ou noutro dispositivo. "Expirou" seria mentira.
+			if (search.code) {
+				dispatch({ type: "REJECT_LINK", reason: "Abra o link no mesmo navegador e no mesmo endereço em que você pediu a redefinição." })
+				return
+			}
+			dispatch({ type: "RESOLVE_FALLBACK", hasSession: false })
 		}, 1500)
 
 		return () => {
@@ -155,6 +240,7 @@ function ResetPasswordPage() {
 			return
 		}
 
+		clearPasswordRecovery()
 		await supabase.auth.signOut()
 		dispatch({ type: "SET_SUBMITTING", value: false })
 		dispatch({ type: "SET_PAGE_STATE", value: "success" })
@@ -198,7 +284,9 @@ function ResetPasswordPage() {
 					</div>
 					<Alert variant="destructive">
 						<AlertCircle className="size-4" />
-						<AlertDescription>Solicite uma nova recuperação de senha.</AlertDescription>
+						{/* O motivo do Supabase, quando existe, vale mais que a frase genérica:
+						    "link expirado" e "abriu em outro navegador" pedem ações diferentes. */}
+						<AlertDescription>{linkError || "Solicite uma nova recuperação de senha."}</AlertDescription>
 					</Alert>
 					<Button variant="outline" onClick={() => router.navigate({ to: "/auth" })} className="self-start">
 						Ir para o login

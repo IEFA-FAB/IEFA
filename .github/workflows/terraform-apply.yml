@@ -1,0 +1,172 @@
+# Terraform APPLY on merge to main, for the stacks whose files changed.
+#
+# Antes disto, `deploy.yml` só buildava imagem e forçava um deploy no ECS — a
+# infra dependia de um `terraform apply` manual que, na prática, não acontecia:
+# cpu 1024, log driver `awslogs` e ALB access logs ficaram semanas sem sair do
+# papel enquanto o sisub devolvia 502 sem nenhum log para investigar.
+#
+# Pareado com `terraform-plan.yml`: o plan roda no PR (read-only, comenta o diff),
+# este aplica o que foi revisado, depois do merge.
+#
+# Prereqs (uma vez, ver infra/README.md):
+#   - Aplicar a foundation à mão UMA vez para criar a role de apply, depois setar
+#     a repo VARIABLE `AWS_TF_APPLY_ROLE_ARN` (output `github_tf_apply_role_arn`).
+#   - As mesmas variables/secret do plan: AWS_REGION, TF_STATE_BUCKET,
+#     TF_STATE_DYNAMODB_TABLE e o secret TF_TFVARS_JSON.
+#
+# Caveat herdado do plan: os tfvars reais moram no secret, não no repo. Uma mudança
+# só de configuração (cpu, hosts, enable_cloudwatch_logs) NÃO dispara este workflow
+# nem aparece no diff — atualize `TF_TFVARS_JSON` e rode o `workflow_dispatch`
+# apontando o stack.
+#
+# `bootstrap` (bucket de state + tabela de lock) fica de fora de propósito: é o
+# alicerce do próprio backend e continua sendo aplicado à mão.
+#
+# Para exigir aprovação humana antes de cada apply, adicione `environment: production`
+# aos jobs e configure required reviewers nesse environment.
+
+name: terraform-apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+  workflow_dispatch:
+    inputs:
+      stacks:
+        description: 'Stacks a aplicar, separados por vírgula (ex: "foundation,sisub") ou "all"'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      foundation: ${{ steps.detect.outputs.foundation }}
+      services: ${{ steps.detect.outputs.services }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: detect
+        name: Detect stacks to apply
+        # Sem ${{ }} dentro do run (zizmor template-injection): tudo via env.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_STACKS: ${{ inputs.stacks }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          all_stacks() {
+            for d in infra/*/; do
+              name="$(basename "$d")"
+              case "$name" in modules|scripts|bootstrap) continue ;; esac
+              # backend.tf.example é o marcador certo de "stack aplicável por CI":
+              # é o arquivo que o init copia. Testar main.tf excluiria a foundation,
+              # que não tem um (alb.tf, ecs.tf, iam.tf…) — justamente o stack que
+              # precisa ir primeiro.
+              [ -f "$d/backend.tf.example" ] || continue
+              echo "$name"
+            done
+          }
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$INPUT_STACKS" = "all" ]; then
+              stacks="$(all_stacks)"
+            else
+              # Aceita "a,b" e "a, b"; descarta nome que não é stack conhecido.
+              known="$(all_stacks)"
+              stacks="$(tr ',' '\n' <<<"$INPUT_STACKS" | tr -d '[:space:]' | awk 'NF' \
+                | while read -r s; do grep -qx "$s" <<<"$known" && echo "$s"; done)"
+            fi
+          else
+            # Push force/primeiro commit: `before` vem zerado → compara com o pai.
+            base="$BEFORE_SHA"
+            if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              base="$AFTER_SHA^"
+            fi
+            changed="$(git diff --name-only "$base" "$AFTER_SHA" -- infra/)"
+            echo "Changed infra files:"; echo "$changed"
+
+            # Uma mudança em modules/ atinge todo stack de serviço (todos consomem
+            # ../modules/service).
+            modules_changed=false
+            if grep -q '^infra/modules/' <<<"$changed"; then modules_changed=true; fi
+
+            stacks="$(all_stacks | while read -r name; do
+              if grep -q "^infra/$name/" <<<"$changed"; then
+                echo "$name"
+              elif [ "$modules_changed" = true ] && [ "$name" != "foundation" ]; then
+                echo "$name"
+              fi
+            done)"
+          fi
+
+          stacks="$(printf '%s\n' "$stacks" | awk 'NF' | sort -u)"
+
+          # A foundation vai num job próprio e ANTES: os stacks de serviço leem os
+          # outputs dela via terraform_remote_state, então aplicar em paralelo
+          # deixaria o serviço lendo um state defasado.
+          foundation=false
+          if grep -qx 'foundation' <<<"$stacks"; then foundation=true; fi
+          services="$(grep -vx 'foundation' <<<"$stacks" | awk 'NF' | jq -R . | jq -cs .)"
+
+          echo "foundation=$foundation" >> "$GITHUB_OUTPUT"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "foundation: $foundation | services: $services"
+
+  apply-foundation:
+    needs: detect
+    if: needs.detect.outputs.foundation == 'true' && vars.AWS_TF_APPLY_ROLE_ARN != ''
+    # id-token: write fica NO JOB que chama, não no topo: as permissions de um
+    # workflow reutilizável são limitadas pelas de quem o chama, então sem isto o
+    # `_terraform-apply.yml` pediria o token OIDC e não receberia — e concedê-lo no
+    # topo daria id-token a todo job do arquivo, inclusive ao `detect`, que só lê git.
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/_terraform-apply.yml
+    with:
+      stack: foundation
+    # Explícito em vez de `secrets: inherit` — o stack só precisa dos tfvars.
+    secrets:
+      TF_TFVARS_JSON: ${{ secrets.TF_TFVARS_JSON }}
+
+  apply-services:
+    needs: [detect, apply-foundation]
+    # `always()` porque apply-foundation é skipped quando só um serviço mudou —
+    # sem isso o job de serviço herdaria o skip. Mas se a foundation FALHOU, os
+    # serviços não podem seguir: leriam um remote state inconsistente.
+    # `detect.result == 'success'` é obrigatório junto do always(): se o detect
+    # falhar, `services` vem vazio, `'' != '[]'` é verdadeiro e o matrix cairia num
+    # `fromJSON('')` — erro de sintaxe do workflow em vez de um skip limpo.
+    if: >-
+      always() &&
+      needs.detect.result == 'success' &&
+      needs.detect.outputs.services != '[]' &&
+      vars.AWS_TF_APPLY_ROLE_ARN != '' &&
+      (needs.apply-foundation.result == 'success' || needs.apply-foundation.result == 'skipped')
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        stack: ${{ fromJSON(needs.detect.outputs.services) }}
+    uses: ./.github/workflows/_terraform-apply.yml
+    with:
+      stack: ${{ matrix.stack }}
+    secrets:
+      TF_TFVARS_JSON: ${{ secrets.TF_TFVARS_JSON }}

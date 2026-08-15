@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_comment": "Serviços que rodam direto no Bun (api, alpha, sisub-mcp). Sem DOM.",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": ["bun"],
+    "moduleDetection": "force"
+  }
+}

@@ -19,6 +19,9 @@ import { envServer } from "@/lib/env.server"
  */
 let cached: ReturnType<typeof create> | undefined
 
+// `process.env` e não `import.meta.env`: o handler roda no Nitro. Ver env.server.ts.
+const isDev = process.env.NODE_ENV !== "production"
+
 function create() {
 	if (!envServer.SISUB_DATABASE_URL) {
 		throw new Error("SISUB_DATABASE_URL is not set — required by getDb() (Drizzle query layer). See apps/sisub/.env.schema.")
@@ -31,7 +34,14 @@ function create() {
 		// sem limite: no SSR isso trava o request além dos 60s do ALB → 504 + empilha
 		// conexão → rajada de 502. `connect_timeout` corta a espera; `idle_timeout`/
 		// `max_lifetime` reciclam conexões ociosas/velhas do pool.
-		connect_timeout: 10, // s — falha rápido em vez de pendurar o SSR
+		// 5 s: adquirir conexão é o passo mais barato do request, então esperar mais
+		// que isso só consome o orçamento de 60 s do ALB antes da query sequer rodar.
+		// Em dev o orçamento do ALB não existe e o raciocínio se inverte: o `connect_timeout`
+		// do postgres-js é um timer no event loop, e o vite bloqueia o loop por dezenas de
+		// segundos ao transformar uma rota fria. Com 5 s, a primeira navegação de cada rota
+		// pesada derruba TODAS as queries do request com CONNECT_TIMEOUT — sem que haja nada
+		// errado com o banco. 30 s cobre a transformação e continua falhando em vez de pendurar.
+		connect_timeout: isDev ? 30 : 5, // s — falha rápido em vez de pendurar o SSR
 		idle_timeout: 30, // s — devolve conexão ociosa ao pooler
 		max_lifetime: 60 * 30, // s — recicla conexão a cada 30 min
 		max: 10,

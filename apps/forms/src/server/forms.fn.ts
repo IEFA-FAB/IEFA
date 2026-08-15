@@ -1,3 +1,4 @@
+import type { Json } from "@iefa/database"
 import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -560,7 +561,10 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			questionnaire_id: z.string().uuid(),
-			evaluation_type: z.string(),
+			// Casa com o enum `forms.evaluation_type` do banco. Como `z.string()` o
+			// valor inválido só era recusado no INSERT, virando erro de driver em vez
+			// de erro de validação na borda.
+			evaluation_type: z.enum(["auditoria_interna", "auditoria_externa", "preparatoria"]),
 			om: z.string(),
 			secao: z.string(),
 		})
@@ -982,7 +986,10 @@ export const revertToVersionFn = createServerFn({ method: "POST" })
 		if (versionError) throw new Error(versionError.message)
 		if (version.questionnaire_response_id !== questionnaire_response_id) throw new Error("Versão não pertence a esta sessão")
 
-		const answers = version.answers as Array<{ question_id: string; value: unknown; observation: string | null }>
+		// `response_version.answers` é uma coluna jsonb: o conteúdo é opaco para o
+		// banco, mas cada item volta para `response`, cuja coluna `value` é Json.
+		// Tipar como `unknown` quebrava o insert de volta.
+		const answers = version.answers as Array<{ question_id: string; value: Json; observation: string | null }>
 
 		const { error: deleteError } = await db.from("response").delete().eq("questionnaire_response_id", questionnaire_response_id)
 		if (deleteError) throw new Error(deleteError.message)

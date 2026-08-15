@@ -6,8 +6,9 @@
 # to surface the infra diff for review (Greptile + humans) and is:
 #   - read-only (AWS managed ReadOnlyAccess + an explicit deny on secret values),
 #   - assumable only from pull_request events of this repo,
-#   - never able to mutate anything (no apply in CI).
-# Apply-on-merge is intentionally NOT wired: infra stays human-applied.
+#   - never able to mutate anything (no apply from a PR).
+# O apply no merge é feito por uma role separada, `<prefix>-github-tf-apply`
+# (ver cicd_apply.tf), assumível só a partir de `main`.
 # ============================================================
 
 variable "enable_github_tf_plan_role" {

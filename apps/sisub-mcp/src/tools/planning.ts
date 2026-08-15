@@ -9,15 +9,11 @@ import {
 	DailyMenuFetchSchema,
 	DayDetailsFetchSchema,
 	FetchMealTypesSchema,
-	fetchDailyMenus,
-	fetchDayDetails,
 	fetchMealTypes,
 	GetTrashItemsSchema,
 	getTrashItems,
 	ListKitchensSchema,
-	ListRecipesSchema,
 	listKitchens,
-	listRecipes,
 	RemoveMenuItemSchema,
 	RestoreMenuItemSchema,
 	removeMenuItem,
@@ -32,6 +28,7 @@ import {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
+import { AgentListRecipesSchema, agentFetchDayMenus, agentFetchMenus, agentListRecipes } from "@iefa/sisub-domain/agent"
 import { resolveCredential } from "../auth.ts"
 import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
@@ -84,18 +81,24 @@ const getMealTypes: ToolDefinition = {
 // get_planning_calendar
 // ---------------------------------------------------------------------------
 
+/**
+ * Projeção de agente, não a operation crua: cada `menu_items` carrega o snapshot json da ficha
+ * técnica congelada, e a leitura relacional ainda embutia a receita atual completa ao lado. Um
+ * dia com três refeições já estourava o teto de resultado; uma semana, uma ordem de grandeza.
+ * Quem quer a ficha chama `get_recipe`.
+ */
 const getPlanningCalendar: ToolDefinition = {
 	schema: {
 		name: "get_planning_calendar",
 		description:
-			"Retorna o calendário de planejamento de cardápios de uma cozinha para um período. Inclui todos os menus diários com seus itens (receitas). Use para ter uma visão completa do planejamento mensal ou semanal.",
+			"Retorna o calendário de planejamento de cardápios de uma cozinha para um período: cada refeição do dia com os pratos, por nome, mais efetivo previsto e status. Para a ficha técnica de um prato, chame get_recipe.",
 		inputSchema: toJsonSchema(DailyMenuFetchSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DailyMenuFetchSchema.parse(args)
-			return toolResult(await fetchDailyMenus(getDb(), ctx, input))
+			return toolResult(await agentFetchMenus(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -110,14 +113,14 @@ const getDayDetails: ToolDefinition = {
 	schema: {
 		name: "get_day_details",
 		description:
-			"Retorna todos os menus de uma data específica para uma cozinha, com todos os itens (receitas) de cada refeição. Ideal para ver o detalhe completo de um dia antes de editar.",
+			"Retorna as refeições de uma data específica para uma cozinha, com os pratos de cada uma pelo nome. Ideal para ver o dia antes de editar. Para a ficha técnica de um prato, chame get_recipe.",
 		inputSchema: toJsonSchema(DayDetailsFetchSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DayDetailsFetchSchema.parse(args)
-			return toolResult(await fetchDayDetails(getDb(), ctx, input))
+			return toolResult(await agentFetchDayMenus(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -128,18 +131,26 @@ const getDayDetails: ToolDefinition = {
 // list_recipes
 // ---------------------------------------------------------------------------
 
+/**
+ * Listagem paginada e enxuta, vinda de `@iefa/sisub-domain/agent` — a mesma que o chat
+ * dos módulos do sisub usa.
+ *
+ * A versão anterior devolvia `listRecipes` cru: as ~2.000 receitas com a ficha técnica
+ * aninhada, 10,9 MB de JSON. Nenhum cliente MCP consegue colocar isso num prompt — o
+ * provider recusa o turno. Quem quer a ficha chama `get_recipe`.
+ */
 const listRecipesTool: ToolDefinition = {
 	schema: {
 		name: "list_recipes",
 		description:
-			"Lista receitas disponíveis para uma cozinha. Retorna receitas globais (kitchen_id null) e, se kitchenId fornecido, também as locais dessa cozinha. Suporta busca por nome via parâmetro search.",
-		inputSchema: toJsonSchema(ListRecipesSchema),
+			"Lista receitas disponíveis para uma cozinha, só com os campos de identificação (id, nome, versão, rendimento, pasta pelo nome). Retorna as globais (kitchen_id null) e, se kitchenId for informado, também as locais dessa cozinha. Suporta busca por nome via search e limite de itens via limit; o retorno traz total e returned. O id serve para as chamadas seguintes (get_recipe), não para exibir a quem lê — identifique cada receita pelo nome. Para ingredientes e modo de preparo, chame get_recipe.",
+		inputSchema: toJsonSchema(AgentListRecipesSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			const input = ListRecipesSchema.parse(args ?? {})
-			return toolResult(await listRecipes(getDb(), ctx, input))
+			const input = AgentListRecipesSchema.parse(args ?? {})
+			return toolResult(await agentListRecipes(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

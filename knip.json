@@ -1,33 +1,44 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "tags": ["-lintignore"],
+  "ignoreDependencies": [
+    "@opentelemetry/exporter-trace-otlp-http",
+    "@opentelemetry/resources",
+    "@opentelemetry/sdk-trace-node",
+    "@opentelemetry/semantic-conventions",
+    "@tailwindcss/typography",
+    "react-doctor",
+    "tailwindcss",
+    "tslib",
+    "tw-animate-css"
+  ],
   "workspaces": {
     ".": {
       "entry": [],
       "project": []
     },
     "apps/portal": {
-      "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/sisub": {
-      "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "src/lib/observability/nitro-otel.ts", "routes/**/*.ts", "vite.config.ts"],
+      "project": ["src/**/*.{ts,tsx}", "routes/**/*.ts"]
     },
     "apps/rumaer": {
-      "entry": ["src/client.tsx", "src/router.tsx"],
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/forms": {
-      "entry": ["src/client.tsx", "src/router.tsx"],
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/sucont": {
-      "entry": ["src/router.tsx"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/server.ts", "src/router.tsx", "routes/**/*.ts", "vite.config.ts"],
+      "project": ["src/**/*.{ts,tsx}", "routes/**/*.ts"]
     },
     "apps/assignment-selection": {
-      "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/alpha": {
@@ -35,23 +46,31 @@
       "project": ["src/**/*.ts"]
     },
     "apps/api": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts", "scripts/**/*.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts"]
     },
     "apps/sisub-mcp": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "apps/docs": {
-      "entry": ["src/router.tsx", "src/start.ts"],
+      "entry": ["src/router.tsx", "src/start.ts", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "packages/ai-provider": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
+    "packages/agent-web": {
+      "entry": ["src/index.ts", "src/server/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/alpha-client": {
       "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/auth-kit": {
+      "entry": ["src/index.ts", "src/react.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/compras-api": {
@@ -72,6 +91,10 @@
     },
     "packages/sisub-domain": {
       "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/supabase-kit": {
+      "entry": ["src/index.ts", "src/start.ts"],
       "project": ["src/**/*.ts"]
     }
   }

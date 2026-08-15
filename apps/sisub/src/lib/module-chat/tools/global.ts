@@ -3,140 +3,162 @@
  * Ported from server functions: recipes.fn.ts, ingredients.fn.ts, templates.fn.ts
  */
 
+import {
+	fetchIngredient as fetchIngredientOp,
+	listIngredientItems as listIngredientItemsOp,
+	listIngredientNutrients as listIngredientNutrientsOp,
+	toJsonSchema,
+} from "@iefa/sisub-domain"
+import {
+	AgentListIngredientsSchema,
+	AgentListPreparationsSchema,
+	AgentListRecipesSchema,
+	agentGetRecipe,
+	agentListIngredients,
+	agentListPreparations,
+	agentListRecipes,
+	clampLimit,
+} from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
-import { requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+import { domainCtx, requireGlobalPermission, requireUuid, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
+const LIST_DEFAULT = 30
+const LIST_MAX = 100
+
+/**
+ * Catálogo global: as listagens vêm de `@iefa/sisub-domain/agent`, as mesmas que o
+ * servidor MCP usa. Entrada, teto e projeção ficam definidos uma vez só — a versão
+ * anterior montava PostgREST na mão aqui e no MCP, e as duas divergiam (esta não
+ * deduplicava versões, e devolvia o catálogo inteiro com os ingredientes: 10,6 MB).
+ */
 const listRecipes: ModuleToolDefinition = {
 	name: "list_recipes",
-	description: "Lista receitas globais (padrão SDAB). Suporta busca por nome.",
-	parameters: {
-		type: "object",
-		properties: {
-			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
-		},
-		required: [],
-	},
+	description:
+		"Lista receitas globais (padrão SDAB), só com os campos de identificação (nome, versão, rendimento, pasta pelo nome). Suporta busca por nome. O id serve para a chamada seguinte (get_recipe, update_recipe), não para exibir na resposta. Para ingredientes e modo de preparo, chame get_recipe com o id da receita.",
+	parameters: toJsonSchema(AgentListRecipesSchema.omit({ kitchenId: true })),
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		let query = ctx.supabase
-			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
-			.is("deleted_at", null)
-			.is("kitchen_id", null)
-			.order("name")
-
-		if (args.search) {
-			query = query.ilike("name", `%${String(args.search).slice(0, 200)}%`)
-		}
-
-		const { data, error } = await query
-		if (error) return toolErr(sanitizeDbError(error, "list_recipes"))
-		return toolOk(data ?? [])
+		const input = AgentListRecipesSchema.omit({ kitchenId: true }).parse(args)
+		const { items, ...counts } = await agentListRecipes(ctx.db, domainCtx(ctx), { ...input, globalOnly: true })
+		return toolOk({ recipes: items, ...counts })
 	},
 }
 
 const getRecipe: ModuleToolDefinition = {
 	name: "get_recipe",
-	description: "Retorna detalhes de uma receita com ingredientes completos.",
+	description: "Retorna a ficha técnica de uma receita: rendimento, tempo, modo de preparo e os insumos com quantidade e unidade.",
 	parameters: {
 		type: "object",
 		properties: { recipeId: { type: "string", description: "ID (UUID) da receita" } },
 		required: ["recipeId"],
 	},
 	requiredLevel: 1,
+	// A versão anterior devolvia a linha crua da receita com a linha crua de cada insumo
+	// aninhada: ~23 campos por insumo (`deleted_at`, `legacy_id`, `ceafa_id`…) para o modelo
+	// escrever "500 g de arroz".
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
 		const recipeId = requireUuid(args.recipeId, "recipeId")
-
-		const { data, error } = await ctx.supabase
-			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
-			.eq("id", recipeId)
-			.is("deleted_at", null)
-			.single()
-
-		if (error) return toolErr(sanitizeDbError(error, "get_recipe"))
-		return toolOk(data)
+		return toolOk(await agentGetRecipe(ctx.db, domainCtx(ctx), { recipeId }))
 	},
 }
 
+/**
+ * Insumos e preparações passam pelas operations do domínio, não por PostgREST cru.
+ *
+ * A versão anterior montava a query na mão e errava em três pontos ao mesmo tempo,
+ * todos fatais em runtime: ordenava e buscava por uma coluna `name` que
+ * `kitchen.ingredient` não tem (a coluna é `description`), convertia `folder_id`
+ * — um `uuid` — com `Number()`, e embutia `ingredient_nutrients`/`ingredient_items`
+ * no plural quando as tabelas são singulares. Nada disso o typecheck via, porque
+ * `untypedFrom` devolve `any` de propósito.
+ *
+ * Delegar também faz a tool herdar o escopo do catálogo: `list_ingredients` para de
+ * devolver, misturadas, as preparações herdadas do SISUBWEB.
+ */
 const listIngredients: ModuleToolDefinition = {
 	name: "list_ingredients",
-	description: "Lista ingredientes do catálogo com nutrientes e código CATMAT. Suporta busca por nome.",
-	parameters: {
-		type: "object",
-		properties: {
-			search: { type: "string", description: "Busca por nome (parcial, case-insensitive)" },
-			folderId: { type: "number", description: "ID da pasta/categoria (opcional)" },
-		},
-		required: [],
-	},
+	description:
+		"Lista insumos do catálogo global. Suporta busca por descrição. Não inclui as preparações herdadas do SISUBWEB — para essas, use list_preparations.",
+	parameters: toJsonSchema(AgentListIngredientsSchema),
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		let query = untypedFrom(ctx, "ingredient").select(`*, folder:folder_id(*)`).is("deleted_at", null).order("name")
+		const input = AgentListIngredientsSchema.parse(args)
+		const { items, ...counts } = await agentListIngredients(ctx.db, domainCtx(ctx), input)
+		return toolOk({ ingredients: items, ...counts })
+	},
+}
 
-		if (args.search) {
-			query = query.ilike("name", `%${String(args.search).slice(0, 200)}%`)
-		}
-		if (args.folderId != null) {
-			query = query.eq("folder_id", Number(args.folderId))
-		}
-
-		const { data, error } = await query
-		if (error) return toolErr(sanitizeDbError(error, "list_ingredients"))
-		return toolOk(data ?? [])
+const listPreparations: ModuleToolDefinition = {
+	name: "list_preparations",
+	description: "Lista as preparações herdadas do SISUBWEB. Elas moram na mesma tabela dos insumos mas não são insumos — os nomes colidem com os das receitas.",
+	parameters: toJsonSchema(AgentListPreparationsSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		requireGlobalPermission(ctx, 1)
+		const input = AgentListPreparationsSchema.parse(args)
+		const { items, ...counts } = await agentListPreparations(ctx.db, domainCtx(ctx), input)
+		return toolOk({ preparations: items, ...counts })
 	},
 }
 
 const getIngredient: ModuleToolDefinition = {
 	name: "get_ingredient",
-	description: "Retorna detalhes de um ingrediente com nutrientes e itens (SKUs).",
+	description: "Retorna detalhes de um insumo com nutrientes e itens de produto (SKUs). Funciona também para uma preparação do SISUBWEB, buscando pelo ID.",
 	parameters: {
 		type: "object",
-		properties: { ingredientId: { type: "string", description: "ID (UUID) do ingrediente" } },
+		properties: { ingredientId: { type: "string", description: "ID (UUID) do insumo" } },
 		required: ["ingredientId"],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
 		const ingredientId = requireUuid(args.ingredientId, "ingredientId")
-
-		const { data, error } = await untypedFrom(ctx, "ingredient")
-			.select(`*, nutrients:ingredient_nutrients(*), items:ingredient_items(*)`)
-			.eq("id", ingredientId)
-			.is("deleted_at", null)
-			.single()
-
-		if (error) return toolErr(sanitizeDbError(error, "get_ingredient"))
-		return toolOk(data)
+		const db = ctx.db
+		const dctx = domainCtx(ctx)
+		// `fetchIngredient` lança NotFoundError; wrapTool converte em erro de tool.
+		const [ingredient, nutrients, items] = await Promise.all([
+			fetchIngredientOp(db, dctx, { id: ingredientId }),
+			listIngredientNutrientsOp(db, dctx, { ingredientId }),
+			listIngredientItemsOp(db, dctx, { ingredientId }),
+		])
+		return toolOk({ ...ingredient, nutrients, items })
 	},
 }
 
 const listMenuTemplates: ModuleToolDefinition = {
 	name: "list_menu_templates",
 	description: "Lista templates semanais globais (SDAB) com contagem de itens.",
-	parameters: { type: "object", properties: {}, required: [] },
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantos templates retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error } = await ctx.supabase
+		const { data, error, count } = await ctx.supabase
 			.from("menu_template")
-			.select(`*, items:menu_template_items(count)`, { count: "exact" })
+			.select(`id, name, description, template_type, items:menu_template_items(count)`, { count: "exact" })
 			.is("deleted_at", null)
 			.is("kitchen_id", null)
 			.order("name")
+			.limit(limit)
 
 		if (error) return toolErr(sanitizeDbError(error, "list_menu_templates"))
 
-		const templates = (data ?? []).map((t) => ({
+		const templates = (data ?? []).map(({ items, ...t }) => ({
 			...t,
-			item_count: Array.isArray(t.items) ? ((t.items[0] as { count: number } | undefined)?.count ?? 0) : 0,
+			item_count: Array.isArray(items) ? ((items[0] as { count: number } | undefined)?.count ?? 0) : 0,
 		}))
 
-		return toolOk(templates)
+		return toolOk({ templates, returned: templates.length, total: count ?? templates.length, limit })
 	},
 }
 
@@ -158,14 +180,19 @@ const createRecipe: ModuleToolDefinition = {
 
 		if (typeof args.name !== "string" || !args.name.trim()) return toolErr("Nome é obrigatório")
 
+		// `version` é NOT NULL e não tem default: sem ele o insert violava a constraint e a
+		// tool nunca criou receita nenhuma. Linhagem nova começa em 1, como no domínio.
 		const insert: Record<string, unknown> = {
 			name: String(args.name).trim(),
 			kitchen_id: null,
+			version: 1,
 		}
-		if (args.preparationTime != null) insert.preparation_time = Number(args.preparationTime)
+		// A coluna é `preparation_time_minutes`. Com `preparation_time` o PostgREST recusava a
+		// inserção inteira (PGRST204) sempre que o modelo informava o tempo de preparo.
+		if (args.preparationTime != null) insert.preparation_time_minutes = Number(args.preparationTime)
 		if (args.cookingFactor != null) insert.cooking_factor = Number(args.cookingFactor)
 
-		const { data, error } = await untypedFrom(ctx, "recipes").insert(insert).select().single()
+		const { data, error } = await untypedFrom(ctx, "recipes").insert(insert).select("id, name, version, preparation_time_minutes, cooking_factor").single()
 		if (error) return toolErr(sanitizeDbError(error, "create_recipe"))
 		return toolOk(data)
 	},
@@ -191,15 +218,29 @@ const updateRecipe: ModuleToolDefinition = {
 
 		const update: Record<string, unknown> = {}
 		if (args.name != null) update.name = String(args.name).trim()
-		if (args.preparationTime != null) update.preparation_time = Number(args.preparationTime)
+		if (args.preparationTime != null) update.preparation_time_minutes = Number(args.preparationTime)
 		if (args.cookingFactor != null) update.cooking_factor = Number(args.cookingFactor)
 
 		if (Object.keys(update).length === 0) return toolErr("Nenhum campo para atualizar")
 
-		const { data, error } = await untypedFrom(ctx, "recipes").update(update).eq("id", recipeId).is("kitchen_id", null).select().single()
+		const { data, error } = await untypedFrom(ctx, "recipes")
+			.update(update)
+			.eq("id", recipeId)
+			.is("kitchen_id", null)
+			.select("id, name, version, preparation_time_minutes, cooking_factor")
+			.single()
 		if (error) return toolErr(sanitizeDbError(error, "update_recipe"))
 		return toolOk(data)
 	},
 }
 
-export const globalTools: ModuleToolDefinition[] = [listRecipes, getRecipe, listIngredients, getIngredient, listMenuTemplates, createRecipe, updateRecipe]
+export const globalTools: ModuleToolDefinition[] = [
+	listRecipes,
+	getRecipe,
+	listIngredients,
+	listPreparations,
+	getIngredient,
+	listMenuTemplates,
+	createRecipe,
+	updateRecipe,
+]

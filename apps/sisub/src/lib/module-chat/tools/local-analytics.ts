@@ -1,10 +1,18 @@
 /**
  * Local Analytics module tools — unit dashboard, ATAs, ARPs, cozinhas, cardápios.
  * Read-only: no write operations. Scoped to the current unit via ctx.scopeId.
+ *
+ * Só `daily_menu` mora no schema `kitchen` (o default do client do chat). Unidade e cozinha
+ * estão em `core`, ATA e ARP em `procurement` — daí o schema explícito em cada `untypedFrom`.
  */
 
+import { clampLimit } from "@iefa/sisub-domain/agent"
 import type { ModuleToolDefinition } from "./shared"
 import { requireModulePermission, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
+
+/** Teto das listagens: o resultado volta inteiro no prompt do turno seguinte. */
+const LIST_DEFAULT = 25
+const LIST_MAX = 100
 
 function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1]): number {
 	const unitId = safeInt(ctx.scopeId, "scopeId")
@@ -20,10 +28,13 @@ const getUnitOverview: ModuleToolDefinition = {
 	async handler(_args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
 
-		const { data: unit, error: unitError } = await untypedFrom(ctx, "units").select("id, code, display_name, uasg").eq("id", unitId).single()
+		const { data: unit, error: unitError } = await untypedFrom(ctx, "units", "core").select("id, code, display_name, uasg").eq("id", unitId).single()
 		if (unitError) return toolErr(sanitizeDbError(unitError, "get_unit_overview:unit"))
 
-		const { data: kitchens, error: kitchensError } = await untypedFrom(ctx, "kitchen").select("id, display_name, type").eq("unit_id", unitId).order("id")
+		const { data: kitchens, error: kitchensError } = await untypedFrom(ctx, "kitchen", "core")
+			.select("id, display_name, type")
+			.eq("unit_id", unitId)
+			.order("id")
 		if (kitchensError) return toolErr(sanitizeDbError(kitchensError, "get_unit_overview:kitchens"))
 
 		return toolOk({ unit, kitchens: kitchens ?? [] })
@@ -32,33 +43,50 @@ const getUnitOverview: ModuleToolDefinition = {
 
 const getAtas: ModuleToolDefinition = {
 	name: "get_atas",
-	description: "Lista todas as ATAs da unidade atual com status e data de criação. Inclui draft, published e archived.",
-	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+	description: "Lista as ATAs da unidade atual com status e data de criação, das mais recentes para as mais antigas. Inclui draft, published e archived.",
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantas ATAs retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+		additionalProperties: false,
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
-		const { data, error } = await untypedFrom(ctx, "procurement_list")
-			.select("id, title, status, created_at, updated_at")
+		const { data, error, count } = await untypedFrom(ctx, "procurement_list", "procurement")
+			.select("id, title, status, created_at, updated_at", { count: "exact" })
 			.eq("unit_id", unitId)
 			.is("deleted_at", null)
 			.order("created_at", { ascending: false })
+			.limit(limit)
 		if (error) return toolErr(sanitizeDbError(error, "get_atas"))
-		return toolOk(data ?? [])
+		return toolOk({ atas: data ?? [], returned: data?.length ?? 0, total: count ?? data?.length ?? 0, limit })
 	},
 }
 
 const getLowBalanceItems: ModuleToolDefinition = {
 	name: "get_low_balance_items",
 	description:
-		"Lista itens de ARP com consumo ≥80% (saldo crítico) para ATAs publicadas da unidade. Inclui flag se o item aparece em menus dos próximos 30 dias.",
-	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+		"Lista itens de ARP com consumo ≥80% (saldo crítico) para ATAs publicadas da unidade, os mais críticos primeiro. Inclui flag se o item aparece em menus dos próximos 30 dias.",
+	parameters: {
+		type: "object",
+		properties: {
+			limit: { type: "number", description: `Quantos itens retornar (padrão ${LIST_DEFAULT}, máximo ${LIST_MAX})` },
+		},
+		required: [],
+		additionalProperties: false,
+	},
 	requiredLevel: 1,
-	async handler(_args, ctx) {
+	async handler(args, ctx) {
 		const unitId = requireCurrentUnitId(ctx)
+		const limit = clampLimit(args.limit, LIST_DEFAULT, LIST_MAX)
 
 		// Published ATAs
-		const { data: allAtas, error: atasError } = await untypedFrom(ctx, "procurement_list")
+		const { data: allAtas, error: atasError } = await untypedFrom(ctx, "procurement_list", "procurement")
 			.select("id, title, status")
 			.eq("unit_id", unitId)
 			.is("deleted_at", null)
@@ -69,7 +97,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		if (publishedAtaIds.length === 0) return toolOk({ message: "Nenhuma ATA publicada encontrada.", items: [] })
 
 		// ARPs linked to published ATAs
-		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp")
+		const { data: arps, error: arpsError } = await untypedFrom(ctx, "procurement_arp", "procurement")
 			.select("id, ata_id, numero_ata, ano_ata, data_vigencia_fim")
 			.in("ata_id", publishedAtaIds)
 		if (arpsError) return toolErr(sanitizeDbError(arpsError, "get_low_balance_items:arps"))
@@ -82,7 +110,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const arpById = new Map(arpsData.map((a: { id: string }) => [a.id, a]))
 
 		// ARP items
-		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item")
+		const { data: arpItems, error: itemsError } = await untypedFrom(ctx, "procurement_arp_item", "procurement")
 			.select(
 				"id, arp_id, numero_item, catmat_item_codigo, descricao_item, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario, medida_catmat, ata_item_id"
 			)
@@ -96,20 +124,25 @@ const getLowBalanceItems: ModuleToolDefinition = {
 			return homologada > 0 && empenhada / homologada >= 0.8
 		})
 
-		// Upcoming menus (next 30 days) for ingredient annotation
+		// Upcoming menus (next 30 days) for ingredient annotation.
+		// Erro aqui não pode virar ausência: `in_upcoming_menu: false` em todos os itens é
+		// uma afirmação ("nenhum item crítico entra em cardápio"), não um silêncio.
 		const upcomingIngredientIds = new Set<string>()
-		const { data: kitchens } = await untypedFrom(ctx, "kitchen").select("id").eq("unit_id", unitId)
+		const { data: kitchens, error: kitchensError } = await untypedFrom(ctx, "kitchen", "core").select("id").eq("unit_id", unitId)
+		if (kitchensError) return toolErr(sanitizeDbError(kitchensError, "get_low_balance_items:kitchens"))
 		const kitchenIds = (kitchens ?? []).map((k: { id: number }) => k.id)
 
 		if (kitchenIds.length > 0) {
 			const today = new Date().toISOString().substring(0, 10)
 			const future = new Date(Date.now() + 30 * 86_400_000).toISOString().substring(0, 10)
-			const { data: menus } = await untypedFrom(ctx, "daily_menu")
+			const { data: menus, error: menusError } = await untypedFrom(ctx, "daily_menu")
 				.select("id, menu_items(id, deleted_at, recipe_origin:recipe_origin_id(recipe_ingredients(ingredient_id)))")
 				.in("kitchen_id", kitchenIds)
 				.gte("service_date", today)
 				.lte("service_date", future)
 				.is("deleted_at", null)
+
+			if (menusError) return toolErr(sanitizeDbError(menusError, "get_low_balance_items:menus"))
 
 			for (const menu of menus ?? []) {
 				for (const menuItem of menu.menu_items ?? []) {
@@ -126,7 +159,10 @@ const getLowBalanceItems: ModuleToolDefinition = {
 		const ataItemIds = critical.map((i: { ata_item_id: string | null }) => i.ata_item_id).filter(Boolean)
 		const ingredientMap = new Map<string, { ingredient_id: string | null; ingredient_name: string | null }>()
 		if (ataItemIds.length > 0) {
-			const { data: ataItems } = await untypedFrom(ctx, "procurement_list_item").select("id, ingredient_id, ingredient_name").in("id", ataItemIds)
+			const { data: ataItems, error: ataItemsError } = await untypedFrom(ctx, "procurement_list_item", "procurement")
+				.select("id, ingredient_id, ingredient_name")
+				.in("id", ataItemIds)
+			if (ataItemsError) return toolErr(sanitizeDbError(ataItemsError, "get_low_balance_items:ata_items"))
 			for (const ai of ataItems ?? []) {
 				ingredientMap.set(ai.id, { ingredient_id: ai.ingredient_id, ingredient_name: ai.ingredient_name })
 			}
@@ -176,7 +212,7 @@ const getLowBalanceItems: ModuleToolDefinition = {
 			return b.consumption_pct - a.consumption_pct
 		})
 
-		return toolOk({ total_critical: items.length, items })
+		return toolOk({ total_critical: items.length, returned: Math.min(items.length, limit), limit, items: items.slice(0, limit) })
 	},
 }
 
@@ -196,7 +232,7 @@ const getUpcomingMenus: ModuleToolDefinition = {
 		const unitId = requireCurrentUnitId(ctx)
 		const days = Math.min(Math.max(1, args.days ? safeInt(args.days, "days") : 7), 30)
 
-		const { data: kitchens, error: kitchensError } = await untypedFrom(ctx, "kitchen").select("id, display_name").eq("unit_id", unitId)
+		const { data: kitchens, error: kitchensError } = await untypedFrom(ctx, "kitchen", "core").select("id, display_name").eq("unit_id", unitId)
 		if (kitchensError) return toolErr(sanitizeDbError(kitchensError, "get_upcoming_menus:kitchens"))
 
 		const kitchenIds = (kitchens ?? []).map((k: { id: number }) => k.id)

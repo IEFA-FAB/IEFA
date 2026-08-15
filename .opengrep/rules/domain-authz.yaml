@@ -1,0 +1,90 @@
+##
+# Invariantes de autorização da camada de DOMÍNIO (@iefa/sisub-domain) e de estado de
+# carregamento na UI.
+#
+# Cada regra aqui nasceu de um bug que já aconteceu neste repo — não de uma preocupação
+# teórica. O padrão que causou o bug vira gate para não voltar por uma terceira via.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: domain-op-discards-user-context
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Operação de domínio recebendo `_ctx` — o contexto do usuário chega e é descartado, então
+      a operação não autoriza nada. Com Drizzle a conexão usa o role do projeto e RLS NÃO se
+      aplica, logo o guard da operação é a única barreira. Foi assim que `places`,
+      `frozen-preparation` e `purchase-item` deixaram qualquer sessão autenticada reescrever a
+      estrutura organizacional da FAB e os catálogos globais. Renomeie para `ctx` e chame um
+      guard (requirePermission / requireKitchen / authorizeAssetMutation / requireAssetWriteForScope).
+      Se a operação for genuinamente sem autorização — lookup fundacional usado no bootstrap da
+      sessão —, remova o parâmetro em vez de recebê-lo e ignorá-lo.
+    paths:
+      include:
+        - "packages/sisub-domain/src/operations/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    # Só ESCRITA. Leitura recebendo `_ctx` é cheiro de design, não o bug que esta regra
+    # veda — e transformar leitura em erro afogaria o gate em achado sem impacto.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              export async function $FN(db: $T, _ctx: UserContext, $...ARGS) {
+                ...
+                $X.insert(...)
+                ...
+              }
+          - pattern: |
+              export async function $FN(db: $T, _ctx: UserContext, $...ARGS) {
+                ...
+                $X.update(...)
+                ...
+              }
+          - pattern: |
+              export async function $FN(db: $T, _ctx: UserContext, $...ARGS) {
+                ...
+                $X.delete(...)
+                ...
+              }
+
+  - id: domain-global-asset-kitchen-fallback
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Fallback que autoriza mutação de ativo GLOBAL com `kitchen:2`. Em tabelas que guardam
+      linha global (`kitchen_id IS NULL`, da SDAB) e local na mesma estrutura, o ramo sem escopo
+      precisa exigir `global:2`. Este padrão deixava qualquer detentor de kitchen:2 editar o
+      catálogo da FAB inteira — e, como a dedup por família mantém a maior versão, a edição de
+      uma cozinha virava a receita canônica de todas as unidades. Use
+      `requireAssetWriteForScope(ctx, targetKitchenId)` na criação e
+      `authorizeAssetMutation(db, ctx, kind, id)` na mutação de linha existente, que resolvem o
+      dono a partir da linha persistida em vez de confiar no escopo vindo da requisição.
+    paths:
+      include:
+        - "packages/sisub-domain/src/operations/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    # `kitchen` nível 2 SEM escopo. Com escopo o guard correto é `requireKitchen(ctx, 2, id)`,
+    # que casa outro identificador e não é atingido aqui.
+    pattern-regex: 'require(Permission|AnyPermission)\(\s*ctx\s*,\s*(\[[^\]]*"kitchen"[^\]]*\]|"kitchen")\s*,\s*2\s*\)'
+
+  - id: query-empty-default-swallows-error
+    languages: [typescript]
+    severity: WARNING
+    message: >-
+      `useQuery` com default vazio e sem uso de `error`. Quando a busca falha, a tela cai no
+      estado vazio e AFIRMA que não há dados — "nenhum reset executado ainda" no lugar de "não
+      consegui ler o histórico". Já aconteceu duas vezes aqui, no painel de treino e na turma.
+      Desestruture `error` e renderize um estado de falha distinto do estado vazio.
+    paths:
+      include:
+        - "apps/*/src/components/**"
+        - "apps/*/src/routes/**"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+    # Regex, e não `pattern`: o semgrep não casa valor default em destructuring de objeto
+    # (`data: $VAR = []`), então a versão estrutural passava batido. O lookahead exclui quem
+    # já desestrutura `error` — esse trata a falha.
+    pattern-regex: 'const \{(?![^}]*\berror\b)[^}]*\bdata:\s*\w+\s*=\s*\[\][^}]*\}\s*=\s*useQuery'

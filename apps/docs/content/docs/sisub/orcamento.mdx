@@ -1,0 +1,64 @@
+---
+title: Execução Orçamentária
+description: Crédito, empenho, liquidação, pagamento e conciliação com o SIAFI — a metade orçamentária do ciclo de subsistência.
+---
+
+## O ciclo completo
+
+O módulo de Estoque cobre o **físico** (planejamento → NF-e → recebimento → ledger → produção). A execução orçamentária cobre o **contábil**, e o elo entre os dois é a liquidação:
+
+```
+Crédito disponível (UG/ND/PTRES/fonte)
+  → Empenho (NE)  →  Ordem de Fornecimento  →  Recebimento definitivo  ← FÍSICO
+                                                        ↓
+                                              Liquidação (NS)  ← art. 63, Lei 4.320
+                                                        ↓
+                                              Pagamento (OB)
+                                                        ↓
+                                        Restos a pagar (virada de exercício)
+```
+
+As telas vivem em **Gestão Unidade**: Crédito Disponível, Empenhos, Liquidações, Pagamentos, SIAFI e Conciliação.
+
+## O que vem do SIAFI — e o que não vem
+
+O SIAFI **não tem API pública de escrita**, e a leitura programática depende de credencial institucional. Nesta fase os dados entram por **arquivo exportado do Tesouro Gerencial** (CSV ou XLSX), em quatro relatórios: crédito, NE, NS e OB.
+
+O sisub é **espelho e conciliador — nunca emissor**. Nenhum documento é transmitido ao SIAFI; a emissão de NE/NS/OB continua no SIAFI/SIASG, pelo ordenador de despesas.
+
+### Importação
+
+O arquivo é parseado e **estacionado**: cada linha crua fica salva em `siafi_integration.import_row` junto do resultado do parse. Isso permite (a) auditar a origem de cada número e (b) **reprocessar sem novo upload** quando o parser evoluir. Aplicar ao domínio é ação separada, depois de revisar o resumo.
+
+O parser reconhece colunas por **mapa de sinônimos** (o layout do Tesouro Gerencial varia por unidade e versão), normaliza moeda pt-BR (`1.234,56`, `R$`, parênteses contábeis) e datas `DD/MM/AAAA`. Se nenhuma linha for reconhecida, isso é tratado como **erro de layout** — nunca como importação vazia.
+
+## Invariantes que o sistema garante
+
+- **Crédito é snapshot datado.** A tela mostra três grandezas *rotuladas separadamente*: saldo oficial (SIAFI), comprometimento local (empenhos do sisub posteriores ao snapshot) e saldo projetado. Elas nunca são somadas. A verificação antes de empenhar é **alerta com a idade do dado**, jamais bloqueio — o dado pode estar defasado e a decisão é do ordenador.
+- **O valor do empenho nunca é editado.** Reforço e anulação entram como **eventos com justificativa obrigatória**; o valor vigente é derivado (original + Σ eventos). Uma anulação que derrubaria o empenho abaixo do já liquidado é recusada.
+- **Cadeia da despesa**: `pago ≤ liquidado ≤ vigente`, garantido por trigger no banco com advisory lock (lançamentos concorrentes não furam o teto).
+- **Liquidação não é automática.** O recebimento definitivo *sugere* o valor (Σ recebido × custo unitário), mas liquidar é ato do ordenador e a NS nasce no SIAFI.
+- **Conciliação aponta, não decide.** Divergência SIAFI × sisub é resolvida explicitamente: "adotar o SIAFI" (num empenho, entra como evento) ou "manter e justificar". Se a divergência persistir num lote novo, ela **volta** para a lista.
+
+## Permissões (PBAC `unit`)
+
+| Nível | Pode |
+|---|---|
+| 1 | Ver crédito, empenhos, liquidações, pagamentos e conciliação |
+| 2 | Importar relatórios, aplicar lotes, lançar eventos/NS/OB, resolver divergências |
+| 3 | Encerrar exercício (inscrição em restos a pagar) |
+
+Todas as server fns usam `requireUnitScope` — permissão escopada numa unidade **não** alcança dados de outra (a service role não tem RLS para segurar isso).
+
+## Runbook
+
+1. Exportar no Tesouro Gerencial o relatório desejado (crédito/NE/NS/OB) da sua UG.
+2. Subir em **Gestão Unidade → SIAFI**, escolhendo o tipo correspondente.
+3. Conferir o resumo (linhas reconhecidas × total) e **Aplicar**.
+4. Verificar **Conciliação**: divergências de documento e pendências físico × contábil (recebimento definitivo sem NS).
+5. No encerramento do exercício, usar **Empenhos → Inscrever restos a pagar**.
+
+## Limites conhecidos
+
+- Sem escrita no SIAFI, sem integração online (arquivo apenas), sem razão contábil/partida dobrada.
+- O mapa de colunas do parser nasceu de hipótese: com um export real em mãos, estender os sinônimos e reprocessar os lotes existentes.

@@ -1,15 +1,8 @@
 {
+  "extends": "@iefa/tsconfig/bun-service.json",
+  "exclude": ["node_modules", "../../node_modules"],
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
-    "skipLibCheck": true,
-    "types": ["bun"]
-  },
-  "exclude": ["node_modules", "../../node_modules"]
+    "jsxImportSource": "hono/jsx"
+  }
 }

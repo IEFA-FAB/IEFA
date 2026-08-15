@@ -11,20 +11,21 @@
  * 6. toServerSentEventsResponse() → AG-UI SSE stream
  */
 
-import { createError, getHeader, readBody, type H3Event } from "h3"
-import { defineHandler } from "nitro"
-import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
-import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
-import { trace, metrics } from "@opentelemetry/api"
-import { createAdapterFromEnv, maxIterationsMiddleware } from "@iefa/ai-provider"
+import { createAdapterFromEnv, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import type { Database } from "@iefa/database"
+import { metrics, trace } from "@opentelemetry/api"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
+import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
+import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
+import { createError, getHeader, type H3Event, readBody, setResponseHeader } from "h3"
+import { defineHandler } from "nitro"
 import { hasPermission } from "@/auth/pbac"
 import { getServerCapabilities } from "@/lib/capabilities.server"
+import { getDb } from "@/lib/db.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
-import { type ToolContext, getMaxLevel } from "@/lib/module-chat/tools/shared"
+import { getMaxLevel, type ToolContext } from "@/lib/module-chat/tools/shared"
 import type { ChatModule } from "@/types/domain/module-chat"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
@@ -137,12 +138,26 @@ export default defineHandler(async (event: H3Event) => {
 		module,
 		scopeId,
 		supabase,
+		// Tools que leem algo já modelado no domínio usam este cliente, não PostgREST cru.
+		db: getDb(),
 	}
 
 	const { systemPrompt, tools } = getModuleConfig(module, userLevel, toolCtx)
 
-	// 5. Stream
-	const adapter = createAdapterFromEnv("MODULE_CHAT")
+	// 5. Teto de consumo — aplicado ANTES de abrir o SSE. Depois que o stream começa não há
+	// mais status HTTP para devolver: o erro vira conexão cortada, sem mensagem.
+	try {
+		enforceRequestRateLimit("MODULE_CHAT", user.id)
+	} catch (error) {
+		if (error instanceof RateLimitError) {
+			setResponseHeader(event, "Retry-After", String(error.retryAfterSeconds))
+			throw createError({ statusCode: 429, message: error.message, data: { retryAfterSeconds: error.retryAfterSeconds } })
+		}
+		throw error
+	}
+
+	// 6. Stream
+	const adapter = createAdapterFromEnv("MODULE_CHAT", { rateLimitKey: user.id })
 	const stream = chat({
 		adapter,
 		messages,

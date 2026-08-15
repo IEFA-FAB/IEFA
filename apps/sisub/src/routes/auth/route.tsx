@@ -4,6 +4,7 @@ import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
 // Validation
 import { z } from "zod"
+import { isPasswordRecovery, urlLooksLikeRecovery } from "@/auth/recovery-session"
 // Layout
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { Button } from "@/components/ui/button"
@@ -22,10 +23,13 @@ const authSearchSchema = z.object({
 
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
-	// Proteção Inversa: se já estiver autenticado, redireciona para o sistema
+	// Proteção inversa: quem já está autenticado não tem o que fazer aqui — EXCETO
+	// quem chegou por um link de recuperação. Essa sessão autentica, mas o usuário
+	// ainda vai digitar a senha nova; redirecioná-lo o deixaria dentro do app com a
+	// senha antiga e sem nenhuma mensagem.
 	beforeLoad: ({ context, search }) => {
 		const { user } = context.auth
-		if (user) {
+		if (user && !isPasswordRecovery() && !urlLooksLikeRecovery()) {
 			throw redirect({ to: search.redirect || "/hub" })
 		}
 	},

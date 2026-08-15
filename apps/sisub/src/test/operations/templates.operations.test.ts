@@ -18,7 +18,7 @@ import {
 	listDeletedTemplates,
 	listTemplates,
 	restoreTemplate,
-	updateTemplate,
+	saveTemplateEdit,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -136,7 +136,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(list.find((t) => t.id === weekly.id)?.monthly_headcount_total).toBeNull()
 	})
 
-	test("updateTemplate limpa description e expected_monthly_occurrences quando null", async () => {
+	test("saveTemplateEdit limpa description e expected_monthly_occurrences quando null", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId } = await base()
 
@@ -152,7 +152,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(tpl.expected_monthly_occurrences).toBe(12)
 
 		// null = limpar (não deve ser tratado como undefined/"não mexe")
-		await updateTemplate(db, ctx, { templateId: tpl.id, description: null, expectedMonthlyOccurrences: null })
+		await saveTemplateEdit(db, ctx, { templateId: tpl.id, context: { scope: "kitchen", kitchenId }, description: null, expectedMonthlyOccurrences: null })
 
 		const after = await getTemplate(db, ctx, { templateId: tpl.id })
 		expect(after.description).toBeNull()
@@ -210,7 +210,50 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forkItems).toHaveLength(1)
 	})
 
-	test("updateTemplate renomeia e substitui itens (destrutivo)", async () => {
+	test("saveTemplateEdit forka template global editado no contexto de uma cozinha", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+
+		// Template GLOBAL (kitchenId ausente) — o catálogo da SDAB.
+		const global = await createTemplate(db, ctx, {
+			name: uid("[TEST] Global "),
+			templateType: "weekly",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId }],
+		})
+		trackTemplate(global.id)
+
+		const { template: fork, forked } = await saveTemplateEdit(db, ctx, {
+			templateId: global.id,
+			context: { scope: "kitchen", kitchenId },
+			name: uid("[TEST] Adaptado "),
+		})
+		trackTemplate(fork.id)
+
+		expect(forked).toBe(true)
+		expect(fork.id).not.toBe(global.id)
+		expect(fork.kitchen_id).toBe(kitchenId)
+		expect(fork.base_template_id).toBe(global.id)
+
+		// O global permanece intacto — é a regra que motiva todo o copy-on-write.
+		const globalAfter = await getTemplate(db, ctx, { templateId: global.id })
+		expect(globalAfter.name).toBe(global.name)
+		expect(globalAfter.kitchen_id).toBeNull()
+
+		// Itens copiados para o fork, já que a edição não os informou.
+		const forkItems = await getTemplateItems(db, ctx, { templateId: fork.id })
+		expect(forkItems.length).toBe(1)
+
+		// Segunda edição aplica NO fork existente, sem bifurcar de novo.
+		const { template: again, forked: forkedAgain } = await saveTemplateEdit(db, ctx, {
+			templateId: global.id,
+			context: { scope: "kitchen", kitchenId },
+			name: uid("[TEST] Readaptado "),
+		})
+		expect(forkedAgain).toBe(true)
+		expect(again.id).toBe(fork.id)
+	})
+
+	test("saveTemplateEdit renomeia e substitui itens (destrutivo)", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, recipeId } = await base()
 		const tpl = await createTemplate(db, ctx, {
@@ -222,7 +265,8 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		trackTemplate(tpl.id)
 
 		const novoNome = uid("[TEST] Depois ")
-		const updated = await updateTemplate(db, ctx, {
+		const { template: updated } = await saveTemplateEdit(db, ctx, {
+			context: { scope: "kitchen", kitchenId },
 			templateId: tpl.id,
 			name: novoNome,
 			items: [

@@ -17,9 +17,17 @@ environment_variables = {
   NODE_ENV = "production"
   PORT     = "3000"
   # IA via AWS Bedrock (keyless — usa a task role do ECS). Nao-secretos.
+  # Confirme o id do inference profile antes de aplicar (o sufixo muda a cada release):
+  #   aws bedrock list-inference-profiles --region us-east-1
   SUCONT_AI_PROVIDER = "bedrock"
-  SUCONT_AI_MODEL    = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  SUCONT_AI_MODEL    = "us.anthropic.claude-sonnet-4-6-v1:0"
   SUCONT_AI_REGION   = "us-east-1"
+
+  # Tetos de consumo (ver AI-PROVIDERS.md). Por usuário, exceto TOKENS_PER_DAY
+  # (por processo — com desired_count = N o teto efetivo é N x o configurado).
+  SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "12"
+  SUCONT_AI_MAX_TOKENS_PER_MINUTE   = "120000"
+  SUCONT_AI_MAX_TOKENS_PER_DAY      = "2000000"
 }
 
 secret_names = [

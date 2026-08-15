@@ -44,6 +44,8 @@ import {
 	listIngredientVersions,
 	listNutrients,
 	listNutritionReferenceFoods,
+	listPreparationGroups,
+	PreparationScopeSchema,
 	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
@@ -349,14 +351,20 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
  * IngredientsService). Consolidar em 1 fn: 1 requireAuth, 1 conexão, payload único.
  */
 export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
-	.validator(z.object({ includeDeleted: z.boolean().optional() }))
+	.validator(z.object({ includeDeleted: z.boolean().optional(), preparations: PreparationScopeSchema.optional() }))
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const db = getDb()
 		const includeDeleted = data.includeDeleted ?? false
+		// Omitido ⇒ "exclude": a árvore de insumos não traz as preparações do SISUBWEB.
+		const preparations = data.preparations
+		// As duas abas são árvores de origens diferentes: insumo se organiza em
+		// `kitchen.folder`, preparação em `kitchen.preparation_group`. `listPreparationGroups`
+		// devolve no formato de Folder de propósito, para o cliente reusar a mesma árvore.
+		const listGroups = preparations === "only" ? listPreparationGroups : listFolders
 		const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
-			listFolders(db, ctx, { includeDeleted }),
-			listIngredients(db, ctx, { includeDeleted }),
+			listGroups(db, ctx, { includeDeleted }),
+			listIngredients(db, ctx, { includeDeleted, preparations }),
 			// Itens de compra/produto sempre ativos: contagem de badges não infla com excluídos.
 			listIngredientItems(db, ctx, {}),
 			// Última revisão por insumo (data exibida na árvore p/ acompanhar a conferência).
