@@ -84,10 +84,28 @@ describe("resolução de referência — forma canônica", () => {
 		expect(canonicalRefLabel('Art. 6º, XXIII, "a"')).toBe(canonicalRefLabel("art. 6º,XXIII, a"))
 	})
 
-	test("extrai número e ano de normas em formatos diferentes", () => {
-		expect(parseNormaIdentity("Lei nº 14.133/2021")).toEqual({ numero: "14.133", ano: "2021" })
-		expect(parseNormaIdentity("Lei nº 14.133, de 1º de abril de 2021")).toEqual({ numero: "14.133", ano: "2021" })
-		expect(parseNormaIdentity("IN SEGES nº 65/2021")).toEqual({ numero: "65", ano: "2021" })
+	test("extrai espécie, número e ano de normas em formatos diferentes", () => {
+		expect(parseNormaIdentity("Lei nº 14.133/2021")).toEqual({ kind: "lei", numero: "14.133", ano: "2021" })
+		expect(parseNormaIdentity("Lei nº 14.133, de 1º de abril de 2021")).toEqual({ kind: "lei", numero: "14.133", ano: "2021" })
+		expect(parseNormaIdentity("IN SEGES nº 65/2021")).toEqual({ kind: "in", numero: "65", ano: "2021" })
+		expect(parseNormaIdentity("Instrução Normativa SEGES nº 65/2021")).toEqual({ kind: "in", numero: "65", ano: "2021" })
+	})
+
+	test("a mesma referência escrita de duas formas tem a mesma identidade", () => {
+		expect(parseNormaIdentity("Lei nº 14.133/2021")).toEqual(parseNormaIdentity("Lei 14.133, de 1º de abril de 2021") as never)
+	})
+
+	test("espécies diferentes com mesmo número e ano não se confundem", () => {
+		// Sem isto, o guard de citação resolveria "Decreto nº 14.133/2021" —
+		// norma inexistente — contra a Lei 14.133 e daria o achado por fundamentado.
+		const lei = parseNormaIdentity("Lei nº 14.133/2021")
+		const decreto = parseNormaIdentity("Decreto nº 14.133/2021")
+		const complementar = parseNormaIdentity("Lei Complementar nº 123/2006")
+		const ordinaria = parseNormaIdentity("Lei nº 123/2006")
+
+		expect(decreto?.kind).not.toBe(lei?.kind)
+		expect(complementar?.kind).not.toBe(ordinaria?.kind)
+		expect(decreto).not.toEqual(lei as never)
 	})
 
 	test("todo dispositivo citado por nota da AGU tem forma canônica estável", () => {

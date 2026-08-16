@@ -15,6 +15,7 @@ import { supabase } from "../db/supabase.ts"
 import { extractContratacao } from "../extraction/extract.ts"
 import { toSubmissionText } from "../extraction/to-text.ts"
 import type { AppRole } from "../middleware/auth.ts"
+import { canReadSubmission, hasBroadAccess } from "./authorize.ts"
 import { SUBMISSION_BUCKET } from "./submission-bucket.ts"
 
 const ACCEPTED_MIME = new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/pdf"])
@@ -29,13 +30,6 @@ const SubmissionFormSchema = z.object({
 })
 
 type Variables = { user: User; role: AppRole }
-
-/** Dono da submissão ou perfil com acesso amplo. */
-async function assertCanRead(submissionId: string, user: User, role: AppRole): Promise<boolean> {
-	if (role !== "app_requisitante") return true
-	const { data } = await supabase.from("submission").select("user_id").eq("id", submissionId).maybeSingle()
-	return !data || data.user_id === user.id
-}
 
 export const submissionRoutes = new Hono<{ Variables: Variables }>()
 	// POST /api/v1/submissions — upload do ETP/TR
@@ -84,7 +78,8 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		const role = c.get("role")
 
 		let query = supabase.from("submission").select("id, filename, doc_kind, modalidade, objeto, created_at").order("created_at", { ascending: false }).limit(50)
-		if (role === "app_requisitante") query = query.eq("user_id", user.id)
+		// Sem perfil amplo, a listagem é só do próprio usuário.
+		if (!hasBroadAccess(role)) query = query.eq("user_id", user.id)
 
 		const { data, error } = await query
 		if (error) return c.json({ error: "Internal Server Error", code: "SUBMISSIONS_FAILED" }, 500)
@@ -98,7 +93,7 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		const user = c.get("user")
 		const role = c.get("role")
 
-		if (!(await assertCanRead(id, user, role))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!(await canReadSubmission(id, user, role))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const { data: submission, error } = await supabase.from("submission").select("id, storage_path, mime_type, doc_kind").eq("id", id).maybeSingle()
 		if (error) return c.json({ error: "Internal Server Error", code: "SUBMISSION_LOOKUP_FAILED" }, 500)
@@ -144,7 +139,7 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		const user = c.get("user")
 		const role = c.get("role")
 
-		if (!(await assertCanRead(id, user, role))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!(await canReadSubmission(id, user, role))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const { data, error } = await supabase
 			.from("extraction")
@@ -162,7 +157,7 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		const user = c.get("user")
 		const role = c.get("role")
 
-		if (!(await assertCanRead(id, user, role))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!(await canReadSubmission(id, user, role))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const { data: submission } = await supabase.from("submission").select("storage_path, mime_type").eq("id", id).maybeSingle()
 		if (!submission) return c.json({ error: "Not Found", code: "SUBMISSION_NOT_FOUND" }, 404)

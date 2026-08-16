@@ -9,6 +9,7 @@
  */
 
 import { supabase } from "../db/supabase.ts"
+import { env } from "../env.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
 import { canonicalRefLabel } from "../lib/ref-label.ts"
 import { embedDocuments } from "../sources/embeddings.ts"
@@ -107,7 +108,15 @@ export async function refreshAllSources(options: { apply?: boolean; onlySourceId
 		}
 
 		try {
-			const result = await ingestSource({ sourceId: source.id, adapter: resolveAdapter(source), embed: embedDocuments, apply })
+			const result = await ingestSource({
+				sourceId: source.id,
+				adapter: resolveAdapter(source),
+				embed: embedDocuments,
+				apply,
+				// Sem isto, o job agendado ignorava `ALPHA_EMBEDDINGS_ENABLED=false` e
+				// tentava embutir mesmo com o provedor fora do ar, falhando o item.
+				skipEmbeddings: !env.ALPHA_EMBEDDINGS_ENABLED,
+			})
 			report.sources.push({ source_id: source.id, report: result })
 
 			if (!apply) continue

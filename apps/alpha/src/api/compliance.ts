@@ -16,6 +16,7 @@ import { applyCitationGuard, type ChecklistRule, judgeRule } from "../compliance
 import { supabase } from "../db/supabase.ts"
 import type { AppRole } from "../middleware/auth.ts"
 import { requireRole } from "../middleware/auth.ts"
+import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission } from "./authorize.ts"
 
 type Variables = { user: User; role: AppRole }
 
@@ -25,8 +26,9 @@ const RunBodySchema = z.object({
 })
 
 const EvaluateBodySchema = z.object({
-	text: z.string().min(20),
-	label: z.string().optional(),
+	// Teto de tamanho: o trecho vai inteiro para o modelo.
+	text: z.string().min(20).max(20_000),
+	label: z.string().max(200).optional(),
 })
 
 const RuleStatusSchema = z.object({
@@ -37,6 +39,15 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	// POST /api/v1/compliance/runs — executa a verificação
 	.post("/api/v1/compliance/runs", zValidator("json", RunBodySchema), async (c) => {
 		const { submission_id, extraction_id } = c.req.valid("json")
+
+		if (!(await canReadSubmission(submission_id, c.get("user"), c.get("role")))) {
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		}
+		// Extração de outra submissão produziria um parecer com trechos de um
+		// documento que não é o analisado — e possivelmente de outro usuário.
+		if (!(await extractionBelongsToSubmission(extraction_id, submission_id))) {
+			return c.json({ error: "Bad Request", code: "EXTRACTION_SUBMISSION_MISMATCH" }, 400)
+		}
 
 		try {
 			return c.json(await runCompliance(submission_id, extraction_id), 201)
@@ -49,6 +60,10 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	// GET /api/v1/compliance/runs/:id — relatório consolidado
 	.get("/api/v1/compliance/runs/:id", async (c) => {
 		const id = c.req.param("id")
+
+		if (!(await canReadComplianceRun(id, c.get("user"), c.get("role")))) {
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		}
 
 		const { data: run, error } = await supabase
 			.from("compliance_run")
@@ -88,7 +103,9 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// POST /api/v1/rules/:id/evaluate — testa uma regra isolada contra um trecho
-	.post("/api/v1/rules/:id/evaluate", zValidator("json", EvaluateBodySchema), async (c) => {
+	// Avaliar regra dispara chamada de modelo com texto arbitrário do usuário:
+	// mesmo perfil que promove regra, para não virar um proxy de LLM aberto.
+	.post("/api/v1/rules/:id/evaluate", requireRole(["app_aci"]), zValidator("json", EvaluateBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { text, label } = c.req.valid("json")
 

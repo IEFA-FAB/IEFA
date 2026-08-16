@@ -5,16 +5,25 @@ import { useMemo, useRef, useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/hooks/useAuth"
 import { useRunCompliance } from "@/lib/alpha/compliance"
-import { CAMPO_LABELS, type ExtractionResponse, submissionTextQueryOptions, useCreateSubmission, useRunExtraction } from "@/lib/alpha/submissions"
+import {
+	CAMPO_LABELS,
+	campoTexto,
+	type ExtractionResponse,
+	OBJETO_TIPOS,
+	type ObjetoTipo,
+	submissionTextQueryOptions,
+	useCreateSubmission,
+	useRunExtraction,
+} from "@/lib/alpha/submissions"
 
 export const Route = createFileRoute("/alpha/analise/nova")({
 	component: NovaAnalisePage,
 })
 
 const DOC_KINDS = ["ETP", "TR", "EDITAL"] as const
-const OBJETOS = ["COMPRAS", "SERVICOS", "OBRAS", "TIC"] as const
 
 /** Recorte do texto com o trecho de origem destacado. */
 function SpanPreview({ text, span }: { text: string; span: { start: number; end: number } | undefined }) {
@@ -39,7 +48,7 @@ function NovaAnalisePage() {
 	const fileRef = useRef<HTMLInputElement>(null)
 
 	const [docKind, setDocKind] = useState<(typeof DOC_KINDS)[number]>("TR")
-	const [objeto, setObjeto] = useState<(typeof OBJETOS)[number] | "">("")
+	const [objeto, setObjeto] = useState<ObjetoTipo | null>(null)
 	const [submissionId, setSubmissionId] = useState<string | null>(null)
 	const [extraction, setExtraction] = useState<ExtractionResponse | null>(null)
 	const [selectedField, setSelectedField] = useState<string | null>(null)
@@ -65,7 +74,7 @@ function NovaAnalisePage() {
 			const file = fileRef.current?.files?.[0]
 			if (!file) throw new Error("selecione um arquivo .docx ou .pdf")
 
-			const submission = await createSubmission.mutateAsync({ file, doc_kind: docKind, objeto: objeto || undefined })
+			const submission = await createSubmission.mutateAsync({ file, doc_kind: docKind, objeto: objeto ?? undefined })
 			setSubmissionId(submission.id)
 			setExtraction(null)
 
@@ -98,37 +107,37 @@ function NovaAnalisePage() {
 						<label htmlFor="alpha-kind" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 							Tipo
 						</label>
-						<select
-							id="alpha-kind"
-							value={docKind}
-							onChange={(event) => setDocKind(event.target.value as (typeof DOC_KINDS)[number])}
-							className="border border-border bg-background px-2 py-1.5 text-sm"
-						>
-							{DOC_KINDS.map((kind) => (
-								<option key={kind} value={kind}>
-									{kind}
-								</option>
-							))}
-						</select>
+						<Select value={docKind} onValueChange={(value) => setDocKind(value as (typeof DOC_KINDS)[number])}>
+							<SelectTrigger id="alpha-kind" className="w-32">
+								<SelectValue>{docKind}</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{DOC_KINDS.map((kind) => (
+									<SelectItem key={kind} value={kind}>
+										{kind}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
 
 					<div>
 						<label htmlFor="alpha-objeto" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 							Objeto
 						</label>
-						<select
-							id="alpha-objeto"
-							value={objeto}
-							onChange={(event) => setObjeto(event.target.value as (typeof OBJETOS)[number] | "")}
-							className="border border-border bg-background px-2 py-1.5 text-sm"
-						>
-							<option value="">não informado</option>
-							{OBJETOS.map((value) => (
-								<option key={value} value={value}>
-									{value}
-								</option>
-							))}
-						</select>
+						<Select value={objeto} onValueChange={(value) => setObjeto(value as ObjetoTipo | null)}>
+							<SelectTrigger id="alpha-objeto" className="w-40">
+								<SelectValue>{objeto ?? "não informado"}</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={null}>não informado</SelectItem>
+								{OBJETO_TIPOS.map((value) => (
+									<SelectItem key={value} value={value}>
+										{value}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
 
 					<Button onClick={() => upload.mutate()} disabled={upload.isPending}>
@@ -182,7 +191,7 @@ function NovaAnalisePage() {
 								>
 									<span className="min-w-0">
 										<span className="block truncate">{field.label}</span>
-										<span className="block truncate text-muted-foreground text-xs">{field.value ? field.value.value : "ausente no documento"}</span>
+										<span className="block truncate text-muted-foreground text-xs">{campoTexto(field.value) ?? "ausente no documento"}</span>
 									</span>
 									{field.value ? null : <span className="shrink-0 text-muted-foreground text-xs">—</span>}
 								</button>

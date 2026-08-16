@@ -223,16 +223,22 @@ async function persist(
 		if (error) throw new Error(`insert de document_chunk falhou: ${error.message}`)
 	}
 
-	// Marca de conclusão antes do supersede: só documento completo pode
-	// substituir o anterior ou ser considerado vigente na próxima execução.
-	const { error: completeError } = await supabase.from("document").update({ ingested_at: new Date().toISOString() }).eq("id", documentId)
-	if (completeError) throw new Error(`marcação de ingestão concluída falhou: ${completeError.message}`)
-
-	// Supersede por último: até aqui, qualquer falha deixa a versão vigente intacta.
+	// Supersede o anterior ANTES de concluir o novo. `document_current_version_uk`
+	// é único por (source_id, external_id) entre documentos vigentes e concluídos:
+	// marcar `ingested_at` com a versão anterior ainda vigente viola o índice, e
+	// toda reingestão de documento **alterado** falharia com 23505.
+	//
+	// Ordem inversa à intuição de "só supersede depois de garantir o novo", mas a
+	// pior consequência aqui é uma janela curta sem versão vigente — enquanto a
+	// outra ordem é erro permanente. Até este ponto nada foi superseded, então
+	// qualquer falha anterior deixa a versão vigente intacta.
 	if (currentId) {
 		const { error } = await supabase.from("document").update({ superseded_at: new Date().toISOString() }).eq("id", currentId)
 		if (error) throw new Error(`supersede da versão anterior falhou: ${error.message}`)
 	}
+
+	const { error: completeError } = await supabase.from("document").update({ ingested_at: new Date().toISOString() }).eq("id", documentId)
+	if (completeError) throw new Error(`marcação de ingestão concluída falhou: ${completeError.message}`)
 
 	return {
 		nodes: doc.nodes.length,

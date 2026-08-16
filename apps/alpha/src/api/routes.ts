@@ -15,6 +15,7 @@ import { embedDocuments } from "../sources/embeddings"
 import { ingestSource } from "../sources/pipeline"
 import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
+import { canAccessSession } from "./authorize"
 import { complianceRoutes } from "./compliance"
 import { submissionRoutes } from "./submissions"
 
@@ -35,10 +36,13 @@ const SourceDocumentsQuerySchema = z.object({
 	include_superseded: z.enum(["true", "false"]).optional(),
 })
 
+/** Teto de itens por chamada HTTP de coleta — ver o comentário na rota. */
+const HTTP_REFRESH_MAX_ITEMS = 10
+
 const RefreshBodySchema = z.object({
 	/** Sem `apply`, a coleta só relata o que aconteceria — o padrão é não escrever. */
 	apply: z.boolean().default(false),
-	limit: z.number().int().positive().max(200).optional(),
+	limit: z.number().int().positive().max(HTTP_REFRESH_MAX_ITEMS).optional(),
 })
 
 // ─── Tipos de resposta ────────────────────────────────────────────────────────
@@ -220,14 +224,10 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.post("/api/v1/sessions/:session_id/messages", zValidator("json", MessageBodySchema), async (c) => {
 		const session_id = c.req.param("session_id")
 		const user = c.get("user")
-		const role = c.get("role") as AppRole
 		const { message } = c.req.valid("json")
 
-		if (role === "app_requisitante") {
-			const { data: existing } = await supabase.from("query_log").select("user_id").eq("session_id", session_id).limit(1).single()
-			if (existing && existing.user_id !== user.id) {
-				return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
-			}
+		if (!(await canAccessSession(session_id, user))) {
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
 		const input = { messages: [new HumanMessage(message)], session_id, user_id: user.id }
@@ -245,14 +245,10 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.post("/api/v1/sessions/:session_id/messages/stream", zValidator("json", MessageBodySchema), async (c) => {
 		const session_id = c.req.param("session_id")
 		const user = c.get("user")
-		const role = c.get("role") as AppRole
 		const { message } = c.req.valid("json")
 
-		if (role === "app_requisitante") {
-			const { data: existing } = await supabase.from("query_log").select("user_id").eq("session_id", session_id).limit(1).single()
-			if (existing && existing.user_id !== user.id) {
-				return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
-			}
+		if (!(await canAccessSession(session_id, user))) {
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
 		const input = { messages: [new HumanMessage(message)], session_id, user_id: user.id }
@@ -290,13 +286,9 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.get("/api/v1/sessions/:session_id/messages", async (c) => {
 		const session_id = c.req.param("session_id")
 		const user = c.get("user")
-		const role = c.get("role") as AppRole
 
-		if (role === "app_requisitante") {
-			const { data: existing } = await supabase.from("query_log").select("user_id").eq("session_id", session_id).limit(1).single()
-			if (existing && existing.user_id !== user.id) {
-				return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
-			}
+		if (!(await canAccessSession(session_id, user))) {
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
 		const state = await graph.getState({ configurable: { thread_id: session_id } })
@@ -354,8 +346,13 @@ const app = new Hono<{ Variables: AppVariables }>()
 		if (!hasAdapter(source.id)) return c.json({ error: "Not Implemented", code: "SOURCE_ADAPTER_MISSING" }, 501)
 
 		try {
-			const report = await ingestSource({ sourceId: source.id, adapter: resolveAdapter(source), embed: embedDocuments, apply, limit })
-			return c.json(report)
+			// A coleta da AGU baixa um .docx por modelo (~50) e cada um leva
+			// segundos: sem teto, a rota estoura o limite de 60s do ALB e o cliente
+			// recebe 504 no meio de uma ingestão que continua rodando. A varredura
+			// completa é do job agendado e do CLI, que não têm essa restrição.
+			const effectiveLimit = Math.min(limit ?? HTTP_REFRESH_MAX_ITEMS, HTTP_REFRESH_MAX_ITEMS)
+			const report = await ingestSource({ sourceId: source.id, adapter: resolveAdapter(source), embed: embedDocuments, apply, limit: effectiveLimit })
+			return c.json({ ...report, limit_applied: effectiveLimit })
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			await supabase

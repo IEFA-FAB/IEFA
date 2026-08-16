@@ -38,6 +38,27 @@ export interface ExtractedField {
 	evidence: string
 }
 
+/** Naturezas de objeto aceitas pelo α — espelha `ObjetoTipoSchema` da extração. */
+export const OBJETO_TIPOS = ["COMPRAS", "SERVICOS", "OBRAS", "TIC"] as const
+
+export type ObjetoTipo = (typeof OBJETO_TIPOS)[number]
+
+/**
+ * Extração canônica.
+ *
+ * `objeto_tipo` é a exceção da forma: enum puro, sem trecho de origem, porque é
+ * classificação do documento inteiro e não um trecho dele. Tratá-lo como os
+ * demais campos fazia a tela ler `.value` de uma string e renderizar vazio.
+ */
+export type ExtractionPayload = { [K in Exclude<CampoKey, "objeto_tipo">]: ExtractedField | null } & { objeto_tipo: ObjetoTipo | null }
+
+/** Texto exibível de um campo extraído, independente da forma. */
+export function campoTexto(value: ExtractedField | ObjetoTipo | null): string | null {
+	if (value === null) return null
+
+	return typeof value === "string" ? value : value.value
+}
+
 export interface SourceSpan {
 	start: number
 	end: number
@@ -47,7 +68,7 @@ export interface SourceSpan {
 export interface ExtractionResponse {
 	id: string
 	submission_id: string
-	payload: Record<CampoKey, ExtractedField | null>
+	payload: ExtractionPayload
 	spans: Partial<Record<CampoKey, SourceSpan>>
 	model: string
 	dropped: Array<{ field: string; reason: string }>

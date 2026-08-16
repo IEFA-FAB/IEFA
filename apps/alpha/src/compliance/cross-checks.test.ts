@@ -103,10 +103,37 @@ describe("runCrossChecks", () => {
 		expect(result?.status).toBe("NAO_AVALIADA")
 	})
 
+	test("prazo declarado sem natureza do objeto não é tratado como conforme", () => {
+		// O limite de 60 meses só vale para serviço contínuo. Sem saber a natureza
+		// do objeto, dar "dentro do limite" é afirmar conformidade sem o dado que
+		// determina qual limite se aplica.
+		const result = runCrossChecks(payload({ prazo_vigencia: field("prazo de 6 anos") })).find((check) => check.code === "cruzada:vigencia-limite")
+
+		expect(result?.status).toBe("NAO_AVALIADA")
+		expect(result?.message).toContain("72")
+	})
+
 	test("modelo de execução sem critérios de medição é inconformidade", () => {
 		const result = runCrossChecks(payload({ modelo_execucao: field("execução por demanda") })).find((check) => check.code === "cruzada:execucao-sem-medicao")
 
 		expect(result?.status).toBe("INCONFORME")
+	})
+
+	test("sem modelo de execução, a checagem aparece como não avaliada em vez de sumir", () => {
+		// Antes, campo ausente fazia a regra desaparecer do relatório: ficava fora
+		// dos achados e fora da contagem de cobertura, e o ACI lia o silêncio como
+		// "nada a apontar".
+		const result = runCrossChecks(payload()).find((check) => check.code === "cruzada:execucao-sem-medicao")
+
+		expect(result?.status).toBe("NAO_AVALIADA")
+	})
+
+	test("toda checagem cruzada aparece no relatório, com qualquer entrada", () => {
+		const codes = new Set(runCrossChecks(payload()).map((check) => check.code))
+
+		expect(codes).toEqual(
+			new Set(["cruzada:parcelamento-sem-justificativa", "cruzada:valor-sem-pesquisa", "cruzada:vigencia-limite", "cruzada:execucao-sem-medicao"])
+		)
 	})
 
 	test("toda checagem carrega referência legal", () => {

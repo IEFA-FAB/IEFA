@@ -98,10 +98,14 @@ export async function pdfToSubmissionText(bytes: Uint8Array): Promise<Submission
 	const { text } = await extractText(pdf, { mergePages: true })
 	const lines = (Array.isArray(text) ? text.join("\n") : text).split(/\r?\n/).map((line) => cleanText(line))
 
-	const paragraphs = lines.map((line) => ({
-		level: NUMBERED_HEADING.test(line) ? Math.min(line.split(".")[0].split(".").length, 5) : looksLikeHeading(line) ? 1 : null,
-		text: line,
-	}))
+	const paragraphs = lines.map((line) => {
+		// A numeração inteira define o nível ("2.1.3" → 3). Contar pontos no
+		// primeiro segmento devolvia 1 sempre, achatando a árvore do PDF.
+		const numbered = NUMBERED_HEADING.exec(line)
+		const level = numbered ? Math.min(numbered[1].split(".").length, 5) : looksLikeHeading(line) ? 1 : null
+
+		return { level, text: line }
+	})
 
 	return { text: lines.filter(Boolean).join("\n"), nodes: buildNodes(paragraphs) }
 }

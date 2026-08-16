@@ -116,6 +116,17 @@ export function runCrossChecks(payload: Contratacao): CrossCheckResult[] {
 			legal_ref: [{ norma: LEI, dispositivo: "art. 107" }],
 			fields: ["prazo_vigencia"],
 		})
+	} else if (payload.objeto_tipo === null) {
+		// O limite depende da natureza do objeto. Sem ela, declarar "dentro do
+		// limite" seria afirmar conformidade a partir de dado ausente.
+		results.push({
+			code: "cruzada:vigencia-limite",
+			status: "NAO_AVALIADA",
+			severity: "MEDIA",
+			message: `Prazo de vigência declarado (${prazo} meses), mas a natureza do objeto não foi identificada — o limite legal aplicável não pôde ser determinado.`,
+			legal_ref: [{ norma: LEI, dispositivo: "art. 107" }],
+			fields: ["prazo_vigencia", "objeto_tipo"],
+		})
 	} else if (payload.objeto_tipo === "SERVICOS" && prazo > LIMITE_VIGENCIA_CONTINUO_MESES) {
 		results.push({
 			code: "cruzada:vigencia-limite",
@@ -138,7 +149,16 @@ export function runCrossChecks(payload: Contratacao): CrossCheckResult[] {
 	}
 
 	// 4. Modelo de execução x critérios de medição e pagamento.
-	if (payload.modelo_execucao && !payload.criterios_medicao_pagamento) {
+	if (!payload.modelo_execucao) {
+		results.push({
+			code: "cruzada:execucao-sem-medicao",
+			status: "NAO_AVALIADA",
+			severity: "GRAVE",
+			message: "Modelo de execução não identificado — a coerência com os critérios de medição não pôde ser avaliada.",
+			legal_ref: [{ norma: LEI, dispositivo: 'art. 6º, XXIII, "g"' }],
+			fields: ["modelo_execucao", "criterios_medicao_pagamento"],
+		})
+	} else if (!payload.criterios_medicao_pagamento) {
 		results.push({
 			code: "cruzada:execucao-sem-medicao",
 			status: "INCONFORME",

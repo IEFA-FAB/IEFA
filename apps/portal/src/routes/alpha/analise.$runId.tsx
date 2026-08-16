@@ -4,6 +4,7 @@ import { WarningTriangle } from "iconoir-react"
 import { useMemo, useState } from "react"
 import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/hooks/useAuth"
 import { complianceRunQueryOptions, type Finding, SEVERITY_ORDER, type Severity } from "@/lib/alpha/compliance"
 
@@ -135,19 +136,19 @@ function RelatorioPage() {
 						</nav>
 
 						{tab !== "execucao" ? (
-							<select
-								value={severityFilter}
-								onChange={(event) => setSeverityFilter(event.target.value as Severity | "todas")}
-								className="mb-2 border border-border bg-background px-2 py-1 text-sm"
-								aria-label="Filtrar por severidade"
-							>
-								<option value="todas">todas as severidades</option>
-								{SEVERITY_ORDER.map((severity) => (
-									<option key={severity} value={severity}>
-										{severity}
-									</option>
-								))}
-							</select>
+							<Select value={severityFilter} onValueChange={(value) => setSeverityFilter(value as Severity | "todas")}>
+								<SelectTrigger className="mb-2 w-52" aria-label="Filtrar por severidade">
+									<SelectValue>{severityFilter === "todas" ? "todas as severidades" : severityFilter}</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="todas">todas as severidades</SelectItem>
+									{SEVERITY_ORDER.map((severity) => (
+										<SelectItem key={severity} value={severity}>
+											{severity}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						) : null}
 					</div>
 

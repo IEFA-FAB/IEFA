@@ -23,10 +23,17 @@ import { embeddingError, embeddingModelId, getEmbeddings } from "../lib/embeddin
 const apply = process.argv.includes("--apply")
 const modelId = embeddingModelId()
 
-const { count, error: countError } = await supabase
-	.from("document_chunk")
-	.select("id", { count: "exact", head: true })
-	.or(`embedding.is.null,embedding_model.neq.${modelId}`)
+/**
+ * Chunk pendente de vetor.
+ *
+ * `embedding_model.neq.X` **não** casa linha com `embedding_model` nulo — em SQL,
+ * `NULL <> 'x'` é NULL, não verdadeiro. Sem o `embedding_model.is.null`, todo
+ * chunk ingerido antes da coluna existir ficava invisível para este comando, que
+ * relatava "0 a preencher" com o corpus inteiro fora da busca semântica.
+ */
+const PENDING_FILTER = `embedding.is.null,embedding_model.is.null,embedding_model.neq.${modelId}`
+
+const { count, error: countError } = await supabase.from("document_chunk").select("id", { count: "exact", head: true }).or(PENDING_FILTER)
 
 if (countError) {
 	console.error("❌ consulta falhou:", countError.message)
@@ -46,11 +53,7 @@ let processed = 0
 let failed = 0
 
 while (true) {
-	const { data: batch, error } = await supabase
-		.from("document_chunk")
-		.select("id, content")
-		.or(`embedding.is.null,embedding_model.neq.${modelId}`)
-		.limit(env.EMB_BATCH_SIZE)
+	const { data: batch, error } = await supabase.from("document_chunk").select("id, content").or(PENDING_FILTER).limit(env.EMB_BATCH_SIZE)
 
 	if (error) {
 		console.error("❌ leitura falhou:", error.message)
@@ -60,6 +63,7 @@ while (true) {
 
 	try {
 		const vectors = await embeddings.embedDocuments(batch.map((chunk: { content: string }) => chunk.content))
+		let batchProcessed = 0
 
 		for (const [index, chunk] of (batch as Array<{ id: string }>).entries()) {
 			const { error: updateError } = await supabase.from("document_chunk").update({ embedding: vectors[index], embedding_model: modelId }).eq("id", chunk.id)
@@ -69,10 +73,17 @@ while (true) {
 				console.error(`   ❌ chunk ${chunk.id}: ${updateError.message}`)
 			} else {
 				processed += 1
+				batchProcessed += 1
 			}
 		}
 
 		console.info(`   ${processed} preenchidos…`)
+
+		// Sem progresso no lote inteiro, insistir só repetiria as mesmas falhas.
+		if (batchProcessed === 0) {
+			console.error("❌ nenhum chunk do lote pôde ser gravado — interrompendo para não repetir indefinidamente")
+			break
+		}
 	} catch (error) {
 		console.error(`❌ ${embeddingError(error).message}`)
 		process.exit(1)

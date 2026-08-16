@@ -64,6 +64,20 @@ function truncate(text: string): { text: string; truncated: boolean } {
 	return { text: `${text.slice(0, max)}\n[...documento truncado para extração...]`, truncated: true }
 }
 
+/**
+ * Erro que uma nova tentativa pode resolver.
+ *
+ * Saída fora do schema entra aqui porque o modelo costuma acertar na segunda —
+ * e gravar payload inválido não é opção, já que o JSON alimenta todas as etapas
+ * seguintes. Throttling e indisponibilidade do Bedrock, idem.
+ */
+function isRetryable(error: unknown): boolean {
+	if (error instanceof z.ZodError) return true
+
+	const name = error instanceof Error ? `${error.name} ${error.message}` : String(error)
+	return /throttl|too ?many ?requests|serviceunavailable|internalserver|timeout|timed out|econnreset|socket hang up/i.test(name)
+}
+
 export async function extractContratacao(documentText: string, docKind: string): Promise<ExtractionResult> {
 	const model = structuredLLM(extractionJsonSchema)
 	const modelName = env.ALPHA_AI_MODEL
@@ -81,9 +95,10 @@ export async function extractContratacao(documentText: string, docKind: string):
 			return { ...applySpans(raw, documentText), model: modelName, truncated }
 		} catch (error) {
 			lastError = error
-			// Saída fora do schema é motivo de nova tentativa, não de gravar
-			// payload inválido: o JSON alimenta todas as etapas seguintes.
-			if (!(error instanceof z.ZodError) && attempt === MAX_ATTEMPTS) break
+			// Só repete o que uma segunda chamada pode consertar. Chave inválida,
+			// modelo inexistente ou acesso negado dão o mesmo erro em toda
+			// tentativa: insistir só multiplica a latência antes de falhar igual.
+			if (!isRetryable(error)) break
 		}
 	}
 

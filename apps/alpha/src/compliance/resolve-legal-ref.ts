@@ -56,8 +56,8 @@ export class LegalRefResolver {
 		const wanted = parseNormaIdentity(norma)
 		const match = wanted
 			? (documents ?? []).find((document: { id: string; title: string }) => {
-					const title = canonicalRefLabel(document.title)
-					return title.includes(wanted.numero) && title.includes(wanted.ano)
+					const identity = parseNormaIdentity(document.title)
+					return identity !== null && identity.kind === wanted.kind && identity.numero === wanted.numero && identity.ano === wanted.ano
 				})
 			: undefined
 
