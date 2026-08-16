@@ -140,7 +140,10 @@ describeAiSmoke("smoke do provider de IA", () => {
 			const def = globalTools.find((t) => t.name === call.name)
 			expect(def, `tool desconhecida: ${call.name}`).toBeDefined()
 
-			const schema = wrapTool(def as ModuleToolDefinition, stubContext()).inputSchema as {
+			// `as unknown` no meio: em @tanstack/ai >= 0.43 o `inputSchema` do ServerTool é
+			// opcional, então o tipo estático é `undefined` e o cast direto não compila. O
+			// schema continua chegando em runtime — é o que este teste confere.
+			const schema = wrapTool(def as ModuleToolDefinition, stubContext()).inputSchema as unknown as {
 				"~standard"?: { validate: (value: unknown) => { issues?: { message: string }[] } | Promise<{ issues?: { message: string }[] }> }
 			}
 			const standard = schema?.["~standard"]

@@ -14,8 +14,8 @@
     "@iefa/database": "workspace:*",
     "@iefa/pbac": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@supabase/supabase-js": "^2.110.7",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@supabase/supabase-js": "^2.112.2",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9",
     "zod": "^4.4.3"
