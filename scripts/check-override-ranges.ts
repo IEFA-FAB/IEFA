@@ -102,7 +102,10 @@ function resolvedVersions(name: string, lock: ReturnType<typeof parseLock>): str
 }
 
 async function publishedVersions(name: string): Promise<string[]> {
-	const res = await fetch(`https://registry.npmjs.org/${name.replace("/", "%2f")}`, {
+	// `replace` com string troca só a primeira ocorrência. Nome de pacote válido tem no máximo
+	// uma `/`, mas escapar pela metade é o tipo de coisa que só falha no dia em que deixa de ser
+	// verdade — daí `replaceAll`.
+	const res = await fetch(`https://registry.npmjs.org/${name.replaceAll("/", "%2f")}`, {
 		headers: { accept: "application/vnd.npm.install-v1+json" },
 	})
 	if (!res.ok) throw new Error(`registro devolveu ${res.status} para ${name}`)
@@ -117,6 +120,8 @@ const overrides: Record<string, string> = pkg.overrides ?? {}
 
 const caps: string[] = []
 const undocumented: string[] = []
+/** FORCED que realmente forçou algo nesta árvore. O resto é entrada morta. */
+const stillForcing = new Set<string>()
 
 for (const [name, spec] of Object.entries(overrides)) {
 	const consumers = consumersOf(name, lock)
@@ -131,6 +136,7 @@ for (const [name, spec] of Object.entries(overrides)) {
 	if (forcedOn.length > 0) {
 		// Forçar por cima do consumidor É capar, de propósito. Documentado em FORCED, os dois
 		// checks saem: cobrar cap aqui só produziria ruído permanente.
+		stillForcing.add(name)
 		if (!FORCED[name]) {
 			undocumented.push(
 				`  ${name}: "${spec}" resolve ${top}, fora da faixa de ${forcedOn.map((c) => `${c.by} (${c.range})`).join(", ")}\n` +
@@ -174,9 +180,19 @@ if (caps.length > 0) {
 	console.error(caps.join("\n\n"))
 }
 
-if (caps.length > 0 || undocumented.length > 0) {
+// FORCED é dívida com saída. Entrada que não força mais nada já cumpriu a condição de saída —
+// deixar apodrecer é exatamente como um allowlist "temporário" vira permanente.
+const stale = Object.keys(FORCED).filter((name) => !stillForcing.has(name))
+if (stale.length > 0) {
+	console.error("\n❌ entrada morta em FORCED — a condição de saída já bateu, apague:\n")
+	for (const name of stale) {
+		console.error(`  ${name}: ${overrides[name] ? "não força mais nenhum consumidor" : "nem override tem mais"}`)
+	}
+}
+
+if (caps.length > 0 || undocumented.length > 0 || stale.length > 0) {
 	console.error("")
 	process.exit(1)
 }
 
-console.log(`✅ ${Object.keys(overrides).length} overrides — nenhum capa a faixa do consumidor`)
+console.log(`✅ ${Object.keys(overrides).length} overrides — nenhum capa a faixa do consumidor ` + `(${stillForcing.size} forçados, justificados em FORCED)`)
