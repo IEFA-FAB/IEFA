@@ -57,9 +57,27 @@ const defaultFetcher: Fetcher = async (url) => {
 	return response.text()
 }
 
+/**
+ * Texto de um trecho de HTML.
+ *
+ * Remover `<[^>]+>` uma vez não basta, por dois motivos: tag aninhada
+ * (`<<b>script>`) pode virar tag válida depois da primeira passada, e tag sem
+ * fechamento (`<script` no fim do trecho) simplesmente não casa e sobrevive
+ * inteira. Daí o laço até estabilizar e a remoção do que restar de `<`/`>`.
+ *
+ * Importa porque este texto vira título de documento no corpus, e o corpus é
+ * lido de volta em telas e em prompt de modelo — o que sai daqui é texto, não
+ * marcação, independente de quão malformado era o HTML da AGU.
+ */
 function stripTags(html: string): string {
-	return html
-		.replace(HTML_TAG, "")
+	let stripped = html
+	for (let previous = ""; previous !== stripped; ) {
+		previous = stripped
+		stripped = stripped.replace(HTML_TAG, "")
+	}
+
+	return stripped
+		.replace(/[<>]/g, "")
 		.replace(/&nbsp;/g, " ")
 		.replace(/&amp;/g, "&")
 		.replace(/\s+/g, " ")

@@ -110,6 +110,7 @@ jobs:
           # security-extended inclui as queries de qualidade-com-impacto-em-segurança
           # (ex.: regex sujeita a ReDoS) que o pack default deixa de fora.
           queries: security-extended
+          config-file: .github/codeql/config.yml
 
       - uses: github/codeql-action/analyze@v4.37.1
         with:

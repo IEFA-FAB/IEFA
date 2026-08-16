@@ -1,0 +1,9 @@
+name: IEFA — javascript-typescript
+
+# Fixture é página real salva do gov.br, guardada para testar a descoberta de
+# links da AGU sem depender da rede. O que ela carrega — script de CDN sem
+# `integrity`, entre outros — é do site de origem, não código nosso: analisá-la
+# só produz alerta sobre a infraestrutura da AGU, que não está sob nosso
+# controle nem chega a rodar em lugar nenhum.
+paths-ignore:
+  - "**/__fixtures__/**"

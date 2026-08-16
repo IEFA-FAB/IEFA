@@ -93,3 +93,16 @@ describe("collectItemsFromHtml — HTML real da categoria contratação direta",
 		expect(withoutVersion.items[0]?.effective_from).toBeUndefined()
 	})
 })
+
+describe("título extraído do HTML", () => {
+	test("tag aninhada não sobrevive à limpeza", () => {
+		// Uma passada só de `<[^>]+>` transformaria `<<b>script>` em `<script>` —
+		// criando a tag que deveria ter apagado. O título vai para o corpus.
+		const html = '<a href="https://www.gov.br/agu/x/modelo-abr-26.docx"><<b>script>Modelo</b></a>'
+		const report = collectItemsFromHtml([{ url: "https://www.gov.br/agu/x", html }], "https://www.gov.br/agu")
+
+		expect(report.items).toHaveLength(1)
+		expect(report.items[0].title).not.toContain("<")
+		expect(report.items[0].title).not.toContain(">")
+	})
+})
