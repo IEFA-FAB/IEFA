@@ -4,6 +4,7 @@ import { addDays, format, parseISO, startOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
@@ -43,6 +44,9 @@ const WEEKDAYS = [
 ] as const
 
 type SignatureBlock = { name: string; role: string }
+
+/** Uma preparação dentro de uma célula (refeição × dia) da grade. */
+type CellEntry = { name: string; group: string | null; sortOrder: number; proportion: number | null }
 
 type PrintHeader = {
 	organization: string
@@ -151,6 +155,9 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const [weekStart, setWeekStart] = useState<Date | null>(null)
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
 	const [isExporting, setIsExporting] = useState(false)
+	// A cópia de impressão só existe no cliente — createPortal exige `document`.
+	const [mounted, setMounted] = useState(false)
+	useEffect(() => setMounted(true), [])
 
 	useEffect(() => {
 		setHeader(loadHeader(storageScope, organizationName))
@@ -226,7 +233,6 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const orderedMealTypes = (mealTypes ?? []).slice().sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || (a.name ?? "").localeCompare(b.name ?? ""))
 
 	// Índice (dia → refeição → preparações), ordenadas por grupo canônico e depois posição.
-	type CellEntry = { name: string; group: string | null; sortOrder: number; proportion: number | null }
 	const cellIndex = new Map<string, CellEntry[]>()
 	for (const item of template.items) {
 		if (item.day_of_week == null || !item.meal_type_id) continue
@@ -255,6 +261,14 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const preparations = Array.from(prepMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 
 	const dayDate = (dow: number): Date | null => (weekStart ? addDays(weekStart, dow - 1) : null)
+
+	// Dados derivados compartilhados pelas duas cópias do documento (tela + impressão).
+	const dayColumns = WEEKDAYS.map((d) => {
+		const date = dayDate(d.num)
+		return { num: d.num, label: d.label, dateLabel: date ? format(date, "dd/MM") : null }
+	})
+	const mealRows = orderedMealTypes.map((mt) => ({ id: mt.id, name: mt.name ?? "" }))
+	const emptyMessage = scope.kind === "kitchen" ? "Nenhum tipo de refeição configurado para esta cozinha." : "Nenhum tipo de refeição genérico configurado."
 
 	const weekLabel = (() => {
 		if (!weekStart) return template.name ?? ""
@@ -365,98 +379,167 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				</div>
 			</div>
 
-			{/* Documento */}
-			<div id="cardapio-print" className="cardapio-doc">
-				{/* Cabeçalho */}
-				<header className="cardapio-header">
-					<div className="cardapio-sign cardapio-sign-top">
-						<SignatureField block={header.signatures[0]} onChange={(p) => setSignature(0, p)} />
-					</div>
-					<div className="cardapio-title-block">
-						<EditableLine value={header.organization} onChange={(v) => persistHeader({ ...header, organization: v })} className="cardapio-org" />
-						<EditableLine value={header.section} onChange={(v) => persistHeader({ ...header, section: v })} className="cardapio-section" />
-						<EditableLine value={header.title} onChange={(v) => persistHeader({ ...header, title: v })} className="cardapio-doctitle" />
-						<div className="cardapio-week">{weekLabel}</div>
-					</div>
-					<div className="cardapio-sign cardapio-sign-top cardapio-sign-right">
-						<SignatureField block={header.signatures[1]} onChange={(p) => setSignature(1, p)} />
-					</div>
-				</header>
+			{/* Documento — cópia editável, na tela */}
+			<CardapioDocument
+				editable
+				header={header}
+				weekLabel={weekLabel}
+				dayColumns={dayColumns}
+				mealRows={mealRows}
+				cellIndex={cellIndex}
+				preparations={preparations}
+				emptyMessage={emptyMessage}
+				onSignatureChange={setSignature}
+				onHeaderChange={persistHeader}
+			/>
 
-				{/* Grade refeição × dia */}
-				<table className="cardapio-grid">
-					<thead>
-						<tr>
-							<th className="cardapio-meal-col">REFEIÇÃO / DIA</th>
-							{WEEKDAYS.map((d) => {
-								const date = dayDate(d.num)
-								const weekend = d.num >= 6
-								return (
-									<th key={d.num} className={weekend ? "cardapio-weekend" : undefined}>
-										<div>{d.label.toUpperCase()}</div>
-										{date && <div className="cardapio-daynum">{format(date, "dd/MM")}</div>}
-									</th>
-								)
-							})}
-						</tr>
-					</thead>
-					<tbody>
-						{orderedMealTypes.length === 0 ? (
-							<tr>
-								<td colSpan={8} className="cardapio-empty">
-									{scope.kind === "kitchen" ? "Nenhum tipo de refeição configurado para esta cozinha." : "Nenhum tipo de refeição genérico configurado."}
-								</td>
-							</tr>
-						) : (
-							orderedMealTypes.map((mt) => (
-								<tr key={mt.id}>
-									<th className="cardapio-meal-col">{(mt.name ?? "").toUpperCase()}</th>
-									{WEEKDAYS.map((d) => {
-										const entries = cellIndex.get(`${d.num}:${mt.id}`) ?? []
-										const weekend = d.num >= 6
-										return (
-											<td key={d.num} className={weekend ? "cardapio-weekend" : undefined}>
-												{entries.map((entry, i) => (
-													<div key={`${entry.name}-${i}`} className="cardapio-dish">
-														{entry.name.toUpperCase()}
-														{entry.proportion != null && <span className="cardapio-dish-prop"> {entry.proportion}%</span>}
-													</div>
-												))}
-											</td>
-										)
-									})}
-								</tr>
-							))
-						)}
-					</tbody>
-				</table>
-
-				{/* Lista de preparações */}
-				{preparations.length > 0 && (
-					<section className="cardapio-preps">
-						<div className="cardapio-preps-title">LISTA DE PREPARAÇÕES</div>
-						<ul>
-							{preparations.map((p) => (
-								<li key={p.id}>
-									<span className="cardapio-prep-name">{p.name.toUpperCase()}</span>
-									{" — "}
-									<span className="cardapio-prep-method">{p.method}</span>
-								</li>
-							))}
-						</ul>
-					</section>
+			{/*
+			 * Cópia de impressão, montada num portal direto no <body>. A cópia da tela
+			 * vive dentro do app-shell (`h-screen overflow-hidden` em _protected/route,
+			 * `overflow-y-auto` no <main>), que recorta tudo além da primeira dobra ao
+			 * imprimir. O `position: absolute` que contornava isso tinha o defeito
+			 * oposto: caixa posicionada não fragmenta entre páginas, então a lista de
+			 * preparações simplesmente sumia. No <body>, em fluxo normal, o conteúdo
+			 * pagina e o `break-before: page` é respeitado.
+			 *
+			 * Sem `editable`: a cópia impressa é estática, então não duplica os
+			 * <input> do formulário nem seus rótulos.
+			 */}
+			{mounted &&
+				createPortal(
+					<div className="cardapio-print-portal">
+						<CardapioDocument
+							header={header}
+							weekLabel={weekLabel}
+							dayColumns={dayColumns}
+							mealRows={mealRows}
+							cellIndex={cellIndex}
+							preparations={preparations}
+							emptyMessage={emptyMessage}
+						/>
+					</div>,
+					document.body
 				)}
+		</div>
+	)
+}
 
-				{/* Assinaturas do rodapé */}
-				<footer className="cardapio-footer">
-					<div className="cardapio-sign">
-						<SignatureField block={header.signatures[2]} onChange={(p) => setSignature(2, p)} />
-					</div>
-					<div className="cardapio-sign cardapio-sign-right">
-						<SignatureField block={header.signatures[3]} onChange={(p) => setSignature(3, p)} />
-					</div>
-				</footer>
-			</div>
+// ─── Documento ─────────────────────────────────────────────────────────────
+
+interface CardapioDocumentProps {
+	header: PrintHeader
+	weekLabel: string
+	dayColumns: { num: number; label: string; dateLabel: string | null }[]
+	mealRows: { id: string; name: string }[]
+	cellIndex: Map<string, CellEntry[]>
+	preparations: { id: string; name: string; method: string }[]
+	emptyMessage: string
+	/** Só a cópia da tela edita; a de impressão renderiza texto estático. */
+	editable?: boolean
+	onSignatureChange?: (idx: number, patch: Partial<SignatureBlock>) => void
+	onHeaderChange?: (next: PrintHeader) => void
+}
+
+function CardapioDocument({
+	header,
+	weekLabel,
+	dayColumns,
+	mealRows,
+	cellIndex,
+	preparations,
+	emptyMessage,
+	editable = false,
+	onSignatureChange,
+	onHeaderChange,
+}: CardapioDocumentProps) {
+	const line = (value: string, className: string, onChange: (v: string) => void) =>
+		editable ? <EditableLine value={value} onChange={onChange} className={className} /> : <div className={className}>{value}</div>
+
+	const signature = (idx: 0 | 1 | 2 | 3) =>
+		editable ? (
+			<SignatureField block={header.signatures[idx]} onChange={(p) => onSignatureChange?.(idx, p)} />
+		) : (
+			<StaticSignature block={header.signatures[idx]} />
+		)
+
+	return (
+		<div className="cardapio-doc">
+			{/* Cabeçalho */}
+			<header className="cardapio-header">
+				<div className="cardapio-sign cardapio-sign-top">{signature(0)}</div>
+				<div className="cardapio-title-block">
+					{line(header.organization, "cardapio-org", (v) => onHeaderChange?.({ ...header, organization: v }))}
+					{line(header.section, "cardapio-section", (v) => onHeaderChange?.({ ...header, section: v }))}
+					{line(header.title, "cardapio-doctitle", (v) => onHeaderChange?.({ ...header, title: v }))}
+					<div className="cardapio-week">{weekLabel}</div>
+				</div>
+				<div className="cardapio-sign cardapio-sign-top cardapio-sign-right">{signature(1)}</div>
+			</header>
+
+			{/* Grade refeição × dia */}
+			<table className="cardapio-grid">
+				<thead>
+					<tr>
+						<th className="cardapio-meal-col">REFEIÇÃO / DIA</th>
+						{dayColumns.map((d) => (
+							<th key={d.num} className={d.num >= 6 ? "cardapio-weekend" : undefined}>
+								<div>{d.label.toUpperCase()}</div>
+								{d.dateLabel && <div className="cardapio-daynum">{d.dateLabel}</div>}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody>
+					{mealRows.length === 0 ? (
+						<tr>
+							<td colSpan={8} className="cardapio-empty">
+								{emptyMessage}
+							</td>
+						</tr>
+					) : (
+						mealRows.map((mt) => (
+							<tr key={mt.id}>
+								<th className="cardapio-meal-col">{mt.name.toUpperCase()}</th>
+								{dayColumns.map((d) => {
+									const entries = cellIndex.get(`${d.num}:${mt.id}`) ?? []
+									return (
+										<td key={d.num} className={d.num >= 6 ? "cardapio-weekend" : undefined}>
+											{entries.map((entry, i) => (
+												<div key={`${entry.name}-${i}`} className="cardapio-dish">
+													{entry.name.toUpperCase()}
+													{entry.proportion != null && <span className="cardapio-dish-prop"> {entry.proportion}%</span>}
+												</div>
+											))}
+										</td>
+									)
+								})}
+							</tr>
+						))
+					)}
+				</tbody>
+			</table>
+
+			{/* Assinaturas — antes da quebra, para saírem na mesma folha do cardápio */}
+			<footer className="cardapio-footer">
+				<div className="cardapio-sign">{signature(2)}</div>
+				<div className="cardapio-sign cardapio-sign-right">{signature(3)}</div>
+			</footer>
+
+			{/* Lista de preparações — começa em folha nova na impressão */}
+			{preparations.length > 0 && (
+				<section className="cardapio-preps">
+					<div className="cardapio-preps-title">LISTA DE PREPARAÇÕES</div>
+					<ul>
+						{preparations.map((p) => (
+							<li key={p.id}>
+								<span className="cardapio-prep-name">{p.name.toUpperCase()}</span>
+								{" — "}
+								<span className="cardapio-prep-method">{p.method}</span>
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
 		</div>
 	)
 }
@@ -471,6 +554,17 @@ function EditableLine({ value, onChange, className }: { value: string; onChange:
 			className={`cardapio-editable ${className ?? ""}`}
 			aria-label="Campo editável do cardápio"
 		/>
+	)
+}
+
+/** Mesmo bloco de assinatura, sem <input> — usado na cópia de impressão. */
+function StaticSignature({ block }: { block: SignatureBlock }) {
+	return (
+		<>
+			<div className="cardapio-sign-line" />
+			<div className="cardapio-sign-name">{block.name}</div>
+			<div className="cardapio-sign-role">{block.role}</div>
+		</>
 	)
 }
 
@@ -600,19 +694,28 @@ const PRINT_CSS = `
 	margin-top: 16px;
 }
 
+/* Cópia de impressão (portal no <body>): existe só para o @media print. */
+.cardapio-print-portal { display: none; }
+
 @media print {
 	@page { size: A4 landscape; margin: 6mm; }
 	body { background: #fff !important; }
-	body * { visibility: hidden !important; }
-	#cardapio-print, #cardapio-print * { visibility: visible !important; }
-	#cardapio-print {
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 100%;
-	}
+	/*
+	 * Imprime só a cópia do portal, que é filha direta do <body> e portanto está em
+	 * fluxo normal — nenhum ancestral com overflow para recortá-la, e nenhuma caixa
+	 * posicionada para impedir a fragmentação entre páginas.
+	 */
+	body > *:not(.cardapio-print-portal) { display: none !important; }
+	.cardapio-print-portal { display: block !important; }
 	.cardapio-no-print { display: none !important; }
 	.cardapio-doc { border: none; padding: 0; max-width: none; }
 	.cardapio-editable:hover, .cardapio-editable:focus { background: transparent !important; }
+	/* Cardápio + assinaturas na 1ª folha; modos de preparo começam na seguinte. */
+	.cardapio-preps {
+		break-before: page;
+		page-break-before: always;
+		margin-top: 0;
+	}
+	.cardapio-preps-title { break-after: avoid; page-break-after: avoid; }
 }
 `
