@@ -1,7 +1,7 @@
 import type { CatalogScope, PreparationScope } from "@iefa/sisub-domain"
 import { useEffect, useMemo, useRef } from "react"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
-import { asArray, buildIngredientTree, type FolderReviewStats, folderReviewStats } from "@/lib/ingredient-tree"
+import { asArray, buildIngredientTree, type FolderConference, type FolderReviewStats, folderConferenceStatus, folderReviewStats } from "@/lib/ingredient-tree"
 import type { SearchSensitivity } from "@/lib/text-search"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { FlatIngredientTree } from "@/types/domain/ingredients"
@@ -118,6 +118,13 @@ export function useIngredientsHierarchy(
 		return folderReviewStats({ folders: tree.folders, ingredients: tree.ingredients, lastReviews: tree.lastReviews })
 	}, [tree])
 
+	// Conferência da pasta enquanto pasta (carimbo humano) + quanto entrou depois
+	// dela. Fato distinto do progresso acima; a tela mostra os dois, nunca um pelo outro.
+	const folderConferenceByFolderId = useMemo(() => {
+		if (!tree) return new Map<string, FolderConference>()
+		return folderConferenceStatus({ folders: tree.folders, ingredients: tree.ingredients, folderLastReviews: tree.folderLastReviews })
+	}, [tree])
+
 	// Constrói a estrutura flat para virtualização. A lógica é pura e vive em
 	// `lib/ingredient-tree` — é onde ela tem teste.
 	const flatTree = useMemo<FlatIngredientTree | null>(() => {
@@ -153,6 +160,7 @@ export function useIngredientsHierarchy(
 		itemCountByIngredientId,
 		lastReviewByIngredientId,
 		folderReviewByFolderId,
+		folderConferenceByFolderId,
 
 		// Estados (componente decide skeleton)
 		error,

@@ -68,6 +68,12 @@ export {
 	updateEquipmentRole,
 	updateEquipmentUnit,
 } from "./equipment.ts"
+export {
+	type FolderLastReview,
+	type FolderReviewRow,
+	listFolderLastReviews,
+	recordFolderReview,
+} from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,

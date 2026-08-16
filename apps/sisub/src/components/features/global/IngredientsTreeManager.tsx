@@ -181,6 +181,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 		itemCountByIngredientId,
 		lastReviewByIngredientId,
 		folderReviewByFolderId,
+		folderConferenceByFolderId,
 		error,
 		refetch,
 		toggleExpand,
@@ -419,6 +420,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
 											lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
 											folderReview={node.type === "folder" ? folderReviewByFolderId.get(node.id) : undefined}
+											folderConference={node.type === "folder" ? folderConferenceByFolderId.get(node.id) : undefined}
 											selectionMode={selectionMode}
 											canWrite={canWrite}
 											selected={selected.has(node.id)}
