@@ -1,3 +1,4 @@
+import { blocoFundamentacao, FUNDAMENTO_SALDO_TRANSITORIO } from "#/lib/normas"
 import type { ParsedRow } from "./parser"
 
 export interface UgMessage {
@@ -51,6 +52,8 @@ ${occurrencesText.trim()}
 A intenção deste acompanhamento é que a Unidade Gestora verifique a situação apresentada. Solicitamos que sejam realizadas as respectivas regularizações, caso se trate de uma inconsistência contábil, ou que seja encaminhada a devida justificativa a esta Setorial, caso a ausência de movimentação seja regular e justificável.
 
 Solicito, ainda, que as providências adotadas ou as justificativas pertinentes sejam informadas a esta Diretoria por meio do Sistema de Atendimento ao Usuário (SAU), mediante abertura de chamado com o objeto "Resposta de Acompanhamento Contábil", no prazo de 05 (cinco) dias úteis.
+
+${blocoFundamentacao(FUNDAMENTO_SALDO_TRANSITORIO)}
 
 Por fim, a Divisão de Acompanhamento Contábil e de Suporte ao Usuário (SUCONT-3) permanece à disposição para dirimir eventuais dúvidas sobre o assunto, por intermédio do referido sistema.
 

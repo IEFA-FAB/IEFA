@@ -1,0 +1,191 @@
+---
+title: Ferramentas
+description: O que cada ferramenta do sucont lê, qual regra aplica, o que devolve e onde ela cega.
+---
+
+Cada seção segue o mesmo roteiro: **entrada → regra → saída → limites**. "Limites" não é lista de bugs: é o que o operador precisa saber para não confiar demais no resultado.
+
+## Auditor SUCONT-4 — `/auditor`
+
+Conciliação patrimonial SIAFI × SILOMS. É a ferramenta com série temporal, e a única — junto do SAC-DGC — que guarda o que apurou.
+
+**Entrada.** XLSX com uma linha por UG e por mês, e três blocos de colunas — consumo, bens móveis permanentes (BMP) e intangível. As colunas são lidas **por posição**: data em 0, código da UG em 1, nome em 2, e os trios SIAFI/SILOMS/diferença em 4-6, 8-10 e 12-14. O cabeçalho é localizado por texto (`DATA`, `MÊS`, `REF`, `PERÍODO` → deslocamento 0; `COD`, `UG` → deslocamento −1); não achando, o parser começa na segunda linha. A data é herdada da última linha preenchida, então célula de data mesclada funciona.
+
+**Regra.**
+
+```
+diferença     = |SIAFI − SILOMS|   (a coluna DIF do arquivo não é fonte:
+                                    entra só como magnitude quando ≠ 0)
+preponderante = sistema com o maior saldo
+score         = 0,7 × (maiorDiferença / maiorDiferença global) × 100
+              + 0,3 × (competências com divergência / competências carregadas) × 100
+```
+
+O grão do risco é **(UG, grupo de contas)**, não a UG. Antes era por unidade, e o Intangível zerado de uma UG herdava o "Crítico" do BMP com centenas de milhões de divergência — a tela e a MSG classificavam como crítica uma conta conciliada.
+
+O nível de risco sai do **percentil do score dentro do próprio arquivo** (≤25 baixo, ≤50 médio, ≤75 alto, acima disso crítico). Impacto segue o percentil da maior diferença em cinco faixas. Probabilidade é **fração da janela observada** (≤10% raro, ≤30% ocasional, ≤60% recorrente, ≤85% persistente, acima disso crônico) — com divisor fixo de 12 uma série plurianual passava de 100% (chegou a 266%), desequilibrava a mistura 70/30 e jogava 96% dos registros no balde "crônico".
+
+Ausência de competência anterior não é divergência zero: o registro carrega `hasPrevious`, e o delta só é comparação quando existe linha anterior de verdade.
+
+**Persistência.** A rodada vira `analysis_run`; o grão, `siloms_siafi_balance` (competência + UG + grupo); a mensagem, `generated_message`, numerada pela sequência do banco. `src/server/auditor.fn.ts` grava em lotes (PostgREST devolve no máximo 1000 linhas por request), deduplica o grão e devolve os conflitos detectados — até 200 detalhados, acima disso só a contagem.
+
+**Saída.** Ranking, heatmap temporal, gauge de saúde e dois geradores de mensagem SIAFI (ranking e heatmap), com tabela de evolução mês a mês, prazo, número da mensagem e a fundamentação de `FUNDAMENTO_CONCILIACAO_SISTEMAS`. Quando a variação do período é **negativa**, o gerador troca a cobrança por uma mensagem de reconhecimento pela redução da divergência.
+
+**Limites.**
+
+- O risco é **relativo ao arquivo**. Sempre existirá um quarto dos pares (UG, grupo) em "crítico", ainda que todas as divergências sejam irrelevantes — e o pior par de um arquivo bom pode pontuar como o mais leve de um arquivo ruim.
+- Colunas por posição, sem validação dos cabeçalhos de valor. Um bloco a mais na exportação desloca tudo em silêncio e os números continuam saindo.
+
+## Monitoramento Patrimonial — `/monitoramento`
+
+Saldos transitórios: contas que, pelo RAC, não deveriam atravessar o fechamento do mês. Cobre Q26, Q27, Q28, Q31, Q32 e Q36.
+
+**Entrada.** Colunas UG, mês, conta e saldo, casadas por *substring* do cabeçalho. Se nenhum cabeçalho casar, entra um **fallback heurístico** que adivinha pelo formato do valor (6 dígitos = UG, 9 dígitos = conta, `mmm/aaaa` = mês, o resto numérico = saldo). Linhas com saldo zero são descartadas.
+
+**Regra.** Tabela de 30 contas em `src/lib/analista/types.ts`, cada uma com sua questão RAC e sua lista de UGs excepcionadas. Quatro classificações:
+
+| Classificação | Quando |
+|---|---|
+| `COBRANÇA` | Conta está na tabela e a UG não está na lista de exceções |
+| `COBRANÇA COM OBSERVAÇÃO` | Regra especial da conta devolve ressalva |
+| `EXCEÇÃO PREVISTA` | UG consta na lista de exceções daquela conta |
+| `FORA DO ESCOPO PARAMETRIZADO` | Conta não está na tabela |
+
+Duas regras especiais existem hoje: **115410200** (matérias-primas em armazéns de terceiros) é exceção para a UG 120006, "vinculada ao GAP-BR em favor da COPAC"; **123110701** (bens móveis em elaboração) vira cobrança com observação para 120006 e 120195, que podem movimentar a conta mas devem encerrar o mês zeradas.
+
+**Saída.** Quatro abas (todas / cobranças / exceções / fora do escopo), quatro visões (operacional, tático, estratégico, decisão), filtros por conferente e por questão, cartões por UG com mensagem pronta e chat do Oráculo com o contexto carregado.
+
+**Limites.**
+
+- **A decisão não olha o valor.** `classifyAccount` recebe o saldo mas nenhuma regra o usa: R$ 0,01 e R$ 1 milhão produzem a mesma cobrança. Não há materialidade.
+- `FORA DO ESCOPO PARAMETRIZADO` é ambíguo por construção: significa "conta que não parametrizamos", e não "conta regular".
+- O fallback heurístico pode montar linhas com colunas trocadas sem sinalizar nada.
+
+## Analista Saldo Alongado — `/analistasaldoalongado`
+
+Saldos parados, das questões Q05 a Q25.
+
+**Entrada.** CSV ou XLSX. Colunas por sinônimos (`ug (codigo)`, `conta contabil (codigo)`, `conta corrente`, …). A coluna de saldo é escolhida entre as que começam com "saldo"; havendo várias com mês no nome (`Saldo - R$ jan/2026`), vence **a mais recente**. Normaliza moeda pt-BR e limpa sufixo `.0` de UG e conta corrente.
+
+**Regra.** Consolidação por UG: número de ocorrências, saldo total, contas contábeis e correntes distintas, conta mais recorrente. `RAC_MAPPING` (em `utils/rac.ts`) associa 21 questões às suas contas, e `ACCOUNT_NAMES` nomeia as contas de restos a pagar.
+
+**Saída.** Painéis operacional, gerencial e analítico; modal por UG; e uma mensagem por UG com texto fixo — pedido de regularização ou justificativa via SAU, chamado "Resposta de Acompanhamento Contábil", prazo de 5 dias úteis, assinatura SUCONT-3.
+
+**Limites.**
+
+<Callout type="warn">
+**O app não calcula envelhecimento.** Não existe data no modelo de dados. "saldos sem movimentação há mais de 3 meses" é afirmação do texto da mensagem, herdada do recorte feito no Tesouro Gerencial. Se o relatório de origem mudar de critério, a mensagem continua afirmando os três meses.
+</Callout>
+
+- `RAC_MAPPING` só serve para rotular. A consolidação **não filtra** por questão: conta fora do mapa entra no total e na mensagem do mesmo jeito.
+- Em `"Questão 12"`, três códigos começam com `812` e um com `811` (`811310301`) — vale conferir contra o roteiro.
+
+<Callout>
+Corrigido em 2026-08: sete códigos da `"Questão 8"` estavam com um dígito a mais (`2188810102` em vez de `218810102`) e nunca casavam, deixando as contas do grupo 21881 sem rótulo de questão. `rac.test.ts` agora exige 9 dígitos em toda entrada.
+</Callout>
+
+## Subitens Genéricos — `/subitens-genericos` (Q34)
+
+**Entrada.** XLSX lido a partir da **linha 12** (`range: 11`): o export do Tesouro Gerencial traz onze linhas de cabeçalho. Colunas identificadas por nome, com correspondência exata e depois por substring.
+
+**Regra.** Uma expressão regular sobre a **conta corrente**:
+
+```js
+const GENERIC_SUBITEM_REGEX = /(^|\D)(99|999)($|\D)/
+```
+
+Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mesma conta corrente têm os saldos somados dentro da UG.
+
+**Saída.** Mensagem individual por UG ou consolidada por questão, em três modos — com prazo, sem prazo e alerta (alerta dispensa resposta pelo SAU) —, numeradas `nº XXX/SUCONT-3/DDMMMAAAA`. Dashboard operacional/tático/estratégico e filtro por conferente.
+
+**Limites.**
+
+- A regex exige que o `99` esteja delimitado por não-dígito ou pela borda da string: `339039.99` casa, `33903999` não. Se o formato da conta corrente mudar, a detecção muda junto.
+- Qualquer outro `99` delimitado dentro da conta corrente (vinculação, gestão, ano) também casa.
+- Não há cálculo de proporção — nenhuma comparação com o total do elemento de despesa. Ver [Conformidade](/docs/sucont/conformidade), onde isso é o principal desencontro com a regra federal.
+
+## Contas Genéricas — `/conta-generica` (Q35)
+
+**Entrada.** Procura um cabeçalho que tenha, em correspondência exata, `UG` + `Conta Contábil` + (`Mês` ou `Conta Corrente`) + `Saldo - R$` (ou `Saldo`, ou `Valor Alongado`).
+
+**Regra.**
+
+<Callout type="warn">
+**Não há teste de genericidade.** Toda linha com conta preenchida e saldo diferente de zero vira ocorrência — o código é literalmente `if (conta.length > 0) hasGeneric = true`. O recorte "conta genérica" vem inteiro do relatório do Tesouro Gerencial. E `getRacInfo` devolve a Questão 35 para qualquer primeiro dígito de 1 a 9, ou seja, a classificação por questão é constante.
+</Callout>
+
+**Saída.** Além das mensagens (individual ou única, com prazo/sem prazo/alerta): análise de Pareto (quantos % das UGs concentram quantos % das ocorrências), lista de prioridade com score, mapa de risco por ODS, impacto financeiro total e o chat do Oráculo com os dados no contexto.
+
+## Compatibilidade de Saldos — `/analista-compatibilidade` (Q40–Q42)
+
+Três pares de contas que devem espelhar:
+
+| # | Conta A | Conta B | Questão |
+|---|---|---|---|
+| 1 | `1.1.1.1.1.19.03` Caixa Econômica Federal | `8.1.1.1.1.01.13` Caução a executar | Q40 |
+| 2 | `1.1.5.5.1.10.00` Materiais de consumo em trânsito | `8.9.9.9.2.01.02` Bens de estoque enviados | Q41 |
+| 3 | `1.2.3.1.1.99.05` Bens móveis em trânsito | `8.9.9.9.2.02.02` Bens móveis enviados | Q42 |
+
+**Regra** (`src/lib/compatibilidade/pares.ts`). As linhas são **somadas** por UG × conta contábil (`agregarSaldos`) e só então comparadas (`compararPares`). O par é divergente quando os saldos diferem além da tolerância de arredondamento **ou** quando uma das duas contas não aparece no relatório com a outra presente — inclusive se o lado presente estiver zerado, porque falta o registro espelhado. Par inteiramente ausente é ignorado. `totalDiff` da UG é a soma das diferenças absolutas, e o ranking ordena por ela.
+
+<Callout>
+Até 2026-08, a agregação era `ugs[ug][conta] = saldo` — **sobrescrevia**. Relatório com mais de uma linha para o mesmo par (por conta corrente, mês ou fonte) tinha todas as linhas menos a última descartadas em silêncio, o que inventava divergência onde o par estava equilibrado. Hoje soma, e `pares.test.ts` cobre o caso.
+</Callout>
+
+**Limites.** O par 1 (Q40) compara um ativo da classe 1 com um controle da classe 8 — o espelhamento decorre da rotina de caução em conta bancária específica, não de contrapartida do PCASP. A rotina ainda não está referenciada em norma citável; enquanto isso, a mensagem invoca o dever geral de análise e conciliação do item 5.1 da Macrofunção 02.03.18.
+
+## Cruzamento de Contas — `/cruzamento-contas` (Q43)
+
+Espelhamento entre `897210300` e `897110300`.
+
+**Entrada.** O cabeçalho é a primeira linha que contenha, junta, as palavras "ug", "conta" e "corrente".
+
+**Regra.** Agrupa **por conta corrente** e soma os saldos de cada lado. Depois:
+
+| Status | Condição | Severidade da UG |
+|---|---|---|
+| `REGULAR` | Ambos zerados, ou diferença dentro da tolerância de arredondamento | — |
+| `UG INDEVIDA NA 897210300` | Alguma UG diferente de **120052** com saldo na 8972 | CRÍTICA |
+| `AUSÊNCIA NA 897110300` | Só a 8972 tem registro | CRÍTICA |
+| `AUSÊNCIA NA 897210300` | Só a 8971 tem registro | CRÍTICA |
+| `DIVERGÊNCIA DE SALDO` | Ambas registram, valores diferentes | ATENÇÃO |
+
+Cada inconsistência é debitada a **uma** UG: a primeira UG não autorizada da 8972; na falta dela, a primeira da 8971; na falta dela, a primeira da 8972. "Primeira" é o menor código depois de ordenar — antes era o primeiro elemento de um `Set`, isto é, a ordem das linhas na planilha, e a responsabilidade pelo achado mudava conforme o arquivo viesse ordenado. O diagnóstico textual (causas prováveis) é derivado do conjunto de status da UG.
+
+**Limites.** A UG autorizada está em `UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE`, com a origem documentada no próprio código: é **regra interna da Setorial**, sem norma federal citável. É a regra mais opinativa do app e a que mais rende status CRÍTICA — o diagnóstico gerado agora diz que a autorização é definição desta Setorial, e não da União.
+
+## SAC-DGC — `/sac-dgc`
+
+Análise crítica do Demonstrativo Gerencial de Custos por UG. Sucessor do `sacdgccomaer` (AI Studio + Gemini + Firestore), reescrito na stack do monorepo — é a ferramenta mais nova e a única cuja regra é *do modelo*, não de tabela em código.
+
+**Entrada.** Os quatro painéis do DGC exportados do Tesouro Gerencial (CSV ou XLSX). `files.ts` → `parser.ts` decodificam e **recortam a base por UG**, no navegador.
+
+**Regra.** Ao pedir a análise de uma UG, só o recorte dela — mais um resumo das UGs do mesmo grupo, para comparação — vai para `POST /api/sacdgc/analyze`. A rota monta o prompt (`prompt.ts`), chama o modelo com saída estruturada (`schema.ts`) e devolve a análise normalizada por SSE. O Checklist AEC tem 20 itens (`checklist.ts`).
+
+**Persistência.** `sucont.dgc_analysis`, sob a rodada `analysis_run` com `tool = 'sac-dgc'`. Reabrir uma competência lê do banco em vez de repetir ~69 chamadas ao modelo. `alert_count` e `finding_count` são colunas **geradas** do próprio jsonb — número vindo da aplicação poderia discordar do conteúdo. `period` é o dia 1 do mês, ou `null` quando a carga misturou meses: inventar data atribuiria achado de agosto a julho.
+
+**Limites.** A análise é texto de modelo com schema, não regra auditável: duas rodadas sobre a mesma base podem redigir diferente. É por isso que a rodada fica gravada — o que foi dito à UG precisa ser recuperável. Tem suíte própria (parser, prompt, schema, summary, ugs) e E2E em `e2e/tests/sac-dgc*.spec.ts`, com e sem IA.
+
+## Automação de Documentos — `/documentacao`
+
+**Entrada.** Rascunho livre + escolha de formato: `FAB_OFFICE` (ofício padrão COMAER) ou `DATA_ANALYSIS` (relatório executivo).
+
+**Regra.** `adaptDraftFn` (server fn, exige nível 1) monta um prompt com persona e diretrizes de redação oficial e pede saída estruturada por JSON Schema ao Bedrock. O prompt do ofício fixa o vocabulário técnico, a estrutura de argumentação e um **fecho obrigatório** com os nomes e telefones da SUCONT-4. Timeout de 60 s.
+
+**Saída.** Documento renderizado em tela (componentes `fab-document` e `data-analysis-report`) e uma linha em `sucont.document` com rascunho e JSON gerado — falha ao persistir não derruba a geração.
+
+**Fundamentação.** O prompt já mandou citar a "Macrofunção 02.03.18 (Fidedignidade e ajuste de pendências)", título que não existe. Hoje a regra de citação lista as macrofunções aplicáveis com código e título vindos de `lib/normas.ts` — inclusive no system prompt do Oráculo, que monta a tabela a partir do mesmo módulo. Ver [Conformidade](/docs/sucont/conformidade).
+
+## Centro de Monitoramento — `/centro-monitoramento`
+
+Catálogo estático (`src/lib/centro-monitoramento-data.ts`) das ferramentas, planilhas e documentos de trabalho da SUCONT-3, organizado por módulo (3.1, 3.2, …), com busca.
+
+<Callout type="warn">
+As entradas de Q05–Q25, Q34, Q35, Q40–Q42 e Q43 apontam para as **versões legadas** hospedadas fora (`*.sucont3-2sau.workers.dev`, `ai.studio`), e não para as rotas equivalentes já portadas para dentro do sucont. Quem chega pelo catálogo usa a ferramenta antiga.
+</Callout>
+
+## Área de Trabalho e Relatórios — `/workspace`, `/reports`
+
+Checklist mensal da seção, avisos, referência de UGs e links de relatórios — dados compartilhados no schema `sucont` (antes viviam em `localStorage`, por navegador). Leitura no nível 1, escrita no nível 2.
+
+O checklist guarda prazos em texto ("2º dia útil do mês") e `getNthBusinessDay` converte para a data do mês corrente, contando dias úteis por dia da semana — **sem calendário de feriados**. Em mês com feriado na primeira semana, a data exibida cai antes do prazo real.

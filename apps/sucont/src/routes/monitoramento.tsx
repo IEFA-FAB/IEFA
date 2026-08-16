@@ -32,10 +32,10 @@ import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
-import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
 import { chartChrome } from "#/lib/chart-theme"
+import { getConferente } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
 
 // Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.

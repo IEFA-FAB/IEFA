@@ -1,0 +1,46 @@
+##
+# Fonte única das Unidades Gestoras do sucont.
+#
+# Como as outras regras deste diretório, esta nasceu de um defeito que já
+# aconteceu: existiam SETE tabelas literais de UG e SEIS de conferente espalhadas
+# pelo app, e elas divergiram. `auditor/ugMapping.ts` não conhecia 120283 nem
+# 121002 e carregava 120627 (GAP de Alcântara, inativa no SIAFI, que não existia
+# em nenhuma outra); `cruzamento/ugData.ts` chamava a 120283 de "SDNB" e
+# `analista/organizacao.ts` chamava a 120999 de "CECOMSAER". UG ausente da tabela
+# vira "OUTROS"/"NÃO IDENTIFICADA" na tela e, no analista de compatibilidade,
+# também "conferente Não Identificado" — a linha aparece no ranking e desaparece
+# de todo filtro por conferente.
+#
+# Hoje tudo deriva de `src/lib/ug/registry.ts`, cujo `tituloSiafi` foi conferido
+# contra o cadastro público de Unidades Gestoras da STN. Tabela nova de UG é
+# divergência nova: derive do registro.
+##
+rules:
+  - id: sucont-ug-table-outside-registry
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Tabela literal de Unidade Gestora fora de `src/lib/ug/registry.ts` — derive do registro
+      (`UNIDADES_GESTORAS`, `getUg`, `getUgFromText`, `getConferente`, `CONFERENTES`).
+      Sete cópias desta tabela já divergiram entre si: uma não conhecia a 121002, outra
+      carregava a 120627 (inativa no SIAFI), duas discordavam do nome da 120283 e da 120999.
+      A UG que falta numa cópia vira "OUTROS" na tela e some dos filtros por conferente, sem
+      erro nenhum. Se faltar campo no registro, acrescente o campo lá.
+    paths:
+      include:
+        - "apps/sucont/src/**"
+      exclude:
+        - "apps/sucont/src/lib/ug/registry.ts"
+        # `sacdgc/ugs.ts` carrega outro fato: o GRUPO DE COMPARAÇÃO institucional do
+        # DGC, que é classificação da SUCONT e não se deriva do nome, e alcança UGs
+        # fora do escopo do RAC (120038, 120300, …). O que as duas relações têm em
+        # comum é o título oficial da UG, e `registry.test.ts` prova que concordam.
+        - "apps/sucont/src/sacdgc/ugs.ts"
+        - "**/*.test.ts"
+        - "**/__fixtures__/**"
+    # Casa o formato das tabelas que existiam: chave de 6 dígitos começando por 120/121
+    # (faixa das UGs do COMAER e do Fundo Aeronáutico) apontando para objeto ou string.
+    # Uso pontual do código de uma UG — `ug === "120052"`, uma exceção por UG numa regra
+    # contábil — não é tabela e não casa.
+    patterns:
+      - pattern-regex: '"12[01]\d{3}"\s*:\s*[{"]'

@@ -5,6 +5,7 @@ import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import type { ProcessedRow } from "#/lib/analista/types"
+import { blocoFundamentacao, FUNDAMENTO_SALDO_TRANSITORIO } from "#/lib/normas"
 
 interface ConsolidatedMessageCardProps {
 	rows: ProcessedRow[]
@@ -98,6 +99,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 
 	const baseParts = [introMsg, contextMsg, actionMsg]
 	if (deadlineMsg) baseParts.push(deadlineMsg)
+	baseParts.push(blocoFundamentacao(FUNDAMENTO_SALDO_TRANSITORIO))
 	baseParts.push(closingMsg)
 
 	const assuntoMsg = `Assunto: Mapeamento Contábil - ${getRacTopic(activeRacFilter)} - ${mesReferencia}`

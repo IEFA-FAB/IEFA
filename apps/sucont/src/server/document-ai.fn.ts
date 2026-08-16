@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { generateJson } from "#/lib/ai.server"
 import { requireSucontAccess } from "#/lib/auth.server"
+import { citarMacrofuncao, MACROFUNCOES, RADAE } from "#/lib/normas"
 import { getSucontServerClient } from "#/lib/supabase.server"
 import { analysisSchema, fabSchema } from "#/server/document-schemas"
 
@@ -70,7 +71,13 @@ Diretrizes de Estilo e Linguagem:
     ◦ Parágrafo 1: Contextualização e objeto do expediente.
     ◦ Parágrafos intermediários: Análise técnica detalhada, citando ofícios de referência, datas e valores.
     ◦ Parágrafo conclusivo: Recomendação clara ou solicitação de providência.
-5. Regra de Ouro para Citações: Sempre que mencionar uma inconsistência contábil, fundamente com a Macrofunção 02.03.18 (Fidedignidade e ajuste de pendências) ou o Módulo 7 do RADA-e (Execução Patrimonial).
+5. Regra de Ouro para Citações: Sempre que mencionar uma inconsistência contábil, fundamente com uma destas referências, usando EXATAMENTE o título indicado — não invente título de macrofunção:
+    ◦ Pendência ou saldo alongado em conta de trânsito/a classificar: ${citarMacrofuncao(MACROFUNCOES.encerramento)}, item 5.1.
+    ◦ Natureza da ocorrência (alerta ou ressalva) e divergência entre sistema estruturante e contabilidade: ${citarMacrofuncao(MACROFUNCOES.conformidade)}.
+    ◦ Depreciação, amortização e exaustão: ${citarMacrofuncao(MACROFUNCOES.depreciacao)}.
+    ◦ Restos a pagar: ${citarMacrofuncao(MACROFUNCOES.restosAPagar)}.
+    ◦ Procedimento de regularização: ${citarMacrofuncao(MACROFUNCOES.regularizacoes)}.
+    ◦ Execução patrimonial no COMAER: ${RADAE.execucaoPatrimonial}.
 6. Fecho Mandatório: O último parágrafo deve ser exatamente: "Por fim, coloco a Divisão de Acompanhamento Patrimonial (SUCONT-4) à disposição para esclarecimentos adicionais, por intermédio do Cel Int Guerra e do 1º Ten QOAP CCO L. Santos, nos telefones (61) 3962-1537/1539."
 
 Rascunho do Usuário: "${draft}"

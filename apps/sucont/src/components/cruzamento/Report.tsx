@@ -21,7 +21,7 @@ import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { ReportData, UGAnalysis } from "#/lib/cruzamento/analyzer"
-import { CONFERENTES } from "#/lib/cruzamento/conferentes"
+import { CONFERENTES } from "#/lib/ug/registry"
 
 interface ReportProps {
 	data: ReportData

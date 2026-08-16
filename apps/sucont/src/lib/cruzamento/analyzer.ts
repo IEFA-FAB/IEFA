@@ -1,6 +1,30 @@
 import * as XLSX from "xlsx"
-import { getConferente } from "#/lib/cruzamento/conferentes"
+import { arredondarCentavos, saldosDivergem, saldoZerado } from "#/lib/analysis/tolerancia"
 import { UG_DATA } from "#/lib/cruzamento/ugData"
+import { getConferente } from "#/lib/ug/registry"
+
+/**
+ * Contas do par espelhado da Questão 43 do RAC.
+ *
+ * `897110300` (8.9.7.1.1.03.00, responsabilidade de terceiros) e `897210300`
+ * (8.9.7.2.1.03.00, execução de responsabilidades) devem fechar por conta
+ * corrente. A exigência de igualdade é do RAC/SUCONT-3: pelas regras de
+ * integridade do PCASP (MCASP, item 3.5) as classes 7 e 8 não são contrapartida
+ * uma da outra e o par se move verticalmente dentro da classe 8 — o espelhamento
+ * decorre da rotina adotada no COMAER, não do plano de contas.
+ */
+export const CONTA_RESPONSABILIDADE = "897110300"
+export const CONTA_EXECUCAO_RESPONSABILIDADE = "897210300"
+
+/**
+ * Única UG autorizada a registrar saldo na conta de execução de responsabilidade.
+ *
+ * REGRA INTERNA, sem norma federal citável: `120052` é a SDPP/PAÍS. Saldo de
+ * qualquer outra UG na `897210300` é classificado como crítico. Enquanto a
+ * decisão que institui a restrição não for referenciada aqui, o texto gerado deve
+ * dizer que a exigência é da Setorial, e não da União.
+ */
+export const UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE = "120052"
 
 export interface RawRecord {
 	UG: string
@@ -139,7 +163,7 @@ export function analyzeData(records: RawRecord[]): ReportData {
 	>()
 
 	for (const record of records) {
-		if (record.ContaContabil !== "897210300" && record.ContaContabil !== "897110300") {
+		if (record.ContaContabil !== CONTA_EXECUCAO_RESPONSABILIDADE && record.ContaContabil !== CONTA_RESPONSABILIDADE) {
 			continue
 		}
 
@@ -157,11 +181,11 @@ export function analyzeData(records: RawRecord[]): ReportData {
 		const entry = map.get(record.ContaCorrente)
 		if (!entry) continue
 
-		if (record.ContaContabil === "897210300") {
+		if (record.ContaContabil === CONTA_EXECUCAO_RESPONSABILIDADE) {
 			entry.ug8972.add(record.UG)
 			entry.saldo8972 += record.Saldo
 			entry.has8972 = true
-		} else if (record.ContaContabil === "897110300") {
+		} else if (record.ContaContabil === CONTA_RESPONSABILIDADE) {
 			entry.ug8971.add(record.UG)
 			entry.saldo8971 += record.Saldo
 			entry.has8971 = true
@@ -197,35 +221,39 @@ export function analyzeData(records: RawRecord[]): ReportData {
 		let status: AnalysisResult["status"]
 		let diferenca = 0
 
-		const saldo8972 = data.has8972 ? Number(data.saldo8972.toFixed(2)) : null
-		const saldo8971 = data.has8971 ? Number(data.saldo8971.toFixed(2)) : null
+		const saldo8972 = data.has8972 ? arredondarCentavos(data.saldo8972) : null
+		const saldo8971 = data.has8971 ? arredondarCentavos(data.saldo8971) : null
 
-		const ugs8972 = Array.from(data.ug8972)
-		const hasInvalidUG8972 = ugs8972.some((ug) => ug !== "120052")
+		// Ordenar antes de escolher: `Set` preserva ordem de inserção, ou seja, a ordem
+		// das linhas na planilha. Sem isto, com mais de uma UG no mesmo conta corrente a
+		// responsabilidade pelo apontamento mudava conforme o arquivo fosse ordenado.
+		const ugs8972 = Array.from(data.ug8972).sort()
+		const ugs8971 = Array.from(data.ug8971).sort()
+		const invalidUGs8972 = ugs8972.filter((ug) => ug !== UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE)
+		const hasInvalidUG8972 = invalidUGs8972.length > 0
 
 		let targetUG = "NÃO IDENTIFICADA"
-		const invalidUGs8972 = ugs8972.filter((ug) => ug !== "120052")
 
 		if (invalidUGs8972.length > 0) {
 			targetUG = invalidUGs8972[0]
-		} else if (data.ug8971.size > 0) {
-			targetUG = Array.from(data.ug8971)[0]
-		} else if (data.ug8972.size > 0) {
-			targetUG = Array.from(data.ug8972)[0]
+		} else if (ugs8971.length > 0) {
+			targetUG = ugs8971[0]
+		} else if (ugs8972.length > 0) {
+			targetUG = ugs8972[0]
 		}
 
 		const targetUGs = [targetUG]
 
-		diferenca = Number(Math.abs((saldo8972 || 0) - (saldo8971 || 0)).toFixed(2))
+		diferenca = arredondarCentavos(Math.abs((saldo8972 || 0) - (saldo8971 || 0)))
 
 		const val8972 = saldo8972 || 0
 		const val8971 = saldo8971 || 0
 
-		if (val8972 === 0 && val8971 === 0) {
+		if (saldoZerado(val8972) && saldoZerado(val8971)) {
 			status = "REGULAR"
-		} else if (hasInvalidUG8972 && val8972 !== 0) {
+		} else if (hasInvalidUG8972 && !saldoZerado(val8972)) {
 			status = "UG INDEVIDA NA 897210300"
-		} else if (diferenca === 0) {
+		} else if (!saldosDivergem(val8972, val8971)) {
 			status = "REGULAR"
 		} else if (data.has8972 && !data.has8971) {
 			status = "AUSÊNCIA NA 897110300"
@@ -275,7 +303,9 @@ export function analyzeData(records: RawRecord[]): ReportData {
 				causes.add("Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)")
 				causes.add("Estorno parcial ou baixa não refletida em ambas as contas")
 			} else if (detail.status === "UG INDEVIDA NA 897210300") {
-				causes.add("Registro indevido na conta 897210300 por UG diferente de 120052")
+				causes.add(
+					`Registro na conta ${CONTA_EXECUCAO_RESPONSABILIDADE} por UG diferente da ${UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE}, única autorizada por definição desta Setorial`
+				)
 			}
 		}
 		ugAnalysis.diagnosis = Array.from(causes)

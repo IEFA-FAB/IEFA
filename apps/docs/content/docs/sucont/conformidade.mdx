@@ -1,0 +1,173 @@
+---
+title: Conformidade normativa
+description: As regras do sucont conferidas contra MCASP, PCASP e as macrofunções do SIAFI — o que está ancorado, o que está mais rígido que a norma e o que está citado errado.
+---
+
+Esta página confere **as regras implementadas em código** contra a norma federal. Ela não avalia o RAC em si: o Roteiro de Acompanhamento Contábil é instrumento de controle interno do COMAER e pode legitimamente ser mais rígido que a União. O que se checa aqui é (a) se a regra em código corresponde ao que a norma diz e (b) se o **texto enviado à UG** atribui à norma federal algo que ela não diz.
+
+<Callout>
+Achados reconferidos contra a `main` em setembro de 2026, depois dos refactors de hub e estilo do sucont (#246 a #263). Todos os desencontros normativos continuavam presentes no código — nenhum deles foi resolvido de passagem por aqueles PRs, porque nenhum era de aparência. O que a `main` mudou por conta própria, e que esta página passou a refletir, foi o **Auditor**: grão do risco por (UG, grupo) em vez de por UG, probabilidade relativa à janela carregada em vez de dividida por 12 fixo, `hasPrevious` no lugar de tratar competência ausente como divergência zero, e persistência da rodada em banco.
+</Callout>
+
+## A régua
+
+| Norma | O que fixa | Uso no sucont |
+|---|---|---|
+| **MCASP, 11ª edição** (STN, dez/2024, vigente desde 2025) | Estrutura do PCASP, regras de integridade das classes 7 e 8, procedimentos patrimoniais | Base conceitual de todas as questões |
+| **PCASP Federal** (republicado para 2025 e 2026 pelas Portarias STN/MF 3.133 e 3.134, de 18/12/2025) | Códigos e títulos das contas | Todas as listas de contas em código |
+| **Macrofunção 02.03.18 — Encerramento do Exercício** | Análise de contas: conciliar, eliminar pendências indevidas e/ou alongadas, evitar saldo invertido "ainda que em nível de conta corrente" e evitar o uso do c/c 999; regras conta a conta | Q05–Q28, Q36, Q41, Q42 |
+| **Macrofunção 02.03.15 — Conformidade Contábil** | Taxonomia da ocorrência (ALERTA × RESSALVA) e dos radicais (incoerência, conciliação, saldo invertido, pendência); registro mensal | Vocabulário das mensagens; base do Auditor |
+| **Macrofunção 02.03.17 — Restos a Pagar** | Tratamento das contas 6.3.1.x / 6.3.2.x | Q09 |
+| **Macrofunção 02.03.30 — Depreciação, Amortização e Exaustão** | Apropriação **mensal**; tabela de vida útil e valor residual por conta | Q24 e checklist da SUCONT-4 |
+| **Macrofunção 02.03.35 — Reavaliação e Redução ao Valor Recuperável** | Tratamento do 12391 | Contexto de baixa |
+| **Transações `CONINCONS` / `CONPARINC`** | Inconsistência "Outros": subelemento 99 acima de **5%** por modalidade de aplicação e elemento de despesa | Q34 e Q35 |
+| **Portaria Interministerial STN/SOF nº 163/2001** | Estrutura da natureza de despesa e do desdobramento em subitem | Q34 |
+| **RADA-e — Manual G módulo 7, Manual D item 8** | Execução patrimonial no COMAER | Fundamentação das mensagens do Auditor e dos pares Q41/Q42 |
+
+## O que está bem ancorado
+
+**As listas de contas batem com a macrofunção 02.03.18.** A tabela de saldos transitórios de `/monitoramento` reproduz, conta a conta, o que a 020318 trata nominalmente:
+
+| Conta no sucont | Item da 020318 |
+|---|---|
+| `123110701` Bens móveis em elaboração | 5.2.8.1 — só permanece com saldo o bem cuja elaboração não terminou |
+| `123119905` Bens móveis em trânsito | 5.2.8.3.c — só permanece se o bem transferido não foi recebido |
+| `123119907` Bens não localizados | 5.2.8.3.e — não deverá ter valores de longa data |
+| `123119908` Bens móveis a classificar | 5.2.8.3.f — idem, com baixa para VPD quando o controle se perdeu |
+| `115510100` / `115511000` Materiais em trânsito | 5.2.5.1 — conter exclusivamente material transferido e ainda não recebido |
+| `113810601` / `113810606` Valores em trânsito | 5.2.4.1.g — atenção especial ao grupo 11381.06 |
+
+**A conciliação SIAFI × SILOMS do Auditor é exatamente o radical CONCILIAÇÃO da 020315** (§4.2.3.2: "comparação entre sistemas ou dados externos, com o contábil… RMA/RMB × SIAFI"). O tipo de achado que o Auditor produz é, na taxonomia federal, uma **RESSALVA** de conciliação.
+
+**O c/c 999 tem base textual direta.** A 020318 §5.1 manda evitar a utilização do c/c 999 — é a âncora mais forte da Q34.
+
+**A periodicidade mensal da depreciação está correta** (020330 §4.5 e §4.7), o que sustenta o item de checklist da carga mensal do XML.
+
+## Desencontros
+
+### 1. Macrofunção 02.03.18 citada com o título errado — CORRIGIDO
+
+`src/server/document-ai.fn.ts` instruía o modelo:
+
+> "Sempre que mencionar uma inconsistência contábil, fundamente com a Macrofunção 02.03.18 (Fidedignidade e ajuste de pendências)…"
+
+A 02.03.18 é **Encerramento do Exercício**. Não existe macrofunção com o título "Fidedignidade e ajuste de pendências". O conteúdo invocado (analisar, conciliar, eliminar pendências alongadas) existe na 020318 §5.1, então a citação não era falsa — mas o **nome** estava errado, e o modelo o reproduzia em ofício assinado. Correspondência correta:
+
+| Assunto | Macrofunção |
+|---|---|
+| Encerramento do exercício, análise de contas | 02.03.18 |
+| Conformidade contábil, alerta e ressalva | 02.03.15 |
+| Restos a pagar | 02.03.17 |
+| Depreciação, amortização e exaustão | 02.03.30 |
+| Reavaliação e redução ao valor recuperável | 02.03.35 |
+| Regularizações contábeis | 02.10.06 |
+
+As citações passaram a sair de **`src/lib/normas.ts`**, fonte única com código e título de cada macrofunção, consumida pelos geradores de mensagem das sete ferramentas e pelo prompt do ofício. `normas.test.ts` fixa os títulos — é o que impede o rótulo inventado de voltar. Nenhum template escreve mais o número de uma macrofunção à mão.
+
+### 2. Q34 e Q35 não têm o teste de materialidade que a União usa
+
+A inconsistência federal de conta "Outros" não é "existe saldo": é **proporção**. A transação `CONINCONS` lista as contas cujo **subelemento 99 ultrapassou 5% do valor em cada modalidade de aplicação e elemento de despesa**, e o parâmetro está em `CONPARINC`. A 020315 §4.2.2.2 trata isso como RESSALVA quando o registro na conta Outros passa do percentual.
+
+O sucont flaga **qualquer** ocorrência, de qualquer valor, e não tem como calcular o percentual: nem a Q34 nem a Q35 carregam modalidade de aplicação ou elemento de despesa no modelo de dados — a Q34 olha só a string da conta corrente, e a Q35 não olha nada (ver [Ferramentas](/docs/sucont/ferramentas)).
+
+Consequência prática: uma UG pode ser cobrada por uso de subitem 99 estando **abaixo** do parâmetro federal e, portanto, sem ressalva de conformidade no SIAFI.
+
+**Mitigado, não resolvido.** As mensagens de Q34 e Q35 passaram a trazer o bloco `FUNDAMENTO_CONTA_GENERICA`, que cita a base real (020318 §5.1 para o c/c 999, 020315 §4.2.2.2 para a conta "Outros") e declara em texto que o apontamento é **por ocorrência** e pode alcançar situação ainda abaixo do parâmetro federal. Calcular o percentual de verdade depende de trazer modalidade de aplicação e elemento de despesa no relatório de origem — isso continua pendente.
+
+### 3. "Não deve permanecer ao final do mês" é regra interna, não federal
+
+A 020318 é norma de **encerramento do exercício** e sua formulação é condicional: a conta *"somente permanecerá com saldo se…"* e *"não deverá ter valores de longa data"*. Ela não proíbe saldo ao fim de um mês qualquer.
+
+`getRacDescription` rotula as questões Q26–Q36 como "Saldos que não devem permanecer ao final do mês" e a classificação `COBRANÇA` decorre da mera existência de saldo. É uma exigência **mais rígida** que a federal — legítima como RAC, mas as mensagens pediam regularização "conforme as normas vigentes" sem distinguir as duas coisas, e a UG que consultasse a norma não encontrava a proibição mensal.
+
+**Corrigido.** As mensagens de saldo transitório e de saldo alongado passaram a fechar com `FUNDAMENTO_SALDO_TRANSITORIO`, que traz os dois itens separados e nomeados: a 02.03.18 §5.1 (analisar, conciliar, eliminar pendências indevidas e/ou alongadas) e, em item próprio, o RAC como **exigência interna do COMAER, mais restritiva que a periodicidade de encerramento prevista na macrofunção**.
+
+### 4. Nenhuma ferramenta tem piso de materialidade
+
+Em `/monitoramento`, `classifyAccount` recebe o saldo e não o usa. Em Q34, Q35 e Q05–Q25, qualquer valor gera ocorrência e mensagem. A 020318 §5.1 fala em eliminar pendências "indevidas e/ou alongadas", e a 020315 organiza a ocorrência por relevância para a leitura das demonstrações — nenhuma das duas manda cobrar centavos.
+
+Isso não é violação, é desperdício de cobrança: infla o volume de mensagens SIAFI e dilui o sinal. Um piso por questão, configurável e registrado na mensagem, resolveria.
+
+### 5. Q43: a regra do `120052` não tem fonte
+
+`analyzer.ts` trata como **CRÍTICA** qualquer saldo na `897210300` registrado por UG diferente de `120052` (SDPP/PAÍS). É a regra mais consequente do app e não há, em nenhum ponto do repositório, referência à norma, ao ato ou à decisão que a estabelece.
+
+Além disso, a premissa de **igualdade exata** entre `897110300` e `897210300` por conta corrente precisa de fonte. Pelo MCASP (regras de integridade do PCASP), classes 7 e 8 não são contrapartida uma da outra e, em regra, não têm o mesmo saldo; dentro da classe 8 o par se move verticalmente, e "responsabilidade" × "execução de responsabilidade" pode ser complementar em vez de espelhado, a depender da rotina.
+
+**Explicitado, não resolvido.** Os três literais viraram constantes nomeadas e documentadas — `CONTA_RESPONSABILIDADE`, `CONTA_EXECUCAO_RESPONSABILIDADE` e `UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE` —, cada uma com a origem da regra escrita ao lado, e o diagnóstico gerado passou a dizer que a autorização é "definição desta Setorial". O que falta é a decisão da seção: qual ato institui a restrição e qual rotina impõe o espelhamento. Enquanto ninguém responder, o texto não pode sugerir base federal.
+
+### 6. Q40 saía sem fundamentação — CORRIGIDO
+
+Nos pares Q41 e Q42, o campo `legis` traz "em desacordo com o módulo 7 do Manual Eletrônico… (anexo G do RADA-e)". No par Q40 (`1.1.1.1.1.19.03` × `8.1.1.1.1.01.13`) o campo estava **vazio**, e a mensagem saía sem qualquer fundamento. É também o par conceitualmente mais frágil: compara um ativo da classe 1 com um controle da classe 8, o que só faz sentido sob uma convenção local sobre caução depositada em conta bancária específica.
+
+O par passou a citar o item 5.1 da 02.03.18 (dever de análise e conciliação, ainda que em nível de conta corrente), com a ressalva registrada em comentário de que a convenção local ainda não tem norma citável. `pares.test.ts` recusa qualquer par com `legis` vazio.
+
+### 7. O teto da depreciação está errado no checklist
+
+O item "Relatório Depreciação > Bem" manda reportar UGs com "saldo de depreciação superior ao valor contábil do bem". Pela 020330, a depreciação corre **até o valor residual**, e a tabela do §6.3 fixa residual de 10% ou 20% por conta. O teto correto é o **valor depreciável** = custo − valor residual. Uma depreciação acumulada em 95% do valor do bem já é erro em conta com residual de 10%, e o critério atual só a pegaria em 100%.
+
+### 8. Tolerância numérica inconsistente — CORRIGIDO
+
+`/analista-compatibilidade` usava `> 0,001`; `/cruzamento-contas` arredondava a duas casas e exigia diferença exatamente zero; `/auditor` comparava valores brutos. Nenhuma norma fixa tolerância, mas três regras diferentes no mesmo app davam julgamentos diferentes para a mesma diferença de centavos.
+
+Passou a existir **`src/lib/analysis/tolerancia.ts`**, usado pelas três: `TOLERANCIA_SALDO` (meio centavo), `arredondarCentavos`, `saldosDivergem` e `saldoZerado`. No Auditor isso não é cosmético — a contagem de competências com divergência era `difference > 0`, então resíduo de sub-centavo do parse de moeda contava competência e empurrava a probabilidade e, com ela, o nível de risco.
+
+`arredondarCentavos` normaliza a representação com `toPrecision(12)` antes de arredondar, como o `roundToCents` do sisub: `toFixed(2)` e `Math.round` crus derrubam o meio-centavo sempre para baixo (`(1.005).toFixed(2)` é `"1.00"`), e numa soma de dezenas de linhas o viés é sistemático.
+
+É tolerância de **arredondamento**, não piso de materialidade — o comentário do módulo diz isso, para que ninguém a converta em critério de cobrança sem decisão.
+
+### 9. O tom das mensagens não é o da norma — CORRIGIDO
+
+A mensagem do Auditor alertava que "a persistência de inconsistências contábeis poderá ensejar apuração de responsabilidade junto aos órgãos de controle, em especial o Tribunal de Contas da União". A 020315 §4.2.1 é explícita no sentido contrário: a restrição contábil "não é instrumento de punição de gestores, contadores ou executores, mas exclusivamente um alerta aos leitores das demonstrações contábeis".
+
+O parágrafo passou a registrar o que de fato decorre da norma — que a persistência da divergência é **ocorrência passível de ressalva na conformidade contábil** e compromete a evidenciação dos Anexos 13-A/B/C — e a mensagem agora fecha com a fundamentação real (020315 §4.2.3.2, radical CONCILIAÇÃO; 020318 §5.1; RADA-e).
+
+## Cadastro de UG — unificado e conferido contra o SIAFI
+
+Havia **sete** mapas independentes de UG → sigla/ODS/órgão superior e **seis** de conferente. Não era risco teórico: eles já discordavam.
+
+| Código | O app dizia | O cadastro do SIAFI diz |
+|---|---|---|
+| `120283` | SERINFRA-RF / COMGAP (em `constants.ts`) e **SDNB / SEFA** (em `cruzamento/ugData.ts`) | GRUPAMENTO DE ENG. DE CAMPANHA DA AERONÁUTICA, em SP |
+| `120999` | MAER - DIF. CAMBIAL / STN, **CECOMSAER / GABAER** (em `analista/organizacao.ts`) e SEFA (no auditor) | MAER - DIFERENCA CAMBIAL |
+| `121002` | só existia em `constants.ts` | DIRETORIA DE ECON. E FIN. DA AER - F.AER (órgão 52911, Fundo Aeronáutico) |
+| `120627` | só existia em `auditor/ugMapping.ts` | GRUPAMENTO DE APOIO DE ALCÂNTARA — **inativa** |
+
+Tudo isso passou a sair de **`src/lib/ug/registry.ts`**, com um campo `tituloSiafi` conferido contra o cadastro oficial de Unidades Gestoras da STN. As sete tabelas viraram projeções do registro e `registry.test.ts` exige que concordem. Duas descobertas da conferência:
+
+- **Seis UGs da tabela estão inativas no SIAFI**: `120018` (BARF), `120279` (RANCHO-DIRAD), `120639` (GAP-FL), `120640` (GAP-FZ), `120642` (GAP-SV) e `120644` (GAP-CT). Ficam marcadas com `ativoSiafi: false` e listadas em `UG_INATIVAS_SIAFI` — saldo em UG inativa é achado por si só.
+- **`120283` continua em conflito.** Nem SERINFRA-RF nem SDNB batem com o título oficial, e as SERINFRA de fato estão em `120225`/`120255`/`120257`/`120259`/`120260`/`120261`/`120265`. O código está em `UG_SIGLA_A_CONFIRMAR` até a seção decidir — o teste garante que a pendência não suma sem ser vista.
+
+Padrão que causou defeito vira gate, não só correção pontual: `.opengrep/rules/sucont-ug-registry.yaml` recusa tabela literal de UG fora do registro. A exceção é `src/sacdgc/ugs.ts`, que carrega outro fato — o grupo de comparação institucional do DGC, classificação da SUCONT, alcançando UGs fora do escopo do RAC. O que as duas relações têm em comum é o título oficial, e `registry.test.ts` prova que concordam nas 55 UGs presentes em ambas.
+
+**O PCASP muda todo ano** (a STN republicou o plano para 2025 e 2026 em 18/12/2025). Como todas as listas de contas são literais em TypeScript, cada atualização do plano é uma alteração de código com deploy — não existe hoje nenhum alerta quando uma conta do RAC deixa de existir no PCASP vigente.
+
+## Resumo
+
+| # | Achado | Gravidade | Estado |
+|---|---|---|---|
+| 1 | Macrofunção 02.03.18 citada com título inexistente, em ofício assinado | Alta | Corrigido — `lib/normas.ts` + teste |
+| 2 | Q34/Q35 sem o teste de 5% do `CONINCONS` | Alta | Mitigado — mensagem declara o critério; cálculo depende de novo relatório |
+| 5 | Regra do `120052` e premissa de espelhamento sem fonte | Alta | Explicitado em código e na mensagem; falta a decisão da seção |
+| 3 | "Não deve permanecer no mês" apresentado como norma vigente | Média | Corrigido — RAC e 02.03.18 citados em itens separados |
+| 7 | Teto da depreciação ignora o valor residual | Média | Texto do checklist corrigido; as linhas já gravadas em `sucont.checklist_item` precisam ser atualizadas na tela |
+| 4 | Sem piso de materialidade em nenhuma ferramenta | Média | Aberto — decisão de negócio, fixada por teste em `types.test.ts` |
+| 6 | Q40 sem fundamentação normativa | Média | Corrigido — teste recusa par sem `legis` |
+| 8 | Três tolerâncias numéricas diferentes | Baixa | Corrigido — `lib/analysis/tolerancia.ts` |
+| 9 | Tom punitivo divergente da 020315 | Baixa | Corrigido |
+
+Correções de análise que vieram junto, fora do eixo normativo: a soma (em vez de sobrescrita) dos saldos na Q40–Q42, a atribuição determinística de responsabilidade na Q43 e os sete códigos de 10 dígitos da Questão 8.
+
+O endpoint do Oráculo, que na primeira versão desta auditoria abria SSE sem autenticação, sem checar PBAC e sem teto de consumo, **foi corrigido na `main`** (`src/lib/nitro-auth.server.ts` + `capabilities.server.ts`), junto de um `createCookieAuthClient` em `@iefa/supabase-kit` para ler a sessão fora do contexto de request do Start. A proposta desta branch deixou de tocar nesse arquivo.
+
+## Fontes
+
+- [MCASP — Secretaria do Tesouro Nacional](https://www.gov.br/tesouronacional/pt-br/contabilidade-e-custos/manuais/manual-de-contabilidade-aplicada-ao-setor-publico-mcasp-1) e [MCASP 11ª edição (PDF)](https://cnm.org.br/storage/noticias/2024/Links/MCASP%20-%2011%C2%AA%20Edi%C3%A7%C3%A3o.pdf)
+- [MCASP — Regras de integridade do PCASP (item 3.5)](https://contas.cnt.br/mcasp/3-5-regras-de-integridade-do-pcasp/)
+- [Macrofunção 02.03.15 — Conformidade Contábil (PDF)](https://static.trf2.jus.br/nas-internet/documento/relatorio-de-gestao/2018/macrofuncao-020315-conformidade-contabil.pdf)
+- [Macrofunção 02.03.18 — Encerramento do Exercício (PDF)](https://enagro.agricultura.gov.br/cursos-e-capacitacao/material-didatico-pasta/arquivos/020318-norma-de-encerramento-2017.pdf)
+- [Macrofunção 02.03.30 — Depreciação, Amortização e Exaustão (PDF)](https://www2.ufjf.br/patrimonio/wp-content/uploads/sites/412/2022/12/Macrofun%C3%A7%C3%A3o-02.03.30-Deprecia%C3%A7%C3%A3o-vers%C3%A3o-20.11.2015.pdf)
+- [Manual SIAFI — Consultar Relatório de Inconsistências (`CONINCONS`)](http://manualsiafi.tesouro.gov.br/demonstrativos/inconsistencias/consultar-relatorio-de-inconsistencias)
+- [Manual SIAFI — Pesquisa de Restrições Contábeis](http://manualsiafi.tesouro.gov.br/lupas-de-pesquisa/pesquisa-restricoes-contabeis)
+- [Portaria Interministerial STN/SOF nº 163/2001](https://legislacaofinanceira.fazenda.sp.gov.br/Federal/Port%20Interm%20STN-SOF163.pdf)
+- [PCASP — Plano de Contas Aplicado ao Setor Público (STN)](https://www.gov.br/tesouronacional/pt-br/contabilidade-e-custos/federacao/plano-de-contas-aplicado-ao-setor-publico-pcasp-1)

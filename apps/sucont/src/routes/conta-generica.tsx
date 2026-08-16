@@ -38,6 +38,8 @@ import { Card, CardContent } from "#/components/ui/card"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
+import { CONFERENTES, getUg } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
 import { oracleContaGenericaFn } from "#/server/conta-generica.fn"
 
@@ -52,200 +54,6 @@ interface GroupedData {
 	}
 }
 
-const CONFERENTES_MAP: Record<string, string> = {
-	"120001": "1S ELIANA",
-	"120002": "1S ELIANA",
-	"120004": "1S ELIANA",
-	"120005": "1S ELIANA",
-	"120006": "1T JEFFERSON LUÍS",
-	"120007": "1T ÉRIKA VICENTE",
-	"120008": "1S ELIANA",
-	"120013": "1T ÉRIKA VICENTE",
-	"120014": "1T JEFFERSON LUÍS",
-	"120015": "1S ELIANA",
-	"120016": "1T JEFFERSON LUÍS",
-	"120018": "1T ÉRIKA VICENTE",
-	"120019": "1T ÉRIKA VICENTE",
-	"120021": "1T ÉRIKA VICENTE",
-	"120023": "1S ELIANA",
-	"120025": "1S ELIANA",
-	"120026": "1T JEFFERSON LUÍS",
-	"120029": "2S PÂMELA",
-	"120030": "1T ÉRIKA VICENTE",
-	"120035": "1T ÉRIKA VICENTE",
-	"120036": "1T JEFFERSON LUÍS",
-	"120039": "1T ÉRIKA VICENTE",
-	"120040": "2S PÂMELA",
-	"120041": "2S PÂMELA",
-	"120042": "1S ELIANA",
-	"120044": "2S PÂMELA",
-	"120045": "1T ÉRIKA VICENTE",
-	"120047": "1S ELIANA",
-	"120048": "2S PÂMELA",
-	"120049": "2S PÂMELA",
-	"120052": "1S ELIANA",
-	"120053": "1T JEFFERSON LUÍS",
-	"120060": "2S PÂMELA",
-	"120061": "1T ÉRIKA VICENTE",
-	"120062": "1T ÉRIKA VICENTE",
-	"120064": "1S ELIANA",
-	"120065": "2S PÂMELA",
-	"120066": "1T JEFFERSON LUÍS",
-	"120068": "1T JEFFERSON LUÍS",
-	"120069": "1T JEFFERSON LUÍS",
-	"120071": "2S PÂMELA",
-	"120072": "2S PÂMELA",
-	"120073": "2S PÂMELA",
-	"120075": "2S PÂMELA",
-	"120077": "2S PÂMELA",
-	"120082": "1S ELIANA",
-	"120087": "1T ÉRIKA VICENTE",
-	"120088": "1T JEFFERSON LUÍS",
-	"120089": "1T JEFFERSON LUÍS",
-	"120090": "2S PÂMELA",
-	"120091": "1T JEFFERSON LUÍS",
-	"120093": "1T ÉRIKA VICENTE",
-	"120094": "1S ELIANA",
-	"120096": "1S ELIANA",
-	"120097": "1T ÉRIKA VICENTE",
-	"120099": "1T ÉRIKA VICENTE",
-	"120100": "1S ELIANA",
-	"120108": "1T JEFFERSON LUÍS",
-	"120127": "2S PÂMELA",
-	"120152": "1S ELIANA",
-	"120154": "1T JEFFERSON LUÍS",
-	"120195": "2S PÂMELA",
-	"120225": "1T JEFFERSON LUÍS",
-	"120255": "1T ÉRIKA VICENTE",
-	"120257": "2S PÂMELA",
-	"120258": "2S PÂMELA",
-	"120259": "2S PÂMELA",
-	"120260": "1S ELIANA",
-	"120261": "1T JEFFERSON LUÍS",
-	"120265": "1S ELIANA",
-	"120279": "1T ÉRIKA VICENTE",
-	"120283": "1S ELIANA",
-	"120512": "1T JEFFERSON LUÍS",
-	"120623": "2S PÂMELA",
-	"120624": "1T JEFFERSON LUÍS",
-	"120625": "1S ELIANA",
-	"120628": "1T ÉRIKA VICENTE",
-	"120629": "2S PÂMELA",
-	"120630": "1S ELIANA",
-	"120631": "1S ELIANA",
-	"120632": "1T ÉRIKA VICENTE",
-	"120633": "1T ÉRIKA VICENTE",
-	"120636": "1T JEFFERSON LUÍS",
-	"120637": "1T ÉRIKA VICENTE",
-	"120638": "1T JEFFERSON LUÍS",
-	"120641": "2S PÂMELA",
-	"120643": "1T JEFFERSON LUÍS",
-	"120645": "1T ÉRIKA VICENTE",
-	"120669": "1T ÉRIKA VICENTE",
-	"120701": "2S PÂMELA",
-	"120702": "1T JEFFERSON LUÍS",
-	"121002": "1T JEFFERSON LUÍS",
-}
-
-const UG_INFO_MAP: Record<string, { nome: string; ods: string; os: string }> = {
-	"120001": { nome: "GABAER", ods: "GABAER", os: "GABAER" },
-	"120002": { nome: "DIREF", ods: "SEFA", os: "SEFA" },
-	"120004": { nome: "BABR", ods: "COMPREP", os: "VI COMAR" },
-	"120005": { nome: "PABR", ods: "SEFA", os: "DIRAD" },
-	"120006": { nome: "GAP-BR", ods: "SEFA", os: "DIRAD" },
-	"120007": { nome: "PARF", ods: "SEFA", os: "DIRAD" },
-	"120008": { nome: "CINDACTA I", ods: "DECEA", os: "DECEA" },
-	"120013": { nome: "CLA", ods: "DCTA", os: "DCTA" },
-	"120014": { nome: "BAFZ", ods: "COMPREP", os: "II COMAR" },
-	"120015": { nome: "CLBI", ods: "DCTA", os: "DCTA" },
-	"120016": { nome: "GAP-SJ", ods: "DCTA", os: "DCTA" },
-	"120017": { nome: "II COMAR", ods: "COMPREP", os: "COMPREP" },
-	"120018": { nome: "BARF", ods: "COMPREP", os: "II COMAR" },
-	"120019": { nome: "HARF", ods: "COMGEP", os: "DIRSA" },
-	"120021": { nome: "CINDACTA III", ods: "DECEA", os: "DECEA" },
-	"120023": { nome: "BASV", ods: "COMPREP", os: "II COMAR" },
-	"120025": { nome: "EPCAR", ods: "COMGEP", os: "DIRENS" },
-	"120026": { nome: "PAMA-LS", ods: "COMGAP", os: "DIRMAB" },
-	"120029": { nome: "BAAF", ods: "COMPREP", os: "III COMAR" },
-	"120030": { nome: "BAGL", ods: "COMPREP", os: "III COMAR" },
-	"120035": { nome: "CTLA", ods: "COMGAP", os: "CELOG" },
-	"120036": { nome: "DECEA", ods: "DECEA", os: "DECEA" },
-	"120039": { nome: "GAP-RJ", ods: "SEFA", os: "DIRAD" },
-	"120040": { nome: "HCA", ods: "COMGEP", os: "DIRSA" },
-	"120041": { nome: "HAAF", ods: "COMGEP", os: "DIRSA" },
-	"120042": { nome: "HFAG", ods: "COMGEP", os: "DIRSA" },
-	"120044": { nome: "BREVET", ods: "SEFA", os: "DIRAD" },
-	"120045": { nome: "PAGL", ods: "SEFA", os: "DIRAD" },
-	"120047": { nome: "PAMB", ods: "COMGAP", os: "DIRMAB" },
-	"120048": { nome: "PAME", ods: "DECEA", os: "DECEA" },
-	"120049": { nome: "PAMA-GL", ods: "COMGAP", os: "DIRMAB" },
-	"120052": { nome: "SDPP/PAÍS", ods: "SEFA", os: "DIRAD" },
-	"120053": { nome: "PAAF", ods: "SEFA", os: "DIRAD" },
-	"120060": { nome: "AFA", ods: "COMGEP", os: "DIRENS" },
-	"120061": { nome: "BAST", ods: "COMPREP", os: "IV COMAR" },
-	"120062": { nome: "BASP", ods: "COMPREP", os: "IV COMAR" },
-	"120064": { nome: "EEAR", ods: "COMGEP", os: "DIRENS" },
-	"120065": { nome: "FAYS", ods: "SEFA", os: "DIRAD" },
-	"120066": { nome: "HFASP", ods: "COMGEP", os: "DIRSA" },
-	"120068": { nome: "PAMA-SP", ods: "COMGAP", os: "DIRMAB" },
-	"120069": { nome: "CRCEA-SE", ods: "DECEA", os: "DECEA" },
-	"120071": { nome: "CELOG", ods: "COMGAP", os: "COMGAP" },
-	"120072": { nome: "CINDACTA II", ods: "DECEA", os: "DECEA" },
-	"120073": { nome: "BAFL", ods: "COMPREP", os: "V COMAR" },
-	"120075": { nome: "BACO", ods: "COMPREP", os: "V COMAR" },
-	"120077": { nome: "HACO", ods: "COMGEP", os: "DIRSA" },
-	"120082": { nome: "BAMN", ods: "COMPREP", os: "VII COMAR" },
-	"120087": { nome: "BABE", ods: "COMPREP", os: "I COMAR" },
-	"120088": { nome: "COMARA", ods: "COMGAP", os: "COMGAP" },
-	"120089": { nome: "HABE", ods: "COMGEP", os: "DIRSA" },
-	"120090": { nome: "CABW", ods: "COMGAP", os: "CELOG" },
-	"120091": { nome: "CABE", ods: "COMGAP", os: "CELOG" },
-	"120093": { nome: "SDPP/EXTERIOR", ods: "SEFA", os: "DIRAD" },
-	"120094": { nome: "CINDACTA IV", ods: "DECEA", os: "DECEA" },
-	"120096": { nome: "HFAB", ods: "COMGEP", os: "DIRSA" },
-	"120097": { nome: "PASP", ods: "SEFA", os: "DIRAD" },
-	"120099": { nome: "DIRINFRA", ods: "COMGAP", os: "COMGAP" },
-	"120100": { nome: "SDAB", ods: "SEFA", os: "DIRAD" },
-	"120108": { nome: "COPAC", ods: "DCTA", os: "DCTA" },
-	"120127": { nome: "CISCEA", ods: "DECEA", os: "DECEA" },
-	"120152": { nome: "CPBV", ods: "COMPREP", os: "VI COMAR" },
-	"120154": { nome: "HAMN", ods: "COMGEP", os: "DIRSA" },
-	"120195": { nome: "CAE", ods: "SEFA", os: "DIRAD" },
-	"120225": { nome: "SERINFRA-SJ", ods: "COMGAP", os: "DIRINFRA" },
-	"120255": { nome: "SERINFRA-BE", ods: "COMGAP", os: "DIRINFRA" },
-	"120257": { nome: "SERINFRA-RJ", ods: "COMGAP", os: "DIRINFRA" },
-	"120258": { nome: "SERINFRA-SP", ods: "COMGAP", os: "DIRINFRA" },
-	"120259": { nome: "SERINFRA-CO", ods: "COMGAP", os: "DIRINFRA" },
-	"120260": { nome: "SERINFRA-BR", ods: "COMGAP", os: "DIRINFRA" },
-	"120261": { nome: "SERINFRA-MN", ods: "COMGAP", os: "DIRINFRA" },
-	"120265": { nome: "SERINFRA-NT", ods: "COMGAP", os: "DIRINFRA" },
-	"120279": { nome: "RANCHO-DIRAD", ods: "SEFA", os: "DIRAD" },
-	"120512": { nome: "PASJ", ods: "DCTA", os: "DCTA" },
-	"120623": { nome: "GAP-AF", ods: "SEFA", os: "DIRAD" },
-	"120624": { nome: "BAAN", ods: "COMPREP", os: "VI COMAR" },
-	"120625": { nome: "GAP-DF", ods: "SEFA", os: "DIRAD" },
-	"120628": { nome: "GAP-BE", ods: "SEFA", os: "DIRAD" },
-	"120629": { nome: "GAP-CO", ods: "SEFA", os: "DIRAD" },
-	"120630": { nome: "GAP-MN", ods: "SEFA", os: "DIRAD" },
-	"120631": { nome: "BANT", ods: "COMPREP", os: "II COMAR" },
-	"120632": { nome: "GAP-RF", ods: "SEFA", os: "DIRAD" },
-	"120633": { nome: "GAP-SP", ods: "SEFA", os: "DIRAD" },
-	"120636": { nome: "GAP-LS", ods: "SEFA", os: "DIRAD" },
-	"120637": { nome: "BABV", ods: "COMPREP", os: "VII COMAR" },
-	"120638": { nome: "BACG", ods: "COMPREP", os: "IV COMAR" },
-	"120639": { nome: "GAP-FL", ods: "SEFA", os: "DIRAD" },
-	"120640": { nome: "GAP-FZ", ods: "SEFA", os: "DIRAD" },
-	"120641": { nome: "BAPV", ods: "COMPREP", os: "VII COMAR" },
-	"120642": { nome: "GAP-SV", ods: "SEFA", os: "DIRAD" },
-	"120643": { nome: "BASM", ods: "COMPREP", os: "V COMAR" },
-	"120644": { nome: "GAP-CT", ods: "SEFA", os: "DIRAD" },
-	"120645": { nome: "GAP-GL", ods: "SEFA", os: "DIRAD" },
-	"120669": { nome: "BASC", ods: "COMPREP", os: "III COMAR" },
-	"120701": { nome: "DIREF/SUCONT", ods: "SEFA", os: "SEFA" },
-	"120702": { nome: "DIREF/SUCONV", ods: "SEFA", os: "SEFA" },
-	"120999": { nome: "MAER - DIF. CAMBIAL", ods: "STN", os: "STN" },
-}
-
 const RAC_QUESTIONS = [
 	{
 		id: "35",
@@ -257,7 +65,7 @@ const RAC_QUESTIONS = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const getConferente = (ug: string) => CONFERENTES_MAP[ug] || "NÃO MAPEADO"
+const getConferente = (ug: string) => getUg(ug)?.conferente || "NÃO MAPEADO"
 
 const getRacInfo = (conta: string) => {
 	const firstDigit = conta.charAt(0)
@@ -270,9 +78,9 @@ const getRacInfo = (conta: string) => {
 	)
 }
 
-const getOds = (ug: string) => UG_INFO_MAP[ug]?.ods || "OUTROS"
-const getOs = (ug: string) => UG_INFO_MAP[ug]?.os || "OUTROS"
-const getUgName = (ug: string) => UG_INFO_MAP[ug]?.nome || "NÃO IDENTIFICADA"
+const getOds = (ug: string) => getUg(ug)?.ods || "OUTROS"
+const getOs = (ug: string) => getUg(ug)?.orgaoSuperior || "OUTROS"
+const getUgName = (ug: string) => getUg(ug)?.sigla || "NÃO IDENTIFICADA"
 
 const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
 
@@ -629,6 +437,8 @@ ${stnNote}
 Abaixo, detalhamos a(s) conta(s) e o(s) respectivo(s) saldo(s) identificado(s):${contasText}${deadlineText}
 ${actionText}
 
+${blocoFundamentacao(FUNDAMENTO_CONTA_GENERICA)}
+
 Atenciosamente,
 
 Divisão de Acompanhamento Contábil e Suporte ao Usuário (SUCONT-3)
@@ -668,7 +478,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 			text += "\n"
 		}
 
-		text += `${deadlineText}\n${actionText}\n\nAtenciosamente,\n\nDivisão de Acompanhamento Contábil e Suporte ao Usuário (SUCONT-3)\nSubdiretoria de Contabilidade (SUCONT)\nDiretoria de Economia e Finanças da Aeronáutica (DIREF)`
+		text += `${deadlineText}\n${actionText}\n\n${blocoFundamentacao(FUNDAMENTO_CONTA_GENERICA)}\n\nAtenciosamente,\n\nDivisão de Acompanhamento Contábil e Suporte ao Usuário (SUCONT-3)\nSubdiretoria de Contabilidade (SUCONT)\nDiretoria de Economia e Finanças da Aeronáutica (DIREF)`
 		return text
 	}
 
@@ -1511,7 +1321,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											>
 												Modo Geral
 											</Button>
-											{[...new Set(Object.values(CONFERENTES_MAP))].sort().map((conf) => (
+											{CONFERENTES.map((conf) => (
 												<Button
 													variant="outline"
 													size="sm"
