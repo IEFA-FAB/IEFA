@@ -1,7 +1,7 @@
 import type { CatalogScope, PreparationScope } from "@iefa/sisub-domain"
 import { useEffect, useMemo, useRef } from "react"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
-import { asArray, buildIngredientTree } from "@/lib/ingredient-tree"
+import { asArray, buildIngredientTree, type FolderReviewStats, folderReviewStats } from "@/lib/ingredient-tree"
 import type { SearchSensitivity } from "@/lib/text-search"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { FlatIngredientTree } from "@/types/domain/ingredients"
@@ -110,6 +110,14 @@ export function useIngredientsHierarchy(
 		return map
 	}, [tree])
 
+	// Progresso de conferência por pasta, derivado das revisões de insumo que já vêm
+	// no payload da árvore. Calculado sobre os dados crus, não sobre `flatTree`: o
+	// número descreve o catálogo, e mudaria de sentido se seguisse o filtro da tela.
+	const folderReviewByFolderId = useMemo(() => {
+		if (!tree) return new Map<string, FolderReviewStats>()
+		return folderReviewStats({ folders: tree.folders, ingredients: tree.ingredients, lastReviews: tree.lastReviews })
+	}, [tree])
+
 	// Constrói a estrutura flat para virtualização. A lógica é pura e vive em
 	// `lib/ingredient-tree` — é onde ela tem teste.
 	const flatTree = useMemo<FlatIngredientTree | null>(() => {
@@ -144,6 +152,7 @@ export function useIngredientsHierarchy(
 		stats,
 		itemCountByIngredientId,
 		lastReviewByIngredientId,
+		folderReviewByFolderId,
 
 		// Estados (componente decide skeleton)
 		error,

@@ -18,6 +18,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TREE_LEAF_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
 import { cn } from "@/lib/cn"
+import type { FolderReviewStats } from "@/lib/ingredient-tree"
 import { ingredientNutrientsQueryOptions, useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
 
@@ -29,6 +30,8 @@ interface IngredientsTreeNodeProps {
 	itemCount?: number
 	/** Data ISO da última revisão (conferência) do insumo — undefined p/ pastas, null p/ insumo nunca revisado */
 	lastReviewedAt?: string | null
+	/** Progresso de conferência da subárvore — só para pastas, derivado dos insumos. */
+	folderReview?: FolderReviewStats
 	/** Callback de navegação para a página de detalhe do ingrediente */
 	onNavigate?: () => void
 	/** Modo de seleção em massa ativo: exibe checkbox e desativa ações por linha */
@@ -123,6 +126,7 @@ export function IngredientsTreeNode({
 	onToggle,
 	itemCount,
 	lastReviewedAt,
+	folderReview,
 	onNavigate,
 	selectionMode,
 	canWrite = true,
@@ -311,6 +315,37 @@ export function IngredientsTreeNode({
 							<TooltipContent>Insumo ainda não revisado</TooltipContent>
 						</Tooltip>
 					))}
+
+				{/*
+				 * Progresso da conferência da pasta — derivado dos insumos que ela contém.
+				 * Neutro de propósito, nunca `warning`: pasta não é item pendente, é
+				 * indicador de progresso. Pintar de amarelo toda pasta ainda incompleta
+				 * deixaria a árvore inteira amarela no primeiro dia, e o aviso pararia de
+				 * significar alguma coisa. Pasta sem insumo não afirma nada.
+				 */}
+				{node.type === "folder" && !isDeleted && folderReview && folderReview.total > 0 && (
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								folderReview.reviewed === folderReview.total ? (
+									<Badge variant="outline" className="gap-1 text-muted-foreground">
+										<CalendarCheck className="size-3" />
+										Revisada
+									</Badge>
+								) : (
+									<Badge variant="outline" className="text-muted-foreground tabular-nums">
+										{folderReview.reviewed}/{folderReview.total} revisados
+									</Badge>
+								)
+							}
+						/>
+						<TooltipContent>
+							{folderReview.oldestReviewedAt && folderReview.reviewed === folderReview.total
+								? `Todos os ${folderReview.total} insumos conferidos. O mais antigo em ${formatReviewDate(folderReview.oldestReviewedAt)}.`
+								: `${folderReview.total - folderReview.reviewed} de ${folderReview.total} insumos ainda não conferidos.`}
+						</TooltipContent>
+					</Tooltip>
+				)}
 			</TreeRow>
 
 			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
