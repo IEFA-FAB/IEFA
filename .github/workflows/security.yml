@@ -180,6 +180,16 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Nenhum override da raiz pode CAPAR a faixa que o consumidor declara. `overrides` do
+      # bun troca a spec inteira e não avisa: um `^` numa faixa que o consumidor abre mais
+      # que isso prende o pacote na versão velha calado. Install fica verde, typecheck fica
+      # verde (transitiva não tem tipo), e a quebra só aparece em runtime. Foi por isso que
+      # `@hono/node-server` virou `>=1.19.15` e não `^1.19.15` (o SDK do MCP declara
+      # `^1.19.9 || ^2.0.5`) e `langsmith` virou `>=0.8.11 <1.0.0` e não `^0.8.11` (caret em
+      # 0.x tranca o minor; `@langchain/core` declara `>=0.5.0 <1.0.0`).
+      - name: Gate (override não capa consumidor)
+        run: bun scripts/check-override-ranges.ts
+
       # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline de 2026-07-22
       # (GHSA-23hp-3jrh-7fpw em node-tar e GHSA-w7jw-789q-3m8p em shell-quote) foi zerada
       # em 2026-08-16 pelos `overrides` de tar e shell-quote na raiz — o gate roda sem
