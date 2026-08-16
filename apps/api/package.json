@@ -19,14 +19,14 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@hono/zod-openapi": "^1.5.1",
+    "@hono/zod-openapi": "^1.5.2",
     "@iefa/agent-web": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
-    "@scalar/hono-api-reference": "^0.11.11",
-    "@supabase/supabase-js": "^2.110.7",
+    "@scalar/hono-api-reference": "^0.11.13",
+    "@supabase/supabase-js": "^2.112.2",
     "fast-xml-parser": "^5.10.1",
     "fflate": "^0.8.3",
-    "hono": "^4.12.30",
+    "hono": "^4.13.1",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
