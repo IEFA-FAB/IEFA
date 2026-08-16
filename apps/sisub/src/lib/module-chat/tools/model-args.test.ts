@@ -74,7 +74,10 @@ function argsWithNullOptionals(schema: JsonSchema): Record<string, unknown> {
  * schema Zod do domínio), é ele quem barra a chamada — não o JSON Schema publicado.
  */
 async function validateLikeEngine(tool: ServerTool, args: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> {
-	const schema = tool.inputSchema as {
+	// `as unknown` no meio: em @tanstack/ai >= 0.43 o `inputSchema` do ServerTool é
+	// opcional, então o tipo estático é `undefined` e o cast direto não compila. O
+	// schema continua chegando em runtime — é justamente o que se valida aqui.
+	const schema = tool.inputSchema as unknown as {
 		"~standard"?: {
 			validate: (value: unknown) => { issues?: { message: string; path?: unknown[] }[] } | Promise<{ issues?: { message: string; path?: unknown[] }[] }>
 		}
