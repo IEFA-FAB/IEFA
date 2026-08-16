@@ -180,17 +180,13 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline atual (2026-07-22) é
-      # ignorada por ID e listada aqui — as duas estão em cadeias de devDependency
-      # (build-time), não no runtime servido. Remova o --ignore quando o upstream subir.
-      #   GHSA-23hp-3jrh-7fpw  node-tar  ← @grafana/faro-rollup-plugin (build de sourcemap)
-      #   GHSA-w7jw-789q-3m8p  shell-quote ← @tanstack/devtools-vite (só dev)
-      # Não converta isto num allowlist permanente: cada ID aqui é dívida com data.
+      # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline de 2026-07-22
+      # (GHSA-23hp-3jrh-7fpw em node-tar e GHSA-w7jw-789q-3m8p em shell-quote) foi zerada
+      # em 2026-08-16 pelos `overrides` de tar e shell-quote na raiz — o gate roda sem
+      # nenhum --ignore. Se precisar reintroduzir um, ele é dívida com data: registre o ID,
+      # a cadeia e a condição de saída aqui, e não converta isto num allowlist permanente.
       - name: Gate (crítica nova)
-        run: |
-          bun audit --audit-level=critical \
-            --ignore=GHSA-23hp-3jrh-7fpw \
-            --ignore=GHSA-w7jw-789q-3m8p
+        run: bun audit --audit-level=critical
 
   # ============================================
   # WORKFLOWS (supply chain do próprio CI)
