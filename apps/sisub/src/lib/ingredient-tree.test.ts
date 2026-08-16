@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { buildIngredientTree } from "@/lib/ingredient-tree"
+import { buildIngredientTree, folderReviewStats } from "@/lib/ingredient-tree"
 import type { Folder, Ingredient, IngredientTreeNode } from "@/types/domain/ingredients"
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -355,5 +355,76 @@ describe("entradas degeneradas", () => {
 		})
 		expect(tree.nodes).toHaveLength(depth + 1)
 		expect(levelOf(tree.nodes, "i-fundo")).toBe(depth)
+	})
+})
+
+// ── Progresso de conferência por pasta ──────────────────────────────────────
+
+describe("progresso de conferência da pasta", () => {
+	const review = (id: string, at: string) => ({ ingredient_id: id, reviewed_at: at })
+
+	test("conta a subárvore inteira, não só os filhos diretos", () => {
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, lastReviews: [] })
+
+		// f-raiz não tem insumo direto nenhum — os 3 vêm das subpastas.
+		expect(stats.get("f-raiz")?.total).toBe(3)
+		expect(stats.get("f-graos")?.total).toBe(2)
+		expect(stats.get("f-carnes")?.total).toBe(1)
+	})
+
+	test("insumo solto (sem pasta) não é creditado a ninguém", () => {
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, lastReviews: [] })
+		// i-sal existe, mas não infla o total de nenhuma pasta.
+		const somaDasRaizes = stats.get("f-raiz")?.total ?? 0
+		expect(somaDasRaizes).toBe(BASE_INGREDIENTS.length - 1)
+	})
+
+	test("a data da pasta é a conferência MAIS ANTIGA, não a mais recente", () => {
+		const stats = folderReviewStats({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			lastReviews: [review("i-arroz", "2026-06-01T00:00:00Z"), review("i-feijao", "2026-08-01T00:00:00Z")],
+		})
+
+		// Dizer 08/2026 esconderia que metade do conteúdo não é checado desde 06/2026.
+		expect(stats.get("f-graos")).toEqual({ total: 2, reviewed: 2, oldestReviewedAt: "2026-06-01T00:00:00Z" })
+	})
+
+	test("pasta só fecha quando todo o conteúdo foi conferido, inclusive o das subpastas", () => {
+		const lastReviews = [review("i-arroz", "2026-06-01T00:00:00Z"), review("i-feijao", "2026-06-02T00:00:00Z")]
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, lastReviews })
+
+		// Grãos completa; a raiz não, porque i-bife (em Carnes) segue pendente.
+		expect(stats.get("f-graos")?.reviewed).toBe(stats.get("f-graos")?.total)
+		expect(stats.get("f-raiz")).toEqual({ total: 3, reviewed: 2, oldestReviewedAt: "2026-06-01T00:00:00Z" })
+	})
+
+	test("insumo excluído sai da conta — não é pendência de conferência", () => {
+		const removido = { ...ingredient("i-velho", "Insumo Extinto", "f-carnes"), deleted_at: "2026-07-01T00:00:00Z" }
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: [...BASE_INGREDIENTS, removido], lastReviews: [] })
+
+		expect(stats.get("f-carnes")?.total).toBe(1)
+	})
+
+	test("pasta vazia não aparece — sem insumo não há progresso a afirmar", () => {
+		const folders = [...BASE_FOLDERS, folder("f-vazia", "Pasta Sem Nada", "f-raiz")]
+		const stats = folderReviewStats({ folders, ingredients: BASE_INGREDIENTS, lastReviews: [] })
+
+		expect(stats.has("f-vazia")).toBe(false)
+	})
+
+	test("ciclo de parent_id não trava o acúmulo", () => {
+		// a → b → a. A FK auto-referente permite; sem guarda, o laço não termina.
+		const folders = [folder("f-a", "A", "f-b"), folder("f-b", "B", "f-a")]
+		const stats = folderReviewStats({ folders, ingredients: [ingredient("i-x", "X", "f-a")], lastReviews: [] })
+
+		expect(stats.get("f-a")?.total).toBe(1)
+		expect(stats.get("f-b")?.total).toBe(1)
+	})
+
+	test("entrada degenerada não lança", () => {
+		expect(folderReviewStats({ folders: null, ingredients: null }).size).toBe(0)
+		// Server fn pode resolver com envelope não-array; `asArray` defende.
+		expect(folderReviewStats({ folders: {} as never, ingredients: {} as never, lastReviews: {} as never }).size).toBe(0)
 	})
 })
