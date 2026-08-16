@@ -31,6 +31,12 @@ export {
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
 export { scaleIngredientQuantity } from "./demand-math.ts"
+export {
+	type FolderLastReview,
+	type FolderReviewRow,
+	listFolderLastReviews,
+	recordFolderReview,
+} from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,
