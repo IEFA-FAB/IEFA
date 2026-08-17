@@ -3,8 +3,13 @@ import {
 	fetchLegalDocuments,
 	isLegalDocType,
 	LEGAL_CONTACT_EMAIL,
+	LEGAL_CONTROLLER,
+	LEGAL_DATA_PROTECTION_OFFICER,
+	LEGAL_DATA_SALE,
+	LEGAL_DELETION_NOTICE,
 	LEGAL_DOC_PATHS,
 	LEGAL_DOC_TITLES,
+	LEGAL_INSTITUTIONAL_PURPOSE,
 	LEGAL_RESPONSE_DAYS,
 } from "@iefa/legal-kit"
 import { Hono } from "hono"
@@ -29,11 +34,16 @@ legalRoutes.get("/", async (c) => {
 	const documents = await fetchLegalDocuments({ ...connection(), locale })
 
 	return c.json({
-		controller: "Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)",
-		data_protection_officer: "Secretaria do IEFA",
+		controller: LEGAL_CONTROLLER,
+		data_protection_officer: LEGAL_DATA_PROTECTION_OFFICER,
 		contact_email: LEGAL_CONTACT_EMAIL,
 		response_days: LEGAL_RESPONSE_DAYS,
-		deletion: `Não há autoexclusão. Pedidos de acesso, correção ou eliminação são processados manualmente pela Secretaria do IEFA, por e-mail para ${LEGAL_CONTACT_EMAIL}, com resposta em até ${LEGAL_RESPONSE_DAYS} dias corridos.`,
+		// Explícito no índice, e não só no markdown: um agente que resolve "essa API
+		// vende dados?" lendo o JSON não deveria precisar baixar a política inteira.
+		// Segue o `locale` da query como os títulos e os links.
+		institutional_purpose: LEGAL_INSTITUTIONAL_PURPOSE[locale],
+		data_sale: LEGAL_DATA_SALE,
+		deletion: LEGAL_DELETION_NOTICE[locale],
 		documents: documents.map((doc) => ({
 			doc_type: doc.doc_type,
 			title: LEGAL_DOC_TITLES[locale][doc.doc_type],
