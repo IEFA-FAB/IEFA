@@ -286,12 +286,20 @@ O único item que envia dados para fora dos sistemas do IEFA é o identificador 
 | Nome | Onde fica | Sistemas | Validade | Para que serve |
 | --- | --- | --- | --- | --- |
 | `sb-<projeto>-auth-token` | cookie | todos os sistemas com login | duração da sessão, com renovação | manter a sessão autenticada; sem ele não há login |
+| `fab_remember_email` | armazenamento local | SISUB, Portal, RUMAER, Formulários | até ser limpo pelo usuário | **guarda o seu e-mail institucional** para preencher a tela de login; só é gravado se você marcar "lembrar" |
+| `sucont_remember_email` | armazenamento local | SUCONT-4 | até ser limpo pelo usuário | **guarda o seu e-mail institucional** para preencher a tela de login; só é gravado se você marcar "lembrar" |
 | `sidebar_state` | cookie | SISUB, Formulários | 7 dias | lembrar se a barra lateral está recolhida |
-| `theme` | armazenamento local | Portal, RUMAER, Formulários | até ser limpo pelo usuário | tema claro ou escuro |
+| `theme` | armazenamento local | SISUB, Portal, RUMAER, Formulários | até ser limpo pelo usuário | tema claro ou escuro |
 | `sisub:selected_kitchen_id` | armazenamento local | SISUB | até ser limpo pelo usuário | última cozinha selecionada |
 | `places-graph-positions-v1` | armazenamento local | SISUB | até ser limpo pelo usuário | posição dos nós no fluxo de produção |
 | `sisub:stale-chunk-reloads` | armazenamento local | SISUB | transitória | evitar laço de recarregamento após uma publicação |
+| `sisub:global-ingredients:scroll`, `sisub:global-preparations:*` | armazenamento de sessão | SISUB | fim da aba | posição de rolagem e ordenação das listas de insumos e preparações |
+| `iefa_app_favorites_v1` | armazenamento local | Portal | até ser limpo pelo usuário | aplicações marcadas como favoritas |
+| `pregoeiro_preferences_v1` | armazenamento local | Portal | até ser limpo pelo usuário | preferências do painel do pregoeiro |
+| `pregoeiro_table_settings_v1` | armazenamento local | Portal | até ser limpo pelo usuário | colunas e ordenação das tabelas do pregoeiro |
 | identificador de sessão do Grafana Faro | armazenamento do navegador | SISUB | duração da visita | agrupar erros e métricas de desempenho de uma mesma visita |
+
+Os dois itens em negrito são os únicos que guardam **dado pessoal** no seu navegador — o e-mail institucional que você digitou na tela de login. Ficam apenas no seu dispositivo, não são enviados a terceiros, e desmarcar "lembrar" ou limpar o armazenamento do navegador os remove.
 
 ## 4. Grafana Faro (apenas no SISUB)
 
@@ -581,12 +589,20 @@ The only item that sends data outside IEFA systems is the Grafana Faro session i
 | Name | Stored as | Systems | Lifetime | Purpose |
 | --- | --- | --- | --- | --- |
 | `sb-<project>-auth-token` | cookie | all systems with sign-in | session lifetime, refreshed | keeping the session authenticated; without it there is no sign-in |
+| `fab_remember_email` | local storage | SISUB, Portal, RUMAER, Forms | until cleared by the user | **stores your institutional e-mail** to prefill the sign-in screen; only written if you tick "remember" |
+| `sucont_remember_email` | local storage | SUCONT-4 | until cleared by the user | **stores your institutional e-mail** to prefill the sign-in screen; only written if you tick "remember" |
 | `sidebar_state` | cookie | SISUB, Forms | 7 days | remembering whether the sidebar is collapsed |
-| `theme` | local storage | Portal, RUMAER, Forms | until cleared by the user | light or dark theme |
+| `theme` | local storage | SISUB, Portal, RUMAER, Forms | until cleared by the user | light or dark theme |
 | `sisub:selected_kitchen_id` | local storage | SISUB | until cleared by the user | last selected kitchen |
 | `places-graph-positions-v1` | local storage | SISUB | until cleared by the user | node positions in the production flow |
 | `sisub:stale-chunk-reloads` | local storage | SISUB | transient | preventing a reload loop after a deployment |
+| `sisub:global-ingredients:scroll`, `sisub:global-preparations:*` | session storage | SISUB | until the tab closes | scroll position and sort order of the ingredient and preparation lists |
+| `iefa_app_favorites_v1` | local storage | Portal | until cleared by the user | applications marked as favourites |
+| `pregoeiro_preferences_v1` | local storage | Portal | until cleared by the user | preferences for the procurement officer dashboard |
+| `pregoeiro_table_settings_v1` | local storage | Portal | until cleared by the user | column and sort settings for the procurement officer tables |
 | Grafana Faro session identifier | browser storage | SISUB | visit lifetime | grouping errors and performance metrics from the same visit |
+
+The two entries in bold are the only ones that keep **personal data** in your browser — the institutional e-mail you typed on the sign-in screen. They stay on your device, are not sent to third parties, and unticking "remember" or clearing browser storage removes them.
 
 ## 4. Grafana Faro (SISUB only)
 

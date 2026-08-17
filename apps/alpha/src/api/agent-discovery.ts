@@ -74,6 +74,11 @@ const LLMS_TXT = renderLlmsTxt(CATALOG, {
 			summary: "RFC 9728 — qual emissor pode emitir token para esta API.",
 		},
 		{ title: "Health check", url: `${BASE_URL}/health`, summary: "Estado do serviço." },
+		{
+			title: "Documentos legais",
+			url: `${BASE_URL}/legal`,
+			summary: "Termos, privacidade e cookies. Sem autoexclusão: pedidos de acesso ou eliminação por iefa@fab.mil.br, resposta em até 7 dias.",
+		},
 	],
 })
 
@@ -106,6 +111,7 @@ const ROBOTS = [
 	"User-agent: *",
 	formatContentSignal({ search: "no", aiInput: "yes", aiTrain: "no" }),
 	"Allow: /llms.txt",
+	"Allow: /legal",
 	"Allow: /.well-known/",
 	"Disallow: /",
 	"",

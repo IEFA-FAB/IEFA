@@ -1,7 +1,6 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
-import { LegalNotice } from "@/components/LegalNotice"
 import { Toaster } from "@/components/ui/sonner"
 import AppStyles from "@/styles.css?url"
 
@@ -49,7 +48,6 @@ function RootDocument() {
 					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
 					linkClassName="text-[10px] text-slate-600 transition-colors hover:text-slate-300"
 				/>
-				<LegalNotice />
 				<Toaster />
 				<Scripts />
 			</body>

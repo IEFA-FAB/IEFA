@@ -8,12 +8,15 @@ const pendingLegalQueryKey = ["legal", "pending"] as const
 /**
  * Aviso de ciência dos documentos legais vigentes.
  *
- * `useQuery(authQueryOptions())` e NÃO o hook `useAuth()`: aquele usa
- * `useSuspenseQuery` e exige preload num `beforeLoad`. Este componente é montado
- * no `__root`, que cobre o telão público (`/`) — rota sem `beforeLoad` de auth.
- * Com o hook suspenso, o telão travaria no primeiro render.
+ * Montado em `/controller`, NÃO no `__root`. O `__root` cobre o telão público
+ * (`/`), que roda sem sessão numa tela de projeção: lá este componente só somaria
+ * um round-trip de `getServerSessionFn()` por carga, para depois não renderizar
+ * nada. `/controller` já exige sessão no `beforeLoad`, então a consulta de auth
+ * abaixo é servida pelo cache.
  *
- * A consulta só dispara com sessão; sem ela o telão não faz chamada nenhuma.
+ * `useQuery(authQueryOptions())` e não o hook `useAuth()`: aquele usa
+ * `useSuspenseQuery`, e suspender por causa de um aviso de rodapé seria trocar o
+ * conteúdo da tela por um fallback enquanto se resolve algo acessório.
  */
 export function LegalNotice() {
 	const isAuthenticated = useQuery(authQueryOptions()).data?.isAuthenticated ?? false

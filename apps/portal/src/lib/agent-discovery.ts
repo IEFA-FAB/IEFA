@@ -177,6 +177,33 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
 		changefreq: "yearly",
 		priority: 0.3,
 	},
+	// As versões en-US são rotas próprias, não redirects das pt-BR como o resto do
+	// portal: são documentos distintos, com conteúdo traduzido. Sem estas entradas
+	// elas ficariam fora do sitemap — invisíveis para quem chega pela trilha em inglês.
+	{
+		path: "/terms-of-use",
+		title: "Terms of Use",
+		summary: "Conditions of access and use for the digital systems maintained by IEFA.",
+		section: "Legal",
+		changefreq: "yearly",
+		priority: 0.3,
+	},
+	{
+		path: "/privacy-policy",
+		title: "Privacy Policy",
+		summary: "How IEFA systems process personal data under the LGPD — collection, retention, and manual deletion via iefa@fab.mil.br within 7 days.",
+		section: "Legal",
+		changefreq: "yearly",
+		priority: 0.3,
+	},
+	{
+		path: "/cookie-policy",
+		title: "Cookie Policy",
+		summary: "Cookies and browser storage used across the suite — inventory, purpose, and how to refuse them.",
+		section: "Legal",
+		changefreq: "yearly",
+		priority: 0.3,
+	},
 ]
 
 /**

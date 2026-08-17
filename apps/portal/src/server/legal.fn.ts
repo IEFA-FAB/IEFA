@@ -3,7 +3,14 @@
  * Leitura dos documentos legais vigentes e registro de ciência do usuário.
  */
 
-import { fetchLegalDocument, LEGAL_DOC_TYPES, type LegalDocument, listPendingAcknowledgements, recordAcknowledgement } from "@iefa/legal-kit"
+import {
+	clientIpFromForwardedFor,
+	fetchLegalDocument,
+	LEGAL_DOC_TYPES,
+	type LegalDocument,
+	listPendingAcknowledgements,
+	recordAcknowledgement,
+} from "@iefa/legal-kit"
 import { createServerFn } from "@tanstack/react-start"
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
@@ -42,13 +49,6 @@ export const listPendingLegalDocumentsFn = createServerFn({ method: "GET" }).han
 	return pending.filter((entry) => entry.acknowledgedAt === null).map((entry) => entry.document)
 })
 
-/** Primeiro IP da cadeia do ALB; `null` quando ausente (dev local, proxy sem o header). */
-function clientIp(request: Request | undefined): string | null {
-	const forwarded = request?.headers.get("x-forwarded-for")
-	const first = forwarded?.split(",")[0]?.trim()
-	return first && first.length > 0 ? first : null
-}
-
 export const acknowledgeLegalDocumentsFn = createServerFn({ method: "POST" })
 	.validator(z.object({ documentIds: z.array(z.string().uuid()).min(1).max(LEGAL_DOC_TYPES.length) }))
 	.handler(async ({ data }) => {
@@ -58,7 +58,7 @@ export const acknowledgeLegalDocumentsFn = createServerFn({ method: "POST" })
 			...connection(),
 			userId,
 			documentIds: data.documentIds,
-			ipAddress: clientIp(request),
+			ipAddress: clientIpFromForwardedFor(request?.headers.get("x-forwarded-for")),
 			userAgent: request?.headers.get("user-agent") ?? null,
 		})
 		return { accepted }

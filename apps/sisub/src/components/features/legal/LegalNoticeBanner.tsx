@@ -42,7 +42,7 @@ export function LegalNoticeBanner() {
 		<section className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur px-4 py-3" aria-label="Aviso sobre documentos legais">
 			<div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<p className="text-xs text-muted-foreground leading-relaxed">
-					Publicamos uma versão nova de{" "}
+					Documentos legais vigentes:{" "}
 					{pending.map((doc, index) => (
 						<span key={doc.id}>
 							{index > 0 && (index === pending.length - 1 ? " e " : ", ")}

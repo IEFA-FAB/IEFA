@@ -27,6 +27,18 @@ app.use(
 	})
 )
 
+// CORS para os documentos legais: são públicos por contrato e precisam ser
+// legíveis por um agente rodando em outra origem, igual às rotas de /api/*.
+app.use(
+	"/legal/*",
+	cors({
+		origin: "*",
+		allowMethods: ["GET", "OPTIONS"],
+		allowHeaders: ["Content-Type"],
+		maxAge: 300,
+	})
+)
+
 // CORS para rotas admin (permite POST + header de autenticação)
 app.use(
 	"/api/admin/*",
@@ -117,8 +129,10 @@ const openApiConfig = {
 
 app.doc("/doc", openApiConfig)
 
-// Documentos legais — fora da cadeia tipada: são conteúdo, e entrariam no tipo
-// exportado para os clients RPC sem nenhum consumidor.
+// Documentos legais — fora da cadeia tipada (são conteúdo, e entrariam no tipo
+// exportado para os clients RPC sem consumidor nenhum), mas DENTRO do registro
+// OpenAPI: o llms.txt e o api-catalog derivam de `getOpenAPIDocument()`, e um
+// endpoint de documento legal que nenhum agente encontra não serve para nada.
 app.route("/legal", legalRoutes)
 
 // robots.txt, llms.txt e /.well-known/api-catalog — o llms.txt é derivado do

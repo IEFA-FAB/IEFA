@@ -1,3 +1,4 @@
+import { formatEffectiveDate } from "@iefa/legal-kit"
 import ReactMarkdown, { type Components } from "react-markdown"
 import rehypeSanitize from "rehype-sanitize"
 import remarkBreaks from "remark-breaks"
@@ -50,7 +51,7 @@ interface LegalDocumentPageProps {
 }
 
 export function LegalDocumentPage({ title, content_md, effective_date, version, locale = "pt-BR" }: LegalDocumentPageProps) {
-	const formattedDate = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(effective_date))
+	const formattedDate = formatEffectiveDate(effective_date, locale)
 
 	return (
 		<article className="max-w-2xl mx-auto py-8">

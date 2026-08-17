@@ -1,3 +1,4 @@
+import { LEGAL_DOC_PATHS } from "@iefa/legal-kit"
 import type { UserPermission } from "@iefa/pbac"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
@@ -22,9 +23,18 @@ function isAuthPath(pathname: string): boolean {
 	return pathname === "/auth" || pathname.startsWith("/auth/")
 }
 
-// Rotas públicas isentas do guard: a própria tela de login e o health check do ALB.
+/**
+ * Rotas isentas do guard: tela de login, health check do ALB e os documentos legais.
+ *
+ * Os documentos precisam estar aqui explicitamente. Sem isso o `beforeLoad` abaixo
+ * redireciona todo visitante anônimo para `/auth` — e uma política de privacidade
+ * que exige login para ser lida não informa ninguém. O redirect também atingiria o
+ * usuário autenticado sem acesso ao módulo `sucont`, que cai no mesmo ramo.
+ */
+const LEGAL_PATHS = new Set<string>(Object.values(LEGAL_DOC_PATHS["pt-BR"]))
+
 function isPublicPath(pathname: string): boolean {
-	return isAuthPath(pathname) || pathname === "/health"
+	return isAuthPath(pathname) || pathname === "/health" || LEGAL_PATHS.has(pathname)
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({

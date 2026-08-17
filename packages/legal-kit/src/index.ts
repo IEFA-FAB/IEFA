@@ -5,6 +5,7 @@ export {
 	recordAcknowledgement,
 } from "./acknowledgement.ts"
 export { createLegalClient, type LegalClient, type LegalConnection } from "./client.ts"
+export { clientIpFromForwardedFor } from "./client-ip.ts"
 export {
 	LEGAL_CONTACT,
 	LEGAL_CONTACT_EMAIL,
@@ -18,6 +19,7 @@ export {
 	fetchLegalDocument,
 	fetchLegalDocuments,
 } from "./documents.ts"
+export { formatEffectiveDate } from "./format.ts"
 export {
 	DEFAULT_LEGAL_LOCALE,
 	isLegalDocType,

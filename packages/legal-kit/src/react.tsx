@@ -3,6 +3,7 @@ import rehypeSanitize from "rehype-sanitize"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { LEGAL_CONTACT_EMAIL } from "./contact.ts"
+import { formatEffectiveDate } from "./format.ts"
 import { DEFAULT_LEGAL_LOCALE, LEGAL_DOC_PATHS, LEGAL_DOC_TITLES, type LegalDocType, type LegalDocument, type LegalLocale } from "./types.ts"
 
 /**
@@ -55,7 +56,7 @@ const STRINGS = {
 		meta: (version: string, date: string) => `Versão ${version} — Vigente desde ${date}`,
 		notFound: "Documento não encontrado.",
 		legalNav: "Documentos legais",
-		newVersion: "Publicamos uma versão nova de",
+		documentsInForce: "Documentos legais vigentes:",
 		and: " e ",
 		requests: "Pedidos de acesso, correção ou exclusão de dados:",
 		acknowledge: "Estou ciente",
@@ -66,7 +67,7 @@ const STRINGS = {
 		meta: (version: string, date: string) => `Version ${version} — In force since ${date}`,
 		notFound: "Document not found.",
 		legalNav: "Legal documents",
-		newVersion: "We published a new version of",
+		documentsInForce: "Legal documents in force:",
 		and: " and ",
 		requests: "Requests for access, correction or deletion of data:",
 		acknowledge: "I acknowledge",
@@ -94,7 +95,7 @@ export function LegalDocumentArticle({ document, locale = DEFAULT_LEGAL_LOCALE, 
 		)
 	}
 
-	const formattedDate = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(document.effective_date))
+	const formattedDate = formatEffectiveDate(document.effective_date, locale)
 
 	return (
 		<article className="mx-auto max-w-2xl py-8">
@@ -165,7 +166,7 @@ export function LegalNoticeBanner({ pending, onAcknowledge, isPending = false, l
 		<section className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card px-4 py-3" aria-label={strings.noticeLabel}>
 			<div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<p className="text-xs leading-relaxed text-muted-foreground">
-					{strings.newVersion}{" "}
+					{strings.documentsInForce}{" "}
 					{pending.map((doc, index) => (
 						<span key={doc.id}>
 							{index > 0 && (index === pending.length - 1 ? strings.and : ", ")}
