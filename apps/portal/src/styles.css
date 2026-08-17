@@ -13,7 +13,7 @@
     @slot;
   }
   @media (prefers-color-scheme: dark) {
-    &:is(:root:not(.light) *) {
+    &:is(:root:where(:not(.light)) *) {
       @slot;
     }
   }
@@ -196,7 +196,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not(.light) {
+  :root:where(:not(.light)) {
     --background:            oklch(0.1000 0 0);
     --foreground:            oklch(0.9671 0 0);
 
@@ -244,6 +244,23 @@
     --shadow-hard-sm:  3px 3px 0 0 oklch(0.9671 0 0);
     --shadow-hard-md:  4px 4px 0 0 oklch(0.9671 0 0);
     --shadow-hard-lg:  6px 6px 0 0 oklch(0.9671 0 0);
+  }
+}
+
+/* O `color-scheme` acompanha os tokens. Sem ele, quem está no escuro do sistema
+   ganha os tokens escuros mas scrollbar, date picker e autofill nativos claros.
+   Na escolha explícita o servidor também manda no `style` do <html>. */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not(.light)) {
+    color-scheme: dark;
   }
 }
 

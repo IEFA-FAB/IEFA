@@ -18,9 +18,15 @@ const LEGACY_STORAGE_KEY = "theme"
 
 const parseTheme = (value: string | null | undefined): Theme | null => (value === "dark" || value === "light" ? value : null)
 
+// `document.cookie` lança em iframe sandboxed sem allow-same-origin, e esta
+// leitura roda no render do shell: deixar a exceção subir derrubaria a página.
 const readCookieOnClient = (): Theme | null => {
-	const match = document.cookie.match(/(?:^|;\s*)theme=([^;]*)/)
-	return parseTheme(match?.[1])
+	try {
+		const match = document.cookie.match(/(?:^|;\s*)theme=([^;]*)/)
+		return parseTheme(match?.[1])
+	} catch {
+		return null
+	}
 }
 
 /**
@@ -35,10 +41,36 @@ export const readThemePreference = createIsomorphicFn()
 	.server((): Theme | null => parseTheme(getCookie(COOKIE_NAME)))
 	.client(readCookieOnClient)
 
-const persistTheme = (theme: Theme) => {
-	const secure = window.location.protocol === "https:" ? "; secure" : ""
-	// biome-ignore lint/suspicious/noDocumentCookie: a CookieStore API não existe no Safari nem no Firefox, e escrever o tema precisa ser síncrono — o próximo render do shell lê esse cookie.
-	document.cookie = `${COOKIE_NAME}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax${secure}`
+/** Devolve se a escrita pegou — cookie bloqueado não vira erro, vira silêncio. */
+const persistTheme = (theme: Theme): boolean => {
+	try {
+		const secure = window.location.protocol === "https:" ? "; secure" : ""
+		// biome-ignore lint/suspicious/noDocumentCookie: a CookieStore API não existe no Safari nem no Firefox, e escrever o tema precisa ser síncrono — o próximo render do shell lê esse cookie.
+		document.cookie = `${COOKIE_NAME}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax${secure}`
+		return readCookieOnClient() === theme
+	} catch {
+		return false
+	}
+}
+
+// localStorage lança (SecurityError) quando o site está com armazenamento
+// bloqueado. O script inline que isso substituiu tinha try/catch; sem ele, a
+// exceção sobe de dentro de um efeito já commitado e derruba a página inteira
+// no error boundary — por causa de uma migração de preferência de tema.
+const readLegacyTheme = (): Theme | null => {
+	try {
+		return parseTheme(localStorage.getItem(LEGACY_STORAGE_KEY))
+	} catch {
+		return null
+	}
+}
+
+const dropLegacyTheme = () => {
+	try {
+		localStorage.removeItem(LEGACY_STORAGE_KEY)
+	} catch {
+		// nada a fazer: a escolha já está no cookie
+	}
 }
 
 export const applyThemeToDom = (theme: Theme) => {
@@ -64,26 +96,37 @@ export function ThemeProvider({ initialTheme, children }: { initialTheme: Theme 
 	// ícone do botão) dependem desse valor; as cores não.
 	const [theme, setThemeState] = useState<Theme>(initialTheme ?? "light")
 
-	const setTheme = useCallback((next: Theme) => {
+	const setTheme = useCallback((next: Theme): boolean => {
 		// Cookie e DOM antes do estado: o <html> do shell é renderizado a partir
 		// do cookie, então ele precisa já estar escrito quando o React repintar.
-		persistTheme(next)
+		const persisted = persistTheme(next)
 		applyThemeToDom(next)
 		setThemeState(next)
+		return persisted
 	}, [])
 
 	useEffect(() => {
 		if (initialTheme) return
-		const legacy = parseTheme(localStorage.getItem(LEGACY_STORAGE_KEY))
+
+		const legacy = readLegacyTheme()
 		if (legacy) {
 			// Quem escolheu tema quando a escolha vivia no localStorage mantém a
 			// escolha — ela passa para o cookie e o servidor acerta já na próxima
 			// visita. Custo: uma única troca visível, nesta primeira carga.
-			localStorage.removeItem(LEGACY_STORAGE_KEY)
-			setTheme(legacy)
+			// A chave antiga só sai se o cookie tiver pegado: com cookie bloqueado,
+			// apagá-la jogaria a escolha fora sem ter para onde mudá-la.
+			if (setTheme(legacy)) dropLegacyTheme()
 			return
 		}
-		setThemeState(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+
+		// O CSS acompanha o SO ao vivo pela media query; o estado em JS precisa
+		// acompanhar junto, senão quem troca o tema do sistema com a página aberta
+		// fica com o valor velho — e o primeiro clique no botão não faz nada.
+		const query = window.matchMedia("(prefers-color-scheme: dark)")
+		const sync = () => setThemeState(query.matches ? "dark" : "light")
+		sync()
+		query.addEventListener("change", sync)
+		return () => query.removeEventListener("change", sync)
 	}, [initialTheme, setTheme])
 
 	const toggle = () => setTheme(theme === "dark" ? "light" : "dark")
