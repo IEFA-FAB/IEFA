@@ -50,6 +50,153 @@ export interface TreeLastReview {
 	reviewed_at: string
 }
 
+/** Progresso de conferência de uma pasta, agregado a partir dos insumos que ela contém. */
+export interface FolderReviewStats {
+	/** Insumos ativos na subárvore da pasta (inclui os das subpastas). */
+	total: number
+	/** Quantos deles já foram conferidos ao menos uma vez. */
+	reviewed: number
+	/**
+	 * Conferência mais ANTIGA entre os insumos já revisados da subárvore — o elo
+	 * mais fraco. Dizer que a pasta foi conferida na data mais recente mentiria:
+	 * o insumo checado há um ano continua sendo o que define o quanto o conteúdo
+	 * dela está desatualizado. `null` quando nenhum insumo foi conferido.
+	 */
+	oldestReviewedAt: string | null
+}
+
+/** Conferência da pasta ENQUANTO pasta: o carimbo humano, não o conteúdo. */
+export interface FolderConference {
+	/** Quando alguém declarou a pasta conferida. `null` = nunca. */
+	reviewedAt: string | null
+	/**
+	 * Itens que entraram na subárvore DEPOIS dessa conferência (insumos e subpastas).
+	 * Maior que zero ⇒ o carimbo está velho: quem conferiu não viu o que chegou
+	 * depois, e a pasta não pode continuar se apresentando como conferida.
+	 */
+	addedSince: number
+}
+
+/**
+ * Estado da conferência de cada pasta, cruzando o carimbo gravado
+ * (`kitchen.folder_review`) com o que entrou na subárvore desde então.
+ *
+ * A conferência da pasta responde uma pergunta que os insumos não respondem —
+ * o nome está certo, não falta nada aqui dentro, a estrutura faz sentido. Por isso
+ * ela é gravada, não derivada. O que NÃO pode acontecer é ela se passar pelo
+ * progresso do conteúdo: são dois fatos distintos e a tela mostra os dois lado a
+ * lado, nunca um no lugar do outro (ver `folderReviewStats`).
+ *
+ * `addedSince` é o que impede o carimbo de apodrecer em silêncio. Sem isso,
+ * conferir uma pasta uma vez a deixaria "conferida" para sempre, inclusive depois
+ * de receber trinta insumos que ninguém olhou.
+ *
+ * Só conta o que ENTROU. Item removido depois da conferência não conta: com o
+ * padrão da tela (`includeDeleted: false`) ele nem chega aqui, e remover não
+ * invalida o julgamento de quem conferiu do mesmo jeito que acrescentar invalida.
+ */
+export function folderConferenceStatus(input: {
+	folders: readonly Folder[] | null | undefined
+	ingredients: readonly Ingredient[] | null | undefined
+	folderLastReviews?: readonly { folder_id: string; reviewed_at: string }[] | null
+}): Map<string, FolderConference> {
+	const reviewedAt = new Map<string, string>()
+	for (const r of asArray(input.folderLastReviews)) reviewedAt.set(r.folder_id, r.reviewed_at)
+	if (reviewedAt.size === 0) return new Map()
+
+	const parentOf = new Map<string, string | null>()
+	for (const f of asArray(input.folders)) parentOf.set(f.id, f.parent_id ?? null)
+
+	const status = new Map<string, FolderConference>()
+	for (const [folderId, at] of reviewedAt) {
+		if (parentOf.has(folderId)) status.set(folderId, { reviewedAt: at, addedSince: 0 })
+	}
+
+	/** Credita a chegada de `createdAt` a todo ancestral conferido antes dela. */
+	const creditAncestors = (startFolderId: string | null, createdAt: string | null) => {
+		if (!createdAt) return
+		const seen = new Set<string>()
+		let folderId = startFolderId
+		while (folderId && parentOf.has(folderId) && !seen.has(folderId)) {
+			seen.add(folderId)
+			const current = status.get(folderId)
+			// ISO-8601 UTC compara como string; `>` é "chegou depois da conferência".
+			if (current?.reviewedAt && createdAt > current.reviewedAt) current.addedSince += 1
+			folderId = parentOf.get(folderId) ?? null
+		}
+	}
+
+	for (const ingredient of asArray(input.ingredients)) {
+		if (ingredient.deleted_at) continue
+		creditAncestors(ingredient.folder_id ?? null, ingredient.created_at ?? null)
+	}
+	for (const folder of asArray(input.folders)) {
+		if (folder.deleted_at) continue
+		// A própria pasta nova conta para os ancestrais dela, não para si mesma.
+		creditAncestors(folder.parent_id ?? null, folder.created_at ?? null)
+	}
+
+	return status
+}
+
+/**
+ * Progresso de conferência por pasta, DERIVADO das revisões de insumo.
+ *
+ * Deliberadamente não existe tabela de "revisão de pasta". Pasta não carrega dado
+ * que se confira — quem carrega é o insumo. Um evento de revisão gravado na pasta
+ * seria uma segunda verdade, livre para contradizer a primeira: bastaria alguém
+ * carimbar a pasta para ela exibir "revisada" com os insumos dentro nunca
+ * conferidos. Derivando, as duas leituras não podem divergir, e conferir o último
+ * insumo pendente já fecha a pasta sem clique nenhum.
+ *
+ * Conta a subárvore inteira (subpastas incluídas) subindo a cadeia de ancestrais de
+ * cada insumo, com guarda contra ciclo de `parent_id` — a FK auto-referente permite
+ * ciclo, e ele travaria o acúmulo recursivo (ver `findCyclicFolders`).
+ *
+ * Insumo excluído (soft delete) não entra: não está pendente de conferência nenhuma.
+ * Roda sobre os dados CRUS, nunca sobre o recorte filtrado — senão buscar por texto
+ * mudaria "7/12" para "1/1" e o número passaria a descrever a busca, não o catálogo.
+ */
+export function folderReviewStats(input: {
+	folders: readonly Folder[] | null | undefined
+	ingredients: readonly Ingredient[] | null | undefined
+	lastReviews?: readonly TreeLastReview[] | null
+}): Map<string, FolderReviewStats> {
+	const stats = new Map<string, FolderReviewStats>()
+
+	const parentOf = new Map<string, string | null>()
+	for (const f of asArray(input.folders)) parentOf.set(f.id, f.parent_id ?? null)
+
+	const reviewedAt = new Map<string, string>()
+	for (const r of asArray(input.lastReviews)) {
+		if (r.ingredient_id) reviewedAt.set(r.ingredient_id, r.reviewed_at)
+	}
+
+	for (const ingredient of asArray(input.ingredients)) {
+		if (ingredient.deleted_at) continue
+		const review = reviewedAt.get(ingredient.id) ?? null
+
+		// Sobe até a raiz creditando cada ancestral. `seen` corta ciclo: sem ele um
+		// grupo de pastas em ciclo giraria para sempre neste laço.
+		const seen = new Set<string>()
+		let folderId = ingredient.folder_id ?? null
+		while (folderId && parentOf.has(folderId) && !seen.has(folderId)) {
+			seen.add(folderId)
+			const current = stats.get(folderId) ?? { total: 0, reviewed: 0, oldestReviewedAt: null }
+			current.total += 1
+			if (review) {
+				current.reviewed += 1
+				// ISO-8601 UTC é ordenável como string — não precisa construir Date por insumo.
+				if (!current.oldestReviewedAt || review < current.oldestReviewedAt) current.oldestReviewedAt = review
+			}
+			stats.set(folderId, current)
+			folderId = parentOf.get(folderId) ?? null
+		}
+	}
+
+	return stats
+}
+
 export interface BuildIngredientTreeInput {
 	folders: readonly Folder[] | null | undefined
 	ingredients: readonly Ingredient[] | null | undefined

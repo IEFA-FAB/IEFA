@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { CalendarCheck, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
+import { CalendarCheck, CircleCheck, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -18,7 +18,15 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TREE_LEAF_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
 import { cn } from "@/lib/cn"
-import { ingredientNutrientsQueryOptions, useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
+import type { FolderConference, FolderReviewStats } from "@/lib/ingredient-tree"
+import {
+	ingredientNutrientsQueryOptions,
+	useDeleteFolder,
+	useDeleteIngredient,
+	useRecordFolderReview,
+	useRestoreFolder,
+	useRestoreIngredient,
+} from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
 
 interface IngredientsTreeNodeProps {
@@ -29,6 +37,10 @@ interface IngredientsTreeNodeProps {
 	itemCount?: number
 	/** Data ISO da última revisão (conferência) do insumo — undefined p/ pastas, null p/ insumo nunca revisado */
 	lastReviewedAt?: string | null
+	/** Progresso de conferência da subárvore — só para pastas, derivado dos insumos. */
+	folderReview?: FolderReviewStats
+	/** Conferência da pasta enquanto pasta — carimbo gravado, fato distinto do progresso. */
+	folderConference?: FolderConference
 	/** Callback de navegação para a página de detalhe do ingrediente */
 	onNavigate?: () => void
 	/** Modo de seleção em massa ativo: exibe checkbox e desativa ações por linha */
@@ -123,6 +135,8 @@ export function IngredientsTreeNode({
 	onToggle,
 	itemCount,
 	lastReviewedAt,
+	folderReview,
+	folderConference,
 	onNavigate,
 	selectionMode,
 	canWrite = true,
@@ -134,12 +148,13 @@ export function IngredientsTreeNode({
 	const { deleteIngredient, isDeleting: isDeletingIngredient } = useDeleteIngredient()
 	const { restoreFolder, isRestoring: isRestoringFolder } = useRestoreFolder()
 	const { restoreIngredient, isRestoring: isRestoringIngredient } = useRestoreIngredient()
+	const { recordFolderReview, isReviewing } = useRecordFolderReview()
 
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
 	const isDeleting = isDeletingFolder || isDeletingIngredient
 	const isRestoring = isRestoringFolder || isRestoringIngredient
-	const isBusy = isDeleting || isRestoring
+	const isBusy = isDeleting || isRestoring || isReviewing
 	const isDeleted = !!(node.data as Folder | Ingredient).deleted_at
 
 	const Icon = node.type === "folder" ? FolderIcon : Package
@@ -163,6 +178,15 @@ export function IngredientsTreeNode({
 			toast.error("Erro ao excluir item")
 		} finally {
 			setIsDeleteDialogOpen(false)
+		}
+	}
+
+	const handleReviewFolder = async () => {
+		try {
+			await recordFolderReview(node.id)
+			toast.success("Pasta marcada como conferida.")
+		} catch (_error) {
+			toast.error("Não foi possível registrar a conferência da pasta.")
 		}
 	}
 
@@ -215,6 +239,23 @@ export function IngredientsTreeNode({
 							</Button>
 						) : (
 							<>
+								{/* Conferência da pasta: declara que a pasta foi olhada COMO pasta. */}
+								{node.type === "folder" && (
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={(e) => {
+											e.stopPropagation()
+											handleReviewFolder()
+										}}
+										disabled={isBusy}
+										aria-label={`Marcar a pasta ${node.label} como conferida`}
+										title="Marcar esta pasta como conferida (nome, organização e o que ela contém)"
+									>
+										{isReviewing ? <Loader2 className="animate-spin" /> : <CircleCheck />}
+									</Button>
+								)}
+
 								<Button
 									variant="ghost"
 									size="icon"
@@ -311,6 +352,72 @@ export function IngredientsTreeNode({
 							<TooltipContent>Insumo ainda não revisado</TooltipContent>
 						</Tooltip>
 					))}
+
+				{/*
+				 * Progresso da conferência da pasta — derivado dos insumos que ela contém.
+				 * Neutro de propósito, nunca `warning`: pasta não é item pendente, é
+				 * indicador de progresso. Pintar de amarelo toda pasta ainda incompleta
+				 * deixaria a árvore inteira amarela no primeiro dia, e o aviso pararia de
+				 * significar alguma coisa. Pasta sem insumo não afirma nada.
+				 */}
+				{node.type === "folder" && !isDeleted && folderReview && folderReview.total > 0 && (
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								folderReview.reviewed === folderReview.total ? (
+									<Badge variant="outline" className="gap-1 text-muted-foreground">
+										<CalendarCheck className="size-3" />
+										Revisada
+									</Badge>
+								) : (
+									<Badge variant="outline" className="text-muted-foreground tabular-nums">
+										{folderReview.reviewed}/{folderReview.total} revisados
+									</Badge>
+								)
+							}
+						/>
+						<TooltipContent>
+							{folderReview.oldestReviewedAt && folderReview.reviewed === folderReview.total
+								? `Todos os ${folderReview.total} insumos conferidos. O mais antigo em ${formatReviewDate(folderReview.oldestReviewedAt)}.`
+								: `${folderReview.total - folderReview.reviewed} de ${folderReview.total} insumos ainda não conferidos.`}
+						</TooltipContent>
+					</Tooltip>
+				)}
+
+				{/*
+				 * Carimbo da pasta — fato SEPARADO do progresso acima, e por isso um badge
+				 * próprio: um diz "o conteúdo está conferido", o outro diz "alguém olhou
+				 * esta pasta". Colapsar os dois num rótulo só é o que deixaria a pasta se
+				 * apresentar como revisada com os insumos dentro intocados.
+				 *
+				 * `addedSince > 0` ⇒ chegou coisa depois da conferência: o carimbo continua
+				 * visível (não some, seria apagar o que aconteceu) mas passa a avisar. Aqui
+				 * o `warning` é honesto — atinge só pasta conferida e depois mexida, não a
+				 * árvore inteira.
+				 */}
+				{node.type === "folder" && !isDeleted && folderConference?.reviewedAt && (
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								folderConference.addedSince > 0 ? (
+									<Badge variant="warning" className="tabular-nums">
+										Pasta conferida · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
+									</Badge>
+								) : (
+									<Badge variant="outline" className="gap-1 text-muted-foreground">
+										<CircleCheck className="size-3" />
+										Pasta conferida {formatReviewDate(folderConference.reviewedAt)}
+									</Badge>
+								)
+							}
+						/>
+						<TooltipContent>
+							{folderConference.addedSince > 0
+								? `Conferida em ${formatReviewDate(folderConference.reviewedAt)}, mas ${folderConference.addedSince} item(ns) entraram depois disso — quem conferiu não os viu.`
+								: `Pasta conferida em ${formatReviewDate(folderConference.reviewedAt)}. Nada entrou desde então.`}
+						</TooltipContent>
+					</Tooltip>
+				)}
 			</TreeRow>
 
 			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

@@ -14,6 +14,7 @@ import type {
 	PurchaseItem,
 } from "@iefa/database/sisub"
 import type {
+	FolderLastReview,
 	IngredientEffectiveNutrientsResult,
 	IngredientLastReview,
 	IngredientSubstitution,
@@ -41,6 +42,7 @@ import {
 	fetchIngredientVersionsFn,
 	fetchNutrientsFn,
 	fetchNutritionReferenceFoodsFn,
+	recordFolderReviewFn,
 	recordIngredientReviewFn,
 	recordIngredientVersionFn,
 	restoreFolderFn,
@@ -138,6 +140,7 @@ export const ingredientsTreeQueryOptions = (includeDeleted = false, preparations
 				ingredients: Ingredient[]
 				ingredientItems: IngredientItem[]
 				lastReviews: IngredientLastReview[]
+				folderLastReviews: FolderLastReview[]
 			}>,
 		staleTime: 10 * 60 * 1000,
 		gcTime: 10 * 60 * 1000,
@@ -653,4 +656,17 @@ export function useRecordIngredientReview() {
 		},
 	})
 	return { recordIngredientReview: mutation.mutateAsync, isReviewing: mutation.isPending }
+}
+
+/** Registra um evento de revisão (conferência) da pasta pelos nutricionistas. */
+export function useRecordFolderReview() {
+	const queryClient = useQueryClient()
+	const mutation = useMutation({
+		mutationFn: (folderId: string) => recordFolderReviewFn({ data: { folderId } }),
+		onSuccess: () => {
+			// Atualiza a data de revisão exibida na árvore de insumos.
+			queryClient.invalidateQueries({ queryKey: ["ingredients", "tree"] })
+		},
+	})
+	return { recordFolderReview: mutation.mutateAsync, isReviewing: mutation.isPending }
 }

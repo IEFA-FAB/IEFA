@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { buildIngredientTree } from "@/lib/ingredient-tree"
+import { buildIngredientTree, folderConferenceStatus, folderReviewStats } from "@/lib/ingredient-tree"
 import type { Folder, Ingredient, IngredientTreeNode } from "@/types/domain/ingredients"
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -355,5 +355,172 @@ describe("entradas degeneradas", () => {
 		})
 		expect(tree.nodes).toHaveLength(depth + 1)
 		expect(levelOf(tree.nodes, "i-fundo")).toBe(depth)
+	})
+})
+
+// ── Progresso de conferência por pasta ──────────────────────────────────────
+
+describe("progresso de conferência da pasta", () => {
+	const review = (id: string, at: string) => ({ ingredient_id: id, reviewed_at: at })
+
+	test("conta a subárvore inteira, não só os filhos diretos", () => {
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, lastReviews: [] })
+
+		// f-raiz não tem insumo direto nenhum — os 3 vêm das subpastas.
+		expect(stats.get("f-raiz")?.total).toBe(3)
+		expect(stats.get("f-graos")?.total).toBe(2)
+		expect(stats.get("f-carnes")?.total).toBe(1)
+	})
+
+	test("insumo solto (sem pasta) não é creditado a ninguém", () => {
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, lastReviews: [] })
+		// i-sal existe, mas não infla o total de nenhuma pasta.
+		const somaDasRaizes = stats.get("f-raiz")?.total ?? 0
+		expect(somaDasRaizes).toBe(BASE_INGREDIENTS.length - 1)
+	})
+
+	test("a data da pasta é a conferência MAIS ANTIGA, não a mais recente", () => {
+		const stats = folderReviewStats({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			lastReviews: [review("i-arroz", "2026-06-01T00:00:00Z"), review("i-feijao", "2026-08-01T00:00:00Z")],
+		})
+
+		// Dizer 08/2026 esconderia que metade do conteúdo não é checado desde 06/2026.
+		expect(stats.get("f-graos")).toEqual({ total: 2, reviewed: 2, oldestReviewedAt: "2026-06-01T00:00:00Z" })
+	})
+
+	test("pasta só fecha quando todo o conteúdo foi conferido, inclusive o das subpastas", () => {
+		const lastReviews = [review("i-arroz", "2026-06-01T00:00:00Z"), review("i-feijao", "2026-06-02T00:00:00Z")]
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, lastReviews })
+
+		// Grãos completa; a raiz não, porque i-bife (em Carnes) segue pendente.
+		expect(stats.get("f-graos")?.reviewed).toBe(stats.get("f-graos")?.total)
+		expect(stats.get("f-raiz")).toEqual({ total: 3, reviewed: 2, oldestReviewedAt: "2026-06-01T00:00:00Z" })
+	})
+
+	test("insumo excluído sai da conta — não é pendência de conferência", () => {
+		const removido = { ...ingredient("i-velho", "Insumo Extinto", "f-carnes"), deleted_at: "2026-07-01T00:00:00Z" }
+		const stats = folderReviewStats({ folders: BASE_FOLDERS, ingredients: [...BASE_INGREDIENTS, removido], lastReviews: [] })
+
+		expect(stats.get("f-carnes")?.total).toBe(1)
+	})
+
+	test("pasta vazia não aparece — sem insumo não há progresso a afirmar", () => {
+		const folders = [...BASE_FOLDERS, folder("f-vazia", "Pasta Sem Nada", "f-raiz")]
+		const stats = folderReviewStats({ folders, ingredients: BASE_INGREDIENTS, lastReviews: [] })
+
+		expect(stats.has("f-vazia")).toBe(false)
+	})
+
+	test("ciclo de parent_id não trava o acúmulo", () => {
+		// a → b → a. A FK auto-referente permite; sem guarda, o laço não termina.
+		const folders = [folder("f-a", "A", "f-b"), folder("f-b", "B", "f-a")]
+		const stats = folderReviewStats({ folders, ingredients: [ingredient("i-x", "X", "f-a")], lastReviews: [] })
+
+		expect(stats.get("f-a")?.total).toBe(1)
+		expect(stats.get("f-b")?.total).toBe(1)
+	})
+
+	test("entrada degenerada não lança", () => {
+		expect(folderReviewStats({ folders: null, ingredients: null }).size).toBe(0)
+		// Server fn pode resolver com envelope não-array; `asArray` defende.
+		expect(folderReviewStats({ folders: {} as never, ingredients: {} as never, lastReviews: {} as never }).size).toBe(0)
+	})
+})
+
+// ── Carimbo de conferência da pasta ─────────────────────────────────────────
+
+describe("conferência da pasta", () => {
+	const conferida = (id: string, at: string) => ({ folder_id: id, reviewed_at: at })
+	/** Mesma fixture, com `created_at` explícito para posicionar antes/depois do carimbo. */
+	const nascidoEm = <T extends { created_at: string }>(item: T, at: string): T => ({ ...item, created_at: at })
+
+	test("sem carimbo a pasta não aparece — nunca conferida não é o mesmo que conferida e vazia", () => {
+		const status = folderConferenceStatus({ folders: BASE_FOLDERS, ingredients: BASE_INGREDIENTS, folderLastReviews: [] })
+		expect(status.size).toBe(0)
+	})
+
+	test("nada entrou depois: carimbo permanece limpo", () => {
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS, // created_at 2026-01-01
+			folderLastReviews: [conferida("f-graos", "2026-06-01T00:00:00Z")],
+		})
+		expect(status.get("f-graos")).toEqual({ reviewedAt: "2026-06-01T00:00:00Z", addedSince: 0 })
+	})
+
+	test("insumo que chegou depois envelhece o carimbo", () => {
+		const novo = nascidoEm(ingredient("i-novo", "Insumo Novo", "f-graos"), "2026-07-01T00:00:00Z")
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: [...BASE_INGREDIENTS, novo],
+			folderLastReviews: [conferida("f-graos", "2026-06-01T00:00:00Z")],
+		})
+		expect(status.get("f-graos")?.addedSince).toBe(1)
+	})
+
+	test("o que chega na subpasta envelhece o carimbo do ancestral também", () => {
+		const novo = nascidoEm(ingredient("i-novo", "Insumo Novo", "f-graos"), "2026-07-01T00:00:00Z")
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: [...BASE_INGREDIENTS, novo],
+			folderLastReviews: [conferida("f-raiz", "2026-06-01T00:00:00Z")],
+		})
+		// Quem conferiu a raiz não viu o que entrou em Grãos depois.
+		expect(status.get("f-raiz")?.addedSince).toBe(1)
+	})
+
+	test("subpasta criada depois também conta como novidade", () => {
+		const nova = nascidoEm(folder("f-nova", "Enlatados", "f-raiz"), "2026-07-01T00:00:00Z")
+		const status = folderConferenceStatus({
+			folders: [...BASE_FOLDERS, nova],
+			ingredients: BASE_INGREDIENTS,
+			folderLastReviews: [conferida("f-raiz", "2026-06-01T00:00:00Z")],
+		})
+		expect(status.get("f-raiz")?.addedSince).toBe(1)
+		// A pasta nova não conta para si mesma — ela não "entrou" em si.
+		expect(status.get("f-nova")).toBeUndefined()
+	})
+
+	test("conferir de novo zera a pendência", () => {
+		const novo = nascidoEm(ingredient("i-novo", "Insumo Novo", "f-graos"), "2026-07-01T00:00:00Z")
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: [...BASE_INGREDIENTS, novo],
+			// Carimbo depois da chegada do insumo → quem conferiu já o viu.
+			folderLastReviews: [conferida("f-graos", "2026-08-01T00:00:00Z")],
+		})
+		expect(status.get("f-graos")?.addedSince).toBe(0)
+	})
+
+	test("insumo excluído não envelhece carimbo nenhum", () => {
+		const removido = { ...nascidoEm(ingredient("i-morto", "Insumo Extinto", "f-graos"), "2026-07-01T00:00:00Z"), deleted_at: "2026-07-15T00:00:00Z" }
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: [...BASE_INGREDIENTS, removido],
+			folderLastReviews: [conferida("f-graos", "2026-06-01T00:00:00Z")],
+		})
+		expect(status.get("f-graos")?.addedSince).toBe(0)
+	})
+
+	test("carimbo em pasta que não existe mais é ignorado", () => {
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			folderLastReviews: [conferida("f-fantasma", "2026-06-01T00:00:00Z")],
+		})
+		expect(status.has("f-fantasma")).toBe(false)
+	})
+
+	test("ciclo de parent_id não trava a contagem", () => {
+		const folders = [folder("f-a", "A", "f-b"), folder("f-b", "B", "f-a")]
+		const status = folderConferenceStatus({
+			folders,
+			ingredients: [nascidoEm(ingredient("i-x", "X", "f-a"), "2026-07-01T00:00:00Z")],
+			folderLastReviews: [conferida("f-a", "2026-06-01T00:00:00Z"), conferida("f-b", "2026-06-01T00:00:00Z")],
+		})
+		expect(status.get("f-a")?.addedSince).toBe(1)
+		expect(status.get("f-b")?.addedSince).toBe(1)
 	})
 })
