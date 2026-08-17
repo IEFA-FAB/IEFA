@@ -19,7 +19,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@hono/zod-openapi": "^1.5.1",
+    "@hono/zod-openapi": "^1.5.2",
     "@iefa/agent-web": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
