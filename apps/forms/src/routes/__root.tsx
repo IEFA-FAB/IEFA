@@ -9,7 +9,7 @@ import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/s
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
-import { ThemeProvider, ThemeScript } from "@/components/themeService"
+import { readThemePreference, ThemeProvider } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import { env } from "@/env"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
@@ -92,10 +92,20 @@ function AuthSync() {
 
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	// Lido no render: no servidor vem do cookie da requisição, no cliente do
+	// document.cookie. Mesmo valor dos dois lados, então o <html> hidrata sem
+	// divergir — e o tema certo já está na primeira pintura, sem script inline.
+	// Sem cookie: nenhuma classe, e a media query do CSS segue o sistema.
+	const theme = readThemePreference()
 	return (
-		<html lang="pt-BR" data-tenant={env.VITE_APP_TENANT} suppressHydrationWarning>
+		<html
+			lang="pt-BR"
+			data-tenant={env.VITE_APP_TENANT}
+			className={theme ?? undefined}
+			style={theme ? { colorScheme: theme } : undefined}
+			suppressHydrationWarning
+		>
 			<head>
-				<ThemeScript />
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
@@ -110,7 +120,7 @@ function RootDocument() {
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<TenantProvider tenant={env.VITE_APP_TENANT}>
 					<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
-						<ThemeProvider>
+						<ThemeProvider initialTheme={theme}>
 							<Outlet />
 							<Toaster />
 						</ThemeProvider>

@@ -5,7 +5,20 @@
 
 @config "../tailwind.config";
 
-@custom-variant dark (&:is(.dark *));
+/* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
+   vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
+   não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os
+   tokens escuros mas os utilitários `dark:` no claro. */
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:is(:root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 /* ============================================================
    PORTAL IEFA — PALE BRUTALISM
@@ -125,6 +138,14 @@
 }
 
 /* ---- DARK MODE ---- */
+/* Duas portas para o MESMO conjunto de tokens, e as duas precisam existir:
+   - `.dark`: escolha explícita do usuário. Vem do cookie `theme` e é renderizada
+     pelo servidor no <html>, então já está no HTML da primeira pintura.
+   - a media query: preferência do SO de quem ainda não escolheu — a única coisa
+     que o servidor não tem como saber. Antes, um script inline aplicava a classe
+     antes da hidratação; o React 19 tratava isso como divergência do <html>
+     (erro #418), descartava a árvore e voltava para o claro. Era o flash.
+   Mexeu em um bloco, mexa no outro. */
 .dark {
   --background:            oklch(0.1000 0 0);
   --foreground:            oklch(0.9671 0 0);
@@ -173,6 +194,58 @@
   --shadow-hard-sm:  3px 3px 0 0 oklch(0.9671 0 0);
   --shadow-hard-md:  4px 4px 0 0 oklch(0.9671 0 0);
   --shadow-hard-lg:  6px 6px 0 0 oklch(0.9671 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background:            oklch(0.1000 0 0);
+    --foreground:            oklch(0.9671 0 0);
+
+    --card:                  oklch(0.1500 0 0);
+    --card-foreground:       oklch(0.9671 0 0);
+
+    --popover:               oklch(0.1000 0 0);
+    --popover-foreground:    oklch(0.9671 0 0);
+
+    --primary:               oklch(0.9671 0 0);
+    --primary-foreground:    oklch(0.1000 0 0);
+
+    --secondary:             var(--gray-800);
+    --secondary-foreground:  oklch(0.9671 0 0);
+
+    --muted:                 var(--gray-900);
+    --muted-foreground:      var(--gray-400);
+
+    --accent:                var(--gray-800);
+    --accent-foreground:     oklch(0.9671 0 0);
+
+    --destructive:           oklch(0.5771 0.2450 27.33);
+    --destructive-foreground: oklch(1.0000 0 0);
+
+    --border:                var(--gray-800);
+    --input:                 var(--gray-800);
+
+    --ring:                  oklch(0.9671 0 0);
+
+    --chart-1:               oklch(0.9671 0 0);
+    --chart-2:               var(--gray-400);
+    --chart-3:               var(--gray-500);
+    --chart-4:               var(--gray-600);
+    --chart-5:               var(--gray-700);
+
+    --sidebar:               oklch(0.1500 0 0);
+    --sidebar-foreground:    oklch(0.9671 0 0);
+    --sidebar-primary:       oklch(0.9671 0 0);
+    --sidebar-primary-foreground: oklch(0.1000 0 0);
+    --sidebar-accent:        var(--gray-800);
+    --sidebar-accent-foreground: oklch(0.9671 0 0);
+    --sidebar-border:        var(--gray-800);
+    --sidebar-ring:          oklch(0.9671 0 0);
+
+    --shadow-hard-sm:  3px 3px 0 0 oklch(0.9671 0 0);
+    --shadow-hard-md:  4px 4px 0 0 oklch(0.9671 0 0);
+    --shadow-hard-lg:  6px 6px 0 0 oklch(0.9671 0 0);
+  }
 }
 
 /* ---- MAPEAMENTO @THEME (Tailwind v4) ---- */
@@ -353,9 +426,10 @@
   /* Borda de ênfase — 2px preta para elementos ativos/destacados */
   .border-hard {
     border: 2px solid oklch(0.1000 0 0);
-  }
-  .dark .border-hard {
-    border-color: oklch(0.9671 0 0);
+
+    @variant dark {
+      border-color: oklch(0.9671 0 0);
+    }
   }
 
   /* Badge / tag estilo Pole B */
@@ -370,11 +444,12 @@
     font-weight: 500;
     letter-spacing: var(--tracking-label);
     text-transform: uppercase;
-  }
-  .dark .tag {
-    background: var(--gray-800);
-    color: var(--gray-400);
-    border-color: var(--gray-700);
+
+    @variant dark {
+      background: var(--gray-800);
+      color: var(--gray-400);
+      border-color: var(--gray-700);
+    }
   }
 
   /* Contêiner com largura máxima estendida */

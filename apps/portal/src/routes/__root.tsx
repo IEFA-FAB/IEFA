@@ -13,7 +13,7 @@ import { CommandPaletteProvider } from "@/components/command-palette/CommandPale
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
-import { ThemeProvider, ThemeScript } from "@/components/themeService"
+import { readThemePreference, ThemeProvider } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import { WebMcpTools } from "@/components/WebMcpTools"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
@@ -142,15 +142,19 @@ function AuthSync() {
 
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	// Lido no render: no servidor vem do cookie da requisição, no cliente do
+	// document.cookie. Mesmo valor dos dois lados, então o <html> hidrata sem
+	// divergir — e o tema certo já está na primeira pintura, sem script inline.
+	// Sem cookie: nenhuma classe, e a media query do CSS segue o sistema.
+	const theme = readThemePreference()
 	return (
-		<html lang="pt-BR" suppressHydrationWarning>
+		<html lang="pt-BR" className={theme ?? undefined} style={theme ? { colorScheme: theme } : undefined} suppressHydrationWarning>
 			<head>
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />
-				<ThemeScript />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
 				<div
@@ -159,7 +163,7 @@ function RootDocument() {
 				/>
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
-					<ThemeProvider>
+					<ThemeProvider initialTheme={theme}>
 						<CommandPaletteProvider>
 							<Outlet />
 							<Toaster />

@@ -4,7 +4,20 @@
 
 @config "../tailwind.config";
 
-@custom-variant dark (&:is(.dark *));
+/* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
+   vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
+   não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os
+   tokens escuros mas os utilitários `dark:` no claro. */
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:is(:root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 /* ============================================================
    RUMAER — INSTITUCIONAL AERONÁUTICO
@@ -105,6 +118,14 @@
 }
 
 /* ---- DARK MODE ---- */
+/* Duas portas para o MESMO conjunto de tokens, e as duas precisam existir:
+   - `.dark`: escolha explícita do usuário. Vem do cookie `theme` e é renderizada
+     pelo servidor no <html>, então já está no HTML da primeira pintura.
+   - a media query: preferência do SO de quem ainda não escolheu — a única coisa
+     que o servidor não tem como saber. Antes, um script inline aplicava a classe
+     antes da hidratação; o React 19 tratava isso como divergência do <html>
+     (erro #418), descartava a árvore e voltava para o claro. Era o flash.
+   Mexeu em um bloco, mexa no outro. */
 .dark {
   --background:            oklch(0.17 0.022 264);
   --foreground:            oklch(0.95 0.006 264);
@@ -157,6 +178,62 @@
   --sidebar-ring:          oklch(0.74 0.095 256);
 
   --gold-foreground:       oklch(0.17 0.022 264);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background:            oklch(0.17 0.022 264);
+    --foreground:            oklch(0.95 0.006 264);
+
+    --card:                  oklch(0.215 0.026 264);
+    --card-foreground:       oklch(0.95 0.006 264);
+
+    --popover:               oklch(0.215 0.026 264);
+    --popover-foreground:    oklch(0.95 0.006 264);
+
+    --primary:               oklch(0.74 0.095 256);
+    --primary-foreground:    oklch(0.17 0.022 264);
+
+    --secondary:             oklch(0.27 0.030 264);
+    --secondary-foreground:  oklch(0.95 0.006 264);
+
+    --muted:                 oklch(0.25 0.026 264);
+    --muted-foreground:      oklch(0.70 0.020 264);
+
+    --accent:                oklch(0.30 0.040 264);
+    --accent-foreground:     oklch(0.95 0.006 264);
+
+    --destructive:           oklch(0.62 0.238 25.77);
+    --destructive-foreground: oklch(1 0 0);
+
+    --success:               oklch(0.6907 0.1554 160.35);
+    --success-foreground:    oklch(1 0 0);
+    --warning:               oklch(0.7500 0.1400 82.53);
+    --warning-foreground:    oklch(0.2000 0 0);
+    --governance:            oklch(0.6200 0.1550 290.00);
+    --governance-foreground: oklch(1 0 0);
+
+    --border:                oklch(0.31 0.028 264);
+    --input:                 oklch(0.33 0.030 264);
+    --ring:                  oklch(0.74 0.095 256);
+
+    --chart-1:               oklch(0.74 0.095 256);
+    --chart-2:               oklch(0.62 0.090 250);
+    --chart-3:               oklch(0.55 0.085 260);
+    --chart-4:               var(--gold);
+    --chart-5:               oklch(0.50 0.060 264);
+
+    --sidebar:               oklch(0.215 0.026 264);
+    --sidebar-foreground:    oklch(0.95 0.006 264);
+    --sidebar-primary:       oklch(0.74 0.095 256);
+    --sidebar-primary-foreground: oklch(0.17 0.022 264);
+    --sidebar-accent:        oklch(0.30 0.040 264);
+    --sidebar-accent-foreground: oklch(0.95 0.006 264);
+    --sidebar-border:        oklch(0.31 0.028 264);
+    --sidebar-ring:          oklch(0.74 0.095 256);
+
+    --gold-foreground:       oklch(0.17 0.022 264);
+  }
 }
 
 /* ---- MAPEAMENTO @THEME (Tailwind v4) ---- */
