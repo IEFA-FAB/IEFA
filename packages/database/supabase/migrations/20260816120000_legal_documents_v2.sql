@@ -19,7 +19,12 @@
 --   * nomeia encarregado por cargo (art. 41) e declara a base legal (art. 7º III / art. 23),
 --     que a v1 omitia;
 --   * política de cookies passa a ser documento próprio, com o inventário real;
---   * versões en-US para as rotas `_en/` do Portal, que antes não tinham aviso nenhum.
+--   * versões en-US para as rotas `_en/` do Portal, que antes não tinham aviso nenhum;
+--   * seção 13 enquadra o painel público do CPAINT como publicidade oficial preexistente:
+--     nome, classificação e localidade já saem no Boletim Ostensivo do COMAER e, em parte,
+--     no DOU. O telão reproduz ato já publicado — não é divulgação nova, e por isso o
+--     fundamento é art. 37 da CF + LAI + art. 23 da LGPD, com a ressalva de que pedido de
+--     eliminação não alcança boletim nem Diário Oficial (regime jurídico próprio).
 
 INSERT INTO iefa.legal_documents (doc_type, version, locale, content_md, effective_date, published_at)
 VALUES
@@ -234,11 +239,17 @@ Os assistentes de IA **não tomam decisões sobre pessoas**. Não avaliam, class
 
 O conteúdo das mensagens é armazenado (seção 4) e processado fora do Brasil (seção 7).
 
-## 13. Público e exposição pública de dados
+## 13. Público e publicidade de atos oficiais
 
 Os sistemas são de uso restrito a militares e servidores autorizados e não são dirigidos a crianças ou adolescentes.
 
-Há uma exceção que merece registro explícito: o **painel público da Escolha de Vagas (CPAINT)** exibe, **sem exigir autenticação**, o nome, a classificação e a localidade dos participantes durante a sessão de escolha. Essa exposição decorre do caráter público do ato de escolha e da necessidade de projeção do painel em tela. Se você participa da sessão e tem objeção a essa exibição, escreva para **iefa@fab.mil.br**.
+Um ponto merece registro explícito: o **painel da Escolha de Vagas (CPAINT)** exibe, **sem exigir autenticação**, o nome, a classificação e a localidade dos participantes durante a sessão de escolha.
+
+Essas informações **já são públicas por publicação oficial** — constam do Boletim Ostensivo do Comando da Aeronáutica e, em parte, do Diário Oficial da União. O painel apenas reproduz, no momento da sessão, dado que a Administração já tornou público: não há aqui divulgação nova nem ampliação da publicidade existente.
+
+Fundamento: princípio da publicidade dos atos administrativos (art. 37, *caput*, da Constituição), Lei de Acesso à Informação (Lei nº 12.527/2011) e art. 23 da LGPD.
+
+Pedidos relativos a esses dados seguem o canal da seção 10. Registre-se, porém, que a **eliminação não alcança a publicação oficial**: boletim e Diário Oficial são atos da Administração, com regime jurídico próprio, fora do controle desta plataforma.
 
 ## 14. Alterações
 
@@ -521,11 +532,17 @@ The AI assistants **do not make decisions about people**. They do not evaluate, 
 
 Message content is stored (section 4) and processed outside Brazil (section 7).
 
-## 13. Audience and public exposure of data
+## 13. Audience and publicity of official acts
 
 The systems are restricted to authorised military personnel and civil servants and are not directed at children or adolescents.
 
-One exception deserves explicit mention: the **public board of the Assignment Selection system (CPAINT)** displays, **without requiring authentication**, the name, ranking and location of participants during the selection session. This exposure follows from the public nature of the selection act and the need to project the board on screen. If you take part in the session and object to this display, write to **iefa@fab.mil.br**.
+One point deserves explicit mention: the **Assignment Selection board (CPAINT)** displays, **without requiring authentication**, the name, ranking and location of participants during the selection session.
+
+This information is **already public through official publication** — it appears in the Brazilian Air Force Command's unclassified bulletin (Boletim Ostensivo) and, in part, in the Federal Official Gazette (Diário Oficial da União). The board merely reproduces, during the session, data the Administration has already made public: it is neither a new disclosure nor an expansion of existing publicity.
+
+Legal ground: the constitutional principle of publicity of administrative acts (art. 37, *caput*), the Brazilian Access to Information Act (Law 12.527/2011) and art. 23 of the LGPD.
+
+Requests concerning this data follow the channel in section 10. Note, however, that **deletion does not reach the official publication**: the bulletin and the Official Gazette are acts of the Administration, governed by their own legal regime and outside this platform's control.
 
 ## 14. Amendments
 

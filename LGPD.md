@@ -64,9 +64,13 @@ aponta para a versão canônica no Portal.
 - **Transferência internacional existe**: Amazon Bedrock em `us-east-1` processa o
   conteúdo das conversas com IA (`AI-PROVIDERS.md`), e o Grafana Cloud recebe os
   eventos do Faro no SISUB. Ambos declarados sob art. 33, III.
-- **O telão do CPAINT expõe nome, classificação e localidade sem autenticação**
-  (`getBoardFn`, marcado `nosemgrep: server-fn-missing-auth-guard`). Está
-  declarado na seção 13 da política, com canal de objeção.
+- **O telão do CPAINT exibe nome, classificação e localidade sem autenticação**
+  (`getBoardFn`, marcado `nosemgrep: server-fn-missing-auth-guard`) — e isso está
+  correto: são dados **já publicados** no Boletim Ostensivo do COMAER e, em parte,
+  no DOU. O telão reproduz publicidade oficial preexistente, não cria exposição
+  nova. Declarado na seção 13 da política, sob art. 37 da Constituição, LAI e art.
+  23 da LGPD, com a ressalva de que eliminação não alcança boletim nem DOU.
+  Fechar a rota não protegeria nada e quebraria a projeção da sessão.
 
 ## Ao mexer
 

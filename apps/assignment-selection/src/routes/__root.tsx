@@ -38,10 +38,12 @@ function RootDocument() {
 				<Outlet />
 
 				{/*
-				  O telão (`/`) exibe nome, classificação e localidade dos participantes SEM
-				  autenticação. É a única superfície da suíte que expõe dado pessoal ao público
-				  aberto, então os documentos legais precisam estar alcançáveis a partir dela —
-				  não só das telas logadas. Discreto o bastante para não competir com a projeção.
+				  O telão (`/`) exibe nome, classificação e localidade SEM autenticação, e isso
+				  é correto: são dados já publicados no Boletim Ostensivo do COMAER e, em parte,
+				  no DOU — o painel reproduz publicidade oficial, não cria exposição nova. Ainda
+				  assim é a superfície pública onde esses dados aparecem, então os documentos
+				  legais precisam ser alcançáveis daqui, e não só das telas logadas. Discreto o
+				  bastante para não competir com a projeção.
 				*/}
 				<LegalFooterLinks
 					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
