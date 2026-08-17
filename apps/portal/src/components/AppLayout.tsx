@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/useTheme"
 import { COMMAND_PALETTE_HOTKEY } from "@/lib/command-palette"
 import { cn } from "@/lib/utils"
 import { AnimatedThemeToggler } from "./animated-theme-toggler"
+import { LegalNoticeBanner } from "./LegalNoticeBanner"
 import { UserMenu } from "./UserMenu"
 import { Button } from "./ui/button"
 import { Kbd } from "./ui/kbd"
@@ -340,6 +341,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 									Política de Privacidade
 								</Link>
 							</li>
+							<li>
+								<Link to="/politica-de-cookies" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Política de Cookies
+								</Link>
+							</li>
 						</ul>
 					</nav>
 
@@ -372,6 +378,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 					</div>
 				</div>
 			</footer>
+
+			<LegalNoticeBanner />
 		</div>
 	)
 }

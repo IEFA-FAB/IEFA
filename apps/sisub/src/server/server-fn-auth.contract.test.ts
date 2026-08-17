@@ -40,7 +40,7 @@ const PUBLIC_SERVER_FNS: Record<string, string> = {
 	getServerSessionFn: "auth.fn — valida o JWT do request; sem sessão devolve { user: null }, que é o contrato",
 	checkDatabaseStatusFn: "database-status.fn — health check booleano, renderizado pelo banner no __root (inclui a tela de login)",
 	fetchChangelogPageFn: "changelog.fn — conteúdo da rota _public/changelog",
-	fetchLegalDocumentFn: "legal.fn — termos de uso / política de privacidade, rotas _public",
+	fetchLegalDocumentFn: "legal.fn — termos de uso / política de privacidade / política de cookies, rotas _public; precisam ser legíveis sem sessão",
 }
 
 /** Chamadas que contam como guard de autenticação (prefixo `require` + maiúscula). */

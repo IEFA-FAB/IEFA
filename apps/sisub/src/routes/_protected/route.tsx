@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { userPermissionsQueryOptions } from "@/auth/pbac"
+import { LegalNoticeBanner } from "@/components/features/legal/LegalNoticeBanner"
 import { OnboardingDialogs } from "@/components/providers/OnboardingDialogs"
 import { cn } from "@/lib/cn"
 import { syncUserEmailFn } from "@/server/user.fn"
@@ -83,6 +84,7 @@ function ProtectedLayout() {
 	return (
 		<>
 			<OnboardingDialogs />
+			<LegalNoticeBanner />
 
 			{/* Fundo padronizado sólido e sóbrio com uma suave retícula técnica sem animações/glow */}
 			<div

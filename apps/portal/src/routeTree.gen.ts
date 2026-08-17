@@ -30,12 +30,16 @@ import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as PublicEnAboutRouteImport } from './routes/_public/_en/about'
 import { Route as PublicEnChatRadaRouteImport } from './routes/_public/_en/chatRada'
+import { Route as PublicEnCookiePolicyRouteImport } from './routes/_public/_en/cookie-policy'
 import { Route as PublicEnInnovationPolicyRouteImport } from './routes/_public/_en/innovation-policy'
 import { Route as PublicEnOverseerDashboardRouteImport } from './routes/_public/_en/overseerDashboard'
+import { Route as PublicEnPrivacyPolicyRouteImport } from './routes/_public/_en/privacy-policy'
 import { Route as PublicEnResearchRouteImport } from './routes/_public/_en/research'
 import { Route as PublicEnRoadmapRouteImport } from './routes/_public/_en/roadmap'
+import { Route as PublicEnTermsOfUseRouteImport } from './routes/_public/_en/terms-of-use'
 import { Route as PublicPtPainelFiscalRouteImport } from './routes/_public/_pt/painel-fiscal'
 import { Route as PublicPtPesquisaRouteImport } from './routes/_public/_pt/pesquisa'
+import { Route as PublicPtPoliticaDeCookiesRouteImport } from './routes/_public/_pt/politica-de-cookies'
 import { Route as PublicPtPoliticaDeInovacaoRouteImport } from './routes/_public/_pt/politica-de-inovacao'
 import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_public/_pt/politica-de-privacidade'
 import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
@@ -172,6 +176,11 @@ const PublicEnChatRadaRoute = PublicEnChatRadaRouteImport.update({
   path: '/chatRada',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicEnCookiePolicyRoute = PublicEnCookiePolicyRouteImport.update({
+  id: '/_en/cookie-policy',
+  path: '/cookie-policy',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const PublicEnInnovationPolicyRoute =
   PublicEnInnovationPolicyRouteImport.update({
     id: '/_en/innovation-policy',
@@ -184,6 +193,11 @@ const PublicEnOverseerDashboardRoute =
     path: '/overseerDashboard',
     getParentRoute: () => PublicRouteRoute,
   } as any)
+const PublicEnPrivacyPolicyRoute = PublicEnPrivacyPolicyRouteImport.update({
+  id: '/_en/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const PublicEnResearchRoute = PublicEnResearchRouteImport.update({
   id: '/_en/research',
   path: '/research',
@@ -192,6 +206,11 @@ const PublicEnResearchRoute = PublicEnResearchRouteImport.update({
 const PublicEnRoadmapRoute = PublicEnRoadmapRouteImport.update({
   id: '/_en/roadmap',
   path: '/roadmap',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnTermsOfUseRoute = PublicEnTermsOfUseRouteImport.update({
+  id: '/_en/terms-of-use',
+  path: '/terms-of-use',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const PublicPtPainelFiscalRoute = PublicPtPainelFiscalRouteImport.update({
@@ -204,6 +223,12 @@ const PublicPtPesquisaRoute = PublicPtPesquisaRouteImport.update({
   path: '/pesquisa',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicPtPoliticaDeCookiesRoute =
+  PublicPtPoliticaDeCookiesRouteImport.update({
+    id: '/_pt/politica-de-cookies',
+    path: '/politica-de-cookies',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
 const PublicPtPoliticaDeInovacaoRoute =
   PublicPtPoliticaDeInovacaoRouteImport.update({
     id: '/_pt/politica-de-inovacao',
@@ -389,12 +414,16 @@ export interface FileRoutesByFullPath {
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/about': typeof PublicEnAboutRoute
   '/chatRada': typeof PublicEnChatRadaRoute
+  '/cookie-policy': typeof PublicEnCookiePolicyRoute
   '/innovation-policy': typeof PublicEnInnovationPolicyRoute
   '/overseerDashboard': typeof PublicEnOverseerDashboardRoute
+  '/privacy-policy': typeof PublicEnPrivacyPolicyRoute
   '/research': typeof PublicEnResearchRoute
   '/roadmap': typeof PublicEnRoadmapRoute
+  '/terms-of-use': typeof PublicEnTermsOfUseRoute
   '/painel-fiscal': typeof PublicPtPainelFiscalRoute
   '/pesquisa': typeof PublicPtPesquisaRoute
+  '/politica-de-cookies': typeof PublicPtPoliticaDeCookiesRoute
   '/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
   '/politica-de-privacidade': typeof PublicPtPoliticaDePrivacidadeRoute
   '/roteiro': typeof PublicPtRoteiroRoute
@@ -445,12 +474,16 @@ export interface FileRoutesByTo {
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/about': typeof PublicEnAboutRoute
   '/chatRada': typeof PublicEnChatRadaRoute
+  '/cookie-policy': typeof PublicEnCookiePolicyRoute
   '/innovation-policy': typeof PublicEnInnovationPolicyRoute
   '/overseerDashboard': typeof PublicEnOverseerDashboardRoute
+  '/privacy-policy': typeof PublicEnPrivacyPolicyRoute
   '/research': typeof PublicEnResearchRoute
   '/roadmap': typeof PublicEnRoadmapRoute
+  '/terms-of-use': typeof PublicEnTermsOfUseRoute
   '/painel-fiscal': typeof PublicPtPainelFiscalRoute
   '/pesquisa': typeof PublicPtPesquisaRoute
+  '/politica-de-cookies': typeof PublicPtPoliticaDeCookiesRoute
   '/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
   '/politica-de-privacidade': typeof PublicPtPoliticaDePrivacidadeRoute
   '/roteiro': typeof PublicPtRoteiroRoute
@@ -505,12 +538,16 @@ export interface FileRoutesById {
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/_public/_en/about': typeof PublicEnAboutRoute
   '/_public/_en/chatRada': typeof PublicEnChatRadaRoute
+  '/_public/_en/cookie-policy': typeof PublicEnCookiePolicyRoute
   '/_public/_en/innovation-policy': typeof PublicEnInnovationPolicyRoute
   '/_public/_en/overseerDashboard': typeof PublicEnOverseerDashboardRoute
+  '/_public/_en/privacy-policy': typeof PublicEnPrivacyPolicyRoute
   '/_public/_en/research': typeof PublicEnResearchRoute
   '/_public/_en/roadmap': typeof PublicEnRoadmapRoute
+  '/_public/_en/terms-of-use': typeof PublicEnTermsOfUseRoute
   '/_public/_pt/painel-fiscal': typeof PublicPtPainelFiscalRoute
   '/_public/_pt/pesquisa': typeof PublicPtPesquisaRoute
+  '/_public/_pt/politica-de-cookies': typeof PublicPtPoliticaDeCookiesRoute
   '/_public/_pt/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
   '/_public/_pt/politica-de-privacidade': typeof PublicPtPoliticaDePrivacidadeRoute
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
@@ -565,12 +602,16 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/index.json'
     | '/about'
     | '/chatRada'
+    | '/cookie-policy'
     | '/innovation-policy'
     | '/overseerDashboard'
+    | '/privacy-policy'
     | '/research'
     | '/roadmap'
+    | '/terms-of-use'
     | '/painel-fiscal'
     | '/pesquisa'
+    | '/politica-de-cookies'
     | '/politica-de-inovacao'
     | '/politica-de-privacidade'
     | '/roteiro'
@@ -621,12 +662,16 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/index.json'
     | '/about'
     | '/chatRada'
+    | '/cookie-policy'
     | '/innovation-policy'
     | '/overseerDashboard'
+    | '/privacy-policy'
     | '/research'
     | '/roadmap'
+    | '/terms-of-use'
     | '/painel-fiscal'
     | '/pesquisa'
+    | '/politica-de-cookies'
     | '/politica-de-inovacao'
     | '/politica-de-privacidade'
     | '/roteiro'
@@ -680,12 +725,16 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/index.json'
     | '/_public/_en/about'
     | '/_public/_en/chatRada'
+    | '/_public/_en/cookie-policy'
     | '/_public/_en/innovation-policy'
     | '/_public/_en/overseerDashboard'
+    | '/_public/_en/privacy-policy'
     | '/_public/_en/research'
     | '/_public/_en/roadmap'
+    | '/_public/_en/terms-of-use'
     | '/_public/_pt/painel-fiscal'
     | '/_public/_pt/pesquisa'
+    | '/_public/_pt/politica-de-cookies'
     | '/_public/_pt/politica-de-inovacao'
     | '/_public/_pt/politica-de-privacidade'
     | '/_public/_pt/roteiro'
@@ -881,6 +930,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEnChatRadaRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/_en/cookie-policy': {
+      id: '/_public/_en/cookie-policy'
+      path: '/cookie-policy'
+      fullPath: '/cookie-policy'
+      preLoaderRoute: typeof PublicEnCookiePolicyRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/_en/innovation-policy': {
       id: '/_public/_en/innovation-policy'
       path: '/innovation-policy'
@@ -893,6 +949,13 @@ declare module '@tanstack/react-router' {
       path: '/overseerDashboard'
       fullPath: '/overseerDashboard'
       preLoaderRoute: typeof PublicEnOverseerDashboardRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/privacy-policy': {
+      id: '/_public/_en/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PublicEnPrivacyPolicyRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/_en/research': {
@@ -909,6 +972,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEnRoadmapRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/_en/terms-of-use': {
+      id: '/_public/_en/terms-of-use'
+      path: '/terms-of-use'
+      fullPath: '/terms-of-use'
+      preLoaderRoute: typeof PublicEnTermsOfUseRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/_pt/painel-fiscal': {
       id: '/_public/_pt/painel-fiscal'
       path: '/painel-fiscal'
@@ -921,6 +991,13 @@ declare module '@tanstack/react-router' {
       path: '/pesquisa'
       fullPath: '/pesquisa'
       preLoaderRoute: typeof PublicPtPesquisaRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/politica-de-cookies': {
+      id: '/_public/_pt/politica-de-cookies'
+      path: '/politica-de-cookies'
+      fullPath: '/politica-de-cookies'
+      preLoaderRoute: typeof PublicPtPoliticaDeCookiesRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/_pt/politica-de-inovacao': {
@@ -1140,12 +1217,16 @@ interface PublicRouteRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
   PublicEnAboutRoute: typeof PublicEnAboutRoute
   PublicEnChatRadaRoute: typeof PublicEnChatRadaRoute
+  PublicEnCookiePolicyRoute: typeof PublicEnCookiePolicyRoute
   PublicEnInnovationPolicyRoute: typeof PublicEnInnovationPolicyRoute
   PublicEnOverseerDashboardRoute: typeof PublicEnOverseerDashboardRoute
+  PublicEnPrivacyPolicyRoute: typeof PublicEnPrivacyPolicyRoute
   PublicEnResearchRoute: typeof PublicEnResearchRoute
   PublicEnRoadmapRoute: typeof PublicEnRoadmapRoute
+  PublicEnTermsOfUseRoute: typeof PublicEnTermsOfUseRoute
   PublicPtPainelFiscalRoute: typeof PublicPtPainelFiscalRoute
   PublicPtPesquisaRoute: typeof PublicPtPesquisaRoute
+  PublicPtPoliticaDeCookiesRoute: typeof PublicPtPoliticaDeCookiesRoute
   PublicPtPoliticaDeInovacaoRoute: typeof PublicPtPoliticaDeInovacaoRoute
   PublicPtPoliticaDePrivacidadeRoute: typeof PublicPtPoliticaDePrivacidadeRoute
   PublicPtRoteiroRoute: typeof PublicPtRoteiroRoute
@@ -1165,12 +1246,16 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
   PublicEnAboutRoute: PublicEnAboutRoute,
   PublicEnChatRadaRoute: PublicEnChatRadaRoute,
+  PublicEnCookiePolicyRoute: PublicEnCookiePolicyRoute,
   PublicEnInnovationPolicyRoute: PublicEnInnovationPolicyRoute,
   PublicEnOverseerDashboardRoute: PublicEnOverseerDashboardRoute,
+  PublicEnPrivacyPolicyRoute: PublicEnPrivacyPolicyRoute,
   PublicEnResearchRoute: PublicEnResearchRoute,
   PublicEnRoadmapRoute: PublicEnRoadmapRoute,
+  PublicEnTermsOfUseRoute: PublicEnTermsOfUseRoute,
   PublicPtPainelFiscalRoute: PublicPtPainelFiscalRoute,
   PublicPtPesquisaRoute: PublicPtPesquisaRoute,
+  PublicPtPoliticaDeCookiesRoute: PublicPtPoliticaDeCookiesRoute,
   PublicPtPoliticaDeInovacaoRoute: PublicPtPoliticaDeInovacaoRoute,
   PublicPtPoliticaDePrivacidadeRoute: PublicPtPoliticaDePrivacidadeRoute,
   PublicPtRoteiroRoute: PublicPtRoteiroRoute,

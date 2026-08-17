@@ -1,5 +1,7 @@
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { ClipboardCheck, Home, List } from "iconoir-react"
+import { LegalNotice } from "@/components/LegalNotice"
 import { AppSidebar } from "@/components/sidebar/AppSidebar"
 import { MainSurface } from "@/components/sidebar/MainSurface"
 import type { AppSidebarData } from "@/components/sidebar/SidebarTypes"
@@ -54,7 +56,11 @@ function AuthenticatedLayout() {
 				<MainSurface showInitialError={false} showInitialLoading={false} onRetry={() => {}}>
 					<Outlet />
 				</MainSurface>
+				<footer className="border-t border-border px-4 py-3">
+					<LegalFooterLinks className="flex flex-wrap items-center gap-x-3 gap-y-1" />
+				</footer>
 			</SidebarInset>
+			<LegalNotice />
 		</SidebarProvider>
 	)
 }

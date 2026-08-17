@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { ConductPanel } from "@/components/ConductPanel"
 import { ControllerTable, type PersonChanges } from "@/components/ControllerTable"
 import { EditionSelect } from "@/components/EditionSelect"
+import { LegalNotice } from "@/components/LegalNotice"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
@@ -163,6 +164,8 @@ function ControllerPage() {
 					</div>
 				</div>
 			</div>
+
+			<LegalNotice />
 		</div>
 	)
 }

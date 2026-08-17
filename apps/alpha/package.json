@@ -21,6 +21,7 @@
     "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/alpha-client": "workspace:*",
+    "@iefa/legal-kit": "workspace:*",
     "@langchain/aws": "^1.4.3",
     "@langchain/core": "^1.2.5",
     "@langchain/langgraph": "^1.4.9",

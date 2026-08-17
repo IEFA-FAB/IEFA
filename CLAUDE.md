@@ -26,6 +26,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | `supabase-kit` | Clients Supabase: service-role, browser e SSR (subpath `/start`), com os deadlines de fetch |
 | `auth-kit` | Ações de auth, tradução de erro do GoTrue e trava de login (subpath `/react`) |
 | `pbac` | Engine de autorização por política (módulo + nível + escopo) |
+| `legal-kit` | Documentos legais (termos, privacidade, cookies) + registro de ciência; subpath `/react` com o renderizador compartilhado |
 | `ai-provider` | Adapter de modelo: Bedrock no primário, reserva com API key, tetos de consumo |
 | `agent-web` | Camada agent-ready dos apps web (negociação de Markdown, llms.txt, descoberta) |
 | `compras-api` | Client gerado da API do Compras.gov |
@@ -65,6 +66,17 @@ Referência completa: **`AI-PROVIDERS.md`** na raiz (mapa dos consumidores, sem�
 - **A reserva só troca antes do primeiro conteúdo e só em falha transitória** (429/5xx/throttling/timeout). Erro de schema, credencial ou tool malformada propaga: trocar de provider repetiria a falha.
 - **Endpoint que abre SSE chama `enforceRequestRateLimit` ANTES do stream** e traduz `RateLimitError` em 429 — depois que o SSE começa não há mais status HTTP, o erro vira conexão cortada sem mensagem.
 - **Fluxo de IA nunca quebra o boot**: sem as vars, a tela fica "Em breve" e o endpoint responde 503 (`capabilities.server.ts`).
+
+### LGPD / documentos legais
+
+Referência completa: **`LGPD.md`** na raiz (cobertura por app, o que a política
+declara, pendências). O essencial:
+
+- **Canal único de exercício de direitos é `iefa@fab.mil.br`, resposta em 7 dias, exclusão MANUAL** — não existe autoexclusão em app nenhum. Os valores são constantes em `@iefa/legal-kit` (`contact.ts`) e `contact.test.ts` falha se o texto publicado divergir delas.
+- **App que trata dado pessoal tem as três rotas legais e link no rodapé** — termos, privacidade e cookies, servidos de `iefa.legal_documents` via `@iefa/legal-kit`. Serviço sem UI expõe `GET /legal`.
+- **Versão nova de documento é linha NOVA, nunca `UPDATE`** — `user_legal_acceptances.document_id` é FK `ON DELETE RESTRICT`; reescrever a versão antiga destruiria a prova de ciência dela.
+- **O aviso de ciência não bloqueia navegação** — a base legal é art. 7º, III / art. 23 (execução de política pública), não consentimento. Modal obrigatório pediria uma escolha que o usuário não tem.
+- **Cookie novo ou destinatário novo de dado entra no inventário da Política de Cookies ANTES de entrar em uso** — foi assim que o Grafana Faro rodou por meses sob um texto que afirmava não haver rastreamento nem terceiros.
 
 ## Design Systems
 

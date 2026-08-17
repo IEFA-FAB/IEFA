@@ -32,6 +32,7 @@ COPY packages/auth-kit/package.json ./packages/auth-kit/
 COPY packages/compras-api/package.json ./packages/compras-api/
 COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
+COPY packages/legal-kit/package.json ./packages/legal-kit/
 COPY packages/pbac/package.json ./packages/pbac/
 COPY packages/sisub-domain/package.json ./packages/sisub-domain/
 COPY packages/supabase-kit/package.json ./packages/supabase-kit/
@@ -45,8 +46,10 @@ RUN bun install --frozen-lockfile
 FROM deps AS api-build
 COPY packages/agent-web ./packages/agent-web
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
+COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/api ./apps/api
 RUN bun --filter='@iefa/api' run build
@@ -69,6 +72,7 @@ ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/portal ./apps/portal
@@ -107,6 +111,7 @@ ARG VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
 COPY packages/agent-web ./packages/agent-web
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
@@ -147,6 +152,7 @@ COPY packages/agent-web ./packages/agent-web
 COPY packages/ai-provider ./packages/ai-provider
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
@@ -185,6 +191,7 @@ ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_URL
 ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
 COPY packages/agent-web ./packages/agent-web
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/assignment-selection ./apps/assignment-selection
@@ -234,6 +241,7 @@ COPY packages/agent-web ./packages/agent-web
 COPY packages/ai-provider ./packages/ai-provider
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY packages/supabase-kit ./packages/supabase-kit
@@ -275,6 +283,7 @@ ARG VITE_APP_TENANT=forms
 COPY packages/agent-web ./packages/agent-web
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/forms ./apps/forms
@@ -311,6 +320,9 @@ FROM deps AS alpha-build
 COPY packages/agent-web ./packages/agent-web
 COPY packages/ai-provider ./packages/ai-provider
 COPY packages/alpha-client ./packages/alpha-client
+COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
+COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/alpha ./apps/alpha
 RUN test -f apps/alpha/src/index.ts || \

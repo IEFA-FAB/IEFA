@@ -32,6 +32,7 @@
     "@iefa/ai-provider": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
     "@iefa/database": "workspace:*",
+    "@iefa/legal-kit": "workspace:*",
     "@iefa/pbac": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",

@@ -1,3 +1,4 @@
+import { formatEffectiveDate } from "@iefa/legal-kit"
 import type { Components } from "react-markdown"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
@@ -20,6 +21,18 @@ const components: Partial<Components> = {
 		</a>
 	),
 	hr: () => <hr className="border-border my-8" />,
+	// O inventário da Política de Cookies é uma tabela; sem estes mapeamentos o
+	// react-markdown emite <table> cru e a tabela sai sem grade nem espaçamento.
+	table: ({ children }) => (
+		<div className="my-6 overflow-x-auto">
+			<table className="w-full border-collapse text-sm">{children}</table>
+		</div>
+	),
+	thead: ({ children }) => <thead className="border-b border-border">{children}</thead>,
+	th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-semibold text-foreground align-top">{children}</th>,
+	td: ({ children }) => <td className="border-b border-border px-3 py-2 text-xs text-muted-foreground align-top">{children}</td>,
+	blockquote: ({ children }) => <blockquote className="border-l-2 border-border pl-4 my-4 text-sm text-muted-foreground italic">{children}</blockquote>,
+	code: ({ children }) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
 }
 
 interface LegalDocumentPageProps {
@@ -30,7 +43,7 @@ interface LegalDocumentPageProps {
 }
 
 export function LegalDocumentPage({ title, content_md, effective_date, version }: LegalDocumentPageProps) {
-	const formattedDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(new Date(effective_date))
+	const formattedDate = formatEffectiveDate(effective_date, "pt-BR")
 
 	return (
 		<article className="max-w-2xl mx-auto">

@@ -1,3 +1,4 @@
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { Link } from "@tanstack/react-router"
 import { Group, Refresh, Star, Timer, Trash } from "iconoir-react"
 import { Button } from "@/components/ui/button"
@@ -286,7 +287,10 @@ export function CincoSLanding() {
 						</p>
 						<p className="mt-0.5">Gestão com Eficiência, Disciplina e Inovação</p>
 					</div>
-					<span>© {new Date().getFullYear()} SEFA / IEFA</span>
+					<div className="flex flex-col items-center gap-2 sm:items-end">
+						<LegalFooterLinks className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1" />
+						<span>© {new Date().getFullYear()} SEFA / IEFA</span>
+					</div>
 				</div>
 			</footer>
 		</div>

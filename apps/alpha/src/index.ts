@@ -1,4 +1,5 @@
 import { registerAgentDiscovery } from "./api/agent-discovery.ts"
+import { legalRoutes } from "./api/legal.ts"
 import apiRoutes from "./api/routes.ts"
 import { env } from "./env.ts"
 import { refreshAllSources } from "./jobs/refresh-sources.ts"
@@ -48,8 +49,9 @@ const app = apiRoutes
 
 startSourcesRefreshWorker(env.ALPHA_SOURCES_REFRESH_ENABLED)
 
-// robots.txt, llms.txt e os documentos em /.well-known — registrados fora da
+// Documentos legais e robots.txt/llms.txt/.well-known — registrados fora da
 // cadeia tipada acima para não interferir nos tipos do RPC do Hono.
+app.route("/legal", legalRoutes)
 registerAgentDiscovery(app)
 
 const port = env.PORT

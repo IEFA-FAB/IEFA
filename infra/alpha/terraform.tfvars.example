@@ -27,8 +27,13 @@ environment_variables = {
   ALPHA_AI_REGION          = "sa-east-1"
   ALPHA_EMBEDDING_PROVIDER = "bedrock"
   ALPHA_EMBEDDING_MODEL    = "amazon.titan-embed-text-v2:0"
-  # Id do modelo ou inference profile do chat — sem default no código.
-  ALPHA_AI_MODEL = ""
+  # Id do modelo ou inference profile do chat. O código **não** tem default: sem
+  # este valor o serviço lança no boot, de propósito, porque cravar um id errado
+  # falha só na primeira chamada de modelo, muito depois do deploy parecer bom.
+  #
+  # `openai.gpt-oss-120b-1:0` é o mesmo do sisub e do sucont nesta conta e nesta
+  # task role, verificado ACTIVE com tool calling em sa-east-1.
+  ALPHA_AI_MODEL = "openai.gpt-oss-120b-1:0"
 }
 
 # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL vêm dos secrets do

@@ -4,6 +4,7 @@ import { ModuleSwitcher } from "./ModuleSwitcher"
 import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"
+import { SidebarLegalLinks } from "./SidebarLegalLinks"
 import type { Module } from "./SidebarTypes"
 
 export function AppSidebar({
@@ -88,6 +89,7 @@ export function AppSidebar({
 			</SidebarContent>
 			<SidebarFooter>
 				<NavUser />
+				<SidebarLegalLinks />
 			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>

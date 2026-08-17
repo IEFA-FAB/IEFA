@@ -85,6 +85,9 @@ function PublicLayout() {
 						<Link to="/politica-de-privacidade" className="hover:text-foreground transition-colors">
 							Privacidade
 						</Link>
+						<Link to="/politica-de-cookies" className="hover:text-foreground transition-colors">
+							Cookies
+						</Link>
 					</nav>
 				</Container>
 			</footer>
