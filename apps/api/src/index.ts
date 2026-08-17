@@ -4,6 +4,7 @@ import { cors } from "hono/cors"
 import { registerAgentDiscovery } from "./api/agent-discovery.ts"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
 import { gs1AdminRoutes } from "./api/routes/gs1-admin.ts"
+import { legalRoutes } from "./api/routes/legal.ts"
 import { nfeAdminRoutes } from "./api/routes/nfe-admin.ts"
 import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
@@ -93,7 +94,14 @@ const openApiConfig = {
 	info: {
 		version: "1.0.0",
 		title: "Sisub API",
-		description: "API para consulta de dados do sistema de subsistência",
+		description:
+			"API para consulta de dados do sistema de subsistência.\n\n" +
+			"**Dados pessoais (LGPD):** os documentos legais estão em `GET /legal` (índice JSON) e " +
+			"`GET /legal/{doc_type}` (markdown). Não existe autoexclusão: pedidos de acesso, correção " +
+			"ou eliminação são processados manualmente pela Secretaria do IEFA, por e-mail para " +
+			"iefa@fab.mil.br, com resposta em até 7 dias corridos.",
+		contact: { name: "Secretaria do IEFA", email: "iefa@fab.mil.br" },
+		termsOfService: "https://portal.iefa.com.br/termos-de-uso",
 	},
 	servers: [
 		{
@@ -108,6 +116,10 @@ const openApiConfig = {
 }
 
 app.doc("/doc", openApiConfig)
+
+// Documentos legais — fora da cadeia tipada: são conteúdo, e entrariam no tipo
+// exportado para os clients RPC sem nenhum consumidor.
+app.route("/legal", legalRoutes)
 
 // robots.txt, llms.txt e /.well-known/api-catalog — o llms.txt é derivado do
 // documento OpenAPI acima, então endpoint novo aparece nele sozinho.

@@ -61,7 +61,10 @@ As rotas em português são redirects 301 para os caminhos canônicos:
 
 Cite sempre o destino canônico. Caminhos com barra final respondem 307.
 
-\`/politica-de-privacidade\` e \`/termos-de-uso\` não têm equivalente em inglês.
+Os documentos legais existem nos dois idiomas, em rotas independentes (não são
+redirects): \`/termos-de-uso\` ↔ \`/terms-of-use\`, \`/politica-de-privacidade\` ↔
+\`/privacy-policy\`, \`/politica-de-cookies\` ↔ \`/cookie-policy\`. O texto em
+português prevalece em caso de divergência.
 
 ## Dados estruturados
 

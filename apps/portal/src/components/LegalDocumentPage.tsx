@@ -21,25 +21,42 @@ const components: Partial<Components> = {
 		</a>
 	),
 	hr: () => <hr className="border-border my-8" />,
+	// O inventário da Política de Cookies é uma tabela; sem estes mapeamentos o
+	// react-markdown emite <table> cru, sem grade nem espaçamento. Sem radius —
+	// Pale Brutalism (`--radius: 0rem`).
+	table: ({ children }) => (
+		<div className="my-6 overflow-x-auto border border-border">
+			<table className="w-full border-collapse text-sm">{children}</table>
+		</div>
+	),
+	thead: ({ children }) => <thead className="border-b border-border bg-muted/40">{children}</thead>,
+	th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-semibold text-foreground align-top">{children}</th>,
+	td: ({ children }) => <td className="border-b border-border px-3 py-2 text-xs text-muted-foreground align-top">{children}</td>,
+	blockquote: ({ children }) => <blockquote className="border-l-2 border-border pl-4 my-4 text-sm text-muted-foreground italic">{children}</blockquote>,
+	code: ({ children }) => <code className="bg-muted px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
 }
+
+const STRINGS = {
+	"pt-BR": { meta: (version: string, date: string) => `Versão ${version} — Vigente desde ${date}` },
+	"en-US": { meta: (version: string, date: string) => `Version ${version} — In force since ${date}` },
+} as const
 
 interface LegalDocumentPageProps {
 	title: string
 	content_md: string
 	effective_date: string
 	version: string
+	locale?: keyof typeof STRINGS
 }
 
-export function LegalDocumentPage({ title, content_md, effective_date, version }: LegalDocumentPageProps) {
-	const formattedDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(new Date(effective_date))
+export function LegalDocumentPage({ title, content_md, effective_date, version, locale = "pt-BR" }: LegalDocumentPageProps) {
+	const formattedDate = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(effective_date))
 
 	return (
 		<article className="max-w-2xl mx-auto py-8">
 			<header className="mb-8 pb-6 border-b border-border">
 				<h1 className="text-2xl font-bold tracking-tight mb-2">{title}</h1>
-				<p className="text-xs text-muted-foreground">
-					Versão {version} — Vigente desde {formattedDate}
-				</p>
+				<p className="text-xs text-muted-foreground">{STRINGS[locale].meta(version, formattedDate)}</p>
 			</header>
 
 			<div>

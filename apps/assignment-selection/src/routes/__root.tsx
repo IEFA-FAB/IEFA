@@ -1,5 +1,7 @@
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
+import { LegalNotice } from "@/components/LegalNotice"
 import { Toaster } from "@/components/ui/sonner"
 import AppStyles from "@/styles.css?url"
 
@@ -34,6 +36,18 @@ function RootDocument() {
 			</head>
 			<body className="min-h-screen bg-slate-950 text-white antialiased">
 				<Outlet />
+
+				{/*
+				  O telão (`/`) exibe nome, classificação e localidade dos participantes SEM
+				  autenticação. É a única superfície da suíte que expõe dado pessoal ao público
+				  aberto, então os documentos legais precisam estar alcançáveis a partir dela —
+				  não só das telas logadas. Discreto o bastante para não competir com a projeção.
+				*/}
+				<LegalFooterLinks
+					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
+					linkClassName="text-[10px] text-slate-600 transition-colors hover:text-slate-300"
+				/>
+				<LegalNotice />
 				<Toaster />
 				<Scripts />
 			</body>

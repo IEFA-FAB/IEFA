@@ -114,9 +114,10 @@ async function renderLlmsTxt() {
 			{
 				title: "Política de Privacidade",
 				url: absoluteUrl("/politica-de-privacidade"),
-				summary: "Tratamento de dados pessoais conforme a LGPD.",
+				summary: "Tratamento de dados pessoais conforme a LGPD. Exclusão de dados é manual, por iefa@fab.mil.br, com resposta em até 7 dias.",
 			},
 			{ title: "Termos de Uso", url: absoluteUrl("/termos-de-uso"), summary: "Condições de uso do portal." },
+			{ title: "Política de Cookies", url: absoluteUrl("/politica-de-cookies"), summary: "Cookies e armazenamento local — inventário e finalidade." },
 		]),
 	]
 

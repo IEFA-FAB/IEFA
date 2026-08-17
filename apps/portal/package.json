@@ -18,6 +18,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@iefa/auth-kit": "workspace:*",
+    "@iefa/legal-kit": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",
     "@portabletext/react": "^6.2.0",
     "@sanity/client": "^7.26.2",

@@ -1,53 +1,65 @@
-import { createClient } from "@supabase/supabase-js"
+/**
+ * @module legal.fn
+ * Leitura dos documentos legais vigentes e registro de ciência do usuário.
+ */
+
+import { fetchLegalDocument, LEGAL_DOC_TYPES, type LegalDocument, listPendingAcknowledgements, recordAcknowledgement } from "@iefa/legal-kit"
 import { createServerFn } from "@tanstack/react-start"
+import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { envServer } from "@/lib/env.server"
+import { getIefaAuthClient } from "@/lib/supabase.server"
 
-function getIefaServerClient() {
-	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
-		db: { schema: "iefa" },
-		auth: { persistSession: false },
-	})
+function connection() {
+	return { url: envServer.VITE_IEFA_SUPABASE_URL, secretKey: envServer.IEFA_SUPABASE_SECRET_KEY }
 }
 
-export type LegalDocument = {
-	id: string
-	doc_type: string
-	version: string
-	locale: string
-	content_md: string
-	effective_date: string
-	published_at: string | null
+const docTypeSchema = z.enum(LEGAL_DOC_TYPES)
+
+export type { LegalDocument }
+
+/** Id da sessão validada no servidor. O cliente nunca informa de quem é a ciência. */
+async function requireUserId(): Promise<string> {
+	const {
+		data: { user },
+	} = await getIefaAuthClient().auth.getUser()
+	if (!user) {
+		setResponseStatus(401)
+		throw new Error("UNAUTHORIZED")
+	}
+	return user.id
 }
 
-// Público por contrato: termos de uso / política de privacidade.
+// Público por contrato: termos de uso, política de privacidade e política de cookies.
 // nosemgrep: server-fn-missing-auth-guard
 export const fetchLegalDocumentFn = createServerFn({ method: "GET" })
-	.validator(
-		z.object({
-			docType: z.enum(["terms_of_use", "privacy_policy"]),
-			locale: z.string().default("pt-BR"),
-		})
-	)
+	.validator(z.object({ docType: docTypeSchema, locale: z.string().default("pt-BR") }))
+	.handler(({ data }) => fetchLegalDocument({ ...connection(), docType: data.docType, locale: data.locale }))
+
+export const listPendingLegalDocumentsFn = createServerFn({ method: "GET" }).handler(async () => {
+	const userId = await requireUserId()
+	const pending = await listPendingAcknowledgements({ ...connection(), userId })
+	return pending.filter((entry) => entry.acknowledgedAt === null).map((entry) => entry.document)
+})
+
+/** Primeiro IP da cadeia do ALB; `null` quando ausente (dev local, proxy sem o header). */
+function clientIp(request: Request | undefined): string | null {
+	const forwarded = request?.headers.get("x-forwarded-for")
+	const first = forwarded?.split(",")[0]?.trim()
+	return first && first.length > 0 ? first : null
+}
+
+export const acknowledgeLegalDocumentsFn = createServerFn({ method: "POST" })
+	.validator(z.object({ documentIds: z.array(z.string().uuid()).min(1).max(LEGAL_DOC_TYPES.length) }))
 	.handler(async ({ data }) => {
-		const { data: doc, error } = await getIefaServerClient()
-			.from("legal_documents_current")
-			.select("id, doc_type, version, locale, content_md, effective_date, published_at")
-			.eq("doc_type", data.docType)
-			.eq("locale", data.locale)
-			.maybeSingle()
-
-		if (error) throw new Error(error.message)
-		if (!doc) return null
-
-		const row = doc as Record<string, string | null>
-		return {
-			id: row.id ?? "",
-			doc_type: row.doc_type ?? "",
-			version: row.version ?? "",
-			locale: row.locale ?? "",
-			content_md: row.content_md ?? "",
-			effective_date: row.effective_date ?? "",
-			published_at: row.published_at ?? null,
-		} satisfies LegalDocument
+		const userId = await requireUserId()
+		const request = getRequest()
+		const accepted = await recordAcknowledgement({
+			...connection(),
+			userId,
+			documentIds: data.documentIds,
+			ipAddress: clientIp(request),
+			userAgent: request?.headers.get("user-agent") ?? null,
+		})
+		return { accepted }
 	})

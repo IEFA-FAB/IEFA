@@ -31,12 +31,5 @@ function PoliticaDePrivacidade() {
 		return <p className="text-sm text-muted-foreground py-8">Documento não encontrado.</p>
 	}
 
-	return (
-		<LegalDocumentPage
-			title="Política de Privacidade"
-			content_md={doc.content_md ?? ""}
-			effective_date={doc.effective_date ?? ""}
-			version={doc.version ?? ""}
-		/>
-	)
+	return <LegalDocumentPage title="Política de Privacidade" content_md={doc.content_md} effective_date={doc.effective_date} version={doc.version} />
 }

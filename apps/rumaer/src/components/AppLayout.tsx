@@ -1,8 +1,10 @@
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { Link } from "@tanstack/react-router"
 import { ExternalLink, Menu } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useTheme } from "@/hooks/useTheme"
 import { AnimatedThemeToggler } from "./animated-theme-toggler"
+import { LegalNotice } from "./LegalNotice"
 import { UserMenu } from "./UserMenu"
 import { Button } from "./ui/button"
 
@@ -144,10 +146,15 @@ export function AppLayout({ children }: AppLayoutProps) {
 						<span>
 							© {new Date().getFullYear()} IEFA. <strong className="font-semibold text-primary">Desenvolvido por Ten Nanni (IEFA)</strong>.
 						</span>
-						<span className="hidden shrink-0 sm:inline">Login opcional — leitura pública.</span>
+						<div className="flex shrink-0 items-center gap-4">
+							<LegalFooterLinks className="flex items-center gap-x-3" />
+							<span className="hidden sm:inline">Login opcional — leitura pública.</span>
+						</div>
 					</div>
 				</div>
 			</footer>
+
+			<LegalNotice />
 		</div>
 	)
 }

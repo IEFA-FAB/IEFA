@@ -1,8 +1,10 @@
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
 import { Activity, FileText, LayoutGrid, LogOut, MessageSquare, Monitor, Search, ShieldCheck, Zap } from "lucide-react"
 import type React from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
+import { LegalNotice } from "#/components/LegalNotice"
 import { SidebarRailItem } from "#/components/sidebar-rail-item"
 import { externalSystems, iaTools, reportTools } from "#/lib/data"
 import { setActiveCategory, setSearchQuery, useActiveCategory, useSearchQuery } from "#/lib/hub-store"
@@ -157,10 +159,16 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 							<span className="text-xs font-mono text-slate-500">v4.0.0-START</span>
 						</div>
 					</div>
-					<div className="text-[10px] font-mono text-slate-400 text-center md:text-right">
-						© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
-						<br />
-						ACESSO RESTRITO
+					<div className="flex flex-col items-center gap-2 md:items-end">
+						<LegalFooterLinks
+							className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
+							linkClassName="text-[10px] font-mono uppercase text-slate-400 transition-colors hover:text-slate-600"
+						/>
+						<div className="text-[10px] font-mono text-slate-400 text-center md:text-right">
+							© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
+							<br />
+							ACESSO RESTRITO
+						</div>
 					</div>
 				</footer>
 			</div>
@@ -193,6 +201,8 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 					))}
 				</div>
 			</aside>
+
+			<LegalNotice />
 		</div>
 	)
 }

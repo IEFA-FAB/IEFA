@@ -16,6 +16,9 @@ import { Route as HealthRouteImport } from './routes/health'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as PublicPoliticaDeCookiesRouteImport } from './routes/_public/politica-de-cookies'
+import { Route as PublicPoliticaDePrivacidadeRouteImport } from './routes/_public/politica-de-privacidade'
+import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-de-uso'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminPermissoesRouteImport } from './routes/admin/permissoes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
@@ -59,6 +62,22 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPoliticaDeCookiesRoute = PublicPoliticaDeCookiesRouteImport.update({
+  id: '/politica-de-cookies',
+  path: '/politica-de-cookies',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPoliticaDePrivacidadeRoute =
+  PublicPoliticaDePrivacidadeRouteImport.update({
+    id: '/politica-de-privacidade',
+    path: '/politica-de-privacidade',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicTermosDeUsoRoute = PublicTermosDeUsoRouteImport.update({
+  id: '/termos-de-uso',
+  path: '/termos-de-uso',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -122,6 +141,9 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
+  '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -137,6 +159,9 @@ export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
+  '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminIndexRoute
@@ -157,6 +182,9 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_public/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
+  '/_public/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
+  '/_public/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
@@ -178,6 +206,9 @@ export interface FileRouteTypes {
     | '/health'
     | '/llms.txt'
     | '/sitemap.xml'
+    | '/politica-de-cookies'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/admin/permissoes'
     | '/admin/'
     | '/auth/'
@@ -193,6 +224,9 @@ export interface FileRouteTypes {
     | '/health'
     | '/llms.txt'
     | '/sitemap.xml'
+    | '/politica-de-cookies'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/admin/permissoes'
     | '/'
     | '/admin'
@@ -212,6 +246,9 @@ export interface FileRouteTypes {
     | '/health'
     | '/llms.txt'
     | '/sitemap.xml'
+    | '/_public/politica-de-cookies'
+    | '/_public/politica-de-privacidade'
+    | '/_public/termos-de-uso'
     | '/admin/permissoes'
     | '/_public/'
     | '/admin/'
@@ -285,6 +322,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/politica-de-cookies': {
+      id: '/_public/politica-de-cookies'
+      path: '/politica-de-cookies'
+      fullPath: '/politica-de-cookies'
+      preLoaderRoute: typeof PublicPoliticaDeCookiesRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/politica-de-privacidade': {
+      id: '/_public/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PublicPoliticaDePrivacidadeRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/termos-de-uso': {
+      id: '/_public/termos-de-uso'
+      path: '/termos-de-uso'
+      fullPath: '/termos-de-uso'
+      preLoaderRoute: typeof PublicTermosDeUsoRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/admin/': {
@@ -361,12 +419,18 @@ declare module '@tanstack/react-router' {
 }
 
 interface PublicRouteRouteChildren {
+  PublicPoliticaDeCookiesRoute: typeof PublicPoliticaDeCookiesRoute
+  PublicPoliticaDePrivacidadeRoute: typeof PublicPoliticaDePrivacidadeRoute
+  PublicTermosDeUsoRoute: typeof PublicTermosDeUsoRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicUniformesIndexRoute: typeof PublicUniformesIndexRoute
   PublicUniformesUniformIdIndexRoute: typeof PublicUniformesUniformIdIndexRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
+  PublicPoliticaDeCookiesRoute: PublicPoliticaDeCookiesRoute,
+  PublicPoliticaDePrivacidadeRoute: PublicPoliticaDePrivacidadeRoute,
+  PublicTermosDeUsoRoute: PublicTermosDeUsoRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicUniformesIndexRoute: PublicUniformesIndexRoute,
   PublicUniformesUniformIdIndexRoute: PublicUniformesUniformIdIndexRoute,

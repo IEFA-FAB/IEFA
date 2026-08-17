@@ -20,6 +20,7 @@ import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_
 import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
+import { Route as PublicPoliticaDeCookiesRouteImport } from './routes/_public/politica-de-cookies'
 import { Route as PublicPoliticaDePrivacidadeRouteImport } from './routes/_public/politica-de-privacidade'
 import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-de-uso'
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
@@ -176,6 +177,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
 const PublicChangelogRoute = PublicChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPoliticaDeCookiesRoute = PublicPoliticaDeCookiesRouteImport.update({
+  id: '/politica-de-cookies',
+  path: '/politica-de-cookies',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const PublicPoliticaDePrivacidadeRoute =
@@ -819,6 +825,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
+  '/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
@@ -933,6 +940,7 @@ export interface FileRoutesByTo {
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
+  '/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
@@ -1044,6 +1052,7 @@ export interface FileRoutesById {
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/_protected/hub': typeof ProtectedHubRoute
   '/_public/changelog': typeof PublicChangelogRoute
+  '/_public/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
   '/_public/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
   '/_public/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/_public/tutorial': typeof PublicTutorialRoute
@@ -1162,6 +1171,7 @@ export interface FileRouteTypes {
     | '/.well-known/api-catalog'
     | '/hub'
     | '/changelog'
+    | '/politica-de-cookies'
     | '/politica-de-privacidade'
     | '/termos-de-uso'
     | '/tutorial'
@@ -1276,6 +1286,7 @@ export interface FileRouteTypes {
     | '/.well-known/api-catalog'
     | '/hub'
     | '/changelog'
+    | '/politica-de-cookies'
     | '/politica-de-privacidade'
     | '/termos-de-uso'
     | '/tutorial'
@@ -1386,6 +1397,7 @@ export interface FileRouteTypes {
     | '/.well-known/api-catalog'
     | '/_protected/hub'
     | '/_public/changelog'
+    | '/_public/politica-de-cookies'
     | '/_public/politica-de-privacidade'
     | '/_public/termos-de-uso'
     | '/_public/tutorial'
@@ -1583,6 +1595,13 @@ declare module '@tanstack/react-router' {
       path: '/changelog'
       fullPath: '/changelog'
       preLoaderRoute: typeof PublicChangelogRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/politica-de-cookies': {
+      id: '/_public/politica-de-cookies'
+      path: '/politica-de-cookies'
+      fullPath: '/politica-de-cookies'
+      preLoaderRoute: typeof PublicPoliticaDeCookiesRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/politica-de-privacidade': {
@@ -2729,6 +2748,7 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
 
 interface PublicRouteRouteChildren {
   PublicChangelogRoute: typeof PublicChangelogRoute
+  PublicPoliticaDeCookiesRoute: typeof PublicPoliticaDeCookiesRoute
   PublicPoliticaDePrivacidadeRoute: typeof PublicPoliticaDePrivacidadeRoute
   PublicTermosDeUsoRoute: typeof PublicTermosDeUsoRoute
   PublicTutorialRoute: typeof PublicTutorialRoute
@@ -2737,6 +2757,7 @@ interface PublicRouteRouteChildren {
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicChangelogRoute: PublicChangelogRoute,
+  PublicPoliticaDeCookiesRoute: PublicPoliticaDeCookiesRoute,
   PublicPoliticaDePrivacidadeRoute: PublicPoliticaDePrivacidadeRoute,
   PublicTermosDeUsoRoute: PublicTermosDeUsoRoute,
   PublicTutorialRoute: PublicTutorialRoute,

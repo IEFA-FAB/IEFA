@@ -156,7 +156,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
 	{
 		path: "/politica-de-privacidade",
 		title: "Política de Privacidade",
-		summary: "Tratamento de dados pessoais no portal, conforme a LGPD.",
+		summary: "Tratamento de dados pessoais em toda a suíte, conforme a LGPD — coleta, retenção e exclusão manual por iefa@fab.mil.br em até 7 dias.",
 		section: "Legal",
 		changefreq: "yearly",
 		priority: 0.3,
@@ -165,6 +165,14 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
 		path: "/termos-de-uso",
 		title: "Termos de Uso",
 		summary: "Condições de uso do portal e das aplicações da suíte.",
+		section: "Legal",
+		changefreq: "yearly",
+		priority: 0.3,
+	},
+	{
+		path: "/politica-de-cookies",
+		title: "Política de Cookies",
+		summary: "Cookies e armazenamento local usados pela suíte — inventário, finalidade e como recusar.",
 		section: "Legal",
 		changefreq: "yearly",
 		priority: 0.3,

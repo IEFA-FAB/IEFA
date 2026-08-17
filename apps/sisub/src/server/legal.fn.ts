@@ -1,50 +1,63 @@
 /**
  * @module legal.fn
- * Reader for published legal documents (terms, privacy, etc.) from the iefa schema by doc_type/version/locale.
+ * Leitura dos documentos legais vigentes e registro de ciência do usuário.
  * @domain external
  * @migration n-a
  */
 
-import type { Database } from "@iefa/database"
-import { createClient } from "@supabase/supabase-js"
+import { fetchLegalDocument, LEGAL_DOC_TYPES, type LegalDocument, listPendingAcknowledgements, recordAcknowledgement } from "@iefa/legal-kit"
 import { createServerFn } from "@tanstack/react-start"
+import { getRequest } from "@tanstack/react-start/server"
 import { z } from "zod"
+import { requireUserId } from "@/lib/auth.server"
 import { envServer } from "@/lib/env.server"
 
-function getIefaSchemaClient() {
-	return createClient<Database, "iefa">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
-		db: { schema: "iefa" },
-		auth: { persistSession: false },
-	})
+function connection() {
+	return { url: envServer.VITE_SISUB_SUPABASE_URL, secretKey: envServer.SISUB_SUPABASE_SECRET_KEY }
 }
 
-export type LegalDocument = {
-	id: string | null
-	doc_type: string | null
-	version: string | null
-	locale: string | null
-	content_md: string | null
-	effective_date: string | null
-	published_at: string | null
-}
+const docTypeSchema = z.enum(LEGAL_DOC_TYPES)
 
-// Público por contrato: termos de uso e política de privacidade, rotas _public.
+export type { LegalDocument }
+
+// Público por contrato: termos de uso, política de privacidade e política de cookies
+// vivem em rotas _public e precisam ser legíveis por quem ainda não tem conta.
 // nosemgrep: server-fn-missing-auth-guard
 export const fetchLegalDocumentFn = createServerFn({ method: "GET" })
-	.validator(
-		z.object({
-			docType: z.enum(["terms_of_use", "privacy_policy"]),
-			locale: z.string().default("pt-BR"),
-		})
-	)
-	.handler(async ({ data }) => {
-		const { data: doc, error } = await getIefaSchemaClient()
-			.from("legal_documents_current")
-			.select("id, doc_type, version, locale, content_md, effective_date, published_at")
-			.eq("doc_type", data.docType)
-			.eq("locale", data.locale)
-			.maybeSingle()
+	.validator(z.object({ docType: docTypeSchema, locale: z.string().default("pt-BR") }))
+	.handler(({ data }) => fetchLegalDocument({ ...connection(), docType: data.docType, locale: data.locale }))
 
-		if (error) throw new Error(error.message)
-		return doc
+/**
+ * Documentos vigentes ainda sem ciência registrada para o usuário da sessão.
+ *
+ * O id do usuário vem SEMPRE da sessão validada no servidor, nunca do input. Aceitar
+ * um `userId` do cliente aqui transformaria a rota num oráculo de quem já leu o quê,
+ * e no par de escrita abaixo permitiria registrar ciência em nome de terceiro.
+ */
+export const listPendingLegalDocumentsFn = createServerFn({ method: "GET" }).handler(async () => {
+	const userId = await requireUserId()
+	const pending = await listPendingAcknowledgements({ ...connection(), userId })
+	return pending.filter((entry) => entry.acknowledgedAt === null).map((entry) => entry.document)
+})
+
+/** Primeiro IP da cadeia do ALB; `null` quando ausente (dev local, proxy sem o header). */
+function clientIp(request: Request | undefined): string | null {
+	const forwarded = request?.headers.get("x-forwarded-for")
+	const first = forwarded?.split(",")[0]?.trim()
+	return first && first.length > 0 ? first : null
+}
+
+export const acknowledgeLegalDocumentsFn = createServerFn({ method: "POST" })
+	.validator(z.object({ documentIds: z.array(z.string().uuid()).min(1).max(LEGAL_DOC_TYPES.length) }))
+	.handler(async ({ data }) => {
+		const userId = await requireUserId()
+		const request = getRequest()
+		const accepted = await recordAcknowledgement({
+			...connection(),
+			userId,
+			documentIds: data.documentIds,
+			ipAddress: clientIp(request),
+			userAgent: request?.headers.get("user-agent") ?? null,
+		})
+		return { accepted }
 	})
