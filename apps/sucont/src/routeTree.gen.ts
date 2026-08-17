@@ -20,8 +20,11 @@ import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as MonitoramentoRouteImport } from './routes/monitoramento'
+import { Route as PoliticaDeCookiesRouteImport } from './routes/politica-de-cookies'
+import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SubitensGenericosRouteImport } from './routes/subitens-genericos'
+import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
@@ -82,6 +85,16 @@ const MonitoramentoRoute = MonitoramentoRouteImport.update({
   path: '/monitoramento',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PoliticaDeCookiesRoute = PoliticaDeCookiesRouteImport.update({
+  id: '/politica-de-cookies',
+  path: '/politica-de-cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliticaDePrivacidadeRoute = PoliticaDePrivacidadeRouteImport.update({
+  id: '/politica-de-privacidade',
+  path: '/politica-de-privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -90,6 +103,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const SubitensGenericosRoute = SubitensGenericosRouteImport.update({
   id: '/subitens-genericos',
   path: '/subitens-genericos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosDeUsoRoute = TermosDeUsoRouteImport.update({
+  id: '/termos-de-uso',
+  path: '/termos-de-uso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -127,8 +145,11 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/monitoramento': typeof MonitoramentoRoute
+  '/politica-de-cookies': typeof PoliticaDeCookiesRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
+  '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
   '/auth/': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -146,8 +167,11 @@ export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/monitoramento': typeof MonitoramentoRoute
+  '/politica-de-cookies': typeof PoliticaDeCookiesRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
+  '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
   '/auth': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -166,8 +190,11 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/monitoramento': typeof MonitoramentoRoute
+  '/politica-de-cookies': typeof PoliticaDeCookiesRoute
+  '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
+  '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
   '/auth/': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -187,8 +214,11 @@ export interface FileRouteTypes {
     | '/health'
     | '/llms.txt'
     | '/monitoramento'
+    | '/politica-de-cookies'
+    | '/politica-de-privacidade'
     | '/reports'
     | '/subitens-genericos'
+    | '/termos-de-uso'
     | '/workspace'
     | '/auth/'
     | '/.well-known/agent-skills/index.json'
@@ -206,8 +236,11 @@ export interface FileRouteTypes {
     | '/health'
     | '/llms.txt'
     | '/monitoramento'
+    | '/politica-de-cookies'
+    | '/politica-de-privacidade'
     | '/reports'
     | '/subitens-genericos'
+    | '/termos-de-uso'
     | '/workspace'
     | '/auth'
     | '/.well-known/agent-skills/index.json'
@@ -225,8 +258,11 @@ export interface FileRouteTypes {
     | '/health'
     | '/llms.txt'
     | '/monitoramento'
+    | '/politica-de-cookies'
+    | '/politica-de-privacidade'
     | '/reports'
     | '/subitens-genericos'
+    | '/termos-de-uso'
     | '/workspace'
     | '/auth/'
     | '/.well-known/agent-skills/index.json'
@@ -245,8 +281,11 @@ export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   MonitoramentoRoute: typeof MonitoramentoRoute
+  PoliticaDeCookiesRoute: typeof PoliticaDeCookiesRoute
+  PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
   ReportsRoute: typeof ReportsRoute
   SubitensGenericosRoute: typeof SubitensGenericosRoute
+  TermosDeUsoRoute: typeof TermosDeUsoRoute
   WorkspaceRoute: typeof WorkspaceRoute
   AuthIndexRoute: typeof AuthIndexRoute
   DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -332,6 +371,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonitoramentoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/politica-de-cookies': {
+      id: '/politica-de-cookies'
+      path: '/politica-de-cookies'
+      fullPath: '/politica-de-cookies'
+      preLoaderRoute: typeof PoliticaDeCookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politica-de-privacidade': {
+      id: '/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PoliticaDePrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports': {
       id: '/reports'
       path: '/reports'
@@ -344,6 +397,13 @@ declare module '@tanstack/react-router' {
       path: '/subitens-genericos'
       fullPath: '/subitens-genericos'
       preLoaderRoute: typeof SubitensGenericosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos-de-uso': {
+      id: '/termos-de-uso'
+      path: '/termos-de-uso'
+      fullPath: '/termos-de-uso'
+      preLoaderRoute: typeof TermosDeUsoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspace': {
@@ -389,8 +449,11 @@ const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   MonitoramentoRoute: MonitoramentoRoute,
+  PoliticaDeCookiesRoute: PoliticaDeCookiesRoute,
+  PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
   ReportsRoute: ReportsRoute,
   SubitensGenericosRoute: SubitensGenericosRoute,
+  TermosDeUsoRoute: TermosDeUsoRoute,
   WorkspaceRoute: WorkspaceRoute,
   AuthIndexRoute: AuthIndexRoute,
   DotwellKnownAgentSkillsIndexDotjsonRoute:

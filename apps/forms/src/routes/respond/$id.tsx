@@ -1,3 +1,4 @@
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"
@@ -490,7 +491,20 @@ function MetadataStep({
 function ResponseShell({ children }: { children: React.ReactNode }) {
 	return (
 		<div className="min-h-screen bg-background">
-			<div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col py-6">{children}</div>
+			<div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col py-6">
+				{children}
+
+				{/* A resposta fica vinculada ao respondente (id, OM e seção) — não é anônima.
+				    Este é o ponto do app onde o titular efetivamente entrega dado pessoal, e
+				    portanto onde o aviso precisa estar visível, não só no rodapé da landing. */}
+				<footer className="mt-8 border-t border-border px-4 pt-4">
+					<p className="mb-2 text-xs text-muted-foreground">
+						Suas respostas ficam vinculadas ao seu cadastro. Pedidos de acesso ou exclusão: <span className="font-medium text-foreground">iefa@fab.mil.br</span>
+						.
+					</p>
+					<LegalFooterLinks className="flex flex-wrap items-center gap-x-3 gap-y-1" />
+				</footer>
+			</div>
 		</div>
 	)
 }

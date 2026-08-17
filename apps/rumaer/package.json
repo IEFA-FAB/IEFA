@@ -17,6 +17,7 @@
     "@iefa/agent-web": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
     "@iefa/database": "workspace:*",
+    "@iefa/legal-kit": "workspace:*",
     "@iefa/pbac": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",
     "@supabase/supabase-js": "^2.112.2",

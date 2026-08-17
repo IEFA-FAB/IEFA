@@ -17,5 +17,5 @@ function TermosDeUso() {
 		return <p className="text-sm text-muted-foreground py-8">Documento não encontrado.</p>
 	}
 
-	return <LegalDocumentPage title="Termos de Uso" content_md={doc.content_md ?? ""} effective_date={doc.effective_date ?? ""} version={doc.version ?? ""} />
+	return <LegalDocumentPage title="Termos de Uso" content_md={doc.content_md} effective_date={doc.effective_date} version={doc.version} />
 }

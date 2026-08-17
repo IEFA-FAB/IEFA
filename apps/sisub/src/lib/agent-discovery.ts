@@ -68,7 +68,15 @@ export const CATALOG: SiteCatalog = {
 		{
 			path: "/politica-de-privacidade",
 			title: "Política de Privacidade",
-			summary: "Tratamento de dados pessoais, conforme a LGPD.",
+			summary: "Tratamento de dados pessoais conforme a LGPD — dados coletados, retenção e exclusão manual por iefa@fab.mil.br em até 7 dias.",
+			section: "Legal",
+			changefreq: "yearly",
+			priority: 0.3,
+		},
+		{
+			path: "/politica-de-cookies",
+			title: "Política de Cookies",
+			summary: "Cookies e armazenamento local usados pelo SISUB — inventário, finalidade e como recusar.",
 			section: "Legal",
 			changefreq: "yearly",
 			priority: 0.3,

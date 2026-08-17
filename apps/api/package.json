@@ -21,6 +21,7 @@
   "dependencies": {
     "@hono/zod-openapi": "^1.5.1",
     "@iefa/agent-web": "workspace:*",
+    "@iefa/legal-kit": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
     "@scalar/hono-api-reference": "^0.11.12",
     "@supabase/supabase-js": "^2.112.2",
