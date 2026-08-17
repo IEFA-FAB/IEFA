@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4.37.1
+        uses: github/codeql-action/upload-sarif@v4.37.6
         with:
           sarif_file: opengrep.sarif
           category: opengrep
@@ -104,7 +104,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: github/codeql-action/init@v4.37.1
+      - uses: github/codeql-action/init@v4.37.6
         with:
           languages: javascript-typescript
           # security-extended inclui as queries de qualidade-com-impacto-em-segurança
@@ -112,7 +112,7 @@ jobs:
           queries: security-extended
           config-file: .github/codeql/config.yml
 
-      - uses: github/codeql-action/analyze@v4.37.1
+      - uses: github/codeql-action/analyze@v4.37.6
         with:
           category: "/language:javascript-typescript"
 
@@ -181,17 +181,23 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline atual (2026-07-22) é
-      # ignorada por ID e listada aqui — as duas estão em cadeias de devDependency
-      # (build-time), não no runtime servido. Remova o --ignore quando o upstream subir.
-      #   GHSA-23hp-3jrh-7fpw  node-tar  ← @grafana/faro-rollup-plugin (build de sourcemap)
-      #   GHSA-w7jw-789q-3m8p  shell-quote ← @tanstack/devtools-vite (só dev)
-      # Não converta isto num allowlist permanente: cada ID aqui é dívida com data.
+      # Nenhum override da raiz pode CAPAR a faixa que o consumidor declara. `overrides` do
+      # bun troca a spec inteira e não avisa: um `^` numa faixa que o consumidor abre mais
+      # que isso prende o pacote na versão velha calado. Install fica verde, typecheck fica
+      # verde (transitiva não tem tipo), e a quebra só aparece em runtime. Foi por isso que
+      # `@hono/node-server` virou `>=1.19.15` e não `^1.19.15` (o SDK do MCP declara
+      # `^1.19.9 || ^2.0.5`) e `langsmith` virou `>=0.8.11 <1.0.0` e não `^0.8.11` (caret em
+      # 0.x tranca o minor; `@langchain/core` declara `>=0.5.0 <1.0.0`).
+      - name: Gate (override não capa consumidor)
+        run: bun scripts/check-override-ranges.ts
+
+      # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline de 2026-07-22
+      # (GHSA-23hp-3jrh-7fpw em node-tar e GHSA-w7jw-789q-3m8p em shell-quote) foi zerada
+      # em 2026-08-16 pelos `overrides` de tar e shell-quote na raiz — o gate roda sem
+      # nenhum --ignore. Se precisar reintroduzir um, ele é dívida com data: registre o ID,
+      # a cadeia e a condição de saída aqui, e não converta isto num allowlist permanente.
       - name: Gate (crítica nova)
-        run: |
-          bun audit --audit-level=critical \
-            --ignore=GHSA-23hp-3jrh-7fpw \
-            --ignore=GHSA-w7jw-789q-3m8p
+        run: bun audit --audit-level=critical
 
   # ============================================
   # WORKFLOWS (supply chain do próprio CI)
@@ -208,7 +214,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
+      - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
         with:
           # Os workflows de deploy assumem role AWS via OIDC (id-token: write) e aceitam
           # input de workflow_dispatch — exatamente a superfície que o zizmor audita.
@@ -271,7 +277,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0" # relatório, não gate — misconfig de IaC costuma exigir contexto
 
-      - uses: github/codeql-action/upload-sarif@v4.37.1
+      - uses: github/codeql-action/upload-sarif@v4.37.6
         if: always()
         with:
           sarif_file: trivy-config.sarif

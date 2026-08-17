@@ -26,6 +26,27 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # `@types/node` >= 26.1.1 quebra o typecheck do sisub-mcp: o `IncomingMessage`
+      # dele passa a exigir `signal`, e o `@modelcontextprotocol/sdk` traz uma cópia
+      # aninhada de `@types/node` que não tem — os dois tipos deixam de ser
+      # compatíveis e `src/index.ts` para de compilar (TS2741/TS2345).
+      # O PR #111 segurou isso só via lockfile, e o #184 provou que lockfile não
+      # segura nada: `^26.0.0` reresolve para 26.1.x no primeiro install. Daí o par
+      # pin exato nos package.json + este ignore. Remover quando o SDK do MCP subir
+      # a cópia aninhada dele.
+      - dependency-name: "@types/node"
+        versions: [">=26.1.0"]
+      # `vite` >= 8.2.0 quebra o typecheck dos 6 apps que usam `@rolldown/plugin-babel`
+      # (todos menos o docs): o plugin traz a própria cópia de vite, e sob 8.2.x o
+      # `Plugin` dele deixa de ser o `Plugin` do app — o array de `plugins` no
+      # `vite.config.ts` para de casar com `PluginOption` (TS2321/TS2769). Não é o
+      # config: `await` no plugin não resolve, porque o tipo vem da outra cópia.
+      # `@rolldown/plugin-babel@0.2.3` é a última publicada e ainda não acompanha o
+      # 8.2. Por isso o pin exato `"vite": "8.1.5"` nos apps. Remover os dois quando
+      # o plugin publicar versão que aceite vite 8.2.
+      - dependency-name: "vite"
+        versions: [">=8.2.0"]
     groups:
       # Um PR por família: subir React/TanStack/etc. peça por peça só cria conflito de peer.
       react:
