@@ -22,18 +22,32 @@ environment_variables = {
   # permite, que hoje e `inference-profile/global.anthropic.*` mais os
   # foundation-model `anthropic.*` e `openai.gpt-oss-*`. Um perfil `us.anthropic.*`
   # e negado (implicitDeny) e a chamada morre em AccessDenied — que NAO e falha
-  # transitoria, entao a reserva tambem nao entra. Confira antes de aplicar:
+  # transitoria, entao a reserva tambem nao entra.
+  #
+  # ATENCAO ao conferir: a FORMA do ARN depende do TIPO do id.
+  #   - `global.anthropic.*` e inference profile (leva a conta no ARN):
+  #       arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
+  #   - `openai.gpt-oss-*` (o valor abaixo) e foundation model (SEM conta no ARN):
+  #       arn:aws:bedrock:sa-east-1::foundation-model/<id>
+  # Simular o id abaixo na forma de inference-profile devolve implicitDeny e faz
+  # parecer que a config esta errada quando nao esta. Liste conforme o tipo:
+  #   aws bedrock list-foundation-models --region sa-east-1 \
+  #     --query "modelSummaries[?starts_with(modelId,'openai.gpt-oss')].modelId"
   #   aws bedrock list-inference-profiles --region sa-east-1 \
   #     --query "inferenceProfileSummaries[?starts_with(inferenceProfileId,'global.anthropic')].inferenceProfileId"
+  # E simule com a forma certa para o valor aplicado:
   #   aws iam simulate-principal-policy \
   #     --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
   #     --action-names bedrock:InvokeModelWithResponseStream \
-  #     --resource-arns arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
+  #     --resource-arns arn:aws:bedrock:sa-east-1::foundation-model/openai.gpt-oss-120b-1:0
   #
-  # Modelo: mesmo do sisub. E o unico que ja tem historico de producao nesta
-  # conta e nesta task role, e o mais barato entre os que passam no bench do
-  # oraculo (apps/sucont/model-bench.ts) — $0.18/1M entrada, $0.73/1M saida em
-  # sa-east-1, conferido no Pricing API da AWS. Ver AI-PROVIDERS.md.
+  # Modelo: o MESMO que o sisub roda em producao (ver sisub.example.json). Unico com
+  # historico real nesta conta e nesta task role, o mais barato entre os que
+  # conseguimos precificar ($0.18/1M entrada, $0.73/1M saida em sa-east-1, Pricing
+  # API da AWS) e passa nos tres caminhos do bench (apps/sucont/model-bench.ts).
+  # Tem um custo: ~3x mais lento ate o primeiro token que o Haiku 4.5, que e o que
+  # o usuario sente num chat em streaming. Leia AI-PROVIDERS.md antes de trocar.
+  # Regiao: sa-east-1, a da stack — nao ha motivo para cruzar regiao.
   SUCONT_AI_PROVIDER = "bedrock"
   SUCONT_AI_MODEL    = "openai.gpt-oss-120b-1:0"
   SUCONT_AI_REGION   = "sa-east-1"

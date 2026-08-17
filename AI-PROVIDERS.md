@@ -54,28 +54,50 @@ medidos nos **dois** caminhos reais do app pelo adapter do próprio repo
 (`apps/sucont/model-bench.ts`: `chatStream` com o system prompt inteiro do oráculo, UG_INFO
 incluso, e `structuredOutput` com o `analysisSchema` do document-ai):
 
-| modelo | chat | JSON | tokens (in/out, chat) | latência chat / JSON | preço 1M in/out |
-|---|---|---|---|---|---|
-| **gpt-oss-120b** | ✅ | ✅ | 3954 / 1006 | 7,0 s / 6,1 s | **$0,18 / $0,73** |
-| gpt-oss-20b | ✅ | ✅ | 3954 / 999 | 5,8 s / 5,7 s | $0,08 / $0,36 |
-| `global.anthropic.claude-haiku-4-5-…` | ✅ | ✅ | 4995 / 471 | 5,0 s / 8,7 s | não verificado |
-| `global.anthropic.claude-sonnet-4-6` | ✅ | ✅ | 4996 / 916 | 14,5 s / 30,7 s | não verificado |
+| modelo | chat | JSON análise | JSON ofício | **TTFT** chat | total chat / JSON | preço 1M in/out |
+|---|---|---|---|---|---|---|
+| **gpt-oss-120b** | ✅¹ | ✅ | ✅ | 3,1 s | 8,4 s / 5,1–6,0 s | **$0,18 / $0,73** |
+| gpt-oss-20b | ✅ | ✅ | ✅ | 3,8 s | 6,0 s / 3,2–7,2 s | $0,08 / $0,36 |
+| `global.anthropic.claude-haiku-4-5-…` | ✅ | ✅ | ✅ | **1,0 s** | 4,8 s / 4,1–7,6 s | não verificado |
+| `global.anthropic.claude-sonnet-4-6` | ✅ | ✅ | ✅ | 1,1 s | 13,6 s / 20,6–35,8 s | não verificado |
 
-Os quatro passam — inclusive no JSON, que era o risco real (a Converse API não tem json-mode
-uniforme, então o adapter instrui e parseia; um modelo fraco devolve prosa e quebra o parse).
+**TTFT** (time-to-first-token) é a coluna que importa no chat: o endpoint é SSE, então o que o
+usuário sente é o primeiro token, não a vazão. O total só é decisivo no caminho de documento,
+que **não** é streaming e tem timeout de 60 s no `document-ai.fn.ts`.
+
+¹ Numa das amostras o gpt-oss-120b respondeu sem citar UG/valor no formato que a diretriz 1 do
+system prompt pede; em outra citou. **Uma amostra por modelo não decide qualidade** — o bench
+serve para pegar falha estrutural (schema incompleto, prosa em vez de JSON, `AccessDenied`),
+não para ranquear redação. Os dois JSON são determinísticos no que importa: todo campo
+obrigatório veio preenchido nos quatro modelos, nos dois schemas.
+
+O ofício (`fabSchema`, 14 campos obrigatórios) entrou no bench porque `generateJson` devolve
+`result.data as T` **sem validar**: campo que o modelo não emitir vira `undefined` dentro de um
+documento oficial, sem erro.
+
 Como capacidade não separa os candidatos nesta carga, o desempate é operacional:
 
 - **gpt-oss-120b já roda em produção nesta conta e nesta task role** (o chat do sisub), com
   `ConverseStream` sem `errorCode` no CloudTrail. É o único candidato com histórico real aqui;
 - **é o mais barato entre os verificados** — $0,18/$0,73 por 1M em `sa-east-1`, conferido no
   Pricing API da AWS (`aws pricing get-products --service-code AmazonBedrock`). Pelos tokens
-  medidos: **US$ 0,0015 por conversa** e **US$ 0,0009 por documento**; 1.000 chats + 500
-  documentos por mês ≈ **US$ 1,87**;
-- **o 20b é mais barato e passa**, mas responde bem mais curto no chat (1.287 contra 2.234
-  caracteres na mesma pergunta). Para um oráculo de análise contábil a profundidade é o
-  produto, e a diferença absoluta de custo nesse volume é de centavos;
-- **o Sonnet 4.6 é o mais lento com folga** — 30,7 s no caminho de documento, contra 6,1 s. Um
-  `generateJson` já tem timeout de 60 s no `document-ai.fn.ts`; não vale gastar metade dele.
+  medidos: **US$ 0,0015 por TURNO de chat** e **US$ 0,0009 por documento**. Turno, não
+  conversa: o `useChat` reenvia o histórico e o system prompt de ~4,4k tokens é remontado a
+  cada requisição, então uma conversa de 10 turnos custa da ordem de 10× — dimensione o
+  `SUCONT_AI_MAX_TOKENS_PER_DAY` por turno, nunca por conversa;
+- **o 20b é mais barato e passa**, mas responde mais curto no chat (1.764 contra 3.051
+  caracteres na mesma pergunta) e tem TTFT pior. Para um oráculo de análise contábil a
+  profundidade é o produto, e a diferença absoluta de custo nesse volume é de centavos;
+- **o Sonnet 4.6 é o mais lento no que dói** — 20,6–35,8 s no caminho de documento, contra
+  5,1–6,0 s, num fluxo que já tem timeout de 60 s. Não vale gastar metade dele.
+
+**O que essa escolha custa, e está aceito:** o Haiku 4.5 chega ao primeiro token em ~1,0 s
+contra ~3,1 s do gpt-oss-120b — 3× melhor na latência que o usuário do chat efetivamente
+sente. Isso é estrutural, não ruído: o gpt-oss raciocina antes de emitir texto, e o adapter
+descarta os deltas de `reasoningContent`, então a espera aparece como tela parada. Trocamos
+essa latência por preço verificado e por histórico de produção. Se a percepção de lentidão no
+chat virar reclamação, o Haiku 4.5 é o candidato — e aí a pendência é obter o preço dele no
+Bedrock antes, não depois.
 
 **Preço do Claude no Bedrock não foi verificado, e isso é limitação, não conclusão:** o
 catálogo do Pricing API só tem geração antiga (Claude 2.x / 3 Haiku / 3 Sonnet), e a página
@@ -131,9 +153,14 @@ sem motivo.
 `global.anthropic.claude-sonnet-4-5-20250929-v1:0`, com):
 
 ```sh
+# Claude → inference profile (prefixo `global.`)
 aws bedrock list-inference-profiles --region sa-east-1 \
   --query "inferenceProfileSummaries[?starts_with(inferenceProfileId,'global.anthropic')].inferenceProfileId" \
   --output text
+
+# gpt-oss → foundation model (é o que o sucont e o sisub usam hoje)
+aws bedrock list-foundation-models --region sa-east-1 \
+  --query "modelSummaries[?starts_with(modelId,'openai.gpt-oss')].modelId" --output text
 ```
 
 Escolhas de referência (ver `infra/sisub/secrets/sisub.example.json` — **não** é o que roda em
@@ -165,15 +192,26 @@ Duas coisas que decorrem disso, e que valem mais que a intuição:
   `ConverseStream` do adapter funciona mesmo assim (CloudTrail, sem `errorCode`): a Converse
   API é autorizada pelas actions `InvokeModel*`. Ampliar a policy para "consertar" o sucont
   seria tratar o sintoma errado.
-- **O prefixo do perfil é o que decide.** Só `global.anthropic.*` está liberado. Antes de
-  setar um id novo, simule — é mais barato que descobrir por `AccessDenied` em produção, ainda
-  mais no sucont, que não tem log group no CloudWatch:
+- **O prefixo decide, e a FORMA DO ARN muda com o tipo do id.** Perfil de inferência leva a
+  conta no ARN (`:<conta>:inference-profile/<id>`); foundation model **não leva conta**
+  (`::foundation-model/<id>`). Simular um id de foundation model na forma de inference profile
+  devolve `implicitDeny` — conferido: `openai.gpt-oss-120b-1:0` dá `allowed` como
+  `::foundation-model/…` e `implicitDeny` como `:<conta>:inference-profile/…`, sendo que é
+  exatamente o modelo que roda em produção. Errar a forma aqui faz parecer que a config está
+  quebrada quando não está, e o caminho de volta é justamente o erro que este arquivo existe
+  para evitar. Simule antes de setar um id novo — é mais barato que descobrir por
+  `AccessDenied` em produção, ainda mais no sucont, que não tem log group no CloudWatch:
 
 ```sh
-aws iam simulate-principal-policy \
+SIM() { aws iam simulate-principal-policy \
   --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
   --action-names bedrock:InvokeModelWithResponseStream \
-  --resource-arns arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
+  --resource-arns "$1" --query 'EvaluationResults[0].EvalDecision' --output text; }
+
+# foundation model (gpt-oss, anthropic.* cru) — SEM a conta no ARN
+SIM "arn:aws:bedrock:sa-east-1::foundation-model/openai.gpt-oss-120b-1:0"
+# inference profile (global.anthropic.*) — COM a conta no ARN
+SIM "arn:aws:bedrock:sa-east-1:<conta>:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0"
 ```
 
 ---
