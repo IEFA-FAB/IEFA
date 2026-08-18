@@ -1,34 +1,67 @@
-import { AccountGroup, type FinancialRecord, ImpactLevel, ProbabilityLevel, type RawInputRow, RiskLevel, type TimeFilter } from "../types"
+import {
+	AccountGroup,
+	type FinancialRecord,
+	ImpactLevel,
+	ProbabilityLevel,
+	type RawInputRow,
+	RiskLevel,
+	type StoredBalanceRow,
+	type TimeFilter,
+} from "../types"
 import { UG_MAPPING } from "../ugMapping"
 
 // --- RISK CLASSIFICATION ---
+/**
+ * Chave da estatística de risco.
+ *
+ * Antes era só a UG: impacto, probabilidade e nível eram calculados por unidade e
+ * carimbados em TODOS os registros dela. Na prática, o Intangível zerado de uma UG
+ * herdava o "Crítico" do BMP com centenas de milhões de divergência — a tela e a
+ * MSG classificavam como crítica uma conta que estava conciliada. O grão certo é
+ * (UG, grupo de contas): é sobre uma conta específica que a Setorial cobra.
+ */
+const riskKey = (ug: string, group: string) => `${ug}\u0000${group}`
+
 export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecord[] => {
 	if (!data || data.length === 0) return []
 
-	const ugStats: Record<string, { months: Set<string>; maxDiff: number; totalDiff: number }> = {}
+	const stats: Record<string, { months: Set<string>; maxDiff: number; totalDiff: number }> = {}
 
 	data.forEach((record) => {
-		if (!ugStats[record.ug]) {
-			ugStats[record.ug] = { months: new Set(), maxDiff: 0, totalDiff: 0 }
+		const key = riskKey(record.ug, record.group)
+		if (!stats[key]) {
+			stats[key] = { months: new Set(), maxDiff: 0, totalDiff: 0 }
 		}
 		if (record.difference > 0) {
-			ugStats[record.ug].months.add(record.date)
+			stats[key].months.add(record.date)
 		}
-		ugStats[record.ug].maxDiff = Math.max(ugStats[record.ug].maxDiff, record.difference)
-		ugStats[record.ug].totalDiff += record.difference
+		stats[key].maxDiff = Math.max(stats[key].maxDiff, record.difference)
+		stats[key].totalDiff += record.difference
 	})
 
-	const allMaxDiffs = Object.values(ugStats).map((s) => s.maxDiff)
+	/**
+	 * Quantas competências o recorte carregado realmente cobre.
+	 *
+	 * A probabilidade era `meses / 12` fixo. Com uma série plurianual (o relatório
+	 * de importação traz 32 competências) isso passa de 100% para quase toda UG —
+	 * chegou a 266% — e desequilibra a mistura 70/30 com o impacto. Pior: os cortes
+	 * absolutos (">9 meses = Crônico") jogavam 96% dos registros no mesmo balde e o
+	 * eixo parava de separar qualquer coisa. Relativo à janela observada, volta a
+	 * ter significado tanto num arquivo de 6 meses quanto num de 32.
+	 */
+	const periodCount = new Set(data.map((r) => r.sortableDate)).size || 1
+
+	const allMaxDiffs = Object.values(stats).map((s) => s.maxDiff)
 	const absoluteMaxDiff = Math.max(...allMaxDiffs, 1)
 
-	const ugScores = Object.entries(ugStats).map(([ug, stats]) => {
-		const impactScore = (stats.maxDiff / absoluteMaxDiff) * 100
-		const probabilityScore = (stats.months.size / 12) * 100
+	const scores = Object.entries(stats).map(([key, s]) => {
+		const impactScore = (s.maxDiff / absoluteMaxDiff) * 100
+		const probabilityScore = (s.months.size / periodCount) * 100
 		const finalScore = impactScore * 0.7 + probabilityScore * 0.3
-		return { ug, score: finalScore, maxDiff: stats.maxDiff, months: stats.months.size }
+		return { key, score: finalScore, maxDiff: s.maxDiff, months: s.months.size }
 	})
 
-	const sortedScores = [...ugScores].map((s) => s.score).sort((a, b) => a - b)
+	const sortedScores = [...scores].map((s) => s.score).sort((a, b) => a - b)
 
 	const getRiskLevelFromScore = (score: number): RiskLevel => {
 		if (sortedScores.length === 0) return RiskLevel.BAIXO
@@ -51,27 +84,30 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		return ImpactLevel.CATASTROFICO
 	}
 
+	/** Fração das competências carregadas em que a conta divergiu — não contagem absoluta. */
 	const getProbabilityLevel = (months: number): ProbabilityLevel => {
-		if (months <= 1) return ProbabilityLevel.RARO
-		if (months <= 3) return ProbabilityLevel.OCASIONAL
-		if (months <= 6) return ProbabilityLevel.RECORRENTE
-		if (months <= 9) return ProbabilityLevel.PERSISTENTE
+		const ratio = months / periodCount
+		if (ratio <= 0.1) return ProbabilityLevel.RARO
+		if (ratio <= 0.3) return ProbabilityLevel.OCASIONAL
+		if (ratio <= 0.6) return ProbabilityLevel.RECORRENTE
+		if (ratio <= 0.85) return ProbabilityLevel.PERSISTENTE
 		return ProbabilityLevel.CRONICO
 	}
 
-	const ugRiskMap: Record<string, RiskLevel> = {}
-	ugScores.forEach((s) => {
-		ugRiskMap[s.ug] = getRiskLevelFromScore(s.score)
+	const riskByKey: Record<string, RiskLevel> = {}
+	scores.forEach((s) => {
+		riskByKey[s.key] = getRiskLevelFromScore(s.score)
 	})
 
 	return data.map((record) => {
-		const stats = ugStats[record.ug]
+		const key = riskKey(record.ug, record.group)
+		const s = stats[key]
 		return {
 			...record,
-			impactLevel: getImpactLevel(stats.maxDiff),
-			probabilityLevel: getProbabilityLevel(stats.months.size),
-			riskLevel: ugRiskMap[record.ug],
-			monthsWithDivergence: stats.months.size,
+			impactLevel: getImpactLevel(s.maxDiff),
+			probabilityLevel: getProbabilityLevel(s.months.size),
+			riskLevel: riskByKey[key],
+			monthsWithDivergence: s.months.size,
 		}
 	})
 }
@@ -83,10 +119,19 @@ export const parseDateString = (dateStr: string): { month: number; year: number;
 		if (dateStr.includes("T") && dateStr.includes("Z")) {
 			const d = new Date(dateStr)
 			if (!Number.isNaN(d.getTime())) {
-				const m = d.getMonth()
-				const y = d.getFullYear()
+				// Célula de data de planilha representa um DIA, não um instante: o xlsx
+				// converte o serial do Excel com arredondamento de sub-segundo e a
+				// competência pode aterrissar em 23:59:59.999 do último dia do mês
+				// ANTERIOR. Lido cru, isso joga um mês inteiro para a competência errada,
+				// em silêncio. Arredonda-se para a meia-noite local mais próxima antes de
+				// extrair mês e ano.
+				const DAY_MS = 86_400_000
+				const asLocalEpoch = d.getTime() - d.getTimezoneOffset() * 60_000
+				const snapped = new Date(Math.round(asLocalEpoch / DAY_MS) * DAY_MS)
+				const m = snapped.getUTCMonth()
+				const y = snapped.getUTCFullYear()
 				const monthNum = (m + 1).toString().padStart(2, "0")
-				return { month: m, year: y, timestamp: d.getTime(), sortableDate: `${y}-${monthNum}` }
+				return { month: m, year: y, timestamp: new Date(y, m, 1).getTime(), sortableDate: `${y}-${monthNum}` }
 			}
 		}
 
@@ -266,6 +311,14 @@ export const recalculateDeltas = (data: FinancialRecord[], timeFilter: TimeFilte
 
 	const monthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
 
+	// Índice (cod, grupo, ano, mês) — o `data.find` linear original percorria a
+	// série inteira para cada registro (8 mil registros ⇒ dezenas de milhões de
+	// comparações a cada troca de filtro de período).
+	const byKey = new Map<string, FinancialRecord>()
+	for (const r of data) {
+		byKey.set(`${r.cod}\u0000${r.group}\u0000${r.year}\u0000${r.monthIndex}`, r)
+	}
+
 	return data.map((record) => {
 		let targetMonth = record.monthIndex - monthGap
 		let targetYear = record.year
@@ -275,7 +328,8 @@ export const recalculateDeltas = (data: FinancialRecord[], timeFilter: TimeFilte
 			targetYear -= 1
 		}
 
-		const prevRecord = data.find((r) => r.cod === record.cod && r.group === record.group && r.monthIndex === targetMonth && r.year === targetYear)
+		const prevRecord = byKey.get(`${record.cod}\u0000${record.group}\u0000${targetYear}\u0000${targetMonth}`)
+		const hasPrevious = prevRecord !== undefined
 
 		const prevDiff = prevRecord ? prevRecord.difference : 0
 		const prevSiafi = prevRecord ? prevRecord.siafiValue : 0
@@ -284,10 +338,14 @@ export const recalculateDeltas = (data: FinancialRecord[], timeFilter: TimeFilte
 		const shortYear = targetYear.toString().slice(-2)
 		const prevDate = `${monthNames[targetMonth]}/${shortYear}`
 
-		const delta = record.difference - prevDiff
+		// Sem competência anterior carregada não existe variação a declarar. Antes
+		// o delta virava a própria diferença corrente — o registro subia no ranking
+		// de "maior aumento" por comparação com uma linha que não existe.
+		const delta = hasPrevious ? record.difference - prevDiff : 0
 
 		return {
 			...record,
+			hasPrevious,
 			previousDifference: prevDiff,
 			previousSiafiValue: prevSiafi,
 			previousSilomsValue: prevSiloms,
@@ -295,6 +353,101 @@ export const recalculateDeltas = (data: FinancialRecord[], timeFilter: TimeFilte
 			delta,
 		}
 	})
+}
+
+// --- PONTE COM O GRÃO PERSISTIDO (sucont.siloms_siafi_balance) ---
+
+/** Arredonda para centavos antes de comparar/gravar — a coluna é numeric(18,2). */
+export const round2 = (value: number) => Math.round((Number(value) || 0) * 100) / 100
+
+/**
+ * Converte a saída do parser (linha "larga", 3 grupos por linha) no grão longo que
+ * vai para o banco. A competência é normalizada aqui: o mesmo arquivo traz
+ * "JANEIRO/2024", "janeiro/2025" e células de data reais, e o banco só aceita
+ * o primeiro dia do mês.
+ */
+export const rawRowsToBalancePayload = (rows: RawInputRow[]): StoredBalanceRow[] => {
+	const out: StoredBalanceRow[] = []
+
+	for (const row of rows) {
+		if (!row) continue
+		const { sortableDate } = parseDateString(row.data)
+		if (!/^\d{4}-\d{2}$/.test(sortableDate) || sortableDate === "0000-00") continue
+
+		const ugCodigo = String(row.cod ?? "").trim()
+		if (!ugCodigo) continue
+		const ugNome = String(row.ug ?? "").trim() || null
+
+		const groups: Array<[AccountGroup, number, number]> = [
+			[AccountGroup.CONSUMO, row.g1_siafi, row.g1_siloms],
+			[AccountGroup.BMP, row.g2_siafi, row.g2_siloms],
+			[AccountGroup.INTANGIVEL, row.g3_siafi, row.g3_siloms],
+		]
+
+		for (const [accountGroup, siafi, siloms] of groups) {
+			out.push({
+				period: sortableDate,
+				ugCodigo,
+				ugNome,
+				accountGroup,
+				siafiValue: round2(siafi),
+				silomsValue: round2(siloms),
+			})
+		}
+	}
+
+	return out
+}
+
+/**
+ * Caminho inverso: remonta linhas "largas" a partir do que está no banco, para que
+ * o dashboard passe pelo MESMO `normalizeData` do upload. Duas rotas de
+ * normalização em paralelo divergiriam na primeira mudança.
+ */
+export const rawRowsFromStoredBalances = (rows: StoredBalanceRow[]): RawInputRow[] => {
+	const byRow = new Map<string, RawInputRow>()
+
+	for (const row of rows) {
+		const key = `${row.period}\u0000${row.ugCodigo}`
+		let target = byRow.get(key)
+		if (!target) {
+			target = {
+				data: row.period,
+				cod: row.ugCodigo,
+				ug: row.ugNome ?? row.ugCodigo,
+				g1_name: AccountGroup.CONSUMO,
+				g1_siafi: 0,
+				g1_siloms: 0,
+				g1_diff: 0,
+				g2_name: AccountGroup.BMP,
+				g2_siafi: 0,
+				g2_siloms: 0,
+				g2_diff: 0,
+				g3_name: AccountGroup.INTANGIVEL,
+				g3_siafi: 0,
+				g3_siloms: 0,
+				g3_diff: 0,
+			}
+			byRow.set(key, target)
+		}
+		if (row.ugNome) target.ug = row.ugNome
+
+		// g*_diff fica em 0 de propósito: `normalizeData` então recalcula
+		// abs(siafi - siloms). O banco também deriva a diferença; nenhum dos dois
+		// confia no número que veio na coluna DIF do arquivo.
+		if (row.accountGroup === AccountGroup.CONSUMO) {
+			target.g1_siafi = row.siafiValue
+			target.g1_siloms = row.silomsValue
+		} else if (row.accountGroup === AccountGroup.BMP) {
+			target.g2_siafi = row.siafiValue
+			target.g2_siloms = row.silomsValue
+		} else {
+			target.g3_siafi = row.siafiValue
+			target.g3_siloms = row.silomsValue
+		}
+	}
+
+	return [...byRow.values()].sort((a, b) => a.data.localeCompare(b.data) || a.cod.localeCompare(b.cod))
 }
 
 export const formatCurrency = (value: number) => {
@@ -340,6 +493,29 @@ const getAdministrationAgents = (group: string) => {
 	return "Dirigente Máximo, Ordenador de Despesas, Agente de Controle Interno, Gestor de Patrimônio e demais gestores envolvidos."
 }
 
+/** Distância em meses entre dois registros já normalizados (a > b ⇒ positivo). */
+const monthsApart = (a: { year: number; monthIndex: number }, b: { year: number; monthIndex: number }) => (a.year - b.year) * 12 + (a.monthIndex - b.monthIndex)
+
+/** Marcador único para "não dá para declarar variação" — some do texto como travessão. */
+const NO_VARIATION = "—"
+
+/**
+ * Variação percentual entre duas competências CONSECUTIVAS.
+ *
+ * Devolve o travessão quando (a) não há entrada anterior, (b) a entrada anterior
+ * não é o período imediatamente anterior — o relatório de origem tem competências
+ * em que uma UG simplesmente não aparece, e comparar através do buraco anunciaria
+ * como "variação do mês" um salto de vários meses — ou (c) a base anterior é zero,
+ * caso em que "+100%" é aritmeticamente vazio.
+ */
+const consecutiveVariation = (curr: FinancialRecord, prev: FinancialRecord | undefined, expectedGap = 1): string => {
+	if (!prev) return NO_VARIATION
+	if (monthsApart(curr, prev) !== expectedGap) return NO_VARIATION
+	if (prev.difference === 0) return NO_VARIATION
+	const v = ((curr.difference - prev.difference) / prev.difference) * 100
+	return `${v > 0 ? "+" : ""}${v.toFixed(2)}%`
+}
+
 const generateRankingMessage = (
 	record: FinancialRecord,
 	msgNumber: string,
@@ -364,13 +540,26 @@ const generateRankingMessage = (
 
 	const prevLabel = record.previousDate || "ANTERIOR"
 	const currLabel = toShortDate(record.date)
-	const increase = record.delta || 0
-	const variationLabel = increase > 0 ? "AUMENTO NO PERÍODO" : increase < 0 ? "DIMINUIÇÃO NO PERÍODO" : "VARIAÇÃO NO PERÍODO"
+
+	// `hasPrevious === false` ⇒ a competência anterior não está na base. Não é
+	// "divergência anterior de R$ 0,00": é ausência de dado. Declarar variação aqui
+	// era afirmar, numa MSG institucional, um aumento contra um mês nunca carregado.
+	const hasPrevious = record.hasPrevious === true
+	const increase = hasPrevious ? record.delta || 0 : 0
+	const variationLabel = !hasPrevious
+		? "SEM PERÍODO ANTERIOR"
+		: increase > 0
+			? "AUMENTO NO PERÍODO"
+			: increase < 0
+				? "DIMINUIÇÃO NO PERÍODO"
+				: "VARIAÇÃO NO PERÍODO"
 
 	const prevDiff = record.previousDifference || 0
 	const currDiff = record.difference
-	const pctVar = prevDiff !== 0 ? ((currDiff - prevDiff) / prevDiff) * 100 : currDiff > 0 ? 100 : 0
-	const pctStr = `${pctVar > 0 ? "+" : ""}${pctVar.toFixed(2)}%`
+	const pctStr =
+		!hasPrevious || prevDiff === 0
+			? NO_VARIATION
+			: `${((currDiff - prevDiff) / prevDiff) * 100 > 0 ? "+" : ""}${(((currDiff - prevDiff) / prevDiff) * 100).toFixed(2)}%`
 
 	const fmt = (val: number) => val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(15, " ")
 	const padDate = (d: string) => d.padEnd(10, " ")
@@ -406,22 +595,21 @@ const generateRankingMessage = (
 			const s = fmt(h.siafiValue)
 			const m = fmt(h.silomsValue)
 			const diff = fmt(h.difference)
-
-			let vStr = "-"
-			if (idx > 0) {
-				const prevVal = relevantHistory[idx - 1].difference
-				const currVal = h.difference
-				const v = prevVal !== 0 ? ((currVal - prevVal) / prevVal) * 100 : currVal > 0 ? 100 : 0
-				vStr = `${v > 0 ? "+" : ""}${v.toFixed(2)}%`
-			}
-			const v = fmtPct(vStr)
+			// Gap 1 (o default), não o passo do filtro de período: `history` é sempre
+			// MENSAL — `handleOpenMessage` monta a série mês a mês da UG — e o cabeçalho
+			// desta coluna diz "VAR. EM RELAÇÃO AO MÊS ANTERIOR". Passar 3/6/12 aqui
+			// fazia toda a tabela imprimir travessão em TRIMESTRAL/SEMESTRAL/ANUAL.
+			const v = fmtPct(consecutiveVariation(h, idx > 0 ? relevantHistory[idx - 1] : undefined))
 			return `${padDate(d)} | ${s} | ${m} | ${diff} | ${v}`
 		})
 		table = `${headerRow}\n${rows.join("\n")}`
 	} else {
-		const prevRow = `${padDate(prevLabel)} | ${fmt(record.previousSiafiValue || 0)} | ${fmt(record.previousSilomsValue || 0)} | ${fmt(record.previousDifference || 0)} | ${fmtPct("-")}`
 		const currRow = `${padDate(currLabel)} | ${fmt(record.siafiValue)} | ${fmt(record.silomsValue)} | ${fmt(record.difference)} | ${fmtPct(pctStr)}`
-		table = `${headerRow}\n${prevRow}\n${currRow}`
+		// Sem competência anterior não se imprime uma linha de zeros: ela seria lida
+		// como "no mês passado estava conciliado", que é o oposto do que se sabe.
+		table = hasPrevious
+			? `${headerRow}\n${padDate(prevLabel)} | ${fmt(record.previousSiafiValue || 0)} | ${fmt(record.previousSilomsValue || 0)} | ${fmt(record.previousDifference || 0)} | ${fmtPct(NO_VARIATION)}\n${currRow}`
+			: `${headerRow}\n${currRow}\n\n(Competência anterior — ${prevLabel} — não consta na base carregada; não há variação a declarar.)`
 	}
 
 	if (increase < 0) {
@@ -475,7 +663,7 @@ EVOLUÇÃO ${scopeUpper} DO SALDO E DIVERGÊNCIA (SIAFI X SILOMS)
 ----------------------------------------------------------------------------------------------------------------------------------
 ${table}
 ----------------------------------------------------------------------------------------------------------------------------------
-${variationLabel.padEnd(21)}:   ${formatCurrency(increase)} (${pctStr})
+${variationLabel.padEnd(21)}:   ${hasPrevious ? `${formatCurrency(increase)} (${pctStr})` : `não há competência anterior (${prevLabel}) na base carregada`}
 ----------------------------------------------------------------------------------------------------------------------------------
 
 SISTEMA PREPONDERANTE (MAIOR SALDO): ${preponderantSystem}
@@ -571,14 +759,7 @@ ${sortedHistory
 		const m = h.silomsValue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(15, " ")
 		const diff = h.difference.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(15, " ")
 
-		let vStr = "-"
-		if (idx > 0) {
-			const prev = sortedHistory[idx - 1].difference
-			const curr = h.difference
-			const v = prev !== 0 ? ((curr - prev) / prev) * 100 : curr > 0 ? 100 : 0
-			vStr = `${v > 0 ? "+" : ""}${v.toFixed(2)}%`
-		}
-		const v = vStr.padStart(10, " ")
+		const v = consecutiveVariation(h, idx > 0 ? sortedHistory[idx - 1] : undefined).padStart(10, " ")
 
 		return `${d.padEnd(10)} | ${s} | ${m} | ${diff} | ${v}`
 	})
@@ -633,3 +814,40 @@ export const generateMessage = (
 
 export const generateSiafiMessageText = (record: FinancialRecord, msgNumber: string, deadline: string, history?: FinancialRecord[]) =>
 	generateHeatmapMessage(record, msgNumber, deadline, history || [])
+
+/**
+ * Reescreve o número da MSG num corpo já redigido.
+ *
+ * O gerador emite `MSG NR <n>/SUCONT-4/<data>`, mas o número real só existe depois
+ * do insert — vem da sequência do banco. Substituir aqui garante que o texto
+ * gravado seja o mesmo texto que o operador copia; se divergissem, o registro
+ * deixaria de servir como prova do que foi enviado.
+ */
+export const applyMessageNumber = (corpo: string, messageNumber: number): string => {
+	const pattern = /MSG NR\s+\S*?\/SUCONT-4\//
+	if (!pattern.test(corpo)) return corpo
+	return corpo.replace(pattern, `MSG NR ${messageNumber}/SUCONT-4/`)
+}
+
+/** Chave do grão persistido: competência + UG + grupo de contas. */
+export const balanceGrainKey = (period: string, ugCodigo: string, accountGroup: string) => `${period}|${ugCodigo}|${accountGroup}`
+
+/**
+ * Colapsa grãos repetidos dentro do mesmo arquivo, mantendo a última ocorrência.
+ *
+ * `parseExcelFile` substitui UG sem código por "000000" (linha de total/subtotal do
+ * relatório). Dois desses na mesma competência põem o mesmo alvo de conflito duas
+ * vezes no upsert, e o Postgres aborta o lote inteiro com 21000 "ON CONFLICT DO
+ * UPDATE command cannot affect row a second time" — o upload morre com mensagem de
+ * driver, sem nada gravado.
+ */
+export const dedupeBalanceGrain = <T extends { period: string; ugCodigo: string; accountGroup: string }>(rows: T[]): { rows: T[]; duplicates: number } => {
+	const byGrain = new Map<string, T>()
+	let duplicates = 0
+	for (const row of rows) {
+		const key = balanceGrainKey(row.period, row.ugCodigo, row.accountGroup)
+		if (byGrain.has(key)) duplicates++
+		byGrain.set(key, row)
+	}
+	return { rows: [...byGrain.values()], duplicates }
+}
