@@ -124,7 +124,7 @@ describe("server function auth contract", () => {
 		expect(late, "o client de DB é obtido antes do guard — inverta a ordem").toEqual([])
 	})
 
-	test("os proxies de sync exigem global nível 2 (carregam o ADMIN_SECRET do servidor)", () => {
+	test("os proxies de sync exigem admin nível 2 (carregam o ADMIN_SECRET do servidor)", () => {
 		const syncFns = allServerFns.filter((fn) => fn.file === "compras-sync.fn.ts" || fn.file === "nutrition-sync.fn.ts")
 
 		expect(syncFns.length).toBeGreaterThan(0)
@@ -133,7 +133,7 @@ describe("server function auth contract", () => {
 		}
 		for (const file of ["compras-sync.fn.ts", "nutrition-sync.fn.ts"]) {
 			const source = readFileSync(join(serverDir, file), "utf8")
-			expect(source).toContain('requireAuthWithPermission("global", 2)')
+			expect(source).toContain('requireAuthWithPermission("admin", 2)')
 		}
 	})
 
