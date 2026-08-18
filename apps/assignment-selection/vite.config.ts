@@ -17,9 +17,27 @@ export default defineConfig(() => ({
 			preset: "bun",
 			compressPublicAssets: true,
 			routeRules: {
-				"/**": { headers: { "cache-control": "no-cache" } },
+				"/**": {
+					headers: {
+						"cache-control": "no-cache",
+						"x-content-type-options": "nosniff",
+						"x-frame-options": "SAMEORIGIN",
+						"referrer-policy": "strict-origin-when-cross-origin",
+						"permissions-policy": "camera=(), microphone=(), geolocation=()",
+						"strict-transport-security": "max-age=31536000; includeSubDomains",
+					},
+				},
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-				"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
+				"/assets/styles.css": {
+					headers: {
+						"cache-control": "no-cache",
+						"x-content-type-options": "nosniff",
+						"x-frame-options": "SAMEORIGIN",
+						"referrer-policy": "strict-origin-when-cross-origin",
+						"permissions-policy": "camera=(), microphone=(), geolocation=()",
+						"strict-transport-security": "max-age=31536000; includeSubDomains",
+					},
+				},
 				// Fotos e brasões do telão: sem isso saem como `no-cache` e revalidam a
 				// cada exibição, ou seja, ida à rede no instante da revelação. Um dia de
 				// cache cobre a sessão inteira; `immutable` não serve porque os arquivos
