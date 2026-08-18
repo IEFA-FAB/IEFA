@@ -151,6 +151,7 @@ jobs:
       needs.changes.outputs.sisub == 'true' ||
       needs.changes.outputs.forms == 'true' ||
       needs.changes.outputs.docs == 'true' ||
+      needs.changes.outputs.alpha == 'true' ||
       needs.changes.outputs['5s'] == 'true' ||
       needs.changes.outputs.mcp == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -786,9 +787,15 @@ jobs:
   #
   # O que estava suspenso era só isto aqui: o alvo do Docker (`alpha`), o target do
   # bake, o filtro de paths e o stack em infra/alpha sempre existiram. Por isso
-  # `alpha.iefa.com.br` responde 503 e não 404 — o registro Route53, a regra do
-  # listener e o target group estão aplicados; o que falta é task saudável no
-  # target group. Host que não existe no ALB responde 404 "No matching service.".
+  # `alpha.iefa.com.br` responde 503 e não 404 — o CNAME, a regra do listener e o
+  # target group estão de pé; o que falta é task saudável no target group. Host que
+  # o ALB não conhece responde 404 "No matching service.".
+  #
+  # O DNS NÃO é Route53: a zona é delegada ao Registro.br (NS d.sec.dns.br /
+  # e.sec.dns.br), e `route53_zone_id` fica vazio, então o `aws_route53_record` do
+  # módulo não cria nada. Hostname de serviço novo é um CNAME adicionado à mão no
+  # painel do Registro.br apontando para o DNS do ALB — mesmo caminho das CNAMEs de
+  # validação do certificado (infra/foundation/acm.tf).
   #
   # O serviço não sobe sem os secrets do runtime, que ficam no Secrets Manager
   # (modelo em infra/alpha/secrets/alpha.example.json) e são publicados por
