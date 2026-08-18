@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, unwrapPgError } from "./drizzle.ts"
+import { runQuery, toNumeric, unwrapPgError } from "./drizzle.ts"
 
 /**
  * Réplica do erro que o drizzle 0.45 lança: a `message` é SÓ o SQL, e o motivo real
@@ -100,5 +100,53 @@ describe("unwrapPgError", () => {
 		a.cause = b
 		b.cause = a
 		expect(unwrapPgError(a).code).toBeUndefined()
+	})
+})
+
+/**
+ * `numeric` do Postgres chega como STRING no driver, e o contrato gerado do Supabase
+ * declara `number`. Ninguém desmentia a divergência: o TypeScript ficava calado e o
+ * runtime entregava `"3.000"`. Foi assim que o formulário da ficha técnica passou a
+ * acusar "Invalid input" em campo salvo e nunca tocado — o `z.number()` do validador
+ * reprovava a linha antes de o usuário digitar.
+ */
+describe("toNumeric", () => {
+	const KEYS = new Set(["net_quantity", "correction_factor"])
+
+	// A linha do banco chega sem tipo útil (o driver não sabe o que é `numeric`), então o
+	// teste espelha isso: `Record<string, unknown>` em vez de um literal, cujo tipo inferido
+	// diria `net_quantity: string` e brigaria com o número esperado.
+	const row = (value: Record<string, unknown>): Record<string, unknown> => toNumeric(value, KEYS)
+
+	test("converte a chave declarada, deixa as outras em paz", () => {
+		expect(row({ net_quantity: "3.000", name: "Arroz", rational_id: "0042" })).toEqual({
+			net_quantity: 3,
+			name: "Arroz",
+			rational_id: "0042",
+		})
+	})
+
+	test("desce em arrays e objetos aninhados — os ingredientes vêm dentro da receita", () => {
+		expect(row({ ingredients: [{ net_quantity: "0.150" }, { net_quantity: "2" }] })).toEqual({
+			ingredients: [{ net_quantity: 0.15 }, { net_quantity: 2 }],
+		})
+	})
+
+	test("null da coluna anulável continua null", () => {
+		expect(row({ correction_factor: null })).toEqual({ correction_factor: null })
+	})
+
+	test("número já convertido passa intacto", () => {
+		expect(row({ net_quantity: 3 })).toEqual({ net_quantity: 3 })
+	})
+
+	test("string não numérica NÃO vira NaN — trocaria um erro visível por um silencioso", () => {
+		expect(row({ net_quantity: "três" })).toEqual({ net_quantity: "três" })
+		expect(row({ net_quantity: "" })).toEqual({ net_quantity: "" })
+	})
+
+	test("Date não é desmontado em objeto de propriedades", () => {
+		const date = new Date("2026-08-18T00:00:00.000Z")
+		expect(row({ created_at: date }).created_at).toBe(date)
 	})
 })

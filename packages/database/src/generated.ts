@@ -4379,6 +4379,7 @@ export type Database = {
 			}
 			folder: {
 				Row: {
+					catalog_scope: string
 					created_at: string
 					deleted_at: string | null
 					description: string | null
@@ -4387,6 +4388,7 @@ export type Database = {
 					parent_id: string | null
 				}
 				Insert: {
+					catalog_scope?: string
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
@@ -4395,6 +4397,7 @@ export type Database = {
 					parent_id?: string | null
 				}
 				Update: {
+					catalog_scope?: string
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null

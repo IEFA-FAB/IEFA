@@ -1,4 +1,4 @@
-import type { Recipe, RecipeIngredient } from "@iefa/database/sisub"
+import type { FrozenPreparation, Recipe, RecipeIngredient } from "@iefa/database/sisub"
 import type { Ingredient } from "./ingredients"
 
 // Extended recipe with ingredients (Query Result)
@@ -9,6 +9,13 @@ export interface RecipeWithIngredients extends Recipe {
 // Recipe ingredient with ingredient details
 export interface RecipeIngredientWithIngredient extends RecipeIngredient {
 	ingredient: Ingredient | null
+	/**
+	 * Origem alternativa da linha: preparação congelada em vez de insumo cru (o CHECK
+	 * `recipe_ingredients_source_xor` garante que só uma das duas está preenchida). O
+	 * servidor sempre mandou este campo (`RecipeIngredientWire` no domínio) — faltava
+	 * declará-lo aqui, e a ficha impressa não tinha como nomear a linha.
+	 */
+	frozen_preparation?: FrozenPreparation | null
 }
 
 export interface RecipeFormIngredient {

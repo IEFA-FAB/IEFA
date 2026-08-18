@@ -51,6 +51,7 @@ export type {
 	VersionActor,
 } from "./ingredients.ts"
 export {
+	CatalogScopeSchema,
 	CreateFolderSchema,
 	CreateIngredientItemSchema,
 	CreateIngredientSchema,

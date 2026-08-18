@@ -37,11 +37,17 @@ interface IngredientFormProps {
 	mode: "create" | "edit"
 	ingredient?: Ingredient
 	defaultFolderId?: string | null
+	/**
+	 * Aba de origem — recorta as pastas oferecidas no combo. Sem isto, criar um item
+	 * pela aba "Itens auxiliares" ofereceria as 139 pastas de gêneros junto, e a
+	 * escolha errada faz o item nascer na aba oposta à que o usuário está olhando.
+	 */
+	catalog?: "exclude" | "only"
 }
 
-export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolderId }: IngredientFormProps) {
+export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolderId, catalog = "exclude" }: IngredientFormProps) {
 	const queryClient = useQueryClient()
-	const { folders } = useFolders()
+	const { folders } = useFolders(catalog)
 	const { createIngredient, isCreating } = useCreateIngredient()
 	const { updateIngredient, isUpdating } = useUpdateIngredient()
 	const [folderOpen, setFolderOpen] = useState(false)

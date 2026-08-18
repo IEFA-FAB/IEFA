@@ -1800,6 +1800,9 @@ export const folderInKitchen = kitchen.table("folder", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	description: text(),
 	legacyId: integer("legacy_id"),
+	// 'alimentacao' | 'auxiliar'. Recorte das abas de /global/ingredients — ver
+	// operations/catalog-scope.ts. Herdado do pai por trigger.
+	catalogScope: text("catalog_scope").default('alimentacao').notNull(),
 }, (table) => [
 	index("folder_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
 	index("folder_deleted_at_idx").using("btree", table.deletedAt.asc().nullsLast().op("timestamptz_ops")),

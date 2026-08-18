@@ -6,6 +6,7 @@
  */
 
 import {
+	CatalogScopeSchema,
 	CreateFolderSchema,
 	CreateIngredientItemSchema,
 	CreateIngredientSchema,
@@ -351,20 +352,23 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
  * IngredientsService). Consolidar em 1 fn: 1 requireAuth, 1 conexão, payload único.
  */
 export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
-	.validator(z.object({ includeDeleted: z.boolean().optional(), preparations: PreparationScopeSchema.optional() }))
+	.validator(z.object({ includeDeleted: z.boolean().optional(), preparations: PreparationScopeSchema.optional(), catalog: CatalogScopeSchema.optional() }))
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const db = getDb()
 		const includeDeleted = data.includeDeleted ?? false
 		// Omitido ⇒ "exclude": a árvore de insumos não traz as preparações do SISUBWEB.
 		const preparations = data.preparations
-		// As duas abas são árvores de origens diferentes: insumo se organiza em
-		// `kitchen.folder`, preparação em `kitchen.preparation_group`. `listPreparationGroups`
-		// devolve no formato de Folder de propósito, para o cliente reusar a mesma árvore.
-		const listGroups = preparations === "only" ? listPreparationGroups : listFolders
+		// Gêneros × itens auxiliares (EPI, limpeza, embalagem…). Omitido ⇒ os dois juntos:
+		// o recorte é das abas desta tela, não do seletor da ficha técnica. Ver catalog-scope.ts.
+		const catalog = data.catalog
+		// As abas são árvores de origens diferentes: insumo e item auxiliar se organizam em
+		// `kitchen.folder` (recortados por `catalog_scope`), preparação do SISUBWEB em
+		// `kitchen.preparation_group`. `listPreparationGroups` devolve no formato de Folder de
+		// propósito, para o cliente reusar a mesma árvore — e não conhece escopo de catálogo.
 		const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
-			listGroups(db, ctx, { includeDeleted }),
-			listIngredients(db, ctx, { includeDeleted, preparations }),
+			preparations === "only" ? listPreparationGroups(db, ctx, { includeDeleted }) : listFolders(db, ctx, { includeDeleted, catalog }),
+			listIngredients(db, ctx, { includeDeleted, preparations, catalog }),
 			// Itens de compra/produto sempre ativos: contagem de badges não infla com excluídos.
 			listIngredientItems(db, ctx, {}),
 			// Última revisão por insumo (data exibida na árvore p/ acompanhar a conferência).
