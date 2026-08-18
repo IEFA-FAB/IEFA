@@ -55,7 +55,12 @@ begin
 		(v_policy_id, 'kitchen',            2, null,        v_kitchen_id, null),
 		(v_policy_id, 'kitchen-production', 2, null,        v_kitchen_id, null),
 		(v_policy_id, 'messhall',           2, null,        null,         v_mess_hall_id),
-		-- Leitura na SDAB e na análise sistêmica, sem escopo.
+		-- Leitura no catálogo global, na administração de plataforma e na análise sistêmica,
+		-- sem escopo. `admin:1` foi adicionado quando o módulo `global` (SDAB) foi dividido em
+		-- `global` (catálogo) + `admin` (plataforma) — sem ele, um reseed do ambiente de treino
+		-- (este seed faz delete+reinsert) tiraria o acesso do treinando a /admin/training, que o
+		-- backfill do split (20260818190949) havia concedido espelhando este `global:1`.
 		(v_policy_id, 'global',             1, null,        null,         null),
+		(v_policy_id, 'admin',              1, null,        null,         null),
 		(v_policy_id, 'analytics',          1, null,        null,         null);
 end $$;

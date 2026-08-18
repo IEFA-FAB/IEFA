@@ -20,13 +20,7 @@ const REPO_ROOT = join(import.meta.dir, "..")
 
 const SSR_APPS = ["sisub", "portal", "rumaer", "forms", "assignment-selection"] as const
 
-const REQUIRED_HEADERS = [
-	"strict-transport-security",
-	"x-frame-options",
-	"x-content-type-options",
-	"referrer-policy",
-	"permissions-policy",
-] as const
+const REQUIRED_HEADERS = ["strict-transport-security", "x-frame-options", "x-content-type-options", "referrer-policy", "permissions-policy"] as const
 
 /**
  * Extrai o corpo `{...}` da route rule `/**` por casamento de chaves a partir da
@@ -75,10 +69,7 @@ for (const app of SSR_APPS) {
 if (failures.length > 0) {
 	console.error("✗ Baseline de headers de segurança violada:\n")
 	for (const f of failures) console.error(`  - ${f}`)
-	console.error(
-		'\nAdicione os headers na route rule `"/**": { headers: { ... } }` do Nitro.\n' +
-			"Referência: qualquer um dos apps já conformes.",
-	)
+	console.error('\nAdicione os headers na route rule `"/**": { headers: { ... } }` do Nitro.\n' + "Referência: qualquer um dos apps já conformes.")
 	process.exit(1)
 }
 
