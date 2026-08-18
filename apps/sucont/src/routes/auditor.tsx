@@ -1,6 +1,8 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Activity, AlertTriangle, ArrowLeft, Database, FileSpreadsheet, Layers, LayoutDashboard, Moon, Sun, UploadCloud } from "lucide-react"
+import { Activity, AlertTriangle, ArrowLeft, Database, FileSpreadsheet, Layers, LayoutDashboard, Loader2, Moon, Sun, UploadCloud } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { ChartWrapper } from "#/auditor/components/ChartWrapper"
 import { CustomSelect } from "#/auditor/components/CustomSelect"
@@ -10,17 +12,61 @@ import { RankingList } from "#/auditor/components/RankingList"
 import { SiafiMessageModal } from "#/auditor/components/SiafiMessageModal"
 import { StatCard } from "#/auditor/components/StatCard"
 import { TemporalHeatmap } from "#/auditor/components/TemporalHeatmap"
-import { applyRiskClassification, formatCurrency, normalizeData, parseDateString, recalculateDeltas, toShortDate } from "#/auditor/services/dataProcessor"
+import {
+	applyRiskClassification,
+	formatCurrency,
+	normalizeData,
+	parseDateString,
+	rawRowsFromStoredBalances,
+	rawRowsToBalancePayload,
+	recalculateDeltas,
+	toShortDate,
+} from "#/auditor/services/dataProcessor"
 import { parseExcelFile } from "#/auditor/services/excelParser"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
+import { type BalanceConflict, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
 	component: AuditorPage,
 })
 
+const balancesQueryKey = ["sucont", "auditor", "balances"] as const
+
+/** Lote de gravação. Acima disso o corpo do POST fica grande demais para um request só. */
+const UPLOAD_CHUNK = 2000
+
+interface PersistOutcome {
+	ok: boolean
+	filename: string
+	inserted: number
+	unchanged: number
+	changed: number
+	conflicts: BalanceConflict[]
+	conflictsTruncated: boolean
+	error?: string
+}
+
 function AuditorPage() {
-	const [rawData, setRawData] = useState<RawInputRow[]>([])
+	const queryClient = useQueryClient()
+
+	// Fonte de verdade é o banco. `localRows` só existe como rede de segurança:
+	// se a gravação falhar (sem nível 2, banco fora), o operador ainda enxerga o
+	// arquivo que acabou de subir — com aviso de que aquilo não foi persistido.
+	const [localRows, setLocalRows] = useState<RawInputRow[]>([])
+	const [persistOutcome, setPersistOutcome] = useState<PersistOutcome | null>(null)
+
+	const {
+		data: storedBalances = [],
+		isLoading: loadingStored,
+		// Sem `error` a tela cairia no estado vazio e AFIRMARIA que não há competência
+		// na base quando na verdade a leitura falhou — a mentira mais cara possível
+		// numa ferramenta de conciliação.
+		error: storedError,
+	} = useQuery({
+		queryKey: balancesQueryKey,
+		queryFn: () => loadAuditorBalancesFn({ data: {} }),
+	})
 
 	// UI State
 	const [selectedGroup, setSelectedGroup] = useState<string>("ALL")
@@ -51,12 +97,15 @@ function AuditorPage() {
 		}
 	}, [isDarkMode])
 
-	// 1. Process data
+	// 1. Process data — do banco quando há série persistida; do arquivo em memória
+	// só enquanto a gravação não confirmou. Uma normalização só, nos dois casos.
+	const sourceRows = useMemo(() => (localRows.length > 0 ? localRows : rawRowsFromStoredBalances(storedBalances)), [localRows, storedBalances])
+
 	const allData = useMemo(() => {
-		const normalized = normalizeData(rawData)
+		const normalized = normalizeData(sourceRows)
 		const withDeltas = recalculateDeltas(normalized, timeFilter)
 		return applyRiskClassification(withDeltas)
-	}, [rawData, timeFilter])
+	}, [sourceRows, timeFilter])
 
 	// 2. Extract dropdown lists
 	const uniqueMonths = useMemo(() => {
@@ -236,17 +285,83 @@ function AuditorPage() {
 	}, [kpiData, selectedMonth, timeFilter])
 
 	// Handlers
-	const handleFileUpload = async (file: File) => {
-		try {
+	const uploadMutation = useMutation({
+		mutationFn: async (file: File) => {
 			const parsed = await parseExcelFile(file)
-			if (parsed.length > 0) {
-				setRawData(parsed)
-			} else {
-				alert("Arquivo vazio ou formato não reconhecido.")
+			if (parsed.length === 0) throw new Error("Arquivo vazio ou formato não reconhecido.")
+
+			// Mostra o arquivo imediatamente; se a gravação passar, o banco assume.
+			setLocalRows(parsed)
+
+			const payload = rawRowsToBalancePayload(parsed)
+			if (payload.length === 0) throw new Error("Nenhuma competência reconhecida no arquivo.")
+
+			const periods = [...new Set(payload.map((r) => r.period))].sort()
+			const { runId } = await startAuditorRunFn({
+				data: {
+					filename: file.name,
+					recordsCount: payload.length,
+					periodLabel: `${periods[0]} a ${periods[periods.length - 1]}`,
+					summary: {
+						periods: periods.length,
+						ugs: new Set(payload.map((r) => r.ugCodigo)).size,
+						sheetRows: parsed.length,
+					},
+				},
+			})
+
+			const outcome: PersistOutcome = {
+				ok: true,
+				filename: file.name,
+				inserted: 0,
+				unchanged: 0,
+				changed: 0,
+				conflicts: [],
+				conflictsTruncated: false,
 			}
-		} catch (_e) {
-			alert("Erro crítico ao processar arquivo. Verifique se é um Excel válido.")
-		}
+
+			for (let i = 0; i < payload.length; i += UPLOAD_CHUNK) {
+				const result = await saveAuditorBalancesFn({ data: { runId, rows: payload.slice(i, i + UPLOAD_CHUNK) } })
+				outcome.inserted += result.inserted
+				outcome.unchanged += result.unchanged
+				outcome.changed += result.changed
+				outcome.conflictsTruncated = outcome.conflictsTruncated || result.conflictsTruncated
+				for (const conflict of result.conflicts) {
+					if (outcome.conflicts.length < 200) outcome.conflicts.push(conflict)
+					else outcome.conflictsTruncated = true
+				}
+			}
+
+			return outcome
+		},
+		onSuccess: async (outcome) => {
+			setPersistOutcome(outcome)
+			// O banco passa a ser a fonte; o recorte local sai de cena.
+			setLocalRows([])
+			await queryClient.invalidateQueries({ queryKey: balancesQueryKey })
+			toast.success(`${outcome.inserted} saldos novos, ${outcome.unchanged} sem mudança, ${outcome.changed} alterados`)
+		},
+		onError: (e, file) => {
+			const error = e instanceof Error ? e.message : "Falha ao gravar"
+			// `localRows` continua preenchido de propósito: sem persistir, a análise
+			// ainda acontece na tela, mas o aviso deixa claro que nada foi gravado.
+			setPersistOutcome({
+				ok: false,
+				filename: file.name,
+				inserted: 0,
+				unchanged: 0,
+				changed: 0,
+				conflicts: [],
+				conflictsTruncated: false,
+				error,
+			})
+			toast.error(`Não gravado: ${error}`)
+		},
+	})
+
+	const handleFileUpload = async (file: File) => {
+		setPersistOutcome(null)
+		uploadMutation.mutate(file)
 	}
 
 	const handleOpenMessage = (record: FinancialRecord, context: "RANKING" | "HEATMAP" = "HEATMAP") => {
@@ -362,22 +477,97 @@ function AuditorPage() {
 			</nav>
 
 			<main className="max-w-[1800px] mx-auto px-4 sm:px-6 space-y-6">
+				{/* RESULTADO DA GRAVAÇÃO */}
+				{persistOutcome && (
+					<div
+						className={`mt-6 rounded-lg border p-4 text-sm ${
+							persistOutcome.ok
+								? isDarkMode
+									? "border-slate-700 bg-slate-800/60 text-slate-300"
+									: "border-slate-200 bg-white text-slate-700"
+								: isDarkMode
+									? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+									: "border-amber-300 bg-amber-50 text-amber-800"
+						}`}
+					>
+						<div className="flex items-start justify-between gap-4">
+							<div className="space-y-1">
+								<p className="font-bold">
+									{persistOutcome.ok ? "Série gravada" : "Análise não gravada"}
+									<span className="font-normal text-slate-500 dark:text-slate-400"> · {persistOutcome.filename}</span>
+								</p>
+								{persistOutcome.ok ? (
+									<p>
+										{persistOutcome.inserted} saldos novos · {persistOutcome.unchanged} sem alteração · {persistOutcome.changed} com valor diferente do que já
+										estava no banco
+									</p>
+								) : (
+									<p>{persistOutcome.error} — os números abaixo vêm do arquivo em memória e serão perdidos ao recarregar a página.</p>
+								)}
+							</div>
+							<button
+								type="button"
+								onClick={() => setPersistOutcome(null)}
+								className="text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+							>
+								Fechar
+							</button>
+						</div>
+
+						{persistOutcome.conflicts.length > 0 && (
+							<details className="mt-3">
+								<summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">
+									Competências que já existiam com outro valor ({persistOutcome.changed}
+									{persistOutcome.conflictsTruncated ? ", listando as primeiras" : ""})
+								</summary>
+								<div className="mt-2 max-h-64 overflow-y-auto font-mono text-xs">
+									{persistOutcome.conflicts.map((c) => (
+										<div key={`${c.period}-${c.ugCodigo}-${c.accountGroup}`} className="py-0.5">
+											{c.period} · {c.ugCodigo} · {c.accountGroup}: SIAFI {formatCurrency(c.previous.siafiValue)} → {formatCurrency(c.next.siafiValue)} · SILOMS{" "}
+											{formatCurrency(c.previous.silomsValue)} → {formatCurrency(c.next.silomsValue)}
+										</div>
+									))}
+								</div>
+							</details>
+						)}
+					</div>
+				)}
+
+				{/* FALHA DE LEITURA — distinta do estado vazio */}
+				{storedError && localRows.length === 0 && (
+					<div
+						className={`mt-6 rounded-lg border p-4 text-sm ${
+							isDarkMode ? "border-red-500/40 bg-red-500/10 text-red-200" : "border-red-300 bg-red-50 text-red-800"
+						}`}
+					>
+						<p className="font-bold">Não foi possível ler a série gravada</p>
+						<p className="mt-1">{storedError instanceof Error ? storedError.message : "Erro desconhecido"} — a tela abaixo NÃO reflete o que está no banco.</p>
+					</div>
+				)}
+
 				{/* EMPTY STATE */}
-				{allData.length === 0 && (
+				{allData.length === 0 && loadingStored && (
+					<div className="flex items-center justify-center gap-3 py-20 text-slate-500">
+						<Loader2 className="w-5 h-5 animate-spin" />
+						Carregando série persistida…
+					</div>
+				)}
+
+				{allData.length === 0 && !loadingStored && !storedError && (
 					<div
 						className={`flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-lg mt-8
              ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-300 bg-white"}
           `}
 					>
 						<FileSpreadsheet className={`w-16 h-16 mb-4 ${isDarkMode ? "text-slate-600" : "text-slate-400"}`} />
-						<h2 className={`text-xl font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>Nenhum dado carregado</h2>
-						<p className="text-slate-500 mb-6">Importe uma planilha para começar a auditoria.</p>
+						<h2 className={`text-xl font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>Nenhuma competência na base</h2>
+						<p className="text-slate-500 mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
 						<button
 							type="button"
 							onClick={() => setIsUploadModalOpen(true)}
 							className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors"
 						>
-							Carregar Arquivo .XLSX
+							{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
 						</button>
 					</div>
 				)}

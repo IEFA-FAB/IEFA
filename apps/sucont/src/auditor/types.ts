@@ -50,7 +50,18 @@ export interface FinancialRecord {
 	previousSiafiValue?: number
 	previousSilomsValue?: number
 	previousDate?: string
-	delta?: number // Current - Previous
+	delta?: number // Current - Previous; 0 quando não há período anterior (ver hasPrevious)
+
+	/**
+	 * O período anterior existe DE FATO na base carregada?
+	 *
+	 * Sem isso, "não há competência anterior" e "a competência anterior existe e
+	 * a divergência era zero" ficam indistinguíveis: os dois produzem
+	 * previousDifference = 0. O primeiro mês de qualquer recorte caía nesse buraco
+	 * e a MSG institucional afirmava "AUMENTO NO PERÍODO (+100,00%)" contra uma
+	 * linha de zeros que nunca foi carregada.
+	 */
+	hasPrevious?: boolean
 
 	// Analysis field: Which system is higher?
 	preponderance: "SIAFI" | "SILOMS" | "EQUAL"
@@ -79,4 +90,14 @@ export interface RawInputRow {
 	g3_siafi: number
 	g3_siloms: number
 	g3_diff: number
+}
+
+/** Saldo persistido em `sucont.siloms_siafi_balance`, no formato que o dashboard consome. */
+export interface StoredBalanceRow {
+	period: string // YYYY-MM
+	ugCodigo: string
+	ugNome: string | null
+	accountGroup: AccountGroup
+	siafiValue: number
+	silomsValue: number
 }

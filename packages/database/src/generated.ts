@@ -8131,6 +8131,57 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			siloms_siafi_balance: {
+				Row: {
+					account_group: string
+					created_at: string
+					created_by: string | null
+					difference: number | null
+					id: string
+					period: string
+					siafi_value: number
+					siloms_value: number
+					source_run_id: string | null
+					ug_codigo: string
+					ug_nome: string | null
+					updated_at: string
+				}
+				Insert: {
+					account_group: string
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					period: string
+					siafi_value?: number
+					siloms_value?: number
+					source_run_id?: string | null
+					ug_codigo: string
+					ug_nome?: string | null
+					updated_at?: string
+				}
+				Update: {
+					account_group?: string
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					period?: string
+					siafi_value?: number
+					siloms_value?: number
+					source_run_id?: string | null
+					ug_codigo?: string
+					ug_nome?: string | null
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "siloms_siafi_balance_source_run_id_fkey"
+						columns: ["source_run_id"]
+						isOneToOne: false
+						referencedRelation: "analysis_run"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			unidade_gestora: {
 				Row: {
 					codigo: string
