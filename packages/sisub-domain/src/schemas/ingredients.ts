@@ -175,20 +175,7 @@ export const SetIngredientNutritionReferenceSchema = z.object({
 })
 export type SetIngredientNutritionReference = z.infer<typeof SetIngredientNutritionReferenceSchema>
 
-// ── Substituições de insumo (vivem NO insumo, direcionais) ───────────────────
-
-export const ListIngredientSubstitutionsSchema = z.object({ ingredientId: UuidSchema })
-export type ListIngredientSubstitutions = z.infer<typeof ListIngredientSubstitutionsSchema>
-
-/** Replace-all: o conjunto enviado passa a ser a lista completa de substitutos do insumo. */
-export const SetIngredientSubstitutionsSchema = z.object({
-	ingredientId: UuidSchema,
-	substitutions: z.array(
-		z.object({
-			substituteIngredientId: UuidSchema,
-			// Fator opcional — omitido = 1 (o substituto usa a mesma quantidade líquida).
-			factor: z.number().positive().optional(),
-		})
-	),
-})
-export type SetIngredientSubstitutions = z.infer<typeof SetIngredientSubstitutionsSchema>
+// Substituição NÃO mora mais aqui: voltou a ser decisão da linha da ficha técnica
+// (`RecipeIngredientAlternativeSchema` em schemas/recipes.ts). O par global insumo →
+// substituto não tinha onde guardar a gramatura da substituta, que é justamente o que
+// muda de uma preparação para outra. Ver a migration 20260818140000.

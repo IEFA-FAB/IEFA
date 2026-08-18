@@ -10,6 +10,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import { formatSheetNumber, technicalSheetLine, technicalSheetTotals } from "@/lib/technical-sheet"
+import type { RecipeAlternativeFormRow } from "@/types/domain/recipes"
 
 /** Linha da ficha como o formulário a mantém. Espelha `IngredientFormItem` do `RecipeForm`. */
 export interface RecipeIngredientRow {
@@ -22,6 +23,12 @@ export interface RecipeIngredientRow {
 	priority_order: number
 	correction_factor: number | null
 	rehydration_index: number | null
+	/**
+	 * Substitutos da linha. A tabela não os edita (isso é da aba Substituições), mas eles
+	 * viajam no mesmo objeto — tirá-los daqui faria cada `patch` desta tela devolver uma
+	 * linha sem substituto, apagando em silêncio o que a outra aba cadastrou.
+	 */
+	alternatives: RecipeAlternativeFormRow[]
 }
 
 interface RecipeIngredientsTableProps {

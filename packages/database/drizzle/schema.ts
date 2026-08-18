@@ -1647,12 +1647,19 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingredient_alternatives", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	recipeIngredientId: uuid("recipe_ingredient_id"),
+	recipeIngredientId: uuid("recipe_ingredient_id").notNull(),
 	ingredientId: uuid("ingredient_id"),
 	frozenPreparationId: uuid("frozen_preparation_id"),
 	netQuantity: numeric("net_quantity"),
 	priorityOrder: smallint("priority_order"),
 }, (table) => [
+	index("recipe_ingredient_alt_recipe_ingredient_idx").using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("recipe_ingredient_alt_ingredient_unique")
+		.using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops"), table.ingredientId.asc().nullsLast().op("uuid_ops"))
+		.where(sql`(ingredient_id IS NOT NULL)`),
+	uniqueIndex("recipe_ingredient_alt_frozen_unique")
+		.using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops"), table.frozenPreparationId.asc().nullsLast().op("uuid_ops"))
+		.where(sql`(frozen_preparation_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.ingredientId],
 			foreignColumns: [ingredientInKitchen.id],
@@ -1662,13 +1669,13 @@ export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingre
 			columns: [table.recipeIngredientId],
 			foreignColumns: [recipeIngredientsInKitchen.id],
 			name: "recipe_ingredient_alternatives_recipe_ingredient_id_fkey"
-		}),
+		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.frozenPreparationId],
 			foreignColumns: [frozenPreparationInKitchen.id],
 			name: "recipe_ingredient_alternatives_frozen_preparation_id_fkey"
 		}),
-	check("recipe_ingredient_alt_source_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) <= 1`),
+	check("recipe_ingredient_alt_source_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
 ]);
 
 export const ingredientSubstitutionInKitchen = kitchen.table("ingredient_substitution", {

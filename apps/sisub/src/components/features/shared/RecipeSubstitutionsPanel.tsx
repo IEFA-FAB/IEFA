@@ -1,58 +1,56 @@
-import { ArrowLeftRight, ChevronRight, Lock } from "lucide-react"
-import { useMemo, useState } from "react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ArrowLeftRight, ChevronRight, Plus, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item"
-import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/cn"
-import { SubstitutionsManager } from "./SubstitutionsManager"
+import { formatSheetNumber, portionYieldOrOne } from "@/lib/technical-sheet"
+import type { RecipeAlternativeFormRow } from "@/types/domain/recipes"
+import { IngredientSelector } from "./IngredientSelector"
 
-/** O que o painel precisa de uma linha da ficha técnica. */
-export interface RecipeSubstitutionTarget {
-	ingredientId: string | null
-	name: string
-	measureUnit: string
-	/** Pasta do insumo — universo dos candidatos a substituto. */
-	folderId: string | null
+/** A linha da ficha e seus substitutos. Espelha `IngredientFormItem` do `RecipeForm`. */
+export interface RecipeSubstitutionLine {
+	ingredient_id: string | null
+	ingredient_name: string
+	measure_unit: string
+	net_quantity: number | null
+	alternatives: RecipeAlternativeFormRow[]
 }
 
 interface RecipeSubstitutionsPanelProps {
-	ingredients: readonly RecipeSubstitutionTarget[]
+	ingredients: readonly RecipeSubstitutionLine[]
+	portionYield: number
+	/** Devolve a lista de substitutos de UMA linha (índice na ficha). */
+	onChange: (index: number, alternatives: RecipeAlternativeFormRow[]) => void
 }
 
 /**
- * Substituições dentro da PREPARAÇÃO — a aba que o SISUBWEB tinha e que o SISUB havia
- * movido para o cadastro do insumo.
+ * Substituições DA PREPARAÇÃO, linha a linha — como no SISUBWEB e como a ficha técnica em
+ * papel registra.
  *
- * Quem decide que "arroz parboilizado entra no lugar de arroz branco" está montando uma
- * ficha técnica, não editando o cadastro de um insumo; procurar essa lista em
- * `/global/ingredients/:id` obrigava a sair da receita, achar o insumo e voltar.
+ * Entre 2026-07 e agora isto viveu no cadastro do insumo, como um par global
+ * insumo → substituto com um fator. O modelo não descrevia a decisão real: "no lugar do
+ * biscoito champagne vai amanteigado" vale NAQUELA preparação e quase nunca na mesma
+ * gramatura. Por isso a substituta traz aqui a QUANTIDADE dela, não um multiplicador, e a
+ * lista pertence à linha (`kitchen.recipe_ingredient_alternatives`).
  *
- * O DADO não mudou de lugar: continua em `kitchen.ingredient_substitution`, direcional,
- * insumo → substituto. Ou seja, o que se define aqui vale para o insumo em TODAS as
- * preparações que o usam — o aviso no topo diz isso, porque a tela é por preparação e a
- * gravação não é. Uma substituição por linha de receita exigiria a tabela por linha que
- * a migração de 2026-07 aposentou (`recipe_ingredient_alternatives`).
- *
- * E porque a lista é catálogo da SDAB, escrever nela exige `global:2` — inclusive quando
- * o formulário está aberto pela tela de uma cozinha. Quem não tem esse nível vê o painel
- * em modo leitura: o `RecipeForm` é o MESMO componente nas duas rotas, e sem esta trava
- * o `kitchen:2` marcava o checkbox, lia "Salvo automaticamente" e levava um 403.
+ * Estado do FORMULÁRIO, não gravação própria: os substitutos são salvos junto com a ficha,
+ * no mesmo clique. `saveRecipeEdit` insere linhas novas a cada versão — gravar em separado
+ * prenderia as substituições à versão anterior e a nova nasceria sem elas.
  */
-export function RecipeSubstitutionsPanel({ ingredients }: RecipeSubstitutionsPanelProps) {
-	// Memoizado: a lista entra na dependência do efeito abaixo, e recriá-la a cada render
-	// faria o efeito rodar em todo ciclo de digitação do formulário.
-	const canWrite = useGlobalWrite()
-	const selectable = useMemo(() => ingredients.filter((i): i is RecipeSubstitutionTarget & { ingredientId: string } => !!i.ingredientId), [ingredients])
-	const [selectedId, setSelectedId] = useState<string | null>(null)
+export function RecipeSubstitutionsPanel({ ingredients, portionYield, onChange }: RecipeSubstitutionsPanelProps) {
+	const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+	const [selectorOpen, setSelectorOpen] = useState(false)
 
-	// Derivado, não sincronizado por efeito: remover o insumo da ficha faz o `find` falhar
-	// e o painel de baixo some no MESMO render. Um `useEffect` que zerasse `selectedId`
-	// deixaria um quadro com o insumo que já não está na preparação.
-	const selected = selectable.find((i) => i.ingredientId === selectedId) ?? null
+	// Derivado, não sincronizado por efeito: remover o insumo da ficha invalida o índice e
+	// o painel de baixo some no MESMO render.
+	const selected = selectedIndex != null && selectedIndex < ingredients.length ? ingredients[selectedIndex] : null
+	const yieldSafe = portionYieldOrOne(portionYield)
 
-	if (selectable.length === 0) {
+	if (ingredients.length === 0) {
 		return (
 			<Card>
 				<CardHeader>
@@ -69,46 +67,53 @@ export function RecipeSubstitutionsPanel({ ingredients }: RecipeSubstitutionsPan
 		)
 	}
 
+	const patchAlternative = (altIndex: number, changes: Partial<RecipeAlternativeFormRow>) => {
+		if (selectedIndex == null || !selected) return
+		onChange(
+			selectedIndex,
+			selected.alternatives.map((alt, i) => (i === altIndex ? { ...alt, ...changes } : alt))
+		)
+	}
+
+	const removeAlternative = (altIndex: number) => {
+		if (selectedIndex == null || !selected) return
+		onChange(
+			selectedIndex,
+			selected.alternatives.filter((_, i) => i !== altIndex)
+		)
+	}
+
 	return (
 		<div className="space-y-4">
-			<Alert>
-				{canWrite ? <ArrowLeftRight className="size-4" /> : <Lock className="size-4" />}
-				<AlertTitle>{canWrite ? "A substituição vale para o insumo, não só para esta preparação" : "Substituições em modo leitura"}</AlertTitle>
-				<AlertDescription>
-					{canWrite ? (
-						<>
-							A lista é gravada no insumo (<code>ingredient_substitution</code>) e salva sozinha. Habilitar um substituto aqui o habilita em toda preparação que
-							use o mesmo insumo.
-						</>
-					) : (
-						<>
-							A lista de substitutos é do catálogo da SDAB e vale para o insumo em toda preparação, então alterá-la exige acesso de escrita global. Aqui ela é
-							só consulta.
-						</>
-					)}
-				</AlertDescription>
-			</Alert>
-
 			<Card>
 				<CardHeader>
-					<CardTitle>Ingrediente</CardTitle>
+					<CardTitle>Ingrediente da ficha</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-2">
-					{selectable.map((item) => {
-						const isSelected = item.ingredientId === selectedId
+					{ingredients.map((item, index) => {
+						const isSelected = index === selectedIndex
 						return (
 							<Item
-								key={item.ingredientId}
+								// A ficha aceita o mesmo insumo duas vezes, então a identidade da linha é a
+								// POSIÇÃO — é ela que o `onChange` usa para devolver a lista alterada.
+								key={`${item.ingredient_id ?? "novo"}-${index}`}
 								variant="outline"
 								className={cn("cursor-pointer transition-colors", isSelected ? "border-primary/40 bg-primary/5" : "hover:bg-muted/40")}
-								onClick={() => setSelectedId(isSelected ? null : item.ingredientId)}
+								onClick={() => setSelectedIndex(isSelected ? null : index)}
 							>
 								<ItemContent>
-									<ItemTitle>{item.name}</ItemTitle>
-									{item.measureUnit && <ItemDescription>{item.measureUnit}</ItemDescription>}
+									<ItemTitle>{item.ingredient_name}</ItemTitle>
+									<ItemDescription>
+										{formatSheetNumber(item.net_quantity ?? 0)} {item.measure_unit}
+									</ItemDescription>
 								</ItemContent>
 								<ItemActions>
-									{isSelected ? <Badge variant="secondary">Selecionado</Badge> : <ChevronRight className="size-4 text-muted-foreground" />}
+									{item.alternatives.length > 0 && (
+										<Badge variant="secondary">
+											{item.alternatives.length} {item.alternatives.length === 1 ? "substituto" : "substitutos"}
+										</Badge>
+									)}
+									{isSelected ? <Badge variant="outline">Selecionado</Badge> : <ChevronRight className="size-4 text-muted-foreground" />}
 								</ItemActions>
 							</Item>
 						)
@@ -118,12 +123,106 @@ export function RecipeSubstitutionsPanel({ ingredients }: RecipeSubstitutionsPan
 
 			{selected && (
 				<Card>
-					<CardContent className="pt-6">
-						{/* `key` no insumo: trocar de linha descarta as edições pendentes do fator em
-						    vez de carregá-las para o insumo seguinte. */}
-						<SubstitutionsManager key={selected.ingredientId} ingredientId={selected.ingredientId} folderId={selected.folderId} readOnly={!canWrite} />
+					<CardHeader className="flex flex-row items-center justify-between">
+						<div className="flex items-center gap-2">
+							<ArrowLeftRight className="size-4 text-muted-foreground" />
+							<CardTitle>Substitutos de {selected.ingredient_name}</CardTitle>
+						</div>
+						<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
+							<Plus className="size-4 mr-2" />
+							Adicionar substituto
+						</Button>
+					</CardHeader>
+					<CardContent className="space-y-3">
+						{selected.alternatives.length === 0 ? (
+							<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-10 text-muted-foreground">
+								<p className="text-body">Nenhum substituto para este ingrediente</p>
+								<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
+									<Plus className="size-4 mr-2" />
+									Adicionar substituto
+								</Button>
+							</div>
+						) : (
+							<Table>
+								<TableHeader>
+									<TableRow className="hover:bg-transparent">
+										<TableHead>Substituto</TableHead>
+										<TableHead>Unidade</TableHead>
+										<TableHead className="text-right">Quantidade total</TableHead>
+										<TableHead className="text-right">Per capita</TableHead>
+										<TableHead>
+											<span className="sr-only">Ações</span>
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{selected.alternatives.map((alt, altIndex) => (
+										<TableRow key={`${alt.ingredient_id}-${altIndex}`}>
+											<TableCell className="max-w-64 whitespace-normal font-medium">{alt.ingredient_name}</TableCell>
+											<TableCell className="text-muted-foreground">{alt.measure_unit}</TableCell>
+											<TableCell className="text-right">
+												<Input
+													aria-label={`Quantidade de ${alt.ingredient_name}`}
+													type="number"
+													step="0.001"
+													min={0}
+													value={alt.net_quantity ?? 0}
+													onChange={(e) => patchAlternative(altIndex, { net_quantity: Number(e.target.value) })}
+													className="ml-auto w-24 text-right"
+												/>
+											</TableCell>
+											<TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+												{formatSheetNumber((alt.net_quantity ?? 0) / yieldSafe)}
+											</TableCell>
+											<TableCell>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="text-muted-foreground hover:text-destructive"
+													aria-label={`Remover ${alt.ingredient_name}`}
+													onClick={() => removeAlternative(altIndex)}
+												>
+													<Trash2 className="size-3.5" />
+												</Button>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						)}
+
+						<p className="text-caption text-muted-foreground">
+							A quantidade é a da SUBSTITUTA nesta preparação, não um fator: {formatSheetNumber(selected.net_quantity ?? 0)} {selected.measure_unit} de{" "}
+							{selected.ingredient_name} podem virar uma gramatura diferente da substituta. Os substitutos são salvos junto com a ficha.
+						</p>
 					</CardContent>
 				</Card>
+			)}
+
+			{selectorOpen && selected && selectedIndex != null && (
+				<IngredientSelector
+					isOpen={selectorOpen}
+					onClose={() => setSelectorOpen(false)}
+					onSelect={(ingredient) => {
+						// O insumo da própria linha não é substituto de si mesmo, e o mesmo substituto
+						// não entra duas vezes — o índice único da tabela rejeitaria a segunda com um
+						// 23505 sem mensagem, já depois de o usuário ter clicado em salvar.
+						if (ingredient.id === selected.ingredient_id) return
+						if (selected.alternatives.some((alt) => alt.ingredient_id === ingredient.id)) return
+						onChange(selectedIndex, [
+							...selected.alternatives,
+							{
+								ingredient_id: ingredient.id,
+								ingredient_name: ingredient.description ?? "",
+								measure_unit: ingredient.measure_unit ?? "UN",
+								// Nasce com a quantidade da linha original: é o palpite certo na maioria
+								// dos casos e deixa explícito o que se deve ajustar quando não é.
+								net_quantity: selected.net_quantity,
+							},
+						])
+					}}
+				/>
 			)}
 		</div>
 	)

@@ -28,7 +28,7 @@ import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
-import type { RecipeWithIngredients } from "@/types/domain/recipes"
+import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
 const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "substituicoes", "nutricao", "fluxo"] as const
@@ -79,6 +79,22 @@ const ingredientSchema = z.object({
 	// Fatores da ficha técnica (opcionais): vazio/null = herda o insumo e, na ausência, vale 1.
 	correction_factor: z.number().positive("FC deve ser maior que 0").nullable(),
 	rehydration_index: z.number().positive("IR deve ser maior que 0").nullable(),
+	/**
+	 * Substitutos DESTA linha (`kitchen.recipe_ingredient_alternatives`). A quantidade é a
+	 * da substituta, não um fator — ver `RecipeSubstitutionsPanel`. Viajam no payload do
+	 * salvamento porque cada versão da ficha insere linhas novas.
+	 */
+	alternatives: z.array(
+		z.object({
+			ingredient_id: z.string().uuid("Substituto inválido"),
+			ingredient_name: z.string(),
+			measure_unit: z.string(),
+			net_quantity: z
+				.number()
+				.nullable()
+				.refine((value) => value != null && value >= 0.001, "Quantidade do substituto deve ser maior que 0"),
+		})
+	),
 })
 
 const recipeSchema = z.object({
@@ -102,6 +118,7 @@ interface IngredientFormItem {
 	priority_order: number
 	correction_factor: number | null
 	rehydration_index: number | null
+	alternatives: RecipeAlternativeFormRow[]
 }
 
 // ── Validação: um schema, três superfícies ──────────────────────────────────
@@ -322,6 +339,17 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						priority_order: ing.priority_order || 0,
 						correction_factor: ing.correction_factor ?? null,
 						rehydration_index: ing.rehydration_index ?? null,
+						alternatives: (ing.alternatives ?? [])
+							// Substituta apagada do catálogo deixaria uma linha sem nome nem unidade,
+							// que o usuário vê e não sabe remover. Some da ficha; a FK garante que ela
+							// não desaparece do banco sem passar por aqui.
+							.filter((alt) => !!alt.ingredient_id && !!alt.ingredient)
+							.map((alt) => ({
+								ingredient_id: alt.ingredient_id as string,
+								ingredient_name: alt.ingredient?.description ?? "Insumo",
+								measure_unit: alt.ingredient?.measure_unit ?? "UN",
+								net_quantity: alt.net_quantity,
+							})),
 					})) || [],
 		},
 		// Gate do salvamento. Com o schema aqui, `field.state.meta.errors` passa a ser
@@ -368,6 +396,12 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					priority_order: i.priority_order,
 					correction_factor: i.correction_factor,
 					rehydration_index: i.rehydration_index,
+					// `ingredient_name`/`measure_unit` são adorno de tela; o servidor recebe só o que
+					// grava. A posição na lista vira `priority_order` — é a ordem em que o usuário
+					// cadastrou, e é por ela que `attachAlternatives` lê de volta.
+					alternatives: i.alternatives
+						.filter((alt): alt is RecipeAlternativeFormRow & { net_quantity: number } => alt.net_quantity != null && alt.net_quantity > 0)
+						.map((alt, index) => ({ ingredient_id: alt.ingredient_id, net_quantity: alt.net_quantity, priority_order: index })),
 				}))
 
 			const { ingredients: _ingredients, ...recipeData } = value
@@ -677,18 +711,21 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							</form.Subscribe>
 						</TabsContent>
 
-						{/* Substituições — o que entra no lugar de cada insumo (voltou da tela de insumo) */}
+						{/* Substituições — o que entra no lugar de cada insumo, POR LINHA da ficha */}
 						<TabsContent value="substituicoes" className={READING_PANEL}>
-							<form.Subscribe selector={(state) => state.values.ingredients}>
-								{(ingredients) => (
-									<RecipeSubstitutionsPanel
-										ingredients={(ingredients as IngredientFormItem[]).map((i) => ({
-											ingredientId: i.ingredient_id,
-											name: i.ingredient_name,
-											measureUnit: i.measure_unit,
-											folderId: i.folder_id,
-										}))}
-									/>
+							<form.Subscribe selector={(state) => state.values.portion_yield}>
+								{(portionYield) => (
+									<form.Field name="ingredients">
+										{(field) => (
+											<RecipeSubstitutionsPanel
+												ingredients={field.state.value as IngredientFormItem[]}
+												portionYield={Number(portionYield) || 0}
+												onChange={(index, alternatives) =>
+													field.handleChange((field.state.value as IngredientFormItem[]).map((row, i) => (i === index ? { ...row, alternatives } : row)))
+												}
+											/>
+										)}
+									</form.Field>
 								)}
 							</form.Subscribe>
 						</TabsContent>
@@ -789,6 +826,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							// Prefill dos fatores com o padrão do insumo (editável por preparação; vazio = 1).
 							correction_factor: ingredient.correction_factor ?? null,
 							rehydration_index: ingredient.rehydration_index ?? null,
+							alternatives: [],
 						})
 					}}
 				/>

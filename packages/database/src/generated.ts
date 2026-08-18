@@ -5357,7 +5357,7 @@ export type Database = {
 					ingredient_id: string | null
 					net_quantity: number | null
 					priority_order: number | null
-					recipe_ingredient_id: string | null
+					recipe_ingredient_id: string
 				}
 				Insert: {
 					created_at?: string
@@ -5366,7 +5366,7 @@ export type Database = {
 					ingredient_id?: string | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					recipe_ingredient_id?: string | null
+					recipe_ingredient_id: string
 				}
 				Update: {
 					created_at?: string
@@ -5375,7 +5375,7 @@ export type Database = {
 					ingredient_id?: string | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					recipe_ingredient_id?: string | null
+					recipe_ingredient_id?: string
 				}
 				Relationships: [
 					{
