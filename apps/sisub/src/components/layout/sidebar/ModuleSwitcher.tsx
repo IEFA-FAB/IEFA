@@ -15,6 +15,7 @@ const MODULE_LOGO_CLASSES: Record<GroupColor, string> = {
 	primary: "bg-primary/15 text-primary",
 	warning: "bg-warning/15 text-warning",
 	governance: "bg-governance/15 text-governance",
+	admin: "bg-destructive/15 text-destructive",
 }
 
 const MODULE_HOVER_CLASSES: Record<GroupColor, string> = {
@@ -22,6 +23,7 @@ const MODULE_HOVER_CLASSES: Record<GroupColor, string> = {
 	primary: "focus:!bg-primary/10 focus:!text-primary focus:**:!text-primary",
 	warning: "focus:!bg-warning/10 focus:!text-warning focus:**:!text-warning",
 	governance: "focus:!bg-governance/10 focus:!text-governance focus:**:!text-governance",
+	admin: "focus:!bg-destructive/10 focus:!text-destructive focus:**:!text-destructive",
 }
 
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)

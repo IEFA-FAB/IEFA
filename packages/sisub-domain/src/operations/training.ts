@@ -356,7 +356,7 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
  * @throws {DomainError} escopo ausente/inseguro, ou falha em qualquer etapa (com rollback).
  */
 export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise<TrainingResetResult> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	// O autor sai do MESMO contexto que foi autorizado. Aceitá-lo por parâmetro permitia
 	// autorizar com um principal e registrar outro no log — uma ação destrutiva atribuída
@@ -454,7 +454,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 
 /** Estado do ambiente de treino para o painel da SDAB. */
 export async function fetchTrainingScope(db: SisubDb, ctx: UserContext): Promise<TrainingScopeInfo> {
-	requirePermission(ctx, "global", 1)
+	requirePermission(ctx, "admin", 1)
 
 	const scope = await resolveTrainingScope(db)
 
@@ -496,7 +496,7 @@ export async function fetchTrainingScope(db: SisubDb, ctx: UserContext): Promise
 
 /** Histórico de resets, mais recente primeiro. */
 export async function listTrainingResets(db: SisubDb, ctx: UserContext, input: ListTrainingResets): Promise<TrainingResetLogRow[]> {
-	requirePermission(ctx, "global", 1)
+	requirePermission(ctx, "admin", 1)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db

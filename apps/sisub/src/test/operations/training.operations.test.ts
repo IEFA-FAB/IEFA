@@ -176,11 +176,11 @@ describeSupabaseIntegration("training operations (integração)", () => {
 		RESET_TIMEOUT_MS
 	)
 
-	test("reset exige global nível 2", async () => {
+	test("reset exige admin nível 2", async () => {
 		if (!db) return
-		const readOnly = { userId: ACTOR_ID, permissions: [{ module: "global" as const, level: 1, kitchen_id: null, unit_id: null, mess_hall_id: null }] }
+		const readOnly = { userId: ACTOR_ID, permissions: [{ module: "admin" as const, level: 1, kitchen_id: null, unit_id: null, mess_hall_id: null }] }
 
-		await expect(resetTrainingScope(db, readOnly)).rejects.toThrow(/PERMISSION|Requires global/i)
+		await expect(resetTrainingScope(db, readOnly)).rejects.toThrow(/PERMISSION|Requires admin/i)
 	})
 
 	afterAll(async () => {

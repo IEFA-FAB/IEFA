@@ -50,8 +50,10 @@ const DB_CLIENT = "(?:getSupabaseServerClient|getDb)\\(\\)"
 describe("server function security contracts", () => {
 	// Since the Onda 4 migration the admin guard lives in two layers:
 	//   - the server fn authenticates (requireAuth) and forwards the ctx
-	//   - the @iefa/sisub-domain operation enforces global level 2
-	test("permission admin functions require auth and forward ctx to a global-write-guarded domain op", () => {
+	//   - the @iefa/sisub-domain operation enforces admin level 2
+	// The access-management operations moved from the `global` (catalog) module to the
+	// dedicated `admin` module when the SDAB screens were split; the guard follows the screen.
+	test("permission admin functions require auth and forward ctx to an admin-write-guarded domain op", () => {
 		const source = readServerFile("permissions.fn.ts")
 		const domainSource = readPackageFile("packages/sisub-domain/src/operations/permissions.ts")
 
@@ -72,12 +74,12 @@ describe("server function security contracts", () => {
 			expect(fnSource).toContain("const ctx = await requireAuth()")
 			expect(fnSource).toMatch(new RegExp(`${op}\\(${DB_CLIENT}, ctx,`))
 
-			// the domain op enforces global level-2 (write) before touching the DB
+			// the domain op enforces admin level-2 (write) before touching the DB
 			const opStart = domainSource.indexOf(`export async function ${op}(`)
 			expect(opStart).toBeGreaterThan(-1)
 			const nextOp = domainSource.indexOf("export async function ", opStart + 1)
 			const opSource = domainSource.slice(opStart, nextOp === -1 ? undefined : nextOp)
-			expect(opSource).toContain('requirePermission(ctx, "global", 2)')
+			expect(opSource).toContain('requirePermission(ctx, "admin", 2)')
 		}
 	})
 
@@ -325,12 +327,13 @@ describe("server function security contracts", () => {
 		}
 	})
 
-	test("sync triggers stay behind global level 2", () => {
-		// Estes endpoints carregam o ADMIN_SECRET nos headers, então nem a LEITURA de status
-		// é aberta a global:1 — exceção consciente ao "global:1 lê todas as telas".
+	test("sync triggers stay behind admin level 2", () => {
+		// Sincronização é administração de plataforma: migrou do módulo `global` (catálogo) para
+		// `admin` junto com as demais telas de SDAB. Estes endpoints carregam o ADMIN_SECRET nos
+		// headers, então nem a LEITURA de status é aberta a admin:1 — exceção consciente.
 		for (const fileName of ["compras-sync.fn.ts", "nutrition-sync.fn.ts"]) {
 			const source = readServerFile(fileName)
-			expect(source).toContain('requireAuthWithPermission("global", 2)')
+			expect(source).toContain('requireAuthWithPermission("admin", 2)')
 			const handlers = source.match(/export const \w+Fn = createServerFn[\s\S]*?(?=\nexport const |$)/g) ?? []
 			expect(handlers.length).toBeGreaterThan(0)
 			for (const handler of handlers) {

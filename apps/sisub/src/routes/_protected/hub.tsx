@@ -30,9 +30,10 @@ export const Route = createFileRoute("/_protected/hub")({
 
 const MODULE_GROUPS: { label: string; ids: ModuleId[]; color: GroupColor }[] = [
 	{ label: "Usuário", ids: ["diner"], color: "success" },
-	{ label: "Operacional", ids: ["messhall", "kitchen-production"], color: "primary" },
+	{ label: "Operacional", ids: ["messhall", "kitchen-production", "storage"], color: "primary" },
 	{ label: "Gestão", ids: ["kitchen", "unit"], color: "warning" },
 	{ label: "Governança", ids: ["global", "analytics", "local-analytics"], color: "governance" },
+	{ label: "Sistema", ids: ["admin"], color: "admin" },
 ]
 
 const ICON_CLASSES: Record<GroupColor, string> = {
@@ -40,6 +41,7 @@ const ICON_CLASSES: Record<GroupColor, string> = {
 	primary: "bg-primary/10 text-primary",
 	warning: "bg-warning/10 text-warning",
 	governance: "bg-governance/10 text-governance",
+	admin: "bg-destructive/10 text-destructive",
 }
 
 const ACCENT_CLASSES: Record<GroupColor, string> = {
@@ -47,6 +49,7 @@ const ACCENT_CLASSES: Record<GroupColor, string> = {
 	primary: "text-primary",
 	warning: "text-warning",
 	governance: "text-governance",
+	admin: "text-destructive",
 }
 
 const CARD_HOVER_CLASSES: Record<GroupColor, string> = {
@@ -54,6 +57,7 @@ const CARD_HOVER_CLASSES: Record<GroupColor, string> = {
 	primary: "hover:ring-primary/40",
 	warning: "hover:ring-warning/40",
 	governance: "hover:ring-governance/40",
+	admin: "hover:ring-destructive/40",
 }
 
 // ── Hub header ───────────────────────────────────────────────────────────────

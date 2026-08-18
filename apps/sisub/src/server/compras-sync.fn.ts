@@ -2,7 +2,7 @@
  * @module compras-sync.fn
  * Proxy to the iefa-api sync worker for Compras.gov.br data ingestion.
  * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://api.iefa.com.br, fallback: https://api.iefa.com.br). No Supabase.
- * AUTH: `global` level 2 no chamador (espelha o beforeLoad de /global/sync-routines) +
+ * AUTH: `admin` level 2 no chamador (espelha o beforeLoad de /admin/sync-routines) +
  * header x-admin-secret da env ADMIN_SECRET no salto para a API.
  * @domain external
  * @migration n-a
@@ -38,7 +38,7 @@ function adminHeaders() {
  * é atravessado numa chamada direta. Guard exigido: mesmo `global` nível 2 da rota.
  */
 async function requireSyncAdmin() {
-	await requireAuthWithPermission("global", 2)
+	await requireAuthWithPermission("admin", 2)
 }
 
 // ── Server Functions ──────────────────────────────────────────────────────────

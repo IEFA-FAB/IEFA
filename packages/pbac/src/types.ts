@@ -9,7 +9,11 @@
  * - unit:                Gestão Unidade — sisub, scoped by unit_id
  * - kitchen:             Gestão Cozinha — sisub, scoped by kitchen_id
  * - kitchen-production:  Produção Cozinha — sisub, scoped by kitchen_id
- * - global:              Administração global — sisub
+ * - global:              Catálogo global — sisub (insumos, preparações, planos, locais, revisão)
+ * - admin:               Administração do sistema — sisub (permissões, avaliação, sincronização,
+ *                          ambiente de treino). Separado de `global` para segregar a governança
+ *                          de conteúdo (diária, reversível) da administração de plataforma (rara,
+ *                          alto risco). Backfill inicial concede `admin` a quem tinha `global`.
  * - analytics:           Análise sistêmica global — sisub
  * - local-analytics:     Análises da unidade — sisub, scoped by unit_id
  * - storage:             Estoque e almoxarifado — sisub
@@ -27,6 +31,7 @@ export type AppModule =
 	| "kitchen"
 	| "kitchen-production"
 	| "global"
+	| "admin"
 	| "analytics"
 	| "local-analytics"
 	| "storage"

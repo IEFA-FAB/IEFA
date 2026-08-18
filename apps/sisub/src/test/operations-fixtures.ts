@@ -55,7 +55,7 @@ export async function setupIntegration(probeTable = "recipes"): Promise<Integrat
 
 // ── Contexto de usuário com acesso total ─────────────────────────────────────
 
-const ALL_MODULES: AppModule[] = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "analytics", "local-analytics", "storage"]
+const ALL_MODULES: AppModule[] = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "admin", "analytics", "local-analytics", "storage"]
 
 /**
  * UserContext que passa em qualquer guard de happy-path: permissão global (escopos nulos)

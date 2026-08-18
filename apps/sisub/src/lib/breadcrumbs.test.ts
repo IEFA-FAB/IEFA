@@ -108,7 +108,7 @@ describe("buildCrumbs", () => {
 
 	it("atravessa segmentos sem recurso próprio ao rotular um id", () => {
 		const crumbs = buildCrumbs(`/global/weekly-plans/print/${FAKE_UUID}`, ALL_NAV_ITEMS, SCOPE)
-		expect(crumbs.map((c) => c.label)).toEqual(["SDAB", "Planos Semanais", "Imprimir", "Plano Semanal"])
+		expect(crumbs.map((c) => c.label)).toEqual(["Catálogo Global", "Planos Semanais", "Imprimir", "Plano Semanal"])
 	})
 
 	it("rotula 'new' pelo recurso pai", () => {
