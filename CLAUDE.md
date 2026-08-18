@@ -99,7 +99,8 @@ Regras de contribuição para **todos** os devs e agentes de IA no repo.
 
 - **Todo trabalho vai por Pull Request** — nunca commitar/mergear direto na `main`.
   - Criar feature branch → push → `gh pr create --base main`.
-  - NÃO auto-mergear: deixar o PR aberto para revisão. Mergear só quando solicitado.
+  - NÃO auto-mergear por conta própria: deixar o PR aberto para revisão.
+  - **Pedido explícito do mantenedor para "fazer o PR e o merge" AUTORIZA o merge, inclusive o `--admin`.** A proteção da `main` exige uma revisão aprovada e o GitHub não deixa o autor aprovar o próprio PR; como o `gh` está autenticado na conta do mantenedor, `gh pr merge <n> --squash --delete-branch --admin` é o caminho normal nesse caso, não uma exceção a negociar. Auto-merge está desabilitado no repositório, então `--auto` não serve. A restrição de revisão existe para terceiros. Continua valendo: só mergear quando pedido, e com CI verde + `/code-review` relatado no PR.
   - Push na branch/main dispara deploys per-app via paths-filter.
   - **Exceção única: push direto na `main` só com pedido explícito do mantenedor, caso a caso.** Vale apenas para mudança de texto visível (copy, placeholder, label, comentário) ou remoção de código comprovadamente morto — nada que altere lógica, schema, permissão, dependência ou config de deploy. Mesmo aí: `bun run check` + `bun run test` verdes ANTES do push, e conferir o run do CI/CD depois. Um agente nunca decide sozinho por esse caminho; na dúvida, abre PR.
 - **Revisão semântica é sob demanda, com `/code-review`** — rodar ANTES de pedir merge, e relatar os achados no PR. O Greptile não é mais o revisor: a cota open-source caiu para 100 créditos e foi esgotada; ele parou de comentar a partir de 2026-07-31 (PRs #149, #152, #153, #154 passaram sem revisão nenhuma). Ausência de comentário do bot não significa código limpo — confirme com `gh api repos/IEFA-FAB/IEFA/pulls/<n>/reviews` antes de tratar como revisado.
@@ -109,6 +110,7 @@ Regras de contribuição para **todos** os devs e agentes de IA no repo.
 - **Mensagens de commit sempre em inglês** — subject E body — mesmo com código, comentários ou diff em português. Conventional Commits: `feat(sisub): add Faro observability`, não `adicionar`.
 - **Rodar `bun run check` + testes antes de mergear** qualquer PR, e confirmar verde. Typecheck por-arquivo não pega tudo.
   - Testes: `bun run test` (turbo, todos os apps) ou `cd apps/sisub && bunx vitest run`. **Não** rodar `bunx vitest run` da raiz — o alias `@/` não resolve e gera ~32 falsos positivos.
+  - **`apps/<app>/.env` faz a suíte local mentir.** O Vite carrega o arquivo automaticamente, então um teste que importa `@/server/*` (e com isso `env.server.ts`, que valida credencial na carga do módulo) passa na máquina de quem tem `.env` e quebra no CI, que não tem. Antes de confiar num teste novo que toque a camada server, rodar sem o arquivo. A regra melhor é não importar `@/server/*` de teste unitário: extrair a função pura para `src/lib/` e testar ali.
   - Integração (`SISUB_RUN_INTEGRATION`/`SISUB_DATABASE_URL`) fica em skip por padrão — isso é esperado, não falha.
 
 ## DB
