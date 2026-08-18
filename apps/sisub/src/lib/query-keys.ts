@@ -91,7 +91,7 @@ export const queryKeys = {
 
 	reviewMetrics: {
 		all: () => ["review-metrics"] as const,
-		summary: (from?: string, to?: string) => ["review-metrics", from ?? "all", to ?? "all"] as const,
+		summary: (from?: string, to?: string, ingredientScope?: string) => ["review-metrics", from ?? "all", to ?? "all", ingredientScope ?? "insumos"] as const,
 	},
 
 	recipeFlow: {

@@ -11,9 +11,12 @@
  */
 
 import {
+	frozenPreparationInKitchen,
+	ingredientInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	recipeFolderInKitchen,
+	recipeIngredientAlternativesInKitchen,
 	recipeIngredientsInKitchen,
 	recipesInKitchen,
 	type SisubDb,
@@ -44,10 +47,32 @@ import { copyRecipeFlow } from "./recipe-flow.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
+/**
+ * Substituto de uma linha da ficha, já com o insumo resolvido para a tela.
+ *
+ * `net_quantity` é ABSOLUTA (a gramatura da substituta nesta preparação), não um fator —
+ * ver `RecipeIngredientAlternativeSchema`.
+ */
+type RecipeIngredientAlternativeWire = {
+	id: string
+	ingredient_id: string | null
+	frozen_preparation_id: string | null
+	net_quantity: number | null
+	priority_order: number | null
+	ingredient: Ingredient | null
+	frozen_preparation: FrozenPreparation | null
+}
+
 type RecipeIngredientWire = RecipeIngredient & {
 	ingredient: Ingredient | null
 	// Preparação congelada segregada: uma linha de ficha técnica aponta OU p/ um insumo cru OU p/ uma preparação.
 	frozen_preparation: FrozenPreparation | null
+	/**
+	 * Substitutos desta linha. Opcional porque só `fetchRecipe` preenche: `listRecipes`
+	 * devolve o catálogo inteiro, e ninguém lista substituto de 2.000 fichas de uma vez.
+	 * Ver `attachAlternatives`.
+	 */
+	alternatives?: RecipeIngredientAlternativeWire[]
 }
 type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 
@@ -102,6 +127,63 @@ function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unk
 	}
 }
 
+/**
+ * Carrega os substitutos das linhas informadas e os pendura em `alternatives`.
+ *
+ * Query SEPARADA de propósito. Pelo `with` relacional isto seria o nível 3
+ * (recipe → recipe_ingredients → alternatives → ingredient) e o alias gerado pelo Drizzle
+ * passa dos 63 caracteres do NAMEDATALEN do Postgres — o mesmo teto que já obrigou a
+ * quebrar as consultas de produção/ata/procurement. O erro que ele produz fala de coluna
+ * inexistente, não de tamanho de alias, então vale a query a mais.
+ *
+ * Só `fetchRecipe` chama: `listRecipes` devolve o catálogo inteiro (~2.000 fichas) e
+ * ninguém lista substituto de todas elas.
+ */
+async function attachAlternatives(db: SisubDb, ingredients: RecipeIngredientWire[]): Promise<void> {
+	for (const ri of ingredients) ri.alternatives = []
+	const ids = ingredients.map((ri) => ri.id).filter((id): id is string => !!id)
+	if (ids.length === 0) return
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: recipeIngredientAlternativesInKitchen.id,
+				recipe_ingredient_id: recipeIngredientAlternativesInKitchen.recipeIngredientId,
+				ingredient_id: recipeIngredientAlternativesInKitchen.ingredientId,
+				frozen_preparation_id: recipeIngredientAlternativesInKitchen.frozenPreparationId,
+				net_quantity: recipeIngredientAlternativesInKitchen.netQuantity,
+				priority_order: recipeIngredientAlternativesInKitchen.priorityOrder,
+				ingredient: ingredientInKitchen,
+				frozen_preparation: frozenPreparationInKitchen,
+			})
+			.from(recipeIngredientAlternativesInKitchen)
+			.leftJoin(ingredientInKitchen, eq(ingredientInKitchen.id, recipeIngredientAlternativesInKitchen.ingredientId))
+			.leftJoin(frozenPreparationInKitchen, eq(frozenPreparationInKitchen.id, recipeIngredientAlternativesInKitchen.frozenPreparationId))
+			.where(inArray(recipeIngredientAlternativesInKitchen.recipeIngredientId, ids))
+			.orderBy(asc(recipeIngredientAlternativesInKitchen.priorityOrder), asc(recipeIngredientAlternativesInKitchen.createdAt))
+	)
+
+	const byLine = new Map<string, RecipeIngredientAlternativeWire[]>()
+	for (const row of rows) {
+		// O insumo/preparação vem do join em camelCase; `toWire` o converte para o contrato.
+		const wire = toRecipeWire<RecipeIngredientAlternativeWire>({
+			id: row.id,
+			ingredientId: row.ingredient_id,
+			frozenPreparationId: row.frozen_preparation_id,
+			netQuantity: row.net_quantity,
+			priorityOrder: row.priority_order,
+			// Substituta soft-deletada não vaza pela relação (o `leftJoin` não filtra).
+			ingredientInKitchen: row.ingredient?.deletedAt ? null : row.ingredient,
+			frozenPreparationInKitchen: row.frozen_preparation?.deletedAt ? null : row.frozen_preparation,
+		})
+		const bucket = byLine.get(row.recipe_ingredient_id)
+		if (bucket) bucket.push(wire)
+		else byLine.set(row.recipe_ingredient_id, [wire])
+	}
+
+	for (const ri of ingredients) ri.alternatives = byLine.get(ri.id) ?? []
+}
+
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
 	// Mesmo critério de `listRecipeSummaries`: quem administra o catálogo (global) não tem
 	// cozinha nenhuma, e exigir `kitchen:1` trancava esse usuário fora da receita que ele
@@ -116,7 +198,9 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
 
 	scrubDeletedFrozenPreparations(row)
-	return toRecipeWire<RecipeWithIngredients>(row)
+	const recipe = toRecipeWire<RecipeWithIngredients>(row)
+	await attachAlternatives(db, recipe.ingredients)
+	return recipe
 }
 
 /**
@@ -440,7 +524,44 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	)
 	if (inserted.length !== rows.length) throw new DomainError("INSERT_INGREDIENTS_FAILED", "row count mismatch")
 
+	await insertAlternatives(db, ingredients, inserted)
+
 	return inserted.map((r) => ({ id: r.id, ingredientId: r.ingredientId ?? "", priorityOrder: r.priorityOrder }))
+}
+
+/**
+ * Substitutos das linhas recém-inseridas, casados pela ORDEM do `RETURNING`.
+ *
+ * O casamento é posicional porque é o único disponível: as linhas ainda não têm id no
+ * payload, e `ingredientId` sozinho não identifica (o mesmo insumo pode entrar duas vezes
+ * na ficha). O `RETURNING` do Postgres devolve na ordem inserida, que é a ordem do array.
+ *
+ * Um substituto igual ao insumo da própria linha é descartado — "arroz substitui arroz"
+ * não diz nada, e o índice único não o pegaria (é uma linha só). Duplicata do mesmo
+ * substituto na mesma linha também sai aqui; deixá-la para o índice único transformaria
+ * um clique repetido na tela em 23505 sem mensagem.
+ */
+async function insertAlternatives(db: SisubDb, ingredients: NonNullable<CreateRecipe["ingredients"]>, inserted: { id: string }[]): Promise<void> {
+	const rows: { recipeIngredientId: string; ingredientId: string; netQuantity: string; priorityOrder: number }[] = []
+
+	ingredients.forEach((ing, index) => {
+		const line = inserted[index]
+		if (!line || !ing.alternatives?.length) return
+		const seen = new Set<string>()
+		for (const alt of ing.alternatives) {
+			if (alt.ingredientId === ing.ingredientId || seen.has(alt.ingredientId)) continue
+			seen.add(alt.ingredientId)
+			rows.push({
+				recipeIngredientId: line.id,
+				ingredientId: alt.ingredientId,
+				netQuantity: String(alt.netQuantity),
+				priorityOrder: alt.priorityOrder,
+			})
+		}
+	})
+
+	if (rows.length === 0) return
+	await runQuery("INSERT_ALTERNATIVES_FAILED", () => db.insert(recipeIngredientAlternativesInKitchen).values(rows))
 }
 
 /**

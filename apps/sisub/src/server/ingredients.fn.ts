@@ -29,7 +29,6 @@ import {
 	ListFoldersSchema,
 	ListIngredientItemsSchema,
 	ListIngredientLastReviewsSchema,
-	ListIngredientSubstitutionsSchema,
 	ListIngredientsSchema,
 	ListIngredientVersionsSchema,
 	ListNutritionReferenceFoodsSchema,
@@ -40,7 +39,6 @@ import {
 	listIngredientItems,
 	listIngredientLastReviews,
 	listIngredientNutrients,
-	listIngredientSubstitutions,
 	listIngredients,
 	listIngredientVersions,
 	listNutrients,
@@ -59,10 +57,8 @@ import {
 	restoreIngredientVersion,
 	SetIngredientNutrientsSchema,
 	SetIngredientNutritionReferenceSchema,
-	SetIngredientSubstitutionsSchema,
 	setIngredientNutrients,
 	setIngredientNutritionReference,
-	setIngredientSubstitutions,
 	UpdateFolderSchema,
 	UpdateIngredientItemSchema,
 	UpdateIngredientSchema,
@@ -255,20 +251,6 @@ export const deleteIngredientItemFn = createServerFn({ method: "POST" })
 	})
 
 // ── Substituições de insumo (direcionais, vivem no insumo) ────────────────────
-
-export const fetchIngredientSubstitutionsFn = createServerFn({ method: "GET" })
-	.validator(ListIngredientSubstitutionsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return listIngredientSubstitutions(getDb(), ctx, data).catch(handleDomainError)
-	})
-
-export const setIngredientSubstitutionsFn = createServerFn({ method: "POST" })
-	.validator(SetIngredientSubstitutionsSchema)
-	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return setIngredientSubstitutions(getDb(), ctx, data).catch(handleDomainError)
-	})
 
 // ── Versionamento (histórico de alterações do insumo) ─────────────────────────
 

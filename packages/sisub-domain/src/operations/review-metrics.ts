@@ -7,11 +7,14 @@
  * - Janela temporal (`from`/`to`): governa `reviewed_in_period`, o feed diário (`daily`)
  *   e a lista recente (`recent`).
  * - Itens com soft-delete (deleted_at) NUNCA entram (não precisam de revisão).
- * - Insumos = catálogo único; preparações = apenas globais (kitchen_id IS NULL).
- * - O grupo legado "Preparações" herdado do SISUBWEB vive em `kitchen.ingredient` mas
- *   não é insumo (ver `preparation-scope.ts`): ficava no denominador da conferência
- *   inflando o total e derrubando o percentual de algo que nutricionista nenhum confere.
- *   Fora da cobertura, do feed diário e da lista recente — nos dois lados do painel.
+ * - Preparações = apenas globais (kitchen_id IS NULL).
+ * - O lado INSUMO acompanha a aba aberta em /global/ingredients (`ingredientScope`), que
+ *   são três catálogos disjuntos dentro de `kitchen.ingredient`: gêneros, o grupo legado
+ *   do SISUBWEB (`preparation-scope.ts`) e os itens auxiliares (`catalog-scope.ts`).
+ *   Cada um tem o próprio denominador — com um total só, a cobertura de "Insumos" era
+ *   calculada sobre 168 EPIs e 1.626 preparações herdadas que ninguém confere, e o
+ *   percentual respondia a uma pergunta que não foi feita. Vale para a cobertura, o feed
+ *   diário e a lista recente.
  */
 
 import { ingredientInKitchen, ingredientReviewInKitchen, recipeReviewInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
@@ -20,7 +23,8 @@ import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { GetReviewMetrics } from "../schemas/review-metrics.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
-import { ingredientOutsidePreparations } from "./preparation-scope.ts"
+import { ingredientCatalogFilter } from "./catalog-scope.ts"
+import { ingredientInsidePreparations, ingredientOutsidePreparations } from "./preparation-scope.ts"
 
 export interface ReviewTypeMetrics {
 	/** Itens ativos (não deletados). Denominador da cobertura. */
@@ -77,13 +81,27 @@ function resolveWindow(input: GetReviewMetrics): { from: string; to: string } {
 	return { from: from.toISOString(), to: to.toISOString() }
 }
 
+/**
+ * Predicados do escopo do lado insumo. As duas dimensões são independentes: o grupo do
+ * SISUBWEB é uma FK na própria linha (`preparation-scope.ts`), o recorte auxiliar vem da
+ * pasta (`catalog-scope.ts`). "Insumos" é o que sobra depois de tirar os dois.
+ */
+function ingredientScopeFilters(scope: GetReviewMetrics["ingredientScope"]): SQL[] {
+	if (scope === "preparacoes") return [ingredientInsidePreparations]
+	const catalog = ingredientCatalogFilter(scope === "auxiliares" ? "only" : "exclude")
+	return catalog ? [ingredientOutsidePreparations, catalog] : [ingredientOutsidePreparations]
+}
+
 export async function getReviewMetrics(db: SisubDb, ctx: UserContext, input: GetReviewMetrics): Promise<ReviewMetrics> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 
 	const { from, to } = resolveWindow(input)
 
-	// Itens ativos. Insumo ativo exclui o grupo legado "Preparações" — não é insumo.
-	const activeIngredient = and(isNull(ingredientInKitchen.deletedAt), ingredientOutsidePreparations) as SQL
+	// Itens ativos, recortados pela aba que o painel está acompanhando. Os três escopos são
+	// disjuntos e cobrem `kitchen.ingredient` inteira, então cada um tem o próprio
+	// denominador — misturá-los era o que fazia a cobertura de "Insumos" cair por causa de
+	// EPI e de preparação herdada do SISUBWEB.
+	const activeIngredient = and(isNull(ingredientInKitchen.deletedAt), ...ingredientScopeFilters(input.ingredientScope)) as SQL
 	const activeRecipe = and(isNull(recipesInKitchen.deletedAt), isNull(recipesInKitchen.kitchenId)) as SQL
 	const inWindowIngredient = and(gte(ingredientReviewInKitchen.reviewedAt, from), lte(ingredientReviewInKitchen.reviewedAt, to)) as SQL
 	const inWindowRecipe = and(gte(recipeReviewInKitchen.reviewedAt, from), lte(recipeReviewInKitchen.reviewedAt, to)) as SQL

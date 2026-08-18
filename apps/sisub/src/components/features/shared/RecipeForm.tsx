@@ -8,7 +8,6 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
 import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
-import { RecipeSubstitutionsPanel } from "@/components/features/shared/RecipeSubstitutionsPanel"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -28,10 +27,17 @@ import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
-import type { RecipeWithIngredients } from "@/types/domain/recipes"
+import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
-const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "substituicoes", "nutricao", "fluxo"] as const
+/**
+ * "substituicoes" saiu daqui: substituição não é faceta da preparação (como rendimento,
+ * modo de preparo ou nutrição), é atributo de UMA linha da ficha. Como aba, ela precisava
+ * reconstruir a tabela de ingredientes só para o usuário reescolher a linha, e a
+ * quantidade original — metade da decisão — ficava do outro lado da navegação. Agora vive
+ * na expansão da linha, em `RecipeIngredientsTable`.
+ */
+const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "nutricao", "fluxo"] as const
 type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
@@ -79,6 +85,22 @@ const ingredientSchema = z.object({
 	// Fatores da ficha técnica (opcionais): vazio/null = herda o insumo e, na ausência, vale 1.
 	correction_factor: z.number().positive("FC deve ser maior que 0").nullable(),
 	rehydration_index: z.number().positive("IR deve ser maior que 0").nullable(),
+	/**
+	 * Substitutos DESTA linha (`kitchen.recipe_ingredient_alternatives`). A quantidade é a
+	 * da substituta, não um fator — ver `RecipeSubstitutionsPanel`. Viajam no payload do
+	 * salvamento porque cada versão da ficha insere linhas novas.
+	 */
+	alternatives: z.array(
+		z.object({
+			ingredient_id: z.string().uuid("Substituto inválido"),
+			ingredient_name: z.string(),
+			measure_unit: z.string(),
+			net_quantity: z
+				.number()
+				.nullable()
+				.refine((value) => value != null && value >= 0.001, "Quantidade do substituto deve ser maior que 0"),
+		})
+	),
 })
 
 const recipeSchema = z.object({
@@ -102,6 +124,7 @@ interface IngredientFormItem {
 	priority_order: number
 	correction_factor: number | null
 	rehydration_index: number | null
+	alternatives: RecipeAlternativeFormRow[]
 }
 
 // ── Validação: um schema, três superfícies ──────────────────────────────────
@@ -115,7 +138,6 @@ const TAB_LABEL: Record<RecipeFormTab, string> = {
 	detalhes: "Detalhes",
 	ingredientes: "Ingredientes",
 	preparo: "Modo de preparo",
-	substituicoes: "Substituições",
 	nutricao: "Nutrição",
 	fluxo: "Fluxo de produção",
 }
@@ -137,6 +159,7 @@ const INGREDIENT_FIELD_LABEL: Record<string, string> = {
 	net_quantity: "quantidade",
 	correction_factor: "fator de correção",
 	rehydration_index: "índice de reidratação",
+	alternatives: "substituto",
 }
 
 interface FormProblem {
@@ -181,7 +204,7 @@ function collectProblems(values: unknown): FormProblem[] {
 }
 
 function emptyTabProblemCount(): TabProblemCount {
-	return { detalhes: 0, ingredientes: 0, preparo: 0, substituicoes: 0, nutricao: 0, fluxo: 0 }
+	return { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
 }
 
 /**
@@ -322,6 +345,17 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						priority_order: ing.priority_order || 0,
 						correction_factor: ing.correction_factor ?? null,
 						rehydration_index: ing.rehydration_index ?? null,
+						alternatives: (ing.alternatives ?? [])
+							// Substituta apagada do catálogo deixaria uma linha sem nome nem unidade,
+							// que o usuário vê e não sabe remover. Some da ficha; a FK garante que ela
+							// não desaparece do banco sem passar por aqui.
+							.filter((alt) => !!alt.ingredient_id && !!alt.ingredient)
+							.map((alt) => ({
+								ingredient_id: alt.ingredient_id as string,
+								ingredient_name: alt.ingredient?.description ?? "Insumo",
+								measure_unit: alt.ingredient?.measure_unit ?? "UN",
+								net_quantity: alt.net_quantity,
+							})),
 					})) || [],
 		},
 		// Gate do salvamento. Com o schema aqui, `field.state.meta.errors` passa a ser
@@ -368,6 +402,12 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					priority_order: i.priority_order,
 					correction_factor: i.correction_factor,
 					rehydration_index: i.rehydration_index,
+					// `ingredient_name`/`measure_unit` são adorno de tela; o servidor recebe só o que
+					// grava. A posição na lista vira `priority_order` — é a ordem em que o usuário
+					// cadastrou, e é por ela que `attachAlternatives` lê de volta.
+					alternatives: i.alternatives
+						.filter((alt): alt is RecipeAlternativeFormRow & { net_quantity: number } => alt.net_quantity != null && alt.net_quantity > 0)
+						.map((alt, index) => ({ ingredient_id: alt.ingredient_id, net_quantity: alt.net_quantity, priority_order: index })),
 				}))
 
 			const { ingredients: _ingredients, ...recipeData } = value
@@ -508,14 +548,14 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-6: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
 						<form.Subscribe selector={encodeTabProblems}>
 							{(encoded) => {
 								const counts = decodeTabProblems(encoded)
 								return (
-									<TabsList className="mx-auto grid w-full max-w-3xl grid-cols-6">
+									<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
 										{RECIPE_FORM_TABS.map((tab) => {
 											const errorCount = counts[tab]
 											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
@@ -677,22 +717,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							</form.Subscribe>
 						</TabsContent>
 
-						{/* Substituições — o que entra no lugar de cada insumo (voltou da tela de insumo) */}
-						<TabsContent value="substituicoes" className={READING_PANEL}>
-							<form.Subscribe selector={(state) => state.values.ingredients}>
-								{(ingredients) => (
-									<RecipeSubstitutionsPanel
-										ingredients={(ingredients as IngredientFormItem[]).map((i) => ({
-											ingredientId: i.ingredient_id,
-											name: i.ingredient_name,
-											measureUnit: i.measure_unit,
-											folderId: i.folder_id,
-										}))}
-									/>
-								)}
-							</form.Subscribe>
-						</TabsContent>
-
 						{/* Modo de preparo — texto livre */}
 						<TabsContent value="preparo" className={READING_PANEL}>
 							<Card>
@@ -789,6 +813,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							// Prefill dos fatores com o padrão do insumo (editável por preparação; vazio = 1).
 							correction_factor: ingredient.correction_factor ?? null,
 							rehydration_index: ingredient.rehydration_index ?? null,
+							alternatives: [],
 						})
 					}}
 				/>

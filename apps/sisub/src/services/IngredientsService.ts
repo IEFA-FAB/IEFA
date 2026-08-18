@@ -17,7 +17,6 @@ import type {
 	CatalogScope,
 	IngredientEffectiveNutrientsResult,
 	IngredientLastReview,
-	IngredientSubstitution,
 	NutritionReferenceFoodSearchItem,
 	PreparationScope,
 } from "@iefa/sisub-domain"
@@ -36,7 +35,6 @@ import {
 	fetchIngredientFn,
 	fetchIngredientItemsFn,
 	fetchIngredientLastReviewsFn,
-	fetchIngredientSubstitutionsFn,
 	fetchIngredientsFn,
 	fetchIngredientsTreeFn,
 	fetchIngredientVersionsFn,
@@ -49,7 +47,6 @@ import {
 	restoreIngredientVersionFn,
 	saveIngredientDetailsFn,
 	setIngredientNutrientsFn,
-	setIngredientSubstitutionsFn,
 	updateFolderFn,
 	updateIngredientFn,
 	updateIngredientItemFn,
@@ -113,13 +110,6 @@ export const purchaseItemsQueryOptions = (ingredientId: string) =>
 	queryOptions({
 		queryKey: ["ingredients", "purchase-items", ingredientId],
 		queryFn: () => fetchIngredientPurchaseItemsFn({ data: { ingredientId } }) as Promise<PurchaseItemWithLink[]>,
-		staleTime: 10 * 60 * 1000,
-	})
-
-export const ingredientSubstitutionsQueryOptions = (ingredientId: string) =>
-	queryOptions({
-		queryKey: ["ingredients", "substitutions", ingredientId],
-		queryFn: () => fetchIngredientSubstitutionsFn({ data: { ingredientId } }) as Promise<IngredientSubstitution[]>,
 		staleTime: 10 * 60 * 1000,
 	})
 
@@ -564,23 +554,6 @@ export function useSetIngredientNutrients() {
 	})
 	return {
 		setIngredientNutrients: mutation.mutateAsync,
-		isSaving: mutation.isPending,
-		error: mutation.error,
-	}
-}
-
-/** Replace-all das substituições de um insumo; invalida a query da aba. */
-export function useSetIngredientSubstitutions() {
-	const queryClient = useQueryClient()
-	const mutation = useMutation({
-		mutationFn: ({ ingredientId, substitutions }: { ingredientId: string; substitutions: { substituteIngredientId: string; factor?: number }[] }) =>
-			setIngredientSubstitutionsFn({ data: { ingredientId, substitutions } }),
-		onSuccess: (_data, { ingredientId }) => {
-			queryClient.invalidateQueries({ queryKey: ["ingredients", "substitutions", ingredientId] })
-		},
-	})
-	return {
-		setIngredientSubstitutions: mutation.mutateAsync,
 		isSaving: mutation.isPending,
 		error: mutation.error,
 	}

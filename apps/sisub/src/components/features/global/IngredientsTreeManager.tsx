@@ -103,19 +103,28 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 
 	const { search: urlSearch = "" } = useSearch({ strict: false }) as { search?: string }
 	const [inputValue, setInputValue] = useState(urlSearch)
-	const isFirstRender = useRef(true)
 
+	/**
+	 * Debounce da busca para a URL.
+	 *
+	 * O reducer MESCLA (`...prev`) em vez de trocar o objeto de search inteiro. Trocando,
+	 * este efeito derrubava o `?tab=` da rota: bastava abrir "Itens auxiliares" para a aba
+	 * piscar e voltar para "Insumos" 400 ms depois, sem clique nenhum.
+	 *
+	 * A guarda é comparar com o que já está na URL, e não um ref de "primeiro render":
+	 * o ref é por instância, e em desenvolvimento o StrictMode roda o efeito duas vezes na
+	 * montagem — a segunda passava direto pela guarda e disparava a navegação. Comparando,
+	 * montar sem ter digitado nada não navega, nunca.
+	 */
 	useEffect(() => {
-		if (isFirstRender.current) {
-			isFirstRender.current = false
-			return
-		}
+		const next = inputValue || undefined
+		if (next === (urlSearch || undefined)) return
 		const timer = setTimeout(() => {
 			// biome-ignore lint/suspicious/noExplicitAny: shared component, navigate has no from context
-			navigateRef.current({ search: { search: inputValue || undefined } as any, replace: true })
+			navigateRef.current({ search: ((prev: Record<string, unknown>) => ({ ...prev, search: next })) as any, replace: true })
 		}, 400)
 		return () => clearTimeout(timer)
-	}, [inputValue])
+	}, [inputValue, urlSearch])
 
 	const [dialogState, setDialogState] = useState<IngredientDialogState>({
 		isOpen: false,
