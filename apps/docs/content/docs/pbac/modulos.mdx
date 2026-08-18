@@ -3,7 +3,7 @@ title: Módulos
 description: Cada módulo do PBAC — o que é, sua responsabilidade, como funciona e quem deve ter acesso.
 ---
 
-O PBAC define 9 módulos. Cada um mapeia uma área funcional da plataforma. As permissões são armazenadas em `user_permissions` com o campo `module` sendo um dos valores abaixo.
+O PBAC define 11 módulos. Cada um mapeia uma área funcional da plataforma. As permissões são armazenadas em `user_permissions` com o campo `module` sendo um dos valores abaixo.
 
 ---
 
@@ -209,6 +209,58 @@ O almoxarifado é uma operação crítica com impacto financeiro direto. Separar
 
 ---
 
+## `rumaer` — Uniformes da FAB
+
+**Escopo:** Nenhum (global implícito)
+
+### O que é
+Acesso administrativo ao RUMAER, o app de regulamentação de uniformes da FAB.
+
+### Responsabilidade
+Controla quem pode editar o catálogo de uniformes, peças e variações, e quem pode conceder
+esse acesso a outras pessoas.
+
+### Por que funciona assim
+A consulta ao RUMAER é aberta a qualquer pessoa autenticada — e boa parte dela nem exige
+sessão. O módulo não existe para liberar leitura: existe para restringir a **escrita** do
+catálogo, que é normativa. Por isso não tem escopo: o regulamento de uniformes é único para
+toda a Força, não há recorte por unidade ou cozinha que faça sentido.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `2` | Editor do catálogo — cria e altera uniformes, peças e variações |
+| `3+` | Administrador do RUMAER — gerencia os grants do módulo |
+
+---
+
+## `sucont` — Acompanhamento Contábil
+
+**Escopo:** Nenhum (global implícito)
+
+### O que é
+Acesso ao Hub SUCONT-4, a seção de acompanhamento contábil.
+
+### Responsabilidade
+Controla quem lê o acompanhamento, quem edita o conteúdo das seções e quem administra os
+grants do próprio módulo.
+
+### Por que funciona assim
+A SUCONT-4 é uma subdivisão única dentro da SEFA — não se replica por unidade nem por
+rancho, então um escopo geográfico não teria o que recortar. A separação que importa aqui é
+de nível, não de lugar: quem consulta o acompanhamento não é quem o edita.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Consulta o acompanhamento contábil |
+| `2` | Editor da seção — altera o conteúdo |
+| `3+` | Administrador do SUCONT — gerencia os grants do módulo |
+
+---
+
 ## Resumo
 
 | Módulo | Escopo | Quem acessa |
@@ -222,3 +274,5 @@ O almoxarifado é uma operação crítica com impacto financeiro direto. Separar
 | `analytics` | — | Analistas e gestores centrais |
 | `local-analytics` | `unit_id` | Gestores e responsáveis da OM |
 | `storage` | A definir | Almoxarifes e gestores de estoque |
+| `rumaer` | — | Editores e administradores do catálogo de uniformes |
+| `sucont` | — | Leitores, editores e administradores do Hub SUCONT-4 |

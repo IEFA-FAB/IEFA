@@ -1,3 +1,4 @@
+import { LEGAL_CONTACT_EMAIL } from "@iefa/legal-kit/contact"
 import { createFileRoute } from "@tanstack/react-router"
 import { Archery, ClipboardCheck, Globe, Group, Mail, Medal, OpenBook, OpenNewWindow, Shield } from "iconoir-react"
 import { useState } from "react"
@@ -102,7 +103,7 @@ function IdentitySection({ language }: { language: "pt" | "en" }) {
 					title={language === "pt" ? "Periodicidade" : "Frequency"}
 					content={language === "pt" ? "Publicação contínua organizada por semestres" : "Continuous publication organized by semesters"}
 				/>
-				<InfoCard title={language === "pt" ? "Contato Editorial" : "Editorial Contact"} content="secretaria.iefa@fab.mil.br" />
+				<InfoCard title={language === "pt" ? "Contato Editorial" : "Editorial Contact"} content={LEGAL_CONTACT_EMAIL} />
 			</div>
 
 			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
@@ -458,8 +459,8 @@ function ContactSection({ language }: { language: "pt" | "en" }) {
 						<Mail className="size-6 text-primary" />
 						<h3 className="font-semibold text-lg">{language === "pt" ? "Contato Editorial" : "Editorial Contact"}</h3>
 					</div>
-					<a href="mailto:secretaria.iefa@fab.mil.br" className="text-primary hover:underline flex items-center gap-2">
-						secretaria.iefa@fab.mil.br
+					<a href={`mailto:${LEGAL_CONTACT_EMAIL}`} className="text-primary hover:underline flex items-center gap-2">
+						{LEGAL_CONTACT_EMAIL}
 						<OpenNewWindow className="size-4" />
 					</a>
 				</div>
