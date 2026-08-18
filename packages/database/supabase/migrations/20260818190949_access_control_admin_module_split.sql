@@ -1,3 +1,7 @@
+-- Aplicada em prod em 2026-08-18 via MCP `apply_migration` (versão remota 20260818190949).
+-- O arquivo foi renomeado de 20260818160000 para casar com a versão que o MCP registrou e
+-- evitar que um `db:push` futuro tente reaplicar (seria inócuo — o backfill é idempotente).
+--
 -- Split do módulo `global` (SDAB) em `global` (catálogo) + `admin` (administração de
 -- plataforma). As telas de permissões, avaliação, sincronização e ambiente de treino
 -- passaram a exigir o módulo `admin`; os guards de domínio/rotas já foram trocados no código.
