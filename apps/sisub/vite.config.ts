@@ -46,15 +46,15 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 				],
 				routeRules: {
 					"/**": {
-					headers: {
-						"cache-control": "no-cache",
-						"x-content-type-options": "nosniff",
-						"x-frame-options": "SAMEORIGIN",
-						"referrer-policy": "strict-origin-when-cross-origin",
-						"permissions-policy": "camera=(), microphone=(), geolocation=()",
-						"strict-transport-security": "max-age=31536000; includeSubDomains",
+						headers: {
+							"cache-control": "no-cache",
+							"x-content-type-options": "nosniff",
+							"x-frame-options": "SAMEORIGIN",
+							"referrer-policy": "strict-origin-when-cross-origin",
+							"permissions-policy": "camera=(), microphone=(), geolocation=()",
+							"strict-transport-security": "max-age=31536000; includeSubDomains",
+						},
 					},
-				},
 					"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 					// styles.css tem nome fixo (sem hash) p/ evitar mismatch SSR↔client, então NÃO pode
 					// ser immutable (serviria CSS velho pra sempre após deploy). stale-while-revalidate:
