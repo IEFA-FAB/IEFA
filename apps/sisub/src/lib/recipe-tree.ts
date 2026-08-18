@@ -63,6 +63,12 @@ export interface BuildRecipeTreeInput<TRecipe extends RecipeTreeRecipe> {
 	recipes: readonly TRecipe[] | null | undefined
 	/** Texto da busca; vazio desliga o filtro de texto. */
 	filterText?: string
+	/**
+	 * Texto adicional que a busca também casa numa preparação, além do nome dela e do
+	 * nome da pasta — o `rational_id` (código do SISUBWEB), por exemplo. Opcional porque
+	 * nem toda tela expõe o código; quem não passa continua buscando só por nome.
+	 */
+	extraSearchText?: (recipe: TRecipe) => string | null | undefined
 	sensitivity?: SearchSensitivity
 	sortDirection?: "asc" | "desc"
 	/**
@@ -119,7 +125,13 @@ export function buildRecipeTree<TRecipe extends RecipeTreeRecipe>(input: BuildRe
 	// em vez de sumir da listagem — antes da árvore, o filtro por pasta já tratava assim.
 	const folderKeyOf = (recipe: TRecipe) => (recipe.folder_id && folderById.has(recipe.folder_id) ? recipe.folder_id : UNFILED_FOLDER_ID)
 
-	const matched = filter ? recipes.filter((r) => norm(r.name).includes(filter) || matchedFolderIds.has(folderKeyOf(r))) : [...recipes]
+	const extraOf = input.extraSearchText
+	const matchesText = (r: TRecipe) => {
+		if (norm(r.name).includes(filter)) return true
+		const extra = extraOf?.(r)
+		return !!extra && norm(extra).includes(filter)
+	}
+	const matched = filter ? recipes.filter((r) => matchesText(r) || matchedFolderIds.has(folderKeyOf(r))) : [...recipes]
 
 	const byFolder = new Map<string, TRecipe[]>()
 	for (const recipe of matched) {

@@ -480,7 +480,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 
 			{/* Barra de ações em massa */}
 			{selectionMode && selectedNodes.length > 0 && (
-				<BulkActionsBar selectedNodes={selectedNodes} showDeleted={showDeleted} onClear={clearSelection} onDone={clearSelection} />
+				<BulkActionsBar selectedNodes={selectedNodes} showDeleted={showDeleted} onClear={clearSelection} onDone={clearSelection} catalog={catalog} />
 			)}
 		</div>
 	)

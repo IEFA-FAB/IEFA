@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeftRight, Check, FolderOpen, Loader2 } from "lucide-react"
+import { ArrowLeftRight, Check, FolderOpen, Loader2, Lock } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,13 @@ interface SubstitutionsManagerProps {
 	ingredientId: string
 	/** Pasta do insumo — define o universo de irmãos elegíveis a substituto. */
 	folderId: string | null
+	/**
+	 * Só leitura. `setIngredientSubstitutions` exige `global:2` — a lista é catálogo da
+	 * SDAB, não da cozinha. Sem isto, quem só tem `kitchen:2` marcava o checkbox, via
+	 * "Salvo automaticamente" e levava um 403 com a caixa marcada na tela: a UI afirmava
+	 * um estado que o servidor recusou.
+	 */
+	readOnly?: boolean
 }
 
 /** Estado editável de uma linha (substituto candidato). */
@@ -34,7 +41,7 @@ const EMPTY_ROW: RowState = { enabled: false, factor: "" }
  * na hora; o fator persiste ao sair do campo. Não há botão próprio: o salvamento é
  * silencioso e a barra inferior do insumo cuida de identificação/nutrição.
  */
-export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsManagerProps) {
+export function SubstitutionsManager({ ingredientId, folderId, readOnly = false }: SubstitutionsManagerProps) {
 	const { setIngredientSubstitutions, isSaving } = useSetIngredientSubstitutions()
 
 	// Irmãos: todos os insumos da mesma pasta, menos o próprio.
@@ -86,6 +93,7 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 
 	// Marcar/desmarcar persiste imediatamente (o toggle é a ação deliberada do usuário).
 	const toggle = (id: string, enabled: boolean) => {
+		if (readOnly) return
 		const next = { ...overrides, [id]: { ...rowState(id), enabled } }
 		setOverrides(next)
 		buildAndSave((x) => next[x] ?? base[x] ?? EMPTY_ROW)
@@ -94,7 +102,7 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 	// O fator só atualiza o estado local ao digitar; persiste ao sair do campo (blur).
 	const changeFactor = (id: string, factor: string) => setOverrides((prev) => ({ ...prev, [id]: { ...rowState(id), factor } }))
 	const commitFactor = (id: string) => {
-		if (!rowState(id).enabled) return
+		if (readOnly || !rowState(id).enabled) return
 		buildAndSave((x) => overrides[x] ?? base[x] ?? EMPTY_ROW)
 	}
 
@@ -127,7 +135,12 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 				</div>
 				{/* Sem botão próprio: as alterações salvam sozinhas. Só um indicador discreto de estado. */}
 				<span className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground" aria-live="polite">
-					{isSaving ? (
+					{readOnly ? (
+						<>
+							<Lock className="size-3.5" />
+							Somente leitura
+						</>
+					) : isSaving ? (
 						<>
 							<Loader2 className="size-3.5 animate-spin" />
 							Salvando…
@@ -162,8 +175,13 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 								key={sib.id}
 								variant="outline"
 								data-checked={row.enabled || undefined}
-								className={cn("cursor-pointer transition-colors", row.enabled ? "border-primary/40 bg-primary/5" : "hover:bg-muted/40")}
+								className={cn(
+									"transition-colors",
+									readOnly ? "cursor-default" : "cursor-pointer",
+									row.enabled ? "border-primary/40 bg-primary/5" : !readOnly && "hover:bg-muted/40"
+								)}
 								onClick={(e) => {
+									if (readOnly) return
 									// Clicar na linha alterna; ignora cliques vindos do input do fator.
 									if ((e.target as HTMLElement).closest("input")) return
 									toggle(sib.id, !row.enabled)
@@ -172,6 +190,7 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 								<ItemMedia>
 									<Checkbox
 										checked={row.enabled}
+										disabled={readOnly}
 										onCheckedChange={(checked) => toggle(sib.id, checked === true)}
 										aria-label={`Habilitar ${label} como substituto`}
 										className="size-5 border-2 border-muted-foreground/60 data-checked:border-primary"
@@ -191,7 +210,7 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 											inputMode="decimal"
 											placeholder="1"
 											value={row.factor}
-											disabled={!row.enabled}
+											disabled={readOnly || !row.enabled}
 											onChange={(e) => changeFactor(sib.id, e.target.value)}
 											onBlur={() => commitFactor(sib.id)}
 											className="h-8 w-20 text-right text-sm font-mono"

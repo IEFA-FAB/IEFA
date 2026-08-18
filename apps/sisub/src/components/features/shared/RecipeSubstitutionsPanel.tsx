@@ -1,9 +1,10 @@
-import { ArrowLeftRight, ChevronRight } from "lucide-react"
+import { ArrowLeftRight, ChevronRight, Lock } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item"
+import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import { cn } from "@/lib/cn"
 import { SubstitutionsManager } from "./SubstitutionsManager"
 
@@ -33,10 +34,16 @@ interface RecipeSubstitutionsPanelProps {
  * preparações que o usam — o aviso no topo diz isso, porque a tela é por preparação e a
  * gravação não é. Uma substituição por linha de receita exigiria a tabela por linha que
  * a migração de 2026-07 aposentou (`recipe_ingredient_alternatives`).
+ *
+ * E porque a lista é catálogo da SDAB, escrever nela exige `global:2` — inclusive quando
+ * o formulário está aberto pela tela de uma cozinha. Quem não tem esse nível vê o painel
+ * em modo leitura: o `RecipeForm` é o MESMO componente nas duas rotas, e sem esta trava
+ * o `kitchen:2` marcava o checkbox, lia "Salvo automaticamente" e levava um 403.
  */
 export function RecipeSubstitutionsPanel({ ingredients }: RecipeSubstitutionsPanelProps) {
 	// Memoizado: a lista entra na dependência do efeito abaixo, e recriá-la a cada render
 	// faria o efeito rodar em todo ciclo de digitação do formulário.
+	const canWrite = useGlobalWrite()
 	const selectable = useMemo(() => ingredients.filter((i): i is RecipeSubstitutionTarget & { ingredientId: string } => !!i.ingredientId), [ingredients])
 	const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -65,11 +72,20 @@ export function RecipeSubstitutionsPanel({ ingredients }: RecipeSubstitutionsPan
 	return (
 		<div className="space-y-4">
 			<Alert>
-				<ArrowLeftRight className="size-4" />
-				<AlertTitle>A substituição vale para o insumo, não só para esta preparação</AlertTitle>
+				{canWrite ? <ArrowLeftRight className="size-4" /> : <Lock className="size-4" />}
+				<AlertTitle>{canWrite ? "A substituição vale para o insumo, não só para esta preparação" : "Substituições em modo leitura"}</AlertTitle>
 				<AlertDescription>
-					A lista é gravada no insumo (<code>ingredient_substitution</code>) e salva sozinha. Habilitar um substituto aqui o habilita em toda preparação que use
-					o mesmo insumo.
+					{canWrite ? (
+						<>
+							A lista é gravada no insumo (<code>ingredient_substitution</code>) e salva sozinha. Habilitar um substituto aqui o habilita em toda preparação que
+							use o mesmo insumo.
+						</>
+					) : (
+						<>
+							A lista de substitutos é do catálogo da SDAB e vale para o insumo em toda preparação, então alterá-la exige acesso de escrita global. Aqui ela é
+							só consulta.
+						</>
+					)}
 				</AlertDescription>
 			</Alert>
 
@@ -105,7 +121,7 @@ export function RecipeSubstitutionsPanel({ ingredients }: RecipeSubstitutionsPan
 					<CardContent className="pt-6">
 						{/* `key` no insumo: trocar de linha descarta as edições pendentes do fator em
 						    vez de carregá-las para o insumo seguinte. */}
-						<SubstitutionsManager key={selected.ingredientId} ingredientId={selected.ingredientId} folderId={selected.folderId} />
+						<SubstitutionsManager key={selected.ingredientId} ingredientId={selected.ingredientId} folderId={selected.folderId} readOnly={!canWrite} />
 					</CardContent>
 				</Card>
 			)}

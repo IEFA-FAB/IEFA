@@ -250,8 +250,10 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 							</td>
 						</tr>
 					) : (
-						sheet.lines.map((line) => (
-							<tr key={`${line.name}-${line.netWeight}`}>
+						// Índice na chave: o mesmo insumo pode entrar duas vezes na ficha, e nome+peso
+						// colidiriam — a mesma colisão que a tabela do editor já evita.
+						sheet.lines.map((line, index) => (
+							<tr key={`${line.name}-${index}`}>
 								<td>
 									{line.name}
 									{line.isOptional && <span className="ftp-optional"> (opcional)</span>}

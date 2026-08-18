@@ -73,12 +73,19 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 				folders,
 				recipes: inScope,
 				filterText: debouncedQuery,
+				// O seletor plano buscava por código também; a árvore só casaria nome de
+				// preparação e de pasta, e quem procura pelo `rational_id` do SISUBWEB
+				// perderia a busca sem nenhum aviso.
+				extraSearchText: (recipe) => recipe.rational_id,
 				sensitivity: { caseSensitive: false, accentSensitive: false },
 				collapsedIds,
 				// Buscar e ainda ter de abrir pasta por pasta para ver o resultado seria
 				// esconder justamente o que o usuário acabou de pedir.
 				autoExpand: debouncedQuery.trim().length > 0,
-				hideEmptyFolders: debouncedQuery.trim().length > 0,
+				// Sempre: o recorte por cozinha também esvazia pasta (uma pasta só com
+				// preparações de OUTRA cozinha), e num seletor a linha "0 preparações" é
+				// uma pasta em que não há nada para escolher.
+				hideEmptyFolders: true,
 			}),
 		[folders, inScope, debouncedQuery, collapsedIds]
 	)

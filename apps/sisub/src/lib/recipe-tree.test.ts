@@ -206,3 +206,37 @@ describe("allRecipeFolderIds", () => {
 		expect(allRecipeFolderIds(null)).toEqual(new Set([UNFILED_FOLDER_ID]))
 	})
 })
+
+describe("extraSearchText", () => {
+	// O seletor do plano semanal buscava por `rational_id` quando era lista plana. A
+	// árvore só casava nome de preparação e de pasta — sem este gancho, quem digita o
+	// código do SISUBWEB deixa de achar a preparação, e nada na tela diz por quê.
+	const recipes = [
+		{ id: "r1", name: "Arroz Carreteiro", folder_id: null, rational_id: "SB-4210" },
+		{ id: "r2", name: "Feijão Tropeiro", folder_id: null, rational_id: "SB-9001" },
+	]
+
+	test("casa o texto extra além do nome", () => {
+		const tree = buildRecipeTree({
+			folders: [],
+			recipes,
+			filterText: "SB-4210",
+			extraSearchText: (r) => r.rational_id,
+		})
+		expect(tree.matched.map((r) => r.id)).toEqual(["r1"])
+	})
+
+	test("sem o gancho, o código não casa nada", () => {
+		expect(buildRecipeTree({ folders: [], recipes, filterText: "SB-4210" }).matched).toEqual([])
+	})
+
+	test("texto extra ausente não derruba o casamento por nome", () => {
+		const tree = buildRecipeTree({
+			folders: [],
+			recipes: [{ id: "r3", name: "Arroz Branco", folder_id: null, rational_id: null }],
+			filterText: "arroz",
+			extraSearchText: (r) => r.rational_id,
+		})
+		expect(tree.matched.map((r) => r.id)).toEqual(["r3"])
+	})
+})

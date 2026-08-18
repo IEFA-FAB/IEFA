@@ -107,4 +107,36 @@ create trigger folder_inherit_catalog_scope
 	for each row
 	execute function kitchen.folder_inherit_catalog_scope();
 
+-- Propagação para a SUBÁRVORE. O gatilho acima só reescreve a própria linha: mover
+-- "Descartáveis" (com "Copos" e "Talheres" dentro) de embalagem para gêneros trocaria a
+-- aba da pasta e deixaria as filhas — e os itens delas — na aba antiga. A divergência
+-- só apareceria quando alguém reparasse num item fora de lugar.
+--
+-- Recursão termina: o UPDATE ignora quem já está no escopo novo, então o gatilho que ele
+-- dispara nos filhos não encontra mais nada para mudar.
+create or replace function kitchen.folder_cascade_catalog_scope()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+	update kitchen.folder c
+	set catalog_scope = new.catalog_scope
+	where c.parent_id = new.id
+		and c.catalog_scope is distinct from new.catalog_scope;
+	return null;
+end;
+$$;
+
+drop trigger if exists folder_cascade_catalog_scope on kitchen.folder;
+-- Sem `of catalog_scope`: aquela cláusula olha as colunas que o UPDATE *lista*, e o caso
+-- principal — mover a pasta de aba — atualiza só `parent_id`; quem troca o escopo é o
+-- gatilho BEFORE acima, o que a lista de colunas não enxerga. O `when` faz o filtro.
+create trigger folder_cascade_catalog_scope
+	after update on kitchen.folder
+	for each row
+	when (old.catalog_scope is distinct from new.catalog_scope)
+	execute function kitchen.folder_cascade_catalog_scope();
+
 commit;

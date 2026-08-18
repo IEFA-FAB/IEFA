@@ -306,17 +306,23 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			cooking_factor: initialData?.cooking_factor || 1.0,
 			folder_id: initialData?.folder_id ?? null,
 			ingredients:
-				initialData?.ingredients?.map((ing) => ({
-					ingredient_id: ing.ingredient_id,
-					ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
-					measure_unit: ing.ingredient?.measure_unit || "UN",
-					folder_id: ing.ingredient?.folder_id ?? null,
-					net_quantity: ing.net_quantity,
-					is_optional: ing.is_optional || false,
-					priority_order: ing.priority_order || 0,
-					correction_factor: ing.correction_factor ?? null,
-					rehydration_index: ing.rehydration_index ?? null,
-				})) || [],
+				// `fetchRecipe` traz a relação inteira (o Drizzle não aceita `where` numa relação
+				// `many` aninhada), então a linha soft-deletada vem junto. O hovercard da listagem
+				// e a folha impressa já a descartam; sem o mesmo filtro aqui, o TOTAL da tabela
+				// contaria um ingrediente que a ficha não tem mais.
+				initialData?.ingredients
+					?.filter((ing) => !ing.deleted_at)
+					.map((ing) => ({
+						ingredient_id: ing.ingredient_id,
+						ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
+						measure_unit: ing.ingredient?.measure_unit || "UN",
+						folder_id: ing.ingredient?.folder_id ?? null,
+						net_quantity: ing.net_quantity,
+						is_optional: ing.is_optional || false,
+						priority_order: ing.priority_order || 0,
+						correction_factor: ing.correction_factor ?? null,
+						rehydration_index: ing.rehydration_index ?? null,
+					})) || [],
 		},
 		// Gate do salvamento. Com o schema aqui, `field.state.meta.errors` passa a ser
 		// preenchido e os realces em vermelho (que já existiam no JSX) acendem sozinhos;
