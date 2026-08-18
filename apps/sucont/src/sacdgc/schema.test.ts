@@ -97,6 +97,30 @@ describe("normalizeDgcAnalysis", () => {
 		expect(normalizeDgcAnalysis(raw({ alertasDeCriticidade: alertas }), CTX).alertasDeCriticidade).toEqual(alertas)
 	})
 
+	// `z.array(schema).catch([])` derrubaria as 19 boas junto com a torta, a tela
+	// mostraria "0/20" e o `finding_count` gravado seria zero para uma UG com achado.
+	it("descarta só o item inválido do checklist, não a lista inteira", () => {
+		const perguntas = [
+			{ id: 1, pergunta: "x", resposta: "SIM", fundamentacaoTecnica: "f" },
+			{ id: "quatro", pergunta: "x", resposta: "SIM" },
+			{ id: 2, pergunta: "x", resposta: "SIM", fundamentacaoTecnica: "f" },
+		]
+		const result = normalizeDgcAnalysis(raw({ checklistAec: { perguntas } }), CTX)
+		expect(result.checklistAec.indicadores.comApontamento).toBe(2)
+		expect(result.checklistAec.perguntas[0].resposta).toBe("SIM")
+		expect(result.checklistAec.perguntas[1].resposta).toBe("SIM")
+	})
+
+	it("descarta só o alerta inválido, não os demais", () => {
+		const alertas = [
+			{ titulo: "a", origemAnalise: [], evidencia: "e", acaoRecomendada: "r" },
+			{ origemAnalise: [] },
+			{ titulo: "b", origemAnalise: [], evidencia: "e", acaoRecomendada: "r" },
+		]
+		const result = normalizeDgcAnalysis(raw({ alertasDeCriticidade: alertas }), CTX)
+		expect(result.alertasDeCriticidade.map((a) => a.titulo)).toEqual(["a", "b"])
+	})
+
 	it("rejeita retorno que não tem a forma da análise", () => {
 		expect(() => normalizeDgcAnalysis("não sou um objeto", CTX)).toThrow(DgcAnalysisShapeError)
 		expect(() => normalizeDgcAnalysis(null, CTX)).toThrow(DgcAnalysisShapeError)

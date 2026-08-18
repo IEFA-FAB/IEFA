@@ -96,6 +96,13 @@ describe("ugColumnIndex", () => {
 		expect(ugColumnIndex(["Painel 1 - UG Beneficiada", "Painel 1 - SISTEMA ESTRUTURANTE"])).toBe(0)
 	})
 
+	// Linha que não descreve coluna de UG não é cabeçalho — é o nome da aba que o
+	// leitor de XLSX emite antes das linhas.
+	it("devolve null quando a linha não traz coluna de UG", () => {
+		expect(ugColumnIndex(["Painel 4"])).toBeNull()
+		expect(ugColumnIndex([])).toBeNull()
+	})
+
 	// Índice fixo 0 aqui atribuiria à UG emitente todo o custo que ela pagou por
 	// terceiros — um GAP absorveria a energia das UGs que ele atende.
 	it("usa a UG beneficiada do painel 4, não a emitente", () => {
@@ -165,6 +172,30 @@ describe("parseDgcBase", () => {
 
 	it("não descarta linha nenhuma da amostra", () => {
 		expect(base.skippedRows).toBe(0)
+	})
+
+	// Como o `files.ts` monta cada aba de XLSX: nome da aba, depois o cabeçalho real.
+	// Se o nome da aba fosse aceito como cabeçalho, `ugCol` congelaria em 0 — a UG
+	// EMITENTE — e a linha inteira do Painel 4 iria para quem pagou.
+	it("não confunde o nome da aba com o cabeçalho do painel", () => {
+		const sheet = [
+			"Painel 4",
+			'"Painel 4 - UG Emitente Código";"Painel 4 - UG Emitente Nome";"Painel 4 - ITEM DE CUSTO";"Painel 4 - UG Beneficiada Código";"Painel 4 - UG Beneficiada Nome";"Painel 4 - Mês Referência";"DetaCusto DH - R$"',
+			'"120006";"GAP BR";"ENERGIA ELÉTRICA";"120132";"DIRETORIA DE ENSINO";"JUL/2026";"3.696,67"',
+		].join("\n")
+
+		const base = parseDgcBase([{ name: "base.xlsx — Painel 4", text: sheet }])
+		const codes = base.datasets.map((d) => d.ugCode)
+		expect(codes).toEqual(["120132"])
+		expect(base.skippedRows).toBe(0)
+	})
+
+	// Aba sem o prefixo "Painel N" nas colunas: só o nome dela identifica o painel, e
+	// aí o índice da UG é adivinhado pela primeira coluna com código de 6 dígitos.
+	it("cai na adivinhação quando a aba não tem cabeçalho reconhecível", () => {
+		const sheet = ['"Painel 2"', '"120004";"SISDABRA";"2026";"JULHO";"18"'].join("\n")
+		const base = parseDgcBase([{ name: "base.xlsx", text: sheet }])
+		expect(base.datasets.map((d) => d.ugCode)).toEqual(["120004"])
 	})
 
 	it("lê os painéis empilhados num arquivo só", () => {

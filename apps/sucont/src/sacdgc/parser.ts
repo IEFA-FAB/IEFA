@@ -131,11 +131,13 @@ export function panelFromFileName(name: string): PanelId | null {
  * Código" — que NÃO é a primeira coluna (a primeira é a UG emitente, quem pagou).
  * Atribuir pelo emitente jogaria o custo do GAP inteiro numa UG só.
  */
-export function ugColumnIndex(header: string[]): number {
+export function ugColumnIndex(header: string[]): number | null {
 	const beneficiada = header.findIndex((cell) => /ug\s+beneficiada/i.test(cell) && !/nome/i.test(cell))
 	if (beneficiada >= 0) return beneficiada
 	const anyUg = header.findIndex((cell) => /\bug\b/i.test(cell) && !/nome/i.test(cell))
-	return anyUg >= 0 ? anyUg : 0
+	// `null` e não 0: linha que não descreve coluna de UG nenhuma não é cabeçalho, e
+	// devolver 0 daria a impressão de que a primeira coluna foi reconhecida.
+	return anyUg >= 0 ? anyUg : null
 }
 
 function columnIndex(header: string[], pattern: RegExp): number {
@@ -211,13 +213,23 @@ export function parseDgcBase(sources: PanelSource[]): DgcBase {
 			const declared = panelFromHeaderRow(cells)
 			if (declared !== null) {
 				panel = declared
-				ugCol = ugColumnIndex(cells)
-				monthCol = columnIndex(cells, /m[eê]s/i)
-				yearCol = columnIndex(cells, /ano/i)
-				hasHeader = true
-				const bucket = buckets.get(panel)
-				if (bucket) bucket.header = cells
-				else buckets.set(panel, { header: cells, rows: new Map() })
+				// A linha só serve de CABEÇALHO se realmente traz a coluna da UG. O
+				// `files.ts` emite o nome da aba antes das linhas de cada planilha XLSX, e
+				// uma aba chamada "Painel 4" casa aqui: aceitá-la como cabeçalho congelaria
+				// `ugCol` em 0 — a UG EMITENTE — e o custo do Painel 4 iria para quem pagou,
+				// não para quem foi beneficiado.
+				const detected = ugColumnIndex(cells)
+				if (detected !== null) {
+					ugCol = detected
+					monthCol = columnIndex(cells, /m[eê]s/i)
+					yearCol = columnIndex(cells, /ano/i)
+					hasHeader = true
+					const bucket = buckets.get(panel)
+					if (bucket) bucket.header = cells
+					else buckets.set(panel, { header: cells, rows: new Map() })
+				} else if (!buckets.has(panel)) {
+					buckets.set(panel, { header: [], rows: new Map() })
+				}
 				continue
 			}
 

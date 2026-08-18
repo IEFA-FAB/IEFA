@@ -24,14 +24,26 @@ type WithModel = AnyTextAdapter & { model?: string }
 type ChatStreamOptions = Parameters<AnyTextAdapter["chatStream"]>[0]
 type StructuredOptions = Parameters<AnyTextAdapter["structuredOutput"]>[0]
 
-export function withAdapterModel(adapter: AnyTextAdapter): AnyTextAdapter {
+export interface WithAdapterModelOptions {
+	/**
+	 * Sobrescreve o `model` que o chamador mandou, em vez de só preencher a ausência.
+	 *
+	 * É o que a cadeia de fallback precisa: `chat()` lê `adapter.model` do objeto
+	 * encadeado (o do primário) e injeta esse id em `options.model`, então a reserva
+	 * receberia um modelo que ela não serve.
+	 */
+	force?: boolean
+}
+
+export function withAdapterModel(adapter: AnyTextAdapter, { force = false }: WithAdapterModelOptions = {}): AnyTextAdapter {
 	const model = (adapter as WithModel).model
 	if (!model) return adapter
 
-	// `??` e não sobrescrita: quando `chat()` já resolveu o modelo, ele manda.
+	// Sem `force`, quem já resolveu o modelo manda — é o caso da activity `chat()`
+	// sobre um adapter único.
 	const fill = (options: unknown): unknown => {
 		const current = options as { model?: string } | null
-		return current?.model ? options : { ...(current ?? {}), model }
+		return !force && current?.model ? options : { ...(current ?? {}), model }
 	}
 
 	return {

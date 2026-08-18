@@ -95,6 +95,37 @@ const rawItemSchema = z.object({
 	recomendacao: textSchema.optional(),
 })
 
+/**
+ * Valida item a item e descarta só o que não passa.
+ *
+ * `z.array(schema).catch([])` derruba a ARRAY INTEIRA quando um único elemento vem
+ * torto — um `id` que o modelo escreveu por extenso apagaria as outras 19 respostas,
+ * a tela mostraria "0/20" e a coluna gerada `finding_count` persistiria zero para uma
+ * UG que tinha apontamento.
+ */
+function lenientArray<T extends z.ZodType>(item: T) {
+	return z
+		.array(z.unknown())
+		.catch([])
+		.transform((entries) => {
+			const out: z.infer<T>[] = []
+			for (const entry of entries) {
+				const parsed = item.safeParse(entry)
+				if (parsed.success) out.push(parsed.data)
+			}
+			return out
+		})
+}
+
+const alertaSchema = z.object({
+	// Sem `.catch`: alerta sem título não é achado, é ruído — e `textSchema` o
+	// aceitaria como string vazia, que a tela renderiza como um card em branco.
+	titulo: z.string().trim().min(1),
+	origemAnalise: z.array(textSchema).catch([]),
+	evidencia: textSchema,
+	acaoRecomendada: textSchema,
+})
+
 const rawAnalysisSchema = z.object({
 	identificacao: z
 		.object({
@@ -108,17 +139,8 @@ const rawAnalysisSchema = z.object({
 	analisePainel2: textSchema.optional(),
 	analisePainel3: textSchema.optional(),
 	analisePainel4: textSchema.optional(),
-	alertasDeCriticidade: z
-		.array(
-			z.object({
-				titulo: textSchema,
-				origemAnalise: z.array(textSchema).catch([]),
-				evidencia: textSchema,
-				acaoRecomendada: textSchema,
-			})
-		)
-		.catch([]),
-	checklistAec: z.object({ perguntas: z.array(rawItemSchema).catch([]) }).catch({ perguntas: [] }),
+	alertasDeCriticidade: lenientArray(alertaSchema),
+	checklistAec: z.object({ perguntas: lenientArray(rawItemSchema) }).catch({ perguntas: [] }),
 })
 
 export class DgcAnalysisShapeError extends Error {

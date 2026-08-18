@@ -14,6 +14,7 @@
  */
 
 import type { AnyTextAdapter, StreamChunk } from "@tanstack/ai"
+import { withAdapterModel } from "./own-model.js"
 
 /**
  * Primeiro evento que torna a troca de adapter visível ao usuário. Até aqui só passaram
@@ -94,7 +95,11 @@ class RunErrorSignal extends Error {
  * pior que uma falha honesta.
  */
 export function withFallbackChain(primary: AnyTextAdapter, ...fallbacks: AnyTextAdapter[]): AnyTextAdapter {
-	const adapters = [primary, ...fallbacks].filter(Boolean)
+	// `forceAdapterModel` e não `withAdapterModel`: a activity `chat()` lê
+	// `adapter.model` do objeto encadeado — que é o do PRIMÁRIO, porque o spread
+	// abaixo o copia — e injeta esse id em `options.model`. Sem sobrescrever por
+	// adapter, a reserva recebe o modelo do primário e responde 404: ela serve outro.
+	const adapters = [primary, ...fallbacks].filter(Boolean).map((adapter) => withAdapterModel(adapter, { force: true }))
 	if (adapters.length === 1) return primary
 
 	return {

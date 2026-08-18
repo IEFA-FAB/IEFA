@@ -46,6 +46,23 @@ describe("withAdapterModel", () => {
 		expect(args.chatOptions.model).toBe("escolhido-pelo-chamador")
 	})
 
+	// A cadeia de fallback precisa do contrário: `chat()` injeta o modelo do PRIMÁRIO
+	// (o spread da cadeia copia `adapter.model`), e a reserva serve outro.
+	it("com force, sobrescreve o model que o chamador definiu", async () => {
+		const { adapter, captured } = fakeAdapter("modelo-da-reserva")
+		await withAdapterModel(adapter, { force: true }).structuredOutput({ chatOptions: { messages: [], model: "modelo-do-primario" }, outputSchema: {} } as never)
+		const args = captured.structuredOutput[0] as { chatOptions: { model?: string } }
+		expect(args.chatOptions.model).toBe("modelo-da-reserva")
+	})
+
+	it("com force, sobrescreve também no chatStream", async () => {
+		const { adapter, captured } = fakeAdapter("modelo-da-reserva")
+		for await (const _ of withAdapterModel(adapter, { force: true }).chatStream({ messages: [], model: "modelo-do-primario" } as never)) {
+			// consome o stream
+		}
+		expect((captured.chatStream[0] as { model?: string }).model).toBe("modelo-da-reserva")
+	})
+
 	it("devolve o adapter intacto quando ele não expõe modelo", () => {
 		const { adapter } = fakeAdapter(undefined)
 		expect(withAdapterModel(adapter)).toBe(adapter)

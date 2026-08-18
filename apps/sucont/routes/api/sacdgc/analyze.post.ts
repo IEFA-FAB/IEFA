@@ -101,37 +101,88 @@ export default defineHandler(async (event: H3Event) => {
 		logger: silentAdapterLogger,
 	} as unknown as StructuredArgs["chatOptions"]
 
+	// Preenchido no `start` e chamado no `cancel` — o `cancel` do ReadableStream não
+	// enxerga o escopo do `start`.
+	let cancelGeneration: (() => void) | undefined
+
 	const encoder = new TextEncoder()
 	const stream = new ReadableStream<Uint8Array>({
 		start(controller) {
 			let closed = false
+			// Fechar a aba, apertar "Interromper" ou perder a rede cancela o stream. Sem
+			// esta guarda o heartbeat seguiria chamando `enqueue` num controller morto —
+			// TypeError dentro do timer, e o `close()` do fim estourando de novo como
+			// rejeição não tratada.
 			const send = (name: string, payload: unknown) => {
 				if (closed) return
-				controller.enqueue(encoder.encode(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`))
+				try {
+					controller.enqueue(encoder.encode(`event: ${name}\ndata: ${JSON.stringify(payload)}\n\n`))
+				} catch {
+					closed = true
+				}
 			}
 
 			send("start", { ugCode: request.ugCode })
 
 			const heartbeat = setInterval(() => {
-				if (!closed) controller.enqueue(encoder.encode(": keep-alive\n\n"))
+				if (closed) return
+				try {
+					controller.enqueue(encoder.encode(": keep-alive\n\n"))
+				} catch {
+					closed = true
+				}
 			}, HEARTBEAT_MS)
 
-			const deadline = new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error("A análise excedeu o tempo máximo de espera. Tente novamente.")), DEADLINE_MS)
-			)
+			// Cliente foi embora: aborta a geração em vez de deixá-la correr até o
+			// deadline. Sem isto o modelo termina os 16 mil tokens de saída e o consumo
+			// entra no teto do usuário por uma resposta que ninguém vai ler.
+			const generation = new AbortController()
+			let deadlineTimer: ReturnType<typeof setTimeout> | undefined
 
-			const generation = adapter
-				.structuredOutput({ chatOptions, outputSchema: dgcAnalysisSchema as unknown as StructuredArgs["outputSchema"] })
+			const finish = () => {
+				closed = true
+				clearInterval(heartbeat)
+				if (deadlineTimer) clearTimeout(deadlineTimer)
+			}
+
+			cancelGeneration = () => {
+				generation.abort()
+				finish()
+			}
+
+			const deadline = new Promise<never>((_, reject) => {
+				// O timer precisa ser limpo: uma competência são ~69 análises em sequência,
+				// e 69 timers de 5 minutos vivos seguram o encerramento do processo.
+				deadlineTimer = setTimeout(() => {
+					generation.abort()
+					reject(new Error("A análise excedeu o tempo máximo de espera. Tente novamente."))
+				}, DEADLINE_MS)
+			})
+
+			const generated = adapter
+				.structuredOutput({
+					chatOptions: { ...(chatOptions as object), abortController: generation } as StructuredArgs["chatOptions"],
+					outputSchema: dgcAnalysisSchema as unknown as StructuredArgs["outputSchema"],
+				})
 				.then((result) => normalizeDgcAnalysis(result.data, { ugCode: request.ugCode, ugName: request.ugName, competence: request.competence }))
 
-			Promise.race([generation, deadline])
+			Promise.race([generated, deadline])
 				.then((analysis) => send("done", analysis))
 				.catch((error: unknown) => send("failed", { message: error instanceof Error ? error.message : "Falha ao gerar a análise." }))
 				.finally(() => {
-					clearInterval(heartbeat)
-					closed = true
-					controller.close()
+					const wasClosed = closed
+					finish()
+					if (!wasClosed) {
+						try {
+							controller.close()
+						} catch {
+							// stream já encerrado pelo cliente
+						}
+					}
 				})
+		},
+		cancel() {
+			cancelGeneration?.()
 		},
 	})
 
