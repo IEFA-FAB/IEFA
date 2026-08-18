@@ -13,7 +13,10 @@
     "lint": "biome lint",
     "check": "biome check",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test"
+    "test": "bun test src",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:ui": "bunx playwright test --ui",
+    "purge:test-fixtures": "bun run scripts/purge-test-fixtures.ts"
   },
   "dependencies": {
     "@iefa/agent-web": "workspace:*",
@@ -71,7 +74,8 @@
     "@vitejs/plugin-react": "^6.0.5",
     "babel-plugin-react-compiler": "^1.0.0",
     "typescript": "^7.0.2",
-    "vite": "8.1.5"
+    "vite": "8.1.5",
+    "@playwright/test": "^1.62.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

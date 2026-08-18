@@ -23,6 +23,7 @@ import { Route as MonitoramentoRouteImport } from './routes/monitoramento'
 import { Route as PoliticaDeCookiesRouteImport } from './routes/politica-de-cookies'
 import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as SacDgcRouteImport } from './routes/sac-dgc'
 import { Route as SubitensGenericosRouteImport } from './routes/subitens-genericos'
 import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
@@ -100,6 +101,11 @@ const ReportsRoute = ReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SacDgcRoute = SacDgcRouteImport.update({
+  id: '/sac-dgc',
+  path: '/sac-dgc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubitensGenericosRoute = SubitensGenericosRouteImport.update({
   id: '/subitens-genericos',
   path: '/subitens-genericos',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/politica-de-cookies': typeof PoliticaDeCookiesRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/reports': typeof ReportsRoute
+  '/sac-dgc': typeof SacDgcRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/politica-de-cookies': typeof PoliticaDeCookiesRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/reports': typeof ReportsRoute
+  '/sac-dgc': typeof SacDgcRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/politica-de-cookies': typeof PoliticaDeCookiesRoute
   '/politica-de-privacidade': typeof PoliticaDePrivacidadeRoute
   '/reports': typeof ReportsRoute
+  '/sac-dgc': typeof SacDgcRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/politica-de-cookies'
     | '/politica-de-privacidade'
     | '/reports'
+    | '/sac-dgc'
     | '/subitens-genericos'
     | '/termos-de-uso'
     | '/workspace'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/politica-de-cookies'
     | '/politica-de-privacidade'
     | '/reports'
+    | '/sac-dgc'
     | '/subitens-genericos'
     | '/termos-de-uso'
     | '/workspace'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/politica-de-cookies'
     | '/politica-de-privacidade'
     | '/reports'
+    | '/sac-dgc'
     | '/subitens-genericos'
     | '/termos-de-uso'
     | '/workspace'
@@ -284,6 +296,7 @@ export interface RootRouteChildren {
   PoliticaDeCookiesRoute: typeof PoliticaDeCookiesRoute
   PoliticaDePrivacidadeRoute: typeof PoliticaDePrivacidadeRoute
   ReportsRoute: typeof ReportsRoute
+  SacDgcRoute: typeof SacDgcRoute
   SubitensGenericosRoute: typeof SubitensGenericosRoute
   TermosDeUsoRoute: typeof TermosDeUsoRoute
   WorkspaceRoute: typeof WorkspaceRoute
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sac-dgc': {
+      id: '/sac-dgc'
+      path: '/sac-dgc'
+      fullPath: '/sac-dgc'
+      preLoaderRoute: typeof SacDgcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subitens-genericos': {
       id: '/subitens-genericos'
       path: '/subitens-genericos'
@@ -452,6 +472,7 @@ const rootRouteChildren: RootRouteChildren = {
   PoliticaDeCookiesRoute: PoliticaDeCookiesRoute,
   PoliticaDePrivacidadeRoute: PoliticaDePrivacidadeRoute,
   ReportsRoute: ReportsRoute,
+  SacDgcRoute: SacDgcRoute,
   SubitensGenericosRoute: SubitensGenericosRoute,
   TermosDeUsoRoute: TermosDeUsoRoute,
   WorkspaceRoute: WorkspaceRoute,

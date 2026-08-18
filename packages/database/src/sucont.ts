@@ -35,6 +35,10 @@ export type AnalysisRunInsert = TablesInsert<"analysis_run">
 export type GeneratedMessage = Tables<"generated_message">
 export type GeneratedMessageInsert = TablesInsert<"generated_message">
 
+export type DgcAnalysis = Tables<"dgc_analysis">
+export type DgcAnalysisInsert = TablesInsert<"dgc_analysis">
+export type DgcAnalysisUpdate = TablesUpdate<"dgc_analysis">
+
 export type SilomsSiafiBalance = Tables<"siloms_siafi_balance">
 export type SilomsSiafiBalanceInsert = TablesInsert<"siloms_siafi_balance">
 export type SilomsSiafiBalanceUpdate = TablesUpdate<"siloms_siafi_balance">

@@ -19,6 +19,7 @@
 
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
 import { setResponseStatus } from "@tanstack/react-start/server"
+import { silentAdapterLogger } from "#/lib/ai-logger"
 import { getServerCapabilities } from "#/lib/capabilities.server"
 
 /**
@@ -64,6 +65,9 @@ function buildOptions(user: string, system?: string): ChatStreamOptions {
 	return {
 		messages: [{ role: "user", content: user }],
 		systemPrompts: system ? [system] : [],
+		// Obrigatório: os adapters do TanStack chamam `logger.request`/`logger.errors`
+		// sem guarda. Ver `#/lib/ai-logger`.
+		logger: silentAdapterLogger,
 	} as unknown as ChatStreamOptions
 }
 

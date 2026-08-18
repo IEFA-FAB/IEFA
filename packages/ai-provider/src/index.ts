@@ -1,5 +1,6 @@
 import type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
 import { withFallbackChain } from "./fallback.js"
+import { withAdapterModel } from "./own-model.js"
 import { createAnthropicAdapter } from "./providers/anthropic.js"
 import { createBedrockAdapter } from "./providers/bedrock.js"
 import { createGeminiAdapter } from "./providers/gemini.js"
@@ -12,6 +13,7 @@ import type { AdapterConfig, ProviderType } from "./types.js"
 
 export type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
 export { isRetryableAdapterFailure, withFallback, withFallbackChain } from "./fallback.js"
+export { withAdapterModel } from "./own-model.js"
 export {
 	defaultRateLimitStore,
 	enforceRequestRateLimit,
@@ -28,6 +30,12 @@ export type { AdapterConfig, ProviderType } from "./types.js"
 const VALID_PROVIDERS: ProviderType[] = ["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama", "bedrock"]
 
 export function createAdapter(config: AdapterConfig): AnyTextAdapter {
+	// `withAdapterModel`: chamada direta ao adapter (server function, rota SSE) não
+	// passa pela activity `chat()`, que é quem normalmente injeta `options.model`.
+	return withAdapterModel(createRawAdapter(config))
+}
+
+function createRawAdapter(config: AdapterConfig): AnyTextAdapter {
 	switch (config.provider) {
 		case "groq":
 			return createGroqAdapter(config.model, config.apiKey)
