@@ -289,7 +289,7 @@ O único item que envia dados para fora dos sistemas do IEFA é o identificador 
 | `fab_remember_email` | armazenamento local | SISUB, Portal, RUMAER, Formulários | até ser limpo pelo usuário | **guarda o seu e-mail institucional** para preencher a tela de login; só é gravado se você marcar "lembrar" |
 | `sucont_remember_email` | armazenamento local | SUCONT-4 | até ser limpo pelo usuário | **guarda o seu e-mail institucional** para preencher a tela de login; só é gravado se você marcar "lembrar" |
 | `sidebar_state` | cookie | SISUB, Formulários | 7 dias | lembrar se a barra lateral está recolhida |
-| `theme` | armazenamento local | SISUB, Portal, RUMAER, Formulários | até ser limpo pelo usuário | tema claro ou escuro |
+| `theme` | cookie | SISUB, Portal, RUMAER, Formulários | 1 ano | tema claro ou escuro; é lido pelo servidor para já enviar a página no tema certo |
 | `sisub:selected_kitchen_id` | armazenamento local | SISUB | até ser limpo pelo usuário | última cozinha selecionada |
 | `places-graph-positions-v1` | armazenamento local | SISUB | até ser limpo pelo usuário | posição dos nós no fluxo de produção |
 | `sisub:stale-chunk-reloads` | armazenamento local | SISUB | transitória | evitar laço de recarregamento após uma publicação |
@@ -592,7 +592,7 @@ The only item that sends data outside IEFA systems is the Grafana Faro session i
 | `fab_remember_email` | local storage | SISUB, Portal, RUMAER, Forms | until cleared by the user | **stores your institutional e-mail** to prefill the sign-in screen; only written if you tick "remember" |
 | `sucont_remember_email` | local storage | SUCONT-4 | until cleared by the user | **stores your institutional e-mail** to prefill the sign-in screen; only written if you tick "remember" |
 | `sidebar_state` | cookie | SISUB, Forms | 7 days | remembering whether the sidebar is collapsed |
-| `theme` | local storage | SISUB, Portal, RUMAER, Forms | until cleared by the user | light or dark theme |
+| `theme` | cookie | SISUB, Portal, RUMAER, Forms | 1 year | light or dark theme; read by the server so the page is sent already in the right theme |
 | `sisub:selected_kitchen_id` | local storage | SISUB | until cleared by the user | last selected kitchen |
 | `places-graph-positions-v1` | local storage | SISUB | until cleared by the user | node positions in the production flow |
 | `sisub:stale-chunk-reloads` | local storage | SISUB | transient | preventing a reload loop after a deployment |

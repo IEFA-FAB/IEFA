@@ -13,7 +13,7 @@ import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
-import { ThemeProvider, ThemeScript } from "@/services/themeService"
+import { readThemePreference, ThemeProvider } from "@/services/themeService"
 import AppStyles from "@/styles.css?url"
 import type { AuthContextType } from "@/types/domain/auth"
 
@@ -139,8 +139,14 @@ function RootDocument() {
 		return () => subscription.unsubscribe()
 	}, [router])
 
+	// Lido no render: no servidor vem do cookie da requisição, no cliente do
+	// document.cookie. Mesmo valor dos dois lados, então o <html> hidrata sem
+	// divergir — e o tema certo já está na primeira pintura, sem script inline.
+	// Sem cookie: nenhuma classe, e a media query do CSS segue o sistema.
+	const theme = readThemePreference()
+
 	return (
-		<html lang="pt-BR" suppressHydrationWarning>
+		<html lang="pt-BR" className={theme ?? undefined} style={theme ? { colorScheme: theme } : undefined} suppressHydrationWarning>
 			<head>
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
@@ -148,7 +154,6 @@ function RootDocument() {
 				<link rel="preload" href="/fonts/JetBrainsMono-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
 
 				<HeadContent />
-				<ThemeScript />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
 				<div
@@ -156,7 +161,7 @@ function RootDocument() {
 					className={cn("fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out", isLoading ? "w-full opacity-100" : "w-0 opacity-0")}
 				/>
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
-				<ThemeProvider>
+				<ThemeProvider initialTheme={theme}>
 					<Outlet />
 					<Toaster position="bottom-center" richColors expand className="z-2147483647" />
 				</ThemeProvider>

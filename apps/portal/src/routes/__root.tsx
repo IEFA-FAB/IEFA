@@ -13,12 +13,17 @@ import { CommandPaletteProvider } from "@/components/command-palette/CommandPale
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
-import { ThemeProvider, ThemeScript } from "@/components/themeService"
+import { readThemePreference, ThemeProvider } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import { WebMcpTools } from "@/components/WebMcpTools"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
-import AppStyles from "@/styles.css?url"
+// A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
+// <link> é o manifesto do build do cliente, que é o mesmo arquivo servido em
+// /assets. Com `?url` o bundle do SERVIDOR emitia um segundo nome, e bastava
+// o hash divergir entre os dois builds para o HTML pedir um CSS que não existe
+// no público — o 404 que a suíte estava servindo em cinco apps.
+import "@/styles.css"
 
 export interface MyRouterContext {
 	queryClient: QueryClient
@@ -63,8 +68,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			],
 			favicon: "/favicon.svg",
 			links: [
-				{ rel: "preload", href: AppStyles, as: "style" },
-				{ rel: "stylesheet", href: AppStyles },
 				{
 					rel: "icon",
 					type: "image/svg+xml",
@@ -142,15 +145,17 @@ function AuthSync() {
 
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	// Lido no render: no servidor vem do cookie da requisição, no cliente do
+	// document.cookie. Mesmo valor dos dois lados, então o <html> hidrata sem
+	// divergir — e o tema certo já está na primeira pintura, sem script inline.
+	// Sem cookie: nenhuma classe, e a media query do CSS segue o sistema.
+	const theme = readThemePreference()
 	return (
-		<html lang="pt-BR" suppressHydrationWarning>
+		<html lang="pt-BR" className={theme ?? undefined} style={theme ? { colorScheme: theme } : undefined} suppressHydrationWarning>
 			<head>
-				<link rel="preload" href={AppStyles} as="style" />
-				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />
-				<ThemeScript />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
 				<div
@@ -159,7 +164,7 @@ function RootDocument() {
 				/>
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
-					<ThemeProvider>
+					<ThemeProvider initialTheme={theme}>
 						<CommandPaletteProvider>
 							<Outlet />
 							<Toaster />

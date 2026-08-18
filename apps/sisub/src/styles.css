@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-
 @font-face {
 	font-family: "Manrope";
 	src: url("/fonts/Manrope-Variable.woff2") format("woff2");
@@ -18,8 +17,21 @@
 	font-display: swap;
 }
 
+/* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
+   vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
+   não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os
+   tokens escuros mas os utilitários `dark:` no claro. */
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:is(:root:where(:not(.light)) *) {
+      @slot;
+    }
+  }
+}
 
-@custom-variant dark (&:is(.dark *));
 :root {
   --background: oklch(1.0000 0 0);
   --foreground: oklch(0.1884 0.0128 248.5103);
@@ -87,6 +99,14 @@
   --scrollbar-track: transparent;
 }
 
+/* Duas portas para o MESMO conjunto de tokens, e as duas precisam existir:
+   - `.dark`: escolha explícita do usuário. Vem do cookie `theme` e é renderizada
+     pelo servidor no <html>, então já está no HTML da primeira pintura.
+   - a media query: preferência do SO de quem ainda não escolheu — a única coisa
+     que o servidor não tem como saber. Antes, um script inline aplicava a classe
+     antes da hidratação; o React 19 tratava isso como divergência do <html>
+     (erro #418), descartava a árvore e voltava para o claro. Era o flash.
+   Mexeu em um bloco, mexa no outro. */
 .dark {
   --background: oklch(0 0 0);
   --foreground: oklch(0.9328 0.0025 228.7857);
@@ -147,6 +167,87 @@
   --scrollbar-thumb: oklch(0.3200 0.0080 248.0045);
   --scrollbar-thumb-hover: var(--primary);
   --scrollbar-track: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not(.light)) {
+    --background: oklch(0 0 0);
+    --foreground: oklch(0.9328 0.0025 228.7857);
+    --card: oklch(0.2097 0.0080 274.5332);
+    --card-foreground: oklch(0.8853 0 0);
+    --popover: oklch(0 0 0);
+    --popover-foreground: oklch(0.9328 0.0025 228.7857);
+    --primary: oklch(0.6692 0.1607 245.0110);
+    --primary-foreground: oklch(1.0000 0 0);
+    --secondary: oklch(0.9622 0.0035 219.5331);
+    --secondary-foreground: oklch(0.1884 0.0128 248.5103);
+    --muted: oklch(0.2090 0 0);
+    --muted-foreground: oklch(0.5637 0.0078 247.9662);
+    --accent: oklch(0.1928 0.0331 242.5459);
+    --accent-foreground: oklch(0.6692 0.1607 245.0110);
+    --destructive: oklch(0.6188 0.2376 25.7658);
+    --destructive-foreground: oklch(1.0000 0 0);
+    --border: oklch(0.2674 0.0047 248.0045);
+    --input: oklch(0.3020 0.0288 244.8244);
+    --ring: oklch(0.6818 0.1584 243.3540);
+    /* Status tokens */
+    --success: oklch(0.6907 0.1554 160.3454);
+    --success-foreground: oklch(1.0000 0 0);
+    --warning: oklch(0.7500 0.1400 82.5337);
+    --warning-foreground: oklch(0.2000 0 0);
+    --info: oklch(0.6723 0.1606 244.9955);
+    --info-foreground: oklch(1.0000 0 0);
+    --governance: oklch(0.6200 0.1550 290.0000);
+    --governance-foreground: oklch(1.0000 0 0);
+    --chart-1: oklch(0.6723 0.1606 244.9955);
+    --chart-2: oklch(0.6907 0.1554 160.3454);
+    --chart-3: oklch(0.8214 0.1600 82.5337);
+    --chart-4: oklch(0.7064 0.1822 151.7125);
+    --chart-5: oklch(0.5919 0.2186 10.5826);
+    --sidebar: oklch(0.2097 0.0080 274.5332);
+    --sidebar-foreground: oklch(0.8853 0 0);
+    --sidebar-primary: oklch(0.6818 0.1584 243.3540);
+    --sidebar-primary-foreground: oklch(1.0000 0 0);
+    --sidebar-accent: oklch(0.1928 0.0331 242.5459);
+    --sidebar-accent-foreground: oklch(0.6692 0.1607 245.0110);
+    --sidebar-border: oklch(0.3795 0.0220 240.5943);
+    --sidebar-ring: oklch(0.6818 0.1584 243.3540);
+    /* Alinhado com Manrope — DM Sans não estava sendo carregada */
+    --font-sans: 'Manrope', ui-sans-serif, system-ui;
+    --font-serif: Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    /* Radius consistente com light mode */
+    --radius: 0.5rem;
+    --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.20);
+    --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.25);
+    --shadow-sm: 0px 1px 3px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+    --shadow: 0px 2px 4px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+    --shadow-md: 0px 4px 8px 0px oklch(0 0 0 / 0.30), 0px 2px 4px -2px oklch(0 0 0 / 0.20);
+    --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.35), 0px 4px 6px -4px oklch(0 0 0 / 0.20);
+    --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.40), 0px 8px 10px -6px oklch(0 0 0 / 0.20);
+    --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.50);
+    /* Scrollbar tokens — dark mode */
+    --scrollbar-thumb: oklch(0.3200 0.0080 248.0045);
+    --scrollbar-thumb-hover: var(--primary);
+    --scrollbar-track: transparent;
+  }
+}
+
+/* O `color-scheme` acompanha os tokens. Sem ele, quem está no escuro do sistema
+   ganha os tokens escuros mas scrollbar, date picker e autofill nativos claros.
+   Na escolha explícita o servidor também manda no `style` do <html>. */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not(.light)) {
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
@@ -261,7 +362,6 @@
   }
 }
 
-
 /* Theme toggle view transition — circular reveal from button position */
 ::view-transition-new(root) {
 	animation: vt-theme-reveal var(--vt-duration, 400ms) ease-in-out;
@@ -280,7 +380,6 @@
 		clip-path: circle(var(--vt-clip-r, 100vmax) at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
 	}
 }
-
 
 /* ─── Hierarquia Tipográfica ─── */
 @utility text-display {

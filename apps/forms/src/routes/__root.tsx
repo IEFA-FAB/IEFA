@@ -9,13 +9,19 @@ import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/s
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
-import { ThemeProvider, ThemeScript } from "@/components/themeService"
+import { readThemePreference, ThemeProvider } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import { env } from "@/env"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
 import { TenantProvider } from "@/lib/tenant"
-import AppStyles from "@/styles.css?url"
+// A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
+// <link> é o manifesto do build do cliente — o mesmo `/assets/styles.css` que o
+// nitro serve e que o routeRules trata como no-cache. Com `?url` o bundle do
+// SERVIDOR emitia um SEGUNDO nome, hasheado, e bastava divergir do nome do
+// cliente para o HTML pedir um CSS que não existe no público: era o 404 que a
+// suíte servia em cinco apps (e o download duplicado da folha no sisub).
+import "@/styles.css"
 
 export interface MyRouterContext {
 	queryClient: QueryClient
@@ -92,12 +98,20 @@ function AuthSync() {
 
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	// Lido no render: no servidor vem do cookie da requisição, no cliente do
+	// document.cookie. Mesmo valor dos dois lados, então o <html> hidrata sem
+	// divergir — e o tema certo já está na primeira pintura, sem script inline.
+	// Sem cookie: nenhuma classe, e a media query do CSS segue o sistema.
+	const theme = readThemePreference()
 	return (
-		<html lang="pt-BR" data-tenant={env.VITE_APP_TENANT} suppressHydrationWarning>
+		<html
+			lang="pt-BR"
+			data-tenant={env.VITE_APP_TENANT}
+			className={theme ?? undefined}
+			style={theme ? { colorScheme: theme } : undefined}
+			suppressHydrationWarning
+		>
 			<head>
-				<ThemeScript />
-				<link rel="preload" href={AppStyles} as="style" />
-				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />
@@ -110,7 +124,7 @@ function RootDocument() {
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<TenantProvider tenant={env.VITE_APP_TENANT}>
 					<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
-						<ThemeProvider>
+						<ThemeProvider initialTheme={theme}>
 							<Outlet />
 							<Toaster />
 						</ThemeProvider>
