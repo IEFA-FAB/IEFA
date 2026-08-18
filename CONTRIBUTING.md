@@ -1,7 +1,5 @@
 # Contributing to IEFA
 
-Thank you for your interest in contributing!
-
 ## How to Contribute
 
 ### Reporting Bugs
@@ -14,22 +12,38 @@ Open an issue describing the feature, its motivation, and any relevant context.
 
 ### Pull Requests
 
-1. Fork the repository and create your branch from `main`.
+Every change goes through a pull request against `main` — never commit or merge straight
+into it.
+
+1. Branch from `main` (contributors outside the organization: fork first).
 2. Install dependencies:
    ```bash
    bun install
    ```
-3. Make your changes and ensure checks pass:
+3. Make your changes and make sure the checks pass — the whole suite, not a per-file
+   typecheck, which misses cross-package breakage:
    ```bash
-   bun typecheck
-   bun lint
-   bun test
+   bun run check   # biome + typecheck
+   bun run test
    ```
-4. Commit using the interactive wizard (commitizen + cz-git):
+   Integration tests need a real database and stay skipped without one. That is expected.
+4. Touched an app or package that ships? Regenerate the deploy artifacts, which are
+   derived from `apps.manifest.json` and never edited by hand:
    ```bash
-   bun commit
+   bun run check:deploy    # CI runs this and fails on drift
+   bun run generate:deploy # rewrite Dockerfile, docker-bake.hcl, paths-filter.yml
    ```
-   This guides you through [Conventional Commits](https://www.conventionalcommits.org) with the required scope. Valid scopes are: `portal`, `sisub`, `ai`, `api`, `docs`, `deps`, `ci`, `scripts`, `root`.
+5. Commit using the interactive wizard (commitizen + cz-git):
+   ```bash
+   bun run commit
+   ```
+   This guides you through [Conventional Commits](https://www.conventionalcommits.org) with
+   the required scope. Scopes in use: `sisub`, `portal`, `sucont`, `rumaer`, `forms`, `5s`,
+   `assignment-selection`, `api`, `alpha`, `docs`, `database`, `pbac`, `deps`, `ci`,
+   `scripts`, `root`. A change spanning several apps may list them: `fix(portal,sisub): …`.
+
+   **Commit messages are written in English** — subject and body — even when the code,
+   comments and diff are in Portuguese.
 
    If committing manually, follow the format:
    ```
@@ -39,24 +53,38 @@ Open an issue describing the feature, its motivation, and any relevant context.
    fix(api): handle null response from provider
    ```
 
-5. Open a pull request against `main` with a clear description of what and why.
+6. Open a pull request against `main` with a clear description of what and why. Leave it
+   open for review; don't self-merge.
+
+### Review
+
+Automated review is on demand, not automatic: run `/code-review` before asking for a merge
+and report the findings on the PR. CI covers Biome, typecheck, Opengrep, CodeQL, Trivy,
+zizmor, gitleaks, the dependency audit and the contract tests — but no linter sees a race
+between a check and a mutation, an empty state that hides a failure, or a wrong FK order.
+An absence of bot comments does not mean the code was reviewed.
+
+When a bug traces back to a pattern rather than a typo, the fix includes a rule in
+`.opengrep/rules/` so the pattern can't come back.
 
 ## Development Setup
 
-See [README.md](README.md#getting-started) for full setup instructions.
+See [README.md](README.md#getting-started) for full setup instructions, and
+[CLAUDE.md](CLAUDE.md) for the conventions this codebase enforces — server function shape,
+Supabase client construction, the two incompatible design systems, the AI tool contract.
 
 ## Code Style
 
 This project uses [Biome](https://biomejs.dev) for linting and formatting. Run before committing:
 
 ```bash
-bun format
+bun run format
 ```
 
-Or to lint + format + typecheck at once:
+Or to check formatting, lint and types at once:
 
 ```bash
-bun check
+bun run check
 ```
 
 ## Security
