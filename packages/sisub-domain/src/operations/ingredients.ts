@@ -16,7 +16,6 @@ import {
 	ingredientItemInKitchen,
 	ingredientNutrientInKitchen,
 	ingredientNutritionReferenceInKitchen,
-	ingredientSubstitutionInKitchen,
 	nutrientInKitchen,
 	nutritionFoodItemInNutritionReference,
 	nutritionFoodItemRevisionInNutritionReference,
@@ -45,7 +44,6 @@ import type {
 	ListCeafa,
 	ListFolders,
 	ListIngredientItems,
-	ListIngredientSubstitutions,
 	ListIngredients,
 	ListNutritionReferenceFoods,
 	ListPreparationGroups,
@@ -53,15 +51,22 @@ import type {
 	RestoreIngredient,
 	SetIngredientNutrients,
 	SetIngredientNutritionReference,
-	SetIngredientSubstitutions,
 	UpdateFolder,
 	UpdateIngredient,
 	UpdateIngredientItem,
 } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
+import { folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
 import { folderOutsidePreparations, ingredientPreparationFilter } from "./preparation-scope.ts"
+
+/**
+ * Colunas `numeric` do insumo: o driver devolve STRING, o contrato declara `number`.
+ * Ver `toNumeric` — a mesma divergência que fazia a ficha técnica acusar "Invalid input"
+ * em campo salvo, e que aqui alimenta o prefill de FC/IR na linha da preparação.
+ */
+const INGREDIENT_NUMERIC_KEYS: ReadonlySet<string> = new Set(["correction_factor", "rehydration_index", "density_factor"])
 
 type Folder = Tables<"folder">
 type Ingredient = Tables<"ingredient">
@@ -140,6 +145,8 @@ export async function listFolders(db: SisubDb, ctx: UserContext, input?: ListFol
 		input?.includeDeleted ? undefined : isNull(folderInKitchen.deletedAt),
 		// Pasta de insumo é pasta de insumo. Ver preparation-scope.ts.
 		folderOutsidePreparations,
+		// Gêneros × itens auxiliares (EPI, limpeza, embalagem…). Ver catalog-scope.ts.
+		folderCatalogFilter(input?.catalog),
 	].filter((c) => c !== undefined)
 	const where = and(...conditions)
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(folderInKitchen).where(where).orderBy(asc(folderInKitchen.createdAt)))
@@ -165,6 +172,10 @@ export async function listPreparationGroups(db: SisubDb, ctx: UserContext, input
 				legacy_id: preparationGroupInKitchen.legacyId,
 				created_at: preparationGroupInKitchen.createdAt,
 				deleted_at: preparationGroupInKitchen.deletedAt,
+				// `preparation_group` não tem a coluna: o recorte auxiliar é da árvore de
+				// insumos, e preparação do SISUBWEB não está nela. Constante para fechar o
+				// formato de `Folder` que a aba reusa.
+				catalog_scope: sql<string>`'alimentacao'`,
 			})
 			.from(preparationGroupInKitchen)
 			.where(where)
@@ -177,7 +188,11 @@ export async function listPreparationGroups(db: SisubDb, ctx: UserContext, input
 export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateFolder): Promise<Folder> {
 	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
-		db.insert(folderInKitchen).values({ description: input.description, parentId: input.parentId }).returning()
+		db
+			.insert(folderInKitchen)
+			// Só vale para pasta RAIZ: com pai, o trigger herda o escopo dele.
+			.values({ description: input.description, parentId: input.parentId, ...(input.catalogScope ? { catalogScope: input.catalogScope } : {}) })
+			.returning()
 	)
 	return toWire<Folder>(row)
 }
@@ -185,7 +200,11 @@ export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateF
 export async function updateFolder(db: SisubDb, ctx: UserContext, input: UpdateFolder): Promise<Folder> {
 	requirePermission(ctx, "global", 2)
 	const row = await insertOneOrFail("UPDATE_FAILED", `folder ${input.id} not found`, () =>
-		db.update(folderInKitchen).set({ description: input.description, parentId: input.parentId }).where(eq(folderInKitchen.id, input.id)).returning()
+		db
+			.update(folderInKitchen)
+			.set({ description: input.description, parentId: input.parentId, ...(input.catalogScope ? { catalogScope: input.catalogScope } : {}) })
+			.where(eq(folderInKitchen.id, input.id))
+			.returning()
 	)
 	return toWire<Folder>(row)
 }
@@ -217,9 +236,12 @@ export async function listIngredients(db: SisubDb, ctx: UserContext, input: List
 	// Sem escopo explícito, "insumos" não inclui o grupo legado "Preparações".
 	const preparationFilter = ingredientPreparationFilter(input.preparations)
 	if (preparationFilter) conditions.push(preparationFilter)
+	// Sem escopo explícito, gêneros e itens auxiliares vêm juntos (o default de include).
+	const catalogFilter = ingredientCatalogFilter(input.catalog)
+	if (catalogFilter) conditions.push(catalogFilter)
 	const where = conditions.length > 0 ? and(...conditions) : undefined
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ingredientInKitchen).where(where).orderBy(asc(ingredientInKitchen.description)))
-	return rows.map((r) => toWire<Ingredient>(r))
+	return rows.map((r) => toNumeric(toWire<Ingredient>(r), INGREDIENT_NUMERIC_KEYS))
 }
 
 export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: FetchIngredient): Promise<Ingredient> {
@@ -228,7 +250,7 @@ export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: Fetc
 		db.query.ingredientInKitchen.findFirst({ where: and(eq(ingredientInKitchen.id, input.id), isNull(ingredientInKitchen.deletedAt)) })
 	)
 	if (!row) throw new NotFoundError("ingredient", input.id)
-	return toWire<Ingredient>(row)
+	return toNumeric(toWire<Ingredient>(row), INGREDIENT_NUMERIC_KEYS)
 }
 
 export async function createIngredient(db: SisubDb, ctx: UserContext, input: CreateIngredient): Promise<Ingredient> {
@@ -281,50 +303,6 @@ export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: Re
 	requirePermission(ctx, "global", 2)
 	await mutateOrFail("RESTORE_FAILED", `ingredient ${input.id} not found`, () =>
 		db.update(ingredientInKitchen).set({ deletedAt: null }).where(eq(ingredientInKitchen.id, input.id)).returning({ id: ingredientInKitchen.id })
-	)
-}
-
-// ─── Substituições de insumo (direcionais, vivem no insumo) ───────────────────
-
-/** Linha wire da substituição. Tipo local — a tabela é nova e não está no generated.ts. */
-export type IngredientSubstitution = {
-	id: string
-	created_at: string
-	ingredient_id: string
-	substitute_ingredient_id: string
-	factor: number
-}
-
-export async function listIngredientSubstitutions(db: SisubDb, ctx: UserContext, input: ListIngredientSubstitutions): Promise<IngredientSubstitution[]> {
-	requireAnyPermission(ctx, ["kitchen", "global"], 1)
-	const rows = await runQuery("QUERY_FAILED", () =>
-		db.select().from(ingredientSubstitutionInKitchen).where(eq(ingredientSubstitutionInKitchen.ingredientId, input.ingredientId))
-	)
-	// `factor` é numeric → o driver devolve string; normaliza para número no contrato wire.
-	return rows.map((r) => ({ ...toWire<IngredientSubstitution>(r), factor: Number(r.factor) }))
-}
-
-/**
- * Replace-all do conjunto de substitutos de um insumo, dentro de uma transação:
- * apaga as linhas atuais e reinsere as marcadas. Sem soft-delete → o unique
- * (ingredient_id, substitute_ingredient_id) nunca colide com linha órfã.
- * Ignora auto-referência (o próprio insumo nunca é seu substituto).
- */
-export async function setIngredientSubstitutions(db: SisubDb, ctx: UserContext, input: SetIngredientSubstitutions): Promise<void> {
-	requirePermission(ctx, "global", 2)
-	const rows = input.substitutions
-		.filter((s) => s.substituteIngredientId !== input.ingredientId)
-		.map((s) => ({
-			ingredientId: input.ingredientId,
-			substituteIngredientId: s.substituteIngredientId,
-			factor: String(s.factor ?? 1),
-		}))
-
-	await runQuery("UPDATE_FAILED", () =>
-		db.transaction(async (tx) => {
-			await tx.delete(ingredientSubstitutionInKitchen).where(eq(ingredientSubstitutionInKitchen.ingredientId, input.ingredientId))
-			if (rows.length > 0) await tx.insert(ingredientSubstitutionInKitchen).values(rows)
-		})
 	)
 }
 

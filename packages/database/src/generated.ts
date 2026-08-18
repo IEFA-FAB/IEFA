@@ -4379,6 +4379,7 @@ export type Database = {
 			}
 			folder: {
 				Row: {
+					catalog_scope: string
 					created_at: string
 					deleted_at: string | null
 					description: string | null
@@ -4387,6 +4388,7 @@ export type Database = {
 					parent_id: string | null
 				}
 				Insert: {
+					catalog_scope?: string
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
@@ -4395,6 +4397,7 @@ export type Database = {
 					parent_id?: string | null
 				}
 				Update: {
+					catalog_scope?: string
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
@@ -5354,7 +5357,7 @@ export type Database = {
 					ingredient_id: string | null
 					net_quantity: number | null
 					priority_order: number | null
-					recipe_ingredient_id: string | null
+					recipe_ingredient_id: string
 				}
 				Insert: {
 					created_at?: string
@@ -5363,7 +5366,7 @@ export type Database = {
 					ingredient_id?: string | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					recipe_ingredient_id?: string | null
+					recipe_ingredient_id: string
 				}
 				Update: {
 					created_at?: string
@@ -5372,7 +5375,7 @@ export type Database = {
 					ingredient_id?: string | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					recipe_ingredient_id?: string | null
+					recipe_ingredient_id?: string
 				}
 				Relationships: [
 					{
@@ -8127,6 +8130,59 @@ export type Database = {
 					url?: string
 				}
 				Relationships: []
+			}
+			siloms_siafi_balance: {
+				Row: {
+					account_group: string
+					created_at: string
+					created_by: string | null
+					difference: number | null
+					id: string
+					period: string
+					siafi_value: number
+					siloms_value: number
+					source_run_id: string | null
+					ug_codigo: string
+					ug_nome: string | null
+					updated_at: string
+				}
+				Insert: {
+					account_group: string
+					created_at?: string
+					created_by?: string | null
+					difference?: number | null
+					id?: string
+					period: string
+					siafi_value?: number
+					siloms_value?: number
+					source_run_id?: string | null
+					ug_codigo: string
+					ug_nome?: string | null
+					updated_at?: string
+				}
+				Update: {
+					account_group?: string
+					created_at?: string
+					created_by?: string | null
+					difference?: number | null
+					id?: string
+					period?: string
+					siafi_value?: number
+					siloms_value?: number
+					source_run_id?: string | null
+					ug_codigo?: string
+					ug_nome?: string | null
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "siloms_siafi_balance_source_run_id_fkey"
+						columns: ["source_run_id"]
+						isOneToOne: false
+						referencedRelation: "analysis_run"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 			unidade_gestora: {
 				Row: {

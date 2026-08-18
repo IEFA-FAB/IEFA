@@ -7,8 +7,16 @@ import { UuidSchema } from "./common.ts"
  */
 export const PreparationScopeSchema = z.enum(["exclude", "only", "include"])
 
+/**
+ * Escopo de catálogo: gêneros de alimentação × itens auxiliares (EPI, limpeza,
+ * embalagem…). Omitido ⇒ `include`, tudo junto — o recorte serve às abas de
+ * /global/ingredients, não ao seletor da ficha técnica. Ver `catalog-scope.ts`.
+ */
+export const CatalogScopeSchema = z.enum(["include", "exclude", "only"])
+
 export const ListFoldersSchema = z.object({
 	includeDeleted: z.boolean().optional(),
+	catalog: CatalogScopeSchema.optional(),
 })
 export type ListFolders = z.infer<typeof ListFoldersSchema>
 
@@ -24,6 +32,12 @@ export type RestoreFolder = z.infer<typeof RestoreFolderSchema>
 export const CreateFolderSchema = z.object({
 	description: z.string().nullable().optional(),
 	parentId: UuidSchema.nullable().optional(),
+	/**
+	 * Escopo da pasta. Só é lido quando a pasta é RAIZ: com pai, o trigger
+	 * `folder_inherit_catalog_scope` herda o escopo dele e ignora o que vier daqui —
+	 * uma subpasta de EPI classificada como alimentação seria um item na aba errada.
+	 */
+	catalogScope: z.enum(["alimentacao", "auxiliar"]).optional(),
 })
 export type CreateFolder = z.infer<typeof CreateFolderSchema>
 
@@ -37,6 +51,7 @@ export const ListIngredientsSchema = z.object({
 	folderId: UuidSchema.optional(),
 	includeDeleted: z.boolean().optional(),
 	preparations: PreparationScopeSchema.optional(),
+	catalog: CatalogScopeSchema.optional(),
 	/** Busca parcial na descrição, sem distinguir caixa. Limitada para não virar um LIKE gigante. */
 	search: z.string().trim().min(1).max(200).optional(),
 })
@@ -160,20 +175,7 @@ export const SetIngredientNutritionReferenceSchema = z.object({
 })
 export type SetIngredientNutritionReference = z.infer<typeof SetIngredientNutritionReferenceSchema>
 
-// ── Substituições de insumo (vivem NO insumo, direcionais) ───────────────────
-
-export const ListIngredientSubstitutionsSchema = z.object({ ingredientId: UuidSchema })
-export type ListIngredientSubstitutions = z.infer<typeof ListIngredientSubstitutionsSchema>
-
-/** Replace-all: o conjunto enviado passa a ser a lista completa de substitutos do insumo. */
-export const SetIngredientSubstitutionsSchema = z.object({
-	ingredientId: UuidSchema,
-	substitutions: z.array(
-		z.object({
-			substituteIngredientId: UuidSchema,
-			// Fator opcional — omitido = 1 (o substituto usa a mesma quantidade líquida).
-			factor: z.number().positive().optional(),
-		})
-	),
-})
-export type SetIngredientSubstitutions = z.infer<typeof SetIngredientSubstitutionsSchema>
+// Substituição NÃO mora mais aqui: voltou a ser decisão da linha da ficha técnica
+// (`RecipeIngredientAlternativeSchema` em schemas/recipes.ts). O par global insumo →
+// substituto não tinha onde guardar a gramatura da substituta, que é justamente o que
+// muda de uma preparação para outra. Ver a migration 20260818140000.

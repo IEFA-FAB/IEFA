@@ -55,7 +55,7 @@ Padrão obrigatório para funções server-side (TanStack Start v1.x):
 ```ts
 // src/server/*.fn.ts
 createServerFn({ method: 'GET' | 'POST' })
-  .inputValidator(z.object({ ... }))   // inputValidator, NÃO validator
+  .validator(z.object({ ... }))        // validator, NÃO inputValidator (deprecado)
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();  // per-request, nunca singleton
     // ...
@@ -64,7 +64,9 @@ createServerFn({ method: 'GET' | 'POST' })
 
 ## Banco de Dados
 
-- **Supabase** com schema `sisub` (default)
+- **Supabase**, schema `sisub` como default. O domínio foi dividido por área desde então:
+  `core`, `kitchen`, `inventory`, `procurement`, `finance`, `access_control`,
+  `nutrition_reference`, `siafi_integration` e `compras_gov_integration`
 - Variáveis de ambiente:
   - `VITE_SISUB_SUPABASE_URL`
   - `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` (client)

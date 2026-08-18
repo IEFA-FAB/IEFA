@@ -22,6 +22,8 @@ export {
 	localCommitmentAfterSnapshot,
 	projectBudget,
 } from "./budget-math.ts"
+export type { CatalogScope, CatalogScopeValue } from "./catalog-scope.ts"
+export { CATALOG_SCOPE_VALUES, folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
 export {
 	fetchForecasts,
 	fetchMessHalls,
@@ -72,14 +74,12 @@ export {
 	fetchIngredient,
 	getIngredientNutritionReference,
 	type IngredientEffectiveNutrientsResult,
-	type IngredientSubstitution,
 	listCatmatItems,
 	listCeafa,
 	listFolders,
 	listIngredientEffectiveNutrients,
 	listIngredientItems,
 	listIngredientNutrients,
-	listIngredientSubstitutions,
 	listIngredients,
 	listNutrients,
 	listNutritionReferenceFoods,
@@ -90,7 +90,6 @@ export {
 	restoreIngredient,
 	setIngredientNutrients,
 	setIngredientNutritionReference,
-	setIngredientSubstitutions,
 	updateFolder,
 	updateIngredient,
 	updateIngredientItem,

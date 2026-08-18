@@ -245,7 +245,6 @@ describe("server function security contracts", () => {
 				"updateIngredient",
 				"deleteIngredient",
 				"restoreIngredient",
-				"setIngredientSubstitutions",
 				"createIngredientItem",
 				"updateIngredientItem",
 				"deleteIngredientItem",

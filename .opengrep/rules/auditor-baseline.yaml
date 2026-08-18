@@ -1,0 +1,32 @@
+##
+# Invariantes do auditor SIAFI x SILOMS (SUCONT-4).
+#
+# Como as outras regras deste diretório, esta nasceu de um bug que já aconteceu: a MSG
+# institucional enviada às UGs declarava "AUMENTO NO PERÍODO (+100,00%)" para a primeira
+# competência de qualquer recorte, comparando contra uma linha de zeros que nunca foi
+# carregada. Eram 261 registros no relatório de importação de 17/08/2026.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: auditor-fabricated-baseline-percentage
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Percentual fabricado a partir de uma base ausente. O idioma
+      `anterior !== 0 ? variação : atual > 0 ? 100 : 0` transforma "não existe competência
+      anterior" em "+100%", que é indistinguível de uma alta real de 100% e vai assinado
+      para a UG. Ausência de base não é variação: cheque `hasPrevious` e imprima travessão
+      (ver consecutiveVariation em auditor/services/dataProcessor.ts).
+    paths:
+      include:
+        - "apps/sucont/src/**"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      # Aspas obrigatórias: os `:` do ternário são separadores de mapa em YAML e o
+      # arquivo inteiro deixa de carregar (o scan falha com "1 configs were invalid").
+      - pattern-either:
+          - pattern: "$PREV !== 0 ? $VAR : $CURR > 0 ? 100 : 0"
+          - pattern: "$PREV === 0 ? ($CURR > 0 ? 100 : 0) : $VAR"
+          - pattern: "$PREV !== 0 ? $VAR : 100"

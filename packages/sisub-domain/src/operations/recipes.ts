@@ -11,9 +11,12 @@
  */
 
 import {
+	frozenPreparationInKitchen,
+	ingredientInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	recipeFolderInKitchen,
+	recipeIngredientAlternativesInKitchen,
 	recipeIngredientsInKitchen,
 	recipesInKitchen,
 	type SisubDb,
@@ -39,15 +42,37 @@ import type {
 } from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, mutateOrFail, runQuery, toWire, unwrapPgError } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
+
+/**
+ * Substituto de uma linha da ficha, já com o insumo resolvido para a tela.
+ *
+ * `net_quantity` é ABSOLUTA (a gramatura da substituta nesta preparação), não um fator —
+ * ver `RecipeIngredientAlternativeSchema`.
+ */
+type RecipeIngredientAlternativeWire = {
+	id: string
+	ingredient_id: string | null
+	frozen_preparation_id: string | null
+	net_quantity: number | null
+	priority_order: number | null
+	ingredient: Ingredient | null
+	frozen_preparation: FrozenPreparation | null
+}
 
 type RecipeIngredientWire = RecipeIngredient & {
 	ingredient: Ingredient | null
 	// Preparação congelada segregada: uma linha de ficha técnica aponta OU p/ um insumo cru OU p/ uma preparação.
 	frozen_preparation: FrozenPreparation | null
+	/**
+	 * Substitutos desta linha. Opcional porque só `fetchRecipe` preenche: `listRecipes`
+	 * devolve o catálogo inteiro, e ninguém lista substituto de 2.000 fichas de uma vez.
+	 * Ver `attachAlternatives`.
+	 */
+	alternatives?: RecipeIngredientAlternativeWire[]
 }
 type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 
@@ -67,6 +92,28 @@ const RECIPE_RELATIONS: Record<string, string> = {
 const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true, frozenPreparationInKitchen: true } } } as const
 
 /**
+ * Colunas `numeric` no caminho de leitura da receita (linha + ingrediente + insumo +
+ * preparação congelada). O driver as devolve como STRING; o contrato `Tables<...>` diz
+ * `number`. Ver `toNumeric` — é o que fazia o formulário da ficha técnica acusar
+ * "Invalid input" em campo salvo e nunca tocado.
+ */
+const RECIPE_NUMERIC_KEYS: ReadonlySet<string> = new Set([
+	"portion_yield",
+	"cooking_factor",
+	"net_quantity",
+	"correction_factor",
+	"rehydration_index",
+	"density_factor",
+	"yield_quantity",
+	"storage_temperature_c",
+])
+
+/** `toWire` + normalização dos `numeric` — todo retorno de leitura de receita passa aqui. */
+function toRecipeWire<T>(row: unknown): T {
+	return toNumeric(toWire<T>(row, RECIPE_RELATIONS), RECIPE_NUMERIC_KEYS)
+}
+
+/**
  * O Drizzle não aceita `where` numa relação `one` (só em `many`), então a preparação
  * congelada é eager-loaded sem filtro. Zeramos aqui as soft-deletadas p/ não vazarem pela
  * relação — consistente com list/fetch que filtram `deleted_at IS NULL`.
@@ -78,6 +125,63 @@ function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unk
 	for (const ri of ingredients) {
 		if (ri.frozenPreparationInKitchen?.deletedAt) ri.frozenPreparationInKitchen = null
 	}
+}
+
+/**
+ * Carrega os substitutos das linhas informadas e os pendura em `alternatives`.
+ *
+ * Query SEPARADA de propósito. Pelo `with` relacional isto seria o nível 3
+ * (recipe → recipe_ingredients → alternatives → ingredient) e o alias gerado pelo Drizzle
+ * passa dos 63 caracteres do NAMEDATALEN do Postgres — o mesmo teto que já obrigou a
+ * quebrar as consultas de produção/ata/procurement. O erro que ele produz fala de coluna
+ * inexistente, não de tamanho de alias, então vale a query a mais.
+ *
+ * Só `fetchRecipe` chama: `listRecipes` devolve o catálogo inteiro (~2.000 fichas) e
+ * ninguém lista substituto de todas elas.
+ */
+async function attachAlternatives(db: SisubDb, ingredients: RecipeIngredientWire[]): Promise<void> {
+	for (const ri of ingredients) ri.alternatives = []
+	const ids = ingredients.map((ri) => ri.id).filter((id): id is string => !!id)
+	if (ids.length === 0) return
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: recipeIngredientAlternativesInKitchen.id,
+				recipe_ingredient_id: recipeIngredientAlternativesInKitchen.recipeIngredientId,
+				ingredient_id: recipeIngredientAlternativesInKitchen.ingredientId,
+				frozen_preparation_id: recipeIngredientAlternativesInKitchen.frozenPreparationId,
+				net_quantity: recipeIngredientAlternativesInKitchen.netQuantity,
+				priority_order: recipeIngredientAlternativesInKitchen.priorityOrder,
+				ingredient: ingredientInKitchen,
+				frozen_preparation: frozenPreparationInKitchen,
+			})
+			.from(recipeIngredientAlternativesInKitchen)
+			.leftJoin(ingredientInKitchen, eq(ingredientInKitchen.id, recipeIngredientAlternativesInKitchen.ingredientId))
+			.leftJoin(frozenPreparationInKitchen, eq(frozenPreparationInKitchen.id, recipeIngredientAlternativesInKitchen.frozenPreparationId))
+			.where(inArray(recipeIngredientAlternativesInKitchen.recipeIngredientId, ids))
+			.orderBy(asc(recipeIngredientAlternativesInKitchen.priorityOrder), asc(recipeIngredientAlternativesInKitchen.createdAt))
+	)
+
+	const byLine = new Map<string, RecipeIngredientAlternativeWire[]>()
+	for (const row of rows) {
+		// O insumo/preparação vem do join em camelCase; `toWire` o converte para o contrato.
+		const wire = toRecipeWire<RecipeIngredientAlternativeWire>({
+			id: row.id,
+			ingredientId: row.ingredient_id,
+			frozenPreparationId: row.frozen_preparation_id,
+			netQuantity: row.net_quantity,
+			priorityOrder: row.priority_order,
+			// Substituta soft-deletada não vaza pela relação (o `leftJoin` não filtra).
+			ingredientInKitchen: row.ingredient?.deletedAt ? null : row.ingredient,
+			frozenPreparationInKitchen: row.frozen_preparation?.deletedAt ? null : row.frozen_preparation,
+		})
+		const bucket = byLine.get(row.recipe_ingredient_id)
+		if (bucket) bucket.push(wire)
+		else byLine.set(row.recipe_ingredient_id, [wire])
+	}
+
+	for (const ri of ingredients) ri.alternatives = byLine.get(ri.id) ?? []
 }
 
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
@@ -94,7 +198,9 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
 
 	scrubDeletedFrozenPreparations(row)
-	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
+	const recipe = toRecipeWire<RecipeWithIngredients>(row)
+	await attachAlternatives(db, recipe.ingredients)
+	return recipe
 }
 
 /**
@@ -154,7 +260,7 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 		.map((r) => {
 			scrubDeletedFrozenPreparations(r)
-			return toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS)
+			return toRecipeWire<RecipeWithIngredients>(r)
 		})
 }
 
@@ -215,7 +321,7 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 
 	return Array.from(familyMap.values())
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-		.map(({ baseRecipeId: _baseRecipeId, ...summary }) => toWire<RecipeSummary>(summary))
+		.map(({ baseRecipeId: _baseRecipeId, ...summary }) => toNumeric(toWire<RecipeSummary>(summary), RECIPE_NUMERIC_KEYS))
 }
 
 /**
@@ -263,7 +369,7 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 		})
 	)
 
-	return rows.map((r) => toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS))
+	return rows.map((r) => toRecipeWire<RecipeWithIngredients>(r))
 }
 
 // ── Pastas de preparação (agrupamento plano — organização e filtragem) ───────
@@ -418,7 +524,44 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	)
 	if (inserted.length !== rows.length) throw new DomainError("INSERT_INGREDIENTS_FAILED", "row count mismatch")
 
+	await insertAlternatives(db, ingredients, inserted)
+
 	return inserted.map((r) => ({ id: r.id, ingredientId: r.ingredientId ?? "", priorityOrder: r.priorityOrder }))
+}
+
+/**
+ * Substitutos das linhas recém-inseridas, casados pela ORDEM do `RETURNING`.
+ *
+ * O casamento é posicional porque é o único disponível: as linhas ainda não têm id no
+ * payload, e `ingredientId` sozinho não identifica (o mesmo insumo pode entrar duas vezes
+ * na ficha). O `RETURNING` do Postgres devolve na ordem inserida, que é a ordem do array.
+ *
+ * Um substituto igual ao insumo da própria linha é descartado — "arroz substitui arroz"
+ * não diz nada, e o índice único não o pegaria (é uma linha só). Duplicata do mesmo
+ * substituto na mesma linha também sai aqui; deixá-la para o índice único transformaria
+ * um clique repetido na tela em 23505 sem mensagem.
+ */
+async function insertAlternatives(db: SisubDb, ingredients: NonNullable<CreateRecipe["ingredients"]>, inserted: { id: string }[]): Promise<void> {
+	const rows: { recipeIngredientId: string; ingredientId: string; netQuantity: string; priorityOrder: number }[] = []
+
+	ingredients.forEach((ing, index) => {
+		const line = inserted[index]
+		if (!line || !ing.alternatives?.length) return
+		const seen = new Set<string>()
+		for (const alt of ing.alternatives) {
+			if (alt.ingredientId === ing.ingredientId || seen.has(alt.ingredientId)) continue
+			seen.add(alt.ingredientId)
+			rows.push({
+				recipeIngredientId: line.id,
+				ingredientId: alt.ingredientId,
+				netQuantity: String(alt.netQuantity),
+				priorityOrder: alt.priorityOrder,
+			})
+		}
+	})
+
+	if (rows.length === 0) return
+	await runQuery("INSERT_ALTERNATIVES_FAILED", () => db.insert(recipeIngredientAlternativesInKitchen).values(rows))
 }
 
 /**
@@ -466,7 +609,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 	)
 
 	await insertIngredients(db, recipe.id, input.ingredients)
-	return toWire<Recipe>(recipe, RECIPE_RELATIONS)
+	return toRecipeWire<Recipe>(recipe)
 }
 
 /**
@@ -621,5 +764,5 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	const riIdMap = await buildIngredientIdMap(db, base.id, inserted)
 	await copyRecipeFlow(db, base.id, recipe.id, riIdMap)
 
-	return { recipe: toWire<Recipe>(recipe, RECIPE_RELATIONS), forked }
+	return { recipe: toRecipeWire<Recipe>(recipe), forked }
 }

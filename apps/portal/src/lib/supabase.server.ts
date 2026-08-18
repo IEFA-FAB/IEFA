@@ -43,5 +43,9 @@ export function getPortalServerClient(): UntypedClient {
  * Use APENAS em auth.fn.ts. Para queries de dados, use getJournalServerClient().
  */
 export function getIefaAuthClient() {
-	return createSsrAuthClient({ url: url(), key: envServer.IEFA_SUPABASE_SECRET_KEY })
+	// Publishable/anon key — NUNCA a service key: getUser() valida o JWT do cookie
+	// no servidor Supabase de qualquer forma, e inicializar com a service role faria
+	// qualquer query acidental por este client burlar a RLS. Guard: opengrep
+	// `auth-client-secret-key` (.opengrep/rules/auth-client-key.yaml).
+	return createSsrAuthClient({ url: url(), key: envServer.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY })
 }

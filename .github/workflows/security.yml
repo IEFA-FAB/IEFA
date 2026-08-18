@@ -304,3 +304,10 @@ jobs:
       # package fora do paths-filter faz o app não redeployar quando muda.
       - name: Check generated deploy artifacts
         run: bun run check:deploy
+
+      # Gate: os apps SSR servem a baseline de headers de segurança (HSTS,
+      # X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+      # na route rule `/**` do Nitro. Apagar essas linhas não quebra build nem teste —
+      # o app só volta a responder sem os headers. Este check falha o drift.
+      - name: Check security response headers
+        run: bun run check:security-headers

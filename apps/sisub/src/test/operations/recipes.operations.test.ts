@@ -91,6 +91,132 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		expect(recipe.ingredients[0].ingredient?.id).toBe(ingredientId)
 	})
 
+	/**
+	 * Substituição por LINHA da ficha (`kitchen.recipe_ingredient_alternatives`), retomada
+	 * em 2026-08-18 no lugar do par global aposentado. Os dois pontos que a suíte protege:
+	 * a substituta guarda a QUANTIDADE dela (não um fator), e ela sobrevive ao
+	 * versionamento — `saveRecipeEdit` insere linhas de ingrediente novas, então uma
+	 * gravação separada prenderia os substitutos à versão anterior.
+	 */
+	test("createRecipe grava os substitutos da linha e fetchRecipe os devolve com o insumo resolvido", async () => {
+		if (!reachable || !seeder || !db) return
+		const ingredientId = await seeder.seedIngredient()
+		const substituteId = await seeder.seedIngredient()
+
+		const recipe = await createRecipe(db, ctx, {
+			name: uid("[TEST] Com substituto "),
+			portionYield: 100,
+			kitchenId: null,
+			ingredients: [
+				{
+					ingredientId,
+					netQuantity: 2,
+					isOptional: false,
+					priorityOrder: 0,
+					// Gramatura própria da substituta: é isto que o par global não expressava.
+					alternatives: [{ ingredientId: substituteId, netQuantity: 1.6, priorityOrder: 0 }],
+				},
+			],
+		})
+		seeder.track("recipes", recipe.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", recipe.id)
+
+		const fetched = await fetchRecipe(db, ctx, { recipeId: recipe.id })
+		expect(fetched.ingredients).toHaveLength(1)
+		const alternatives = fetched.ingredients[0].alternatives ?? []
+		expect(alternatives).toHaveLength(1)
+		expect(alternatives[0].ingredient_id).toBe(substituteId)
+		expect(alternatives[0].ingredient?.id).toBe(substituteId)
+		// `numeric` volta como string do driver; o contrato declara number.
+		expect(alternatives[0].net_quantity).toBe(1.6)
+	})
+
+	test("saveRecipeEdit leva os substitutos para a versão nova", async () => {
+		if (!reachable || !seeder || !db) return
+		const ingredientId = await seeder.seedIngredient()
+		const substituteId = await seeder.seedIngredient()
+
+		const v1 = await createRecipe(db, ctx, {
+			name: uid("[TEST] Substituto v1 "),
+			portionYield: 100,
+			kitchenId: null,
+			ingredients: [
+				{
+					ingredientId,
+					netQuantity: 2,
+					isOptional: false,
+					priorityOrder: 0,
+					alternatives: [{ ingredientId: substituteId, netQuantity: 1.6, priorityOrder: 0 }],
+				},
+			],
+		})
+		seeder.track("recipes", v1.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", v1.id)
+
+		// O formulário reenvia os substitutos junto com a ficha — é o que a versão nova grava.
+		const { recipe: v2 } = await saveRecipeEdit(db, ctx, {
+			name: v1.name,
+			portionYield: 100,
+			baseRecipeId: v1.id,
+			context: { scope: "global" },
+			ingredients: [
+				{
+					ingredientId,
+					netQuantity: 2,
+					isOptional: false,
+					priorityOrder: 0,
+					alternatives: [{ ingredientId: substituteId, netQuantity: 1.8, priorityOrder: 0 }],
+				},
+			],
+		})
+		seeder.track("recipes", v2.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", v2.id)
+
+		const fetched = await fetchRecipe(db, ctx, { recipeId: v2.id })
+		const alternatives = fetched.ingredients[0].alternatives ?? []
+		expect(alternatives).toHaveLength(1)
+		expect(alternatives[0].net_quantity).toBe(1.8)
+
+		// A versão anterior fica intacta — versionar não reescreve o que já foi salvo.
+		const antiga = await fetchRecipe(db, ctx, { recipeId: v1.id })
+		expect((antiga.ingredients[0].alternatives ?? [])[0]?.net_quantity).toBe(1.6)
+	})
+
+	test("substituto igual ao insumo da linha, ou repetido nela, não é gravado", async () => {
+		if (!reachable || !seeder || !db) return
+		const ingredientId = await seeder.seedIngredient()
+		const substituteId = await seeder.seedIngredient()
+
+		const recipe = await createRecipe(db, ctx, {
+			name: uid("[TEST] Substituto duplicado "),
+			portionYield: 100,
+			kitchenId: null,
+			ingredients: [
+				{
+					ingredientId,
+					netQuantity: 2,
+					isOptional: false,
+					priorityOrder: 0,
+					alternatives: [
+						// "arroz substitui arroz" não diz nada, e o índice único não pegaria — é uma linha só.
+						{ ingredientId, netQuantity: 2, priorityOrder: 0 },
+						{ ingredientId: substituteId, netQuantity: 1.6, priorityOrder: 1 },
+						// Duplicata: barrada aqui, senão o clique repetido na tela viraria 23505 sem mensagem.
+						{ ingredientId: substituteId, netQuantity: 1.7, priorityOrder: 2 },
+					],
+				},
+			],
+		})
+		seeder.track("recipes", recipe.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", recipe.id)
+
+		const fetched = await fetchRecipe(db, ctx, { recipeId: recipe.id })
+		const alternatives = fetched.ingredients[0].alternatives ?? []
+		expect(alternatives).toHaveLength(1)
+		expect(alternatives[0].ingredient_id).toBe(substituteId)
+		expect(alternatives[0].net_quantity).toBe(1.6)
+	})
+
 	test("listRecipes faz dedup por família mantendo a maior versão", async () => {
 		if (!reachable || !seeder || !db) return
 		const v1 = await createRecipe(db, ctx, { name: uid("[TEST] Família "), portionYield: 100, kitchenId: null })

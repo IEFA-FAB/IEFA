@@ -89,6 +89,18 @@ describe("inventário da Política de Cookies", () => {
 		expect(SEED).toContain("stores your institutional e-mail")
 	})
 
+	test("o tema está declarado como cookie, não como armazenamento local", () => {
+		// O `theme` virou cookie de verdade quando o servidor passou a renderizar o
+		// tema no <html> — vai em toda requisição, com validade de um ano. O guard
+		// acima só exige que a chave apareça no texto: sem esta asserção, a política
+		// continuaria dizendo "armazenamento local, até ser limpo pelo usuário" com
+		// o CI verde, que é exatamente o tipo de mentira que o inventário existe
+		// para impedir.
+		expect(SEED).toContain("| `theme` | cookie |")
+		expect(SEED).not.toContain("| `theme` | armazenamento local |")
+		expect(SEED).not.toContain("| `theme` | local storage |")
+	})
+
 	test("EXEMPT não tem entrada obsoleta", () => {
 		const stale = Object.keys(EXEMPT).filter((key) => !storageKeys.has(key))
 		expect(stale, "entradas de EXEMPT que não correspondem mais a nenhuma constante — remova-as").toEqual([])

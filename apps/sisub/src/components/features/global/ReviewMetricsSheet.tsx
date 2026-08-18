@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { useReviewMetrics } from "@/services/ReviewMetricsService"
+import { type ReviewMetricsIngredientScope, useReviewMetrics } from "@/services/ReviewMetricsService"
 
 type Preset = "6m" | "12m" | "custom"
 type MetricType = "ingredient" | "recipe"
@@ -28,6 +28,26 @@ const TYPE_CONFIG: Record<MetricType, { label: string; icon: React.ReactNode; de
 		label: "Preparações",
 		icon: <UtensilsCrossed className="size-4" />,
 		description: "Progresso da conferência de preparações pelos nutricionistas.",
+	},
+}
+
+/**
+ * Rótulo do painel por aba de /global/ingredients. O tipo do dado é o mesmo (linhas de
+ * `kitchen.ingredient` conferidas em `ingredient_review`); o que muda é o recorte, e com
+ * ele o denominador — daí o painel dizer qual catálogo está medindo.
+ */
+const INGREDIENT_SCOPE_CONFIG: Record<ReviewMetricsIngredientScope, { label: string; description: string }> = {
+	insumos: {
+		label: "Insumos",
+		description: "Progresso da conferência dos gêneros de alimentação pelos nutricionistas.",
+	},
+	preparacoes: {
+		label: "Preparações (SISUBWEB)",
+		description: "Progresso da conferência das preparações herdadas do SISUBWEB.",
+	},
+	auxiliares: {
+		label: "Itens auxiliares",
+		description: "Progresso da conferência de EPI, limpeza, embalagem e demais itens não alimentares.",
 	},
 }
 
@@ -109,15 +129,21 @@ function CoverageCard({ label, icon, metrics }: { label: string; icon: React.Rea
  * Painel lateral de métricas de revisão de um único tipo (insumos OU preparações).
  * Base compartilhada; cada tela instancia o seu painel via os wrappers exportados abaixo.
  */
-function ReviewMetricsSheetBase({ open, onOpenChange, type }: ReviewMetricsSheetProps & { type: MetricType }) {
-	const config = TYPE_CONFIG[type]
+function ReviewMetricsSheetBase({
+	open,
+	onOpenChange,
+	type,
+	ingredientScope = "insumos",
+}: ReviewMetricsSheetProps & { type: MetricType; ingredientScope?: ReviewMetricsIngredientScope }) {
+	// No lado insumo o rótulo vem da aba; no lado preparação o escopo não se aplica.
+	const config = type === "ingredient" ? { ...TYPE_CONFIG.ingredient, ...INGREDIENT_SCOPE_CONFIG[ingredientScope] } : TYPE_CONFIG.recipe
 	const [preset, setPreset] = useState<Preset>("6m")
 	const [customFrom, setCustomFrom] = useState("")
 	const [customTo, setCustomTo] = useState("")
 
 	const window = useMemo(() => resolveWindow(preset, customFrom, customTo), [preset, customFrom, customTo])
 	const enabled = open && window !== null
-	const { data, isLoading, isError } = useReviewMetrics(window?.from, window?.to, enabled)
+	const { data, isLoading, isError } = useReviewMetrics(window?.from, window?.to, enabled, ingredientScope)
 
 	// Cobertura, atividade diária e feed do tipo deste painel — payload traz ambos separados.
 	const metrics = type === "ingredient" ? data?.ingredients : data?.recipes
@@ -251,9 +277,14 @@ function ActivityRow({ entry }: { entry: ReviewActivityEntry }) {
 	)
 }
 
-/** Painel de métricas de revisão de insumos — usado na tela de Gestão de Insumos. */
-export function IngredientReviewMetricsSheet(props: ReviewMetricsSheetProps) {
-	return <ReviewMetricsSheetBase {...props} type="ingredient" />
+/**
+ * Painel de métricas de revisão do catálogo de insumos — usado na tela de Gestão de
+ * Insumos. `scope` acompanha a aba aberta: as três são catálogos disjuntos e cada uma tem
+ * o próprio denominador de cobertura.
+ */
+export function IngredientReviewMetricsSheet(props: ReviewMetricsSheetProps & { scope?: ReviewMetricsIngredientScope }) {
+	const { scope = "insumos", ...rest } = props
+	return <ReviewMetricsSheetBase {...rest} type="ingredient" ingredientScope={scope} />
 }
 
 /** Painel de métricas de revisão de preparações — usado na tela de Preparações Globais. */

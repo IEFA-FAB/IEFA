@@ -48,6 +48,7 @@
     "knip": "knip",
     "generate:deploy": "bun scripts/generate-deploy-artifacts.ts",
     "check:deploy": "bun scripts/generate-deploy-artifacts.ts --check",
+    "check:security-headers": "bun scripts/check-security-headers.ts",
     "upgrade": "bun update --latest",
     "gen-all-types": "turbo run generate",
     "commit": "bun run format:check && bunx turbo run lint typecheck && cz",

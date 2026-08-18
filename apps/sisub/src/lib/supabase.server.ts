@@ -55,9 +55,13 @@ export function getSupabaseServerClient() {
  * Use APENAS em auth.fn.ts. Para queries de dados, use getSupabaseServerClient().
  */
 export function getSupabaseAuthClient() {
+	// Publishable/anon key — NUNCA a service key: getUser() valida o JWT do cookie
+	// no servidor Supabase de qualquer forma, e inicializar com a service role faria
+	// qualquer query acidental por este client burlar a RLS. Guard: opengrep
+	// `auth-client-secret-key` (.opengrep/rules/auth-client-key.yaml).
 	return createSsrAuthClient({
 		url: envServer.VITE_SISUB_SUPABASE_URL,
-		key: envServer.SISUB_SUPABASE_SECRET_KEY,
+		key: envServer.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY,
 		schema: "sisub",
 	})
 }

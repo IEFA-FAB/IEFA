@@ -14,7 +14,9 @@ import type { Folder, Ingredient, IngredientItem } from "@/types/domain/ingredie
  * Segue padrão: hooks/business/ contém lógica de negócio complexa.
  */
 export function useExportIngredientsCSV() {
-	const { tree } = useIngredientsTree()
+	// Só gêneros: o botão vive na aba "Insumos" e o CSV é o catálogo de alimentação.
+	// Itens auxiliares (EPI, limpeza…) têm aba própria e não entram nesta planilha.
+	const { tree } = useIngredientsTree(false, "exclude", "exclude")
 
 	const exportCSV = () => {
 		const folders = asArray<Folder>(tree?.folders)

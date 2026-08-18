@@ -16,12 +16,26 @@ import { cn } from "@/lib/cn"
 import { useCreateIngredient, useFolders, useUpdateIngredient } from "@/services/IngredientsService"
 
 // Schema de validação
-const productSchema = z.object({
-	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
-	folder_id: z.string().uuid("Selecione uma pasta").nullable(),
-	measure_unit: z.string(),
-	correction_factor: z.number().min(0),
-})
+/**
+ * Um schema por escopo, não dois formatos: o `folder_id` continua `nullable` nos dois
+ * (é como o valor existe no formulário), e a aba de itens auxiliares acrescenta um
+ * `refine` exigindo a escolha.
+ *
+ * A pasta é obrigatória ali porque o escopo de catálogo MORA na pasta
+ * (`kitchen.folder.catalog_scope`, ver `catalog-scope.ts`): item sem pasta é lido como
+ * gênero de alimentação, ou seja, salvar sem escolher faria o item nascer na aba oposta
+ * à que o usuário está olhando, sem erro nenhum.
+ */
+function buildProductSchema(catalog: "exclude" | "only") {
+	return z
+		.object({
+			description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
+			folder_id: z.string().uuid("Selecione uma pasta").nullable(),
+			measure_unit: z.string(),
+			correction_factor: z.number().min(0),
+		})
+		.refine((value) => catalog !== "only" || value.folder_id !== null, { message: "Selecione uma pasta", path: ["folder_id"] })
+}
 
 const MEASURE_UNIT_LABELS: Record<string, string> = {
 	UN: "UN (Unidade)",
@@ -37,14 +51,21 @@ interface IngredientFormProps {
 	mode: "create" | "edit"
 	ingredient?: Ingredient
 	defaultFolderId?: string | null
+	/**
+	 * Aba de origem — recorta as pastas oferecidas no combo. Sem isto, criar um item
+	 * pela aba "Itens auxiliares" ofereceria as 139 pastas de gêneros junto, e a
+	 * escolha errada faz o item nascer na aba oposta à que o usuário está olhando.
+	 */
+	catalog?: "exclude" | "only"
 }
 
-export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolderId }: IngredientFormProps) {
+export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolderId, catalog = "exclude" }: IngredientFormProps) {
 	const queryClient = useQueryClient()
-	const { folders } = useFolders()
+	const { folders } = useFolders(catalog)
 	const { createIngredient, isCreating } = useCreateIngredient()
 	const { updateIngredient, isUpdating } = useUpdateIngredient()
 	const [folderOpen, setFolderOpen] = useState(false)
+	const productSchema = useMemo(() => buildProductSchema(catalog), [catalog])
 
 	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — exibe a
 	// estrutura e permite busca por qualquer parte do caminho no combobox.

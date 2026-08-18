@@ -57,6 +57,21 @@ export const SetRecipeFolderSchema = z.object({
 })
 export type SetRecipeFolder = z.infer<typeof SetRecipeFolderSchema>
 
+/**
+ * Substituto de UMA linha da ficha técnica.
+ *
+ * A quantidade é ABSOLUTA, não um fator: é o motivo de a substituição ter voltado da
+ * tabela global (`kitchen.ingredient_substitution`, aposentada em 2026-08-18) para a
+ * linha. 2 kg de biscoito champagne viram 1,6 kg de amanteigado nesta preparação, e o
+ * par global não tinha onde guardar esse "nesta preparação".
+ */
+export const RecipeIngredientAlternativeSchema = z.object({
+	ingredientId: UuidSchema,
+	netQuantity: z.number().positive(),
+	priorityOrder: z.number().int().nonnegative(),
+})
+export type RecipeIngredientAlternative = z.infer<typeof RecipeIngredientAlternativeSchema>
+
 export const IngredientSchema = z.object({
 	ingredientId: UuidSchema,
 	netQuantity: z.number().positive(),
@@ -72,6 +87,19 @@ export const IngredientSchema = z.object({
 	 * Opcional: null/omitido = herda o insumo e, na ausência, vale 1 (não altera).
 	 */
 	rehydrationIndex: z.number().positive().nullable().optional(),
+	/**
+	 * Substitutos desta linha. Omitido ⇒ nenhum. Viajam JUNTO com a linha no salvamento
+	 * (não numa chamada própria) porque `saveRecipeEdit` insere linhas novas a cada
+	 * versão: gravar as substituições em separado as prenderia à versão anterior, e a
+	 * ficha nasceria sem elas na versão que o usuário acabou de salvar.
+	 */
+	/**
+	 * `.nullish()`, não `.optional()`: o schema é exposto a modelo pelas tools
+	 * `create_recipe`/`save_recipe_edit`, e modelo não omite campo — manda `null`. O
+	 * `dropUnexpectedNulls` não desce dentro de array, então um `alternatives: null`
+	 * aninhado chegaria ao Zod e mataria a chamada com `tool_use_failed`, sem mensagem.
+	 */
+	alternatives: z.array(RecipeIngredientAlternativeSchema).nullish(),
 })
 export type Ingredient = z.infer<typeof IngredientSchema>
 

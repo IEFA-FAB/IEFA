@@ -113,7 +113,11 @@ Regras de contribuição para **todos** os devs e agentes de IA no repo.
 
 ## DB
 
-- Supabase with schemas: `sisub` (default), `iefa`, `journal`
+- Supabase. `sisub` is the default schema; the domain was split by area into `core`,
+  `kitchen`, `inventory`, `procurement`, `finance`, `access_control`,
+  `nutrition_reference`, `siafi_integration` and `compras_gov_integration`. Cross-app
+  schemas: `iefa` (apps, favoritos, documentos legais), `journal`, `forms`, `rumaer`,
+  `sucont`, `assignment_selection`, `gs`
 - Env: `VITE_SISUB_SUPABASE_URL`, `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` (client), `SISUB_SUPABASE_SECRET_KEY` (server)
 
 ## Commands

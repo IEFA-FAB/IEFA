@@ -50,7 +50,7 @@ function AuthLayout() {
 					</h1>
 
 					<p className="text-sm text-background/50 leading-relaxed max-w-[270px]">
-						Portal do Instituto de Estudos e Fomento da Aeronáutica — ferramentas, sistemas e publicações científicas a serviço do COMAER.
+						Portal do Instituto de Economia, Finanças e Administração da Aeronáutica — ferramentas, sistemas e publicações científicas a serviço do COMAER.
 					</p>
 				</div>
 

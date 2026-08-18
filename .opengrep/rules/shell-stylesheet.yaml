@@ -1,0 +1,33 @@
+##
+# Invariante da folha de estilo do shell nos apps que usam nome FIXO para o CSS.
+#
+# Como as outras regras deste diretório, nasceu de um bug que já aconteceu: portal,
+# rumaer, forms/5s e escolha serviam DUAS folhas — a `/assets/styles.css` que o
+# manifesto do build do cliente emite, e uma segunda, hasheada, vinda do
+# `import ... from "@/styles.css?url"` escrito à mão no `__root`. O `?url` é
+# resolvido por ambiente de build, então o bundle do SERVIDOR emitia um nome que
+# não existia em `.output/public`: o HTML pedia um CSS 404 em produção, e no
+# escolha isso ainda derrubava a hidratação (React #418).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: shell-stylesheet-url-import
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `styles.css?url` no shell destes apps volta a criar uma segunda folha de estilo.
+      O `vite.config.ts` deles renomeia o bundle de CSS do cliente para o nome fixo
+      `assets/styles.css` (com `cache-control: no-cache` no routeRules do nitro), e o
+      manifesto do TanStack Start já emite esse `<link>` sozinho. Importe a folha pelo
+      grafo de módulos (`import "@/styles.css"`) e não escreva `<link rel="stylesheet">`
+      à mão. O sisub é a exceção deliberada: lá o `?url` É quem entrega o Tailwind,
+      porque o `assetFileNames` casa com outro nome — não copie este padrão para lá sem
+      antes conferir qual arquivo o `<link>` do HTML aponta.
+    paths:
+      include:
+        - "apps/portal/src/routes/__root.tsx"
+        - "apps/rumaer/src/routes/__root.tsx"
+        - "apps/forms/src/routes/__root.tsx"
+        - "apps/assignment-selection/src/routes/__root.tsx"
+    pattern-regex: '["'']@?[./a-zA-Z-]*styles\.css\?url["'']'

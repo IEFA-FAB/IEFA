@@ -41,7 +41,7 @@ on:
         type: boolean
         default: false
       force_alpha:
-        description: "Force check alpha (deploy suspenso)"
+        description: "Force deploy alpha"
         type: boolean
         default: false
       force_mcp:
@@ -151,6 +151,7 @@ jobs:
       needs.changes.outputs.sisub == 'true' ||
       needs.changes.outputs.forms == 'true' ||
       needs.changes.outputs.docs == 'true' ||
+      needs.changes.outputs.alpha == 'true' ||
       needs.changes.outputs['5s'] == 'true' ||
       needs.changes.outputs.mcp == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -758,7 +759,7 @@ jobs:
       concurrency_suffix: sisub-mcp
 
   # ============================================================
-  # Projeto α / apps/alpha  ── check apenas (deploy SUSPENSO)
+  # Projeto α / apps/alpha  ── check → build → deploy
   # ============================================================
   check-alpha:
     needs: [changes]
@@ -782,11 +783,45 @@ jobs:
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/alpha
 
-  # Deploy do alpha ── SUSPENSO
-  # Para reativar: adicionar 'Dockerfile' e 'docker-bake.hcl' ao filtro alpha e
-  # adicionar callers usando os reusables _app-build.yml / _app-deploy.yml:
-  #   build-alpha:  service=alpha, bake_set com as VITE_* necessarias
-  #   deploy-alpha: service=alpha, health_url=${{ vars.RAG_HEALTH_URL }}, concurrency_suffix=alpha
-  # Secrets de runtime ficam no Secrets Manager (infra/alpha/secrets/alpha.example.json):
+  # Deploy do alpha ── reativado.
+  #
+  # O que estava suspenso era só isto aqui: o alvo do Docker (`alpha`), o target do
+  # bake, o filtro de paths e o stack em infra/alpha sempre existiram. Por isso
+  # `alpha.iefa.com.br` responde 503 e não 404 — o CNAME, a regra do listener e o
+  # target group estão de pé; o que falta é task saudável no target group. Host que
+  # o ALB não conhece responde 404 "No matching service.".
+  #
+  # O DNS NÃO é Route53: a zona é delegada ao Registro.br (NS d.sec.dns.br /
+  # e.sec.dns.br), e `route53_zone_id` fica vazio, então o `aws_route53_record` do
+  # módulo não cria nada. Hostname de serviço novo é um CNAME adicionado à mão no
+  # painel do Registro.br apontando para o DNS do ALB — mesmo caminho das CNAMEs de
+  # validação do certificado (infra/foundation/acm.tf).
+  #
+  # O serviço não sobe sem os secrets do runtime, que ficam no Secrets Manager
+  # (modelo em infra/alpha/secrets/alpha.example.json) e são publicados por
+  # `.github/workflows/sync-secrets.yml` (opção `alpha`):
   #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, NVIDIA_API_KEY,
-  #   ALPHA_AI_API_KEY, LANGCHAIN_API_KEY, etc.
+  #   ALPHA_AI_API_KEY, LANGCHAIN_API_KEY.
+  # E sem `desired_count >= 1` no infra/alpha/terraform.tfvars: com 0 o deploy
+  # conclui e o host segue em 503, porque não há task para registrar.
+  #
+  # `alpha` não tem build arg: o env dele é de runtime, não de bundle — por isso o
+  # caller de build não passa `bake_set`.
+  build-alpha:
+    needs: [check-alpha, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      service: alpha
+    secrets: inherit
+
+  # `vars.ALPHA_HEALTH_URL`, e NÃO o `RAG_HEALTH_URL` que o roteiro antigo indicava:
+  # aquele ainda aponta para `https://iefa-rag.fly.dev/health`, de antes da migração
+  # para a AWS, e falharia o deploy contra um host morto. Variável ausente só pula a
+  # verificação de saúde (o reusable checa `health_url != ''`), não quebra o deploy.
+  deploy-alpha:
+    needs: [build-alpha]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      service: alpha
+      health_url: ${{ vars.ALPHA_HEALTH_URL }}
+      concurrency_suffix: alpha
