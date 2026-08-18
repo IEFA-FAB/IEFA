@@ -38,9 +38,11 @@ into it.
    bun run commit
    ```
    This guides you through [Conventional Commits](https://www.conventionalcommits.org) with
-   the required scope. Scopes in use: `sisub`, `portal`, `sucont`, `rumaer`, `forms`, `5s`,
-   `assignment-selection`, `api`, `alpha`, `docs`, `database`, `pbac`, `deps`, `ci`,
-   `scripts`, `root`. A change spanning several apps may list them: `fix(portal,sisub): …`.
+   the required scope. The valid scopes are **not** a list anyone maintains by hand:
+   `commitlint.config.ts` derives them from the `apps/` and `packages/` directories plus
+   the deploy keys in `apps.manifest.json`, then adds `deps`, `ci`, `scripts` and `root`.
+   A new workspace becomes a valid scope on its own. A change spanning several apps may
+   list them: `fix(portal,sisub): …`.
 
    **Commit messages are written in English** — subject and body — even when the code,
    comments and diff are in Portuguese.

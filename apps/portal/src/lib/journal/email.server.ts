@@ -14,7 +14,13 @@ import { LEGAL_CONTACT_EMAIL } from "@iefa/legal-kit/contact"
 import { createClient } from "@supabase/supabase-js"
 import { envServer } from "@/lib/env.server"
 
-type TemplateName = "review_invitation" | "decision_made" | "review_reminder"
+/**
+ * Nomes que existem em `journal.email_templates` (semeados em
+ * 20241215_create_journal_schema.sql). A união anterior listava `decision_made` e
+ * `review_reminder`, que nunca foram semeados: o tipo passava, a busca voltava null e o
+ * e-mail era pulado sem log.
+ */
+export type TemplateName = "new_submission" | "review_invitation" | "decision_accept" | "decision_reject" | "revision_requested"
 
 function journalDb() {
 	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {

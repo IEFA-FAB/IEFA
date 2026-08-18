@@ -57,7 +57,7 @@ de um para o outro. Os demais apps ficam entre os dois:
 | sisub | Flat design técnico-militar, cores sóbrias, hierarquia por tokens | `0.5rem`; o primitivo `<Card>` usa `rounded-xl` | `apps/sisub/docs/STYLE_CONTRACT.md` |
 | portal | Pale Brutalism 2026 — border-first, acromático, tracking negativo | `0rem` | `apps/portal/STYLE_CONTRACT.md` |
 | rumaer | Contrato próprio | `0.625rem` | `apps/rumaer/STYLE_CONTRACT.md` |
-| forms | Sem contrato escrito; segue o portal no radius | `0rem` | — |
+| forms | Sem contrato escrito. Multi-tenant: o tenant padrão segue o portal, o `cinco-s` tem token próprio | `0rem`; `cinco-s` sobrescreve para `0.75rem` | — |
 | sucont, assignment-selection | Sem contrato escrito; default shadcn/Base UI | `0.625rem` | — |
 
 Os apps sem contrato escrito são dívida conhecida, não licença: valem as proibições globais

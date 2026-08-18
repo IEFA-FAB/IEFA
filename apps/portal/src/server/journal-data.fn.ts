@@ -18,7 +18,7 @@ import {
 	requireSelf,
 	requireUserId,
 } from "@/lib/auth.server"
-import { PORTAL_URL, sendJournalEmail } from "@/lib/journal/email.server"
+import { PORTAL_URL, sendJournalEmail, type TemplateName } from "@/lib/journal/email.server"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 const looseRecord = z.record(z.string(), z.unknown())
@@ -817,7 +817,7 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 
 		// Conflito de interesse: o revisor não pode ser autor do próprio artigo
 		// (submitter ou coautor, por id ou por e-mail).
-		const { data: articleRow } = await db.from("articles").select("submitter_id").eq("id", data.articleId).single()
+		const { data: articleRow } = await db.from("articles").select("submitter_id, title_pt, abstract_pt").eq("id", data.articleId).single()
 		if (articleRow?.submitter_id === data.reviewerId) {
 			throw new Error("Conflito de interesse: este usuário é o autor submissor do artigo.")
 		}
@@ -874,12 +874,20 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 
 		// E-mail de convite (só despacha se houver provider — senão a notificação
 		// in-app acima é a entrega).
+		// As chaves têm que ser exatamente as que o template declara em
+		// `journal.email_templates.variables` — `render()` troca `{{chave}}` por vazio
+		// quando não encontra, sem erro. Passar `review_url` para um template que pede
+		// `{{invitation_link}}` mandava o convite sem link nenhum.
+		const { data: reviewerProfile } = await db.from("user_profiles").select("full_name").eq("id", data.reviewerId).maybeSingle()
 		await sendJournalEmail({
 			to: email,
 			template: "review_invitation",
 			vars: {
+				reviewer_name: reviewerProfile?.full_name ?? email,
+				article_title: articleRow?.title_pt ?? "",
+				article_abstract: articleRow?.abstract_pt ?? "",
 				due_date: new Date(data.dueDate).toLocaleDateString("pt-BR"),
-				review_url: `${PORTAL_URL}/journal/review/${assignment.invitation_token}`,
+				invitation_link: `${PORTAL_URL}/journal/review/${assignment.invitation_token}`,
 			},
 		})
 
@@ -952,6 +960,18 @@ const DECISION_LABELS: Record<string, string> = {
 	revision_requested: "revisão solicitada",
 }
 
+/**
+ * Template semeado para cada decisão. Não existe `decision_made` em
+ * `journal.email_templates` — o código pedia esse nome, `maybeSingle()` devolvia null e
+ * `sendJournalEmail` retornava `false` em silêncio, então o autor nunca foi avisado por
+ * e-mail de decisão nenhuma.
+ */
+const DECISION_TEMPLATES = {
+	accepted: "decision_accept",
+	rejected: "decision_reject",
+	revision_requested: "revision_requested",
+} as const satisfies Record<string, TemplateName>
+
 // Decisão do editor sobre o artigo. Impõe min_reviewers_required ao aceitar,
 // registra o evento e notifica o autor (in-app + e-mail).
 export const decideArticleFn = createServerFn({ method: "POST" })
@@ -978,7 +998,7 @@ export const decideArticleFn = createServerFn({ method: "POST" })
 			.from("articles")
 			.update({ status: data.decision })
 			.eq("id", data.articleId)
-			.select("id, submitter_id, title_pt")
+			.select("id, submitter_id, title_pt, submission_number")
 			.single()
 		if (error) throw new Error(error.message)
 
@@ -999,12 +1019,15 @@ export const decideArticleFn = createServerFn({ method: "POST" })
 		const { data: submitter } = await db.auth.admin.getUserById(article.submitter_id)
 		const submitterEmail = submitter?.user?.email
 		if (submitterEmail) {
+			const { data: authorProfile } = await db.from("user_profiles").select("full_name").eq("id", article.submitter_id).maybeSingle()
 			await sendJournalEmail({
 				to: submitterEmail,
-				template: "decision_made",
+				template: DECISION_TEMPLATES[data.decision],
 				vars: {
+					author_name: authorProfile?.full_name ?? submitterEmail,
 					article_title: article.title_pt,
-					decision: label,
+					submission_number: article.submission_number,
+					revision_type: label,
 					article_url: `${PORTAL_URL}/journal/submissions/${article.id}`,
 				},
 			})
