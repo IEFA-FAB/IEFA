@@ -102,7 +102,7 @@
       "entry": "apps/alpha/src/index.ts",
       "buildArgs": [],
       "runtimeEnv": { "PORT": "8000" },
-      "copyWorkspacesAtRuntime": false
+      "copyWorkspacesAtRuntime": true
     },
     {
       "key": "docs",
