@@ -1,6 +1,11 @@
 /**
  * Mapeamento formulário → payload do server fn (`mapIngredients`).
  *
+ * A suíte vive ao lado do módulo PURO, não do hook: importar o hook puxa
+ * `@/server/recipes.fn` → `env.server.ts`, que exige credencial do Supabase na carga.
+ * Isso passa na máquina de quem tem `.env` no diretório do app e quebra no CI, que não
+ * tem — foi exatamente assim que a main ficou vermelha.
+ *
  * Guarda contra a classe de bug que deixou os substitutos sem chegar ao banco: o
  * formulário montava, o domínio sabia gravar, e o mapeamento entre os dois descartava o
  * campo em silêncio. Nada pegava — o objeto vem de variável (sem checagem de propriedade
@@ -11,7 +16,7 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { mapIngredients } from "./useRecipeMutations"
+import { mapIngredients } from "./recipe-payload"
 
 const line = {
 	ingredient_id: "11111111-1111-4111-8111-111111111111",
