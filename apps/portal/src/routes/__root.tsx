@@ -18,7 +18,12 @@ import { Toaster } from "@/components/ui/sonner"
 import { WebMcpTools } from "@/components/WebMcpTools"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
-import AppStyles from "@/styles.css?url"
+// A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
+// <link> é o manifesto do build do cliente, que é o mesmo arquivo servido em
+// /assets. Com `?url` o bundle do SERVIDOR emitia um segundo nome, e bastava
+// o hash divergir entre os dois builds para o HTML pedir um CSS que não existe
+// no público — o 404 que a suíte estava servindo em cinco apps.
+import "@/styles.css"
 
 export interface MyRouterContext {
 	queryClient: QueryClient
@@ -63,8 +68,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			],
 			favicon: "/favicon.svg",
 			links: [
-				{ rel: "preload", href: AppStyles, as: "style" },
-				{ rel: "stylesheet", href: AppStyles },
 				{
 					rel: "icon",
 					type: "image/svg+xml",
@@ -150,8 +153,6 @@ function RootDocument() {
 	return (
 		<html lang="pt-BR" className={theme ?? undefined} style={theme ? { colorScheme: theme } : undefined} suppressHydrationWarning>
 			<head>
-				<link rel="preload" href={AppStyles} as="style" />
-				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />

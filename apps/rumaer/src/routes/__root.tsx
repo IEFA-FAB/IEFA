@@ -16,7 +16,13 @@ import { readThemePreference, ThemeProvider } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
-import AppStyles from "@/styles.css?url"
+// A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
+// <link> é o manifesto do build do cliente — o mesmo `/assets/styles.css` que o
+// nitro serve e que o routeRules trata como no-cache. Com `?url` o bundle do
+// SERVIDOR emitia um SEGUNDO nome, hasheado, e bastava divergir do nome do
+// cliente para o HTML pedir um CSS que não existe no público: era o 404 que a
+// suíte servia em cinco apps (e o download duplicado da folha no sisub).
+import "@/styles.css"
 
 export interface MyRouterContext {
 	queryClient: QueryClient
@@ -61,8 +67,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			],
 			favicon: "/favicon.svg",
 			links: [
-				{ rel: "preload", href: AppStyles, as: "style" },
-				{ rel: "stylesheet", href: AppStyles },
 				{ rel: "icon", type: "image/svg+xml", sizes: "any", href: "/favicon.svg" },
 				{ rel: "manifest", href: "/manifest.json" },
 				{ rel: "icon", href: "/favicon.svg" },
@@ -122,8 +126,6 @@ function RootDocument() {
 	return (
 		<html lang="pt-BR" className={theme ?? undefined} style={theme ? { colorScheme: theme } : undefined} suppressHydrationWarning>
 			<head>
-				<link rel="preload" href={AppStyles} as="style" />
-				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Manrope-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />
 			</head>

@@ -783,6 +783,14 @@ jobs:
         run: bunx turbo run lint typecheck test --filter=./apps/alpha
 
   # Deploy do alpha ── SUSPENSO
+  #
+  # O host `alpha.iefa.com.br` continua no DNS apontando para o ALB de produção, e
+  # sem serviço atrás dele a conexão fecha no handshake TLS — o mesmo que um host
+  # inexistente responde ali (`inexistente.iefa.com.br` fecha igual). Isso é o
+  # deploy suspenso, não uma queda: não abra incidente por causa dele. Se o
+  # objetivo for parar de servir o host, remova o registro Route53 do stack em
+  # infra/alpha; se for reativar, siga o roteiro abaixo.
+  #
   # Para reativar: adicionar 'Dockerfile' e 'docker-bake.hcl' ao filtro alpha e
   # adicionar callers usando os reusables _app-build.yml / _app-deploy.yml:
   #   build-alpha:  service=alpha, bake_set com as VITE_* necessarias

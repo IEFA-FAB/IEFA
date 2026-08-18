@@ -2,7 +2,13 @@ import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import { Toaster } from "@/components/ui/sonner"
-import AppStyles from "@/styles.css?url"
+// A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
+// <link> é o manifesto do build do cliente — o mesmo `/assets/styles.css` que o
+// nitro serve e que o routeRules trata como no-cache. Com `?url` o bundle do
+// SERVIDOR emitia um SEGUNDO nome, hasheado, e bastava divergir do nome do
+// cliente para o HTML pedir um CSS que não existe no público: era o 404 que a
+// suíte servia em cinco apps (e o download duplicado da folha no sisub).
+import "@/styles.css"
 
 export interface MyRouterContext {
 	queryClient: QueryClient
@@ -16,11 +22,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			{ title: "Escolha de Vagas — CPAINT" },
 			{ name: "description", content: "Painel de escolha de vagas (billet selection) por ordem de classificação — FAB." },
 		],
-		links: [
-			{ rel: "preload", href: AppStyles, as: "style" },
-			{ rel: "stylesheet", href: AppStyles },
-			{ rel: "icon", href: "/favicon.svg" },
-		],
+		links: [{ rel: "icon", href: "/favicon.svg" }],
 	}),
 	shellComponent: RootDocument,
 })
@@ -29,8 +31,6 @@ function RootDocument() {
 	return (
 		<html lang="pt-BR">
 			<head>
-				<link rel="preload" href={AppStyles} as="style" />
-				<link rel="stylesheet" href={AppStyles} />
 				<HeadContent />
 			</head>
 			<body className="min-h-screen bg-slate-950 text-white antialiased">
