@@ -14,6 +14,7 @@ import type {
 	PurchaseItem,
 } from "@iefa/database/sisub"
 import type {
+	CatalogScope,
 	IngredientEffectiveNutrientsResult,
 	IngredientLastReview,
 	IngredientSubstitution,
@@ -80,10 +81,10 @@ export type IngredientItemWithPurchase = IngredientItem & {
 	purchase_item: LinkedPurchaseItem | null
 }
 
-export const foldersQueryOptions = (includeDeleted = false) =>
+export const foldersQueryOptions = (includeDeleted = false, catalog: CatalogScope = "include") =>
 	queryOptions({
-		queryKey: ["ingredients", "folders", includeDeleted ? "with-deleted" : "active"],
-		queryFn: () => fetchFoldersFn({ data: { includeDeleted } }) as Promise<Folder[]>,
+		queryKey: ["ingredients", "folders", includeDeleted ? "with-deleted" : "active", catalog],
+		queryFn: () => fetchFoldersFn({ data: { includeDeleted, catalog } }) as Promise<Folder[]>,
 		staleTime: 10 * 60 * 1000,
 	})
 
@@ -126,14 +127,14 @@ export const ingredientSubstitutionsQueryOptions = (ingredientId: string) =>
  * @param preparations escopo do grupo legado "Preparações" (SISUBWEB). Padrão
  *   `"exclude"`: a árvore de insumos não os traz. A aba dedicada usa `"only"`.
  */
-export const ingredientsTreeQueryOptions = (includeDeleted = false, preparations: PreparationScope = "exclude") =>
+export const ingredientsTreeQueryOptions = (includeDeleted = false, preparations: PreparationScope = "exclude", catalog: CatalogScope = "include") =>
 	queryOptions({
-		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active", preparations],
+		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active", preparations, catalog],
 		// Um único server fn (1 requireAuth, 1 conexão, payload único) em vez de 4
 		// requests `/_serverFn/` concorrentes — reduz a pressão de conexão que
 		// produzia o 502 no gateway. Ver fetchIngredientsTreeFn.
 		queryFn: () =>
-			fetchIngredientsTreeFn({ data: { includeDeleted, preparations } }) as Promise<{
+			fetchIngredientsTreeFn({ data: { includeDeleted, preparations, catalog } }) as Promise<{
 				folders: Folder[]
 				ingredients: Ingredient[]
 				ingredientItems: IngredientItem[]
@@ -207,8 +208,8 @@ export const nutritionReferenceFoodsQueryOptions = (search: string, sourceId?: s
 		enabled: search.trim().length >= 2,
 	})
 
-export function useFolders() {
-	const { data, error, refetch } = useQuery(foldersQueryOptions())
+export function useFolders(catalog: CatalogScope = "include") {
+	const { data, error, refetch } = useQuery(foldersQueryOptions(false, catalog))
 	return { folders: data, error, refetch }
 }
 
@@ -227,8 +228,8 @@ export function useIngredient(ingredientId: string) {
 	return { ingredient: data, error, refetch }
 }
 
-export function useIngredientsTree(includeDeleted = false, preparations: PreparationScope = "exclude") {
-	const { data, error, refetch } = useQuery(ingredientsTreeQueryOptions(includeDeleted, preparations))
+export function useIngredientsTree(includeDeleted = false, preparations: PreparationScope = "exclude", catalog: CatalogScope = "include") {
+	const { data, error, refetch } = useQuery(ingredientsTreeQueryOptions(includeDeleted, preparations, catalog))
 	return { tree: data, error, refetch }
 }
 
@@ -254,7 +255,15 @@ export function useCeafa(search?: string) {
 
 export function useCreateFolder() {
 	const mutation = useMutation({
-		mutationFn: (payload: FolderInsert) => createFolderFn({ data: { description: payload.description, parentId: payload.parent_id ?? undefined } }),
+		mutationFn: (payload: FolderInsert) =>
+			createFolderFn({
+				data: {
+					description: payload.description,
+					parentId: payload.parent_id ?? undefined,
+					// Só pesa em pasta RAIZ — com pai, o trigger do banco herda o escopo dele.
+					catalogScope: payload.catalog_scope === "auxiliar" ? "auxiliar" : undefined,
+				},
+			}),
 	})
 	return {
 		createFolder: mutation.mutateAsync,

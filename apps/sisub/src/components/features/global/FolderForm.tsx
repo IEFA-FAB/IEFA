@@ -25,11 +25,18 @@ interface FolderFormProps {
 	onClose: () => void
 	mode: "create" | "edit"
 	folder?: Folder
+	/**
+	 * Aba de onde o diálogo foi aberto — gêneros (`exclude`) ou itens auxiliares (`only`).
+	 * Recorta as pastas-pai oferecidas (misturar as duas árvores no combo é como um item
+	 * de EPI vai parar dentro de "Carnes") e define o escopo da pasta RAIZ criada aqui;
+	 * com pai, o trigger do banco herda o escopo dele e este valor é ignorado.
+	 */
+	catalog?: "exclude" | "only"
 }
 
-export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
+export function FolderForm({ isOpen, onClose, mode, folder, catalog = "exclude" }: FolderFormProps) {
 	const queryClient = useQueryClient()
-	const { tree } = useIngredientsTree()
+	const { tree } = useIngredientsTree(false, "exclude", catalog)
 	const folders = tree?.folders
 	const { createFolder, isCreating } = useCreateFolder()
 	const { updateFolder, isUpdating } = useUpdateFolder()
@@ -97,7 +104,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 		onSubmit: async ({ value }) => {
 			try {
 				if (mode === "create") {
-					await createFolder(value)
+					await createFolder({ ...value, catalog_scope: catalog === "only" ? "auxiliar" : "alimentacao" })
 					toast.success("Pasta criada com sucesso!")
 				} else if (folder) {
 					await updateFolder({ id: folder.id, payload: value })

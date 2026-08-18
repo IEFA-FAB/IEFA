@@ -40,6 +40,39 @@ export function toWire<T>(value: unknown, relationKeys: Record<string, string> =
 	return value as T
 }
 
+/**
+ * Converte, em profundidade, os campos `numeric` que voltam do driver como STRING.
+ *
+ * O `numeric` do Postgres não cabe num double, então o postgres.js o entrega como
+ * string — mas o contrato (`Tables<"recipes">["portion_yield"]`, gerado do Supabase)
+ * declara `number`, e nada no caminho desmentia isso. O TypeScript ficava calado e o
+ * runtime entregava `"100"` onde o app esperava `100`.
+ *
+ * Foi assim que a ficha técnica passou a acusar "Invalid input" em campo salvo e nunca
+ * tocado: o validador Zod do `RecipeForm` (`z.number()`) recebia a string vinda do banco
+ * e reprovava a linha antes de o usuário digitar qualquer coisa. Os outros consumidores
+ * escapavam por coerção implícita do JS (`"0.5" * 2`, `toLocaleString` de String), o que
+ * escondeu o problema até alguém validar de verdade.
+ *
+ * `null` passa direto (a coluna é anulável); string não numérica também — converter
+ * `NaN` trocaria um erro visível por um silencioso.
+ */
+export function toNumeric<T>(value: T, keys: ReadonlySet<string>): T {
+	if (Array.isArray(value)) return value.map((v) => toNumeric(v, keys)) as T
+	if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+		const out: Record<string, unknown> = {}
+		for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+			if (keys.has(k) && typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) {
+				out[k] = Number(v)
+			} else {
+				out[k] = toNumeric(v, keys)
+			}
+		}
+		return out as T
+	}
+	return value
+}
+
 function snakeToCamel(key: string): string {
 	return key.replace(/_([a-z0-9])/g, (_m, c) => c.toUpperCase())
 }

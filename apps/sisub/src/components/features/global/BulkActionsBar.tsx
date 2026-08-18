@@ -36,12 +36,18 @@ interface BulkActionsBarProps {
 	showDeleted?: boolean
 	onDone: () => void
 	onClear: () => void
+	/**
+	 * Aba de origem — recorta as pastas-destino de "Mover para pasta". Sem isto, mover
+	 * em massa pela aba "Itens auxiliares" oferece as 139 pastas de gêneros (e a raiz),
+	 * e o item sai da aba em que o usuário está olhando com um toast de sucesso.
+	 */
+	catalog?: "exclude" | "only"
 }
 
 type ActiveDialog = "move" | "unit" | "factor" | "delete" | null
 
-export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear }: BulkActionsBarProps) {
-	const { folders } = useFolders()
+export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, catalog = "exclude" }: BulkActionsBarProps) {
+	const { folders } = useFolders(catalog)
 	const { moveToFolder, setMeasureUnit, setCorrectionFactor, deleteNodes, restoreNodes, isRunning, progress } = useBulkIngredientOps()
 
 	const [active, setActive] = useState<ActiveDialog>(null)

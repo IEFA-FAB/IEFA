@@ -1,12 +1,14 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, Circle, CircleCheck, GitFork, Loader2, Pencil, Plus, Save, Trash2, TriangleAlert } from "lucide-react"
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
+import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, Save, TriangleAlert } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
+import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
+import { RecipeSubstitutionsPanel } from "@/components/features/shared/RecipeSubstitutionsPanel"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -15,12 +17,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Toggle } from "@/components/ui/toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
@@ -31,7 +31,7 @@ import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
-const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "nutricao", "fluxo"] as const
+const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "substituicoes", "nutricao", "fluxo"] as const
 type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
@@ -66,6 +66,10 @@ const ingredientSchema = z.object({
 		.refine((value) => value !== null, "Selecione um insumo"),
 	ingredient_name: z.string(), // Helper for UI
 	measure_unit: z.string(), // Helper for UI
+	// Helper de UI: pasta do insumo, universo dos substitutos elegíveis na aba Substituições.
+	// Sem uuid() de propósito — preparação herdada do SISUBWEB não tem pasta, e o campo não
+	// é gravado em lugar nenhum; validá-lo reprovaria uma ficha por um dado que ninguém edita.
+	folder_id: z.string().nullable(),
 	net_quantity: z
 		.number()
 		.nullable()
@@ -92,6 +96,7 @@ interface IngredientFormItem {
 	ingredient_id: string | null
 	ingredient_name: string
 	measure_unit: string
+	folder_id: string | null
 	net_quantity: number | null
 	is_optional: boolean
 	priority_order: number
@@ -110,6 +115,7 @@ const TAB_LABEL: Record<RecipeFormTab, string> = {
 	detalhes: "Detalhes",
 	ingredientes: "Ingredientes",
 	preparo: "Modo de preparo",
+	substituicoes: "Substituições",
 	nutricao: "Nutrição",
 	fluxo: "Fluxo de produção",
 }
@@ -175,7 +181,7 @@ function collectProblems(values: unknown): FormProblem[] {
 }
 
 function emptyTabProblemCount(): TabProblemCount {
-	return { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
+	return { detalhes: 0, ingredientes: 0, preparo: 0, substituicoes: 0, nutricao: 0, fluxo: 0 }
 }
 
 /**
@@ -300,16 +306,23 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			cooking_factor: initialData?.cooking_factor || 1.0,
 			folder_id: initialData?.folder_id ?? null,
 			ingredients:
-				initialData?.ingredients?.map((ing) => ({
-					ingredient_id: ing.ingredient_id,
-					ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
-					measure_unit: ing.ingredient?.measure_unit || "UN",
-					net_quantity: ing.net_quantity,
-					is_optional: ing.is_optional || false,
-					priority_order: ing.priority_order || 0,
-					correction_factor: ing.correction_factor ?? null,
-					rehydration_index: ing.rehydration_index ?? null,
-				})) || [],
+				// `fetchRecipe` traz a relação inteira (o Drizzle não aceita `where` numa relação
+				// `many` aninhada), então a linha soft-deletada vem junto. O hovercard da listagem
+				// e a folha impressa já a descartam; sem o mesmo filtro aqui, o TOTAL da tabela
+				// contaria um ingrediente que a ficha não tem mais.
+				initialData?.ingredients
+					?.filter((ing) => !ing.deleted_at)
+					.map((ing) => ({
+						ingredient_id: ing.ingredient_id,
+						ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
+						measure_unit: ing.ingredient?.measure_unit || "UN",
+						folder_id: ing.ingredient?.folder_id ?? null,
+						net_quantity: ing.net_quantity,
+						is_optional: ing.is_optional || false,
+						priority_order: ing.priority_order || 0,
+						correction_factor: ing.correction_factor ?? null,
+						rehydration_index: ing.rehydration_index ?? null,
+					})) || [],
 		},
 		// Gate do salvamento. Com o schema aqui, `field.state.meta.errors` passa a ser
 		// preenchido e os realces em vermelho (que já existiam no JSX) acendem sozinhos;
@@ -444,6 +457,30 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				badge={modeBadge}
 				onBack={handleBack}
 			>
+				{/* Ficha imprimível — só faz sentido sobre a versão PERSISTIDA: a folha lê do
+				    servidor, não do formulário, então em "criar"/"fork" ela mostraria outra coisa. */}
+				{reviewRecipeId && (
+					<Button
+						variant="outline"
+						size="sm"
+						nativeButton={false}
+						render={
+							kitchenId ? (
+								<Link to="/kitchen/$kitchenId/recipes/$recipeId/print" params={{ kitchenId, recipeId: reviewRecipeId }}>
+									<Printer className="size-4 mr-2" />
+									<span className="hidden sm:inline">Imprimir ficha</span>
+									<span className="sm:hidden">Imprimir</span>
+								</Link>
+							) : (
+								<Link to="/global/recipes/$recipeId/print" params={{ recipeId: reviewRecipeId }}>
+									<Printer className="size-4 mr-2" />
+									<span className="hidden sm:inline">Imprimir ficha</span>
+									<span className="sm:hidden">Imprimir</span>
+								</Link>
+							)
+						}
+					/>
+				)}
 				{reviewRecipeId && <RecipeReviewActions recipeId={reviewRecipeId} />}
 			</PageHeader>
 
@@ -471,14 +508,14 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+						{/* grid-cols-6: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
 						<form.Subscribe selector={encodeTabProblems}>
 							{(encoded) => {
 								const counts = decodeTabProblems(encoded)
 								return (
-									<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
+									<TabsList className="mx-auto grid w-full max-w-3xl grid-cols-6">
 										{RECIPE_FORM_TABS.map((tab) => {
 											const errorCount = counts[tab]
 											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
@@ -620,168 +657,40 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							</Card>
 						</TabsContent>
 
-						{/* Ingredientes — núcleo da preparação */}
+						{/* Ingredientes — PARTE 02 da ficha técnica, no formato do modelo oficial (FTP/SIA) */}
 						<TabsContent value="ingredientes" className={READING_PANEL}>
-							<form.Field name="ingredients">
-								{(field) => (
-									<Card>
-										<CardHeader className="flex flex-row items-center justify-between">
-											<div className="flex items-center gap-2">
-												<CardTitle>Ingredientes</CardTitle>
-												{field.state.value.length > 0 && <Badge variant="secondary">{field.state.value.length}</Badge>}
-											</div>
-											<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
-												<Plus className="size-4 mr-2" />
-												Adicionar
-											</Button>
-										</CardHeader>
-										<CardContent className="space-y-3">
-											{field.state.value.length === 0 ? (
-												<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-10 text-muted-foreground">
-													<p className="text-body">Nenhum ingrediente adicionado</p>
-													<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
-														<Plus className="size-4 mr-2" />
-														Adicionar ingrediente
-													</Button>
-												</div>
-											) : (
-												<ItemGroup>
-													{field.state.value.map((ingredient: IngredientFormItem, index: number) => {
-														// Cada linha valida contra o mesmo `ingredientSchema` do submit. Sem isso o
-														// caso mais comum — insumo adicionado entra com quantidade 0 — só aparecia
-														// como um toast genérico depois de tentar salvar.
-														const rowErrors = ingredientErrors(ingredient)
-														const rowMessages = [
-															rowErrors.ingredient_id,
-															rowErrors.net_quantity,
-															rowErrors.correction_factor,
-															rowErrors.rehydration_index,
-														].filter(Boolean)
-														return (
-															<div key={ingredient.ingredient_id || index} className="space-y-2">
-																<Item variant="outline" data-invalid={rowMessages.length > 0 || undefined} className="data-[invalid]:border-destructive/60">
-																	<ItemContent>
-																		<ItemTitle>{ingredient.ingredient_name}</ItemTitle>
-																	</ItemContent>
-																	<ItemActions className="gap-2">
-																		<div className="flex items-center gap-1.5">
-																			<Input
-																				aria-label={`Quantidade líquida de ${ingredient.ingredient_name}`}
-																				type="number"
-																				step="0.001"
-																				aria-invalid={!!rowErrors.net_quantity}
-																				value={ingredient.net_quantity ?? 0}
-																				onChange={(e) => {
-																					const newList = [...field.state.value]
-																					newList[index].net_quantity = Number(e.target.value)
-																					field.handleChange(newList)
-																				}}
-																				className="w-24 text-right"
-																			/>
-																			<span className="text-caption text-muted-foreground w-8 shrink-0">{ingredient.measure_unit}</span>
-																		</div>
-																		<Toggle
-																			variant="outline"
-																			size="sm"
-																			pressed={ingredient.is_optional}
-																			onPressedChange={(pressed) => {
-																				const newList = [...field.state.value]
-																				newList[index].is_optional = pressed
-																				field.handleChange(newList)
-																			}}
-																		>
-																			{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
-																			Opcional
-																		</Toggle>
-																		<Button
-																			type="button"
-																			variant="ghost"
-																			size="icon-sm"
-																			className="text-muted-foreground hover:text-destructive"
-																			aria-label={`Remover ${ingredient.ingredient_name}`}
-																			onClick={() => {
-																				const snapshot = [...field.state.value]
-																				const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
-																				field.handleChange(newList)
-																				toast("Ingrediente removido.", {
-																					action: {
-																						label: "Desfazer",
-																						onClick: () => field.handleChange(snapshot),
-																					},
-																				})
-																			}}
-																		>
-																			<Trash2 className="size-3.5" />
-																		</Button>
-																	</ItemActions>
-																</Item>
-
-																{/* Fatores da ficha técnica — opcionais; vazio = 1 (não altera). Peso bruto = peso líquido × FC. */}
-																<div className="ml-6 flex flex-wrap items-center gap-x-4 gap-y-2 pl-3 text-caption text-muted-foreground">
-																	<div className="flex items-center gap-1.5">
-																		<span>Fator de correção</span>
-																		<Input
-																			aria-label={`Fator de correção de ${ingredient.ingredient_name}`}
-																			type="number"
-																			step="0.01"
-																			min={0}
-																			placeholder="1"
-																			aria-invalid={!!rowErrors.correction_factor}
-																			value={ingredient.correction_factor ?? ""}
-																			onChange={(e) => {
-																				const newList = [...field.state.value]
-																				newList[index].correction_factor = e.target.value === "" ? null : Number(e.target.value)
-																				field.handleChange(newList)
-																			}}
-																			className="w-20 text-right"
-																		/>
-																	</div>
-																	<div className="flex items-center gap-1.5">
-																		<span>Índice de reidratação</span>
-																		<Input
-																			aria-label={`Índice de reidratação de ${ingredient.ingredient_name}`}
-																			type="number"
-																			step="0.01"
-																			min={0}
-																			placeholder="1"
-																			aria-invalid={!!rowErrors.rehydration_index}
-																			value={ingredient.rehydration_index ?? ""}
-																			onChange={(e) => {
-																				const newList = [...field.state.value]
-																				newList[index].rehydration_index = e.target.value === "" ? null : Number(e.target.value)
-																				field.handleChange(newList)
-																			}}
-																			className="w-20 text-right"
-																		/>
-																	</div>
-																	{(ingredient.net_quantity ?? 0) > 0 && (ingredient.correction_factor ?? 0) > 0 && (
-																		<span className="text-foreground">
-																			Peso bruto:{" "}
-																			<strong className="font-medium">
-																				{((ingredient.net_quantity ?? 0) * (ingredient.correction_factor ?? 1)).toLocaleString("pt-BR", {
-																					maximumFractionDigits: 2,
-																				})}
-																			</strong>{" "}
-																			{ingredient.measure_unit}
-																		</span>
-																	)}
-																</div>
-
-																{rowMessages.length > 0 && (
-																	<p role="alert" className="ml-6 pl-3 text-caption text-destructive">
-																		{rowMessages.join(" · ")}
-																	</p>
-																)}
-															</div>
-														)
-													})}
-												</ItemGroup>
-											)}
-											<FieldError errors={toFieldErrors(field.state.meta.errors)} />
-										</CardContent>
-									</Card>
+							<form.Subscribe selector={(state) => state.values.portion_yield}>
+								{(portionYield) => (
+									<form.Field name="ingredients">
+										{(field) => (
+											<RecipeIngredientsTable
+												ingredients={field.state.value as IngredientFormItem[]}
+												portionYield={Number(portionYield) || 0}
+												onChange={(next) => field.handleChange(next)}
+												onAdd={() => setSelectorOpen(true)}
+												errors={toFieldErrors(field.state.meta.errors)}
+												rowErrors={ingredientErrors}
+											/>
+										)}
+									</form.Field>
 								)}
-							</form.Field>
+							</form.Subscribe>
+						</TabsContent>
+
+						{/* Substituições — o que entra no lugar de cada insumo (voltou da tela de insumo) */}
+						<TabsContent value="substituicoes" className={READING_PANEL}>
+							<form.Subscribe selector={(state) => state.values.ingredients}>
+								{(ingredients) => (
+									<RecipeSubstitutionsPanel
+										ingredients={(ingredients as IngredientFormItem[]).map((i) => ({
+											ingredientId: i.ingredient_id,
+											name: i.ingredient_name,
+											measureUnit: i.measure_unit,
+											folderId: i.folder_id,
+										}))}
+									/>
+								)}
+							</form.Subscribe>
 						</TabsContent>
 
 						{/* Modo de preparo — texto livre */}
@@ -873,6 +782,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							ingredient_id: ingredient.id,
 							ingredient_name: ingredient.description ?? "",
 							measure_unit: ingredient.measure_unit ?? "UN",
+							folder_id: ingredient.folder_id ?? null,
 							net_quantity: 0,
 							is_optional: false,
 							priority_order: form.getFieldValue("ingredients").length + 1,

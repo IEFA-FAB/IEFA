@@ -29,7 +29,38 @@ import { IngredientsTreeNode } from "./IngredientsTreeNode"
  */
 export type IngredientsTreeManagerHandle = { openCreateIngredient: () => void; openCreateFolder: () => void }
 
-const INGREDIENTS_SCROLL_KEY = "sisub:global-ingredients:scroll"
+/**
+ * Textos e chaves de persistência por escopo de catálogo. As duas abas são a MESMA
+ * árvore recortada por `kitchen.folder.catalog_scope` (ver `catalog-scope.ts` no
+ * domínio) — mesmo componente, mesmas ações. O que muda é o vocabulário na tela e o
+ * namespace do estado: busca, ordenação e pastas abertas de "Insumos" não podem
+ * atravessar para "Itens auxiliares", que é uma árvore disjunta.
+ */
+const SCOPE_UI = {
+	exclude: {
+		persistKey: "sisub:global-ingredients",
+		treeLabel: "Árvore de insumos",
+		searchLabel: "Buscar na árvore de insumos",
+		searchPlaceholder: "Buscar pastas ou insumos...",
+		emptyTitle: "Nenhum insumo encontrado",
+		emptyReview: "Nenhum insumo pendente de revisão neste filtro",
+		errorTitle: "Erro ao carregar árvore de insumos",
+		noun: ["insumo", "insumos"] as const,
+	},
+	only: {
+		persistKey: "sisub:global-auxiliary",
+		treeLabel: "Árvore de itens auxiliares",
+		searchLabel: "Buscar na árvore de itens auxiliares",
+		searchPlaceholder: "Buscar pastas ou itens auxiliares...",
+		emptyTitle: "Nenhum item auxiliar encontrado",
+		emptyReview: "Nenhum item auxiliar pendente de revisão neste filtro",
+		errorTitle: "Erro ao carregar árvore de itens auxiliares",
+		noun: ["item auxiliar", "itens auxiliares"] as const,
+	},
+} as const
+
+/** Escopos que esta árvore atende. `include` (tudo junto) não tem aba própria. */
+export type IngredientsTreeScope = keyof typeof SCOPE_UI
 
 /**
  * Chips de busca rápida (toggle group, multi-seleção). Modelo "marcado = visível":
@@ -43,6 +74,13 @@ const QUICK_FILTER_CHIPS: { key: string; label: string }[] = [
 	...QUICK_FILTER_CATEGORIES.map((c) => ({ key: c.key, label: c.label })),
 	{ key: "excluidos", label: "Excluídos" },
 ]
+/**
+ * Chips da aba de itens auxiliares. As categorias ("Pratos Prontos", "Lanches Prontos")
+ * são pastas de gêneros: naquela árvore elas não existem, e o chip ficaria oferecendo um
+ * filtro que nunca muda nada. "Excluídos" continua, porque item auxiliar também é
+ * soft-deletado.
+ */
+const AUXILIARY_QUICK_FILTER_CHIPS: { key: string; label: string }[] = [{ key: "excluidos", label: "Excluídos" }]
 const QUICK_CATEGORY_KEYS = QUICK_FILTER_CATEGORIES.map((c) => c.key)
 // Categorias visíveis por padrão; "excluidos" começa fora (deleted ocultos).
 const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
@@ -51,9 +89,13 @@ const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
 // nenhum — descartá-la na leitura evita um valor órfão preso no ToggleGroup.
 const KNOWN_QUICK_FILTERS = new Set(QUICK_FILTER_CHIPS.map((c) => c.key))
 
-export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
+export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref<IngredientsTreeManagerHandle>; catalog?: IngredientsTreeScope }) {
 	// global:1 navega o catálogo inteiro; edição, exclusão e ações em massa somem.
 	const canWrite = useGlobalWrite()
+	const ui = SCOPE_UI[catalog]
+	const persistKey = ui.persistKey
+	const scrollKey = `${persistKey}:scroll`
+	const quickFilterChips = catalog === "only" ? AUXILIARY_QUICK_FILTER_CHIPS : QUICK_FILTER_CHIPS
 	;("use no memo")
 	const navigate = useNavigate()
 	const navigateRef = useRef(navigate)
@@ -82,17 +124,17 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	})
 
 	// Sensibilidade da busca (persistida por aba). Default: insensível a ambos.
-	const [searchCaseSensitive, setSearchCaseSensitive] = usePersistentState("sisub:global-ingredients:search:caseSensitive", false)
-	const [searchAccentSensitive, setSearchAccentSensitive] = usePersistentState("sisub:global-ingredients:search:accentSensitive", false)
+	const [searchCaseSensitive, setSearchCaseSensitive] = usePersistentState(`${persistKey}:search:caseSensitive`, false)
+	const [searchAccentSensitive, setSearchAccentSensitive] = usePersistentState(`${persistKey}:search:accentSensitive`, false)
 
 	// Edição em massa
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
 	// Ordenação alfabética (A-Z / Z-A). Persistida por aba.
-	const [sortDirection, setSortDirection] = usePersistentState<"asc" | "desc">("sisub:global-ingredients:sort", "asc")
+	const [sortDirection, setSortDirection] = usePersistentState<"asc" | "desc">(`${persistKey}:sort`, "asc")
 	// Filtro: mostrar apenas insumos ainda não revisados (conferência pendente). Persistido por aba.
-	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState("sisub:global-ingredients:onlyNotReviewed", false)
+	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState(`${persistKey}:onlyNotReviewed`, false)
 	// Busca rápida (toggle group multi-seleção). Persistida por aba.
-	const [storedQuickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
+	const [storedQuickFilters, setQuickFilters] = usePersistentState<string[]>(`${persistKey}:quickFilters`, DEFAULT_QUICK_FILTERS)
 	const quickFilters = useMemo(() => storedQuickFilters.filter((k) => KNOWN_QUICK_FILTERS.has(k)), [storedQuickFilters])
 	const showDeleted = quickFilters.includes("excluidos")
 	// Categorias desmarcadas → ocultar suas subárvores na hierarquia.
@@ -127,12 +169,14 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	const { flatTree, stats, itemCountByIngredientId, lastReviewByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(
 		urlSearch,
 		showDeleted,
-		"sisub:global-ingredients",
+		persistKey,
 		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
 		hiddenCategoryKeys,
 		sortDirection,
 		true, // default da tela: abrir tudo recolhido
-		onlyNotReviewed
+		onlyNotReviewed,
+		"exclude",
+		catalog
 	)
 
 	// Contagem do que está efetivamente visível (após busca + chips). `byId` contém
@@ -159,11 +203,11 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		// Chave estável por ID: evita reutilização errada de DOM ao filtrar/reordenar
 		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
 		// Restaura o offset salvo ao remontar (ex: voltar de uma página de detalhe).
-		initialOffset: () => getStoredScrollOffset(INGREDIENTS_SCROLL_KEY),
+		initialOffset: () => getStoredScrollOffset(scrollKey),
 	})
 
 	// Persiste o offset de scroll continuamente.
-	usePersistScrollOffset(INGREDIENTS_SCROLL_KEY, parentRef, !!flatTree && flatTree.nodes.length > 0)
+	usePersistScrollOffset(scrollKey, parentRef, !!flatTree && flatTree.nodes.length > 0)
 
 	const handleOpenDialog = (type: "folder" | "ingredient", mode: "create" | "edit" = "create", data?: Folder | Ingredient, parentId?: string | null) => {
 		setDialogState({ isOpen: true, mode, type, data, parentId })
@@ -207,7 +251,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		return (
 			<Card className="p-6">
 				<div className="text-center space-y-4">
-					<p className="text-destructive">Erro ao carregar árvore de insumos</p>
+					<p className="text-destructive">{ui.errorTitle}</p>
 					<p className="text-sm text-muted-foreground">{error.message}</p>
 					<Button onClick={() => refetch()}>Tentar Novamente</Button>
 				</div>
@@ -228,11 +272,11 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 						<Input
 							type="search"
-							placeholder="Buscar pastas ou insumos..."
+							placeholder={ui.searchPlaceholder}
 							value={inputValue}
 							onChange={(e) => setInputValue(e.target.value)}
 							className="pl-10"
-							aria-label="Buscar na árvore de insumos"
+							aria-label={ui.searchLabel}
 						/>
 					</div>
 
@@ -315,12 +359,12 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 			</Card>
 			{/* Árvore Virtualizada */}
 			<Card>
-				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label="Árvore de insumos">
+				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label={ui.treeLabel}>
 					{flatTree && flatTree.nodes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
-							<p className="font-sans">Nenhum insumo encontrado</p>
+							<p className="font-sans">{ui.emptyTitle}</p>
 							{onlyNotReviewed ? (
-								<p className="text-sm mt-2">Nenhum insumo pendente de revisão neste filtro</p>
+								<p className="text-sm mt-2">{ui.emptyReview}</p>
 							) : (
 								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
 							)}
@@ -382,7 +426,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 							</span>
 							<span aria-hidden>·</span>
 							<span>
-								{visibleCounts.ingredients} {visibleCounts.ingredients === 1 ? "insumo" : "insumos"}
+								{visibleCounts.ingredients} {visibleCounts.ingredients === 1 ? ui.noun[0] : ui.noun[1]}
 								{visibleCounts.ingredients !== stats.totalIngredients && <span className="text-muted-foreground/60"> de {stats.totalIngredients}</span>}
 							</span>
 						</div>
@@ -399,7 +443,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 								spacing={1}
 								aria-label="Filtros rápidos de busca"
 							>
-								{QUICK_FILTER_CHIPS.map((chip) => (
+								{quickFilterChips.map((chip) => (
 									<ToggleGroupItem key={chip.key} value={chip.key} aria-label={chip.label}>
 										{chip.label}
 									</ToggleGroupItem>
@@ -417,11 +461,18 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 					onClose={handleCloseDialog}
 					mode={dialogState.mode}
 					folder={dialogState.mode === "edit" && dialogState.data && "parent_id" in dialogState.data ? (dialogState.data as Folder) : undefined}
+					catalog={catalog}
 				/>
 			)}
 
 			{dialogState.type === "ingredient" && dialogState.mode === "create" && (
-				<IngredientForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode="create" defaultFolderId={dialogState.parentId ?? undefined} />
+				<IngredientForm
+					isOpen={dialogState.isOpen}
+					onClose={handleCloseDialog}
+					mode="create"
+					defaultFolderId={dialogState.parentId ?? undefined}
+					catalog={catalog}
+				/>
 			)}
 
 			{/* Localizar e substituir */}
@@ -429,7 +480,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 			{/* Barra de ações em massa */}
 			{selectionMode && selectedNodes.length > 0 && (
-				<BulkActionsBar selectedNodes={selectedNodes} showDeleted={showDeleted} onClear={clearSelection} onDone={clearSelection} />
+				<BulkActionsBar selectedNodes={selectedNodes} showDeleted={showDeleted} onClear={clearSelection} onDone={clearSelection} catalog={catalog} />
 			)}
 		</div>
 	)

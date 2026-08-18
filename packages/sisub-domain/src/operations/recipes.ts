@@ -39,7 +39,7 @@ import type {
 } from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, mutateOrFail, runQuery, toWire, unwrapPgError } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -65,6 +65,28 @@ const RECIPE_RELATIONS: Record<string, string> = {
 // Profundidade 2 (recipe → recipe_ingredients → {ingredient|frozen_preparation}), dentro do
 // limite de 63 chars de alias do Postgres — o problema de NAMEDATALEN é só a partir do nível 3.
 const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true, frozenPreparationInKitchen: true } } } as const
+
+/**
+ * Colunas `numeric` no caminho de leitura da receita (linha + ingrediente + insumo +
+ * preparação congelada). O driver as devolve como STRING; o contrato `Tables<...>` diz
+ * `number`. Ver `toNumeric` — é o que fazia o formulário da ficha técnica acusar
+ * "Invalid input" em campo salvo e nunca tocado.
+ */
+const RECIPE_NUMERIC_KEYS: ReadonlySet<string> = new Set([
+	"portion_yield",
+	"cooking_factor",
+	"net_quantity",
+	"correction_factor",
+	"rehydration_index",
+	"density_factor",
+	"yield_quantity",
+	"storage_temperature_c",
+])
+
+/** `toWire` + normalização dos `numeric` — todo retorno de leitura de receita passa aqui. */
+function toRecipeWire<T>(row: unknown): T {
+	return toNumeric(toWire<T>(row, RECIPE_RELATIONS), RECIPE_NUMERIC_KEYS)
+}
 
 /**
  * O Drizzle não aceita `where` numa relação `one` (só em `many`), então a preparação
@@ -94,7 +116,7 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
 
 	scrubDeletedFrozenPreparations(row)
-	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
+	return toRecipeWire<RecipeWithIngredients>(row)
 }
 
 /**
@@ -154,7 +176,7 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 		.map((r) => {
 			scrubDeletedFrozenPreparations(r)
-			return toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS)
+			return toRecipeWire<RecipeWithIngredients>(r)
 		})
 }
 
@@ -215,7 +237,7 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 
 	return Array.from(familyMap.values())
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-		.map(({ baseRecipeId: _baseRecipeId, ...summary }) => toWire<RecipeSummary>(summary))
+		.map(({ baseRecipeId: _baseRecipeId, ...summary }) => toNumeric(toWire<RecipeSummary>(summary), RECIPE_NUMERIC_KEYS))
 }
 
 /**
@@ -263,7 +285,7 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 		})
 	)
 
-	return rows.map((r) => toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS))
+	return rows.map((r) => toRecipeWire<RecipeWithIngredients>(r))
 }
 
 // ── Pastas de preparação (agrupamento plano — organização e filtragem) ───────
@@ -466,7 +488,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 	)
 
 	await insertIngredients(db, recipe.id, input.ingredients)
-	return toWire<Recipe>(recipe, RECIPE_RELATIONS)
+	return toRecipeWire<Recipe>(recipe)
 }
 
 /**
@@ -621,5 +643,5 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	const riIdMap = await buildIngredientIdMap(db, base.id, inserted)
 	await copyRecipeFlow(db, base.id, recipe.id, riIdMap)
 
-	return { recipe: toWire<Recipe>(recipe, RECIPE_RELATIONS), forked }
+	return { recipe: toRecipeWire<Recipe>(recipe), forked }
 }

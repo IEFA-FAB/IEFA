@@ -1,4 +1,4 @@
-import type { PreparationScope } from "@iefa/sisub-domain"
+import type { CatalogScope, PreparationScope } from "@iefa/sisub-domain"
 import { useEffect, useMemo, useRef } from "react"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { asArray, buildIngredientTree } from "@/lib/ingredient-tree"
@@ -18,6 +18,9 @@ import type { FlatIngredientTree } from "@/types/domain/ingredients"
  * @param preparations escopo do grupo legado "Preparações" (SISUBWEB). Padrão
  *   `"exclude"`; a aba dedicada usa `"only"` e recebe a MESMA árvore de pastas,
  *   só que recortada naquele grupo.
+ * @param catalog escopo gêneros × itens auxiliares (EPI, limpeza, embalagem…). Padrão
+ *   `"include"` — os dois juntos, que é o que o seletor da ficha técnica precisa. As
+ *   abas de /global/ingredients pedem `"exclude"` (Insumos) e `"only"` (Itens auxiliares).
  */
 export function useIngredientsHierarchy(
 	filterText = "",
@@ -28,13 +31,14 @@ export function useIngredientsHierarchy(
 	sortDirection: "asc" | "desc" = "asc",
 	defaultCollapsed = false,
 	onlyNotReviewed = false,
-	preparations: PreparationScope = "exclude"
+	preparations: PreparationScope = "exclude",
+	catalog: CatalogScope = "include"
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
 	const hiddenKey = useMemo(() => hiddenCategoryKeys.toSorted().join(","), [hiddenCategoryKeys])
 	// Busca dados via service
-	const { tree, error, refetch } = useIngredientsTree(includeDeleted, preparations)
+	const { tree, error, refetch } = useIngredientsTree(includeDeleted, preparations, catalog)
 
 	// Estado de expand/collapse
 	// Inicializa com todas as pastas de primeiro nível expandidas — exceto quando
