@@ -19,6 +19,7 @@ import {
 	KeyRound,
 	Landmark,
 	LayoutDashboard,
+	Library,
 	type LucideIcon,
 	MapPin,
 	MessageSquare,
@@ -44,9 +45,9 @@ import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
-export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "storage" | "global" | "analytics" | "local-analytics"
+export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "storage" | "global" | "admin" | "analytics" | "local-analytics"
 
-export type GroupColor = "success" | "primary" | "warning" | "governance"
+export type GroupColor = "success" | "primary" | "warning" | "governance" | "admin"
 
 export type ModuleDef = {
 	id: ModuleId
@@ -158,23 +159,35 @@ export const ALL_MODULES: ModuleDef[] = [
 		],
 	},
 	{
+		// Governança de CONTEÚDO: o catálogo canônico da FAB e o fluxo de curadoria.
+		// A administração de plataforma (permissões, avaliação, sincronização, treino) saiu
+		// daqui para o módulo `admin` — trabalho diário e reversível separado do raro e perigoso.
 		id: "global",
-		name: "SDAB",
-		icon: Settings,
+		name: "Catálogo Global",
+		icon: Library,
 		color: "governance",
 		items: [
 			{ title: "Insumos", url: "/global/ingredients", icon: Wheat },
 			{ title: "Preparações", url: "/global/recipes", icon: UtensilsCrossed },
 			{ title: "Planos Semanais", url: "/global/weekly-plans", icon: CalendarDays },
 			{ title: "Locais", url: "/global/places-manager", icon: MapPin, minLevel: 2 },
-			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck, minLevel: 2 },
-			{ title: "Avaliação", url: "/global/evaluation", icon: Star, minLevel: 2 },
-			{ title: "Sincronização", url: "/global/sync-routines", icon: RefreshCw, minLevel: 2 },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2 },
-			// Nível 1: o painel mostra o estado do ambiente; só o botão de reset exige nível 2.
-			{ title: "Ambiente de Treino", url: "/global/training", icon: GraduationCap },
-
 			{ title: "Assistente IA", url: "/global/chat", icon: MessageSquare },
+		],
+	},
+	{
+		// Administração de PLATAFORMA — módulo PBAC `admin`, alto risco e baixa frequência.
+		// Backfill inicial concede `admin` a quem já tinha `global`; grants futuros são separados.
+		id: "admin",
+		name: "Administração do Sistema",
+		icon: Settings,
+		color: "admin",
+		items: [
+			{ title: "Permissões", url: "/admin/permissions", icon: ShieldCheck, minLevel: 2 },
+			{ title: "Avaliação", url: "/admin/evaluation", icon: Star, minLevel: 2 },
+			{ title: "Sincronização", url: "/admin/sync-routines", icon: RefreshCw, minLevel: 2 },
+			// Nível 1: o painel mostra o estado do ambiente; só o botão de reset exige nível 2.
+			{ title: "Ambiente de Treino", url: "/admin/training", icon: GraduationCap },
 		],
 	},
 	{

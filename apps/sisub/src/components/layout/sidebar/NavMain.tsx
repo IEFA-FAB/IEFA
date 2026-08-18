@@ -16,6 +16,7 @@ const MODULE_ACTIVE_CLASSES: Record<GroupColor, string> = {
 	primary: "!text-primary hover:!text-primary",
 	warning: "!text-warning hover:!text-warning",
 	governance: "!text-governance hover:!text-governance",
+	admin: "!text-destructive hover:!text-destructive",
 }
 
 /** Normaliza pathname removendo barras finais para comparação de rotas. */

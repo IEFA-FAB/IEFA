@@ -29,6 +29,10 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_protected/_modules/analytics/route'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
+import { Route as ProtectedModulesAdminEvaluationRouteImport } from './routes/_protected/_modules/admin/evaluation'
+import { Route as ProtectedModulesAdminPermissionsRouteImport } from './routes/_protected/_modules/admin/permissions'
+import { Route as ProtectedModulesAdminSyncRoutinesRouteImport } from './routes/_protected/_modules/admin/sync-routines'
+import { Route as ProtectedModulesAdminTrainingRouteImport } from './routes/_protected/_modules/admin/training'
 import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
 import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
@@ -229,6 +233,30 @@ const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
     id: '/.well-known/agent-skills/$skill/SKILL.md',
     path: '/.well-known/agent-skills/$skill/SKILL.md',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const ProtectedModulesAdminEvaluationRoute =
+  ProtectedModulesAdminEvaluationRouteImport.update({
+    id: '/admin/evaluation',
+    path: '/admin/evaluation',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAdminPermissionsRoute =
+  ProtectedModulesAdminPermissionsRouteImport.update({
+    id: '/admin/permissions',
+    path: '/admin/permissions',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAdminSyncRoutinesRoute =
+  ProtectedModulesAdminSyncRoutinesRouteImport.update({
+    id: '/admin/sync-routines',
+    path: '/admin/sync-routines',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAdminTrainingRoute =
+  ProtectedModulesAdminTrainingRouteImport.update({
+    id: '/admin/training',
+    path: '/admin/training',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesAnalyticsIndexRoute =
   ProtectedModulesAnalyticsIndexRouteImport.update({
@@ -855,6 +883,10 @@ export interface FileRoutesByFullPath {
   '/storage/$kitchenId': typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
+  '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
+  '/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -967,6 +999,10 @@ export interface FileRoutesByTo {
   '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/storage/$kitchenId': typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
+  '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
+  '/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -1087,6 +1123,10 @@ export interface FileRoutesById {
   '/_protected/_modules/storage/$kitchenId': typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/_protected/_modules/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/_protected/_modules/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
+  '/_protected/_modules/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
+  '/_protected/_modules/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -1207,6 +1247,10 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId'
     | '/unit/$unitId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/admin/evaluation'
+    | '/admin/permissions'
+    | '/admin/sync-routines'
+    | '/admin/training'
     | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
@@ -1319,6 +1363,10 @@ export interface FileRouteTypes {
     | '/local-analytics/$unitId'
     | '/storage/$kitchenId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/admin/evaluation'
+    | '/admin/permissions'
+    | '/admin/sync-routines'
+    | '/admin/training'
     | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
@@ -1438,6 +1486,10 @@ export interface FileRouteTypes {
     | '/_protected/_modules/storage/$kitchenId'
     | '/_protected/_modules/unit/$unitId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/_protected/_modules/admin/evaluation'
+    | '/_protected/_modules/admin/permissions'
+    | '/_protected/_modules/admin/sync-routines'
+    | '/_protected/_modules/admin/training'
     | '/_protected/_modules/analytics/chat'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/diner/forecast'
@@ -1686,6 +1738,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
       preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_protected/_modules/admin/evaluation': {
+      id: '/_protected/_modules/admin/evaluation'
+      path: '/admin/evaluation'
+      fullPath: '/admin/evaluation'
+      preLoaderRoute: typeof ProtectedModulesAdminEvaluationRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/admin/permissions': {
+      id: '/_protected/_modules/admin/permissions'
+      path: '/admin/permissions'
+      fullPath: '/admin/permissions'
+      preLoaderRoute: typeof ProtectedModulesAdminPermissionsRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/admin/sync-routines': {
+      id: '/_protected/_modules/admin/sync-routines'
+      path: '/admin/sync-routines'
+      fullPath: '/admin/sync-routines'
+      preLoaderRoute: typeof ProtectedModulesAdminSyncRoutinesRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/admin/training': {
+      id: '/_protected/_modules/admin/training'
+      path: '/admin/training'
+      fullPath: '/admin/training'
+      preLoaderRoute: typeof ProtectedModulesAdminTrainingRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/analytics/': {
       id: '/_protected/_modules/analytics/'
@@ -2664,6 +2744,10 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesMesshallMessHallIdRouteRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   ProtectedModulesStorageKitchenIdRouteRoute: typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
+  ProtectedModulesAdminEvaluationRoute: typeof ProtectedModulesAdminEvaluationRoute
+  ProtectedModulesAdminPermissionsRoute: typeof ProtectedModulesAdminPermissionsRoute
+  ProtectedModulesAdminSyncRoutinesRoute: typeof ProtectedModulesAdminSyncRoutinesRoute
+  ProtectedModulesAdminTrainingRoute: typeof ProtectedModulesAdminTrainingRoute
   ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
   ProtectedModulesDinerMcpKeysRoute: typeof ProtectedModulesDinerMcpKeysRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
@@ -2717,6 +2801,11 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesStorageKitchenIdRouteRouteWithChildren,
   ProtectedModulesUnitUnitIdRouteRoute:
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
+  ProtectedModulesAdminEvaluationRoute: ProtectedModulesAdminEvaluationRoute,
+  ProtectedModulesAdminPermissionsRoute: ProtectedModulesAdminPermissionsRoute,
+  ProtectedModulesAdminSyncRoutinesRoute:
+    ProtectedModulesAdminSyncRoutinesRoute,
+  ProtectedModulesAdminTrainingRoute: ProtectedModulesAdminTrainingRoute,
   ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
   ProtectedModulesDinerMcpKeysRoute: ProtectedModulesDinerMcpKeysRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,

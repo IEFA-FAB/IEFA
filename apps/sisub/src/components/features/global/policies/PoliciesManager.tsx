@@ -256,7 +256,7 @@ function PolicyDetailPanel({
 							<>
 								{" "}
 								Para adicionar ou remover treinandos, use{" "}
-								<Link to="/global/training" className="underline underline-offset-2">
+								<Link to="/admin/training" className="underline underline-offset-2">
 									Ambiente de Treino
 								</Link>
 								{" — lá a turma aparece junto do escopo e do reset."}

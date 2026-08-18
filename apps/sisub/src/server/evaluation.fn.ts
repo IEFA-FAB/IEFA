@@ -9,7 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuth, requireUserId } from "@/lib/auth.server"
+import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
 import { getCoreClient } from "@/lib/supabase.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
@@ -41,7 +41,10 @@ export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async
 export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 	.validator(z.object({ active: z.boolean(), value: z.string() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		// Escrita da config de avaliação é administração de plataforma (módulo `admin`, nível 2).
+		// Antes exigia só `requireAuth()` — qualquer sessão autenticada podia sobrescrever a
+		// pergunta global; o gate real vivia só no beforeLoad da rota (client-side).
+		await requireAuthWithPermission("admin", 2)
 		const { data: result, error } = await getCoreClient()
 			.from("super_admin_controller")
 			.upsert({ key: "evaluation", active: data.active, value: data.value }, { onConflict: "key" })

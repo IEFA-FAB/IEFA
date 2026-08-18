@@ -2,6 +2,7 @@
 
 import { GraduationCap, Search, UserMinus, UserPlus } from "lucide-react"
 import * as React from "react"
+import { usePBAC } from "@/auth/pbac"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +10,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import { useAttachPolicy, useDetachPolicy, usePolicyMembers, useTrainingPolicy } from "@/hooks/data/usePolicies"
 import { useUserSearch } from "@/hooks/data/useUserSearch"
 
@@ -25,9 +25,10 @@ import { useUserSearch } from "@/hooks/data/useUserSearch"
 export function TrainingRoster() {
 	"use no memo"
 
-	const canWrite = useGlobalWrite()
+	const { can } = usePBAC()
+	const canWrite = can("admin", 2)
 	const { data: policy, isLoading: policyLoading, error: policyError } = useTrainingPolicy()
-	// A listagem exige `global:2` — o painel em si é visível em `global:1` (inclusive para o
+	// A listagem exige `admin:2` — o painel em si é visível em `admin:1` (inclusive para o
 	// próprio treinando, que ganha esse nível pela política). Sem o gate a query dispararia e
 	// falharia, e a tabela mostraria "ninguém em treino" no lugar do erro.
 	const { data: members = [], isLoading: membersLoading, error: membersError } = usePolicyMembers(policy?.id ?? null, { enabled: canWrite })

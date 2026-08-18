@@ -28,7 +28,8 @@ export const SEGMENT_PT: Record<string, string> = {
 	"kitchen-production": "Produção Cozinha",
 	storage: "Estoque",
 	"local-analytics": "Análises Locais",
-	global: "SDAB",
+	global: "Catálogo Global",
+	admin: "Administração do Sistema",
 	analytics: "Análises",
 	// Páginas
 	hub: "Hub",

@@ -98,7 +98,7 @@ export async function listEffectiveUserPermissionsWithOrigin(
 	ctx: UserContext,
 	input: FetchUserPermissions
 ): Promise<EffectivePermissionWithOrigin[]> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	const [inlineRows, policyRows] = await Promise.all([
 		runQuery("FETCH_FAILED", () =>
@@ -199,7 +199,7 @@ async function listUserPolicyStatementsWithSource(db: SisubDb, userId: string) {
 }
 
 export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: SearchUsersByEmail) {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	// Escapa metacaracteres LIKE (\ % _) p/ que o termo seja tratado como literal — senão
 	// "user_admin" casaria "useradmin"/"user1admin" (_ = curinga de 1 char no LIKE).
 	const term = input.email.replace(/[\\%_]/g, "\\$&")
@@ -214,7 +214,7 @@ export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: S
 }
 
 export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, input: FetchUserPermissions) {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	return runQuery("FETCH_FAILED", () =>
 		db
 			.select({
@@ -232,7 +232,7 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 }
 
 export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission) {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await runQuery("INSERT_FAILED", () =>
 		db.insert(userPermissionsInAccessControl).values({
 			userId: input.userId,
@@ -247,7 +247,7 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 }
 
 export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission) {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
 			.update(userPermissionsInAccessControl)
@@ -264,7 +264,7 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 }
 
 export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
 			.delete(userPermissionsInAccessControl)

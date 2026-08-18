@@ -102,7 +102,7 @@ async function assertPolicyEditable(db: SisubDb, policyId: string): Promise<Poli
 
 /** Lista as políticas com contagem de statements e de usuários anexados. */
 export async function listPolicies(db: SisubDb, ctx: UserContext, input: ListPolicies): Promise<PolicySummary[]> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	const policies = await runQuery("FETCH_FAILED", () => {
 		const query = db.select(POLICY_COLS).from(policyInAccessControl).orderBy(asc(policyInAccessControl.name))
@@ -144,7 +144,7 @@ export async function listPolicies(db: SisubDb, ctx: UserContext, input: ListPol
 
 /** Política com seus statements. */
 export async function fetchPolicy(db: SisubDb, ctx: UserContext, input: FetchPolicy): Promise<PolicyDetail> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.select(POLICY_COLS).from(policyInAccessControl).where(eq(policyInAccessControl.id, input.policyId)).limit(1)
@@ -165,7 +165,7 @@ export async function fetchPolicy(db: SisubDb, ctx: UserContext, input: FetchPol
 
 /** Políticas anexadas a um usuário. */
 export async function listUserPolicies(db: SisubDb, ctx: UserContext, input: ListUserPolicies): Promise<PolicyRow[]> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	return runQuery("FETCH_FAILED", () =>
 		db
@@ -193,7 +193,7 @@ export type PolicyMember = {
  * ser administrável.
  */
 export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: FetchPolicy): Promise<PolicyMember[]> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	return runQuery("FETCH_FAILED", () =>
 		db
@@ -221,7 +221,7 @@ export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: Fe
  * `is_training` em vez de literal.
  */
 export async function fetchManagedPolicyByName(db: SisubDb, ctx: UserContext, input: FetchManagedPolicy): Promise<PolicyDetail> {
-	requirePermission(ctx, "global", 1)
+	requirePermission(ctx, "admin", 1)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
@@ -277,7 +277,7 @@ export async function listUserPolicyPermissions(db: SisubDb, userId: string): Pr
 // ── Escrita: política ────────────────────────────────────────────────────────
 
 export async function createPolicy(db: SisubDb, ctx: UserContext, input: CreatePolicy): Promise<PolicyRow> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -289,7 +289,7 @@ export async function createPolicy(db: SisubDb, ctx: UserContext, input: CreateP
 }
 
 export async function updatePolicy(db: SisubDb, ctx: UserContext, input: UpdatePolicy): Promise<PolicyRow> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await assertPolicyEditable(db, input.policyId)
 
 	const updates: { name?: string; description?: string | null; updatedAt: string } = { updatedAt: new Date().toISOString() }
@@ -309,7 +309,7 @@ export async function updatePolicy(db: SisubDb, ctx: UserContext, input: UpdateP
  * uma remoção acidental seja reversível.
  */
 export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeletePolicy): Promise<void> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await assertPolicyEditable(db, input.policyId)
 
 	await mutateOrFail("DELETE_FAILED", `policy ${input.policyId} not found`, () =>
@@ -332,7 +332,7 @@ export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeleteP
  * rejeitaria o update de qualquer forma, e um erro de constraint cru não diria o motivo.
  */
 export async function restorePolicy(db: SisubDb, ctx: UserContext, input: RestorePolicy): Promise<PolicyRow> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.select(POLICY_COLS).from(policyInAccessControl).where(eq(policyInAccessControl.id, input.policyId)).limit(1)
@@ -375,7 +375,7 @@ function statementValues(statement: PolicyStatementInput) {
 }
 
 export async function addPolicyStatement(db: SisubDb, ctx: UserContext, input: AddPolicyStatement): Promise<PolicyStatementRow> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await assertPolicyEditable(db, input.policyId)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
@@ -402,7 +402,7 @@ async function resolveStatementPolicy(db: SisubDb, statementId: string): Promise
 }
 
 export async function updatePolicyStatement(db: SisubDb, ctx: UserContext, input: UpdatePolicyStatement): Promise<PolicyStatementRow> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
 
 	const row = await insertOneOrFail("UPDATE_FAILED", `policy_statement ${input.statementId} not found`, () =>
@@ -416,7 +416,7 @@ export async function updatePolicyStatement(db: SisubDb, ctx: UserContext, input
 }
 
 export async function removePolicyStatement(db: SisubDb, ctx: UserContext, input: RemovePolicyStatement): Promise<void> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
 
 	await mutateOrFail("DELETE_FAILED", `policy_statement ${input.statementId} not found`, () =>
@@ -437,7 +437,7 @@ export async function removePolicyStatement(db: SisubDb, ctx: UserContext, input
  * justamente assim que o "Conjunto Treino" é concedido.
  */
 export async function attachPolicy(db: SisubDb, ctx: UserContext, input: AttachPolicy): Promise<{ success: true }> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
@@ -460,7 +460,7 @@ export async function attachPolicy(db: SisubDb, ctx: UserContext, input: AttachP
 }
 
 export async function detachPolicy(db: SisubDb, ctx: UserContext, input: DetachPolicy): Promise<{ success: true }> {
-	requirePermission(ctx, "global", 2)
+	requirePermission(ctx, "admin", 2)
 
 	await mutateOrFail("DELETE_FAILED", `attachment ${input.userId}/${input.policyId} not found`, () =>
 		db

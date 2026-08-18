@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "analytics", "local-analytics", "storage"] as const
+export const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "admin", "analytics", "local-analytics", "storage"] as const
 
 export const FetchUserPermissionsSchema = z.object({ userId: z.string().min(1) })
 export type FetchUserPermissions = z.infer<typeof FetchUserPermissionsSchema>

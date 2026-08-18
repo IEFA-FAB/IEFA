@@ -1,7 +1,7 @@
 /**
  * @module nutrition-sync.fn
  * Proxy to the iefa-api worker for institutional food composition table sync.
- * AUTH: `global` level 2 no chamador (espelha o beforeLoad de /global/sync-routines) +
+ * AUTH: `admin` level 2 no chamador (espelha o beforeLoad de /admin/sync-routines) +
  * header x-admin-secret da env ADMIN_SECRET no salto para a API.
  */
 
@@ -30,7 +30,7 @@ function adminHeaders() {
 
 /** Ver `requireSyncAdmin` em compras-sync.fn: sem guard o `ADMIN_SECRET` fica acessível a anônimos. */
 async function requireSyncAdmin() {
-	await requireAuthWithPermission("global", 2)
+	await requireAuthWithPermission("admin", 2)
 }
 
 export const triggerNutritionSyncFn = createServerFn({ method: "POST" }).handler(async () => {
