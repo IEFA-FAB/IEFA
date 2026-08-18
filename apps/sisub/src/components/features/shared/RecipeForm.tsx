@@ -8,7 +8,6 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
 import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
-import { RecipeSubstitutionsPanel } from "@/components/features/shared/RecipeSubstitutionsPanel"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -31,7 +30,14 @@ import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
-const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "substituicoes", "nutricao", "fluxo"] as const
+/**
+ * "substituicoes" saiu daqui: substituição não é faceta da preparação (como rendimento,
+ * modo de preparo ou nutrição), é atributo de UMA linha da ficha. Como aba, ela precisava
+ * reconstruir a tabela de ingredientes só para o usuário reescolher a linha, e a
+ * quantidade original — metade da decisão — ficava do outro lado da navegação. Agora vive
+ * na expansão da linha, em `RecipeIngredientsTable`.
+ */
+const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "nutricao", "fluxo"] as const
 type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
@@ -132,7 +138,6 @@ const TAB_LABEL: Record<RecipeFormTab, string> = {
 	detalhes: "Detalhes",
 	ingredientes: "Ingredientes",
 	preparo: "Modo de preparo",
-	substituicoes: "Substituições",
 	nutricao: "Nutrição",
 	fluxo: "Fluxo de produção",
 }
@@ -154,6 +159,7 @@ const INGREDIENT_FIELD_LABEL: Record<string, string> = {
 	net_quantity: "quantidade",
 	correction_factor: "fator de correção",
 	rehydration_index: "índice de reidratação",
+	alternatives: "substituto",
 }
 
 interface FormProblem {
@@ -198,7 +204,7 @@ function collectProblems(values: unknown): FormProblem[] {
 }
 
 function emptyTabProblemCount(): TabProblemCount {
-	return { detalhes: 0, ingredientes: 0, preparo: 0, substituicoes: 0, nutricao: 0, fluxo: 0 }
+	return { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
 }
 
 /**
@@ -542,14 +548,14 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-6: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
 						<form.Subscribe selector={encodeTabProblems}>
 							{(encoded) => {
 								const counts = decodeTabProblems(encoded)
 								return (
-									<TabsList className="mx-auto grid w-full max-w-3xl grid-cols-6">
+									<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
 										{RECIPE_FORM_TABS.map((tab) => {
 											const errorCount = counts[tab]
 											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
@@ -704,25 +710,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												onAdd={() => setSelectorOpen(true)}
 												errors={toFieldErrors(field.state.meta.errors)}
 												rowErrors={ingredientErrors}
-											/>
-										)}
-									</form.Field>
-								)}
-							</form.Subscribe>
-						</TabsContent>
-
-						{/* Substituições — o que entra no lugar de cada insumo, POR LINHA da ficha */}
-						<TabsContent value="substituicoes" className={READING_PANEL}>
-							<form.Subscribe selector={(state) => state.values.portion_yield}>
-								{(portionYield) => (
-									<form.Field name="ingredients">
-										{(field) => (
-											<RecipeSubstitutionsPanel
-												ingredients={field.state.value as IngredientFormItem[]}
-												portionYield={Number(portionYield) || 0}
-												onChange={(index, alternatives) =>
-													field.handleChange((field.state.value as IngredientFormItem[]).map((row, i) => (i === index ? { ...row, alternatives } : row)))
-												}
 											/>
 										)}
 									</form.Field>
