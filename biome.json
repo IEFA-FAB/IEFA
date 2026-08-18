@@ -26,7 +26,8 @@
       "!**/.nitro",
       "!**/.tanstack",
       "!**/playwright-report",
-      "!**/test-results"
+      "!**/test-results",
+      "!**/__fixtures__/**/*"
     ]
   },
   "formatter": {
@@ -34,7 +35,13 @@
     "indentStyle": "tab",
     "lineWidth": 160
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -136,6 +143,16 @@
         "rules": {
           "performance": {
             "noBarrelFile": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/cli/**/*", "**/src/eval/**/*", "**/ingest-local.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }

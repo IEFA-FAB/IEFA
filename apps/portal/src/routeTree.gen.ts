@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
+import { Route as AlphaRouteRouteImport } from './routes/alpha/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AuthDotmdRouteImport } from './routes/auth[.]md'
 import { Route as HealthRouteImport } from './routes/health'
@@ -18,6 +19,8 @@ import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known.api-catalog'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as AlphaBancadaRouteImport } from './routes/alpha/bancada'
+import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as JournalIndexRouteImport } from './routes/journal/index'
 import { Route as JournalAboutRouteImport } from './routes/journal/about'
@@ -42,6 +45,9 @@ import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_pub
 import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
 import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
 import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
+import { Route as AlphaAnaliseRunIdRouteImport } from './routes/alpha/analise.$runId'
+import { Route as AlphaAnaliseNovaRouteImport } from './routes/alpha/analise.nova'
+import { Route as AlphaModelosIdRouteImport } from './routes/alpha/modelos.$id'
 import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
 import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
 import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
@@ -67,6 +73,11 @@ import { Route as JournalReviewAssignmentAssignmentIdRouteImport } from './route
 
 const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlphaRouteRoute = AlphaRouteRouteImport.update({
+  id: '/alpha',
+  path: '/alpha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -108,6 +119,16 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AlphaBancadaRoute = AlphaBancadaRouteImport.update({
+  id: '/bancada',
+  path: '/bancada',
+  getParentRoute: () => AlphaRouteRoute,
+} as any)
+const AlphaFontesRoute = AlphaFontesRouteImport.update({
+  id: '/fontes',
+  path: '/fontes',
+  getParentRoute: () => AlphaRouteRoute,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
@@ -235,6 +256,21 @@ const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
   path: '/termos-de-uso',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const AlphaAnaliseRunIdRoute = AlphaAnaliseRunIdRouteImport.update({
+  id: '/analise/$runId',
+  path: '/analise/$runId',
+  getParentRoute: () => AlphaRouteRoute,
+} as any)
+const AlphaAnaliseNovaRoute = AlphaAnaliseNovaRouteImport.update({
+  id: '/analise/nova',
+  path: '/analise/nova',
+  getParentRoute: () => AlphaRouteRoute,
+} as any)
+const AlphaModelosIdRoute = AlphaModelosIdRouteImport.update({
+  id: '/modelos/$id',
+  path: '/modelos/$id',
+  getParentRoute: () => AlphaRouteRoute,
+} as any)
 const JournalArticlesIndexRoute = JournalArticlesIndexRouteImport.update({
   id: '/articles/',
   path: '/articles/',
@@ -359,6 +395,7 @@ const JournalReviewAssignmentAssignmentIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
+  '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
   '/auth.md': typeof AuthDotmdRoute
@@ -367,6 +404,8 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/alpha/bancada': typeof AlphaBancadaRoute
+  '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -390,6 +429,9 @@ export interface FileRoutesByFullPath {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
+  '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
+  '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -414,12 +456,15 @@ export interface FileRoutesByFullPath {
   '/publicacoes/': typeof PublicPtPublicacoesIndexRoute
 }
 export interface FileRoutesByTo {
+  '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth.md': typeof AuthDotmdRoute
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/alpha/bancada': typeof AlphaBancadaRoute
+  '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -444,6 +489,9 @@ export interface FileRoutesByTo {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
+  '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
+  '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -470,6 +518,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_public': typeof PublicRouteRouteWithChildren
+  '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
   '/auth.md': typeof AuthDotmdRoute
@@ -478,6 +527,8 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/alpha/bancada': typeof AlphaBancadaRoute
+  '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -502,6 +553,9 @@ export interface FileRoutesById {
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
   '/_public/_pt/sobre': typeof PublicPtSobreRoute
   '/_public/_pt/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
+  '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
+  '/alpha/modelos/$id': typeof AlphaModelosIdRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -529,6 +583,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/alpha'
     | '/auth'
     | '/journal'
     | '/auth.md'
@@ -537,6 +592,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/journal/editorial'
     | '/.well-known/api-catalog'
+    | '/alpha/bancada'
+    | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -560,6 +617,9 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/analise/$runId'
+    | '/alpha/analise/nova'
+    | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -584,12 +644,15 @@ export interface FileRouteTypes {
     | '/publicacoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/alpha'
     | '/auth.md'
     | '/health'
     | '/llms.txt'
     | '/sitemap.xml'
     | '/journal/editorial'
     | '/.well-known/api-catalog'
+    | '/alpha/bancada'
+    | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -614,6 +677,9 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/alpha/analise/$runId'
+    | '/alpha/analise/nova'
+    | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -639,6 +705,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_public'
+    | '/alpha'
     | '/auth'
     | '/journal'
     | '/auth.md'
@@ -647,6 +714,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/journal/editorial'
     | '/.well-known/api-catalog'
+    | '/alpha/bancada'
+    | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -671,6 +740,9 @@ export interface FileRouteTypes {
     | '/_public/_pt/roteiro'
     | '/_public/_pt/sobre'
     | '/_public/_pt/termos-de-uso'
+    | '/alpha/analise/$runId'
+    | '/alpha/analise/nova'
+    | '/alpha/modelos/$id'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -697,6 +769,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
+  AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   JournalRouteRoute: typeof JournalRouteRouteWithChildren
   AuthDotmdRoute: typeof AuthDotmdRoute
@@ -715,6 +788,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PublicRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alpha': {
+      id: '/alpha'
+      path: '/alpha'
+      fullPath: '/alpha'
+      preLoaderRoute: typeof AlphaRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -772,6 +852,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/alpha/bancada': {
+      id: '/alpha/bancada'
+      path: '/bancada'
+      fullPath: '/alpha/bancada'
+      preLoaderRoute: typeof AlphaBancadaRouteImport
+      parentRoute: typeof AlphaRouteRoute
+    }
+    '/alpha/fontes': {
+      id: '/alpha/fontes'
+      path: '/fontes'
+      fullPath: '/alpha/fontes'
+      preLoaderRoute: typeof AlphaFontesRouteImport
+      parentRoute: typeof AlphaRouteRoute
     }
     '/auth/': {
       id: '/auth/'
@@ -940,6 +1034,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/termos-de-uso'
       preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/alpha/analise/$runId': {
+      id: '/alpha/analise/$runId'
+      path: '/analise/$runId'
+      fullPath: '/alpha/analise/$runId'
+      preLoaderRoute: typeof AlphaAnaliseRunIdRouteImport
+      parentRoute: typeof AlphaRouteRoute
+    }
+    '/alpha/analise/nova': {
+      id: '/alpha/analise/nova'
+      path: '/analise/nova'
+      fullPath: '/alpha/analise/nova'
+      preLoaderRoute: typeof AlphaAnaliseNovaRouteImport
+      parentRoute: typeof AlphaRouteRoute
+    }
+    '/alpha/modelos/$id': {
+      id: '/alpha/modelos/$id'
+      path: '/modelos/$id'
+      fullPath: '/alpha/modelos/$id'
+      preLoaderRoute: typeof AlphaModelosIdRouteImport
+      parentRoute: typeof AlphaRouteRoute
     }
     '/journal/articles/': {
       id: '/journal/articles/'
@@ -1160,6 +1275,26 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
   PublicRouteRouteChildren,
 )
 
+interface AlphaRouteRouteChildren {
+  AlphaBancadaRoute: typeof AlphaBancadaRoute
+  AlphaFontesRoute: typeof AlphaFontesRoute
+  AlphaAnaliseRunIdRoute: typeof AlphaAnaliseRunIdRoute
+  AlphaAnaliseNovaRoute: typeof AlphaAnaliseNovaRoute
+  AlphaModelosIdRoute: typeof AlphaModelosIdRoute
+}
+
+const AlphaRouteRouteChildren: AlphaRouteRouteChildren = {
+  AlphaBancadaRoute: AlphaBancadaRoute,
+  AlphaFontesRoute: AlphaFontesRoute,
+  AlphaAnaliseRunIdRoute: AlphaAnaliseRunIdRoute,
+  AlphaAnaliseNovaRoute: AlphaAnaliseNovaRoute,
+  AlphaModelosIdRoute: AlphaModelosIdRoute,
+}
+
+const AlphaRouteRouteWithChildren = AlphaRouteRoute._addFileChildren(
+  AlphaRouteRouteChildren,
+)
+
 interface AuthRouteRouteChildren {
   AuthIndexRoute: typeof AuthIndexRoute
 }
@@ -1233,6 +1368,7 @@ const JournalRouteRouteWithChildren = JournalRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
+  AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   JournalRouteRoute: JournalRouteRouteWithChildren,
   AuthDotmdRoute: AuthDotmdRoute,

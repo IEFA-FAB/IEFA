@@ -1,7 +1,7 @@
-import { OpenAIEmbeddings } from "@langchain/openai"
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
 import type { DocumentType, RetrievedDocument } from "../graph/state.ts"
+import { embeddingError, embeddingModelId, getEmbeddings } from "../lib/embeddings.ts"
 
 export interface RADARetrieverInput {
 	query: string
@@ -28,24 +28,23 @@ export interface RADARetrieverOutput {
 	}
 }
 
-const embeddings = new OpenAIEmbeddings({
-	model: env.EMB_MODEL,
-	configuration: {
-		baseURL: env.NVIDIA_BASE_URL,
-		apiKey: env.NVIDIA_API_KEY,
-	},
-	dimensions: 1024,
-})
-
 const THRESHOLD = env.RERANK_THRESHOLD
 const RRF_K = env.RRF_K
 const RERANK_TOP_N = env.RERANK_TOP_N
 
+// As RPCs `alpha.match_chunks_cosine` / `alpha.match_chunks_fts` já restringem o
+// resultado à versão vigente (`document_chunk.is_current`, espelho de
+// `document.superseded_at is null`). Versões superseded seguem legíveis por ID,
+// para auditoria de pareceres antigos, mas nunca entram na busca.
 async function semanticSearch(queryVector: number[], filters: RADARetrieverInput["filters"], topK: number) {
 	const vectorStr = `[${queryVector.join(",")}]`
+	// `embedding_model` evita o pior silêncio possível: comparar um vetor do
+	// modelo atual com vetores gerados por outro modelo devolve distâncias sem
+	// significado, e a busca "funciona" retornando lixo.
 	let query = supabase.rpc("match_chunks_cosine", {
 		query_embedding: vectorStr,
 		match_count: topK,
+		embedding_model_filter: embeddingModelId(),
 	})
 
 	if (filters?.document_type) {
@@ -118,7 +117,34 @@ function rrfFusion(
 	return scores
 }
 
-async function rerank(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<Array<{ id: string; score: number }>> {
+/**
+ * Rerank no Bedrock, pela API de Rerank do `bedrock-agent-runtime`.
+ *
+ * Import dinâmico para não puxar o SDK da AWS quando o rerank está desligado —
+ * mesmo cuidado que o adapter bedrock do `@iefa/ai-provider` já toma.
+ */
+async function rerankBedrock(query: string, docs: Array<{ id: string; content: string }>): Promise<Array<{ id: string; score: number }>> {
+	const { BedrockAgentRuntimeClient, RerankCommand } = await import("@aws-sdk/client-bedrock-agent-runtime")
+	const client = new BedrockAgentRuntimeClient({ region: env.ALPHA_AI_REGION })
+
+	const response = await client.send(
+		new RerankCommand({
+			queries: [{ type: "TEXT", textQuery: { text: query } }],
+			sources: docs.map((doc) => ({ type: "INLINE", inlineDocumentSource: { type: "TEXT", textDocument: { text: doc.content } } })),
+			rerankingConfiguration: {
+				type: "BEDROCK_RERANKING_MODEL",
+				bedrockRerankingConfiguration: {
+					modelConfiguration: { modelArn: `arn:aws:bedrock:${env.ALPHA_AI_REGION}::foundation-model/${env.ALPHA_RERANK_MODEL}` },
+					numberOfResults: docs.length,
+				},
+			},
+		})
+	)
+
+	return (response.results ?? []).map((result) => ({ id: docs[result.index ?? 0].id, score: result.relevanceScore ?? 0 }))
+}
+
+async function rerankNvidia(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<Array<{ id: string; score: number }>> {
 	const model = env.NVIDIA_RERANK_MODEL
 	const baseUrl = env.NVIDIA_BASE_URL
 	const apiKey = env.NVIDIA_API_KEY
@@ -148,13 +174,41 @@ async function rerank(query: string, docs: Array<{ id: string; content: string; 
 	}))
 }
 
+async function rerankOrFallback(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<Array<{ id: string; score: number }>> {
+	const posicional = () => docs.map((doc, index) => ({ id: doc.id, score: Math.max(THRESHOLD, 1 - index / Math.max(docs.length, 1)) }))
+
+	if (!env.ALPHA_RERANK_MODEL) return posicional()
+
+	try {
+		return env.ALPHA_AI_PROVIDER === "bedrock" ? await rerankBedrock(query, docs) : await rerankNvidia(query, docs)
+	} catch (error) {
+		// Rerank é melhoria de ordenação, não requisito de correção: sua queda
+		// degrada o resultado, não pode derrubar a recuperação inteira.
+		console.warn("[retriever] rerank indisponível, usando ordenação do RRF:", error instanceof Error ? error.message : error)
+		return posicional()
+	}
+}
+
 export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetrieverOutput> {
 	const { query, filters, top_k = 10 } = input
 	const queryWithPrefix = `${env.EMB_QUERY_PREFIX}${query}`
 
-	const queryVector = await embeddings.embedQuery(queryWithPrefix)
+	// Busca semântica é opcional: sem provedor de embedding, a híbrida degrada
+	// para keyword-only em vez de falhar. O `search_metadata` reporta zero
+	// resultados semânticos, então a degradação aparece em vez de passar batida.
+	const semanticPromise = env.ALPHA_EMBEDDINGS_ENABLED
+		? getEmbeddings()
+				.embedQuery(queryWithPrefix)
+				.then((vector) => semanticSearch(vector, filters, top_k))
+				.catch((error) => {
+					// Recuperação não pode cair porque o embedder caiu: a perna de
+					// full-text segue valendo e o erro fica registrado com contexto.
+					console.warn(embeddingError(error).message)
+					return [] as Awaited<ReturnType<typeof semanticSearch>>
+				})
+		: Promise.resolve([])
 
-	const [semDocs, keywordDocs] = await Promise.all([semanticSearch(queryVector, filters, top_k), keywordSearch(query, filters, top_k)])
+	const [semDocs, keywordDocs] = await Promise.all([semanticPromise, keywordSearch(query, filters, top_k)])
 
 	const fused = rrfFusion(semDocs, keywordDocs)
 	const fusedArray = [...fused.values()].sort((a, b) => b.rrf_score - a.rrf_score).slice(0, RERANK_TOP_N)
@@ -176,7 +230,9 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 		}
 	}
 
-	const rerankResults = await rerank(
+	// Sem modelo de rerank configurado, o score do RRF normalizado assume o
+	// lugar — ordenação pior, não ausência de resultado.
+	const rerankResults = await rerankOrFallback(
 		query,
 		fusedArray.map((f) => f.doc)
 	)

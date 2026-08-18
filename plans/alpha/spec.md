@@ -159,34 +159,46 @@ Then: has_sufficient_context = true
 
 ## 2. Banco de Dados — Schema Supabase
 
-### 2.1 Tabelas a criar (em ordem)
+> **Atualizado em 2026-07-30.** O schema do α vive em `alpha`, no projeto Supabase
+> principal do IEFA, com migrations em `packages/database/supabase/migrations/`
+> (`20260811130000_create_alpha_schema.sql`). O texto anterior desta seção descrevia
+> um projeto Supabase separado com tabelas no plural e embedding de 3072 dimensões —
+> nada disso corresponde ao que roda.
+
+### 2.1 Tabelas (schema `alpha`)
 
 ```sql
 -- Ordem obrigatória (dependências de FK)
--- 1. documents
--- 2. document_chunks
--- 3. knowledge_graph_nodes   (Etapa 2 — criar, não usar no MVP)
--- 4. knowledge_graph_edges   (Etapa 2 — criar, não usar no MVP)
--- 5. langgraph_checkpoints
--- 6. query_logs
+-- 1. normative_source
+-- 2. document                 (versionado: superseded_at, content_hash)
+-- 3. document_chunk           (embedding + FTS + is_current)
+-- 4. structure_node / explanatory_note / placeholder
+-- 5. checklist_rule
+-- 6. submission / extraction
+-- 7. compliance_run / compliance_finding
+-- 8. query_log
+-- Checkpoints do LangGraph: criados pelo próprio PostgresSaver no schema alpha
+-- Knowledge graph (Etapa 2): ainda não criado
 ```
 
 ### 2.2 Invariantes de Schema
 
 | # | Invariante |
 |---|---|
-| I1 | `document_chunks.embedding` dimensão = 3072 (text-embedding-3-large) |
+| I1 | `document_chunk.embedding` dimensão = **1024** (`baai/bge-m3`) |
 | I2 | FTS gerado com `to_tsvector('portuguese', content)` |
-| I3 | HNSW index com `m=16, ef_construction=64` |
-| I4 | `document_type` restrito a `('RADA','RBHA','ICA','MCA','NSCA')` via CHECK |
-| I5 | `query_logs.termination_reason` nunca nulo |
+| I3 | HNSW index com `m=16, ef_construction=64`, parcial em `is_current` |
+| I4 | `document_type` restrito a `('RADA','RBHA','ICA','MCA','NSCA','LEI','DECRETO','IN_SEGES','MODELO_AGU')` via CHECK |
+| I5 | `query_log.termination_reason` nunca nulo |
+| I6 | Versionamento é aditivo — nova versão insere linha e marca a anterior com `superseded_at`; nada é sobrescrito |
+| I7 | `document_chunk.is_current` espelha `document.superseded_at is null` via trigger; só chunks vigentes entram na busca |
 
 ### 2.3 Cenários
 
 ```gherkin
 # SPEC-DB-01
 Given: schema aplicado
-When: INSERT em document_chunks com embedding de tamanho 3071
+When: INSERT em alpha.document_chunk com embedding de tamanho 1023
 Then: erro de schema (violação de dimensão de vetor)
 
 # SPEC-DB-02
@@ -195,9 +207,14 @@ When: INSERT executado
 Then: violação de CHECK constraint
 
 # SPEC-DB-03
-Given: document_chunks com chunk para document_id inexistente
+Given: alpha.document_chunk com chunk para document_id inexistente
 When: INSERT executado
 Then: violação de FK constraint
+
+# SPEC-DB-05
+Given: documento vigente com chunks indexados
+When: o documento recebe superseded_at
+Then: os chunks passam a is_current = false e somem das RPCs de busca
 
 # SPEC-DB-04
 Given: schema aplicado
@@ -205,16 +222,14 @@ When: busca vetorial com `vector_cosine_ops` executada
 Then: índice HNSW é usado (verificar via EXPLAIN ANALYZE)
 ```
 
-### 2.4 Migrations a implementar
+### 2.4 Migrations
 
 | Arquivo | Conteúdo |
 |---|---|
-| `001_extensions.sql` | `CREATE EXTENSION vector`, `CREATE EXTENSION ltree` |
-| `002_documents.sql` | Tabela `documents` + índices |
-| `003_chunks.sql` | Tabela `document_chunks` + HNSW + FTS |
-| `004_knowledge_graph.sql` | Tabelas KG (Etapa 2 — stub) |
-| `005_checkpoints.sql` | Tabela `langgraph_checkpoints` |
-| `006_query_logs.sql` | Tabela `query_logs` |
+| `packages/database/supabase/migrations/20260811130000_create_alpha_schema.sql` | Schema `alpha`, extensões `vector`/`ltree`, corpus versionado, fontes normativas, estrutura, regras, submissão/extração/conformidade, `query_log`, RPCs de busca, RLS e exposição no PostgREST |
+
+Checkpoints do LangGraph não têm migration: o `PostgresSaver` cria as próprias
+tabelas via `setup()`, no schema `alpha` (`fromConnString(url, { schema: "alpha" })`).
 
 ---
 

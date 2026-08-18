@@ -1,0 +1,122 @@
+---
+title: Fontes federais e conformidade
+description: Como o α ingere modelos da AGU e legislação federal e verifica um ETP/TR contra eles — etapas 1.4 a 1.7.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## O que existe
+
+As etapas 1.4 a 1.7 estão implementadas e cobertas por testes, mas **ainda não rodaram contra o banco**: as migrations precisam ser aplicadas antes.
+
+<Callout type="error">
+**O corpus do RADA foi perdido.** O projeto Supabase antigo do α foi apagado em 2026-07-31, com documentos, chunks e embeddings dentro, e não há backup. O schema `alpha` nasce vazio e o **ChatRADA responde "sem base" a qualquer pergunta** até o corpus ser reconstruído.
+
+A reconstrução é `bun run ingest:all` sobre os Markdown do RADA em `apps/alpha/knowledge/` — pasta hoje vazia. Depende de obter o RADA de novo.
+</Callout>
+
+<Callout type="warn">
+Ordem de ativação: aplicar as migrations → sincronizar os secrets do alpha → `bun run ingest:agu --apply`. As fontes federais (AGU e legislação) são independentes do RADA e funcionam desde já.
+</Callout>
+
+## Onde os dados ficam
+
+O α usa o **mesmo projeto Supabase do sisub**, no schema `alpha`, com as migrations em `packages/database`. Em produção herda os secrets do sisub (`VITE_SISUB_SUPABASE_URL`, `SISUB_SUPABASE_SECRET_KEY`, `SISUB_DATABASE_URL`), no mesmo padrão de rumaer e sucont.
+
+O projeto Supabase separado que o α usava foi apagado. Nada dele foi recuperado.
+
+<Callout type="warn">
+Herdar os secrets do sisub é conveniente agora e dívida depois: rotacionar a chave do sisub derruba o α junto, e não há como dar ao α credencial de menor privilégio nem pooler próprio. O TODO de separar está registrado em `sync-secrets.yml` e em `infra/alpha/terraform.tfvars.example`.
+</Callout>
+
+## IA — Bedrock
+
+Chat, embeddings e rerank rodam no **AWS Bedrock**, keyless pela task role, no mesmo padrão de sisub e sucont. A permissão vem da policy compartilhada do stack `foundation` (`enable_bedrock_task_access`), que precisa incluir a região do α em `bedrock_regions`.
+
+| Variável | Para quê |
+|---|---|
+| `ALPHA_AI_MODEL` | id do modelo ou inference profile do chat — **sem default**, porque cravar um id que pode não existir na região é pior que exigir a escolha. Em uso: `openai.gpt-oss-120b-1:0` |
+| `ALPHA_EMBEDDING_MODEL` | `amazon.titan-embed-text-v2:0` (1024 dimensões, que é o que o schema fixa) |
+| `ALPHA_RERANK_MODEL` | vazio desliga o rerank; a ordenação passa a ser a do RRF. **Não há modelo de rerank no Bedrock em `sa-east-1`** |
+| `ALPHA_AI_REGION` | região do Bedrock |
+
+<Callout type="warn">
+Cada chunk grava `embedding_model`, e a busca semântica só considera chunks do modelo em uso. Vetores de modelos diferentes vivem em espaços diferentes: compará-los não dá erro, dá distância sem significado. **Trocar de modelo de embedding exige reingerir o corpus.**
+</Callout>
+
+Os provedores compatíveis com a API da OpenAI (Groq, NVIDIA, OpenRouter) continuam suportados via `ALPHA_AI_PROVIDER`, para desenvolvimento local sem credencial AWS.
+
+## Fontes normativas
+
+Cada fonte externa implementa um adapter com `discover` / `fetch` / `parse`. O que vem depois — hash, dedup, supersede, chunk, embed, upsert — é escrito uma vez e vale para todas.
+
+| Fonte | Origem | Formato |
+|---|---|---|
+| `agu-modelos-14133` | gov.br/agu | `.docx` por categoria |
+| `lei-14133` | Planalto | HTML compilado |
+| `in-seges-65-2021` | in.gov.br (DOU) | HTML |
+| `decreto-11246-2022`, `decreto-11462-2023` | Planalto | HTML |
+
+**LexML/SRU não é utilizável a partir de servidor** — responde uma página de verificação de segurança do Senado em vez de XML. Por isso o Planalto é a origem primária de lei e decreto.
+
+### Versionamento
+
+Nunca sobrescreve. Conteúdo diferente cria documento novo e marca o anterior com `superseded_at`. Só a versão vigente entra na busca; as anteriores continuam legíveis por ID, que é o que permite reabrir um parecer antigo.
+
+Nos modelos da AGU a versão vem do sufixo do arquivo (`...-mai-26.docx`); na legislação, do hash do texto compilado.
+
+## Modelos da AGU
+
+O `.docx` é lido diretamente (sem conversão para HTML) porque os dois sinais que importam não sobrevivem à conversão:
+
+- **hierarquia** — está em estilos de parágrafo próprios (`Nivel01`, `Nvel2-Opcional`); o sufixo `-Opcional` é a origem de `is_required`;
+- **notas explicativas** — são **comentários do Word**, e é nelas que a AGU declara qual dispositivo fundamenta cada seção.
+
+No Termo de Referência de serviços e obras (mai-26): 816 seções, 264 opcionais, 162 notas, 114 referências legais a 26 normas distintas.
+
+Cada nota que cita dispositivo semeia uma `checklist_rule` em **rascunho**. Nenhuma vira ativa sem passar pela bancada.
+
+## Verificação
+
+```
+submissão → extração (1.4)
+          → comparação estrutural contra o modelo vigente (1.5)
+          → regras ativas aplicáveis, uma a uma (1.6)
+          → checagens cruzadas + consolidação (1.7)
+```
+
+Três defesas, da mais barata para a mais cara:
+
+1. **Sem trecho da norma acima do limiar** → regra fica *não avaliada*, nunca conforme.
+2. **Guard de citação** → achado cuja referência não resolve contra dispositivo real é descartado e contabilizado.
+3. **Relatório declara cobertura** → aplicadas, não avaliadas, descartadas. Nunca afirma conformidade absoluta.
+
+O guard existe por um modo de falha específico: deixar passar uma inconformidade é ruim; apontar uma inconformidade citando artigo inexistente é irrecuperável.
+
+## Console
+
+Rotas autenticadas em `/alpha/*` no portal, fora da navegação pública.
+
+| Rota | Para quê |
+|---|---|
+| `/alpha/fontes` | registry, versões ingeridas, coleta em simulação |
+| `/alpha/modelos/$id` | árvore do modelo, notas e dispositivos citados |
+| `/alpha/analise/nova` | upload, extração e conferência do span |
+| `/alpha/analise/$runId` | relatório por severidade + cobertura |
+| `/alpha/bancada` | testa uma regra isolada e promove de rascunho para ativa |
+
+## Comandos
+
+```bash
+bun run ingest:agu            # dry-run da coleta dos modelos
+bun run ingest:agu --apply    # grava
+bun run ingest knowledge/x.md # ingere um Markdown no corpus (reconstrução do RADA)
+bun run ingest:all            # ingere todos os .md de knowledge/
+bun run embed:backfill        # dry-run: conta chunks sem vetor
+bun run embed:backfill --apply # gera os vetores que faltam, sem reingerir
+bun run eval                  # golden set das checagens determinísticas
+```
+
+<Callout>
+O golden set atual é **sintético**. Calibrar limiar contra caso inventado mede concordância com quem escreveu o caso — antes de promover regra para produção, ele precisa ser substituído por ETP/TR reais anotados por analista.
+</Callout>
