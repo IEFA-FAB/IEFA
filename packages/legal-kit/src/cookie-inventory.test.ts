@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Glob } from "bun"
+import { LEGAL_MIGRATIONS_ROOT, readCurrentLegalSeedText } from "./seed-fixture.ts"
 
 /**
  * Guard do inventário da Política de Cookies.
@@ -15,8 +16,8 @@ import { Glob } from "bun"
  * quebra o build — que é o único momento em que alguém ainda lembra o que ela guarda.
  */
 
-const ROOT = new URL("../../../", import.meta.url).pathname
-const SEED = await Bun.file(`${ROOT}packages/database/supabase/migrations/20260816120000_legal_documents_v2.sql`).text()
+const ROOT = LEGAL_MIGRATIONS_ROOT
+const SEED = await readCurrentLegalSeedText()
 
 /** `const NOME_KEY = "literal"` — a forma como todas as chaves do repo são escritas. */
 const DECLARATION = /\b(?:const|let)\s+([A-Za-z_][A-Za-z0-9_]*(?:STORAGE_KEY|LS_KEY|COOKIE_NAME|REMEMBER_KEY|_KEY|PERSIST_KEY)[A-Za-z0-9_]*)\s*=\s*"([^"]+)"/g

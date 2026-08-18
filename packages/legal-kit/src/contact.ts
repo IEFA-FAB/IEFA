@@ -32,3 +32,28 @@ export const LEGAL_CONTACT = {
 	email: LEGAL_CONTACT_EMAIL,
 	responseDays: LEGAL_RESPONSE_DAYS,
 } as const
+
+/**
+ * Finalidade institucional e política de não-venda, por locale.
+ *
+ * Mora aqui pelo mesmo motivo que o e-mail e o prazo: são afirmações que a API
+ * repete em JSON e o documento repete em prosa, e duas cópias soltas divergem
+ * sozinhas. `contact.test.ts` amarra cada uma ao texto publicado.
+ *
+ * O `data_sale` é literal e não booleano de propósito — um agente que lê o índice
+ * de `/legal` recebe uma palavra que não admite leitura ambígua.
+ */
+export const LEGAL_DATA_SALE = "never" as const
+
+export const LEGAL_INSTITUTIONAL_PURPOSE = {
+	"pt-BR":
+		"O IEFA é instituição pública de ensino e pesquisa. Dados pessoais NUNCA são vendidos, alugados, cedidos ou trocados para fim comercial, publicitário ou de perfilamento. São tratados para operar o serviço e produzir estudo, indicador e pesquisa institucional.",
+	"en-US":
+		"IEFA is a public teaching and research institution. Personal data is NEVER sold, rented, assigned or traded for commercial, advertising or profiling purposes. It is processed to run the service and to produce studies, indicators and institutional research.",
+} as const
+
+/** Texto do procedimento de exclusão, por locale — a API o devolve no índice de `/legal`. */
+export const LEGAL_DELETION_NOTICE = {
+	"pt-BR": `Não há autoexclusão. Pedidos de acesso, correção ou eliminação são processados manualmente pela Secretaria do IEFA, por e-mail para ${LEGAL_CONTACT_EMAIL}, com resposta em até ${LEGAL_RESPONSE_DAYS} dias corridos.`,
+	"en-US": `There is no self-service deletion. Requests for access, correction or erasure are handled manually by the IEFA Secretariat, by e-mail to ${LEGAL_CONTACT_EMAIL}, with an answer within ${LEGAL_RESPONSE_DAYS} calendar days.`,
+} as const
