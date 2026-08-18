@@ -5,6 +5,11 @@ import { z } from "zod"
 // executam no Nitro onde import.meta.env não é injetado pelo Vite.
 const serverEnvSchema = z.object({
 	VITE_SISUB_SUPABASE_URL: z.string().url(),
+	// Chave publishable/anon. Já provisionada no runtime (secret_names em
+	// infra/sisub). O client SSR de auth usa ESTA, não a service key: getUser()
+	// valida o JWT do cookie de qualquer forma e uma query acidental por este
+	// client não deve burlar a RLS. Ver getSupabaseAuthClient em supabase.server.ts.
+	VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 	SISUB_SUPABASE_SECRET_KEY: z.string().min(1),
 	// Conexão Postgres direta (Drizzle) — transaction pooler (porta 6543). Usada por
 	// getDb() para o query layer do domínio. Auth/RLS seguem no client Supabase REST.
@@ -16,6 +21,7 @@ const serverEnvSchema = z.object({
 
 const parsed = serverEnvSchema.safeParse({
 	VITE_SISUB_SUPABASE_URL: process.env.VITE_SISUB_SUPABASE_URL,
+	VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: process.env.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY,
 	SISUB_SUPABASE_SECRET_KEY: process.env.SISUB_SUPABASE_SECRET_KEY,
 	SISUB_DATABASE_URL: process.env.SISUB_DATABASE_URL,
 })

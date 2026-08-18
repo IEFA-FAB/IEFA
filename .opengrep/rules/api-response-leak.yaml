@@ -1,0 +1,28 @@
+##
+# Invariante: os endpoints públicos e ANÔNIMOS da API não vazam detalhe interno de erro.
+#
+# Nasceu de um bug que já aconteceu: o factory das rotas públicas de dados devolvia
+# `details: error.message` no corpo do 500 — entregando coluna, schema e hint SQL do
+# PostgREST a qualquer um. A mensagem crua vai para o log do servidor (console.error),
+# nunca para a resposta. O caller anônimo recebe só um texto genérico.
+#
+# Escopo restrito ao factory público de propósito: nas rotas /admin (autenticadas por
+# x-admin-secret) devolver o detalhe de validação para o operador é aceitável.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: api-public-error-detail-leak
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Resposta de endpoint público da API carregando `.message`/`.stack` de um erro. Isso
+      vaza a estrutura interna do banco (mensagem do PostgREST) para um chamador anônimo.
+      Logue com console.error e devolva um texto genérico no corpo.
+    paths:
+      include:
+        - "apps/api/src/api/factory.ts"
+    patterns:
+      - pattern-either:
+          - pattern: 'c.json({..., $K: $E.message, ...}, ...)'
+          - pattern: 'c.json({..., $K: $E.stack, ...}, ...)'
