@@ -161,11 +161,13 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			// Executa query
 			const { data: rows, error } = await query
 			if (error) {
+				// A mensagem do PostgREST (coluna, schema, hint SQL) fica no log do
+				// servidor — nunca no corpo da resposta pública, que é anônima. Vazar
+				// `error.message` entregava a estrutura interna do banco a qualquer um.
 				console.error("Erro Supabase:", error)
 				return c.json(
 					{
 						error: "Erro interno do servidor ao buscar dados",
-						details: error.message,
 					},
 					500
 				)

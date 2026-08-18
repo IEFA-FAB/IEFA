@@ -1,0 +1,36 @@
+##
+# Invariante: o client SSR de autenticação NUNCA é inicializado com a service key.
+#
+# Nasceu de um bug que já aconteceu: `getSupabaseAuthClient` (sisub) e
+# `getIefaAuthClient` (portal) construíam o client de auth com a `*_SECRET_KEY`
+# (service_role). `auth.getUser()` valida o JWT do cookie de qualquer forma, então a
+# identidade não quebrava — mas QUALQUER query de dados feita por engano através desse
+# client rodaria como service_role, burlando a RLS. A chave certa é a publishable/anon
+# (`VITE_*_SUPABASE_PUBLISHABLE_KEY`), já provisionada no runtime. sucont já fazia certo.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: auth-client-secret-key
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Client SSR de auth (createSsrAuthClient / createCookieAuthClient) inicializado com
+      uma chave *_SECRET_KEY / service_role. Use a publishable/anon
+      (VITE_<APP>_SUPABASE_PUBLISHABLE_KEY): getUser() valida o JWT do cookie no servidor
+      Supabase de qualquer forma, e a service role faria uma query acidental por este
+      client burlar a RLS. Para queries de dados, use createServiceRoleClient num client
+      separado. Ver getSupabaseAuthClient (sisub) / getIefaAuthClient (portal).
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: 'createSsrAuthClient({..., key: $K, ...})'
+          - pattern: 'createCookieAuthClient({..., key: $K, ...})'
+      - metavariable-regex:
+          metavariable: $K
+          regex: '.*(SECRET_KEY|SERVICE_ROLE)'

@@ -39,5 +39,8 @@ export function getCoreReadClient() {
  * Use APENAS em auth.fn.ts. Para queries de dados, use getRumaerServerClient().
  */
 export function getRumaerAuthClient() {
-	return createSsrAuthClient({ url: url(), key: envServer.RUMAER_SUPABASE_SECRET_KEY })
+	// Publishable/anon key — NUNCA a service key: getUser() valida o JWT do cookie
+	// de qualquer forma, e a service role faria uma query acidental por este client
+	// burlar a RLS. Guard: opengrep `auth-client-secret-key`.
+	return createSsrAuthClient({ url: url(), key: envServer.VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY })
 }
