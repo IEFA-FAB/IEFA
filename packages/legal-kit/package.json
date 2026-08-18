@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./contact": "./src/contact.ts",
     "./react": "./src/react.tsx"
   },
   "scripts": {

@@ -18,7 +18,7 @@ import {
 	requireSelf,
 	requireUserId,
 } from "@/lib/auth.server"
-import { sendJournalEmail } from "@/lib/journal/email.server"
+import { PORTAL_URL, sendJournalEmail } from "@/lib/journal/email.server"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 const looseRecord = z.record(z.string(), z.unknown())
@@ -879,7 +879,7 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 			template: "review_invitation",
 			vars: {
 				due_date: new Date(data.dueDate).toLocaleDateString("pt-BR"),
-				review_url: `${process.env.PORTAL_PUBLIC_URL ?? ""}/journal/review/${assignment.invitation_token}`,
+				review_url: `${PORTAL_URL}/journal/review/${assignment.invitation_token}`,
 			},
 		})
 
@@ -1005,7 +1005,7 @@ export const decideArticleFn = createServerFn({ method: "POST" })
 				vars: {
 					article_title: article.title_pt,
 					decision: label,
-					article_url: `${process.env.PORTAL_PUBLIC_URL ?? ""}/journal/submissions/${article.id}`,
+					article_url: `${PORTAL_URL}/journal/submissions/${article.id}`,
 				},
 			})
 		}

@@ -10,6 +10,7 @@
  * SOMENTE server-side (usa a service key para ler templates).
  */
 
+import { LEGAL_CONTACT_EMAIL } from "@iefa/legal-kit/contact"
 import { createClient } from "@supabase/supabase-js"
 import { envServer } from "@/lib/env.server"
 
@@ -27,8 +28,12 @@ function render(template: string, vars: Record<string, string>): string {
 	return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key) => vars[key] ?? "")
 }
 
-const FROM = process.env.JOURNAL_EMAIL_FROM ?? "IEFA Journal <no-reply@iefa.fab.mil.br>"
-const APP_URL = process.env.PORTAL_PUBLIC_URL ?? "https://iefa.fab.mil.br"
+// Defaults apontam para endereços que existem. O anterior remetia de
+// `no-reply@iefa.fab.mil.br` e linkava `iefa.fab.mil.br` — nenhum dos dois é host
+// nosso (os deploys são `*.iefa.com.br`), então o convite saía de um domínio sem
+// SPF e apontava para lugar nenhum, sem erro em log nenhum.
+const FROM = process.env.JOURNAL_EMAIL_FROM ?? `IEFA Journal <${LEGAL_CONTACT_EMAIL}>`
+export const PORTAL_URL = process.env.PORTAL_PUBLIC_URL ?? "https://portal.iefa.com.br"
 
 export interface SendJournalEmailInput {
 	to: string
@@ -57,7 +62,7 @@ export async function sendJournalEmail(input: SendJournalEmailInput): Promise<bo
 		if (!template) return false
 
 		const lang = input.lang ?? "pt"
-		const vars = { app_url: APP_URL, ...(input.vars ?? {}) }
+		const vars = { app_url: PORTAL_URL, ...(input.vars ?? {}) }
 		const subject = render(lang === "en" ? (template.subject_en ?? template.subject_pt) : template.subject_pt, vars)
 		const body = render(lang === "en" ? (template.body_en ?? template.body_pt) : template.body_pt, vars)
 
