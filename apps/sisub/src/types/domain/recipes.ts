@@ -60,6 +60,14 @@ export interface RecipeFormIngredient {
 	priority_order: number
 	correction_factor?: number | null
 	rehydration_index?: number | null
+	/**
+	 * Substitutos da linha, no formato do payload de escrita. Precisa estar declarado
+	 * aqui: `mapIngredients` monta o corpo do server fn a partir DESTE tipo, e um campo
+	 * ausente dele é silenciosamente descartado — o TypeScript não reclama porque o
+	 * objeto vem de uma variável, não de um literal, então não há checagem de
+	 * propriedade excedente.
+	 */
+	alternatives?: { ingredient_id: string; net_quantity: number; priority_order: number }[]
 }
 
 // Form Data (Input)

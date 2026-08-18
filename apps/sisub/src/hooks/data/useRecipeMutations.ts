@@ -5,7 +5,16 @@ import { queryKeys } from "@/lib/query-keys"
 import { createRecipeFn, saveRecipeEditFn } from "@/server/recipes.fn"
 import type { RecipeFormData, RecipeFormIngredient } from "@/types/domain/recipes"
 
-function mapIngredients(ingredients: RecipeFormIngredient[] | undefined) {
+/**
+ * Forma do formulário → forma do payload do server fn.
+ *
+ * Exportada para teste: o mapeamento é o ponto cego entre o formulário e o domínio.
+ * Campo novo esquecido aqui some sem erro — o objeto vem de uma variável, então o
+ * TypeScript não faz checagem de propriedade excedente, e teste de integração que
+ * chama a operation direto passa por cima do problema. Foi assim que os substitutos
+ * ficaram um PR inteiro sem nunca chegar ao banco pela tela.
+ */
+export function mapIngredients(ingredients: RecipeFormIngredient[] | undefined) {
 	return ingredients?.map((ing) => ({
 		ingredientId: ing.ingredient_id,
 		netQuantity: ing.net_quantity,
@@ -13,6 +22,14 @@ function mapIngredients(ingredients: RecipeFormIngredient[] | undefined) {
 		priorityOrder: ing.priority_order,
 		correctionFactor: ing.correction_factor ?? null,
 		rehydrationIndex: ing.rehydration_index ?? null,
+		// Sem esta linha os substitutos morrem no cliente: o formulário os monta, o
+		// domínio sabe gravá-los, e o mapeamento entre os dois os deixava cair sem erro
+		// nenhum. Os testes de integração chamam as operations direto e passavam por cima.
+		alternatives: ing.alternatives?.map((alt) => ({
+			ingredientId: alt.ingredient_id,
+			netQuantity: alt.net_quantity,
+			priorityOrder: alt.priority_order,
+		})),
 	}))
 }
 

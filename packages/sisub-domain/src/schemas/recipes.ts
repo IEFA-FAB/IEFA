@@ -93,7 +93,13 @@ export const IngredientSchema = z.object({
 	 * versão: gravar as substituições em separado as prenderia à versão anterior, e a
 	 * ficha nasceria sem elas na versão que o usuário acabou de salvar.
 	 */
-	alternatives: z.array(RecipeIngredientAlternativeSchema).optional(),
+	/**
+	 * `.nullish()`, não `.optional()`: o schema é exposto a modelo pelas tools
+	 * `create_recipe`/`save_recipe_edit`, e modelo não omite campo — manda `null`. O
+	 * `dropUnexpectedNulls` não desce dentro de array, então um `alternatives: null`
+	 * aninhado chegaria ao Zod e mataria a chamada com `tool_use_failed`, sem mensagem.
+	 */
+	alternatives: z.array(RecipeIngredientAlternativeSchema).nullish(),
 })
 export type Ingredient = z.infer<typeof IngredientSchema>
 

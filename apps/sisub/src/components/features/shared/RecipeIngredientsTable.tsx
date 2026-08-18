@@ -250,8 +250,17 @@ export function RecipeIngredientsTable({ ingredients, portionYield, onChange, on
 						<TableBody>
 							{lines.map(({ row, sheet, candidate, active }, index) => {
 								const rowError = rowErrors?.(row) ?? {}
-								const messages = [rowError.ingredient_id, rowError.net_quantity, rowError.correction_factor, rowError.rehydration_index].filter(Boolean)
-								const isExpanded = expanded.has(index)
+								const messages = [
+									rowError.ingredient_id,
+									rowError.net_quantity,
+									rowError.correction_factor,
+									rowError.rehydration_index,
+									rowError.alternatives,
+								].filter(Boolean)
+								// Erro de substituto abre a expansão: o campo culpado mora lá dentro, e sem
+								// isso o salvamento era barrado por um toast que apontava para uma linha
+								// aparentemente correta. Derivado, não efeito — não há estado a sincronizar.
+								const isExpanded = expanded.has(index) || !!rowError.alternatives
 								const isSwapped = candidate > 0
 								// Chave composta: o mesmo insumo pode entrar duas vezes na ficha (dois cortes de
 								// carne com o mesmo cadastro), e só o `ingredient_id` colidiria — duas linhas com a
@@ -586,7 +595,13 @@ function CandidatePicker({
 										size="icon-sm"
 										className="text-muted-foreground hover:text-destructive"
 										aria-label={`Remover ${candidate.name}`}
-										onClick={() => onRemoveAlternative(candidateIndex - 1)}
+										onClick={(event) => {
+											// A linha inteira seleciona o candidato; sem parar aqui, apagar o
+											// substituto A com dois na lista deixava a ficha lendo o B — nome,
+											// unidade, quantidade e TOTAL trocados por um clique de exclusão.
+											event.stopPropagation()
+											onRemoveAlternative(candidateIndex - 1)
+										}}
 									>
 										<Trash2 className="size-3.5" />
 									</Button>
