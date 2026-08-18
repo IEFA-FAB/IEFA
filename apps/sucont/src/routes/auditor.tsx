@@ -25,7 +25,7 @@ import {
 import { parseExcelFile } from "#/auditor/services/excelParser"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
-import { type BalanceConflict, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
+import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
 	component: AuditorPage,
@@ -37,11 +37,15 @@ const balancesQueryKey = ["sucont", "auditor", "balances"] as const
 const UPLOAD_CHUNK = 2000
 
 interface PersistOutcome {
-	ok: boolean
+	/** "partial" = parte dos lotes entrou no banco antes da falha. */
+	status: "complete" | "partial" | "failed"
 	filename: string
 	inserted: number
 	unchanged: number
 	changed: number
+	duplicateGrains: number
+	rowsWritten: number
+	rowsTotal: number
 	conflicts: BalanceConflict[]
 	conflictsTruncated: boolean
 	error?: string
@@ -55,6 +59,8 @@ function AuditorPage() {
 	// arquivo que acabou de subir — com aviso de que aquilo não foi persistido.
 	const [localRows, setLocalRows] = useState<RawInputRow[]>([])
 	const [persistOutcome, setPersistOutcome] = useState<PersistOutcome | null>(null)
+	/** Rodada da última importação — amarra a MSG gerada ao arquivo que a originou. */
+	const [lastRunId, setLastRunId] = useState<string | null>(null)
 
 	const {
 		data: storedBalances = [],
@@ -286,7 +292,7 @@ function AuditorPage() {
 
 	// Handlers
 	const uploadMutation = useMutation({
-		mutationFn: async (file: File) => {
+		mutationFn: async (file: File): Promise<PersistOutcome> => {
 			const parsed = await parseExcelFile(file)
 			if (parsed.length === 0) throw new Error("Arquivo vazio ou formato não reconhecido.")
 
@@ -295,6 +301,19 @@ function AuditorPage() {
 
 			const payload = rawRowsToBalancePayload(parsed)
 			if (payload.length === 0) throw new Error("Nenhuma competência reconhecida no arquivo.")
+
+			const outcome: PersistOutcome = {
+				status: "failed",
+				filename: file.name,
+				inserted: 0,
+				unchanged: 0,
+				changed: 0,
+				duplicateGrains: 0,
+				rowsWritten: 0,
+				rowsTotal: payload.length,
+				conflicts: [],
+				conflictsTruncated: false,
+			}
 
 			const periods = [...new Set(payload.map((r) => r.period))].sort()
 			const { runId } = await startAuditorRunFn({
@@ -309,48 +328,76 @@ function AuditorPage() {
 					},
 				},
 			})
+			setLastRunId(runId)
 
-			const outcome: PersistOutcome = {
-				ok: true,
-				filename: file.name,
-				inserted: 0,
-				unchanged: 0,
-				changed: 0,
-				conflicts: [],
-				conflictsTruncated: false,
+			// A gravação é fatiada e o PostgREST não dá transação entre requests: uma
+			// falha no lote 3 de 4 deixa os dois primeiros COMMITADOS. Anunciar "nada
+			// foi gravado" nesse caso seria a mesma classe de mentira que este PR
+			// existe para eliminar — então o erro é capturado e o que entrou é contado.
+			try {
+				for (let i = 0; i < payload.length; i += UPLOAD_CHUNK) {
+					const slice = payload.slice(i, i + UPLOAD_CHUNK)
+					const result = await saveAuditorBalancesFn({ data: { runId, rows: slice } })
+					outcome.inserted += result.inserted
+					outcome.unchanged += result.unchanged
+					outcome.changed += result.changed
+					outcome.duplicateGrains += result.duplicateGrains
+					outcome.rowsWritten += slice.length
+					outcome.conflictsTruncated = outcome.conflictsTruncated || result.conflictsTruncated
+					for (const conflict of result.conflicts) {
+						if (outcome.conflicts.length < 200) outcome.conflicts.push(conflict)
+						else outcome.conflictsTruncated = true
+					}
+				}
+				outcome.status = "complete"
+			} catch (e) {
+				outcome.error = e instanceof Error ? e.message : "Falha ao gravar"
+				outcome.status = outcome.rowsWritten > 0 ? "partial" : "failed"
 			}
 
-			for (let i = 0; i < payload.length; i += UPLOAD_CHUNK) {
-				const result = await saveAuditorBalancesFn({ data: { runId, rows: payload.slice(i, i + UPLOAD_CHUNK) } })
-				outcome.inserted += result.inserted
-				outcome.unchanged += result.unchanged
-				outcome.changed += result.changed
-				outcome.conflictsTruncated = outcome.conflictsTruncated || result.conflictsTruncated
-				for (const conflict of result.conflicts) {
-					if (outcome.conflicts.length < 200) outcome.conflicts.push(conflict)
-					else outcome.conflictsTruncated = true
-				}
+			// A rodada passa a valer o que aterrissou, não o que o arquivo prometia.
+			try {
+				await finalizeAuditorRunFn({
+					data: { runId, rowsWritten: outcome.rowsWritten, status: outcome.status, error: outcome.error ?? null },
+				})
+			} catch {
+				// Fechar a rodada é registro, não o dado: falhar aqui não invalida a gravação.
 			}
 
 			return outcome
 		},
 		onSuccess: async (outcome) => {
 			setPersistOutcome(outcome)
-			// O banco passa a ser a fonte; o recorte local sai de cena.
-			setLocalRows([])
-			await queryClient.invalidateQueries({ queryKey: balancesQueryKey })
-			toast.success(`${outcome.inserted} saldos novos, ${outcome.unchanged} sem mudança, ${outcome.changed} alterados`)
+
+			if (outcome.rowsWritten > 0) {
+				// Algo entrou no banco — ele vira a fonte, mesmo que a série esteja
+				// incompleta. Ver dado parcial verdadeiro é melhor que ver arquivo
+				// inteiro que o banco não tem.
+				await queryClient.invalidateQueries({ queryKey: balancesQueryKey })
+				setLocalRows([])
+			}
+
+			if (outcome.status === "complete") {
+				toast.success(`${outcome.inserted} saldos novos, ${outcome.unchanged} sem mudança, ${outcome.changed} alterados`)
+			} else if (outcome.status === "partial") {
+				toast.error(`Gravação incompleta: ${outcome.rowsWritten} de ${outcome.rowsTotal} saldos`)
+			} else {
+				toast.error(`Não gravado: ${outcome.error}`)
+			}
 		},
 		onError: (e, file) => {
+			// Só chega aqui o que falhou ANTES de qualquer escrita (parse, criação da
+			// rodada). `localRows` fica de propósito: a análise continua na tela.
 			const error = e instanceof Error ? e.message : "Falha ao gravar"
-			// `localRows` continua preenchido de propósito: sem persistir, a análise
-			// ainda acontece na tela, mas o aviso deixa claro que nada foi gravado.
 			setPersistOutcome({
-				ok: false,
+				status: "failed",
 				filename: file.name,
 				inserted: 0,
 				unchanged: 0,
 				changed: 0,
+				duplicateGrains: 0,
+				rowsWritten: 0,
+				rowsTotal: 0,
 				conflicts: [],
 				conflictsTruncated: false,
 				error,
@@ -383,6 +430,7 @@ function AuditorPage() {
 				history={selectedHistoryForMessage}
 				context={messageContext}
 				timeFilter={timeFilter}
+				analysisRunId={lastRunId}
 			/>
 
 			{/* STICKY TOP NAV */}
@@ -481,28 +529,48 @@ function AuditorPage() {
 				{persistOutcome && (
 					<div
 						className={`mt-6 rounded-lg border p-4 text-sm ${
-							persistOutcome.ok
+							persistOutcome.status === "complete"
 								? isDarkMode
 									? "border-slate-700 bg-slate-800/60 text-slate-300"
 									: "border-slate-200 bg-white text-slate-700"
-								: isDarkMode
-									? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-									: "border-amber-300 bg-amber-50 text-amber-800"
+								: persistOutcome.status === "partial"
+									? isDarkMode
+										? "border-red-500/40 bg-red-500/10 text-red-200"
+										: "border-red-300 bg-red-50 text-red-800"
+									: isDarkMode
+										? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+										: "border-amber-300 bg-amber-50 text-amber-800"
 						}`}
 					>
 						<div className="flex items-start justify-between gap-4">
 							<div className="space-y-1">
 								<p className="font-bold">
-									{persistOutcome.ok ? "Série gravada" : "Análise não gravada"}
+									{persistOutcome.status === "complete"
+										? "Série gravada"
+										: persistOutcome.status === "partial"
+											? "Gravação INCOMPLETA — a série no banco está pela metade"
+											: "Análise não gravada"}
 									<span className="font-normal text-slate-500 dark:text-slate-400"> · {persistOutcome.filename}</span>
 								</p>
-								{persistOutcome.ok ? (
-									<p>
-										{persistOutcome.inserted} saldos novos · {persistOutcome.unchanged} sem alteração · {persistOutcome.changed} com valor diferente do que já
-										estava no banco
-									</p>
-								) : (
+
+								{persistOutcome.status === "failed" ? (
 									<p>{persistOutcome.error} — os números abaixo vêm do arquivo em memória e serão perdidos ao recarregar a página.</p>
+								) : (
+									<>
+										{persistOutcome.status === "partial" && (
+											<p className="font-medium">
+												{persistOutcome.rowsWritten} de {persistOutcome.rowsTotal} saldos entraram antes da falha ({persistOutcome.error}). Suba o arquivo de
+												novo — a gravação é idempotente e completa o que faltou.
+											</p>
+										)}
+										<p>
+											{persistOutcome.inserted} saldos novos · {persistOutcome.unchanged} sem alteração · {persistOutcome.changed} com valor diferente do que já
+											estava no banco
+										</p>
+										{persistOutcome.duplicateGrains > 0 && (
+											<p>{persistOutcome.duplicateGrains} linha(s) do arquivo repetiam a mesma competência/UG/grupo — valeu a última ocorrência.</p>
+										)}
+									</>
 								)}
 							</div>
 							<button

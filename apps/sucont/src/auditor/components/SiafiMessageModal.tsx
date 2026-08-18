@@ -13,12 +13,22 @@ interface SiafiMessageModalProps {
 	history?: FinancialRecord[]
 	context?: "RANKING" | "HEATMAP"
 	timeFilter?: TimeFilter
+	/** Rodada de importação que originou estes saldos — trilha arquivo → MSG. */
+	analysisRunId?: string | null
 }
 
 /** Enquanto a mensagem não foi registrada, o corpo carrega este marcador no lugar do número. */
 const PENDING_NUMBER = "XXX"
 
-export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({ isOpen, onClose, record, history, context = "HEATMAP", timeFilter = "MENSAL" }) => {
+export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
+	isOpen,
+	onClose,
+	record,
+	history,
+	context = "HEATMAP",
+	timeFilter = "MENSAL",
+	analysisRunId = null,
+}) => {
 	const [deadline, setDeadline] = useState("")
 	const [copied, setCopied] = useState(false)
 	const [editedMessage, setEditedMessage] = useState("")
@@ -51,7 +61,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({ isOpen, on
 	const registerMutation = useMutation({
 		mutationFn: (corpo: string) =>
 			registerAuditorMessageFn({
-				data: { corpo, ugCodigo: record?.cod ?? null, tipo: context },
+				data: { corpo, ugCodigo: record?.cod ?? null, tipo: context, analysisRunId },
 			}),
 		onSuccess: async (result) => {
 			// O servidor devolve o corpo já com o número real substituído: o texto

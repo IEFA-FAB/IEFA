@@ -588,8 +588,6 @@ const generateRankingMessage = (
 		return hTime >= startTime && hTime <= endTime
 	})
 
-	const periodGap = timeFilter === "TRIMESTRAL" ? 3 : timeFilter === "SEMESTRAL" ? 6 : timeFilter === "ANUAL" ? 12 : 1
-
 	let table = ""
 	if (relevantHistory.length > 1) {
 		const rows = relevantHistory.map((h, idx) => {
@@ -597,7 +595,11 @@ const generateRankingMessage = (
 			const s = fmt(h.siafiValue)
 			const m = fmt(h.silomsValue)
 			const diff = fmt(h.difference)
-			const v = fmtPct(consecutiveVariation(h, idx > 0 ? relevantHistory[idx - 1] : undefined, periodGap))
+			// Gap 1 (o default), não o passo do filtro de período: `history` é sempre
+			// MENSAL — `handleOpenMessage` monta a série mês a mês da UG — e o cabeçalho
+			// desta coluna diz "VAR. EM RELAÇÃO AO MÊS ANTERIOR". Passar 3/6/12 aqui
+			// fazia toda a tabela imprimir travessão em TRIMESTRAL/SEMESTRAL/ANUAL.
+			const v = fmtPct(consecutiveVariation(h, idx > 0 ? relevantHistory[idx - 1] : undefined))
 			return `${padDate(d)} | ${s} | ${m} | ${diff} | ${v}`
 		})
 		table = `${headerRow}\n${rows.join("\n")}`
@@ -825,4 +827,27 @@ export const applyMessageNumber = (corpo: string, messageNumber: number): string
 	const pattern = /MSG NR\s+\S*?\/SUCONT-4\//
 	if (!pattern.test(corpo)) return corpo
 	return corpo.replace(pattern, `MSG NR ${messageNumber}/SUCONT-4/`)
+}
+
+/** Chave do grão persistido: competência + UG + grupo de contas. */
+export const balanceGrainKey = (period: string, ugCodigo: string, accountGroup: string) => `${period}|${ugCodigo}|${accountGroup}`
+
+/**
+ * Colapsa grãos repetidos dentro do mesmo arquivo, mantendo a última ocorrência.
+ *
+ * `parseExcelFile` substitui UG sem código por "000000" (linha de total/subtotal do
+ * relatório). Dois desses na mesma competência põem o mesmo alvo de conflito duas
+ * vezes no upsert, e o Postgres aborta o lote inteiro com 21000 "ON CONFLICT DO
+ * UPDATE command cannot affect row a second time" — o upload morre com mensagem de
+ * driver, sem nada gravado.
+ */
+export const dedupeBalanceGrain = <T extends { period: string; ugCodigo: string; accountGroup: string }>(rows: T[]): { rows: T[]; duplicates: number } => {
+	const byGrain = new Map<string, T>()
+	let duplicates = 0
+	for (const row of rows) {
+		const key = balanceGrainKey(row.period, row.ugCodigo, row.accountGroup)
+		if (byGrain.has(key)) duplicates++
+		byGrain.set(key, row)
+	}
+	return { rows: [...byGrain.values()], duplicates }
 }

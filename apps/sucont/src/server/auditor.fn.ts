@@ -17,7 +17,7 @@
 import type { AnalysisRun, GeneratedMessage } from "@iefa/database/sucont"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { applyMessageNumber } from "#/auditor/services/dataProcessor"
+import { applyMessageNumber, balanceGrainKey, dedupeBalanceGrain } from "#/auditor/services/dataProcessor"
 import { AccountGroup, type StoredBalanceRow } from "#/auditor/types"
 import { requireSucontAccess, requireSucontEditor } from "#/lib/auth.server"
 import { getSucontServerClient } from "#/lib/supabase.server"
@@ -51,7 +51,7 @@ const toPeriodMonth = (date: string) => date.slice(0, 7)
 
 const round2 = (value: number) => Math.round((Number(value) || 0) * 100) / 100
 
-const grainKey = (period: string, ug: string, group: string) => `${period}|${ug}|${group}`
+const grainKey = balanceGrainKey
 
 // ── Rodadas de análise ────────────────────────────────────────────────────────
 
@@ -110,6 +110,8 @@ export interface SaveBalancesResult {
 	changed: number
 	conflicts: BalanceConflict[]
 	conflictsTruncated: boolean
+	/** Grãos repetidos dentro do próprio arquivo, colapsados antes de gravar. */
+	duplicateGrains: number
 }
 
 /**
@@ -135,11 +137,11 @@ export const saveAuditorBalancesFn = createServerFn({ method: "POST" })
 		const ctx = await requireSucontEditor()
 		const client = getSucontServerClient()
 
-		const rows = data.rows.map((r) => ({
-			...r,
-			siafiValue: round2(r.siafiValue),
-			silomsValue: round2(r.silomsValue),
-		}))
+		// Deduplica pelo grão ANTES de qualquer coisa — senão o Postgres aborta o lote
+		// inteiro com 21000. A regra vive em dataProcessor porque é pura e tem teste.
+		const { rows, duplicates: duplicateGrains } = dedupeBalanceGrain(
+			data.rows.map((r) => ({ ...r, siafiValue: round2(r.siafiValue), silomsValue: round2(r.silomsValue) }))
+		)
 
 		// Estado atual das competências tocadas por este lote. O filtro por período +
 		// UG é um superset barato da chave composta (que o PostgREST não filtra
@@ -147,19 +149,33 @@ export const saveAuditorBalancesFn = createServerFn({ method: "POST" })
 		const periods = [...new Set(rows.map((r) => toPeriodDate(r.period)))]
 		const ugs = [...new Set(rows.map((r) => r.ugCodigo))]
 
-		const { data: existingRows, error: readError } = await client
-			.from("siloms_siafi_balance")
-			.select("period, ug_codigo, account_group, siafi_value, siloms_value")
-			.in("period", periods)
-			.in("ug_codigo", ugs)
-		if (readError) throw new Error(readError.message)
-
+		// Paginado: o PostgREST corta em 1000 linhas por request. Um lote de 2000
+		// grãos consulta um superset SEMPRE maior que isso assim que a série existe —
+		// sem paginar, metade do arquivo voltaria classificada como "saldo novo" e as
+		// alterações de valor fora da primeira página seriam sobrescritas sem nunca
+		// aparecer em `conflicts`, que é justamente o que esta função existe para achar.
 		const existing = new Map<string, { siafiValue: number; silomsValue: number }>()
-		for (const row of existingRows ?? []) {
-			existing.set(grainKey(toPeriodMonth(row.period), row.ug_codigo, row.account_group), {
-				siafiValue: round2(Number(row.siafi_value)),
-				silomsValue: round2(Number(row.siloms_value)),
-			})
+		for (let offset = 0; ; offset += PAGE_SIZE) {
+			const { data: page, error: readError } = await client
+				.from("siloms_siafi_balance")
+				.select("period, ug_codigo, account_group, siafi_value, siloms_value")
+				.in("period", periods)
+				.in("ug_codigo", ugs)
+				.order("period", { ascending: true })
+				.order("ug_codigo", { ascending: true })
+				.order("account_group", { ascending: true })
+				.range(offset, offset + PAGE_SIZE - 1)
+			if (readError) throw new Error(readError.message)
+			if (!page || page.length === 0) break
+
+			for (const row of page) {
+				existing.set(grainKey(toPeriodMonth(row.period), row.ug_codigo, row.account_group), {
+					siafiValue: round2(Number(row.siafi_value)),
+					silomsValue: round2(Number(row.siloms_value)),
+				})
+			}
+
+			if (page.length < PAGE_SIZE) break
 		}
 
 		let inserted = 0
@@ -207,6 +223,7 @@ export const saveAuditorBalancesFn = createServerFn({ method: "POST" })
 			changed: conflicts.length,
 			conflicts: conflicts.slice(0, MAX_REPORTED_CONFLICTS),
 			conflictsTruncated: conflicts.length > MAX_REPORTED_CONFLICTS,
+			duplicateGrains,
 		}
 	})
 
@@ -321,4 +338,38 @@ export const registerAuditorMessageFn = createServerFn({ method: "POST" })
 		}
 
 		return { id: row.id, number: row.number, corpo }
+	})
+
+/**
+ * Fecha a rodada com o que de fato foi gravado.
+ *
+ * `startAuditorRunFn` registra a INTENÇÃO (o arquivo tem N linhas). Se a gravação
+ * parar no meio — timeout, queda —, a linha da rodada continuaria afirmando N e o
+ * histórico registraria uma importação completa que nunca houve. Aqui o número vira
+ * o que aterrissou, e `summary.status` diz se a série está inteira.
+ */
+export const finalizeAuditorRunFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			runId: z.string().uuid(),
+			rowsWritten: z.number().int().nonnegative(),
+			status: z.enum(["complete", "partial", "failed"]),
+			error: z.string().max(2000).nullish(),
+		})
+	)
+	.handler(async ({ data }): Promise<{ ok: true }> => {
+		await requireSucontEditor()
+		const client = getSucontServerClient()
+
+		const { data: run, error: readError } = await client.from("analysis_run").select("summary").eq("id", data.runId).single()
+		if (readError) throw new Error(readError.message)
+
+		const summary = { ...((run?.summary as Record<string, unknown> | null) ?? {}), status: data.status, error: data.error ?? null }
+
+		const { error } = await client
+			.from("analysis_run")
+			.update({ records_count: data.rowsWritten, summary: summary as never })
+			.eq("id", data.runId)
+		if (error) throw new Error(error.message)
+		return { ok: true }
 	})

@@ -12,6 +12,7 @@ import { buildFixtureFile, installFileReaderPolyfill } from "./__fixtures__/repo
 import {
 	applyMessageNumber,
 	applyRiskClassification,
+	dedupeBalanceGrain,
 	generateMessage,
 	normalizeData,
 	parseDateString,
@@ -332,4 +333,84 @@ describe("ponte com o grão persistido", () => {
 		]
 		expect(rawRowsToBalancePayload(quebrada)).toHaveLength(0)
 	})
+})
+
+describe("dedupeBalanceGrain", () => {
+	// `parseExcelFile` troca UG sem código por "000000" (linha de total do relatório).
+	// Dois desses na mesma competência põem o mesmo alvo de conflito duas vezes no
+	// upsert e o Postgres aborta o lote inteiro com 21000 — nada é gravado.
+	const grain = (ugCodigo: string, siafiValue: number) => ({
+		period: "2024-01",
+		ugCodigo,
+		accountGroup: AccountGroup.CONSUMO,
+		siafiValue,
+		silomsValue: 0,
+	})
+
+	it("colapsa grãos repetidos e conta quantos eram", () => {
+		const { rows, duplicates } = dedupeBalanceGrain([grain("000000", 10), grain("120001", 20), grain("000000", 30)])
+		expect(rows).toHaveLength(2)
+		expect(duplicates).toBe(1)
+	})
+
+	it("mantém a ÚLTIMA ocorrência — a ordem de leitura da planilha", () => {
+		const { rows } = dedupeBalanceGrain([grain("000000", 10), grain("000000", 30)])
+		expect(rows[0].siafiValue).toBe(30)
+	})
+
+	it("não colapsa grupos diferentes da mesma UG e competência", () => {
+		const { rows, duplicates } = dedupeBalanceGrain([
+			{ ...grain("120001", 1), accountGroup: AccountGroup.CONSUMO },
+			{ ...grain("120001", 2), accountGroup: AccountGroup.BMP },
+			{ ...grain("120001", 3), accountGroup: AccountGroup.INTANGIVEL },
+		])
+		expect(rows).toHaveLength(3)
+		expect(duplicates).toBe(0)
+	})
+
+	it("deixa passar intacto um payload já único", () => {
+		const payload = rawRowsToBalancePayload(rawRows)
+		const { rows, duplicates } = dedupeBalanceGrain(payload)
+		expect(duplicates).toBe(0)
+		expect(rows).toHaveLength(payload.length)
+	})
+})
+
+describe("generateMessage — escopo não-mensal ainda mostra variação", () => {
+	// O passo do filtro (3/6/12) não é o passo da SÉRIE: `history` é sempre mensal.
+	// Usar o passo do filtro como distância esperada fazia toda a tabela imprimir
+	// travessão em TRIMESTRAL/SEMESTRAL/ANUAL, escondendo a variação real.
+	const serie = (): RawInputRow[] =>
+		Array.from({ length: 8 }, (_, i) => ({
+			data: `2025-${String(i + 1).padStart(2, "0")}`,
+			cod: "120001",
+			ug: "ALFA",
+			g1_name: "CONSUMO",
+			g1_siafi: 1000 + i * 100,
+			g1_siloms: 500,
+			g1_diff: 0,
+			g2_name: "BMP",
+			g2_siafi: 0,
+			g2_siloms: 0,
+			g2_diff: 0,
+			g3_name: "INTANGIVEL",
+			g3_siafi: 0,
+			g3_siloms: 0,
+			g3_diff: 0,
+		}))
+
+	for (const filtro of ["MENSAL", "TRIMESTRAL", "SEMESTRAL"] as const) {
+		it(`imprime percentual entre meses consecutivos no escopo ${filtro}`, () => {
+			const data = applyRiskClassification(recalculateDeltas(normalizeData(serie()), filtro))
+			const historico = data.filter((r) => r.group === AccountGroup.CONSUMO)
+			const atual = historico.find((r) => r.date === "2025-08")
+			if (!atual) throw new Error("fixture sem o registro esperado")
+
+			const msg = generateMessage("RANKING", atual, "1", "01/01/2027", historico, filtro)
+			const linhas = msg.split("\n").filter((l) => /^[A-Z]{3}\/\d{2}\s*\|/.test(l))
+			expect(linhas.length).toBeGreaterThan(1)
+			// A série é mensal e contínua: tirando a primeira linha, todas têm variação.
+			expect(linhas.slice(1).every((l) => l.includes("%"))).toBe(true)
+		})
+	}
 })
