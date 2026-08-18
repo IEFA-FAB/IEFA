@@ -8150,6 +8150,7 @@ export type Database = {
 					account_group: string
 					created_at?: string
 					created_by?: string | null
+					difference?: number | null
 					id?: string
 					period: string
 					siafi_value?: number
@@ -8163,6 +8164,7 @@ export type Database = {
 					account_group?: string
 					created_at?: string
 					created_by?: string | null
+					difference?: number | null
 					id?: string
 					period?: string
 					siafi_value?: number
