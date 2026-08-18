@@ -141,7 +141,7 @@ function IngredientsPage() {
 				</TabsContent>
 			</Tabs>
 
-			<IngredientReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
+			<IngredientReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} scope={tab} />
 		</div>
 	)
 }
