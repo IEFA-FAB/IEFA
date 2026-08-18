@@ -331,7 +331,9 @@ RUN test -f apps/alpha/src/index.ts || \
 FROM base AS alpha
 ENV NODE_ENV=production
 ENV PORT=8000
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=alpha-build /app/package.json ./package.json
+COPY --from=alpha-build /app/node_modules ./node_modules
+COPY --from=alpha-build /app/packages ./packages
 COPY --from=alpha-build /app/apps/alpha ./apps/alpha
 USER bun
 EXPOSE 8000
