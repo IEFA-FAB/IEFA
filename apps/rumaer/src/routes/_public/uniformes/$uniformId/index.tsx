@@ -1,26 +1,31 @@
-import type { UniformVariantWithPieces } from "@iefa/database/rumaer"
+import type { CirculoHierarquico, Genero, UniformVariantWithPieces } from "@iefa/database/rumaer"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
-import { useMemo, useState } from "react"
+import { type ReactNode, useId, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { signedImageQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
 import {
 	CATEGORIA_LABELS,
 	CIRCULO_LABELS,
+	CIRCULO_ORDER,
 	EQ_CIVIL_LABELS,
 	formatPieceName,
 	GENERO_LABELS,
+	GENERO_ORDER,
 	GRUPO_LABELS,
 	OBRIGATORIEDADE_LABELS,
 	OBRIGATORIEDADE_ORDER,
 	TIPO_PECA_LABELS,
 	uniformTitle,
 } from "@/lib/uniforms/labels"
+import { type UniformView, uniformViewSchema } from "@/lib/uniforms/search"
+import { resolveVariantSelection } from "@/lib/uniforms/variants"
+import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_public/uniformes/$uniformId/")({
+	validateSearch: uniformViewSchema,
 	loader: async ({ context, params }) => {
 		const uniform = await context.queryClient.ensureQueryData(uniformQueryOptions(params.uniformId))
 		if (!uniform) throw notFound()
@@ -32,36 +37,71 @@ const SUB_LABEL = (sub: string | null) => (sub == null ? "Padrão" : sub === "ge
 
 function DetailPage() {
 	const { uniformId } = Route.useParams()
+	const search = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const looksName = useId()
 	const { data: uniform } = useSuspenseQuery(uniformQueryOptions(uniformId))
-	// loader garante não-null (notFound() quando ausente); fallbacks mantêm a ordem dos hooks.
-	const variants = uniform?.variants ?? []
-	const [circulo, setCirculo] = useState(() => variants[0]?.circulo ?? "oficiais")
-	const [genero, setGenero] = useState(() => variants[0]?.genero ?? "masculino")
-	const [sub, setSub] = useState<string | null>(() => variants[0]?.sub_variacao ?? null)
+	// loader garante não-null (notFound() quando ausente); o fallback mantém a ordem dos hooks.
+	const variants = useMemo(() => uniform?.variants ?? [], [uniform])
 
-	const circulos = useMemo(() => [...new Set(variants.map((v) => v.circulo))], [variants])
-	const generos = useMemo(() => [...new Set(variants.filter((v) => v.circulo === circulo).map((v) => v.genero))], [variants, circulo])
+	// A seleção mora na URL, não em estado local: é ela que se compartilha. O que a
+	// URL não disser cai no padrão do catálogo (oficiais, masculino) — ver
+	// `resolveVariantSelection`, que também absorve link com valor que este
+	// uniforme não tem em vez de quebrar a tela.
+	const { circulo, genero, sub, variant } = useMemo(
+		() => resolveVariantSelection(variants, { circulo: search.circulo, genero: search.genero, sub: search.sub }),
+		[variants, search.circulo, search.genero, search.sub]
+	)
+	const selected: UniformVariantWithPieces | undefined = variant
+
+	// Os dois eixos listam TUDO que o uniforme tem, não só o que combina com o
+	// outro eixo. Filtrar cruzado trava: um círculo só-feminino esconderia
+	// "Masculino", e o gênero feminino esconderia os círculos masculinos — sem
+	// saída. Quem garante que a combinação escolhida existe é `chooseCirculo` /
+	// `chooseGenero`, soltando o outro eixo quando o par não existe.
+	const circulos = useMemo(() => CIRCULO_ORDER.filter((c) => variants.some((v) => v.circulo === c)), [variants])
+	const generos = useMemo(() => GENERO_ORDER.filter((g) => variants.some((v) => v.genero === g)), [variants])
 	const subs = useMemo(
 		() => [...new Set(variants.filter((v) => v.circulo === circulo && v.genero === genero).map((v) => v.sub_variacao))],
 		[variants, circulo, genero]
 	)
 
-	const selected: UniformVariantWithPieces | undefined = useMemo(
-		() =>
-			variants.find((v) => v.circulo === circulo && v.genero === genero && v.sub_variacao === sub) ??
-			variants.find((v) => v.circulo === circulo && v.genero === genero) ??
-			variants.find((v) => v.circulo === circulo) ??
-			variants[0],
-		[variants, circulo, genero, sub]
-	)
+	/**
+	 * Grava a escolha na URL. `replace` porque cada clique num seletor não é um
+	 * passo de navegação — voltar tem que sair da tela, não desfazer o último chip.
+	 * A sub-variação é limpa junto: ela só existe dentro de um par círculo+gênero.
+	 */
+	function setView(patch: Partial<UniformView>, resetSub = false) {
+		navigate({ search: (p) => ({ ...p, ...(resetSub ? { sub: undefined } : {}), ...patch }), replace: true })
+	}
 
-	// "look" = imagem alternativa atrelada a uma peça facultativa/eventual (null = imagem base)
-	const [lookPieceId, setLookPieceId] = useState<string | null>(null)
+	/**
+	 * O eixo que a pessoa acabou de clicar manda. Se o par novo não existe, o OUTRO
+	 * eixo sai da URL para o resolvedor recolocá-lo num valor compatível — sem isso
+	 * o chip clicado não se moveria (`resolveVariantSelection` desempata a favor do
+	 * gênero quando os dois vêm pedidos) e o seletor pareceria quebrado.
+	 */
+	function chooseCirculo(next: CirculoHierarquico) {
+		const mantemGenero = variants.some((v) => v.circulo === next && v.genero === genero)
+		setView({ circulo: next, genero: mantemGenero ? genero : undefined }, true)
+	}
+
+	function chooseGenero(next: Genero) {
+		const mantemCirculo = variants.some((v) => v.genero === next && v.circulo === circulo)
+		setView({ genero: next, circulo: mantemCirculo ? circulo : undefined }, true)
+	}
+
+	// "look" = imagem alternativa atrelada a uma peça facultativa/eventual (ausente = imagem base).
+	// A chave é a peça (não a imagem): ela sobrevive à troca de círculo/gênero, e some
+	// sozinha quando a variante nova não tem aquela alternativa.
 	const looks = selected?.images ?? []
-	const activeLook = lookPieceId ? looks.find((l) => l.piece_id === lookPieceId) : undefined
+	const activeLook = search.look ? looks.find((l) => l.piece_id === search.look) : undefined
 	const { data: imageUrl } = useQuery(signedImageQueryOptions(activeLook?.image_path ?? selected?.image_path))
 
 	if (!uniform) return null
+
+	const title = uniformTitle(uniform)
+	const versionLabel = `${CIRCULO_LABELS[circulo]} · ${GENERO_LABELS[genero]}${sub ? ` · ${SUB_LABEL(sub)}` : ""}`
 
 	return (
 		<div className="flex flex-col gap-8">
@@ -75,73 +115,59 @@ function DetailPage() {
 					<Badge variant="outline">{GRUPO_LABELS[uniform.grupo]}</Badge>
 					{uniform.art_referencia && <Badge variant="ghost">{uniform.art_referencia}</Badge>}
 				</div>
-				<h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight">{uniformTitle(uniform)}</h1>
+				<h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight">{title}</h1>
 				{uniform.traje && <p className="text-base text-muted-foreground">{uniform.traje}</p>}
 			</header>
 
-			<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-8">
-				{/* Coluna esquerda: imagem + seletor de variante */}
-				<div className="flex flex-col gap-4">
-					<div className="aspect-[3/4] border border-border rounded-lg bg-muted/30 flex items-center justify-center overflow-hidden">
-						{imageUrl ? (
-							<img
-								src={imageUrl}
-								alt={`${uniformTitle(uniform)} — ${CIRCULO_LABELS[circulo]} ${GENERO_LABELS[genero]}`}
-								className="h-full w-full object-contain"
+			{/* Seletor de versão — acima da imagem e em destaque: é o controle que mais
+			    muda o que a tela mostra, e antes ficava escondido embaixo dela. */}
+			{selected && (
+				<section aria-label="Versão do uniforme" className="rounded-xl border border-border bg-card px-4 py-4 shadow-xs sm:px-5">
+					<div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+						<VariantChoice label="Círculo hierárquico" value={circulo} options={circulos} render={(c) => CIRCULO_LABELS[c]} onChange={chooseCirculo} />
+						<VariantChoice label="Gênero" value={genero} options={generos} render={(g) => GENERO_LABELS[g]} onChange={chooseGenero} />
+						{subs.length > 1 && (
+							<VariantChoice
+								label="Variação"
+								value={sub}
+								options={subs}
+								render={SUB_LABEL}
+								keyOf={(s) => s ?? "__null__"}
+								onChange={(s) => setView({ sub: s ?? undefined })}
 							/>
-						) : (
-							<span className="text-sm text-muted-foreground px-6 text-center">
-								{(activeLook?.image_path ?? selected?.image_path) ? "Carregando imagem…" : "Sem ilustração cadastrada"}
-							</span>
 						)}
 					</div>
+				</section>
+			)}
+
+			<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-8">
+				{/* Coluna esquerda: imagem da versão selecionada */}
+				<div className="flex flex-col gap-4">
+					<figure className="flex flex-col gap-2">
+						<div className="aspect-[3/4] border border-border rounded-lg bg-muted/30 flex items-center justify-center overflow-hidden">
+							{imageUrl ? (
+								<img src={imageUrl} alt={`${title} — ${versionLabel}`} className="h-full w-full object-contain" />
+							) : (
+								<span className="text-sm text-muted-foreground px-6 text-center">
+									{(activeLook?.image_path ?? selected?.image_path) ? "Carregando imagem…" : "Sem ilustração cadastrada"}
+								</span>
+							)}
+						</div>
+						<figcaption className="text-xs text-muted-foreground">{versionLabel}</figcaption>
+					</figure>
 
 					{looks.length > 0 && (
-						<div className="flex flex-col gap-1.5">
-							<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Configuração</span>
-							<div className="flex flex-wrap gap-2">
-								<button
-									type="button"
-									onClick={() => setLookPieceId(null)}
-									className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${lookPieceId === null ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
-								>
-									Padrão
-								</button>
-								{looks.map((l) => (
-									<button
-										key={l.id}
-										type="button"
-										onClick={() => setLookPieceId(l.piece_id)}
-										className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${lookPieceId === l.piece_id ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
-									>
-										{l.legenda ?? "Variação"}
-									</button>
-								))}
-							</div>
-						</div>
+						<ChipGroup label="Configuração">
+							<ChoiceChip name={looksName} selected={!activeLook} onSelect={() => setView({ look: undefined })}>
+								Padrão
+							</ChoiceChip>
+							{looks.map((l) => (
+								<ChoiceChip key={l.id} name={looksName} selected={activeLook?.id === l.id} onSelect={() => setView({ look: l.piece_id })}>
+									{l.legenda ?? "Variação"}
+								</ChoiceChip>
+							))}
+						</ChipGroup>
 					)}
-
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-						<VariantControl label="Círculo" value={circulo} onChange={setCirculo} options={circulos} render={(c) => CIRCULO_LABELS[c]} />
-						<VariantControl label="Gênero" value={genero} onChange={setGenero} options={generos} render={(g) => GENERO_LABELS[g]} />
-						{subs.length > 1 && (
-							<div className="flex flex-col gap-1.5">
-								<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Variação</span>
-								<Select value={sub ?? "__null__"} onValueChange={(v) => setSub(v === "__null__" ? null : v)}>
-									<SelectTrigger>
-										<SelectValue>{SUB_LABEL(sub)}</SelectValue>
-									</SelectTrigger>
-									<SelectContent>
-										{subs.map((s) => (
-											<SelectItem key={s ?? "__null__"} value={s ?? "__null__"}>
-												{SUB_LABEL(s)}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-						)}
-					</div>
 				</div>
 
 				{/* Coluna direita: categorias + composição + equivalências */}
@@ -219,35 +245,67 @@ function DetailPage() {
 	)
 }
 
-function VariantControl<T extends string>({
+/**
+ * Grupo de opções da versão do uniforme. Chips em vez de `<select>`: as opções
+ * ficam todas à vista, e o que está ativo se lê sem abrir nada.
+ */
+function VariantChoice<T extends string | null>({
 	label,
 	value,
-	onChange,
 	options,
 	render,
+	onChange,
+	keyOf,
 }: {
 	label: string
 	value: T
-	onChange: (v: T) => void
-	options: T[]
+	options: readonly T[]
 	render: (v: T) => string
+	onChange: (v: T) => void
+	keyOf?: (v: T) => string
 }) {
+	const name = useId()
+	const key = keyOf ?? ((v: T) => String(v))
+
 	return (
-		<div className="flex flex-col gap-1.5">
-			<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-			<Select value={value} onValueChange={(v) => onChange(v as T)}>
-				<SelectTrigger>
-					<SelectValue>{render(value)}</SelectValue>
-				</SelectTrigger>
-				<SelectContent>
-					{options.map((o) => (
-						<SelectItem key={o} value={o}>
-							{render(o)}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-		</div>
+		<ChipGroup label={label}>
+			{options.map((o) => (
+				<ChoiceChip key={key(o)} name={name} selected={o === value} onSelect={() => onChange(o)}>
+					{render(o)}
+				</ChoiceChip>
+			))}
+		</ChipGroup>
+	)
+}
+
+/** Grupo de escolha única. `fieldset`/`legend` dão a semântica sem uma linha de ARIA. */
+function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
+	return (
+		<fieldset className="flex min-w-0 flex-col">
+			<legend className="text-label mb-2 text-muted-foreground">{label}</legend>
+			<div className="flex flex-wrap gap-1.5">{children}</div>
+		</fieldset>
+	)
+}
+
+/**
+ * Chip de escolha única — mesmo visual para versão e configuração.
+ * Por baixo é um `input[type=radio]`: navegação por seta e leitura de tela saem
+ * de graça, coisa que um `<button aria-checked>` só imita.
+ */
+function ChoiceChip({ name, selected, onSelect, children }: { name: string; selected: boolean; onSelect: () => void; children: ReactNode }) {
+	return (
+		<label
+			className={cn(
+				"cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40",
+				selected
+					? "border-primary bg-primary text-primary-foreground shadow-xs"
+					: "border-input bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+			)}
+		>
+			<input type="radio" name={name} checked={selected} onChange={onSelect} className="sr-only" />
+			{children}
+		</label>
 	)
 }
 

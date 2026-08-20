@@ -49,11 +49,28 @@ export const CIRCULO_LABELS: Record<CirculoHierarquico, string> = {
 	pracas: "Praças",
 }
 
+/**
+ * Ordem hierárquica dos círculos (Estatuto dos Militares) — usada nos seletores
+ * de variante para que a lista não saia na ordem arbitrária do banco.
+ */
+export const CIRCULO_ORDER = [
+	"oficiais_generais",
+	"oficiais",
+	"cadetes",
+	"suboficiais",
+	"sargentos",
+	"alunos",
+	"pracas",
+] as const satisfies readonly CirculoHierarquico[]
+
 export const GENERO_LABELS: Record<Genero, string> = {
 	masculino: "Masculino",
 	feminino: "Feminino",
 	unissex: "Unissex",
 }
+
+/** Ordem de exibição dos gêneros — masculino primeiro (padrão do catálogo). */
+export const GENERO_ORDER = ["masculino", "feminino", "unissex"] as const satisfies readonly Genero[]
 
 export const OBRIGATORIEDADE_LABELS: Record<Obrigatoriedade, string> = {
 	obrigatorio: "Obrigatório",

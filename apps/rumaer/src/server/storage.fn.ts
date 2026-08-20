@@ -5,6 +5,7 @@
  * Upload: exige grant `rumaer` nível 2 (requireUniformEditor) — não basta estar logado.
  */
 
+import type { CirculoHierarquico, Genero } from "@iefa/database/rumaer"
 import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
@@ -46,37 +47,56 @@ export const getSignedImageUrlFn = createServerFn({ method: "GET" })
 	})
 
 /**
+ * Imagem de preview de um uniforme: a URL assinada mais o gênero/círculo da
+ * variante de onde ela veio. A lista da home separa o resultado por gênero, e
+ * sem essa etiqueta a ilustração feminina apareceria no card masculino (as
+ * imagens são peças diferentes, não recortes da mesma foto).
+ */
+export type UniformPreviewImage = { url: string; genero: Genero; circulo: CirculoHierarquico }
+
+/**
  * URLs assinadas de todas as imagens de um uniforme (base das variantes + looks),
- * deduplicadas, ordenadas e assinadas em lote — 1 round-trip para o slideshow de preview.
+ * deduplicadas por caminho, ordenadas e assinadas em lote — 1 round-trip para o
+ * slideshow de preview.
  */
 // Público (mesma leitura do catálogo), e os caminhos vêm do próprio banco — o payload
 // só informa o id do uniforme, nunca um path arbitrário.
 // nosemgrep: server-fn-missing-auth-guard
 export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ id: z.string().uuid() }))
-	.handler(async ({ data }): Promise<string[]> => {
+	.handler(async ({ data }): Promise<UniformPreviewImage[]> => {
 		const supabase = getRumaerServerClient()
 
 		const { data: variants, error } = await supabase
 			.from("uniform_variant")
-			.select("image_path, ordem, images:uniform_variant_image(image_path, ordem)")
+			.select("image_path, ordem, genero, circulo, images:uniform_variant_image(image_path, ordem)")
 			.eq("uniform_id", data.id)
 			.order("ordem", { ascending: true })
 		if (error) throw new Error(error.message)
 
-		const paths: string[] = []
+		// Um mesmo caminho pode ser reaproveitado por variantes de círculos diferentes;
+		// vale a primeira ocorrência (a de menor `ordem`), que é a mais representativa.
+		const byPath = new Map<string, { genero: Genero; circulo: CirculoHierarquico }>()
 		for (const v of variants ?? []) {
-			if (v.image_path) paths.push(v.image_path)
+			const tag = { genero: v.genero, circulo: v.circulo }
+			if (v.image_path && !byPath.has(v.image_path)) byPath.set(v.image_path, tag)
 			for (const img of [...(v.images ?? [])].sort((a, b) => a.ordem - b.ordem)) {
-				if (img.image_path) paths.push(img.image_path)
+				if (img.image_path && !byPath.has(img.image_path)) byPath.set(img.image_path, tag)
 			}
 		}
-		const unique = [...new Set(paths)]
+		const unique = [...byPath.keys()]
 		if (unique.length === 0) return []
 
 		const { data: signed, error: signError } = await supabase.storage.from(BUCKET).createSignedUrls(unique, 3600)
 		if (signError) throw new Error(signError.message)
-		return (signed ?? []).map((s) => s.signedUrl).filter((url): url is string => !!url)
+
+		const images: UniformPreviewImage[] = []
+		for (const s of signed ?? []) {
+			// `createSignedUrls` devolve na mesma ordem da entrada e ecoa o path pedido.
+			const tag = s.path ? byPath.get(s.path) : undefined
+			if (s.signedUrl && tag) images.push({ url: s.signedUrl, ...tag })
+		}
+		return images
 	})
 
 export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
