@@ -1,4 +1,4 @@
-import type { UniformVariantWithPieces } from "@iefa/database/rumaer"
+import type { CirculoHierarquico, Genero, UniformVariantWithPieces } from "@iefa/database/rumaer"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
@@ -54,8 +54,13 @@ function DetailPage() {
 	)
 	const selected: UniformVariantWithPieces | undefined = variant
 
+	// Os dois eixos listam TUDO que o uniforme tem, não só o que combina com o
+	// outro eixo. Filtrar cruzado trava: um círculo só-feminino esconderia
+	// "Masculino", e o gênero feminino esconderia os círculos masculinos — sem
+	// saída. Quem garante que a combinação escolhida existe é `chooseCirculo` /
+	// `chooseGenero`, soltando o outro eixo quando o par não existe.
 	const circulos = useMemo(() => CIRCULO_ORDER.filter((c) => variants.some((v) => v.circulo === c)), [variants])
-	const generos = useMemo(() => GENERO_ORDER.filter((g) => variants.some((v) => v.circulo === circulo && v.genero === g)), [variants, circulo])
+	const generos = useMemo(() => GENERO_ORDER.filter((g) => variants.some((v) => v.genero === g)), [variants])
 	const subs = useMemo(
 		() => [...new Set(variants.filter((v) => v.circulo === circulo && v.genero === genero).map((v) => v.sub_variacao))],
 		[variants, circulo, genero]
@@ -68,6 +73,22 @@ function DetailPage() {
 	 */
 	function setView(patch: Partial<UniformView>, resetSub = false) {
 		navigate({ search: (p) => ({ ...p, ...(resetSub ? { sub: undefined } : {}), ...patch }), replace: true })
+	}
+
+	/**
+	 * O eixo que a pessoa acabou de clicar manda. Se o par novo não existe, o OUTRO
+	 * eixo sai da URL para o resolvedor recolocá-lo num valor compatível — sem isso
+	 * o chip clicado não se moveria (`resolveVariantSelection` desempata a favor do
+	 * gênero quando os dois vêm pedidos) e o seletor pareceria quebrado.
+	 */
+	function chooseCirculo(next: CirculoHierarquico) {
+		const mantemGenero = variants.some((v) => v.circulo === next && v.genero === genero)
+		setView({ circulo: next, genero: mantemGenero ? genero : undefined }, true)
+	}
+
+	function chooseGenero(next: Genero) {
+		const mantemCirculo = variants.some((v) => v.genero === next && v.circulo === circulo)
+		setView({ genero: next, circulo: mantemCirculo ? circulo : undefined }, true)
 	}
 
 	// "look" = imagem alternativa atrelada a uma peça facultativa/eventual (ausente = imagem base).
@@ -103,14 +124,8 @@ function DetailPage() {
 			{selected && (
 				<section aria-label="Versão do uniforme" className="rounded-xl border border-border bg-card px-4 py-4 shadow-xs sm:px-5">
 					<div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-						<VariantChoice
-							label="Círculo hierárquico"
-							value={circulo}
-							options={circulos}
-							render={(c) => CIRCULO_LABELS[c]}
-							onChange={(c) => setView({ circulo: c }, true)}
-						/>
-						<VariantChoice label="Gênero" value={genero} options={generos} render={(g) => GENERO_LABELS[g]} onChange={(g) => setView({ genero: g }, true)} />
+						<VariantChoice label="Círculo hierárquico" value={circulo} options={circulos} render={(c) => CIRCULO_LABELS[c]} onChange={chooseCirculo} />
+						<VariantChoice label="Gênero" value={genero} options={generos} render={(g) => GENERO_LABELS[g]} onChange={chooseGenero} />
 						{subs.length > 1 && (
 							<VariantChoice
 								label="Variação"

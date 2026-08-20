@@ -284,23 +284,21 @@ function UniformCardMedia({ uniformId, genero, title }: { uniformId: string; gen
 	const count = images.length
 	const cover = images[0]
 
+	// A caixa é sempre reservada, mesmo sem ilustração: montá-la só depois da
+	// resposta faria o grid inteiro pular sob o cursor enquanto a pessoa rola.
 	return (
-		<div ref={ref}>
-			{!isLoading && inView && count === 0 ? null : (
-				<div className="relative mt-3 aspect-[4/3] border-y border-border/60 bg-muted/20">
-					{cover ? (
-						<img src={cover.url} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain" />
-					) : (
-						<div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-							{isLoading || !inView ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
-						</div>
-					)}
-					{count > 1 && (
-						<span className="absolute right-2 bottom-2 rounded-full bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-background">
-							+{count - 1} foto(s)
-						</span>
-					)}
+		<div ref={ref} className="relative mt-3 aspect-[4/3] border-y border-border/60 bg-muted/20">
+			{cover ? (
+				<img src={cover.url} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain" />
+			) : (
+				<div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+					{isLoading || !inView ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
 				</div>
+			)}
+			{count > 1 && (
+				<span className="absolute right-2 bottom-2 rounded-full bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-background">
+					+{count - 1} foto(s)
+				</span>
 			)}
 		</div>
 	)

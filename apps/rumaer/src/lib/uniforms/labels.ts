@@ -72,13 +72,6 @@ export const GENERO_LABELS: Record<Genero, string> = {
 /** Ordem de exibição dos gêneros — masculino primeiro (padrão do catálogo). */
 export const GENERO_ORDER = ["masculino", "feminino", "unissex"] as const satisfies readonly Genero[]
 
-/** Rótulo curto do gênero, para chips/badges onde o espaço é apertado. */
-export const GENERO_SHORT_LABELS: Record<Genero, string> = {
-	masculino: "Masc.",
-	feminino: "Fem.",
-	unissex: "Unissex",
-}
-
 export const OBRIGATORIEDADE_LABELS: Record<Obrigatoriedade, string> = {
 	obrigatorio: "Obrigatório",
 	facultativo: "Facultativo",

@@ -8,7 +8,12 @@ import { GENERO_LABELS, GRUPO_LABELS, uniformTitle } from "@/lib/uniforms/labels
 import { expandUniformEntries, previewImagesFor, type UniformEntry } from "@/lib/uniforms/variants"
 import { cn } from "@/lib/utils"
 
-const MAX_SUGGESTIONS = 8
+/**
+ * Quantos UNIFORMES a lista mostra — não quantas linhas. Cortar depois de separar
+ * por gênero derrubaria a variedade de 7 uniformes para 4, e pior: partiria um par
+ * ao meio, deixando "Masculino" na lista e "Feminino" de fora.
+ */
+const MAX_SUGGESTION_UNIFORMS = 5
 
 /**
  * Campo de busca da home com sugestões ao vivo (typeahead estilo Google).
@@ -45,7 +50,7 @@ export function UniformSearchBox({
 	const { data: uniforms } = useQuery(uniformsQueryOptions({}))
 
 	const term = query.trim()
-	const suggestions = term && uniforms ? expandUniformEntries(uniforms.filter((u) => uniformMatchesQuery(u, query))).slice(0, MAX_SUGGESTIONS) : []
+	const suggestions = term && uniforms ? expandUniformEntries(uniforms.filter((u) => uniformMatchesQuery(u, query)).slice(0, MAX_SUGGESTION_UNIFORMS)) : []
 	const showList = open && suggestions.length > 0
 
 	// Fecha o dropdown ao clicar fora.

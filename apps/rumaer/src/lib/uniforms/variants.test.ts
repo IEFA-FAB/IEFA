@@ -19,8 +19,8 @@ function image(genero: Genero, circulo: CirculoHierarquico, url = `${genero}-${c
 	return { url, genero, circulo }
 }
 
-function variant(circulo: CirculoHierarquico, genero: Genero, sub_variacao: string | null = null): VariantKey {
-	return { circulo, genero, sub_variacao }
+function variant(circulo: CirculoHierarquico, genero: Genero, sub_variacao: string | null = null, image_path: string | null = null): VariantKey {
+	return { circulo, genero, sub_variacao, image_path }
 }
 
 describe("uniformEntries — a lista separa masculino de feminino", () => {
@@ -69,12 +69,20 @@ describe("previewImagesFor — cada card mostra a ilustração do seu gênero", 
 		expect(previewImagesFor(images, "masculino").map((i) => i.url)).toEqual(["masculino-oficiais", "masculino-sargentos"])
 	})
 
-	test("sem imagem do gênero, cai no unissex antes de pegar a do outro gênero", () => {
+	test("sem imagem do gênero, cai no unissex", () => {
 		expect(previewImagesFor([image("masculino", "oficiais"), image("unissex", "oficiais")], "feminino").map((i) => i.url)).toEqual(["unissex-oficiais"])
 	})
 
-	test("existindo só a do outro gênero, mostra ela em vez de deixar o card vazio", () => {
-		expect(previewImagesFor([image("masculino", "oficiais")], "feminino").map((i) => i.url)).toEqual(["masculino-oficiais"])
+	test("existindo só a do OUTRO gênero, o card fica sem ilustração — não mostra o desenho errado", () => {
+		// O card carrega o selo "Feminino"; o desenho masculino nele seria resposta
+		// errada com cara de certa, e é justamente a diferença entre os dois que
+		// justifica os dois cards existirem.
+		expect(previewImagesFor([image("masculino", "oficiais")], "feminino")).toEqual([])
+	})
+
+	test("unissex acompanha o gênero mesmo tendo imagem própria, sem trazer a do outro gênero", () => {
+		const imgs = [image("masculino", "oficiais"), image("feminino", "oficiais"), image("unissex", "oficiais")]
+		expect(previewImagesFor(imgs, "feminino").map((i) => i.url)).toEqual(["feminino-oficiais"])
 	})
 
 	test("card sem gênero mostra tudo", () => {
@@ -102,8 +110,12 @@ describe("resolveVariantSelection — a URL manda, o padrão é oficiais/masculi
 		expect(resolveVariantSelection(variants, { circulo: "sargentos", genero: "feminino" })).toMatchObject({ circulo: "sargentos", genero: "feminino" })
 	})
 
-	test("gênero pedido que não existe no círculo escolhido cai no padrão em vez de quebrar", () => {
-		expect(resolveVariantSelection(variants, { circulo: "sargentos", genero: "masculino" })).toMatchObject({ circulo: "sargentos", genero: "feminino" })
+	test("par pedido que não existe: o gênero é mantido e o círculo cede", () => {
+		// `sargentos` só tem feminino nesta fixture. Ceder o gênero (comportamento
+		// antigo) devolveria uma tela que contraria o que a pessoa pediu justamente
+		// no eixo que mais muda a ilustração; ceder o círculo preserva o pedido
+		// visível e ainda entrega uma variante real.
+		expect(resolveVariantSelection(variants, { circulo: "sargentos", genero: "masculino" })).toMatchObject({ circulo: "oficiais", genero: "masculino" })
 	})
 
 	test("círculo pedido que o uniforme não tem cai em oficiais", () => {
@@ -128,6 +140,54 @@ describe("resolveVariantSelection — a URL manda, o padrão é oficiais/masculi
 	test("sem masculino nem feminino, o unissex ganha antes do desempate por ordem", () => {
 		const only = [variant("oficiais", "feminino"), variant("oficiais", "unissex")]
 		expect(resolveVariantSelection(only, {}).genero).toBe("unissex")
+	})
+
+	test("gênero pedido ganha do círculo PADRÃO — o card 'Feminino' não pode abrir o masculino", () => {
+		// Regressão: `4º Uniforme A` em prod não tem variante feminina em `oficiais`.
+		// Resolvendo `circulo` sempre primeiro, o padrão `oficiais` fechava antes de
+		// alguém olhar o gênero pedido e o card feminino abria a versão masculina —
+		// e os chips de Gênero, saindo do círculo já resolvido, só ofereciam
+		// "Masculino", deixando a versão feminina inalcançável.
+		const semFemininoEmOficiais = [variant("oficiais", "masculino"), variant("sargentos", "feminino")]
+		expect(resolveVariantSelection(semFemininoEmOficiais, { genero: "feminino" })).toMatchObject({ circulo: "sargentos", genero: "feminino" })
+	})
+
+	test("círculo pedido ganha do gênero PADRÃO — caso espelhado", () => {
+		const semMasculinoEmCadetes = [variant("oficiais", "masculino"), variant("cadetes", "feminino")]
+		expect(resolveVariantSelection(semMasculinoEmCadetes, { circulo: "cadetes" })).toMatchObject({ circulo: "cadetes", genero: "feminino" })
+	})
+
+	test("com os dois pedidos e nenhum par possível, o gênero ganha — é o que o card prometeu", () => {
+		const semFemininoEmOficiais = [variant("oficiais", "masculino"), variant("sargentos", "feminino")]
+		expect(resolveVariantSelection(semFemininoEmOficiais, { circulo: "oficiais", genero: "feminino" })).toMatchObject({
+			circulo: "sargentos",
+			genero: "feminino",
+		})
+	})
+
+	test("sem pedido nenhum e sem par padrão possível, o MASCULINO ganha do círculo oficiais", () => {
+		// Regressão do `2º Uniforme A`: o círculo `oficiais` só tem variante feminina.
+		// Fechando `oficiais` primeiro, a URL sem parâmetro abria em feminino e o
+		// "padrão oficiais + masculino" virava só "padrão oficiais".
+		const oficiaisSoFeminino = [variant("oficiais", "feminino"), variant("sargentos", "masculino")]
+		expect(resolveVariantSelection(oficiaisSoFeminino, {})).toMatchObject({ circulo: "sargentos", genero: "masculino" })
+	})
+
+	test("sem nada pedido, o padrão continua oficiais/masculino mesmo com o par existindo longe na ordem", () => {
+		const semFemininoEmOficiais = [variant("sargentos", "feminino"), variant("oficiais", "masculino")]
+		expect(resolveVariantSelection(semFemininoEmOficiais, {})).toMatchObject({ circulo: "oficiais", genero: "masculino" })
+	})
+
+	test("no desempate final, prefere o círculo que TEM ilustração", () => {
+		// `4º Uniforme A`: sem feminino em `oficiais`, e o primeiro feminino por ordem
+		// (`suboficiais`) não tem imagem. Abrir nele deixaria a tela vazia logo depois
+		// de um card que exibia o desenho de `sargentos`.
+		const femininoSemImagemPrimeiro = [
+			variant("oficiais", "masculino", null, "m.png"),
+			variant("suboficiais", "feminino", null, null),
+			variant("sargentos", "feminino", null, "f.png"),
+		]
+		expect(resolveVariantSelection(femininoSemImagemPrimeiro, { genero: "feminino" })).toMatchObject({ circulo: "sargentos", genero: "feminino" })
 	})
 
 	test("uniforme sem variante nenhuma não estoura — devolve o padrão e nenhuma variante", () => {

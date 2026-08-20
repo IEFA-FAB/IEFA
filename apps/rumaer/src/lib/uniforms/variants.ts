@@ -50,15 +50,20 @@ export function expandUniformEntries(uniforms: UniformListItem[]): UniformEntry[
 }
 
 /**
- * Imagens que representam o resultado, na ordem em que devem aparecer.
- * Preferência: o gênero do card > unissex > o resto; dentro disso, `oficiais`
- * primeiro (o padrão do catálogo). Nunca devolve vazio se houver alguma imagem —
- * um card sem ilustração é pior do que um card com a ilustração do gênero vizinho.
+ * Imagens que representam o resultado, na ordem em que devem aparecer:
+ * o gênero do card, ou unissex quando o gênero não tem ilustração própria.
+ * Dentro disso, `oficiais` primeiro (o padrão do catálogo).
+ *
+ * A ilustração do OUTRO gênero nunca entra. O card carrega o selo "Feminino";
+ * mostrar o desenho masculino nele seria uma resposta errada com cara de certa,
+ * e o card existe justamente porque os dois desenhos são peças diferentes.
+ * Sem imagem do gênero, o card assume o estado "sem ilustração".
  */
 export function previewImagesFor(images: UniformPreviewImage[], genero: Genero | null): UniformPreviewImage[] {
-	const rank = (img: UniformPreviewImage) => (genero == null || img.genero === genero ? 0 : img.genero === "unissex" ? 1 : 2)
-	const best = Math.min(...images.map(rank))
-	return images.filter((img) => rank(img) === best).sort((a, b) => circuloRank(a.circulo) - circuloRank(b.circulo))
+	const eligible = images.filter((img) => genero == null || img.genero === genero || img.genero === "unissex")
+	const proprias = eligible.filter((img) => img.genero === genero)
+	const escolhidas = genero != null && proprias.length > 0 ? proprias : eligible
+	return escolhidas.sort((a, b) => circuloRank(a.circulo) - circuloRank(b.circulo))
 }
 
 /** `oficiais` primeiro; depois a ordem hierárquica. */
@@ -67,8 +72,12 @@ function circuloRank(circulo: CirculoHierarquico): number {
 	return CIRCULO_ORDER.indexOf(circulo)
 }
 
-/** O mínimo de uma variante que a resolução precisa conhecer. */
-export type VariantKey = { circulo: CirculoHierarquico; genero: Genero; sub_variacao: string | null }
+/**
+ * O mínimo de uma variante que a resolução precisa conhecer. `image_path` é
+ * opcional e serve só de desempate: entre variantes igualmente válidas, abrir
+ * numa que tem ilustração é melhor do que abrir numa vazia.
+ */
+export type VariantKey = { circulo: CirculoHierarquico; genero: Genero; sub_variacao: string | null; image_path?: string | null }
 
 /** O que a URL pode pedir. Qualquer campo pode faltar ou não existir no uniforme. */
 export type VariantRequest = { circulo?: CirculoHierarquico; genero?: Genero; sub?: string }
@@ -77,11 +86,22 @@ export type VariantSelection = { circulo: CirculoHierarquico; genero: Genero; su
 
 /**
  * Escolhe a variante a exibir. As variantes chegam na ordem de `ordem`, e a
- * primeira de cada nível é o desempate final — mas o padrão pedido (oficiais,
- * masculino) vem antes dela sempre que existir.
+ * primeira de cada nível é o desempate final — mas o padrão do catálogo
+ * (oficiais, masculino) vem antes dela sempre que existir.
  *
- * A resolução é tolerante de propósito: um link compartilhado com `circulo` que
- * este uniforme não tem cai no padrão em vez de quebrar a tela.
+ * **O eixo que a URL pediu é resolvido primeiro.** Um pedido explícito não pode
+ * perder para o PADRÃO do outro eixo: resolvendo `circulo` sempre antes, o card
+ * "4º Uniforme A — Feminino" (que linka só `?genero=feminino`) abria a versão
+ * masculina, porque o uniforme não tem variante feminina em `oficiais` e o padrão
+ * `oficiais` era fechado antes de alguém olhar o gênero pedido. Pior: os chips de
+ * Gênero saíam do círculo já resolvido, então a versão feminina ficava
+ * inalcançável a partir do card que a anunciou.
+ *
+ * Com os DOIS pedidos na URL e nenhuma variante satisfazendo ambos, o gênero
+ * ganha: é o que o card prometeu e o que mais muda a ilustração.
+ *
+ * A resolução é tolerante de propósito: um link com `circulo` que este uniforme
+ * não tem cai no padrão em vez de quebrar a tela.
  */
 export function resolveVariantSelection<V extends VariantKey>(
 	variants: readonly V[],
@@ -91,17 +111,43 @@ export function resolveVariantSelection<V extends VariantKey>(
 	if (!first)
 		return { circulo: requested.circulo ?? DEFAULT_CIRCULO, genero: requested.genero ?? DEFAULT_GENERO, sub: requested.sub ?? null, variant: undefined }
 
-	const circulos = variants.map((v) => v.circulo)
-	const circulo = pick<CirculoHierarquico>(circulos, [requested.circulo, DEFAULT_CIRCULO], first.circulo)
+	// Último desempate: entre variantes igualmente válidas, a que TEM ilustração.
+	// Sem isto o `4º Uniforme A` feminino abria em `suboficiais` (sem imagem)
+	// enquanto o card que levou até lá exibia o desenho de `sargentos`.
+	const fallback = (pool: readonly V[]) => pool.find((v) => v.image_path) ?? pool[0]
 
-	const ofCirculo = variants.filter((v) => v.circulo === circulo)
-	const genero = pick<Genero>(
-		ofCirculo.map((v) => v.genero),
-		[requested.genero, DEFAULT_GENERO, "unissex"],
-		ofCirculo[0].genero
-	)
+	const resolveGenero = (pool: readonly V[]) =>
+		pick<Genero>(
+			pool.map((v) => v.genero),
+			[requested.genero, DEFAULT_GENERO, "unissex"],
+			fallback(pool).genero
+		)
+	const resolveCirculo = (pool: readonly V[]) =>
+		pick<CirculoHierarquico>(
+			pool.map((v) => v.circulo),
+			[requested.circulo, DEFAULT_CIRCULO],
+			fallback(pool).circulo
+		)
 
-	const ofGenero = ofCirculo.filter((v) => v.genero === genero)
+	// O gênero é resolvido primeiro, EXCETO quando a URL pediu círculo e não pediu
+	// gênero — aí quem tem pedido explícito abre. Com o par padrão disponível a
+	// ordem não muda nada; ela só decide quando `oficiais`+`masculino` é impossível,
+	// e aí o gênero ganha. Foi o que faltava no `2º Uniforme A`, cujo círculo
+	// `oficiais` só tem variante feminina: resolvendo círculo primeiro, a URL sem
+	// parâmetro nenhum abria em FEMININO, contrariando o padrão do catálogo.
+	const generoFirst = requested.genero !== undefined || requested.circulo === undefined
+
+	let circulo: CirculoHierarquico
+	let genero: Genero
+	if (generoFirst) {
+		genero = resolveGenero(variants)
+		circulo = resolveCirculo(variants.filter((v) => v.genero === genero))
+	} else {
+		circulo = resolveCirculo(variants)
+		genero = resolveGenero(variants.filter((v) => v.circulo === circulo))
+	}
+
+	const ofGenero = variants.filter((v) => v.circulo === circulo && v.genero === genero)
 	const subs = ofGenero.map((v) => v.sub_variacao)
 	// `sub` ausente na URL = variação padrão (`null`), que é o que a maioria dos
 	// uniformes tem; só cai na primeira variação quando não existe a padrão.
