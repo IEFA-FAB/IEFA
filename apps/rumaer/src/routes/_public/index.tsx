@@ -1,3 +1,4 @@
+import type { Genero } from "@iefa/database/rumaer"
 import { createFileRoute } from "@tanstack/react-router"
 import { ArrowDown } from "lucide-react"
 import { UniformBrowser } from "@/components/uniforms/UniformBrowser"
@@ -28,8 +29,10 @@ function HomePage() {
 		scrollToList()
 	}
 
-	function onSelectUniform(uniformId: string) {
-		navigate({ to: "/uniformes/$uniformId", params: { uniformId } })
+	function onSelectUniform(uniformId: string, genero: Genero | null) {
+		// O gênero escolhido na sugestão vira search param — a tela de detalhe abre
+		// já na ilustração certa, e o link é compartilhável desse jeito.
+		navigate({ to: "/uniformes/$uniformId", params: { uniformId }, search: genero ? { genero } : {} })
 	}
 
 	function pickGrupo(g: (typeof GRUPO_ORDER)[number]) {

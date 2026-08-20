@@ -1,3 +1,4 @@
+import type { Genero } from "@iefa/database/rumaer"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ArrowDown, ArrowRight, ArrowUp, ImageOff, Search } from "lucide-react"
@@ -9,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import { uniformMatchesQuery } from "@/lib/uniforms/filter"
 import { uniformPreviewImagesQueryOptions, uniformsQueryOptions } from "@/lib/uniforms/hooks"
-import { CATEGORIA_LABELS, GRUPO_ACCENT, GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
+import { CATEGORIA_LABELS, GENERO_LABELS, GRUPO_ACCENT, GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
 import { CATEGORIAS, SORT_LABELS, SORT_OPTIONS, type SortKey, type UniformSearch } from "@/lib/uniforms/search"
+import { expandUniformEntries, previewImagesFor, type UniformEntry } from "@/lib/uniforms/variants"
 import { cn } from "@/lib/utils"
 import type { UniformListItem } from "@/server/uniforms.fn"
 
@@ -50,6 +52,10 @@ type SetSearch = (updater: (prev: UniformSearch) => UniformSearch) => void
 /**
  * Lista completa de uniformes — busca por texto, filtros por grupo/categoria, ordenação e grid.
  * Lê e escreve o estado nos search params da rota dona (a home `/`), via `search`/`setSearch`.
+ *
+ * Cada uniforme com variante masculina e feminina aparece como DOIS resultados
+ * (ver `expandUniformEntries`): a ilustração de cada gênero é uma peça distinta,
+ * e um card só conseguiria mostrar uma delas.
  */
 export function UniformBrowser({ search, setSearch }: { search: UniformSearch; setSearch: SetSearch }) {
 	const { data: uniforms } = useSuspenseQuery(uniformsQueryOptions({ grupo: search.grupo, categoria: search.categoria }))
@@ -63,15 +69,17 @@ export function UniformBrowser({ search, setSearch }: { search: UniformSearch; s
 	const term = q.trim()
 	const matched = term ? uniforms.filter((u) => uniformMatchesQuery(u, q)) : uniforms
 
-	const filtered = [...matched].sort((a, b) => compareUniforms(a, b, sort))
-	if (dir === "desc") filtered.reverse()
+	const ordered = [...matched].sort((a, b) => compareUniforms(a, b, sort))
+	if (dir === "desc") ordered.reverse()
+	const entries = expandUniformEntries(ordered)
 
 	return (
 		<div className="flex flex-col gap-8">
 			<header className="flex flex-col gap-2">
 				<h2 className="text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">Todos os uniformes</h2>
 				<p className="text-sm text-muted-foreground">
-					{filtered.length} uniforme(s){term ? ` para “${q}”` : ""} — busque ou filtre por grupo e categoria.
+					{ordered.length} uniforme(s){term ? ` para “${q}”` : ""} em {entries.length} versão(ões) — masculina e feminina aparecem separadas, cada uma com a
+					própria ilustração.
 				</p>
 			</header>
 
@@ -158,52 +166,14 @@ export function UniformBrowser({ search, setSearch }: { search: UniformSearch; s
 				</div>
 			</div>
 
-			{filtered.length === 0 ? (
+			{entries.length === 0 ? (
 				<p className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
 					Nenhum uniforme encontrado para o filtro selecionado.
 				</p>
 			) : (
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{filtered.map((u) => (
-						<HoverCard key={u.id}>
-							<HoverCardTrigger render={<Link to="/uniformes/$uniformId" params={{ uniformId: u.id }} className="group block" />}>
-								<Card
-									className="h-full transition-all group-hover:-translate-y-0.5 group-hover:shadow-md"
-									style={{
-										borderColor: `color-mix(in oklch, ${GRUPO_ACCENT[u.grupo]} 35%, var(--border))`,
-										background: `color-mix(in oklch, ${GRUPO_ACCENT[u.grupo]} 5%, var(--card))`,
-									}}
-								>
-									<CardHeader>
-										<div className="flex items-center justify-between gap-2">
-											<Badge
-												variant="outline"
-												style={{ borderColor: `color-mix(in oklch, ${GRUPO_ACCENT[u.grupo]} 45%, transparent)`, color: GRUPO_ACCENT[u.grupo] }}
-											>
-												{GRUPO_LABELS[u.grupo]}
-											</Badge>
-											<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden="true" />
-										</div>
-										<CardTitle className="mt-2">{uniformTitle(u)}</CardTitle>
-									</CardHeader>
-									{/* Imagem inline só no mobile (sem hover) — ajuda a identificar o uniforme na busca */}
-									<UniformCardMedia uniformId={u.id} title={uniformTitle(u)} />
-									<CardContent className="flex flex-col gap-2">
-										<p className="text-sm text-muted-foreground">{u.traje ?? u.nome}</p>
-										<div className="flex flex-wrap gap-1">
-											{u.categories.map((c) => (
-												<Badge key={c.categoria} variant="secondary">
-													{CATEGORIA_LABELS[c.categoria]}
-												</Badge>
-											))}
-										</div>
-									</CardContent>
-								</Card>
-							</HoverCardTrigger>
-							<HoverCardContent side="right" align="start" className="w-60 overflow-hidden p-0">
-								<UniformPreview uniformId={u.id} title={uniformTitle(u)} />
-							</HoverCardContent>
-						</HoverCard>
+					{entries.map((entry) => (
+						<UniformEntryCard key={entry.key} entry={entry} />
 					))}
 				</div>
 			)}
@@ -211,12 +181,85 @@ export function UniformBrowser({ search, setSearch }: { search: UniformSearch; s
 	)
 }
 
+/** Card de um resultado — um uniforme numa versão de gênero. */
+function UniformEntryCard({ entry }: { entry: UniformEntry }) {
+	const { uniform: u, genero } = entry
+	const title = uniformTitle(u)
+	const accent = GRUPO_ACCENT[u.grupo]
+
+	return (
+		<HoverCard>
+			<HoverCardTrigger
+				render={
+					<Link
+						to="/uniformes/$uniformId"
+						params={{ uniformId: u.id }}
+						search={genero ? { genero } : {}}
+						className="group block"
+						aria-label={genero ? `${title} — ${GENERO_LABELS[genero]}` : title}
+					/>
+				}
+			>
+				<Card
+					className="h-full transition-all group-hover:-translate-y-0.5 group-hover:shadow-md"
+					style={{
+						borderColor: `color-mix(in oklch, ${accent} 35%, var(--border))`,
+						background: `color-mix(in oklch, ${accent} 5%, var(--card))`,
+					}}
+				>
+					<CardHeader>
+						<div className="flex items-center justify-between gap-2">
+							<Badge variant="outline" style={{ borderColor: `color-mix(in oklch, ${accent} 45%, transparent)`, color: accent }}>
+								{GRUPO_LABELS[u.grupo]}
+							</Badge>
+							<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden="true" />
+						</div>
+						<CardTitle className="mt-2 flex flex-wrap items-center gap-2">
+							{title}
+							{genero && <GeneroBadge genero={genero} />}
+						</CardTitle>
+					</CardHeader>
+					{/* A ilustração é o que distingue a versão masculina da feminina — fica sempre visível. */}
+					<UniformCardMedia uniformId={u.id} genero={genero} title={title} />
+					<CardContent className="flex flex-col gap-2">
+						<p className="text-sm text-muted-foreground">{u.traje ?? u.nome}</p>
+						<div className="flex flex-wrap gap-1">
+							{u.categories.map((c) => (
+								<Badge key={c.categoria} variant="secondary">
+									{CATEGORIA_LABELS[c.categoria]}
+								</Badge>
+							))}
+						</div>
+					</CardContent>
+				</Card>
+			</HoverCardTrigger>
+			<HoverCardContent side="right" align="start" className="w-60 overflow-hidden p-0">
+				<UniformPreview uniformId={u.id} genero={genero} title={title} />
+			</HoverCardContent>
+		</HoverCard>
+	)
+}
+
+/** Chip de gênero — o marcador que diferencia dois resultados do mesmo uniforme. */
+function GeneroBadge({ genero }: { genero: Genero }) {
+	return (
+		<span
+			className={cn(
+				"rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide",
+				genero === "feminino" ? "bg-governance/12 text-governance" : "bg-primary/10 text-primary"
+			)}
+		>
+			{GENERO_LABELS[genero]}
+		</span>
+	)
+}
+
 /**
- * Imagem de capa inline exibida dentro do card no mobile (onde não há hover).
+ * Imagem de capa do card, na versão de gênero do resultado.
  * Carrega sob demanda: só busca as imagens quando o card entra no viewport
  * (IntersectionObserver), e some se o uniforme não tiver ilustração.
  */
-function UniformCardMedia({ uniformId, title }: { uniformId: string; title: string }) {
+function UniformCardMedia({ uniformId, genero, title }: { uniformId: string; genero: Genero | null; title: string }) {
 	const ref = useRef<HTMLDivElement>(null)
 	const [inView, setInView] = useState(false)
 
@@ -236,19 +279,20 @@ function UniformCardMedia({ uniformId, title }: { uniformId: string; title: stri
 		return () => io.disconnect()
 	}, [inView])
 
-	const { data: images, isLoading } = useQuery({ ...uniformPreviewImagesQueryOptions(uniformId), enabled: inView })
-	const count = images?.length ?? 0
-	const cover = images?.[0]
+	const { data, isLoading } = useQuery({ ...uniformPreviewImagesQueryOptions(uniformId), enabled: inView })
+	const images = previewImagesFor(data ?? [], genero)
+	const count = images.length
+	const cover = images[0]
 
 	return (
-		<div ref={ref} className="md:hidden">
-			{!isLoading && count === 0 ? null : (
+		<div ref={ref}>
+			{!isLoading && inView && count === 0 ? null : (
 				<div className="relative mt-3 aspect-[4/3] border-y border-border/60 bg-muted/20">
 					{cover ? (
-						<img src={cover} alt={title} className="absolute inset-0 h-full w-full object-contain" />
+						<img src={cover.url} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain" />
 					) : (
 						<div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-							{isLoading ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
+							{isLoading || !inView ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
 						</div>
 					)}
 					{count > 1 && (
@@ -263,13 +307,14 @@ function UniformCardMedia({ uniformId, title }: { uniformId: string; title: stri
 }
 
 /**
- * Slideshow das imagens do uniforme exibido no hover-card.
+ * Slideshow das imagens do uniforme exibido no hover-card, restrito ao gênero do card.
  * As imagens só são buscadas/assinadas quando o card abre (Portal monta sob demanda).
  */
-function UniformPreview({ uniformId, title }: { uniformId: string; title: string }) {
-	const { data: images, isLoading } = useQuery(uniformPreviewImagesQueryOptions(uniformId))
+function UniformPreview({ uniformId, genero, title }: { uniformId: string; genero: Genero | null; title: string }) {
+	const { data, isLoading } = useQuery(uniformPreviewImagesQueryOptions(uniformId))
 	const [index, setIndex] = useState(0)
-	const count = images?.length ?? 0
+	const images = previewImagesFor(data ?? [], genero)
+	const count = images.length
 
 	// Auto-avanço; reinicia quando a quantidade de imagens muda.
 	useEffect(() => {
@@ -294,10 +339,10 @@ function UniformPreview({ uniformId, title }: { uniformId: string; title: string
 						<span className="text-xs">Sem ilustração</span>
 					</div>
 				) : (
-					images?.map((src, i) => (
+					images.map((img, i) => (
 						<img
-							key={src}
-							src={src}
+							key={img.url}
+							src={img.url}
 							alt={title}
 							className={cn("absolute inset-0 h-full w-full object-contain transition-opacity duration-500", i === active ? "opacity-100" : "opacity-0")}
 						/>
@@ -306,13 +351,16 @@ function UniformPreview({ uniformId, title }: { uniformId: string; title: string
 
 				{count > 1 && (
 					<div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-						{images?.map((src, i) => (
-							<span key={src} className={cn("size-1.5 rounded-full transition-colors", i === active ? "bg-foreground" : "bg-foreground/25")} />
+						{images.map((img, i) => (
+							<span key={img.url} className={cn("size-1.5 rounded-full transition-colors", i === active ? "bg-foreground" : "bg-foreground/25")} />
 						))}
 					</div>
 				)}
 			</div>
-			<p className="truncate px-3 py-2 text-xs font-medium text-foreground">{title}</p>
+			<p className="truncate px-3 py-2 text-xs font-medium text-foreground">
+				{title}
+				{genero ? ` — ${GENERO_LABELS[genero]}` : ""}
+			</p>
 		</div>
 	)
 }
