@@ -26,6 +26,23 @@ function fakeAdapter(name: string, script: Chunk[] | (() => never), calls: strin
 	} as unknown as AnyTextAdapter
 }
 
+/** Adapter que registra as OPTIONS recebidas — é onde vive o `model`. */
+function recordingAdapter(model: string, seen: Chunk[]): AnyTextAdapter {
+	return {
+		kind: "text",
+		name: model,
+		model,
+		chatStream: async function* (options: unknown) {
+			seen.push(options as Chunk)
+			yield { type: "RUN_FINISHED" }
+		},
+		structuredOutput: async (options: unknown) => {
+			seen.push((options as { chatOptions: Chunk }).chatOptions)
+			return { data: { from: model }, rawText: model }
+		},
+	} as unknown as AnyTextAdapter
+}
+
 async function collect(adapter: AnyTextAdapter): Promise<Chunk[]> {
 	const out: Chunk[] = []
 	for await (const chunk of adapter.chatStream({} as never)) out.push(chunk as Chunk)
@@ -164,6 +181,33 @@ describe("withFallbackChain — structuredOutput", () => {
 		const chained = withFallbackChain(primary, fakeAdapter("fallback", OK_STREAM))
 		const result = (await chained.structuredOutput({} as never)) as { data: { from: string } }
 		expect(result.data.from).toBe("fallback")
+	})
+})
+
+describe("withFallbackChain — modelo por adapter", () => {
+	// `chat()` lê `adapter.model` do objeto encadeado — que é o do primário, porque a
+	// cadeia o copia por spread — e injeta esse id em `options.model`. Sem sobrescrever
+	// por adapter, a reserva pede o modelo do primário e responde 404: ela serve outro.
+	test("a reserva recebe o PRÓPRIO modelo, não o do primário", async () => {
+		const seen: Chunk[] = []
+		const primary = fakeAdapter("primary", () => {
+			throw Object.assign(new Error("overloaded"), { status: 529 })
+		})
+		const chained = withFallbackChain(primary, recordingAdapter("modelo-da-reserva", seen))
+
+		await chained.structuredOutput({ chatOptions: { model: "modelo-do-primario" } } as never)
+
+		expect(seen).toHaveLength(1)
+		expect(seen[0].model).toBe("modelo-da-reserva")
+	})
+
+	test("o primário recebe o próprio modelo quando atende", async () => {
+		const seen: Chunk[] = []
+		const chained = withFallbackChain(recordingAdapter("modelo-do-primario", seen), fakeAdapter("fallback", OK_STREAM))
+
+		await chained.structuredOutput({ chatOptions: {} } as never)
+
+		expect(seen[0].model).toBe("modelo-do-primario")
 	})
 })
 

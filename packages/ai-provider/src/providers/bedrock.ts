@@ -118,6 +118,53 @@ function toBedrockMessages(messages: TextOptions["messages"]): BedrockMessage[] 
 	return out
 }
 
+function toUsage(usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | undefined) {
+	if (!usage) return undefined
+	return { promptTokens: usage.inputTokens ?? 0, completionTokens: usage.outputTokens ?? 0, totalTokens: usage.totalTokens ?? 0 }
+}
+
+/** Nome da tool usada para arrancar saída estruturada do Converse. */
+const STRUCTURED_OUTPUT_TOOL = "structured_output"
+
+/**
+ * Primeiro objeto JSON completo dentro de um texto.
+ *
+ * Varre contando chaves e ignorando o que está entre aspas, então tolera cerca
+ * ```json, texto antes e — o caso que mais aparece — comentário do modelo DEPOIS
+ * do objeto. Devolve `undefined` quando não há objeto parseável.
+ */
+export function extractJsonObject(text: string): unknown {
+	const start = text.indexOf("{")
+	if (start === -1) return undefined
+
+	let depth = 0
+	let inString = false
+	let escaped = false
+
+	for (let i = start; i < text.length; i++) {
+		const char = text[i]
+		if (inString) {
+			if (escaped) escaped = false
+			else if (char === "\\") escaped = true
+			else if (char === '"') inString = false
+			continue
+		}
+		if (char === '"') inString = true
+		else if (char === "{") depth++
+		else if (char === "}") {
+			depth--
+			if (depth === 0) {
+				try {
+					return JSON.parse(text.slice(start, i + 1))
+				} catch {
+					return undefined
+				}
+			}
+		}
+	}
+	return undefined
+}
+
 function toBedrockTools(tools: TextOptions["tools"]): ToolConfiguration | undefined {
 	if (!tools || tools.length === 0) return undefined
 	const specs = tools.map((tool) => ({
@@ -333,43 +380,52 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 		const sdk = await loadSdk()
 		const bedrock = await getClient()
 
-		// Converse não tem json-mode nativo uniforme entre modelos: instruímos o
-		// modelo, via system prompt, a responder só com JSON conforme o schema.
+		// Converse não tem json-mode, mas TEM tool use — e forçar uma tool cujo
+		// inputSchema é o schema pedido é o que devolve JSON de verdade, validado
+		// pelo provider. Pedir JSON por system prompt (o que se fazia aqui) funciona
+		// em schema pequeno e falha em schema grande: o modelo passa a narrar o
+		// resultado em markdown, ou fecha o JSON e emenda um comentário depois, e o
+		// parse morre com "Falha ao parsear" sem dizer por quê.
 		const input = buildConverseInput(model, chatOptions)
 		if (outputSchema != null) {
-			const instruction = `Responda SOMENTE com um objeto JSON válido conforme este JSON Schema, sem texto adicional e sem cercas de markdown:\n${JSON.stringify(outputSchema)}`
-			input.system = [...(input.system ?? []), { text: instruction }]
+			input.toolConfig = {
+				tools: [
+					{
+						toolSpec: {
+							name: STRUCTURED_OUTPUT_TOOL,
+							description: "Devolve a resposta no formato estruturado exigido.",
+							inputSchema: { json: outputSchema },
+						},
+					},
+				],
+				toolChoice: { tool: { name: STRUCTURED_OUTPUT_TOOL } },
+			} as unknown as ToolConfiguration
 		}
 
 		const response = await bedrock.send(new sdk.ConverseCommand(input), {
 			abortSignal: chatOptions.abortController?.signal,
 		})
 
-		const rawText = (response.output?.message?.content ?? []).map((b) => ("text" in b && b.text ? b.text : "")).join("")
+		const blocks = response.output?.message?.content ?? []
+		const rawText = blocks.map((b) => ("text" in b && b.text ? b.text : "")).join("")
 
-		let data: unknown
-		try {
-			// Tolera cercas ```json … ``` caso o modelo as inclua apesar da instrução.
-			const cleaned = rawText
-				.trim()
-				.replace(/^```(?:json)?\s*/i, "")
-				.replace(/\s*```$/i, "")
-			data = JSON.parse(cleaned)
-		} catch {
+		// Caminho normal: o argumento da tool JÁ é o objeto.
+		for (const block of blocks) {
+			const toolUse = (block as { toolUse?: { name?: string; input?: unknown } }).toolUse
+			if (toolUse?.name === STRUCTURED_OUTPUT_TOOL && toolUse.input != null) {
+				return { data: toolUse.input, rawText: JSON.stringify(toolUse.input), usage: toUsage(response.usage) }
+			}
+		}
+
+		// Modelo que ignorou a tool: sobra o texto. `extractJsonObject` tolera cerca
+		// de markdown e prosa em volta — é comum o modelo emendar um "Observação:"
+		// depois do JSON, e cortar só no fim da string perdia a resposta inteira.
+		const data = extractJsonObject(rawText)
+		if (data === undefined) {
 			throw new Error(`Falha ao parsear saída estruturada como JSON. Conteúdo: ${rawText.slice(0, 200)}`)
 		}
 
-		return {
-			data,
-			rawText,
-			usage: response.usage
-				? {
-						promptTokens: response.usage.inputTokens ?? 0,
-						completionTokens: response.usage.outputTokens ?? 0,
-						totalTokens: response.usage.totalTokens ?? 0,
-					}
-				: undefined,
-		}
+		return { data, rawText, usage: toUsage(response.usage) }
 	}
 
 	return {

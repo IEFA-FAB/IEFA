@@ -50,7 +50,7 @@ describe("varredura", () => {
 	// Se um refactor renomear os símbolos, os describes abaixo passariam vazios e o
 	// contrato viraria decoração. Este teste é o que denuncia a varredura vazia.
 	it("encontra os caminhos conhecidos até o modelo", () => {
-		expect(DIRECT_ADAPTER.map((s) => s.path).sort()).toEqual(["routes/api/chat/stream.post.ts"])
+		expect(DIRECT_ADAPTER.map((s) => s.path).sort()).toEqual(["routes/api/chat/stream.post.ts", "routes/api/sacdgc/analyze.post.ts"])
 		expect(VIA_GUARD_MODULE.map((s) => s.path).sort()).toEqual(["src/server/conta-generica.fn.ts", "src/server/document-ai.fn.ts"])
 	})
 })

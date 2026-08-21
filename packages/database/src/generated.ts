@@ -8000,6 +8000,65 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			dgc_analysis: {
+				Row: {
+					alert_count: number
+					analysis: Json
+					competence: string
+					created_at: string
+					created_by: string | null
+					finding_count: number
+					id: string
+					model: string | null
+					period: string | null
+					run_id: string
+					ug_codigo: string
+					ug_grupo: string | null
+					ug_nome: string | null
+					updated_at: string
+				}
+				Insert: {
+					alert_count?: number
+					analysis: Json
+					competence: string
+					created_at?: string
+					created_by?: string | null
+					finding_count?: number
+					id?: string
+					model?: string | null
+					period?: string | null
+					run_id: string
+					ug_codigo: string
+					ug_grupo?: string | null
+					ug_nome?: string | null
+					updated_at?: string
+				}
+				Update: {
+					alert_count?: number
+					analysis?: Json
+					competence?: string
+					created_at?: string
+					created_by?: string | null
+					finding_count?: number
+					id?: string
+					model?: string | null
+					period?: string | null
+					run_id?: string
+					ug_codigo?: string
+					ug_grupo?: string | null
+					ug_nome?: string | null
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "dgc_analysis_run_id_fkey"
+						columns: ["run_id"]
+						isOneToOne: false
+						referencedRelation: "analysis_run"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			document: {
 				Row: {
 					created_at: string

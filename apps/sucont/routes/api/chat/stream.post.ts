@@ -1,40 +1,10 @@
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
-import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
-import { createCookieAuthClient } from "@iefa/supabase-kit"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { defineHandler } from "nitro"
-import { createError, getHeader, type H3Event, readBody } from "nitro/h3"
+import { createError, type H3Event, readBody } from "nitro/h3"
 import { getServerCapabilities } from "#/lib/capabilities.server"
-import { envServer } from "#/lib/env.server"
+import { requireSucontUser } from "#/lib/nitro-auth.server"
 import { buildSystemPrompt } from "#/lib/oracle-prompt"
-import { getAccessControlClient } from "#/lib/supabase.server"
-
-/**
- * Rota Nitro — fora do contexto de request do TanStack Start, então os helpers de
- * `#/lib/auth.server` (que dependem de `getRequest()`) não valem aqui. A sessão é
- * lida do header `Cookie` do H3Event, e a permissão pela mesma engine PBAC do resto
- * do app.
- */
-async function requireSucontUser(event: H3Event): Promise<{ id: string }> {
-	const auth = createCookieAuthClient({
-		url: envServer.VITE_SUCONT_SUPABASE_URL,
-		key: envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY,
-		cookieHeader: getHeader(event, "cookie"),
-	})
-
-	const {
-		data: { user },
-		error,
-	} = await auth.auth.getUser()
-	if (!user || error) throw createError({ statusCode: 401, message: "Não autenticado" })
-
-	const permissions = await resolveUserPermissions(user.id, getAccessControlClient())
-	if (!hasPermission(permissions, "sucont", 1)) {
-		throw createError({ statusCode: 403, message: "Permissão insuficiente" })
-	}
-
-	return { id: user.id }
-}
 
 export default defineHandler(async (event: H3Event) => {
 	// Capability gate — sem SUCONT_AI_* o oráculo não está configurado neste

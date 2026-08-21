@@ -103,22 +103,46 @@ describe("bedrock adapter — chatStream", () => {
 })
 
 describe("bedrock adapter — structuredOutput", () => {
-	it("injeta instrução de JSON com o schema e parseia a resposta (com cercas)", async () => {
+	const schema = { type: "object", properties: { ok: { type: "boolean" } } }
+
+	// Pedir JSON por system prompt funciona em schema pequeno e falha em schema
+	// grande: o modelo passa a narrar em markdown. Tool use força o formato.
+	it("força uma tool com o schema pedido e devolve o argumento dela", async () => {
 		const { client, sent } = fakeClient([], {
-			output: { message: { content: [{ text: '```json\n{"ok":true}\n```' }] } },
+			output: { message: { content: [{ toolUse: { name: "structured_output", input: { ok: true } } }] } },
 			usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
 		})
 		// biome-ignore lint/suspicious/noExplicitAny: shim do adapter para teste
 		const adapter = createBedrockChat("model-x", "us-east-1", client) as any
-		const schema = { type: "object", properties: { ok: { type: "boolean" } } }
 		const result = await adapter.structuredOutput({ chatOptions: opts({ messages: [{ role: "user", content: "dá o json" }] }), outputSchema: schema })
 
 		expect(result.data).toEqual({ ok: true })
 		expect(result.usage).toEqual({ promptTokens: 3, completionTokens: 2, totalTokens: 5 })
 
-		const input = sent[0].input as { system?: { text: string }[] }
+		const input = sent[0].input as { toolConfig?: { tools?: { toolSpec?: { name?: string; inputSchema?: { json?: unknown } } }[]; toolChoice?: unknown } }
 		expect(sent[0].name).toBe("ConverseCommand")
-		expect(input.system?.at(-1)?.text).toContain(JSON.stringify(schema))
+		expect(input.toolConfig?.tools?.[0]?.toolSpec?.name).toBe("structured_output")
+		expect(input.toolConfig?.tools?.[0]?.toolSpec?.inputSchema?.json).toEqual(schema)
+		expect(input.toolConfig?.toolChoice).toEqual({ tool: { name: "structured_output" } })
+	})
+
+	it("cai no texto quando o modelo ignora a tool", async () => {
+		const { client } = fakeClient([], {
+			output: { message: { content: [{ text: '```json\n{"ok":true}\n```' }] } },
+		})
+		// biome-ignore lint/suspicious/noExplicitAny: shim do adapter para teste
+		const adapter = createBedrockChat("model-x", "us-east-1", client) as any
+		const result = await adapter.structuredOutput({ chatOptions: opts({ messages: [{ role: "user", content: "x" }] }), outputSchema: schema })
+		expect(result.data).toEqual({ ok: true })
+	})
+
+	it("falha com a resposta na mensagem quando não há JSON nenhum", async () => {
+		const { client } = fakeClient([], { output: { message: { content: [{ text: "não vou responder em json" }] } } })
+		// biome-ignore lint/suspicious/noExplicitAny: shim do adapter para teste
+		const adapter = createBedrockChat("model-x", "us-east-1", client) as any
+		expect(adapter.structuredOutput({ chatOptions: opts({ messages: [{ role: "user", content: "x" }] }), outputSchema: schema })).rejects.toThrow(
+			/não vou responder em json/
+		)
 	})
 })
 

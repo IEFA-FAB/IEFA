@@ -182,6 +182,16 @@ export const sucontTools: Tool[] = [
 		category: "Auditoria",
 		iconColor: "bg-fab-600",
 	},
+	{
+		id: "sac-dgc",
+		title: "SAC-DGC — Análise Crítica do DGC",
+		description:
+			"Análise crítica do Demonstrativo Gerencial de Custos por Unidade Gestora, sobre os quatro painéis do Tesouro Gerencial. Alertas de criticidade e Checklist AEC gerados por IA à luz dos Módulos 19 e 22.",
+		internalPath: "/sac-dgc",
+		icon: "FileSearch",
+		category: "Auditoria",
+		iconColor: "bg-tech-cyan",
+	},
 ]
 
 export const externalSystems: Tool[] = [
