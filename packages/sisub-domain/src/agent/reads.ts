@@ -135,6 +135,8 @@ export interface AgentRecipeDetail {
 	portion_yield: number | null
 	preparation_time_minutes: number | null
 	cooking_factor: number | null
+	/** Pré-preparo — o que antecede a cocção. Campo próprio da ficha, ver `preparation_method`. */
+	pre_preparation_method: string | null
 	preparation_method: string | null
 	kitchen_id: number | null
 	ingredients: AgentRecipeIngredient[]
@@ -157,6 +159,7 @@ export async function agentGetRecipe(db: SisubDb, ctx: UserContext, input: { rec
 		portion_yield: recipe.portion_yield == null ? null : Number(recipe.portion_yield),
 		preparation_time_minutes: recipe.preparation_time_minutes,
 		cooking_factor: recipe.cooking_factor == null ? null : Number(recipe.cooking_factor),
+		pre_preparation_method: recipe.pre_preparation_method,
 		preparation_method: recipe.preparation_method,
 		kitchen_id: recipe.kitchen_id,
 		ingredients: (recipe.ingredients ?? []).map((line) => ({

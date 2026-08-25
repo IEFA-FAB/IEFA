@@ -120,6 +120,7 @@ interface Sheet {
 	lines: SheetLine[]
 	totals: { grossWeight: number; netWeight: number; rehydratedWeight: number }
 	mixedUnits: string[]
+	prePreparationMethod: string
 	preparationMethod: string
 	totalTimeMinutes: number | null
 	elaboratedAt: string
@@ -163,6 +164,7 @@ function buildSheet(
 		lines,
 		totals,
 		mixedUnits: totals.units.length > 1 ? totals.units : [],
+		prePreparationMethod: recipe.pre_preparation_method ?? "",
 		preparationMethod: recipe.preparation_method ?? "",
 		totalTimeMinutes: recipe.preparation_time_minutes ?? null,
 		elaboratedAt: formatDate(recipe.created_at),
@@ -282,7 +284,7 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 
 			<h2 className="ftp-part">PARTE 03 – TÉCNICA DE PREPARO</h2>
 			<p className="ftp-field-label">Pré-preparo:</p>
-			<FreeText value="" lines={2} />
+			<FreeText value={sheet.prePreparationMethod} lines={2} />
 			<p className="ftp-field-label">Modo de preparo:</p>
 			<FreeText value={sheet.preparationMethod} lines={4} />
 

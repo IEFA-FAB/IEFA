@@ -5725,6 +5725,7 @@ export type Database = {
 					legacy_id: number | null
 					name: string
 					portion_yield: number | null
+					pre_preparation_method: string | null
 					preparation_method: string | null
 					preparation_time_minutes: number | null
 					rational_id: string | null
@@ -5742,6 +5743,7 @@ export type Database = {
 					legacy_id?: number | null
 					name: string
 					portion_yield?: number | null
+					pre_preparation_method?: string | null
 					preparation_method?: string | null
 					preparation_time_minutes?: number | null
 					rational_id?: string | null
@@ -5759,6 +5761,7 @@ export type Database = {
 					legacy_id?: number | null
 					name?: string
 					portion_yield?: number | null
+					pre_preparation_method?: string | null
 					preparation_method?: string | null
 					preparation_time_minutes?: number | null
 					rational_id?: string | null

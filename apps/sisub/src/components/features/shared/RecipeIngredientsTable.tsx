@@ -9,9 +9,18 @@ import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Toggle } from "@/components/ui/toggle"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
-import { formatSheetNumber, portionYieldOrOne, technicalSheetLine, technicalSheetTotals } from "@/lib/technical-sheet"
+import {
+	formatSheetNumber,
+	fromStoredQuantity,
+	portionYieldOrOne,
+	type QuantityBasis,
+	technicalSheetLine,
+	technicalSheetTotals,
+	toStoredQuantity,
+} from "@/lib/technical-sheet"
 import type { RecipeAlternativeFormRow } from "@/types/domain/recipes"
 import { IngredientSelector } from "./IngredientSelector"
 
@@ -34,6 +43,13 @@ interface RecipeIngredientsTableProps {
 	ingredients: RecipeIngredientRow[]
 	/** Rendimento em porções — divisor do per capita. */
 	portionYield: number
+	/**
+	 * Em qual das duas colunas de peso líquido o usuário digita. O que é GRAVADO é sempre
+	 * o total (ver `toStoredQuantity`); a base só decide qual célula é o campo e qual é o
+	 * número derivado.
+	 */
+	quantityBasis: QuantityBasis
+	onQuantityBasisChange: (basis: QuantityBasis) => void
 	onChange: (next: RecipeIngredientRow[]) => void
 	onAdd: () => void
 	/** Erros do campo `ingredients` como um todo (ex.: lista vazia). */
@@ -79,6 +95,17 @@ function candidatesOf(row: RecipeIngredientRow): Candidate[] {
  * coluna de total fica separada da faixa per capita: misturar as duas escalas na mesma
  * linha foi o erro de leitura que o formulário em papel evita ao dizer PER CAPITA no topo.
  *
+ * ── Base de digitação ──
+ * A ficha de papel que a Seção digitaliza vem em dois padrões: a que traz a gramatura POR
+ * PORÇÃO e a que traz o total do rendimento ("para 100"). O banco guarda SEMPRE o total —
+ * é dele que saem o custo, a lista de compras e a escala da produção —, então digitar por
+ * porção exigia multiplicar de cabeça a cada linha, que é exatamente onde nasce o erro de
+ * duas ordens de grandeza.
+ *
+ * O seletor do cabeçalho não muda o dado: muda QUAL das duas colunas de peso líquido é o
+ * campo. A outra vira o número derivado, ao lado, e serve de conferência do fator. A
+ * conversão mora em `lib/technical-sheet.ts` (`toStoredQuantity`/`fromStoredQuantity`).
+ *
  * ── Substitutos ──
  * Ficam na EXPANSÃO da linha, não numa aba, e a linha mostra UM candidato por vez.
  *
@@ -96,7 +123,16 @@ function candidatesOf(row: RecipeIngredientRow): Candidate[] {
  * em uso", e a ficha técnica é o padrão — quem registra a troca de uma semana é o cardápio,
  * não a ficha. O que persiste são as quantidades, do principal e de cada substituto.
  */
-export function RecipeIngredientsTable({ ingredients, portionYield, onChange, onAdd, errors, rowErrors }: RecipeIngredientsTableProps) {
+export function RecipeIngredientsTable({
+	ingredients,
+	portionYield,
+	quantityBasis,
+	onQuantityBasisChange,
+	onChange,
+	onAdd,
+	errors,
+	rowErrors,
+}: RecipeIngredientsTableProps) {
 	// Índices expandidos. A ficha aceita o mesmo insumo duas vezes, então a identidade da
 	// linha é a posição — a mesma que `patch` e `remove` usam.
 	const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
@@ -195,15 +231,39 @@ export function RecipeIngredientsTable({ ingredients, portionYield, onChange, on
 
 	return (
 		<Card>
-			<CardHeader className="flex flex-row items-center justify-between">
+			<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
 				<div className="flex items-center gap-2">
 					<CardTitle>Ingredientes</CardTitle>
 					{ingredients.length > 0 && <Badge variant="secondary">{ingredients.length}</Badge>}
 				</div>
-				<Button type="button" variant="outline" size="sm" onClick={onAdd}>
-					<Plus className="size-4 mr-2" />
-					Adicionar
-				</Button>
+				<div className="flex flex-wrap items-center gap-2">
+					{/* A base é do FORMULÁRIO, não da ficha: escolhe em qual coluna se digita.
+					    Fica no cabeçalho porque vale para a tabela inteira — por linha seria uma
+					    ficha com metade dos números em cada escala. */}
+					<span className="text-caption text-muted-foreground">Digitar por</span>
+					<ToggleGroup
+						value={[quantityBasis]}
+						// Base UI devolve array mesmo em seleção única. Desmarcar mantém a base atual:
+						// não existe "sem base", e voltar ao default por um clique de desmarque
+						// reinterpretaria toda a coluna em outra escala sem o usuário pedir.
+						onValueChange={(value) => onQuantityBasisChange((value[0] as QuantityBasis) ?? quantityBasis)}
+						variant="outline"
+						size="sm"
+						spacing={1}
+						aria-label="Base de digitação da quantidade"
+					>
+						<ToggleGroupItem value="porcao" aria-label="Digitar a quantidade de uma porção">
+							Porção
+						</ToggleGroupItem>
+						<ToggleGroupItem value="total" aria-label="Digitar a quantidade do rendimento inteiro">
+							Rendimento{portionYield > 0 ? ` (${portionYield})` : ""}
+						</ToggleGroupItem>
+					</ToggleGroup>
+					<Button type="button" variant="outline" size="sm" onClick={onAdd}>
+						<Plus className="size-4 mr-2" />
+						Adicionar
+					</Button>
+				</div>
 			</CardHeader>
 			<CardContent className="space-y-3">
 				{ingredients.length === 0 ? (
@@ -331,15 +391,21 @@ export function RecipeIngredientsTable({ ingredients, portionYield, onChange, on
 											</TableCell>
 											<TableCell className="text-muted-foreground">{active.unit}</TableCell>
 											<TableCell className="text-right">
-												<Input
-													aria-label={`Peso líquido total de ${active.name}`}
-													type="number"
-													step="0.001"
-													aria-invalid={!!rowError.net_quantity}
-													value={active.quantity ?? 0}
-													onChange={(e) => setQuantity(index, candidate, Number(e.target.value))}
-													className="ml-auto w-24 text-right"
-												/>
+												{quantityBasis === "total" ? (
+													<Input
+														aria-label={`Peso líquido total de ${active.name}`}
+														type="number"
+														step="0.001"
+														aria-invalid={!!rowError.net_quantity}
+														value={active.quantity ?? 0}
+														onChange={(e) => setQuantity(index, candidate, Number(e.target.value))}
+														className="ml-auto w-24 text-right"
+													/>
+												) : (
+													// Derivado da porção digitada — é este número que vai para o banco,
+													// e mostrá-lo ao lado do campo é a conferência do fator.
+													<span className="font-mono tabular-nums">{formatSheetNumber(active.quantity ?? 0)}</span>
+												)}
 											</TableCell>
 											<TableCell className="border-l border-border text-right font-mono tabular-nums">{formatSheetNumber(sheet.grossWeight)}</TableCell>
 											<TableCell className="text-right">
@@ -355,7 +421,21 @@ export function RecipeIngredientsTable({ ingredients, portionYield, onChange, on
 													className="ml-auto w-20 text-right"
 												/>
 											</TableCell>
-											<TableCell className="text-right font-mono tabular-nums">{formatSheetNumber(sheet.netWeight)}</TableCell>
+											<TableCell className="text-right font-mono tabular-nums">
+												{quantityBasis === "porcao" ? (
+													<Input
+														aria-label={`Peso líquido por porção de ${active.name}`}
+														type="number"
+														step="0.001"
+														aria-invalid={!!rowError.net_quantity}
+														value={fromStoredQuantity(active.quantity, "porcao", portionYield)}
+														onChange={(e) => setQuantity(index, candidate, toStoredQuantity(Number(e.target.value), "porcao", portionYield))}
+														className="ml-auto w-24 text-right"
+													/>
+												) : (
+													formatSheetNumber(sheet.netWeight)
+												)}
+											</TableCell>
 											<TableCell className="text-right">
 												<Input
 													aria-label={`Índice de reidratação de ${row.ingredient_name}`}
@@ -443,6 +523,17 @@ export function RecipeIngredientsTable({ ingredients, portionYield, onChange, on
 						PB = Peso Bruto · PL = Peso Líquido · FC = PB ÷ PL · IR = Peso reidratado ÷ Peso seco. A faixa PER CAPITA é o valor por porção
 						{portionYield > 0 ? ` (rendimento: ${portionYield} porções)` : " (defina o rendimento na aba Detalhes)"}. Expanda a linha para cadastrar substitutos
 						e escolher qual deles a ficha está lendo.
+					</p>
+				)}
+
+				{/* Digitando por porção, o que vai para o banco é o produto — dizer isso na tela
+				    evita a conclusão de que o rendimento "não fez nada", e avisa que mexer no
+				    rendimento depois reinterpreta o que já foi digitado. */}
+				{ingredients.length > 0 && quantityBasis === "porcao" && (
+					<p className="text-caption text-muted-foreground">
+						Você está digitando a quantidade de <strong className="font-medium text-foreground">1 porção</strong>; a coluna PL total mostra o que é gravado (×{" "}
+						{portionYield > 0 ? portionYield : "rendimento"}). Defina o rendimento antes de digitar — alterá-lo depois muda a leitura por porção das linhas já
+						preenchidas, não o total gravado.
 					</p>
 				)}
 
