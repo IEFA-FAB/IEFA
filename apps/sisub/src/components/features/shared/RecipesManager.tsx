@@ -212,26 +212,17 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, reviewsLoading, menuUsageIds, reviewedAtById])
 
 	// Estado de expand/collapse persistido por aba (preserva o que estava aberto ao entrar numa
-	// preparação e voltar). Guarda as pastas FECHADAS, não as abertas: o default é tudo ABERTO
-	// — o oposto da árvore de insumos, de propósito. Lá a hierarquia é profunda e tem milhares
-	// de nós; aqui são dois níveis e a maioria das preparações está sem pasta, então abrir
-	// recolhido devolveria uma tela quase vazia. Guardando as fechadas, uma pasta criada depois
-	// (ou por outro usuário) nasce aberta em vez de esconder o que acabou de ser movido para lá.
-	const [collapsedIds, setCollapsedIds] = usePersistentState<Set<string>>(`${persistKey}:collapsed`, new Set(), {
+	// preparação e voltar). Guarda as pastas ABERTAS: a tela abre com TUDO RECOLHIDO, o índice
+	// de pastas primeiro, e quem procura uma preparação usa a busca (que já abre a árvore
+	// inteira por `autoExpand`). Já foi o contrário — guardava as fechadas, default tudo aberto
+	// — e a listagem inteira do catálogo caía de uma vez na primeira dobra. Efeito colateral
+	// aceito: pasta criada depois (ou por outro usuário) nasce fechada, como todas as outras.
+	// A chave mudou de `:collapsed` para `:expanded` de propósito — reaproveitá-la faria o
+	// conjunto salvo pela versão anterior ser lido com o sentido invertido.
+	const [expandedIds, setExpandedIds] = usePersistentState<Set<string>>(`${persistKey}:expanded`, new Set(), {
 		serialize: (s) => JSON.stringify([...s]),
 		deserialize: (raw) => new Set(JSON.parse(raw) as string[]),
 	})
-
-	const toggleExpand = (folderId: string) => {
-		setCollapsedIds((prev) => {
-			const next = new Set(prev)
-			if (next.has(folderId)) next.delete(folderId)
-			else next.add(folderId)
-			return next
-		})
-	}
-	const expandAll = () => setCollapsedIds(new Set())
-	const collapseAll = () => setCollapsedIds(allRecipeFolderIds(folders))
 
 	// Busca textual abre a árvore inteira (igual aos insumos). Qualquer filtro RESTRITIVO —
 	// inclusive a origem — esconde pasta que ficou sem resultado; sem isso, escolher uma origem
@@ -239,6 +230,31 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	// nunca aparecia. "Excluídas" não entra: ela amplia o conjunto, não restringe.
 	const autoExpand = !!urlSearch || onlyWeeklyMenu || onlyNotReviewed
 	const hideEmptyFolders = autoExpand || type !== "all"
+
+	// `buildRecipeTree` fala em pastas FECHADAS (o default dele é aberto, o que a árvore de
+	// seleção do planejamento ainda usa). O complemento é tirado aqui, uma vez, em vez de
+	// duplicar a semântica no módulo puro.
+	const collapsedIds = useMemo(() => {
+		const all = allRecipeFolderIds(folders)
+		for (const id of expandedIds) all.delete(id)
+		return all
+	}, [folders, expandedIds])
+
+	// O clique inverte o que a LINHA mostra, não o que está guardado: sob `autoExpand` (busca
+	// ou filtro) a pasta aparece aberta mesmo fora de `expandedIds`, e inverter o conjunto ali
+	// gravaria "abrir" para quem clicou em fechar — a pasta voltaria como a única aberta
+	// quando a busca fosse limpa.
+	const toggleExpand = (folderId: string) => {
+		const showsExpanded = autoExpand || expandedIds.has(folderId)
+		setExpandedIds((prev) => {
+			const next = new Set(prev)
+			if (showsExpanded) next.delete(folderId)
+			else next.add(folderId)
+			return next
+		})
+	}
+	const expandAll = () => setExpandedIds(allRecipeFolderIds(folders))
+	const collapseAll = () => setExpandedIds(new Set())
 
 	const tree = useMemo(
 		() =>
@@ -276,7 +292,11 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	}
 
 	// "Visíveis" = o que está renderizado na árvore. Preparação dentro de pasta recolhida
-	// fica de fora — a ação em massa nunca deve alcançar o que a tela não mostra.
+	// fica de fora — a ação em massa nunca deve alcançar o que a tela não mostra. Com a tela
+	// abrindo recolhida, isso pode ser ZERO: daí a contagem no rótulo e o botão desabilitado,
+	// em vez de um clique que não seleciona nada e não explica por quê.
+	const visibleRecipeCount = useMemo(() => tree.nodes.reduce((count, node) => count + (node.type === "recipe" ? 1 : 0), 0), [tree])
+
 	const selectAllVisible = () => {
 		setSelected((prev) => {
 			const next = new Map(prev)
@@ -382,8 +402,18 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 				<div className="flex flex-wrap items-center gap-2 min-w-0 min-[1400px]:justify-end">
 					{selectionMode ? (
 						<>
-							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todas as visíveis">
-								Selecionar Visíveis
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={selectAllVisible}
+								disabled={visibleRecipeCount === 0}
+								aria-label={
+									visibleRecipeCount === 0
+										? "Nenhuma preparação visível — expanda uma pasta para selecionar"
+										: `Selecionar as ${visibleRecipeCount} preparações visíveis`
+								}
+							>
+								Selecionar Visíveis{visibleRecipeCount > 0 ? ` (${visibleRecipeCount})` : ""}
 							</Button>
 							<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
 								<X className="size-4 mr-2" />
