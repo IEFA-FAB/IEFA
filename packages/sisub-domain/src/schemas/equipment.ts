@@ -184,7 +184,7 @@ export const EquipmentRequirementSchema = z
 		/** `fixed` = a leva inteira usa a mesma unidade (ultracongelador, seladora, balança). */
 		scaling: EquipmentScalingSchema.default("per_batch"),
 		/** Porções cobertas por esta linha. null = a batelada é o `portion_yield` da receita. */
-		batchPortions: z.number().positive().nullish(),
+		batchPortions: z.number().positive().max(1_000_000).nullish(),
 		/** Comparada com a capacidade de UMA zona: "caldeira de pelo menos 100 L" não é atendida por duas de 50. */
 		minCapacityLiters: z.number().positive().nullish(),
 		minCapacityGn: z.number().int().positive().nullish(),
@@ -225,7 +225,7 @@ export const EvaluateRecipeEquipmentFitnessSchema = z.object({
 	 * Volume a produzir. Ausente = pergunta de capacidade funcional ("a cozinha tem o
 	 * equipamento?"). Presente = acrescenta bateladas e ciclos ("cabe, em quantas rodadas?").
 	 */
-	portions: z.number().positive().nullish(),
+	portions: z.number().positive().max(1_000_000).nullish(),
 })
 export type EvaluateRecipeEquipmentFitness = z.infer<typeof EvaluateRecipeEquipmentFitnessSchema>
 

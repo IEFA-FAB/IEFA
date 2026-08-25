@@ -118,9 +118,13 @@ export function evaluateEquipmentFitness(
 	// demandas multiplicadas: é a definição honesta, porque respeita a disputa ENTRE exigências
 	// (dividir slots por exigência, isoladamente, ignoraria que elas brigam pelos mesmos).
 	let maxParallelBatches = single.satisfied ? 1 : 0
-	if (single.satisfied && batches > 1) {
+	// Teto duro: nenhuma batelada roda sem ocupar ao menos um slot, então o paralelo nunca passa
+	// da contagem de slots. Sem isso, um volume absurdo vindo do request (porções = 1e8) faria
+	// `matchOnce` materializar dezenas de milhões de demandas e derrubar o processo.
+	const parallelCeiling = Math.min(batches, Math.max(1, slots.length))
+	if (single.satisfied && parallelCeiling > 1) {
 		let low = 1
-		let high = batches
+		let high = parallelCeiling
 		while (low < high) {
 			const mid = Math.ceil((low + high) / 2)
 			if (matchOnce(requirements, slots, mid).satisfied) low = mid

@@ -51,6 +51,7 @@ export {
 	createEquipmentModel,
 	createEquipmentRole,
 	createEquipmentUnit,
+	dedupeRequirementTargets,
 	deleteEquipmentModel,
 	deleteEquipmentRole,
 	deleteEquipmentUnit,

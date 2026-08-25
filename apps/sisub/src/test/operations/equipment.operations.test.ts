@@ -14,9 +14,11 @@ import {
 	evaluateMenuEquipmentFitness,
 	evaluateRecipeEquipmentFitness,
 	fetchRecipeEquipment,
+	fetchRecipeFlow,
 	listEquipmentModels,
 	listKitchenEquipment,
 	saveRecipeEquipment,
+	saveRecipeFlow,
 	updateEquipmentUnit,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -248,6 +250,35 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(fitness.batches).toBe(9)
 		expect(fitness.max_parallel_batches).toBe(1)
 		expect(fitness.cycles).toBe(9) // …e roda em nove rodadas
+	})
+
+	test("re-salvar o fluxo reaponta a exigência para a etapa NOVA (não a deixa órfã)", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const recipeId = await seeder.seedRecipe({})
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		seeder.trackWhere("recipe_step", "recipe_id", recipeId)
+
+		const step = { clientId: "n1", canvasX: 0, canvasY: 0, utensilIds: [], inputs: [], outputs: [{ clientId: "o1", isFinal: true }], label: "assar" }
+		await saveRecipeFlow(db, ctx, { recipeId, steps: [step] })
+		const first = await fetchRecipeFlow(db, ctx, { recipeId })
+		const firstStepId = first.steps[0].id
+
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id, recipeStepId: firstStepId }] })
+
+		// `saveRecipeFlow` é replace: a mesma etapa renasce com uuid NOVO. Sem remapeamento, a
+		// exigência apontaria para linha apagada — e a gravação seguinte da lista seria recusada.
+		await saveRecipeFlow(db, ctx, { recipeId, steps: [{ ...step, clientId: firstStepId }] })
+		const second = await fetchRecipeFlow(db, ctx, { recipeId })
+		const secondStepId = second.steps[0].id
+		expect(secondStepId).not.toBe(firstStepId)
+
+		const requirements = await fetchRecipeEquipment(db, ctx, { recipeId })
+		expect(requirements).toHaveLength(1)
+		expect(requirements[0].recipe_step_id).toBe(secondStepId)
+
+		// E a lista continua salvável (era este o sintoma visível do bug).
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id, recipeStepId: secondStepId }] })
 	})
 
 	test("cardápio: duas preparações do mesmo almoço disputam o único forno", async () => {

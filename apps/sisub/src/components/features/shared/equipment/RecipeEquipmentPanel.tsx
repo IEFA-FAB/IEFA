@@ -16,7 +16,7 @@
 
 import type { EquipmentModelWire, EquipmentScaling, RecipeEquipmentRequirementWire, SaveRecipeEquipment } from "@iefa/sisub-domain"
 import { AlertTriangle, CheckCircle2, Loader2, Plus, Save, Trash2, Workflow } from "lucide-react"
-import { useEffect, useId, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -74,6 +74,7 @@ function modelLabel(model: EquipmentModelWire): string {
 
 export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string; kitchenId: number | null }) {
 	const rowIdPrefix = useId()
+	const rowCounter = useRef(0)
 	const { data: requirements, isLoading } = useRecipeEquipment(recipeId)
 	const { data: roles = [] } = useEquipmentRoles()
 	const { data: models = [] } = useEquipmentModels(kitchenId)
@@ -101,8 +102,15 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 		setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)))
 	}
 
-	const blankRow = (index: number, seed: Partial<RequirementRow> = {}): RequirementRow => ({
-		key: `${rowIdPrefix}-${index}`,
+	// Chave de linha por CONTADOR, nunca por índice: adicionar, adicionar, remover, adicionar
+	// devolveria a mesma chave de uma linha viva, e a edição passaria a atingir duas de uma vez.
+	const nextKey = () => {
+		rowCounter.current += 1
+		return `${rowIdPrefix}-${rowCounter.current}`
+	}
+
+	const blankRow = (seed: Partial<RequirementRow> = {}): RequirementRow => ({
+		key: nextKey(),
 		target: "role",
 		roleId: roles[0]?.id ?? null,
 		modelId: null,
@@ -118,7 +126,7 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 
 	const addRow = () => {
 		setDirty(true)
-		setRows((current) => [...current, blankRow(current.length)])
+		setRows((current) => [...current, blankRow()])
 	}
 
 	/** Importa as sugestões do fluxo: etapas que usam utensílio já mapeado a um papel. */
@@ -128,9 +136,8 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 			const taken = new Set(current.map((r) => `${r.recipeStepId ?? ""}|${r.roleId ?? r.modelId}`))
 			const fresh = suggestions
 				.filter((s) => !taken.has(`${s.recipe_step_id}|${s.role_id}`))
-				.map((s, i) =>
-					blankRow(current.length + i, {
-						key: `${rowIdPrefix}-flow-${s.recipe_step_id}-${s.role_id}`,
+				.map((s) =>
+					blankRow({
 						roleId: s.role_id,
 						recipeStepId: s.recipe_step_id,
 						notes: `Etapa: ${s.step_label ?? s.utensil_name}`,
