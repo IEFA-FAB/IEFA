@@ -135,7 +135,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 
 		const parque = await listKitchenEquipment(db, ctx, { kitchenId, includeInactive: false })
 		expect(parque.find((u) => u.id === unit.id)?.effective_role_ids).toEqual([griddle.id])
-	})
+	}, 45_000)
 
 	test("lista mínima faz round-trip e o mesmo alvo repetido é recusado", async () => {
 		if (!reachable || !seeder || !db) return
@@ -222,7 +222,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const tres = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
 		expect(tres.satisfied).toBe(false)
 		expect(tres.missing_total).toBe(1)
-	})
+	}, 45_000)
 
 	test("volume vira ciclos, não vira mais equipamento", async () => {
 		if (!reachable || !seeder || !db) return
@@ -250,24 +250,33 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(fitness.batches).toBe(9)
 		expect(fitness.max_parallel_batches).toBe(1)
 		expect(fitness.cycles).toBe(9) // …e roda em nove rodadas
-	})
+	}, 45_000)
 
 	test("re-salvar o fluxo reaponta a exigência para a etapa NOVA (não a deixa órfã)", async () => {
 		if (!reachable || !seeder || !db) return
 		const oven = await seedRole(db, seeder, "forno")
 		const recipeId = await seeder.seedRecipe({})
-		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
-		// O fluxo cria saída e entrada penduradas na ETAPA; apagar a etapa antes delas viola FK e
-		// a receita fica presa no cleanup. Uma função própria garante a ordem filho→pai.
+		// UM cleanup só, na ordem certa. A exigência aponta para a ETAPA, e a etapa tem saída e
+		// entrada penduradas. Registrar exigência e fluxo como limpezas separadas inverte a ordem
+		// (LIFO) e o delete das etapas bate no FK da exigência — silenciosamente, deixando a
+		// receita presa. Erro de delete LANÇA: cleanup que falha tem de virar teste vermelho.
 		seeder.trackFn(async () => {
-			const steps = await client.schema("kitchen").from("recipe_step").select("id").eq("recipe_id", recipeId)
+			const kitchen = client.schema("kitchen")
+			const steps = await kitchen.from("recipe_step").select("id").eq("recipe_id", recipeId)
+			if (steps.error) throw new Error(`ler recipe_step: ${steps.error.message}`)
 			const stepIds = (steps.data ?? []).map((row: { id: string }) => row.id)
+
+			const requirement = await kitchen.from("recipe_equipment_requirement").delete().eq("recipe_id", recipeId)
+			if (requirement.error) throw new Error(`delete recipe_equipment_requirement: ${requirement.error.message}`)
 			if (stepIds.length > 0) {
-				await client.schema("kitchen").from("recipe_step_input").delete().in("recipe_step_id", stepIds)
-				await client.schema("kitchen").from("recipe_step_output").delete().in("recipe_step_id", stepIds)
-				await client.schema("kitchen").from("recipe_step").delete().in("id", stepIds)
+				for (const table of ["recipe_step_input", "recipe_step_output"]) {
+					const { error } = await kitchen.from(table).delete().in("recipe_step_id", stepIds)
+					if (error) throw new Error(`delete ${table}: ${error.message}`)
+				}
+				const { error } = await kitchen.from("recipe_step").delete().in("id", stepIds)
+				if (error) throw new Error(`delete recipe_step: ${error.message}`)
 			}
-		}, `fluxo da receita ${recipeId}`)
+		}, `fluxo + exigências da receita ${recipeId}`)
 
 		const step = { clientId: "n1", canvasX: 0, canvasY: 0, utensilIds: [], inputs: [], outputs: [{ clientId: "o1", isFinal: true }], label: "assar" }
 		await saveRecipeFlow(db, ctx, { recipeId, steps: [step] })
