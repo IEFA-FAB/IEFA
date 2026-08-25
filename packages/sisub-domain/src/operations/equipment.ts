@@ -15,11 +15,13 @@
  */
 
 import {
+	dailyMenuInKitchen,
 	equipmentModelInKitchen,
 	equipmentModelRoleInKitchen,
 	equipmentRoleInKitchen,
 	equipmentUnitInKitchen,
 	equipmentUnitRoleInKitchen,
+	menuItemsInKitchen,
 	recipeEquipmentRequirementInKitchen,
 	recipeStepInKitchen,
 	recipeStepInputInKitchen,
@@ -33,6 +35,7 @@ import type { EquipmentModel, EquipmentModelRole, EquipmentRole, EquipmentUnit, 
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { resolveKitchenFromMenu, resolveProducingKitchen } from "../guards/validate-scope.ts"
 import type {
 	CreateEquipmentModel,
 	CreateEquipmentRole,
@@ -40,6 +43,7 @@ import type {
 	DeleteEquipmentModel,
 	DeleteEquipmentRole,
 	DeleteEquipmentUnit,
+	EvaluateMenuEquipmentFitness,
 	EvaluateRecipeEquipmentFitness,
 	FetchRecipeEquipment,
 	ListEquipmentModels,
@@ -106,6 +110,10 @@ export interface RecipeEquipmentFitnessWire {
 	requirements: RequirementFitnessWire[]
 	/** Nenhuma exigência cadastrada: a preparação não declara o que precisa. */
 	unspecified: boolean
+	/** Cozinha cujo parque foi avaliado — pode não ser a pedida. */
+	producing_kitchen_id: number
+	/** true = quem produz é outra cozinha; a UI precisa dizer isso. */
+	delegated: boolean
 	/** Volume pedido, quando informado. null = só a pergunta funcional foi respondida. */
 	portions: number | null
 	/** Porções de UMA batelada (o `portion_yield` da versão). */
@@ -480,7 +488,17 @@ function toUnitWire(unit: typeof equipmentUnitInKitchen.$inferSelect, model: Equ
 
 export async function listKitchenEquipment(db: SisubDb, ctx: UserContext, input: ListKitchenEquipment): Promise<EquipmentUnitWire[]> {
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
+	return loadKitchenUnits(db, input)
+}
 
+/**
+ * Carrega o parque SEM guard. Só para quem já autorizou o escopo por outro caminho — hoje, o
+ * cálculo de atendimento, que autoriza a cozinha PEDIDA e lê o parque da cozinha PRODUTORA (elas
+ * são diferentes quando um refeitório é servido por cozinha central; ver `resolveProducingKitchen`).
+ * Expor o rótulo dos equipamentos de quem cozinha para você é o ponto do recurso, não um vazamento:
+ * sem isso a resposta seria "não atende" com a lista de faltas em branco.
+ */
+async function loadKitchenUnits(db: SisubDb, input: ListKitchenEquipment): Promise<EquipmentUnitWire[]> {
 	const filters: SQL[] = [eq(equipmentUnitInKitchen.kitchenId, input.kitchenId), isNull(equipmentUnitInKitchen.deletedAt)]
 	if (!input.includeInactive) filters.push(eq(equipmentUnitInKitchen.status, "active"))
 
@@ -910,6 +928,10 @@ export async function evaluateRecipeEquipmentFitness(
 	await requireRecipeRead(db, ctx, input.recipeId)
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
 
+	// A pergunta é sobre o parque de QUEM COZINHA. Refeitório servido por cozinha central não tem
+	// forno nenhum, e responder "não atende" olhando o parque dele seria responder outra pergunta.
+	const { producingKitchenId, delegated } = await resolveProducingKitchen(db, input.kitchenId)
+
 	const requirements = await loadRequirements(db, input.recipeId)
 	const [recipe] = await runQuery("FETCH_FAILED", () =>
 		db
@@ -925,6 +947,8 @@ export async function evaluateRecipeEquipmentFitness(
 	const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
 
 	const empty = {
+		producing_kitchen_id: producingKitchenId,
+		delegated,
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -936,7 +960,7 @@ export async function evaluateRecipeEquipmentFitness(
 		return { satisfied: true, missing_total: 0, requirements: [], unspecified: true, ...empty, max_parallel_batches: batches, cycles: 1 }
 	}
 
-	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: false })
+	const units = await loadKitchenUnits(db, { kitchenId: producingKitchenId, includeInactive: false })
 	const slots: EquipmentSlot[] = units.flatMap((u) =>
 		expandUnitSlots({
 			unitId: u.id,
@@ -983,6 +1007,8 @@ export async function evaluateRecipeEquipmentFitness(
 		satisfied: fitness.satisfied,
 		missing_total: fitness.missingTotal,
 		unspecified: false,
+		producing_kitchen_id: producingKitchenId,
+		delegated,
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1118,4 +1144,174 @@ export async function suggestRecipeEquipmentFromFlow(db: SisubDb, ctx: UserConte
 		})
 	}
 	return suggestions
+}
+
+// ── Atendimento do CARDÁPIO (contenção entre preparações) ─────────────────
+
+export interface MenuEquipmentTargetWire {
+	target_label: string
+	/** Unidades exigidas no PICO, somando as preparações da refeição. */
+	required: number
+	satisfied: number
+	missing: number
+	/** Quem disputa este equipamento — sem os nomes, o aviso não é acionável. */
+	competing_items: { menu_item_id: string; recipe_name: string; quantity: number }[]
+}
+
+export interface MenuEquipmentItemWire {
+	menu_item_id: string
+	recipe_id: string
+	recipe_name: string
+	portions: number | null
+	batch_portions: number | null
+	batches: number
+	/** A preparação não declara equipamento — não entra na conta, e a UI precisa dizer isso. */
+	unspecified: boolean
+}
+
+export interface MenuEquipmentFitnessWire {
+	daily_menu_id: string
+	kitchen_id: number
+	producing_kitchen_id: number
+	delegated: boolean
+	/** true = no pior caso (tudo ao mesmo tempo) o parque atende a refeição inteira. */
+	satisfied: boolean
+	missing_total: number
+	targets: MenuEquipmentTargetWire[]
+	items: MenuEquipmentItemWire[]
+}
+
+/**
+ * Confronta TODAS as preparações de uma refeição com o parque de quem cozinha.
+ *
+ * A pergunta que a tela da preparação não responde: cada ficha, isolada, "atende"; o almoço com
+ * cinco preparações, três delas pedindo forno combinado numa cozinha que tem um, não atende.
+ *
+ * Recorte: uma batelada por item, todas simultâneas. É o PIOR CASO — na prática a cozinha
+ * escalona dentro da janela da refeição, e o número de ciclos por item (na tela da preparação)
+ * é o que diz se dá para escalonar. Assumir o contrário exigiria modelo de tempo; assumir menos
+ * esconderia a disputa, que é justamente o que se quer ver.
+ */
+export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext, input: EvaluateMenuEquipmentFitness): Promise<MenuEquipmentFitnessWire> {
+	const kitchenId = await resolveKitchenFromMenu(db, input.dailyMenuId)
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: kitchenId })
+	const { producingKitchenId, delegated } = await resolveProducingKitchen(db, kitchenId)
+
+	const [menu] = await runQuery("FETCH_FAILED", () =>
+		db.select({ headcount: dailyMenuInKitchen.forecastedHeadcount }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.id, input.dailyMenuId))
+	)
+	const items = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: menuItemsInKitchen.id,
+				recipeId: menuItemsInKitchen.recipeOriginId,
+				plannedPortions: menuItemsInKitchen.plannedPortionQuantity,
+				recipeName: recipesInKitchen.name,
+				portionYield: recipesInKitchen.portionYield,
+			})
+			.from(menuItemsInKitchen)
+			.leftJoin(recipesInKitchen, eq(recipesInKitchen.id, menuItemsInKitchen.recipeOriginId))
+			.where(and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt)))
+	)
+
+	const units = await loadKitchenUnits(db, { kitchenId: producingKitchenId, includeInactive: false })
+	const slots: EquipmentSlot[] = units.flatMap((u) =>
+		expandUnitSlots({
+			unitId: u.id,
+			unitLabel: u.label,
+			modelId: u.model_id,
+			slots: u.effective_slots,
+			roleIds: u.effective_role_ids,
+			capacityLiters: u.model?.slot_capacity_liters ?? null,
+			capacityGn: u.model?.slot_capacity_gn ?? null,
+		})
+	)
+
+	const demands: EquipmentDemandSpec[] = []
+	const demandMeta = new Map<string, { targetKey: string; label: string; itemId: string; recipeName: string; quantity: number }>()
+	const itemsWire: MenuEquipmentItemWire[] = []
+
+	for (const item of items) {
+		if (item.recipeId == null) continue
+		const requirements = await loadRequirements(db, item.recipeId)
+		const recipeBatch = item.portionYield != null ? Number(item.portionYield) : null
+		const portions = item.plannedPortions != null ? Number(item.plannedPortions) : (menu?.headcount ?? null)
+		const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
+
+		itemsWire.push({
+			menu_item_id: item.id,
+			recipe_id: item.recipeId,
+			recipe_name: item.recipeName ?? "Preparação",
+			portions,
+			batch_portions: recipeBatch,
+			batches,
+			unspecified: requirements.length === 0,
+		})
+		if (requirements.length === 0) continue
+
+		const stepLevels = await loadStepLevels(db, item.recipeId)
+		const rows: ConcurrencyRow[] = requirements.map((r) => ({
+			requirementId: r.id,
+			targetKey: targetKey(r),
+			level: r.recipe_step_id != null ? (stepLevels.get(r.recipe_step_id) ?? 0) : null,
+			quantity: r.quantity,
+		}))
+		const concurrentIds = selectConcurrentRequirements(rows)
+
+		for (const req of requirements) {
+			if (!concurrentIds.has(req.id)) continue
+			// Chave composta: o mesmo id de exigência aparece uma vez por item do cardápio.
+			const demandId = `${item.id}:${req.id}`
+			const quantity = req.quantity * batchMultiplier(req, recipeBatch)
+			demands.push({
+				requirementId: demandId,
+				roleId: req.role_id,
+				modelId: req.model_id,
+				quantity,
+				minCapacityLiters: req.min_capacity_liters,
+				minCapacityGn: req.min_capacity_gn,
+				scalesWithBatch: req.scaling !== "fixed",
+			})
+			demandMeta.set(demandId, {
+				targetKey: targetKey(req),
+				label: requirementLabel(req),
+				itemId: item.id,
+				recipeName: item.recipeName ?? "Preparação",
+				quantity,
+			})
+		}
+	}
+
+	const fitness = evaluateEquipmentFitness(demands, slots)
+
+	// Agrega por ALVO: o usuário decide olhando "3 pedem forno, existe 1", não linha a linha.
+	const byTarget = new Map<string, MenuEquipmentTargetWire>()
+	for (const row of fitness.requirements) {
+		const meta = demandMeta.get(row.requirementId)
+		if (!meta) continue
+		const target = byTarget.get(meta.targetKey) ?? {
+			target_label: meta.label,
+			required: 0,
+			satisfied: 0,
+			missing: 0,
+			competing_items: [],
+		}
+		target.required += row.required
+		target.satisfied += row.satisfied
+		target.missing += row.missing
+		target.competing_items.push({ menu_item_id: meta.itemId, recipe_name: meta.recipeName, quantity: meta.quantity })
+		byTarget.set(meta.targetKey, target)
+	}
+
+	const targets = [...byTarget.values()].sort((a, b) => b.missing - a.missing || a.target_label.localeCompare(b.target_label))
+	return {
+		daily_menu_id: input.dailyMenuId,
+		kitchen_id: kitchenId,
+		producing_kitchen_id: producingKitchenId,
+		delegated,
+		satisfied: fitness.missingTotal === 0,
+		missing_total: fitness.missingTotal,
+		targets,
+		items: itemsWire,
+	}
 }

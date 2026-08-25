@@ -18,7 +18,9 @@ import {
 	deleteEquipmentModel,
 	deleteEquipmentRole,
 	deleteEquipmentUnit,
+	EvaluateMenuEquipmentFitnessSchema,
 	EvaluateRecipeEquipmentFitnessSchema,
+	evaluateMenuEquipmentFitness,
 	evaluateRecipeEquipmentFitness,
 	FetchRecipeEquipmentSchema,
 	fetchRecipeEquipment,
@@ -171,4 +173,11 @@ export const setUtensilRoleFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return setUtensilRole(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const evaluateMenuEquipmentFitnessFn = createServerFn({ method: "GET" })
+	.validator(EvaluateMenuEquipmentFitnessSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return evaluateMenuEquipmentFitness(getDb(), ctx, data).catch(handleDomainError)
 	})

@@ -4,6 +4,7 @@ export {
 	resolveKitchenFromMenu,
 	resolveKitchenFromMenuItem,
 	resolveKitchenFromTemplate,
+	resolveProducingKitchen,
 	validateRecipeAccess,
 	validateTemplateAccess,
 } from "./validate-scope.ts"

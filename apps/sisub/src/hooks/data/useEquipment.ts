@@ -20,6 +20,7 @@ import {
 	createEquipmentUnitFn,
 	deleteEquipmentModelFn,
 	deleteEquipmentUnitFn,
+	evaluateMenuEquipmentFitnessFn,
 	evaluateRecipeEquipmentFitnessFn,
 	fetchRecipeEquipmentFn,
 	listEquipmentModelsFn,
@@ -77,6 +78,19 @@ export function useRecipeEquipmentFitness(recipeId: string | undefined, kitchenI
 		queryKey: queryKeys.equipment.fitness(recipeId, kitchenId ?? null, portions ?? null),
 		queryFn: () => evaluateRecipeEquipmentFitnessFn({ data: { recipeId: recipeId as string, kitchenId: kitchenId as number, portions: portions ?? null } }),
 		enabled: !!recipeId && kitchenId != null,
+		staleTime: 60 * 1000,
+	})
+}
+
+/**
+ * Atendimento da refeição inteira: as preparações do mesmo `daily_menu` disputam o parque.
+ * É o que a tela da preparação não vê — cada ficha isolada "atende", o almoço não.
+ */
+export function useMenuEquipmentFitness(dailyMenuId: string | undefined) {
+	return useQuery({
+		queryKey: queryKeys.equipment.menuFitness(dailyMenuId),
+		queryFn: () => evaluateMenuEquipmentFitnessFn({ data: { dailyMenuId: dailyMenuId as string } }),
+		enabled: !!dailyMenuId,
 		staleTime: 60 * 1000,
 	})
 }
