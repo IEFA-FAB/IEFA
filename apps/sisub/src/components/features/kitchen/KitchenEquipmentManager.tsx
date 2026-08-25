@@ -11,6 +11,7 @@
 import type { EquipmentModelWire, EquipmentUnitWire } from "@iefa/sisub-domain"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { usePBAC } from "@/auth/pbac"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -65,6 +66,11 @@ const emptyForm = (): UnitFormState => ({
 })
 
 export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
+	// A rota abre em kitchen:1 (o parque é leitura legítima do chão de fábrica), mas escrever
+	// exige kitchen:2 NAQUELA cozinha. Sem este recorte a tela oferece botões que o servidor
+	// recusa — o usuário só descobre a falta de permissão pelo toast de erro.
+	const { can } = usePBAC()
+	const canWrite = can("kitchen", 2, { type: "kitchen", id: kitchenId })
 	const { data: units, isLoading } = useKitchenEquipment(kitchenId, true)
 	const { data: models = [] } = useEquipmentModels(kitchenId)
 	const { data: roles = [] } = useEquipmentRoles()
@@ -133,12 +139,14 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex justify-end">
-				<Button size="sm" onClick={openCreate}>
-					<Plus className="size-4 mr-2" />
-					Adicionar equipamento
-				</Button>
-			</div>
+			{canWrite ? (
+				<div className="flex justify-end">
+					<Button size="sm" onClick={openCreate}>
+						<Plus className="size-4 mr-2" />
+						Adicionar equipamento
+					</Button>
+				</div>
+			) : null}
 
 			{!units || units.length === 0 ? (
 				<Empty className="border">
@@ -181,12 +189,16 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 									<Badge variant={unit.status === "active" ? "secondary" : "outline"}>{STATUS_LABEL[unit.status] ?? unit.status}</Badge>
 								</TableCell>
 								<TableCell className="text-right">
-									<Button variant="ghost" size="icon" onClick={() => openEdit(unit)} aria-label={`Editar ${unit.label}`}>
-										<Pencil className="size-4" />
-									</Button>
-									<Button variant="ghost" size="icon" onClick={() => deleteUnit.mutate(unit.id)} aria-label={`Remover ${unit.label}`}>
-										<Trash2 className="size-4" />
-									</Button>
+									{canWrite ? (
+										<>
+											<Button variant="ghost" size="icon" onClick={() => openEdit(unit)} aria-label={`Editar ${unit.label}`}>
+												<Pencil className="size-4" />
+											</Button>
+											<Button variant="ghost" size="icon" onClick={() => deleteUnit.mutate(unit.id)} aria-label={`Remover ${unit.label}`}>
+												<Trash2 className="size-4" />
+											</Button>
+										</>
+									) : null}
 								</TableCell>
 							</TableRow>
 						))}

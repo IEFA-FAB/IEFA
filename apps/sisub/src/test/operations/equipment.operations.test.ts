@@ -11,11 +11,14 @@ import {
 	createEquipmentModel,
 	createEquipmentRole,
 	createEquipmentUnit,
+	evaluateMenuEquipmentFitness,
 	evaluateRecipeEquipmentFitness,
 	fetchRecipeEquipment,
+	fetchRecipeFlow,
 	listEquipmentModels,
 	listKitchenEquipment,
 	saveRecipeEquipment,
+	saveRecipeFlow,
 	updateEquipmentUnit,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -247,6 +250,75 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(fitness.batches).toBe(9)
 		expect(fitness.max_parallel_batches).toBe(1)
 		expect(fitness.cycles).toBe(9) // …e roda em nove rodadas
+	})
+
+	test("re-salvar o fluxo reaponta a exigência para a etapa NOVA (não a deixa órfã)", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const recipeId = await seeder.seedRecipe({})
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		seeder.trackWhere("recipe_step", "recipe_id", recipeId)
+
+		const step = { clientId: "n1", canvasX: 0, canvasY: 0, utensilIds: [], inputs: [], outputs: [{ clientId: "o1", isFinal: true }], label: "assar" }
+		await saveRecipeFlow(db, ctx, { recipeId, steps: [step] })
+		const first = await fetchRecipeFlow(db, ctx, { recipeId })
+		const firstStepId = first.steps[0].id
+
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id, recipeStepId: firstStepId }] })
+
+		// `saveRecipeFlow` é replace: a mesma etapa renasce com uuid NOVO. Sem remapeamento, a
+		// exigência apontaria para linha apagada — e a gravação seguinte da lista seria recusada.
+		await saveRecipeFlow(db, ctx, { recipeId, steps: [{ ...step, clientId: firstStepId }] })
+		const second = await fetchRecipeFlow(db, ctx, { recipeId })
+		const secondStepId = second.steps[0].id
+		expect(secondStepId).not.toBe(firstStepId)
+
+		const requirements = await fetchRecipeEquipment(db, ctx, { recipeId })
+		expect(requirements).toHaveLength(1)
+		expect(requirements[0].recipe_step_id).toBe(secondStepId)
+
+		// E a lista continua salvável (era este o sintoma visível do bug).
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id, recipeStepId: secondStepId }] })
+	})
+
+	test("cardápio: duas preparações do mesmo almoço disputam o único forno", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Forno "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		const menu = await seeder.seedDailyMenu({ kitchenId, mealTypeId })
+
+		// Cada preparação, ISOLADA, atende: uma exige um forno e a cozinha tem um.
+		for (const _ of [1, 2]) {
+			const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+			seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+			await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+			await seeder.seedMenuItem({ dailyMenuId: menu.id, recipeId, plannedPortionQuantity: 100 })
+
+			const alone = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
+			expect(alone.satisfied).toBe(true)
+		}
+
+		// Juntas, no mesmo almoço, não: é a pergunta que a tela da preparação não faz.
+		const meal = await evaluateMenuEquipmentFitness(db, ctx, { dailyMenuId: menu.id })
+		expect(meal.satisfied).toBe(false)
+		expect(meal.missing_total).toBe(1)
+		expect(meal.targets[0].required).toBe(2)
+		expect(meal.targets[0].satisfied).toBe(1)
+		expect(meal.targets[0].competing_items).toHaveLength(2)
+		expect(meal.delegated).toBe(false)
 	})
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {

@@ -24,6 +24,7 @@ import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, u
 import { fetchRecipeWithIngredients } from "@/hooks/data/useRecipes"
 import { groupMenuItems } from "@/lib/menu-item-groups"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
+import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
 import { MenuItemCard } from "./MenuItemCard"
 import { RecipeSelector } from "./RecipeSelector"
 import { SubstitutionModal } from "./SubstitutionModal"
@@ -287,6 +288,9 @@ function MealSection({
 								</div>
 							</Field>
 						</div>
+
+						{/* Disputa de equipamento entre as preparações DESTA refeição — só aparece quando falta. */}
+						<MenuEquipmentAlert dailyMenuId={menu.id} />
 
 						<div className="space-y-2">
 							<h4 className="text-subheading">Itens do Cardápio</h4>

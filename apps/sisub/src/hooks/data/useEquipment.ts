@@ -20,6 +20,7 @@ import {
 	createEquipmentUnitFn,
 	deleteEquipmentModelFn,
 	deleteEquipmentUnitFn,
+	evaluateMenuEquipmentFitnessFn,
 	evaluateRecipeEquipmentFitnessFn,
 	fetchRecipeEquipmentFn,
 	listEquipmentModelsFn,
@@ -81,6 +82,19 @@ export function useRecipeEquipmentFitness(recipeId: string | undefined, kitchenI
 	})
 }
 
+/**
+ * Atendimento da refeição inteira: as preparações do mesmo `daily_menu` disputam o parque.
+ * É o que a tela da preparação não vê — cada ficha isolada "atende", o almoço não.
+ */
+export function useMenuEquipmentFitness(dailyMenuId: string | undefined) {
+	return useQuery({
+		queryKey: queryKeys.equipment.menuFitness(dailyMenuId),
+		queryFn: () => evaluateMenuEquipmentFitnessFn({ data: { dailyMenuId: dailyMenuId as string } }),
+		enabled: !!dailyMenuId,
+		staleTime: 60 * 1000,
+	})
+}
+
 /** Sugestões de exigência derivadas do fluxo (etapas com utensílio mapeado a papel). */
 export function useRecipeEquipmentSuggestions(recipeId: string | undefined) {
 	return useQuery({
@@ -122,7 +136,9 @@ export function useCreateEquipmentUnit() {
 	return useMutation({
 		mutationFn: (data: CreateEquipmentUnit) => createEquipmentUnitFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.kitchenUnitsAll() })
+			// Árvore inteira: o parque muda o atendimento da preparação E o do cardápio, e um
+			// alerta que continua acusando falta já resolvida é pior que alerta nenhum.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamento cadastrado")
 		},
 		onError: (error) => toast.error(`Erro ao cadastrar equipamento: ${error.message}`),
@@ -134,7 +150,9 @@ export function useUpdateEquipmentUnit() {
 	return useMutation({
 		mutationFn: (data: UpdateEquipmentUnit) => updateEquipmentUnitFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.kitchenUnitsAll() })
+			// Árvore inteira: o parque muda o atendimento da preparação E o do cardápio, e um
+			// alerta que continua acusando falta já resolvida é pior que alerta nenhum.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamento atualizado")
 		},
 		onError: (error) => toast.error(`Erro ao atualizar equipamento: ${error.message}`),
@@ -146,7 +164,9 @@ export function useDeleteEquipmentUnit() {
 	return useMutation({
 		mutationFn: (unitId: string) => deleteEquipmentUnitFn({ data: { unitId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.kitchenUnitsAll() })
+			// Árvore inteira: o parque muda o atendimento da preparação E o do cardápio, e um
+			// alerta que continua acusando falta já resolvida é pior que alerta nenhum.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamento removido")
 		},
 		onError: (error) => toast.error(`Erro ao remover equipamento: ${error.message}`),
@@ -158,7 +178,7 @@ export function useCreateEquipmentModel() {
 	return useMutation({
 		mutationFn: (data: CreateEquipmentModel) => createEquipmentModelFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.modelsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Modelo cadastrado")
 		},
 		onError: (error) => toast.error(`Erro ao cadastrar modelo: ${error.message}`),
@@ -170,7 +190,7 @@ export function useUpdateEquipmentModel() {
 	return useMutation({
 		mutationFn: (data: UpdateEquipmentModel) => updateEquipmentModelFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.modelsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Modelo atualizado")
 		},
 		onError: (error) => toast.error(`Erro ao atualizar modelo: ${error.message}`),
@@ -182,7 +202,7 @@ export function useDeleteEquipmentModel() {
 	return useMutation({
 		mutationFn: (modelId: string) => deleteEquipmentModelFn({ data: { modelId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.modelsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Modelo removido")
 		},
 		onError: (error) => toast.error(`Erro ao remover modelo: ${error.message}`),

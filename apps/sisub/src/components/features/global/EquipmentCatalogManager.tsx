@@ -125,7 +125,10 @@ export function EquipmentCatalogManager() {
 			roles,
 		}
 		const onSuccess = () => setModelOpen(false)
-		if (editing) updateModel.mutate({ modelId: editing.id, ...common, powerKw: null, notes: null }, { onSuccess })
+		// `powerKw`/`notes` ficam FORA do payload de edição: o diálogo não tem campo para eles, e
+		// mandá-los como null apagaria o que já está gravado (a nota do iHexagon, por exemplo).
+		// No domínio, ausente = mantém; null = limpa.
+		if (editing) updateModel.mutate({ modelId: editing.id, ...common }, { onSuccess })
 		else createModel.mutate({ ...common, powerKw: null, notes: null, isGeneric: false, kitchenId: null }, { onSuccess })
 	}
 

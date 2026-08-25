@@ -15,11 +15,13 @@
  */
 
 import {
+	dailyMenuInKitchen,
 	equipmentModelInKitchen,
 	equipmentModelRoleInKitchen,
 	equipmentRoleInKitchen,
 	equipmentUnitInKitchen,
 	equipmentUnitRoleInKitchen,
+	menuItemsInKitchen,
 	recipeEquipmentRequirementInKitchen,
 	recipeStepInKitchen,
 	recipeStepInputInKitchen,
@@ -33,6 +35,7 @@ import type { EquipmentModel, EquipmentModelRole, EquipmentRole, EquipmentUnit, 
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { resolveKitchenFromMenu, resolveProducingKitchen } from "../guards/validate-scope.ts"
 import type {
 	CreateEquipmentModel,
 	CreateEquipmentRole,
@@ -40,6 +43,7 @@ import type {
 	DeleteEquipmentModel,
 	DeleteEquipmentRole,
 	DeleteEquipmentUnit,
+	EvaluateMenuEquipmentFitness,
 	EvaluateRecipeEquipmentFitness,
 	FetchRecipeEquipment,
 	ListEquipmentModels,
@@ -106,6 +110,10 @@ export interface RecipeEquipmentFitnessWire {
 	requirements: RequirementFitnessWire[]
 	/** Nenhuma exigência cadastrada: a preparação não declara o que precisa. */
 	unspecified: boolean
+	/** Cozinha cujo parque foi avaliado — pode não ser a pedida. */
+	producing_kitchen_id: number
+	/** true = quem produz é outra cozinha; a UI precisa dizer isso. */
+	delegated: boolean
 	/** Volume pedido, quando informado. null = só a pergunta funcional foi respondida. */
 	portions: number | null
 	/** Porções de UMA batelada (o `portion_yield` da versão). */
@@ -223,6 +231,26 @@ export async function deleteEquipmentRole(db: SisubDb, ctx: UserContext, input: 
 	)
 	if (usedByRecipe.length > 0) throw new DomainError("ROLE_IN_USE", "há preparações que exigem este papel — remova a exigência antes")
 
+	const usedByUnit = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: equipmentUnitRoleInKitchen.id })
+			.from(equipmentUnitRoleInKitchen)
+			.where(and(eq(equipmentUnitRoleInKitchen.roleId, input.roleId), isNull(equipmentUnitRoleInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (usedByUnit.length > 0) throw new DomainError("ROLE_IN_USE", "há equipamentos com exceção de papel apontando para este papel — remova-a antes")
+
+	// A ponte com utensílio não tem FK ON DELETE: um papel soft-deletado continuaria sendo
+	// sugerido pelo fluxo e explodiria só na gravação da lista.
+	const usedByUtensil = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: utensilInKitchen.id })
+			.from(utensilInKitchen)
+			.where(and(eq(utensilInKitchen.roleId, input.roleId), isNull(utensilInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (usedByUtensil.length > 0) throw new DomainError("ROLE_IN_USE", "há utensílios mapeados para este papel — desfaça o mapeamento antes")
+
 	await mutateOrFail("DELETE_FAILED", "papel não encontrado", () =>
 		db
 			.update(equipmentRoleInKitchen)
@@ -272,6 +300,10 @@ function toModelWire(row: typeof equipmentModelInKitchen.$inferSelect, roles: Eq
 
 export async function listEquipmentModels(db: SisubDb, ctx: UserContext, input: ListEquipmentModels = {}): Promise<EquipmentModelWire[]> {
 	requireCatalogRead(ctx)
+	// Pedir o catálogo DE UMA COZINHA exige permissão NELA: o catálogo global é de todos, mas o
+	// modelo que uma cozinha cadastrou é dela. Sem este gate, `kitchenId` no input seria um
+	// enumerador do parque alheio.
+	if (input.kitchenId != null) requireAnyPermission(ctx, ["kitchen", "kitchen-production", "global"], 1, { type: "kitchen", id: input.kitchenId })
 
 	// Catálogo global SEMPRE visível; o da cozinha entra quando ela é informada.
 	const scope =
@@ -442,6 +474,17 @@ export async function deleteEquipmentModel(db: SisubDb, ctx: UserContext, input:
 	)
 	if (inUse.length > 0) throw new DomainError("MODEL_IN_USE", "há equipamentos cadastrados com este modelo — remova-os antes")
 
+	// Simétrico ao papel: apagar um modelo que alguma ficha exige deixa a lista daquela
+	// preparação impossível de salvar (`assertModelVisible` passa a devolver NotFound).
+	const requiredBy = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: recipeEquipmentRequirementInKitchen.id })
+			.from(recipeEquipmentRequirementInKitchen)
+			.where(and(eq(recipeEquipmentRequirementInKitchen.modelId, input.modelId), isNull(recipeEquipmentRequirementInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (requiredBy.length > 0) throw new DomainError("MODEL_IN_USE", "há preparações que exigem este modelo — remova a exigência antes")
+
 	const now = new Date().toISOString()
 	await db.transaction(async (tx) => {
 		await mutateOrFail("DELETE_FAILED", "modelo não encontrado", () =>
@@ -480,7 +523,17 @@ function toUnitWire(unit: typeof equipmentUnitInKitchen.$inferSelect, model: Equ
 
 export async function listKitchenEquipment(db: SisubDb, ctx: UserContext, input: ListKitchenEquipment): Promise<EquipmentUnitWire[]> {
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
+	return loadKitchenUnits(db, input)
+}
 
+/**
+ * Carrega o parque SEM guard. Só para quem já autorizou o escopo por outro caminho — hoje, o
+ * cálculo de atendimento, que autoriza a cozinha PEDIDA e lê o parque da cozinha PRODUTORA (elas
+ * são diferentes quando um refeitório é servido por cozinha central; ver `resolveProducingKitchen`).
+ * Expor o rótulo dos equipamentos de quem cozinha para você é o ponto do recurso, não um vazamento:
+ * sem isso a resposta seria "não atende" com a lista de faltas em branco.
+ */
+async function loadKitchenUnits(db: SisubDb, input: ListKitchenEquipment): Promise<EquipmentUnitWire[]> {
 	const filters: SQL[] = [eq(equipmentUnitInKitchen.kitchenId, input.kitchenId), isNull(equipmentUnitInKitchen.deletedAt)]
 	if (!input.includeInactive) filters.push(eq(equipmentUnitInKitchen.status, "active"))
 
@@ -826,13 +879,23 @@ export async function copyRecipeEquipmentRequirements(
 	)
 	if (rows.length === 0) return
 
+	// Etapa que não veio junto colapsa o vínculo para null — e duas linhas do mesmo papel
+	// colidiriam no índice único DEPOIS de a nova versão já existir. Dedupe antes de inserir.
+	const mapped = rows.map((r) => ({
+		row: r,
+		stepId: r.recipeStepId != null ? (stepIdMap.get(r.recipeStepId) ?? null) : null,
+		target: r.roleId ?? r.modelId,
+		quantity: r.quantity,
+	}))
+	const { keep } = dedupeRequirementTargets(mapped)
+
 	await runQuery("INSERT_FAILED", () =>
 		db
 			.insert(recipeEquipmentRequirementInKitchen)
 			.values(
-				rows.map((r) => ({
+				keep.map(({ row: r, stepId }) => ({
 					recipeId: dstRecipeId,
-					recipeStepId: r.recipeStepId != null ? (stepIdMap.get(r.recipeStepId) ?? null) : null,
+					recipeStepId: stepId,
 					roleId: r.roleId,
 					modelId: r.modelId,
 					quantity: r.quantity,
@@ -910,6 +973,10 @@ export async function evaluateRecipeEquipmentFitness(
 	await requireRecipeRead(db, ctx, input.recipeId)
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
 
+	// A pergunta é sobre o parque de QUEM COZINHA. Refeitório servido por cozinha central não tem
+	// forno nenhum, e responder "não atende" olhando o parque dele seria responder outra pergunta.
+	const { producingKitchenId, delegated } = await resolveProducingKitchen(db, input.kitchenId)
+
 	const requirements = await loadRequirements(db, input.recipeId)
 	const [recipe] = await runQuery("FETCH_FAILED", () =>
 		db
@@ -925,6 +992,8 @@ export async function evaluateRecipeEquipmentFitness(
 	const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
 
 	const empty = {
+		producing_kitchen_id: producingKitchenId,
+		delegated,
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -936,7 +1005,7 @@ export async function evaluateRecipeEquipmentFitness(
 		return { satisfied: true, missing_total: 0, requirements: [], unspecified: true, ...empty, max_parallel_batches: batches, cycles: 1 }
 	}
 
-	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: false })
+	const units = await loadKitchenUnits(db, { kitchenId: producingKitchenId, includeInactive: false })
 	const slots: EquipmentSlot[] = units.flatMap((u) =>
 		expandUnitSlots({
 			unitId: u.id,
@@ -983,6 +1052,8 @@ export async function evaluateRecipeEquipmentFitness(
 		satisfied: fitness.satisfied,
 		missing_total: fitness.missingTotal,
 		unspecified: false,
+		producing_kitchen_id: producingKitchenId,
+		delegated,
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1118,4 +1189,275 @@ export async function suggestRecipeEquipmentFromFlow(db: SisubDb, ctx: UserConte
 		})
 	}
 	return suggestions
+}
+
+// ── Atendimento do CARDÁPIO (contenção entre preparações) ─────────────────
+
+export interface MenuEquipmentTargetWire {
+	/** Chave estável do alvo (papel/modelo + capacidade mínima). Dois alvos podem ter o MESMO rótulo. */
+	target_key: string
+	target_label: string
+	/** Unidades exigidas no PICO, somando as preparações da refeição. */
+	required: number
+	satisfied: number
+	missing: number
+	/** Quem disputa este equipamento — sem os nomes, o aviso não é acionável. */
+	competing_items: { menu_item_id: string; recipe_name: string; quantity: number }[]
+}
+
+export interface MenuEquipmentItemWire {
+	menu_item_id: string
+	recipe_id: string
+	recipe_name: string
+	portions: number | null
+	batch_portions: number | null
+	batches: number
+	/** A preparação não declara equipamento — não entra na conta, e a UI precisa dizer isso. */
+	unspecified: boolean
+}
+
+export interface MenuEquipmentFitnessWire {
+	daily_menu_id: string
+	kitchen_id: number
+	producing_kitchen_id: number
+	delegated: boolean
+	/** true = no pior caso (tudo ao mesmo tempo) o parque atende a refeição inteira. */
+	satisfied: boolean
+	missing_total: number
+	targets: MenuEquipmentTargetWire[]
+	items: MenuEquipmentItemWire[]
+}
+
+/**
+ * Confronta TODAS as preparações de uma refeição com o parque de quem cozinha.
+ *
+ * A pergunta que a tela da preparação não responde: cada ficha, isolada, "atende"; o almoço com
+ * cinco preparações, três delas pedindo forno combinado numa cozinha que tem um, não atende.
+ *
+ * Recorte: uma batelada por item, todas simultâneas. É o PIOR CASO — na prática a cozinha
+ * escalona dentro da janela da refeição, e o número de ciclos por item (na tela da preparação)
+ * é o que diz se dá para escalonar. Assumir o contrário exigiria modelo de tempo; assumir menos
+ * esconderia a disputa, que é justamente o que se quer ver.
+ */
+export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext, input: EvaluateMenuEquipmentFitness): Promise<MenuEquipmentFitnessWire> {
+	const kitchenId = await resolveKitchenFromMenu(db, input.dailyMenuId)
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: kitchenId })
+	const { producingKitchenId, delegated } = await resolveProducingKitchen(db, kitchenId)
+
+	const [menu] = await runQuery("FETCH_FAILED", () =>
+		db.select({ headcount: dailyMenuInKitchen.forecastedHeadcount }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.id, input.dailyMenuId))
+	)
+	const items = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: menuItemsInKitchen.id,
+				recipeId: menuItemsInKitchen.recipeOriginId,
+				plannedPortions: menuItemsInKitchen.plannedPortionQuantity,
+				recipeName: recipesInKitchen.name,
+				portionYield: recipesInKitchen.portionYield,
+			})
+			.from(menuItemsInKitchen)
+			.leftJoin(recipesInKitchen, eq(recipesInKitchen.id, menuItemsInKitchen.recipeOriginId))
+			.where(and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt)))
+	)
+
+	const units = await loadKitchenUnits(db, { kitchenId: producingKitchenId, includeInactive: false })
+	const slots: EquipmentSlot[] = units.flatMap((u) =>
+		expandUnitSlots({
+			unitId: u.id,
+			unitLabel: u.label,
+			modelId: u.model_id,
+			slots: u.effective_slots,
+			roleIds: u.effective_role_ids,
+			capacityLiters: u.model?.slot_capacity_liters ?? null,
+			capacityGn: u.model?.slot_capacity_gn ?? null,
+		})
+	)
+
+	const demands: EquipmentDemandSpec[] = []
+	const demandMeta = new Map<string, { targetKey: string; label: string; itemId: string; recipeName: string; quantity: number }>()
+	const itemsWire: MenuEquipmentItemWire[] = []
+
+	for (const item of items) {
+		if (item.recipeId == null) continue
+		const requirements = await loadRequirements(db, item.recipeId)
+		const recipeBatch = item.portionYield != null ? Number(item.portionYield) : null
+		const portions = item.plannedPortions != null ? Number(item.plannedPortions) : (menu?.headcount ?? null)
+		const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
+
+		itemsWire.push({
+			menu_item_id: item.id,
+			recipe_id: item.recipeId,
+			recipe_name: item.recipeName ?? "Preparação",
+			portions,
+			batch_portions: recipeBatch,
+			batches,
+			unspecified: requirements.length === 0,
+		})
+		if (requirements.length === 0) continue
+
+		const stepLevels = await loadStepLevels(db, item.recipeId)
+		const rows: ConcurrencyRow[] = requirements.map((r) => ({
+			requirementId: r.id,
+			targetKey: targetKey(r),
+			level: r.recipe_step_id != null ? (stepLevels.get(r.recipe_step_id) ?? 0) : null,
+			quantity: r.quantity,
+		}))
+		const concurrentIds = selectConcurrentRequirements(rows)
+
+		for (const req of requirements) {
+			if (!concurrentIds.has(req.id)) continue
+			// Chave composta: o mesmo id de exigência aparece uma vez por item do cardápio.
+			const demandId = `${item.id}:${req.id}`
+			const quantity = req.quantity * batchMultiplier(req, recipeBatch)
+			demands.push({
+				requirementId: demandId,
+				roleId: req.role_id,
+				modelId: req.model_id,
+				quantity,
+				minCapacityLiters: req.min_capacity_liters,
+				minCapacityGn: req.min_capacity_gn,
+				scalesWithBatch: req.scaling !== "fixed",
+			})
+			demandMeta.set(demandId, {
+				targetKey: targetKey(req),
+				label: requirementLabel(req),
+				itemId: item.id,
+				recipeName: item.recipeName ?? "Preparação",
+				quantity,
+			})
+		}
+	}
+
+	const fitness = evaluateEquipmentFitness(demands, slots)
+
+	// Agrega por ALVO: o usuário decide olhando "3 pedem forno, existe 1", não linha a linha.
+	const byTarget = new Map<string, MenuEquipmentTargetWire>()
+	for (const row of fitness.requirements) {
+		const meta = demandMeta.get(row.requirementId)
+		if (!meta) continue
+		const target = byTarget.get(meta.targetKey) ?? {
+			target_key: meta.targetKey,
+			target_label: meta.label,
+			required: 0,
+			satisfied: 0,
+			missing: 0,
+			competing_items: [],
+		}
+		target.required += row.required
+		target.satisfied += row.satisfied
+		target.missing += row.missing
+		target.competing_items.push({ menu_item_id: meta.itemId, recipe_name: meta.recipeName, quantity: meta.quantity })
+		byTarget.set(meta.targetKey, target)
+	}
+
+	const targets = [...byTarget.values()].sort((a, b) => b.missing - a.missing || a.target_label.localeCompare(b.target_label))
+	return {
+		daily_menu_id: input.dailyMenuId,
+		kitchen_id: kitchenId,
+		producing_kitchen_id: producingKitchenId,
+		delegated,
+		satisfied: fitness.missingTotal === 0,
+		missing_total: fitness.missingTotal,
+		targets,
+		items: itemsWire,
+	}
+}
+
+/**
+ * Linhas a manter quando duas exigências acabam no MESMO alvo e escopo — o que acontece toda vez
+ * que um vínculo com etapa é perdido (fluxo re-salvo, versão nova sem aquela etapa) e várias
+ * linhas colapsam para `recipe_step_id = null`.
+ *
+ * O índice único `recipe_equipment_requirement_target_uniq` recusaria a segunda com 23505, e o
+ * erro apareceria DEPOIS de a nova versão da receita já ter sido inserida. Vence a de maior
+ * quantidade: a exigência que sobra tem de cobrir a que sumiu.
+ */
+export function dedupeRequirementTargets<T extends { stepId: string | null; target: string | null; quantity: number }>(rows: T[]): { keep: T[]; drop: T[] } {
+	const best = new Map<string, T>()
+	const drop: T[] = []
+	for (const row of rows) {
+		const key = `${row.stepId ?? ""}|${row.target ?? ""}`
+		const current = best.get(key)
+		if (current == null) {
+			best.set(key, row)
+			continue
+		}
+		if (row.quantity > current.quantity) {
+			best.set(key, row)
+			drop.push(current)
+		} else {
+			drop.push(row)
+		}
+	}
+	return { keep: [...best.values()], drop }
+}
+
+/**
+ * Reaponta as exigências para as etapas da nova gravação do fluxo.
+ *
+ * `saveRecipeFlow` é um replace: soft-deleta o grafo e re-insere TUDO com uuid novo. Sem este
+ * remapeamento, toda exigência amarrada a etapa vira ponteiro para uma linha apagada — e o
+ * estrago é silencioso nos dois lados: a tela passa a recusar qualquer gravação da lista
+ * ("etapa que não é desta preparação") e o cálculo de concorrência joga a exigência órfã no
+ * nível 0, cobrando equipamento a mais.
+ *
+ * Etapa que sumiu do grafo perde o vínculo (vira exigência da preparação inteira) em vez de
+ * levar a exigência junto: o equipamento continua sendo necessário, só não se sabe mais quando.
+ */
+export async function remapRequirementStepBindings(db: SisubDb, recipeId: string, stepIdMap: Map<string, string>): Promise<void> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: recipeEquipmentRequirementInKitchen.id,
+				stepId: recipeEquipmentRequirementInKitchen.recipeStepId,
+				roleId: recipeEquipmentRequirementInKitchen.roleId,
+				modelId: recipeEquipmentRequirementInKitchen.modelId,
+				quantity: recipeEquipmentRequirementInKitchen.quantity,
+			})
+			.from(recipeEquipmentRequirementInKitchen)
+			.where(
+				and(
+					eq(recipeEquipmentRequirementInKitchen.recipeId, recipeId),
+					isNull(recipeEquipmentRequirementInKitchen.deletedAt),
+					isNotNull(recipeEquipmentRequirementInKitchen.recipeStepId)
+				)
+			)
+	)
+	if (rows.length === 0) return
+
+	const remapped = rows.map((row) => ({
+		id: row.id,
+		previousStepId: row.stepId,
+		stepId: row.stepId != null ? (stepIdMap.get(row.stepId) ?? null) : null,
+		target: row.roleId ?? row.modelId,
+		quantity: row.quantity,
+	}))
+	const { keep, drop } = dedupeRequirementTargets(remapped)
+	const now = new Date().toISOString()
+
+	for (const row of keep) {
+		if (row.stepId === row.previousStepId) continue
+		await runQuery("UPDATE_FAILED", () =>
+			db
+				.update(recipeEquipmentRequirementInKitchen)
+				.set({ recipeStepId: row.stepId })
+				.where(eq(recipeEquipmentRequirementInKitchen.id, row.id))
+				.then(() => undefined)
+		)
+	}
+	if (drop.length > 0) {
+		await runQuery("DELETE_FAILED", () =>
+			db
+				.update(recipeEquipmentRequirementInKitchen)
+				.set({ deletedAt: now })
+				.where(
+					inArray(
+						recipeEquipmentRequirementInKitchen.id,
+						drop.map((d) => d.id)
+					)
+				)
+				.then(() => undefined)
+		)
+	}
 }
