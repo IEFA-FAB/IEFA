@@ -16,7 +16,7 @@ que não cobre), como os tetos de consumo funcionam e o que ainda falta migrar.
 |---|---|---|---|---|
 | sisub — chat dos módulos | `MODULE_CHAT_AI_*` | **bedrock** | groq | ✅ migrado |
 | sisub — assistente de analytics | `ANALYTICS_AI_*` | **bedrock** | groq | ✅ migrado |
-| sucont — oráculo | `SUCONT_AI_*` | **bedrock** | (não configurada) | ✅ migrado — reserva opcional, ainda sem secret |
+| sucont — oráculo | `SUCONT_AI_*` | **bedrock** | **bedrock** (`gpt-oss-120b`) | ✅ migrado — primário, reserva e tetos aplicados |
 | alpha — grafo LangGraph | `ALPHA_AI_*` | nvidia | — | ❌ dívida (ver abaixo) |
 
 `apps/sisub-mcp` não chama modelo: ele **expõe** ferramentas para o modelo do cliente MCP.
@@ -386,16 +386,18 @@ obrigatório** de `generateText`/`generateJson`: não existe assinatura sem dono
 server function nova não consegue chamar o modelo sem passar pelo teto. Ele vem sempre do
 `UserContext` do guard, nunca do input validado.
 
-O que falta é **configuração no `terraform.tfvars` real** (secret `TF_TFVARS_JSON`), e a ordem
-importa — o item 1 é o que separa "oráculo quebrado" de "oráculo funcionando":
+**Resolvido em 2026-08-25** — o secret `TF_TFVARS_JSON` recebeu, na chave `sucont`:
+`SUCONT_AI_MODEL = "global.anthropic.claude-opus-4-6-v1"` em `sa-east-1` como primário,
+`SUCONT_FALLBACK_AI_* = bedrock / openai.gpt-oss-120b-1:0 / sa-east-1` como reserva e os três
+tetos `SUCONT_AI_MAX_*`.
 
-1. `SUCONT_AI_MODEL = "openai.gpt-oss-120b-1:0"` e `SUCONT_AI_REGION = "sa-east-1"` (ver a
-   seção *Escolha do modelo do oráculo*). O que está aplicado hoje
-   (`us.anthropic.claude-sonnet-4-5-20250929-v1:0` em `us-east-1`) é negado pela task role;
-2. os tetos `SUCONT_AI_MAX_*` — estão no `.example`, não no aplicado;
-3. a **reserva**: `SUCONT_FALLBACK_AI_*` está declarado no `.env.schema`, mas a API key ainda
-   não foi ao `secret_names` nem ao `sync-secrets.yml` — sem ela o adapter roda só com o
-   primário. Note que reserva **não** cobre o item 1: `AccessDenied` não é transitório.
+Duas coisas que a versão anterior desta lista dizia e que estavam erradas, e por isso ficam
+registradas: (a) o primário NÃO é o gpt-oss — ele é a reserva; e (b) a reserva **não precisa
+de API key** nem de entrada em `secret_names`/`sync-secrets.yml`, porque também é Bedrock,
+keyless pela mesma task role. Uma reserva com API key só faria sentido para sair da AWS.
+
+Continua valendo que reserva **não** cobre erro de credencial: `AccessDenied` não é
+transitório, então um modelo fora do escopo da policy quebra o app com ou sem reserva.
 
 **sisub** — mesma pendência de configuração, sem o bug: reserva e tetos estão no
 `secret_names` do `.example`, mas a task definition aplicada não tem nenhum deles. O chat roda
