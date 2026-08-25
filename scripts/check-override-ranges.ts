@@ -29,6 +29,26 @@ const FORCED: Record<string, string> = {
 		"cópia aninhada do commitizen pin `4.17.21`, vulnerável a GHSA-r5fr-rjxr-66jc (code injection via _.template). Cadeia é só dev. Sai quando o commitizen subir.",
 }
 
+/**
+ * Override que ESPELHA o pin exato de outro pacote — não é piso, e alargar quebraria.
+ *
+ * O dono fixa a dependência em versão EXATA. O override existe só para o lockfile não resolver
+ * as duas lado a lado; uma faixa deixaria a espelhada flutuar à frente do dono e parear com uma
+ * versão contra a qual ele nunca foi publicado.
+ *
+ * Espelho não entra no check de "capa a faixa do consumidor": esse check pergunta se saiu versão
+ * mais nova no registro, e para espelho a resposta é sempre sim no dia seguinte a cada release do
+ * dono — ruído permanente, não achado. O que vale checar é o INVARIANTE: a spec do override tem
+ * que ser exatamente o que o dono fixa NESTA árvore. Isso só muda quando alguém mexe no lock de
+ * propósito, e aí o gate cobra mover os dois juntos.
+ */
+const MIRRORS: Record<string, { owner: string; reason: string }> = {
+	"@tanstack/query-core": {
+		owner: "@tanstack/react-query",
+		reason: "react-query fixa query-core em versão exata (PR #202, #237). Sai se o react-query passar a declarar faixa.",
+	},
+}
+
 const ROOT = new URL("..", import.meta.url).pathname
 
 function parseLock(text: string): {
@@ -101,6 +121,30 @@ function resolvedVersions(name: string, lock: ReturnType<typeof parseLock>): str
 	return [...found]
 }
 
+/**
+ * Todo pin distinto que `owner` declara para `name` nesta árvore.
+ *
+ * Conjunto, não o primeiro: com duas cópias do dono no lock, "o primeiro" deixa a ordem das
+ * chaves do bun.lock decidir o invariante em silêncio — e o gate passaria a exigir que o override
+ * espelhasse um pin aninhado velho.
+ */
+function pinnedByOwner(owner: string, name: string, lock: ReturnType<typeof parseLock>): string[] {
+	const pins = new Set<string>()
+	for (const entry of Object.values(lock.packages)) {
+		const id = entry[0]
+		if (typeof id !== "string") continue
+		const at = id.lastIndexOf("@")
+		if (at <= 0 || id.slice(0, at) !== owner) continue
+		const meta = entry[2]
+		if (!meta || typeof meta !== "object") continue
+		for (const field of DEP_FIELDS) {
+			const range = (meta as Record<string, Record<string, string>>)[field]?.[name]
+			if (range) pins.add(range)
+		}
+	}
+	return [...pins]
+}
+
 async function publishedVersions(name: string): Promise<string[]> {
 	// `replace` com string troca só a primeira ocorrência. Nome de pacote válido tem no máximo
 	// uma `/`, mas escapar pela metade é o tipo de coisa que só falha no dia em que deixa de ser
@@ -120,6 +164,9 @@ const overrides: Record<string, string> = pkg.overrides ?? {}
 
 const caps: string[] = []
 const undocumented: string[] = []
+const brokenMirrors: string[] = []
+/** Espelho que realmente existe nesta árvore. O resto é entrada morta, igual FORCED. */
+const liveMirrors = new Set<string>()
 /** FORCED que realmente forçou algo nesta árvore. O resto é entrada morta. */
 const stillForcing = new Set<string>()
 
@@ -131,6 +178,34 @@ for (const [name, spec] of Object.entries(overrides)) {
 	if (resolved.length === 0) continue
 	// Pior caso: a maior resolvida. Se nem ela alcança o que o consumidor quer, é cap.
 	const top = resolved.sort(Bun.semver.order).at(-1) as string
+
+	// ANTES do bloco de forcedOn: quando o dono anda e o override fica, o espelho passa a forçar
+	// por cima do próprio dono, e o caminho de FORCED capturaria o caso — mandando registrar em
+	// FORCED e apagar a entrada de MIRRORS, exatamente o oposto do certo. Espelho decide por si.
+	const mirror = MIRRORS[name]
+	if (mirror) {
+		// Invariante do espelho: a spec TEM que ser o pin exato do dono nesta árvore.
+		const pins = pinnedByOwner(mirror.owner, name, lock)
+		if (pins.length === 0) {
+			brokenMirrors.push(`  ${name}: espelha ${mirror.owner}, que não declara ${name} no lock — espelho sem dono, apague de MIRRORS.`)
+		} else if (pins.length > 1) {
+			// Duas cópias do dono na árvore: qual manda viraria a ordem das chaves do lock
+			// decidindo em silêncio. Melhor falar do que eleger uma.
+			brokenMirrors.push(
+				`  ${name}: ${mirror.owner} aparece na árvore fixando ${pins.map((v) => `"${v}"`).join(" e ")} — ` +
+					"espelho não sabe qual seguir. Deduplique o dono antes."
+			)
+		} else if (pins[0] !== spec) {
+			brokenMirrors.push(
+				`  ${name}: override "${spec}", mas ${mirror.owner} fixa "${pins[0]}" nesta árvore\n` +
+					`    → mova os DOIS juntos: alinhe o override em "${pins[0]}", ou suba ${mirror.owner}.`
+			)
+		} else {
+			liveMirrors.add(name)
+		}
+		// Sem check de frescor: ver o comentário de MIRRORS.
+		continue
+	}
 
 	const forcedOn = consumers.filter((c) => !Bun.semver.satisfies(top, c.range))
 	if (forcedOn.length > 0) {
@@ -180,6 +255,17 @@ if (caps.length > 0) {
 	console.error(caps.join("\n\n"))
 }
 
+if (brokenMirrors.length > 0) {
+	console.error("\n❌ espelho fora de sincronia com o pin do dono:\n")
+	console.error(brokenMirrors.join("\n\n"))
+}
+
+const staleMirrors = Object.keys(MIRRORS).filter((name) => !overrides[name])
+if (staleMirrors.length > 0) {
+	console.error("\n❌ entrada morta em MIRRORS — não há override com esse nome, apague:\n")
+	for (const name of staleMirrors) console.error(`  ${name}`)
+}
+
 // FORCED é dívida com saída. Entrada que não força mais nada já cumpriu a condição de saída —
 // deixar apodrecer é exatamente como um allowlist "temporário" vira permanente.
 const stale = Object.keys(FORCED).filter((name) => !stillForcing.has(name))
@@ -190,9 +276,12 @@ if (stale.length > 0) {
 	}
 }
 
-if (caps.length > 0 || undocumented.length > 0 || stale.length > 0) {
+if (caps.length > 0 || undocumented.length > 0 || stale.length > 0 || brokenMirrors.length > 0 || staleMirrors.length > 0) {
 	console.error("")
 	process.exit(1)
 }
 
-console.log(`✅ ${Object.keys(overrides).length} overrides — nenhum capa a faixa do consumidor ` + `(${stillForcing.size} forçados, justificados em FORCED)`)
+console.log(
+	`✅ ${Object.keys(overrides).length} overrides — nenhum capa a faixa do consumidor ` +
+		`(${stillForcing.size} forçados em FORCED, ${liveMirrors.size} espelhado${liveMirrors.size === 1 ? "" : "s"} em sincronia)`
+)
