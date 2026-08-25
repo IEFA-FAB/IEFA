@@ -55,7 +55,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { describeDriverError, runQuery } from "../utils/index.ts"
+import { describeDriverError, insertOneOrFail, runQuery } from "../utils/index.ts"
 
 /** Código exigido nas sentinelas — segunda âncora, além de `is_training`. */
 const TRAINING_CODE = "TREINO"
@@ -92,6 +92,17 @@ export type TrainingResetLogRow = {
 }
 
 export type TrainingResetResult = {
+	/**
+	 * Id da linha de auditoria DESTA execução (`core.training_reset_log`).
+	 *
+	 * Sem ele, quem chamou só consegue achar o próprio registro assumindo que é o mais
+	 * recente do histórico — e não é: o INSERT do log acontece ANTES do advisory lock,
+	 * então um segundo reset que chega enquanto o primeiro trabalha já tem linha gravada,
+	 * com `started_at` posterior e status `running`. É essa suposição que fazia a suíte de
+	 * integração acusar `expected 'running' to be 'succeeded'` sempre que dois runs
+	 * dividiam o banco.
+	 */
+	reset_id: string
 	deleted_counts: Record<string, number>
 	duration_ms: number
 }
@@ -406,7 +417,11 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 
 	// Registro ANTES da transação de dados: uma falha no meio precisa deixar rastro apesar do
 	// rollback. Um reset que quebrou e não registrou nada é o pior dos mundos.
-	const [logRow] = await runQuery("INSERT_FAILED", () =>
+	//
+	// E falha AQUI aborta: sem a linha de log, os dois UPDATEs seguintes casariam com
+	// `id = undefined` e o reset correria sem rastro nenhum — o cenário que este registro
+	// antecipado existe para impedir.
+	const logRow = await insertOneOrFail("INSERT_FAILED", "no row returned inserting the training reset log", () =>
 		db.insert(trainingResetLogInCore).values({ actorId, startedAt: startedAt.toISOString(), status: "running" }).returning({ id: trainingResetLogInCore.id })
 	)
 
@@ -469,11 +484,11 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 			db
 				.update(trainingResetLogInCore)
 				.set({ finishedAt: new Date().toISOString(), durationMs, deletedCounts, status: "succeeded" })
-				.where(eq(trainingResetLogInCore.id, logRow?.id as string))
+				.where(eq(trainingResetLogInCore.id, logRow.id))
 				.then(() => undefined)
 		)
 
-		return { deleted_counts: deletedCounts, duration_ms: durationMs }
+		return { reset_id: logRow.id, deleted_counts: deletedCounts, duration_ms: durationMs }
 	} catch (error) {
 		// Fora da transação revertida — este UPDATE persiste.
 		await db
@@ -484,7 +499,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 				status: "failed",
 				errorMessage: describeDriverError(error),
 			})
-			.where(eq(trainingResetLogInCore.id, logRow?.id as string))
+			.where(eq(trainingResetLogInCore.id, logRow.id))
 		throw error
 	}
 }

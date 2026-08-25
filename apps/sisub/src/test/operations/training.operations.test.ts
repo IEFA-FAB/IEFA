@@ -150,11 +150,18 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			const info = await fetchTrainingScope(db, ctx)
 			expect(info.pending_counts["kitchen.menu_template"]).toBeGreaterThan(0)
 
-			// A execução deixou rastro.
-			const history = await listTrainingResets(db, ctx, { limit: 5 })
-			expect(history[0]?.status).toBe("succeeded")
-			expect(history[0]?.actor_id).toBe(ctx.userId)
-			expect(history[0]?.duration_ms).not.toBeNull()
+			// A execução deixou rastro — o DESTA execução, achado pelo id que ela devolveu.
+			//
+			// Ler `history[0]` presumia que o registro mais recente é o nosso, e o banco de
+			// integração é compartilhado: um segundo reset que chega enquanto este trabalha já
+			// inseriu a linha dele (o INSERT do log acontece antes do advisory lock), com
+			// `started_at` posterior e status `running`. Era o `expected 'running' to be
+			// 'succeeded'` que derrubava o CI/CD da main sem nada de errado no código.
+			const history = await listTrainingResets(db, ctx, { limit: 20 })
+			const ours = history.find((row) => row.id === result.reset_id)
+			expect(ours?.status).toBe("succeeded")
+			expect(ours?.actor_id).toBe(ctx.userId)
+			expect(ours?.duration_ms).not.toBeNull()
 		},
 		RESET_TIMEOUT_MS
 	)
