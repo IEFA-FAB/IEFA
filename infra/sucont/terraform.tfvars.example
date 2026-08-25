@@ -27,7 +27,7 @@ environment_variables = {
   # ATENCAO ao conferir: a FORMA do ARN depende do TIPO do id.
   #   - `global.anthropic.*` e inference profile (leva a conta no ARN):
   #       arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
-  #   - `openai.gpt-oss-*` (o valor abaixo) e foundation model (SEM conta no ARN):
+  #   - `openai.gpt-oss-*` (hoje o valor da RESERVA) e foundation model (SEM conta):
   #       arn:aws:bedrock:sa-east-1::foundation-model/<id>
   # Simular o id abaixo na forma de inference-profile devolve implicitDeny e faz
   # parecer que a config esta errada quando nao esta. Liste conforme o tipo:
@@ -35,7 +35,15 @@ environment_variables = {
   #     --query "modelSummaries[?starts_with(modelId,'openai.gpt-oss')].modelId"
   #   aws bedrock list-inference-profiles --region sa-east-1 \
   #     --query "inferenceProfileSummaries[?starts_with(inferenceProfileId,'global.anthropic')].inferenceProfileId"
-  # E simule com a forma certa para o valor aplicado:
+  # E simule com a forma certa PARA CADA valor aplicado — primario e reserva usam
+  # formas DIFERENTES de ARN, e usar a do outro devolve implicitDeny sobre uma
+  # config correta:
+  #   # primario (inference profile, COM conta)
+  #   aws iam simulate-principal-policy \
+  #     --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
+  #     --action-names bedrock:InvokeModelWithResponseStream \
+  #     --resource-arns arn:aws:bedrock:sa-east-1:<conta>:inference-profile/global.anthropic.claude-opus-4-6-v1
+  #   # reserva (foundation model, SEM conta)
   #   aws iam simulate-principal-policy \
   #     --policy-source-arn arn:aws:iam::<conta>:role/iefa-prod-ecs-task \
   #     --action-names bedrock:InvokeModelWithResponseStream \
@@ -45,11 +53,12 @@ environment_variables = {
   # `inference-profile/global.anthropic.*`, `foundation-model/anthropic.*` e
   # `foundation-model/openai.gpt-oss-*` — e mais nada. Um perfil `us.anthropic.*`
   # e implicitDeny, e o oraculo do sucont ficou meses quebrado exatamente assim.
-  # Conferir antes de trocar:
-  #   aws iam simulate-principal-policy \
-  #     --policy-source-arn arn:aws:iam::103256050857:role/iefa-prod-ecs-task \
-  #     --action-names bedrock:InvokeModel --resource-arns "<arn do modelo>"
   #
+  # O SUFIXO NAO SEGUE REGRA — confira o id na conta, nao pelo padrao do vizinho.
+  # Na MESMA geracao: `global.anthropic.claude-opus-4-6-v1` (com `-v1`) e
+  # `global.anthropic.claude-sonnet-4-6` (sem sufixo). Id errado vira
+  # ValidationException, que NAO e transitoria — a reserva nao entra e o app fica
+  # sem IA.
   # Estar na policy nao basta: o modelo tambem precisa estar HABILITADO na conta.
   # Em 2026-08-21, opus-5, opus-4-8, opus-4-7, sonnet-5 e fable-5 respondem
   # `AccessDeniedException: not available for this account`. Habilitados:

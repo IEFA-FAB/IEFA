@@ -94,8 +94,15 @@ describe("isRetryableAdapterFailure — transporte", () => {
 		expect(isRetryableAdapterFailure(new Error("Unexpected error: http2 request did not get a response"))).toBe(true)
 	})
 
-	test("erro de credencial continua não sendo transitório", () => {
+	// O risco de um padrão novo é o oposto do que ele conserta: casar demais. Estes
+	// dois são erros de CONFIGURAÇÃO — id de modelo errado e modelo não habilitado na
+	// conta. Tratá-los como transitórios faria a reserva atender no lugar do primário
+	// indefinidamente, escondendo a config quebrada atrás de um app que "funciona".
+	test("erro de configuração não vira transitório por conter texto parecido", () => {
+		expect(isRetryableAdapterFailure(new Error("ValidationException: The provided model identifier is invalid"))).toBe(false)
 		expect(isRetryableAdapterFailure(new Error("anthropic.claude-opus-4-8 is not available for this account"))).toBe(false)
+		// A frase inteira é que vale; "response" solto não pode acionar a troca.
+		expect(isRetryableAdapterFailure(new Error("The response schema was rejected"))).toBe(false)
 	})
 })
 

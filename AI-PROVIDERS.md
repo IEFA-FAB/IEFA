@@ -68,6 +68,21 @@ Duas consequências, ambas verificadas:
 > SSE, o document-ai e o conta-genérica. O caminho certo para diferenciar é um prefixo de env
 > próprio por consumidor (ex.: `SUCONT_DGC_AI_*`), não trocar o compartilhado de novo.
 >
+> Por isso o `model-bench.ts` foi refeito nos TRÊS caminhos antes de aplicar — o
+> `document-ai.fn.ts` corta em 60 s por `Promise.race`, e trocar o modelo compartilhado sem
+> medir esse caminho é o jeito de quebrar a geração de ofício consertando o oráculo
+> (`sa-east-1`, 2026-08-21):
+>
+> | modelo | chat TTFB | json:analysis | json:fab |
+> |---|---|---|---|
+> | opus-4-6 | 2,4 s | 21,6 s | 16,1 s |
+> | sonnet-4-6 | 1,2 s | 31,1 s | 13,5 s |
+> | gpt-oss-120b | 3,7 s | 3,1 s | 4,3 s |
+>
+> Os nove casos passaram com schema completo. O Opus 4.6 cabe no orçamento de 60 s com folga
+> de ~2,8x no pior caminho, e tem TTFB **menor** que o gpt-oss no chat — o custo da troca é
+> tempo total, não o primeiro token.
+>
 > **Nem todo modelo da policy está habilitado na conta.** Em 2026-08-21, `opus-5`, `opus-4-8`,
 > `opus-4-7`, `sonnet-5` e `fable-5` aparecem em `list-inference-profiles` como `ACTIVE` e
 > ainda assim devolvem `AccessDeniedException: not available for this account` — habilitação
@@ -173,9 +188,12 @@ responde `Converse` na região da stack, confirmado por chamada real. A afirmaç
 errada e foi o que colocou o sucont num id que a task role não pode invocar. Não cruze região
 sem motivo.
 
-**Confirme o id exato antes de aplicar** — ele não é estável, e nem todo modelo usa o sufixo
-`-v1:0` (o 4.6 é `global.anthropic.claude-sonnet-4-6`, sem sufixo; o 4.5 é
-`global.anthropic.claude-sonnet-4-5-20250929-v1:0`, com):
+**Confirme o id exato antes de aplicar** — o sufixo não segue regra, nem por geração nem por
+família. Na MESMA geração 4.6 convivem `global.anthropic.claude-opus-4-6-v1` (com `-v1`) e
+`global.anthropic.claude-sonnet-4-6` (sem sufixo); o 4.5 é
+`global.anthropic.claude-sonnet-4-5-20250929-v1:0` (com data e `-v1:0`). Não deduza do
+vizinho — liste na conta. Id errado devolve `ValidationException`, que **não** é transitória:
+a reserva não entra e o app fica sem IA.
 
 ```sh
 # Claude → inference profile (prefixo `global.`)
