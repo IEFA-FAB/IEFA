@@ -42,8 +42,8 @@ type ModelFormState = {
 	manufacturer: string
 	name: string
 	capacityLabel: string
-	capacityLiters: string
-	capacityGn: string
+	slotCapacityLiters: string
+	slotCapacityGn: string
 	slots: string
 	roleIds: Set<string>
 	primaryRoleId: string | null
@@ -53,8 +53,8 @@ const emptyModelForm = (): ModelFormState => ({
 	manufacturer: "",
 	name: "",
 	capacityLabel: "",
-	capacityLiters: "",
-	capacityGn: "",
+	slotCapacityLiters: "",
+	slotCapacityGn: "",
 	slots: "1",
 	roleIds: new Set(),
 	primaryRoleId: null,
@@ -91,8 +91,8 @@ export function EquipmentCatalogManager() {
 			manufacturer: model.manufacturer ?? "",
 			name: model.name,
 			capacityLabel: model.capacity_label ?? "",
-			capacityLiters: model.capacity_liters != null ? String(model.capacity_liters) : "",
-			capacityGn: model.capacity_gn != null ? String(model.capacity_gn) : "",
+			slotCapacityLiters: model.slot_capacity_liters != null ? String(model.slot_capacity_liters) : "",
+			slotCapacityGn: model.slot_capacity_gn != null ? String(model.slot_capacity_gn) : "",
 			slots: String(model.simultaneous_slots),
 			roleIds: new Set(model.roles.map((r) => r.role_id)),
 			primaryRoleId: model.roles.find((r) => r.is_primary)?.role_id ?? null,
@@ -117,8 +117,8 @@ export function EquipmentCatalogManager() {
 			manufacturer: form.manufacturer.trim() === "" ? null : form.manufacturer.trim(),
 			name: form.name.trim(),
 			capacityLabel: form.capacityLabel.trim() === "" ? null : form.capacityLabel.trim(),
-			capacityLiters: numberOrNull(form.capacityLiters),
-			capacityGn: numberOrNull(form.capacityGn),
+			slotCapacityLiters: numberOrNull(form.slotCapacityLiters),
+			slotCapacityGn: numberOrNull(form.slotCapacityGn),
 			simultaneousSlots: Math.max(1, Number(form.slots) || 1),
 			roles,
 		}
@@ -264,7 +264,7 @@ export function EquipmentCatalogManager() {
 
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
 							<Field>
-								<FieldLabel htmlFor="model-capacity-label">Capacidade</FieldLabel>
+								<FieldLabel htmlFor="model-capacity-label">Capacidade (rótulo)</FieldLabel>
 								<FieldContent>
 									<Input
 										id="model-capacity-label"
@@ -275,26 +275,27 @@ export function EquipmentCatalogManager() {
 								</FieldContent>
 							</Field>
 							<Field>
-								<FieldLabel htmlFor="model-capacity-liters">Litros</FieldLabel>
+								<FieldLabel htmlFor="model-capacity-liters">Litros por zona</FieldLabel>
 								<FieldContent>
 									<Input
 										id="model-capacity-liters"
 										type="number"
 										min={1}
-										value={form.capacityLiters}
-										onChange={(e) => setForm((f) => ({ ...f, capacityLiters: e.target.value }))}
+										value={form.slotCapacityLiters}
+										onChange={(e) => setForm((f) => ({ ...f, slotCapacityLiters: e.target.value }))}
 									/>
+									<FieldDescription>De UMA cuba, não a soma: o iVario Pro 2-S é 25, não 50.</FieldDescription>
 								</FieldContent>
 							</Field>
 							<Field>
-								<FieldLabel htmlFor="model-capacity-gn">Cubas GN</FieldLabel>
+								<FieldLabel htmlFor="model-capacity-gn">GN por zona</FieldLabel>
 								<FieldContent>
 									<Input
 										id="model-capacity-gn"
 										type="number"
 										min={1}
-										value={form.capacityGn}
-										onChange={(e) => setForm((f) => ({ ...f, capacityGn: e.target.value }))}
+										value={form.slotCapacityGn}
+										onChange={(e) => setForm((f) => ({ ...f, slotCapacityGn: e.target.value }))}
 									/>
 								</FieldContent>
 							</Field>

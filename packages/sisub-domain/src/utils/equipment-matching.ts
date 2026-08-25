@@ -29,6 +29,11 @@ export interface EquipmentSlot {
 	slotIndex: number
 	/** Papéis EFETIVOS: os do modelo ∪ adições da unidade − remoções da unidade. */
 	roleIds: readonly string[]
+	/**
+	 * Capacidade DESTA zona, não do equipamento inteiro. Um iVario Pro 2-S entra como dois slots
+	 * de 25 L — nunca um de 50: somar as cubas faria uma exigência de "panela de 40 L" casar com
+	 * um equipamento que só tem panelas de 25.
+	 */
 	capacityLiters: number | null
 	capacityGn: number | null
 }
@@ -151,7 +156,11 @@ export function resolveUnitRoleIds(modelRoleIds: readonly string[], overrides: r
 	return [...effective]
 }
 
-/** Expande uma unidade instalada nos seus slots (uma entrada por zona independente). */
+/**
+ * Expande uma unidade instalada nos seus slots (uma entrada por zona independente).
+ * `capacityLiters`/`capacityGn` são POR ZONA — o modelo guarda `slot_capacity_*` justamente
+ * para que replicá-los aqui não invente capacidade.
+ */
 export function expandUnitSlots(unit: {
 	unitId: string
 	unitLabel: string

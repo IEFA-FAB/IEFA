@@ -87,7 +87,7 @@ export interface RecipeEquipmentFitnessWire {
 	unspecified: boolean
 }
 
-const MODEL_NUMERIC_KEYS = new Set(["capacity_liters", "power_kw"])
+const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw"])
 const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters"])
 
 const numOrNull = (n: number | null | undefined): string | null => (n != null ? String(n) : null)
@@ -312,8 +312,8 @@ export async function createEquipmentModel(db: SisubDb, ctx: UserContext, input:
 				.values({
 					manufacturer: input.manufacturer ?? null,
 					name: input.name,
-					capacityLiters: numOrNull(input.capacityLiters),
-					capacityGn: input.capacityGn ?? null,
+					slotCapacityLiters: numOrNull(input.slotCapacityLiters),
+					slotCapacityGn: input.slotCapacityGn ?? null,
 					capacityLabel: input.capacityLabel ?? null,
 					simultaneousSlots: input.simultaneousSlots,
 					powerKw: numOrNull(input.powerKw),
@@ -351,8 +351,8 @@ export async function updateEquipmentModel(db: SisubDb, ctx: UserContext, input:
 		const patch: Record<string, unknown> = {}
 		if (input.manufacturer !== undefined) patch.manufacturer = input.manufacturer ?? null
 		if (input.name != null) patch.name = input.name
-		if (input.capacityLiters !== undefined) patch.capacityLiters = numOrNull(input.capacityLiters)
-		if (input.capacityGn !== undefined) patch.capacityGn = input.capacityGn ?? null
+		if (input.slotCapacityLiters !== undefined) patch.slotCapacityLiters = numOrNull(input.slotCapacityLiters)
+		if (input.slotCapacityGn !== undefined) patch.slotCapacityGn = input.slotCapacityGn ?? null
 		if (input.capacityLabel !== undefined) patch.capacityLabel = input.capacityLabel ?? null
 		if (input.simultaneousSlots != null) patch.simultaneousSlots = input.simultaneousSlots
 		if (input.powerKw !== undefined) patch.powerKw = numOrNull(input.powerKw)
@@ -843,8 +843,8 @@ export async function evaluateRecipeEquipmentFitness(
 			modelId: u.model_id,
 			slots: u.effective_slots,
 			roleIds: u.effective_role_ids,
-			capacityLiters: u.model?.capacity_liters ?? null,
-			capacityGn: u.model?.capacity_gn ?? null,
+			capacityLiters: u.model?.slot_capacity_liters ?? null,
+			capacityGn: u.model?.slot_capacity_gn ?? null,
 		})
 	)
 	const labelByUnitId = new Map(units.map((u) => [u.id, u.label]))

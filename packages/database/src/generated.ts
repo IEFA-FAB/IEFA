@@ -4379,9 +4379,7 @@ export type Database = {
 			}
 			equipment_model: {
 				Row: {
-					capacity_gn: number | null
 					capacity_label: string | null
-					capacity_liters: number | null
 					created_at: string
 					deleted_at: string | null
 					id: string
@@ -4392,12 +4390,12 @@ export type Database = {
 					notes: string | null
 					power_kw: number | null
 					simultaneous_slots: number
+					slot_capacity_gn: number | null
+					slot_capacity_liters: number | null
 					slug: string | null
 				}
 				Insert: {
-					capacity_gn?: number | null
 					capacity_label?: string | null
-					capacity_liters?: number | null
 					created_at?: string
 					deleted_at?: string | null
 					id?: string
@@ -4408,12 +4406,12 @@ export type Database = {
 					notes?: string | null
 					power_kw?: number | null
 					simultaneous_slots?: number
+					slot_capacity_gn?: number | null
+					slot_capacity_liters?: number | null
 					slug?: string | null
 				}
 				Update: {
-					capacity_gn?: number | null
 					capacity_label?: string | null
-					capacity_liters?: number | null
 					created_at?: string
 					deleted_at?: string | null
 					id?: string
@@ -4424,6 +4422,8 @@ export type Database = {
 					notes?: string | null
 					power_kw?: number | null
 					simultaneous_slots?: number
+					slot_capacity_gn?: number | null
+					slot_capacity_liters?: number | null
 					slug?: string | null
 				}
 				Relationships: []

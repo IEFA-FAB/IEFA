@@ -51,6 +51,23 @@ describe("slotServesDemand", () => {
 		expect(slotServesDemand(s, demand("r", { roleId: PRESSURE, minCapacityLiters: 10 }))).toBe(false)
 	})
 
+	test("capacidade é POR ZONA: duas cubas de 25 L não atendem uma exigência de 40 L", () => {
+		// Regressão da modelagem: o iVario Pro 2-S anuncia "2 × 25 L". Guardar 50 no modelo e
+		// replicar nos dois slots faria este caso passar, prometendo uma panela que não existe.
+		const slots = expandUnitSlots({
+			unitId: "ivario-1",
+			unitLabel: "iVario 1",
+			modelId: IVARIO,
+			slots: 2,
+			roleIds: [PRESSURE],
+			capacityLiters: 25,
+			capacityGn: null,
+		})
+		const result = evaluateEquipmentFitness([demand("r1", { roleId: PRESSURE, minCapacityLiters: 40 })], slots)
+		expect(result.satisfied).toBe(false)
+		expect(evaluateEquipmentFitness([demand("r2", { roleId: PRESSURE, minCapacityLiters: 25 })], slots).satisfied).toBe(true)
+	})
+
 	test("capacidade em GN respeita o mínimo", () => {
 		const s = slot("u1", [COMBI], { capacityGn: 10 })
 		expect(slotServesDemand(s, demand("r", { roleId: COMBI, minCapacityGn: 10 }))).toBe(true)

@@ -52,7 +52,7 @@ on conflict (code) do nothing;
 
 -- ── Modelos Rational ─────────────────────────────────────────────────────────
 
-insert into kitchen.equipment_model (slug, manufacturer, name, capacity_gn, capacity_liters, capacity_label, simultaneous_slots, notes)
+insert into kitchen.equipment_model (slug, manufacturer, name, slot_capacity_gn, slot_capacity_liters, capacity_label, simultaneous_slots, notes)
 values
 	('rational-icombi-pro-6-1-1',      'Rational', 'iCombi Pro 6-1/1',   6,  null, '6 × GN 1/1',  1, null),
 	('rational-icombi-pro-6-2-1',      'Rational', 'iCombi Pro 6-2/1',   6,  null, '6 × GN 2/1',  1, null),
@@ -66,8 +66,10 @@ values
 	('rational-ihexagon-6-1-1',        'Rational', 'iHexagon 6-1/1',   6,  null, '6 × GN 1/1',  1, 'Combina ar quente, vapor e micro-ondas.'),
 	('rational-ihexagon-10-1-1',       'Rational', 'iHexagon 10-1/1',  10, null, '10 × GN 1/1', 1, 'Combina ar quente, vapor e micro-ondas.'),
 	-- iVario: as duas cubas do 2-XS/2-S são independentes — dois papéis ao mesmo tempo.
-	('rational-ivario-pro-2-xs',       'Rational', 'iVario Pro 2-XS',  null, 34,  '2 × 17 L',   2, null),
-	('rational-ivario-pro-2-s',        'Rational', 'iVario Pro 2-S',   null, 50,  '2 × 25 L',   2, null),
+	-- Capacidade é POR CUBA (17 e 25), não a soma: somar diria que o 2-S atende uma exigência
+	-- de panela de 40 L, e ele não atende — são duas panelas de 25.
+	('rational-ivario-pro-2-xs',       'Rational', 'iVario Pro 2-XS',  null, 17,  '2 × 17 L',   2, null),
+	('rational-ivario-pro-2-s',        'Rational', 'iVario Pro 2-S',   null, 25,  '2 × 25 L',   2, null),
 	('rational-ivario-pro-l',          'Rational', 'iVario Pro L',     null, 100, '100 L',      1, null),
 	('rational-ivario-pro-xl',         'Rational', 'iVario Pro XL',    null, 150, '150 L',      1, null)
 -- Índice único é PARCIAL (só slug não nulo): a inferência exige repetir o predicado.
@@ -75,7 +77,7 @@ on conflict (slug) where slug is not null do nothing;
 
 -- ── Modelos genéricos ────────────────────────────────────────────────────────
 
-insert into kitchen.equipment_model (slug, manufacturer, name, capacity_gn, capacity_liters, capacity_label, simultaneous_slots, is_generic)
+insert into kitchen.equipment_model (slug, manufacturer, name, slot_capacity_gn, slot_capacity_liters, capacity_label, simultaneous_slots, is_generic)
 values
 	('generic-combi-oven-6gn',      null, 'Forno combinado 6 GN',          6,  null, '6 × GN 1/1',  1, true),
 	('generic-combi-oven-10gn',     null, 'Forno combinado 10 GN',         10, null, '10 × GN 1/1', 1, true),

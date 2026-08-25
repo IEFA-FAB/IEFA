@@ -2224,8 +2224,8 @@ export const equipmentModelInKitchen = kitchen.table("equipment_model", {
 	slug: text(),
 	manufacturer: text(),
 	name: text().notNull(),
-	capacityLiters: numeric("capacity_liters"),
-	capacityGn: smallint("capacity_gn"),
+	slotCapacityLiters: numeric("slot_capacity_liters"),
+	slotCapacityGn: smallint("slot_capacity_gn"),
 	capacityLabel: text("capacity_label"),
 	simultaneousSlots: integer("simultaneous_slots").default(1).notNull(),
 	powerKw: numeric("power_kw"),
@@ -2245,8 +2245,8 @@ export const equipmentModelInKitchen = kitchen.table("equipment_model", {
 			name: "equipment_model_kitchen_id_fkey"
 		}),
 	check("equipment_model_slots_check", sql`simultaneous_slots > 0`),
-	check("equipment_model_capacity_check", sql`(capacity_liters IS NULL) OR (capacity_liters > (0)::numeric)`),
-	check("equipment_model_capacity_gn_check", sql`(capacity_gn IS NULL) OR (capacity_gn > 0)`),
+	check("equipment_model_capacity_check", sql`(slot_capacity_liters IS NULL) OR (slot_capacity_liters > (0)::numeric)`),
+	check("equipment_model_capacity_gn_check", sql`(slot_capacity_gn IS NULL) OR (slot_capacity_gn > 0)`),
 ]);
 
 export const equipmentModelRoleInKitchen = kitchen.table("equipment_model_role", {

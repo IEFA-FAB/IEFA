@@ -75,9 +75,9 @@ create table if not exists kitchen.equipment_model (
 	slug               text,                             -- chave natural do catálogo global (null em modelo de cozinha)
 	manufacturer       text,                             -- 'Rational'; null em modelo genérico
 	name               text not null,                    -- 'iVario Pro 2-S'
-	capacity_liters    numeric,                          -- capacidade útil total em litros (cuba, caldeira, fritadeira)
-	capacity_gn        smallint,                         -- capacidade em cubas GN 1/1 (forno combinado, estufa, rack)
-	capacity_label     text,                             -- como o fabricante anuncia: '6 × GN 1/1', '2 × 25 L'
+	slot_capacity_liters numeric,                        -- capacidade útil de UMA zona, em litros (uma cuba, a caldeira)
+	slot_capacity_gn     smallint,                       -- capacidade útil de UMA zona, em cubas GN 1/1
+	capacity_label       text,                           -- como o fabricante anuncia o TOTAL: '6 × GN 1/1', '2 × 25 L'
 	simultaneous_slots integer not null default 1,       -- zonas independentes (cubas, bocas, câmaras)
 	power_kw           numeric,
 	is_generic         boolean not null default false,   -- modelo sem marca, p/ cozinha que só sabe "tem um forno combinado"
@@ -86,8 +86,8 @@ create table if not exists kitchen.equipment_model (
 	created_at         timestamptz not null default now(),
 	deleted_at         timestamptz,
 	constraint equipment_model_slots_check check (simultaneous_slots > 0),
-	constraint equipment_model_capacity_check check (capacity_liters is null or capacity_liters > 0),
-	constraint equipment_model_capacity_gn_check check (capacity_gn is null or capacity_gn > 0)
+	constraint equipment_model_capacity_check check (slot_capacity_liters is null or slot_capacity_liters > 0),
+	constraint equipment_model_capacity_gn_check check (slot_capacity_gn is null or slot_capacity_gn > 0)
 );
 create unique index if not exists equipment_model_slug_uniq
 	on kitchen.equipment_model (slug) where slug is not null;
@@ -99,6 +99,8 @@ create index if not exists equipment_model_kitchen_idx
 
 comment on table kitchen.equipment_model is
 	'Modelo comercial de equipamento. kitchen_id null = catálogo global; preenchido = modelo criado por uma cozinha. Os papéis que o modelo assume ficam em equipment_model_role.';
+comment on column kitchen.equipment_model.slot_capacity_liters is
+	'Capacidade de UMA zona, não do equipamento inteiro. Um iVario Pro 2-S são duas cubas de 25 L: 25, não 50 — a exigência "panela de 40 L" NÃO é atendida por ele, e somar as cubas diria que sim. O total anunciado vive em capacity_label, que é texto de exibição.';
 comment on column kitchen.equipment_model.simultaneous_slots is
 	'Zonas independentes do equipamento (cubas do iVario, bocas do fogão, câmaras do forno). Quantas exigências distintas a unidade atende AO MESMO TEMPO. Um multifuncional de 1 cuba assume vários papéis, mas um por vez.';
 

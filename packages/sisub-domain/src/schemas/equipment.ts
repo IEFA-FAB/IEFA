@@ -81,8 +81,9 @@ export type ModelRole = z.infer<typeof ModelRoleSchema>
 export const CreateEquipmentModelSchema = z.object({
 	manufacturer: z.string().max(120).nullish(),
 	name: z.string().min(1).max(200),
-	capacityLiters: z.number().positive().nullish(),
-	capacityGn: z.number().int().positive().nullish(),
+	/** Capacidade de UMA zona, não do equipamento inteiro (iVario Pro 2-S = 25 L, não 50). */
+	slotCapacityLiters: z.number().positive().nullish(),
+	slotCapacityGn: z.number().int().positive().nullish(),
 	capacityLabel: z.string().max(120).nullish(),
 	/** Zonas independentes (cubas, bocas, câmaras): quantas exigências a unidade atende ao mesmo tempo. */
 	simultaneousSlots: z.number().int().positive().default(1),
@@ -99,8 +100,8 @@ export const UpdateEquipmentModelSchema = z.object({
 	modelId: UuidSchema,
 	manufacturer: z.string().max(120).nullish(),
 	name: z.string().min(1).max(200).nullish(),
-	capacityLiters: z.number().positive().nullish(),
-	capacityGn: z.number().int().positive().nullish(),
+	slotCapacityLiters: z.number().positive().nullish(),
+	slotCapacityGn: z.number().int().positive().nullish(),
 	capacityLabel: z.string().max(120).nullish(),
 	simultaneousSlots: z.number().int().positive().nullish(),
 	powerKw: z.number().positive().nullish(),
@@ -172,6 +173,7 @@ export const EquipmentRequirementSchema = z
 		roleId: UuidSchema.nullish(),
 		modelId: UuidSchema.nullish(),
 		quantity: z.number().int().positive().max(99).default(1),
+		/** Comparada com a capacidade de UMA zona: "caldeira de pelo menos 100 L" não é atendida por duas de 50. */
 		minCapacityLiters: z.number().positive().nullish(),
 		minCapacityGn: z.number().int().positive().nullish(),
 		notes: z.string().max(500).nullish(),
