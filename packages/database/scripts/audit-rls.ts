@@ -13,6 +13,7 @@
  *   ERRO   secdef_search_path    função SECURITY DEFINER sem search_path fixo → hijack
  *   ERRO   view_security_definer view sem security_invoker E com GRANT para anon/authenticated
  *   ERRO   secdef_client_execute função SECURITY DEFINER executável por anon/authenticated
+ *   ERRO   client_write_grant    GRANT de escrita para anon/authenticated sem policy que sustente
  *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
  *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
@@ -23,6 +24,14 @@
  * alcançável). `journal.published_articles` dava UPDATE/DELETE em `journal.articles` a
  * qualquer usuário logado, e `journal.get_article_details` entregava o peer review cego a
  * anônimo. Ver a migration 20260825155457.
+ *
+ * `client_write_grant` e `secdef_client_execute` existem como GATE porque o banco não
+ * consegue se defender sozinho aqui: `alter default privileges … revoke execute on
+ * functions from public` NÃO gruda. O Postgres mescla o default embutido (que concede
+ * EXECUTE a PUBLIC) com o que está em `pg_default_acl`, então toda função nova nasce
+ * executável por `anon`. Medido neste banco: criar uma função de teste depois do revoke
+ * ainda dá `=X/postgres` no ACL. Para tabelas o default embutido não concede nada a
+ * PUBLIC, e por isso o `revoke` de tabela/sequence de 20260825160953 gruda.
  *
  * Uso:
  *   SISUB_DATABASE_URL=postgres://... bun run audit:rls
@@ -165,6 +174,51 @@ async function auditTables(schemas: string[]): Promise<Finding[]> {
 		}
 		return []
 	})
+}
+
+/**
+ * GRANT de escrita para anon/authenticated sem policy de escrita que o sustente.
+ *
+ * Dois motivos para isto ser erro, não aviso:
+ *
+ *   - TRUNCATE **não passa por RLS**. Policy nenhuma protege: quem tem o privilégio
+ *     esvazia a tabela. Era o caso de ~20 tabelas até 2026-08-25, herdado do `GRANT ALL`
+ *     default da Supabase (não alcançável pelo PostgREST, que só emite
+ *     SELECT/INSERT/UPDATE/DELETE/RPC, mas privilégio que não deveria existir).
+ *   - INSERT/UPDATE/DELETE sem policy correspondente são inertes hoje — e é justamente
+ *     por isso que passam despercebidos até alguém criar uma policy permissiva e abrir
+ *     escrita anônima sem perceber que o GRANT já estava lá.
+ *
+ * Se algum dia um app precisar escrever pelo PostgREST, o par (policy de escrita + GRANT)
+ * aparece junto e o lint se cala sozinho.
+ */
+async function auditClientWriteGrants(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ schema: string; table: string; role: string; privs: string[]; write_policies: number }[]>`
+		select
+			n.nspname as schema,
+			c.relname as table,
+			r as role,
+			array(
+				select priv from unnest(array['INSERT','UPDATE','DELETE','TRUNCATE']) priv
+				where has_table_privilege(r, c.oid, priv)
+			) as privs,
+			(select count(*)::int from pg_policy p where p.polrelid = c.oid and p.polcmd <> 'r') as write_policies
+		from pg_class c
+		join pg_namespace n on n.oid = c.relnamespace
+		cross join unnest(array['anon', 'authenticated']) r
+		where c.relkind in ('r', 'p')
+			and n.nspname = any(${schemas})
+		order by n.nspname, c.relname, r
+	`
+
+	return rows
+		.filter((r) => r.privs.length > 0 && r.write_policies === 0)
+		.map((r) => ({
+			severity: "error" as const,
+			lint: "client_write_grant",
+			object: `${r.schema}.${r.table}`,
+			detail: `${r.role} tem [${r.privs.join(",")}] sem nenhuma policy de escrita que sustente${r.privs.includes("TRUNCATE") ? " — e TRUNCATE não passa por RLS: o privilégio sozinho esvazia a tabela" : ""}`,
+		}))
 }
 
 async function auditAnonPolicies(schemas: string[]): Promise<Finding[]> {
@@ -311,6 +365,7 @@ async function main() {
 			auditSecurityDefiner(schemas),
 			auditViews(schemas),
 			auditDefinerExecuteGrants(schemas),
+			auditClientWriteGrants(schemas),
 		])
 	).flat()
 
