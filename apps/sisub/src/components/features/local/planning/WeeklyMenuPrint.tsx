@@ -250,13 +250,18 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		list.sort((a, b) => menuItemGroupOrder(a.group) - menuItemGroupOrder(b.group) || a.sortOrder - b.sortOrder)
 	}
 
-	// Lista de preparações: receitas distintas com modo de preparo, ordenadas.
-	const prepMap = new Map<string, { id: string; name: string; method: string }>()
+	// Lista de preparações: receitas distintas com texto de preparo, ordenadas.
+	//
+	// Entra quem tem QUALQUER um dos dois campos. Filtrar só por `preparation_method`
+	// derrubava da lista impressa a ficha cujo texto foi todo para o pré-preparo — a
+	// preparação continuaria no cardápio e sumiria da folha que a cozinha lê.
+	const prepMap = new Map<string, { id: string; name: string; prePreparation: string | null; method: string | null }>()
 	for (const item of template.items) {
 		const r = item.recipe_origin
-		const method = r?.preparation_method?.trim()
-		if (!r || !method) continue
-		if (!prepMap.has(r.id)) prepMap.set(r.id, { id: r.id, name: r.name?.trim() || "Preparação sem nome", method })
+		const method = r?.preparation_method?.trim() || null
+		const prePreparation = r?.pre_preparation_method?.trim() || null
+		if (!r || (!method && !prePreparation)) continue
+		if (!prepMap.has(r.id)) prepMap.set(r.id, { id: r.id, name: r.name?.trim() || "Preparação sem nome", prePreparation, method })
 	}
 	const preparations = Array.from(prepMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 
@@ -313,7 +318,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					signatures: header.signatures,
 					columns,
 					rows,
-					preparations: preparations.map((p) => ({ name: p.name, method: p.method })),
+					preparations: preparations.map((p) => ({ name: p.name, prePreparation: p.prePreparation, method: p.method })),
 				},
 				`${header.title} - ${template.name ?? "cardapio"}`
 			)
@@ -432,7 +437,7 @@ interface CardapioDocumentProps {
 	dayColumns: { num: number; label: string; dateLabel: string | null }[]
 	mealRows: { id: string; name: string }[]
 	cellIndex: Map<string, CellEntry[]>
-	preparations: { id: string; name: string; method: string }[]
+	preparations: { id: string; name: string; prePreparation: string | null; method: string | null }[]
 	emptyMessage: string
 	/** Só a cópia da tela edita; a de impressão renderiza texto estático. */
 	editable?: boolean
@@ -534,7 +539,13 @@ function CardapioDocument({
 							<li key={p.id}>
 								<span className="cardapio-prep-name">{p.name.toUpperCase()}</span>
 								{" — "}
-								<span className="cardapio-prep-method">{p.method}</span>
+								{p.prePreparation && (
+									<span className="cardapio-prep-method">
+										<em>Pré-preparo:</em> {p.prePreparation}
+										{p.method ? " " : ""}
+									</span>
+								)}
+								{p.method && <span className="cardapio-prep-method">{p.method}</span>}
 							</li>
 						))}
 					</ul>

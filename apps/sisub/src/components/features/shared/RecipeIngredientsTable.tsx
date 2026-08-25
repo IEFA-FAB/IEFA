@@ -529,7 +529,19 @@ export function RecipeIngredientsTable({
 				{/* Digitando por porção, o que vai para o banco é o produto — dizer isso na tela
 				    evita a conclusão de que o rendimento "não fez nada", e avisa que mexer no
 				    rendimento depois reinterpreta o que já foi digitado. */}
-				{ingredients.length > 0 && quantityBasis === "porcao" && (
+				{/* Rendimento 1 com base "porção" é a armadilha da tela: o total gravado sai igual
+				    ao digitado, e a ficha de 100 porções vai para o banco 100× menor. A base vem
+				    do sessionStorage (segue de uma ficha para a outra) e o rendimento nasce em 1
+				    na criação, então a combinação acontece sozinha, sem ninguém escolher. Aviso,
+				    e não bloqueio: rendimento 1 é legítimo (preparação de porção única). */}
+				{ingredients.length > 0 && quantityBasis === "porcao" && portionYield <= 1 && (
+					<p className="text-caption text-warning">
+						Rendimento em {portionYield > 0 ? portionYield : "1"} porção: digitando por porção, o total gravado fica igual ao digitado. Se a ficha rende mais de
+						uma porção, defina o rendimento na aba Detalhes antes de preencher as quantidades.
+					</p>
+				)}
+
+				{ingredients.length > 0 && quantityBasis === "porcao" && portionYield > 1 && (
 					<p className="text-caption text-muted-foreground">
 						Você está digitando a quantidade de <strong className="font-medium text-foreground">1 porção</strong>; a coluna PL total mostra o que é gravado (×{" "}
 						{portionYield > 0 ? portionYield : "rendimento"}). Defina o rendimento antes de digitar — alterá-lo depois muda a leitura por porção das linhas já

@@ -116,19 +116,30 @@ export type QuantityBasis = "total" | "porcao"
  */
 const PER_PORTION_DECIMALS = 6
 
-/** Total gravado no banco a partir do que foi digitado na base escolhida. */
+/** Arredonda para `PER_PORTION_DECIMALS` casas — ver a nota da constante. */
+function roundToPrecision(value: number): number {
+	const factor = 10 ** PER_PORTION_DECIMALS
+	return Math.round(value * factor) / factor
+}
+
+/**
+ * Total gravado no banco a partir do que foi digitado na base escolhida.
+ *
+ * A multiplicação também arredonda: 33,333 × 100 dá 3.333,2999999999997 em binário, e
+ * esse número iria INTEIRO para `net_quantity` — o resíduo apareceria no campo de PL
+ * total ao trocar de base e no relatório de compras. Na base "total" o valor passa
+ * intacto: ali não houve conta, e arredondar seria mexer no que o usuário digitou.
+ */
 export function toStoredQuantity(typed: number, basis: QuantityBasis, portionYield: number | null | undefined): number {
 	if (!Number.isFinite(typed)) return 0
-	return basis === "porcao" ? typed * portionYieldOrOne(portionYield) : typed
+	return basis === "porcao" ? roundToPrecision(typed * portionYieldOrOne(portionYield)) : typed
 }
 
 /** O que o campo mostra, a partir do total gravado, na base escolhida. */
 export function fromStoredQuantity(stored: number | null, basis: QuantityBasis, portionYield: number | null | undefined): number {
 	const total = stored != null && Number.isFinite(stored) ? stored : 0
 	if (basis === "total") return total
-	const perPortion = total / portionYieldOrOne(portionYield)
-	const factor = 10 ** PER_PORTION_DECIMALS
-	return Math.round(perPortion * factor) / factor
+	return roundToPrecision(total / portionYieldOrOne(portionYield))
 }
 
 /**

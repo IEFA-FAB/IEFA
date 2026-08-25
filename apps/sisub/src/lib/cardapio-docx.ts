@@ -34,7 +34,7 @@ export type CardapioDocxData = {
 	columns: { label: string; date: string | null }[]
 	/** Uma linha por tipo de refeição; `cells` alinhado às colunas. */
 	rows: { meal: string; cells: { name: string; proportion: number | null }[][] }[]
-	preparations: { name: string; method: string }[]
+	preparations: { name: string; prePreparation: string | null; method: string | null }[]
 }
 
 const BLACK = "000000"
@@ -132,7 +132,13 @@ function buildPreparations(data: CardapioDocxData): Paragraph[] {
 			(p) =>
 				new Paragraph({
 					spacing: { after: 40 },
-					children: [new TextRun({ text: `${p.name.toUpperCase()} — `, bold: true, size: 16 }), new TextRun({ text: p.method, size: 16 })],
+					children: [
+						new TextRun({ text: `${p.name.toUpperCase()} — `, bold: true, size: 16 }),
+						// Pré-preparo rotulado: sem o rótulo, dessalgue e cocção viram um texto só
+						// e a cozinha executa a ordem errada.
+						...(p.prePreparation ? [new TextRun({ text: `Pré-preparo: ${p.prePreparation}${p.method ? " " : ""}`, italics: true, size: 16 })] : []),
+						...(p.method ? [new TextRun({ text: p.method, size: 16 })] : []),
+					],
 				})
 		),
 	]
