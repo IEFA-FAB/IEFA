@@ -11,9 +11,18 @@
  * O que é verificado (mesma família de lints do Splinter/Security Advisor da Supabase):
  *   ERRO   rls_disabled          tabela em schema exposto sem RLS → CRUD anônimo
  *   ERRO   secdef_search_path    função SECURITY DEFINER sem search_path fixo → hijack
- *   ERRO   view_security_definer view sem security_invoker → roda com os direitos do dono
+ *   ERRO   view_security_definer view sem security_invoker E com GRANT para anon/authenticated
+ *   ERRO   secdef_client_execute função SECURITY DEFINER executável por anon/authenticated
+ *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
+ *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
  *   AVISO  policy_grants_anon    policy que concede ao role `anon` (leitura pública deliberada?)
+ *
+ * Os dois lints de ERRO sobre SECURITY DEFINER nasceram da auditoria de 2026-08-25: view e
+ * função definer eram o caminho REAL para furar a RLS (nenhuma tabela sem RLS estava
+ * alcançável). `journal.published_articles` dava UPDATE/DELETE em `journal.articles` a
+ * qualquer usuário logado, e `journal.get_article_details` entregava o peer review cego a
+ * anônimo. Ver a migration 20260825155457.
  *
  * Uso:
  *   SISUB_DATABASE_URL=postgres://... bun run audit:rls
@@ -47,6 +56,7 @@ const FALLBACK_EXPOSED_SCHEMAS = [
 	"nutrition_reference",
 	"assignment_selection",
 	"sucont",
+	"alpha",
 ]
 
 type Severity = "error" | "warn"
@@ -207,8 +217,21 @@ async function auditSecurityDefiner(schemas: string[]): Promise<Finding[]> {
 }
 
 async function auditViews(schemas: string[]): Promise<Finding[]> {
-	const rows = await sql<{ schema: string; name: string }[]>`
-		select n.nspname as schema, c.relname as name
+	// O GRANT é o que separa "defeito latente" de "furo aberto": view definer só fura a
+	// RLS de verdade quando anon/authenticated conseguem selecioná-la. Mesmo recorte de
+	// `auditTables`.
+	const rows = await sql<{ schema: string; name: string; anon_privs: string[]; auth_privs: string[] }[]>`
+		select
+			n.nspname as schema,
+			c.relname as name,
+			array(
+				select priv from unnest(array['SELECT','INSERT','UPDATE','DELETE']) priv
+				where has_table_privilege('anon', c.oid, priv)
+			) as anon_privs,
+			array(
+				select priv from unnest(array['SELECT','INSERT','UPDATE','DELETE']) priv
+				where has_table_privilege('authenticated', c.oid, priv)
+			) as auth_privs
 		from pg_class c
 		join pg_namespace n on n.oid = c.relnamespace
 		where c.relkind in ('v', 'm')
@@ -217,21 +240,79 @@ async function auditViews(schemas: string[]): Promise<Finding[]> {
 		order by n.nspname, c.relname
 	`
 
-	// Aviso, não erro: parte destas views é lida por `anon` nas páginas públicas
-	// (journal, documentos legais). Ativar o invoker sem antes criar as policies de
-	// leitura pública nas tabelas base quebraria esses fluxos — é uma correção que
-	// precisa de PR próprio, não de um gate que força a mão.
-	return rows.map((r) => ({
-		severity: "warn" as const,
-		lint: "view_security_definer",
-		object: `${r.schema}.${r.name}`,
-		detail: "view sem security_invoker=true — consultas rodam com os direitos do dono e furam a RLS das tabelas base",
-	}))
+	return rows.map((r): Finding => {
+		const object = `${r.schema}.${r.name}`
+		const reachable = [...new Set([...r.anon_privs, ...r.auth_privs])]
+		if (reachable.length === 0) {
+			return {
+				severity: "warn",
+				lint: "view_secdef_no_grant",
+				object,
+				detail: "view sem security_invoker=true, mas sem GRANT para anon/authenticated — inalcançável hoje. Um GRANT futuro a transforma em túnel pela RLS",
+			}
+		}
+		return {
+			severity: "error",
+			lint: "view_security_definer",
+			object,
+			detail: `view sem security_invoker=true e alcançável pela API: anon=[${r.anon_privs.join(",") || "-"}] authenticated=[${r.auth_privs.join(",") || "-"}] — as consultas rodam com os direitos do dono e furam a RLS das tabelas base`,
+		}
+	})
+}
+
+/**
+ * Função SECURITY DEFINER com EXECUTE para anon/authenticated é um endpoint
+ * `/rest/v1/rpc/<nome>` que roda com os privilégios do dono — a RLS das tabelas que ela
+ * toca não é avaliada. O EXECUTE quase nunca é explícito: o ACL default do Postgres já
+ * concede a PUBLIC, e os roles do PostgREST herdam daí. Por isso a checagem é por
+ * `has_function_privilege`, não por leitura de `proacl`.
+ */
+async function auditDefinerExecuteGrants(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ schema: string; signature: string; anon: boolean; authenticated: boolean; schema_reachable: boolean }[]>`
+		select
+			n.nspname as schema,
+			p.oid::regprocedure::text as signature,
+			has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+			has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
+			(has_schema_privilege('anon', n.oid, 'USAGE') or has_schema_privilege('authenticated', n.oid, 'USAGE')) as schema_reachable
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where p.prosecdef
+			and n.nspname = any(${schemas})
+			and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+		order by n.nspname, p.proname
+	`
+
+	return rows.map((r): Finding => {
+		const roles = [r.anon ? "anon" : null, r.authenticated ? "authenticated" : null].filter(Boolean).join(", ")
+		if (!r.schema_reachable) {
+			return {
+				severity: "warn",
+				lint: "secdef_execute_latent",
+				object: r.signature,
+				detail: `SECURITY DEFINER com EXECUTE para ${roles}, mas o schema não tem USAGE para esses roles — inalcançável hoje. Um \`grant usage\` futuro publica a função como RPC sem ninguém perceber`,
+			}
+		}
+		return {
+			severity: "error",
+			lint: "secdef_client_execute",
+			object: r.signature,
+			detail: `SECURITY DEFINER executável por ${roles} via /rest/v1/rpc — roda com os privilégios do dono e ignora a RLS das tabelas que toca. Revogue de PUBLIC/anon/authenticated e conceda só a service_role`,
+		}
+	})
 }
 
 async function main() {
 	const schemas = await resolveExposedSchemas()
-	const findings = (await Promise.all([auditTables(schemas), auditAnonPolicies(schemas), auditSecurityDefiner(schemas), auditViews(schemas)])).flat()
+	const findings = (
+		await Promise.all([
+			auditTables(schemas),
+			auditAnonPolicies(schemas),
+			auditSecurityDefiner(schemas),
+			auditViews(schemas),
+			auditDefinerExecuteGrants(schemas),
+		])
+	).flat()
 
 	const errors = findings.filter((f) => f.severity === "error")
 	const warnings = findings.filter((f) => f.severity === "warn")
