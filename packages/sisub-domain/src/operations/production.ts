@@ -95,7 +95,19 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 		recipeIds.length > 0
 			? await runQuery("FETCH_FAILED", () =>
 					db.query.recipesInKitchen.findMany({
-						columns: { id: true, name: true, portionYield: true, preparationMethod: true, preparationTimeMinutes: true, kitchenId: true },
+						// `prePreparationMethod` na lista: o painel de produção mostra o pré-preparo
+						// (dessalgue, descongelamento) e a projeção é allowlist — coluna esquecida
+						// aqui vira bloco vazio na tela, sem erro, porque o `as unknown as
+						// ProductionItem[]` do server fn some com a diferença no typecheck.
+						columns: {
+							id: true,
+							name: true,
+							portionYield: true,
+							prePreparationMethod: true,
+							preparationMethod: true,
+							preparationTimeMinutes: true,
+							kitchenId: true,
+						},
 						with: {
 							recipeIngredientsInKitchens: {
 								columns: { id: true, netQuantity: true, priorityOrder: true, isOptional: true },

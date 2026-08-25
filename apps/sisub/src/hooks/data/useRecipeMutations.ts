@@ -15,6 +15,7 @@ export function useCreateRecipe() {
 				data: {
 					name: data.name,
 					preparationMethod: data.preparation_method ?? undefined,
+					prePreparationMethod: data.pre_preparation_method ?? undefined,
 					portionYield: data.portion_yield,
 					preparationTimeMinutes: data.preparation_time_minutes ?? undefined,
 					cookingFactor: data.cooking_factor ?? undefined,
@@ -52,6 +53,7 @@ export function useSaveRecipeEdit() {
 				data: {
 					name: data.name,
 					preparationMethod: data.preparation_method ?? undefined,
+					prePreparationMethod: data.pre_preparation_method ?? undefined,
 					portionYield: data.portion_yield,
 					preparationTimeMinutes: data.preparation_time_minutes ?? undefined,
 					cookingFactor: data.cooking_factor ?? undefined,

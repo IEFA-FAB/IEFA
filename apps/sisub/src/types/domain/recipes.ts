@@ -74,6 +74,8 @@ export interface RecipeFormIngredient {
 export interface RecipeFormData {
 	name: string
 	preparation_method?: string | null
+	/** Pré-preparo — o que antecede a cocção (PARTE 03 do modelo FTP/SIA). */
+	pre_preparation_method?: string | null
 	portion_yield: number
 	preparation_time_minutes?: number | null
 	cooking_factor?: number | null

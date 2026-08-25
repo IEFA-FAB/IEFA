@@ -32,6 +32,11 @@ on:
     branches: [main]
     paths:
       - "infra/**"
+      # Arquivo de exemplo é inerte: o apply lê os tfvars REAIS do secret, não daqui.
+      # Sem esta exclusão, editar um comentário num `.example` dispara um apply de
+      # verdade no stack — e se o secret estiver defasado, o apply reverte produção
+      # como efeito colateral de uma mudança de documentação.
+      - "!infra/**/*.example"
   workflow_dispatch:
     inputs:
       stacks:

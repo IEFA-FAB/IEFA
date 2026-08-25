@@ -86,6 +86,26 @@ describe("isRetryableAdapterFailure", () => {
 	})
 })
 
+describe("isRetryableAdapterFailure — transporte", () => {
+	// O SDK da AWS não diz "fetch failed" nem "socket hang up": quando o http2 cai
+	// antes de qualquer resposta, a mensagem é esta. Sem ela a reserva ficava de fora
+	// da falha de transporte do primário.
+	test("http2 sem resposta é transitório", () => {
+		expect(isRetryableAdapterFailure(new Error("Unexpected error: http2 request did not get a response"))).toBe(true)
+	})
+
+	// O risco de um padrão novo é o oposto do que ele conserta: casar demais. Estes
+	// dois são erros de CONFIGURAÇÃO — id de modelo errado e modelo não habilitado na
+	// conta. Tratá-los como transitórios faria a reserva atender no lugar do primário
+	// indefinidamente, escondendo a config quebrada atrás de um app que "funciona".
+	test("erro de configuração não vira transitório por conter texto parecido", () => {
+		expect(isRetryableAdapterFailure(new Error("ValidationException: The provided model identifier is invalid"))).toBe(false)
+		expect(isRetryableAdapterFailure(new Error("anthropic.claude-opus-4-8 is not available for this account"))).toBe(false)
+		// A frase inteira é que vale; "response" solto não pode acionar a troca.
+		expect(isRetryableAdapterFailure(new Error("The response schema was rejected"))).toBe(false)
+	})
+})
+
 describe("withFallbackChain — troca por exceção", () => {
 	test("usa a reserva quando o primário lança erro transitório", async () => {
 		const calls: string[] = []

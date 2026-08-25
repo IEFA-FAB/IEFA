@@ -597,6 +597,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 			.values({
 				name: input.name,
 				preparationMethod: input.preparationMethod ?? null,
+				prePreparationMethod: input.prePreparationMethod ?? null,
 				portionYield: String(input.portionYield),
 				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
 				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
@@ -741,6 +742,7 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 			.values({
 				name: input.name,
 				preparationMethod: input.preparationMethod ?? null,
+				prePreparationMethod: input.prePreparationMethod ?? null,
 				portionYield: String(input.portionYield),
 				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
 				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,

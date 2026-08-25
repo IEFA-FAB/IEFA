@@ -314,6 +314,7 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	version: smallint().notNull(),
 	name: text().notNull(),
 	preparationMethod: text("preparation_method"),
+	prePreparationMethod: text("pre_preparation_method"),
 	portionYield: numeric("portion_yield"),
 	preparationTimeMinutes: smallint("preparation_time_minutes"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

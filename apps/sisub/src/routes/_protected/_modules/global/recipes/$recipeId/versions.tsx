@@ -33,6 +33,7 @@ function formatDate(dateStr: string) {
 
 const FIELD_LABELS: Record<string, string> = {
 	name: "Nome",
+	pre_preparation_method: "Pré-preparo",
 	preparation_method: "Modo de Preparo",
 	portion_yield: "Rendimento (porções)",
 	preparation_time_minutes: "Tempo de Preparo (min)",

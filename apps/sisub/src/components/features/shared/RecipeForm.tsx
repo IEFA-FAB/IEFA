@@ -25,7 +25,9 @@ import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useCreateRecipe, useSaveRecipeEdit } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
+import type { QuantityBasis } from "@/lib/technical-sheet"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/domain/recipes"
 
@@ -105,6 +107,7 @@ const ingredientSchema = z.object({
 
 const recipeSchema = z.object({
 	name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+	pre_preparation_method: z.string(),
 	preparation_method: z.string(),
 	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
 	preparation_time_minutes: z.number(),
@@ -137,7 +140,7 @@ interface IngredientFormItem {
 const TAB_LABEL: Record<RecipeFormTab, string> = {
 	detalhes: "Detalhes",
 	ingredientes: "Ingredientes",
-	preparo: "Modo de preparo",
+	preparo: "Preparo",
 	nutricao: "Nutrição",
 	fluxo: "Fluxo de produção",
 }
@@ -149,6 +152,7 @@ const FIELD_LOCATION: Record<string, { tab: RecipeFormTab; label: string }> = {
 	preparation_time_minutes: { tab: "detalhes", label: "Tempo de preparo" },
 	cooking_factor: { tab: "detalhes", label: "Fator de cocção" },
 	folder_id: { tab: "detalhes", label: "Pasta" },
+	pre_preparation_method: { tab: "preparo", label: "Pré-preparo" },
 	preparation_method: { tab: "preparo", label: "Modo de preparo" },
 	ingredients: { tab: "ingredientes", label: "Ingredientes" },
 }
@@ -321,6 +325,18 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	const [selectorOpen, setSelectorOpen] = useState(false)
 
+	/**
+	 * Base de digitação das quantidades da ficha (por porção ou pelo rendimento inteiro).
+	 *
+	 * É preferência de QUEM DIGITA, não atributo da preparação: o banco guarda sempre o
+	 * total (ver `lib/technical-sheet.ts`), e o acervo de papel a ser digitalizado vem nos
+	 * dois padrões. Por isso mora no `sessionStorage` e não numa coluna — quem está
+	 * passando 40 fichas "para 100" escolhe uma vez e a escolha sobrevive à navegação
+	 * entre elas, sem versionar a preparação por causa de uma opção de tela.
+	 * `usePersistentState` hidrata por efeito: sem mismatch de SSR.
+	 */
+	const [quantityBasis, setQuantityBasis] = usePersistentState<QuantityBasis>("sisub:recipe-form:quantity-basis", "total")
+
 	// Editor de fluxo opera sobre a versão PERSISTIDA (initialData) — seus insumos têm
 	// recipe_ingredient_id, exigidos pelo balanço de materiais. Só habilitado em edição.
 	const flowEnabled = mode === "edit" && !!initialData?.id
@@ -350,6 +366,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const form = useForm({
 		defaultValues: {
 			name: initialData?.name || "",
+			pre_preparation_method: initialData?.pre_preparation_method || "",
 			preparation_method: initialData?.preparation_method || "",
 			portion_yield: initialData?.portion_yield || 1,
 			preparation_time_minutes: initialData?.preparation_time_minutes ?? 0,
@@ -731,6 +748,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											<RecipeIngredientsTable
 												ingredients={field.state.value as IngredientFormItem[]}
 												portionYield={Number(portionYield) || 0}
+												quantityBasis={quantityBasis}
+												onQuantityBasisChange={setQuantityBasis}
 												onChange={(next) => field.handleChange(next)}
 												onAdd={() => setSelectorOpen(true)}
 												errors={toFieldErrors(field.state.meta.errors)}
@@ -742,9 +761,40 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							</form.Subscribe>
 						</TabsContent>
 
-						{/* Modo de preparo — texto livre */}
+						{/* Preparo — os dois textos livres da PARTE 03 do modelo FTP/SIA */}
 						<TabsContent value="preparo" className={READING_PANEL}>
+							{/* Pré-preparo antes do modo de preparo, na ordem do papel: é o que a cozinha
+							    faz ANTES do fogo (higienizar, dessalgar, cortar, descongelar, marinar).
+							    Estava amontoado no campo único — e a folha impressa já reservava a linha
+							    de pré-preparo em branco, para preencher à mão. */}
 							<Card>
+								<CardHeader>
+									<CardTitle>Pré-preparo</CardTitle>
+								</CardHeader>
+								<CardContent>
+									<form.Field name="pre_preparation_method">
+										{(field) => (
+											<Field data-invalid={field.state.meta.errors.length > 0}>
+												<FieldContent>
+													<Textarea
+														id="pre-prep"
+														aria-label="Pré-preparo"
+														className={cn("min-h-32 bg-background", field.state.meta.errors.length > 0 && "border-destructive")}
+														placeholder="Higienização, dessalgue, descongelamento, corte, marinada..."
+														value={field.state.value || ""}
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+													/>
+													<FieldDescription>O que antecede a cocção. A cocção em si vai no campo abaixo.</FieldDescription>
+													<FieldError errors={toFieldErrors(field.state.meta.errors)} />
+												</FieldContent>
+											</Field>
+										)}
+									</form.Field>
+								</CardContent>
+							</Card>
+
+							<Card className="mt-6">
 								<CardHeader>
 									<CardTitle>Modo de preparo</CardTitle>
 								</CardHeader>
