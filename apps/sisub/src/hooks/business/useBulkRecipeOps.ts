@@ -86,6 +86,7 @@ export function useBulkRecipeOps() {
 				data: {
 					name: r.data.name,
 					preparationMethod: r.data.preparation_method ?? undefined,
+					prePreparationMethod: r.data.pre_preparation_method ?? undefined,
 					portionYield: r.data.portion_yield ?? 1,
 					preparationTimeMinutes: r.data.preparation_time_minutes ?? undefined,
 					cookingFactor: r.data.cooking_factor ?? undefined,

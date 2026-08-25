@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { formatSheetNumber, portionYieldOrOne, technicalSheetLine, technicalSheetTotals } from "./technical-sheet"
+import { formatSheetNumber, fromStoredQuantity, portionYieldOrOne, technicalSheetLine, technicalSheetTotals, toStoredQuantity } from "./technical-sheet"
 
 const line = (netQuantity: number | null, correctionFactor: number | null = null, rehydrationIndex: number | null = null) =>
 	technicalSheetLine({ netQuantity, correctionFactor, rehydrationIndex }, 100)
@@ -95,5 +95,57 @@ describe("formatSheetNumber", () => {
 	test("valor não finito não imprime NaN", () => {
 		expect(formatSheetNumber(Number.NaN)).toBe("—")
 		expect(formatSheetNumber(Number.POSITIVE_INFINITY)).toBe("—")
+	})
+})
+
+/**
+ * Base de digitação: a ficha de papel vem "por porção" ou "para o rendimento", e o banco
+ * guarda sempre o total. O que a suíte protege é a IDA E VOLTA — o campo relê o que
+ * gravou a cada tecla, e um resíduo de ponto flutuante ali aparece na tela como
+ * 0,004999999999999999 no lugar de 0,005.
+ */
+describe("toStoredQuantity / fromStoredQuantity", () => {
+	test("base total grava e relê o número digitado, sem tocar no rendimento", () => {
+		expect(toStoredQuantity(50, "total", 100)).toBe(50)
+		expect(fromStoredQuantity(50, "total", 100)).toBe(50)
+	})
+
+	test("base porção multiplica pelo rendimento na gravação", () => {
+		expect(toStoredQuantity(0.5, "porcao", 100)).toBeCloseTo(50, 10)
+		expect(toStoredQuantity(0.12, "porcao", 250)).toBeCloseTo(30, 10)
+	})
+
+	test("ida e volta na base porção devolve o mesmo número que foi digitado", () => {
+		for (const typed of [0.005, 0.12, 1.5, 33.333, 0.001]) {
+			expect(fromStoredQuantity(toStoredQuantity(typed, "porcao", 100), "porcao", 100)).toBe(typed)
+		}
+	})
+
+	test("a multiplicação não guarda resíduo de ponto flutuante no total", () => {
+		// 33,333 × 100 dá 3.333,2999999999997 em binário — e é o total que vai para o banco.
+		expect(toStoredQuantity(33.333, "porcao", 100)).toBe(3333.3)
+		expect(toStoredQuantity(0.07, "porcao", 3)).toBe(0.21)
+	})
+
+	test("na base total o número passa intacto — ali não houve conta a arredondar", () => {
+		expect(toStoredQuantity(0.0000001, "total", 100)).toBe(0.0000001)
+	})
+
+	test("rendimento inválido cai em 1 — não devolve Infinity nem NaN para a tela", () => {
+		expect(toStoredQuantity(2, "porcao", 0)).toBe(2)
+		expect(fromStoredQuantity(2, "porcao", null)).toBe(2)
+		expect(fromStoredQuantity(2, "porcao", Number.NaN)).toBe(2)
+	})
+
+	test("quantidade ausente ou não finita lê como zero", () => {
+		expect(fromStoredQuantity(null, "porcao", 100)).toBe(0)
+		expect(fromStoredQuantity(Number.NaN, "total", 100)).toBe(0)
+		expect(toStoredQuantity(Number.NaN, "porcao", 100)).toBe(0)
+	})
+
+	test("trocar de base não altera o dado — só a leitura dele", () => {
+		const stored = toStoredQuantity(0.5, "porcao", 100)
+		expect(fromStoredQuantity(stored, "total", 100)).toBeCloseTo(50, 10)
+		expect(fromStoredQuantity(stored, "porcao", 100)).toBeCloseTo(0.5, 10)
 	})
 })

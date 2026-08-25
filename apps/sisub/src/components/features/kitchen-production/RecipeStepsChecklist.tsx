@@ -10,6 +10,12 @@ interface RecipeStepsChecklistProps {
 	recipeId: string | null
 	/** Modo de preparo em texto livre — fallback quando a receita não tem fluxo estruturado. */
 	fallbackText: string | null
+	/**
+	 * Pré-preparo da ficha (higienizar, dessalgar, cortar, descongelar). Aparece SEMPRE que
+	 * existe, inclusive com fluxo estruturado: é o que precisa acontecer antes do turno, e
+	 * escondê-lo atrás do texto livre faria a cozinha descobrir o dessalgue no dia.
+	 */
+	prePreparationText: string | null
 }
 
 /**
@@ -17,7 +23,7 @@ interface RecipeStepsChecklistProps {
  * estruturado (DAG), renderiza as etapas em ordem de execução como checklist do
  * turno (estado local, não persistido); senão, cai no texto livre da ficha.
  */
-export function RecipeStepsChecklist({ recipeId, fallbackText }: RecipeStepsChecklistProps) {
+export function RecipeStepsChecklist({ recipeId, fallbackText, prePreparationText }: RecipeStepsChecklistProps) {
 	const { data: flow } = useRecipeFlow(recipeId ?? undefined)
 	const [checked, setChecked] = useState<Set<string>>(new Set())
 	const [prevRecipeId, setPrevRecipeId] = useState(recipeId)
@@ -30,7 +36,7 @@ export function RecipeStepsChecklist({ recipeId, fallbackText }: RecipeStepsChec
 
 	const steps = flow?.steps && flow.steps.length > 0 ? orderStepsForExecution(flow.steps as unknown as FetchedStep[]) : null
 
-	if (!steps && !fallbackText) return null
+	if (!steps && !fallbackText && !prePreparationText) return null
 
 	const toggle = (stepId: string) => {
 		setChecked((prev) => {
@@ -43,15 +49,28 @@ export function RecipeStepsChecklist({ recipeId, fallbackText }: RecipeStepsChec
 
 	return (
 		<div className="px-4 pb-4 space-y-2">
-			<h3 className="text-subheading text-foreground flex items-center gap-2">
-				{steps ? <ListChecks className="size-4 text-muted-foreground" /> : <Clock className="size-4 text-muted-foreground" />}
-				Modo de Preparo
-				{steps && (
-					<span className="text-hint text-muted-foreground">
-						({checked.size}/{steps.length} etapas)
-					</span>
-				)}
-			</h3>
+			{prePreparationText && (
+				<>
+					<h3 className="text-subheading text-foreground flex items-center gap-2">
+						<Clock className="size-4 text-muted-foreground" />
+						Pré-preparo
+					</h3>
+					<div className="rounded-md border border-border bg-muted/30 p-3">
+						<pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{prePreparationText}</pre>
+					</div>
+				</>
+			)}
+			{(steps || fallbackText) && (
+				<h3 className="text-subheading text-foreground flex items-center gap-2">
+					{steps ? <ListChecks className="size-4 text-muted-foreground" /> : <Clock className="size-4 text-muted-foreground" />}
+					Modo de Preparo
+					{steps && (
+						<span className="text-hint text-muted-foreground">
+							({checked.size}/{steps.length} etapas)
+						</span>
+					)}
+				</h3>
+			)}
 			{steps ? (
 				<div className="rounded-md border border-border overflow-hidden divide-y divide-border">
 					{steps.map((s, index) => {
@@ -75,11 +94,11 @@ export function RecipeStepsChecklist({ recipeId, fallbackText }: RecipeStepsChec
 						)
 					})}
 				</div>
-			) : (
+			) : fallbackText ? (
 				<div className="rounded-md border border-border bg-muted/30 p-3">
 					<pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{fallbackText}</pre>
 				</div>
-			)}
+			) : null}
 		</div>
 	)
 }

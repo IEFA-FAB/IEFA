@@ -106,6 +106,11 @@ export type Ingredient = z.infer<typeof IngredientSchema>
 export const CreateRecipeSchema = z.object({
 	name: z.string().min(1),
 	preparationMethod: z.string().optional(),
+	/**
+	 * Pré-preparo — o que antecede a cocção (higienização, dessalgue, corte,
+	 * descongelamento). Campo próprio no modelo FTP/SIA, separado de `preparationMethod`.
+	 */
+	prePreparationMethod: z.string().optional(),
 	portionYield: z.number().positive(),
 	preparationTimeMinutes: z.number().int().nonnegative().optional(),
 	cookingFactor: z.number().positive().optional(),

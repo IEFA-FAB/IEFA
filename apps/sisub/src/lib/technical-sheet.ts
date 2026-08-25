@@ -96,6 +96,52 @@ export function technicalSheetTotals(lines: readonly (TechnicalSheetLine & { mea
 	return { grossWeight, netWeight, rehydratedWeight, units: [...units].sort() }
 }
 
+// ── Base de digitação da quantidade ─────────────────────────────────────────
+// O banco guarda SEMPRE o peso líquido total da preparação (`net_quantity`, que rende
+// `portion_yield` porções). A ficha de papel que a Seção digitaliza, porém, vem em dois
+// padrões: a que traz a gramatura POR PORÇÃO e a que traz o total do rendimento. Forçar a
+// conversão na cabeça de quem digita é onde nasce o erro de duas ordens de grandeza — daí
+// a base ser uma escolha de ENTRADA, e a normalização morar aqui.
+
+/** Como o usuário está digitando a quantidade — não é um dado persistido. */
+export type QuantityBasis = "total" | "porcao"
+
+/**
+ * Casas decimais preservadas na volta total → por porção.
+ *
+ * A conversão é ida e volta a cada tecla (digita per capita → grava total → relê per
+ * capita), e o binário não fecha: 0,005 × 100 ÷ 100 devolve 0,004999999999999999, que o
+ * input mostraria inteiro. Seis casas cobrem o tempero em ficha de 1.000 porções e
+ * ainda estão longe do erro de arredondamento do double.
+ */
+const PER_PORTION_DECIMALS = 6
+
+/** Arredonda para `PER_PORTION_DECIMALS` casas — ver a nota da constante. */
+function roundToPrecision(value: number): number {
+	const factor = 10 ** PER_PORTION_DECIMALS
+	return Math.round(value * factor) / factor
+}
+
+/**
+ * Total gravado no banco a partir do que foi digitado na base escolhida.
+ *
+ * A multiplicação também arredonda: 33,333 × 100 dá 3.333,2999999999997 em binário, e
+ * esse número iria INTEIRO para `net_quantity` — o resíduo apareceria no campo de PL
+ * total ao trocar de base e no relatório de compras. Na base "total" o valor passa
+ * intacto: ali não houve conta, e arredondar seria mexer no que o usuário digitou.
+ */
+export function toStoredQuantity(typed: number, basis: QuantityBasis, portionYield: number | null | undefined): number {
+	if (!Number.isFinite(typed)) return 0
+	return basis === "porcao" ? roundToPrecision(typed * portionYieldOrOne(portionYield)) : typed
+}
+
+/** O que o campo mostra, a partir do total gravado, na base escolhida. */
+export function fromStoredQuantity(stored: number | null, basis: QuantityBasis, portionYield: number | null | undefined): number {
+	const total = stored != null && Number.isFinite(stored) ? stored : 0
+	if (basis === "total") return total
+	return roundToPrecision(total / portionYieldOrOne(portionYield))
+}
+
 /**
  * Número da ficha em pt-BR. Três casas: o per capita de tempero em preparação de 100
  * porções cai na terceira casa, e arredondar antes disso imprime 0,00 para um insumo que

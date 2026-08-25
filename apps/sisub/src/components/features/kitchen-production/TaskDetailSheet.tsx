@@ -173,8 +173,12 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 						<ProductionRecordSection task={task} plannedPortions={plannedPortions != null ? Number(plannedPortions) : null} kitchenId={kitchenId} date={date} />
 					)}
 
-					{/* Modo de Preparo: checklist do fluxo estruturado (DAG) ou texto livre */}
-					<RecipeStepsChecklist recipeId={menuItem.recipe_origin_id} fallbackText={recipe?.preparation_method ?? null} />
+					{/* Pré-preparo + Modo de Preparo: checklist do fluxo estruturado (DAG) ou texto livre */}
+					<RecipeStepsChecklist
+						recipeId={menuItem.recipe_origin_id}
+						fallbackText={recipe?.preparation_method ?? null}
+						prePreparationText={recipe?.pre_preparation_method ?? null}
+					/>
 
 					{/* Timestamps */}
 					{(task.started_at || task.completed_at) && (

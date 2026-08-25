@@ -30,6 +30,10 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						<p>{oldVersion.name}</p>
 					</div>
 					<div>
+						<span className="text-xs text-muted-foreground">Pré-preparo</span>
+						<p className="text-sm grayscale">{oldVersion.pre_preparation_method}</p>
+					</div>
+					<div>
 						<span className="text-xs text-muted-foreground">Modo de Preparo</span>
 						<p className="text-sm grayscale">{oldVersion.preparation_method}</p>
 					</div>
@@ -55,6 +59,12 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 					<div>
 						<span className="text-xs text-muted-foreground">Nome</span>
 						<p className={oldVersion.name !== newVersion.name ? "text-primary text-subheading" : ""}>{newVersion.name}</p>
+					</div>
+					<div>
+						<span className="text-xs text-muted-foreground">Pré-preparo</span>
+						<p className={cn("text-sm", oldVersion.pre_preparation_method !== newVersion.pre_preparation_method && "text-primary")}>
+							{newVersion.pre_preparation_method}
+						</p>
 					</div>
 					<div>
 						<span className="text-xs text-muted-foreground">Modo de Preparo</span>
