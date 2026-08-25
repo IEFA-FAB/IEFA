@@ -243,3 +243,29 @@ export type RecipeStepInputUpdate = TablesUpdate<"recipe_step_input">
 export type RecipeStepUtensil = Tables<"recipe_step_utensil">
 export type RecipeStepUtensilInsert = TablesInsert<"recipe_step_utensil">
 export type RecipeStepUtensilUpdate = TablesUpdate<"recipe_step_utensil">
+
+// ── Equipamentos de cozinha (papel × modelo × unidade × exigência) ──
+
+export type EquipmentRole = Tables<"equipment_role">
+export type EquipmentRoleInsert = TablesInsert<"equipment_role">
+export type EquipmentRoleUpdate = TablesUpdate<"equipment_role">
+
+export type EquipmentModel = Tables<"equipment_model">
+export type EquipmentModelInsert = TablesInsert<"equipment_model">
+export type EquipmentModelUpdate = TablesUpdate<"equipment_model">
+
+export type EquipmentModelRole = Tables<"equipment_model_role">
+export type EquipmentModelRoleInsert = TablesInsert<"equipment_model_role">
+export type EquipmentModelRoleUpdate = TablesUpdate<"equipment_model_role">
+
+export type EquipmentUnit = Tables<"equipment_unit">
+export type EquipmentUnitInsert = TablesInsert<"equipment_unit">
+export type EquipmentUnitUpdate = TablesUpdate<"equipment_unit">
+
+export type EquipmentUnitRole = Tables<"equipment_unit_role">
+export type EquipmentUnitRoleInsert = TablesInsert<"equipment_unit_role">
+export type EquipmentUnitRoleUpdate = TablesUpdate<"equipment_unit_role">
+
+export type RecipeEquipmentRequirement = Tables<"recipe_equipment_requirement">
+export type RecipeEquipmentRequirementInsert = TablesInsert<"recipe_equipment_requirement">
+export type RecipeEquipmentRequirementUpdate = TablesUpdate<"recipe_equipment_requirement">

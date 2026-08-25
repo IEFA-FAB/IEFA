@@ -289,8 +289,11 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
  * `riIdMap` remapeia recipe_ingredient_id antigo → novo (cada versão tem suas próprias
  * linhas de recipe_ingredients). Inputs cujo insumo sumiu na nova versão são descartados.
  * No-op silencioso quando a receita de origem não tem fluxo.
+ *
+ * @returns mapa etapa antiga → etapa nova, para quem precisa reapontar o que referencia
+ *   `recipe_step_id` na nova versão (é o caso da lista mínima de equipamentos).
  */
-export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipeId: string, riIdMap: Map<string, string>): Promise<void> {
+export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipeId: string, riIdMap: Map<string, string>): Promise<Map<string, string>> {
 	const srcSteps = await runQuery("FETCH_FAILED", () =>
 		db.query.recipeStepInKitchen.findMany({
 			where: and(eq(recipeStepInKitchen.recipeId, srcRecipeId), isNull(recipeStepInKitchen.deletedAt)),
@@ -298,7 +301,7 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 			with: WITH_FLOW as any,
 		})
 	)
-	if (srcSteps.length === 0) return
+	if (srcSteps.length === 0) return new Map()
 
 	// O resultado relacional do Drizzle traz as relations sob as chaves CRUAS do pull
 	// (recipeStepOutputInKitchens, …) — `toWire` (que as renomearia p/ outputs/inputs/
@@ -402,6 +405,8 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 			)
 		}
 	})
+
+	return stepIdMap
 }
 
 // ── Catálogo ──────────────────────────────────────────────────────────────
@@ -468,7 +473,9 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 }
 
 export async function listUtensils(db: SisubDb, ctx: UserContext, input: ListUtensils): Promise<UtensilWire[]> {
-	requirePermission(ctx, "kitchen", 1)
+	// `global` entra na leitura porque a SDAB mantém a ponte utensílio→papel de equipamento na
+	// tela do catálogo; sem isso, quem só tem `global` não enxerga a lista que precisa mapear.
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production", "global"], 1)
 
 	const conditions: (SQL | undefined)[] = [isNull(utensilInKitchen.deletedAt)]
 	if (input.kitchenId != null) {

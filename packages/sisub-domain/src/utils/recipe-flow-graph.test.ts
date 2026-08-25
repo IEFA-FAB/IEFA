@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { collectFinalOutputs, computeMaterialBalance, type DeclaredIngredient, type FlowGraphStep, findFlowCycle, validateFlow } from "./recipe-flow-graph.ts"
+import {
+	collectFinalOutputs,
+	computeMaterialBalance,
+	computeStepLevels,
+	type DeclaredIngredient,
+	type FlowGraphStep,
+	findFlowCycle,
+	validateFlow,
+} from "./recipe-flow-graph.ts"
 
 /** Atalho: etapa com uma saída e inputs. */
 function step(clientId: string, outputs: { clientId: string; isFinal?: boolean }[], inputs: FlowGraphStep["inputs"] = []): FlowGraphStep {
@@ -140,5 +148,62 @@ describe("validateFlow", () => {
 	test("fluxo vazio é válido (sem etapas, sem exigência de final)", () => {
 		const r = validateFlow([], [declared("ri1", 100)])
 		expect(r.errors).toEqual([])
+	})
+})
+
+describe("computeStepLevels", () => {
+	test("cadeia linear cresce um nível por etapa", () => {
+		const steps = [
+			step("a", [{ clientId: "oa" }]),
+			step("b", [{ clientId: "ob" }], [{ sourceOutputClientId: "oa", quantity: 1 }]),
+			step("c", [{ clientId: "oc", isFinal: true }], [{ sourceOutputClientId: "ob", quantity: 1 }]),
+		]
+		const levels = computeStepLevels(steps)
+		expect([levels.get("a"), levels.get("b"), levels.get("c")]).toEqual([0, 1, 2])
+	})
+
+	test("ramos independentes ficam no mesmo nível (podem rodar juntos)", () => {
+		const steps = [
+			step("a", [{ clientId: "oa" }]),
+			step("b", [{ clientId: "ob" }]),
+			step(
+				"c",
+				[{ clientId: "oc", isFinal: true }],
+				[
+					{ sourceOutputClientId: "oa", quantity: 1 },
+					{ sourceOutputClientId: "ob", quantity: 1 },
+				]
+			),
+		]
+		const levels = computeStepLevels(steps)
+		expect(levels.get("a")).toBe(0)
+		expect(levels.get("b")).toBe(0)
+		expect(levels.get("c")).toBe(1)
+	})
+
+	test("etapa espera o ramo MAIS LONGO, não o primeiro input", () => {
+		const steps = [
+			step("a", [{ clientId: "oa" }]),
+			step("b", [{ clientId: "ob" }], [{ sourceOutputClientId: "oa", quantity: 1 }]),
+			step("c", [{ clientId: "oc" }]),
+			step(
+				"d",
+				[{ clientId: "od", isFinal: true }],
+				[
+					{ sourceOutputClientId: "oc", quantity: 1 },
+					{ sourceOutputClientId: "ob", quantity: 1 },
+				]
+			),
+		]
+		expect(computeStepLevels(steps).get("d")).toBe(2)
+	})
+
+	test("ciclo não trava e degrada para nível 0 (mais concorrência, nunca menos)", () => {
+		const steps = [
+			step("a", [{ clientId: "oa" }], [{ sourceOutputClientId: "ob", quantity: 1 }]),
+			step("b", [{ clientId: "ob" }], [{ sourceOutputClientId: "oa", quantity: 1 }]),
+		]
+		const levels = computeStepLevels(steps)
+		expect(levels.size).toBe(2)
 	})
 })

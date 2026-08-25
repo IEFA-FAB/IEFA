@@ -4377,6 +4377,236 @@ export type Database = {
 					},
 				]
 			}
+			equipment_model: {
+				Row: {
+					capacity_label: string | null
+					created_at: string
+					deleted_at: string | null
+					id: string
+					is_generic: boolean
+					kitchen_id: number | null
+					manufacturer: string | null
+					name: string
+					notes: string | null
+					power_kw: number | null
+					simultaneous_slots: number
+					slot_capacity_gn: number | null
+					slot_capacity_liters: number | null
+					slug: string | null
+				}
+				Insert: {
+					capacity_label?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_generic?: boolean
+					kitchen_id?: number | null
+					manufacturer?: string | null
+					name: string
+					notes?: string | null
+					power_kw?: number | null
+					simultaneous_slots?: number
+					slot_capacity_gn?: number | null
+					slot_capacity_liters?: number | null
+					slug?: string | null
+				}
+				Update: {
+					capacity_label?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_generic?: boolean
+					kitchen_id?: number | null
+					manufacturer?: string | null
+					name?: string
+					notes?: string | null
+					power_kw?: number | null
+					simultaneous_slots?: number
+					slot_capacity_gn?: number | null
+					slot_capacity_liters?: number | null
+					slug?: string | null
+				}
+				Relationships: []
+			}
+			equipment_model_role: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					is_primary: boolean
+					model_id: string
+					notes: string | null
+					role_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_primary?: boolean
+					model_id: string
+					notes?: string | null
+					role_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_primary?: boolean
+					model_id?: string
+					notes?: string | null
+					role_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "equipment_model_role_model_id_fkey"
+						columns: ["model_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_model"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "equipment_model_role_role_id_fkey"
+						columns: ["role_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_role"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			equipment_role: {
+				Row: {
+					category: string
+					code: string
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					id: string
+					name: string
+					sort_order: number
+				}
+				Insert: {
+					category?: string
+					code: string
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					name: string
+					sort_order?: number
+				}
+				Update: {
+					category?: string
+					code?: string
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					name?: string
+					sort_order?: number
+				}
+				Relationships: []
+			}
+			equipment_unit: {
+				Row: {
+					acquired_on: string | null
+					asset_tag: string | null
+					created_at: string
+					deleted_at: string | null
+					id: string
+					kitchen_id: number
+					label: string
+					model_id: string
+					notes: string | null
+					serial_number: string | null
+					simultaneous_slots: number | null
+					status: string
+					updated_at: string
+				}
+				Insert: {
+					acquired_on?: string | null
+					asset_tag?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id: number
+					label: string
+					model_id: string
+					notes?: string | null
+					serial_number?: string | null
+					simultaneous_slots?: number | null
+					status?: string
+					updated_at?: string
+				}
+				Update: {
+					acquired_on?: string | null
+					asset_tag?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number
+					label?: string
+					model_id?: string
+					notes?: string | null
+					serial_number?: string | null
+					simultaneous_slots?: number | null
+					status?: string
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "equipment_unit_model_id_fkey"
+						columns: ["model_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_model"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			equipment_unit_role: {
+				Row: {
+					available: boolean
+					created_at: string
+					deleted_at: string | null
+					id: string
+					notes: string | null
+					role_id: string
+					unit_id: string
+				}
+				Insert: {
+					available: boolean
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					notes?: string | null
+					role_id: string
+					unit_id: string
+				}
+				Update: {
+					available?: boolean
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					notes?: string | null
+					role_id?: string
+					unit_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "equipment_unit_role_role_id_fkey"
+						columns: ["role_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_role"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "equipment_unit_role_unit_id_fkey"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_unit"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			folder: {
 				Row: {
 					catalog_scope: string
@@ -5328,6 +5558,83 @@ export type Database = {
 					},
 				]
 			}
+			recipe_equipment_requirement: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					min_capacity_gn: number | null
+					min_capacity_liters: number | null
+					model_id: string | null
+					notes: string | null
+					batch_portions: number | null
+					quantity: number
+					recipe_id: string
+					recipe_step_id: string | null
+					role_id: string | null
+					scaling: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					min_capacity_gn?: number | null
+					min_capacity_liters?: number | null
+					model_id?: string | null
+					notes?: string | null
+					batch_portions?: number | null
+					quantity?: number
+					recipe_id: string
+					recipe_step_id?: string | null
+					role_id?: string | null
+					scaling?: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					min_capacity_gn?: number | null
+					min_capacity_liters?: number | null
+					model_id?: string | null
+					notes?: string | null
+					batch_portions?: number | null
+					quantity?: number
+					recipe_id?: string
+					recipe_step_id?: string | null
+					role_id?: string | null
+					scaling?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_equipment_requirement_model_id_fkey"
+						columns: ["model_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_model"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_equipment_requirement_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_equipment_requirement_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_equipment_requirement_role_id_fkey"
+						columns: ["role_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_role"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			recipe_folder: {
 				Row: {
 					created_at: string
@@ -5854,6 +6161,7 @@ export type Database = {
 					id: string
 					kitchen_id: number | null
 					name: string
+					role_id: string | null
 				}
 				Insert: {
 					created_at?: string
@@ -5861,6 +6169,7 @@ export type Database = {
 					id?: string
 					kitchen_id?: number | null
 					name: string
+					role_id?: string | null
 				}
 				Update: {
 					created_at?: string
@@ -5868,8 +6177,17 @@ export type Database = {
 					id?: string
 					kitchen_id?: number | null
 					name?: string
+					role_id?: string | null
 				}
-				Relationships: []
+				Relationships: [
+					{
+						foreignKeyName: "utensil_role_id_fkey"
+						columns: ["role_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_role"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 		}
 		Views: {

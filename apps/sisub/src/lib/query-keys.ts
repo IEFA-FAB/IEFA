@@ -102,6 +102,19 @@ export const queryKeys = {
 		utensils: (kitchenId?: number | null, search?: string) => ["utensils", kitchenId ?? null, search ?? ""] as const,
 	},
 
+	equipment: {
+		all: () => ["equipment"] as const,
+		roles: (category?: string | null) => ["equipment", "roles", category ?? null] as const,
+		models: (kitchenId?: number | null, roleId?: string | null) => ["equipment", "models", kitchenId ?? null, roleId ?? null] as const,
+		modelsAll: () => ["equipment", "models"] as const,
+		kitchenUnits: (kitchenId: number, includeInactive: boolean) => ["equipment", "units", kitchenId, includeInactive] as const,
+		kitchenUnitsAll: () => ["equipment", "units"] as const,
+		recipeRequirements: (recipeId: string | undefined) => ["equipment", "recipe", recipeId] as const,
+		fitness: (recipeId: string | undefined, kitchenId: number | null, portions: number | null = null) =>
+			["equipment", "fitness", recipeId, kitchenId, portions] as const,
+		suggestions: (recipeId: string | undefined) => ["equipment", "suggestions", recipeId] as const,
+	},
+
 	presences: {
 		all: () => ["presences"] as const,
 		list: (date: string, meal: MealKey, messHallId: number) => ["presences", date, meal, messHallId] as const,
