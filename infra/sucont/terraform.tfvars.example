@@ -29,8 +29,8 @@ environment_variables = {
   #       arn:aws:bedrock:sa-east-1:<conta>:inference-profile/<id>
   #   - `openai.gpt-oss-*` (hoje o valor da RESERVA) e foundation model (SEM conta):
   #       arn:aws:bedrock:sa-east-1::foundation-model/<id>
-  # Simular o id abaixo na forma de inference-profile devolve implicitDeny e faz
-  # parecer que a config esta errada quando nao esta. Liste conforme o tipo:
+  # Simular um id com a forma do OUTRO tipo devolve implicitDeny e faz parecer que a
+  # config esta errada quando nao esta. Liste conforme o tipo:
   #   aws bedrock list-foundation-models --region sa-east-1 \
   #     --query "modelSummaries[?starts_with(modelId,'openai.gpt-oss')].modelId"
   #   aws bedrock list-inference-profiles --region sa-east-1 \
@@ -49,16 +49,12 @@ environment_variables = {
   #     --action-names bedrock:InvokeModelWithResponseStream \
   #     --resource-arns arn:aws:bedrock:sa-east-1::foundation-model/openai.gpt-oss-120b-1:0
   #
-  # PREFIXO IMPORTA: a policy da task role (`iefa-prod-ecs-task-extra`) permite
-  # `inference-profile/global.anthropic.*`, `foundation-model/anthropic.*` e
-  # `foundation-model/openai.gpt-oss-*` — e mais nada. Um perfil `us.anthropic.*`
-  # e implicitDeny, e o oraculo do sucont ficou meses quebrado exatamente assim.
-  #
   # O SUFIXO NAO SEGUE REGRA — confira o id na conta, nao pelo padrao do vizinho.
   # Na MESMA geracao: `global.anthropic.claude-opus-4-6-v1` (com `-v1`) e
   # `global.anthropic.claude-sonnet-4-6` (sem sufixo). Id errado vira
   # ValidationException, que NAO e transitoria — a reserva nao entra e o app fica
   # sem IA.
+  #
   # Estar na policy nao basta: o modelo tambem precisa estar HABILITADO na conta.
   # Em 2026-08-21, opus-5, opus-4-8, opus-4-7, sonnet-5 e fable-5 respondem
   # `AccessDeniedException: not available for this account`. Habilitados:
@@ -72,14 +68,19 @@ environment_variables = {
   # Reserva: so entra ANTES do primeiro conteudo e so em falha TRANSITORIA
   # (429/5xx/throttling/timeout/queda de transporte). AccessDenied e erro de
   # schema propagam — trocar de provider so repetiria a falha. Nao e camada de
-  # economia: e o que mantem o app respondendo quando o Bedrock do primario nega.
+  # economia: e o que mantem o app respondendo quando o primario esta THROTTLED ou
+  # FORA DO AR. Primario NEGADO (403) o app nao contorna — e config, nao capacidade.
   SUCONT_FALLBACK_AI_PROVIDER = "bedrock"
   SUCONT_FALLBACK_AI_MODEL    = "openai.gpt-oss-120b-1:0"
   SUCONT_FALLBACK_AI_REGION   = "sa-east-1"
 
   # Tetos de consumo (ver AI-PROVIDERS.md). Por usuário, exceto TOKENS_PER_DAY
   # (por processo — com desired_count = N o teto efetivo é N x o configurado).
-  # Com um primario da familia Opus os tetos deixam de ser formalidade.
+  # Os numeros NAO foram redimensionados para o Opus — vieram da carga, nao do preco:
+  # uma competencia do SAC-DGC sao ~69 UGs a ~15k tokens (~1,0M), entao 2M/dia cabe
+  # uma competencia inteira com folga e corta a segunda. Com primario da familia Opus
+  # o teto diario passa a ser tambem um teto de CUSTO, e o preco do Claude no Bedrock
+  # nao esta verificado (ver AI-PROVIDERS.md) — reveja antes de assumir que e barato.
   SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "12"
   SUCONT_AI_MAX_TOKENS_PER_MINUTE   = "120000"
   SUCONT_AI_MAX_TOKENS_PER_DAY      = "2000000"
