@@ -55,7 +55,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { describeDriverError, runQuery } from "../utils/index.ts"
+import { describeDriverError, insertOneOrFail, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /** Código exigido nas sentinelas — segunda âncora, além de `is_training`. */
 const TRAINING_CODE = "TREINO"
@@ -65,6 +65,31 @@ const TRAINING_CODE = "TREINO"
  * serializa execuções concorrentes para o ambiente nunca ficar parcialmente limpo.
  */
 const RESET_LOCK_KEY = 8_147_201
+
+/**
+ * Idade a partir da qual uma linha `running` é considerada ABANDONADA.
+ *
+ * A execução mais longa já medida foi 21,7 s em 695 registros (média 9,4 s); dez minutos
+ * é ~27x isso. A folga não é luxo: o INSERT do log acontece antes do advisory lock, então
+ * uma execução que chegou enquanto outra trabalhava fica `running` no banco enquanto
+ * espera a vez, e reclassificá-la seria mentir sobre um processo vivo. Com este corte,
+ * varrer exigiria dezenas de execuções enfileiradas.
+ */
+const ABANDONED_AFTER = "10 minutes"
+
+/**
+ * Teto da espera pelo advisory lock.
+ *
+ * `pg_advisory_xact_lock` bloqueia sem prazo. Como o reset é disparado por um POST do
+ * painel e a ALB corta a conexão em 60 s, uma fila de execuções fazia o usuário perder a
+ * resposta enquanto o servidor seguia esperando — e o reset acabava rodando sem ninguém
+ * ver o resultado. Com o teto, a espera vira erro com mensagem, e a linha do log fecha
+ * como `failed` em vez de ficar pendurada.
+ *
+ * 45 s é o dobro da execução mais longa já medida (21,7 s em 695), então uma fila normal
+ * de uma execução cabe folgada, e ainda sobra margem para a ALB responder antes de cortar.
+ */
+const LOCK_TIMEOUT = "45s"
 
 export type TrainingScope = {
 	unit_id: number
@@ -85,15 +110,32 @@ export type TrainingResetLogRow = {
 	actor_id: string
 	started_at: string
 	finished_at: string | null
+	/** Trabalho, em ms. Linha anterior a 2026-08-25 inclui a espera pelo lock. */
 	duration_ms: number | null
+	/** Espera pelo lock, em ms. Nula nas linhas anteriores a 2026-08-25. */
+	queued_ms: number | null
 	deleted_counts: Record<string, number>
 	status: string
 	error_message: string | null
 }
 
 export type TrainingResetResult = {
+	/**
+	 * Id da linha de auditoria DESTA execução (`core.training_reset_log`).
+	 *
+	 * Sem ele, quem chamou só consegue achar o próprio registro assumindo que é o mais
+	 * recente do histórico — e não é: o INSERT do log acontece ANTES do advisory lock,
+	 * então um segundo reset que chega enquanto o primeiro trabalha já tem linha gravada,
+	 * com `started_at` posterior e status `running`. É essa suposição que fazia a suíte de
+	 * integração acusar `expected 'running' to be 'succeeded'` sempre que dois runs
+	 * dividiam o banco.
+	 */
+	reset_id: string
 	deleted_counts: Record<string, number>
+	/** Tempo de TRABALHO, em ms — sem a espera pelo lock, que vai em `queued_ms`. */
 	duration_ms: number
+	/** Espera pelo advisory lock, em ms. */
+	queued_ms: number
 }
 
 /**
@@ -385,6 +427,36 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
 }
 
 /**
+ * Fecha as órfãs do log: execuções que morreram entre o INSERT do registro e o UPDATE do
+ * desfecho (container derrubado, run de CI cancelado). Sem isto elas ficam `running` para
+ * sempre e o painel da SDAB as mostra como "Em andamento" — eram 6, de julho e agosto.
+ *
+ * O que autoriza a reclassificação é a IDADE, não o advisory lock: uma linha mais velha
+ * que `ABANDONED_AFTER` e ainda sem desfecho não pertence a processo vivo. Por isso roda
+ * FORA da transação destrutiva — lá dentro ela herdaria dois defeitos: um erro seu
+ * abortaria o reset inteiro (é o que aconteceria num banco onde a migração do status
+ * `abandoned` ainda não passou), e o rollback de um reset que falha desfaria a limpeza,
+ * mantendo as órfãs para sempre justamente quando há mais delas.
+ *
+ * Higiene de auditoria nunca derruba a operação: falha aqui vira aviso e o reset segue.
+ */
+async function closeAbandonedResets(db: SisubDb, currentLogId: string): Promise<void> {
+	try {
+		await db.execute(sql`
+			update core.training_reset_log
+			set status = 'abandoned',
+			    error_message = coalesce(error_message, 'Execução sem desfecho: o processo terminou antes de registrar o resultado.')
+			where status = 'running'
+			  and id <> ${currentLogId}
+			  and started_at < now() - ${ABANDONED_AFTER}::interval
+		`)
+	} catch (err) {
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — causa esperada é a migração 20260825201940 pendente, e o reset não pode parar por causa do log
+		console.warn("[sisub] não foi possível fechar execuções abandonadas do reset de treino (migração 20260825201940 pendente?).", err)
+	}
+}
+
+/**
  * Limpa e re-semeia o ambiente de treino.
  *
  * O autor é `ctx.userId` — o mesmo principal que a autorização checou. Um agendador chama
@@ -406,15 +478,48 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 
 	// Registro ANTES da transação de dados: uma falha no meio precisa deixar rastro apesar do
 	// rollback. Um reset que quebrou e não registrou nada é o pior dos mundos.
-	const [logRow] = await runQuery("INSERT_FAILED", () =>
+	//
+	// E falha AQUI aborta: sem a linha de log, os dois UPDATEs seguintes casariam com
+	// `id = undefined` e o reset correria sem rastro nenhum — o cenário que este registro
+	// antecipado existe para impedir.
+	const logRow = await insertOneOrFail("INSERT_FAILED", "no row returned inserting the training reset log", () =>
 		db.insert(trainingResetLogInCore).values({ actorId, startedAt: startedAt.toISOString(), status: "running" }).returning({ id: trainingResetLogInCore.id })
 	)
 
+	await closeAbandonedResets(db, logRow.id)
+
+	// Preenchido quando o lock é adquirido: separa a ESPERA do TRABALHO. Sem essa marca, a
+	// coluna "duração" do painel somava as duas — o registro nasce antes do lock.
+	let workStartedAt: number | null = null
+
 	try {
-		const deletedCounts = await db.transaction(async (tx) => {
+		const { deletedCounts, lockedAt } = await db.transaction(async (tx) => {
 			// Serializa execuções concorrentes — sem isto, dois resets simultâneos deixariam o
 			// ambiente parcialmente limpo. Liberado no commit/rollback da transação.
-			await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
+			//
+			// `lock_timeout` LOCAL à transação: expira só esta espera e volta ao padrão do banco
+			// no commit. Sem ele a espera é ilimitada (ver LOCK_TIMEOUT).
+			//
+			// Via `set_config(..., true)` e não `SET LOCAL`: o comando SET não aceita parâmetro
+			// de bind — `set local lock_timeout = $1` é erro de sintaxe (42601), e interpolar o
+			// valor no texto seria abrir concatenação de SQL por um número.
+			await tx.execute(sql`select set_config('lock_timeout', ${LOCK_TIMEOUT}, true)`)
+			try {
+				await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
+			} catch (e) {
+				// SÓ o estouro do lock_timeout (55P03) vira "já tem um reset rodando". Qualquer
+				// outra falha aqui — conexão caída, banco fora — sobe intacta: rotulá-la de
+				// concorrência inventaria um reset que não existe e ainda esconderia a causa,
+				// porque `describeDriverError` lê `.cause`, não os detalhes do DomainError.
+				if (unwrapPgError(e).code !== "55P03") throw e
+				throw new DomainError(
+					"RESET_BUSY",
+					`Já existe um reset do ambiente de treino em andamento (espera de ${LOCK_TIMEOUT} esgotada). Tente de novo em instantes.`,
+					e
+				)
+			}
+			const lockedAt = Date.now()
+			workStartedAt = lockedAt
 
 			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
 			// são alcançáveis por eles.
@@ -461,30 +566,55 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 			}
 
 			await seedTrainingBaseline(tx, scope)
-			return counts
+			return { deletedCounts: counts, lockedAt }
 		})
 
-		const durationMs = Date.now() - startedAt.getTime()
+		// `duration_ms` é o TRABALHO; a espera pelo lock vai em `queued_ms`. Somadas, dão o
+		// que a coluna media antes — e o painel deixa de creditar à limpeza o tempo que ela
+		// passou na fila.
+		const queuedMs = lockedAt - startedAt.getTime()
+		const durationMs = Date.now() - lockedAt
 		await runQuery("UPDATE_FAILED", () =>
 			db
 				.update(trainingResetLogInCore)
-				.set({ finishedAt: new Date().toISOString(), durationMs, deletedCounts, status: "succeeded" })
-				.where(eq(trainingResetLogInCore.id, logRow?.id as string))
+				.set({ finishedAt: new Date().toISOString(), durationMs, queuedMs, deletedCounts, status: "succeeded" })
+				.where(eq(trainingResetLogInCore.id, logRow.id))
 				.then(() => undefined)
 		)
 
-		return { deleted_counts: deletedCounts, duration_ms: durationMs }
+		return { reset_id: logRow.id, deleted_counts: deletedCounts, duration_ms: durationMs, queued_ms: queuedMs }
 	} catch (error) {
 		// Fora da transação revertida — este UPDATE persiste.
-		await db
-			.update(trainingResetLogInCore)
-			.set({
-				finishedAt: new Date().toISOString(),
-				durationMs: Date.now() - startedAt.getTime(),
-				status: "failed",
-				errorMessage: describeDriverError(error),
+		//
+		// E ele não pode sequestrar a falha original: a causa mais provável de o reset ter
+		// quebrado (conexão caída, banco fora) é a mesma que derruba este UPDATE, e uma
+		// exceção aqui subiria NO LUGAR do `RESET_FAILED`, entregando um dump de SQL a quem
+		// só queria saber qual etapa falhou. Registrar é melhor-esforço; propagar o motivo
+		// real é obrigação.
+		try {
+			await db
+				.update(trainingResetLogInCore)
+				.set({
+					finishedAt: new Date().toISOString(),
+					// Falha ANTES do lock (RESET_BUSY, conexão): não houve trabalho, e `queued_ms`
+					// carrega a espera inteira. `duration_ms` nulo diz isso melhor do que zero.
+					durationMs: workStartedAt == null ? null : Date.now() - workStartedAt,
+					queuedMs: (workStartedAt ?? Date.now()) - startedAt.getTime(),
+					status: "failed",
+					errorMessage: describeDriverError(error),
+				})
+				.where(eq(trainingResetLogInCore.id, logRow.id))
+		} catch (logError) {
+			// Linha fica em `running` e um reset posterior vai reclassificá-la como
+			// `abandoned` — perdendo ESTA causa, que é a real. É o melhor que se consegue
+			// quando o banco recusa a escrita; o que não pode é sumir sem sinal nenhum.
+			// biome-ignore lint/suspicious/noConsole: última chance de registrar a causa de um reset destrutivo que falhou e não conseguiu gravar o próprio desfecho
+			console.warn("[sisub] reset de treino falhou E não foi possível gravar o desfecho no log; a linha segue 'running'.", {
+				resetId: logRow.id,
+				cause: describeDriverError(error),
+				logError,
 			})
-			.where(eq(trainingResetLogInCore.id, logRow?.id as string))
+		}
 		throw error
 	}
 }
@@ -543,6 +673,7 @@ export async function listTrainingResets(db: SisubDb, ctx: UserContext, input: L
 				started_at: trainingResetLogInCore.startedAt,
 				finished_at: trainingResetLogInCore.finishedAt,
 				duration_ms: trainingResetLogInCore.durationMs,
+				queued_ms: trainingResetLogInCore.queuedMs,
 				deleted_counts: trainingResetLogInCore.deletedCounts,
 				status: trainingResetLogInCore.status,
 				error_message: trainingResetLogInCore.errorMessage,

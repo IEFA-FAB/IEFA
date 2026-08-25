@@ -592,14 +592,27 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-6: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+						{/* Larguras iguais só a partir de `lg`, onde os seis rótulos cabem — é ali que o
+						    grid vale a pena: o pill ativo não muda de tamanho ao trocar de aba.
+						    Abaixo disso a barra vira uma FILA ROLÁVEL. Um grid de 6 colunas usa trilhas
+						    `minmax(0,1fr)`, que encolhem abaixo do conteúdo: com "Fluxo de produção" e
+						    "Equipamentos" na régua, os rótulos passavam por cima uns dos outros e
+						    vazavam do container em qualquer tela abaixo de ~1100px. Em flex o item não
+						    encolhe além do próprio texto, então a barra transborda e rola — que é o
+						    comportamento padrão de barra de abas em tela estreita. O `justify-start` é
+						    parte do conserto: centralizado, o conteúdo que transborda é cortado dos DOIS
+						    lados e a primeira aba não volta nem rolando. `overflow-y-hidden` acompanha as
+						    outras duas barras roláveis do app: sem ele o eixo Y vira `auto` e uma régua
+						    de 32px ganha barra vertical. E a barra horizontal fica escondida SÓ aqui —
+						    6px dentro de 32px comem um quinto do pill; as outras barras do app mantêm
+						    o traço, que lá é a única pista de que há mais aba fora da tela.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
 						<form.Subscribe selector={encodeTabProblems}>
 							{(encoded) => {
 								const counts = decodeTabProblems(encoded)
 								return (
-									<TabsList className="mx-auto grid w-full max-w-3xl grid-cols-6">
+									<TabsList className="mx-auto flex w-full max-w-3xl justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none] lg:grid lg:grid-cols-6 lg:justify-center [&::-webkit-scrollbar]:hidden">
 										{RECIPE_FORM_TABS.map((tab) => {
 											const errorCount = counts[tab]
 											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`

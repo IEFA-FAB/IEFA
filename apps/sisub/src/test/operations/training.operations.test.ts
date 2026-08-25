@@ -138,6 +138,9 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			const result = await resetTrainingScope(db, ctx)
 
 			expect(result.duration_ms).toBeGreaterThanOrEqual(0)
+			// Fila e trabalho medidos em separado: a espera pelo lock não pode voltar a ser
+			// creditada à limpeza (o registro nasce antes do lock).
+			expect(result.queued_ms).toBeGreaterThanOrEqual(0)
 			expect(Object.keys(result.deleted_counts).length).toBe(RESET_TARGET_TABLES.length)
 
 			// Sentinelas intactas, com os MESMOS ids.
@@ -150,11 +153,80 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			const info = await fetchTrainingScope(db, ctx)
 			expect(info.pending_counts["kitchen.menu_template"]).toBeGreaterThan(0)
 
-			// A execução deixou rastro.
-			const history = await listTrainingResets(db, ctx, { limit: 5 })
-			expect(history[0]?.status).toBe("succeeded")
-			expect(history[0]?.actor_id).toBe(ctx.userId)
-			expect(history[0]?.duration_ms).not.toBeNull()
+			// A execução deixou rastro — o DESTA execução, achado pelo id que ela devolveu.
+			//
+			// Ler `history[0]` presumia que o registro mais recente é o nosso, e o banco de
+			// integração é compartilhado: um segundo reset que chega enquanto este trabalha já
+			// inseriu a linha dele (o INSERT do log acontece antes do advisory lock), com
+			// `started_at` posterior e status `running`. Era o `expected 'running' to be
+			// 'succeeded'` que derrubava o CI/CD da main sem nada de errado no código.
+			const history = await listTrainingResets(db, ctx, { limit: 20 })
+			const ours = history.find((row) => row.id === result.reset_id)
+			// Explícito: sem isto, um `ours` indefinido faria as asserções de `?.` abaixo
+			// falharem por "undefined não é 'succeeded'", escondendo que o problema é a
+			// LINHA não ter sido achada.
+			expect(ours).toBeDefined()
+			expect(ours?.status).toBe("succeeded")
+			expect(ours?.actor_id).toBe(ctx.userId)
+			expect(ours?.duration_ms).not.toBeNull()
+			expect(ours?.queued_ms).not.toBeNull()
+		},
+		RESET_TIMEOUT_MS
+	)
+
+	/**
+	 * Órfãs do log — execuções que morreram entre o INSERT do registro e o UPDATE do
+	 * desfecho (container derrubado, run de CI cancelado). Ficavam `running` para sempre e
+	 * o painel da SDAB as mostrava como "Em andamento" meses depois; eram 6 quando isto foi
+	 * escrito. O reset seguinte fecha as antigas — segurar o advisory lock é a prova de que
+	 * nenhuma outra execução está na transação de dados.
+	 *
+	 * O corte de idade é o que protege a única `running` legítima que não é a nossa: a que
+	 * já foi inserida e ainda espera o lock. Por isso o teste planta as DUAS.
+	 */
+	test(
+		"reset fecha as execuções abandonadas e não toca nas recentes",
+		async () => {
+			if (!db) return
+			const handle = db
+
+			const [stale] = (await handle.execute(sql`
+				insert into core.training_reset_log (actor_id, started_at, status)
+				values (${ACTOR_ID}, now() - interval '2 hours', 'running')
+				returning id
+			`)) as unknown as Array<{ id: string }>
+			const [fresh] = (await handle.execute(sql`
+				insert into core.training_reset_log (actor_id, started_at, status)
+				values (${ACTOR_ID}, now(), 'running')
+				returning id
+			`)) as unknown as Array<{ id: string }>
+			const staleId = stale?.id as string
+			const freshId = fresh?.id as string
+
+			try {
+				await resetTrainingScope(db, ctx)
+
+				const rows = (await handle.execute(sql`
+					select id, status, error_message, finished_at
+					from core.training_reset_log
+					where id in (${staleId}, ${freshId})
+				`)) as unknown as Array<{ id: string; status: string; error_message: string | null; finished_at: string | null }>
+
+				const staleRow = rows.find((r) => r.id === staleId)
+				const freshRow = rows.find((r) => r.id === freshId)
+
+				expect(staleRow?.status).toBe("abandoned")
+				expect(staleRow?.error_message).toContain("sem desfecho")
+				// `finished_at` continua nulo: ninguém sabe quando o processo parou, e inventar
+				// um horário seria pior do que admitir a lacuna.
+				expect(staleRow?.finished_at).toBeNull()
+
+				// A recente é uma execução possivelmente VIVA esperando o lock — reclassificá-la
+				// seria mentir sobre um processo que ainda vai gravar o próprio desfecho.
+				expect(freshRow?.status).toBe("running")
+			} finally {
+				await handle.execute(sql`delete from core.training_reset_log where id in (${staleId}, ${freshId})`)
+			}
 		},
 		RESET_TIMEOUT_MS
 	)

@@ -39,6 +39,43 @@ function totalDeleted(counts: Record<string, number>) {
 	return Object.values(counts).reduce((sum, n) => sum + n, 0)
 }
 
+/**
+ * Duração do trabalho, com a espera na fila ao lado quando ela foi relevante.
+ *
+ * As duas eram uma coluna só: o registro nasce antes do advisory lock, então uma execução
+ * que esperou a vez creditava a espera à limpeza. Segundos de fila aparecem; os milissegundos
+ * do caso normal, não — seriam ruído em toda linha. Execução anterior a 2026-08-25 tem
+ * `queued_ms` nulo e continua mostrando só o total de antes.
+ */
+function formatDuration(durationMs: number | null, queuedMs: number | null) {
+	const work = durationMs != null ? `${durationMs} ms` : "—"
+	if (queuedMs == null || queuedMs < 1000) return work
+	return `${work} + ${Math.round(queuedMs / 1000)} s em fila`
+}
+
+/**
+ * Desfecho da execução, em português.
+ *
+ * "Em andamento" é reservado ao `running`: antes, ele era o texto de QUALQUER status
+ * desconhecido, e as 6 execuções que o processo abandonou (container derrubado no meio)
+ * apareciam como se ainda estivessem rodando — desde julho. Status que o app não conhece
+ * aparece cru, que é honesto e depura sozinho.
+ */
+function resetOutcome(status: string, errorMessage: string | null): string {
+	switch (status) {
+		case "succeeded":
+			return "Concluído"
+		case "failed":
+			return `Falhou — ${errorMessage ?? "sem detalhe"}`
+		case "abandoned":
+			return "Sem desfecho — o processo parou antes de registrar o resultado"
+		case "running":
+			return "Em andamento"
+		default:
+			return status
+	}
+}
+
 function TrainingPage() {
 	const queryClient = useQueryClient()
 	const { can } = usePBAC()
@@ -180,10 +217,8 @@ function TrainingPage() {
 								resets.map((run) => (
 									<TableRow key={run.id}>
 										<TableCell className="text-sm">{formatStamp(run.started_at)}</TableCell>
-										<TableCell className="text-sm">
-											{run.status === "succeeded" ? "Concluído" : run.status === "failed" ? `Falhou — ${run.error_message ?? "sem detalhe"}` : "Em andamento"}
-										</TableCell>
-										<TableCell className="text-sm font-mono">{run.duration_ms != null ? `${run.duration_ms} ms` : "—"}</TableCell>
+										<TableCell className="text-sm">{resetOutcome(run.status, run.error_message)}</TableCell>
+										<TableCell className="text-sm font-mono">{formatDuration(run.duration_ms, run.queued_ms)}</TableCell>
 										<TableCell className="text-sm font-mono">{totalDeleted(run.deleted_counts)}</TableCell>
 									</TableRow>
 								))

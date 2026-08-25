@@ -2247,6 +2247,7 @@ export type Database = {
           error_message: string | null
           finished_at: string | null
           id: string
+          queued_ms: number | null
           started_at: string
           status: string
         }
@@ -2257,6 +2258,7 @@ export type Database = {
           error_message?: string | null
           finished_at?: string | null
           id?: string
+          queued_ms?: number | null
           started_at?: string
           status?: string
         }
@@ -2267,6 +2269,7 @@ export type Database = {
           error_message?: string | null
           finished_at?: string | null
           id?: string
+          queued_ms?: number | null
           started_at?: string
           status?: string
         }
