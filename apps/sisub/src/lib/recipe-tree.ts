@@ -72,9 +72,13 @@ export interface BuildRecipeTreeInput<TRecipe extends RecipeTreeRecipe> {
 	sensitivity?: SearchSensitivity
 	sortDirection?: "asc" | "desc"
 	/**
-	 * Pastas FECHADAS. É o complemento do conjunto de abertas de propósito: pasta nova
-	 * (criada depois que a aba abriu, ou por outro usuário) nasce aberta em vez de
-	 * herdar um "não estava na lista de abertas" e sumir com o conteúdo dentro.
+	 * Pastas FECHADAS — o default do módulo é ABERTO, que é o que a árvore de seleção do
+	 * planejamento (`RecipeSelector`) usa: lá a pasta nova nasce aberta em vez de herdar um
+	 * "não estava na lista de abertas" e sumir com o conteúdo dentro.
+	 *
+	 * A listagem do catálogo (`RecipesManager`) quer o oposto — abre tudo recolhido — e
+	 * passa o complemento de um conjunto de pastas ABERTAS. A inversão mora lá, na tela que
+	 * a escolheu; aqui há uma semântica só.
 	 */
 	collapsedIds?: ReadonlySet<string>
 	/** Abre tudo, ignorando `collapsedIds` — o que a busca textual faz. */
