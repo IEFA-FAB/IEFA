@@ -2201,7 +2201,10 @@ export const trainingResetLogInCore = core.table("training_reset_log", {
 	actorId: uuid("actor_id").notNull(),
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	/** Tempo de TRABALHO. Linha anterior a 2026-08-25 inclui a espera pelo lock (ver `queuedMs`). */
 	durationMs: integer("duration_ms"),
+	/** Espera pelo advisory lock. Nulo nas linhas anteriores a 2026-08-25. */
+	queuedMs: integer("queued_ms"),
 	/** Contagem de linhas removidas por tabela, na ordem topológica do reset. */
 	deletedCounts: jsonb("deleted_counts").default({}).notNull(),
 	status: text().default('running').notNull(),

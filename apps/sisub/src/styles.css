@@ -360,6 +360,17 @@
   [data-slot="table-container"]:hover::-webkit-scrollbar-thumb:hover {
     background-color: var(--scrollbar-thumb-hover);
   }
+
+  /* ─── Barra de abas rolável: sem barra de rolagem visível ─── */
+  /* A lista tem 32px de altura fixa; uma barra de 6px dentro dela comeria quase
+     um quinto do pill. A rolagem continua existindo (toque, trackpad, teclado) —
+     o que some é o traço. Vale para a barra que transborda em tela estreita. */
+  [data-slot="tabs-list"] {
+    scrollbar-width: none;
+  }
+  [data-slot="tabs-list"]::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Theme toggle view transition — circular reveal from button position */

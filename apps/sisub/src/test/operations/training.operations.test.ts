@@ -138,6 +138,9 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			const result = await resetTrainingScope(db, ctx)
 
 			expect(result.duration_ms).toBeGreaterThanOrEqual(0)
+			// Fila e trabalho medidos em separado: a espera pelo lock não pode voltar a ser
+			// creditada à limpeza (o registro nasce antes do lock).
+			expect(result.queued_ms).toBeGreaterThanOrEqual(0)
 			expect(Object.keys(result.deleted_counts).length).toBe(RESET_TARGET_TABLES.length)
 
 			// Sentinelas intactas, com os MESMOS ids.
@@ -166,6 +169,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			expect(ours?.status).toBe("succeeded")
 			expect(ours?.actor_id).toBe(ctx.userId)
 			expect(ours?.duration_ms).not.toBeNull()
+			expect(ours?.queued_ms).not.toBeNull()
 		},
 		RESET_TIMEOUT_MS
 	)

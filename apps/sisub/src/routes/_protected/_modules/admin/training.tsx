@@ -40,6 +40,20 @@ function totalDeleted(counts: Record<string, number>) {
 }
 
 /**
+ * Duração do trabalho, com a espera na fila ao lado quando ela foi relevante.
+ *
+ * As duas eram uma coluna só: o registro nasce antes do advisory lock, então uma execução
+ * que esperou a vez creditava a espera à limpeza. Segundos de fila aparecem; os milissegundos
+ * do caso normal, não — seriam ruído em toda linha. Execução anterior a 2026-08-25 tem
+ * `queued_ms` nulo e continua mostrando só o total de antes.
+ */
+function formatDuration(durationMs: number | null, queuedMs: number | null) {
+	const work = durationMs != null ? `${durationMs} ms` : "—"
+	if (queuedMs == null || queuedMs < 1000) return work
+	return `${work} + ${Math.round(queuedMs / 1000)} s em fila`
+}
+
+/**
  * Desfecho da execução, em português.
  *
  * "Em andamento" é reservado ao `running`: antes, ele era o texto de QUALQUER status
@@ -204,7 +218,7 @@ function TrainingPage() {
 									<TableRow key={run.id}>
 										<TableCell className="text-sm">{formatStamp(run.started_at)}</TableCell>
 										<TableCell className="text-sm">{resetOutcome(run.status, run.error_message)}</TableCell>
-										<TableCell className="text-sm font-mono">{run.duration_ms != null ? `${run.duration_ms} ms` : "—"}</TableCell>
+										<TableCell className="text-sm font-mono">{formatDuration(run.duration_ms, run.queued_ms)}</TableCell>
 										<TableCell className="text-sm font-mono">{totalDeleted(run.deleted_counts)}</TableCell>
 									</TableRow>
 								))

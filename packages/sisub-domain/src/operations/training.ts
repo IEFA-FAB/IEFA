@@ -77,6 +77,20 @@ const RESET_LOCK_KEY = 8_147_201
  */
 const ABANDONED_AFTER = "10 minutes"
 
+/**
+ * Teto da espera pelo advisory lock.
+ *
+ * `pg_advisory_xact_lock` bloqueia sem prazo. Como o reset é disparado por um POST do
+ * painel e a ALB corta a conexão em 60 s, uma fila de execuções fazia o usuário perder a
+ * resposta enquanto o servidor seguia esperando — e o reset acabava rodando sem ninguém
+ * ver o resultado. Com o teto, a espera vira erro com mensagem, e a linha do log fecha
+ * como `failed` em vez de ficar pendurada.
+ *
+ * 45 s é o dobro da execução mais longa já medida (21,7 s em 695), então uma fila normal
+ * de uma execução cabe folgada, e ainda sobra margem para a ALB responder antes de cortar.
+ */
+const LOCK_TIMEOUT = "45s"
+
 export type TrainingScope = {
 	unit_id: number
 	kitchen_id: number
@@ -96,7 +110,10 @@ export type TrainingResetLogRow = {
 	actor_id: string
 	started_at: string
 	finished_at: string | null
+	/** Trabalho, em ms. Linha anterior a 2026-08-25 inclui a espera pelo lock. */
 	duration_ms: number | null
+	/** Espera pelo lock, em ms. Nula nas linhas anteriores a 2026-08-25. */
+	queued_ms: number | null
 	deleted_counts: Record<string, number>
 	status: string
 	error_message: string | null
@@ -115,7 +132,10 @@ export type TrainingResetResult = {
 	 */
 	reset_id: string
 	deleted_counts: Record<string, number>
+	/** Tempo de TRABALHO, em ms — sem a espera pelo lock, que vai em `queued_ms`. */
 	duration_ms: number
+	/** Espera pelo advisory lock, em ms. */
+	queued_ms: number
 }
 
 /**
@@ -468,11 +488,33 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 
 	await closeAbandonedResets(db, logRow.id)
 
+	// Preenchido quando o lock é adquirido: separa a ESPERA do TRABALHO. Sem essa marca, a
+	// coluna "duração" do painel somava as duas — o registro nasce antes do lock.
+	let workStartedAt: number | null = null
+
 	try {
-		const deletedCounts = await db.transaction(async (tx) => {
+		const { deletedCounts, lockedAt } = await db.transaction(async (tx) => {
 			// Serializa execuções concorrentes — sem isto, dois resets simultâneos deixariam o
 			// ambiente parcialmente limpo. Liberado no commit/rollback da transação.
-			await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
+			//
+			// `lock_timeout` LOCAL à transação: expira só esta espera e volta ao padrão do banco
+			// no commit. Sem ele a espera é ilimitada (ver LOCK_TIMEOUT).
+			//
+			// Via `set_config(..., true)` e não `SET LOCAL`: o comando SET não aceita parâmetro
+			// de bind — `set local lock_timeout = $1` é erro de sintaxe (42601), e interpolar o
+			// valor no texto seria abrir concatenação de SQL por um número.
+			await tx.execute(sql`select set_config('lock_timeout', ${LOCK_TIMEOUT}, true)`)
+			try {
+				await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
+			} catch (e) {
+				throw new DomainError(
+					"RESET_BUSY",
+					`Já existe um reset do ambiente de treino em andamento (espera de ${LOCK_TIMEOUT} esgotada). Tente de novo em instantes.`,
+					e
+				)
+			}
+			const lockedAt = Date.now()
+			workStartedAt = lockedAt
 
 			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
 			// são alcançáveis por eles.
@@ -519,19 +561,23 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 			}
 
 			await seedTrainingBaseline(tx, scope)
-			return counts
+			return { deletedCounts: counts, lockedAt }
 		})
 
-		const durationMs = Date.now() - startedAt.getTime()
+		// `duration_ms` é o TRABALHO; a espera pelo lock vai em `queued_ms`. Somadas, dão o
+		// que a coluna media antes — e o painel deixa de creditar à limpeza o tempo que ela
+		// passou na fila.
+		const queuedMs = lockedAt - startedAt.getTime()
+		const durationMs = Date.now() - lockedAt
 		await runQuery("UPDATE_FAILED", () =>
 			db
 				.update(trainingResetLogInCore)
-				.set({ finishedAt: new Date().toISOString(), durationMs, deletedCounts, status: "succeeded" })
+				.set({ finishedAt: new Date().toISOString(), durationMs, queuedMs, deletedCounts, status: "succeeded" })
 				.where(eq(trainingResetLogInCore.id, logRow.id))
 				.then(() => undefined)
 		)
 
-		return { reset_id: logRow.id, deleted_counts: deletedCounts, duration_ms: durationMs }
+		return { reset_id: logRow.id, deleted_counts: deletedCounts, duration_ms: durationMs, queued_ms: queuedMs }
 	} catch (error) {
 		// Fora da transação revertida — este UPDATE persiste.
 		//
@@ -545,7 +591,10 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 				.update(trainingResetLogInCore)
 				.set({
 					finishedAt: new Date().toISOString(),
-					durationMs: Date.now() - startedAt.getTime(),
+					// Falha ANTES do lock (RESET_BUSY, conexão): não houve trabalho, e `queued_ms`
+					// carrega a espera inteira. `duration_ms` nulo diz isso melhor do que zero.
+					durationMs: workStartedAt == null ? null : Date.now() - workStartedAt,
+					queuedMs: (workStartedAt ?? Date.now()) - startedAt.getTime(),
 					status: "failed",
 					errorMessage: describeDriverError(error),
 				})
@@ -619,6 +668,7 @@ export async function listTrainingResets(db: SisubDb, ctx: UserContext, input: L
 				started_at: trainingResetLogInCore.startedAt,
 				finished_at: trainingResetLogInCore.finishedAt,
 				duration_ms: trainingResetLogInCore.durationMs,
+				queued_ms: trainingResetLogInCore.queuedMs,
 				deleted_counts: trainingResetLogInCore.deletedCounts,
 				status: trainingResetLogInCore.status,
 				error_message: trainingResetLogInCore.errorMessage,
