@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
+import { BlurredImage } from "@/components/uniforms/blurred-image"
 import { uniformMatchesQuery } from "@/lib/uniforms/filter"
 import { uniformPreviewImagesQueryOptions, uniformsQueryOptions } from "@/lib/uniforms/hooks"
 import { CATEGORIA_LABELS, GENERO_LABELS, GRUPO_ACCENT, GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
@@ -288,13 +289,14 @@ function UniformCardMedia({ uniformId, genero, title }: { uniformId: string; gen
 	// resposta faria o grid inteiro pular sob o cursor enquanto a pessoa rola.
 	return (
 		<div ref={ref} className="relative mt-3 aspect-[4/3] border-y border-border/60 bg-muted/20">
-			{cover ? (
-				<img src={cover.url} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain" />
-			) : (
-				<div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-					{isLoading || !inView ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
-				</div>
-			)}
+			<BlurredImage
+				src={cover?.url}
+				placeholder={cover?.placeholder}
+				alt={title}
+				loading="lazy"
+				className="absolute inset-0 text-muted-foreground"
+				fallback={isLoading || !inView ? <Spinner className="size-5" /> : <ImageOff className="size-5" aria-hidden="true" />}
+			/>
 			{count > 1 && (
 				<span className="absolute right-2 bottom-2 rounded-full bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-background">
 					+{count - 1} foto(s)
@@ -338,11 +340,15 @@ function UniformPreview({ uniformId, genero, title }: { uniformId: string; gener
 					</div>
 				) : (
 					images.map((img, i) => (
-						<img
+						// A opacidade externa é do SLIDESHOW (qual imagem está na vez); a interna,
+						// do carregamento. Empilhar as duas é intencional: a imagem que entra no
+						// slide já pode estar borrada esperando bytes, e as duas transições somam.
+						<BlurredImage
 							key={img.url}
 							src={img.url}
+							placeholder={img.placeholder}
 							alt={title}
-							className={cn("absolute inset-0 h-full w-full object-contain transition-opacity duration-500", i === active ? "opacity-100" : "opacity-0")}
+							className={cn("absolute inset-0 transition-opacity duration-500 motion-reduce:transition-none", i === active ? "opacity-100" : "opacity-0")}
 						/>
 					))
 				)}

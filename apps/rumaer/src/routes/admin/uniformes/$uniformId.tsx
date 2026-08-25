@@ -507,7 +507,9 @@ function VariantCard({
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
 			if (error) throw new Error(error.message)
-			await upsertVariantFn({ data: { id: variant.id, uniform_id: variant.uniform_id, circulo: variant.circulo, genero: variant.genero, image_path: path } })
+			await upsertVariantFn({
+				data: { id: variant.id, uniform_id: variant.uniform_id, circulo: variant.circulo, genero: variant.genero, image_path: path, uploaded: true },
+			})
 			toast.success("Imagem enviada")
 			await onChanged()
 		} catch (e) {
@@ -710,7 +712,7 @@ function AltImageRow({
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
 			if (error) throw new Error(error.message)
-			await upsertVariantImageFn({ data: { variant_id: variant.id, piece_id: piece.piece_id, image_path: path, legenda: piece.piece.nome } })
+			await upsertVariantImageFn({ data: { variant_id: variant.id, piece_id: piece.piece_id, image_path: path, legenda: piece.piece.nome, uploaded: true } })
 			toast.success("Imagem enviada")
 			await onChanged()
 		} catch (e) {

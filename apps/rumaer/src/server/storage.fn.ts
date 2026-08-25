@@ -52,7 +52,18 @@ export const getSignedImageUrlFn = createServerFn({ method: "GET" })
  * sem essa etiqueta a ilustração feminina apareceria no card masculino (as
  * imagens são peças diferentes, não recortes da mesma foto).
  */
-export type UniformPreviewImage = { url: string; genero: Genero; circulo: CirculoHierarquico }
+export type UniformPreviewImage = {
+	url: string
+	genero: Genero
+	circulo: CirculoHierarquico
+	/**
+	 * LQIP da imagem (data URL PNG de ~1,5 KB). Vem do mesmo SELECT que resolve os
+	 * caminhos, então não custa round trip: o card já pinta a prévia borrada enquanto a
+	 * imagem assinada — grande e privada — ainda está baixando. `null` em linha que ainda
+	 * não passou pelo backfill ou cuja geração falhou.
+	 */
+	placeholder: string | null
+}
 
 /**
  * URLs assinadas de todas as imagens de um uniforme (base das variantes + looks),
@@ -69,19 +80,20 @@ export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
 
 		const { data: variants, error } = await supabase
 			.from("uniform_variant")
-			.select("image_path, ordem, genero, circulo, images:uniform_variant_image(image_path, ordem)")
+			.select("image_path, blur_placeholder, ordem, genero, circulo, images:uniform_variant_image(image_path, blur_placeholder, ordem)")
 			.eq("uniform_id", data.id)
 			.order("ordem", { ascending: true })
 		if (error) throw new Error(error.message)
 
 		// Um mesmo caminho pode ser reaproveitado por variantes de círculos diferentes;
 		// vale a primeira ocorrência (a de menor `ordem`), que é a mais representativa.
-		const byPath = new Map<string, { genero: Genero; circulo: CirculoHierarquico }>()
+		// O placeholder acompanha o caminho: é derivado do arquivo, não da variante.
+		const byPath = new Map<string, { genero: Genero; circulo: CirculoHierarquico; placeholder: string | null }>()
 		for (const v of variants ?? []) {
 			const tag = { genero: v.genero, circulo: v.circulo }
-			if (v.image_path && !byPath.has(v.image_path)) byPath.set(v.image_path, tag)
+			if (v.image_path && !byPath.has(v.image_path)) byPath.set(v.image_path, { ...tag, placeholder: v.blur_placeholder })
 			for (const img of [...(v.images ?? [])].sort((a, b) => a.ordem - b.ordem)) {
-				if (img.image_path && !byPath.has(img.image_path)) byPath.set(img.image_path, tag)
+				if (img.image_path && !byPath.has(img.image_path)) byPath.set(img.image_path, { ...tag, placeholder: img.blur_placeholder })
 			}
 		}
 		const unique = [...byPath.keys()]

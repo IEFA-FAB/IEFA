@@ -16,7 +16,9 @@ function uniform(id: string, generos: Genero[]): UniformListItem {
 }
 
 function image(genero: Genero, circulo: CirculoHierarquico, url = `${genero}-${circulo}`): UniformPreviewImage {
-	return { url, genero, circulo }
+	// `placeholder` não entra em nenhuma regra deste módulo (filtro/ordem por gênero e
+	// círculo); fica null para o helper continuar declarando só o que é lido aqui.
+	return { url, genero, circulo, placeholder: null }
 }
 
 function variant(circulo: CirculoHierarquico, genero: Genero, sub_variacao: string | null = null, image_path: string | null = null): VariantKey {
