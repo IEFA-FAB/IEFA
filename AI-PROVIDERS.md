@@ -31,23 +31,82 @@ não pelo Secrets Manager:
 | | modelo | região | reserva | tetos |
 |---|---|---|---|---|
 | sisub (`MODULE_CHAT` e `ANALYTICS`) | `openai.gpt-oss-120b-1:0` | `sa-east-1` | ❌ não configurada | ❌ nenhum |
-| sucont (`SUCONT`) | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | `us-east-1` | ❌ | ❌ |
+| sucont (`SUCONT`) | `global.anthropic.claude-opus-4-6-v1` | `sa-east-1` | ✅ `openai.gpt-oss-120b-1:0` | ✅ 12/min, 120k tok/min, 2M tok/dia |
 
 Duas consequências, ambas verificadas:
 
 1. **sisub funciona** — o CloudTrail de `sa-east-1` registra `ConverseStream` da task role com
    `openai.gpt-oss-120b-1:0` sem `errorCode`, inclusive no dia da conferência. Não é Claude
    Sonnet 4.6, que é o que este arquivo e o `sisub.example.json` diziam.
-2. **o oráculo do sucont está quebrado** — o perfil `us.anthropic.*` está **fora** do escopo
-   que a task role recebeu (ver IAM abaixo): `simulate-principal-policy` devolve
-   `implicitDeny` para `InvokeModelWithResponseStream` **e** para `ConverseStream` nesse ARN,
-   e o CloudTrail de `us-east-1` não tem nenhuma chamada da task role — o caminho nunca
-   funcionou. `AccessDenied` não é falha transitória, então a reserva não entraria nem se
-   existisse. Conserto: ver a escolha de modelo abaixo.
+2. **o oráculo do sucont estava quebrado, e foi consertado em 2026-08-21** — o perfil
+   `us.anthropic.*` está **fora** do escopo que a task role recebeu (ver IAM abaixo):
+   `simulate-principal-policy` devolve `implicitDeny` para `InvokeModelWithResponseStream`
+   **e** para `ConverseStream` nesse ARN, e o CloudTrail de `us-east-1` não tinha nenhuma
+   chamada da task role — o caminho nunca funcionou. `AccessDenied` não é falha transitória,
+   então a reserva não entraria nem se existisse.
 
-### Escolha do modelo do oráculo (bench de 2026-08-14)
+   A revisão `iefa-prod-sucont:4` passou o primário para `global.anthropic.claude-opus-4-6-v1`
+   em `sa-east-1` (prefixo que a policy aceita), com `openai.gpt-oss-120b-1:0` de reserva e os
+   tetos ligados.
 
-`SUCONT_AI_MODEL = "openai.gpt-oss-120b-1:0"` em `sa-east-1` — o mesmo do sisub.
+   **A revisão foi registrada à mão e o terraform NÃO sabe dela.** O `plan` do stack `sucont`
+   devolve `task_definition: ...:4 -> ...:1` — ou seja, o próximo apply volta o serviço para a
+   revisão ORIGINAL, com o `us.anthropic` que a role não invoca. E o apply dispara sozinho em
+   **push na `main` que toque `infra/**`**, de qualquer PR. Enquanto o secret `TF_TFVARS_JSON`
+   não receber o bloco abaixo na chave `sucont`, qualquer mudança em `infra/` derruba a IA do
+   sucont:
+
+   ```hcl
+   SUCONT_AI_PROVIDER = "bedrock"
+   SUCONT_AI_MODEL    = "global.anthropic.claude-opus-4-6-v1"
+   SUCONT_AI_REGION   = "sa-east-1"
+
+   SUCONT_FALLBACK_AI_PROVIDER = "bedrock"
+   SUCONT_FALLBACK_AI_MODEL    = "openai.gpt-oss-120b-1:0"
+   SUCONT_FALLBACK_AI_REGION   = "sa-east-1"
+
+   SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "12"
+   SUCONT_AI_MAX_TOKENS_PER_MINUTE   = "120000"
+   SUCONT_AI_MAX_TOKENS_PER_DAY      = "2000000"
+   ```
+
+### Escolha do modelo do oráculo (bench de 2026-08-14, revisto em 2026-08-21)
+
+`SUCONT_AI_MODEL = "global.anthropic.claude-opus-4-6-v1"` em `sa-east-1`, com
+`openai.gpt-oss-120b-1:0` de **reserva**.
+
+> **Revisão de 2026-08-21.** O bench abaixo elegeu o gpt-oss-120b por preço e TTFT, com
+> capacidade empatada entre os candidatos. A decisão foi revista quando o SAC-DGC entrou:
+> ele não é chat em streaming — é análise estruturada em lote, onde o total importa mais que
+> o TTFT e a qualidade do apontamento vale o custo. Medido no prompt real do DGC em
+> `sa-east-1`: gpt-oss-120b 14 s / 5 alertas; sonnet-4-6 96 s / 7; opus-4-6 81 s / 7. Os três
+> devolveram as 20 perguntas do checklist e casaram os valores da base. **Uma amostra continua
+> não decidindo qualidade** — o que decidiu foi a natureza da carga, não o placar.
+>
+> Fica o efeito colateral, e é real: o `SUCONT_AI_MODEL` é **compartilhado** com o oráculo em
+> SSE, o document-ai e o conta-genérica. O caminho certo para diferenciar é um prefixo de env
+> próprio por consumidor (ex.: `SUCONT_DGC_AI_*`), não trocar o compartilhado de novo.
+>
+> Por isso o `model-bench.ts` foi refeito nos TRÊS caminhos antes de aplicar — o
+> `document-ai.fn.ts` corta em 60 s por `Promise.race`, e trocar o modelo compartilhado sem
+> medir esse caminho é o jeito de quebrar a geração de ofício consertando o oráculo
+> (`sa-east-1`, 2026-08-21):
+>
+> | modelo | chat TTFB | json:analysis | json:fab |
+> |---|---|---|---|
+> | opus-4-6 | 2,4 s | 21,6 s | 16,1 s |
+> | sonnet-4-6 | 1,2 s | 31,1 s | 13,5 s |
+> | gpt-oss-120b | 3,7 s | 3,1 s | 4,3 s |
+>
+> Os nove casos passaram com schema completo. O Opus 4.6 cabe no orçamento de 60 s com folga
+> de ~2,8x no pior caminho, e tem TTFB **menor** que o gpt-oss no chat — o custo da troca é
+> tempo total, não o primeiro token.
+>
+> **Nem todo modelo da policy está habilitado na conta.** Em 2026-08-21, `opus-5`, `opus-4-8`,
+> `opus-4-7`, `sonnet-5` e `fable-5` aparecem em `list-inference-profiles` como `ACTIVE` e
+> ainda assim devolvem `AccessDeniedException: not available for this account` — habilitação
+> de modelo no Bedrock é separada do IAM. Habilitados hoje: `opus-4-6`, `opus-4-5`,
+> `sonnet-4-6`, `sonnet-4-5`, `haiku-4-5` e `gpt-oss-120b`.
 
 A escolha não é por afinidade: os quatro candidatos que a task role **pode** invocar foram
 medidos nos **dois** caminhos reais do app pelo adapter do próprio repo
@@ -148,9 +207,12 @@ responde `Converse` na região da stack, confirmado por chamada real. A afirmaç
 errada e foi o que colocou o sucont num id que a task role não pode invocar. Não cruze região
 sem motivo.
 
-**Confirme o id exato antes de aplicar** — ele não é estável, e nem todo modelo usa o sufixo
-`-v1:0` (o 4.6 é `global.anthropic.claude-sonnet-4-6`, sem sufixo; o 4.5 é
-`global.anthropic.claude-sonnet-4-5-20250929-v1:0`, com):
+**Confirme o id exato antes de aplicar** — o sufixo não segue regra, nem por geração nem por
+família. Na MESMA geração 4.6 convivem `global.anthropic.claude-opus-4-6-v1` (com `-v1`) e
+`global.anthropic.claude-sonnet-4-6` (sem sufixo); o 4.5 é
+`global.anthropic.claude-sonnet-4-5-20250929-v1:0` (com data e `-v1:0`). Não deduza do
+vizinho — liste na conta. Id errado devolve `ValidationException`, que **não** é transitória:
+a reserva não entra e o app fica sem IA.
 
 ```sh
 # Claude → inference profile (prefixo `global.`)

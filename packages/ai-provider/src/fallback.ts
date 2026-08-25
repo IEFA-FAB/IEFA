@@ -40,6 +40,11 @@ const RETRYABLE_PATTERNS = [
 	/socket hang up/i,
 	/fetch failed/i,
 	/network error/i,
+	// Frase do SDK da AWS quando o transporte morre antes de qualquer resposta
+	// ("Unexpected error: http2 request did not get a response"). Não casava com
+	// nenhum padrão acima, então a reserva NÃO entrava justamente na falha de
+	// transporte do primário — que é o Bedrock, o caso mais provável.
+	/did not get a response/i,
 ]
 
 /**
