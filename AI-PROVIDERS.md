@@ -46,10 +46,29 @@ Duas consequências, ambas verificadas:
    então a reserva não entraria nem se existisse.
 
    A revisão `iefa-prod-sucont:4` passou o primário para `global.anthropic.claude-opus-4-6-v1`
-   em `sa-east-1` (mesmo modelo do desenho, prefixo que a policy aceita), com
-   `openai.gpt-oss-120b-1:0` de reserva e os tetos ligados. **A task definition é do
-   terraform**: a correção só sobrevive ao próximo `terraform apply` se o secret
-   `TF_TFVARS_JSON` for atualizado junto (ver `infra/sucont/terraform.tfvars.example`).
+   em `sa-east-1` (prefixo que a policy aceita), com `openai.gpt-oss-120b-1:0` de reserva e os
+   tetos ligados.
+
+   **A revisão foi registrada à mão e o terraform NÃO sabe dela.** O `plan` do stack `sucont`
+   devolve `task_definition: ...:4 -> ...:1` — ou seja, o próximo apply volta o serviço para a
+   revisão ORIGINAL, com o `us.anthropic` que a role não invoca. E o apply dispara sozinho em
+   **push na `main` que toque `infra/**`**, de qualquer PR. Enquanto o secret `TF_TFVARS_JSON`
+   não receber o bloco abaixo na chave `sucont`, qualquer mudança em `infra/` derruba a IA do
+   sucont:
+
+   ```hcl
+   SUCONT_AI_PROVIDER = "bedrock"
+   SUCONT_AI_MODEL    = "global.anthropic.claude-opus-4-6-v1"
+   SUCONT_AI_REGION   = "sa-east-1"
+
+   SUCONT_FALLBACK_AI_PROVIDER = "bedrock"
+   SUCONT_FALLBACK_AI_MODEL    = "openai.gpt-oss-120b-1:0"
+   SUCONT_FALLBACK_AI_REGION   = "sa-east-1"
+
+   SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "12"
+   SUCONT_AI_MAX_TOKENS_PER_MINUTE   = "120000"
+   SUCONT_AI_MAX_TOKENS_PER_DAY      = "2000000"
+   ```
 
 ### Escolha do modelo do oráculo (bench de 2026-08-14, revisto em 2026-08-21)
 
