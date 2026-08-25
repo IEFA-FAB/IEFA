@@ -601,14 +601,18 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						    encolhe além do próprio texto, então a barra transborda e rola — que é o
 						    comportamento padrão de barra de abas em tela estreita. O `justify-start` é
 						    parte do conserto: centralizado, o conteúdo que transborda é cortado dos DOIS
-						    lados e a primeira aba não volta nem rolando.
+						    lados e a primeira aba não volta nem rolando. `overflow-y-hidden` acompanha as
+						    outras duas barras roláveis do app: sem ele o eixo Y vira `auto` e uma régua
+						    de 32px ganha barra vertical. E a barra horizontal fica escondida SÓ aqui —
+						    6px dentro de 32px comem um quinto do pill; as outras barras do app mantêm
+						    o traço, que lá é a única pista de que há mais aba fora da tela.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
 						<form.Subscribe selector={encodeTabProblems}>
 							{(encoded) => {
 								const counts = decodeTabProblems(encoded)
 								return (
-									<TabsList className="mx-auto flex w-full max-w-3xl justify-start overflow-x-auto lg:grid lg:grid-cols-6 lg:justify-center">
+									<TabsList className="mx-auto flex w-full max-w-3xl justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none] lg:grid lg:grid-cols-6 lg:justify-center [&::-webkit-scrollbar]:hidden">
 										{RECIPE_FORM_TABS.map((tab) => {
 											const errorCount = counts[tab]
 											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`

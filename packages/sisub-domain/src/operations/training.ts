@@ -55,7 +55,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { describeDriverError, insertOneOrFail, runQuery } from "../utils/index.ts"
+import { describeDriverError, insertOneOrFail, runQuery, unwrapPgError } from "../utils/index.ts"
 
 /** Código exigido nas sentinelas — segunda âncora, além de `is_training`. */
 const TRAINING_CODE = "TREINO"
@@ -507,6 +507,11 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 			try {
 				await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
 			} catch (e) {
+				// SÓ o estouro do lock_timeout (55P03) vira "já tem um reset rodando". Qualquer
+				// outra falha aqui — conexão caída, banco fora — sobe intacta: rotulá-la de
+				// concorrência inventaria um reset que não existe e ainda esconderia a causa,
+				// porque `describeDriverError` lê `.cause`, não os detalhes do DomainError.
+				if (unwrapPgError(e).code !== "55P03") throw e
 				throw new DomainError(
 					"RESET_BUSY",
 					`Já existe um reset do ambiente de treino em andamento (espera de ${LOCK_TIMEOUT} esgotada). Tente de novo em instantes.`,
