@@ -39,6 +39,29 @@ function totalDeleted(counts: Record<string, number>) {
 	return Object.values(counts).reduce((sum, n) => sum + n, 0)
 }
 
+/**
+ * Desfecho da execução, em português.
+ *
+ * "Em andamento" é reservado ao `running`: antes, ele era o texto de QUALQUER status
+ * desconhecido, e as 6 execuções que o processo abandonou (container derrubado no meio)
+ * apareciam como se ainda estivessem rodando — desde julho. Status que o app não conhece
+ * aparece cru, que é honesto e depura sozinho.
+ */
+function resetOutcome(status: string, errorMessage: string | null): string {
+	switch (status) {
+		case "succeeded":
+			return "Concluído"
+		case "failed":
+			return `Falhou — ${errorMessage ?? "sem detalhe"}`
+		case "abandoned":
+			return "Sem desfecho — o processo parou antes de registrar o resultado"
+		case "running":
+			return "Em andamento"
+		default:
+			return status
+	}
+}
+
 function TrainingPage() {
 	const queryClient = useQueryClient()
 	const { can } = usePBAC()
@@ -180,9 +203,7 @@ function TrainingPage() {
 								resets.map((run) => (
 									<TableRow key={run.id}>
 										<TableCell className="text-sm">{formatStamp(run.started_at)}</TableCell>
-										<TableCell className="text-sm">
-											{run.status === "succeeded" ? "Concluído" : run.status === "failed" ? `Falhou — ${run.error_message ?? "sem detalhe"}` : "Em andamento"}
-										</TableCell>
+										<TableCell className="text-sm">{resetOutcome(run.status, run.error_message)}</TableCell>
 										<TableCell className="text-sm font-mono">{run.duration_ms != null ? `${run.duration_ms} ms` : "—"}</TableCell>
 										<TableCell className="text-sm font-mono">{totalDeleted(run.deleted_counts)}</TableCell>
 									</TableRow>

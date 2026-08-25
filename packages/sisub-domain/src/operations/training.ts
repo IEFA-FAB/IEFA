@@ -66,6 +66,17 @@ const TRAINING_CODE = "TREINO"
  */
 const RESET_LOCK_KEY = 8_147_201
 
+/**
+ * Idade a partir da qual uma linha `running` é considerada ABANDONADA.
+ *
+ * A execução mais longa já medida foi 21,7 s em 695 registros (média 9,4 s); dez minutos
+ * é ~27x isso. A folga não é luxo: o INSERT do log acontece antes do advisory lock, então
+ * uma execução que chegou enquanto outra trabalhava fica `running` no banco enquanto
+ * espera a vez, e reclassificá-la seria mentir sobre um processo vivo. Com este corte,
+ * varrer exigiria dezenas de execuções enfileiradas.
+ */
+const ABANDONED_AFTER = "10 minutes"
+
 export type TrainingScope = {
 	unit_id: number
 	kitchen_id: number
@@ -430,6 +441,23 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 			// Serializa execuções concorrentes — sem isto, dois resets simultâneos deixariam o
 			// ambiente parcialmente limpo. Liberado no commit/rollback da transação.
 			await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
+
+			// Fecha as órfãs de execuções anteriores. Segurar o lock é a prova: nenhuma OUTRA
+			// execução está na transação de dados agora, então uma linha `running` velha só
+			// pode ser de um processo que morreu entre o INSERT do log e o UPDATE final —
+			// container derrubado, run de CI cancelado. Sem isto elas ficam "Em andamento"
+			// no painel da SDAB para sempre (eram 6, de julho e agosto).
+			//
+			// O corte de idade cobre a única linha `running` legítima que não é a nossa: a
+			// que já foi inserida e ainda espera este mesmo lock.
+			await tx.execute(sql`
+				update core.training_reset_log
+				set status = 'abandoned',
+				    error_message = coalesce(error_message, 'Execução sem desfecho: o processo terminou antes de registrar o resultado.')
+				where status = 'running'
+				  and id <> ${logRow.id}
+				  and started_at < now() - ${ABANDONED_AFTER}::interval
+			`)
 
 			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
 			// são alcançáveis por eles.
