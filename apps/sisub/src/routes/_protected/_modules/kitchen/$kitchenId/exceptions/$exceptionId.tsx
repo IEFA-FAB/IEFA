@@ -127,6 +127,11 @@ function ExceptionEditorPage() {
 	const [applyOpen, setApplyOpen] = useState(false)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
+	// de ROTA — salvar um template global aqui cria o fork e muda `exceptionId`/`willFork`
+	// —, e sem esta comparação ele regravaria, 1,5s depois, o fork recém-criado inteiro.
+	const savedSignatureRef = useRef<string | null>(null)
+	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), occurrences, items })
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -156,6 +161,9 @@ function ExceptionEditorPage() {
 		// uma bifurcação silenciosa. Num template global a cópia sai só do salvamento
 		// explícito, depois do aviso.
 		if (willFork) return
+		// Nada mudou desde a última gravação (o efeito re-executou por troca de rota, não por
+		// edição do usuário) — não há o que salvar.
+		if (contentSignature === savedSignatureRef.current) return
 		setSaveStatus("idle")
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		autoSaveTimerRef.current = setTimeout(() => {
@@ -173,7 +181,10 @@ function ExceptionEditorPage() {
 					})),
 				},
 				{
-					onSuccess: () => setSaveStatus("saved"),
+					onSuccess: () => {
+						savedSignatureRef.current = contentSignature
+						setSaveStatus("saved")
+					},
 					onError: () => setSaveStatus("idle"),
 				}
 			)
@@ -181,7 +192,7 @@ function ExceptionEditorPage() {
 		return () => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
-	}, [name, description, occurrences, items, initialized, willFork, editContext, autoSave, exceptionId])
+	}, [name, description, occurrences, items, initialized, willFork, editContext, autoSave, exceptionId, contentSignature])
 
 	// ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -248,11 +259,21 @@ function ExceptionEditorPage() {
 				})),
 			},
 			{
-				onSuccess: () => {
-					navigate({
-						to: "/kitchen/$kitchenId/exceptions",
-						params: { kitchenId: kitchenIdStr as string },
-					})
+				// Salvar mantém o editor aberto — a tela já auto-salva em rascunho local, então
+				// voltar para a listagem no salvamento explícito era o único ponto em que o
+				// usuário perdia o lugar. O ÚNICO deslocamento é o fork: o save de um template
+				// global cria a cópia local (id novo) e a URL precisa passar a apontar para ela,
+				// senão a tela continuaria editando — e forkando de novo — o global.
+				onSuccess: (result) => {
+					savedSignatureRef.current = contentSignature
+					const savedId = result?.template?.id
+					if (savedId && savedId !== exceptionId) {
+						navigate({
+							to: "/kitchen/$kitchenId/exceptions/$exceptionId",
+							params: { kitchenId: kitchenIdStr as string, exceptionId: savedId },
+							replace: true,
+						})
+					}
 				},
 			}
 		)

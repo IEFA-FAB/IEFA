@@ -119,6 +119,11 @@ function EventEditorPage() {
 	const [applyOpen, setApplyOpen] = useState(false)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
+	// de ROTA — salvar um template global aqui cria o fork e muda `eventId`/`willFork` —, e
+	// sem esta comparação ele regravaria, 1,5s depois, o fork recém-criado inteiro.
+	const savedSignatureRef = useRef<string | null>(null)
+	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items })
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -147,6 +152,9 @@ function EventEditorPage() {
 		// uma bifurcação silenciosa. Num template global a cópia sai só do salvamento
 		// explícito, depois do aviso.
 		if (willFork) return
+		// Nada mudou desde a última gravação (o efeito re-executou por troca de rota, não por
+		// edição do usuário) — não há o que salvar.
+		if (contentSignature === savedSignatureRef.current) return
 		setSaveStatus("idle")
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		autoSaveTimerRef.current = setTimeout(() => {
@@ -164,7 +172,10 @@ function EventEditorPage() {
 					})),
 				},
 				{
-					onSuccess: () => setSaveStatus("saved"),
+					onSuccess: () => {
+						savedSignatureRef.current = contentSignature
+						setSaveStatus("saved")
+					},
 					onError: () => setSaveStatus("idle"),
 				}
 			)
@@ -172,7 +183,7 @@ function EventEditorPage() {
 		return () => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
-	}, [name, description, items, initialized, willFork, editContext, autoSave, eventId])
+	}, [name, description, items, initialized, willFork, editContext, autoSave, eventId, contentSignature])
 
 	// ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -238,11 +249,21 @@ function EventEditorPage() {
 				})),
 			},
 			{
-				onSuccess: () => {
-					navigate({
-						to: "/kitchen/$kitchenId/events",
-						params: { kitchenId: kitchenIdStr as string },
-					})
+				// Salvar mantém o editor aberto — a tela já auto-salva em rascunho local, então
+				// voltar para a listagem no salvamento explícito era o único ponto em que o
+				// usuário perdia o lugar. O ÚNICO deslocamento é o fork: o save de um template
+				// global cria a cópia local (id novo) e a URL precisa passar a apontar para ela,
+				// senão a tela continuaria editando — e forkando de novo — o global.
+				onSuccess: (result) => {
+					savedSignatureRef.current = contentSignature
+					const savedId = result?.template?.id
+					if (savedId && savedId !== eventId) {
+						navigate({
+							to: "/kitchen/$kitchenId/events/$eventId",
+							params: { kitchenId: kitchenIdStr as string, eventId: savedId },
+							replace: true,
+						})
+					}
 				},
 			}
 		)

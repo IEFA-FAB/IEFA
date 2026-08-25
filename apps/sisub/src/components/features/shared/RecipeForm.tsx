@@ -273,6 +273,33 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// de search e o resolve como `never`; o cast preserva os demais params e grava ?tab= na URL.
 	const setTab = (tab: RecipeFormTab) => navigate({ search: ((prev: Record<string, unknown>) => ({ ...prev, tab })) as never, replace: true })
 
+	/**
+	 * Aponta a URL para a preparação recém-gravada, SEM sair do editor.
+	 *
+	 * Salvar nunca é edição in-place: `createRecipe` insere a linha nova e `saveRecipeEdit`
+	 * insere a próxima versão da linhagem (ou o fork local). O id na URL, portanto, fica
+	 * defasado no instante do save — e é dele que a tela relê a ficha, o histórico e o
+	 * fluxo de produção. `replace` porque a versão anterior não é um destino para onde
+	 * voltar: o "voltar" do usuário é a listagem, não a revisão que ele acabou de superar.
+	 */
+	const stayOnSavedRecipe = (recipeId: string) => {
+		if (kitchenId) {
+			navigate({
+				to: "/kitchen/$kitchenId/recipes/$recipeId",
+				params: { kitchenId, recipeId },
+				search: ((prev: Record<string, unknown>) => prev) as never,
+				replace: true,
+			})
+		} else {
+			navigate({
+				to: "/global/recipes/$recipeId",
+				params: { recipeId },
+				search: ((prev: Record<string, unknown>) => prev) as never,
+				replace: true,
+			})
+		}
+	}
+
 	const createMutation = useCreateRecipe()
 	const saveEditMutation = useSaveRecipeEdit()
 
@@ -412,27 +439,25 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 			const { ingredients: _ingredients, ...recipeData } = value
 
+			// Salvar mantém o usuário no editor: o único deslocamento é o id da URL, que passa
+			// a apontar para a linha gravada (ver `stayOnSavedRecipe`). Voltar para a listagem
+			// obrigava a reabrir a ficha a cada ajuste — e o toast das mutations já confirma.
 			if (mode === "create") {
-				await createMutation.mutateAsync({
+				const created = await createMutation.mutateAsync({
 					...recipeData,
 					kitchen_id: editContext.scope === "kitchen" ? editContext.kitchenId : null,
 					ingredients: mappedIngredients,
 				})
+				stayOnSavedRecipe(created.id)
 			} else if (initialData) {
 				// "edit" e "fork" convergem: o servidor decide versionar ou forkar a partir do
 				// dono da base e do contexto. A versão e o escopo não vêm mais do cliente.
-				await saveEditMutation.mutateAsync({
+				const { recipe: saved } = await saveEditMutation.mutateAsync({
 					baseRecipeId: initialData.id,
 					context: editContext,
 					data: { ...recipeData, ingredients: mappedIngredients },
 				})
-			}
-
-			toast.success("Preparação salva com sucesso!")
-			if (kitchenId) {
-				navigate({ to: "/kitchen/$kitchenId/recipes", params: { kitchenId } })
-			} else {
-				navigate({ to: "/global/recipes" })
+				stayOnSavedRecipe(saved.id)
 			}
 		},
 	})

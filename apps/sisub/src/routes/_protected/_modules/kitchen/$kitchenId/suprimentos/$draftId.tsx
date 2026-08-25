@@ -19,8 +19,13 @@ function EditDraftPage() {
 	const kitchenId = Number(kitchenIdStr)
 	const navigate = useNavigate()
 
-	const { data: drafts, isLoading: isLoadingDraft } = useKitchenDrafts(kitchenId)
+	const { data: drafts, isLoading: isLoadingDraft, isFetching: isFetchingDrafts } = useKitchenDrafts(kitchenId)
 	const draft = drafts?.find((d) => d.id === draftId)
+	// Chegar aqui vindo de /suprimentos/new significa cair sobre a listagem em cache, que
+	// ainda é a de antes da criação: o rascunho existe, mas não está nela. Sem esperar o
+	// refetch, a tela diria "não encontrado" no instante seguinte ao toast que confirmou a
+	// criação. "Não encontrado" só é verdade com a busca parada.
+	const draftPending = isLoadingDraft || (!draft && isFetchingDrafts)
 
 	const { data: templates, isLoading: isLoadingTemplates } = useMenuTemplates(kitchenId)
 	const { mutate: updateDraft, isPending: isSaving } = useUpdateKitchenDraft()
@@ -34,7 +39,7 @@ function EditDraftPage() {
 		return type === "event" || type === "exception"
 	})
 
-	if (isLoadingDraft) {
+	if (draftPending) {
 		return (
 			<div className="space-y-6">
 				<div className="h-16 animate-pulse rounded bg-muted" aria-hidden="true" />
@@ -57,15 +62,11 @@ function EditDraftPage() {
 		repetitions: s.repetitions,
 	}))
 
+	// Salvar mantém o rascunho aberto — ele segue rascunho depois do save, então tirar o
+	// usuário da tela obrigava a reabrir para o ajuste seguinte. Quem encerra o fluxo é
+	// "Enviar" (abaixo), que aí sim volta para a listagem.
 	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
-		updateDraft(
-			{ draftId: draft.id, updates: { title, notes: notes || null }, selections },
-			{
-				onSuccess: () => {
-					navigate({ to: "/kitchen/$kitchenId/suprimentos", params: { kitchenId: kitchenIdStr as string } })
-				},
-			}
-		)
+		updateDraft({ draftId: draft.id, updates: { title, notes: notes || null }, selections })
 	}
 
 	const handleSend = (title: string, notes: string, selections: TemplateSelection[]) => {
