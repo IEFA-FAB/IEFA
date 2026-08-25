@@ -407,6 +407,36 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
 }
 
 /**
+ * Fecha as órfãs do log: execuções que morreram entre o INSERT do registro e o UPDATE do
+ * desfecho (container derrubado, run de CI cancelado). Sem isto elas ficam `running` para
+ * sempre e o painel da SDAB as mostra como "Em andamento" — eram 6, de julho e agosto.
+ *
+ * O que autoriza a reclassificação é a IDADE, não o advisory lock: uma linha mais velha
+ * que `ABANDONED_AFTER` e ainda sem desfecho não pertence a processo vivo. Por isso roda
+ * FORA da transação destrutiva — lá dentro ela herdaria dois defeitos: um erro seu
+ * abortaria o reset inteiro (é o que aconteceria num banco onde a migração do status
+ * `abandoned` ainda não passou), e o rollback de um reset que falha desfaria a limpeza,
+ * mantendo as órfãs para sempre justamente quando há mais delas.
+ *
+ * Higiene de auditoria nunca derruba a operação: falha aqui vira aviso e o reset segue.
+ */
+async function closeAbandonedResets(db: SisubDb, currentLogId: string): Promise<void> {
+	try {
+		await db.execute(sql`
+			update core.training_reset_log
+			set status = 'abandoned',
+			    error_message = coalesce(error_message, 'Execução sem desfecho: o processo terminou antes de registrar o resultado.')
+			where status = 'running'
+			  and id <> ${currentLogId}
+			  and started_at < now() - ${ABANDONED_AFTER}::interval
+		`)
+	} catch (err) {
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — causa esperada é a migração 20260825201940 pendente, e o reset não pode parar por causa do log
+		console.warn("[sisub] não foi possível fechar execuções abandonadas do reset de treino (migração 20260825201940 pendente?).", err)
+	}
+}
+
+/**
  * Limpa e re-semeia o ambiente de treino.
  *
  * O autor é `ctx.userId` — o mesmo principal que a autorização checou. Um agendador chama
@@ -436,28 +466,13 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 		db.insert(trainingResetLogInCore).values({ actorId, startedAt: startedAt.toISOString(), status: "running" }).returning({ id: trainingResetLogInCore.id })
 	)
 
+	await closeAbandonedResets(db, logRow.id)
+
 	try {
 		const deletedCounts = await db.transaction(async (tx) => {
 			// Serializa execuções concorrentes — sem isto, dois resets simultâneos deixariam o
 			// ambiente parcialmente limpo. Liberado no commit/rollback da transação.
 			await tx.execute(sql`select pg_advisory_xact_lock(${RESET_LOCK_KEY})`)
-
-			// Fecha as órfãs de execuções anteriores. Segurar o lock é a prova: nenhuma OUTRA
-			// execução está na transação de dados agora, então uma linha `running` velha só
-			// pode ser de um processo que morreu entre o INSERT do log e o UPDATE final —
-			// container derrubado, run de CI cancelado. Sem isto elas ficam "Em andamento"
-			// no painel da SDAB para sempre (eram 6, de julho e agosto).
-			//
-			// O corte de idade cobre a única linha `running` legítima que não é a nossa: a
-			// que já foi inserida e ainda espera este mesmo lock.
-			await tx.execute(sql`
-				update core.training_reset_log
-				set status = 'abandoned',
-				    error_message = coalesce(error_message, 'Execução sem desfecho: o processo terminou antes de registrar o resultado.')
-				where status = 'running'
-				  and id <> ${logRow.id}
-				  and started_at < now() - ${ABANDONED_AFTER}::interval
-			`)
 
 			// Ids dos pais, coletados antes de apagar: os filhos não carregam kitchen_id e só
 			// são alcançáveis por eles.
@@ -535,9 +550,16 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 					errorMessage: describeDriverError(error),
 				})
 				.where(eq(trainingResetLogInCore.id, logRow.id))
-		} catch {
-			// Linha fica em `running` — é o que de fato se sabe: a execução parou e o banco
-			// não aceitou o desfecho. Inventar `failed` sem gravá-lo seria pior.
+		} catch (logError) {
+			// Linha fica em `running` e um reset posterior vai reclassificá-la como
+			// `abandoned` — perdendo ESTA causa, que é a real. É o melhor que se consegue
+			// quando o banco recusa a escrita; o que não pode é sumir sem sinal nenhum.
+			// biome-ignore lint/suspicious/noConsole: última chance de registrar a causa de um reset destrutivo que falhou e não conseguiu gravar o próprio desfecho
+			console.warn("[sisub] reset de treino falhou E não foi possível gravar o desfecho no log; a linha segue 'running'.", {
+				resetId: logRow.id,
+				cause: describeDriverError(error),
+				logError,
+			})
 		}
 		throw error
 	}
