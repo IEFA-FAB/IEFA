@@ -491,15 +491,26 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 		return { reset_id: logRow.id, deleted_counts: deletedCounts, duration_ms: durationMs }
 	} catch (error) {
 		// Fora da transação revertida — este UPDATE persiste.
-		await db
-			.update(trainingResetLogInCore)
-			.set({
-				finishedAt: new Date().toISOString(),
-				durationMs: Date.now() - startedAt.getTime(),
-				status: "failed",
-				errorMessage: describeDriverError(error),
-			})
-			.where(eq(trainingResetLogInCore.id, logRow.id))
+		//
+		// E ele não pode sequestrar a falha original: a causa mais provável de o reset ter
+		// quebrado (conexão caída, banco fora) é a mesma que derruba este UPDATE, e uma
+		// exceção aqui subiria NO LUGAR do `RESET_FAILED`, entregando um dump de SQL a quem
+		// só queria saber qual etapa falhou. Registrar é melhor-esforço; propagar o motivo
+		// real é obrigação.
+		try {
+			await db
+				.update(trainingResetLogInCore)
+				.set({
+					finishedAt: new Date().toISOString(),
+					durationMs: Date.now() - startedAt.getTime(),
+					status: "failed",
+					errorMessage: describeDriverError(error),
+				})
+				.where(eq(trainingResetLogInCore.id, logRow.id))
+		} catch {
+			// Linha fica em `running` — é o que de fato se sabe: a execução parou e o banco
+			// não aceitou o desfecho. Inventar `failed` sem gravá-lo seria pior.
+		}
 		throw error
 	}
 }

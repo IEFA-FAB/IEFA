@@ -159,6 +159,10 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			// 'succeeded'` que derrubava o CI/CD da main sem nada de errado no código.
 			const history = await listTrainingResets(db, ctx, { limit: 20 })
 			const ours = history.find((row) => row.id === result.reset_id)
+			// Explícito: sem isto, um `ours` indefinido faria as asserções de `?.` abaixo
+			// falharem por "undefined não é 'succeeded'", escondendo que o problema é a
+			// LINHA não ter sido achada.
+			expect(ours).toBeDefined()
 			expect(ours?.status).toBe("succeeded")
 			expect(ours?.actor_id).toBe(ctx.userId)
 			expect(ours?.duration_ms).not.toBeNull()
