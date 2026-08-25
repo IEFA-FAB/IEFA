@@ -43,6 +43,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire, unwrapPgError } from "../utils/index.ts"
+import { copyRecipeEquipmentRequirements } from "./equipment.ts"
 import { copyRecipeFlow } from "./recipe-flow.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -764,7 +765,10 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	// os insumos. Não-atômico com o insert da linha (paridade com o comportamento anterior):
 	// falha aqui não desfaz a linha criada — o fluxo pode ser re-salvo manualmente.
 	const riIdMap = await buildIngredientIdMap(db, base.id, inserted)
-	await copyRecipeFlow(db, base.id, recipe.id, riIdMap)
+	const stepIdMap = await copyRecipeFlow(db, base.id, recipe.id, riIdMap)
+	// A lista mínima de equipamentos acompanha a versão; exigência amarrada a etapa é reapontada
+	// pelo mapa do fluxo. Mesma não-atomicidade do copy-forward do fluxo.
+	await copyRecipeEquipmentRequirements(db, base.id, recipe.id, stepIdMap)
 
 	return { recipe: toRecipeWire<Recipe>(recipe), forked }
 }

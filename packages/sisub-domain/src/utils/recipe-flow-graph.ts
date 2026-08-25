@@ -72,6 +72,50 @@ export function findFlowCycle(steps: FlowGraphStep[]): string[] | null {
 	return cycle
 }
 
+/**
+ * Nível topológico de cada etapa: 0 para quem só consome insumo cru, 1 + máximo dos produtores
+ * para o resto. Etapas no MESMO nível podem rodar ao mesmo tempo; níveis diferentes são
+ * sequenciais (um espera a saída do outro).
+ *
+ * É o que separa "assar na etapa 3 e gratinar na etapa 7" (um forno, duas vezes) de "assar e
+ * desidratar ao mesmo tempo" (dois fornos). Sem isso, a lista mínima somaria as duas e cobraria
+ * da cozinha um equipamento que ela não precisa ter.
+ *
+ * Grafo com ciclo (rejeitado no `saveRecipeFlow`, mas dado antigo pode ter) não trava: a etapa
+ * visitada durante a própria resolução recebe o nível já calculado, o que degrada para "tudo
+ * concorrente" — o lado seguro é exigir mais equipamento, nunca menos.
+ */
+export function computeStepLevels(steps: FlowGraphStep[]): Map<string, number> {
+	const outputToStep = new Map<string, string>()
+	for (const s of steps) for (const o of s.outputs) outputToStep.set(o.clientId, s.clientId)
+
+	const byId = new Map(steps.map((s) => [s.clientId, s]))
+	const level = new Map<string, number>()
+	const visiting = new Set<string>()
+
+	const resolve = (id: string): number => {
+		const cached = level.get(id)
+		if (cached != null) return cached
+		if (visiting.has(id)) return 0 // ciclo: para de descer, degrada para concorrente
+		visiting.add(id)
+
+		let max = 0
+		for (const inp of byId.get(id)?.inputs ?? []) {
+			if (inp.sourceOutputClientId == null) continue
+			const producer = outputToStep.get(inp.sourceOutputClientId)
+			if (producer == null || producer === id) continue
+			max = Math.max(max, resolve(producer) + 1)
+		}
+
+		visiting.delete(id)
+		level.set(id, max)
+		return max
+	}
+
+	for (const s of steps) resolve(s.clientId)
+	return level
+}
+
 /** clientIds das saídas marcadas como final (a própria preparação). */
 export function collectFinalOutputs(steps: FlowGraphStep[]): string[] {
 	const finals: string[] = []

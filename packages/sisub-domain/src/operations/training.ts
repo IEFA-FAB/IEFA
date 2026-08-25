@@ -17,6 +17,8 @@
 
 import {
 	dailyMenuInKitchen,
+	equipmentModelInKitchen,
+	equipmentUnitInKitchen,
 	kitchenAtaDraftInProcurement,
 	kitchenAtaDraftSelectionInProcurement,
 	kitchenInCore,
@@ -32,6 +34,7 @@ import {
 	procurementListKitchenInProcurement,
 	procurementListSelectionInProcurement,
 	productionTaskInKitchen,
+	recipeEquipmentRequirementInKitchen,
 	recipeIngredientAlternativesInKitchen,
 	recipeIngredientsInKitchen,
 	recipeStepInKitchen,
@@ -178,6 +181,13 @@ async function deleteCounting(tx: TrainingTx, table: Parameters<TrainingTx["dele
 }
 
 const RESET_STEPS: ResetStep[] = [
+	// ── Exigência de equipamento das receitas locais ──
+	// Antes das etapas e das receitas: a linha referencia as duas, e os FKs são NO ACTION.
+	{
+		table: "kitchen.recipe_equipment_requirement",
+		run: (tx, _s, ids) => deleteByParent(tx, recipeEquipmentRequirementInKitchen, recipeEquipmentRequirementInKitchen.recipeId, ids.recipeIds),
+	},
+
 	// ── Fluxo de produção das receitas locais ──
 	// A maioria dos FKs do schema é NO ACTION, não CASCADE: apagar a receita antes destes
 	// filhos faz o Postgres recusar e a transação inteira volta atrás, deixando o ambiente
@@ -267,6 +277,33 @@ const RESET_STEPS: ResetStep[] = [
 	},
 	{ table: "kitchen.step_template", run: (tx, scope) => deleteCounting(tx, stepTemplateInKitchen, eq(stepTemplateInKitchen.kitchenId, scope.kitchen_id)) },
 	{ table: "kitchen.utensil", run: (tx, scope) => deleteCounting(tx, utensilInKitchen, eq(utensilInKitchen.kitchenId, scope.kitchen_id)) },
+
+	// ── Equipamento da cozinha de treino ──
+	// O parque instalado é dado do aluno: sem isto, a turma seguinte herda os fornos que a
+	// anterior cadastrou. O CATÁLOGO GLOBAL de papéis e modelos (kitchen_id null) não é tocado —
+	// como as receitas globais, ele é do sistema, não do treino. `equipment_role` fica de fora
+	// pelo mesmo motivo: é taxonomia global, não existe papel de cozinha.
+	{
+		table: "kitchen.equipment_unit_role",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from kitchen.equipment_unit_role where unit_id in (select id from kitchen.equipment_unit where kitchen_id = ${scope.kitchen_id}) returning 1`
+			),
+	},
+	{ table: "kitchen.equipment_unit", run: (tx, scope) => deleteCounting(tx, equipmentUnitInKitchen, eq(equipmentUnitInKitchen.kitchenId, scope.kitchen_id)) },
+	{
+		table: "kitchen.equipment_model_role",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from kitchen.equipment_model_role where model_id in (select id from kitchen.equipment_model where kitchen_id = ${scope.kitchen_id}) returning 1`
+			),
+	},
+	{
+		table: "kitchen.equipment_model",
+		run: (tx, scope) => deleteCounting(tx, equipmentModelInKitchen, eq(equipmentModelInKitchen.kitchenId, scope.kitchen_id)),
+	},
 	{ table: "kitchen.meal_type", run: (tx, scope) => deleteCounting(tx, mealTypeInKitchen, eq(mealTypeInKitchen.kitchenId, scope.kitchen_id)) },
 
 	// ── Execução orçamentária ──

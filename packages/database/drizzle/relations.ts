@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { usersInAuth, profilesAdminInAccessControl, dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, kitchenInCore, unitsInCore, messHallsInCore, userDataInCore, mealTypeInKitchen, mealPresencesInKitchen, otherPresencesInKitchen, menuTemplateItemsInKitchen, menuTemplateInKitchen, userPermissionsInAccessControl, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInAccessControl, comprasMaterialItemInComprasGovIntegration, purchaseItemInProcurement, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, ceafaInKitchen, ingredientInKitchen, folderInKitchen, purchaseItemIngredientInProcurement, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInProcurement, procurementListItemInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, productionTaskInKitchen, procurementArpItemInProcurement, empenhoInFinance, procurementArpInProcurement, analyticsChatSessionInCore, analyticsChatMessageInCore, moduleChatSessionInCore, moduleChatMessageInCore, stepTemplateInKitchen, utensilInKitchen, stepTemplateUtensilInKitchen, recipeStepInKitchen, recipeStepOutputInKitchen, recipeIngredientsInKitchen, recipeStepInputInKitchen, recipeStepUtensilInKitchen, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, opinionsInCore, recipeIngredientAlternativesInKitchen, ingredientSubstitutionInKitchen, mealForecastsInKitchen, ingredientItemInKitchen, nutrientInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, ingredientReviewInKitchen, procurementPesquisaPrecoInProcurement, procurementPesquisaPrecoItemInProcurement, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, frozenPreparationInKitchen, menuTemplateMealInKitchen } from "./schema";
+import { usersInAuth, profilesAdminInAccessControl, dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, kitchenInCore, unitsInCore, messHallsInCore, userDataInCore, mealTypeInKitchen, mealPresencesInKitchen, otherPresencesInKitchen, menuTemplateItemsInKitchen, menuTemplateInKitchen, userPermissionsInAccessControl, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInAccessControl, comprasMaterialItemInComprasGovIntegration, purchaseItemInProcurement, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, ceafaInKitchen, ingredientInKitchen, folderInKitchen, purchaseItemIngredientInProcurement, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInProcurement, procurementListItemInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, productionTaskInKitchen, procurementArpItemInProcurement, empenhoInFinance, procurementArpInProcurement, analyticsChatSessionInCore, analyticsChatMessageInCore, moduleChatSessionInCore, moduleChatMessageInCore, stepTemplateInKitchen, utensilInKitchen, stepTemplateUtensilInKitchen, recipeStepInKitchen, recipeStepOutputInKitchen, recipeIngredientsInKitchen, recipeStepInputInKitchen, recipeStepUtensilInKitchen, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, opinionsInCore, recipeIngredientAlternativesInKitchen, ingredientSubstitutionInKitchen, mealForecastsInKitchen, ingredientItemInKitchen, nutrientInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, ingredientReviewInKitchen, procurementPesquisaPrecoInProcurement, procurementPesquisaPrecoItemInProcurement, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, frozenPreparationInKitchen, menuTemplateMealInKitchen, equipmentRoleInKitchen, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentUnitInKitchen, equipmentUnitRoleInKitchen, recipeEquipmentRequirementInKitchen } from "./schema";
 
 export const profilesAdminInAccessControlRelations = relations(profilesAdminInAccessControl, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
@@ -479,6 +479,10 @@ export const utensilInKitchenRelations = relations(utensilInKitchen, ({one, many
 		fields: [utensilInKitchen.kitchenId],
 		references: [kitchenInCore.id]
 	}),
+	equipmentRoleInKitchen: one(equipmentRoleInKitchen, {
+		fields: [utensilInKitchen.roleId],
+		references: [equipmentRoleInKitchen.id]
+	}),
 	stepTemplateUtensilInKitchens: many(stepTemplateUtensilInKitchen),
 	recipeStepUtensilInKitchens: many(recipeStepUtensilInKitchen),
 }));
@@ -711,5 +715,74 @@ export const kitchenAtaDraftSelectionInProcurementRelations = relations(kitchenA
 	menuTemplateInKitchen: one(menuTemplateInKitchen, {
 		fields: [kitchenAtaDraftSelectionInProcurement.templateId],
 		references: [menuTemplateInKitchen.id]
+	}),
+}));
+export const equipmentRoleInKitchenRelations = relations(equipmentRoleInKitchen, ({many}) => ({
+	equipmentModelRoleInKitchens: many(equipmentModelRoleInKitchen),
+	equipmentUnitRoleInKitchens: many(equipmentUnitRoleInKitchen),
+	recipeEquipmentRequirementInKitchens: many(recipeEquipmentRequirementInKitchen),
+	utensilInKitchens: many(utensilInKitchen),
+}));
+
+export const equipmentModelInKitchenRelations = relations(equipmentModelInKitchen, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [equipmentModelInKitchen.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	equipmentModelRoleInKitchens: many(equipmentModelRoleInKitchen),
+	equipmentUnitInKitchens: many(equipmentUnitInKitchen),
+	recipeEquipmentRequirementInKitchens: many(recipeEquipmentRequirementInKitchen),
+}));
+
+export const equipmentModelRoleInKitchenRelations = relations(equipmentModelRoleInKitchen, ({one}) => ({
+	equipmentModelInKitchen: one(equipmentModelInKitchen, {
+		fields: [equipmentModelRoleInKitchen.modelId],
+		references: [equipmentModelInKitchen.id]
+	}),
+	equipmentRoleInKitchen: one(equipmentRoleInKitchen, {
+		fields: [equipmentModelRoleInKitchen.roleId],
+		references: [equipmentRoleInKitchen.id]
+	}),
+}));
+
+export const equipmentUnitInKitchenRelations = relations(equipmentUnitInKitchen, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [equipmentUnitInKitchen.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	equipmentModelInKitchen: one(equipmentModelInKitchen, {
+		fields: [equipmentUnitInKitchen.modelId],
+		references: [equipmentModelInKitchen.id]
+	}),
+	equipmentUnitRoleInKitchens: many(equipmentUnitRoleInKitchen),
+}));
+
+export const equipmentUnitRoleInKitchenRelations = relations(equipmentUnitRoleInKitchen, ({one}) => ({
+	equipmentUnitInKitchen: one(equipmentUnitInKitchen, {
+		fields: [equipmentUnitRoleInKitchen.unitId],
+		references: [equipmentUnitInKitchen.id]
+	}),
+	equipmentRoleInKitchen: one(equipmentRoleInKitchen, {
+		fields: [equipmentUnitRoleInKitchen.roleId],
+		references: [equipmentRoleInKitchen.id]
+	}),
+}));
+
+export const recipeEquipmentRequirementInKitchenRelations = relations(recipeEquipmentRequirementInKitchen, ({one}) => ({
+	recipesInKitchen: one(recipesInKitchen, {
+		fields: [recipeEquipmentRequirementInKitchen.recipeId],
+		references: [recipesInKitchen.id]
+	}),
+	recipeStepInKitchen: one(recipeStepInKitchen, {
+		fields: [recipeEquipmentRequirementInKitchen.recipeStepId],
+		references: [recipeStepInKitchen.id]
+	}),
+	equipmentRoleInKitchen: one(equipmentRoleInKitchen, {
+		fields: [recipeEquipmentRequirementInKitchen.roleId],
+		references: [equipmentRoleInKitchen.id]
+	}),
+	equipmentModelInKitchen: one(equipmentModelInKitchen, {
+		fields: [recipeEquipmentRequirementInKitchen.modelId],
+		references: [equipmentModelInKitchen.id]
 	}),
 }));

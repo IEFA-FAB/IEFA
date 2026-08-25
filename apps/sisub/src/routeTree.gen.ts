@@ -46,6 +46,7 @@ import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_
 import { Route as ProtectedModulesGlobalIndexRouteImport } from './routes/_protected/_modules/global/index'
 import { Route as ProtectedModulesGlobalChatRouteImport } from './routes/_protected/_modules/global/chat'
 import { Route as ProtectedModulesGlobalComprasSyncRouteImport } from './routes/_protected/_modules/global/compras-sync'
+import { Route as ProtectedModulesGlobalEquipmentRouteImport } from './routes/_protected/_modules/global/equipment'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
 import { Route as ProtectedModulesGlobalNutritionSyncRouteImport } from './routes/_protected/_modules/global/nutrition-sync'
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
@@ -77,6 +78,7 @@ import { Route as ProtectedModulesGlobalWeeklyPlansNewRouteImport } from './rout
 import { Route as ProtectedModulesKitchenProductionKitchenIdIndexRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/index'
 import { Route as ProtectedModulesKitchenKitchenIdIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/index'
 import { Route as ProtectedModulesKitchenKitchenIdChatRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/chat'
+import { Route as ProtectedModulesKitchenKitchenIdEquipmentRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/equipment'
 import { Route as ProtectedModulesKitchenKitchenIdPlanningRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/planning'
 import { Route as ProtectedModulesKitchenKitchenIdQrCodeRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/qr-code'
 import { Route as ProtectedModulesKitchenKitchenIdSettingsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/settings'
@@ -336,6 +338,12 @@ const ProtectedModulesGlobalComprasSyncRoute =
     path: '/global/compras-sync',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
+const ProtectedModulesGlobalEquipmentRoute =
+  ProtectedModulesGlobalEquipmentRouteImport.update({
+    id: '/global/equipment',
+    path: '/global/equipment',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesGlobalEvaluationRoute =
   ProtectedModulesGlobalEvaluationRouteImport.update({
     id: '/global/evaluation',
@@ -520,6 +528,12 @@ const ProtectedModulesKitchenKitchenIdChatRoute =
   ProtectedModulesKitchenKitchenIdChatRouteImport.update({
     id: '/chat',
     path: '/chat',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdEquipmentRoute =
+  ProtectedModulesKitchenKitchenIdEquipmentRouteImport.update({
+    id: '/equipment',
+    path: '/equipment',
     getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
   } as any)
 const ProtectedModulesKitchenKitchenIdPlanningRoute =
@@ -897,6 +911,7 @@ export interface FileRoutesByFullPath {
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
+  '/global/equipment': typeof ProtectedModulesGlobalEquipmentRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/nutrition-sync': typeof ProtectedModulesGlobalNutritionSyncRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
@@ -919,6 +934,7 @@ export interface FileRoutesByFullPath {
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
   '/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
+  '/kitchen/$kitchenId/equipment': typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
@@ -1013,6 +1029,7 @@ export interface FileRoutesByTo {
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
+  '/global/equipment': typeof ProtectedModulesGlobalEquipmentRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/nutrition-sync': typeof ProtectedModulesGlobalNutritionSyncRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
@@ -1035,6 +1052,7 @@ export interface FileRoutesByTo {
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
   '/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
+  '/kitchen/$kitchenId/equipment': typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
@@ -1137,6 +1155,7 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/_protected/_modules/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/_protected/_modules/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
+  '/_protected/_modules/global/equipment': typeof ProtectedModulesGlobalEquipmentRoute
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/_protected/_modules/global/nutrition-sync': typeof ProtectedModulesGlobalNutritionSyncRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
@@ -1159,6 +1178,7 @@ export interface FileRoutesById {
   '/_protected/_modules/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/_protected/_modules/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
   '/_protected/_modules/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
+  '/_protected/_modules/kitchen/$kitchenId/equipment': typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   '/_protected/_modules/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/_protected/_modules/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/_protected/_modules/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
@@ -1261,6 +1281,7 @@ export interface FileRouteTypes {
     | '/diner/self-check-in'
     | '/global/chat'
     | '/global/compras-sync'
+    | '/global/equipment'
     | '/global/evaluation'
     | '/global/nutrition-sync'
     | '/global/permissions'
@@ -1283,6 +1304,7 @@ export interface FileRouteTypes {
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
     | '/kitchen/$kitchenId/chat'
+    | '/kitchen/$kitchenId/equipment'
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
@@ -1377,6 +1399,7 @@ export interface FileRouteTypes {
     | '/diner/self-check-in'
     | '/global/chat'
     | '/global/compras-sync'
+    | '/global/equipment'
     | '/global/evaluation'
     | '/global/nutrition-sync'
     | '/global/permissions'
@@ -1399,6 +1422,7 @@ export interface FileRouteTypes {
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
     | '/kitchen/$kitchenId/chat'
+    | '/kitchen/$kitchenId/equipment'
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
@@ -1500,6 +1524,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/self-check-in'
     | '/_protected/_modules/global/chat'
     | '/_protected/_modules/global/compras-sync'
+    | '/_protected/_modules/global/equipment'
     | '/_protected/_modules/global/evaluation'
     | '/_protected/_modules/global/nutrition-sync'
     | '/_protected/_modules/global/permissions'
@@ -1522,6 +1547,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/weekly-plans/$planId'
     | '/_protected/_modules/global/weekly-plans/new'
     | '/_protected/_modules/kitchen/$kitchenId/chat'
+    | '/_protected/_modules/kitchen/$kitchenId/equipment'
     | '/_protected/_modules/kitchen/$kitchenId/planning'
     | '/_protected/_modules/kitchen/$kitchenId/qr-code'
     | '/_protected/_modules/kitchen/$kitchenId/settings'
@@ -1858,6 +1884,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesGlobalComprasSyncRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
+    '/_protected/_modules/global/equipment': {
+      id: '/_protected/_modules/global/equipment'
+      path: '/global/equipment'
+      fullPath: '/global/equipment'
+      preLoaderRoute: typeof ProtectedModulesGlobalEquipmentRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
     '/_protected/_modules/global/evaluation': {
       id: '/_protected/_modules/global/evaluation'
       path: '/global/evaluation'
@@ -2073,6 +2106,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/kitchen/$kitchenId/chat'
       preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdChatRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/equipment': {
+      id: '/_protected/_modules/kitchen/$kitchenId/equipment'
+      path: '/equipment'
+      fullPath: '/kitchen/$kitchenId/equipment'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdEquipmentRouteImport
       parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
     }
     '/_protected/_modules/kitchen/$kitchenId/planning': {
@@ -2522,6 +2562,7 @@ const ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren =
 
 interface ProtectedModulesKitchenKitchenIdRouteRouteChildren {
   ProtectedModulesKitchenKitchenIdChatRoute: typeof ProtectedModulesKitchenKitchenIdChatRoute
+  ProtectedModulesKitchenKitchenIdEquipmentRoute: typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   ProtectedModulesKitchenKitchenIdPlanningRoute: typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   ProtectedModulesKitchenKitchenIdQrCodeRoute: typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   ProtectedModulesKitchenKitchenIdSettingsRoute: typeof ProtectedModulesKitchenKitchenIdSettingsRoute
@@ -2548,6 +2589,8 @@ const ProtectedModulesKitchenKitchenIdRouteRouteChildren: ProtectedModulesKitche
   {
     ProtectedModulesKitchenKitchenIdChatRoute:
       ProtectedModulesKitchenKitchenIdChatRoute,
+    ProtectedModulesKitchenKitchenIdEquipmentRoute:
+      ProtectedModulesKitchenKitchenIdEquipmentRoute,
     ProtectedModulesKitchenKitchenIdPlanningRoute:
       ProtectedModulesKitchenKitchenIdPlanningRoute,
     ProtectedModulesKitchenKitchenIdQrCodeRoute:
@@ -2756,6 +2799,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
   ProtectedModulesGlobalChatRoute: typeof ProtectedModulesGlobalChatRoute
   ProtectedModulesGlobalComprasSyncRoute: typeof ProtectedModulesGlobalComprasSyncRoute
+  ProtectedModulesGlobalEquipmentRoute: typeof ProtectedModulesGlobalEquipmentRoute
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
   ProtectedModulesGlobalNutritionSyncRoute: typeof ProtectedModulesGlobalNutritionSyncRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
@@ -2815,6 +2859,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesGlobalChatRoute: ProtectedModulesGlobalChatRoute,
   ProtectedModulesGlobalComprasSyncRoute:
     ProtectedModulesGlobalComprasSyncRoute,
+  ProtectedModulesGlobalEquipmentRoute: ProtectedModulesGlobalEquipmentRoute,
   ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
   ProtectedModulesGlobalNutritionSyncRoute:
     ProtectedModulesGlobalNutritionSyncRoute,

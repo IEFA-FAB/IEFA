@@ -1295,12 +1295,19 @@ export const utensilInKitchen = kitchen.table("utensil", {
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	roleId: uuid("role_id"),
 }, (table) => [
 	uniqueIndex("utensil_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
+	index("utensil_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInCore.id],
 			name: "utensil_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [equipmentRoleInKitchen.id],
+			name: "utensil_role_id_fkey"
 		}),
 ]);
 
@@ -2201,4 +2208,177 @@ export const trainingResetLogInCore = core.table("training_reset_log", {
 	errorMessage: text("error_message"),
 }, (table) => [
 	index("training_reset_log_started_idx").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
+]);
+
+// ─── Equipamentos de cozinha (papel × modelo × unidade × exigência) ──────────
+
+export const equipmentRoleInKitchen = kitchen.table("equipment_role", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	code: text().notNull(),
+	name: text().notNull(),
+	description: text(),
+	category: text().default('coccao').notNull(),
+	sortOrder: integer("sort_order").default(100).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("equipment_role_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	index("equipment_role_category_idx").using("btree", table.category.asc().nullsLast().op("text_ops"), table.sortOrder.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
+	check("equipment_role_category_check", sql`category = ANY (ARRAY['coccao'::text, 'preparo'::text, 'conservacao'::text, 'apoio'::text])`),
+]);
+
+export const equipmentModelInKitchen = kitchen.table("equipment_model", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	slug: text(),
+	manufacturer: text(),
+	name: text().notNull(),
+	slotCapacityLiters: numeric("slot_capacity_liters"),
+	slotCapacityGn: smallint("slot_capacity_gn"),
+	capacityLabel: text("capacity_label"),
+	simultaneousSlots: integer("simultaneous_slots").default(1).notNull(),
+	powerKw: numeric("power_kw"),
+	isGeneric: boolean("is_generic").default(false).notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("equipment_model_slug_uniq").using("btree", table.slug.asc().nullsLast().op("text_ops")).where(sql`(slug IS NOT NULL)`),
+	uniqueIndex("equipment_model_name_active_uniq").using("btree", sql`lower(COALESCE(manufacturer, ''::text))`, sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
+	index("equipment_model_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInCore.id],
+			name: "equipment_model_kitchen_id_fkey"
+		}),
+	check("equipment_model_slots_check", sql`simultaneous_slots > 0`),
+	check("equipment_model_capacity_check", sql`(slot_capacity_liters IS NULL) OR (slot_capacity_liters > (0)::numeric)`),
+	check("equipment_model_capacity_gn_check", sql`(slot_capacity_gn IS NULL) OR (slot_capacity_gn > 0)`),
+]);
+
+export const equipmentModelRoleInKitchen = kitchen.table("equipment_model_role", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	modelId: uuid("model_id").notNull(),
+	roleId: uuid("role_id").notNull(),
+	isPrimary: boolean("is_primary").default(false).notNull(),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("equipment_model_role_uniq").using("btree", table.modelId.asc().nullsLast().op("uuid_ops"), table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("equipment_model_role_primary_uniq").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`(is_primary AND (deleted_at IS NULL))`),
+	index("equipment_model_role_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.modelId],
+			foreignColumns: [equipmentModelInKitchen.id],
+			name: "equipment_model_role_model_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [equipmentRoleInKitchen.id],
+			name: "equipment_model_role_role_id_fkey"
+		}),
+]);
+
+export const equipmentUnitInKitchen = kitchen.table("equipment_unit", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).notNull(),
+	modelId: uuid("model_id").notNull(),
+	label: text().notNull(),
+	assetTag: text("asset_tag"),
+	serialNumber: text("serial_number"),
+	status: text().default('active').notNull(),
+	simultaneousSlots: integer("simultaneous_slots"),
+	acquiredOn: date("acquired_on"),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("equipment_unit_label_active_uniq").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), sql`lower(label)`).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("equipment_unit_asset_tag_active_uniq").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops"), sql`lower(asset_tag)`).where(sql`((asset_tag IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_unit_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_unit_model_idx").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInCore.id],
+			name: "equipment_unit_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.modelId],
+			foreignColumns: [equipmentModelInKitchen.id],
+			name: "equipment_unit_model_id_fkey"
+		}),
+	check("equipment_unit_status_check", sql`status = ANY (ARRAY['active'::text, 'maintenance'::text, 'decommissioned'::text])`),
+	check("equipment_unit_slots_check", sql`(simultaneous_slots IS NULL) OR (simultaneous_slots > 0)`),
+]);
+
+export const equipmentUnitRoleInKitchen = kitchen.table("equipment_unit_role", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	unitId: uuid("unit_id").notNull(),
+	roleId: uuid("role_id").notNull(),
+	available: boolean().notNull(),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("equipment_unit_role_uniq").using("btree", table.unitId.asc().nullsLast().op("uuid_ops"), table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [equipmentUnitInKitchen.id],
+			name: "equipment_unit_role_unit_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [equipmentRoleInKitchen.id],
+			name: "equipment_unit_role_role_id_fkey"
+		}),
+]);
+
+export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipment_requirement", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	recipeId: uuid("recipe_id").notNull(),
+	recipeStepId: uuid("recipe_step_id"),
+	roleId: uuid("role_id"),
+	modelId: uuid("model_id"),
+	quantity: integer().default(1).notNull(),
+	scaling: text().default('per_batch').notNull(),
+	batchPortions: numeric("batch_portions"),
+	minCapacityLiters: numeric("min_capacity_liters"),
+	minCapacityGn: smallint("min_capacity_gn"),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("recipe_equipment_requirement_recipe_idx").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("recipe_equipment_requirement_step_idx").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	uniqueIndex("recipe_equipment_requirement_target_uniq").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops"), sql`COALESCE(recipe_step_id, '00000000-0000-0000-0000-000000000000'::uuid)`, sql`COALESCE(role_id, model_id)`).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipesInKitchen.id],
+			name: "recipe_equipment_requirement_recipe_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.recipeStepId],
+			foreignColumns: [recipeStepInKitchen.id],
+			name: "recipe_equipment_requirement_recipe_step_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [equipmentRoleInKitchen.id],
+			name: "recipe_equipment_requirement_role_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.modelId],
+			foreignColumns: [equipmentModelInKitchen.id],
+			name: "recipe_equipment_requirement_model_id_fkey"
+		}),
+	check("recipe_equipment_requirement_target_xor", sql`((role_id IS NOT NULL) AND (model_id IS NULL)) OR ((role_id IS NULL) AND (model_id IS NOT NULL))`),
+	check("recipe_equipment_requirement_quantity_check", sql`quantity > 0`),
+	check("recipe_equipment_requirement_scaling_check", sql`scaling = ANY (ARRAY['per_batch'::text, 'fixed'::text])`),
+	check("recipe_equipment_requirement_batch_check", sql`(batch_portions IS NULL) OR (batch_portions > (0)::numeric)`),
+	check("recipe_equipment_requirement_capacity_check", sql`(min_capacity_liters IS NULL) OR (min_capacity_liters > (0)::numeric)`),
+	check("recipe_equipment_requirement_capacity_gn_check", sql`(min_capacity_gn IS NULL) OR (min_capacity_gn > 0)`),
 ]);
