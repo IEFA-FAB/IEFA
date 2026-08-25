@@ -47,6 +47,14 @@ updates:
       # o plugin publicar versão que aceite vite 8.2.
       - dependency-name: "vite"
         versions: [">=8.2.0"]
+
+      # `xlsx` NÃO é rastreado por aqui e isso é de propósito: ele vem do tarball
+      # oficial da SheetJS (cdn.sheetjs.com), não do registry. A SheetJS parou de
+      # publicar no npm no 0.19 e o que ficou lá (0.18.5) carrega duas high sem
+      # correção possível. O dependabot não abre PR para dependência por URL, então
+      # subir de versão é MANUAL: conferir https://cdn.sheetjs.com/ e trocar a URL
+      # nos package.json de apps/api e apps/sucont. A integridade sha512 do tarball
+      # fica gravada no bun.lock (Bun 1.4), então a troca não passa despercebida.
     groups:
       # Um PR por família: subir React/TanStack/etc. peça por peça só cria conflito de peer.
       react:

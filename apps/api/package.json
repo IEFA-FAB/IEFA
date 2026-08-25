@@ -28,7 +28,7 @@
     "fast-xml-parser": "^5.10.1",
     "fflate": "^0.8.3",
     "hono": "^4.13.1",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.4.3"
   },
   "devDependencies": {
