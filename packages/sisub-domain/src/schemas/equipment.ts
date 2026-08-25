@@ -228,3 +228,10 @@ export const EvaluateRecipeEquipmentFitnessSchema = z.object({
 	portions: z.number().positive().nullish(),
 })
 export type EvaluateRecipeEquipmentFitness = z.infer<typeof EvaluateRecipeEquipmentFitnessSchema>
+
+/**
+ * Atendimento no nível do CARDÁPIO: as preparações de uma mesma refeição disputam o mesmo parque.
+ * O `daily_menu` é a janela natural de concorrência — o almoço não briga por forno com a janta.
+ */
+export const EvaluateMenuEquipmentFitnessSchema = z.object({ dailyMenuId: UuidSchema })
+export type EvaluateMenuEquipmentFitness = z.infer<typeof EvaluateMenuEquipmentFitnessSchema>

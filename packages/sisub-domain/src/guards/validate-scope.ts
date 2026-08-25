@@ -3,7 +3,7 @@
  * of recipes, menu templates, daily menus and menu items before a scoped mutation.
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, kitchenInCore, menuItemsInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -70,4 +70,35 @@ export async function resolveKitchenFromTemplate(db: SisubDb, templateId: string
 	)
 	if (!row) throw new NotFoundError("menu_template", templateId)
 	return row.kitchenId
+}
+
+/**
+ * Resolve QUEM COZINHA para uma cozinha.
+ *
+ * `core.kitchen` sempre soube disto e ninguém usava: `type = 'consumption'` com `kitchen_id`
+ * preenchido significa "quem produz para mim é aquela". O planejamento e o board de produção
+ * batem direto na cozinha do cardápio, o que só está certo quando ela mesma cozinha. Para
+ * equipamento a diferença é a pergunta inteira: checar o parque de um refeitório servido por
+ * cozinha central responde sobre a cozinha errada.
+ *
+ * UM salto, de propósito. Cadeia (A serve B, B serve C) não é um arranjo que exista na FAB, e
+ * seguir ponteiro em profundidade transformaria dado mal preenchido em laço infinito. Ponteiro
+ * para si mesma também degrada para "produz nela mesma".
+ *
+ * @returns `delegated` = a produção acontece em OUTRA cozinha (a UI precisa dizer isso; o
+ *   usuário não pode achar que está olhando o próprio parque).
+ */
+export async function resolveProducingKitchen(db: SisubDb, kitchenId: number): Promise<{ producingKitchenId: number; delegated: boolean }> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.kitchenInCore.findFirst({ columns: { type: true, kitchenId: true }, where: eq(kitchenInCore.id, kitchenId) })
+	)
+	if (!row) throw new NotFoundError("kitchen", kitchenId)
+
+	const producer = row.kitchenId
+	// Sem ponteiro, apontando para si, ou marcada como produtora: cozinha nela mesma. Dado
+	// ausente mantém o comportamento de hoje — nada quebra em base mal preenchida.
+	if (producer == null || producer === kitchenId || row.type !== "consumption") {
+		return { producingKitchenId: kitchenId, delegated: false }
+	}
+	return { producingKitchenId: producer, delegated: true }
 }

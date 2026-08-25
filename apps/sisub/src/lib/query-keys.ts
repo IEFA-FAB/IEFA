@@ -113,6 +113,7 @@ export const queryKeys = {
 		fitness: (recipeId: string | undefined, kitchenId: number | null, portions: number | null = null) =>
 			["equipment", "fitness", recipeId, kitchenId, portions] as const,
 		suggestions: (recipeId: string | undefined) => ["equipment", "suggestions", recipeId] as const,
+		menuFitness: (dailyMenuId: string | undefined) => ["equipment", "menu-fitness", dailyMenuId] as const,
 	},
 
 	presences: {

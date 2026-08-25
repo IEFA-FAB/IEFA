@@ -11,6 +11,7 @@ import {
 	createEquipmentModel,
 	createEquipmentRole,
 	createEquipmentUnit,
+	evaluateMenuEquipmentFitness,
 	evaluateRecipeEquipmentFitness,
 	fetchRecipeEquipment,
 	listEquipmentModels,
@@ -247,6 +248,46 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(fitness.batches).toBe(9)
 		expect(fitness.max_parallel_batches).toBe(1)
 		expect(fitness.cycles).toBe(9) // …e roda em nove rodadas
+	})
+
+	test("cardápio: duas preparações do mesmo almoço disputam o único forno", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Forno "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+
+		const mealTypeId = await seeder.seedMealType({ kitchenId })
+		const menu = await seeder.seedDailyMenu({ kitchenId, mealTypeId })
+
+		// Cada preparação, ISOLADA, atende: uma exige um forno e a cozinha tem um.
+		for (const _ of [1, 2]) {
+			const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+			seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+			await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+			await seeder.seedMenuItem({ dailyMenuId: menu.id, recipeId, plannedPortionQuantity: 100 })
+
+			const alone = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
+			expect(alone.satisfied).toBe(true)
+		}
+
+		// Juntas, no mesmo almoço, não: é a pergunta que a tela da preparação não faz.
+		const meal = await evaluateMenuEquipmentFitness(db, ctx, { dailyMenuId: menu.id })
+		expect(meal.satisfied).toBe(false)
+		expect(meal.missing_total).toBe(1)
+		expect(meal.targets[0].required).toBe(2)
+		expect(meal.targets[0].satisfied).toBe(1)
+		expect(meal.targets[0].competing_items).toHaveLength(2)
+		expect(meal.delegated).toBe(false)
 	})
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {
