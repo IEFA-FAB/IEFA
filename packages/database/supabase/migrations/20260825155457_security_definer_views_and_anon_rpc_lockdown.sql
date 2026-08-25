@@ -80,30 +80,55 @@ comment on view iefa.legal_documents_current is
 
 -- ── 3. RPC SECURITY DEFINER: fechar o EXECUTE ─────────────────────────────────
 --
--- As seis já tinham `search_path` fixo (20260722120000), o que fecha o sequestro de
--- resolução de nome — mas não o acesso: quatro estavam com EXECUTE para PUBLIC (o ACL
--- default do Postgres), e `anon`/`authenticated` herdam de PUBLIC. Como o REVOKE de
--- PUBLIC materializa o ACL, `service_role` perderia o acesso implícito junto — daí o
--- GRANT explícito logo abaixo de cada REVOKE.
+-- As funções já tinham `search_path` fixo (20260722120000), o que fecha o sequestro de
+-- resolução de nome — mas não o acesso: a maioria estava com EXECUTE para PUBLIC, que é o
+-- ACL default do Postgres, e `anon`/`authenticated` herdam de PUBLIC. Como o REVOKE de
+-- PUBLIC materializa o ACL, `service_role` perderia o acesso implícito junto — daí o GRANT
+-- logo em seguida.
+--
+-- A varredura é sobre `pg_proc` em vez de uma lista fixa por dois motivos:
+--
+--   1. Uma lista fixa quebra o `db reset`. `public.match_documents_fts` existe em produção
+--      mas NÃO é criada por migration nenhuma (nasceu fora do versionamento, e a tabela
+--      `public.documents` que ela consulta nem existe); um `revoke` nomeado nela aborta um
+--      banco novo com 42883 e todas as migrations seguintes são puladas em silêncio.
+--   2. Uma lista fixa só fecha o que já foi visto. `sisub.execute_analytics_query(text)` —
+--      que executa SQL gerado por LLM com os privilégios do dono — é criada por
+--      20260624150000 com `create or replace` e SEM revoke. Em produção o ACL dela está
+--      limpo (`postgres=X | service_role=X`, revogado fora do versionamento em algum
+--      momento), mas num banco reconstruído do zero ela nasceria com EXECUTE para PUBLIC,
+--      publicada como `/rest/v1/rpc/execute_analytics_query`. A varredura pega essa e
+--      qualquer outra que apareça antes desta migration.
+--
+-- Nenhum app chama RPC com a publishable key — todos os clients de browser do monorepo só
+-- tocam `supabase.auth`, storage e realtime —, então revogar de anon/authenticated não tem
+-- consumidor a quebrar. Quem chama RPC é sempre service role.
 
-revoke execute on function journal.get_article_details(uuid) from public, anon, authenticated;
-grant execute on function journal.get_article_details(uuid) to service_role;
-
-revoke execute on function journal.is_editor(uuid) from public, anon, authenticated;
-grant execute on function journal.is_editor(uuid) to service_role;
-
-revoke execute on function procurement.upsert_compras_amostras(jsonb) from public, anon, authenticated;
-grant execute on function procurement.upsert_compras_amostras(jsonb) to service_role;
-
-revoke execute on function forms.lookup_user_id_by_email(text) from public, anon, authenticated;
-grant execute on function forms.lookup_user_id_by_email(text) to service_role;
-
-revoke execute on function public.match_documents_fts(text, integer, jsonb) from public, anon, authenticated;
-grant execute on function public.match_documents_fts(text, integer, jsonb) to service_role;
+do $$
+declare
+	fn regprocedure;
+begin
+	for fn in
+		select p.oid::regprocedure
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where p.prosecdef
+			and n.nspname in (
+				'public', 'sisub', 'iefa', 'journal', 'forms', 'rumaer', 'core', 'access_control',
+				'kitchen', 'procurement', 'finance', 'compras_gov_integration', 'inventory',
+				'siafi_integration', 'gs1_integration', 'nutrition_reference',
+				'assignment_selection', 'sucont', 'alpha'
+			)
+		order by 1
+	loop
+		execute format('revoke execute on function %s from public, anon, authenticated', fn);
+		execute format('grant execute on function %s to service_role', fn);
+	end loop;
+end $$;
 
 -- `handle_new_user` é função de gatilho (`returns trigger`): o PostgREST recusa expor, e o
 -- Postgres só checa EXECUTE no CREATE TRIGGER, não a cada disparo. O GRANT para
--- `supabase_auth_admin` (dono de auth.users, onde vive on_auth_user_created) é cinto e
--- suspensório: o caminho de signup não pode quebrar por causa de um REVOKE de higiene.
-revoke execute on function public.handle_new_user() from public, anon, authenticated;
-grant execute on function public.handle_new_user() to service_role, supabase_auth_admin;
+-- `supabase_auth_admin` (dono de auth.users, onde vive on_auth_user_created, criada em
+-- 20241216) é cinto e suspensório: o caminho de signup não pode quebrar por causa de um
+-- REVOKE de higiene.
+grant execute on function public.handle_new_user() to supabase_auth_admin;

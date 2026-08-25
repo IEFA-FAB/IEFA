@@ -202,7 +202,15 @@ async function auditClientWriteGrants(schemas: string[]): Promise<Finding[]> {
 				select priv from unnest(array['INSERT','UPDATE','DELETE','TRUNCATE']) priv
 				where has_table_privilege(r, c.oid, priv)
 			) as privs,
-			(select count(*)::int from pg_policy p where p.polrelid = c.oid and p.polcmd <> 'r') as write_policies
+			-- Só conta policy que se aplica AO ROLE em questão: polroles vazio é PUBLIC,
+			-- senão precisa listar o role. Uma policy de escrita para service_role não
+			-- justifica GRANT de escrita para anon.
+			(
+				select count(*)::int from pg_policy p
+				where p.polrelid = c.oid
+					and p.polcmd <> 'r'
+					and (p.polroles = '{0}'::oid[] or p.polroles @> array[r::regrole::oid])
+			) as write_policies
 		from pg_class c
 		join pg_namespace n on n.oid = c.relnamespace
 		cross join unnest(array['anon', 'authenticated']) r
@@ -211,14 +219,31 @@ async function auditClientWriteGrants(schemas: string[]): Promise<Finding[]> {
 		order by n.nspname, c.relname, r
 	`
 
-	return rows
-		.filter((r) => r.privs.length > 0 && r.write_policies === 0)
-		.map((r) => ({
-			severity: "error" as const,
-			lint: "client_write_grant",
-			object: `${r.schema}.${r.table}`,
-			detail: `${r.role} tem [${r.privs.join(",")}] sem nenhuma policy de escrita que sustente${r.privs.includes("TRUNCATE") ? " — e TRUNCATE não passa por RLS: o privilégio sozinho esvazia a tabela" : ""}`,
-		}))
+	return rows.flatMap((r): Finding[] => {
+		const object = `${r.schema}.${r.table}`
+		// TRUNCATE fica fora da conta de policy de propósito: RLS não se aplica a ele, então
+		// nenhuma policy — permissiva ou não — justifica o privilégio.
+		const truncate = r.privs.includes("TRUNCATE")
+		const dml = r.privs.filter((p) => p !== "TRUNCATE")
+		const findings: Finding[] = []
+		if (truncate) {
+			findings.push({
+				severity: "error",
+				lint: "client_write_grant",
+				object,
+				detail: `${r.role} tem TRUNCATE — e TRUNCATE não passa por RLS: o privilégio sozinho esvazia a tabela, policy nenhuma no caminho`,
+			})
+		}
+		if (dml.length > 0 && r.write_policies === 0) {
+			findings.push({
+				severity: "error",
+				lint: "client_write_grant",
+				object,
+				detail: `${r.role} tem [${dml.join(",")}] sem nenhuma policy de escrita que se aplique a esse role`,
+			})
+		}
+		return findings
+	})
 }
 
 async function auditAnonPolicies(schemas: string[]): Promise<Finding[]> {
@@ -290,7 +315,10 @@ async function auditViews(schemas: string[]): Promise<Finding[]> {
 		join pg_namespace n on n.oid = c.relnamespace
 		where c.relkind in ('v', 'm')
 			and n.nspname = any(${schemas})
-			and coalesce(array_to_string(c.reloptions, ','), '') not like '%security_invoker=%'
+			-- Filtrar só pela ausência da chave deixaria passar uma view com
+			-- security_invoker = off explícito, que é exatamente o caso perigoso.
+			and coalesce((select o from unnest(c.reloptions) o where o like 'security_invoker=%'), 'security_invoker=off')
+				in ('security_invoker=off', 'security_invoker=false', 'security_invoker=0')
 		order by n.nspname, c.relname
 	`
 
@@ -328,11 +356,20 @@ async function auditDefinerExecuteGrants(schemas: string[]): Promise<Finding[]> 
 			p.oid::regprocedure::text as signature,
 			has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
 			has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
-			(has_schema_privilege('anon', n.oid, 'USAGE') or has_schema_privilege('authenticated', n.oid, 'USAGE')) as schema_reachable
+			-- USAGE no schema é por role, e o EXECUTE também: anon com EXECUTE num schema
+			-- onde só authenticated tem USAGE continua sem conseguir chamar. Casar os dois
+			-- por role evita ERRO em função que ninguém alcança.
+			(
+				(has_function_privilege('anon', p.oid, 'EXECUTE') and has_schema_privilege('anon', n.oid, 'USAGE'))
+				or (has_function_privilege('authenticated', p.oid, 'EXECUTE') and has_schema_privilege('authenticated', n.oid, 'USAGE'))
+			) as schema_reachable
 		from pg_proc p
 		join pg_namespace n on n.oid = p.pronamespace
 		where p.prosecdef
 			and n.nspname = any(${schemas})
+			-- Função de gatilho não é exponível como RPC: o PostgREST recusa returns trigger,
+			-- e o Postgres só checa EXECUTE no CREATE TRIGGER, não a cada disparo.
+			and p.prorettype <> 'pg_catalog.trigger'::regtype
 			and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
 		order by n.nspname, p.proname
 	`

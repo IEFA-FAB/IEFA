@@ -48,6 +48,24 @@
 -- para o portador da publishable key toda tabela em que ele tenha privilégio, e hoje isso
 -- é o desenho inteiro do banco.
 --
+-- Dois limites conhecidos deste bloco 4, medidos neste banco e deixados por escrito para
+-- ninguém reabrir a discussão sem dado:
+--
+--   a) `alter default privileges` sem `for role` só edita as entradas cujo GRANTOR é o
+--      usuário corrente (`postgres`). Sobram as entradas com grantor `supabase_admin` no
+--      schema `public`, que ainda concedem `arwdDxtm` a anon/authenticated. Não dá para
+--      corrigir daqui: `pg_has_role('postgres','supabase_admin','MEMBER')` é falso. Elas só
+--      valem para tabela criada PELO `supabase_admin` — objeto gerenciado pela Supabase,
+--      nunca uma migration nossa.
+--   b) Para FUNÇÃO o revoke não gruda de jeito nenhum. O Postgres mescla o default embutido
+--      (que concede EXECUTE a PUBLIC) com o que está em `pg_default_acl`, então função nova
+--      nasce com `=X/postgres` mesmo depois de
+--      `alter default privileges … revoke execute on functions from public`. Testado criando
+--      uma função depois do revoke: o ACL sai com PUBLIC do mesmo jeito. Revogar as entradas
+--      explícitas `anon=X`/`authenticated=X` de `public` seria cosmético — anon continua
+--      herdando de PUBLIC. Quem guarda esse flanco é o lint `secdef_client_execute` do
+--      `audit:rls`, não o banco.
+--
 -- Bloco 4 (default privileges): é a causa raiz. `alter default privileges` da Supabase
 -- devolve os GRANTs a cada tabela NOVA — `public` com `arwdDxtm` (ALL, TRUNCATE incluso)
 -- para `anon`, `sisub` e `iefa` com `arwd`, `journal` com `arwd` para `authenticated`.
