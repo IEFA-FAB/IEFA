@@ -1,5 +1,7 @@
 export type { RunQueryOptions } from "./drizzle.ts"
 export { describeDriverError, insertOneOrFail, mutateOrFail, runQuery, toColumns, toNumeric, toWire, unwrapPgError } from "./drizzle.ts"
+export type { EquipmentDemandSpec, EquipmentFitness, EquipmentSlot, RequirementFitness } from "./equipment-matching.ts"
+export { evaluateEquipmentFitness, expandUnitSlots, resolveUnitRoleIds, slotServesDemand } from "./equipment-matching.ts"
 export type { JsonSchemaObject } from "./json-schema.ts"
 export { toJsonSchema } from "./json-schema.ts"
 export type { BalanceStatus, DeclaredIngredient, FlowGraphStep, FlowValidationResult, IngredientBalance } from "./recipe-flow-graph.ts"

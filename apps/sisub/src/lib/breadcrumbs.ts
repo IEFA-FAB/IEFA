@@ -45,6 +45,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	procurement: "Atas",
 	suprimentos: "Suprimentos",
 	recipes: "Preparações",
+	equipment: "Equipamentos",
 	"frozen-preparations": "Preparações Congeladas",
 	"weekly-menus": "Cardápios Semanais",
 	"weekly-plans": "Planos Semanais",

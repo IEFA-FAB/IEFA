@@ -6,6 +6,7 @@ import { CalendarCheck, CircleCheck, GitFork, Loader2, Pencil, Printer, Save, Tr
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
+import { RecipeEquipmentPanel } from "@/components/features/shared/equipment/RecipeEquipmentPanel"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
 import { RecipeIngredientsTable } from "@/components/features/shared/RecipeIngredientsTable"
 import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
@@ -37,7 +38,7 @@ import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/do
  * quantidade original — metade da decisão — ficava do outro lado da navegação. Agora vive
  * na expansão da linha, em `RecipeIngredientsTable`.
  */
-const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "nutricao", "fluxo"] as const
+const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "nutricao", "fluxo", "equipamentos"] as const
 type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
@@ -140,6 +141,7 @@ const TAB_LABEL: Record<RecipeFormTab, string> = {
 	preparo: "Modo de preparo",
 	nutricao: "Nutrição",
 	fluxo: "Fluxo de produção",
+	equipamentos: "Equipamentos",
 }
 
 /** Campo de topo do schema → aba que o contém + rótulo exibido ao usuário. */
@@ -204,7 +206,7 @@ function collectProblems(values: unknown): FormProblem[] {
 }
 
 function emptyTabProblemCount(): TabProblemCount {
-	return { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0 }
+	return { detalhes: 0, ingredientes: 0, preparo: 0, nutricao: 0, fluxo: 0, equipamentos: 0 }
 }
 
 /**
@@ -573,14 +575,14 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
+						{/* grid-cols-6: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba.
 						    Cada trigger carrega a contagem de erros da sua aba: com o campo errado em outra aba,
 						    a barra é o único lugar onde o usuário enxerga que existe pendência. */}
 						<form.Subscribe selector={encodeTabProblems}>
 							{(encoded) => {
 								const counts = decodeTabProblems(encoded)
 								return (
-									<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
+									<TabsList className="mx-auto grid w-full max-w-3xl grid-cols-6">
 										{RECIPE_FORM_TABS.map((tab) => {
 											const errorCount = counts[tab]
 											// O par com `data-active` é necessário: a aba selecionada força `text-foreground`
@@ -796,6 +798,25 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
 											<p className="text-body">O fluxo de produção fica disponível após salvar a preparação.</p>
 											<p className="text-caption">Salve a preparação e abra-a em edição para montar o fluxo.</p>
+										</div>
+									)}
+								</CardContent>
+							</Card>
+						</TabsContent>
+
+						{/* Equipamentos — lista mínima da preparação, salva separadamente (como o fluxo) */}
+						<TabsContent value="equipamentos" className={READING_PANEL}>
+							<Card>
+								<CardHeader>
+									<CardTitle>Equipamentos necessários</CardTitle>
+								</CardHeader>
+								<CardContent>
+									{flowEnabled && initialData ? (
+										<RecipeEquipmentPanel recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} />
+									) : (
+										<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
+											<p className="text-body">A lista de equipamentos fica disponível após salvar a preparação.</p>
+											<p className="text-caption">Salve a preparação e abra-a em edição para declarar o que ela exige.</p>
 										</div>
 									)}
 								</CardContent>

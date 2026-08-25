@@ -33,6 +33,33 @@ export {
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
 export { scaleIngredientQuantity } from "./demand-math.ts"
+export type {
+	EquipmentModelRoleWire,
+	EquipmentModelWire,
+	EquipmentRoleWire,
+	EquipmentUnitWire,
+	RecipeEquipmentFitnessWire,
+	RecipeEquipmentRequirementWire,
+	RequirementFitnessWire,
+} from "./equipment.ts"
+export {
+	copyRecipeEquipmentRequirements,
+	createEquipmentModel,
+	createEquipmentRole,
+	createEquipmentUnit,
+	deleteEquipmentModel,
+	deleteEquipmentRole,
+	deleteEquipmentUnit,
+	evaluateRecipeEquipmentFitness,
+	fetchRecipeEquipment,
+	listEquipmentModels,
+	listEquipmentRoles,
+	listKitchenEquipment,
+	saveRecipeEquipment,
+	updateEquipmentModel,
+	updateEquipmentRole,
+	updateEquipmentUnit,
+} from "./equipment.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,

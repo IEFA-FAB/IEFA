@@ -19,7 +19,15 @@
  * Hence: the owner is always read from the persisted row, never taken from the input.
  */
 
-import { mealTypeInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb, stepTemplateInKitchen, utensilInKitchen } from "@iefa/database/drizzle/sisub"
+import {
+	equipmentModelInKitchen,
+	mealTypeInKitchen,
+	menuTemplateInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+	stepTemplateInKitchen,
+	utensilInKitchen,
+} from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
 import type { UserContext } from "../types/context.ts"
 import { NotFoundError } from "../types/errors.ts"
@@ -27,7 +35,7 @@ import { runQuery } from "../utils/index.ts"
 import { requireKitchen, requirePermission } from "./require-permission.ts"
 
 /** Tables holding both global and local rows. Keys double as the entity name in errors. */
-export type AssetKind = "recipe" | "menu_template" | "meal_type" | "step_template" | "utensil"
+export type AssetKind = "recipe" | "menu_template" | "meal_type" | "step_template" | "utensil" | "equipment_model"
 
 type OwnerRow = { kitchenId: number | null }
 
@@ -42,6 +50,7 @@ const OWNER_RESOLVERS: Record<AssetKind, (db: SisubDb, id: string) => Promise<Ow
 	meal_type: (db, id) => db.query.mealTypeInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(mealTypeInKitchen.id, id) }),
 	step_template: (db, id) => db.query.stepTemplateInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(stepTemplateInKitchen.id, id) }),
 	utensil: (db, id) => db.query.utensilInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(utensilInKitchen.id, id) }),
+	equipment_model: (db, id) => db.query.equipmentModelInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(equipmentModelInKitchen.id, id) }),
 }
 
 /**
