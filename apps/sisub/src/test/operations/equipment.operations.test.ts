@@ -257,7 +257,17 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const oven = await seedRole(db, seeder, "forno")
 		const recipeId = await seeder.seedRecipe({})
 		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
-		seeder.trackWhere("recipe_step", "recipe_id", recipeId)
+		// O fluxo cria saída e entrada penduradas na ETAPA; apagar a etapa antes delas viola FK e
+		// a receita fica presa no cleanup. Uma função própria garante a ordem filho→pai.
+		seeder.trackFn(async () => {
+			const steps = await client.schema("kitchen").from("recipe_step").select("id").eq("recipe_id", recipeId)
+			const stepIds = (steps.data ?? []).map((row: { id: string }) => row.id)
+			if (stepIds.length > 0) {
+				await client.schema("kitchen").from("recipe_step_input").delete().in("recipe_step_id", stepIds)
+				await client.schema("kitchen").from("recipe_step_output").delete().in("recipe_step_id", stepIds)
+				await client.schema("kitchen").from("recipe_step").delete().in("id", stepIds)
+			}
+		}, `fluxo da receita ${recipeId}`)
 
 		const step = { clientId: "n1", canvasX: 0, canvasY: 0, utensilIds: [], inputs: [], outputs: [{ clientId: "o1", isFinal: true }], label: "assar" }
 		await saveRecipeFlow(db, ctx, { recipeId, steps: [step] })
@@ -279,7 +289,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 
 		// E a lista continua salvável (era este o sintoma visível do bug).
 		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id, recipeStepId: secondStepId }] })
-	})
+	}, 45_000)
 
 	test("cardápio: duas preparações do mesmo almoço disputam o único forno", async () => {
 		if (!reachable || !seeder || !db) return
@@ -319,7 +329,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(meal.targets[0].satisfied).toBe(1)
 		expect(meal.targets[0].competing_items).toHaveLength(2)
 		expect(meal.delegated).toBe(false)
-	})
+	}, 45_000)
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {
 		if (!reachable || !seeder || !db) return
