@@ -4,10 +4,11 @@ import { ArrowLeft, Loader2, Printer } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useRecipe } from "@/hooks/data/useRecipe"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { recipeLastReviewQueryOptions } from "@/hooks/data/useRecipes"
-import { formatSheetNumber, portionYieldOrOne, technicalSheetLine, technicalSheetTotals } from "@/lib/technical-sheet"
+import { formatSheetNumber, portionYieldOrOne, type QuantityBasis, technicalSheetLine, technicalSheetTotals } from "@/lib/technical-sheet"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 /**
@@ -19,6 +20,13 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
  * (`WeeklyMenuPrint`): a folha vai num portal direto no `<body>`, porque a cópia da tela
  * vive dentro do app-shell (`h-screen overflow-hidden`), que recorta tudo além da
  * primeira dobra na hora de imprimir.
+ *
+ * A PARTE 02 sai em uma de duas bases, escolhidas antes de imprimir: PER CAPITA (uma
+ * porção, o modelo em papel) ou o RENDIMENTO inteiro da ficha. É a mesma escolha que o
+ * formulário de edição oferece para digitar, e pela mesma razão: a cozinha que vai produzir
+ * 100 porções lê a coluna do rendimento, e a nutricionista que confere a gramatura lê a per
+ * capita. A base escolhida vai IMPRESSA no cabeçalho da tabela — folha sem essa marcação é
+ * um número de duas ordens de grandeza sem legenda.
  *
  * Campo que o modelo pede e o SISUB não guarda (pré-preparo, método de cocção,
  * equipamentos, temperatura, observações técnicas, responsável) sai como linha em branco,
@@ -50,6 +58,11 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
 
+	// Base da PARTE 02. Não é persistida: a escolha vale para a folha que está sendo tirada
+	// agora, e herdar a base da última impressão de OUTRA ficha é como se imprime a
+	// gramatura errada sem perceber. O default é o per capita do modelo oficial.
+	const [basis, setBasis] = useState<QuantityBasis>("porcao")
+
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center py-24">
@@ -63,7 +76,7 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	}
 
 	const detail = recipe as RecipeWithIngredients
-	const sheet = buildSheet(detail, folderNameById, lastReview ?? null)
+	const sheet = buildSheet(detail, folderNameById, lastReview ?? null, basis)
 
 	return (
 		<div>
@@ -82,7 +95,25 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 						</Link>
 					}
 				/>
-				<Button size="sm" className="ml-auto" onClick={() => window.print()}>
+				<span className="ml-auto text-caption text-muted-foreground">Imprimir por</span>
+				<ToggleGroup
+					value={[basis]}
+					// Base UI devolve array mesmo em seleção única; desmarcar mantém a base atual —
+					// não existe folha "sem base", e o clique de desmarque trocaria a escala inteira.
+					onValueChange={(value) => setBasis((value[0] as QuantityBasis) ?? basis)}
+					variant="outline"
+					size="sm"
+					spacing={1}
+					aria-label="Base dos pesos da ficha impressa"
+				>
+					<ToggleGroupItem value="porcao" aria-label="Imprimir os pesos de uma porção">
+						1 porção
+					</ToggleGroupItem>
+					<ToggleGroupItem value="total" aria-label="Imprimir os pesos do rendimento inteiro">
+						Rendimento ({formatSheetNumber(sheet.portionYield, 0)})
+					</ToggleGroupItem>
+				</ToggleGroup>
+				<Button size="sm" onClick={() => window.print()}>
 					<Printer className="size-4 mr-2" />
 					Imprimir / Baixar PDF
 				</Button>
@@ -111,6 +142,8 @@ interface SheetLine {
 interface Sheet {
 	name: string
 	category: string
+	/** Base em que a PARTE 02 foi calculada — o cabeçalho da tabela declara qual é. */
+	basis: QuantityBasis
 	portionYield: number
 	/** Peso de UMA porção — a soma dos pesos líquidos per capita. */
 	portionWeight: number
@@ -132,7 +165,8 @@ interface Sheet {
 function buildSheet(
 	recipe: RecipeWithIngredients,
 	folderNameById: Map<string, string>,
-	lastReview: { reviewed_at: string; reviewed_by_name: string | null } | null
+	lastReview: { reviewed_at: string; reviewed_by_name: string | null } | null,
+	basis: QuantityBasis
 ): Sheet {
 	const portionYield = portionYieldOrOne(recipe.portion_yield)
 	const ingredients = (recipe.ingredients ?? []).filter((ri) => !ri.deleted_at)
@@ -142,7 +176,8 @@ function buildSheet(
 		.map((ri) => {
 			const computed = technicalSheetLine(
 				{ netQuantity: ri.net_quantity, correctionFactor: ri.correction_factor, rehydrationIndex: ri.rehydration_index },
-				recipe.portion_yield
+				recipe.portion_yield,
+				basis
 			)
 			return {
 				name: ri.ingredient?.description ?? ri.frozen_preparation?.description ?? "Ingrediente",
@@ -154,12 +189,20 @@ function buildSheet(
 
 	const totals = technicalSheetTotals(lines.map((l) => ({ ...l, measureUnit: l.unit })))
 
+	// PARTE 01 não muda de base: peso da porção e rendimento final são fatos da preparação,
+	// não da folha. Como a PARTE 02 já veio numa das duas escalas, é daqui que sai a
+	// conversão — imprimir `totals.netWeight` cru colocaria o rendimento inteiro no campo
+	// "peso da porção" só porque a tabela abaixo estava em outra base. Cada um dos dois vem
+	// do total na escala em que ele JÁ está, sem a volta ÷rendimento ×rendimento.
+	const portionWeight = basis === "total" ? totals.netWeight / portionYield : totals.netWeight
+	const finalYield = basis === "total" ? totals.netWeight : totals.netWeight * portionYield
 	return {
 		name: recipe.name,
 		category: recipe.folder_id ? (folderNameById.get(recipe.folder_id) ?? "") : "",
+		basis,
 		portionYield,
-		portionWeight: totals.netWeight,
-		finalYield: totals.netWeight * portionYield,
+		portionWeight,
+		finalYield,
 		cookingIndex: recipe.cooking_factor ?? null,
 		lines,
 		totals,
@@ -234,7 +277,9 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					<tr>
 						<th rowSpan={2}>Ingrediente</th>
 						<th rowSpan={2}>Unidade</th>
-						<th colSpan={5}>PER CAPITA</th>
+						{/* A base vai no cabeçalho porque a folha circula sozinha: sem ela, 0,15 e 15
+						    são o mesmo número sem escala para quem recebe o papel. */}
+						<th colSpan={5}>{sheet.basis === "total" ? `RENDIMENTO — ${formatSheetNumber(sheet.portionYield, 0)} PORÇÕES` : "PER CAPITA — 1 PORÇÃO"}</th>
 					</tr>
 					<tr>
 						<th>PB</th>
@@ -279,7 +324,10 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					</tr>
 				</tbody>
 			</table>
-			<p className="ftp-legend">PB = Peso Bruto | PL = Peso Líquido | FC = PB ÷ PL | IR = Peso reidratado ÷ Peso seco</p>
+			<p className="ftp-legend">
+				PB = Peso Bruto | PL = Peso Líquido | FC = PB ÷ PL | IR = Peso reidratado ÷ Peso seco
+				{sheet.basis === "total" ? ` — pesos do rendimento inteiro (${formatSheetNumber(sheet.portionYield, 0)} porções)` : " — pesos de 1 porção"}
+			</p>
 			{sheet.mixedUnits.length > 0 && <p className="ftp-legend">TOTAL soma unidades diferentes ({sheet.mixedUnits.join(", ")}) — use como referência.</p>}
 
 			<h2 className="ftp-part">PARTE 03 – TÉCNICA DE PREPARO</h2>

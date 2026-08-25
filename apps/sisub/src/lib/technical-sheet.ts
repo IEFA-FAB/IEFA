@@ -7,10 +7,11 @@
  *   FC = PB ÷ PL         IR = Peso reidratado ÷ Peso seco
  *
  * O que o banco guarda é o PL **total da preparação** (`recipe_ingredients.net_quantity`,
- * que rende `recipes.portion_yield` porções); a ficha é lida POR CAPITA. A divisão mora
- * aqui, e não em cada tela, porque a tabela do formulário e a folha de impressão precisam
- * mostrar exatamente o mesmo número — foi por isso que virou módulo puro com teste, no
- * mesmo espírito de `ingredient-tree.ts`.
+ * que rende `recipes.portion_yield` porções); a ficha é lida em uma de duas bases — POR
+ * CAPITA (o modelo em papel) ou pelo RENDIMENTO inteiro (a folha que vai para a cozinha).
+ * A conversão mora aqui, e não em cada tela, porque a tabela do formulário e a folha de
+ * impressão precisam mostrar exatamente o mesmo número — foi por isso que virou módulo
+ * puro com teste, no mesmo espírito de `ingredient-tree.ts`.
  *
  * Fator ausente vale 1 (não altera o peso), que é a leitura do formulário em branco: campo
  * vazio significa "sem correção", não "zero". Fator <= 0 recebe o mesmo tratamento — um FC
@@ -52,13 +53,25 @@ export function portionYieldOrOne(portionYield: number | null | undefined): numb
 	return portionYield != null && Number.isFinite(portionYield) && portionYield > 0 ? portionYield : 1
 }
 
-/** Calcula a faixa PER CAPITA de uma linha. */
-export function technicalSheetLine(input: TechnicalSheetLineInput, portionYield: number | null | undefined): TechnicalSheetLine {
+/**
+ * Calcula a faixa de pesos de uma linha, na base pedida.
+ *
+ * `"porcao"` (o default) devolve o PER CAPITA do modelo em papel. `"total"` devolve os
+ * pesos do rendimento inteiro — a mesma linha lida "para 100", que é como a Seção imprime
+ * a ficha para levar à cozinha. A base "total" NÃO multiplica o per capita de volta: ela
+ * usa o `net_quantity` gravado, sem passar pelo par ÷rendimento ×rendimento, que em
+ * binário devolveria 3.332,999… no lugar dos 3.333 que estão no banco.
+ */
+export function technicalSheetLine(
+	input: TechnicalSheetLineInput,
+	portionYield: number | null | undefined,
+	basis: QuantityBasis = "porcao"
+): TechnicalSheetLine {
 	const yieldSafe = portionYieldOrOne(portionYield)
 	const correctionFactor = factorOrOne(input.correctionFactor)
 	const rehydrationIndex = factorOrOne(input.rehydrationIndex)
 	const total = input.netQuantity != null && Number.isFinite(input.netQuantity) ? input.netQuantity : 0
-	const netWeight = total / yieldSafe
+	const netWeight = basis === "total" ? total : total / yieldSafe
 	return {
 		grossWeight: netWeight * correctionFactor,
 		correctionFactor,

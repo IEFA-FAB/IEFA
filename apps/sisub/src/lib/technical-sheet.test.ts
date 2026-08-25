@@ -48,6 +48,26 @@ describe("technicalSheetLine", () => {
 		expect(result.grossWeight).toBe(0)
 	})
 
+	test('base "total" devolve o peso do rendimento inteiro, sem passar pelo per capita', () => {
+		const result = technicalSheetLine({ netQuantity: 3333, correctionFactor: 1.33, rehydrationIndex: 2 }, 100, "total")
+		// Exato, não `toBeCloseTo`: o valor tem que ser o `net_quantity` gravado. Calcular
+		// 3333 ÷ 100 × 100 devolveria 3332,9999999999995 e imprimiria isso na folha.
+		expect(result.netWeight).toBe(3333)
+		expect(result.grossWeight).toBeCloseTo(4432.89, 10)
+		expect(result.rehydratedWeight).toBe(6666)
+	})
+
+	test('base "total" é o per capita x rendimento — as duas folhas descrevem a mesma ficha', () => {
+		const perCapita = technicalSheetLine({ netQuantity: 50, correctionFactor: 1.2, rehydrationIndex: null }, 100, "porcao")
+		const total = technicalSheetLine({ netQuantity: 50, correctionFactor: 1.2, rehydrationIndex: null }, 100, "total")
+		expect(total.netWeight).toBeCloseTo(perCapita.netWeight * 100, 10)
+		expect(total.grossWeight).toBeCloseTo(perCapita.grossWeight * 100, 10)
+	})
+
+	test("a base padrão é o per capita do modelo em papel", () => {
+		expect(technicalSheetLine({ netQuantity: 50, correctionFactor: null, rehydrationIndex: null }, 100).netWeight).toBeCloseTo(0.5, 10)
+	})
+
 	test("rendimento zero ou nulo não produz Infinity", () => {
 		expect(technicalSheetLine({ netQuantity: 50, correctionFactor: null, rehydrationIndex: null }, 0).netWeight).toBe(50)
 		expect(technicalSheetLine({ netQuantity: 50, correctionFactor: null, rehydrationIndex: null }, null).netWeight).toBe(50)

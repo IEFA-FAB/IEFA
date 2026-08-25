@@ -212,26 +212,37 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, reviewsLoading, menuUsageIds, reviewedAtById])
 
 	// Estado de expand/collapse persistido por aba (preserva o que estava aberto ao entrar numa
-	// preparação e voltar). Guarda as pastas FECHADAS, não as abertas: o default é tudo ABERTO
-	// — o oposto da árvore de insumos, de propósito. Lá a hierarquia é profunda e tem milhares
-	// de nós; aqui são dois níveis e a maioria das preparações está sem pasta, então abrir
-	// recolhido devolveria uma tela quase vazia. Guardando as fechadas, uma pasta criada depois
-	// (ou por outro usuário) nasce aberta em vez de esconder o que acabou de ser movido para lá.
-	const [collapsedIds, setCollapsedIds] = usePersistentState<Set<string>>(`${persistKey}:collapsed`, new Set(), {
+	// preparação e voltar). Guarda as pastas ABERTAS: a tela abre com TUDO RECOLHIDO, o índice
+	// de pastas primeiro, e quem procura uma preparação usa a busca (que já abre a árvore
+	// inteira por `autoExpand`). Já foi o contrário — guardava as fechadas, default tudo aberto
+	// — e a listagem inteira do catálogo caía de uma vez na primeira dobra. Efeito colateral
+	// aceito: pasta criada depois (ou por outro usuário) nasce fechada, como todas as outras.
+	// A chave mudou de `:collapsed` para `:expanded` de propósito — reaproveitá-la faria o
+	// conjunto salvo pela versão anterior ser lido com o sentido invertido.
+	const [expandedIds, setExpandedIds] = usePersistentState<Set<string>>(`${persistKey}:expanded`, new Set(), {
 		serialize: (s) => JSON.stringify([...s]),
 		deserialize: (raw) => new Set(JSON.parse(raw) as string[]),
 	})
 
+	// `buildRecipeTree` fala em pastas FECHADAS (o default dele é aberto, o que a árvore de
+	// seleção do planejamento ainda usa). O complemento é tirado aqui, uma vez, em vez de
+	// duplicar a semântica no módulo puro.
+	const collapsedIds = useMemo(() => {
+		const all = allRecipeFolderIds(folders)
+		for (const id of expandedIds) all.delete(id)
+		return all
+	}, [folders, expandedIds])
+
 	const toggleExpand = (folderId: string) => {
-		setCollapsedIds((prev) => {
+		setExpandedIds((prev) => {
 			const next = new Set(prev)
 			if (next.has(folderId)) next.delete(folderId)
 			else next.add(folderId)
 			return next
 		})
 	}
-	const expandAll = () => setCollapsedIds(new Set())
-	const collapseAll = () => setCollapsedIds(allRecipeFolderIds(folders))
+	const expandAll = () => setExpandedIds(allRecipeFolderIds(folders))
+	const collapseAll = () => setExpandedIds(new Set())
 
 	// Busca textual abre a árvore inteira (igual aos insumos). Qualquer filtro RESTRITIVO —
 	// inclusive a origem — esconde pasta que ficou sem resultado; sem isso, escolher uma origem
