@@ -231,6 +231,26 @@ export async function deleteEquipmentRole(db: SisubDb, ctx: UserContext, input: 
 	)
 	if (usedByRecipe.length > 0) throw new DomainError("ROLE_IN_USE", "há preparações que exigem este papel — remova a exigência antes")
 
+	const usedByUnit = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: equipmentUnitRoleInKitchen.id })
+			.from(equipmentUnitRoleInKitchen)
+			.where(and(eq(equipmentUnitRoleInKitchen.roleId, input.roleId), isNull(equipmentUnitRoleInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (usedByUnit.length > 0) throw new DomainError("ROLE_IN_USE", "há equipamentos com exceção de papel apontando para este papel — remova-a antes")
+
+	// A ponte com utensílio não tem FK ON DELETE: um papel soft-deletado continuaria sendo
+	// sugerido pelo fluxo e explodiria só na gravação da lista.
+	const usedByUtensil = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: utensilInKitchen.id })
+			.from(utensilInKitchen)
+			.where(and(eq(utensilInKitchen.roleId, input.roleId), isNull(utensilInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (usedByUtensil.length > 0) throw new DomainError("ROLE_IN_USE", "há utensílios mapeados para este papel — desfaça o mapeamento antes")
+
 	await mutateOrFail("DELETE_FAILED", "papel não encontrado", () =>
 		db
 			.update(equipmentRoleInKitchen)
@@ -280,6 +300,10 @@ function toModelWire(row: typeof equipmentModelInKitchen.$inferSelect, roles: Eq
 
 export async function listEquipmentModels(db: SisubDb, ctx: UserContext, input: ListEquipmentModels = {}): Promise<EquipmentModelWire[]> {
 	requireCatalogRead(ctx)
+	// Pedir o catálogo DE UMA COZINHA exige permissão NELA: o catálogo global é de todos, mas o
+	// modelo que uma cozinha cadastrou é dela. Sem este gate, `kitchenId` no input seria um
+	// enumerador do parque alheio.
+	if (input.kitchenId != null) requireAnyPermission(ctx, ["kitchen", "kitchen-production", "global"], 1, { type: "kitchen", id: input.kitchenId })
 
 	// Catálogo global SEMPRE visível; o da cozinha entra quando ela é informada.
 	const scope =
@@ -449,6 +473,17 @@ export async function deleteEquipmentModel(db: SisubDb, ctx: UserContext, input:
 			.limit(1)
 	)
 	if (inUse.length > 0) throw new DomainError("MODEL_IN_USE", "há equipamentos cadastrados com este modelo — remova-os antes")
+
+	// Simétrico ao papel: apagar um modelo que alguma ficha exige deixa a lista daquela
+	// preparação impossível de salvar (`assertModelVisible` passa a devolver NotFound).
+	const requiredBy = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: recipeEquipmentRequirementInKitchen.id })
+			.from(recipeEquipmentRequirementInKitchen)
+			.where(and(eq(recipeEquipmentRequirementInKitchen.modelId, input.modelId), isNull(recipeEquipmentRequirementInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (requiredBy.length > 0) throw new DomainError("MODEL_IN_USE", "há preparações que exigem este modelo — remova a exigência antes")
 
 	const now = new Date().toISOString()
 	await db.transaction(async (tx) => {
@@ -844,13 +879,23 @@ export async function copyRecipeEquipmentRequirements(
 	)
 	if (rows.length === 0) return
 
+	// Etapa que não veio junto colapsa o vínculo para null — e duas linhas do mesmo papel
+	// colidiriam no índice único DEPOIS de a nova versão já existir. Dedupe antes de inserir.
+	const mapped = rows.map((r) => ({
+		row: r,
+		stepId: r.recipeStepId != null ? (stepIdMap.get(r.recipeStepId) ?? null) : null,
+		target: r.roleId ?? r.modelId,
+		quantity: r.quantity,
+	}))
+	const { keep } = dedupeRequirementTargets(mapped)
+
 	await runQuery("INSERT_FAILED", () =>
 		db
 			.insert(recipeEquipmentRequirementInKitchen)
 			.values(
-				rows.map((r) => ({
+				keep.map(({ row: r, stepId }) => ({
 					recipeId: dstRecipeId,
-					recipeStepId: r.recipeStepId != null ? (stepIdMap.get(r.recipeStepId) ?? null) : null,
+					recipeStepId: stepId,
 					roleId: r.roleId,
 					modelId: r.modelId,
 					quantity: r.quantity,
@@ -1149,6 +1194,8 @@ export async function suggestRecipeEquipmentFromFlow(db: SisubDb, ctx: UserConte
 // ── Atendimento do CARDÁPIO (contenção entre preparações) ─────────────────
 
 export interface MenuEquipmentTargetWire {
+	/** Chave estável do alvo (papel/modelo + capacidade mínima). Dois alvos podem ter o MESMO rótulo. */
+	target_key: string
 	target_label: string
 	/** Unidades exigidas no PICO, somando as preparações da refeição. */
 	required: number
@@ -1290,6 +1337,7 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 		const meta = demandMeta.get(row.requirementId)
 		if (!meta) continue
 		const target = byTarget.get(meta.targetKey) ?? {
+			target_key: meta.targetKey,
 			target_label: meta.label,
 			required: 0,
 			satisfied: 0,
@@ -1313,5 +1361,103 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 		missing_total: fitness.missingTotal,
 		targets,
 		items: itemsWire,
+	}
+}
+
+/**
+ * Linhas a manter quando duas exigências acabam no MESMO alvo e escopo — o que acontece toda vez
+ * que um vínculo com etapa é perdido (fluxo re-salvo, versão nova sem aquela etapa) e várias
+ * linhas colapsam para `recipe_step_id = null`.
+ *
+ * O índice único `recipe_equipment_requirement_target_uniq` recusaria a segunda com 23505, e o
+ * erro apareceria DEPOIS de a nova versão da receita já ter sido inserida. Vence a de maior
+ * quantidade: a exigência que sobra tem de cobrir a que sumiu.
+ */
+export function dedupeRequirementTargets<T extends { stepId: string | null; target: string | null; quantity: number }>(rows: T[]): { keep: T[]; drop: T[] } {
+	const best = new Map<string, T>()
+	const drop: T[] = []
+	for (const row of rows) {
+		const key = `${row.stepId ?? ""}|${row.target ?? ""}`
+		const current = best.get(key)
+		if (current == null) {
+			best.set(key, row)
+			continue
+		}
+		if (row.quantity > current.quantity) {
+			best.set(key, row)
+			drop.push(current)
+		} else {
+			drop.push(row)
+		}
+	}
+	return { keep: [...best.values()], drop }
+}
+
+/**
+ * Reaponta as exigências para as etapas da nova gravação do fluxo.
+ *
+ * `saveRecipeFlow` é um replace: soft-deleta o grafo e re-insere TUDO com uuid novo. Sem este
+ * remapeamento, toda exigência amarrada a etapa vira ponteiro para uma linha apagada — e o
+ * estrago é silencioso nos dois lados: a tela passa a recusar qualquer gravação da lista
+ * ("etapa que não é desta preparação") e o cálculo de concorrência joga a exigência órfã no
+ * nível 0, cobrando equipamento a mais.
+ *
+ * Etapa que sumiu do grafo perde o vínculo (vira exigência da preparação inteira) em vez de
+ * levar a exigência junto: o equipamento continua sendo necessário, só não se sabe mais quando.
+ */
+export async function remapRequirementStepBindings(db: SisubDb, recipeId: string, stepIdMap: Map<string, string>): Promise<void> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: recipeEquipmentRequirementInKitchen.id,
+				stepId: recipeEquipmentRequirementInKitchen.recipeStepId,
+				roleId: recipeEquipmentRequirementInKitchen.roleId,
+				modelId: recipeEquipmentRequirementInKitchen.modelId,
+				quantity: recipeEquipmentRequirementInKitchen.quantity,
+			})
+			.from(recipeEquipmentRequirementInKitchen)
+			.where(
+				and(
+					eq(recipeEquipmentRequirementInKitchen.recipeId, recipeId),
+					isNull(recipeEquipmentRequirementInKitchen.deletedAt),
+					isNotNull(recipeEquipmentRequirementInKitchen.recipeStepId)
+				)
+			)
+	)
+	if (rows.length === 0) return
+
+	const remapped = rows.map((row) => ({
+		id: row.id,
+		previousStepId: row.stepId,
+		stepId: row.stepId != null ? (stepIdMap.get(row.stepId) ?? null) : null,
+		target: row.roleId ?? row.modelId,
+		quantity: row.quantity,
+	}))
+	const { keep, drop } = dedupeRequirementTargets(remapped)
+	const now = new Date().toISOString()
+
+	for (const row of keep) {
+		if (row.stepId === row.previousStepId) continue
+		await runQuery("UPDATE_FAILED", () =>
+			db
+				.update(recipeEquipmentRequirementInKitchen)
+				.set({ recipeStepId: row.stepId })
+				.where(eq(recipeEquipmentRequirementInKitchen.id, row.id))
+				.then(() => undefined)
+		)
+	}
+	if (drop.length > 0) {
+		await runQuery("DELETE_FAILED", () =>
+			db
+				.update(recipeEquipmentRequirementInKitchen)
+				.set({ deletedAt: now })
+				.where(
+					inArray(
+						recipeEquipmentRequirementInKitchen.id,
+						drop.map((d) => d.id)
+					)
+				)
+				.then(() => undefined)
+		)
 	}
 }

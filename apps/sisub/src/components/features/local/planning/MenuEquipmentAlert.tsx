@@ -30,7 +30,7 @@ export function MenuEquipmentAlert({ dailyMenuId }: { dailyMenuId: string | unde
 					{data.targets
 						.filter((target) => target.missing > 0)
 						.map((target) => (
-							<li key={target.target_label} className="flex flex-wrap items-center gap-2">
+							<li key={target.target_key} className="flex flex-wrap items-center gap-2">
 								<Badge variant="destructive">
 									{target.satisfied}/{target.required}
 								</Badge>

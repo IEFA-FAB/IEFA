@@ -136,7 +136,9 @@ export function useCreateEquipmentUnit() {
 	return useMutation({
 		mutationFn: (data: CreateEquipmentUnit) => createEquipmentUnitFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.kitchenUnitsAll() })
+			// Árvore inteira: o parque muda o atendimento da preparação E o do cardápio, e um
+			// alerta que continua acusando falta já resolvida é pior que alerta nenhum.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamento cadastrado")
 		},
 		onError: (error) => toast.error(`Erro ao cadastrar equipamento: ${error.message}`),
@@ -148,7 +150,9 @@ export function useUpdateEquipmentUnit() {
 	return useMutation({
 		mutationFn: (data: UpdateEquipmentUnit) => updateEquipmentUnitFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.kitchenUnitsAll() })
+			// Árvore inteira: o parque muda o atendimento da preparação E o do cardápio, e um
+			// alerta que continua acusando falta já resolvida é pior que alerta nenhum.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamento atualizado")
 		},
 		onError: (error) => toast.error(`Erro ao atualizar equipamento: ${error.message}`),
@@ -160,7 +164,9 @@ export function useDeleteEquipmentUnit() {
 	return useMutation({
 		mutationFn: (unitId: string) => deleteEquipmentUnitFn({ data: { unitId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.kitchenUnitsAll() })
+			// Árvore inteira: o parque muda o atendimento da preparação E o do cardápio, e um
+			// alerta que continua acusando falta já resolvida é pior que alerta nenhum.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Equipamento removido")
 		},
 		onError: (error) => toast.error(`Erro ao remover equipamento: ${error.message}`),
@@ -172,7 +178,7 @@ export function useCreateEquipmentModel() {
 	return useMutation({
 		mutationFn: (data: CreateEquipmentModel) => createEquipmentModelFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.modelsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Modelo cadastrado")
 		},
 		onError: (error) => toast.error(`Erro ao cadastrar modelo: ${error.message}`),
@@ -184,7 +190,7 @@ export function useUpdateEquipmentModel() {
 	return useMutation({
 		mutationFn: (data: UpdateEquipmentModel) => updateEquipmentModelFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.modelsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Modelo atualizado")
 		},
 		onError: (error) => toast.error(`Erro ao atualizar modelo: ${error.message}`),
@@ -196,7 +202,7 @@ export function useDeleteEquipmentModel() {
 	return useMutation({
 		mutationFn: (modelId: string) => deleteEquipmentModelFn({ data: { modelId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.modelsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Modelo removido")
 		},
 		onError: (error) => toast.error(`Erro ao remover modelo: ${error.message}`),

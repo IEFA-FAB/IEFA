@@ -78,6 +78,9 @@ export function useCreateDailyMenu() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
+			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
+			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Cardápio diário criado com sucesso!")
 		},
 		onError: (error) => {
@@ -105,6 +108,9 @@ export function useAddMenuItem() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
+			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
+			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Item adicionado ao cardápio!")
 		},
 		onError: (error) => {
@@ -135,6 +141,9 @@ export function useUpdateDailyMenu() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
+			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
+			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Cardápio atualizado!")
 		},
 		onError: (error) => {
@@ -173,6 +182,9 @@ export function useUpdateMenuItem() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
+			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
+			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 		},
 		onError: (error) => {
 			toast.error(`Erro ao atualizar item: ${error.message}`)
@@ -188,6 +200,9 @@ export function useDeleteMenuItem() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
+			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
+			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
 			toast.success("Item removido!")
 		},
 		onError: (error) => {

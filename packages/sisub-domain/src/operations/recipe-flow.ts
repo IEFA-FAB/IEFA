@@ -30,6 +30,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 import { type DeclaredIngredient, type IngredientBalance, validateFlow } from "../utils/recipe-flow-graph.ts"
+import { remapRequirementStepBindings } from "./equipment.ts"
 
 // Renomeia as relations "feias" do pull para as chaves do contrato.
 const FLOW_RELATIONS: Record<string, string> = {
@@ -278,6 +279,12 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 					.then(() => undefined)
 			)
 		}
+
+		// O replace troca o uuid de TODA etapa, inclusive das que o usuário não mexeu (o
+		// `clientId` das existentes é o id antigo). Quem aponta para etapa — hoje, a lista mínima
+		// de equipamentos — precisa ser reapontado na mesma transação, senão fica órfão em
+		// silêncio: a tela recusa a gravação seguinte e o cálculo de concorrência conta a mais.
+		await remapRequirementStepBindings(tx as unknown as SisubDb, input.recipeId, stepIdMap)
 	})
 
 	const flow = await fetchRecipeFlow(db, ctx, { recipeId: input.recipeId })
