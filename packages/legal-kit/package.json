@@ -9,7 +9,7 @@
     "./react": "./src/react.tsx"
   },
   "scripts": {
-    "test": "bun test $(find src -name '*.test.ts' -print)",
+    "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {

@@ -13,7 +13,7 @@
     "lint": "biome lint",
     "check": "biome check",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test src",
+    "test": "bun test --no-env-file src",
     "test:e2e": "bunx playwright test",
     "test:e2e:ui": "bunx playwright test --ui",
     "purge:test-fixtures": "bun run scripts/purge-test-fixtures.ts"

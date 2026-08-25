@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "test": "bun test"
+    "test": "bun test --no-env-file"
   },
   "exports": {
     ".": "./src/index.ts",

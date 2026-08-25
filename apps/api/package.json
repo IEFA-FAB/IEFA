@@ -12,7 +12,7 @@
     "sync:nutrition-reference": "bun scripts/run-nutrition-reference-sync.ts",
     "sync:gpc": "bun scripts/run-gpc-import.ts",
     "match:catmat-products": "bun scripts/catmat-match-orchestrator.ts",
-    "test": "bun test",
+    "test": "bun test --no-env-file",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",

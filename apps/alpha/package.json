@@ -11,7 +11,7 @@
     "ingest:agu": "bun run src/cli/ingest-agu.ts",
     "lint": "biome check src/",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test",
+    "test": "bun test --no-env-file",
     "eval": "bun run src/eval/run-eval.ts",
     "embed:backfill": "bun run src/cli/backfill-embeddings.ts"
   },
