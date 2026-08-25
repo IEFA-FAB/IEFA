@@ -10,7 +10,7 @@
     "lint": "biome lint",
     "check": "biome check",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test",
+    "test": "bun test --no-env-file",
     "validate-env": "bun run src/env.ts"
   },
   "dependencies": {
@@ -51,6 +51,7 @@
     "@iefa/tsconfig": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tanstack/devtools-vite": "^0.8.1",
+    "@types/bun": "^1.4.0",
     "@types/node": "26.0.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

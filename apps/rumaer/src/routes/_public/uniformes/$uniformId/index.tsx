@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react"
 import { type ReactNode, useId, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { BlurredImage } from "@/components/uniforms/blurred-image"
 import { signedImageQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
 import {
 	CATEGORIA_LABELS,
@@ -96,7 +97,12 @@ function DetailPage() {
 	// sozinha quando a variante nova não tem aquela alternativa.
 	const looks = selected?.images ?? []
 	const activeLook = search.look ? looks.find((l) => l.piece_id === search.look) : undefined
-	const { data: imageUrl } = useQuery(signedImageQueryOptions(activeLook?.image_path ?? selected?.image_path))
+	const activeImagePath = activeLook?.image_path ?? selected?.image_path
+	// Segue exatamente a MESMA escolha de `activeImagePath` — nada de `activeLook?.blur ?? selected?.blur`.
+	// Um look sem placeholder cairia no blur da imagem base e mostraria a prévia do uniforme errado
+	// justo enquanto ninguém consegue conferir (antes de a imagem real cobrir).
+	const activePlaceholder = activeLook ? activeLook.blur_placeholder : (selected?.blur_placeholder ?? null)
+	const { data: imageUrl } = useQuery(signedImageQueryOptions(activeImagePath))
 
 	if (!uniform) return null
 
@@ -145,13 +151,15 @@ function DetailPage() {
 				<div className="flex flex-col gap-4">
 					<figure className="flex flex-col gap-2">
 						<div className="aspect-[3/4] border border-border rounded-lg bg-muted/30 flex items-center justify-center overflow-hidden">
-							{imageUrl ? (
-								<img src={imageUrl} alt={`${title} — ${versionLabel}`} className="h-full w-full object-contain" />
-							) : (
-								<span className="text-sm text-muted-foreground px-6 text-center">
-									{(activeLook?.image_path ?? selected?.image_path) ? "Carregando imagem…" : "Sem ilustração cadastrada"}
-								</span>
-							)}
+							<BlurredImage
+								src={imageUrl ?? undefined}
+								placeholder={activePlaceholder}
+								alt={`${title} — ${versionLabel}`}
+								className="h-full w-full"
+								fallback={
+									<span className="text-sm text-muted-foreground px-6 text-center">{activeImagePath ? "Carregando imagem…" : "Sem ilustração cadastrada"}</span>
+								}
+							/>
 						</div>
 						<figcaption className="text-xs text-muted-foreground">{versionLabel}</figcaption>
 					</figure>

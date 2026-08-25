@@ -12,7 +12,7 @@
     "sync:nutrition-reference": "bun scripts/run-nutrition-reference-sync.ts",
     "sync:gpc": "bun scripts/run-gpc-import.ts",
     "match:catmat-products": "bun scripts/catmat-match-orchestrator.ts",
-    "test": "bun test",
+    "test": "bun test --no-env-file",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
@@ -28,14 +28,14 @@
     "fast-xml-parser": "^5.10.1",
     "fflate": "^0.8.3",
     "hono": "^4.13.1",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.3.14",
+    "@types/bun": "^1.4.0",
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-    "bun-types": "^1.3.14",
+    "bun-types": "^1.4.0",
     "typescript": "^7.0.2"
   }
 }

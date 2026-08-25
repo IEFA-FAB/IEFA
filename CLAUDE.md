@@ -110,7 +110,10 @@ Regras de contribuição para **todos** os devs e agentes de IA no repo.
 - **Mensagens de commit sempre em inglês** — subject E body — mesmo com código, comentários ou diff em português. Conventional Commits: `feat(sisub): add Faro observability`, não `adicionar`.
 - **Rodar `bun run check` + testes antes de mergear** qualquer PR, e confirmar verde. Typecheck por-arquivo não pega tudo.
   - Testes: `bun run test` (turbo, todos os apps) ou `cd apps/sisub && bunx vitest run`. **Não** rodar `bunx vitest run` da raiz — o alias `@/` não resolve e gera ~32 falsos positivos.
-  - **`apps/<app>/.env` faz a suíte local mentir.** O Vite carrega o arquivo automaticamente, então um teste que importa `@/server/*` (e com isso `env.server.ts`, que valida credencial na carga do módulo) passa na máquina de quem tem `.env` e quebra no CI, que não tem. Antes de confiar num teste novo que toque a camada server, rodar sem o arquivo. A regra melhor é não importar `@/server/*` de teste unitário: extrair a função pura para `src/lib/` e testar ali.
+  - **`apps/<app>/.env` fazia a suíte local mentir — a armadilha está FECHADA, não a reabra.** Um teste que importa `@/server/*` puxa `env.server.ts`, que valida credencial na carga do módulo: com o `.env` no disco ele passava na máquina do dev e quebrava no CI, que não tem o arquivo. Verde no PR, vermelho depois do merge. Duas travas, uma por runner:
+    - **`bun test` (13 workspaces)**: o script passa `--no-env-file` (Bun 1.4 — o Bun carrega `.env` sozinho igual ao Vite, e esta é a primeira versão que deixa desligar).
+    - **vitest (`sisub`, `assignment-selection`)**: o `loadEnv(..., "")` do `vitest.config.ts` tinha prefixo VAZIO e despejava o `.env` inteiro. Agora só entrega credencial quando `*_RUN_INTEGRATION=true`; o run unitário recebe só as flags. As credenciais são lidas num lugar só (`src/test/supabase.ts`), que já se governa por essa flag.
+    Nos dois casos a suíte roda com o mesmo env do CI mesmo com o arquivo no disco. A regra melhor segue valendo: não importar `@/server/*` de teste unitário — extrair a função pura para `src/lib/` e testar ali.
   - Integração (`SISUB_RUN_INTEGRATION`/`SISUB_DATABASE_URL`) fica em skip por padrão — isso é esperado, não falha.
 
 ## DB

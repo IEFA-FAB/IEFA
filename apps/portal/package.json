@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test $(find src -name '*.test.ts' -print)",
+    "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "dev": "bunx --bun vite dev",
     "build": "bunx --bun vite build",
     "serve": "bunx --bun vite preview",

@@ -9,6 +9,8 @@ import type { Piece, PieceItem, Uniform, UniformVariant, UniformVariantImage } f
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireUniformEditor } from "@/lib/auth.server"
+import { placeholderActionFor } from "@/lib/image-placeholder"
+import { buildImagePlaceholder } from "@/lib/image-placeholder.server"
 import { getRumaerServerClient } from "@/lib/supabase.server"
 
 const BUCKET = "rumaer-uniforms"
@@ -142,20 +144,36 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 			image_path: z.string().nullable().optional(),
 			descricao_md: z.string().nullable().optional(),
 			ordem: z.number().int().optional(),
+			// Sinal de controle, não coluna — ver `placeholderActionFor`. O path do upload é
+			// derivado da variante e o storage grava com `upsert: true`, então trocar a
+			// ilustração por outra do mesmo formato NÃO muda o caminho.
+			uploaded: z.boolean().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<UniformVariant> => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
+		const { uploaded, ...payload } = data
 		// Sempre que o payload mexe na imagem base (troca p/ outro path OU limpa com null), o arquivo
 		// antigo vira órfão — remover. `undefined` = payload não toca na imagem (ex.: edita só círculo);
 		// nesse caso não buscamos nem removemos nada.
 		let oldPath: string | null = null
+		let oldPlaceholder: string | null = null
 		if (data.id && data.image_path !== undefined) {
-			const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
+			const { data: existing } = await supabase.from("uniform_variant").select("image_path, blur_placeholder").eq("id", data.id).maybeSingle()
 			oldPath = existing?.image_path ?? null
+			oldPlaceholder = existing?.blur_placeholder ?? null
 		}
-		const { data: row, error } = await supabase.from("uniform_variant").upsert(data).select("*").single()
+
+		const action = placeholderActionFor({ nextPath: data.image_path, currentPath: oldPath, currentPlaceholder: oldPlaceholder, uploaded })
+		const withPlaceholder =
+			action === "build"
+				? { ...payload, blur_placeholder: await buildImagePlaceholder(data.image_path as string) }
+				: action === "clear"
+					? { ...payload, blur_placeholder: null }
+					: payload
+
+		const { data: row, error } = await supabase.from("uniform_variant").upsert(withPlaceholder).select("*").single()
 		if (error) throw new Error(error.message)
 		if (oldPath && oldPath !== data.image_path) await removeStorageObjects([oldPath])
 		return row
@@ -185,7 +203,11 @@ export const clearVariantImageFn = createServerFn({ method: "POST" })
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
-		const { error } = await supabase.from("uniform_variant").update({ image_path: null }).eq("id", data.id)
+		// `blur_placeholder` sai JUNTO com o path, sempre. Ele é derivado do arquivo que
+		// acabou de ser removido, e `BlurredImage` só cai em "Sem ilustração cadastrada"
+		// quando não tem NEM src NEM placeholder — deixar o blur para trás fixaria a
+		// silhueta da ilustração apagada na página pública, sem imagem nenhuma para cobri-la.
+		const { error } = await supabase.from("uniform_variant").update({ image_path: null, blur_placeholder: null }).eq("id", data.id)
 		if (error) throw new Error(error.message)
 		await removeStorageObjects([existing?.image_path])
 		return { ok: true }
@@ -352,19 +374,36 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 			piece_id: z.string().uuid(),
 			image_path: z.string().min(1),
 			legenda: z.string().nullable().optional(),
+			// Ver `upsertVariantFn`: o path do look também é derivado da variante + peça.
+			uploaded: z.boolean().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<UniformVariantImage> => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
+		const { uploaded, ...payload } = data
 		// Ao trocar a imagem alternativa: remove o arquivo antigo se o path mudou (órfão).
 		const { data: existing } = await supabase
 			.from("uniform_variant_image")
-			.select("image_path")
+			.select("image_path, blur_placeholder")
 			.eq("variant_id", data.variant_id)
 			.eq("piece_id", data.piece_id)
 			.maybeSingle()
-		const { data: row, error } = await supabase.from("uniform_variant_image").upsert(data, { onConflict: "variant_id,piece_id" }).select("*").single()
+
+		// `image_path` aqui é obrigatório, então "clear" não acontece — só build/keep.
+		const action = placeholderActionFor({
+			nextPath: data.image_path,
+			currentPath: existing?.image_path,
+			currentPlaceholder: existing?.blur_placeholder,
+			uploaded,
+		})
+		const withPlaceholder = action === "build" ? { ...payload, blur_placeholder: await buildImagePlaceholder(data.image_path) } : payload
+
+		const { data: row, error } = await supabase
+			.from("uniform_variant_image")
+			.upsert(withPlaceholder, { onConflict: "variant_id,piece_id" })
+			.select("*")
+			.single()
 		if (error) throw new Error(error.message)
 		if (existing?.image_path && existing.image_path !== data.image_path) await removeStorageObjects([existing.image_path])
 		return row

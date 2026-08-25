@@ -1,7 +1,7 @@
 {
   "name": "iefa",
   "private": true,
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.4.0",
   "overrides": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -19,7 +19,8 @@
     "shell-quote": "^1.10.0",
     "lodash": "^4.18.1",
     "langsmith": ">=0.8.11 <1.0.0",
-    "tmp": "^0.2.7"
+    "tmp": "^0.2.7",
+    "undici": ">=8.9.0 <9.0.0"
   },
   "scripts": {
     "dev": "turbo dev",
