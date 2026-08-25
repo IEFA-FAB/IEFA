@@ -31,23 +31,48 @@ não pelo Secrets Manager:
 | | modelo | região | reserva | tetos |
 |---|---|---|---|---|
 | sisub (`MODULE_CHAT` e `ANALYTICS`) | `openai.gpt-oss-120b-1:0` | `sa-east-1` | ❌ não configurada | ❌ nenhum |
-| sucont (`SUCONT`) | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | `us-east-1` | ❌ | ❌ |
+| sucont (`SUCONT`) | `global.anthropic.claude-opus-4-6-v1` | `sa-east-1` | ✅ `openai.gpt-oss-120b-1:0` | ✅ 12/min, 120k tok/min, 2M tok/dia |
 
 Duas consequências, ambas verificadas:
 
 1. **sisub funciona** — o CloudTrail de `sa-east-1` registra `ConverseStream` da task role com
    `openai.gpt-oss-120b-1:0` sem `errorCode`, inclusive no dia da conferência. Não é Claude
    Sonnet 4.6, que é o que este arquivo e o `sisub.example.json` diziam.
-2. **o oráculo do sucont está quebrado** — o perfil `us.anthropic.*` está **fora** do escopo
-   que a task role recebeu (ver IAM abaixo): `simulate-principal-policy` devolve
-   `implicitDeny` para `InvokeModelWithResponseStream` **e** para `ConverseStream` nesse ARN,
-   e o CloudTrail de `us-east-1` não tem nenhuma chamada da task role — o caminho nunca
-   funcionou. `AccessDenied` não é falha transitória, então a reserva não entraria nem se
-   existisse. Conserto: ver a escolha de modelo abaixo.
+2. **o oráculo do sucont estava quebrado, e foi consertado em 2026-08-21** — o perfil
+   `us.anthropic.*` está **fora** do escopo que a task role recebeu (ver IAM abaixo):
+   `simulate-principal-policy` devolve `implicitDeny` para `InvokeModelWithResponseStream`
+   **e** para `ConverseStream` nesse ARN, e o CloudTrail de `us-east-1` não tinha nenhuma
+   chamada da task role — o caminho nunca funcionou. `AccessDenied` não é falha transitória,
+   então a reserva não entraria nem se existisse.
 
-### Escolha do modelo do oráculo (bench de 2026-08-14)
+   A revisão `iefa-prod-sucont:4` passou o primário para `global.anthropic.claude-opus-4-6-v1`
+   em `sa-east-1` (mesmo modelo do desenho, prefixo que a policy aceita), com
+   `openai.gpt-oss-120b-1:0` de reserva e os tetos ligados. **A task definition é do
+   terraform**: a correção só sobrevive ao próximo `terraform apply` se o secret
+   `TF_TFVARS_JSON` for atualizado junto (ver `infra/sucont/terraform.tfvars.example`).
 
-`SUCONT_AI_MODEL = "openai.gpt-oss-120b-1:0"` em `sa-east-1` — o mesmo do sisub.
+### Escolha do modelo do oráculo (bench de 2026-08-14, revisto em 2026-08-21)
+
+`SUCONT_AI_MODEL = "global.anthropic.claude-opus-4-6-v1"` em `sa-east-1`, com
+`openai.gpt-oss-120b-1:0` de **reserva**.
+
+> **Revisão de 2026-08-21.** O bench abaixo elegeu o gpt-oss-120b por preço e TTFT, com
+> capacidade empatada entre os candidatos. A decisão foi revista quando o SAC-DGC entrou:
+> ele não é chat em streaming — é análise estruturada em lote, onde o total importa mais que
+> o TTFT e a qualidade do apontamento vale o custo. Medido no prompt real do DGC em
+> `sa-east-1`: gpt-oss-120b 14 s / 5 alertas; sonnet-4-6 96 s / 7; opus-4-6 81 s / 7. Os três
+> devolveram as 20 perguntas do checklist e casaram os valores da base. **Uma amostra continua
+> não decidindo qualidade** — o que decidiu foi a natureza da carga, não o placar.
+>
+> Fica o efeito colateral, e é real: o `SUCONT_AI_MODEL` é **compartilhado** com o oráculo em
+> SSE, o document-ai e o conta-genérica. O caminho certo para diferenciar é um prefixo de env
+> próprio por consumidor (ex.: `SUCONT_DGC_AI_*`), não trocar o compartilhado de novo.
+>
+> **Nem todo modelo da policy está habilitado na conta.** Em 2026-08-21, `opus-5`, `opus-4-8`,
+> `opus-4-7`, `sonnet-5` e `fable-5` aparecem em `list-inference-profiles` como `ACTIVE` e
+> ainda assim devolvem `AccessDeniedException: not available for this account` — habilitação
+> de modelo no Bedrock é separada do IAM. Habilitados hoje: `opus-4-6`, `opus-4-5`,
+> `sonnet-4-6`, `sonnet-4-5`, `haiku-4-5` e `gpt-oss-120b`.
 
 A escolha não é por afinidade: os quatro candidatos que a task role **pode** invocar foram
 medidos nos **dois** caminhos reais do app pelo adapter do próprio repo

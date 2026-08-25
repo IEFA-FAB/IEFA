@@ -41,19 +41,36 @@ environment_variables = {
   #     --action-names bedrock:InvokeModelWithResponseStream \
   #     --resource-arns arn:aws:bedrock:sa-east-1::foundation-model/openai.gpt-oss-120b-1:0
   #
-  # Modelo: o MESMO que o sisub roda em producao (ver sisub.example.json). Unico com
-  # historico real nesta conta e nesta task role, o mais barato entre os que
-  # conseguimos precificar ($0.18/1M entrada, $0.73/1M saida em sa-east-1, Pricing
-  # API da AWS) e passa nos tres caminhos do bench (apps/sucont/model-bench.ts).
-  # Tem um custo: ~3x mais lento ate o primeiro token que o Haiku 4.5, que e o que
-  # o usuario sente num chat em streaming. Leia AI-PROVIDERS.md antes de trocar.
+  # PREFIXO IMPORTA: a policy da task role (`iefa-prod-ecs-task-extra`) permite
+  # `inference-profile/global.anthropic.*`, `foundation-model/anthropic.*` e
+  # `foundation-model/openai.gpt-oss-*` — e mais nada. Um perfil `us.anthropic.*`
+  # e implicitDeny, e o oraculo do sucont ficou meses quebrado exatamente assim.
+  # Conferir antes de trocar:
+  #   aws iam simulate-principal-policy \
+  #     --policy-source-arn arn:aws:iam::103256050857:role/iefa-prod-ecs-task \
+  #     --action-names bedrock:InvokeModel --resource-arns "<arn do modelo>"
+  #
+  # Estar na policy nao basta: o modelo tambem precisa estar HABILITADO na conta.
+  # Em 2026-08-21, opus-5, opus-4-8, opus-4-7, sonnet-5 e fable-5 respondem
+  # `AccessDeniedException: not available for this account`. Habilitados:
+  # opus-4-6, opus-4-5, sonnet-4-6, sonnet-4-5, haiku-4-5 e gpt-oss-120b.
+  #
   # Regiao: sa-east-1, a da stack — nao ha motivo para cruzar regiao.
   SUCONT_AI_PROVIDER = "bedrock"
-  SUCONT_AI_MODEL    = "openai.gpt-oss-120b-1:0"
+  SUCONT_AI_MODEL    = "global.anthropic.claude-opus-4-6-v1"
   SUCONT_AI_REGION   = "sa-east-1"
+
+  # Reserva: so entra ANTES do primeiro conteudo e so em falha TRANSITORIA
+  # (429/5xx/throttling/timeout/queda de transporte). AccessDenied e erro de
+  # schema propagam — trocar de provider so repetiria a falha. Nao e camada de
+  # economia: e o que mantem o app respondendo quando o Bedrock do primario nega.
+  SUCONT_FALLBACK_AI_PROVIDER = "bedrock"
+  SUCONT_FALLBACK_AI_MODEL    = "openai.gpt-oss-120b-1:0"
+  SUCONT_FALLBACK_AI_REGION   = "sa-east-1"
 
   # Tetos de consumo (ver AI-PROVIDERS.md). Por usuário, exceto TOKENS_PER_DAY
   # (por processo — com desired_count = N o teto efetivo é N x o configurado).
+  # Com um primario da familia Opus os tetos deixam de ser formalidade.
   SUCONT_AI_MAX_REQUESTS_PER_MINUTE = "12"
   SUCONT_AI_MAX_TOKENS_PER_MINUTE   = "120000"
   SUCONT_AI_MAX_TOKENS_PER_DAY      = "2000000"

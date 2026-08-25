@@ -86,6 +86,19 @@ describe("isRetryableAdapterFailure", () => {
 	})
 })
 
+describe("isRetryableAdapterFailure — transporte", () => {
+	// O SDK da AWS não diz "fetch failed" nem "socket hang up": quando o http2 cai
+	// antes de qualquer resposta, a mensagem é esta. Sem ela a reserva ficava de fora
+	// da falha de transporte do primário.
+	test("http2 sem resposta é transitório", () => {
+		expect(isRetryableAdapterFailure(new Error("Unexpected error: http2 request did not get a response"))).toBe(true)
+	})
+
+	test("erro de credencial continua não sendo transitório", () => {
+		expect(isRetryableAdapterFailure(new Error("anthropic.claude-opus-4-8 is not available for this account"))).toBe(false)
+	})
+})
+
 describe("withFallbackChain — troca por exceção", () => {
 	test("usa a reserva quando o primário lança erro transitório", async () => {
 		const calls: string[] = []
