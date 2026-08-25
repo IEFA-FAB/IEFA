@@ -182,6 +182,80 @@ describeSupabaseIntegration("recipes operations (regressão)", () => {
 		expect((antiga.ingredients[0].alternatives ?? [])[0]?.net_quantity).toBe(1.6)
 	})
 
+	/**
+	 * Pré-preparo é campo PRÓPRIO da ficha (PARTE 03 do modelo FTP/SIA), não um pedaço do
+	 * modo de preparo. O que a suíte protege é o caminho inteiro até a coluna nova: o
+	 * schema de escrita aceita, o insert grava e a leitura devolve — e a versão seguinte
+	 * carrega o campo em vez de nascer com ele em branco, que é como um campo novo
+	 * costuma se perder no versionamento.
+	 */
+	test("createRecipe/saveRecipeEdit gravam o pré-preparo e a versão nova o carrega", async () => {
+		if (!reachable || !seeder || !db) return
+		const ingredientId = await seeder.seedIngredient()
+
+		const v1 = await createRecipe(db, ctx, {
+			name: uid("[TEST] Pré-preparo "),
+			portionYield: 100,
+			kitchenId: null,
+			prePreparationMethod: "Dessalgar por 12 h, trocando a água 3 vezes.",
+			preparationMethod: "Refogar e cozinhar por 40 min.",
+			ingredients: [{ ingredientId, netQuantity: 150, isOptional: false, priorityOrder: 0 }],
+		})
+		seeder.track("recipes", v1.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", v1.id)
+
+		expect(v1.pre_preparation_method).toBe("Dessalgar por 12 h, trocando a água 3 vezes.")
+
+		const lida = await fetchRecipe(db, ctx, { recipeId: v1.id })
+		expect(lida.pre_preparation_method).toBe("Dessalgar por 12 h, trocando a água 3 vezes.")
+		// Os dois campos são independentes — um não sobrescreve o outro no caminho de escrita.
+		expect(lida.preparation_method).toBe("Refogar e cozinhar por 40 min.")
+
+		const { recipe: v2 } = await saveRecipeEdit(db, ctx, {
+			name: v1.name,
+			portionYield: 100,
+			baseRecipeId: v1.id,
+			context: { scope: "global" },
+			prePreparationMethod: "Dessalgar por 24 h.",
+			preparationMethod: "Refogar e cozinhar por 40 min.",
+			ingredients: [{ ingredientId, netQuantity: 150, isOptional: false, priorityOrder: 0 }],
+		})
+		seeder.track("recipes", v2.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", v2.id)
+
+		expect(v2.version).toBe(2)
+		expect((await fetchRecipe(db, ctx, { recipeId: v2.id })).pre_preparation_method).toBe("Dessalgar por 24 h.")
+		// Versionar não reescreve a versão anterior.
+		expect((await fetchRecipe(db, ctx, { recipeId: v1.id })).pre_preparation_method).toBe("Dessalgar por 12 h, trocando a água 3 vezes.")
+	})
+
+	/**
+	 * A ficha digitada POR PORÇÃO chega ao banco já multiplicada pelo rendimento — a
+	 * conversão é do formulário (`lib/technical-sheet.ts`), e o contrato de escrita
+	 * continua sendo o peso líquido TOTAL. Se um dia alguém mandar o per capita cru, é
+	 * aqui que a divergência aparece: o per capita relido tem que bater com o digitado.
+	 */
+	test("quantidade digitada por porção chega como total e é relida como per capita", async () => {
+		if (!reachable || !seeder || !db) return
+		const ingredientId = await seeder.seedIngredient()
+
+		const digitadoPorPorcao = 0.5
+		const rendimento = 100
+
+		const recipe = await createRecipe(db, ctx, {
+			name: uid("[TEST] Por porção "),
+			portionYield: rendimento,
+			kitchenId: null,
+			ingredients: [{ ingredientId, netQuantity: digitadoPorPorcao * rendimento, isOptional: false, priorityOrder: 0 }],
+		})
+		seeder.track("recipes", recipe.id)
+		seeder.trackWhere("recipe_ingredients", "recipe_id", recipe.id)
+
+		const lida = await fetchRecipe(db, ctx, { recipeId: recipe.id })
+		expect(Number(lida.ingredients[0].net_quantity)).toBe(50)
+		expect(Number(lida.ingredients[0].net_quantity) / Number(lida.portion_yield)).toBeCloseTo(digitadoPorPorcao, 10)
+	})
+
 	test("substituto igual ao insumo da linha, ou repetido nela, não é gravado", async () => {
 		if (!reachable || !seeder || !db) return
 		const ingredientId = await seeder.seedIngredient()
