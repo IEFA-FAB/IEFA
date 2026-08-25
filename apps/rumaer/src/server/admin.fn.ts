@@ -203,7 +203,11 @@ export const clearVariantImageFn = createServerFn({ method: "POST" })
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
-		const { error } = await supabase.from("uniform_variant").update({ image_path: null }).eq("id", data.id)
+		// `blur_placeholder` sai JUNTO com o path, sempre. Ele é derivado do arquivo que
+		// acabou de ser removido, e `BlurredImage` só cai em "Sem ilustração cadastrada"
+		// quando não tem NEM src NEM placeholder — deixar o blur para trás fixaria a
+		// silhueta da ilustração apagada na página pública, sem imagem nenhuma para cobri-la.
+		const { error } = await supabase.from("uniform_variant").update({ image_path: null, blur_placeholder: null }).eq("id", data.id)
 		if (error) throw new Error(error.message)
 		await removeStorageObjects([existing?.image_path])
 		return { ok: true }

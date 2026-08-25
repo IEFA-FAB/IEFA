@@ -3,7 +3,7 @@
  * Backfill dos LQIP (`blur_placeholder`) das ilustrações de uniforme.
  *
  * A geração automática só cobre imagem enviada DEPOIS da migration
- * `20260825120000_rumaer_image_blur_placeholder`. O catálogo já publicado precisa
+ * `20260825141906_rumaer_image_blur_placeholder`. O catálogo já publicado precisa
  * deste passo, senão a prévia borrada existe só para uniforme novo e o acervo antigo
  * — que é a maior parte do que as pessoas abrem — continua com a caixa vazia.
  *
