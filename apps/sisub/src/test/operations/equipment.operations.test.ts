@@ -24,6 +24,19 @@ import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } f
 
 const ctx = fullAccessCtx()
 
+/** Linha de exigência com os defaults do schema explícitos (o parse não roda nestes testes). */
+const BASE_REQ = {
+	recipeStepId: null,
+	modelId: null,
+	roleId: null as string | null,
+	quantity: 1,
+	scaling: "per_batch" as const,
+	batchPortions: null,
+	minCapacityLiters: null,
+	minCapacityGn: null,
+	notes: null,
+}
+
 describeSupabaseIntegration("equipment operations (regressão)", () => {
 	let reachable = false
 	let client: AnyClient
@@ -129,7 +142,19 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 
 		const saved = await saveRecipeEquipment(db, ctx, {
 			recipeId,
-			requirements: [{ roleId: role.id, quantity: 2, minCapacityGn: 10, recipeStepId: null, modelId: null, minCapacityLiters: null, notes: null }],
+			requirements: [
+				{
+					roleId: role.id,
+					quantity: 2,
+					scaling: "per_batch",
+					batchPortions: null,
+					minCapacityGn: 10,
+					recipeStepId: null,
+					modelId: null,
+					minCapacityLiters: null,
+					notes: null,
+				},
+			],
 		})
 		expect(saved).toHaveLength(1)
 		expect(saved[0].quantity).toBe(2)
@@ -143,8 +168,8 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 			saveRecipeEquipment(db, ctx, {
 				recipeId,
 				requirements: [
-					{ roleId: role.id, quantity: 1, recipeStepId: null, modelId: null, minCapacityLiters: null, minCapacityGn: null, notes: null },
-					{ roleId: role.id, quantity: 1, recipeStepId: null, modelId: null, minCapacityLiters: null, minCapacityGn: null, notes: null },
+					{ ...BASE_REQ, roleId: role.id },
+					{ ...BASE_REQ, roleId: role.id },
 				],
 			})
 		).rejects.toThrow()
@@ -171,7 +196,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const recipeId = await seeder.seedRecipe({ kitchenId })
 		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
 
-		const base = { recipeStepId: null, modelId: null, minCapacityLiters: null, minCapacityGn: null, notes: null, quantity: 1 }
+		const base = BASE_REQ
 		await saveRecipeEquipment(db, ctx, {
 			recipeId,
 			requirements: [
@@ -194,6 +219,34 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const tres = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
 		expect(tres.satisfied).toBe(false)
 		expect(tres.missing_total).toBe(1)
+	})
+
+	test("volume vira ciclos, não vira mais equipamento", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Forno "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+
+		// Receita rende 100 porções; pedimos 900 com UM forno só.
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+
+		const fitness = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId, portions: 900 })
+		expect(fitness.satisfied).toBe(true) // tem o equipamento…
+		expect(fitness.batches).toBe(9)
+		expect(fitness.max_parallel_batches).toBe(1)
+		expect(fitness.cycles).toBe(9) // …e roda em nove rodadas
 	})
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {

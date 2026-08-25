@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import {
+	type ConcurrencyRow,
 	type EquipmentDemandSpec,
 	type EquipmentSlot,
 	evaluateEquipmentFitness,
 	expandUnitSlots,
 	resolveUnitRoleIds,
+	selectConcurrentRequirements,
 	slotServesDemand,
 } from "./equipment-matching.ts"
 
@@ -175,5 +177,99 @@ describe("expandUnitSlots", () => {
 
 	test("contagem inválida vira uma zona (nunca zero slots em silêncio)", () => {
 		expect(expandUnitSlots({ unitId: "u1", unitLabel: "x", modelId: "m", slots: 0, roleIds: [], capacityLiters: null, capacityGn: null })).toHaveLength(1)
+	})
+})
+
+describe("volume: bateladas e ciclos", () => {
+	const oven = (id: string) => slot(id, [COMBI], { modelId: ICOMBI })
+
+	test("sem volume informado, uma batelada e um ciclo", () => {
+		const result = evaluateEquipmentFitness([demand("r1", { roleId: COMBI })], [oven("u1")])
+		expect(result.satisfied).toBe(true)
+		expect(result.maxParallelBatches).toBe(1)
+		expect(result.cycles).toBe(1)
+	})
+
+	test("nove bateladas num forno só: atende, em nove ciclos (não pede nove fornos)", () => {
+		const result = evaluateEquipmentFitness([demand("r1", { roleId: COMBI })], [oven("u1")], { batches: 9 })
+		expect(result.satisfied).toBe(true)
+		expect(result.requirements[0].missing).toBe(0)
+		expect(result.maxParallelBatches).toBe(1)
+		expect(result.cycles).toBe(9)
+	})
+
+	test("três fornos vencem nove bateladas em três ciclos", () => {
+		const result = evaluateEquipmentFitness([demand("r1", { roleId: COMBI })], [oven("u1"), oven("u2"), oven("u3")], { batches: 9 })
+		expect(result.maxParallelBatches).toBe(3)
+		expect(result.cycles).toBe(3)
+	})
+
+	test("parque que não roda nem uma batelada não tem ciclo", () => {
+		const result = evaluateEquipmentFitness([demand("r1", { roleId: COMBI, quantity: 2 })], [oven("u1")], { batches: 4 })
+		expect(result.satisfied).toBe(false)
+		expect(result.maxParallelBatches).toBe(0)
+		expect(result.cycles).toBeNull()
+	})
+
+	test("exigência fixa não acompanha o volume — uma seladora serve a leva inteira", () => {
+		const sealer = slot("sel-1", ["role-sealer"], { modelId: "m-sealer" })
+		const result = evaluateEquipmentFitness(
+			[demand("r1", { roleId: COMBI }), demand("r2", { roleId: "role-sealer", scalesWithBatch: false })],
+			[oven("u1"), oven("u2"), sealer],
+			{ batches: 6 }
+		)
+		// Duas bateladas simultâneas pelos dois fornos; a seladora não vira duas.
+		expect(result.maxParallelBatches).toBe(2)
+		expect(result.cycles).toBe(3)
+	})
+
+	test("o paralelo respeita a disputa ENTRE exigências, não só a contagem por alvo", () => {
+		// u2 é multifuncional (forno e chapa); u1 só forno. Duas bateladas exigiriam 2 fornos + 2
+		// chapas, e só existem 3 slots — dividir slots por exigência isoladamente diria que cabe.
+		const griddleAndOven = slot("u2", [COMBI, GRIDDLE], { modelId: ICOMBI })
+		const result = evaluateEquipmentFitness([demand("r1", { roleId: COMBI }), demand("r2", { roleId: GRIDDLE })], [oven("u1"), griddleAndOven], { batches: 2 })
+		expect(result.satisfied).toBe(true)
+		expect(result.maxParallelBatches).toBe(1)
+		expect(result.cycles).toBe(2)
+	})
+})
+
+describe("selectConcurrentRequirements", () => {
+	const row = (id: string, targetKey: string, level: number | null, quantity = 1): ConcurrencyRow => ({
+		requirementId: id,
+		targetKey,
+		level,
+		quantity,
+	})
+
+	test("exigência sem etapa é sempre concorrente", () => {
+		const ids = selectConcurrentRequirements([row("a", "forno", null), row("b", "chapa", null)])
+		expect([...ids].sort()).toEqual(["a", "b"])
+	})
+
+	test("mesmo alvo em níveis diferentes: só o de pico disputa", () => {
+		// assar (nível 2) e gratinar (nível 5) = o MESMO forno, duas vezes.
+		const ids = selectConcurrentRequirements([row("assar", "forno", 2), row("gratinar", "forno", 5)])
+		expect([...ids]).toEqual(["assar"])
+	})
+
+	test("mesmo alvo no mesmo nível: os dois disputam", () => {
+		const ids = selectConcurrentRequirements([row("assar", "forno", 2), row("desidratar", "forno", 2)])
+		expect([...ids].sort()).toEqual(["assar", "desidratar"])
+	})
+
+	test("o nível de MAIOR demanda vence, não o primeiro", () => {
+		const ids = selectConcurrentRequirements([row("n1", "forno", 1, 1), row("n3a", "forno", 3, 1), row("n3b", "forno", 3, 1)])
+		expect([...ids].sort()).toEqual(["n3a", "n3b"])
+	})
+
+	test("alvos distintos não competem entre si", () => {
+		const ids = selectConcurrentRequirements([row("forno-n1", "forno", 1), row("chapa-n5", "chapa", 5)])
+		expect([...ids].sort()).toEqual(["chapa-n5", "forno-n1"])
+	})
+
+	test("capacidade mínima diferente é OUTRO alvo (não reaproveita a mesma panela)", () => {
+		const ids = selectConcurrentRequirements([row("p50", "panela|50", 1), row("p100", "panela|100", 3)])
+		expect([...ids].sort()).toEqual(["p100", "p50"])
 	})
 })

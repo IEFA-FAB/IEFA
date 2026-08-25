@@ -6,12 +6,16 @@
  * amarrada a modelo só é executável por quem tem aquele equipamento, e o catálogo é da FAB
  * inteira.
  *
+ * A lista descreve UMA BATELADA (o rendimento da receita). Volume não vira mais equipamento:
+ * 900 porções de uma preparação que rende 100 são nove ciclos do mesmo forno. Por isso o painel
+ * separa as duas perguntas — "a cozinha tem?" e "cabe, em quantas rodadas?".
+ *
  * Salva SEPARADAMENTE da preparação (mesmo contrato do fluxo de produção): a lista pertence à
  * versão aberta e é copiada adiante quando uma versão nova nasce.
  */
 
-import type { EquipmentModelWire, RecipeEquipmentRequirementWire, SaveRecipeEquipment } from "@iefa/sisub-domain"
-import { AlertTriangle, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react"
+import type { EquipmentModelWire, EquipmentScaling, RecipeEquipmentRequirementWire, SaveRecipeEquipment } from "@iefa/sisub-domain"
+import { AlertTriangle, CheckCircle2, Loader2, Plus, Save, Trash2, Workflow } from "lucide-react"
 import { useEffect, useId, useMemo, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +24,14 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useEquipmentModels, useEquipmentRoles, useRecipeEquipment, useRecipeEquipmentFitness, useSaveRecipeEquipment } from "@/hooks/data/useEquipment"
+import {
+	useEquipmentModels,
+	useEquipmentRoles,
+	useRecipeEquipment,
+	useRecipeEquipmentFitness,
+	useRecipeEquipmentSuggestions,
+	useSaveRecipeEquipment,
+} from "@/hooks/data/useEquipment"
 
 type CapacityUnit = "L" | "GN"
 
@@ -31,6 +42,8 @@ type RequirementRow = {
 	roleId: string | null
 	modelId: string | null
 	quantity: number
+	scaling: EquipmentScaling
+	batchPortions: number | null
 	capacityValue: number | null
 	capacityUnit: CapacityUnit
 	notes: string | null
@@ -45,6 +58,8 @@ function toRow(req: RecipeEquipmentRequirementWire): RequirementRow {
 		roleId: req.role_id,
 		modelId: req.model_id,
 		quantity: req.quantity,
+		scaling: req.scaling as EquipmentScaling,
+		batchPortions: req.batch_portions,
 		capacityValue: hasGn ? req.min_capacity_gn : req.min_capacity_liters,
 		capacityUnit: hasGn ? "GN" : "L",
 		notes: req.notes,
@@ -62,11 +77,15 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 	const { data: requirements, isLoading } = useRecipeEquipment(recipeId)
 	const { data: roles = [] } = useEquipmentRoles()
 	const { data: models = [] } = useEquipmentModels(kitchenId)
-	const fitness = useRecipeEquipmentFitness(recipeId, kitchenId)
+	const { data: suggestions = [] } = useRecipeEquipmentSuggestions(recipeId)
 	const save = useSaveRecipeEquipment(recipeId)
 
 	const [rows, setRows] = useState<RequirementRow[]>([])
 	const [dirty, setDirty] = useState(false)
+	/** Volume simulado. Vazio = só a pergunta funcional ("a cozinha tem o equipamento?"). */
+	const [portionsInput, setPortionsInput] = useState("")
+	const portions = portionsInput.trim() === "" ? null : Math.max(1, Number(portionsInput))
+	const fitness = useRecipeEquipmentFitness(recipeId, kitchenId, portions)
 
 	// Só sincroniza do servidor enquanto o usuário não mexeu — recarregar por cima de edição
 	// aberta apagaria o trabalho dele sem aviso.
@@ -82,22 +101,43 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 		setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)))
 	}
 
+	const blankRow = (index: number, seed: Partial<RequirementRow> = {}): RequirementRow => ({
+		key: `${rowIdPrefix}-${index}`,
+		target: "role",
+		roleId: roles[0]?.id ?? null,
+		modelId: null,
+		quantity: 1,
+		scaling: "per_batch",
+		batchPortions: null,
+		capacityValue: null,
+		capacityUnit: "L",
+		notes: null,
+		recipeStepId: null,
+		...seed,
+	})
+
 	const addRow = () => {
 		setDirty(true)
-		setRows((current) => [
-			...current,
-			{
-				key: `${rowIdPrefix}-${current.length}-${current.reduce((acc, r) => acc + r.quantity, 0)}`,
-				target: "role",
-				roleId: roles[0]?.id ?? null,
-				modelId: null,
-				quantity: 1,
-				capacityValue: null,
-				capacityUnit: "L",
-				notes: null,
-				recipeStepId: null,
-			},
-		])
+		setRows((current) => [...current, blankRow(current.length)])
+	}
+
+	/** Importa as sugestões do fluxo: etapas que usam utensílio já mapeado a um papel. */
+	const importFromFlow = () => {
+		setDirty(true)
+		setRows((current) => {
+			const taken = new Set(current.map((r) => `${r.recipeStepId ?? ""}|${r.roleId ?? r.modelId}`))
+			const fresh = suggestions
+				.filter((s) => !taken.has(`${s.recipe_step_id}|${s.role_id}`))
+				.map((s, i) =>
+					blankRow(current.length + i, {
+						key: `${rowIdPrefix}-flow-${s.recipe_step_id}-${s.role_id}`,
+						roleId: s.role_id,
+						recipeStepId: s.recipe_step_id,
+						notes: `Etapa: ${s.step_label ?? s.utensil_name}`,
+					})
+				)
+			return [...current, ...fresh]
+		})
 	}
 
 	const removeRow = (key: string) => {
@@ -115,6 +155,8 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 				roleId: row.target === "role" ? row.roleId : null,
 				modelId: row.target === "model" ? row.modelId : null,
 				quantity: row.quantity,
+				scaling: row.scaling,
+				batchPortions: row.scaling === "fixed" ? null : row.batchPortions,
 				minCapacityLiters: row.capacityUnit === "L" ? row.capacityValue : null,
 				minCapacityGn: row.capacityUnit === "GN" ? (row.capacityValue != null ? Math.trunc(row.capacityValue) : null) : null,
 				notes: row.notes,
@@ -128,10 +170,14 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<p className="text-caption text-muted-foreground">
-					Equipamentos necessários para executar esta preparação. Salvos separadamente e copiados para a próxima versão.
-				</p>
+				<p className="text-caption text-muted-foreground">O que uma BATELADA desta preparação exige. Salvo separadamente e copiado para a próxima versão.</p>
 				<div className="flex gap-2">
+					{suggestions.length > 0 ? (
+						<Button type="button" variant="outline" size="sm" onClick={importFromFlow}>
+							<Workflow className="size-4 mr-2" />
+							Importar do fluxo ({suggestions.length})
+						</Button>
+					) : null}
 					<Button type="button" variant="outline" size="sm" onClick={addRow}>
 						<Plus className="size-4 mr-2" />
 						Adicionar
@@ -245,12 +291,40 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 									</Button>
 								</div>
 
-								<Input
-									className="mt-2"
-									placeholder="Observação (ex.: cocção sob pressão por 25 min)"
-									value={row.notes ?? ""}
-									onChange={(e) => update(row.key, { notes: e.target.value === "" ? null : e.target.value })}
-								/>
+								<div className="mt-2 flex flex-wrap items-end gap-2">
+									<div className="w-40">
+										<span className="text-caption text-muted-foreground">Escala</span>
+										<Select value={row.scaling} onValueChange={(value) => update(row.key, { scaling: value as EquipmentScaling })}>
+											<SelectTrigger className="w-full">
+												<SelectValue>{row.scaling === "fixed" ? "Fixo na leva" : "Por batelada"}</SelectValue>
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="per_batch">Por batelada</SelectItem>
+												<SelectItem value="fixed">Fixo na leva</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+
+									{row.scaling === "per_batch" ? (
+										<div className="w-32">
+											<span className="text-caption text-muted-foreground">Porções/batelada</span>
+											<Input
+												type="number"
+												min={1}
+												placeholder="rendimento"
+												value={row.batchPortions ?? ""}
+												onChange={(e) => update(row.key, { batchPortions: e.target.value === "" ? null : Number(e.target.value) })}
+											/>
+										</div>
+									) : null}
+
+									<Input
+										className="min-w-56 flex-1"
+										placeholder="Observação (ex.: cocção sob pressão por 25 min)"
+										value={row.notes ?? ""}
+										onChange={(e) => update(row.key, { notes: e.target.value === "" ? null : e.target.value })}
+									/>
+								</div>
 							</li>
 						)
 					})}
@@ -261,18 +335,50 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 				<Alert>
 					{fitness.data.satisfied ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
 					<AlertTitle>{fitness.data.satisfied ? "Esta cozinha está equipada" : "Faltam equipamentos nesta cozinha"}</AlertTitle>
-					<AlertDescription>
+					<AlertDescription className="space-y-3">
 						<ul className="space-y-1">
 							{fitness.data.requirements.map((req) => (
-								<li key={req.requirement_id} className="flex items-center gap-2">
+								<li key={req.requirement_id} className="flex flex-wrap items-center gap-2">
 									<Badge variant={req.missing > 0 ? "destructive" : "secondary"}>
 										{req.satisfied}/{req.required}
 									</Badge>
 									<span>{req.target_label}</span>
-									{req.assigned_unit_labels.length > 0 ? <span className="text-muted-foreground">· {req.assigned_unit_labels.join(", ")}</span> : null}
+									{req.sequential_reuse ? (
+										<span className="text-muted-foreground">· etapa posterior, reaproveita o mesmo equipamento</span>
+									) : req.assigned_unit_labels.length > 0 ? (
+										<span className="text-muted-foreground">· {req.assigned_unit_labels.join(", ")}</span>
+									) : null}
 								</li>
 							))}
 						</ul>
+
+						{/* Volume é a OUTRA pergunta: ter o equipamento não diz se a produção cabe na janela. */}
+						<div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+							<div className="w-36">
+								<span className="text-caption text-muted-foreground">Produzir quantas porções?</span>
+								<Input
+									type="number"
+									min={1}
+									placeholder={fitness.data.batch_portions != null ? String(fitness.data.batch_portions) : "porções"}
+									value={portionsInput}
+									onChange={(e) => setPortionsInput(e.target.value)}
+								/>
+							</div>
+							{portions != null && fitness.data.cycles != null ? (
+								<p className="text-caption text-muted-foreground">
+									{fitness.data.batches} batelada{fitness.data.batches === 1 ? "" : "s"} de {fitness.data.batch_portions ?? "?"} porções ·{" "}
+									{fitness.data.max_parallel_batches} por vez ·{" "}
+									<strong>
+										{fitness.data.cycles} rodada{fitness.data.cycles === 1 ? "" : "s"}
+									</strong>
+									{fitness.data.cycle_minutes != null ? ` · ~${fitness.data.cycles * fitness.data.cycle_minutes} min de equipamento` : ""}
+								</p>
+							) : portions != null ? (
+								<p className="text-caption text-destructive">O parque não roda nem uma batelada — falta equipamento, não tempo.</p>
+							) : (
+								<p className="text-caption text-muted-foreground">Informe o volume para ver bateladas e rodadas.</p>
+							)}
+						</div>
 					</AlertDescription>
 				</Alert>
 			) : null}

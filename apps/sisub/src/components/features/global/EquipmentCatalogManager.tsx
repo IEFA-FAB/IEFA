@@ -28,8 +28,10 @@ import {
 	useDeleteEquipmentModel,
 	useEquipmentModels,
 	useEquipmentRoles,
+	useSetUtensilRole,
 	useUpdateEquipmentModel,
 } from "@/hooks/data/useEquipment"
+import { useUtensils } from "@/hooks/data/useRecipeFlow"
 
 const CATEGORY_LABEL: Record<string, string> = {
 	coccao: "Cocção",
@@ -233,6 +235,8 @@ export function EquipmentCatalogManager() {
 				</CardContent>
 			</Card>
 
+			<UtensilRoleBridge />
+
 			<Dialog open={modelOpen} onOpenChange={setModelOpen}>
 				<DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
 					<DialogHeader>
@@ -416,5 +420,77 @@ export function EquipmentCatalogManager() {
 				</DialogContent>
 			</Dialog>
 		</div>
+	)
+}
+
+/** Sentinela do "não é equipamento" — o Select não representa `null` como valor de item. */
+const NO_ROLE_VALUE = "__none__"
+
+/**
+ * Ponte utensílio → papel de equipamento.
+ *
+ * `kitchen.utensil` nasceu de texto livre, e "forno combinado" é o exemplo da própria migration
+ * do fluxo: já existe linha de utensílio que é equipamento. Mapear aqui não move nem apaga nada —
+ * os vínculos de etapa continuam válidos —, só permite que a ficha técnica SUGIRA a exigência a
+ * partir do fluxo em vez de o usuário redigitar.
+ */
+function UtensilRoleBridge() {
+	const { data: utensils = [], isLoading } = useUtensils(null)
+	const { data: roles = [] } = useEquipmentRoles()
+	const setRole = useSetUtensilRole()
+
+	const mapped = utensils.filter((u) => u.role_id != null).length
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Utensílios que são equipamento</CardTitle>
+				<CardDescription>
+					Utensílio de mão (colher, tábua) fica sem papel. Marcar o papel dos que são equipamento faz a ficha técnica sugerir a exigência a partir do fluxo de
+					produção. {mapped} de {utensils.length} mapeados.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				{isLoading ? (
+					<Skeleton className="h-40 w-full" />
+				) : utensils.length === 0 ? (
+					<p className="text-caption text-muted-foreground">Nenhum utensílio no catálogo global.</p>
+				) : (
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Utensílio</TableHead>
+								<TableHead className="w-72">Papel de equipamento</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{utensils.map((utensil) => (
+								<TableRow key={utensil.id}>
+									<TableCell>{utensil.name}</TableCell>
+									<TableCell>
+										<Select
+											value={utensil.role_id ?? NO_ROLE_VALUE}
+											onValueChange={(value) => setRole.mutate({ utensilId: utensil.id, roleId: value === NO_ROLE_VALUE ? null : (value as string) })}
+										>
+											<SelectTrigger className="w-full">
+												<SelectValue>{utensil.role_id ? (roles.find((r) => r.id === utensil.role_id)?.name ?? "Papel") : "Utensílio de mão"}</SelectValue>
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value={NO_ROLE_VALUE}>Utensílio de mão</SelectItem>
+												{roles.map((role) => (
+													<SelectItem key={role.id} value={role.id}>
+														{role.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				)}
+			</CardContent>
+		</Card>
 	)
 }

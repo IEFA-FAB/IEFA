@@ -1294,12 +1294,19 @@ export const utensilInKitchen = kitchen.table("utensil", {
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	roleId: uuid("role_id"),
 }, (table) => [
 	uniqueIndex("utensil_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
+	index("utensil_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.kitchenId],
 			foreignColumns: [kitchenInCore.id],
 			name: "utensil_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [equipmentRoleInKitchen.id],
+			name: "utensil_role_id_fkey"
 		}),
 ]);
 
@@ -2336,6 +2343,8 @@ export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipme
 	roleId: uuid("role_id"),
 	modelId: uuid("model_id"),
 	quantity: integer().default(1).notNull(),
+	scaling: text().default('per_batch').notNull(),
+	batchPortions: numeric("batch_portions"),
 	minCapacityLiters: numeric("min_capacity_liters"),
 	minCapacityGn: smallint("min_capacity_gn"),
 	notes: text(),
@@ -2367,6 +2376,8 @@ export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipme
 		}),
 	check("recipe_equipment_requirement_target_xor", sql`((role_id IS NOT NULL) AND (model_id IS NULL)) OR ((role_id IS NULL) AND (model_id IS NOT NULL))`),
 	check("recipe_equipment_requirement_quantity_check", sql`quantity > 0`),
+	check("recipe_equipment_requirement_scaling_check", sql`scaling = ANY (ARRAY['per_batch'::text, 'fixed'::text])`),
+	check("recipe_equipment_requirement_batch_check", sql`(batch_portions IS NULL) OR (batch_portions > (0)::numeric)`),
 	check("recipe_equipment_requirement_capacity_check", sql`(min_capacity_liters IS NULL) OR (min_capacity_liters > (0)::numeric)`),
 	check("recipe_equipment_requirement_capacity_gn_check", sql`(min_capacity_gn IS NULL) OR (min_capacity_gn > 0)`),
 ]);

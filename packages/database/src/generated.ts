@@ -5567,10 +5567,12 @@ export type Database = {
 					min_capacity_liters: number | null
 					model_id: string | null
 					notes: string | null
+					batch_portions: number | null
 					quantity: number
 					recipe_id: string
 					recipe_step_id: string | null
 					role_id: string | null
+					scaling: string
 				}
 				Insert: {
 					created_at?: string
@@ -5580,10 +5582,12 @@ export type Database = {
 					min_capacity_liters?: number | null
 					model_id?: string | null
 					notes?: string | null
+					batch_portions?: number | null
 					quantity?: number
 					recipe_id: string
 					recipe_step_id?: string | null
 					role_id?: string | null
+					scaling?: string
 				}
 				Update: {
 					created_at?: string
@@ -5593,10 +5597,12 @@ export type Database = {
 					min_capacity_liters?: number | null
 					model_id?: string | null
 					notes?: string | null
+					batch_portions?: number | null
 					quantity?: number
 					recipe_id?: string
 					recipe_step_id?: string | null
 					role_id?: string | null
+					scaling?: string
 				}
 				Relationships: [
 					{
@@ -6152,6 +6158,7 @@ export type Database = {
 					id: string
 					kitchen_id: number | null
 					name: string
+					role_id: string | null
 				}
 				Insert: {
 					created_at?: string
@@ -6159,6 +6166,7 @@ export type Database = {
 					id?: string
 					kitchen_id?: number | null
 					name: string
+					role_id?: string | null
 				}
 				Update: {
 					created_at?: string
@@ -6166,8 +6174,17 @@ export type Database = {
 					id?: string
 					kitchen_id?: number | null
 					name?: string
+					role_id?: string | null
 				}
-				Relationships: []
+				Relationships: [
+					{
+						foreignKeyName: "utensil_role_id_fkey"
+						columns: ["role_id"]
+						isOneToOne: false
+						referencedRelation: "equipment_role"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 		}
 		Views: {

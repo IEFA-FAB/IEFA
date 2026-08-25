@@ -479,6 +479,10 @@ export const utensilInKitchenRelations = relations(utensilInKitchen, ({one, many
 		fields: [utensilInKitchen.kitchenId],
 		references: [kitchenInCore.id]
 	}),
+	equipmentRoleInKitchen: one(equipmentRoleInKitchen, {
+		fields: [utensilInKitchen.roleId],
+		references: [equipmentRoleInKitchen.id]
+	}),
 	stepTemplateUtensilInKitchens: many(stepTemplateUtensilInKitchen),
 	recipeStepUtensilInKitchens: many(recipeStepUtensilInKitchen),
 }));
@@ -717,6 +721,7 @@ export const equipmentRoleInKitchenRelations = relations(equipmentRoleInKitchen,
 	equipmentModelRoleInKitchens: many(equipmentModelRoleInKitchen),
 	equipmentUnitRoleInKitchens: many(equipmentUnitRoleInKitchen),
 	recipeEquipmentRequirementInKitchens: many(recipeEquipmentRequirementInKitchen),
+	utensilInKitchens: many(utensilInKitchen),
 }));
 
 export const equipmentModelInKitchenRelations = relations(equipmentModelInKitchen, ({one, many}) => ({

@@ -473,7 +473,9 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 }
 
 export async function listUtensils(db: SisubDb, ctx: UserContext, input: ListUtensils): Promise<UtensilWire[]> {
-	requirePermission(ctx, "kitchen", 1)
+	// `global` entra na leitura porque a SDAB mantém a ponte utensílio→papel de equipamento na
+	// tela do catálogo; sem isso, quem só tem `global` não enxerga a lista que precisa mapear.
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production", "global"], 1)
 
 	const conditions: (SQL | undefined)[] = [isNull(utensilInKitchen.deletedAt)]
 	if (input.kitchenId != null) {

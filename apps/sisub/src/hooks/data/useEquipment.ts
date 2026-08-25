@@ -26,6 +26,8 @@ import {
 	listEquipmentRolesFn,
 	listKitchenEquipmentFn,
 	saveRecipeEquipmentFn,
+	setUtensilRoleFn,
+	suggestRecipeEquipmentFromFlowFn,
 	updateEquipmentModelFn,
 	updateEquipmentUnitFn,
 } from "@/server/equipment.fn"
@@ -66,13 +68,39 @@ export function useRecipeEquipment(recipeId: string | undefined) {
 	})
 }
 
-/** Atendimento da preparação numa cozinha. Só faz sentido com as duas pontas conhecidas. */
-export function useRecipeEquipmentFitness(recipeId: string | undefined, kitchenId: number | null | undefined) {
+/**
+ * Atendimento da preparação numa cozinha. Só faz sentido com as duas pontas conhecidas.
+ * `portions` opcional acrescenta bateladas e ciclos à resposta (pergunta de volume).
+ */
+export function useRecipeEquipmentFitness(recipeId: string | undefined, kitchenId: number | null | undefined, portions?: number | null) {
 	return useQuery({
-		queryKey: queryKeys.equipment.fitness(recipeId, kitchenId ?? null),
-		queryFn: () => evaluateRecipeEquipmentFitnessFn({ data: { recipeId: recipeId as string, kitchenId: kitchenId as number } }),
+		queryKey: queryKeys.equipment.fitness(recipeId, kitchenId ?? null, portions ?? null),
+		queryFn: () => evaluateRecipeEquipmentFitnessFn({ data: { recipeId: recipeId as string, kitchenId: kitchenId as number, portions: portions ?? null } }),
 		enabled: !!recipeId && kitchenId != null,
 		staleTime: 60 * 1000,
+	})
+}
+
+/** Sugestões de exigência derivadas do fluxo (etapas com utensílio mapeado a papel). */
+export function useRecipeEquipmentSuggestions(recipeId: string | undefined) {
+	return useQuery({
+		queryKey: queryKeys.equipment.suggestions(recipeId),
+		queryFn: () => suggestRecipeEquipmentFromFlowFn({ data: { recipeId: recipeId as string } }),
+		enabled: !!recipeId,
+		staleTime: 60 * 1000,
+	})
+}
+
+export function useSetUtensilRole() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: { utensilId: string; roleId: string | null }) => setUtensilRoleFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipeFlow.utensilsAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Utensílio mapeado")
+		},
+		onError: (error) => toast.error(`Erro ao mapear utensílio: ${error.message}`),
 	})
 }
 

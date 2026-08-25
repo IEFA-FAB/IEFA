@@ -22,11 +22,15 @@ import {
 	equipmentUnitRoleInKitchen,
 	recipeEquipmentRequirementInKitchen,
 	recipeStepInKitchen,
+	recipeStepInputInKitchen,
+	recipeStepOutputInKitchen,
+	recipeStepUtensilInKitchen,
 	recipesInKitchen,
 	type SisubDb,
+	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
 import type { EquipmentModel, EquipmentModelRole, EquipmentRole, EquipmentUnit, EquipmentUnitRole, RecipeEquipmentRequirement } from "@iefa/database/sisub"
-import { and, asc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm"
+import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
 import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -42,14 +46,25 @@ import type {
 	ListEquipmentRoles,
 	ListKitchenEquipment,
 	SaveRecipeEquipment,
+	SetUtensilRole,
+	SuggestRecipeEquipment,
 	UpdateEquipmentModel,
 	UpdateEquipmentRole,
 	UpdateEquipmentUnit,
 } from "../schemas/equipment.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { type EquipmentDemandSpec, type EquipmentSlot, evaluateEquipmentFitness, expandUnitSlots, resolveUnitRoleIds } from "../utils/equipment-matching.ts"
+import {
+	type ConcurrencyRow,
+	type EquipmentDemandSpec,
+	type EquipmentSlot,
+	evaluateEquipmentFitness,
+	expandUnitSlots,
+	resolveUnitRoleIds,
+	selectConcurrentRequirements,
+} from "../utils/equipment-matching.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
+import { computeStepLevels, type FlowGraphStep } from "../utils/recipe-flow-graph.ts"
 
 // ── Contrato de retorno ───────────────────────────────────────────────────
 
@@ -77,18 +92,36 @@ export interface RequirementFitnessWire {
 	satisfied: number
 	missing: number
 	assigned_unit_labels: string[]
+	/**
+	 * true = a exigência não entrou na disputa por estar numa etapa que roda DEPOIS de outra que
+	 * pede o mesmo equipamento. Não falta nada: é a mesma unidade, usada de novo.
+	 */
+	sequential_reuse: boolean
 }
 
 export interface RecipeEquipmentFitnessWire {
+	/** A cozinha roda UMA batelada da lista mínima. É a pergunta de capacidade funcional. */
 	satisfied: boolean
 	missing_total: number
 	requirements: RequirementFitnessWire[]
 	/** Nenhuma exigência cadastrada: a preparação não declara o que precisa. */
 	unspecified: boolean
+	/** Volume pedido, quando informado. null = só a pergunta funcional foi respondida. */
+	portions: number | null
+	/** Porções de UMA batelada (o `portion_yield` da versão). */
+	batch_portions: number | null
+	/** ceil(portions / batch_portions). 1 quando não há volume informado. */
+	batches: number
+	/** Quantas bateladas o parque roda ao mesmo tempo. */
+	max_parallel_batches: number
+	/** Rodadas em série para vencer o volume. null quando nem uma batelada cabe. */
+	cycles: number | null
+	/** Minutos por rodada (`recipes.preparation_time_minutes`), para dimensionar os ciclos. */
+	cycle_minutes: number | null
 }
 
 const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw"])
-const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters"])
+const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters", "batch_portions"])
 
 const numOrNull = (n: number | null | undefined): string | null => (n != null ? String(n) : null)
 
@@ -760,6 +793,8 @@ export async function saveRecipeEquipment(db: SisubDb, ctx: UserContext, input: 
 						roleId: r.roleId ?? null,
 						modelId: r.modelId ?? null,
 						quantity: r.quantity,
+						scaling: r.scaling,
+						batchPortions: numOrNull(r.batchPortions),
 						minCapacityLiters: numOrNull(r.minCapacityLiters),
 						minCapacityGn: r.minCapacityGn ?? null,
 						notes: r.notes ?? null,
@@ -801,6 +836,8 @@ export async function copyRecipeEquipmentRequirements(
 					roleId: r.roleId,
 					modelId: r.modelId,
 					quantity: r.quantity,
+					scaling: r.scaling,
+					batchPortions: r.batchPortions,
 					minCapacityLiters: r.minCapacityLiters,
 					minCapacityGn: r.minCapacityGn,
 					notes: r.notes,
@@ -811,6 +848,47 @@ export async function copyRecipeEquipmentRequirements(
 }
 
 // ── Atendimento (a cozinha consegue produzir?) ────────────────────────────
+
+/**
+ * Níveis topológicos das etapas da receita, para decidir o que é concorrente.
+ * TRÊS queries rasas em vez de `with` aninhado — o join etapa→saída→entrada estoura o alias de
+ * 63 chars (mesma armadilha documentada em `recipe-flow.ts`).
+ */
+async function loadStepLevels(db: SisubDb, recipeId: string): Promise<Map<string, number>> {
+	const steps = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: recipeStepInKitchen.id })
+			.from(recipeStepInKitchen)
+			.where(and(eq(recipeStepInKitchen.recipeId, recipeId), isNull(recipeStepInKitchen.deletedAt)))
+	)
+	if (steps.length === 0) return new Map()
+
+	const stepIds = steps.map((s) => s.id)
+	const outputs = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: recipeStepOutputInKitchen.id, stepId: recipeStepOutputInKitchen.recipeStepId })
+			.from(recipeStepOutputInKitchen)
+			.where(and(inArray(recipeStepOutputInKitchen.recipeStepId, stepIds), isNull(recipeStepOutputInKitchen.deletedAt)))
+	)
+	const inputs = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ stepId: recipeStepInputInKitchen.recipeStepId, sourceOutputId: recipeStepInputInKitchen.sourceOutputId })
+			.from(recipeStepInputInKitchen)
+			.where(and(inArray(recipeStepInputInKitchen.recipeStepId, stepIds), isNull(recipeStepInputInKitchen.deletedAt)))
+	)
+
+	const graph: FlowGraphStep[] = steps.map((step) => ({
+		clientId: step.id,
+		outputs: outputs.filter((o) => o.stepId === step.id).map((o) => ({ clientId: o.id, isFinal: false })),
+		inputs: inputs.filter((i) => i.stepId === step.id).map((i) => ({ sourceOutputClientId: i.sourceOutputId })),
+	}))
+	return computeStepLevels(graph)
+}
+
+/** Duas linhas com a mesma chave disputam o mesmo equipamento (alvo + restrição de capacidade). */
+function targetKey(req: RecipeEquipmentRequirementWire): string {
+	return [req.role_id ?? req.model_id, req.min_capacity_liters ?? "", req.min_capacity_gn ?? "", req.scaling].join("|")
+}
 
 function requirementLabel(req: RecipeEquipmentRequirementWire): string {
 	if (req.model != null) return [req.model.manufacturer, req.model.name].filter(Boolean).join(" ")
@@ -833,7 +911,30 @@ export async function evaluateRecipeEquipmentFitness(
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
 
 	const requirements = await loadRequirements(db, input.recipeId)
-	if (requirements.length === 0) return { satisfied: true, missing_total: 0, requirements: [], unspecified: true }
+	const [recipe] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ portionYield: recipesInKitchen.portionYield, prepMinutes: recipesInKitchen.preparationTimeMinutes })
+			.from(recipesInKitchen)
+			.where(eq(recipesInKitchen.id, input.recipeId))
+	)
+	const recipeBatch = recipe?.portionYield != null ? Number(recipe.portionYield) : null
+	const portions = input.portions ?? null
+
+	// Bateladas: a mesma razão demanda/rendimento que `scaleIngredientQuantity` usa nos insumos.
+	// Rendimento ausente ou zero degrada para 1 batelada — dividir por zero inventaria volume.
+	const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
+
+	const empty = {
+		portions,
+		batch_portions: recipeBatch,
+		batches,
+		max_parallel_batches: 0,
+		cycles: null as number | null,
+		cycle_minutes: recipe?.prepMinutes ?? null,
+	}
+	if (requirements.length === 0) {
+		return { satisfied: true, missing_total: 0, requirements: [], unspecified: true, ...empty, max_parallel_batches: batches, cycles: 1 }
+	}
 
 	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: false })
 	const slots: EquipmentSlot[] = units.flatMap((u) =>
@@ -849,31 +950,172 @@ export async function evaluateRecipeEquipmentFitness(
 	)
 	const labelByUnitId = new Map(units.map((u) => [u.id, u.label]))
 
-	const demands: EquipmentDemandSpec[] = requirements.map((r) => ({
+	// Concorrência: exigência sem etapa vale sempre; com etapa, só o nível de pico do DAG entra na
+	// disputa. As demais linhas do mesmo alvo reaproveitam a unidade num momento posterior.
+	const stepLevels = await loadStepLevels(db, input.recipeId)
+	const rows: ConcurrencyRow[] = requirements.map((r) => ({
 		requirementId: r.id,
-		roleId: r.role_id,
-		modelId: r.model_id,
+		targetKey: targetKey(r),
+		level: r.recipe_step_id != null ? (stepLevels.get(r.recipe_step_id) ?? 0) : null,
 		quantity: r.quantity,
-		minCapacityLiters: r.min_capacity_liters,
-		minCapacityGn: r.min_capacity_gn,
 	}))
-	const fitness = evaluateEquipmentFitness(demands, slots)
+	const concurrentIds = selectConcurrentRequirements(rows)
+
+	const demands: EquipmentDemandSpec[] = requirements
+		.filter((r) => concurrentIds.has(r.id))
+		.map((r) => ({
+			requirementId: r.id,
+			roleId: r.role_id,
+			modelId: r.model_id,
+			// `batch_portions` menor que a batelada da receita pede mais de uma unidade por
+			// batelada: "1 fritadeira a cada 50 porções" numa receita que rende 100 são duas.
+			quantity: r.quantity * batchMultiplier(r, recipeBatch),
+			minCapacityLiters: r.min_capacity_liters,
+			minCapacityGn: r.min_capacity_gn,
+			scalesWithBatch: r.scaling !== "fixed",
+		}))
+
+	const fitness = evaluateEquipmentFitness(demands, slots, { batches })
 	const byId = new Map(requirements.map((r) => [r.id, r]))
+	const fitnessById = new Map(fitness.requirements.map((r) => [r.requirementId, r]))
 
 	return {
 		satisfied: fitness.satisfied,
 		missing_total: fitness.missingTotal,
 		unspecified: false,
-		requirements: fitness.requirements.map((r) => {
-			const req = byId.get(r.requirementId)
+		portions,
+		batch_portions: recipeBatch,
+		batches,
+		max_parallel_batches: fitness.maxParallelBatches,
+		cycles: fitness.cycles,
+		cycle_minutes: recipe?.prepMinutes ?? null,
+		// Devolve TODAS as linhas, inclusive as sequenciais: sumir com a exigência da etapa 7 da
+		// tela faria o usuário achar que ela se perdeu no salvamento.
+		requirements: requirements.map((req) => {
+			const matched = fitnessById.get(req.id)
+			const label = requirementLabel(byId.get(req.id) as RecipeEquipmentRequirementWire)
+			if (!matched) {
+				return {
+					requirement_id: req.id,
+					target_label: label,
+					required: req.quantity,
+					satisfied: req.quantity,
+					missing: 0,
+					assigned_unit_labels: [],
+					sequential_reuse: true,
+				}
+			}
 			return {
-				requirement_id: r.requirementId,
-				target_label: req ? requirementLabel(req) : "Equipamento",
-				required: r.required,
-				satisfied: r.satisfied,
-				missing: r.missing,
-				assigned_unit_labels: r.assignedUnitIds.map((id) => labelByUnitId.get(id) ?? id),
+				requirement_id: req.id,
+				target_label: label,
+				required: matched.required,
+				satisfied: matched.satisfied,
+				missing: matched.missing,
+				assigned_unit_labels: matched.assignedUnitIds.map((id) => labelByUnitId.get(id) ?? id),
+				sequential_reuse: false,
 			}
 		}),
 	}
+}
+
+/**
+ * Quantas unidades UMA batelada da receita pede, quando a linha declara cobrir menos porções que
+ * o rendimento. Linha `fixed` ou sem `batch_portions` vale 1 — não multiplica.
+ */
+function batchMultiplier(req: RecipeEquipmentRequirementWire, recipeBatch: number | null): number {
+	if (req.scaling === "fixed") return 1
+	const declared = req.batch_portions
+	if (declared == null || recipeBatch == null || declared <= 0 || recipeBatch <= 0) return 1
+	return Math.max(1, Math.ceil(recipeBatch / declared))
+}
+
+// ── Ponte com o catálogo de utensílios ────────────────────────────────────
+
+/**
+ * Marca um utensílio como equipamento de um papel (ou desmarca, com `roleId` null).
+ *
+ * A ponte existe porque `kitchen.utensil` nasceu de texto livre e já carrega linhas que são
+ * equipamento — "forno combinado" é o exemplo da própria migration do fluxo. Fundir as tabelas
+ * destruiria o utensílio de mão; apagar as linhas destruiria os vínculos de etapa que existem.
+ */
+export async function setUtensilRole(db: SisubDb, ctx: UserContext, input: SetUtensilRole): Promise<void> {
+	await authorizeAssetMutation(db, ctx, "utensil", input.utensilId)
+	if (input.roleId != null) await assertRolesExist(db, [input.roleId])
+
+	await mutateOrFail("UPDATE_FAILED", "utensílio não encontrado", () =>
+		db
+			.update(utensilInKitchen)
+			.set({ roleId: input.roleId })
+			.where(and(eq(utensilInKitchen.id, input.utensilId), isNull(utensilInKitchen.deletedAt)))
+			.returning({ id: utensilInKitchen.id })
+	)
+}
+
+export interface EquipmentSuggestionWire {
+	recipe_step_id: string
+	step_label: string | null
+	role_id: string
+	role_name: string
+	/** Utensílio da etapa que originou a sugestão — o usuário precisa reconhecer de onde veio. */
+	utensil_name: string
+}
+
+/**
+ * Sugere exigências a partir do fluxo: etapas que usam utensílio mapeado a um papel.
+ *
+ * SUGERE, nunca cria. O fluxo diz "esta etapa usa forno"; ele não diz quantos fornos a
+ * preparação precisa ter à disposição, nem se dois usos são simultâneos. Quem decide é quem
+ * monta a ficha — a sugestão só evita redigitar o que já está no grafo.
+ *
+ * Papel já exigido não volta na lista: sugerir o que já está lá é ruído.
+ */
+export async function suggestRecipeEquipmentFromFlow(db: SisubDb, ctx: UserContext, input: SuggestRecipeEquipment): Promise<EquipmentSuggestionWire[]> {
+	await requireRecipeRead(db, ctx, input.recipeId)
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				stepId: recipeStepInKitchen.id,
+				stepLabel: recipeStepInKitchen.label,
+				utensilName: utensilInKitchen.name,
+				roleId: utensilInKitchen.roleId,
+			})
+			.from(recipeStepUtensilInKitchen)
+			.innerJoin(recipeStepInKitchen, eq(recipeStepInKitchen.id, recipeStepUtensilInKitchen.recipeStepId))
+			.innerJoin(utensilInKitchen, eq(utensilInKitchen.id, recipeStepUtensilInKitchen.utensilId))
+			.where(
+				and(
+					eq(recipeStepInKitchen.recipeId, input.recipeId),
+					isNull(recipeStepInKitchen.deletedAt),
+					isNull(recipeStepUtensilInKitchen.deletedAt),
+					isNull(utensilInKitchen.deletedAt),
+					isNotNull(utensilInKitchen.roleId)
+				)
+			)
+	)
+	if (rows.length === 0) return []
+
+	const existing = await loadRequirements(db, input.recipeId)
+	const alreadyRequired = new Set(existing.map((r) => r.role_id).filter((id): id is string => id != null))
+
+	const roleIds = [...new Set(rows.map((r) => r.roleId).filter((id): id is string => id != null))]
+	const roles = await runQuery("FETCH_FAILED", () => db.select().from(equipmentRoleInKitchen).where(inArray(equipmentRoleInKitchen.id, roleIds)))
+	const roleById = new Map(roles.map((r) => [r.id, r]))
+
+	const seen = new Set<string>()
+	const suggestions: EquipmentSuggestionWire[] = []
+	for (const row of rows) {
+		if (row.roleId == null || alreadyRequired.has(row.roleId)) continue
+		const key = `${row.stepId}|${row.roleId}`
+		if (seen.has(key)) continue
+		seen.add(key)
+		suggestions.push({
+			recipe_step_id: row.stepId,
+			step_label: row.stepLabel,
+			role_id: row.roleId,
+			role_name: roleById.get(row.roleId)?.name ?? "Equipamento",
+			utensil_name: row.utensilName,
+		})
+	}
+	return suggestions
 }

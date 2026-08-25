@@ -166,13 +166,25 @@ export type DeleteEquipmentUnit = z.infer<typeof DeleteEquipmentUnitSchema>
 
 // ── Exigência da preparação ───────────────────────────────────────────────
 
+export const EQUIPMENT_SCALING = ["per_batch", "fixed"] as const
+export const EquipmentScalingSchema = z.enum(EQUIPMENT_SCALING)
+export type EquipmentScaling = z.infer<typeof EquipmentScalingSchema>
+
 export const EquipmentRequirementSchema = z
 	.object({
-		/** Amarra a exigência a uma etapa do fluxo de produção. null = exigência da preparação inteira. */
+		/**
+		 * Amarra a exigência a uma etapa do fluxo de produção. null = exigência da preparação
+		 * inteira. Exigências em etapas de níveis DIFERENTES do DAG não são concorrentes.
+		 */
 		recipeStepId: UuidSchema.nullish(),
 		roleId: UuidSchema.nullish(),
 		modelId: UuidSchema.nullish(),
+		/** Unidades simultâneas POR BATELADA. Volume vira ciclos, não vira mais equipamento. */
 		quantity: z.number().int().positive().max(99).default(1),
+		/** `fixed` = a leva inteira usa a mesma unidade (ultracongelador, seladora, balança). */
+		scaling: EquipmentScalingSchema.default("per_batch"),
+		/** Porções cobertas por esta linha. null = a batelada é o `portion_yield` da receita. */
+		batchPortions: z.number().positive().nullish(),
 		/** Comparada com a capacidade de UMA zona: "caldeira de pelo menos 100 L" não é atendida por duas de 50. */
 		minCapacityLiters: z.number().positive().nullish(),
 		minCapacityGn: z.number().int().positive().nullish(),
@@ -193,8 +205,26 @@ export const SaveRecipeEquipmentSchema = z.object({
 })
 export type SaveRecipeEquipment = z.infer<typeof SaveRecipeEquipmentSchema>
 
+// ── Ponte com o catálogo de utensílios ────────────────────────────────────
+
+/** Marca (ou desmarca, com `roleId` null) um utensílio como equipamento de um papel. */
+export const SetUtensilRoleSchema = z.object({
+	utensilId: UuidSchema,
+	roleId: UuidSchema.nullable(),
+})
+export type SetUtensilRole = z.infer<typeof SetUtensilRoleSchema>
+
+/** Sugestões de exigência derivadas do fluxo (etapas que usam utensílio mapeado a papel). */
+export const SuggestRecipeEquipmentSchema = z.object({ recipeId: UuidSchema })
+export type SuggestRecipeEquipment = z.infer<typeof SuggestRecipeEquipmentSchema>
+
 export const EvaluateRecipeEquipmentFitnessSchema = z.object({
 	recipeId: UuidSchema,
 	kitchenId: KitchenIdSchema,
+	/**
+	 * Volume a produzir. Ausente = pergunta de capacidade funcional ("a cozinha tem o
+	 * equipamento?"). Presente = acrescenta bateladas e ciclos ("cabe, em quantas rodadas?").
+	 */
+	portions: z.number().positive().nullish(),
 })
 export type EvaluateRecipeEquipmentFitness = z.infer<typeof EvaluateRecipeEquipmentFitnessSchema>

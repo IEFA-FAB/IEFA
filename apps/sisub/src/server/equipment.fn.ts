@@ -29,7 +29,11 @@ import {
 	listEquipmentRoles,
 	listKitchenEquipment,
 	SaveRecipeEquipmentSchema,
+	SetUtensilRoleSchema,
+	SuggestRecipeEquipmentSchema,
 	saveRecipeEquipment,
+	setUtensilRole,
+	suggestRecipeEquipmentFromFlow,
 	UpdateEquipmentModelSchema,
 	UpdateEquipmentRoleSchema,
 	UpdateEquipmentUnitSchema,
@@ -153,4 +157,18 @@ export const evaluateRecipeEquipmentFitnessFn = createServerFn({ method: "GET" }
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return evaluateRecipeEquipmentFitness(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const suggestRecipeEquipmentFromFlowFn = createServerFn({ method: "GET" })
+	.validator(SuggestRecipeEquipmentSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return suggestRecipeEquipmentFromFlow(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const setUtensilRoleFn = createServerFn({ method: "POST" })
+	.validator(SetUtensilRoleSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return setUtensilRole(getDb(), ctx, data).catch(handleDomainError)
 	})

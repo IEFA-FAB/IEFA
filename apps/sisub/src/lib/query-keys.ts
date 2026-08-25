@@ -110,7 +110,9 @@ export const queryKeys = {
 		kitchenUnits: (kitchenId: number, includeInactive: boolean) => ["equipment", "units", kitchenId, includeInactive] as const,
 		kitchenUnitsAll: () => ["equipment", "units"] as const,
 		recipeRequirements: (recipeId: string | undefined) => ["equipment", "recipe", recipeId] as const,
-		fitness: (recipeId: string | undefined, kitchenId: number | null) => ["equipment", "fitness", recipeId, kitchenId] as const,
+		fitness: (recipeId: string | undefined, kitchenId: number | null, portions: number | null = null) =>
+			["equipment", "fitness", recipeId, kitchenId, portions] as const,
+		suggestions: (recipeId: string | undefined) => ["equipment", "suggestions", recipeId] as const,
 	},
 
 	presences: {

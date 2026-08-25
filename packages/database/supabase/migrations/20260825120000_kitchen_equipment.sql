@@ -179,6 +179,11 @@ create table if not exists kitchen.recipe_equipment_requirement (
 	role_id             uuid references kitchen.equipment_role(id),   -- XOR com model_id
 	model_id            uuid references kitchen.equipment_model(id),
 	quantity            integer not null default 1,
+	-- Escala: a exigência vale POR BATELADA (default) ou é fixa para a leva inteira.
+	-- Sem isto a lista mente em volume: 900 porções de uma receita de rendimento 100 são 9
+	-- bateladas, e "1 forno" continua sendo 1 forno — nove vezes, não nove fornos.
+	scaling             text not null default 'per_batch',
+	batch_portions      numeric,                                      -- null = usa recipes.portion_yield da versão
 	min_capacity_liters numeric,                                      -- "caldeira de pelo menos 100 L"
 	min_capacity_gn     smallint,                                     -- "forno combinado de pelo menos 10 GN"
 	notes               text,
@@ -188,6 +193,8 @@ create table if not exists kitchen.recipe_equipment_requirement (
 		(role_id is not null and model_id is null) or (role_id is null and model_id is not null)
 	),
 	constraint recipe_equipment_requirement_quantity_check check (quantity > 0),
+	constraint recipe_equipment_requirement_scaling_check check (scaling in ('per_batch', 'fixed')),
+	constraint recipe_equipment_requirement_batch_check check (batch_portions is null or batch_portions > 0),
 	constraint recipe_equipment_requirement_capacity_check check (min_capacity_liters is null or min_capacity_liters > 0),
 	constraint recipe_equipment_requirement_capacity_gn_check check (min_capacity_gn is null or min_capacity_gn > 0)
 );
@@ -205,7 +212,25 @@ create unique index if not exists recipe_equipment_requirement_target_uniq
 	) where deleted_at is null;
 
 comment on table kitchen.recipe_equipment_requirement is
-	'Lista MÍNIMA de equipamentos de uma preparação. Cada linha exige um papel (qualquer modelo que o assuma) XOR um modelo específico. quantity = quantas unidades simultâneas. recipe_step_id opcional amarra à etapa do fluxo.';
+	'Lista MÍNIMA de equipamentos de uma preparação. Cada linha exige um papel (qualquer modelo que o assuma) XOR um modelo específico. quantity = quantas unidades SIMULTÂNEAS por batelada. recipe_step_id opcional amarra à etapa do fluxo — exigências de etapas em níveis diferentes do DAG NÃO são concorrentes.';
+comment on column kitchen.recipe_equipment_requirement.scaling is
+	'per_batch = quantity vale para uma batelada de batch_portions (ou do portion_yield da receita); o volume vira número de CICLOS, não de equipamentos. fixed = a leva inteira usa a mesma unidade (ultracongelador, seladora, balança).';
+
+-- ── Ponte com o catálogo de utensílios ───────────────────────────────────────
+-- `kitchen.utensil` nasceu com texto livre e o próprio exemplo da migration do fluxo era
+-- "forno combinado" — ou seja, já há linha de utensílio que na verdade é equipamento. Fundir as
+-- duas tabelas destruiria o utensílio de mão (colher, tábua, escumadeira), que é informação real
+-- para quem está na praça. A ponte é uma coluna: utensílio que é equipamento aponta para o papel,
+-- o resto fica null. Os vínculos `recipe_step_utensil` existentes continuam válidos.
+
+alter table kitchen.utensil
+	add column if not exists role_id uuid references kitchen.equipment_role(id);
+
+create index if not exists utensil_role_idx
+	on kitchen.utensil (role_id) where role_id is not null and deleted_at is null;
+
+comment on column kitchen.utensil.role_id is
+	'Papel de equipamento correspondente, quando este "utensílio" é na verdade um equipamento. null = utensílio de mão. Serve para SUGERIR a exigência a partir do fluxo — nunca para criá-la sozinho: o fluxo diz "usa forno", não diz "precisa de um forno exclusivo".';
 
 -- ── Segurança ────────────────────────────────────────────────────────────────
 -- RLS sem policy = nega tudo para anon/authenticated no PostgREST. Todo acesso passa por

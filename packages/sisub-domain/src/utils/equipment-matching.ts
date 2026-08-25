@@ -18,6 +18,12 @@
  * Quando NÃO dá para atender tudo, o emparelhamento maximiza o total atendido; qual exigência
  * fica descoberta, entre as que disputam os mesmos slots, é arbitrário (mas determinístico:
  * depende só da ordem de entrada). O número que importa — quantas unidades faltam — é exato.
+ *
+ * VOLUME é outra pergunta, e a resposta NÃO é multiplicar equipamento. 900 porções de uma
+ * preparação que rende 100 são nove bateladas: um forno nove vezes, ou três fornos três vezes.
+ * Por isso a lista mínima descreve UMA batelada, e o volume vira `maxParallelBatches` (quantas
+ * cabem ao mesmo tempo) e `cycles` (quantas rodadas em série). Somar as bateladas na exigência
+ * diria que a cozinha "não atende" por não ter nove fornos — e ela atende, em nove ciclos.
  */
 
 /** Uma zona independente de um equipamento instalado. Uma unidade de N slots gera N destes. */
@@ -43,9 +49,15 @@ export interface EquipmentDemandSpec {
 	requirementId: string
 	roleId: string | null
 	modelId: string | null
+	/** Unidades simultâneas exigidas POR BATELADA (ou no total, quando `scalesWithBatch` é false). */
 	quantity: number
 	minCapacityLiters: number | null
 	minCapacityGn: number | null
+	/**
+	 * `false` = a exigência não acompanha o volume: uma seladora a vácuo atende a leva inteira,
+	 * dobrar a produção não pede duas. Default `true`.
+	 */
+	scalesWithBatch?: boolean
 }
 
 export interface RequirementFitness {
@@ -59,11 +71,18 @@ export interface RequirementFitness {
 }
 
 export interface EquipmentFitness {
-	/** true = toda a lista mínima é atendida SIMULTANEAMENTE pelo parque informado. */
+	/** true = UMA batelada da lista mínima é atendida simultaneamente pelo parque informado. */
 	satisfied: boolean
 	requirements: RequirementFitness[]
-	/** Total de unidades faltantes somando todas as exigências. */
+	/** Total de unidades faltantes somando todas as exigências (de uma batelada). */
 	missingTotal: number
+	/** Quantas bateladas o parque roda AO MESMO TEMPO. 0 = não atende nem uma. */
+	maxParallelBatches: number
+	/**
+	 * Quantas rodadas em série para vencer o volume pedido: `ceil(batches / maxParallelBatches)`.
+	 * 1 quando o volume cabe de uma vez; `null` quando o parque não atende nem uma batelada.
+	 */
+	cycles: number | null
 }
 
 /**
@@ -87,11 +106,58 @@ export function slotServesDemand(slot: EquipmentSlot, demand: EquipmentDemandSpe
  * @param requirements - lista mínima da preparação; `quantity` vira N demandas.
  * @param slots - zonas independentes das unidades ATIVAS da cozinha (o chamador filtra status).
  */
-export function evaluateEquipmentFitness(requirements: readonly EquipmentDemandSpec[], slots: readonly EquipmentSlot[]): EquipmentFitness {
+export function evaluateEquipmentFitness(
+	requirements: readonly EquipmentDemandSpec[],
+	slots: readonly EquipmentSlot[],
+	options: { batches?: number } = {}
+): EquipmentFitness {
+	const batches = Math.max(1, Math.trunc(options.batches ?? 1))
+	const single = matchOnce(requirements, slots, 1)
+
+	// Quantas bateladas cabem SIMULTANEAMENTE. Busca binária sobre o mesmo emparelhamento com as
+	// demandas multiplicadas: é a definição honesta, porque respeita a disputa ENTRE exigências
+	// (dividir slots por exigência, isoladamente, ignoraria que elas brigam pelos mesmos).
+	let maxParallelBatches = single.satisfied ? 1 : 0
+	if (single.satisfied && batches > 1) {
+		let low = 1
+		let high = batches
+		while (low < high) {
+			const mid = Math.ceil((low + high) / 2)
+			if (matchOnce(requirements, slots, mid).satisfied) low = mid
+			else high = mid - 1
+		}
+		maxParallelBatches = low
+	}
+
+	const fitness: RequirementFitness[] = requirements.map((req, index) => ({
+		requirementId: req.requirementId,
+		required: req.quantity,
+		satisfied: single.satisfiedByRequirement[index],
+		missing: req.quantity - single.satisfiedByRequirement[index],
+		assignedUnitIds: single.assignedByRequirement[index],
+	}))
+
+	const missingTotal = fitness.reduce((acc, r) => acc + r.missing, 0)
+	return {
+		satisfied: missingTotal === 0,
+		requirements: fitness,
+		missingTotal,
+		maxParallelBatches,
+		cycles: maxParallelBatches > 0 ? Math.ceil(batches / maxParallelBatches) : null,
+	}
+}
+
+/** Um emparelhamento com as demandas multiplicadas por `factor` bateladas simultâneas. */
+function matchOnce(
+	requirements: readonly EquipmentDemandSpec[],
+	slots: readonly EquipmentSlot[],
+	factor: number
+): { satisfied: boolean; satisfiedByRequirement: number[]; assignedByRequirement: string[][] } {
 	// Cada demanda é uma cópia da exigência; guarda o índice da exigência de origem.
 	const demandOwner: number[] = []
 	for (const [i, req] of requirements.entries()) {
-		for (let n = 0; n < req.quantity; n++) demandOwner.push(i)
+		const copies = req.quantity * (req.scalesWithBatch === false ? 1 : factor)
+		for (let n = 0; n < copies; n++) demandOwner.push(i)
 	}
 
 	// Adjacência demanda → slots compatíveis.
@@ -121,23 +187,74 @@ export function evaluateEquipmentFitness(requirements: readonly EquipmentDemandS
 		tryAssign(demandIdx, new Array(slots.length).fill(false))
 	}
 
-	const fitness: RequirementFitness[] = requirements.map((req) => ({
-		requirementId: req.requirementId,
-		required: req.quantity,
-		satisfied: 0,
-		missing: req.quantity,
-		assignedUnitIds: [],
-	}))
+	const satisfiedByRequirement = requirements.map(() => 0)
+	const assignedByRequirement: string[][] = requirements.map(() => [])
 	for (const [slotIdx, demandIdx] of slotTakenBy.entries()) {
 		if (demandIdx === -1) continue
-		const row = fitness[demandOwner[demandIdx]]
-		row.satisfied += 1
-		row.missing -= 1
-		row.assignedUnitIds.push(slots[slotIdx].unitId)
+		const owner = demandOwner[demandIdx]
+		satisfiedByRequirement[owner] += 1
+		assignedByRequirement[owner].push(slots[slotIdx].unitId)
 	}
 
-	const missingTotal = fitness.reduce((acc, r) => acc + r.missing, 0)
-	return { satisfied: missingTotal === 0, requirements: fitness, missingTotal }
+	const matched = satisfiedByRequirement.reduce((acc, n) => acc + n, 0)
+	return { satisfied: matched === demandOwner.length, satisfiedByRequirement, assignedByRequirement }
+}
+
+/** Linha da lista mínima reduzida ao que decide concorrência. */
+export interface ConcurrencyRow {
+	requirementId: string
+	/** Alvo + restrições: duas linhas com a mesma chave disputam o mesmo equipamento. */
+	targetKey: string
+	/** Nível topológico da etapa; `null` = exigência da preparação inteira (sempre concorrente). */
+	level: number | null
+	quantity: number
+}
+
+/**
+ * Escolhe quais exigências disputam equipamento AO MESMO TEMPO.
+ *
+ * Exigência sem etapa é piso: vale o tempo todo. Exigência amarrada a etapa concorre só com as
+ * do MESMO nível do DAG — assar na etapa 3 e gratinar na etapa 7 são o mesmo forno usado duas
+ * vezes, não dois fornos. Por alvo, sobrevive o nível de maior demanda; as demais linhas do
+ * mesmo alvo são reaproveitamento sequencial.
+ *
+ * Receita sem fluxo cai no caso "todas sem etapa" e nada muda em relação a somar tudo.
+ */
+export function selectConcurrentRequirements(rows: readonly ConcurrencyRow[]): Set<string> {
+	const byTarget = new Map<string, ConcurrencyRow[]>()
+	for (const row of rows) {
+		const list = byTarget.get(row.targetKey) ?? []
+		list.push(row)
+		byTarget.set(row.targetKey, list)
+	}
+
+	const concurrent = new Set<string>()
+	for (const list of byTarget.values()) {
+		const perLevel = new Map<number, ConcurrencyRow[]>()
+		for (const row of list) {
+			if (row.level == null) {
+				concurrent.add(row.requirementId)
+				continue
+			}
+			const bucket = perLevel.get(row.level) ?? []
+			bucket.push(row)
+			perLevel.set(row.level, bucket)
+		}
+
+		let peak: ConcurrencyRow[] | null = null
+		let peakQty = -1
+		// Ordem de desempate estável: menor nível vence, para o relatório não oscilar entre runs.
+		for (const level of [...perLevel.keys()].sort((a, b) => a - b)) {
+			const bucket = perLevel.get(level) as ConcurrencyRow[]
+			const qty = bucket.reduce((acc, r) => acc + r.quantity, 0)
+			if (qty > peakQty) {
+				peakQty = qty
+				peak = bucket
+			}
+		}
+		for (const row of peak ?? []) concurrent.add(row.requirementId)
+	}
+	return concurrent
 }
 
 /**
