@@ -32,12 +32,20 @@ function NewDraftPage() {
 		return type === "event" || type === "exception"
 	})
 
+	// Salvar rascunho continua no editor: a rota "new" não tem id, então o destino é a
+	// própria tela de edição do rascunho recém-criado — não a listagem. Salvar é um marco
+	// do trabalho em curso; quem termina usa "Enviar", que aí sim encerra o fluxo.
 	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
 		createDraft(
 			{ kitchenId, title, notes: notes || undefined, selections },
 			{
-				onSuccess: () => {
-					navigate({ to: "/kitchen/$kitchenId/suprimentos", params: { kitchenId: kitchenIdStr as string } })
+				onSuccess: (draft) => {
+					if (!draft) return
+					navigate({
+						to: "/kitchen/$kitchenId/suprimentos/$draftId",
+						params: { kitchenId: kitchenIdStr as string, draftId: draft.id },
+						replace: true,
+					})
 				},
 			}
 		)

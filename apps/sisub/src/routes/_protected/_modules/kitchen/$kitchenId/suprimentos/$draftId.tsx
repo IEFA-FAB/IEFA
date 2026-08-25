@@ -57,15 +57,11 @@ function EditDraftPage() {
 		repetitions: s.repetitions,
 	}))
 
+	// Salvar mantém o rascunho aberto — ele segue rascunho depois do save, então tirar o
+	// usuário da tela obrigava a reabrir para o ajuste seguinte. Quem encerra o fluxo é
+	// "Enviar" (abaixo), que aí sim volta para a listagem.
 	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
-		updateDraft(
-			{ draftId: draft.id, updates: { title, notes: notes || null }, selections },
-			{
-				onSuccess: () => {
-					navigate({ to: "/kitchen/$kitchenId/suprimentos", params: { kitchenId: kitchenIdStr as string } })
-				},
-			}
-		)
+		updateDraft({ draftId: draft.id, updates: { title, notes: notes || null }, selections })
 	}
 
 	const handleSend = (title: string, notes: string, selections: TemplateSelection[]) => {

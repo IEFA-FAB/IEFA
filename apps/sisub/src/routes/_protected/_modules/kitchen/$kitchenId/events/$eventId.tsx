@@ -238,11 +238,20 @@ function EventEditorPage() {
 				})),
 			},
 			{
-				onSuccess: () => {
-					navigate({
-						to: "/kitchen/$kitchenId/events",
-						params: { kitchenId: kitchenIdStr as string },
-					})
+				// Salvar mantém o editor aberto — a tela já auto-salva em rascunho local, então
+				// voltar para a listagem no salvamento explícito era o único ponto em que o
+				// usuário perdia o lugar. O ÚNICO deslocamento é o fork: o save de um template
+				// global cria a cópia local (id novo) e a URL precisa passar a apontar para ela,
+				// senão a tela continuaria editando — e forkando de novo — o global.
+				onSuccess: (result) => {
+					const savedId = result?.template?.id
+					if (savedId && savedId !== eventId) {
+						navigate({
+							to: "/kitchen/$kitchenId/events/$eventId",
+							params: { kitchenId: kitchenIdStr as string, eventId: savedId },
+							replace: true,
+						})
+					}
 				},
 			}
 		)

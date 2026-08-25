@@ -248,31 +248,27 @@ function GlobalPlanEditorPage() {
 		? items.filter((i) => i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId).map((i) => i.recipe_id)
 		: []
 
+	// Salvar não sai do editor: o plano tem 7 dias em abas e o ajuste raramente termina no
+	// primeiro save. `useSaveTemplateEdit` já invalida o template e confirma por toast; o
+	// escopo aqui é global sobre um plano global, então a edição é in-place e o id não muda.
 	const handleSave = () => {
 		if (!name.trim()) return
-		saveTemplate(
-			{
-				id: planId,
-				context: { scope: "global" },
-				updates: {
-					name: name.trim(),
-					description: description.trim() || null,
-				},
-				items: items.map((i) => ({
-					day_of_week: i.day_of_week,
-					meal_type_id: i.meal_type_id,
-					recipe_id: i.recipe_id,
-					item_group: i.item_group ?? null,
-					sort_order: i.sort_order ?? 0,
-					recommended_proportion: i.recommended_proportion ?? null,
-				})),
+		saveTemplate({
+			id: planId,
+			context: { scope: "global" },
+			updates: {
+				name: name.trim(),
+				description: description.trim() || null,
 			},
-			{
-				onSuccess: () => {
-					navigate({ to: "/global/weekly-plans" })
-				},
-			}
-		)
+			items: items.map((i) => ({
+				day_of_week: i.day_of_week,
+				meal_type_id: i.meal_type_id,
+				recipe_id: i.recipe_id,
+				item_group: i.item_group ?? null,
+				sort_order: i.sort_order ?? 0,
+				recommended_proportion: i.recommended_proportion ?? null,
+			})),
+		})
 	}
 
 	const recipeMap = new Map(allRecipes?.map((r) => [r.id, r.name ?? r.id]) ?? [])
