@@ -209,6 +209,11 @@ function WeeklyMenuEditorPage() {
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
+	// de ROTA — salvar um template global aqui cria o fork e muda `weeklyMenuId`/`willFork`
+	// —, e sem esta comparação ele regravaria, 1,5s depois, o fork recém-criado inteiro.
+	const savedSignatureRef = useRef<string | null>(null)
+	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items, meals })
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -248,6 +253,9 @@ function WeeklyMenuEditorPage() {
 		// uma bifurcação silenciosa. Num template global a cópia sai só do salvamento
 		// explícito, depois do aviso.
 		if (willFork) return
+		// Nada mudou desde a última gravação (o efeito re-executou por troca de rota, não por
+		// edição do usuário) — não há o que salvar.
+		if (contentSignature === savedSignatureRef.current) return
 		setSaveStatus("idle")
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		autoSaveTimerRef.current = setTimeout(() => {
@@ -269,7 +277,10 @@ function WeeklyMenuEditorPage() {
 					meals,
 				},
 				{
-					onSuccess: () => setSaveStatus("saved"),
+					onSuccess: () => {
+						savedSignatureRef.current = contentSignature
+						setSaveStatus("saved")
+					},
 					onError: () => setSaveStatus("idle"),
 				}
 			)
@@ -277,7 +288,7 @@ function WeeklyMenuEditorPage() {
 		return () => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
-	}, [name, description, items, meals, initialized, willFork, editContext, autoSave, weeklyMenuId])
+	}, [name, description, items, meals, initialized, willFork, editContext, autoSave, weeklyMenuId, contentSignature])
 
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
@@ -415,6 +426,7 @@ function WeeklyMenuEditorPage() {
 				// global cria a cópia local (id novo) e a URL precisa passar a apontar para ela,
 				// senão a tela continuaria editando — e forkando de novo — o global.
 				onSuccess: (result) => {
+					savedSignatureRef.current = contentSignature
 					const savedId = result?.template?.id
 					if (savedId && savedId !== weeklyMenuId) {
 						navigate({
