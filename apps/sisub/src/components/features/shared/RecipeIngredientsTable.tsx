@@ -444,6 +444,8 @@ export function RecipeIngredientsTable({
 																<strong>Calculado:</strong> PB = PL × FC ({formatSheetNumber(sheet.netWeight)} × {formatSheetNumber(sheet.correctionFactor, 2)}
 																). Digitar aqui não mexe no PL: ajusta o <strong>FC</strong> pela volta FC = PB ÷ PL — é assim que a ficha de papel chega, com
 																os dois pesos medidos e o fator deduzido.
+																{isSwapped &&
+																	` O FC é da LINHA e vale para qualquer candidato: derivá-lo do PB de ${active.name} muda também o PB de ${row.ingredient_name}.`}
 															</>
 														) : (
 															<>
@@ -458,7 +460,6 @@ export function RecipeIngredientsTable({
 												<SheetNumberInput
 													label={`Fator de correção de ${row.ingredient_name}`}
 													value={row.correction_factor}
-													step="0.01"
 													placeholder="1"
 													invalid={!!rowError.correction_factor}
 													onCommit={(value) => patch(index, { correction_factor: value })}
@@ -485,7 +486,6 @@ export function RecipeIngredientsTable({
 												<SheetNumberInput
 													label={`Índice de reidratação de ${row.ingredient_name}`}
 													value={row.rehydration_index}
-													step="0.01"
 													placeholder="1"
 													invalid={!!rowError.rehydration_index}
 													onCommit={(value) => patch(index, { rehydration_index: value })}
@@ -506,6 +506,8 @@ export function RecipeIngredientsTable({
 																<strong>Calculado:</strong> Peso reidratado = PL × IR ({formatSheetNumber(sheet.netWeight)} ×{" "}
 																{formatSheetNumber(sheet.rehydrationIndex, 2)}). Digitar aqui ajusta o <strong>IR</strong> pela volta IR = Peso reidratado ÷ PL
 																— o PL não muda.
+																{isSwapped &&
+																	` O IR é da LINHA e vale para qualquer candidato: derivá-lo do peso de ${active.name} muda também o de ${row.ingredient_name}.`}
 															</>
 														) : (
 															<>
@@ -702,7 +704,6 @@ function SheetNumberInput({
 	hint,
 	readOnly,
 	invalid,
-	step = "0.001",
 	placeholder,
 	className,
 }: {
@@ -714,7 +715,6 @@ function SheetNumberInput({
 	hint?: React.ReactNode
 	readOnly?: boolean
 	invalid?: boolean
-	step?: string
 	placeholder?: string
 	className?: string
 }) {
@@ -724,7 +724,13 @@ function SheetNumberInput({
 		<Input
 			aria-label={label}
 			type="number"
-			step={step}
+			// `any`, e não um passo fixo: o valor de uma coluna calculada tem seis casas
+			// (PL 0,15 × FC 1,33 = 0,1995) e a volta produz FC 1,333333. Com `step="0.001"`
+			// isso vira violação de restrição NATIVA — o form tem submit de verdade e não tem
+			// `noValidate`, então o Salvar era barrado por um campo que o usuário não digitou;
+			// num campo em aba fechada o Chrome nem consegue focar para reclamar e o clique
+			// simplesmente não faz nada. O gate do salvamento é o schema, não o passo.
+			step="any"
 			min={0}
 			placeholder={placeholder}
 			aria-invalid={invalid || undefined}

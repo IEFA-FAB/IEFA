@@ -274,7 +274,9 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					</tr>
 					<tr>
 						<Label>Rendimento final:</Label>
-						<Value>{sheet.finalYield > 0 ? `${formatSheetNumber(sheet.finalYield, 2)}${unitSuffix(sheet)}` : ""}</Value>
+						{/* Mesma precisão do peso da porção: na base per capita os dois campos são o
+						    MESMO número, e imprimir 0,167 num e 0,17 no outro lê como divergência. */}
+						<Value>{sheet.finalYield > 0 ? `${formatSheetNumber(sheet.finalYield)}${unitSuffix(sheet)}` : ""}</Value>
 						<Label>Índice de Cocção (IC):</Label>
 						<Value>{sheet.cookingIndex != null ? formatSheetNumber(sheet.cookingIndex, 2) : ""}</Value>
 					</tr>
@@ -334,9 +336,15 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					</tr>
 				</tbody>
 			</table>
+			{/* Na base per capita a folha inteira fala de 1 porção — e o rendimento cadastrado
+			    não apareceria em lugar nenhum do PAPEL (o seletor que o mostra fica na tela).
+			    Sem ele, a folha não diz para quantas porções a ficha foi dimensionada, que é
+			    o número que a cozinha multiplica. */}
 			<p className="ftp-legend">
 				PB = Peso Bruto | PL = Peso Líquido | FC = PB ÷ PL | IR = Peso reidratado ÷ Peso seco
-				{sheet.basis === "total" ? ` — pesos do rendimento inteiro (${formatSheetNumber(sheet.portionYield, 0)} porções)` : " — pesos de 1 porção"}
+				{sheet.basis === "total"
+					? ` — pesos do rendimento inteiro (${formatSheetNumber(sheet.portionYield, 0)} porções)`
+					: ` — pesos de 1 porção; ficha cadastrada para ${formatSheetNumber(sheet.portionYield, 0)} porções`}
 			</p>
 			{sheet.mixedUnits.length > 0 && <p className="ftp-legend">TOTAL soma unidades diferentes ({sheet.mixedUnits.join(", ")}) — use como referência.</p>}
 
