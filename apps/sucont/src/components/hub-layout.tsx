@@ -1,16 +1,17 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
-import { Activity, FileText, LayoutGrid, LogOut, MessageSquare, Monitor, Search, ShieldCheck, Zap } from "lucide-react"
+import { Activity, FileText, LayoutGrid, LogOut, Menu, MessageSquare, Monitor, Search, ShieldCheck, X, Zap } from "lucide-react"
 import type React from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { LegalNotice } from "#/components/LegalNotice"
 import { SidebarRailItem } from "#/components/sidebar-rail-item"
 import { externalSystems, iaTools, reportTools } from "#/lib/data"
-import { setActiveCategory, setSearchQuery, useActiveCategory, useSearchQuery } from "#/lib/hub-store"
+import { ALL_CATEGORIES, useHubFilters } from "#/lib/hub-filters"
 
 const NAV_CATEGORIES = [
-	{ id: "Visão Geral", icon: LayoutGrid },
+	{ id: ALL_CATEGORIES, icon: LayoutGrid },
 	{ id: "Auditoria", icon: ShieldCheck },
 	{ id: "Monitoramento", icon: Activity },
 	{ id: "IA / Chatbot", icon: MessageSquare },
@@ -24,50 +25,27 @@ const NAV_TABS = [
 	{ to: "/reports", label: "RELATÓRIOS" },
 ] as const
 
-export function HubLayout({ children }: { children: React.ReactNode }) {
-	const searchQuery = useSearchQuery()
-	const activeCategory = useActiveCategory()
+interface HubLayoutProps {
+	children: React.ReactNode
+	/** A tela consome `?q=`. Sem isso a barra de busca some — campo que não filtra nada mente sobre o que faz. */
+	searchable?: boolean
+}
+
+export function HubLayout({ children, searchable = false }: HubLayoutProps) {
+	const { category, setCategory } = useHubFilters()
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	// O menu mobile guarda a rota em que foi aberto: navegar muda o pathname e o
+	// painel — que é overlay e cobriria a tela nova — se fecha sozinho.
+	const [menuPath, setMenuPath] = useState<string | null>(null)
+	const menuOpen = menuPath === pathname
 
 	return (
 		<div className="min-h-screen bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan flex">
-			{/* ── Left Sidebar ─────────────────────────────────── */}
+			{/* ── Left Sidebar (desktop) ───────────────────────── */}
 			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-white border-r border-slate-100 z-20">
-				<div className="flex items-center gap-3 mb-10">
-					<div className="w-10 h-10 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg">
-						<Monitor className="w-6 h-6" />
-					</div>
-					<div className="flex flex-col">
-						<h2 className="text-sm font-bold text-slate-800 leading-tight">Centro de Monitoramento</h2>
-						<span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">DIREF • COMAER</span>
-					</div>
-				</div>
+				<HubBrand />
 
-				<nav className="flex flex-col gap-2">
-					{NAV_CATEGORIES.map((cat) => {
-						const Icon = cat.icon
-						const isActive = activeCategory === cat.id
-						return (
-							<button
-								key={cat.id}
-								type="button"
-								onClick={() => {
-									setActiveCategory(cat.id)
-									// Navigate to dashboard when switching category
-									if (pathname !== "/") {
-										window.location.href = "/"
-									}
-								}}
-								className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-									isActive ? "bg-tech-blue text-white shadow-md" : "text-slate-500 hover:bg-slate-50"
-								}`}
-							>
-								<Icon className="w-4 h-4" />
-								<span className="text-xs font-bold">{cat.id}</span>
-							</button>
-						)
-					})}
-				</nav>
+				<CategoryNav activeCategory={category} onSelect={setCategory} />
 
 				<div className="mt-auto flex flex-col gap-3">
 					<UserBlock />
@@ -76,16 +54,37 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 							<ShieldCheck className="w-3 h-3 text-tech-blue" />
 							<span className="text-[10px] font-bold text-slate-600 uppercase">Uso Institucional</span>
 						</div>
-						<p className="text-[9px] text-slate-400 leading-relaxed">Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).</p>
+						<p className="text-[11px] text-slate-500 leading-relaxed">Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).</p>
 					</div>
 				</div>
 			</aside>
 
+			{/* ── Mobile top bar + drawer ───────────────────────── */}
+			<div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-100">
+				<div className="flex items-center gap-2 min-w-0">
+					<div className="w-8 h-8 bg-tech-blue rounded-lg flex items-center justify-center text-white shrink-0">
+						<Monitor className="w-4 h-4" />
+					</div>
+					<span className="text-xs font-bold text-slate-800 truncate">SUCONT-4 HUB</span>
+				</div>
+				<button
+					type="button"
+					onClick={() => setMenuPath(pathname)}
+					aria-label="Abrir menu"
+					aria-expanded={menuOpen}
+					className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+				>
+					<Menu className="w-5 h-5" />
+				</button>
+			</div>
+
+			{menuOpen && <MobileMenu activeCategory={category} onSelect={setCategory} onClose={() => setMenuPath(null)} />}
+
 			{/* ── Main Area ─────────────────────────────────────── */}
-			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10">
+			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10 pt-14 lg:pt-0">
 				{/* Header */}
-				<header className="pt-12 pb-10 px-8 max-w-6xl mx-auto">
-					<div className="relative bg-slate-900 rounded-[2rem] p-12 overflow-hidden mb-12 shadow-2xl">
+				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
+					<div className="relative bg-slate-900 rounded-[2rem] p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
 						{/* decorative */}
 						<div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
 							<svg viewBox="0 0 100 100" className="w-full h-full text-white fill-current" aria-hidden="true">
@@ -94,30 +93,30 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 						</div>
 
 						<div className="relative z-10">
-							<div className="flex gap-2 mb-6">
-								<span className="text-[10px] font-bold text-white/60 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
+							<div className="flex flex-wrap gap-2 mb-6">
+								<span className="text-[10px] font-bold text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
 									Força Aérea Brasileira
 								</span>
-								<span className="text-[10px] font-bold text-white/60 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
+								<span className="text-[10px] font-bold text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
 									DIREF • SUCONT
 								</span>
 							</div>
 
-							<h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-4 leading-tight">
+							<h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 leading-tight">
 								SUCONT-4 <span className="text-tech-cyan">HUB</span>
 							</h1>
 
-							<p className="text-white/60 max-w-2xl text-sm leading-relaxed mb-10">
+							<p className="text-white/70 max-w-2xl text-sm leading-relaxed mb-10">
 								Plataforma centralizada para ferramentas de análise contábil e suporte ao usuário. Promovendo excelência, padronização e apoio à tomada de
 								decisão no Comando da Aeronáutica.
 							</p>
 
-							<div className="flex flex-wrap gap-4">
+							<div className="flex flex-wrap gap-3 md:gap-4">
 								{NAV_TABS.map((tab) => (
 									<Link
 										key={tab.to}
 										to={tab.to}
-										className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${
+										className={`flex items-center gap-2 px-5 md:px-6 py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${
 											pathname === tab.to ? "bg-tech-blue text-white shadow-lg" : "bg-white/5 text-white hover:bg-white/10"
 										}`}
 									>
@@ -128,32 +127,16 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 						</div>
 					</div>
 
-					{/* Search bar */}
-					<div className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-						<Search className="w-4 h-4 text-slate-400 ml-2" />
-						<input
-							type="text"
-							placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-							className="bg-transparent border-none outline-none text-sm text-slate-600 w-full"
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-						/>
-					</div>
+					{searchable && <HubSearchBar />}
 				</header>
 
 				{/* Page content */}
-				<main className="px-8 pb-24 max-w-6xl mx-auto">{children}</main>
+				<main className="px-4 md:px-8 pb-24 max-w-6xl mx-auto">{children}</main>
 
 				{/* Footer */}
-				<footer className="px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
+				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
 					<div className="flex gap-8">
-						<div className="flex flex-col">
-							<span className="text-[10px] font-mono uppercase text-slate-400">Status do Sistema</span>
-							<span className="text-xs font-mono text-emerald-600 flex items-center gap-2">
-								<span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-								OPERACIONAL
-							</span>
-						</div>
+						<SystemStatus />
 						<div className="flex flex-col">
 							<span className="text-[10px] font-mono uppercase text-slate-400">Versão Hub</span>
 							<span className="text-xs font-mono text-slate-500">v4.0.0-START</span>
@@ -173,8 +156,8 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 				</footer>
 			</div>
 
-			{/* ── Right Sidebar Rail ────────────────────────────── */}
-			<aside className="fixed right-0 top-0 h-screen w-16 bg-white border-l border-slate-200 z-30 flex flex-col items-center py-6 gap-4 overflow-y-auto">
+			{/* ── Right Sidebar Rail (desktop) ──────────────────── */}
+			<aside className="fixed right-0 top-0 h-screen w-16 bg-white border-l border-slate-200 z-30 hidden lg:flex flex-col items-center py-6 gap-4 overflow-y-auto">
 				<div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 mb-4 shrink-0">
 					<LayoutGrid className="w-4 h-4" />
 				</div>
@@ -207,6 +190,190 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 	)
 }
 
+function HubBrand() {
+	return (
+		<div className="flex items-center gap-3 mb-10">
+			<div className="w-10 h-10 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg">
+				<Monitor className="w-6 h-6" />
+			</div>
+			<div className="flex flex-col">
+				<h2 className="text-sm font-bold text-slate-800 leading-tight">Centro de Monitoramento</h2>
+				<span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">DIREF • COMAER</span>
+			</div>
+		</div>
+	)
+}
+
+function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onSelect: (category: string) => void }) {
+	return (
+		<nav className="flex flex-col gap-2" aria-label="Categorias de ferramentas">
+			{NAV_CATEGORIES.map((cat) => {
+				const Icon = cat.icon
+				const isActive = activeCategory === cat.id
+				return (
+					<button
+						key={cat.id}
+						type="button"
+						onClick={() => onSelect(cat.id)}
+						aria-current={isActive ? "page" : undefined}
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+							isActive ? "bg-tech-blue text-white shadow-md" : "text-slate-500 hover:bg-slate-50"
+						}`}
+					>
+						<Icon className="w-4 h-4" />
+						<span className="text-xs font-bold">{cat.id}</span>
+					</button>
+				)
+			})}
+		</nav>
+	)
+}
+
+function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: string; onSelect: (category: string) => void; onClose: () => void }) {
+	const panelRef = useRef<HTMLDivElement>(null)
+
+	// Esc fecha; o foco vai para o painel para que o leitor de tela anuncie o menu.
+	useEffect(() => {
+		panelRef.current?.focus()
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") onClose()
+		}
+		document.addEventListener("keydown", onKeyDown)
+		return () => document.removeEventListener("keydown", onKeyDown)
+	}, [onClose])
+
+	return (
+		<div className="lg:hidden fixed inset-0 z-50 flex">
+			<button type="button" aria-label="Fechar menu" onClick={onClose} className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
+			<div
+				ref={panelRef}
+				role="dialog"
+				aria-modal="true"
+				aria-label="Menu do hub"
+				tabIndex={-1}
+				className="relative w-72 max-w-[85vw] h-full bg-white p-6 flex flex-col overflow-y-auto shadow-xl outline-none"
+			>
+				<div className="flex items-start justify-between gap-2">
+					<HubBrand />
+					<button
+						type="button"
+						onClick={onClose}
+						aria-label="Fechar menu"
+						className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+					>
+						<X className="w-4 h-4" />
+					</button>
+				</div>
+
+				<CategoryNav
+					activeCategory={activeCategory}
+					onSelect={(category) => {
+						onSelect(category)
+						onClose()
+					}}
+				/>
+
+				<div className="mt-auto pt-6">
+					<UserBlock />
+				</div>
+			</div>
+		</div>
+	)
+}
+
+function HubSearchBar() {
+	const { query, setQuery } = useHubFilters()
+	const inputId = useId()
+	// Estado local para o campo responder instantaneamente; a URL recebe o valor
+	// com atraso curto para não gravar uma navegação por tecla digitada.
+	const [draft, setDraft] = useState(query)
+	const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+	useEffect(() => {
+		setDraft(query)
+	}, [query])
+
+	useEffect(
+		() => () => {
+			if (timer.current) clearTimeout(timer.current)
+		},
+		[]
+	)
+
+	function onChange(value: string) {
+		setDraft(value)
+		if (timer.current) clearTimeout(timer.current)
+		timer.current = setTimeout(() => setQuery(value), 200)
+	}
+
+	function clear() {
+		if (timer.current) clearTimeout(timer.current)
+		setDraft("")
+		setQuery("")
+	}
+
+	return (
+		<div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+			<Search className="w-4 h-4 text-slate-400 ml-2 shrink-0" aria-hidden="true" />
+			<label htmlFor={inputId} className="sr-only">
+				Buscar no hub
+			</label>
+			<input
+				id={inputId}
+				type="search"
+				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
+				className="bg-transparent border-none outline-none text-sm text-slate-600 w-full"
+				value={draft}
+				onChange={(e) => onChange(e.target.value)}
+			/>
+			{draft !== "" && (
+				<button
+					type="button"
+					onClick={clear}
+					aria-label="Limpar busca"
+					className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+				>
+					<X className="w-3.5 h-3.5" />
+				</button>
+			)}
+		</div>
+	)
+}
+
+/**
+ * Status real do SSR, sondando a mesma rota `/health` que o ALB usa. Antes era um
+ * texto fixo "OPERACIONAL", que por definição nunca informava nada.
+ */
+function SystemStatus() {
+	const { data, isPending, isError } = useQuery({
+		queryKey: ["sucont", "health"],
+		queryFn: async () => {
+			const res = await fetch("/health", { headers: { accept: "text/html" } })
+			if (!res.ok) throw new Error(`health ${res.status}`)
+			return true
+		},
+		// URL relativa não resolve no SSR: a sonda é só do browser.
+		enabled: typeof window !== "undefined",
+		refetchInterval: 60_000,
+		retry: 1,
+	})
+
+	const state = isPending ? "checking" : isError || !data ? "down" : "up"
+	const label = state === "checking" ? "VERIFICANDO" : state === "up" ? "OPERACIONAL" : "INSTÁVEL"
+	const tone = state === "checking" ? "text-slate-400" : state === "up" ? "text-emerald-600" : "text-red-600"
+	const dot = state === "checking" ? "bg-slate-300" : state === "up" ? "bg-emerald-500" : "bg-red-500"
+
+	return (
+		<div className="flex flex-col">
+			<span className="text-[10px] font-mono uppercase text-slate-400">Status do Sistema</span>
+			<span className={`text-xs font-mono flex items-center gap-2 ${tone}`} aria-live="polite">
+				<span className={`w-1.5 h-1.5 rounded-full ${dot} ${state === "checking" ? "animate-pulse" : ""}`} />
+				{label}
+			</span>
+		</div>
+	)
+}
+
 function UserBlock() {
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -230,7 +397,7 @@ function UserBlock() {
 			<button
 				type="button"
 				onClick={logout}
-				title="Sair"
+				aria-label="Sair da conta"
 				className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
 			>
 				<LogOut className="w-4 h-4" />

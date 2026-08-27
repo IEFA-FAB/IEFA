@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { HubLayout } from "#/components/hub-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getNthBusinessDay } from "#/lib/data"
-import { useSearchQuery } from "#/lib/hub-store"
+import { useHubFilters } from "#/lib/hub-filters"
 import {
 	createChecklistItemFn,
 	createNoticeFn,
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/workspace")({ component: Workspace })
 const OPERATORS = ["3S VANESSA", "SGT KLEBSON", "3S TALITA"] as const
 
 function Workspace() {
-	const searchQuery = useSearchQuery()
+	const { query: searchQuery } = useHubFilters()
 	const queryClient = useQueryClient()
 	const [editingId, setEditingId] = useState<string | null>(null)
 	const [isAddingTask, setIsAddingTask] = useState(false)
@@ -123,7 +123,7 @@ function Workspace() {
 	)
 
 	return (
-		<HubLayout>
+		<HubLayout searchable>
 			<div className="space-y-12">
 				{/* ── Checklist ────────────────────────────────── */}
 				<section>

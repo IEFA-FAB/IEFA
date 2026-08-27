@@ -7,6 +7,7 @@ import { createRootRouteWithContext, HeadContent, redirect, Scripts } from "@tan
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 import { Toaster } from "sonner"
+import { z } from "zod"
 import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
 import { supabase } from "#/lib/supabase"
@@ -37,7 +38,21 @@ function isPublicPath(pathname: string): boolean {
 	return isAuthPath(pathname) || pathname === "/health" || LEGAL_PATHS.has(pathname)
 }
 
+/**
+ * Busca e categoria do hub vivem na URL, não em memória: link de filtro é
+ * compartilhável e sobrevive ao F5. Declarados na raiz porque o HubLayout — que
+ * lê e escreve os dois — é montado por nove rotas diferentes.
+ *
+ * `z.coerce` porque o roteador entrega `?q=35` como NÚMERO; um `z.string()` puro
+ * derrubaria a rota inteira em qualquer busca que só tenha dígitos.
+ */
+const hubSearchSchema = z.object({
+	q: z.coerce.string().optional().catch(undefined),
+	cat: z.coerce.string().optional().catch(undefined),
+})
+
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+	validateSearch: hubSearchSchema,
 	beforeLoad: async ({ context, location }) => {
 		const emptyAuth: AuthState = { user: null, session: null, isAuthenticated: false, isLoading: false }
 
