@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router"
-import { ChevronRight } from "lucide-react"
+import { BookOpen, ChevronRight, ExternalLink, Layout } from "lucide-react"
 import { motion } from "motion/react"
 import { IconRenderer } from "#/components/icon-renderer"
+import { getToolKind, type ToolKind } from "#/lib/tool-kind"
 import type { Tool } from "#/lib/types"
 
 interface ToolCardProps {
@@ -23,6 +24,35 @@ const cardMotionProps = {
 
 const cardClassName = "block bg-white rounded-2xl p-8 flex flex-col h-full transition-all duration-300 border border-slate-100 shadow-sm"
 
+const KIND_TAG: Record<ToolKind, { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
+	internal: {
+		label: "Ferramenta do próprio hub",
+		icon: Layout,
+		className: "bg-tech-cyan/10 text-tech-blue border-tech-cyan/25",
+	},
+	notebooklm: {
+		label: "Caderno externo no NotebookLM",
+		icon: BookOpen,
+		className: "bg-amber-50 text-amber-600 border-amber-200",
+	},
+	external: {
+		label: "Site externo",
+		icon: ExternalLink,
+		className: "bg-slate-50 text-slate-400 border-slate-200",
+	},
+}
+
+function KindTag({ kind }: { kind: ToolKind }) {
+	const tag = KIND_TAG[kind]
+	const Icon = tag.icon
+	return (
+		<span className={`flex items-center justify-center w-7 h-7 rounded-full border ${tag.className}`} title={tag.label}>
+			<Icon className="w-3.5 h-3.5" />
+			<span className="sr-only">{tag.label}</span>
+		</span>
+	)
+}
+
 function CardInner({ tool }: { tool: Tool }) {
 	return (
 		<>
@@ -30,9 +60,12 @@ function CardInner({ tool }: { tool: Tool }) {
 				<div className={`p-4 ${tool.iconColor || "bg-tech-cyan"} rounded-2xl text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
 					<IconRenderer iconKey={tool.icon} className="w-6 h-6" />
 				</div>
-				<span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-					{tool.category}
-				</span>
+				<div className="flex items-center gap-2">
+					<KindTag kind={getToolKind(tool)} />
+					<span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+						{tool.category}
+					</span>
+				</div>
 			</div>
 
 			<h3 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-tech-cyan transition-colors">{tool.title}</h3>
