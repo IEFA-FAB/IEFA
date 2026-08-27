@@ -8,7 +8,17 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { formatSheetNumber, fromStoredQuantity, portionYieldOrOne, technicalSheetLine, technicalSheetTotals, toStoredQuantity } from "./technical-sheet"
+import {
+	correctionFactorFromGross,
+	formatSheetNumber,
+	fromStoredQuantity,
+	portionYieldOrOne,
+	rehydrationIndexFromRehydrated,
+	roundSheetQuantity,
+	technicalSheetLine,
+	technicalSheetTotals,
+	toStoredQuantity,
+} from "./technical-sheet"
 
 const line = (netQuantity: number | null, correctionFactor: number | null = null, rehydrationIndex: number | null = null) =>
 	technicalSheetLine({ netQuantity, correctionFactor, rehydrationIndex }, 100)
@@ -167,5 +177,53 @@ describe("toStoredQuantity / fromStoredQuantity", () => {
 		const stored = toStoredQuantity(0.5, "porcao", 100)
 		expect(fromStoredQuantity(stored, "total", 100)).toBeCloseTo(50, 10)
 		expect(fromStoredQuantity(stored, "porcao", 100)).toBeCloseTo(0.5, 10)
+	})
+})
+
+/**
+ * As voltas existem porque a tabela do formulário aceita digitação em qualquer coluna: a
+ * Seção pesa o bruto e o líquido, e o fator é o que sobra. O que a suíte protege é que a
+ * volta ajuste o FATOR e nunca o PL — e que a divisão por PL zerado devolva "não dá",
+ * em vez de Infinity gravado como fator.
+ */
+describe("correctionFactorFromGross / rehydrationIndexFromRehydrated", () => {
+	test("FC = PB ÷ PL", () => {
+		expect(correctionFactorFromGross(0.665, 0.5)).toBeCloseTo(1.33, 10)
+	})
+
+	test("IR = peso reidratado ÷ PL", () => {
+		expect(rehydrationIndexFromRehydrated(0.25, 0.1)).toBeCloseTo(2.5, 10)
+	})
+
+	test("volta e ida fecham — digitar PB devolve o mesmo PB na tela", () => {
+		const netWeight = 0.5
+		const factor = correctionFactorFromGross(0.665, netWeight)
+		expect(technicalSheetLine({ netQuantity: 50, correctionFactor: factor, rehydrationIndex: null }, 100).grossWeight).toBeCloseTo(0.665, 10)
+	})
+
+	test("PL zerado não deriva fator — dividir por 0 gravaria Infinity", () => {
+		expect(correctionFactorFromGross(0.665, 0)).toBeNull()
+		expect(rehydrationIndexFromRehydrated(0.25, -1)).toBeNull()
+	})
+
+	test("entrada não numérica não deriva fator", () => {
+		expect(correctionFactorFromGross(Number.NaN, 0.5)).toBeNull()
+		expect(rehydrationIndexFromRehydrated(0.25, Number.NaN)).toBeNull()
+	})
+
+	test("o fator arredonda — o campo derivado não pode ecoar o resíduo binário", () => {
+		// 0,1 × 3 = 0,30000000000000004; o FC de volta tem que sair 3, não 2,9999999999999996.
+		expect(correctionFactorFromGross(0.1 * 3, 0.1)).toBe(3)
+	})
+})
+
+describe("roundSheetQuantity", () => {
+	test("corta o resíduo binário que um input controlado imprimiria inteiro", () => {
+		expect(roundSheetQuantity(0.5 * 1.33)).toBe(0.665)
+	})
+
+	test("valor não finito vira 0 — o campo não pode receber NaN", () => {
+		expect(roundSheetQuantity(Number.NaN)).toBe(0)
+		expect(roundSheetQuantity(Number.POSITIVE_INFINITY)).toBe(0)
 	})
 })

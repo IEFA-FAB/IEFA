@@ -136,6 +136,35 @@ function roundToPrecision(value: number): number {
 }
 
 /**
+ * Mesmo arredondamento, exposto para quem EXIBE um valor calculado dentro de um campo
+ * editável: `0,5 × 1,33` devolve 0,6650000000000001 em binário, e um input controlado
+ * imprimiria esse número inteiro. `formatSheetNumber` não serve aqui — ele produz texto
+ * pt-BR (vírgula), que um `<input type="number">` rejeita.
+ */
+export function roundSheetQuantity(value: number): number {
+	return Number.isFinite(value) ? roundToPrecision(value) : 0
+}
+
+// ── Voltas dos derivados ────────────────────────────────────────────────────
+// A tabela do modelo tem cinco colunas por linha e o banco guarda três valores (PL total,
+// FC, IR): PB e peso reidratado SAEM de uma conta. A ficha de papel, porém, chega com
+// qualquer uma das colunas preenchida — a Seção pesa o bruto e o líquido, e o fator é o
+// que sobra. Por isso a conta tem volta: digitar o derivado ajusta o fator que o produz,
+// nunca o PL, que é o dado que sustenta compra, custo e escala de produção.
+
+/** FC = PB ÷ PL. Sem PL não há fator — `null` diz "não dá para derivar", não "1". */
+export function correctionFactorFromGross(grossWeight: number, netWeight: number): number | null {
+	if (!Number.isFinite(grossWeight) || !Number.isFinite(netWeight) || netWeight <= 0) return null
+	return roundToPrecision(grossWeight / netWeight)
+}
+
+/** IR = peso reidratado ÷ peso seco (o PL). Mesma regra do FC quanto ao `null`. */
+export function rehydrationIndexFromRehydrated(rehydratedWeight: number, netWeight: number): number | null {
+	if (!Number.isFinite(rehydratedWeight) || !Number.isFinite(netWeight) || netWeight <= 0) return null
+	return roundToPrecision(rehydratedWeight / netWeight)
+}
+
+/**
  * Total gravado no banco a partir do que foi digitado na base escolhida.
  *
  * A multiplicação também arredonda: 33,333 × 100 dá 3.333,2999999999997 em binário, e

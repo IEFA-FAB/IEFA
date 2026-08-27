@@ -26,7 +26,9 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
  * formulário de edição oferece para digitar, e pela mesma razão: a cozinha que vai produzir
  * 100 porções lê a coluna do rendimento, e a nutricionista que confere a gramatura lê a per
  * capita. A base escolhida vai IMPRESSA no cabeçalho da tabela — folha sem essa marcação é
- * um número de duas ordens de grandeza sem legenda.
+ * um número de duas ordens de grandeza sem legenda. A PARTE 01 acompanha a mesma base: na
+ * per capita a folha declara 1 porção e o rendimento dessa porção, senão o cabeçalho
+ * afirmaria 100 porções sobre uma tabela que descreve uma.
  *
  * Campo que o modelo pede e o SISUB não guarda (pré-preparo, método de cocção,
  * equipamentos, temperatura, observações técnicas, responsável) sai como linha em branco,
@@ -142,12 +144,19 @@ interface SheetLine {
 interface Sheet {
 	name: string
 	category: string
-	/** Base em que a PARTE 02 foi calculada — o cabeçalho da tabela declara qual é. */
+	/** Base em que a folha foi calculada — o cabeçalho da tabela declara qual é. */
 	basis: QuantityBasis
+	/** Rendimento cadastrado da preparação — o rótulo do seletor e o cabeçalho da PARTE 02. */
 	portionYield: number
+	/**
+	 * Quantas porções a FOLHA descreve: o rendimento cadastrado na base "total", e 1 na
+	 * base "porção". Uma folha per capita que declara "100 porções" no campo Nº de porções
+	 * contradiz a própria tabela abaixo dela.
+	 */
+	sheetPortions: number
 	/** Peso de UMA porção — a soma dos pesos líquidos per capita. */
 	portionWeight: number
-	/** Rendimento final — o peso líquido total da preparação. */
+	/** Rendimento da FOLHA — o peso líquido de `sheetPortions` porções. */
 	finalYield: number
 	cookingIndex: number | null
 	lines: SheetLine[]
@@ -189,20 +198,21 @@ function buildSheet(
 
 	const totals = technicalSheetTotals(lines.map((l) => ({ ...l, measureUnit: l.unit })))
 
-	// PARTE 01 não muda de base: peso da porção e rendimento final são fatos da preparação,
-	// não da folha. Como a PARTE 02 já veio numa das duas escalas, é daqui que sai a
-	// conversão — imprimir `totals.netWeight` cru colocaria o rendimento inteiro no campo
-	// "peso da porção" só porque a tabela abaixo estava em outra base. Cada um dos dois vem
-	// do total na escala em que ele JÁ está, sem a volta ÷rendimento ×rendimento.
+	// "Peso da porção" é fato da preparação e não muda de base — mas o rendimento é da
+	// FOLHA. Na base per capita a folha inteira descreve UMA porção: Nº de porções sai 1 e
+	// o rendimento final é o peso dessa porção, não os 100 do cadastro. Declarar o
+	// rendimento cadastrado ali imprimiria uma folha que soma 0,5 kg na tabela e afirma
+	// render 50 kg. Cada número vem do total na escala em que ele JÁ está, sem a volta
+	// ÷rendimento ×rendimento — que em binário devolveria 3.332,999… no lugar de 3.333.
 	const portionWeight = basis === "total" ? totals.netWeight / portionYield : totals.netWeight
-	const finalYield = basis === "total" ? totals.netWeight : totals.netWeight * portionYield
 	return {
 		name: recipe.name,
 		category: recipe.folder_id ? (folderNameById.get(recipe.folder_id) ?? "") : "",
 		basis,
 		portionYield,
+		sheetPortions: basis === "total" ? portionYield : 1,
 		portionWeight,
-		finalYield,
+		finalYield: totals.netWeight,
 		cookingIndex: recipe.cooking_factor ?? null,
 		lines,
 		totals,
@@ -258,7 +268,7 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					</tr>
 					<tr>
 						<Label>Nº de porções:</Label>
-						<Value>{`${formatSheetNumber(sheet.portionYield, 0)} porções`}</Value>
+						<Value>{`${formatSheetNumber(sheet.sheetPortions, 0)} ${sheet.sheetPortions === 1 ? "porção" : "porções"}`}</Value>
 						<Label>Peso da porção:</Label>
 						<Value>{sheet.portionWeight > 0 ? `${formatSheetNumber(sheet.portionWeight)}${unitSuffix(sheet)}` : ""}</Value>
 					</tr>

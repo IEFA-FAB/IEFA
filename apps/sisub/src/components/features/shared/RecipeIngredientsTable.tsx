@@ -13,10 +13,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import {
+	correctionFactorFromGross,
 	formatSheetNumber,
 	fromStoredQuantity,
 	portionYieldOrOne,
 	type QuantityBasis,
+	rehydrationIndexFromRehydrated,
+	roundSheetQuantity,
 	technicalSheetLine,
 	technicalSheetTotals,
 	toStoredQuantity,
@@ -90,10 +93,25 @@ function candidatesOf(row: RecipeIngredientRow): Candidate[] {
  * comparar dois insumos sem rolar, e nada na tela correspondia ao papel que a Seção
  * preenche. Numa tabela os números ficam alinhados na coluna e a conferência é vertical.
  *
- * O que se DIGITA continua sendo o que o banco guarda — peso líquido TOTAL da preparação,
- * FC e IR. `PB`, `PL` e `Peso reidratado` são derivados (`lib/technical-sheet.ts`), e a
- * coluna de total fica separada da faixa per capita: misturar as duas escalas na mesma
- * linha foi o erro de leitura que o formulário em papel evita ao dizer PER CAPITA no topo.
+ * O que o banco guarda são três valores por linha — peso líquido TOTAL da preparação, FC
+ * e IR. `PB` e `Peso reidratado` SAEM de uma conta (`lib/technical-sheet.ts`), e a coluna
+ * de total fica separada da faixa per capita: misturar as duas escalas na mesma linha foi
+ * o erro de leitura que o formulário em papel evita ao dizer PER CAPITA no topo.
+ *
+ * ── Toda coluna é digitável ──
+ * A ficha de papel não chega sempre pelas mesmas colunas: a Seção pesa o bruto e o líquido
+ * e o FC é o que sobra; outra vem com o total já somado; outra, só com a gramatura por
+ * porção. Deixar as derivadas em leitura obrigava a fazer a conta de cabeça para entrar
+ * pela coluna "certa" — e é aí que nasce o erro de digitação que ninguém confere.
+ *
+ * Então as cinco colunas aceitam digitação, e a conta tem VOLTA: PB ajusta o FC (FC = PB ÷
+ * PL), Peso reidratado ajusta o IR, e as duas colunas de PL escrevem o mesmo `net_quantity`
+ * em escalas diferentes. O PL nunca é mexido por um campo derivado — é dele que saem
+ * compra, custo e escala de produção.
+ *
+ * Campo derivado se anuncia: borda tracejada e um hover que diz a fórmula, os números que
+ * entraram nela e o que a digitação vai alterar. Sem isso, digitar no PB pareceria uma
+ * edição perdida — a tecla entra, o número volta diferente e nada explica por quê.
  *
  * ── Base de digitação ──
  * A ficha de papel que a Seção digitaliza vem em dois padrões: a que traz a gramatura POR
@@ -391,65 +409,113 @@ export function RecipeIngredientsTable({
 											</TableCell>
 											<TableCell className="text-muted-foreground">{active.unit}</TableCell>
 											<TableCell className="text-right">
-												{quantityBasis === "total" ? (
-													<Input
-														aria-label={`Peso líquido total de ${active.name}`}
-														type="number"
-														step="0.001"
-														aria-invalid={!!rowError.net_quantity}
-														value={active.quantity ?? 0}
-														onChange={(e) => setQuantity(index, candidate, Number(e.target.value))}
-														className="ml-auto w-24 text-right"
-													/>
-												) : (
-													// Derivado da porção digitada — é este número que vai para o banco,
-													// e mostrá-lo ao lado do campo é a conferência do fator.
-													<span className="font-mono tabular-nums">{formatSheetNumber(active.quantity ?? 0)}</span>
-												)}
-											</TableCell>
-											<TableCell className="border-l border-border text-right font-mono tabular-nums">{formatSheetNumber(sheet.grossWeight)}</TableCell>
-											<TableCell className="text-right">
-												<Input
-													aria-label={`Fator de correção de ${row.ingredient_name}`}
-													type="number"
-													step="0.01"
-													min={0}
-													placeholder="1"
-													aria-invalid={!!rowError.correction_factor}
-													value={row.correction_factor ?? ""}
-													onChange={(e) => patch(index, { correction_factor: e.target.value === "" ? null : Number(e.target.value) })}
-													className="ml-auto w-20 text-right"
+												<SheetNumberInput
+													label={`Peso líquido total de ${active.name}`}
+													value={active.quantity ?? 0}
+													invalid={!!rowError.net_quantity}
+													onCommit={(value) => setQuantity(index, candidate, value ?? 0)}
+													// Digitando por porção, este campo é o produto — mas continua digitável:
+													// a ficha de papel que chega com o total já somado não deve obrigar
+													// ninguém a dividir de cabeça para entrar pela outra coluna.
+													hint={
+														quantityBasis === "porcao" ? (
+															<>
+																<strong>Calculado:</strong> PL total = PL por porção × rendimento ({formatSheetNumber(yieldSafe, 0)}). É este número que é
+																gravado — dele saem a lista de compras, o custo e a escala da produção. Digitar aqui grava o total direto, e a coluna por porção
+																passa a mostrar total ÷ {formatSheetNumber(yieldSafe, 0)}.
+															</>
+														) : undefined
+													}
 												/>
 											</TableCell>
-											<TableCell className="text-right font-mono tabular-nums">
-												{quantityBasis === "porcao" ? (
-													<Input
-														aria-label={`Peso líquido por porção de ${active.name}`}
-														type="number"
-														step="0.001"
-														aria-invalid={!!rowError.net_quantity}
-														value={fromStoredQuantity(active.quantity, "porcao", portionYield)}
-														onChange={(e) => setQuantity(index, candidate, toStoredQuantity(Number(e.target.value), "porcao", portionYield))}
-														className="ml-auto w-24 text-right"
-													/>
-												) : (
-													formatSheetNumber(sheet.netWeight)
-												)}
-											</TableCell>
-											<TableCell className="text-right">
-												<Input
-													aria-label={`Índice de reidratação de ${row.ingredient_name}`}
-													type="number"
-													step="0.01"
-													min={0}
-													placeholder="1"
-													aria-invalid={!!rowError.rehydration_index}
-													value={row.rehydration_index ?? ""}
-													onChange={(e) => patch(index, { rehydration_index: e.target.value === "" ? null : Number(e.target.value) })}
-													className="ml-auto w-20 text-right"
+											<TableCell className="border-l border-border text-right">
+												<SheetNumberInput
+													label={`Peso bruto por porção de ${active.name}`}
+													value={sheet.grossWeight}
+													// Sem PL não existe FC (a volta divide por ele): o campo fica em leitura,
+													// e o motivo vai no mesmo hover em vez de virar um campo que ignora a
+													// tecla em silêncio. `readOnly`, não `disabled` — campo desabilitado não
+													// recebe hover em Chrome, e a explicação é justamente o que falta ali.
+													readOnly={sheet.netWeight <= 0}
+													onCommit={(value) => patch(index, { correction_factor: value == null ? null : correctionFactorFromGross(value, sheet.netWeight) })}
+													hint={
+														sheet.netWeight > 0 ? (
+															<>
+																<strong>Calculado:</strong> PB = PL × FC ({formatSheetNumber(sheet.netWeight)} × {formatSheetNumber(sheet.correctionFactor, 2)}
+																). Digitar aqui não mexe no PL: ajusta o <strong>FC</strong> pela volta FC = PB ÷ PL — é assim que a ficha de papel chega, com
+																os dois pesos medidos e o fator deduzido.
+															</>
+														) : (
+															<>
+																<strong>Calculado:</strong> PB = PL × FC. Informe o PL desta linha para digitar o PB — o FC sai de PB ÷ PL, e sem PL não há o
+																que dividir.
+															</>
+														)
+													}
 												/>
 											</TableCell>
-											<TableCell className="border-r border-border text-right font-mono tabular-nums">{formatSheetNumber(sheet.rehydratedWeight)}</TableCell>
+											<TableCell className="text-right">
+												<SheetNumberInput
+													label={`Fator de correção de ${row.ingredient_name}`}
+													value={row.correction_factor}
+													step="0.01"
+													placeholder="1"
+													invalid={!!rowError.correction_factor}
+													onCommit={(value) => patch(index, { correction_factor: value })}
+													className="w-20"
+												/>
+											</TableCell>
+											<TableCell className="text-right">
+												<SheetNumberInput
+													label={`Peso líquido por porção de ${active.name}`}
+													value={fromStoredQuantity(active.quantity, "porcao", portionYield)}
+													invalid={!!rowError.net_quantity}
+													onCommit={(value) => setQuantity(index, candidate, toStoredQuantity(value ?? 0, "porcao", portionYield))}
+													hint={
+														quantityBasis === "total" ? (
+															<>
+																<strong>Calculado:</strong> PL por porção = PL total ÷ rendimento ({formatSheetNumber(yieldSafe, 0)}). Digitar aqui grava o
+																total = valor × {formatSheetNumber(yieldSafe, 0)} — o banco guarda sempre o total.
+															</>
+														) : undefined
+													}
+												/>
+											</TableCell>
+											<TableCell className="text-right">
+												<SheetNumberInput
+													label={`Índice de reidratação de ${row.ingredient_name}`}
+													value={row.rehydration_index}
+													step="0.01"
+													placeholder="1"
+													invalid={!!rowError.rehydration_index}
+													onCommit={(value) => patch(index, { rehydration_index: value })}
+													className="w-20"
+												/>
+											</TableCell>
+											<TableCell className="border-r border-border text-right">
+												<SheetNumberInput
+													label={`Peso reidratado por porção de ${active.name}`}
+													value={sheet.rehydratedWeight}
+													readOnly={sheet.netWeight <= 0}
+													onCommit={(value) =>
+														patch(index, { rehydration_index: value == null ? null : rehydrationIndexFromRehydrated(value, sheet.netWeight) })
+													}
+													hint={
+														sheet.netWeight > 0 ? (
+															<>
+																<strong>Calculado:</strong> Peso reidratado = PL × IR ({formatSheetNumber(sheet.netWeight)} ×{" "}
+																{formatSheetNumber(sheet.rehydrationIndex, 2)}). Digitar aqui ajusta o <strong>IR</strong> pela volta IR = Peso reidratado ÷ PL
+																— o PL não muda.
+															</>
+														) : (
+															<>
+																<strong>Calculado:</strong> Peso reidratado = PL × IR. Informe o PL desta linha para digitar o peso reidratado — o IR sai da
+																divisão pelo PL.
+															</>
+														)
+													}
+												/>
+											</TableCell>
 											<TableCell className="text-center">
 												<Toggle
 													variant="outline"
@@ -500,16 +566,18 @@ export function RecipeIngredientsTable({
 								<TableCell colSpan={3} className="font-medium">
 									TOTAL
 								</TableCell>
-								<TableCell className={cn("border-l border-border text-right font-mono tabular-nums", mixedUnits && "text-muted-foreground")}>
-									{formatSheetNumber(totals.grossWeight)}
+								{/* A linha TOTAL é a única que NÃO se digita: é soma de coluna, e um campo ali
+								    aceitaria um número que as linhas não produzem. O hover diz de onde vem. */}
+								<TableCell className={cn("border-l border-border text-right", mixedUnits && "text-muted-foreground")}>
+									<TotalCell value={totals.grossWeight} formula="Soma dos PB de todas as linhas, no candidato em exibição." />
 								</TableCell>
 								<TableCell />
-								<TableCell className={cn("text-right font-mono tabular-nums", mixedUnits && "text-muted-foreground")}>
-									{formatSheetNumber(totals.netWeight)}
+								<TableCell className={cn("text-right", mixedUnits && "text-muted-foreground")}>
+									<TotalCell value={totals.netWeight} formula="Soma dos PL por porção. É o peso de uma porção da preparação inteira." />
 								</TableCell>
 								<TableCell />
-								<TableCell className={cn("border-r border-border text-right font-mono tabular-nums", mixedUnits && "text-muted-foreground")}>
-									{formatSheetNumber(totals.rehydratedWeight)}
+								<TableCell className={cn("border-r border-border text-right", mixedUnits && "text-muted-foreground")}>
+									<TotalCell value={totals.rehydratedWeight} formula="Soma dos pesos reidratados de todas as linhas." />
 								</TableCell>
 								<TableCell colSpan={2} />
 							</TableRow>
@@ -521,8 +589,9 @@ export function RecipeIngredientsTable({
 				{ingredients.length > 0 && (
 					<p className="text-caption text-muted-foreground">
 						PB = Peso Bruto · PL = Peso Líquido · FC = PB ÷ PL · IR = Peso reidratado ÷ Peso seco. A faixa PER CAPITA é o valor por porção
-						{portionYield > 0 ? ` (rendimento: ${portionYield} porções)` : " (defina o rendimento na aba Detalhes)"}. Expanda a linha para cadastrar substitutos
-						e escolher qual deles a ficha está lendo.
+						{portionYield > 0 ? ` (rendimento: ${portionYield} porções)` : " (defina o rendimento na aba Detalhes)"}. Toda coluna aceita digitação: as de{" "}
+						<span className="border-dashed border-b border-muted-foreground/60">borda tracejada</span> são calculadas — passe o mouse para ver a fórmula e o que
+						a digitação ajusta. Expanda a linha para cadastrar substitutos e escolher qual deles a ficha está lendo.
 					</p>
 				)}
 
@@ -604,6 +673,96 @@ export function RecipeIngredientsTable({
 				/>
 			)}
 		</Card>
+	)
+}
+
+/**
+ * Campo numérico da tabela — o mesmo controle para as colunas gravadas e as calculadas.
+ *
+ * Duas coisas que um `<Input value={conta}>` cru não resolve:
+ *
+ * 1. **Rascunho enquanto tem foco.** O valor exibido de uma coluna calculada é o resultado
+ *    de uma volta (digita PB → grava FC → relê PB = PL × FC). Reescrever o campo a cada
+ *    tecla apagaria o `1.` de quem está digitando `1.5` e devolveria 0,6650000000000001 no
+ *    meio da digitação. Enquanto o campo está sendo editado ele mostra o que foi digitado;
+ *    ao sair do foco, volta a mostrar a conta. Vale também para as colunas gravadas — o
+ *    `value={row.correction_factor ?? ""}` anterior tinha o mesmo problema com `0,`.
+ * 2. **`hint` marca o campo como calculado** — borda tracejada e tooltip no hover com a
+ *    fórmula, os números que entraram nela e o que a digitação vai alterar. É a diferença
+ *    entre "meu valor sumiu" e "o FC absorveu o PB que eu digitei".
+ *
+ * `readOnly`, e não `disabled`, quando a volta é impossível (dividir pelo PL zerado):
+ * campo desabilitado não emite hover no Chrome, e é justamente o hover que carrega o
+ * motivo. Ele continua focável e legível por leitor de tela, só não aceita a tecla.
+ */
+function SheetNumberInput({
+	label,
+	value,
+	onCommit,
+	hint,
+	readOnly,
+	invalid,
+	step = "0.001",
+	placeholder,
+	className,
+}: {
+	label: string
+	value: number | null
+	/** `null` = campo apagado. Quem grava quantidade trata como 0; FC e IR, como "sem fator". */
+	onCommit: (value: number | null) => void
+	/** Presente ⇒ a coluna é calculada: explica a fórmula e o efeito da digitação. */
+	hint?: React.ReactNode
+	readOnly?: boolean
+	invalid?: boolean
+	step?: string
+	placeholder?: string
+	className?: string
+}) {
+	const [draft, setDraft] = useState<string | null>(null)
+
+	const input = (
+		<Input
+			aria-label={label}
+			type="number"
+			step={step}
+			min={0}
+			placeholder={placeholder}
+			aria-invalid={invalid || undefined}
+			readOnly={readOnly}
+			value={draft ?? (value == null ? "" : String(roundSheetQuantity(value)))}
+			onChange={(event) => {
+				const raw = event.target.value
+				setDraft(raw)
+				if (raw.trim() === "") {
+					onCommit(null)
+					return
+				}
+				const parsed = Number(raw)
+				if (Number.isFinite(parsed)) onCommit(parsed)
+			}}
+			// Fora do foco quem manda é a conta: o rascunho `1.` do FC vira 1 e o PB volta a
+			// exibir o produto arredondado, e não o eco do que foi digitado.
+			onBlur={() => setDraft(null)}
+			className={cn("ml-auto w-24 text-right font-mono tabular-nums", hint && "border-dashed", readOnly && "cursor-help text-muted-foreground", className)}
+		/>
+	)
+
+	if (!hint) return input
+	return (
+		<Tooltip>
+			<TooltipTrigger render={input} />
+			<TooltipContent>{hint}</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Célula da linha TOTAL: soma, não campo — o hover diz qual soma. */
+function TotalCell({ value, formula }: { value: number; formula: string }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger render={<span className="cursor-help font-mono tabular-nums">{formatSheetNumber(value)}</span>} />
+			<TooltipContent>{formula}</TooltipContent>
+		</Tooltip>
 	)
 }
 
