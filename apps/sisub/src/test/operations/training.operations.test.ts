@@ -27,10 +27,6 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"access_control.policy_statement": "escopos das políticas apontam para as sentinelas; o reset preserva a política Conjunto Treino",
 	"core.kitchen": "sentinela do ambiente de treino — preservada por definição",
 	"core.mess_halls": "sentinela do ambiente de treino — preservada por definição",
-	// `core.rancho` é o ponto de produção/serviço (66 linhas reais, várias por cozinha). Cadastro
-	// de infraestrutura como cozinha e refeitório — apagar o rancho da cozinha sentinela quebraria
-	// o próprio ambiente que o reset existe para recriar.
-	"core.rancho": "cadastro de ponto de produção/serviço — sentinela do ambiente, não dado do treinando",
 	"core.units": "sentinela do ambiente de treino — preservada por definição",
 	// Roster de ranchos é CADASTRO, como as sentinelas acima — criar rancho exige `admin:2`,
 	// que o Conjunto Treino não concede, então o treinando não gera linha aqui. O que ele
