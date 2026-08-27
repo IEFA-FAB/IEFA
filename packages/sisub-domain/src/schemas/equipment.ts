@@ -173,6 +173,10 @@ export const CreateEquipmentUnitSchema = z.object({
 	/** Override do modelo (cuba interditada, boca queimada). null = herda do modelo. */
 	simultaneousSlots: z.number().int().positive().nullish(),
 	acquiredOn: DateSchema.nullish(),
+	/** Patrimônio: quando entrou em operação, até quando tem garantia, de quem veio. */
+	installedOn: DateSchema.nullish(),
+	warrantyUntil: DateSchema.nullish(),
+	supplier: z.string().max(200).nullish(),
 	notes: z.string().max(2000).nullish(),
 	roleOverrides: z.array(UnitRoleOverrideSchema).default([]),
 })
@@ -187,6 +191,9 @@ export const UpdateEquipmentUnitSchema = z.object({
 	status: EquipmentUnitStatusSchema.nullish(),
 	simultaneousSlots: z.number().int().positive().nullish(),
 	acquiredOn: DateSchema.nullish(),
+	installedOn: DateSchema.nullish(),
+	warrantyUntil: DateSchema.nullish(),
+	supplier: z.string().max(200).nullish(),
 	notes: z.string().max(2000).nullish(),
 	/** Quando presente, SUBSTITUI as exceções de papel da unidade. Ausente = mantém. */
 	roleOverrides: z.array(UnitRoleOverrideSchema).nullish(),

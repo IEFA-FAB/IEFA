@@ -9,13 +9,14 @@
 
 import { describe, expect, test } from "bun:test"
 import { dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
+import { equipmentTools } from "./equipment.ts"
 import { kitchenTools } from "./kitchens.ts"
 import { mealTypeTools } from "./meal-types.ts"
 import { planningTools } from "./planning.ts"
 import { recipeTools } from "./recipes.ts"
 import { templateTools } from "./templates.ts"
 
-const allTools = [...planningTools, ...kitchenTools, ...mealTypeTools, ...recipeTools, ...templateTools]
+const allTools = [...planningTools, ...kitchenTools, ...mealTypeTools, ...recipeTools, ...templateTools, ...equipmentTools]
 
 type JsonProp = { type?: unknown; format?: string; enum?: unknown[]; anyOf?: { type?: unknown }[] }
 

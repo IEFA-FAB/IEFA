@@ -21,6 +21,7 @@ import {
 	saveRecipeFlow,
 	updateEquipmentUnit,
 } from "@iefa/sisub-domain"
+import { agentCheckRecipeEquipment, agentGetRecipeEquipment, agentListKitchenEquipment } from "@iefa/sisub-domain/agent"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -338,6 +339,62 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(meal.targets[0].satisfied).toBe(1)
 		expect(meal.targets[0].competing_items).toHaveLength(2)
 		expect(meal.delegated).toBe(false)
+	}, 45_000)
+
+	test("projeção de agente: parque vazio é 'não cadastrado', não 'faltando'", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const { id: kitchenId } = await seeder.seedKitchen()
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+
+		// Cozinha sem nenhuma unidade: o modelo precisa distinguir os dois estados, senão
+		// responde "falta forno" para toda a FAB no dia em que o recurso nasce.
+		const check = await agentCheckRecipeEquipment(db, ctx, { recipeId, kitchenId, portions: null })
+		expect(check.park_not_registered).toBe(true)
+		expect(check.satisfied).toBe(false)
+		expect(check.missing.map((m) => m.target)).toEqual([oven.name])
+
+		// A projeção fala em RÓTULO, nunca em uuid — uuid não vira resposta.
+		const requirements = await agentGetRecipeEquipment(db, ctx, { recipeId })
+		expect(requirements.total).toBe(1)
+		expect(requirements.items[0]).toMatchObject({ target: oven.name, target_kind: "papel", scaling: "por batelada" })
+
+		const parque = await agentListKitchenEquipment(db, ctx, { kitchenId, includeInactive: null, limit: null })
+		expect(parque.total).toBe(0)
+		expect(parque.limit).toBeGreaterThan(0)
+	}, 45_000)
+
+	test("projeção de agente: volume vira rodadas, e o multifuncional aparece com suas funções", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const griddle = await seedRole(db, seeder, "chapa")
+		const model = await seedModel(db, seeder, [oven.id, griddle.id], 2)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Multi "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+
+		const parque = await agentListKitchenEquipment(db, ctx, { kitchenId, includeInactive: null, limit: null })
+		expect(parque.items[0].roles.sort()).toEqual([griddle.name, oven.name].sort())
+		expect(parque.items[0].slots).toBe(2)
+
+		const check = await agentCheckRecipeEquipment(db, ctx, { recipeId, kitchenId, portions: 500 })
+		expect(check.satisfied).toBe(true)
+		expect(check.park_not_registered).toBe(false)
+		expect(check.volume).toMatchObject({ batches: 5, cycles: 3 }) // 2 zonas → 2 bateladas por vez
 	}, 45_000)
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {

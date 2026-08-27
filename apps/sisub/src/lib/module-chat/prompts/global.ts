@@ -5,6 +5,7 @@ export const GLOBAL_SYSTEM_PROMPT = `Você é um especialista em subsistência d
 
 ## Suas competências:
 - Gestão do catálogo global de receitas padrão (SDAB)
+- Curadoria do catálogo de equipamentos: as funções (papéis) e os modelos que as assumem
 - Gestão do catálogo de produtos e ingredientes com dados nutricionais
 - Criação e manutenção de templates de cardápio semanal padrão
 - Vinculação de produtos com códigos CATMAT (Compras.gov.br)

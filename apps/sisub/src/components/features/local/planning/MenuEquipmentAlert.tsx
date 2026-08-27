@@ -20,6 +20,10 @@ export function MenuEquipmentAlert({ dailyMenuId }: { dailyMenuId: string | unde
 
 	// Silêncio quando atende: aviso que aparece sempre vira ruído e deixa de ser lido.
 	if (!data || data.satisfied || data.targets.length === 0) return null
+	// Silêncio também quando a cozinha não cadastrou parque: aí a falta é de cadastro, não de
+	// equipamento, e um alerta vermelho em cada refeição do dia em que o recurso nasce só
+	// ensina o usuário a ignorar o alerta.
+	if (data.units_considered === 0) return null
 
 	return (
 		<Alert>

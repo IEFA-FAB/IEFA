@@ -15,10 +15,44 @@ export {
 	MAX_TOOL_RESULT_CHARS,
 	PayloadTooLargeError,
 } from "./budget.ts"
+export type {
+	AgentEquipmentCatalog,
+	AgentEquipmentCatalogEntry,
+	AgentEquipmentFitness,
+	AgentEquipmentRequirement,
+	AgentEquipmentUnit,
+	AgentKitchenEquipment,
+	AgentMenuEquipmentFitness,
+} from "./equipment.ts"
+export {
+	agentCheckMenuEquipment,
+	agentCheckRecipeEquipment,
+	agentGetRecipeEquipment,
+	agentListEquipmentCatalog,
+	agentListKitchenEquipment,
+} from "./equipment.ts"
 export type { AgentDailyMenu, AgentMenuItem, AgentTemplateItem } from "./menus.ts"
 export { agentFetchDayMenus, agentFetchMenus, agentGetTemplateItems } from "./menus.ts"
 export { dropUnexpectedNulls } from "./model-input.ts"
 export type { AgentIngredientSummary, AgentList, AgentRecipeDetail, AgentRecipeIngredient, AgentRecipeSummary } from "./reads.ts"
 export { agentGetRecipe, agentListIngredients, agentListPreparations, agentListRecipes } from "./reads.ts"
-export type { AgentListIngredients, AgentListPreparations, AgentListRecipes } from "./schemas.ts"
-export { AgentListIngredientsSchema, AgentListPreparationsSchema, AgentListRecipesSchema } from "./schemas.ts"
+export type {
+	AgentCheckMenuEquipment,
+	AgentCheckRecipeEquipment,
+	AgentListEquipmentCatalog,
+	AgentListIngredients,
+	AgentListKitchenEquipment,
+	AgentListPreparations,
+	AgentListRecipes,
+	AgentRecipeEquipment,
+} from "./schemas.ts"
+export {
+	AgentCheckMenuEquipmentSchema,
+	AgentCheckRecipeEquipmentSchema,
+	AgentListEquipmentCatalogSchema,
+	AgentListIngredientsSchema,
+	AgentListKitchenEquipmentSchema,
+	AgentListPreparationsSchema,
+	AgentListRecipesSchema,
+	AgentRecipeEquipmentSchema,
+} from "./schemas.ts"

@@ -112,6 +112,12 @@ export interface RecipeEquipmentFitnessWire {
 	unspecified: boolean
 	/** Cozinha cujo parque foi avaliado — pode não ser a pedida. */
 	producing_kitchen_id: number
+	/**
+	 * Unidades ATIVAS consideradas. Zero significa "esta cozinha ainda não cadastrou parque" —
+	 * estado diferente de "o parque é insuficiente", e a tela precisa distinguir: acusar falta
+	 * de forno para quem nunca cadastrou nada é acusar todo mundo no dia em que o recurso nasce.
+	 */
+	units_considered: number
 	/** true = quem produz é outra cozinha; a UI precisa dizer isso. */
 	delegated: boolean
 	/** Volume pedido, quando informado. null = só a pergunta funcional foi respondida. */
@@ -608,6 +614,9 @@ export async function createEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 					status: input.status,
 					simultaneousSlots: input.simultaneousSlots ?? null,
 					acquiredOn: input.acquiredOn ?? null,
+					installedOn: input.installedOn ?? null,
+					warrantyUntil: input.warrantyUntil ?? null,
+					supplier: input.supplier ?? null,
 					notes: input.notes ?? null,
 				})
 				.returning()
@@ -672,6 +681,9 @@ export async function updateEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 		if (input.status != null) patch.status = input.status
 		if (input.simultaneousSlots !== undefined) patch.simultaneousSlots = input.simultaneousSlots ?? null
 		if (input.acquiredOn !== undefined) patch.acquiredOn = input.acquiredOn ?? null
+		if (input.installedOn !== undefined) patch.installedOn = input.installedOn ?? null
+		if (input.warrantyUntil !== undefined) patch.warrantyUntil = input.warrantyUntil ?? null
+		if (input.supplier !== undefined) patch.supplier = input.supplier ?? null
 		if (input.notes !== undefined) patch.notes = input.notes ?? null
 
 		const [row] = await mutateOrFail("UPDATE_FAILED", "equipamento não encontrado", () =>
@@ -994,6 +1006,7 @@ export async function evaluateRecipeEquipmentFitness(
 	const empty = {
 		producing_kitchen_id: producingKitchenId,
 		delegated,
+		units_considered: 0,
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1054,6 +1067,7 @@ export async function evaluateRecipeEquipmentFitness(
 		unspecified: false,
 		producing_kitchen_id: producingKitchenId,
 		delegated,
+		units_considered: units.length,
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1221,6 +1235,8 @@ export interface MenuEquipmentFitnessWire {
 	kitchen_id: number
 	producing_kitchen_id: number
 	delegated: boolean
+	/** Unidades ATIVAS consideradas. Zero = parque não cadastrado, não parque insuficiente. */
+	units_considered: number
 	/** true = no pior caso (tudo ao mesmo tempo) o parque atende a refeição inteira. */
 	satisfied: boolean
 	missing_total: number
@@ -1357,6 +1373,7 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 		kitchen_id: kitchenId,
 		producing_kitchen_id: producingKitchenId,
 		delegated,
+		units_considered: units.length,
 		satisfied: fitness.missingTotal === 0,
 		missing_total: fitness.missingTotal,
 		targets,

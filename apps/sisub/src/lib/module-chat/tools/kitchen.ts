@@ -5,11 +5,19 @@
 
 import { toJsonSchema } from "@iefa/sisub-domain"
 import {
+	AgentCheckMenuEquipmentSchema,
+	AgentCheckRecipeEquipmentSchema,
+	AgentListKitchenEquipmentSchema,
 	AgentListRecipesSchema,
+	AgentRecipeEquipmentSchema,
+	agentCheckMenuEquipment,
+	agentCheckRecipeEquipment,
 	agentFetchDayMenus,
 	agentFetchMenus,
 	agentGetRecipe,
+	agentGetRecipeEquipment,
 	agentGetTemplateItems,
+	agentListKitchenEquipment,
 	agentListRecipes,
 	clampLimit,
 } from "@iefa/sisub-domain/agent"
@@ -520,6 +528,63 @@ O template deve ser global ou da mesma cozinha.`,
 	},
 }
 
+// ── Equipamento ─────────────────────────────────────────────────────────────
+//
+// Três perguntas distintas de propósito. Deixar o modelo cruzar o parque com a lista mínima
+// em prosa seria pedir que ele refizesse o emparelhamento — e ele erraria justamente onde o
+// cálculo é sutil: o multifuncional que sabe quatro papéis mas exerce dois por vez, e o
+// volume, que vira RODADAS do mesmo forno e não mais fornos.
+
+const listKitchenEquipmentTool: ModuleToolDefinition = {
+	name: "list_kitchen_equipment",
+	description:
+		"Lista o parque de equipamentos instalado numa cozinha: como cada um é chamado, o modelo, a capacidade, as funções que ele assume e quantas zonas independentes tem (um iVario Pro 2-S tem duas cubas: assume várias funções, duas por vez).",
+	parameters: toJsonSchema(AgentListKitchenEquipmentSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		const input = AgentListKitchenEquipmentSchema.parse(args)
+		const { items, ...rest } = await agentListKitchenEquipment(ctx.db, domainCtx(ctx), input)
+		return toolOk({ equipment: items, ...rest })
+	},
+}
+
+const getRecipeEquipmentTool: ModuleToolDefinition = {
+	name: "get_recipe_equipment",
+	description:
+		"Lista o que UMA BATELADA de uma preparação exige de equipamento (papel ou modelo específico, quantidade, capacidade mínima). Volume não muda esta lista: 900 porções de uma receita que rende 100 são nove rodadas do mesmo forno, não nove fornos.",
+	parameters: toJsonSchema(AgentRecipeEquipmentSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		const input = AgentRecipeEquipmentSchema.parse(args)
+		const { items, ...counts } = await agentGetRecipeEquipment(ctx.db, domainCtx(ctx), input)
+		return toolOk({ requirements: items, ...counts })
+	},
+}
+
+const checkRecipeEquipmentTool: ModuleToolDefinition = {
+	name: "check_recipe_equipment",
+	description:
+		"Verifica se uma cozinha consegue produzir uma preparação: o que falta de equipamento e, quando as porções são informadas, em quantas rodadas o volume cabe. Distingue 'parque não cadastrado' de 'parque insuficiente' — não afirme falta quando a cozinha ainda não cadastrou nada.",
+	parameters: toJsonSchema(AgentCheckRecipeEquipmentSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		const input = AgentCheckRecipeEquipmentSchema.parse(args)
+		return toolOk(await agentCheckRecipeEquipment(ctx.db, domainCtx(ctx), input))
+	},
+}
+
+const checkMenuEquipmentTool: ModuleToolDefinition = {
+	name: "check_menu_equipment",
+	description:
+		"Verifica a disputa de equipamento entre as preparações da MESMA refeição: cada ficha isolada pode caber, e o almoço com três pratos pedindo forno combinado numa cozinha com um forno não cabe. Devolve quais preparações competem por cada equipamento.",
+	parameters: toJsonSchema(AgentCheckMenuEquipmentSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		const input = AgentCheckMenuEquipmentSchema.parse(args)
+		return toolOk(await agentCheckMenuEquipment(ctx.db, domainCtx(ctx), input))
+	},
+}
+
 // ── Export ───────────────────────────────────────────────────────────────────
 
 export const kitchenTools: ModuleToolDefinition[] = [
@@ -536,4 +601,8 @@ export const kitchenTools: ModuleToolDefinition[] = [
 	listMenuTemplates,
 	getTemplateItems,
 	applyTemplate,
+	listKitchenEquipmentTool,
+	getRecipeEquipmentTool,
+	checkRecipeEquipmentTool,
+	checkMenuEquipmentTool,
 ]

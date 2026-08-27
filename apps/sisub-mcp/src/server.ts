@@ -25,6 +25,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"
 import { resolveCredential } from "./auth.ts"
 import { getDataClient } from "./supabase.ts"
+import { equipmentTools } from "./tools/equipment.ts"
 import { kitchenTools } from "./tools/kitchens.ts"
 import { mealTypeTools } from "./tools/meal-types.ts"
 import { planningTools } from "./tools/planning.ts"
@@ -33,7 +34,7 @@ import { enforceToolResultBudget } from "./tools/shared.ts"
 import { templateTools } from "./tools/templates.ts"
 
 // Todas as tools registradas
-const allTools = [...planningTools, ...templateTools, ...recipeTools, ...mealTypeTools, ...kitchenTools]
+const allTools = [...planningTools, ...templateTools, ...recipeTools, ...mealTypeTools, ...kitchenTools, ...equipmentTools]
 
 // ---------------------------------------------------------------------------
 // Factory
