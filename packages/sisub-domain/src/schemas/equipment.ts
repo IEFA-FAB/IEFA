@@ -203,6 +203,122 @@ export type UpdateEquipmentUnit = z.infer<typeof UpdateEquipmentUnitSchema>
 export const DeleteEquipmentUnitSchema = z.object({ unitId: UuidSchema })
 export type DeleteEquipmentUnit = z.infer<typeof DeleteEquipmentUnitSchema>
 
+// ── Pane ──────────────────────────────────────────────────────────────────
+
+export const ListEquipmentIssuesSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	unitId: UuidSchema.nullish(),
+	/** Só as que ainda pesam (`open`/`in_repair`). false = histórico completo. */
+	onlyOpen: z.boolean().default(true),
+	limit: z.number().int().positive().max(500).default(100),
+})
+export type ListEquipmentIssues = z.infer<typeof ListEquipmentIssuesSchema>
+
+export const ReportEquipmentIssueSchema = z.object({
+	unitId: UuidSchema,
+	severity: EquipmentIssueSeveritySchema,
+	category: EquipmentIssueCategorySchema.default("other"),
+	/** Obrigatória: "quebrou" sem descrição não dá para nenhum gestor agir. */
+	description: z.string().min(1).max(2000),
+})
+export type ReportEquipmentIssue = z.infer<typeof ReportEquipmentIssueSchema>
+
+/**
+ * Transição de pane. `status` é o campo do ciclo; `severity` existe porque a gestão pode
+ * reclassificar ("não é que não liga, é que aquece devagar") sem abrir outra pane.
+ */
+export const UpdateEquipmentIssueSchema = z.object({
+	issueId: UuidSchema,
+	status: EquipmentIssueStatusSchema.nullish(),
+	severity: EquipmentIssueSeveritySchema.nullish(),
+	resolutionNote: z.string().max(2000).nullish(),
+})
+export type UpdateEquipmentIssue = z.infer<typeof UpdateEquipmentIssueSchema>
+
+// ── Manutenção ────────────────────────────────────────────────────────────
+
+export const ListMaintenancePlansSchema = z.object({
+	/** null = só os planos globais. Preenchido = globais + os da cozinha. */
+	kitchenId: KitchenIdSchema.nullish(),
+	roleId: UuidSchema.nullish(),
+	modelId: UuidSchema.nullish(),
+	limit: z.number().int().positive().max(500).default(200),
+})
+export type ListMaintenancePlans = z.infer<typeof ListMaintenancePlansSchema>
+
+/** Planos que valem para UMA unidade, resolvidos pelos papéis EFETIVOS dela. */
+export const ListApplicablePlansSchema = z.object({ unitId: UuidSchema })
+export type ListApplicablePlans = z.infer<typeof ListApplicablePlansSchema>
+
+const MaintenancePlanFieldsSchema = z.object({
+	title: z.string().min(1).max(200),
+	kind: MaintenanceKindSchema.default("preventive"),
+	intervalDays: z.number().int().positive().max(3650),
+	toleranceDays: z.number().int().nonnegative().max(365).default(0),
+	instructions: z.string().max(4000).nullish(),
+	estimatedMinutes: z.number().int().positive().max(10_000).nullish(),
+	isRequired: z.boolean().default(true),
+	sortOrder: z.number().int().nonnegative().default(100),
+})
+
+/**
+ * Âncora XOR, igual à exigência da preparação: a rotina é do PAPEL (toda coifa, de qualquer
+ * marca) ou de um MODELO (a guarnição daquele forno). O refine espelha o CHECK
+ * `equipment_maintenance_plan_target_xor` — rejeitar aqui dá mensagem; deixar chegar no banco dá 23514.
+ *
+ * `toleranceDays < intervalDays` também é CHECK no banco: folga maior que o próprio período
+ * tornaria a rotina inalcançável — ela nunca venceria.
+ */
+export const CreateMaintenancePlanSchema = MaintenancePlanFieldsSchema.extend({
+	roleId: UuidSchema.nullish(),
+	modelId: UuidSchema.nullish(),
+	/** null = plano global (Catálogo Global). Preenchido = rotina da própria cozinha. */
+	kitchenId: KitchenIdSchema.nullish(),
+})
+	.refine((v) => (v.roleId == null) !== (v.modelId == null), { message: "Informe roleId OU modelId, nunca os dois" })
+	.refine((v) => v.toleranceDays < v.intervalDays, { message: "toleranceDays deve ser menor que intervalDays" })
+export type CreateMaintenancePlan = z.infer<typeof CreateMaintenancePlanSchema>
+
+export const UpdateMaintenancePlanSchema = z.object({
+	planId: UuidSchema,
+	title: z.string().min(1).max(200).nullish(),
+	kind: MaintenanceKindSchema.nullish(),
+	intervalDays: z.number().int().positive().max(3650).nullish(),
+	toleranceDays: z.number().int().nonnegative().max(365).nullish(),
+	instructions: z.string().max(4000).nullish(),
+	estimatedMinutes: z.number().int().positive().max(10_000).nullish(),
+	isRequired: z.boolean().nullish(),
+	sortOrder: z.number().int().nonnegative().nullish(),
+})
+export type UpdateMaintenancePlan = z.infer<typeof UpdateMaintenancePlanSchema>
+
+export const DeleteMaintenancePlanSchema = z.object({ planId: UuidSchema })
+export type DeleteMaintenancePlan = z.infer<typeof DeleteMaintenancePlanSchema>
+
+export const LogMaintenanceSchema = z.object({
+	unitId: UuidSchema,
+	/** null = corretiva/avulsa. A maioria da manutenção real não corresponde a plano nenhum. */
+	planId: UuidSchema.nullish(),
+	/** Pane que originou o conserto. Fecha o ciclo relato → conserto. */
+	issueId: UuidSchema.nullish(),
+	kind: MaintenanceLogKindSchema.default("preventive"),
+	performedOn: DateSchema,
+	provider: MaintenanceProviderSchema.default("in_house"),
+	cost: z.number().nonnegative().nullish(),
+	notes: z.string().max(2000).nullish(),
+	/** Encerra a pane de `issueId` como resolvida no mesmo movimento. Exige `kitchen:2`. */
+	resolveIssue: z.boolean().default(false),
+})
+export type LogMaintenance = z.infer<typeof LogMaintenanceSchema>
+
+export const ListMaintenanceLogsSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	unitId: UuidSchema.nullish(),
+	planId: UuidSchema.nullish(),
+	limit: z.number().int().positive().max(500).default(100),
+})
+export type ListMaintenanceLogs = z.infer<typeof ListMaintenanceLogsSchema>
+
 // ── Exigência da preparação ───────────────────────────────────────────────
 
 export const EQUIPMENT_SCALING = ["per_batch", "fixed"] as const

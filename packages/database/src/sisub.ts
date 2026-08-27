@@ -285,6 +285,18 @@ export type EquipmentUnitRole = Tables<"equipment_unit_role">
 export type EquipmentUnitRoleInsert = TablesInsert<"equipment_unit_role">
 export type EquipmentUnitRoleUpdate = TablesUpdate<"equipment_unit_role">
 
+export type EquipmentIssue = Tables<"equipment_issue">
+export type EquipmentIssueInsert = TablesInsert<"equipment_issue">
+export type EquipmentIssueUpdate = TablesUpdate<"equipment_issue">
+
+export type EquipmentMaintenancePlan = Tables<"equipment_maintenance_plan">
+export type EquipmentMaintenancePlanInsert = TablesInsert<"equipment_maintenance_plan">
+export type EquipmentMaintenancePlanUpdate = TablesUpdate<"equipment_maintenance_plan">
+
+export type EquipmentMaintenanceLog = Tables<"equipment_maintenance_log">
+export type EquipmentMaintenanceLogInsert = TablesInsert<"equipment_maintenance_log">
+export type EquipmentMaintenanceLogUpdate = TablesUpdate<"equipment_maintenance_log">
+
 export type RecipeEquipmentRequirement = Tables<"recipe_equipment_requirement">
 export type RecipeEquipmentRequirementInsert = TablesInsert<"recipe_equipment_requirement">
 export type RecipeEquipmentRequirementUpdate = TablesUpdate<"recipe_equipment_requirement">

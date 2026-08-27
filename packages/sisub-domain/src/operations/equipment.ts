@@ -34,7 +34,7 @@ import {
 import type { EquipmentModel, EquipmentModelRole, EquipmentRole, EquipmentUnit, EquipmentUnitRole, RecipeEquipmentRequirement } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
-import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen, requireKitchenFloorWrite, requirePermission } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveProducingKitchen } from "../guards/validate-scope.ts"
 import type {
 	CreateEquipmentModel,
@@ -43,6 +43,7 @@ import type {
 	DeleteEquipmentModel,
 	DeleteEquipmentRole,
 	DeleteEquipmentUnit,
+	EquipmentUnitStatus,
 	EvaluateMenuEquipmentFitness,
 	EvaluateRecipeEquipmentFitness,
 	FetchRecipeEquipment,
@@ -58,6 +59,7 @@ import type {
 } from "../schemas/equipment.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
+import { type ConditionIssue, deriveEquipmentCondition, type EquipmentCondition, isUnitUnavailable } from "../utils/equipment-condition.ts"
 import {
 	type ConcurrencyRow,
 	type EquipmentDemandSpec,
@@ -69,6 +71,7 @@ import {
 } from "../utils/equipment-matching.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
 import { computeStepLevels, type FlowGraphStep } from "../utils/recipe-flow-graph.ts"
+import { type EquipmentIssueWire, loadKitchenIssues } from "./equipment-maintenance.ts"
 
 // ── Contrato de retorno ───────────────────────────────────────────────────
 
@@ -82,6 +85,14 @@ export type EquipmentUnitWire = EquipmentUnit & {
 	effective_role_ids: string[]
 	/** Zonas independentes efetivas: override da unidade, senão o do modelo. */
 	effective_slots: number
+	/**
+	 * Condição DERIVADA de `status` + panes abertas (`utils/equipment-condition.ts`). Não existe
+	 * coluna correspondente: um campo gravado ao lado de `status` seria uma segunda verdade sobre
+	 * o mesmo fato, e a divergência viraria o estado normal do sistema.
+	 */
+	condition: EquipmentCondition
+	/** Panes que ainda pesam (`open`/`in_repair`). Vazio na maioria das unidades. */
+	open_issues: EquipmentIssueWire[]
 }
 export type RecipeEquipmentRequirementWire = RecipeEquipmentRequirement & {
 	role: EquipmentRole | null
@@ -513,7 +524,23 @@ export async function deleteEquipmentModel(db: SisubDb, ctx: UserContext, input:
 // ── Parque instalado ──────────────────────────────────────────────────────
 
 /** Monta o wire da unidade: modelo hidratado, exceções de papel e papéis/slots efetivos. */
-function toUnitWire(unit: typeof equipmentUnitInKitchen.$inferSelect, model: EquipmentModelWire | null, overrides: EquipmentUnitRole[]): EquipmentUnitWire {
+/**
+ * Wire (snake_case) → contrato da condição (camelCase).
+ *
+ * Explícito de propósito: `ConditionIssue.deletedAt` e `EquipmentIssueWire.deleted_at` são o
+ * mesmo fato com nomes diferentes, e passar o wire direto compilaria — `deletedAt` é opcional —
+ * deixando a guarda de soft delete calada para sempre.
+ */
+function toConditionIssue(issue: EquipmentIssueWire): ConditionIssue {
+	return { severity: issue.severity, status: issue.status, deletedAt: issue.deleted_at }
+}
+
+function toUnitWire(
+	unit: typeof equipmentUnitInKitchen.$inferSelect,
+	model: EquipmentModelWire | null,
+	overrides: EquipmentUnitRole[],
+	openIssues: EquipmentIssueWire[] = []
+): EquipmentUnitWire {
 	const modelRoleIds = (model?.roles ?? []).map((r) => r.role_id)
 	return {
 		...toWire<EquipmentUnit>(unit),
@@ -524,6 +551,8 @@ function toUnitWire(unit: typeof equipmentUnitInKitchen.$inferSelect, model: Equ
 			overrides.map((o) => ({ roleId: o.role_id, available: o.available }))
 		),
 		effective_slots: unit.simultaneousSlots ?? model?.simultaneous_slots ?? 1,
+		condition: deriveEquipmentCondition(unit.status as EquipmentUnitStatus, openIssues.map(toConditionIssue)),
+		open_issues: openIssues,
 	}
 }
 
@@ -578,7 +607,26 @@ async function loadKitchenUnits(db: SisubDb, input: ListKitchenEquipment): Promi
 		overridesByUnit.set(row.unitId, list)
 	}
 
-	return units.map((u) => toUnitWire(u, modelById.get(u.modelId) ?? null, overridesByUnit.get(u.id) ?? []))
+	// Panes ABERTAS da cozinha: entram na condição de cada unidade e decidem o filtro abaixo.
+	const openIssues = await loadKitchenIssues(db, { kitchenId: input.kitchenId, unitId: null, onlyOpen: true, limit: 500 })
+	const issuesByUnit = new Map<string, EquipmentIssueWire[]>()
+	for (const issue of openIssues) {
+		const list = issuesByUnit.get(issue.unit_id) ?? []
+		list.push(issue)
+		issuesByUnit.set(issue.unit_id, list)
+	}
+
+	const wires = units.map((u) => toUnitWire(u, modelById.get(u.modelId) ?? null, overridesByUnit.get(u.id) ?? [], issuesByUnit.get(u.id) ?? []))
+
+	// Regra R3: a pane INOPERANTE aberta tira a unidade do parque considerado, do mesmo modo que
+	// `status <> 'active'` — é o que faz o relato da praça valer alguma coisa. Sem isto a cozinha
+	// registra que o forno quebrou e o planejamento segue prometendo assado para 900 pessoas.
+	// `degraded` NÃO tira: "dá para usar com limitação" continua sendo dá para usar.
+	//
+	// O predicado é `isUnitUnavailable`, o MESMO que a tela usa para pintar o cartão — e não um
+	// segundo teste sobre `status` + panes, que divergiria na primeira severidade nova.
+	if (input.includeInactive) return wires
+	return wires.filter((w) => !isUnitUnavailable(w.status as EquipmentUnitStatus, w.open_issues.map(toConditionIssue)))
 }
 
 /** O modelo precisa ser visível para a cozinha: global ou dela. Impede vazamento entre cozinhas. */
@@ -593,8 +641,19 @@ async function assertModelVisible(db: SisubDb, modelId: string, kitchenId: numbe
 	if (model.kitchenId != null && model.kitchenId !== kitchenId) throw new NotFoundError("equipment_model", modelId)
 }
 
+/**
+ * Cadastra uma unidade no parque.
+ *
+ * Regra R5: aceita `kitchen:2` OU `kitchen-production:1` — quem sabe o que está instalado na
+ * praça é quem trabalha nela, e exigir a gestão para cadastrar garante parque desatualizado.
+ * Editar, mudar `status`, dar baixa e excluir seguem exigindo `kitchen:2` (ver
+ * `authorizeUnitMutation`), e a metade negativa está provada em `equipment.authz.test.ts`.
+ */
 export async function createEquipmentUnit(db: SisubDb, ctx: UserContext, input: CreateEquipmentUnit): Promise<EquipmentUnitWire> {
-	requireKitchen(ctx, 2, input.kitchenId)
+	requireKitchenFloorWrite(ctx, input.kitchenId)
+	// A praça cadastra o que EXISTE; declarar a unidade já em manutenção ou baixada é decisão
+	// administrativa, e o `status` é o campo que a gestão usa para tirar equipamento do cálculo.
+	if (input.status !== "active") requireKitchen(ctx, 2, input.kitchenId)
 	await assertModelVisible(db, input.modelId, input.kitchenId)
 	await assertRolesExist(
 		db,
@@ -645,10 +704,12 @@ async function hydrateUnit(db: SisubDb, unit: typeof equipmentUnitInKitchen.$inf
 			.from(equipmentUnitRoleInKitchen)
 			.where(and(eq(equipmentUnitRoleInKitchen.unitId, unit.id), isNull(equipmentUnitRoleInKitchen.deletedAt)))
 	)
+	const openIssues = await loadKitchenIssues(db, { kitchenId: unit.kitchenId, unitId: unit.id, onlyOpen: true, limit: 100 })
 	return toUnitWire(
 		unit,
 		model ? toModelWire(model, roles.get(unit.modelId) ?? []) : null,
-		overrides.map((o) => toWire<EquipmentUnitRole>(o))
+		overrides.map((o) => toWire<EquipmentUnitRole>(o)),
+		openIssues
 	)
 }
 

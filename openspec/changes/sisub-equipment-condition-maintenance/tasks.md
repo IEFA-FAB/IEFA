@@ -27,14 +27,14 @@
 
 ## Fase 3 — Operations
 
-- [ ] 3.1 [packages/sisub-domain] Schemas Zod de pane e manutenção em `schemas/equipment.ts` (enums exportados como `const` + `z.enum`, no padrão do arquivo).
-- [ ] 3.2 [packages/sisub-domain] Operations de pane: `listEquipmentIssues`, `reportEquipmentIssue`, `updateEquipmentIssue` (resolver/descartar/`in_repair`). Guards de R5, dono lido da linha e nunca do input.
-- [ ] 3.3 [packages/sisub-domain] Operations de manutenção: `listMaintenancePlans`, `createMaintenancePlan`, `updateMaintenancePlan`, `deleteMaintenancePlan`, `logMaintenance`, `listMaintenanceLogs`.
-- [ ] 3.4 [packages/sisub-domain] `listApplicablePlans(unitId)` usando o papel **efetivo** da unidade, não o do catálogo.
-- [ ] 3.5 [packages/sisub-domain] `loadKitchenUnits`: filtrar unidade com pane inoperante aberta (R3), incluindo o caminho sem guard usado pelo cálculo de atendimento; expor a condição derivada no `EquipmentUnitWire`.
-- [ ] 3.6 [packages/sisub-domain] Afrouxar `createEquipmentUnit` para `kitchen` 2 **ou** `kitchen-production` 1; deixar `update`/`delete` intactos.
-- [ ] 3.7 [packages/sisub-domain] `equipment.authz.test.ts`: metade positiva e **negativa** de R5, tool a tool.
-- [ ] 3.8 [packages/sisub-domain] `operations/training.ts`: `equipment_issue` e `equipment_maintenance_log` em `RESET_STEPS` **antes** de `kitchen.equipment_unit`; atualizar `training.operations.test.ts`.
+- [x] 3.1 [packages/sisub-domain] Schemas Zod de pane e manutenção em `schemas/equipment.ts`. Os enums já tinham vindo na 2.5; aqui entram os objetos de entrada, com `.nullish()` em todo opcional e os dois `refine` que espelham os CHECK do banco (XOR papel/modelo, `toleranceDays < intervalDays`) — rejeitar no schema dá mensagem, deixar chegar no banco dá `23514`.
+- [x] 3.2 [packages/sisub-domain] Operations de pane em `operations/equipment-maintenance.ts`: `listEquipmentIssues`, `reportEquipmentIssue`, `updateEquipmentIssue`. Encerrar grava autor/data e reabrir limpa os dois; descartar exige justificativa. A cozinha dona vem sempre da unidade lida do banco.
+- [x] 3.3 [packages/sisub-domain] Operations de manutenção: `listMaintenancePlans`, `createMaintenancePlan`, `updateMaintenancePlan`, `deleteMaintenancePlan`, `logMaintenance`, `listMaintenanceLogs`.
+- [x] 3.4 [packages/sisub-domain] `listApplicablePlans(unitId)` pelo papel **efetivo** (`resolveUnitRoleIds`), não pelo do catálogo — unidade com a fritadeira desabilitada não herda a rotina de troca de óleo.
+- [x] 3.5 [packages/sisub-domain] `loadKitchenUnits` filtra pela pane inoperante aberta (R3) usando `isUnitUnavailable` — o MESMO predicado da tela — e o `EquipmentUnitWire` passa a expor `condition` e `open_issues`. O filtro vale também no caminho sem guard usado pelo cálculo de atendimento (cozinha produtora ≠ pedida).
+- [x] 3.6 [packages/sisub-domain] `createEquipmentUnit` aceita `kitchen:2` OU `kitchen-production:1` (guard novo `requireKitchenFloorWrite`). Cadastrar com `status` diferente de `active` continua exigindo `kitchen:2`: declarar equipamento já em manutenção é decisão administrativa.
+- [x] 3.7 [packages/sisub-domain] `equipment.authz.test.ts`: 4 casos positivos e 11 negativos de R5, mais o dono do plano. Não-vacuidade por mutação: 5 mutações, e **uma sobreviveu na primeira rodada** — o stub não dava `kitchenId` à unidade da pane, então os dois testes de "produção não encerra pane" recusavam por escopo e passariam com qualquer guard. Corrigido o stub, o mutante morre.
+- [x] 3.8 [packages/sisub-domain] `RESET_STEPS` — **já feito** nos commits `820e49f4` e `11120405`, que também trataram o plano ancorado em modelo local sem `kitchen_id` (violava a FK no delete do modelo e abortava o reset inteiro).
 
 ## Fase 4 — Agregações de relatório
 
