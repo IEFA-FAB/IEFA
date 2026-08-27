@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FileBarChart, Loader2, Plus } from "lucide-react"
 import { motion } from "motion/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { HubLayout } from "#/components/hub-layout"
 import { ToolCard } from "#/components/tool-card"
-import { useSearchQuery } from "#/lib/hub-store"
+import { useHubFilters } from "#/lib/hub-filters"
 import type { Tool } from "#/lib/types"
 import { createReportFn, deleteReportFn, listReportsFn } from "#/server/reports.fn"
 
@@ -15,9 +15,12 @@ export const Route = createFileRoute("/reports")({ component: Reports })
 const reportsQueryKey = ["sucont", "reports"] as const
 
 function Reports() {
-	const searchQuery = useSearchQuery()
+	const { query } = useHubFilters()
+	const searchQuery = query
 	const queryClient = useQueryClient()
 	const [isAdding, setIsAdding] = useState(false)
+	// Exclusão é definitiva e sem desfazer: passa por confirmação explícita.
+	const [pendingDelete, setPendingDelete] = useState<Tool | null>(null)
 
 	const { data: reports = [], isLoading } = useQuery({
 		queryKey: reportsQueryKey,
@@ -38,7 +41,10 @@ function Reports() {
 
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => deleteReportFn({ data: { id } }),
-		onSuccess: invalidate,
+		onSuccess: () => {
+			setPendingDelete(null)
+			invalidate()
+		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir"),
 	})
 
@@ -58,7 +64,7 @@ function Reports() {
 	)
 
 	return (
-		<HubLayout>
+		<HubLayout searchable>
 			<div className="space-y-8">
 				<div className="flex items-center gap-4">
 					<FileBarChart className="text-tech-cyan w-5 h-5" />
@@ -137,11 +143,57 @@ function Reports() {
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 						{filtered.map((report, i) => (
-							<ToolCard key={report.id} tool={report} index={i} onDelete={() => deleteMutation.mutate(report.id)} />
+							<ToolCard key={report.id} tool={report} index={i} onDelete={() => setPendingDelete(report)} />
 						))}
 					</div>
 				)}
 			</div>
+
+			{pendingDelete && (
+				<ConfirmDelete
+					title={pendingDelete.title}
+					isPending={deleteMutation.isPending}
+					onCancel={() => setPendingDelete(null)}
+					onConfirm={() => deleteMutation.mutate(pendingDelete.id)}
+				/>
+			)}
 		</HubLayout>
+	)
+}
+
+function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: string; isPending: boolean; onCancel: () => void; onConfirm: () => void }) {
+	useEffect(() => {
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") onCancel()
+		}
+		document.addEventListener("keydown", onKeyDown)
+		return () => document.removeEventListener("keydown", onKeyDown)
+	}, [onCancel])
+
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+			<button type="button" aria-label="Cancelar exclusão" onClick={onCancel} className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
+			<div role="alertdialog" aria-modal="true" aria-labelledby="confirm-delete-title" className="relative w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
+				<h3 id="confirm-delete-title" className="text-slate-800 font-bold text-sm uppercase mb-2">
+					Excluir relatório
+				</h3>
+				<p className="text-slate-500 text-sm leading-relaxed mb-6">
+					“{title}” sai da lista de todos os operadores da seção. A exclusão é definitiva — não há como desfazer.
+				</p>
+				<div className="flex justify-end gap-2">
+					<button type="button" onClick={onCancel} className="px-4 py-2 text-xs font-bold uppercase text-slate-500 hover:text-slate-800">
+						Cancelar
+					</button>
+					<button
+						type="button"
+						onClick={onConfirm}
+						disabled={isPending}
+						className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg font-bold text-xs uppercase shadow-md hover:bg-red-700 disabled:opacity-60 transition-colors"
+					>
+						{isPending && <Loader2 className="w-3 h-3 animate-spin" />} Excluir
+					</button>
+				</div>
+			</div>
+		</div>
 	)
 }
