@@ -61,6 +61,7 @@ export {
 	listEquipmentModels,
 	listEquipmentRoles,
 	listKitchenEquipment,
+	listProducingKitchenEquipment,
 	saveRecipeEquipment,
 	setUtensilRole,
 	suggestRecipeEquipmentFromFlow,

@@ -120,7 +120,9 @@ export function KitchenEquipmentCondition({ kitchenId }: { kitchenId: number }) 
 														<Button
 															variant="ghost"
 															size="sm"
-															onClick={() => updateIssue.mutate({ issueId: row.issue.id, status: "in_repair", severity: null, resolutionNote: null })}
+															// `resolutionNote` fica FORA do payload: `null` apagaria a justificativa já gravada, e mudar
+															// para "em conserto" não é o momento de perder o que alguém escreveu.
+															onClick={() => updateIssue.mutate({ issueId: row.issue.id, status: "in_repair", severity: null })}
 														>
 															Em conserto
 														</Button>

@@ -355,7 +355,7 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 				<Alert>
 					{fitness.data.satisfied ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
 					<AlertTitle>
-						{fitness.data.units_considered === 0
+						{fitness.data.units_registered === 0
 							? "Esta cozinha ainda não cadastrou equipamentos"
 							: fitness.data.satisfied
 								? "Esta cozinha está equipada"
@@ -364,7 +364,7 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 					<AlertDescription className="space-y-3">
 						{/* Parque vazio não é parque insuficiente: acusar falta de forno para quem nunca
 						    cadastrou nada é acusar toda a FAB no dia em que o recurso nasce. */}
-						{fitness.data.units_considered === 0 ? (
+						{fitness.data.units_registered === 0 ? (
 							<p>
 								A verificação compara esta lista com o parque instalado, e ele está vazio. Cadastre os equipamentos em Gestão Cozinha → Equipamentos para que a
 								conferência passe a valer.

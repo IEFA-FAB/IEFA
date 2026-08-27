@@ -20,14 +20,16 @@ import {
 	equipmentModelRoleInKitchen,
 	equipmentRoleInKitchen,
 	equipmentUnitInKitchen,
+	equipmentUnitRoleInKitchen,
 	kitchenInCore,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, inArray, isNull } from "drizzle-orm"
 import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import type { EquipmentUnitStatus, FleetEquipmentReport, KitchenEquipmentCondition, KitchenMaintenanceMatrix } from "../schemas/equipment.ts"
 import type { UserContext } from "../types/context.ts"
 import { deriveEquipmentCondition, EQUIPMENT_CONDITIONS, type EquipmentCondition, unitCountsForFitness } from "../utils/equipment-condition.ts"
+import { resolveUnitRoleIds } from "../utils/equipment-matching.ts"
 import { runQuery } from "../utils/index.ts"
 import { computeMaintenanceDue, type MaintenanceDue } from "../utils/maintenance-due.ts"
 import { listKitchenEquipment } from "./equipment.ts"
@@ -242,6 +244,17 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 	const kitchens = await runQuery("FETCH_FAILED", () => db.select({ id: kitchenInCore.id, displayName: kitchenInCore.displayName }).from(kitchenInCore))
 	const kitchenName = new Map(kitchens.map((k) => [k.id, k.displayName ?? `Cozinha ${k.id}`]))
 
+	// Denominador do parque vem de TODAS as unidades, antes do filtro: filtrar por um modelo que
+	// ninguém tem zeraria `kitchens_with_park` e a tela diria "nenhuma cozinha cadastrou parque"
+	// para a frota inteira, quando o que não existe é aquele modelo.
+	const allUnits = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: equipmentUnitInKitchen.id, kitchenId: equipmentUnitInKitchen.kitchenId })
+			.from(equipmentUnitInKitchen)
+			.where(isNull(equipmentUnitInKitchen.deletedAt))
+	)
+	const kitchensWithPark = [...new Set(allUnits.map((u) => u.kitchenId))]
+
 	const unitFilters = [isNull(equipmentUnitInKitchen.deletedAt)]
 	if (input.kitchenId != null) unitFilters.push(eq(equipmentUnitInKitchen.kitchenId, input.kitchenId))
 	if (input.modelId != null) unitFilters.push(eq(equipmentUnitInKitchen.modelId, input.modelId))
@@ -285,6 +298,28 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 		}
 	}
 
+	// Papéis EFETIVOS por unidade: o catálogo do modelo mais/menos as exceções da unidade. Usar o
+	// papel do modelo faria a cozinha que desabilitou a fritadeira continuar contando como coberta.
+	const unitIds = units.map((u) => u.id)
+	const overrides = unitIds.length
+		? await runQuery("FETCH_FAILED", () =>
+				db
+					.select()
+					.from(equipmentUnitRoleInKitchen)
+					.where(and(inArray(equipmentUnitRoleInKitchen.unitId, unitIds), isNull(equipmentUnitRoleInKitchen.deletedAt)))
+			)
+		: []
+	const overridesByUnit = new Map<string, { roleId: string; available: boolean }[]>()
+	for (const row of overrides) {
+		const list = overridesByUnit.get(row.unitId) ?? []
+		list.push({ roleId: row.roleId, available: row.available })
+		overridesByUnit.set(row.unitId, list)
+	}
+	const effectiveRolesByUnit = new Map<string, string[]>()
+	for (const unit of units) {
+		effectiveRolesByUnit.set(unit.id, resolveUnitRoleIds(rolesByModel.get(unit.modelId) ?? [], overridesByUnit.get(unit.id) ?? []))
+	}
+
 	// Condição por unidade, pela MESMA função da tela.
 	const conditionByUnit = new Map<string, EquipmentCondition>()
 	for (const unit of units) {
@@ -296,7 +331,7 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 	const coverage: FleetRoleCoverage[] = roles
 		.filter((role) => roleFilter == null || role.id === roleFilter)
 		.map((role) => {
-			const withRole = units.filter((u) => (rolesByModel.get(u.modelId) ?? []).includes(role.id))
+			const withRole = units.filter((u) => (effectiveRolesByUnit.get(u.id) ?? []).includes(role.id))
 			const kitchensWithRole = new Set(withRole.map((u) => u.kitchenId))
 			const kitchensOperational = new Set(withRole.filter((u) => unitCountsForFitness(conditionByUnit.get(u.id) ?? "operational")).map((u) => u.kitchenId))
 			return {
@@ -306,7 +341,7 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 				kitchens_covered: kitchensOperational.size,
 				// Tem o equipamento e ele não serve: é a linha que o gestor precisa ver primeiro.
 				kitchens_down: [...kitchensWithRole].filter((id) => !kitchensOperational.has(id)).length,
-				kitchens_without: kitchenIdsWithPark.filter((id) => !kitchensWithRole.has(id)).length,
+				kitchens_without: kitchensWithPark.filter((id) => !kitchensWithRole.has(id)).length,
 				units_total: withRole.length,
 				units_operational: withRole.filter((u) => unitCountsForFitness(conditionByUnit.get(u.id) ?? "operational")).length,
 			}
@@ -351,7 +386,7 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 
 	return {
 		today,
-		kitchens_with_park: kitchenIdsWithPark.length,
+		kitchens_with_park: kitchensWithPark.length,
 		kitchens_total: kitchens.length,
 		units_total: units.length,
 		coverage,

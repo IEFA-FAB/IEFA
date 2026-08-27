@@ -52,9 +52,15 @@ type ModelFormState = {
 	/** Ficha técnica — colunas que existem desde a migration de condição e não tinham tela. */
 	energySource: string
 	voltage: string
-	requiresHood: boolean
-	waterInlet: boolean
-	drainRequired: boolean
+	/**
+	 * Tri-state em string: "" = não informado, "true"/"false" = respondido.
+	 *
+	 * Booleano puro não representa "não sei", e o toggle transformava NULL em `false` em toda
+	 * edição — dizendo que o forno NÃO exige coifa, sem ninguém ter afirmado isso e sem volta.
+	 */
+	requiresHood: string
+	waterInlet: string
+	drainRequired: string
 	manualUrl: string
 	expectedLifespanYears: string
 }
@@ -70,14 +76,24 @@ const emptyModelForm = (): ModelFormState => ({
 	primaryRoleId: null,
 	energySource: "",
 	voltage: "",
-	requiresHood: false,
-	waterInlet: false,
-	drainRequired: false,
+	requiresHood: TRI_UNKNOWN,
+	waterInlet: TRI_UNKNOWN,
+	drainRequired: TRI_UNKNOWN,
 	manualUrl: "",
 	expectedLifespanYears: "",
 })
 
 const numberOrNull = (value: string): number | null => (value.trim() === "" ? null : Number(value))
+
+/**
+ * Sentinela do "não informado" — string vazia como VALOR de item do Select é armadilha conhecida
+ * no repositório (o mesmo motivo de `NO_FOLDER_VALUE`, `NO_PLAN`, `NO_ENERGY`).
+ */
+const TRI_UNKNOWN = "__unknown__"
+
+const triState = (value: string): boolean | null => (value === TRI_UNKNOWN ? null : value === "true")
+
+const TRI_LABEL: Record<string, string> = { [TRI_UNKNOWN]: "Não informado", true: "Sim", false: "Não" }
 
 /** Sentinela do "não informado" — o Select não representa `null` como valor de item. */
 const NO_ENERGY = "__none__"
@@ -126,9 +142,9 @@ export function EquipmentCatalogManager() {
 			primaryRoleId: model.roles.find((r) => r.is_primary)?.role_id ?? null,
 			energySource: model.energy_source ?? "",
 			voltage: model.voltage ?? "",
-			requiresHood: model.requires_hood === true,
-			waterInlet: model.water_inlet === true,
-			drainRequired: model.drain_required === true,
+			requiresHood: model.requires_hood == null ? TRI_UNKNOWN : String(model.requires_hood),
+			waterInlet: model.water_inlet == null ? TRI_UNKNOWN : String(model.water_inlet),
+			drainRequired: model.drain_required == null ? TRI_UNKNOWN : String(model.drain_required),
 			manualUrl: model.manual_url ?? "",
 			expectedLifespanYears: model.expected_lifespan_years != null ? String(model.expected_lifespan_years) : "",
 		})
@@ -158,9 +174,9 @@ export function EquipmentCatalogManager() {
 			roles,
 			energySource: form.energySource === "" ? null : (form.energySource as "electric"),
 			voltage: form.voltage.trim() === "" ? null : form.voltage.trim(),
-			requiresHood: form.requiresHood,
-			waterInlet: form.waterInlet,
-			drainRequired: form.drainRequired,
+			requiresHood: triState(form.requiresHood),
+			waterInlet: triState(form.waterInlet),
+			drainRequired: triState(form.drainRequired),
 			manualUrl: form.manualUrl.trim() === "" ? null : form.manualUrl.trim(),
 			expectedLifespanYears: numberOrNull(form.expectedLifespanYears),
 		}
@@ -403,16 +419,31 @@ export function EquipmentCatalogManager() {
 							</Field>
 						</div>
 
-						<div className="flex flex-wrap gap-2">
-							<Toggle pressed={form.requiresHood} onPressedChange={(pressed) => setForm((f) => ({ ...f, requiresHood: pressed }))}>
-								Exige coifa
-							</Toggle>
-							<Toggle pressed={form.waterInlet} onPressedChange={(pressed) => setForm((f) => ({ ...f, waterInlet: pressed }))}>
-								Entrada de água
-							</Toggle>
-							<Toggle pressed={form.drainRequired} onPressedChange={(pressed) => setForm((f) => ({ ...f, drainRequired: pressed }))}>
-								Exige ralo
-							</Toggle>
+						{/* Três perguntas de instalação, cada uma com "não informado" explícito. */}
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+							{(
+								[
+									["requiresHood", "Exige coifa"],
+									["waterInlet", "Entrada de água"],
+									["drainRequired", "Exige ralo"],
+								] as const
+							).map(([field, label]) => (
+								<Field key={field}>
+									<FieldLabel htmlFor={`model-${field}`}>{label}</FieldLabel>
+									<FieldContent>
+										<Select value={form[field]} onValueChange={(value) => setForm((f) => ({ ...f, [field]: value as string }))}>
+											<SelectTrigger id={`model-${field}`} className="w-full">
+												<SelectValue>{TRI_LABEL[form[field]]}</SelectValue>
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value={TRI_UNKNOWN}>Não informado</SelectItem>
+												<SelectItem value="true">Sim</SelectItem>
+												<SelectItem value="false">Não</SelectItem>
+											</SelectContent>
+										</Select>
+									</FieldContent>
+								</Field>
+							))}
 						</div>
 
 						<Field>

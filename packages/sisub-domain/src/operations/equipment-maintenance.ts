@@ -322,19 +322,38 @@ export async function createMaintenancePlan(db: SisubDb, ctx: UserContext, input
 }
 
 /** Dono do plano lido da LINHA — nunca do input. Mesma lição de `guards/asset-ownership.ts`. */
-async function authorizePlanMutation(db: SisubDb, ctx: UserContext, planId: string): Promise<void> {
+/** @returns a linha do plano — quem edita precisa dos valores atuais para validar contra eles. */
+async function authorizePlanMutation(
+	db: SisubDb,
+	ctx: UserContext,
+	planId: string
+): Promise<{ kitchenId: number | null; intervalDays: number; toleranceDays: number | null }> {
 	const [plan] = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ kitchenId: equipmentMaintenancePlanInKitchen.kitchenId })
+			.select({
+				kitchenId: equipmentMaintenancePlanInKitchen.kitchenId,
+				intervalDays: equipmentMaintenancePlanInKitchen.intervalDays,
+				toleranceDays: equipmentMaintenancePlanInKitchen.toleranceDays,
+			})
 			.from(equipmentMaintenancePlanInKitchen)
 			.where(and(eq(equipmentMaintenancePlanInKitchen.id, planId), isNull(equipmentMaintenancePlanInKitchen.deletedAt)))
 	)
 	if (!plan) throw new NotFoundError("equipment_maintenance_plan", planId)
 	requirePlanWrite(ctx, plan.kitchenId)
+	return plan
 }
 
 export async function updateMaintenancePlan(db: SisubDb, ctx: UserContext, input: UpdateMaintenancePlan): Promise<MaintenancePlanWire> {
-	await authorizePlanMutation(db, ctx, input.planId)
+	const plan = await authorizePlanMutation(db, ctx, input.planId)
+
+	// Folga < período, contra o valor EFETIVO — o `refine` do Create não alcança a edição, que
+	// muda um campo de cada vez. Sem isto, mexer só na folga deixa a comparação chegar ao banco
+	// como 23514 crua; e folga >= período é uma rotina que nunca vence.
+	const nextInterval = input.intervalDays ?? plan.intervalDays
+	const nextTolerance = input.toleranceDays ?? plan.toleranceDays ?? 0
+	if (nextTolerance >= nextInterval) {
+		throw new DomainError("VALIDATION_FAILED", "a folga precisa ser menor que o período — senão a rotina nunca vence")
+	}
 
 	const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() }
 	if (input.title != null) patch.title = input.title
@@ -389,8 +408,10 @@ export async function logMaintenance(db: SisubDb, ctx: UserContext, input: LogMa
 		requireKitchen(ctx, 2, unit.kitchenId)
 	}
 	if (input.issueId != null) {
-		const { kitchenId } = await resolveIssueUnit(db, input.issueId)
-		if (kitchenId !== unit.kitchenId) throw new NotFoundError("equipment_issue", input.issueId)
+		// A pane tem de ser DESTA unidade. Conferir só a cozinha deixaria o registro de conserto
+		// de um forno encerrar a pane da fritadeira ao lado — mesma cozinha, equipamento errado.
+		const { issue, kitchenId } = await resolveIssueUnit(db, input.issueId)
+		if (kitchenId !== unit.kitchenId || issue.unitId !== input.unitId) throw new NotFoundError("equipment_issue", input.issueId)
 	}
 	if (input.planId != null) await assertPlanApplies(db, input.planId, unit.kitchenId)
 

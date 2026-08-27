@@ -124,11 +124,15 @@ export interface RecipeEquipmentFitnessWire {
 	/** Cozinha cujo parque foi avaliado — pode não ser a pedida. */
 	producing_kitchen_id: number
 	/**
-	 * Unidades ATIVAS consideradas. Zero significa "esta cozinha ainda não cadastrou parque" —
-	 * estado diferente de "o parque é insuficiente", e a tela precisa distinguir: acusar falta
-	 * de forno para quem nunca cadastrou nada é acusar todo mundo no dia em que o recurso nasce.
+	 * Unidades que ENTRARAM na conta (ativas e sem pane inoperante).
+	 *
+	 * Não serve para decidir "parque não cadastrado": um parque inteiro quebrado também zera
+	 * aqui, e chamar isso de "não cadastrou" apagaria da tela exatamente o caso que a
+	 * funcionalidade existe para mostrar. Quem responde essa pergunta é `units_registered`.
 	 */
 	units_considered: number
+	/** Unidades CADASTRADAS na cozinha, em qualquer condição. Zero = parque não cadastrado. */
+	units_registered: number
 	/** true = quem produz é outra cozinha; a UI precisa dizer isso. */
 	delegated: boolean
 	/** Volume pedido, quando informado. null = só a pergunta funcional foi respondida. */
@@ -586,6 +590,26 @@ export async function listKitchenEquipment(db: SisubDb, ctx: UserContext, input:
 }
 
 /**
+ * Parque de QUEM COZINHA para a cozinha pedida.
+ *
+ * Autoriza na cozinha PEDIDA e lê o parque da PRODUTORA — um refeitório servido por cozinha
+ * central não tem forno nenhum, e listar o parque dele responderia sobre a cozinha errada.
+ * Existe para que o cálculo de atendimento e a leitura exposta a agentes usem a mesma frase:
+ * dois caminhos com resoluções diferentes fariam o chat afirmar que o refeitório não tem
+ * equipamento enquanto a ficha técnica diz que a preparação é executável.
+ */
+export async function listProducingKitchenEquipment(
+	db: SisubDb,
+	ctx: UserContext,
+	input: ListKitchenEquipment
+): Promise<{ units: EquipmentUnitWire[]; producingKitchenId: number; delegated: boolean }> {
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
+	const { producingKitchenId, delegated } = await resolveProducingKitchen(db, input.kitchenId)
+	const units = await loadKitchenUnits(db, { ...input, kitchenId: producingKitchenId })
+	return { units, producingKitchenId, delegated }
+}
+
+/**
  * Carrega o parque SEM guard. Só para quem já autorizou o escopo por outro caminho — hoje, o
  * cálculo de atendimento, que autoriza a cozinha PEDIDA e lê o parque da cozinha PRODUTORA (elas
  * são diferentes quando um refeitório é servido por cozinha central; ver `resolveProducingKitchen`).
@@ -823,6 +847,23 @@ export async function deleteEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 				.then(() => undefined)
 		)
 	})
+}
+
+/**
+ * Quantas unidades a cozinha tem CADASTRADAS, em qualquer condição.
+ *
+ * É a pergunta "existe parque aqui?", que é diferente de "quantas servem agora". Separá-las é o
+ * que impede a tela de dizer "ainda não cadastrou equipamento" para uma cozinha cujos três
+ * fornos estão todos com pane aberta.
+ */
+async function countRegisteredUnits(db: SisubDb, kitchenId: number): Promise<number> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: equipmentUnitInKitchen.id })
+			.from(equipmentUnitInKitchen)
+			.where(and(eq(equipmentUnitInKitchen.kitchenId, kitchenId), isNull(equipmentUnitInKitchen.deletedAt)))
+	)
+	return rows.length
 }
 
 // ── Exigência da preparação ───────────────────────────────────────────────
@@ -1092,6 +1133,7 @@ export async function evaluateRecipeEquipmentFitness(
 		producing_kitchen_id: producingKitchenId,
 		delegated,
 		units_considered: 0,
+		units_registered: await countRegisteredUnits(db, producingKitchenId),
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1153,6 +1195,7 @@ export async function evaluateRecipeEquipmentFitness(
 		producing_kitchen_id: producingKitchenId,
 		delegated,
 		units_considered: units.length,
+		units_registered: await countRegisteredUnits(db, producingKitchenId),
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1320,8 +1363,10 @@ export interface MenuEquipmentFitnessWire {
 	kitchen_id: number
 	producing_kitchen_id: number
 	delegated: boolean
-	/** Unidades ATIVAS consideradas. Zero = parque não cadastrado, não parque insuficiente. */
+	/** Unidades que entraram na conta (ativas e sem pane inoperante). */
 	units_considered: number
+	/** Unidades cadastradas, em qualquer condição. Zero = parque não cadastrado. */
+	units_registered: number
 	/** true = no pior caso (tudo ao mesmo tempo) o parque atende a refeição inteira. */
 	satisfied: boolean
 	missing_total: number
@@ -1459,6 +1504,7 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 		producing_kitchen_id: producingKitchenId,
 		delegated,
 		units_considered: units.length,
+		units_registered: await countRegisteredUnits(db, producingKitchenId),
 		satisfied: fitness.missingTotal === 0,
 		missing_total: fitness.missingTotal,
 		targets,

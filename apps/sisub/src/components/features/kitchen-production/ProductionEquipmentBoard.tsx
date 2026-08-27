@@ -46,10 +46,10 @@ export function ProductionEquipmentBoard({ kitchenId }: { kitchenId: number }) {
 	for (const row of matrix?.rows ?? []) {
 		overdueByUnit.set(row.unit_id, row.cells.filter((cell) => cell.due.state === "overdue").length)
 	}
-	const openByUnit = new Map<string, { severity: string; description: string | null }[]>()
+	const openByUnit = new Map<string, { id: string; severity: string; description: string | null }[]>()
 	for (const row of condition.open_issues) {
 		const list = openByUnit.get(row.issue.unit_id) ?? []
-		list.push({ severity: row.issue.severity, description: row.issue.description })
+		list.push({ id: row.issue.id, severity: row.issue.severity, description: row.issue.description })
 		openByUnit.set(row.issue.unit_id, list)
 	}
 
@@ -74,7 +74,7 @@ export function ProductionEquipmentBoard({ kitchenId }: { kitchenId: number }) {
 								{open.length > 0 ? (
 									<ul className="space-y-1">
 										{open.map((issue) => (
-											<li key={`${unit.id}-${issue.description}`} className="flex flex-wrap items-center gap-2 text-caption">
+											<li key={issue.id} className="flex flex-wrap items-center gap-2 text-caption">
 												<Badge variant={issue.severity === "inoperative" ? "destructive" : "outline"}>{SEVERITY_BADGE[issue.severity]}</Badge>
 												<span className="text-muted-foreground">{issue.description}</span>
 											</li>

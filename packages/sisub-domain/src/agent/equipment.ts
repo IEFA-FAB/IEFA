@@ -23,7 +23,7 @@ import {
 	fetchRecipeEquipment,
 	listEquipmentModels,
 	listEquipmentRoles,
-	listKitchenEquipment,
+	listProducingKitchenEquipment,
 } from "../operations/equipment.ts"
 import type { UserContext } from "../types/context.ts"
 import { clampLimit } from "./budget.ts"
@@ -68,7 +68,13 @@ export interface AgentKitchenEquipment extends AgentList<AgentEquipmentUnit> {
 
 export async function agentListKitchenEquipment(db: SisubDb, ctx: UserContext, input: AgentListKitchenEquipment): Promise<AgentKitchenEquipment> {
 	const limit = clampLimit(input.limit)
-	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: input.includeInactive ?? false })
+	// Parque de QUEM COZINHA — o mesmo resolvedor do cálculo de atendimento. Listar o parque da
+	// cozinha pedida devolveria vazio para um refeitório servido por cozinha central, e o modelo
+	// afirmaria que ele não tem equipamento enquanto `check_recipe_equipment` diz o contrário.
+	const { units, producingKitchenId, delegated } = await listProducingKitchenEquipment(db, ctx, {
+		kitchenId: input.kitchenId,
+		includeInactive: input.includeInactive ?? false,
+	})
 
 	const roles = await listEquipmentRoles(db, ctx, {})
 	const roleName = new Map(roles.map((r) => [r.id, r.name]))
@@ -83,9 +89,7 @@ export async function agentListKitchenEquipment(db: SisubDb, ctx: UserContext, i
 		status: unit.status,
 	}))
 
-	// A cozinha produtora sai do próprio cálculo de atendimento; aqui o parque já é o dela
-	// (a operation resolve o escopo), então o par informado é o pedido.
-	return { ...paginate(rows, limit), kitchen_id: input.kitchenId, producing_kitchen_id: input.kitchenId, delegated: false }
+	return { ...paginate(rows, limit), kitchen_id: input.kitchenId, producing_kitchen_id: producingKitchenId, delegated }
 }
 
 // ── O que a preparação exige ──────────────────────────────────────────────
@@ -148,7 +152,7 @@ export async function agentCheckRecipeEquipment(db: SisubDb, ctx: UserContext, i
 	return {
 		satisfied: fitness.satisfied,
 		unspecified: fitness.unspecified,
-		park_not_registered: fitness.units_considered === 0 && !fitness.unspecified,
+		park_not_registered: fitness.units_registered === 0 && !fitness.unspecified,
 		producing_kitchen_id: fitness.producing_kitchen_id,
 		delegated: fitness.delegated,
 		missing: fitness.requirements
@@ -184,7 +188,7 @@ export async function agentCheckMenuEquipment(db: SisubDb, ctx: UserContext, inp
 	const fitness = await evaluateMenuEquipmentFitness(db, ctx, { dailyMenuId: input.dailyMenuId })
 	return {
 		satisfied: fitness.satisfied,
-		park_not_registered: fitness.units_considered === 0,
+		park_not_registered: fitness.units_registered === 0,
 		producing_kitchen_id: fitness.producing_kitchen_id,
 		delegated: fitness.delegated,
 		contention: fitness.targets.map((target) => ({

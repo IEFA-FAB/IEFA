@@ -20,6 +20,7 @@ import {
 	getKitchenMaintenanceMatrix,
 	listEquipmentModels,
 	listKitchenEquipment,
+	logMaintenance,
 	reportEquipmentIssue,
 	saveRecipeEquipment,
 	saveRecipeFlow,
@@ -455,6 +456,85 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(condition.counts.degraded).toBe(1)
 		expect(condition.open_issues.map((row) => row.issue.id)).toContain(degraded.id)
 		expect(condition.history.map((i) => i.id)).toContain(down.id)
+	}, 60_000)
+
+	test("parque inteiro parado é 'insuficiente', não 'não cadastrado'", async () => {
+		if (!reachable || !seeder || !db) return
+		// A distinção que a tela e o chat usam: `units_registered` responde "existe parque aqui?",
+		// `units_considered` responde "quantas servem agora". Confundir as duas apagaria da tela
+		// justamente a cozinha com todos os fornos quebrados — o caso que o recurso existe para ver.
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Forno "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+		seeder.trackWhere("equipment_issue", "unit_id", unit.id)
+
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+		await reportEquipmentIssue(db, ctx, { unitId: unit.id, severity: "inoperative", category: "other", description: "[TEST] parou" })
+
+		const fitness = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
+		expect(fitness.units_considered).toBe(0)
+		expect(fitness.units_registered).toBe(1)
+
+		const check = await agentCheckRecipeEquipment(db, ctx, { recipeId, kitchenId, portions: null })
+		expect(check.park_not_registered).toBe(false)
+		expect(check.satisfied).toBe(false)
+	}, 60_000)
+
+	test("registro de manutenção não encerra pane de OUTRA unidade da mesma cozinha", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const units = []
+		for (const suffix of ["A", "B"]) {
+			const unit = await createEquipmentUnit(db, ctx, {
+				kitchenId,
+				modelId: model.id,
+				label: uid(`[TEST] Forno ${suffix} `),
+				status: "active",
+				roleOverrides: [],
+			})
+			seeder.track("equipment_unit", unit.id)
+			seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+			seeder.trackWhere("equipment_issue", "unit_id", unit.id)
+			seeder.trackWhere("equipment_maintenance_log", "unit_id", unit.id)
+			units.push(unit)
+		}
+
+		const issueOnA = await reportEquipmentIssue(db, ctx, {
+			unitId: units[0].id,
+			severity: "inoperative",
+			category: "other",
+			description: "[TEST] pane da unidade A",
+		})
+
+		// Mesma cozinha, equipamento errado: conferir só a cozinha deixaria o conserto do forno B
+		// encerrar a pane do forno A.
+		await expect(
+			logMaintenance(db, ctx, {
+				unitId: units[1].id,
+				planId: null,
+				issueId: issueOnA.id,
+				kind: "corrective",
+				performedOn: "2026-08-27",
+				provider: "in_house",
+				cost: null,
+				notes: null,
+				resolveIssue: true,
+			})
+		).rejects.toThrow()
 	}, 60_000)
 
 	test("relatórios: matriz sem registro NÃO nasce vencida, e a frota conta cobertura por operante", async () => {

@@ -99,7 +99,9 @@ export function MaintenancePlansManager() {
 			instructions: form.instructions.trim() === "" ? null : form.instructions.trim(),
 		}
 		if (editingId) {
-			updatePlan.mutate({ planId: editingId, ...common, estimatedMinutes: null, isRequired: null, sortOrder: null }, { onSuccess })
+			// `estimatedMinutes`/`isRequired`/`sortOrder` ficam FORA: o diálogo não tem campo para
+			// eles e mandar `null` apagaria o que já está gravado (o domínio trata ausente = mantém).
+			updatePlan.mutate({ planId: editingId, ...common }, { onSuccess })
 			return
 		}
 		if (form.roleId == null) return

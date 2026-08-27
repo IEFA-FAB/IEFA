@@ -12,7 +12,7 @@
 
 import type { MaintenanceLogKind, MaintenanceProvider } from "@iefa/sisub-domain"
 import { Loader2, Wrench } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -56,6 +56,21 @@ export function LogMaintenanceDialog({
 	const [cost, setCost] = useState("")
 	const [notes, setNotes] = useState("")
 	const [resolveIssue, setResolveIssue] = useState(false)
+
+	// O diálogo fica MONTADO o tempo todo (é irmão da lista, não filho da linha), então os
+	// inicializadores do `useState` rodam uma vez só. Sem este efeito, abrir pela célula vencida
+	// gravava `planId: null` — a célula nunca saía de vencida — e o "encerrar pane" ficava ligado
+	// de uma abertura para a outra, podendo fechar uma pane que não era aquela.
+	useEffect(() => {
+		if (!open) return
+		setPlanId(defaultPlanId)
+		setKind(issueId != null ? "corrective" : "preventive")
+		setPerformedOn(new Date().toISOString().slice(0, 10))
+		setProvider("in_house")
+		setCost("")
+		setNotes("")
+		setResolveIssue(false)
+	}, [open, defaultPlanId, issueId])
 
 	const handleSubmit = () => {
 		if (unitId == null || performedOn === "") return
