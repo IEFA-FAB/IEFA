@@ -325,6 +325,32 @@ const RESET_STEPS: ResetStep[] = [
 	// anterior cadastrou. O CATÁLOGO GLOBAL de papéis e modelos (kitchen_id null) não é tocado —
 	// como as receitas globais, ele é do sistema, não do treino. `equipment_role` fica de fora
 	// pelo mesmo motivo: é taxonomia global, não existe papel de cozinha.
+	// Condição e manutenção vêm ANTES do parque: `equipment_maintenance_log.issue_id` aponta
+	// para `equipment_issue`, e as duas penduram na `equipment_unit` que some logo abaixo.
+	// Nenhuma das duas tem `kitchen_id` — a cozinha vem por join na unidade, como a migration
+	// documenta (duas colunas para o mesmo fato divergem).
+	{
+		table: "kitchen.equipment_maintenance_log",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from kitchen.equipment_maintenance_log where unit_id in (select id from kitchen.equipment_unit where kitchen_id = ${scope.kitchen_id}) returning 1`
+			),
+	},
+	{
+		table: "kitchen.equipment_issue",
+		run: (tx, scope) =>
+			deleteRaw(
+				tx,
+				sql`delete from kitchen.equipment_issue where unit_id in (select id from kitchen.equipment_unit where kitchen_id = ${scope.kitchen_id}) returning 1`
+			),
+	},
+	// Rotina de manutenção da PRÓPRIA cozinha. O plano global (kitchen_id null) é catálogo do
+	// sistema e fica, pelo mesmo motivo de `equipment_model`/`equipment_role`.
+	{
+		table: "kitchen.equipment_maintenance_plan",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from kitchen.equipment_maintenance_plan where kitchen_id = ${scope.kitchen_id} returning 1`),
+	},
 	{
 		table: "kitchen.equipment_unit_role",
 		run: (tx, scope) =>
