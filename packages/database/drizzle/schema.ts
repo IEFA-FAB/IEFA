@@ -930,7 +930,16 @@ export const unitsInCore = core.table("units", {
 	addressCep: text("address_cep"),
 	// Sentinela do ambiente de treino. Índice único parcial no banco garante no máximo uma.
 	isTraining: boolean("is_training").default(false).notNull(),
+	// Unidade superior (ELO → COMAR → FAB). Null = raiz.
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	parentUnitId: bigint("parent_unit_id", { mode: "number" }),
 }, (table) => [
+	index("units_parent_unit_idx").using("btree", table.parentUnitId.asc().nullsLast().op("int8_ops")).where(sql`(parent_unit_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.parentUnitId],
+			foreignColumns: [table.id],
+			name: "units_parent_unit_id_fkey"
+		}),
 	unique("units_code_key").on(table.code),
 ]);
 
@@ -2530,4 +2539,147 @@ export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipme
 	check("recipe_equipment_requirement_batch_check", sql`(batch_portions IS NULL) OR (batch_portions > (0)::numeric)`),
 	check("recipe_equipment_requirement_capacity_check", sql`(min_capacity_liters IS NULL) OR (min_capacity_liters > (0)::numeric)`),
 	check("recipe_equipment_requirement_capacity_gn_check", sql`(min_capacity_gn IS NULL) OR (min_capacity_gn > 0)`),
+]);
+
+export const workforceCategoryInCore = core.table("workforce_category", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	code: text().notNull(),
+	name: text().notNull(),
+	description: text(),
+	sortOrder: integer("sort_order").default(100).notNull(),
+	isCareer: boolean("is_career").default(false).notNull(),
+	isTechnical: boolean("is_technical").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("workforce_category_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
+]);
+
+export const ranchoInCore = core.table("rancho", {
+	id: bigserial({ mode: "number" }).primaryKey().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	unitId: bigint("unit_id", { mode: "number" }).notNull(),
+	eloCode: text("elo_code").notNull(),
+	code: text().notNull(),
+	displayName: text("display_name").notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	messHallId: bigint("mess_hall_id", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	producesOwnMeals: boolean("produces_own_meals").default(true).notNull(),
+	active: boolean().default(true).notNull(),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("rancho_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	index("rancho_unit_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")).where(sql`active`),
+	index("rancho_elo_idx").using("btree", table.eloCode.asc().nullsLast().op("text_ops")).where(sql`active`),
+	index("rancho_mess_hall_idx").using("btree", table.messHallId.asc().nullsLast().op("int8_ops")).where(sql`(mess_hall_id IS NOT NULL)`),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [unitsInCore.id],
+			name: "rancho_unit_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.messHallId],
+			foreignColumns: [messHallsInCore.id],
+			name: "rancho_mess_hall_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInCore.id],
+			name: "rancho_kitchen_id_fkey"
+		}),
+]);
+
+export const workforceSurveyInCore = core.table("workforce_survey", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	referenceDate: date("reference_date").notNull(),
+	title: text().notNull(),
+	status: text().default('open').notNull(),
+	source: text(),
+	openedAt: timestamp("opened_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("workforce_survey_reference_date_uniq").using("btree", table.referenceDate.asc().nullsLast().op("date_ops")),
+	foreignKey({
+			columns: [table.createdBy],
+			foreignColumns: [usersInAuth.id],
+			name: "workforce_survey_created_by_fkey"
+		}),
+	check("workforce_survey_status_check", sql`status = ANY (ARRAY['draft'::text, 'open'::text, 'closed'::text])`),
+]);
+
+export const workforceSubmissionInCore = core.table("workforce_submission", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	surveyId: uuid("survey_id").notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	ranchoId: bigint("rancho_id", { mode: "number" }).notNull(),
+	declaredTotal: integer("declared_total"),
+	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
+	submittedBy: uuid("submitted_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("workforce_submission_uniq").using("btree", table.surveyId.asc().nullsLast().op("uuid_ops"), table.ranchoId.asc().nullsLast().op("int8_ops")),
+	index("workforce_submission_rancho_idx").using("btree", table.ranchoId.asc().nullsLast().op("int8_ops")),
+	foreignKey({
+			columns: [table.surveyId],
+			foreignColumns: [workforceSurveyInCore.id],
+			name: "workforce_submission_survey_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.ranchoId],
+			foreignColumns: [ranchoInCore.id],
+			name: "workforce_submission_rancho_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.submittedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "workforce_submission_submitted_by_fkey"
+		}),
+	check("workforce_submission_declared_total_check", sql`(declared_total IS NULL) OR (declared_total >= 0)`),
+]);
+
+export const workforceHeadcountInCore = core.table("workforce_headcount", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	submissionId: uuid("submission_id").notNull(),
+	categoryId: uuid("category_id").notNull(),
+	headcount: integer().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("workforce_headcount_uniq").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops"), table.categoryId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.submissionId],
+			foreignColumns: [workforceSubmissionInCore.id],
+			name: "workforce_headcount_submission_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.categoryId],
+			foreignColumns: [workforceCategoryInCore.id],
+			name: "workforce_headcount_category_id_fkey"
+		}),
+	check("workforce_headcount_nonnegative", sql`headcount >= 0`),
+]);
+
+export const workforceNoteInCore = core.table("workforce_note", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	submissionId: uuid("submission_id").notNull(),
+	kind: text().notNull(),
+	quantity: integer(),
+	detail: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("workforce_note_submission_idx").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.submissionId],
+			foreignColumns: [workforceSubmissionInCore.id],
+			name: "workforce_note_submission_id_fkey"
+		}).onDelete("cascade"),
+	check("workforce_note_kind_check", sql`kind = ANY (ARRAY['outsourced'::text, 'leave'::text, 'reassigned'::text, 'shared'::text, 'scope'::text, 'change'::text, 'counting'::text, 'other'::text])`),
+	check("workforce_note_quantity_check", sql`(quantity IS NULL) OR (quantity >= 0)`),
 ]);

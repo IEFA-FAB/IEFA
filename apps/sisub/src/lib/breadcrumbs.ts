@@ -58,6 +58,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	tutorial: "Tutorial",
 	dashboard: "Painel",
 	indicators: "Indicadores",
+	workforce: "Efetivo dos Ranchos",
 	events: "Eventos",
 	exceptions: "Exceções",
 	"compras-sync": "Sincronização Compras",

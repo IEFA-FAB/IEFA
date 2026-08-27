@@ -17,3 +17,12 @@ export type { MaintenanceDue, MaintenanceDueAnchor, MaintenanceDueInput, Mainten
 export { computeMaintenanceDue, MAINTENANCE_DUE_STATES } from "./maintenance-due.ts"
 export type { BalanceStatus, DeclaredIngredient, FlowGraphStep, FlowValidationResult, IngredientBalance } from "./recipe-flow-graph.ts"
 export { collectFinalOutputs, computeMaterialBalance, computeStepLevels, findFlowCycle, validateFlow } from "./recipe-flow-graph.ts"
+export type {
+	MealLoadInput,
+	RanchoWorkforceInput,
+	RanchoWorkforceMetrics,
+	WorkforceCategoryRef,
+	WorkforceGroupSummary,
+	WorkforceNoteRef,
+} from "./workforce-metrics.ts"
+export { computeRanchoMetrics, coverageGaps, groupWorkforceBy, mealsPerWorker, summarizeWorkforce } from "./workforce-metrics.ts"

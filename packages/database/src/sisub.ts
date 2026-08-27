@@ -75,6 +75,25 @@ export type Unit = Tables<"units">
 export type UnitInsert = TablesInsert<"units">
 export type UnitUpdate = TablesUpdate<"units">
 
+export type Rancho = Tables<"rancho">
+export type RanchoInsert = TablesInsert<"rancho">
+export type RanchoUpdate = TablesUpdate<"rancho">
+
+export type WorkforceCategory = Tables<"workforce_category">
+export type WorkforceCategoryInsert = TablesInsert<"workforce_category">
+
+export type WorkforceSurvey = Tables<"workforce_survey">
+export type WorkforceSurveyInsert = TablesInsert<"workforce_survey">
+
+export type WorkforceSubmission = Tables<"workforce_submission">
+export type WorkforceSubmissionInsert = TablesInsert<"workforce_submission">
+
+export type WorkforceHeadcount = Tables<"workforce_headcount">
+export type WorkforceHeadcountInsert = TablesInsert<"workforce_headcount">
+
+export type WorkforceNote = Tables<"workforce_note">
+export type WorkforceNoteInsert = TablesInsert<"workforce_note">
+
 export type DailyMenu = Tables<"daily_menu">
 export type DailyMenuInsert = TablesInsert<"daily_menu">
 export type DailyMenuUpdate = TablesUpdate<"daily_menu">
