@@ -15,10 +15,15 @@ import {
 	evaluateRecipeEquipmentFitness,
 	fetchRecipeEquipment,
 	fetchRecipeFlow,
+	getFleetEquipmentReport,
+	getKitchenEquipmentCondition,
+	getKitchenMaintenanceMatrix,
 	listEquipmentModels,
 	listKitchenEquipment,
+	reportEquipmentIssue,
 	saveRecipeEquipment,
 	saveRecipeFlow,
+	updateEquipmentIssue,
 	updateEquipmentUnit,
 } from "@iefa/sisub-domain"
 import { agentCheckRecipeEquipment, agentGetRecipeEquipment, agentListKitchenEquipment } from "@iefa/sisub-domain/agent"
@@ -49,7 +54,9 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
-		const s = await setupIntegration("equipment_role")
+		// Sonda a tabela mais NOVA do conjunto, não a mais antiga: com `equipment_role` a suíte
+		// passava vazia enquanto as tabelas de condição não existiam — verde que não provava nada.
+		const s = await setupIntegration("equipment_issue")
 		reachable = s.reachable
 		if (s.client) client = s.client
 		const url = getSisubDatabaseUrl()
@@ -396,6 +403,94 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(check.park_not_registered).toBe(false)
 		expect(check.volume).toMatchObject({ batches: 5, cycles: 3 }) // 2 zonas → 2 bateladas por vez
 	}, 45_000)
+
+	test("pane inoperante tira a unidade do atendimento; degradada não; descartar devolve", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Forno "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+		seeder.trackWhere("equipment_issue", "unit_id", unit.id)
+
+		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
+		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
+		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
+		expect((await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })).satisfied).toBe(true)
+
+		// Degradada: "dá para usar com limitação" continua contando no planejamento.
+		const degraded = await reportEquipmentIssue(db, ctx, {
+			unitId: unit.id,
+			severity: "degraded",
+			category: "electrical",
+			description: "[TEST] esquenta devagar",
+		})
+		expect((await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })).satisfied).toBe(true)
+
+		// Inoperante: sai da conta na hora — é o que impede o cardápio de prometer assado.
+		const down = await reportEquipmentIssue(db, ctx, {
+			unitId: unit.id,
+			severity: "inoperative",
+			category: "electrical",
+			description: "[TEST] não liga",
+		})
+		const withDown = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
+		expect(withDown.satisfied).toBe(false)
+		expect(withDown.units_considered).toBe(0)
+
+		// Descartar devolve a unidade no mesmo instante.
+		await updateEquipmentIssue(db, ctx, { issueId: down.id, status: "dismissed", severity: null, resolutionNote: "[TEST] não procede" })
+		expect((await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })).satisfied).toBe(true)
+
+		// E o relatório de condição enxerga a degradada que sobrou.
+		const condition = await getKitchenEquipmentCondition(db, ctx, { kitchenId, historyLimit: 20 })
+		expect(condition.counts.degraded).toBe(1)
+		expect(condition.open_issues.map((row) => row.issue.id)).toContain(degraded.id)
+		expect(condition.history.map((i) => i.id)).toContain(down.id)
+	}, 60_000)
+
+	test("relatórios: matriz sem registro NÃO nasce vencida, e a frota conta cobertura por operante", async () => {
+		if (!reachable || !seeder || !db) return
+		const oven = await seedRole(db, seeder, "forno")
+		const model = await seedModel(db, seeder, [oven.id], 1)
+		const { id: kitchenId } = await seeder.seedKitchen()
+
+		const unit = await createEquipmentUnit(db, ctx, {
+			kitchenId,
+			modelId: model.id,
+			label: uid("[TEST] Forno "),
+			status: "active",
+			roleOverrides: [],
+		})
+		seeder.track("equipment_unit", unit.id)
+		seeder.trackWhere("equipment_unit_role", "unit_id", unit.id)
+		seeder.trackWhere("equipment_issue", "unit_id", unit.id)
+
+		// Unidade sem data de instalação e sem execução: `unknown`, jamais `overdue`. Sem esse
+		// terceiro estado o parque inteiro nasceria vermelho no dia do deploy.
+		const matrix = await getKitchenMaintenanceMatrix(db, ctx, { kitchenId, today: "2026-08-27" })
+		expect(matrix.totals.overdue).toBe(0)
+		for (const row of matrix.rows) {
+			for (const cell of row.cells) expect(cell.due.state).not.toBe("overdue")
+		}
+
+		// Frota: com a unidade operante, a cozinha conta como coberta; com pane inoperante, não.
+		const before = await getFleetEquipmentReport(db, ctx, { roleId: oven.id, modelId: null, kitchenId, today: null })
+		expect(before.coverage[0]).toMatchObject({ kitchens_covered: 1, kitchens_down: 0 })
+
+		await reportEquipmentIssue(db, ctx, { unitId: unit.id, severity: "inoperative", category: "other", description: "[TEST] parou" })
+		const after = await getFleetEquipmentReport(db, ctx, { roleId: oven.id, modelId: null, kitchenId, today: null })
+		expect(after.coverage[0]).toMatchObject({ kitchens_covered: 0, kitchens_down: 1 })
+		expect(after.inoperative_issues).toHaveLength(1)
+	}, 60_000)
 
 	test("preparação sem lista mínima devolve unspecified, não 'não atende'", async () => {
 		if (!reachable || !seeder || !db) return

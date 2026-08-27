@@ -141,7 +141,10 @@ export const ALL_MODULES: ModuleDef[] = [
 		icon: FlameKindling,
 		color: "primary",
 		hubUrl: "/kitchen-production",
-		items: [{ title: "Painel", url: "/kitchen-production/", icon: LayoutDashboard }],
+		items: [
+			{ title: "Painel", url: "/kitchen-production/", icon: LayoutDashboard },
+			{ title: "Equipamentos", url: "/kitchen-production/equipment", icon: CookingPot },
+		],
 	},
 	{
 		id: "storage",
@@ -202,6 +205,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3, minLevel: 2 },
 			{ title: "Efetivo da Rede", url: "/analytics/workforce", icon: Users, minLevel: 2 },
+			{ title: "Equipamentos", url: "/analytics/equipment", icon: CookingPot, minLevel: 2 },
 			{ title: "Assistente IA", url: "/analytics/chat", icon: MessageSquare },
 		],
 	},

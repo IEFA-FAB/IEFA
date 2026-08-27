@@ -110,7 +110,32 @@ export const ModelRoleSchema = z.object({
 })
 export type ModelRole = z.infer<typeof ModelRoleSchema>
 
-export const CreateEquipmentModelSchema = z.object({
+/**
+ * Ficha técnica do MODELO — o que a instalação precisa saber antes de comprar.
+ *
+ * Fica no modelo, não na unidade: tensão, coifa e ralo são propriedade do equipamento, não da
+ * cópia instalada. Tudo nulo por padrão e nada semeado: um número errado no catálogo vira
+ * premissa de dimensionamento que ninguém revisa.
+ */
+export const EQUIPMENT_ENERGY_SOURCES = ["electric", "gas", "steam", "mixed", "manual"] as const
+export const EquipmentEnergySourceSchema = z.enum(EQUIPMENT_ENERGY_SOURCES)
+export type EquipmentEnergySource = z.infer<typeof EquipmentEnergySourceSchema>
+
+const TechnicalSheetSchema = z.object({
+	energySource: EquipmentEnergySourceSchema.nullish(),
+	voltage: z.string().max(60).nullish(),
+	widthCm: z.number().positive().nullish(),
+	depthCm: z.number().positive().nullish(),
+	heightCm: z.number().positive().nullish(),
+	weightKg: z.number().positive().nullish(),
+	requiresHood: z.boolean().nullish(),
+	waterInlet: z.boolean().nullish(),
+	drainRequired: z.boolean().nullish(),
+	manualUrl: z.string().max(500).nullish(),
+	expectedLifespanYears: z.number().int().positive().max(100).nullish(),
+})
+
+export const CreateEquipmentModelSchema = TechnicalSheetSchema.extend({
 	manufacturer: z.string().max(120).nullish(),
 	name: z.string().min(1).max(200),
 	/** Capacidade de UMA zona, não do equipamento inteiro (iVario Pro 2-S = 25 L, não 50). */
@@ -128,7 +153,7 @@ export const CreateEquipmentModelSchema = z.object({
 })
 export type CreateEquipmentModel = z.infer<typeof CreateEquipmentModelSchema>
 
-export const UpdateEquipmentModelSchema = z.object({
+export const UpdateEquipmentModelSchema = TechnicalSheetSchema.extend({
 	modelId: UuidSchema,
 	manufacturer: z.string().max(120).nullish(),
 	name: z.string().min(1).max(200).nullish(),
@@ -390,3 +415,35 @@ export type EvaluateRecipeEquipmentFitness = z.infer<typeof EvaluateRecipeEquipm
  */
 export const EvaluateMenuEquipmentFitnessSchema = z.object({ dailyMenuId: UuidSchema })
 export type EvaluateMenuEquipmentFitness = z.infer<typeof EvaluateMenuEquipmentFitnessSchema>
+
+// ── Relatórios (fase 4) ───────────────────────────────────────────────────
+
+/**
+ * `today` é PARÂMETRO opcional em todos os relatórios de vencimento.
+ *
+ * O cálculo de rotina vencida lê data; ler o relógio do processo lá dentro tornaria o
+ * relatório impossível de testar e erraria na virada de fuso. Ausente = hoje no servidor.
+ */
+const TodaySchema = DateSchema.nullish().describe("Data de referência (YYYY-MM-DD). Ausente = hoje")
+
+export const KitchenEquipmentConditionSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	/** Quantas panes encerradas trazer no histórico. */
+	historyLimit: z.number().int().positive().max(200).nullish(),
+})
+export type KitchenEquipmentCondition = z.infer<typeof KitchenEquipmentConditionSchema>
+
+export const KitchenMaintenanceMatrixSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	today: TodaySchema,
+})
+export type KitchenMaintenanceMatrix = z.infer<typeof KitchenMaintenanceMatrixSchema>
+
+export const FleetEquipmentReportSchema = z.object({
+	/** Filtros, nunca eixos: o relatório é por PAPEL, que é a pergunta de cobertura. */
+	roleId: UuidSchema.nullish(),
+	modelId: UuidSchema.nullish(),
+	kitchenId: KitchenIdSchema.nullish(),
+	today: TodaySchema,
+})
+export type FleetEquipmentReport = z.infer<typeof FleetEquipmentReportSchema>

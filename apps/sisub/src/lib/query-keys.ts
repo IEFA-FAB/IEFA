@@ -114,6 +114,14 @@ export const queryKeys = {
 			["equipment", "fitness", recipeId, kitchenId, portions] as const,
 		suggestions: (recipeId: string | undefined) => ["equipment", "suggestions", recipeId] as const,
 		menuFitness: (dailyMenuId: string | undefined) => ["equipment", "menu-fitness", dailyMenuId] as const,
+		issues: (kitchenId: number | undefined, onlyOpen: boolean) => ["equipment", "issues", kitchenId ?? null, onlyOpen] as const,
+		plans: (kitchenId: number | null) => ["equipment", "plans", kitchenId] as const,
+		applicablePlans: (unitId: string | undefined) => ["equipment", "applicable-plans", unitId] as const,
+		logs: (kitchenId: number | undefined, unitId: string | null) => ["equipment", "logs", kitchenId ?? null, unitId] as const,
+		condition: (kitchenId: number | undefined) => ["equipment", "condition", kitchenId ?? null] as const,
+		matrix: (kitchenId: number | undefined) => ["equipment", "matrix", kitchenId ?? null] as const,
+		fleet: (filters: { roleId?: string | null; modelId?: string | null; kitchenId?: number | null }) =>
+			["equipment", "fleet", filters.roleId ?? null, filters.modelId ?? null, filters.kitchenId ?? null] as const,
 	},
 
 	presences: {

@@ -145,7 +145,7 @@ export interface RecipeEquipmentFitnessWire {
 	cycle_minutes: number | null
 }
 
-const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw"])
+const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw", "width_cm", "depth_cm", "height_cm", "weight_kg"])
 const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters", "batch_portions"])
 
 const numOrNull = (n: number | null | undefined): string | null => (n != null ? String(n) : null)
@@ -402,6 +402,17 @@ export async function createEquipmentModel(db: SisubDb, ctx: UserContext, input:
 					isGeneric: input.isGeneric,
 					kitchenId,
 					notes: input.notes ?? null,
+					energySource: input.energySource ?? null,
+					voltage: input.voltage ?? null,
+					widthCm: numOrNull(input.widthCm),
+					depthCm: numOrNull(input.depthCm),
+					heightCm: numOrNull(input.heightCm),
+					weightKg: numOrNull(input.weightKg),
+					requiresHood: input.requiresHood ?? null,
+					waterInlet: input.waterInlet ?? null,
+					drainRequired: input.drainRequired ?? null,
+					manualUrl: input.manualUrl ?? null,
+					expectedLifespanYears: input.expectedLifespanYears ?? null,
 				})
 				.returning()
 		)
@@ -439,6 +450,19 @@ export async function updateEquipmentModel(db: SisubDb, ctx: UserContext, input:
 		if (input.simultaneousSlots != null) patch.simultaneousSlots = input.simultaneousSlots
 		if (input.powerKw !== undefined) patch.powerKw = numOrNull(input.powerKw)
 		if (input.notes !== undefined) patch.notes = input.notes ?? null
+		// Ficha técnica: `undefined` mantém, `null` limpa — o diálogo que não tem campo para uma
+		// coluna simplesmente não a envia, em vez de apagá-la.
+		if (input.energySource !== undefined) patch.energySource = input.energySource ?? null
+		if (input.voltage !== undefined) patch.voltage = input.voltage ?? null
+		if (input.widthCm !== undefined) patch.widthCm = numOrNull(input.widthCm)
+		if (input.depthCm !== undefined) patch.depthCm = numOrNull(input.depthCm)
+		if (input.heightCm !== undefined) patch.heightCm = numOrNull(input.heightCm)
+		if (input.weightKg !== undefined) patch.weightKg = numOrNull(input.weightKg)
+		if (input.requiresHood !== undefined) patch.requiresHood = input.requiresHood ?? null
+		if (input.waterInlet !== undefined) patch.waterInlet = input.waterInlet ?? null
+		if (input.drainRequired !== undefined) patch.drainRequired = input.drainRequired ?? null
+		if (input.manualUrl !== undefined) patch.manualUrl = input.manualUrl ?? null
+		if (input.expectedLifespanYears !== undefined) patch.expectedLifespanYears = input.expectedLifespanYears ?? null
 
 		const [row] =
 			Object.keys(patch).length > 0

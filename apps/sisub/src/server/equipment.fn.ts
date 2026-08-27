@@ -9,39 +9,65 @@ import {
 	CreateEquipmentModelSchema,
 	CreateEquipmentRoleSchema,
 	CreateEquipmentUnitSchema,
+	CreateMaintenancePlanSchema,
 	createEquipmentModel,
 	createEquipmentRole,
 	createEquipmentUnit,
+	createMaintenancePlan,
 	DeleteEquipmentModelSchema,
 	DeleteEquipmentRoleSchema,
 	DeleteEquipmentUnitSchema,
+	DeleteMaintenancePlanSchema,
 	deleteEquipmentModel,
 	deleteEquipmentRole,
 	deleteEquipmentUnit,
+	deleteMaintenancePlan,
 	EvaluateMenuEquipmentFitnessSchema,
 	EvaluateRecipeEquipmentFitnessSchema,
 	evaluateMenuEquipmentFitness,
 	evaluateRecipeEquipmentFitness,
 	FetchRecipeEquipmentSchema,
+	FleetEquipmentReportSchema,
 	fetchRecipeEquipment,
+	getFleetEquipmentReport,
+	getKitchenEquipmentCondition,
+	getKitchenMaintenanceMatrix,
+	KitchenEquipmentConditionSchema,
+	KitchenMaintenanceMatrixSchema,
+	ListApplicablePlansSchema,
+	ListEquipmentIssuesSchema,
 	ListEquipmentModelsSchema,
 	ListEquipmentRolesSchema,
 	ListKitchenEquipmentSchema,
+	ListMaintenanceLogsSchema,
+	ListMaintenancePlansSchema,
+	LogMaintenanceSchema,
+	listApplicablePlans,
+	listEquipmentIssues,
 	listEquipmentModels,
 	listEquipmentRoles,
 	listKitchenEquipment,
+	listMaintenanceLogs,
+	listMaintenancePlans,
+	logMaintenance,
+	ReportEquipmentIssueSchema,
+	reportEquipmentIssue,
 	SaveRecipeEquipmentSchema,
 	SetUtensilRoleSchema,
 	SuggestRecipeEquipmentSchema,
 	saveRecipeEquipment,
 	setUtensilRole,
 	suggestRecipeEquipmentFromFlow,
+	UpdateEquipmentIssueSchema,
 	UpdateEquipmentModelSchema,
 	UpdateEquipmentRoleSchema,
 	UpdateEquipmentUnitSchema,
+	UpdateMaintenancePlanSchema,
+	updateEquipmentIssue,
 	updateEquipmentModel,
 	updateEquipmentRole,
 	updateEquipmentUnit,
+	updateMaintenancePlan,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
@@ -180,4 +206,101 @@ export const evaluateMenuEquipmentFitnessFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return evaluateMenuEquipmentFitness(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ── Panes ─────────────────────────────────────────────────────────────────
+
+export const listEquipmentIssuesFn = createServerFn({ method: "GET" })
+	.validator(ListEquipmentIssuesSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listEquipmentIssues(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const reportEquipmentIssueFn = createServerFn({ method: "POST" })
+	.validator(ReportEquipmentIssueSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return reportEquipmentIssue(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const updateEquipmentIssueFn = createServerFn({ method: "POST" })
+	.validator(UpdateEquipmentIssueSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return updateEquipmentIssue(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ── Rotinas de manutenção ─────────────────────────────────────────────────
+
+export const listMaintenancePlansFn = createServerFn({ method: "GET" })
+	.validator(ListMaintenancePlansSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listMaintenancePlans(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const listApplicablePlansFn = createServerFn({ method: "GET" })
+	.validator(ListApplicablePlansSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listApplicablePlans(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const createMaintenancePlanFn = createServerFn({ method: "POST" })
+	.validator(CreateMaintenancePlanSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return createMaintenancePlan(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const updateMaintenancePlanFn = createServerFn({ method: "POST" })
+	.validator(UpdateMaintenancePlanSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return updateMaintenancePlan(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const deleteMaintenancePlanFn = createServerFn({ method: "POST" })
+	.validator(DeleteMaintenancePlanSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return deleteMaintenancePlan(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const logMaintenanceFn = createServerFn({ method: "POST" })
+	.validator(LogMaintenanceSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return logMaintenance(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const listMaintenanceLogsFn = createServerFn({ method: "GET" })
+	.validator(ListMaintenanceLogsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listMaintenanceLogs(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ── Relatórios ────────────────────────────────────────────────────────────
+
+export const getKitchenEquipmentConditionFn = createServerFn({ method: "GET" })
+	.validator(KitchenEquipmentConditionSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return getKitchenEquipmentCondition(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const getKitchenMaintenanceMatrixFn = createServerFn({ method: "GET" })
+	.validator(KitchenMaintenanceMatrixSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return getKitchenMaintenanceMatrix(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const getFleetEquipmentReportFn = createServerFn({ method: "GET" })
+	.validator(FleetEquipmentReportSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return getFleetEquipmentReport(getDb(), ctx, data).catch(handleDomainError)
 	})

@@ -49,6 +49,14 @@ type ModelFormState = {
 	slots: string
 	roleIds: Set<string>
 	primaryRoleId: string | null
+	/** Ficha técnica — colunas que existem desde a migration de condição e não tinham tela. */
+	energySource: string
+	voltage: string
+	requiresHood: boolean
+	waterInlet: boolean
+	drainRequired: boolean
+	manualUrl: string
+	expectedLifespanYears: string
 }
 
 const emptyModelForm = (): ModelFormState => ({
@@ -60,9 +68,27 @@ const emptyModelForm = (): ModelFormState => ({
 	slots: "1",
 	roleIds: new Set(),
 	primaryRoleId: null,
+	energySource: "",
+	voltage: "",
+	requiresHood: false,
+	waterInlet: false,
+	drainRequired: false,
+	manualUrl: "",
+	expectedLifespanYears: "",
 })
 
 const numberOrNull = (value: string): number | null => (value.trim() === "" ? null : Number(value))
+
+/** Sentinela do "não informado" — o Select não representa `null` como valor de item. */
+const NO_ENERGY = "__none__"
+
+const ENERGY_LABEL: Record<string, string> = {
+	electric: "Elétrica",
+	gas: "Gás",
+	steam: "Vapor",
+	mixed: "Mista",
+	manual: "Manual",
+}
 
 export function EquipmentCatalogManager() {
 	const { data: roles = [], isLoading: rolesLoading } = useEquipmentRoles()
@@ -98,6 +124,13 @@ export function EquipmentCatalogManager() {
 			slots: String(model.simultaneous_slots),
 			roleIds: new Set(model.roles.map((r) => r.role_id)),
 			primaryRoleId: model.roles.find((r) => r.is_primary)?.role_id ?? null,
+			energySource: model.energy_source ?? "",
+			voltage: model.voltage ?? "",
+			requiresHood: model.requires_hood === true,
+			waterInlet: model.water_inlet === true,
+			drainRequired: model.drain_required === true,
+			manualUrl: model.manual_url ?? "",
+			expectedLifespanYears: model.expected_lifespan_years != null ? String(model.expected_lifespan_years) : "",
 		})
 		setModelOpen(true)
 	}
@@ -123,6 +156,13 @@ export function EquipmentCatalogManager() {
 			slotCapacityGn: numberOrNull(form.slotCapacityGn),
 			simultaneousSlots: Math.max(1, Number(form.slots) || 1),
 			roles,
+			energySource: form.energySource === "" ? null : (form.energySource as "electric"),
+			voltage: form.voltage.trim() === "" ? null : form.voltage.trim(),
+			requiresHood: form.requiresHood,
+			waterInlet: form.waterInlet,
+			drainRequired: form.drainRequired,
+			manualUrl: form.manualUrl.trim() === "" ? null : form.manualUrl.trim(),
+			expectedLifespanYears: numberOrNull(form.expectedLifespanYears),
 		}
 		const onSuccess = () => setModelOpen(false)
 		// `powerKw`/`notes` ficam FORA do payload de edição: o diálogo não tem campo para eles, e
@@ -313,6 +353,74 @@ export function EquipmentCatalogManager() {
 								</FieldContent>
 							</Field>
 						</div>
+
+						{/* Ficha técnica: nada aqui é semeado pelo sistema. Um número errado no catálogo
+						    vira premissa de dimensionamento que ninguém revisa — campo vazio é melhor. */}
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+							<Field>
+								<FieldLabel htmlFor="model-energy">Energia</FieldLabel>
+								<FieldContent>
+									<Select
+										value={form.energySource === "" ? NO_ENERGY : form.energySource}
+										onValueChange={(value) => setForm((f) => ({ ...f, energySource: value === NO_ENERGY ? "" : (value as string) }))}
+									>
+										<SelectTrigger id="model-energy" className="w-full">
+											<SelectValue>{form.energySource === "" ? "Não informado" : (ENERGY_LABEL[form.energySource] ?? form.energySource)}</SelectValue>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value={NO_ENERGY}>Não informado</SelectItem>
+											{Object.entries(ENERGY_LABEL).map(([value, label]) => (
+												<SelectItem key={value} value={value}>
+													{label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</FieldContent>
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="model-voltage">Tensão</FieldLabel>
+								<FieldContent>
+									<Input
+										id="model-voltage"
+										placeholder="220V trifásico"
+										value={form.voltage}
+										onChange={(e) => setForm((f) => ({ ...f, voltage: e.target.value }))}
+									/>
+								</FieldContent>
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="model-lifespan">Vida útil (anos)</FieldLabel>
+								<FieldContent>
+									<Input
+										id="model-lifespan"
+										type="number"
+										min={1}
+										value={form.expectedLifespanYears}
+										onChange={(e) => setForm((f) => ({ ...f, expectedLifespanYears: e.target.value }))}
+									/>
+								</FieldContent>
+							</Field>
+						</div>
+
+						<div className="flex flex-wrap gap-2">
+							<Toggle pressed={form.requiresHood} onPressedChange={(pressed) => setForm((f) => ({ ...f, requiresHood: pressed }))}>
+								Exige coifa
+							</Toggle>
+							<Toggle pressed={form.waterInlet} onPressedChange={(pressed) => setForm((f) => ({ ...f, waterInlet: pressed }))}>
+								Entrada de água
+							</Toggle>
+							<Toggle pressed={form.drainRequired} onPressedChange={(pressed) => setForm((f) => ({ ...f, drainRequired: pressed }))}>
+								Exige ralo
+							</Toggle>
+						</div>
+
+						<Field>
+							<FieldLabel htmlFor="model-manual">Manual (URL)</FieldLabel>
+							<FieldContent>
+								<Input id="model-manual" value={form.manualUrl} onChange={(e) => setForm((f) => ({ ...f, manualUrl: e.target.value }))} />
+							</FieldContent>
+						</Field>
 
 						<div>
 							<p className="text-subheading">Funções</p>

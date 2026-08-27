@@ -35,6 +35,7 @@ import { Route as ProtectedModulesAdminSyncRoutinesRouteImport } from './routes/
 import { Route as ProtectedModulesAdminTrainingRouteImport } from './routes/_protected/_modules/admin/training'
 import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
 import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
+import { Route as ProtectedModulesAnalyticsEquipmentRouteImport } from './routes/_protected/_modules/analytics/equipment'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
 import { Route as ProtectedModulesAnalyticsWorkforceRouteImport } from './routes/_protected/_modules/analytics/workforce'
 import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
@@ -77,6 +78,7 @@ import { Route as ProtectedModulesGlobalWeeklyPlansIndexRouteImport } from './ro
 import { Route as ProtectedModulesGlobalWeeklyPlansPlanIdRouteImport } from './routes/_protected/_modules/global/weekly-plans/$planId'
 import { Route as ProtectedModulesGlobalWeeklyPlansNewRouteImport } from './routes/_protected/_modules/global/weekly-plans/new'
 import { Route as ProtectedModulesKitchenProductionKitchenIdIndexRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/index'
+import { Route as ProtectedModulesKitchenProductionKitchenIdEquipmentRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/equipment'
 import { Route as ProtectedModulesKitchenKitchenIdIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/index'
 import { Route as ProtectedModulesKitchenKitchenIdChatRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/chat'
 import { Route as ProtectedModulesKitchenKitchenIdEquipmentRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/equipment'
@@ -272,6 +274,12 @@ const ProtectedModulesAnalyticsChatRoute =
   ProtectedModulesAnalyticsChatRouteImport.update({
     id: '/chat',
     path: '/chat',
+    getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsEquipmentRoute =
+  ProtectedModulesAnalyticsEquipmentRouteImport.update({
+    id: '/equipment',
+    path: '/equipment',
     getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
   } as any)
 const ProtectedModulesAnalyticsGlobalRoute =
@@ -524,6 +532,12 @@ const ProtectedModulesKitchenProductionKitchenIdIndexRoute =
   ProtectedModulesKitchenProductionKitchenIdIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => ProtectedModulesKitchenProductionKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenProductionKitchenIdEquipmentRoute =
+  ProtectedModulesKitchenProductionKitchenIdEquipmentRouteImport.update({
+    id: '/equipment',
+    path: '/equipment',
     getParentRoute: () => ProtectedModulesKitchenProductionKitchenIdRouteRoute,
   } as any)
 const ProtectedModulesKitchenKitchenIdIndexRoute =
@@ -916,6 +930,7 @@ export interface FileRoutesByFullPath {
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
+  '/analytics/equipment': typeof ProtectedModulesAnalyticsEquipmentRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -948,6 +963,7 @@ export interface FileRoutesByFullPath {
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/kitchen-production/$kitchenId/equipment': typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
   '/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
   '/kitchen/$kitchenId/equipment': typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
@@ -1036,6 +1052,7 @@ export interface FileRoutesByTo {
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
+  '/analytics/equipment': typeof ProtectedModulesAnalyticsEquipmentRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -1068,6 +1085,7 @@ export interface FileRoutesByTo {
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/kitchen-production/$kitchenId/equipment': typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
   '/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
   '/kitchen/$kitchenId/equipment': typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
@@ -1164,6 +1182,7 @@ export interface FileRoutesById {
   '/_protected/_modules/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/_protected/_modules/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
+  '/_protected/_modules/analytics/equipment': typeof ProtectedModulesAnalyticsEquipmentRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
@@ -1196,6 +1215,7 @@ export interface FileRoutesById {
   '/_protected/_modules/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/_protected/_modules/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/_protected/_modules/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/_protected/_modules/kitchen-production/$kitchenId/equipment': typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
   '/_protected/_modules/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
   '/_protected/_modules/kitchen/$kitchenId/equipment': typeof ProtectedModulesKitchenKitchenIdEquipmentRoute
   '/_protected/_modules/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
@@ -1292,6 +1312,7 @@ export interface FileRouteTypes {
     | '/admin/sync-routines'
     | '/admin/training'
     | '/analytics/chat'
+    | '/analytics/equipment'
     | '/analytics/global'
     | '/analytics/workforce'
     | '/diner/forecast'
@@ -1324,6 +1345,7 @@ export interface FileRouteTypes {
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
+    | '/kitchen-production/$kitchenId/equipment'
     | '/kitchen/$kitchenId/chat'
     | '/kitchen/$kitchenId/equipment'
     | '/kitchen/$kitchenId/planning'
@@ -1412,6 +1434,7 @@ export interface FileRouteTypes {
     | '/admin/sync-routines'
     | '/admin/training'
     | '/analytics/chat'
+    | '/analytics/equipment'
     | '/analytics/global'
     | '/analytics/workforce'
     | '/diner/forecast'
@@ -1444,6 +1467,7 @@ export interface FileRouteTypes {
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
+    | '/kitchen-production/$kitchenId/equipment'
     | '/kitchen/$kitchenId/chat'
     | '/kitchen/$kitchenId/equipment'
     | '/kitchen/$kitchenId/planning'
@@ -1539,6 +1563,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/admin/sync-routines'
     | '/_protected/_modules/admin/training'
     | '/_protected/_modules/analytics/chat'
+    | '/_protected/_modules/analytics/equipment'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/analytics/workforce'
     | '/_protected/_modules/diner/forecast'
@@ -1571,6 +1596,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/recipes/new'
     | '/_protected/_modules/global/weekly-plans/$planId'
     | '/_protected/_modules/global/weekly-plans/new'
+    | '/_protected/_modules/kitchen-production/$kitchenId/equipment'
     | '/_protected/_modules/kitchen/$kitchenId/chat'
     | '/_protected/_modules/kitchen/$kitchenId/equipment'
     | '/_protected/_modules/kitchen/$kitchenId/planning'
@@ -1831,6 +1857,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/analytics/chat'
       preLoaderRoute: typeof ProtectedModulesAnalyticsChatRouteImport
+      parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
+    }
+    '/_protected/_modules/analytics/equipment': {
+      id: '/_protected/_modules/analytics/equipment'
+      path: '/equipment'
+      fullPath: '/analytics/equipment'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsEquipmentRouteImport
       parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
     }
     '/_protected/_modules/analytics/global': {
@@ -2125,6 +2158,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/kitchen-production/$kitchenId/'
       preLoaderRoute: typeof ProtectedModulesKitchenProductionKitchenIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen-production/$kitchenId/equipment': {
+      id: '/_protected/_modules/kitchen-production/$kitchenId/equipment'
+      path: '/equipment'
+      fullPath: '/kitchen-production/$kitchenId/equipment'
+      preLoaderRoute: typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRouteImport
       parentRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRoute
     }
     '/_protected/_modules/kitchen/$kitchenId/': {
@@ -2545,6 +2585,7 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedModulesAnalyticsRouteRouteChildren {
   ProtectedModulesAnalyticsChatRoute: typeof ProtectedModulesAnalyticsChatRoute
+  ProtectedModulesAnalyticsEquipmentRoute: typeof ProtectedModulesAnalyticsEquipmentRoute
   ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
   ProtectedModulesAnalyticsWorkforceRoute: typeof ProtectedModulesAnalyticsWorkforceRoute
   ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
@@ -2553,6 +2594,8 @@ interface ProtectedModulesAnalyticsRouteRouteChildren {
 const ProtectedModulesAnalyticsRouteRouteChildren: ProtectedModulesAnalyticsRouteRouteChildren =
   {
     ProtectedModulesAnalyticsChatRoute: ProtectedModulesAnalyticsChatRoute,
+    ProtectedModulesAnalyticsEquipmentRoute:
+      ProtectedModulesAnalyticsEquipmentRoute,
     ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
     ProtectedModulesAnalyticsWorkforceRoute:
       ProtectedModulesAnalyticsWorkforceRoute,
@@ -2565,11 +2608,14 @@ const ProtectedModulesAnalyticsRouteRouteWithChildren =
   )
 
 interface ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren {
+  ProtectedModulesKitchenProductionKitchenIdEquipmentRoute: typeof ProtectedModulesKitchenProductionKitchenIdEquipmentRoute
   ProtectedModulesKitchenProductionKitchenIdIndexRoute: typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
 }
 
 const ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren: ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren =
   {
+    ProtectedModulesKitchenProductionKitchenIdEquipmentRoute:
+      ProtectedModulesKitchenProductionKitchenIdEquipmentRoute,
     ProtectedModulesKitchenProductionKitchenIdIndexRoute:
       ProtectedModulesKitchenProductionKitchenIdIndexRoute,
   }

@@ -38,33 +38,33 @@
 
 ## Fase 4 — Agregações de relatório
 
-- [ ] 4.1 [packages/sisub-domain] `getKitchenEquipmentCondition(kitchenId)`: contagem por condição, panes abertas ordenadas por severidade e tempo, histórico recente.
-- [ ] 4.2 [packages/sisub-domain] `getKitchenMaintenanceMatrix(kitchenId)`: unidade × plano aplicável com os três estados de R4.
-- [ ] 4.3 [packages/sisub-domain] `getFleetEquipmentReport()`: cobertura por papel, panes inoperantes por tempo, planos mais vencidos, distribuição do parque. Guard `analytics` nível 2. Filtros opcionais de papel/modelo/cozinha, todos `.nullish()`.
+- [x] 4.1 [packages/sisub-domain] `getKitchenEquipmentCondition(kitchenId)`: contagem por condição, panes abertas ordenadas por severidade e tempo, histórico recente.
+- [x] 4.2 [packages/sisub-domain] `getKitchenMaintenanceMatrix(kitchenId)`: unidade × plano aplicável com os três estados de R4.
+- [x] 4.3 [packages/sisub-domain] `getFleetEquipmentReport()`: cobertura por papel, panes inoperantes por tempo, planos mais vencidos, distribuição do parque. Guard `analytics` nível 2. Filtros opcionais de papel/modelo/cozinha, todos `.nullish()`.
 
 ## Fase 5 — Server fns e hooks
 
-- [ ] 5.1 [sisub] `server/equipment.fn.ts`: fns de pane e manutenção, `createServerFn(...).validator(z.object(...))`, client Supabase per-request no handler.
-- [ ] 5.2 [sisub] `server/equipment.fn.ts`: fns dos três relatórios da Fase 4.
-- [ ] 5.3 [sisub] `hooks/data/useEquipment.ts` + `lib/query-keys.ts`: queries e mutations novas, com invalidação da lista de parque ao relatar/resolver pane (a condição muda).
+- [x] 5.1 [sisub] `server/equipment.fn.ts`: fns de pane e manutenção, `createServerFn(...).validator(z.object(...))`, client Supabase per-request no handler.
+- [x] 5.2 [sisub] `server/equipment.fn.ts`: fns dos três relatórios da Fase 4.
+- [x] 5.3 [sisub] `hooks/data/useEquipment.ts` + `lib/query-keys.ts`: queries e mutations novas, com invalidação da lista de parque ao relatar/resolver pane (a condição muda).
 
 ## Fase 6 — Telas
 
-- [ ] 6.1 [sisub] `/global/equipment`: aba **Rotinas** (lista por papel, form com atalhos de intervalo) e campos de ficha no form de modelo.
-- [ ] 6.2 [sisub] `/kitchen-production/$kitchenId/equipment`: rota nova, cartão por unidade com badge de condição e de rotina vencida.
-- [ ] 6.3 [sisub] Diálogo de relato de pane: severidade em duas opções com texto claro ("dá para usar com limitação" / "não dá para usar"), categoria e descrição. Otimizado para uso de pé, em tela pequena.
-- [ ] 6.4 [sisub] Diálogo de registro de manutenção (plano opcional, prestador, data, custo, nota), acessível da produção e da gestão.
-- [ ] 6.5 [sisub] `/kitchen/$kitchenId/equipment`: aba **Condição** com resumo, panes abertas e ações de resolver/descartar (nível 2).
-- [ ] 6.6 [sisub] `/kitchen/$kitchenId/equipment`: aba **Manutenção** com a matriz unidade × plano e registro direto da célula.
-- [ ] 6.7 [sisub] `/analytics/equipment`: rota nova, agregada por papel, somente leitura, com filtros.
-- [ ] 6.8 [sisub] `NavItems.tsx`: "Equipamentos" em Produção Cozinha e "Equipamentos" em Análises Globais (`minLevel: 2`); `lib/breadcrumbs.ts`.
-- [ ] 6.9 [sisub] Revisar as quatro telas contra o `STYLE_CONTRACT.md` do sisub e a proibição global de faixa de acento lateral.
+- [x] 6.1 [sisub] `/global/equipment`: aba **Rotinas** (lista por papel, form com atalhos de intervalo) e campos de ficha no form de modelo.
+- [x] 6.2 [sisub] `/kitchen-production/$kitchenId/equipment`: rota nova, cartão por unidade com badge de condição e de rotina vencida.
+- [x] 6.3 [sisub] Diálogo de relato de pane: severidade em duas opções com texto claro ("dá para usar com limitação" / "não dá para usar"), categoria e descrição. Otimizado para uso de pé, em tela pequena.
+- [x] 6.4 [sisub] Diálogo de registro de manutenção (plano opcional, prestador, data, custo, nota), acessível da produção e da gestão.
+- [x] 6.5 [sisub] `/kitchen/$kitchenId/equipment`: aba **Condição** com resumo, panes abertas e ações de resolver/descartar (nível 2).
+- [x] 6.6 [sisub] `/kitchen/$kitchenId/equipment`: aba **Manutenção** com a matriz unidade × plano e registro direto da célula.
+- [x] 6.7 [sisub] `/analytics/equipment`: rota nova, agregada por papel, somente leitura, com filtros.
+- [x] 6.8 [sisub] `NavItems.tsx`: "Equipamentos" em Produção Cozinha e "Equipamentos" em Análises Globais (`minLevel: 2`); `lib/breadcrumbs.ts`.
+- [x] 6.9 [sisub] Revisar as quatro telas contra o `STYLE_CONTRACT.md` do sisub e a proibição global de faixa de acento lateral.
 
 ## Fase 7 — Testes de integração e fechamento
 
-- [ ] 7.1 [sisub] `test/operations/equipment.operations.test.ts`: pane inoperante remove a unidade do atendimento; `dismissed` devolve; `degraded` não remove; cozinha produtora ≠ pedida.
-- [ ] 7.2 [sisub] Conferir que `setupIntegration` das tabelas novas **falha** sob `SISUB_INTEGRATION_REQUIRED` em vez de dar early-return silencioso; cleanup de fixture em LIFO com `trackFn` ordenado.
-- [ ] 7.3 [sisub] Rodar o gate de integração contra o banco real e conferir a contagem de testes executados (run rápido demais = suíte vazia).
-- [ ] 7.4 [root] `bun run check` + `bun run test`.
-- [ ] 7.5 Aplicar a migration em produção **antes ou junto** do merge, e conferir o run de CI/CD depois. Nota no PR sobre a mudança de comportamento do alerta do `DayDrawer`.
+- [x] 7.1 [sisub] `test/operations/equipment.operations.test.ts`: pane inoperante remove a unidade do atendimento; `dismissed` devolve; `degraded` não remove; cozinha produtora ≠ pedida.
+- [x] 7.2 [sisub] Conferir que `setupIntegration` das tabelas novas **falha** sob `SISUB_INTEGRATION_REQUIRED` em vez de dar early-return silencioso; cleanup de fixture em LIFO com `trackFn` ordenado.
+- [x] 7.3 [sisub] Rodar o gate de integração contra o banco real e conferir a contagem de testes executados (run rápido demais = suíte vazia).
+- [x] 7.4 [root] `bun run check` + `bun run test`.
+- [x] 7.5 As migrations `20260827120000`/`20260827120100` já tinham sido aplicadas com o #241; a **`20260827130000` não** — produção seguia com o check antigo, que aceitava descartar pane sem autor e sem justificativa (exatamente a decisão que devolve equipamento quebrado ao planejamento). Aplicada e registrada com a versão do arquivo.
 - [ ] 7.6 `/code-review` antes de pedir merge, com os achados relatados no PR.

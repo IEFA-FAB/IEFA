@@ -84,6 +84,19 @@ export {
 	updateEquipmentIssue,
 	updateMaintenancePlan,
 } from "./equipment-maintenance.ts"
+export type {
+	FleetEquipmentReportResult,
+	FleetIssueRow,
+	FleetModelRow,
+	FleetRoleCoverage,
+	KitchenConditionCounts,
+	KitchenConditionReport,
+	MaintenanceMatrixCell,
+	MaintenanceMatrixReport,
+	MaintenanceMatrixRow,
+	OpenIssueReportRow,
+} from "./equipment-reports.ts"
+export { countByCondition, getFleetEquipmentReport, getKitchenEquipmentCondition, getKitchenMaintenanceMatrix } from "./equipment-reports.ts"
 export { type FolderLastReview, type FolderReviewRow, listFolderLastReviews, recordFolderReview } from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {

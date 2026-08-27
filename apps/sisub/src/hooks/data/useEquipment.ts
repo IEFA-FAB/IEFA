@@ -7,9 +7,14 @@ import type {
 	CreateEquipmentModel,
 	CreateEquipmentRole,
 	CreateEquipmentUnit,
+	CreateMaintenancePlan,
+	LogMaintenance,
+	ReportEquipmentIssue,
 	SaveRecipeEquipment,
+	UpdateEquipmentIssue,
 	UpdateEquipmentModel,
 	UpdateEquipmentUnit,
+	UpdateMaintenancePlan,
 } from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -18,19 +23,32 @@ import {
 	createEquipmentModelFn,
 	createEquipmentRoleFn,
 	createEquipmentUnitFn,
+	createMaintenancePlanFn,
 	deleteEquipmentModelFn,
 	deleteEquipmentUnitFn,
+	deleteMaintenancePlanFn,
 	evaluateMenuEquipmentFitnessFn,
 	evaluateRecipeEquipmentFitnessFn,
 	fetchRecipeEquipmentFn,
+	getFleetEquipmentReportFn,
+	getKitchenEquipmentConditionFn,
+	getKitchenMaintenanceMatrixFn,
+	listApplicablePlansFn,
+	listEquipmentIssuesFn,
 	listEquipmentModelsFn,
 	listEquipmentRolesFn,
 	listKitchenEquipmentFn,
+	listMaintenanceLogsFn,
+	listMaintenancePlansFn,
+	logMaintenanceFn,
+	reportEquipmentIssueFn,
 	saveRecipeEquipmentFn,
 	setUtensilRoleFn,
 	suggestRecipeEquipmentFromFlowFn,
+	updateEquipmentIssueFn,
 	updateEquipmentModelFn,
 	updateEquipmentUnitFn,
+	updateMaintenancePlanFn,
 } from "@/server/equipment.fn"
 
 const CATALOG_STALE_TIME = 5 * 60 * 1000
@@ -218,5 +236,148 @@ export function useCreateEquipmentRole() {
 			toast.success("Papel cadastrado")
 		},
 		onError: (error) => toast.error(`Erro ao cadastrar papel: ${error.message}`),
+	})
+}
+
+// ── Condição e manutenção ─────────────────────────────────────────────────
+
+export function useEquipmentIssues(kitchenId: number | undefined, onlyOpen = true) {
+	return useQuery({
+		queryKey: queryKeys.equipment.issues(kitchenId, onlyOpen),
+		queryFn: () => listEquipmentIssuesFn({ data: { kitchenId: kitchenId as number, unitId: null, onlyOpen, limit: 100 } }),
+		enabled: kitchenId != null,
+		staleTime: 30 * 1000,
+	})
+}
+
+export function useKitchenEquipmentCondition(kitchenId: number | undefined) {
+	return useQuery({
+		queryKey: queryKeys.equipment.condition(kitchenId),
+		queryFn: () => getKitchenEquipmentConditionFn({ data: { kitchenId: kitchenId as number, historyLimit: 20 } }),
+		enabled: kitchenId != null,
+		staleTime: 30 * 1000,
+	})
+}
+
+export function useKitchenMaintenanceMatrix(kitchenId: number | undefined) {
+	return useQuery({
+		queryKey: queryKeys.equipment.matrix(kitchenId),
+		queryFn: () => getKitchenMaintenanceMatrixFn({ data: { kitchenId: kitchenId as number, today: null } }),
+		enabled: kitchenId != null,
+		staleTime: 60 * 1000,
+	})
+}
+
+export function useMaintenancePlans(kitchenId: number | null = null) {
+	return useQuery({
+		queryKey: queryKeys.equipment.plans(kitchenId),
+		queryFn: () => listMaintenancePlansFn({ data: { kitchenId, roleId: null, modelId: null } }),
+		staleTime: 5 * 60 * 1000,
+	})
+}
+
+export function useApplicablePlans(unitId: string | undefined) {
+	return useQuery({
+		queryKey: queryKeys.equipment.applicablePlans(unitId),
+		queryFn: () => listApplicablePlansFn({ data: { unitId: unitId as string } }),
+		enabled: !!unitId,
+		staleTime: 5 * 60 * 1000,
+	})
+}
+
+export function useMaintenanceLogs(kitchenId: number | undefined, unitId: string | null = null) {
+	return useQuery({
+		queryKey: queryKeys.equipment.logs(kitchenId, unitId),
+		queryFn: () => listMaintenanceLogsFn({ data: { kitchenId: kitchenId as number, unitId, planId: null, limit: 100 } }),
+		enabled: kitchenId != null,
+		staleTime: 60 * 1000,
+	})
+}
+
+export function useFleetEquipmentReport(filters: { roleId?: string | null; modelId?: string | null; kitchenId?: number | null } = {}) {
+	return useQuery({
+		queryKey: queryKeys.equipment.fleet(filters),
+		queryFn: () =>
+			getFleetEquipmentReportFn({
+				data: { roleId: filters.roleId ?? null, modelId: filters.modelId ?? null, kitchenId: filters.kitchenId ?? null, today: null },
+			}),
+		staleTime: 5 * 60 * 1000,
+	})
+}
+
+/**
+ * Relatar ou encerrar pane muda a CONDIÇÃO da unidade, e a condição decide quem entra no
+ * cálculo de atendimento. Por isso a invalidação é da árvore inteira de equipamento: o parque,
+ * o atendimento da preparação e o alerta do cardápio mudam todos com uma pane.
+ */
+export function useReportEquipmentIssue() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: ReportEquipmentIssue) => reportEquipmentIssueFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Pane registrada")
+		},
+		onError: (error) => toast.error(`Erro ao registrar pane: ${error.message}`),
+	})
+}
+
+export function useUpdateEquipmentIssue() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: UpdateEquipmentIssue) => updateEquipmentIssueFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Pane atualizada")
+		},
+		onError: (error) => toast.error(`Erro ao atualizar pane: ${error.message}`),
+	})
+}
+
+export function useLogMaintenance() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: LogMaintenance) => logMaintenanceFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Manutenção registrada")
+		},
+		onError: (error) => toast.error(`Erro ao registrar manutenção: ${error.message}`),
+	})
+}
+
+export function useCreateMaintenancePlan() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: CreateMaintenancePlan) => createMaintenancePlanFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Rotina cadastrada")
+		},
+		onError: (error) => toast.error(`Erro ao cadastrar rotina: ${error.message}`),
+	})
+}
+
+export function useUpdateMaintenancePlan() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: UpdateMaintenancePlan) => updateMaintenancePlanFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Rotina atualizada")
+		},
+		onError: (error) => toast.error(`Erro ao atualizar rotina: ${error.message}`),
+	})
+}
+
+export function useDeleteMaintenancePlan() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (planId: string) => deleteMaintenancePlanFn({ data: { planId } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
+			toast.success("Rotina removida")
+		},
+		onError: (error) => toast.error(`Erro ao remover rotina: ${error.message}`),
 	})
 }
