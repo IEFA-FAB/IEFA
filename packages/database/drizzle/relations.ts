@@ -1,6 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { usersInAuth, profilesAdminInAccessControl, dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, kitchenInCore, unitsInCore, messHallsInCore, userDataInCore, mealTypeInKitchen, mealPresencesInKitchen, otherPresencesInKitchen, menuTemplateItemsInKitchen, menuTemplateInKitchen, userPermissionsInAccessControl, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInAccessControl, comprasMaterialItemInComprasGovIntegration, purchaseItemInProcurement, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, ceafaInKitchen, ingredientInKitchen, folderInKitchen, purchaseItemIngredientInProcurement, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInProcurement, procurementListItemInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, productionTaskInKitchen, procurementArpItemInProcurement, empenhoInFinance, procurementArpInProcurement, analyticsChatSessionInCore, analyticsChatMessageInCore, moduleChatSessionInCore, moduleChatMessageInCore, stepTemplateInKitchen, utensilInKitchen, stepTemplateUtensilInKitchen, recipeStepInKitchen, recipeStepOutputInKitchen, recipeIngredientsInKitchen, recipeStepInputInKitchen, recipeStepUtensilInKitchen, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, opinionsInCore, recipeIngredientAlternativesInKitchen, ingredientSubstitutionInKitchen, mealForecastsInKitchen, ingredientItemInKitchen, nutrientInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, ingredientReviewInKitchen, equipmentMaintenancePlanInKitchen, equipmentIssueInKitchen, equipmentMaintenanceLogInKitchen, procurementPesquisaPrecoInProcurement, procurementPesquisaPrecoItemInProcurement, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, frozenPreparationInKitchen, menuTemplateMealInKitchen, equipmentRoleInKitchen, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentUnitInKitchen, equipmentUnitRoleInKitchen, recipeEquipmentRequirementInKitchen } from "./schema";
-
+import { usersInAuth, profilesAdminInAccessControl, dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, kitchenInCore, unitsInCore, messHallsInCore, userDataInCore, mealTypeInKitchen, mealPresencesInKitchen, otherPresencesInKitchen, menuTemplateItemsInKitchen, menuTemplateInKitchen, userPermissionsInAccessControl, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInAccessControl, comprasMaterialItemInComprasGovIntegration, purchaseItemInProcurement, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, ceafaInKitchen, ingredientInKitchen, folderInKitchen, purchaseItemIngredientInProcurement, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInProcurement, procurementListItemInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, productionTaskInKitchen, procurementArpItemInProcurement, empenhoInFinance, procurementArpInProcurement, analyticsChatSessionInCore, analyticsChatMessageInCore, moduleChatSessionInCore, moduleChatMessageInCore, stepTemplateInKitchen, utensilInKitchen, stepTemplateUtensilInKitchen, recipeStepInKitchen, recipeStepOutputInKitchen, recipeIngredientsInKitchen, recipeStepInputInKitchen, recipeStepUtensilInKitchen, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, opinionsInCore, recipeIngredientAlternativesInKitchen, ingredientSubstitutionInKitchen, mealForecastsInKitchen, ingredientItemInKitchen, nutrientInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, ingredientReviewInKitchen, equipmentMaintenancePlanInKitchen, equipmentIssueInKitchen, equipmentMaintenanceLogInKitchen, procurementPesquisaPrecoInProcurement, procurementPesquisaPrecoItemInProcurement, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, frozenPreparationInKitchen, menuTemplateMealInKitchen, equipmentRoleInKitchen, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentUnitInKitchen, equipmentUnitRoleInKitchen, recipeEquipmentRequirementInKitchen, ranchoInCore, workforceCategoryInCore, workforceSurveyInCore, workforceSubmissionInCore, workforceHeadcountInCore, workforceNoteInCore } from "./schema";
 export const profilesAdminInAccessControlRelations = relations(profilesAdminInAccessControl, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [profilesAdminInAccessControl.id],
@@ -849,5 +848,68 @@ export const recipeEquipmentRequirementInKitchenRelations = relations(recipeEqui
 	equipmentModelInKitchen: one(equipmentModelInKitchen, {
 		fields: [recipeEquipmentRequirementInKitchen.modelId],
 		references: [equipmentModelInKitchen.id]
+	}),
+}));
+
+export const ranchoInCoreRelations = relations(ranchoInCore, ({one, many}) => ({
+	unitsInCore: one(unitsInCore, {
+		fields: [ranchoInCore.unitId],
+		references: [unitsInCore.id]
+	}),
+	messHallsInCore: one(messHallsInCore, {
+		fields: [ranchoInCore.messHallId],
+		references: [messHallsInCore.id]
+	}),
+	kitchenInCore: one(kitchenInCore, {
+		fields: [ranchoInCore.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	workforceSubmissionInCores: many(workforceSubmissionInCore),
+}));
+
+export const workforceSurveyInCoreRelations = relations(workforceSurveyInCore, ({one, many}) => ({
+	usersInAuth: one(usersInAuth, {
+		fields: [workforceSurveyInCore.createdBy],
+		references: [usersInAuth.id]
+	}),
+	workforceSubmissionInCores: many(workforceSubmissionInCore),
+}));
+
+export const workforceSubmissionInCoreRelations = relations(workforceSubmissionInCore, ({one, many}) => ({
+	workforceSurveyInCore: one(workforceSurveyInCore, {
+		fields: [workforceSubmissionInCore.surveyId],
+		references: [workforceSurveyInCore.id]
+	}),
+	ranchoInCore: one(ranchoInCore, {
+		fields: [workforceSubmissionInCore.ranchoId],
+		references: [ranchoInCore.id]
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [workforceSubmissionInCore.submittedBy],
+		references: [usersInAuth.id]
+	}),
+	workforceHeadcountInCores: many(workforceHeadcountInCore),
+	workforceNoteInCores: many(workforceNoteInCore),
+}));
+
+export const workforceHeadcountInCoreRelations = relations(workforceHeadcountInCore, ({one}) => ({
+	workforceSubmissionInCore: one(workforceSubmissionInCore, {
+		fields: [workforceHeadcountInCore.submissionId],
+		references: [workforceSubmissionInCore.id]
+	}),
+	workforceCategoryInCore: one(workforceCategoryInCore, {
+		fields: [workforceHeadcountInCore.categoryId],
+		references: [workforceCategoryInCore.id]
+	}),
+}));
+
+export const workforceCategoryInCoreRelations = relations(workforceCategoryInCore, ({many}) => ({
+	workforceHeadcountInCores: many(workforceHeadcountInCore),
+}));
+
+export const workforceNoteInCoreRelations = relations(workforceNoteInCore, ({one}) => ({
+	workforceSubmissionInCore: one(workforceSubmissionInCore, {
+		fields: [workforceNoteInCore.submissionId],
+		references: [workforceSubmissionInCore.id]
 	}),
 }));

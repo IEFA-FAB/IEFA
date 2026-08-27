@@ -2218,6 +2218,73 @@ export type Database = {
         }
         Relationships: []
       }
+      rancho: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          display_name: string
+          elo_code: string
+          id: number
+          kitchen_id: number | null
+          mess_hall_id: number | null
+          notes: string | null
+          produces_own_meals: boolean
+          unit_id: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          display_name: string
+          elo_code: string
+          id?: number
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean
+          unit_id: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          display_name?: string
+          elo_code?: string
+          id?: number
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean
+          unit_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rancho_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rancho_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rancho_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       super_admin_controller: {
         Row: {
           active: boolean | null
@@ -2288,6 +2355,7 @@ export type Database = {
           display_name: string | null
           id: number
           is_training: boolean
+          parent_unit_id: number | null
           type: Database["sisub"]["Enums"]["unit_type"] | null
           uasg: string | null
         }
@@ -2303,6 +2371,7 @@ export type Database = {
           display_name?: string | null
           id?: number
           is_training?: boolean
+          parent_unit_id?: number | null
           type?: Database["sisub"]["Enums"]["unit_type"] | null
           uasg?: string | null
         }
@@ -2318,10 +2387,19 @@ export type Database = {
           display_name?: string | null
           id?: number
           is_training?: boolean
+          parent_unit_id?: number | null
           type?: Database["sisub"]["Enums"]["unit_type"] | null
           uasg?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "units_parent_unit_id_fkey"
+            columns: ["parent_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_data: {
         Row: {
@@ -2382,6 +2460,203 @@ export type Database = {
           nrOrdem?: string | null
           sgOrg?: string | null
           sgPosto?: string | null
+        }
+        Relationships: []
+      }
+      workforce_category: {
+        Row: {
+          code: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          is_career: boolean
+          is_technical: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_career?: boolean
+          is_technical?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_career?: boolean
+          is_technical?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      workforce_headcount: {
+        Row: {
+          category_id: string
+          created_at: string
+          headcount: number
+          id: string
+          submission_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          headcount: number
+          id?: string
+          submission_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          headcount?: number
+          id?: string
+          submission_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_headcount_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_headcount_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_submission"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workforce_note: {
+        Row: {
+          created_at: string
+          detail: string
+          id: string
+          kind: string
+          quantity: number | null
+          submission_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail: string
+          id?: string
+          kind: string
+          quantity?: number | null
+          submission_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string
+          id?: string
+          kind?: string
+          quantity?: number | null
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_note_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_submission"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workforce_submission: {
+        Row: {
+          created_at: string
+          declared_total: number | null
+          id: string
+          rancho_id: number
+          submitted_at: string | null
+          submitted_by: string | null
+          survey_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          declared_total?: number | null
+          id?: string
+          rancho_id: number
+          submitted_at?: string | null
+          submitted_by?: string | null
+          survey_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          declared_total?: number | null
+          id?: string
+          rancho_id?: number
+          submitted_at?: string | null
+          submitted_by?: string | null
+          survey_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_submission_rancho_id_fkey"
+            columns: ["rancho_id"]
+            isOneToOne: false
+            referencedRelation: "rancho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_submission_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_survey"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workforce_survey: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          opened_at: string
+          reference_date: string
+          source: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_at?: string
+          reference_date: string
+          source?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_at?: string
+          reference_date?: string
+          source?: string | null
+          status?: string
+          title?: string
         }
         Relationships: []
       }

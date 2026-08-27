@@ -476,3 +476,35 @@ export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from ".
 export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"
 export type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "./user.ts"
 export { FetchMilitaryDataSchema, FetchUserDataSchema, FetchUserNrOrdemSchema, SyncUserEmailSchema, SyncUserNrOrdemSchema } from "./user.ts"
+export type {
+	AddWorkforceNote,
+	CloseWorkforceSurvey,
+	CreateRancho,
+	CreateWorkforceSurvey,
+	DeleteWorkforceNote,
+	FetchWorkforceMatrix,
+	FetchWorkforceNetwork,
+	ListWorkforceSurveys,
+	SaveWorkforceSubmission,
+	UpdateRancho,
+	WorkforceEntry,
+	WorkforceNoteKind,
+	WorkforceSurveyStatus,
+} from "./workforce.ts"
+export {
+	AddWorkforceNoteSchema,
+	CloseWorkforceSurveySchema,
+	CreateRanchoSchema,
+	CreateWorkforceSurveySchema,
+	DeleteWorkforceNoteSchema,
+	FetchWorkforceMatrixSchema,
+	FetchWorkforceNetworkSchema,
+	ListWorkforceSurveysSchema,
+	SaveWorkforceSubmissionSchema,
+	UpdateRanchoSchema,
+	WORKFORCE_NOTE_KINDS,
+	WORKFORCE_SURVEY_STATUSES,
+	WorkforceEntrySchema,
+	WorkforceNoteKindSchema,
+	WorkforceSurveyStatusSchema,
+} from "./workforce.ts"

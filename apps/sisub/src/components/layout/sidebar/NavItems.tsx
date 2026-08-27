@@ -37,6 +37,7 @@ import {
 	ShoppingCart,
 	Star,
 	User,
+	Users,
 	UtensilsCrossed,
 	Wheat,
 } from "lucide-react"
@@ -200,6 +201,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		color: "governance",
 		items: [
 			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3, minLevel: 2 },
+			{ title: "Efetivo da Rede", url: "/analytics/workforce", icon: Users, minLevel: 2 },
 			{ title: "Assistente IA", url: "/analytics/chat", icon: MessageSquare },
 		],
 	},
@@ -212,6 +214,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Dashboard", url: "/local-analytics/dashboard", icon: LayoutDashboard },
 			{ title: "Indicadores", url: "/local-analytics/indicators", icon: BarChart3 },
+			{ title: "Efetivo dos Ranchos", url: "/local-analytics/workforce", icon: Users },
 			{ title: "Assistente IA", url: "/local-analytics/chat", icon: MessageSquare },
 		],
 	},

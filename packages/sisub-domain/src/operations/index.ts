@@ -329,3 +329,16 @@ export {
 } from "./training.ts"
 export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
 export { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"
+export type { WorkforceMatrixWire, WorkforceNetworkWire, WorkforceRanchoWire } from "./workforce.ts"
+export {
+	addWorkforceNote,
+	closeWorkforceSurvey,
+	createRancho,
+	createWorkforceSurvey,
+	deleteWorkforceNote,
+	fetchWorkforceMatrix,
+	fetchWorkforceNetwork,
+	listWorkforceSurveys,
+	saveWorkforceSubmission,
+	updateRancho,
+} from "./workforce.ts"

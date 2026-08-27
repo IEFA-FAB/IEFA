@@ -36,6 +36,7 @@ import { Route as ProtectedModulesAdminTrainingRouteImport } from './routes/_pro
 import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
 import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
+import { Route as ProtectedModulesAnalyticsWorkforceRouteImport } from './routes/_protected/_modules/analytics/workforce'
 import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
 import { Route as ProtectedModulesDinerMcpKeysRouteImport } from './routes/_protected/_modules/diner/mcp-keys'
@@ -85,6 +86,7 @@ import { Route as ProtectedModulesKitchenKitchenIdSettingsRouteImport } from './
 import { Route as ProtectedModulesLocalAnalyticsUnitIdChatRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/chat'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/dashboard'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/indicators'
+import { Route as ProtectedModulesLocalAnalyticsUnitIdWorkforceRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/workforce'
 import { Route as ProtectedModulesMesshallMessHallIdIndexRouteImport } from './routes/_protected/_modules/messhall/$messHallId/index'
 import { Route as ProtectedModulesStorageKitchenIdCountsRouteImport } from './routes/_protected/_modules/storage/$kitchenId/counts'
 import { Route as ProtectedModulesStorageKitchenIdDashboardRouteImport } from './routes/_protected/_modules/storage/$kitchenId/dashboard'
@@ -276,6 +278,12 @@ const ProtectedModulesAnalyticsGlobalRoute =
   ProtectedModulesAnalyticsGlobalRouteImport.update({
     id: '/global',
     path: '/global',
+    getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsWorkforceRoute =
+  ProtectedModulesAnalyticsWorkforceRouteImport.update({
+    id: '/workforce',
+    path: '/workforce',
     getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
   } as any)
 const ProtectedModulesDinerIndexRoute =
@@ -570,6 +578,12 @@ const ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute =
   ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport.update({
     id: '/indicators',
     path: '/indicators',
+    getParentRoute: () => ProtectedModulesLocalAnalyticsUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute =
+  ProtectedModulesLocalAnalyticsUnitIdWorkforceRouteImport.update({
+    id: '/workforce',
+    path: '/workforce',
     getParentRoute: () => ProtectedModulesLocalAnalyticsUnitIdRouteRoute,
   } as any)
 const ProtectedModulesMesshallMessHallIdIndexRoute =
@@ -903,6 +917,7 @@ export interface FileRoutesByFullPath {
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
@@ -941,6 +956,7 @@ export interface FileRoutesByFullPath {
   '/local-analytics/$unitId/chat': typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  '/local-analytics/$unitId/workforce': typeof ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute
   '/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
   '/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
@@ -1021,6 +1037,7 @@ export interface FileRoutesByTo {
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
@@ -1059,6 +1076,7 @@ export interface FileRoutesByTo {
   '/local-analytics/$unitId/chat': typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  '/local-analytics/$unitId/workforce': typeof ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute
   '/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
   '/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
@@ -1147,6 +1165,7 @@ export interface FileRoutesById {
   '/_protected/_modules/admin/training': typeof ProtectedModulesAdminTrainingRoute
   '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/_protected/_modules/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/_protected/_modules/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
@@ -1185,6 +1204,7 @@ export interface FileRoutesById {
   '/_protected/_modules/local-analytics/$unitId/chat': typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   '/_protected/_modules/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/_protected/_modules/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  '/_protected/_modules/local-analytics/$unitId/workforce': typeof ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute
   '/_protected/_modules/storage/$kitchenId/counts': typeof ProtectedModulesStorageKitchenIdCountsRoute
   '/_protected/_modules/storage/$kitchenId/dashboard': typeof ProtectedModulesStorageKitchenIdDashboardRoute
   '/_protected/_modules/storage/$kitchenId/production-issue': typeof ProtectedModulesStorageKitchenIdProductionIssueRoute
@@ -1273,6 +1293,7 @@ export interface FileRouteTypes {
     | '/admin/training'
     | '/analytics/chat'
     | '/analytics/global'
+    | '/analytics/workforce'
     | '/diner/forecast'
     | '/diner/mcp-keys'
     | '/diner/menu'
@@ -1311,6 +1332,7 @@ export interface FileRouteTypes {
     | '/local-analytics/$unitId/chat'
     | '/local-analytics/$unitId/dashboard'
     | '/local-analytics/$unitId/indicators'
+    | '/local-analytics/$unitId/workforce'
     | '/storage/$kitchenId/counts'
     | '/storage/$kitchenId/dashboard'
     | '/storage/$kitchenId/production-issue'
@@ -1391,6 +1413,7 @@ export interface FileRouteTypes {
     | '/admin/training'
     | '/analytics/chat'
     | '/analytics/global'
+    | '/analytics/workforce'
     | '/diner/forecast'
     | '/diner/mcp-keys'
     | '/diner/menu'
@@ -1429,6 +1452,7 @@ export interface FileRouteTypes {
     | '/local-analytics/$unitId/chat'
     | '/local-analytics/$unitId/dashboard'
     | '/local-analytics/$unitId/indicators'
+    | '/local-analytics/$unitId/workforce'
     | '/storage/$kitchenId/counts'
     | '/storage/$kitchenId/dashboard'
     | '/storage/$kitchenId/production-issue'
@@ -1516,6 +1540,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/admin/training'
     | '/_protected/_modules/analytics/chat'
     | '/_protected/_modules/analytics/global'
+    | '/_protected/_modules/analytics/workforce'
     | '/_protected/_modules/diner/forecast'
     | '/_protected/_modules/diner/mcp-keys'
     | '/_protected/_modules/diner/menu'
@@ -1554,6 +1579,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/local-analytics/$unitId/chat'
     | '/_protected/_modules/local-analytics/$unitId/dashboard'
     | '/_protected/_modules/local-analytics/$unitId/indicators'
+    | '/_protected/_modules/local-analytics/$unitId/workforce'
     | '/_protected/_modules/storage/$kitchenId/counts'
     | '/_protected/_modules/storage/$kitchenId/dashboard'
     | '/_protected/_modules/storage/$kitchenId/production-issue'
@@ -1812,6 +1838,13 @@ declare module '@tanstack/react-router' {
       path: '/global'
       fullPath: '/analytics/global'
       preLoaderRoute: typeof ProtectedModulesAnalyticsGlobalRouteImport
+      parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
+    }
+    '/_protected/_modules/analytics/workforce': {
+      id: '/_protected/_modules/analytics/workforce'
+      path: '/workforce'
+      fullPath: '/analytics/workforce'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsWorkforceRouteImport
       parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
     }
     '/_protected/_modules/diner/': {
@@ -2155,6 +2188,13 @@ declare module '@tanstack/react-router' {
       path: '/indicators'
       fullPath: '/local-analytics/$unitId/indicators'
       preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport
+      parentRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRoute
+    }
+    '/_protected/_modules/local-analytics/$unitId/workforce': {
+      id: '/_protected/_modules/local-analytics/$unitId/workforce'
+      path: '/workforce'
+      fullPath: '/local-analytics/$unitId/workforce'
+      preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdWorkforceRouteImport
       parentRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRoute
     }
     '/_protected/_modules/messhall/$messHallId/': {
@@ -2506,6 +2546,7 @@ declare module '@tanstack/react-router' {
 interface ProtectedModulesAnalyticsRouteRouteChildren {
   ProtectedModulesAnalyticsChatRoute: typeof ProtectedModulesAnalyticsChatRoute
   ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
+  ProtectedModulesAnalyticsWorkforceRoute: typeof ProtectedModulesAnalyticsWorkforceRoute
   ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
 }
 
@@ -2513,6 +2554,8 @@ const ProtectedModulesAnalyticsRouteRouteChildren: ProtectedModulesAnalyticsRout
   {
     ProtectedModulesAnalyticsChatRoute: ProtectedModulesAnalyticsChatRoute,
     ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
+    ProtectedModulesAnalyticsWorkforceRoute:
+      ProtectedModulesAnalyticsWorkforceRoute,
     ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,
   }
 
@@ -2642,6 +2685,7 @@ interface ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren {
   ProtectedModulesLocalAnalyticsUnitIdChatRoute: typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   ProtectedModulesLocalAnalyticsUnitIdDashboardRoute: typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute: typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute: typeof ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute
 }
 
 const ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren: ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren =
@@ -2652,6 +2696,8 @@ const ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren: ProtectedModulesLo
       ProtectedModulesLocalAnalyticsUnitIdDashboardRoute,
     ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute:
       ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute,
+    ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute:
+      ProtectedModulesLocalAnalyticsUnitIdWorkforceRoute,
   }
 
 const ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren =
