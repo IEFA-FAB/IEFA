@@ -10,8 +10,8 @@ import { describe, expect, test } from "bun:test"
 import {
 	computeRanchoMetrics,
 	coverageGaps,
-	dinersPerWorker,
 	groupWorkforceBy,
+	mealsPerWorker,
 	type RanchoWorkforceInput,
 	summarizeWorkforce,
 	type WorkforceCategoryRef,
@@ -182,28 +182,28 @@ describe("coverageGaps", () => {
 	})
 })
 
-describe("dinersPerWorker", () => {
+describe("mealsPerWorker", () => {
 	const m = computeRanchoMetrics(rancho({ headcounts: { qta: 10 } }), CATEGORIES)
 
-	test("comensais por dia divididos pelo efetivo disponível", () => {
-		expect(dinersPerWorker(m, { presences: 6000, activeDays: 20 })).toBe(30)
+	test("refeições por dia divididas pelo efetivo disponível", () => {
+		expect(mealsPerWorker(m, { presences: 6000, activeDays: 20 })).toBe(30)
 	})
 
 	test("sem refeitório vinculado devolve null, não zero", () => {
-		expect(dinersPerWorker(m, null)).toBeNull()
+		expect(mealsPerWorker(m, null)).toBeNull()
 	})
 
 	test("rancho que não registra presença devolve null, não zero", () => {
-		expect(dinersPerWorker(m, { presences: 0, activeDays: 0 })).toBeNull()
+		expect(mealsPerWorker(m, { presences: 0, activeDays: 0 })).toBeNull()
 	})
 
 	test("efetivo não declarado devolve null", () => {
 		const mudo = computeRanchoMetrics(rancho({ answered: false }), CATEGORIES)
-		expect(dinersPerWorker(mudo, { presences: 100, activeDays: 10 })).toBeNull()
+		expect(mealsPerWorker(mudo, { presences: 100, activeDays: 10 })).toBeNull()
 	})
 
 	test("efetivo inteiramente indisponível devolve null em vez de dividir por zero", () => {
 		const zerado = computeRanchoMetrics(rancho({ headcounts: { qta: 2 }, notes: [{ kind: "leave", quantity: 2 }] }), CATEGORIES)
-		expect(dinersPerWorker(zerado, { presences: 100, activeDays: 10 })).toBeNull()
+		expect(mealsPerWorker(zerado, { presences: 100, activeDays: 10 })).toBeNull()
 	})
 })

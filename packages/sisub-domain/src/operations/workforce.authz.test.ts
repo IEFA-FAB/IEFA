@@ -141,6 +141,41 @@ describe("preenchimento do efetivo", () => {
 		await expect(deleteWorkforceNote(db, localCtx(OTHER_UNIT, 2), { noteId: NOTE_ID })).rejects.toBeInstanceOf(PermissionDeniedError)
 		expect(writes).toEqual([])
 	})
+
+	test("apagar observação de competência ENCERRADA é recusado", async () => {
+		// Sem este guard, mexer numa coleta antiga mudaria para sempre o efetivo disponível
+		// daquele mês — e `addWorkforceNote` recusaria recriar a observação apagada.
+		const { db, writes } = fakeDb([{ ranchoId: RANCHO_ID, surveyId: SURVEY_ID, unitId: OWNER_UNIT, active: true, status: "closed" }])
+		await expect(deleteWorkforceNote(db, localCtx(OWNER_UNIT, 2), { noteId: NOTE_ID })).rejects.toThrow(/encerrada/i)
+		expect(writes).toEqual([])
+	})
+
+	test("preencher em competência ENCERRADA é recusado", async () => {
+		const { db, writes } = fakeDb([{ unitId: OWNER_UNIT, active: true, status: "closed" }])
+		await expect(saveWorkforceSubmission(db, localCtx(OWNER_UNIT, 2), input)).rejects.toThrow(/encerrada/i)
+		expect(writes).toEqual([])
+	})
+
+	test("rancho INATIVO não aceita preenchimento, mesmo com permissão", async () => {
+		const { db, writes } = fakeDb([{ unitId: OWNER_UNIT, active: false }])
+		await expect(saveWorkforceSubmission(db, localCtx(OWNER_UNIT, 2), input)).rejects.toThrow(/inativo/i)
+		expect(writes).toEqual([])
+	})
+
+	test("salvar TUDO em branco apaga a resposta em vez de criar uma resposta zerada", async () => {
+		// Se a submission fosse criada assim, o rancho contaria como respondido com total 0:
+		// entraria na taxa de resposta, puxaria o total da rede para baixo e apareceria na
+		// fila de lacunas de cobertura — sem nenhum caminho de volta.
+		const { db, writes } = fakeDb([{ unitId: OWNER_UNIT, active: true, status: "open" }])
+		await saveWorkforceSubmission(db, localCtx(OWNER_UNIT, 2), {
+			surveyId: SURVEY_ID,
+			ranchoId: RANCHO_ID,
+			entries: [{ categoryCode: "qta", headcount: null }],
+			declaredTotal: null,
+		}).catch(() => undefined)
+		expect(writes).toEqual(["delete"])
+		expect(writes).not.toContain("insert")
+	})
 })
 
 describe("governança da competência e do roster", () => {

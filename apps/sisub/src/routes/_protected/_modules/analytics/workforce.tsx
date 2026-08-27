@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { requirePermission } from "@/auth/pbac"
-import { formatReferenceDate } from "@/components/features/workforce/labels"
+import { useState } from "react"
+import { requirePermission, usePBAC } from "@/auth/pbac"
 import { WorkforceMatrixTable } from "@/components/features/workforce/WorkforceMatrixTable"
 import { WorkforceNetworkPanel } from "@/components/features/workforce/WorkforceNetworkPanel"
 import { WorkforceSummary } from "@/components/features/workforce/WorkforceSummary"
+import { WorkforceSurveyControls } from "@/components/features/workforce/WorkforceSurveyControls"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchWorkforceNetworkFn } from "@/server/workforce.fn"
@@ -23,21 +23,19 @@ export const Route = createFileRoute("/_protected/_modules/analytics/workforce")
 })
 
 function WorkforceNetworkPage() {
-	const queryKey = ["sisub", "workforce", "network"] as const
+	const { can } = usePBAC()
+	// null = competência mais recente; o servidor resolve.
+	const [surveyId, setSurveyId] = useState<string | null>(null)
+	const queryKey = ["sisub", "workforce", "network", surveyId] as const
 	const { data: network, isLoading } = useQuery({
 		queryKey,
-		queryFn: () => fetchWorkforceNetworkFn({ data: { surveyId: null } }),
+		queryFn: () => fetchWorkforceNetworkFn({ data: { surveyId } }),
 	})
 
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Efetivo da Rede" description="Guarnição dos ranchos por ELO, quadro e especialidade">
-				{network?.survey && (
-					<div className="flex items-center gap-2">
-						<Badge variant="outline">{formatReferenceDate(network.survey.reference_date)}</Badge>
-						{network.survey.status === "closed" && <Badge variant="secondary">Encerrada</Badge>}
-					</div>
-				)}
+				<WorkforceSurveyControls current={network?.survey ?? null} onSelect={setSurveyId} canManage={can("admin", 2)} invalidate={[queryKey]} />
 			</PageHeader>
 
 			{isLoading && (
@@ -51,7 +49,11 @@ function WorkforceNetworkPage() {
 				<Empty>
 					<EmptyHeader>
 						<EmptyTitle>Nenhuma competência registrada</EmptyTitle>
-						<EmptyDescription>Abra uma coleta de efetivo para começar a acompanhar a guarnição dos ranchos.</EmptyDescription>
+						<EmptyDescription>
+							{can("admin", 2)
+								? "Abra uma coleta de efetivo para começar a acompanhar a guarnição dos ranchos."
+								: "A administração do sistema ainda não abriu uma coleta de efetivo."}
+						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>
 			)}

@@ -177,19 +177,26 @@ export function coverageGaps(metrics: RanchoWorkforceMetrics[]): RanchoWorkforce
 	return metrics.filter((m) => m.answered && !m.hasTechnicalStaff).sort((a, b) => (b.total ?? 0) - (a.total ?? 0))
 }
 
-export type DinerLoadInput = {
-	/** Presenças registradas no período, por refeitório servido pelo rancho. */
+export type MealLoadInput = {
+	/**
+	 * REFEIÇÕES registradas no período, por refeitório servido pelo rancho. Uma linha de
+	 * `meal_presences` é (usuário, dia, refeição): quem almoça e janta conta duas vezes.
+	 * É o numerador certo para carga de trabalho — a guarnição produz refeições, não pessoas.
+	 */
 	presences: number
 	/** Dias distintos com registro. Zero = o rancho não usa o registro de presença. */
 	activeDays: number
 }
 
 /**
- * Comensais por militar de cozinha. Devolve null — e não zero — quando falta qualquer
- * insumo: rancho sem refeitório vinculado, sem registro de presença ou sem efetivo
- * declarado. Zero aqui leria como "produtividade nula", que é o oposto de "não sei".
+ * Refeições servidas por dia, por militar de cozinha disponível.
+ *
+ * REFEIÇÕES, não comensais distintos: o denominador de pessoas seria menor e o número
+ * pareceria mais brando do que a carga real. Devolve null — e não zero — quando falta
+ * qualquer insumo: rancho sem refeitório vinculado, sem registro de presença ou sem
+ * efetivo declarado. Zero leria como "produtividade nula", que é o oposto de "não sei".
  */
-export function dinersPerWorker(metrics: RanchoWorkforceMetrics, load: DinerLoadInput | null): number | null {
+export function mealsPerWorker(metrics: RanchoWorkforceMetrics, load: MealLoadInput | null): number | null {
 	if (!load || load.activeDays <= 0) return null
 	const staff = metrics.availableTotal
 	if (staff === null || staff <= 0) return null

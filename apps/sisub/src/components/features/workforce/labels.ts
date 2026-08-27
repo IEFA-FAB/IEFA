@@ -36,7 +36,7 @@ export function formatRatio(value: number | null): string {
 	return value === null ? "—" : `${Math.round(value * 100)}%`
 }
 
-export function formatDinerLoad(value: number | null): string {
+export function formatMealLoad(value: number | null): string {
 	return value === null ? "—" : value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })
 }
 

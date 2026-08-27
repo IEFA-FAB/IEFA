@@ -89,13 +89,16 @@ join core.units u on u.code = v.unit_code and not u.is_training
 left join core.mess_halls m on m.code = v.mess_hall_code and m.unit_id = u.id and not m.is_training
 on conflict (code) do nothing;
 
--- Vínculo declarado mas não resolvido = code de refeitório que mudou ou unidade errada.
--- Falhar aqui é melhor do que seguir com o rancho órfão e o indicador quebrado depois.
+-- Duas formas de a carga sair errada em silêncio, as duas fatais para os indicadores:
+--   1. o INSERT acima faz INNER JOIN em core.units — unidade renomeada e o rancho
+--      simplesmente não é inserido, sem erro nenhum;
+--   2. o LEFT JOIN em core.mess_halls não falha: refeitório renomeado vira vínculo nulo,
+--      e o rancho passa a mentir "sem refeitório" no lugar de "refeitório X".
+-- Falhar aqui é melhor do que seguir com o roster incompleto e descobrir pelo relatório.
 do $$
-declare missing text;
+declare missing_ranchos text; missing_links text;
 begin
-	select string_agg(v.code, ', ') into missing
-	from (values
+	with expected(code, mess_hall_code) as (values
 		('hca', 'HCA'),
 		('gap-sede', 'GAP SEDE'),
 		('garagem', 'GARAGEM'),
@@ -120,6 +123,7 @@ begin
 		('fays', 'FAYS'),
 		('afa', 'AFA'),
 		('gsau-gw-hospital', 'GSAU-GW'),
+		('eear-cozinha-oficiais', null::text),
 		('eear-cozinha-central', 'Rancho'),
 		('ieav', 'IEAV'),
 		('gap-sj', 'GAP-SJ'),
@@ -147,6 +151,8 @@ begin
 		('bafz', 'BAFZ'),
 		('bant', 'BANT'),
 		('clbi', 'CLBI'),
+		('nuhant', null::text),
+		('ii-comar', null::text),
 		('harf', 'HARF'),
 		('gap-rf-sede-cpa', 'GAP-RF'),
 		('basv', 'BASV'),
@@ -156,13 +162,21 @@ begin
 		('gap-df-norte', 'GAP DF – NORTE'),
 		('hfab', 'HFAB'),
 		('gap-br', 'GAP BR'),
+		('icia', null::text),
 		('baan', 'BAAN'),
 		('bacg', 'BACG')
-	) as v(code, mess_hall_code)
-	join core.rancho r on r.code = v.code
-	where r.mess_hall_id is null;
-	if missing is not null then
-		raise exception 'ranchos com refeitório declarado mas não resolvido: %', missing;
+	)
+	select
+		string_agg(e.code, ', ') filter (where r.id is null),
+		string_agg(e.code, ', ') filter (where r.id is not null and e.mess_hall_code is not null and r.mess_hall_id is null)
+	into missing_ranchos, missing_links
+	from expected e left join core.rancho r on r.code = e.code;
+
+	if missing_ranchos is not null then
+		raise exception 'ranchos da matriz que não foram inseridos (unidade inexistente?): %', missing_ranchos;
+	end if;
+	if missing_links is not null then
+		raise exception 'ranchos com refeitório declarado mas não resolvido: %', missing_links;
 	end if;
 end $$;
 

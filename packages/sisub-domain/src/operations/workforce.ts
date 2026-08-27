@@ -50,9 +50,9 @@ import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.
 import {
 	computeRanchoMetrics,
 	coverageGaps,
-	type DinerLoadInput,
-	dinersPerWorker,
 	groupWorkforceBy,
+	type MealLoadInput,
+	mealsPerWorker,
 	type RanchoWorkforceInput,
 	type RanchoWorkforceMetrics,
 	summarizeWorkforce,
@@ -68,7 +68,7 @@ export type WorkforceRanchoWire = RanchoWorkforceMetrics & {
 	headcounts: Record<string, number>
 	notes: WorkforceNote[]
 	/** Comensais/dia por militar disponível. null quando falta refeitório, presença ou efetivo. */
-	diners_per_worker: number | null
+	meals_per_worker: number | null
 }
 
 export type WorkforceMatrixWire = {
@@ -161,8 +161,8 @@ async function resolveSurvey(db: SisubDb, surveyId: string | null | undefined): 
  * disputam a mesma guarnição. A janela é o mês da competência — comparar efetivo de agosto
  * com presença do ano inteiro daria uma média sem sentido.
  */
-async function fetchDinerLoad(db: SisubDb, messHallIds: number[], referenceDate: string): Promise<Map<number, DinerLoadInput>> {
-	const load = new Map<number, DinerLoadInput>()
+async function fetchMealLoad(db: SisubDb, messHallIds: number[], referenceDate: string): Promise<Map<number, MealLoadInput>> {
+	const load = new Map<number, MealLoadInput>()
 	if (messHallIds.length === 0) return load
 
 	const monthStart = sql`date_trunc('month', ${referenceDate}::date)::date`
@@ -274,7 +274,7 @@ async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurv
 						.orderBy(asc(workforceNoteInCore.createdAt))
 				)
 			: Promise.resolve([]),
-		survey ? fetchDinerLoad(db, messHallIds, survey.reference_date) : Promise.resolve(new Map<number, DinerLoadInput>()),
+		survey ? fetchMealLoad(db, messHallIds, survey.reference_date) : Promise.resolve(new Map<number, MealLoadInput>()),
 	])
 
 	const submissionByRancho = new Map(submissions.map((s) => [Number(s.ranchoId), s]))
@@ -331,7 +331,7 @@ async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurv
 			produces_own_meals: r.produces_own_meals,
 			headcounts: headcountMap,
 			notes: ranchoNotes,
-			diners_per_worker: dinersPerWorker(metrics, input.messHallId === null ? null : (load.get(input.messHallId) ?? null)),
+			meals_per_worker: mealsPerWorker(metrics, input.messHallId === null ? null : (load.get(input.messHallId) ?? null)),
 		}
 	})
 
@@ -402,9 +402,43 @@ async function requireOpenSurvey(db: SisubDb, surveyId: string): Promise<void> {
 	if (survey.status === "closed") throw new DomainError("SURVEY_CLOSED", "Competência já encerrada — abra uma nova para registrar alterações")
 }
 
+/**
+ * Apaga a resposta do rancho na competência, devolvendo-o ao estado "sem resposta".
+ * O cascade leva quantitativos E observações: uma observação sem efetivo declarado não
+ * descreve nada, e `addWorkforceNote` já exige a submission para existir.
+ */
+async function clearWorkforceSubmission(db: SisubDb, input: SaveWorkforceSubmission): Promise<WorkforceRanchoWire> {
+	await runQuery("SAVE_FAILED", () =>
+		db
+			.delete(workforceSubmissionInCore)
+			.where(and(eq(workforceSubmissionInCore.surveyId, input.surveyId), eq(workforceSubmissionInCore.ranchoId, input.ranchoId)))
+	)
+	return describeRancho(db, input.surveyId, input.ranchoId)
+}
+
+/** Recarrega um único rancho já com as métricas — retorno comum das escritas. */
+async function describeRancho(db: SisubDb, surveyId: string, ranchoId: number): Promise<WorkforceRanchoWire> {
+	const survey = await resolveSurvey(db, surveyId)
+	const ranchos = toWire<Rancho[]>(
+		await runQuery("FETCH_FAILED", () => db.select(RANCHO_COLS).from(ranchoInCore).where(eq(ranchoInCore.id, ranchoId)).limit(1))
+	)
+	const matrix = await buildMatrix(db, ranchos, survey, `rancho:${ranchoId}`)
+	const row = matrix.ranchos[0]
+	if (!row) throw new NotFoundError("rancho", ranchoId)
+	return row
+}
+
 export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, input: SaveWorkforceSubmission): Promise<WorkforceRanchoWire> {
 	await requireRanchoWrite(db, ctx, input.ranchoId)
 	await requireOpenSurvey(db, input.surveyId)
+
+	// Salvar com TUDO em branco significa "este rancho não respondeu", e é como o gestor
+	// desfaz um preenchimento equivocado. Criar a submission mesmo assim marcaria o rancho
+	// como respondido com total 0 — ele entraria na taxa de resposta, puxaria o total da
+	// rede para baixo e apareceria na fila de lacunas de cobertura, sem nenhum caminho de
+	// volta. É exatamente a invariante "ausência ≠ zero" que esta tabela existe para manter.
+	const isBlank = input.declaredTotal == null && input.entries.every((e) => e.headcount === null)
+	if (isBlank) return clearWorkforceSubmission(db, input)
 
 	const categories = await runQuery("FETCH_FAILED", () =>
 		db
@@ -468,14 +502,7 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 		)
 	}
 
-	const survey = await resolveSurvey(db, input.surveyId)
-	const ranchos = toWire<Rancho[]>(
-		await runQuery("FETCH_FAILED", () => db.select(RANCHO_COLS).from(ranchoInCore).where(eq(ranchoInCore.id, input.ranchoId)).limit(1))
-	)
-	const matrix = await buildMatrix(db, ranchos, survey, `rancho:${input.ranchoId}`)
-	const row = matrix.ranchos[0]
-	if (!row) throw new NotFoundError("rancho", input.ranchoId)
-	return row
+	return describeRancho(db, input.surveyId, input.ranchoId)
 }
 
 export async function addWorkforceNote(db: SisubDb, ctx: UserContext, input: AddWorkforceNote): Promise<WorkforceNote> {
@@ -506,7 +533,7 @@ export async function deleteWorkforceNote(db: SisubDb, ctx: UserContext, input: 
 	// o chamador declarar um escopo mais permissivo do que o da linha.
 	const owner = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ ranchoId: workforceSubmissionInCore.ranchoId })
+			.select({ ranchoId: workforceSubmissionInCore.ranchoId, surveyId: workforceSubmissionInCore.surveyId })
 			.from(workforceNoteInCore)
 			.innerJoin(workforceSubmissionInCore, eq(workforceSubmissionInCore.id, workforceNoteInCore.submissionId))
 			.where(eq(workforceNoteInCore.id, input.noteId))
@@ -515,6 +542,10 @@ export async function deleteWorkforceNote(db: SisubDb, ctx: UserContext, input: 
 	const row = owner[0]
 	if (!row) throw new NotFoundError("workforce_note", input.noteId)
 	await requireRanchoWrite(db, ctx, Number(row.ranchoId))
+	// Competência encerrada é registro histórico. Sem este guard, apagar uma observação de
+	// uma coleta antiga mudaria para sempre o `unavailable`/`outsourced` daquele mês — e
+	// `addWorkforceNote` recusaria recriá-la, porque ela também exige competência aberta.
+	await requireOpenSurvey(db, row.surveyId)
 
 	const deleted = await mutateOrFail("DELETE_FAILED", "Observação não encontrada", () =>
 		db.delete(workforceNoteInCore).where(eq(workforceNoteInCore.id, input.noteId)).returning({ id: workforceNoteInCore.id })

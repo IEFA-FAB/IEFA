@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { useState } from "react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
-import { formatReferenceDate } from "@/components/features/workforce/labels"
 import { WorkforceMatrixTable } from "@/components/features/workforce/WorkforceMatrixTable"
 import { WorkforceSummary } from "@/components/features/workforce/WorkforceSummary"
+import { WorkforceSurveyControls } from "@/components/features/workforce/WorkforceSurveyControls"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchWorkforceMatrixFn } from "@/server/workforce.fn"
@@ -23,10 +23,12 @@ function WorkforcePage() {
 	const { can } = usePBAC()
 	const id = Number(unitId)
 
-	const queryKey = ["sisub", "workforce", "matrix", id] as const
+	// null = competência mais recente; o servidor resolve.
+	const [surveyId, setSurveyId] = useState<string | null>(null)
+	const queryKey = ["sisub", "workforce", "matrix", id, surveyId] as const
 	const { data: matrix, isLoading } = useQuery({
 		queryKey,
-		queryFn: () => fetchWorkforceMatrixFn({ data: { unitId: id, surveyId: null } }),
+		queryFn: () => fetchWorkforceMatrixFn({ data: { unitId: id, surveyId } }),
 	})
 
 	const canEdit = can("local-analytics", 2, { type: "unit", id }) || can("unit", 2, { type: "unit", id })
@@ -34,12 +36,7 @@ function WorkforcePage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Efetivo dos Ranchos" description="Quantitativo de militares por quadro e especialidade, por rancho">
-				{matrix?.survey && (
-					<div className="flex items-center gap-2">
-						<Badge variant="outline">{formatReferenceDate(matrix.survey.reference_date)}</Badge>
-						{matrix.survey.status === "closed" && <Badge variant="secondary">Encerrada</Badge>}
-					</div>
-				)}
+				<WorkforceSurveyControls current={matrix?.survey ?? null} onSelect={setSurveyId} canManage={false} invalidate={[queryKey]} />
 			</PageHeader>
 
 			{isLoading && (
