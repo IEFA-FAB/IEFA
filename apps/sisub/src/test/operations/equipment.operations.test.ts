@@ -72,6 +72,19 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		seeder = reachable ? makeSeeder(client) : null
 	})
 
+	/**
+	 * Contexto com um usuário REAL de `auth.users`.
+	 *
+	 * `fullAccessCtx()` usa um uuid sintético, e `equipment_issue.reported_by` /
+	 * `equipment_maintenance_log.performed_by` são FK para `auth.users`: relatar pane com o ctx
+	 * padrão estoura 23503. A autoria é o ponto dessas tabelas — quem relatou e quem encerrou —,
+	 * então o teste precisa de um ator que exista.
+	 */
+	async function actorCtx(s: Seeder) {
+		const userId = await s.seedAuthUser()
+		return fullAccessCtx(userId)
+	}
+
 	afterEach(async () => {
 		await seeder?.cleanup()
 	}, 60_000)
@@ -428,7 +441,8 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect((await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })).satisfied).toBe(true)
 
 		// Degradada: "dá para usar com limitação" continua contando no planejamento.
-		const degraded = await reportEquipmentIssue(db, ctx, {
+		const actor = await actorCtx(seeder)
+		const degraded = await reportEquipmentIssue(db, actor, {
 			unitId: unit.id,
 			severity: "degraded",
 			category: "electrical",
@@ -437,7 +451,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect((await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })).satisfied).toBe(true)
 
 		// Inoperante: sai da conta na hora — é o que impede o cardápio de prometer assado.
-		const down = await reportEquipmentIssue(db, ctx, {
+		const down = await reportEquipmentIssue(db, actor, {
 			unitId: unit.id,
 			severity: "inoperative",
 			category: "electrical",
@@ -448,7 +462,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		expect(withDown.units_considered).toBe(0)
 
 		// Descartar devolve a unidade no mesmo instante.
-		await updateEquipmentIssue(db, ctx, { issueId: down.id, status: "dismissed", severity: null, resolutionNote: "[TEST] não procede" })
+		await updateEquipmentIssue(db, actor, { issueId: down.id, status: "dismissed", severity: null, resolutionNote: "[TEST] não procede" })
 		expect((await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })).satisfied).toBe(true)
 
 		// E o relatório de condição enxerga a degradada que sobrou.
@@ -480,7 +494,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const recipeId = await seeder.seedRecipe({ kitchenId, portionYield: 100 })
 		seeder.trackWhere("recipe_equipment_requirement", "recipe_id", recipeId)
 		await saveRecipeEquipment(db, ctx, { recipeId, requirements: [{ ...BASE_REQ, roleId: oven.id }] })
-		await reportEquipmentIssue(db, ctx, { unitId: unit.id, severity: "inoperative", category: "other", description: "[TEST] parou" })
+		await reportEquipmentIssue(db, await actorCtx(seeder), { unitId: unit.id, severity: "inoperative", category: "other", description: "[TEST] parou" })
 
 		const fitness = await evaluateRecipeEquipmentFitness(db, ctx, { recipeId, kitchenId })
 		expect(fitness.units_considered).toBe(0)
@@ -513,7 +527,8 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 			units.push(unit)
 		}
 
-		const issueOnA = await reportEquipmentIssue(db, ctx, {
+		const actor = await actorCtx(seeder)
+		const issueOnA = await reportEquipmentIssue(db, actor, {
 			unitId: units[0].id,
 			severity: "inoperative",
 			category: "other",
@@ -523,7 +538,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		// Mesma cozinha, equipamento errado: conferir só a cozinha deixaria o conserto do forno B
 		// encerrar a pane do forno A.
 		await expect(
-			logMaintenance(db, ctx, {
+			logMaintenance(db, actor, {
 				unitId: units[1].id,
 				planId: null,
 				issueId: issueOnA.id,
@@ -566,7 +581,7 @@ describeSupabaseIntegration("equipment operations (regressão)", () => {
 		const before = await getFleetEquipmentReport(db, ctx, { roleId: oven.id, modelId: null, kitchenId, today: null })
 		expect(before.coverage[0]).toMatchObject({ kitchens_covered: 1, kitchens_down: 0 })
 
-		await reportEquipmentIssue(db, ctx, { unitId: unit.id, severity: "inoperative", category: "other", description: "[TEST] parou" })
+		await reportEquipmentIssue(db, await actorCtx(seeder), { unitId: unit.id, severity: "inoperative", category: "other", description: "[TEST] parou" })
 		const after = await getFleetEquipmentReport(db, ctx, { roleId: oven.id, modelId: null, kitchenId, today: null })
 		expect(after.coverage[0]).toMatchObject({ kitchens_covered: 0, kitchens_down: 1 })
 		expect(after.inoperative_issues).toHaveLength(1)
