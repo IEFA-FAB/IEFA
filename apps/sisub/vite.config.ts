@@ -51,7 +51,11 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 							"x-content-type-options": "nosniff",
 							"x-frame-options": "SAMEORIGIN",
 							"referrer-policy": "strict-origin-when-cross-origin",
-							"permissions-policy": "camera=(), microphone=(), geolocation=()",
+							// camera=(self): o scanner de QR da fiscalização (/messhall/$messHallId) chama
+							// getUserMedia. Com `camera=()` o browser nem pede permissão — enumerateDevices
+							// devolve lista vazia e o qr-scanner reporta "Camera not found". Mic e geo seguem
+							// bloqueados; nenhum outro app do monorepo usa câmera.
+							"permissions-policy": "camera=(self), microphone=(), geolocation=()",
 							"strict-transport-security": "max-age=31536000; includeSubDomains",
 						},
 					},
