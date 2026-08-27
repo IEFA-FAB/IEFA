@@ -2244,6 +2244,17 @@ export const equipmentModelInKitchen = kitchen.table("equipment_model", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	notes: text(),
+	energySource: text("energy_source"),
+	voltage: text(),
+	widthCm: numeric("width_cm"),
+	depthCm: numeric("depth_cm"),
+	heightCm: numeric("height_cm"),
+	weightKg: numeric("weight_kg"),
+	requiresHood: boolean("requires_hood"),
+	waterInlet: boolean("water_inlet"),
+	drainRequired: boolean("drain_required"),
+	manualUrl: text("manual_url"),
+	expectedLifespanYears: smallint("expected_lifespan_years"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
@@ -2258,6 +2269,8 @@ export const equipmentModelInKitchen = kitchen.table("equipment_model", {
 	check("equipment_model_slots_check", sql`simultaneous_slots > 0`),
 	check("equipment_model_capacity_check", sql`(slot_capacity_liters IS NULL) OR (slot_capacity_liters > (0)::numeric)`),
 	check("equipment_model_capacity_gn_check", sql`(slot_capacity_gn IS NULL) OR (slot_capacity_gn > 0)`),
+	check("equipment_model_energy_source_check", sql`(energy_source IS NULL) OR (energy_source = ANY (ARRAY['electric'::text, 'gas'::text, 'steam'::text, 'mixed'::text, 'manual'::text]))`),
+	check("equipment_model_dimensions_check", sql`((width_cm IS NULL) OR (width_cm > (0)::numeric)) AND ((depth_cm IS NULL) OR (depth_cm > (0)::numeric)) AND ((height_cm IS NULL) OR (height_cm > (0)::numeric)) AND ((weight_kg IS NULL) OR (weight_kg > (0)::numeric)) AND ((expected_lifespan_years IS NULL) OR (expected_lifespan_years > 0))`),
 ]);
 
 export const equipmentModelRoleInKitchen = kitchen.table("equipment_model_role", {
@@ -2296,6 +2309,9 @@ export const equipmentUnitInKitchen = kitchen.table("equipment_unit", {
 	simultaneousSlots: integer("simultaneous_slots"),
 	acquiredOn: date("acquired_on"),
 	notes: text(),
+	installedOn: date("installed_on"),
+	warrantyUntil: date("warranty_until"),
+	supplier: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
@@ -2338,6 +2354,136 @@ export const equipmentUnitRoleInKitchen = kitchen.table("equipment_unit_role", {
 			foreignColumns: [equipmentRoleInKitchen.id],
 			name: "equipment_unit_role_role_id_fkey"
 		}),
+]);
+
+export const equipmentMaintenancePlanInKitchen = kitchen.table("equipment_maintenance_plan", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	roleId: uuid("role_id"),
+	modelId: uuid("model_id"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	code: text(),
+	title: text().notNull(),
+	kind: text().default('preventive').notNull(),
+	intervalDays: integer("interval_days").notNull(),
+	toleranceDays: integer("tolerance_days").default(0).notNull(),
+	instructions: text(),
+	estimatedMinutes: integer("estimated_minutes"),
+	isRequired: boolean("is_required").default(true).notNull(),
+	sortOrder: integer("sort_order").default(100).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("equipment_maintenance_plan_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")).where(sql`(code IS NOT NULL)`),
+	index("equipment_maintenance_plan_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_maintenance_plan_model_idx").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`((model_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_maintenance_plan_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	uniqueIndex("equipment_maintenance_plan_title_uniq").using("btree", sql`COALESCE(role_id, model_id)`, sql`lower(title)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInCore.id],
+			name: "equipment_maintenance_plan_kitchen_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.modelId],
+			foreignColumns: [equipmentModelInKitchen.id],
+			name: "equipment_maintenance_plan_model_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [equipmentRoleInKitchen.id],
+			name: "equipment_maintenance_plan_role_id_fkey"
+		}),
+	check("equipment_maintenance_plan_code_scope_check", sql`(code IS NULL) OR (kitchen_id IS NULL)`),
+	check("equipment_maintenance_plan_interval_check", sql`interval_days > 0`),
+	check("equipment_maintenance_plan_kind_check", sql`kind = ANY (ARRAY['preventive'::text, 'inspection'::text, 'cleaning'::text, 'calibration'::text, 'legal'::text])`),
+	check("equipment_maintenance_plan_minutes_check", sql`(estimated_minutes IS NULL) OR (estimated_minutes > 0)`),
+	check("equipment_maintenance_plan_target_xor", sql`((role_id IS NOT NULL) AND (model_id IS NULL)) OR ((role_id IS NULL) AND (model_id IS NOT NULL))`),
+	check("equipment_maintenance_plan_tolerance_check", sql`(tolerance_days >= 0) AND (tolerance_days < interval_days)`),
+]);
+
+export const equipmentMaintenanceLogInKitchen = kitchen.table("equipment_maintenance_log", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	unitId: uuid("unit_id").notNull(),
+	planId: uuid("plan_id"),
+	issueId: uuid("issue_id"),
+	kind: text().default('preventive').notNull(),
+	performedOn: date("performed_on").notNull(),
+	performedBy: uuid("performed_by"),
+	provider: text().default('in_house').notNull(),
+	cost: numeric(),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("equipment_maintenance_log_issue_idx").using("btree", table.issueId.asc().nullsLast().op("uuid_ops")).where(sql`((issue_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_maintenance_log_plan_idx").using("btree", table.planId.asc().nullsLast().op("date_ops"), table.unitId.asc().nullsLast().op("uuid_ops"), table.performedOn.desc().nullsFirst().op("uuid_ops")).where(sql`((plan_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("equipment_maintenance_log_unit_idx").using("btree", table.unitId.asc().nullsLast().op("date_ops"), table.performedOn.desc().nullsFirst().op("date_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.issueId],
+			foreignColumns: [equipmentIssueInKitchen.id],
+			name: "equipment_maintenance_log_issue_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.performedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "equipment_maintenance_log_performed_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.planId],
+			foreignColumns: [equipmentMaintenancePlanInKitchen.id],
+			name: "equipment_maintenance_log_plan_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [equipmentUnitInKitchen.id],
+			name: "equipment_maintenance_log_unit_id_fkey"
+		}),
+	check("equipment_maintenance_log_cost_check", sql`(cost IS NULL) OR (cost >= (0)::numeric)`),
+	check("equipment_maintenance_log_kind_check", sql`kind = ANY (ARRAY['preventive'::text, 'inspection'::text, 'cleaning'::text, 'calibration'::text, 'legal'::text, 'corrective'::text])`),
+	check("equipment_maintenance_log_provider_check", sql`provider = ANY (ARRAY['in_house'::text, 'contract'::text, 'manufacturer'::text])`),
+]);
+
+export const equipmentIssueInKitchen = kitchen.table("equipment_issue", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	unitId: uuid("unit_id").notNull(),
+	severity: text().notNull(),
+	status: text().default('open').notNull(),
+	category: text().default('other').notNull(),
+	description: text().notNull(),
+	reportedBy: uuid("reported_by"),
+	reportedAt: timestamp("reported_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	resolvedBy: uuid("resolved_by"),
+	resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: 'string' }),
+	resolutionNote: text("resolution_note"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("equipment_issue_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops"), table.reportedAt.asc().nullsLast().op("timestamptz_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_issue_unit_idx").using("btree", table.unitId.asc().nullsLast().op("timestamptz_ops"), table.reportedAt.desc().nullsFirst().op("timestamptz_ops")).where(sql`(deleted_at IS NULL)`),
+	index("equipment_issue_unit_open_idx").using("btree", table.unitId.asc().nullsLast().op("text_ops"), table.severity.asc().nullsLast().op("uuid_ops")).where(sql`((status = ANY (ARRAY['open'::text, 'in_repair'::text])) AND (deleted_at IS NULL))`),
+	foreignKey({
+			columns: [table.reportedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "equipment_issue_reported_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.resolvedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "equipment_issue_resolved_by_fkey"
+		}),
+	foreignKey({
+			columns: [table.unitId],
+			foreignColumns: [equipmentUnitInKitchen.id],
+			name: "equipment_issue_unit_id_fkey"
+		}),
+	check("equipment_issue_category_check", sql`category = ANY (ARRAY['mechanical'::text, 'electrical'::text, 'gas'::text, 'hydraulic'::text, 'refrigeration'::text, 'structural'::text, 'other'::text])`),
+	check("equipment_issue_closure_check", sql`((status = ANY (ARRAY['open'::text, 'in_repair'::text])) AND (resolved_at IS NULL)) OR ((status = ANY (ARRAY['resolved'::text, 'dismissed'::text])) AND (resolved_at IS NOT NULL))`),
+	check("equipment_issue_description_check", sql`length(btrim(description)) > 0`),
+	check("equipment_issue_severity_check", sql`severity = ANY (ARRAY['degraded'::text, 'inoperative'::text])`),
+	check("equipment_issue_status_check", sql`status = ANY (ARRAY['open'::text, 'in_repair'::text, 'resolved'::text, 'dismissed'::text])`),
 ]);
 
 export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipment_requirement", {

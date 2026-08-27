@@ -5154,54 +5154,285 @@ export type Database = {
           },
         ]
       }
+      equipment_issue: {
+        Row: {
+          category: string
+          created_at: string
+          deleted_at: string | null
+          description: string
+          id: string
+          reported_at: string
+          reported_by: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          deleted_at?: string | null
+          description: string
+          id?: string
+          reported_at?: string
+          reported_by?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          reported_at?: string
+          reported_by?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_issue_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_unit"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_maintenance_log: {
+        Row: {
+          cost: number | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          issue_id: string | null
+          kind: string
+          notes: string | null
+          performed_by: string | null
+          performed_on: string
+          plan_id: string | null
+          provider: string
+          unit_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          issue_id?: string | null
+          kind?: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_on: string
+          plan_id?: string | null
+          provider?: string
+          unit_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          issue_id?: string | null
+          kind?: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_on?: string
+          plan_id?: string | null
+          provider?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_maintenance_log_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_issue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_maintenance_log_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_maintenance_plan"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_maintenance_log_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_unit"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_maintenance_plan: {
+        Row: {
+          code: string | null
+          created_at: string
+          deleted_at: string | null
+          estimated_minutes: number | null
+          id: string
+          instructions: string | null
+          interval_days: number
+          is_required: boolean
+          kind: string
+          kitchen_id: number | null
+          model_id: string | null
+          role_id: string | null
+          sort_order: number
+          title: string
+          tolerance_days: number
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          instructions?: string | null
+          interval_days: number
+          is_required?: boolean
+          kind?: string
+          kitchen_id?: number | null
+          model_id?: string | null
+          role_id?: string | null
+          sort_order?: number
+          title: string
+          tolerance_days?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          instructions?: string | null
+          interval_days?: number
+          is_required?: boolean
+          kind?: string
+          kitchen_id?: number | null
+          model_id?: string | null
+          role_id?: string | null
+          sort_order?: number
+          title?: string
+          tolerance_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_maintenance_plan_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_model"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_maintenance_plan_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_role"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_model: {
         Row: {
           capacity_label: string | null
           created_at: string
           deleted_at: string | null
+          depth_cm: number | null
+          drain_required: boolean | null
+          energy_source: string | null
+          expected_lifespan_years: number | null
+          height_cm: number | null
           id: string
           is_generic: boolean
           kitchen_id: number | null
+          manual_url: string | null
           manufacturer: string | null
           name: string
           notes: string | null
           power_kw: number | null
+          requires_hood: boolean | null
           simultaneous_slots: number
           slot_capacity_gn: number | null
           slot_capacity_liters: number | null
           slug: string | null
+          voltage: string | null
+          water_inlet: boolean | null
+          weight_kg: number | null
+          width_cm: number | null
         }
         Insert: {
           capacity_label?: string | null
           created_at?: string
           deleted_at?: string | null
+          depth_cm?: number | null
+          drain_required?: boolean | null
+          energy_source?: string | null
+          expected_lifespan_years?: number | null
+          height_cm?: number | null
           id?: string
           is_generic?: boolean
           kitchen_id?: number | null
+          manual_url?: string | null
           manufacturer?: string | null
           name: string
           notes?: string | null
           power_kw?: number | null
+          requires_hood?: boolean | null
           simultaneous_slots?: number
           slot_capacity_gn?: number | null
           slot_capacity_liters?: number | null
           slug?: string | null
+          voltage?: string | null
+          water_inlet?: boolean | null
+          weight_kg?: number | null
+          width_cm?: number | null
         }
         Update: {
           capacity_label?: string | null
           created_at?: string
           deleted_at?: string | null
+          depth_cm?: number | null
+          drain_required?: boolean | null
+          energy_source?: string | null
+          expected_lifespan_years?: number | null
+          height_cm?: number | null
           id?: string
           is_generic?: boolean
           kitchen_id?: number | null
+          manual_url?: string | null
           manufacturer?: string | null
           name?: string
           notes?: string | null
           power_kw?: number | null
+          requires_hood?: boolean | null
           simultaneous_slots?: number
           slot_capacity_gn?: number | null
           slot_capacity_liters?: number | null
           slug?: string | null
+          voltage?: string | null
+          water_inlet?: boolean | null
+          weight_kg?: number | null
+          width_cm?: number | null
         }
         Relationships: []
       }
@@ -5290,6 +5521,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          installed_on: string | null
           kitchen_id: number
           label: string
           model_id: string
@@ -5297,7 +5529,9 @@ export type Database = {
           serial_number: string | null
           simultaneous_slots: number | null
           status: string
+          supplier: string | null
           updated_at: string
+          warranty_until: string | null
         }
         Insert: {
           acquired_on?: string | null
@@ -5305,6 +5539,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          installed_on?: string | null
           kitchen_id: number
           label: string
           model_id: string
@@ -5312,7 +5547,9 @@ export type Database = {
           serial_number?: string | null
           simultaneous_slots?: number | null
           status?: string
+          supplier?: string | null
           updated_at?: string
+          warranty_until?: string | null
         }
         Update: {
           acquired_on?: string | null
@@ -5320,6 +5557,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          installed_on?: string | null
           kitchen_id?: number
           label?: string
           model_id?: string
@@ -5327,7 +5565,9 @@ export type Database = {
           serial_number?: string | null
           simultaneous_slots?: number | null
           status?: string
+          supplier?: string | null
           updated_at?: string
+          warranty_until?: string | null
         }
         Relationships: [
           {
