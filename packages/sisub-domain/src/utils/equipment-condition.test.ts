@@ -25,6 +25,16 @@ describe("isIssueOpen", () => {
 		expect(isIssueOpen(issue("inoperative", "dismissed"))).toBe(false)
 	})
 
+	test("pane apagada não pesa, mesmo aberta e inoperante", () => {
+		expect(isIssueOpen({ severity: "inoperative", status: "open", deletedAt: new Date("2026-08-27T00:00:00Z") })).toBe(false)
+		expect(isIssueOpen({ severity: "inoperative", status: "in_repair", deletedAt: "2026-08-27 00:00:00+00" })).toBe(false)
+	})
+
+	test("deletedAt null ou ausente é linha viva", () => {
+		expect(isIssueOpen({ severity: "degraded", status: "open", deletedAt: null })).toBe(true)
+		expect(isIssueOpen({ severity: "degraded", status: "open" })).toBe(true)
+	})
+
 	test("cobre exatamente os status declarados em OPEN_ISSUE_STATUSES", () => {
 		const all: EquipmentIssueStatus[] = ["open", "in_repair", "resolved", "dismissed"]
 		expect(all.filter((s) => isIssueOpen(issue("degraded", s)))).toEqual([...OPEN_ISSUE_STATUSES])
@@ -119,6 +129,12 @@ describe("isUnitUnavailable", () => {
 
 	test("descartar a pane devolve a unidade ao cálculo", () => {
 		expect(isUnitUnavailable("active", [issue("inoperative", "dismissed")])).toBe(false)
+	})
+
+	test("apagar a pane também devolve — o histórico inteiro pode ser passado sem filtro", () => {
+		const apagada: ConditionIssue = { severity: "inoperative", status: "open", deletedAt: new Date("2026-08-27T00:00:00Z") }
+		expect(deriveEquipmentCondition("active", [apagada])).toBe("operational")
+		expect(isUnitUnavailable("active", [apagada])).toBe(false)
 	})
 
 	test("é exatamente a negação de unitCountsForFitness sobre a condição", () => {

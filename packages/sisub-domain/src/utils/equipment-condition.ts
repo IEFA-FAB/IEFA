@@ -40,18 +40,30 @@ export type EquipmentCondition = (typeof EQUIPMENT_CONDITIONS)[number]
 export interface ConditionIssue {
 	severity: EquipmentIssueSeverity
 	status: EquipmentIssueStatus
+	/** Soft delete da pane. Ausente ou `null` = a linha vale. */
+	deletedAt?: Date | string | null
 }
 
-/** A pane ainda pesa na condição da unidade? */
+/**
+ * A pane ainda pesa na condição da unidade?
+ *
+ * Pane APAGADA não pesa. O contrato aqui é "passe o histórico inteiro, sem filtrar" — e o
+ * histórico inteiro inclui as linhas com `deleted_at`. Sem esta guarda, um relato de
+ * `inoperative` retratado por soft delete prenderia a unidade em `down` para sempre, e ela
+ * sumiria do planejamento sem aparecer em nenhuma lista de panes (todas filtram
+ * `deleted_at is null`) — um forno fora da conta sem nada na tela que explique por quê.
+ */
 export function isIssueOpen(issue: ConditionIssue): boolean {
+	if (issue.deletedAt != null) return false
 	return issue.status === "open" || issue.status === "in_repair"
 }
 
 /**
  * Condição efetiva da unidade.
  *
- * `issues` pode conter panes já encerradas — elas são ignoradas aqui, para que o chamador possa
- * passar o histórico inteiro sem filtrar antes e sem arriscar dois filtros divergentes.
+ * `issues` pode conter panes já encerradas OU apagadas (soft delete) — as duas são ignoradas
+ * aqui, para que o chamador possa passar o histórico inteiro sem filtrar antes e sem arriscar
+ * dois filtros divergentes.
  */
 export function deriveEquipmentCondition(status: EquipmentUnitStatus, issues: readonly ConditionIssue[] = []): EquipmentCondition {
 	if (status === "decommissioned") return "retired"
