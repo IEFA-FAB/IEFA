@@ -24,6 +24,38 @@ export const EQUIPMENT_UNIT_STATUSES = ["active", "maintenance", "decommissioned
 export const EquipmentUnitStatusSchema = z.enum(EQUIPMENT_UNIT_STATUSES)
 export type EquipmentUnitStatus = z.infer<typeof EquipmentUnitStatusSchema>
 
+// ── Pane ──────────────────────────────────────────────────────────────────
+// Os enums moram aqui, e não no util que deriva a condição: o contrato do domínio é um só, e
+// duas listas de severidade em arquivos diferentes divergem no dia em que alguém acrescentar
+// uma terceira. `utils/equipment-condition.ts` importa os TIPOS daqui.
+
+export const EQUIPMENT_ISSUE_SEVERITIES = ["degraded", "inoperative"] as const
+export const EquipmentIssueSeveritySchema = z.enum(EQUIPMENT_ISSUE_SEVERITIES)
+export type EquipmentIssueSeverity = z.infer<typeof EquipmentIssueSeveritySchema>
+
+export const EQUIPMENT_ISSUE_STATUSES = ["open", "in_repair", "resolved", "dismissed"] as const
+export const EquipmentIssueStatusSchema = z.enum(EQUIPMENT_ISSUE_STATUSES)
+export type EquipmentIssueStatus = z.infer<typeof EquipmentIssueStatusSchema>
+
+export const EQUIPMENT_ISSUE_CATEGORIES = ["mechanical", "electrical", "gas", "hydraulic", "refrigeration", "structural", "other"] as const
+export const EquipmentIssueCategorySchema = z.enum(EQUIPMENT_ISSUE_CATEGORIES)
+export type EquipmentIssueCategory = z.infer<typeof EquipmentIssueCategorySchema>
+
+// ── Manutenção ────────────────────────────────────────────────────────────
+
+export const MAINTENANCE_KINDS = ["preventive", "inspection", "cleaning", "calibration", "legal"] as const
+export const MaintenanceKindSchema = z.enum(MAINTENANCE_KINDS)
+export type MaintenanceKind = z.infer<typeof MaintenanceKindSchema>
+
+/** O log aceita tudo que o plano aceita, mais `corrective` — conserto não planejado não tem plano. */
+export const MAINTENANCE_LOG_KINDS = [...MAINTENANCE_KINDS, "corrective"] as const
+export const MaintenanceLogKindSchema = z.enum(MAINTENANCE_LOG_KINDS)
+export type MaintenanceLogKind = z.infer<typeof MaintenanceLogKindSchema>
+
+export const MAINTENANCE_PROVIDERS = ["in_house", "contract", "manufacturer"] as const
+export const MaintenanceProviderSchema = z.enum(MAINTENANCE_PROVIDERS)
+export type MaintenanceProvider = z.infer<typeof MaintenanceProviderSchema>
+
 // ── Catálogo ──────────────────────────────────────────────────────────────
 
 export const ListEquipmentRolesSchema = z.object({

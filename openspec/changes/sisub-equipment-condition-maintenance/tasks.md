@@ -18,10 +18,12 @@
 
 ## Fase 2 — Domínio puro
 
-- [ ] 2.1 [packages/sisub-domain] `utils/equipment-condition.ts`: condição derivada com a precedência de R2. Sem I/O.
-- [ ] 2.2 [packages/sisub-domain] `utils/equipment-condition.test.ts`: quatro condições, precedência `retired` > `down` > `degraded` > `operational`, unidade sem pane.
-- [ ] 2.3 [packages/sisub-domain] `utils/maintenance-due.ts`: as três âncoras de R4 (`log` → `installed_on ?? acquired_on` → `sem registro`) e a tolerância.
-- [ ] 2.4 [packages/sisub-domain] `utils/maintenance-due.test.ts`: inclui explicitamente o caso "parque recém-migrado não nasce vencido".
+- [x] 2.1 [packages/sisub-domain] `utils/equipment-condition.ts`: condição derivada com a precedência de R2. Sem I/O. Expõe também `unitCountsForFitness`/`isUnitUnavailable` — o filtro de R3 é DERIVADO da condição, não um segundo predicado sobre `status` + panes, senão a tela e o planejamento divergem na próxima severidade que alguém acrescentar.
+- [x] 2.2 [packages/sisub-domain] `utils/equipment-condition.test.ts`: quatro condições, precedência, histórico misto, e a prova de que toda condição declarada é alcançável.
+- [x] 2.3 [packages/sisub-domain] `utils/maintenance-due.ts`: as três âncoras de R4 e a tolerância. `today` é PARÂMETRO — cálculo de vencimento que lê o relógio do processo não é testável e erra na virada do fuso. Aritmética em UTC sobre ISO `YYYY-MM-DD`; data malformada lança em vez de virar `NaN`.
+- [x] 2.4 [packages/sisub-domain] `utils/maintenance-due.test.ts`: inclui "parque recém-migrado não nasce vencido", os limites da tolerância (igual = em dia, +1 = vencida) e virada de ano/bissexto/horário de verão.
+- [x] 2.5 [packages/sisub-domain] Enums de pane e manutenção movidos para `schemas/equipment.ts` (fonte única) — o util importa os TIPOS de lá. Duas listas de severidade em arquivos diferentes divergiriam na primeira severidade nova. Antecipa parte da tarefa 3.1.
+- [x] 2.6 [packages/sisub-domain] Não-vacuidade das duas suítes provada por mutação: 7 mutações (remover o early-return de baixa, alargar a severidade que derruba, fazer `dismissed` voltar a pesar, devolver a unidade parada ao cálculo, trocar `>` por `>=` na tolerância, ignorar a execução registrada, remover o estado `unknown`) — todas as 7 mortas.
 
 ## Fase 3 — Operations
 
