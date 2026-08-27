@@ -28,6 +28,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"core.kitchen": "sentinela do ambiente de treino — preservada por definição",
 	"core.mess_halls": "sentinela do ambiente de treino — preservada por definição",
 	"core.units": "sentinela do ambiente de treino — preservada por definição",
+	// Roster de ranchos é CADASTRO, como as sentinelas acima — criar rancho exige `admin:2`,
+	// que o Conjunto Treino não concede, então o treinando não gera linha aqui. O que ele
+	// preenche (core.workforce_submission e, por cascade, quantitativos e observações) está
+	// no reset.
+	"core.rancho": "roster de ranchos é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
 	// NOTA: as tabelas de execução orçamentária (crédito, empenho, liquidação,
 	// pagamento, conciliação, lote SIAFI) já foram excluídas aqui sob a premissa
 	// de que "o treino não concede módulo financeiro". A premissa era falsa — o
