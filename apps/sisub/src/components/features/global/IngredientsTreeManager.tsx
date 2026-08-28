@@ -175,7 +175,19 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 	}
 
 	// Hook consumes URL value (already debounced).
-	const { flatTree, stats, itemCountByIngredientId, lastReviewByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(
+	const {
+		flatTree,
+		stats,
+		itemCountByIngredientId,
+		lastReviewByIngredientId,
+		folderReviewByFolderId,
+		folderConferenceByFolderId,
+		error,
+		refetch,
+		toggleExpand,
+		expandAll,
+		collapseAll,
+	} = useIngredientsHierarchy(
 		urlSearch,
 		showDeleted,
 		persistKey,
@@ -407,6 +419,8 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 											onToggle={toggleExpand}
 											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
 											lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
+											folderReview={node.type === "folder" ? folderReviewByFolderId.get(node.id) : undefined}
+											folderConference={node.type === "folder" ? folderConferenceByFolderId.get(node.id) : undefined}
 											selectionMode={selectionMode}
 											canWrite={canWrite}
 											selected={selected.has(node.id)}

@@ -155,6 +155,20 @@ export const ListIngredientLastReviewsSchema = z.object({
 })
 export type ListIngredientLastReviews = z.infer<typeof ListIngredientLastReviewsSchema>
 
+// ── Revisão de pastas (conferência pelos nutricionistas) ─────────────────────
+
+export const RecordFolderReviewSchema = z.object({
+	folderId: UuidSchema,
+	note: z.string().nullable().optional(),
+})
+export type RecordFolderReview = z.infer<typeof RecordFolderReviewSchema>
+
+/** Última revisão por pasta. Sem folderId → todas (árvore); com → 1 pasta. */
+export const ListFolderLastReviewsSchema = z.object({
+	folderId: UuidSchema.optional(),
+})
+export type ListFolderLastReviews = z.infer<typeof ListFolderLastReviewsSchema>
+
 export const ListCeafaSchema = z.object({ search: z.string().optional() })
 export type ListCeafa = z.infer<typeof ListCeafaSchema>
 

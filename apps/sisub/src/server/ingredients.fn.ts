@@ -34,6 +34,7 @@ import {
 	ListNutritionReferenceFoodsSchema,
 	listCatmatItems,
 	listCeafa,
+	listFolderLastReviews,
 	listFolders,
 	listIngredientEffectiveNutrients,
 	listIngredientItems,
@@ -45,11 +46,13 @@ import {
 	listNutritionReferenceFoods,
 	listPreparationGroups,
 	PreparationScopeSchema,
+	RecordFolderReviewSchema,
 	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
 	RestoreIngredientSchema,
 	RestoreIngredientVersionSchema,
+	recordFolderReview,
 	recordIngredientReview,
 	recordIngredientVersion,
 	restoreFolder,
@@ -325,6 +328,15 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
 		return listIngredientLastReviews(getDb(), ctx, data).catch(handleDomainError)
 	})
 
+// ── Revisão (conferência da pasta pelos nutricionistas) ───────────────────────
+
+export const recordFolderReviewFn = createServerFn({ method: "POST" })
+	.validator(RecordFolderReviewSchema)
+	.handler(async ({ data }) => {
+		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
+		return recordFolderReview(getDb(), ctx, data, actor).catch(handleDomainError)
+	})
+
 /**
  * Árvore de insumos num único round-trip. A tela `/global/ingredients` disparava
  * 4 server fns em paralelo (folders + ingredients + items + lastReviews) → 4
@@ -332,6 +344,10 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
  * requireAuth (4× getUser). Sob 1 instância Bun single-thread isso multiplica a
  * pressão de conexão e a chance de uma resetar no gateway (o 502 observado no
  * IngredientsService). Consolidar em 1 fn: 1 requireAuth, 1 conexão, payload único.
+ *
+ * A revisão de pastas entra aqui pelo mesmo motivo — é mais uma leitura da mesma
+ * tela, e expor um `fetchFolderLastReviewsFn` avulso devolveria o 5º request que
+ * esta consolidação existe para evitar.
  */
 export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
 	.validator(z.object({ includeDeleted: z.boolean().optional(), preparations: PreparationScopeSchema.optional(), catalog: CatalogScopeSchema.optional() }))
@@ -348,13 +364,15 @@ export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
 		// `kitchen.folder` (recortados por `catalog_scope`), preparação do SISUBWEB em
 		// `kitchen.preparation_group`. `listPreparationGroups` devolve no formato de Folder de
 		// propósito, para o cliente reusar a mesma árvore — e não conhece escopo de catálogo.
-		const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
+		const [folders, ingredients, ingredientItems, lastReviews, folderLastReviews] = await Promise.all([
 			preparations === "only" ? listPreparationGroups(db, ctx, { includeDeleted }) : listFolders(db, ctx, { includeDeleted, catalog }),
 			listIngredients(db, ctx, { includeDeleted, preparations, catalog }),
 			// Itens de compra/produto sempre ativos: contagem de badges não infla com excluídos.
 			listIngredientItems(db, ctx, {}),
 			// Última revisão por insumo (data exibida na árvore p/ acompanhar a conferência).
 			listIngredientLastReviews(db, ctx, {}),
+			// Última revisão por pasta (mesma conferência, aplicada às pastas).
+			listFolderLastReviews(db, ctx, {}),
 		]).catch(handleDomainError)
-		return { folders, ingredients, ingredientItems, lastReviews }
+		return { folders, ingredients, ingredientItems, lastReviews, folderLastReviews }
 	})
