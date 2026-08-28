@@ -432,7 +432,7 @@ describe("progresso de conferência da pasta", () => {
 // ── Carimbo de conferência da pasta ─────────────────────────────────────────
 
 describe("conferência da pasta", () => {
-	const conferida = (id: string, at: string) => ({ folder_id: id, reviewed_at: at })
+	const conferida = (id: string, at: string, by?: string | null) => ({ folder_id: id, reviewed_at: at, reviewed_by_name: by ?? null })
 	/** Mesma fixture, com `created_at` explícito para posicionar antes/depois do carimbo. */
 	const nascidoEm = <T extends { created_at: string }>(item: T, at: string): T => ({ ...item, created_at: at })
 
@@ -447,7 +447,26 @@ describe("conferência da pasta", () => {
 			ingredients: BASE_INGREDIENTS, // created_at 2026-01-01
 			folderLastReviews: [conferida("f-graos", "2026-06-01T00:00:00Z")],
 		})
-		expect(status.get("f-graos")).toEqual({ reviewedAt: "2026-06-01T00:00:00Z", addedSince: 0 })
+		expect(status.get("f-graos")).toEqual({ reviewedAt: "2026-06-01T00:00:00Z", reviewedByName: null, addedSince: 0 })
+	})
+
+	test("o nome de quem conferiu atravessa — é metade do fato que o carimbo afirma", () => {
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			folderLastReviews: [conferida("f-graos", "2026-06-01T00:00:00Z", "Cap Silva")],
+		})
+		expect(status.get("f-graos")?.reviewedByName).toBe("Cap Silva")
+	})
+
+	test("registro sem autor não inventa um — vira null, não string vazia nem 'null'", () => {
+		const status = folderConferenceStatus({
+			folders: BASE_FOLDERS,
+			ingredients: BASE_INGREDIENTS,
+			// Registro antigo: a coluna existe mas veio vazia.
+			folderLastReviews: [{ folder_id: "f-graos", reviewed_at: "2026-06-01T00:00:00Z" }],
+		})
+		expect(status.get("f-graos")?.reviewedByName).toBeNull()
 	})
 
 	test("insumo que chegou depois envelhece o carimbo", () => {

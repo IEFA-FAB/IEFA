@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { CalendarCheck, CircleCheck, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
+import { CalendarCheck, CircleCheck, ClipboardCheck, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -149,6 +149,7 @@ export function IngredientsTreeNode({
 	const { restoreFolder, isRestoring: isRestoringFolder } = useRestoreFolder()
 	const { restoreIngredient, isRestoring: isRestoringIngredient } = useRestoreIngredient()
 	const { recordFolderReview, isReviewing } = useRecordFolderReview()
+	const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false)
 
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
@@ -181,9 +182,14 @@ export function IngredientsTreeNode({
 		}
 	}
 
-	const handleReviewFolder = async () => {
+	// Quem conferiu — o nome pode faltar em registro antigo, e aí a frase simplesmente
+	// não menciona autor em vez de dizer "por null".
+	const byWhom = folderConference?.reviewedByName ? ` por ${folderConference.reviewedByName}` : ""
+
+	const handleReviewFolderConfirm = async () => {
 		try {
 			await recordFolderReview(node.id)
+			setIsReviewDialogOpen(false)
 			toast.success("Pasta marcada como conferida.")
 		} catch (_error) {
 			toast.error("Não foi possível registrar a conferência da pasta.")
@@ -246,13 +252,13 @@ export function IngredientsTreeNode({
 										size="icon"
 										onClick={(e) => {
 											e.stopPropagation()
-											handleReviewFolder()
+											setIsReviewDialogOpen(true)
 										}}
 										disabled={isBusy}
 										aria-label={`Marcar a pasta ${node.label} como conferida`}
 										title="Marcar esta pasta como conferida (nome, organização e o que ela contém)"
 									>
-										{isReviewing ? <Loader2 className="animate-spin" /> : <CircleCheck />}
+										{isReviewing ? <Loader2 className="animate-spin" /> : <ClipboardCheck />}
 									</Button>
 								)}
 
@@ -364,13 +370,16 @@ export function IngredientsTreeNode({
 					<Tooltip>
 						<TooltipTrigger
 							render={
+								// `tabIndex`/`role`: o Badge não é focável por natureza, e o significado do
+								// número mora no tooltip. Sem isso, teclado e leitor de tela não alcançam a
+								// única explicação que existe.
 								folderReview.reviewed === folderReview.total ? (
-									<Badge variant="outline" className="gap-1 text-muted-foreground">
+									<Badge variant="outline" className="gap-1 text-muted-foreground" tabIndex={0} role="button">
 										<CalendarCheck className="size-3" />
 										Revisada
 									</Badge>
 								) : (
-									<Badge variant="outline" className="text-muted-foreground tabular-nums">
+									<Badge variant="outline" className="text-muted-foreground tabular-nums" tabIndex={0} role="button">
 										{folderReview.reviewed}/{folderReview.total} revisados
 									</Badge>
 								)
@@ -399,26 +408,58 @@ export function IngredientsTreeNode({
 					<Tooltip>
 						<TooltipTrigger
 							render={
+								// Compacto de propósito: numa árvore profunda a linha da pasta já carrega
+								// contagem de itens + progresso + este carimbo. O rótulo por extenso mora no
+								// tooltip; aqui fica ícone + data, que é o que se lê de relance.
 								folderConference.addedSince > 0 ? (
-									<Badge variant="warning" className="tabular-nums">
-										Pasta conferida · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
+									<Badge variant="warning" className="gap-1 tabular-nums" tabIndex={0} role="button">
+										<CircleCheck className="size-3" />
+										{formatReviewDate(folderConference.reviewedAt)} · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
 									</Badge>
 								) : (
-									<Badge variant="outline" className="gap-1 text-muted-foreground">
+									<Badge variant="outline" className="gap-1 text-muted-foreground tabular-nums" tabIndex={0} role="button">
 										<CircleCheck className="size-3" />
-										Pasta conferida {formatReviewDate(folderConference.reviewedAt)}
+										{formatReviewDate(folderConference.reviewedAt)}
 									</Badge>
 								)
 							}
 						/>
 						<TooltipContent>
 							{folderConference.addedSince > 0
-								? `Conferida em ${formatReviewDate(folderConference.reviewedAt)}, mas ${folderConference.addedSince} item(ns) entraram depois disso — quem conferiu não os viu.`
-								: `Pasta conferida em ${formatReviewDate(folderConference.reviewedAt)}. Nada entrou desde então.`}
+								? `Pasta conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}, mas ${
+										folderConference.addedSince === 1 ? "1 item entrou" : `${folderConference.addedSince} itens entraram`
+									} depois disso — quem conferiu não ${folderConference.addedSince === 1 ? "o" : "os"} viu.`
+								: `Pasta conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}. Nada entrou desde então.`}
 						</TooltipContent>
 					</Tooltip>
 				)}
 			</TreeRow>
+
+			{/*
+			 * Conferência é evento de AUDITORIA, atribuído nominalmente e sem desfazer: o
+			 * histórico é append-only por convenção do projeto (documento novo é linha nova,
+			 * nunca UPDATE), então apagar um registro seria destruir a prova. Como não há volta,
+			 * o clique errado tem que ser barrado ANTES — e ele não é inofensivo: além de
+			 * afirmar em nome de alguém, zera o aviso de "N novos" que existia.
+			 */}
+			<AlertDialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+				<AlertDialogContent size="sm">
+					<AlertDialogHeader>
+						<AlertDialogTitle>Marcar pasta como conferida</AlertDialogTitle>
+						<AlertDialogDescription>
+							Confirma que conferiu <strong>{node.label}</strong> — nome, organização e o que ela contém? Fica registrado com o seu nome e a data de hoje, e não
+							pode ser desfeito.
+							{folderConference?.addedSince ? " O aviso de itens novos desta pasta será zerado." : ""}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						<AlertDialogAction onClick={handleReviewFolderConfirm} disabled={isReviewing}>
+							{isReviewing ? "Registrando..." : "Confirmar conferência"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
 				<AlertDialogContent size="sm">

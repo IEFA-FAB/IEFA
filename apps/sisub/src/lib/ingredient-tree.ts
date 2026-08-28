@@ -70,6 +70,13 @@ export interface FolderConference {
 	/** Quando alguém declarou a pasta conferida. `null` = nunca. */
 	reviewedAt: string | null
 	/**
+	 * Quem declarou. `null` quando o registro é antigo ou o nome não foi capturado.
+	 *
+	 * A premissa da conferência é "ALGUÉM olhou esta pasta" — sem o nome, metade do fato
+	 * some. A coluna já existia e a view já a projetava; era só não chegar até aqui.
+	 */
+	reviewedByName: string | null
+	/**
 	 * Itens que entraram na subárvore DEPOIS dessa conferência (insumos e subpastas).
 	 * Maior que zero ⇒ o carimbo está velho: quem conferiu não viu o que chegou
 	 * depois, e a pasta não pode continuar se apresentando como conferida.
@@ -98,18 +105,18 @@ export interface FolderConference {
 export function folderConferenceStatus(input: {
 	folders: readonly Folder[] | null | undefined
 	ingredients: readonly Ingredient[] | null | undefined
-	folderLastReviews?: readonly { folder_id: string; reviewed_at: string }[] | null
+	folderLastReviews?: readonly { folder_id: string; reviewed_at: string; reviewed_by_name?: string | null }[] | null
 }): Map<string, FolderConference> {
-	const reviewedAt = new Map<string, string>()
-	for (const r of asArray(input.folderLastReviews)) reviewedAt.set(r.folder_id, r.reviewed_at)
+	const reviewedAt = new Map<string, { at: string; by: string | null }>()
+	for (const r of asArray(input.folderLastReviews)) reviewedAt.set(r.folder_id, { at: r.reviewed_at, by: r.reviewed_by_name ?? null })
 	if (reviewedAt.size === 0) return new Map()
 
 	const parentOf = new Map<string, string | null>()
 	for (const f of asArray(input.folders)) parentOf.set(f.id, f.parent_id ?? null)
 
 	const status = new Map<string, FolderConference>()
-	for (const [folderId, at] of reviewedAt) {
-		if (parentOf.has(folderId)) status.set(folderId, { reviewedAt: at, addedSince: 0 })
+	for (const [folderId, review] of reviewedAt) {
+		if (parentOf.has(folderId)) status.set(folderId, { reviewedAt: review.at, reviewedByName: review.by, addedSince: 0 })
 	}
 
 	/** Credita a chegada de `createdAt` a todo ancestral conferido antes dela. */

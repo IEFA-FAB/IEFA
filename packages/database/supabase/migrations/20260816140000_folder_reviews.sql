@@ -22,7 +22,13 @@ ALTER TABLE kitchen.folder_review ENABLE ROW LEVEL SECURITY;
 
 -- View: a última revisão por pasta (1 linha por pasta já revisada).
 -- Usada na árvore de insumos para exibir a data da última revisão sem agregação no cliente.
-CREATE VIEW kitchen.folder_last_review AS
+-- `security_invoker = on` OBRIGATÓRIO: view sem isso executa com os privilégios do DONO
+-- (semântica SECURITY DEFINER) e passa por cima da RLS das tabelas de baixo. Foi a classe de
+-- furo que a auditoria de 2026-08-25 fechou (migration 20260825155457). O `service_role` tem
+-- BYPASSRLS, então quem lê hoje (Drizzle/service-role) não muda de comportamento — isto evita
+-- que um GRANT futuro para authenticated transforme a view num túnel pela RLS.
+CREATE VIEW kitchen.folder_last_review
+WITH (security_invoker = on) AS
 SELECT DISTINCT ON (folder_id)
   folder_id,
   reviewed_at,
