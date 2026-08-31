@@ -64,7 +64,7 @@ function Reports() {
 		description: r.description ?? "",
 		url: r.url,
 		icon: r.icon ?? "FileBarChart",
-		category: r.category ?? "Relatórios",
+		stage: "acompanhar" as const,
 		iconColor: "bg-tech-blue",
 	}))
 

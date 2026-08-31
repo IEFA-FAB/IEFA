@@ -39,16 +39,21 @@ function isPublicPath(pathname: string): boolean {
 }
 
 /**
- * Busca e categoria do hub vivem na URL, não em memória: link de filtro é
+ * Busca, etapa e questão do RAC vivem na URL, não em memória: link de filtro é
  * compartilhável e sobrevive ao F5. Declarados na raiz porque o HubLayout — que
- * lê e escreve os dois — é montado por nove rotas diferentes.
+ * lê e escreve os três — é montado por nove rotas diferentes.
  *
  * `z.coerce` porque o roteador entrega `?q=35` como NÚMERO; um `z.string()` puro
- * derrubaria a rota inteira em qualquer busca que só tenha dígitos.
+ * derrubaria a rota inteira em qualquer busca que só tenha dígitos. O `.catch`
+ * em cada campo garante que um valor inválido vindo de link velho degrade para
+ * "sem filtro" em vez de derrubar a rota.
  */
 const hubSearchSchema = z.object({
 	q: z.coerce.string().optional().catch(undefined),
-	cat: z.coerce.string().optional().catch(undefined),
+	/** Etapa do ciclo de conformidade. Substituiu `cat`, que classificava a ferramenta pela tecnologia. */
+	etapa: z.enum(["analisar", "comunicar", "acompanhar", "consultar"]).optional().catch(undefined),
+	/** Questão do RAC (5–43). O escopo do trabalho, no mesmo papel que `kitchen`/`unit` têm no sisub. */
+	rac: z.coerce.number().int().min(1).max(99).optional().catch(undefined),
 })
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({

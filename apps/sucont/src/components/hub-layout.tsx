@@ -1,30 +1,42 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
-import { Activity, FileText, LayoutGrid, LogOut, Menu, MessageSquare, Monitor, Search, ShieldCheck, X, Zap } from "lucide-react"
+import { Activity, BookOpen, LayoutGrid, LogOut, type LucideIcon, Menu, Monitor, Search, Send, ShieldCheck, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { LegalNotice } from "#/components/LegalNotice"
-import { SidebarRailItem } from "#/components/sidebar-rail-item"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
-import { externalSystems, iaTools, reportTools } from "#/lib/data"
-import { ALL_CATEGORIES, useHubFilters } from "#/lib/hub-filters"
+import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
+import { TOOL_STAGES, type ToolStage } from "#/lib/types"
 
-const NAV_CATEGORIES = [
-	{ id: ALL_CATEGORIES, icon: LayoutGrid },
-	{ id: "Auditoria", icon: ShieldCheck },
-	{ id: "Monitoramento", icon: Activity },
-	{ id: "IA / Chatbot", icon: MessageSquare },
-	{ id: "Automação", icon: Zap },
-	{ id: "Documentação", icon: FileText },
+const STAGE_ICON: Record<ToolStage, LucideIcon> = {
+	analisar: ShieldCheck,
+	comunicar: Send,
+	acompanhar: Activity,
+	consultar: BookOpen,
+}
+
+/**
+ * Etapas do ciclo de conformidade. Antes esta barra listava seis categorias
+ * ("Auditoria", "Automação", "IA / Chatbot") enquanto o catálogo tinha dez — as
+ * outras quatro não eram alcançáveis por filtro nenhum.
+ */
+const NAV_STAGES = [
+	{ id: ALL_STAGES as StageFilter, label: "Tudo", icon: LayoutGrid },
+	...TOOL_STAGES.map((stage) => ({ id: stage.id as StageFilter, label: stage.label, icon: STAGE_ICON[stage.id] })),
 ]
 
+/**
+ * Navegação entre telas — não é filtro. Antes ficava no herói como três pílulas
+ * visualmente idênticas às da barra lateral, que filtravam: duas coisas
+ * diferentes com a mesma aparência.
+ */
 const NAV_TABS = [
-	{ to: "/", label: "DASHBOARD" },
-	{ to: "/workspace", label: "ÁREA DE TRABALHO" },
-	{ to: "/reports", label: "RELATÓRIOS" },
+	{ to: "/", label: "Catálogo" },
+	{ to: "/workspace", label: "Área de trabalho" },
+	{ to: "/reports", label: "Relatórios" },
 ] as const
 
 interface HubLayoutProps {
@@ -34,7 +46,7 @@ interface HubLayoutProps {
 }
 
 export function HubLayout({ children, searchable = false }: HubLayoutProps) {
-	const { category, setCategory } = useHubFilters()
+	const { stage, setStage } = useHubFilters()
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	// O menu mobile guarda a rota em que foi aberto: navegar muda o pathname e o
 	// painel — que é overlay e cobriria a tela nova — se fecha sozinho.
@@ -47,19 +59,10 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-card border-r border-border z-20">
 				<HubBrand />
 
-				<CategoryNav activeCategory={category} onSelect={setCategory} />
+				<StageNav activeStage={stage} onSelect={setStage} />
 
 				<div className="mt-auto flex flex-col gap-3">
 					<UserBlock />
-					<div className="p-4 bg-muted/50 rounded-2xl border border-border">
-						<div className="flex items-center gap-2 mb-2">
-							<ShieldCheck className="w-3 h-3 text-tech-blue" />
-							<span className="text-label text-muted-foreground">Uso Institucional</span>
-						</div>
-						<p className="text-hint text-muted-foreground leading-relaxed">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).
-						</p>
-					</div>
 				</div>
 			</aside>
 
@@ -84,10 +87,10 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 				</Button>
 			</div>
 
-			{menuOpen && <MobileMenu activeCategory={category} onSelect={setCategory} onClose={() => setMenuPath(null)} />}
+			{menuOpen && <MobileMenu activeStage={stage} onSelect={setStage} onClose={() => setMenuPath(null)} />}
 
 			{/* ── Main Area ─────────────────────────────────────── */}
-			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10 pt-14 lg:pt-0">
+			<div className="flex-grow lg:ml-64 relative z-10 pt-14 lg:pt-0">
 				{/* Header */}
 				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
 					<div className="relative bg-surface-inverted rounded-xl p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
@@ -99,19 +102,9 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 						</div>
 
 						<div className="relative z-10">
-							<div className="flex flex-wrap gap-2 mb-6">
-								<span className="text-label text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10">Força Aérea Brasileira</span>
-								<span className="text-label text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10">DIREF • SUCONT</span>
-							</div>
-
 							<h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-4 leading-tight">
 								SUCONT-4 <span className="text-tech-cyan">HUB</span>
 							</h1>
-
-							<p className="text-white/70 max-w-2xl text-sm leading-relaxed mb-10">
-								Plataforma centralizada para ferramentas de análise contábil e suporte ao usuário. Promovendo excelência, padronização e apoio à tomada de
-								decisão no Comando da Aeronáutica.
-							</p>
 
 							<div className="flex flex-wrap gap-3 md:gap-4">
 								{NAV_TABS.map((tab) => (
@@ -137,55 +130,17 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 
 				{/* Footer */}
 				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
-					<div className="flex gap-8">
-						<SystemStatus />
-						<div className="flex flex-col">
-							<span className="text-label font-mono text-muted-foreground">Versão Hub</span>
-							<span className="text-xs font-mono text-muted-foreground">v4.0.0-START</span>
-						</div>
-					</div>
 					<div className="flex flex-col items-center gap-2 md:items-end">
 						<LegalFooterLinks
 							className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
 							linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
 						/>
-						<div className="text-hint font-mono text-muted-foreground text-center md:text-right">
-							© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
-							<br />
-							ACESSO RESTRITO
-						</div>
+						<p className="text-hint font-mono text-muted-foreground text-center md:text-right">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
 					</div>
 				</footer>
 			</div>
 
 			{/* ── Right Sidebar Rail (desktop) ──────────────────── */}
-			<aside className="fixed right-0 top-0 h-screen w-16 bg-card border-l border-border z-30 hidden lg:flex flex-col items-center py-6 gap-4 overflow-y-auto">
-				<div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center text-muted-foreground mb-4 shrink-0">
-					<LayoutGrid className="w-4 h-4" />
-				</div>
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{externalSystems.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-
-				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{iaTools.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-
-				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{reportTools.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-			</aside>
 
 			<LegalNotice />
 		</div>
@@ -206,12 +161,12 @@ function HubBrand() {
 	)
 }
 
-function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onSelect: (category: string) => void }) {
+function StageNav({ activeStage, onSelect }: { activeStage: StageFilter; onSelect: (stage: StageFilter) => void }) {
 	return (
-		<nav className="flex flex-col gap-2" aria-label="Categorias de ferramentas">
-			{NAV_CATEGORIES.map((cat) => {
+		<nav className="flex flex-col gap-2" aria-label="Etapas do ciclo de conformidade">
+			{NAV_STAGES.map((cat) => {
 				const Icon = cat.icon
-				const isActive = activeCategory === cat.id
+				const isActive = activeStage === cat.id
 				return (
 					<Button
 						key={cat.id}
@@ -224,7 +179,7 @@ function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onS
 						}`}
 					>
 						<Icon className="w-4 h-4" />
-						<span className="text-xs font-bold">{cat.id}</span>
+						<span className="text-xs font-bold">{cat.label}</span>
 					</Button>
 				)
 			})}
@@ -232,7 +187,7 @@ function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onS
 	)
 }
 
-function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: string; onSelect: (category: string) => void; onClose: () => void }) {
+function MobileMenu({ activeStage, onSelect, onClose }: { activeStage: StageFilter; onSelect: (stage: StageFilter) => void; onClose: () => void }) {
 	const panelRef = useRef<HTMLDivElement>(null)
 
 	// Esc fecha; o foco vai para o painel para que o leitor de tela anuncie o menu.
@@ -275,10 +230,10 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 					</Button>
 				</div>
 
-				<CategoryNav
-					activeCategory={activeCategory}
-					onSelect={(category) => {
-						onSelect(category)
+				<StageNav
+					activeStage={activeStage}
+					onSelect={(stage) => {
+						onSelect(stage)
 						onClose()
 					}}
 				/>
@@ -348,40 +303,6 @@ function HubSearchBar() {
 					<X className="w-3.5 h-3.5" />
 				</Button>
 			)}
-		</div>
-	)
-}
-
-/**
- * Status real do SSR, sondando a mesma rota `/health` que o ALB usa. Antes era um
- * texto fixo "OPERACIONAL", que por definição nunca informava nada.
- */
-function SystemStatus() {
-	const { data, isPending, isError } = useQuery({
-		queryKey: ["sucont", "health"],
-		queryFn: async () => {
-			const res = await fetch("/health", { headers: { accept: "text/html" } })
-			if (!res.ok) throw new Error(`health ${res.status}`)
-			return true
-		},
-		// URL relativa não resolve no SSR: a sonda é só do browser.
-		enabled: typeof window !== "undefined",
-		refetchInterval: 60_000,
-		retry: 1,
-	})
-
-	const state = isPending ? "checking" : isError || !data ? "down" : "up"
-	const label = state === "checking" ? "VERIFICANDO" : state === "up" ? "OPERACIONAL" : "INSTÁVEL"
-	const tone = state === "checking" ? "text-muted-foreground" : state === "up" ? "text-success" : "text-destructive"
-	const dot = state === "checking" ? "bg-muted" : state === "up" ? "bg-success" : "bg-destructive"
-
-	return (
-		<div className="flex flex-col">
-			<span className="text-label font-mono text-muted-foreground">Status do Sistema</span>
-			<span className={`text-xs font-mono flex items-center gap-2 ${tone}`} aria-live="polite">
-				<span className={`w-1.5 h-1.5 rounded-full ${dot} ${state === "checking" ? "animate-pulse" : ""}`} />
-				{label}
-			</span>
 		</div>
 	)
 }

@@ -75,7 +75,6 @@ function Shell({ children }: { children: React.ReactNode }) {
 					</div>
 				</div>
 				{children}
-				<p className="text-center text-hint text-muted-foreground mt-6 font-mono">Acesso restrito • Contabilidade Patrimonial</p>
 			</div>
 		</div>
 	)

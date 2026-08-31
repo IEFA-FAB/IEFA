@@ -27,12 +27,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 
 			{/* Cabeçalho */}
 			<div className="flex flex-col items-center text-center mb-10">
-				<img
-					src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Coat_of_arms_of_Brazil.svg/500px-Coat_of_arms_of_Brazil.svg.png"
-					alt="Brasão da República"
-					className="w-16 h-16 mb-4"
-					referrerPolicy="no-referrer"
-				/>
+				<img src="/brasao-republica.svg" alt="Brasão da República" className="w-16 h-16 mb-4" referrerPolicy="no-referrer" />
 				<div className="font-bold text-[13pt] uppercase tracking-tight">MINISTÉRIO DA DEFESA</div>
 				<div className="font-bold text-[12pt] uppercase tracking-tight">COMANDO DA AERONÁUTICA</div>
 				<div className="font-bold text-[11pt] uppercase border-b border-black pb-1 px-4 w-full mt-1">
@@ -214,13 +209,6 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 				<div className="mt-12 flex flex-col items-center opacity-80">
 					<div className="bg-surface-inverted text-surface-inverted-foreground px-5 py-1.5 flex items-center gap-3 rounded-sm text-[9pt] tracking-widest uppercase font-medium">
 						<span className="italic">Asas que protegem o País</span>
-						<div className="w-px h-4 bg-surface-inverted-border" />
-						<img
-							src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Emblema_da_For%C3%A7a_A%C3%A9rea_Brasileira.svg/1200px-Emblema_da_For%C3%A7a_A%C3%A9rea_Brasileira.svg.png"
-							alt="FAB Logo"
-							className="h-5 invert brightness-0"
-							referrerPolicy="no-referrer"
-						/>
 					</div>
 				</div>
 			</div>
