@@ -762,7 +762,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 			<div className="flex items-center justify-between mb-8">
 				<div className="flex items-center gap-4">
 					<Search className="text-fab-blue w-5 h-5" />
-					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Analista Conta Genérica (Q35)</h2>
+					<h1 className="text-foreground font-bold uppercase tracking-widest text-sm">Analista Conta Genérica (Q35)</h1>
 					<div className="flex-grow h-[1px] bg-border" />
 				</div>
 				<div className="flex items-center gap-3 ml-4">

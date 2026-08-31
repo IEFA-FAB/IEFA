@@ -43,6 +43,16 @@ describe("filterTools", () => {
 		expect(filterTools(tools, { ...all, query: "42" }).map((t) => t.id)).toEqual(["c"])
 	})
 
+	it("busca acha pela grafia com dois dígitos, que é a que aparece na tela", () => {
+		// O cartão e o seletor mostram "Q05"/"Q34"; digitar exatamente isso tem de
+		// achar. Antes só a forma nua casava, então "Q06" devolvia zero enquanto
+		// "q6" devolvia a ferramenta.
+		expect(filterTools(tools, { ...all, query: "q05" })).toHaveLength(0)
+		expect(filterTools(tools, { ...all, query: "Q34" }).map((t) => t.id)).toEqual(["b"])
+		expect(filterTools(tools, { ...all, query: "q40" }).map((t) => t.id)).toEqual(["c"])
+		expect(filterTools(tools, { ...all, query: "40" }).map((t) => t.id)).toEqual(["c"])
+	})
+
 	it("busca acha pelo rótulo da etapa", () => {
 		expect(filterTools(tools, { ...all, query: "comunicar" }).map((t) => t.id)).toEqual(["d"])
 	})

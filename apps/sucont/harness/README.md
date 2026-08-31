@@ -1,7 +1,8 @@
-# Harness visual do auditor
+# Harness visual
 
-Renderiza os componentes do módulo `auditor` com fixture determinística, nos dois
-temas, fora do app.
+Renderiza componentes reais fora do app, nos dois temas: o módulo `auditor` com
+fixture determinística (`main.tsx`, servido em `/`) e a casca do hub com o
+catálogo (`hub.tsx`, em `/hub.html`).
 
 Existe porque **nenhum check enxerga uma cor errada**: `tsgo`, `vite build` e a
 suíte passam com um gráfico pintado de branco sobre branco. E a rota `/auditor`
@@ -22,5 +23,24 @@ bun run harness:serve      # em outro terminal
 bun run harness:shot       # PNGs em /tmp, ou passe um diretório
 ```
 
+## A casca do hub (`/hub.html`)
+
+A barra lateral, o cabeçalho e o bloco da conta só aparecem com sessão, e o app
+divide o projeto Supabase com produção — criar usuário de teste lá só para olhar
+um layout não se justifica. Aqui a sessão vem semeada no cache do react-query, o
+router é de memória e as duas server functions do caminho (`auth.fn`,
+`legal.fn`) são stubadas em `stubs/`, porque exigiriam o pipeline do TanStack
+Start. As variáveis do Supabase vêm fictícias pelo `define` do Vite: o harness
+não fala com o banco, então credencial real aqui seria risco sem contrapartida.
+
+Esta tela encontrou dois defeitos que typecheck, build e suíte não viam:
+
+- as regras `a { color: … }` do `styles.css` estavam **fora de camada**, e regra
+  sem camada vence qualquer utilitária do Tailwind. Todo `text-*` em `<a>` era
+  ignorado — era por isso que os botões do antigo banner, com `text-white`
+  escrito no elemento, saíam azul-petróleo sobre fundo escuro;
+- `--tech-bg`, o fundo da casca, não tinha valor para o tema escuro. No escuro o
+  fundo continuava cinza-claro enquanto o texto virava branco.
+
 O que não cobre: interação, dados reais, SSR e o resto do app. É verificação de
-cor e layout dos componentes de gráfico, e só.
+cor e layout, e só.

@@ -47,6 +47,19 @@ Mesma ordem de prioridade do sisub:
   (institucional FAB, incluindo a escala numérica `fab-50`…`fab-950`) são tokens
   legítimos, declarados no `@theme inline`. Usá-las é permitido; inventar cor
   fora delas, não.
+- **Token que participa de fundo ou texto tem valor nos DOIS temas.** `--tech-bg`
+  era hex fixo do tema claro sem contrapartida no `.dark`: no escuro a casca
+  ficava cinza-clara enquanto `--foreground` virava quase branco, e título e
+  cabeçalho de grupo sumiam. Cor de marca (`--tech-blue`) pode ser constante;
+  fundo e texto, não. O override do `.dark` precisa vir **depois** do `:root` que
+  define o valor claro — as duas regras têm a mesma especificidade, então quem
+  aparece por último vence.
+- **Regra de elemento no `styles.css` mora dentro de `@layer`.** Regra fora de
+  camada vence QUALQUER utilitária do Tailwind, independente de especificidade.
+  Um `a { color: … }` solto fazia todo `text-*` em link ser ignorado no app
+  inteiro — os botões do banner antigo traziam `text-white` e saíam
+  azul-petróleo sobre fundo escuro, ilegíveis. Verificado por captura no harness
+  (`harness/hub.tsx`); nenhum linter enxerga isto.
 
 ### 4.2 Primitives
 

@@ -874,7 +874,7 @@ DIREF/SUCONT/SUCONT-3
 				{/* Left: icon + title */}
 				<div className="flex items-center gap-4">
 					<Scale className="text-tech-cyan w-5 h-5 shrink-0" />
-					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Analista de Compatibilidade (Q40–Q42)</h2>
+					<h1 className="text-foreground font-bold uppercase tracking-widest text-sm">Analista de Compatibilidade (Q40–Q42)</h1>
 				</div>
 
 				{/* Center: user profile selector */}

@@ -39,6 +39,11 @@ export function Combobox({ value, onValueChange, items, placeholder = "Selecione
 		<ComboboxPrimitive.Root
 			items={items}
 			value={selected}
+			// Sem isto, digitar "34" e apertar Enter descarta o texto e volta ao valor
+			// anterior: nada fica destacado, então Enter não tem o que confirmar. Exigir
+			// ArrowDown antes seria uma regressão diante das pílulas que este controle
+			// substituiu, onde Enter sempre funcionou.
+			autoHighlight
 			// O Base UI entrega `null` ao limpar. Nenhuma lista daqui tem item nulo,
 			// mas o tipo exige tratar — e cair em "" criaria um filtro que não casa
 			// com nada.

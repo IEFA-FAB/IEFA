@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react"
 import { IconRenderer } from "#/components/icon-renderer"
 import { Button } from "#/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { formatRacQuestions } from "#/lib/rac"
 import { getToolKind, type ToolKind } from "#/lib/tool-kind"
 import { TOOL_STAGES, type Tool } from "#/lib/types"
 
@@ -62,7 +63,7 @@ function CardInner({ tool }: { tool: Tool }) {
 				<div className="flex items-center gap-2">
 					<KindTag kind={kind} />
 					<span className="text-label text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">
-						{tool.racQuestions?.length ? tool.racQuestions.map((q) => `Q${q}`).join(" · ") : STAGE_LABEL[tool.stage]}
+						{formatRacQuestions(tool.racQuestions) ?? STAGE_LABEL[tool.stage]}
 					</span>
 				</div>
 			</div>
