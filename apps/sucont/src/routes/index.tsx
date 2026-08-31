@@ -64,14 +64,12 @@ function Catalogo() {
 				<div className="flex flex-wrap items-center gap-3">
 					{/* Etapa do ciclo. Mora aqui, e não na barra lateral, porque é filtro
 					    desta tela — na lateral parecia navegação e disputava com ela. */}
-					{/* `group`, e não `nav`: estes botões filtram a lista abaixo, não levam a
-					    outra tela. Anunciá-los como navegação repetiria, em landmark, a
-					    confusão que motivou tirá-los da barra lateral. */}
-					<div
-						role="group"
-						aria-label="Etapa do ciclo de conformidade"
-						className="flex flex-wrap items-center gap-1 rounded-xl bg-card p-1 border border-border"
-					>
+					{/* `fieldset`, e não `nav`: estes botões filtram a lista abaixo, não levam
+					    a outra tela. Anunciá-los como navegação repetiria, em landmark, a
+					    confusão que motivou tirá-los da barra lateral. A legenda fica só
+					    para o leitor de tela — na tela, os rótulos já se explicam. */}
+					<fieldset className="flex flex-wrap items-center gap-1 rounded-xl bg-card p-1 border border-border">
+						<legend className="sr-only">Etapa do ciclo de conformidade</legend>
 						{STAGE_TABS.map((tab) => {
 							const Icon = tab.icon
 							const isActive = stage === tab.id
@@ -92,7 +90,7 @@ function Catalogo() {
 								</Button>
 							)
 						})}
-					</div>
+					</fieldset>
 
 					<div className="flex items-center gap-2">
 						<span className="text-label text-muted-foreground">Questão do RAC</span>
