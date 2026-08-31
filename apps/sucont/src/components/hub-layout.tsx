@@ -323,20 +323,14 @@ function UserBlock() {
 			{/* O e-mail trunca na largura da barra; o tooltip mostra o endereço inteiro
 			    sem recorrer ao atributo `title`, que o contrato proíbe (§5). */}
 			<Tooltip>
-				{/* `tabIndex={0}` porque o endereço trunca: sem foco de teclado o tooltip
-				    só abre no ponteiro, que é exatamente a falha do atributo `title` que
-				    o primitivo veio substituir (WCAG 1.4.13). */}
-				<TooltipTrigger
-					render={
-						<div
-							tabIndex={0}
-							className="flex min-w-0 cursor-default flex-col rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-						>
-							<span className="text-xs font-bold text-foreground truncate">{name}</span>
-							<span className="text-hint text-muted-foreground truncate">{email}</span>
-						</div>
-					}
-				/>
+				{/* O gatilho é o botão que o próprio primitivo renderiza, e não uma `div`
+				    com `tabIndex`: o endereço trunca, e sem foco de teclado o tooltip só
+				    abriria no ponteiro — a mesma falha do atributo `title` que o
+				    primitivo veio substituir (WCAG 1.4.13). */}
+				<TooltipTrigger className="flex min-w-0 cursor-default flex-col rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+					<span className="text-xs font-bold text-foreground truncate">{name}</span>
+					<span className="text-hint text-muted-foreground truncate">{email}</span>
+				</TooltipTrigger>
 				<TooltipContent>{email}</TooltipContent>
 			</Tooltip>
 			<Tooltip>
