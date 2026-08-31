@@ -1,31 +1,43 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
-import { Activity, FileText, LayoutGrid, LogOut, Menu, MessageSquare, Monitor, Search, ShieldCheck, X, Zap } from "lucide-react"
+import { Activity, BookOpen, LayoutGrid, LogOut, type LucideIcon, Menu, Monitor, Search, Send, ShieldCheck, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { LegalNotice } from "#/components/LegalNotice"
-import { SidebarRailItem } from "#/components/sidebar-rail-item"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
-import { externalSystems, iaTools, reportTools } from "#/lib/data"
-import { ALL_CATEGORIES, useHubFilters } from "#/lib/hub-filters"
+import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
+import { TOOL_STAGES, type ToolStage } from "#/lib/types"
 
-const NAV_CATEGORIES = [
-	{ id: ALL_CATEGORIES, icon: LayoutGrid },
-	{ id: "Auditoria", icon: ShieldCheck },
-	{ id: "Monitoramento", icon: Activity },
-	{ id: "IA / Chatbot", icon: MessageSquare },
-	{ id: "Automação", icon: Zap },
-	{ id: "Documentação", icon: FileText },
+/**
+ * Etapas do ciclo de conformidade. Antes esta barra listava seis categorias
+ * ("Auditoria", "Automação", "IA / Chatbot") enquanto o catálogo tinha dez — as
+ * outras quatro não eram alcançáveis por filtro nenhum.
+ */
+const NAV_STAGES = [
+	{ id: ALL_STAGES as StageFilter, label: "Tudo", icon: LayoutGrid },
+	...TOOL_STAGES.map((stage) => ({ id: stage.id as StageFilter, label: stage.label, icon: STAGE_ICON[stage.id] })),
 ]
 
+/**
+ * Navegação entre telas — não é filtro. Antes ficava no herói como três pílulas
+ * visualmente idênticas às da barra lateral, que filtravam: duas coisas
+ * diferentes com a mesma aparência.
+ */
 const NAV_TABS = [
-	{ to: "/", label: "DASHBOARD" },
-	{ to: "/workspace", label: "ÁREA DE TRABALHO" },
-	{ to: "/reports", label: "RELATÓRIOS" },
+	{ to: "/", label: "Catálogo" },
+	{ to: "/workspace", label: "Área de trabalho" },
+	{ to: "/reports", label: "Relatórios" },
 ] as const
+
+const STAGE_ICON: Record<ToolStage, LucideIcon> = {
+	analisar: ShieldCheck,
+	comunicar: Send,
+	acompanhar: Activity,
+	consultar: BookOpen,
+}
 
 interface HubLayoutProps {
 	children: React.ReactNode
@@ -34,7 +46,7 @@ interface HubLayoutProps {
 }
 
 export function HubLayout({ children, searchable = false }: HubLayoutProps) {
-	const { category, setCategory } = useHubFilters()
+	const { stage, setStage } = useHubFilters()
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	// O menu mobile guarda a rota em que foi aberto: navegar muda o pathname e o
 	// painel — que é overlay e cobriria a tela nova — se fecha sozinho.
@@ -47,7 +59,7 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-card border-r border-border z-20">
 				<HubBrand />
 
-				<CategoryNav activeCategory={category} onSelect={setCategory} />
+				<StageNav activeStage={stage} onSelect={setStage} />
 
 				<div className="mt-auto flex flex-col gap-3">
 					<UserBlock />
@@ -75,10 +87,10 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 				</Button>
 			</div>
 
-			{menuOpen && <MobileMenu activeCategory={category} onSelect={setCategory} onClose={() => setMenuPath(null)} />}
+			{menuOpen && <MobileMenu activeStage={stage} onSelect={setStage} onClose={() => setMenuPath(null)} />}
 
 			{/* ── Main Area ─────────────────────────────────────── */}
-			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10 pt-14 lg:pt-0">
+			<div className="flex-grow lg:ml-64 relative z-10 pt-14 lg:pt-0">
 				{/* Header */}
 				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
 					<div className="relative bg-surface-inverted rounded-xl p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
@@ -129,33 +141,6 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			</div>
 
 			{/* ── Right Sidebar Rail (desktop) ──────────────────── */}
-			<aside className="fixed right-0 top-0 h-screen w-16 bg-card border-l border-border z-30 hidden lg:flex flex-col items-center py-6 gap-4 overflow-y-auto">
-				<div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center text-muted-foreground mb-4 shrink-0">
-					<LayoutGrid className="w-4 h-4" />
-				</div>
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{externalSystems.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-
-				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{iaTools.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-
-				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{reportTools.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-			</aside>
 
 			<LegalNotice />
 		</div>
@@ -176,12 +161,12 @@ function HubBrand() {
 	)
 }
 
-function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onSelect: (category: string) => void }) {
+function StageNav({ activeStage, onSelect }: { activeStage: StageFilter; onSelect: (stage: StageFilter) => void }) {
 	return (
-		<nav className="flex flex-col gap-2" aria-label="Categorias de ferramentas">
-			{NAV_CATEGORIES.map((cat) => {
+		<nav className="flex flex-col gap-2" aria-label="Etapas do ciclo de conformidade">
+			{NAV_STAGES.map((cat) => {
 				const Icon = cat.icon
-				const isActive = activeCategory === cat.id
+				const isActive = activeStage === cat.id
 				return (
 					<Button
 						key={cat.id}
@@ -194,7 +179,7 @@ function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onS
 						}`}
 					>
 						<Icon className="w-4 h-4" />
-						<span className="text-xs font-bold">{cat.id}</span>
+						<span className="text-xs font-bold">{cat.label}</span>
 					</Button>
 				)
 			})}
@@ -202,7 +187,7 @@ function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onS
 	)
 }
 
-function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: string; onSelect: (category: string) => void; onClose: () => void }) {
+function MobileMenu({ activeStage, onSelect, onClose }: { activeStage: StageFilter; onSelect: (stage: StageFilter) => void; onClose: () => void }) {
 	const panelRef = useRef<HTMLDivElement>(null)
 
 	// Esc fecha; o foco vai para o painel para que o leitor de tela anuncie o menu.
@@ -245,10 +230,10 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 					</Button>
 				</div>
 
-				<CategoryNav
-					activeCategory={activeCategory}
-					onSelect={(category) => {
-						onSelect(category)
+				<StageNav
+					activeStage={activeStage}
+					onSelect={(stage) => {
+						onSelect(stage)
 						onClose()
 					}}
 				/>

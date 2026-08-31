@@ -29,8 +29,8 @@ export const sucontTools: Tool[] = [
 		title: "Auditor SUCONT-4",
 		description: "Ferramenta principal de auditoria e análise de dados.",
 		internalPath: "/auditor",
+		stage: "analisar",
 		icon: "ShieldCheck",
-		category: "Auditoria",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -38,8 +38,8 @@ export const sucontTools: Tool[] = [
 		title: "Monitoramento Patrimonial",
 		description: "Acompanhamento em tempo real de conformidade patrimonial.",
 		internalPath: "/monitoramento",
+		stage: "acompanhar",
 		icon: "Activity",
-		category: "Monitoramento",
 		iconColor: "bg-tech-cyan",
 	},
 	{
@@ -48,8 +48,8 @@ export const sucontTools: Tool[] = [
 		description: "Sistema centralizado para geração e gestão automatizada de documentos.",
 		url: "/documentacao",
 		internalPath: "/documentacao",
+		stage: "comunicar",
 		icon: "Zap",
-		category: "Automação",
 		iconColor: "bg-success",
 	},
 	{
@@ -57,8 +57,8 @@ export const sucontTools: Tool[] = [
 		title: "Chatbot SAU",
 		description: "Assistente inteligente para suporte administrativo unificado.",
 		url: "https://notebooklm.google.com/notebook/69f8cb5d-7656-42b2-91f1-36d998b02a37?authuser=1",
+		stage: "consultar",
 		icon: "MessageSquare",
-		category: "IA / Chatbot",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -66,8 +66,8 @@ export const sucontTools: Tool[] = [
 		title: "MSG SIAFI Automate",
 		description: "Automação de mensagens e processos do sistema SIAFI.",
 		url: "https://notebooklm.google.com/notebook/f3995b07-12af-45bf-89b6-451723cfefb4?authuser=1",
+		stage: "comunicar",
 		icon: "Terminal",
-		category: "Automação",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -75,8 +75,8 @@ export const sucontTools: Tool[] = [
 		title: "Automação de Ofícios",
 		description: "Sistema de auxílio na geração e padronização de ofícios.",
 		url: "https://notebooklm.google.com/notebook/2f39d31e-a0c6-435c-9c6f-00ae19039138?authuser=1",
+		stage: "comunicar",
 		icon: "FileText",
-		category: "Automação",
 		iconColor: "bg-success",
 	},
 	{
@@ -84,8 +84,8 @@ export const sucontTools: Tool[] = [
 		title: "Manual Interno SUCONT-4",
 		description: "Diretrizes e procedimentos internos da seção.",
 		url: "https://docs.google.com/document/d/1E0rUh29RAmq7mEbJl50xKfA63szBv7kDwXLmTfocOWg/edit?tab=t.n2lgxw4p7bn1#heading=h.vlw5v11g3kkn",
+		stage: "consultar",
 		icon: "FileText",
-		category: "Documentação",
 		iconColor: "bg-muted-foreground",
 	},
 	{
@@ -93,8 +93,8 @@ export const sucontTools: Tool[] = [
 		title: "Manuais Eletrônicos do RADA-e",
 		description: "Repositório oficial de manuais eletrônicos da DIREF.",
 		url: "http://www.diref.intraer/index.php/servicos/manuais/manuais",
+		stage: "consultar",
 		icon: "BookOpen",
-		category: "Documentação",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -102,8 +102,8 @@ export const sucontTools: Tool[] = [
 		title: "Chatbot Ofício CABW",
 		description: "Assistente para elaboração de ofícios da CABW.",
 		url: "https://notebooklm.google.com/notebook/23333c8a-aa7a-4405-8156-fb893398a1da",
+		stage: "comunicar",
 		icon: "MessageSquare",
-		category: "IA / Chatbot",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -111,8 +111,8 @@ export const sucontTools: Tool[] = [
 		title: "Chatbot Automação de Ofícios",
 		description: "IA para auxílio na gestão e criação de ofícios.",
 		url: "https://notebooklm.google.com/notebook/2f39d31e-a0c6-435c-9c6f-00ae19039138",
+		stage: "comunicar",
 		icon: "Cpu",
-		category: "IA / Chatbot",
 		iconColor: "bg-success",
 	},
 	{
@@ -120,8 +120,8 @@ export const sucontTools: Tool[] = [
 		title: "Chatbot Auditoria TCU",
 		description: "Assistente especializado em normas e auditorias do TCU.",
 		url: "https://notebooklm.google.com/notebook/e3ad873a-f9fd-44e0-8f50-1d7f39c06c46",
+		stage: "consultar",
 		icon: "ShieldCheck",
-		category: "IA / Chatbot",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -129,8 +129,8 @@ export const sucontTools: Tool[] = [
 		title: "Chatbot FAB/SUCONT-4",
 		description: "Assistente especializado em normas da FAB e SUCONT-4.",
 		url: "https://notebooklm.google.com/notebook/2ea19b26-e16b-45b8-9aad-22f58d3b457a?authuser=1",
+		stage: "consultar",
 		icon: "Cpu",
-		category: "IA / Chatbot",
 		iconColor: "bg-tech-cyan",
 	},
 	{
@@ -139,8 +139,9 @@ export const sucontTools: Tool[] = [
 		description:
 			"Análise automatizada de subitens genéricos (99/999) no Tesouro Gerencial — Questão 34 do Roteiro de Acompanhamento Contábil. Geração de mensagens institucionais e Oráculo IA.",
 		internalPath: "/subitens-genericos",
+		stage: "analisar",
+		racQuestions: [34],
 		icon: "FileBarChart",
-		category: "Auditoria",
 		iconColor: "bg-fab-blue",
 	},
 	{
@@ -148,8 +149,9 @@ export const sucontTools: Tool[] = [
 		title: "Cruzamento de Contas (Q43)",
 		description: "Análise automatizada de espelhamento entre as contas 897210300 e 897110300 — Questão 43 do Roteiro SUCONT-3.",
 		internalPath: "/cruzamento-contas",
+		stage: "analisar",
+		racQuestions: [43],
 		icon: "BarChart3",
-		category: "Auditoria",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -158,8 +160,9 @@ export const sucontTools: Tool[] = [
 		description:
 			"Análise automatizada de incompatibilidade de saldos entre contas contábeis — Questões 40, 41 e 42 do Roteiro SUCONT-3. Geração de mensagens institucionais.",
 		internalPath: "/analista-compatibilidade",
+		stage: "analisar",
+		racQuestions: [40, 41, 42],
 		icon: "Scale",
-		category: "Auditoria",
 		iconColor: "bg-tech-blue",
 	},
 	{
@@ -168,8 +171,9 @@ export const sucontTools: Tool[] = [
 		description:
 			"Identificação de uso indevido de contas contábeis genéricas pelas UGs — Questão 35 do Roteiro SUCONT-3. Geração de mensagens institucionais e Oráculo IA.",
 		internalPath: "/conta-generica",
+		stage: "analisar",
+		racQuestions: [35],
 		icon: "Search",
-		category: "Auditoria",
 		iconColor: "bg-action",
 	},
 	{
@@ -178,8 +182,8 @@ export const sucontTools: Tool[] = [
 		description:
 			"Análise de contas com saldo sem movimentação superior a 3 meses — Questões Q05 a Q25 do Roteiro de Acompanhamento Contábil (RAC). Geração de mensagens institucionais.",
 		internalPath: "/analistasaldoalongado",
+		stage: "analisar",
 		icon: "Activity",
-		category: "Auditoria",
 		iconColor: "bg-fab-600",
 	},
 	{
@@ -188,160 +192,73 @@ export const sucontTools: Tool[] = [
 		description:
 			"Análise crítica do Demonstrativo Gerencial de Custos por Unidade Gestora, sobre os quatro painéis do Tesouro Gerencial. Alertas de criticidade e Checklist AEC gerados por IA à luz dos Módulos 19 e 22.",
 		internalPath: "/sac-dgc",
+		stage: "analisar",
 		icon: "FileSearch",
-		category: "Auditoria",
 		iconColor: "bg-tech-cyan",
-	},
-]
-
-export const externalSystems: Tool[] = [
-	{
-		id: "google-agenda",
-		title: "Google Agenda",
-		description: "Cronograma e compromissos.",
-		url: "https://calendar.google.com/",
-		icon: "Calendar",
-		category: "Organização",
 	},
 	{
 		id: "sau-system",
 		title: "SAU's",
 		description: "Sistema de Atendimento Unificado.",
 		url: "http://sau.servicos.ccarj.intraer/sau/consumer",
+		stage: "consultar",
 		icon: "Ticket",
-		category: "Sistemas",
 	},
 	{
 		id: "sigadaer",
 		title: "Sigadaer",
 		description: "Informações Gerenciais.",
 		url: "https://app.sigadaer.intraer/",
+		stage: "comunicar",
 		icon: "Globe",
-		category: "Sistemas",
-	},
-	{
-		id: "diref-manuais",
-		title: "Manuais Eletrônicos do RADA-e",
-		description: "Repositório oficial.",
-		url: "http://www.diref.intraer/index.php/servicos/manuais/manuais",
-		icon: "BookOpen",
-		category: "Documentação",
 	},
 	{
 		id: "siafi-web",
 		title: "Siafi Web",
 		description: "Portal do Tesouro.",
 		url: "https://siafi.tesouro.gov.br/senha/public/pages/security/login.jsf",
+		stage: "consultar",
 		icon: "Banknote",
-		category: "Sistemas",
 	},
 	{
 		id: "siloms-contabil",
 		title: "Siloms Contábil",
 		description: "Prestação de contas.",
 		url: "http://siloms.servicos.ccarj.intraer/siloms-prestacao/faces/index.xhtml",
+		stage: "consultar",
 		icon: "Calculator",
-		category: "Sistemas",
 	},
 	{
 		id: "siloms-mac",
 		title: "SILOMS MAC",
 		description: "Sistema Integrado de Logística.",
 		url: "https://mac1.siloms.intraer/siloms_mac/servlet/aqs01001w",
+		stage: "consultar",
 		icon: "Plane",
-		category: "Sistemas",
-	},
-	{
-		id: "zimbra",
-		title: "Zimbra",
-		description: "Webmail Intraer.",
-		url: "http://webmail.intraer/",
-		icon: "Mail",
-		category: "Comunicação",
 	},
 	{
 		id: "tesouro-gerencial",
 		title: "Tesouro Gerencial",
 		description: "Relatórios gerenciais.",
 		url: "https://tesourogerencial.tesouro.gov.br/tg/servlet/mstrWeb?pg=login&v=1772494208370",
+		stage: "consultar",
 		icon: "Monitor",
-		category: "Sistemas",
 	},
-]
-
-export const reportTools: Tool[] = [
 	{
 		id: "saldos-siloms",
 		title: "Saldos Patrimoniais SILOMS",
 		description: "Consulta de saldos executivos no SILOMS.",
 		url: "http://siloms.servicos.ccarj.intraer/siloms-prestacao/faces/patSaldosComaerExec.xhtml",
+		stage: "acompanhar",
 		icon: "Database",
-		category: "Relatórios",
 	},
 	{
 		id: "saldos-siafi",
 		title: "Saldos Patrimoniais SIAFI",
 		description: "Consulta de saldos no Tesouro Gerencial/SIAFI.",
 		url: "https://tesourogerencial.tesouro.gov.br/tg/servlet/mstrWeb",
+		stage: "acompanhar",
 		icon: "FileBarChart",
-		category: "Relatórios",
-	},
-]
-
-export const iaTools: Tool[] = [
-	{
-		id: "gemini",
-		title: "Gemini",
-		description: "Google AI.",
-		url: "https://gemini.google.com/",
-		icon: "Gemini",
-		category: "IA",
-		iconColor: "bg-tech-blue",
-	},
-	{
-		id: "chatgpt",
-		title: "ChatGPT",
-		description: "OpenAI.",
-		url: "https://chatgpt.com/",
-		icon: "ChatGPT",
-		category: "IA",
-		iconColor: "bg-success",
-	},
-	{
-		id: "claude",
-		title: "Claude",
-		description: "Anthropic.",
-		url: "https://claude.ai/",
-		icon: "Claude",
-		category: "IA",
-		iconColor: "bg-warning",
-	},
-	{
-		id: "manus",
-		title: "Manus IA",
-		description: "Assistente Digital.",
-		url: "https://manus.ai/",
-		icon: "Brain",
-		category: "IA",
-		iconColor: "bg-action",
-	},
-	{
-		id: "grok",
-		title: "Grok",
-		description: "xAI.",
-		url: "https://x.com/i/grok",
-		icon: "Zap",
-		category: "IA",
-		iconColor: "bg-surface-inverted",
-	},
-	{
-		id: "notebooklm",
-		title: "NotebookLM",
-		description: "Google Research.",
-		url: "https://notebooklm.google.com/",
-		icon: "BookOpen",
-		category: "IA",
-		iconColor: "bg-tech-cyan",
 	},
 ]
 

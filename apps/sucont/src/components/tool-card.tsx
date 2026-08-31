@@ -5,13 +5,15 @@ import { IconRenderer } from "#/components/icon-renderer"
 import { Button } from "#/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { getToolKind, type ToolKind } from "#/lib/tool-kind"
-import type { Tool } from "#/lib/types"
+import { TOOL_STAGES, type Tool } from "#/lib/types"
 
 interface ToolCardProps {
 	tool: Tool
 	index: number
 	onDelete?: () => void
 }
+
+const STAGE_LABEL = Object.fromEntries(TOOL_STAGES.map((s) => [s.id, s.label]))
 
 const MotionLink = motion(Link)
 
@@ -59,7 +61,9 @@ function CardInner({ tool }: { tool: Tool }) {
 				</div>
 				<div className="flex items-center gap-2">
 					<KindTag kind={kind} />
-					<span className="text-label text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">{tool.category}</span>
+					<span className="text-label text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">
+						{tool.racQuestions?.length ? tool.racQuestions.map((q) => `Q${q}`).join(" · ") : STAGE_LABEL[tool.stage]}
+					</span>
 				</div>
 			</div>
 
