@@ -4,7 +4,9 @@ import { FileBarChart, Loader2, Plus } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
+import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { ToolCard } from "#/components/tool-card"
 import { useHubFilters } from "#/lib/hub-filters"
 import type { Tool } from "#/lib/types"
@@ -26,6 +28,11 @@ function Reports() {
 		queryKey: reportsQueryKey,
 		queryFn: () => listReportsFn(),
 	})
+
+	// Anexar e excluir exigem nível 2 (requireSucontEditor nas server fns). Enquanto
+	// a permissão não resolveu, a ação não aparece: melhor um botão que chega tarde
+	// do que um que promete o que o servidor vai negar.
+	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
 
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsQueryKey })
 
@@ -72,17 +79,21 @@ function Reports() {
 					<div className="flex-grow h-[1px] bg-slate-200" />
 				</div>
 
-				<div className="flex justify-end">
-					<button
-						type="button"
-						onClick={() => setIsAdding(true)}
-						className="flex items-center gap-2 bg-white border border-slate-200 text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-slate-50 transition-all shadow-sm"
-					>
-						<Plus className="w-4 h-4" /> ANEXAR RELATÓRIO
-					</button>
-				</div>
+				{!canEdit && !loadingAccess && <ReadOnlyNotice scope="os relatórios da seção" />}
 
-				{isAdding && (
+				{canEdit && (
+					<div className="flex justify-end">
+						<button
+							type="button"
+							onClick={() => setIsAdding(true)}
+							className="flex items-center gap-2 bg-white border border-slate-200 text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-slate-50 transition-all shadow-sm"
+						>
+							<Plus className="w-4 h-4" /> ANEXAR RELATÓRIO
+						</button>
+					</div>
+				)}
+
+				{isAdding && canEdit && (
 					<motion.div
 						initial={{ opacity: 0, scale: 0.95 }}
 						animate={{ opacity: 1, scale: 1 }}
@@ -143,13 +154,13 @@ function Reports() {
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 						{filtered.map((report, i) => (
-							<ToolCard key={report.id} tool={report} index={i} onDelete={() => setPendingDelete(report)} />
+							<ToolCard key={report.id} tool={report} index={i} onDelete={canEdit ? () => setPendingDelete(report) : undefined} />
 						))}
 					</div>
 				)}
 			</div>
 
-			{pendingDelete && (
+			{pendingDelete && canEdit && (
 				<ConfirmDelete
 					title={pendingDelete.title}
 					isPending={deleteMutation.isPending}

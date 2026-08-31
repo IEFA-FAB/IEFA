@@ -4,7 +4,9 @@ import { Bell, ClipboardList, Edit2, Loader2, Plus, StickyNote, Terminal, Trash2
 import { motion } from "motion/react"
 import React, { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
+import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getNthBusinessDay } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
@@ -39,6 +41,11 @@ function Workspace() {
 	const { data: noteFromDb = "" } = useQuery({ queryKey: ["sucont", "note"], queryFn: () => getWorkspaceNoteFn() })
 
 	const invalidate = (key: string) => queryClient.invalidateQueries({ queryKey: ["sucont", key] })
+
+	// Checklist, anotações e avisos são escrita de seção: `requireSucontEditor`
+	// (nível 2) barra todas no servidor. A tela reflete isso em vez de oferecer a
+	// ação e devolver 403 depois do formulário preenchido.
+	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
 
 	// ── Mutations: checklist ───────────────────────────────
 	const addTaskMutation = useMutation({
@@ -133,17 +140,25 @@ function Workspace() {
 						<div className="flex-grow h-[1px] bg-slate-200" />
 					</div>
 
-					<div className="flex justify-end mb-4">
-						<button
-							type="button"
-							onClick={() => setIsAddingTask(true)}
-							className="flex items-center gap-2 bg-white border border-slate-200 text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-slate-50 transition-all shadow-sm"
-						>
-							<Plus className="w-4 h-4" /> ADICIONAR TAREFA
-						</button>
-					</div>
+					{!canEdit && !loadingAccess && (
+						<div className="mb-6">
+							<ReadOnlyNotice scope="o cronograma, as anotações e os avisos da seção" />
+						</div>
+					)}
 
-					{isAddingTask && (
+					{canEdit && (
+						<div className="flex justify-end mb-4">
+							<button
+								type="button"
+								onClick={() => setIsAddingTask(true)}
+								className="flex items-center gap-2 bg-white border border-slate-200 text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-slate-50 transition-all shadow-sm"
+							>
+								<Plus className="w-4 h-4" /> ADICIONAR TAREFA
+							</button>
+						</div>
+					)}
+
+					{isAddingTask && canEdit && (
 						<motion.div
 							initial={{ opacity: 0, scale: 0.95 }}
 							animate={{ opacity: 1, scale: 1 }}
@@ -256,19 +271,23 @@ function Workspace() {
 													}}
 													onBlur={(e) => updateResponsible(item.id, e.target.value)}
 												/>
-											) : (
+											) : canEdit ? (
 												<button type="button" className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditingId(item.id)}>
 													<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
 													<Edit2 className="w-3 h-3 text-slate-300 group-hover:text-tech-cyan transition-colors" />
 												</button>
+											) : (
+												<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
 											)}
-											<button
-												type="button"
-												onClick={() => deleteTaskMutation.mutate(item.id)}
-												className="mt-4 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
-											>
-												<Trash2 className="w-3 h-3" /> EXCLUIR
-											</button>
+											{canEdit && (
+												<button
+													type="button"
+													onClick={() => deleteTaskMutation.mutate(item.id)}
+													className="mt-4 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
+												>
+													<Trash2 className="w-3 h-3" /> EXCLUIR
+												</button>
+											)}
 										</div>
 									</div>
 								</motion.div>
@@ -287,11 +306,15 @@ function Workspace() {
 						<textarea
 							value={notes}
 							onChange={(e) => onNotesChange(e.target.value)}
-							placeholder="Digite aqui anotações importantes, pendências ou lembretes..."
-							className="w-full h-64 bg-white border border-slate-200 rounded-lg p-4 text-slate-600 text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm"
+							readOnly={!canEdit}
+							aria-readonly={!canEdit}
+							placeholder={canEdit ? "Digite aqui anotações importantes, pendências ou lembretes..." : "Sem anotações registradas."}
+							className="w-full h-64 bg-white border border-slate-200 rounded-lg p-4 text-slate-600 text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-slate-50 read-only:text-slate-500"
 						/>
 						<div className="mt-2 flex justify-end">
-							<span className="text-[9px] font-mono text-slate-400 uppercase">{saveNoteMutation.isPending ? "Salvando..." : "Auto-save ativo"}</span>
+							<span className="text-[9px] font-mono text-slate-400 uppercase">
+								{!canEdit ? "Somente leitura" : saveNoteMutation.isPending ? "Salvando..." : "Auto-save ativo"}
+							</span>
 						</div>
 					</div>
 
@@ -301,12 +324,19 @@ function Workspace() {
 								<Bell className="text-tech-blue w-4 h-4" />
 								<h3 className="text-slate-700 font-bold uppercase tracking-widest text-xs">Avisos & Alertas</h3>
 							</div>
-							<button type="button" onClick={() => setIsAddingNotice(true)} className="text-tech-cyan hover:text-slate-800 transition-colors">
-								<Plus className="w-4 h-4" />
-							</button>
+							{canEdit && (
+								<button
+									type="button"
+									onClick={() => setIsAddingNotice(true)}
+									aria-label="Adicionar aviso"
+									className="text-tech-cyan hover:text-slate-800 transition-colors"
+								>
+									<Plus className="w-4 h-4" />
+								</button>
+							)}
 						</div>
 
-						{isAddingNotice && (
+						{isAddingNotice && canEdit && (
 							<AddNoticeForm
 								onSave={(content, type) => addNoticeMutation.mutate({ content, type })}
 								onCancel={() => setIsAddingNotice(false)}
@@ -320,13 +350,16 @@ function Workspace() {
 									key={notice.id}
 									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-orange-50 border-orange-300" : "bg-blue-50 border-blue-300"}`}
 								>
-									<button
-										type="button"
-										onClick={() => deleteNoticeMutation.mutate(notice.id)}
-										className="absolute top-2 right-2 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-									>
-										<X className="w-3 h-3" />
-									</button>
+									{canEdit && (
+										<button
+											type="button"
+											onClick={() => deleteNoticeMutation.mutate(notice.id)}
+											aria-label={`Excluir aviso: ${notice.content}`}
+											className="absolute top-2 right-2 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
+										>
+											<X className="w-3 h-3" />
+										</button>
+									)}
 									<p className="text-xs text-slate-700 font-medium">{notice.content}</p>
 									<span className="text-[9px] font-mono text-slate-400 mt-2 block uppercase">Postado em: {notice.date}</span>
 								</div>

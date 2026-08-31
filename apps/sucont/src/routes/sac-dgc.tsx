@@ -1,4 +1,4 @@
-import type { AnalysisRun } from "@iefa/database/sucont"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -20,6 +20,16 @@ export const Route = createFileRoute("/sac-dgc")({
 	component: SacDgcPage,
 })
 
+/**
+ * Histórico de rodadas gravadas. Em React Query, e não em `useState` + `.catch`,
+ * porque os três estados precisam chegar separados na tela: carregando, falhou e
+ * vazio. Colapsá-los em `[]` fazia uma consulta morta parecer competência nova.
+ */
+const dgcRunsQueryOptions = () => ({
+	queryKey: ["sucont", "dgc", "runs"] as const,
+	queryFn: () => listDgcRunsFn(),
+})
+
 function SacDgcPage() {
 	const [base, setBase] = useState<DgcBase | null>(null)
 	const [readError, setReadError] = useState<string | null>(null)
@@ -28,7 +38,6 @@ function SacDgcPage() {
 	const [selectedGroup, setSelectedGroup] = useState<string>("")
 	const [openUgCode, setOpenUgCode] = useState<string | null>(null)
 	const [isRunning, setIsRunning] = useState(false)
-	const [runs, setRuns] = useState<AnalysisRun[]>([])
 	const [runId, setRunId] = useState<string | null>(null)
 	const [loadingRunId, setLoadingRunId] = useState<string | null>(null)
 	const [persistError, setPersistError] = useState<string | null>(null)
@@ -37,6 +46,7 @@ function SacDgcPage() {
 	const [isStoredView, setIsStoredView] = useState(false)
 
 	const { canEdit } = useSucontAccess()
+	const queryClient = useQueryClient()
 	const abortRef = useRef<AbortController | null>(null)
 	const runningRef = useRef(false)
 	// O id da rodada é criado no meio do lote e lido no mesmo tick pela UG seguinte —
@@ -47,11 +57,9 @@ function SacDgcPage() {
 	useEffect(() => () => abortRef.current?.abort(), [])
 
 	// Rodadas gravadas: sem elas, reabrir uma competência custa ~69 chamadas ao modelo.
-	useEffect(() => {
-		listDgcRunsFn()
-			.then(setRuns)
-			.catch(() => setRuns([]))
-	}, [])
+	const runsQuery = useQuery(dgcRunsQueryOptions())
+	const runs = runsQuery.data ?? []
+	const runsError = runsQuery.isError ? (runsQuery.error instanceof Error ? runsQuery.error.message : "Falha ao consultar o banco.") : null
 
 	const handleProcess = useCallback(async (files: File[]) => {
 		setIsReading(true)
@@ -108,9 +116,7 @@ function SacDgcPage() {
 						})
 						runIdRef.current = started.runId
 						setRunId(started.runId)
-						listDgcRunsFn()
-							.then(setRuns)
-							.catch(() => {})
+						queryClient.invalidateQueries({ queryKey: dgcRunsQueryOptions().queryKey })
 					} catch (error) {
 						// Falha ao abrir a rodada não impede analisar — só não grava.
 						setPersistError(error instanceof Error ? error.message : "Não foi possível abrir a rodada no banco.")
@@ -170,7 +176,7 @@ function SacDgcPage() {
 				setIsRunning(false)
 			}
 		},
-		[base, canEdit]
+		[base, canEdit, queryClient]
 	)
 
 	const handleReset = useCallback(() => {
@@ -277,7 +283,15 @@ function SacDgcPage() {
 					<DgcUpload onProcess={handleProcess} isLoading={isReading} error={readError} />
 
 					<div className="max-w-3xl mx-auto">
-						<DgcRunHistory runs={runs} activeRunId={runId} loadingRunId={loadingRunId} onOpen={handleOpenRun} />
+						<DgcRunHistory
+							runs={runs}
+							activeRunId={runId}
+							loadingRunId={loadingRunId}
+							onOpen={handleOpenRun}
+							isLoading={runsQuery.isPending}
+							error={runsError}
+							onRetry={() => runsQuery.refetch()}
+						/>
 					</div>
 				</div>
 			)}

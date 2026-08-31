@@ -25,6 +25,7 @@ import {
 import { parseExcelFile } from "#/auditor/services/excelParser"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
+import { useSucontAccess } from "#/auth/pbac"
 import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
@@ -83,6 +84,12 @@ function AuditorPage() {
 	const [selectedRisk, _setSelectedRisk] = useState<string>("TODOS")
 	const [searchTerm, _setSearchTerm] = useState("")
 	const [isDarkMode, setIsDarkMode] = useState(true)
+
+	// Importar grava: `startAuditorRunFn` e `saveAuditorBalancesFn` exigem nível 2.
+	// Sem esta checagem o operador de nível 1 subia a planilha, esperava o parse da
+	// série inteira e só então tomava 403 — perdendo o trabalho e sem saber por quê.
+	// Consultar a série já gravada continua liberado no nível 1.
+	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
 	const [hideZeros, setHideZeros] = useState(true)
 
 	// Modals
@@ -421,7 +428,8 @@ function AuditorPage() {
 
 	return (
 		<div className={`min-h-screen pb-12 transition-colors duration-300 ${isDarkMode ? "dark bg-[#020617] text-slate-100" : "bg-slate-50 text-slate-900"}`}>
-			<FileUploadModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} isDarkMode={isDarkMode} />
+			{/* `canEdit` também aqui: fechar o gatilho não basta se o modal segue montável. */}
+			<FileUploadModal isOpen={isUploadModalOpen && canEdit} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} isDarkMode={isDarkMode} />
 
 			<SiafiMessageModal
 				isOpen={isMessageModalOpen}
@@ -504,14 +512,16 @@ function AuditorPage() {
 					</div>
 
 					<div className="flex items-center gap-3">
-						<button
-							type="button"
-							onClick={() => setIsUploadModalOpen(true)}
-							className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap"
-						>
-							<UploadCloud className="w-4 h-4" />
-							<span className="hidden sm:inline">Importar Excel</span>
-						</button>
+						{canEdit && (
+							<button
+								type="button"
+								onClick={() => setIsUploadModalOpen(true)}
+								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap"
+							>
+								<UploadCloud className="w-4 h-4" />
+								<span className="hidden sm:inline">Importar Excel</span>
+							</button>
+						)}
 
 						<button
 							type="button"
@@ -629,14 +639,25 @@ function AuditorPage() {
 					>
 						<FileSpreadsheet className={`w-16 h-16 mb-4 ${isDarkMode ? "text-slate-600" : "text-slate-400"}`} />
 						<h2 className={`text-xl font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>Nenhuma competência na base</h2>
-						<p className="text-slate-500 mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
-						<button
-							type="button"
-							onClick={() => setIsUploadModalOpen(true)}
-							className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors"
-						>
-							{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
-						</button>
+						{canEdit ? (
+							<>
+								<p className="text-slate-500 mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
+								<button
+									type="button"
+									onClick={() => setIsUploadModalOpen(true)}
+									className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors"
+								>
+									{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
+								</button>
+							</>
+						) : (
+							!loadingAccess && (
+								<p className="text-slate-500 max-w-md text-center">
+									Ainda não há competência gravada, e seu acesso é somente leitura. Importar a planilha exige nível 2 no módulo{" "}
+									<span className="font-mono">sucont</span> — peça a um gestor da SUCONT-4.
+								</p>
+							)
+						)}
 					</div>
 				)}
 
