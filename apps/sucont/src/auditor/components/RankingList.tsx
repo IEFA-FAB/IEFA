@@ -110,31 +110,31 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		switch (category) {
 			case "REDUCAO_CONTINUA":
 				return {
-					color: "bg-success/10 text-success border-emerald-500/30",
+					color: "bg-success/10 text-success border-success/30",
 					icon: ArrowDownRight,
 					label: "Redução Contínua",
 				}
 			case "REDUCAO_PONTUAL":
 				return {
-					color: "bg-success/10 text-success border-emerald-500/30",
+					color: "bg-success/10 text-success border-success/30",
 					icon: ArrowDown,
 					label: "Redução Pontual",
 				}
 			case "AUMENTO_CONTINUO":
 				return {
-					color: "bg-destructive/10 text-destructive border-red-500/30",
+					color: "bg-destructive/10 text-destructive border-destructive/30",
 					icon: ArrowUpRight,
 					label: "Aumento Contínuo",
 				}
 			case "OSCILACAO_ATIPICA":
 				return {
-					color: "bg-warning/10 text-warning border-orange-500/30",
+					color: "bg-warning/10 text-warning border-warning/30",
 					icon: Activity,
 					label: "Oscilação Atípica",
 				}
 			default:
 				return {
-					color: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
+					color: "bg-muted/10 text-muted-foreground border-border/30",
 					icon: ArrowRight,
 					label: "Neutro",
 				}
@@ -276,7 +276,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
            border-border bg-card`}
 				>
-					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-red-500/20">
+					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-destructive/20">
 						<div className="flex items-center gap-2">
 							<TrendingUp className="w-4 h-4 text-destructive" />
 							<h3 className={`text-xs font-bold uppercase tracking-wider text-destructive`}>Piora no Período</h3>
@@ -296,7 +296,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
            border-border bg-card`}
 				>
-					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-emerald-500/20">
+					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-success/20">
 						<div className="flex items-center gap-2">
 							<TrendingDown className="w-4 h-4 text-success" />
 							<h3 className={`text-xs font-bold uppercase tracking-wider text-success`}>Melhoria no Período</h3>

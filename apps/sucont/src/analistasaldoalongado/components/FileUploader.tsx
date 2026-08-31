@@ -52,7 +52,7 @@ export function FileUploader({ onFileSelect, isLoading, error }: FileUploaderPro
 				htmlFor="dropzone-file-saldo"
 				className={cn(
 					"relative flex flex-col items-center justify-center w-full h-64 rounded-2xl border-2 border-dashed transition-all duration-200 ease-in-out cursor-pointer",
-					isDragging ? "border-fab-500 bg-fab-50/50" : "border-border bg-muted/50 hover:bg-muted hover:border-slate-400",
+					isDragging ? "border-fab-500 bg-fab-50/50" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
 					isLoading && "opacity-50 cursor-not-allowed"
 				)}
 				onDragEnter={handleDrag}
@@ -78,7 +78,7 @@ export function FileUploader({ onFileSelect, isLoading, error }: FileUploaderPro
 			</label>
 
 			{error && (
-				<div className="mt-4 p-4 rounded-xl bg-destructive/10 border border-red-100 flex items-start gap-3">
+				<div className="mt-4 p-4 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-3">
 					<AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
 					<p className="text-sm text-destructive">{error}</p>
 				</div>

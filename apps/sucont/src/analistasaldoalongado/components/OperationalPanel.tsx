@@ -245,7 +245,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					<button
 						type="button"
 						onClick={() => exportElementToImage("chart-top10", "saldos-top10")}
-						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar Gráfico</span>

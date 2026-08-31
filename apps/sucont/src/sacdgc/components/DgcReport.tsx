@@ -84,7 +84,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 								)}
 								<h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Evidência / justificativa</h4>
 								<p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{alerta.evidencia}</p>
-								<div className="mt-5 bg-destructive/10 border border-red-100 rounded-lg p-4">
+								<div className="mt-5 bg-destructive/10 border border-destructive/30 rounded-lg p-4">
 									<h4 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">
 										<Lightbulb className="w-3.5 h-3.5" />
 										Ação recomendada
@@ -134,7 +134,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 									data-item-id={item.id}
 									className={cn("bg-card border rounded-xl overflow-hidden", item.resposta === "SIM" ? "border-destructive/30" : "border-border")}
 								>
-									<div className={cn("px-6 py-4 flex items-start justify-between gap-4", item.resposta === "SIM" ? "bg-destructive/10/40" : "bg-muted/50")}>
+									<div className={cn("px-6 py-4 flex items-start justify-between gap-4", item.resposta === "SIM" ? "bg-destructive/40" : "bg-muted/50")}>
 										<div>
 											<p className="text-[11px] font-bold text-muted-foreground mb-1">Item {item.id}</p>
 											<p className="text-sm font-semibold text-foreground">{item.pergunta}</p>
@@ -171,7 +171,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 												)}
 											</div>
 											{item.recomendacao && (
-												<div className="bg-destructive/10 border border-red-100 rounded-lg p-4">
+												<div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
 													<h4 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">
 														<Lightbulb className="w-3.5 h-3.5" />
 														Recomendação
@@ -261,7 +261,7 @@ function IndicatorCard({
 			className={cn(
 				"rounded-xl border p-6 flex flex-col items-center gap-1 transition-all hover:brightness-95",
 				tones[tone],
-				active && "ring-2 ring-offset-1 ring-slate-400"
+				active && "ring-2 ring-offset-1 ring-border"
 			)}
 		>
 			{content}

@@ -746,7 +746,7 @@ function SubitensGenericos() {
 								<motion.div
 									initial={{ opacity: 0, y: 10 }}
 									animate={{ opacity: 1, y: 0 }}
-									className="mt-8 p-4 bg-destructive/10 border border-red-100 rounded-2xl flex items-start gap-3 text-destructive"
+									className="mt-8 p-4 bg-destructive/10 border border-destructive/30 rounded-2xl flex items-start gap-3 text-destructive"
 								>
 									<AlertCircle className="shrink-0 mt-0.5" size={18} />
 									<p className="text-sm font-medium">{error}</p>
@@ -1048,7 +1048,7 @@ function SubitensGenericos() {
 																	</td>
 																	<td className="px-10 py-5 font-mono text-sm text-fab-blue/70">{occ.contaContabil}</td>
 																	<td className="px-10 py-5 font-mono text-sm">
-																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg font-bold text-xs border border-red-100 shadow-sm">
+																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg font-bold text-xs border border-destructive/30 shadow-sm">
 																			{occ.contaCorrente}
 																		</span>
 																	</td>
@@ -1133,7 +1133,7 @@ function SubitensGenericos() {
 																	<h3 className="text-4xl font-serif italic text-fab-blue mb-1">{formatUgName(group.ug)}</h3>
 																	<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-4">Conferente: {getConferente(group.ug)}</p>
 
-																	<div className="bg-destructive/10 p-4 rounded-2xl border border-red-100 mb-6">
+																	<div className="bg-destructive/10 p-4 rounded-2xl border border-destructive/30 mb-6">
 																		<p className="text-[9px] font-bold uppercase tracking-widest text-destructive mb-1">Inconsistência Identificada</p>
 																		<p className="text-xs text-destructive leading-relaxed font-medium">
 																			Múltiplas inconsistências identificadas conforme RAC.
@@ -1239,7 +1239,7 @@ function SubitensGenericos() {
 																	className={cn(
 																		"mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
 																		copiedIndex === idx
-																			? "bg-success text-white shadow-lg shadow-green-600/20"
+																			? "bg-success text-white shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
 																	)}
 																>
@@ -1310,7 +1310,7 @@ function SubitensGenericos() {
 																	<h3 className="text-4xl font-serif italic text-fab-blue mb-1">{RAC_QUESTIONS[racId]?.title || racId}</h3>
 																	<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-4">Múltiplas UGs</p>
 
-																	<div className="bg-destructive/10 p-4 rounded-2xl border border-red-100 mb-6">
+																	<div className="bg-destructive/10 p-4 rounded-2xl border border-destructive/30 mb-6">
 																		<p className="text-[9px] font-bold uppercase tracking-widest text-destructive mb-1">Inconsistência Consolidada</p>
 																		<p className="text-xs text-destructive leading-relaxed font-medium">
 																			Mensagem única agrupando todas as UGs afetadas por esta questão.
@@ -1422,7 +1422,7 @@ function SubitensGenericos() {
 																	className={cn(
 																		"mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
 																		copiedIndex === idx
-																			? "bg-success text-white shadow-lg shadow-green-600/20"
+																			? "bg-success text-white shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
 																	)}
 																>

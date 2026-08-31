@@ -170,7 +170,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 	}
 
 	return (
-		<div className="fixed inset-0 z-50 flex justify-center items-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
+		<div className="fixed inset-0 z-50 flex justify-center items-center bg-overlay/60 backdrop-blur-sm p-4 sm:p-6">
 			<div className="w-full max-w-7xl h-full max-h-[90vh] bg-muted/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-border">
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
@@ -186,11 +186,11 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									<User className="w-4 h-4 text-muted-foreground" />
 									Conferente: <span className="text-foreground">{getConferente(ugData.ug)}</span>
 								</span>
-								<span className="w-1 h-1 rounded-full bg-slate-300" />
+								<span className="w-1 h-1 rounded-full bg-muted" />
 								<span className="font-medium">
 									Saldo Alongado (&gt;3 meses): <span className="text-foreground">{formatCurrency(ugData.saldo_total)}</span>
 								</span>
-								<span className="w-1 h-1 rounded-full bg-slate-300" />
+								<span className="w-1 h-1 rounded-full bg-muted" />
 								<span className="font-medium">
 									Ocorrências: <span className="text-foreground">{ugData.quantidade_ocorrencias}</span>
 								</span>

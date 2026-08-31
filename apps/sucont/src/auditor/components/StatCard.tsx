@@ -82,7 +82,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon
 			</div>
 
 			<div className="flex justify-end items-end relative z-10 mt-auto">
-				<span className={`text-[9px] font-black ${isPositive ? "text-success dark:text-success" : "text-destructive dark:text-destructive"}`}>{variation}</span>
+				<span className={`text-[9px] font-black ${isPositive ? "text-success" : "text-destructive"}`}>{variation}</span>
 			</div>
 		</div>
 	)

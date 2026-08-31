@@ -45,9 +45,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
 				className={`w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-all
-          bg-muted/50 border-border text-foreground hover:bg-muted
+          bg-muted/50 border-border text-foreground hover:bg-muted/80
           focus:ring-2 focus-visible:ring-ring/50
-          ${isOpen ? "ring-2 ring-ring/50 border-blue-500" : ""}
+          ${isOpen ? "ring-2 ring-ring/50 border-action" : ""}
         `}
 			>
 				<span className="truncate mr-2">{selectedOption ? selectedOption.label : placeholder}</span>

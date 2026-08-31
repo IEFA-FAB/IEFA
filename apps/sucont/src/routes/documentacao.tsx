@@ -62,7 +62,7 @@ function PlataformaDoc() {
 
 					<div className="w-px h-6 bg-muted" />
 
-					<div className="bg-[#1B365D] p-2 rounded-lg shadow-lg shadow-blue-900/20">
+					<div className="bg-[#1B365D] p-2 rounded-lg shadow-lg">
 						<Shield className="w-5 h-5 text-white" />
 					</div>
 					<div>
@@ -108,7 +108,7 @@ function PlataformaDoc() {
 							<button
 								type="button"
 								onClick={handlePrint}
-								className="flex items-center gap-2 py-1.5 px-3 text-xs font-bold bg-[#1B365D] hover:bg-[#0056B3] text-white rounded-xl transition-colors"
+								className="flex items-center gap-2 py-1.5 px-3 text-xs font-bold bg-[#1B365D] hover:bg-[#0056B3] text-surface-inverted-foreground rounded-xl transition-colors"
 							>
 								<Printer className="w-3.5 h-3.5" /> Imprimir
 							</button>
@@ -121,7 +121,7 @@ function PlataformaDoc() {
 			<main className="flex-1 flex overflow-hidden">
 				{/* Sidebar */}
 				<aside className="no-print w-16 bg-card border-r border-border flex flex-col items-center py-6 gap-8">
-					<button type="button" className="p-2 text-blue-600 bg-blue-50 rounded-xl">
+					<button type="button" className="p-2 text-action bg-action/10 rounded-xl">
 						<Layout className="w-5 h-5" />
 					</button>
 					<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
@@ -143,7 +143,7 @@ function PlataformaDoc() {
 						<div className="flex-1 p-12 flex flex-col items-center justify-center bg-card h-full overflow-y-auto">
 							<div className="w-full max-w-2xl">
 								<div className="mb-10 text-center">
-									<div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
+									<div className="inline-flex items-center gap-2 px-3 py-1 bg-action/10 text-action rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
 										<Sparkles className="w-3 h-3" /> Inteligência Documental
 									</div>
 									<h2 className="text-4xl font-bold text-foreground mb-4">
@@ -161,7 +161,7 @@ function PlataformaDoc() {
 										value={draft}
 										onChange={(e) => setDraft(e.target.value)}
 										placeholder={docType === "FAB_OFFICE" ? "Ex: Baixa de parafuso de US$ 208 mil por erro de 2010..." : "Cole aqui os dados da mensagem..."}
-										className="w-full border border-border rounded-xl p-4 text-foreground focus:outline-none focus:ring-2 focus-visible:ring-ring font-sans bg-card min-h-[350px] text-lg resize-none shadow-sm focus:border-blue-500 transition-all"
+										className="w-full border border-border rounded-xl p-4 text-foreground focus:outline-none focus:ring-2 focus-visible:ring-ring font-sans bg-card min-h-[350px] text-lg resize-none shadow-sm focus:border-action transition-all"
 									/>
 									<div className="absolute bottom-4 right-4 flex items-center gap-2">
 										<span className="text-[10px] text-muted-foreground font-mono font-bold uppercase tracking-wider">{draft.length} caracteres</span>
@@ -169,7 +169,7 @@ function PlataformaDoc() {
 								</div>
 
 								{error && (
-									<div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-700 text-sm">
+									<div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-3 text-destructive text-sm">
 										<AlertCircle className="w-5 h-5 shrink-0" />
 										{error}
 									</div>
@@ -179,7 +179,7 @@ function PlataformaDoc() {
 									type="button"
 									onClick={handleGenerate}
 									disabled={isGenerating || !draft.trim()}
-									className="mt-8 w-full py-5 text-lg flex items-center justify-center gap-3 bg-[#1B365D] hover:bg-[#0056B3] text-white font-bold rounded-xl shadow-xl shadow-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+									className="mt-8 w-full py-5 text-lg flex items-center justify-center gap-3 bg-[#1B365D] hover:bg-[#0056B3] text-surface-inverted-foreground font-bold rounded-xl shadow-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{isGenerating ? (
 										<div className="flex flex-col items-center">
@@ -223,7 +223,7 @@ function PlataformaDoc() {
 											<button
 												type="button"
 												onClick={() => setDocData(null)}
-												className="bg-[#1B365D] hover:bg-[#0056B3] text-white font-bold px-6 py-3 rounded-xl transition-colors"
+												className="bg-[#1B365D] hover:bg-[#0056B3] text-surface-inverted-foreground font-bold px-6 py-3 rounded-xl transition-colors"
 											>
 												Voltar ao Início
 											</button>
@@ -254,8 +254,8 @@ function PlataformaDoc() {
 											</div>
 										</div>
 
-										<div className="bg-blue-600 p-6 rounded-2xl shadow-lg shadow-blue-900/20 text-white">
-											<h4 className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-2">Dica de UX</h4>
+										<div className="bg-action p-6 rounded-2xl shadow-lg text-white">
+											<h4 className="text-[10px] font-bold text-action uppercase tracking-widest mb-2">Dica de UX</h4>
 											<p className="text-xs leading-relaxed opacity-90">
 												{docType === "FAB_OFFICE"
 													? "Você pode clicar em qualquer campo do ofício para fazer ajustes manuais antes de imprimir."
@@ -278,7 +278,7 @@ function PlataformaDoc() {
 				</div>
 				<div className="flex items-center gap-4">
 					<span>v2.4.0-PRO</span>
-					<span className="w-1 h-1 bg-slate-300 rounded-full" />
+					<span className="w-1 h-1 bg-muted rounded-full" />
 					<span>Status: Operacional</span>
 				</div>
 			</footer>

@@ -144,7 +144,7 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 						<span className={`text-xs font-bold font-mono text-(--color-series-siloms)`}>{formatCurrency(siloms || 0)}</span>
 					</div>
 
-					<div className="h-px bg-slate-700/50 my-1"></div>
+					<div className="h-px bg-surface-inverted-border/50 my-1"></div>
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 					</div>
 
 					{data.bmpDiff !== undefined && (
-						<div className="pl-4 space-y-1 mt-1 border-l border-slate-700/50">
+						<div className="pl-4 space-y-1 mt-1 border-l border-surface-inverted-border/50">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
 									<div className="w-1.5 h-1.5 rounded-sm bg-[#1e40af]"></div>
@@ -185,26 +185,26 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 							<div className="w-2 h-2 rounded-full bg-warning shadow-[0_0_8px_rgba(249,115,22,0.6)]"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Percentual:</span>
 						</div>
-						<span className="text-xs font-bold font-mono text-orange-400">{pctDiff.toFixed(2)}%</span>
+						<span className="text-xs font-bold font-mono text-warning">{pctDiff.toFixed(2)}%</span>
 					</div>
 
 					{icc !== undefined && (
-						<div className="flex items-center justify-between pt-1 border-t border-slate-700/30 mt-1">
+						<div className="flex items-center justify-between pt-1 border-t border-surface-inverted-border/30 mt-1">
 							<div className="flex items-center gap-2">
-								<div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></div>
+								<div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(52,211,153,0.6)]"></div>
 								<span className={`text-[11px] font-bold text-muted-foreground`}>ICC:</span>
 							</div>
-							<span className="text-xs font-bold font-mono text-emerald-400">{icc.toFixed(2)}%</span>
+							<span className="text-xs font-bold font-mono text-success">{icc.toFixed(2)}%</span>
 						</div>
 					)}
 
 					{pct !== undefined && (
-						<div className="flex items-center justify-between pt-1 border-t border-slate-700/30 mt-1">
+						<div className="flex items-center justify-between pt-1 border-t border-surface-inverted-border/30 mt-1">
 							<div className="flex items-center gap-2">
-								<div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]"></div>
+								<div className="w-2 h-2 rounded-full bg-warning shadow-[0_0_8px_rgba(251,191,36,0.6)]"></div>
 								<span className={`text-[11px] font-bold text-muted-foreground`}>Acumulado Pareto:</span>
 							</div>
-							<span className="text-xs font-bold font-mono text-amber-400">{pct.toFixed(2)}%</span>
+							<span className="text-xs font-bold font-mono text-warning">{pct.toFixed(2)}%</span>
 						</div>
 					)}
 				</div>
@@ -905,7 +905,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 					) : viewMode === "comparison" ? (
 						<>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-slate-400 opacity-50"></div>
+								<div className="w-3 h-3 rounded-sm bg-muted opacity-50"></div>
 								<span className="text-[10px] font-bold text-muted-foreground uppercase">Ano Anterior</span>
 							</div>
 							<div className="flex items-center gap-2">

@@ -94,27 +94,27 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 
 	return (
 		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-			<div className="w-[90vw] h-[85vh] bg-card dark:bg-[#1e293b] border border-border dark:border-slate-700 rounded-lg shadow-2xl overflow-hidden flex flex-col">
+			<div className="w-[90vw] h-[85vh] bg-card border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col">
 				{/* Header */}
-				<div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-[#0f172a]">
+				<div className="p-5 border-b border-border flex items-center justify-between bg-muted/50">
 					<div className="flex items-center gap-3">
-						<MessageSquareText className="w-6 h-6 text-blue-600 dark:text-blue-500" />
-						<h2 className="text-xl font-bold text-foreground dark:text-white">
-							Gerar Mensagem SIAFI: <span className="text-blue-600 dark:text-blue-400">{record.ug}</span>
+						<MessageSquareText className="w-6 h-6 text-action" />
+						<h2 className="text-xl font-bold text-foreground">
+							Gerar Mensagem SIAFI: <span className="text-action">{record.ug}</span>
 						</h2>
-						<span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg uppercase tracking-wide">
+						<span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-lg uppercase tracking-wide">
 							{context === "RANKING" ? "Modelo Comparativo" : "Modelo Evolutivo"}
 						</span>
 					</div>
-					<button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors">
+					<button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
 						<X className="w-6 h-6" />
 					</button>
 				</div>
 
 				{/* Configuration */}
-				<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-card dark:bg-[#1e293b]">
+				<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-card">
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-number" className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+						<label htmlFor="siafi-msg-number" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
 							NR MENSAGEM
 						</label>
 						<input
@@ -122,12 +122,12 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							type="text"
 							readOnly
 							value={assignedNumber !== null ? String(assignedNumber) : "atribuído ao registrar"}
-							className="w-full bg-slate-100 dark:bg-[#020617] border border-slate-300 dark:border-slate-600 rounded-lg py-3 px-4 text-base text-slate-500 dark:text-slate-400 outline-none"
+							className="w-full bg-muted border border-border rounded-lg py-3 px-4 text-base text-muted-foreground outline-none"
 						/>
 						<p className="text-[11px] text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
 					</div>
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-deadline" className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+						<label htmlFor="siafi-msg-deadline" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
 							PRAZO (DATA LIMITE)
 						</label>
 						<input
@@ -135,17 +135,17 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							type="text"
 							value={deadline}
 							onChange={(e) => setDeadline(e.target.value)}
-							className="w-full bg-slate-50 dark:bg-[#020617] border border-slate-300 dark:border-slate-600 rounded-lg py-3 px-4 text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-400 dark:placeholder-slate-600"
+							className="w-full bg-muted/50 border border-border rounded-lg py-3 px-4 text-base text-foreground focus:ring-2 focus-visible:ring-ring focus-visible:border-ring outline-none transition-all placeholder:text-muted-foreground"
 							placeholder="DD/MM/AAAA"
 						/>
 					</div>
 				</div>
 
 				{/* Preview Container */}
-				<div className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-[#0f172a] mx-6 mb-0 rounded-t-xl border-t border-x border-slate-200 dark:border-slate-700">
-					<div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50">
-						<span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wide">Pré-visualização da Mensagem</span>
-						<span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-500/20 uppercase">
+				<div className="flex-1 flex flex-col min-h-0 bg-muted/50 mx-6 mb-0 rounded-t-xl border-t border-x border-border">
+					<div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
+						<span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Pré-visualização da Mensagem</span>
+						<span className="text-[10px] font-bold bg-action/10 text-action px-2 py-0.5 rounded-lg border border-action/30 uppercase">
 							Formato Texto Simples
 						</span>
 					</div>
@@ -154,14 +154,14 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<textarea
 							value={editedMessage}
 							onChange={(e) => setEditedMessage(e.target.value)}
-							className="w-full h-full p-6 bg-transparent font-mono text-sm text-foreground dark:text-slate-300 whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
+							className="w-full h-full p-6 bg-transparent font-mono text-sm text-foreground whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
 							spellCheck={false}
 						/>
 					</div>
 				</div>
 
 				{/* Footer */}
-				<div className="p-6 bg-card dark:bg-[#1e293b] border-t border-border dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+				<div className="p-6 bg-card border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 					<span className="text-xs text-muted-foreground">
 						{assignedNumber !== null
 							? `MSG NR ${assignedNumber} registrada. Cole este texto no sistema de mensageria SIAFI.`
@@ -169,11 +169,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 					</span>
 
 					<div className="flex items-center justify-end gap-3">
-						<button
-							type="button"
-							onClick={onClose}
-							className="px-6 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-white transition-colors"
-						>
+						<button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
 							Cancelar
 						</button>
 						<button
@@ -181,7 +177,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							onClick={handleCopy}
 							disabled={registerMutation.isPending}
 							className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed
-                ${copied ? "bg-success text-white shadow-emerald-900/20 hover:bg-success" : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20"}
+                ${copied ? "bg-success text-white hover:bg-success/80" : "bg-action hover:bg-action/80 text-white"}
               `}
 						>
 							{registerMutation.isPending ? (

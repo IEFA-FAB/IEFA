@@ -108,7 +108,7 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 				<button
 					type="button"
 					onClick={onDelete}
-					className="absolute bottom-6 right-6 p-2 bg-white/80 backdrop-blur-sm rounded-full text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm z-20"
+					className="absolute bottom-6 right-6 p-2 bg-white/80 backdrop-blur-sm rounded-full text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm z-20"
 					aria-label={`Excluir ${tool.title}`}
 					title="Excluir"
 				>

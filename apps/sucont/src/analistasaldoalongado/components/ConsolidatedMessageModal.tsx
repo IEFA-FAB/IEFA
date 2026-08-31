@@ -103,7 +103,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 	}
 
 	return (
-		<div className="fixed inset-0 z-50 flex justify-center items-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
+		<div className="fixed inset-0 z-50 flex justify-center items-center bg-overlay/60 backdrop-blur-sm p-4 sm:p-6">
 			<div className="w-full max-w-4xl h-full max-h-[90vh] bg-muted/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-border">
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
@@ -114,7 +114,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<span className="font-medium">
 									Filtro: <span className="text-foreground">{racFilter}</span>
 								</span>
-								<span className="w-1 h-1 rounded-full bg-slate-300" />
+								<span className="w-1 h-1 rounded-full bg-muted" />
 								<span className="font-medium">
 									UGs: <span className="text-foreground">{data.length}</span>
 								</span>

@@ -103,15 +103,15 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const fullMessage = headerMsg + baseParts.join("\n\n")
 
 	return (
-		<div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
-			<div className="bg-indigo-100 border-b border-indigo-200 px-6 py-4 flex justify-between items-center">
+		<div className="bg-action/10 rounded-2xl shadow-sm border border-action/30 overflow-hidden mb-8">
+			<div className="bg-action/10 border-b border-action/30 px-6 py-4 flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<div>
-						<h2 className="text-lg font-bold text-indigo-900">Mensagem Consolidada - {activeRacFilter}</h2>
-						<p className="text-sm text-indigo-700">Agrupa todas as UGs com inconsistências nesta questão</p>
+						<h2 className="text-lg font-bold text-action">Mensagem Consolidada - {activeRacFilter}</h2>
+						<p className="text-sm text-action">Agrupa todas as UGs com inconsistências nesta questão</p>
 					</div>
 				</div>
-				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-200 text-indigo-800">
+				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action text-action">
 					{Object.keys(groupedByUg).length} UGs / {items.length} Ocorrência(s)
 				</span>
 			</div>
@@ -142,7 +142,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-action"
 								/>
 							</div>
 							<div>
@@ -154,7 +154,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 									type="date"
 									value={sendDate}
 									onChange={(e) => setSendDate(e.target.value)}
-									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-action"
 								/>
 							</div>
 							<div className="col-span-2">
@@ -168,7 +168,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 								>
 									<SelectTrigger
 										id="cons-message-type"
-										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-blue-500 mb-2"
+										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -188,7 +188,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 											type="date"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+											className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-action"
 										/>
 									</div>
 								)}

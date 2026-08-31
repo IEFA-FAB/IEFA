@@ -447,7 +447,7 @@ function AuditorPage() {
 							>
 								<ArrowLeft className="w-4 h-4" />
 							</Link>
-							<div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20">
+							<div className="bg-action p-2 rounded-lg shadow-lg">
 								<Activity className="w-5 h-5 text-white" />
 							</div>
 							<h1 className={`text-lg font-bold tracking-tight hidden lg:block text-foreground`}>
@@ -508,7 +508,7 @@ function AuditorPage() {
 							<button
 								type="button"
 								onClick={() => setIsUploadModalOpen(true)}
-								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap"
+								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-action hover:bg-action/80 text-white transition-all shadow-lg whitespace-nowrap"
 							>
 								<UploadCloud className="w-4 h-4" />
 								<span className="hidden sm:inline">Importar Excel</span>
@@ -546,7 +546,7 @@ function AuditorPage() {
 										: persistOutcome.status === "partial"
 											? "Gravação INCOMPLETA — a série no banco está pela metade"
 											: "Análise não gravada"}
-									<span className="font-normal text-muted-foreground dark:text-muted-foreground"> · {persistOutcome.filename}</span>
+									<span className="font-normal text-muted-foreground"> · {persistOutcome.filename}</span>
 								</p>
 
 								{persistOutcome.status === "failed" ? (
@@ -572,7 +572,7 @@ function AuditorPage() {
 							<button
 								type="button"
 								onClick={() => setPersistOutcome(null)}
-								className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground dark:hover:text-slate-200"
+								className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground"
 							>
 								Fechar
 							</button>
@@ -627,7 +627,7 @@ function AuditorPage() {
 								<button
 									type="button"
 									onClick={() => setIsUploadModalOpen(true)}
-									className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors"
+									className="px-6 py-3 bg-action text-white rounded-lg font-bold hover:bg-action/80 transition-colors"
 								>
 									{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
 								</button>
@@ -663,17 +663,17 @@ function AuditorPage() {
 										{
 											id: AccountGroup.BMP,
 											label: "BMP",
-											activeClass: "text-destructive border border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.2)]",
+											activeClass: "text-destructive border border-destructive shadow-[0_0_10px_rgba(220,38,38,0.2)]",
 										},
 										{
 											id: AccountGroup.CONSUMO,
 											label: "CONSUMO",
-											activeClass: "text-blue-600 border border-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.2)]",
+											activeClass: "text-action border border-action shadow-[0_0_10px_rgba(37,99,235,0.2)]",
 										},
 										{
 											id: AccountGroup.INTANGIVEL,
 											label: "INTANGÍVEL",
-											activeClass: "text-success border border-emerald-600 shadow-[0_0_10px_rgba(5,150,105,0.2)]",
+											activeClass: "text-success border border-success shadow-[0_0_10px_rgba(5,150,105,0.2)]",
 										},
 									].map((tab) => (
 										<button
@@ -681,7 +681,7 @@ function AuditorPage() {
 											type="button"
 											onClick={() => setSelectedGroup(tab.id)}
 											className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap border border-transparent
-                        ${selectedGroup === tab.id ? tab.activeClass : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50"}
+                        ${selectedGroup === tab.id ? tab.activeClass : "text-muted-foreground hover:text-foreground hover:bg-muted"}
                       `}
 										>
 											{tab.label}
@@ -698,7 +698,7 @@ function AuditorPage() {
 												type="button"
 												onClick={() => setTimeFilter(tf)}
 												className={`px-3 py-2 text-xs font-bold rounded-lg transition-all
-                          ${timeFilter === tf ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground dark:hover:text-slate-300"}
+                          ${timeFilter === tf ? "bg-action text-action-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                         `}
 											>
 												{tf}
@@ -714,7 +714,7 @@ function AuditorPage() {
                        bg-muted border-border`}
 										title="Quantidade de UGs consideradas na visualização atual"
 									>
-										<Database className="w-3.5 h-3.5 text-blue-500" />
+										<Database className="w-3.5 h-3.5 text-action" />
 										<div className="flex flex-col leading-none">
 											<span className={`text-[9px] font-bold uppercase text-muted-foreground`}>Registros Totais</span>
 											<span className={`text-xs font-bold text-foreground`}>{stats.totalUGsCount} UGs</span>
@@ -752,7 +752,7 @@ function AuditorPage() {
 								value={stats.totalSiafi}
 								subtitle="Contábil (Completo)"
 								icon={LayoutDashboard}
-								bgClass="bg-slate-700/50"
+								bgClass="bg-surface-inverted-border/50"
 								trendData={trendSeries.siafi}
 								variation={`${Math.abs(stats.siafiVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.siafiVar >= 0}
@@ -762,7 +762,7 @@ function AuditorPage() {
 								value={stats.totalSiloms}
 								subtitle="Físico (Completo)"
 								icon={Layers}
-								bgClass="bg-slate-700/50"
+								bgClass="bg-surface-inverted-border/50"
 								trendData={trendSeries.siloms}
 								variation={`${Math.abs(stats.silomsVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.silomsVar >= 0}
@@ -787,7 +787,7 @@ function AuditorPage() {
 										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">ICC</p>
 										<h3 className={`text-xs font-black tracking-tight leading-tight text-foreground`}>Indicador de Conciliação Contábil</h3>
 									</div>
-									<div className="w-10 h-10 rounded-lg bg-indigo-600 shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2">
+									<div className="w-10 h-10 rounded-lg bg-action shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2">
 										<Activity className="w-5 h-5 text-white" />
 									</div>
 								</div>

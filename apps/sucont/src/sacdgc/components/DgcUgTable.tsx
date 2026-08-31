@@ -81,7 +81,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 						{visible.map((dataset) => {
 							const state = states[dataset.ugCode] ?? { status: "pendente" as const }
 							return (
-								<tr key={dataset.ugCode} className="hover:bg-muted/50/60 transition-colors">
+								<tr key={dataset.ugCode} className="hover:bg-muted/60 transition-colors">
 									<td className="px-6 py-4 font-mono text-sm font-semibold text-foreground">{dataset.ugCode}</td>
 									<td className="px-6 py-4 text-sm font-semibold text-foreground">{dataset.ugName.replace(`${dataset.ugCode} - `, "")}</td>
 									<td className="px-6 py-4">
@@ -94,7 +94,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 														"inline-flex items-center justify-center min-w-9 px-2 py-1 rounded-md text-[11px] font-bold border",
 														dataset.rowCount[panel] > 0
 															? "bg-muted/50 border-border text-muted-foreground"
-															: "bg-muted/50 border-dashed border-border text-slate-300"
+															: "bg-muted/50 border-dashed border-border text-muted-foreground"
 													)}
 												>
 													{dataset.rowCount[panel]}

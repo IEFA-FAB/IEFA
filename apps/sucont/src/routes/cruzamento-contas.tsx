@@ -90,9 +90,9 @@ function CruzamentoContas() {
 
 					<div className="w-full max-w-2xl mb-10 space-y-4">
 						{/* QUESTÃO 43 */}
-						<div className="bg-blue-50 border border-blue-300 p-5 rounded-xl shadow-sm text-left">
+						<div className="bg-action/10 border border-action/30 p-5 rounded-xl shadow-sm text-left">
 							<h3 className="text-xs font-bold text-[#0033A0] uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
-							<p className="text-sm text-blue-900 font-medium leading-relaxed">
+							<p className="text-sm text-action font-medium leading-relaxed">
 								<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis
 								com os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?
 							</p>
@@ -103,7 +103,7 @@ function CruzamentoContas() {
 							<button
 								type="button"
 								onClick={() => setShowPath(!showPath)}
-								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors text-left"
+								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted/80 transition-colors text-left"
 							>
 								<div className="flex items-center gap-3">
 									<MapIcon className="w-5 h-5 text-warning" />
@@ -113,7 +113,7 @@ function CruzamentoContas() {
 							</button>
 
 							{showPath && (
-								<div className="p-6 border-t border-border bg-warning/10/30">
+								<div className="p-6 border-t border-border bg-warning/30">
 									<p className="text-sm text-foreground mb-4">
 										Para gerar a planilha compatível com este analisador, acesse o Tesouro Gerencial e siga o caminho abaixo:
 									</p>
@@ -147,10 +147,10 @@ function CruzamentoContas() {
 							<button
 								type="button"
 								onClick={() => setShowContext(!showContext)}
-								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors text-left"
+								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted/80 transition-colors text-left"
 							>
 								<div className="flex items-center gap-3">
-									<BookOpen className="w-5 h-5 text-blue-600" />
+									<BookOpen className="w-5 h-5 text-action" />
 									<span className="font-bold text-foreground">Contexto Contábil das Contas Analisadas</span>
 								</div>
 								{showContext ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
@@ -184,7 +184,7 @@ function CruzamentoContas() {
 
 									<div>
 										<h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
-											<span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-mono">897210300</span>
+											<span className="bg-action/15 text-action px-2 py-0.5 rounded text-xs font-mono">897210300</span>
 											EM COBRANÇA
 										</h4>
 										<p className="mb-2">

@@ -120,7 +120,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 	return (
 		<div className="bg-card p-6 rounded-2xl shadow-sm border border-border mt-8">
 			<h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
-				<Bot className="w-5 h-5 mr-2 text-blue-600" />
+				<Bot className="w-5 h-5 mr-2 text-action" />
 				Oráculo SUCONT
 			</h3>
 			<p className="text-sm text-muted-foreground mb-4">Assistente técnico e estratégico especializado em Contabilidade Pública Federal (COMAER).</p>
@@ -133,10 +133,13 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Ex: Qual ODS tem mais inconsistências?"
-						className="w-full pl-10 pr-4 py-2 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus-visible:ring-ring focus:border-blue-500 outline-none transition-all"
+						className="w-full pl-10 pr-4 py-2 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus-visible:ring-ring focus:border-action outline-none transition-all"
 					/>
 				</div>
-				<button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl flex items-center transition-colors">
+				<button
+					type="submit"
+					className="bg-surface-inverted hover:bg-surface-inverted/80 text-surface-inverted-foreground px-4 py-2 rounded-xl flex items-center transition-colors"
+				>
 					<Send className="w-4 h-4 mr-2" />
 					Perguntar
 				</button>
@@ -164,7 +167,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 			)}
 
 			<div className="mt-4 flex flex-wrap gap-2">
-				<span className="text-xs text-slate-300 font-medium mr-1 py-1">Sugestões:</span>
+				<span className="text-xs text-muted-foreground font-medium mr-1 py-1">Sugestões:</span>
 				<button
 					type="button"
 					onClick={() => setQuery("Qual ODS tem mais inconsistências?")}

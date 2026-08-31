@@ -183,7 +183,7 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-			<button type="button" aria-label="Cancelar exclusão" onClick={onCancel} className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
+			<button type="button" aria-label="Cancelar exclusão" onClick={onCancel} className="absolute inset-0 bg-overlay/40 backdrop-blur-[2px]" />
 			<div role="alertdialog" aria-modal="true" aria-labelledby="confirm-delete-title" className="relative w-full max-w-md bg-card rounded-2xl p-6 shadow-xl">
 				<h3 id="confirm-delete-title" className="text-foreground font-bold text-sm uppercase mb-2">
 					Excluir relatório

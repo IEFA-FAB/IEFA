@@ -113,9 +113,9 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 						</p>
 					</div>
 					{isFocal && (
-						<div className="hidden md:block bg-blue-50 border border-blue-100 px-3 py-1 rounded-lg">
-							<p className="text-[10px] font-bold text-blue-700 uppercase leading-tight">Análise Focal</p>
-							<p className="text-xs font-semibold text-blue-900">{activeRacFilter}</p>
+						<div className="hidden md:block bg-action/10 border border-action/30 px-3 py-1 rounded-lg">
+							<p className="text-[10px] font-bold text-action uppercase leading-tight">Análise Focal</p>
+							<p className="text-xs font-semibold text-action">{activeRacFilter}</p>
 						</div>
 					)}
 				</div>
@@ -205,7 +205,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-action"
 								/>
 							</div>
 							<div>
@@ -217,7 +217,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 									type="date"
 									value={sendDate}
 									onChange={(e) => setSendDate(e.target.value)}
-									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-action"
 								/>
 							</div>
 							<div className="col-span-2">
@@ -231,7 +231,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								>
 									<SelectTrigger
 										id="ug-message-type"
-										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-blue-500 mb-2"
+										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -251,7 +251,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 											type="date"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+											className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-action"
 										/>
 									</div>
 								)}

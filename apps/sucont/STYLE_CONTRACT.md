@@ -181,15 +181,17 @@ quem não tem o nível entrega um 403 depois do trabalho feito, sem mensagem.
 
 ## 8. Dívida registrada
 
-Inventário medido em 2026-08-31, para que a migração tenha linha de base. Isto é
-dívida conhecida, não exceção permitida: código novo segue o contrato.
+Inventário medido em 2026-08-31, depois da migração completa da paleta.
+
+**Classes de paleta Tailwind crua: 0** (eram 2.743). Todo valor de cor no app passa
+por token declarado. Verificação: as 238 classes de token distintas usadas no código
+foram conferidas contra o CSS gerado — nenhuma sem regra correspondente.
 
 | Item | Volume | Onde |
 |------|--------|------|
-| Classes de paleta Tailwind crua | **450** (de 2.743) | `blue` 203, `slate` 136, `indigo` 35, `emerald` 19 |
 | `<button>` nativo | 170 | todas as rotas |
 | `<input>` nativo | 73 | todas as rotas |
-| Texto abaixo de 11px | 202 (`text-[8px]`…`[10px]`) | `auditor/components/`, `plataforma-doc/` |
+| Texto abaixo de 11px | ~200 (`text-[8px]`…`[10px]`) | `auditor/components/`, `plataforma-doc/` |
 | `font-black` / `font-extrabold` | 115 | diversos |
 | Radius arbitrário | 38 (`rounded-[40px]`, `[32px]`, `rounded-3xl`) | `hub-layout`, `subitens-genericos` |
 | `backdrop-blur` decorativo | 28 | diversos |
@@ -198,27 +200,19 @@ dívida conhecida, não exceção permitida: código novo segue o contrato.
 | Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos` 1.885, `conta-generica` 1.811, `analista-compatibilidade` 1.666, `monitoramento` 1.317 |
 | `CustomSelect` reimplementado | 1 | `auditor/components/CustomSelect.tsx` |
 
-Resolvido desde a primeira medição: a prop `isDarkMode` (226 ocorrências em 9
-arquivos) e a rota que mutava `document.documentElement.classList` — o módulo do
-auditor passou a ser temático por token, com a classe `dark` escopada ao próprio
-container.
+### Papéis de cor declarados
 
-### As duas decisões que faltam para zerar a paleta
+Além da escala semântica do shadcn (`background`, `foreground`, `muted`, `card`,
+`border`, `destructive`) e das famílias nomeadas `tech-*` / `fab-*`:
 
-O que sobrou não é mecânico: são dois julgamentos de produto que a tabela do
-codemod não pode tomar sozinha.
-
-1. **O que `blue` significa** (203 ocorrências). No auditor `bg-blue-600` é a ação
-   primária, `text-blue-600` é ênfase e `bg-blue-50` é destaque de seleção. O
-   sistema do sisub manda ação primária para `bg-primary`, que aqui é quase preto
-   — trocaria a identidade visual do módulo. As saídas honestas são: adotar
-   `primary` e aceitar a mudança, ou declarar um token de ação próprio do sucont
-   (a família `fab-*` já tem um azul real, `fab-500`) e mapear tudo para ele.
-2. **Superfície invertida** (136 de `slate`, quase toda em painel escuro dentro de
-   página clara — herói do hub, `centro-monitoramento`, `analista-compatibilidade`).
-   Ali a escala roda invertida de propósito: `text-slate-300` sobre `bg-slate-900`
-   é o texto legível. Tokenizar isso pede um par novo (`--surface-inverted` /
-   `--surface-inverted-foreground`), não a reutilização de `card`/`foreground`.
+| Token | Papel | Por que não reusa outro |
+|-------|-------|--------------------------|
+| `action` / `action-foreground` | Ação primária, ênfase de link, item selecionado | `primary` é quase preto (herança do shadcn); o sucont é azul desde as nove ferramentas que o originaram |
+| `surface-inverted` (+ `-foreground`, `-muted`, `-border`, `-accent`) | Painel escuro dentro de página clara: herói do hub, barra do centro de monitoramento | `card` inverteria junto com o tema e apagaria o painel — aqui o escuro é intenção, não consequência do modo escuro |
+| `overlay` | Véu de modal | Escuro nos dois temas; `foreground` seria branco no escuro |
+| `success` / `warning` | Estado | — |
+| `series-*` | Séries do confronto SIAFI x SILOMS | Nomeadas pelo dado, não pela cor |
+| `ICC_RAMP` / `RISK_RAMP` (`auditor/theme.ts`) | Escalas sequenciais de 5 e 4 faixas | `success`/`warning`/`destructive` classificam estado; escala contínua não cabe em três degraus |
 
 Patterns que o sisub tem e o sucont ainda não: `field.tsx` (formulários) e
 `item.tsx` (linhas de lista de entidade). Enquanto não existirem aqui, formulário

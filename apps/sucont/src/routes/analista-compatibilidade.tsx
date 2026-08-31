@@ -878,7 +878,7 @@ DIREF/SUCONT/SUCONT-3
 							setUserProfile(null)
 							setConferenteFilter("all")
 						}}
-						className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${userProfile === null ? "bg-[#003366] text-white shadow" : "text-slate-500 hover:text-slate-700"}`}
+						className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${userProfile === null ? "bg-[#003366] text-surface-inverted-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
 					>
 						Todos
 					</button>
@@ -890,7 +890,7 @@ DIREF/SUCONT/SUCONT-3
 								setUserProfile(name)
 								setConferenteFilter("minhas")
 							}}
-							className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${userProfile === name ? "bg-[#00a8e8] text-[#003366] shadow" : "text-slate-500 hover:text-slate-700"}`}
+							className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${userProfile === name ? "bg-[#00a8e8] text-[#003366] shadow" : "text-muted-foreground hover:text-foreground"}`}
 						>
 							{name}
 						</button>
@@ -925,7 +925,7 @@ DIREF/SUCONT/SUCONT-3
 					{/* Info cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border hover:border-[#00a8e8]/50 transition-colors">
-							<div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 								<Search className="w-6 h-6 text-[#003366]" />
 							</div>
 							<h3 className="text-lg font-bold text-[#003366] mb-2">O que está sendo analisado</h3>
@@ -936,7 +936,7 @@ DIREF/SUCONT/SUCONT-3
 						</div>
 
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border hover:border-[#00a8e8]/50 transition-colors">
-							<div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 								<BookOpen className="w-6 h-6 text-[#003366]" />
 							</div>
 							<h3 className="text-lg font-bold text-[#003366] mb-2">Referencial Teórico (RAC)</h3>
@@ -947,7 +947,7 @@ DIREF/SUCONT/SUCONT-3
 						</div>
 
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border hover:border-[#00a8e8]/50 transition-colors">
-							<div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 								<MessageSquareText className="w-6 h-6 text-[#003366]" />
 							</div>
 							<h3 className="text-lg font-bold text-[#003366] mb-2">Mensagens Automáticas</h3>
@@ -965,7 +965,7 @@ DIREF/SUCONT/SUCONT-3
 							Importar Relatório
 						</h2>
 
-						<div className="mb-6 bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+						<div className="mb-6 bg-action/50 border border-action/30 rounded-xl p-4">
 							<div className="flex items-start gap-3">
 								<Info className="w-5 h-5 text-[#00a8e8] shrink-0 mt-0.5" />
 								<div>
@@ -1004,7 +1004,7 @@ DIREF/SUCONT/SUCONT-3
 								disabled={isProcessing}
 							/>
 							<div
-								className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isProcessing ? "border-slate-300 bg-slate-50" : "border-[#00a8e8]/30 bg-[#00a8e8]/5 hover:bg-[#00a8e8]/10"}`}
+								className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isProcessing ? "border-border bg-muted" : "border-[#00a8e8]/30 bg-[#00a8e8]/5 hover:bg-[#00a8e8]/10"}`}
 							>
 								<Upload className={`w-8 h-8 mx-auto mb-3 ${isProcessing ? "text-muted-foreground" : "text-[#003366]"}`} />
 								{isProcessing ? (
@@ -1050,7 +1050,7 @@ DIREF/SUCONT/SUCONT-3
 						<button
 							type="button"
 							onClick={() => setActiveTab("operacional")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "operacional" ? "bg-[#003366] text-white shadow-md" : "bg-card text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "operacional" ? "bg-[#003366] text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
 						>
 							<FileText className="w-4 h-4" />
 							Visão Operacional (UGs)
@@ -1058,7 +1058,7 @@ DIREF/SUCONT/SUCONT-3
 						<button
 							type="button"
 							onClick={() => setActiveTab("gerencial")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "gerencial" ? "bg-[#003366] text-white shadow-md" : "bg-card text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "gerencial" ? "bg-[#003366] text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
 						>
 							<LayoutDashboard className="w-4 h-4" />
 							Painel Gerencial (RAC)
@@ -1092,7 +1092,7 @@ DIREF/SUCONT/SUCONT-3
 										<button
 											type="button"
 											onClick={() => setRacFilter("all")}
-											className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${racFilter === "all" ? "bg-[#003366] text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+											className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${racFilter === "all" ? "bg-[#003366] text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 										>
 											Todas Questões
 										</button>
@@ -1115,7 +1115,7 @@ DIREF/SUCONT/SUCONT-3
 										<button
 											type="button"
 											onClick={() => setConferenteFilter("all")}
-											className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${conferenteFilter === "all" ? "bg-[#003366] text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+											className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${conferenteFilter === "all" ? "bg-[#003366] text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 										>
 											Geral
 										</button>
@@ -1123,7 +1123,7 @@ DIREF/SUCONT/SUCONT-3
 											<button
 												type="button"
 												onClick={() => setConferenteFilter("minhas")}
-												className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${conferenteFilter === "minhas" ? "bg-[#00a8e8] text-[#003366] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+												className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${conferenteFilter === "minhas" ? "bg-[#00a8e8] text-[#003366] shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 											>
 												Minhas UGs
 											</button>
@@ -1160,7 +1160,7 @@ DIREF/SUCONT/SUCONT-3
 									<button
 										type="button"
 										onClick={copyAll}
-										className="flex items-center gap-2 px-5 py-2.5 bg-[#003366] hover:bg-[#002244] text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+										className="flex items-center gap-2 px-5 py-2.5 bg-[#003366] hover:bg-[#002244] text-surface-inverted-foreground rounded-lg text-sm font-medium transition-colors shadow-sm"
 									>
 										<Copy className="w-4 h-4" />
 										Copiar Mensagens Filtradas
@@ -1171,11 +1171,11 @@ DIREF/SUCONT/SUCONT-3
 							{/* UG cards */}
 							<div className="space-y-8">
 								{racFilter !== "all" && filteredReports.length > 0 && (
-									<div className="bg-blue-600 text-white px-6 py-4 rounded-xl shadow-md flex items-center gap-3">
+									<div className="bg-action text-white px-6 py-4 rounded-xl shadow-md flex items-center gap-3">
 										<BookOpen className="w-6 h-6" />
 										<div>
 											<h3 className="text-lg font-bold">{racFilter}</h3>
-											<p className="text-blue-100 text-sm">
+											<p className="text-action text-sm">
 												{PAIRS.find((p) => p.question.includes(racFilter))?.question.split(" do ")[0]} —{" "}
 												{PAIRS.find((p) => p.question.includes(racFilter))?.nameA} × {PAIRS.find((p) => p.question.includes(racFilter))?.nameB}
 											</p>
@@ -1199,19 +1199,19 @@ DIREF/SUCONT/SUCONT-3
 													<div className="bg-[#00a8e8] text-[#003366] font-mono text-sm px-2 py-1 rounded font-bold shadow-sm">#{idx + 1}</div>
 													<h3 className="text-xl font-bold text-white tracking-tight flex flex-wrap items-center gap-3">
 														{report.ugName} (UG {report.ugCode})
-														<span className="text-xs font-medium bg-white/20 text-blue-50 px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
+														<span className="text-xs font-medium bg-white/20 text-action px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
 															<Building2 className="w-3.5 h-3.5" />
 															{report.superior} / {report.ods}
 														</span>
-														<span className="text-xs font-medium bg-white/20 text-blue-50 px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
+														<span className="text-xs font-medium bg-white/20 text-action px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
 															<Users className="w-3.5 h-3.5" />
 															Conferente: {report.conferente}
 														</span>
 													</h3>
 												</div>
-												<div className="flex items-center gap-2 bg-destructive/20 px-4 py-2 rounded-lg border border-red-500/30">
-													<TrendingDown className="w-5 h-5 text-red-400" />
-													<span className="text-red-100 font-medium text-sm">Diferença Total:</span>
+												<div className="flex items-center gap-2 bg-destructive/20 px-4 py-2 rounded-lg border border-destructive/30">
+													<TrendingDown className="w-5 h-5 text-destructive" />
+													<span className="text-destructive font-medium text-sm">Diferença Total:</span>
 													<span className="text-white font-bold">{formatCurrency(report.totalDiff)}</span>
 												</div>
 											</div>
@@ -1219,7 +1219,7 @@ DIREF/SUCONT/SUCONT-3
 											{/* Card body */}
 											<div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border">
 												{/* Left: Divergences */}
-												<div className="p-6 lg:col-span-5 bg-muted/50/50 flex flex-col border-r border-border">
+												<div className="p-6 lg:col-span-5 bg-muted/50 flex flex-col border-r border-border">
 													<h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6 flex items-center gap-2">
 														<AlertTriangle className="w-4 h-4" />
 														Evidenciação das Divergências
@@ -1237,7 +1237,7 @@ DIREF/SUCONT/SUCONT-3
 																	<p className="text-xs text-muted-foreground my-0.5">×</p>
 																	<p className="text-sm font-semibold text-foreground leading-snug">{data.description.split(" × ")[1]}</p>
 																	<div className="mt-2 pt-2 border-t border-border">
-																		<p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight mb-0.5">Controle Interno SUCONT-3:</p>
+																		<p className="text-[10px] font-bold text-action uppercase tracking-tight mb-0.5">Controle Interno SUCONT-3:</p>
 																		<p className="text-[11px] text-muted-foreground leading-tight italic">{data.question}</p>
 																	</div>
 																</div>
@@ -1507,7 +1507,7 @@ DIREF/SUCONT/SUCONT-3
 														<Building2 className="w-4 h-4 text-muted-foreground" />
 														{sup.name}
 													</h4>
-													<span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full">
+													<span className="bg-action/15 text-action text-xs font-bold px-2 py-1 rounded-full">
 														{sup.count} UG{sup.count > 1 ? "s" : ""}
 													</span>
 												</div>
@@ -1641,7 +1641,7 @@ DIREF/SUCONT/SUCONT-3
 														<p className="text-lg font-bold text-foreground">{formatCurrency(pair.volume)}</p>
 													</div>
 												</div>
-												<div className="md:w-2/3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+												<div className="md:w-2/3 bg-action/50 p-4 rounded-xl border border-action/30">
 													<h5 className="text-sm font-bold text-[#003366] mb-2">Objetivo da Verificação:</h5>
 													<p className="text-sm text-foreground mb-4 leading-relaxed">
 														{pair.name === "Par 1"

@@ -879,7 +879,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								color: "emerald-600",
 								title: "Mensagens Automáticas",
 								text: "Geração automática de textos padronizados para envio via SIAFI às Unidades Gestoras, facilitando a cobrança e orientação técnica.",
-								borderHover: "hover:border-emerald-500/50",
+								borderHover: "hover:border-success/50",
 							},
 						].map(({ icon: Icon, color, title, text, borderHover }) => (
 							<div key={title} className={`bg-card p-6 rounded-2xl shadow-md border border-border ${borderHover} transition-colors group`}>
@@ -1011,7 +1011,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									natureza do fato contábil.
 								</p>
 							</div>
-							<div className="bg-warning/10/50 p-4 rounded-xl border border-amber-100/50">
+							<div className="bg-warning/50 p-4 rounded-xl border border-warning/50">
 								<h4 className="text-xs font-bold text-warning uppercase mb-3 flex items-center gap-2">
 									<AlertTriangle className="w-4 h-4 text-warning" /> Risco Contábil
 								</h4>
@@ -1020,7 +1020,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									decisão.
 								</p>
 							</div>
-							<div className="bg-success/10/50 p-4 rounded-xl border border-emerald-100/50">
+							<div className="bg-success/50 p-4 rounded-xl border border-success/50">
 								<h4 className="text-xs font-bold text-success uppercase mb-3 flex items-center gap-2">
 									<ShieldCheck className="w-4 h-4 text-success" /> Importância
 								</h4>
@@ -1113,13 +1113,13 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 									{/* Decision support */}
 									<div className="space-y-6">
-										<div className="bg-success p-6 rounded-2xl shadow-xl border-b-4 border-emerald-800 flex flex-col justify-center text-white">
+										<div className="bg-success p-6 rounded-2xl shadow-xl border-b-4 border-success flex flex-col justify-center text-white">
 											<div className="flex items-center gap-3 mb-4">
-												<DollarSign className="w-8 h-8 text-emerald-200" />
+												<DollarSign className="w-8 h-8 text-success" />
 												<h3 className="text-lg font-black uppercase tracking-tight">Impacto Financeiro Total</h3>
 											</div>
 											<p className="text-4xl font-black mb-2">{formatCurrency(totalFinancialImpact)}</p>
-											<p className="text-xs font-bold text-emerald-100 uppercase tracking-widest">Volume total em risco contábil</p>
+											<p className="text-xs font-bold text-success uppercase tracking-widest">Volume total em risco contábil</p>
 										</div>
 
 										<div className="bg-fab-dark p-6 rounded-2xl shadow-xl border-t-4 border-t-fab-gold">
@@ -1205,15 +1205,15 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 										{/* Pareto + Priority */}
 										<div className="space-y-6">
-											<div className="bg-card p-6 rounded-2xl shadow-md border border-purple-200">
+											<div className="bg-card p-6 rounded-2xl shadow-md border border-action/30">
 												<div className="flex items-center gap-2 mb-4">
-													<TrendingUp className="w-5 h-5 text-purple-600" />
+													<TrendingUp className="w-5 h-5 text-action" />
 													<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Análise de Concentração (Pareto)</h3>
 												</div>
-												<div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
-													<p className="text-sm text-purple-900 font-bold leading-relaxed">
-														<span className="text-2xl font-black text-purple-600">{paretoData?.ugPercentage}%</span> das UGs concentram{" "}
-														<span className="text-2xl font-black text-purple-600">{paretoData?.inconsistencyPercentage}%</span> das inconsistências.
+												<div className="bg-action/10 p-4 rounded-xl border border-action/30 mb-4">
+													<p className="text-sm text-action font-bold leading-relaxed">
+														<span className="text-2xl font-black text-action">{paretoData?.ugPercentage}%</span> das UGs concentram{" "}
+														<span className="text-2xl font-black text-action">{paretoData?.inconsistencyPercentage}%</span> das inconsistências.
 													</p>
 												</div>
 												<h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">UGs que compõem a concentração (Top 5)</h4>
@@ -1223,7 +1223,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 															<span className="font-bold text-foreground">
 																UG {u.ug} ({getUgName(u.ug)})
 															</span>
-															<span className="font-black text-purple-600">{u.count} itens</span>
+															<span className="font-black text-action">{u.count} itens</span>
 														</div>
 													))}
 												</div>
@@ -1363,7 +1363,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												))}
 											</tr>
 										</thead>
-										<tbody className="divide-y divide-slate-50">
+										<tbody className="divide-y divide-border">
 											{odsRiskMap.map((item, idx) => (
 												<tr key={idx} className="hover:bg-muted/50 transition-colors">
 													<td className="py-4 font-bold text-fab-dark">{item.ods}</td>
@@ -1549,8 +1549,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													onClick={() => setConferenteFilter(conf)}
 													className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
 														conferenteFilter === conf
-															? "bg-success text-white border-emerald-600 shadow-md"
-															: "bg-card text-muted-foreground border-border hover:border-emerald-600/50"
+															? "bg-success text-white border-success shadow-md"
+															: "bg-card text-muted-foreground border-border hover:border-success/50"
 													}`}
 												>
 													{conf}
@@ -1575,7 +1575,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								{/* Única message */}
 								{messageMode === "unica" ? (
 									<div className="bg-card rounded-2xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
-										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/50/30 flex flex-col">
+										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 											<div className="p-6 border-b border-border bg-card">
 												<div className="flex items-center gap-3 mb-4">
 													<div className="w-10 h-10 bg-fab-blue/10 rounded-lg flex items-center justify-center">
@@ -1601,7 +1601,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												/>
 											</div>
 										</div>
-										<div className="p-6 flex-1 bg-muted/50/30">
+										<div className="p-6 flex-1 bg-muted/30">
 											<div className="bg-card border border-border rounded-xl p-6 shadow-inner h-full font-mono text-sm text-foreground leading-relaxed whitespace-pre-wrap relative">
 												{generateSingleMessage()}
 												<button
@@ -1633,7 +1633,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											return (
 												<div key={ug} className="bg-card rounded-2xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
 													{/* Left: data portrait */}
-													<div className="lg:w-5/12 border-b lg:border-b-0 lg:border-r border-border bg-muted/50/30 flex flex-col">
+													<div className="lg:w-5/12 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 														<div className="p-6 border-b border-border bg-card">
 															<div className="flex items-center justify-between mb-2">
 																<div className="flex items-center gap-3">
@@ -1733,7 +1733,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																/>
 															</div>
 														</div>
-														<div className="p-6 flex-1 bg-muted/50/30">
+														<div className="p-6 flex-1 bg-muted/30">
 															<div className="bg-card border border-border rounded-xl p-6 shadow-inner h-full font-mono text-sm text-foreground leading-relaxed whitespace-pre-wrap relative">
 																<div className="absolute top-4 right-4 opacity-10 pointer-events-none">
 																	<Shield className="w-12 h-12 text-fab-blue" />

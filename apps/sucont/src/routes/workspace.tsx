@@ -274,7 +274,7 @@ function Workspace() {
 											) : canEdit ? (
 												<button type="button" className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditingId(item.id)}>
 													<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
-													<Edit2 className="w-3 h-3 text-slate-300 group-hover:text-tech-cyan transition-colors" />
+													<Edit2 className="w-3 h-3 text-muted-foreground group-hover:text-tech-cyan transition-colors" />
 												</button>
 											) : (
 												<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
@@ -283,7 +283,7 @@ function Workspace() {
 												<button
 													type="button"
 													onClick={() => deleteTaskMutation.mutate(item.id)}
-													className="mt-4 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
+													className="mt-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
 												>
 													<Trash2 className="w-3 h-3" /> EXCLUIR
 												</button>
@@ -348,14 +348,14 @@ function Workspace() {
 							{notices.map((notice) => (
 								<div
 									key={notice.id}
-									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-warning/10 border-warning/30" : "bg-blue-50 border-blue-300"}`}
+									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-warning/10 border-warning/30" : "bg-action/10 border-action/30"}`}
 								>
 									{canEdit && (
 										<button
 											type="button"
 											onClick={() => deleteNoticeMutation.mutate(notice.id)}
 											aria-label={`Excluir aviso: ${notice.content}`}
-											className="absolute top-2 right-2 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
+											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
 										>
 											<X className="w-3 h-3" />
 										</button>
@@ -392,7 +392,7 @@ function Workspace() {
 													<th className="text-left pb-2">NOME</th>
 												</tr>
 											</thead>
-											<tbody className="divide-y divide-slate-50">
+											<tbody className="divide-y divide-border">
 												{units.map((u) => (
 													<tr key={u.codigo} className="hover:bg-muted/50 transition-colors">
 														<td className="py-2 text-tech-cyan font-bold">{u.codigo}</td>

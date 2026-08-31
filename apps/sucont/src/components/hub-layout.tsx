@@ -86,7 +86,7 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10 pt-14 lg:pt-0">
 				{/* Header */}
 				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
-					<div className="relative bg-slate-900 rounded-[2rem] p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
+					<div className="relative bg-surface-inverted rounded-[2rem] p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
 						{/* decorative */}
 						<div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
 							<svg viewBox="0 0 100 100" className="w-full h-full text-white fill-current" aria-hidden="true">
@@ -246,7 +246,7 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 
 	return (
 		<div className="lg:hidden fixed inset-0 z-50 flex">
-			<button type="button" aria-label="Fechar menu" onClick={onClose} className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
+			<button type="button" aria-label="Fechar menu" onClick={onClose} className="absolute inset-0 bg-overlay/40 backdrop-blur-[2px]" />
 			<div
 				ref={panelRef}
 				role="dialog"
@@ -363,7 +363,7 @@ function SystemStatus() {
 	const state = isPending ? "checking" : isError || !data ? "down" : "up"
 	const label = state === "checking" ? "VERIFICANDO" : state === "up" ? "OPERACIONAL" : "INSTÁVEL"
 	const tone = state === "checking" ? "text-muted-foreground" : state === "up" ? "text-success" : "text-destructive"
-	const dot = state === "checking" ? "bg-slate-300" : state === "up" ? "bg-success" : "bg-destructive"
+	const dot = state === "checking" ? "bg-muted" : state === "up" ? "bg-success" : "bg-destructive"
 
 	return (
 		<div className="flex flex-col">

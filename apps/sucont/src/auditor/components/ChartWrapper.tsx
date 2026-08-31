@@ -142,12 +142,12 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					</div>
 
 					<div className="group relative">
-						<Info className="w-4 h-4 text-muted-foreground cursor-help hover:text-blue-500 transition-colors" />
+						<Info className="w-4 h-4 text-muted-foreground cursor-help hover:text-action transition-colors" />
 						<div
 							className={`absolute top-full right-0 mt-2 w-72 p-3 rounded-lg border shadow-2xl z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200
               bg-card border-border text-foreground`}
 						>
-							<p className="text-[11px] font-bold mb-2 text-blue-500 uppercase tracking-wider">Matriz de Risco</p>
+							<p className="text-[11px] font-bold mb-2 text-action uppercase tracking-wider">Matriz de Risco</p>
 							<p className="text-[10px] leading-relaxed mb-2">
 								O nível de risco considera duas dimensões: Impacto financeiro da divergência e frequência de ocorrência ao longo dos meses.
 							</p>
@@ -202,7 +202,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			{isExpanded && (
 				<button
 					type="button"
-					className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 cursor-default"
+					className="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm animate-in fade-in duration-200 cursor-default"
 					onClick={() => setIsExpanded(false)}
 					aria-label="Fechar"
 				/>

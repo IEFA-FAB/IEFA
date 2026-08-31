@@ -94,7 +94,7 @@ function AnalistaSaldoAlongado() {
 						<button
 							type="button"
 							onClick={handleReset}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 						>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova Análise
@@ -128,7 +128,7 @@ function AnalistaSaldoAlongado() {
 					{/* Info Cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
-							<div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
 								<Search className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Análise de Saldos</h3>
@@ -148,7 +148,7 @@ function AnalistaSaldoAlongado() {
 						</div>
 
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
-							<div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shadow-sm">
+							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
 								<MessageSquare className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Notificação Ágil</h3>
@@ -219,7 +219,7 @@ function AnalistaSaldoAlongado() {
 							type="button"
 							onClick={() => setActiveTab("operacional")}
 							className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-								activeTab === "operacional" ? "bg-fab-600 text-white shadow-md shadow-fab-600/20" : "text-muted-foreground hover:bg-muted"
+								activeTab === "operacional" ? "bg-fab-600 text-white shadow-md" : "text-muted-foreground hover:bg-muted"
 							}`}
 						>
 							<ListTodo className="w-4 h-4" />
@@ -229,7 +229,7 @@ function AnalistaSaldoAlongado() {
 							type="button"
 							onClick={() => setActiveTab("gerencial")}
 							className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-								activeTab === "gerencial" ? "bg-fab-600 text-white shadow-md shadow-fab-600/20" : "text-muted-foreground hover:bg-muted"
+								activeTab === "gerencial" ? "bg-fab-600 text-white shadow-md" : "text-muted-foreground hover:bg-muted"
 							}`}
 						>
 							<LayoutDashboard className="w-4 h-4" />
@@ -239,7 +239,7 @@ function AnalistaSaldoAlongado() {
 							type="button"
 							onClick={() => setActiveTab("analitico")}
 							className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-								activeTab === "analitico" ? "bg-fab-600 text-white shadow-md shadow-fab-600/20" : "text-muted-foreground hover:bg-muted"
+								activeTab === "analitico" ? "bg-fab-600 text-white shadow-md" : "text-muted-foreground hover:bg-muted"
 							}`}
 						>
 							<BarChart3 className="w-4 h-4" />

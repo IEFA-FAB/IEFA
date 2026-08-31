@@ -161,8 +161,8 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-indigo-100 rounded-xl">
-							<Target className="w-6 h-6 text-indigo-600" />
+						<div className="p-3 bg-action/10 rounded-xl">
+							<Target className="w-6 h-6 text-action" />
 						</div>
 						<div>
 							<p className="text-sm font-medium text-muted-foreground">Foco de Atuação (Pareto)</p>
@@ -183,7 +183,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 					<button
 						type="button"
 						onClick={() => exportElementToImage("analise-pareto", "mapa-risco-pareto")}
-						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar</span>
@@ -218,7 +218,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 							</ComposedChart>
 						</ResponsiveContainer>
 					</div>
-					<div className="mt-4 p-4 bg-warning/10 border border-amber-100 rounded-xl">
+					<div className="mt-4 p-4 bg-warning/10 border border-warning/30 rounded-xl">
 						<p className="text-sm text-warning leading-relaxed text-center">
 							<strong>Estratégia de Intervenção:</strong> A concentração exposta pelo Princípio de Pareto demonstra que atuar em{" "}
 							<strong>{paretoUgs.length} UGs</strong> solucionará aproximadamente 80% do Risco Contábil do Comando da Aeronáutica.
@@ -238,7 +238,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 						<button
 							type="button"
 							onClick={() => exportElementToImage("risk-ods", "mapa-risco-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -291,7 +291,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 						<div className="overflow-x-auto mt-auto border border-border rounded-xl">
 							<table className="w-full text-sm text-left">
-								<thead className="text-xs text-muted-foreground uppercase bg-muted/50/50 border-b border-border">
+								<thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
 									<tr>
 										<th className="px-4 py-3 font-semibold">ODS</th>
 										<th className="px-4 py-3 font-semibold text-center">Incons.</th>
@@ -326,7 +326,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 						<button
 							type="button"
 							onClick={() => exportElementToImage("risk-orgao", "mapa-risco-orgao")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -385,7 +385,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 			{/* Modal - Detalhamento das UGs */}
 			{selectedDetailLevel && (
-				<div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 bg-overlay/50 flex items-center justify-center p-4">
 					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -408,7 +408,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 								{detailedUgs.map((ug) => (
 									<div
 										key={ug.ug}
-										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/50 gap-2 hover:bg-muted transition-colors"
+										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/50 gap-2 hover:bg-muted/80 transition-colors"
 									>
 										<div>
 											<p className="font-bold text-foreground">

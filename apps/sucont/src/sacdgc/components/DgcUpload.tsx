@@ -50,7 +50,7 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 				htmlFor="sacdgc-dropzone"
 				className={cn(
 					"relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-xl transition-all cursor-pointer",
-					isDragging ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:bg-muted hover:border-slate-400",
+					isDragging ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
 					isLoading && "opacity-50 cursor-not-allowed pointer-events-none"
 				)}
 				onDragEnter={handleDrag}

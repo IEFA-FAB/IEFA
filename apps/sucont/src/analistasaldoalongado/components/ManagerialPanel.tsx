@@ -213,7 +213,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						<button
 							type="button"
 							onClick={() => exportElementToImage("managerial-top10", "estrategico-top10")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -250,7 +250,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						<button
 							type="button"
 							onClick={() => exportElementToImage("managerial-contas", "estrategico-contas")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -299,7 +299,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						<button
 							type="button"
 							onClick={() => exportElementToImage("managerial-ods", "estrategico-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -346,7 +346,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			{/* Saída Gerencial por Conferente */}
 			<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 				<div className="flex items-center gap-3 mb-6">
-					<div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+					<div className="p-2 bg-action/10 text-action rounded-lg">
 						<Users className="w-5 h-5" />
 					</div>
 					<div>
@@ -360,7 +360,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						<div key={nome} className="p-4 rounded-xl border border-border bg-muted/50 flex flex-col">
 							<div className="flex items-center justify-between mb-3">
 								<h4 className="font-bold text-foreground text-sm">{nome}</h4>
-								<span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase">{stats.ugs.length} UGs</span>
+								<span className="px-2 py-0.5 bg-action/10 text-action text-[10px] font-bold rounded uppercase">{stats.ugs.length} UGs</span>
 							</div>
 							<div className="space-y-2 mb-4">
 								<div className="flex justify-between text-xs">
@@ -421,7 +421,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 
 			{/* Modal - Detalhamento das UGs por ODS */}
 			{selectedOdsDetails && (
-				<div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 bg-overlay/50 flex items-center justify-center p-4">
 					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-lg font-bold text-foreground">Detalhamento: {selectedOdsDetails}</h3>
