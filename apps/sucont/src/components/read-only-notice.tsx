@@ -13,11 +13,11 @@ import { Lock } from "lucide-react"
  */
 export function ReadOnlyNotice({ scope }: { scope: string }) {
 	return (
-		<div className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-			<Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+		<div className="flex items-start gap-3 bg-muted/50 border border-border rounded-lg px-4 py-3">
+			<Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
 			<div className="min-w-0">
-				<p className="text-xs font-bold uppercase tracking-wider text-slate-600">Somente leitura</p>
-				<p className="text-[11px] text-slate-500 mt-0.5">
+				<p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Somente leitura</p>
+				<p className="text-[11px] text-muted-foreground mt-0.5">
 					Seu acesso permite consultar {scope}, não alterar. Editar exige nível 2 no módulo <span className="font-mono">sucont</span> — peça a um gestor da
 					SUCONT-4.
 				</p>

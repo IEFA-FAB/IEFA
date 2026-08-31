@@ -105,7 +105,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						initial={{ opacity: 0, y: 20, scale: 0.95 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
 						exit={{ opacity: 0, y: 20, scale: 0.95 }}
-						className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-white rounded-3xl shadow-2xl shadow-fab-blue/20 border border-fab-blue/10 flex flex-col z-50 overflow-hidden"
+						className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-card rounded-3xl shadow-2xl shadow-fab-blue/20 border border-fab-blue/10 flex flex-col z-50 overflow-hidden"
 					>
 						{/* Header */}
 						<div className="bg-fab-blue p-4 flex items-center justify-between text-white">
@@ -124,7 +124,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						</div>
 
 						{/* Messages */}
-						<div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+						<div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/50">
 							{messages.map((msg) => {
 								const textPart = msg.parts?.find((p) => p.type === "text")
 								const text = textPart?.content ?? ""
@@ -143,7 +143,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 												"p-3 rounded-2xl text-sm leading-relaxed",
 												msg.role === "user"
 													? "bg-fab-blue text-white rounded-tr-sm"
-													: "bg-white border border-fab-blue/10 text-fab-blue/80 rounded-tl-sm shadow-sm"
+													: "bg-card border border-fab-blue/10 text-fab-blue/80 rounded-tl-sm shadow-sm"
 											)}
 										>
 											{text}
@@ -156,7 +156,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									<div className="w-8 h-8 rounded-full bg-fab-gold text-white flex items-center justify-center shrink-0">
 										<Bot size={14} />
 									</div>
-									<div className="p-4 rounded-2xl bg-white border border-fab-blue/10 rounded-tl-sm shadow-sm flex items-center gap-2">
+									<div className="p-4 rounded-2xl bg-card border border-fab-blue/10 rounded-tl-sm shadow-sm flex items-center gap-2">
 										<Loader2 size={16} className="animate-spin text-fab-blue/40" />
 										<span className="text-xs text-fab-blue/40 font-medium">Analisando dados...</span>
 									</div>
@@ -166,8 +166,8 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						</div>
 
 						{/* Input */}
-						<div className="p-4 bg-white border-t border-fab-blue/10">
-							<div className="flex items-center gap-2 bg-slate-50 border border-fab-blue/10 rounded-full p-1 pl-4">
+						<div className="p-4 bg-card border-t border-fab-blue/10">
+							<div className="flex items-center gap-2 bg-muted/50 border border-fab-blue/10 rounded-full p-1 pl-4">
 								<input
 									type="text"
 									value={input}

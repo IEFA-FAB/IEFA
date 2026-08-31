@@ -62,13 +62,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
 			{isOpen && (
 				<div
 					className={`absolute z-50 w-full mt-1 border rounded-lg shadow-xl max-h-80 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100
-          ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}
+          ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-card border-slate-200"}`}
 				>
 					<div className={`p-2 border-b ${isDarkMode ? "border-slate-700" : "border-slate-100"}`}>
 						<input
 							type="text"
 							className={`w-full px-2 py-1 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-500
-                ${isDarkMode ? "bg-slate-900 border-slate-600 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                ${isDarkMode ? "bg-slate-900 border-slate-600 text-white" : "bg-card border-slate-200 text-slate-900"}`}
 							placeholder="Pesquisar..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}

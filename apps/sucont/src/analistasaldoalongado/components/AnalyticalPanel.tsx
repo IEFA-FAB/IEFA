@@ -107,10 +107,10 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 	return (
 		<div className="space-y-8">
 			{/* Filters */}
-			<div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-end gap-4">
-				<div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-					<Filter className="w-4 h-4 text-slate-400" />
-					<span className="text-xs font-medium text-slate-600">Questão RAC:</span>
+			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-end gap-4">
+				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
+					<Filter className="w-4 h-4 text-muted-foreground" />
+					<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
 					<Select value={selectedRac} onValueChange={setSelectedRac}>
 						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
 							<SelectValue />
@@ -129,63 +129,63 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 			{/* Summary Header */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 					<div className="flex items-center gap-4 mb-4">
 						<div className="p-3 bg-fab-100 rounded-xl">
 							<TrendingUp className="w-6 h-6 text-fab-600" />
 						</div>
 						<div>
-							<p className="text-sm font-medium text-slate-500">Saldo Total Analisado</p>
-							<h3 className="text-2xl font-bold text-slate-900">{formatCurrency(totalBalance)}</h3>
+							<p className="text-sm font-medium text-muted-foreground">Saldo Total Analisado</p>
+							<h3 className="text-2xl font-bold text-foreground">{formatCurrency(totalBalance)}</h3>
 						</div>
 					</div>
-					<div className="text-xs text-slate-500">Volume financeiro total sob acompanhamento contábil.</div>
+					<div className="text-xs text-muted-foreground">Volume financeiro total sob acompanhamento contábil.</div>
 				</div>
 
-				<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-amber-100 rounded-xl">
-							<AlertTriangle className="w-6 h-6 text-amber-600" />
+						<div className="p-3 bg-warning/15 rounded-xl">
+							<AlertTriangle className="w-6 h-6 text-warning" />
 						</div>
 						<div>
-							<p className="text-sm font-medium text-slate-500">Total de Inconsistências</p>
-							<h3 className="text-2xl font-bold text-slate-900">{totalOccurrences}</h3>
+							<p className="text-sm font-medium text-muted-foreground">Total de Inconsistências</p>
+							<h3 className="text-2xl font-bold text-foreground">{totalOccurrences}</h3>
 						</div>
 					</div>
-					<div className="text-xs text-slate-500">Número total de ocorrências identificadas nas UGs.</div>
+					<div className="text-xs text-muted-foreground">Número total de ocorrências identificadas nas UGs.</div>
 				</div>
 
-				<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 					<div className="flex items-center gap-4 mb-4">
 						<div className="p-3 bg-indigo-100 rounded-xl">
 							<Target className="w-6 h-6 text-indigo-600" />
 						</div>
 						<div>
-							<p className="text-sm font-medium text-slate-500">Foco de Atuação (Pareto)</p>
-							<h3 className="text-2xl font-bold text-slate-900">{paretoUgs.length} UGs</h3>
+							<p className="text-sm font-medium text-muted-foreground">Foco de Atuação (Pareto)</p>
+							<h3 className="text-2xl font-bold text-foreground">{paretoUgs.length} UGs</h3>
 						</div>
 					</div>
-					<div className="text-xs text-slate-500">Unidades que concentram ~80% do saldo total.</div>
+					<div className="text-xs text-muted-foreground">Unidades que concentram ~80% do saldo total.</div>
 				</div>
 			</div>
 
 			{/* Pareto Analysis */}
-			<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative" id="analise-pareto">
-				<div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+			<div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden relative" id="analise-pareto">
+				<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 					<div className="flex items-center gap-2">
 						<Activity className="w-5 h-5 text-fab-600" />
-						<h3 className="font-bold text-slate-900">Análise de Pareto (Curva ABC)</h3>
+						<h3 className="font-bold text-foreground">Análise de Pareto (Curva ABC)</h3>
 					</div>
 					<button
 						type="button"
 						onClick={() => exportElementToImage("analise-pareto", "mapa-risco-pareto")}
-						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar</span>
 					</button>
 				</div>
-				<div className="p-6 bg-white">
+				<div className="p-6 bg-card">
 					<div className="h-[400px]">
 						<ResponsiveContainer width="100%" height="100%">
 							<ComposedChart data={paretoData.slice(0, 30)}>
@@ -214,8 +214,8 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 							</ComposedChart>
 						</ResponsiveContainer>
 					</div>
-					<div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-xl">
-						<p className="text-sm text-amber-800 leading-relaxed text-center">
+					<div className="mt-4 p-4 bg-warning/10 border border-amber-100 rounded-xl">
+						<p className="text-sm text-warning leading-relaxed text-center">
 							<strong>Estratégia de Intervenção:</strong> A concentração exposta pelo Princípio de Pareto demonstra que atuar em{" "}
 							<strong>{paretoUgs.length} UGs</strong> solucionará aproximadamente 80% do Risco Contábil do Comando da Aeronáutica.
 						</p>
@@ -225,22 +225,22 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 				{/* Mapa de Risco por ODS */}
-				<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative" id="risk-ods">
-					<div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+				<div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col relative" id="risk-ods">
+					<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<BarChart3 className="w-5 h-5 text-fab-600" />
-							<h3 className="font-bold text-slate-900">Mapa de Risco Contábil por ODS</h3>
+							<h3 className="font-bold text-foreground">Mapa de Risco Contábil por ODS</h3>
 						</div>
 						<button
 							type="button"
 							onClick={() => exportElementToImage("risk-ods", "mapa-risco-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
 						</button>
 					</div>
-					<div className="p-6 flex-1 flex flex-col bg-white">
+					<div className="p-6 flex-1 flex flex-col bg-card">
 						<div className="h-[280px] mb-6">
 							<ResponsiveContainer width="100%" height="100%">
 								<PieChart
@@ -280,30 +280,30 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 											boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 										}}
 									/>
-									<Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-slate-700 font-medium">{value}</span>} />
+									<Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-foreground font-medium">{value}</span>} />
 								</PieChart>
 							</ResponsiveContainer>
 						</div>
 
-						<div className="overflow-x-auto mt-auto border border-slate-100 rounded-xl">
+						<div className="overflow-x-auto mt-auto border border-border rounded-xl">
 							<table className="w-full text-sm text-left">
-								<thead className="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-100">
+								<thead className="text-xs text-muted-foreground uppercase bg-muted/50/50 border-b border-border">
 									<tr>
 										<th className="px-4 py-3 font-semibold">ODS</th>
 										<th className="px-4 py-3 font-semibold text-center">Incons.</th>
 										<th className="px-4 py-3 font-semibold text-right">Saldo</th>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-slate-100">
+								<tbody className="divide-y divide-border">
 									{odsData.map((item) => (
 										<tr
 											key={item.ods}
-											className="hover:bg-slate-50 transition-colors cursor-pointer"
+											className="hover:bg-muted/50 transition-colors cursor-pointer"
 											onClick={() => setSelectedDetailLevel({ type: "ods", name: item.ods })}
 										>
 											<td className="px-4 py-3 font-bold text-fab-700">{item.ods}</td>
-											<td className="px-4 py-3 text-center text-slate-600">{item.count}</td>
-											<td className="px-4 py-3 text-right font-medium text-slate-900">{formatCurrency(item.balance)}</td>
+											<td className="px-4 py-3 text-center text-muted-foreground">{item.count}</td>
+											<td className="px-4 py-3 text-right font-medium text-foreground">{formatCurrency(item.balance)}</td>
 										</tr>
 									))}
 								</tbody>
@@ -313,22 +313,22 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 				</div>
 
 				{/* Concentração por Órgão Superior */}
-				<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative" id="risk-orgao">
-					<div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+				<div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col relative" id="risk-orgao">
+					<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<PieChartIcon className="w-5 h-5 text-fab-600" />
-							<h3 className="font-bold text-slate-900">Concentração por Órgão Superior</h3>
+							<h3 className="font-bold text-foreground">Concentração por Órgão Superior</h3>
 						</div>
 						<button
 							type="button"
 							onClick={() => exportElementToImage("risk-orgao", "mapa-risco-orgao")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
 						</button>
 					</div>
-					<div className="p-6 flex-1 flex flex-col bg-white">
+					<div className="p-6 flex-1 flex flex-col bg-card">
 						<div className="h-[430px]">
 							<ResponsiveContainer width="100%" height="100%">
 								<BarChart
@@ -369,8 +369,8 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 								</BarChart>
 							</ResponsiveContainer>
 						</div>
-						<div className="mt-auto p-4 bg-slate-50 border border-slate-100 rounded-xl">
-							<p className="text-xs text-slate-600 leading-relaxed">
+						<div className="mt-auto p-4 bg-muted/50 border border-border rounded-xl">
+							<p className="text-xs text-muted-foreground leading-relaxed">
 								Distribuição do risco financeiro por Órgão Superior. Permite identificar quais estruturas administrativas demandam maior suporte técnico da
 								SUCONT. Clique em uma barra para detalhar.
 							</p>
@@ -382,45 +382,45 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 			{/* Modal - Detalhamento das UGs */}
 			{selectedDetailLevel && (
 				<div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-					<div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-						<div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-							<h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
+							<h3 className="text-lg font-bold text-foreground flex items-center gap-2">
 								<Activity className="w-5 h-5 text-fab-600" />
 								Detalhamento: {selectedDetailLevel.name}
 							</h3>
 							<button
 								type="button"
 								onClick={() => setSelectedDetailLevel(null)}
-								className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
+								className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
 							>
 								<X className="w-5 h-5" />
 							</button>
 						</div>
 						<div className="p-6 overflow-y-auto">
-							<p className="text-sm text-slate-600 mb-4">
+							<p className="text-sm text-muted-foreground mb-4">
 								Listagem estrutural de UGs vinculadas à {selectedDetailLevel.name} classificadas por materialidade do risco.
 							</p>
 							<div className="space-y-3">
 								{detailedUgs.map((ug) => (
 									<div
 										key={ug.ug}
-										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 gap-2 hover:bg-slate-100 transition-colors"
+										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/50 gap-2 hover:bg-muted transition-colors"
 									>
 										<div>
-											<p className="font-bold text-slate-800">
+											<p className="font-bold text-foreground">
 												{ug.ug} - {ug.nome_ug || "N/A"}
 											</p>
-											<p className="text-xs text-slate-500">
+											<p className="text-xs text-muted-foreground">
 												{getUgHierarchy(ug.ug).orgaoSuperior} • {ug.quantidade_ocorrencias} inconsistência(s)
 											</p>
 										</div>
-										<span className="font-bold text-slate-900 text-right bg-white px-3 py-1 rounded-lg border border-slate-200">
+										<span className="font-bold text-foreground text-right bg-card px-3 py-1 rounded-lg border border-border">
 											{formatCurrency(ug.saldo_total)}
 										</span>
 									</div>
 								))}
 								{detailedUgs.length === 0 && (
-									<p className="text-sm text-slate-500 italic text-center py-4 bg-slate-50 rounded-xl">
+									<p className="text-sm text-muted-foreground italic text-center py-4 bg-muted/50 rounded-xl">
 										Nenhuma UG encontrada com os recortes contábeis atuais.
 									</p>
 								)}

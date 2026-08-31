@@ -469,7 +469,7 @@ function AuditorPage() {
 										type="button"
 										onClick={() => setSelectedHierarchyLevel(level)}
 										className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1
-                      ${selectedHierarchyLevel === level ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-white text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                      ${selectedHierarchyLevel === level ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
                     `}
 									>
 										{level === "ODS" && <Layers className="w-3 h-3" />}
@@ -526,7 +526,7 @@ function AuditorPage() {
 						<button
 							type="button"
 							onClick={() => setIsDarkMode(!isDarkMode)}
-							className={`p-2 rounded-full transition-colors border ${isDarkMode ? "hover:bg-slate-800 text-slate-400 border-transparent" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"}`}
+							className={`p-2 rounded-full transition-colors border ${isDarkMode ? "hover:bg-slate-800 text-slate-400 border-transparent" : "bg-card border-slate-200 text-slate-600 hover:bg-slate-100"}`}
 						>
 							{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
 						</button>
@@ -542,7 +542,7 @@ function AuditorPage() {
 							persistOutcome.status === "complete"
 								? isDarkMode
 									? "border-slate-700 bg-slate-800/60 text-slate-300"
-									: "border-slate-200 bg-white text-slate-700"
+									: "border-slate-200 bg-card text-slate-700"
 								: persistOutcome.status === "partial"
 									? isDarkMode
 										? "border-red-500/40 bg-red-500/10 text-red-200"
@@ -634,7 +634,7 @@ function AuditorPage() {
 				{allData.length === 0 && !loadingStored && !storedError && (
 					<div
 						className={`flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-lg mt-8
-             ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-300 bg-white"}
+             ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-300 bg-card"}
           `}
 					>
 						<FileSpreadsheet className={`w-16 h-16 mb-4 ${isDarkMode ? "text-slate-600" : "text-slate-400"}`} />
@@ -669,7 +669,7 @@ function AuditorPage() {
 						>
 							<div
 								className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-2 rounded-lg border shadow-sm
-                ${isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-white border-slate-200"}
+                ${isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-card border-slate-200"}
               `}
 							>
 								{/* Group Filters */}
@@ -745,7 +745,7 @@ function AuditorPage() {
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
 										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border transition-all
-                      ${hideZeros ? "bg-amber-500/10 text-amber-500 border-amber-500/50" : isDarkMode ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-white text-slate-500 border-slate-200"}
+                      ${hideZeros ? "bg-amber-500/10 text-amber-500 border-amber-500/50" : isDarkMode ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-card text-slate-500 border-slate-200"}
                     `}
 									>
 										<AlertTriangle className="w-4 h-4" />
@@ -824,7 +824,7 @@ function AuditorPage() {
 
 							{/* ICC Card */}
 							<div
-								className={`${isDarkMode ? "bg-[#0f172a]/60 border-slate-800/50 hover:bg-[#0f172a]/80" : "bg-white border-slate-200 hover:bg-slate-50"} backdrop-blur-md rounded-2xl shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
+								className={`${isDarkMode ? "bg-[#0f172a]/60 border-slate-800/50 hover:bg-[#0f172a]/80" : "bg-card border-slate-200 hover:bg-slate-50"} backdrop-blur-md rounded-2xl shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
 							>
 								<div className="flex justify-between items-start relative z-10">
 									<div className="flex-1">

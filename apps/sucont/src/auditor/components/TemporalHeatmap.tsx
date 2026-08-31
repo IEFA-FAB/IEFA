@@ -110,7 +110,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 
 	return (
 		<div
-			className={`w-full h-full flex flex-col overflow-hidden text-xs rounded-2xl border shadow-xl ${isDarkMode ? "bg-slate-900/40 backdrop-blur-sm border-slate-800" : "bg-white border-slate-200"}`}
+			className={`w-full h-full flex flex-col overflow-hidden text-xs rounded-2xl border shadow-xl ${isDarkMode ? "bg-slate-900/40 backdrop-blur-sm border-slate-800" : "bg-card border-slate-200"}`}
 		>
 			<div
 				className={`flex items-center justify-between gap-2 p-3 border-b ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50"}`}
@@ -176,7 +176,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 					<span className="text-lg">Sem dados para exibir</span>
 				</div>
 			) : (
-				<div className={`flex-1 overflow-auto custom-scrollbar relative ${isDarkMode ? "bg-transparent" : "bg-white"}`}>
+				<div className={`flex-1 overflow-auto custom-scrollbar relative ${isDarkMode ? "bg-transparent" : "bg-card"}`}>
 					<div className="w-full min-w-max p-3">
 						<div
 							className={`grid gap-1 mb-2 sticky top-0 z-30 pb-2 border-b items-end ${isDarkMode ? "border-slate-800 bg-slate-900/90 backdrop-blur-md" : "border-slate-200 bg-white/90 backdrop-blur-md"}`}

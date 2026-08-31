@@ -131,10 +131,10 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 	return (
 		<div className="space-y-6">
 			{/* Filters */}
-			<div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-end gap-4">
-				<div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-					<Filter className="w-4 h-4 text-slate-400" />
-					<span className="text-xs font-medium text-slate-600">Questão RAC:</span>
+			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-end gap-4">
+				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
+					<Filter className="w-4 h-4 text-muted-foreground" />
+					<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
 					<Select value={selectedRac} onValueChange={setSelectedRac}>
 						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
 							<SelectValue />
@@ -152,45 +152,47 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			</div>
 
 			{/* Visão Estratégica */}
-			<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+			<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 				<div className="flex items-center gap-3 mb-6">
 					<div className="p-2 bg-fab-50 text-fab-600 rounded-lg">
 						<TrendingUp className="w-5 h-5" />
 					</div>
 					<div>
-						<h2 className="text-lg font-bold text-slate-800">Visão Estratégica</h2>
-						<p className="text-sm text-slate-500">Apoio à Alta Gestão - Riscos e Tendências</p>
+						<h2 className="text-lg font-bold text-foreground">Visão Estratégica</h2>
+						<p className="text-sm text-muted-foreground">Apoio à Alta Gestão - Riscos e Tendências</p>
 					</div>
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-					<div className="p-5 bg-slate-50 rounded-xl border border-slate-100">
+					<div className="p-5 bg-muted/50 rounded-xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
-							<AlertTriangle className="w-4 h-4 text-amber-500" />
-							<h3 className="text-sm font-semibold text-slate-700">Concentração de Risco</h3>
+							<AlertTriangle className="w-4 h-4 text-warning" />
+							<h3 className="text-sm font-semibold text-foreground">Concentração de Risco</h3>
 						</div>
-						<p className="text-3xl font-bold text-slate-900">{concentracaoRisco}%</p>
-						<p className="text-xs text-slate-500 mt-1">do saldo total está concentrado nas Top 5 UGs</p>
+						<p className="text-3xl font-bold text-foreground">{concentracaoRisco}%</p>
+						<p className="text-xs text-muted-foreground mt-1">do saldo total está concentrado nas Top 5 UGs</p>
 					</div>
 
-					<div className="p-5 bg-slate-50 rounded-xl border border-slate-100">
+					<div className="p-5 bg-muted/50 rounded-xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
 							<Activity className="w-4 h-4 text-fab-500" />
-							<h3 className="text-sm font-semibold text-slate-700">Impacto Financeiro Global</h3>
+							<h3 className="text-sm font-semibold text-foreground">Impacto Financeiro Global</h3>
 						</div>
-						<p className="text-3xl font-bold text-slate-900">{formatCurrency(filteredSaldoTotal)}</p>
-						<p className="text-xs text-slate-500 mt-1">em saldos alongados (&gt;3 meses) {selectedRac !== "Geral" ? `na ${selectedRac}` : "no COMAER"}</p>
+						<p className="text-3xl font-bold text-foreground">{formatCurrency(filteredSaldoTotal)}</p>
+						<p className="text-xs text-muted-foreground mt-1">
+							em saldos alongados (&gt;3 meses) {selectedRac !== "Geral" ? `na ${selectedRac}` : "no COMAER"}
+						</p>
 					</div>
 
-					<div className="p-5 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+					<div className="p-5 bg-muted/50 rounded-xl border border-border flex flex-col justify-center">
 						<div className="flex items-center gap-2 mb-2">
-							<PieChartIcon className="w-4 h-4 text-emerald-500 shrink-0" />
-							<h3 className="text-sm font-semibold text-slate-700">Conta Mais Crítica</h3>
+							<PieChartIcon className="w-4 h-4 text-success shrink-0" />
+							<h3 className="text-sm font-semibold text-foreground">Conta Mais Crítica</h3>
 						</div>
-						<p className="text-xl font-bold text-slate-900 leading-tight" title={contaMaisCritica}>
+						<p className="text-xl font-bold text-foreground leading-tight" title={contaMaisCritica}>
 							{contaMaisCritica}
 						</p>
-						<p className="text-xs text-slate-500 mt-2">maior volume de reincidência {selectedRac !== "Geral" ? "na questão" : "na base"}</p>
+						<p className="text-xs text-muted-foreground mt-2">maior volume de reincidência {selectedRac !== "Geral" ? "na questão" : "na base"}</p>
 					</div>
 				</div>
 			</div>
@@ -198,22 +200,22 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			{/* Visão Tática */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{/* Top 10 UGs por Saldo */}
-				<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative" id="managerial-top10">
+				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm relative" id="managerial-top10">
 					<div className="flex justify-between items-start mb-6">
 						<div>
-							<h3 className="text-md font-bold text-slate-800 mb-1">Top 10 UGs por Volume Financeiro</h3>
-							<p className="text-xs text-slate-500">Unidades com maior saldo retido</p>
+							<h3 className="text-md font-bold text-foreground mb-1">Top 10 UGs por Volume Financeiro</h3>
+							<p className="text-xs text-muted-foreground">Unidades com maior saldo retido</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => exportElementToImage("managerial-top10", "estrategico-top10")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
 						</button>
 					</div>
-					<div className="h-96 bg-white">
+					<div className="h-96 bg-card">
 						<ResponsiveContainer width="100%" height="100%">
 							<BarChart data={topUgsBySaldo} layout="vertical" margin={{ top: 5, right: 30, left: 150, bottom: 5 }}>
 								<CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -235,22 +237,22 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				</div>
 
 				{/* Top 5 Contas por Ocorrência */}
-				<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative" id="managerial-contas">
+				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex flex-col relative" id="managerial-contas">
 					<div className="flex justify-between items-start mb-6">
 						<div>
-							<h3 className="text-md font-bold text-slate-800 mb-1">Contas Contábeis Mais Recorrentes</h3>
-							<p className="text-xs text-slate-500">Contas com maior número de inconsistências</p>
+							<h3 className="text-md font-bold text-foreground mb-1">Contas Contábeis Mais Recorrentes</h3>
+							<p className="text-xs text-muted-foreground">Contas com maior número de inconsistências</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => exportElementToImage("managerial-contas", "estrategico-contas")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
 						</button>
 					</div>
-					<div className="flex-1 flex flex-col min-h-[300px] bg-white">
+					<div className="flex-1 flex flex-col min-h-[300px] bg-card">
 						<ResponsiveContainer width="100%" height={200}>
 							<PieChart>
 								<Pie data={contasRecorrentes} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
@@ -273,7 +275,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							{contasRecorrentes.map((entry, index) => (
 								<div key={entry.name} className="flex items-start gap-2 text-xs">
 									<div className="w-3 h-3 rounded-sm shrink-0 mt-0.5" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-									<span className="text-slate-600 font-medium leading-tight">{getDynamicAccountName(entry.name)}</span>
+									<span className="text-muted-foreground font-medium leading-tight">{getDynamicAccountName(entry.name)}</span>
 								</div>
 							))}
 						</div>
@@ -281,25 +283,25 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				</div>
 
 				{/* Distribuição por ODS */}
-				<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative" id="managerial-ods">
+				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm relative" id="managerial-ods">
 					<div className="flex justify-between items-start mb-6">
 						<div>
 							<div className="flex items-center gap-2 mb-1">
 								<Shield className="w-4 h-4 text-fab-600" />
-								<h3 className="text-md font-bold text-slate-800">Distribuição por ODS</h3>
+								<h3 className="text-md font-bold text-foreground">Distribuição por ODS</h3>
 							</div>
-							<p className="text-xs text-slate-500">Saldo total por Organização de Direção Setorial</p>
+							<p className="text-xs text-muted-foreground">Saldo total por Organização de Direção Setorial</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => exportElementToImage("managerial-ods", "estrategico-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
 						</button>
 					</div>
-					<div className="h-64 bg-white">
+					<div className="h-64 bg-card">
 						<ResponsiveContainer width="100%" height="100%">
 							<BarChart
 								data={odsStats}
@@ -338,42 +340,42 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			</div>
 
 			{/* Saída Gerencial por Conferente */}
-			<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+			<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 				<div className="flex items-center gap-3 mb-6">
 					<div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
 						<Users className="w-5 h-5" />
 					</div>
 					<div>
-						<h2 className="text-lg font-bold text-slate-800">Panorama por Conferente</h2>
-						<p className="text-sm text-slate-500">Distribuição de responsabilidades e inconsistências</p>
+						<h2 className="text-lg font-bold text-foreground">Panorama por Conferente</h2>
+						<p className="text-sm text-muted-foreground">Distribuição de responsabilidades e inconsistências</p>
 					</div>
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 					{conferenteStats.map(([nome, stats]) => (
-						<div key={nome} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex flex-col">
+						<div key={nome} className="p-4 rounded-xl border border-border bg-muted/50 flex flex-col">
 							<div className="flex items-center justify-between mb-3">
-								<h4 className="font-bold text-slate-800 text-sm">{nome}</h4>
+								<h4 className="font-bold text-foreground text-sm">{nome}</h4>
 								<span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase">{stats.ugs.length} UGs</span>
 							</div>
 							<div className="space-y-2 mb-4">
 								<div className="flex justify-between text-xs">
-									<span className="text-slate-500">Saldo Total:</span>
-									<span className="font-bold text-slate-900">{formatCurrency(stats.saldo)}</span>
+									<span className="text-muted-foreground">Saldo Total:</span>
+									<span className="font-bold text-foreground">{formatCurrency(stats.saldo)}</span>
 								</div>
 								<div className="flex justify-between text-xs">
-									<span className="text-slate-500">Ocorrências:</span>
-									<span className="font-bold text-slate-900">{stats.ocorrencias}</span>
+									<span className="text-muted-foreground">Ocorrências:</span>
+									<span className="font-bold text-foreground">{stats.ocorrencias}</span>
 								</div>
 							</div>
-							<div className="mt-auto pt-3 border-t border-slate-200">
-								<p className="text-[10px] font-bold text-slate-400 uppercase mb-2">UGs com Inconsistência:</p>
+							<div className="mt-auto pt-3 border-t border-border">
+								<p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">UGs com Inconsistência:</p>
 								<div className="flex flex-wrap gap-1">
 									{stats.ugs.map((ug) => {
 										const ugObj = filteredData.find((item) => item.ug === ug)
 										const displayName = ugObj ? `${ug} - ${ugObj.nome_ug || "-"}` : ug
 										return (
-											<span key={ug} className="px-1.5 py-0.5 bg-white border border-slate-200 text-slate-600 text-[10px] rounded font-mono">
+											<span key={ug} className="px-1.5 py-0.5 bg-card border border-border text-muted-foreground text-[10px] rounded font-mono">
 												{displayName}
 											</span>
 										)
@@ -416,38 +418,37 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			{/* Modal - Detalhamento das UGs por ODS */}
 			{selectedOdsDetails && (
 				<div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-					<div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-						<div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-							<h3 className="text-lg font-bold text-slate-800">Detalhamento: {selectedOdsDetails}</h3>
+					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
+							<h3 className="text-lg font-bold text-foreground">Detalhamento: {selectedOdsDetails}</h3>
 							<button
 								type="button"
 								onClick={() => setSelectedOdsDetails(null)}
-								className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
+								className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
 							>
 								<X className="w-5 h-5" />
 							</button>
 						</div>
 						<div className="p-6 overflow-y-auto">
-							<p className="text-sm text-slate-600 mb-4">UGs vinculadas à {selectedOdsDetails} que estão contribuindo para o saldo de inconsistências.</p>
+							<p className="text-sm text-muted-foreground mb-4">
+								UGs vinculadas à {selectedOdsDetails} que estão contribuindo para o saldo de inconsistências.
+							</p>
 							<div className="space-y-3">
 								{ugsInSelectedOds.map((ug) => (
-									<div
-										key={ug.ug}
-										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 gap-2"
-									>
+									<div key={ug.ug} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/50 gap-2">
 										<div>
-											<p className="font-bold text-slate-800">
+											<p className="font-bold text-foreground">
 												{ug.ug} - {ug.nome_ug || "N/A"}
 											</p>
-											<p className="text-xs text-slate-500">
+											<p className="text-xs text-muted-foreground">
 												{getUgHierarchy(ug.ug).orgaoSuperior} • {ug.quantidade_ocorrencias} ocorrência(s)
 											</p>
 										</div>
-										<span className="font-bold text-slate-900 text-right">{formatCurrency(ug.saldo_total)}</span>
+										<span className="font-bold text-foreground text-right">{formatCurrency(ug.saldo_total)}</span>
 									</div>
 								))}
 								{ugsInSelectedOds.length === 0 && (
-									<p className="text-sm text-slate-500 italic text-center py-4">Nenhuma UG encontrada para os filtros atuais.</p>
+									<p className="text-sm text-muted-foreground italic text-center py-4">Nenhuma UG encontrada para os filtros atuais.</p>
 								)}
 							</div>
 						</div>

@@ -27,20 +27,20 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 	// Falha primeiro: sem rodada por erro não é o mesmo que sem rodada.
 	if (error) {
 		return (
-			<section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+			<section className="bg-card border border-border rounded-xl overflow-hidden">
 				<Header />
 				<div className="px-6 py-5 flex items-start gap-3">
-					<AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+					<AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
 					<div className="min-w-0 flex-1">
-						<p className="text-sm font-semibold text-slate-800">Não foi possível ler as rodadas gravadas.</p>
-						<p className="text-[11px] text-slate-500 mt-0.5 break-words">{error}</p>
-						<p className="text-[11px] text-slate-500 mt-1">O histórico continua no banco — o que falhou foi a consulta.</p>
+						<p className="text-sm font-semibold text-foreground">Não foi possível ler as rodadas gravadas.</p>
+						<p className="text-[11px] text-muted-foreground mt-0.5 break-words">{error}</p>
+						<p className="text-[11px] text-muted-foreground mt-1">O histórico continua no banco — o que falhou foi a consulta.</p>
 					</div>
 					{onRetry && (
 						<button
 							type="button"
 							onClick={onRetry}
-							className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-cyan hover:text-tech-cyan"
+							className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg border border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-cyan hover:text-tech-cyan"
 						>
 							<RotateCw className="w-3.5 h-3.5" />
 							Tentar de novo
@@ -53,9 +53,9 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 
 	if (isLoading) {
 		return (
-			<section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+			<section className="bg-card border border-border rounded-xl overflow-hidden">
 				<Header />
-				<div className="px-6 py-5 flex items-center gap-2 text-slate-400">
+				<div className="px-6 py-5 flex items-center gap-2 text-muted-foreground">
 					<Loader2 className="w-3.5 h-3.5 animate-spin" />
 					<span className="text-[11px] font-bold uppercase tracking-wider">Carregando rodadas…</span>
 				</div>
@@ -67,14 +67,14 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 	if (runs.length === 0) return null
 
 	return (
-		<section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+		<section className="bg-card border border-border rounded-xl overflow-hidden">
 			<Header />
-			<ul className="divide-y divide-slate-100">
+			<ul className="divide-y divide-border">
 				{runs.map((run) => (
 					<li key={run.id} className="px-6 py-3 flex items-center justify-between gap-4">
 						<div className="min-w-0">
-							<p className="text-sm font-semibold text-slate-800">{run.period || "competência não identificada"}</p>
-							<p className="text-[11px] text-slate-500">
+							<p className="text-sm font-semibold text-foreground">{run.period || "competência não identificada"}</p>
+							<p className="text-[11px] text-muted-foreground">
 								{run.records_count ?? 0} UG(s) · {new Date(run.created_at).toLocaleString("pt-BR")}
 							</p>
 						</div>
@@ -82,7 +82,7 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 							type="button"
 							onClick={() => onOpen(run.id)}
 							disabled={loadingRunId !== null}
-							className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-cyan hover:text-tech-cyan disabled:opacity-40"
+							className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg border border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-cyan hover:text-tech-cyan disabled:opacity-40"
 						>
 							{loadingRunId === run.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5" />}
 							{activeRunId === run.id ? "Rodada atual" : "Abrir"}
@@ -96,9 +96,9 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 
 function Header() {
 	return (
-		<header className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
-			<Clock className="w-4 h-4 text-slate-400" />
-			<h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Rodadas gravadas</h3>
+		<header className="px-6 py-4 border-b border-border flex items-center gap-2">
+			<Clock className="w-4 h-4 text-muted-foreground" />
+			<h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Rodadas gravadas</h3>
 		</header>
 	)
 }

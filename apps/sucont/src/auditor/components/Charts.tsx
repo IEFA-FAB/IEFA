@@ -506,7 +506,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 			<div className="flex items-center justify-center gap-4 mb-4">
 				<div
 					className={`flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
-          ${isDarkMode ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200"}
+          ${isDarkMode ? "bg-slate-900/50 border-slate-800" : "bg-card border-slate-200"}
         `}
 				>
 					<div className="flex flex-col text-center">
@@ -527,7 +527,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 									type="button"
 									onClick={() => setTreeGroupBy(gb)}
 									className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all
-                    ${treeGroupBy === gb ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-white text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                    ${treeGroupBy === gb ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
                   `}
 								>
 									{gb === "ODS" && <Layers className="w-3 h-3" />}
@@ -553,7 +553,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 							type="button"
 							onClick={() => setViewMode(mode)}
 							className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all
-                ${viewMode === mode ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-white text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                ${viewMode === mode ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
               `}
 						>
 							<Icon className="w-3 h-3" />
@@ -894,7 +894,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 								type="button"
 								onClick={() => setViewMode(mode)}
 								className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all
-                  ${viewMode === mode ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-white text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                  ${viewMode === mode ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
                 `}
 							>
 								{label}

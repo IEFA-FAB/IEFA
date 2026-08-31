@@ -42,37 +42,39 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 	return (
 		<div className="min-h-screen bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan flex">
 			{/* ── Left Sidebar (desktop) ───────────────────────── */}
-			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-white border-r border-slate-100 z-20">
+			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-card border-r border-border z-20">
 				<HubBrand />
 
 				<CategoryNav activeCategory={category} onSelect={setCategory} />
 
 				<div className="mt-auto flex flex-col gap-3">
 					<UserBlock />
-					<div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+					<div className="p-4 bg-muted/50 rounded-2xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
 							<ShieldCheck className="w-3 h-3 text-tech-blue" />
-							<span className="text-[10px] font-bold text-slate-600 uppercase">Uso Institucional</span>
+							<span className="text-[10px] font-bold text-muted-foreground uppercase">Uso Institucional</span>
 						</div>
-						<p className="text-[11px] text-slate-500 leading-relaxed">Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).</p>
+						<p className="text-[11px] text-muted-foreground leading-relaxed">
+							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).
+						</p>
 					</div>
 				</div>
 			</aside>
 
 			{/* ── Mobile top bar + drawer ───────────────────────── */}
-			<div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-100">
+			<div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-card border-b border-border">
 				<div className="flex items-center gap-2 min-w-0">
 					<div className="w-8 h-8 bg-tech-blue rounded-lg flex items-center justify-center text-white shrink-0">
 						<Monitor className="w-4 h-4" />
 					</div>
-					<span className="text-xs font-bold text-slate-800 truncate">SUCONT-4 HUB</span>
+					<span className="text-xs font-bold text-foreground truncate">SUCONT-4 HUB</span>
 				</div>
 				<button
 					type="button"
 					onClick={() => setMenuPath(pathname)}
 					aria-label="Abrir menu"
 					aria-expanded={menuOpen}
-					className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+					className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
 				>
 					<Menu className="w-5 h-5" />
 				</button>
@@ -134,20 +136,20 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 				<main className="px-4 md:px-8 pb-24 max-w-6xl mx-auto">{children}</main>
 
 				{/* Footer */}
-				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
+				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
 					<div className="flex gap-8">
 						<SystemStatus />
 						<div className="flex flex-col">
-							<span className="text-[10px] font-mono uppercase text-slate-400">Versão Hub</span>
-							<span className="text-xs font-mono text-slate-500">v4.0.0-START</span>
+							<span className="text-[10px] font-mono uppercase text-muted-foreground">Versão Hub</span>
+							<span className="text-xs font-mono text-muted-foreground">v4.0.0-START</span>
 						</div>
 					</div>
 					<div className="flex flex-col items-center gap-2 md:items-end">
 						<LegalFooterLinks
 							className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
-							linkClassName="text-[10px] font-mono uppercase text-slate-400 transition-colors hover:text-slate-600"
+							linkClassName="text-[10px] font-mono uppercase text-muted-foreground transition-colors hover:text-foreground"
 						/>
-						<div className="text-[10px] font-mono text-slate-400 text-center md:text-right">
+						<div className="text-[10px] font-mono text-muted-foreground text-center md:text-right">
 							© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
 							<br />
 							ACESSO RESTRITO
@@ -157,8 +159,8 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			</div>
 
 			{/* ── Right Sidebar Rail (desktop) ──────────────────── */}
-			<aside className="fixed right-0 top-0 h-screen w-16 bg-white border-l border-slate-200 z-30 hidden lg:flex flex-col items-center py-6 gap-4 overflow-y-auto">
-				<div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 mb-4 shrink-0">
+			<aside className="fixed right-0 top-0 h-screen w-16 bg-card border-l border-border z-30 hidden lg:flex flex-col items-center py-6 gap-4 overflow-y-auto">
+				<div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center text-muted-foreground mb-4 shrink-0">
 					<LayoutGrid className="w-4 h-4" />
 				</div>
 
@@ -168,7 +170,7 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 					))}
 				</div>
 
-				<div className="w-8 h-[1px] bg-slate-100 my-1 shrink-0" />
+				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
 
 				<div className="flex flex-col gap-3 shrink-0">
 					{iaTools.map((tool, i) => (
@@ -176,7 +178,7 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 					))}
 				</div>
 
-				<div className="w-8 h-[1px] bg-slate-100 my-1 shrink-0" />
+				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
 
 				<div className="flex flex-col gap-3 shrink-0">
 					{reportTools.map((tool, i) => (
@@ -197,8 +199,8 @@ function HubBrand() {
 				<Monitor className="w-6 h-6" />
 			</div>
 			<div className="flex flex-col">
-				<h2 className="text-sm font-bold text-slate-800 leading-tight">Centro de Monitoramento</h2>
-				<span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">DIREF • COMAER</span>
+				<h2 className="text-sm font-bold text-foreground leading-tight">Centro de Monitoramento</h2>
+				<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">DIREF • COMAER</span>
 			</div>
 		</div>
 	)
@@ -217,7 +219,7 @@ function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onS
 						onClick={() => onSelect(cat.id)}
 						aria-current={isActive ? "page" : undefined}
 						className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-							isActive ? "bg-tech-blue text-white shadow-md" : "text-slate-500 hover:bg-slate-50"
+							isActive ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted/50"
 						}`}
 					>
 						<Icon className="w-4 h-4" />
@@ -251,7 +253,7 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 				aria-modal="true"
 				aria-label="Menu do hub"
 				tabIndex={-1}
-				className="relative w-72 max-w-[85vw] h-full bg-white p-6 flex flex-col overflow-y-auto shadow-xl outline-none"
+				className="relative w-72 max-w-[85vw] h-full bg-card p-6 flex flex-col overflow-y-auto shadow-xl outline-none"
 			>
 				<div className="flex items-start justify-between gap-2">
 					<HubBrand />
@@ -259,7 +261,7 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 						type="button"
 						onClick={onClose}
 						aria-label="Fechar menu"
-						className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+						className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
 					>
 						<X className="w-4 h-4" />
 					</button>
@@ -313,8 +315,8 @@ function HubSearchBar() {
 	}
 
 	return (
-		<div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-			<Search className="w-4 h-4 text-slate-400 ml-2 shrink-0" aria-hidden="true" />
+		<div className="flex items-center gap-3 bg-card p-3 rounded-2xl border border-border shadow-sm">
+			<Search className="w-4 h-4 text-muted-foreground ml-2 shrink-0" aria-hidden="true" />
 			<label htmlFor={inputId} className="sr-only">
 				Buscar no hub
 			</label>
@@ -322,7 +324,7 @@ function HubSearchBar() {
 				id={inputId}
 				type="search"
 				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-				className="bg-transparent border-none outline-none text-sm text-slate-600 w-full"
+				className="bg-transparent border-none outline-none text-sm text-muted-foreground w-full"
 				value={draft}
 				onChange={(e) => onChange(e.target.value)}
 			/>
@@ -331,7 +333,7 @@ function HubSearchBar() {
 					type="button"
 					onClick={clear}
 					aria-label="Limpar busca"
-					className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+					className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
 				>
 					<X className="w-3.5 h-3.5" />
 				</button>
@@ -360,12 +362,12 @@ function SystemStatus() {
 
 	const state = isPending ? "checking" : isError || !data ? "down" : "up"
 	const label = state === "checking" ? "VERIFICANDO" : state === "up" ? "OPERACIONAL" : "INSTÁVEL"
-	const tone = state === "checking" ? "text-slate-400" : state === "up" ? "text-emerald-600" : "text-red-600"
-	const dot = state === "checking" ? "bg-slate-300" : state === "up" ? "bg-emerald-500" : "bg-red-500"
+	const tone = state === "checking" ? "text-muted-foreground" : state === "up" ? "text-success" : "text-destructive"
+	const dot = state === "checking" ? "bg-slate-300" : state === "up" ? "bg-success" : "bg-destructive"
 
 	return (
 		<div className="flex flex-col">
-			<span className="text-[10px] font-mono uppercase text-slate-400">Status do Sistema</span>
+			<span className="text-[10px] font-mono uppercase text-muted-foreground">Status do Sistema</span>
 			<span className={`text-xs font-mono flex items-center gap-2 ${tone}`} aria-live="polite">
 				<span className={`w-1.5 h-1.5 rounded-full ${dot} ${state === "checking" ? "animate-pulse" : ""}`} />
 				{label}
@@ -387,10 +389,10 @@ function UserBlock() {
 	}
 
 	return (
-		<div className="flex items-center justify-between gap-2 p-3 bg-white rounded-2xl border border-slate-100">
+		<div className="flex items-center justify-between gap-2 p-3 bg-card rounded-2xl border border-border">
 			<div className="flex flex-col min-w-0">
-				<span className="text-[10px] font-bold text-slate-600 uppercase">Sessão</span>
-				<span className="text-[10px] text-slate-400 truncate" title={email}>
+				<span className="text-[10px] font-bold text-muted-foreground uppercase">Sessão</span>
+				<span className="text-[10px] text-muted-foreground truncate" title={email}>
 					{email || "—"}
 				</span>
 			</div>
@@ -398,7 +400,7 @@ function UserBlock() {
 				type="button"
 				onClick={logout}
 				aria-label="Sair da conta"
-				className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+				className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
 			>
 				<LogOut className="w-4 h-4" />
 			</button>

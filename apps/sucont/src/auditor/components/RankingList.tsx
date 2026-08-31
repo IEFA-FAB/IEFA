@@ -185,7 +185,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 								</span>
 								<div
 									className={`absolute bottom-full left-0 mb-2 w-64 p-2 rounded shadow-xl text-[10px] opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20
-                  ${isDarkMode ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-white text-slate-700 border border-slate-200"}`}
+                  ${isDarkMode ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-card text-slate-700 border border-slate-200"}`}
 								>
 									{item.tooltipText}
 								</div>
@@ -203,7 +203,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
                   ${
 										isDarkMode
 											? "bg-slate-800/50 text-slate-400 hover:text-white border-slate-700"
-											: "bg-white text-slate-500 hover:text-slate-700 border-slate-200"
+											: "bg-card text-slate-500 hover:text-slate-700 border-slate-200"
 									}`}
 							>
 								<MessageSquareText className="w-3.5 h-3.5" />
@@ -277,7 +277,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			<div className="flex flex-col lg:flex-row h-full w-full gap-4 overflow-hidden">
 				<div
 					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
-           ${isDarkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-white"}`}
+           ${isDarkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-card"}`}
 				>
 					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-red-500/20">
 						<div className="flex items-center gap-2">
@@ -297,7 +297,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 
 				<div
 					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
-           ${isDarkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-white"}`}
+           ${isDarkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-card"}`}
 				>
 					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-emerald-500/20">
 						<div className="flex items-center gap-2">

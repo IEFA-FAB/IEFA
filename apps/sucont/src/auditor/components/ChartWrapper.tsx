@@ -128,7 +128,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 						<Info className="w-4 h-4 text-slate-400 cursor-help hover:text-blue-500 transition-colors" />
 						<div
 							className={`absolute top-full right-0 mt-2 w-72 p-3 rounded-lg border shadow-2xl z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200
-              ${isDarkMode ? "bg-slate-800 border-slate-700 text-slate-300" : "bg-white border-slate-200 text-slate-700"}`}
+              ${isDarkMode ? "bg-slate-800 border-slate-700 text-slate-300" : "bg-card border-slate-200 text-slate-700"}`}
 						>
 							<p className="text-[11px] font-bold mb-2 text-blue-500 uppercase tracking-wider">Matriz de Risco</p>
 							<p className="text-[10px] leading-relaxed mb-2">
@@ -185,7 +185,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 
 			<div
 				className={`rounded-lg border shadow-sm flex flex-col overflow-visible transition-all duration-300
-        ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}
+        ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-card border-slate-200"}
         ${isExpanded ? "fixed top-[5vh] bottom-[5vh] left-1/2 -translate-x-1/2 w-[95vw] z-50 shadow-2xl p-6" : `p-5 ${className}`}
       `}
 			>

@@ -59,7 +59,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClos
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
 			<div
-				className={`relative w-full max-w-2xl border rounded-2xl shadow-2xl overflow-hidden p-8 text-center ${isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}
+				className={`relative w-full max-w-2xl border rounded-2xl shadow-2xl overflow-hidden p-8 text-center ${isDarkMode ? "bg-slate-900 border-slate-700" : "bg-card border-slate-200"}`}
 			>
 				<button
 					type="button"

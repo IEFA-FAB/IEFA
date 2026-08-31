@@ -13,7 +13,7 @@ interface ToolCardProps {
 
 const MotionLink = motion(Link)
 
-const cardClassName = "block bg-white rounded-2xl p-8 flex flex-col h-full transition-all duration-300 border border-slate-100 shadow-sm"
+const cardClassName = "block bg-card rounded-2xl p-8 flex flex-col h-full transition-all duration-300 border border-border shadow-sm"
 
 const KIND_TAG: Record<ToolKind, { label: string; cta: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
 	internal: {
@@ -26,13 +26,13 @@ const KIND_TAG: Record<ToolKind, { label: string; cta: string; icon: React.Compo
 		label: "Caderno externo no NotebookLM",
 		cta: "Abrir no NotebookLM",
 		icon: BookOpen,
-		className: "bg-amber-50 text-amber-600 border-amber-200",
+		className: "bg-warning/10 text-warning border-warning/30",
 	},
 	external: {
 		label: "Site externo",
 		cta: "Abrir site externo",
 		icon: ExternalLink,
-		className: "bg-slate-50 text-slate-400 border-slate-200",
+		className: "bg-muted/50 text-muted-foreground border-border",
 	},
 }
 
@@ -57,15 +57,15 @@ function CardInner({ tool }: { tool: Tool }) {
 				</div>
 				<div className="flex items-center gap-2">
 					<KindTag kind={kind} />
-					<span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+					<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">
 						{tool.category}
 					</span>
 				</div>
 			</div>
 
-			<h3 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-tech-cyan transition-colors">{tool.title}</h3>
+			<h3 className="text-2xl font-bold text-foreground mb-3 group-hover:text-tech-cyan transition-colors">{tool.title}</h3>
 
-			<p className="text-slate-500 text-sm leading-relaxed mb-8 flex-grow">{tool.description}</p>
+			<p className="text-muted-foreground text-sm leading-relaxed mb-8 flex-grow">{tool.description}</p>
 
 			<div className="flex items-center text-tech-cyan text-sm font-bold uppercase tracking-tight">
 				{KIND_TAG[kind].cta} <ChevronRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -108,7 +108,7 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 				<button
 					type="button"
 					onClick={onDelete}
-					className="absolute bottom-6 right-6 p-2 bg-white/80 backdrop-blur-sm rounded-full text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm z-20"
+					className="absolute bottom-6 right-6 p-2 bg-white/80 backdrop-blur-sm rounded-full text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm z-20"
 					aria-label={`Excluir ${tool.title}`}
 					title="Excluir"
 				>

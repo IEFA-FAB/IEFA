@@ -30,7 +30,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 	return (
 		<div
 			className={`backdrop-blur-md rounded-lg shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]
-      ${isDarkMode ? "bg-[#0f172a]/60 border-slate-800/50 hover:bg-[#0f172a]/80" : "bg-white border-slate-200 hover:bg-slate-50"}
+      ${isDarkMode ? "bg-[#0f172a]/60 border-slate-800/50 hover:bg-[#0f172a]/80" : "bg-card border-slate-200 hover:bg-slate-50"}
     `}
 		>
 			<div className="absolute bottom-2 left-4 right-4 h-8 opacity-40 pointer-events-none">

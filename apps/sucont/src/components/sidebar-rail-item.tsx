@@ -25,9 +25,9 @@ export function SidebarRailItem({ tool, index, side }: SidebarRailItemProps) {
 			target="_blank"
 			rel="noopener noreferrer"
 			{...motionProps}
-			className="relative group flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:bg-slate-100"
+			className="relative group flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:bg-muted"
 		>
-			<div className="text-slate-400 group-hover:text-tech-cyan transition-colors">
+			<div className="text-muted-foreground group-hover:text-tech-cyan transition-colors">
 				<IconRenderer iconKey={tool.icon} className="w-4 h-4" />
 			</div>
 			{/* Nome do sistema: o balão abaixo é a versão visual, o texto oculto é o que o leitor de tela anuncia. */}

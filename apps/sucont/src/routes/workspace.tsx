@@ -136,8 +136,8 @@ function Workspace() {
 				<section>
 					<div className="flex items-center gap-4 mb-8">
 						<ClipboardList className="text-tech-cyan w-5 h-5" />
-						<h2 className="text-slate-700 font-bold uppercase tracking-widest text-sm">Cronograma & Atividades</h2>
-						<div className="flex-grow h-[1px] bg-slate-200" />
+						<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Cronograma & Atividades</h2>
+						<div className="flex-grow h-[1px] bg-border" />
 					</div>
 
 					{!canEdit && !loadingAccess && (
@@ -151,7 +151,7 @@ function Workspace() {
 							<button
 								type="button"
 								onClick={() => setIsAddingTask(true)}
-								className="flex items-center gap-2 bg-white border border-slate-200 text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-slate-50 transition-all shadow-sm"
+								className="flex items-center gap-2 bg-card border border-border text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-muted/50 transition-all shadow-sm"
 							>
 								<Plus className="w-4 h-4" /> ADICIONAR TAREFA
 							</button>
@@ -162,9 +162,9 @@ function Workspace() {
 						<motion.div
 							initial={{ opacity: 0, scale: 0.95 }}
 							animate={{ opacity: 1, scale: 1 }}
-							className="bg-white border border-tech-cyan/30 p-6 rounded-lg mb-6 shadow-lg"
+							className="bg-card border border-tech-cyan/30 p-6 rounded-lg mb-6 shadow-lg"
 						>
-							<h3 className="text-slate-800 font-bold mb-4 text-sm uppercase">Nova Atividade</h3>
+							<h3 className="text-foreground font-bold mb-4 text-sm uppercase">Nova Atividade</h3>
 							<form
 								onSubmit={(e) => {
 									e.preventDefault()
@@ -183,32 +183,32 @@ function Workspace() {
 									name="task"
 									placeholder="Título da Tarefa"
 									required
-									className="bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
 								/>
 								<input
 									name="deadline"
 									placeholder="Prazo (ex: 2º dia útil)"
 									required
-									className="bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
 								/>
 								<input
 									name="responsible"
 									placeholder="Responsável"
 									required
-									className="bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
 								/>
 								<input
 									name="path"
 									placeholder="Caminho/Sistema (Opcional)"
-									className="bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
 								/>
 								<textarea
 									name="description"
 									placeholder="Descrição da atividade"
-									className="bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 md:col-span-2 h-20 focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 								/>
 								<div className="flex gap-2 md:col-span-2 justify-end">
-									<button type="button" onClick={() => setIsAddingTask(false)} className="px-4 py-2 text-xs text-slate-500 hover:text-slate-800">
+									<button type="button" onClick={() => setIsAddingTask(false)} className="px-4 py-2 text-xs text-muted-foreground hover:text-foreground">
 										CANCELAR
 									</button>
 									<button
@@ -224,7 +224,7 @@ function Workspace() {
 					)}
 
 					{loadingChecklist ? (
-						<div className="flex items-center justify-center py-12 text-slate-400 gap-2 text-sm font-mono">
+						<div className="flex items-center justify-center py-12 text-muted-foreground gap-2 text-sm font-mono">
 							<Loader2 className="w-4 h-4 animate-spin" /> Carregando cronograma...
 						</div>
 					) : (
@@ -235,7 +235,7 @@ function Workspace() {
 									initial={{ opacity: 0, x: -20 }}
 									animate={{ opacity: 1, x: 0 }}
 									transition={{ delay: idx * 0.04 }}
-									className="bg-white border border-slate-200 p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm"
+									className="bg-card border border-border p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm"
 								>
 									<div className="flex flex-col md:flex-row justify-between gap-4">
 										<div className="flex-grow">
@@ -244,24 +244,24 @@ function Workspace() {
 													<span className="text-tech-cyan font-mono text-[10px] bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 uppercase w-fit">
 														{item.deadline}
 													</span>
-													<span className="text-[9px] font-mono text-slate-400 mt-1">Data: {getNthBusinessDay(item.deadline ?? "")}</span>
+													<span className="text-[9px] font-mono text-muted-foreground mt-1">Data: {getNthBusinessDay(item.deadline ?? "")}</span>
 												</div>
-												<h4 className="text-slate-800 font-bold">{item.task}</h4>
+												<h4 className="text-foreground font-bold">{item.task}</h4>
 											</div>
-											<p className="text-slate-500 text-xs leading-relaxed mb-3">{item.description}</p>
+											<p className="text-muted-foreground text-xs leading-relaxed mb-3">{item.description}</p>
 											{item.path && (
-												<div className="flex items-start gap-2 text-[10px] font-mono text-slate-400 bg-slate-50 p-2 rounded border border-slate-100">
+												<div className="flex items-start gap-2 text-[10px] font-mono text-muted-foreground bg-muted/50 p-2 rounded border border-border">
 													<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
 													<span>{item.path}</span>
 												</div>
 											)}
 										</div>
 
-										<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
-											<span className="text-[10px] font-mono uppercase text-slate-400 mb-1">Responsável</span>
+										<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
+											<span className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Responsável</span>
 											{editingId === item.id ? (
 												<input
-													className="bg-slate-50 border border-tech-cyan/30 text-slate-800 text-xs p-1 rounded w-full focus:outline-none focus:border-tech-cyan"
+													className="bg-muted/50 border border-tech-cyan/30 text-foreground text-xs p-1 rounded w-full focus:outline-none focus:border-tech-cyan"
 													defaultValue={item.responsible ?? ""}
 													// biome-ignore lint/a11y/noAutofocus: edição inline pontual
 													autoFocus
@@ -283,7 +283,7 @@ function Workspace() {
 												<button
 													type="button"
 													onClick={() => deleteTaskMutation.mutate(item.id)}
-													className="mt-4 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
+													className="mt-4 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
 												>
 													<Trash2 className="w-3 h-3" /> EXCLUIR
 												</button>
@@ -301,7 +301,7 @@ function Workspace() {
 					<div>
 						<div className="flex items-center gap-3 mb-4">
 							<StickyNote className="text-tech-cyan w-4 h-4" />
-							<h3 className="text-slate-700 font-bold uppercase tracking-widest text-xs">Anotações da Seção</h3>
+							<h3 className="text-foreground font-bold uppercase tracking-widest text-xs">Anotações da Seção</h3>
 						</div>
 						<textarea
 							value={notes}
@@ -309,10 +309,10 @@ function Workspace() {
 							readOnly={!canEdit}
 							aria-readonly={!canEdit}
 							placeholder={canEdit ? "Digite aqui anotações importantes, pendências ou lembretes..." : "Sem anotações registradas."}
-							className="w-full h-64 bg-white border border-slate-200 rounded-lg p-4 text-slate-600 text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-slate-50 read-only:text-slate-500"
+							className="w-full h-64 bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-muted/50 read-only:text-muted-foreground"
 						/>
 						<div className="mt-2 flex justify-end">
-							<span className="text-[9px] font-mono text-slate-400 uppercase">
+							<span className="text-[9px] font-mono text-muted-foreground uppercase">
 								{!canEdit ? "Somente leitura" : saveNoteMutation.isPending ? "Salvando..." : "Auto-save ativo"}
 							</span>
 						</div>
@@ -322,14 +322,14 @@ function Workspace() {
 						<div className="flex items-center justify-between mb-4">
 							<div className="flex items-center gap-3">
 								<Bell className="text-tech-blue w-4 h-4" />
-								<h3 className="text-slate-700 font-bold uppercase tracking-widest text-xs">Avisos & Alertas</h3>
+								<h3 className="text-foreground font-bold uppercase tracking-widest text-xs">Avisos & Alertas</h3>
 							</div>
 							{canEdit && (
 								<button
 									type="button"
 									onClick={() => setIsAddingNotice(true)}
 									aria-label="Adicionar aviso"
-									className="text-tech-cyan hover:text-slate-800 transition-colors"
+									className="text-tech-cyan hover:text-foreground transition-colors"
 								>
 									<Plus className="w-4 h-4" />
 								</button>
@@ -348,20 +348,20 @@ function Workspace() {
 							{notices.map((notice) => (
 								<div
 									key={notice.id}
-									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-orange-50 border-orange-300" : "bg-blue-50 border-blue-300"}`}
+									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-warning/10 border-warning/30" : "bg-blue-50 border-blue-300"}`}
 								>
 									{canEdit && (
 										<button
 											type="button"
 											onClick={() => deleteNoticeMutation.mutate(notice.id)}
 											aria-label={`Excluir aviso: ${notice.content}`}
-											className="absolute top-2 right-2 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
+											className="absolute top-2 right-2 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
 										>
 											<X className="w-3 h-3" />
 										</button>
 									)}
-									<p className="text-xs text-slate-700 font-medium">{notice.content}</p>
-									<span className="text-[9px] font-mono text-slate-400 mt-2 block uppercase">Postado em: {notice.date}</span>
+									<p className="text-xs text-foreground font-medium">{notice.content}</p>
+									<span className="text-[9px] font-mono text-muted-foreground mt-2 block uppercase">Postado em: {notice.date}</span>
 								</div>
 							))}
 						</div>
@@ -372,38 +372,38 @@ function Workspace() {
 				<section>
 					<div className="flex items-center gap-4 mb-8">
 						<Users className="text-tech-cyan w-5 h-5" />
-						<h2 className="text-slate-700 font-bold uppercase tracking-widest text-sm">Divisão de Unidades (UGs)</h2>
-						<div className="flex-grow h-[1px] bg-slate-200" />
+						<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Divisão de Unidades (UGs)</h2>
+						<div className="flex-grow h-[1px] bg-border" />
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 						{OPERATORS.map((operator) => {
 							const units = unidades.filter((u) => u.operador === operator)
 							return (
-								<div key={operator} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-									<div className="bg-slate-50 p-3 border-b border-slate-100">
-										<h4 className="text-slate-700 font-bold text-center text-xs uppercase tracking-widest">{operator}</h4>
+								<div key={operator} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+									<div className="bg-muted/50 p-3 border-b border-border">
+										<h4 className="text-foreground font-bold text-center text-xs uppercase tracking-widest">{operator}</h4>
 									</div>
 									<div className="p-4 max-h-96 overflow-y-auto">
 										<table className="w-full text-[10px] font-mono">
 											<thead>
-												<tr className="text-slate-400 border-b border-slate-100">
+												<tr className="text-muted-foreground border-b border-border">
 													<th className="text-left pb-2">UG</th>
 													<th className="text-left pb-2">NOME</th>
 												</tr>
 											</thead>
 											<tbody className="divide-y divide-slate-50">
 												{units.map((u) => (
-													<tr key={u.codigo} className="hover:bg-slate-50 transition-colors">
+													<tr key={u.codigo} className="hover:bg-muted/50 transition-colors">
 														<td className="py-2 text-tech-cyan font-bold">{u.codigo}</td>
-														<td className="py-2 text-slate-600">{u.nome}</td>
+														<td className="py-2 text-muted-foreground">{u.nome}</td>
 													</tr>
 												))}
 											</tbody>
 										</table>
 									</div>
-									<div className="bg-slate-50 p-2 text-center border-t border-slate-100">
-										<span className="text-[9px] font-mono text-slate-400">Total: {units.length} UGs</span>
+									<div className="bg-muted/50 p-2 text-center border-t border-border">
+										<span className="text-[9px] font-mono text-muted-foreground">Total: {units.length} UGs</span>
 									</div>
 								</div>
 							)
@@ -421,16 +421,16 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 	const [type, setType] = React.useState<"info" | "alert">("info")
 
 	return (
-		<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-tech-cyan/30 p-4 rounded-lg mb-4 shadow-md">
+		<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-tech-cyan/30 p-4 rounded-lg mb-4 shadow-md">
 			<textarea
 				value={content}
 				onChange={(e) => setContent(e.target.value)}
 				placeholder="Novo aviso..."
-				className="w-full bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 mb-2 h-20 outline-none focus:border-tech-cyan"
+				className="w-full bg-muted/50 border border-border p-2 rounded text-xs text-foreground mb-2 h-20 outline-none focus:border-tech-cyan"
 			/>
 			<div className="flex justify-between items-center">
 				<Select value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
-					<SelectTrigger className="data-[size=default]:h-auto bg-slate-50 border border-slate-200 text-[10px] text-slate-600 p-1 rounded shadow-none">
+					<SelectTrigger className="data-[size=default]:h-auto bg-muted/50 border border-border text-[10px] text-muted-foreground p-1 rounded shadow-none">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -439,7 +439,7 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<button type="button" onClick={onCancel} className="text-[10px] text-slate-400 hover:text-slate-600">
+					<button type="button" onClick={onCancel} className="text-[10px] text-muted-foreground hover:text-foreground">
 						CANCELAR
 					</button>
 					<button

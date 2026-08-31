@@ -118,13 +118,13 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 
 			<div className="p-6">
 				<div className="flex flex-col xl:flex-row gap-6">
-					<div className="flex-1 bg-white rounded-xl p-4 border border-slate-200 flex flex-col min-w-[300px]">
+					<div className="flex-1 bg-card rounded-xl p-4 border border-border flex flex-col min-w-[300px]">
 						<div className="flex justify-between items-start mb-4">
-							<h3 className="text-sm font-semibold text-slate-900">Mensagem Institucional Pronta (Consolidada)</h3>
+							<h3 className="text-sm font-semibold text-foreground">Mensagem Institucional Pronta (Consolidada)</h3>
 							<button
 								type="button"
 								onClick={() => navigator.clipboard.writeText(fullMessage)}
-								className="flex items-center space-x-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white px-2 py-1 rounded border border-slate-200 shadow-sm transition-colors"
+								className="flex items-center space-x-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-card px-2 py-1 rounded border border-border shadow-sm transition-colors"
 							>
 								<Copy className="w-3 h-3" />
 								<span>Copiar</span>
@@ -133,7 +133,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 
 						<div className="grid grid-cols-2 gap-3 mb-4">
 							<div>
-								<label htmlFor="cons-msg-number" className="block text-xs font-medium text-slate-700 mb-1">
+								<label htmlFor="cons-msg-number" className="block text-xs font-medium text-foreground mb-1">
 									Nº da Mensagem
 								</label>
 								<input
@@ -142,11 +142,11 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500"
+									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
 								/>
 							</div>
 							<div>
-								<label htmlFor="cons-send-date" className="block text-xs font-medium text-slate-700 mb-1">
+								<label htmlFor="cons-send-date" className="block text-xs font-medium text-foreground mb-1">
 									Data de Envio
 								</label>
 								<input
@@ -154,17 +154,17 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 									type="date"
 									value={sendDate}
 									onChange={(e) => setSendDate(e.target.value)}
-									className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500"
+									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
 								/>
 							</div>
 							<div className="col-span-2">
-								<label htmlFor="cons-message-type" className="block text-xs font-medium text-slate-700 mb-1">
+								<label htmlFor="cons-message-type" className="block text-xs font-medium text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
 								<Select value={messageType} onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}>
 									<SelectTrigger
 										id="cons-message-type"
-										className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 bg-white text-slate-900 focus-visible:ring-blue-500 focus-visible:border-blue-500 mb-2"
+										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-blue-500 mb-2"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -176,7 +176,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 								</Select>
 								{messageType === "COM_PRAZO" && (
 									<div className="mt-2">
-										<label htmlFor="cons-deadline-date" className="block text-xs font-medium text-slate-700 mb-1">
+										<label htmlFor="cons-deadline-date" className="block text-xs font-medium text-foreground mb-1">
 											Data Limite
 										</label>
 										<input
@@ -184,15 +184,15 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 											type="date"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500"
+											className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
 										/>
 									</div>
 								)}
 							</div>
 						</div>
 
-						<div className="bg-slate-50 p-4 rounded border border-slate-200 flex-1 overflow-y-auto min-h-[350px] max-h-[600px]">
-							<p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
+						<div className="bg-muted/50 p-4 rounded border border-border flex-1 overflow-y-auto min-h-[350px] max-h-[600px]">
+							<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
 						</div>
 					</div>
 				</div>
