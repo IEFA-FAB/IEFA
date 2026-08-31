@@ -1044,9 +1044,6 @@ DIREF/SUCONT/SUCONT-3
 							</div>
 						)}
 					</div>
-
-					{/* Footer note */}
-					<div className="text-center opacity-70 hover:opacity-100 transition-opacity"></div>
 				</div>
 			)}
 

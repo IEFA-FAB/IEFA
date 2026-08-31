@@ -11,6 +11,13 @@ import { Input } from "#/components/ui/input"
 import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
 import { TOOL_STAGES, type ToolStage } from "#/lib/types"
 
+const STAGE_ICON: Record<ToolStage, LucideIcon> = {
+	analisar: ShieldCheck,
+	comunicar: Send,
+	acompanhar: Activity,
+	consultar: BookOpen,
+}
+
 /**
  * Etapas do ciclo de conformidade. Antes esta barra listava seis categorias
  * ("Auditoria", "Automação", "IA / Chatbot") enquanto o catálogo tinha dez — as
@@ -31,13 +38,6 @@ const NAV_TABS = [
 	{ to: "/workspace", label: "Área de trabalho" },
 	{ to: "/reports", label: "Relatórios" },
 ] as const
-
-const STAGE_ICON: Record<ToolStage, LucideIcon> = {
-	analisar: ShieldCheck,
-	comunicar: Send,
-	acompanhar: Activity,
-	consultar: BookOpen,
-}
 
 interface HubLayoutProps {
 	children: React.ReactNode

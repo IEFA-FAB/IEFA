@@ -843,8 +843,6 @@ function SubitensGenericos() {
 									</div>
 								</div>
 							</div>
-
-							<div className="mt-16 text-center max-w-4xl mx-auto px-6"></div>
 						</motion.div>
 					) : (
 						<motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">

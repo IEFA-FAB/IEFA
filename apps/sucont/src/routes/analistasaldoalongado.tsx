@@ -203,11 +203,6 @@ function AnalistaSaldoAlongado() {
 						<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fab-400 via-fab-600 to-fab-800" />
 						<FileUploader onFileSelect={handleFileSelect} isLoading={isLoading} error={error} />
 					</div>
-
-					{/* Footer */}
-					<div className="text-center max-w-4xl mx-auto px-6">
-						<div className="h-px w-24 bg-muted mx-auto mb-6" />
-					</div>
 				</div>
 			) : (
 				<div className="space-y-8">

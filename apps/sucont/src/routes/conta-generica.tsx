@@ -892,8 +892,6 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							</div>
 						))}
 					</div>
-
-					<div className="mt-8 text-center px-6 max-w-3xl mx-auto opacity-70"></div>
 				</>
 			)}
 

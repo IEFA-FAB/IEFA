@@ -234,8 +234,6 @@ function CruzamentoContas() {
 					</div>
 
 					<FileUpload onFileSelect={handleFileSelect} isLoading={isLoading} />
-
-					<div className="mt-16 max-w-3xl text-center opacity-70 hover:opacity-100 transition-opacity"></div>
 				</div>
 			) : (
 				<div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

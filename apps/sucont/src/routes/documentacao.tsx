@@ -276,14 +276,13 @@ function PlataformaDoc() {
 			{/* Footer */}
 			<footer className="no-print bg-card border-t border-border px-8 py-3 flex items-center justify-between text-label text-muted-foreground">
 				<div className="flex items-center gap-2">
-					<div className="w-2 h-2 bg-success rounded-full animate-pulse" />
 					<span>Documentação</span>
 				</div>
 			</footer>
 
 			{/* Único lugar dos créditos institucionais: eles repetiam em seis rotas de
 			    trabalho, onde ninguém os consulta. */}
-			<InstitutionalCredits className="px-8 pb-10" />
+			<InstitutionalCredits className="no-print px-8 pb-10" />
 
 			{/* Rota fora do HubLayout: o link para os documentos legais precisa vir
 			    daqui — o LGPD.md exige o rodapé em toda tela do app. */}

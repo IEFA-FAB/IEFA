@@ -29,19 +29,26 @@ function Catalogo() {
 				 * a Q34, não uma "ferramenta de auditoria". Só aparecem as questões que
 				 * alguma ferramenta declara cobrir: oferecer as 42 daria 38 becos sem saída.
 				 */}
-				<span className="text-label text-muted-foreground">Questão do RAC</span>
-				{RAC_QUESTIONS.map((q) => (
-					<Button
-						key={q}
-						variant={rac === q ? "default" : "outline"}
-						size="sm"
-						onClick={() => setRac(rac === q ? null : q)}
-						aria-pressed={rac === q}
-						className="text-label rounded-full"
-					>
-						Q{q}
-					</Button>
-				))}
+				{/*
+				 * `fieldset`/`legend` e não um `<span>` solto: sem o agrupamento, o leitor
+				 * de tela anuncia seis alternadores "Q34", "Q35"… sem dizer do que são.
+				 */}
+				<fieldset className="flex flex-wrap items-center gap-3 border-0 p-0">
+					<legend className="text-label text-muted-foreground float-left mr-3">Questão do RAC</legend>
+					{RAC_QUESTIONS.map((q) => (
+						<Button
+							key={q}
+							variant={rac === q ? "default" : "outline"}
+							size="sm"
+							onClick={() => setRac(rac === q ? null : q)}
+							aria-pressed={rac === q}
+							aria-label={`Questão ${q} do RAC`}
+							className="text-label rounded-full"
+						>
+							Q{q}
+						</Button>
+					))}
+				</fieldset>
 
 				<div className="ml-auto flex items-center gap-3">
 					{isFiltered && (
