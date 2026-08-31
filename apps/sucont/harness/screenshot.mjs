@@ -35,6 +35,19 @@ for (const theme of ["light", "dark"]) {
 	}
 }
 
+// ── Casca do hub ──────────────────────────────────────────────────────────────
+// Página separada (`/hub.html`), e os dois temas por navegação: diferente do
+// harness do auditor, que monta as duas árvores lado a lado, a casca é
+// `min-h-screen` com barra lateral fixa e não cabe duplicada na mesma página.
+// A classe entra DEPOIS do load — aplicá-la antes, por `addInitScript`, não
+// sobrevive à navegação.
+await page.goto("http://localhost:4180/hub.html", { waitUntil: "networkidle" })
+await page.waitForTimeout(1200)
+await page.screenshot({ path: `${OUT}/hub-light.png` })
+await page.evaluate(() => document.documentElement.classList.add("dark"))
+await page.waitForTimeout(600)
+await page.screenshot({ path: `${OUT}/hub-dark.png` })
+
 // A fonte do Google não carrega offline; qualquer outro erro é do componente.
 const real = problems.filter((p) => !p.includes("ERR_NAME_NOT_RESOLVED"))
 process.stdout.write(real.length ? `ERROS:\n${real.join("\n")}\n` : "sem erros de console\n")

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
+import { TOOL_STAGES } from "#/lib/types"
 import { cn } from "#/lib/utils"
 
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
@@ -61,14 +62,10 @@ export interface AuthScreenProps {
 
 // ─── Shell + primitivos compartilhados ────────────────────────────────────────
 
-// Etapas do ciclo de conformidade que o hub cobre — as mesmas quatro do catálogo.
-// Aqui elas dizem, para quem ainda não entrou, para que serve a ferramenta.
-const SHELL_HIGHLIGHTS = [
-	{ title: "Analisar", description: "Encontrar a inconsistência antes do fechamento" },
-	{ title: "Comunicar", description: "Levar o achado à UG: mensagem, ofício, documento" },
-	{ title: "Acompanhar", description: "Ver a série, o saldo e o que continua aberto" },
-	{ title: "Consultar", description: "Norma, manual e os sistemas de origem do dado" },
-]
+// As etapas vêm de `TOOL_STAGES`, não de uma cópia: são as mesmas quatro que
+// agrupam o catálogo, e aqui dizem a quem ainda não entrou para que serve o hub.
+// Uma segunda lista com o mesmo conteúdo divergiria em silêncio.
+const SHELL_HIGHLIGHTS = TOOL_STAGES
 
 /**
  * Casca da página de autenticação: duas colunas, como no sisub.
@@ -93,12 +90,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 					</div>
 					<ol className="flex flex-col gap-5">
 						{SHELL_HIGHLIGHTS.map((item, i) => (
-							<li key={item.title} className="flex items-start gap-4">
+							<li key={item.id} className="flex items-start gap-4">
 								<span className="font-mono text-2xl text-muted-foreground/40 tabular-nums leading-none pt-0.5" aria-hidden="true">
 									{String(i + 1).padStart(2, "0")}
 								</span>
 								<div className="flex flex-col gap-0.5">
-									<span className="text-sm font-bold text-foreground">{item.title}</span>
+									<span className="text-sm font-bold text-foreground">{item.label}</span>
 									<span className="text-xs text-muted-foreground leading-relaxed">{item.description}</span>
 								</div>
 							</li>

@@ -19,6 +19,17 @@ export default defineConfig({
 	},
 	// Alias em forma de lista porque a ORDEM importa: o stub de `auth.fn` tem de
 	// casar antes da regra generica `#/`.
+	// As duas páginas precisam estar declaradas: com uma única entrada implícita o
+	// `harness:build` emitia só `index.html` e `/hub.html` dava 404 no
+	// `harness:serve`, que é onde o `harness:shot` vai buscar.
+	build: {
+		rollupOptions: {
+			input: {
+				index: resolve(__dirname, "index.html"),
+				hub: resolve(__dirname, "hub.html"),
+			},
+		},
+	},
 	resolve: {
 		alias: [
 			{ find: /^#\/server\/auth\.fn$/, replacement: resolve(__dirname, "./stubs/auth.fn.ts") },

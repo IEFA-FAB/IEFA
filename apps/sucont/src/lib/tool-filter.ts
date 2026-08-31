@@ -25,7 +25,10 @@ export function filterTools(tools: Tool[], { query, stage, rac }: { query: strin
 			if (term === "") return true
 			const stageLabel = STAGE_LABEL.get(tool.stage) ?? ""
 			// "q34" e "34" acham a ferramenta da questão: é assim que o analista a chama.
-			const racText = tool.racQuestions?.flatMap((q) => [`q${q}`, String(q)]).join(" ") ?? ""
+			// As duas grafias entram: o cartão e o filtro mostram a forma com dois
+			// dígitos ("Q05"), e digitar exatamente o que está na tela precisa achar —
+			// procurar por "Q06" devolvia zero enquanto "q6" devolvia a ferramenta.
+			const racText = tool.racQuestions?.flatMap((q) => [`q${q}`, String(q), `q${String(q).padStart(2, "0")}`, String(q).padStart(2, "0")]).join(" ") ?? ""
 			return tool.title.toLowerCase().includes(term) || tool.description.toLowerCase().includes(term) || stageLabel.includes(term) || racText.includes(term)
 		})
 }

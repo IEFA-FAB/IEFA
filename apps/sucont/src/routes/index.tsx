@@ -48,6 +48,12 @@ function Catalogo() {
 	const { query, stage, rac, isFiltered, setStage, setRac, clear } = useHubFilters()
 	const filtered = filterTools(sucontTools, { query, stage, rac })
 
+	// `?rac=` aceita 1–99, e nem toda questão tem ferramenta. Sem esta opção
+	// extra o seletor exibia "Todas as questões" enquanto a lista vinha vazia —
+	// a tela afirmava não haver filtro e mostrava o resultado de um.
+	const racOptions =
+		rac != null && !RAC_OPTIONS.some((o) => o.value === String(rac)) ? [...RAC_OPTIONS, { value: String(rac), label: formatRac(rac) }] : RAC_OPTIONS
+
 	// Sem filtro de etapa, o catálogo vem agrupado pelo ciclo: quem chega sem saber
 	// o nome da ferramenta encontra pelo ponto do trabalho em que está.
 	const groups = stage === ALL_STAGES ? TOOL_STAGES.map((s) => ({ ...s, tools: filtered.filter((t) => t.stage === s.id) })) : null
@@ -58,7 +64,14 @@ function Catalogo() {
 				<div className="flex flex-wrap items-center gap-3">
 					{/* Etapa do ciclo. Mora aqui, e não na barra lateral, porque é filtro
 					    desta tela — na lateral parecia navegação e disputava com ela. */}
-					<nav className="flex flex-wrap items-center gap-1 rounded-xl bg-card p-1 border border-border" aria-label="Etapa do ciclo de conformidade">
+					{/* `group`, e não `nav`: estes botões filtram a lista abaixo, não levam a
+					    outra tela. Anunciá-los como navegação repetiria, em landmark, a
+					    confusão que motivou tirá-los da barra lateral. */}
+					<div
+						role="group"
+						aria-label="Etapa do ciclo de conformidade"
+						className="flex flex-wrap items-center gap-1 rounded-xl bg-card p-1 border border-border"
+					>
 						{STAGE_TABS.map((tab) => {
 							const Icon = tab.icon
 							const isActive = stage === tab.id
@@ -79,14 +92,14 @@ function Catalogo() {
 								</Button>
 							)
 						})}
-					</nav>
+					</div>
 
 					<div className="flex items-center gap-2">
 						<span className="text-label text-muted-foreground">Questão do RAC</span>
 						<Combobox
 							value={rac == null ? RAC_ANY : String(rac)}
 							onValueChange={(next) => setRac(next === RAC_ANY ? null : Number(next))}
-							items={RAC_OPTIONS}
+							items={racOptions}
 							placeholder="Todas as questões"
 							emptyLabel="Nenhuma questão com ferramenta"
 							aria-label="Filtrar por questão do RAC"
