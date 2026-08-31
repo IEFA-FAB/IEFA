@@ -27,44 +27,44 @@
 
 ## Fase 3 — Operations
 
-- [ ] 3.1 [packages/sisub-domain] Schemas Zod de pane e manutenção em `schemas/equipment.ts` (enums exportados como `const` + `z.enum`, no padrão do arquivo).
-- [ ] 3.2 [packages/sisub-domain] Operations de pane: `listEquipmentIssues`, `reportEquipmentIssue`, `updateEquipmentIssue` (resolver/descartar/`in_repair`). Guards de R5, dono lido da linha e nunca do input.
-- [ ] 3.3 [packages/sisub-domain] Operations de manutenção: `listMaintenancePlans`, `createMaintenancePlan`, `updateMaintenancePlan`, `deleteMaintenancePlan`, `logMaintenance`, `listMaintenanceLogs`.
-- [ ] 3.4 [packages/sisub-domain] `listApplicablePlans(unitId)` usando o papel **efetivo** da unidade, não o do catálogo.
-- [ ] 3.5 [packages/sisub-domain] `loadKitchenUnits`: filtrar unidade com pane inoperante aberta (R3), incluindo o caminho sem guard usado pelo cálculo de atendimento; expor a condição derivada no `EquipmentUnitWire`.
-- [ ] 3.6 [packages/sisub-domain] Afrouxar `createEquipmentUnit` para `kitchen` 2 **ou** `kitchen-production` 1; deixar `update`/`delete` intactos.
-- [ ] 3.7 [packages/sisub-domain] `equipment.authz.test.ts`: metade positiva e **negativa** de R5, tool a tool.
-- [ ] 3.8 [packages/sisub-domain] `operations/training.ts`: `equipment_issue` e `equipment_maintenance_log` em `RESET_STEPS` **antes** de `kitchen.equipment_unit`; atualizar `training.operations.test.ts`.
+- [x] 3.1 [packages/sisub-domain] Schemas Zod de pane e manutenção em `schemas/equipment.ts`. Os enums já tinham vindo na 2.5; aqui entram os objetos de entrada, com `.nullish()` em todo opcional e os dois `refine` que espelham os CHECK do banco (XOR papel/modelo, `toleranceDays < intervalDays`) — rejeitar no schema dá mensagem, deixar chegar no banco dá `23514`.
+- [x] 3.2 [packages/sisub-domain] Operations de pane em `operations/equipment-maintenance.ts`: `listEquipmentIssues`, `reportEquipmentIssue`, `updateEquipmentIssue`. Encerrar grava autor/data e reabrir limpa os dois; descartar exige justificativa. A cozinha dona vem sempre da unidade lida do banco.
+- [x] 3.3 [packages/sisub-domain] Operations de manutenção: `listMaintenancePlans`, `createMaintenancePlan`, `updateMaintenancePlan`, `deleteMaintenancePlan`, `logMaintenance`, `listMaintenanceLogs`.
+- [x] 3.4 [packages/sisub-domain] `listApplicablePlans(unitId)` pelo papel **efetivo** (`resolveUnitRoleIds`), não pelo do catálogo — unidade com a fritadeira desabilitada não herda a rotina de troca de óleo.
+- [x] 3.5 [packages/sisub-domain] `loadKitchenUnits` filtra pela pane inoperante aberta (R3) usando `isUnitUnavailable` — o MESMO predicado da tela — e o `EquipmentUnitWire` passa a expor `condition` e `open_issues`. O filtro vale também no caminho sem guard usado pelo cálculo de atendimento (cozinha produtora ≠ pedida).
+- [x] 3.6 [packages/sisub-domain] `createEquipmentUnit` aceita `kitchen:2` OU `kitchen-production:1` (guard novo `requireKitchenFloorWrite`). Cadastrar com `status` diferente de `active` continua exigindo `kitchen:2`: declarar equipamento já em manutenção é decisão administrativa.
+- [x] 3.7 [packages/sisub-domain] `equipment.authz.test.ts`: 4 casos positivos e 11 negativos de R5, mais o dono do plano. Não-vacuidade por mutação: 5 mutações, e **uma sobreviveu na primeira rodada** — o stub não dava `kitchenId` à unidade da pane, então os dois testes de "produção não encerra pane" recusavam por escopo e passariam com qualquer guard. Corrigido o stub, o mutante morre.
+- [x] 3.8 [packages/sisub-domain] `RESET_STEPS` — **já feito** nos commits `820e49f4` e `11120405`, que também trataram o plano ancorado em modelo local sem `kitchen_id` (violava a FK no delete do modelo e abortava o reset inteiro).
 
 ## Fase 4 — Agregações de relatório
 
-- [ ] 4.1 [packages/sisub-domain] `getKitchenEquipmentCondition(kitchenId)`: contagem por condição, panes abertas ordenadas por severidade e tempo, histórico recente.
-- [ ] 4.2 [packages/sisub-domain] `getKitchenMaintenanceMatrix(kitchenId)`: unidade × plano aplicável com os três estados de R4.
-- [ ] 4.3 [packages/sisub-domain] `getFleetEquipmentReport()`: cobertura por papel, panes inoperantes por tempo, planos mais vencidos, distribuição do parque. Guard `analytics` nível 2. Filtros opcionais de papel/modelo/cozinha, todos `.nullish()`.
+- [x] 4.1 [packages/sisub-domain] `getKitchenEquipmentCondition(kitchenId)`: contagem por condição, panes abertas ordenadas por severidade e tempo, histórico recente.
+- [x] 4.2 [packages/sisub-domain] `getKitchenMaintenanceMatrix(kitchenId)`: unidade × plano aplicável com os três estados de R4.
+- [x] 4.3 [packages/sisub-domain] `getFleetEquipmentReport()`: cobertura por papel, panes inoperantes por tempo, planos mais vencidos, distribuição do parque. Guard `analytics` nível 2. Filtros opcionais de papel/modelo/cozinha, todos `.nullish()`.
 
 ## Fase 5 — Server fns e hooks
 
-- [ ] 5.1 [sisub] `server/equipment.fn.ts`: fns de pane e manutenção, `createServerFn(...).validator(z.object(...))`, client Supabase per-request no handler.
-- [ ] 5.2 [sisub] `server/equipment.fn.ts`: fns dos três relatórios da Fase 4.
-- [ ] 5.3 [sisub] `hooks/data/useEquipment.ts` + `lib/query-keys.ts`: queries e mutations novas, com invalidação da lista de parque ao relatar/resolver pane (a condição muda).
+- [x] 5.1 [sisub] `server/equipment.fn.ts`: fns de pane e manutenção, `createServerFn(...).validator(z.object(...))`, client Supabase per-request no handler.
+- [x] 5.2 [sisub] `server/equipment.fn.ts`: fns dos três relatórios da Fase 4.
+- [x] 5.3 [sisub] `hooks/data/useEquipment.ts` + `lib/query-keys.ts`: queries e mutations novas, com invalidação da lista de parque ao relatar/resolver pane (a condição muda).
 
 ## Fase 6 — Telas
 
-- [ ] 6.1 [sisub] `/global/equipment`: aba **Rotinas** (lista por papel, form com atalhos de intervalo) e campos de ficha no form de modelo.
-- [ ] 6.2 [sisub] `/kitchen-production/$kitchenId/equipment`: rota nova, cartão por unidade com badge de condição e de rotina vencida.
-- [ ] 6.3 [sisub] Diálogo de relato de pane: severidade em duas opções com texto claro ("dá para usar com limitação" / "não dá para usar"), categoria e descrição. Otimizado para uso de pé, em tela pequena.
-- [ ] 6.4 [sisub] Diálogo de registro de manutenção (plano opcional, prestador, data, custo, nota), acessível da produção e da gestão.
-- [ ] 6.5 [sisub] `/kitchen/$kitchenId/equipment`: aba **Condição** com resumo, panes abertas e ações de resolver/descartar (nível 2).
-- [ ] 6.6 [sisub] `/kitchen/$kitchenId/equipment`: aba **Manutenção** com a matriz unidade × plano e registro direto da célula.
-- [ ] 6.7 [sisub] `/analytics/equipment`: rota nova, agregada por papel, somente leitura, com filtros.
-- [ ] 6.8 [sisub] `NavItems.tsx`: "Equipamentos" em Produção Cozinha e "Equipamentos" em Análises Globais (`minLevel: 2`); `lib/breadcrumbs.ts`.
-- [ ] 6.9 [sisub] Revisar as quatro telas contra o `STYLE_CONTRACT.md` do sisub e a proibição global de faixa de acento lateral.
+- [x] 6.1 [sisub] `/global/equipment`: aba **Rotinas** (lista por papel, form com atalhos de intervalo) e campos de ficha no form de modelo.
+- [x] 6.2 [sisub] `/kitchen-production/$kitchenId/equipment`: rota nova, cartão por unidade com badge de condição e de rotina vencida.
+- [x] 6.3 [sisub] Diálogo de relato de pane: severidade em duas opções com texto claro ("dá para usar com limitação" / "não dá para usar"), categoria e descrição. Otimizado para uso de pé, em tela pequena.
+- [x] 6.4 [sisub] Diálogo de registro de manutenção (plano opcional, prestador, data, custo, nota), acessível da produção e da gestão.
+- [x] 6.5 [sisub] `/kitchen/$kitchenId/equipment`: aba **Condição** com resumo, panes abertas e ações de resolver/descartar (nível 2).
+- [x] 6.6 [sisub] `/kitchen/$kitchenId/equipment`: aba **Manutenção** com a matriz unidade × plano e registro direto da célula.
+- [x] 6.7 [sisub] `/analytics/equipment`: rota nova, agregada por papel, somente leitura, com filtros.
+- [x] 6.8 [sisub] `NavItems.tsx`: "Equipamentos" em Produção Cozinha e "Equipamentos" em Análises Globais (`minLevel: 2`); `lib/breadcrumbs.ts`.
+- [x] 6.9 [sisub] Revisar as quatro telas contra o `STYLE_CONTRACT.md` do sisub e a proibição global de faixa de acento lateral.
 
 ## Fase 7 — Testes de integração e fechamento
 
-- [ ] 7.1 [sisub] `test/operations/equipment.operations.test.ts`: pane inoperante remove a unidade do atendimento; `dismissed` devolve; `degraded` não remove; cozinha produtora ≠ pedida.
-- [ ] 7.2 [sisub] Conferir que `setupIntegration` das tabelas novas **falha** sob `SISUB_INTEGRATION_REQUIRED` em vez de dar early-return silencioso; cleanup de fixture em LIFO com `trackFn` ordenado.
-- [ ] 7.3 [sisub] Rodar o gate de integração contra o banco real e conferir a contagem de testes executados (run rápido demais = suíte vazia).
-- [ ] 7.4 [root] `bun run check` + `bun run test`.
-- [ ] 7.5 Aplicar a migration em produção **antes ou junto** do merge, e conferir o run de CI/CD depois. Nota no PR sobre a mudança de comportamento do alerta do `DayDrawer`.
+- [x] 7.1 [sisub] `test/operations/equipment.operations.test.ts`: pane inoperante remove a unidade do atendimento; `dismissed` devolve; `degraded` não remove; cozinha produtora ≠ pedida.
+- [x] 7.2 [sisub] Conferir que `setupIntegration` das tabelas novas **falha** sob `SISUB_INTEGRATION_REQUIRED` em vez de dar early-return silencioso; cleanup de fixture em LIFO com `trackFn` ordenado.
+- [x] 7.3 [sisub] Rodar o gate de integração contra o banco real e conferir a contagem de testes executados (run rápido demais = suíte vazia).
+- [x] 7.4 [root] `bun run check` + `bun run test`.
+- [x] 7.5 As migrations `20260827120000`/`20260827120100` já tinham sido aplicadas com o #241; a **`20260827130000` não** — produção seguia com o check antigo, que aceitava descartar pane sem autor e sem justificativa (exatamente a decisão que devolve equipamento quebrado ao planejamento). Aplicada e registrada com a versão do arquivo.
 - [ ] 7.6 `/code-review` antes de pedir merge, com os achados relatados no PR.

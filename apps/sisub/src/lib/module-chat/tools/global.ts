@@ -10,10 +10,14 @@ import {
 	toJsonSchema,
 } from "@iefa/sisub-domain"
 import {
+	AgentListEquipmentCatalogSchema,
 	AgentListIngredientsSchema,
 	AgentListPreparationsSchema,
 	AgentListRecipesSchema,
+	AgentRecipeEquipmentSchema,
 	agentGetRecipe,
+	agentGetRecipeEquipment,
+	agentListEquipmentCatalog,
 	agentListIngredients,
 	agentListPreparations,
 	agentListRecipes,
@@ -234,6 +238,39 @@ const updateRecipe: ModuleToolDefinition = {
 	},
 }
 
+/**
+ * Catálogo de equipamentos — a SDAB é quem cura papéis e modelos, e é aqui que a pergunta
+ * "que modelo assume forno combinado?" tem resposta. O parque instalado NÃO entra no módulo
+ * global: ele é de cada cozinha, e listá-lo daqui seria expor o inventário da FAB inteira a
+ * quem cuida do catálogo.
+ */
+const listEquipmentCatalogTool: ModuleToolDefinition = {
+	name: "list_equipment_catalog",
+	description:
+		"Lista o catálogo de equipamentos: os modelos (com fabricante, capacidade, zonas independentes e as funções que assumem) e o vocabulário completo de funções. É por esse vocabulário que a preparação declara o que exige.",
+	parameters: toJsonSchema(AgentListEquipmentCatalogSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		requireGlobalPermission(ctx, 1)
+		const input = AgentListEquipmentCatalogSchema.parse(args)
+		const { items, ...rest } = await agentListEquipmentCatalog(ctx.db, domainCtx(ctx), input)
+		return toolOk({ models: items, ...rest })
+	},
+}
+
+const getRecipeEquipmentTool: ModuleToolDefinition = {
+	name: "get_recipe_equipment",
+	description:
+		"Lista o que UMA BATELADA de uma preparação exige de equipamento (papel ou modelo específico, quantidade, capacidade mínima). Volume não muda esta lista: 900 porções de uma receita que rende 100 são nove rodadas do mesmo forno, não nove fornos.",
+	parameters: toJsonSchema(AgentRecipeEquipmentSchema),
+	requiredLevel: 1,
+	async handler(args, ctx) {
+		const input = AgentRecipeEquipmentSchema.parse(args)
+		const { items, ...counts } = await agentGetRecipeEquipment(ctx.db, domainCtx(ctx), input)
+		return toolOk({ requirements: items, ...counts })
+	},
+}
+
 export const globalTools: ModuleToolDefinition[] = [
 	listRecipes,
 	getRecipe,
@@ -243,4 +280,6 @@ export const globalTools: ModuleToolDefinition[] = [
 	listMenuTemplates,
 	createRecipe,
 	updateRecipe,
+	listEquipmentCatalogTool,
+	getRecipeEquipmentTool,
 ]

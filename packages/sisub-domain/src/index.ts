@@ -27,11 +27,27 @@ export type { AppModule, PermissionScope, ProcurementNeed, ProcurementParams, Us
 export { DomainError, NotFoundError, PermissionDeniedError, ValidationError } from "./types/index.ts"
 export type {
 	BalanceStatus,
+	ConditionIssue,
 	DeclaredIngredient,
+	EquipmentCondition,
 	FlowGraphStep,
 	FlowValidationResult,
 	IngredientBalance,
 	JsonSchemaObject,
+	MaintenanceDue,
+	MaintenanceDueState,
 } from "./utils/index.ts"
 // Utils
-export { collectFinalOutputs, computeMaterialBalance, findFlowCycle, toJsonSchema, validateFlow } from "./utils/index.ts"
+export {
+	collectFinalOutputs,
+	computeMaintenanceDue,
+	computeMaterialBalance,
+	deriveEquipmentCondition,
+	EQUIPMENT_CONDITIONS,
+	findFlowCycle,
+	isUnitUnavailable,
+	MAINTENANCE_DUE_STATES,
+	toJsonSchema,
+	unitCountsForFitness,
+	validateFlow,
+} from "./utils/index.ts"

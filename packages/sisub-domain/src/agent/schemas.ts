@@ -41,3 +41,42 @@ export const AgentListPreparationsSchema = z.object({
 	limit: LimitSchema,
 })
 export type AgentListPreparations = z.infer<typeof AgentListPreparationsSchema>
+
+// ── Equipamento ───────────────────────────────────────────────────────────
+
+export const AgentListKitchenEquipmentSchema = z.object({
+	kitchenId: KitchenIdSchema.describe("ID da cozinha cujo parque instalado será listado"),
+	includeInactive: z.boolean().nullish().describe("Inclui equipamento em manutenção ou baixado. Por padrão só o ativo, que é o que produz"),
+	limit: LimitSchema,
+})
+export type AgentListKitchenEquipment = z.infer<typeof AgentListKitchenEquipmentSchema>
+
+export const AgentRecipeEquipmentSchema = z.object({
+	recipeId: z.uuid().describe("ID da preparação"),
+})
+export type AgentRecipeEquipment = z.infer<typeof AgentRecipeEquipmentSchema>
+
+export const AgentCheckRecipeEquipmentSchema = z.object({
+	recipeId: z.uuid().describe("ID da preparação"),
+	kitchenId: KitchenIdSchema.describe("ID da cozinha que produziria"),
+	portions: z
+		.number()
+		.positive()
+		.max(1_000_000)
+		.nullish()
+		.describe("Quantas porções produzir. Sem isto responde só se a cozinha TEM o equipamento; com isto acrescenta bateladas e rodadas"),
+})
+export type AgentCheckRecipeEquipment = z.infer<typeof AgentCheckRecipeEquipmentSchema>
+
+export const AgentCheckMenuEquipmentSchema = z.object({
+	dailyMenuId: z.uuid().describe("ID do cardápio do dia (uma refeição de uma cozinha numa data)"),
+})
+export type AgentCheckMenuEquipment = z.infer<typeof AgentCheckMenuEquipmentSchema>
+
+export const AgentListEquipmentCatalogSchema = z.object({
+	kitchenId: KitchenIdSchema.nullish().describe("Inclui os modelos próprios dessa cozinha além do catálogo global"),
+	roleId: z.uuid().nullish().describe("Só modelos que assumem este papel"),
+	search: z.string().max(200).nullish().describe("Busca parcial no nome do modelo, sem distinguir caixa"),
+	limit: LimitSchema,
+})
+export type AgentListEquipmentCatalog = z.infer<typeof AgentListEquipmentCatalogSchema>

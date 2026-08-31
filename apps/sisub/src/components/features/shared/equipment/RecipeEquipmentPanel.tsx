@@ -95,6 +95,9 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 	}, [requirements, dirty])
 
 	const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles])
+	// Rótulo da etapa vem das sugestões do fluxo — a única fonte que a aba já carrega. Etapa
+	// sem sugestão cai no rótulo genérico: melhor "Etapa do fluxo" do que um uuid na tela.
+	const stepLabelById = useMemo(() => new Map(suggestions.map((s) => [s.recipe_step_id, s.step_label ?? s.utensil_name])), [suggestions])
 	const modelById = useMemo(() => new Map(models.map((m) => [m.id, m])), [models])
 
 	const update = (key: string, patch: Partial<RequirementRow>) => {
@@ -299,6 +302,16 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 								</div>
 
 								<div className="mt-2 flex flex-wrap items-end gap-2">
+									{/* O vínculo com a etapa decide concorrência (etapas em níveis diferentes do DAG
+									    não competem), então precisa ser visível — e desfazível sem apagar a linha. */}
+									{row.recipeStepId != null ? (
+										<Badge variant="secondary" className="mb-1">
+											{stepLabelById.get(row.recipeStepId) ?? "Etapa do fluxo"}
+											<button type="button" className="ml-1 underline" onClick={() => update(row.key, { recipeStepId: null })} aria-label="Desamarrar da etapa">
+												desamarrar
+											</button>
+										</Badge>
+									) : null}
 									<div className="w-40">
 										<span className="text-caption text-muted-foreground">Escala</span>
 										<Select value={row.scaling} onValueChange={(value) => update(row.key, { scaling: value as EquipmentScaling })}>
@@ -341,8 +354,22 @@ export function RecipeEquipmentPanel({ recipeId, kitchenId }: { recipeId: string
 			{kitchenId != null && fitness.data && !fitness.data.unspecified ? (
 				<Alert>
 					{fitness.data.satisfied ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
-					<AlertTitle>{fitness.data.satisfied ? "Esta cozinha está equipada" : "Faltam equipamentos nesta cozinha"}</AlertTitle>
+					<AlertTitle>
+						{fitness.data.units_registered === 0
+							? "Esta cozinha ainda não cadastrou equipamentos"
+							: fitness.data.satisfied
+								? "Esta cozinha está equipada"
+								: "Faltam equipamentos nesta cozinha"}
+					</AlertTitle>
 					<AlertDescription className="space-y-3">
+						{/* Parque vazio não é parque insuficiente: acusar falta de forno para quem nunca
+						    cadastrou nada é acusar toda a FAB no dia em que o recurso nasce. */}
+						{fitness.data.units_registered === 0 ? (
+							<p>
+								A verificação compara esta lista com o parque instalado, e ele está vazio. Cadastre os equipamentos em Gestão Cozinha → Equipamentos para que a
+								conferência passe a valer.
+							</p>
+						) : null}
 						<ul className="space-y-1">
 							{fitness.data.requirements.map((req) => (
 								<li key={req.requirement_id} className="flex flex-wrap items-center gap-2">

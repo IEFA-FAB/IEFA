@@ -61,6 +61,7 @@ export {
 	listEquipmentModels,
 	listEquipmentRoles,
 	listKitchenEquipment,
+	listProducingKitchenEquipment,
 	saveRecipeEquipment,
 	setUtensilRole,
 	suggestRecipeEquipmentFromFlow,
@@ -68,12 +69,36 @@ export {
 	updateEquipmentRole,
 	updateEquipmentUnit,
 } from "./equipment.ts"
+export type { EquipmentIssueWire, MaintenanceLogWire, MaintenancePlanWire } from "./equipment-maintenance.ts"
 export {
-	type FolderLastReview,
-	type FolderReviewRow,
-	listFolderLastReviews,
-	recordFolderReview,
-} from "./folder-reviews.ts"
+	createMaintenancePlan,
+	deleteMaintenancePlan,
+	listApplicablePlans,
+	listEquipmentIssues,
+	listMaintenanceLogs,
+	listMaintenancePlans,
+	loadApplicablePlans,
+	loadKitchenIssues,
+	loadKitchenLogs,
+	logMaintenance,
+	reportEquipmentIssue,
+	updateEquipmentIssue,
+	updateMaintenancePlan,
+} from "./equipment-maintenance.ts"
+export type {
+	FleetEquipmentReportResult,
+	FleetIssueRow,
+	FleetModelRow,
+	FleetRoleCoverage,
+	KitchenConditionCounts,
+	KitchenConditionReport,
+	MaintenanceMatrixCell,
+	MaintenanceMatrixReport,
+	MaintenanceMatrixRow,
+	OpenIssueReportRow,
+} from "./equipment-reports.ts"
+export { countByCondition, getFleetEquipmentReport, getKitchenEquipmentCondition, getKitchenMaintenanceMatrix } from "./equipment-reports.ts"
+export { type FolderLastReview, type FolderReviewRow, listFolderLastReviews, recordFolderReview } from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,

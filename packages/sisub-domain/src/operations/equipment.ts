@@ -34,7 +34,7 @@ import {
 import type { EquipmentModel, EquipmentModelRole, EquipmentRole, EquipmentUnit, EquipmentUnitRole, RecipeEquipmentRequirement } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { authorizeAssetMutation, requireAssetWriteForScope } from "../guards/asset-ownership.ts"
-import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen, requireKitchenFloorWrite, requirePermission } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveProducingKitchen } from "../guards/validate-scope.ts"
 import type {
 	CreateEquipmentModel,
@@ -43,6 +43,7 @@ import type {
 	DeleteEquipmentModel,
 	DeleteEquipmentRole,
 	DeleteEquipmentUnit,
+	EquipmentUnitStatus,
 	EvaluateMenuEquipmentFitness,
 	EvaluateRecipeEquipmentFitness,
 	FetchRecipeEquipment,
@@ -58,6 +59,7 @@ import type {
 } from "../schemas/equipment.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
+import { type ConditionIssue, deriveEquipmentCondition, type EquipmentCondition, isUnitUnavailable } from "../utils/equipment-condition.ts"
 import {
 	type ConcurrencyRow,
 	type EquipmentDemandSpec,
@@ -69,6 +71,7 @@ import {
 } from "../utils/equipment-matching.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
 import { computeStepLevels, type FlowGraphStep } from "../utils/recipe-flow-graph.ts"
+import { type EquipmentIssueWire, loadKitchenIssues } from "./equipment-maintenance.ts"
 
 // ── Contrato de retorno ───────────────────────────────────────────────────
 
@@ -82,6 +85,14 @@ export type EquipmentUnitWire = EquipmentUnit & {
 	effective_role_ids: string[]
 	/** Zonas independentes efetivas: override da unidade, senão o do modelo. */
 	effective_slots: number
+	/**
+	 * Condição DERIVADA de `status` + panes abertas (`utils/equipment-condition.ts`). Não existe
+	 * coluna correspondente: um campo gravado ao lado de `status` seria uma segunda verdade sobre
+	 * o mesmo fato, e a divergência viraria o estado normal do sistema.
+	 */
+	condition: EquipmentCondition
+	/** Panes que ainda pesam (`open`/`in_repair`). Vazio na maioria das unidades. */
+	open_issues: EquipmentIssueWire[]
 }
 export type RecipeEquipmentRequirementWire = RecipeEquipmentRequirement & {
 	role: EquipmentRole | null
@@ -112,6 +123,16 @@ export interface RecipeEquipmentFitnessWire {
 	unspecified: boolean
 	/** Cozinha cujo parque foi avaliado — pode não ser a pedida. */
 	producing_kitchen_id: number
+	/**
+	 * Unidades que ENTRARAM na conta (ativas e sem pane inoperante).
+	 *
+	 * Não serve para decidir "parque não cadastrado": um parque inteiro quebrado também zera
+	 * aqui, e chamar isso de "não cadastrou" apagaria da tela exatamente o caso que a
+	 * funcionalidade existe para mostrar. Quem responde essa pergunta é `units_registered`.
+	 */
+	units_considered: number
+	/** Unidades CADASTRADAS na cozinha, em qualquer condição. Zero = parque não cadastrado. */
+	units_registered: number
 	/** true = quem produz é outra cozinha; a UI precisa dizer isso. */
 	delegated: boolean
 	/** Volume pedido, quando informado. null = só a pergunta funcional foi respondida. */
@@ -128,7 +149,7 @@ export interface RecipeEquipmentFitnessWire {
 	cycle_minutes: number | null
 }
 
-const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw"])
+const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw", "width_cm", "depth_cm", "height_cm", "weight_kg"])
 const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters", "batch_portions"])
 
 const numOrNull = (n: number | null | undefined): string | null => (n != null ? String(n) : null)
@@ -385,6 +406,17 @@ export async function createEquipmentModel(db: SisubDb, ctx: UserContext, input:
 					isGeneric: input.isGeneric,
 					kitchenId,
 					notes: input.notes ?? null,
+					energySource: input.energySource ?? null,
+					voltage: input.voltage ?? null,
+					widthCm: numOrNull(input.widthCm),
+					depthCm: numOrNull(input.depthCm),
+					heightCm: numOrNull(input.heightCm),
+					weightKg: numOrNull(input.weightKg),
+					requiresHood: input.requiresHood ?? null,
+					waterInlet: input.waterInlet ?? null,
+					drainRequired: input.drainRequired ?? null,
+					manualUrl: input.manualUrl ?? null,
+					expectedLifespanYears: input.expectedLifespanYears ?? null,
 				})
 				.returning()
 		)
@@ -422,6 +454,19 @@ export async function updateEquipmentModel(db: SisubDb, ctx: UserContext, input:
 		if (input.simultaneousSlots != null) patch.simultaneousSlots = input.simultaneousSlots
 		if (input.powerKw !== undefined) patch.powerKw = numOrNull(input.powerKw)
 		if (input.notes !== undefined) patch.notes = input.notes ?? null
+		// Ficha técnica: `undefined` mantém, `null` limpa — o diálogo que não tem campo para uma
+		// coluna simplesmente não a envia, em vez de apagá-la.
+		if (input.energySource !== undefined) patch.energySource = input.energySource ?? null
+		if (input.voltage !== undefined) patch.voltage = input.voltage ?? null
+		if (input.widthCm !== undefined) patch.widthCm = numOrNull(input.widthCm)
+		if (input.depthCm !== undefined) patch.depthCm = numOrNull(input.depthCm)
+		if (input.heightCm !== undefined) patch.heightCm = numOrNull(input.heightCm)
+		if (input.weightKg !== undefined) patch.weightKg = numOrNull(input.weightKg)
+		if (input.requiresHood !== undefined) patch.requiresHood = input.requiresHood ?? null
+		if (input.waterInlet !== undefined) patch.waterInlet = input.waterInlet ?? null
+		if (input.drainRequired !== undefined) patch.drainRequired = input.drainRequired ?? null
+		if (input.manualUrl !== undefined) patch.manualUrl = input.manualUrl ?? null
+		if (input.expectedLifespanYears !== undefined) patch.expectedLifespanYears = input.expectedLifespanYears ?? null
 
 		const [row] =
 			Object.keys(patch).length > 0
@@ -507,7 +552,23 @@ export async function deleteEquipmentModel(db: SisubDb, ctx: UserContext, input:
 // ── Parque instalado ──────────────────────────────────────────────────────
 
 /** Monta o wire da unidade: modelo hidratado, exceções de papel e papéis/slots efetivos. */
-function toUnitWire(unit: typeof equipmentUnitInKitchen.$inferSelect, model: EquipmentModelWire | null, overrides: EquipmentUnitRole[]): EquipmentUnitWire {
+/**
+ * Wire (snake_case) → contrato da condição (camelCase).
+ *
+ * Explícito de propósito: `ConditionIssue.deletedAt` e `EquipmentIssueWire.deleted_at` são o
+ * mesmo fato com nomes diferentes, e passar o wire direto compilaria — `deletedAt` é opcional —
+ * deixando a guarda de soft delete calada para sempre.
+ */
+function toConditionIssue(issue: EquipmentIssueWire): ConditionIssue {
+	return { severity: issue.severity, status: issue.status, deletedAt: issue.deleted_at }
+}
+
+function toUnitWire(
+	unit: typeof equipmentUnitInKitchen.$inferSelect,
+	model: EquipmentModelWire | null,
+	overrides: EquipmentUnitRole[],
+	openIssues: EquipmentIssueWire[] = []
+): EquipmentUnitWire {
 	const modelRoleIds = (model?.roles ?? []).map((r) => r.role_id)
 	return {
 		...toWire<EquipmentUnit>(unit),
@@ -518,12 +579,34 @@ function toUnitWire(unit: typeof equipmentUnitInKitchen.$inferSelect, model: Equ
 			overrides.map((o) => ({ roleId: o.role_id, available: o.available }))
 		),
 		effective_slots: unit.simultaneousSlots ?? model?.simultaneous_slots ?? 1,
+		condition: deriveEquipmentCondition(unit.status as EquipmentUnitStatus, openIssues.map(toConditionIssue)),
+		open_issues: openIssues,
 	}
 }
 
 export async function listKitchenEquipment(db: SisubDb, ctx: UserContext, input: ListKitchenEquipment): Promise<EquipmentUnitWire[]> {
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
 	return loadKitchenUnits(db, input)
+}
+
+/**
+ * Parque de QUEM COZINHA para a cozinha pedida.
+ *
+ * Autoriza na cozinha PEDIDA e lê o parque da PRODUTORA — um refeitório servido por cozinha
+ * central não tem forno nenhum, e listar o parque dele responderia sobre a cozinha errada.
+ * Existe para que o cálculo de atendimento e a leitura exposta a agentes usem a mesma frase:
+ * dois caminhos com resoluções diferentes fariam o chat afirmar que o refeitório não tem
+ * equipamento enquanto a ficha técnica diz que a preparação é executável.
+ */
+export async function listProducingKitchenEquipment(
+	db: SisubDb,
+	ctx: UserContext,
+	input: ListKitchenEquipment
+): Promise<{ units: EquipmentUnitWire[]; producingKitchenId: number; delegated: boolean }> {
+	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
+	const { producingKitchenId, delegated } = await resolveProducingKitchen(db, input.kitchenId)
+	const units = await loadKitchenUnits(db, { ...input, kitchenId: producingKitchenId })
+	return { units, producingKitchenId, delegated }
 }
 
 /**
@@ -572,7 +655,26 @@ async function loadKitchenUnits(db: SisubDb, input: ListKitchenEquipment): Promi
 		overridesByUnit.set(row.unitId, list)
 	}
 
-	return units.map((u) => toUnitWire(u, modelById.get(u.modelId) ?? null, overridesByUnit.get(u.id) ?? []))
+	// Panes ABERTAS da cozinha: entram na condição de cada unidade e decidem o filtro abaixo.
+	const openIssues = await loadKitchenIssues(db, { kitchenId: input.kitchenId, unitId: null, onlyOpen: true, limit: 500 })
+	const issuesByUnit = new Map<string, EquipmentIssueWire[]>()
+	for (const issue of openIssues) {
+		const list = issuesByUnit.get(issue.unit_id) ?? []
+		list.push(issue)
+		issuesByUnit.set(issue.unit_id, list)
+	}
+
+	const wires = units.map((u) => toUnitWire(u, modelById.get(u.modelId) ?? null, overridesByUnit.get(u.id) ?? [], issuesByUnit.get(u.id) ?? []))
+
+	// Regra R3: a pane INOPERANTE aberta tira a unidade do parque considerado, do mesmo modo que
+	// `status <> 'active'` — é o que faz o relato da praça valer alguma coisa. Sem isto a cozinha
+	// registra que o forno quebrou e o planejamento segue prometendo assado para 900 pessoas.
+	// `degraded` NÃO tira: "dá para usar com limitação" continua sendo dá para usar.
+	//
+	// O predicado é `isUnitUnavailable`, o MESMO que a tela usa para pintar o cartão — e não um
+	// segundo teste sobre `status` + panes, que divergiria na primeira severidade nova.
+	if (input.includeInactive) return wires
+	return wires.filter((w) => !isUnitUnavailable(w.status as EquipmentUnitStatus, w.open_issues.map(toConditionIssue)))
 }
 
 /** O modelo precisa ser visível para a cozinha: global ou dela. Impede vazamento entre cozinhas. */
@@ -587,8 +689,19 @@ async function assertModelVisible(db: SisubDb, modelId: string, kitchenId: numbe
 	if (model.kitchenId != null && model.kitchenId !== kitchenId) throw new NotFoundError("equipment_model", modelId)
 }
 
+/**
+ * Cadastra uma unidade no parque.
+ *
+ * Regra R5: aceita `kitchen:2` OU `kitchen-production:1` — quem sabe o que está instalado na
+ * praça é quem trabalha nela, e exigir a gestão para cadastrar garante parque desatualizado.
+ * Editar, mudar `status`, dar baixa e excluir seguem exigindo `kitchen:2` (ver
+ * `authorizeUnitMutation`), e a metade negativa está provada em `equipment.authz.test.ts`.
+ */
 export async function createEquipmentUnit(db: SisubDb, ctx: UserContext, input: CreateEquipmentUnit): Promise<EquipmentUnitWire> {
-	requireKitchen(ctx, 2, input.kitchenId)
+	requireKitchenFloorWrite(ctx, input.kitchenId)
+	// A praça cadastra o que EXISTE; declarar a unidade já em manutenção ou baixada é decisão
+	// administrativa, e o `status` é o campo que a gestão usa para tirar equipamento do cálculo.
+	if (input.status !== "active") requireKitchen(ctx, 2, input.kitchenId)
 	await assertModelVisible(db, input.modelId, input.kitchenId)
 	await assertRolesExist(
 		db,
@@ -608,6 +721,9 @@ export async function createEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 					status: input.status,
 					simultaneousSlots: input.simultaneousSlots ?? null,
 					acquiredOn: input.acquiredOn ?? null,
+					installedOn: input.installedOn ?? null,
+					warrantyUntil: input.warrantyUntil ?? null,
+					supplier: input.supplier ?? null,
 					notes: input.notes ?? null,
 				})
 				.returning()
@@ -636,10 +752,12 @@ async function hydrateUnit(db: SisubDb, unit: typeof equipmentUnitInKitchen.$inf
 			.from(equipmentUnitRoleInKitchen)
 			.where(and(eq(equipmentUnitRoleInKitchen.unitId, unit.id), isNull(equipmentUnitRoleInKitchen.deletedAt)))
 	)
+	const openIssues = await loadKitchenIssues(db, { kitchenId: unit.kitchenId, unitId: unit.id, onlyOpen: true, limit: 100 })
 	return toUnitWire(
 		unit,
 		model ? toModelWire(model, roles.get(unit.modelId) ?? []) : null,
-		overrides.map((o) => toWire<EquipmentUnitRole>(o))
+		overrides.map((o) => toWire<EquipmentUnitRole>(o)),
+		openIssues
 	)
 }
 
@@ -672,6 +790,9 @@ export async function updateEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 		if (input.status != null) patch.status = input.status
 		if (input.simultaneousSlots !== undefined) patch.simultaneousSlots = input.simultaneousSlots ?? null
 		if (input.acquiredOn !== undefined) patch.acquiredOn = input.acquiredOn ?? null
+		if (input.installedOn !== undefined) patch.installedOn = input.installedOn ?? null
+		if (input.warrantyUntil !== undefined) patch.warrantyUntil = input.warrantyUntil ?? null
+		if (input.supplier !== undefined) patch.supplier = input.supplier ?? null
 		if (input.notes !== undefined) patch.notes = input.notes ?? null
 
 		const [row] = await mutateOrFail("UPDATE_FAILED", "equipamento não encontrado", () =>
@@ -726,6 +847,23 @@ export async function deleteEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 				.then(() => undefined)
 		)
 	})
+}
+
+/**
+ * Quantas unidades a cozinha tem CADASTRADAS, em qualquer condição.
+ *
+ * É a pergunta "existe parque aqui?", que é diferente de "quantas servem agora". Separá-las é o
+ * que impede a tela de dizer "ainda não cadastrou equipamento" para uma cozinha cujos três
+ * fornos estão todos com pane aberta.
+ */
+async function countRegisteredUnits(db: SisubDb, kitchenId: number): Promise<number> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: equipmentUnitInKitchen.id })
+			.from(equipmentUnitInKitchen)
+			.where(and(eq(equipmentUnitInKitchen.kitchenId, kitchenId), isNull(equipmentUnitInKitchen.deletedAt)))
+	)
+	return rows.length
 }
 
 // ── Exigência da preparação ───────────────────────────────────────────────
@@ -994,6 +1132,8 @@ export async function evaluateRecipeEquipmentFitness(
 	const empty = {
 		producing_kitchen_id: producingKitchenId,
 		delegated,
+		units_considered: 0,
+		units_registered: await countRegisteredUnits(db, producingKitchenId),
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1054,6 +1194,8 @@ export async function evaluateRecipeEquipmentFitness(
 		unspecified: false,
 		producing_kitchen_id: producingKitchenId,
 		delegated,
+		units_considered: units.length,
+		units_registered: await countRegisteredUnits(db, producingKitchenId),
 		portions,
 		batch_portions: recipeBatch,
 		batches,
@@ -1221,6 +1363,10 @@ export interface MenuEquipmentFitnessWire {
 	kitchen_id: number
 	producing_kitchen_id: number
 	delegated: boolean
+	/** Unidades que entraram na conta (ativas e sem pane inoperante). */
+	units_considered: number
+	/** Unidades cadastradas, em qualquer condição. Zero = parque não cadastrado. */
+	units_registered: number
 	/** true = no pior caso (tudo ao mesmo tempo) o parque atende a refeição inteira. */
 	satisfied: boolean
 	missing_total: number
@@ -1357,6 +1503,8 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 		kitchen_id: kitchenId,
 		producing_kitchen_id: producingKitchenId,
 		delegated,
+		units_considered: units.length,
+		units_registered: await countRegisteredUnits(db, producingKitchenId),
 		satisfied: fitness.missingTotal === 0,
 		missing_total: fitness.missingTotal,
 		targets,

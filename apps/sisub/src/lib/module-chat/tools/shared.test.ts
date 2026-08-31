@@ -1,5 +1,15 @@
 import { toJsonSchema } from "@iefa/sisub-domain"
-import { AgentListRecipesSchema, clampLimit, MAX_TOOL_RESULT_CHARS, PayloadTooLargeError } from "@iefa/sisub-domain/agent"
+import {
+	AgentCheckMenuEquipmentSchema,
+	AgentCheckRecipeEquipmentSchema,
+	AgentListEquipmentCatalogSchema,
+	AgentListKitchenEquipmentSchema,
+	AgentListRecipesSchema,
+	AgentRecipeEquipmentSchema,
+	clampLimit,
+	MAX_TOOL_RESULT_CHARS,
+	PayloadTooLargeError,
+} from "@iefa/sisub-domain/agent"
 import { describe, expect, test, vi } from "vitest"
 import type { UserPermission } from "@/types/domain/permissions"
 import { globalTools } from "./global"
@@ -166,6 +176,30 @@ describe("teto de payload das tools", () => {
 
 		const globalListRecipes = globalTools.find((t) => t.name === "list_recipes")
 		expect(globalListRecipes?.parameters).toEqual(toJsonSchema(AgentListRecipesSchema.omit({ kitchenId: true })))
+	})
+
+	test("as tools de equipamento do chat usam o contrato compartilhado com o MCP", () => {
+		// Mesma âncora do `list_recipes`: entrada definida uma vez em `@iefa/sisub-domain/agent`.
+		// Uma tool de equipamento com JSON Schema próprio divergiria do MCP em silêncio, e o
+		// sintoma só apareceria como chamada rejeitada no meio de uma conversa.
+		const expected: [string, unknown][] = [
+			["list_kitchen_equipment", toJsonSchema(AgentListKitchenEquipmentSchema)],
+			["get_recipe_equipment", toJsonSchema(AgentRecipeEquipmentSchema)],
+			["check_recipe_equipment", toJsonSchema(AgentCheckRecipeEquipmentSchema)],
+			["check_menu_equipment", toJsonSchema(AgentCheckMenuEquipmentSchema)],
+		]
+		for (const [name, schema] of expected) {
+			expect(kitchenTools.find((t) => t.name === name)?.parameters, name).toEqual(schema)
+		}
+
+		expect(globalTools.find((t) => t.name === "list_equipment_catalog")?.parameters).toEqual(toJsonSchema(AgentListEquipmentCatalogSchema))
+		expect(globalTools.find((t) => t.name === "get_recipe_equipment")?.parameters).toEqual(toJsonSchema(AgentRecipeEquipmentSchema))
+	})
+
+	test("o parque instalado NÃO é exposto no módulo global", () => {
+		// O catálogo é da SDAB; o parque é de cada cozinha. Uma tool de inventário no módulo
+		// global entregaria o equipamento da FAB inteira a quem cura o catálogo.
+		expect(globalTools.map((t) => t.name)).not.toContain("list_kitchen_equipment")
 	})
 
 	test("clampLimit aplica padrão e grampeia a faixa", () => {

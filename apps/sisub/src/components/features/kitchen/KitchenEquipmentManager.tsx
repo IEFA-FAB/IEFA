@@ -47,6 +47,9 @@ type UnitFormState = {
 	modelId: string | null
 	label: string
 	assetTag: string
+	supplier: string
+	installedOn: string
+	warrantyUntil: string
 	status: "active" | "maintenance" | "decommissioned"
 	slots: string
 	/** Papéis desligados nesta unidade (viram override `available: false`). */
@@ -59,6 +62,9 @@ const emptyForm = (): UnitFormState => ({
 	modelId: null,
 	label: "",
 	assetTag: "",
+	supplier: "",
+	installedOn: "",
+	warrantyUntil: "",
 	status: "active",
 	slots: "",
 	disabledRoleIds: new Set(),
@@ -100,6 +106,9 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 			modelId: unit.model_id,
 			label: unit.label,
 			assetTag: unit.asset_tag ?? "",
+			supplier: unit.supplier ?? "",
+			installedOn: unit.installed_on ?? "",
+			warrantyUntil: unit.warranty_until ?? "",
 			status: unit.status as UnitFormState["status"],
 			slots: unit.simultaneous_slots != null ? String(unit.simultaneous_slots) : "",
 			disabledRoleIds: new Set(unit.role_overrides.filter((o) => !o.available).map((o) => o.role_id)),
@@ -123,9 +132,13 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 	const handleSubmit = () => {
 		if (!form.modelId || form.label.trim() === "") return
 		const slots = form.slots.trim() === "" ? null : Math.max(1, Number(form.slots))
+		const blank = (value: string) => (value.trim() === "" ? null : value.trim())
 		const common = {
 			label: form.label.trim(),
-			assetTag: form.assetTag.trim() === "" ? null : form.assetTag.trim(),
+			assetTag: blank(form.assetTag),
+			supplier: blank(form.supplier),
+			installedOn: blank(form.installedOn),
+			warrantyUntil: blank(form.warrantyUntil),
 			status: form.status,
 			simultaneousSlots: slots,
 			roleOverrides: roleOverrides(),
@@ -277,6 +290,40 @@ export function KitchenEquipmentManager({ kitchenId }: { kitchenId: number }) {
 										</SelectContent>
 									</Select>
 									<FieldDescription>Só equipamento ativo conta no atendimento.</FieldDescription>
+								</FieldContent>
+							</Field>
+						</div>
+
+						{/* Patrimônio: colunas que existem no banco desde a ficha técnica do equipamento e
+						    não tinham como ser preenchidas por nenhuma tela. Data de instalação é o que
+						    ancora o vencimento de rotina quando não há execução registrada. */}
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+							<Field>
+								<FieldLabel htmlFor="equipment-installed">Instalado em</FieldLabel>
+								<FieldContent>
+									<Input
+										id="equipment-installed"
+										type="date"
+										value={form.installedOn}
+										onChange={(e) => setForm((f) => ({ ...f, installedOn: e.target.value }))}
+									/>
+								</FieldContent>
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="equipment-warranty">Garantia até</FieldLabel>
+								<FieldContent>
+									<Input
+										id="equipment-warranty"
+										type="date"
+										value={form.warrantyUntil}
+										onChange={(e) => setForm((f) => ({ ...f, warrantyUntil: e.target.value }))}
+									/>
+								</FieldContent>
+							</Field>
+							<Field>
+								<FieldLabel htmlFor="equipment-supplier">Fornecedor</FieldLabel>
+								<FieldContent>
+									<Input id="equipment-supplier" value={form.supplier} onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))} />
 								</FieldContent>
 							</Field>
 						</div>

@@ -110,7 +110,32 @@ export const ModelRoleSchema = z.object({
 })
 export type ModelRole = z.infer<typeof ModelRoleSchema>
 
-export const CreateEquipmentModelSchema = z.object({
+/**
+ * Ficha técnica do MODELO — o que a instalação precisa saber antes de comprar.
+ *
+ * Fica no modelo, não na unidade: tensão, coifa e ralo são propriedade do equipamento, não da
+ * cópia instalada. Tudo nulo por padrão e nada semeado: um número errado no catálogo vira
+ * premissa de dimensionamento que ninguém revisa.
+ */
+export const EQUIPMENT_ENERGY_SOURCES = ["electric", "gas", "steam", "mixed", "manual"] as const
+export const EquipmentEnergySourceSchema = z.enum(EQUIPMENT_ENERGY_SOURCES)
+export type EquipmentEnergySource = z.infer<typeof EquipmentEnergySourceSchema>
+
+const TechnicalSheetSchema = z.object({
+	energySource: EquipmentEnergySourceSchema.nullish(),
+	voltage: z.string().max(60).nullish(),
+	widthCm: z.number().positive().nullish(),
+	depthCm: z.number().positive().nullish(),
+	heightCm: z.number().positive().nullish(),
+	weightKg: z.number().positive().nullish(),
+	requiresHood: z.boolean().nullish(),
+	waterInlet: z.boolean().nullish(),
+	drainRequired: z.boolean().nullish(),
+	manualUrl: z.string().max(500).nullish(),
+	expectedLifespanYears: z.number().int().positive().max(100).nullish(),
+})
+
+export const CreateEquipmentModelSchema = TechnicalSheetSchema.extend({
 	manufacturer: z.string().max(120).nullish(),
 	name: z.string().min(1).max(200),
 	/** Capacidade de UMA zona, não do equipamento inteiro (iVario Pro 2-S = 25 L, não 50). */
@@ -128,7 +153,7 @@ export const CreateEquipmentModelSchema = z.object({
 })
 export type CreateEquipmentModel = z.infer<typeof CreateEquipmentModelSchema>
 
-export const UpdateEquipmentModelSchema = z.object({
+export const UpdateEquipmentModelSchema = TechnicalSheetSchema.extend({
 	modelId: UuidSchema,
 	manufacturer: z.string().max(120).nullish(),
 	name: z.string().min(1).max(200).nullish(),
@@ -173,6 +198,10 @@ export const CreateEquipmentUnitSchema = z.object({
 	/** Override do modelo (cuba interditada, boca queimada). null = herda do modelo. */
 	simultaneousSlots: z.number().int().positive().nullish(),
 	acquiredOn: DateSchema.nullish(),
+	/** Patrimônio: quando entrou em operação, até quando tem garantia, de quem veio. */
+	installedOn: DateSchema.nullish(),
+	warrantyUntil: DateSchema.nullish(),
+	supplier: z.string().max(200).nullish(),
 	notes: z.string().max(2000).nullish(),
 	roleOverrides: z.array(UnitRoleOverrideSchema).default([]),
 })
@@ -187,6 +216,9 @@ export const UpdateEquipmentUnitSchema = z.object({
 	status: EquipmentUnitStatusSchema.nullish(),
 	simultaneousSlots: z.number().int().positive().nullish(),
 	acquiredOn: DateSchema.nullish(),
+	installedOn: DateSchema.nullish(),
+	warrantyUntil: DateSchema.nullish(),
+	supplier: z.string().max(200).nullish(),
 	notes: z.string().max(2000).nullish(),
 	/** Quando presente, SUBSTITUI as exceções de papel da unidade. Ausente = mantém. */
 	roleOverrides: z.array(UnitRoleOverrideSchema).nullish(),
@@ -195,6 +227,122 @@ export type UpdateEquipmentUnit = z.infer<typeof UpdateEquipmentUnitSchema>
 
 export const DeleteEquipmentUnitSchema = z.object({ unitId: UuidSchema })
 export type DeleteEquipmentUnit = z.infer<typeof DeleteEquipmentUnitSchema>
+
+// ── Pane ──────────────────────────────────────────────────────────────────
+
+export const ListEquipmentIssuesSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	unitId: UuidSchema.nullish(),
+	/** Só as que ainda pesam (`open`/`in_repair`). false = histórico completo. */
+	onlyOpen: z.boolean().default(true),
+	limit: z.number().int().positive().max(500).default(100),
+})
+export type ListEquipmentIssues = z.infer<typeof ListEquipmentIssuesSchema>
+
+export const ReportEquipmentIssueSchema = z.object({
+	unitId: UuidSchema,
+	severity: EquipmentIssueSeveritySchema,
+	category: EquipmentIssueCategorySchema.default("other"),
+	/** Obrigatória: "quebrou" sem descrição não dá para nenhum gestor agir. */
+	description: z.string().min(1).max(2000),
+})
+export type ReportEquipmentIssue = z.infer<typeof ReportEquipmentIssueSchema>
+
+/**
+ * Transição de pane. `status` é o campo do ciclo; `severity` existe porque a gestão pode
+ * reclassificar ("não é que não liga, é que aquece devagar") sem abrir outra pane.
+ */
+export const UpdateEquipmentIssueSchema = z.object({
+	issueId: UuidSchema,
+	status: EquipmentIssueStatusSchema.nullish(),
+	severity: EquipmentIssueSeveritySchema.nullish(),
+	resolutionNote: z.string().max(2000).nullish(),
+})
+export type UpdateEquipmentIssue = z.infer<typeof UpdateEquipmentIssueSchema>
+
+// ── Manutenção ────────────────────────────────────────────────────────────
+
+export const ListMaintenancePlansSchema = z.object({
+	/** null = só os planos globais. Preenchido = globais + os da cozinha. */
+	kitchenId: KitchenIdSchema.nullish(),
+	roleId: UuidSchema.nullish(),
+	modelId: UuidSchema.nullish(),
+	limit: z.number().int().positive().max(500).default(200),
+})
+export type ListMaintenancePlans = z.infer<typeof ListMaintenancePlansSchema>
+
+/** Planos que valem para UMA unidade, resolvidos pelos papéis EFETIVOS dela. */
+export const ListApplicablePlansSchema = z.object({ unitId: UuidSchema })
+export type ListApplicablePlans = z.infer<typeof ListApplicablePlansSchema>
+
+const MaintenancePlanFieldsSchema = z.object({
+	title: z.string().min(1).max(200),
+	kind: MaintenanceKindSchema.default("preventive"),
+	intervalDays: z.number().int().positive().max(3650),
+	toleranceDays: z.number().int().nonnegative().max(365).default(0),
+	instructions: z.string().max(4000).nullish(),
+	estimatedMinutes: z.number().int().positive().max(10_000).nullish(),
+	isRequired: z.boolean().default(true),
+	sortOrder: z.number().int().nonnegative().default(100),
+})
+
+/**
+ * Âncora XOR, igual à exigência da preparação: a rotina é do PAPEL (toda coifa, de qualquer
+ * marca) ou de um MODELO (a guarnição daquele forno). O refine espelha o CHECK
+ * `equipment_maintenance_plan_target_xor` — rejeitar aqui dá mensagem; deixar chegar no banco dá 23514.
+ *
+ * `toleranceDays < intervalDays` também é CHECK no banco: folga maior que o próprio período
+ * tornaria a rotina inalcançável — ela nunca venceria.
+ */
+export const CreateMaintenancePlanSchema = MaintenancePlanFieldsSchema.extend({
+	roleId: UuidSchema.nullish(),
+	modelId: UuidSchema.nullish(),
+	/** null = plano global (Catálogo Global). Preenchido = rotina da própria cozinha. */
+	kitchenId: KitchenIdSchema.nullish(),
+})
+	.refine((v) => (v.roleId == null) !== (v.modelId == null), { message: "Informe roleId OU modelId, nunca os dois" })
+	.refine((v) => v.toleranceDays < v.intervalDays, { message: "toleranceDays deve ser menor que intervalDays" })
+export type CreateMaintenancePlan = z.infer<typeof CreateMaintenancePlanSchema>
+
+export const UpdateMaintenancePlanSchema = z.object({
+	planId: UuidSchema,
+	title: z.string().min(1).max(200).nullish(),
+	kind: MaintenanceKindSchema.nullish(),
+	intervalDays: z.number().int().positive().max(3650).nullish(),
+	toleranceDays: z.number().int().nonnegative().max(365).nullish(),
+	instructions: z.string().max(4000).nullish(),
+	estimatedMinutes: z.number().int().positive().max(10_000).nullish(),
+	isRequired: z.boolean().nullish(),
+	sortOrder: z.number().int().nonnegative().nullish(),
+})
+export type UpdateMaintenancePlan = z.infer<typeof UpdateMaintenancePlanSchema>
+
+export const DeleteMaintenancePlanSchema = z.object({ planId: UuidSchema })
+export type DeleteMaintenancePlan = z.infer<typeof DeleteMaintenancePlanSchema>
+
+export const LogMaintenanceSchema = z.object({
+	unitId: UuidSchema,
+	/** null = corretiva/avulsa. A maioria da manutenção real não corresponde a plano nenhum. */
+	planId: UuidSchema.nullish(),
+	/** Pane que originou o conserto. Fecha o ciclo relato → conserto. */
+	issueId: UuidSchema.nullish(),
+	kind: MaintenanceLogKindSchema.default("preventive"),
+	performedOn: DateSchema,
+	provider: MaintenanceProviderSchema.default("in_house"),
+	cost: z.number().nonnegative().nullish(),
+	notes: z.string().max(2000).nullish(),
+	/** Encerra a pane de `issueId` como resolvida no mesmo movimento. Exige `kitchen:2`. */
+	resolveIssue: z.boolean().default(false),
+})
+export type LogMaintenance = z.infer<typeof LogMaintenanceSchema>
+
+export const ListMaintenanceLogsSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	unitId: UuidSchema.nullish(),
+	planId: UuidSchema.nullish(),
+	limit: z.number().int().positive().max(500).default(100),
+})
+export type ListMaintenanceLogs = z.infer<typeof ListMaintenanceLogsSchema>
 
 // ── Exigência da preparação ───────────────────────────────────────────────
 
@@ -267,3 +415,35 @@ export type EvaluateRecipeEquipmentFitness = z.infer<typeof EvaluateRecipeEquipm
  */
 export const EvaluateMenuEquipmentFitnessSchema = z.object({ dailyMenuId: UuidSchema })
 export type EvaluateMenuEquipmentFitness = z.infer<typeof EvaluateMenuEquipmentFitnessSchema>
+
+// ── Relatórios (fase 4) ───────────────────────────────────────────────────
+
+/**
+ * `today` é PARÂMETRO opcional em todos os relatórios de vencimento.
+ *
+ * O cálculo de rotina vencida lê data; ler o relógio do processo lá dentro tornaria o
+ * relatório impossível de testar e erraria na virada de fuso. Ausente = hoje no servidor.
+ */
+const TodaySchema = DateSchema.nullish().describe("Data de referência (YYYY-MM-DD). Ausente = hoje")
+
+export const KitchenEquipmentConditionSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	/** Quantas panes encerradas trazer no histórico. */
+	historyLimit: z.number().int().positive().max(200).nullish(),
+})
+export type KitchenEquipmentCondition = z.infer<typeof KitchenEquipmentConditionSchema>
+
+export const KitchenMaintenanceMatrixSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	today: TodaySchema,
+})
+export type KitchenMaintenanceMatrix = z.infer<typeof KitchenMaintenanceMatrixSchema>
+
+export const FleetEquipmentReportSchema = z.object({
+	/** Filtros, nunca eixos: o relatório é por PAPEL, que é a pergunta de cobertura. */
+	roleId: UuidSchema.nullish(),
+	modelId: UuidSchema.nullish(),
+	kitchenId: KitchenIdSchema.nullish(),
+	today: TodaySchema,
+})
+export type FleetEquipmentReport = z.infer<typeof FleetEquipmentReportSchema>
