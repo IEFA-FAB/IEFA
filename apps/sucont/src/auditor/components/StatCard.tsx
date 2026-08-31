@@ -7,22 +7,24 @@ interface StatCardProps {
 	value: number | string
 	subtitle?: string
 	icon: LucideIcon
+	/** Classe de fundo do ícone. Ignorada quando `iconColor` é informado. */
 	bgClass: string
+	/**
+	 * Cor literal do ícone, para quando o valor vem de uma rampa sequencial
+	 * (ICC, risco) que não cabe nos tokens de estado.
+	 */
+	iconColor?: string
+	/**
+	 * Série da sparkline. Sem ela o card NÃO desenha tendência — antes havia um
+	 * default `[10, 20, 15, 25, 20, 30]` que pintava uma curva inventada num painel
+	 * de conciliação contábil.
+	 */
 	trendData?: number[]
 	variation?: string
 	isPositive?: boolean
 }
 
-export const StatCard: React.FC<StatCardProps> = ({
-	title,
-	value,
-	subtitle,
-	icon: Icon,
-	bgClass,
-	trendData = [10, 20, 15, 25, 20, 30],
-	variation = "+2.1% nos últimos 90 dias",
-	isPositive = true,
-}) => {
+export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon: Icon, bgClass, iconColor, trendData, variation, isPositive = true }) => {
 	const trendColor = isPositive ? "#10b981" : "#ef4444"
 
 	return (
@@ -31,9 +33,11 @@ export const StatCard: React.FC<StatCardProps> = ({
       bg-card border-border hover:bg-muted/50
     `}
 		>
-			<div className="absolute bottom-2 left-4 right-4 h-8 opacity-40 pointer-events-none">
-				<Sparkline data={trendData} color={trendColor} />
-			</div>
+			{trendData && trendData.length > 0 && (
+				<div className="absolute bottom-2 left-4 right-4 h-8 opacity-40 pointer-events-none">
+					<Sparkline data={trendData} color={trendColor} />
+				</div>
+			)}
 
 			<div className="flex justify-between items-start relative z-10">
 				<div className="flex-1">
@@ -69,7 +73,10 @@ export const StatCard: React.FC<StatCardProps> = ({
 					</div>
 				</div>
 
-				<div className={`w-10 h-10 rounded-lg ${bgClass} shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2`}>
+				<div
+					style={iconColor ? { backgroundColor: iconColor } : undefined}
+					className={`w-10 h-10 rounded-lg ${iconColor ? "" : bgClass} shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2`}
+				>
 					<Icon className="w-5 h-5 text-white" />
 				</div>
 			</div>

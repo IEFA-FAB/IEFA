@@ -25,7 +25,7 @@ export function forbidden(message = "Sem permissão"): never {
 	return denyWithStatus(message)
 }
 
-const auth = createRequestAuth({ getAuthClient: getIefaAuthClient })
+const auth = createRequestAuth({ getAuthClient: getIefaAuthClient, messages: { unauthorized: "Não autenticado" } })
 
 export const { getRequestUser } = auth
 

@@ -170,6 +170,29 @@ describe("createRequestAuth — gates", () => {
 		expect(permissionsRead).toBe(false)
 	})
 
+	test("mensagem do app substitui o default — ela chega ao usuário na tela", async () => {
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(null).client,
+			messages: { unauthorized: "Não autenticado." },
+		})
+
+		// O portal renderiza `err.message` direto em cinco telas do journal: um
+		// default em inglês vazando para lá é regressão visível, não detalhe interno.
+		expect(auth.requireUserId()).rejects.toThrow("Não autenticado.")
+	})
+
+	test("mensagem de 403 do app substitui o default", async () => {
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser()).client,
+			getPermissionsClient: () => permissionsClient([{ module: "sucont", level: 1 }]),
+			messages: { forbidden: (m) => `Sem acesso ao módulo ${m}.` },
+		})
+
+		expect(auth.requireLevel("sucont", 2)).rejects.toThrow("Sem acesso ao módulo sucont.")
+	})
+
 	test("requireAuth sem getPermissionsClient falha explicitamente", async () => {
 		currentRequest = new Request("https://app.local/")
 		const auth = createRequestAuth({ getAuthClient: authClientSpy(fakeUser()).client })

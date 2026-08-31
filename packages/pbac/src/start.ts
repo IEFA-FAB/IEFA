@@ -57,6 +57,15 @@ export interface RequestAuthConfig {
 	 */
 	// biome-ignore lint/suspicious/noExplicitAny: aceita qualquer schema de SupabaseClient
 	getPermissionsClient?: () => SupabaseClient<any, any>
+	/**
+	 * Mensagens dos erros lançados pelos gates.
+	 *
+	 * Existe porque elas CHEGAM AO USUÁRIO: vários apps renderizam `err.message`
+	 * direto na tela. O default em inglês serve a quem trata o erro por código; app
+	 * com UI em português passa as suas aqui, em vez de redefinir os gates só para
+	 * trocar uma string.
+	 */
+	messages?: { unauthorized?: string; forbidden?: (module: string) => string }
 }
 
 export interface RequestAuth {
@@ -86,7 +95,7 @@ export interface RequestAuth {
  * export const requireSucontEditor = () => auth.requireLevel("sucont", 2)
  * ```
  */
-export function createRequestAuth({ getAuthClient, getPermissionsClient }: RequestAuthConfig): RequestAuth {
+export function createRequestAuth({ getAuthClient, getPermissionsClient, messages }: RequestAuthConfig): RequestAuth {
 	/**
 	 * `getUser()` valida o JWT contra o servidor Supabase — é um round-trip de rede,
 	 * e num único SSR ele é chamado várias vezes: a sessão no `__root` mais o gate de
@@ -125,7 +134,7 @@ export function createRequestAuth({ getAuthClient, getPermissionsClient }: Reque
 
 	const requireUser = async (): Promise<User> => {
 		const user = await getRequestUser()
-		if (!user) unauthorized()
+		if (!user) unauthorized(messages?.unauthorized)
 		return user
 	}
 
@@ -145,7 +154,7 @@ export function createRequestAuth({ getAuthClient, getPermissionsClient }: Reque
 		try {
 			requirePermission(ctx, module, minLevel, scope)
 		} catch (error) {
-			if (error instanceof PermissionDeniedError) forbidden(`FORBIDDEN: ${module}`)
+			if (error instanceof PermissionDeniedError) forbidden(messages?.forbidden?.(module) ?? `FORBIDDEN: ${module}`)
 			throw error
 		}
 		return ctx

@@ -8,7 +8,7 @@ export interface AppAccess {
 	role: string | null
 }
 
-const auth = createRequestAuth({ getAuthClient: getSupabaseAuthClient })
+const auth = createRequestAuth({ getAuthClient: getSupabaseAuthClient, messages: { unauthorized: "Não autenticado" } })
 
 /** Usuário autenticado da request (JWT validado no servidor), ou null. */
 export const { getRequestUser } = auth

@@ -1,6 +1,7 @@
 import { Info, Maximize2, Minimize2, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { riskColor } from "../theme"
 import type { FinancialRecord } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
 
@@ -134,19 +135,27 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							</p>
 							<div className="space-y-1 text-[9px]">
 								<div className="flex gap-2">
-									<span className="font-bold text-success">Baixo Risco</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.BAIXO) }}>
+										Baixo Risco
+									</span>
 									<span>→ divergência pequena e pouco recorrente</span>
 								</div>
 								<div className="flex gap-2">
-									<span className="font-bold text-warning">Médio Risco</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.MEDIO) }}>
+										Médio Risco
+									</span>
 									<span>→ divergência moderada ou recorrência moderada</span>
 								</div>
 								<div className="flex gap-2">
-									<span className="font-bold text-warning">Alto Risco</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.ALTO) }}>
+										Alto Risco
+									</span>
 									<span>→ divergência relevante ou recorrente</span>
 								</div>
 								<div className="flex gap-2">
-									<span className="font-bold text-destructive">Crítico</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.CRITICO) }}>
+										Crítico
+									</span>
 									<span>→ divergência muito elevada e persistente</span>
 								</div>
 							</div>

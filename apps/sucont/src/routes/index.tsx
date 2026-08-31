@@ -21,7 +21,7 @@ function Dashboard() {
 					<button
 						type="button"
 						onClick={clear}
-						className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-full hover:text-foreground hover:border-border transition-colors"
+						className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-full hover:text-foreground hover:border-foreground/30 transition-colors"
 					>
 						{query.trim() !== "" ? `Busca "${query.trim()}"` : "Filtro ativo"} <X className="w-3 h-3" />
 					</button>

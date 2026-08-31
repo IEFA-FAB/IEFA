@@ -112,7 +112,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 							type="button"
 							onClick={() => setInternalGroupFilter(tab.id)}
 							className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap border border-transparent
-                ${internalGroupFilter === tab.id ? "tab.activeClass" : "bg-muted text-muted-foreground hover:bg-muted/70 border-border"}
+                ${internalGroupFilter === tab.id ? tab.activeClass : "bg-muted text-muted-foreground hover:bg-muted/70 border-border"}
               `}
 						>
 							{tab.label}

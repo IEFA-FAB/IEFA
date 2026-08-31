@@ -168,21 +168,21 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 				<button
 					type="button"
 					onClick={() => setQuery("Qual ODS tem mais inconsistências?")}
-					className="text-xs bg-muted hover:bg-muted text-foreground px-2 py-1 rounded-md transition-colors"
+					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
 				>
 					Qual ODS tem mais inconsistências?
 				</button>
 				<button
 					type="button"
 					onClick={() => setQuery("Quais são as 10 UGs com mais inconsistências?")}
-					className="text-xs bg-muted hover:bg-muted text-foreground px-2 py-1 rounded-md transition-colors"
+					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
 				>
 					Top 10 UGs
 				</button>
 				<button
 					type="button"
 					onClick={() => setQuery("Qual questão RAC é mais recorrente?")}
-					className="text-xs bg-muted hover:bg-muted text-foreground px-2 py-1 rounded-md transition-colors"
+					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
 				>
 					Questão RAC mais recorrente
 				</button>

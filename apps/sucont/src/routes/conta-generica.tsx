@@ -1565,7 +1565,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 										<button
 											type="button"
 											onClick={() => setConferenteFilter(null)}
-											className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted text-muted-foreground rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-border"
+											className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/70 text-muted-foreground rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-border"
 										>
 											<RefreshCw className="w-3 h-3" /> Limpar Filtro
 										</button>

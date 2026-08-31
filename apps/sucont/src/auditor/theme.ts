@@ -12,6 +12,8 @@
  * CSS, e o componente deixa de saber que existe tema.
  */
 
+import { RiskLevel } from "./types"
+
 /** Cromo: eixo, grade, superfície. Papel semântico, não cor. */
 export const chartChrome = {
 	/** Linhas da grade e bordas de célula. */
@@ -59,3 +61,20 @@ const iccStep = (value: number) => ICC_RAMP.find((step) => value >= step.min) ??
 
 export const iccColor = (value: number): string => iccStep(value).color
 export const iccLabel = (value: number): string => iccStep(value).label
+
+/**
+ * Rampa de risco: quatro faixas, quatro cores.
+ *
+ * Pelo mesmo motivo do ICC, não cabe em `success`/`warning`/`destructive`: são
+ * quatro degraus de uma escala, e colapsar dois deles no mesmo token faz a legenda
+ * afirmar que Médio e Alto são a mesma coisa. Mesma paleta do `ICC_RAMP`, para que
+ * as duas leituras da mesma tela não briguem.
+ */
+export const RISK_RAMP: Record<RiskLevel, string> = {
+	[RiskLevel.BAIXO]: "#10b981",
+	[RiskLevel.MEDIO]: "#f59e0b",
+	[RiskLevel.ALTO]: "#f97316",
+	[RiskLevel.CRITICO]: "#ef4444",
+}
+
+export const riskColor = (level: RiskLevel): string => RISK_RAMP[level]

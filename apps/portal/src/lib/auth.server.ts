@@ -30,7 +30,12 @@ export function forbidden(message = "Você não tem acesso a este recurso."): ne
 	return denyWithStatus(message)
 }
 
-const auth = createRequestAuth({ getAuthClient: getIefaAuthClient })
+const auth = createRequestAuth({
+	getAuthClient: getIefaAuthClient,
+	// O portal renderiza `err.message` direto na tela do journal — a mensagem tem
+	// de sair em português daqui, e não do default em inglês do pacote.
+	messages: { unauthorized: "Não autenticado." },
+})
 
 export const { getRequestUser, requireUserId } = auth
 

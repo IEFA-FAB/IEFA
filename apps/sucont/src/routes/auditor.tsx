@@ -23,6 +23,7 @@ import {
 	toShortDate,
 } from "#/auditor/services/dataProcessor"
 import { parseExcelFile } from "#/auditor/services/excelParser"
+import { iccColor, iccLabel } from "#/auditor/theme"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
 import { useSucontAccess } from "#/auth/pbac"
@@ -771,29 +772,9 @@ function AuditorPage() {
 								value={stats.topOffender?.ug || "-"}
 								subtitle={stats.topOffender ? formatCurrency(stats.topOffender.difference) : "-"}
 								icon={AlertTriangle}
-								bgClass={
-									stats.topOffenderICC >= 98
-										? "bg-success"
-										: stats.topOffenderICC >= 90
-											? "bg-success"
-											: stats.topOffenderICC >= 80
-												? "bg-warning"
-												: stats.topOffenderICC >= 70
-													? "bg-warning"
-													: "bg-destructive"
-								}
-								trendData={[20, 40, 30, 50, 45, 60]}
-								variation={
-									stats.topOffenderICC >= 98
-										? "Excelência Máxima"
-										: stats.topOffenderICC >= 90
-											? "Nível Excelente"
-											: stats.topOffenderICC >= 80
-												? "Nível Operacional"
-												: stats.topOffenderICC >= 70
-													? "Divergência Moderada"
-													: "Nível Crítico"
-								}
+								bgClass=""
+								iconColor={iccColor(stats.topOffenderICC)}
+								variation={iccLabel(stats.topOffenderICC)}
 								isPositive={stats.topOffenderICC >= 80}
 							/>
 
