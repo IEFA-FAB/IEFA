@@ -222,7 +222,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							<button
 								type="button"
 								onClick={() => setIsExpanded(false)}
-								className={`p-2 rounded-full hover:bg-destructive hover:text-white transition-colors
+								className={`p-2 rounded-full hover:bg-destructive hover:text-destructive-foreground transition-colors
                   text-muted-foreground
                 `}
 							>

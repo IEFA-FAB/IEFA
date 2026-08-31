@@ -111,7 +111,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 						<p className="text-sm text-action">Agrupa todas as UGs com inconsistências nesta questão</p>
 					</div>
 				</div>
-				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action text-action">
+				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action text-action-foreground">
 					{Object.keys(groupedByUg).length} UGs / {items.length} Ocorrência(s)
 				</span>
 			</div>

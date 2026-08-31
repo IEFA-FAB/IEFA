@@ -162,7 +162,7 @@ function RouteComponent() {
 							rel="noopener noreferrer"
 							className={cn(
 								"w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow-md",
-								item.highlighted ? "bg-warning hover:bg-warning/80 text-white" : "bg-action hover:bg-action/80 text-white"
+								item.highlighted ? "bg-warning hover:bg-warning/80 text-warning-foreground" : "bg-action hover:bg-action/80 text-action-foreground"
 							)}
 						>
 							Acessar Ferramenta
@@ -194,7 +194,7 @@ function RouteComponent() {
 					</div>
 					<span className="font-bold text-sm sm:text-base tracking-tight truncate">Centro de Monitoramento Contábil da SUCONT-3</span>
 				</div>
-				<button type="button" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-muted-foreground hover:text-white">
+				<button type="button" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-surface-inverted-muted hover:text-white">
 					{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
 				</button>
 			</div>
@@ -233,7 +233,7 @@ function RouteComponent() {
 						className={cn(
 							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
 							activeTab === "home" && !searchQuery
-								? "bg-action text-white shadow-md"
+								? "bg-action text-action-foreground shadow-md"
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
@@ -249,7 +249,7 @@ function RouteComponent() {
 						className={cn(
 							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
 							activeTab === "3.1" && !searchQuery
-								? "bg-action text-white shadow-md"
+								? "bg-action text-action-foreground shadow-md"
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
@@ -263,7 +263,7 @@ function RouteComponent() {
 						className={cn(
 							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
 							activeTab === "3.2" && !searchQuery
-								? "bg-action text-white shadow-md"
+								? "bg-action text-action-foreground shadow-md"
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
@@ -277,7 +277,7 @@ function RouteComponent() {
 						className={cn(
 							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
 							activeTab === "geral" && !searchQuery
-								? "bg-action text-white shadow-md"
+								? "bg-action text-action-foreground shadow-md"
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
@@ -398,7 +398,7 @@ function RouteComponent() {
 											<button
 												type="button"
 												onClick={() => handleTabChange("3.1")}
-												className="bg-action hover:bg-action/80 text-white px-7 py-3.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 group"
+												className="bg-action hover:bg-action/80 text-action-foreground px-7 py-3.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 group"
 											>
 												<BarChart3 className="w-5 h-5 text-action group-hover:text-white transition-colors" />
 												Acompanhamento Contábil
@@ -408,7 +408,7 @@ function RouteComponent() {
 												onClick={() => handleTabChange("3.2")}
 												className="bg-surface-inverted/80 hover:bg-surface-inverted-border text-surface-inverted-foreground border border-surface-inverted-border px-7 py-3.5 rounded-xl font-bold transition-all backdrop-blur-sm flex items-center gap-2 group"
 											>
-												<Users className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
+												<Users className="w-5 h-5 text-surface-inverted-muted group-hover:text-white transition-colors" />
 												Suporte ao Usuário
 											</button>
 											<button

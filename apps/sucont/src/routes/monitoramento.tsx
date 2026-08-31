@@ -683,16 +683,16 @@ function MonitoramentoPage() {
 
 					{/* Banner focal RAC */}
 					{activeView === "operacional" && activeRacFilter !== "TODOS" && (
-						<div className="bg-action text-white p-6 rounded-2xl border border-action flex items-center justify-between animate-in slide-in-from-top duration-500">
+						<div className="bg-action text-action-foreground p-6 rounded-2xl border border-action flex items-center justify-between animate-in slide-in-from-top duration-500">
 							<div className="flex items-center space-x-4">
 								<div className="p-3 bg-action rounded-xl">
-									<BookOpen className="w-6 h-6 text-action" />
+									<BookOpen className="w-6 h-6 text-action-foreground" />
 								</div>
 								<div>
 									<h2 className="text-xl font-bold">
 										{activeRacFilter} — {getRacDescription(activeRacFilter)}
 									</h2>
-									<p className="text-action text-sm">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
+									<p className="text-action-foreground text-sm">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
 								</div>
 							</div>
 							<button
@@ -1212,9 +1212,9 @@ function MonitoramentoPage() {
 								{(
 									[
 										{ id: "ALL", label: "Todas as Ocorrências", active: "bg-surface-inverted text-surface-inverted-foreground" },
-										{ id: "COBRANCAS", label: "Cobranças (RAC)", active: "bg-destructive text-white" },
-										{ id: "EXCECOES", label: "Exceções (RAC)", active: "bg-success text-white" },
-										{ id: "FORA_ESCOPO", label: "Fora do Escopo (Inconsistências)", active: "bg-warning text-white" },
+										{ id: "COBRANCAS", label: "Cobranças (RAC)", active: "bg-destructive text-destructive-foreground" },
+										{ id: "EXCECOES", label: "Exceções (RAC)", active: "bg-success text-success-foreground" },
+										{ id: "FORA_ESCOPO", label: "Fora do Escopo (Inconsistências)", active: "bg-warning text-warning-foreground" },
 									] as const
 								).map(({ id, label, active }) => (
 									<button

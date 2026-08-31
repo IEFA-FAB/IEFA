@@ -965,7 +965,7 @@ DIREF/SUCONT/SUCONT-3
 							Importar Relatório
 						</h2>
 
-						<div className="mb-6 bg-action/50 border border-action/30 rounded-xl p-4">
+						<div className="mb-6 bg-action/5 border border-action/30 rounded-xl p-4">
 							<div className="flex items-start gap-3">
 								<Info className="w-5 h-5 text-[#00a8e8] shrink-0 mt-0.5" />
 								<div>
@@ -1149,7 +1149,7 @@ DIREF/SUCONT/SUCONT-3
 										<button
 											type="button"
 											onClick={copyRacSummary}
-											className="flex items-center gap-2 px-4 py-2.5 bg-success hover:bg-success/90 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+											className="flex items-center gap-2 px-4 py-2.5 bg-success hover:bg-success/90 text-success-foreground rounded-lg text-sm font-medium transition-colors shadow-sm"
 											title="Copiar resumo simplificado para esta questão"
 										>
 											<Copy className="w-4 h-4" />
@@ -1171,11 +1171,11 @@ DIREF/SUCONT/SUCONT-3
 							{/* UG cards */}
 							<div className="space-y-8">
 								{racFilter !== "all" && filteredReports.length > 0 && (
-									<div className="bg-action text-white px-6 py-4 rounded-xl shadow-md flex items-center gap-3">
+									<div className="bg-action text-action-foreground px-6 py-4 rounded-xl shadow-md flex items-center gap-3">
 										<BookOpen className="w-6 h-6" />
 										<div>
 											<h3 className="text-lg font-bold">{racFilter}</h3>
-											<p className="text-action text-sm">
+											<p className="text-action-foreground text-sm">
 												{PAIRS.find((p) => p.question.includes(racFilter))?.question.split(" do ")[0]} —{" "}
 												{PAIRS.find((p) => p.question.includes(racFilter))?.nameA} × {PAIRS.find((p) => p.question.includes(racFilter))?.nameB}
 											</p>
@@ -1641,7 +1641,7 @@ DIREF/SUCONT/SUCONT-3
 														<p className="text-lg font-bold text-foreground">{formatCurrency(pair.volume)}</p>
 													</div>
 												</div>
-												<div className="md:w-2/3 bg-action/50 p-4 rounded-xl border border-action/30">
+												<div className="md:w-2/3 bg-action/5 p-4 rounded-xl border border-action/30">
 													<h5 className="text-sm font-bold text-[#003366] mb-2">Objetivo da Verificação:</h5>
 													<p className="text-sm text-foreground mb-4 leading-relaxed">
 														{pair.name === "Par 1"

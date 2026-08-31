@@ -1239,7 +1239,7 @@ function SubitensGenericos() {
 																	className={cn(
 																		"mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
 																		copiedIndex === idx
-																			? "bg-success text-white shadow-lg"
+																			? "bg-success text-success-foreground shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
 																	)}
 																>
@@ -1422,7 +1422,7 @@ function SubitensGenericos() {
 																	className={cn(
 																		"mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
 																		copiedIndex === idx
-																			? "bg-success text-white shadow-lg"
+																			? "bg-success text-success-foreground shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
 																	)}
 																>

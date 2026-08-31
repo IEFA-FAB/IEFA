@@ -48,7 +48,7 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 				htmlFor="cruzamento-dropzone-file"
 				className={cn(
 					"relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-200 ease-in-out cursor-pointer",
-					isDragging ? "border-action bg-action/50" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
+					isDragging ? "border-action bg-action/5" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
 					isLoading && "opacity-50 cursor-not-allowed pointer-events-none"
 				)}
 				onDragEnter={handleDrag}

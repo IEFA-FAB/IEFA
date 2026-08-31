@@ -177,7 +177,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							onClick={handleCopy}
 							disabled={registerMutation.isPending}
 							className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed
-                ${copied ? "bg-success text-white hover:bg-success/80" : "bg-action hover:bg-action/80 text-white"}
+                ${copied ? "bg-success text-success-foreground hover:bg-success/80" : "bg-action hover:bg-action/80 text-action-foreground"}
               `}
 						>
 							{registerMutation.isPending ? (

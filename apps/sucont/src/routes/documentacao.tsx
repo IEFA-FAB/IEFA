@@ -254,8 +254,8 @@ function PlataformaDoc() {
 											</div>
 										</div>
 
-										<div className="bg-action p-6 rounded-2xl shadow-lg text-white">
-											<h4 className="text-[10px] font-bold text-action uppercase tracking-widest mb-2">Dica de UX</h4>
+										<div className="bg-action p-6 rounded-2xl shadow-lg text-action-foreground">
+											<h4 className="text-[10px] font-bold text-action-foreground uppercase tracking-widest mb-2">Dica de UX</h4>
 											<p className="text-xs leading-relaxed opacity-90">
 												{docType === "FAB_OFFICE"
 													? "Você pode clicar em qualquer campo do ofício para fazer ajustes manuais antes de imprimir."

@@ -158,7 +158,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			>
 				<div
 					className={`absolute -left-1 top-3 w-5 h-5 flex items-center justify-center text-[9px] font-bold rounded shadow-lg z-10
-          ${isWorse ? "bg-destructive text-white" : "bg-success text-white"}`}
+          ${isWorse ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}`}
 				>
 					{rank}
 				</div>

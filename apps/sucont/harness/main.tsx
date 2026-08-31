@@ -17,7 +17,7 @@ import { TemporalHeatmap } from "#/auditor/components/TemporalHeatmap"
 import { applyRiskClassification, normalizeData, recalculateDeltas } from "#/auditor/services/dataProcessor"
 import { iccColor, iccLabel } from "#/auditor/theme"
 import type { RawInputRow } from "#/auditor/types"
-import "#/styles.css"
+import "./harness.css"
 
 const UGS = [
 	{ cod: "120001", ug: "BASE AEREA DE SANTOS" },

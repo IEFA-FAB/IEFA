@@ -95,16 +95,16 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 							label: "TODOS",
 							activeClass: "bg-primary text-primary-foreground",
 						},
-						{ id: AccountGroup.BMP, label: "BMP", activeClass: "text-white bg-destructive border-destructive" },
+						{ id: AccountGroup.BMP, label: "BMP", activeClass: "text-destructive-foreground bg-destructive border-destructive" },
 						{
 							id: AccountGroup.CONSUMO,
 							label: "CONSUMO",
-							activeClass: "text-white bg-action border-action",
+							activeClass: "text-action-foreground bg-action border-action",
 						},
 						{
 							id: AccountGroup.INTANGIVEL,
 							label: "INTANGIVEL",
-							activeClass: "text-white bg-success border-success",
+							activeClass: "text-success-foreground bg-success border-success",
 						},
 					].map((tab) => (
 						<button
@@ -124,7 +124,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 					type="button"
 					onClick={() => setSortBy(sortBy === "value" ? "name" : "value")}
 					className={`hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-bold uppercase transition-all
-            ${sortBy === "value" ? "bg-action text-white border-action shadow-lg" : "bg-muted border-border text-muted-foreground"}
+            ${sortBy === "value" ? "bg-action text-action-foreground border-action shadow-lg" : "bg-muted border-border text-muted-foreground"}
           `}
 				>
 					<ArrowUpDown className="w-3 h-3" />
@@ -189,7 +189,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 														.sort((a, b) => parseDateString(b.date).timestamp - parseDateString(a.date).timestamp)[0]
 													if (latest) onSendMessage(latest, "HEATMAP")
 												}}
-												className={`w-9 h-9 flex items-center justify-center rounded hover:text-white hover:bg-action transition-colors border shadow-sm bg-muted text-muted-foreground border-border`}
+												className={`w-9 h-9 flex items-center justify-center rounded hover:text-action-foreground hover:bg-action transition-colors border shadow-sm bg-muted text-muted-foreground border-border`}
 											>
 												<MessageSquareText className="w-4 h-4" />
 											</button>

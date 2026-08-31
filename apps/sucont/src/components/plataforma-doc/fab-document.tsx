@@ -20,7 +20,9 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 		<div className="bg-card shadow-2xl mx-auto my-8 p-[2.5cm] w-[210mm] min-h-[297mm] text-black font-serif text-[12pt] leading-relaxed relative print:shadow-none print:my-0 print:p-[2cm]">
 			{/* Urgência */}
 			{data.urgency && (
-				<div className="absolute top-8 right-8 bg-destructive text-white px-4 py-1 font-bold text-[10pt] uppercase tracking-widest shadow-sm">URGENTE</div>
+				<div className="absolute top-8 right-8 bg-destructive text-destructive-foreground px-4 py-1 font-bold text-[10pt] uppercase tracking-widest shadow-sm">
+					URGENTE
+				</div>
 			)}
 
 			{/* Cabeçalho */}

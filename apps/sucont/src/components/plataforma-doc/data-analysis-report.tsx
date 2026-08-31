@@ -107,7 +107,7 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 						</thead>
 						<tbody className="divide-y divide-border">
 							{data.tableData.rows.map((row, i) => (
-								<tr key={i} className="hover:bg-action/30 transition-colors group">
+								<tr key={i} className="hover:bg-action/5 transition-colors group">
 									{row.map((cell, j) => (
 										<td
 											key={j}
@@ -146,17 +146,17 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 						<Info className="w-4 h-4" />
 						Conclusão
 					</h3>
-					<p className="text-muted-foreground text-sm leading-relaxed">{data.conclusion}</p>
+					<p className="text-surface-inverted-muted text-sm leading-relaxed">{data.conclusion}</p>
 				</section>
-				<section className="bg-action text-white rounded-3xl p-8 shadow-xl">
-					<h3 className="text-action font-bold text-[10px] uppercase mb-4 tracking-widest flex items-center gap-2">
+				<section className="bg-action text-action-foreground rounded-3xl p-8 shadow-xl">
+					<h3 className="text-action-foreground font-bold text-[10px] uppercase mb-4 tracking-widest flex items-center gap-2">
 						<CheckCircle2 className="w-4 h-4" />
 						Recomendações
 					</h3>
 					<ul className="space-y-3">
 						{data.recommendations.map((rec, idx) => (
 							<li key={idx} className="flex gap-3 text-white text-xs leading-relaxed font-medium">
-								<span className="text-action font-bold">✓</span>
+								<span className="text-action-foreground font-bold">✓</span>
 								{rec}
 							</li>
 						))}

@@ -879,7 +879,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								color: "emerald-600",
 								title: "Mensagens Automáticas",
 								text: "Geração automática de textos padronizados para envio via SIAFI às Unidades Gestoras, facilitando a cobrança e orientação técnica.",
-								borderHover: "hover:border-success/50",
+								borderHover: "hover:border-success/20",
 							},
 						].map(({ icon: Icon, color, title, text, borderHover }) => (
 							<div key={title} className={`bg-card p-6 rounded-2xl shadow-md border border-border ${borderHover} transition-colors group`}>
@@ -1011,7 +1011,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									natureza do fato contábil.
 								</p>
 							</div>
-							<div className="bg-warning/50 p-4 rounded-xl border border-warning/50">
+							<div className="bg-warning/50 p-4 rounded-xl border border-warning/20">
 								<h4 className="text-xs font-bold text-warning uppercase mb-3 flex items-center gap-2">
 									<AlertTriangle className="w-4 h-4 text-warning" /> Risco Contábil
 								</h4>
@@ -1020,7 +1020,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									decisão.
 								</p>
 							</div>
-							<div className="bg-success/50 p-4 rounded-xl border border-success/50">
+							<div className="bg-success/50 p-4 rounded-xl border border-success/20">
 								<h4 className="text-xs font-bold text-success uppercase mb-3 flex items-center gap-2">
 									<ShieldCheck className="w-4 h-4 text-success" /> Importância
 								</h4>
@@ -1113,13 +1113,13 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 									{/* Decision support */}
 									<div className="space-y-6">
-										<div className="bg-success p-6 rounded-2xl shadow-xl border-b-4 border-success flex flex-col justify-center text-white">
+										<div className="bg-success p-6 rounded-2xl shadow-xl border-b-4 border-success flex flex-col justify-center text-success-foreground">
 											<div className="flex items-center gap-3 mb-4">
-												<DollarSign className="w-8 h-8 text-success" />
+												<DollarSign className="w-8 h-8 text-success-foreground" />
 												<h3 className="text-lg font-black uppercase tracking-tight">Impacto Financeiro Total</h3>
 											</div>
 											<p className="text-4xl font-black mb-2">{formatCurrency(totalFinancialImpact)}</p>
-											<p className="text-xs font-bold text-success uppercase tracking-widest">Volume total em risco contábil</p>
+											<p className="text-xs font-bold text-success-foreground uppercase tracking-widest">Volume total em risco contábil</p>
 										</div>
 
 										<div className="bg-fab-dark p-6 rounded-2xl shadow-xl border-t-4 border-t-fab-gold">
@@ -1243,7 +1243,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 															key={i}
 															className="flex items-center gap-4 p-3 bg-muted/50 rounded-xl border border-border hover:bg-success/10 transition-colors"
 														>
-															<div className="w-8 h-8 bg-success text-white rounded-lg flex items-center justify-center font-black text-sm">{i + 1}º</div>
+															<div className="w-8 h-8 bg-success text-success-foreground rounded-lg flex items-center justify-center font-black text-sm">
+																{i + 1}º
+															</div>
 															<div className="flex-1">
 																<p className="text-sm font-black text-fab-dark">
 																	UG {p.ug} ({getUgName(p.ug)})
@@ -1549,8 +1551,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													onClick={() => setConferenteFilter(conf)}
 													className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
 														conferenteFilter === conf
-															? "bg-success text-white border-success shadow-md"
-															: "bg-card text-muted-foreground border-border hover:border-success/50"
+															? "bg-success text-success-foreground border-success shadow-md"
+															: "bg-card text-muted-foreground border-border hover:border-success/20"
 													}`}
 												>
 													{conf}
@@ -1705,7 +1707,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																	type="button"
 																	onClick={() => copyToClipboard(message, ug)}
 																	className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-																		copiedUg === ug ? "bg-success text-white shadow-lg" : "bg-fab-blue text-white hover:bg-fab-dark shadow-lg"
+																		copiedUg === ug ? "bg-success text-success-foreground shadow-lg" : "bg-fab-blue text-white hover:bg-fab-dark shadow-lg"
 																	}`}
 																>
 																	{copiedUg === ug ? (

@@ -508,7 +508,7 @@ function AuditorPage() {
 							<button
 								type="button"
 								onClick={() => setIsUploadModalOpen(true)}
-								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-action hover:bg-action/80 text-white transition-all shadow-lg whitespace-nowrap"
+								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-action hover:bg-action/80 text-action-foreground transition-all shadow-lg whitespace-nowrap"
 							>
 								<UploadCloud className="w-4 h-4" />
 								<span className="hidden sm:inline">Importar Excel</span>
@@ -627,7 +627,7 @@ function AuditorPage() {
 								<button
 									type="button"
 									onClick={() => setIsUploadModalOpen(true)}
-									className="px-6 py-3 bg-action text-white rounded-lg font-bold hover:bg-action/80 transition-colors"
+									className="px-6 py-3 bg-action text-action-foreground rounded-lg font-bold hover:bg-action/80 transition-colors"
 								>
 									{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
 								</button>

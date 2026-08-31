@@ -199,7 +199,7 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 						type="button"
 						onClick={onConfirm}
 						disabled={isPending}
-						className="inline-flex items-center gap-2 bg-destructive text-white px-5 py-2 rounded-lg font-bold text-xs uppercase shadow-md hover:bg-destructive/90 disabled:opacity-60 transition-colors"
+						className="inline-flex items-center gap-2 bg-destructive text-destructive-foreground px-5 py-2 rounded-lg font-bold text-xs uppercase shadow-md hover:bg-destructive/90 disabled:opacity-60 transition-colors"
 					>
 						{isPending && <Loader2 className="w-3 h-3 animate-spin" />} Excluir
 					</button>
