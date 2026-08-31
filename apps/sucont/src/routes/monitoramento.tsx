@@ -596,7 +596,7 @@ function MonitoramentoPage() {
 									<BookOpen className="w-4 h-4 mr-2 text-blue-600" />
 									Questão RAC:
 								</label>
-								<Select value={activeRacFilter} onValueChange={setActiveRacFilter}>
+								<Select items={{ TODOS: "Todas as Questões" }} value={activeRacFilter} onValueChange={(v) => setActiveRacFilter(v ?? "TODOS")}>
 									<SelectTrigger
 										id="rac-filter"
 										className="text-sm border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 font-medium text-foreground"
@@ -620,7 +620,7 @@ function MonitoramentoPage() {
 									<Filter className="w-4 h-4 mr-2 text-blue-600" />
 									Conferente:
 								</label>
-								<Select value={activeConferenteFilter} onValueChange={setActiveConferenteFilter}>
+								<Select items={{ TODOS: "Todos os Conferentes" }} value={activeConferenteFilter} onValueChange={(v) => setActiveConferenteFilter(v ?? "TODOS")}>
 									<SelectTrigger
 										id="conferente-filter"
 										className="text-sm border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 font-medium text-foreground"

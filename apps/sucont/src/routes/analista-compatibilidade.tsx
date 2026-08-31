@@ -1096,7 +1096,7 @@ DIREF/SUCONT/SUCONT-3
 										>
 											Todas Questões
 										</button>
-										<Select value={racFilter !== "all" ? racFilter : ""} onValueChange={setRacFilter}>
+										<Select value={racFilter !== "all" ? racFilter : null} onValueChange={(v) => setRacFilter(v ?? "all")}>
 											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-border bg-transparent px-2 py-1.5 text-xs font-bold text-muted-foreground shadow-none focus-visible:ring-0">
 												<SelectValue placeholder="Filtrar por Questão RAC" />
 											</SelectTrigger>
@@ -1128,7 +1128,10 @@ DIREF/SUCONT/SUCONT-3
 												Minhas UGs
 											</button>
 										)}
-										<Select value={conferenteFilter !== "all" && conferenteFilter !== "minhas" ? conferenteFilter : ""} onValueChange={setConferenteFilter}>
+										<Select
+											value={conferenteFilter !== "all" && conferenteFilter !== "minhas" ? conferenteFilter : null}
+											onValueChange={(v) => setConferenteFilter(v ?? "all")}
+										>
 											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-border bg-transparent px-2 py-1.5 text-xs font-bold text-muted-foreground shadow-none focus-visible:ring-0">
 												<SelectValue placeholder="Todos" />
 											</SelectTrigger>

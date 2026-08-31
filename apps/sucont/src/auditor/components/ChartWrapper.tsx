@@ -66,7 +66,11 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 	const Controls = () => (
 		<div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
 			<div className="relative">
-				<Select value={localGroup} onValueChange={setLocalGroup}>
+				<Select
+					items={{ ALL: "Todos os Grupos", [AccountGroup.BMP]: "BMP", [AccountGroup.CONSUMO]: "CONSUMO", [AccountGroup.INTANGIVEL]: "INTANGÍVEL" }}
+					value={localGroup}
+					onValueChange={(v) => setLocalGroup(v ?? "ALL")}
+				>
 					<SelectTrigger
 						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
             bg-muted/50 border-border text-foreground`}
@@ -84,7 +88,11 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 
 			{!hideMonthFilter && (
 				<div className="relative">
-					<Select value={localMonth} onValueChange={setLocalMonth}>
+					<Select
+						items={{ TODOS: "Todos os Meses", ...Object.fromEntries(availableMonths.map((m) => [m, m])) }}
+						value={localMonth}
+						onValueChange={(v) => setLocalMonth(v ?? "TODOS")}
+					>
 						<SelectTrigger
 							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
               bg-muted/50 border-border text-foreground`}
@@ -106,7 +114,17 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			{showRiskFilter && (
 				<div className="flex items-center gap-1">
 					<div className="relative">
-						<Select value={localRisk} onValueChange={setLocalRisk}>
+						<Select
+							items={{
+								TODOS: "Todos os Riscos",
+								[RiskLevel.BAIXO]: "Baixo Risco",
+								[RiskLevel.MEDIO]: "Médio Risco",
+								[RiskLevel.ALTO]: "Alto Risco",
+								[RiskLevel.CRITICO]: "Crítico",
+							}}
+							value={localRisk}
+							onValueChange={(v) => setLocalRisk(v ?? "TODOS")}
+						>
 							<SelectTrigger
 								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
                 bg-muted/50 border-border text-foreground`}

@@ -162,7 +162,11 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
 						<span className="text-xs font-medium text-muted-foreground">Conferente:</span>
-						<Select value={selectedConferente} onValueChange={setSelectedConferente}>
+						<Select
+							items={{ Geral: "Todos", ...Object.fromEntries(CONFERENTES_LIST.map((c) => [c, c])) }}
+							value={selectedConferente}
+							onValueChange={(v) => setSelectedConferente(v ?? "Geral")}
+						>
 							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
@@ -180,7 +184,11 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
 						<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
-						<Select value={selectedRac} onValueChange={setSelectedRac}>
+						<Select
+							items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
+							value={selectedRac}
+							onValueChange={(v) => setSelectedRac(v ?? "Geral")}
+						>
 							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>

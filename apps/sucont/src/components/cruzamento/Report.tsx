@@ -520,7 +520,15 @@ SUCONT-3 • DIREF • COMAER`
 						</h2>
 						<div className="flex items-center gap-2">
 							<Filter className="w-4 h-4 text-muted-foreground" />
-							<Select value={selectedConferente} onValueChange={setSelectedConferente}>
+							<Select
+								items={{
+									ALL: "Modo Geral (Todos os Conferentes)",
+									"NÃO ATRIBUÍDO": "Não Atribuído",
+									...Object.fromEntries(CONFERENTES.map((c) => [c, c])),
+								}}
+								value={selectedConferente}
+								onValueChange={(v) => setSelectedConferente(v ?? "ALL")}
+							>
 								<SelectTrigger className="bg-card border border-border text-foreground text-sm rounded-lg focus-visible:ring-ring focus-visible:border-blue-500 p-2 font-medium">
 									<SelectValue />
 								</SelectTrigger>
@@ -673,6 +681,7 @@ SUCONT-3 • DIREF • COMAER`
 											Tipo de Mensagem
 										</label>
 										<Select
+											items={{ SEM_PRAZO: "Padrão (Sem Prazo)", COM_PRAZO: "Com Prazo", ALERTA: "Alerta (Sem Resposta)" }}
 											value={consolidatedConfig.messageType}
 											onValueChange={(value) =>
 												setConsolidatedConfig({
@@ -880,6 +889,7 @@ SUCONT-3 • DIREF • COMAER`
 															Tipo de Mensagem
 														</label>
 														<Select
+															items={{ SEM_PRAZO: "Padrão (Sem Prazo)", COM_PRAZO: "Com Prazo", ALERTA: "Alerta (Sem Resposta)" }}
 															value={getConfig(ug.ug).messageType}
 															onValueChange={(value) =>
 																updateConfig(ug.ug, {

@@ -1791,7 +1791,11 @@ function MessageControls({
 			</div>
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
 				<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tipo:</span>
-				<Select value={messageType} onValueChange={(value) => setMessageType(value as typeof messageType)}>
+				<Select
+					items={{ sem_prazo: "Sem Prazo", prazo: "Com Prazo", alerta: "Apenas Alerta" }}
+					value={messageType}
+					onValueChange={(value) => setMessageType(value as typeof messageType)}
+				>
 					<SelectTrigger className={`data-[size=default]:h-auto shadow-none ${inputCls}`}>
 						<SelectValue />
 					</SelectTrigger>

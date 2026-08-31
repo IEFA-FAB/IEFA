@@ -429,7 +429,7 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 				className="w-full bg-muted/50 border border-border p-2 rounded text-xs text-foreground mb-2 h-20 outline-none focus:border-tech-cyan"
 			/>
 			<div className="flex justify-between items-center">
-				<Select value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
+				<Select items={{ info: "INFORMATIVO", alert: "ALERTA" }} value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
 					<SelectTrigger className="data-[size=default]:h-auto bg-muted/50 border border-border text-[10px] text-muted-foreground p-1 rounded shadow-none">
 						<SelectValue />
 					</SelectTrigger>

@@ -243,7 +243,17 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			<div className="flex items-center justify-between px-2">
 				<div className="flex items-center gap-2">
 					<span className={`text-xs font-bold text-muted-foreground`}>Filtro por Tipo:</span>
-					<Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}>
+					<Select
+						items={{
+							TODOS: "Todas as Categorias",
+							AUMENTO_CONTINUO: "Aumento Contínuo",
+							OSCILACAO_ATIPICA: "Oscilação Atípica",
+							REDUCAO_CONTINUA: "Redução Contínua",
+							REDUCAO_PONTUAL: "Redução Pontual",
+						}}
+						value={categoryFilter}
+						onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}
+					>
 						<SelectTrigger
 							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
                bg-muted/50 border-border text-foreground`}

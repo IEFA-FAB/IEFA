@@ -224,7 +224,11 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								<label htmlFor="ug-message-type" className="block text-xs font-medium text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
-								<Select value={messageType} onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}>
+								<Select
+									items={{ SEM_PRAZO: "Padrão (Sem Prazo)", COM_PRAZO: "Com Prazo de Resposta", ALERTA: "Apenas Alerta (Sem Resposta)" }}
+									value={messageType}
+									onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}
+								>
 									<SelectTrigger
 										id="ug-message-type"
 										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-blue-500 mb-2"

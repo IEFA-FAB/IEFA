@@ -51,9 +51,18 @@ Mesma ordem de prioridade do sisub:
 ### 4.2 Primitives
 
 - Implementados com `class-variance-authority` (CVA) sobre **`@base-ui/react`**.
-- **Nunca Radix UI.** `Button` e `Label` já estão em Base UI. `Select` ainda está
-  em `radix-ui` — é dívida registrada em §8, não licença para novos primitivos em
-  Radix.
+- **Nunca Radix UI.** `Button`, `Label` e `Select` estão em Base UI; a dependência
+  `radix-ui` saiu do `package.json`. `Input` e `Label` são tag nativa, como no sisub:
+  o Base UI não expõe primitivo para nenhum dos dois.
+- **`<SelectValue />` não deriva o rótulo sozinho.** O Radix lia o texto do
+  `<SelectItem>` correspondente; o Base UI renderiza o VALOR cru. Onde valor e
+  rótulo diferem (`"COM_PRAZO"` exibido como "Ação com Prazo"), passar o mapa em
+  `items` na Root. Onde são a mesma string (mês, UG, conferente), `<SelectValue />`
+  puro está correto.
+- **`value` é `null` para "sem seleção", nunca `""`.** String vazia é um valor para
+  o Base UI, e o `placeholder` do trigger só aparece com `null`.
+- **`onValueChange` entrega `string | null`.** Mapear o `null` para o sentinela de
+  "sem filtro" da tela (`"TODOS"`, `"Geral"`, `"all"`), não para `""`.
 - **Não deve** ser sobreposto no call site com `className` que substitua por
   completo sua cor ou formato. Se o visual se repete, muda-se o CVA.
 - **Polimorfismo:** o Base UI usa a prop `render`, não `asChild`. Link com cara de
@@ -185,7 +194,6 @@ dívida conhecida, não exceção permitida: código novo segue o contrato.
 | Radius arbitrário | 38 (`rounded-[40px]`, `[32px]`, `rounded-3xl`) | `hub-layout`, `subitens-genericos` |
 | `backdrop-blur` decorativo | 28 | diversos |
 | `title=` como tooltip | 19 | diversos |
-| `Select` em Radix | 1 primitivo, 18 consumidores | `components/ui/select.tsx` |
 | Rotas fora do `HubLayout` | 4 | `auditor`, `centro-monitoramento`, `subitens-genericos`, `documentacao` — sem `LegalFooterLinks`, exigido pelo `LGPD.md` |
 | Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos` 1.885, `conta-generica` 1.811, `analista-compatibilidade` 1.666, `monitoramento` 1.317 |
 | `CustomSelect` reimplementado | 1 | `auditor/components/CustomSelect.tsx` |

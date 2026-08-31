@@ -38,7 +38,11 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 			<div className="bg-card border border-border rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-4 justify-between">
 				<div className="flex items-center gap-3">
 					<span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Grupo de comparação</span>
-					<Select value={selectedGroup} onValueChange={onSelectGroup}>
+					<Select
+						items={Object.fromEntries(GROUP_ORDER.filter((g) => countByGroup.has(g)).map((g) => [g, `${g} (${countByGroup.get(g)})`]))}
+						value={selectedGroup || null}
+						onValueChange={(v) => onSelectGroup(v ?? "")}
+					>
 						<SelectTrigger className="w-72">
 							<SelectValue placeholder="Selecione um grupo" />
 						</SelectTrigger>

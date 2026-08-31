@@ -939,7 +939,7 @@ function SubitensGenericos() {
 										</button>
 
 										<div className="flex items-center gap-2">
-											<Select value={selectedConferente} onValueChange={setSelectedConferente}>
+											<Select items={{ all: "Todos os Conferentes" }} value={selectedConferente} onValueChange={(v) => setSelectedConferente(v ?? "all")}>
 												<SelectTrigger className="data-[size=default]:h-auto bg-fab-sky/30 text-fab-blue border-none rounded-full px-5 py-2 text-[10px] font-bold uppercase tracking-widest shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue">
 													<SelectValue />
 												</SelectTrigger>

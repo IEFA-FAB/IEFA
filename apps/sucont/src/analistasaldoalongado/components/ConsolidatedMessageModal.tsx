@@ -164,7 +164,11 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-type" className="text-xs font-medium text-foreground">
 									Tipo de Mensagem
 								</label>
-								<Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
+								<Select
+									items={{ COM_PRAZO: "Ação com Prazo", SEM_PRAZO: "Ação sem Prazo", ALERTA: "Apenas Alerta" }}
+									value={messageType}
+									onValueChange={(value) => setMessageType(value as MessageType)}
+								>
 									<SelectTrigger
 										id="cons-msg-type"
 										className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
