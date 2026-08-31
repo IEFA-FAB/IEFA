@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertCircle, ArrowLeft, BarChart3, FileText, HelpCircle, History, Layout, Loader2, Plus, Printer, Settings, Shield, Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
+import { LegalFooter } from "#/components/legal-footer"
 import { DataAnalysisReport } from "#/components/plataforma-doc/data-analysis-report"
 import { FabDocument } from "#/components/plataforma-doc/fab-document"
+import { Button } from "#/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/document-ai.fn"
 import { adaptDraftFn } from "#/server/document-ai.fn"
 
@@ -56,62 +59,63 @@ function PlataformaDoc() {
 			<header className="no-print bg-card border-b border-border px-8 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
 				<div className="flex items-center gap-4">
 					{/* Botão voltar ao hub */}
-					<Link to="/" className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors" title="Voltar ao Hub">
-						<ArrowLeft className="w-4 h-4" />
-					</Link>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Link to="/" aria-label="Voltar ao Hub" className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+									<ArrowLeft className="w-4 h-4" />
+								</Link>
+							}
+						/>
+						<TooltipContent>Voltar ao Hub</TooltipContent>
+					</Tooltip>
 
 					<div className="w-px h-6 bg-muted" />
 
-					<div className="bg-[#1B365D] p-2 rounded-lg shadow-lg">
+					<div className="bg-fab-blue p-2 rounded-lg shadow-lg">
 						<Shield className="w-5 h-5 text-white" />
 					</div>
 					<div>
 						<h1 className="text-lg font-bold text-foreground leading-none">Plataforma de Documentação</h1>
-						<p className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-[0.15em]">Divisão de Contabilidade Patrimonial</p>
+						<p className="text-label text-muted-foreground mt-1">Divisão de Contabilidade Patrimonial</p>
 					</div>
 				</div>
 
 				<div className="flex items-center gap-4">
 					{/* Seletor de tipo */}
 					<div className="flex bg-muted p-1 rounded-xl border border-border">
-						<button
+						<Button
 							type="button"
+							variant="ghost"
 							onClick={() => setDocType("FAB_OFFICE")}
-							className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-2 ${
-								docType === "FAB_OFFICE" ? "bg-card text-[#1B365D] shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
+							className={`px-4 py-1.5 rounded-lg text-hint font-bold transition-all gap-2 ${
+								docType === "FAB_OFFICE" ? "bg-card text-fab-blue shadow-sm ring-1 ring-border hover:bg-card" : "text-muted-foreground hover:text-foreground"
 							}`}
 						>
 							<FileText className="w-3.5 h-3.5" />
 							OFÍCIO FAB
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
+							variant="ghost"
 							onClick={() => setDocType("DATA_ANALYSIS")}
-							className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-2 ${
-								docType === "DATA_ANALYSIS" ? "bg-card text-[#1B365D] shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
+							className={`px-4 py-1.5 rounded-lg text-hint font-bold transition-all gap-2 ${
+								docType === "DATA_ANALYSIS" ? "bg-card text-fab-blue shadow-sm ring-1 ring-border hover:bg-card" : "text-muted-foreground hover:text-foreground"
 							}`}
 						>
 							<BarChart3 className="w-3.5 h-3.5" />
 							RELATÓRIO DE DADOS
-						</button>
+						</Button>
 					</div>
 
 					{docData && (
 						<div className="flex items-center gap-2 ml-4 pl-4 border-l border-border">
-							<button
-								type="button"
-								onClick={handleReset}
-								className="flex items-center gap-2 py-1.5 px-3 text-xs font-bold border border-border text-foreground hover:bg-muted/50 rounded-xl transition-colors"
-							>
+							<Button type="button" variant="outline" onClick={handleReset} className="gap-2 py-1.5 px-3 rounded-xl">
 								<Plus className="w-3.5 h-3.5" /> Novo
-							</button>
-							<button
-								type="button"
-								onClick={handlePrint}
-								className="flex items-center gap-2 py-1.5 px-3 text-xs font-bold bg-[#1B365D] hover:bg-[#0056B3] text-surface-inverted-foreground rounded-xl transition-colors"
-							>
+							</Button>
+							<Button type="button" onClick={handlePrint} className="gap-2 py-1.5 px-3 rounded-xl bg-fab-blue hover:bg-action text-surface-inverted-foreground">
 								<Printer className="w-3.5 h-3.5" /> Imprimir
-							</button>
+							</Button>
 						</div>
 					)}
 				</div>
@@ -121,19 +125,25 @@ function PlataformaDoc() {
 			<main className="flex-1 flex overflow-hidden">
 				{/* Sidebar */}
 				<aside className="no-print w-16 bg-card border-r border-border flex flex-col items-center py-6 gap-8">
-					<button type="button" className="p-2 text-action bg-action/10 rounded-xl">
+					<Button type="button" variant="ghost" size="icon" aria-label="Documentos" className="text-action bg-action/10 hover:bg-action/10 rounded-xl">
 						<Layout className="w-5 h-5" />
-					</button>
-					<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+					</Button>
+					<Button type="button" variant="ghost" size="icon" aria-label="Histórico" className="text-muted-foreground hover:text-foreground transition-colors">
 						<History className="w-5 h-5" />
-					</button>
-					<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						aria-label="Configurações"
+						className="text-muted-foreground hover:text-foreground transition-colors"
+					>
 						<Settings className="w-5 h-5" />
-					</button>
+					</Button>
 					<div className="mt-auto">
-						<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+						<Button type="button" variant="ghost" size="icon" aria-label="Ajuda" className="text-muted-foreground hover:text-foreground transition-colors">
 							<HelpCircle className="w-5 h-5" />
-						</button>
+						</Button>
 					</div>
 				</aside>
 
@@ -143,7 +153,7 @@ function PlataformaDoc() {
 						<div className="flex-1 p-12 flex flex-col items-center justify-center bg-card h-full overflow-y-auto">
 							<div className="w-full max-w-2xl">
 								<div className="mb-10 text-center">
-									<div className="inline-flex items-center gap-2 px-3 py-1 bg-action/10 text-action rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
+									<div className="inline-flex items-center gap-2 px-3 py-1 bg-action/10 text-action rounded-full text-label mb-4">
 										<Sparkles className="w-3 h-3" /> Inteligência Documental
 									</div>
 									<h2 className="text-4xl font-bold text-foreground mb-4">
@@ -164,7 +174,7 @@ function PlataformaDoc() {
 										className="w-full border border-border rounded-xl p-4 text-foreground focus:outline-none focus:ring-2 focus-visible:ring-ring font-sans bg-card min-h-[350px] text-lg resize-none shadow-sm focus:border-action transition-all"
 									/>
 									<div className="absolute bottom-4 right-4 flex items-center gap-2">
-										<span className="text-[10px] text-muted-foreground font-mono font-bold uppercase tracking-wider">{draft.length} caracteres</span>
+										<span className="text-muted-foreground font-mono text-label">{draft.length} caracteres</span>
 									</div>
 								</div>
 
@@ -175,11 +185,11 @@ function PlataformaDoc() {
 									</div>
 								)}
 
-								<button
+								<Button
 									type="button"
 									onClick={handleGenerate}
 									disabled={isGenerating || !draft.trim()}
-									className="mt-8 w-full py-5 text-lg flex items-center justify-center gap-3 bg-[#1B365D] hover:bg-[#0056B3] text-surface-inverted-foreground font-bold rounded-xl shadow-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+									className="mt-8 w-full py-5 text-lg gap-3 bg-fab-blue hover:bg-action text-surface-inverted-foreground rounded-xl shadow-xl"
 								>
 									{isGenerating ? (
 										<div className="flex flex-col items-center">
@@ -188,7 +198,7 @@ function PlataformaDoc() {
 												<span>Processando Inteligência...</span>
 											</div>
 											{loadingTime > 10 && (
-												<span className="text-[10px] mt-1 opacity-70 animate-pulse">
+												<span className="text-hint mt-1 opacity-70 animate-pulse">
 													{loadingTime > 25 ? "Quase lá, finalizando estrutura..." : "Analisando dados complexos..."}
 												</span>
 											)}
@@ -199,7 +209,7 @@ function PlataformaDoc() {
 											Gerar Documento Profissional
 										</>
 									)}
-								</button>
+								</Button>
 							</div>
 						</div>
 					) : (
@@ -220,13 +230,13 @@ function PlataformaDoc() {
 											<p className="text-muted-foreground max-w-md mx-auto mb-8">
 												Ocorreu um problema ao processar os dados gerados pela IA. Por favor, tente reformular seu rascunho.
 											</p>
-											<button
+											<Button
 												type="button"
 												onClick={() => setDocData(null)}
-												className="bg-[#1B365D] hover:bg-[#0056B3] text-surface-inverted-foreground font-bold px-6 py-3 rounded-xl transition-colors"
+												className="bg-fab-blue hover:bg-action text-surface-inverted-foreground px-6 py-3 rounded-xl"
 											>
 												Voltar ao Início
-											</button>
+											</Button>
 										</div>
 									)}
 								</div>
@@ -235,27 +245,19 @@ function PlataformaDoc() {
 								<div className="no-print w-64 shrink-0">
 									<div className="sticky top-0 space-y-4">
 										<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-											<h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Ações do Documento</h4>
+											<h4 className="text-label text-muted-foreground mb-4">Ações do Documento</h4>
 											<div className="space-y-2">
-												<button
-													type="button"
-													onClick={handlePrint}
-													className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-xl transition-colors"
-												>
+												<Button type="button" variant="ghost" onClick={handlePrint} className="w-full justify-start gap-3 px-4 py-2.5 rounded-xl">
 													<Printer className="w-4 h-4 text-muted-foreground" /> PDF / Imprimir
-												</button>
-												<button
-													type="button"
-													onClick={handleReset}
-													className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-xl transition-colors"
-												>
+												</Button>
+												<Button type="button" variant="ghost" onClick={handleReset} className="w-full justify-start gap-3 px-4 py-2.5 rounded-xl">
 													<Plus className="w-4 h-4 text-muted-foreground" /> Novo Rascunho
-												</button>
+												</Button>
 											</div>
 										</div>
 
 										<div className="bg-action p-6 rounded-2xl shadow-lg text-action-foreground">
-											<h4 className="text-[10px] font-bold text-action-foreground uppercase tracking-widest mb-2">Dica de UX</h4>
+											<h4 className="text-label text-action-foreground mb-2">Dica de UX</h4>
 											<p className="text-xs leading-relaxed opacity-90">
 												{docType === "FAB_OFFICE"
 													? "Você pode clicar em qualquer campo do ofício para fazer ajustes manuais antes de imprimir."
@@ -271,7 +273,7 @@ function PlataformaDoc() {
 			</main>
 
 			{/* Footer */}
-			<footer className="no-print bg-card border-t border-border px-8 py-3 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
+			<footer className="no-print bg-card border-t border-border px-8 py-3 flex items-center justify-between text-label text-muted-foreground">
 				<div className="flex items-center gap-2">
 					<div className="w-2 h-2 bg-success rounded-full animate-pulse" />
 					<span>Sistema de Apoio à Gestão Patrimonial</span>
@@ -282,6 +284,10 @@ function PlataformaDoc() {
 					<span>Status: Operacional</span>
 				</div>
 			</footer>
+
+			{/* Rota fora do HubLayout: o link para os documentos legais precisa vir
+			    daqui — o LGPD.md exige o rodapé em toda tela do app. */}
+			<LegalFooter />
 		</div>
 	)
 }

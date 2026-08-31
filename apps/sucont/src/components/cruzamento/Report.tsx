@@ -17,6 +17,8 @@ import {
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { ReportData, UGAnalysis } from "#/lib/cruzamento/analyzer"
 import { CONFERENTES } from "#/lib/cruzamento/conferentes"
@@ -280,9 +282,9 @@ SUCONT-3 • DIREF • COMAER`
 		<div className="w-full space-y-8 pb-12">
 			{/* INFORMAÇÃO DO ROTEIRO DE ACOMPANHAMENTO */}
 			<div className="bg-action/10 border border-action/30 p-5 rounded-xl shadow-sm text-left flex items-start gap-4">
-				<FileText className="w-6 h-6 text-[#0033A0] shrink-0 mt-0.5" />
+				<FileText className="w-6 h-6 text-action shrink-0 mt-0.5" />
 				<div>
-					<h3 className="text-xs font-bold text-[#0033A0] uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
+					<h3 className="text-xs font-bold text-action uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
 					<p className="text-sm text-action font-medium leading-relaxed">
 						<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis com
 						os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?
@@ -302,9 +304,10 @@ SUCONT-3 • DIREF • COMAER`
 						{ id: "OPERACIONAL", label: "Nível Operacional", Icon: FileText },
 					] as const
 				).map(({ id, label, Icon }) => (
-					<button
+					<Button
 						key={id}
 						type="button"
+						variant="ghost"
 						onClick={() => setSelectedLevel(id)}
 						className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
 							selectedLevel === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-white/50"
@@ -312,7 +315,7 @@ SUCONT-3 • DIREF • COMAER`
 					>
 						<Icon className="w-4 h-4" />
 						{label}
-					</button>
+					</Button>
 				))}
 			</div>
 
@@ -606,7 +609,7 @@ SUCONT-3 • DIREF • COMAER`
 						<button
 							type="button"
 							onClick={() => setShowConsolidated(!showConsolidated)}
-							className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors border-b border-border"
+							className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors border-b border-border focus-visible:ring-[3px] focus-visible:ring-ring/50"
 						>
 							<div className="flex items-center gap-3">
 								<div className="w-10 h-10 rounded-full bg-action/15 flex items-center justify-center">
@@ -627,8 +630,10 @@ SUCONT-3 • DIREF • COMAER`
 										<Send className="w-4 h-4 text-action" />
 										Proposta de Mensagem Consolidada
 									</h3>
-									<button
+									<Button
 										type="button"
+										variant="outline"
+										size="sm"
 										onClick={() => {
 											navigator.clipboard.writeText(generateConsolidatedMessage())
 											setCopiedConsolidated(true)
@@ -647,7 +652,7 @@ SUCONT-3 • DIREF • COMAER`
 												Copiar Mensagem
 											</>
 										)}
-									</button>
+									</Button>
 								</div>
 
 								<div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex flex-wrap gap-4 items-end">
@@ -655,12 +660,12 @@ SUCONT-3 • DIREF • COMAER`
 										<label htmlFor="cons-report-msg-num" className="text-xs font-semibold text-muted-foreground uppercase">
 											Nº da Mensagem
 										</label>
-										<input
+										<Input
 											id="cons-report-msg-num"
 											type="text"
 											value={consolidatedConfig.msgNum}
 											onChange={(e) => setConsolidatedConfig({ ...consolidatedConfig, msgNum: e.target.value })}
-											className="px-3 py-1.5 border border-border rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+											className="px-3 py-1.5 border border-border rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-action"
 											placeholder="___"
 										/>
 									</div>
@@ -668,12 +673,12 @@ SUCONT-3 • DIREF • COMAER`
 										<label htmlFor="cons-report-msg-date" className="text-xs font-semibold text-muted-foreground uppercase">
 											Data da Mensagem
 										</label>
-										<input
+										<Input
 											id="cons-report-msg-date"
 											type="date"
 											value={consolidatedConfig.msgDate}
 											onChange={(e) => setConsolidatedConfig({ ...consolidatedConfig, msgDate: e.target.value })}
-											className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+											className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-action"
 										/>
 									</div>
 									<div className="flex flex-col gap-1.5">
@@ -692,7 +697,7 @@ SUCONT-3 • DIREF • COMAER`
 										>
 											<SelectTrigger
 												id="cons-report-msg-type"
-												className="px-3 py-1.5 border border-border rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
+												className="px-3 py-1.5 border border-border rounded-md text-sm focus-visible:ring-2 focus-visible:ring-action"
 											>
 												<SelectValue />
 											</SelectTrigger>
@@ -708,7 +713,7 @@ SUCONT-3 • DIREF • COMAER`
 											<label htmlFor="cons-report-deadline" className="text-xs font-semibold text-muted-foreground uppercase">
 												Data do Prazo
 											</label>
-											<input
+											<Input
 												id="cons-report-deadline"
 												type="date"
 												value={consolidatedConfig.deadlineDate}
@@ -718,7 +723,7 @@ SUCONT-3 • DIREF • COMAER`
 														deadlineDate: e.target.value,
 													})
 												}
-												className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+												className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-action"
 											/>
 										</div>
 									)}
@@ -753,7 +758,7 @@ SUCONT-3 • DIREF • COMAER`
 								<button
 									type="button"
 									onClick={() => toggleUg(ug.ug)}
-									className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+									className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
 								>
 									<div className="flex items-center gap-6">
 										<div className="flex items-center gap-4">
@@ -818,7 +823,7 @@ SUCONT-3 • DIREF • COMAER`
 															<tr key={idx} className="hover:bg-muted/50">
 																<td className="px-4 py-2 font-mono text-foreground">{row.contaCorrente}</td>
 																<td className="px-4 py-2">
-																	<span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide border ${detailStatusColor(row.status)}`}>
+																	<span className={`px-2 py-0.5 rounded text-hint font-bold tracking-wide border ${detailStatusColor(row.status)}`}>
 																		{row.status}
 																	</span>
 																</td>
@@ -839,8 +844,10 @@ SUCONT-3 • DIREF • COMAER`
 														<Send className="w-4 h-4 text-action" />
 														Proposta de Mensagem de Cobrança
 													</h3>
-													<button
+													<Button
 														type="button"
+														variant="outline"
+														size="sm"
 														onClick={(e) => handleCopyMessage(e, ug)}
 														className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm"
 													>
@@ -855,7 +862,7 @@ SUCONT-3 • DIREF • COMAER`
 																Copiar Mensagem
 															</>
 														)}
-													</button>
+													</Button>
 												</div>
 
 												<div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex flex-wrap gap-4 items-end">
@@ -863,12 +870,12 @@ SUCONT-3 • DIREF • COMAER`
 														<label htmlFor={`ug-report-msg-num-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 															Nº da Mensagem
 														</label>
-														<input
+														<Input
 															id={`ug-report-msg-num-${ug.ug}`}
 															type="text"
 															value={getConfig(ug.ug).msgNum}
 															onChange={(e) => updateConfig(ug.ug, { msgNum: e.target.value })}
-															className="px-3 py-1.5 border border-border rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+															className="px-3 py-1.5 border border-border rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-action"
 															placeholder="___"
 														/>
 													</div>
@@ -876,12 +883,12 @@ SUCONT-3 • DIREF • COMAER`
 														<label htmlFor={`ug-report-msg-date-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 															Data da Mensagem
 														</label>
-														<input
+														<Input
 															id={`ug-report-msg-date-${ug.ug}`}
 															type="date"
 															value={getConfig(ug.ug).msgDate}
 															onChange={(e) => updateConfig(ug.ug, { msgDate: e.target.value })}
-															className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+															className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-action"
 														/>
 													</div>
 													<div className="flex flex-col gap-1.5">
@@ -899,7 +906,7 @@ SUCONT-3 • DIREF • COMAER`
 														>
 															<SelectTrigger
 																id={`ug-report-msg-type-${ug.ug}`}
-																className="px-3 py-1.5 border border-border rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
+																className="px-3 py-1.5 border border-border rounded-md text-sm focus-visible:ring-2 focus-visible:ring-action"
 															>
 																<SelectValue />
 															</SelectTrigger>
@@ -915,12 +922,12 @@ SUCONT-3 • DIREF • COMAER`
 															<label htmlFor={`ug-report-deadline-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 																Data do Prazo
 															</label>
-															<input
+															<Input
 																id={`ug-report-deadline-${ug.ug}`}
 																type="date"
 																value={getConfig(ug.ug).deadlineDate}
 																onChange={(e) => updateConfig(ug.ug, { deadlineDate: e.target.value })}
-																className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+																className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-action"
 															/>
 														</div>
 													)}

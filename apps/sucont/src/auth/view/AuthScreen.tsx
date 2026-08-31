@@ -71,11 +71,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 					</div>
 					<div className="flex flex-col">
 						<h1 className="text-base font-bold text-foreground leading-tight">SUCONT-4 HUB</h1>
-						<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">DIREF • COMAER</span>
+						<span className="text-label text-muted-foreground">DIREF • COMAER</span>
 					</div>
 				</div>
 				{children}
-				<p className="text-center text-[11px] text-muted-foreground mt-6 font-mono">Acesso restrito • Contabilidade Patrimonial</p>
+				<p className="text-center text-hint text-muted-foreground mt-6 font-mono">Acesso restrito • Contabilidade Patrimonial</p>
 			</div>
 		</div>
 	)
@@ -134,14 +134,15 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<button
+		<Button
 			type="button"
 			onClick={onClick}
-			className="mx-auto mt-5 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+			variant="ghost"
+			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
 		>
 			<ArrowLeft className="h-3.5 w-3.5" />
 			Voltar ao login
-		</button>
+		</Button>
 	)
 }
 
@@ -611,9 +612,9 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								Lembrar e-mail
 							</label>
-							<button type="button" onClick={goToForgot} className="text-xs font-medium text-tech-blue transition-colors hover:underline">
+							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-xs font-medium text-tech-blue">
 								Esqueceu a senha?
-							</button>
+							</Button>
 						</div>
 
 						<Button type="submit" className="w-full" disabled={isSubmitting || isLocked || !!emailError}>
@@ -631,13 +632,14 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 				<p className="text-center text-xs text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
-					<button
+					<Button
 						type="button"
 						onClick={() => switchTab(isRegister ? "login" : "register")}
-						className="font-semibold text-foreground underline-offset-4 hover:underline"
+						variant="link"
+						className="h-auto p-0 font-semibold text-foreground"
 					>
 						{isRegister ? "Entrar" : "Cadastre-se"}
-					</button>
+					</Button>
 				</p>
 			</Card>
 		</Shell>

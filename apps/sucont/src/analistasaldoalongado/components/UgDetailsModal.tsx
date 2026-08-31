@@ -1,6 +1,8 @@
 import { ArrowUpDown, Check, Copy, Download, Info, Search, Settings2, User, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
@@ -198,17 +200,25 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						</div>
 					</div>
 					<div className="flex items-center gap-3">
-						<button
+						<Button
 							type="button"
 							onClick={exportToExcel}
-							className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 transition-colors"
+							variant="outline"
+							className="gap-2 px-4 py-2 text-sm font-medium text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
 						>
 							<Download className="w-4 h-4" />
 							Exportar
-						</button>
-						<button type="button" onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
+						</Button>
+						<Button
+							type="button"
+							onClick={onClose}
+							variant="ghost"
+							size="icon"
+							aria-label="Fechar"
+							className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+						>
 							<X className="w-6 h-6" />
-						</button>
+						</Button>
 					</div>
 				</div>
 
@@ -220,10 +230,10 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							<h3 className="text-sm font-semibold text-foreground">Tabela Detalhada de Ocorrências</h3>
 							<div className="relative w-full sm:w-64">
 								<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-								<input
+								<Input
 									type="text"
 									placeholder="Buscar conta..."
-									className="w-full pl-9 pr-4 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+									className="pl-9 pr-4 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 									value={searchTerm}
 									onChange={(e) => setSearchTerm(e.target.value)}
 								/>
@@ -240,26 +250,30 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										Acompanhamento Contábil (RAC):
 									</p>
 									<div className="flex flex-wrap gap-2">
-										<button
+										<Button
 											type="button"
+											variant="outline"
+											size="xs"
 											onClick={() => setSelectedRacFilter("Geral")}
-											className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border transition-colors cursor-pointer ${
+											className={`rounded font-medium ${
 												selectedRacFilter === "Geral" ? "bg-fab-600 text-white border-fab-600" : "bg-card text-muted-foreground border-border hover:bg-muted"
 											}`}
 										>
 											Todas as Questões
-										</button>
+										</Button>
 										{racQuestions.map((q) => (
-											<button
+											<Button
 												key={q}
 												type="button"
+												variant="outline"
+												size="xs"
 												onClick={() => setSelectedRacFilter(q)}
-												className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border transition-colors cursor-pointer ${
+												className={`rounded font-medium ${
 													selectedRacFilter === q ? "bg-fab-600 text-white border-fab-600 shadow-sm" : "bg-fab-50 text-fab-700 border-fab-200 hover:bg-fab-100"
 												}`}
 											>
 												{q}
-											</button>
+											</Button>
 										))}
 									</div>
 								</div>
@@ -290,7 +304,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 											<td className="px-4 py-3 font-mono text-xs">{occ.conta_corrente}</td>
 											<td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">{formatCurrency(occ.saldo)}</td>
 											<td className="px-4 py-3">
-												<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-fab-50 text-fab-700 border border-fab-100 whitespace-nowrap">
+												<span className="inline-flex items-center px-2 py-0.5 rounded text-hint font-medium bg-fab-50 text-fab-700 border border-fab-100 whitespace-nowrap">
 													{occ.status}
 												</span>
 											</td>
@@ -315,10 +329,10 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								<Settings2 className="w-4 h-4 text-muted-foreground" />
 								<h3 className="text-sm font-semibold text-foreground">Configurar Mensagem</h3>
 							</div>
-							<button
+							<Button
 								type="button"
 								onClick={handleCopy}
-								className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-fab-600 border border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+								className="gap-2 px-3 py-1.5 text-xs font-medium text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
 							>
 								{copied ? (
 									<>
@@ -331,7 +345,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										<span>Copiar Mensagem</span>
 									</>
 								)}
-							</button>
+							</Button>
 						</div>
 
 						<div className="p-4 border-b border-border bg-card space-y-4">
@@ -340,11 +354,11 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									<label htmlFor="ug-msg-number" className="text-xs font-medium text-foreground">
 										Número da Mensagem
 									</label>
-									<input
+									<Input
 										id="ug-msg-number"
 										type="text"
 										placeholder="Ex: 123"
-										className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+										className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 										value={messageNumber}
 										onChange={(e) => setMessageNumber(e.target.value)}
 									/>
@@ -353,10 +367,10 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									<label htmlFor="ug-msg-date" className="text-xs font-medium text-foreground">
 										Data da Mensagem
 									</label>
-									<input
+									<Input
 										id="ug-msg-date"
 										type="date"
-										className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+										className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 										value={messageDate}
 										onChange={(e) => setMessageDate(e.target.value)}
 									/>
@@ -390,10 +404,10 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										<label htmlFor="ug-msg-deadline" className="text-xs font-medium text-foreground mb-1.5 block">
 											Data Limite
 										</label>
-										<input
+										<Input
 											id="ug-msg-deadline"
 											type="date"
-											className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+											className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>

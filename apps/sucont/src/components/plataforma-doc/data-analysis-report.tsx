@@ -16,12 +16,12 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 							<FileText className="w-8 h-8" />
 						</div>
 						<div>
-							<span className="font-bold tracking-[0.2em] uppercase text-[10px] text-action block mb-1">Auditoria Governamental</span>
+							<span className="text-label text-action block mb-1">Auditoria Governamental</span>
 							<span className="font-bold text-xl">Inteligência Patrimonial</span>
 						</div>
 					</div>
 					<div className="text-right">
-						<div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Referência</div>
+						<div className="text-label text-muted-foreground mb-1">Referência</div>
 						<div className="text-xs font-mono text-muted-foreground bg-muted/50 px-3 py-1 rounded-lg border border-border">
 							{new Date().getFullYear()}/ANALYSIS-001
 						</div>
@@ -33,14 +33,14 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 
 				<div className="flex gap-10 mt-10">
 					<div className="flex flex-col gap-1">
-						<span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Responsável Técnico</span>
+						<span className="text-label text-muted-foreground">Responsável Técnico</span>
 						<div className="flex items-center gap-2 text-foreground font-semibold text-sm">
 							<User className="w-4 h-4 text-action" />
 							{data.author}
 						</div>
 					</div>
 					<div className="flex flex-col gap-1">
-						<span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Data de Emissão</span>
+						<span className="text-label text-muted-foreground">Data de Emissão</span>
 						<div className="flex items-center gap-2 text-foreground font-semibold text-sm">
 							<Calendar className="w-4 h-4 text-action" />
 							{data.date}
@@ -52,7 +52,7 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 			{/* Resumo Executivo */}
 			<section className="mb-12 relative">
 				<div className="absolute -left-6 top-0 bottom-0 w-1 bg-action rounded-full opacity-20" />
-				<h2 className="text-action font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2">
+				<h2 className="text-label text-action mb-4 flex items-center gap-2">
 					<CheckCircle2 className="w-4 h-4" />
 					Resumo Executivo
 				</h2>
@@ -67,9 +67,7 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 
 					return (
 						<div key={idx} className="bg-muted/50 border border-border rounded-2xl p-6 transition-all hover:shadow-md flex flex-col min-h-[140px]">
-							<span className="block text-[9px] text-muted-foreground uppercase font-bold mb-3 tracking-widest leading-tight h-8 overflow-hidden">
-								{metric.label}
-							</span>
+							<span className="block text-label text-muted-foreground mb-3 leading-tight h-8 overflow-hidden">{metric.label}</span>
 							<div className="flex items-start justify-between gap-3 mt-auto">
 								<span className={`font-bold text-foreground leading-tight break-words flex-1 ${fontSizeClass}`}>{metric.value}</span>
 								<div
@@ -92,14 +90,14 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 						<div className="w-2 h-6 bg-action rounded-full" />
 						Detalhamento de Divergências
 					</h2>
-					<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">SIAFI vs SILOMS</span>
+					<span className="text-label text-muted-foreground">SIAFI vs SILOMS</span>
 				</div>
 				<div className="overflow-hidden border border-border rounded-2xl shadow-sm">
 					<table className="w-full text-left text-sm border-collapse">
 						<thead>
 							<tr className="bg-muted/50 border-b border-border">
 								{data.tableData.headers.map((header, i) => (
-									<th key={i} className="px-6 py-4 font-bold text-muted-foreground uppercase text-[9px] tracking-widest">
+									<th key={i} className="px-6 py-4 text-label text-muted-foreground">
 										{header}
 									</th>
 								))}
@@ -132,7 +130,7 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 				<div className="grid grid-cols-1 gap-4">
 					{data.analysis.map((point, idx) => (
 						<div key={idx} className="flex gap-4 p-4 bg-card border border-border rounded-xl shadow-sm">
-							<div className="w-6 h-6 rounded-full bg-action/10 text-action flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>
+							<div className="w-6 h-6 rounded-full bg-action/10 text-action flex items-center justify-center text-label shrink-0">{idx + 1}</div>
 							<p className="text-muted-foreground text-sm leading-relaxed">{point}</p>
 						</div>
 					))}
@@ -141,15 +139,15 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 
 			{/* Conclusão & Recomendações */}
 			<div className="grid grid-cols-2 gap-8 mb-12">
-				<section className="bg-surface-inverted text-surface-inverted-foreground rounded-3xl p-8 shadow-xl">
-					<h3 className="text-action font-bold text-[10px] uppercase mb-4 tracking-widest flex items-center gap-2">
+				<section className="bg-surface-inverted text-surface-inverted-foreground rounded-xl p-8 shadow-xl">
+					<h3 className="text-label text-action mb-4 flex items-center gap-2">
 						<Info className="w-4 h-4" />
 						Conclusão
 					</h3>
 					<p className="text-surface-inverted-muted text-sm leading-relaxed">{data.conclusion}</p>
 				</section>
-				<section className="bg-action text-action-foreground rounded-3xl p-8 shadow-xl">
-					<h3 className="text-action-foreground font-bold text-[10px] uppercase mb-4 tracking-widest flex items-center gap-2">
+				<section className="bg-action text-action-foreground rounded-xl p-8 shadow-xl">
+					<h3 className="text-label text-action-foreground mb-4 flex items-center gap-2">
 						<CheckCircle2 className="w-4 h-4" />
 						Recomendações
 					</h3>
@@ -166,7 +164,7 @@ export function DataAnalysisReport({ data }: DataAnalysisReportProps) {
 
 			{/* Rodapé */}
 			<footer className="mt-auto pt-10 border-t border-border flex justify-between items-center">
-				<p className="text-[9px] text-muted-foreground uppercase tracking-[0.3em] font-bold">Confidencial • Auditoria de Dados</p>
+				<p className="text-label text-muted-foreground tracking-[0.3em]">Confidencial • Auditoria de Dados</p>
 				<div className="flex items-center gap-2 opacity-30">
 					<div className="w-1.5 h-1.5 bg-action rounded-full" />
 					<div className="w-1.5 h-1.5 bg-action rounded-full" />

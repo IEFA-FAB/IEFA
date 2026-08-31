@@ -2,6 +2,8 @@ import { useMutation } from "@tanstack/react-query"
 import { Check, Copy, Loader2, MessageSquareText, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { registerAuditorMessageFn } from "#/server/auditor.fn"
 import { generateMessage } from "../services/dataProcessor"
 import type { FinancialRecord, TimeFilter } from "../types"
@@ -102,13 +104,13 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<h2 className="text-xl font-bold text-foreground">
 							Gerar Mensagem SIAFI: <span className="text-action">{record.ug}</span>
 						</h2>
-						<span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-lg uppercase tracking-wide">
+						<span className="text-label bg-muted text-muted-foreground px-2 py-0.5 rounded-lg">
 							{context === "RANKING" ? "Modelo Comparativo" : "Modelo Evolutivo"}
 						</span>
 					</div>
-					<button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+					<Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Fechar">
 						<X className="w-6 h-6" />
-					</button>
+					</Button>
 				</div>
 
 				{/* Configuration */}
@@ -117,12 +119,12 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<label htmlFor="siafi-msg-number" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
 							NR MENSAGEM
 						</label>
-						<input
+						<Input
 							id="siafi-msg-number"
 							type="text"
 							readOnly
 							value={assignedNumber !== null ? String(assignedNumber) : "atribuído ao registrar"}
-							className="w-full bg-muted border border-border rounded-lg py-3 px-4 text-base text-muted-foreground outline-none"
+							className="h-auto bg-muted py-3 px-4 text-base text-muted-foreground shadow-none"
 						/>
 						<p className="text-[11px] text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
 					</div>
@@ -130,12 +132,12 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<label htmlFor="siafi-msg-deadline" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
 							PRAZO (DATA LIMITE)
 						</label>
-						<input
+						<Input
 							id="siafi-msg-deadline"
 							type="text"
 							value={deadline}
 							onChange={(e) => setDeadline(e.target.value)}
-							className="w-full bg-muted/50 border border-border rounded-lg py-3 px-4 text-base text-foreground focus:ring-2 focus-visible:ring-ring focus-visible:border-ring outline-none transition-all placeholder:text-muted-foreground"
+							className="h-auto bg-muted/50 py-3 px-4 text-base text-foreground shadow-none"
 							placeholder="DD/MM/AAAA"
 						/>
 					</div>
@@ -145,9 +147,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 				<div className="flex-1 flex flex-col min-h-0 bg-muted/50 mx-6 mb-0 rounded-t-xl border-t border-x border-border">
 					<div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
 						<span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Pré-visualização da Mensagem</span>
-						<span className="text-[10px] font-bold bg-action/10 text-action px-2 py-0.5 rounded-lg border border-action/30 uppercase">
-							Formato Texto Simples
-						</span>
+						<span className="text-label bg-action/10 text-action px-2 py-0.5 rounded-lg border border-action/30">Formato Texto Simples</span>
 					</div>
 
 					<div className="flex-1 p-0 overflow-hidden">
@@ -169,16 +169,22 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 					</span>
 
 					<div className="flex items-center justify-end gap-3">
-						<button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
-							Cancelar
-						</button>
-						<button
+						<Button
 							type="button"
+							variant="ghost"
+							size="lg"
+							onClick={onClose}
+							className="font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
+						>
+							Cancelar
+						</Button>
+						<Button
+							type="button"
+							size="lg"
+							variant={copied ? "success" : "default"}
 							onClick={handleCopy}
 							disabled={registerMutation.isPending}
-							className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed
-                ${copied ? "bg-success text-success-foreground hover:bg-success/80" : "bg-action hover:bg-action/80 text-action-foreground"}
-              `}
+							className={`rounded-lg font-bold shadow-lg ${copied ? "" : "bg-action text-action-foreground hover:bg-action/80"}`}
 						>
 							{registerMutation.isPending ? (
 								<Loader2 className="w-4 h-4 animate-spin" />
@@ -188,7 +194,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 								<Copy className="w-4 h-4" />
 							)}
 							{registerMutation.isPending ? "Registrando" : copied ? "Copiado" : assignedNumber !== null ? "Copiar" : "Registrar e copiar"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>

@@ -7,6 +7,8 @@ import { toast } from "sonner"
 import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getNthBusinessDay } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
@@ -148,13 +150,14 @@ function Workspace() {
 
 					{canEdit && (
 						<div className="flex justify-end mb-4">
-							<button
+							<Button
 								type="button"
+								variant="outline"
 								onClick={() => setIsAddingTask(true)}
-								className="flex items-center gap-2 bg-card border border-border text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-muted/50 transition-all shadow-sm"
+								className="gap-2 bg-card text-tech-cyan font-mono hover:bg-muted/50"
 							>
 								<Plus className="w-4 h-4" /> ADICIONAR TAREFA
-							</button>
+							</Button>
 						</div>
 					)}
 
@@ -179,28 +182,28 @@ function Workspace() {
 								}}
 								className="grid grid-cols-1 md:grid-cols-2 gap-4"
 							>
-								<input
+								<Input
 									name="task"
 									placeholder="Título da Tarefa"
 									required
-									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
 								/>
-								<input
+								<Input
 									name="deadline"
 									placeholder="Prazo (ex: 2º dia útil)"
 									required
-									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
 								/>
-								<input
+								<Input
 									name="responsible"
 									placeholder="Responsável"
 									required
-									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
 								/>
-								<input
+								<Input
 									name="path"
 									placeholder="Caminho/Sistema (Opcional)"
-									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
 								/>
 								<textarea
 									name="description"
@@ -208,16 +211,12 @@ function Workspace() {
 									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 								/>
 								<div className="flex gap-2 md:col-span-2 justify-end">
-									<button type="button" onClick={() => setIsAddingTask(false)} className="px-4 py-2 text-xs text-muted-foreground hover:text-foreground">
+									<Button type="button" variant="ghost" onClick={() => setIsAddingTask(false)} className="text-muted-foreground hover:text-foreground">
 										CANCELAR
-									</button>
-									<button
-										type="submit"
-										disabled={addTaskMutation.isPending}
-										className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md inline-flex items-center gap-2"
-									>
+									</Button>
+									<Button type="submit" disabled={addTaskMutation.isPending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md gap-2">
 										{addTaskMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR TAREFA
-									</button>
+									</Button>
 								</div>
 							</form>
 						</motion.div>
@@ -241,16 +240,16 @@ function Workspace() {
 										<div className="flex-grow">
 											<div className="flex items-start gap-3 mb-2">
 												<div className="flex flex-col shrink-0">
-													<span className="text-tech-cyan font-mono text-[10px] bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 uppercase w-fit">
+													<span className="text-tech-cyan font-mono text-label bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 w-fit">
 														{item.deadline}
 													</span>
-													<span className="text-[9px] font-mono text-muted-foreground mt-1">Data: {getNthBusinessDay(item.deadline ?? "")}</span>
+													<span className="text-hint font-mono text-muted-foreground mt-1">Data: {getNthBusinessDay(item.deadline ?? "")}</span>
 												</div>
 												<h4 className="text-foreground font-bold">{item.task}</h4>
 											</div>
 											<p className="text-muted-foreground text-xs leading-relaxed mb-3">{item.description}</p>
 											{item.path && (
-												<div className="flex items-start gap-2 text-[10px] font-mono text-muted-foreground bg-muted/50 p-2 rounded border border-border">
+												<div className="flex items-start gap-2 text-hint font-mono text-muted-foreground bg-muted/50 p-2 rounded border border-border">
 													<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
 													<span>{item.path}</span>
 												</div>
@@ -258,12 +257,11 @@ function Workspace() {
 										</div>
 
 										<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
-											<span className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Responsável</span>
+											<span className="font-mono text-label text-muted-foreground mb-1">Responsável</span>
 											{editingId === item.id ? (
-												<input
-													className="bg-muted/50 border border-tech-cyan/30 text-foreground text-xs p-1 rounded w-full focus:outline-none focus:border-tech-cyan"
+												<Input
+													className="bg-muted/50 border-tech-cyan/30 text-foreground p-1 rounded w-full focus:border-tech-cyan"
 													defaultValue={item.responsible ?? ""}
-													// biome-ignore lint/a11y/noAutofocus: edição inline pontual
 													autoFocus
 													onKeyDown={(e) => {
 														if (e.key === "Enter") updateResponsible(item.id, e.currentTarget.value)
@@ -272,21 +270,22 @@ function Workspace() {
 													onBlur={(e) => updateResponsible(item.id, e.target.value)}
 												/>
 											) : canEdit ? (
-												<button type="button" className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditingId(item.id)}>
+												<Button type="button" variant="ghost" className="h-auto p-0 gap-2 group hover:bg-transparent" onClick={() => setEditingId(item.id)}>
 													<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
 													<Edit2 className="w-3 h-3 text-muted-foreground group-hover:text-tech-cyan transition-colors" />
-												</button>
+												</Button>
 											) : (
 												<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
 											)}
 											{canEdit && (
-												<button
+												<Button
 													type="button"
+													variant="ghost"
 													onClick={() => deleteTaskMutation.mutate(item.id)}
-													className="mt-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
+													className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all gap-1 text-hint font-mono"
 												>
 													<Trash2 className="w-3 h-3" /> EXCLUIR
-												</button>
+												</Button>
 											)}
 										</div>
 									</div>
@@ -312,7 +311,7 @@ function Workspace() {
 							className="w-full h-64 bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-muted/50 read-only:text-muted-foreground"
 						/>
 						<div className="mt-2 flex justify-end">
-							<span className="text-[9px] font-mono text-muted-foreground uppercase">
+							<span className="font-mono text-label text-muted-foreground">
 								{!canEdit ? "Somente leitura" : saveNoteMutation.isPending ? "Salvando..." : "Auto-save ativo"}
 							</span>
 						</div>
@@ -325,14 +324,16 @@ function Workspace() {
 								<h3 className="text-foreground font-bold uppercase tracking-widest text-xs">Avisos & Alertas</h3>
 							</div>
 							{canEdit && (
-								<button
+								<Button
 									type="button"
+									variant="ghost"
+									size="icon-xs"
 									onClick={() => setIsAddingNotice(true)}
 									aria-label="Adicionar aviso"
-									className="text-tech-cyan hover:text-foreground transition-colors"
+									className="text-tech-cyan hover:text-foreground hover:bg-transparent transition-colors"
 								>
 									<Plus className="w-4 h-4" />
-								</button>
+								</Button>
 							)}
 						</div>
 
@@ -351,17 +352,19 @@ function Workspace() {
 									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-warning/10 border-warning/30" : "bg-action/10 border-action/30"}`}
 								>
 									{canEdit && (
-										<button
+										<Button
 											type="button"
+											variant="ghost"
+											size="icon-xs"
 											onClick={() => deleteNoticeMutation.mutate(notice.id)}
 											aria-label={`Excluir aviso: ${notice.content}`}
-											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
+											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
 										>
 											<X className="w-3 h-3" />
-										</button>
+										</Button>
 									)}
 									<p className="text-xs text-foreground font-medium">{notice.content}</p>
-									<span className="text-[9px] font-mono text-muted-foreground mt-2 block uppercase">Postado em: {notice.date}</span>
+									<span className="font-mono text-label text-muted-foreground mt-2 block">Postado em: {notice.date}</span>
 								</div>
 							))}
 						</div>
@@ -385,7 +388,7 @@ function Workspace() {
 										<h4 className="text-foreground font-bold text-center text-xs uppercase tracking-widest">{operator}</h4>
 									</div>
 									<div className="p-4 max-h-96 overflow-y-auto">
-										<table className="w-full text-[10px] font-mono">
+										<table className="w-full text-hint font-mono">
 											<thead>
 												<tr className="text-muted-foreground border-b border-border">
 													<th className="text-left pb-2">UG</th>
@@ -403,7 +406,7 @@ function Workspace() {
 										</table>
 									</div>
 									<div className="bg-muted/50 p-2 text-center border-t border-border">
-										<span className="text-[9px] font-mono text-muted-foreground">Total: {units.length} UGs</span>
+										<span className="text-hint font-mono text-muted-foreground">Total: {units.length} UGs</span>
 									</div>
 								</div>
 							)
@@ -430,7 +433,7 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 			/>
 			<div className="flex justify-between items-center">
 				<Select items={{ info: "INFORMATIVO", alert: "ALERTA" }} value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
-					<SelectTrigger className="data-[size=default]:h-auto bg-muted/50 border border-border text-[10px] text-muted-foreground p-1 rounded shadow-none">
+					<SelectTrigger className="data-[size=default]:h-auto bg-muted/50 border border-border text-hint text-muted-foreground p-1 rounded shadow-none">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -439,17 +442,22 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<button type="button" onClick={onCancel} className="text-[10px] text-muted-foreground hover:text-foreground">
+					<Button
+						type="button"
+						variant="ghost"
+						onClick={onCancel}
+						className="h-auto p-0 hover:bg-transparent text-hint text-muted-foreground hover:text-foreground"
+					>
 						CANCELAR
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						disabled={pending}
 						onClick={() => content && onSave(content, type)}
-						className="bg-tech-cyan text-white px-3 py-1 rounded font-bold text-[10px] shadow-sm inline-flex items-center gap-1"
+						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm gap-1 text-hint"
 					>
 						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR
-					</button>
+					</Button>
 				</div>
 			</div>
 		</motion.div>

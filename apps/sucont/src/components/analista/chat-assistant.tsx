@@ -1,5 +1,7 @@
 import { Bot, Search, Send } from "lucide-react"
 import { useState } from "react"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 
 interface MangerialData {
@@ -128,21 +130,18 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 			<form onSubmit={handleSearch} className="flex gap-2">
 				<div className="relative flex-1">
 					<Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-					<input
+					<Input
 						type="text"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Ex: Qual ODS tem mais inconsistências?"
-						className="w-full pl-10 pr-4 py-2 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus-visible:ring-ring focus:border-action outline-none transition-all"
+						className="h-auto w-full rounded-xl border-border bg-card py-2 pl-10 pr-4 text-foreground shadow-none transition-all focus:border-action focus:ring-2 focus-visible:ring-ring"
 					/>
 				</div>
-				<button
-					type="submit"
-					className="bg-surface-inverted hover:bg-surface-inverted/80 text-surface-inverted-foreground px-4 py-2 rounded-xl flex items-center transition-colors"
-				>
+				<Button type="submit" className="rounded-xl bg-surface-inverted text-surface-inverted-foreground hover:bg-surface-inverted/80">
 					<Send className="w-4 h-4 mr-2" />
 					Perguntar
-				</button>
+				</Button>
 			</form>
 
 			{answer && (
@@ -168,27 +167,33 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 
 			<div className="mt-4 flex flex-wrap gap-2">
 				<span className="text-xs text-muted-foreground font-medium mr-1 py-1">Sugestões:</span>
-				<button
+				<Button
 					type="button"
 					onClick={() => setQuery("Qual ODS tem mais inconsistências?")}
-					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
+					variant="secondary"
+					size="xs"
+					className="h-auto rounded-md bg-muted py-1 text-foreground hover:bg-muted/70"
 				>
 					Qual ODS tem mais inconsistências?
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
 					onClick={() => setQuery("Quais são as 10 UGs com mais inconsistências?")}
-					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
+					variant="secondary"
+					size="xs"
+					className="h-auto rounded-md bg-muted py-1 text-foreground hover:bg-muted/70"
 				>
 					Top 10 UGs
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
 					onClick={() => setQuery("Qual questão RAC é mais recorrente?")}
-					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
+					variant="secondary"
+					size="xs"
+					className="h-auto rounded-md bg-muted py-1 text-foreground hover:bg-muted/70"
 				>
 					Questão RAC mais recorrente
-				</button>
+				</Button>
 			</div>
 		</div>
 	)

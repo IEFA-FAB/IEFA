@@ -8,6 +8,8 @@ import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { ToolCard } from "#/components/tool-card"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { useHubFilters } from "#/lib/hub-filters"
 import type { Tool } from "#/lib/types"
 import { createReportFn, deleteReportFn, listReportsFn } from "#/server/reports.fn"
@@ -83,13 +85,15 @@ function Reports() {
 
 				{canEdit && (
 					<div className="flex justify-end">
-						<button
+						<Button
 							type="button"
+							variant="outline"
+							size="sm"
 							onClick={() => setIsAdding(true)}
 							className="flex items-center gap-2 bg-card border border-border text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-muted/50 transition-all shadow-sm"
 						>
 							<Plus className="w-4 h-4" /> ANEXAR RELATÓRIO
-						</button>
+						</Button>
 					</div>
 				)}
 
@@ -112,13 +116,13 @@ function Reports() {
 							}}
 							className="grid grid-cols-1 md:grid-cols-2 gap-4"
 						>
-							<input
+							<Input
 								name="title"
 								placeholder="Título do Relatório"
 								required
 								className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
 							/>
-							<input
+							<Input
 								name="url"
 								placeholder="URL do Relatório"
 								required
@@ -130,16 +134,23 @@ function Reports() {
 								className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 							/>
 							<div className="flex gap-2 md:col-span-2 justify-end">
-								<button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs text-muted-foreground hover:text-foreground">
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									onClick={() => setIsAdding(false)}
+									className="px-4 py-2 text-xs text-muted-foreground hover:text-foreground"
+								>
 									CANCELAR
-								</button>
-								<button
+								</Button>
+								<Button
 									type="submit"
+									variant="ghost"
 									disabled={createMutation.isPending}
 									className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md inline-flex items-center gap-2"
 								>
 									{createMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR RELATÓRIO
-								</button>
+								</Button>
 							</div>
 						</form>
 					</motion.div>
@@ -192,17 +203,25 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 					“{title}” sai da lista de todos os operadores da seção. A exclusão é definitiva — não há como desfazer.
 				</p>
 				<div className="flex justify-end gap-2">
-					<button type="button" onClick={onCancel} className="px-4 py-2 text-xs font-bold uppercase text-muted-foreground hover:text-foreground">
-						Cancelar
-					</button>
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={onCancel}
+						className="px-4 py-2 text-xs font-bold uppercase text-muted-foreground hover:text-foreground"
+					>
+						Cancelar
+					</Button>
+					<Button
+						type="button"
+						variant="destructive"
+						size="sm"
 						onClick={onConfirm}
 						disabled={isPending}
 						className="inline-flex items-center gap-2 bg-destructive text-destructive-foreground px-5 py-2 rounded-lg font-bold text-xs uppercase shadow-md hover:bg-destructive/90 disabled:opacity-60 transition-colors"
 					>
 						{isPending && <Loader2 className="w-3 h-3 animate-spin" />} Excluir
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

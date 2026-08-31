@@ -63,6 +63,13 @@
   --series-pareto: #4338ca;
   --series-accum: #065f46;
   --series-axis-alt: #d97706;
+  /* Grupos de conta: a legenda e a barra do gráfico leem daqui, então não podem
+     divergir. Antes eram hex literais em dois lugares — `fill=` no recharts e
+     `bg-[#…]` no marcador da legenda. */
+  --series-bmp: #1e40af;
+  --series-consumo: #0369a1;
+  --series-intangivel: #059669;
+  --series-icc: #059669;
 
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -133,6 +140,10 @@
   --series-pareto: #818cf8;
   --series-accum: #34d399;
   --series-axis-alt: #fbbf24;
+  --series-bmp: #3b82f6;
+  --series-consumo: #0ea5e9;
+  --series-intangivel: #10b981;
+  --series-icc: #10b981;
 
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -226,6 +237,10 @@
   --color-series-pareto: var(--series-pareto);
   --color-series-accum: var(--series-accum);
   --color-series-axis-alt: var(--series-axis-alt);
+  --color-series-bmp: var(--series-bmp);
+  --color-series-consumo: var(--series-consumo);
+  --color-series-intangivel: var(--series-intangivel);
+  --color-series-icc: var(--series-icc);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

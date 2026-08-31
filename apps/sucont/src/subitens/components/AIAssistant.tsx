@@ -4,6 +4,8 @@ import { Bot, Loader2, MessageSquare, Send, User, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { twMerge } from "tailwind-merge"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 
 function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))
@@ -91,7 +93,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 				whileTap={{ scale: 0.95 }}
 				onClick={() => setIsOpen(true)}
 				className={cn(
-					"fixed bottom-8 right-8 w-14 h-14 rounded-full bg-fab-blue text-white shadow-2xl shadow-fab-blue/30 flex items-center justify-center z-40 transition-all",
+					"fixed bottom-8 right-8 w-14 h-14 rounded-full bg-fab-blue text-white shadow-2xl shadow-fab-blue/30 flex items-center justify-center z-40 transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50",
 					isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
 				)}
 			>
@@ -105,7 +107,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						initial={{ opacity: 0, y: 20, scale: 0.95 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
 						exit={{ opacity: 0, y: 20, scale: 0.95 }}
-						className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-card rounded-3xl shadow-2xl shadow-fab-blue/20 border border-fab-blue/10 flex flex-col z-50 overflow-hidden"
+						className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-card rounded-xl shadow-2xl shadow-fab-blue/20 border border-fab-blue/10 flex flex-col z-50 overflow-hidden"
 					>
 						{/* Header */}
 						<div className="bg-fab-blue p-4 flex items-center justify-between text-white">
@@ -115,12 +117,19 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 								</div>
 								<div>
 									<h3 className="font-bold text-sm">Assistente SUCONT</h3>
-									<p className="text-[10px] text-white/60 uppercase tracking-wider">IA de Análise Contábil</p>
+									<p className="text-label text-white/60">IA de Análise Contábil</p>
 								</div>
 							</div>
-							<button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors" type="button">
+							<Button
+								onClick={() => setIsOpen(false)}
+								variant="ghost"
+								size="icon-sm"
+								className="rounded-full text-white hover:bg-white/10 hover:text-white"
+								type="button"
+								aria-label="Fechar chat"
+							>
 								<X size={18} />
-							</button>
+							</Button>
 						</div>
 
 						{/* Messages */}
@@ -168,22 +177,24 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						{/* Input */}
 						<div className="p-4 bg-card border-t border-fab-blue/10">
 							<div className="flex items-center gap-2 bg-muted/50 border border-fab-blue/10 rounded-full p-1 pl-4">
-								<input
+								<Input
 									type="text"
 									value={input}
 									onChange={(e) => setInput(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && handleSend()}
 									placeholder="Faça uma pergunta sobre os dados..."
-									className="flex-1 bg-transparent text-sm text-fab-blue focus:outline-none"
+									className="h-auto flex-1 border-none bg-transparent p-0 text-sm text-fab-blue shadow-none outline-none focus-visible:border-none focus-visible:ring-0"
 								/>
-								<button
+								<Button
 									onClick={isStreaming ? stop : handleSend}
 									disabled={!isStreaming && (!input.trim() || isLoading)}
 									type="button"
-									className="w-10 h-10 rounded-full bg-fab-blue text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:bg-fab-light-blue"
+									size="icon"
+									aria-label={isStreaming ? "Parar" : "Enviar"}
+									className="w-10 h-10 rounded-full bg-fab-blue text-white hover:bg-fab-light-blue disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{isStreaming ? <X size={16} /> : <Send size={16} className="ml-1" />}
-								</button>
+								</Button>
 							</div>
 						</div>
 					</motion.div>

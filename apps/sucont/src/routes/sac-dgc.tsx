@@ -4,6 +4,7 @@ import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } fr
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
 import { analyzeUg } from "#/sacdgc/client"
 import { DgcReport } from "#/sacdgc/components/DgcReport"
 import { DgcRunHistory } from "#/sacdgc/components/DgcRunHistory"
@@ -250,24 +251,20 @@ function SacDgcPage() {
 
 				<div className="flex items-center gap-3">
 					{isRunning && (
-						<button
-							type="button"
+						<Button
+							variant="outline"
 							onClick={() => abortRef.current?.abort()}
-							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-destructive/30 hover:text-destructive text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
+							className="text-label text-muted-foreground hover:border-destructive/30 hover:text-destructive"
 						>
 							<StopCircle className="w-3.5 h-3.5" />
 							Interromper
-						</button>
+						</Button>
 					)}
 					{base && (
-						<button
-							type="button"
-							onClick={handleReset}
-							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-						>
+						<Button variant="outline" onClick={handleReset} className="text-label text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan">
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova base
-						</button>
+						</Button>
 					)}
 				</div>
 			</div>

@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardCheck, Layers, Lightbulb, Printer, ScrollText } from "lucide-react"
 import { useState } from "react"
+import { Button } from "#/components/ui/button"
 import { cn } from "#/lib/utils"
 import type { DgcAnalysis } from "#/sacdgc/types"
 import { PANEL_TITLES } from "#/sacdgc/types"
@@ -23,26 +24,28 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 		<div className="w-full max-w-5xl mx-auto space-y-6">
 			<header className="bg-card border border-border rounded-xl p-8 text-center">
 				<div className="flex items-center justify-between mb-6">
-					<button
+					<Button
 						type="button"
 						onClick={onBack}
-						className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-tech-blue transition-colors"
+						variant="ghost"
+						className="h-auto gap-2 p-0 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-transparent hover:text-tech-blue"
 					>
 						<ArrowLeft className="w-4 h-4" />
 						Voltar às unidades
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						onClick={() => window.print()}
-						className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-tech-blue transition-colors"
+						variant="ghost"
+						className="h-auto gap-2 p-0 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-transparent hover:text-tech-blue"
 					>
 						<Printer className="w-4 h-4" />
 						Imprimir
-					</button>
+					</Button>
 				</div>
 
 				<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-tech-cyan mb-3">Relatório de Análise Crítica — SAC-DGC</p>
-				<h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">{data.identificacao.nomeUg}</h2>
+				<h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">{data.identificacao.nomeUg}</h2>
 				<p className="mt-3 text-sm text-muted-foreground">
 					Competência:{" "}
 					<span className="font-semibold text-foreground">
@@ -210,17 +213,18 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 
 function TabButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
 	return (
-		<button
+		<Button
 			type="button"
 			onClick={onClick}
+			variant="ghost"
 			className={cn(
-				"flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-colors border",
-				active ? "bg-tech-blue text-white border-tech-blue" : "bg-card text-muted-foreground border-border hover:bg-muted/50"
+				"h-auto gap-2 rounded-full border px-5 py-2.5 text-xs font-bold",
+				active ? "bg-tech-blue text-white border-tech-blue hover:bg-tech-blue" : "bg-card text-muted-foreground border-border hover:bg-muted/50"
 			)}
 		>
 			{icon}
 			{children}
-		</button>
+		</Button>
 	)
 }
 
@@ -245,7 +249,7 @@ function IndicatorCard({
 
 	const content = (
 		<>
-			<span className="text-3xl font-black">{value}</span>
+			<span className="text-3xl font-bold">{value}</span>
 			<span className="text-[11px] font-bold uppercase tracking-wider opacity-80">{label}</span>
 		</>
 	)
@@ -259,7 +263,7 @@ function IndicatorCard({
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"rounded-xl border p-6 flex flex-col items-center gap-1 transition-all hover:brightness-95",
+				"rounded-xl border p-6 flex flex-col items-center gap-1 transition-all hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50",
 				tones[tone],
 				active && "ring-2 ring-offset-1 ring-border"
 			)}

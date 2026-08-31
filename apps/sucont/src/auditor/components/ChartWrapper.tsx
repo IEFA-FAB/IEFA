@@ -1,6 +1,8 @@
 import { Info, Maximize2, Minimize2, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { riskColor } from "../theme"
 import type { FinancialRecord } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
@@ -148,10 +150,10 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
               bg-card border-border text-foreground`}
 						>
 							<p className="text-[11px] font-bold mb-2 text-action uppercase tracking-wider">Matriz de Risco</p>
-							<p className="text-[10px] leading-relaxed mb-2">
+							<p className="text-hint leading-relaxed mb-2">
 								O nível de risco considera duas dimensões: Impacto financeiro da divergência e frequência de ocorrência ao longo dos meses.
 							</p>
-							<div className="space-y-1 text-[9px]">
+							<div className="space-y-1 text-hint">
 								<div className="flex gap-2">
 									<span className="font-bold" style={{ color: riskColor(RiskLevel.BAIXO) }}>
 										Baixo Risco
@@ -182,16 +184,22 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 				</div>
 			)}
 
-			<button
-				type="button"
-				onClick={() => setIsExpanded(!isExpanded)}
-				className={`p-1.5 rounded hover:bg-opacity-80 transition-colors
-          hover:bg-muted text-muted-foreground
-        `}
-				title={isExpanded ? "Minimizar" : "Expandir"}
-			>
-				{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-			</button>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							onClick={() => setIsExpanded(!isExpanded)}
+							className="text-muted-foreground"
+							aria-label={isExpanded ? "Minimizar" : "Expandir"}
+						>
+							{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+						</Button>
+					}
+				/>
+				<TooltipContent>{isExpanded ? "Minimizar" : "Expandir"}</TooltipContent>
+			</Tooltip>
 		</div>
 	)
 
@@ -202,7 +210,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			{isExpanded && (
 				<button
 					type="button"
-					className="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm animate-in fade-in duration-200 cursor-default"
+					className="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm animate-in fade-in duration-200 cursor-default focus-visible:ring-[3px] focus-visible:ring-ring/50"
 					onClick={() => setIsExpanded(false)}
 					aria-label="Fechar"
 				/>
@@ -219,15 +227,15 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					<div className="flex items-center gap-4">
 						<Controls />
 						{isExpanded && (
-							<button
-								type="button"
+							<Button
+								variant="ghost"
+								size="icon"
 								onClick={() => setIsExpanded(false)}
-								className={`p-2 rounded-full hover:bg-destructive hover:text-destructive-foreground transition-colors
-                  text-muted-foreground
-                `}
+								className="rounded-full hover:bg-destructive hover:text-destructive-foreground text-muted-foreground"
+								aria-label="Fechar"
 							>
 								<X className="w-6 h-6" />
-							</button>
+							</Button>
 						)}
 					</div>
 				</div>

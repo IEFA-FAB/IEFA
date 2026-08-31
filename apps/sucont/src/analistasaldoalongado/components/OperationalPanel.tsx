@@ -14,7 +14,10 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, LabelList, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { chartChrome } from "#/lib/chart-theme"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
 import { exportElementToImage, exportToExcel } from "../utils/exportUtils"
@@ -147,14 +150,14 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			{/* Filters */}
 			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
 				{selectedRac !== "Geral" ? (
-					<button
+					<Button
 						type="button"
 						onClick={() => setIsConsolidatedModalOpen(true)}
-						className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+						className="gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
 					>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
-					</button>
+					</Button>
 				) : (
 					<div />
 				)}
@@ -242,14 +245,16 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			<div className="bg-card p-5 rounded-xl border border-border shadow-sm relative" id="chart-top10">
 				<div className="flex justify-between items-start mb-4">
 					<h3 className="text-base font-semibold text-foreground">Total de Saldos Sem Movimentação por UG (&gt;3 meses) - Top 10</h3>
-					<button
+					<Button
 						type="button"
 						onClick={() => exportElementToImage("chart-top10", "saldos-top10")}
-						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
+						variant="outline"
+						size="sm"
+						className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar Gráfico</span>
-					</button>
+					</Button>
 				</div>
 				<div className="h-[320px] w-full bg-card">
 					<ResponsiveContainer width="100%" height="100%">
@@ -267,20 +272,27 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						>
 							<defs>
 								<linearGradient id="colorSaldo" x1="0" y1="0" x2="1" y2="0">
-									<stop offset="0%" stopColor="#1e40af" stopOpacity={0.8} />
-									<stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+									<stop offset="0%" stopColor="var(--series-bmp)" stopOpacity={0.8} />
+									<stop offset="100%" stopColor="var(--series-bmp)" stopOpacity={1} />
 								</linearGradient>
 							</defs>
-							<CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+							<CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={chartChrome.grid} />
 							<XAxis
 								type="number"
 								tickFormatter={(val) => `R$ ${(val / 1000000).toFixed(1)}M`}
-								stroke="#64748b"
+								stroke={chartChrome.axis}
 								fontSize={12}
 								tickLine={false}
 								axisLine={false}
 							/>
-							<YAxis dataKey="ug" type="category" width={80} tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }} tickLine={false} axisLine={false} />
+							<YAxis
+								dataKey="ug"
+								type="category"
+								width={80}
+								tick={{ fontSize: 12, fill: chartChrome.axis, fontWeight: 500 }}
+								tickLine={false}
+								axisLine={false}
+							/>
 							<RechartsTooltip
 								content={({ active, payload, label }) => {
 									if (active && payload?.length) {
@@ -315,7 +327,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 									}
 									return null
 								}}
-								cursor={{ fill: "#f1f5f9", opacity: 0.1 }}
+								cursor={{ fill: chartChrome.surfaceMuted, opacity: 0.1 }}
 							/>
 							<Bar dataKey="saldo_total" fill="url(#colorSaldo)" radius={[0, 6, 6, 0]} barSize={20}>
 								<LabelList
@@ -325,7 +337,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 										const num = Number(value)
 										return filteredSaldoTotal > 0 ? `${((num / filteredSaldoTotal) * 100).toFixed(1)}%` : "0.0%"
 									}}
-									fill="#64748b"
+									fill={chartChrome.axis}
 									fontSize={11}
 									fontWeight={500}
 								/>
@@ -340,7 +352,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 				<div className="p-4 border-b border-border flex flex-col sm:flex-row justify-between items-center gap-4 bg-muted/50">
 					<div className="flex items-center gap-3">
 						<h3 className="text-base font-semibold text-foreground">Lista Operacional de UGs</h3>
-						<button
+						<Button
 							type="button"
 							onClick={() => {
 								const dataToExport = filteredAndSortedData.map((ug) => ({
@@ -354,18 +366,20 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 								}))
 								exportToExcel(dataToExport, "lista_operacional_ugs")
 							}}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-card hover:bg-muted/50 border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
 						>
 							<Download className="w-3.5 h-3.5" />
 							<span>Exportar Excel</span>
-						</button>
+						</Button>
 					</div>
 					<div className="relative w-full sm:w-72">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-						<input
+						<Input
 							type="text"
 							placeholder="Buscar por código, nome ou conferente..."
-							className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+							className="pl-9 pr-4 py-2 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
@@ -434,14 +448,16 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 									</td>
 									<td className="px-5 py-3 font-medium text-foreground">{formatCurrency(row.saldo_total)}</td>
 									<td className="px-5 py-3 text-right">
-										<button
+										<Button
 											type="button"
 											onClick={() => onViewDetails(row, selectedRac)}
-											className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-fab-700 bg-fab-50 border border-fab-200 rounded-lg hover:bg-fab-100 hover:border-fab-300 transition-colors"
+											variant="outline"
+											size="sm"
+											className="gap-1.5 px-3 py-1.5 text-xs font-medium text-fab-700 bg-fab-50 border-fab-200 rounded-lg hover:bg-fab-100 hover:border-fab-300 transition-colors"
 										>
 											Analisar
 											<ArrowRight className="w-3.5 h-3.5" />
-										</button>
+										</Button>
 									</td>
 								</tr>
 							))}

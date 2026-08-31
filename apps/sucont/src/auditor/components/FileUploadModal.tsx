@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle, FileSpreadsheet, UploadCloud, X } from "lucide-react"
 import { useRef, useState } from "react"
+import { Button } from "#/components/ui/button"
 
 interface FileUploadModalProps {
 	isOpen: boolean
@@ -58,9 +59,15 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClos
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/60 backdrop-blur-sm animate-in fade-in duration-200">
 			<div className={`relative w-full max-w-2xl border rounded-2xl shadow-2xl overflow-hidden p-8 text-center bg-card border-border`}>
-				<button type="button" onClick={onClose} className={`absolute top-4 right-4 p-2 transition-colors text-muted-foreground hover:text-foreground`}>
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={onClose}
+					className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+					aria-label="Fechar"
+				>
 					<X className="w-6 h-6" />
-				</button>
+				</Button>
 
 				<div className="mb-6 flex flex-col items-center">
 					<div className="p-4 bg-action/20 rounded-full mb-4">

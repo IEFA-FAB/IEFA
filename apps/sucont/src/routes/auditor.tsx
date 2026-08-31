@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { ChartWrapper } from "#/auditor/components/ChartWrapper"
-import { CustomSelect } from "#/auditor/components/CustomSelect"
 import { FileUploadModal } from "#/auditor/components/FileUploadModal"
 import { HealthScoreGauge } from "#/auditor/components/HealthScoreGauge"
 import { RankingList } from "#/auditor/components/RankingList"
@@ -27,6 +26,10 @@ import { iccColor, iccLabel } from "#/auditor/theme"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
 import { useSucontAccess } from "#/auth/pbac"
+import { LegalFooter } from "#/components/legal-footer"
+import { Button } from "#/components/ui/button"
+import { Combobox } from "#/components/ui/combobox"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { cn } from "#/lib/utils"
 import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
@@ -440,13 +443,20 @@ function AuditorPage() {
 				<div className="max-w-[1800px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
 					<div className="flex items-center gap-6 min-w-max">
 						<div className="flex items-center gap-3">
-							<Link
-								to="/"
-								className={`p-2 rounded-lg transition-colors border border-border text-muted-foreground hover:bg-muted hover:text-foreground`}
-								title="Voltar ao Hub"
-							>
-								<ArrowLeft className="w-4 h-4" />
-							</Link>
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Link
+											to="/"
+											aria-label="Voltar ao Hub"
+											className="p-2 rounded-lg transition-colors border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+										>
+											<ArrowLeft className="w-4 h-4" />
+										</Link>
+									}
+								/>
+								<TooltipContent>Voltar ao Hub</TooltipContent>
+							</Tooltip>
 							<div className="bg-action p-2 rounded-lg shadow-lg">
 								<Activity className="w-5 h-5 text-white" />
 							</div>
@@ -462,7 +472,7 @@ function AuditorPage() {
 										key={level}
 										type="button"
 										onClick={() => setSelectedHierarchyLevel(level)}
-										className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1
+										className={`px-2 py-1 text-label rounded-md transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
                       ${selectedHierarchyLevel === level ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                     `}
 									>
@@ -475,10 +485,11 @@ function AuditorPage() {
 							</div>
 
 							<div className="w-40 hidden md:block">
-								<CustomSelect
+								<Combobox
+									aria-label={`Filtrar por ${selectedHierarchyLevel}`}
 									value={selectedHierarchyFilter[0]}
-									onChange={(val) => setSelectedHierarchyFilter([val])}
-									options={[
+									onValueChange={(val) => setSelectedHierarchyFilter([val])}
+									items={[
 										{
 											value: "TODOS",
 											label: `Todas as ${selectedHierarchyLevel === "ODS" ? "ODSs" : selectedHierarchyLevel === "ORGAO" ? "Órgãos" : "UGs"}`,
@@ -493,10 +504,11 @@ function AuditorPage() {
 							</div>
 
 							<div className="w-40 hidden md:block">
-								<CustomSelect
+								<Combobox
+									aria-label="Mês de referência"
 									value={selectedMonth}
-									onChange={setSelectedMonth}
-									options={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
+									onValueChange={setSelectedMonth}
+									items={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
 									placeholder="Mês de Ref."
 								/>
 							</div>
@@ -505,23 +517,28 @@ function AuditorPage() {
 
 					<div className="flex items-center gap-3">
 						{canEdit && (
-							<button
-								type="button"
-								onClick={() => setIsUploadModalOpen(true)}
-								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-action hover:bg-action/80 text-action-foreground transition-all shadow-lg whitespace-nowrap"
-							>
+							<Button onClick={() => setIsUploadModalOpen(true)} className="bg-action text-action-foreground hover:bg-action/80 whitespace-nowrap">
 								<UploadCloud className="w-4 h-4" />
 								<span className="hidden sm:inline">Importar Excel</span>
-							</button>
+							</Button>
 						)}
 
-						<button
-							type="button"
-							onClick={() => setIsDarkMode(!isDarkMode)}
-							className={`p-2 rounded-full transition-colors border border-border text-muted-foreground hover:bg-muted`}
-						>
-							{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-						</button>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										variant="outline"
+										size="icon"
+										aria-label={isDarkMode ? "Usar tema claro" : "Usar tema escuro"}
+										onClick={() => setIsDarkMode(!isDarkMode)}
+										className="rounded-full"
+									>
+										{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+									</Button>
+								}
+							/>
+							<TooltipContent>{isDarkMode ? "Usar tema claro" : "Usar tema escuro"}</TooltipContent>
+						</Tooltip>
 					</div>
 				</div>
 			</nav>
@@ -569,13 +586,14 @@ function AuditorPage() {
 									</>
 								)}
 							</div>
-							<button
-								type="button"
+							<Button
+								variant="link"
+								size="sm"
 								onClick={() => setPersistOutcome(null)}
-								className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+								className="text-label text-muted-foreground hover:text-foreground no-underline"
 							>
 								Fechar
-							</button>
+							</Button>
 						</div>
 
 						{persistOutcome.conflicts.length > 0 && (
@@ -624,13 +642,9 @@ function AuditorPage() {
 						{canEdit ? (
 							<>
 								<p className="text-muted-foreground mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
-								<button
-									type="button"
-									onClick={() => setIsUploadModalOpen(true)}
-									className="px-6 py-3 bg-action text-action-foreground rounded-lg font-bold hover:bg-action/80 transition-colors"
-								>
+								<Button size="lg" onClick={() => setIsUploadModalOpen(true)} className="bg-action text-action-foreground hover:bg-action/80">
 									{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
-								</button>
+								</Button>
 							</>
 						) : (
 							!loadingAccess && (
@@ -680,7 +694,7 @@ function AuditorPage() {
 											key={tab.id}
 											type="button"
 											onClick={() => setSelectedGroup(tab.id)}
-											className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap border border-transparent
+											className={`px-4 py-2 text-label rounded-lg transition-all whitespace-nowrap border border-transparent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
                         ${selectedGroup === tab.id ? tab.activeClass : "text-muted-foreground hover:text-foreground hover:bg-muted"}
                       `}
 										>
@@ -697,7 +711,7 @@ function AuditorPage() {
 												key={tf}
 												type="button"
 												onClick={() => setTimeFilter(tf)}
-												className={`px-3 py-2 text-xs font-bold rounded-lg transition-all
+												className={`px-3 py-2 text-label rounded-lg transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
                           ${timeFilter === tf ? "bg-action text-action-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                         `}
 											>
@@ -709,14 +723,11 @@ function AuditorPage() {
 
 								{/* Toggles */}
 								<div className="col-span-1 md:col-span-3 flex justify-end items-center gap-3">
-									<div
-										className={`flex items-center gap-2 px-3 py-2 rounded-lg border
-                       bg-muted border-border`}
-										title="Quantidade de UGs consideradas na visualização atual"
-									>
+									<div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted border-border">
+										<span className="sr-only">Quantidade de UGs consideradas na visualização atual</span>
 										<Database className="w-3.5 h-3.5 text-action" />
 										<div className="flex flex-col leading-none">
-											<span className={`text-[9px] font-bold uppercase text-muted-foreground`}>Registros Totais</span>
+											<span className="text-label text-muted-foreground">Registros Totais</span>
 											<span className={`text-xs font-bold text-foreground`}>{stats.totalUGsCount} UGs</span>
 										</div>
 									</div>
@@ -724,7 +735,7 @@ function AuditorPage() {
 									<button
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
-										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border transition-all
+										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-label border transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
                       ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "bg-card text-muted-foreground border-border"}
                     `}
 									>
@@ -780,15 +791,15 @@ function AuditorPage() {
 
 							{/* ICC Card */}
 							<div
-								className={`bg-card border-border hover:bg-muted/50 backdrop-blur-md rounded-2xl shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
+								className={`bg-card border-border hover:bg-muted/50 rounded-xl shadow-sm border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
 							>
 								<div className="flex justify-between items-start relative z-10">
 									<div className="flex-1">
-										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">ICC</p>
-										<h3 className={`text-xs font-black tracking-tight leading-tight text-foreground`}>Indicador de Conciliação Contábil</h3>
+										<p className="text-label text-muted-foreground mb-0.5">ICC</p>
+										<h3 className="text-subheading text-foreground">Indicador de Conciliação Contábil</h3>
 									</div>
-									<div className="w-10 h-10 rounded-lg bg-action shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2">
-										<Activity className="w-5 h-5 text-white" />
+									<div className="w-10 h-10 rounded-lg bg-action flex items-center justify-center flex-shrink-0 ml-2">
+										<Activity className="w-5 h-5 text-action-foreground" />
 									</div>
 								</div>
 								<div className="mt-1 flex-1 flex items-center justify-center">
@@ -869,6 +880,10 @@ function AuditorPage() {
 					</>
 				)}
 			</main>
+
+			{/* Esta rota não monta o HubLayout, então o link para os documentos legais
+			    precisa vir daqui — o LGPD.md exige o rodapé em toda tela do app. */}
+			<LegalFooter />
 		</div>
 	)
 }

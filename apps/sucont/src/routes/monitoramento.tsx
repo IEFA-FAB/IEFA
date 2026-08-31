@@ -29,10 +29,12 @@ import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
 import { UGCard } from "#/components/analista/ug-card"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
+import { chartChrome } from "#/lib/chart-theme"
 import { cn } from "#/lib/utils"
 
 export const Route = createFileRoute("/monitoramento")({
@@ -448,14 +450,15 @@ function MonitoramentoPage() {
 					</p>
 				</div>
 				{fileName && (
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={clearData}
 						className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-surface-inverted-foreground bg-surface-inverted hover:bg-surface-inverted-border rounded-lg transition-colors"
 					>
 						<Trash2 className="w-4 h-4" />
 						<span>Nova Análise</span>
-					</button>
+					</Button>
 				)}
 			</div>
 
@@ -465,7 +468,7 @@ function MonitoramentoPage() {
 					<button
 						type="button"
 						className={cn(
-							"w-full border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-200 cursor-pointer",
+							"w-full border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-200 cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
 							isDragging ? "border-action bg-action/10" : "border-border hover:border-action hover:bg-muted/50 bg-card"
 						)}
 						onDrop={handleDrop}
@@ -641,8 +644,9 @@ function MonitoramentoPage() {
 							</div>
 						</div>
 						{(activeRacFilter !== "TODOS" || activeConferenteFilter !== "TODOS") && (
-							<button
+							<Button
 								type="button"
+								variant="ghost"
 								onClick={() => {
 									setActiveRacFilter("TODOS")
 									setActiveConferenteFilter("TODOS")
@@ -651,7 +655,7 @@ function MonitoramentoPage() {
 							>
 								<Trash2 className="w-4 h-4" />
 								LIMPAR FILTROS
-							</button>
+							</Button>
 						)}
 					</div>
 
@@ -665,9 +669,10 @@ function MonitoramentoPage() {
 								{ id: "decisao", label: "Apoio à Decisão", color: "amber" },
 							] as const
 						).map(({ id, label, color }) => (
-							<button
+							<Button
 								key={id}
 								type="button"
+								variant="ghost"
 								onClick={() => setActiveView(id)}
 								className={cn(
 									"px-6 py-4 text-sm font-bold transition-all",
@@ -677,7 +682,7 @@ function MonitoramentoPage() {
 								)}
 							>
 								{label}
-							</button>
+							</Button>
 						))}
 					</div>
 
@@ -695,13 +700,14 @@ function MonitoramentoPage() {
 									<p className="text-action-foreground text-sm">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
 								</div>
 							</div>
-							<button
+							<Button
 								type="button"
+								variant="ghost"
 								onClick={() => setActiveRacFilter("TODOS")}
 								className="text-xs bg-action hover:bg-action/80 px-3 py-1.5 rounded-lg border border-action transition-colors"
 							>
 								Limpar Filtro RAC
-							</button>
+							</Button>
 						</div>
 					)}
 
@@ -767,11 +773,11 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<BarChart data={managerialData.topUgs} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-												<CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+												<CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartChrome.grid} />
 												<XAxis type="number" hide />
-												<YAxis dataKey="ug" type="category" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+												<YAxis dataKey="ug" type="category" axisLine={false} tickLine={false} tick={{ fill: chartChrome.axis, fontSize: 12 }} />
 												<Tooltip
-													cursor={{ fill: "#f1f5f9" }}
+													cursor={{ fill: chartChrome.surfaceMuted }}
 													contentStyle={{
 														borderRadius: "8px",
 														border: "none",
@@ -779,7 +785,7 @@ function MonitoramentoPage() {
 													}}
 													formatter={(value) => [Number(value), "Ocorrências"]}
 												/>
-												<Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+												<Bar dataKey="count" fill={"var(--series-bmp)"} radius={[0, 4, 4, 0]} barSize={20} />
 											</BarChart>
 										</ResponsiveContainer>
 									</div>
@@ -795,7 +801,19 @@ function MonitoramentoPage() {
 											<PieChart>
 												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
 													{managerialData.topRacs.map((_, index) => (
-														<Cell key={`cell-${index}`} fill={["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316"][index % 6]} />
+														<Cell
+															key={`cell-${index}`}
+															fill={
+																[
+																	"var(--series-bmp)",
+																	"var(--series-pareto)",
+																	"var(--series-pareto)",
+																	"var(--destructive)",
+																	"var(--destructive)",
+																	"var(--warning)",
+																][index % 6]
+															}
+														/>
 													))}
 												</Pie>
 												<Tooltip
@@ -806,7 +824,7 @@ function MonitoramentoPage() {
 													}}
 													formatter={(value) => [Number(value), "Ocorrências"]}
 												/>
-												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
+												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: chartChrome.axis }} />
 											</PieChart>
 										</ResponsiveContainer>
 									</div>
@@ -920,14 +938,21 @@ function MonitoramentoPage() {
 											<PieChart>
 												<Pie data={estrategicoData.topOds} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count" nameKey="name">
 													{estrategicoData.topOds.map((_, index) => (
-														<Cell key={`cell-${index}`} fill={["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"][index % 6]} />
+														<Cell
+															key={`cell-${index}`}
+															fill={
+																["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis][
+																	index % 6
+																]
+															}
+														/>
 													))}
 												</Pie>
 												<Tooltip
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
 													formatter={(value, _name, item) => [`${Number(value)} (${(Number(item?.payload?.percent) || 0).toFixed(1)}%)`, "Inconsistências"]}
 												/>
-												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
+												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: chartChrome.axis }} />
 											</PieChart>
 										</ResponsiveContainer>
 									</div>
@@ -941,15 +966,15 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<BarChart data={estrategicoData.topOrgaosSuperiores} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-												<CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="#e2e8f0" />
-												<XAxis type="number" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
-												<YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fill: "#475569" }} axisLine={false} tickLine={false} />
+												<CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke={chartChrome.grid} />
+												<XAxis type="number" tick={{ fontSize: 12, fill: chartChrome.axis }} axisLine={false} tickLine={false} />
+												<YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fill: chartChrome.axis }} axisLine={false} tickLine={false} />
 												<Tooltip
-													cursor={{ fill: "#f1f5f9" }}
+													cursor={{ fill: chartChrome.surfaceMuted }}
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
 													formatter={(value) => [Number(value), "Inconsistências"]}
 												/>
-												<Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+												<Bar dataKey="count" fill={"var(--success)"} radius={[0, 4, 4, 0]} barSize={20} />
 											</BarChart>
 										</ResponsiveContainer>
 									</div>
@@ -1059,7 +1084,7 @@ function MonitoramentoPage() {
 									</h3>
 									<div className="flex flex-col items-center justify-center h-full pb-6">
 										<div className="text-center mb-8">
-											<p className="text-4xl font-black text-action mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
+											<p className="text-4xl font-bold text-action mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
 											<p className="text-sm text-muted-foreground">
 												das inconsistências estão concentradas em apenas <span className="font-bold text-foreground">20% das UGs</span> (
 												{decisaoData.pareto.twentyPercentCount} UGs).
@@ -1070,9 +1095,7 @@ function MonitoramentoPage() {
 											{decisaoData.pareto.topTwentyUgs.map((ug, i) => (
 												<div key={ug.ug} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border">
 													<div className="flex items-center gap-2">
-														<span className="text-[10px] font-bold bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">
-															{i + 1}
-														</span>
+														<span className="text-hint font-bold bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">{i + 1}</span>
 														<span className="text-sm font-semibold text-foreground">
 															{ug.ug} ({ug.nome})
 														</span>
@@ -1108,7 +1131,7 @@ function MonitoramentoPage() {
 													<td className="px-4 py-3">
 														<span
 															className={cn(
-																"inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold",
+																"inline-flex items-center justify-center w-6 h-6 rounded-full text-hint font-bold",
 																i < 3 ? "bg-destructive/15 text-destructive" : "bg-muted text-foreground"
 															)}
 														>
@@ -1217,9 +1240,10 @@ function MonitoramentoPage() {
 										{ id: "FORA_ESCOPO", label: "Fora do Escopo (Inconsistências)", active: "bg-warning text-warning-foreground" },
 									] as const
 								).map(({ id, label, active }) => (
-									<button
+									<Button
 										key={id}
 										type="button"
+										variant="ghost"
 										onClick={() => setActiveTab(id)}
 										className={cn(
 											"px-4 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -1227,7 +1251,7 @@ function MonitoramentoPage() {
 										)}
 									>
 										{label}
-									</button>
+									</Button>
 								))}
 							</div>
 						</div>

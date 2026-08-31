@@ -20,21 +20,10 @@
  * tema claro: no escuro, o rótulo de valor saía branco sobre branco.
  */
 
+import { chartChrome } from "#/lib/chart-theme"
 import { RiskLevel } from "./types"
 
-/** Cromo: eixo, grade, superfície. Papel semântico, não cor. */
-export const chartChrome = {
-	/** Linhas da grade e bordas de célula. */
-	grid: "var(--border)",
-	/** Rótulos de eixo e legenda. */
-	axis: "var(--muted-foreground)",
-	/** Fundo de rótulo desenhado sobre o gráfico. */
-	surface: "var(--card)",
-	/** Superfície rebaixada: cursor do tooltip, faixa alternada. */
-	surfaceMuted: "var(--muted)",
-	/** Texto sobre `surface`. */
-	label: "var(--foreground)",
-} as const
+export { chartChrome }
 
 /** Séries do confronto, nomeadas pelo dado que carregam. */
 export const chartSeries = {
@@ -45,6 +34,12 @@ export const chartSeries = {
 	accumulated: "var(--series-accum)",
 	/** Eixo secundário do gráfico de Pareto. */
 	axisAlt: "var(--series-axis-alt)",
+	/** Grupos de conta — mesma fonte para a barra e para o marcador da legenda. */
+	bmp: "var(--series-bmp)",
+	consumo: "var(--series-consumo)",
+	intangivel: "var(--series-intangivel)",
+	/** Índice de Conciliação Contábil, quando plotado como série. */
+	icc: "var(--series-icc)",
 } as const
 
 /**

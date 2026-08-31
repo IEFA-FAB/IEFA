@@ -7,6 +7,8 @@ import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { LegalNotice } from "#/components/LegalNotice"
 import { SidebarRailItem } from "#/components/sidebar-rail-item"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { externalSystems, iaTools, reportTools } from "#/lib/data"
 import { ALL_CATEGORIES, useHubFilters } from "#/lib/hub-filters"
 
@@ -52,9 +54,9 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 					<div className="p-4 bg-muted/50 rounded-2xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
 							<ShieldCheck className="w-3 h-3 text-tech-blue" />
-							<span className="text-[10px] font-bold text-muted-foreground uppercase">Uso Institucional</span>
+							<span className="text-label text-muted-foreground">Uso Institucional</span>
 						</div>
-						<p className="text-[11px] text-muted-foreground leading-relaxed">
+						<p className="text-hint text-muted-foreground leading-relaxed">
 							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).
 						</p>
 					</div>
@@ -69,15 +71,17 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 					</div>
 					<span className="text-xs font-bold text-foreground truncate">SUCONT-4 HUB</span>
 				</div>
-				<button
+				<Button
 					type="button"
 					onClick={() => setMenuPath(pathname)}
 					aria-label="Abrir menu"
 					aria-expanded={menuOpen}
-					className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+					variant="ghost"
+					size="icon"
+					className="rounded-lg text-muted-foreground hover:bg-muted"
 				>
 					<Menu className="w-5 h-5" />
-				</button>
+				</Button>
 			</div>
 
 			{menuOpen && <MobileMenu activeCategory={category} onSelect={setCategory} onClose={() => setMenuPath(null)} />}
@@ -86,7 +90,7 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10 pt-14 lg:pt-0">
 				{/* Header */}
 				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
-					<div className="relative bg-surface-inverted rounded-[2rem] p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
+					<div className="relative bg-surface-inverted rounded-xl p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
 						{/* decorative */}
 						<div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
 							<svg viewBox="0 0 100 100" className="w-full h-full text-white fill-current" aria-hidden="true">
@@ -96,15 +100,11 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 
 						<div className="relative z-10">
 							<div className="flex flex-wrap gap-2 mb-6">
-								<span className="text-[10px] font-bold text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
-									Força Aérea Brasileira
-								</span>
-								<span className="text-[10px] font-bold text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
-									DIREF • SUCONT
-								</span>
+								<span className="text-label text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10">Força Aérea Brasileira</span>
+								<span className="text-label text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10">DIREF • SUCONT</span>
 							</div>
 
-							<h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 leading-tight">
+							<h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-4 leading-tight">
 								SUCONT-4 <span className="text-tech-cyan">HUB</span>
 							</h1>
 
@@ -140,16 +140,16 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 					<div className="flex gap-8">
 						<SystemStatus />
 						<div className="flex flex-col">
-							<span className="text-[10px] font-mono uppercase text-muted-foreground">Versão Hub</span>
+							<span className="text-label font-mono text-muted-foreground">Versão Hub</span>
 							<span className="text-xs font-mono text-muted-foreground">v4.0.0-START</span>
 						</div>
 					</div>
 					<div className="flex flex-col items-center gap-2 md:items-end">
 						<LegalFooterLinks
 							className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
-							linkClassName="text-[10px] font-mono uppercase text-muted-foreground transition-colors hover:text-foreground"
+							linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
 						/>
-						<div className="text-[10px] font-mono text-muted-foreground text-center md:text-right">
+						<div className="text-hint font-mono text-muted-foreground text-center md:text-right">
 							© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
 							<br />
 							ACESSO RESTRITO
@@ -200,7 +200,7 @@ function HubBrand() {
 			</div>
 			<div className="flex flex-col">
 				<h2 className="text-sm font-bold text-foreground leading-tight">Centro de Monitoramento</h2>
-				<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">DIREF • COMAER</span>
+				<span className="text-label text-muted-foreground">DIREF • COMAER</span>
 			</div>
 		</div>
 	)
@@ -213,18 +213,19 @@ function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onS
 				const Icon = cat.icon
 				const isActive = activeCategory === cat.id
 				return (
-					<button
+					<Button
 						key={cat.id}
 						type="button"
 						onClick={() => onSelect(cat.id)}
 						aria-current={isActive ? "page" : undefined}
-						className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-							isActive ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted/50"
+						variant="ghost"
+						className={`h-auto w-full justify-start gap-3 rounded-xl px-4 py-3 ${
+							isActive ? "bg-tech-blue text-white hover:bg-tech-blue shadow-md" : "text-muted-foreground hover:bg-muted/50"
 						}`}
 					>
 						<Icon className="w-4 h-4" />
 						<span className="text-xs font-bold">{cat.id}</span>
-					</button>
+					</Button>
 				)
 			})}
 		</nav>
@@ -246,7 +247,12 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 
 	return (
 		<div className="lg:hidden fixed inset-0 z-50 flex">
-			<button type="button" aria-label="Fechar menu" onClick={onClose} className="absolute inset-0 bg-overlay/40 backdrop-blur-[2px]" />
+			<button
+				type="button"
+				aria-label="Fechar menu"
+				onClick={onClose}
+				className="absolute inset-0 bg-overlay/40 backdrop-blur-[2px] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+			/>
 			<div
 				ref={panelRef}
 				role="dialog"
@@ -257,14 +263,16 @@ function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: str
 			>
 				<div className="flex items-start justify-between gap-2">
 					<HubBrand />
-					<button
+					<Button
 						type="button"
 						onClick={onClose}
 						aria-label="Fechar menu"
-						className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+						variant="ghost"
+						size="icon-sm"
+						className="rounded-lg text-muted-foreground hover:bg-muted"
 					>
 						<X className="w-4 h-4" />
-					</button>
+					</Button>
 				</div>
 
 				<CategoryNav
@@ -320,23 +328,25 @@ function HubSearchBar() {
 			<label htmlFor={inputId} className="sr-only">
 				Buscar no hub
 			</label>
-			<input
+			<Input
 				id={inputId}
 				type="search"
 				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-				className="bg-transparent border-none outline-none text-sm text-muted-foreground w-full"
+				className="h-auto w-full border-none bg-transparent p-0 text-sm text-muted-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0 dark:bg-transparent"
 				value={draft}
 				onChange={(e) => onChange(e.target.value)}
 			/>
 			{draft !== "" && (
-				<button
+				<Button
 					type="button"
 					onClick={clear}
 					aria-label="Limpar busca"
-					className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+					variant="ghost"
+					size="icon-xs"
+					className="w-7 h-7 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
 				>
 					<X className="w-3.5 h-3.5" />
-				</button>
+				</Button>
 			)}
 		</div>
 	)
@@ -367,7 +377,7 @@ function SystemStatus() {
 
 	return (
 		<div className="flex flex-col">
-			<span className="text-[10px] font-mono uppercase text-muted-foreground">Status do Sistema</span>
+			<span className="text-label font-mono text-muted-foreground">Status do Sistema</span>
 			<span className={`text-xs font-mono flex items-center gap-2 ${tone}`} aria-live="polite">
 				<span className={`w-1.5 h-1.5 rounded-full ${dot} ${state === "checking" ? "animate-pulse" : ""}`} />
 				{label}
@@ -391,19 +401,21 @@ function UserBlock() {
 	return (
 		<div className="flex items-center justify-between gap-2 p-3 bg-card rounded-2xl border border-border">
 			<div className="flex flex-col min-w-0">
-				<span className="text-[10px] font-bold text-muted-foreground uppercase">Sessão</span>
-				<span className="text-[10px] text-muted-foreground truncate" title={email}>
+				<span className="text-label text-muted-foreground">Sessão</span>
+				<span className="text-hint text-muted-foreground truncate" title={email}>
 					{email || "—"}
 				</span>
 			</div>
-			<button
+			<Button
 				type="button"
 				onClick={logout}
 				aria-label="Sair da conta"
-				className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+				variant="ghost"
+				size="icon-sm"
+				className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 			>
 				<LogOut className="w-4 h-4" />
-			</button>
+			</Button>
 		</div>
 	)
 }

@@ -181,38 +181,50 @@ quem não tem o nível entrega um 403 depois do trabalho feito, sem mensagem.
 
 ## 8. Dívida registrada
 
-Inventário medido em 2026-08-31, depois da migração completa da paleta.
+Inventário de 2026-08-31, depois da força-tarefa que quitou a dívida.
 
-**Classes de paleta Tailwind crua: 0** (eram 2.743). Todo valor de cor no app passa
-por token declarado. Verificação: as 238 classes de token distintas usadas no código
-foram conferidas contra o CSS gerado — nenhuma sem regra correspondente.
+**Zerados:** classes de paleta Tailwind crua (eram 2.743), cores hex arbitrárias em
+classe (114), texto abaixo de 11px (202), `font-black`/`font-extrabold` (115),
+`title=` como tooltip (19), radius arbitrário (37 de 38), `Select` em Radix.
+Verificação: as 271 classes de token distintas usadas no código foram conferidas
+contra o CSS gerado — nenhuma sem regra correspondente.
 
-| Item | Volume | Onde |
+### Exceções permitidas, com o motivo
+
+O que sobrou **não é dívida**: são casos em que a regra geral não se aplica. Estão
+listados para que ninguém os "corrija" de novo.
+
+| Caso | Onde | Por quê |
+|------|------|---------|
+| `<input type="file">` nativo | dropzones de upload | O primitivo `Input` é text-like; o campo é `hidden` e o alvo de clique é o `<label>` |
+| `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
+| 12 `<input>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm `focus-visible:ring-ring` |
+| 3 `<input>` nativos | cabeçalho de `subitens-genericos` | Design de sublinhado (`bg-transparent border-b`, sem padding). Já têm `focus:border-fab-gold` |
+| `<button>` nativo | tabs/segmentos, cards clicáveis inteiros, véus `inset-0` de clique-fora, `motion.button` | O primitivo brigaria com o layout, ou (no caso do Framer Motion) com o encadeamento de ref/animação. **Todos receberam `focus-visible:ring-[3px] focus-visible:ring-ring/50`** |
+| `backdrop-blur` | véu de modal, barra fixa/sticky, tooltip de gráfico | Há sobreposição real de conteúdo — é o caso que §6 admite |
+| `rounded-[2px]` | seta do `Tooltip` | Detalhe de forma de uma seta de 10px, não radius de superfície |
+| Hex explícito | `ODS_SOLID_COLORS` (Charts), `COLORS` (subitens), `ICC_RAMP`, `RISK_RAMP` | **Escala de visualização**, não cor de interface. Paleta categórica e rampa sequencial existem para distinguir dados; forçá-las em tokens semânticos destruiria a distinção. Declaradas uma vez, num só lugar |
+
+### Regra que a força-tarefa deixou
+
+**Cromo de gráfico é token; paleta de dado é explícita.** Eixo, grade, cursor,
+superfície de tooltip e borda saem de `lib/chart-theme.ts` (`chartChrome`) e
+acompanham o tema. Série e categoria saem de token nomeado pelo DADO
+(`--series-siafi`, `--series-bmp`) ou de rampa declarada. O que não pode existir é
+a mesma cor escrita em dois lugares: antes, o marcador da legenda usava
+`bg-[#1e40af]` e a barra usava `fill="#1e40af"` — duas fontes para a mesma
+decisão, livres para divergir sem ninguém notar.
+
+`chartChrome` vive em `src/lib/`, e não em `auditor/`, porque o auditor não é o
+único consumidor: os painéis do analista de saldo alongado plotavam o mesmo cromo
+com hex literal.
+
+### Continua em aberto
+
+| Item | Volume | Nota |
 |------|--------|------|
-| `<button>` nativo | 170 | todas as rotas |
-| `<input>` nativo | 73 | todas as rotas |
-| Texto abaixo de 11px | ~200 (`text-[8px]`…`[10px]`) | `auditor/components/`, `plataforma-doc/` |
-| `font-black` / `font-extrabold` | 115 | diversos |
-| Radius arbitrário | 38 (`rounded-[40px]`, `[32px]`, `rounded-3xl`) | `hub-layout`, `subitens-genericos` |
-| `backdrop-blur` decorativo | 28 | diversos |
-| `title=` como tooltip | 19 | diversos |
-| Rotas fora do `HubLayout` | 4 | `auditor`, `centro-monitoramento`, `subitens-genericos`, `documentacao` — sem `LegalFooterLinks`, exigido pelo `LGPD.md` |
-| Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos` 1.885, `conta-generica` 1.811, `analista-compatibilidade` 1.666, `monitoramento` 1.317 |
-| `CustomSelect` reimplementado | 1 | `auditor/components/CustomSelect.tsx` |
-
-### Papéis de cor declarados
-
-Além da escala semântica do shadcn (`background`, `foreground`, `muted`, `card`,
-`border`, `destructive`) e das famílias nomeadas `tech-*` / `fab-*`:
-
-| Token | Papel | Por que não reusa outro |
-|-------|-------|--------------------------|
-| `action` / `action-foreground` | Ação primária, ênfase de link, item selecionado | `primary` é quase preto (herança do shadcn); o sucont é azul desde as nove ferramentas que o originaram |
-| `surface-inverted` (+ `-foreground`, `-muted`, `-border`, `-accent`) | Painel escuro dentro de página clara: herói do hub, barra do centro de monitoramento | `card` inverteria junto com o tema e apagaria o painel — aqui o escuro é intenção, não consequência do modo escuro |
-| `overlay` | Véu de modal | Escuro nos dois temas; `foreground` seria branco no escuro |
-| `success` / `warning` | Estado | — |
-| `series-*` | Séries do confronto SIAFI x SILOMS | Nomeadas pelo dado, não pela cor |
-| `ICC_RAMP` / `RISK_RAMP` (`auditor/theme.ts`) | Escalas sequenciais de 5 e 4 faixas | `success`/`warning`/`destructive` classificam estado; escala contínua não cabe em três degraus |
+| Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos`, `conta-generica`, `analista-compatibilidade`, `monitoramento`. Dividir é refatoração de arquitetura, não de estilo |
+| Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção |
 
 Patterns que o sisub tem e o sucont ainda não: `field.tsx` (formulários) e
 `item.tsx` (linhas de lista de entidade). Enquanto não existirem aqui, formulário

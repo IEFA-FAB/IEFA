@@ -1,5 +1,7 @@
 import { Check, Copy, Settings2, X } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { UgConsolidated } from "../utils/analytics"
 import { RAC_MAPPING } from "../utils/rac"
@@ -121,9 +123,16 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 							</div>
 						</div>
 					</div>
-					<button type="button" onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
+					<Button
+						type="button"
+						onClick={onClose}
+						variant="ghost"
+						size="icon"
+						aria-label="Fechar"
+						className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+					>
 						<X className="w-6 h-6" />
-					</button>
+					</Button>
 				</div>
 
 				<div className="flex-1 overflow-hidden flex flex-col md:flex-row">
@@ -138,11 +147,11 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-number" className="text-xs font-medium text-foreground">
 									Número da Mensagem
 								</label>
-								<input
+								<Input
 									id="cons-msg-number"
 									type="text"
 									placeholder="Ex: 123"
-									className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+									className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 									value={messageNumber}
 									onChange={(e) => setMessageNumber(e.target.value)}
 								/>
@@ -151,10 +160,10 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-date" className="text-xs font-medium text-foreground">
 									Data da Mensagem
 								</label>
-								<input
+								<Input
 									id="cons-msg-date"
 									type="date"
-									className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+									className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 									value={messageDate}
 									onChange={(e) => setMessageDate(e.target.value)}
 								/>
@@ -187,10 +196,10 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 										<label htmlFor="cons-msg-deadline" className="text-xs font-medium text-foreground mb-1.5 block">
 											Data Limite
 										</label>
-										<input
+										<Input
 											id="cons-msg-deadline"
 											type="date"
-											className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+											className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>
@@ -199,10 +208,10 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 							</div>
 
 							<div className="pt-4">
-								<button
+								<Button
 									type="button"
 									onClick={handleCopy}
-									className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+									className="w-full gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
 								>
 									{copied ? (
 										<>
@@ -215,7 +224,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 											<span>Copiar Mensagem</span>
 										</>
 									)}
-								</button>
+								</Button>
 							</div>
 						</div>
 					</div>

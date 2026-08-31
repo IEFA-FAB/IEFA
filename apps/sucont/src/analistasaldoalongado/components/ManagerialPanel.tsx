@@ -1,7 +1,9 @@
 import { Activity, AlertTriangle, FileImage, Filter, PieChart as PieChartIcon, Shield, TrendingUp, Users, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { chartChrome, fabScale } from "#/lib/chart-theme"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
 import { exportElementToImage } from "../utils/exportUtils"
@@ -23,7 +25,7 @@ const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
 	return numA - numB
 })
 
-const COLORS = ["#2a57b9", "#488bde", "#9bc7f0", "#c5def6", "#e0edfa"]
+const COLORS = [fabScale[0], fabScale[1], fabScale[2], fabScale[3], fabScale[4]]
 
 export function ManagerialPanel({ data }: ManagerialPanelProps) {
 	const [selectedRac, setSelectedRac] = useState<string>("Geral")
@@ -210,31 +212,33 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							<h3 className="text-md font-bold text-foreground mb-1">Top 10 UGs por Volume Financeiro</h3>
 							<p className="text-xs text-muted-foreground">Unidades com maior saldo retido</p>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("managerial-top10", "estrategico-top10")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="h-96 bg-card">
 						<ResponsiveContainer width="100%" height="100%">
 							<BarChart data={topUgsBySaldo} layout="vertical" margin={{ top: 5, right: 30, left: 150, bottom: 5 }}>
 								<CartesianGrid strokeDasharray="3 3" horizontal={false} />
-								<XAxis type="number" tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} stroke="#64748b" />
-								<YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 9, fill: "#64748b" }} />
+								<XAxis type="number" tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} stroke={chartChrome.axis} />
+								<YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 9, fill: chartChrome.axis }} />
 								<Tooltip
 									formatter={(value) => formatCurrency(Number(value))}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										borderRadius: "12px",
 										border: "none",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 									}}
 								/>
-								<Bar dataKey="saldo" fill="#2a57b9" radius={[0, 4, 4, 0]} />
+								<Bar dataKey="saldo" fill={fabScale[0]} radius={[0, 4, 4, 0]} />
 							</BarChart>
 						</ResponsiveContainer>
 					</div>
@@ -247,14 +251,16 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							<h3 className="text-md font-bold text-foreground mb-1">Contas Contábeis Mais Recorrentes</h3>
 							<p className="text-xs text-muted-foreground">Contas com maior número de inconsistências</p>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("managerial-contas", "estrategico-contas")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="flex-1 flex flex-col min-h-[300px] bg-card">
 						<ResponsiveContainer width="100%" height={200}>
@@ -267,7 +273,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 								<Tooltip
 									formatter={(value, name) => [value, getDynamicAccountName(String(name))]}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										borderRadius: "12px",
 										border: "none",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
@@ -296,14 +302,16 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							</div>
 							<p className="text-xs text-muted-foreground">Saldo total por Organização de Direção Setorial</p>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("managerial-ods", "estrategico-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="h-64 bg-card">
 						<ResponsiveContainer width="100%" height="100%">
@@ -318,21 +326,21 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 								style={{ cursor: "pointer" }}
 							>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} />
-								<XAxis dataKey="name" fontSize={10} tick={{ fill: "#64748b" }} />
-								<YAxis tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} fontSize={10} tick={{ fill: "#64748b" }} />
+								<XAxis dataKey="name" fontSize={10} tick={{ fill: chartChrome.axis }} />
+								<YAxis tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} fontSize={10} tick={{ fill: chartChrome.axis }} />
 								<Tooltip
 									formatter={(value) => formatCurrency(Number(value))}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										borderRadius: "12px",
 										border: "none",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 									}}
-									cursor={{ fill: "#f1f5f9" }}
+									cursor={{ fill: chartChrome.surfaceMuted }}
 								/>
 								<Bar
 									dataKey="value"
-									fill="#488bde"
+									fill={fabScale[1]}
 									radius={[4, 4, 0, 0]}
 									onClick={(d) => setSelectedOdsDetails((d.name as string | undefined) ?? null)}
 									cursor="pointer"
@@ -360,7 +368,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						<div key={nome} className="p-4 rounded-xl border border-border bg-muted/50 flex flex-col">
 							<div className="flex items-center justify-between mb-3">
 								<h4 className="font-bold text-foreground text-sm">{nome}</h4>
-								<span className="px-2 py-0.5 bg-action/10 text-action text-[10px] font-bold rounded uppercase">{stats.ugs.length} UGs</span>
+								<span className="px-2 py-0.5 bg-action/10 text-action text-label rounded">{stats.ugs.length} UGs</span>
 							</div>
 							<div className="space-y-2 mb-4">
 								<div className="flex justify-between text-xs">
@@ -373,13 +381,13 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 								</div>
 							</div>
 							<div className="mt-auto pt-3 border-t border-border">
-								<p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">UGs com Inconsistência:</p>
+								<p className="text-label text-muted-foreground mb-2">UGs com Inconsistência:</p>
 								<div className="flex flex-wrap gap-1">
 									{stats.ugs.map((ug) => {
 										const ugObj = filteredData.find((item) => item.ug === ug)
 										const displayName = ugObj ? `${ug} - ${ugObj.nome_ug || "-"}` : ug
 										return (
-											<span key={ug} className="px-1.5 py-0.5 bg-card border border-border text-muted-foreground text-[10px] rounded font-mono">
+											<span key={ug} className="px-1.5 py-0.5 bg-card border border-border text-muted-foreground text-hint rounded font-mono">
 												{displayName}
 											</span>
 										)
@@ -425,13 +433,16 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-lg font-bold text-foreground">Detalhamento: {selectedOdsDetails}</h3>
-							<button
+							<Button
 								type="button"
 								onClick={() => setSelectedOdsDetails(null)}
-								className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+								variant="ghost"
+								size="icon"
+								aria-label="Fechar"
+								className="hover:bg-muted rounded-full text-muted-foreground transition-colors"
 							>
 								<X className="w-5 h-5" />
-							</button>
+							</Button>
 						</div>
 						<div className="p-6 overflow-y-auto">
 							<p className="text-sm text-muted-foreground mb-4">
