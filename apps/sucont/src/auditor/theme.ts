@@ -10,6 +10,14 @@
  * A saída é `var(--token)`: atributo de apresentação SVG resolve custom property,
  * e a folha já redefine os tokens sob `.dark`. Quem troca de tema passa a ser o
  * CSS, e o componente deixa de saber que existe tema.
+ *
+ * Os nomes são os das variáveis BASE (`--card`, `--foreground`, `--series-*`), e
+ * NÃO os utilitários `--color-*` do `@theme inline`. A diferença não é cosmética:
+ * o Tailwind emite `--color-card: var(--card)` no `:root`, e uma custom property
+ * é computada no elemento em que é declarada — então `--color-card` congela o
+ * valor do tema claro e todo descendente herda esse valor já resolvido, inclusive
+ * dentro de `.dark`. Usar `--color-*` aqui deixava o gráfico inteiro preso no
+ * tema claro: no escuro, o rótulo de valor saía branco sobre branco.
  */
 
 import { RiskLevel } from "./types"
@@ -17,26 +25,26 @@ import { RiskLevel } from "./types"
 /** Cromo: eixo, grade, superfície. Papel semântico, não cor. */
 export const chartChrome = {
 	/** Linhas da grade e bordas de célula. */
-	grid: "var(--color-border)",
+	grid: "var(--border)",
 	/** Rótulos de eixo e legenda. */
-	axis: "var(--color-muted-foreground)",
+	axis: "var(--muted-foreground)",
 	/** Fundo de rótulo desenhado sobre o gráfico. */
-	surface: "var(--color-card)",
+	surface: "var(--card)",
 	/** Superfície rebaixada: cursor do tooltip, faixa alternada. */
-	surfaceMuted: "var(--color-muted)",
+	surfaceMuted: "var(--muted)",
 	/** Texto sobre `surface`. */
-	label: "var(--color-foreground)",
+	label: "var(--foreground)",
 } as const
 
 /** Séries do confronto, nomeadas pelo dado que carregam. */
 export const chartSeries = {
-	siafi: "var(--color-series-siafi)",
-	siloms: "var(--color-series-siloms)",
-	diff: "var(--color-series-diff)",
-	pareto: "var(--color-series-pareto)",
-	accumulated: "var(--color-series-accum)",
+	siafi: "var(--series-siafi)",
+	siloms: "var(--series-siloms)",
+	diff: "var(--series-diff)",
+	pareto: "var(--series-pareto)",
+	accumulated: "var(--series-accum)",
 	/** Eixo secundário do gráfico de Pareto. */
-	axisAlt: "var(--color-series-axis-alt)",
+	axisAlt: "var(--series-axis-alt)",
 } as const
 
 /**

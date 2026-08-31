@@ -101,8 +101,10 @@
   --muted-foreground: oklch(0.705 0.015 286.067);
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
+  /* Claro o bastante para servir de TEXTO sobre o fundo escuro: o valor do preset
+     (L 0.396) é fundo de botão e reprovava contraste como cor de texto. */
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.208 0.042 265.755);
   --border: oklch(0.274 0.006 286.033);
   --input: oklch(0.274 0.006 286.033);
   --ring: oklch(0.442 0.017 285.786);

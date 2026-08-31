@@ -133,7 +133,7 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 							<div className="w-2 h-2 rounded-full bg-[#1e40af] shadow-[0_0_8px_rgba(30,64,175,0.4)]"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SIAFI:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-(--color-series-siafi)`}>{formatCurrency(siafi || 0)}</span>
+						<span className={`text-xs font-bold font-mono text-(--series-siafi)`}>{formatCurrency(siafi || 0)}</span>
 					</div>
 
 					<div className="flex items-center justify-between">
@@ -141,7 +141,7 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 							<div className="w-2 h-2 rounded-full bg-[#0ea5e9] shadow-[0_0_8px_rgba(14,165,233,0.4)]"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SILOMS:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-(--color-series-siloms)`}>{formatCurrency(siloms || 0)}</span>
+						<span className={`text-xs font-bold font-mono text-(--series-siloms)`}>{formatCurrency(siloms || 0)}</span>
 					</div>
 
 					<div className="h-px bg-surface-inverted-border/50 my-1"></div>
