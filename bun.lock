@@ -403,6 +403,7 @@
     "apps/sucont": {
       "name": "sucont",
       "dependencies": {
+        "@base-ui/react": "^1.7.0",
         "@iefa/agent-web": "workspace:*",
         "@iefa/ai-provider": "workspace:*",
         "@iefa/auth-kit": "workspace:*",
