@@ -26,11 +26,12 @@ const SRC = join(import.meta.dir, "..", "src")
 const DRY = process.argv.includes("--dry")
 
 /**
- * Arquivos com `isDarkMode`: o módulo do auditor troca de tema por prop, não pela
- * variante `dark:`. Enquanto essa prop existir, os pares claro/escuro dele são
- * lógica, não estilo — a migração depende de removê-la primeiro (§8 do contrato).
+ * Arquivo que ainda resolve cor com `isDarkMode ? "<escuro>" : "<claro>"`. Nele os
+ * pares claro/escuro são lógica, não estilo, e a migração depende de colapsá-los
+ * primeiro — ver `migrate-auditor-theme.ts`. Sobrou apenas o estado do botão de
+ * tema, que não escolhe cor nenhuma: por isso o teste é o ternário, não a palavra.
  */
-const isDarkCapable = (source: string) => source.includes("isDarkMode")
+const isDarkCapable = (source: string) => /isDarkMode\s*\?\s*"/.test(source)
 
 /**
  * Uma linha que declara superfície escura. Nela a escala do slate é usada

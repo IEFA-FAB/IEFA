@@ -20,12 +20,12 @@ import {
 	YAxis,
 } from "recharts"
 import { formatCompactNumber, formatCurrency, toShortDate } from "../services/dataProcessor"
+import { chartChrome, chartSeries } from "../theme"
 import type { FinancialRecord, TimeFilter } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
 
 interface ChartProps {
 	data: FinancialRecord[]
-	isDarkMode: boolean
 	isExpanded?: boolean
 	setHierarchy?: (h: "ODS" | "ORGAO" | "UG") => void
 	hierarchyLevel?: "ODS" | "ORGAO" | "UG"
@@ -94,10 +94,9 @@ interface CustomDetailedTooltipProps {
 	active?: boolean
 	payload?: TooltipPayloadEntry[]
 	label?: string
-	isDarkMode: boolean
 	viewMode?: string
 }
-const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _viewMode }: CustomDetailedTooltipProps) => {
+const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: CustomDetailedTooltipProps) => {
 	if (active && payload?.length) {
 		const data = payload[0].payload
 
@@ -117,12 +116,12 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 		return (
 			<div
 				className={`min-w-[260px] p-4 rounded-lg border shadow-2xl backdrop-blur-md z-50
-        ${isDarkMode ? "bg-[#0f172a]/95 border-slate-700" : "bg-white/95 border-slate-200"}
+        bg-card/95 border-border
       `}
 			>
 				<h4
 					className={`text-sm font-black mb-3 pb-2 border-b uppercase tracking-wider
-          ${isDarkMode ? "text-white border-slate-700" : "text-slate-900 border-slate-200"}
+          text-foreground border-border
         `}
 				>
 					{displayName}
@@ -132,17 +131,17 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-full bg-[#1e40af] shadow-[0_0_8px_rgba(30,64,175,0.4)]"></div>
-							<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Saldo SIAFI:</span>
+							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SIAFI:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>{formatCurrency(siafi || 0)}</span>
+						<span className={`text-xs font-bold font-mono text-[--color-series-siafi]`}>{formatCurrency(siafi || 0)}</span>
 					</div>
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-full bg-[#0ea5e9] shadow-[0_0_8px_rgba(14,165,233,0.4)]"></div>
-							<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Saldo SILOMS:</span>
+							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SILOMS:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono ${isDarkMode ? "text-sky-400" : "text-sky-600"}`}>{formatCurrency(siloms || 0)}</span>
+						<span className={`text-xs font-bold font-mono text-[--color-series-siloms]`}>{formatCurrency(siloms || 0)}</span>
 					</div>
 
 					<div className="h-px bg-slate-700/50 my-1"></div>
@@ -150,9 +149,9 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-sm bg-[#dc2626] shadow-[0_0_8px_rgba(220,38,38,0.3)]"></div>
-							<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Diferença Total:</span>
+							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Total:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>{formatCurrency(diff ?? 0)}</span>
+						<span className={`text-xs font-bold font-mono text-destructive`}>{formatCurrency(diff ?? 0)}</span>
 					</div>
 
 					{data.bmpDiff !== undefined && (
@@ -160,35 +159,31 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
 									<div className="w-1.5 h-1.5 rounded-sm bg-[#1e40af]"></div>
-									<span className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-slate-500" : "text-slate-500"}`}>BMP</span>
+									<span className={`text-[10px] uppercase font-bold text-muted-foreground`}>BMP</span>
 								</div>
-								<span className={`text-[10px] font-mono font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>{formatCurrency(data.bmpDiff)}</span>
+								<span className={`text-[10px] font-mono font-bold text-foreground`}>{formatCurrency(data.bmpDiff)}</span>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
 									<div className="w-1.5 h-1.5 rounded-sm bg-[#f97316]"></div>
-									<span className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-slate-500" : "text-slate-500"}`}>Consumo</span>
+									<span className={`text-[10px] uppercase font-bold text-muted-foreground`}>Consumo</span>
 								</div>
-								<span className={`text-[10px] font-mono font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
-									{formatCurrency(data.consumoDiff ?? 0)}
-								</span>
+								<span className={`text-[10px] font-mono font-bold text-foreground`}>{formatCurrency(data.consumoDiff ?? 0)}</span>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
 									<div className="w-1.5 h-1.5 rounded-sm bg-[#22c55e]"></div>
-									<span className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-slate-500" : "text-slate-500"}`}>Intangível</span>
+									<span className={`text-[10px] uppercase font-bold text-muted-foreground`}>Intangível</span>
 								</div>
-								<span className={`text-[10px] font-mono font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
-									{formatCurrency(data.intangivelDiff ?? 0)}
-								</span>
+								<span className={`text-[10px] font-mono font-bold text-foreground`}>{formatCurrency(data.intangivelDiff ?? 0)}</span>
 							</div>
 						</div>
 					)}
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]"></div>
-							<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>Diferença Percentual:</span>
+							<div className="w-2 h-2 rounded-full bg-warning shadow-[0_0_8px_rgba(249,115,22,0.6)]"></div>
+							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Percentual:</span>
 						</div>
 						<span className="text-xs font-bold font-mono text-orange-400">{pctDiff.toFixed(2)}%</span>
 					</div>
@@ -197,7 +192,7 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 						<div className="flex items-center justify-between pt-1 border-t border-slate-700/30 mt-1">
 							<div className="flex items-center gap-2">
 								<div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></div>
-								<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>ICC:</span>
+								<span className={`text-[11px] font-bold text-muted-foreground`}>ICC:</span>
 							</div>
 							<span className="text-xs font-bold font-mono text-emerald-400">{icc.toFixed(2)}%</span>
 						</div>
@@ -207,7 +202,7 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 						<div className="flex items-center justify-between pt-1 border-t border-slate-700/30 mt-1">
 							<div className="flex items-center gap-2">
 								<div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]"></div>
-								<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>Acumulado Pareto:</span>
+								<span className={`text-[11px] font-bold text-muted-foreground`}>Acumulado Pareto:</span>
 							</div>
 							<span className="text-xs font-bold font-mono text-amber-400">{pct.toFixed(2)}%</span>
 						</div>
@@ -220,7 +215,7 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 }
 
 // --- Comparison Chart ---
-export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpanded, setHierarchy, hierarchyLevel = "UG", hierarchyFilter = ["TODOS"] }) => {
+export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHierarchy, hierarchyLevel = "UG", hierarchyFilter = ["TODOS"] }) => {
 	const [viewMode, setViewMode] = useState<"composition" | "ranking" | "tree">("ranking")
 	const [treeGroupBy, setTreeGroupBy] = useState<"ODS" | "ORGAO" | "UG">("ODS")
 
@@ -392,7 +387,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 	const displayData = isExpanded ? paretoData : paretoData.slice(0, 20)
 
 	if (displayData.length === 0) {
-		return <div className="flex items-center justify-center h-full text-slate-500">Sem dados para exibir.</div>
+		return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados para exibir.</div>
 	}
 
 	const containerStyle: React.CSSProperties = isExpanded
@@ -428,7 +423,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 
 		return (
 			<g transform={`translate(${x},${y})`}>
-				<text x={0} y={0} dy={24} textAnchor="end" fill={isDarkMode ? "#94a3b8" : "#64748b"} fontSize={11} fontWeight="bold" transform="rotate(-45)">
+				<text x={0} y={0} dy={24} textAnchor="end" fill={chartChrome.axis} fontSize={11} fontWeight="bold" transform="rotate(-45)">
 					{payload?.value} {emoji}
 				</text>
 			</g>
@@ -506,12 +501,12 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 			<div className="flex items-center justify-center gap-4 mb-4">
 				<div
 					className={`flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
-          ${isDarkMode ? "bg-slate-900/50 border-slate-800" : "bg-card border-slate-200"}
+          bg-card border-border
         `}
 				>
 					<div className="flex flex-col text-center">
-						<span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Impacto Financeiro Total</span>
-						<span className={`text-sm font-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>{formatCurrency(totalFinancialImpact)}</span>
+						<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Impacto Financeiro Total</span>
+						<span className={`text-sm font-black text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
 					</div>
 				</div>
 			</div>
@@ -519,15 +514,15 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 			<div className="absolute top-0 right-0 z-10 flex items-center gap-4">
 				{viewMode === "tree" && (
 					<div className="flex items-center gap-2 mr-4">
-						<span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Agrupar por:</span>
-						<div className={`flex rounded-lg p-0.5 border shadow-sm ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-slate-100 border-slate-200"}`}>
+						<span className={`text-[10px] font-bold uppercase tracking-wider text-muted-foreground`}>Agrupar por:</span>
+						<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
 							{(["ODS", "ORGAO", "UG"] as const).map((gb) => (
 								<button
 									key={gb}
 									type="button"
 									onClick={() => setTreeGroupBy(gb)}
 									className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all
-                    ${treeGroupBy === gb ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                    ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                   `}
 								>
 									{gb === "ODS" && <Layers className="w-3 h-3" />}
@@ -540,7 +535,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 					</div>
 				)}
 
-				<div className={`flex rounded-lg p-0.5 border shadow-sm ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-slate-100 border-slate-200"}`}>
+				<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
 					{(
 						[
 							{ mode: "ranking", icon: LayoutList, label: "Pareto" },
@@ -553,7 +548,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 							type="button"
 							onClick={() => setViewMode(mode)}
 							className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all
-                ${viewMode === mode ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
               `}
 						>
 							<Icon className="w-3 h-3" />
@@ -566,12 +561,12 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 			{isExpanded && viewMode === "composition" && (
 				<div
 					className={`mb-2 mr-36 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
-           ${isDarkMode ? "bg-slate-900 border-slate-700" : "bg-slate-50 border-slate-200"}`}
+           bg-muted/50 border-border`}
 				>
-					<span className="text-xs font-bold uppercase text-slate-400">Divergência Líquida</span>
+					<span className="text-xs font-bold uppercase text-muted-foreground">Divergência Líquida</span>
 					<span
 						className={`text-sm font-mono font-bold
-             ${totalNetDivergence > 0 ? "text-emerald-500" : totalNetDivergence < 0 ? "text-red-500" : "text-slate-500"}
+             ${totalNetDivergence > 0 ? "text-success" : totalNetDivergence < 0 ? "text-destructive" : "text-muted-foreground"}
            `}
 					>
 						{totalNetDivergence > 0 ? "+" : ""}
@@ -585,7 +580,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 					<ResponsiveContainer width="100%" height="100%">
 						{viewMode === "composition" ? (
 							<BarChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 80 }}>
-								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#334155" : "#e2e8f0"} />
+								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
@@ -596,19 +591,19 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 								/>
 								<YAxis
 									tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-									tick={{ fill: isDarkMode ? "#94a3b8" : "#64748b" }}
+									tick={{ fill: chartChrome.axis }}
 									axisLine={false}
 									tickLine={false}
 									domain={[0, "auto"]}
 								/>
-								<Tooltip content={<CustomDetailedTooltip isDarkMode={isDarkMode} />} cursor={{ fill: isDarkMode ? "#1e293b" : "#f1f5f9" }} />
+								<Tooltip content={<CustomDetailedTooltip />} cursor={{ fill: chartChrome.surfaceMuted }} />
 								<Legend wrapperStyle={{ paddingTop: "20px" }} />
 								<Bar dataKey="siafi" name="SIAFI" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
 								<Bar dataKey="siloms" name="SILOMS" fill="#10b981" radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
 							</BarChart>
 						) : viewMode === "ranking" ? (
 							<ComposedChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 60 }}>
-								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#334155" : "#e2e8f0"} />
+								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
@@ -622,7 +617,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 									hide={true}
 									domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
 									tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-									tick={{ fill: isDarkMode ? "#94a3b8" : "#64748b" }}
+									tick={{ fill: chartChrome.axis }}
 									axisLine={false}
 									tickLine={false}
 								/>
@@ -630,12 +625,12 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 									yAxisId="right"
 									orientation="right"
 									tickFormatter={(value) => `${value}%`}
-									tick={{ fill: isDarkMode ? "#fbbf24" : "#d97706" }}
+									tick={{ fill: chartSeries.axisAlt }}
 									axisLine={false}
 									tickLine={false}
 									domain={[0, 100]}
 								/>
-								<Tooltip content={<CustomDetailedTooltip isDarkMode={isDarkMode} />} />
+								<Tooltip content={<CustomDetailedTooltip />} />
 								<Legend wrapperStyle={{ paddingTop: "10px" }} />
 
 								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill="#1e40af" radius={[8, 8, 0, 0]} barSize={isExpanded ? 40 : undefined}>
@@ -686,22 +681,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 														y="-75"
 														width="28"
 														height="85"
-														fill={isDarkMode ? "#0f172a" : "#f8fafc"}
+														fill={chartChrome.surface}
 														fillOpacity={0.9}
 														rx="8"
-														stroke={isDarkMode ? "#334155" : "#e2e8f0"}
+														stroke={chartChrome.grid}
 														strokeWidth={1}
 													/>
-													<text
-														x="0"
-														y="0"
-														dy={-8}
-														textAnchor="start"
-														fill={isDarkMode ? "#cbd5e1" : "#475569"}
-														fontSize="12"
-														fontWeight="bold"
-														transform="rotate(-90)"
-													>
+													<text x="0" y="0" dy={-8} textAnchor="start" fill={chartChrome.label} fontSize="12" fontWeight="bold" transform="rotate(-90)">
 														{formattedValue}
 													</text>
 												</g>
@@ -726,7 +712,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 							</ComposedChart>
 						) : (
 							<Treemap data={treeData} dataKey="size" aspectRatio={2400 / 1600} stroke="#fff" fill="#8884d8" content={<CustomizedTreemapContent />}>
-								<Tooltip content={<CustomDetailedTooltip isDarkMode={isDarkMode} />} />
+								<Tooltip content={<CustomDetailedTooltip />} />
 							</Treemap>
 						)}
 					</ResponsiveContainer>
@@ -737,7 +723,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 }
 
 // --- Evolution Area Chart ---
-export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selectedMonth, timeFilter = "MENSAL" }) => {
+export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, timeFilter = "MENSAL" }) => {
 	const [viewMode, setViewMode] = useState<"total" | "overlap" | "icc" | "comparison">("total")
 	const [brushRange, setBrushRange] = useState<{ start: number; end: number }>({
 		start: 0,
@@ -863,7 +849,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 		setBrushRange({ start, end })
 	}, [selectedMonth, timeSeries, isManuallyAdjusted, timeFilter, viewMode])
 
-	if (!data || timeSeries.length === 0) return <div className="flex items-center justify-center h-full text-slate-500">Sem dados.</div>
+	if (!data || timeSeries.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados.</div>
 
 	type BrushChangeRange = { startIndex?: number; endIndex?: number }
 
@@ -880,7 +866,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 		<div className="w-full h-full min-h-[300px] flex flex-col select-none">
 			<div className="flex justify-between items-center mb-1 px-2">
 				<div className="flex items-center gap-4">
-					<div className={`flex rounded-lg p-0.5 border shadow-sm ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-slate-100 border-slate-200"}`}>
+					<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
 						{(
 							[
 								{ mode: "total", label: "Saldos (Total)" },
@@ -894,7 +880,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 								type="button"
 								onClick={() => setViewMode(mode)}
 								className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all
-                  ${viewMode === mode ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                  ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                 `}
 							>
 								{label}
@@ -903,15 +889,9 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 					</div>
 
 					{viewMode === "comparison" && timeSeries[brushRange.end] && (
-						<div
-							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm ${isDarkMode ? "bg-emerald-900/20 border-emerald-500/30" : "bg-emerald-50 border-emerald-200"}`}
-						>
-							<span className={`text-[11px] font-bold uppercase ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}>
-								ICC Atual ({timeSeries[brushRange.end].axisLabel}):
-							</span>
-							<span className={`text-lg font-black ${isDarkMode ? "text-emerald-300" : "text-emerald-800"}`}>
-								{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%
-							</span>
+						<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm bg-success/10 border-success/30`}>
+							<span className={`text-[11px] font-bold uppercase text-success`}>ICC Atual ({timeSeries[brushRange.end].axisLabel}):</span>
+							<span className={`text-lg font-black text-success`}>{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%</span>
 						</div>
 					)}
 				</div>
@@ -920,32 +900,32 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 					{viewMode === "icc" ? (
 						<div className="flex items-center gap-2">
 							<div className="w-3 h-3 rounded-sm bg-[#10b981]"></div>
-							<span className="text-[10px] font-bold text-slate-500 uppercase">Índice de Conciliação</span>
+							<span className="text-[10px] font-bold text-muted-foreground uppercase">Índice de Conciliação</span>
 						</div>
 					) : viewMode === "comparison" ? (
 						<>
 							<div className="flex items-center gap-2">
 								<div className="w-3 h-3 rounded-sm bg-slate-400 opacity-50"></div>
-								<span className="text-[10px] font-bold text-slate-500 uppercase">Ano Anterior</span>
+								<span className="text-[10px] font-bold text-muted-foreground uppercase">Ano Anterior</span>
 							</div>
 							<div className="flex items-center gap-2">
 								<div className="w-3 h-3 rounded-sm bg-[#6366f1]"></div>
-								<span className="text-[10px] font-bold text-slate-500 uppercase">Ano Atual</span>
+								<span className="text-[10px] font-bold text-muted-foreground uppercase">Ano Atual</span>
 							</div>
 						</>
 					) : (
 						<>
 							<div className="flex items-center gap-2">
 								<div className="w-3 h-3 rounded-sm bg-[#1e40af]"></div>
-								<span className="text-[10px] font-bold text-slate-500 uppercase">SIAFi</span>
+								<span className="text-[10px] font-bold text-muted-foreground uppercase">SIAFi</span>
 							</div>
 							<div className="flex items-center gap-2">
 								<div className="w-3 h-3 rounded-sm bg-[#0ea5e9]"></div>
-								<span className="text-[10px] font-bold text-slate-500 uppercase">SIloms</span>
+								<span className="text-[10px] font-bold text-muted-foreground uppercase">SIloms</span>
 							</div>
 							<div className="flex items-center gap-2">
 								<div className="w-3 h-3 rounded-sm bg-[#dc2626] opacity-50"></div>
-								<span className="text-[10px] font-bold text-slate-500 uppercase">Divergência</span>
+								<span className="text-[10px] font-bold text-muted-foreground uppercase">Divergência</span>
 							</div>
 						</>
 					)}
@@ -956,16 +936,16 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 				<ResponsiveContainer width="100%" height="100%" minHeight={300}>
 					{viewMode === "comparison" ? (
 						<BarChart data={timeSeries} margin={{ top: 25, right: 10, left: 10, bottom: 0 }} barGap={6}>
-							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1e293b" : "#e2e8f0"} />
-							<XAxis dataKey="axisLabel" tick={{ fill: isDarkMode ? "#94a3b8" : "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
+							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 10 }} axisLine={false} tickLine={false} />
 							<YAxis
 								tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-								tick={{ fill: isDarkMode ? "#94a3b8" : "#64748b", fontSize: 10 }}
+								tick={{ fill: chartChrome.axis, fontSize: 10 }}
 								axisLine={false}
 								tickLine={false}
 								domain={[0, (dataMax: number) => dataMax * 1.5]}
 							/>
-							<Tooltip content={<CustomDetailedTooltip isDarkMode={isDarkMode} viewMode={viewMode} />} />
+							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />
 							<Legend verticalAlign="top" height={20} />
 							<Bar dataKey="prevYearDiff" name="Ano Anterior" fill="#94a3b8" fillOpacity={0.5} radius={[4, 4, 0, 0]}>
 								<LabelList
@@ -981,17 +961,8 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										if (value === undefined || value === null) return <g />
 										return (
 											<g transform={`translate(${x + width / 2},${y - 15})`}>
-												<rect x="-11" y="-65" width="22" height="70" fill={isDarkMode ? "#0f172a" : "#f8fafc"} fillOpacity={0.9} rx="4" />
-												<text
-													x="0"
-													y="0"
-													dy={-5}
-													textAnchor="start"
-													fill={isDarkMode ? "#94a3b8" : "#64748b"}
-													fontSize="14"
-													fontWeight="bold"
-													transform="rotate(-90)"
-												>
+												<rect x="-11" y="-65" width="22" height="70" fill={chartChrome.surface} fillOpacity={0.9} rx="4" />
+												<text x="0" y="0" dy={-5} textAnchor="start" fill={chartChrome.axis} fontSize="14" fontWeight="bold" transform="rotate(-90)">
 													{formatCompactNumber(Number(value))}
 												</text>
 											</g>
@@ -1013,17 +984,8 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										if (value === undefined || value === null) return <g />
 										return (
 											<g transform={`translate(${x + width / 2},${y - 15})`}>
-												<rect x="-11" y="-65" width="22" height="70" fill={isDarkMode ? "#0f172a" : "#f8fafc"} fillOpacity={0.9} rx="4" />
-												<text
-													x="0"
-													y="0"
-													dy={-5}
-													textAnchor="start"
-													fill={isDarkMode ? "#818cf8" : "#4338ca"}
-													fontSize="14"
-													fontWeight="bold"
-													transform="rotate(-90)"
-												>
+												<rect x="-11" y="-65" width="22" height="70" fill={chartChrome.surface} fillOpacity={0.9} rx="4" />
+												<text x="0" y="0" dy={-5} textAnchor="start" fill={chartSeries.pareto} fontSize="14" fontWeight="bold" transform="rotate(-90)">
 													{formatCompactNumber(Number(value))}
 												</text>
 											</g>
@@ -1034,8 +996,8 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 							<Brush
 								dataKey="axisLabel"
 								height={30}
-								stroke={isDarkMode ? "#475569" : "#cbd5e1"}
-								fill={isDarkMode ? "#1e293b" : "#f8fafc"}
+								stroke={chartChrome.grid}
+								fill={chartChrome.surfaceMuted}
 								startIndex={brushRange.start}
 								endIndex={brushRange.end}
 								onChange={handleBrushChange}
@@ -1067,26 +1029,26 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 									<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
 								</linearGradient>
 							</defs>
-							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1e293b" : "#e2e8f0"} />
-							<XAxis dataKey="axisLabel" tick={{ fill: isDarkMode ? "#94a3b8" : "#64748b", fontSize: 12 }} axisLine={false} tickLine={false} />
+							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
+							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 12 }} axisLine={false} tickLine={false} />
 							<YAxis
 								tickFormatter={(value) => (viewMode === "icc" ? `${value}%` : `${(value / 1000000).toFixed(0)}M`)}
-								tick={{ fill: isDarkMode ? "#94a3b8" : "#64748b", fontSize: 12 }}
+								tick={{ fill: chartChrome.axis, fontSize: 12 }}
 								axisLine={false}
 								tickLine={false}
 								domain={viewMode === "icc" ? [0, 110] : ["auto", "auto"]}
 							/>
-							<Tooltip content={<CustomDetailedTooltip isDarkMode={isDarkMode} viewMode={viewMode} />} />
+							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />
 
 							{selectedMonth && selectedMonth !== "TODOS" && (
 								<ReferenceLine
 									x={toShortDate(selectedMonth)}
-									stroke={isDarkMode ? "#f43f5e" : "#e11d48"}
+									stroke={chartSeries.diff}
 									strokeDasharray="3 3"
 									label={{
 										value: "SELECIONADO",
 										position: "top",
-										fill: isDarkMode ? "#f43f5e" : "#e11d48",
+										fill: chartSeries.diff,
 										fontSize: 10,
 										fontWeight: "bold",
 									}}
@@ -1096,12 +1058,12 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 							{viewMode === "icc" && (
 								<ReferenceLine
 									y={100}
-									stroke={isDarkMode ? "#334155" : "#cbd5e1"}
+									stroke={chartChrome.grid}
 									strokeDasharray="3 3"
 									label={{
 										value: "META 100%",
 										position: "insideBottomRight",
-										fill: isDarkMode ? "#475569" : "#94a3b8",
+										fill: chartChrome.axis,
 										fontSize: 10,
 										fontWeight: "bold",
 										offset: 10,
@@ -1116,7 +1078,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										type="monotone"
 										dataKey="totalSiafi"
 										name="SIAFi"
-										stroke={isDarkMode ? "#3b82f6" : "#1e40af"}
+										stroke={chartSeries.siafi}
 										strokeWidth={2}
 										fillOpacity={1}
 										fill="url(#colorSiafi)"
@@ -1126,14 +1088,14 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 											r: 3,
 											fill: "#1e40af",
 											strokeWidth: 1,
-											stroke: isDarkMode ? "#0f172a" : "#fff",
+											stroke: chartChrome.surface,
 										}}
 									/>
 									<Area
 										type="monotone"
 										dataKey="totalSiloms"
 										name="SIloms"
-										stroke={isDarkMode ? "#0ea5e9" : "#0369a1"}
+										stroke={chartSeries.siloms}
 										strokeWidth={2}
 										fillOpacity={1}
 										fill="url(#colorSiloms)"
@@ -1143,7 +1105,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 											r: 3,
 											fill: "#0ea5e9",
 											strokeWidth: 1,
-											stroke: isDarkMode ? "#0f172a" : "#fff",
+											stroke: chartChrome.surface,
 										}}
 									/>
 								</>
@@ -1162,7 +1124,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										r: 5,
 										fill: "#10b981",
 										strokeWidth: 2,
-										stroke: isDarkMode ? "#0f172a" : "#fff",
+										stroke: chartChrome.surface,
 									}}
 									activeDot={{ r: 7, strokeWidth: 0 }}
 								>
@@ -1174,7 +1136,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										style={{
 											fontSize: "16px",
 											fontWeight: "900",
-											fill: isDarkMode ? "#34d399" : "#065f46",
+											fill: chartSeries.accumulated,
 										}}
 									/>
 								</Area>
@@ -1193,7 +1155,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										r: 4,
 										fill: "#6366f1",
 										strokeWidth: 2,
-										stroke: isDarkMode ? "#0f172a" : "#fff",
+										stroke: chartChrome.surface,
 									}}
 									activeDot={{ r: 6, strokeWidth: 0 }}
 								>
@@ -1205,7 +1167,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										style={{
 											fontSize: "14px",
 											fontWeight: "bold",
-											fill: isDarkMode ? "#818cf8" : "#4338ca",
+											fill: chartSeries.pareto,
 										}}
 									/>
 								</Area>
@@ -1214,8 +1176,8 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 							<Brush
 								dataKey="axisLabel"
 								height={30}
-								stroke={isDarkMode ? "#475569" : "#cbd5e1"}
-								fill={isDarkMode ? "#1e293b" : "#f8fafc"}
+								stroke={chartChrome.grid}
+								fill={chartChrome.surfaceMuted}
 								startIndex={brushRange.start}
 								endIndex={brushRange.end}
 								onChange={handleBrushChange}

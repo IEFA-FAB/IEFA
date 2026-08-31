@@ -6,12 +6,11 @@ import { AccountGroup } from "../types"
 
 interface TemporalHeatmapProps {
 	data: FinancialRecord[]
-	isDarkMode: boolean
 	availableMonths: string[]
 	onSendMessage: (record: FinancialRecord, context?: "RANKING" | "HEATMAP") => void
 }
 
-export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMode, availableMonths, onSendMessage }) => {
+export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availableMonths, onSendMessage }) => {
 	const [internalGroupFilter, setInternalGroupFilter] = useState<string>("ALL")
 	const [sortBy, setSortBy] = useState<"value" | "name">("value")
 
@@ -26,38 +25,25 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 		return max || 1
 	}, [filteredData])
 
-	const getCellStyles = (value: number, max: number, isDark: boolean) => {
+	/**
+	 * Matiz e intensidade da célula. A luminosidade — a única coisa que mudava
+	 * entre claro e escuro — é decidida pelo CSS (`.heatmap-cell`), não aqui.
+	 */
+	const getCellStyles = (value: number, max: number) => {
 		if (value === 0) {
-			return {
-				style: isDark
-					? { backgroundColor: "rgba(30, 41, 59, 0.4)", borderColor: "rgba(30, 41, 59, 0.5)" }
-					: { backgroundColor: "#f8fafc", borderColor: "#e2e8f0" },
-				className: isDark ? "text-slate-600" : "text-slate-300",
-			}
+			return { style: undefined, className: "heatmap-cell-empty" }
 		}
 
 		const ratio = max > 0 ? value / max : 0
+		// Raiz quadrada: sem ela quase toda célula cai no extremo verde, porque as
+		// divergências se concentram muito abaixo do máximo da série.
 		const adjustedRatio = ratio ** 0.5
+		// 120 = verde, 0 = vermelho. Quanto maior a divergência, mais quente.
 		const hue = Math.max(0, (1 - adjustedRatio) * 120)
 
-		let lightness: number
-		let borderColor: string
-
-		if (isDark) {
-			lightness = 20 + adjustedRatio * 10
-			borderColor = `hsl(${hue}, 90%, ${lightness + 10}%)`
-		} else {
-			lightness = 95 - adjustedRatio * 15
-			borderColor = `hsl(${hue}, 70%, ${lightness - 30}%)`
-		}
-
 		return {
-			style: {
-				backgroundColor: `hsl(${hue}, 85%, ${lightness}%)`,
-				borderColor: borderColor,
-				color: isDark ? "#fff" : "#1e293b",
-			},
-			className: "font-bold shadow-sm",
+			style: { "--cell-hue": hue, "--cell-ratio": adjustedRatio } as React.CSSProperties,
+			className: "heatmap-cell font-bold shadow-sm",
 		}
 	}
 
@@ -70,19 +56,10 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 	}
 
 	const getGroupBadgeClass = (group: string) => {
-		if (group === AccountGroup.BMP)
-			return isDarkMode
-				? "bg-red-500/20 text-red-400 border-red-500/30 border shadow-[0_0_5px_rgba(220,38,38,0.2)]"
-				: "bg-red-50 text-red-700 border-red-200 border shadow-sm"
-		if (group === AccountGroup.CONSUMO)
-			return isDarkMode
-				? "bg-blue-500/20 text-blue-400 border-blue-500/30 border shadow-[0_0_5px_rgba(37,99,235,0.2)]"
-				: "bg-blue-50 text-blue-700 border-blue-200 border shadow-sm"
-		if (group === AccountGroup.INTANGIVEL)
-			return isDarkMode
-				? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 border shadow-[0_0_5px_rgba(16,185,129,0.2)]"
-				: "bg-emerald-50 text-emerald-700 border-emerald-200 border shadow-sm"
-		return isDarkMode ? "bg-slate-700 text-slate-300" : "bg-slate-200 text-slate-600"
+		if (group === AccountGroup.BMP) return "bg-destructive/15 text-destructive border-destructive/30 border"
+		if (group === AccountGroup.CONSUMO) return "bg-accent text-accent-foreground border-border border"
+		if (group === AccountGroup.INTANGIVEL) return "bg-success/15 text-success border-success/30 border"
+		return "bg-muted text-muted-foreground"
 	}
 
 	const sortedUGs = useMemo(() => {
@@ -109,20 +86,16 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 	}, [filteredData, sortBy, availableMonths])
 
 	return (
-		<div
-			className={`w-full h-full flex flex-col overflow-hidden text-xs rounded-2xl border shadow-xl ${isDarkMode ? "bg-slate-900/40 backdrop-blur-sm border-slate-800" : "bg-card border-slate-200"}`}
-		>
-			<div
-				className={`flex items-center justify-between gap-2 p-3 border-b ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50"}`}
-			>
+		<div className={`w-full h-full flex flex-col overflow-hidden text-xs rounded-2xl border shadow-xl bg-card border-border`}>
+			<div className={`flex items-center justify-between gap-2 p-3 border-b border-border bg-muted/50`}>
 				<div className="flex items-center gap-2 overflow-x-auto">
 					{[
 						{
 							id: "ALL",
 							label: "TODOS",
-							activeClass: isDarkMode ? "text-slate-100 bg-slate-600" : "text-slate-100 bg-slate-700",
+							activeClass: "bg-primary text-primary-foreground",
 						},
-						{ id: AccountGroup.BMP, label: "BMP", activeClass: "text-white bg-red-600 border-red-600" },
+						{ id: AccountGroup.BMP, label: "BMP", activeClass: "text-white bg-destructive border-red-600" },
 						{
 							id: AccountGroup.CONSUMO,
 							label: "CONSUMO",
@@ -131,7 +104,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 						{
 							id: AccountGroup.INTANGIVEL,
 							label: "INTANGIVEL",
-							activeClass: "text-white bg-emerald-600 border-emerald-600",
+							activeClass: "text-white bg-success border-emerald-600",
 						},
 					].map((tab) => (
 						<button
@@ -139,13 +112,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 							type="button"
 							onClick={() => setInternalGroupFilter(tab.id)}
 							className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap border border-transparent
-                ${
-									internalGroupFilter === tab.id
-										? tab.activeClass
-										: isDarkMode
-											? "bg-slate-950 text-slate-400 hover:bg-slate-800 border-slate-700"
-											: "bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-300"
-								}
+                ${internalGroupFilter === tab.id ? "tab.activeClass" : "bg-muted text-muted-foreground hover:bg-muted/70 border-border"}
               `}
 						>
 							{tab.label}
@@ -157,13 +124,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 					type="button"
 					onClick={() => setSortBy(sortBy === "value" ? "name" : "value")}
 					className={`hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-bold uppercase transition-all
-            ${
-							sortBy === "value"
-								? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20"
-								: isDarkMode
-									? "bg-slate-950 border-slate-700 text-slate-400"
-									: "bg-slate-100 border-slate-300 text-slate-500"
-						}
+            ${sortBy === "value" ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20" : "bg-muted border-border text-muted-foreground"}
           `}
 				>
 					<ArrowUpDown className="w-3 h-3" />
@@ -172,14 +133,14 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 			</div>
 
 			{sortedUGs.length === 0 ? (
-				<div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-2">
+				<div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">
 					<span className="text-lg">Sem dados para exibir</span>
 				</div>
 			) : (
-				<div className={`flex-1 overflow-auto custom-scrollbar relative ${isDarkMode ? "bg-transparent" : "bg-card"}`}>
+				<div className={`flex-1 overflow-auto custom-scrollbar relative bg-card`}>
 					<div className="w-full min-w-max p-3">
 						<div
-							className={`grid gap-1 mb-2 sticky top-0 z-30 pb-2 border-b items-end ${isDarkMode ? "border-slate-800 bg-slate-900/90 backdrop-blur-md" : "border-slate-200 bg-white/90 backdrop-blur-md"}`}
+							className={`grid gap-1 mb-2 sticky top-0 z-30 pb-2 border-b items-end border-border bg-card/90 backdrop-blur-md`}
 							style={{
 								gridTemplateColumns: `50px 180px repeat(${availableMonths.length}, minmax(100px, 1fr))`,
 								position: "sticky",
@@ -187,10 +148,10 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 								zIndex: 30,
 							}}
 						>
-							<div className={`text-center font-bold text-xs ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>MSG</div>
+							<div className={`text-center font-bold text-xs text-muted-foreground`}>MSG</div>
 
 							<div
-								className={`sticky left-[50px] z-40 font-bold uppercase tracking-wider pl-2 text-xs border-r ${isDarkMode ? "bg-slate-900/90 backdrop-blur-md text-slate-400 border-slate-800" : "bg-white/90 backdrop-blur-md text-slate-600 border-slate-200"}`}
+								className={`sticky left-[50px] z-40 font-bold uppercase tracking-wider pl-2 text-xs border-r bg-card/90 backdrop-blur-md text-muted-foreground border-border`}
 								style={{ position: "sticky", left: 50, zIndex: 40 }}
 							>
 								UG / GRUPO
@@ -200,7 +161,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 								.slice()
 								.reverse()
 								.map((month) => (
-									<div key={month} className={`text-center font-bold uppercase text-xs truncate px-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+									<div key={month} className={`text-center font-bold uppercase text-xs truncate px-1 text-muted-foreground`}>
 										{toShortDate(month)}
 									</div>
 								))}
@@ -214,7 +175,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 								return uniqueGroups.map((group) => (
 									<div
 										key={`${ug}-${group}`}
-										className={`grid gap-1 items-center rounded transition-colors group ${isDarkMode ? "hover:bg-slate-800/30" : "hover:bg-slate-50"}`}
+										className={`grid gap-1 items-center rounded transition-colors group hover:bg-muted/50`}
 										style={{
 											gridTemplateColumns: `50px 180px repeat(${availableMonths.length}, minmax(100px, 1fr))`,
 										}}
@@ -228,14 +189,14 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 														.sort((a, b) => parseDateString(b.date).timestamp - parseDateString(a.date).timestamp)[0]
 													if (latest) onSendMessage(latest, "HEATMAP")
 												}}
-												className={`w-9 h-9 flex items-center justify-center rounded hover:text-white hover:bg-blue-600 transition-colors border shadow-sm ${isDarkMode ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-slate-100 text-slate-400 border-slate-200"}`}
+												className={`w-9 h-9 flex items-center justify-center rounded hover:text-white hover:bg-blue-600 transition-colors border shadow-sm bg-muted text-muted-foreground border-border`}
 											>
 												<MessageSquareText className="w-4 h-4" />
 											</button>
 										</div>
 
 										<div
-											className={`sticky left-[50px] z-20 flex items-center h-12 overflow-hidden rounded-md border pr-2 shadow-[2px_0_5px_rgba(0,0,0,0.05)] ${isDarkMode ? "bg-slate-900/90 backdrop-blur-md border-slate-700/50 shadow-[2px_0_5px_rgba(0,0,0,0.2)]" : "bg-slate-100/90 backdrop-blur-md border-slate-200"}`}
+											className={`sticky left-[50px] z-20 flex items-center h-12 overflow-hidden rounded-md border pr-2 shadow-[2px_0_5px_rgba(0,0,0,0.05)] bg-muted/90 backdrop-blur-md border-border`}
 											style={{ position: "sticky", left: 50, zIndex: 20 }}
 										>
 											<div
@@ -243,7 +204,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 											>
 												{group === AccountGroup.BMP ? "BMP" : group === AccountGroup.CONSUMO ? "CN" : "INT"}
 											</div>
-											<div className={`flex-1 px-3 font-bold truncate text-sm ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{ug}</div>
+											<div className={`flex-1 px-3 font-bold truncate text-sm text-foreground`}>{ug}</div>
 										</div>
 
 										{availableMonths
@@ -252,7 +213,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, isDarkMo
 											.map((month) => {
 												const record = ugRecords.find((r) => r.date === month && r.group === group)
 												const diff = record ? record.difference : 0
-												const { style, className } = getCellStyles(diff, globalMax, isDarkMode)
+												const { style, className } = getCellStyles(diff, globalMax)
 
 												return (
 													<div

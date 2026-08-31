@@ -1,9 +1,10 @@
+import { chartChrome, iccColor, iccLabel } from "../theme"
+
 interface HealthScoreGaugeProps {
 	score: number
-	isDarkMode: boolean
 }
 
-export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score, isDarkMode }) => {
+export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score }) => {
 	const normalizedScore = Math.min(100, Math.max(0, score))
 
 	const size = 160
@@ -14,22 +15,6 @@ export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score, isDar
 
 	const circumference = Math.PI * radius
 	const offset = circumference - (normalizedScore / 100) * circumference
-
-	const getStatusText = (val: number) => {
-		if (val >= 98) return "Excelência Máxima"
-		if (val >= 90) return "Nível Excelente"
-		if (val >= 80) return "Nível Operacional"
-		if (val >= 70) return "Divergência Moderada"
-		return "Necessita Saneamento"
-	}
-
-	const getStatusColor = (val: number) => {
-		if (val >= 98) return "#10b981"
-		if (val >= 90) return "#22c55e"
-		if (val >= 80) return "#f59e0b"
-		if (val >= 70) return "#f97316"
-		return "#ef4444"
-	}
 
 	return (
 		<div className="w-full h-[100px] relative flex flex-col items-center justify-center overflow-hidden">
@@ -58,7 +43,7 @@ export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score, isDar
 				<path
 					d={`M ${centerX - radius} ${centerY} A ${radius} ${radius} 0 0 1 ${centerX + radius} ${centerY}`}
 					fill="none"
-					stroke={isDarkMode ? "#1e293b" : "#e2e8f0"}
+					stroke={chartChrome.grid}
 					strokeWidth={strokeWidth}
 					strokeLinecap="butt"
 				/>
@@ -78,11 +63,11 @@ export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score, isDar
 
 			<div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
 				<div className="flex flex-col items-center">
-					<span className="text-xl font-black font-mono tracking-tighter drop-shadow-sm" style={{ color: getStatusColor(score) }}>
+					<span className="text-xl font-black font-mono tracking-tighter drop-shadow-sm" style={{ color: iccColor(score) }}>
 						{score.toFixed(1)}%
 					</span>
-					<div className={`h-px w-8 my-0.5 ${isDarkMode ? "bg-slate-700" : "bg-slate-200"}`} />
-					<span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest text-center px-2">{getStatusText(score)}</span>
+					<div className="h-px w-8 my-0.5 bg-border" />
+					<span className="text-hint font-bold text-muted-foreground uppercase tracking-widest text-center px-2">{iccLabel(score)}</span>
 				</div>
 			</div>
 		</div>

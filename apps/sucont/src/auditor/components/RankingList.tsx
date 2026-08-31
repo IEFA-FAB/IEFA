@@ -8,7 +8,6 @@ import { CurrencyDisplay } from "./CurrencyDisplay"
 interface RankingListProps {
 	data: FinancialRecord[]
 	historicalData?: FinancialRecord[]
-	isDarkMode: boolean
 	comparisonLabel?: string
 	onSendMessage?: (record: FinancialRecord, type: "RANKING" | "HEATMAP") => void
 }
@@ -23,7 +22,7 @@ interface EnrichedRecord extends FinancialRecord {
 	tooltipText: string
 }
 
-export const RankingList: React.FC<RankingListProps> = ({ data, historicalData = [], isDarkMode, comparisonLabel, onSendMessage }) => {
+export const RankingList: React.FC<RankingListProps> = ({ data, historicalData = [], comparisonLabel, onSendMessage }) => {
 	const [categoryFilter, setCategoryFilter] = useState<Category | "TODOS">("TODOS")
 
 	const enrichedData = useMemo(() => {
@@ -111,31 +110,31 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		switch (category) {
 			case "REDUCAO_CONTINUA":
 				return {
-					color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+					color: "bg-success/10 text-success border-emerald-500/30",
 					icon: ArrowDownRight,
 					label: "Redução Contínua",
 				}
 			case "REDUCAO_PONTUAL":
 				return {
-					color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+					color: "bg-success/10 text-success border-emerald-500/30",
 					icon: ArrowDown,
 					label: "Redução Pontual",
 				}
 			case "AUMENTO_CONTINUO":
 				return {
-					color: "bg-red-500/10 text-red-500 border-red-500/30",
+					color: "bg-destructive/10 text-destructive border-red-500/30",
 					icon: ArrowUpRight,
 					label: "Aumento Contínuo",
 				}
 			case "OSCILACAO_ATIPICA":
 				return {
-					color: "bg-orange-500/10 text-orange-500 border-orange-500/30",
+					color: "bg-warning/10 text-warning border-orange-500/30",
 					icon: Activity,
 					label: "Oscilação Atípica",
 				}
 			default:
 				return {
-					color: "bg-slate-500/10 text-slate-500 border-slate-500/30",
+					color: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
 					icon: ArrowRight,
 					label: "Neutro",
 				}
@@ -155,19 +154,11 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			<div
 				key={item.id}
 				className={`relative p-3 rounded-xl border backdrop-blur-md transition-all group mb-2
-          ${
-						isWorse
-							? isDarkMode
-								? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
-								: "bg-red-50/30 border-red-100 hover:bg-red-50/50"
-							: isDarkMode
-								? "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10"
-								: "bg-emerald-50/30 border-emerald-100 hover:bg-emerald-50/50"
-					}`}
+          ${isWorse ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10" : "bg-success/5 border-success/20 hover:bg-success/10"}`}
 			>
 				<div
 					className={`absolute -left-1 top-3 w-5 h-5 flex items-center justify-center text-[9px] font-bold rounded shadow-lg z-10
-          ${isWorse ? "bg-red-600 text-white" : "bg-emerald-600 text-white"}`}
+          ${isWorse ? "bg-destructive text-white" : "bg-success text-white"}`}
 				>
 					{rank}
 				</div>
@@ -175,7 +166,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 				<div className="pl-5 flex flex-col gap-1">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2 overflow-hidden">
-							<h4 className={`font-bold text-sm truncate ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>{item.ug}</h4>
+							<h4 className={`font-bold text-sm truncate text-foreground`}>{item.ug}</h4>
 
 							<div className="group/tooltip relative flex items-center">
 								<span
@@ -185,7 +176,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 								</span>
 								<div
 									className={`absolute bottom-full left-0 mb-2 w-64 p-2 rounded shadow-xl text-[10px] opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20
-                  ${isDarkMode ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-card text-slate-700 border border-slate-200"}`}
+                  bg-card text-foreground border border-border`}
 								>
 									{item.tooltipText}
 								</div>
@@ -200,47 +191,43 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 									onSendMessage(item, "RANKING")
 								}}
 								className={`p-1 rounded transition-colors border
-                  ${
-										isDarkMode
-											? "bg-slate-800/50 text-slate-400 hover:text-white border-slate-700"
-											: "bg-card text-slate-500 hover:text-slate-700 border-slate-200"
-									}`}
+                  bg-card text-muted-foreground hover:text-foreground border-border`}
 							>
 								<MessageSquareText className="w-3.5 h-3.5" />
 							</button>
 						)}
 					</div>
 
-					<div className={`text-[10px] flex items-center gap-1.5 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
+					<div className={`text-[10px] flex items-center gap-1.5 text-muted-foreground`}>
 						<span>{item.cod}</span>
 						<span className="opacity-50">•</span>
 						<span>{item.group === AccountGroup.CONSUMO ? "CONSUMO" : item.group === AccountGroup.BMP ? "BMP" : "INTANGÍVEL"}</span>
 					</div>
 
-					<div className={`pt-2 mt-1 border-t flex items-center justify-between ${isDarkMode ? "border-slate-700/50" : "border-slate-100"}`}>
+					<div className={`pt-2 mt-1 border-t flex items-center justify-between border-border`}>
 						<div className="flex items-center gap-4">
 							<div className="flex flex-col">
-								<span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">Anterior</span>
-								<span className={`text-[11px] font-mono ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+								<span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Anterior</span>
+								<span className={`text-[11px] font-mono text-muted-foreground`}>
 									<CurrencyDisplay value={prevVal} />
 								</span>
 							</div>
 
-							<div className={`flex items-center justify-center ${isWorse ? "text-red-500" : "text-emerald-500"}`}>
+							<div className={`flex items-center justify-center ${isWorse ? "text-destructive" : "text-success"}`}>
 								<Icon className="w-4 h-4" />
 							</div>
 
 							<div className="flex flex-col">
-								<span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">Atual</span>
-								<span className={`text-[11px] font-mono font-bold ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}>
+								<span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Atual</span>
+								<span className={`text-[11px] font-mono font-bold text-foreground`}>
 									<CurrencyDisplay value={currVal} />
 								</span>
 							</div>
 						</div>
 
 						<div className="flex flex-col items-end">
-							<span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">Variação</span>
-							<span className={`text-[11px] font-mono font-bold ${isWorse ? "text-red-500" : "text-emerald-500"}`}>
+							<span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Variação</span>
+							<span className={`text-[11px] font-mono font-bold ${isWorse ? "text-destructive" : "text-success"}`}>
 								{isWorse ? "+" : "-"}
 								<CurrencyDisplay value={deltaVal} />
 							</span>
@@ -255,11 +242,11 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		<div className="flex flex-col h-full w-full gap-4 overflow-hidden">
 			<div className="flex items-center justify-between px-2">
 				<div className="flex items-center gap-2">
-					<span className={`text-xs font-bold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Filtro por Tipo:</span>
+					<span className={`text-xs font-bold text-muted-foreground`}>Filtro por Tipo:</span>
 					<Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}>
 						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
-               ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
+               bg-muted/50 border-border text-foreground`}
 						>
 							<SelectValue />
 						</SelectTrigger>
@@ -277,18 +264,18 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			<div className="flex flex-col lg:flex-row h-full w-full gap-4 overflow-hidden">
 				<div
 					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
-           ${isDarkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-card"}`}
+           border-border bg-card`}
 				>
 					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-red-500/20">
 						<div className="flex items-center gap-2">
-							<TrendingUp className="w-4 h-4 text-red-500" />
-							<h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-red-400" : "text-red-600"}`}>Piora no Período</h3>
+							<TrendingUp className="w-4 h-4 text-destructive" />
+							<h3 className={`text-xs font-bold uppercase tracking-wider text-destructive`}>Piora no Período</h3>
 						</div>
-						{comparisonLabel && <span className={`text-[10px] pl-6 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>{comparisonLabel}</span>}
+						{comparisonLabel && <span className={`text-[10px] pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
 						{worsened.length === 0 ? (
-							<div className={`text-center py-4 text-xs ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Sem registros.</div>
+							<div className={`text-center py-4 text-xs text-muted-foreground`}>Sem registros.</div>
 						) : (
 							worsened.map((item, idx) => renderCard(item, idx + 1, "worse"))
 						)}
@@ -297,18 +284,18 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 
 				<div
 					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
-           ${isDarkMode ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-card"}`}
+           border-border bg-card`}
 				>
 					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-emerald-500/20">
 						<div className="flex items-center gap-2">
-							<TrendingDown className="w-4 h-4 text-emerald-500" />
-							<h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>Melhoria no Período</h3>
+							<TrendingDown className="w-4 h-4 text-success" />
+							<h3 className={`text-xs font-bold uppercase tracking-wider text-success`}>Melhoria no Período</h3>
 						</div>
-						{comparisonLabel && <span className={`text-[10px] pl-6 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>{comparisonLabel}</span>}
+						{comparisonLabel && <span className={`text-[10px] pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
 						{improved.length === 0 ? (
-							<div className={`text-center py-4 text-xs ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Sem registros.</div>
+							<div className={`text-center py-4 text-xs text-muted-foreground`}>Sem registros.</div>
 						) : (
 							improved.map((item, idx) => renderCard(item, idx + 1, "better"))
 						)}

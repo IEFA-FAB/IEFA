@@ -26,6 +26,7 @@ import { parseExcelFile } from "#/auditor/services/excelParser"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
 import { useSucontAccess } from "#/auth/pbac"
+import { cn } from "#/lib/utils"
 import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
@@ -83,6 +84,9 @@ function AuditorPage() {
 	const [selectedHierarchyFilter, setSelectedHierarchyFilter] = useState<string[]>(["TODOS"])
 	const [selectedRisk, _setSelectedRisk] = useState<string>("TODOS")
 	const [searchTerm, _setSearchTerm] = useState("")
+	// A variante do projeto é `&:is(.dark *)`, então qualquer ancestral com a classe
+	// serve. Antes isto ia para o <html> num efeito, e uma rota trocava o tema do app
+	// inteiro — com um flash de volta ao claro toda vez que o usuário saía da tela.
 	const [isDarkMode, setIsDarkMode] = useState(true)
 
 	// Importar grava: `startAuditorRunFn` e `saveAuditorBalancesFn` exigem nível 2.
@@ -98,17 +102,6 @@ function AuditorPage() {
 	const [selectedRecordForMessage, setSelectedRecordForMessage] = useState<FinancialRecord | null>(null)
 	const [selectedHistoryForMessage, setSelectedHistoryForMessage] = useState<FinancialRecord[]>([])
 	const [messageContext, setMessageContext] = useState<"RANKING" | "HEATMAP">("HEATMAP")
-
-	// Sync dark mode class on html element
-	useEffect(() => {
-		if (isDarkMode) document.documentElement.classList.add("dark")
-		else document.documentElement.classList.remove("dark")
-
-		// Cleanup: remove dark class when leaving the page
-		return () => {
-			document.documentElement.classList.remove("dark")
-		}
-	}, [isDarkMode])
 
 	// 1. Process data — do banco quando há série persistida; do arquivo em memória
 	// só enquanto a gravação não confirmou. Uma normalização só, nos dois casos.
@@ -427,9 +420,9 @@ function AuditorPage() {
 	}
 
 	return (
-		<div className={`min-h-screen pb-12 transition-colors duration-300 ${isDarkMode ? "dark bg-[#020617] text-slate-100" : "bg-slate-50 text-slate-900"}`}>
+		<div className={cn("min-h-screen pb-12 transition-colors duration-300 bg-background text-foreground", isDarkMode && "dark")}>
 			{/* `canEdit` também aqui: fechar o gatilho não basta se o modal segue montável. */}
-			<FileUploadModal isOpen={isUploadModalOpen && canEdit} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} isDarkMode={isDarkMode} />
+			<FileUploadModal isOpen={isUploadModalOpen && canEdit} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} />
 
 			<SiafiMessageModal
 				isOpen={isMessageModalOpen}
@@ -442,13 +435,13 @@ function AuditorPage() {
 			/>
 
 			{/* STICKY TOP NAV */}
-			<nav className={`${isDarkMode ? "bg-[#0f172a]/95 border-slate-800" : "bg-white/95 border-slate-200"} border-b sticky top-0 z-40 backdrop-blur-md`}>
+			<nav className={`bg-card/95 border-border border-b sticky top-0 z-40 backdrop-blur-md`}>
 				<div className="max-w-[1800px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
 					<div className="flex items-center gap-6 min-w-max">
 						<div className="flex items-center gap-3">
 							<Link
 								to="/"
-								className={`p-2 rounded-lg transition-colors border ${isDarkMode ? "border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white" : "border-slate-200 text-slate-500 hover:bg-slate-100"}`}
+								className={`p-2 rounded-lg transition-colors border border-border text-muted-foreground hover:bg-muted hover:text-foreground`}
 								title="Voltar ao Hub"
 							>
 								<ArrowLeft className="w-4 h-4" />
@@ -456,20 +449,20 @@ function AuditorPage() {
 							<div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20">
 								<Activity className="w-5 h-5 text-white" />
 							</div>
-							<h1 className={`text-lg font-bold tracking-tight hidden lg:block ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
-								SIAFI <span className="text-slate-500 mx-1">x</span> SILOMS
+							<h1 className={`text-lg font-bold tracking-tight hidden lg:block text-foreground`}>
+								SIAFI <span className="text-muted-foreground mx-1">x</span> SILOMS
 							</h1>
 						</div>
 
 						<div className="flex items-center gap-3">
-							<div className={`flex rounded-lg p-0.5 border shadow-sm ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-slate-100 border-slate-200"}`}>
+							<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
 								{(["ODS", "ORGAO", "UG"] as const).map((level) => (
 									<button
 										key={level}
 										type="button"
 										onClick={() => setSelectedHierarchyLevel(level)}
 										className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1
-                      ${selectedHierarchyLevel === level ? (isDarkMode ? "bg-slate-600 text-white shadow-sm" : "bg-card text-slate-800 shadow-sm") : isDarkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}
+                      ${selectedHierarchyLevel === level ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                     `}
 									>
 										{level === "ODS" && <Layers className="w-3 h-3" />}
@@ -495,7 +488,6 @@ function AuditorPage() {
 										})),
 									]}
 									placeholder={`Filtrar ${selectedHierarchyLevel}`}
-									isDarkMode={isDarkMode}
 								/>
 							</div>
 
@@ -505,7 +497,6 @@ function AuditorPage() {
 									onChange={setSelectedMonth}
 									options={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
 									placeholder="Mês de Ref."
-									isDarkMode={isDarkMode}
 								/>
 							</div>
 						</div>
@@ -526,7 +517,7 @@ function AuditorPage() {
 						<button
 							type="button"
 							onClick={() => setIsDarkMode(!isDarkMode)}
-							className={`p-2 rounded-full transition-colors border ${isDarkMode ? "hover:bg-slate-800 text-slate-400 border-transparent" : "bg-card border-slate-200 text-slate-600 hover:bg-slate-100"}`}
+							className={`p-2 rounded-full transition-colors border border-border text-muted-foreground hover:bg-muted`}
 						>
 							{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
 						</button>
@@ -540,16 +531,10 @@ function AuditorPage() {
 					<div
 						className={`mt-6 rounded-lg border p-4 text-sm ${
 							persistOutcome.status === "complete"
-								? isDarkMode
-									? "border-slate-700 bg-slate-800/60 text-slate-300"
-									: "border-slate-200 bg-card text-slate-700"
+								? "border-border bg-card text-foreground"
 								: persistOutcome.status === "partial"
-									? isDarkMode
-										? "border-red-500/40 bg-red-500/10 text-red-200"
-										: "border-red-300 bg-red-50 text-red-800"
-									: isDarkMode
-										? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-										: "border-amber-300 bg-amber-50 text-amber-800"
+									? "border-destructive/30 bg-destructive/10 text-destructive"
+									: "border-warning/30 bg-warning/10 text-warning"
 						}`}
 					>
 						<div className="flex items-start justify-between gap-4">
@@ -560,7 +545,7 @@ function AuditorPage() {
 										: persistOutcome.status === "partial"
 											? "Gravação INCOMPLETA — a série no banco está pela metade"
 											: "Análise não gravada"}
-									<span className="font-normal text-slate-500 dark:text-slate-400"> · {persistOutcome.filename}</span>
+									<span className="font-normal text-muted-foreground dark:text-muted-foreground"> · {persistOutcome.filename}</span>
 								</p>
 
 								{persistOutcome.status === "failed" ? (
@@ -586,7 +571,7 @@ function AuditorPage() {
 							<button
 								type="button"
 								onClick={() => setPersistOutcome(null)}
-								className="text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+								className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground dark:hover:text-slate-200"
 							>
 								Fechar
 							</button>
@@ -594,7 +579,7 @@ function AuditorPage() {
 
 						{persistOutcome.conflicts.length > 0 && (
 							<details className="mt-3">
-								<summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">
+								<summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">
 									Competências que já existiam com outro valor ({persistOutcome.changed}
 									{persistOutcome.conflictsTruncated ? ", listando as primeiras" : ""})
 								</summary>
@@ -613,11 +598,7 @@ function AuditorPage() {
 
 				{/* FALHA DE LEITURA — distinta do estado vazio */}
 				{storedError && localRows.length === 0 && (
-					<div
-						className={`mt-6 rounded-lg border p-4 text-sm ${
-							isDarkMode ? "border-red-500/40 bg-red-500/10 text-red-200" : "border-red-300 bg-red-50 text-red-800"
-						}`}
-					>
+					<div className={`mt-6 rounded-lg border p-4 text-sm border-destructive/30 bg-destructive/10 text-destructive`}>
 						<p className="font-bold">Não foi possível ler a série gravada</p>
 						<p className="mt-1">{storedError instanceof Error ? storedError.message : "Erro desconhecido"} — a tela abaixo NÃO reflete o que está no banco.</p>
 					</div>
@@ -625,7 +606,7 @@ function AuditorPage() {
 
 				{/* EMPTY STATE */}
 				{allData.length === 0 && loadingStored && (
-					<div className="flex items-center justify-center gap-3 py-20 text-slate-500">
+					<div className="flex items-center justify-center gap-3 py-20 text-muted-foreground">
 						<Loader2 className="w-5 h-5 animate-spin" />
 						Carregando série persistida…
 					</div>
@@ -634,14 +615,14 @@ function AuditorPage() {
 				{allData.length === 0 && !loadingStored && !storedError && (
 					<div
 						className={`flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-lg mt-8
-             ${isDarkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-300 bg-card"}
+             border-border bg-card
           `}
 					>
-						<FileSpreadsheet className={`w-16 h-16 mb-4 ${isDarkMode ? "text-slate-600" : "text-slate-400"}`} />
-						<h2 className={`text-xl font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>Nenhuma competência na base</h2>
+						<FileSpreadsheet className={`w-16 h-16 mb-4 text-muted-foreground`} />
+						<h2 className={`text-xl font-bold text-foreground`}>Nenhuma competência na base</h2>
 						{canEdit ? (
 							<>
-								<p className="text-slate-500 mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
+								<p className="text-muted-foreground mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
 								<button
 									type="button"
 									onClick={() => setIsUploadModalOpen(true)}
@@ -652,7 +633,7 @@ function AuditorPage() {
 							</>
 						) : (
 							!loadingAccess && (
-								<p className="text-slate-500 max-w-md text-center">
+								<p className="text-muted-foreground max-w-md text-center">
 									Ainda não há competência gravada, e seu acesso é somente leitura. Importar a planilha exige nível 2 no módulo{" "}
 									<span className="font-mono">sucont</span> — peça a um gestor da SUCONT-4.
 								</p>
@@ -664,12 +645,10 @@ function AuditorPage() {
 				{allData.length > 0 && (
 					<>
 						{/* CONTROLS BAR */}
-						<div
-							className={`sticky top-16 z-30 pt-4 pb-2 transition-colors ${isDarkMode ? "bg-[#020617]/95" : "bg-slate-50/95"} backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6`}
-						>
+						<div className={`sticky top-16 z-30 pt-4 pb-2 transition-colors bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6`}>
 							<div
 								className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-2 rounded-lg border shadow-sm
-                ${isDarkMode ? "bg-slate-800/50 border-slate-700" : "bg-card border-slate-200"}
+                bg-card border-border
               `}
 							>
 								{/* Group Filters */}
@@ -678,12 +657,12 @@ function AuditorPage() {
 										{
 											id: "ALL",
 											label: "VISÃO GERAL",
-											activeClass: isDarkMode ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-800",
+											activeClass: "bg-background text-foreground",
 										},
 										{
 											id: AccountGroup.BMP,
 											label: "BMP",
-											activeClass: "text-red-600 border border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.2)]",
+											activeClass: "text-destructive border border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.2)]",
 										},
 										{
 											id: AccountGroup.CONSUMO,
@@ -693,7 +672,7 @@ function AuditorPage() {
 										{
 											id: AccountGroup.INTANGIVEL,
 											label: "INTANGÍVEL",
-											activeClass: "text-emerald-600 border border-emerald-600 shadow-[0_0_10px_rgba(5,150,105,0.2)]",
+											activeClass: "text-success border border-emerald-600 shadow-[0_0_10px_rgba(5,150,105,0.2)]",
 										},
 									].map((tab) => (
 										<button
@@ -711,14 +690,14 @@ function AuditorPage() {
 
 								{/* Time Filters */}
 								<div className="col-span-1 md:col-span-4 flex justify-center">
-									<div className={`flex p-1 rounded-lg ${isDarkMode ? "bg-slate-900" : "bg-slate-100"}`}>
+									<div className={`flex p-1 rounded-lg bg-muted`}>
 										{(["MENSAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"] as TimeFilter[]).map((tf) => (
 											<button
 												key={tf}
 												type="button"
 												onClick={() => setTimeFilter(tf)}
 												className={`px-3 py-2 text-xs font-bold rounded-lg transition-all
-                          ${timeFilter === tf ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}
+                          ${timeFilter === tf ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground dark:hover:text-slate-300"}
                         `}
 											>
 												{tf}
@@ -731,13 +710,13 @@ function AuditorPage() {
 								<div className="col-span-1 md:col-span-3 flex justify-end items-center gap-3">
 									<div
 										className={`flex items-center gap-2 px-3 py-2 rounded-lg border
-                       ${isDarkMode ? "bg-slate-900/50 border-slate-700/50" : "bg-slate-100 border-slate-200"}`}
+                       bg-muted border-border`}
 										title="Quantidade de UGs consideradas na visualização atual"
 									>
 										<Database className="w-3.5 h-3.5 text-blue-500" />
 										<div className="flex flex-col leading-none">
-											<span className={`text-[9px] font-bold uppercase ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Registros Totais</span>
-											<span className={`text-xs font-bold ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}>{stats.totalUGsCount} UGs</span>
+											<span className={`text-[9px] font-bold uppercase text-muted-foreground`}>Registros Totais</span>
+											<span className={`text-xs font-bold text-foreground`}>{stats.totalUGsCount} UGs</span>
 										</div>
 									</div>
 
@@ -745,7 +724,7 @@ function AuditorPage() {
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
 										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border transition-all
-                      ${hideZeros ? "bg-amber-500/10 text-amber-500 border-amber-500/50" : isDarkMode ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-card text-slate-500 border-slate-200"}
+                      ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "bg-card text-muted-foreground border-border"}
                     `}
 									>
 										<AlertTriangle className="w-4 h-4" />
@@ -762,11 +741,10 @@ function AuditorPage() {
 								value={stats.totalDiff}
 								subtitle="Diferença Absoluta"
 								icon={AlertTriangle}
-								bgClass="bg-red-500"
+								bgClass="bg-destructive"
 								trendData={trendSeries.diff}
 								variation={`${Math.abs(stats.diffVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.diffVar < 0}
-								isDarkMode={isDarkMode}
 							/>
 							<StatCard
 								title="Saldo SIAFI"
@@ -777,7 +755,6 @@ function AuditorPage() {
 								trendData={trendSeries.siafi}
 								variation={`${Math.abs(stats.siafiVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.siafiVar >= 0}
-								isDarkMode={isDarkMode}
 							/>
 							<StatCard
 								title="Saldo SILOMS"
@@ -788,7 +765,6 @@ function AuditorPage() {
 								trendData={trendSeries.siloms}
 								variation={`${Math.abs(stats.silomsVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.silomsVar >= 0}
-								isDarkMode={isDarkMode}
 							/>
 							<StatCard
 								title="Maior Divergência"
@@ -797,14 +773,14 @@ function AuditorPage() {
 								icon={AlertTriangle}
 								bgClass={
 									stats.topOffenderICC >= 98
-										? "bg-emerald-500"
+										? "bg-success"
 										: stats.topOffenderICC >= 90
-											? "bg-green-500"
+											? "bg-success"
 											: stats.topOffenderICC >= 80
-												? "bg-amber-500"
+												? "bg-warning"
 												: stats.topOffenderICC >= 70
-													? "bg-orange-500"
-													: "bg-red-500"
+													? "bg-warning"
+													: "bg-destructive"
 								}
 								trendData={[20, 40, 30, 50, 45, 60]}
 								variation={
@@ -819,26 +795,23 @@ function AuditorPage() {
 													: "Nível Crítico"
 								}
 								isPositive={stats.topOffenderICC >= 80}
-								isDarkMode={isDarkMode}
 							/>
 
 							{/* ICC Card */}
 							<div
-								className={`${isDarkMode ? "bg-[#0f172a]/60 border-slate-800/50 hover:bg-[#0f172a]/80" : "bg-card border-slate-200 hover:bg-slate-50"} backdrop-blur-md rounded-2xl shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
+								className={`bg-card border-border hover:bg-muted/50 backdrop-blur-md rounded-2xl shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
 							>
 								<div className="flex justify-between items-start relative z-10">
 									<div className="flex-1">
-										<p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">ICC</p>
-										<h3 className={`text-xs font-black tracking-tight leading-tight ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-											Indicador de Conciliação Contábil
-										</h3>
+										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">ICC</p>
+										<h3 className={`text-xs font-black tracking-tight leading-tight text-foreground`}>Indicador de Conciliação Contábil</h3>
 									</div>
 									<div className="w-10 h-10 rounded-lg bg-indigo-600 shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2">
 										<Activity className="w-5 h-5 text-white" />
 									</div>
 								</div>
 								<div className="mt-1 flex-1 flex items-center justify-center">
-									<HealthScoreGauge score={stats.healthScore} isDarkMode={isDarkMode} />
+									<HealthScoreGauge score={stats.healthScore} />
 								</div>
 							</div>
 						</div>
@@ -850,13 +823,12 @@ function AuditorPage() {
 							allData={baseFilteredData}
 							availableMonths={uniqueMonths}
 							availableUGs={uniqueUGs}
-							isDarkMode={isDarkMode}
 							defaultGroup={selectedGroup}
 							hideMonthFilter={true}
 							hierarchyLevel={selectedHierarchyLevel}
 							hierarchyFilter={selectedHierarchyFilter}
 						>
-							{(data, _isExpanded) => <EvolutionChart data={data} isDarkMode={isDarkMode} selectedMonth={selectedMonth} timeFilter={timeFilter} />}
+							{(data, _isExpanded) => <EvolutionChart data={data} selectedMonth={selectedMonth} timeFilter={timeFilter} />}
 						</ChartWrapper>
 
 						{/* RANKING */}
@@ -866,21 +838,12 @@ function AuditorPage() {
 							allData={filteredDataForVisuals}
 							availableMonths={uniqueMonths}
 							availableUGs={uniqueUGs}
-							isDarkMode={isDarkMode}
 							defaultMonth={selectedMonth}
 							defaultGroup={selectedGroup}
 							hierarchyLevel={selectedHierarchyLevel}
 							hierarchyFilter={selectedHierarchyFilter}
 						>
-							{(data) => (
-								<RankingList
-									data={data}
-									historicalData={baseFilteredData}
-									isDarkMode={isDarkMode}
-									comparisonLabel={comparisonLabel}
-									onSendMessage={handleOpenMessage}
-								/>
-							)}
+							{(data) => <RankingList data={data} historicalData={baseFilteredData} comparisonLabel={comparisonLabel} onSendMessage={handleOpenMessage} />}
 						</ChartWrapper>
 
 						{/* COMPARISON CHART */}
@@ -891,7 +854,6 @@ function AuditorPage() {
 								allData={filteredDataForVisuals}
 								availableMonths={uniqueMonths}
 								availableUGs={uniqueUGs}
-								isDarkMode={isDarkMode}
 								defaultMonth={selectedMonth}
 								defaultGroup={selectedGroup}
 								showRiskFilter={true}
@@ -901,7 +863,6 @@ function AuditorPage() {
 								{(data, isExpanded) => (
 									<ComparisonChart
 										data={data}
-										isDarkMode={isDarkMode}
 										isExpanded={isExpanded}
 										setHierarchy={() => {}}
 										hierarchyLevel={selectedHierarchyLevel}
@@ -918,12 +879,11 @@ function AuditorPage() {
 							allData={filteredDataForVisuals}
 							availableMonths={uniqueMonths}
 							availableUGs={uniqueUGs}
-							isDarkMode={isDarkMode}
 							defaultGroup="ALL"
 							hierarchyLevel={selectedHierarchyLevel}
 							hierarchyFilter={selectedHierarchyFilter}
 						>
-							{(data) => <TemporalHeatmap data={data} isDarkMode={isDarkMode} availableMonths={uniqueMonths} onSendMessage={handleOpenMessage} />}
+							{(data) => <TemporalHeatmap data={data} availableMonths={uniqueMonths} onSendMessage={handleOpenMessage} />}
 						</ChartWrapper>
 					</>
 				)}

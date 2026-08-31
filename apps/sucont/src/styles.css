@@ -30,6 +30,15 @@
   --success-foreground: oklch(1 0 0);
   --warning: oklch(0.75 0.14 82.5337);
   --warning-foreground: oklch(0.2 0 0);
+
+  /* Séries do auditor SIAFI x SILOMS. Nomeadas pelo dado, não pela cor. */
+  --series-siafi: #1e40af;
+  --series-siloms: #0369a1;
+  --series-diff: #e11d48;
+  --series-pareto: #4338ca;
+  --series-accum: #065f46;
+  --series-axis-alt: #d97706;
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -76,6 +85,15 @@
   --success-foreground: oklch(1 0 0);
   --warning: oklch(0.75 0.14 82.5337);
   --warning-foreground: oklch(0.2 0 0);
+
+  /* Mesma matiz, luminosidade de fundo escuro. */
+  --series-siafi: #3b82f6;
+  --series-siloms: #0ea5e9;
+  --series-diff: #f43f5e;
+  --series-pareto: #818cf8;
+  --series-accum: #34d399;
+  --series-axis-alt: #fbbf24;
+
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -149,6 +167,12 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-series-siafi: var(--series-siafi);
+  --color-series-siloms: var(--series-siloms);
+  --color-series-diff: var(--series-diff);
+  --color-series-pareto: var(--series-pareto);
+  --color-series-accum: var(--series-accum);
+  --color-series-axis-alt: var(--series-axis-alt);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -321,4 +345,33 @@ pre code {
   font-weight: 400;
   letter-spacing: var(--tracking-normal);
   line-height: 1.5;
+}
+
+/* ─── Célula do mapa de calor (auditor) ─── */
+/* A rampa é sequencial e calculada por célula: o componente entrega a matiz e a
+   intensidade em custom property, e a folha decide a luminosidade. Fundo claro
+   escurece conforme a divergência cresce; fundo escuro clareia. Era a única
+   diferença real entre os dois temas aqui — e vivia como um `if (isDark)` dentro
+   do render, junto com seis hex literais. */
+
+.heatmap-cell {
+  --cell-l: calc(95% - (var(--cell-ratio) * 15%));
+  --cell-border-l: calc(var(--cell-l) - 30%);
+  background-color: hsl(var(--cell-hue) 85% var(--cell-l));
+  border-color: hsl(var(--cell-hue) 70% var(--cell-border-l));
+  color: oklch(0.2 0 0);
+}
+
+.dark .heatmap-cell {
+  --cell-l: calc(20% + (var(--cell-ratio) * 10%));
+  --cell-border-l: calc(var(--cell-l) + 10%);
+  border-color: hsl(var(--cell-hue) 90% var(--cell-border-l));
+  color: oklch(1 0 0);
+}
+
+/* Célula sem divergência: fora da rampa, é ausência de dado e não intensidade zero. */
+.heatmap-cell-empty {
+  background-color: var(--color-muted);
+  border-color: var(--color-border);
+  color: var(--color-muted-foreground);
 }
