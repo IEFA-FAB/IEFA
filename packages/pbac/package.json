@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./start": "./src/start.ts"
   },
   "scripts": {
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
@@ -18,5 +19,13 @@
     "@types/bun": "^1.4.0",
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@tanstack/react-start": "^1.168.39"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-start": {
+      "optional": true
+    }
   }
 }

@@ -10,61 +10,33 @@
  * Papéis do journal (`journal.user_profiles.role`): `author` (default), `reviewer`,
  * `editor`. A escalada de papel é privilégio de editor — ver `assertRoleChangeAllowed`.
  *
- * Mesmo padrão do sisub (apps/sisub/src/lib/auth.server.ts) e do rumaer.
+ * A autenticação (cache request-scoped do `getUser()`, 401/403) vem de
+ * `@iefa/pbac/start`, compartilhada com os demais apps. A autorização abaixo é
+ * própria do journal: papel em tabela, não grant PBAC.
  */
 
-import type { User } from "@supabase/supabase-js"
-import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
+import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
 import { getIefaAuthClient, getJournalServerClient } from "./supabase.server"
 
-/** Sinaliza 401 antes de lançar — senão o framework devolve 500 e o client não distingue. */
-export function unauthorized(): never {
-	setResponseStatus(401)
-	throw new Error("Não autenticado.")
-}
-
-/** Sinaliza 403 — autenticado, porém sem acesso ao recurso. */
-export function forbidden(message = "Você não tem acesso a este recurso."): never {
-	setResponseStatus(403)
-	throw new Error(message)
-}
-
 /**
- * Cache request-scoped do `auth.getUser()`: ele valida o JWT no servidor Supabase
- * (round-trip de rede) e é chamado várias vezes no mesmo request — a sessão no root
- * mais o guard de cada server fn filha. Chaveado pelo `Request`; o WeakMap libera a
- * entrada quando o request é coletado. Cacheia a Promise, não o valor, para coalescer
- * chamadas concorrentes num único round-trip.
+ * As mensagens são as do portal, não os defaults do pacote: elas chegam ao usuário
+ * na tela do journal, em português.
  */
-const userByRequest = new WeakMap<Request, Promise<User | null>>()
-
-export function getRequestUser(): Promise<User | null> {
-	const resolve = () =>
-		getIefaAuthClient()
-			.auth.getUser()
-			.then(({ data }) => data.user ?? null)
-
-	const request = getRequest()
-	if (!request) return resolve()
-
-	let cached = userByRequest.get(request)
-	if (!cached) {
-		cached = resolve()
-		userByRequest.set(request, cached)
-	}
-	return cached
+export function unauthorized(): never {
+	return unauthenticatedWithStatus("Não autenticado.")
 }
+
+export function forbidden(message = "Você não tem acesso a este recurso."): never {
+	return denyWithStatus(message)
+}
+
+const auth = createRequestAuth({ getAuthClient: getIefaAuthClient })
+
+export const { getRequestUser, requireUserId } = auth
 
 /** Id do usuário autenticado, ou `null` — para endpoints de login opcional. */
 export async function getRequestUserId(): Promise<string | null> {
 	return (await getRequestUser())?.id ?? null
-}
-
-/** Exige sessão válida. @throws 401 */
-export async function requireUserId(): Promise<string> {
-	const userId = await getRequestUserId()
-	if (!userId) unauthorized()
-	return userId
 }
 
 /**
