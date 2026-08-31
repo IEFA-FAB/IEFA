@@ -117,7 +117,7 @@ function CruzamentoContas() {
 							</Button>
 
 							{showPath && (
-								<div className="p-6 border-t border-border bg-warning/30">
+								<div className="p-6 border-t border-border bg-warning/10">
 									<p className="text-sm text-foreground mb-4">
 										Para gerar a planilha compatível com este analisador, acesse o Tesouro Gerencial e siga o caminho abaixo:
 									</p>

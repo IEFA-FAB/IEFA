@@ -445,7 +445,9 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 		const { x, y, width, height, name, diff, ods } = props
 
 		const finalFill = getOdsColor(ods || name || "N/A")
-		const textColor = chartChrome.label
+		// Os tiles vêm de `ODS_SOLID_COLORS`, escura nos dois temas: o rótulo é claro
+		// sempre. `--foreground` inverteria e sumiria no tema claro.
+		const textColor = "var(--surface-inverted-foreground)"
 		const textShadow = "0 1px 2px rgba(0,0,0,0.8)"
 
 		return (
@@ -918,7 +920,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 					) : viewMode === "comparison" ? (
 						<>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-muted opacity-50"></div>
+								<div className="w-3 h-3 rounded-sm" style={{ backgroundColor: chartChrome.axis }}></div>
 								<span className="text-label text-muted-foreground">Ano Anterior</span>
 							</div>
 							<div className="flex items-center gap-2">

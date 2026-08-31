@@ -1010,7 +1010,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									natureza do fato contábil.
 								</p>
 							</div>
-							<div className="bg-warning/50 p-4 rounded-xl border border-warning/20">
+							<div className="bg-warning/10 p-4 rounded-xl border border-warning/20">
 								<h4 className="text-xs font-bold text-warning uppercase mb-3 flex items-center gap-2">
 									<AlertTriangle className="w-4 h-4 text-warning" /> Risco Contábil
 								</h4>
@@ -1019,7 +1019,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									decisão.
 								</p>
 							</div>
-							<div className="bg-success/50 p-4 rounded-xl border border-success/20">
+							<div className="bg-success/10 p-4 rounded-xl border border-success/20">
 								<h4 className="text-xs font-bold text-success uppercase mb-3 flex items-center gap-2">
 									<ShieldCheck className="w-4 h-4 text-success" /> Importância
 								</h4>

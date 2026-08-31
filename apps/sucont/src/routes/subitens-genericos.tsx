@@ -1192,6 +1192,7 @@ function SubitensGenericos() {
 																					Tipo de Mensagem
 																				</label>
 																				<Select
+																					items={{ sem_prazo: "Sem Prazo", com_prazo: "Com Prazo", alerta: "Apenas Alerta" }}
 																					value={ugConfig.messageType}
 																					onValueChange={(value) => updateUgConfig(group.ug, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
@@ -1373,6 +1374,7 @@ function SubitensGenericos() {
 																					Tipo de Mensagem
 																				</label>
 																				<Select
+																					items={{ sem_prazo: "Sem Prazo", com_prazo: "Com Prazo", alerta: "Apenas Alerta" }}
 																					value={racConfig.messageType}
 																					onValueChange={(value) => updateRacConfig(racId, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>

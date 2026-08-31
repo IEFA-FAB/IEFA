@@ -37,6 +37,12 @@ import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow }
 import { chartChrome } from "#/lib/chart-theme"
 import { cn } from "#/lib/utils"
 
+// Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
+// Fica em hex explícito de propósito (ver STYLE_CONTRACT §8) — mapeá-la para
+// tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
+// que duas categorias são a mesma coisa.
+const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#6366f1", "#ef4444", "#f43f5e", "#f97316"]
+
 export const Route = createFileRoute("/monitoramento")({
 	component: MonitoramentoPage,
 })
@@ -801,19 +807,7 @@ function MonitoramentoPage() {
 											<PieChart>
 												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
 													{managerialData.topRacs.map((_, index) => (
-														<Cell
-															key={`cell-${index}`}
-															fill={
-																[
-																	"var(--series-bmp)",
-																	"var(--series-pareto)",
-																	"var(--series-pareto)",
-																	"var(--destructive)",
-																	"var(--destructive)",
-																	"var(--warning)",
-																][index % 6]
-															}
-														/>
+														<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
 													))}
 												</Pie>
 												<Tooltip

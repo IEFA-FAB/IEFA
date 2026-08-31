@@ -137,7 +137,7 @@ function RouteComponent() {
 					</div>
 					<p className="text-sm text-muted-foreground mb-5 leading-relaxed">{item.purpose}</p>
 
-					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-warning/50 border-warning/30" : "bg-muted/50 border-border")}>
+					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-warning/10 border-warning/30" : "bg-muted/50 border-border")}>
 						<span className={cn("text-label flex items-center gap-1.5", item.highlighted ? "text-warning" : "text-muted-foreground")}>
 							<Search className="w-3 h-3" /> Exemplos de Consulta
 						</span>
@@ -152,7 +152,7 @@ function RouteComponent() {
 					</div>
 				</div>
 
-				<div className={cn("p-4 border-t", item.highlighted ? "bg-warning/30 border-warning/30" : "bg-card border-border")}>
+				<div className={cn("p-4 border-t", item.highlighted ? "bg-warning/10 border-warning/30" : "bg-card border-border")}>
 					{item.url ? (
 						<a
 							href={item.url}
@@ -239,7 +239,7 @@ function RouteComponent() {
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<LayoutDashboard className={cn("w-5 h-5", activeTab === "home" && !searchQuery ? "text-action" : "")} />
+						<LayoutDashboard className={cn("w-5 h-5", activeTab === "home" && !searchQuery ? "text-action-foreground" : "")} />
 						Visão Geral
 					</Button>
 
@@ -256,7 +256,7 @@ function RouteComponent() {
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<BarChart3 className={cn("w-5 h-5", activeTab === "3.1" && !searchQuery ? "text-action" : "")} />
+						<BarChart3 className={cn("w-5 h-5", activeTab === "3.1" && !searchQuery ? "text-action-foreground" : "")} />
 						Acompanhamento Contábil
 					</Button>
 
@@ -271,7 +271,7 @@ function RouteComponent() {
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<Users className={cn("w-5 h-5", activeTab === "3.2" && !searchQuery ? "text-action" : "")} />
+						<Users className={cn("w-5 h-5", activeTab === "3.2" && !searchQuery ? "text-action-foreground" : "")} />
 						Suporte ao Usuário
 					</Button>
 
@@ -286,7 +286,7 @@ function RouteComponent() {
 								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<Globe className={cn("w-5 h-5", activeTab === "geral" && !searchQuery ? "text-action" : "")} />
+						<Globe className={cn("w-5 h-5", activeTab === "geral" && !searchQuery ? "text-action-foreground" : "")} />
 						Sistemas e Guias
 					</Button>
 				</nav>
@@ -409,7 +409,7 @@ function RouteComponent() {
 												onClick={() => handleTabChange("3.1")}
 												className="bg-action hover:bg-action/80 text-action-foreground px-7 py-3.5 rounded-xl shadow-lg group"
 											>
-												<BarChart3 className="w-5 h-5 text-action group-hover:text-white transition-colors" />
+												<BarChart3 className="w-5 h-5 text-action-foreground" />
 												Acompanhamento Contábil
 											</Button>
 											<Button
@@ -580,8 +580,8 @@ function RouteComponent() {
 				</div>
 			</main>
 
-			{/* Rota fora do HubLayout: o link para os documentos legais precisa vir
-			    daqui — o LGPD.md exige o rodapé em toda tela do app. */}
+			{/* Dentro da coluna de conteúdo: a raiz é `md:flex-row`, e um filho direto
+				    viraria uma terceira coluna estreita em vez de rodapé. */}
 			<LegalFooter />
 		</div>
 	)

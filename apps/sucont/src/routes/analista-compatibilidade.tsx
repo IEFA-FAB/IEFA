@@ -76,7 +76,11 @@ const PAIRS = [
 	},
 ]
 
-const PAIR_COLORS = ["var(--destructive)", "var(--warning)", "var(--warning)"]
+// Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
+// Fica em hex explícito de propósito (ver STYLE_CONTRACT §8) — mapeá-la para
+// tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
+// que duas categorias são a mesma coisa.
+const PAIR_COLORS = ["#ef4444", "#f97316", "#eab308"]
 
 const CONFERENTES_MAP: Record<string, string> = {
 	"120001": "1S ELIANA",
@@ -1225,11 +1229,11 @@ DIREF/SUCONT/SUCONT-3
 													<div className="bg-action text-fab-blue font-mono text-sm px-2 py-1 rounded font-bold shadow-sm">#{idx + 1}</div>
 													<h3 className="text-xl font-bold text-white tracking-tight flex flex-wrap items-center gap-3">
 														{report.ugName} (UG {report.ugCode})
-														<span className="text-xs font-medium bg-white/20 text-action px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
+														<span className="text-xs font-medium bg-white/20 text-surface-inverted-accent px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
 															<Building2 className="w-3.5 h-3.5" />
 															{report.superior} / {report.ods}
 														</span>
-														<span className="text-xs font-medium bg-white/20 text-action px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
+														<span className="text-xs font-medium bg-white/20 text-surface-inverted-accent px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
 															<Users className="w-3.5 h-3.5" />
 															Conferente: {report.conferente}
 														</span>

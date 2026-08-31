@@ -19,16 +19,11 @@ const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
 	return numA - numB
 })
 
-const COLORS = [
-	"var(--series-bmp)",
-	"var(--success)",
-	"var(--warning)",
-	"var(--destructive)",
-	"var(--series-pareto)",
-	"var(--destructive)",
-	"var(--series-consumo)",
-	"var(--warning)",
-]
+// Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
+// Fica em hex explícito de propósito (ver STYLE_CONTRACT §8) — mapeá-la para
+// tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
+// que duas categorias são a mesma coisa.
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"]
 
 const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
 
