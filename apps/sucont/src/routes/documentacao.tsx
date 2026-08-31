@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertCircle, ArrowLeft, BarChart3, FileText, HelpCircle, History, Layout, Loader2, Plus, Printer, Settings, Shield, Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
+import { InstitutionalCredits } from "#/components/institutional-credits"
 import { LegalFooter } from "#/components/legal-footer"
 import { DataAnalysisReport } from "#/components/plataforma-doc/data-analysis-report"
 import { FabDocument } from "#/components/plataforma-doc/fab-document"
@@ -276,14 +277,13 @@ function PlataformaDoc() {
 			<footer className="no-print bg-card border-t border-border px-8 py-3 flex items-center justify-between text-label text-muted-foreground">
 				<div className="flex items-center gap-2">
 					<div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-					<span>Sistema de Apoio à Gestão Patrimonial</span>
-				</div>
-				<div className="flex items-center gap-4">
-					<span>v2.4.0-PRO</span>
-					<span className="w-1 h-1 bg-muted rounded-full" />
-					<span>Status: Operacional</span>
+					<span>Documentação</span>
 				</div>
 			</footer>
+
+			{/* Único lugar dos créditos institucionais: eles repetiam em seis rotas de
+			    trabalho, onde ninguém os consulta. */}
+			<InstitutionalCredits className="px-8 pb-10" />
 
 			{/* Rota fora do HubLayout: o link para os documentos legais precisa vir
 			    daqui — o LGPD.md exige o rodapé em toda tela do app. */}

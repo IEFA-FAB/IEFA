@@ -844,13 +844,7 @@ function SubitensGenericos() {
 								</div>
 							</div>
 
-							<div className="mt-16 text-center max-w-4xl mx-auto px-6">
-								<p className="text-label text-fab-blue/40 leading-relaxed">
-									Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel
-									Int Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp
-									CCO Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
-								</p>
-							</div>
+							<div className="mt-16 text-center max-w-4xl mx-auto px-6"></div>
 						</motion.div>
 					) : (
 						<motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
@@ -1864,7 +1858,6 @@ function SubitensGenericos() {
 									<div className="w-2 h-2 rounded-full bg-fab-gold" />
 									<Plane size={24} className="text-fab-blue -rotate-45" />
 								</div>
-								<p className="text-label text-fab-blue/40 mb-2">Força Aérea Brasileira • Asas que protegem o país</p>
 								<p className="text-label text-fab-blue/20">Analista SUCONT • DIREF • 2026</p>
 							</footer>
 						</motion.div>

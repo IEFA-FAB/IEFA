@@ -235,13 +235,7 @@ function CruzamentoContas() {
 
 					<FileUpload onFileSelect={handleFileSelect} isLoading={isLoading} />
 
-					<div className="mt-16 max-w-3xl text-center opacity-70 hover:opacity-100 transition-opacity">
-						<p className="text-[11px] text-muted-foreground leading-relaxed">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
-							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
-							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
-						</p>
-					</div>
+					<div className="mt-16 max-w-3xl text-center opacity-70 hover:opacity-100 transition-opacity"></div>
 				</div>
 			) : (
 				<div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

@@ -13,7 +13,6 @@ import {
 	Menu,
 	Plane,
 	Search,
-	ShieldCheck,
 	Star,
 	TrendingUp,
 	Users,
@@ -290,20 +289,6 @@ function RouteComponent() {
 						Sistemas e Guias
 					</Button>
 				</nav>
-
-				<div className="p-5 border-t border-surface-inverted-border bg-surface-inverted/50">
-					<div className="bg-surface-inverted/80 border border-surface-inverted-border rounded-xl p-4 flex flex-col gap-3">
-						<div className="flex items-center gap-2">
-							<ShieldCheck className="w-4 h-4 text-action" />
-							<span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Uso Institucional</span>
-						</div>
-						<p className="text-hint text-muted-foreground leading-relaxed">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
-							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
-							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
-						</p>
-					</div>
-				</div>
 			</aside>
 
 			{/* Mobile Overlay */}
@@ -383,24 +368,10 @@ function RouteComponent() {
 									<Plane className="absolute -right-10 top-10 w-96 h-96 text-surface-inverted-foreground/[0.03] transform rotate-[-30deg] pointer-events-none" />
 
 									<div className="relative z-10 max-w-3xl">
-										<div className="flex flex-wrap items-center gap-3 mb-6">
-											<span className="px-3 py-1 bg-action/20 border border-action/30 rounded-full text-xs font-bold tracking-widest text-surface-inverted-accent uppercase flex items-center gap-1.5">
-												<ShieldCheck className="w-3.5 h-3.5" /> Força Aérea Brasileira
-											</span>
-											<span className="px-3 py-1 bg-surface-inverted/50 border border-surface-inverted-border rounded-full text-xs font-bold tracking-widest text-surface-inverted-muted uppercase">
-												DIREF • SUCONT
-											</span>
-										</div>
-
 										<h2 className="text-4xl sm:text-5xl font-bold mb-5 tracking-tight leading-[1.1]">
 											Centro de Monitoramento Contábil <br className="hidden sm:block" />
 											<span className="text-surface-inverted-accent">da SUCONT-3</span>
 										</h2>
-
-										<p className="text-surface-inverted-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-2xl font-medium">
-											Plataforma centralizada para ferramentas de análise contábil e suporte ao usuário. Promovendo excelência, padronização e apoio à tomada de
-											decisão no Comando da Aeronáutica.
-										</p>
 
 										<div className="flex flex-wrap gap-4">
 											<Button

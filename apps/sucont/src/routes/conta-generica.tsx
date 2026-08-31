@@ -893,13 +893,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 						))}
 					</div>
 
-					<div className="mt-8 text-center px-6 max-w-3xl mx-auto opacity-70">
-						<p className="text-hint text-muted-foreground leading-relaxed font-medium">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
-							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
-							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
-						</p>
-					</div>
+					<div className="mt-8 text-center px-6 max-w-3xl mx-auto opacity-70"></div>
 				</>
 			)}
 

@@ -207,11 +207,6 @@ function AnalistaSaldoAlongado() {
 					{/* Footer */}
 					<div className="text-center max-w-4xl mx-auto px-6">
 						<div className="h-px w-24 bg-muted mx-auto mb-6" />
-						<p className="text-[11px] text-muted-foreground leading-relaxed font-medium uppercase tracking-wider">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
-							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
-							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
-						</p>
 					</div>
 				</div>
 			) : (

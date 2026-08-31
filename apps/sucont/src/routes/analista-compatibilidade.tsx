@@ -1046,13 +1046,7 @@ DIREF/SUCONT/SUCONT-3
 					</div>
 
 					{/* Footer note */}
-					<div className="text-center opacity-70 hover:opacity-100 transition-opacity">
-						<p className="text-hint text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
-							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
-							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
-						</p>
-					</div>
+					<div className="text-center opacity-70 hover:opacity-100 transition-opacity"></div>
 				</div>
 			)}
 

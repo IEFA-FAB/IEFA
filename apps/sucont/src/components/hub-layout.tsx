@@ -51,15 +51,6 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 
 				<div className="mt-auto flex flex-col gap-3">
 					<UserBlock />
-					<div className="p-4 bg-muted/50 rounded-2xl border border-border">
-						<div className="flex items-center gap-2 mb-2">
-							<ShieldCheck className="w-3 h-3 text-tech-blue" />
-							<span className="text-label text-muted-foreground">Uso Institucional</span>
-						</div>
-						<p className="text-hint text-muted-foreground leading-relaxed">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).
-						</p>
-					</div>
 				</div>
 			</aside>
 
@@ -99,19 +90,9 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 						</div>
 
 						<div className="relative z-10">
-							<div className="flex flex-wrap gap-2 mb-6">
-								<span className="text-label text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10">Força Aérea Brasileira</span>
-								<span className="text-label text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10">DIREF • SUCONT</span>
-							</div>
-
 							<h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-4 leading-tight">
 								SUCONT-4 <span className="text-tech-cyan">HUB</span>
 							</h1>
-
-							<p className="text-white/70 max-w-2xl text-sm leading-relaxed mb-10">
-								Plataforma centralizada para ferramentas de análise contábil e suporte ao usuário. Promovendo excelência, padronização e apoio à tomada de
-								decisão no Comando da Aeronáutica.
-							</p>
 
 							<div className="flex flex-wrap gap-3 md:gap-4">
 								{NAV_TABS.map((tab) => (
@@ -137,23 +118,12 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 
 				{/* Footer */}
 				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
-					<div className="flex gap-8">
-						<SystemStatus />
-						<div className="flex flex-col">
-							<span className="text-label font-mono text-muted-foreground">Versão Hub</span>
-							<span className="text-xs font-mono text-muted-foreground">v4.0.0-START</span>
-						</div>
-					</div>
 					<div className="flex flex-col items-center gap-2 md:items-end">
 						<LegalFooterLinks
 							className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
 							linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
 						/>
-						<div className="text-hint font-mono text-muted-foreground text-center md:text-right">
-							© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
-							<br />
-							ACESSO RESTRITO
-						</div>
+						<p className="text-hint font-mono text-muted-foreground text-center md:text-right">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
 					</div>
 				</footer>
 			</div>
@@ -348,40 +318,6 @@ function HubSearchBar() {
 					<X className="w-3.5 h-3.5" />
 				</Button>
 			)}
-		</div>
-	)
-}
-
-/**
- * Status real do SSR, sondando a mesma rota `/health` que o ALB usa. Antes era um
- * texto fixo "OPERACIONAL", que por definição nunca informava nada.
- */
-function SystemStatus() {
-	const { data, isPending, isError } = useQuery({
-		queryKey: ["sucont", "health"],
-		queryFn: async () => {
-			const res = await fetch("/health", { headers: { accept: "text/html" } })
-			if (!res.ok) throw new Error(`health ${res.status}`)
-			return true
-		},
-		// URL relativa não resolve no SSR: a sonda é só do browser.
-		enabled: typeof window !== "undefined",
-		refetchInterval: 60_000,
-		retry: 1,
-	})
-
-	const state = isPending ? "checking" : isError || !data ? "down" : "up"
-	const label = state === "checking" ? "VERIFICANDO" : state === "up" ? "OPERACIONAL" : "INSTÁVEL"
-	const tone = state === "checking" ? "text-muted-foreground" : state === "up" ? "text-success" : "text-destructive"
-	const dot = state === "checking" ? "bg-muted" : state === "up" ? "bg-success" : "bg-destructive"
-
-	return (
-		<div className="flex flex-col">
-			<span className="text-label font-mono text-muted-foreground">Status do Sistema</span>
-			<span className={`text-xs font-mono flex items-center gap-2 ${tone}`} aria-live="polite">
-				<span className={`w-1.5 h-1.5 rounded-full ${dot} ${state === "checking" ? "animate-pulse" : ""}`} />
-				{label}
-			</span>
 		</div>
 	)
 }
