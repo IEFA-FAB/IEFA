@@ -172,24 +172,45 @@ quem não tem o nível entrega um 403 depois do trabalho feito, sem mensagem.
 
 ## 8. Dívida registrada
 
-Inventário medido em 2026-08-30, para que a migração tenha linha de base. Isto é
+Inventário medido em 2026-08-31, para que a migração tenha linha de base. Isto é
 dívida conhecida, não exceção permitida: código novo segue o contrato.
 
 | Item | Volume | Onde |
 |------|--------|------|
-| Classes de paleta Tailwind crua | 2.743 ocorrências, 45 arquivos | `slate` 1.968, `blue` 269, `red` 165, `emerald` 163, `amber` 98 |
-| `<button>` nativo | 169 | todas as rotas |
+| Classes de paleta Tailwind crua | **450** (de 2.743) | `blue` 203, `slate` 136, `indigo` 35, `emerald` 19 |
+| `<button>` nativo | 170 | todas as rotas |
 | `<input>` nativo | 73 | todas as rotas |
-| `isDarkMode` por prop | 226 ocorrências, 9 arquivos | módulo `auditor` |
-| Tema global mutado por rota | 1 | `routes/auditor.tsx` |
-| `title=` como tooltip | 19 | diversos |
+| Texto abaixo de 11px | 202 (`text-[8px]`…`[10px]`) | `auditor/components/`, `plataforma-doc/` |
 | `font-black` / `font-extrabold` | 115 | diversos |
-| Texto abaixo de 11px | 51 (`text-[9px]`, `text-[8px]`) | `auditor/components/`, `plataforma-doc/` |
-| Radius arbitrário | 23 (`rounded-[40px]`, `[32px]`, `[2rem]`) | `hub-layout`, `subitens-genericos` |
+| Radius arbitrário | 38 (`rounded-[40px]`, `[32px]`, `rounded-3xl`) | `hub-layout`, `subitens-genericos` |
+| `backdrop-blur` decorativo | 28 | diversos |
+| `title=` como tooltip | 19 | diversos |
 | `Select` em Radix | 1 primitivo, 18 consumidores | `components/ui/select.tsx` |
 | Rotas fora do `HubLayout` | 4 | `auditor`, `centro-monitoramento`, `subitens-genericos`, `documentacao` — sem `LegalFooterLinks`, exigido pelo `LGPD.md` |
 | Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos` 1.885, `conta-generica` 1.811, `analista-compatibilidade` 1.666, `monitoramento` 1.317 |
 | `CustomSelect` reimplementado | 1 | `auditor/components/CustomSelect.tsx` |
+
+Resolvido desde a primeira medição: a prop `isDarkMode` (226 ocorrências em 9
+arquivos) e a rota que mutava `document.documentElement.classList` — o módulo do
+auditor passou a ser temático por token, com a classe `dark` escopada ao próprio
+container.
+
+### As duas decisões que faltam para zerar a paleta
+
+O que sobrou não é mecânico: são dois julgamentos de produto que a tabela do
+codemod não pode tomar sozinha.
+
+1. **O que `blue` significa** (203 ocorrências). No auditor `bg-blue-600` é a ação
+   primária, `text-blue-600` é ênfase e `bg-blue-50` é destaque de seleção. O
+   sistema do sisub manda ação primária para `bg-primary`, que aqui é quase preto
+   — trocaria a identidade visual do módulo. As saídas honestas são: adotar
+   `primary` e aceitar a mudança, ou declarar um token de ação próprio do sucont
+   (a família `fab-*` já tem um azul real, `fab-500`) e mapear tudo para ele.
+2. **Superfície invertida** (136 de `slate`, quase toda em painel escuro dentro de
+   página clara — herói do hub, `centro-monitoramento`, `analista-compatibilidade`).
+   Ali a escala roda invertida de propósito: `text-slate-300` sobre `bg-slate-900`
+   é o texto legível. Tokenizar isso pede um par novo (`--surface-inverted` /
+   `--surface-inverted-foreground`), não a reutilização de `card`/`foreground`.
 
 Patterns que o sisub tem e o sucont ainda não: `field.tsx` (formulários) e
 `item.tsx` (linhas de lista de entidade). Enquanto não existirem aqui, formulário
