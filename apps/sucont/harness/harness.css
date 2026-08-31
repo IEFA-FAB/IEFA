@@ -1,0 +1,10 @@
+/*
+ * Folha do harness. Importa a do app e declara explicitamente onde procurar
+ * classes: com o root do Vite em `harness/`, o Tailwind escaneava só este
+ * diretório e não gerava os utilitários usados DENTRO dos componentes — o
+ * `w-10 h-10` do ícone do StatCard saía sem regra e o card renderizava sem
+ * layout. Sem este `@source` o harness verifica só o que o próprio harness
+ * escreve, o que o torna inútil como conferência.
+ */
+@import "../src/styles.css";
+@source "../src";

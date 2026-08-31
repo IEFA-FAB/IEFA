@@ -4,6 +4,7 @@ import { useState } from "react"
 import { FileUpload } from "#/components/cruzamento/FileUpload"
 import { Report } from "#/components/cruzamento/Report"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
 import type { ReportData } from "#/lib/cruzamento/analyzer"
 import { analyzeData, parseFile } from "#/lib/cruzamento/analyzer"
 
@@ -52,14 +53,16 @@ function CruzamentoContas() {
 
 				<div className="flex items-center gap-3 ml-4">
 					{reportData && (
-						<button
+						<Button
 							type="button"
+							variant="outline"
+							size="sm"
 							onClick={handleReset}
 							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
 						>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova Análise
-						</button>
+						</Button>
 					)}
 					<Link
 						to="/"
@@ -90,9 +93,9 @@ function CruzamentoContas() {
 
 					<div className="w-full max-w-2xl mb-10 space-y-4">
 						{/* QUESTÃO 43 */}
-						<div className="bg-blue-50 border border-blue-300 p-5 rounded-xl shadow-sm text-left">
-							<h3 className="text-xs font-bold text-[#0033A0] uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
-							<p className="text-sm text-blue-900 font-medium leading-relaxed">
+						<div className="bg-action/10 border border-action/30 p-5 rounded-xl shadow-sm text-left">
+							<h3 className="text-xs font-bold text-action uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
+							<p className="text-sm text-action font-medium leading-relaxed">
 								<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis
 								com os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?
 							</p>
@@ -100,25 +103,26 @@ function CruzamentoContas() {
 
 						{/* CAMINHO NO TESOURO GERENCIAL */}
 						<div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-							<button
+							<Button
 								type="button"
+								variant="ghost"
 								onClick={() => setShowPath(!showPath)}
-								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors text-left"
+								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted/80 transition-colors text-left"
 							>
 								<div className="flex items-center gap-3">
 									<MapIcon className="w-5 h-5 text-warning" />
 									<span className="font-bold text-foreground">Como extrair o relatório no Tesouro Gerencial?</span>
 								</div>
 								{showPath ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
-							</button>
+							</Button>
 
 							{showPath && (
-								<div className="p-6 border-t border-border bg-warning/10/30">
+								<div className="p-6 border-t border-border bg-warning/10">
 									<p className="text-sm text-foreground mb-4">
 										Para gerar a planilha compatível com este analisador, acesse o Tesouro Gerencial e siga o caminho abaixo:
 									</p>
 									<div className="bg-card border border-border rounded-lg p-4 font-mono text-xs text-muted-foreground leading-relaxed shadow-inner">
-										<span className="font-bold text-[#0033A0]">TESOURO GERENCIAL</span>
+										<span className="font-bold text-action">TESOURO GERENCIAL</span>
 										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>Relatórios Compartilhados</span>
 										<span className="mx-2 text-muted-foreground">{">"}</span>
@@ -144,23 +148,24 @@ function CruzamentoContas() {
 
 						{/* CONTEXTO CONTÁBIL */}
 						<div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-							<button
+							<Button
 								type="button"
+								variant="ghost"
 								onClick={() => setShowContext(!showContext)}
-								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors text-left"
+								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted/80 transition-colors text-left"
 							>
 								<div className="flex items-center gap-3">
-									<BookOpen className="w-5 h-5 text-blue-600" />
+									<BookOpen className="w-5 h-5 text-action" />
 									<span className="font-bold text-foreground">Contexto Contábil das Contas Analisadas</span>
 								</div>
 								{showContext ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
-							</button>
+							</Button>
 
 							{showContext && (
 								<div className="p-6 border-t border-border space-y-6 text-sm text-foreground leading-relaxed">
 									<div className="bg-muted/50 p-4 rounded-lg border border-border space-y-4 mb-6">
 										<div>
-											<h4 className="font-bold text-[#0033A0] mb-1 uppercase tracking-wider text-xs">Objetivo da Análise</h4>
+											<h4 className="font-bold text-action mb-1 uppercase tracking-wider text-xs">Objetivo da Análise</h4>
 											<p className="text-muted-foreground">
 												Verificar a conformidade e o espelhamento entre contas contábeis correlatas, garantindo que os registros representem de forma fidedigna
 												os fatos administrativos e a situação patrimonial do COMAER.
@@ -184,7 +189,7 @@ function CruzamentoContas() {
 
 									<div>
 										<h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
-											<span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-mono">897210300</span>
+											<span className="bg-action/15 text-action px-2 py-0.5 rounded text-xs font-mono">897210300</span>
 											EM COBRANÇA
 										</h4>
 										<p className="mb-2">

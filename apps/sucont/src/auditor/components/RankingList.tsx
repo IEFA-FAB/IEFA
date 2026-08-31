@@ -1,5 +1,6 @@
 import { Activity, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, MessageSquareText, TrendingDown, TrendingUp } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { FinancialRecord } from "../types"
 import { AccountGroup } from "../types"
@@ -110,31 +111,31 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		switch (category) {
 			case "REDUCAO_CONTINUA":
 				return {
-					color: "bg-success/10 text-success border-emerald-500/30",
+					color: "bg-success/10 text-success border-success/30",
 					icon: ArrowDownRight,
 					label: "Redução Contínua",
 				}
 			case "REDUCAO_PONTUAL":
 				return {
-					color: "bg-success/10 text-success border-emerald-500/30",
+					color: "bg-success/10 text-success border-success/30",
 					icon: ArrowDown,
 					label: "Redução Pontual",
 				}
 			case "AUMENTO_CONTINUO":
 				return {
-					color: "bg-destructive/10 text-destructive border-red-500/30",
+					color: "bg-destructive/10 text-destructive border-destructive/30",
 					icon: ArrowUpRight,
 					label: "Aumento Contínuo",
 				}
 			case "OSCILACAO_ATIPICA":
 				return {
-					color: "bg-warning/10 text-warning border-orange-500/30",
+					color: "bg-warning/10 text-warning border-warning/30",
 					icon: Activity,
 					label: "Oscilação Atípica",
 				}
 			default:
 				return {
-					color: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
+					color: "bg-muted/10 text-muted-foreground border-border/30",
 					icon: ArrowRight,
 					label: "Neutro",
 				}
@@ -153,12 +154,12 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		return (
 			<div
 				key={item.id}
-				className={`relative p-3 rounded-xl border backdrop-blur-md transition-all group mb-2
+				className={`relative p-3 rounded-xl border transition-all group mb-2
           ${isWorse ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10" : "bg-success/5 border-success/20 hover:bg-success/10"}`}
 			>
 				<div
-					className={`absolute -left-1 top-3 w-5 h-5 flex items-center justify-center text-[9px] font-bold rounded shadow-lg z-10
-          ${isWorse ? "bg-destructive text-white" : "bg-success text-white"}`}
+					className={`absolute -left-1 top-3 w-5 h-5 flex items-center justify-center text-hint font-bold rounded shadow-lg z-10
+          ${isWorse ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}`}
 				>
 					{rank}
 				</div>
@@ -169,13 +170,11 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 							<h4 className={`font-bold text-sm truncate text-foreground`}>{item.ug}</h4>
 
 							<div className="group/tooltip relative flex items-center">
-								<span
-									className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider whitespace-nowrap cursor-help ${catConfig.color}`}
-								>
+								<span className={`flex items-center gap-1 text-label px-2 py-0.5 rounded border whitespace-nowrap cursor-help ${catConfig.color}`}>
 									{catConfig.label}
 								</span>
 								<div
-									className={`absolute bottom-full left-0 mb-2 w-64 p-2 rounded shadow-xl text-[10px] opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20
+									className={`absolute bottom-full left-0 mb-2 w-64 p-2 rounded shadow-xl text-hint opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-20
                   bg-card text-foreground border border-border`}
 								>
 									{item.tooltipText}
@@ -184,21 +183,22 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 						</div>
 
 						{onSendMessage && (
-							<button
-								type="button"
+							<Button
+								variant="outline"
+								size="icon-xs"
 								onClick={(e) => {
 									e.stopPropagation()
 									onSendMessage(item, "RANKING")
 								}}
-								className={`p-1 rounded transition-colors border
-                  bg-card text-muted-foreground hover:text-foreground border-border`}
+								className="bg-card text-muted-foreground hover:text-foreground border-border"
+								aria-label="Gerar mensagem SIAFI"
 							>
 								<MessageSquareText className="w-3.5 h-3.5" />
-							</button>
+							</Button>
 						)}
 					</div>
 
-					<div className={`text-[10px] flex items-center gap-1.5 text-muted-foreground`}>
+					<div className={`text-hint flex items-center gap-1.5 text-muted-foreground`}>
 						<span>{item.cod}</span>
 						<span className="opacity-50">•</span>
 						<span>{item.group === AccountGroup.CONSUMO ? "CONSUMO" : item.group === AccountGroup.BMP ? "BMP" : "INTANGÍVEL"}</span>
@@ -207,7 +207,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 					<div className={`pt-2 mt-1 border-t flex items-center justify-between border-border`}>
 						<div className="flex items-center gap-4">
 							<div className="flex flex-col">
-								<span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Anterior</span>
+								<span className="text-label text-muted-foreground">Anterior</span>
 								<span className={`text-[11px] font-mono text-muted-foreground`}>
 									<CurrencyDisplay value={prevVal} />
 								</span>
@@ -218,7 +218,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 							</div>
 
 							<div className="flex flex-col">
-								<span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Atual</span>
+								<span className="text-label text-muted-foreground">Atual</span>
 								<span className={`text-[11px] font-mono font-bold text-foreground`}>
 									<CurrencyDisplay value={currVal} />
 								</span>
@@ -226,7 +226,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 						</div>
 
 						<div className="flex flex-col items-end">
-							<span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Variação</span>
+							<span className="text-label text-muted-foreground">Variação</span>
 							<span className={`text-[11px] font-mono font-bold ${isWorse ? "text-destructive" : "text-success"}`}>
 								{isWorse ? "+" : "-"}
 								<CurrencyDisplay value={deltaVal} />
@@ -243,7 +243,17 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			<div className="flex items-center justify-between px-2">
 				<div className="flex items-center gap-2">
 					<span className={`text-xs font-bold text-muted-foreground`}>Filtro por Tipo:</span>
-					<Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}>
+					<Select
+						items={{
+							TODOS: "Todas as Categorias",
+							AUMENTO_CONTINUO: "Aumento Contínuo",
+							OSCILACAO_ATIPICA: "Oscilação Atípica",
+							REDUCAO_CONTINUA: "Redução Contínua",
+							REDUCAO_PONTUAL: "Redução Pontual",
+						}}
+						value={categoryFilter}
+						onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}
+					>
 						<SelectTrigger
 							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
                bg-muted/50 border-border text-foreground`}
@@ -263,15 +273,15 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 
 			<div className="flex flex-col lg:flex-row h-full w-full gap-4 overflow-hidden">
 				<div
-					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
+					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border shadow-xl
            border-border bg-card`}
 				>
-					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-red-500/20">
+					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-destructive/20">
 						<div className="flex items-center gap-2">
 							<TrendingUp className="w-4 h-4 text-destructive" />
 							<h3 className={`text-xs font-bold uppercase tracking-wider text-destructive`}>Piora no Período</h3>
 						</div>
-						{comparisonLabel && <span className={`text-[10px] pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
+						{comparisonLabel && <span className={`text-hint pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
 						{worsened.length === 0 ? (
@@ -283,15 +293,15 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 				</div>
 
 				<div
-					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border backdrop-blur-sm shadow-xl
+					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border shadow-xl
            border-border bg-card`}
 				>
-					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-emerald-500/20">
+					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-success/20">
 						<div className="flex items-center gap-2">
 							<TrendingDown className="w-4 h-4 text-success" />
 							<h3 className={`text-xs font-bold uppercase tracking-wider text-success`}>Melhoria no Período</h3>
 						</div>
-						{comparisonLabel && <span className={`text-[10px] pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
+						{comparisonLabel && <span className={`text-hint pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
 						{improved.length === 0 ? (

@@ -1,7 +1,9 @@
 import { Activity, AlertTriangle, BarChart3, FileImage, Filter, PieChart as PieChartIcon, Target, TrendingUp, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { chartChrome } from "#/lib/chart-theme"
 import type { UgConsolidated } from "../utils/analytics"
 import { exportElementToImage } from "../utils/exportUtils"
 import { getUgHierarchy } from "../utils/hierarchy"
@@ -17,6 +19,10 @@ const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
 	return numA - numB
 })
 
+// Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
+// Fica em hex explícito de propósito (ver STYLE_CONTRACT §8) — mapeá-la para
+// tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
+// que duas categorias são a mesma coisa.
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"]
 
 const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
@@ -111,7 +117,11 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 					<Filter className="w-4 h-4 text-muted-foreground" />
 					<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
-					<Select value={selectedRac} onValueChange={setSelectedRac}>
+					<Select
+						items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
+						value={selectedRac}
+						onValueChange={(v) => setSelectedRac(v ?? "Geral")}
+					>
 						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
 							<SelectValue />
 						</SelectTrigger>
@@ -157,8 +167,8 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
 					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-indigo-100 rounded-xl">
-							<Target className="w-6 h-6 text-indigo-600" />
+						<div className="p-3 bg-action/10 rounded-xl">
+							<Target className="w-6 h-6 text-action" />
 						</div>
 						<div>
 							<p className="text-sm font-medium text-muted-foreground">Foco de Atuação (Pareto)</p>
@@ -176,45 +186,54 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 						<Activity className="w-5 h-5 text-fab-600" />
 						<h3 className="font-bold text-foreground">Análise de Pareto (Curva ABC)</h3>
 					</div>
-					<button
+					<Button
 						type="button"
 						onClick={() => exportElementToImage("analise-pareto", "mapa-risco-pareto")}
-						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+						variant="outline"
+						size="sm"
+						className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar</span>
-					</button>
+					</Button>
 				</div>
 				<div className="p-6 bg-card">
 					<div className="h-[400px]">
 						<ResponsiveContainer width="100%" height="100%">
 							<ComposedChart data={paretoData.slice(0, 30)}>
-								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-								<XAxis dataKey="ug" fontSize={10} tick={{ fill: "#64748b" }} angle={-45} textAnchor="end" height={80} />
-								<YAxis yAxisId="left" fontSize={10} tick={{ fill: "#64748b" }} tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} />
-								<YAxis yAxisId="right" orientation="right" fontSize={10} tick={{ fill: "#64748b" }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
+								<XAxis dataKey="ug" fontSize={10} tick={{ fill: chartChrome.axis }} angle={-45} textAnchor="end" height={80} />
+								<YAxis yAxisId="left" fontSize={10} tick={{ fill: chartChrome.axis }} tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} />
+								<YAxis
+									yAxisId="right"
+									orientation="right"
+									fontSize={10}
+									tick={{ fill: chartChrome.axis }}
+									domain={[0, 100]}
+									tickFormatter={(value) => `${value}%`}
+								/>
 								<Tooltip
 									formatter={(value, name) => (name === "balance" ? formatCurrency(Number(value)) : `${Number(value).toFixed(1)}%`)}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										border: "none",
 										borderRadius: "12px",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 									}}
 								/>
-								<Bar yAxisId="left" dataKey="balance" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+								<Bar yAxisId="left" dataKey="balance" fill={"var(--series-bmp)"} radius={[4, 4, 0, 0]} />
 								<Line
 									yAxisId="right"
 									type="monotone"
 									dataKey="cumulativePercentage"
-									stroke="#f59e0b"
+									stroke={"var(--warning)"}
 									strokeWidth={3}
-									dot={{ r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "white" }}
+									dot={{ r: 4, fill: "var(--warning)", strokeWidth: 2, stroke: chartChrome.surface }}
 								/>
 							</ComposedChart>
 						</ResponsiveContainer>
 					</div>
-					<div className="mt-4 p-4 bg-warning/10 border border-amber-100 rounded-xl">
+					<div className="mt-4 p-4 bg-warning/10 border border-warning/30 rounded-xl">
 						<p className="text-sm text-warning leading-relaxed text-center">
 							<strong>Estratégia de Intervenção:</strong> A concentração exposta pelo Princípio de Pareto demonstra que atuar em{" "}
 							<strong>{paretoUgs.length} UGs</strong> solucionará aproximadamente 80% do Risco Contábil do Comando da Aeronáutica.
@@ -231,14 +250,16 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 							<BarChart3 className="w-5 h-5 text-fab-600" />
 							<h3 className="font-bold text-foreground">Mapa de Risco Contábil por ODS</h3>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("risk-ods", "mapa-risco-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="p-6 flex-1 flex flex-col bg-card">
 						<div className="h-[280px] mb-6">
@@ -274,7 +295,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 									<Tooltip
 										formatter={(value) => formatCurrency(Number(value))}
 										contentStyle={{
-											backgroundColor: "white",
+											backgroundColor: chartChrome.surface,
 											border: "none",
 											borderRadius: "12px",
 											boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
@@ -287,7 +308,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 						<div className="overflow-x-auto mt-auto border border-border rounded-xl">
 							<table className="w-full text-sm text-left">
-								<thead className="text-xs text-muted-foreground uppercase bg-muted/50/50 border-b border-border">
+								<thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
 									<tr>
 										<th className="px-4 py-3 font-semibold">ODS</th>
 										<th className="px-4 py-3 font-semibold text-center">Incons.</th>
@@ -319,14 +340,16 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 							<PieChartIcon className="w-5 h-5 text-fab-600" />
 							<h3 className="font-bold text-foreground">Concentração por Órgão Superior</h3>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("risk-orgao", "mapa-risco-orgao")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="p-6 flex-1 flex flex-col bg-card">
 						<div className="h-[430px]">
@@ -346,22 +369,22 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 									}}
 									style={{ cursor: "pointer" }}
 								>
-									<CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+									<CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={chartChrome.grid} />
 									<XAxis type="number" hide />
-									<YAxis dataKey="name" type="category" fontSize={11} width={80} tick={{ fill: "#64748b" }} />
+									<YAxis dataKey="name" type="category" fontSize={11} width={80} tick={{ fill: chartChrome.axis }} />
 									<Tooltip
 										formatter={(value) => formatCurrency(Number(value))}
 										contentStyle={{
-											backgroundColor: "white",
+											backgroundColor: chartChrome.surface,
 											border: "none",
 											borderRadius: "12px",
 											boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 										}}
-										cursor={{ fill: "#f1f5f9" }}
+										cursor={{ fill: chartChrome.surfaceMuted }}
 									/>
 									<Bar
 										dataKey="balance"
-										fill="#6366f1"
+										fill={"var(--series-pareto)"}
 										radius={[0, 4, 4, 0]}
 										onClick={(d) => setSelectedDetailLevel({ type: "orgaoSuperior", name: String(d.name ?? "") })}
 										cursor="pointer"
@@ -381,20 +404,23 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 
 			{/* Modal - Detalhamento das UGs */}
 			{selectedDetailLevel && (
-				<div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-50 bg-overlay/50 flex items-center justify-center p-4">
 					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-lg font-bold text-foreground flex items-center gap-2">
 								<Activity className="w-5 h-5 text-fab-600" />
 								Detalhamento: {selectedDetailLevel.name}
 							</h3>
-							<button
+							<Button
 								type="button"
 								onClick={() => setSelectedDetailLevel(null)}
-								className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+								variant="ghost"
+								size="icon"
+								aria-label="Fechar"
+								className="hover:bg-muted rounded-full text-muted-foreground transition-colors"
 							>
 								<X className="w-5 h-5" />
-							</button>
+							</Button>
 						</div>
 						<div className="p-6 overflow-y-auto">
 							<p className="text-sm text-muted-foreground mb-4">
@@ -404,7 +430,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 								{detailedUgs.map((ug) => (
 									<div
 										key={ug.ug}
-										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/50 gap-2 hover:bg-muted transition-colors"
+										className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/50 gap-2 hover:bg-muted/80 transition-colors"
 									>
 										<div>
 											<p className="font-bold text-foreground">

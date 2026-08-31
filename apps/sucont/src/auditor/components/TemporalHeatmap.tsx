@@ -1,5 +1,6 @@
 import { ArrowUpDown, MessageSquareText } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
 import { formatFinancial, parseDateString, toShortDate } from "../services/dataProcessor"
 import type { FinancialRecord } from "../types"
 import { AccountGroup } from "../types"
@@ -95,23 +96,23 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 							label: "TODOS",
 							activeClass: "bg-primary text-primary-foreground",
 						},
-						{ id: AccountGroup.BMP, label: "BMP", activeClass: "text-white bg-destructive border-red-600" },
+						{ id: AccountGroup.BMP, label: "BMP", activeClass: "text-destructive-foreground bg-destructive border-destructive" },
 						{
 							id: AccountGroup.CONSUMO,
 							label: "CONSUMO",
-							activeClass: "text-white bg-blue-600 border-blue-600",
+							activeClass: "text-action-foreground bg-action border-action",
 						},
 						{
 							id: AccountGroup.INTANGIVEL,
 							label: "INTANGIVEL",
-							activeClass: "text-white bg-success border-emerald-600",
+							activeClass: "text-success-foreground bg-success border-success",
 						},
 					].map((tab) => (
 						<button
 							key={tab.id}
 							type="button"
 							onClick={() => setInternalGroupFilter(tab.id)}
-							className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap border border-transparent
+							className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap border border-transparent focus-visible:ring-[3px] focus-visible:ring-ring/50
                 ${internalGroupFilter === tab.id ? tab.activeClass : "bg-muted text-muted-foreground hover:bg-muted/70 border-border"}
               `}
 						>
@@ -120,16 +121,18 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 					))}
 				</div>
 
-				<button
+				<Button
 					type="button"
+					variant="outline"
+					size="sm"
 					onClick={() => setSortBy(sortBy === "value" ? "name" : "value")}
-					className={`hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-bold uppercase transition-all
-            ${sortBy === "value" ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20" : "bg-muted border-border text-muted-foreground"}
+					className={`hidden sm:flex items-center gap-1 uppercase font-bold
+            ${sortBy === "value" ? "bg-action text-action-foreground border-action shadow-lg hover:bg-action/90" : "bg-muted border-border text-muted-foreground"}
           `}
 				>
 					<ArrowUpDown className="w-3 h-3" />
 					{sortBy === "value" ? "Maior Valor" : "Alfabético"}
-				</button>
+				</Button>
 			</div>
 
 			{sortedUGs.length === 0 ? (
@@ -181,27 +184,28 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 										}}
 									>
 										<div className="flex justify-center h-12 items-center">
-											<button
+											<Button
 												type="button"
+												variant="outline"
+												size="icon"
 												onClick={() => {
 													const latest = ugRecords
 														.filter((r) => r.group === group)
 														.sort((a, b) => parseDateString(b.date).timestamp - parseDateString(a.date).timestamp)[0]
 													if (latest) onSendMessage(latest, "HEATMAP")
 												}}
-												className={`w-9 h-9 flex items-center justify-center rounded hover:text-white hover:bg-blue-600 transition-colors border shadow-sm bg-muted text-muted-foreground border-border`}
+												className="rounded hover:text-action-foreground hover:bg-action shadow-sm bg-muted text-muted-foreground border-border"
+												aria-label="Gerar mensagem SIAFI"
 											>
 												<MessageSquareText className="w-4 h-4" />
-											</button>
+											</Button>
 										</div>
 
 										<div
 											className={`sticky left-[50px] z-20 flex items-center h-12 overflow-hidden rounded-md border pr-2 shadow-[2px_0_5px_rgba(0,0,0,0.05)] bg-muted/90 backdrop-blur-md border-border`}
 											style={{ position: "sticky", left: 50, zIndex: 20 }}
 										>
-											<div
-												className={`w-10 h-full flex items-center justify-center text-[9px] font-black uppercase flex-shrink-0 ${getGroupBadgeClass(group)}`}
-											>
+											<div className={`w-10 h-full flex items-center justify-center text-label flex-shrink-0 ${getGroupBadgeClass(group)}`}>
 												{group === AccountGroup.BMP ? "BMP" : group === AccountGroup.CONSUMO ? "CN" : "INT"}
 											</div>
 											<div className={`flex-1 px-3 font-bold truncate text-sm text-foreground`}>{ug}</div>

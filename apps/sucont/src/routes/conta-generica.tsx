@@ -34,7 +34,10 @@ import type React from "react"
 import { useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { oracleContaGenericaFn } from "#/server/conta-generica.fn"
 
 // ── Data Maps ────────────────────────────────────────────────────────────────
@@ -764,14 +767,14 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 				</div>
 				<div className="flex items-center gap-3 ml-4">
 					{result && (
-						<button
-							type="button"
+						<Button
+							size="sm"
 							onClick={resetApp}
-							className="flex items-center gap-2 px-4 py-2 bg-fab-blue text-white hover:bg-fab-dark text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
+							className="gap-2 px-4 py-2 bg-fab-blue text-white hover:bg-fab-dark text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm"
 						>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova Missão
-						</button>
+						</Button>
 					)}
 					<Link
 						to="/"
@@ -794,7 +797,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 			{/* UPLOAD STATE */}
 			{!result && !isProcessing && (
 				<>
-					<div className="bg-card rounded-3xl shadow-2xl border border-fab-blue/20 p-10 max-w-3xl mx-auto mt-4 relative overflow-hidden">
+					<div className="bg-card rounded-xl shadow-2xl border border-fab-blue/20 p-10 max-w-3xl mx-auto mt-4 relative overflow-hidden">
 						<div className="absolute top-0 right-0 w-64 h-64 bg-fab-blue/5 rounded-bl-full -mr-10 -mt-10" />
 						<div className="absolute bottom-0 left-0 w-40 h-40 bg-fab-gold/10 rounded-tr-full -ml-10 -mb-10" />
 						<div className="absolute top-1/2 right-10 opacity-5 pointer-events-none transform -translate-y-1/2">
@@ -805,10 +808,10 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							<div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-fab-dark mb-6 border-4 border-fab-gold shadow-xl">
 								<Shield className="w-12 h-12 text-white" />
 							</div>
-							<h2 className="text-4xl font-black text-fab-dark mb-3 tracking-tight uppercase">ANALISTA SUCONT</h2>
+							<h2 className="text-4xl font-bold text-fab-dark mb-3 tracking-tight uppercase">ANALISTA SUCONT</h2>
 							<div className="flex items-center justify-center gap-3 mb-4">
 								<div className="h-[2px] w-16 bg-fab-gold" />
-								<span className="text-sm font-black text-fab-blue uppercase tracking-[0.3em]">Uso de Contas Contábeis Genéricas</span>
+								<span className="text-sm font-bold text-fab-blue uppercase tracking-[0.3em]">Uso de Contas Contábeis Genéricas</span>
 								<div className="h-[2px] w-16 bg-fab-gold" />
 							</div>
 							<p className="text-muted-foreground max-w-lg mx-auto font-medium leading-relaxed">
@@ -817,14 +820,14 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							</p>
 							<div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-fab-dark border border-fab-gold/30 rounded-full shadow-md">
 								<Compass className="w-4 h-4 text-fab-gold" />
-								<span className="text-[10px] font-black text-white uppercase tracking-widest">Questão 35 do Roteiro de Acompanhamento Contábil (SUCONT-3)</span>
+								<span className="text-label text-white">Questão 35 do Roteiro de Acompanhamento Contábil (SUCONT-3)</span>
 							</div>
 						</div>
 
 						<div className="mb-8 relative z-10 bg-muted/50 border border-border rounded-xl p-5 text-left shadow-sm">
 							<div className="flex items-center gap-2 mb-3">
 								<Info className="w-4 h-4 text-fab-blue" />
-								<span className="text-xs font-black text-foreground uppercase tracking-widest">Caminho do Relatório no Tesouro Gerencial</span>
+								<span className="text-xs font-bold text-foreground uppercase tracking-widest">Caminho do Relatório no Tesouro Gerencial</span>
 							</div>
 							<div className="text-[11px] text-muted-foreground font-mono leading-relaxed bg-card p-4 rounded-lg border border-border shadow-inner break-words">
 								<span className="font-bold text-fab-blue">TESOURO GERENCIAL</span>
@@ -836,7 +839,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 						<button
 							type="button"
-							className={`w-full border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer relative z-10 ${
+							className={`w-full border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer relative z-10 focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
 								file ? "border-fab-gold bg-fab-blue/5" : "border-fab-blue/30 hover:border-fab-blue hover:bg-fab-blue/5"
 							}`}
 							onDragOver={handleDragOver}
@@ -849,10 +852,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									<Upload className="w-10 h-10" />
 								</div>
 								<div>
-									<p className="text-lg font-black text-foreground uppercase tracking-tight">{file ? file.name : "Arraste o Relatório do Tesouro Gerencial"}</p>
-									<p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">
-										Identificação automática de contas com final "99"
-									</p>
+									<p className="text-lg font-bold text-foreground uppercase tracking-tight">{file ? file.name : "Arraste o Relatório do Tesouro Gerencial"}</p>
+									<p className="text-label text-muted-foreground mt-2">Identificação automática de contas com final "99"</p>
 								</div>
 							</div>
 						</button>
@@ -879,21 +880,21 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								color: "emerald-600",
 								title: "Mensagens Automáticas",
 								text: "Geração automática de textos padronizados para envio via SIAFI às Unidades Gestoras, facilitando a cobrança e orientação técnica.",
-								borderHover: "hover:border-emerald-500/50",
+								borderHover: "hover:border-success/20",
 							},
 						].map(({ icon: Icon, color, title, text, borderHover }) => (
 							<div key={title} className={`bg-card p-6 rounded-2xl shadow-md border border-border ${borderHover} transition-colors group`}>
 								<div className={`w-12 h-12 bg-${color}/10 rounded-xl flex items-center justify-center mb-4`}>
 									<Icon className={`w-6 h-6 text-${color}`} />
 								</div>
-								<h3 className="text-xs font-black text-fab-dark uppercase tracking-widest mb-3">{title}</h3>
+								<h3 className="text-xs font-bold text-fab-dark uppercase tracking-widest mb-3">{title}</h3>
 								<p className="text-[12px] text-muted-foreground font-medium leading-relaxed">{text}</p>
 							</div>
 						))}
 					</div>
 
 					<div className="mt-8 text-center px-6 max-w-3xl mx-auto opacity-70">
-						<p className="text-[10px] text-muted-foreground leading-relaxed font-medium">
+						<p className="text-hint text-muted-foreground leading-relaxed font-medium">
 							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
 							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
 							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
@@ -921,13 +922,11 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								<Compass className="w-4 h-4 text-fab-blue" />
 							</div>
 							<div>
-								<h4 className="text-[10px] font-black text-fab-blue uppercase tracking-widest">Controle Interno SUCONT-3</h4>
+								<h4 className="text-label text-fab-blue">Controle Interno SUCONT-3</h4>
 								<p className="text-xs font-bold text-muted-foreground">Análise relativa à Questão 35 do Roteiro de Acompanhamento Contábil</p>
 							</div>
 						</div>
-						<div className="hidden sm:block px-3 py-1 bg-fab-gold/10 border border-fab-gold/20 rounded text-[9px] font-black text-fab-dark uppercase tracking-tighter">
-							Acompanhamento Contábil
-						</div>
+						<div className="hidden sm:block px-3 py-1 bg-fab-gold/10 border border-fab-gold/20 rounded text-label text-fab-dark">Acompanhamento Contábil</div>
 					</div>
 
 					{/* View tabs */}
@@ -941,7 +940,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								type="button"
 								key={id}
 								onClick={() => setActiveView(id as typeof activeView)}
-								className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+								className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
 									activeView === id ? "bg-fab-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted/50"
 								}`}
 							>
@@ -959,11 +958,11 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								<div className="p-2.5 bg-fab-blue/10 text-fab-blue rounded-lg">
 									<Building2 className="w-5 h-5" />
 								</div>
-								<h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Unidades Gestoras</h3>
+								<h3 className="text-label text-muted-foreground">Unidades Gestoras</h3>
 							</div>
 							<div className="flex items-baseline gap-2">
-								<p className="text-4xl font-black text-fab-blue">{totalUGs}</p>
-								<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Inconsistentes</p>
+								<p className="text-4xl font-bold text-fab-blue">{totalUGs}</p>
+								<p className="text-label text-muted-foreground">Inconsistentes</p>
 							</div>
 						</div>
 
@@ -973,11 +972,11 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								<div className="p-2.5 bg-fab-gold/10 text-fab-dark rounded-lg">
 									<Wallet className="w-5 h-5" />
 								</div>
-								<h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Contas Genéricas</h3>
+								<h3 className="text-label text-muted-foreground">Contas Genéricas</h3>
 							</div>
 							<div className="flex items-baseline gap-2">
-								<p className="text-4xl font-black text-fab-dark">{totalContas}</p>
-								<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Auditadas</p>
+								<p className="text-4xl font-bold text-fab-dark">{totalContas}</p>
+								<p className="text-label text-muted-foreground">Auditadas</p>
 							</div>
 						</div>
 
@@ -987,9 +986,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								<div className="p-2.5 bg-success/15 text-success rounded-lg">
 									<DollarSign className="w-5 h-5" />
 								</div>
-								<h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Volume Financeiro</h3>
+								<h3 className="text-label text-muted-foreground">Volume Financeiro</h3>
 							</div>
-							<p className="text-3xl font-black text-success">{formatCurrency(totalSaldoGeral)}</p>
+							<p className="text-3xl font-bold text-success">{formatCurrency(totalSaldoGeral)}</p>
 						</div>
 					</div>
 
@@ -999,7 +998,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							<div className="p-2 bg-fab-blue/10 rounded-lg">
 								<BookOpen className="w-5 h-5 text-fab-blue" />
 							</div>
-							<h3 className="text-sm font-black text-fab-dark uppercase tracking-widest">Referencial Metodológico - RAC</h3>
+							<h3 className="text-sm font-bold text-fab-dark uppercase tracking-widest">Referencial Metodológico - RAC</h3>
 						</div>
 						<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 							<div className="bg-muted/50 p-4 rounded-xl border border-border">
@@ -1011,7 +1010,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									natureza do fato contábil.
 								</p>
 							</div>
-							<div className="bg-warning/10/50 p-4 rounded-xl border border-amber-100/50">
+							<div className="bg-warning/10 p-4 rounded-xl border border-warning/20">
 								<h4 className="text-xs font-bold text-warning uppercase mb-3 flex items-center gap-2">
 									<AlertTriangle className="w-4 h-4 text-warning" /> Risco Contábil
 								</h4>
@@ -1020,7 +1019,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									decisão.
 								</p>
 							</div>
-							<div className="bg-success/10/50 p-4 rounded-xl border border-emerald-100/50">
+							<div className="bg-success/10 p-4 rounded-xl border border-success/20">
 								<h4 className="text-xs font-bold text-success uppercase mb-3 flex items-center gap-2">
 									<ShieldCheck className="w-4 h-4 text-success" /> Importância
 								</h4>
@@ -1034,13 +1033,13 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 					{/* RISK PANEL (estratégica + tática) */}
 					{foundAny && (activeView === "estrategica" || activeView === "tatica") && (
-						<div className="bg-muted/50 p-8 rounded-3xl shadow-inner border border-border">
+						<div className="bg-muted/50 p-8 rounded-xl shadow-inner border border-border">
 							<div className="flex items-center gap-4 mb-8 border-b-2 border-border pb-4">
 								<div className="w-12 h-12 bg-fab-dark rounded-xl flex items-center justify-center shadow-lg border border-fab-gold/50">
 									<Landmark className="w-7 h-7 text-fab-gold" />
 								</div>
 								<div>
-									<h2 className="text-2xl font-black text-fab-blue uppercase tracking-tighter">Painel de Risco Contábil do COMAER</h2>
+									<h2 className="text-2xl font-bold text-fab-blue uppercase tracking-tighter">Painel de Risco Contábil do COMAER</h2>
 									<p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Análise Estratégica e Tática - SUCONT / DIREF</p>
 								</div>
 							</div>
@@ -1054,8 +1053,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									{ label: "Média de Inconsistências / UG", value: (totalInconsistencias / (totalUGs || 1)).toFixed(1), color: "purple-500", type: "number" },
 								].map(({ label, value, color, type }) => (
 									<div key={label} className="bg-card p-4 rounded-xl border border-border shadow-sm">
-										<p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{label}</p>
-										<p className={`${type === "currency" ? "text-xl mt-2" : "text-3xl"} font-black text-${color}`}>{value}</p>
+										<p className="text-label text-muted-foreground mb-1">{label}</p>
+										<p className={`${type === "currency" ? "text-xl mt-2" : "text-3xl"} font-bold text-${color}`}>{value}</p>
 									</div>
 								))}
 							</div>
@@ -1066,7 +1065,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									<div className="bg-card p-6 rounded-2xl shadow-md border-t-4 border-t-fab-gold">
 										<div className="flex items-center gap-2 mb-6">
 											<TrendingUp className="w-5 h-5 text-fab-gold" />
-											<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Visão Estratégica (DIREF)</h3>
+											<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Visão Estratégica (DIREF)</h3>
 										</div>
 										<div className="space-y-6">
 											<div>
@@ -1080,7 +1079,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 															<div key={idx} className="flex flex-col gap-1">
 																<div className="flex justify-between items-center text-sm">
 																	<span className="font-bold text-fab-dark">{ods.ods}</span>
-																	<span className="font-black text-fab-blue">
+																	<span className="font-bold text-fab-blue">
 																		{pct}% <span className="text-xs text-muted-foreground font-normal">({ods.count})</span>
 																	</span>
 																</div>
@@ -1102,7 +1101,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 														return (
 															<div key={idx} className="flex justify-between items-center bg-muted/50 p-2 rounded-lg border border-border">
 																<span className="text-sm font-bold text-fab-dark">{os.os}</span>
-																<span className="text-sm font-black text-foreground">{pct}%</span>
+																<span className="text-sm font-bold text-foreground">{pct}%</span>
 															</div>
 														)
 													})}
@@ -1113,19 +1112,19 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 									{/* Decision support */}
 									<div className="space-y-6">
-										<div className="bg-success p-6 rounded-2xl shadow-xl border-b-4 border-emerald-800 flex flex-col justify-center text-white">
+										<div className="bg-success p-6 rounded-2xl shadow-xl border-b-4 border-success flex flex-col justify-center text-success-foreground">
 											<div className="flex items-center gap-3 mb-4">
-												<DollarSign className="w-8 h-8 text-emerald-200" />
-												<h3 className="text-lg font-black uppercase tracking-tight">Impacto Financeiro Total</h3>
+												<DollarSign className="w-8 h-8 text-success-foreground" />
+												<h3 className="text-lg font-bold uppercase tracking-tight">Impacto Financeiro Total</h3>
 											</div>
-											<p className="text-4xl font-black mb-2">{formatCurrency(totalFinancialImpact)}</p>
-											<p className="text-xs font-bold text-emerald-100 uppercase tracking-widest">Volume total em risco contábil</p>
+											<p className="text-4xl font-bold mb-2">{formatCurrency(totalFinancialImpact)}</p>
+											<p className="text-xs font-bold text-success-foreground uppercase tracking-widest">Volume total em risco contábil</p>
 										</div>
 
 										<div className="bg-fab-dark p-6 rounded-2xl shadow-xl border-t-4 border-t-fab-gold">
 											<div className="flex items-center gap-2 mb-6">
 												<AlertOctagon className="w-5 h-5 text-fab-gold" />
-												<h3 className="text-lg font-black text-white uppercase tracking-tight">Níveis Críticos</h3>
+												<h3 className="text-lg font-bold text-white uppercase tracking-tight">Níveis Críticos</h3>
 											</div>
 											<div className="space-y-4">
 												{[
@@ -1141,8 +1140,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													},
 												].map(({ label, value }) => (
 													<div key={label} className="bg-white/5 p-4 rounded-xl border border-white/10">
-														<p className="text-[9px] font-black text-fab-gold uppercase tracking-widest mb-1">{label}</p>
-														<p className="text-lg font-black text-white">{value}</p>
+														<p className="text-label text-fab-gold mb-1">{label}</p>
+														<p className="text-lg font-bold text-white">{value}</p>
 													</div>
 												))}
 											</div>
@@ -1158,7 +1157,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 										<div className="bg-card p-6 rounded-2xl shadow-md border-t-4 border-t-fab-blue">
 											<div className="flex items-center gap-2 mb-6">
 												<Target className="w-5 h-5 text-fab-blue" />
-												<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Visão Tática (SUCONT-3)</h3>
+												<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Visão Tática (SUCONT-3)</h3>
 											</div>
 											<div className="space-y-6">
 												<div>
@@ -1169,19 +1168,19 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 														{topUgsByCount.slice(0, 5).map((ug, idx) => (
 															<div key={idx} className="flex justify-between items-center bg-muted/50 p-2 rounded-lg border border-border">
 																<div className="flex items-center gap-2">
-																	<span className="text-xs font-black text-muted-foreground w-4">{idx + 1}º</span>
+																	<span className="text-xs font-bold text-muted-foreground w-4">{idx + 1}º</span>
 																	<div>
 																		<span className="text-sm font-bold text-fab-dark block">
 																			{getUgName(ug.ug)} ({ug.ug})
 																		</span>
-																		<span className="text-[10px] font-bold text-muted-foreground uppercase">
+																		<span className="text-label text-muted-foreground">
 																			{getOs(ug.ug)} / {getOds(ug.ug)}
 																		</span>
 																	</div>
 																</div>
 																<div className="flex items-center gap-3">
-																	<span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest">{getConferente(ug.ug)}</span>
-																	<span className="text-sm font-black text-warning">{ug.count}</span>
+																	<span className="text-label text-muted-foreground">{getConferente(ug.ug)}</span>
+																	<span className="text-sm font-bold text-warning">{ug.count}</span>
 																</div>
 															</div>
 														))}
@@ -1205,25 +1204,25 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 										{/* Pareto + Priority */}
 										<div className="space-y-6">
-											<div className="bg-card p-6 rounded-2xl shadow-md border border-purple-200">
+											<div className="bg-card p-6 rounded-2xl shadow-md border border-action/30">
 												<div className="flex items-center gap-2 mb-4">
-													<TrendingUp className="w-5 h-5 text-purple-600" />
-													<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Análise de Concentração (Pareto)</h3>
+													<TrendingUp className="w-5 h-5 text-action" />
+													<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Análise de Concentração (Pareto)</h3>
 												</div>
-												<div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-4">
-													<p className="text-sm text-purple-900 font-bold leading-relaxed">
-														<span className="text-2xl font-black text-purple-600">{paretoData?.ugPercentage}%</span> das UGs concentram{" "}
-														<span className="text-2xl font-black text-purple-600">{paretoData?.inconsistencyPercentage}%</span> das inconsistências.
+												<div className="bg-action/10 p-4 rounded-xl border border-action/30 mb-4">
+													<p className="text-sm text-action font-bold leading-relaxed">
+														<span className="text-2xl font-bold text-action">{paretoData?.ugPercentage}%</span> das UGs concentram{" "}
+														<span className="text-2xl font-bold text-action">{paretoData?.inconsistencyPercentage}%</span> das inconsistências.
 													</p>
 												</div>
-												<h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3">UGs que compõem a concentração (Top 5)</h4>
+												<h4 className="text-label text-muted-foreground mb-3">UGs que compõem a concentração (Top 5)</h4>
 												<div className="space-y-2">
 													{paretoData?.topUgs.slice(0, 5).map((u, i) => (
 														<div key={i} className="flex justify-between items-center text-xs p-2 bg-muted/50 rounded-lg">
 															<span className="font-bold text-foreground">
 																UG {u.ug} ({getUgName(u.ug)})
 															</span>
-															<span className="font-black text-purple-600">{u.count} itens</span>
+															<span className="font-bold text-action">{u.count} itens</span>
 														</div>
 													))}
 												</div>
@@ -1232,29 +1231,29 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											<div className="bg-card p-6 rounded-2xl shadow-md border border-success/30">
 												<div className="flex items-center gap-2 mb-4">
 													<Target className="w-5 h-5 text-success" />
-													<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Priorização de Atuação Imediata</h3>
+													<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Priorização de Atuação Imediata</h3>
 												</div>
-												<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
-													Baseado em Score de Risco (Volume x Quantidade)
-												</p>
+												<p className="text-label text-muted-foreground mb-4">Baseado em Score de Risco (Volume x Quantidade)</p>
 												<div className="space-y-3">
 													{priorityList.map((p, i) => (
 														<div
 															key={i}
 															className="flex items-center gap-4 p-3 bg-muted/50 rounded-xl border border-border hover:bg-success/10 transition-colors"
 														>
-															<div className="w-8 h-8 bg-success text-white rounded-lg flex items-center justify-center font-black text-sm">{i + 1}º</div>
+															<div className="w-8 h-8 bg-success text-success-foreground rounded-lg flex items-center justify-center font-bold text-sm">
+																{i + 1}º
+															</div>
 															<div className="flex-1">
-																<p className="text-sm font-black text-fab-dark">
+																<p className="text-sm font-bold text-fab-dark">
 																	UG {p.ug} ({getUgName(p.ug)})
 																</p>
-																<p className="text-[10px] font-bold text-muted-foreground uppercase">
+																<p className="text-label text-muted-foreground">
 																	{p.ods} | {formatCurrency(p.volume)}
 																</p>
 															</div>
 															<div className="text-right">
-																<p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Score</p>
-																<p className="text-lg font-black text-success">{p.priorityScore}</p>
+																<p className="text-label text-muted-foreground">Score</p>
+																<p className="text-lg font-bold text-success">{p.priorityScore}</p>
 															</div>
 														</div>
 													))}
@@ -1267,7 +1266,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									<div className="bg-card p-6 rounded-2xl shadow-md border-t-4 border-t-emerald-600">
 										<div className="flex items-center gap-2 mb-6">
 											<Award className="w-5 h-5 text-success" />
-											<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Panorama de Distribuição SUCONT-3</h3>
+											<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Panorama de Distribuição SUCONT-3</h3>
 										</div>
 										<div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 											{Object.entries(conferenteStats)
@@ -1276,12 +1275,12 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													<button
 														type="button"
 														key={conf}
-														className="bg-muted/50 p-4 rounded-xl border border-border text-center hover:bg-success/10 transition-colors cursor-pointer"
+														className="bg-muted/50 p-4 rounded-xl border border-border text-center hover:bg-success/10 transition-colors cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50"
 														onClick={() => setConferenteFilter(conf)}
 													>
-														<p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{conf}</p>
-														<p className="text-2xl font-black text-success">{stats.count}</p>
-														<p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Inconsistências</p>
+														<p className="text-label text-muted-foreground mb-1">{conf}</p>
+														<p className="text-2xl font-bold text-success">{stats.count}</p>
+														<p className="text-label text-muted-foreground">Inconsistências</p>
 													</button>
 												))}
 										</div>
@@ -1291,11 +1290,11 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												.map(([conferente, stats]) => (
 													<div key={conferente} className="bg-muted/50 rounded-xl border border-border overflow-hidden flex flex-col">
 														<div className="bg-muted px-4 py-3 border-b border-border flex justify-between items-center">
-															<span className="text-xs font-black text-fab-dark uppercase tracking-widest">Conferente: {conferente}</span>
-															<span className="px-2 py-1 bg-success/15 text-success text-[10px] font-black rounded-full">{stats.count} Inconsistência(s)</span>
+															<span className="text-xs font-bold text-fab-dark uppercase tracking-widest">Conferente: {conferente}</span>
+															<span className="px-2 py-1 bg-success/15 text-success text-hint font-bold rounded-full">{stats.count} Inconsistência(s)</span>
 														</div>
 														<div className="p-4 flex-1">
-															<h4 className="text-[10px] font-bold text-muted-foreground uppercase mb-2">UGs sob responsabilidade ({stats.ugs.length})</h4>
+															<h4 className="text-label text-muted-foreground mb-2">UGs sob responsabilidade ({stats.ugs.length})</h4>
 															<div className="flex flex-wrap gap-2">
 																{stats.ugs.map((ug) => (
 																	<span key={ug} className="px-2 py-1 bg-card border border-border text-xs font-bold text-foreground rounded shadow-sm">
@@ -1313,24 +1312,24 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									<div className="bg-card p-6 rounded-2xl shadow-md border-t-4 border-t-fab-blue">
 										<div className="flex items-center gap-2 mb-6">
 											<Target className="w-5 h-5 text-fab-blue" />
-											<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Panorama por Questão RAC</h3>
+											<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Panorama por Questão RAC</h3>
 										</div>
 										<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 											{RAC_QUESTIONS.map((q) => (
 												<div key={q.id} className="bg-muted/50 p-5 rounded-xl border border-border hover:bg-fab-blue/5 transition-colors">
 													<div className="flex justify-between items-start mb-3">
-														<span className="px-2 py-1 bg-fab-blue text-white text-[10px] font-black rounded uppercase tracking-widest">RAC {q.id}</span>
-														<span className="text-xs font-black text-fab-blue">{racStatsMap[q.id].ugs.size} UGs</span>
+														<span className="px-2 py-1 bg-fab-blue text-white text-label rounded">RAC {q.id}</span>
+														<span className="text-xs font-bold text-fab-blue">{racStatsMap[q.id].ugs.size} UGs</span>
 													</div>
-													<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mb-4 h-8 line-clamp-2">{q.description}</p>
+													<p className="text-label text-muted-foreground mb-4 h-8 line-clamp-2">{q.description}</p>
 													<div className="flex items-end justify-between">
 														<div>
-															<p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Volume</p>
-															<p className="text-sm font-black text-fab-blue">{formatCurrency(racStatsMap[q.id].volume)}</p>
+															<p className="text-label text-muted-foreground">Volume</p>
+															<p className="text-sm font-bold text-fab-blue">{formatCurrency(racStatsMap[q.id].volume)}</p>
 														</div>
 														<div className="text-right">
-															<p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Itens</p>
-															<p className="text-sm font-black text-foreground">{racStatsMap[q.id].count}</p>
+															<p className="text-label text-muted-foreground">Itens</p>
+															<p className="text-sm font-bold text-foreground">{racStatsMap[q.id].count}</p>
 														</div>
 													</div>
 												</div>
@@ -1345,9 +1344,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								<div className="flex items-center justify-between mb-6">
 									<div className="flex items-center gap-2">
 										<Compass className="w-5 h-5 text-fab-blue" />
-										<h3 className="text-lg font-black text-foreground uppercase tracking-tight">Mapa de Risco por ODS</h3>
+										<h3 className="text-lg font-bold text-foreground uppercase tracking-tight">Mapa de Risco por ODS</h3>
 									</div>
-									<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Distribuição do Risco</span>
+									<span className="text-label text-muted-foreground">Distribuição do Risco</span>
 								</div>
 								<div className="overflow-x-auto">
 									<table className="w-full text-left">
@@ -1356,22 +1355,22 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												{["ODS", "Inconsistências", "Saldo Associado", "% Total"].map((h) => (
 													<th
 														key={h}
-														className={`pb-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest ${h !== "ODS" ? "text-center" : ""} ${h === "Saldo Associado" || h === "% Total" ? "text-right" : ""}`}
+														className={`pb-3 text-label text-muted-foreground ${h !== "ODS" ? "text-center" : ""} ${h === "Saldo Associado" || h === "% Total" ? "text-right" : ""}`}
 													>
 														{h}
 													</th>
 												))}
 											</tr>
 										</thead>
-										<tbody className="divide-y divide-slate-50">
+										<tbody className="divide-y divide-border">
 											{odsRiskMap.map((item, idx) => (
 												<tr key={idx} className="hover:bg-muted/50 transition-colors">
 													<td className="py-4 font-bold text-fab-dark">{item.ods}</td>
-													<td className="py-4 text-center font-black text-muted-foreground">{item.count}</td>
-													<td className="py-4 text-right font-black text-success">{formatCurrency(item.volume)}</td>
+													<td className="py-4 text-center font-bold text-muted-foreground">{item.count}</td>
+													<td className="py-4 text-right font-bold text-success">{formatCurrency(item.volume)}</td>
 													<td className="py-4 text-right">
 														<span
-															className={`px-2 py-1 rounded text-[10px] font-black ${idx === 0 ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground"}`}
+															className={`px-2 py-1 rounded text-hint font-bold ${idx === 0 ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground"}`}
 														>
 															{item.percentage}%
 														</span>
@@ -1384,35 +1383,35 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							</div>
 
 							{/* Oracle Chat */}
-							<div className="mt-8 bg-card rounded-3xl shadow-2xl border-2 border-fab-blue/20 overflow-hidden">
+							<div className="mt-8 bg-card rounded-xl shadow-2xl border-2 border-fab-blue/20 overflow-hidden">
 								<div className="bg-fab-blue p-6 flex items-center justify-between">
 									<div className="flex items-center gap-4">
-										<div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
+										<div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
 											<Lightbulb className="w-7 h-7 text-fab-gold" />
 										</div>
 										<div>
-											<h3 className="text-xl font-black text-white uppercase tracking-tighter">Oráculo SUCONT</h3>
-											<p className="text-[10px] font-black text-fab-gold uppercase tracking-[0.2em]">Inteligência Artificial de Apoio à Decisão</p>
+											<h3 className="text-xl font-bold text-white uppercase tracking-tighter">Oráculo SUCONT</h3>
+											<p className="text-label text-fab-gold">Inteligência Artificial de Apoio à Decisão</p>
 										</div>
 									</div>
 									<div className="hidden md:flex gap-2">
 										{["Qual ODS possui maior risco contábil?", "Quais são as 5 UGs mais críticas?", "Resuma o impacto financeiro total."].map((q) => (
-											<button
-												type="button"
+											<Button
 												key={q}
+												size="sm"
 												onClick={() => askOracle(q)}
-												className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[9px] font-black rounded-lg uppercase tracking-widest transition-all border border-white/10"
+												className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-label rounded-lg border border-white/10"
 											>
 												{q.includes("ODS") ? "Risco ODS" : q.includes("5 UGs") ? "Top 5 UGs" : "Impacto"}
-											</button>
+											</Button>
 										))}
-										<button
-											type="button"
+										<Button
+											size="sm"
 											onClick={() => setChatMessages([])}
-											className="px-3 py-1.5 bg-destructive/20 hover:bg-destructive/40 text-white text-[9px] font-black rounded-lg uppercase tracking-widest transition-all border border-white/10"
+											className="px-3 py-1.5 bg-destructive/20 hover:bg-destructive/40 text-white text-label rounded-lg border border-white/10"
 										>
 											Limpar
-										</button>
+										</Button>
 									</div>
 								</div>
 
@@ -1445,7 +1444,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 														<div key={delay} className="w-1.5 h-1.5 bg-fab-blue rounded-full animate-bounce" style={{ animationDelay: `${delay}s` }} />
 													))}
 												</div>
-												<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Oráculo está analisando...</span>
+												<span className="text-label text-muted-foreground">Oráculo está analisando...</span>
 											</div>
 										</div>
 									)}
@@ -1453,7 +1452,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 								<div className="p-4 bg-card border-t border-border">
 									<div className="flex gap-2">
-										<input
+										<Input
 											type="text"
 											value={oracleInput}
 											onChange={(e) => setOracleInput(e.target.value)}
@@ -1461,14 +1460,15 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											placeholder="Pergunte ao Oráculo sobre o risco contábil..."
 											className="flex-1 bg-muted border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-fab-blue transition-all outline-none"
 										/>
-										<button
-											type="button"
+										<Button
+											size="icon"
+											aria-label="Enviar pergunta"
 											onClick={() => askOracle()}
 											disabled={isAskingOracle || !oracleInput.trim()}
-											className="bg-fab-blue hover:bg-fab-dark disabled:opacity-50 text-white p-3 rounded-xl transition-all shadow-lg"
+											className="bg-fab-blue hover:bg-fab-dark disabled:opacity-50 text-white p-3 rounded-xl shadow-lg"
 										>
 											<ArrowRight className="w-5 h-5" />
-										</button>
+										</Button>
 									</div>
 								</div>
 							</div>
@@ -1481,7 +1481,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							<div className="w-20 h-20 bg-success/15 text-success rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-sm">
 								<CheckCircle className="w-10 h-10" />
 							</div>
-							<h3 className="text-2xl font-black text-success mb-2 uppercase tracking-tight">Acompanhamento Concluído</h3>
+							<h3 className="text-2xl font-bold text-success mb-2 uppercase tracking-tight">Acompanhamento Concluído</h3>
 							<p className="text-success max-w-md mx-auto font-medium">
 								Nenhuma inconsistência foi identificada no relatório analisado. A situação contábil está regular.
 							</p>
@@ -1494,8 +1494,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 										<Compass className="w-7 h-7 text-fab-gold" />
 									</div>
 									<div>
-										<h2 className="text-2xl font-black text-fab-blue uppercase tracking-tighter">Retrato das Inconsistências</h2>
-										<p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Ações de Cobrança e Auditoria SUCONT-3</p>
+										<h2 className="text-2xl font-bold text-fab-blue uppercase tracking-tighter">Retrato das Inconsistências</h2>
+										<p className="text-label text-muted-foreground">Ações de Cobrança e Auditoria SUCONT-3</p>
 									</div>
 								</div>
 
@@ -1504,7 +1504,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									<div className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-wrap items-center gap-4">
 										<div className="flex items-center gap-2 text-muted-foreground mr-2">
 											<MessageSquare className="w-4 h-4" />
-											<span className="text-[10px] font-black uppercase tracking-widest">Modo de Mensagem:</span>
+											<span className="text-label">Modo de Mensagem:</span>
 										</div>
 										<div className="flex bg-muted p-1 rounded-xl">
 											{[
@@ -1515,7 +1515,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													type="button"
 													key={id}
 													onClick={() => setMessageMode(id as typeof messageMode)}
-													className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+													className={`px-4 py-2 rounded-lg text-label transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
 														messageMode === id ? "bg-card text-fab-blue shadow-sm" : "text-muted-foreground hover:text-foreground"
 													}`}
 												>
@@ -1528,33 +1528,35 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									<div className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-wrap items-center gap-4">
 										<div className="flex items-center gap-2 text-muted-foreground mr-2">
 											<Award className="w-4 h-4" />
-											<span className="text-[10px] font-black uppercase tracking-widest">Filtrar por Responsável:</span>
+											<span className="text-label">Filtrar por Responsável:</span>
 										</div>
 										<div className="flex flex-wrap gap-2">
-											<button
-												type="button"
+											<Button
+												variant="outline"
+												size="sm"
 												onClick={() => setConferenteFilter(null)}
-												className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+												className={`px-4 py-2 rounded-xl text-label ${
 													!conferenteFilter
 														? "bg-fab-blue text-white border-fab-blue shadow-md"
 														: "bg-card text-muted-foreground border-border hover:border-fab-blue/50"
 												}`}
 											>
 												Modo Geral
-											</button>
+											</Button>
 											{[...new Set(Object.values(CONFERENTES_MAP))].sort().map((conf) => (
-												<button
-													type="button"
+												<Button
+													variant="outline"
+													size="sm"
 													key={conf}
 													onClick={() => setConferenteFilter(conf)}
-													className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+													className={`px-4 py-2 rounded-xl text-label ${
 														conferenteFilter === conf
-															? "bg-success text-white border-emerald-600 shadow-md"
-															: "bg-card text-muted-foreground border-border hover:border-emerald-600/50"
+															? "bg-success text-success-foreground border-success shadow-md"
+															: "bg-card text-muted-foreground border-border hover:border-success/20"
 													}`}
 												>
 													{conf}
-												</button>
+												</Button>
 											))}
 										</div>
 									</div>
@@ -1562,27 +1564,28 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 								{conferenteFilter && (
 									<div className="flex justify-end">
-										<button
-											type="button"
+										<Button
+											variant="outline"
+											size="sm"
 											onClick={() => setConferenteFilter(null)}
-											className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/70 text-muted-foreground rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-border"
+											className="gap-2 px-4 py-2 bg-muted hover:bg-muted/70 text-muted-foreground rounded-xl text-label border-border"
 										>
 											<RefreshCw className="w-3 h-3" /> Limpar Filtro
-										</button>
+										</Button>
 									</div>
 								)}
 
 								{/* Única message */}
 								{messageMode === "unica" ? (
 									<div className="bg-card rounded-2xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
-										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/50/30 flex flex-col">
+										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 											<div className="p-6 border-b border-border bg-card">
 												<div className="flex items-center gap-3 mb-4">
 													<div className="w-10 h-10 bg-fab-blue/10 rounded-lg flex items-center justify-center">
 														<MessageSquare className="w-6 h-6 text-fab-blue" />
 													</div>
 													<div>
-														<h3 className="text-xl font-black text-fab-blue uppercase tracking-tighter">Mensagem Única</h3>
+														<h3 className="text-xl font-bold text-fab-blue uppercase tracking-tighter">Mensagem Única</h3>
 														<div className="text-xs font-bold text-muted-foreground uppercase">Agrupamento Geral</div>
 													</div>
 												</div>
@@ -1601,19 +1604,26 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												/>
 											</div>
 										</div>
-										<div className="p-6 flex-1 bg-muted/50/30">
+										<div className="p-6 flex-1 bg-muted/30">
 											<div className="bg-card border border-border rounded-xl p-6 shadow-inner h-full font-mono text-sm text-foreground leading-relaxed whitespace-pre-wrap relative">
 												{generateSingleMessage()}
-												<button
-													type="button"
-													onClick={() => {
-														copyToClipboard(generateSingleMessage(), "unica")
-													}}
-													className="absolute top-4 right-4 p-2 bg-muted hover:bg-fab-blue hover:text-white text-muted-foreground rounded-lg transition-all shadow-sm"
-													title="Copiar Mensagem"
-												>
-													{copiedUg === "unica" ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-												</button>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Button
+																size="icon-sm"
+																aria-label="Copiar Mensagem"
+																onClick={() => {
+																	copyToClipboard(generateSingleMessage(), "unica")
+																}}
+																className="absolute top-4 right-4 bg-muted hover:bg-fab-blue hover:text-white text-muted-foreground rounded-lg shadow-sm"
+															>
+																{copiedUg === "unica" ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+															</Button>
+														}
+													/>
+													<TooltipContent>Copiar Mensagem</TooltipContent>
+												</Tooltip>
 											</div>
 										</div>
 									</div>
@@ -1633,7 +1643,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											return (
 												<div key={ug} className="bg-card rounded-2xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
 													{/* Left: data portrait */}
-													<div className="lg:w-5/12 border-b lg:border-b-0 lg:border-r border-border bg-muted/50/30 flex flex-col">
+													<div className="lg:w-5/12 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 														<div className="p-6 border-b border-border bg-card">
 															<div className="flex items-center justify-between mb-2">
 																<div className="flex items-center gap-3">
@@ -1641,20 +1651,18 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																		<Building2 className="w-6 h-6 text-fab-blue" />
 																	</div>
 																	<div>
-																		<h3 className="text-xl font-black text-fab-blue uppercase tracking-tighter">UG {ug}</h3>
+																		<h3 className="text-xl font-bold text-fab-blue uppercase tracking-tighter">UG {ug}</h3>
 																		<div className="text-xs font-bold text-muted-foreground uppercase mb-1">
 																			{getUgName(ug)} ({ug}), subordinada ao {getOs(ug)} / {getOds(ug)}
 																		</div>
 																		<div className="military-label">Conferente: {getConferente(ug)}</div>
 																	</div>
 																</div>
-																<span className="px-3 py-1 bg-fab-dark text-fab-gold text-[10px] font-black rounded uppercase tracking-widest">
-																	{Object.keys(contas).length} Alerta(s)
-																</span>
+																<span className="px-3 py-1 bg-fab-dark text-fab-gold text-label rounded">{Object.keys(contas).length} Alerta(s)</span>
 															</div>
 															<div className="mt-4 p-3 bg-fab-blue/5 rounded-xl border border-fab-blue/10">
-																<p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Saldo Consolidado</p>
-																<p className="text-2xl font-black text-fab-blue">{formatCurrency(ugTotalBalance)}</p>
+																<p className="text-label text-muted-foreground mb-1">Saldo Consolidado</p>
+																<p className="text-2xl font-bold text-fab-blue">{formatCurrency(ugTotalBalance)}</p>
 															</div>
 														</div>
 														<div className="p-6 flex-1 overflow-y-auto">
@@ -1667,16 +1675,16 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																		</div>
 																		<div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
 																			<Wallet className="w-4 h-4 text-fab-blue" />
-																			<span className="font-mono font-black text-fab-blue">{conta}</span>
+																			<span className="font-mono font-bold text-fab-blue">{conta}</span>
 																		</div>
 																		<div className="space-y-2">
 																			{regs.map((reg, idx) => (
 																				<div key={idx} className="flex items-center justify-between text-sm">
-																					<div className="flex items-center gap-1.5 text-muted-foreground font-bold uppercase text-[10px]">
+																					<div className="flex items-center gap-1.5 text-muted-foreground text-label">
 																						<Calendar className="w-3.5 h-3.5 text-fab-gold" />
 																						<span>{reg.mes}</span>
 																					</div>
-																					<span className="font-black text-foreground">{formatCurrency(reg.saldo)}</span>
+																					<span className="font-bold text-foreground">{formatCurrency(reg.saldo)}</span>
 																				</div>
 																			))}
 																		</div>
@@ -1693,19 +1701,18 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																<div className="flex flex-col gap-1">
 																	<div className="flex items-center gap-2 text-fab-blue">
 																		<FileText className="w-5 h-5" />
-																		<h4 className="font-black uppercase tracking-tight text-sm">Mensagem Institucional Pronta</h4>
+																		<h4 className="font-bold uppercase tracking-tight text-sm">Mensagem Institucional Pronta</h4>
 																	</div>
-																	<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+																	<p className="text-label text-muted-foreground">
 																		UG {ug} — Conferente: {getConferente(ug)}
 																		<br />
 																		<span className="text-warning">Inconsistência identificada: utilização de conta contábil genérica.</span>
 																	</p>
 																</div>
-																<button
-																	type="button"
+																<Button
 																	onClick={() => copyToClipboard(message, ug)}
-																	className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-																		copiedUg === ug ? "bg-success text-white shadow-lg" : "bg-fab-blue text-white hover:bg-fab-dark shadow-lg"
+																	className={`gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest ${
+																		copiedUg === ug ? "bg-success text-success-foreground shadow-lg" : "bg-fab-blue text-white hover:bg-fab-dark shadow-lg"
 																	}`}
 																>
 																	{copiedUg === ug ? (
@@ -1717,7 +1724,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																			<Copy className="w-4 h-4" /> Copiar Mensagem
 																		</>
 																	)}
-																</button>
+																</Button>
 															</div>
 
 															<div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border">
@@ -1733,7 +1740,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																/>
 															</div>
 														</div>
-														<div className="p-6 flex-1 bg-muted/50/30">
+														<div className="p-6 flex-1 bg-muted/30">
 															<div className="bg-card border border-border rounded-xl p-6 shadow-inner h-full font-mono text-sm text-foreground leading-relaxed whitespace-pre-wrap relative">
 																<div className="absolute top-4 right-4 opacity-10 pointer-events-none">
 																	<Shield className="w-12 h-12 text-fab-blue" />
@@ -1777,21 +1784,25 @@ function MessageControls({
 	setDeadline: (v: string) => void
 }) {
 	const inputCls =
-		"px-2 py-1 bg-muted/50 border border-border rounded text-xs font-black text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20 focus:border-fab-blue transition-all"
+		"px-2 py-1 bg-muted/50 border border-border rounded text-xs font-bold text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20 focus:border-fab-blue transition-all"
 
 	return (
 		<div className="flex flex-wrap items-center gap-3">
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
-				<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Nº Mensagem:</span>
-				<input type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 001" className={`${inputCls} w-16 text-center`} />
+				<span className="text-label text-muted-foreground">Nº Mensagem:</span>
+				<Input type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 001" className={`${inputCls} w-16 text-center`} />
 			</div>
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
-				<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Data:</span>
-				<input type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} className={inputCls} />
+				<span className="text-label text-muted-foreground">Data:</span>
+				<Input type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} className={inputCls} />
 			</div>
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
-				<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tipo:</span>
-				<Select value={messageType} onValueChange={(value) => setMessageType(value as typeof messageType)}>
+				<span className="text-label text-muted-foreground">Tipo:</span>
+				<Select
+					items={{ sem_prazo: "Sem Prazo", prazo: "Com Prazo", alerta: "Apenas Alerta" }}
+					value={messageType}
+					onValueChange={(value) => setMessageType(value as typeof messageType)}
+				>
 					<SelectTrigger className={`data-[size=default]:h-auto shadow-none ${inputCls}`}>
 						<SelectValue />
 					</SelectTrigger>
@@ -1804,8 +1815,8 @@ function MessageControls({
 			</div>
 			{messageType === "prazo" && (
 				<div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-300 bg-card px-3 py-1.5 rounded-lg border border-border">
-					<span className="text-[10px] text-fab-blue font-black uppercase tracking-widest">Data Limite:</span>
-					<input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls} />
+					<span className="text-label text-fab-blue">Data Limite:</span>
+					<Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls} />
 				</div>
 			)}
 		</div>

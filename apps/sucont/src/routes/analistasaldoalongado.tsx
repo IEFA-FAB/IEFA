@@ -12,6 +12,7 @@ import type { UgMessage } from "#/analistasaldoalongado/utils/generator"
 import { generateMessages } from "#/analistasaldoalongado/utils/generator"
 import { parseFile } from "#/analistasaldoalongado/utils/parser"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
 
 export const Route = createFileRoute("/analistasaldoalongado")({
 	component: AnalistaSaldoAlongado,
@@ -91,18 +92,20 @@ function AnalistaSaldoAlongado() {
 
 				<div className="flex items-center gap-3">
 					{consolidatedData && (
-						<button
+						<Button
 							type="button"
 							onClick={handleReset}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova Análise
-						</button>
+						</Button>
 					)}
 					<div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-fab-50 rounded-full border border-fab-100">
 						<CheckCircle2 className="w-3.5 h-3.5 text-fab-600" />
-						<span className="text-[10px] font-bold text-fab-800 uppercase tracking-widest">Setorial Contábil COMAER</span>
+						<span className="text-label text-fab-800">Setorial Contábil COMAER</span>
 					</div>
 				</div>
 			</div>
@@ -116,7 +119,7 @@ function AnalistaSaldoAlongado() {
 							<ShieldAlert className="w-4 h-4" />
 							Governança Contábil
 						</div>
-						<h2 className="text-3xl font-extrabold text-foreground tracking-tight">
+						<h2 className="text-display text-foreground">
 							Painel de Acompanhamento <span className="text-fab-600">SUCONT-3</span>
 						</h2>
 						<p className="text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
@@ -128,7 +131,7 @@ function AnalistaSaldoAlongado() {
 					{/* Info Cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
-							<div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
 								<Search className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Análise de Saldos</h3>
@@ -148,7 +151,7 @@ function AnalistaSaldoAlongado() {
 						</div>
 
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
-							<div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shadow-sm">
+							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
 								<MessageSquare className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Notificação Ágil</h3>
@@ -196,7 +199,7 @@ function AnalistaSaldoAlongado() {
 					</div>
 
 					{/* Upload */}
-					<div className="bg-card p-8 rounded-[2rem] shadow-xl border border-border max-w-2xl mx-auto relative overflow-hidden">
+					<div className="bg-card p-8 rounded-xl shadow-xl border border-border max-w-2xl mx-auto relative overflow-hidden">
 						<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fab-400 via-fab-600 to-fab-800" />
 						<FileUploader onFileSelect={handleFileSelect} isLoading={isLoading} error={error} />
 					</div>
@@ -215,36 +218,39 @@ function AnalistaSaldoAlongado() {
 				<div className="space-y-8">
 					{/* Tabs */}
 					<div className="flex items-center gap-2 bg-card p-1.5 rounded-2xl border border-border shadow-sm w-fit">
-						<button
+						<Button
 							type="button"
 							onClick={() => setActiveTab("operacional")}
-							className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-								activeTab === "operacional" ? "bg-fab-600 text-white shadow-md shadow-fab-600/20" : "text-muted-foreground hover:bg-muted"
+							variant="ghost"
+							className={`gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-muted ${
+								activeTab === "operacional" ? "bg-fab-600 text-white shadow-md hover:bg-fab-600" : "text-muted-foreground"
 							}`}
 						>
 							<ListTodo className="w-4 h-4" />
 							Operacional
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
 							onClick={() => setActiveTab("gerencial")}
-							className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-								activeTab === "gerencial" ? "bg-fab-600 text-white shadow-md shadow-fab-600/20" : "text-muted-foreground hover:bg-muted"
+							variant="ghost"
+							className={`gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-muted ${
+								activeTab === "gerencial" ? "bg-fab-600 text-white shadow-md hover:bg-fab-600" : "text-muted-foreground"
 							}`}
 						>
 							<LayoutDashboard className="w-4 h-4" />
 							Estratégico
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
 							onClick={() => setActiveTab("analitico")}
-							className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-								activeTab === "analitico" ? "bg-fab-600 text-white shadow-md shadow-fab-600/20" : "text-muted-foreground hover:bg-muted"
+							variant="ghost"
+							className={`gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-muted ${
+								activeTab === "analitico" ? "bg-fab-600 text-white shadow-md hover:bg-fab-600" : "text-muted-foreground"
 							}`}
 						>
 							<BarChart3 className="w-4 h-4" />
 							Mapa de Risco
-						</button>
+						</Button>
 					</div>
 
 					{/* Panel Content */}

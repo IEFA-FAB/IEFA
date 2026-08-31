@@ -1,5 +1,6 @@
 import { FileSpreadsheet, UploadCloud, X } from "lucide-react"
 import { useCallback, useState } from "react"
+import { Button } from "#/components/ui/button"
 import { cn } from "#/lib/utils"
 
 interface DgcUploadProps {
@@ -50,7 +51,7 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 				htmlFor="sacdgc-dropzone"
 				className={cn(
 					"relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-xl transition-all cursor-pointer",
-					isDragging ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:bg-muted hover:border-slate-400",
+					isDragging ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
 					isLoading && "opacity-50 cursor-not-allowed pointer-events-none"
 				)}
 				onDragEnter={handleDrag}
@@ -82,15 +83,17 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 								<FileSpreadsheet className="w-4 h-4 text-tech-cyan shrink-0" />
 								<span className="text-sm text-foreground truncate">{file.name}</span>
 							</span>
-							<button
+							<Button
 								type="button"
 								onClick={() => setFiles((prev) => prev.filter((f) => f !== file))}
 								disabled={isLoading}
-								className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+								variant="ghost"
+								size="icon-xs"
+								className="text-muted-foreground hover:bg-transparent hover:text-destructive disabled:opacity-40"
 								aria-label={`Remover ${file.name}`}
 							>
 								<X className="w-4 h-4" />
-							</button>
+							</Button>
 						</li>
 					))}
 				</ul>
@@ -98,14 +101,14 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 
 			{error && <p className="mt-4 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3">{error}</p>}
 
-			<button
+			<Button
 				type="button"
 				onClick={() => onProcess(files)}
 				disabled={files.length === 0 || isLoading}
-				className="mt-6 w-full px-6 py-3 bg-tech-blue text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-sm transition-colors hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+				className="mt-6 w-full rounded-lg bg-tech-blue px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-sm hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
 			>
 				{isLoading ? "Lendo planilhas…" : "Carregar base"}
-			</button>
+			</Button>
 		</div>
 	)
 }

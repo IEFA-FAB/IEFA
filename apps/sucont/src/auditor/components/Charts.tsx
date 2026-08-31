@@ -35,11 +35,13 @@ interface ChartProps {
 }
 
 // --- Constants & Styles ---
+// Cromo do treemap: superfície, borda e texto. Sai de token para acompanhar o
+// tema, ao contrário da paleta por ODS abaixo, que é escala categórica de dado.
 const TREEMAP_COLORS = {
-	base: "#1e293b",
-	dark: "#0f172a",
-	border: "#0f172a",
-	text: "#ffffff",
+	base: chartChrome.surfaceMuted,
+	dark: chartChrome.surface,
+	border: chartChrome.grid,
+	text: chartChrome.label,
 }
 
 // Standardized ODS Palette (Solid Military Tones)
@@ -120,7 +122,7 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
       `}
 			>
 				<h4
-					className={`text-sm font-black mb-3 pb-2 border-b uppercase tracking-wider
+					className={`text-sm font-bold mb-3 pb-2 border-b uppercase tracking-wider
           text-foreground border-border
         `}
 				>
@@ -130,81 +132,81 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<div className="w-2 h-2 rounded-full bg-[#1e40af] shadow-[0_0_8px_rgba(30,64,175,0.4)]"></div>
+							<div className="w-2 h-2 rounded-full bg-(--series-bmp)"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SIAFI:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-(--color-series-siafi)`}>{formatCurrency(siafi || 0)}</span>
+						<span className={`text-xs font-bold font-mono text-(--series-siafi)`}>{formatCurrency(siafi || 0)}</span>
 					</div>
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<div className="w-2 h-2 rounded-full bg-[#0ea5e9] shadow-[0_0_8px_rgba(14,165,233,0.4)]"></div>
+							<div className="w-2 h-2 rounded-full bg-(--series-consumo)"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SILOMS:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-(--color-series-siloms)`}>{formatCurrency(siloms || 0)}</span>
+						<span className={`text-xs font-bold font-mono text-(--series-siloms)`}>{formatCurrency(siloms || 0)}</span>
 					</div>
 
-					<div className="h-px bg-slate-700/50 my-1"></div>
+					<div className="h-px bg-surface-inverted-border/50 my-1"></div>
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<div className="w-2 h-2 rounded-sm bg-[#dc2626] shadow-[0_0_8px_rgba(220,38,38,0.3)]"></div>
+							<div className="w-2 h-2 rounded-sm bg-destructive"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Total:</span>
 						</div>
 						<span className={`text-xs font-bold font-mono text-destructive`}>{formatCurrency(diff ?? 0)}</span>
 					</div>
 
 					{data.bmpDiff !== undefined && (
-						<div className="pl-4 space-y-1 mt-1 border-l border-slate-700/50">
+						<div className="pl-4 space-y-1 mt-1 border-l border-surface-inverted-border/50">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
-									<div className="w-1.5 h-1.5 rounded-sm bg-[#1e40af]"></div>
-									<span className={`text-[10px] uppercase font-bold text-muted-foreground`}>BMP</span>
+									<div className="w-1.5 h-1.5 rounded-sm bg-(--series-bmp)"></div>
+									<span className={`text-label text-muted-foreground`}>BMP</span>
 								</div>
-								<span className={`text-[10px] font-mono font-bold text-foreground`}>{formatCurrency(data.bmpDiff)}</span>
+								<span className={`text-hint font-mono font-bold text-foreground`}>{formatCurrency(data.bmpDiff)}</span>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
-									<div className="w-1.5 h-1.5 rounded-sm bg-[#f97316]"></div>
-									<span className={`text-[10px] uppercase font-bold text-muted-foreground`}>Consumo</span>
+									<div className="w-1.5 h-1.5 rounded-sm bg-warning"></div>
+									<span className={`text-label text-muted-foreground`}>Consumo</span>
 								</div>
-								<span className={`text-[10px] font-mono font-bold text-foreground`}>{formatCurrency(data.consumoDiff ?? 0)}</span>
+								<span className={`text-hint font-mono font-bold text-foreground`}>{formatCurrency(data.consumoDiff ?? 0)}</span>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
-									<div className="w-1.5 h-1.5 rounded-sm bg-[#22c55e]"></div>
-									<span className={`text-[10px] uppercase font-bold text-muted-foreground`}>Intangível</span>
+									<div className="w-1.5 h-1.5 rounded-sm bg-(--series-intangivel)"></div>
+									<span className={`text-label text-muted-foreground`}>Intangível</span>
 								</div>
-								<span className={`text-[10px] font-mono font-bold text-foreground`}>{formatCurrency(data.intangivelDiff ?? 0)}</span>
+								<span className={`text-hint font-mono font-bold text-foreground`}>{formatCurrency(data.intangivelDiff ?? 0)}</span>
 							</div>
 						</div>
 					)}
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<div className="w-2 h-2 rounded-full bg-warning shadow-[0_0_8px_rgba(249,115,22,0.6)]"></div>
+							<div className="w-2 h-2 rounded-full bg-warning"></div>
 							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Percentual:</span>
 						</div>
-						<span className="text-xs font-bold font-mono text-orange-400">{pctDiff.toFixed(2)}%</span>
+						<span className="text-xs font-bold font-mono text-warning">{pctDiff.toFixed(2)}%</span>
 					</div>
 
 					{icc !== undefined && (
-						<div className="flex items-center justify-between pt-1 border-t border-slate-700/30 mt-1">
+						<div className="flex items-center justify-between pt-1 border-t border-surface-inverted-border/30 mt-1">
 							<div className="flex items-center gap-2">
-								<div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></div>
+								<div className="w-2 h-2 rounded-full bg-success"></div>
 								<span className={`text-[11px] font-bold text-muted-foreground`}>ICC:</span>
 							</div>
-							<span className="text-xs font-bold font-mono text-emerald-400">{icc.toFixed(2)}%</span>
+							<span className="text-xs font-bold font-mono text-success">{icc.toFixed(2)}%</span>
 						</div>
 					)}
 
 					{pct !== undefined && (
-						<div className="flex items-center justify-between pt-1 border-t border-slate-700/30 mt-1">
+						<div className="flex items-center justify-between pt-1 border-t border-surface-inverted-border/30 mt-1">
 							<div className="flex items-center gap-2">
-								<div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]"></div>
+								<div className="w-2 h-2 rounded-full bg-warning"></div>
 								<span className={`text-[11px] font-bold text-muted-foreground`}>Acumulado Pareto:</span>
 							</div>
-							<span className="text-xs font-bold font-mono text-amber-400">{pct.toFixed(2)}%</span>
+							<span className="text-xs font-bold font-mono text-warning">{pct.toFixed(2)}%</span>
 						</div>
 					)}
 				</div>
@@ -443,7 +445,9 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 		const { x, y, width, height, name, diff, ods } = props
 
 		const finalFill = getOdsColor(ods || name || "N/A")
-		const textColor = "#ffffff"
+		// Os tiles vêm de `ODS_SOLID_COLORS`, escura nos dois temas: o rótulo é claro
+		// sempre. `--foreground` inverteria e sumiria no tema claro.
+		const textColor = "var(--surface-inverted-foreground)"
 		const textShadow = "0 1px 2px rgba(0,0,0,0.8)"
 
 		return (
@@ -473,7 +477,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 				<foreignObject x={x} y={y} width={width} height={height}>
 					<div className="w-full h-full flex flex-col items-center justify-center p-0.5 overflow-hidden pointer-events-none">
 						<span
-							className="text-[9px] font-bold uppercase tracking-tighter text-center leading-tight break-words px-1"
+							className="text-label text-center leading-tight break-words px-1"
 							style={{
 								color: textColor,
 								textShadow,
@@ -486,7 +490,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 							{name}
 						</span>
 						{(width ?? 0) > 40 && (height ?? 0) > 20 && (
-							<span className="text-[9px] font-mono font-black tracking-tight" style={{ color: textColor, textShadow }}>
+							<span className="text-hint font-mono font-bold tracking-tight" style={{ color: textColor, textShadow }}>
 								{formatCompactNumber(diff || 0)}
 							</span>
 						)}
@@ -505,8 +509,8 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
         `}
 				>
 					<div className="flex flex-col text-center">
-						<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Impacto Financeiro Total</span>
-						<span className={`text-sm font-black text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
+						<span className="text-label text-muted-foreground">Impacto Financeiro Total</span>
+						<span className={`text-sm font-bold text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
 					</div>
 				</div>
 			</div>
@@ -514,14 +518,14 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 			<div className="absolute top-0 right-0 z-10 flex items-center gap-4">
 				{viewMode === "tree" && (
 					<div className="flex items-center gap-2 mr-4">
-						<span className={`text-[10px] font-bold uppercase tracking-wider text-muted-foreground`}>Agrupar por:</span>
+						<span className={`text-label text-muted-foreground`}>Agrupar por:</span>
 						<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
 							{(["ODS", "ORGAO", "UG"] as const).map((gb) => (
 								<button
 									key={gb}
 									type="button"
 									onClick={() => setTreeGroupBy(gb)}
-									className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-md transition-all
+									className={`flex items-center gap-1.5 px-2.5 py-1 text-hint font-bold rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
                     ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                   `}
 								>
@@ -547,7 +551,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 							key={mode}
 							type="button"
 							onClick={() => setViewMode(mode)}
-							className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all
+							className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
                 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
               `}
 						>
@@ -598,8 +602,8 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								/>
 								<Tooltip content={<CustomDetailedTooltip />} cursor={{ fill: chartChrome.surfaceMuted }} />
 								<Legend wrapperStyle={{ paddingTop: "20px" }} />
-								<Bar dataKey="siafi" name="SIAFI" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
-								<Bar dataKey="siloms" name="SILOMS" fill="#10b981" radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
+								<Bar dataKey="siafi" name="SIAFI" fill={chartSeries.bmp} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
+								<Bar dataKey="siloms" name="SILOMS" fill={chartSeries.icc} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
 							</BarChart>
 						) : viewMode === "ranking" ? (
 							<ComposedChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 60 }}>
@@ -633,9 +637,9 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								<Tooltip content={<CustomDetailedTooltip />} />
 								<Legend wrapperStyle={{ paddingTop: "10px" }} />
 
-								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill="#1e40af" radius={[8, 8, 0, 0]} barSize={isExpanded ? 40 : undefined}>
+								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill={chartSeries.bmp} radius={[8, 8, 0, 0]} barSize={isExpanded ? 40 : undefined}>
 									{displayData.map((entry, index) => (
-										<Cell key={`cell-bmp-${index}`} fill="#1e40af" fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
+										<Cell key={`cell-bmp-${index}`} fill={chartSeries.bmp} fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
 									))}
 								</Bar>
 								<Bar
@@ -643,12 +647,12 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									dataKey="consumoDiff"
 									name="Bens de Consumo"
 									stackId="a"
-									fill="#0ea5e9"
+									fill={chartSeries.consumo}
 									radius={[8, 8, 0, 0]}
 									barSize={isExpanded ? 40 : undefined}
 								>
 									{displayData.map((entry, index) => (
-										<Cell key={`cell-consumo-${index}`} fill="#0ea5e9" fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
+										<Cell key={`cell-consumo-${index}`} fill={chartSeries.consumo} fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
 									))}
 								</Bar>
 								<Bar
@@ -657,7 +661,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									name="Intangíveis"
 									stackId="a"
 									radius={[8, 8, 0, 0]}
-									fill="#059669"
+									fill={chartSeries.intangivel}
 									barSize={isExpanded ? 40 : undefined}
 								>
 									<LabelList
@@ -695,7 +699,11 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 										}}
 									/>
 									{displayData.map((entry, index) => (
-										<Cell key={`cell-intangivel-${index}`} fill="#059669" fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
+										<Cell
+											key={`cell-intangivel-${index}`}
+											fill={chartSeries.intangivel}
+											fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4}
+										/>
 									))}
 								</Bar>
 
@@ -704,14 +712,21 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									type="monotone"
 									dataKey="accumulatedPct"
 									name="Acumulado %"
-									stroke="#f59e0b"
+									stroke={chartSeries.axisAlt}
 									strokeWidth={2}
-									dot={{ r: 3, fill: "#f59e0b", strokeWidth: 0 }}
+									dot={{ r: 3, fill: chartSeries.axisAlt, strokeWidth: 0 }}
 									activeDot={{ r: 5 }}
 								/>
 							</ComposedChart>
 						) : (
-							<Treemap data={treeData} dataKey="size" aspectRatio={2400 / 1600} stroke="#fff" fill="#8884d8" content={<CustomizedTreemapContent />}>
+							<Treemap
+								data={treeData}
+								dataKey="size"
+								aspectRatio={2400 / 1600}
+								stroke={chartChrome.surface}
+								fill={chartSeries.pareto}
+								content={<CustomizedTreemapContent />}
+							>
 								<Tooltip content={<CustomDetailedTooltip />} />
 							</Treemap>
 						)}
@@ -879,7 +894,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								key={mode}
 								type="button"
 								onClick={() => setViewMode(mode)}
-								className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all
+								className={`px-3 py-1.5 text-hint font-bold rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
                   ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                 `}
 							>
@@ -891,7 +906,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 					{viewMode === "comparison" && timeSeries[brushRange.end] && (
 						<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm bg-success/10 border-success/30`}>
 							<span className={`text-[11px] font-bold uppercase text-success`}>ICC Atual ({timeSeries[brushRange.end].axisLabel}):</span>
-							<span className={`text-lg font-black text-success`}>{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%</span>
+							<span className={`text-lg font-bold text-success`}>{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%</span>
 						</div>
 					)}
 				</div>
@@ -899,33 +914,33 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 				<div className="flex items-center gap-4">
 					{viewMode === "icc" ? (
 						<div className="flex items-center gap-2">
-							<div className="w-3 h-3 rounded-sm bg-[#10b981]"></div>
-							<span className="text-[10px] font-bold text-muted-foreground uppercase">Índice de Conciliação</span>
+							<div className="w-3 h-3 rounded-sm bg-(--series-icc)"></div>
+							<span className="text-label text-muted-foreground">Índice de Conciliação</span>
 						</div>
 					) : viewMode === "comparison" ? (
 						<>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-slate-400 opacity-50"></div>
-								<span className="text-[10px] font-bold text-muted-foreground uppercase">Ano Anterior</span>
+								<div className="w-3 h-3 rounded-sm" style={{ backgroundColor: chartChrome.axis }}></div>
+								<span className="text-label text-muted-foreground">Ano Anterior</span>
 							</div>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-[#6366f1]"></div>
-								<span className="text-[10px] font-bold text-muted-foreground uppercase">Ano Atual</span>
+								<div className="w-3 h-3 rounded-sm bg-(--series-pareto)"></div>
+								<span className="text-label text-muted-foreground">Ano Atual</span>
 							</div>
 						</>
 					) : (
 						<>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-[#1e40af]"></div>
-								<span className="text-[10px] font-bold text-muted-foreground uppercase">SIAFi</span>
+								<div className="w-3 h-3 rounded-sm bg-(--series-bmp)"></div>
+								<span className="text-label text-muted-foreground">SIAFi</span>
 							</div>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-[#0ea5e9]"></div>
-								<span className="text-[10px] font-bold text-muted-foreground uppercase">SIloms</span>
+								<div className="w-3 h-3 rounded-sm bg-(--series-consumo)"></div>
+								<span className="text-label text-muted-foreground">SIloms</span>
 							</div>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-[#dc2626] opacity-50"></div>
-								<span className="text-[10px] font-bold text-muted-foreground uppercase">Divergência</span>
+								<div className="w-3 h-3 rounded-sm bg-destructive opacity-50"></div>
+								<span className="text-label text-muted-foreground">Divergência</span>
 							</div>
 						</>
 					)}
@@ -947,7 +962,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 							/>
 							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />
 							<Legend verticalAlign="top" height={20} />
-							<Bar dataKey="prevYearDiff" name="Ano Anterior" fill="#94a3b8" fillOpacity={0.5} radius={[4, 4, 0, 0]}>
+							<Bar dataKey="prevYearDiff" name="Ano Anterior" fill={chartChrome.axis} fillOpacity={0.5} radius={[4, 4, 0, 0]}>
 								<LabelList
 									dataKey="prevYearDiff"
 									position="top"
@@ -970,7 +985,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									}}
 								/>
 							</Bar>
-							<Bar dataKey="totalDiff" name="Ano Atual" fill="#6366f1" radius={[4, 4, 0, 0]}>
+							<Bar dataKey="totalDiff" name="Ano Atual" fill={chartSeries.pareto} radius={[4, 4, 0, 0]}>
 								<LabelList
 									dataKey="totalDiff"
 									position="top"
@@ -1013,20 +1028,20 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 						>
 							<defs>
 								<linearGradient id="colorSiafi" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#1e40af" stopOpacity={0.6} />
-									<stop offset="95%" stopColor="#1e40af" stopOpacity={0.1} />
+									<stop offset="5%" stopColor={chartSeries.bmp} stopOpacity={0.6} />
+									<stop offset="95%" stopColor={chartSeries.bmp} stopOpacity={0.1} />
 								</linearGradient>
 								<linearGradient id="colorSiloms" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.4} />
-									<stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.05} />
+									<stop offset="5%" stopColor={chartSeries.consumo} stopOpacity={0.4} />
+									<stop offset="95%" stopColor={chartSeries.consumo} stopOpacity={0.05} />
 								</linearGradient>
 								<linearGradient id="colorDiff" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-									<stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+									<stop offset="5%" stopColor={chartSeries.pareto} stopOpacity={0.4} />
+									<stop offset="95%" stopColor={chartSeries.pareto} stopOpacity={0} />
 								</linearGradient>
 								<linearGradient id="colorIcc" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-									<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+									<stop offset="5%" stopColor={chartSeries.icc} stopOpacity={0.3} />
+									<stop offset="95%" stopColor={chartSeries.icc} stopOpacity={0} />
 								</linearGradient>
 							</defs>
 							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
@@ -1073,7 +1088,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 
 							{viewMode === "overlap" ? (
 								<>
-									<Area type="monotone" dataKey="diffHighlight" stroke="none" fill="#ef4444" fillOpacity={0.15} />
+									<Area type="monotone" dataKey="diffHighlight" stroke="none" fill={chartSeries.diff} fillOpacity={0.15} />
 									<Area
 										type="monotone"
 										dataKey="totalSiafi"
@@ -1086,7 +1101,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 										strokeLinecap="round"
 										dot={{
 											r: 3,
-											fill: "#1e40af",
+											fill: chartSeries.bmp,
 											strokeWidth: 1,
 											stroke: chartChrome.surface,
 										}}
@@ -1103,7 +1118,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 										strokeLinecap="round"
 										dot={{
 											r: 3,
-											fill: "#0ea5e9",
+											fill: chartSeries.consumo,
 											strokeWidth: 1,
 											stroke: chartChrome.surface,
 										}}
@@ -1114,7 +1129,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									type="monotone"
 									dataKey="icc"
 									name="ICC"
-									stroke="#10b981"
+									stroke={chartSeries.icc}
 									strokeWidth={3}
 									fillOpacity={1}
 									fill="url(#colorIcc)"
@@ -1122,7 +1137,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									strokeLinecap="round"
 									dot={{
 										r: 5,
-										fill: "#10b981",
+										fill: chartSeries.icc,
 										strokeWidth: 2,
 										stroke: chartChrome.surface,
 									}}
@@ -1145,7 +1160,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									type="monotone"
 									dataKey="totalDiff"
 									name="Divergência"
-									stroke="#6366f1"
+									stroke={chartSeries.pareto}
 									strokeWidth={3}
 									fillOpacity={1}
 									fill="url(#colorDiff)"
@@ -1153,7 +1168,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									strokeLinecap="round"
 									dot={{
 										r: 4,
-										fill: "#6366f1",
+										fill: chartSeries.pareto,
 										strokeWidth: 2,
 										stroke: chartChrome.surface,
 									}}

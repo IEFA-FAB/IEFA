@@ -16,7 +16,10 @@
     "test": "bun test --no-env-file src",
     "test:e2e": "bunx playwright test",
     "test:e2e:ui": "bunx playwright test --ui",
-    "purge:test-fixtures": "bun run scripts/purge-test-fixtures.ts"
+    "purge:test-fixtures": "bun run scripts/purge-test-fixtures.ts",
+    "harness:build": "vite build --config harness/vite.config.ts --outDir dist-harness",
+    "harness:serve": "vite preview --config harness/vite.config.ts --outDir dist-harness --port 4180 --strictPort",
+    "harness:shot": "bun run harness/screenshot.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -47,7 +50,6 @@
     "motion": "^12.40.0",
     "nitro": "^3.0.260610-beta",
     "papaparse": "^5.5.4",
-    "radix-ui": "^1.6.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "3.10.1",

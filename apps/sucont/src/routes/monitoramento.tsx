@@ -29,11 +29,19 @@ import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
 import { UGCard } from "#/components/analista/ug-card"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
+import { chartChrome } from "#/lib/chart-theme"
 import { cn } from "#/lib/utils"
+
+// Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
+// Fica em hex explícito de propósito (ver STYLE_CONTRACT §8) — mapeá-la para
+// tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
+// que duas categorias são a mesma coisa.
+const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#6366f1", "#ef4444", "#f43f5e", "#f97316"]
 
 export const Route = createFileRoute("/monitoramento")({
 	component: MonitoramentoPage,
@@ -448,14 +456,15 @@ function MonitoramentoPage() {
 					</p>
 				</div>
 				{fileName && (
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={clearData}
-						className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+						className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-surface-inverted-foreground bg-surface-inverted hover:bg-surface-inverted-border rounded-lg transition-colors"
 					>
 						<Trash2 className="w-4 h-4" />
 						<span>Nova Análise</span>
-					</button>
+					</Button>
 				)}
 			</div>
 
@@ -465,8 +474,8 @@ function MonitoramentoPage() {
 					<button
 						type="button"
 						className={cn(
-							"w-full border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-200 cursor-pointer",
-							isDragging ? "border-blue-500 bg-blue-50" : "border-border hover:border-blue-400 hover:bg-muted/50 bg-card"
+							"w-full border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-200 cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
+							isDragging ? "border-action bg-action/10" : "border-border hover:border-action hover:bg-muted/50 bg-card"
 						)}
 						onDrop={handleDrop}
 						onDragOver={(e) => {
@@ -488,7 +497,7 @@ function MonitoramentoPage() {
 								if (e.target.files?.[0]) processFile(e.target.files[0])
 							}}
 						/>
-						<div className="mx-auto w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+						<div className="mx-auto w-16 h-16 bg-action/15 text-action rounded-full flex items-center justify-center mb-4">
 							<Upload className="w-8 h-8" />
 						</div>
 						<h3 className="text-lg font-semibold text-foreground mb-1">Carregar Planilha do Tesouro Gerencial</h3>
@@ -499,7 +508,7 @@ function MonitoramentoPage() {
 
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-							<div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+							<div className="w-12 h-12 bg-action/15 text-action rounded-xl flex items-center justify-center mb-4">
 								<Search className="w-6 h-6" />
 							</div>
 							<h3 className="text-lg font-semibold text-foreground mb-2">O que está sendo analisado</h3>
@@ -509,7 +518,7 @@ function MonitoramentoPage() {
 							</p>
 						</div>
 						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-							<div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
+							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center mb-4">
 								<BookOpen className="w-6 h-6" />
 							</div>
 							<h3 className="text-lg font-semibold text-foreground mb-2">O Referencial Teórico (RAC)</h3>
@@ -531,7 +540,7 @@ function MonitoramentoPage() {
 
 					<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 						<h3 className="text-md font-semibold text-foreground mb-4 flex items-center">
-							<FileText className="w-5 h-5 mr-2 text-blue-600" />
+							<FileText className="w-5 h-5 mr-2 text-action" />
 							Caminho do Relatório no Tesouro Gerencial
 						</h3>
 						<div className="bg-muted/50 p-4 rounded-lg border border-border text-sm text-foreground flex flex-wrap items-center gap-y-2 gap-x-1">
@@ -552,7 +561,7 @@ function MonitoramentoPage() {
 								</span>
 							))}
 							<ChevronRight className="w-4 h-4 text-muted-foreground" />
-							<span className="font-semibold text-blue-700">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
+							<span className="font-semibold text-action">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
 						</div>
 					</div>
 				</div>
@@ -561,8 +570,8 @@ function MonitoramentoPage() {
 					{/* Escopo */}
 					<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 						<div className="flex items-start space-x-3">
-							<div className="p-2 bg-blue-100 rounded-lg shrink-0">
-								<Info className="w-5 h-5 text-blue-700" />
+							<div className="p-2 bg-action/15 rounded-lg shrink-0">
+								<Info className="w-5 h-5 text-action" />
 							</div>
 							<div>
 								<h3 className="text-lg font-semibold text-foreground mb-2">Escopo da Análise (RAC)</h3>
@@ -571,7 +580,7 @@ function MonitoramentoPage() {
 									{["Questão 26", "Questão 27", "Questão 28", "Questão 31", "Questão 32", "Questão 36"].map((q) => (
 										<span
 											key={q}
-											className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+											className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action/10 text-action border border-action/30"
 										>
 											{q}
 										</span>
@@ -593,10 +602,10 @@ function MonitoramentoPage() {
 						<div className="flex flex-wrap items-center gap-6">
 							<div className="flex items-center space-x-3">
 								<label htmlFor="rac-filter" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center">
-									<BookOpen className="w-4 h-4 mr-2 text-blue-600" />
+									<BookOpen className="w-4 h-4 mr-2 text-action" />
 									Questão RAC:
 								</label>
-								<Select value={activeRacFilter} onValueChange={setActiveRacFilter}>
+								<Select items={{ TODOS: "Todas as Questões" }} value={activeRacFilter} onValueChange={(v) => setActiveRacFilter(v ?? "TODOS")}>
 									<SelectTrigger
 										id="rac-filter"
 										className="text-sm border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 font-medium text-foreground"
@@ -617,10 +626,10 @@ function MonitoramentoPage() {
 							</div>
 							<div className="flex items-center space-x-3">
 								<label htmlFor="conferente-filter" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center">
-									<Filter className="w-4 h-4 mr-2 text-blue-600" />
+									<Filter className="w-4 h-4 mr-2 text-action" />
 									Conferente:
 								</label>
-								<Select value={activeConferenteFilter} onValueChange={setActiveConferenteFilter}>
+								<Select items={{ TODOS: "Todos os Conferentes" }} value={activeConferenteFilter} onValueChange={(v) => setActiveConferenteFilter(v ?? "TODOS")}>
 									<SelectTrigger
 										id="conferente-filter"
 										className="text-sm border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 font-medium text-foreground"
@@ -641,17 +650,18 @@ function MonitoramentoPage() {
 							</div>
 						</div>
 						{(activeRacFilter !== "TODOS" || activeConferenteFilter !== "TODOS") && (
-							<button
+							<Button
 								type="button"
+								variant="ghost"
 								onClick={() => {
 									setActiveRacFilter("TODOS")
 									setActiveConferenteFilter("TODOS")
 								}}
-								className="text-xs font-bold text-destructive hover:text-destructive flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors"
+								className="text-xs font-bold text-destructive hover:text-destructive/80 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors"
 							>
 								<Trash2 className="w-4 h-4" />
 								LIMPAR FILTROS
-							</button>
+							</Button>
 						)}
 					</div>
 
@@ -665,9 +675,10 @@ function MonitoramentoPage() {
 								{ id: "decisao", label: "Apoio à Decisão", color: "amber" },
 							] as const
 						).map(({ id, label, color }) => (
-							<button
+							<Button
 								key={id}
 								type="button"
+								variant="ghost"
 								onClick={() => setActiveView(id)}
 								className={cn(
 									"px-6 py-4 text-sm font-bold transition-all",
@@ -677,31 +688,32 @@ function MonitoramentoPage() {
 								)}
 							>
 								{label}
-							</button>
+							</Button>
 						))}
 					</div>
 
 					{/* Banner focal RAC */}
 					{activeView === "operacional" && activeRacFilter !== "TODOS" && (
-						<div className="bg-blue-900 text-white p-6 rounded-2xl border border-blue-700 flex items-center justify-between animate-in slide-in-from-top duration-500">
+						<div className="bg-action text-action-foreground p-6 rounded-2xl border border-action flex items-center justify-between animate-in slide-in-from-top duration-500">
 							<div className="flex items-center space-x-4">
-								<div className="p-3 bg-blue-800 rounded-xl">
-									<BookOpen className="w-6 h-6 text-blue-100" />
+								<div className="p-3 bg-action rounded-xl">
+									<BookOpen className="w-6 h-6 text-action-foreground" />
 								</div>
 								<div>
 									<h2 className="text-xl font-bold">
 										{activeRacFilter} — {getRacDescription(activeRacFilter)}
 									</h2>
-									<p className="text-blue-200 text-sm">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
+									<p className="text-action-foreground text-sm">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
 								</div>
 							</div>
-							<button
+							<Button
 								type="button"
+								variant="ghost"
 								onClick={() => setActiveRacFilter("TODOS")}
-								className="text-xs bg-blue-800 hover:bg-blue-700 px-3 py-1.5 rounded-lg border border-blue-600 transition-colors"
+								className="text-xs bg-action hover:bg-action/80 px-3 py-1.5 rounded-lg border border-action transition-colors"
 							>
 								Limpar Filtro RAC
-							</button>
+							</Button>
 						</div>
 					)}
 
@@ -710,8 +722,8 @@ function MonitoramentoPage() {
 						<div className="space-y-8 animate-in fade-in duration-500">
 							<div className="bg-card p-8 rounded-2xl shadow-sm border border-border">
 								<div className="flex items-start space-x-4">
-									<div className="p-3 bg-indigo-100 rounded-xl shrink-0">
-										<Target className="w-6 h-6 text-indigo-700" />
+									<div className="p-3 bg-action/10 rounded-xl shrink-0">
+										<Target className="w-6 h-6 text-action" />
 									</div>
 									<div>
 										<h2 className="text-2xl font-bold text-foreground mb-2">Painel de Análise Tática (SUCONT-3)</h2>
@@ -761,17 +773,17 @@ function MonitoramentoPage() {
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
-										<TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+										<TrendingUp className="w-5 h-5 mr-2 text-action" />
 										Top 10 UGs por Volume de Inconsistências
 									</h3>
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<BarChart data={managerialData.topUgs} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-												<CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+												<CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartChrome.grid} />
 												<XAxis type="number" hide />
-												<YAxis dataKey="ug" type="category" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+												<YAxis dataKey="ug" type="category" axisLine={false} tickLine={false} tick={{ fill: chartChrome.axis, fontSize: 12 }} />
 												<Tooltip
-													cursor={{ fill: "#f1f5f9" }}
+													cursor={{ fill: chartChrome.surfaceMuted }}
 													contentStyle={{
 														borderRadius: "8px",
 														border: "none",
@@ -779,7 +791,7 @@ function MonitoramentoPage() {
 													}}
 													formatter={(value) => [Number(value), "Ocorrências"]}
 												/>
-												<Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+												<Bar dataKey="count" fill={"var(--series-bmp)"} radius={[0, 4, 4, 0]} barSize={20} />
 											</BarChart>
 										</ResponsiveContainer>
 									</div>
@@ -787,7 +799,7 @@ function MonitoramentoPage() {
 
 								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
-										<PieChartIcon className="w-5 h-5 mr-2 text-indigo-600" />
+										<PieChartIcon className="w-5 h-5 mr-2 text-action" />
 										Distribuição por Questão RAC
 									</h3>
 									<div className="h-80">
@@ -795,7 +807,7 @@ function MonitoramentoPage() {
 											<PieChart>
 												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
 													{managerialData.topRacs.map((_, index) => (
-														<Cell key={`cell-${index}`} fill={["#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316"][index % 6]} />
+														<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
 													))}
 												</Pie>
 												<Tooltip
@@ -806,7 +818,7 @@ function MonitoramentoPage() {
 													}}
 													formatter={(value) => [Number(value), "Ocorrências"]}
 												/>
-												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
+												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: chartChrome.axis }} />
 											</PieChart>
 										</ResponsiveContainer>
 									</div>
@@ -843,27 +855,27 @@ function MonitoramentoPage() {
 								</div>
 							</div>
 
-							<div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6">
-								<h3 className="text-lg font-bold text-indigo-900 mb-4 flex items-center">
-									<Lightbulb className="w-5 h-5 mr-2 text-indigo-600" />
+							<div className="bg-action/10 border border-action/30 rounded-2xl p-6">
+								<h3 className="text-lg font-bold text-action mb-4 flex items-center">
+									<Lightbulb className="w-5 h-5 mr-2 text-action" />
 									Recomendações Estratégicas (Foco de Atuação)
 								</h3>
-								<ul className="space-y-3 text-indigo-800 text-sm">
+								<ul className="space-y-3 text-action text-sm">
 									{managerialData.topUgs.length > 0 && (
 										<li className="flex items-start">
-											<span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 mr-2 shrink-0" />A UG <strong>{managerialData.topUgs[0].ug}</strong>{" "}
-											concentra a maior parte das inconsistências. Recomenda-se uma ação de orientação técnica direcionada à Setorial Contábil desta unidade.
+											<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 mr-2 shrink-0" />A UG <strong>{managerialData.topUgs[0].ug}</strong> concentra
+											a maior parte das inconsistências. Recomenda-se uma ação de orientação técnica direcionada à Setorial Contábil desta unidade.
 										</li>
 									)}
 									{managerialData.topRacs.length > 0 && (
 										<li className="flex items-start">
-											<span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 mr-2 shrink-0" />A <strong>{managerialData.topRacs[0].name}</strong> é a
+											<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 mr-2 shrink-0" />A <strong>{managerialData.topRacs[0].name}</strong> é a
 											principal ofensora do COMAER neste período. Sugere-se avaliar a necessidade de capacitação das UGs ou a emissão de um boletim de
 											orientação específico.
 										</li>
 									)}
 									<li className="flex items-start">
-										<span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 mr-2 shrink-0" />O volume financeiro total em risco é de{" "}
+										<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 mr-2 shrink-0" />O volume financeiro total em risco é de{" "}
 										<strong>{formatCurrency(managerialData.totalRiskValue)}</strong>. A não regularização pode comprometer a fidedignidade das demonstrações
 										contábeis do COMAER.
 									</li>
@@ -920,14 +932,21 @@ function MonitoramentoPage() {
 											<PieChart>
 												<Pie data={estrategicoData.topOds} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count" nameKey="name">
 													{estrategicoData.topOds.map((_, index) => (
-														<Cell key={`cell-${index}`} fill={["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"][index % 6]} />
+														<Cell
+															key={`cell-${index}`}
+															fill={
+																["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis][
+																	index % 6
+																]
+															}
+														/>
 													))}
 												</Pie>
 												<Tooltip
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
 													formatter={(value, _name, item) => [`${Number(value)} (${(Number(item?.payload?.percent) || 0).toFixed(1)}%)`, "Inconsistências"]}
 												/>
-												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
+												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: chartChrome.axis }} />
 											</PieChart>
 										</ResponsiveContainer>
 									</div>
@@ -941,15 +960,15 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<BarChart data={estrategicoData.topOrgaosSuperiores} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-												<CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="#e2e8f0" />
-												<XAxis type="number" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
-												<YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fill: "#475569" }} axisLine={false} tickLine={false} />
+												<CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke={chartChrome.grid} />
+												<XAxis type="number" tick={{ fontSize: 12, fill: chartChrome.axis }} axisLine={false} tickLine={false} />
+												<YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fill: chartChrome.axis }} axisLine={false} tickLine={false} />
 												<Tooltip
-													cursor={{ fill: "#f1f5f9" }}
+													cursor={{ fill: chartChrome.surfaceMuted }}
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
 													formatter={(value) => [Number(value), "Inconsistências"]}
 												/>
-												<Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+												<Bar dataKey="count" fill={"var(--success)"} radius={[0, 4, 4, 0]} barSize={20} />
 											</BarChart>
 										</ResponsiveContainer>
 									</div>
@@ -1054,12 +1073,12 @@ function MonitoramentoPage() {
 
 								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
-										<Target className="w-5 h-5 mr-2 text-blue-600" />
+										<Target className="w-5 h-5 mr-2 text-action" />
 										Análise de Concentração (Pareto)
 									</h3>
 									<div className="flex flex-col items-center justify-center h-full pb-6">
 										<div className="text-center mb-8">
-											<p className="text-4xl font-black text-blue-600 mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
+											<p className="text-4xl font-bold text-action mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
 											<p className="text-sm text-muted-foreground">
 												das inconsistências estão concentradas em apenas <span className="font-bold text-foreground">20% das UGs</span> (
 												{decisaoData.pareto.twentyPercentCount} UGs).
@@ -1070,9 +1089,7 @@ function MonitoramentoPage() {
 											{decisaoData.pareto.topTwentyUgs.map((ug, i) => (
 												<div key={ug.ug} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border">
 													<div className="flex items-center gap-2">
-														<span className="text-[10px] font-bold bg-blue-100 text-blue-700 w-5 h-5 flex items-center justify-center rounded-full">
-															{i + 1}
-														</span>
+														<span className="text-hint font-bold bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">{i + 1}</span>
 														<span className="text-sm font-semibold text-foreground">
 															{ug.ug} ({ug.nome})
 														</span>
@@ -1108,7 +1125,7 @@ function MonitoramentoPage() {
 													<td className="px-4 py-3">
 														<span
 															className={cn(
-																"inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold",
+																"inline-flex items-center justify-center w-6 h-6 rounded-full text-hint font-bold",
 																i < 3 ? "bg-destructive/15 text-destructive" : "bg-muted text-foreground"
 															)}
 														>
@@ -1148,7 +1165,7 @@ function MonitoramentoPage() {
 					{activeView === "operacional" && dashboardData && (
 						<div className="space-y-6 mb-8 animate-in fade-in duration-500">
 							<h2 className="text-xl font-bold text-foreground flex items-center">
-								<BarChart3 className="w-6 h-6 mr-2 text-blue-600" />
+								<BarChart3 className="w-6 h-6 mr-2 text-action" />
 								VISÃO GERAL
 							</h2>
 							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1167,7 +1184,7 @@ function MonitoramentoPage() {
 									},
 									{
 										icon: <Building2 className="w-6 h-6" />,
-										bg: "bg-blue-100 text-blue-600",
+										bg: "bg-action/15 text-action",
 										label: "UGs com Inconsistências",
 										value: dashboardData.ugsComInconsistencia,
 									},
@@ -1211,15 +1228,16 @@ function MonitoramentoPage() {
 							<div className="flex flex-wrap gap-2">
 								{(
 									[
-										{ id: "ALL", label: "Todas as Ocorrências", active: "bg-slate-800 text-white" },
-										{ id: "COBRANCAS", label: "Cobranças (RAC)", active: "bg-destructive text-white" },
-										{ id: "EXCECOES", label: "Exceções (RAC)", active: "bg-success text-white" },
-										{ id: "FORA_ESCOPO", label: "Fora do Escopo (Inconsistências)", active: "bg-warning text-white" },
+										{ id: "ALL", label: "Todas as Ocorrências", active: "bg-surface-inverted text-surface-inverted-foreground" },
+										{ id: "COBRANCAS", label: "Cobranças (RAC)", active: "bg-destructive text-destructive-foreground" },
+										{ id: "EXCECOES", label: "Exceções (RAC)", active: "bg-success text-success-foreground" },
+										{ id: "FORA_ESCOPO", label: "Fora do Escopo (Inconsistências)", active: "bg-warning text-warning-foreground" },
 									] as const
 								).map(({ id, label, active }) => (
-									<button
+									<Button
 										key={id}
 										type="button"
+										variant="ghost"
 										onClick={() => setActiveTab(id)}
 										className={cn(
 											"px-4 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -1227,7 +1245,7 @@ function MonitoramentoPage() {
 										)}
 									>
 										{label}
-									</button>
+									</Button>
 								))}
 							</div>
 						</div>

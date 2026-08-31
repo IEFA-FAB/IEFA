@@ -28,7 +28,11 @@ import React, { useCallback, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { twMerge } from "tailwind-merge"
 import * as XLSX from "xlsx"
+import { LegalFooter } from "#/components/legal-footer"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { CONFERENTES_MAPPING, UG_INFO } from "#/subitens/constants"
 
@@ -551,7 +555,7 @@ function SubitensGenericos() {
 
 	// ── Render ────────────────────────────────────────────────
 	return (
-		<div className="min-h-screen bg-muted/50 text-[#141414] font-sans selection:bg-fab-blue selection:text-white relative overflow-hidden">
+		<div className="min-h-screen bg-muted/50 text-foreground font-sans selection:bg-fab-blue selection:text-white relative overflow-hidden">
 			{/* Background Watermark */}
 			<div className="fixed inset-0 pointer-events-none opacity-[0.02] flex items-center justify-center overflow-hidden z-0">
 				<div className="absolute top-10 left-10">
@@ -586,13 +590,13 @@ function SubitensGenericos() {
 						</Link>
 
 						<div className="flex items-center gap-6">
-							<div className="hidden sm:flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg border border-white/10 rotate-3 hover:rotate-0 transition-transform duration-500">
+							<div className="hidden sm:flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl shadow-lg border border-white/10 rotate-3 hover:rotate-0 transition-transform duration-500">
 								<Plane className="text-fab-gold -rotate-45" size={32} />
 							</div>
 							<div>
 								<div className="flex items-center gap-2 mb-1">
 									<Shield className="text-fab-gold" size={12} />
-									<span className="text-[10px] font-bold tracking-[0.2em] text-fab-sky uppercase">FORÇA AÉREA BRASILEIRA • DIREF • SUCONT</span>
+									<span className="text-label text-fab-sky">FORÇA AÉREA BRASILEIRA • DIREF • SUCONT</span>
 								</div>
 								<h1 className="text-3xl md:text-4xl font-serif italic tracking-tight text-white">
 									Analista SUCONT <span className="text-fab-gold">/</span> Subitens Genéricos
@@ -600,9 +604,7 @@ function SubitensGenericos() {
 								<div className="flex items-center gap-2 mt-2">
 									<div className="px-3 py-1 bg-fab-gold/20 border border-fab-gold/40 rounded-full flex items-center gap-2 shadow-sm">
 										<Shield size={10} className="text-fab-gold" />
-										<span className="text-[10px] uppercase tracking-[0.15em] font-black text-fab-gold">
-											Acompanhamento Contábil: Questão 34 do Roteiro (SUCONT-3)
-										</span>
+										<span className="text-label text-fab-gold">Acompanhamento Contábil: Questão 34 do Roteiro (SUCONT-3)</span>
 									</div>
 								</div>
 							</div>
@@ -612,7 +614,7 @@ function SubitensGenericos() {
 					<div className="flex items-center gap-4">
 						<div className="text-right hidden md:flex flex-col gap-1">
 							<div className="flex items-center gap-2 justify-end">
-								<label htmlFor="report-date" className="text-[9px] uppercase tracking-wider font-bold text-fab-sky/60">
+								<label htmlFor="report-date" className="text-label text-fab-sky/60">
 									Data Relatório
 								</label>
 								<input
@@ -624,7 +626,7 @@ function SubitensGenericos() {
 								/>
 							</div>
 							<div className="flex items-center gap-2 justify-end">
-								<label htmlFor="msg-number" className="text-[9px] uppercase tracking-wider font-bold text-fab-sky/60">
+								<label htmlFor="msg-number" className="text-label text-fab-sky/60">
 									Nº Mensagem
 								</label>
 								<input
@@ -637,7 +639,7 @@ function SubitensGenericos() {
 								/>
 							</div>
 							<div className="flex items-center gap-2 justify-end">
-								<label htmlFor="msg-date" className="text-[9px] uppercase tracking-wider font-bold text-fab-sky/60">
+								<label htmlFor="msg-date" className="text-label text-fab-sky/60">
 									Data Mensagem
 								</label>
 								<input
@@ -650,13 +652,14 @@ function SubitensGenericos() {
 							</div>
 						</div>
 						<div className="h-10 w-[1px] bg-white/20 hidden md:block" />
-						<button
+						<Button
 							onClick={resetAnalysis}
 							type="button"
-							className="px-6 py-2.5 rounded-full border border-fab-gold/30 bg-fab-gold/10 text-fab-gold hover:bg-fab-gold hover:text-fab-blue shadow-lg transition-all text-sm font-bold uppercase tracking-widest backdrop-blur-sm"
+							variant="outline"
+							className="h-auto px-6 py-2.5 rounded-full border-fab-gold/30 bg-fab-gold/10 text-fab-gold hover:bg-fab-gold hover:text-fab-blue shadow-lg transition-all text-sm font-bold uppercase tracking-widest"
 						>
 							Nova Análise
-						</button>
+						</Button>
 					</div>
 				</div>
 			</header>
@@ -683,7 +686,7 @@ function SubitensGenericos() {
 									Ferramenta institucional da DIREF para identificação automatizada de utilização de subitens genéricos (99/999) no Tesouro Gerencial (Base
 									SIAFI).
 								</p>
-								<div className="flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-fab-blue/40">
+								<div className="flex items-center justify-center gap-3 text-label text-fab-blue/40">
 									<Compass size={14} className="text-fab-gold" />
 									<span>Defender, Controlar e Integrar</span>
 									<Compass size={14} className="text-fab-gold" />
@@ -701,7 +704,7 @@ function SubitensGenericos() {
 								onDrop={onDrop}
 								className={cn(
 									"relative group cursor-pointer transition-all duration-500",
-									"border-2 border-dashed rounded-[32px] p-12",
+									"border-2 border-dashed rounded-xl p-12",
 									"flex flex-col items-center justify-center text-center gap-6",
 									isDragging
 										? "border-fab-blue bg-fab-blue/5 scale-[1.02]"
@@ -732,10 +735,7 @@ function SubitensGenericos() {
 
 								<div className="flex flex-wrap justify-center gap-3 mt-4">
 									{["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo"].map((col) => (
-										<span
-											key={col}
-											className="px-4 py-1.5 bg-fab-sky/50 rounded-full text-[10px] font-bold uppercase tracking-widest text-fab-blue/60 border border-fab-blue/5"
-										>
+										<span key={col} className="px-4 py-1.5 bg-fab-sky/50 rounded-full text-label text-fab-blue/60 border border-fab-blue/5">
 											{col}
 										</span>
 									))}
@@ -746,7 +746,7 @@ function SubitensGenericos() {
 								<motion.div
 									initial={{ opacity: 0, y: 10 }}
 									animate={{ opacity: 1, y: 0 }}
-									className="mt-8 p-4 bg-destructive/10 border border-red-100 rounded-2xl flex items-start gap-3 text-destructive"
+									className="mt-8 p-4 bg-destructive/10 border border-destructive/30 rounded-2xl flex items-start gap-3 text-destructive"
 								>
 									<AlertCircle className="shrink-0 mt-0.5" size={18} />
 									<p className="text-sm font-medium">{error}</p>
@@ -755,7 +755,7 @@ function SubitensGenericos() {
 
 							<div className="mt-12 space-y-6">
 								{/* Referencial Metodológico */}
-								<div className="p-8 bg-card rounded-[32px] border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
+								<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
 									<div className="flex items-start gap-6">
 										<div className="w-12 h-12 shrink-0 bg-fab-sky rounded-2xl flex items-center justify-center text-fab-blue shadow-inner">
 											<Shield size={24} />
@@ -793,7 +793,7 @@ function SubitensGenericos() {
 								</div>
 
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="p-8 bg-card rounded-[32px] border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
+									<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
 										<div className="w-12 h-12 bg-fab-sky rounded-2xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
 											<Info size={24} />
 										</div>
@@ -803,7 +803,7 @@ function SubitensGenericos() {
 											inconsistências como o uso de subitens genéricos (99/999) e outras falhas de classificação.
 										</p>
 									</div>
-									<div className="p-8 bg-card rounded-[32px] border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
+									<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
 										<div className="w-12 h-12 bg-fab-sky rounded-2xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
 											<CheckCircle2 size={24} />
 										</div>
@@ -815,7 +815,7 @@ function SubitensGenericos() {
 									</div>
 								</div>
 
-								<div className="p-8 bg-card rounded-[32px] border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
+								<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
 									<div className="w-12 h-12 bg-fab-sky rounded-2xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
 										<MapIcon size={24} />
 									</div>
@@ -845,7 +845,7 @@ function SubitensGenericos() {
 							</div>
 
 							<div className="mt-16 text-center max-w-4xl mx-auto px-6">
-								<p className="text-[10px] text-fab-blue/40 leading-relaxed uppercase tracking-wider">
+								<p className="text-label text-fab-blue/40 leading-relaxed">
 									Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel
 									Int Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp
 									CCO Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
@@ -877,9 +877,9 @@ function SubitensGenericos() {
 										initial={{ opacity: 0, y: 20 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{ delay: i * 0.1 }}
-										className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm flex flex-col justify-between relative overflow-hidden group"
+										className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm flex flex-col justify-between relative overflow-hidden group"
 									>
-										<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-1">{kpi.label}</p>
+										<p className="text-label text-fab-blue/40 mb-1">{kpi.label}</p>
 										<div className="flex items-baseline gap-2">
 											<h3 className={`text-5xl font-serif italic ${kpi.color}`}>{kpi.value}</h3>
 											<span className="text-xs text-fab-blue/40 font-medium uppercase tracking-wider">{kpi.suffix}</span>
@@ -894,20 +894,20 @@ function SubitensGenericos() {
 									initial={{ opacity: 0, y: 20 }}
 									animate={{ opacity: 1, y: 0 }}
 									transition={{ delay: 0.2 }}
-									className="bg-fab-blue p-8 rounded-[40px] shadow-2xl shadow-fab-blue/20 flex flex-col justify-between text-white relative overflow-hidden group"
+									className="bg-fab-blue p-8 rounded-xl shadow-2xl shadow-fab-blue/20 flex flex-col justify-between text-white relative overflow-hidden group"
 								>
-									<p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Volume Financeiro</p>
+									<p className="text-label text-white/40 mb-1">Volume Financeiro</p>
 									<div className="flex flex-col">
 										<h3 className="text-3xl font-mono font-bold text-fab-gold">
 											{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)}
 										</h3>
-										<span className="text-[10px] text-white/40 font-medium uppercase tracking-widest mt-2">em subitens genéricos</span>
+										<span className="text-label text-white/40 mt-2">em subitens genéricos</span>
 									</div>
 								</motion.div>
 							</section>
 
 							{/* Filter */}
-							<section className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm mb-12">
+							<section className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm mb-12">
 								<div className="flex flex-col md:flex-row items-center justify-between gap-8">
 									<div className="flex items-center gap-4">
 										<div className="p-3 bg-fab-sky rounded-2xl text-fab-blue">
@@ -917,30 +917,29 @@ function SubitensGenericos() {
 											<div className="flex items-center gap-2">
 												<h3 className="text-xl font-serif italic text-fab-blue">Filtrar Análise</h3>
 												{selectedConferente !== "all" && (
-													<span className="px-2 py-0.5 bg-fab-gold text-white text-[8px] font-bold uppercase tracking-tighter rounded-full animate-pulse">
-														Filtro Ativo
-													</span>
+													<span className="px-2 py-0.5 bg-fab-gold text-white text-label rounded-full animate-pulse">Filtro Ativo</span>
 												)}
 											</div>
-											<p className="text-[10px] text-fab-blue/40 uppercase tracking-widest font-bold">Modo Geral ou por Conferente</p>
+											<p className="text-label text-fab-blue/40">Modo Geral ou por Conferente</p>
 										</div>
 									</div>
 
 									<div className="flex flex-wrap items-center gap-3">
-										<button
+										<Button
 											onClick={() => setSelectedConferente("all")}
 											type="button"
+											variant="ghost"
 											className={cn(
-												"px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+												"h-auto px-5 py-2 rounded-full text-label transition-all flex items-center gap-2",
 												selectedConferente === "all" ? "bg-fab-blue text-white shadow-md" : "bg-fab-sky/30 text-fab-blue/60 hover:bg-fab-sky/50"
 											)}
 										>
 											Modo Geral
-										</button>
+										</Button>
 
 										<div className="flex items-center gap-2">
-											<Select value={selectedConferente} onValueChange={setSelectedConferente}>
-												<SelectTrigger className="data-[size=default]:h-auto bg-fab-sky/30 text-fab-blue border-none rounded-full px-5 py-2 text-[10px] font-bold uppercase tracking-widest shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue">
+											<Select items={{ all: "Todos os Conferentes" }} value={selectedConferente} onValueChange={(v) => setSelectedConferente(v ?? "all")}>
+												<SelectTrigger className="data-[size=default]:h-auto bg-fab-sky/30 text-fab-blue border-none rounded-full px-5 py-2 text-label shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue">
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
@@ -954,14 +953,23 @@ function SubitensGenericos() {
 											</Select>
 
 											{selectedConferente !== "all" && (
-												<button
-													onClick={() => setSelectedConferente("all")}
-													type="button"
-													className="p-2 text-fab-blue/40 hover:text-fab-blue transition-colors"
-													title="Limpar Filtros"
-												>
-													<X size={16} />
-												</button>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Button
+																onClick={() => setSelectedConferente("all")}
+																type="button"
+																variant="ghost"
+																size="icon-sm"
+																aria-label="Limpar Filtros"
+																className="text-fab-blue/40 hover:text-fab-blue"
+															>
+																<X size={16} />
+															</Button>
+														}
+													/>
+													<TooltipContent>Limpar Filtros</TooltipContent>
+												</Tooltip>
 											)}
 										</div>
 									</div>
@@ -975,18 +983,19 @@ function SubitensGenericos() {
 										{ key: "messages", label: "Mensagens Institucionais", icon: FileText },
 										{ key: "dashboard", label: "Painel Gerencial", icon: LayoutDashboard },
 									].map(({ key, label, icon: Icon }) => (
-										<button
+										<Button
 											key={key}
 											onClick={() => setActiveTab(key as "messages" | "dashboard")}
 											type="button"
+											variant="ghost"
 											className={cn(
-												"px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+												"h-auto px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all flex items-center gap-2",
 												activeTab === key ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:text-fab-blue hover:bg-fab-sky/50"
 											)}
 										>
 											<Icon size={16} />
 											{label}
-										</button>
+										</Button>
 									))}
 								</div>
 							</div>
@@ -1007,16 +1016,13 @@ function SubitensGenericos() {
 											</div>
 										</div>
 
-										<div className="bg-card rounded-[40px] border border-fab-blue/10 overflow-hidden shadow-xl shadow-fab-blue/5">
+										<div className="bg-card rounded-xl border border-fab-blue/10 overflow-hidden shadow-xl shadow-fab-blue/5">
 											<div className="overflow-x-auto">
 												<table className="w-full text-left border-collapse">
 													<thead>
 														<tr className="bg-fab-sky/30 border-b border-fab-blue/10">
 															{["UG Executora", "Questão RAC", "Conta Contábil", "Conta Corrente", "Saldo"].map((h) => (
-																<th
-																	key={h}
-																	className={`px-10 py-6 text-[10px] font-bold uppercase tracking-widest text-fab-blue/60${h === "Saldo" ? " text-right" : ""}`}
-																>
+																<th key={h} className={`px-10 py-6 text-label text-fab-blue/60${h === "Saldo" ? " text-right" : ""}`}>
 																	{h}
 																</th>
 															))}
@@ -1033,22 +1039,18 @@ function SubitensGenericos() {
 																					<div className="w-1.5 h-1.5 rounded-full bg-fab-gold" />
 																					<span className="font-serif italic text-xl text-fab-blue">{formatUgName(group.ug)}</span>
 																				</div>
-																				<span className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/50 ml-4">
-																					Conferente: {getConferente(group.ug)}
-																				</span>
+																				<span className="text-label text-fab-blue/50 ml-4">Conferente: {getConferente(group.ug)}</span>
 																			</div>
 																		) : (
 																			<span className="opacity-0">{group.ug}</span>
 																		)}
 																	</td>
 																	<td className="px-10 py-5">
-																		<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-[10px] font-bold uppercase tracking-widest">
-																			{occ.racId}
-																		</span>
+																		<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">{occ.racId}</span>
 																	</td>
 																	<td className="px-10 py-5 font-mono text-sm text-fab-blue/70">{occ.contaContabil}</td>
 																	<td className="px-10 py-5 font-mono text-sm">
-																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg font-bold text-xs border border-red-100 shadow-sm">
+																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg font-bold text-xs border border-destructive/30 shadow-sm">
 																			{occ.contaCorrente}
 																		</span>
 																	</td>
@@ -1082,17 +1084,18 @@ function SubitensGenericos() {
 													{ key: "individual", label: "Por Unidade Gestora" },
 													{ key: "consolidated", label: "Consolidada por Questão" },
 												].map(({ key, label }) => (
-													<button
+													<Button
 														key={key}
 														onClick={() => setMessageMode(key as "individual" | "consolidated")}
 														type="button"
+														variant="ghost"
 														className={cn(
-															"px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all",
+															"h-auto px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all",
 															messageMode === key ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:text-fab-blue hover:bg-fab-sky/30"
 														)}
 													>
 														{label}
-													</button>
+													</Button>
 												))}
 											</div>
 										</div>
@@ -1121,20 +1124,20 @@ function SubitensGenericos() {
 															whileInView={{ opacity: 1, y: 0 }}
 															viewport={{ once: true }}
 															transition={{ delay: idx * 0.05 }}
-															className="bg-card rounded-[40px] border border-[#141414]/10 shadow-sm hover:shadow-xl hover:shadow-[#141414]/5 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row"
+															className="bg-card rounded-xl border border-foreground/10 shadow-sm hover:shadow-xl hover:shadow-foreground/5 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row"
 														>
 															<div className="lg:w-80 bg-fab-sky/30 p-10 border-b lg:border-b-0 lg:border-r border-fab-blue/10 flex flex-col justify-between">
 																<div>
 																	<div className="flex items-center gap-2 mb-6">
 																		<span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-																		<span className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40">Status: Pendente</span>
+																		<span className="text-label text-fab-blue/40">Status: Pendente</span>
 																	</div>
-																	<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-1">Unidade Gestora</p>
+																	<p className="text-label text-fab-blue/40 mb-1">Unidade Gestora</p>
 																	<h3 className="text-4xl font-serif italic text-fab-blue mb-1">{formatUgName(group.ug)}</h3>
-																	<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-4">Conferente: {getConferente(group.ug)}</p>
+																	<p className="text-label text-fab-blue/40 mb-4">Conferente: {getConferente(group.ug)}</p>
 
-																	<div className="bg-destructive/10 p-4 rounded-2xl border border-red-100 mb-6">
-																		<p className="text-[9px] font-bold uppercase tracking-widest text-destructive mb-1">Inconsistência Identificada</p>
+																	<div className="bg-destructive/10 p-4 rounded-2xl border border-destructive/30 mb-6">
+																		<p className="text-label text-destructive mb-1">Inconsistência Identificada</p>
 																		<p className="text-xs text-destructive leading-relaxed font-medium">
 																			Múltiplas inconsistências identificadas conforme RAC.
 																		</p>
@@ -1157,38 +1160,39 @@ function SubitensGenericos() {
 																	<div className="mt-8 pt-8 border-t border-fab-blue/5 space-y-6">
 																		<div className="grid grid-cols-2 gap-4">
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`ug-msg-number-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																				<label htmlFor={`ug-msg-number-${idx}`} className="text-label text-fab-blue/40">
 																					Nº Mensagem
 																				</label>
-																				<input
+																				<Input
 																					id={`ug-msg-number-${idx}`}
 																					type="text"
 																					value={ugConfig.msgNumber}
 																					onChange={(e) => updateUgConfig(group.ug, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-mono text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`ug-msg-date-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																				<label htmlFor={`ug-msg-date-${idx}`} className="text-label text-fab-blue/40">
 																					Data Mensagem
 																				</label>
-																				<input
+																				<Input
 																					id={`ug-msg-date-${idx}`}
 																					type="date"
 																					value={ugConfig.msgDate}
 																					onChange={(e) => updateUgConfig(group.ug, "msgDate", e.target.value)}
-																					className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-mono text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																		</div>
 
 																		<div>
 																			<div className="flex flex-col gap-2 mb-4">
-																				<label htmlFor={`ug-msg-type-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																				<label htmlFor={`ug-msg-type-${idx}`} className="text-label text-fab-blue/40">
 																					Tipo de Mensagem
 																				</label>
 																				<Select
+																					items={{ sem_prazo: "Sem Prazo", com_prazo: "Com Prazo", alerta: "Apenas Alerta" }}
 																					value={ugConfig.messageType}
 																					onValueChange={(value) => updateUgConfig(group.ug, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
@@ -1215,15 +1219,15 @@ function SubitensGenericos() {
 																						className="space-y-3 overflow-hidden"
 																					>
 																						<div className="flex flex-col gap-2">
-																							<label htmlFor={`ug-deadline-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																							<label htmlFor={`ug-deadline-${idx}`} className="text-label text-fab-blue/40">
 																								Data Limite
 																							</label>
-																							<input
+																							<Input
 																								id={`ug-deadline-${idx}`}
 																								type="date"
 																								value={ugConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateUgConfig(group.ug, "deadlineDate", e.target.value)}
-																								className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-mono text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1233,13 +1237,14 @@ function SubitensGenericos() {
 																	</div>
 																</div>
 
-																<button
+																<Button
 																	onClick={() => copyToClipboard(message, idx)}
 																	type="button"
+																	variant="default"
 																	className={cn(
-																		"mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
+																		"h-auto mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
 																		copiedIndex === idx
-																			? "bg-success text-white shadow-lg shadow-green-600/20"
+																			? "bg-success text-success-foreground shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
 																	)}
 																>
@@ -1254,16 +1259,16 @@ function SubitensGenericos() {
 																			Copiar Mensagem
 																		</>
 																	)}
-																</button>
+																</Button>
 															</div>
 
 															<div className="flex-1 p-10 bg-card relative">
 																<div className="absolute top-6 right-10 flex items-center gap-2">
-																	<div className="w-2 h-2 rounded-full bg-[#5A5A40]/20" />
-																	<span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#141414]/20">Documento Institucional</span>
+																	<div className="w-2 h-2 rounded-full bg-fab-dark/20" />
+																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
 																<div className="prose prose-sm max-w-none">
-																	<pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-[#141414]/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-[#141414]/10">
+																	<pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
 																		{message}
 																	</pre>
 																</div>
@@ -1298,20 +1303,20 @@ function SubitensGenericos() {
 															whileInView={{ opacity: 1, y: 0 }}
 															viewport={{ once: true }}
 															transition={{ delay: idx * 0.05 }}
-															className="bg-card rounded-[40px] border border-[#141414]/10 shadow-sm hover:shadow-xl hover:shadow-[#141414]/5 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row"
+															className="bg-card rounded-xl border border-foreground/10 shadow-sm hover:shadow-xl hover:shadow-foreground/5 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row"
 														>
 															<div className="lg:w-80 bg-fab-sky/30 p-10 border-b lg:border-b-0 lg:border-r border-fab-blue/10 flex flex-col justify-between">
 																<div>
 																	<div className="flex items-center gap-2 mb-6">
 																		<span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-																		<span className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40">Status: Pendente</span>
+																		<span className="text-label text-fab-blue/40">Status: Pendente</span>
 																	</div>
-																	<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-1">Questão RAC</p>
+																	<p className="text-label text-fab-blue/40 mb-1">Questão RAC</p>
 																	<h3 className="text-4xl font-serif italic text-fab-blue mb-1">{RAC_QUESTIONS[racId]?.title || racId}</h3>
-																	<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-4">Múltiplas UGs</p>
+																	<p className="text-label text-fab-blue/40 mb-4">Múltiplas UGs</p>
 
-																	<div className="bg-destructive/10 p-4 rounded-2xl border border-red-100 mb-6">
-																		<p className="text-[9px] font-bold uppercase tracking-widest text-destructive mb-1">Inconsistência Consolidada</p>
+																	<div className="bg-destructive/10 p-4 rounded-2xl border border-destructive/30 mb-6">
+																		<p className="text-label text-destructive mb-1">Inconsistência Consolidada</p>
 																		<p className="text-xs text-destructive leading-relaxed font-medium">
 																			Mensagem única agrupando todas as UGs afetadas por esta questão.
 																		</p>
@@ -1337,38 +1342,39 @@ function SubitensGenericos() {
 																	<div className="mt-8 pt-8 border-t border-fab-blue/5 space-y-6">
 																		<div className="grid grid-cols-2 gap-4">
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`rac-msg-number-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																				<label htmlFor={`rac-msg-number-${idx}`} className="text-label text-fab-blue/40">
 																					Nº Mensagem
 																				</label>
-																				<input
+																				<Input
 																					id={`rac-msg-number-${idx}`}
 																					type="text"
 																					value={racConfig.msgNumber}
 																					onChange={(e) => updateRacConfig(racId, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-mono text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`rac-msg-date-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																				<label htmlFor={`rac-msg-date-${idx}`} className="text-label text-fab-blue/40">
 																					Data Mensagem
 																				</label>
-																				<input
+																				<Input
 																					id={`rac-msg-date-${idx}`}
 																					type="date"
 																					value={racConfig.msgDate}
 																					onChange={(e) => updateRacConfig(racId, "msgDate", e.target.value)}
-																					className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-mono text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																		</div>
 
 																		<div>
 																			<div className="flex flex-col gap-2 mb-4">
-																				<label htmlFor={`rac-msg-type-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
+																				<label htmlFor={`rac-msg-type-${idx}`} className="text-label text-fab-blue/40">
 																					Tipo de Mensagem
 																				</label>
 																				<Select
+																					items={{ sem_prazo: "Sem Prazo", com_prazo: "Com Prazo", alerta: "Apenas Alerta" }}
 																					value={racConfig.messageType}
 																					onValueChange={(value) => updateRacConfig(racId, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
@@ -1395,18 +1401,15 @@ function SubitensGenericos() {
 																						className="space-y-3 overflow-hidden"
 																					>
 																						<div className="flex flex-col gap-2">
-																							<label
-																								htmlFor={`rac-deadline-${idx}`}
-																								className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40"
-																							>
+																							<label htmlFor={`rac-deadline-${idx}`} className="text-label text-fab-blue/40">
 																								Data Limite
 																							</label>
-																							<input
+																							<Input
 																								id={`rac-deadline-${idx}`}
 																								type="date"
 																								value={racConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateRacConfig(racId, "deadlineDate", e.target.value)}
-																								className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-mono text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1416,13 +1419,14 @@ function SubitensGenericos() {
 																	</div>
 																</div>
 
-																<button
+																<Button
 																	onClick={() => copyToClipboard(message, idx)}
 																	type="button"
+																	variant="default"
 																	className={cn(
-																		"mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
+																		"h-auto mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
 																		copiedIndex === idx
-																			? "bg-success text-white shadow-lg shadow-green-600/20"
+																			? "bg-success text-success-foreground shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
 																	)}
 																>
@@ -1437,16 +1441,16 @@ function SubitensGenericos() {
 																			Copiar Mensagem
 																		</>
 																	)}
-																</button>
+																</Button>
 															</div>
 
 															<div className="flex-1 p-10 bg-card relative">
 																<div className="absolute top-6 right-10 flex items-center gap-2">
-																	<div className="w-2 h-2 rounded-full bg-[#5A5A40]/20" />
-																	<span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#141414]/20">Documento Institucional</span>
+																	<div className="w-2 h-2 rounded-full bg-fab-dark/20" />
+																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
 																<div className="prose prose-sm max-w-none">
-																	<pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-[#141414]/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-[#141414]/10">
+																	<pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
 																		{message}
 																	</pre>
 																</div>
@@ -1475,17 +1479,18 @@ function SubitensGenericos() {
 
 									<div className="flex bg-card p-2 rounded-2xl border border-fab-blue/10 shadow-sm w-fit mb-8">
 										{(["operacional", "tatico", "estrategico"] as const).map((tab) => (
-											<button
+											<Button
 												key={tab}
 												onClick={() => setDashboardTab(tab)}
 												type="button"
+												variant="ghost"
 												className={cn(
-													"px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
+													"h-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
 													dashboardTab === tab ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:bg-fab-sky/50"
 												)}
 											>
 												{tab === "operacional" ? "Nível Operacional" : tab === "tatico" ? "Nível Tático" : "Nível Estratégico"}
-											</button>
+											</Button>
 										))}
 									</div>
 
@@ -1506,15 +1511,15 @@ function SubitensGenericos() {
 														text: `Foram identificadas ${Object.keys(contasCount).length} contas contábeis distintas com inconsistências, exigindo atenção da Setorial Contábil.`,
 													},
 												].map((card) => (
-													<div key={card.title} className="bg-card p-6 rounded-3xl border border-fab-blue/5 shadow-sm">
-														<h4 className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40 mb-2">{card.title}</h4>
+													<div key={card.title} className="bg-card p-6 rounded-xl border border-fab-blue/5 shadow-sm">
+														<h4 className="text-label text-fab-blue/40 mb-2">{card.title}</h4>
 														<p className="text-sm text-fab-blue/70 leading-relaxed">{card.text}</p>
 													</div>
 												))}
 											</div>
 
 											<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-												<div className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 													<div className="flex items-center gap-3 mb-8">
 														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 															<LayoutDashboard size={20} />
@@ -1524,26 +1529,26 @@ function SubitensGenericos() {
 													<div className="h-[300px] w-full">
 														<ResponsiveContainer width="100%" height="100%">
 															<BarChart data={topUgsBySaldo} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-																<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E3F2FD" />
-																<XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#00205B", fontSize: 12 }} />
+																<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={"var(--color-fab-sky)"} />
+																<XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "var(--color-fab-blue)", fontSize: 12 }} />
 																<YAxis
 																	axisLine={false}
 																	tickLine={false}
-																	tick={{ fill: "#00205B", fontSize: 12 }}
+																	tick={{ fill: "var(--color-fab-blue)", fontSize: 12 }}
 																	tickFormatter={(value) => new Intl.NumberFormat("pt-BR", { notation: "compact", compactDisplay: "short" }).format(value)}
 																/>
 																<RechartsTooltip
-																	cursor={{ fill: "#E3F2FD", opacity: 0.4 }}
+																	cursor={{ fill: "var(--color-fab-sky)", opacity: 0.4 }}
 																	contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
 																	formatter={(value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value))}
 																/>
-																<Bar dataKey="saldo" fill="#003DA5" radius={[6, 6, 0, 0]} barSize={40} />
+																<Bar dataKey="saldo" fill={"var(--color-fab-light-blue)"} radius={[6, 6, 0, 0]} barSize={40} />
 															</BarChart>
 														</ResponsiveContainer>
 													</div>
 												</div>
 
-												<div className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 													<div className="flex items-center gap-3 mb-8">
 														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 															<PieChartIcon size={20} />
@@ -1566,7 +1571,7 @@ function SubitensGenericos() {
 												</div>
 											</div>
 
-											<div className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+											<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 												<div className="flex items-center gap-3 mb-8">
 													<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 														<Shield size={20} />
@@ -1575,7 +1580,7 @@ function SubitensGenericos() {
 												</div>
 												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 													{conferentesList.map((conf, idx) => (
-														<div key={idx} className="bg-muted/50 p-6 rounded-3xl border border-fab-blue/5">
+														<div key={idx} className="bg-muted/50 p-6 rounded-xl border border-fab-blue/5">
 															<div className="flex items-center justify-between mb-4">
 																<h4 className="font-bold text-fab-blue">{conf.name}</h4>
 																<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-xs font-bold">
@@ -1583,7 +1588,7 @@ function SubitensGenericos() {
 																</span>
 															</div>
 															<div className="space-y-2">
-																<p className="text-[10px] uppercase tracking-widest text-fab-blue/40 font-bold mb-2">UGs Afetadas:</p>
+																<p className="text-label text-fab-blue/40 mb-2">UGs Afetadas:</p>
 																<div className="flex flex-wrap gap-2">
 																	{conf.ugs.map((ug, i) => (
 																		<span key={i} className="px-2 py-1 bg-card border border-fab-blue/10 rounded-md text-xs font-mono text-fab-blue/70">
@@ -1606,7 +1611,7 @@ function SubitensGenericos() {
 													{ title: "Ranking de ODS por Inconsistências", data: odsList, key: "count", suffix: "ocorrências" },
 													{ title: "Ranking de Órgãos Superiores", data: orgaoSuperiorList, key: "count", suffix: "ocorrências" },
 												].map((ranking) => (
-													<div key={ranking.title} className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+													<div key={ranking.title} className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 														<h3 className="font-serif italic text-xl text-fab-blue mb-6">{ranking.title}</h3>
 														<div className="space-y-4">
 															{ranking.data.map((item, idx) => (
@@ -1624,7 +1629,7 @@ function SubitensGenericos() {
 													</div>
 												))}
 
-												<div className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 													<h3 className="font-serif italic text-xl text-fab-blue mb-6">Top 10 UGs com Mais Inconsistências</h3>
 													<div className="space-y-3">
 														{topUgsByInconsistencias.map((ug, idx) => (
@@ -1644,7 +1649,7 @@ function SubitensGenericos() {
 
 									{dashboardTab === "estrategico" && (
 										<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-											<div className="bg-fab-blue p-10 rounded-[40px] shadow-2xl shadow-fab-blue/20 text-white relative overflow-hidden">
+											<div className="bg-fab-blue p-10 rounded-xl shadow-2xl shadow-fab-blue/20 text-white relative overflow-hidden">
 												<div className="absolute -right-10 -top-10 opacity-[0.05]">
 													<Shield size={300} className="text-white" />
 												</div>
@@ -1671,7 +1676,7 @@ function SubitensGenericos() {
 																value: (
 																	<>
 																		<h4 className="text-2xl font-bold text-white mt-2">{odsList[0]?.name || "-"}</h4>
-																		<p className="text-[10px] text-white/50 mt-1">{odsList[0]?.count || 0} ocorrências</p>
+																		<p className="text-hint text-white/50 mt-1">{odsList[0]?.count || 0} ocorrências</p>
 																	</>
 																),
 															},
@@ -1684,8 +1689,8 @@ function SubitensGenericos() {
 																),
 															},
 														].map((kpi) => (
-															<div key={kpi.label} className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10">
-																<p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">{kpi.label}</p>
+															<div key={kpi.label} className="bg-white/10 p-6 rounded-xl border border-white/10">
+																<p className="text-label text-white/50 mb-1">{kpi.label}</p>
 																{kpi.value}
 															</div>
 														))}
@@ -1698,7 +1703,7 @@ function SubitensGenericos() {
 													{ title: "Distribuição Percentual por ODS", data: odsList, barColor: "bg-fab-blue" },
 													{ title: "Concentração por Órgão Superior", data: orgaoSuperiorList, barColor: "bg-fab-gold" },
 												].map(({ title, data, barColor }) => (
-													<div key={title} className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+													<div key={title} className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 														<h3 className="font-serif italic text-xl text-fab-blue mb-6">{title}</h3>
 														<div className="space-y-4">
 															{data.map((item) => {
@@ -1720,10 +1725,10 @@ function SubitensGenericos() {
 
 											{/* Mapa de Risco + Pareto */}
 											<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-												<div className="lg:col-span-2 bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+												<div className="lg:col-span-2 bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 													<div className="flex items-center justify-between mb-8">
 														<h3 className="font-serif italic text-xl text-fab-blue">Mapa de Risco Contábil (Consolidado)</h3>
-														<div className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-[10px] font-bold uppercase tracking-widest">Visão por ODS</div>
+														<div className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">Visão por ODS</div>
 													</div>
 													<div className="overflow-x-auto">
 														<table className="w-full">
@@ -1732,7 +1737,7 @@ function SubitensGenericos() {
 																	{["ODS", "Inconsistências", "Saldo Associado", "% do Total"].map((h, i) => (
 																		<th
 																			key={h}
-																			className={`py-4 text-[10px] font-bold uppercase tracking-widest text-fab-blue/40${i === 0 ? " text-left" : i < 3 ? " text-center" : " text-right"}`}
+																			className={`py-4 text-label text-fab-blue/40${i === 0 ? " text-left" : i < 3 ? " text-center" : " text-right"}`}
 																		>
 																			{h}
 																		</th>
@@ -1757,7 +1762,7 @@ function SubitensGenericos() {
 													</div>
 												</div>
 
-												<div className="bg-fab-blue p-8 rounded-[40px] text-white flex flex-col justify-between">
+												<div className="bg-fab-blue p-8 rounded-xl text-white flex flex-col justify-between">
 													<div>
 														<div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
 															<TrendingUp size={24} className="text-fab-gold" />
@@ -1774,7 +1779,7 @@ function SubitensGenericos() {
 															</div>
 
 															<div className="pt-6 border-t border-white/10">
-																<p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3">UGs de Alta Concentração:</p>
+																<p className="text-label text-white/40 mb-3">UGs de Alta Concentração:</p>
 																<div className="space-y-2">
 																	{paretoSummary.top20PercentUgs.slice(0, 3).map((item) => (
 																		<div key={item.ug} className="flex items-center justify-between text-xs">
@@ -1783,7 +1788,7 @@ function SubitensGenericos() {
 																		</div>
 																	))}
 																	{paretoSummary.top20PercentUgs.length > 3 && (
-																		<p className="text-[10px] text-white/30 italic">+ {paretoSummary.top20PercentUgs.length - 3} outras unidades</p>
+																		<p className="text-hint text-white/30 italic">+ {paretoSummary.top20PercentUgs.length - 3} outras unidades</p>
 																	)}
 																</div>
 															</div>
@@ -1791,8 +1796,8 @@ function SubitensGenericos() {
 													</div>
 
 													<div className="mt-8 p-4 bg-white/5 rounded-2xl border border-white/10">
-														<p className="text-[10px] font-bold uppercase tracking-widest text-fab-gold mb-1">Prioridade de Atuação</p>
-														<p className="text-[10px] text-white/50 leading-relaxed">
+														<p className="text-label text-fab-gold mb-1">Prioridade de Atuação</p>
+														<p className="text-hint text-white/50 leading-relaxed">
 															O direcionamento das ações para estas {paretoSummary.top20PercentUgs.length} UGs resultará na regularização de{" "}
 															{Math.round(paretoSummary.concentrationPercentage)}% do passivo contábil.
 														</p>
@@ -1801,7 +1806,7 @@ function SubitensGenericos() {
 											</div>
 
 											{/* Priorização */}
-											<div className="bg-card p-8 rounded-[40px] border border-fab-blue/5 shadow-sm">
+											<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 												<div className="flex items-center justify-between mb-8">
 													<div className="flex items-center gap-3">
 														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
@@ -1809,34 +1814,34 @@ function SubitensGenericos() {
 														</div>
 														<h3 className="font-serif italic text-xl text-fab-blue">Priorização de Atuação Imediata</h3>
 													</div>
-													<p className="text-[10px] font-bold uppercase tracking-widest text-fab-blue/40">Baseado em Risco e Impacto Financeiro</p>
+													<p className="text-label text-fab-blue/40">Baseado em Risco e Impacto Financeiro</p>
 												</div>
 
 												<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 													{topUgsByInconsistencias.slice(0, 3).map((ug, idx) => (
 														<div
 															key={ug.ug}
-															className="p-6 bg-muted/50 rounded-3xl border border-fab-blue/5 relative overflow-hidden group hover:border-fab-gold/30 transition-all"
+															className="p-6 bg-muted/50 rounded-xl border border-fab-blue/5 relative overflow-hidden group hover:border-fab-gold/30 transition-all"
 														>
 															<div className="absolute -right-4 -top-4 text-fab-blue/5 font-serif italic text-8xl group-hover:text-fab-gold/10 transition-colors">
 																{idx + 1}
 															</div>
 															<div className="relative z-10">
-																<p className="text-[10px] font-bold uppercase tracking-widest text-fab-gold mb-1">{idx + 1}º Prioridade</p>
+																<p className="text-label text-fab-gold mb-1">{idx + 1}º Prioridade</p>
 																<h4 className="text-xl font-serif italic text-fab-blue mb-4">{formatUgName(ug.ug)}</h4>
 																<div className="space-y-3">
 																	<div className="flex items-center justify-between">
-																		<span className="text-[10px] text-fab-blue/40 uppercase font-bold">Inconsistências</span>
+																		<span className="text-label text-fab-blue/40">Inconsistências</span>
 																		<span className="text-sm font-mono font-bold text-fab-blue">{ug.occurrences.length}</span>
 																	</div>
 																	<div className="flex items-center justify-between">
-																		<span className="text-[10px] text-fab-blue/40 uppercase font-bold">Impacto Financeiro</span>
+																		<span className="text-label text-fab-blue/40">Impacto Financeiro</span>
 																		<span className="text-sm font-mono font-bold text-fab-blue">
 																			{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(ug.totalSaldo)}
 																		</span>
 																	</div>
 																	<div className="pt-3 border-t border-fab-blue/5">
-																		<p className="text-[10px] text-fab-blue/60 italic">
+																		<p className="text-hint text-fab-blue/60 italic">
 																			{ug.occurrences.length > 3 ? "Alta recorrência de questões RAC." : "Impacto significativo nas demonstrações."}
 																		</p>
 																	</div>
@@ -1859,8 +1864,8 @@ function SubitensGenericos() {
 									<div className="w-2 h-2 rounded-full bg-fab-gold" />
 									<Plane size={24} className="text-fab-blue -rotate-45" />
 								</div>
-								<p className="text-[10px] font-bold uppercase tracking-[0.4em] text-fab-blue/40 mb-2">Força Aérea Brasileira • Asas que protegem o país</p>
-								<p className="text-[9px] font-bold uppercase tracking-[0.2em] text-fab-blue/20">Analista SUCONT • DIREF • 2026</p>
+								<p className="text-label text-fab-blue/40 mb-2">Força Aérea Brasileira • Asas que protegem o país</p>
+								<p className="text-label text-fab-blue/20">Analista SUCONT • DIREF • 2026</p>
 							</footer>
 						</motion.div>
 					)}
@@ -1882,6 +1887,10 @@ function SubitensGenericos() {
 					}}
 				/>
 			)}
+
+			{/* Rota fora do HubLayout: o link para os documentos legais precisa vir
+			    daqui — o LGPD.md exige o rodapé em toda tela do app. */}
+			<LegalFooter />
 		</div>
 	)
 }

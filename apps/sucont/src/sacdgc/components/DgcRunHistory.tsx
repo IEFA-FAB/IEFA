@@ -1,5 +1,6 @@
 import type { AnalysisRun } from "@iefa/database/sucont"
 import { AlertTriangle, Clock, FolderOpen, Loader2, RotateCw } from "lucide-react"
+import { Button } from "#/components/ui/button"
 
 interface DgcRunHistoryProps {
 	runs: AnalysisRun[]
@@ -33,18 +34,19 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 					<AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
 					<div className="min-w-0 flex-1">
 						<p className="text-sm font-semibold text-foreground">Não foi possível ler as rodadas gravadas.</p>
-						<p className="text-[11px] text-muted-foreground mt-0.5 break-words">{error}</p>
-						<p className="text-[11px] text-muted-foreground mt-1">O histórico continua no banco — o que falhou foi a consulta.</p>
+						<p className="text-hint text-muted-foreground mt-0.5 break-words">{error}</p>
+						<p className="text-hint text-muted-foreground mt-1">O histórico continua no banco — o que falhou foi a consulta.</p>
 					</div>
 					{onRetry && (
-						<button
-							type="button"
+						<Button
+							variant="outline"
+							size="sm"
 							onClick={onRetry}
-							className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg border border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-cyan hover:text-tech-cyan"
+							className="shrink-0 text-label text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan"
 						>
 							<RotateCw className="w-3.5 h-3.5" />
 							Tentar de novo
-						</button>
+						</Button>
 					)}
 				</div>
 			</section>
@@ -57,7 +59,7 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 				<Header />
 				<div className="px-6 py-5 flex items-center gap-2 text-muted-foreground">
 					<Loader2 className="w-3.5 h-3.5 animate-spin" />
-					<span className="text-[11px] font-bold uppercase tracking-wider">Carregando rodadas…</span>
+					<span className="text-label">Carregando rodadas…</span>
 				</div>
 			</section>
 		)
@@ -74,19 +76,20 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 					<li key={run.id} className="px-6 py-3 flex items-center justify-between gap-4">
 						<div className="min-w-0">
 							<p className="text-sm font-semibold text-foreground">{run.period || "competência não identificada"}</p>
-							<p className="text-[11px] text-muted-foreground">
+							<p className="text-hint text-muted-foreground">
 								{run.records_count ?? 0} UG(s) · {new Date(run.created_at).toLocaleString("pt-BR")}
 							</p>
 						</div>
-						<button
-							type="button"
+						<Button
+							variant="outline"
+							size="sm"
 							onClick={() => onOpen(run.id)}
 							disabled={loadingRunId !== null}
-							className="inline-flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-lg border border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-cyan hover:text-tech-cyan disabled:opacity-40"
+							className="shrink-0 text-label text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan"
 						>
 							{loadingRunId === run.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5" />}
 							{activeRunId === run.id ? "Rodada atual" : "Abrir"}
-						</button>
+						</Button>
 					</li>
 				))}
 			</ul>

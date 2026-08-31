@@ -50,7 +50,7 @@ export const sucontTools: Tool[] = [
 		internalPath: "/documentacao",
 		icon: "Zap",
 		category: "Automação",
-		iconColor: "bg-emerald-600",
+		iconColor: "bg-success",
 	},
 	{
 		id: "sau-chatbot",
@@ -59,7 +59,7 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/69f8cb5d-7656-42b2-91f1-36d998b02a37?authuser=1",
 		icon: "MessageSquare",
 		category: "IA / Chatbot",
-		iconColor: "bg-teal-600",
+		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "siafi-automate",
@@ -77,7 +77,7 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/2f39d31e-a0c6-435c-9c6f-00ae19039138?authuser=1",
 		icon: "FileText",
 		category: "Automação",
-		iconColor: "bg-emerald-600",
+		iconColor: "bg-success",
 	},
 	{
 		id: "manual-interno",
@@ -86,7 +86,7 @@ export const sucontTools: Tool[] = [
 		url: "https://docs.google.com/document/d/1E0rUh29RAmq7mEbJl50xKfA63szBv7kDwXLmTfocOWg/edit?tab=t.n2lgxw4p7bn1#heading=h.vlw5v11g3kkn",
 		icon: "FileText",
 		category: "Documentação",
-		iconColor: "bg-slate-500",
+		iconColor: "bg-muted-foreground",
 	},
 	{
 		id: "radae-manuais",
@@ -104,7 +104,7 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/23333c8a-aa7a-4405-8156-fb893398a1da",
 		icon: "MessageSquare",
 		category: "IA / Chatbot",
-		iconColor: "bg-teal-600",
+		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "chatbot-aut-oficios",
@@ -113,7 +113,7 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/2f39d31e-a0c6-435c-9c6f-00ae19039138",
 		icon: "Cpu",
 		category: "IA / Chatbot",
-		iconColor: "bg-emerald-600",
+		iconColor: "bg-success",
 	},
 	{
 		id: "chatbot-tcu",
@@ -141,7 +141,7 @@ export const sucontTools: Tool[] = [
 		internalPath: "/subitens-genericos",
 		icon: "FileBarChart",
 		category: "Auditoria",
-		iconColor: "bg-[#00205b]",
+		iconColor: "bg-fab-blue",
 	},
 	{
 		id: "cruzamento-contas",
@@ -170,7 +170,7 @@ export const sucontTools: Tool[] = [
 		internalPath: "/conta-generica",
 		icon: "Search",
 		category: "Auditoria",
-		iconColor: "bg-indigo-700",
+		iconColor: "bg-action",
 	},
 	{
 		id: "analistasaldoalongado",
@@ -305,7 +305,7 @@ export const iaTools: Tool[] = [
 		url: "https://chatgpt.com/",
 		icon: "ChatGPT",
 		category: "IA",
-		iconColor: "bg-emerald-600",
+		iconColor: "bg-success",
 	},
 	{
 		id: "claude",
@@ -314,7 +314,7 @@ export const iaTools: Tool[] = [
 		url: "https://claude.ai/",
 		icon: "Claude",
 		category: "IA",
-		iconColor: "bg-orange-600",
+		iconColor: "bg-warning",
 	},
 	{
 		id: "manus",
@@ -323,7 +323,7 @@ export const iaTools: Tool[] = [
 		url: "https://manus.ai/",
 		icon: "Brain",
 		category: "IA",
-		iconColor: "bg-purple-600",
+		iconColor: "bg-action",
 	},
 	{
 		id: "grok",
@@ -332,7 +332,7 @@ export const iaTools: Tool[] = [
 		url: "https://x.com/i/grok",
 		icon: "Zap",
 		category: "IA",
-		iconColor: "bg-black",
+		iconColor: "bg-surface-inverted",
 	},
 	{
 		id: "notebooklm",

@@ -20,7 +20,9 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 		<div className="bg-card shadow-2xl mx-auto my-8 p-[2.5cm] w-[210mm] min-h-[297mm] text-black font-serif text-[12pt] leading-relaxed relative print:shadow-none print:my-0 print:p-[2cm]">
 			{/* Urgência */}
 			{data.urgency && (
-				<div className="absolute top-8 right-8 bg-destructive text-white px-4 py-1 font-bold text-[10pt] uppercase tracking-widest shadow-sm">URGENTE</div>
+				<div className="absolute top-8 right-8 bg-destructive text-destructive-foreground px-4 py-1 font-bold text-[10pt] uppercase tracking-widest shadow-sm">
+					URGENTE
+				</div>
 			)}
 
 			{/* Cabeçalho */}
@@ -210,9 +212,9 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 
 				{/* Logo FAB */}
 				<div className="mt-12 flex flex-col items-center opacity-80">
-					<div className="bg-slate-900 text-white px-5 py-1.5 flex items-center gap-3 rounded-sm text-[9pt] tracking-widest uppercase font-medium">
+					<div className="bg-surface-inverted text-surface-inverted-foreground px-5 py-1.5 flex items-center gap-3 rounded-sm text-[9pt] tracking-widest uppercase font-medium">
 						<span className="italic">Asas que protegem o País</span>
-						<div className="w-px h-4 bg-slate-700" />
+						<div className="w-px h-4 bg-surface-inverted-border" />
 						<img
 							src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Emblema_da_For%C3%A7a_A%C3%A9rea_Brasileira.svg/1200px-Emblema_da_For%C3%A7a_A%C3%A9rea_Brasileira.svg.png"
 							alt="FAB Logo"

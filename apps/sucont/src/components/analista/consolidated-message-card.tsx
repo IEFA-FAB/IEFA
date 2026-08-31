@@ -1,5 +1,7 @@
 import { Copy } from "lucide-react"
 import { useState } from "react"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import type { ProcessedRow } from "#/lib/analista/types"
@@ -103,15 +105,15 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const fullMessage = headerMsg + baseParts.join("\n\n")
 
 	return (
-		<div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
-			<div className="bg-indigo-100 border-b border-indigo-200 px-6 py-4 flex justify-between items-center">
+		<div className="bg-action/10 rounded-2xl shadow-sm border border-action/30 overflow-hidden mb-8">
+			<div className="bg-action/10 border-b border-action/30 px-6 py-4 flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<div>
-						<h2 className="text-lg font-bold text-indigo-900">Mensagem Consolidada - {activeRacFilter}</h2>
-						<p className="text-sm text-indigo-700">Agrupa todas as UGs com inconsistências nesta questão</p>
+						<h2 className="text-lg font-bold text-action">Mensagem Consolidada - {activeRacFilter}</h2>
+						<p className="text-sm text-action">Agrupa todas as UGs com inconsistências nesta questão</p>
 					</div>
 				</div>
-				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-200 text-indigo-800">
+				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action text-action-foreground">
 					{Object.keys(groupedByUg).length} UGs / {items.length} Ocorrência(s)
 				</span>
 			</div>
@@ -121,14 +123,16 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 					<div className="flex-1 bg-card rounded-xl p-4 border border-border flex flex-col min-w-[300px]">
 						<div className="flex justify-between items-start mb-4">
 							<h3 className="text-sm font-semibold text-foreground">Mensagem Institucional Pronta (Consolidada)</h3>
-							<button
+							<Button
 								type="button"
 								onClick={() => navigator.clipboard.writeText(fullMessage)}
-								className="flex items-center space-x-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-card px-2 py-1 rounded border border-border shadow-sm transition-colors"
+								variant="outline"
+								size="xs"
+								className="gap-1 bg-card font-medium text-muted-foreground shadow-sm hover:text-foreground"
 							>
 								<Copy className="w-3 h-3" />
 								<span>Copiar</span>
-							</button>
+							</Button>
 						</div>
 
 						<div className="grid grid-cols-2 gap-3 mb-4">
@@ -136,35 +140,39 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 								<label htmlFor="cons-msg-number" className="block text-xs font-medium text-foreground mb-1">
 									Nº da Mensagem
 								</label>
-								<input
+								<Input
 									id="cons-msg-number"
 									type="text"
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 								/>
 							</div>
 							<div>
 								<label htmlFor="cons-send-date" className="block text-xs font-medium text-foreground mb-1">
 									Data de Envio
 								</label>
-								<input
+								<Input
 									id="cons-send-date"
 									type="date"
 									value={sendDate}
 									onChange={(e) => setSendDate(e.target.value)}
-									className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 								/>
 							</div>
 							<div className="col-span-2">
 								<label htmlFor="cons-message-type" className="block text-xs font-medium text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
-								<Select value={messageType} onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}>
+								<Select
+									items={{ SEM_PRAZO: "Padrão (Sem Prazo)", COM_PRAZO: "Com Prazo de Resposta", ALERTA: "Apenas Alerta (Sem Resposta)" }}
+									value={messageType}
+									onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}
+								>
 									<SelectTrigger
 										id="cons-message-type"
-										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-blue-500 mb-2"
+										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -179,12 +187,12 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 										<label htmlFor="cons-deadline-date" className="block text-xs font-medium text-foreground mb-1">
 											Data Limite
 										</label>
-										<input
+										<Input
 											id="cons-deadline-date"
 											type="date"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus:border-blue-500"
+											className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 										/>
 									</div>
 								)}

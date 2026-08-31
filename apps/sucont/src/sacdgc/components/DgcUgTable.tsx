@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock, Loader2, PlayCircle } from "lucide-react"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { cn } from "#/lib/utils"
 import type { DgcAnalysis, PanelId, UgDataset } from "#/sacdgc/types"
@@ -38,7 +39,11 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 			<div className="bg-card border border-border rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-4 justify-between">
 				<div className="flex items-center gap-3">
 					<span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Grupo de comparação</span>
-					<Select value={selectedGroup} onValueChange={onSelectGroup}>
+					<Select
+						items={Object.fromEntries(GROUP_ORDER.filter((g) => countByGroup.has(g)).map((g) => [g, `${g} (${countByGroup.get(g)})`]))}
+						value={selectedGroup || null}
+						onValueChange={(v) => onSelectGroup(v ?? "")}
+					>
 						<SelectTrigger className="w-72">
 							<SelectValue placeholder="Selecione um grupo" />
 						</SelectTrigger>
@@ -52,14 +57,14 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 					</Select>
 				</div>
 
-				<button
+				<Button
 					type="button"
 					onClick={() => onAnalyze(pending.map((d) => d.ugCode))}
 					disabled={busy || pending.length === 0}
-					className="px-5 py-2.5 bg-tech-blue text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+					className="rounded-lg bg-tech-blue px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
 				>
 					Analisar grupo ({pending.length})
-				</button>
+				</Button>
 			</div>
 
 			<div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -77,7 +82,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 						{visible.map((dataset) => {
 							const state = states[dataset.ugCode] ?? { status: "pendente" as const }
 							return (
-								<tr key={dataset.ugCode} className="hover:bg-muted/50/60 transition-colors">
+								<tr key={dataset.ugCode} className="hover:bg-muted/60 transition-colors">
 									<td className="px-6 py-4 font-mono text-sm font-semibold text-foreground">{dataset.ugCode}</td>
 									<td className="px-6 py-4 text-sm font-semibold text-foreground">{dataset.ugName.replace(`${dataset.ugCode} - `, "")}</td>
 									<td className="px-6 py-4">
@@ -90,7 +95,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 														"inline-flex items-center justify-center min-w-9 px-2 py-1 rounded-md text-[11px] font-bold border",
 														dataset.rowCount[panel] > 0
 															? "bg-muted/50 border-border text-muted-foreground"
-															: "bg-muted/50 border-dashed border-border text-slate-300"
+															: "bg-muted/50 border-dashed border-border text-muted-foreground"
 													)}
 												>
 													{dataset.rowCount[panel]}
@@ -103,23 +108,24 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 									</td>
 									<td className="px-6 py-4 text-right">
 										{state.status === "concluida" ? (
-											<button
+											<Button
 												type="button"
 												onClick={() => onOpen(dataset.ugCode)}
-												className="px-4 py-2 rounded-lg bg-tech-cyan text-white text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-tech-cyan/90"
+												className="rounded-lg bg-tech-cyan px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-white hover:bg-tech-cyan/90"
 											>
 												Ver análise
-											</button>
+											</Button>
 										) : (
-											<button
+											<Button
 												type="button"
 												onClick={() => onAnalyze([dataset.ugCode])}
 												disabled={busy || state.status === "analisando" || state.status === "na-fila"}
-												className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-blue hover:text-tech-blue disabled:opacity-40 disabled:cursor-not-allowed"
+												variant="outline"
+												className="gap-1.5 rounded-lg px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:border-tech-blue hover:text-tech-blue disabled:opacity-40 disabled:cursor-not-allowed"
 											>
 												<PlayCircle className="w-3.5 h-3.5" />
 												{state.status === "erro" ? "Tentar de novo" : "Analisar"}
-											</button>
+											</Button>
 										)}
 									</td>
 								</tr>

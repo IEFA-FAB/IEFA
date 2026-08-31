@@ -103,6 +103,34 @@ const RULES: Rule[] = [
 	{ from: /\bbg-(?:amber|yellow|orange)-50\b/g, to: "bg-warning/10" },
 	{ from: /\bbg-(?:amber|yellow|orange)-100\b/g, to: "bg-warning/15" },
 	{ from: /\bbg-(?:amber|yellow|orange)-(?:500|600|700)\b/g, to: "bg-warning" },
+	// ── Papel de AÇÃO (ver STYLE_CONTRACT §4.1) ────────────────────────────────
+	// `blue` no sucont sempre significou a mesma coisa: ação primária, ênfase,
+	// item selecionado. Vira um token com esse nome. Os degraus 50/100 eram tint
+	// de fundo, e viram opacidade sobre o mesmo token — assim o tint acompanha
+	// qualquer mudança futura da cor de ação em vez de divergir dela.
+	{ from: /\bbg-blue-(?:500|600|700|800|900)\b/g, to: "bg-action" },
+	{ from: /\bhover:bg-blue-(?:400|500|600|700)\b/g, to: "hover:bg-action/90" },
+	{ from: /\bbg-blue-50\b/g, to: "bg-action/10" },
+	{ from: /\bbg-blue-(?:100|200)\b/g, to: "bg-action/15" },
+	{ from: /\btext-blue-(?:500|600|700|800|900)\b/g, to: "text-action" },
+	{ from: /\bhover:text-blue-(?:500|600|700)\b/g, to: "hover:text-action" },
+	{ from: /\bborder-blue-(?:400|500|600|700|800|900)\b/g, to: "border-action" },
+	{ from: /\bborder-blue-(?:100|200|300)\b/g, to: "border-action/30" },
+	{ from: /\bring-blue-(?:400|500|600)\b/g, to: "ring-action" },
+	// Índigo, sky e roxo apareciam como variação da mesma ação, sem distinção de
+	// significado — colapsam no mesmo papel.
+	{ from: /\btext-(?:indigo|sky|violet|purple)-(?:500|600|700|800|900)\b/g, to: "text-action" },
+	{ from: /\bbg-(?:indigo|sky|violet|purple)-(?:500|600|700)\b/g, to: "bg-action" },
+	{ from: /\bbg-(?:indigo|sky|violet|purple)-(?:50|100)\b/g, to: "bg-action/10" },
+	{ from: /\bborder-(?:indigo|sky|violet|purple)-(?:200|300|400|500)\b/g, to: "border-action/30" },
+	{ from: /\btext-(?:rose|pink|fuchsia)-(?:500|600|700|800|900)\b/g, to: "text-destructive" },
+	{ from: /\bbg-(?:rose|pink|fuchsia)-(?:50|100)\b/g, to: "bg-destructive/10" },
+
+	// ── Sombra colorida ───────────────────────────────────────────────────────
+	// Proibida pelo contrato (§5): profundidade vem do token, não de um halo
+	// colorido sob o elemento.
+	{ from: /\s?shadow-(?:blue|emerald|red|amber|indigo|sky|slate)-\d{2,3}\/\d{1,3}/g, to: "" },
+	{ from: /\s?shadow-(?:blue|emerald|red|amber|indigo|sky|slate)-\d{2,3}\b/g, to: "" },
 ]
 
 function walk(dir: string): string[] {

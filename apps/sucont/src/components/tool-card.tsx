@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router"
 import { BookOpen, ChevronRight, ExternalLink, Layout, Trash2 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { IconRenderer } from "#/components/icon-renderer"
+import { Button } from "#/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { getToolKind, type ToolKind } from "#/lib/tool-kind"
 import type { Tool } from "#/lib/types"
 
@@ -57,9 +59,7 @@ function CardInner({ tool }: { tool: Tool }) {
 				</div>
 				<div className="flex items-center gap-2">
 					<KindTag kind={kind} />
-					<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">
-						{tool.category}
-					</span>
+					<span className="text-label text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">{tool.category}</span>
 				</div>
 			</div>
 
@@ -105,15 +105,22 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 
 			{onDelete && (
 				// Canto inferior: no topo o botão cobria a tag de origem e a categoria.
-				<button
-					type="button"
-					onClick={onDelete}
-					className="absolute bottom-6 right-6 p-2 bg-white/80 backdrop-blur-sm rounded-full text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm z-20"
-					aria-label={`Excluir ${tool.title}`}
-					title="Excluir"
-				>
-					<Trash2 className="w-4 h-4" />
-				</button>
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								onClick={onDelete}
+								aria-label={`Excluir ${tool.title}`}
+								className="absolute bottom-6 right-6 z-20 rounded-full bg-card/80 backdrop-blur-sm text-muted-foreground opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+							>
+								<Trash2 className="w-4 h-4" />
+							</Button>
+						}
+					/>
+					<TooltipContent>Excluir</TooltipContent>
+				</Tooltip>
 			)}
 		</div>
 	)

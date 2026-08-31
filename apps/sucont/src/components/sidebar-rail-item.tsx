@@ -35,7 +35,7 @@ export function SidebarRailItem({ tool, index, side }: SidebarRailItemProps) {
 			<div
 				aria-hidden="true"
 				className={`
-          absolute z-50 px-2 py-1 text-[10px] font-bold bg-slate-800 text-white rounded
+          absolute z-50 px-2 py-1 text-hint font-medium bg-surface-inverted text-surface-inverted-foreground rounded
           whitespace-nowrap pointer-events-none
           opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity
           ${side === "left" ? "left-full ml-2" : "right-full mr-2"}

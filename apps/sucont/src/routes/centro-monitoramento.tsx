@@ -20,6 +20,9 @@ import {
 	X,
 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { LegalFooter } from "#/components/legal-footer"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import type { SectionId } from "#/lib/centro-monitoramento-data"
 import { modulesData, routingKeywords } from "#/lib/centro-monitoramento-data"
 import { cn } from "#/lib/utils"
@@ -95,58 +98,53 @@ function RouteComponent() {
 
 	function ModuleCard({ item, sectionId }: { item: ModuleItem; sectionId?: string }) {
 		let badgeText = "SUCONT-3.1"
-		let badgeColor = "bg-blue-50 text-blue-700 border-blue-100"
+		let badgeColor = "bg-action/10 text-action border-action/30"
 
 		if (sectionId === "3.2" || (!sectionId && modulesData["3.2"].items.some((i) => i.id === item.id))) {
 			badgeText = "SUCONT-3.2"
-			badgeColor = "bg-sky-50 text-sky-700 border-sky-100"
+			badgeColor = "bg-action/10 text-action border-action/30"
 		} else if (sectionId === "geral" || (!sectionId && modulesData.geral.items.some((i) => i.id === item.id))) {
 			badgeText = "ÂMBITO GERAL"
-			badgeColor = "bg-success/10 text-success border-emerald-100"
+			badgeColor = "bg-success/10 text-success border-success/30"
 		}
 
 		return (
 			<div
 				className={cn(
 					"bg-card rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group relative",
-					item.highlighted ? "border-warning/30 ring-2 ring-amber-400/20 shadow-amber-100/50" : "border-border hover:border-blue-300"
+					item.highlighted ? "border-warning/30 ring-2 ring-warning/20" : "border-border hover:border-action/30"
 				)}
 			>
-				{item.highlighted && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 z-20" />}
+				{item.highlighted && <div className="absolute top-0 left-0 right-0 h-1 bg-warning z-20" />}
 				<div className="p-5 flex-1">
 					<div className="flex items-start justify-between gap-4 mb-3">
 						<div className="flex flex-col gap-1">
 							{item.highlighted && (
-								<span className="text-[9px] font-black text-warning uppercase tracking-[0.2em] mb-1 flex items-center gap-1">
-									<Star className="w-2.5 h-2.5 fill-amber-500" /> Destaque Operacional
+								<span className="text-label text-warning mb-1 flex items-center gap-1">
+									<Star className="w-2.5 h-2.5 fill-warning" /> Destaque Operacional
 								</span>
 							)}
 							<h3
 								className={cn(
 									"font-bold leading-tight transition-colors",
-									item.highlighted ? "text-warning group-hover:text-warning" : "text-foreground group-hover:text-blue-700"
+									item.highlighted ? "text-warning group-hover:text-warning/80" : "text-foreground group-hover:text-action"
 								)}
 							>
 								{item.name}
 							</h3>
 						</div>
-						<span className={cn("shrink-0 px-2.5 py-1 border text-[10px] font-bold uppercase tracking-wider rounded-md", badgeColor)}>{badgeText}</span>
+						<span className={cn("shrink-0 px-2.5 py-1 border text-label rounded-md", badgeColor)}>{badgeText}</span>
 					</div>
 					<p className="text-sm text-muted-foreground mb-5 leading-relaxed">{item.purpose}</p>
 
-					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-warning/10/50 border-amber-100" : "bg-muted/50 border-border")}>
-						<span
-							className={cn(
-								"text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5",
-								item.highlighted ? "text-warning" : "text-muted-foreground"
-							)}
-						>
+					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-warning/10 border-warning/30" : "bg-muted/50 border-border")}>
+						<span className={cn("text-label flex items-center gap-1.5", item.highlighted ? "text-warning" : "text-muted-foreground")}>
 							<Search className="w-3 h-3" /> Exemplos de Consulta
 						</span>
 						<ul className="space-y-1.5">
 							{item.examples.map((ex, i) => (
 								<li key={i} className="text-xs text-muted-foreground flex items-start gap-2 font-medium">
-									<ChevronRight className={cn("w-3 h-3 mt-0.5 shrink-0", item.highlighted ? "text-warning" : "text-blue-500")} />
+									<ChevronRight className={cn("w-3 h-3 mt-0.5 shrink-0", item.highlighted ? "text-warning" : "text-action")} />
 									{ex}
 								</li>
 							))}
@@ -154,7 +152,7 @@ function RouteComponent() {
 					</div>
 				</div>
 
-				<div className={cn("p-4 border-t", item.highlighted ? "bg-warning/10/30 border-amber-100" : "bg-card border-border")}>
+				<div className={cn("p-4 border-t", item.highlighted ? "bg-warning/10 border-warning/30" : "bg-card border-border")}>
 					{item.url ? (
 						<a
 							href={item.url}
@@ -162,20 +160,16 @@ function RouteComponent() {
 							rel="noopener noreferrer"
 							className={cn(
 								"w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow-md",
-								item.highlighted ? "bg-warning hover:bg-warning text-white shadow-amber-200/50" : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200/50"
+								item.highlighted ? "bg-warning hover:bg-warning/80 text-warning-foreground" : "bg-action hover:bg-action/80 text-action-foreground"
 							)}
 						>
 							Acessar Ferramenta
 							<ExternalLink className="w-4 h-4" />
 						</a>
 					) : (
-						<button
-							type="button"
-							disabled
-							className="w-full flex items-center justify-center gap-2 bg-muted text-muted-foreground px-4 py-2.5 rounded-lg text-sm font-semibold cursor-not-allowed"
-						>
+						<Button type="button" disabled variant="secondary" className="w-full bg-muted text-muted-foreground rounded-lg py-2.5 cursor-not-allowed">
 							Link Indisponível
-						</button>
+						</Button>
 					)}
 				</div>
 			</div>
@@ -185,28 +179,35 @@ function RouteComponent() {
 	const sectionTab = activeTab !== "home" ? (activeTab as SectionId) : null
 
 	return (
-		<div className="min-h-screen bg-[#f8fafc] flex flex-col md:flex-row font-sans selection:bg-blue-200 selection:text-blue-900">
+		<div className="min-h-screen bg-muted flex flex-col md:flex-row font-sans selection:bg-action/15 selection:text-action">
 			{/* Mobile Header */}
-			<div className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between sticky top-0 z-20 shadow-md border-b border-blue-900/50">
+			<div className="md:hidden bg-surface-inverted text-surface-inverted-foreground p-4 flex items-center justify-between sticky top-0 z-20 shadow-md border-b border-action/50">
 				<div className="flex items-center gap-3 truncate pr-2">
-					<div className="bg-blue-600 p-1.5 rounded-md shrink-0">
+					<div className="bg-action p-1.5 rounded-md shrink-0">
 						<Plane className="w-5 h-5 text-white" />
 					</div>
 					<span className="font-bold text-sm sm:text-base tracking-tight truncate">Centro de Monitoramento Contábil da SUCONT-3</span>
 				</div>
-				<button type="button" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-300 hover:text-white">
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+					aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+					className="text-surface-inverted-muted hover:text-white hover:bg-transparent"
+				>
 					{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-				</button>
+				</Button>
 			</div>
 
 			{/* Sidebar */}
 			<aside
 				className={cn(
-					"fixed md:sticky top-0 left-0 h-screen w-72 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-300 z-30 border-r border-slate-800 shadow-2xl md:shadow-none",
+					"fixed md:sticky top-0 left-0 h-screen w-72 bg-surface-inverted text-surface-inverted-muted flex flex-col transition-transform duration-300 z-30 border-r border-surface-inverted-border shadow-2xl md:shadow-none",
 					isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
 				)}
 			>
-				<div className="p-6 hidden md:flex flex-col gap-4 border-b border-slate-800 relative overflow-hidden">
+				<div className="p-6 hidden md:flex flex-col gap-4 border-b border-surface-inverted-border relative overflow-hidden">
 					<Plane className="absolute -right-4 -top-4 w-32 h-32 text-foreground/30 transform rotate-[-15deg] pointer-events-none" />
 
 					{/* Back to Hub */}
@@ -216,83 +217,87 @@ function RouteComponent() {
 					</Link>
 
 					<div className="flex items-center gap-3 relative z-10">
-						<div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl shadow-lg shadow-blue-900/20 border border-blue-400/20 shrink-0">
+						<div className="bg-action p-2.5 rounded-xl shadow-lg border border-action/20 shrink-0">
 							<Landmark className="w-7 h-7 text-white" />
 						</div>
 						<div>
-							<h1 className="font-extrabold text-white text-sm tracking-tight leading-tight">Centro de Monitoramento Contábil da SUCONT-3</h1>
-							<span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1 block">DIREF • COMAER</span>
+							<h1 className="font-bold text-white text-sm tracking-tight leading-tight">Centro de Monitoramento Contábil da SUCONT-3</h1>
+							<span className="text-label text-action mt-1 block">DIREF • COMAER</span>
 						</div>
 					</div>
 				</div>
 
 				<nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={() => handleTabChange("home")}
 						className={cn(
-							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
+							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
 							activeTab === "home" && !searchQuery
-								? "bg-blue-600 text-white shadow-md shadow-blue-900/20"
-								: "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
+								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<LayoutDashboard className={cn("w-5 h-5", activeTab === "home" && !searchQuery ? "text-blue-200" : "")} />
+						<LayoutDashboard className={cn("w-5 h-5", activeTab === "home" && !searchQuery ? "text-action-foreground" : "")} />
 						Visão Geral
-					</button>
+					</Button>
 
-					<div className="pt-6 pb-2 px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Módulos Operacionais</div>
+					<div className="pt-6 pb-2 px-4 text-label text-muted-foreground">Módulos Operacionais</div>
 
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={() => handleTabChange("3.1")}
 						className={cn(
-							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
+							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
 							activeTab === "3.1" && !searchQuery
-								? "bg-blue-600 text-white shadow-md shadow-blue-900/20"
-								: "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
+								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<BarChart3 className={cn("w-5 h-5", activeTab === "3.1" && !searchQuery ? "text-blue-200" : "")} />
+						<BarChart3 className={cn("w-5 h-5", activeTab === "3.1" && !searchQuery ? "text-action-foreground" : "")} />
 						Acompanhamento Contábil
-					</button>
+					</Button>
 
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={() => handleTabChange("3.2")}
 						className={cn(
-							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
+							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
 							activeTab === "3.2" && !searchQuery
-								? "bg-blue-600 text-white shadow-md shadow-blue-900/20"
-								: "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
+								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<Users className={cn("w-5 h-5", activeTab === "3.2" && !searchQuery ? "text-blue-200" : "")} />
+						<Users className={cn("w-5 h-5", activeTab === "3.2" && !searchQuery ? "text-action-foreground" : "")} />
 						Suporte ao Usuário
-					</button>
+					</Button>
 
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={() => handleTabChange("geral")}
 						className={cn(
-							"w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200",
+							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
 							activeTab === "geral" && !searchQuery
-								? "bg-blue-600 text-white shadow-md shadow-blue-900/20"
-								: "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
+								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
 						)}
 					>
-						<Globe className={cn("w-5 h-5", activeTab === "geral" && !searchQuery ? "text-blue-200" : "")} />
+						<Globe className={cn("w-5 h-5", activeTab === "geral" && !searchQuery ? "text-action-foreground" : "")} />
 						Sistemas e Guias
-					</button>
+					</Button>
 				</nav>
 
-				<div className="p-5 border-t border-slate-800 bg-slate-900/50">
-					<div className="bg-slate-800/80 border border-slate-700/50 rounded-xl p-4 flex flex-col gap-3">
+				<div className="p-5 border-t border-surface-inverted-border bg-surface-inverted/50">
+					<div className="bg-surface-inverted/80 border border-surface-inverted-border rounded-xl p-4 flex flex-col gap-3">
 						<div className="flex items-center gap-2">
-							<ShieldCheck className="w-4 h-4 text-blue-400" />
-							<span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Uso Institucional</span>
+							<ShieldCheck className="w-4 h-4 text-action" />
+							<span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Uso Institucional</span>
 						</div>
-						<p className="text-[10px] text-muted-foreground leading-relaxed font-medium">
+						<p className="text-hint text-muted-foreground leading-relaxed">
 							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
 							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
 							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
@@ -306,32 +311,35 @@ function RouteComponent() {
 				<button
 					type="button"
 					aria-label="Fechar menu"
-					className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-20 md:hidden w-full cursor-default"
+					className="fixed inset-0 bg-overlay/80 backdrop-blur-sm z-20 md:hidden w-full cursor-default focus-visible:ring-[3px] focus-visible:ring-ring/50"
 					onClick={() => setIsMobileMenuOpen(false)}
 				/>
 			)}
 
 			{/* Main Content */}
-			<main className="flex-1 flex flex-col h-screen overflow-hidden bg-muted/50/50">
+			<main className="flex-1 flex flex-col h-screen overflow-hidden bg-muted/50">
 				{/* Topbar / Search */}
 				<header className="bg-card border-b border-border/80 p-4 sm:px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
 					<div className="relative w-full max-w-2xl">
 						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-						<input
+						<Input
 							type="text"
 							placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							className="w-full pl-12 pr-10 py-3 bg-muted/80 border-transparent focus:bg-card focus:border-blue-500 focus:ring-4 focus-visible:ring-ring/10 rounded-xl text-sm font-medium transition-all outline-none placeholder:text-muted-foreground text-foreground"
+							className="pl-12 pr-10 py-3 bg-muted/80 border-transparent focus:bg-card focus:border-action focus:ring-4 focus-visible:ring-ring/10 rounded-xl text-sm transition-all placeholder:text-muted-foreground text-foreground"
 						/>
 						{searchQuery && (
-							<button
+							<Button
 								type="button"
+								variant="ghost"
+								size="icon-xs"
 								onClick={() => setSearchQuery("")}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground bg-muted hover:bg-slate-300 p-1 rounded-full transition-colors"
+								aria-label="Limpar busca"
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-full transition-colors"
 							>
 								<X className="w-3.5 h-3.5" />
-							</button>
+							</Button>
 						)}
 					</div>
 				</header>
@@ -343,8 +351,8 @@ function RouteComponent() {
 						{searchQuery.trim() ? (
 							<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 								<div className="flex items-center justify-between border-b border-border pb-4">
-									<h2 className="text-2xl font-extrabold text-foreground tracking-tight">Resultados da Busca</h2>
-									<span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">{searchResults?.length} encontrado(s)</span>
+									<h2 className="text-display text-foreground">Resultados da Busca</h2>
+									<span className="px-3 py-1 bg-action/15 text-action rounded-full text-sm font-bold">{searchResults?.length} encontrado(s)</span>
 								</div>
 
 								{searchResults && searchResults.length > 0 ? (
@@ -369,56 +377,61 @@ function RouteComponent() {
 							/* Home View */
 							<div className="space-y-8 animate-in fade-in duration-700">
 								{/* Hero Section */}
-								<div className="relative bg-gradient-to-br from-slate-900 via-[#0a192f] to-blue-950 rounded-3xl p-8 sm:p-12 text-white shadow-2xl overflow-hidden border border-blue-800/50">
-									<div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-									<div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-sky-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
-									<Plane className="absolute -right-10 top-10 w-96 h-96 text-white/[0.03] transform rotate-[-30deg] pointer-events-none" />
+								<div className="relative bg-surface-inverted rounded-xl p-8 sm:p-12 text-surface-inverted-foreground shadow-2xl overflow-hidden border border-action/50">
+									<div className="absolute top-0 right-0 w-[500px] h-[500px] bg-action/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+									<div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-action/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
+									<Plane className="absolute -right-10 top-10 w-96 h-96 text-surface-inverted-foreground/[0.03] transform rotate-[-30deg] pointer-events-none" />
 
 									<div className="relative z-10 max-w-3xl">
 										<div className="flex flex-wrap items-center gap-3 mb-6">
-											<span className="px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-full text-xs font-bold tracking-widest text-blue-200 uppercase backdrop-blur-sm flex items-center gap-1.5">
+											<span className="px-3 py-1 bg-action/20 border border-action/30 rounded-full text-xs font-bold tracking-widest text-surface-inverted-accent uppercase flex items-center gap-1.5">
 												<ShieldCheck className="w-3.5 h-3.5" /> Força Aérea Brasileira
 											</span>
-											<span className="px-3 py-1 bg-slate-800/50 border border-slate-700/50 rounded-full text-xs font-bold tracking-widest text-slate-300 uppercase backdrop-blur-sm">
+											<span className="px-3 py-1 bg-surface-inverted/50 border border-surface-inverted-border rounded-full text-xs font-bold tracking-widest text-surface-inverted-muted uppercase">
 												DIREF • SUCONT
 											</span>
 										</div>
 
-										<h2 className="text-4xl sm:text-5xl font-extrabold mb-5 tracking-tight leading-[1.1]">
+										<h2 className="text-4xl sm:text-5xl font-bold mb-5 tracking-tight leading-[1.1]">
 											Centro de Monitoramento Contábil <br className="hidden sm:block" />
-											<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-sky-300">da SUCONT-3</span>
+											<span className="text-surface-inverted-accent">da SUCONT-3</span>
 										</h2>
 
-										<p className="text-slate-300 text-lg sm:text-xl leading-relaxed mb-10 max-w-2xl font-medium">
+										<p className="text-surface-inverted-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-2xl font-medium">
 											Plataforma centralizada para ferramentas de análise contábil e suporte ao usuário. Promovendo excelência, padronização e apoio à tomada de
 											decisão no Comando da Aeronáutica.
 										</p>
 
 										<div className="flex flex-wrap gap-4">
-											<button
+											<Button
 												type="button"
+												size="lg"
 												onClick={() => handleTabChange("3.1")}
-												className="bg-blue-600 hover:bg-blue-500 text-white px-7 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-900/30 flex items-center gap-2 group"
+												className="bg-action hover:bg-action/80 text-action-foreground px-7 py-3.5 rounded-xl shadow-lg group"
 											>
-												<BarChart3 className="w-5 h-5 text-blue-200 group-hover:text-white transition-colors" />
+												<BarChart3 className="w-5 h-5 text-action-foreground" />
 												Acompanhamento Contábil
-											</button>
-											<button
+											</Button>
+											<Button
 												type="button"
+												variant="outline"
+												size="lg"
 												onClick={() => handleTabChange("3.2")}
-												className="bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-600/50 px-7 py-3.5 rounded-xl font-bold transition-all backdrop-blur-sm flex items-center gap-2 group"
+												className="bg-surface-inverted/80 hover:bg-surface-inverted-border text-surface-inverted-foreground border-surface-inverted-border px-7 py-3.5 rounded-xl shadow-none group"
 											>
-												<Users className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
+												<Users className="w-5 h-5 text-surface-inverted-muted group-hover:text-white transition-colors" />
 												Suporte ao Usuário
-											</button>
-											<button
+											</Button>
+											<Button
 												type="button"
+												variant="outline"
+												size="lg"
 												onClick={() => handleTabChange("geral")}
-												className="bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-600/50 px-7 py-3.5 rounded-xl font-bold transition-all backdrop-blur-sm flex items-center gap-2 group"
+												className="bg-surface-inverted/80 hover:bg-surface-inverted-border text-surface-inverted-foreground border-surface-inverted-border px-7 py-3.5 rounded-xl shadow-none group"
 											>
 												<Globe className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
 												Sistemas e Guias
-											</button>
+											</Button>
 										</div>
 									</div>
 								</div>
@@ -426,8 +439,8 @@ function RouteComponent() {
 								{/* Value Proposition Cards */}
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
-										<div className="bg-blue-50 p-3 rounded-xl shrink-0">
-											<TrendingUp className="w-6 h-6 text-blue-600" />
+										<div className="bg-action/10 p-3 rounded-xl shrink-0">
+											<TrendingUp className="w-6 h-6 text-action" />
 										</div>
 										<div>
 											<h4 className="font-bold text-foreground mb-1">Eficiência Operacional</h4>
@@ -462,69 +475,70 @@ function RouteComponent() {
 
 								{/* Quick Access Sections */}
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-									<div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex flex-col group hover:border-blue-300 transition-colors">
-										<div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-blue-500/20">
+									<div className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col group hover:border-action/30 transition-colors">
+										<div className="w-14 h-14 bg-surface-inverted text-surface-inverted-foreground rounded-2xl flex items-center justify-center mb-6 shadow-md">
 											<FileSpreadsheet className="w-7 h-7" />
 										</div>
-										<h3 className="text-2xl font-extrabold text-foreground mb-3">Acompanhamento Contábil</h3>
+										<h3 className="text-display text-foreground mb-3">Acompanhamento Contábil</h3>
 										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
 											Ferramentas analíticas avançadas para cruzamento de contas, monitoramento de saldos transitórios e verificação de conformidade contábil.
 										</p>
-										<button
+										<Button
 											type="button"
+											variant="link"
 											onClick={() => handleTabChange("3.1")}
-											className="text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
+											className="h-auto p-0 text-action hover:text-action/80 hover:no-underline gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
 										>
 											Acessar Analistas <ArrowRight className="w-5 h-5" />
-										</button>
+										</Button>
 									</div>
 
-									<div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex flex-col group hover:border-sky-300 transition-colors">
-										<div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-sky-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-sky-500/20">
+									<div className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col group hover:border-action/30 transition-colors">
+										<div className="w-14 h-14 bg-surface-inverted text-surface-inverted-foreground rounded-2xl flex items-center justify-center mb-6 shadow-md">
 											<BookOpen className="w-7 h-7" />
 										</div>
-										<h3 className="text-2xl font-extrabold text-foreground mb-3">Suporte ao Usuário</h3>
+										<h3 className="text-display text-foreground mb-3">Suporte ao Usuário</h3>
 										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
 											Oráculos especializados e interativos para suporte em SIAFI, execução orçamentária, folha de pagamento, suprimento de fundos e restos a
 											pagar.
 										</p>
-										<button
+										<Button
 											type="button"
+											variant="link"
 											onClick={() => handleTabChange("3.2")}
-											className="text-sky-600 font-bold hover:text-sky-800 flex items-center gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
+											className="h-auto p-0 text-action hover:text-action/80 hover:no-underline gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
 										>
 											Acessar Oráculos <ArrowRight className="w-5 h-5" />
-										</button>
+										</Button>
 									</div>
 
-									<div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex flex-col group hover:border-success/30 transition-colors">
-										<div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-emerald-500/20">
+									<div className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col group hover:border-success/30 transition-colors">
+										<div className="w-14 h-14 bg-surface-inverted text-surface-inverted-foreground rounded-2xl flex items-center justify-center mb-6 shadow-md">
 											<Globe className="w-7 h-7" />
 										</div>
-										<h3 className="text-2xl font-extrabold text-foreground mb-3">Sistemas e Guias</h3>
+										<h3 className="text-display text-foreground mb-3">Sistemas e Guias</h3>
 										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
 											Acesso rápido aos sistemas oficiais do COMAER e Governo Federal, além de trilhas de estudo e guias para novos membros.
 										</p>
-										<button
+										<Button
 											type="button"
+											variant="link"
 											onClick={() => handleTabChange("geral")}
-											className="text-success font-bold hover:text-success flex items-center gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
+											className="h-auto p-0 text-success hover:text-success/80 hover:no-underline gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
 										>
 											Acessar Sistemas <ArrowRight className="w-5 h-5" />
-										</button>
+										</Button>
 									</div>
 								</div>
 							</div>
 						) : sectionTab ? (
 							/* Section View (3.1, 3.2 or geral) */
 							<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-								<div className="bg-card p-8 rounded-3xl border border-border shadow-sm relative overflow-hidden">
+								<div className="bg-card p-8 rounded-xl border border-border shadow-sm relative overflow-hidden">
 									<div className="absolute top-0 right-0 w-64 h-64 bg-muted/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 									<div className="relative z-10">
 										<div className="flex items-center gap-3 mb-3">
-											<div
-												className={cn("p-2 rounded-lg text-white", sectionTab === "3.1" ? "bg-blue-600" : sectionTab === "3.2" ? "bg-sky-600" : "bg-success")}
-											>
+											<div className={cn("p-2 rounded-lg text-white", sectionTab === "3.1" ? "bg-action" : sectionTab === "3.2" ? "bg-action" : "bg-success")}>
 												{sectionTab === "3.1" ? (
 													<BarChart3 className="w-5 h-5" />
 												) : sectionTab === "3.2" ? (
@@ -535,7 +549,7 @@ function RouteComponent() {
 											</div>
 											<span className="font-bold text-muted-foreground tracking-widest uppercase text-xs">DIREF • SUCONT</span>
 										</div>
-										<h2 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">{modulesData[sectionTab].title}</h2>
+										<h2 className="text-display text-foreground mb-3">{modulesData[sectionTab].title}</h2>
 										<p className="text-muted-foreground text-lg max-w-3xl">
 											Selecione um dos itens abaixo para acessar a ferramenta ou sistema correspondente.
 										</p>
@@ -565,6 +579,10 @@ function RouteComponent() {
 					</div>
 				</div>
 			</main>
+
+			{/* Dentro da coluna de conteúdo: a raiz é `md:flex-row`, e um filho direto
+				    viraria uma terceira coluna estreita em vez de rodapé. */}
+			<LegalFooter />
 		</div>
 	)
 }

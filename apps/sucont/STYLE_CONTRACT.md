@@ -51,9 +51,18 @@ Mesma ordem de prioridade do sisub:
 ### 4.2 Primitives
 
 - Implementados com `class-variance-authority` (CVA) sobre **`@base-ui/react`**.
-- **Nunca Radix UI.** `Button` e `Label` já estão em Base UI. `Select` ainda está
-  em `radix-ui` — é dívida registrada em §8, não licença para novos primitivos em
-  Radix.
+- **Nunca Radix UI.** `Button`, `Label` e `Select` estão em Base UI; a dependência
+  `radix-ui` saiu do `package.json`. `Input` e `Label` são tag nativa, como no sisub:
+  o Base UI não expõe primitivo para nenhum dos dois.
+- **`<SelectValue />` não deriva o rótulo sozinho.** O Radix lia o texto do
+  `<SelectItem>` correspondente; o Base UI renderiza o VALOR cru. Onde valor e
+  rótulo diferem (`"COM_PRAZO"` exibido como "Ação com Prazo"), passar o mapa em
+  `items` na Root. Onde são a mesma string (mês, UG, conferente), `<SelectValue />`
+  puro está correto.
+- **`value` é `null` para "sem seleção", nunca `""`.** String vazia é um valor para
+  o Base UI, e o `placeholder` do trigger só aparece com `null`.
+- **`onValueChange` entrega `string | null`.** Mapear o `null` para o sentinela de
+  "sem filtro" da tela (`"TODOS"`, `"Geral"`, `"all"`), não para `""`.
 - **Não deve** ser sobreposto no call site com `className` que substitua por
   completo sua cor ou formato. Se o visual se repete, muda-se o CVA.
 - **Polimorfismo:** o Base UI usa a prop `render`, não `asChild`. Link com cara de
@@ -172,45 +181,50 @@ quem não tem o nível entrega um 403 depois do trabalho feito, sem mensagem.
 
 ## 8. Dívida registrada
 
-Inventário medido em 2026-08-31, para que a migração tenha linha de base. Isto é
-dívida conhecida, não exceção permitida: código novo segue o contrato.
+Inventário de 2026-08-31, depois da força-tarefa que quitou a dívida.
 
-| Item | Volume | Onde |
+**Zerados:** classes de paleta Tailwind crua (eram 2.743), cores hex arbitrárias em
+classe (114), texto abaixo de 11px (202), `font-black`/`font-extrabold` (115),
+`title=` como tooltip (19), radius arbitrário (37 de 38), `Select` em Radix.
+Verificação: as 271 classes de token distintas usadas no código foram conferidas
+contra o CSS gerado — nenhuma sem regra correspondente.
+
+### Exceções permitidas, com o motivo
+
+O que sobrou **não é dívida**: são casos em que a regra geral não se aplica. Estão
+listados para que ninguém os "corrija" de novo.
+
+| Caso | Onde | Por quê |
+|------|------|---------|
+| `<input type="file">` nativo | dropzones de upload | O primitivo `Input` é text-like; o campo é `hidden` e o alvo de clique é o `<label>` |
+| `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
+| 12 `<input>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm `focus-visible:ring-ring` |
+| 3 `<input>` nativos | cabeçalho de `subitens-genericos` | Design de sublinhado (`bg-transparent border-b`, sem padding). Já têm `focus:border-fab-gold` |
+| `<button>` nativo | tabs/segmentos, cards clicáveis inteiros, véus `inset-0` de clique-fora, `motion.button` | O primitivo brigaria com o layout, ou (no caso do Framer Motion) com o encadeamento de ref/animação. **Todos receberam `focus-visible:ring-[3px] focus-visible:ring-ring/50`** |
+| `backdrop-blur` | véu de modal, barra fixa/sticky, tooltip de gráfico | Há sobreposição real de conteúdo — é o caso que §6 admite |
+| `rounded-[2px]` | seta do `Tooltip` | Detalhe de forma de uma seta de 10px, não radius de superfície |
+| Hex explícito | `ODS_SOLID_COLORS` (Charts), `COLORS` (subitens), `ICC_RAMP`, `RISK_RAMP` | **Escala de visualização**, não cor de interface. Paleta categórica e rampa sequencial existem para distinguir dados; forçá-las em tokens semânticos destruiria a distinção. Declaradas uma vez, num só lugar |
+
+### Regra que a força-tarefa deixou
+
+**Cromo de gráfico é token; paleta de dado é explícita.** Eixo, grade, cursor,
+superfície de tooltip e borda saem de `lib/chart-theme.ts` (`chartChrome`) e
+acompanham o tema. Série e categoria saem de token nomeado pelo DADO
+(`--series-siafi`, `--series-bmp`) ou de rampa declarada. O que não pode existir é
+a mesma cor escrita em dois lugares: antes, o marcador da legenda usava
+`bg-[#1e40af]` e a barra usava `fill="#1e40af"` — duas fontes para a mesma
+decisão, livres para divergir sem ninguém notar.
+
+`chartChrome` vive em `src/lib/`, e não em `auditor/`, porque o auditor não é o
+único consumidor: os painéis do analista de saldo alongado plotavam o mesmo cromo
+com hex literal.
+
+### Continua em aberto
+
+| Item | Volume | Nota |
 |------|--------|------|
-| Classes de paleta Tailwind crua | **450** (de 2.743) | `blue` 203, `slate` 136, `indigo` 35, `emerald` 19 |
-| `<button>` nativo | 170 | todas as rotas |
-| `<input>` nativo | 73 | todas as rotas |
-| Texto abaixo de 11px | 202 (`text-[8px]`…`[10px]`) | `auditor/components/`, `plataforma-doc/` |
-| `font-black` / `font-extrabold` | 115 | diversos |
-| Radius arbitrário | 38 (`rounded-[40px]`, `[32px]`, `rounded-3xl`) | `hub-layout`, `subitens-genericos` |
-| `backdrop-blur` decorativo | 28 | diversos |
-| `title=` como tooltip | 19 | diversos |
-| `Select` em Radix | 1 primitivo, 18 consumidores | `components/ui/select.tsx` |
-| Rotas fora do `HubLayout` | 4 | `auditor`, `centro-monitoramento`, `subitens-genericos`, `documentacao` — sem `LegalFooterLinks`, exigido pelo `LGPD.md` |
-| Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos` 1.885, `conta-generica` 1.811, `analista-compatibilidade` 1.666, `monitoramento` 1.317 |
-| `CustomSelect` reimplementado | 1 | `auditor/components/CustomSelect.tsx` |
-
-Resolvido desde a primeira medição: a prop `isDarkMode` (226 ocorrências em 9
-arquivos) e a rota que mutava `document.documentElement.classList` — o módulo do
-auditor passou a ser temático por token, com a classe `dark` escopada ao próprio
-container.
-
-### As duas decisões que faltam para zerar a paleta
-
-O que sobrou não é mecânico: são dois julgamentos de produto que a tabela do
-codemod não pode tomar sozinha.
-
-1. **O que `blue` significa** (203 ocorrências). No auditor `bg-blue-600` é a ação
-   primária, `text-blue-600` é ênfase e `bg-blue-50` é destaque de seleção. O
-   sistema do sisub manda ação primária para `bg-primary`, que aqui é quase preto
-   — trocaria a identidade visual do módulo. As saídas honestas são: adotar
-   `primary` e aceitar a mudança, ou declarar um token de ação próprio do sucont
-   (a família `fab-*` já tem um azul real, `fab-500`) e mapear tudo para ele.
-2. **Superfície invertida** (136 de `slate`, quase toda em painel escuro dentro de
-   página clara — herói do hub, `centro-monitoramento`, `analista-compatibilidade`).
-   Ali a escala roda invertida de propósito: `text-slate-300` sobre `bg-slate-900`
-   é o texto legível. Tokenizar isso pede um par novo (`--surface-inverted` /
-   `--surface-inverted-foreground`), não a reutilização de `card`/`foreground`.
+| Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos`, `conta-generica`, `analista-compatibilidade`, `monitoramento`. Dividir é refatoração de arquitetura, não de estilo |
+| Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção |
 
 Patterns que o sisub tem e o sucont ainda não: `field.tsx` (formulários) e
 `item.tsx` (linhas de lista de entidade). Enquanto não existirem aqui, formulário

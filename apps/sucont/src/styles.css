@@ -22,7 +22,7 @@
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.871 0.006 286.286);
@@ -31,6 +31,31 @@
   --warning: oklch(0.75 0.14 82.5337);
   --warning-foreground: oklch(0.2 0 0);
 
+  /*
+   * Papel de AÇÃO: botão primário do módulo, ênfase de link, item selecionado.
+   * Não é `--primary` (quase preto, herdado do shadcn): o sucont é azul desde as
+   * nove ferramentas que o originaram, e mandar a ação para preto trocaria a
+   * identidade do app em vez de tokenizá-la. Ancorado na escala institucional
+   * `fab-*`, que já existia, em vez de inaugurar uma terceira família de azul.
+   */
+  --action: #326ecf;
+  --action-foreground: #ffffff;
+
+  /* Véu de modal. Escuro nos dois temas: no escuro, `foreground` seria branco. */
+  --overlay: oklch(0.208 0.042 265.755);
+
+  /*
+   * Superfície INVERTIDA: painel escuro dentro de página clara — herói do hub,
+   * cabeçalho do centro de monitoramento, bloco de destaque. Par próprio porque
+   * reusar `card`/`foreground` inverteria junto com o tema e apagaria o painel:
+   * aqui o escuro é a intenção, não a consequência do modo escuro.
+   */
+  --surface-inverted: oklch(0.208 0.042 265.755);
+  --surface-inverted-foreground: oklch(0.984 0.003 247.858);
+  --surface-inverted-muted: oklch(0.704 0.04 256.788);
+  --surface-inverted-border: oklch(0.279 0.041 260.031);
+  --surface-inverted-accent: #9bc7f0;
+
   /* Séries do auditor SIAFI x SILOMS. Nomeadas pelo dado, não pela cor. */
   --series-siafi: #1e40af;
   --series-siloms: #0369a1;
@@ -38,6 +63,13 @@
   --series-pareto: #4338ca;
   --series-accum: #065f46;
   --series-axis-alt: #d97706;
+  /* Grupos de conta: a legenda e a barra do gráfico leem daqui, então não podem
+     divergir. Antes eram hex literais em dois lugares — `fill=` no recharts e
+     `bg-[#…]` no marcador da legenda. */
+  --series-bmp: #1e40af;
+  --series-consumo: #0369a1;
+  --series-intangivel: #059669;
+  --series-icc: #059669;
 
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -76,8 +108,10 @@
   --muted-foreground: oklch(0.705 0.015 286.067);
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
+  /* Claro o bastante para servir de TEXTO sobre o fundo escuro: o valor do preset
+     (L 0.396) é fundo de botão e reprovava contraste como cor de texto. */
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.208 0.042 265.755);
   --border: oklch(0.274 0.006 286.033);
   --input: oklch(0.274 0.006 286.033);
   --ring: oklch(0.442 0.017 285.786);
@@ -86,6 +120,19 @@
   --warning: oklch(0.75 0.14 82.5337);
   --warning-foreground: oklch(0.2 0 0);
 
+  /* Mesma matiz, mais clara: no escuro o azul de ação precisa subir para ler. */
+  --action: #6baae7;
+  --action-foreground: oklch(0.208 0.042 265.755);
+
+  --overlay: oklch(0.13 0.028 261.692);
+
+  /* No tema escuro a página já é escura; o painel "invertido" sobe um degrau. */
+  --surface-inverted: oklch(0.279 0.041 260.031);
+  --surface-inverted-foreground: oklch(0.984 0.003 247.858);
+  --surface-inverted-muted: oklch(0.704 0.04 256.788);
+  --surface-inverted-border: oklch(0.372 0.044 257.287);
+  --surface-inverted-accent: #9bc7f0;
+
   /* Mesma matiz, luminosidade de fundo escuro. */
   --series-siafi: #3b82f6;
   --series-siloms: #0ea5e9;
@@ -93,6 +140,10 @@
   --series-pareto: #818cf8;
   --series-accum: #34d399;
   --series-axis-alt: #fbbf24;
+  --series-bmp: #3b82f6;
+  --series-consumo: #0ea5e9;
+  --series-intangivel: #10b981;
+  --series-icc: #10b981;
 
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -119,6 +170,10 @@
   --fab-light-blue: #003da5;
   --fab-gold: #d4af37;
   --fab-sky: #e3f2fd;
+  /* Azul institucional mais fechado. Usado em 23 lugares do módulo Q35 desde
+     sempre, e nunca declarado: as classes `bg-fab-dark`/`text-fab-dark` não
+     geravam regra nenhuma e os elementos ficavam sem cor. */
+  --fab-dark: #001233;
 }
 
 @theme inline {
@@ -129,6 +184,7 @@
   --color-fab-blue: #00205b;
   --color-fab-light-blue: #003da5;
   --color-fab-gold: #d4af37;
+  --color-fab-dark: #001233;
   /* FAB Numeric Scale (Analista Saldo Alongado palette) */
   --color-fab-50: #f0f6fc;
   --color-fab-100: #e0edfa;
@@ -167,12 +223,24 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-overlay: var(--overlay);
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  --color-surface-inverted: var(--surface-inverted);
+  --color-surface-inverted-foreground: var(--surface-inverted-foreground);
+  --color-surface-inverted-muted: var(--surface-inverted-muted);
+  --color-surface-inverted-border: var(--surface-inverted-border);
+  --color-surface-inverted-accent: var(--surface-inverted-accent);
   --color-series-siafi: var(--series-siafi);
   --color-series-siloms: var(--series-siloms);
   --color-series-diff: var(--series-diff);
   --color-series-pareto: var(--series-pareto);
   --color-series-accum: var(--series-accum);
   --color-series-axis-alt: var(--series-axis-alt);
+  --color-series-bmp: var(--series-bmp);
+  --color-series-consumo: var(--series-consumo);
+  --color-series-intangivel: var(--series-intangivel);
+  --color-series-icc: var(--series-icc);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

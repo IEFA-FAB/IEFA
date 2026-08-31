@@ -1,5 +1,7 @@
 import { Check, Copy, Settings2, X } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { UgConsolidated } from "../utils/analytics"
 import { RAC_MAPPING } from "../utils/rac"
@@ -103,7 +105,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 	}
 
 	return (
-		<div className="fixed inset-0 z-50 flex justify-center items-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
+		<div className="fixed inset-0 z-50 flex justify-center items-center bg-overlay/60 backdrop-blur-sm p-4 sm:p-6">
 			<div className="w-full max-w-4xl h-full max-h-[90vh] bg-muted/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-border">
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
@@ -114,16 +116,23 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<span className="font-medium">
 									Filtro: <span className="text-foreground">{racFilter}</span>
 								</span>
-								<span className="w-1 h-1 rounded-full bg-slate-300" />
+								<span className="w-1 h-1 rounded-full bg-muted" />
 								<span className="font-medium">
 									UGs: <span className="text-foreground">{data.length}</span>
 								</span>
 							</div>
 						</div>
 					</div>
-					<button type="button" onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
+					<Button
+						type="button"
+						onClick={onClose}
+						variant="ghost"
+						size="icon"
+						aria-label="Fechar"
+						className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+					>
 						<X className="w-6 h-6" />
-					</button>
+					</Button>
 				</div>
 
 				<div className="flex-1 overflow-hidden flex flex-col md:flex-row">
@@ -138,11 +147,11 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-number" className="text-xs font-medium text-foreground">
 									Número da Mensagem
 								</label>
-								<input
+								<Input
 									id="cons-msg-number"
 									type="text"
 									placeholder="Ex: 123"
-									className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+									className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 									value={messageNumber}
 									onChange={(e) => setMessageNumber(e.target.value)}
 								/>
@@ -151,10 +160,10 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-date" className="text-xs font-medium text-foreground">
 									Data da Mensagem
 								</label>
-								<input
+								<Input
 									id="cons-msg-date"
 									type="date"
-									className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+									className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 									value={messageDate}
 									onChange={(e) => setMessageDate(e.target.value)}
 								/>
@@ -164,7 +173,11 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-type" className="text-xs font-medium text-foreground">
 									Tipo de Mensagem
 								</label>
-								<Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
+								<Select
+									items={{ COM_PRAZO: "Ação com Prazo", SEM_PRAZO: "Ação sem Prazo", ALERTA: "Apenas Alerta" }}
+									value={messageType}
+									onValueChange={(value) => setMessageType(value as MessageType)}
+								>
 									<SelectTrigger
 										id="cons-msg-type"
 										className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
@@ -183,10 +196,10 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 										<label htmlFor="cons-msg-deadline" className="text-xs font-medium text-foreground mb-1.5 block">
 											Data Limite
 										</label>
-										<input
+										<Input
 											id="cons-msg-deadline"
 											type="date"
-											className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+											className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>
@@ -195,10 +208,10 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 							</div>
 
 							<div className="pt-4">
-								<button
+								<Button
 									type="button"
 									onClick={handleCopy}
-									className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+									className="w-full gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
 								>
 									{copied ? (
 										<>
@@ -211,7 +224,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 											<span>Copiar Mensagem</span>
 										</>
 									)}
-								</button>
+								</Button>
 							</div>
 						</div>
 					</div>
