@@ -9,5 +9,21 @@ import { defineConfig } from "vite"
 export default defineConfig({
 	root: __dirname,
 	plugins: [react(), tailwindcss()],
-	resolve: { alias: { "#": resolve(__dirname, "../src") } },
+	// O grafo do catálogo passa por `#/env`, que valida as variáveis do cliente na
+	// carga do módulo. Valores fictícios de propósito: o harness não fala com o
+	// Supabase (sessão semeada, server functions stubadas), então credencial real
+	// aqui seria risco sem contrapartida.
+	define: {
+		"import.meta.env.VITE_SUCONT_SUPABASE_URL": JSON.stringify("https://harness.invalid"),
+		"import.meta.env.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY": JSON.stringify("sb_publishable_harness_stub"),
+	},
+	// Alias em forma de lista porque a ORDEM importa: o stub de `auth.fn` tem de
+	// casar antes da regra generica `#/`.
+	resolve: {
+		alias: [
+			{ find: /^#\/server\/auth\.fn$/, replacement: resolve(__dirname, "./stubs/auth.fn.ts") },
+			{ find: /^#\/server\/legal\.fn$/, replacement: resolve(__dirname, "./stubs/legal.fn.ts") },
+			{ find: /^#\//, replacement: `${resolve(__dirname, "../src")}/` },
+		],
+	},
 })

@@ -1,52 +1,45 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouter, useRouterState } from "@tanstack/react-router"
-import { Activity, BookOpen, LayoutGrid, LogOut, type LucideIcon, Menu, Monitor, Search, Send, ShieldCheck, X } from "lucide-react"
+import { FileBarChart, LayoutGrid, LogOut, type LucideIcon, Menu, Monitor, Search, SquareKanban, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { LegalNotice } from "#/components/LegalNotice"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
-import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
-import { TOOL_STAGES, type ToolStage } from "#/lib/types"
-
-const STAGE_ICON: Record<ToolStage, LucideIcon> = {
-	analisar: ShieldCheck,
-	comunicar: Send,
-	acompanhar: Activity,
-	consultar: BookOpen,
-}
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { useHubFilters } from "#/lib/hub-filters"
 
 /**
- * Etapas do ciclo de conformidade. Antes esta barra listava seis categorias
- * ("Auditoria", "Automação", "IA / Chatbot") enquanto o catálogo tinha dez — as
- * outras quatro não eram alcançáveis por filtro nenhum.
+ * Navegação do hub — as três telas do app.
+ *
+ * Antes esta lista morava num herói escuro, como pílulas `bg-white/5 text-white`
+ * (branco a 5% de opacidade atrás de texto branco: ilegíveis), enquanto a barra
+ * lateral mostrava as etapas do ciclo com a MESMA aparência. Duas coisas
+ * diferentes — navegar e filtrar — pintadas igual, e o usuário não tinha como
+ * saber qual delas o botão faria.
+ *
+ * Agora a barra lateral é só navegação; o filtro por etapa mora na tela que
+ * filtra (o catálogo), ao lado dos outros filtros.
  */
-const NAV_STAGES = [
-	{ id: ALL_STAGES as StageFilter, label: "Tudo", icon: LayoutGrid },
-	...TOOL_STAGES.map((stage) => ({ id: stage.id as StageFilter, label: stage.label, icon: STAGE_ICON[stage.id] })),
+const NAV_LINKS: Array<{ to: string; label: string; icon: LucideIcon }> = [
+	{ to: "/", label: "Catálogo", icon: LayoutGrid },
+	{ to: "/workspace", label: "Área de trabalho", icon: SquareKanban },
+	{ to: "/reports", label: "Relatórios", icon: FileBarChart },
 ]
-
-/**
- * Navegação entre telas — não é filtro. Antes ficava no herói como três pílulas
- * visualmente idênticas às da barra lateral, que filtravam: duas coisas
- * diferentes com a mesma aparência.
- */
-const NAV_TABS = [
-	{ to: "/", label: "Catálogo" },
-	{ to: "/workspace", label: "Área de trabalho" },
-	{ to: "/reports", label: "Relatórios" },
-] as const
 
 interface HubLayoutProps {
 	children: React.ReactNode
+	/** Título da tela. Vira o `h1` da página — os cabeçalhos internos são `h2`. */
+	title?: string
+	/** Uma linha sobre o que a tela faz, ao lado do título. */
+	description?: string
 	/** A tela consome `?q=`. Sem isso a barra de busca some — campo que não filtra nada mente sobre o que faz. */
 	searchable?: boolean
 }
 
-export function HubLayout({ children, searchable = false }: HubLayoutProps) {
-	const { stage, setStage } = useHubFilters()
+export function HubLayout({ children, title, description, searchable = false }: HubLayoutProps) {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	// O menu mobile guarda a rota em que foi aberto: navegar muda o pathname e o
 	// painel — que é overlay e cobriria a tela nova — se fecha sozinho.
@@ -58,10 +51,8 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 			{/* ── Left Sidebar (desktop) ───────────────────────── */}
 			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-card border-r border-border z-20">
 				<HubBrand />
-
-				<StageNav activeStage={stage} onSelect={setStage} />
-
-				<div className="mt-auto flex flex-col gap-3">
+				<HubNav pathname={pathname} />
+				<div className="mt-auto">
 					<UserBlock />
 				</div>
 			</aside>
@@ -87,48 +78,24 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 				</Button>
 			</div>
 
-			{menuOpen && <MobileMenu activeStage={stage} onSelect={setStage} onClose={() => setMenuPath(null)} />}
+			{menuOpen && <MobileMenu pathname={pathname} onClose={() => setMenuPath(null)} />}
 
 			{/* ── Main Area ─────────────────────────────────────── */}
 			<div className="flex-grow lg:ml-64 relative z-10 pt-14 lg:pt-0">
-				{/* Header */}
-				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
-					<div className="relative bg-surface-inverted rounded-xl p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
-						{/* decorative */}
-						<div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
-							<svg viewBox="0 0 100 100" className="w-full h-full text-white fill-current" aria-hidden="true">
-								<path d="M50 10 L90 90 L50 70 L10 90 Z" />
-							</svg>
-						</div>
-
-						<div className="relative z-10">
-							<h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-4 leading-tight">
-								SUCONT-4 <span className="text-tech-cyan">HUB</span>
-							</h1>
-
-							<div className="flex flex-wrap gap-3 md:gap-4">
-								{NAV_TABS.map((tab) => (
-									<Link
-										key={tab.to}
-										to={tab.to}
-										className={`flex items-center gap-2 px-5 md:px-6 py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${
-											pathname === tab.to ? "bg-tech-blue text-white shadow-lg" : "bg-white/5 text-white hover:bg-white/10"
-										}`}
-									>
-										{tab.label}
-									</Link>
-								))}
+				{(title || searchable) && (
+					<header className="px-4 md:px-8 pt-8 pb-6 max-w-6xl mx-auto flex flex-col gap-6">
+						{title && (
+							<div className="flex flex-col gap-1">
+								<h1 className="text-heading text-foreground">{title}</h1>
+								{description && <p className="text-caption text-muted-foreground">{description}</p>}
 							</div>
-						</div>
-					</div>
+						)}
+						{searchable && <HubSearchBar />}
+					</header>
+				)}
 
-					{searchable && <HubSearchBar />}
-				</header>
+				<main className={`px-4 md:px-8 pb-24 max-w-6xl mx-auto ${title || searchable ? "" : "pt-8"}`}>{children}</main>
 
-				{/* Page content */}
-				<main className="px-4 md:px-8 pb-24 max-w-6xl mx-auto">{children}</main>
-
-				{/* Footer */}
 				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
 					<div className="flex flex-col items-center gap-2 md:items-end">
 						<LegalFooterLinks
@@ -140,8 +107,6 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 				</footer>
 			</div>
 
-			{/* ── Right Sidebar Rail (desktop) ──────────────────── */}
-
 			<LegalNotice />
 		</div>
 	)
@@ -149,45 +114,44 @@ export function HubLayout({ children, searchable = false }: HubLayoutProps) {
 
 function HubBrand() {
 	return (
-		<div className="flex items-center gap-3 mb-10">
-			<div className="w-10 h-10 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg">
+		<Link to="/" className="flex items-center gap-3 mb-10 rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+			<div className="w-10 h-10 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
 				<Monitor className="w-6 h-6" />
 			</div>
 			<div className="flex flex-col">
-				<h2 className="text-sm font-bold text-foreground leading-tight">Centro de Monitoramento</h2>
+				<span className="text-sm font-bold text-foreground leading-tight">SUCONT-4 HUB</span>
 				<span className="text-label text-muted-foreground">DIREF • COMAER</span>
 			</div>
-		</div>
+		</Link>
 	)
 }
 
-function StageNav({ activeStage, onSelect }: { activeStage: StageFilter; onSelect: (stage: StageFilter) => void }) {
+function HubNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
 	return (
-		<nav className="flex flex-col gap-2" aria-label="Etapas do ciclo de conformidade">
-			{NAV_STAGES.map((cat) => {
-				const Icon = cat.icon
-				const isActive = activeStage === cat.id
+		<nav className="flex flex-col gap-2" aria-label="Telas do hub">
+			{NAV_LINKS.map((item) => {
+				const Icon = item.icon
+				const isActive = pathname === item.to
 				return (
-					<Button
-						key={cat.id}
-						type="button"
-						onClick={() => onSelect(cat.id)}
+					<Link
+						key={item.to}
+						to={item.to}
+						onClick={onNavigate}
 						aria-current={isActive ? "page" : undefined}
-						variant="ghost"
-						className={`h-auto w-full justify-start gap-3 rounded-xl px-4 py-3 ${
-							isActive ? "bg-tech-blue text-white hover:bg-tech-blue shadow-md" : "text-muted-foreground hover:bg-muted/50"
+						className={`flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold transition-colors ${
+							isActive ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
 						}`}
 					>
-						<Icon className="w-4 h-4" />
-						<span className="text-xs font-bold">{cat.label}</span>
-					</Button>
+						<Icon className="w-4 h-4 shrink-0" />
+						<span>{item.label}</span>
+					</Link>
 				)
 			})}
 		</nav>
 	)
 }
 
-function MobileMenu({ activeStage, onSelect, onClose }: { activeStage: StageFilter; onSelect: (stage: StageFilter) => void; onClose: () => void }) {
+function MobileMenu({ pathname, onClose }: { pathname: string; onClose: () => void }) {
 	const panelRef = useRef<HTMLDivElement>(null)
 
 	// Esc fecha; o foco vai para o painel para que o leitor de tela anuncie o menu.
@@ -230,13 +194,7 @@ function MobileMenu({ activeStage, onSelect, onClose }: { activeStage: StageFilt
 					</Button>
 				</div>
 
-				<StageNav
-					activeStage={activeStage}
-					onSelect={(stage) => {
-						onSelect(stage)
-						onClose()
-					}}
-				/>
+				<HubNav pathname={pathname} onNavigate={onClose} />
 
 				<div className="mt-auto pt-6">
 					<UserBlock />
@@ -307,11 +265,35 @@ function HubSearchBar() {
 	)
 }
 
+/**
+ * Nome de exibição a partir do que o cadastro tem. `user_metadata.name` é o que o
+ * `signUp` grava; sem ele, a parte local do e-mail é o melhor palpite — melhor que
+ * repetir o endereço inteiro duas vezes na mesma linha.
+ */
+function displayName(name: string | undefined, email: string): string {
+	const raw = name?.trim() || email.split("@")[0]?.replace(/[._-]+/g, " ") || ""
+	return raw.replace(/\b\p{L}/gu, (c) => c.toUpperCase())
+}
+
+function initials(label: string): string {
+	const parts = label.split(/\s+/).filter(Boolean)
+	if (parts.length === 0) return "?"
+	const first = parts[0]?.[0] ?? ""
+	const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : ""
+	return (first + last).toUpperCase()
+}
+
+/**
+ * Identidade + saída. O rótulo "Sessão" que ficava aqui não dizia nada que a
+ * própria presença do e-mail já não dissesse; quem lê a barra quer saber com que
+ * conta está e como sair dela.
+ */
 function UserBlock() {
 	const router = useRouter()
 	const queryClient = useQueryClient()
-	const { data: auth } = useQuery(authQueryOptions())
-	const email = auth?.user?.email ?? ""
+	const { data: auth, isPending } = useQuery(authQueryOptions())
+	const user = auth?.user ?? null
+	const email = user?.email ?? ""
 
 	async function logout() {
 		await authActions.signOut()
@@ -319,24 +301,55 @@ function UserBlock() {
 		await router.navigate({ to: "/auth" })
 	}
 
-	return (
-		<div className="flex items-center justify-between gap-2 p-3 bg-card rounded-2xl border border-border">
-			<div className="flex flex-col min-w-0">
-				<span className="text-label text-muted-foreground">Sessão</span>
-				<span className="text-hint text-muted-foreground truncate" title={email}>
-					{email || "—"}
-				</span>
-			</div>
-			<Button
-				type="button"
-				onClick={logout}
-				aria-label="Sair da conta"
-				variant="ghost"
-				size="icon-sm"
-				className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-			>
-				<LogOut className="w-4 h-4" />
+	if (isPending) {
+		return <div className="h-12 w-full rounded-2xl bg-muted animate-pulse" aria-hidden="true" />
+	}
+
+	if (!user) {
+		return (
+			<Button render={<Link to="/auth" />} nativeButton={false} variant="outline" className="w-full justify-center rounded-xl text-xs font-bold">
+				Entrar
 			</Button>
+		)
+	}
+
+	const name = displayName(user.user_metadata?.name as string | undefined, email)
+
+	return (
+		<div className="flex items-center gap-3 p-3 bg-card rounded-2xl border border-border">
+			<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-white text-label font-bold" aria-hidden="true">
+				{initials(name)}
+			</div>
+			{/* O e-mail trunca na largura da barra; o tooltip mostra o endereço inteiro
+			    sem recorrer ao atributo `title`, que o contrato proíbe (§5). */}
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<div className="flex min-w-0 cursor-default flex-col text-left">
+							<span className="text-xs font-bold text-foreground truncate">{name}</span>
+							<span className="text-hint text-muted-foreground truncate">{email}</span>
+						</div>
+					}
+				/>
+				<TooltipContent>{email}</TooltipContent>
+			</Tooltip>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							type="button"
+							onClick={logout}
+							aria-label="Sair"
+							variant="ghost"
+							size="icon-sm"
+							className="ml-auto shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+						>
+							<LogOut className="w-4 h-4" />
+						</Button>
+					}
+				/>
+				<TooltipContent>Sair</TooltipContent>
+			</Tooltip>
 		</div>
 	)
 }

@@ -132,7 +132,7 @@ function Workspace() {
 	)
 
 	return (
-		<HubLayout searchable>
+		<HubLayout title="Área de trabalho" description="Cronograma, anotações e avisos da seção." searchable>
 			<div className="space-y-12">
 				{/* ── Checklist ────────────────────────────────── */}
 				<section>

@@ -1,20 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { X } from "lucide-react"
+import { Activity, BookOpen, LayoutGrid, type LucideIcon, Send, ShieldCheck, X } from "lucide-react"
 import { HubLayout } from "#/components/hub-layout"
 import { ToolCard } from "#/components/tool-card"
 import { Button } from "#/components/ui/button"
+import { Combobox, type ComboboxOption } from "#/components/ui/combobox"
 import { sucontTools } from "#/lib/data"
-import { ALL_STAGES, useHubFilters } from "#/lib/hub-filters"
+import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
+import { formatRac } from "#/lib/rac"
 import { filterTools } from "#/lib/tool-filter"
-import { TOOL_STAGES } from "#/lib/types"
+import { TOOL_STAGES, type ToolStage } from "#/lib/types"
 
 export const Route = createFileRoute("/")({ component: Catalogo })
 
-/** Questões do RAC que alguma ferramenta declara cobrir, em ordem. */
-const RAC_QUESTIONS = [...new Set(sucontTools.flatMap((t) => t.racQuestions ?? []))].sort((a, b) => a - b)
+const STAGE_ICON: Record<ToolStage, LucideIcon> = {
+	analisar: ShieldCheck,
+	comunicar: Send,
+	acompanhar: Activity,
+	consultar: BookOpen,
+}
+
+// Declarado depois de `STAGE_ICON` de propósito: este `.map` roda na avaliação do
+// módulo, e ler uma `const` declarada abaixo lança `ReferenceError` antes de
+// qualquer render — o typecheck não acusa.
+const STAGE_TABS: Array<{ id: StageFilter; label: string; icon: LucideIcon }> = [
+	{ id: ALL_STAGES, label: "Tudo", icon: LayoutGrid },
+	...TOOL_STAGES.map((stage) => ({ id: stage.id as StageFilter, label: stage.label, icon: STAGE_ICON[stage.id] })),
+]
+
+/** Sentinela do seletor de questão: nenhum recorte por questão do RAC. */
+const RAC_ANY = "todas"
+
+/**
+ * Questões do RAC que alguma ferramenta declara cobrir, em ordem.
+ *
+ * São 27 hoje — só o Analista de Saldo Alongado responde 21 delas (Q05–Q25).
+ * Como fileira de pílulas isso virava um paredão de 27 botões "Q05", "Q06"… que
+ * ocupava mais tela que o catálogo que deveria filtrar, e ainda escondia o
+ * seletor de etapa embaixo. Uma lista com busca resolve o mesmo em uma linha, e
+ * o analista que persegue a Q34 digita "34" em vez de procurar o botão.
+ */
+const RAC_OPTIONS: ComboboxOption[] = [
+	{ value: RAC_ANY, label: "Todas as questões" },
+	...[...new Set(sucontTools.flatMap((t) => t.racQuestions ?? []))].sort((a, b) => a - b).map((q) => ({ value: String(q), label: formatRac(q) })),
+]
 
 function Catalogo() {
-	const { query, stage, rac, isFiltered, setRac, clear } = useHubFilters()
+	const { query, stage, rac, isFiltered, setStage, setRac, clear } = useHubFilters()
 	const filtered = filterTools(sucontTools, { query, stage, rac })
 
 	// Sem filtro de etapa, o catálogo vem agrupado pelo ciclo: quem chega sem saber
@@ -22,43 +53,57 @@ function Catalogo() {
 	const groups = stage === ALL_STAGES ? TOOL_STAGES.map((s) => ({ ...s, tools: filtered.filter((t) => t.stage === s.id) })) : null
 
 	return (
-		<HubLayout searchable>
-			<div className="mb-8 flex flex-wrap items-center gap-3">
-				{/*
-				 * Filtro por questão do RAC. É o escopo do trabalho — o analista persegue
-				 * a Q34, não uma "ferramenta de auditoria". Só aparecem as questões que
-				 * alguma ferramenta declara cobrir: oferecer as 42 daria 38 becos sem saída.
-				 */}
-				{/*
-				 * `fieldset`/`legend` e não um `<span>` solto: sem o agrupamento, o leitor
-				 * de tela anuncia seis alternadores "Q34", "Q35"… sem dizer do que são.
-				 */}
-				<fieldset className="flex flex-wrap items-center gap-3 border-0 p-0">
-					<legend className="text-label text-muted-foreground float-left mr-3">Questão do RAC</legend>
-					{RAC_QUESTIONS.map((q) => (
-						<Button
-							key={q}
-							variant={rac === q ? "default" : "outline"}
-							size="sm"
-							onClick={() => setRac(rac === q ? null : q)}
-							aria-pressed={rac === q}
-							aria-label={`Questão ${q} do RAC`}
-							className="text-label rounded-full"
-						>
-							Q{q}
-						</Button>
-					))}
-				</fieldset>
+		<HubLayout title="Catálogo" description="As ferramentas da seção, agrupadas pelo ponto do trabalho em que você está." searchable>
+			<div className="mb-10 flex flex-col gap-4">
+				<div className="flex flex-wrap items-center gap-3">
+					{/* Etapa do ciclo. Mora aqui, e não na barra lateral, porque é filtro
+					    desta tela — na lateral parecia navegação e disputava com ela. */}
+					<nav className="flex flex-wrap items-center gap-1 rounded-xl bg-card p-1 border border-border" aria-label="Etapa do ciclo de conformidade">
+						{STAGE_TABS.map((tab) => {
+							const Icon = tab.icon
+							const isActive = stage === tab.id
+							return (
+								<Button
+									key={tab.id}
+									type="button"
+									onClick={() => setStage(tab.id)}
+									aria-pressed={isActive}
+									variant="ghost"
+									size="sm"
+									className={`gap-2 rounded-lg text-label font-bold ${
+										isActive ? "bg-tech-blue text-white hover:bg-tech-blue hover:text-white" : "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									<Icon className="w-3.5 h-3.5" />
+									{tab.label}
+								</Button>
+							)
+						})}
+					</nav>
 
-				<div className="ml-auto flex items-center gap-3">
-					{isFiltered && (
-						<Button variant="outline" size="sm" onClick={clear} className="text-label rounded-full text-muted-foreground hover:text-foreground">
-							Limpar <X className="w-3 h-3" />
-						</Button>
-					)}
-					<span className="text-hint font-mono text-muted-foreground">
-						{filtered.length} de {sucontTools.length}
-					</span>
+					<div className="flex items-center gap-2">
+						<span className="text-label text-muted-foreground">Questão do RAC</span>
+						<Combobox
+							value={rac == null ? RAC_ANY : String(rac)}
+							onValueChange={(next) => setRac(next === RAC_ANY ? null : Number(next))}
+							items={RAC_OPTIONS}
+							placeholder="Todas as questões"
+							emptyLabel="Nenhuma questão com ferramenta"
+							aria-label="Filtrar por questão do RAC"
+							className="w-52"
+						/>
+					</div>
+
+					<div className="ml-auto flex items-center gap-3">
+						{isFiltered && (
+							<Button variant="outline" size="sm" onClick={clear} className="text-label rounded-full text-muted-foreground hover:text-foreground">
+								Limpar <X className="w-3 h-3" />
+							</Button>
+						)}
+						<span className="text-hint font-mono text-muted-foreground">
+							{filtered.length} de {sucontTools.length}
+						</span>
+					</div>
 				</div>
 			</div>
 

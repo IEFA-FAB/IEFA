@@ -77,7 +77,7 @@ function Reports() {
 			<div className="space-y-8">
 				<div className="flex items-center gap-4">
 					<FileBarChart className="text-tech-cyan w-5 h-5" />
-					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Gestão de Relatórios</h2>
+					<h1 className="text-foreground font-bold uppercase tracking-widest text-sm">Gestão de Relatórios</h1>
 					<div className="flex-grow h-[1px] bg-border" />
 				</div>
 

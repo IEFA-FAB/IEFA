@@ -1,4 +1,5 @@
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Loader2, Lock, Mail, Monitor, ShieldAlert, User } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
@@ -60,21 +61,83 @@ export interface AuthScreenProps {
 
 // ─── Shell + primitivos compartilhados ────────────────────────────────────────
 
-// Casca da página: fundo tech + cartão branco central com a marca SUCONT-4 HUB.
+// Etapas do ciclo de conformidade que o hub cobre — as mesmas quatro do catálogo.
+// Aqui elas dizem, para quem ainda não entrou, para que serve a ferramenta.
+const SHELL_HIGHLIGHTS = [
+	{ title: "Analisar", description: "Encontrar a inconsistência antes do fechamento" },
+	{ title: "Comunicar", description: "Levar o achado à UG: mensagem, ofício, documento" },
+	{ title: "Acompanhar", description: "Ver a série, o saldo e o que continua aberto" },
+	{ title: "Consultar", description: "Norma, manual e os sistemas de origem do dado" },
+]
+
+/**
+ * Casca da página de autenticação: duas colunas, como no sisub.
+ *
+ * A coluna da esquerda só aparece a partir de `lg` — em telas estreitas o
+ * formulário ocupa a largura inteira e o material de apresentação sai da frente.
+ * Antes esta tela era um cartão solto no meio de um fundo vazio, sem dizer o que
+ * havia do outro lado do login.
+ */
 function Shell({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="min-h-screen bg-tech-bg flex items-center justify-center p-6">
-			<div className="w-full max-w-sm">
-				<div className="flex items-center gap-3 mb-8 justify-center">
-					<div className="w-11 h-11 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg">
-						<Monitor className="w-6 h-6" />
+		<div className="min-h-screen bg-tech-bg flex flex-col">
+			<div className="flex-1 flex flex-col lg:flex-row lg:items-stretch max-w-6xl w-full mx-auto px-6 py-10 gap-12">
+				{/* ── Apresentação (desktop) ───────────────────── */}
+				<aside className="hidden lg:flex lg:w-2/5 xl:w-[45%] flex-col justify-center gap-10">
+					<Brand />
+					<div className="flex flex-col gap-2">
+						<h2 className="text-2xl font-bold text-foreground tracking-tight leading-tight">O acompanhamento contábil da seção, num lugar só</h2>
+						<p className="text-sm text-muted-foreground leading-relaxed">
+							Ferramentas de análise, comunicação e consulta do SUCONT-4, organizadas pelo ponto do trabalho em que você está.
+						</p>
 					</div>
-					<div className="flex flex-col">
-						<h1 className="text-base font-bold text-foreground leading-tight">SUCONT-4 HUB</h1>
-						<span className="text-label text-muted-foreground">DIREF • COMAER</span>
+					<ol className="flex flex-col gap-5">
+						{SHELL_HIGHLIGHTS.map((item, i) => (
+							<li key={item.title} className="flex items-start gap-4">
+								<span className="font-mono text-2xl text-muted-foreground/40 tabular-nums leading-none pt-0.5" aria-hidden="true">
+									{String(i + 1).padStart(2, "0")}
+								</span>
+								<div className="flex flex-col gap-0.5">
+									<span className="text-sm font-bold text-foreground">{item.title}</span>
+									<span className="text-xs text-muted-foreground leading-relaxed">{item.description}</span>
+								</div>
+							</li>
+						))}
+					</ol>
+				</aside>
+
+				{/* ── Formulário ───────────────────────────────── */}
+				<section className="flex-1 flex flex-col justify-center" aria-label="Autenticação">
+					<div className="w-full max-w-sm mx-auto flex flex-col gap-8">
+						{/* A marca acompanha o formulário quando a coluna da esquerda não cabe. */}
+						<div className="lg:hidden flex justify-center">
+							<Brand />
+						</div>
+						{children}
 					</div>
-				</div>
-				{children}
+				</section>
+			</div>
+
+			<footer className="px-6 pb-10 max-w-6xl w-full mx-auto flex flex-col items-center gap-2">
+				<LegalFooterLinks
+					className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
+					linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
+				/>
+				<p className="text-hint font-mono text-muted-foreground">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
+			</footer>
+		</div>
+	)
+}
+
+function Brand() {
+	return (
+		<div className="flex items-center gap-3">
+			<div className="w-11 h-11 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
+				<Monitor className="w-6 h-6" />
+			</div>
+			<div className="flex flex-col">
+				<h1 className="text-base font-bold text-foreground leading-tight">SUCONT-4 HUB</h1>
+				<span className="text-label text-muted-foreground">DIREF • COMAER</span>
 			</div>
 		</div>
 	)
