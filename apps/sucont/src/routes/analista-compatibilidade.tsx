@@ -866,12 +866,12 @@ DIREF/SUCONT/SUCONT-3
 				{/* Left: icon + title */}
 				<div className="flex items-center gap-4">
 					<Scale className="text-tech-cyan w-5 h-5 shrink-0" />
-					<h2 className="text-slate-700 font-bold uppercase tracking-widest text-sm">Analista de Compatibilidade (Q40–Q42)</h2>
+					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Analista de Compatibilidade (Q40–Q42)</h2>
 				</div>
 
 				{/* Center: user profile selector */}
-				<div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-					<span className="text-xs font-bold text-slate-500 uppercase ml-1">Identificar-se:</span>
+				<div className="flex items-center gap-2 bg-muted/50 p-1.5 rounded-xl border border-border">
+					<span className="text-xs font-bold text-muted-foreground uppercase ml-1">Identificar-se:</span>
 					<button
 						type="button"
 						onClick={() => {
@@ -903,7 +903,7 @@ DIREF/SUCONT/SUCONT-3
 						<button
 							type="button"
 							onClick={handleReset}
-							className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
+							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
 						>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova Análise
@@ -911,7 +911,7 @@ DIREF/SUCONT/SUCONT-3
 					)}
 					<Link
 						to="/"
-						className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-tech-cyan text-xs font-mono rounded-lg transition-colors shadow-sm"
+						className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:text-foreground hover:border-tech-cyan text-xs font-mono rounded-lg transition-colors shadow-sm"
 					>
 						<ArrowLeft className="w-3.5 h-3.5" />
 						Voltar ao Hub
@@ -924,34 +924,34 @@ DIREF/SUCONT/SUCONT-3
 				<div className="space-y-6">
 					{/* Info cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-[#00a8e8]/50 transition-colors">
+						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border hover:border-[#00a8e8]/50 transition-colors">
 							<div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 								<Search className="w-6 h-6 text-[#003366]" />
 							</div>
 							<h3 className="text-lg font-bold text-[#003366] mb-2">O que está sendo analisado</h3>
-							<p className="text-sm text-slate-600 leading-relaxed">
+							<p className="text-sm text-muted-foreground leading-relaxed">
 								Análise de conformidade entre saldos de contas de controle e contas patrimoniais (ex: Cauções, Almoxarifado e Bens Móveis em Trânsito),
 								identificando inconsistências nos registros das Unidades Gestoras.
 							</p>
 						</div>
 
-						<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-[#00a8e8]/50 transition-colors">
+						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border hover:border-[#00a8e8]/50 transition-colors">
 							<div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 								<BookOpen className="w-6 h-6 text-[#003366]" />
 							</div>
 							<h3 className="text-lg font-bold text-[#003366] mb-2">Referencial Teórico (RAC)</h3>
-							<p className="text-sm text-slate-600 leading-relaxed">
+							<p className="text-sm text-muted-foreground leading-relaxed">
 								Baseado no Roteiro de Acompanhamento Contábil (RAC) da SUCONT-3, o aplicativo orienta a atuação da Setorial Contábil para garantir a
 								fidedignidade do balanço patrimonial do COMAER.
 							</p>
 						</div>
 
-						<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-[#00a8e8]/50 transition-colors">
+						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border hover:border-[#00a8e8]/50 transition-colors">
 							<div className="bg-blue-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 								<MessageSquareText className="w-6 h-6 text-[#003366]" />
 							</div>
 							<h3 className="text-lg font-bold text-[#003366] mb-2">Mensagens Automáticas</h3>
-							<p className="text-sm text-slate-600 leading-relaxed">
+							<p className="text-sm text-muted-foreground leading-relaxed">
 								Geração instantânea de mensagens padronizadas de cobrança e orientação para as UGs, prontas para envio via SAU, otimizando o processo de
 								regularização contábil.
 							</p>
@@ -959,7 +959,7 @@ DIREF/SUCONT/SUCONT-3
 					</div>
 
 					{/* Upload card */}
-					<div className="bg-white rounded-2xl shadow-sm border border-[#003366]/10 p-6">
+					<div className="bg-card rounded-2xl shadow-sm border border-[#003366]/10 p-6">
 						<h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-[#003366]">
 							<FileSpreadsheet className="w-5 h-5 text-[#00a8e8]" />
 							Importar Relatório
@@ -970,25 +970,25 @@ DIREF/SUCONT/SUCONT-3
 								<Info className="w-5 h-5 text-[#00a8e8] shrink-0 mt-0.5" />
 								<div>
 									<h3 className="text-sm font-semibold text-[#003366] mb-1.5">Caminho do Relatório no Tesouro Gerencial:</h3>
-									<div className="text-xs text-slate-600 leading-relaxed flex flex-wrap items-center gap-x-1.5 gap-y-1">
-										<span className="font-medium text-slate-700">TESOURO GERENCIAL</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+									<div className="text-xs text-muted-foreground leading-relaxed flex flex-wrap items-center gap-x-1.5 gap-y-1">
+										<span className="font-medium text-foreground">TESOURO GERENCIAL</span>
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>Relatórios Compartilhados</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>Consultas Gerenciais</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>Relatórios de Bancada dos Órgãos Superiores</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>52000 - Ministério da Defesa</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>52111 - Comando da Aeronáutica</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>SEFA</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>DIREF</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>SUCONT-3 - ACOMPANHAMENTO</span>
-										<ChevronRight className="w-3 h-3 text-slate-400" />
+										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span className="font-bold text-[#003366]">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
 									</div>
 								</div>
@@ -1006,25 +1006,25 @@ DIREF/SUCONT/SUCONT-3
 							<div
 								className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isProcessing ? "border-slate-300 bg-slate-50" : "border-[#00a8e8]/30 bg-[#00a8e8]/5 hover:bg-[#00a8e8]/10"}`}
 							>
-								<Upload className={`w-8 h-8 mx-auto mb-3 ${isProcessing ? "text-slate-400" : "text-[#003366]"}`} />
+								<Upload className={`w-8 h-8 mx-auto mb-3 ${isProcessing ? "text-muted-foreground" : "text-[#003366]"}`} />
 								{isProcessing ? (
-									<p className="text-slate-600 font-medium">Processando planilha...</p>
+									<p className="text-muted-foreground font-medium">Processando planilha...</p>
 								) : fileName ? (
 									<div>
 										<p className="text-[#003366] font-medium">{fileName}</p>
-										<p className="text-slate-500 text-sm mt-1">Clique ou arraste outro arquivo para substituir</p>
+										<p className="text-muted-foreground text-sm mt-1">Clique ou arraste outro arquivo para substituir</p>
 									</div>
 								) : (
 									<div>
 										<p className="text-[#003366] font-medium">Clique ou arraste o arquivo do Tesouro Gerencial (.xlsx)</p>
-										<p className="text-slate-500 text-sm mt-1">Colunas necessárias: UG, Conta Contábil, Saldo</p>
+										<p className="text-muted-foreground text-sm mt-1">Colunas necessárias: UG, Conta Contábil, Saldo</p>
 									</div>
 								)}
 							</div>
 						</div>
 
 						{error && (
-							<div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-start gap-3 text-sm">
+							<div className="mt-4 p-4 bg-destructive/10 text-destructive rounded-lg flex items-start gap-3 text-sm">
 								<AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
 								<p>{error}</p>
 							</div>
@@ -1033,7 +1033,7 @@ DIREF/SUCONT/SUCONT-3
 
 					{/* Footer note */}
 					<div className="text-center opacity-70 hover:opacity-100 transition-opacity">
-						<p className="text-[11px] text-slate-500 leading-relaxed max-w-3xl mx-auto">
+						<p className="text-[11px] text-muted-foreground leading-relaxed max-w-3xl mx-auto">
 							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
 							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
 							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
@@ -1046,11 +1046,11 @@ DIREF/SUCONT/SUCONT-3
 			{reports.length > 0 && (
 				<div className="space-y-6">
 					{/* Tab switcher */}
-					<div className="flex items-center gap-2 border-b border-slate-200 pb-4">
+					<div className="flex items-center gap-2 border-b border-border pb-4">
 						<button
 							type="button"
 							onClick={() => setActiveTab("operacional")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "operacional" ? "bg-[#003366] text-white shadow-md" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "operacional" ? "bg-[#003366] text-white shadow-md" : "bg-card text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
 						>
 							<FileText className="w-4 h-4" />
 							Visão Operacional (UGs)
@@ -1058,7 +1058,7 @@ DIREF/SUCONT/SUCONT-3
 						<button
 							type="button"
 							onClick={() => setActiveTab("gerencial")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "gerencial" ? "bg-[#003366] text-white shadow-md" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
+							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === "gerencial" ? "bg-[#003366] text-white shadow-md" : "bg-card text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
 						>
 							<LayoutDashboard className="w-4 h-4" />
 							Painel Gerencial (RAC)
@@ -1069,16 +1069,16 @@ DIREF/SUCONT/SUCONT-3
 					{activeTab === "operacional" && (
 						<>
 							{/* Filter bar */}
-							<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+							<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-4 rounded-xl shadow-sm border border-border">
 								<div className="flex items-center gap-3">
-									<div className="bg-emerald-100 p-2 rounded-lg">
-										<CheckCircle2 className="w-6 h-6 text-emerald-600" />
+									<div className="bg-success/15 p-2 rounded-lg">
+										<CheckCircle2 className="w-6 h-6 text-success" />
 									</div>
 									<div>
-										<h2 className="text-lg font-bold text-slate-800">
+										<h2 className="text-lg font-bold text-foreground">
 											{filteredReports.length} {filteredReports.length === 1 ? "Unidade com Divergência" : "Unidades com Divergências"}
 										</h2>
-										<p className="text-sm text-slate-500">
+										<p className="text-sm text-muted-foreground">
 											{conferenteFilter === "all" && racFilter === "all"
 												? "Panorama Geral"
 												: `Filtrado por: ${conferenteFilter === "minhas" ? `Minhas UGs (${userProfile})` : conferenteFilter !== "all" ? conferenteFilter : ""} ${racFilter !== "all" ? (conferenteFilter !== "all" ? " + " : "") + racFilter : ""}`}
@@ -1088,7 +1088,7 @@ DIREF/SUCONT/SUCONT-3
 
 								<div className="flex flex-wrap items-center gap-3">
 									{/* RAC Question Filter */}
-									<div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
+									<div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
 										<button
 											type="button"
 											onClick={() => setRacFilter("all")}
@@ -1097,7 +1097,7 @@ DIREF/SUCONT/SUCONT-3
 											Todas Questões
 										</button>
 										<Select value={racFilter !== "all" ? racFilter : ""} onValueChange={setRacFilter}>
-											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-slate-200 bg-transparent px-2 py-1.5 text-xs font-bold text-slate-600 shadow-none focus-visible:ring-0">
+											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-border bg-transparent px-2 py-1.5 text-xs font-bold text-muted-foreground shadow-none focus-visible:ring-0">
 												<SelectValue placeholder="Filtrar por Questão RAC" />
 											</SelectTrigger>
 											<SelectContent>
@@ -1111,7 +1111,7 @@ DIREF/SUCONT/SUCONT-3
 									</div>
 
 									{/* Conferente Filter */}
-									<div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
+									<div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
 										<button
 											type="button"
 											onClick={() => setConferenteFilter("all")}
@@ -1129,7 +1129,7 @@ DIREF/SUCONT/SUCONT-3
 											</button>
 										)}
 										<Select value={conferenteFilter !== "all" && conferenteFilter !== "minhas" ? conferenteFilter : ""} onValueChange={setConferenteFilter}>
-											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-slate-200 bg-transparent px-2 py-1.5 text-xs font-bold text-slate-600 shadow-none focus-visible:ring-0">
+											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-border bg-transparent px-2 py-1.5 text-xs font-bold text-muted-foreground shadow-none focus-visible:ring-0">
 												<SelectValue placeholder="Todos" />
 											</SelectTrigger>
 											<SelectContent>
@@ -1146,7 +1146,7 @@ DIREF/SUCONT/SUCONT-3
 										<button
 											type="button"
 											onClick={copyRacSummary}
-											className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+											className="flex items-center gap-2 px-4 py-2.5 bg-success hover:bg-success/90 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
 											title="Copiar resumo simplificado para esta questão"
 										>
 											<Copy className="w-4 h-4" />
@@ -1189,7 +1189,7 @@ DIREF/SUCONT/SUCONT-3
 									const msgText = generateMessageText(report, msgType, currentPrazo, currentMsgNum, currentMsgDate, currentSubject)
 
 									return (
-										<div key={idx} className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+										<div key={idx} className="bg-card rounded-2xl shadow-md border border-border overflow-hidden flex flex-col">
 											{/* Card header */}
 											<div className="bg-gradient-to-r from-[#003366] to-[#004d99] px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#002244]">
 												<div className="flex items-center gap-3">
@@ -1206,7 +1206,7 @@ DIREF/SUCONT/SUCONT-3
 														</span>
 													</h3>
 												</div>
-												<div className="flex items-center gap-2 bg-red-500/20 px-4 py-2 rounded-lg border border-red-500/30">
+												<div className="flex items-center gap-2 bg-destructive/20 px-4 py-2 rounded-lg border border-red-500/30">
 													<TrendingDown className="w-5 h-5 text-red-400" />
 													<span className="text-red-100 font-medium text-sm">Diferença Total:</span>
 													<span className="text-white font-bold">{formatCurrency(report.totalDiff)}</span>
@@ -1214,10 +1214,10 @@ DIREF/SUCONT/SUCONT-3
 											</div>
 
 											{/* Card body */}
-											<div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+											<div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border">
 												{/* Left: Divergences */}
-												<div className="p-6 lg:col-span-5 bg-slate-50/50 flex flex-col border-r border-slate-200">
-													<h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 flex items-center gap-2">
+												<div className="p-6 lg:col-span-5 bg-muted/50/50 flex flex-col border-r border-border">
+													<h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6 flex items-center gap-2">
 														<AlertTriangle className="w-4 h-4" />
 														Evidenciação das Divergências
 													</h4>
@@ -1225,21 +1225,21 @@ DIREF/SUCONT/SUCONT-3
 														{report.chartData.map((data, i) => (
 															<div
 																key={i}
-																className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between shadow-sm relative overflow-hidden gap-3"
+																className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between shadow-sm relative overflow-hidden gap-3"
 															>
 																<div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: data.color }} />
 																<div className="pl-2 flex-1">
-																	<p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{data.name}</p>
-																	<p className="text-sm font-semibold text-slate-700 leading-snug">{data.description.split(" × ")[0]}</p>
-																	<p className="text-xs text-slate-400 my-0.5">×</p>
-																	<p className="text-sm font-semibold text-slate-700 leading-snug">{data.description.split(" × ")[1]}</p>
-																	<div className="mt-2 pt-2 border-t border-slate-100">
+																	<p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{data.name}</p>
+																	<p className="text-sm font-semibold text-foreground leading-snug">{data.description.split(" × ")[0]}</p>
+																	<p className="text-xs text-muted-foreground my-0.5">×</p>
+																	<p className="text-sm font-semibold text-foreground leading-snug">{data.description.split(" × ")[1]}</p>
+																	<div className="mt-2 pt-2 border-t border-border">
 																		<p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight mb-0.5">Controle Interno SUCONT-3:</p>
-																		<p className="text-[11px] text-slate-500 leading-tight italic">{data.question}</p>
+																		<p className="text-[11px] text-muted-foreground leading-tight italic">{data.question}</p>
 																	</div>
 																</div>
-																<div className="sm:text-right pl-2 sm:pl-0 border-t sm:border-t-0 border-slate-100 pt-2 sm:pt-0 mt-2 sm:mt-0">
-																	<p className="text-xs text-slate-500 mb-1 uppercase tracking-wider font-semibold">Diferença</p>
+																<div className="sm:text-right pl-2 sm:pl-0 border-t sm:border-t-0 border-border pt-2 sm:pt-0 mt-2 sm:mt-0">
+																	<p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Diferença</p>
 																	<p className="text-lg font-black tracking-tight" style={{ color: data.color }}>
 																		{formatCurrency(data.value)}
 																	</p>
@@ -1252,11 +1252,11 @@ DIREF/SUCONT/SUCONT-3
 												{/* Right: Message generator */}
 												<div className="p-6 lg:col-span-7 flex flex-col">
 													<div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-														<h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Mensagem Institucional</h4>
+														<h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Mensagem Institucional</h4>
 
 														<div className="flex flex-wrap items-center gap-3">
-															<div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-																<label htmlFor={`msg-num-${report.ug}`} className="text-xs font-medium text-slate-600 whitespace-nowrap">
+															<div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg border border-border">
+																<label htmlFor={`msg-num-${report.ug}`} className="text-xs font-medium text-muted-foreground whitespace-nowrap">
 																	Nº da Mensagem:
 																</label>
 																<input
@@ -1270,12 +1270,12 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: e.target.value,
 																		}))
 																	}
-																	className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-white"
+																	className="w-16 px-2 py-1 text-sm border border-border rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-card"
 																/>
 															</div>
 
-															<div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-																<label htmlFor={`msg-date-${report.ug}`} className="text-xs font-medium text-slate-600 whitespace-nowrap">
+															<div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg border border-border">
+																<label htmlFor={`msg-date-${report.ug}`} className="text-xs font-medium text-muted-foreground whitespace-nowrap">
 																	Data:
 																</label>
 																<input
@@ -1288,12 +1288,12 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: e.target.value,
 																		}))
 																	}
-																	className="px-2 py-1 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-white"
+																	className="px-2 py-1 text-sm border border-border rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-card"
 																/>
 															</div>
 
-															<div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-																<label htmlFor={`msg-subject-${report.ug}`} className="text-xs font-medium text-slate-600 whitespace-nowrap">
+															<div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg border border-border">
+																<label htmlFor={`msg-subject-${report.ug}`} className="text-xs font-medium text-muted-foreground whitespace-nowrap">
 																	Assunto:
 																</label>
 																<input
@@ -1307,11 +1307,11 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: e.target.value,
 																		}))
 																	}
-																	className="w-48 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-white"
+																	className="w-48 px-2 py-1 text-sm border border-border rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-card"
 																/>
 															</div>
 
-															<div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+															<div className="flex items-center bg-muted p-1 rounded-lg border border-border">
 																<button
 																	type="button"
 																	onClick={() =>
@@ -1320,7 +1320,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: "com_prazo",
 																		}))
 																	}
-																	className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${msgType === "com_prazo" ? "bg-white text-[#003366] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+																	className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${msgType === "com_prazo" ? "bg-card text-[#003366] shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 																>
 																	Com Prazo
 																</button>
@@ -1332,7 +1332,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: "sem_prazo",
 																		}))
 																	}
-																	className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${msgType === "sem_prazo" ? "bg-white text-[#003366] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+																	className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${msgType === "sem_prazo" ? "bg-card text-[#003366] shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 																>
 																	Sem Prazo
 																</button>
@@ -1344,16 +1344,16 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: "alerta",
 																		}))
 																	}
-																	className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${msgType === "alerta" ? "bg-white text-[#003366] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+																	className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${msgType === "alerta" ? "bg-card text-[#003366] shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 																>
 																	Alerta
 																</button>
 															</div>
 
 															{msgType === "com_prazo" && (
-																<div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-																	<CalendarClock className="w-4 h-4 text-slate-400" />
-																	<label htmlFor={`msg-prazo-${report.ug}`} className="text-xs font-medium text-slate-600 whitespace-nowrap">
+																<div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg border border-border">
+																	<CalendarClock className="w-4 h-4 text-muted-foreground" />
+																	<label htmlFor={`msg-prazo-${report.ug}`} className="text-xs font-medium text-muted-foreground whitespace-nowrap">
 																		Prazo:
 																	</label>
 																	<input
@@ -1366,7 +1366,7 @@ DIREF/SUCONT/SUCONT-3
 																				[report.ug]: e.target.value,
 																			}))
 																		}
-																		className="px-2 py-1 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-white"
+																		className="px-2 py-1 text-sm border border-border rounded focus:ring-1 focus:ring-[#00a8e8] focus:border-[#00a8e8] outline-none bg-card"
 																	/>
 																</div>
 															)}
@@ -1382,8 +1382,8 @@ DIREF/SUCONT/SUCONT-3
 														</div>
 													</div>
 
-													<div className="bg-slate-100 rounded-xl p-5 border border-slate-200 flex-1">
-														<pre className="whitespace-pre-wrap font-mono text-sm text-slate-700 leading-relaxed">{msgText}</pre>
+													<div className="bg-muted rounded-xl p-5 border border-border flex-1">
+														<pre className="whitespace-pre-wrap font-mono text-sm text-foreground leading-relaxed">{msgText}</pre>
 													</div>
 												</div>
 											</div>
@@ -1399,24 +1399,24 @@ DIREF/SUCONT/SUCONT-3
 						<div className="space-y-6">
 							{/* KPIs */}
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-								<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
-									<p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Total de UGs com Divergência</p>
+								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col">
+									<p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Total de UGs com Divergência</p>
 									<p className="text-4xl font-black text-[#003366]">{reports.length}</p>
 								</div>
-								<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
-									<p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Volume Financeiro Total</p>
-									<p className="text-4xl font-black text-red-600">{formatCurrency(managerialData.totalVolume)}</p>
+								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col">
+									<p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Volume Financeiro Total</p>
+									<p className="text-4xl font-black text-destructive">{formatCurrency(managerialData.totalVolume)}</p>
 								</div>
-								<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col">
-									<p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Média por UG</p>
-									<p className="text-4xl font-black text-orange-500">{formatCurrency(managerialData.totalVolume / reports.length)}</p>
+								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col">
+									<p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Média por UG</p>
+									<p className="text-4xl font-black text-warning">{formatCurrency(managerialData.totalVolume / reports.length)}</p>
 								</div>
 							</div>
 
 							{/* Charts */}
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 								{/* Bar chart: Top 5 UGs */}
-								<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 									<h3 className="text-lg font-bold text-[#003366] mb-4 flex items-center gap-2">
 										<BarChart3 className="w-5 h-5 text-[#00a8e8]" />
 										Top 5 UGs por Volume de Divergência
@@ -1450,7 +1450,7 @@ DIREF/SUCONT/SUCONT-3
 								</div>
 
 								{/* Pie chart: Pairs */}
-								<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
 									<h3 className="text-lg font-bold text-[#003366] mb-4 flex items-center gap-2">
 										<PieChartIcon className="w-5 h-5 text-[#00a8e8]" />
 										Incidência por Par de Contas
@@ -1488,8 +1488,8 @@ DIREF/SUCONT/SUCONT-3
 							</div>
 
 							{/* Distribution: Órgão Superior */}
-							<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-								<div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+							<div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+								<div className="bg-muted/50 border-b border-border px-6 py-4">
 									<h3 className="text-lg font-bold text-[#003366] flex items-center gap-2">
 										<Building2 className="w-5 h-5 text-[#00a8e8]" />
 										Distribuição por Órgão Superior
@@ -1498,10 +1498,10 @@ DIREF/SUCONT/SUCONT-3
 								<div className="p-6">
 									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 										{managerialData.superiorStats.map((sup, idx) => (
-											<div key={idx} className="bg-slate-50 rounded-xl border border-slate-200 p-5 flex flex-col">
-												<div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+											<div key={idx} className="bg-muted/50 rounded-xl border border-border p-5 flex flex-col">
+												<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
 													<h4 className="font-bold text-[#003366] flex items-center gap-2">
-														<Building2 className="w-4 h-4 text-slate-400" />
+														<Building2 className="w-4 h-4 text-muted-foreground" />
 														{sup.name}
 													</h4>
 													<span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full">
@@ -1509,18 +1509,18 @@ DIREF/SUCONT/SUCONT-3
 													</span>
 												</div>
 												<div className="flex-1">
-													<p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Unidades com Inconsistências:</p>
+													<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unidades com Inconsistências:</p>
 													<div className="flex flex-wrap gap-1.5">
 														{sup.ugs.map((ug, i) => (
-															<span key={i} className="text-xs bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-md shadow-sm">
+															<span key={i} className="text-xs bg-card border border-border text-foreground px-2 py-1 rounded-md shadow-sm">
 																{ug.includes(" - ") ? `${ug.split(" - ")[1]} (${ug.split(" - ")[0]})` : `UG ${ug}`}
 															</span>
 														))}
 													</div>
 												</div>
-												<div className="mt-4 pt-3 border-t border-slate-200">
-													<p className="text-xs text-slate-500">
-														Volume Total: <span className="font-bold text-slate-700">{formatCurrency(sup.volume)}</span>
+												<div className="mt-4 pt-3 border-t border-border">
+													<p className="text-xs text-muted-foreground">
+														Volume Total: <span className="font-bold text-foreground">{formatCurrency(sup.volume)}</span>
 													</p>
 												</div>
 											</div>
@@ -1530,8 +1530,8 @@ DIREF/SUCONT/SUCONT-3
 							</div>
 
 							{/* Distribution: ODS */}
-							<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-								<div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+							<div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+								<div className="bg-muted/50 border-b border-border px-6 py-4">
 									<h3 className="text-lg font-bold text-[#003366] flex items-center gap-2">
 										<LayoutDashboard className="w-5 h-5 text-[#00a8e8]" />
 										Distribuição por ODS (Órgão de Direção Setorial)
@@ -1540,29 +1540,29 @@ DIREF/SUCONT/SUCONT-3
 								<div className="p-6">
 									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 										{managerialData.odsStats.map((ods, idx) => (
-											<div key={idx} className="bg-slate-50 rounded-xl border border-slate-200 p-5 flex flex-col">
-												<div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+											<div key={idx} className="bg-muted/50 rounded-xl border border-border p-5 flex flex-col">
+												<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
 													<h4 className="font-bold text-[#003366] flex items-center gap-2">
-														<LayoutDashboard className="w-4 h-4 text-slate-400" />
+														<LayoutDashboard className="w-4 h-4 text-muted-foreground" />
 														{ods.name}
 													</h4>
-													<span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded-full">
+													<span className="bg-success/15 text-success text-xs font-bold px-2 py-1 rounded-full">
 														{ods.count} UG{ods.count > 1 ? "s" : ""}
 													</span>
 												</div>
 												<div className="flex-1">
-													<p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Unidades com Inconsistências:</p>
+													<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unidades com Inconsistências:</p>
 													<div className="flex flex-wrap gap-1.5">
 														{ods.ugs.map((ug, i) => (
-															<span key={i} className="text-xs bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-md shadow-sm">
+															<span key={i} className="text-xs bg-card border border-border text-foreground px-2 py-1 rounded-md shadow-sm">
 																{ug.includes(" - ") ? `${ug.split(" - ")[1]} (${ug.split(" - ")[0]})` : `UG ${ug}`}
 															</span>
 														))}
 													</div>
 												</div>
-												<div className="mt-4 pt-3 border-t border-slate-200">
-													<p className="text-xs text-slate-500">
-														Volume Total: <span className="font-bold text-slate-700">{formatCurrency(ods.volume)}</span>
+												<div className="mt-4 pt-3 border-t border-border">
+													<p className="text-xs text-muted-foreground">
+														Volume Total: <span className="font-bold text-foreground">{formatCurrency(ods.volume)}</span>
 													</p>
 												</div>
 											</div>
@@ -1572,8 +1572,8 @@ DIREF/SUCONT/SUCONT-3
 							</div>
 
 							{/* Distribution: Conferente */}
-							<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-								<div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+							<div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+								<div className="bg-muted/50 border-b border-border px-6 py-4">
 									<h3 className="text-lg font-bold text-[#003366] flex items-center gap-2">
 										<Users className="w-5 h-5 text-[#00a8e8]" />
 										Filtro Gerencial por Conferente
@@ -1582,29 +1582,29 @@ DIREF/SUCONT/SUCONT-3
 								<div className="p-6">
 									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 										{managerialData.conferenteStats.map((conf, idx) => (
-											<div key={idx} className="bg-slate-50 rounded-xl border border-slate-200 p-5 flex flex-col">
-												<div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+											<div key={idx} className="bg-muted/50 rounded-xl border border-border p-5 flex flex-col">
+												<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
 													<h4 className="font-bold text-[#003366] flex items-center gap-2">
-														<Users className="w-4 h-4 text-slate-400" />
+														<Users className="w-4 h-4 text-muted-foreground" />
 														{conf.name}
 													</h4>
-													<span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">
+													<span className="bg-destructive/15 text-destructive text-xs font-bold px-2 py-1 rounded-full">
 														{conf.count} UG{conf.count > 1 ? "s" : ""}
 													</span>
 												</div>
 												<div className="flex-1">
-													<p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Unidades com Inconsistências:</p>
+													<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unidades com Inconsistências:</p>
 													<div className="flex flex-wrap gap-1.5">
 														{conf.ugs.map((ug, i) => (
-															<span key={i} className="text-xs bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-md shadow-sm">
+															<span key={i} className="text-xs bg-card border border-border text-foreground px-2 py-1 rounded-md shadow-sm">
 																{ug.includes(" - ") ? `${ug.split(" - ")[1]} (${ug.split(" - ")[0]})` : `UG ${ug}`}
 															</span>
 														))}
 													</div>
 												</div>
-												<div className="mt-4 pt-3 border-t border-slate-200">
-													<p className="text-xs text-slate-500">
-														Volume Total: <span className="font-bold text-slate-700">{formatCurrency(conf.volume)}</span>
+												<div className="mt-4 pt-3 border-t border-border">
+													<p className="text-xs text-muted-foreground">
+														Volume Total: <span className="font-bold text-foreground">{formatCurrency(conf.volume)}</span>
 													</p>
 												</div>
 											</div>
@@ -1614,8 +1614,8 @@ DIREF/SUCONT/SUCONT-3
 							</div>
 
 							{/* Risk analysis */}
-							<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-								<div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+							<div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+								<div className="bg-muted/50 border-b border-border px-6 py-4">
 									<h3 className="text-lg font-bold text-[#003366] flex items-center gap-2">
 										<ShieldAlert className="w-5 h-5 text-[#00a8e8]" />
 										Análise de Risco e Contexto Metodológico (RAC)
@@ -1625,28 +1625,28 @@ DIREF/SUCONT/SUCONT-3
 									{managerialData.pairStats.map((pair, idx) => {
 										if (pair.count === 0) return null
 										return (
-											<div key={idx} className="flex flex-col md:flex-row gap-4 pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+											<div key={idx} className="flex flex-col md:flex-row gap-4 pb-6 border-b border-border last:border-0 last:pb-0">
 												<div className="md:w-1/3">
 													<div className="flex items-center gap-2 mb-2">
 														<div className="w-3 h-3 rounded-full" style={{ backgroundColor: pair.color }} />
-														<h4 className="font-bold text-slate-800">{pair.name}</h4>
+														<h4 className="font-bold text-foreground">{pair.name}</h4>
 													</div>
-													<p className="text-sm font-medium text-slate-600 mb-1">{pair.description.split(" × ")[0]}</p>
-													<p className="text-sm font-medium text-slate-600">{pair.description.split(" × ")[1]}</p>
-													<div className="mt-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-														<p className="text-xs text-slate-500 uppercase font-bold mb-1">Volume Envolvido</p>
-														<p className="text-lg font-bold text-slate-800">{formatCurrency(pair.volume)}</p>
+													<p className="text-sm font-medium text-muted-foreground mb-1">{pair.description.split(" × ")[0]}</p>
+													<p className="text-sm font-medium text-muted-foreground">{pair.description.split(" × ")[1]}</p>
+													<div className="mt-3 bg-muted/50 p-3 rounded-lg border border-border">
+														<p className="text-xs text-muted-foreground uppercase font-bold mb-1">Volume Envolvido</p>
+														<p className="text-lg font-bold text-foreground">{formatCurrency(pair.volume)}</p>
 													</div>
 												</div>
 												<div className="md:w-2/3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
 													<h5 className="text-sm font-bold text-[#003366] mb-2">Objetivo da Verificação:</h5>
-													<p className="text-sm text-slate-700 mb-4 leading-relaxed">
+													<p className="text-sm text-foreground mb-4 leading-relaxed">
 														{pair.name === "Par 1"
 															? "Garantir que os saldos de caução em espécie registrados no ativo (1.1.1.1.1.19.03) estejam integralmente refletidos na conta de controle (8.1.1.1.1.01.13)."
 															: "Garantir a compatibilidade entre os saldos dos sistemas SIAFI e SILOMS, assegurando que os bens em trânsito ou enviados estejam corretamente registrados e baixados."}
 													</p>
-													<h5 className="text-sm font-bold text-red-700 mb-2">Risco Contábil Associado:</h5>
-													<p className="text-sm text-slate-700 leading-relaxed">
+													<h5 className="text-sm font-bold text-destructive mb-2">Risco Contábil Associado:</h5>
+													<p className="text-sm text-foreground leading-relaxed">
 														{pair.name === "Par 1"
 															? "A divergência indica possível omissão no registro do documento hábil RC com situação LDV053, o que distorce a evidenciação dos controles de garantias e cauções do COMAER, comprometendo a fidedignidade do balanço patrimonial."
 															: "A falta de compatibilidade evidencia falhas no controle de movimentação de bens (almoxarifado/móveis), podendo resultar em superavaliação ou subavaliação do patrimônio da União sob responsabilidade do COMAER, além de descumprimento do Manual Eletrônico do RADA-e."}

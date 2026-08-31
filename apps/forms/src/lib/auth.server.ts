@@ -7,53 +7,31 @@
  * GoTrue por chamada e devolvia 500 para o que é 401/403 — o cliente não conseguia
  * distinguir "sessão expirou" de "servidor quebrou".
  *
- * Mesmo padrão do sisub, portal e rumaer.
+ * O cache request-scoped e a sinalização de status vêm de `@iefa/pbac/start`,
+ * compartilhados com sisub, portal, rumaer e sucont. A autorização segue própria:
+ * o forms decide por papel no questionário, não por grant PBAC.
  */
 
-import type { User } from "@supabase/supabase-js"
-import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
+import { createRequestAuth, forbidden as denyWithStatus, unauthorized as unauthenticatedWithStatus } from "@iefa/pbac/start"
 import { getIefaAuthClient } from "./supabase.server"
 
 /** Sinaliza 401 antes de lançar — senão o framework devolve 500. */
 export function unauthorized(): never {
-	setResponseStatus(401)
-	throw new Error("Não autenticado")
+	return unauthenticatedWithStatus("Não autenticado")
 }
 
 /** Sinaliza 403 — autenticado, sem acesso ao recurso. */
 export function forbidden(message = "Sem permissão"): never {
-	setResponseStatus(403)
-	throw new Error(message)
+	return denyWithStatus(message)
 }
 
-/**
- * Cache request-scoped do `auth.getUser()`: ele valida o JWT no servidor Supabase
- * (round-trip de rede) e o mesmo request chama várias fns. Chaveado pelo `Request`;
- * o WeakMap libera quando o request é coletado. Cacheia a Promise para coalescer
- * chamadas concorrentes num round-trip só.
- */
-const userByRequest = new WeakMap<Request, Promise<User | null>>()
+const auth = createRequestAuth({ getAuthClient: getIefaAuthClient, messages: { unauthorized: "Não autenticado" } })
 
-export function getRequestUser(): Promise<User | null> {
-	const resolve = () =>
-		getIefaAuthClient()
-			.auth.getUser()
-			.then(({ data }) => data.user ?? null)
-
-	const request = getRequest()
-	if (!request) return resolve()
-
-	let cached = userByRequest.get(request)
-	if (!cached) {
-		cached = resolve()
-		userByRequest.set(request, cached)
-	}
-	return cached
-}
+export const { getRequestUser } = auth
 
 /** Usuário autenticado do request. @throws 401 */
-export async function requireUser(): Promise<User> {
-	const user = await getRequestUser()
+export async function requireUser() {
+	const user = await auth.getRequestUser()
 	if (!user) unauthorized()
 	return user
 }

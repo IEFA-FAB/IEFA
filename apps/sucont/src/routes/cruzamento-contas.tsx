@@ -46,8 +46,8 @@ function CruzamentoContas() {
 			<div className="flex items-center justify-between mb-8">
 				<div className="flex items-center gap-4">
 					<BarChart3 className="text-tech-cyan w-5 h-5" />
-					<h2 className="text-slate-700 font-bold uppercase tracking-widest text-sm">Cruzamento de Contas Correntes (Q43)</h2>
-					<div className="flex-grow h-[1px] bg-slate-200" />
+					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Cruzamento de Contas Correntes (Q43)</h2>
+					<div className="flex-grow h-[1px] bg-border" />
 				</div>
 
 				<div className="flex items-center gap-3 ml-4">
@@ -55,7 +55,7 @@ function CruzamentoContas() {
 						<button
 							type="button"
 							onClick={handleReset}
-							className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
+							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
 						>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova Análise
@@ -63,7 +63,7 @@ function CruzamentoContas() {
 					)}
 					<Link
 						to="/"
-						className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-500 hover:text-slate-800 text-xs font-mono rounded-lg transition-colors shadow-sm"
+						className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:text-foreground text-xs font-mono rounded-lg transition-colors shadow-sm"
 					>
 						<ArrowLeft className="w-3.5 h-3.5" />
 						Voltar ao Hub
@@ -73,8 +73,8 @@ function CruzamentoContas() {
 
 			{/* ERROR */}
 			{error && (
-				<div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
-					<div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+				<div className="mb-8 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-xl flex items-center gap-3">
+					<div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
 					<p className="text-sm font-medium">{error}</p>
 				</div>
 			)}
@@ -82,8 +82,8 @@ function CruzamentoContas() {
 			{!reportData ? (
 				<div className="flex flex-col items-center justify-center min-h-[60vh]">
 					<div className="text-center mb-8 max-w-2xl">
-						<h2 className="text-3xl font-bold text-slate-800 mb-4 tracking-tight">Confronto Cruzado de Contas</h2>
-						<p className="text-slate-600 leading-relaxed">
+						<h2 className="text-3xl font-bold text-foreground mb-4 tracking-tight">Confronto Cruzado de Contas</h2>
+						<p className="text-muted-foreground leading-relaxed">
 							Ferramenta automatizada para análise de espelhamento entre as contas <strong>897210300</strong> e <strong>897110300</strong>.
 						</p>
 					</div>
@@ -99,83 +99,83 @@ function CruzamentoContas() {
 						</div>
 
 						{/* CAMINHO NO TESOURO GERENCIAL */}
-						<div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+						<div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
 							<button
 								type="button"
 								onClick={() => setShowPath(!showPath)}
-								className="w-full px-6 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors text-left"
 							>
 								<div className="flex items-center gap-3">
-									<MapIcon className="w-5 h-5 text-amber-600" />
-									<span className="font-bold text-slate-800">Como extrair o relatório no Tesouro Gerencial?</span>
+									<MapIcon className="w-5 h-5 text-warning" />
+									<span className="font-bold text-foreground">Como extrair o relatório no Tesouro Gerencial?</span>
 								</div>
-								{showPath ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+								{showPath ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
 							</button>
 
 							{showPath && (
-								<div className="p-6 border-t border-slate-200 bg-amber-50/30">
-									<p className="text-sm text-slate-700 mb-4">
+								<div className="p-6 border-t border-border bg-warning/10/30">
+									<p className="text-sm text-foreground mb-4">
 										Para gerar a planilha compatível com este analisador, acesse o Tesouro Gerencial e siga o caminho abaixo:
 									</p>
-									<div className="bg-white border border-slate-200 rounded-lg p-4 font-mono text-xs text-slate-600 leading-relaxed shadow-inner">
+									<div className="bg-card border border-border rounded-lg p-4 font-mono text-xs text-muted-foreground leading-relaxed shadow-inner">
 										<span className="font-bold text-[#0033A0]">TESOURO GERENCIAL</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>Relatórios Compartilhados</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>Consultas Gerenciais</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>Relatórios de Bancada dos Órgãos Superiores</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>52000 - Ministério da Defesa</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>52111 - Comando da Aeronáutica</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>SEFA</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>DIREF</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>SUCONT-3 - ACOMPANHAMENTO</span>
-										<span className="mx-2 text-slate-400">{">"}</span>
-										<span className="font-bold text-emerald-700">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
+										<span className="mx-2 text-muted-foreground">{">"}</span>
+										<span className="font-bold text-success">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
 									</div>
 								</div>
 							)}
 						</div>
 
 						{/* CONTEXTO CONTÁBIL */}
-						<div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+						<div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
 							<button
 								type="button"
 								onClick={() => setShowContext(!showContext)}
-								className="w-full px-6 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+								className="w-full px-6 py-4 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors text-left"
 							>
 								<div className="flex items-center gap-3">
 									<BookOpen className="w-5 h-5 text-blue-600" />
-									<span className="font-bold text-slate-800">Contexto Contábil das Contas Analisadas</span>
+									<span className="font-bold text-foreground">Contexto Contábil das Contas Analisadas</span>
 								</div>
-								{showContext ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+								{showContext ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
 							</button>
 
 							{showContext && (
-								<div className="p-6 border-t border-slate-200 space-y-6 text-sm text-slate-700 leading-relaxed">
-									<div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4 mb-6">
+								<div className="p-6 border-t border-border space-y-6 text-sm text-foreground leading-relaxed">
+									<div className="bg-muted/50 p-4 rounded-lg border border-border space-y-4 mb-6">
 										<div>
 											<h4 className="font-bold text-[#0033A0] mb-1 uppercase tracking-wider text-xs">Objetivo da Análise</h4>
-											<p className="text-slate-600">
+											<p className="text-muted-foreground">
 												Verificar a conformidade e o espelhamento entre contas contábeis correlatas, garantindo que os registros representem de forma fidedigna
 												os fatos administrativos e a situação patrimonial do COMAER.
 											</p>
 										</div>
 										<div>
-											<h4 className="font-bold text-amber-600 mb-1 uppercase tracking-wider text-xs">Risco Contábil Associado</h4>
-											<p className="text-slate-600">
+											<h4 className="font-bold text-warning mb-1 uppercase tracking-wider text-xs">Risco Contábil Associado</h4>
+											<p className="text-muted-foreground">
 												A divergência entre os saldos de controle de cobrança indica possível omissão de registros, falha na conciliação ou descompasso
 												temporal. Isso compromete a integridade das demonstrações contábeis e pode ocultar passivos ou ativos reais da União.
 											</p>
 										</div>
 										<div>
-											<h4 className="font-bold text-emerald-700 mb-1 uppercase tracking-wider text-xs">Importância da Verificação</h4>
-											<p className="text-slate-600">
+											<h4 className="font-bold text-success mb-1 uppercase tracking-wider text-xs">Importância da Verificação</h4>
+											<p className="text-muted-foreground">
 												A regularização imediata preserva a qualidade da informação contábil, orienta a atuação da Setorial Contábil e fornece subsídios
 												confiáveis para a tomada de decisão da alta administração.
 											</p>
@@ -183,7 +183,7 @@ function CruzamentoContas() {
 									</div>
 
 									<div>
-										<h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+										<h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
 											<span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-mono">897210300</span>
 											EM COBRANÇA
 										</h4>
@@ -191,35 +191,35 @@ function CruzamentoContas() {
 											<strong>Função:</strong> Registra o montante da responsabilidade da Unidade Gestora com terceiros por valores, títulos e bens em fase de
 											cobrança pelos beneficiados.
 										</p>
-										<ul className="list-disc pl-5 space-y-1 text-slate-600">
+										<ul className="list-disc pl-5 space-y-1 text-muted-foreground">
 											<li>
-												<strong className="text-slate-700">Debitada:</strong> Pela apropriação da baixa com responsabilidade ou pelo encerramento do exercício.
+												<strong className="text-foreground">Debitada:</strong> Pela apropriação da baixa com responsabilidade ou pelo encerramento do exercício.
 											</li>
 											<li>
-												<strong className="text-slate-700">Creditada:</strong> Pela apropriação da responsabilidade com terceiros ou pelos estornos efetuados
+												<strong className="text-foreground">Creditada:</strong> Pela apropriação da responsabilidade com terceiros ou pelos estornos efetuados
 												com a negativação parcial ou total dos valores.
 											</li>
 										</ul>
 									</div>
 
-									<div className="h-px bg-slate-100 w-full" />
+									<div className="h-px bg-border w-full" />
 
 									<div>
-										<h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-											<span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-xs font-mono">897110300</span>
+										<h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
+											<span className="bg-success/15 text-success px-2 py-0.5 rounded text-xs font-mono">897110300</span>
 											EM COBRANÇA - A RECEBER
 										</h4>
 										<p className="mb-2">
 											<strong>Função:</strong> Registra o montante da responsabilidade de terceiros por valores, títulos e bens em fase de cobrança pela Unidade
 											Gestora.
 										</p>
-										<ul className="list-disc pl-5 space-y-1 text-slate-600">
+										<ul className="list-disc pl-5 space-y-1 text-muted-foreground">
 											<li>
-												<strong className="text-slate-700">Debitada:</strong> Pela apropriação da baixa da responsabilidade ou pelo encerramento do exercício.
+												<strong className="text-foreground">Debitada:</strong> Pela apropriação da baixa da responsabilidade ou pelo encerramento do exercício.
 											</li>
 											<li>
-												<strong className="text-slate-700">Creditada:</strong> Pela apropriação da responsabilidade de terceiros ou pelos estornos efetuados com
-												a negativação parcial ou total dos valores.
+												<strong className="text-foreground">Creditada:</strong> Pela apropriação da responsabilidade de terceiros ou pelos estornos efetuados
+												com a negativação parcial ou total dos valores.
 											</li>
 										</ul>
 									</div>
@@ -231,7 +231,7 @@ function CruzamentoContas() {
 					<FileUpload onFileSelect={handleFileSelect} isLoading={isLoading} />
 
 					<div className="mt-16 max-w-3xl text-center opacity-70 hover:opacity-100 transition-opacity">
-						<p className="text-[11px] text-slate-500 leading-relaxed">
+						<p className="text-[11px] text-muted-foreground leading-relaxed">
 							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
 							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
 							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).

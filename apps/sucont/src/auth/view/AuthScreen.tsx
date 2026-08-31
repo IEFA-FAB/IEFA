@@ -70,12 +70,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 						<Monitor className="w-6 h-6" />
 					</div>
 					<div className="flex flex-col">
-						<h1 className="text-base font-bold text-slate-800 leading-tight">SUCONT-4 HUB</h1>
-						<span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">DIREF • COMAER</span>
+						<h1 className="text-base font-bold text-foreground leading-tight">SUCONT-4 HUB</h1>
+						<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">DIREF • COMAER</span>
 					</div>
 				</div>
 				{children}
-				<p className="text-center text-[11px] text-slate-400 mt-6 font-mono">Acesso restrito • Contabilidade Patrimonial</p>
+				<p className="text-center text-[11px] text-muted-foreground mt-6 font-mono">Acesso restrito • Contabilidade Patrimonial</p>
 			</div>
 		</div>
 	)
@@ -84,11 +84,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 // Cartão do formulário — título/subtítulo opcionais no topo.
 function Card({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
 	return (
-		<div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+		<div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
 			{(title || subtitle) && (
 				<div className="flex flex-col gap-1">
-					{title && <h2 className="text-sm font-bold text-slate-800">{title}</h2>}
-					{subtitle && <p className="text-xs leading-relaxed text-slate-500">{subtitle}</p>}
+					{title && <h2 className="text-sm font-bold text-foreground">{title}</h2>}
+					{subtitle && <p className="text-xs leading-relaxed text-muted-foreground">{subtitle}</p>}
 				</div>
 			)}
 			{children}
@@ -125,7 +125,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700">
+		<div className="flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-xs text-success">
 			<CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
@@ -134,7 +134,11 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<button type="button" onClick={onClick} className="mx-auto mt-5 flex items-center gap-1.5 text-xs text-slate-400 transition-colors hover:text-slate-700">
+		<button
+			type="button"
+			onClick={onClick}
+			className="mx-auto mt-5 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+		>
 			<ArrowLeft className="h-3.5 w-3.5" />
 			Voltar ao login
 		</button>
@@ -376,8 +380,8 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			<Shell>
 				<Card>
 					<div className="flex items-center justify-center gap-3 py-6">
-						<Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-						<span className="text-sm text-slate-500">Verificando autenticação...</span>
+						<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+						<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
 					</div>
 				</Card>
 			</Shell>
@@ -459,7 +463,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	return (
 		<Shell>
 			{searchParams.denied ? (
-				<div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+				<div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning">
 					<ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
 					<p className="text-xs leading-relaxed">
 						Sua conta está autenticada, mas ainda não possui acesso ao SUCONT-4 HUB. Solicite a liberação a um administrador da seção.
@@ -475,7 +479,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 						<Field id="register-name" label="Nome completo">
 							<div className="relative">
-								<User className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+								<User className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
 									id="register-name"
 									placeholder="João Silva"
@@ -491,7 +495,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 						<Field id="register-email" label="E-mail institucional">
 							<div className="relative">
-								<Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+								<Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
 									id="register-email"
 									type="email"
@@ -548,7 +552,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 						<Field id="email" label="E-mail institucional">
 							<div className="relative">
-								<Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+								<Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
 									id="email"
 									type="email"
@@ -566,7 +570,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 						<Field id="password" label="Senha">
 							<div className="relative">
-								<Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+								<Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
 									id="password"
 									type={showPassword ? "text" : "password"}
@@ -587,7 +591,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									variant="ghost"
 									size="icon-xs"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute top-1/2 right-2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+									className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
 									{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -597,12 +601,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						</Field>
 
 						<div className="flex items-center justify-between">
-							<label className="flex cursor-pointer items-center gap-2 text-xs text-slate-500">
+							<label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
 								<input
 									type="checkbox"
 									checked={rememberMe}
 									onChange={handleRememberMeChange}
-									className="h-3.5 w-3.5 cursor-pointer rounded border border-slate-300 accent-tech-blue"
+									className="h-3.5 w-3.5 cursor-pointer rounded border border-border accent-tech-blue"
 									disabled={isSubmitting}
 								/>
 								Lembrar e-mail
@@ -625,12 +629,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					</form>
 				)}
 
-				<p className="text-center text-xs text-slate-500">
+				<p className="text-center text-xs text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
 					<button
 						type="button"
 						onClick={() => switchTab(isRegister ? "login" : "register")}
-						className="font-semibold text-slate-700 underline-offset-4 hover:underline"
+						className="font-semibold text-foreground underline-offset-4 hover:underline"
 					>
 						{isRegister ? "Entrar" : "Cadastre-se"}
 					</button>

@@ -102,14 +102,14 @@ function RouteComponent() {
 			badgeColor = "bg-sky-50 text-sky-700 border-sky-100"
 		} else if (sectionId === "geral" || (!sectionId && modulesData.geral.items.some((i) => i.id === item.id))) {
 			badgeText = "ÂMBITO GERAL"
-			badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-100"
+			badgeColor = "bg-success/10 text-success border-emerald-100"
 		}
 
 		return (
 			<div
 				className={cn(
-					"bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group relative",
-					item.highlighted ? "border-amber-400 ring-2 ring-amber-400/20 shadow-amber-100/50" : "border-slate-200 hover:border-blue-300"
+					"bg-card rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group relative",
+					item.highlighted ? "border-warning/30 ring-2 ring-amber-400/20 shadow-amber-100/50" : "border-border hover:border-blue-300"
 				)}
 			>
 				{item.highlighted && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 z-20" />}
@@ -117,14 +117,14 @@ function RouteComponent() {
 					<div className="flex items-start justify-between gap-4 mb-3">
 						<div className="flex flex-col gap-1">
 							{item.highlighted && (
-								<span className="text-[9px] font-black text-amber-600 uppercase tracking-[0.2em] mb-1 flex items-center gap-1">
+								<span className="text-[9px] font-black text-warning uppercase tracking-[0.2em] mb-1 flex items-center gap-1">
 									<Star className="w-2.5 h-2.5 fill-amber-500" /> Destaque Operacional
 								</span>
 							)}
 							<h3
 								className={cn(
 									"font-bold leading-tight transition-colors",
-									item.highlighted ? "text-amber-900 group-hover:text-amber-700" : "text-slate-800 group-hover:text-blue-700"
+									item.highlighted ? "text-warning group-hover:text-warning" : "text-foreground group-hover:text-blue-700"
 								)}
 							>
 								{item.name}
@@ -132,18 +132,21 @@ function RouteComponent() {
 						</div>
 						<span className={cn("shrink-0 px-2.5 py-1 border text-[10px] font-bold uppercase tracking-wider rounded-md", badgeColor)}>{badgeText}</span>
 					</div>
-					<p className="text-sm text-slate-600 mb-5 leading-relaxed">{item.purpose}</p>
+					<p className="text-sm text-muted-foreground mb-5 leading-relaxed">{item.purpose}</p>
 
-					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-amber-50/50 border-amber-100" : "bg-slate-50 border-slate-100")}>
+					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-warning/10/50 border-amber-100" : "bg-muted/50 border-border")}>
 						<span
-							className={cn("text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5", item.highlighted ? "text-amber-600" : "text-slate-400")}
+							className={cn(
+								"text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5",
+								item.highlighted ? "text-warning" : "text-muted-foreground"
+							)}
 						>
 							<Search className="w-3 h-3" /> Exemplos de Consulta
 						</span>
 						<ul className="space-y-1.5">
 							{item.examples.map((ex, i) => (
-								<li key={i} className="text-xs text-slate-600 flex items-start gap-2 font-medium">
-									<ChevronRight className={cn("w-3 h-3 mt-0.5 shrink-0", item.highlighted ? "text-amber-500" : "text-blue-500")} />
+								<li key={i} className="text-xs text-muted-foreground flex items-start gap-2 font-medium">
+									<ChevronRight className={cn("w-3 h-3 mt-0.5 shrink-0", item.highlighted ? "text-warning" : "text-blue-500")} />
 									{ex}
 								</li>
 							))}
@@ -151,7 +154,7 @@ function RouteComponent() {
 					</div>
 				</div>
 
-				<div className={cn("p-4 border-t", item.highlighted ? "bg-amber-50/30 border-amber-100" : "bg-white border-slate-100")}>
+				<div className={cn("p-4 border-t", item.highlighted ? "bg-warning/10/30 border-amber-100" : "bg-card border-border")}>
 					{item.url ? (
 						<a
 							href={item.url}
@@ -159,9 +162,7 @@ function RouteComponent() {
 							rel="noopener noreferrer"
 							className={cn(
 								"w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow-md",
-								item.highlighted
-									? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200/50"
-									: "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200/50"
+								item.highlighted ? "bg-warning hover:bg-warning text-white shadow-amber-200/50" : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200/50"
 							)}
 						>
 							Acessar Ferramenta
@@ -171,7 +172,7 @@ function RouteComponent() {
 						<button
 							type="button"
 							disabled
-							className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-400 px-4 py-2.5 rounded-lg text-sm font-semibold cursor-not-allowed"
+							className="w-full flex items-center justify-center gap-2 bg-muted text-muted-foreground px-4 py-2.5 rounded-lg text-sm font-semibold cursor-not-allowed"
 						>
 							Link Indisponível
 						</button>
@@ -206,10 +207,10 @@ function RouteComponent() {
 				)}
 			>
 				<div className="p-6 hidden md:flex flex-col gap-4 border-b border-slate-800 relative overflow-hidden">
-					<Plane className="absolute -right-4 -top-4 w-32 h-32 text-slate-800/30 transform rotate-[-15deg] pointer-events-none" />
+					<Plane className="absolute -right-4 -top-4 w-32 h-32 text-foreground/30 transform rotate-[-15deg] pointer-events-none" />
 
 					{/* Back to Hub */}
-					<Link to="/" className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors relative z-10 w-fit">
+					<Link to="/" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors relative z-10 w-fit">
 						<ArrowLeft className="w-3.5 h-3.5" />
 						Voltar ao Hub
 					</Link>
@@ -240,7 +241,7 @@ function RouteComponent() {
 						Visão Geral
 					</button>
 
-					<div className="pt-6 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Módulos Operacionais</div>
+					<div className="pt-6 pb-2 px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Módulos Operacionais</div>
 
 					<button
 						type="button"
@@ -291,7 +292,7 @@ function RouteComponent() {
 							<ShieldCheck className="w-4 h-4 text-blue-400" />
 							<span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Uso Institucional</span>
 						</div>
-						<p className="text-[10px] text-slate-400 leading-relaxed font-medium">
+						<p className="text-[10px] text-muted-foreground leading-relaxed font-medium">
 							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF), alinhado às diretrizes do Subdiretor de Contabilidade, Cel Int
 							Carlos José Rodrigues, com supervisão do Cel Int Eduardo de Oliveira Silva (Chefe da SUCONT-3) e desenvolvimento técnico do 1º Ten QOAp CCO
 							Jefferson Luís Reis Alves (Chefe da SUCONT-3.1).
@@ -311,23 +312,23 @@ function RouteComponent() {
 			)}
 
 			{/* Main Content */}
-			<main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50/50">
+			<main className="flex-1 flex flex-col h-screen overflow-hidden bg-muted/50/50">
 				{/* Topbar / Search */}
-				<header className="bg-white border-b border-slate-200/80 p-4 sm:px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
+				<header className="bg-card border-b border-border/80 p-4 sm:px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
 					<div className="relative w-full max-w-2xl">
-						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
 						<input
 							type="text"
 							placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							className="w-full pl-12 pr-10 py-3 bg-slate-100/80 border-transparent focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl text-sm font-medium transition-all outline-none placeholder:text-slate-400 text-slate-700"
+							className="w-full pl-12 pr-10 py-3 bg-muted/80 border-transparent focus:bg-card focus:border-blue-500 focus:ring-4 focus-visible:ring-ring/10 rounded-xl text-sm font-medium transition-all outline-none placeholder:text-muted-foreground text-foreground"
 						/>
 						{searchQuery && (
 							<button
 								type="button"
 								onClick={() => setSearchQuery("")}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 p-1 rounded-full transition-colors"
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground bg-muted hover:bg-slate-300 p-1 rounded-full transition-colors"
 							>
 								<X className="w-3.5 h-3.5" />
 							</button>
@@ -341,8 +342,8 @@ function RouteComponent() {
 						{/* Search Results View */}
 						{searchQuery.trim() ? (
 							<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-								<div className="flex items-center justify-between border-b border-slate-200 pb-4">
-									<h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Resultados da Busca</h2>
+								<div className="flex items-center justify-between border-b border-border pb-4">
+									<h2 className="text-2xl font-extrabold text-foreground tracking-tight">Resultados da Busca</h2>
 									<span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">{searchResults?.length} encontrado(s)</span>
 								</div>
 
@@ -353,12 +354,12 @@ function RouteComponent() {
 										))}
 									</div>
 								) : (
-									<div className="text-center py-24 bg-white rounded-2xl border border-slate-200 border-dashed shadow-sm">
-										<div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-											<Search className="w-8 h-8 text-slate-400" />
+									<div className="text-center py-24 bg-card rounded-2xl border border-border border-dashed shadow-sm">
+										<div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
+											<Search className="w-8 h-8 text-muted-foreground" />
 										</div>
-										<h3 className="text-xl font-bold text-slate-800 mb-2">Nenhum módulo encontrado</h3>
-										<p className="text-slate-500 max-w-md mx-auto">
+										<h3 className="text-xl font-bold text-foreground mb-2">Nenhum módulo encontrado</h3>
+										<p className="text-muted-foreground max-w-md mx-auto">
 											Não encontramos ferramentas correspondentes para "{searchQuery}". Tente buscar por outros termos ou siglas.
 										</p>
 									</div>
@@ -407,7 +408,7 @@ function RouteComponent() {
 												onClick={() => handleTabChange("3.2")}
 												className="bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-600/50 px-7 py-3.5 rounded-xl font-bold transition-all backdrop-blur-sm flex items-center gap-2 group"
 											>
-												<Users className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+												<Users className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
 												Suporte ao Usuário
 											</button>
 											<button
@@ -415,7 +416,7 @@ function RouteComponent() {
 												onClick={() => handleTabChange("geral")}
 												className="bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-600/50 px-7 py-3.5 rounded-xl font-bold transition-all backdrop-blur-sm flex items-center gap-2 group"
 											>
-												<Globe className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+												<Globe className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
 												Sistemas e Guias
 											</button>
 										</div>
@@ -424,43 +425,49 @@ function RouteComponent() {
 
 								{/* Value Proposition Cards */}
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-									<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-start gap-4">
+									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
 										<div className="bg-blue-50 p-3 rounded-xl shrink-0">
 											<TrendingUp className="w-6 h-6 text-blue-600" />
 										</div>
 										<div>
-											<h4 className="font-bold text-slate-800 mb-1">Eficiência Operacional</h4>
-											<p className="text-sm text-slate-500 leading-relaxed">Acesso unificado a todos os oráculos e ferramentas de cruzamento de dados.</p>
+											<h4 className="font-bold text-foreground mb-1">Eficiência Operacional</h4>
+											<p className="text-sm text-muted-foreground leading-relaxed">
+												Acesso unificado a todos os oráculos e ferramentas de cruzamento de dados.
+											</p>
 										</div>
 									</div>
-									<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-start gap-4">
-										<div className="bg-emerald-50 p-3 rounded-xl shrink-0">
-											<CheckCircle2 className="w-6 h-6 text-emerald-600" />
+									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
+										<div className="bg-success/10 p-3 rounded-xl shrink-0">
+											<CheckCircle2 className="w-6 h-6 text-success" />
 										</div>
 										<div>
-											<h4 className="font-bold text-slate-800 mb-1">Conformidade e Controle</h4>
-											<p className="text-sm text-slate-500 leading-relaxed">Monitoramento rigoroso de saldos transitórios, alongados e contas genéricas.</p>
+											<h4 className="font-bold text-foreground mb-1">Conformidade e Controle</h4>
+											<p className="text-sm text-muted-foreground leading-relaxed">
+												Monitoramento rigoroso de saldos transitórios, alongados e contas genéricas.
+											</p>
 										</div>
 									</div>
-									<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-start gap-4">
-										<div className="bg-amber-50 p-3 rounded-xl shrink-0">
-											<Landmark className="w-6 h-6 text-amber-600" />
+									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
+										<div className="bg-warning/10 p-3 rounded-xl shrink-0">
+											<Landmark className="w-6 h-6 text-warning" />
 										</div>
 										<div>
-											<h4 className="font-bold text-slate-800 mb-1">Governança DIREF</h4>
-											<p className="text-sm text-slate-500 leading-relaxed">Alinhamento total às diretrizes de contabilidade e gestão financeira do COMAER.</p>
+											<h4 className="font-bold text-foreground mb-1">Governança DIREF</h4>
+											<p className="text-sm text-muted-foreground leading-relaxed">
+												Alinhamento total às diretrizes de contabilidade e gestão financeira do COMAER.
+											</p>
 										</div>
 									</div>
 								</div>
 
 								{/* Quick Access Sections */}
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-									<div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col group hover:border-blue-300 transition-colors">
+									<div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex flex-col group hover:border-blue-300 transition-colors">
 										<div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-blue-500/20">
 											<FileSpreadsheet className="w-7 h-7" />
 										</div>
-										<h3 className="text-2xl font-extrabold text-slate-800 mb-3">Acompanhamento Contábil</h3>
-										<p className="text-slate-600 mb-8 flex-1 leading-relaxed text-lg">
+										<h3 className="text-2xl font-extrabold text-foreground mb-3">Acompanhamento Contábil</h3>
+										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
 											Ferramentas analíticas avançadas para cruzamento de contas, monitoramento de saldos transitórios e verificação de conformidade contábil.
 										</p>
 										<button
@@ -472,12 +479,12 @@ function RouteComponent() {
 										</button>
 									</div>
 
-									<div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col group hover:border-sky-300 transition-colors">
+									<div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex flex-col group hover:border-sky-300 transition-colors">
 										<div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-sky-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-sky-500/20">
 											<BookOpen className="w-7 h-7" />
 										</div>
-										<h3 className="text-2xl font-extrabold text-slate-800 mb-3">Suporte ao Usuário</h3>
-										<p className="text-slate-600 mb-8 flex-1 leading-relaxed text-lg">
+										<h3 className="text-2xl font-extrabold text-foreground mb-3">Suporte ao Usuário</h3>
+										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
 											Oráculos especializados e interativos para suporte em SIAFI, execução orçamentária, folha de pagamento, suprimento de fundos e restos a
 											pagar.
 										</p>
@@ -490,18 +497,18 @@ function RouteComponent() {
 										</button>
 									</div>
 
-									<div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col group hover:border-emerald-300 transition-colors">
+									<div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex flex-col group hover:border-success/30 transition-colors">
 										<div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-emerald-500/20">
 											<Globe className="w-7 h-7" />
 										</div>
-										<h3 className="text-2xl font-extrabold text-slate-800 mb-3">Sistemas e Guias</h3>
-										<p className="text-slate-600 mb-8 flex-1 leading-relaxed text-lg">
+										<h3 className="text-2xl font-extrabold text-foreground mb-3">Sistemas e Guias</h3>
+										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
 											Acesso rápido aos sistemas oficiais do COMAER e Governo Federal, além de trilhas de estudo e guias para novos membros.
 										</p>
 										<button
 											type="button"
 											onClick={() => handleTabChange("geral")}
-											className="text-emerald-600 font-bold hover:text-emerald-800 flex items-center gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
+											className="text-success font-bold hover:text-success flex items-center gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
 										>
 											Acessar Sistemas <ArrowRight className="w-5 h-5" />
 										</button>
@@ -511,15 +518,12 @@ function RouteComponent() {
 						) : sectionTab ? (
 							/* Section View (3.1, 3.2 or geral) */
 							<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-								<div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-									<div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+								<div className="bg-card p-8 rounded-3xl border border-border shadow-sm relative overflow-hidden">
+									<div className="absolute top-0 right-0 w-64 h-64 bg-muted/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 									<div className="relative z-10">
 										<div className="flex items-center gap-3 mb-3">
 											<div
-												className={cn(
-													"p-2 rounded-lg text-white",
-													sectionTab === "3.1" ? "bg-blue-600" : sectionTab === "3.2" ? "bg-sky-600" : "bg-emerald-600"
-												)}
+												className={cn("p-2 rounded-lg text-white", sectionTab === "3.1" ? "bg-blue-600" : sectionTab === "3.2" ? "bg-sky-600" : "bg-success")}
 											>
 												{sectionTab === "3.1" ? (
 													<BarChart3 className="w-5 h-5" />
@@ -529,10 +533,12 @@ function RouteComponent() {
 													<Globe className="w-5 h-5" />
 												)}
 											</div>
-											<span className="font-bold text-slate-500 tracking-widest uppercase text-xs">DIREF • SUCONT</span>
+											<span className="font-bold text-muted-foreground tracking-widest uppercase text-xs">DIREF • SUCONT</span>
 										</div>
-										<h2 className="text-3xl font-extrabold text-slate-800 mb-3 tracking-tight">{modulesData[sectionTab].title}</h2>
-										<p className="text-slate-600 text-lg max-w-3xl">Selecione um dos itens abaixo para acessar a ferramenta ou sistema correspondente.</p>
+										<h2 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">{modulesData[sectionTab].title}</h2>
+										<p className="text-muted-foreground text-lg max-w-3xl">
+											Selecione um dos itens abaixo para acessar a ferramenta ou sistema correspondente.
+										</p>
 									</div>
 								</div>
 
@@ -546,7 +552,7 @@ function RouteComponent() {
 									}, {})
 								).map(([groupName, items]) => (
 									<div key={groupName} className="space-y-4">
-										{groupName !== "Geral" && <h3 className="text-xl font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">{groupName}</h3>}
+										{groupName !== "Geral" && <h3 className="text-xl font-bold text-foreground border-b border-border pb-2 mb-4">{groupName}</h3>}
 										<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 											{items.map((item) => (
 												<ModuleCard key={item.id} item={item} sectionId={sectionTab} />

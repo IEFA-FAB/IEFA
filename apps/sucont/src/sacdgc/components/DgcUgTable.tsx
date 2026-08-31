@@ -35,9 +35,9 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 
 	return (
 		<section className="space-y-5">
-			<div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-4 justify-between">
+			<div className="bg-card border border-border rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-4 justify-between">
 				<div className="flex items-center gap-3">
-					<span className="text-xs font-bold uppercase tracking-wider text-slate-500">Grupo de comparação</span>
+					<span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Grupo de comparação</span>
 					<Select value={selectedGroup} onValueChange={onSelectGroup}>
 						<SelectTrigger className="w-72">
 							<SelectValue placeholder="Selecione um grupo" />
@@ -56,16 +56,16 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 					type="button"
 					onClick={() => onAnalyze(pending.map((d) => d.ugCode))}
 					disabled={busy || pending.length === 0}
-					className="px-5 py-2.5 bg-tech-blue text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors hover:bg-tech-blue/90 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+					className="px-5 py-2.5 bg-tech-blue text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
 				>
 					Analisar grupo ({pending.length})
 				</button>
 			</div>
 
-			<div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+			<div className="bg-card border border-border rounded-xl overflow-hidden">
 				<table className="w-full text-left">
 					<thead>
-						<tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider font-bold text-slate-500">
+						<tr className="bg-muted/50 border-b border-border text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
 							<th className="px-6 py-4">Código</th>
 							<th className="px-6 py-4">Unidade Gestora</th>
 							<th className="px-6 py-4">Linhas por painel</th>
@@ -73,13 +73,13 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 							<th className="px-6 py-4 text-right">Ação</th>
 						</tr>
 					</thead>
-					<tbody className="divide-y divide-slate-100">
+					<tbody className="divide-y divide-border">
 						{visible.map((dataset) => {
 							const state = states[dataset.ugCode] ?? { status: "pendente" as const }
 							return (
-								<tr key={dataset.ugCode} className="hover:bg-slate-50/60 transition-colors">
-									<td className="px-6 py-4 font-mono text-sm font-semibold text-slate-700">{dataset.ugCode}</td>
-									<td className="px-6 py-4 text-sm font-semibold text-slate-800">{dataset.ugName.replace(`${dataset.ugCode} - `, "")}</td>
+								<tr key={dataset.ugCode} className="hover:bg-muted/50/60 transition-colors">
+									<td className="px-6 py-4 font-mono text-sm font-semibold text-foreground">{dataset.ugCode}</td>
+									<td className="px-6 py-4 text-sm font-semibold text-foreground">{dataset.ugName.replace(`${dataset.ugCode} - `, "")}</td>
 									<td className="px-6 py-4">
 										<div className="flex gap-1.5">
 											{PANELS.map((panel) => (
@@ -89,8 +89,8 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 													className={cn(
 														"inline-flex items-center justify-center min-w-9 px-2 py-1 rounded-md text-[11px] font-bold border",
 														dataset.rowCount[panel] > 0
-															? "bg-slate-50 border-slate-200 text-slate-600"
-															: "bg-slate-50 border-dashed border-slate-200 text-slate-300"
+															? "bg-muted/50 border-border text-muted-foreground"
+															: "bg-muted/50 border-dashed border-border text-slate-300"
 													)}
 												>
 													{dataset.rowCount[panel]}
@@ -115,7 +115,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 												type="button"
 												onClick={() => onAnalyze([dataset.ugCode])}
 												disabled={busy || state.status === "analisando" || state.status === "na-fila"}
-												className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-blue hover:text-tech-blue disabled:opacity-40 disabled:cursor-not-allowed"
+												className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider transition-colors hover:border-tech-blue hover:text-tech-blue disabled:opacity-40 disabled:cursor-not-allowed"
 											>
 												<PlayCircle className="w-3.5 h-3.5" />
 												{state.status === "erro" ? "Tentar de novo" : "Analisar"}
@@ -128,7 +128,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 					</tbody>
 				</table>
 
-				{visible.length === 0 && <p className="px-6 py-12 text-center text-sm text-slate-500">Nenhuma Unidade Gestora deste grupo na base carregada.</p>}
+				{visible.length === 0 && <p className="px-6 py-12 text-center text-sm text-muted-foreground">Nenhuma Unidade Gestora deste grupo na base carregada.</p>}
 			</div>
 		</section>
 	)
@@ -143,7 +143,7 @@ function StatusBadge({ state }: { state: UgState }) {
 				<Badge tone="ok" icon={<CheckCircle2 className="w-3 h-3" />}>
 					Concluída
 				</Badge>
-				<span className="text-[11px] text-slate-500">
+				<span className="text-[11px] text-muted-foreground">
 					{alertas} alerta{alertas === 1 ? "" : "s"} · {apontamentos} apontamento{apontamentos === 1 ? "" : "s"}
 				</span>
 			</div>
@@ -156,7 +156,7 @@ function StatusBadge({ state }: { state: UgState }) {
 				<Badge tone="alert" icon={<AlertTriangle className="w-3 h-3" />}>
 					Erro
 				</Badge>
-				<span className="text-[11px] text-red-600 max-w-56 text-center leading-tight">{state.message}</span>
+				<span className="text-[11px] text-destructive max-w-56 text-center leading-tight">{state.message}</span>
 			</div>
 		)
 	}
@@ -182,10 +182,10 @@ function StatusBadge({ state }: { state: UgState }) {
 
 function Badge({ tone, icon, children }: { tone: "ok" | "alert" | "busy" | "neutral"; icon?: React.ReactNode; children: React.ReactNode }) {
 	const tones = {
-		ok: "bg-green-100 text-green-700 border-green-200",
-		alert: "bg-red-100 text-red-700 border-red-200",
+		ok: "bg-success/15 text-success border-success/30",
+		alert: "bg-destructive/15 text-destructive border-destructive/30",
 		busy: "bg-tech-cyan/10 text-tech-blue border-tech-cyan/30",
-		neutral: "bg-slate-100 text-slate-600 border-slate-200",
+		neutral: "bg-muted text-muted-foreground border-border",
 	} as const
 
 	return (

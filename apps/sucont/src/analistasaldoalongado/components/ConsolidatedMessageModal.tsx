@@ -104,70 +104,70 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 	return (
 		<div className="fixed inset-0 z-50 flex justify-center items-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
-			<div className="w-full max-w-4xl h-full max-h-[90vh] bg-slate-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
-				<div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 shrink-0">
+			<div className="w-full max-w-4xl h-full max-h-[90vh] bg-muted/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-border">
+				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
 						<div className="w-12 h-12 rounded-xl bg-fab-100 flex items-center justify-center text-fab-700 font-bold text-lg">MSG</div>
 						<div>
-							<h2 className="text-xl font-bold text-slate-900">Mensagem Consolidada</h2>
-							<div className="flex items-center gap-2 mt-1 text-sm text-slate-600">
+							<h2 className="text-xl font-bold text-foreground">Mensagem Consolidada</h2>
+							<div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
 								<span className="font-medium">
-									Filtro: <span className="text-slate-900">{racFilter}</span>
+									Filtro: <span className="text-foreground">{racFilter}</span>
 								</span>
 								<span className="w-1 h-1 rounded-full bg-slate-300" />
 								<span className="font-medium">
-									UGs: <span className="text-slate-900">{data.length}</span>
+									UGs: <span className="text-foreground">{data.length}</span>
 								</span>
 							</div>
 						</div>
 					</div>
-					<button type="button" onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+					<button type="button" onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
 						<X className="w-6 h-6" />
 					</button>
 				</div>
 
 				<div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-					<div className="w-full md:w-[350px] flex flex-col bg-white shrink-0 border-r border-slate-200 overflow-y-auto">
-						<div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-							<Settings2 className="w-4 h-4 text-slate-500" />
-							<h3 className="text-sm font-semibold text-slate-800">Configurar Mensagem</h3>
+					<div className="w-full md:w-[350px] flex flex-col bg-card shrink-0 border-r border-border overflow-y-auto">
+						<div className="p-4 border-b border-border bg-muted/50 flex items-center gap-2">
+							<Settings2 className="w-4 h-4 text-muted-foreground" />
+							<h3 className="text-sm font-semibold text-foreground">Configurar Mensagem</h3>
 						</div>
 
 						<div className="p-4 space-y-4">
 							<div className="space-y-1.5">
-								<label htmlFor="cons-msg-number" className="text-xs font-medium text-slate-700">
+								<label htmlFor="cons-msg-number" className="text-xs font-medium text-foreground">
 									Número da Mensagem
 								</label>
 								<input
 									id="cons-msg-number"
 									type="text"
 									placeholder="Ex: 123"
-									className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-white text-slate-900"
+									className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
 									value={messageNumber}
 									onChange={(e) => setMessageNumber(e.target.value)}
 								/>
 							</div>
 							<div className="space-y-1.5">
-								<label htmlFor="cons-msg-date" className="text-xs font-medium text-slate-700">
+								<label htmlFor="cons-msg-date" className="text-xs font-medium text-foreground">
 									Data da Mensagem
 								</label>
 								<input
 									id="cons-msg-date"
 									type="date"
-									className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-white text-slate-900"
+									className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
 									value={messageDate}
 									onChange={(e) => setMessageDate(e.target.value)}
 								/>
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="cons-msg-type" className="text-xs font-medium text-slate-700">
+								<label htmlFor="cons-msg-type" className="text-xs font-medium text-foreground">
 									Tipo de Mensagem
 								</label>
 								<Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
 									<SelectTrigger
 										id="cons-msg-type"
-										className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-white text-slate-900"
+										className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -180,13 +180,13 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">
-										<label htmlFor="cons-msg-deadline" className="text-xs font-medium text-slate-700 mb-1.5 block">
+										<label htmlFor="cons-msg-deadline" className="text-xs font-medium text-foreground mb-1.5 block">
 											Data Limite
 										</label>
 										<input
 											id="cons-msg-deadline"
 											type="date"
-											className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-white text-slate-900"
+											className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>
@@ -216,9 +216,9 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 						</div>
 					</div>
 
-					<div className="flex-1 p-4 overflow-y-auto bg-slate-50">
-						<div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm min-h-full">
-							<pre className="whitespace-pre-wrap font-sans text-sm text-slate-800 leading-relaxed">{generatedMessage}</pre>
+					<div className="flex-1 p-4 overflow-y-auto bg-muted/50">
+						<div className="bg-card p-6 rounded-xl border border-border shadow-sm min-h-full">
+							<pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">{generatedMessage}</pre>
 						</div>
 					</div>
 				</div>

@@ -19,6 +19,7 @@
     "purge:test-fixtures": "bun run scripts/purge-test-fixtures.ts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.7.0",
     "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/auth-kit": "workspace:*",

@@ -1,35 +1,17 @@
+import { createRequestAuth, forbidden, unauthorized } from "@iefa/pbac/start"
 import type { User } from "@supabase/supabase-js"
-import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
 import { getAssignmentServerClient, getSupabaseAuthClient } from "@/lib/supabase.server"
 
-/** Autorização (PBAC) do usuário no painel: existe concessão ativa? */
+/** Autorização do usuário no painel: existe concessão ativa? */
 export interface AppAccess {
 	authorized: boolean
 	role: string | null
 }
 
-// Cache por request: coalesce a ida ao GoTrue quando várias server fns validam
-// a sessão no mesmo ciclo de SSR.
-const userCache = new WeakMap<Request, Promise<User | null>>()
+const auth = createRequestAuth({ getAuthClient: getSupabaseAuthClient, messages: { unauthorized: "Não autenticado" } })
 
 /** Usuário autenticado da request (JWT validado no servidor), ou null. */
-export function getRequestUser(): Promise<User | null> {
-	const request = getRequest()
-	if (!request) return Promise.resolve(null)
-
-	const cached = userCache.get(request)
-	if (cached) return cached
-
-	const promise = (async () => {
-		const supabase = getSupabaseAuthClient()
-		const { data, error } = await supabase.auth.getUser()
-		if (error) return null
-		return data.user ?? null
-	})()
-
-	userCache.set(request, promise)
-	return promise
-}
+export const { getRequestUser } = auth
 
 /**
  * Resolve a autorização (PBAC) do usuário: procura uma concessão ativa por e-mail
@@ -52,10 +34,7 @@ export async function resolveAccess(user: User | null): Promise<AppAccess> {
  */
 export async function requireUserId(): Promise<string> {
 	const user = await getRequestUser()
-	if (!user?.id) {
-		setResponseStatus(401)
-		throw new Error("Não autenticado")
-	}
+	if (!user?.id) unauthorized("Não autenticado")
 	return user.id
 }
 
@@ -65,14 +44,8 @@ export async function requireUserId(): Promise<string> {
  */
 export async function requireAccess(): Promise<{ user: User; access: AppAccess }> {
 	const user = await getRequestUser()
-	if (!user?.id) {
-		setResponseStatus(401)
-		throw new Error("Não autenticado")
-	}
+	if (!user?.id) unauthorized("Não autenticado")
 	const access = await resolveAccess(user)
-	if (!access.authorized) {
-		setResponseStatus(403)
-		throw new Error("Sem acesso ao painel")
-	}
+	if (!access.authorized) forbidden("Sem acesso ao painel")
 	return { user, access }
 }

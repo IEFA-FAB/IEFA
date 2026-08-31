@@ -16,25 +16,25 @@ function Dashboard() {
 		<HubLayout searchable>
 			<div className="flex flex-wrap items-center gap-4 mb-8">
 				<LayoutGrid className="text-tech-cyan w-5 h-5" />
-				<h2 className="text-slate-700 font-bold uppercase tracking-widest text-sm">{category}</h2>
+				<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">{category}</h2>
 				{isFiltered && (
 					<button
 						type="button"
 						onClick={clear}
-						className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-full hover:text-slate-800 hover:border-slate-300 transition-colors"
+						className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-full hover:text-foreground hover:border-foreground/30 transition-colors"
 					>
 						{query.trim() !== "" ? `Busca "${query.trim()}"` : "Filtro ativo"} <X className="w-3 h-3" />
 					</button>
 				)}
-				<span className="text-[10px] font-mono text-slate-400">
+				<span className="text-[10px] font-mono text-muted-foreground">
 					{filtered.length} de {sucontTools.length}
 				</span>
-				<div className="flex-grow h-[1px] bg-slate-200" />
+				<div className="flex-grow h-[1px] bg-border" />
 			</div>
 
 			{filtered.length === 0 ? (
 				<div className="flex flex-col items-center gap-4 py-16">
-					<p className="text-slate-400 text-sm font-mono">Nenhuma ferramenta encontrada.</p>
+					<p className="text-muted-foreground text-sm font-mono">Nenhuma ferramenta encontrada.</p>
 					{isFiltered && (
 						<button
 							type="button"

@@ -7,44 +7,46 @@ interface StatCardProps {
 	value: number | string
 	subtitle?: string
 	icon: LucideIcon
+	/** Classe de fundo do ícone. Ignorada quando `iconColor` é informado. */
 	bgClass: string
+	/**
+	 * Cor literal do ícone, para quando o valor vem de uma rampa sequencial
+	 * (ICC, risco) que não cabe nos tokens de estado.
+	 */
+	iconColor?: string
+	/**
+	 * Série da sparkline. Sem ela o card NÃO desenha tendência — antes havia um
+	 * default `[10, 20, 15, 25, 20, 30]` que pintava uma curva inventada num painel
+	 * de conciliação contábil.
+	 */
 	trendData?: number[]
 	variation?: string
 	isPositive?: boolean
-	isDarkMode?: boolean
 }
 
-export const StatCard: React.FC<StatCardProps> = ({
-	title,
-	value,
-	subtitle,
-	icon: Icon,
-	bgClass,
-	trendData = [10, 20, 15, 25, 20, 30],
-	variation = "+2.1% nos últimos 90 dias",
-	isPositive = true,
-	isDarkMode = true,
-}) => {
+export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon: Icon, bgClass, iconColor, trendData, variation, isPositive = true }) => {
 	const trendColor = isPositive ? "#10b981" : "#ef4444"
 
 	return (
 		<div
 			className={`backdrop-blur-md rounded-lg shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]
-      ${isDarkMode ? "bg-[#0f172a]/60 border-slate-800/50 hover:bg-[#0f172a]/80" : "bg-white border-slate-200 hover:bg-slate-50"}
+      bg-card border-border hover:bg-muted/50
     `}
 		>
-			<div className="absolute bottom-2 left-4 right-4 h-8 opacity-40 pointer-events-none">
-				<Sparkline data={trendData} color={trendColor} />
-			</div>
+			{trendData && trendData.length > 0 && (
+				<div className="absolute bottom-2 left-4 right-4 h-8 opacity-40 pointer-events-none">
+					<Sparkline data={trendData} color={trendColor} />
+				</div>
+			)}
 
 			<div className="flex justify-between items-start relative z-10">
 				<div className="flex-1">
-					<p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 text-slate-500`}>{title}</p>
+					<p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 text-muted-foreground`}>{title}</p>
 					<div className="flex flex-col">
 						{typeof value === "number" ? (
 							<h3
 								className={`text-xl font-black tracking-tight leading-tight
-                ${isDarkMode ? "text-white" : "text-slate-900"}
+                text-foreground
               `}
 							>
 								R$ {formatCompactNumber(value)}
@@ -52,7 +54,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 						) : (
 							<h3
 								className={`text-xl font-black tracking-tight leading-tight
-                ${isDarkMode ? "text-white" : "text-slate-900"}
+                text-foreground
               `}
 							>
 								{value}
@@ -62,7 +64,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 						{subtitle && (
 							<p
 								className={`text-[9px] font-bold uppercase tracking-tight mt-0.5
-                ${isDarkMode ? "text-slate-400" : "text-slate-600"}
+                text-muted-foreground
               `}
 							>
 								{subtitle}
@@ -71,13 +73,16 @@ export const StatCard: React.FC<StatCardProps> = ({
 					</div>
 				</div>
 
-				<div className={`w-10 h-10 rounded-lg ${bgClass} shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2`}>
+				<div
+					style={iconColor ? { backgroundColor: iconColor } : undefined}
+					className={`w-10 h-10 rounded-lg ${iconColor ? "" : bgClass} shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2`}
+				>
 					<Icon className="w-5 h-5 text-white" />
 				</div>
 			</div>
 
 			<div className="flex justify-end items-end relative z-10 mt-auto">
-				<span className={`text-[9px] font-black ${isPositive ? "text-emerald-600 dark:text-emerald-500" : "text-red-600 dark:text-red-500"}`}>{variation}</span>
+				<span className={`text-[9px] font-black ${isPositive ? "text-success dark:text-success" : "text-destructive dark:text-destructive"}`}>{variation}</span>
 			</div>
 		</div>
 	)

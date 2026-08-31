@@ -99,30 +99,30 @@ export function Report({ data }: ReportProps) {
 	const statusColor = (status: string) => {
 		switch (status) {
 			case "REGULAR":
-				return "text-emerald-600 bg-emerald-50 border-emerald-200"
+				return "text-success bg-success/10 border-success/30"
 			case "ATENÇÃO":
-				return "text-amber-600 bg-amber-50 border-amber-200"
+				return "text-warning bg-warning/10 border-warning/30"
 			case "CRÍTICA":
-				return "text-red-600 bg-red-50 border-red-200"
+				return "text-destructive bg-destructive/10 border-destructive/30"
 			default:
-				return "text-slate-600 bg-slate-50 border-slate-200"
+				return "text-muted-foreground bg-muted/50 border-border"
 		}
 	}
 
 	const detailStatusColor = (status: string) => {
 		switch (status) {
 			case "REGULAR":
-				return "text-emerald-600 bg-emerald-50 border-emerald-200"
+				return "text-success bg-success/10 border-success/30"
 			case "AUSÊNCIA NA 897110300":
-				return "text-amber-600 bg-amber-50 border-amber-200"
+				return "text-warning bg-warning/10 border-warning/30"
 			case "AUSÊNCIA NA 897210300":
-				return "text-orange-600 bg-orange-50 border-orange-200"
+				return "text-warning bg-warning/10 border-warning/30"
 			case "UG INDEVIDA NA 897210300":
 				return "text-purple-600 bg-purple-50 border-purple-200"
 			case "DIVERGÊNCIA DE SALDO":
-				return "text-red-600 bg-red-50 border-red-200"
+				return "text-destructive bg-destructive/10 border-destructive/30"
 			default:
-				return "text-slate-600 bg-slate-50 border-slate-200"
+				return "text-muted-foreground bg-muted/50 border-border"
 		}
 	}
 
@@ -294,7 +294,7 @@ SUCONT-3 • DIREF • COMAER`
 			</div>
 
 			{/* SELETOR DE NÍVEL */}
-			<div className="flex p-1 bg-slate-200/50 rounded-2xl w-full max-w-2xl mx-auto border border-slate-200">
+			<div className="flex p-1 bg-muted/50 rounded-2xl w-full max-w-2xl mx-auto border border-border">
 				{(
 					[
 						{ id: "ESTRATEGICO", label: "Nível Estratégico", Icon: Target },
@@ -307,7 +307,7 @@ SUCONT-3 • DIREF • COMAER`
 						type="button"
 						onClick={() => setSelectedLevel(id)}
 						className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
-							selectedLevel === id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+							selectedLevel === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-white/50"
 						}`}
 					>
 						<Icon className="w-4 h-4" />
@@ -318,7 +318,7 @@ SUCONT-3 • DIREF • COMAER`
 
 			{/* PAINEL ESTRATÉGICO */}
 			{selectedLevel === "ESTRATEGICO" && (
-				<section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+				<section className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
 					<div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
 						<h2 className="text-lg font-bold text-white flex items-center gap-2">
 							<Target className="w-5 h-5 text-amber-400" />
@@ -327,42 +327,42 @@ SUCONT-3 • DIREF • COMAER`
 					</div>
 
 					<div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-						<div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+						<div className="bg-muted/50 p-5 rounded-xl border border-border">
 							<div className="flex items-center gap-2 mb-3">
 								<div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
 									<FileText className="w-4 h-4 text-blue-700" />
 								</div>
-								<h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Nível Operacional</h3>
+								<h3 className="font-bold text-foreground text-sm uppercase tracking-wider">Nível Operacional</h3>
 							</div>
 							<div className="space-y-3">
 								<div className="flex justify-between items-center">
-									<span className="text-sm text-slate-600">Total de UGs Analisadas</span>
-									<span className="font-bold text-slate-900">{ranking.length}</span>
+									<span className="text-sm text-muted-foreground">Total de UGs Analisadas</span>
+									<span className="font-bold text-foreground">{ranking.length}</span>
 								</div>
 								<div className="flex justify-between items-center">
-									<span className="text-sm text-slate-600">UGs com Inconsistências</span>
-									<span className="font-bold text-amber-600">{ugsComInconsistencias.length}</span>
+									<span className="text-sm text-muted-foreground">UGs com Inconsistências</span>
+									<span className="font-bold text-warning">{ugsComInconsistencias.length}</span>
 								</div>
 								<div className="flex justify-between items-center">
-									<span className="text-sm text-slate-600">UGs Regulares</span>
-									<span className="font-bold text-emerald-600">{ranking.length - ugsComInconsistencias.length}</span>
+									<span className="text-sm text-muted-foreground">UGs Regulares</span>
+									<span className="font-bold text-success">{ranking.length - ugsComInconsistencias.length}</span>
 								</div>
 							</div>
 						</div>
 
-						<div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+						<div className="bg-muted/50 p-5 rounded-xl border border-border">
 							<div className="flex items-center gap-2 mb-3">
-								<div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-									<TrendingUp className="w-4 h-4 text-amber-700" />
+								<div className="w-8 h-8 rounded-full bg-warning/15 flex items-center justify-center">
+									<TrendingUp className="w-4 h-4 text-warning" />
 								</div>
-								<h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Nível Tático</h3>
+								<h3 className="font-bold text-foreground text-sm uppercase tracking-wider">Nível Tático</h3>
 							</div>
 							<div className="space-y-3">
 								<div className="flex justify-between items-center">
-									<span className="text-sm text-slate-600">Taxa de Inconsistência</span>
-									<span className="font-bold text-slate-900">{percentualInconsistentes}%</span>
+									<span className="text-sm text-muted-foreground">Taxa de Inconsistência</span>
+									<span className="font-bold text-foreground">{percentualInconsistentes}%</span>
 								</div>
-								<div className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
+								<div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
 									<div className="font-semibold mb-1">Top 3 ODS com Inconsistências:</div>
 									{rankingODS.slice(0, 3).map((ods, idx) => (
 										<div key={ods.ods} className="flex justify-between items-center mt-1">
@@ -376,29 +376,29 @@ SUCONT-3 • DIREF • COMAER`
 							</div>
 						</div>
 
-						<div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+						<div className="bg-muted/50 p-5 rounded-xl border border-border">
 							<div className="flex items-center gap-2 mb-3">
-								<div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-									<ShieldAlert className="w-4 h-4 text-red-700" />
+								<div className="w-8 h-8 rounded-full bg-destructive/15 flex items-center justify-center">
+									<ShieldAlert className="w-4 h-4 text-destructive" />
 								</div>
-								<h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Nível Estratégico</h3>
+								<h3 className="font-bold text-foreground text-sm uppercase tracking-wider">Nível Estratégico</h3>
 							</div>
 							<div className="space-y-3">
 								<div className="flex justify-between items-center">
-									<span className="text-sm text-slate-600">Risco Contábil Sistêmico</span>
+									<span className="text-sm text-muted-foreground">Risco Contábil Sistêmico</span>
 									<span
 										className={`font-bold px-2 py-0.5 rounded text-xs ${
 											riscoSistemico === "ALTO"
-												? "bg-red-100 text-red-800"
+												? "bg-destructive/15 text-destructive"
 												: riscoSistemico === "MÉDIO"
-													? "bg-amber-100 text-amber-800"
-													: "bg-emerald-100 text-emerald-800"
+													? "bg-warning/15 text-warning"
+													: "bg-success/15 text-success"
 										}`}
 									>
 										{riscoSistemico}
 									</span>
 								</div>
-								<div className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
+								<div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
 									<div className="font-semibold mb-1">Concentração de Risco por ODS:</div>
 									{rankingODS.slice(0, 3).map((ods) => (
 										<div key={ods.ods} className="flex justify-between items-center mt-1">
@@ -425,7 +425,7 @@ SUCONT-3 • DIREF • COMAER`
 
 			{/* DISTRIBUIÇÃO DE INCONSISTÊNCIAS */}
 			{(selectedLevel === "ESTRATEGICO" || selectedLevel === "TATICO") && ugsComInconsistencias.length > 0 && (
-				<section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+				<section className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
 					<div className="bg-slate-900 px-6 py-4">
 						<h2 className="text-lg font-bold text-white flex items-center gap-2">
 							<PieChart className="w-5 h-5 text-blue-400" />
@@ -433,8 +433,8 @@ SUCONT-3 • DIREF • COMAER`
 						</h2>
 					</div>
 					<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-						<div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-							<h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+						<div className="bg-muted/50 border border-border rounded-xl p-5">
+							<h3 className="font-bold text-foreground mb-4 flex items-center gap-2 border-b border-border pb-2">
 								<Building2 className="w-4 h-4 text-blue-600" />
 								Ranking por ODS
 							</h3>
@@ -442,20 +442,20 @@ SUCONT-3 • DIREF • COMAER`
 								{rankingODS.map((ods, idx) => (
 									<div key={ods.ods} className="flex items-center justify-between">
 										<div className="flex items-center gap-2">
-											<span className="text-xs font-bold text-slate-500 w-4">{idx + 1}º</span>
-											<span className="text-sm font-medium text-slate-700">{ods.ods}</span>
+											<span className="text-xs font-bold text-muted-foreground w-4">{idx + 1}º</span>
+											<span className="text-sm font-medium text-foreground">{ods.ods}</span>
 										</div>
 										<div className="flex items-center gap-4">
-											<span className="text-xs text-slate-500">{ods.percentage.toFixed(1)}%</span>
-											<span className="text-sm font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{ods.count} UGs</span>
+											<span className="text-xs text-muted-foreground">{ods.percentage.toFixed(1)}%</span>
+											<span className="text-sm font-bold text-warning bg-warning/10 px-2 py-0.5 rounded">{ods.count} UGs</span>
 										</div>
 									</div>
 								))}
 							</div>
 						</div>
 
-						<div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-							<h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+						<div className="bg-muted/50 border border-border rounded-xl p-5">
+							<h3 className="font-bold text-foreground mb-4 flex items-center gap-2 border-b border-border pb-2">
 								<Building2 className="w-4 h-4 text-blue-600" />
 								Ranking por Órgão Superior
 							</h3>
@@ -463,12 +463,12 @@ SUCONT-3 • DIREF • COMAER`
 								{rankingOrgaoSuperior.map((orgao, idx) => (
 									<div key={orgao.orgao} className="flex items-center justify-between">
 										<div className="flex items-center gap-2">
-											<span className="text-xs font-bold text-slate-500 w-4">{idx + 1}º</span>
-											<span className="text-sm font-medium text-slate-700">{orgao.orgao}</span>
+											<span className="text-xs font-bold text-muted-foreground w-4">{idx + 1}º</span>
+											<span className="text-sm font-medium text-foreground">{orgao.orgao}</span>
 										</div>
 										<div className="flex items-center gap-4">
-											<span className="text-xs text-slate-500">{orgao.percentage.toFixed(1)}%</span>
-											<span className="text-sm font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{orgao.count} UGs</span>
+											<span className="text-xs text-muted-foreground">{orgao.percentage.toFixed(1)}%</span>
+											<span className="text-sm font-bold text-warning bg-warning/10 px-2 py-0.5 rounded">{orgao.count} UGs</span>
 										</div>
 									</div>
 								))}
@@ -480,7 +480,7 @@ SUCONT-3 • DIREF • COMAER`
 
 			{/* SAÍDA GERENCIAL POR CONFERENTE */}
 			{selectedLevel === "TATICO" && agrupamentoConferentes.length > 0 && (
-				<section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+				<section className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
 					<div className="bg-slate-900 px-6 py-4">
 						<h2 className="text-lg font-bold text-white flex items-center gap-2">
 							<Users className="w-5 h-5 text-blue-400" />
@@ -489,17 +489,17 @@ SUCONT-3 • DIREF • COMAER`
 					</div>
 					<div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 						{agrupamentoConferentes.map(([conferente, dados]) => (
-							<div key={conferente} className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-								<div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
-									<h3 className="font-bold text-slate-800 flex items-center gap-2">
+							<div key={conferente} className="bg-muted/50 border border-border rounded-xl p-5">
+								<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+									<h3 className="font-bold text-foreground flex items-center gap-2">
 										<Users className="w-4 h-4 text-blue-600" />
 										{conferente}
 									</h3>
-									<span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full">{dados.count} UGs</span>
+									<span className="bg-destructive/15 text-destructive text-xs font-bold px-2.5 py-1 rounded-full">{dados.count} UGs</span>
 								</div>
 								<div className="flex flex-wrap gap-2">
 									{dados.ugs.map((ug) => (
-										<span key={ug} className="font-mono text-xs bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded shadow-sm">
+										<span key={ug} className="font-mono text-xs bg-card border border-border text-foreground px-2 py-1 rounded shadow-sm">
 											{ug}
 										</span>
 									))}
@@ -512,16 +512,16 @@ SUCONT-3 • DIREF • COMAER`
 
 			{/* RANKING DE PRIORIDADE */}
 			{selectedLevel === "OPERACIONAL" && (
-				<section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-					<div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-						<h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+				<section className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+					<div className="bg-muted/50 px-6 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+						<h2 className="text-lg font-bold text-foreground flex items-center gap-2">
 							<ListOrdered className="w-5 h-5 text-blue-600" />
 							RANKING DE PRIORIDADE
 						</h2>
 						<div className="flex items-center gap-2">
-							<Filter className="w-4 h-4 text-slate-400" />
+							<Filter className="w-4 h-4 text-muted-foreground" />
 							<Select value={selectedConferente} onValueChange={setSelectedConferente}>
-								<SelectTrigger className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus-visible:ring-blue-500 focus-visible:border-blue-500 p-2 font-medium">
+								<SelectTrigger className="bg-card border border-border text-foreground text-sm rounded-lg focus-visible:ring-ring focus-visible:border-blue-500 p-2 font-medium">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -539,7 +539,7 @@ SUCONT-3 • DIREF • COMAER`
 
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm text-left">
-							<thead className="text-xs text-slate-600 uppercase bg-slate-50 border-b border-slate-200">
+							<thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
 								<tr>
 									<th className="px-6 py-3 font-semibold w-16 text-center">Ranking</th>
 									<th className="px-6 py-3 font-semibold">UG</th>
@@ -549,24 +549,24 @@ SUCONT-3 • DIREF • COMAER`
 									<th className="px-6 py-3 font-semibold text-center">Qtde Inconsistências</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-slate-100">
+							<tbody className="divide-y divide-border">
 								{filteredUgs.map((ug, idx) => (
-									<tr key={ug.ug} className="hover:bg-slate-50/50 transition-colors">
+									<tr key={ug.ug} className="hover:bg-muted/50/50 transition-colors">
 										<td className="px-6 py-3 text-center">
 											<span
 												className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-													idx < 3 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+													idx < 3 ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground"
 												}`}
 											>
 												{idx + 1}
 											</span>
 										</td>
 										<td className="px-6 py-3">
-											<div className="font-mono font-medium text-slate-800">{ug.ug}</div>
-											{ug.ugName && ug.ugName !== "Desconhecida" && <div className="text-xs text-slate-500 mt-0.5">{ug.ugName}</div>}
+											<div className="font-mono font-medium text-foreground">{ug.ug}</div>
+											{ug.ugName && ug.ugName !== "Desconhecida" && <div className="text-xs text-muted-foreground mt-0.5">{ug.ugName}</div>}
 										</td>
 										<td className="px-6 py-3">
-											<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide bg-slate-100 text-slate-700 border border-slate-200">
+											<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide bg-muted text-foreground border border-border">
 												<Users className="w-3 h-3" />
 												{ug.conferente}
 											</span>
@@ -574,13 +574,13 @@ SUCONT-3 • DIREF • COMAER`
 										<td className="px-6 py-3">
 											<span className={`px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide border ${statusColor(ug.status)}`}>{ug.status}</span>
 										</td>
-										<td className="px-6 py-3 text-right font-mono font-bold text-slate-700">{formatCurrency(ug.financialImpact)}</td>
-										<td className="px-6 py-3 text-center font-medium text-slate-600">{ug.inconsistenciesCount}</td>
+										<td className="px-6 py-3 text-right font-mono font-bold text-foreground">{formatCurrency(ug.financialImpact)}</td>
+										<td className="px-6 py-3 text-center font-medium text-muted-foreground">{ug.inconsistenciesCount}</td>
 									</tr>
 								))}
 								{filteredUgs.length === 0 && (
 									<tr>
-										<td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+										<td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
 											Nenhuma inconsistência encontrada para o filtro selecionado.
 										</td>
 									</tr>
@@ -594,28 +594,28 @@ SUCONT-3 • DIREF • COMAER`
 			{/* MENSAGEM CONSOLIDADA */}
 			{selectedLevel === "OPERACIONAL" && filteredUgs.length > 0 && (
 				<div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-					<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+					<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 						<button
 							type="button"
 							onClick={() => setShowConsolidated(!showConsolidated)}
-							className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-100"
+							className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors border-b border-border"
 						>
 							<div className="flex items-center gap-3">
 								<div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
 									<Send className="w-5 h-5 text-blue-700" />
 								</div>
 								<div className="text-left">
-									<h3 className="font-bold text-slate-800">Mensagem Consolidada</h3>
-									<p className="text-xs text-slate-500">Gerar uma única mensagem para todas as {filteredUgs.length} UGs listadas</p>
+									<h3 className="font-bold text-foreground">Mensagem Consolidada</h3>
+									<p className="text-xs text-muted-foreground">Gerar uma única mensagem para todas as {filteredUgs.length} UGs listadas</p>
 								</div>
 							</div>
-							{showConsolidated ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+							{showConsolidated ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
 						</button>
 
 						{showConsolidated && (
-							<div className="p-6 bg-slate-50/50 space-y-6">
+							<div className="p-6 bg-muted/50/50 space-y-6">
 								<div className="flex items-center justify-between mb-3">
-									<h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+									<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
 										<Send className="w-4 h-4 text-blue-600" />
 										Proposta de Mensagem Consolidada
 									</h3>
@@ -626,12 +626,12 @@ SUCONT-3 • DIREF • COMAER`
 											setCopiedConsolidated(true)
 											setTimeout(() => setCopiedConsolidated(false), 2000)
 										}}
-										className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm"
+										className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border hover:bg-muted/50 hover:border-border text-foreground text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm"
 									>
 										{copiedConsolidated ? (
 											<>
-												<Check className="w-3.5 h-3.5 text-emerald-600" />
-												<span className="text-emerald-600">Copiado!</span>
+												<Check className="w-3.5 h-3.5 text-success" />
+												<span className="text-success">Copiado!</span>
 											</>
 										) : (
 											<>
@@ -642,9 +642,9 @@ SUCONT-3 • DIREF • COMAER`
 									</button>
 								</div>
 
-								<div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap gap-4 items-end">
+								<div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex flex-wrap gap-4 items-end">
 									<div className="flex flex-col gap-1.5">
-										<label htmlFor="cons-report-msg-num" className="text-xs font-semibold text-slate-600 uppercase">
+										<label htmlFor="cons-report-msg-num" className="text-xs font-semibold text-muted-foreground uppercase">
 											Nº da Mensagem
 										</label>
 										<input
@@ -652,12 +652,12 @@ SUCONT-3 • DIREF • COMAER`
 											type="text"
 											value={consolidatedConfig.msgNum}
 											onChange={(e) => setConsolidatedConfig({ ...consolidatedConfig, msgNum: e.target.value })}
-											className="px-3 py-1.5 border border-slate-300 rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+											className="px-3 py-1.5 border border-border rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 											placeholder="___"
 										/>
 									</div>
 									<div className="flex flex-col gap-1.5">
-										<label htmlFor="cons-report-msg-date" className="text-xs font-semibold text-slate-600 uppercase">
+										<label htmlFor="cons-report-msg-date" className="text-xs font-semibold text-muted-foreground uppercase">
 											Data da Mensagem
 										</label>
 										<input
@@ -665,11 +665,11 @@ SUCONT-3 • DIREF • COMAER`
 											type="date"
 											value={consolidatedConfig.msgDate}
 											onChange={(e) => setConsolidatedConfig({ ...consolidatedConfig, msgDate: e.target.value })}
-											className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+											className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 										/>
 									</div>
 									<div className="flex flex-col gap-1.5">
-										<label htmlFor="cons-report-msg-type" className="text-xs font-semibold text-slate-600 uppercase">
+										<label htmlFor="cons-report-msg-type" className="text-xs font-semibold text-muted-foreground uppercase">
 											Tipo de Mensagem
 										</label>
 										<Select
@@ -683,7 +683,7 @@ SUCONT-3 • DIREF • COMAER`
 										>
 											<SelectTrigger
 												id="cons-report-msg-type"
-												className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
+												className="px-3 py-1.5 border border-border rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
 											>
 												<SelectValue />
 											</SelectTrigger>
@@ -696,7 +696,7 @@ SUCONT-3 • DIREF • COMAER`
 									</div>
 									{consolidatedConfig.messageType === "COM_PRAZO" && (
 										<div className="flex flex-col gap-1.5 ml-2">
-											<label htmlFor="cons-report-deadline" className="text-xs font-semibold text-slate-600 uppercase">
+											<label htmlFor="cons-report-deadline" className="text-xs font-semibold text-muted-foreground uppercase">
 												Data do Prazo
 											</label>
 											<input
@@ -709,14 +709,14 @@ SUCONT-3 • DIREF • COMAER`
 														deadlineDate: e.target.value,
 													})
 												}
-												className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+												className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 											/>
 										</div>
 									)}
 								</div>
 
-								<div className="bg-white border border-slate-200 p-5 rounded-xl shadow-inner max-h-96 overflow-y-auto">
-									<pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{generateConsolidatedMessage()}</pre>
+								<div className="bg-card border border-border p-5 rounded-xl shadow-inner max-h-96 overflow-y-auto">
+									<pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{generateConsolidatedMessage()}</pre>
 								</div>
 							</div>
 						)}
@@ -727,44 +727,44 @@ SUCONT-3 • DIREF • COMAER`
 			{/* DASHBOARD POR UG */}
 			{selectedLevel === "OPERACIONAL" && (
 				<div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-					<h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 px-2">
+					<h2 className="text-xl font-bold text-foreground flex items-center gap-2 px-2">
 						<FileText className="w-6 h-6 text-blue-600" />
 						DASHBOARD POR UG
 					</h2>
 
 					{filteredUgs.length === 0 ? (
-						<div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+						<div className="bg-card rounded-xl shadow-sm border border-border p-8 text-center">
 							<CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-							<h3 className="text-lg font-bold text-slate-800 mb-1">Nenhuma inconsistência encontrada</h3>
-							<p className="text-slate-600">Todas as UGs analisadas estão regulares para o filtro selecionado.</p>
+							<h3 className="text-lg font-bold text-foreground mb-1">Nenhuma inconsistência encontrada</h3>
+							<p className="text-muted-foreground">Todas as UGs analisadas estão regulares para o filtro selecionado.</p>
 						</div>
 					) : (
 						filteredUgs.map((ug) => (
-							<div key={ug.ug} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+							<div key={ug.ug} className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<button
 									type="button"
 									onClick={() => toggleUg(ug.ug)}
-									className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+									className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
 								>
 									<div className="flex items-center gap-6">
 										<div className="flex items-center gap-4">
 											<div
 												className={`w-2 h-14 rounded-full shrink-0 ${
-													ug.status === "CRÍTICA" ? "bg-red-500" : ug.status === "ATENÇÃO" ? "bg-amber-500" : "bg-emerald-500"
+													ug.status === "CRÍTICA" ? "bg-destructive" : ug.status === "ATENÇÃO" ? "bg-warning" : "bg-success"
 												}`}
 											/>
-											<div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 hidden sm:flex items-center justify-center shrink-0">
-												<Building2 className="w-6 h-6 text-slate-500" />
+											<div className="w-12 h-12 rounded-full bg-muted border border-border hidden sm:flex items-center justify-center shrink-0">
+												<Building2 className="w-6 h-6 text-muted-foreground" />
 											</div>
 											<div className="text-left">
-												<div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+												<div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
 													UG {ug.ug} — Conferente: <span className="font-bold text-blue-700">{ug.conferente}</span>
 												</div>
-												<div className="font-mono text-lg font-bold text-slate-800">
+												<div className="font-mono text-lg font-bold text-foreground">
 													{ug.ugName && ug.ugName !== "Desconhecida" ? ug.ugName : `UG ${ug.ug}`}
 												</div>
 												{ug.orgaoSuperior && ug.orgaoSuperior !== "-" && (
-													<div className="text-xs text-slate-400 mt-0.5">
+													<div className="text-xs text-muted-foreground mt-0.5">
 														{ug.orgaoSuperior} • {ug.ods}
 													</div>
 												)}
@@ -775,27 +775,27 @@ SUCONT-3 • DIREF • COMAER`
 
 									<div className="flex items-center gap-8">
 										<div className="text-right hidden sm:block">
-											<div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Inconsistências</div>
-											<div className="font-medium text-slate-800">{ug.inconsistenciesCount}</div>
+											<div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Inconsistências</div>
+											<div className="font-medium text-foreground">{ug.inconsistenciesCount}</div>
 										</div>
 										<div className="text-right hidden sm:block">
-											<div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Impacto Financeiro</div>
-											<div className="font-mono font-bold text-slate-800">{formatCurrency(ug.financialImpact)}</div>
+											<div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Impacto Financeiro</div>
+											<div className="font-mono font-bold text-foreground">{formatCurrency(ug.financialImpact)}</div>
 										</div>
-										{expandedUg === ug.ug ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+										{expandedUg === ug.ug ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
 									</div>
 								</button>
 
 								{expandedUg === ug.ug && (
-									<div className="border-t border-slate-100 bg-slate-50/50 p-6 space-y-6">
+									<div className="border-t border-border bg-muted/50/50 p-6 space-y-6">
 										<div>
-											<h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-2">
-												<BarChart3 className="w-4 h-4 text-slate-500" />
+											<h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+												<BarChart3 className="w-4 h-4 text-muted-foreground" />
 												Detalhamento
 											</h3>
-											<div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+											<div className="overflow-x-auto rounded-lg border border-border bg-card">
 												<table className="w-full text-sm text-left">
-													<thead className="text-xs text-slate-600 uppercase bg-slate-50 border-b border-slate-200">
+													<thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
 														<tr>
 															<th className="px-4 py-2 font-semibold">Conta Corrente</th>
 															<th className="px-4 py-2 font-semibold">Tipo</th>
@@ -804,18 +804,18 @@ SUCONT-3 • DIREF • COMAER`
 															<th className="px-4 py-2 font-semibold text-right">Diferença</th>
 														</tr>
 													</thead>
-													<tbody className="divide-y divide-slate-100">
+													<tbody className="divide-y divide-border">
 														{ug.details.map((row, idx) => (
-															<tr key={idx} className="hover:bg-slate-50/50">
-																<td className="px-4 py-2 font-mono text-slate-700">{row.contaCorrente}</td>
+															<tr key={idx} className="hover:bg-muted/50/50">
+																<td className="px-4 py-2 font-mono text-foreground">{row.contaCorrente}</td>
 																<td className="px-4 py-2">
 																	<span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide border ${detailStatusColor(row.status)}`}>
 																		{row.status}
 																	</span>
 																</td>
-																<td className="px-4 py-2 text-right font-mono text-slate-600">{formatCurrency(row.saldo8972)}</td>
-																<td className="px-4 py-2 text-right font-mono text-slate-600">{formatCurrency(row.saldo8971)}</td>
-																<td className="px-4 py-2 text-right font-mono font-medium text-slate-800">{formatCurrency(row.diferenca)}</td>
+																<td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatCurrency(row.saldo8972)}</td>
+																<td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatCurrency(row.saldo8971)}</td>
+																<td className="px-4 py-2 text-right font-mono font-medium text-foreground">{formatCurrency(row.diferenca)}</td>
 															</tr>
 														))}
 													</tbody>
@@ -826,19 +826,19 @@ SUCONT-3 • DIREF • COMAER`
 										{ug.status !== "REGULAR" && (
 											<div className="mt-8">
 												<div className="flex items-center justify-between mb-3">
-													<h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+													<h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
 														<Send className="w-4 h-4 text-blue-600" />
 														Proposta de Mensagem de Cobrança
 													</h3>
 													<button
 														type="button"
 														onClick={(e) => handleCopyMessage(e, ug)}
-														className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm"
+														className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border hover:bg-muted/50 hover:border-border text-foreground text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm"
 													>
 														{copiedUg === ug.ug ? (
 															<>
-																<Check className="w-3.5 h-3.5 text-emerald-600" />
-																<span className="text-emerald-600">Copiado!</span>
+																<Check className="w-3.5 h-3.5 text-success" />
+																<span className="text-success">Copiado!</span>
 															</>
 														) : (
 															<>
@@ -849,9 +849,9 @@ SUCONT-3 • DIREF • COMAER`
 													</button>
 												</div>
 
-												<div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap gap-4 items-end">
+												<div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex flex-wrap gap-4 items-end">
 													<div className="flex flex-col gap-1.5">
-														<label htmlFor={`ug-report-msg-num-${ug.ug}`} className="text-xs font-semibold text-slate-600 uppercase">
+														<label htmlFor={`ug-report-msg-num-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 															Nº da Mensagem
 														</label>
 														<input
@@ -859,12 +859,12 @@ SUCONT-3 • DIREF • COMAER`
 															type="text"
 															value={getConfig(ug.ug).msgNum}
 															onChange={(e) => updateConfig(ug.ug, { msgNum: e.target.value })}
-															className="px-3 py-1.5 border border-slate-300 rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+															className="px-3 py-1.5 border border-border rounded-md text-sm w-24 focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 															placeholder="___"
 														/>
 													</div>
 													<div className="flex flex-col gap-1.5">
-														<label htmlFor={`ug-report-msg-date-${ug.ug}`} className="text-xs font-semibold text-slate-600 uppercase">
+														<label htmlFor={`ug-report-msg-date-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 															Data da Mensagem
 														</label>
 														<input
@@ -872,11 +872,11 @@ SUCONT-3 • DIREF • COMAER`
 															type="date"
 															value={getConfig(ug.ug).msgDate}
 															onChange={(e) => updateConfig(ug.ug, { msgDate: e.target.value })}
-															className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+															className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 														/>
 													</div>
 													<div className="flex flex-col gap-1.5">
-														<label htmlFor={`ug-report-msg-type-${ug.ug}`} className="text-xs font-semibold text-slate-600 uppercase">
+														<label htmlFor={`ug-report-msg-type-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 															Tipo de Mensagem
 														</label>
 														<Select
@@ -889,7 +889,7 @@ SUCONT-3 • DIREF • COMAER`
 														>
 															<SelectTrigger
 																id={`ug-report-msg-type-${ug.ug}`}
-																className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
+																className="px-3 py-1.5 border border-border rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
 															>
 																<SelectValue />
 															</SelectTrigger>
@@ -902,7 +902,7 @@ SUCONT-3 • DIREF • COMAER`
 													</div>
 													{getConfig(ug.ug).messageType === "COM_PRAZO" && (
 														<div className="flex flex-col gap-1.5 ml-2">
-															<label htmlFor={`ug-report-deadline-${ug.ug}`} className="text-xs font-semibold text-slate-600 uppercase">
+															<label htmlFor={`ug-report-deadline-${ug.ug}`} className="text-xs font-semibold text-muted-foreground uppercase">
 																Data do Prazo
 															</label>
 															<input
@@ -910,14 +910,14 @@ SUCONT-3 • DIREF • COMAER`
 																type="date"
 																value={getConfig(ug.ug).deadlineDate}
 																onChange={(e) => updateConfig(ug.ug, { deadlineDate: e.target.value })}
-																className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
+																className="px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 															/>
 														</div>
 													)}
 												</div>
 
-												<div className="bg-white border border-slate-200 p-5 rounded-xl shadow-inner">
-													<pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{generateMessage(ug)}</pre>
+												<div className="bg-card border border-border p-5 rounded-xl shadow-inner">
+													<pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{generateMessage(ug)}</pre>
 												</div>
 											</div>
 										)}

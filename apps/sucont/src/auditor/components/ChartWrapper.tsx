@@ -1,6 +1,7 @@
 import { Info, Maximize2, Minimize2, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { riskColor } from "../theme"
 import type { FinancialRecord } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
 
@@ -10,7 +11,6 @@ interface ChartWrapperProps {
 	children: (filteredData: FinancialRecord[], isExpanded: boolean) => React.ReactNode
 	availableMonths: string[]
 	availableUGs: string[]
-	isDarkMode: boolean
 	defaultGroup?: string
 	defaultMonth?: string
 	hideMonthFilter?: boolean
@@ -26,7 +26,6 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 	children,
 	availableMonths,
 	availableUGs: _availableUGs,
-	isDarkMode,
 	defaultGroup = "ALL",
 	defaultMonth = "TODOS",
 	hideMonthFilter = false,
@@ -69,8 +68,8 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			<div className="relative">
 				<Select value={localGroup} onValueChange={setLocalGroup}>
 					<SelectTrigger
-						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
-            ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
+						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
+            bg-muted/50 border-border text-foreground`}
 					>
 						<SelectValue />
 					</SelectTrigger>
@@ -87,8 +86,8 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 				<div className="relative">
 					<Select value={localMonth} onValueChange={setLocalMonth}>
 						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
-              ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
+              bg-muted/50 border-border text-foreground`}
 						>
 							<SelectValue />
 						</SelectTrigger>
@@ -109,8 +108,8 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					<div className="relative">
 						<Select value={localRisk} onValueChange={setLocalRisk}>
 							<SelectTrigger
-								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
-                ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
+								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
+                bg-muted/50 border-border text-foreground`}
 							>
 								<SelectValue />
 							</SelectTrigger>
@@ -125,10 +124,10 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					</div>
 
 					<div className="group relative">
-						<Info className="w-4 h-4 text-slate-400 cursor-help hover:text-blue-500 transition-colors" />
+						<Info className="w-4 h-4 text-muted-foreground cursor-help hover:text-blue-500 transition-colors" />
 						<div
 							className={`absolute top-full right-0 mt-2 w-72 p-3 rounded-lg border shadow-2xl z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200
-              ${isDarkMode ? "bg-slate-800 border-slate-700 text-slate-300" : "bg-white border-slate-200 text-slate-700"}`}
+              bg-card border-border text-foreground`}
 						>
 							<p className="text-[11px] font-bold mb-2 text-blue-500 uppercase tracking-wider">Matriz de Risco</p>
 							<p className="text-[10px] leading-relaxed mb-2">
@@ -136,19 +135,27 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							</p>
 							<div className="space-y-1 text-[9px]">
 								<div className="flex gap-2">
-									<span className="font-bold text-emerald-500">Baixo Risco</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.BAIXO) }}>
+										Baixo Risco
+									</span>
 									<span>→ divergência pequena e pouco recorrente</span>
 								</div>
 								<div className="flex gap-2">
-									<span className="font-bold text-yellow-500">Médio Risco</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.MEDIO) }}>
+										Médio Risco
+									</span>
 									<span>→ divergência moderada ou recorrência moderada</span>
 								</div>
 								<div className="flex gap-2">
-									<span className="font-bold text-orange-500">Alto Risco</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.ALTO) }}>
+										Alto Risco
+									</span>
 									<span>→ divergência relevante ou recorrente</span>
 								</div>
 								<div className="flex gap-2">
-									<span className="font-bold text-red-500">Crítico</span>
+									<span className="font-bold" style={{ color: riskColor(RiskLevel.CRITICO) }}>
+										Crítico
+									</span>
 									<span>→ divergência muito elevada e persistente</span>
 								</div>
 							</div>
@@ -161,7 +168,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 				type="button"
 				onClick={() => setIsExpanded(!isExpanded)}
 				className={`p-1.5 rounded hover:bg-opacity-80 transition-colors
-          ${isDarkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-200 text-slate-500"}
+          hover:bg-muted text-muted-foreground
         `}
 				title={isExpanded ? "Minimizar" : "Expandir"}
 			>
@@ -185,20 +192,20 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 
 			<div
 				className={`rounded-lg border shadow-sm flex flex-col overflow-visible transition-all duration-300
-        ${isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}
+        bg-card border-border
         ${isExpanded ? "fixed top-[5vh] bottom-[5vh] left-1/2 -translate-x-1/2 w-[95vw] z-50 shadow-2xl p-6" : `p-5 ${className}`}
       `}
 			>
 				<div className={`flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-shrink-0 ${isExpanded ? "border-b pb-4" : ""}`}>
-					<h2 className={`font-semibold ${isDarkMode ? "text-slate-200" : "text-slate-800"} ${isExpanded ? "text-xl" : "text-lg"}`}>{title}</h2>
+					<h2 className={`font-semibold text-foreground ${isExpanded ? "text-xl" : "text-lg"}`}>{title}</h2>
 					<div className="flex items-center gap-4">
 						<Controls />
 						{isExpanded && (
 							<button
 								type="button"
 								onClick={() => setIsExpanded(false)}
-								className={`p-2 rounded-full hover:bg-red-500 hover:text-white transition-colors
-                  ${isDarkMode ? "text-slate-400" : "text-slate-500"}
+								className={`p-2 rounded-full hover:bg-destructive hover:text-white transition-colors
+                  text-muted-foreground
                 `}
 							>
 								<X className="w-6 h-6" />

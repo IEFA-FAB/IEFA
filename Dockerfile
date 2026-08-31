@@ -73,6 +73,7 @@ ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
+COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/portal ./apps/portal
@@ -192,6 +193,7 @@ ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
 COPY packages/agent-web ./packages/agent-web
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
+COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/assignment-selection ./apps/assignment-selection
@@ -284,6 +286,7 @@ COPY packages/agent-web ./packages/agent-web
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
+COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/forms ./apps/forms

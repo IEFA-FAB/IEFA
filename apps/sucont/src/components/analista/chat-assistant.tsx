@@ -118,22 +118,22 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 	}
 
 	return (
-		<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-8">
-			<h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+		<div className="bg-card p-6 rounded-2xl shadow-sm border border-border mt-8">
+			<h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
 				<Bot className="w-5 h-5 mr-2 text-blue-600" />
 				Oráculo SUCONT
 			</h3>
-			<p className="text-sm text-slate-600 mb-4">Assistente técnico e estratégico especializado em Contabilidade Pública Federal (COMAER).</p>
+			<p className="text-sm text-muted-foreground mb-4">Assistente técnico e estratégico especializado em Contabilidade Pública Federal (COMAER).</p>
 
 			<form onSubmit={handleSearch} className="flex gap-2">
 				<div className="relative flex-1">
-					<Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+					<Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
 					<input
 						type="text"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Ex: Qual ODS tem mais inconsistências?"
-						className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+						className="w-full pl-10 pr-4 py-2 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus-visible:ring-ring focus:border-blue-500 outline-none transition-all"
 					/>
 				</div>
 				<button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl flex items-center transition-colors">
@@ -143,15 +143,15 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 			</form>
 
 			{answer && (
-				<div className="mt-6 bg-slate-50 p-4 rounded-xl border border-slate-200 animate-in fade-in">
+				<div className="mt-6 bg-muted/50 p-4 rounded-xl border border-border animate-in fade-in">
 					<div className="flex items-start gap-3">
-						<div className="p-2 bg-slate-100 rounded-lg shrink-0 mt-1">
-							<Bot className="w-4 h-4 text-slate-600" />
+						<div className="p-2 bg-muted rounded-lg shrink-0 mt-1">
+							<Bot className="w-4 h-4 text-muted-foreground" />
 						</div>
-						<div className="text-slate-700 text-sm whitespace-pre-wrap leading-relaxed">
+						<div className="text-foreground text-sm whitespace-pre-wrap leading-relaxed">
 							{answer.split("**").map((part, i) =>
 								i % 2 === 1 ? (
-									<strong key={i} className="text-slate-900">
+									<strong key={i} className="text-foreground">
 										{part}
 									</strong>
 								) : (
@@ -168,21 +168,21 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 				<button
 					type="button"
 					onClick={() => setQuery("Qual ODS tem mais inconsistências?")}
-					className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md transition-colors"
+					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
 				>
 					Qual ODS tem mais inconsistências?
 				</button>
 				<button
 					type="button"
 					onClick={() => setQuery("Quais são as 10 UGs com mais inconsistências?")}
-					className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md transition-colors"
+					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
 				>
 					Top 10 UGs
 				</button>
 				<button
 					type="button"
 					onClick={() => setQuery("Qual questão RAC é mais recorrente?")}
-					className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md transition-colors"
+					className="text-xs bg-muted hover:bg-muted/70 text-foreground px-2 py-1 rounded-md transition-colors"
 				>
 					Questão RAC mais recorrente
 				</button>
