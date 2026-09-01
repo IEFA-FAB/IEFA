@@ -121,7 +121,7 @@ export type TrainingResetLogRow = {
 
 export type TrainingResetResult = {
 	/**
-	 * Id da linha de auditoria DESTA execução (`core.training_reset_log`).
+	 * Id da linha de auditoria DESTA execução (`kitchen.training_reset_log`).
 	 *
 	 * Sem ele, quem chamou só consegue achar o próprio registro assumindo que é o mais
 	 * recente do histórico — e não é: o INSERT do log acontece ANTES do advisory lock,
@@ -422,16 +422,19 @@ const RESET_STEPS: ResetStep[] = [
 	},
 
 	// ── Matriz de efetivo ──
-	// O roster (`core.rancho`) é cadastro e fica de fora, como as sentinelas. Já o que o
+	// O roster (`kitchen.rancho`) é cadastro e fica de fora, como as sentinelas. Já o que o
 	// treinando PREENCHE é dado operacional e sai: o Conjunto Treino concede `unit` nível 2
 	// na unidade sentinela, que é o nível exigido por `saveWorkforceSubmission`. Hoje a
 	// unidade de treino não tem rancho e este passo apaga zero linha — ele existe para o dia
 	// em que tiver, porque `workforce_submission` não carrega coluna de escopo e o teste de
 	// completude não teria como cobrar. Quantitativos e observações vão por CASCADE.
 	{
-		table: "core.workforce_submission",
+		table: "kitchen.workforce_submission",
 		run: (tx, scope) =>
-			deleteRaw(tx, sql`delete from core.workforce_submission where rancho_id in (select id from core.rancho where unit_id = ${scope.unit_id}) returning 1`),
+			deleteRaw(
+				tx,
+				sql`delete from kitchen.workforce_submission where rancho_id in (select id from kitchen.rancho where unit_id = ${scope.unit_id}) returning 1`
+			),
 	},
 ]
 
@@ -495,7 +498,7 @@ async function seedTrainingBaseline(tx: TrainingTx, scope: TrainingScope): Promi
 async function closeAbandonedResets(db: SisubDb, currentLogId: string): Promise<void> {
 	try {
 		await db.execute(sql`
-			update core.training_reset_log
+			update kitchen.training_reset_log
 			set status = 'abandoned',
 			    error_message = coalesce(error_message, 'Execução sem desfecho: o processo terminou antes de registrar o resultado.')
 			where status = 'running'
