@@ -25,8 +25,7 @@ import {
 	Users,
 } from "lucide-react"
 import { type ChangeEvent, useCallback, useMemo, useState } from "react"
-import type { PieSectorShapeProps } from "recharts"
-import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, Sector, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
@@ -762,6 +761,9 @@ DIREF/SUCONT/SUCONT-3
 			count: 0,
 			volume: 0,
 			color: PAIR_COLORS[p.id - 1],
+			// `fill` além de `color`: o recharts só lê `fill` da linha — para o setor, para a
+			// legenda e para o marcador do tooltip. `color` segue servindo as listas em HTML.
+			fill: PAIR_COLORS[p.id - 1],
 		}))
 		const conferenteStatsMap: Record<string, { name: string; count: number; volume: number; ugs: string[] }> = {}
 		const superiorStatsMap: Record<string, { name: string; count: number; volume: number; ugs: string[] }> = {}
@@ -1498,7 +1500,6 @@ DIREF/SUCONT/SUCONT-3
 													outerRadius={100}
 													paddingAngle={5}
 													dataKey="count"
-													shape={(props: PieSectorShapeProps) => <Sector {...props} fill={props.payload?.color} />}
 												/>
 												<RechartsTooltip
 													// biome-ignore lint/suspicious/noExplicitAny: recharts formatter overload

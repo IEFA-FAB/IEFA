@@ -1,7 +1,6 @@
 import { Activity, AlertTriangle, FileImage, Filter, PieChart as PieChartIcon, Shield, TrendingUp, Users, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import type { PieSectorShapeProps } from "recharts"
-import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { chartChrome, fabScale } from "#/lib/chart-theme"
@@ -88,10 +87,14 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				contaMap.set(occ.conta_contabil, (contaMap.get(occ.conta_contabil) || 0) + 1)
 			})
 		})
-		return Array.from(contaMap.entries())
-			.sort((a, b) => b[1] - a[1])
-			.slice(0, 5)
-			.map(([name, value]) => ({ name, value }))
+		return (
+			Array.from(contaMap.entries())
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, 5)
+				// `fill` no dado: o recharts pinta o setor por ele e é dele que saem legenda e
+				// marcador do tooltip. Cor só no `shape` deixaria os dois cinzas.
+				.map(([name, value], index) => ({ name, value, fill: COLORS[index % COLORS.length] }))
+		)
 	}, [filteredData])
 
 	const conferenteStats = useMemo(() => {
@@ -266,16 +269,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 					<div className="flex-1 flex flex-col min-h-[300px] bg-card">
 						<ResponsiveContainer width="100%" height={200}>
 							<PieChart>
-								<Pie
-									data={contasRecorrentes}
-									cx="50%"
-									cy="50%"
-									innerRadius={50}
-									outerRadius={70}
-									paddingAngle={5}
-									dataKey="value"
-									shape={(props: PieSectorShapeProps) => <Sector {...props} fill={COLORS[props.index % COLORS.length]} />}
-								/>
+								<Pie data={contasRecorrentes} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" />
 								<Tooltip
 									formatter={(value, name) => [value, getDynamicAccountName(String(name))]}
 									contentStyle={{

@@ -23,8 +23,7 @@ import {
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import type { PieSectorShapeProps } from "recharts"
-import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
@@ -322,7 +321,11 @@ function MonitoramentoPage() {
 				.slice(0, 10),
 			topRacs: Array.from(racMap.entries())
 				.map(([name, value]) => ({ name, value }))
-				.sort((a, b) => b.value - a.value),
+				.sort((a, b) => b.value - a.value)
+				// A cor mora no dado: o recharts pinta o setor por `fill` da linha e é dela
+				// que saem legenda e marcador do tooltip. Cor só no `shape` (ou só no
+				// `<Cell>`) deixa os dois no cinza padrão.
+				.map((rac, index) => ({ ...rac, fill: PIE_COLORS[index % PIE_COLORS.length] })),
 			totalIssues: cobrancas.length,
 			conferentes: Array.from(conferenteMap.entries())
 				.map(([name, d]) => ({
@@ -375,6 +378,8 @@ function MonitoramentoPage() {
 				percent: (d.count / cobrancas.length) * 100,
 			}))
 			.sort((a, b) => b.count - a.count)
+			// Idem: `fill` na linha alimenta setor, legenda e tooltip da mesma fonte.
+			.map((ods, index) => ({ ...ods, fill: ODS_PIE_COLORS[index % ODS_PIE_COLORS.length] }))
 
 		return {
 			totalRiskValue,
@@ -810,16 +815,7 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<PieChart>
-												<Pie
-													data={managerialData.topRacs}
-													cx="50%"
-													cy="50%"
-													innerRadius={60}
-													outerRadius={100}
-													paddingAngle={5}
-													dataKey="value"
-													shape={(props: PieSectorShapeProps) => <Sector {...props} fill={PIE_COLORS[props.index % PIE_COLORS.length]} />}
-												/>
+												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" />
 												<Tooltip
 													contentStyle={{
 														borderRadius: "8px",
@@ -949,7 +945,6 @@ function MonitoramentoPage() {
 													paddingAngle={5}
 													dataKey="count"
 													nameKey="name"
-													shape={(props: PieSectorShapeProps) => <Sector {...props} fill={ODS_PIE_COLORS[props.index % ODS_PIE_COLORS.length]} />}
 												/>
 												<Tooltip
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}

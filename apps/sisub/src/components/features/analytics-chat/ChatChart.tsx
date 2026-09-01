@@ -1,6 +1,5 @@
 import { Download } from "lucide-react"
-import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useCallback, useRef } from "react"
-import type { PieSectorShapeProps } from "recharts"
+import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useCallback, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -249,21 +248,17 @@ const RechartsAreaChart = lazy(() =>
 const RechartsPieChart = lazy(() =>
 	import("recharts").then((m) => ({
 		default: function PieChartWrapper({ spec }: { spec: ChartSpec }) {
-			const { PieChart, Pie, Sector, Tooltip, Legend, ResponsiveContainer } = m
+			const { PieChart, Pie, Tooltip, Legend, ResponsiveContainer } = m
 			const valueKey = spec.series[0]?.key ?? "value"
+			// A cor de cada fatia mora no dado, não num `<Cell>` (deprecado, sai no recharts 4)
+			// nem no `shape`: o recharts lê `fill` da linha para pintar o setor E para montar
+			// legenda, rótulo e marcador do tooltip. Cor só no `shape` pinta o setor e deixa o
+			// resto no cinza padrão.
+			const slices = useMemo(() => spec.data.map((row, index) => ({ ...row, fill: COLORS[index % COLORS.length] })), [spec.data])
 			return (
 				<ResponsiveContainer width="100%" height={300}>
 					<PieChart>
-						<Pie
-							data={spec.data}
-							dataKey={valueKey}
-							nameKey={spec.xAxisKey}
-							cx="50%"
-							cy="50%"
-							outerRadius={100}
-							label
-							shape={(props: PieSectorShapeProps) => <Sector {...props} fill={COLORS[props.index % COLORS.length]} />}
-						/>
+						<Pie data={slices} dataKey={valueKey} nameKey={spec.xAxisKey} cx="50%" cy="50%" outerRadius={100} label />
 						<Tooltip />
 						<Legend />
 					</PieChart>
