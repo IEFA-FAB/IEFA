@@ -36,8 +36,16 @@ function ctx(permissions: UserPermission[] = []): ToolContext {
 	}
 }
 
-type JsonProp = { type?: unknown; format?: string; enum?: unknown[]; anyOf?: { type?: unknown }[] }
+type JsonProp = { type?: unknown; format?: string; enum?: unknown[]; anyOf?: { type?: unknown }[]; oneOf?: { type?: unknown }[] }
 type JsonSchema = { properties?: Record<string, JsonProp>; required?: string[] }
+type JsonSchemaNode = JsonProp & { properties?: Record<string, JsonSchemaNode>; items?: JsonSchemaNode; required?: string[] }
+
+/** O schema desta propriedade aceita `null` explicitamente? */
+function allowsNull(prop: JsonProp): boolean {
+	if (prop.type === "null") return true
+	if (Array.isArray(prop.type) && prop.type.includes("null")) return true
+	return [...(prop.anyOf ?? []), ...(prop.oneOf ?? [])].some((branch) => allowsNull(branch))
+}
 
 /** Valor plausível para um parâmetro obrigatório — o teste é sobre os opcionais. */
 function sampleFor(prop: JsonProp): unknown {
@@ -116,6 +124,36 @@ describe("argumentos que o modelo manda de verdade", () => {
 			}
 		})
 	}
+})
+
+describe("opcional dentro de array", () => {
+	test("toda propriedade opcional de item de array aceita null", () => {
+		// O `dropUnexpectedNulls` do `wrapTool` não desce em array de propósito — posição em
+		// array é significativa, e apagar um item deslocaria os demais. Então, dentro de um
+		// item de array, o `null` do modelo chega inteiro ao `.parse()` do handler:
+		// `.optional()` puro reprova a chamada e a run morre com `tool_use_failed`, sem
+		// mensagem. Ali `.nullish()` é obrigatório — é o único ponto em que o boundary não
+		// cobre o domínio. Mesma varredura roda no lado do MCP.
+		const expostos: string[] = []
+
+		const varrer = (schema: JsonSchemaNode | undefined, caminho: string, dentroDeArray: boolean) => {
+			if (!schema) return
+			for (const ramo of [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]) varrer(ramo as JsonSchemaNode, caminho, dentroDeArray)
+			if (schema.items) varrer(schema.items, `${caminho}[]`, true)
+			if (!schema.properties) return
+			const required = new Set(schema.required ?? [])
+			for (const [name, prop] of Object.entries(schema.properties)) {
+				if (dentroDeArray && !required.has(name) && !allowsNull(prop)) expostos.push(`${caminho}.${name}`)
+				varrer(prop, `${caminho}.${name}`, dentroDeArray)
+			}
+		}
+
+		for (const [, tools] of ALL_TOOLS) {
+			for (const def of tools) varrer(def.parameters as JsonSchemaNode, def.name, false)
+		}
+
+		expect(expostos).toEqual([])
+	})
 })
 
 describe("normalização antes do handler", () => {

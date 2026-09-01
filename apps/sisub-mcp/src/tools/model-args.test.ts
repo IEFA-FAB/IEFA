@@ -19,6 +19,7 @@ import { templateTools } from "./templates.ts"
 const allTools = [...planningTools, ...kitchenTools, ...mealTypeTools, ...recipeTools, ...templateTools, ...equipmentTools]
 
 type JsonProp = { type?: unknown; format?: string; enum?: unknown[]; anyOf?: { type?: unknown }[] }
+type JsonSchemaNode = JsonProp & { properties?: Record<string, JsonSchemaNode>; items?: JsonSchemaNode; required?: string[]; oneOf?: JsonProp[] }
 
 function sampleFor(prop: JsonProp): unknown {
 	if (Array.isArray(prop.enum) && prop.enum.length > 0) return prop.enum[0]
@@ -38,9 +39,10 @@ function sampleFor(prop: JsonProp): unknown {
 	}
 }
 
-function allowsNull(prop: JsonProp): boolean {
+function allowsNull(prop: JsonProp & { oneOf?: { type?: unknown }[] }): boolean {
+	if (prop.type === "null") return true
 	if (Array.isArray(prop.type) && prop.type.includes("null")) return true
-	return Boolean(prop.anyOf?.some((branch) => branch.type === "null"))
+	return [...(prop.anyOf ?? []), ...(prop.oneOf ?? [])].some((branch) => allowsNull(branch))
 }
 
 describe("normalização dos argumentos no despacho", () => {
@@ -66,6 +68,31 @@ describe("normalização dos argumentos no despacho", () => {
 		}
 
 		expect(vazamentos).toEqual([])
+	})
+
+	test("opcional dentro de array aceita null — a poda não desce ali", () => {
+		// `dropUnexpectedNulls` não entra em array de propósito (posição em array é
+		// significativa, apagar item deslocaria os demais). Então, dentro de um item de
+		// array, o `null` do modelo chega ao Zod: `.optional()` puro reprova a chamada e
+		// mata a run com `tool_use_failed`, sem mensagem. Ali `.nullish()` é obrigatório —
+		// é o único lugar onde o boundary não cobre o domínio.
+		const expostos: string[] = []
+
+		const varrer = (schema: JsonSchemaNode | undefined, caminho: string, dentroDeArray: boolean) => {
+			if (!schema) return
+			for (const ramo of [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]) varrer(ramo, caminho, dentroDeArray)
+			if (schema.items) varrer(schema.items, `${caminho}[]`, true)
+			if (!schema.properties) return
+			const required = new Set(schema.required ?? [])
+			for (const [name, prop] of Object.entries(schema.properties)) {
+				if (dentroDeArray && !required.has(name) && !allowsNull(prop)) expostos.push(`${caminho}.${name}`)
+				varrer(prop, `${caminho}.${name}`, dentroDeArray)
+			}
+		}
+
+		for (const tool of allTools) varrer(tool.schema.inputSchema as JsonSchemaNode, tool.schema.name, false)
+
+		expect(expostos).toEqual([])
 	})
 
 	test("campo obrigatório sobrevive à normalização", () => {
