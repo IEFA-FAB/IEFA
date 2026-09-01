@@ -1,8 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { type ClassValue, clsx } from "clsx"
+import { createFileRoute } from "@tanstack/react-router"
 import {
 	AlertCircle,
-	ArrowLeft,
 	CheckCircle2,
 	ChevronRight,
 	Compass,
@@ -16,7 +14,6 @@ import {
 	Map as MapIcon,
 	PieChart as PieChartIcon,
 	Plane,
-	Radar,
 	Search,
 	Shield,
 	TrendingUp,
@@ -26,24 +23,22 @@ import {
 import { AnimatePresence, motion } from "motion/react"
 import React, { useCallback, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
-import { twMerge } from "tailwind-merge"
 import * as XLSX from "xlsx"
-import { LegalFooter } from "#/components/legal-footer"
+import { HubLayout } from "#/components/hub-layout"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card"
 import { Input } from "#/components/ui/input"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { cn } from "#/lib/utils"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { CONFERENTES_MAPPING, UG_INFO } from "#/subitens/constants"
 
 export const Route = createFileRoute("/subitens-genericos")({
 	component: SubitensGenericos,
 })
-
-// ── Utilities ────────────────────────────────────────────────
-function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs))
-}
 
 // ── Types ────────────────────────────────────────────────────
 interface ProcessedData {
@@ -555,116 +550,43 @@ function SubitensGenericos() {
 
 	// ── Render ────────────────────────────────────────────────
 	return (
-		<div className="min-h-screen bg-muted/50 text-foreground font-sans selection:bg-fab-blue selection:text-white relative overflow-hidden">
-			{/* Background Watermark */}
-			<div className="fixed inset-0 pointer-events-none opacity-[0.02] flex items-center justify-center overflow-hidden z-0">
-				<div className="absolute top-10 left-10">
-					<Plane size={300} className="-rotate-45 text-fab-blue" />
-				</div>
-				<div className="absolute bottom-10 right-10">
-					<Radar size={400} className="text-fab-blue" />
-				</div>
-				<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-					<Shield size={800} className="text-fab-blue" />
-				</div>
-			</div>
-
-			{/* Institutional Header */}
-			<header className="bg-gradient-to-r from-fab-blue to-fab-light-blue border-b-4 border-fab-gold py-8 px-6 sticky top-0 z-50 shadow-xl relative overflow-hidden">
-				<div className="absolute inset-0 opacity-5 pointer-events-none">
-					<div
-						className="absolute top-0 left-0 w-full h-full"
-						style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "24px 24px" }}
-					/>
-				</div>
-
-				<div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-					<div className="flex items-center gap-4">
-						{/* Botão voltar ao hub */}
-						<Link
-							to="/"
-							className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all text-xs font-bold uppercase tracking-widest border border-white/10"
-						>
-							<ArrowLeft size={14} />
-							HUB
-						</Link>
-
-						<div className="flex items-center gap-6">
-							<div className="hidden sm:flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl shadow-lg border border-white/10 rotate-3 hover:rotate-0 transition-transform duration-500">
-								<Plane className="text-fab-gold -rotate-45" size={32} />
-							</div>
-							<div>
-								<div className="flex items-center gap-2 mb-1">
-									<Shield className="text-fab-gold" size={12} />
-									<span className="text-label text-fab-sky">FORÇA AÉREA BRASILEIRA • DIREF • SUCONT</span>
-								</div>
-								<h1 className="text-3xl md:text-4xl font-serif italic tracking-tight text-white">
-									Analista SUCONT <span className="text-fab-gold">/</span> Subitens Genéricos
-								</h1>
-								<div className="flex items-center gap-2 mt-2">
-									<div className="px-3 py-1 bg-fab-gold/20 border border-fab-gold/40 rounded-full flex items-center gap-2 shadow-sm">
-										<Shield size={10} className="text-fab-gold" />
-										<span className="text-label text-fab-gold">Acompanhamento Contábil: Questão 34 do Roteiro (SUCONT-3)</span>
-									</div>
-								</div>
-							</div>
-						</div>
+		<HubLayout
+			actions={
+				<Button onClick={resetAnalysis} type="button" variant="outline" size="sm">
+					Nova análise
+				</Button>
+			}
+		>
+			{/*
+			 * Os metadados da mensagem são um formulário da tela, e ficam no corpo.
+			 * Moravam num cabeçalho institucional próprio — gradiente azul-e-ouro,
+			 * faixa dourada de 4px, aviões de marca-d'água e título em serifada
+			 * itálica de 4xl — que não existia em nenhuma outra ferramenta do hub. É
+			 * o caso extremo do que o §3 do contrato chama de "nove temas dentro de
+			 * um hub": clicar no card fazia o usuário achar que trocou de sistema.
+			 */}
+			<Card className="mb-8">
+				<CardHeader>
+					<CardTitle>Dados do relatório</CardTitle>
+					<CardDescription>Identificam a mensagem gerada para a UG. Aparecem no cabeçalho do documento exportado.</CardDescription>
+				</CardHeader>
+				<CardContent className="grid gap-4 sm:grid-cols-3">
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor="report-date">Data do relatório</Label>
+						<Input id="report-date" type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
 					</div>
-
-					<div className="flex items-center gap-4">
-						<div className="text-right hidden md:flex flex-col gap-1">
-							<div className="flex items-center gap-2 justify-end">
-								<label htmlFor="report-date" className="text-label text-fab-sky/60">
-									Data Relatório
-								</label>
-								<input
-									id="report-date"
-									type="date"
-									value={reportDate}
-									onChange={(e) => setReportDate(e.target.value)}
-									className="bg-transparent border-b border-white/20 font-mono text-xs focus:outline-none focus:border-fab-gold text-white"
-								/>
-							</div>
-							<div className="flex items-center gap-2 justify-end">
-								<label htmlFor="msg-number" className="text-label text-fab-sky/60">
-									Nº Mensagem
-								</label>
-								<input
-									id="msg-number"
-									type="text"
-									value={msgNumber}
-									onChange={(e) => setMsgNumber(e.target.value)}
-									placeholder="___"
-									className="bg-transparent border-b border-white/20 font-mono text-xs w-12 text-right focus:outline-none focus:border-fab-gold text-white placeholder:text-white/30"
-								/>
-							</div>
-							<div className="flex items-center gap-2 justify-end">
-								<label htmlFor="msg-date" className="text-label text-fab-sky/60">
-									Data Mensagem
-								</label>
-								<input
-									id="msg-date"
-									type="date"
-									value={msgDate}
-									onChange={(e) => setMsgDate(e.target.value)}
-									className="bg-transparent border-b border-white/20 font-mono text-xs focus:outline-none focus:border-fab-gold text-white"
-								/>
-							</div>
-						</div>
-						<div className="h-10 w-[1px] bg-white/20 hidden md:block" />
-						<Button
-							onClick={resetAnalysis}
-							type="button"
-							variant="outline"
-							className="h-auto px-6 py-2.5 rounded-full border-fab-gold/30 bg-fab-gold/10 text-fab-gold hover:bg-fab-gold hover:text-fab-blue shadow-lg transition-all text-sm font-bold uppercase tracking-widest"
-						>
-							Nova Análise
-						</Button>
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor="msg-number">Nº da mensagem</Label>
+						<Input id="msg-number" type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="___" />
 					</div>
-				</div>
-			</header>
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor="msg-date">Data da mensagem</Label>
+						<Input id="msg-date" type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} />
+					</div>
+				</CardContent>
+			</Card>
 
-			<main className="max-w-6xl mx-auto p-6 md:p-12 relative z-10">
+			<div>
 				<AnimatePresence mode="wait">
 					{data.length === 0 ? (
 						<motion.div
@@ -679,7 +601,7 @@ function SubitensGenericos() {
 									<div className="absolute inset-0 border-2 border-fab-gold/30 rounded-full m-1" />
 									<Plane className="text-fab-blue -rotate-45" size={40} />
 								</div>
-								<h2 className="text-5xl font-serif italic text-fab-blue mb-6 tracking-tight">
+								<h2 className="text-display text-fab-blue mb-6">
 									Análise de <span className="text-fab-gold">Subitens</span> Genéricos
 								</h2>
 								<p className="text-fab-blue/60 leading-relaxed mb-8 max-w-2xl mx-auto">
@@ -729,8 +651,8 @@ function SubitensGenericos() {
 								</div>
 
 								<div>
-									<p className="text-2xl font-bold text-fab-blue mb-2">{isProcessing ? "Processando dados..." : "Arraste o relatório Excel aqui"}</p>
-									<p className="text-sm text-fab-blue/40">ou clique para selecionar o arquivo no seu computador</p>
+									<p className="text-display text-fab-blue mb-2">{isProcessing ? "Processando dados..." : "Arraste o relatório Excel aqui"}</p>
+									<p className="text-body text-fab-blue/40">ou clique para selecionar o arquivo no seu computador</p>
 								</div>
 
 								<div className="flex flex-wrap justify-center gap-3 mt-4">
@@ -743,26 +665,23 @@ function SubitensGenericos() {
 							</label>
 
 							{error && (
-								<motion.div
-									initial={{ opacity: 0, y: 10 }}
-									animate={{ opacity: 1, y: 0 }}
-									className="mt-8 p-4 bg-destructive/10 border border-destructive/30 rounded-2xl flex items-start gap-3 text-destructive"
-								>
-									<AlertCircle className="shrink-0 mt-0.5" size={18} />
-									<p className="text-sm font-medium">{error}</p>
-								</motion.div>
+								<Alert variant="destructive" className="mt-8">
+									<AlertCircle />
+									<AlertTitle>Não foi possível processar a planilha</AlertTitle>
+									<AlertDescription>{error}</AlertDescription>
+								</Alert>
 							)}
 
 							<div className="mt-12 space-y-6">
 								{/* Referencial Metodológico */}
 								<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
 									<div className="flex items-start gap-6">
-										<div className="w-12 h-12 shrink-0 bg-fab-sky rounded-2xl flex items-center justify-center text-fab-blue shadow-inner">
+										<div className="w-12 h-12 shrink-0 bg-fab-sky rounded-xl flex items-center justify-center text-fab-blue shadow-inner">
 											<Shield size={24} />
 										</div>
 										<div>
-											<h3 className="font-serif italic text-xl mb-3 text-fab-blue">Referencial Metodológico (RAC)</h3>
-											<p className="text-sm text-fab-blue/70 leading-relaxed mb-4">
+											<h3 className="text-heading mb-3 text-fab-blue">Referencial Metodológico (RAC)</h3>
+											<p className="text-body text-fab-blue/70 leading-relaxed mb-4">
 												Esta verificação integra o processo de <strong>Acompanhamento Contábil do COMAER</strong> conduzido pela SUCONT-3, com base na{" "}
 												<strong>Questão 34 do Roteiro de Acompanhamento Contábil (RAC)</strong>. A finalidade é garantir que os registros representem de forma
 												fidedigna os fatos administrativos e a situação patrimonial.
@@ -782,9 +701,9 @@ function SubitensGenericos() {
 														text: "A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER.",
 													},
 												].map((card) => (
-													<div key={card.title} className="bg-muted/50 p-4 rounded-2xl border border-fab-blue/5">
-														<h4 className="text-xs font-bold uppercase tracking-wider text-fab-blue mb-2">{card.title}</h4>
-														<p className="text-xs text-fab-blue/60 leading-relaxed">{card.text}</p>
+													<div key={card.title} className="bg-muted/50 p-4 rounded-xl border border-fab-blue/5">
+														<h4 className="text-label text-fab-blue mb-2">{card.title}</h4>
+														<p className="text-caption text-fab-blue/60 leading-relaxed">{card.text}</p>
 													</div>
 												))}
 											</div>
@@ -794,21 +713,21 @@ function SubitensGenericos() {
 
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 									<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
-										<div className="w-12 h-12 bg-fab-sky rounded-2xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
+										<div className="w-12 h-12 bg-fab-sky rounded-xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
 											<Info size={24} />
 										</div>
-										<h3 className="font-serif italic text-xl mb-3 text-fab-blue">O que é analisado?</h3>
-										<p className="text-sm text-fab-blue/60 leading-relaxed">
+										<h3 className="text-heading mb-3 text-fab-blue">O que é analisado?</h3>
+										<p className="text-body text-fab-blue/60 leading-relaxed">
 											O sistema analisa o relatório do Tesouro Gerencial com base nas questões do Roteiro de Acompanhamento Contábil (RAC), identificando
 											inconsistências como o uso de subitens genéricos (99/999) e outras falhas de classificação.
 										</p>
 									</div>
 									<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
-										<div className="w-12 h-12 bg-fab-sky rounded-2xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
+										<div className="w-12 h-12 bg-fab-sky rounded-xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
 											<CheckCircle2 size={24} />
 										</div>
-										<h3 className="font-serif italic text-xl mb-3 text-fab-blue">Geração Automática</h3>
-										<p className="text-sm text-fab-blue/60 leading-relaxed">
+										<h3 className="text-heading mb-3 text-fab-blue">Geração Automática</h3>
+										<p className="text-body text-fab-blue/60 leading-relaxed">
 											Para cada UG identificada, é gerada uma mensagem institucional formatada pronta para ser enviada via SAU, promovendo a regularização
 											contábil de forma padronizada.
 										</p>
@@ -816,11 +735,11 @@ function SubitensGenericos() {
 								</div>
 
 								<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
-									<div className="w-12 h-12 bg-fab-sky rounded-2xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
+									<div className="w-12 h-12 bg-fab-sky rounded-xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
 										<MapIcon size={24} />
 									</div>
-									<h3 className="font-serif italic text-xl mb-4 text-fab-blue">Caminho do Relatório (Tesouro Gerencial)</h3>
-									<div className="bg-muted/50 p-5 rounded-2xl border border-fab-blue/5 text-sm font-mono text-fab-blue/70 leading-relaxed">
+									<h3 className="text-heading mb-4 text-fab-blue">Caminho do Relatório (Tesouro Gerencial)</h3>
+									<div className="bg-muted/50 p-5 rounded-xl border border-fab-blue/5 text-body font-mono text-fab-blue/70 leading-relaxed">
 										<div className="flex flex-wrap items-center gap-x-2 gap-y-3">
 											{[
 												"TESOURO GERENCIAL",
@@ -873,8 +792,8 @@ function SubitensGenericos() {
 									>
 										<p className="text-label text-fab-blue/40 mb-1">{kpi.label}</p>
 										<div className="flex items-baseline gap-2">
-											<h3 className={`text-5xl font-serif italic ${kpi.color}`}>{kpi.value}</h3>
-											<span className="text-xs text-fab-blue/40 font-medium uppercase tracking-wider">{kpi.suffix}</span>
+											<h3 className={`text-display ${kpi.color}`}>{kpi.value}</h3>
+											<span className="text-label text-fab-blue/40">{kpi.suffix}</span>
 										</div>
 										<div className="mt-6 h-1.5 w-full bg-fab-sky rounded-full overflow-hidden">
 											<div className="h-full bg-fab-blue w-full opacity-30" />
@@ -890,7 +809,7 @@ function SubitensGenericos() {
 								>
 									<p className="text-label text-white/40 mb-1">Volume Financeiro</p>
 									<div className="flex flex-col">
-										<h3 className="text-3xl font-mono font-bold text-fab-gold">
+										<h3 className="text-display font-mono text-fab-gold">
 											{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)}
 										</h3>
 										<span className="text-label text-white/40 mt-2">em subitens genéricos</span>
@@ -902,12 +821,12 @@ function SubitensGenericos() {
 							<section className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm mb-12">
 								<div className="flex flex-col md:flex-row items-center justify-between gap-8">
 									<div className="flex items-center gap-4">
-										<div className="p-3 bg-fab-sky rounded-2xl text-fab-blue">
+										<div className="p-3 bg-fab-sky rounded-xl text-fab-blue">
 											<Filter size={24} />
 										</div>
 										<div>
 											<div className="flex items-center gap-2">
-												<h3 className="text-xl font-serif italic text-fab-blue">Filtrar Análise</h3>
+												<h3 className="text-heading text-fab-blue">Filtrar Análise</h3>
 												{selectedConferente !== "all" && (
 													<span className="px-2 py-0.5 bg-fab-gold text-white text-label rounded-full animate-pulse">Filtro Ativo</span>
 												)}
@@ -981,7 +900,7 @@ function SubitensGenericos() {
 											type="button"
 											variant="ghost"
 											className={cn(
-												"h-auto px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+												"h-auto px-6 py-2.5 rounded-full text-label transition-all flex items-center gap-2",
 												activeTab === key ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:text-fab-blue hover:bg-fab-sky/50"
 											)}
 										>
@@ -998,12 +917,12 @@ function SubitensGenericos() {
 									<section className="mb-16">
 										<div className="flex items-center justify-between mb-8">
 											<div className="flex items-center gap-3">
-												<div className="w-12 h-12 bg-fab-sky text-fab-blue rounded-2xl flex items-center justify-center border border-fab-blue/10 shadow-sm">
+												<div className="w-12 h-12 bg-fab-sky text-fab-blue rounded-xl flex items-center justify-center border border-fab-blue/10 shadow-sm">
 													<FileSpreadsheet size={24} />
 												</div>
 												<div>
-													<h2 className="text-3xl font-serif italic text-fab-blue">Retrato Situacional</h2>
-													<p className="text-xs text-fab-blue/40 uppercase tracking-widest font-bold">Detalhamento por Conta e Saldo</p>
+													<h2 className="text-heading text-fab-blue">Retrato Situacional</h2>
+													<p className="text-label text-fab-blue/40">Detalhamento por Conta e Saldo</p>
 												</div>
 											</div>
 										</div>
@@ -1011,10 +930,10 @@ function SubitensGenericos() {
 										<div className="bg-card rounded-xl border border-fab-blue/10 overflow-hidden shadow-xl shadow-fab-blue/5">
 											<div className="overflow-x-auto">
 												<table className="w-full text-left border-collapse">
-													<thead>
-														<tr className="bg-fab-sky/30 border-b border-fab-blue/10">
+													<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
+														<tr>
 															{["UG Executora", "Questão RAC", "Conta Contábil", "Conta Corrente", "Saldo"].map((h) => (
-																<th key={h} className={`px-10 py-6 text-label text-fab-blue/60${h === "Saldo" ? " text-right" : ""}`}>
+																<th key={h} className={`px-4 py-3${h === "Saldo" ? " text-right" : ""}`}>
 																	{h}
 																</th>
 															))}
@@ -1029,7 +948,7 @@ function SubitensGenericos() {
 																			<div className="flex flex-col gap-1">
 																				<div className="flex items-center gap-3">
 																					<div className="w-1.5 h-1.5 rounded-full bg-fab-gold" />
-																					<span className="font-serif italic text-xl text-fab-blue">{formatUgName(group.ug)}</span>
+																					<span className="text-heading text-fab-blue">{formatUgName(group.ug)}</span>
 																				</div>
 																				<span className="text-label text-fab-blue/50 ml-4">Conferente: {getConferente(group.ug)}</span>
 																			</div>
@@ -1040,13 +959,13 @@ function SubitensGenericos() {
 																	<td className="px-10 py-5">
 																		<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">{occ.racId}</span>
 																	</td>
-																	<td className="px-10 py-5 font-mono text-sm text-fab-blue/70">{occ.contaContabil}</td>
-																	<td className="px-10 py-5 font-mono text-sm">
-																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg font-bold text-xs border border-destructive/30 shadow-sm">
+																	<td className="px-10 py-5 font-mono text-body text-fab-blue/70">{occ.contaContabil}</td>
+																	<td className="px-10 py-5 font-mono text-body">
+																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg text-label border border-destructive/30 shadow-sm">
 																			{occ.contaCorrente}
 																		</span>
 																	</td>
-																	<td className="px-10 py-5 font-mono text-sm text-right font-bold text-fab-blue">
+																	<td className="px-10 py-5 font-mono text-subheading text-right text-fab-blue">
 																		{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}
 																	</td>
 																</tr>
@@ -1062,12 +981,12 @@ function SubitensGenericos() {
 									<section>
 										<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
 											<div className="flex items-center gap-3">
-												<div className="w-12 h-12 bg-fab-blue text-white rounded-2xl flex items-center justify-center shadow-xl shadow-fab-blue/20">
+												<div className="w-12 h-12 bg-fab-blue text-white rounded-xl flex items-center justify-center shadow-xl shadow-fab-blue/20">
 													<FileText size={24} />
 												</div>
 												<div>
-													<h2 className="text-3xl font-serif italic text-fab-blue">Expedição de Cobranças</h2>
-													<p className="text-xs text-fab-blue/40 uppercase tracking-widest font-bold">Comunicações Oficiais Geradas</p>
+													<h2 className="text-heading text-fab-blue">Expedição de Cobranças</h2>
+													<p className="text-label text-fab-blue/40">Comunicações Oficiais Geradas</p>
 												</div>
 											</div>
 
@@ -1082,7 +1001,7 @@ function SubitensGenericos() {
 														type="button"
 														variant="ghost"
 														className={cn(
-															"h-auto px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all",
+															"h-auto px-4 py-2 rounded-full text-label transition-all",
 															messageMode === key ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:text-fab-blue hover:bg-fab-sky/30"
 														)}
 													>
@@ -1125,22 +1044,20 @@ function SubitensGenericos() {
 																		<span className="text-label text-fab-blue/40">Status: Pendente</span>
 																	</div>
 																	<p className="text-label text-fab-blue/40 mb-1">Unidade Gestora</p>
-																	<h3 className="text-4xl font-serif italic text-fab-blue mb-1">{formatUgName(group.ug)}</h3>
+																	<h3 className="text-display text-fab-blue mb-1">{formatUgName(group.ug)}</h3>
 																	<p className="text-label text-fab-blue/40 mb-4">Conferente: {getConferente(group.ug)}</p>
 
-																	<div className="bg-destructive/10 p-4 rounded-2xl border border-destructive/30 mb-6">
+																	<div className="bg-destructive/10 p-4 rounded-xl border border-destructive/30 mb-6">
 																		<p className="text-label text-destructive mb-1">Inconsistência Identificada</p>
-																		<p className="text-xs text-destructive leading-relaxed font-medium">
-																			Múltiplas inconsistências identificadas conforme RAC.
-																		</p>
+																		<p className="text-caption text-destructive leading-relaxed">Múltiplas inconsistências identificadas conforme RAC.</p>
 																	</div>
 
 																	<div className="space-y-3 mt-8">
-																		<div className="flex justify-between items-center text-sm">
+																		<div className="flex justify-between items-center text-body">
 																			<span className="text-fab-blue/40">Ocorrências</span>
 																			<span className="font-mono font-bold text-fab-blue">{group.occurrences.length}</span>
 																		</div>
-																		<div className="flex justify-between items-center text-sm">
+																		<div className="flex justify-between items-center text-body">
 																			<span className="text-fab-blue/40">Total em 99/999</span>
 																			<span className="font-mono font-bold text-fab-light-blue">
 																				{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(group.totalSaldo)}
@@ -1161,7 +1078,7 @@ function SubitensGenericos() {
 																					value={ugConfig.msgNumber}
 																					onChange={(e) => updateUgConfig(group.ug, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
@@ -1173,7 +1090,7 @@ function SubitensGenericos() {
 																					type="date"
 																					value={ugConfig.msgDate}
 																					onChange={(e) => updateUgConfig(group.ug, "msgDate", e.target.value)}
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																		</div>
@@ -1190,7 +1107,7 @@ function SubitensGenericos() {
 																				>
 																					<SelectTrigger
 																						id={`ug-msg-type-${idx}`}
-																						className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-bold text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																						className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-label text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																					>
 																						<SelectValue />
 																					</SelectTrigger>
@@ -1219,7 +1136,7 @@ function SubitensGenericos() {
 																								type="date"
 																								value={ugConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateUgConfig(group.ug, "deadlineDate", e.target.value)}
-																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1234,7 +1151,7 @@ function SubitensGenericos() {
 																	type="button"
 																	variant="default"
 																	className={cn(
-																		"h-auto mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
+																		"h-auto mt-12 w-full py-4 rounded-xl flex items-center justify-center gap-3 transition-all text-label",
 																		copiedIndex === idx
 																			? "bg-success text-success-foreground shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
@@ -1260,7 +1177,7 @@ function SubitensGenericos() {
 																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
 																<div className="prose prose-sm max-w-none">
-																	<pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
+																	<pre className="whitespace-pre-wrap font-sans text-body leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
 																		{message}
 																	</pre>
 																</div>
@@ -1304,26 +1221,26 @@ function SubitensGenericos() {
 																		<span className="text-label text-fab-blue/40">Status: Pendente</span>
 																	</div>
 																	<p className="text-label text-fab-blue/40 mb-1">Questão RAC</p>
-																	<h3 className="text-4xl font-serif italic text-fab-blue mb-1">{RAC_QUESTIONS[racId]?.title || racId}</h3>
+																	<h3 className="text-display text-fab-blue mb-1">{RAC_QUESTIONS[racId]?.title || racId}</h3>
 																	<p className="text-label text-fab-blue/40 mb-4">Múltiplas UGs</p>
 
-																	<div className="bg-destructive/10 p-4 rounded-2xl border border-destructive/30 mb-6">
+																	<div className="bg-destructive/10 p-4 rounded-xl border border-destructive/30 mb-6">
 																		<p className="text-label text-destructive mb-1">Inconsistência Consolidada</p>
-																		<p className="text-xs text-destructive leading-relaxed font-medium">
+																		<p className="text-caption text-destructive leading-relaxed">
 																			Mensagem única agrupando todas as UGs afetadas por esta questão.
 																		</p>
 																	</div>
 
 																	<div className="space-y-3 mt-8">
-																		<div className="flex justify-between items-center text-sm">
+																		<div className="flex justify-between items-center text-body">
 																			<span className="text-fab-blue/40">UGs Afetadas</span>
 																			<span className="font-mono font-bold text-fab-blue">{uniqueUgs}</span>
 																		</div>
-																		<div className="flex justify-between items-center text-sm">
+																		<div className="flex justify-between items-center text-body">
 																			<span className="text-fab-blue/40">Ocorrências</span>
 																			<span className="font-mono font-bold text-fab-blue">{occurrences.length}</span>
 																		</div>
-																		<div className="flex justify-between items-center text-sm">
+																		<div className="flex justify-between items-center text-body">
 																			<span className="text-fab-blue/40">Total em 99/999</span>
 																			<span className="font-mono font-bold text-fab-light-blue">
 																				{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalSaldo)}
@@ -1343,7 +1260,7 @@ function SubitensGenericos() {
 																					value={racConfig.msgNumber}
 																					onChange={(e) => updateRacConfig(racId, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
@@ -1355,7 +1272,7 @@ function SubitensGenericos() {
 																					type="date"
 																					value={racConfig.msgDate}
 																					onChange={(e) => updateRacConfig(racId, "msgDate", e.target.value)}
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																				/>
 																			</div>
 																		</div>
@@ -1372,7 +1289,7 @@ function SubitensGenericos() {
 																				>
 																					<SelectTrigger
 																						id={`rac-msg-type-${idx}`}
-																						className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-xs font-bold text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																						className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-label text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																					>
 																						<SelectValue />
 																					</SelectTrigger>
@@ -1401,7 +1318,7 @@ function SubitensGenericos() {
 																								type="date"
 																								value={racConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateRacConfig(racId, "deadlineDate", e.target.value)}
-																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-xs text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1416,7 +1333,7 @@ function SubitensGenericos() {
 																	type="button"
 																	variant="default"
 																	className={cn(
-																		"h-auto mt-12 w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all font-bold text-xs uppercase tracking-widest",
+																		"h-auto mt-12 w-full py-4 rounded-xl flex items-center justify-center gap-3 transition-all text-label",
 																		copiedIndex === idx
 																			? "bg-success text-success-foreground shadow-lg"
 																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
@@ -1442,7 +1359,7 @@ function SubitensGenericos() {
 																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
 																<div className="prose prose-sm max-w-none">
-																	<pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
+																	<pre className="whitespace-pre-wrap font-sans text-body leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
 																		{message}
 																	</pre>
 																</div>
@@ -1459,17 +1376,17 @@ function SubitensGenericos() {
 								<section className="mb-16 space-y-8">
 									<div className="flex items-center justify-between mb-8">
 										<div className="flex items-center gap-3">
-											<div className="w-12 h-12 bg-fab-sky text-fab-blue rounded-2xl flex items-center justify-center border border-fab-blue/10 shadow-sm">
+											<div className="w-12 h-12 bg-fab-sky text-fab-blue rounded-xl flex items-center justify-center border border-fab-blue/10 shadow-sm">
 												<TrendingUp size={24} />
 											</div>
 											<div>
-												<h2 className="text-3xl font-serif italic text-fab-blue">Painel Estratégico de Acompanhamento</h2>
-												<p className="text-xs text-fab-blue/40 uppercase tracking-widest font-bold">Visão Operacional, Tática e Estratégica</p>
+												<h2 className="text-heading text-fab-blue">Painel Estratégico de Acompanhamento</h2>
+												<p className="text-label text-fab-blue/40">Visão Operacional, Tática e Estratégica</p>
 											</div>
 										</div>
 									</div>
 
-									<div className="flex bg-card p-2 rounded-2xl border border-fab-blue/10 shadow-sm w-fit mb-8">
+									<div className="flex bg-card p-2 rounded-xl border border-fab-blue/10 shadow-sm w-fit mb-8">
 										{(["operacional", "tatico", "estrategico"] as const).map((tab) => (
 											<Button
 												key={tab}
@@ -1477,7 +1394,7 @@ function SubitensGenericos() {
 												type="button"
 												variant="ghost"
 												className={cn(
-													"h-auto px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
+													"h-auto px-6 py-3 rounded-xl text-label transition-all",
 													dashboardTab === tab ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:bg-fab-sky/50"
 												)}
 											>
@@ -1505,7 +1422,7 @@ function SubitensGenericos() {
 												].map((card) => (
 													<div key={card.title} className="bg-card p-6 rounded-xl border border-fab-blue/5 shadow-sm">
 														<h4 className="text-label text-fab-blue/40 mb-2">{card.title}</h4>
-														<p className="text-sm text-fab-blue/70 leading-relaxed">{card.text}</p>
+														<p className="text-body text-fab-blue/70 leading-relaxed">{card.text}</p>
 													</div>
 												))}
 											</div>
@@ -1516,7 +1433,7 @@ function SubitensGenericos() {
 														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 															<LayoutDashboard size={20} />
 														</div>
-														<h3 className="font-serif italic text-xl text-fab-blue">Top 5 UGs por Volume Financeiro</h3>
+														<h3 className="text-heading text-fab-blue">Top 5 UGs por Volume Financeiro</h3>
 													</div>
 													<div className="h-[300px] w-full">
 														<ResponsiveContainer width="100%" height="100%">
@@ -1545,7 +1462,7 @@ function SubitensGenericos() {
 														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 															<PieChartIcon size={20} />
 														</div>
-														<h3 className="font-serif italic text-xl text-fab-blue">Contas com Mais Inconsistências</h3>
+														<h3 className="text-heading text-fab-blue">Contas com Mais Inconsistências</h3>
 													</div>
 													<div className="h-[300px] w-full">
 														<ResponsiveContainer width="100%" height="100%">
@@ -1568,14 +1485,14 @@ function SubitensGenericos() {
 													<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 														<Shield size={20} />
 													</div>
-													<h3 className="font-serif italic text-xl text-fab-blue">Inconsistências por Conferente</h3>
+													<h3 className="text-heading text-fab-blue">Inconsistências por Conferente</h3>
 												</div>
 												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 													{conferentesList.map((conf, idx) => (
 														<div key={idx} className="bg-muted/50 p-6 rounded-xl border border-fab-blue/5">
 															<div className="flex items-center justify-between mb-4">
 																<h4 className="font-bold text-fab-blue">{conf.name}</h4>
-																<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-xs font-bold">
+																<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">
 																	{conf.count} {conf.count === 1 ? "inconsistência" : "inconsistências"}
 																</span>
 															</div>
@@ -1583,7 +1500,7 @@ function SubitensGenericos() {
 																<p className="text-label text-fab-blue/40 mb-2">UGs Afetadas:</p>
 																<div className="flex flex-wrap gap-2">
 																	{conf.ugs.map((ug, i) => (
-																		<span key={i} className="px-2 py-1 bg-card border border-fab-blue/10 rounded-md text-xs font-mono text-fab-blue/70">
+																		<span key={i} className="px-2 py-1 bg-card border border-fab-blue/10 rounded-md text-caption font-mono text-fab-blue/70">
 																			{formatUgName(ug)}
 																		</span>
 																	))}
@@ -1604,15 +1521,15 @@ function SubitensGenericos() {
 													{ title: "Ranking de Órgãos Superiores", data: orgaoSuperiorList, key: "count", suffix: "ocorrências" },
 												].map((ranking) => (
 													<div key={ranking.title} className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
-														<h3 className="font-serif italic text-xl text-fab-blue mb-6">{ranking.title}</h3>
+														<h3 className="text-heading text-fab-blue mb-6">{ranking.title}</h3>
 														<div className="space-y-4">
 															{ranking.data.map((item, idx) => (
-																<div key={item.name} className="flex items-center justify-between p-4 bg-muted/50 rounded-2xl border border-fab-blue/5">
+																<div key={item.name} className="flex items-center justify-between p-4 bg-muted/50 rounded-xl border border-fab-blue/5">
 																	<div className="flex items-center gap-4">
-																		<span className="text-xl font-serif italic text-fab-gold font-bold">{idx + 1}º</span>
+																		<span className="text-heading text-fab-gold">{idx + 1}º</span>
 																		<span className="font-bold text-fab-blue">{item.name}</span>
 																	</div>
-																	<span className="text-sm font-mono text-fab-blue/70">
+																	<span className="text-body font-mono text-fab-blue/70">
 																		{(item as { count: number }).count} {ranking.suffix}
 																	</span>
 																</div>
@@ -1622,15 +1539,15 @@ function SubitensGenericos() {
 												))}
 
 												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
-													<h3 className="font-serif italic text-xl text-fab-blue mb-6">Top 10 UGs com Mais Inconsistências</h3>
+													<h3 className="text-heading text-fab-blue mb-6">Top 10 UGs com Mais Inconsistências</h3>
 													<div className="space-y-3">
 														{topUgsByInconsistencias.map((ug, idx) => (
 															<div key={ug.ug} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl border border-fab-blue/5">
 																<div className="flex items-center gap-3">
-																	<span className="text-sm font-serif italic text-fab-gold font-bold w-6">{idx + 1}º</span>
-																	<span className="font-mono text-sm text-fab-blue">{formatUgName(ug.ug)}</span>
+																	<span className="text-subheading text-fab-gold w-6">{idx + 1}º</span>
+																	<span className="font-mono text-body text-fab-blue">{formatUgName(ug.ug)}</span>
 																</div>
-																<span className="text-xs font-bold text-fab-blue/60">{ug.occurrences.length} ocorrências</span>
+																<span className="text-caption text-fab-blue/60">{ug.occurrences.length} ocorrências</span>
 															</div>
 														))}
 													</div>
@@ -1646,19 +1563,22 @@ function SubitensGenericos() {
 													<Shield size={300} className="text-white" />
 												</div>
 												<div className="relative z-10">
-													<h3 className="font-serif italic text-3xl text-fab-gold mb-2">Painel de Risco Contábil do COMAER</h3>
-													<p className="text-sm text-white/60 mb-10 max-w-2xl">
+													<h3 className="text-display text-fab-gold mb-2">Painel de Risco Contábil do COMAER</h3>
+													<p className="text-body text-white/60 mb-10 max-w-2xl">
 														Panorama consolidado das inconsistências contábeis identificadas, permitindo a visualização rápida dos pontos de maior risco
 														financeiro e operacional.
 													</p>
 
 													<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 														{[
-															{ label: "Total de Inconsistências", value: <h4 className="text-4xl font-serif italic text-white">{totalInconsistencias}</h4> },
+															{
+																label: "Total de Inconsistências",
+																value: <h4 className="text-display text-white">{totalInconsistencias}</h4>,
+															},
 															{
 																label: "Volume Financeiro em Risco",
 																value: (
-																	<h4 className="text-2xl font-mono font-bold text-fab-gold mt-2">
+																	<h4 className="text-display font-mono text-fab-gold mt-2">
 																		{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(totalVolume)}
 																	</h4>
 																),
@@ -1667,7 +1587,7 @@ function SubitensGenericos() {
 																label: "Maior Risco por ODS",
 																value: (
 																	<>
-																		<h4 className="text-2xl font-bold text-white mt-2">{odsList[0]?.name || "-"}</h4>
+																		<h4 className="text-display text-white mt-2">{odsList[0]?.name || "-"}</h4>
 																		<p className="text-hint text-white/50 mt-1">{odsList[0]?.count || 0} ocorrências</p>
 																	</>
 																),
@@ -1675,7 +1595,7 @@ function SubitensGenericos() {
 															{
 																label: "Média por UG Afetada",
 																value: (
-																	<h4 className="text-3xl font-serif italic text-white mt-1">
+																	<h4 className="text-display text-white mt-1">
 																		{filteredData.length > 0 ? (totalInconsistencias / filteredData.length).toFixed(1) : 0}
 																	</h4>
 																),
@@ -1696,17 +1616,17 @@ function SubitensGenericos() {
 													{ title: "Concentração por Órgão Superior", data: orgaoSuperiorList, barColor: "bg-fab-gold" },
 												].map(({ title, data, barColor }) => (
 													<div key={title} className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
-														<h3 className="font-serif italic text-xl text-fab-blue mb-6">{title}</h3>
+														<h3 className="text-heading text-fab-blue mb-6">{title}</h3>
 														<div className="space-y-4">
 															{data.map((item) => {
 																const pct = totalInconsistencias > 0 ? Math.round((item.count / totalInconsistencias) * 100) : 0
 																return (
 																	<div key={item.name} className="flex items-center gap-4">
-																		<div className="w-24 font-bold text-fab-blue text-sm">{item.name}</div>
+																		<div className="w-24 text-fab-blue text-subheading">{item.name}</div>
 																		<div className="flex-1 h-3 bg-fab-sky rounded-full overflow-hidden">
 																			<div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
 																		</div>
-																		<div className="w-12 text-right font-mono text-sm text-fab-blue/70">{pct}%</div>
+																		<div className="w-12 text-right font-mono text-body text-fab-blue/70">{pct}%</div>
 																	</div>
 																)
 															})}
@@ -1719,18 +1639,15 @@ function SubitensGenericos() {
 											<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 												<div className="lg:col-span-2 bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
 													<div className="flex items-center justify-between mb-8">
-														<h3 className="font-serif italic text-xl text-fab-blue">Mapa de Risco Contábil (Consolidado)</h3>
+														<h3 className="text-heading text-fab-blue">Mapa de Risco Contábil (Consolidado)</h3>
 														<div className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">Visão por ODS</div>
 													</div>
 													<div className="overflow-x-auto">
 														<table className="w-full">
-															<thead>
-																<tr className="border-b border-fab-blue/5">
+															<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
+																<tr>
 																	{["ODS", "Inconsistências", "Saldo Associado", "% do Total"].map((h, i) => (
-																		<th
-																			key={h}
-																			className={`py-4 text-label text-fab-blue/40${i === 0 ? " text-left" : i < 3 ? " text-center" : " text-right"}`}
-																		>
+																		<th key={h} className={`px-4 py-3${i === 0 ? " text-left" : i < 3 ? " text-center" : " text-right"}`}>
 																			{h}
 																		</th>
 																	))}
@@ -1739,12 +1656,12 @@ function SubitensGenericos() {
 															<tbody className="divide-y divide-fab-blue/5">
 																{odsList.map((ods) => (
 																	<tr key={ods.name} className="hover:bg-fab-sky/10 transition-colors">
-																		<td className="py-4 font-bold text-fab-blue text-sm">{ods.name}</td>
-																		<td className="py-4 text-center font-mono text-sm text-fab-blue/70">{ods.count}</td>
-																		<td className="py-4 text-right font-mono text-sm text-fab-blue/70">
+																		<td className="py-4 text-fab-blue text-subheading">{ods.name}</td>
+																		<td className="py-4 text-center font-mono text-body text-fab-blue/70">{ods.count}</td>
+																		<td className="py-4 text-right font-mono text-body text-fab-blue/70">
 																			{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(ods.saldo)}
 																		</td>
-																		<td className="py-4 text-right font-mono text-sm font-bold text-fab-blue">
+																		<td className="py-4 text-right font-mono text-subheading text-fab-blue">
 																			{totalInconsistencias > 0 ? Math.round((ods.count / totalInconsistencias) * 100) : 0}%
 																		</td>
 																	</tr>
@@ -1756,16 +1673,16 @@ function SubitensGenericos() {
 
 												<div className="bg-fab-blue p-8 rounded-xl text-white flex flex-col justify-between">
 													<div>
-														<div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
+														<div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-6">
 															<TrendingUp size={24} className="text-fab-gold" />
 														</div>
-														<h3 className="font-serif italic text-2xl mb-2">Análise de Concentração</h3>
-														<p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-6">Regra de Pareto (80/20)</p>
+														<h3 className="text-display mb-2">Análise de Concentração</h3>
+														<p className="text-label text-white/50 mb-6">Regra de Pareto (80/20)</p>
 
 														<div className="space-y-6">
 															<div>
-																<h4 className="text-4xl font-serif italic text-fab-gold mb-1">{Math.round(paretoSummary.concentrationPercentage)}%</h4>
-																<p className="text-xs text-white/60 leading-relaxed">
+																<h4 className="text-display text-fab-gold mb-1">{Math.round(paretoSummary.concentrationPercentage)}%</h4>
+																<p className="text-caption text-white/60 leading-relaxed">
 																	das inconsistências contábeis estão concentradas em apenas 20% das UGs analisadas.
 																</p>
 															</div>
@@ -1774,7 +1691,7 @@ function SubitensGenericos() {
 																<p className="text-label text-white/40 mb-3">UGs de Alta Concentração:</p>
 																<div className="space-y-2">
 																	{paretoSummary.top20PercentUgs.slice(0, 3).map((item) => (
-																		<div key={item.ug} className="flex items-center justify-between text-xs">
+																		<div key={item.ug} className="flex items-center justify-between text-caption">
 																			<span className="text-white/70 font-mono">{formatUgName(item.ug)}</span>
 																			<span className="font-bold text-fab-gold">{item.count} ocorr.</span>
 																		</div>
@@ -1787,7 +1704,7 @@ function SubitensGenericos() {
 														</div>
 													</div>
 
-													<div className="mt-8 p-4 bg-white/5 rounded-2xl border border-white/10">
+													<div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
 														<p className="text-label text-fab-gold mb-1">Prioridade de Atuação</p>
 														<p className="text-hint text-white/50 leading-relaxed">
 															O direcionamento das ações para estas {paretoSummary.top20PercentUgs.length} UGs resultará na regularização de{" "}
@@ -1804,7 +1721,7 @@ function SubitensGenericos() {
 														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
 															<Shield size={20} />
 														</div>
-														<h3 className="font-serif italic text-xl text-fab-blue">Priorização de Atuação Imediata</h3>
+														<h3 className="text-heading text-fab-blue">Priorização de Atuação Imediata</h3>
 													</div>
 													<p className="text-label text-fab-blue/40">Baseado em Risco e Impacto Financeiro</p>
 												</div>
@@ -1815,20 +1732,18 @@ function SubitensGenericos() {
 															key={ug.ug}
 															className="p-6 bg-muted/50 rounded-xl border border-fab-blue/5 relative overflow-hidden group hover:border-fab-gold/30 transition-all"
 														>
-															<div className="absolute -right-4 -top-4 text-fab-blue/5 font-serif italic text-8xl group-hover:text-fab-gold/10 transition-colors">
-																{idx + 1}
-															</div>
+															<div className="absolute -right-4 -top-4 text-fab-blue/5 text-8xl group-hover:text-fab-gold/10 transition-colors">{idx + 1}</div>
 															<div className="relative z-10">
 																<p className="text-label text-fab-gold mb-1">{idx + 1}º Prioridade</p>
-																<h4 className="text-xl font-serif italic text-fab-blue mb-4">{formatUgName(ug.ug)}</h4>
+																<h4 className="text-heading text-fab-blue mb-4">{formatUgName(ug.ug)}</h4>
 																<div className="space-y-3">
 																	<div className="flex items-center justify-between">
 																		<span className="text-label text-fab-blue/40">Inconsistências</span>
-																		<span className="text-sm font-mono font-bold text-fab-blue">{ug.occurrences.length}</span>
+																		<span className="text-subheading font-mono text-fab-blue">{ug.occurrences.length}</span>
 																	</div>
 																	<div className="flex items-center justify-between">
 																		<span className="text-label text-fab-blue/40">Impacto Financeiro</span>
-																		<span className="text-sm font-mono font-bold text-fab-blue">
+																		<span className="text-subheading font-mono text-fab-blue">
 																			{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(ug.totalSaldo)}
 																		</span>
 																	</div>
@@ -1861,7 +1776,7 @@ function SubitensGenericos() {
 						</motion.div>
 					)}
 				</AnimatePresence>
-			</main>
+			</div>
 
 			{data.length > 0 && (
 				<AIAssistant
@@ -1878,10 +1793,6 @@ function SubitensGenericos() {
 					}}
 				/>
 			)}
-
-			{/* Rota fora do HubLayout: o link para os documentos legais precisa vir
-			    daqui — o LGPD.md exige o rodapé em toda tela do app. */}
-			<LegalFooter />
-		</div>
+		</HubLayout>
 	)
 }

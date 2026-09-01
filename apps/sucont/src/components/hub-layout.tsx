@@ -1,7 +1,7 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
-import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Monitor, Search, SquareKanban, X } from "lucide-react"
+import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Monitor, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
@@ -32,6 +32,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip
 import { sucontTools } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
 import { buildToolCrumbs, buildToolNav, findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
+import { cn } from "#/lib/utils"
+import { useTheme } from "#/services/theme"
 
 /**
  * Navegação do hub — as três telas do app.
@@ -53,40 +55,81 @@ interface HubLayoutProps {
 	children: React.ReactNode
 	/** Título da tela. Vira o `h1` da página — os cabeçalhos internos são `h2`. */
 	title?: string
-	/** Uma linha sobre o que a tela faz, abaixo do título. */
+	/**
+	 * Uma linha sobre o que a tela faz, abaixo do título.
+	 *
+	 * Numa rota de ferramenta, o padrão é a `description` do catálogo: a mesma
+	 * frase que o card promete, agora dentro da ferramenta. Passar aqui só quando
+	 * a tela precisar dizer algo que o catálogo não diz.
+	 */
 	description?: string
 	/** A tela consome `?q=`. Sem isso a barra de busca some — campo que não filtra nada mente sobre o que faz. */
 	searchable?: boolean
+	/**
+	 * Ações da tela, à direita do cabeçalho fixo — "Nova análise", "Importar",
+	 * "Imprimir".
+	 *
+	 * Existe porque cada ferramenta desenhava a própria barra de título só para
+	 * ter onde pendurar dois botões, e nenhuma duas iguais: sete alturas, sete
+	 * tipografias e sete posições para a MESMA ação. Aqui a ação tem um lugar, e
+	 * ele é o mesmo em todas as telas.
+	 */
+	actions?: React.ReactNode
+	/**
+	 * Largura do conteúdo. `wide` é para tela cuja unidade de leitura é a tabela
+	 * ou a matriz — o auditor e o monitoramento perdem sentido espremidos em
+	 * 72rem. O resto do hub usa `default`, e uma tela só escapa por ter dado
+	 * denso, nunca por preferência.
+	 */
+	width?: "default" | "wide"
 }
 
-export function HubLayout({ children, title, description, searchable = false }: HubLayoutProps) {
+const CONTENT_WIDTH = {
+	default: "max-w-6xl",
+	wide: "max-w-[110rem]",
+} as const
+
+export function HubLayout({ children, title, description, searchable = false, actions, width = "default" }: HubLayoutProps) {
 	// Estado da barra lida do cookie no `beforeLoad` da raiz: o HTML do SSR já sai
 	// no estado certo, sem o salto de 16rem na hidratação.
 	const { sidebarOpen } = useRouteContext({ from: "__root__" })
+	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const tool = findToolByPath(sucontTools, pathname)
+	const blurb = description ?? tool?.description
+	const maxWidth = CONTENT_WIDTH[width]
 
 	return (
 		<SidebarProvider defaultOpen={sidebarOpen} className="bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan">
 			<HubSidebar />
 
 			<SidebarInset className="bg-transparent min-w-0">
-				<header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
+				<header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
 					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
 					<HubBreadcrumb title={title} />
+					<div className="ml-auto flex shrink-0 items-center gap-2">
+						{actions}
+						<ThemeToggle />
+					</div>
 				</header>
 
 				<div className="flex-1">
-					<div className="mx-auto w-full max-w-6xl px-4 pt-8 pb-24 md:px-8">
-						{(description || searchable) && (
+					<div className={cn("mx-auto w-full px-4 pt-8 pb-24 md:px-8", maxWidth)}>
+						{(blurb || searchable) && (
 							<div className="mb-8 flex flex-col gap-6">
-								{description && <p className="text-caption text-muted-foreground">{description}</p>}
+								{blurb && <p className="text-caption text-muted-foreground">{blurb}</p>}
 								{searchable && <HubSearchBar />}
 							</div>
 						)}
 						{children}
 					</div>
 
-					<footer className="mx-auto mt-4 flex max-w-6xl flex-col items-center justify-between gap-6 border-t border-border px-4 pt-8 pb-12 md:flex-row md:px-8">
+					<footer
+						className={cn(
+							"no-print mx-auto mt-4 flex flex-col items-center justify-between gap-6 border-t border-border px-4 pt-8 pb-12 md:flex-row md:px-8",
+							maxWidth
+						)}
+					>
 						<div className="flex flex-col items-center gap-2 md:items-end">
 							<LegalFooterLinks
 								className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
@@ -103,6 +146,33 @@ export function HubLayout({ children, title, description, searchable = false }: 
 	)
 }
 
+/**
+ * Troca de tema — o único controle de tema do app.
+ *
+ * A escolha vive num cookie lido pelo servidor (`services/theme.tsx`), então o
+ * `<html>` já sai pintado do SSR. Antes, o escuro existia só dentro do auditor,
+ * por estado local numa `<div>` de rota: entrar na ferramenta escurecia a tela e
+ * sair a clareava, e as outras onze telas não alcançavam o escuro apesar de todos
+ * os tokens `.dark` existirem.
+ */
+function ThemeToggle() {
+	const { theme, toggle } = useTheme()
+	const label = theme === "dark" ? "Usar tema claro" : "Usar tema escuro"
+
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button type="button" variant="ghost" size="icon-sm" aria-label={label} onClick={toggle} className="text-muted-foreground hover:text-foreground">
+						{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+					</Button>
+				}
+			/>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
+	)
+}
+
 function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const activeTool = findToolByPath(sucontTools, pathname)
@@ -110,7 +180,7 @@ function HubSidebar() {
 	const groupLabelId = useId()
 
 	return (
-		<Sidebar collapsible="icon" variant="sidebar">
+		<Sidebar collapsible="icon" variant="sidebar" className="no-print">
 			<SidebarHeader>
 				<HubBrand />
 			</SidebarHeader>
@@ -257,7 +327,7 @@ function HubBrand() {
 								<Monitor className="size-4" />
 							</div>
 							<div className="grid flex-1 text-left leading-tight">
-								<span className="truncate text-sm font-bold text-foreground">SUCONT-4 HUB</span>
+								<span className="truncate text-subheading text-foreground">SUCONT-4 HUB</span>
 								<span className="truncate text-label text-muted-foreground">DIREF • COMAER</span>
 							</div>
 						</Link>
@@ -300,7 +370,7 @@ function HubSearchBar() {
 	}
 
 	return (
-		<div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
+		<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
 			<Search className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 			<label htmlFor={inputId} className="sr-only">
 				Buscar no hub
@@ -309,7 +379,7 @@ function HubSearchBar() {
 				id={inputId}
 				type="search"
 				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-				className="h-auto w-full border-none bg-transparent p-0 text-sm text-muted-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0 dark:bg-transparent"
+				className="h-auto w-full border-none bg-transparent p-0 text-body text-muted-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0 dark:bg-transparent"
 				value={draft}
 				onChange={(e) => onChange(e.target.value)}
 			/>
@@ -397,11 +467,9 @@ function NavUser() {
 					isMobile,
 					email,
 					<SidebarMenuButton size="lg" className="cursor-default">
-						<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-label font-bold text-white">
-							{initials(name)}
-						</div>
+						<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-label text-white">{initials(name)}</div>
 						<div className="grid flex-1 text-left leading-tight">
-							<span className="truncate text-xs font-bold text-foreground">{name}</span>
+							<span className="truncate text-caption text-foreground">{name}</span>
 							<span className="truncate text-hint text-muted-foreground">{email}</span>
 						</div>
 					</SidebarMenuButton>

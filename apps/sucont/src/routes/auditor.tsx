@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { Activity, AlertTriangle, ArrowLeft, Database, FileSpreadsheet, Layers, LayoutDashboard, Loader2, Moon, Sun, UploadCloud } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { Activity, AlertTriangle, Database, FileSpreadsheet, Layers, LayoutDashboard, Loader2, UploadCloud } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
@@ -26,11 +26,10 @@ import { iccColor, iccLabel } from "#/auditor/theme"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
 import { useSucontAccess } from "#/auth/pbac"
-import { LegalFooter } from "#/components/legal-footer"
+import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
-import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
-import { cn } from "#/lib/utils"
+import { SegmentedControl } from "#/components/ui/segmented-control"
 import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
@@ -88,10 +87,6 @@ function AuditorPage() {
 	const [selectedHierarchyFilter, setSelectedHierarchyFilter] = useState<string[]>(["TODOS"])
 	const [selectedRisk, _setSelectedRisk] = useState<string>("TODOS")
 	const [searchTerm, _setSearchTerm] = useState("")
-	// A variante do projeto é `&:is(.dark *)`, então qualquer ancestral com a classe
-	// serve. Antes isto ia para o <html> num efeito, e uma rota trocava o tema do app
-	// inteiro — com um flash de volta ao claro toda vez que o usuário saía da tela.
-	const [isDarkMode, setIsDarkMode] = useState(true)
 
 	// Importar grava: `startAuditorRunFn` e `saveAuditorBalancesFn` exigem nível 2.
 	// Sem esta checagem o operador de nível 1 subia a planilha, esperava o parse da
@@ -423,8 +418,29 @@ function AuditorPage() {
 		setIsMessageModalOpen(true)
 	}
 
+	const hierarchyOptions = [
+		{
+			value: "TODOS",
+			label: `Todas as ${selectedHierarchyLevel === "ODS" ? "ODSs" : selectedHierarchyLevel === "ORGAO" ? "Órgãos" : "UGs"}`,
+		},
+		...(selectedHierarchyLevel === "ODS" ? uniqueODS : selectedHierarchyLevel === "ORGAO" ? uniqueOrgaos : uniqueUGs).map((opt) => ({
+			value: opt,
+			label: opt,
+		})),
+	]
+
 	return (
-		<div className={cn("min-h-screen pb-12 transition-colors duration-300 bg-background text-foreground", isDarkMode && "dark")}>
+		<HubLayout
+			width="wide"
+			actions={
+				canEdit && (
+					<Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
+						<UploadCloud className="w-4 h-4" />
+						<span className="hidden sm:inline">Importar Excel</span>
+					</Button>
+				)
+			}
+		>
 			{/* `canEdit` também aqui: fechar o gatilho não basta se o modal segue montável. */}
 			<FileUploadModal isOpen={isUploadModalOpen && canEdit} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} />
 
@@ -438,116 +454,83 @@ function AuditorPage() {
 				analysisRunId={lastRunId}
 			/>
 
-			{/* STICKY TOP NAV */}
-			<nav className={`bg-card/95 border-border border-b sticky top-0 z-40 backdrop-blur-md`}>
-				<div className="max-w-[1800px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-					<div className="flex items-center gap-6 min-w-max">
-						<div className="flex items-center gap-3">
-							<Tooltip>
-								<TooltipTrigger
-									render={
-										<Link
-											to="/"
-											aria-label="Voltar ao Hub"
-											className="p-2 rounded-lg transition-colors border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-										>
-											<ArrowLeft className="w-4 h-4" />
-										</Link>
-									}
-								/>
-								<TooltipContent>Voltar ao Hub</TooltipContent>
-							</Tooltip>
-							<div className="bg-action p-2 rounded-lg shadow-lg">
-								<Activity className="w-5 h-5 text-white" />
-							</div>
-							<h1 className={`text-lg font-bold tracking-tight hidden lg:block text-foreground`}>
-								SIAFI <span className="text-muted-foreground mx-1">x</span> SILOMS
-							</h1>
-						</div>
+			{/*
+			 * Filtros da tela, no corpo — não no cabeçalho fixo, que é navegação e
+			 * ação. Antes eles moravam numa barra de topo própria do auditor, a
+			 * segunda do app: o usuário via duas barras empilhadas, e a de baixo
+			 * repetia um botão de voltar que a trilha de cima já dava.
+			 */}
+			<div className="mb-6 flex flex-wrap items-end gap-4">
+				<div className="flex flex-col gap-2">
+					<span className="text-label text-muted-foreground">Agregar por</span>
+					<SegmentedControl
+						label="Agregar por"
+						value={selectedHierarchyLevel}
+						onValueChange={setSelectedHierarchyLevel}
+						options={[
+							{
+								value: "ODS",
+								label: (
+									<>
+										<Layers />
+										ODS
+									</>
+								),
+							},
+							{
+								value: "ORGAO",
+								label: (
+									<>
+										<Database />
+										Órgão
+									</>
+								),
+							},
+							{
+								value: "UG",
+								label: (
+									<>
+										<LayoutDashboard />
+										UG
+									</>
+								),
+							},
+						]}
+					/>
+				</div>
 
-						<div className="flex items-center gap-3">
-							<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-								{(["ODS", "ORGAO", "UG"] as const).map((level) => (
-									<button
-										key={level}
-										type="button"
-										onClick={() => setSelectedHierarchyLevel(level)}
-										className={`px-2 py-1 text-label rounded-md transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
-                      ${selectedHierarchyLevel === level ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
-                    `}
-									>
-										{level === "ODS" && <Layers className="w-3 h-3" />}
-										{level === "ORGAO" && <Database className="w-3 h-3" />}
-										{level === "UG" && <LayoutDashboard className="w-3 h-3" />}
-										{level === "ORGAO" ? "Órgão" : level}
-									</button>
-								))}
-							</div>
-
-							<div className="w-40 hidden md:block">
-								<Combobox
-									aria-label={`Filtrar por ${selectedHierarchyLevel}`}
-									value={selectedHierarchyFilter[0]}
-									onValueChange={(val) => setSelectedHierarchyFilter([val])}
-									items={[
-										{
-											value: "TODOS",
-											label: `Todas as ${selectedHierarchyLevel === "ODS" ? "ODSs" : selectedHierarchyLevel === "ORGAO" ? "Órgãos" : "UGs"}`,
-										},
-										...(selectedHierarchyLevel === "ODS" ? uniqueODS : selectedHierarchyLevel === "ORGAO" ? uniqueOrgaos : uniqueUGs).map((opt) => ({
-											value: opt,
-											label: opt,
-										})),
-									]}
-									placeholder={`Filtrar ${selectedHierarchyLevel}`}
-								/>
-							</div>
-
-							<div className="w-40 hidden md:block">
-								<Combobox
-									aria-label="Mês de referência"
-									value={selectedMonth}
-									onValueChange={setSelectedMonth}
-									items={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
-									placeholder="Mês de Ref."
-								/>
-							</div>
-						</div>
-					</div>
-
-					<div className="flex items-center gap-3">
-						{canEdit && (
-							<Button onClick={() => setIsUploadModalOpen(true)} className="bg-action text-action-foreground hover:bg-action/80 whitespace-nowrap">
-								<UploadCloud className="w-4 h-4" />
-								<span className="hidden sm:inline">Importar Excel</span>
-							</Button>
-						)}
-
-						<Tooltip>
-							<TooltipTrigger
-								render={
-									<Button
-										variant="outline"
-										size="icon"
-										aria-label={isDarkMode ? "Usar tema claro" : "Usar tema escuro"}
-										onClick={() => setIsDarkMode(!isDarkMode)}
-										className="rounded-full"
-									>
-										{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-									</Button>
-								}
-							/>
-							<TooltipContent>{isDarkMode ? "Usar tema claro" : "Usar tema escuro"}</TooltipContent>
-						</Tooltip>
+				<div className="flex flex-col gap-2">
+					<span className="text-label text-muted-foreground">{selectedHierarchyLevel === "ORGAO" ? "Órgão" : selectedHierarchyLevel}</span>
+					<div className="w-48">
+						<Combobox
+							aria-label={`Filtrar por ${selectedHierarchyLevel}`}
+							value={selectedHierarchyFilter[0]}
+							onValueChange={(val) => setSelectedHierarchyFilter([val])}
+							items={hierarchyOptions}
+							placeholder={`Filtrar ${selectedHierarchyLevel}`}
+						/>
 					</div>
 				</div>
-			</nav>
 
-			<main className="max-w-[1800px] mx-auto px-4 sm:px-6 space-y-6">
+				<div className="flex flex-col gap-2">
+					<span className="text-label text-muted-foreground">Competência</span>
+					<div className="w-48">
+						<Combobox
+							aria-label="Mês de referência"
+							value={selectedMonth}
+							onValueChange={setSelectedMonth}
+							items={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
+							placeholder="Mês de Ref."
+						/>
+					</div>
+				</div>
+			</div>
+
+			<div className="space-y-6">
 				{/* RESULTADO DA GRAVAÇÃO */}
 				{persistOutcome && (
 					<div
-						className={`mt-6 rounded-lg border p-4 text-sm ${
+						className={`mt-6 rounded-lg border p-4 text-body ${
 							persistOutcome.status === "complete"
 								? "border-border bg-card text-foreground"
 								: persistOutcome.status === "partial"
@@ -598,11 +581,11 @@ function AuditorPage() {
 
 						{persistOutcome.conflicts.length > 0 && (
 							<details className="mt-3">
-								<summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">
+								<summary className="cursor-pointer text-label text-muted-foreground">
 									Competências que já existiam com outro valor ({persistOutcome.changed}
 									{persistOutcome.conflictsTruncated ? ", listando as primeiras" : ""})
 								</summary>
-								<div className="mt-2 max-h-64 overflow-y-auto font-mono text-xs">
+								<div className="mt-2 max-h-64 overflow-y-auto font-mono text-caption">
 									{persistOutcome.conflicts.map((c) => (
 										<div key={`${c.period}-${c.ugCodigo}-${c.accountGroup}`} className="py-0.5">
 											{c.period} · {c.ugCodigo} · {c.accountGroup}: SIAFI {formatCurrency(c.previous.siafiValue)} → {formatCurrency(c.next.siafiValue)} · SILOMS{" "}
@@ -617,7 +600,7 @@ function AuditorPage() {
 
 				{/* FALHA DE LEITURA — distinta do estado vazio */}
 				{storedError && localRows.length === 0 && (
-					<div className={`mt-6 rounded-lg border p-4 text-sm border-destructive/30 bg-destructive/10 text-destructive`}>
+					<div className={`mt-6 rounded-lg border p-4 text-body border-destructive/30 bg-destructive/10 text-destructive`}>
 						<p className="font-bold">Não foi possível ler a série gravada</p>
 						<p className="mt-1">{storedError instanceof Error ? storedError.message : "Erro desconhecido"} — a tela abaixo NÃO reflete o que está no banco.</p>
 					</div>
@@ -638,7 +621,7 @@ function AuditorPage() {
           `}
 					>
 						<FileSpreadsheet className={`w-16 h-16 mb-4 text-muted-foreground`} />
-						<h2 className={`text-xl font-bold text-foreground`}>Nenhuma competência na base</h2>
+						<h2 className={`text-heading text-foreground`}>Nenhuma competência na base</h2>
 						{canEdit ? (
 							<>
 								<p className="text-muted-foreground mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
@@ -728,7 +711,7 @@ function AuditorPage() {
 										<Database className="w-3.5 h-3.5 text-action" />
 										<div className="flex flex-col leading-none">
 											<span className="text-label text-muted-foreground">Registros Totais</span>
-											<span className={`text-xs font-bold text-foreground`}>{stats.totalUGsCount} UGs</span>
+											<span className={`text-caption text-foreground`}>{stats.totalUGsCount} UGs</span>
 										</div>
 									</div>
 
@@ -879,11 +862,7 @@ function AuditorPage() {
 						</ChartWrapper>
 					</>
 				)}
-			</main>
-
-			{/* Esta rota não monta o HubLayout, então o link para os documentos legais
-			    precisa vir daqui — o LGPD.md exige o rodapé em toda tela do app. */}
-			<LegalFooter />
-		</div>
+			</div>
+		</HubLayout>
 	)
 }

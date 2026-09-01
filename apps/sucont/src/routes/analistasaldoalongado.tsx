@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, BarChart3, BookOpen, CheckCircle2, LayoutDashboard, ListTodo, MessageSquare, Plane, RefreshCw, Search, ShieldAlert } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { BarChart3, BookOpen, LayoutDashboard, ListTodo, MessageSquare, RefreshCw, Search, ShieldAlert } from "lucide-react"
 import { useState } from "react"
 import { AnalyticalPanel } from "#/analistasaldoalongado/components/AnalyticalPanel"
 import { FileUploader } from "#/analistasaldoalongado/components/FileUploader"
@@ -12,6 +12,7 @@ import type { UgMessage } from "#/analistasaldoalongado/utils/generator"
 import { generateMessages } from "#/analistasaldoalongado/utils/generator"
 import { parseFile } from "#/analistasaldoalongado/utils/parser"
 import { HubLayout } from "#/components/hub-layout"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 
 export const Route = createFileRoute("/analistasaldoalongado")({
@@ -70,106 +71,74 @@ function AnalistaSaldoAlongado() {
 	}
 
 	return (
-		<HubLayout>
-			{/* Back navigation + tool header */}
-			<div className="flex items-center justify-between mb-8">
-				<div className="flex items-center gap-4">
-					<Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">
-						<ArrowLeft className="w-4 h-4" />
-						Voltar ao Hub
-					</Link>
-					<div className="h-4 w-px bg-border" />
-					<div className="flex items-center gap-3">
-						<div className="w-8 h-8 bg-fab-600 rounded-lg flex items-center justify-center shadow-sm">
-							<Plane className="w-4 h-4 text-white" />
-						</div>
-						<div>
-							<h2 className="text-lg font-bold text-foreground leading-tight">Analista Saldo Alongado</h2>
-							<p className="text-xs text-muted-foreground">Monitoramento de Saldos &gt;3 meses — COMAER</p>
-						</div>
-					</div>
-				</div>
-
-				<div className="flex items-center gap-3">
-					{consolidatedData && (
-						<Button
-							type="button"
-							onClick={handleReset}
-							variant="outline"
-							size="sm"
-							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
-						>
-							<RefreshCw className="w-3.5 h-3.5" />
-							Nova Análise
-						</Button>
-					)}
-					<div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-fab-50 rounded-full border border-fab-100">
-						<CheckCircle2 className="w-3.5 h-3.5 text-fab-600" />
-						<span className="text-label text-fab-800">Setorial Contábil COMAER</span>
-					</div>
-				</div>
-			</div>
-
+		<HubLayout
+			actions={
+				consolidatedData && (
+					<Button type="button" onClick={handleReset} variant="outline" size="sm">
+						<RefreshCw className="w-3.5 h-3.5" />
+						Nova análise
+					</Button>
+				)
+			}
+		>
 			{/* Main Content */}
 			{!consolidatedData ? (
 				<div className="space-y-12 py-4">
 					{/* Intro */}
 					<div className="text-center max-w-3xl mx-auto space-y-6">
-						<div className="inline-flex items-center gap-2 px-4 py-1.5 bg-fab-50 text-fab-700 rounded-full text-xs font-bold uppercase tracking-widest border border-fab-100">
-							<ShieldAlert className="w-4 h-4" />
-							Governança Contábil
-						</div>
-						<h2 className="text-display text-foreground">
-							Painel de Acompanhamento <span className="text-fab-600">SUCONT-3</span>
-						</h2>
-						<p className="text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-							Plataforma estratégica para análise de saldos sem movimentação por <strong className="text-fab-700 font-bold">mais de 3 meses</strong>, garantindo
-							a fidedignidade das demonstrações contábeis do COMAER.
+						<Badge variant="outline" className="mx-auto">
+							<ShieldAlert />
+							Governança contábil
+						</Badge>
+						<h2 className="text-heading text-foreground">Painel de Acompanhamento SUCONT-3</h2>
+						<p className="text-body text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+							Plataforma estratégica para análise de saldos sem movimentação por <strong>mais de 3 meses</strong>, garantindo a fidedignidade das demonstrações
+							contábeis do COMAER.
 						</p>
 					</div>
 
 					{/* Info Cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
+						<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
 							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
 								<Search className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Análise de Saldos</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">
+							<p className="text-body text-muted-foreground leading-relaxed">
 								Identificação de saldos alongados em contas que exigem movimentação regular, prevenindo distorções patrimoniais.
 							</p>
 						</div>
 
-						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
+						<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
 							<div className="w-12 h-12 bg-success/10 text-success rounded-xl flex items-center justify-center shadow-sm">
 								<BookOpen className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Metodologia RAC</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">
+							<p className="text-body text-muted-foreground leading-relaxed">
 								Aplicação rigorosa do Roteiro de Acompanhamento Contábil para assegurar a conformidade com as normas da Setorial.
 							</p>
 						</div>
 
-						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
+						<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col items-center text-center space-y-3 hover:shadow-md transition-shadow">
 							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
 								<MessageSquare className="w-6 h-6" />
 							</div>
 							<h3 className="font-bold text-foreground">Notificação Ágil</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">
+							<p className="text-body text-muted-foreground leading-relaxed">
 								Geração de mensagens institucionais padronizadas, otimizando a comunicação entre a SUCONT e as Unidades Gestoras.
 							</p>
 						</div>
 					</div>
 
 					{/* Report Path */}
-					<div className="bg-card p-6 rounded-2xl shadow-sm border border-border max-w-5xl mx-auto">
+					<div className="bg-card p-6 rounded-xl shadow-sm border border-border max-w-5xl mx-auto">
 						<h3 className="font-bold text-foreground mb-5 flex items-center gap-3">
 							<div className="p-2 bg-fab-50 rounded-lg">
 								<BookOpen className="w-4 h-4 text-fab-600" />
 							</div>
 							Extração de Dados (Tesouro Gerencial)
 						</h3>
-						<div className="bg-muted/50 p-4 rounded-xl border border-border text-sm text-foreground overflow-x-auto">
+						<div className="bg-muted/50 p-4 rounded-xl border border-border text-body text-foreground overflow-x-auto">
 							<div className="flex items-center gap-3 whitespace-nowrap min-w-max">
 								{[
 									"TESOURO GERENCIAL",
@@ -207,12 +176,12 @@ function AnalistaSaldoAlongado() {
 			) : (
 				<div className="space-y-8">
 					{/* Tabs */}
-					<div className="flex items-center gap-2 bg-card p-1.5 rounded-2xl border border-border shadow-sm w-fit">
+					<div className="flex items-center gap-2 bg-card p-1.5 rounded-xl border border-border shadow-sm w-fit">
 						<Button
 							type="button"
 							onClick={() => setActiveTab("operacional")}
 							variant="ghost"
-							className={`gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-muted ${
+							className={`gap-2 px-5 py-2.5 rounded-xl text-subheading transition-all hover:bg-muted ${
 								activeTab === "operacional" ? "bg-fab-600 text-white shadow-md hover:bg-fab-600" : "text-muted-foreground"
 							}`}
 						>
@@ -223,7 +192,7 @@ function AnalistaSaldoAlongado() {
 							type="button"
 							onClick={() => setActiveTab("gerencial")}
 							variant="ghost"
-							className={`gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-muted ${
+							className={`gap-2 px-5 py-2.5 rounded-xl text-subheading transition-all hover:bg-muted ${
 								activeTab === "gerencial" ? "bg-fab-600 text-white shadow-md hover:bg-fab-600" : "text-muted-foreground"
 							}`}
 						>
@@ -234,7 +203,7 @@ function AnalistaSaldoAlongado() {
 							type="button"
 							onClick={() => setActiveTab("analitico")}
 							variant="ghost"
-							className={`gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-muted ${
+							className={`gap-2 px-5 py-2.5 rounded-xl text-subheading transition-all hover:bg-muted ${
 								activeTab === "analitico" ? "bg-fab-600 text-white shadow-md hover:bg-fab-600" : "text-muted-foreground"
 							}`}
 						>

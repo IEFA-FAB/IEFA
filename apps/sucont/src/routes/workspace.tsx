@@ -138,7 +138,7 @@ function Workspace() {
 				<section>
 					<div className="flex items-center gap-4 mb-8">
 						<ClipboardList className="text-tech-cyan w-5 h-5" />
-						<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Cronograma & Atividades</h2>
+						<h2 className="text-foreground text-label">Cronograma & Atividades</h2>
 						<div className="flex-grow h-[1px] bg-border" />
 					</div>
 
@@ -167,7 +167,7 @@ function Workspace() {
 							animate={{ opacity: 1, scale: 1 }}
 							className="bg-card border border-tech-cyan/30 p-6 rounded-lg mb-6 shadow-lg"
 						>
-							<h3 className="text-foreground font-bold mb-4 text-sm uppercase">Nova Atividade</h3>
+							<h3 className="text-foreground mb-4 text-label">Nova Atividade</h3>
 							<form
 								onSubmit={(e) => {
 									e.preventDefault()
@@ -208,7 +208,7 @@ function Workspace() {
 								<textarea
 									name="description"
 									placeholder="Descrição da atividade"
-									className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
+									className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 								/>
 								<div className="flex gap-2 md:col-span-2 justify-end">
 									<Button type="button" variant="ghost" onClick={() => setIsAddingTask(false)} className="text-muted-foreground hover:text-foreground">
@@ -223,7 +223,7 @@ function Workspace() {
 					)}
 
 					{loadingChecklist ? (
-						<div className="flex items-center justify-center py-12 text-muted-foreground gap-2 text-sm font-mono">
+						<div className="flex items-center justify-center py-12 text-muted-foreground gap-2 text-body font-mono">
 							<Loader2 className="w-4 h-4 animate-spin" /> Carregando cronograma...
 						</div>
 					) : (
@@ -247,7 +247,7 @@ function Workspace() {
 												</div>
 												<h4 className="text-foreground font-bold">{item.task}</h4>
 											</div>
-											<p className="text-muted-foreground text-xs leading-relaxed mb-3">{item.description}</p>
+											<p className="text-muted-foreground text-caption leading-relaxed mb-3">{item.description}</p>
 											{item.path && (
 												<div className="flex items-start gap-2 text-hint font-mono text-muted-foreground bg-muted/50 p-2 rounded border border-border">
 													<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
@@ -271,11 +271,14 @@ function Workspace() {
 												/>
 											) : canEdit ? (
 												<Button type="button" variant="ghost" className="h-auto p-0 gap-2 group hover:bg-transparent" onClick={() => setEditingId(item.id)}>
-													<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
+													<span className="text-subheading text-tech-cyan">{item.responsible}</span>
 													<Edit2 className="w-3 h-3 text-muted-foreground group-hover:text-tech-cyan transition-colors" />
 												</Button>
 											) : (
-												<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
+												// `.text-subheading`, não `.text-label`: o rótulo embute caixa alta, e este é
+												// um nome DIGITADO pelo usuário — em maiúsculas ele deixa de bater com o campo
+												// de edição ao lado e com o texto que a busca da tela filtra.
+												<span className="text-subheading text-tech-cyan">{item.responsible}</span>
 											)}
 											{canEdit && (
 												<Button
@@ -300,7 +303,7 @@ function Workspace() {
 					<div>
 						<div className="flex items-center gap-3 mb-4">
 							<StickyNote className="text-tech-cyan w-4 h-4" />
-							<h3 className="text-foreground font-bold uppercase tracking-widest text-xs">Anotações da Seção</h3>
+							<h3 className="text-foreground text-label">Anotações da Seção</h3>
 						</div>
 						<textarea
 							value={notes}
@@ -308,7 +311,7 @@ function Workspace() {
 							readOnly={!canEdit}
 							aria-readonly={!canEdit}
 							placeholder={canEdit ? "Digite aqui anotações importantes, pendências ou lembretes..." : "Sem anotações registradas."}
-							className="w-full h-64 bg-card border border-border rounded-lg p-4 text-muted-foreground text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-muted/50 read-only:text-muted-foreground"
+							className="w-full h-64 bg-card border border-border rounded-lg p-4 text-muted-foreground text-body font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-muted/50 read-only:text-muted-foreground"
 						/>
 						<div className="mt-2 flex justify-end">
 							<span className="font-mono text-label text-muted-foreground">
@@ -321,7 +324,7 @@ function Workspace() {
 						<div className="flex items-center justify-between mb-4">
 							<div className="flex items-center gap-3">
 								<Bell className="text-tech-blue w-4 h-4" />
-								<h3 className="text-foreground font-bold uppercase tracking-widest text-xs">Avisos & Alertas</h3>
+								<h3 className="text-foreground text-label">Avisos & Alertas</h3>
 							</div>
 							{canEdit && (
 								<Button
@@ -363,7 +366,7 @@ function Workspace() {
 											<X className="w-3 h-3" />
 										</Button>
 									)}
-									<p className="text-xs text-foreground font-medium">{notice.content}</p>
+									<p className="text-caption text-foreground">{notice.content}</p>
 									<span className="font-mono text-label text-muted-foreground mt-2 block">Postado em: {notice.date}</span>
 								</div>
 							))}
@@ -375,7 +378,7 @@ function Workspace() {
 				<section>
 					<div className="flex items-center gap-4 mb-8">
 						<Users className="text-tech-cyan w-5 h-5" />
-						<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Divisão de Unidades (UGs)</h2>
+						<h2 className="text-foreground text-label">Divisão de Unidades (UGs)</h2>
 						<div className="flex-grow h-[1px] bg-border" />
 					</div>
 
@@ -385,14 +388,14 @@ function Workspace() {
 							return (
 								<div key={operator} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
 									<div className="bg-muted/50 p-3 border-b border-border">
-										<h4 className="text-foreground font-bold text-center text-xs uppercase tracking-widest">{operator}</h4>
+										<h4 className="text-foreground text-center text-label">{operator}</h4>
 									</div>
 									<div className="p-4 max-h-96 overflow-y-auto">
 										<table className="w-full text-hint font-mono">
-											<thead>
-												<tr className="text-muted-foreground border-b border-border">
-													<th className="text-left pb-2">UG</th>
-													<th className="text-left pb-2">NOME</th>
+											<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
+												<tr>
+													<th className="px-4 py-3 text-left pb-2">UG</th>
+													<th className="px-4 py-3 text-left pb-2">NOME</th>
 												</tr>
 											</thead>
 											<tbody className="divide-y divide-border">
@@ -429,7 +432,7 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 				value={content}
 				onChange={(e) => setContent(e.target.value)}
 				placeholder="Novo aviso..."
-				className="w-full bg-muted/50 border border-border p-2 rounded text-xs text-foreground mb-2 h-20 outline-none focus:border-tech-cyan"
+				className="w-full bg-muted/50 border border-border p-2 rounded text-caption text-foreground mb-2 h-20 outline-none focus:border-tech-cyan"
 			/>
 			<div className="flex justify-between items-center">
 				<Select items={{ info: "INFORMATIVO", alert: "ALERTA" }} value={type} onValueChange={(value) => setType(value as "info" | "alert")}>

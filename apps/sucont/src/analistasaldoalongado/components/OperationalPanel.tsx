@@ -153,7 +153,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					<Button
 						type="button"
 						onClick={() => setIsConsolidatedModalOpen(true)}
-						className="gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+						className="gap-2 px-4 py-2 text-subheading text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
 					>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
@@ -164,13 +164,13 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 				<div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
-						<span className="text-xs font-medium text-muted-foreground">Conferente:</span>
+						<span className="text-caption text-muted-foreground">Conferente:</span>
 						<Select
 							items={{ Geral: "Todos", ...Object.fromEntries(CONFERENTES_LIST.map((c) => [c, c])) }}
 							value={selectedConferente}
 							onValueChange={(v) => setSelectedConferente(v ?? "Geral")}
 						>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
+							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-fab-700 shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -186,13 +186,13 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
-						<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
+						<span className="text-caption text-muted-foreground">Questão RAC:</span>
 						<Select
 							items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
 							value={selectedRac}
 							onValueChange={(v) => setSelectedRac(v ?? "Geral")}
 						>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
+							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-fab-700 shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -215,9 +215,9 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<div className="p-2 bg-fab-50 text-fab-600 rounded-lg">
 							<Building2 className="w-5 h-5" />
 						</div>
-						<h3 className="text-sm font-medium text-muted-foreground">UGs com Ocorrência</h3>
+						<h3 className="text-subheading text-muted-foreground">UGs com Ocorrência</h3>
 					</div>
-					<p className="text-2xl font-bold text-foreground mt-auto">{filteredAndSortedData.length}</p>
+					<p className="text-display text-foreground mt-auto">{filteredAndSortedData.length}</p>
 				</div>
 
 				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
@@ -225,9 +225,9 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<div className="p-2 bg-warning/10 text-warning rounded-lg">
 							<AlertTriangle className="w-5 h-5" />
 						</div>
-						<h3 className="text-sm font-medium text-muted-foreground">Ocorrências Identificadas</h3>
+						<h3 className="text-subheading text-muted-foreground">Ocorrências Identificadas</h3>
 					</div>
-					<p className="text-2xl font-bold text-foreground mt-auto">{filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}</p>
+					<p className="text-display text-foreground mt-auto">{filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}</p>
 				</div>
 
 				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
@@ -235,22 +235,22 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<div className="p-2 bg-success/10 text-success rounded-lg">
 							<DollarSign className="w-5 h-5" />
 						</div>
-						<h3 className="text-sm font-medium text-muted-foreground">Saldo Alongado (&gt;3 meses)</h3>
+						<h3 className="text-subheading text-muted-foreground">Saldo Alongado (&gt;3 meses)</h3>
 					</div>
-					<p className="text-2xl font-bold text-foreground mt-auto">{formatCurrency(filteredAndSortedData.reduce((acc, curr) => acc + curr.saldo_total, 0))}</p>
+					<p className="text-display text-foreground mt-auto">{formatCurrency(filteredAndSortedData.reduce((acc, curr) => acc + curr.saldo_total, 0))}</p>
 				</div>
 			</div>
 
 			{/* Main Chart */}
 			<div className="bg-card p-5 rounded-xl border border-border shadow-sm relative" id="chart-top10">
 				<div className="flex justify-between items-start mb-4">
-					<h3 className="text-base font-semibold text-foreground">Total de Saldos Sem Movimentação por UG (&gt;3 meses) - Top 10</h3>
+					<h3 className="text-heading text-foreground">Total de Saldos Sem Movimentação por UG (&gt;3 meses) - Top 10</h3>
 					<Button
 						type="button"
 						onClick={() => exportElementToImage("chart-top10", "saldos-top10")}
 						variant="outline"
 						size="sm"
-						className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+						className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar Gráfico</span>
@@ -305,19 +305,19 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 													UG: {label} {d.nome_ug ? `- ${d.nome_ug}` : ""}
 												</p>
 												<div className="space-y-1.5">
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Conferente:</span>
 														<span className="font-semibold text-foreground">{conferente}</span>
 													</p>
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Saldo Alongado:</span>
 														<span className="font-semibold text-fab-700">{formatCurrency(d.saldo_total)}</span>
 													</p>
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Representatividade:</span>
 														<span className="font-semibold text-success">{percentage}% do total</span>
 													</p>
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Ocorrências:</span>
 														<span className="font-semibold text-foreground">{d.quantidade_ocorrencias}</span>
 													</p>
@@ -351,7 +351,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col">
 				<div className="p-4 border-b border-border flex flex-col sm:flex-row justify-between items-center gap-4 bg-muted/50">
 					<div className="flex items-center gap-3">
-						<h3 className="text-base font-semibold text-foreground">Lista Operacional de UGs</h3>
+						<h3 className="text-heading text-foreground">Lista Operacional de UGs</h3>
 						<Button
 							type="button"
 							onClick={() => {
@@ -368,7 +368,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 							}}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
+							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
 						>
 							<Download className="w-3.5 h-3.5" />
 							<span>Exportar Excel</span>
@@ -379,52 +379,52 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<Input
 							type="text"
 							placeholder="Buscar por código, nome ou conferente..."
-							className="pl-9 pr-4 py-2 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+							className="pl-9 pr-4 py-2 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
 					</div>
 				</div>
 				<div className="overflow-x-auto">
-					<table className="w-full text-sm text-left text-muted-foreground">
-						<thead className="text-xs text-muted-foreground uppercase bg-card border-b border-border">
+					<table className="w-full text-body text-left text-muted-foreground">
+						<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 							<tr>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ug")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ug")}>
 									<div className="flex items-center gap-1">
 										UG / Nome {sortField === "ug" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("orgaoSuperior")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("orgaoSuperior")}>
 									<div className="flex items-center gap-1">
 										Órgão Superior{" "}
 										{sortField === "orgaoSuperior" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ods")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ods")}>
 									<div className="flex items-center gap-1">
 										ODS {sortField === "ods" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("conferente")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("conferente")}>
 									<div className="flex items-center gap-1">
 										Conferente{" "}
 										{sortField === "conferente" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("quantidade_ocorrencias")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("quantidade_ocorrencias")}>
 									<div className="flex items-center gap-1">
 										Ocorrências{" "}
 										{sortField === "quantidade_ocorrencias" &&
 											(sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("saldo_total")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("saldo_total")}>
 									<div className="flex items-center gap-1">
 										Saldo Alongado (&gt;3 meses){" "}
 										{sortField === "saldo_total" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 text-right">Ação</th>
+								<th className="px-4 py-3 text-right">Ação</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border">
@@ -442,9 +442,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 										</div>
 									</td>
 									<td className="px-5 py-3">
-										<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-foreground">
-											{row.quantidade_ocorrencias}
-										</span>
+										<span className="inline-flex items-center px-2 py-0.5 rounded text-caption bg-muted text-foreground">{row.quantidade_ocorrencias}</span>
 									</td>
 									<td className="px-5 py-3 font-medium text-foreground">{formatCurrency(row.saldo_total)}</td>
 									<td className="px-5 py-3 text-right">
@@ -453,7 +451,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 											onClick={() => onViewDetails(row, selectedRac)}
 											variant="outline"
 											size="sm"
-											className="gap-1.5 px-3 py-1.5 text-xs font-medium text-fab-700 bg-fab-50 border-fab-200 rounded-lg hover:bg-fab-100 hover:border-fab-300 transition-colors"
+											className="gap-1.5 px-3 py-1.5 text-caption text-fab-700 bg-fab-50 border-fab-200 rounded-lg hover:bg-fab-100 hover:border-fab-300 transition-colors"
 										>
 											Analisar
 											<ArrowRight className="w-3.5 h-3.5" />

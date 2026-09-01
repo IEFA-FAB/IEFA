@@ -31,7 +31,6 @@ export const sucontTools: Tool[] = [
 		internalPath: "/auditor",
 		stage: "analisar",
 		icon: "ShieldCheck",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "monitoramento",
@@ -40,7 +39,6 @@ export const sucontTools: Tool[] = [
 		internalPath: "/monitoramento",
 		stage: "acompanhar",
 		icon: "Activity",
-		iconColor: "bg-tech-cyan",
 	},
 	{
 		id: "plataforma-doc",
@@ -50,7 +48,6 @@ export const sucontTools: Tool[] = [
 		internalPath: "/documentacao",
 		stage: "comunicar",
 		icon: "Zap",
-		iconColor: "bg-success",
 	},
 	{
 		id: "sau-chatbot",
@@ -59,7 +56,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/69f8cb5d-7656-42b2-91f1-36d998b02a37?authuser=1",
 		stage: "consultar",
 		icon: "MessageSquare",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "siafi-automate",
@@ -68,7 +64,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/f3995b07-12af-45bf-89b6-451723cfefb4?authuser=1",
 		stage: "comunicar",
 		icon: "Terminal",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "oficios-automate",
@@ -77,7 +72,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/2f39d31e-a0c6-435c-9c6f-00ae19039138?authuser=1",
 		stage: "comunicar",
 		icon: "FileText",
-		iconColor: "bg-success",
 	},
 	{
 		id: "manual-interno",
@@ -86,7 +80,6 @@ export const sucontTools: Tool[] = [
 		url: "https://docs.google.com/document/d/1E0rUh29RAmq7mEbJl50xKfA63szBv7kDwXLmTfocOWg/edit?tab=t.n2lgxw4p7bn1#heading=h.vlw5v11g3kkn",
 		stage: "consultar",
 		icon: "FileText",
-		iconColor: "bg-muted-foreground",
 	},
 	{
 		id: "radae-manuais",
@@ -95,7 +88,6 @@ export const sucontTools: Tool[] = [
 		url: "http://www.diref.intraer/index.php/servicos/manuais/manuais",
 		stage: "consultar",
 		icon: "BookOpen",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "chatbot-oficio-cabw",
@@ -104,7 +96,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/23333c8a-aa7a-4405-8156-fb893398a1da",
 		stage: "comunicar",
 		icon: "MessageSquare",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "chatbot-aut-oficios",
@@ -113,7 +104,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/2f39d31e-a0c6-435c-9c6f-00ae19039138",
 		stage: "comunicar",
 		icon: "Cpu",
-		iconColor: "bg-success",
 	},
 	{
 		id: "chatbot-tcu",
@@ -122,7 +112,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/e3ad873a-f9fd-44e0-8f50-1d7f39c06c46",
 		stage: "consultar",
 		icon: "ShieldCheck",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "fab-sucont-chatbot",
@@ -131,7 +120,6 @@ export const sucontTools: Tool[] = [
 		url: "https://notebooklm.google.com/notebook/2ea19b26-e16b-45b8-9aad-22f58d3b457a?authuser=1",
 		stage: "consultar",
 		icon: "Cpu",
-		iconColor: "bg-tech-cyan",
 	},
 	{
 		id: "subitens-genericos",
@@ -142,7 +130,6 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		racQuestions: [34],
 		icon: "FileBarChart",
-		iconColor: "bg-fab-blue",
 	},
 	{
 		id: "cruzamento-contas",
@@ -152,7 +139,6 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		racQuestions: [43],
 		icon: "BarChart3",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "analista-compatibilidade",
@@ -163,7 +149,6 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		racQuestions: [40, 41, 42],
 		icon: "Scale",
-		iconColor: "bg-tech-blue",
 	},
 	{
 		id: "conta-generica",
@@ -174,7 +159,6 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		racQuestions: [35],
 		icon: "Search",
-		iconColor: "bg-action",
 	},
 	{
 		id: "analistasaldoalongado",
@@ -185,7 +169,6 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		racQuestions: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
 		icon: "Activity",
-		iconColor: "bg-fab-600",
 	},
 	{
 		id: "sac-dgc",
@@ -195,7 +178,14 @@ export const sucontTools: Tool[] = [
 		internalPath: "/sac-dgc",
 		stage: "analisar",
 		icon: "FileSearch",
-		iconColor: "bg-tech-cyan",
+	},
+	{
+		id: "centro-monitoramento",
+		title: "Centro de Monitoramento Contábil",
+		description: "Inventário dos módulos e oráculos da SUCONT-3, por seção.",
+		internalPath: "/centro-monitoramento",
+		stage: "consultar",
+		icon: "Landmark",
 	},
 	{
 		id: "sau-system",

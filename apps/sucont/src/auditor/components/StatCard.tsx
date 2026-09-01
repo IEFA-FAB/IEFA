@@ -44,21 +44,9 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon
 					<p className={`text-label mb-0.5 text-muted-foreground`}>{title}</p>
 					<div className="flex flex-col">
 						{typeof value === "number" ? (
-							<h3
-								className={`text-xl font-bold tracking-tight leading-tight
-                text-foreground
-              `}
-							>
-								R$ {formatCompactNumber(value)}
-							</h3>
+							<h3 className={`text-heading leading-tight text-foreground`}>R$ {formatCompactNumber(value)}</h3>
 						) : (
-							<h3
-								className={`text-xl font-bold tracking-tight leading-tight
-                text-foreground
-              `}
-							>
-								{value}
-							</h3>
+							<h3 className={`text-heading leading-tight text-foreground`}>{value}</h3>
 						)}
 
 						{subtitle && (
@@ -82,7 +70,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon
 			</div>
 
 			<div className="flex justify-end items-end relative z-10 mt-auto">
-				<span className={`text-hint font-bold ${isPositive ? "text-success" : "text-destructive"}`}>{variation}</span>
+				<span className={`text-hint ${isPositive ? "text-success" : "text-destructive"}`}>{variation}</span>
 			</div>
 		</div>
 	)

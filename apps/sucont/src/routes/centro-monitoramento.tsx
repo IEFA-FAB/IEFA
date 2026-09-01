@@ -1,36 +1,19 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import {
-	ArrowLeft,
-	ArrowRight,
-	BarChart3,
-	BookOpen,
-	CheckCircle2,
-	ExternalLink,
-	FileSpreadsheet,
-	Globe,
-	Landmark,
-	LayoutDashboard,
-	Menu,
-	Plane,
-	Search,
-	Star,
-	TrendingUp,
-	Users,
-	X,
-} from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { ChevronRight, ExternalLink, Search, Star } from "lucide-react"
 import { useMemo, useState } from "react"
-import { LegalFooter } from "#/components/legal-footer"
+import { HubLayout } from "#/components/hub-layout"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
-import { Input } from "#/components/ui/input"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "#/components/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "#/components/ui/empty"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs"
 import type { SectionId } from "#/lib/centro-monitoramento-data"
 import { modulesData, routingKeywords } from "#/lib/centro-monitoramento-data"
-import { cn } from "#/lib/utils"
+import { useHubFilters } from "#/lib/hub-filters"
 
 export const Route = createFileRoute("/centro-monitoramento")({
 	component: RouteComponent,
 })
-
-type ActiveTab = "home" | SectionId
 
 interface ModuleItem {
 	id: string
@@ -42,518 +25,181 @@ interface ModuleItem {
 	highlighted?: boolean
 }
 
+const SECTIONS: Array<{ id: SectionId; label: string }> = [
+	{ id: "3.1", label: "Acompanhamento contábil" },
+	{ id: "3.2", label: "Suporte ao usuário" },
+	{ id: "geral", label: "Sistemas e guias" },
+]
+
+const SECTION_BADGE: Record<SectionId, string> = {
+	"3.1": "SUCONT-3.1",
+	"3.2": "SUCONT-3.2",
+	geral: "Âmbito geral",
+}
+
+function sectionOf(itemId: string): SectionId {
+	for (const section of SECTIONS) {
+		if (modulesData[section.id].items.some((i) => i.id === itemId)) return section.id
+	}
+	return "3.1"
+}
+
+/**
+ * Inventário dos módulos e oráculos da SUCONT-3.
+ *
+ * Esta tela era uma segunda aplicação dentro do app: barra lateral própria com
+ * quatro itens, campo de busca próprio, uma capa com chamada em 5xl e três cards
+ * de proposta de valor — ou seja, um SEGUNDO catálogo, competindo com o do hub e
+ * inalcançável por ele (a rota nunca esteve em `sucontTools`, nem na barra).
+ *
+ * Agora é uma ferramenta como as outras: a busca é a `?q=` do hub, as três seções
+ * são abas, e a capa saiu. O que sobrou é o que só existia aqui — o inventário.
+ */
 function RouteComponent() {
-	const [activeTab, setActiveTab] = useState<ActiveTab>("home")
-	const [searchQuery, setSearchQuery] = useState("")
-	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+	const { query } = useHubFilters()
+	const [section, setSection] = useState<SectionId>("3.1")
+	const trimmedQuery = query.trim()
 
 	const searchResults = useMemo(() => {
-		if (!searchQuery.trim()) return null
-		const query = searchQuery.toLowerCase()
-		const results: (ModuleItem & { sectionId: string })[] = []
+		if (!trimmedQuery) return null
+		const needle = trimmedQuery.toLowerCase()
+		const results: Array<ModuleItem & { sectionId: SectionId }> = []
 
-		const sections: SectionId[] = ["3.1", "3.2", "geral"]
-		for (const sectionId of sections) {
+		for (const { id: sectionId } of SECTIONS) {
 			for (const item of modulesData[sectionId].items) {
-				const matchName = item.name.toLowerCase().includes(query)
-				const matchPurpose = item.purpose.toLowerCase().includes(query)
 				const route = routingKeywords.find((r) => r.moduleId === item.id)
-				const matchKeyword = route?.keywords.some((kw) => kw.toLowerCase().includes(query))
-
-				if (matchName || matchPurpose || matchKeyword) {
-					results.push({ ...(item as ModuleItem), sectionId })
-				}
+				const matches =
+					item.name.toLowerCase().includes(needle) ||
+					item.purpose.toLowerCase().includes(needle) ||
+					route?.keywords.some((kw) => kw.toLowerCase().includes(needle))
+				if (matches) results.push({ ...(item as ModuleItem), sectionId })
 			}
 		}
 		return results
-	}, [searchQuery])
+	}, [trimmedQuery])
 
-	const handleTabChange = (tab: ActiveTab) => {
-		setActiveTab(tab)
-		setSearchQuery("")
-		setIsMobileMenuOpen(false)
-	}
-
-	function ChevronRight({ className }: { className?: string }) {
+	if (searchResults) {
 		return (
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="24"
-				height="24"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="2"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				aria-hidden="true"
-				className={className}
-			>
-				<title>Chevron right</title>
-				<path d="m9 18 6-6-6-6" />
-			</svg>
-		)
-	}
+			<HubLayout searchable>
+				<div className="mb-6 flex items-center justify-between gap-4 border-b border-border pb-4">
+					<h2 className="text-heading text-foreground">Resultados da busca</h2>
+					<Badge variant="muted">{searchResults.length} encontrado(s)</Badge>
+				</div>
 
-	function ModuleCard({ item, sectionId }: { item: ModuleItem; sectionId?: string }) {
-		let badgeText = "SUCONT-3.1"
-		let badgeColor = "bg-action/10 text-action border-action/30"
-
-		if (sectionId === "3.2" || (!sectionId && modulesData["3.2"].items.some((i) => i.id === item.id))) {
-			badgeText = "SUCONT-3.2"
-			badgeColor = "bg-action/10 text-action border-action/30"
-		} else if (sectionId === "geral" || (!sectionId && modulesData.geral.items.some((i) => i.id === item.id))) {
-			badgeText = "ÂMBITO GERAL"
-			badgeColor = "bg-success/10 text-success border-success/30"
-		}
-
-		return (
-			<div
-				className={cn(
-					"bg-card rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 group relative",
-					item.highlighted ? "border-warning/30 ring-2 ring-warning/20" : "border-border hover:border-action/30"
+				{searchResults.length > 0 ? (
+					<ModuleGrid items={searchResults.map((item) => ({ item, sectionId: item.sectionId }))} />
+				) : (
+					<Empty>
+						<EmptyHeader>
+							<EmptyMedia variant="icon">
+								<Search />
+							</EmptyMedia>
+							<EmptyTitle>Nenhum módulo encontrado</EmptyTitle>
+							<EmptyDescription>Não há ferramenta correspondente a "{trimmedQuery}". Tente outro termo ou a sigla da questão do RAC.</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
 				)}
-			>
-				{item.highlighted && <div className="absolute top-0 left-0 right-0 h-1 bg-warning z-20" />}
-				<div className="p-5 flex-1">
-					<div className="flex items-start justify-between gap-4 mb-3">
-						<div className="flex flex-col gap-1">
-							{item.highlighted && (
-								<span className="text-label text-warning mb-1 flex items-center gap-1">
-									<Star className="w-2.5 h-2.5 fill-warning" /> Destaque Operacional
-								</span>
-							)}
-							<h3
-								className={cn(
-									"font-bold leading-tight transition-colors",
-									item.highlighted ? "text-warning group-hover:text-warning/80" : "text-foreground group-hover:text-action"
-								)}
-							>
-								{item.name}
-							</h3>
-						</div>
-						<span className={cn("shrink-0 px-2.5 py-1 border text-label rounded-md", badgeColor)}>{badgeText}</span>
-					</div>
-					<p className="text-sm text-muted-foreground mb-5 leading-relaxed">{item.purpose}</p>
-
-					<div className={cn("space-y-2.5 p-3 rounded-lg border", item.highlighted ? "bg-warning/10 border-warning/30" : "bg-muted/50 border-border")}>
-						<span className={cn("text-label flex items-center gap-1.5", item.highlighted ? "text-warning" : "text-muted-foreground")}>
-							<Search className="w-3 h-3" /> Exemplos de Consulta
-						</span>
-						<ul className="space-y-1.5">
-							{item.examples.map((ex, i) => (
-								<li key={i} className="text-xs text-muted-foreground flex items-start gap-2 font-medium">
-									<ChevronRight className={cn("w-3 h-3 mt-0.5 shrink-0", item.highlighted ? "text-warning" : "text-action")} />
-									{ex}
-								</li>
-							))}
-						</ul>
-					</div>
-				</div>
-
-				<div className={cn("p-4 border-t", item.highlighted ? "bg-warning/10 border-warning/30" : "bg-card border-border")}>
-					{item.url ? (
-						<a
-							href={item.url}
-							target="_blank"
-							rel="noopener noreferrer"
-							className={cn(
-								"w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow-md",
-								item.highlighted ? "bg-warning hover:bg-warning/80 text-warning-foreground" : "bg-action hover:bg-action/80 text-action-foreground"
-							)}
-						>
-							Acessar Ferramenta
-							<ExternalLink className="w-4 h-4" />
-						</a>
-					) : (
-						<Button type="button" disabled variant="secondary" className="w-full bg-muted text-muted-foreground rounded-lg py-2.5 cursor-not-allowed">
-							Link Indisponível
-						</Button>
-					)}
-				</div>
-			</div>
+			</HubLayout>
 		)
 	}
-
-	const sectionTab = activeTab !== "home" ? (activeTab as SectionId) : null
 
 	return (
-		<div className="min-h-screen bg-muted flex flex-col md:flex-row font-sans selection:bg-action/15 selection:text-action">
-			{/* Mobile Header */}
-			<div className="md:hidden bg-surface-inverted text-surface-inverted-foreground p-4 flex items-center justify-between sticky top-0 z-20 shadow-md border-b border-action/50">
-				<div className="flex items-center gap-3 truncate pr-2">
-					<div className="bg-action p-1.5 rounded-md shrink-0">
-						<Plane className="w-5 h-5 text-white" />
-					</div>
-					<span className="font-bold text-sm sm:text-base tracking-tight truncate">Centro de Monitoramento Contábil da SUCONT-3</span>
-				</div>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-					aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
-					className="text-surface-inverted-muted hover:text-white hover:bg-transparent"
-				>
-					{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-				</Button>
-			</div>
+		<HubLayout searchable>
+			<Tabs value={section} onValueChange={(value) => setSection(value as SectionId)}>
+				<TabsList>
+					{SECTIONS.map((s) => (
+						<TabsTrigger key={s.id} value={s.id}>
+							{s.label}
+						</TabsTrigger>
+					))}
+				</TabsList>
 
-			{/* Sidebar */}
-			<aside
-				className={cn(
-					"fixed md:sticky top-0 left-0 h-screen w-72 bg-surface-inverted text-surface-inverted-muted flex flex-col transition-transform duration-300 z-30 border-r border-surface-inverted-border shadow-2xl md:shadow-none",
-					isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-				)}
-			>
-				<div className="p-6 hidden md:flex flex-col gap-4 border-b border-surface-inverted-border relative overflow-hidden">
-					<Plane className="absolute -right-4 -top-4 w-32 h-32 text-foreground/30 transform rotate-[-15deg] pointer-events-none" />
-
-					{/* Back to Hub */}
-					<Link to="/" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors relative z-10 w-fit">
-						<ArrowLeft className="w-3.5 h-3.5" />
-						Voltar ao Hub
-					</Link>
-
-					<div className="flex items-center gap-3 relative z-10">
-						<div className="bg-action p-2.5 rounded-xl shadow-lg border border-action/20 shrink-0">
-							<Landmark className="w-7 h-7 text-white" />
+				{SECTIONS.map((s) => (
+					<TabsContent key={s.id} value={s.id} className="pt-4">
+						<h2 className="text-heading text-foreground">{modulesData[s.id].title}</h2>
+						<div className="mt-6 space-y-8">
+							{groupItems(modulesData[s.id].items as readonly ModuleItem[]).map(([groupName, items]) => (
+								<section key={groupName} className="space-y-4">
+									{groupName !== "Geral" && <h3 className="text-label text-muted-foreground">{groupName}</h3>}
+									<ModuleGrid items={items.map((item) => ({ item, sectionId: s.id }))} />
+								</section>
+							))}
 						</div>
-						<div>
-							<h1 className="font-bold text-white text-sm tracking-tight leading-tight">Centro de Monitoramento Contábil da SUCONT-3</h1>
-							<span className="text-label text-action mt-1 block">DIREF • COMAER</span>
-						</div>
-					</div>
-				</div>
+					</TabsContent>
+				))}
+			</Tabs>
+		</HubLayout>
+	)
+}
 
-				<nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={() => handleTabChange("home")}
-						className={cn(
-							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
-							activeTab === "home" && !searchQuery
-								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
-								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
-						)}
-					>
-						<LayoutDashboard className={cn("w-5 h-5", activeTab === "home" && !searchQuery ? "text-action-foreground" : "")} />
-						Visão Geral
-					</Button>
+function groupItems(items: readonly ModuleItem[]): Array<[string, ModuleItem[]]> {
+	const groups = items.reduce<Record<string, ModuleItem[]>>((acc, item) => {
+		const group = item.group || "Geral"
+		acc[group] ??= []
+		acc[group].push(item)
+		return acc
+	}, {})
+	return Object.entries(groups)
+}
 
-					<div className="pt-6 pb-2 px-4 text-label text-muted-foreground">Módulos Operacionais</div>
-
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={() => handleTabChange("3.1")}
-						className={cn(
-							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
-							activeTab === "3.1" && !searchQuery
-								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
-								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
-						)}
-					>
-						<BarChart3 className={cn("w-5 h-5", activeTab === "3.1" && !searchQuery ? "text-action-foreground" : "")} />
-						Acompanhamento Contábil
-					</Button>
-
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={() => handleTabChange("3.2")}
-						className={cn(
-							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
-							activeTab === "3.2" && !searchQuery
-								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
-								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
-						)}
-					>
-						<Users className={cn("w-5 h-5", activeTab === "3.2" && !searchQuery ? "text-action-foreground" : "")} />
-						Suporte ao Usuário
-					</Button>
-
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={() => handleTabChange("geral")}
-						className={cn(
-							"w-full justify-start gap-3 px-4 py-3.5 rounded-xl transition-all duration-200",
-							activeTab === "geral" && !searchQuery
-								? "bg-action text-action-foreground shadow-md hover:bg-action hover:text-action-foreground"
-								: "text-surface-inverted-muted hover:bg-surface-inverted hover:text-surface-inverted-foreground"
-						)}
-					>
-						<Globe className={cn("w-5 h-5", activeTab === "geral" && !searchQuery ? "text-action-foreground" : "")} />
-						Sistemas e Guias
-					</Button>
-				</nav>
-			</aside>
-
-			{/* Mobile Overlay */}
-			{isMobileMenuOpen && (
-				<button
-					type="button"
-					aria-label="Fechar menu"
-					className="fixed inset-0 bg-overlay/80 backdrop-blur-sm z-20 md:hidden w-full cursor-default focus-visible:ring-[3px] focus-visible:ring-ring/50"
-					onClick={() => setIsMobileMenuOpen(false)}
-				/>
-			)}
-
-			{/* Main Content */}
-			<main className="flex-1 flex flex-col h-screen overflow-hidden bg-muted/50">
-				{/* Topbar / Search */}
-				<header className="bg-card border-b border-border/80 p-4 sm:px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
-					<div className="relative w-full max-w-2xl">
-						<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-						<Input
-							type="text"
-							placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="pl-12 pr-10 py-3 bg-muted/80 border-transparent focus:bg-card focus:border-action focus:ring-4 focus-visible:ring-ring/10 rounded-xl text-sm transition-all placeholder:text-muted-foreground text-foreground"
-						/>
-						{searchQuery && (
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-xs"
-								onClick={() => setSearchQuery("")}
-								aria-label="Limpar busca"
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-full transition-colors"
-							>
-								<X className="w-3.5 h-3.5" />
-							</Button>
-						)}
-					</div>
-				</header>
-
-				{/* Scrollable Content Area */}
-				<div className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">
-					<div className="max-w-7xl mx-auto">
-						{/* Search Results View */}
-						{searchQuery.trim() ? (
-							<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-								<div className="flex items-center justify-between border-b border-border pb-4">
-									<h2 className="text-display text-foreground">Resultados da Busca</h2>
-									<span className="px-3 py-1 bg-action/15 text-action rounded-full text-sm font-bold">{searchResults?.length} encontrado(s)</span>
-								</div>
-
-								{searchResults && searchResults.length > 0 ? (
-									<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-										{searchResults.map((item, idx) => (
-											<ModuleCard key={idx} item={item} sectionId={item.sectionId} />
-										))}
-									</div>
-								) : (
-									<div className="text-center py-24 bg-card rounded-2xl border border-border border-dashed shadow-sm">
-										<div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-											<Search className="w-8 h-8 text-muted-foreground" />
-										</div>
-										<h3 className="text-xl font-bold text-foreground mb-2">Nenhum módulo encontrado</h3>
-										<p className="text-muted-foreground max-w-md mx-auto">
-											Não encontramos ferramentas correspondentes para "{searchQuery}". Tente buscar por outros termos ou siglas.
-										</p>
-									</div>
-								)}
-							</div>
-						) : activeTab === "home" ? (
-							/* Home View */
-							<div className="space-y-8 animate-in fade-in duration-700">
-								{/* Hero Section */}
-								<div className="relative bg-surface-inverted rounded-xl p-8 sm:p-12 text-surface-inverted-foreground shadow-2xl overflow-hidden border border-action/50">
-									<div className="absolute top-0 right-0 w-[500px] h-[500px] bg-action/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-									<div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-action/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
-									<Plane className="absolute -right-10 top-10 w-96 h-96 text-surface-inverted-foreground/[0.03] transform rotate-[-30deg] pointer-events-none" />
-
-									<div className="relative z-10 max-w-3xl">
-										<h2 className="text-4xl sm:text-5xl font-bold mb-5 tracking-tight leading-[1.1]">
-											Centro de Monitoramento Contábil <br className="hidden sm:block" />
-											<span className="text-surface-inverted-accent">da SUCONT-3</span>
-										</h2>
-
-										<div className="flex flex-wrap gap-4">
-											<Button
-												type="button"
-												size="lg"
-												onClick={() => handleTabChange("3.1")}
-												className="bg-action hover:bg-action/80 text-action-foreground px-7 py-3.5 rounded-xl shadow-lg group"
-											>
-												<BarChart3 className="w-5 h-5 text-action-foreground" />
-												Acompanhamento Contábil
-											</Button>
-											<Button
-												type="button"
-												variant="outline"
-												size="lg"
-												onClick={() => handleTabChange("3.2")}
-												className="bg-surface-inverted/80 hover:bg-surface-inverted-border text-surface-inverted-foreground border-surface-inverted-border px-7 py-3.5 rounded-xl shadow-none group"
-											>
-												<Users className="w-5 h-5 text-surface-inverted-muted group-hover:text-white transition-colors" />
-												Suporte ao Usuário
-											</Button>
-											<Button
-												type="button"
-												variant="outline"
-												size="lg"
-												onClick={() => handleTabChange("geral")}
-												className="bg-surface-inverted/80 hover:bg-surface-inverted-border text-surface-inverted-foreground border-surface-inverted-border px-7 py-3.5 rounded-xl shadow-none group"
-											>
-												<Globe className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
-												Sistemas e Guias
-											</Button>
-										</div>
-									</div>
-								</div>
-
-								{/* Value Proposition Cards */}
-								<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
-										<div className="bg-action/10 p-3 rounded-xl shrink-0">
-											<TrendingUp className="w-6 h-6 text-action" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground mb-1">Eficiência Operacional</h4>
-											<p className="text-sm text-muted-foreground leading-relaxed">
-												Acesso unificado a todos os oráculos e ferramentas de cruzamento de dados.
-											</p>
-										</div>
-									</div>
-									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
-										<div className="bg-success/10 p-3 rounded-xl shrink-0">
-											<CheckCircle2 className="w-6 h-6 text-success" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground mb-1">Conformidade e Controle</h4>
-											<p className="text-sm text-muted-foreground leading-relaxed">
-												Monitoramento rigoroso de saldos transitórios, alongados e contas genéricas.
-											</p>
-										</div>
-									</div>
-									<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex items-start gap-4">
-										<div className="bg-warning/10 p-3 rounded-xl shrink-0">
-											<Landmark className="w-6 h-6 text-warning" />
-										</div>
-										<div>
-											<h4 className="font-bold text-foreground mb-1">Governança DIREF</h4>
-											<p className="text-sm text-muted-foreground leading-relaxed">
-												Alinhamento total às diretrizes de contabilidade e gestão financeira do COMAER.
-											</p>
-										</div>
-									</div>
-								</div>
-
-								{/* Quick Access Sections */}
-								<div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-									<div className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col group hover:border-action/30 transition-colors">
-										<div className="w-14 h-14 bg-surface-inverted text-surface-inverted-foreground rounded-2xl flex items-center justify-center mb-6 shadow-md">
-											<FileSpreadsheet className="w-7 h-7" />
-										</div>
-										<h3 className="text-display text-foreground mb-3">Acompanhamento Contábil</h3>
-										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
-											Ferramentas analíticas avançadas para cruzamento de contas, monitoramento de saldos transitórios e verificação de conformidade contábil.
-										</p>
-										<Button
-											type="button"
-											variant="link"
-											onClick={() => handleTabChange("3.1")}
-											className="h-auto p-0 text-action hover:text-action/80 hover:no-underline gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
-										>
-											Acessar Analistas <ArrowRight className="w-5 h-5" />
-										</Button>
-									</div>
-
-									<div className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col group hover:border-action/30 transition-colors">
-										<div className="w-14 h-14 bg-surface-inverted text-surface-inverted-foreground rounded-2xl flex items-center justify-center mb-6 shadow-md">
-											<BookOpen className="w-7 h-7" />
-										</div>
-										<h3 className="text-display text-foreground mb-3">Suporte ao Usuário</h3>
-										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
-											Oráculos especializados e interativos para suporte em SIAFI, execução orçamentária, folha de pagamento, suprimento de fundos e restos a
-											pagar.
-										</p>
-										<Button
-											type="button"
-											variant="link"
-											onClick={() => handleTabChange("3.2")}
-											className="h-auto p-0 text-action hover:text-action/80 hover:no-underline gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
-										>
-											Acessar Oráculos <ArrowRight className="w-5 h-5" />
-										</Button>
-									</div>
-
-									<div className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col group hover:border-success/30 transition-colors">
-										<div className="w-14 h-14 bg-surface-inverted text-surface-inverted-foreground rounded-2xl flex items-center justify-center mb-6 shadow-md">
-											<Globe className="w-7 h-7" />
-										</div>
-										<h3 className="text-display text-foreground mb-3">Sistemas e Guias</h3>
-										<p className="text-muted-foreground mb-8 flex-1 leading-relaxed text-lg">
-											Acesso rápido aos sistemas oficiais do COMAER e Governo Federal, além de trilhas de estudo e guias para novos membros.
-										</p>
-										<Button
-											type="button"
-											variant="link"
-											onClick={() => handleTabChange("geral")}
-											className="h-auto p-0 text-success hover:text-success/80 hover:no-underline gap-2 text-lg group-hover:translate-x-1 transition-transform w-fit"
-										>
-											Acessar Sistemas <ArrowRight className="w-5 h-5" />
-										</Button>
-									</div>
-								</div>
-							</div>
-						) : sectionTab ? (
-							/* Section View (3.1, 3.2 or geral) */
-							<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-								<div className="bg-card p-8 rounded-xl border border-border shadow-sm relative overflow-hidden">
-									<div className="absolute top-0 right-0 w-64 h-64 bg-muted/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-									<div className="relative z-10">
-										<div className="flex items-center gap-3 mb-3">
-											<div className={cn("p-2 rounded-lg text-white", sectionTab === "3.1" ? "bg-action" : sectionTab === "3.2" ? "bg-action" : "bg-success")}>
-												{sectionTab === "3.1" ? (
-													<BarChart3 className="w-5 h-5" />
-												) : sectionTab === "3.2" ? (
-													<Users className="w-5 h-5" />
-												) : (
-													<Globe className="w-5 h-5" />
-												)}
-											</div>
-											<span className="font-bold text-muted-foreground tracking-widest uppercase text-xs">DIREF • SUCONT</span>
-										</div>
-										<h2 className="text-display text-foreground mb-3">{modulesData[sectionTab].title}</h2>
-										<p className="text-muted-foreground text-lg max-w-3xl">
-											Selecione um dos itens abaixo para acessar a ferramenta ou sistema correspondente.
-										</p>
-									</div>
-								</div>
-
-								{/* Grouped Items */}
-								{Object.entries(
-									(modulesData[sectionTab].items as readonly ModuleItem[]).reduce<Record<string, ModuleItem[]>>((acc, item) => {
-										const group = item.group || "Geral"
-										if (!acc[group]) acc[group] = []
-										acc[group].push(item)
-										return acc
-									}, {})
-								).map(([groupName, items]) => (
-									<div key={groupName} className="space-y-4">
-										{groupName !== "Geral" && <h3 className="text-xl font-bold text-foreground border-b border-border pb-2 mb-4">{groupName}</h3>}
-										<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-											{items.map((item) => (
-												<ModuleCard key={item.id} item={item} sectionId={sectionTab} />
-											))}
-										</div>
-									</div>
-								))}
-							</div>
-						) : null}
-					</div>
-				</div>
-			</main>
-
-			{/* Dentro da coluna de conteúdo: a raiz é `md:flex-row`, e um filho direto
-				    viraria uma terceira coluna estreita em vez de rodapé. */}
-			<LegalFooter />
+function ModuleGrid({ items }: { items: Array<{ item: ModuleItem; sectionId?: SectionId }> }) {
+	return (
+		<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+			{items.map(({ item, sectionId }) => (
+				<ModuleCard key={item.id} item={item} sectionId={sectionId} />
+			))}
 		</div>
+	)
+}
+
+function ModuleCard({ item, sectionId }: { item: ModuleItem; sectionId?: SectionId }) {
+	const resolved = sectionId ?? sectionOf(item.id)
+
+	return (
+		<Card className="h-full">
+			<CardHeader className="gap-2">
+				{item.highlighted && (
+					<Badge variant="warning">
+						<Star />
+						Destaque operacional
+					</Badge>
+				)}
+				<CardTitle>{item.name}</CardTitle>
+				<Badge variant={resolved === "geral" ? "success" : "action"} className="mt-1 w-fit">
+					{SECTION_BADGE[resolved]}
+				</Badge>
+			</CardHeader>
+
+			<CardContent className="flex-1 space-y-4">
+				<p className="text-body text-muted-foreground leading-relaxed">{item.purpose}</p>
+
+				<div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+					<span className="text-label flex items-center gap-1.5 text-muted-foreground">
+						<Search className="size-3" /> Exemplos de consulta
+					</span>
+					<ul className="space-y-1.5">
+						{item.examples.map((ex) => (
+							<li key={ex} className="text-caption flex items-start gap-2 text-muted-foreground">
+								<ChevronRight className="mt-0.5 size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+								{ex}
+							</li>
+						))}
+					</ul>
+				</div>
+			</CardContent>
+
+			<CardFooter>
+				{item.url ? (
+					<Button className="w-full" nativeButton={false} render={<a href={item.url} target="_blank" rel="noopener noreferrer" />}>
+						Acessar ferramenta
+						<ExternalLink className="size-4" />
+					</Button>
+				) : (
+					<Button className="w-full" disabled variant="secondary">
+						Link indisponível
+					</Button>
+				)}
+			</CardFooter>
+		</Card>
 	)
 }

@@ -63,11 +63,13 @@ export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score }) => 
 
 			<div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
 				<div className="flex flex-col items-center">
-					<span className="text-xl font-bold font-mono tracking-tight" style={{ color: iccColor(score) }}>
+					<span className="text-heading font-mono" style={{ color: iccColor(score) }}>
 						{score.toFixed(1)}%
 					</span>
 					<div className="h-px w-8 my-0.5 bg-border" />
-					<span className="text-hint font-bold text-muted-foreground uppercase tracking-widest text-center px-2">{iccLabel(score)}</span>
+					{/* `.text-hint`, não `.text-label`: o rótulo cabe dentro do arco, e o
+					    letter-spacing do label o fazia transbordar sobre o traçado. */}
+					<span className="text-hint text-muted-foreground text-center px-2 leading-tight">{iccLabel(score)}</span>
 				</div>
 			</div>
 		</div>

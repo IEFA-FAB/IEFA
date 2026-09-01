@@ -80,6 +80,7 @@ const TOOL_PATHS = [
 	"/conta-generica",
 	"/analistasaldoalongado",
 	"/sac-dgc",
+	"/centro-monitoramento",
 ]
 
 const router = createRouter({

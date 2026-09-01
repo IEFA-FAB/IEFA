@@ -101,10 +101,10 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 				<div className="p-5 border-b border-border flex items-center justify-between bg-muted/50">
 					<div className="flex items-center gap-3">
 						<MessageSquareText className="w-6 h-6 text-action" />
-						<h2 className="text-xl font-bold text-foreground">
+						<h2 className="text-heading text-foreground">
 							Gerar Mensagem SIAFI: <span className="text-action">{record.ug}</span>
 						</h2>
-						<span className="text-label bg-muted text-muted-foreground px-2 py-0.5 rounded-lg">
+						<span className="text-caption bg-muted text-muted-foreground px-2 py-0.5 rounded-lg">
 							{context === "RANKING" ? "Modelo Comparativo" : "Modelo Evolutivo"}
 						</span>
 					</div>
@@ -116,7 +116,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 				{/* Configuration */}
 				<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-card">
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-number" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+						<label htmlFor="siafi-msg-number" className="text-label text-muted-foreground">
 							NR MENSAGEM
 						</label>
 						<Input
@@ -124,12 +124,12 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							type="text"
 							readOnly
 							value={assignedNumber !== null ? String(assignedNumber) : "atribuído ao registrar"}
-							className="h-auto bg-muted py-3 px-4 text-base text-muted-foreground shadow-none"
+							className="h-auto bg-muted py-3 px-4 text-body text-muted-foreground shadow-none"
 						/>
-						<p className="text-[11px] text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
+						<p className="text-hint text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
 					</div>
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-deadline" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+						<label htmlFor="siafi-msg-deadline" className="text-label text-muted-foreground">
 							PRAZO (DATA LIMITE)
 						</label>
 						<Input
@@ -137,7 +137,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							type="text"
 							value={deadline}
 							onChange={(e) => setDeadline(e.target.value)}
-							className="h-auto bg-muted/50 py-3 px-4 text-base text-foreground shadow-none"
+							className="h-auto bg-muted/50 py-3 px-4 text-body text-foreground shadow-none"
 							placeholder="DD/MM/AAAA"
 						/>
 					</div>
@@ -146,7 +146,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 				{/* Preview Container */}
 				<div className="flex-1 flex flex-col min-h-0 bg-muted/50 mx-6 mb-0 rounded-t-xl border-t border-x border-border">
 					<div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
-						<span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Pré-visualização da Mensagem</span>
+						<span className="text-label text-muted-foreground">Pré-visualização da Mensagem</span>
 						<span className="text-label bg-action/10 text-action px-2 py-0.5 rounded-lg border border-action/30">Formato Texto Simples</span>
 					</div>
 
@@ -154,7 +154,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<textarea
 							value={editedMessage}
 							onChange={(e) => setEditedMessage(e.target.value)}
-							className="w-full h-full p-6 bg-transparent font-mono text-sm text-foreground whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
+							className="w-full h-full p-6 bg-transparent font-mono text-body text-foreground whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
 							spellCheck={false}
 						/>
 					</div>
@@ -162,7 +162,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 
 				{/* Footer */}
 				<div className="p-6 bg-card border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-					<span className="text-xs text-muted-foreground">
+					<span className="text-caption text-muted-foreground">
 						{assignedNumber !== null
 							? `MSG NR ${assignedNumber} registrada. Cole este texto no sistema de mensageria SIAFI.`
 							: "Registrar grava a mensagem, atribui o número da sequência e copia o texto final."}

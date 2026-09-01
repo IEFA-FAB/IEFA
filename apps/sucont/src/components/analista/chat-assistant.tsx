@@ -120,12 +120,12 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 	}
 
 	return (
-		<div className="bg-card p-6 rounded-2xl shadow-sm border border-border mt-8">
-			<h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
+		<div className="bg-card p-6 rounded-xl shadow-sm border border-border mt-8">
+			<h3 className="text-heading text-foreground mb-4 flex items-center">
 				<Bot className="w-5 h-5 mr-2 text-action" />
 				Oráculo SUCONT
 			</h3>
-			<p className="text-sm text-muted-foreground mb-4">Assistente técnico e estratégico especializado em Contabilidade Pública Federal (COMAER).</p>
+			<p className="text-body text-muted-foreground mb-4">Assistente técnico e estratégico especializado em Contabilidade Pública Federal (COMAER).</p>
 
 			<form onSubmit={handleSearch} className="flex gap-2">
 				<div className="relative flex-1">
@@ -150,7 +150,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 						<div className="p-2 bg-muted rounded-lg shrink-0 mt-1">
 							<Bot className="w-4 h-4 text-muted-foreground" />
 						</div>
-						<div className="text-foreground text-sm whitespace-pre-wrap leading-relaxed">
+						<div className="text-foreground text-body whitespace-pre-wrap leading-relaxed">
 							{answer.split("**").map((part, i) =>
 								i % 2 === 1 ? (
 									<strong key={i} className="text-foreground">
@@ -166,7 +166,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 			)}
 
 			<div className="mt-4 flex flex-wrap gap-2">
-				<span className="text-xs text-muted-foreground font-medium mr-1 py-1">Sugestões:</span>
+				<span className="text-caption text-muted-foreground mr-1 py-1">Sugestões:</span>
 				<Button
 					type="button"
 					onClick={() => setQuery("Qual ODS tem mais inconsistências?")}

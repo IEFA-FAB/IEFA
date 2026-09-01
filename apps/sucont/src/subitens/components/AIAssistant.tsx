@@ -116,7 +116,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									<Bot size={18} />
 								</div>
 								<div>
-									<h3 className="font-bold text-sm">Assistente SUCONT</h3>
+									<h3 className="text-subheading">Assistente SUCONT</h3>
 									<p className="text-label text-white/60">IA de Análise Contábil</p>
 								</div>
 							</div>
@@ -149,7 +149,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 										</div>
 										<div
 											className={cn(
-												"p-3 rounded-2xl text-sm leading-relaxed",
+												"p-3 rounded-xl text-body leading-relaxed",
 												msg.role === "user"
 													? "bg-fab-blue text-white rounded-tr-sm"
 													: "bg-card border border-fab-blue/10 text-fab-blue/80 rounded-tl-sm shadow-sm"
@@ -165,9 +165,9 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									<div className="w-8 h-8 rounded-full bg-fab-gold text-white flex items-center justify-center shrink-0">
 										<Bot size={14} />
 									</div>
-									<div className="p-4 rounded-2xl bg-card border border-fab-blue/10 rounded-tl-sm shadow-sm flex items-center gap-2">
+									<div className="p-4 rounded-xl bg-card border border-fab-blue/10 rounded-tl-sm shadow-sm flex items-center gap-2">
 										<Loader2 size={16} className="animate-spin text-fab-blue/40" />
-										<span className="text-xs text-fab-blue/40 font-medium">Analisando dados...</span>
+										<span className="text-caption text-fab-blue/40">Analisando dados...</span>
 									</div>
 								</div>
 							)}
@@ -183,7 +183,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									onChange={(e) => setInput(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && handleSend()}
 									placeholder="Faça uma pergunta sobre os dados..."
-									className="h-auto flex-1 border-none bg-transparent p-0 text-sm text-fab-blue shadow-none outline-none focus-visible:border-none focus-visible:ring-0"
+									className="h-auto flex-1 border-none bg-transparent p-0 text-body text-fab-blue shadow-none outline-none focus-visible:border-none focus-visible:ring-0"
 								/>
 								<Button
 									onClick={isStreaming ? stop : handleSend}
