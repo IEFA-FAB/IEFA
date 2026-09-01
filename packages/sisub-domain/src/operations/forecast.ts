@@ -13,8 +13,8 @@ import type { DeleteForecast, GetUserDefaultMessHall, ListMealForecasts, Persist
 import type { UserContext } from "../types/context.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 
-// `mess_halls(code)` aninhado vem na relation `messHallsInCore` (FK mess_hall_id) → contrato `mess_halls`.
-const FORECAST_RELATIONS: Record<string, string> = { messHallsInCore: "mess_halls" }
+// `mess_halls(code)` aninhado vem na relation `messHallsInKitchen` (FK mess_hall_id) → contrato `mess_halls`.
+const FORECAST_RELATIONS: Record<string, string> = { messHallsInKitchen: "mess_halls" }
 
 type ForecastListItem = { date: string; meal: string; will_eat: boolean; mess_halls: { code: string | null } | null }
 
@@ -22,7 +22,7 @@ export async function listMealForecasts(db: SisubDb, input: ListMealForecasts): 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.mealForecastsInKitchen.findMany({
 			columns: { date: true, meal: true, willEat: true },
-			with: { messHallsInCore: { columns: { code: true } } },
+			with: { messHallsInKitchen: { columns: { code: true } } },
 			where: and(
 				eq(mealForecastsInKitchen.userId, input.userId),
 				gte(mealForecastsInKitchen.date, input.startDate),

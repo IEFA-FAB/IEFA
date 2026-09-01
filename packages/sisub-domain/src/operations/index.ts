@@ -25,6 +25,32 @@ export {
 export type { CatalogScope, CatalogScopeValue } from "./catalog-scope.ts"
 export { CATALOG_SCOPE_VALUES, folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
 export {
+	CONSERVATION_CLASSES,
+	CONSERVATION_LABELS,
+	type ConditioningSpec,
+	type ConservationClass,
+	describeConditioning,
+	isConservationClass,
+	isPackageType,
+	isTemperatureOutOfRange,
+	meetsMinimumShelfLife,
+	PACKAGE_TYPE_LABELS,
+	PACKAGE_TYPES,
+	type PackageType,
+	parseConservationFromCatmat,
+	parseTemperatureCeiling,
+	requiresRefrigeratedTransport,
+	TEMPERATURE_CONTROLLED,
+	TEMPERATURE_VERDICTS,
+	type TemperatureRange,
+	type TemperatureVerdict,
+	TRANSPORT_LABELS,
+	TRANSPORT_REQUIREMENTS,
+	type TransportRequirement,
+	temperatureDivergenceReason,
+	temperatureVerdict,
+} from "./conditioning.ts"
+export {
 	fetchForecasts,
 	fetchMessHalls,
 	fetchPresences,
@@ -107,6 +133,23 @@ export {
 	listFrozenPreparations,
 	updateFrozenPreparation,
 } from "./frozen-preparation.ts"
+export {
+	compareDeclaration,
+	createLocalVerifier,
+	type DeclarationLoader,
+	describeVerdict,
+	type GpcDeclaration,
+	type GpcRequirement,
+	type GtinSpecificationVerifier,
+	isVerdictStale,
+	SPECIFICATION_VERDICTS,
+	type SpecificationComparison,
+	type SpecificationDivergence,
+	type SpecificationVerdict,
+	specFingerprint,
+	type VerificationRequest,
+	type VerificationResult,
+} from "./gs1-specification.ts"
 export {
 	type GtinHierarchyNode,
 	hasValidCheckDigit,
@@ -273,6 +316,22 @@ export {
 	updatePurchaseItem,
 	upsertPurchaseItemIngredient,
 } from "./purchase-item.ts"
+export {
+	checkLotTemperatures,
+	hasTemperatureDivergence,
+	LOT_BALANCE_STATUSES,
+	type LotBalanceStatus,
+	type LotBalanceSummary,
+	type LotTemperatureCheck,
+	type LotValidationIssue,
+	lotBalance,
+	nextSyntheticSequence,
+	type ReceiptLotDraft,
+	roundQuantity,
+	sumLotQuantities,
+	syntheticLotCode,
+	validateReceiptLots,
+} from "./receipt-lots.ts"
 export {
 	copyRecipeFlow,
 	createStepTemplate,

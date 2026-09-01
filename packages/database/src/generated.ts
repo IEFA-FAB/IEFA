@@ -1878,6 +1878,47 @@ export type Database = {
         }
         Relationships: []
       }
+      item: {
+        Row: {
+          catalog_scope: string
+          created_at: string
+          deleted_at: string | null
+          description: string
+          id: string
+          kind: string
+          measure_unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          catalog_scope?: string
+          created_at?: string
+          deleted_at?: string | null
+          description: string
+          id?: string
+          kind?: string
+          measure_unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          catalog_scope?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          kind?: string
+          measure_unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_measure_unit_fkey"
+            columns: ["measure_unit"]
+            isOneToOne: false
+            referencedRelation: "measure_unit"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       kitchen: {
         Row: {
           address_bairro: string | null
@@ -8816,6 +8857,14 @@ export type Database = {
           catmat_match_score: number | null
           catmat_match_status: string | null
           created_at: string
+          conservation_class: string | null
+          min_shelf_life_days_on_delivery: number | null
+          package_net_content: number | null
+          package_net_content_unit: string | null
+          package_type: string | null
+          storage_temp_max_c: number | null
+          storage_temp_min_c: number | null
+          transport_requirement: string | null
           deleted_at: string | null
           delivery_conditioning: string | null
           description: string
@@ -8835,6 +8884,14 @@ export type Database = {
           catmat_match_score?: number | null
           catmat_match_status?: string | null
           created_at?: string
+          conservation_class?: string | null
+          min_shelf_life_days_on_delivery?: number | null
+          package_net_content?: number | null
+          package_net_content_unit?: string | null
+          package_type?: string | null
+          storage_temp_max_c?: number | null
+          storage_temp_min_c?: number | null
+          transport_requirement?: string | null
           deleted_at?: string | null
           delivery_conditioning?: string | null
           description: string
@@ -8854,6 +8911,14 @@ export type Database = {
           catmat_match_score?: number | null
           catmat_match_status?: string | null
           created_at?: string
+          conservation_class?: string | null
+          min_shelf_life_days_on_delivery?: number | null
+          package_net_content?: number | null
+          package_net_content_unit?: string | null
+          package_type?: string | null
+          storage_temp_max_c?: number | null
+          storage_temp_min_c?: number | null
+          transport_requirement?: string | null
           deleted_at?: string | null
           delivery_conditioning?: string | null
           description?: string

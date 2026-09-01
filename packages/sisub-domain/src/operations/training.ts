@@ -21,7 +21,7 @@ import {
 	equipmentUnitInKitchen,
 	kitchenAtaDraftInProcurement,
 	kitchenAtaDraftSelectionInProcurement,
-	kitchenInCore,
+	kitchenInKitchen,
 	mealForecastsInKitchen,
 	mealPresencesInKitchen,
 	mealTypeInKitchen,
@@ -29,7 +29,7 @@ import {
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	menuTemplateMealInKitchen,
-	messHallsInCore,
+	messHallsInKitchen,
 	otherPresencesInKitchen,
 	procurementListKitchenInProcurement,
 	procurementListSelectionInProcurement,
@@ -45,7 +45,7 @@ import {
 	type SisubDb,
 	stepTemplateInKitchen,
 	stepTemplateUtensilInKitchen,
-	trainingResetLogInCore,
+	trainingResetLogInKitchen,
 	unitsInCore,
 	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
@@ -150,9 +150,9 @@ export type TrainingResetResult = {
 export async function resolveTrainingScope(db: SisubDb): Promise<TrainingScope> {
 	const [units, kitchens, messHalls] = await Promise.all([
 		runQuery("FETCH_FAILED", () => db.select({ id: unitsInCore.id, code: unitsInCore.code }).from(unitsInCore).where(eq(unitsInCore.isTraining, true))),
-		runQuery("FETCH_FAILED", () => db.select({ id: kitchenInCore.id }).from(kitchenInCore).where(eq(kitchenInCore.isTraining, true))),
+		runQuery("FETCH_FAILED", () => db.select({ id: kitchenInKitchen.id }).from(kitchenInKitchen).where(eq(kitchenInKitchen.isTraining, true))),
 		runQuery("FETCH_FAILED", () =>
-			db.select({ id: messHallsInCore.id, code: messHallsInCore.code }).from(messHallsInCore).where(eq(messHallsInCore.isTraining, true))
+			db.select({ id: messHallsInKitchen.id, code: messHallsInKitchen.code }).from(messHallsInKitchen).where(eq(messHallsInKitchen.isTraining, true))
 		),
 	])
 
@@ -535,7 +535,10 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 	// `id = undefined` e o reset correria sem rastro nenhum — o cenário que este registro
 	// antecipado existe para impedir.
 	const logRow = await insertOneOrFail("INSERT_FAILED", "no row returned inserting the training reset log", () =>
-		db.insert(trainingResetLogInCore).values({ actorId, startedAt: startedAt.toISOString(), status: "running" }).returning({ id: trainingResetLogInCore.id })
+		db
+			.insert(trainingResetLogInKitchen)
+			.values({ actorId, startedAt: startedAt.toISOString(), status: "running" })
+			.returning({ id: trainingResetLogInKitchen.id })
 	)
 
 	await closeAbandonedResets(db, logRow.id)
@@ -628,9 +631,9 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 		const durationMs = Date.now() - lockedAt
 		await runQuery("UPDATE_FAILED", () =>
 			db
-				.update(trainingResetLogInCore)
+				.update(trainingResetLogInKitchen)
 				.set({ finishedAt: new Date().toISOString(), durationMs, queuedMs, deletedCounts, status: "succeeded" })
-				.where(eq(trainingResetLogInCore.id, logRow.id))
+				.where(eq(trainingResetLogInKitchen.id, logRow.id))
 				.then(() => undefined)
 		)
 
@@ -645,7 +648,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 		// real é obrigação.
 		try {
 			await db
-				.update(trainingResetLogInCore)
+				.update(trainingResetLogInKitchen)
 				.set({
 					finishedAt: new Date().toISOString(),
 					// Falha ANTES do lock (RESET_BUSY, conexão): não houve trabalho, e `queued_ms`
@@ -655,7 +658,7 @@ export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise
 					status: "failed",
 					errorMessage: describeDriverError(error),
 				})
-				.where(eq(trainingResetLogInCore.id, logRow.id))
+				.where(eq(trainingResetLogInKitchen.id, logRow.id))
 		} catch (logError) {
 			// Linha fica em `running` e um reset posterior vai reclassificá-la como
 			// `abandoned` — perdendo ESTA causa, que é a real. É o melhor que se consegue
@@ -684,12 +687,12 @@ export async function fetchTrainingScope(db: SisubDb, ctx: UserContext): Promise
 				.from(unitsInCore)
 				.where(eq(unitsInCore.id, BigInt(scope.unit_id)))
 		),
-		runQuery("FETCH_FAILED", () => db.select({ name: kitchenInCore.displayName }).from(kitchenInCore).where(eq(kitchenInCore.id, scope.kitchen_id))),
+		runQuery("FETCH_FAILED", () => db.select({ name: kitchenInKitchen.displayName }).from(kitchenInKitchen).where(eq(kitchenInKitchen.id, scope.kitchen_id))),
 		runQuery("FETCH_FAILED", () =>
 			db
-				.select({ name: messHallsInCore.displayName })
-				.from(messHallsInCore)
-				.where(eq(messHallsInCore.id, BigInt(scope.mess_hall_id)))
+				.select({ name: messHallsInKitchen.displayName })
+				.from(messHallsInKitchen)
+				.where(eq(messHallsInKitchen.id, BigInt(scope.mess_hall_id)))
 		),
 		runQuery("FETCH_FAILED", () => db.select({ id: dailyMenuInKitchen.id }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.kitchenId, scope.kitchen_id))),
 		runQuery("FETCH_FAILED", () =>
@@ -720,18 +723,18 @@ export async function listTrainingResets(db: SisubDb, ctx: UserContext, input: L
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				id: trainingResetLogInCore.id,
-				actor_id: trainingResetLogInCore.actorId,
-				started_at: trainingResetLogInCore.startedAt,
-				finished_at: trainingResetLogInCore.finishedAt,
-				duration_ms: trainingResetLogInCore.durationMs,
-				queued_ms: trainingResetLogInCore.queuedMs,
-				deleted_counts: trainingResetLogInCore.deletedCounts,
-				status: trainingResetLogInCore.status,
-				error_message: trainingResetLogInCore.errorMessage,
+				id: trainingResetLogInKitchen.id,
+				actor_id: trainingResetLogInKitchen.actorId,
+				started_at: trainingResetLogInKitchen.startedAt,
+				finished_at: trainingResetLogInKitchen.finishedAt,
+				duration_ms: trainingResetLogInKitchen.durationMs,
+				queued_ms: trainingResetLogInKitchen.queuedMs,
+				deleted_counts: trainingResetLogInKitchen.deletedCounts,
+				status: trainingResetLogInKitchen.status,
+				error_message: trainingResetLogInKitchen.errorMessage,
 			})
-			.from(trainingResetLogInCore)
-			.orderBy(desc(trainingResetLogInCore.startedAt))
+			.from(trainingResetLogInKitchen)
+			.orderBy(desc(trainingResetLogInKitchen.startedAt))
 			.limit(input.limit ?? 20)
 	)
 	return rows as TrainingResetLogRow[]

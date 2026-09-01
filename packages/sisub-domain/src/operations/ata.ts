@@ -19,7 +19,7 @@
 
 import {
 	folderInKitchen,
-	kitchenInCore,
+	kitchenInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	menuTemplateMealInKitchen,
@@ -133,7 +133,7 @@ type ItemInsert = typeof procurementListItemInProcurement.$inferInsert
 
 const DETAILS_RELATIONS: Record<string, string> = {
 	procurementListSelectionInProcurements: "selections",
-	kitchenInCore: "kitchen",
+	kitchenInKitchen: "kitchen",
 	menuTemplateInKitchen: "template",
 }
 
@@ -845,7 +845,10 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 			? runQuery(
 					"QUERY_FAILED",
 					() =>
-						db.select({ id: kitchenInCore.id, displayName: kitchenInCore.displayName }).from(kitchenInCore).where(inArray(kitchenInCore.id, kitchenCoreIds)),
+						db
+							.select({ id: kitchenInKitchen.id, displayName: kitchenInKitchen.displayName })
+							.from(kitchenInKitchen)
+							.where(inArray(kitchenInKitchen.id, kitchenCoreIds)),
 					{ prefix: "Erro ao buscar cozinhas" }
 				)
 			: Promise.resolve([]),
@@ -901,7 +904,7 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 	// Chaves iguais às da relational query — DETAILS_RELATIONS mapeia para o contrato de wire.
 	const kitchens = kitchenRows.map((k) => ({
 		...k,
-		kitchenInCore: (k.kitchenId != null ? coreKitchenById.get(k.kitchenId) : null) ?? null,
+		kitchenInKitchen: (k.kitchenId != null ? coreKitchenById.get(k.kitchenId) : null) ?? null,
 		procurementListSelectionInProcurements: selectionsByKitchen.get(k.id) ?? [],
 	}))
 
@@ -1082,13 +1085,13 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 			templateName: menuTemplateInKitchen.name,
 			templateType: menuTemplateInKitchen.templateType,
 			kitchenId: procurementListKitchenInProcurement.kitchenId,
-			kitchenName: kitchenInCore.displayName,
+			kitchenName: kitchenInKitchen.displayName,
 			repetitions: procurementListSelectionInProcurement.repetitions,
 		})
 		.from(procurementListSelectionInProcurement)
 		.innerJoin(procurementListKitchenInProcurement, eq(procurementListSelectionInProcurement.listKitchenId, procurementListKitchenInProcurement.id))
 		.leftJoin(menuTemplateInKitchen, eq(procurementListSelectionInProcurement.templateId, menuTemplateInKitchen.id))
-		.leftJoin(kitchenInCore, eq(procurementListKitchenInProcurement.kitchenId, kitchenInCore.id))
+		.leftJoin(kitchenInKitchen, eq(procurementListKitchenInProcurement.kitchenId, kitchenInKitchen.id))
 		.where(eq(procurementListKitchenInProcurement.listId, listId))
 
 	if (selections.length > 0) {
