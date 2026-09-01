@@ -76,7 +76,12 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
 				"data-ending-style:data-[swipe-direction=right]:[transform:translateX(calc(var(--toast-swipe-movement-x)+150%))_translateY(var(--offset-y))]",
 				// Cor por tipo — o que o `richColors` do sonner dava. Borda completa e
 				// tint de fundo; nada de faixa colorida de um lado só.
-				"data-[type=error]:border-destructive/30 data-[type=error]:bg-destructive/10",
+				//
+				// O tint é `color-mix` sobre `--popover`, não `bg-success/10`: aquilo é
+				// uma cor com 10% de alfa, e como é a MESMA propriedade do `bg-popover`
+				// da base, substituía o fundo em vez de somar — o toast ficava 90%
+				// transparente e o conteúdo da página atravessava o texto.
+				"data-[type=error]:border-destructive/40 data-[type=error]:bg-[color-mix(in_oklab,var(--destructive)_14%,var(--popover))]",
 				className
 			)}
 			{...props}
