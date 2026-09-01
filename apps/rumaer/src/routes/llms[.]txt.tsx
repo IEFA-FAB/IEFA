@@ -25,6 +25,7 @@ async function fetchUniformSections() {
 			.order("ordem", { ascending: true })
 
 		if (error || !data) {
+			// biome-ignore lint/suspicious/noConsole: sinal operacional — o llms.txt sai truncado sem falhar, então sem o log a degradação é invisível
 			console.error("[llms.txt] falha ao ler uniformes; publicando só as páginas fixas:", error)
 			return []
 		}
@@ -45,6 +46,7 @@ async function fetchUniformSections() {
 			links,
 		}))
 	} catch (cause) {
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — o llms.txt sai truncado sem falhar, então sem o log a degradação é invisível
 		console.error("[llms.txt] falha ao ler uniformes; publicando só as páginas fixas:", cause)
 		return []
 	}

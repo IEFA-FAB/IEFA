@@ -150,6 +150,7 @@ function dockerStage(app: App) {
 			assetCheck(app.path, serverEntry)
 		)
 		const outputAt = app.outputAt ?? ".output"
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: `${BUN_IMAGE}` é interpolação de ARG do Dockerfile gerado, não template literal de JS
 		const runtimeFrom = app.runtimeFrom === "base" ? "base" : "${BUN_IMAGE}"
 		out.push("", `FROM ${runtimeFrom} AS ${app.key}`, "ENV NODE_ENV=production")
 		for (const [k, v] of Object.entries(app.runtimeEnv ?? {})) out.push(`ENV ${k}=${v}`)
@@ -206,6 +207,7 @@ function renderDockerfile() {
 	const parts = [
 		header("BASE - Alpine com Bun", `${GENERATED_BANNER}\nDigest centralizado: bump de versão do Bun altera só o manifesto.`),
 		`ARG BUN_IMAGE=${manifest.bunImage}`,
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: `${BUN_IMAGE}` é interpolação de ARG do Dockerfile gerado, não template literal de JS
 		"FROM ${BUN_IMAGE} AS base",
 		"RUN apk add --no-cache libc6-compat",
 		"WORKDIR /app",
