@@ -48,6 +48,18 @@ updates:
       - dependency-name: "vite"
         versions: [">=8.2.0"]
 
+      # `h3` acima de `2.0.1-rc.22` quebra o typecheck do sisub: o `nitro`
+      # (3.0.260610-beta, a última) pina `h3` em `2.0.1-rc.22` EXATO. Subir o app
+      # cria uma segunda cópia, e o `H3Event` importado de `h3` deixa de ser o
+      # `H3Event` que o `defineHandler` do nitro espera — as duas rotas SSE
+      # (`routes/api/analytics/stream.post.ts`, `routes/api/module-chat/stream.post.ts`)
+      # param de compilar (TS2769). Como `^2.0.1-rc.22` aceita rc.29, o range sozinho
+      # não segura: daí o pin exato `"h3": "2.0.1-rc.22"` no apps/sisub/package.json.
+      # Remover os dois quando o nitro publicar beta com h3 rc.29+ (rc.27 traz
+      # correções de `x-forwarded-*` e de header `Host` que a gente quer).
+      - dependency-name: "h3"
+        versions: [">2.0.1-rc.22"]
+
       # `xlsx` NÃO é rastreado por aqui e isso é de propósito: ele vem do tarball
       # oficial da SheetJS (cdn.sheetjs.com), não do registry. A SheetJS parou de
       # publicar no npm no 0.19 e o que ficou lá (0.18.5) carrega duas high sem
