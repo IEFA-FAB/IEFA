@@ -92,8 +92,8 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 			.maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
 
-		const core = getServerClient("core") as unknown as LooseClient
-		const { data: kitchenRow } = await core.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
 		const unitId = Number(kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id)
 		await requireUnitScope(1, unitId)
 

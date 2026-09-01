@@ -167,10 +167,9 @@ export interface Seeder {
 
 // Split de schemas por domínio: cada tabela seedada vive no seu schema.
 const TABLE_SCHEMA: Record<string, string> = {
-	// core
+	// core — o que é da Força, não da subsistência. `kitchen` e `mess_halls`
+	// saíram daqui na promoção do núcleo (20260901120400) e caem no default.
 	units: "core",
-	kitchen: "core",
-	mess_halls: "core",
 	user_data: "core",
 	user_military_data: "core",
 	// access_control

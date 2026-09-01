@@ -7,7 +7,7 @@
  * `listAllMessHalls`. Já a ESCRITA de settings exige `kitchen:2` na própria cozinha.
  */
 
-import { kitchenInCore, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { kitchenInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { asc, eq } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
@@ -37,7 +37,7 @@ type KitchenSettings = Pick<
 
 export async function listKitchens(db: SisubDb, _ctx: UserContext): Promise<KitchenWithUnit[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.kitchenInCore.findMany({
+		db.query.kitchenInKitchen.findMany({
 			with: { unitsInCore_unitId: { columns: { id: true, displayName: true, code: true } } },
 			orderBy: (kitchen, { asc }) => [asc(kitchen.id)],
 		})
@@ -48,10 +48,10 @@ export async function listKitchens(db: SisubDb, _ctx: UserContext): Promise<Kitc
 export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: kitchenInCore.id, display_name: kitchenInCore.displayName })
-			.from(kitchenInCore)
-			.where(eq(kitchenInCore.unitId, input.unitId))
-			.orderBy(asc(kitchenInCore.displayName))
+			.select({ id: kitchenInKitchen.id, display_name: kitchenInKitchen.displayName })
+			.from(kitchenInKitchen)
+			.where(eq(kitchenInKitchen.unitId, input.unitId))
+			.orderBy(asc(kitchenInKitchen.displayName))
 	)
 	return rows
 }
@@ -60,7 +60,7 @@ export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: Li
 
 export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input: FetchKitchenSettings): Promise<KitchenSettings> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.kitchenInCore.findFirst({
+		db.query.kitchenInKitchen.findFirst({
 			columns: {
 				id: true,
 				displayName: true,
@@ -74,7 +74,7 @@ export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input
 				addressCep: true,
 			},
 			with: { unitsInCore_unitId: { columns: { id: true, code: true, displayName: true } } },
-			where: eq(kitchenInCore.id, input.kitchenId),
+			where: eq(kitchenInKitchen.id, input.kitchenId),
 		})
 	)
 	if (!row) throw new DomainError("FETCH_FAILED", `kitchen ${input.kitchenId} not found`)
@@ -88,7 +88,7 @@ export async function updateKitchenSettings(db: SisubDb, ctx: UserContext, input
 	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
 	await mutateOrFail("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`, () =>
 		db
-			.update(kitchenInCore)
+			.update(kitchenInKitchen)
 			.set({
 				addressLogradouro: input.settings.address_logradouro,
 				addressNumero: input.settings.address_numero,
@@ -98,8 +98,8 @@ export async function updateKitchenSettings(db: SisubDb, ctx: UserContext, input
 				addressUf: input.settings.address_uf,
 				addressCep: input.settings.address_cep,
 			})
-			.where(eq(kitchenInCore.id, input.kitchenId))
-			.returning({ id: kitchenInCore.id })
+			.where(eq(kitchenInKitchen.id, input.kitchenId))
+			.returning({ id: kitchenInKitchen.id })
 	)
 	return { ok: true as const }
 }

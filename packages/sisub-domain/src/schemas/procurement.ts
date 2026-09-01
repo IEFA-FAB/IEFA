@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { CONSERVATION_CLASSES, PACKAGE_TYPES, TRANSPORT_REQUIREMENTS } from "../operations/conditioning.ts"
 import { KitchenIdSchema, UuidSchema } from "./common.ts"
 
 export const FetchProcurementNeedsSchema = z.object({
@@ -11,21 +12,48 @@ export type FetchProcurementNeeds = z.infer<typeof FetchProcurementNeedsSchema>
 
 // ─── Purchase item (CRUD + junction) ─────────────────────────────────────────
 
-export const PurchaseItemWriteSchema = z.object({
-	description: z.string().min(1, "Descrição obrigatória"),
-	detailed_description: z.string().nullable().optional(),
-	delivery_conditioning: z.string().nullable().optional(),
-	purchase_measure_unit: z.string().nullable().optional(),
-	catmat_item_codigo: z.number().int().positive().nullable().optional(),
-	catmat_item_descricao: z.string().nullable().optional(),
-	catmat_match_status: z.enum(["pending", "matched", "review", "no_match", "skip"]).nullable().optional(),
-	catmat_match_score: z.number().min(0).max(1).nullable().optional(),
-	gpc_segment_code: z.string().nullable().optional(),
-	gpc_family_code: z.string().nullable().optional(),
-	gpc_class_code: z.string().nullable().optional(),
-	gpc_brick_code: z.string().nullable().optional(),
-	unit_price: z.number().positive().nullable().optional(),
-})
+export const PurchaseItemWriteSchema = z
+	.object({
+		description: z.string().min(1, "Descrição obrigatória"),
+		detailed_description: z.string().nullable().optional(),
+		delivery_conditioning: z.string().nullable().optional(),
+		purchase_measure_unit: z.string().nullable().optional(),
+		catmat_item_codigo: z.number().int().positive().nullable().optional(),
+		catmat_item_descricao: z.string().nullable().optional(),
+		catmat_match_status: z.enum(["pending", "matched", "review", "no_match", "skip"]).nullable().optional(),
+		catmat_match_score: z.number().min(0).max(1).nullable().optional(),
+		gpc_segment_code: z.string().nullable().optional(),
+		gpc_family_code: z.string().nullable().optional(),
+		gpc_class_code: z.string().nullable().optional(),
+		gpc_brick_code: z.string().nullable().optional(),
+		unit_price: z.number().positive().nullable().optional(),
+
+		// ── Acondicionamento e conservação EXIGIDOS ─────────────────────────────
+		// Vive no item de compra, não no insumo: a mesma carne comprada a vácuo e
+		// comprada congelada é o mesmo alimento e duas compras diferentes.
+		// Vocabulário compartilhado com o CHECK do banco — ver operations/conditioning.ts
+		// e conditioning.sql-contract.test.ts, que falha se as listas divergirem.
+		conservation_class: z.enum(CONSERVATION_CLASSES).nullable().optional(),
+		storage_temp_min_c: z.number().nullable().optional(),
+		storage_temp_max_c: z.number().nullable().optional(),
+		min_shelf_life_days_on_delivery: z.number().int().positive().nullable().optional(),
+		package_type: z.enum(PACKAGE_TYPES).nullable().optional(),
+		package_net_content: z.number().positive().nullable().optional(),
+		package_net_content_unit: z.string().nullable().optional(),
+		transport_requirement: z.enum(TRANSPORT_REQUIREMENTS).nullable().optional(),
+	})
+	// Faixa coerente e par conteúdo/unidade completo: as mesmas duas invariantes
+	// do banco (purchase_item_temp_range_check, purchase_item_net_content_pair).
+	// Repetidas aqui porque a violação vira "violates check constraint" sem dizer
+	// qual campo, e o usuário não tem como saber o que corrigir.
+	.refine((value) => value.storage_temp_min_c == null || value.storage_temp_max_c == null || value.storage_temp_min_c <= value.storage_temp_max_c, {
+		message: "Temperatura mínima não pode ser maior que a máxima",
+		path: ["storage_temp_min_c"],
+	})
+	.refine((value) => (value.package_net_content == null) === (value.package_net_content_unit == null), {
+		message: "Conteúdo da embalagem exige quantidade e unidade juntos",
+		path: ["package_net_content_unit"],
+	})
 export type PurchaseItemWrite = z.infer<typeof PurchaseItemWriteSchema>
 
 export const PurchaseItemIngredientWriteSchema = z.object({

@@ -37,7 +37,7 @@ export const profilesAdminInAccessControl = accessControl.table("profiles_admin"
 	unique("profiles_admin_email_key").on(table.email),
 ]);
 
-export const migrationRecipeLookupInCore = core.table("migration_recipe_lookup", {
+export const migrationRecipeLookupInKitchen = kitchen.table("migration_recipe_lookup", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	legacyIdPreparacao: bigint("legacy_id_preparacao", { mode: "number" }).primaryKey().notNull(),
 	newRecipeId: uuid("new_recipe_id").notNull(),
@@ -48,7 +48,7 @@ export const migrationRecipeLookupInCore = core.table("migration_recipe_lookup",
 	unique("migration_recipe_lookup_new_recipe_id_key").on(table.newRecipeId),
 ]);
 
-export const changelogInCore = core.table("changelog", {
+export const changelogInKitchen = kitchen.table("changelog", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	version: text(),
 	title: text().notNull(),
@@ -93,7 +93,7 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 ]);
 
-export const kitchenInCore = core.table("kitchen", {
+export const kitchenInKitchen = kitchen.table("kitchen", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "core.kitchen_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -142,7 +142,7 @@ export const userDataInCore = core.table("user_data", {
 }, (table) => [
 	foreignKey({
 			columns: [table.defaultMessHallId],
-			foreignColumns: [messHallsInCore.id],
+			foreignColumns: [messHallsInKitchen.id],
 			name: "user_data_default_mess_hall_id_fkey"
 		}),
 	foreignKey({
@@ -166,7 +166,7 @@ export const userMilitaryDataInCore = core.table("user_military_data", {
 	index("user_military_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast().op("text_ops")),
 ]);
 
-export const superAdminControllerInCore = core.table("super_admin_controller", {
+export const superAdminControllerInKitchen = kitchen.table("super_admin_controller", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	key: text().primaryKey().notNull(),
 	active: boolean(),
@@ -175,7 +175,7 @@ export const superAdminControllerInCore = core.table("super_admin_controller", {
 	unique("super_admin_controller_key_key").on(table.key),
 ]);
 
-export const migrationFolderLookupInCore = core.table("migration_folder_lookup", {
+export const migrationFolderLookupInKitchen = kitchen.table("migration_folder_lookup", {
 	legacyIdGrupoProduto: integer("legacy_id_grupo_produto").primaryKey().notNull(),
 	newFolderId: uuid("new_folder_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -194,7 +194,7 @@ export const mealTypeInKitchen = kitchen.table("meal_type", {
 }, (table) => [
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "meal_type_kitchen_id_fkey"
 		}),
 ]);
@@ -216,7 +216,7 @@ export const mealPresencesInKitchen = kitchen.table("meal_presences", {
 	index("rancho_presencas_date_meal_idx").using("btree", table.date.asc().nullsLast().op("date_ops"), table.meal.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.messHallId],
-			foreignColumns: [messHallsInCore.id],
+			foreignColumns: [messHallsInKitchen.id],
 			name: "meal_presences_mess_hall_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
@@ -249,7 +249,7 @@ export const otherPresencesInKitchen = kitchen.table("other_presences", {
 		}),
 	foreignKey({
 			columns: [table.messHallId],
-			foreignColumns: [messHallsInCore.id],
+			foreignColumns: [messHallsInKitchen.id],
 			name: "other_presences_mess_hall_id_fkey"
 		}).onDelete("restrict"),
 	check("other_presences_meal_check", sql`meal = ANY (ARRAY['cafe'::text, 'almoco'::text, 'janta'::text, 'ceia'::text])`),
@@ -269,7 +269,7 @@ export const dailyMenuInKitchen = kitchen.table("daily_menu", {
 	uniqueIndex("daily_menu_active_unique").using("btree", table.serviceDate.asc().nullsLast().op("date_ops"), table.mealTypeId.asc().nullsLast().op("uuid_ops"), table.kitchenId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "daily_menu_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -333,7 +333,7 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	index("recipes_folder_id_idx").using("btree", table.folderId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "recipes_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -360,12 +360,12 @@ export const userPermissionsInAccessControl = accessControl.table("user_permissi
 	index("idx_user_permissions_user_id").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "user_permissions_kitchen_id_fkey"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.messHallId],
-			foreignColumns: [messHallsInCore.id],
+			foreignColumns: [messHallsInKitchen.id],
 			name: "user_permissions_mess_hall_id_fkey"
 		}).onDelete("cascade"),
 	foreignKey({
@@ -434,7 +434,7 @@ export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovI
 	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
 ]);
 
-export const migrationNutrientLookupInCore = core.table("migration_nutrient_lookup", {
+export const migrationNutrientLookupInKitchen = kitchen.table("migration_nutrient_lookup", {
 	legacyIdNutriente: integer("legacy_id_nutriente").primaryKey().notNull(),
 	newNutrientId: uuid("new_nutrient_id").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -459,6 +459,36 @@ export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIn
 	unique("compras_material_caracteristi_codigo_item_codigo_caracteris_key").on(table.codigoItem, table.codigoCaracteristica, table.codigoValorCaracteristica),
 ]);
 
+export const measureUnitInCore = core.table("measure_unit", {
+	code: text().primaryKey().notNull(),
+	description: text().notNull(),
+	dimension: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, () => [
+	check("measure_unit_dimension_check", sql`dimension = ANY (ARRAY['mass'::text, 'volume'::text, 'count'::text, 'package'::text])`),
+]);
+
+export const itemInCore = core.table("item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	kind: text().default('insumo').notNull(),
+	description: text().notNull(),
+	catalogScope: text("catalog_scope").default('alimentacao').notNull(),
+	measureUnit: text("measure_unit"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("item_kind_idx").using("btree", table.kind.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+	index("item_scope_idx").using("btree", table.catalogScope.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.measureUnit],
+			foreignColumns: [measureUnitInCore.code],
+			name: "item_measure_unit_fkey"
+		}),
+	check("item_kind_check", sql`kind = ANY (ARRAY['insumo'::text, 'equipamento'::text, 'material'::text])`),
+	check("item_catalog_scope_check", sql`catalog_scope = ANY (ARRAY['alimentacao'::text, 'auxiliar'::text, 'permanente'::text])`),
+]);
+
 export const purchaseItemInProcurement = procurement.table("purchase_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	description: text().notNull(),
@@ -474,6 +504,16 @@ export const purchaseItemInProcurement = procurement.table("purchase_item", {
 	gpcClassCode: text("gpc_class_code"),
 	gpcBrickCode: text("gpc_brick_code"),
 	unitPrice: numeric("unit_price", { precision: 12, scale:  4 }),
+	// Acondicionamento/conservação EXIGIDOS — 20260901120100_purchase_item_conditioning.
+	// O vocabulário canônico é @iefa/sisub-domain operations/conditioning.ts.
+	conservationClass: text("conservation_class"),
+	storageTempMinC: numeric("storage_temp_min_c", { precision: 5, scale: 2 }),
+	storageTempMaxC: numeric("storage_temp_max_c", { precision: 5, scale: 2 }),
+	minShelfLifeDaysOnDelivery: integer("min_shelf_life_days_on_delivery"),
+	packageType: text("package_type"),
+	packageNetContent: numeric("package_net_content", { precision: 12, scale: 4 }),
+	packageNetContentUnit: text("package_net_content_unit"),
+	transportRequirement: text("transport_requirement"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
@@ -1019,7 +1059,7 @@ export const procurementListKitchenInProcurement = procurement.table("procuremen
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "procurement_ata_kitchen_kitchen_id_fkey"
 		}),
 	unique("procurement_ata_kitchen_ata_id_kitchen_id_key").on(table.listId, table.kitchenId),
@@ -1114,7 +1154,7 @@ export const productionTaskInKitchen = kitchen.table("production_task", {
 	index("production_task_kitchen_id_production_date_idx").using("btree", table.kitchenId.asc().nullsLast().op("int4_ops"), table.productionDate.asc().nullsLast().op("int4_ops")),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "production_task_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -1193,7 +1233,7 @@ export const procurementArpInProcurement = procurement.table("procurement_arp", 
 	unique("procurement_arp_unit_id_numero_ata_uasg_gerenciadora_key").on(table.unitId, table.numeroAta, table.uasgGerenciadora),
 ]);
 
-export const analyticsChatMessageInCore = core.table("analytics_chat_message", {
+export const analyticsChatMessageInKitchen = kitchen.table("analytics_chat_message", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	sessionId: uuid("session_id").notNull(),
 	role: text().notNull(),
@@ -1211,7 +1251,7 @@ export const analyticsChatMessageInCore = core.table("analytics_chat_message", {
 	index("idx_analytics_chat_message_session").using("btree", table.sessionId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.asc().nullsLast().op("timestamptz_ops")),
 	foreignKey({
 			columns: [table.sessionId],
-			foreignColumns: [analyticsChatSessionInCore.id],
+			foreignColumns: [analyticsChatSessionInKitchen.id],
 			name: "analytics_chat_message_session_id_fkey"
 		}).onDelete("cascade"),
 	check("analytics_chat_message_chart_type_override_check", sql`chart_type_override = ANY (ARRAY['bar'::text, 'line'::text, 'area'::text, 'pie'::text, 'table'::text])`),
@@ -1219,7 +1259,7 @@ export const analyticsChatMessageInCore = core.table("analytics_chat_message", {
 	check("analytics_chat_message_role_check", sql`role = ANY (ARRAY['user'::text, 'assistant'::text])`),
 ]);
 
-export const analyticsChatSessionInCore = core.table("analytics_chat_session", {
+export const analyticsChatSessionInKitchen = kitchen.table("analytics_chat_session", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
 	title: text().default('Novo chat').notNull(),
@@ -1234,7 +1274,7 @@ export const analyticsChatSessionInCore = core.table("analytics_chat_session", {
 		}).onDelete("cascade"),
 ]);
 
-export const moduleChatSessionInCore = core.table("module_chat_session", {
+export const moduleChatSessionInKitchen = kitchen.table("module_chat_session", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
 	module: text().notNull(),
@@ -1252,7 +1292,7 @@ export const moduleChatSessionInCore = core.table("module_chat_session", {
 	check("module_chat_session_module_check", sql`module = ANY (ARRAY['global'::text, 'kitchen'::text, 'unit'::text, 'local-analytics'::text])`),
 ]);
 
-export const moduleChatMessageInCore = core.table("module_chat_message", {
+export const moduleChatMessageInKitchen = kitchen.table("module_chat_message", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	sessionId: uuid("session_id").notNull(),
 	role: text().notNull(),
@@ -1272,7 +1312,7 @@ export const moduleChatMessageInCore = core.table("module_chat_message", {
 	index("idx_mcm_session").using("btree", table.sessionId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.asc().nullsLast().op("timestamptz_ops")),
 	foreignKey({
 			columns: [table.sessionId],
-			foreignColumns: [moduleChatSessionInCore.id],
+			foreignColumns: [moduleChatSessionInKitchen.id],
 			name: "module_chat_message_session_id_fkey"
 		}).onDelete("cascade"),
 	check("module_chat_message_has_payload", sql`(btrim(content) <> ''::text) OR (tool_calls IS NOT NULL) OR (tool_result IS NOT NULL) OR (error IS NOT NULL))) NOT VALID`),
@@ -1292,7 +1332,7 @@ export const stepTemplateInKitchen = kitchen.table("step_template", {
 	uniqueIndex("step_template_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "step_template_kitchen_id_fkey"
 		}),
 ]);
@@ -1310,7 +1350,7 @@ export const utensilInKitchen = kitchen.table("utensil", {
 	index("utensil_role_idx").using("btree", table.roleId.asc().nullsLast().op("uuid_ops")).where(sql`((role_id IS NOT NULL) AND (deleted_at IS NULL))`),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "utensil_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -1523,7 +1563,7 @@ export const comprasServicoUnidadeMedidaInComprasGovIntegration = comprasGovInte
 	unique("compras_servico_unidade_medid_codigo_servico_sigla_unidade__key").on(table.codigoServico, table.siglaUnidadeMedida),
 ]);
 
-export const messHallsInCore = core.table("mess_halls", {
+export const messHallsInKitchen = kitchen.table("mess_halls", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	unitId: bigint("unit_id", { mode: "number" }).notNull(),
@@ -1537,7 +1577,7 @@ export const messHallsInCore = core.table("mess_halls", {
 	index("mess_halls_unit_id_idx").using("btree", table.unitId.asc().nullsLast().op("int8_ops")),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "mess_halls_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -1553,7 +1593,7 @@ export const messHallsInCore = core.table("mess_halls", {
 	unique("mess_halls_code_key").on(table.code),
 ]);
 
-export const opinionsInCore = core.table("opinions", {
+export const opinionsInKitchen = kitchen.table("opinions", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "core.opinions_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -1568,7 +1608,7 @@ export const opinionsInCore = core.table("opinions", {
 		}),
 ]);
 
-export const migrationProductLookupInCore = core.table("migration_product_lookup", {
+export const migrationProductLookupInKitchen = kitchen.table("migration_product_lookup", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	legacyIdInsumo: bigint("legacy_id_insumo", { mode: "number" }).primaryKey().notNull(),
 	newProductId: uuid("new_product_id").notNull(),
@@ -1598,7 +1638,7 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 		}),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "menu_template_kitchen_id_fkey"
 		}),
 	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
@@ -1733,7 +1773,7 @@ export const mealForecastsInKitchen = kitchen.table("meal_forecasts", {
 	index("meal_forecasts_user_date_idx").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.date.asc().nullsLast().op("date_ops")),
 	foreignKey({
 			columns: [table.messHallId],
-			foreignColumns: [messHallsInCore.id],
+			foreignColumns: [messHallsInKitchen.id],
 			name: "meal_forecasts_mess_hall_id_fkey"
 		}).onDelete("restrict"),
 	foreignKey({
@@ -2062,7 +2102,7 @@ export const kitchenAtaDraftInProcurement = procurement.table("kitchen_ata_draft
 }, (table) => [
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "kitchen_ata_draft_kitchen_id_fkey"
 		}),
 	check("kitchen_ata_draft_status_check", sql`status = ANY (ARRAY['pending'::text, 'sent'::text, 'reviewed'::text])`),
@@ -2227,7 +2267,7 @@ export const userPolicyAttachmentInAccessControl = accessControl.table("user_pol
 
 // ─── Auditoria do reset de treino ────────────────────────────────────────────
 
-export const trainingResetLogInCore = core.table("training_reset_log", {
+export const trainingResetLogInKitchen = kitchen.table("training_reset_log", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	actorId: uuid("actor_id").notNull(),
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2294,7 +2334,7 @@ export const equipmentModelInKitchen = kitchen.table("equipment_model", {
 	index("equipment_model_kitchen_idx").using("btree", table.kitchenId.asc().nullsLast().op("int8_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "equipment_model_kitchen_id_fkey"
 		}),
 	check("equipment_model_slots_check", sql`simultaneous_slots > 0`),
@@ -2353,7 +2393,7 @@ export const equipmentUnitInKitchen = kitchen.table("equipment_unit", {
 	index("equipment_unit_model_idx").using("btree", table.modelId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "equipment_unit_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -2413,7 +2453,7 @@ export const equipmentMaintenancePlanInKitchen = kitchen.table("equipment_mainte
 	uniqueIndex("equipment_maintenance_plan_title_uniq").using("btree", sql`COALESCE(role_id, model_id)`, sql`lower(title)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "equipment_maintenance_plan_kitchen_id_fkey"
 		}),
 	foreignKey({
@@ -2563,7 +2603,7 @@ export const recipeEquipmentRequirementInKitchen = kitchen.table("recipe_equipme
 	check("recipe_equipment_requirement_capacity_gn_check", sql`(min_capacity_gn IS NULL) OR (min_capacity_gn > 0)`),
 ]);
 
-export const workforceCategoryInCore = core.table("workforce_category", {
+export const workforceCategoryInKitchen = kitchen.table("workforce_category", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	code: text().notNull(),
 	name: text().notNull(),
@@ -2577,7 +2617,7 @@ export const workforceCategoryInCore = core.table("workforce_category", {
 	uniqueIndex("workforce_category_code_uniq").using("btree", table.code.asc().nullsLast().op("text_ops")),
 ]);
 
-export const ranchoInCore = core.table("rancho", {
+export const ranchoInKitchen = kitchen.table("rancho", {
 	id: bigserial({ mode: "number" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	unitId: bigint("unit_id", { mode: "number" }).notNull(),
@@ -2605,17 +2645,17 @@ export const ranchoInCore = core.table("rancho", {
 		}),
 	foreignKey({
 			columns: [table.messHallId],
-			foreignColumns: [messHallsInCore.id],
+			foreignColumns: [messHallsInKitchen.id],
 			name: "rancho_mess_hall_id_fkey"
 		}),
 	foreignKey({
 			columns: [table.kitchenId],
-			foreignColumns: [kitchenInCore.id],
+			foreignColumns: [kitchenInKitchen.id],
 			name: "rancho_kitchen_id_fkey"
 		}),
 ]);
 
-export const workforceSurveyInCore = core.table("workforce_survey", {
+export const workforceSurveyInKitchen = kitchen.table("workforce_survey", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	referenceDate: date("reference_date").notNull(),
 	title: text().notNull(),
@@ -2635,7 +2675,7 @@ export const workforceSurveyInCore = core.table("workforce_survey", {
 	check("workforce_survey_status_check", sql`status = ANY (ARRAY['draft'::text, 'open'::text, 'closed'::text])`),
 ]);
 
-export const workforceSubmissionInCore = core.table("workforce_submission", {
+export const workforceSubmissionInKitchen = kitchen.table("workforce_submission", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	surveyId: uuid("survey_id").notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -2650,12 +2690,12 @@ export const workforceSubmissionInCore = core.table("workforce_submission", {
 	index("workforce_submission_rancho_idx").using("btree", table.ranchoId.asc().nullsLast().op("int8_ops")),
 	foreignKey({
 			columns: [table.surveyId],
-			foreignColumns: [workforceSurveyInCore.id],
+			foreignColumns: [workforceSurveyInKitchen.id],
 			name: "workforce_submission_survey_id_fkey"
 		}),
 	foreignKey({
 			columns: [table.ranchoId],
-			foreignColumns: [ranchoInCore.id],
+			foreignColumns: [ranchoInKitchen.id],
 			name: "workforce_submission_rancho_id_fkey"
 		}),
 	foreignKey({
@@ -2666,7 +2706,7 @@ export const workforceSubmissionInCore = core.table("workforce_submission", {
 	check("workforce_submission_declared_total_check", sql`(declared_total IS NULL) OR (declared_total >= 0)`),
 ]);
 
-export const workforceHeadcountInCore = core.table("workforce_headcount", {
+export const workforceHeadcountInKitchen = kitchen.table("workforce_headcount", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	submissionId: uuid("submission_id").notNull(),
 	categoryId: uuid("category_id").notNull(),
@@ -2677,18 +2717,18 @@ export const workforceHeadcountInCore = core.table("workforce_headcount", {
 	uniqueIndex("workforce_headcount_uniq").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops"), table.categoryId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.submissionId],
-			foreignColumns: [workforceSubmissionInCore.id],
+			foreignColumns: [workforceSubmissionInKitchen.id],
 			name: "workforce_headcount_submission_id_fkey"
 		}).onDelete("cascade"),
 	foreignKey({
 			columns: [table.categoryId],
-			foreignColumns: [workforceCategoryInCore.id],
+			foreignColumns: [workforceCategoryInKitchen.id],
 			name: "workforce_headcount_category_id_fkey"
 		}),
 	check("workforce_headcount_nonnegative", sql`headcount >= 0`),
 ]);
 
-export const workforceNoteInCore = core.table("workforce_note", {
+export const workforceNoteInKitchen = kitchen.table("workforce_note", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	submissionId: uuid("submission_id").notNull(),
 	kind: text().notNull(),
@@ -2699,7 +2739,7 @@ export const workforceNoteInCore = core.table("workforce_note", {
 	index("workforce_note_submission_idx").using("btree", table.submissionId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.submissionId],
-			foreignColumns: [workforceSubmissionInCore.id],
+			foreignColumns: [workforceSubmissionInKitchen.id],
 			name: "workforce_note_submission_id_fkey"
 		}).onDelete("cascade"),
 	check("workforce_note_kind_check", sql`kind = ANY (ARRAY['outsourced'::text, 'leave'::text, 'reassigned'::text, 'shared'::text, 'scope'::text, 'change'::text, 'counting'::text, 'other'::text])`),

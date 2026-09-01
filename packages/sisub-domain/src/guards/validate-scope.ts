@@ -3,7 +3,7 @@
  * of recipes, menu templates, daily menus and menu items before a scoped mutation.
  */
 
-import { dailyMenuInKitchen, kitchenInCore, menuItemsInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, kitchenInKitchen, menuItemsInKitchen, menuTemplateInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
@@ -90,7 +90,7 @@ export async function resolveKitchenFromTemplate(db: SisubDb, templateId: string
  */
 export async function resolveProducingKitchen(db: SisubDb, kitchenId: number): Promise<{ producingKitchenId: number; delegated: boolean }> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.kitchenInCore.findFirst({ columns: { type: true, kitchenId: true }, where: eq(kitchenInCore.id, kitchenId) })
+		db.query.kitchenInKitchen.findFirst({ columns: { type: true, kitchenId: true }, where: eq(kitchenInKitchen.id, kitchenId) })
 	)
 	if (!row) throw new NotFoundError("kitchen", kitchenId)
 

@@ -84,7 +84,7 @@ function AnalistaSaldoAlongado() {
 							<Plane className="w-4 h-4 text-white" />
 						</div>
 						<div>
-							<h1 className="text-lg font-bold text-foreground leading-tight">Analista Saldo Alongado</h1>
+							<h2 className="text-lg font-bold text-foreground leading-tight">Analista Saldo Alongado</h2>
 							<p className="text-xs text-muted-foreground">Monitoramento de Saldos &gt;3 meses — COMAER</p>
 						</div>
 					</div>

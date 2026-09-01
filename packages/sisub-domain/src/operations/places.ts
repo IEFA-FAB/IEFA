@@ -9,9 +9,9 @@
  */
 
 import {
-	kitchenInCore,
+	kitchenInKitchen,
 	mealForecastsInKitchen,
-	messHallsInCore,
+	messHallsInKitchen,
 	otherPresencesInKitchen,
 	type SisubDb,
 	unitsInCore,
@@ -80,9 +80,9 @@ export async function listAllMessHalls(
 	input?: ListPlaces
 ): Promise<Array<Pick<MessHall, "id" | "unit_id" | "code" | "display_name" | "kitchen_id">>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.messHallsInCore.findMany({
+		db.query.messHallsInKitchen.findMany({
 			columns: { id: true, unitId: true, code: true, displayName: true, kitchenId: true },
-			where: trainingFilter(messHallsInCore.isTraining, input),
+			where: trainingFilter(messHallsInKitchen.isTraining, input),
 			orderBy: (m, { asc }) => [asc(m.displayName)],
 		})
 	)
@@ -97,8 +97,8 @@ export async function fetchPlacesGraph(
 	const [units, kitchens, messHalls] = await runQuery("FETCH_FAILED", () =>
 		Promise.all([
 			db.select().from(unitsInCore).where(trainingFilter(unitsInCore.isTraining, input)).orderBy(asc(unitsInCore.displayName)),
-			db.select().from(kitchenInCore).where(trainingFilter(kitchenInCore.isTraining, input)).orderBy(asc(kitchenInCore.displayName)),
-			db.select().from(messHallsInCore).where(trainingFilter(messHallsInCore.isTraining, input)).orderBy(asc(messHallsInCore.displayName)),
+			db.select().from(kitchenInKitchen).where(trainingFilter(kitchenInKitchen.isTraining, input)).orderBy(asc(kitchenInKitchen.displayName)),
+			db.select().from(messHallsInKitchen).where(trainingFilter(messHallsInKitchen.isTraining, input)).orderBy(asc(messHallsInKitchen.displayName)),
 		])
 	)
 	return {
@@ -123,12 +123,12 @@ export async function updatePlacesEntity(db: SisubDb, ctx: UserContext, input: U
 				.where(eq(unitsInCore.id, BigInt(input.id)))
 		}
 		if (input.entityType === "kitchen") {
-			return db.update(kitchenInCore).set({ displayName: input.display_name, type: input.type }).where(eq(kitchenInCore.id, input.id))
+			return db.update(kitchenInKitchen).set({ displayName: input.display_name, type: input.type }).where(eq(kitchenInKitchen.id, input.id))
 		}
 		return db
-			.update(messHallsInCore)
+			.update(messHallsInKitchen)
 			.set({ displayName: input.display_name, code: input.code })
-			.where(eq(messHallsInCore.id, BigInt(input.id)))
+			.where(eq(messHallsInKitchen.id, BigInt(input.id)))
 	})
 	return { ok: true as const }
 }
@@ -137,9 +137,9 @@ export async function updatePlacesEntity(db: SisubDb, ctx: UserContext, input: U
 // em compile-time, que cada destino é uma coluna real da tabela (sem o silent-drop do cast genérico).
 const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId", kitchen_id: "kitchenId" } satisfies Record<
 	string,
-	keyof typeof kitchenInCore.$inferInsert
+	keyof typeof kitchenInKitchen.$inferInsert
 >
-const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInCore.$inferInsert>
+const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInKitchen.$inferInsert>
 
 export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: ApplyPlacesDiff) {
 	// Idem: o diff reparenteia cozinhas e refeitórios. Sem gate, qualquer sessão válida
@@ -151,14 +151,14 @@ export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: Appl
 			try {
 				if (diff.table === "kitchen") {
 					await db
-						.update(kitchenInCore)
+						.update(kitchenInKitchen)
 						.set({ [KITCHEN_DIFF_KEY[diff.column]]: diff.newValue })
-						.where(eq(kitchenInCore.id, diff.recordId))
+						.where(eq(kitchenInKitchen.id, diff.recordId))
 				} else {
 					await db
-						.update(messHallsInCore)
+						.update(messHallsInKitchen)
 						.set({ [MESS_HALL_DIFF_KEY[diff.column]]: diff.newValue })
-						.where(eq(messHallsInCore.id, BigInt(diff.recordId)))
+						.where(eq(messHallsInKitchen.id, BigInt(diff.recordId)))
 				}
 			} catch (e) {
 				throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${describeDriverError(e)}`)
@@ -176,14 +176,19 @@ export async function fetchMessHallByCode(
 	input: FetchMessHallByCode
 ): Promise<Pick<MessHall, "id" | "unit_id" | "code" | "display_name"> | null> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.messHallsInCore.findFirst({ columns: { id: true, unitId: true, code: true, displayName: true }, where: eq(messHallsInCore.code, input.code) })
+		db.query.messHallsInKitchen.findFirst({
+			columns: { id: true, unitId: true, code: true, displayName: true },
+			where: eq(messHallsInKitchen.code, input.code),
+		})
 	)
 	return row ? toWire(row) : null
 }
 
 export async function fetchMessHallIdByCode(db: SisubDb, _ctx: UserContext, input: FetchMessHallByCode): Promise<number | null> {
 	if (!input.code) return null
-	const row = await runQuery("FETCH_FAILED", () => db.query.messHallsInCore.findFirst({ columns: { id: true }, where: eq(messHallsInCore.code, input.code) }))
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.messHallsInKitchen.findFirst({ columns: { id: true }, where: eq(messHallsInKitchen.code, input.code) })
+	)
 	return row ? Number(row.id) : null
 }
 

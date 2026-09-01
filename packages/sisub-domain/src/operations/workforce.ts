@@ -19,15 +19,15 @@
 
 import {
 	mealPresencesInKitchen,
-	messHallsInCore,
+	messHallsInKitchen,
 	otherPresencesInKitchen,
-	ranchoInCore,
+	ranchoInKitchen,
 	type SisubDb,
-	workforceCategoryInCore,
-	workforceHeadcountInCore,
-	workforceNoteInCore,
-	workforceSubmissionInCore,
-	workforceSurveyInCore,
+	workforceCategoryInKitchen,
+	workforceHeadcountInKitchen,
+	workforceNoteInKitchen,
+	workforceSubmissionInKitchen,
+	workforceSurveyInKitchen,
 } from "@iefa/database/drizzle/sisub"
 import type { Rancho, WorkforceCategory, WorkforceNote, WorkforceSurvey } from "@iefa/database/sisub"
 import { and, asc, count, countDistinct, desc, eq, inArray, isNull, sql } from "drizzle-orm"
@@ -87,51 +87,51 @@ export type WorkforceNetworkWire = WorkforceMatrixWire & {
 // ── Projeções ─────────────────────────────────────────────────────────────
 
 const CATEGORY_COLS = {
-	id: workforceCategoryInCore.id,
-	code: workforceCategoryInCore.code,
-	name: workforceCategoryInCore.name,
-	description: workforceCategoryInCore.description,
-	sort_order: workforceCategoryInCore.sortOrder,
-	is_career: workforceCategoryInCore.isCareer,
-	is_technical: workforceCategoryInCore.isTechnical,
-	created_at: workforceCategoryInCore.createdAt,
-	deleted_at: workforceCategoryInCore.deletedAt,
+	id: workforceCategoryInKitchen.id,
+	code: workforceCategoryInKitchen.code,
+	name: workforceCategoryInKitchen.name,
+	description: workforceCategoryInKitchen.description,
+	sort_order: workforceCategoryInKitchen.sortOrder,
+	is_career: workforceCategoryInKitchen.isCareer,
+	is_technical: workforceCategoryInKitchen.isTechnical,
+	created_at: workforceCategoryInKitchen.createdAt,
+	deleted_at: workforceCategoryInKitchen.deletedAt,
 } as const
 
 const SURVEY_COLS = {
-	id: workforceSurveyInCore.id,
-	reference_date: workforceSurveyInCore.referenceDate,
-	title: workforceSurveyInCore.title,
-	status: workforceSurveyInCore.status,
-	source: workforceSurveyInCore.source,
-	opened_at: workforceSurveyInCore.openedAt,
-	closed_at: workforceSurveyInCore.closedAt,
-	created_by: workforceSurveyInCore.createdBy,
-	created_at: workforceSurveyInCore.createdAt,
+	id: workforceSurveyInKitchen.id,
+	reference_date: workforceSurveyInKitchen.referenceDate,
+	title: workforceSurveyInKitchen.title,
+	status: workforceSurveyInKitchen.status,
+	source: workforceSurveyInKitchen.source,
+	opened_at: workforceSurveyInKitchen.openedAt,
+	closed_at: workforceSurveyInKitchen.closedAt,
+	created_by: workforceSurveyInKitchen.createdBy,
+	created_at: workforceSurveyInKitchen.createdAt,
 } as const
 
 const RANCHO_COLS = {
-	id: ranchoInCore.id,
-	unit_id: ranchoInCore.unitId,
-	elo_code: ranchoInCore.eloCode,
-	code: ranchoInCore.code,
-	display_name: ranchoInCore.displayName,
-	mess_hall_id: ranchoInCore.messHallId,
-	kitchen_id: ranchoInCore.kitchenId,
-	produces_own_meals: ranchoInCore.producesOwnMeals,
-	active: ranchoInCore.active,
-	notes: ranchoInCore.notes,
-	created_at: ranchoInCore.createdAt,
-	updated_at: ranchoInCore.updatedAt,
+	id: ranchoInKitchen.id,
+	unit_id: ranchoInKitchen.unitId,
+	elo_code: ranchoInKitchen.eloCode,
+	code: ranchoInKitchen.code,
+	display_name: ranchoInKitchen.displayName,
+	mess_hall_id: ranchoInKitchen.messHallId,
+	kitchen_id: ranchoInKitchen.kitchenId,
+	produces_own_meals: ranchoInKitchen.producesOwnMeals,
+	active: ranchoInKitchen.active,
+	notes: ranchoInKitchen.notes,
+	created_at: ranchoInKitchen.createdAt,
+	updated_at: ranchoInKitchen.updatedAt,
 } as const
 
 const NOTE_COLS = {
-	id: workforceNoteInCore.id,
-	submission_id: workforceNoteInCore.submissionId,
-	kind: workforceNoteInCore.kind,
-	quantity: workforceNoteInCore.quantity,
-	detail: workforceNoteInCore.detail,
-	created_at: workforceNoteInCore.createdAt,
+	id: workforceNoteInKitchen.id,
+	submission_id: workforceNoteInKitchen.submissionId,
+	kind: workforceNoteInKitchen.kind,
+	quantity: workforceNoteInKitchen.quantity,
+	detail: workforceNoteInKitchen.detail,
+	created_at: workforceNoteInKitchen.createdAt,
 } as const
 
 // ── Leitura ───────────────────────────────────────────────────────────────
@@ -139,15 +139,15 @@ const NOTE_COLS = {
 export async function listWorkforceSurveys(db: SisubDb, ctx: UserContext, input: ListWorkforceSurveys): Promise<WorkforceSurvey[]> {
 	requireAnyPermission(ctx, ["analytics", "local-analytics", "unit"], 1)
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.select(SURVEY_COLS).from(workforceSurveyInCore).orderBy(desc(workforceSurveyInCore.referenceDate)).limit(input.limit)
+		db.select(SURVEY_COLS).from(workforceSurveyInKitchen).orderBy(desc(workforceSurveyInKitchen.referenceDate)).limit(input.limit)
 	)
 	return toWire<WorkforceSurvey[]>(rows)
 }
 
 async function resolveSurvey(db: SisubDb, surveyId: string | null | undefined): Promise<WorkforceSurvey | null> {
 	const rows = await runQuery("FETCH_FAILED", () => {
-		const q = db.select(SURVEY_COLS).from(workforceSurveyInCore)
-		return surveyId ? q.where(eq(workforceSurveyInCore.id, surveyId)).limit(1) : q.orderBy(desc(workforceSurveyInCore.referenceDate)).limit(1)
+		const q = db.select(SURVEY_COLS).from(workforceSurveyInKitchen)
+		return surveyId ? q.where(eq(workforceSurveyInKitchen.id, surveyId)).limit(1) : q.orderBy(desc(workforceSurveyInKitchen.referenceDate)).limit(1)
 	})
 	const row = rows[0]
 	if (!row && surveyId) throw new NotFoundError("workforce_survey", surveyId)
@@ -222,7 +222,11 @@ async function fetchMealLoad(db: SisubDb, messHallIds: number[], referenceDate: 
 async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurvey | null, summaryKey: string): Promise<WorkforceMatrixWire> {
 	const categories = toWire<WorkforceCategory[]>(
 		await runQuery("FETCH_FAILED", () =>
-			db.select(CATEGORY_COLS).from(workforceCategoryInCore).where(isNull(workforceCategoryInCore.deletedAt)).orderBy(asc(workforceCategoryInCore.sortOrder))
+			db
+				.select(CATEGORY_COLS)
+				.from(workforceCategoryInKitchen)
+				.where(isNull(workforceCategoryInKitchen.deletedAt))
+				.orderBy(asc(workforceCategoryInKitchen.sortOrder))
 		)
 	)
 
@@ -241,12 +245,12 @@ async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurv
 			? await runQuery("FETCH_FAILED", () =>
 					db
 						.select({
-							id: workforceSubmissionInCore.id,
-							ranchoId: workforceSubmissionInCore.ranchoId,
-							declaredTotal: workforceSubmissionInCore.declaredTotal,
+							id: workforceSubmissionInKitchen.id,
+							ranchoId: workforceSubmissionInKitchen.ranchoId,
+							declaredTotal: workforceSubmissionInKitchen.declaredTotal,
 						})
-						.from(workforceSubmissionInCore)
-						.where(and(eq(workforceSubmissionInCore.surveyId, survey.id), inArray(workforceSubmissionInCore.ranchoId, ranchoIds)))
+						.from(workforceSubmissionInKitchen)
+						.where(and(eq(workforceSubmissionInKitchen.surveyId, survey.id), inArray(workforceSubmissionInKitchen.ranchoId, ranchoIds)))
 				)
 			: []
 
@@ -256,22 +260,22 @@ async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurv
 			? runQuery("FETCH_FAILED", () =>
 					db
 						.select({
-							submissionId: workforceHeadcountInCore.submissionId,
-							code: workforceCategoryInCore.code,
-							headcount: workforceHeadcountInCore.headcount,
+							submissionId: workforceHeadcountInKitchen.submissionId,
+							code: workforceCategoryInKitchen.code,
+							headcount: workforceHeadcountInKitchen.headcount,
 						})
-						.from(workforceHeadcountInCore)
-						.innerJoin(workforceCategoryInCore, eq(workforceCategoryInCore.id, workforceHeadcountInCore.categoryId))
-						.where(inArray(workforceHeadcountInCore.submissionId, submissionIds))
+						.from(workforceHeadcountInKitchen)
+						.innerJoin(workforceCategoryInKitchen, eq(workforceCategoryInKitchen.id, workforceHeadcountInKitchen.categoryId))
+						.where(inArray(workforceHeadcountInKitchen.submissionId, submissionIds))
 				)
 			: Promise.resolve([]),
 		submissionIds.length > 0
 			? runQuery("FETCH_FAILED", () =>
 					db
 						.select(NOTE_COLS)
-						.from(workforceNoteInCore)
-						.where(inArray(workforceNoteInCore.submissionId, submissionIds))
-						.orderBy(asc(workforceNoteInCore.createdAt))
+						.from(workforceNoteInKitchen)
+						.where(inArray(workforceNoteInKitchen.submissionId, submissionIds))
+						.orderBy(asc(workforceNoteInKitchen.createdAt))
 				)
 			: Promise.resolve([]),
 		survey ? fetchMealLoad(db, messHallIds, survey.reference_date) : Promise.resolve(new Map<number, MealLoadInput>()),
@@ -297,10 +301,10 @@ async function buildMatrix(db: SisubDb, ranchos: Rancho[], survey: WorkforceSurv
 					(
 						await runQuery("FETCH_FAILED", () =>
 							db
-								.select({ id: messHallsInCore.id, code: messHallsInCore.code, displayName: messHallsInCore.displayName })
-								.from(messHallsInCore)
+								.select({ id: messHallsInKitchen.id, code: messHallsInKitchen.code, displayName: messHallsInKitchen.displayName })
+								.from(messHallsInKitchen)
 								// `mess_halls.id` é bigserial mode "bigint" no schema Drizzle: o inArray exige BigInt.
-								.where(inArray(messHallsInCore.id, messHallIds.map(BigInt)))
+								.where(inArray(messHallsInKitchen.id, messHallIds.map(BigInt)))
 						)
 					).map((m) => [Number(m.id), m.displayName ?? m.code])
 				)
@@ -346,9 +350,9 @@ export async function fetchWorkforceMatrix(db: SisubDb, ctx: UserContext, input:
 		await runQuery("FETCH_FAILED", () =>
 			db
 				.select(RANCHO_COLS)
-				.from(ranchoInCore)
-				.where(and(eq(ranchoInCore.unitId, input.unitId), eq(ranchoInCore.active, true)))
-				.orderBy(asc(ranchoInCore.displayName))
+				.from(ranchoInKitchen)
+				.where(and(eq(ranchoInKitchen.unitId, input.unitId), eq(ranchoInKitchen.active, true)))
+				.orderBy(asc(ranchoInKitchen.displayName))
 		)
 	)
 	return buildMatrix(db, ranchos, survey, `unit:${input.unitId}`)
@@ -360,7 +364,11 @@ export async function fetchWorkforceNetwork(db: SisubDb, ctx: UserContext, input
 	const survey = await resolveSurvey(db, input.surveyId)
 	const ranchos = toWire<Rancho[]>(
 		await runQuery("FETCH_FAILED", () =>
-			db.select(RANCHO_COLS).from(ranchoInCore).where(eq(ranchoInCore.active, true)).orderBy(asc(ranchoInCore.eloCode), asc(ranchoInCore.displayName))
+			db
+				.select(RANCHO_COLS)
+				.from(ranchoInKitchen)
+				.where(eq(ranchoInKitchen.active, true))
+				.orderBy(asc(ranchoInKitchen.eloCode), asc(ranchoInKitchen.displayName))
 		)
 	)
 	const matrix = await buildMatrix(db, ranchos, survey, "rede")
@@ -380,7 +388,7 @@ export async function fetchWorkforceNetwork(db: SisubDb, ctx: UserContext, input
  */
 async function requireRanchoWrite(db: SisubDb, ctx: UserContext, ranchoId: number): Promise<{ unitId: number }> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.select({ unitId: ranchoInCore.unitId, active: ranchoInCore.active }).from(ranchoInCore).where(eq(ranchoInCore.id, ranchoId)).limit(1)
+		db.select({ unitId: ranchoInKitchen.unitId, active: ranchoInKitchen.active }).from(ranchoInKitchen).where(eq(ranchoInKitchen.id, ranchoId)).limit(1)
 	)
 	const rancho = rows[0]
 	if (!rancho) throw new NotFoundError("rancho", ranchoId)
@@ -392,7 +400,7 @@ async function requireRanchoWrite(db: SisubDb, ctx: UserContext, ranchoId: numbe
 
 async function requireOpenSurvey(db: SisubDb, surveyId: string): Promise<void> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.select({ status: workforceSurveyInCore.status }).from(workforceSurveyInCore).where(eq(workforceSurveyInCore.id, surveyId)).limit(1)
+		db.select({ status: workforceSurveyInKitchen.status }).from(workforceSurveyInKitchen).where(eq(workforceSurveyInKitchen.id, surveyId)).limit(1)
 	)
 	const survey = rows[0]
 	if (!survey) throw new NotFoundError("workforce_survey", surveyId)
@@ -410,8 +418,8 @@ async function requireOpenSurvey(db: SisubDb, surveyId: string): Promise<void> {
 async function clearWorkforceSubmission(db: SisubDb, input: SaveWorkforceSubmission): Promise<WorkforceRanchoWire> {
 	await runQuery("SAVE_FAILED", () =>
 		db
-			.delete(workforceSubmissionInCore)
-			.where(and(eq(workforceSubmissionInCore.surveyId, input.surveyId), eq(workforceSubmissionInCore.ranchoId, input.ranchoId)))
+			.delete(workforceSubmissionInKitchen)
+			.where(and(eq(workforceSubmissionInKitchen.surveyId, input.surveyId), eq(workforceSubmissionInKitchen.ranchoId, input.ranchoId)))
 	)
 	return describeRancho(db, input.surveyId, input.ranchoId)
 }
@@ -420,7 +428,7 @@ async function clearWorkforceSubmission(db: SisubDb, input: SaveWorkforceSubmiss
 async function describeRancho(db: SisubDb, surveyId: string, ranchoId: number): Promise<WorkforceRanchoWire> {
 	const survey = await resolveSurvey(db, surveyId)
 	const ranchos = toWire<Rancho[]>(
-		await runQuery("FETCH_FAILED", () => db.select(RANCHO_COLS).from(ranchoInCore).where(eq(ranchoInCore.id, ranchoId)).limit(1))
+		await runQuery("FETCH_FAILED", () => db.select(RANCHO_COLS).from(ranchoInKitchen).where(eq(ranchoInKitchen.id, ranchoId)).limit(1))
 	)
 	const matrix = await buildMatrix(db, ranchos, survey, `rancho:${ranchoId}`)
 	const row = matrix.ranchos[0]
@@ -442,9 +450,9 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 
 	const categories = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: workforceCategoryInCore.id, code: workforceCategoryInCore.code })
-			.from(workforceCategoryInCore)
-			.where(isNull(workforceCategoryInCore.deletedAt))
+			.select({ id: workforceCategoryInKitchen.id, code: workforceCategoryInKitchen.code })
+			.from(workforceCategoryInKitchen)
+			.where(isNull(workforceCategoryInKitchen.deletedAt))
 	)
 	const categoryByCode = new Map(categories.map((c) => [c.code, c.id]))
 	const unknown = input.entries.map((e) => e.categoryCode).filter((code) => !categoryByCode.has(code))
@@ -452,7 +460,7 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 
 	const submission = await insertOneOrFail("SAVE_FAILED", "Falha ao registrar a resposta do rancho", () =>
 		db
-			.insert(workforceSubmissionInCore)
+			.insert(workforceSubmissionInKitchen)
 			.values({
 				surveyId: input.surveyId,
 				ranchoId: input.ranchoId,
@@ -461,7 +469,7 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 				submittedBy: ctx.userId,
 			})
 			.onConflictDoUpdate({
-				target: [workforceSubmissionInCore.surveyId, workforceSubmissionInCore.ranchoId],
+				target: [workforceSubmissionInKitchen.surveyId, workforceSubmissionInKitchen.ranchoId],
 				set: {
 					declaredTotal: input.declaredTotal ?? null,
 					submittedAt: sql`now()`,
@@ -469,7 +477,7 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 					updatedAt: sql`now()`,
 				},
 			})
-			.returning({ id: workforceSubmissionInCore.id })
+			.returning({ id: workforceSubmissionInKitchen.id })
 	)
 
 	// null = o gestor apagou o campo. Apagar a linha é o que preserva a distinção entre
@@ -480,14 +488,14 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 	if (cleared.length > 0) {
 		await runQuery("SAVE_FAILED", () =>
 			db
-				.delete(workforceHeadcountInCore)
-				.where(and(eq(workforceHeadcountInCore.submissionId, submission.id), inArray(workforceHeadcountInCore.categoryId, cleared)))
+				.delete(workforceHeadcountInKitchen)
+				.where(and(eq(workforceHeadcountInKitchen.submissionId, submission.id), inArray(workforceHeadcountInKitchen.categoryId, cleared)))
 		)
 	}
 	if (filled.length > 0) {
 		await runQuery("SAVE_FAILED", () =>
 			db
-				.insert(workforceHeadcountInCore)
+				.insert(workforceHeadcountInKitchen)
 				.values(
 					filled.map((e) => ({
 						submissionId: submission.id,
@@ -496,7 +504,7 @@ export async function saveWorkforceSubmission(db: SisubDb, ctx: UserContext, inp
 					}))
 				)
 				.onConflictDoUpdate({
-					target: [workforceHeadcountInCore.submissionId, workforceHeadcountInCore.categoryId],
+					target: [workforceHeadcountInKitchen.submissionId, workforceHeadcountInKitchen.categoryId],
 					set: { headcount: sql`excluded.headcount`, updatedAt: sql`now()` },
 				})
 		)
@@ -511,9 +519,9 @@ export async function addWorkforceNote(db: SisubDb, ctx: UserContext, input: Add
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: workforceSubmissionInCore.id })
-			.from(workforceSubmissionInCore)
-			.where(and(eq(workforceSubmissionInCore.surveyId, input.surveyId), eq(workforceSubmissionInCore.ranchoId, input.ranchoId)))
+			.select({ id: workforceSubmissionInKitchen.id })
+			.from(workforceSubmissionInKitchen)
+			.where(and(eq(workforceSubmissionInKitchen.surveyId, input.surveyId), eq(workforceSubmissionInKitchen.ranchoId, input.ranchoId)))
 			.limit(1)
 	)
 	const submission = rows[0]
@@ -521,7 +529,7 @@ export async function addWorkforceNote(db: SisubDb, ctx: UserContext, input: Add
 
 	const note = await insertOneOrFail("SAVE_FAILED", "Falha ao registrar a observação", () =>
 		db
-			.insert(workforceNoteInCore)
+			.insert(workforceNoteInKitchen)
 			.values({ submissionId: submission.id, kind: input.kind, quantity: input.quantity ?? null, detail: input.detail })
 			.returning(NOTE_COLS)
 	)
@@ -533,10 +541,10 @@ export async function deleteWorkforceNote(db: SisubDb, ctx: UserContext, input: 
 	// o chamador declarar um escopo mais permissivo do que o da linha.
 	const owner = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ ranchoId: workforceSubmissionInCore.ranchoId, surveyId: workforceSubmissionInCore.surveyId })
-			.from(workforceNoteInCore)
-			.innerJoin(workforceSubmissionInCore, eq(workforceSubmissionInCore.id, workforceNoteInCore.submissionId))
-			.where(eq(workforceNoteInCore.id, input.noteId))
+			.select({ ranchoId: workforceSubmissionInKitchen.ranchoId, surveyId: workforceSubmissionInKitchen.surveyId })
+			.from(workforceNoteInKitchen)
+			.innerJoin(workforceSubmissionInKitchen, eq(workforceSubmissionInKitchen.id, workforceNoteInKitchen.submissionId))
+			.where(eq(workforceNoteInKitchen.id, input.noteId))
 			.limit(1)
 	)
 	const row = owner[0]
@@ -548,7 +556,7 @@ export async function deleteWorkforceNote(db: SisubDb, ctx: UserContext, input: 
 	await requireOpenSurvey(db, row.surveyId)
 
 	const deleted = await mutateOrFail("DELETE_FAILED", "Observação não encontrada", () =>
-		db.delete(workforceNoteInCore).where(eq(workforceNoteInCore.id, input.noteId)).returning({ id: workforceNoteInCore.id })
+		db.delete(workforceNoteInKitchen).where(eq(workforceNoteInKitchen.id, input.noteId)).returning({ id: workforceNoteInKitchen.id })
 	)
 	return { id: deleted[0]?.id as string }
 }
@@ -559,9 +567,9 @@ export async function createWorkforceSurvey(db: SisubDb, ctx: UserContext, input
 	requirePermission(ctx, "admin", 2)
 	const row = await insertOneOrFail("SAVE_FAILED", "Já existe competência para esta data de referência", () =>
 		db
-			.insert(workforceSurveyInCore)
+			.insert(workforceSurveyInKitchen)
 			.values({ referenceDate: input.referenceDate, title: input.title, source: input.source ?? null, createdBy: ctx.userId })
-			.onConflictDoNothing({ target: workforceSurveyInCore.referenceDate })
+			.onConflictDoNothing({ target: workforceSurveyInKitchen.referenceDate })
 			.returning(SURVEY_COLS)
 	)
 	return toWire<WorkforceSurvey>(row)
@@ -571,9 +579,9 @@ export async function closeWorkforceSurvey(db: SisubDb, ctx: UserContext, input:
 	requirePermission(ctx, "admin", 2)
 	const rows = await mutateOrFail("SAVE_FAILED", "Competência não encontrada ou já encerrada", () =>
 		db
-			.update(workforceSurveyInCore)
+			.update(workforceSurveyInKitchen)
 			.set({ status: "closed", closedAt: sql`now()` })
-			.where(and(eq(workforceSurveyInCore.id, input.surveyId), eq(workforceSurveyInCore.status, "open")))
+			.where(and(eq(workforceSurveyInKitchen.id, input.surveyId), eq(workforceSurveyInKitchen.status, "open")))
 			.returning(SURVEY_COLS)
 	)
 	return toWire<WorkforceSurvey>(rows[0])
@@ -583,7 +591,7 @@ export async function createRancho(db: SisubDb, ctx: UserContext, input: CreateR
 	requirePermission(ctx, "admin", 2)
 	const row = await insertOneOrFail("SAVE_FAILED", `Já existe rancho com o code "${input.code}"`, () =>
 		db
-			.insert(ranchoInCore)
+			.insert(ranchoInKitchen)
 			.values({
 				unitId: input.unitId,
 				eloCode: input.eloCode,
@@ -594,7 +602,7 @@ export async function createRancho(db: SisubDb, ctx: UserContext, input: CreateR
 				producesOwnMeals: input.producesOwnMeals,
 				notes: input.notes ?? null,
 			})
-			.onConflictDoNothing({ target: ranchoInCore.code })
+			.onConflictDoNothing({ target: ranchoInKitchen.code })
 			.returning(RANCHO_COLS)
 	)
 	return toWire<Rancho>(row)
@@ -611,7 +619,7 @@ export async function updateRancho(db: SisubDb, ctx: UserContext, input: UpdateR
 	if (input.notes !== undefined) patch.notes = input.notes ?? null
 
 	const rows = await mutateOrFail("SAVE_FAILED", "Rancho não encontrado", () =>
-		db.update(ranchoInCore).set(patch).where(eq(ranchoInCore.id, input.ranchoId)).returning(RANCHO_COLS)
+		db.update(ranchoInKitchen).set(patch).where(eq(ranchoInKitchen.id, input.ranchoId)).returning(RANCHO_COLS)
 	)
 	return toWire<Rancho>(rows[0])
 }
