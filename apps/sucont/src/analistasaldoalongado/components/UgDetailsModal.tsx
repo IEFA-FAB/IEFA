@@ -177,7 +177,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
-						<div className="w-12 h-12 rounded-xl bg-fab-100 flex items-center justify-center text-fab-700 text-heading">UG</div>
+						<div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-action text-heading">UG</div>
 						<div>
 							<div className="flex items-baseline gap-2">
 								<h2 className="text-display text-foreground">{ugData.ug}</h2>
@@ -233,7 +233,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								<Input
 									type="text"
 									placeholder="Buscar conta..."
-									className="pl-9 pr-4 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+									className="pl-9 pr-4 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 									value={searchTerm}
 									onChange={(e) => setSearchTerm(e.target.value)}
 								/>
@@ -241,11 +241,11 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						</div>
 
 						{racQuestions.length > 0 && (
-							<div className="px-4 py-3 bg-fab-50 border-b border-fab-100 flex items-start gap-3">
-								<Info className="w-5 h-5 text-fab-600 shrink-0 mt-0.5" />
+							<div className="px-4 py-3 bg-muted/50 border-b border-border flex items-start gap-3">
+								<Info className="w-5 h-5 text-action shrink-0 mt-0.5" />
 								<div>
-									<h4 className="text-subheading text-fab-900 mb-1">Informação para Análise (Controle Interno SUCONT-3)</h4>
-									<p className="text-caption text-fab-800 mb-2">
+									<h4 className="text-subheading text-foreground mb-1">Informação para Análise (Controle Interno SUCONT-3)</h4>
+									<p className="text-caption text-foreground mb-2">
 										A Análise que está sendo feita é relativa a Saldos Alongados (sem movimentação) que correspondem às seguintes Questões do Roteiro de
 										Acompanhamento Contábil (RAC):
 									</p>
@@ -256,7 +256,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 											size="xs"
 											onClick={() => setSelectedRacFilter("Geral")}
 											className={`rounded font-medium ${
-												selectedRacFilter === "Geral" ? "bg-fab-600 text-white border-fab-600" : "bg-card text-muted-foreground border-border hover:bg-muted"
+												selectedRacFilter === "Geral" ? "bg-action text-white border-action" : "bg-card text-muted-foreground border-border hover:bg-muted"
 											}`}
 										>
 											Todas as Questões
@@ -269,7 +269,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 												size="xs"
 												onClick={() => setSelectedRacFilter(q)}
 												className={`rounded font-medium ${
-													selectedRacFilter === q ? "bg-fab-600 text-white border-fab-600 shadow-sm" : "bg-fab-50 text-fab-700 border-fab-200 hover:bg-fab-100"
+													selectedRacFilter === q ? "bg-action text-white border-action shadow-sm" : "bg-muted/50 text-action border-border hover:bg-muted"
 												}`}
 											>
 												{q}
@@ -304,7 +304,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 											<td className="px-4 py-3 font-mono text-caption">{occ.conta_corrente}</td>
 											<td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">{formatCurrency(occ.saldo)}</td>
 											<td className="px-4 py-3">
-												<span className="inline-flex items-center px-2 py-0.5 rounded text-hint bg-fab-50 text-fab-700 border border-fab-100 whitespace-nowrap">
+												<span className="inline-flex items-center px-2 py-0.5 rounded text-hint bg-muted/50 text-action border border-border whitespace-nowrap">
 													{occ.status}
 												</span>
 											</td>
@@ -332,7 +332,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							<Button
 								type="button"
 								onClick={handleCopy}
-								className="gap-2 px-3 py-1.5 text-caption text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+								className="gap-2 px-3 py-1.5 text-caption text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
 							>
 								{copied ? (
 									<>
@@ -358,7 +358,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										id="ug-msg-number"
 										type="text"
 										placeholder="Ex: 123"
-										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 										value={messageNumber}
 										onChange={(e) => setMessageNumber(e.target.value)}
 									/>
@@ -370,7 +370,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									<Input
 										id="ug-msg-date"
 										type="date"
-										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 										value={messageDate}
 										onChange={(e) => setMessageDate(e.target.value)}
 									/>
@@ -388,7 +388,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								>
 									<SelectTrigger
 										id="ug-msg-type"
-										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -407,7 +407,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										<Input
 											id="ug-msg-deadline"
 											type="date"
-											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>

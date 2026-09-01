@@ -918,9 +918,9 @@ DIREF/SUCONT/SUCONT-3
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 						<div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:border-action/50 transition-colors">
 							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
-								<Search className="w-6 h-6 text-fab-blue" />
+								<Search className="w-6 h-6 text-foreground" />
 							</div>
-							<h3 className="text-heading text-fab-blue mb-2">O que está sendo analisado</h3>
+							<h3 className="text-heading text-foreground mb-2">O que está sendo analisado</h3>
 							<p className="text-body text-muted-foreground leading-relaxed">
 								Análise de conformidade entre saldos de contas de controle e contas patrimoniais (ex: Cauções, Almoxarifado e Bens Móveis em Trânsito),
 								identificando inconsistências nos registros das Unidades Gestoras.
@@ -929,9 +929,9 @@ DIREF/SUCONT/SUCONT-3
 
 						<div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:border-action/50 transition-colors">
 							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
-								<BookOpen className="w-6 h-6 text-fab-blue" />
+								<BookOpen className="w-6 h-6 text-foreground" />
 							</div>
-							<h3 className="text-heading text-fab-blue mb-2">Referencial Teórico (RAC)</h3>
+							<h3 className="text-heading text-foreground mb-2">Referencial Teórico (RAC)</h3>
 							<p className="text-body text-muted-foreground leading-relaxed">
 								Baseado no Roteiro de Acompanhamento Contábil (RAC) da SUCONT-3, o aplicativo orienta a atuação da Setorial Contábil para garantir a
 								fidedignidade do balanço patrimonial do COMAER.
@@ -940,9 +940,9 @@ DIREF/SUCONT/SUCONT-3
 
 						<div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:border-action/50 transition-colors">
 							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
-								<MessageSquareText className="w-6 h-6 text-fab-blue" />
+								<MessageSquareText className="w-6 h-6 text-foreground" />
 							</div>
-							<h3 className="text-heading text-fab-blue mb-2">Mensagens Automáticas</h3>
+							<h3 className="text-heading text-foreground mb-2">Mensagens Automáticas</h3>
 							<p className="text-body text-muted-foreground leading-relaxed">
 								Geração instantânea de mensagens padronizadas de cobrança e orientação para as UGs, prontas para envio via SAU, otimizando o processo de
 								regularização contábil.
@@ -951,8 +951,8 @@ DIREF/SUCONT/SUCONT-3
 					</div>
 
 					{/* Upload card */}
-					<div className="bg-card rounded-xl shadow-sm border border-fab-blue/10 p-6">
-						<h2 className="text-heading mb-4 flex items-center gap-2 text-fab-blue">
+					<div className="bg-card rounded-xl shadow-sm border border-border p-6">
+						<h2 className="text-heading mb-4 flex items-center gap-2 text-foreground">
 							<FileSpreadsheet className="w-5 h-5 text-action" />
 							Importar Relatório
 						</h2>
@@ -961,7 +961,7 @@ DIREF/SUCONT/SUCONT-3
 							<div className="flex items-start gap-3">
 								<Info className="w-5 h-5 text-action shrink-0 mt-0.5" />
 								<div>
-									<h3 className="text-subheading text-fab-blue mb-1.5">Caminho do Relatório no Tesouro Gerencial:</h3>
+									<h3 className="text-subheading text-foreground mb-1.5">Caminho do Relatório no Tesouro Gerencial:</h3>
 									<div className="text-caption text-muted-foreground leading-relaxed flex flex-wrap items-center gap-x-1.5 gap-y-1">
 										<span className="font-medium text-foreground">TESOURO GERENCIAL</span>
 										<ChevronRight className="w-3 h-3 text-muted-foreground" />
@@ -981,7 +981,7 @@ DIREF/SUCONT/SUCONT-3
 										<ChevronRight className="w-3 h-3 text-muted-foreground" />
 										<span>SUCONT-3 - ACOMPANHAMENTO</span>
 										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span className="font-bold text-fab-blue">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
+										<span className="font-bold text-foreground">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
 									</div>
 								</div>
 							</div>
@@ -998,17 +998,17 @@ DIREF/SUCONT/SUCONT-3
 							<div
 								className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isProcessing ? "border-border bg-muted" : "border-action/30 bg-action/5 hover:bg-action/10"}`}
 							>
-								<Upload className={`w-8 h-8 mx-auto mb-3 ${isProcessing ? "text-muted-foreground" : "text-fab-blue"}`} />
+								<Upload className={`w-8 h-8 mx-auto mb-3 ${isProcessing ? "text-muted-foreground" : "text-foreground"}`} />
 								{isProcessing ? (
 									<p className="text-muted-foreground font-medium">Processando planilha...</p>
 								) : fileName ? (
 									<div>
-										<p className="text-fab-blue font-medium">{fileName}</p>
+										<p className="text-foreground font-medium">{fileName}</p>
 										<p className="text-muted-foreground text-body mt-1">Clique ou arraste outro arquivo para substituir</p>
 									</div>
 								) : (
 									<div>
-										<p className="text-fab-blue font-medium">Clique ou arraste o arquivo do Tesouro Gerencial (.xlsx)</p>
+										<p className="text-foreground font-medium">Clique ou arraste o arquivo do Tesouro Gerencial (.xlsx)</p>
 										<p className="text-muted-foreground text-body mt-1">Colunas necessárias: UG, Conta Contábil, Saldo</p>
 									</div>
 								)}
@@ -1034,7 +1034,7 @@ DIREF/SUCONT/SUCONT-3
 							type="button"
 							variant="ghost"
 							onClick={() => setActiveTab("operacional")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-all ${activeTab === "operacional" ? "bg-fab-blue text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
+							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-all ${activeTab === "operacional" ? "bg-tech-blue text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
 						>
 							<FileText className="w-4 h-4" />
 							Visão Operacional (UGs)
@@ -1043,7 +1043,7 @@ DIREF/SUCONT/SUCONT-3
 							type="button"
 							variant="ghost"
 							onClick={() => setActiveTab("gerencial")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-all ${activeTab === "gerencial" ? "bg-fab-blue text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
+							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-all ${activeTab === "gerencial" ? "bg-tech-blue text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
 						>
 							<LayoutDashboard className="w-4 h-4" />
 							Painel Gerencial (RAC)
@@ -1079,7 +1079,7 @@ DIREF/SUCONT/SUCONT-3
 											variant="ghost"
 											size="sm"
 											onClick={() => setRacFilter("all")}
-											className={`px-3 py-1.5 text-label rounded-md transition-all ${racFilter === "all" ? "bg-fab-blue text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+											className={`px-3 py-1.5 text-label rounded-md transition-all ${racFilter === "all" ? "bg-tech-blue text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 										>
 											Todas Questões
 										</Button>
@@ -1104,7 +1104,7 @@ DIREF/SUCONT/SUCONT-3
 											variant="ghost"
 											size="sm"
 											onClick={() => setConferenteFilter("all")}
-											className={`px-3 py-1.5 text-label rounded-md transition-all ${conferenteFilter === "all" ? "bg-fab-blue text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+											className={`px-3 py-1.5 text-label rounded-md transition-all ${conferenteFilter === "all" ? "bg-tech-blue text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 										>
 											Geral
 										</Button>
@@ -1114,7 +1114,7 @@ DIREF/SUCONT/SUCONT-3
 												variant="ghost"
 												size="sm"
 												onClick={() => setConferenteFilter("minhas")}
-												className={`px-3 py-1.5 text-label rounded-md transition-all ${conferenteFilter === "minhas" ? "bg-action text-fab-blue shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+												className={`px-3 py-1.5 text-label rounded-md transition-all ${conferenteFilter === "minhas" ? "bg-action text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 											>
 												Minhas UGs
 											</Button>
@@ -1159,7 +1159,7 @@ DIREF/SUCONT/SUCONT-3
 										type="button"
 										variant="ghost"
 										onClick={copyAll}
-										className="flex items-center gap-2 px-5 py-2.5 bg-fab-blue hover:bg-fab-blue/90 text-surface-inverted-foreground rounded-lg text-subheading transition-colors shadow-sm"
+										className="flex items-center gap-2 px-5 py-2.5 bg-tech-blue hover:bg-tech-blue/90 text-surface-inverted-foreground rounded-lg text-subheading transition-colors shadow-sm"
 									>
 										<Copy className="w-4 h-4" />
 										Copiar Mensagens Filtradas
@@ -1193,9 +1193,9 @@ DIREF/SUCONT/SUCONT-3
 									return (
 										<div key={idx} className="bg-card rounded-xl shadow-md border border-border overflow-hidden flex flex-col">
 											{/* Card header */}
-											<div className="bg-gradient-to-r from-fab-blue to-fab-light-blue px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-fab-blue">
+											<div className="bg-gradient-to-r from-tech-blue to-tech-blue px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-tech-blue">
 												<div className="flex items-center gap-3">
-													<div className="bg-action text-fab-blue font-mono text-subheading px-2 py-1 rounded shadow-sm">#{idx + 1}</div>
+													<div className="bg-action text-foreground font-mono text-subheading px-2 py-1 rounded shadow-sm">#{idx + 1}</div>
 													<h3 className="text-heading text-white flex flex-wrap items-center gap-3">
 														{report.ugName} (UG {report.ugCode})
 														<span className="text-caption bg-white/20 text-surface-inverted-accent px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
@@ -1324,7 +1324,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: "com_prazo",
 																		}))
 																	}
-																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "com_prazo" ? "bg-card text-fab-blue shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "com_prazo" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 																>
 																	Com Prazo
 																</Button>
@@ -1338,7 +1338,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: "sem_prazo",
 																		}))
 																	}
-																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "sem_prazo" ? "bg-card text-fab-blue shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "sem_prazo" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 																>
 																	Sem Prazo
 																</Button>
@@ -1352,7 +1352,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: "alerta",
 																		}))
 																	}
-																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "alerta" ? "bg-card text-fab-blue shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "alerta" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 																>
 																	Alerta
 																</Button>
@@ -1383,7 +1383,7 @@ DIREF/SUCONT/SUCONT-3
 																type="button"
 																variant="ghost"
 																onClick={() => copyToClipboard(msgText)}
-																className="flex items-center gap-1.5 px-3 py-1.5 bg-action/10 hover:bg-action/20 text-fab-blue rounded-lg text-subheading transition-colors border border-action/30 whitespace-nowrap"
+																className="flex items-center gap-1.5 px-3 py-1.5 bg-action/10 hover:bg-action/20 text-foreground rounded-lg text-subheading transition-colors border border-action/30 whitespace-nowrap"
 															>
 																<Copy className="w-4 h-4" />
 																Copiar
@@ -1410,7 +1410,7 @@ DIREF/SUCONT/SUCONT-3
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 								<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col">
 									<p className="text-label text-muted-foreground mb-1">Total de UGs com Divergência</p>
-									<p className="text-display text-fab-blue">{reports.length}</p>
+									<p className="text-display text-foreground">{reports.length}</p>
 								</div>
 								<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col">
 									<p className="text-label text-muted-foreground mb-1">Volume Financeiro Total</p>
@@ -1426,7 +1426,7 @@ DIREF/SUCONT/SUCONT-3
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 								{/* Bar chart: Top 5 UGs */}
 								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-									<h3 className="text-heading text-fab-blue mb-4 flex items-center gap-2">
+									<h3 className="text-heading text-foreground mb-4 flex items-center gap-2">
 										<BarChart3 className="w-5 h-5 text-action" />
 										Top 5 UGs por Volume de Divergência
 									</h3>
@@ -1452,7 +1452,7 @@ DIREF/SUCONT/SUCONT-3
 														boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
 													}}
 												/>
-												<Bar dataKey="volume" fill={"var(--color-fab-blue)"} radius={[0, 4, 4, 0]} barSize={32} />
+												<Bar dataKey="volume" fill="var(--series-siafi)" radius={[0, 4, 4, 0]} barSize={32} />
 											</BarChart>
 										</ResponsiveContainer>
 									</div>
@@ -1460,7 +1460,7 @@ DIREF/SUCONT/SUCONT-3
 
 								{/* Pie chart: Pairs */}
 								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-									<h3 className="text-heading text-fab-blue mb-4 flex items-center gap-2">
+									<h3 className="text-heading text-foreground mb-4 flex items-center gap-2">
 										<PieChartIcon className="w-5 h-5 text-action" />
 										Incidência por Par de Contas
 									</h3>
@@ -1499,7 +1499,7 @@ DIREF/SUCONT/SUCONT-3
 							{/* Distribution: Órgão Superior */}
 							<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<div className="bg-muted/50 border-b border-border px-6 py-4">
-									<h3 className="text-heading text-fab-blue flex items-center gap-2">
+									<h3 className="text-heading text-foreground flex items-center gap-2">
 										<Building2 className="w-5 h-5 text-action" />
 										Distribuição por Órgão Superior
 									</h3>
@@ -1509,7 +1509,7 @@ DIREF/SUCONT/SUCONT-3
 										{managerialData.superiorStats.map((sup, idx) => (
 											<div key={idx} className="bg-muted/50 rounded-xl border border-border p-5 flex flex-col">
 												<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-													<h4 className="font-bold text-fab-blue flex items-center gap-2">
+													<h4 className="font-bold text-foreground flex items-center gap-2">
 														<Building2 className="w-4 h-4 text-muted-foreground" />
 														{sup.name}
 													</h4>
@@ -1541,7 +1541,7 @@ DIREF/SUCONT/SUCONT-3
 							{/* Distribution: ODS */}
 							<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<div className="bg-muted/50 border-b border-border px-6 py-4">
-									<h3 className="text-heading text-fab-blue flex items-center gap-2">
+									<h3 className="text-heading text-foreground flex items-center gap-2">
 										<LayoutDashboard className="w-5 h-5 text-action" />
 										Distribuição por ODS (Órgão de Direção Setorial)
 									</h3>
@@ -1551,7 +1551,7 @@ DIREF/SUCONT/SUCONT-3
 										{managerialData.odsStats.map((ods, idx) => (
 											<div key={idx} className="bg-muted/50 rounded-xl border border-border p-5 flex flex-col">
 												<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-													<h4 className="font-bold text-fab-blue flex items-center gap-2">
+													<h4 className="font-bold text-foreground flex items-center gap-2">
 														<LayoutDashboard className="w-4 h-4 text-muted-foreground" />
 														{ods.name}
 													</h4>
@@ -1583,7 +1583,7 @@ DIREF/SUCONT/SUCONT-3
 							{/* Distribution: Conferente */}
 							<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<div className="bg-muted/50 border-b border-border px-6 py-4">
-									<h3 className="text-heading text-fab-blue flex items-center gap-2">
+									<h3 className="text-heading text-foreground flex items-center gap-2">
 										<Users className="w-5 h-5 text-action" />
 										Filtro Gerencial por Conferente
 									</h3>
@@ -1593,7 +1593,7 @@ DIREF/SUCONT/SUCONT-3
 										{managerialData.conferenteStats.map((conf, idx) => (
 											<div key={idx} className="bg-muted/50 rounded-xl border border-border p-5 flex flex-col">
 												<div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-													<h4 className="font-bold text-fab-blue flex items-center gap-2">
+													<h4 className="font-bold text-foreground flex items-center gap-2">
 														<Users className="w-4 h-4 text-muted-foreground" />
 														{conf.name}
 													</h4>
@@ -1625,7 +1625,7 @@ DIREF/SUCONT/SUCONT-3
 							{/* Risk analysis */}
 							<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<div className="bg-muted/50 border-b border-border px-6 py-4">
-									<h3 className="text-heading text-fab-blue flex items-center gap-2">
+									<h3 className="text-heading text-foreground flex items-center gap-2">
 										<ShieldAlert className="w-5 h-5 text-action" />
 										Análise de Risco e Contexto Metodológico (RAC)
 									</h3>
@@ -1648,7 +1648,7 @@ DIREF/SUCONT/SUCONT-3
 													</div>
 												</div>
 												<div className="md:w-2/3 bg-action/5 p-4 rounded-xl border border-action/30">
-													<h5 className="text-subheading text-fab-blue mb-2">Objetivo da Verificação:</h5>
+													<h5 className="text-subheading text-foreground mb-2">Objetivo da Verificação:</h5>
 													<p className="text-body text-foreground mb-4 leading-relaxed">
 														{pair.name === "Par 1"
 															? "Garantir que os saldos de caução em espécie registrados no ativo (1.1.1.1.1.19.03) estejam integralmente refletidos na conta de controle (8.1.1.1.1.01.13)."

@@ -122,7 +122,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 						value={selectedRac}
 						onValueChange={(v) => setSelectedRac(v ?? "Geral")}
 					>
-						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-fab-700 shadow-none focus-visible:ring-0">
+						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -141,8 +141,8 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
 					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-fab-100 rounded-xl">
-							<TrendingUp className="w-6 h-6 text-fab-600" />
+						<div className="p-3 bg-muted rounded-xl">
+							<TrendingUp className="w-6 h-6 text-action" />
 						</div>
 						<div>
 							<p className="text-subheading text-muted-foreground">Saldo Total Analisado</p>
@@ -183,7 +183,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 			<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden relative" id="analise-pareto">
 				<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 					<div className="flex items-center gap-2">
-						<Activity className="w-5 h-5 text-fab-600" />
+						<Activity className="w-5 h-5 text-action" />
 						<h3 className="font-bold text-foreground">Análise de Pareto (Curva ABC)</h3>
 					</div>
 					<Button
@@ -247,7 +247,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 				<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col relative" id="risk-ods">
 					<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<BarChart3 className="w-5 h-5 text-fab-600" />
+							<BarChart3 className="w-5 h-5 text-action" />
 							<h3 className="font-bold text-foreground">Mapa de Risco Contábil por ODS</h3>
 						</div>
 						<Button
@@ -322,7 +322,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 											className="hover:bg-muted/50 transition-colors cursor-pointer"
 											onClick={() => setSelectedDetailLevel({ type: "ods", name: item.ods })}
 										>
-											<td className="px-4 py-3 font-bold text-fab-700">{item.ods}</td>
+											<td className="px-4 py-3 font-bold text-action">{item.ods}</td>
 											<td className="px-4 py-3 text-center text-muted-foreground">{item.count}</td>
 											<td className="px-4 py-3 text-right font-medium text-foreground">{formatCurrency(item.balance)}</td>
 										</tr>
@@ -337,7 +337,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 				<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col relative" id="risk-orgao">
 					<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<PieChartIcon className="w-5 h-5 text-fab-600" />
+							<PieChartIcon className="w-5 h-5 text-action" />
 							<h3 className="font-bold text-foreground">Concentração por Órgão Superior</h3>
 						</div>
 						<Button
@@ -408,7 +408,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 					<div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-heading text-foreground flex items-center gap-2">
-								<Activity className="w-5 h-5 text-fab-600" />
+								<Activity className="w-5 h-5 text-action" />
 								Detalhamento: {selectedDetailLevel.name}
 							</h3>
 							<Button

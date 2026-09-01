@@ -61,7 +61,7 @@ function CardInner({ tool }: { tool: Tool }) {
 				 * Uma superfície só para o ícone de TODOS os cards.
 				 *
 				 * O campo `iconColor` do catálogo carregava sete cores diferentes sem
-				 * significado nenhum — `bg-fab-blue` num card, `bg-success` em três,
+				 * significado nenhum — `bg-tech-blue` num card, `bg-success` em três,
 				 * `bg-muted-foreground` noutro — e o azul-marinho sumia contra o card no
 				 * tema escuro, porque `--fab-blue` é cor de marca e não tem contrapartida
 				 * escura. Cor que não distingue nada só faz a grade parecer sete produtos.

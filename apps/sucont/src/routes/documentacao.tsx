@@ -185,7 +185,7 @@ function PlataformaDoc() {
 										<Button
 											type="button"
 											onClick={() => setDocData(null)}
-											className="bg-fab-blue hover:bg-action text-surface-inverted-foreground px-6 py-3 rounded-xl"
+											className="bg-tech-blue hover:bg-action text-surface-inverted-foreground px-6 py-3 rounded-xl"
 										>
 											Voltar ao Início
 										</Button>

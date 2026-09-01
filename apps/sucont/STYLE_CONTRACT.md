@@ -49,6 +49,15 @@ Mesma ordem de prioridade do sisub:
   (institucional FAB, incluindo a escala numérica `fab-50`…`fab-950`) são tokens
   legítimos, declarados no `@theme inline`. Usá-las é permitido; inventar cor
   fora delas, não.
+- **`fab-*` é MARCA, não folha de estilo.** Permitido não é o mesmo que coerente:
+  três telas (`subitens-genericos`, `conta-generica`, `analista-compatibilidade`)
+  pintavam TUDO com ela — texto de corpo, borda de painel, fundo de ícone, anel de
+  foco, 468 classes ao todo — enquanto as outras nove usavam a escala semântica.
+  Era isso que fazia essas três parecerem outro produto. Cromo (texto, superfície,
+  borda, foco, hover) sai da escala semântica; `fab-*` fica onde é identidade
+  institucional de verdade: o ofício A4 (`plataforma-doc/fab-document.tsx`) e as
+  rampas de dado declaradas. Cor de marca também não tem contrapartida no tema
+  escuro — `--fab-blue` sumia contra o card escuro.
 - **Token que participa de fundo ou texto tem valor nos DOIS temas.** `--tech-bg`
   era hex fixo do tema claro sem contrapartida no `.dark`: no escuro a casca
   ficava cinza-clara enquanto `--foreground` virava quase branco, e título e
@@ -286,6 +295,10 @@ arbitrárias em classe (114), texto abaixo de 11px (202),
 | Cores de ícone no dado (`iconColor`) | 7 valores distintos | Uma superfície só |
 | Tema por rota (`useState(true)` no auditor) | 1 | Cookie + botão único do cabeçalho |
 | `LegalFooter` avulso | 4 rotas | Rodapé da casca |
+| Paleta institucional FAB usada como cromo | 468 classes | Escala semântica (§4.1) |
+| Capas de ferramenta (disco com avião/escudo, título com filete dourado, lema entre bússolas, marca-d'água) | 3 telas | Removidas — a descrição sob a trilha já diz o que a ferramenta faz |
+| Zonas de envio com forma própria | 4 | A mesma do `DgcUpload` |
+| Nomes de ferramenta longos demais para a barra | 12 (máx. 39 caracteres) | Máx. 25; a questão do RAC saiu do nome (já é pílula) |
 
 **Primitivos criados** (portados do sisub, o contrato irmão): `card`, `badge`,
 `tabs`, `alert`, `empty`. A ausência deles era a CAUSA da divergência de
@@ -378,7 +391,10 @@ exceção já registrada na tabela anterior.
 - [ ] A rota monta o `HubLayout`, sem cabeçalho, barra, busca ou rodapé próprios (§4.5)?
 - [ ] Ação da tela em `actions`, e filtro no corpo — não o contrário (§4.5)?
 - [ ] Zero classe do Tailwind montada por interpolação (`bg-${x}`) (§6)?
-- [ ] Superfície via `<Card>`, aviso via `<Alert>`, pílula via `<Badge>`, segmento via `<Tabs>`?
+- [ ] Superfície via `<Card>`, aviso via `<Alert>`, pílula via `<Badge>`, segmento
+      via `<SegmentedControl>` (filtro) ou `<Tabs>` (com painel)?
+- [ ] Zero `fab-*` como cromo — só como marca institucional (§4.1)?
+- [ ] A tela abre pela TAREFA, sem capa que repita a descrição da trilha (§4.5)?
 
 ## 11. Referências de implementação
 

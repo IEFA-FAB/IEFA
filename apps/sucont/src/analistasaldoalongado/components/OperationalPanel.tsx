@@ -153,7 +153,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					<Button
 						type="button"
 						onClick={() => setIsConsolidatedModalOpen(true)}
-						className="gap-2 px-4 py-2 text-subheading text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+						className="gap-2 px-4 py-2 text-subheading text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
 					>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
@@ -170,7 +170,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 							value={selectedConferente}
 							onValueChange={(v) => setSelectedConferente(v ?? "Geral")}
 						>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-fab-700 shadow-none focus-visible:ring-0">
+							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -192,7 +192,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 							value={selectedRac}
 							onValueChange={(v) => setSelectedRac(v ?? "Geral")}
 						>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-fab-700 shadow-none focus-visible:ring-0">
+							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -212,7 +212,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
 					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-fab-50 text-fab-600 rounded-lg">
+						<div className="p-2 bg-muted/50 text-action rounded-lg">
 							<Building2 className="w-5 h-5" />
 						</div>
 						<h3 className="text-subheading text-muted-foreground">UGs com Ocorrência</h3>
@@ -311,7 +311,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 													</p>
 													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Saldo Alongado:</span>
-														<span className="font-semibold text-fab-700">{formatCurrency(d.saldo_total)}</span>
+														<span className="font-semibold text-action">{formatCurrency(d.saldo_total)}</span>
 													</p>
 													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Representatividade:</span>
@@ -379,7 +379,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<Input
 							type="text"
 							placeholder="Buscar por código, nome ou conferente..."
-							className="pl-9 pr-4 py-2 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+							className="pl-9 pr-4 py-2 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
@@ -429,7 +429,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						</thead>
 						<tbody className="divide-y divide-border">
 							{filteredAndSortedData.map((row) => (
-								<tr key={row.ug} className="bg-card hover:bg-fab-50/50 transition-colors group">
+								<tr key={row.ug} className="bg-card hover:bg-muted/40 transition-colors group">
 									<td className="px-5 py-3 font-medium text-foreground">
 										{row.ug} - {row.nome_ug || "-"}
 									</td>
@@ -451,7 +451,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 											onClick={() => onViewDetails(row, selectedRac)}
 											variant="outline"
 											size="sm"
-											className="gap-1.5 px-3 py-1.5 text-caption text-fab-700 bg-fab-50 border-fab-200 rounded-lg hover:bg-fab-100 hover:border-fab-300 transition-colors"
+											className="gap-1.5 px-3 py-1.5 text-caption text-action bg-muted/50 border-border rounded-lg hover:bg-muted hover:border-border transition-colors"
 										>
 											Analisar
 											<ArrowRight className="w-3.5 h-3.5" />

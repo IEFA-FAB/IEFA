@@ -109,7 +109,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 			<div className="w-full max-w-4xl h-full max-h-[90vh] bg-muted/50 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-border">
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
-						<div className="w-12 h-12 rounded-xl bg-fab-100 flex items-center justify-center text-fab-700 text-heading">MSG</div>
+						<div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-action text-heading">MSG</div>
 						<div>
 							<h2 className="text-heading text-foreground">Mensagem Consolidada</h2>
 							<div className="flex items-center gap-2 mt-1 text-body text-muted-foreground">
@@ -151,7 +151,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 									id="cons-msg-number"
 									type="text"
 									placeholder="Ex: 123"
-									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 									value={messageNumber}
 									onChange={(e) => setMessageNumber(e.target.value)}
 								/>
@@ -163,7 +163,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<Input
 									id="cons-msg-date"
 									type="date"
-									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 									value={messageDate}
 									onChange={(e) => setMessageDate(e.target.value)}
 								/>
@@ -180,7 +180,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								>
 									<SelectTrigger
 										id="cons-msg-type"
-										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -199,7 +199,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 										<Input
 											id="cons-msg-deadline"
 											type="date"
-											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>
@@ -211,7 +211,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<Button
 									type="button"
 									onClick={handleCopy}
-									className="w-full gap-2 px-4 py-2 text-subheading text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+									className="w-full gap-2 px-4 py-2 text-subheading text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
 								>
 									{copied ? (
 										<>

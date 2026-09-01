@@ -53,7 +53,7 @@ export function FileUploader({ onFileSelect, isLoading, error }: FileUploaderPro
 				htmlFor="dropzone-file-saldo"
 				className={cn(
 					"relative flex flex-col items-center justify-center w-full h-64 rounded-xl border-2 border-dashed transition-all duration-200 ease-in-out cursor-pointer",
-					isDragging ? "border-fab-500 bg-fab-50/50" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
+					isDragging ? "border-ring bg-muted/40" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
 					isLoading && "opacity-50 cursor-not-allowed"
 				)}
 				onDragEnter={handleDrag}
@@ -62,9 +62,9 @@ export function FileUploader({ onFileSelect, isLoading, error }: FileUploaderPro
 				onDrop={handleDrop}
 			>
 				<div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-					<Upload className={cn("w-12 h-12 mb-4 transition-colors duration-200", isDragging ? "text-fab-500" : "text-muted-foreground")} />
+					<Upload className={cn("w-12 h-12 mb-4 transition-colors duration-200", isDragging ? "text-action" : "text-muted-foreground")} />
 					<p className="mb-2 text-subheading text-foreground">
-						<span className="font-semibold text-fab-600">Clique para enviar</span> ou arraste e solte
+						<span className="font-semibold text-action">Clique para enviar</span> ou arraste e solte
 					</p>
 					<p className="text-caption text-muted-foreground">Planilhas CSV ou Excel (.xlsx, .xls)</p>
 				</div>

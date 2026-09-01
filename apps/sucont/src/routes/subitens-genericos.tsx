@@ -3,7 +3,6 @@ import {
 	AlertCircle,
 	CheckCircle2,
 	ChevronRight,
-	Compass,
 	Copy,
 	Crosshair,
 	FileSpreadsheet,
@@ -26,12 +25,14 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, Tooltip as R
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { chartChrome } from "#/lib/chart-theme"
 import { cn } from "#/lib/utils"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { CONFERENTES_MAPPING, UG_INFO } from "#/subitens/constants"
@@ -552,70 +553,28 @@ function SubitensGenericos() {
 	return (
 		<HubLayout
 			actions={
-				<Button onClick={resetAnalysis} type="button" variant="outline" size="sm">
-					Nova análise
-				</Button>
+				// Só com dados: sem análise carregada, "Nova análise" não desfaz nada.
+				data.length > 0 && (
+					<Button onClick={resetAnalysis} type="button" variant="outline" size="sm">
+						Nova análise
+					</Button>
+				)
 			}
 		>
-			{/*
-			 * Os metadados da mensagem são um formulário da tela, e ficam no corpo.
-			 * Moravam num cabeçalho institucional próprio — gradiente azul-e-ouro,
-			 * faixa dourada de 4px, aviões de marca-d'água e título em serifada
-			 * itálica de 4xl — que não existia em nenhuma outra ferramenta do hub. É
-			 * o caso extremo do que o §3 do contrato chama de "nove temas dentro de
-			 * um hub": clicar no card fazia o usuário achar que trocou de sistema.
-			 */}
-			<Card className="mb-8">
-				<CardHeader>
-					<CardTitle>Dados do relatório</CardTitle>
-					<CardDescription>Identificam a mensagem gerada para a UG. Aparecem no cabeçalho do documento exportado.</CardDescription>
-				</CardHeader>
-				<CardContent className="grid gap-4 sm:grid-cols-3">
-					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="report-date">Data do relatório</Label>
-						<Input id="report-date" type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
-					</div>
-					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="msg-number">Nº da mensagem</Label>
-						<Input id="msg-number" type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="___" />
-					</div>
-					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="msg-date">Data da mensagem</Label>
-						<Input id="msg-date" type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} />
-					</div>
-				</CardContent>
-			</Card>
-
 			<div>
 				<AnimatePresence mode="wait">
 					{data.length === 0 ? (
-						<motion.div
-							key="upload"
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							exit={{ opacity: 0, scale: 0.95 }}
-							className="max-w-2xl mx-auto"
-						>
-							<div className="mb-12 text-center">
-								<div className="inline-flex items-center justify-center w-24 h-24 bg-fab-sky rounded-full mb-8 shadow-inner border-4 border-white relative">
-									<div className="absolute inset-0 border-2 border-fab-gold/30 rounded-full m-1" />
-									<Plane className="text-fab-blue -rotate-45" size={40} />
-								</div>
-								<h2 className="text-display text-fab-blue mb-6">
-									Análise de <span className="text-fab-gold">Subitens</span> Genéricos
-								</h2>
-								<p className="text-fab-blue/60 leading-relaxed mb-8 max-w-2xl mx-auto">
-									Ferramenta institucional da DIREF para identificação automatizada de utilização de subitens genéricos (99/999) no Tesouro Gerencial (Base
-									SIAFI).
-								</p>
-								<div className="flex items-center justify-center gap-3 text-label text-fab-blue/40">
-									<Compass size={14} className="text-fab-gold" />
-									<span>Defender, Controlar e Integrar</span>
-									<Compass size={14} className="text-fab-gold" />
-								</div>
-							</div>
-
-							{/* Drop Zone */}
+						<motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
+							{/*
+							 * Zona de envio no padrão do hub — a mesma do `DgcUpload`.
+							 *
+							 * Aqui havia uma capa institucional: avião num disco de 96px com anel
+							 * dourado, "Análise de SUBITENS Genéricos" com a palavra do meio em
+							 * ouro, e o lema "Defender, Controlar e Integrar" entre duas bússolas.
+							 * Nada disso é a tarefa — a tarefa é enviar uma planilha —, e nenhuma
+							 * outra ferramenta do hub abre assim. O que a capa dizia de útil (o
+							 * que a ferramenta faz) já está na descrição sob a trilha.
+							 */}
 							<label
 								htmlFor="file-upload"
 								onDragOver={(e) => {
@@ -625,41 +584,34 @@ function SubitensGenericos() {
 								onDragLeave={() => setIsDragging(false)}
 								onDrop={onDrop}
 								className={cn(
-									"relative group cursor-pointer transition-all duration-500",
-									"border-2 border-dashed rounded-xl p-12",
-									"flex flex-col items-center justify-center text-center gap-6",
-									isDragging
-										? "border-fab-blue bg-fab-blue/5 scale-[1.02]"
-										: "border-fab-blue/10 bg-card hover:border-fab-blue/40 hover:shadow-2xl hover:shadow-fab-blue/5"
+									"mx-auto flex max-w-2xl cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors",
+									isDragging ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:border-border/80 hover:bg-muted"
 								)}
 							>
-								<input type="file" onChange={onFileChange} accept=".xlsx,.xls" className="absolute inset-0 opacity-0 cursor-pointer" id="file-upload" />
+								<input type="file" onChange={onFileChange} accept=".xlsx,.xls" className="hidden" id="file-upload" />
 
-								<div
-									className={cn(
-										"w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500",
-										isDragging ? "bg-fab-blue text-white rotate-12" : "bg-fab-sky text-fab-blue group-hover:scale-110 shadow-lg shadow-fab-blue/5"
-									)}
-								>
+								{isProcessing ? (
+									<Search className="mb-4 h-11 w-11 animate-pulse text-muted-foreground" />
+								) : (
+									<Upload className="mb-4 h-11 w-11 text-muted-foreground" />
+								)}
+
+								<p className="mb-1 text-subheading text-foreground">
 									{isProcessing ? (
-										<motion.div animate={{ rotate: 360 }} transition={{ repeat: Number.POSITIVE_INFINITY, duration: 1, ease: "linear" }}>
-											<Search size={40} />
-										</motion.div>
+										"Processando a planilha…"
 									) : (
-										<Upload size={40} />
+										<>
+											<span className="font-semibold text-tech-blue">Clique para enviar</span> ou arraste o relatório
+										</>
 									)}
-								</div>
+								</p>
+								<p className="text-caption text-muted-foreground">Excel do Tesouro Gerencial (.xlsx, .xls)</p>
 
-								<div>
-									<p className="text-display text-fab-blue mb-2">{isProcessing ? "Processando dados..." : "Arraste o relatório Excel aqui"}</p>
-									<p className="text-body text-fab-blue/40">ou clique para selecionar o arquivo no seu computador</p>
-								</div>
-
-								<div className="flex flex-wrap justify-center gap-3 mt-4">
+								<div className="mt-6 flex flex-wrap justify-center gap-2">
 									{["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo"].map((col) => (
-										<span key={col} className="px-4 py-1.5 bg-fab-sky/50 rounded-full text-label text-fab-blue/60 border border-fab-blue/5">
+										<Badge key={col} variant="outline">
 											{col}
-										</span>
+										</Badge>
 									))}
 								</div>
 							</label>
@@ -674,14 +626,14 @@ function SubitensGenericos() {
 
 							<div className="mt-12 space-y-6">
 								{/* Referencial Metodológico */}
-								<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
+								<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
 									<div className="flex items-start gap-6">
-										<div className="w-12 h-12 shrink-0 bg-fab-sky rounded-xl flex items-center justify-center text-fab-blue shadow-inner">
+										<div className="w-12 h-12 shrink-0 bg-muted rounded-xl flex items-center justify-center text-foreground ">
 											<Shield size={24} />
 										</div>
 										<div>
-											<h3 className="text-heading mb-3 text-fab-blue">Referencial Metodológico (RAC)</h3>
-											<p className="text-body text-fab-blue/70 leading-relaxed mb-4">
+											<h3 className="text-heading mb-3 text-foreground">Referencial Metodológico (RAC)</h3>
+											<p className="text-body text-muted-foreground leading-relaxed mb-4">
 												Esta verificação integra o processo de <strong>Acompanhamento Contábil do COMAER</strong> conduzido pela SUCONT-3, com base na{" "}
 												<strong>Questão 34 do Roteiro de Acompanhamento Contábil (RAC)</strong>. A finalidade é garantir que os registros representem de forma
 												fidedigna os fatos administrativos e a situação patrimonial.
@@ -701,9 +653,9 @@ function SubitensGenericos() {
 														text: "A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER.",
 													},
 												].map((card) => (
-													<div key={card.title} className="bg-muted/50 p-4 rounded-xl border border-fab-blue/5">
-														<h4 className="text-label text-fab-blue mb-2">{card.title}</h4>
-														<p className="text-caption text-fab-blue/60 leading-relaxed">{card.text}</p>
+													<div key={card.title} className="bg-muted/50 p-4 rounded-xl border border-border">
+														<h4 className="text-label text-foreground mb-2">{card.title}</h4>
+														<p className="text-caption text-muted-foreground leading-relaxed">{card.text}</p>
 													</div>
 												))}
 											</div>
@@ -712,34 +664,34 @@ function SubitensGenericos() {
 								</div>
 
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
-										<div className="w-12 h-12 bg-fab-sky rounded-xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
+									<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
+										<div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 text-foreground ">
 											<Info size={24} />
 										</div>
-										<h3 className="text-heading mb-3 text-fab-blue">O que é analisado?</h3>
-										<p className="text-body text-fab-blue/60 leading-relaxed">
+										<h3 className="text-heading mb-3 text-foreground">O que é analisado?</h3>
+										<p className="text-body text-muted-foreground leading-relaxed">
 											O sistema analisa o relatório do Tesouro Gerencial com base nas questões do Roteiro de Acompanhamento Contábil (RAC), identificando
 											inconsistências como o uso de subitens genéricos (99/999) e outras falhas de classificação.
 										</p>
 									</div>
-									<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
-										<div className="w-12 h-12 bg-fab-sky rounded-xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
+									<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
+										<div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 text-foreground ">
 											<CheckCircle2 size={24} />
 										</div>
-										<h3 className="text-heading mb-3 text-fab-blue">Geração Automática</h3>
-										<p className="text-body text-fab-blue/60 leading-relaxed">
+										<h3 className="text-heading mb-3 text-foreground">Geração Automática</h3>
+										<p className="text-body text-muted-foreground leading-relaxed">
 											Para cada UG identificada, é gerada uma mensagem institucional formatada pronta para ser enviada via SAU, promovendo a regularização
 											contábil de forma padronizada.
 										</p>
 									</div>
 								</div>
 
-								<div className="p-8 bg-card rounded-xl border border-fab-blue/5 border-t-4 border-t-fab-gold/50 shadow-sm hover:shadow-md transition-all">
-									<div className="w-12 h-12 bg-fab-sky rounded-xl flex items-center justify-center mb-6 text-fab-blue shadow-inner">
+								<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
+									<div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 text-foreground ">
 										<MapIcon size={24} />
 									</div>
-									<h3 className="text-heading mb-4 text-fab-blue">Caminho do Relatório (Tesouro Gerencial)</h3>
-									<div className="bg-muted/50 p-5 rounded-xl border border-fab-blue/5 text-body font-mono text-fab-blue/70 leading-relaxed">
+									<h3 className="text-heading mb-4 text-foreground">Caminho do Relatório (Tesouro Gerencial)</h3>
+									<div className="bg-muted/50 p-5 rounded-xl border border-border text-body font-mono text-muted-foreground leading-relaxed">
 										<div className="flex flex-wrap items-center gap-x-2 gap-y-3">
 											{[
 												"TESOURO GERENCIAL",
@@ -754,8 +706,8 @@ function SubitensGenericos() {
 												"ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1",
 											].map((step, i, arr) => (
 												<React.Fragment key={step}>
-													<span className="font-semibold text-fab-blue">{step}</span>
-													{i < arr.length - 1 && <ChevronRight size={14} className="text-fab-gold shrink-0" />}
+													<span className="font-semibold text-foreground">{step}</span>
+													{i < arr.length - 1 && <ChevronRight size={14} className="text-warning shrink-0" />}
 												</React.Fragment>
 											))}
 										</div>
@@ -765,6 +717,36 @@ function SubitensGenericos() {
 						</motion.div>
 					) : (
 						<motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
+							{/*
+							 * Metadados da mensagem — só aqui, no ramo COM dados.
+							 *
+							 * Moravam num cabeçalho institucional próprio (gradiente azul-e-ouro,
+							 * faixa dourada de 4px, aviões de marca-d'água, título em serifada
+							 * itálica), acima do estado vazio: pediam o número da mensagem antes
+							 * de existir qualquer análise para mensagem nenhuma, e ficavam numa
+							 * largura diferente do resto da tela.
+							 */}
+							<Card>
+								<CardHeader>
+									<CardTitle>Dados do relatório</CardTitle>
+									<CardDescription>Identificam a mensagem gerada para a UG. Aparecem no cabeçalho do documento exportado.</CardDescription>
+								</CardHeader>
+								<CardContent className="grid gap-4 sm:grid-cols-3">
+									<div className="flex flex-col gap-1.5">
+										<Label htmlFor="report-date">Data do relatório</Label>
+										<Input id="report-date" type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<Label htmlFor="msg-number">Nº da mensagem</Label>
+										<Input id="msg-number" type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="___" />
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<Label htmlFor="msg-date">Data da mensagem</Label>
+										<Input id="msg-date" type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} />
+									</div>
+								</CardContent>
+							</Card>
+
 							{/* KPI cards */}
 							<section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
 								{[
@@ -773,14 +755,14 @@ function SubitensGenericos() {
 										value: filteredData.length,
 										suffix: "afetadas",
 										accent: false,
-										color: "text-fab-blue",
+										color: "text-foreground",
 									},
 									{
 										label: "Total de Ocorrências",
 										value: filteredData.reduce((acc, curr) => acc + curr.occurrences.length, 0),
 										suffix: "registros",
 										accent: false,
-										color: "text-fab-light-blue",
+										color: "text-action",
 									},
 								].map((kpi, i) => (
 									<motion.div
@@ -788,15 +770,15 @@ function SubitensGenericos() {
 										initial={{ opacity: 0, y: 20 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{ delay: i * 0.1 }}
-										className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm flex flex-col justify-between relative overflow-hidden group"
+										className="bg-card p-8 rounded-xl border border-border shadow-sm flex flex-col justify-between relative overflow-hidden group"
 									>
-										<p className="text-label text-fab-blue/40 mb-1">{kpi.label}</p>
+										<p className="text-label text-muted-foreground mb-1">{kpi.label}</p>
 										<div className="flex items-baseline gap-2">
 											<h3 className={`text-display ${kpi.color}`}>{kpi.value}</h3>
-											<span className="text-label text-fab-blue/40">{kpi.suffix}</span>
+											<span className="text-label text-muted-foreground">{kpi.suffix}</span>
 										</div>
-										<div className="mt-6 h-1.5 w-full bg-fab-sky rounded-full overflow-hidden">
-											<div className="h-full bg-fab-blue w-full opacity-30" />
+										<div className="mt-6 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+											<div className="h-full bg-tech-blue w-full opacity-30" />
 										</div>
 									</motion.div>
 								))}
@@ -805,11 +787,11 @@ function SubitensGenericos() {
 									initial={{ opacity: 0, y: 20 }}
 									animate={{ opacity: 1, y: 0 }}
 									transition={{ delay: 0.2 }}
-									className="bg-fab-blue p-8 rounded-xl shadow-2xl shadow-fab-blue/20 flex flex-col justify-between text-white relative overflow-hidden group"
+									className="bg-tech-blue p-8 rounded-xl flex flex-col justify-between text-white relative overflow-hidden group"
 								>
 									<p className="text-label text-white/40 mb-1">Volume Financeiro</p>
 									<div className="flex flex-col">
-										<h3 className="text-display font-mono text-fab-gold">
+										<h3 className="text-display font-mono text-warning">
 											{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)}
 										</h3>
 										<span className="text-label text-white/40 mt-2">em subitens genéricos</span>
@@ -818,20 +800,20 @@ function SubitensGenericos() {
 							</section>
 
 							{/* Filter */}
-							<section className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm mb-12">
+							<section className="bg-card p-8 rounded-xl border border-border shadow-sm mb-12">
 								<div className="flex flex-col md:flex-row items-center justify-between gap-8">
 									<div className="flex items-center gap-4">
-										<div className="p-3 bg-fab-sky rounded-xl text-fab-blue">
+										<div className="p-3 bg-muted rounded-xl text-foreground">
 											<Filter size={24} />
 										</div>
 										<div>
 											<div className="flex items-center gap-2">
-												<h3 className="text-heading text-fab-blue">Filtrar Análise</h3>
+												<h3 className="text-heading text-foreground">Filtrar Análise</h3>
 												{selectedConferente !== "all" && (
-													<span className="px-2 py-0.5 bg-fab-gold text-white text-label rounded-full animate-pulse">Filtro Ativo</span>
+													<span className="px-2 py-0.5 bg-warning text-white text-label rounded-full animate-pulse">Filtro Ativo</span>
 												)}
 											</div>
-											<p className="text-label text-fab-blue/40">Modo Geral ou por Conferente</p>
+											<p className="text-label text-muted-foreground">Modo Geral ou por Conferente</p>
 										</div>
 									</div>
 
@@ -842,7 +824,7 @@ function SubitensGenericos() {
 											variant="ghost"
 											className={cn(
 												"h-auto px-5 py-2 rounded-full text-label transition-all flex items-center gap-2",
-												selectedConferente === "all" ? "bg-fab-blue text-white shadow-md" : "bg-fab-sky/30 text-fab-blue/60 hover:bg-fab-sky/50"
+												selectedConferente === "all" ? "bg-tech-blue text-white shadow-md" : "bg-muted/50 text-muted-foreground hover:bg-muted"
 											)}
 										>
 											Modo Geral
@@ -850,7 +832,7 @@ function SubitensGenericos() {
 
 										<div className="flex items-center gap-2">
 											<Select items={{ all: "Todos os Conferentes" }} value={selectedConferente} onValueChange={(v) => setSelectedConferente(v ?? "all")}>
-												<SelectTrigger className="data-[size=default]:h-auto bg-fab-sky/30 text-fab-blue border-none rounded-full px-5 py-2 text-label shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue">
+												<SelectTrigger className="data-[size=default]:h-auto bg-muted/50 text-foreground border-none rounded-full px-5 py-2 text-label shadow-none focus-visible:ring-2 focus-visible:ring-ring">
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
@@ -873,7 +855,7 @@ function SubitensGenericos() {
 																variant="ghost"
 																size="icon-sm"
 																aria-label="Limpar Filtros"
-																className="text-fab-blue/40 hover:text-fab-blue"
+																className="text-muted-foreground hover:text-foreground"
 															>
 																<X size={16} />
 															</Button>
@@ -889,7 +871,7 @@ function SubitensGenericos() {
 
 							{/* Tab Navigation */}
 							<div className="flex items-center justify-center mb-12">
-								<div className="bg-card p-1.5 rounded-full border border-fab-blue/10 shadow-sm inline-flex">
+								<div className="bg-card p-1.5 rounded-full border border-border shadow-sm inline-flex">
 									{[
 										{ key: "messages", label: "Mensagens Institucionais", icon: FileText },
 										{ key: "dashboard", label: "Painel Gerencial", icon: LayoutDashboard },
@@ -901,7 +883,7 @@ function SubitensGenericos() {
 											variant="ghost"
 											className={cn(
 												"h-auto px-6 py-2.5 rounded-full text-label transition-all flex items-center gap-2",
-												activeTab === key ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:text-fab-blue hover:bg-fab-sky/50"
+												activeTab === key ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted"
 											)}
 										>
 											<Icon size={16} />
@@ -917,17 +899,17 @@ function SubitensGenericos() {
 									<section className="mb-16">
 										<div className="flex items-center justify-between mb-8">
 											<div className="flex items-center gap-3">
-												<div className="w-12 h-12 bg-fab-sky text-fab-blue rounded-xl flex items-center justify-center border border-fab-blue/10 shadow-sm">
+												<div className="w-12 h-12 bg-muted text-foreground rounded-xl flex items-center justify-center border border-border shadow-sm">
 													<FileSpreadsheet size={24} />
 												</div>
 												<div>
-													<h2 className="text-heading text-fab-blue">Retrato Situacional</h2>
-													<p className="text-label text-fab-blue/40">Detalhamento por Conta e Saldo</p>
+													<h2 className="text-heading text-foreground">Retrato Situacional</h2>
+													<p className="text-label text-muted-foreground">Detalhamento por Conta e Saldo</p>
 												</div>
 											</div>
 										</div>
 
-										<div className="bg-card rounded-xl border border-fab-blue/10 overflow-hidden shadow-xl shadow-fab-blue/5">
+										<div className="bg-card rounded-xl border border-border overflow-hidden">
 											<div className="overflow-x-auto">
 												<table className="w-full text-left border-collapse">
 													<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
@@ -939,33 +921,33 @@ function SubitensGenericos() {
 															))}
 														</tr>
 													</thead>
-													<tbody className="divide-y divide-fab-blue/5">
+													<tbody className="divide-y divide-border">
 														{filteredData.flatMap((group, gIdx) =>
 															group.occurrences.map((occ, oIdx) => (
-																<tr key={`${gIdx}-${oIdx}`} className="hover:bg-fab-sky/10 transition-colors group">
+																<tr key={`${gIdx}-${oIdx}`} className="hover:bg-muted/40 transition-colors group">
 																	<td className="px-10 py-5">
 																		{oIdx === 0 ? (
 																			<div className="flex flex-col gap-1">
 																				<div className="flex items-center gap-3">
-																					<div className="w-1.5 h-1.5 rounded-full bg-fab-gold" />
-																					<span className="text-heading text-fab-blue">{formatUgName(group.ug)}</span>
+																					<div className="w-1.5 h-1.5 rounded-full bg-warning" />
+																					<span className="text-heading text-foreground">{formatUgName(group.ug)}</span>
 																				</div>
-																				<span className="text-label text-fab-blue/50 ml-4">Conferente: {getConferente(group.ug)}</span>
+																				<span className="text-label text-muted-foreground ml-4">Conferente: {getConferente(group.ug)}</span>
 																			</div>
 																		) : (
 																			<span className="opacity-0">{group.ug}</span>
 																		)}
 																	</td>
 																	<td className="px-10 py-5">
-																		<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">{occ.racId}</span>
+																		<span className="px-3 py-1 bg-muted text-foreground rounded-full text-label">{occ.racId}</span>
 																	</td>
-																	<td className="px-10 py-5 font-mono text-body text-fab-blue/70">{occ.contaContabil}</td>
+																	<td className="px-10 py-5 font-mono text-body text-muted-foreground">{occ.contaContabil}</td>
 																	<td className="px-10 py-5 font-mono text-body">
 																		<span className="px-3 py-1 bg-destructive/10 text-destructive rounded-lg text-label border border-destructive/30 shadow-sm">
 																			{occ.contaCorrente}
 																		</span>
 																	</td>
-																	<td className="px-10 py-5 font-mono text-subheading text-right text-fab-blue">
+																	<td className="px-10 py-5 font-mono text-subheading text-right text-foreground">
 																		{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}
 																	</td>
 																</tr>
@@ -981,16 +963,16 @@ function SubitensGenericos() {
 									<section>
 										<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
 											<div className="flex items-center gap-3">
-												<div className="w-12 h-12 bg-fab-blue text-white rounded-xl flex items-center justify-center shadow-xl shadow-fab-blue/20">
+												<div className="w-12 h-12 bg-tech-blue text-white rounded-xl flex items-center justify-center">
 													<FileText size={24} />
 												</div>
 												<div>
-													<h2 className="text-heading text-fab-blue">Expedição de Cobranças</h2>
-													<p className="text-label text-fab-blue/40">Comunicações Oficiais Geradas</p>
+													<h2 className="text-heading text-foreground">Expedição de Cobranças</h2>
+													<p className="text-label text-muted-foreground">Comunicações Oficiais Geradas</p>
 												</div>
 											</div>
 
-											<div className="flex items-center bg-card rounded-full p-1 border border-fab-blue/10 shadow-sm">
+											<div className="flex items-center bg-card rounded-full p-1 border border-border shadow-sm">
 												{[
 													{ key: "individual", label: "Por Unidade Gestora" },
 													{ key: "consolidated", label: "Consolidada por Questão" },
@@ -1002,7 +984,7 @@ function SubitensGenericos() {
 														variant="ghost"
 														className={cn(
 															"h-auto px-4 py-2 rounded-full text-label transition-all",
-															messageMode === key ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:text-fab-blue hover:bg-fab-sky/30"
+															messageMode === key ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
 														)}
 													>
 														{label}
@@ -1037,15 +1019,15 @@ function SubitensGenericos() {
 															transition={{ delay: idx * 0.05 }}
 															className="bg-card rounded-xl border border-foreground/10 shadow-sm hover:shadow-xl hover:shadow-foreground/5 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row"
 														>
-															<div className="lg:w-80 bg-fab-sky/30 p-10 border-b lg:border-b-0 lg:border-r border-fab-blue/10 flex flex-col justify-between">
+															<div className="lg:w-80 bg-muted/50 p-10 border-b lg:border-b-0 lg:border-r border-border flex flex-col justify-between">
 																<div>
 																	<div className="flex items-center gap-2 mb-6">
 																		<span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-																		<span className="text-label text-fab-blue/40">Status: Pendente</span>
+																		<span className="text-label text-muted-foreground">Status: Pendente</span>
 																	</div>
-																	<p className="text-label text-fab-blue/40 mb-1">Unidade Gestora</p>
-																	<h3 className="text-display text-fab-blue mb-1">{formatUgName(group.ug)}</h3>
-																	<p className="text-label text-fab-blue/40 mb-4">Conferente: {getConferente(group.ug)}</p>
+																	<p className="text-label text-muted-foreground mb-1">Unidade Gestora</p>
+																	<h3 className="text-display text-foreground mb-1">{formatUgName(group.ug)}</h3>
+																	<p className="text-label text-muted-foreground mb-4">Conferente: {getConferente(group.ug)}</p>
 
 																	<div className="bg-destructive/10 p-4 rounded-xl border border-destructive/30 mb-6">
 																		<p className="text-label text-destructive mb-1">Inconsistência Identificada</p>
@@ -1054,22 +1036,22 @@ function SubitensGenericos() {
 
 																	<div className="space-y-3 mt-8">
 																		<div className="flex justify-between items-center text-body">
-																			<span className="text-fab-blue/40">Ocorrências</span>
-																			<span className="font-mono font-bold text-fab-blue">{group.occurrences.length}</span>
+																			<span className="text-muted-foreground">Ocorrências</span>
+																			<span className="font-mono font-bold text-foreground">{group.occurrences.length}</span>
 																		</div>
 																		<div className="flex justify-between items-center text-body">
-																			<span className="text-fab-blue/40">Total em 99/999</span>
-																			<span className="font-mono font-bold text-fab-light-blue">
+																			<span className="text-muted-foreground">Total em 99/999</span>
+																			<span className="font-mono font-bold text-action">
 																				{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(group.totalSaldo)}
 																			</span>
 																		</div>
 																	</div>
 
 																	{/* Per-UG controls */}
-																	<div className="mt-8 pt-8 border-t border-fab-blue/5 space-y-6">
+																	<div className="mt-8 pt-8 border-t border-border space-y-6">
 																		<div className="grid grid-cols-2 gap-4">
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`ug-msg-number-${idx}`} className="text-label text-fab-blue/40">
+																				<label htmlFor={`ug-msg-number-${idx}`} className="text-label text-muted-foreground">
 																					Nº Mensagem
 																				</label>
 																				<Input
@@ -1078,11 +1060,11 @@ function SubitensGenericos() {
 																					value={ugConfig.msgNumber}
 																					onChange={(e) => updateUgConfig(group.ug, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-border bg-card px-3 py-2 font-mono text-caption text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`ug-msg-date-${idx}`} className="text-label text-fab-blue/40">
+																				<label htmlFor={`ug-msg-date-${idx}`} className="text-label text-muted-foreground">
 																					Data Mensagem
 																				</label>
 																				<Input
@@ -1090,14 +1072,14 @@ function SubitensGenericos() {
 																					type="date"
 																					value={ugConfig.msgDate}
 																					onChange={(e) => updateUgConfig(group.ug, "msgDate", e.target.value)}
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-border bg-card px-3 py-2 font-mono text-caption text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																				/>
 																			</div>
 																		</div>
 
 																		<div>
 																			<div className="flex flex-col gap-2 mb-4">
-																				<label htmlFor={`ug-msg-type-${idx}`} className="text-label text-fab-blue/40">
+																				<label htmlFor={`ug-msg-type-${idx}`} className="text-label text-muted-foreground">
 																					Tipo de Mensagem
 																				</label>
 																				<Select
@@ -1107,7 +1089,7 @@ function SubitensGenericos() {
 																				>
 																					<SelectTrigger
 																						id={`ug-msg-type-${idx}`}
-																						className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-label text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																						className="w-full px-3 py-2 bg-card border border-border rounded-xl text-label text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																					>
 																						<SelectValue />
 																					</SelectTrigger>
@@ -1128,7 +1110,7 @@ function SubitensGenericos() {
 																						className="space-y-3 overflow-hidden"
 																					>
 																						<div className="flex flex-col gap-2">
-																							<label htmlFor={`ug-deadline-${idx}`} className="text-label text-fab-blue/40">
+																							<label htmlFor={`ug-deadline-${idx}`} className="text-label text-muted-foreground">
 																								Data Limite
 																							</label>
 																							<Input
@@ -1136,7 +1118,7 @@ function SubitensGenericos() {
 																								type="date"
 																								value={ugConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateUgConfig(group.ug, "deadlineDate", e.target.value)}
-																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																								className="h-auto w-full rounded-xl border-border bg-card px-3 py-2 font-mono text-caption text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1152,9 +1134,7 @@ function SubitensGenericos() {
 																	variant="default"
 																	className={cn(
 																		"h-auto mt-12 w-full py-4 rounded-xl flex items-center justify-center gap-3 transition-all text-label",
-																		copiedIndex === idx
-																			? "bg-success text-success-foreground shadow-lg"
-																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
+																		copiedIndex === idx ? "bg-success text-success-foreground shadow-lg" : "bg-tech-blue text-white hover:bg-tech-blue"
 																	)}
 																>
 																	{copiedIndex === idx ? (
@@ -1173,7 +1153,7 @@ function SubitensGenericos() {
 
 															<div className="flex-1 p-10 bg-card relative">
 																<div className="absolute top-6 right-10 flex items-center gap-2">
-																	<div className="w-2 h-2 rounded-full bg-fab-dark/20" />
+																	<div className="w-2 h-2 rounded-full bg-surface-inverted/20" />
 																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
 																<div className="prose prose-sm max-w-none">
@@ -1214,15 +1194,15 @@ function SubitensGenericos() {
 															transition={{ delay: idx * 0.05 }}
 															className="bg-card rounded-xl border border-foreground/10 shadow-sm hover:shadow-xl hover:shadow-foreground/5 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row"
 														>
-															<div className="lg:w-80 bg-fab-sky/30 p-10 border-b lg:border-b-0 lg:border-r border-fab-blue/10 flex flex-col justify-between">
+															<div className="lg:w-80 bg-muted/50 p-10 border-b lg:border-b-0 lg:border-r border-border flex flex-col justify-between">
 																<div>
 																	<div className="flex items-center gap-2 mb-6">
 																		<span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-																		<span className="text-label text-fab-blue/40">Status: Pendente</span>
+																		<span className="text-label text-muted-foreground">Status: Pendente</span>
 																	</div>
-																	<p className="text-label text-fab-blue/40 mb-1">Questão RAC</p>
-																	<h3 className="text-display text-fab-blue mb-1">{RAC_QUESTIONS[racId]?.title || racId}</h3>
-																	<p className="text-label text-fab-blue/40 mb-4">Múltiplas UGs</p>
+																	<p className="text-label text-muted-foreground mb-1">Questão RAC</p>
+																	<h3 className="text-display text-foreground mb-1">{RAC_QUESTIONS[racId]?.title || racId}</h3>
+																	<p className="text-label text-muted-foreground mb-4">Múltiplas UGs</p>
 
 																	<div className="bg-destructive/10 p-4 rounded-xl border border-destructive/30 mb-6">
 																		<p className="text-label text-destructive mb-1">Inconsistência Consolidada</p>
@@ -1233,25 +1213,25 @@ function SubitensGenericos() {
 
 																	<div className="space-y-3 mt-8">
 																		<div className="flex justify-between items-center text-body">
-																			<span className="text-fab-blue/40">UGs Afetadas</span>
-																			<span className="font-mono font-bold text-fab-blue">{uniqueUgs}</span>
+																			<span className="text-muted-foreground">UGs Afetadas</span>
+																			<span className="font-mono font-bold text-foreground">{uniqueUgs}</span>
 																		</div>
 																		<div className="flex justify-between items-center text-body">
-																			<span className="text-fab-blue/40">Ocorrências</span>
-																			<span className="font-mono font-bold text-fab-blue">{occurrences.length}</span>
+																			<span className="text-muted-foreground">Ocorrências</span>
+																			<span className="font-mono font-bold text-foreground">{occurrences.length}</span>
 																		</div>
 																		<div className="flex justify-between items-center text-body">
-																			<span className="text-fab-blue/40">Total em 99/999</span>
-																			<span className="font-mono font-bold text-fab-light-blue">
+																			<span className="text-muted-foreground">Total em 99/999</span>
+																			<span className="font-mono font-bold text-action">
 																				{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalSaldo)}
 																			</span>
 																		</div>
 																	</div>
 
-																	<div className="mt-8 pt-8 border-t border-fab-blue/5 space-y-6">
+																	<div className="mt-8 pt-8 border-t border-border space-y-6">
 																		<div className="grid grid-cols-2 gap-4">
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`rac-msg-number-${idx}`} className="text-label text-fab-blue/40">
+																				<label htmlFor={`rac-msg-number-${idx}`} className="text-label text-muted-foreground">
 																					Nº Mensagem
 																				</label>
 																				<Input
@@ -1260,11 +1240,11 @@ function SubitensGenericos() {
 																					value={racConfig.msgNumber}
 																					onChange={(e) => updateRacConfig(racId, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-border bg-card px-3 py-2 font-mono text-caption text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
-																				<label htmlFor={`rac-msg-date-${idx}`} className="text-label text-fab-blue/40">
+																				<label htmlFor={`rac-msg-date-${idx}`} className="text-label text-muted-foreground">
 																					Data Mensagem
 																				</label>
 																				<Input
@@ -1272,14 +1252,14 @@ function SubitensGenericos() {
 																					type="date"
 																					value={racConfig.msgDate}
 																					onChange={(e) => updateRacConfig(racId, "msgDate", e.target.value)}
-																					className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					className="h-auto w-full rounded-xl border-border bg-card px-3 py-2 font-mono text-caption text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																				/>
 																			</div>
 																		</div>
 
 																		<div>
 																			<div className="flex flex-col gap-2 mb-4">
-																				<label htmlFor={`rac-msg-type-${idx}`} className="text-label text-fab-blue/40">
+																				<label htmlFor={`rac-msg-type-${idx}`} className="text-label text-muted-foreground">
 																					Tipo de Mensagem
 																				</label>
 																				<Select
@@ -1289,7 +1269,7 @@ function SubitensGenericos() {
 																				>
 																					<SelectTrigger
 																						id={`rac-msg-type-${idx}`}
-																						className="w-full px-3 py-2 bg-card border border-fab-blue/10 rounded-xl text-label text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																						className="w-full px-3 py-2 bg-card border border-border rounded-xl text-label text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																					>
 																						<SelectValue />
 																					</SelectTrigger>
@@ -1310,7 +1290,7 @@ function SubitensGenericos() {
 																						className="space-y-3 overflow-hidden"
 																					>
 																						<div className="flex flex-col gap-2">
-																							<label htmlFor={`rac-deadline-${idx}`} className="text-label text-fab-blue/40">
+																							<label htmlFor={`rac-deadline-${idx}`} className="text-label text-muted-foreground">
 																								Data Limite
 																							</label>
 																							<Input
@@ -1318,7 +1298,7 @@ function SubitensGenericos() {
 																								type="date"
 																								value={racConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateRacConfig(racId, "deadlineDate", e.target.value)}
-																								className="h-auto w-full rounded-xl border-fab-blue/10 bg-card px-3 py-2 font-mono text-caption text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																								className="h-auto w-full rounded-xl border-border bg-card px-3 py-2 font-mono text-caption text-foreground shadow-none focus-visible:ring-2 focus-visible:ring-ring/20"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1334,9 +1314,7 @@ function SubitensGenericos() {
 																	variant="default"
 																	className={cn(
 																		"h-auto mt-12 w-full py-4 rounded-xl flex items-center justify-center gap-3 transition-all text-label",
-																		copiedIndex === idx
-																			? "bg-success text-success-foreground shadow-lg"
-																			: "bg-fab-blue text-white hover:bg-fab-light-blue shadow-lg shadow-fab-blue/20"
+																		copiedIndex === idx ? "bg-success text-success-foreground shadow-lg" : "bg-tech-blue text-white hover:bg-tech-blue"
 																	)}
 																>
 																	{copiedIndex === idx ? (
@@ -1355,7 +1333,7 @@ function SubitensGenericos() {
 
 															<div className="flex-1 p-10 bg-card relative">
 																<div className="absolute top-6 right-10 flex items-center gap-2">
-																	<div className="w-2 h-2 rounded-full bg-fab-dark/20" />
+																	<div className="w-2 h-2 rounded-full bg-surface-inverted/20" />
 																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
 																<div className="prose prose-sm max-w-none">
@@ -1376,17 +1354,17 @@ function SubitensGenericos() {
 								<section className="mb-16 space-y-8">
 									<div className="flex items-center justify-between mb-8">
 										<div className="flex items-center gap-3">
-											<div className="w-12 h-12 bg-fab-sky text-fab-blue rounded-xl flex items-center justify-center border border-fab-blue/10 shadow-sm">
+											<div className="w-12 h-12 bg-muted text-foreground rounded-xl flex items-center justify-center border border-border shadow-sm">
 												<TrendingUp size={24} />
 											</div>
 											<div>
-												<h2 className="text-heading text-fab-blue">Painel Estratégico de Acompanhamento</h2>
-												<p className="text-label text-fab-blue/40">Visão Operacional, Tática e Estratégica</p>
+												<h2 className="text-heading text-foreground">Painel Estratégico de Acompanhamento</h2>
+												<p className="text-label text-muted-foreground">Visão Operacional, Tática e Estratégica</p>
 											</div>
 										</div>
 									</div>
 
-									<div className="flex bg-card p-2 rounded-xl border border-fab-blue/10 shadow-sm w-fit mb-8">
+									<div className="flex bg-card p-2 rounded-xl border border-border shadow-sm w-fit mb-8">
 										{(["operacional", "tatico", "estrategico"] as const).map((tab) => (
 											<Button
 												key={tab}
@@ -1395,7 +1373,7 @@ function SubitensGenericos() {
 												variant="ghost"
 												className={cn(
 													"h-auto px-6 py-3 rounded-xl text-label transition-all",
-													dashboardTab === tab ? "bg-fab-blue text-white shadow-md" : "text-fab-blue/60 hover:bg-fab-sky/50"
+													dashboardTab === tab ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted"
 												)}
 											>
 												{tab === "operacional" ? "Nível Operacional" : tab === "tatico" ? "Nível Tático" : "Nível Estratégico"}
@@ -1420,49 +1398,49 @@ function SubitensGenericos() {
 														text: `Foram identificadas ${Object.keys(contasCount).length} contas contábeis distintas com inconsistências, exigindo atenção da Setorial Contábil.`,
 													},
 												].map((card) => (
-													<div key={card.title} className="bg-card p-6 rounded-xl border border-fab-blue/5 shadow-sm">
-														<h4 className="text-label text-fab-blue/40 mb-2">{card.title}</h4>
-														<p className="text-body text-fab-blue/70 leading-relaxed">{card.text}</p>
+													<div key={card.title} className="bg-card p-6 rounded-xl border border-border shadow-sm">
+														<h4 className="text-label text-muted-foreground mb-2">{card.title}</h4>
+														<p className="text-body text-muted-foreground leading-relaxed">{card.text}</p>
 													</div>
 												))}
 											</div>
 
 											<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
+												<div className="bg-card p-8 rounded-xl border border-border shadow-sm">
 													<div className="flex items-center gap-3 mb-8">
-														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
+														<div className="p-2 bg-muted rounded-lg text-foreground">
 															<LayoutDashboard size={20} />
 														</div>
-														<h3 className="text-heading text-fab-blue">Top 5 UGs por Volume Financeiro</h3>
+														<h3 className="text-heading text-foreground">Top 5 UGs por Volume Financeiro</h3>
 													</div>
 													<div className="h-[300px] w-full">
 														<ResponsiveContainer width="100%" height="100%">
 															<BarChart data={topUgsBySaldo} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-																<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={"var(--color-fab-sky)"} />
-																<XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "var(--color-fab-blue)", fontSize: 12 }} />
+																<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
+																<XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: chartChrome.axis, fontSize: 12 }} />
 																<YAxis
 																	axisLine={false}
 																	tickLine={false}
-																	tick={{ fill: "var(--color-fab-blue)", fontSize: 12 }}
+																	tick={{ fill: chartChrome.axis, fontSize: 12 }}
 																	tickFormatter={(value) => new Intl.NumberFormat("pt-BR", { notation: "compact", compactDisplay: "short" }).format(value)}
 																/>
 																<RechartsTooltip
-																	cursor={{ fill: "var(--color-fab-sky)", opacity: 0.4 }}
+																	cursor={{ fill: chartChrome.surfaceMuted, opacity: 0.4 }}
 																	contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
 																	formatter={(value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value))}
 																/>
-																<Bar dataKey="saldo" fill={"var(--color-fab-light-blue)"} radius={[6, 6, 0, 0]} barSize={40} />
+																<Bar dataKey="saldo" fill="var(--series-siafi)" radius={[6, 6, 0, 0]} barSize={40} />
 															</BarChart>
 														</ResponsiveContainer>
 													</div>
 												</div>
 
-												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
+												<div className="bg-card p-8 rounded-xl border border-border shadow-sm">
 													<div className="flex items-center gap-3 mb-8">
-														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
+														<div className="p-2 bg-muted rounded-lg text-foreground">
 															<PieChartIcon size={20} />
 														</div>
-														<h3 className="text-heading text-fab-blue">Contas com Mais Inconsistências</h3>
+														<h3 className="text-heading text-foreground">Contas com Mais Inconsistências</h3>
 													</div>
 													<div className="h-[300px] w-full">
 														<ResponsiveContainer width="100%" height="100%">
@@ -1480,27 +1458,27 @@ function SubitensGenericos() {
 												</div>
 											</div>
 
-											<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
+											<div className="bg-card p-8 rounded-xl border border-border shadow-sm">
 												<div className="flex items-center gap-3 mb-8">
-													<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
+													<div className="p-2 bg-muted rounded-lg text-foreground">
 														<Shield size={20} />
 													</div>
-													<h3 className="text-heading text-fab-blue">Inconsistências por Conferente</h3>
+													<h3 className="text-heading text-foreground">Inconsistências por Conferente</h3>
 												</div>
 												<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 													{conferentesList.map((conf, idx) => (
-														<div key={idx} className="bg-muted/50 p-6 rounded-xl border border-fab-blue/5">
+														<div key={idx} className="bg-muted/50 p-6 rounded-xl border border-border">
 															<div className="flex items-center justify-between mb-4">
-																<h4 className="font-bold text-fab-blue">{conf.name}</h4>
-																<span className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">
+																<h4 className="font-bold text-foreground">{conf.name}</h4>
+																<span className="px-3 py-1 bg-muted text-foreground rounded-full text-label">
 																	{conf.count} {conf.count === 1 ? "inconsistência" : "inconsistências"}
 																</span>
 															</div>
 															<div className="space-y-2">
-																<p className="text-label text-fab-blue/40 mb-2">UGs Afetadas:</p>
+																<p className="text-label text-muted-foreground mb-2">UGs Afetadas:</p>
 																<div className="flex flex-wrap gap-2">
 																	{conf.ugs.map((ug, i) => (
-																		<span key={i} className="px-2 py-1 bg-card border border-fab-blue/10 rounded-md text-caption font-mono text-fab-blue/70">
+																		<span key={i} className="px-2 py-1 bg-card border border-border rounded-md text-caption font-mono text-muted-foreground">
 																			{formatUgName(ug)}
 																		</span>
 																	))}
@@ -1520,16 +1498,16 @@ function SubitensGenericos() {
 													{ title: "Ranking de ODS por Inconsistências", data: odsList, key: "count", suffix: "ocorrências" },
 													{ title: "Ranking de Órgãos Superiores", data: orgaoSuperiorList, key: "count", suffix: "ocorrências" },
 												].map((ranking) => (
-													<div key={ranking.title} className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
-														<h3 className="text-heading text-fab-blue mb-6">{ranking.title}</h3>
+													<div key={ranking.title} className="bg-card p-8 rounded-xl border border-border shadow-sm">
+														<h3 className="text-heading text-foreground mb-6">{ranking.title}</h3>
 														<div className="space-y-4">
 															{ranking.data.map((item, idx) => (
-																<div key={item.name} className="flex items-center justify-between p-4 bg-muted/50 rounded-xl border border-fab-blue/5">
+																<div key={item.name} className="flex items-center justify-between p-4 bg-muted/50 rounded-xl border border-border">
 																	<div className="flex items-center gap-4">
-																		<span className="text-heading text-fab-gold">{idx + 1}º</span>
-																		<span className="font-bold text-fab-blue">{item.name}</span>
+																		<span className="text-heading text-warning">{idx + 1}º</span>
+																		<span className="font-bold text-foreground">{item.name}</span>
 																	</div>
-																	<span className="text-body font-mono text-fab-blue/70">
+																	<span className="text-body font-mono text-muted-foreground">
 																		{(item as { count: number }).count} {ranking.suffix}
 																	</span>
 																</div>
@@ -1538,16 +1516,16 @@ function SubitensGenericos() {
 													</div>
 												))}
 
-												<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
-													<h3 className="text-heading text-fab-blue mb-6">Top 10 UGs com Mais Inconsistências</h3>
+												<div className="bg-card p-8 rounded-xl border border-border shadow-sm">
+													<h3 className="text-heading text-foreground mb-6">Top 10 UGs com Mais Inconsistências</h3>
 													<div className="space-y-3">
 														{topUgsByInconsistencias.map((ug, idx) => (
-															<div key={ug.ug} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl border border-fab-blue/5">
+															<div key={ug.ug} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl border border-border">
 																<div className="flex items-center gap-3">
-																	<span className="text-subheading text-fab-gold w-6">{idx + 1}º</span>
-																	<span className="font-mono text-body text-fab-blue">{formatUgName(ug.ug)}</span>
+																	<span className="text-subheading text-warning w-6">{idx + 1}º</span>
+																	<span className="font-mono text-body text-foreground">{formatUgName(ug.ug)}</span>
 																</div>
-																<span className="text-caption text-fab-blue/60">{ug.occurrences.length} ocorrências</span>
+																<span className="text-caption text-muted-foreground">{ug.occurrences.length} ocorrências</span>
 															</div>
 														))}
 													</div>
@@ -1558,12 +1536,12 @@ function SubitensGenericos() {
 
 									{dashboardTab === "estrategico" && (
 										<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-											<div className="bg-fab-blue p-10 rounded-xl shadow-2xl shadow-fab-blue/20 text-white relative overflow-hidden">
+											<div className="bg-tech-blue p-10 rounded-xl text-white relative overflow-hidden">
 												<div className="absolute -right-10 -top-10 opacity-[0.05]">
 													<Shield size={300} className="text-white" />
 												</div>
 												<div className="relative z-10">
-													<h3 className="text-display text-fab-gold mb-2">Painel de Risco Contábil do COMAER</h3>
+													<h3 className="text-display text-warning mb-2">Painel de Risco Contábil do COMAER</h3>
 													<p className="text-body text-white/60 mb-10 max-w-2xl">
 														Panorama consolidado das inconsistências contábeis identificadas, permitindo a visualização rápida dos pontos de maior risco
 														financeiro e operacional.
@@ -1578,7 +1556,7 @@ function SubitensGenericos() {
 															{
 																label: "Volume Financeiro em Risco",
 																value: (
-																	<h4 className="text-display font-mono text-fab-gold mt-2">
+																	<h4 className="text-display font-mono text-warning mt-2">
 																		{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(totalVolume)}
 																	</h4>
 																),
@@ -1612,21 +1590,21 @@ function SubitensGenericos() {
 
 											<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 												{[
-													{ title: "Distribuição Percentual por ODS", data: odsList, barColor: "bg-fab-blue" },
-													{ title: "Concentração por Órgão Superior", data: orgaoSuperiorList, barColor: "bg-fab-gold" },
+													{ title: "Distribuição Percentual por ODS", data: odsList, barColor: "bg-tech-blue" },
+													{ title: "Concentração por Órgão Superior", data: orgaoSuperiorList, barColor: "bg-warning" },
 												].map(({ title, data, barColor }) => (
-													<div key={title} className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
-														<h3 className="text-heading text-fab-blue mb-6">{title}</h3>
+													<div key={title} className="bg-card p-8 rounded-xl border border-border shadow-sm">
+														<h3 className="text-heading text-foreground mb-6">{title}</h3>
 														<div className="space-y-4">
 															{data.map((item) => {
 																const pct = totalInconsistencias > 0 ? Math.round((item.count / totalInconsistencias) * 100) : 0
 																return (
 																	<div key={item.name} className="flex items-center gap-4">
-																		<div className="w-24 text-fab-blue text-subheading">{item.name}</div>
-																		<div className="flex-1 h-3 bg-fab-sky rounded-full overflow-hidden">
+																		<div className="w-24 text-foreground text-subheading">{item.name}</div>
+																		<div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
 																			<div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
 																		</div>
-																		<div className="w-12 text-right font-mono text-body text-fab-blue/70">{pct}%</div>
+																		<div className="w-12 text-right font-mono text-body text-muted-foreground">{pct}%</div>
 																	</div>
 																)
 															})}
@@ -1637,10 +1615,10 @@ function SubitensGenericos() {
 
 											{/* Mapa de Risco + Pareto */}
 											<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-												<div className="lg:col-span-2 bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
+												<div className="lg:col-span-2 bg-card p-8 rounded-xl border border-border shadow-sm">
 													<div className="flex items-center justify-between mb-8">
-														<h3 className="text-heading text-fab-blue">Mapa de Risco Contábil (Consolidado)</h3>
-														<div className="px-3 py-1 bg-fab-sky text-fab-blue rounded-full text-label">Visão por ODS</div>
+														<h3 className="text-heading text-foreground">Mapa de Risco Contábil (Consolidado)</h3>
+														<div className="px-3 py-1 bg-muted text-foreground rounded-full text-label">Visão por ODS</div>
 													</div>
 													<div className="overflow-x-auto">
 														<table className="w-full">
@@ -1653,15 +1631,15 @@ function SubitensGenericos() {
 																	))}
 																</tr>
 															</thead>
-															<tbody className="divide-y divide-fab-blue/5">
+															<tbody className="divide-y divide-border">
 																{odsList.map((ods) => (
-																	<tr key={ods.name} className="hover:bg-fab-sky/10 transition-colors">
-																		<td className="py-4 text-fab-blue text-subheading">{ods.name}</td>
-																		<td className="py-4 text-center font-mono text-body text-fab-blue/70">{ods.count}</td>
-																		<td className="py-4 text-right font-mono text-body text-fab-blue/70">
+																	<tr key={ods.name} className="hover:bg-muted/40 transition-colors">
+																		<td className="py-4 text-foreground text-subheading">{ods.name}</td>
+																		<td className="py-4 text-center font-mono text-body text-muted-foreground">{ods.count}</td>
+																		<td className="py-4 text-right font-mono text-body text-muted-foreground">
 																			{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(ods.saldo)}
 																		</td>
-																		<td className="py-4 text-right font-mono text-subheading text-fab-blue">
+																		<td className="py-4 text-right font-mono text-subheading text-foreground">
 																			{totalInconsistencias > 0 ? Math.round((ods.count / totalInconsistencias) * 100) : 0}%
 																		</td>
 																	</tr>
@@ -1671,17 +1649,17 @@ function SubitensGenericos() {
 													</div>
 												</div>
 
-												<div className="bg-fab-blue p-8 rounded-xl text-white flex flex-col justify-between">
+												<div className="bg-tech-blue p-8 rounded-xl text-white flex flex-col justify-between">
 													<div>
 														<div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-6">
-															<TrendingUp size={24} className="text-fab-gold" />
+															<TrendingUp size={24} className="text-warning" />
 														</div>
 														<h3 className="text-display mb-2">Análise de Concentração</h3>
 														<p className="text-label text-white/50 mb-6">Regra de Pareto (80/20)</p>
 
 														<div className="space-y-6">
 															<div>
-																<h4 className="text-display text-fab-gold mb-1">{Math.round(paretoSummary.concentrationPercentage)}%</h4>
+																<h4 className="text-display text-warning mb-1">{Math.round(paretoSummary.concentrationPercentage)}%</h4>
 																<p className="text-caption text-white/60 leading-relaxed">
 																	das inconsistências contábeis estão concentradas em apenas 20% das UGs analisadas.
 																</p>
@@ -1693,7 +1671,7 @@ function SubitensGenericos() {
 																	{paretoSummary.top20PercentUgs.slice(0, 3).map((item) => (
 																		<div key={item.ug} className="flex items-center justify-between text-caption">
 																			<span className="text-white/70 font-mono">{formatUgName(item.ug)}</span>
-																			<span className="font-bold text-fab-gold">{item.count} ocorr.</span>
+																			<span className="font-bold text-warning">{item.count} ocorr.</span>
 																		</div>
 																	))}
 																	{paretoSummary.top20PercentUgs.length > 3 && (
@@ -1705,7 +1683,7 @@ function SubitensGenericos() {
 													</div>
 
 													<div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
-														<p className="text-label text-fab-gold mb-1">Prioridade de Atuação</p>
+														<p className="text-label text-warning mb-1">Prioridade de Atuação</p>
 														<p className="text-hint text-white/50 leading-relaxed">
 															O direcionamento das ações para estas {paretoSummary.top20PercentUgs.length} UGs resultará na regularização de{" "}
 															{Math.round(paretoSummary.concentrationPercentage)}% do passivo contábil.
@@ -1715,40 +1693,42 @@ function SubitensGenericos() {
 											</div>
 
 											{/* Priorização */}
-											<div className="bg-card p-8 rounded-xl border border-fab-blue/5 shadow-sm">
+											<div className="bg-card p-8 rounded-xl border border-border shadow-sm">
 												<div className="flex items-center justify-between mb-8">
 													<div className="flex items-center gap-3">
-														<div className="p-2 bg-fab-sky rounded-lg text-fab-blue">
+														<div className="p-2 bg-muted rounded-lg text-foreground">
 															<Shield size={20} />
 														</div>
-														<h3 className="text-heading text-fab-blue">Priorização de Atuação Imediata</h3>
+														<h3 className="text-heading text-foreground">Priorização de Atuação Imediata</h3>
 													</div>
-													<p className="text-label text-fab-blue/40">Baseado em Risco e Impacto Financeiro</p>
+													<p className="text-label text-muted-foreground">Baseado em Risco e Impacto Financeiro</p>
 												</div>
 
 												<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 													{topUgsByInconsistencias.slice(0, 3).map((ug, idx) => (
 														<div
 															key={ug.ug}
-															className="p-6 bg-muted/50 rounded-xl border border-fab-blue/5 relative overflow-hidden group hover:border-fab-gold/30 transition-all"
+															className="p-6 bg-muted/50 rounded-xl border border-border relative overflow-hidden group hover:border-warning/30 transition-all"
 														>
-															<div className="absolute -right-4 -top-4 text-fab-blue/5 text-8xl group-hover:text-fab-gold/10 transition-colors">{idx + 1}</div>
+															<div className="absolute -right-4 -top-4 text-muted-foreground/40 text-8xl group-hover:text-warning/10 transition-colors">
+																{idx + 1}
+															</div>
 															<div className="relative z-10">
-																<p className="text-label text-fab-gold mb-1">{idx + 1}º Prioridade</p>
-																<h4 className="text-heading text-fab-blue mb-4">{formatUgName(ug.ug)}</h4>
+																<p className="text-label text-warning mb-1">{idx + 1}º Prioridade</p>
+																<h4 className="text-heading text-foreground mb-4">{formatUgName(ug.ug)}</h4>
 																<div className="space-y-3">
 																	<div className="flex items-center justify-between">
-																		<span className="text-label text-fab-blue/40">Inconsistências</span>
-																		<span className="text-subheading font-mono text-fab-blue">{ug.occurrences.length}</span>
+																		<span className="text-label text-muted-foreground">Inconsistências</span>
+																		<span className="text-subheading font-mono text-foreground">{ug.occurrences.length}</span>
 																	</div>
 																	<div className="flex items-center justify-between">
-																		<span className="text-label text-fab-blue/40">Impacto Financeiro</span>
-																		<span className="text-subheading font-mono text-fab-blue">
+																		<span className="text-label text-muted-foreground">Impacto Financeiro</span>
+																		<span className="text-subheading font-mono text-foreground">
 																			{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(ug.totalSaldo)}
 																		</span>
 																	</div>
-																	<div className="pt-3 border-t border-fab-blue/5">
-																		<p className="text-hint text-fab-blue/60 italic">
+																	<div className="pt-3 border-t border-border">
+																		<p className="text-hint text-muted-foreground italic">
 																			{ug.occurrences.length > 3 ? "Alta recorrência de questões RAC." : "Impacto significativo nas demonstrações."}
 																		</p>
 																	</div>
@@ -1763,15 +1743,15 @@ function SubitensGenericos() {
 								</section>
 							)}
 
-							<footer className="pt-20 pb-32 border-t border-fab-blue/10 text-center">
+							<footer className="pt-20 pb-32 border-t border-border text-center">
 								<div className="flex items-center justify-center gap-4 mb-6 opacity-30">
-									<Shield size={24} className="text-fab-blue" />
-									<div className="w-2 h-2 rounded-full bg-fab-gold" />
-									<Crosshair size={24} className="text-fab-blue" />
-									<div className="w-2 h-2 rounded-full bg-fab-gold" />
-									<Plane size={24} className="text-fab-blue -rotate-45" />
+									<Shield size={24} className="text-foreground" />
+									<div className="w-2 h-2 rounded-full bg-warning" />
+									<Crosshair size={24} className="text-foreground" />
+									<div className="w-2 h-2 rounded-full bg-warning" />
+									<Plane size={24} className="text-foreground -rotate-45" />
 								</div>
-								<p className="text-label text-fab-blue/20">Analista SUCONT • DIREF • 2026</p>
+								<p className="text-label text-muted-foreground/60">Analista SUCONT • DIREF • 2026</p>
 							</footer>
 						</motion.div>
 					)}

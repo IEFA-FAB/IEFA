@@ -93,7 +93,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 				whileTap={{ scale: 0.95 }}
 				onClick={() => setIsOpen(true)}
 				className={cn(
-					"fixed bottom-8 right-8 w-14 h-14 rounded-full bg-fab-blue text-white shadow-2xl shadow-fab-blue/30 flex items-center justify-center z-40 transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50",
+					"fixed bottom-8 right-8 w-14 h-14 rounded-full bg-tech-blue text-white flex items-center justify-center z-40 transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50",
 					isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
 				)}
 			>
@@ -107,10 +107,10 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						initial={{ opacity: 0, y: 20, scale: 0.95 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
 						exit={{ opacity: 0, y: 20, scale: 0.95 }}
-						className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-card rounded-xl shadow-2xl shadow-fab-blue/20 border border-fab-blue/10 flex flex-col z-50 overflow-hidden"
+						className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-card rounded-xl border border-border flex flex-col z-50 overflow-hidden"
 					>
 						{/* Header */}
-						<div className="bg-fab-blue p-4 flex items-center justify-between text-white">
+						<div className="bg-tech-blue p-4 flex items-center justify-between text-white">
 							<div className="flex items-center gap-3">
 								<div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
 									<Bot size={18} />
@@ -142,7 +142,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 										<div
 											className={cn(
 												"w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-												msg.role === "user" ? "bg-fab-sky text-fab-blue" : "bg-fab-gold text-white"
+												msg.role === "user" ? "bg-muted text-foreground" : "bg-warning text-white"
 											)}
 										>
 											{msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
@@ -151,8 +151,8 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 											className={cn(
 												"p-3 rounded-xl text-body leading-relaxed",
 												msg.role === "user"
-													? "bg-fab-blue text-white rounded-tr-sm"
-													: "bg-card border border-fab-blue/10 text-fab-blue/80 rounded-tl-sm shadow-sm"
+													? "bg-tech-blue text-white rounded-tr-sm"
+													: "bg-card border border-border text-muted-foreground rounded-tl-sm shadow-sm"
 											)}
 										>
 											{text}
@@ -162,12 +162,12 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 							})}
 							{isStreaming && (
 								<div className="flex gap-3 max-w-[85%] mr-auto">
-									<div className="w-8 h-8 rounded-full bg-fab-gold text-white flex items-center justify-center shrink-0">
+									<div className="w-8 h-8 rounded-full bg-warning text-white flex items-center justify-center shrink-0">
 										<Bot size={14} />
 									</div>
-									<div className="p-4 rounded-xl bg-card border border-fab-blue/10 rounded-tl-sm shadow-sm flex items-center gap-2">
-										<Loader2 size={16} className="animate-spin text-fab-blue/40" />
-										<span className="text-caption text-fab-blue/40">Analisando dados...</span>
+									<div className="p-4 rounded-xl bg-card border border-border rounded-tl-sm shadow-sm flex items-center gap-2">
+										<Loader2 size={16} className="animate-spin text-muted-foreground" />
+										<span className="text-caption text-muted-foreground">Analisando dados...</span>
 									</div>
 								</div>
 							)}
@@ -175,15 +175,15 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						</div>
 
 						{/* Input */}
-						<div className="p-4 bg-card border-t border-fab-blue/10">
-							<div className="flex items-center gap-2 bg-muted/50 border border-fab-blue/10 rounded-full p-1 pl-4">
+						<div className="p-4 bg-card border-t border-border">
+							<div className="flex items-center gap-2 bg-muted/50 border border-border rounded-full p-1 pl-4">
 								<Input
 									type="text"
 									value={input}
 									onChange={(e) => setInput(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && handleSend()}
 									placeholder="Faça uma pergunta sobre os dados..."
-									className="h-auto flex-1 border-none bg-transparent p-0 text-body text-fab-blue shadow-none outline-none focus-visible:border-none focus-visible:ring-0"
+									className="h-auto flex-1 border-none bg-transparent p-0 text-body text-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0"
 								/>
 								<Button
 									onClick={isStreaming ? stop : handleSend}
@@ -191,7 +191,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									type="button"
 									size="icon"
 									aria-label={isStreaming ? "Parar" : "Enviar"}
-									className="w-10 h-10 rounded-full bg-fab-blue text-white hover:bg-fab-light-blue disabled:opacity-50 disabled:cursor-not-allowed"
+									className="w-10 h-10 rounded-full bg-tech-blue text-white hover:bg-tech-blue disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{isStreaming ? <X size={16} /> : <Send size={16} className="ml-1" />}
 								</Button>

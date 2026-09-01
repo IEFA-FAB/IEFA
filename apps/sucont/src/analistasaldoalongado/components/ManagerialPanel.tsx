@@ -142,7 +142,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						value={selectedRac}
 						onValueChange={(v) => setSelectedRac(v ?? "Geral")}
 					>
-						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-fab-700 shadow-none focus-visible:ring-0">
+						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -160,7 +160,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			{/* Visão Estratégica */}
 			<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
 				<div className="flex items-center gap-3 mb-6">
-					<div className="p-2 bg-fab-50 text-fab-600 rounded-lg">
+					<div className="p-2 bg-muted/50 text-action rounded-lg">
 						<TrendingUp className="w-5 h-5" />
 					</div>
 					<div>
@@ -181,7 +181,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 
 					<div className="p-5 bg-muted/50 rounded-xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
-							<Activity className="w-4 h-4 text-fab-500" />
+							<Activity className="w-4 h-4 text-action" />
 							<h3 className="text-subheading text-foreground">Impacto Financeiro Global</h3>
 						</div>
 						<p className="text-display text-foreground">{formatCurrency(filteredSaldoTotal)}</p>
@@ -297,7 +297,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 					<div className="flex justify-between items-start mb-6">
 						<div>
 							<div className="flex items-center gap-2 mb-1">
-								<Shield className="w-4 h-4 text-fab-600" />
+								<Shield className="w-4 h-4 text-action" />
 								<h3 className="text-heading text-foreground">Distribuição por ODS</h3>
 							</div>
 							<p className="text-caption text-muted-foreground">Saldo total por Organização de Direção Setorial</p>
@@ -400,25 +400,25 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			</div>
 
 			{/* Recomendações */}
-			<div className="bg-fab-50 p-6 rounded-xl border border-fab-100">
-				<h3 className="text-heading text-fab-900 mb-3">Diretrizes de Acompanhamento (RAC)</h3>
-				<ul className="space-y-2 text-body text-fab-800">
+			<div className="bg-muted/50 p-6 rounded-xl border border-border">
+				<h3 className="text-heading text-foreground mb-3">Diretrizes de Acompanhamento (RAC)</h3>
+				<ul className="space-y-2 text-body text-foreground">
 					<li className="flex items-start gap-2">
-						<span className="w-1.5 h-1.5 rounded-full bg-fab-500 mt-1.5 shrink-0" />
+						<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 shrink-0" />
 						<p>
 							<strong>Foco de Atuação:</strong> Priorizar o contato e a orientação técnica às 5 UGs que concentram {concentracaoRisco}% das inconsistências
 							financeiras.
 						</p>
 					</li>
 					<li className="flex items-start gap-2">
-						<span className="w-1.5 h-1.5 rounded-full bg-fab-500 mt-1.5 shrink-0" />
+						<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 shrink-0" />
 						<p>
 							<strong>Capacitação:</strong> Avaliar a necessidade de emissão de orientação técnica ou treinamento específico sobre a conta{" "}
 							<strong>{contaMaisCritica}</strong>, devido à sua alta recorrência.
 						</p>
 					</li>
 					<li className="flex items-start gap-2">
-						<span className="w-1.5 h-1.5 rounded-full bg-fab-500 mt-1.5 shrink-0" />
+						<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 shrink-0" />
 						<p>
 							<strong>Risco Contábil:</strong> A manutenção de saldos alongados compromete a fidedignidade das demonstrações contábeis do COMAER. A SUCONT-3
 							deve monitorar a regularização destes saldos no próximo ciclo.
