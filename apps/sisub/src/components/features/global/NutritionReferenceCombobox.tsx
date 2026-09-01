@@ -1,7 +1,7 @@
 import type { NutritionReferenceFoodSearchItem, NutritionReferenceSummary } from "@iefa/sisub-domain"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { Loader2, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxStatus, ComboboxTrigger } from "@/components/ui/combobox"
 import { nutritionReferenceFoodsQueryOptions } from "@/services/IngredientsService"
@@ -12,6 +12,8 @@ interface NutritionReferenceComboboxProps {
 }
 
 const MIN_CHARS = 2
+
+const EMPTY: NutritionReferenceFoodSearchItem[] = []
 
 /**
  * Busca de alimento em tabela de referência (TACO, IBGE, USDA).
@@ -37,7 +39,12 @@ export function NutritionReferenceCombobox({ value, onChange }: NutritionReferen
 		placeholderData: keepPreviousData,
 	})
 	const showLoading = isTyping || (debouncedSearch.length >= MIN_CHARS && isFetching)
-	const items = inputReachesMin && !showLoading ? (results as NutritionReferenceFoodSearchItem[]) : []
+	// Ver `CatmatCombobox`: identidade estável para não refazer a coleção do
+	// primitivo a cada render do formulário em volta.
+	const items = useMemo(
+		() => (inputReachesMin && !showLoading ? (results as NutritionReferenceFoodSearchItem[]) : EMPTY),
+		[inputReachesMin, showLoading, results]
+	)
 
 	function handleOpenChange(next: boolean) {
 		setOpen(next)

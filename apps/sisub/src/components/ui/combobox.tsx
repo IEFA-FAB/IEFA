@@ -151,13 +151,16 @@ function ComboboxEmpty({ className, ...props }: ComboboxPrimitive.Empty.Props) {
  * a lista troca embaixo do cursor em silêncio.
  *
  * O elemento tem de continuar montado para o anúncio sair — condicione os
- * filhos, nunca o componente.
+ * filhos, nunca o componente. Vazio ele colapsa por `empty:p-0`, e NÃO por
+ * `display: none`: elemento escondido sai da árvore de acessibilidade, e o
+ * texto inserido depois não é anunciado — que é justamente o que esta região
+ * existe para fazer.
  */
 function ComboboxStatus({ className, ...props }: ComboboxPrimitive.Status.Props) {
 	return (
 		<ComboboxPrimitive.Status
 			data-slot="combobox-status"
-			className={cn("text-muted-foreground flex items-center justify-center gap-2 px-2 py-2 text-center text-sm empty:hidden", className)}
+			className={cn("text-muted-foreground flex items-center justify-center gap-2 px-2 py-2 text-center text-sm empty:p-0", className)}
 			{...props}
 		/>
 	)

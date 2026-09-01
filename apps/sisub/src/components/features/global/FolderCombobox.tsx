@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from "@/components/ui/combobox"
 import { cn } from "@/lib/cn"
@@ -37,6 +37,23 @@ function normalize(value: string) {
 }
 
 /**
+ * Cada palavra da busca tem de aparecer em algum lugar de `nome + caminho`, em
+ * qualquer ordem.
+ *
+ * Casar a consulta inteira como uma substring só seria mais estrito do que o
+ * `cmdk` que este componente substituiu: "hortifruti citricas" não é substring
+ * de "Hortifruti / Frutas / Cítricas" por causa do nível do meio, e a busca
+ * responderia "Nenhuma pasta encontrada" para o caminho que o usuário está
+ * olhando. Palavra a palavra cobre esse caso sem o custo de um score difuso.
+ */
+function matches(haystack: string, query: string) {
+	const terms = normalize(query).split(/\s+/).filter(Boolean)
+	if (terms.length === 0) return true
+	const target = normalize(haystack)
+	return terms.every((term) => target.includes(term))
+}
+
+/**
  * Seletor de pasta com busca, sobre o primitivo `Combobox` do Base UI.
  *
  * Existe para aposentar as três montagens `Popover` + `cmdk` que eram a mesma
@@ -64,10 +81,13 @@ export function FolderCombobox({
 }: FolderComboboxProps) {
 	const [open, setOpen] = useState(false)
 
-	const noneOption: FolderComboboxOption | null = clearLabel ? { id: NONE_ID, path: clearLabel } : null
-	const items = noneOption ? [noneOption, ...options] : options
+	// Identidade estável: `items` e `value` alimentam os memos de coleção do
+	// primitivo, e um literal novo a cada render refaz a lista e a sincronização
+	// do item destacado a cada tecla do formulário em volta.
+	const noneOption = useMemo<FolderComboboxOption | null>(() => (clearLabel ? { id: NONE_ID, path: clearLabel } : null), [clearLabel])
+	const items = useMemo(() => (noneOption ? [noneOption, ...options] : options), [noneOption, options])
 
-	const found = value ? (options.find((option) => option.id === value) ?? null) : null
+	const found = useMemo(() => (value ? (options.find((option) => option.id === value) ?? null) : null), [value, options])
 	const selected = value ? found : noneOption
 	const triggerLabel = value ? (found?.path ?? unavailableLabel) : (clearLabel ?? placeholder)
 
@@ -77,11 +97,7 @@ export function FolderCombobox({
 			value={selected}
 			isItemEqualToValue={(item: FolderComboboxOption, current: FolderComboboxOption) => item.id === current.id}
 			itemToStringLabel={(item: FolderComboboxOption) => item.path}
-			filter={(item: FolderComboboxOption, query) => {
-				const needle = normalize(query.trim())
-				if (!needle) return true
-				return normalize(`${item.name ?? ""} ${item.path}`).includes(needle)
-			}}
+			filter={(item: FolderComboboxOption, query) => matches(`${item.name ?? ""} ${item.path}`, query)}
 			open={open}
 			onOpenChange={setOpen}
 			onValueChange={(next) => {

@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { Loader2, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxStatus, ComboboxTrigger } from "@/components/ui/combobox"
 import { catmatQueryOptions } from "@/services/IngredientsService"
@@ -18,6 +18,9 @@ interface CatmatComboboxProps {
 }
 
 const MIN_CHARS = 3
+
+/** Lista vazia compartilhada: literal novo a cada render invalidaria os memos do primitivo. */
+const EMPTY: CatmatSearchItem[] = []
 
 /**
  * Combobox de busca CATMAT (catálogo Compras.gov.br).
@@ -56,12 +59,17 @@ export function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxPro
 	})
 
 	const showLoading = isTyping || (minCharsReached && isFetching)
-	const items = inputReachesMin && !showLoading ? (results as CatmatSearchItem[]) : []
+	// `items` e `value` alimentam os memos de coleção do primitivo: literal novo
+	// a cada render refaz a lista a cada tecla do formulário em volta.
+	const items = useMemo(() => (inputReachesMin && !showLoading ? (results as CatmatSearchItem[]) : EMPTY), [inputReachesMin, showLoading, results])
 
 	// O item selecionado quase nunca está na lista corrente (a lista é o
 	// resultado da busca atual), então é reconstruído do par código+descrição
 	// que o formulário guarda.
-	const selected: CatmatSearchItem | null = value === null ? null : { codigo_item: value, descricao_item: descricao ?? "", item_sustentavel: null }
+	const selected = useMemo<CatmatSearchItem | null>(
+		() => (value === null ? null : { codigo_item: value, descricao_item: descricao ?? "", item_sustentavel: null }),
+		[value, descricao]
+	)
 
 	function handleOpenChange(next: boolean) {
 		setOpen(next)
