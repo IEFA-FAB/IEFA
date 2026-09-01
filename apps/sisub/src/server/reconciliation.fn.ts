@@ -81,7 +81,7 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
  * enriquecido (campos ausentes) sem sobrescrever valor divergente.
  */
 export const applyDocumentBatchFn = createServerFn({ method: "POST" })
-	.validator(z.object({ batchId: z.string().uuid() }))
+	.validator(z.object({ batchId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const si = siafi()
 		const { data: batch, error: batchError } = await si.from("import_batch").select("*").eq("id", data.batchId).single()

@@ -47,9 +47,9 @@ const EQ_CIVIL = ["esporte", "esporte_fino", "passeio", "passeio_completo", "gal
 export const Route = createFileRoute("/admin/uniformes/$uniformId")({
 	loader: async ({ context, params }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(uniformQueryOptions(params.uniformId)),
-			context.queryClient.ensureQueryData(piecesQueryOptions()),
-			context.queryClient.ensureQueryData(pieceItemsQueryOptions()),
+			context.queryClient.query({ ...uniformQueryOptions(params.uniformId), staleTime: "static" }),
+			context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...pieceItemsQueryOptions(), staleTime: "static" }),
 		])
 	},
 	component: UniformEditor,

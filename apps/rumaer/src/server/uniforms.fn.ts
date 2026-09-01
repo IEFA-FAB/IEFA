@@ -60,7 +60,7 @@ export const listUniformsFn = createServerFn({ method: "GET" })
 // Catálogo público — ver listUniformsFn.
 // nosemgrep: server-fn-missing-auth-guard
 export const getUniformFn = createServerFn({ method: "GET" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<UniformDetail | null> => {
 		const supabase = getRumaerServerClient()
 

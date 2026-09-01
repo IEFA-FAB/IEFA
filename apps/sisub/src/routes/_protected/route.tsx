@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_protected")({
 		// Permissões: requirePermission() das rotas filhas lê este cache de forma síncrona.
 		// Falha NÃO pode derrubar todo o _protected (tela branca) → fallback com o implicit
 		// allow (Comensal) para a sidebar/hub renderizarem ao menos o módulo básico.
-		const ensurePermissions = context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)).catch((err) => {
+		const ensurePermissions = context.queryClient.query({ ...userPermissionsQueryOptions(id), staleTime: "static" }).catch((err) => {
 			const raw = err instanceof Error ? err.message : String(err)
 			const isTransient = raw.trimStart().startsWith("<") || /\b5\d{2}\b/.test(raw) || raw.includes("Failed to fetch")
 			const msg = isTransient ? `HTTP proxy error (${raw.match(/\b[45]\d{2}\b/)?.[0] ?? "unknown status"})` : raw
@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_protected")({
 			// `updatedAt: 0` marca o fallback como IMEDIATAMENTE stale. Sem isso, o setQueryData
 			// carimba o dado como fresh e o staleTime de 30 min impede o refetch — uma falha
 			// transitória (ex.: 502 do gateway / cold start) rebaixaria o usuário a Comensal por
-			// até 30 min mesmo após o backend voltar. Stale → o ensureQueryData da próxima
+			// até 30 min mesmo após o backend voltar. Stale → a query da próxima
 			// navegação tenta de novo e restaura as permissões reais.
 			context.queryClient.setQueryData<UserPermission[]>(
 				userPermissionsQueryOptions(id).queryKey,

@@ -71,10 +71,10 @@ const READING_PANEL = "pt-4 max-w-5xl mx-auto w-full min-h-[32rem]"
 
 const productSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
-	folder_id: z.string().uuid().nullable(),
+	folder_id: z.uuid().nullable(),
 	measure_unit: z.string().nullable(),
 	correction_factor: z.number().nullable(),
-	ceafa_id: z.string().uuid().nullable(),
+	ceafa_id: z.uuid().nullable(),
 })
 
 const MEASURE_UNIT_LABELS: Record<string, string> = {
@@ -504,7 +504,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 																	onInputValueChange={(next, { reason }) => {
 																		if (reason === "item-press") return
 																		setCeafaSearch(next)
-																		queryClient.fetchQuery(ceafaQueryOptions(next))
+																		queryClient.query(ceafaQueryOptions(next))
 																	}}
 																	onValueChange={(next) => {
 																		field.handleChange((next as Ceafa | null)?.id as string)

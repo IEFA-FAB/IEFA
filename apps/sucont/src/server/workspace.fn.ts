@@ -54,7 +54,7 @@ export const createChecklistItemFn = createServerFn({ method: "POST" })
 	})
 
 export const updateChecklistResponsibleFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid(), responsible: z.string() }))
+	.validator(z.object({ id: z.uuid(), responsible: z.string() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontEditor()
 		const { error } = await getSucontServerClient().from("checklist_item").update({ responsible: data.responsible }).eq("id", data.id)
@@ -63,7 +63,7 @@ export const updateChecklistResponsibleFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteChecklistItemFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontEditor()
 		const { error } = await getSucontServerClient().from("checklist_item").delete().eq("id", data.id)
@@ -93,7 +93,7 @@ export const createNoticeFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteNoticeFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontEditor()
 		const { error } = await getSucontServerClient().from("notice").delete().eq("id", data.id)

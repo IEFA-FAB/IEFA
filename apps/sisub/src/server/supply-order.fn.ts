@@ -64,15 +64,15 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 export const createSupplyOrderFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			empenhoId: z.string().uuid(),
+			empenhoId: z.uuid(),
 			kitchenId: z.number().int().positive(),
 			number: z.string().optional(),
 			expectedDelivery: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			items: z
 				.array(
 					z.object({
-						arpItemId: z.string().uuid().optional(),
-						purchaseItemId: z.string().uuid().optional(),
+						arpItemId: z.uuid().optional(),
+						purchaseItemId: z.uuid().optional(),
 						orderedQty: z.number().positive(),
 						unitPrice: z.number().nonnegative().optional(),
 					})
@@ -172,7 +172,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	})
 
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })
-	.validator(z.object({ supplyOrderId: z.string().uuid() }))
+	.validator(z.object({ supplyOrderId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: order } = await procurement().from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
 		if (!order) throw new Error("OF não encontrada")

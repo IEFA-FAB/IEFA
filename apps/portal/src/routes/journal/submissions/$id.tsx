@@ -21,7 +21,7 @@ import {
 
 export const Route = createFileRoute("/journal/submissions/$id")({
 	beforeLoad: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth" })
 		}
@@ -29,10 +29,10 @@ export const Route = createFileRoute("/journal/submissions/$id")({
 	},
 	loader: async ({ params, context }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(articleWithDetailsQueryOptions(params.id)),
-			context.queryClient.ensureQueryData(articleAuthorsQueryOptions(params.id)),
-			context.queryClient.ensureQueryData(articleVersionsQueryOptions(params.id)),
-			context.queryClient.ensureQueryData(authorArticleReviewsQueryOptions(params.id)),
+			context.queryClient.query({ ...articleWithDetailsQueryOptions(params.id), staleTime: "static" }),
+			context.queryClient.query({ ...articleAuthorsQueryOptions(params.id), staleTime: "static" }),
+			context.queryClient.query({ ...articleVersionsQueryOptions(params.id), staleTime: "static" }),
+			context.queryClient.query({ ...authorArticleReviewsQueryOptions(params.id), staleTime: "static" }),
 		])
 	},
 	component: RouteComponent,

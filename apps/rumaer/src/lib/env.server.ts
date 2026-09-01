@@ -4,7 +4,7 @@ import { z } from "zod"
 // Usa process.env (não import.meta.env) porque os handlers de server functions
 // executam no Nitro onde import.meta.env não é injetado pelo Vite.
 const serverEnvSchema = z.object({
-	VITE_RUMAER_SUPABASE_URL: z.string().url(),
+	VITE_RUMAER_SUPABASE_URL: z.url(),
 	// Publishable/anon — o client SSR de auth usa ESTA, não a service key (RLS).
 	// Já provisionada no runtime (secret_names em infra/rumaer).
 	VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),

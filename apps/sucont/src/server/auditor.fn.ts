@@ -38,8 +38,8 @@ const balanceRowSchema = z.object({
 	ugCodigo: z.string().min(1).max(20),
 	ugNome: z.string().max(120).nullish(),
 	accountGroup: z.enum(AccountGroup),
-	siafiValue: z.number().finite(),
-	silomsValue: z.number().finite(),
+	siafiValue: z.number(),
+	silomsValue: z.number(),
 })
 
 export type BalanceRowInput = z.infer<typeof balanceRowSchema>
@@ -129,7 +129,7 @@ export interface SaveBalancesResult {
 export const saveAuditorBalancesFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			runId: z.string().uuid().nullish(),
+			runId: z.uuid().nullish(),
 			rows: z.array(balanceRowSchema).min(1).max(MAX_ROWS_PER_CALL),
 		})
 	)
@@ -310,7 +310,7 @@ export const registerAuditorMessageFn = createServerFn({ method: "POST" })
 			corpo: z.string().min(1).max(50_000),
 			ugCodigo: z.string().max(20).nullish(),
 			tipo: z.enum(["RANKING", "HEATMAP"]).nullish(),
-			analysisRunId: z.string().uuid().nullish(),
+			analysisRunId: z.uuid().nullish(),
 		})
 	)
 	.handler(async ({ data }): Promise<{ id: string; number: number; corpo: string }> => {
@@ -351,7 +351,7 @@ export const registerAuditorMessageFn = createServerFn({ method: "POST" })
 export const finalizeAuditorRunFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			runId: z.string().uuid(),
+			runId: z.uuid(),
 			rowsWritten: z.number().int().nonnegative(),
 			status: z.enum(["complete", "partial", "failed"]),
 			error: z.string().max(2000).nullish(),

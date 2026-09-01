@@ -65,7 +65,7 @@ export const getRouter = () => {
 				// which validates the token against the Supabase Auth server.
 				//
 				// O refetch precisa RESOLVER antes de navegar: o beforeLoad do root usa
-				// ensureQueryData, que devolve o cache existente mesmo stale/em voo. Navegar
+				// query({ …, staleTime: "static" }), que devolve o cache existente mesmo stale/em voo. Navegar
 				// antes faria o _protected ler `user: null` e devolver o usuário para /auth.
 				// Não dá pra `await` dentro do callback do Supabase (segura o lock do auth),
 				// então encadeia via .then().

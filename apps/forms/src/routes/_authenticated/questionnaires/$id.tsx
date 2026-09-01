@@ -75,7 +75,7 @@ const viewersQueryOptions = (questionnaireId: string) =>
 
 export const Route = createFileRoute("/_authenticated/questionnaires/$id")({
 	beforeLoad: ({ params }) => assertUuidParam(params.id),
-	loader: ({ context, params }) => context.queryClient.ensureQueryData(questionnaireQueryOptions(params.id)),
+	loader: ({ context, params }) => context.queryClient.query({ ...questionnaireQueryOptions(params.id), staleTime: "static" }),
 	component: EditQuestionnairePage,
 })
 

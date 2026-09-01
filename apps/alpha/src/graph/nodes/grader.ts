@@ -33,7 +33,7 @@ export async function graderNode(state: AgentState): Promise<Partial<AgentState>
 
 	const userQuery =
 		messages
-			.filter((m) => m._getType() === "human")
+			.filter((m) => m.type === "human")
 			.pop()
 			?.content?.toString() ?? ""
 

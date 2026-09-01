@@ -46,7 +46,7 @@ const importRoute = createRoute({
 		},
 		query: z.object({
 			kitchen_id: z.coerce.number().int().positive().optional(),
-			created_by: z.string().uuid().optional(),
+			created_by: z.uuid().optional(),
 		}),
 	},
 	responses: {

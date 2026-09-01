@@ -21,6 +21,7 @@
     "langsmith": ">=0.8.11 <1.0.0",
     "tmp": "^0.2.7",
     "undici": ">=8.9.0 <9.0.0",
+    "@ungap/structured-clone": "^1.4.0",
     "esbuild": "^0.28.2"
   },
   "scripts": {

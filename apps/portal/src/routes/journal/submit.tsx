@@ -26,7 +26,7 @@ export const Route = createFileRoute("/journal/submit")({
 		},
 	},
 	beforeLoad: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated || !auth.user) {
 			throw redirect({ to: "/auth" })
 		}
@@ -34,12 +34,12 @@ export const Route = createFileRoute("/journal/submit")({
 		return { auth: auth as typeof auth & { user: NonNullable<typeof auth.user> } }
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user) {
 			// Pre-load user profile and active draft in parallel
 			await Promise.all([
-				context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id)),
-				context.queryClient.ensureQueryData(userActiveDraftQueryOptions(auth.user.id)),
+				context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" }),
+				context.queryClient.query({ ...userActiveDraftQueryOptions(auth.user.id), staleTime: "static" }),
 			])
 		}
 	},

@@ -18,16 +18,16 @@ export const Route = createFileRoute("/journal/review/")({
 		},
 	},
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated || !auth.user) {
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		return { auth: auth as typeof auth & { user: NonNullable<typeof auth.user> } }
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user) {
-			await context.queryClient.ensureQueryData(reviewerAssignmentsQueryOptions(auth.user.id))
+			await context.queryClient.query({ ...reviewerAssignmentsQueryOptions(auth.user.id), staleTime: "static" })
 		}
 	},
 	component: ReviewerDashboard,

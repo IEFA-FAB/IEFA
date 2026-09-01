@@ -19,7 +19,7 @@ function getPortalClient() {
 }
 
 export const getFavoritesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ userId: z.string().uuid() }))
+	.validator(z.object({ userId: z.uuid() }))
 	.handler(async ({ data }) => {
 		// Self-only: a lista de favoritos é do usuário da sessão, não de um uuid do payload.
 		const userId = await requireSelf(data.userId)
@@ -29,7 +29,7 @@ export const getFavoritesFn = createServerFn({ method: "GET" })
 	})
 
 export const setFavoritesFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.string().uuid(), appIds: z.array(z.string().uuid()) }))
+	.validator(z.object({ userId: z.uuid(), appIds: z.array(z.uuid()) }))
 	.handler(async ({ data }) => {
 		const userId = await requireSelf(data.userId)
 		const { error } = await getPortalClient().from("user_app_favorites").upsert({ user_id: userId, app_ids: data.appIds, updated_at: new Date().toISOString() })

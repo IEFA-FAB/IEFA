@@ -206,7 +206,7 @@ function FrozenPreparationDialog({ open, onOpenChange, editing }: { open: boolea
 
 	const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }))
 
-	async function handleSubmit(e: React.FormEvent) {
+	async function handleSubmit(e: React.SyntheticEvent) {
 		e.preventDefault()
 		if (!form.description.trim()) {
 			toast.error("Nome obrigatório")

@@ -2,7 +2,7 @@ import { z } from "zod"
 
 // Variáveis expostas ao cliente (prefixo VITE_). Validadas no boot.
 const envSchema = z.object({
-	VITE_SUCONT_SUPABASE_URL: z.string().url(),
+	VITE_SUCONT_SUPABASE_URL: z.url(),
 	VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 })
 

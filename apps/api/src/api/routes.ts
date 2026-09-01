@@ -48,7 +48,7 @@ const UserMilitaryDataSchema = z.object({
 const UserDataSchema = z.object({
 	id: z.uuid(),
 	created_at: z.iso.datetime(),
-	email: z.string().email(),
+	email: z.email(),
 	nrOrdem: z.string(),
 })
 

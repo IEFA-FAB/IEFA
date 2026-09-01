@@ -64,7 +64,7 @@ const importRoute = createRoute({
 				.string()
 				.regex(/^\d{4}-\d{2}$/)
 				.optional(),
-			created_by: z.string().uuid().optional(),
+			created_by: z.uuid().optional(),
 		}),
 	},
 	responses: {

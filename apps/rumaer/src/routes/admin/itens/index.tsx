@@ -17,7 +17,10 @@ const GENEROS = Object.keys(GENERO_LABELS) as Genero[]
 
 export const Route = createFileRoute("/admin/itens/")({
 	loader: async ({ context }) => {
-		await Promise.all([context.queryClient.ensureQueryData(piecesQueryOptions()), context.queryClient.ensureQueryData(pieceItemsQueryOptions())])
+		await Promise.all([
+			context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...pieceItemsQueryOptions(), staleTime: "static" }),
+		])
 	},
 	component: PieceItemsAdmin,
 })

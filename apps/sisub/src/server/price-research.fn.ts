@@ -122,8 +122,8 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			validSamples: z.array(SampleSchema),
 			outlierSamples: z.array(SampleSchema),
 			// Se fornecidos, linka imediatamente (caso ATA já existente)
-			ataId: z.string().uuid().optional(),
-			ataItemId: z.string().uuid().optional(),
+			ataId: z.uuid().optional(),
+			ataItemId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<{ researchId: string; researchItemId: string }> => {

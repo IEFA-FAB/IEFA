@@ -5,13 +5,13 @@ import { AppLayout } from "@/components/AppLayout"
 
 export const Route = createFileRoute("/admin")({
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		// Não basta estar logado: editar o regulamento exige grant `rumaer` nível 2.
 		// Usuário autenticado sem acesso volta para a navegação pública.
-		const permissions = await context.queryClient.ensureQueryData(myRumaerPermissionsQueryOptions())
+		const permissions = await context.queryClient.query({ ...myRumaerPermissionsQueryOptions(), staleTime: "static" })
 		if (!hasPermission(permissions, "rumaer", 2)) {
 			throw redirect({ to: "/uniformes" })
 		}

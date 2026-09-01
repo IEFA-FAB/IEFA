@@ -48,7 +48,7 @@ function submitToneClasses(selected: number | null) {
 export function EvaluationDialog({ open, question, selectedRating, isSubmitting, onOpenChange, onSelectRating, onSubmit }: EvaluationDialogProps) {
 	const resolvedQuestion = question || "Como você avalia?"
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (selectedRating != null && !isSubmitting) onSubmit()
 	}

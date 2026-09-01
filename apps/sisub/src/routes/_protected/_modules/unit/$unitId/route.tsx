@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId")({
 		requirePermission({ context, preload }, "unit", 1, { type: "unit", id: unitId })
 
 		const units = expectArray<Unit>(
-			await context.queryClient.fetchQuery({
+			await context.queryClient.query({
 				queryKey: ["sisub", "units"],
 				queryFn: () => fetchUnitsFn(),
 				staleTime: 600_000,

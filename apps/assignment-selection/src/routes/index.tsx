@@ -11,7 +11,7 @@ import { boardQueryOptions } from "@/lib/queries"
 
 export const Route = createFileRoute("/")({
 	// Telão sempre segue a edição ativa (editionId nulo → resolvido no servidor).
-	loader: ({ context }) => context.queryClient.ensureQueryData(boardQueryOptions(null)),
+	loader: ({ context }) => context.queryClient.query({ ...boardQueryOptions(null), staleTime: "static" }),
 	component: BoardPage,
 })
 

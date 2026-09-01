@@ -53,7 +53,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 	const [query, setQuery] = useState("")
 	const [answer, setAnswer] = useState<string | null>(null)
 
-	const handleSearch = (e: React.FormEvent) => {
+	const handleSearch = (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (!query.trim() || !managerialData || !estrategicoData) return
 

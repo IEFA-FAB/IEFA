@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen-production/$k
 		requirePermission({ context, preload }, "kitchen-production", 1, { type: "kitchen", id: kitchenId })
 
 		const kitchens = expectArray<KitchenWithUnit>(
-			await context.queryClient.fetchQuery({
+			await context.queryClient.query({
 				queryKey: ["user", "kitchens"],
 				queryFn: () => fetchKitchensFn(),
 				staleTime: 10 * 60 * 1000,

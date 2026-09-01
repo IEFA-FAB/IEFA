@@ -106,7 +106,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 		let auth: AuthState
 		try {
-			auth = await context.queryClient.ensureQueryData(authQueryOptions())
+			auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		} catch {
 			auth = emptyAuth
 		}
@@ -120,7 +120,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		// Autenticado → exige grant `sucont` nível 1 para entrar no hub.
 		let permissions: UserPermission[] = []
 		try {
-			permissions = await context.queryClient.ensureQueryData(mySucontPermissionsQueryOptions())
+			permissions = await context.queryClient.query({ ...mySucontPermissionsQueryOptions(), staleTime: "static" })
 		} catch {
 			permissions = []
 		}

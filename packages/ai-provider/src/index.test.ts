@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createAdapter, createAdapterFromEnv, maxIterationsMiddleware, withFallback } from "./index.js"
+import { createAdapter, createAdapterFromEnv, maxIterationsMiddleware, withFallbackChain } from "./index.js"
 
 describe("createAdapter", () => {
 	test("throws on invalid provider", () => {
@@ -54,11 +54,11 @@ describe("createAdapterFromEnv", () => {
 	})
 })
 
-describe("withFallback", () => {
+describe("withFallbackChain", () => {
 	test("returns object with kind text", () => {
 		const primary = createAdapter({ provider: "groq", model: "llama-3.3-70b-versatile", apiKey: "k" })
 		const fallback = createAdapter({ provider: "openrouter", model: "google/gemini-2.0-flash-001", apiKey: "k" })
-		const wrapped = withFallback(primary, fallback)
+		const wrapped = withFallbackChain(primary, fallback)
 		expect(wrapped.kind).toBe("text")
 		expect(typeof wrapped.chatStream).toBe("function")
 	})

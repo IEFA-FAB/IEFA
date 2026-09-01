@@ -22,7 +22,7 @@ export const Route = createFileRoute("/controller")({
 	}),
 	// Gate de acesso: exige sessão + concessão (PBAC). O telão "/" segue público.
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/controller")({
 		}
 	},
 	loaderDeps: ({ search }) => ({ edition: search.edition }),
-	loader: ({ context, deps }) => context.queryClient.ensureQueryData(boardQueryOptions(deps.edition)),
+	loader: ({ context, deps }) => context.queryClient.query({ ...boardQueryOptions(deps.edition), staleTime: "static" }),
 	component: ControllerPage,
 })
 

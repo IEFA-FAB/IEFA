@@ -293,7 +293,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 
 		const state = await graph.getState({ configurable: { thread_id: session_id } })
 		const messages = (state.values?.messages ?? []).map((m: any) => ({
-			role: m._getType?.() ?? "unknown",
+			role: m.type ?? "unknown",
 			content: m.content,
 		}))
 		return c.json<MessagesListResponse>({

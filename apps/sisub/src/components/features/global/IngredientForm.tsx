@@ -27,7 +27,7 @@ function buildProductSchema(catalog: "exclude" | "only") {
 	return z
 		.object({
 			description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
-			folder_id: z.string().uuid("Selecione uma pasta").nullable(),
+			folder_id: z.uuid("Selecione uma pasta").nullable(),
 			measure_unit: z.string(),
 			correction_factor: z.number().min(0),
 		})

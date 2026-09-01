@@ -26,11 +26,11 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/$i
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	loader: ({ context, params }) => {
 		return Promise.all([
-			context.queryClient.ensureQueryData(ingredientQueryOptions(params.ingredientId)),
-			context.queryClient.ensureQueryData(foldersQueryOptions()),
-			context.queryClient.ensureQueryData(nutrientsQueryOptions()),
-			context.queryClient.ensureQueryData(ingredientNutrientsQueryOptions(params.ingredientId)),
-			context.queryClient.ensureQueryData(ceafaQueryOptions("")),
+			context.queryClient.query({ ...ingredientQueryOptions(params.ingredientId), staleTime: "static" }),
+			context.queryClient.query({ ...foldersQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...nutrientsQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...ingredientNutrientsQueryOptions(params.ingredientId), staleTime: "static" }),
+			context.queryClient.query({ ...ceafaQueryOptions(""), staleTime: "static" }),
 		])
 	},
 	component: IngredientDetailPage,

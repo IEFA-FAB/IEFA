@@ -17,7 +17,7 @@ export async function synthesizerNode(state: AgentState): Promise<Partial<AgentS
 
 	const userQuery =
 		messages
-			.filter((m) => m._getType() === "human")
+			.filter((m) => m.type === "human")
 			.pop()
 			?.content?.toString() ?? ""
 

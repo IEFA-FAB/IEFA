@@ -14,7 +14,7 @@
 
 import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
 import { createCookieAuthClient } from "@iefa/supabase-kit"
-import { createError, getHeader, type H3Event } from "nitro/h3"
+import { type H3Event, HTTPError } from "nitro/h3"
 import { envServer } from "#/lib/env.server"
 import { getAccessControlClient } from "#/lib/supabase.server"
 
@@ -26,18 +26,18 @@ export async function requireSucontUser(event: H3Event): Promise<{ id: string }>
 	const auth = createCookieAuthClient({
 		url: envServer.VITE_SUCONT_SUPABASE_URL,
 		key: envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY,
-		cookieHeader: getHeader(event, "cookie"),
+		cookieHeader: event.req.headers.get("cookie") ?? undefined,
 	})
 
 	const {
 		data: { user },
 		error,
 	} = await auth.auth.getUser()
-	if (!user || error) throw createError({ statusCode: 401, message: "Não autenticado" })
+	if (!user || error) throw new HTTPError({ status: 401, message: "Não autenticado" })
 
 	const permissions = await resolveUserPermissions(user.id, getAccessControlClient())
 	if (!hasPermission(permissions, "sucont", 1)) {
-		throw createError({ statusCode: 403, message: "Permissão insuficiente" })
+		throw new HTTPError({ status: 403, message: "Permissão insuficiente" })
 	}
 
 	return { id: user.id }

@@ -83,9 +83,9 @@ describe.each(DIRECT_ADAPTER.map((s) => [s.path, s] as const))("adapter direto �
 
 	// O h3 v2 monta a resposta de erro a partir de `error.headers`: um
 	// `setResponseHeader` no event é descartado nesse caminho e o 429 chega sem a
-	// espera. O header tem de nascer dentro do próprio createError.
-	it("carrega o Retry-After dentro do createError, não pelo event", () => {
-		expect(source.text).toMatch(/createError\(\{[\s\S]*?headers:\s*\{\s*"Retry-After"/)
+	// espera. O header tem de nascer dentro do próprio HTTPError.
+	it("carrega o Retry-After dentro do HTTPError, não pelo event", () => {
+		expect(source.text).toMatch(/new HTTPError\(\{[\s\S]*?headers:\s*\{\s*"Retry-After"/)
 		expect(source.text).not.toMatch(/setResponseHeader\(\s*event\s*,\s*"Retry-After"/)
 	})
 })

@@ -71,7 +71,7 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on update failure.
  */
 export const renameChatSessionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
+	.validator(z.object({ sessionId: z.uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getKitchenClient()
@@ -87,7 +87,7 @@ export const renameChatSessionFn = createServerFn({ method: "POST" })
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on delete failure.
  */
 export const deleteChatSessionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getKitchenClient()
@@ -121,7 +121,7 @@ type MessageRow = {
 }
 
 export const getChatMessagesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getKitchenClient()
@@ -163,7 +163,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.validator(
 		z
 			.object({
-				sessionId: z.string().uuid(),
+				sessionId: z.uuid(),
 				role: z.enum(["user", "assistant"]),
 				content: z.string(),
 				chart: z.any().optional(),
@@ -183,7 +183,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 
 				if (data.role === "user" && !hasContent) {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: "custom",
 						path: ["content"],
 						message: "Mensagem do usuário não pode ser vazia",
 					})
@@ -191,7 +191,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 
 				if (data.role === "assistant" && !hasContent && !hasChart && !hasError) {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: "custom",
 						path: ["content"],
 						message: "Mensagem do assistente precisa ter conteúdo, gráfico ou erro",
 					})
@@ -247,7 +247,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			messageId: z.string().uuid(),
+			messageId: z.uuid(),
 			chartTypeOverride: z.enum(CHART_TYPES),
 		})
 	)

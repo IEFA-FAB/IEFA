@@ -104,9 +104,9 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			kitchenId: z.number().int().positive(),
-			nfeDocumentId: z.string().uuid(),
-			supplyOrderId: z.string().uuid().optional(),
-			empenhoId: z.string().uuid().optional(),
+			nfeDocumentId: z.uuid(),
+			supplyOrderId: z.uuid().optional(),
+			empenhoId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -228,7 +228,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 export const updateReceiptItemFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			receiptItemId: z.string().uuid(),
+			receiptItemId: z.uuid(),
 			receivedQtyBase: z.number().nonnegative(),
 			divergenceReason: z.string().nullable().optional(),
 		})
@@ -268,8 +268,8 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			lotId: z.string().uuid().optional(),
-			receiptItemId: z.string().uuid(),
+			lotId: z.uuid().optional(),
+			receiptItemId: z.uuid(),
 			lotCode: z.string().trim().min(1, "Informe o código do lote"),
 			expiryDate: IsoDate.optional(),
 			quantityBase: z.number().positive("Quantidade do lote precisa ser maior que zero"),
@@ -318,7 +318,7 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteReceiptLotFn = createServerFn({ method: "POST" })
-	.validator(z.object({ lotId: z.string().uuid(), receiptItemId: z.string().uuid() }))
+	.validator(z.object({ lotId: z.uuid(), receiptItemId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const receiptId = await receiptIdForLotItem(data.receiptItemId)
 		await requireOpenReceipt(receiptId, 2)
@@ -328,7 +328,7 @@ export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 
 /** Estágio 1: recebimento provisório (não movimenta estoque). */
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
@@ -343,7 +343,7 @@ export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 
 /** Estágio 2: efetivação atômica (função SQL) — lotes + movimentos + OF. */
 export const finalizeReceiptFn = createServerFn({ method: "POST" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
@@ -370,7 +370,7 @@ export const listReceiptsFn = createServerFn({ method: "GET" })
 
 /** Detalhe do recebimento: itens + lotes + acondicionamento exigido (para conferência e termo). */
 export const fetchReceiptFn = createServerFn({ method: "GET" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("storage", 1)
 		const inv = inventory()
