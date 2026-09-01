@@ -3,16 +3,23 @@ import {
 	type Column,
 	type ColumnDef,
 	type ColumnFiltersState,
+	columnFacetingFeature,
+	columnFilteringFeature,
+	columnSizingFeature,
+	columnVisibilityFeature,
+	createFacetedRowModel,
+	createFacetedUniqueValues,
+	createFilteredRowModel,
+	createSortedRowModel,
 	type FilterFn,
 	flexRender,
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getSortedRowModel,
 	type RowSelectionState,
+	rowSelectionFeature,
+	rowSortingFeature,
 	type SortingState,
-	useReactTable,
+	sortFn_alphanumeric,
+	tableFeatures,
+	useTable,
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, Info, ListFilter, RefreshCw, TrendingUp } from "lucide-react"
@@ -91,7 +98,23 @@ interface Analysis {
 	fromSelection: boolean
 }
 
-const multiSelectFilter: FilterFn<ComprasMaterialPriceResult> = (row, columnId, filterValue: string[]) => {
+const features = tableFeatures({
+	columnFilteringFeature,
+	columnFacetingFeature,
+	columnSizingFeature,
+	columnVisibilityFeature,
+	rowSortingFeature,
+	rowSelectionFeature,
+	filteredRowModel: createFilteredRowModel(),
+	sortedRowModel: createSortedRowModel(),
+	facetedRowModel: createFacetedRowModel(),
+	facetedUniqueValues: createFacetedUniqueValues(),
+	sortFns: { alphanumeric: sortFn_alphanumeric },
+})
+
+type Features = typeof features
+
+const multiSelectFilter: FilterFn<Features, ComprasMaterialPriceResult> = (row, columnId, filterValue: string[]) => {
 	if (filterValue.length === 0) return false
 	const cellValue = String(row.getValue(columnId) ?? "")
 	return filterValue.includes(cellValue)
@@ -142,7 +165,7 @@ function ContractHoverCard({ row }: { row: ComprasMaterialPriceResult }) {
 	)
 }
 
-function ColumnFilterPopover({ column }: { column: Column<ComprasMaterialPriceResult, unknown> }) {
+function ColumnFilterPopover({ column }: { column: Column<Features, ComprasMaterialPriceResult, unknown> }) {
 	const [search, setSearch] = useState("")
 	const facetedValues = column.getFacetedUniqueValues()
 
@@ -217,7 +240,7 @@ function ColumnFilterPopover({ column }: { column: Column<ComprasMaterialPriceRe
 	)
 }
 
-function SortableHeader({ column, title, align }: { column: Column<ComprasMaterialPriceResult, unknown>; title: string; align?: "left" | "right" }) {
+function SortableHeader({ column, title, align }: { column: Column<Features, ComprasMaterialPriceResult, unknown>; title: string; align?: "left" | "right" }) {
 	const sorted = column.getIsSorted()
 	const canFilter = column.getCanFilter()
 
@@ -298,7 +321,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 
 	// ── Columns ───────────────────────────────────────────────────────────────
 
-	const baseColumns = useMemo<ColumnDef<ComprasMaterialPriceResult>[]>(
+	const baseColumns = useMemo<ColumnDef<Features, ComprasMaterialPriceResult>[]>(
 		() => [
 			{
 				id: "select",
@@ -399,8 +422,8 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		[]
 	)
 
-	const columns = useMemo<ColumnDef<ComprasMaterialPriceResult>[]>(() => {
-		const detailsCol: ColumnDef<ComprasMaterialPriceResult> = {
+	const columns = useMemo<ColumnDef<Features, ComprasMaterialPriceResult>[]>(() => {
+		const detailsCol: ColumnDef<Features, ComprasMaterialPriceResult> = {
 			id: "details",
 			cell: ({ row }) => <ContractHoverCard row={row.original} />,
 			enableSorting: false,
@@ -408,7 +431,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 			size: 32,
 		}
 		if (!onApplyPrice) return [...baseColumns, detailsCol]
-		const applyCol: ColumnDef<ComprasMaterialPriceResult> = {
+		const applyCol: ColumnDef<Features, ComprasMaterialPriceResult> = {
 			id: "apply",
 			cell: ({ row }) =>
 				row.original.precoUnitario !== null ? (
@@ -433,18 +456,14 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 
 	// ── Table instance ────────────────────────────────────────────────────────
 
-	const table = useReactTable({
+	const table = useTable({
+		features,
 		data: scopedResults,
 		columns,
 		state: { sorting, columnFilters, rowSelection },
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
 		onRowSelectionChange: setRowSelection,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
 		enableRowSelection: true,
 		enableSortingRemoval: true,
 		getRowId: (row, index) => `${row.idCompra}-${row.idItemCompra}-${index}`,
