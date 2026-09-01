@@ -22,6 +22,7 @@ import {
 	EQUIPMENT_ROLE_CATEGORIES,
 	EQUIPMENT_UNIT_STATUSES,
 	MAINTENANCE_KINDS,
+	MAINTENANCE_LOG_KINDS,
 } from "../schemas/equipment.ts"
 import { WORKFORCE_NOTE_KINDS, WORKFORCE_SURVEY_STATUSES } from "../schemas/workforce.ts"
 import { CATALOG_SCOPE_VALUES } from "./catalog-scope.ts"
@@ -62,7 +63,11 @@ const PARES: Array<{ nome: string; file: string; column: string; occurrence?: nu
 	{ nome: "equipment_issue.severity", file: CONDICAO, column: "severity", ts: EQUIPMENT_ISSUE_SEVERITIES },
 	{ nome: "equipment_issue.status", file: CONDICAO, column: "status", ts: EQUIPMENT_ISSUE_STATUSES },
 	{ nome: "equipment_issue.category", file: CONDICAO, column: "category", ts: EQUIPMENT_ISSUE_CATEGORIES },
-	{ nome: "equipment_maintenance_plan.kind", file: CONDICAO, column: "kind", ts: MAINTENANCE_KINDS },
+	{ nome: "equipment_maintenance_plan.kind", file: CONDICAO, column: "kind", occurrence: 0, ts: MAINTENANCE_KINDS },
+	// O log aceita `corrective` além dos planejáveis: manutenção corretiva se
+	// registra, não se planeja. Listas diferentes de propósito — e por isso os
+	// dois pares precisam existir.
+	{ nome: "equipment_maintenance_log.kind", file: CONDICAO, column: "kind", occurrence: 1, ts: MAINTENANCE_LOG_KINDS },
 	{ nome: "workforce_note.kind", file: EFETIVO, column: "kind", ts: WORKFORCE_NOTE_KINDS },
 	{ nome: "workforce_survey.status", file: EFETIVO, column: "status", ts: WORKFORCE_SURVEY_STATUSES },
 	{ nome: "stock_movement.type", file: ESTOQUE, column: "type", occurrence: 0, ts: STOCK_MOVEMENT_TYPES },
@@ -92,27 +97,60 @@ describe("catalog_scope", () => {
 	})
 })
 
-describe("menu_items.item_group", () => {
-	test("os grupos do cardápio do banco e do domínio são os mesmos", () => {
-		expect(checkValues("20260706200000_menu_item_group_order_proportion.sql", "item_group")).toEqual([...MENU_ITEM_GROUPS].sort())
+describe("item_group", () => {
+	// A migration declara o MESMO vocabulário em duas tabelas: menu_template_items
+	// (ocorrência 0) e menu_items (ocorrência 1). Verificar só a primeira deixaria
+	// o cardápio publicado sem contrato — que é justamente onde o valor chega ao
+	// usuário.
+	const GRUPOS = "20260706200000_menu_item_group_order_proportion.sql"
+
+	test("kitchen.menu_template_items", () => {
+		expect(checkValues(GRUPOS, "item_group", 0)).toEqual([...MENU_ITEM_GROUPS].sort())
+	})
+
+	test("kitchen.menu_items", () => {
+		expect(checkValues(GRUPOS, "item_group", 1)).toEqual([...MENU_ITEM_GROUPS].sort())
 	})
 })
 
 describe("particionamento dos tipos de movimento no custeio", () => {
-	// As triggers de custo médio classificam cada tipo em ENTRADA ou SAÍDA por
-	// listas literais no SQL. Tipo novo que não entre em nenhuma das duas passa
-	// pelo ledger sem afetar `inventory.stock_cost`: o saldo anda, o custo médio
-	// não. É o tipo de erro que só aparece no balancete do mês seguinte.
+	// As duas triggers de custo médio listam tipos literalmente, e de formas
+	// ASSIMÉTRICAS — é daí que vem o risco:
+	//
+	//   • AFTER (`stock_movement_costing_after`) enumera as ENTRADAS e trata
+	//     todo o resto no `else`. Tipo novo fora da lista NÃO é ignorado: vira
+	//     SAÍDA por omissão e subtrai do saldo.
+	//   • BEFORE (`stock_movement_costing_before`) enumera as SAÍDAS, e é essa
+	//     lista que faz a saída herdar o custo médio vigente quando `unit_cost`
+	//     vem nulo. Saída fora dela entra com custo nulo → `total_cost` zero →
+	//     a quantidade cai sem valor sair, e o custo médio do que ficou infla.
+	//
+	// Somando os dois: um tipo esquecido nas duas listas subtrai saldo a custo
+	// zero. Não é o balancete que denuncia — é o inventário não fechar meses
+	// depois. Por isso a exigência é de PARTIÇÃO: união completa e interseção
+	// vazia, que é o mesmo que dizer que a lista do BEFORE é exatamente o
+	// complemento da lista do AFTER.
+	// occurrence 0 = CHECK de stock_movement.type · 1 = lista de saídas do BEFORE ·
+	// 2 = lista de entradas do AFTER.
+	const SAIDAS_DO_BEFORE = 1
+	const ENTRADAS_DO_AFTER = 2
+
 	test("entradas ∪ saídas cobrem exatamente o vocabulário de stock_movement.type", () => {
 		const todos = checkValues(ESTOQUE, "type", 0)
-		const saidas = checkValues(ESTOQUE, "type", 1)
-		const entradas = checkValues(ESTOQUE, "type", 2)
+		const saidas = checkValues(ESTOQUE, "type", SAIDAS_DO_BEFORE)
+		const entradas = checkValues(ESTOQUE, "type", ENTRADAS_DO_AFTER)
 		expect([...saidas, ...entradas].sort()).toEqual(todos)
 	})
 
 	test("nenhum tipo é entrada e saída ao mesmo tempo", () => {
-		const saidas = new Set(checkValues(ESTOQUE, "type", 1))
-		expect(checkValues(ESTOQUE, "type", 2).filter((tipo) => saidas.has(tipo))).toEqual([])
+		const saidas = new Set(checkValues(ESTOQUE, "type", SAIDAS_DO_BEFORE))
+		expect(checkValues(ESTOQUE, "type", ENTRADAS_DO_AFTER).filter((tipo) => saidas.has(tipo))).toEqual([])
+	})
+
+	test("a lista de entradas do domínio é a MESMA que a trigger AFTER usa", () => {
+		// `stock-reports.fn.ts` decide entrada/saída em TypeScript. Divergir da
+		// trigger faz o relatório contar o oposto do que o ledger contabilizou.
+		expect(checkValues(ESTOQUE, "type", ENTRADAS_DO_AFTER)).toEqual([...STOCK_INFLOW_TYPES].sort())
 	})
 
 	test("as constantes do domínio espelham a mesma partição", () => {

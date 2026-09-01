@@ -32,7 +32,12 @@ export const STOCK_INFLOW_TYPES = ["receipt", "leftover_return", "transfer_in", 
 /** Tipos que DIMINUEM o saldo. */
 export const STOCK_OUTFLOW_TYPES = ["production_issue", "waste", "transfer_out", "adjustment_out"] as const satisfies readonly StockMovementType[]
 
-export function isInflow(type: StockMovementType): boolean {
+/**
+ * Aceita `string`, não `StockMovementType`: quem chama lê a coluna do banco por
+ * um client sem tipo. Estreitar a assinatura empurraria um cast para cada call
+ * site, e cast é o lugar onde o valor inesperado passa sem ninguém olhar.
+ */
+export function isInflow(type: string): boolean {
 	return (STOCK_INFLOW_TYPES as readonly string[]).includes(type)
 }
 
@@ -43,7 +48,8 @@ export type GoodsReceiptStatus = (typeof GOODS_RECEIPT_STATUSES)[number]
 /** Situações em que a conferência ainda aceita escrita. */
 export const EDITABLE_RECEIPT_STATUSES = ["draft", "provisional"] as const satisfies readonly GoodsReceiptStatus[]
 
-export function isReceiptEditable(status: GoodsReceiptStatus): boolean {
+/** Aceita `string` pelo mesmo motivo de `isInflow`. */
+export function isReceiptEditable(status: string): boolean {
 	return (EDITABLE_RECEIPT_STATUSES as readonly string[]).includes(status)
 }
 

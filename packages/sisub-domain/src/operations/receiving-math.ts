@@ -24,7 +24,7 @@ export interface NfeCostInput {
  * Custo unitário na UNIDADE BASE a partir da nota.
  *
  * A nota preça a embalagem (R$ 125 o fardo); o ledger valora o gênero (R$/kg).
- * Sem a divisão pelo conteúdo, o custo médio ponderado entra 25× maior num
+ * Sem a divisão pelo conteúdo, o custo médio ponderado entra 5× maior num
  * fardo de 5 kg — e o ledger é append-only, então o conserto é movimento de
  * ajuste, não UPDATE.
  *
