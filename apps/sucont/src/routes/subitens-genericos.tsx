@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import React, { useCallback, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
@@ -463,6 +463,9 @@ function SubitensGenericos() {
 		.map(([name, count]) => ({ name, count }))
 		.sort((a, b) => b.count - a.count)
 		.slice(0, 5)
+		// `fill` na linha: o recharts pinta o setor por ele e monta legenda e marcador do
+		// tooltip a partir dele. Cor só no `shape` deixaria os dois no cinza padrão.
+		.map((conta, index) => ({ ...conta, fill: COLORS[index % COLORS.length] }))
 
 	const conferentesData: Record<string, { ugs: string[]; count: number }> = {}
 	for (const group of filteredData) {
@@ -1445,11 +1448,7 @@ function SubitensGenericos() {
 													<div className="h-[300px] w-full">
 														<ResponsiveContainer width="100%" height="100%">
 															<PieChart>
-																<Pie data={topContas} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count">
-																	{topContas.map((_entry, index) => (
-																		<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-																	))}
-																</Pie>
+																<Pie data={topContas} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count" />
 																<RechartsTooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }} />
 																<Legend verticalAlign="bottom" height={36} iconType="circle" />
 															</PieChart>

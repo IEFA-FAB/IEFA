@@ -22,11 +22,18 @@ export const TemplateItemSchema = z.object({
 	dayOfWeek: z.number().int().min(1).max(7),
 	mealTypeId: UuidSchema,
 	recipeId: UuidSchema,
-	headcountOverride: z.number().int().positive().optional(),
+	/**
+	 * `.nullish()`, não `.optional()`: este objeto vive DENTRO de um array exposto a modelo
+	 * (`create_template`/`update_template`), e o `dropUnexpectedNulls` do despacho não desce
+	 * em array de propósito — posição em array é significativa. Um `headcountOverride: null`
+	 * aninhado chegava ao Zod e matava a chamada com `tool_use_failed`, sem mensagem.
+	 * `buildTemplateItemRows` já trata `null` como ausência (`!= null`).
+	 */
+	headcountOverride: z.number().int().positive().nullish(),
 	/** Grupo canônico dentro da refeição (prato principal, guarnição, …). */
 	itemGroup: MenuItemGroupSchema.nullable().optional(),
-	/** Posição dentro do grupo, dentro da célula (dia+refeição). */
-	sortOrder: z.number().int().nonnegative().optional(),
+	/** Posição dentro do grupo, dentro da célula (dia+refeição). `null` cai no índice do array. */
+	sortOrder: z.number().int().nonnegative().nullish(),
 	/** Proporção recomendada de consumo (%), advisory. */
 	recommendedProportion: RecommendedProportionSchema.nullable(),
 })

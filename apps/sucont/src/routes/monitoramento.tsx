@@ -23,7 +23,7 @@ import {
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
@@ -43,6 +43,10 @@ import { cn } from "#/lib/utils"
 // tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
 // que duas categorias são a mesma coisa.
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#6366f1", "#ef4444", "#f43f5e", "#f97316"]
+
+// Paleta do donut de ODS — era um literal dentro do JSX quando cada fatia era um
+// `<Cell>`; virou constante para não remontar o array a cada render.
+const ODS_PIE_COLORS = ["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis]
 
 /** As quatro visões da ferramenta. Uma lista só: o rótulo e a ordem vinham inline. */
 type ActiveView = "operacional" | "tatico" | "estrategico" | "decisao"
@@ -328,7 +332,11 @@ function MonitoramentoPage() {
 				.slice(0, 10),
 			topRacs: Array.from(racMap.entries())
 				.map(([name, value]) => ({ name, value }))
-				.sort((a, b) => b.value - a.value),
+				.sort((a, b) => b.value - a.value)
+				// A cor mora no dado: o recharts pinta o setor por `fill` da linha e é dela
+				// que saem legenda e marcador do tooltip. Cor só no `shape` (ou só no
+				// `<Cell>`) deixa os dois no cinza padrão.
+				.map((rac, index) => ({ ...rac, fill: PIE_COLORS[index % PIE_COLORS.length] })),
 			totalIssues: cobrancas.length,
 			conferentes: Array.from(conferenteMap.entries())
 				.map(([name, d]) => ({
@@ -381,6 +389,8 @@ function MonitoramentoPage() {
 				percent: (d.count / cobrancas.length) * 100,
 			}))
 			.sort((a, b) => b.count - a.count)
+			// Idem: `fill` na linha alimenta setor, legenda e tooltip da mesma fonte.
+			.map((ods, index) => ({ ...ods, fill: ODS_PIE_COLORS[index % ODS_PIE_COLORS.length] }))
 
 		return {
 			totalRiskValue,
@@ -795,11 +805,7 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<PieChart>
-												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
-													{managerialData.topRacs.map((_, index) => (
-														<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-													))}
-												</Pie>
+												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" />
 												<Tooltip
 													contentStyle={{
 														borderRadius: "8px",
@@ -917,18 +923,16 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<PieChart>
-												<Pie data={estrategicoData.topOds} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count" nameKey="name">
-													{estrategicoData.topOds.map((_, index) => (
-														<Cell
-															key={`cell-${index}`}
-															fill={
-																["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis][
-																	index % 6
-																]
-															}
-														/>
-													))}
-												</Pie>
+												<Pie
+													data={estrategicoData.topOds}
+													cx="50%"
+													cy="50%"
+													innerRadius={60}
+													outerRadius={100}
+													paddingAngle={5}
+													dataKey="count"
+													nameKey="name"
+												/>
 												<Tooltip
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
 													formatter={(value, _name, item) => [`${Number(value)} (${(Number(item?.payload?.percent) || 0).toFixed(1)}%)`, "Inconsistências"]}

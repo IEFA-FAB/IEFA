@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, BarChart3, FileImage, Filter, PieChart as PieChartIcon, Target, TrendingUp, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { chartChrome } from "#/lib/chart-theme"
@@ -68,9 +68,13 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 		})
 		return Object.values(groups)
 			.sort((a, b) => b.balance - a.balance)
-			.map((item) => ({
+			.map((item, index) => ({
 				...item,
 				percentage: totalBalance > 0 ? (item.balance / totalBalance) * 100 : 0,
+				// A cor mora no dado, não num `<Cell>` nem no `shape`: o recharts lê `fill`
+				// da linha para pintar o setor E para montar legenda e marcador do tooltip.
+				// Com a cor só no `shape`, os dois últimos caem no cinza padrão.
+				fill: COLORS[index % COLORS.length],
 			}))
 	}, [filteredData, totalBalance])
 
@@ -287,11 +291,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 										nameKey="ods"
 										onClick={(d) => setSelectedDetailLevel({ type: "ods", name: String(d.name ?? "") })}
 										cursor="pointer"
-									>
-										{odsData.map((_entry, index) => (
-											<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-										))}
-									</Pie>
+									/>
 									<Tooltip
 										formatter={(value) => formatCurrency(Number(value))}
 										contentStyle={{
