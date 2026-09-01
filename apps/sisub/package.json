@@ -59,7 +59,6 @@
     "@xyflow/react": "^12.11.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
     "docx": "^9.7.1",
     "drizzle-orm": "^0.45.2",
