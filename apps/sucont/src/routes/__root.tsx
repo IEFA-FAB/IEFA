@@ -5,6 +5,7 @@ import type { QueryClient } from "@tanstack/react-query"
 import { useQueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, redirect, Scripts } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { createIsomorphicFn } from "@tanstack/react-start"
 import { useEffect } from "react"
 import { Toaster } from "sonner"
 import { z } from "zod"
@@ -18,6 +19,8 @@ interface MyRouterContext {
 	queryClient: QueryClient
 	auth: AuthState
 	authActions: typeof authActions
+	/** Barra lateral aberta? Vem do cookie, resolvido antes do primeiro render. */
+	sidebarOpen: boolean
 }
 
 function isAuthPath(pathname: string): boolean {
@@ -56,13 +59,48 @@ const hubSearchSchema = z.object({
 	rac: z.coerce.number().int().min(1).max(99).optional().catch(undefined),
 })
 
+const SIDEBAR_COOKIE_NAME = "sidebar_state"
+
+function parseCookies(cookieStr: string): Record<string, string> {
+	return Object.fromEntries(
+		cookieStr.split(";").map((c) => {
+			const [name, ...v] = c.trim().split("=")
+			return [name.trim(), v.join("=")]
+		})
+	)
+}
+
+/**
+ * Estado da barra lateral, lido antes de renderizar — mesmo padrão do sisub.
+ *
+ * No servidor sai do header `cookie`; no cliente, de `document.cookie`, para não
+ * gastar um RPC em navegação interna. O import do `/server` é dinâmico para não
+ * vazar no bundle do browser.
+ *
+ * Sem isto o SSR emite a sidebar aberta e a hidratação a fecha: um salto de 16rem
+ * na primeira pintura, toda vez que o usuário que a deixou fechada abre o app.
+ */
+const getSidebarState = createIsomorphicFn()
+	.server(async () => {
+		const { getRequest } = await import("@tanstack/react-start/server")
+		const cookieHeader = getRequest()?.headers.get("cookie") ?? ""
+		const raw = parseCookies(cookieHeader)[SIDEBAR_COOKIE_NAME]
+		return raw === undefined ? true : raw === "true"
+	})
+	.client(() => {
+		const raw = parseCookies(document.cookie)[SIDEBAR_COOKIE_NAME]
+		return raw === undefined ? true : raw === "true"
+	})
+
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	validateSearch: hubSearchSchema,
 	beforeLoad: async ({ context, location }) => {
 		const emptyAuth: AuthState = { user: null, session: null, isAuthenticated: false, isLoading: false }
 
 		// /health não depende de Supabase/sessão — curto-circuito antes de qualquer auth.
-		if (location.pathname === "/health") return { auth: emptyAuth }
+		if (location.pathname === "/health") return { auth: emptyAuth, sidebarOpen: true }
+
+		const sidebarOpen = await getSidebarState()
 
 		const onPublicRoute = isPublicPath(location.pathname)
 
@@ -76,7 +114,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		// Não autenticado → só rotas públicas (login) são acessíveis.
 		if (!auth.isAuthenticated) {
 			if (!onPublicRoute) throw redirect({ to: "/auth", search: { redirect: location.href } })
-			return { auth }
+			return { auth, sidebarOpen }
 		}
 
 		// Autenticado → exige grant `sucont` nível 1 para entrar no hub.
@@ -89,7 +127,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		const canAccess = hasPermission(permissions, "sucont", 1)
 		if (!canAccess && !onPublicRoute) throw redirect({ to: "/auth", search: { denied: "1" } })
 
-		return { auth }
+		return { auth, sidebarOpen }
 	},
 	head: () => ({
 		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "SUCONT-4 HUB" }],

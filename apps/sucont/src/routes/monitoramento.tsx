@@ -450,7 +450,7 @@ function MonitoramentoPage() {
 			{/* Header da ferramenta */}
 			<div className="mb-8 flex items-center justify-between">
 				<div>
-					<h1 className="text-2xl font-bold text-foreground tracking-tight">Analista SUCONT — Monitoramento de Contas de Saldo Transitório</h1>
+					<h2 className="text-2xl font-bold text-foreground tracking-tight">Analista SUCONT — Monitoramento de Contas de Saldo Transitório</h2>
 					<p className="text-muted-foreground mt-1 text-sm">
 						Diretoria de Economia e Finanças da Aeronáutica (DIREF) · Questões Q26, Q27, Q28, Q31, Q32, Q36 do RAC
 					</p>

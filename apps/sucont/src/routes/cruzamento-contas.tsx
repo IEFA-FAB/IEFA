@@ -47,7 +47,7 @@ function CruzamentoContas() {
 			<div className="flex items-center justify-between mb-8">
 				<div className="flex items-center gap-4">
 					<BarChart3 className="text-tech-cyan w-5 h-5" />
-					<h1 className="text-foreground font-bold uppercase tracking-widest text-sm">Cruzamento de Contas Correntes (Q43)</h1>
+					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Cruzamento de Contas Correntes (Q43)</h2>
 					<div className="flex-grow h-[1px] bg-border" />
 				</div>
 
