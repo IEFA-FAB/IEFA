@@ -18,6 +18,7 @@ import {
 	rowSortingFeature,
 	type SortingState,
 	sortFn_alphanumeric,
+	sortFn_text,
 	tableFeatures,
 	useTable,
 } from "@tanstack/react-table"
@@ -109,7 +110,10 @@ const features = tableFeatures({
 	sortedRowModel: createSortedRowModel(),
 	facetedRowModel: createFacetedRowModel(),
 	facetedUniqueValues: createFacetedUniqueValues(),
-	sortFns: { alphanumeric: sortFn_alphanumeric },
+	// `text` é o que a auto-resolução escolhe para coluna de string pura
+	// (nomeUasg, estado, nomeFornecedor, marca); sem ele a ordenação cai no
+	// `basic`, que compara ASCII e não é total sobre `null`.
+	sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
 })
 
 type Features = typeof features

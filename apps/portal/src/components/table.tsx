@@ -12,11 +12,13 @@ import {
 	createSortedRowModel,
 	filterFn_includesString,
 	flexRender,
+	type PaginationState,
 	type RowData,
 	rowPaginationFeature,
 	rowSortingFeature,
 	type SortingState,
 	sortFn_alphanumeric,
+	sortFn_text,
 	tableFeatures,
 	useTable,
 } from "@tanstack/react-table"
@@ -46,7 +48,10 @@ const features = tableFeatures({
 	sortedRowModel: createSortedRowModel(),
 	paginatedRowModel: createPaginatedRowModel(),
 	filterFns: { includesString: filterFn_includesString },
-	sortFns: { alphanumeric: sortFn_alphanumeric },
+	// `text` é o que a auto-resolução escolhe para coluna de string pura; sem ele
+	// a ordenação cai no `basic`, que compara ASCII (maiúscula antes de minúscula)
+	// e não é total sobre `null`.
+	sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
 })
 
 type Features = typeof features
@@ -270,7 +275,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
-	const [pageSize, setPageSize] = useState<number>(50)
+	const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 50 })
 
 	const { data: baseData = [], error } = useFacilitiesPregoeiroQuery()
 
@@ -284,7 +289,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 			hydrated.current = true
 			setColumnVisibility(settings?.columnVisibility ?? {})
 			setSorting(settings?.sorting ?? [])
-			setPageSize(settings?.pageSize ?? 50)
+			setPagination({ pageIndex: 0, pageSize: settings?.pageSize ?? 50 })
 
 			const titleFilter = settings?.titleFilter ?? ""
 			setColumnFilters(
@@ -325,21 +330,14 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
 		onColumnVisibilityChange: setColumnVisibility,
-		initialState: {
-			pagination: { pageIndex: 0, pageSize },
-		},
+		onPaginationChange: setPagination,
 		state: {
 			sorting,
 			columnFilters,
 			columnVisibility,
-			pagination: { pageIndex: 0, pageSize },
+			pagination,
 		},
 	})
-
-	// Atualiza pageSize no TanStack Table quando o estado local muda
-	React.useEffect(() => {
-		table.setPageSize(pageSize)
-	}, [pageSize, table])
 
 	// Persiste configurações da Tabela (debounced via hook)
 	React.useEffect(() => {
@@ -350,11 +348,11 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 		const nextSettings: TableSettings = {
 			columnVisibility,
 			sorting,
-			pageSize,
+			pageSize: pagination.pageSize,
 			titleFilter,
 		}
 		saveSettings(nextSettings)
-	}, [columnVisibility, sorting, pageSize, columnFilters, settingsLoading, saveSettings])
+	}, [columnVisibility, sorting, pagination.pageSize, columnFilters, settingsLoading, saveSettings])
 
 	if (error) {
 		return (
@@ -377,9 +375,9 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 
 				<div className="flex items-center gap-2">
 					<span className="text-sm text-muted-foreground">Linhas por página:</span>
-					<Select value={pageSize} onValueChange={(value) => setPageSize(Number(value))}>
+					<Select value={pagination.pageSize} onValueChange={(value) => table.setPageSize(Number(value))}>
 						<SelectTrigger className="data-[size=default]:h-9 bg-background px-2 text-sm">
-							<SelectValue>{pageSize}</SelectValue>
+							<SelectValue>{pagination.pageSize}</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							{[10, 25, 50, 100].map((sizeOption) => (
