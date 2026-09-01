@@ -26,6 +26,7 @@ import {
 	SidebarRail,
 	SidebarSeparator,
 	SidebarTrigger,
+	useSidebar,
 } from "#/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { sucontTools } from "#/lib/data"
@@ -105,6 +106,8 @@ export function HubLayout({ children, title, description, searchable = false }: 
 function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const activeTool = findToolByPath(sucontTools, pathname)
+	const hubLabelId = useId()
+	const groupLabelId = useId()
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar">
@@ -113,53 +116,24 @@ function HubSidebar() {
 			</SidebarHeader>
 
 			<SidebarContent>
-				<SidebarGroup>
-					<SidebarGroupLabel>Hub</SidebarGroupLabel>
-					<SidebarMenu>
-						{NAV_LINKS.map((item) => {
-							const Icon = item.icon
-							const isActive = pathname === item.to
-							return (
-								<SidebarMenuItem key={item.to}>
-									<SidebarMenuButton
-										tooltip={item.label}
-										isActive={isActive}
-										render={
-											<Link to={item.to} aria-current={isActive ? "page" : undefined}>
-												<Icon />
-												<span>{item.label}</span>
-											</Link>
-										}
-									/>
-								</SidebarMenuItem>
-							)
-						})}
-					</SidebarMenu>
-				</SidebarGroup>
-
-				{/*
-				 * As ferramentas ficam na barra, agrupadas pela etapa do ciclo — é o que
-				 * dá orientação DENTRO de uma ferramenta: qual está aberta, e o que mais
-				 * existe na mesma etapa. Antes a barra só listava as três telas do hub, e
-				 * ao entrar numa ferramenta nada indicava onde o usuário estava.
-				 */}
-				{TOOL_NAV.map((group) => (
-					<SidebarGroup key={group.id}>
-						<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-						<SidebarMenu>
-							{group.tools.map((tool) => {
-								const target = tool.internalPath as string
-								const isActive = activeTool?.id === tool.id
-								const scope = toolScopeLabel(tool)
+				{/* A barra é navegação: sem o landmark, o leitor de tela vê duas listas
+				    soltas e o rótulo do grupo não se liga a nenhuma delas. */}
+				<nav aria-label="Navegação do hub">
+					<SidebarGroup>
+						<SidebarGroupLabel id={hubLabelId}>Hub</SidebarGroupLabel>
+						<SidebarMenu aria-labelledby={hubLabelId}>
+							{NAV_LINKS.map((item) => {
+								const Icon = item.icon
+								const isActive = pathname === item.to
 								return (
-									<SidebarMenuItem key={tool.id}>
+									<SidebarMenuItem key={item.to}>
 										<SidebarMenuButton
-											tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
+											tooltip={item.label}
 											isActive={isActive}
 											render={
-												<Link to={target} aria-current={isActive ? "page" : undefined}>
-													<IconRenderer iconKey={tool.icon} />
-													<span>{tool.title}</span>
+												<Link to={item.to} aria-current={isActive ? "page" : undefined}>
+													<Icon />
+													<span>{item.label}</span>
 												</Link>
 											}
 										/>
@@ -168,7 +142,40 @@ function HubSidebar() {
 							})}
 						</SidebarMenu>
 					</SidebarGroup>
-				))}
+
+					{/*
+					 * As ferramentas ficam na barra, agrupadas pela etapa do ciclo — é o que
+					 * dá orientação DENTRO de uma ferramenta: qual está aberta, e o que mais
+					 * existe na mesma etapa. Antes a barra só listava as três telas do hub, e
+					 * ao entrar numa ferramenta nada indicava onde o usuário estava.
+					 */}
+					{TOOL_NAV.map((group) => (
+						<SidebarGroup key={group.id}>
+							<SidebarGroupLabel id={`${groupLabelId}-${group.id}`}>{group.label}</SidebarGroupLabel>
+							<SidebarMenu aria-labelledby={`${groupLabelId}-${group.id}`}>
+								{group.tools.map((tool) => {
+									const target = tool.internalPath as string
+									const isActive = activeTool?.id === tool.id
+									const scope = toolScopeLabel(tool)
+									return (
+										<SidebarMenuItem key={tool.id}>
+											<SidebarMenuButton
+												tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
+												isActive={isActive}
+												render={
+													<Link to={target} aria-current={isActive ? "page" : undefined}>
+														<IconRenderer iconKey={tool.icon} />
+														<span>{tool.title}</span>
+													</Link>
+												}
+											/>
+										</SidebarMenuItem>
+									)
+								})}
+							</SidebarMenu>
+						</SidebarGroup>
+					))}
+				</nav>
 			</SidebarContent>
 
 			<SidebarFooter>
@@ -345,6 +352,10 @@ function initials(label: string): string {
  * para o avatar quando a barra está em modo ícone.
  */
 function NavUser() {
+	// Na gaveta mobile o foco cai no primeiro item e o tooltip abre no foco,
+	// engolindo o primeiro Escape — o mesmo defeito já corrigido no
+	// `SidebarMenuButton`. Aqui a saída é a mesma: não montar onde não serve.
+	const { isMobile } = useSidebar()
 	const router = useRouter()
 	const queryClient = useQueryClient()
 	const { data: auth, isPending } = useQuery(authQueryOptions())
@@ -382,46 +393,50 @@ function NavUser() {
 	return (
 		<SidebarMenu>
 			<SidebarMenuItem className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-0">
-				{/* O e-mail trunca; o tooltip mostra o endereço inteiro sem recorrer ao
-				    atributo `title`, que o contrato proíbe (§5). O gatilho é o botão do
-				    próprio primitivo, alcançável por teclado. */}
-				<Tooltip>
-					<TooltipTrigger
-						render={
-							<SidebarMenuButton size="lg" className="cursor-default">
-								<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-label font-bold text-white">
-									{initials(name)}
-								</div>
-								<div className="grid flex-1 text-left leading-tight">
-									<span className="truncate text-xs font-bold text-foreground">{name}</span>
-									<span className="truncate text-hint text-muted-foreground">{email}</span>
-								</div>
-							</SidebarMenuButton>
-						}
-					/>
-					<TooltipContent side="right">{email}</TooltipContent>
-				</Tooltip>
+				{withTooltip(
+					isMobile,
+					email,
+					<SidebarMenuButton size="lg" className="cursor-default">
+						<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-label font-bold text-white">
+							{initials(name)}
+						</div>
+						<div className="grid flex-1 text-left leading-tight">
+							<span className="truncate text-xs font-bold text-foreground">{name}</span>
+							<span className="truncate text-hint text-muted-foreground">{email}</span>
+						</div>
+					</SidebarMenuButton>
+				)}
 
-				{/* Continua visível colapsada — escondê-lo deixaria "sair" inalcançável
-				    para quem trabalha com a barra em modo ícone. */}
-				<Tooltip>
-					<TooltipTrigger
-						render={
-							<Button
-								type="button"
-								onClick={logout}
-								aria-label="Sair"
-								variant="ghost"
-								size="icon-sm"
-								className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-							>
-								<LogOut className="size-4" />
-							</Button>
-						}
-					/>
-					<TooltipContent side="right">Sair</TooltipContent>
-				</Tooltip>
+				{withTooltip(
+					isMobile,
+					"Sair",
+					<Button
+						type="button"
+						onClick={logout}
+						aria-label="Sair"
+						variant="ghost"
+						size="icon-sm"
+						className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+					>
+						<LogOut className="size-4" />
+					</Button>
+				)}
 			</SidebarMenuItem>
 		</SidebarMenu>
+	)
+}
+
+/**
+ * Envolve num tooltip apenas fora do mobile. Na gaveta o Tooltip montado captura
+ * o Escape antes do diálogo; e o rótulo já está visível ali, então o balão não
+ * acrescenta nada.
+ */
+function withTooltip(isMobile: boolean, content: string, trigger: React.ReactElement) {
+	if (isMobile) return trigger
+	return (
+		<Tooltip>
+			<TooltipTrigger render={trigger} />
+			<TooltipContent side="right">{content}</TooltipContent>
+		</Tooltip>
 	)
 }

@@ -154,7 +154,7 @@ function Sidebar({
 					data-slot="sidebar"
 					data-mobile="true"
 					showCloseButton={false}
-					className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0"
+					className="bg-sidebar text-sidebar-foreground w-(--sidebar-width)! max-w-none! p-0 sm:max-w-none!"
 					style={{ "--sidebar-width": SIDEBAR_WIDTH_MOBILE } as React.CSSProperties}
 					side={side}
 				>
@@ -216,7 +216,7 @@ function Sidebar({
 }
 
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
-	const { toggleSidebar } = useSidebar()
+	const { toggleSidebar, open, openMobile, isMobile } = useSidebar()
 
 	return (
 		<Button
@@ -225,6 +225,9 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
 			variant="ghost"
 			size="icon-sm"
 			aria-label="Alternar barra lateral"
+			// Sem isto o leitor de tela anuncia um botão sem estado: o antigo botão de
+			// menu declarava `aria-expanded` e este o havia perdido.
+			aria-expanded={isMobile ? openMobile : open}
 			className={cn(className)}
 			onClick={(event) => {
 				onClick?.(event)
@@ -238,7 +241,12 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
-	const { toggleSidebar } = useSidebar()
+	const { toggleSidebar, isMobile } = useSidebar()
+
+	// A trilha arrasta a largura da barra fixa, que não existe no mobile: ali ela
+	// só montava um Tooltip inútil dentro da gaveta e, entre 640 e 767px, uma faixa
+	// invisível na borda do painel que o fechava ao clique.
+	if (isMobile) return null
 
 	return (
 		<Tooltip>
@@ -252,7 +260,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 						tabIndex={-1}
 						onClick={toggleSidebar}
 						className={cn(
-							"hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] sm:flex",
+							"hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] md:flex",
 							"in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
 							"[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
 							"hover:group-data-[collapsible=offcanvas]:bg-sidebar group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full",
