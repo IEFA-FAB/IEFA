@@ -2,11 +2,11 @@
 
 import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 interface DefaultMessHallSelectorProps {

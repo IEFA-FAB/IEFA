@@ -29,6 +29,7 @@ export async function buildImagePlaceholder(imagePath: string): Promise<string |
 	try {
 		const { data, error } = await getRumaerServerClient().storage.from(BUCKET).download(imagePath)
 		if (error || !data) {
+			// biome-ignore lint/suspicious/noConsole: sinal operacional — o upload já valeu e a linha é válida sem blur, então o log é a única pista de que o bucket não devolveu o objeto
 			console.warn(`[rumaer] placeholder: download falhou para ${imagePath}: ${error?.message ?? "sem corpo"}`)
 			return null
 		}
@@ -39,6 +40,7 @@ export async function buildImagePlaceholder(imagePath: string): Promise<string |
 		// `placeholder()` promete PNG de ≤32px; conferimos porque o valor vai para o banco
 		// e de lá para o `src` de toda listagem — um data URL gordo aqui é payload em massa.
 		if (!isPlaceholderDataUrl(placeholder)) {
+			// biome-ignore lint/suspicious/noConsole: sinal operacional — formato fora do contrato do Bun.Image é regressão de runtime, e descartar em silêncio esconderia a causa
 			console.warn(`[rumaer] placeholder: formato inesperado para ${imagePath} (${chars} chars)`)
 			return null
 		}
@@ -47,6 +49,7 @@ export async function buildImagePlaceholder(imagePath: string): Promise<string |
 		// ERR_IMAGE_UNKNOWN_FORMAT (arquivo que não é imagem), ERR_IMAGE_FORMAT_UNSUPPORTED
 		// (HEIC/AVIF — o backend `bun`, usado no Linux, não decodifica esses dois), rede.
 		const code = e && typeof e === "object" && "code" in e ? String(e.code) : undefined
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — distingue arquivo não-imagem de HEIC/AVIF não decodificável e de falha de rede, que exigem respostas diferentes
 		console.warn(`[rumaer] placeholder: ${code ?? (e instanceof Error ? e.message : String(e))} para ${imagePath}`)
 		return null
 	}

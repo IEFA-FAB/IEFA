@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { Boxes, Edit, Link2, PackagePlus, Trash2 } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -15,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
+import { toast } from "@/components/ui/toast"
 import { type IngredientItemWithPurchase, useDeleteIngredientItem, useIngredientItems } from "@/services/IngredientsService"
 import { IngredientItemForm } from "./IngredientItemForm"
 

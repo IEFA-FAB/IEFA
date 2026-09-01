@@ -12,7 +12,6 @@ import {
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, CheckCheck, ClipboardCheck, Plus, Printer, Thermometer, Trash2, TriangleAlert } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
 import { GtinScannerField } from "@/components/features/global/gtin/GtinScannerField"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -21,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { toast } from "@/components/ui/toast"
 import { deleteReceiptLotFn, fetchReceiptFn, finalizeReceiptFn, setReceiptProvisionalFn, updateReceiptItemFn, upsertReceiptLotFn } from "@/server/receiving.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/receiving/$receiptId")({

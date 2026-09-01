@@ -1,18 +1,15 @@
 import type { Folder } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useMemo } from "react"
 import { z } from "zod"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/cn"
+import { toast } from "@/components/ui/toast"
 import { useCreateFolder, useIngredientsTree, useUpdateFolder } from "@/services/IngredientsService"
+import { FolderCombobox } from "./FolderCombobox"
 
 // Schema de validação
 const folderSchema = z.object({
@@ -40,7 +37,6 @@ export function FolderForm({ isOpen, onClose, mode, folder, catalog = "exclude" 
 	const folders = tree?.folders
 	const { createFolder, isCreating } = useCreateFolder()
 	const { updateFolder, isUpdating } = useUpdateFolder()
-	const [parentOpen, setParentOpen] = useState(false)
 
 	const parentOptions = useMemo(() => {
 		const list = folders ?? []
@@ -162,68 +158,17 @@ export function FolderForm({ isOpen, onClose, mode, folder, catalog = "exclude" 
 						<form.Field name="parent_id">
 							{(field) => {
 								const selected = field.state.value ? parentOptions.find((option) => option.id === field.state.value) : null
-								const selectedLabel = selected?.path ?? (field.state.value ? "Pasta indisponível" : "Nenhuma (Raiz)")
-
 								return (
 									<Field>
 										<FieldLabel htmlFor={field.name}>Pasta Pai (Opcional)</FieldLabel>
-										<Popover open={parentOpen} onOpenChange={setParentOpen}>
-											<PopoverTrigger
-												type="button"
-												role="combobox"
-												aria-expanded={parentOpen}
-												aria-controls="folder-parent-combobox-popup"
-												className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between font-normal")}
-											>
-												<span className="truncate">{selectedLabel}</span>
-												<ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
-											</PopoverTrigger>
-											<PopoverContent
-												id="folder-parent-combobox-popup"
-												className="w-[--anchor-width] max-w-[calc(100vw-2rem)] p-0 sm:min-w-[420px]"
-												align="start"
-											>
-												<Command>
-													<CommandInput placeholder="Pesquisar pasta por nome ou caminho..." />
-													<CommandList className="max-h-80">
-														<CommandEmpty>Nenhuma pasta encontrada.</CommandEmpty>
-														<CommandGroup>
-															<CommandItem
-																value="Nenhuma Raiz"
-																onSelect={() => {
-																	field.handleChange(null)
-																	setParentOpen(false)
-																}}
-																className={cn(!field.state.value && "font-medium text-accent-foreground")}
-															>
-																<Check className={cn("mr-2 size-4 shrink-0 text-accent-foreground", !field.state.value ? "opacity-100" : "opacity-0")} />
-																<span>Nenhuma (Raiz)</span>
-															</CommandItem>
-															{parentOptions.map((option) => {
-																const isSelected = field.state.value === option.id
-																return (
-																	<CommandItem
-																		key={option.id}
-																		value={`${option.path} ${option.id}`}
-																		onSelect={() => {
-																			field.handleChange(option.id)
-																			setParentOpen(false)
-																		}}
-																		className={cn("items-start", isSelected && "font-medium text-accent-foreground")}
-																	>
-																		<Check className={cn("mt-0.5 mr-2 size-4 shrink-0 text-accent-foreground", isSelected ? "opacity-100" : "opacity-0")} />
-																		<span className="min-w-0">
-																			<span className="block truncate">{option.name}</span>
-																			<span className="block truncate text-xs font-normal text-muted-foreground">{option.parentPath}</span>
-																		</span>
-																	</CommandItem>
-																)
-															})}
-														</CommandGroup>
-													</CommandList>
-												</Command>
-											</PopoverContent>
-										</Popover>
+										<FolderCombobox
+											value={field.state.value ?? null}
+											onChange={(id) => field.handleChange(id)}
+											options={parentOptions}
+											clearLabel="Nenhuma (Raiz)"
+											searchPlaceholder="Pesquisar pasta por nome ou caminho..."
+											contentClassName="max-w-[calc(100vw-2rem)] sm:min-w-[420px]"
+										/>
 										{selected && <p className="text-xs text-muted-foreground">Caminho: {selected.path}</p>}
 										<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 									</Field>

@@ -1,6 +1,6 @@
 import type { PolicyStatementInput } from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import {
 	addPolicyStatementFn,

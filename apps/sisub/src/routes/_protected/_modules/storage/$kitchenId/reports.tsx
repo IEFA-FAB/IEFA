@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Download, FileSpreadsheet, Lock, Printer } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -10,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { toast } from "@/components/ui/toast"
 import { closeMonthFn, exportCatmatCsvFn, fetchBalanceteFn, fetchEmpenhoLiquidacaoFn, fetchLedgerSheetFn, listClosingsFn } from "@/server/stock-reports.fn"
 
 const searchSchema = z.object({

@@ -1,6 +1,6 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import { mapIngredients } from "@/lib/recipe-payload"
 import { createRecipeFn, saveRecipeEditFn } from "@/server/recipes.fn"

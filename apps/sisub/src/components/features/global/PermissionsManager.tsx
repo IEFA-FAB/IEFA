@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import * as React from "react"
-import { toast } from "sonner"
 import {
 	getScopeOptions,
 	LEVEL_CONFIG,
@@ -22,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "@/components/ui/toast"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { useUserSearch } from "@/hooks/data/useUserSearch"
