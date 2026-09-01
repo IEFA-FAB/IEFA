@@ -2,6 +2,7 @@ import {
 	CONSERVATION_LABELS,
 	type ConservationClass,
 	describeConditioning,
+	isReceiptEditable,
 	isTemperatureOutOfRange,
 	lotBalance,
 	type PackageType,
@@ -386,7 +387,7 @@ function ReceiptDetailPage() {
 	const [scannedGtin, setScannedGtin] = useState<string | null>(null)
 
 	const items: ReceiptItemRow[] = receipt.items
-	const editable = receipt.status === "draft" || receipt.status === "provisional"
+	const editable = isReceiptEditable(receipt.status)
 	const scanMatch = scannedGtin != null && items.some((item) => item.gtin === scannedGtin)
 
 	async function toProvisional() {

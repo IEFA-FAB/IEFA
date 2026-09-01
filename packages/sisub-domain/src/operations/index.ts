@@ -204,6 +204,19 @@ export {
 	updateIngredientItem,
 } from "./ingredients.ts"
 export {
+	EDITABLE_RECEIPT_STATUSES,
+	GOODS_RECEIPT_STATUSES,
+	type GoodsReceiptStatus,
+	isInflow,
+	isReceiptEditable,
+	STOCK_INFLOW_TYPES,
+	STOCK_MOVEMENT_TYPES,
+	STOCK_OUTFLOW_TYPES,
+	type StockMovementType,
+	SUPPLY_ORDER_STATUSES,
+	type SupplyOrderStatus,
+} from "./inventory-vocabulary.ts"
+export {
 	createKitchenDraft,
 	deleteKitchenDraft,
 	fetchKitchenDrafts,
@@ -212,6 +225,15 @@ export {
 	updateKitchenDraft,
 } from "./kitchen-draft.ts"
 export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
+export {
+	competenciaFromDate,
+	type KitchenUnitRef,
+	normalizeNsNumber,
+	type ReceiptValueItem,
+	resolvePurchaseUnitId,
+	roundToCents,
+	suggestedLiquidationValue,
+} from "./liquidation-math.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
 	type IngredientItemLink,
@@ -332,6 +354,12 @@ export {
 	syntheticLotCode,
 	validateReceiptLots,
 } from "./receipt-lots.ts"
+export {
+	divergesFromInvoice,
+	type NfeCostInput,
+	requiresDivergenceReason,
+	unitCostFromNfe,
+} from "./receiving-math.ts"
 export {
 	copyRecipeFlow,
 	createStepTemplate,

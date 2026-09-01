@@ -17,7 +17,15 @@
  * @migration 20260901120200_goods_receipt_lots
  */
 
-import { type ConservationClass, isTemperatureOutOfRange, temperatureDivergenceReason, temperatureVerdict } from "@iefa/sisub-domain/operations"
+import {
+	type ConservationClass,
+	divergesFromInvoice,
+	isTemperatureOutOfRange,
+	requiresDivergenceReason,
+	temperatureDivergenceReason,
+	temperatureVerdict,
+	unitCostFromNfe,
+} from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
@@ -159,9 +167,9 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 
 		const prepared = (resolvable as NfeItemRow[]).map((item) => {
 			const invoiced = item.matched_qty_base
-			// custo unitário na base: valor total do item / quantidade base
-			const totalValue = item.unit_price != null && item.commercial_qty != null ? item.unit_price * item.commercial_qty : null
-			const unitCostBase = totalValue != null && invoiced != null && invoiced > 0 ? Number((totalValue / invoiced).toFixed(4)) : null
+			// Custo na unidade BASE: a nota preça a embalagem, o ledger valora o gênero.
+			// Ver `unitCostFromNfe` — extraída para poder ser testada.
+			const unitCostBase = unitCostFromNfe({ invoicedQtyBase: invoiced, unitPrice: item.unit_price, commercialQty: item.commercial_qty })
 			return {
 				row: {
 					receipt_id: receipt.id,
@@ -234,8 +242,8 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 		await requireOpenReceipt(item.receipt_id as string, 2)
 
 		const invoiced = item.invoiced_qty_base != null ? Number(item.invoiced_qty_base) : null
-		const diverges = invoiced != null && data.receivedQtyBase !== invoiced
-		if (diverges && !data.divergenceReason?.trim()) {
+		const diverges = divergesFromInvoice(invoiced, data.receivedQtyBase)
+		if (requiresDivergenceReason(invoiced, data.receivedQtyBase, data.divergenceReason)) {
 			throw new Error("Quantidade física difere da faturada — informe o motivo da divergência")
 		}
 
