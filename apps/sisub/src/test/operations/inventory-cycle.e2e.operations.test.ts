@@ -241,18 +241,36 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					expect(Number(frozenBal.balance)).toBe(2)
 
 					// ════ Fase 3 — transferência A → B (par atômico) ═════════════════
-					const [lotA] =
-						await tx`select lot_id from inventory.v_stock_balance where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0`
+					// Com dois lotes em saldo, `order by expiry_date` deixa a escolha
+					// determinística: sem ela o planner devolve qualquer um e o teste
+					// passa ou falha conforme o dia.
+					const [lotA] = await tx`
+						select lot_id, balance from inventory.v_stock_balance
+						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0
+						order by expiry_date`
 					await tx`select * from inventory.transfer_stock(${lotA.lot_id}, ${kitchenB.id}, 5, null)`
 					const [balB] = await tx`
 						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenB.id} and ingredient_id = ${ingredient.id}`
 					expect(Number(balB.b)).toBe(5)
 
 					// ════ Fase 3 — contagem física: 30 contados vs 33 no ledger ══════
-					// A: 48 recebidos − 10 produção − 5 transferidos = 33
+					// A: 48 recebidos (em DOIS lotes) − 10 produção − 5 transferidos = 33.
+					// A contagem é do estoque inteiro, não de um lote: contar só um deixaria
+					// o outro intacto e o saldo total nunca fecharia no valor contado.
+					const saldos = await tx`
+						select lot_id, balance from inventory.v_stock_balance
+						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0
+						order by expiry_date`
+					expect(saldos).toHaveLength(2)
+					expect(saldos.reduce((total, row) => total + Number(row.balance), 0)).toBe(33)
+
 					const [count] = await tx`insert into inventory.inventory_count (kitchen_id) values (${kitchenA.id}) returning id`
-					await tx`insert into inventory.inventory_count_item (count_id, lot_id, counted_qty) values (${count.id}, ${lotA.lot_id}, 30)`
+					// O lote que vence primeiro não foi achado na prateleira (0); o outro bate.
+					await tx`
+						insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
+						values (${count.id}, ${saldos[0]?.lot_id}, 0), (${count.id}, ${saldos[1]?.lot_id}, 30)`
 					const [counted] = await tx`select * from inventory.confirm_inventory_count(${count.id}, null)`
+					// Um ajuste só: o lote conferido sem divergência não gera movimento.
 					expect(Number(counted.adjustments)).toBe(1)
 					const [balA] = await tx`
 						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
