@@ -1,5 +1,6 @@
-import { FileSpreadsheet, UploadCloud, X } from "lucide-react"
+import { AlertCircle, FileSpreadsheet, UploadCloud, X } from "lucide-react"
 import { useCallback, useState } from "react"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import { cn } from "#/lib/utils"
 
@@ -60,10 +61,10 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 				onDrop={handleDrop}
 			>
 				<UploadCloud className="w-11 h-11 mb-4 text-muted-foreground" />
-				<p className="mb-1 text-sm text-foreground font-medium">
+				<p className="mb-1 text-subheading text-foreground">
 					<span className="font-semibold text-tech-blue">Clique para enviar</span> ou arraste as planilhas
 				</p>
-				<p className="text-xs text-muted-foreground">Painéis 1 a 4 do DGC — CSV do Tesouro Gerencial ou Excel (.xlsx, .xls)</p>
+				<p className="text-caption text-muted-foreground">Painéis 1 a 4 do DGC — CSV do Tesouro Gerencial ou Excel (.xlsx, .xls)</p>
 				<input
 					id="sacdgc-dropzone"
 					type="file"
@@ -81,7 +82,7 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 						<li key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 bg-card border border-border rounded-lg px-4 py-3">
 							<span className="flex items-center gap-3 min-w-0">
 								<FileSpreadsheet className="w-4 h-4 text-tech-cyan shrink-0" />
-								<span className="text-sm text-foreground truncate">{file.name}</span>
+								<span className="text-body text-foreground truncate">{file.name}</span>
 							</span>
 							<Button
 								type="button"
@@ -99,13 +100,19 @@ export function DgcUpload({ onProcess, isLoading, error }: DgcUploadProps) {
 				</ul>
 			)}
 
-			{error && <p className="mt-4 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3">{error}</p>}
+			{error && (
+				<Alert variant="destructive" className="mt-4">
+					<AlertCircle />
+					<AlertTitle>Não foi possível ler a base</AlertTitle>
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
+			)}
 
 			<Button
 				type="button"
 				onClick={() => onProcess(files)}
 				disabled={files.length === 0 || isLoading}
-				className="mt-6 w-full rounded-lg bg-tech-blue px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-sm hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+				className="mt-6 w-full rounded-lg bg-tech-blue px-6 py-3 text-label text-white shadow-sm hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
 			>
 				{isLoading ? "Lendo planilhas…" : "Carregar base"}
 			</Button>

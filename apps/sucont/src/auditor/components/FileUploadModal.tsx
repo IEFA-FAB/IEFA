@@ -58,7 +58,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClos
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/60 backdrop-blur-sm animate-in fade-in duration-200">
-			<div className={`relative w-full max-w-2xl border rounded-2xl shadow-2xl overflow-hidden p-8 text-center bg-card border-border`}>
+			<div className={`relative w-full max-w-2xl border rounded-xl shadow-2xl overflow-hidden p-8 text-center bg-card border-border`}>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -73,7 +73,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClos
 					<div className="p-4 bg-action/20 rounded-full mb-4">
 						<FileSpreadsheet className="w-10 h-10 text-action" />
 					</div>
-					<h2 className={`text-2xl font-bold mb-2 text-foreground`}>Relatório de Evolução</h2>
+					<h2 className="text-heading mb-2 text-foreground">Relatório de Evolução</h2>
 					<p className={`max-w-md mx-auto text-muted-foreground`}>
 						Carregue o arquivo Excel contendo a evolução mensal das diferenças. O sistema identifica automaticamente os grupos (BMP, CONSUMO, INTANGÍVEL).
 					</p>
@@ -117,13 +117,13 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClos
 							<UploadCloud
 								className={`w-12 h-12 mb-4 transition-colors ${isDragging ? "text-action" : "text-muted-foreground group-hover:text-muted-foreground/80"}`}
 							/>
-							<p className={`text-lg font-medium mb-1 text-foreground`}>Clique para enviar ou arraste</p>
-							<p className="text-sm text-muted-foreground">XLSX ou XLS</p>
+							<p className={`text-heading mb-1 text-foreground`}>Clique para enviar ou arraste</p>
+							<p className="text-body text-muted-foreground">XLSX ou XLS</p>
 						</div>
 					)}
 				</label>
 
-				<div className={`mt-6 text-xs text-muted-foreground`}>Suporte para grandes volumes de dados (80+ UGs)</div>
+				<div className={`mt-6 text-caption text-muted-foreground`}>Suporte para grandes volumes de dados (80+ UGs)</div>
 			</div>
 		</div>
 	)

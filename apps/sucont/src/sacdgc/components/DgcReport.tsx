@@ -28,7 +28,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 						type="button"
 						onClick={onBack}
 						variant="ghost"
-						className="h-auto gap-2 p-0 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-transparent hover:text-tech-blue"
+						className="h-auto gap-2 p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
 					>
 						<ArrowLeft className="w-4 h-4" />
 						Voltar às unidades
@@ -37,16 +37,16 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 						type="button"
 						onClick={() => window.print()}
 						variant="ghost"
-						className="h-auto gap-2 p-0 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-transparent hover:text-tech-blue"
+						className="h-auto gap-2 p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
 					>
 						<Printer className="w-4 h-4" />
 						Imprimir
 					</Button>
 				</div>
 
-				<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-tech-cyan mb-3">Relatório de Análise Crítica — SAC-DGC</p>
-				<h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">{data.identificacao.nomeUg}</h2>
-				<p className="mt-3 text-sm text-muted-foreground">
+				<p className="text-label text-tech-cyan mb-3">Relatório de Análise Crítica — SAC-DGC</p>
+				<h2 className="text-display text-foreground">{data.identificacao.nomeUg}</h2>
+				<p className="mt-3 text-body text-muted-foreground">
 					Competência:{" "}
 					<span className="font-semibold text-foreground">
 						{[data.identificacao.mesReferencia, data.identificacao.anoReferencia].filter(Boolean).join(" / ") || "não identificada"}
@@ -71,13 +71,13 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 					<div className="space-y-4">
 						{alertas.map((alerta, index) => (
 							<article key={`${alerta.titulo}-${index}`} className="bg-card border border-destructive/30 rounded-xl p-6">
-								<h3 className="text-base font-bold text-destructive mb-3">{alerta.titulo}</h3>
+								<h3 className="text-heading text-destructive mb-3">{alerta.titulo}</h3>
 								{alerta.origemAnalise.length > 0 && (
 									<div className="flex flex-wrap gap-2 mb-4">
 										{alerta.origemAnalise.map((origem) => (
 											<span
 												key={origem}
-												className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-muted/50 text-[11px] font-semibold text-muted-foreground"
+												className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-muted/50 text-hint text-muted-foreground"
 											>
 												<Layers className="w-3 h-3" />
 												{origem}
@@ -85,14 +85,14 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 										))}
 									</div>
 								)}
-								<h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Evidência / justificativa</h4>
-								<p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{alerta.evidencia}</p>
+								<h4 className="text-label text-muted-foreground mb-1">Evidência / justificativa</h4>
+								<p className="text-body text-muted-foreground leading-relaxed whitespace-pre-wrap">{alerta.evidencia}</p>
 								<div className="mt-5 bg-destructive/10 border border-destructive/30 rounded-lg p-4">
-									<h4 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">
+									<h4 className="flex items-center gap-1.5 text-label text-destructive mb-1">
 										<Lightbulb className="w-3.5 h-3.5" />
 										Ação recomendada
 									</h4>
-									<p className="text-sm text-destructive leading-relaxed whitespace-pre-wrap">{alerta.acaoRecomendada}</p>
+									<p className="text-body text-destructive leading-relaxed whitespace-pre-wrap">{alerta.acaoRecomendada}</p>
 								</div>
 							</article>
 						))}
@@ -100,8 +100,8 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 				) : (
 					<div className="bg-card border border-success/30 rounded-xl p-12 flex flex-col items-center text-center">
 						<CheckCircle2 className="w-10 h-10 text-success mb-4" />
-						<h3 className="text-lg font-bold text-success mb-1">Nenhum alerta de criticidade</h3>
-						<p className="text-sm text-muted-foreground max-w-md">
+						<h3 className="text-heading text-success mb-1">Nenhum alerta de criticidade</h3>
+						<p className="text-body text-muted-foreground max-w-md">
 							A análise não identificou possíveis distorções para esta Unidade Gestora na competência carregada.
 						</p>
 					</div>
@@ -139,12 +139,12 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 								>
 									<div className={cn("px-6 py-4 flex items-start justify-between gap-4", item.resposta === "SIM" ? "bg-destructive/40" : "bg-muted/50")}>
 										<div>
-											<p className="text-[11px] font-bold text-muted-foreground mb-1">Item {item.id}</p>
-											<p className="text-sm font-semibold text-foreground">{item.pergunta}</p>
+											<p className="text-hint text-muted-foreground mb-1">Item {item.id}</p>
+											<p className="text-subheading text-foreground">{item.pergunta}</p>
 										</div>
 										<span
 											className={cn(
-												"shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[11px] font-bold",
+												"shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-hint",
 												item.resposta === "SIM" ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-success/15 text-success border-success/30"
 											)}
 										>
@@ -154,17 +154,17 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 									</div>
 
 									{item.resposta === "SIM" && (
-										<div className="p-6 grid gap-6 md:grid-cols-2 text-sm">
+										<div className="p-6 grid gap-6 md:grid-cols-2 text-body">
 											<div className="space-y-4">
 												{item.fundamentacaoTecnica && (
 													<div>
-														<h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Fundamentação técnica</h4>
+														<h4 className="text-label text-muted-foreground mb-1">Fundamentação técnica</h4>
 														<p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{item.fundamentacaoTecnica}</p>
 													</div>
 												)}
 												{item.evidenciasEncontradas && item.evidenciasEncontradas.length > 0 && (
 													<div>
-														<h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Evidências encontradas</h4>
+														<h4 className="text-label text-muted-foreground mb-1">Evidências encontradas</h4>
 														<ul className="list-disc pl-5 space-y-1 text-muted-foreground">
 															{item.evidenciasEncontradas.map((evidencia) => (
 																<li key={evidencia}>{evidencia}</li>
@@ -175,7 +175,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 											</div>
 											{item.recomendacao && (
 												<div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
-													<h4 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">
+													<h4 className="flex items-center gap-1.5 text-label text-destructive mb-1">
 														<Lightbulb className="w-3.5 h-3.5" />
 														Recomendação
 													</h4>
@@ -192,7 +192,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 
 			{tab === "raciocinio" && (
 				<div className="space-y-4">
-					<p className="text-sm text-muted-foreground">
+					<p className="text-body text-muted-foreground">
 						Registro do raciocínio da análise sobre cada painel. Serve para auditar como o apontamento foi construído — o produto de decisão são os alertas e o
 						checklist.
 					</p>
@@ -200,8 +200,8 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 						const texto = data[`analisePainel${panel}` as const]
 						return (
 							<article key={panel} className="bg-card border border-border rounded-xl p-6">
-								<h3 className="text-sm font-bold text-foreground mb-2">{PANEL_TITLES[panel]}</h3>
-								<p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{texto || "Sem registro para este painel."}</p>
+								<h3 className="text-subheading text-foreground mb-2">{PANEL_TITLES[panel]}</h3>
+								<p className="text-body text-muted-foreground leading-relaxed whitespace-pre-wrap">{texto || "Sem registro para este painel."}</p>
 							</article>
 						)
 					})}
@@ -218,7 +218,7 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
 			onClick={onClick}
 			variant="ghost"
 			className={cn(
-				"h-auto gap-2 rounded-full border px-5 py-2.5 text-xs font-bold",
+				"h-auto gap-2 rounded-full border px-5 py-2.5 text-label",
 				active ? "bg-tech-blue text-white border-tech-blue hover:bg-tech-blue" : "bg-card text-muted-foreground border-border hover:bg-muted/50"
 			)}
 		>
@@ -249,8 +249,8 @@ function IndicatorCard({
 
 	const content = (
 		<>
-			<span className="text-3xl font-bold">{value}</span>
-			<span className="text-[11px] font-bold uppercase tracking-wider opacity-80">{label}</span>
+			<span className="text-display">{value}</span>
+			<span className="text-label opacity-80">{label}</span>
 		</>
 	)
 

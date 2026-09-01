@@ -12,6 +12,8 @@ import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
 import { Toaster } from "#/components/ui/toast"
 import { supabase } from "#/lib/supabase"
+import { ThemeProvider } from "#/services/theme"
+import { readThemePreference } from "#/services/theme-preference"
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools"
 import appCss from "../styles.css?url"
 
@@ -167,13 +169,25 @@ function AuthSync() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+	// Isomórfico: no servidor sai do header `cookie`, no cliente de
+	// `document.cookie`. Mesmo valor dos dois lados, então o `<html>` hidrata sem
+	// divergir e o tema certo já está na PRIMEIRA pintura — sem script inline,
+	// que é o que fazia o React 19 descartar a árvore no portal (#418).
+	//
+	// Sem cookie a escolha é o tema claro, escrito explicitamente. O sisub segue a
+	// preferência do SO, mas isso exige repetir o bloco inteiro de tokens escuros
+	// dentro de uma `@media`: duas fontes para a mesma decisão, livres para
+	// divergir sem ninguém notar. Aqui o `.dark` do `styles.css` continua sendo a
+	// única.
+	const theme = readThemePreference() ?? "light"
+
 	return (
-		<html lang="pt-BR">
+		<html lang="pt-BR" className={theme} style={{ colorScheme: theme }} suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
 			<body>
-				{children}
+				<ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
 				<Toaster position="top-right" />
 				<AuthSync />
 				<TanStackDevtools

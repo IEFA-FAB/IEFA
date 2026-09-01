@@ -81,9 +81,7 @@ function Catalogo() {
 									aria-pressed={isActive}
 									variant="ghost"
 									size="sm"
-									className={`gap-2 rounded-lg text-label font-bold ${
-										isActive ? "bg-tech-blue text-white hover:bg-tech-blue hover:text-white" : "text-muted-foreground hover:text-foreground"
-									}`}
+									className={`gap-2 rounded-lg text-label ${isActive ? "bg-tech-blue text-white hover:bg-tech-blue hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
 								>
 									<Icon className="w-3.5 h-3.5" />
 									{tab.label}

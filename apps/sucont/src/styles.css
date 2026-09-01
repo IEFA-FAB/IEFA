@@ -355,6 +355,27 @@ pre code {
   .no-print {
     display: none !important;
   }
+
+  /*
+   * A casca inteira sai do papel — não só a barra lateral, também o ESPAÇADOR que
+   * reserva as 16rem dela no fluxo. Marcar `no-print` apenas no `<Sidebar>` esconde
+   * o container `fixed` e deixa a calha em branco: o ofício A4 saía deslocado para
+   * a direita e cortado na margem. Antes desta padronização a `/documentacao` não
+   * montava o HubLayout, então o problema não existia.
+   */
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-rail"] {
+    display: none !important;
+  }
+
+  [data-slot="sidebar-wrapper"],
+  [data-slot="sidebar-inset"] {
+    display: block !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
 }
 
 /* ── Conta Genérica / Q35 utility classes ──────────────── */

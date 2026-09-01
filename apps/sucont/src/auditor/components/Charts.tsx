@@ -134,29 +134,23 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
         bg-card/95 border-border
       `}
 			>
-				<h4
-					className={`text-sm font-bold mb-3 pb-2 border-b uppercase tracking-wider
-          text-foreground border-border
-        `}
-				>
-					{displayName}
-				</h4>
+				<h4 className={`text-label mb-3 pb-2 border-b text-foreground border-border`}>{displayName}</h4>
 
 				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-full bg-(--series-bmp)"></div>
-							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SIAFI:</span>
+							<span className={`text-hint text-muted-foreground`}>Saldo SIAFI:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-(--series-siafi)`}>{formatCurrency(siafi || 0)}</span>
+						<span className={`text-caption font-mono text-(--series-siafi)`}>{formatCurrency(siafi || 0)}</span>
 					</div>
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-full bg-(--series-consumo)"></div>
-							<span className={`text-[11px] font-bold text-muted-foreground`}>Saldo SILOMS:</span>
+							<span className={`text-hint text-muted-foreground`}>Saldo SILOMS:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-(--series-siloms)`}>{formatCurrency(siloms || 0)}</span>
+						<span className={`text-caption font-mono text-(--series-siloms)`}>{formatCurrency(siloms || 0)}</span>
 					</div>
 
 					<div className="h-px bg-surface-inverted-border/50 my-1"></div>
@@ -164,9 +158,9 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-sm bg-destructive"></div>
-							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Total:</span>
+							<span className={`text-hint text-muted-foreground`}>Diferença Total:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono text-destructive`}>{formatCurrency(diff ?? 0)}</span>
+						<span className={`text-caption font-mono text-destructive`}>{formatCurrency(diff ?? 0)}</span>
 					</div>
 
 					{data.bmpDiff !== undefined && (
@@ -176,21 +170,21 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 									<div className="w-1.5 h-1.5 rounded-sm bg-(--series-bmp)"></div>
 									<span className={`text-label text-muted-foreground`}>BMP</span>
 								</div>
-								<span className={`text-hint font-mono font-bold text-foreground`}>{formatCurrency(data.bmpDiff)}</span>
+								<span className={`text-hint font-mono text-foreground`}>{formatCurrency(data.bmpDiff)}</span>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
 									<div className="w-1.5 h-1.5 rounded-sm bg-warning"></div>
 									<span className={`text-label text-muted-foreground`}>Consumo</span>
 								</div>
-								<span className={`text-hint font-mono font-bold text-foreground`}>{formatCurrency(data.consumoDiff ?? 0)}</span>
+								<span className={`text-hint font-mono text-foreground`}>{formatCurrency(data.consumoDiff ?? 0)}</span>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-1.5">
 									<div className="w-1.5 h-1.5 rounded-sm bg-(--series-intangivel)"></div>
 									<span className={`text-label text-muted-foreground`}>Intangível</span>
 								</div>
-								<span className={`text-hint font-mono font-bold text-foreground`}>{formatCurrency(data.intangivelDiff ?? 0)}</span>
+								<span className={`text-hint font-mono text-foreground`}>{formatCurrency(data.intangivelDiff ?? 0)}</span>
 							</div>
 						</div>
 					)}
@@ -198,18 +192,18 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-full bg-warning"></div>
-							<span className={`text-[11px] font-bold text-muted-foreground`}>Diferença Percentual:</span>
+							<span className={`text-hint text-muted-foreground`}>Diferença Percentual:</span>
 						</div>
-						<span className="text-xs font-bold font-mono text-warning">{pctDiff.toFixed(2)}%</span>
+						<span className="text-caption font-mono text-warning">{pctDiff.toFixed(2)}%</span>
 					</div>
 
 					{icc !== undefined && (
 						<div className="flex items-center justify-between pt-1 border-t border-surface-inverted-border/30 mt-1">
 							<div className="flex items-center gap-2">
 								<div className="w-2 h-2 rounded-full bg-success"></div>
-								<span className={`text-[11px] font-bold text-muted-foreground`}>ICC:</span>
+								<span className={`text-hint text-muted-foreground`}>ICC:</span>
 							</div>
-							<span className="text-xs font-bold font-mono text-success">{icc.toFixed(2)}%</span>
+							<span className="text-caption font-mono text-success">{icc.toFixed(2)}%</span>
 						</div>
 					)}
 
@@ -217,9 +211,9 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 						<div className="flex items-center justify-between pt-1 border-t border-surface-inverted-border/30 mt-1">
 							<div className="flex items-center gap-2">
 								<div className="w-2 h-2 rounded-full bg-warning"></div>
-								<span className={`text-[11px] font-bold text-muted-foreground`}>Acumulado Pareto:</span>
+								<span className={`text-hint text-muted-foreground`}>Acumulado Pareto:</span>
 							</div>
-							<span className="text-xs font-bold font-mono text-warning">{pct.toFixed(2)}%</span>
+							<span className="text-caption font-mono text-warning">{pct.toFixed(2)}%</span>
 						</div>
 					)}
 				</div>
@@ -506,7 +500,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 							{name}
 						</span>
 						{(width ?? 0) > 40 && (height ?? 0) > 20 && (
-							<span className="text-hint font-mono font-bold tracking-tight" style={{ color: textColor, textShadow }}>
+							<span className="text-hint font-mono" style={{ color: textColor, textShadow }}>
 								{formatCompactNumber(diff || 0)}
 							</span>
 						)}
@@ -526,7 +520,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 				>
 					<div className="flex flex-col text-center">
 						<span className="text-label text-muted-foreground">Impacto Financeiro Total</span>
-						<span className={`text-sm font-bold text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
+						<span className={`text-subheading text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
 					</div>
 				</div>
 			</div>
@@ -541,9 +535,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									key={gb}
 									type="button"
 									onClick={() => setTreeGroupBy(gb)}
-									className={`flex items-center gap-1.5 px-2.5 py-1 text-hint font-bold rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
-                    ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
-                  `}
+									className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 								>
 									{gb === "ODS" && <Layers className="w-3 h-3" />}
 									{gb === "ORGAO" && <Building2 className="w-3 h-3" />}
@@ -567,9 +559,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 							key={mode}
 							type="button"
 							onClick={() => setViewMode(mode)}
-							className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
-                ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
-              `}
+							className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 						>
 							<Icon className="w-3 h-3" />
 							{label}
@@ -583,11 +573,9 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 					className={`mb-2 mr-36 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
            bg-muted/50 border-border`}
 				>
-					<span className="text-xs font-bold uppercase text-muted-foreground">Divergência Líquida</span>
+					<span className="text-label text-muted-foreground">Divergência Líquida</span>
 					<span
-						className={`text-sm font-mono font-bold
-             ${totalNetDivergence > 0 ? "text-success" : totalNetDivergence < 0 ? "text-destructive" : "text-muted-foreground"}
-           `}
+						className={`text-subheading font-mono ${totalNetDivergence > 0 ? "text-success" : totalNetDivergence < 0 ? "text-destructive" : "text-muted-foreground"}`}
 					>
 						{totalNetDivergence > 0 ? "+" : ""}
 						{formatCurrency(totalNetDivergence)}
@@ -903,9 +891,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								key={mode}
 								type="button"
 								onClick={() => setViewMode(mode)}
-								className={`px-3 py-1.5 text-hint font-bold rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
-                  ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
-                `}
+								className={`px-3 py-1.5 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 							>
 								{label}
 							</button>
@@ -914,8 +900,8 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 
 					{viewMode === "comparison" && timeSeries[brushRange.end] && (
 						<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm bg-success/10 border-success/30`}>
-							<span className={`text-[11px] font-bold uppercase text-success`}>ICC Atual ({timeSeries[brushRange.end].axisLabel}):</span>
-							<span className={`text-lg font-bold text-success`}>{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%</span>
+							<span className={`text-label text-success`}>ICC Atual ({timeSeries[brushRange.end].axisLabel}):</span>
+							<span className={`text-heading text-success`}>{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%</span>
 						</div>
 					)}
 				</div>

@@ -30,6 +30,7 @@ import { ConsolidatedMessageCard } from "#/components/analista/consolidated-mess
 import { UGCard } from "#/components/analista/ug-card"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
+import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
@@ -44,8 +45,18 @@ import { cn } from "#/lib/utils"
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#6366f1", "#ef4444", "#f43f5e", "#f97316"]
 
 // Paleta do donut de ODS — era um literal dentro do JSX quando cada fatia era um
-// `<Cell>`; virou constante para o `shape` não remontar o array a cada render.
+// `<Cell>`; virou constante para não remontar o array a cada render.
 const ODS_PIE_COLORS = ["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis]
+
+/** As quatro visões da ferramenta. Uma lista só: o rótulo e a ordem vinham inline. */
+type ActiveView = "operacional" | "tatico" | "estrategico" | "decisao"
+
+const VIEW_TABS: Array<{ id: ActiveView; label: string }> = [
+	{ id: "operacional", label: "Visão operacional" },
+	{ id: "tatico", label: "Visão tática" },
+	{ id: "estrategico", label: "Visão estratégica" },
+	{ id: "decisao", label: "Apoio à decisão" },
+]
 
 export const Route = createFileRoute("/monitoramento")({
 	component: MonitoramentoPage,
@@ -56,7 +67,7 @@ function MonitoramentoPage() {
 	const [fileName, setFileName] = useState<string | null>(null)
 	const [isDragging, setIsDragging] = useState(false)
 	const [activeTab, setActiveTab] = useState<"ALL" | "COBRANCAS" | "EXCECOES" | "FORA_ESCOPO">("ALL")
-	const [activeView, setActiveView] = useState<"operacional" | "tatico" | "estrategico" | "decisao">("operacional")
+	const [activeView, setActiveView] = useState<ActiveView>("operacional")
 	const [activeConferenteFilter, setActiveConferenteFilter] = useState("TODOS")
 	const [activeRacFilter, setActiveRacFilter] = useState("TODOS")
 
@@ -456,35 +467,24 @@ function MonitoramentoPage() {
 	}, [filteredData, estrategicoData])
 
 	return (
-		<HubLayout>
-			{/* Header da ferramenta */}
-			<div className="mb-8 flex items-center justify-between">
-				<div>
-					<h2 className="text-2xl font-bold text-foreground tracking-tight">Analista SUCONT — Monitoramento de Contas de Saldo Transitório</h2>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Diretoria de Economia e Finanças da Aeronáutica (DIREF) · Questões Q26, Q27, Q28, Q31, Q32, Q36 do RAC
-					</p>
-				</div>
-				{fileName && (
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={clearData}
-						className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-surface-inverted-foreground bg-surface-inverted hover:bg-surface-inverted-border rounded-lg transition-colors"
-					>
+		<HubLayout
+			width="wide"
+			actions={
+				fileName && (
+					<Button type="button" variant="outline" size="sm" onClick={clearData}>
 						<Trash2 className="w-4 h-4" />
-						<span>Nova Análise</span>
+						<span>Nova análise</span>
 					</Button>
-				)}
-			</div>
-
+				)
+			}
+		>
 			{!fileName ? (
 				<div className="space-y-6">
 					{/* Upload zone */}
 					<button
 						type="button"
 						className={cn(
-							"w-full border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-200 cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
+							"w-full border-2 border-dashed rounded-xl p-12 text-center transition-colors duration-200 cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
 							isDragging ? "border-action bg-action/10" : "border-border hover:border-action hover:bg-muted/50 bg-card"
 						)}
 						onDrop={handleDrop}
@@ -510,50 +510,50 @@ function MonitoramentoPage() {
 						<div className="mx-auto w-16 h-16 bg-action/15 text-action rounded-full flex items-center justify-center mb-4">
 							<Upload className="w-8 h-8" />
 						</div>
-						<h3 className="text-lg font-semibold text-foreground mb-1">Carregar Planilha do Tesouro Gerencial</h3>
-						<p className="text-muted-foreground text-sm max-w-md mx-auto">
+						<h3 className="text-heading text-foreground mb-1">Carregar Planilha do Tesouro Gerencial</h3>
+						<p className="text-muted-foreground text-body max-w-md mx-auto">
 							Arraste e solte o arquivo .xlsx aqui, ou clique para selecionar. A planilha deve conter as colunas UG, Mês, Conta Contábil e Saldo.
 						</p>
 					</button>
 
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+						<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
 							<div className="w-12 h-12 bg-action/15 text-action rounded-xl flex items-center justify-center mb-4">
 								<Search className="w-6 h-6" />
 							</div>
-							<h3 className="text-lg font-semibold text-foreground mb-2">O que está sendo analisado</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">
+							<h3 className="text-heading text-foreground mb-2">O que está sendo analisado</h3>
+							<p className="text-body text-muted-foreground leading-relaxed">
 								Saldos de contas contábeis transitórias e de controle do COMAER, extraídos do Tesouro Gerencial, visando identificar inconsistências e valores
 								fora da conformidade.
 							</p>
 						</div>
-						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+						<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
 							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center mb-4">
 								<BookOpen className="w-6 h-6" />
 							</div>
-							<h3 className="text-lg font-semibold text-foreground mb-2">O Referencial Teórico (RAC)</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">
+							<h3 className="text-heading text-foreground mb-2">O Referencial Teórico (RAC)</h3>
+							<p className="text-body text-muted-foreground leading-relaxed">
 								A análise é fundamentada no Roteiro de Acompanhamento Contábil (RAC), mapeando as contas de acordo com as diretrizes e exceções previstas nas
 								questões normativas.
 							</p>
 						</div>
-						<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+						<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
 							<div className="w-12 h-12 bg-success/15 text-success rounded-xl flex items-center justify-center mb-4">
 								<MessageSquare className="w-6 h-6" />
 							</div>
-							<h3 className="text-lg font-semibold text-foreground mb-2">Mensagens Automáticas</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">
+							<h3 className="text-heading text-foreground mb-2">Mensagens Automáticas</h3>
+							<p className="text-body text-muted-foreground leading-relaxed">
 								Geração automática de propostas de mensagens de cobrança e orientação para as UGs, padronizando a comunicação e agilizando a regularização.
 							</p>
 						</div>
 					</div>
 
-					<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-						<h3 className="text-md font-semibold text-foreground mb-4 flex items-center">
+					<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+						<h3 className="text-heading text-foreground mb-4 flex items-center">
 							<FileText className="w-5 h-5 mr-2 text-action" />
 							Caminho do Relatório no Tesouro Gerencial
 						</h3>
-						<div className="bg-muted/50 p-4 rounded-lg border border-border text-sm text-foreground flex flex-wrap items-center gap-y-2 gap-x-1">
+						<div className="bg-muted/50 p-4 rounded-lg border border-border text-body text-foreground flex flex-wrap items-center gap-y-2 gap-x-1">
 							{[
 								"TESOURO GERENCIAL",
 								"Relatórios Compartilhados",
@@ -578,26 +578,23 @@ function MonitoramentoPage() {
 			) : (
 				<div className="space-y-8">
 					{/* Escopo */}
-					<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+					<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
 						<div className="flex items-start space-x-3">
 							<div className="p-2 bg-action/15 rounded-lg shrink-0">
 								<Info className="w-5 h-5 text-action" />
 							</div>
 							<div>
-								<h3 className="text-lg font-semibold text-foreground mb-2">Escopo da Análise (RAC)</h3>
-								<p className="text-sm text-muted-foreground mb-3">Este sistema analisa saldos transitórios com base nas seguintes questões do RAC:</p>
+								<h3 className="text-heading text-foreground mb-2">Escopo da Análise (RAC)</h3>
+								<p className="text-body text-muted-foreground mb-3">Este sistema analisa saldos transitórios com base nas seguintes questões do RAC:</p>
 								<div className="flex flex-wrap gap-2 mb-4">
 									{["Questão 26", "Questão 27", "Questão 28", "Questão 31", "Questão 32", "Questão 36"].map((q) => (
-										<span
-											key={q}
-											className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action/10 text-action border border-action/30"
-										>
+										<span key={q} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption bg-action/10 text-action border border-action/30">
 											{q}
 										</span>
 									))}
 								</div>
 								<div className="bg-warning/10 border border-warning/30 p-3 rounded-md">
-									<p className="text-xs text-warning flex items-center">
+									<p className="text-caption text-warning flex items-center">
 										<AlertTriangle className="w-4 h-4 mr-1.5 shrink-0" />
 										<strong>Atenção:</strong>&nbsp;Contas presentes na planilha que não fazem parte do escopo parametrizado do RAC também são analisadas e
 										destacadas em uma seção específica para revisão manual.
@@ -608,17 +605,17 @@ function MonitoramentoPage() {
 					</div>
 
 					{/* Filtros */}
-					<div className="bg-card p-4 rounded-2xl shadow-sm border border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+					<div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
 						<div className="flex flex-wrap items-center gap-6">
 							<div className="flex items-center space-x-3">
-								<label htmlFor="rac-filter" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center">
+								<label htmlFor="rac-filter" className="text-label text-muted-foreground flex items-center">
 									<BookOpen className="w-4 h-4 mr-2 text-action" />
 									Questão RAC:
 								</label>
 								<Select items={{ TODOS: "Todas as Questões" }} value={activeRacFilter} onValueChange={(v) => setActiveRacFilter(v ?? "TODOS")}>
 									<SelectTrigger
 										id="rac-filter"
-										className="text-sm border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 font-medium text-foreground"
+										className="text-subheading border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 text-foreground"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -635,14 +632,14 @@ function MonitoramentoPage() {
 								</Select>
 							</div>
 							<div className="flex items-center space-x-3">
-								<label htmlFor="conferente-filter" className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center">
+								<label htmlFor="conferente-filter" className="text-label text-muted-foreground flex items-center">
 									<Filter className="w-4 h-4 mr-2 text-action" />
 									Conferente:
 								</label>
 								<Select items={{ TODOS: "Todos os Conferentes" }} value={activeConferenteFilter} onValueChange={(v) => setActiveConferenteFilter(v ?? "TODOS")}>
 									<SelectTrigger
 										id="conferente-filter"
-										className="text-sm border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 font-medium text-foreground"
+										className="text-subheading border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 text-foreground"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -667,7 +664,7 @@ function MonitoramentoPage() {
 									setActiveRacFilter("TODOS")
 									setActiveConferenteFilter("TODOS")
 								}}
-								className="text-xs font-bold text-destructive hover:text-destructive/80 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors"
+								className="text-label text-destructive hover:text-destructive/80 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors"
 							>
 								<Trash2 className="w-4 h-4" />
 								LIMPAR FILTROS
@@ -675,52 +672,44 @@ function MonitoramentoPage() {
 						)}
 					</div>
 
-					{/* Abas de visão */}
-					<div className="flex flex-wrap items-center border-b border-border gap-1">
-						{(
-							[
-								{ id: "operacional", label: "Visão Operacional", color: "blue" },
-								{ id: "tatico", label: "Visão Tática", color: "indigo" },
-								{ id: "estrategico", label: "Visão Estratégica", color: "emerald" },
-								{ id: "decisao", label: "Apoio à Decisão", color: "amber" },
-							] as const
-						).map(({ id, label, color }) => (
-							<Button
-								key={id}
-								type="button"
-								variant="ghost"
-								onClick={() => setActiveView(id)}
-								className={cn(
-									"px-6 py-4 text-sm font-bold transition-all",
-									activeView === id
-										? `text-${color}-600 border-b-2 border-${color}-600 bg-${color}-50/50`
-										: "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-								)}
-							>
-								{label}
-							</Button>
-						))}
-					</div>
+					{/*
+					 * Segmentado do hub, não `Tabs`: estas quatro visões reconfiguram o painel
+					 * abaixo sem que exista um `tabpanel` para cada uma.
+					 *
+					 * Eram quatro `<Button variant="ghost">` sem papel nenhum de ARIA e sem
+					 * navegação por seta, e o estado ativo saía de `text-${color}-600
+					 * border-b-2 border-${color}-600 bg-${color}-50/50` — classe INTERPOLADA.
+					 * O Tailwind varre o código-fonte por string literal, então nenhuma dessas
+					 * regras chegou a existir no CSS: a visão ativa estava, na prática, sem
+					 * estilo nenhum desde que a tela foi escrita.
+					 */}
+					<SegmentedControl
+						label="Visão do painel"
+						value={activeView}
+						onValueChange={setActiveView}
+						size="lg"
+						options={VIEW_TABS.map(({ id, label }) => ({ value: id, label }))}
+					/>
 
 					{/* Banner focal RAC */}
 					{activeView === "operacional" && activeRacFilter !== "TODOS" && (
-						<div className="bg-action text-action-foreground p-6 rounded-2xl border border-action flex items-center justify-between animate-in slide-in-from-top duration-500">
+						<div className="bg-action text-action-foreground p-6 rounded-xl border border-action flex items-center justify-between animate-in slide-in-from-top duration-500">
 							<div className="flex items-center space-x-4">
 								<div className="p-3 bg-action rounded-xl">
 									<BookOpen className="w-6 h-6 text-action-foreground" />
 								</div>
 								<div>
-									<h2 className="text-xl font-bold">
+									<h2 className="text-heading">
 										{activeRacFilter} — {getRacDescription(activeRacFilter)}
 									</h2>
-									<p className="text-action-foreground text-sm">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
+									<p className="text-action-foreground text-body">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
 								</div>
 							</div>
 							<Button
 								type="button"
 								variant="ghost"
 								onClick={() => setActiveRacFilter("TODOS")}
-								className="text-xs bg-action hover:bg-action/80 px-3 py-1.5 rounded-lg border border-action transition-colors"
+								className="text-caption bg-action hover:bg-action/80 px-3 py-1.5 rounded-lg border border-action transition-colors"
 							>
 								Limpar Filtro RAC
 							</Button>
@@ -730,13 +719,13 @@ function MonitoramentoPage() {
 					{/* ── VISÃO TÁTICA ── */}
 					{activeView === "tatico" && managerialData && (
 						<div className="space-y-8 animate-in fade-in duration-500">
-							<div className="bg-card p-8 rounded-2xl shadow-sm border border-border">
+							<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
 								<div className="flex items-start space-x-4">
 									<div className="p-3 bg-action/10 rounded-xl shrink-0">
 										<Target className="w-6 h-6 text-action" />
 									</div>
 									<div>
-										<h2 className="text-2xl font-bold text-foreground mb-2">Painel de Análise Tática (SUCONT-3)</h2>
+										<h2 className="text-heading text-foreground mb-2">Painel de Análise Tática (SUCONT-3)</h2>
 										<p className="text-muted-foreground leading-relaxed">
 											Este painel traduz os achados operacionais em informações gerenciais para a Divisão SUCONT-3, alinhadas ao{" "}
 											<strong>Roteiro de Acompanhamento Contábil (RAC)</strong>.
@@ -757,32 +746,33 @@ function MonitoramentoPage() {
 										label: "Volume Financeiro em Risco",
 										value: formatCurrency(managerialData.totalRiskValue),
 										sub: "Soma absoluta dos saldos irregulares",
-										color: "red",
+										emphasis: "text-destructive",
 									},
 									{
 										label: "UG mais Crítica (Volume)",
 										value: managerialData.topUgs[0]?.ug || "-",
 										sub: "Maior concentração de inconsistências",
-										color: "slate",
+										emphasis: "text-foreground",
 									},
 									{
 										label: "Questão RAC mais Frequente",
 										value: managerialData.topRacs[0]?.name || "-",
 										sub: "Principal ofensor sistêmico",
-										color: "indigo",
+										emphasis: "text-action",
 									},
-								].map(({ label, value, sub, color }) => (
-									<div key={label} className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-										<p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
-										<p className={`text-3xl font-bold text-${color}-${color === "red" ? "600" : color === "indigo" ? "600" : "900"} truncate`}>{value}</p>
-										<p className="text-xs text-muted-foreground mt-2">{sub}</p>
+								].map(({ label, value, sub, emphasis }) => (
+									<div key={label} className="bg-card p-6 rounded-xl shadow-sm border border-border">
+										<p className="text-subheading text-muted-foreground mb-1">{label}</p>
+										{/* Classe literal: `text-${color}-600` nunca gerou regra. */}
+										<p className={cn("text-display truncate", emphasis)}>{value}</p>
+										<p className="text-caption text-muted-foreground mt-2">{sub}</p>
 									</div>
 								))}
 							</div>
 
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<h3 className="text-heading text-foreground mb-6 flex items-center">
 										<TrendingUp className="w-5 h-5 mr-2 text-action" />
 										Top 10 UGs por Volume de Inconsistências
 									</h3>
@@ -807,8 +797,8 @@ function MonitoramentoPage() {
 									</div>
 								</div>
 
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<h3 className="text-heading text-foreground mb-6 flex items-center">
 										<PieChartIcon className="w-5 h-5 mr-2 text-action" />
 										Distribuição por Questão RAC
 									</h3>
@@ -831,8 +821,8 @@ function MonitoramentoPage() {
 								</div>
 							</div>
 
-							<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-								<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+							<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+								<h3 className="text-heading text-foreground mb-6 flex items-center">
 									<Users className="w-5 h-5 mr-2 text-success" />
 									Distribuição de Inconsistências por Conferente
 								</h3>
@@ -840,18 +830,15 @@ function MonitoramentoPage() {
 									{managerialData.conferentes.map((conf, idx) => (
 										<div key={idx} className="border border-border rounded-xl p-4 bg-muted/50">
 											<div className="flex justify-between items-start mb-3">
-												<h4 className="font-semibold text-foreground text-sm">Conferente: {conf.name}</h4>
-												<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success/15 text-success">
+												<h4 className="text-foreground text-subheading">Conferente: {conf.name}</h4>
+												<span className="inline-flex items-center px-2 py-0.5 rounded text-caption bg-success/15 text-success">
 													{conf.count} Inconsistências
 												</span>
 											</div>
-											<div className="text-xs text-muted-foreground mb-2 font-medium">UGs com inconsistências:</div>
+											<div className="text-caption text-muted-foreground mb-2">UGs com inconsistências:</div>
 											<div className="flex flex-wrap gap-1.5">
 												{conf.ugs.map((ug) => (
-													<span
-														key={ug}
-														className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-card border border-border text-foreground"
-													>
+													<span key={ug} className="inline-flex items-center px-2 py-0.5 rounded text-caption bg-card border border-border text-foreground">
 														UG {ug}
 													</span>
 												))}
@@ -861,12 +848,12 @@ function MonitoramentoPage() {
 								</div>
 							</div>
 
-							<div className="bg-action/10 border border-action/30 rounded-2xl p-6">
-								<h3 className="text-lg font-bold text-action mb-4 flex items-center">
+							<div className="bg-action/10 border border-action/30 rounded-xl p-6">
+								<h3 className="text-heading text-action mb-4 flex items-center">
 									<Lightbulb className="w-5 h-5 mr-2 text-action" />
 									Recomendações Estratégicas (Foco de Atuação)
 								</h3>
-								<ul className="space-y-3 text-action text-sm">
+								<ul className="space-y-3 text-action text-body">
 									{managerialData.topUgs.length > 0 && (
 										<li className="flex items-start">
 											<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 mr-2 shrink-0" />A UG <strong>{managerialData.topUgs[0].ug}</strong> concentra
@@ -895,13 +882,13 @@ function MonitoramentoPage() {
 					{/* ── VISÃO ESTRATÉGICA ── */}
 					{activeView === "estrategico" && estrategicoData && (
 						<div className="space-y-8 animate-in fade-in duration-500">
-							<div className="bg-card p-8 rounded-2xl shadow-sm border border-border">
+							<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
 								<div className="flex items-start space-x-4">
 									<div className="p-3 bg-success/15 rounded-xl shrink-0">
 										<Building2 className="w-6 h-6 text-success" />
 									</div>
 									<div>
-										<h2 className="text-2xl font-bold text-foreground mb-2">Painel de Risco Contábil do COMAER (Estratégico)</h2>
+										<h2 className="text-heading text-foreground mb-2">Painel de Risco Contábil do COMAER (Estratégico)</h2>
 										<p className="text-muted-foreground leading-relaxed">
 											Visão consolidada para apoio à tomada de decisão da chefia da SUCONT, DIREF e altos escalões do COMAER.
 										</p>
@@ -910,26 +897,26 @@ function MonitoramentoPage() {
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<p className="text-sm font-medium text-muted-foreground mb-1">Total de Inconsistências</p>
-									<p className="text-3xl font-bold text-foreground">{estrategicoData.totalIssues}</p>
-									<p className="text-xs text-muted-foreground mt-2">Registros fora da conformidade RAC</p>
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<p className="text-subheading text-muted-foreground mb-1">Total de Inconsistências</p>
+									<p className="text-display text-foreground">{estrategicoData.totalIssues}</p>
+									<p className="text-caption text-muted-foreground mt-2">Registros fora da conformidade RAC</p>
 								</div>
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<p className="text-sm font-medium text-muted-foreground mb-1">Volume Financeiro em Risco</p>
-									<p className="text-3xl font-bold text-destructive">{formatCurrency(estrategicoData.totalRiskValue)}</p>
-									<p className="text-xs text-muted-foreground mt-2">Soma absoluta dos saldos irregulares</p>
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<p className="text-subheading text-muted-foreground mb-1">Volume Financeiro em Risco</p>
+									<p className="text-display text-destructive">{formatCurrency(estrategicoData.totalRiskValue)}</p>
+									<p className="text-caption text-muted-foreground mt-2">Soma absoluta dos saldos irregulares</p>
 								</div>
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<p className="text-sm font-medium text-muted-foreground mb-1">Maior Risco por ODS</p>
-									<p className="text-2xl font-bold text-success truncate">{estrategicoData.topOds[0]?.name || "-"}</p>
-									<p className="text-xs text-muted-foreground mt-2">{estrategicoData.topOds[0]?.percent.toFixed(1)}% das inconsistências</p>
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<p className="text-subheading text-muted-foreground mb-1">Maior Risco por ODS</p>
+									<p className="text-display text-success truncate">{estrategicoData.topOds[0]?.name || "-"}</p>
+									<p className="text-caption text-muted-foreground mt-2">{estrategicoData.topOds[0]?.percent.toFixed(1)}% das inconsistências</p>
 								</div>
 							</div>
 
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<h3 className="text-heading text-foreground mb-6 flex items-center">
 										<PieChartIcon className="w-5 h-5 mr-2 text-success" />
 										Distribuição Percentual por ODS
 									</h3>
@@ -956,8 +943,8 @@ function MonitoramentoPage() {
 									</div>
 								</div>
 
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<h3 className="text-heading text-foreground mb-6 flex items-center">
 										<BarChart3 className="w-5 h-5 mr-2 text-success" />
 										Ranking de Órgãos Superiores
 									</h3>
@@ -979,17 +966,17 @@ function MonitoramentoPage() {
 								</div>
 							</div>
 
-							<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-								<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+							<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+								<h3 className="text-heading text-foreground mb-6 flex items-center">
 									<AlertTriangle className="w-5 h-5 mr-2 text-destructive" />
 									Contas Contábeis com Maior Risco (Top 10)
 								</h3>
 								<div className="overflow-x-auto">
 									<table className="min-w-full divide-y divide-border">
-										<thead>
+										<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 											<tr>
 												{["Conta", "Descrição", "Ocorrências", "Volume Financeiro"].map((h) => (
-													<th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+													<th key={h} className="px-4 py-3 text-left">
 														{h}
 													</th>
 												))}
@@ -998,10 +985,10 @@ function MonitoramentoPage() {
 										<tbody className="divide-y divide-border">
 											{estrategicoData.topContas.map((c, i) => (
 												<tr key={i} className="hover:bg-muted/50">
-													<td className="px-3 py-2 whitespace-nowrap text-sm font-mono text-foreground">{c.conta}</td>
-													<td className="px-3 py-2 text-sm text-muted-foreground">{c.descricao}</td>
-													<td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium text-foreground">{c.count}</td>
-													<td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium text-destructive">{formatCurrency(c.value)}</td>
+													<td className="px-3 py-2 whitespace-nowrap text-body font-mono text-foreground">{c.conta}</td>
+													<td className="px-3 py-2 text-body text-muted-foreground">{c.descricao}</td>
+													<td className="px-3 py-2 whitespace-nowrap text-subheading text-right text-foreground">{c.count}</td>
+													<td className="px-3 py-2 whitespace-nowrap text-subheading text-right text-destructive">{formatCurrency(c.value)}</td>
 												</tr>
 											))}
 										</tbody>
@@ -1016,13 +1003,13 @@ function MonitoramentoPage() {
 					{/* ── APOIO À DECISÃO ── */}
 					{activeView === "decisao" && decisaoData && (
 						<div className="space-y-8 animate-in fade-in duration-500">
-							<div className="bg-card p-8 rounded-2xl shadow-sm border border-border">
+							<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
 								<div className="flex items-start space-x-4">
 									<div className="p-3 bg-warning/15 rounded-xl shrink-0">
 										<Lightbulb className="w-6 h-6 text-warning" />
 									</div>
 									<div>
-										<h2 className="text-2xl font-bold text-foreground mb-2">Apoio à Tomada de Decisão e Mapa de Risco</h2>
+										<h2 className="text-heading text-foreground mb-2">Apoio à Tomada de Decisão e Mapa de Risco</h2>
 										<p className="text-muted-foreground leading-relaxed">
 											Análise estratégica para identificação de níveis de risco contábil, concentração de inconsistências e priorização de atuação no âmbito do
 											COMAER.
@@ -1038,22 +1025,22 @@ function MonitoramentoPage() {
 									{ label: "UG com mais Inconsistências", value: decisaoData.criticalLevels.ugCount },
 									{ label: "UG com maior Saldo Irregular", value: decisaoData.criticalLevels.ugValue },
 								].map(({ label, value }) => (
-									<div key={label} className="bg-warning/10 p-6 rounded-2xl border border-warning/30">
-										<p className="text-xs font-bold text-warning uppercase mb-1">{label}</p>
-										<p className="text-xl font-bold text-foreground">{value}</p>
+									<div key={label} className="bg-warning/10 p-6 rounded-xl border border-warning/30">
+										<p className="text-label text-warning mb-1">{label}</p>
+										<p className="text-heading text-foreground">{value}</p>
 									</div>
 								))}
 							</div>
 
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<h3 className="text-heading text-foreground mb-6 flex items-center">
 										<ShieldAlert className="w-5 h-5 mr-2 text-destructive" />
 										Mapa de Risco Contábil (ODS)
 									</h3>
 									<div className="overflow-x-auto">
-										<table className="w-full text-sm text-left">
-											<thead className="text-xs text-muted-foreground uppercase bg-muted/50">
+										<table className="w-full text-body text-left">
+											<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 												<tr>
 													<th className="px-4 py-3">ODS</th>
 													<th className="px-4 py-3 text-center">Inconsistências</th>
@@ -1075,30 +1062,30 @@ function MonitoramentoPage() {
 									</div>
 								</div>
 
-								<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-									<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+									<h3 className="text-heading text-foreground mb-6 flex items-center">
 										<Target className="w-5 h-5 mr-2 text-action" />
 										Análise de Concentração (Pareto)
 									</h3>
 									<div className="flex flex-col items-center justify-center h-full pb-6">
 										<div className="text-center mb-8">
-											<p className="text-4xl font-bold text-action mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
-											<p className="text-sm text-muted-foreground">
+											<p className="text-display text-action mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
+											<p className="text-body text-muted-foreground">
 												das inconsistências estão concentradas em apenas <span className="font-bold text-foreground">20% das UGs</span> (
 												{decisaoData.pareto.twentyPercentCount} UGs).
 											</p>
 										</div>
 										<div className="w-full space-y-3">
-											<p className="text-xs font-bold text-muted-foreground uppercase">UGs que compõem a concentração:</p>
+											<p className="text-label text-muted-foreground">UGs que compõem a concentração:</p>
 											{decisaoData.pareto.topTwentyUgs.map((ug, i) => (
 												<div key={ug.ug} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border">
 													<div className="flex items-center gap-2">
-														<span className="text-hint font-bold bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">{i + 1}</span>
-														<span className="text-sm font-semibold text-foreground">
+														<span className="text-hint bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">{i + 1}</span>
+														<span className="text-subheading text-foreground">
 															{ug.ug} ({ug.nome})
 														</span>
 													</div>
-													<span className="text-xs font-medium text-muted-foreground">{ug.count} itens</span>
+													<span className="text-caption text-muted-foreground">{ug.count} itens</span>
 												</div>
 											))}
 										</div>
@@ -1106,14 +1093,14 @@ function MonitoramentoPage() {
 								</div>
 							</div>
 
-							<div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-								<h3 className="text-lg font-bold text-foreground mb-6 flex items-center">
+							<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
+								<h3 className="text-heading text-foreground mb-6 flex items-center">
 									<TrendingUp className="w-5 h-5 mr-2 text-success" />
 									Priorização de Atuação (Top 15 UGs Prioritárias)
 								</h3>
 								<div className="overflow-x-auto">
-									<table className="w-full text-sm text-left">
-										<thead className="text-xs text-muted-foreground uppercase bg-muted/50">
+									<table className="w-full text-body text-left">
+										<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 											<tr>
 												<th className="px-4 py-3">Prioridade</th>
 												<th className="px-4 py-3">UG / Nome</th>
@@ -1129,7 +1116,7 @@ function MonitoramentoPage() {
 													<td className="px-4 py-3">
 														<span
 															className={cn(
-																"inline-flex items-center justify-center w-6 h-6 rounded-full text-hint font-bold",
+																"inline-flex items-center justify-center w-6 h-6 rounded-full text-hint",
 																i < 3 ? "bg-destructive/15 text-destructive" : "bg-muted text-foreground"
 															)}
 														>
@@ -1138,11 +1125,11 @@ function MonitoramentoPage() {
 													</td>
 													<td className="px-4 py-3">
 														<p className="font-bold text-foreground">{ug.ug}</p>
-														<p className="text-xs text-muted-foreground">{ug.nome}</p>
+														<p className="text-caption text-muted-foreground">{ug.nome}</p>
 													</td>
 													<td className="px-4 py-3">
 														<p className="text-foreground">{ug.superior}</p>
-														<p className="text-xs text-muted-foreground">{ug.ods}</p>
+														<p className="text-caption text-muted-foreground">{ug.ods}</p>
 													</td>
 													<td className="px-4 py-3 text-center font-medium">{ug.count}</td>
 													<td className="px-4 py-3 text-right text-destructive font-medium">{formatCurrency(ug.value)}</td>
@@ -1168,7 +1155,7 @@ function MonitoramentoPage() {
 					{/* ── VISÃO OPERACIONAL ── */}
 					{activeView === "operacional" && dashboardData && (
 						<div className="space-y-6 mb-8 animate-in fade-in duration-500">
-							<h2 className="text-xl font-bold text-foreground flex items-center">
+							<h2 className="text-heading text-foreground flex items-center">
 								<BarChart3 className="w-6 h-6 mr-2 text-action" />
 								VISÃO GERAL
 							</h2>
@@ -1211,11 +1198,11 @@ function MonitoramentoPage() {
 										value: formatCurrency(dashboardData.volumeFinanceiro),
 									},
 								].map(({ icon, bg, label, value }) => (
-									<div key={label} className="bg-card p-6 rounded-2xl shadow-sm border border-border flex items-center space-x-4">
+									<div key={label} className="bg-card p-6 rounded-xl shadow-sm border border-border flex items-center space-x-4">
 										<div className={`p-3 ${bg} rounded-xl`}>{icon}</div>
 										<div>
-											<p className="text-sm font-medium text-muted-foreground">{label}</p>
-											<p className="text-2xl font-bold text-foreground">{value}</p>
+											<p className="text-subheading text-muted-foreground">{label}</p>
+											<p className="text-display text-foreground">{value}</p>
 										</div>
 									</div>
 								))}
@@ -1227,7 +1214,7 @@ function MonitoramentoPage() {
 						<div className="mb-8">
 							<div className="flex items-center space-x-2 mb-4">
 								<Filter className="w-5 h-5 text-muted-foreground" />
-								<h3 className="text-sm font-medium text-foreground uppercase tracking-wider">Filtrar Visão</h3>
+								<h3 className="text-label text-foreground">Filtrar Visão</h3>
 							</div>
 							<div className="flex flex-wrap gap-2">
 								{(
@@ -1244,7 +1231,7 @@ function MonitoramentoPage() {
 										variant="ghost"
 										onClick={() => setActiveTab(id)}
 										className={cn(
-											"px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+											"px-4 py-2 rounded-lg text-subheading transition-colors",
 											activeTab === id ? active : "bg-card text-muted-foreground border border-border hover:bg-muted/50"
 										)}
 									>
@@ -1258,7 +1245,7 @@ function MonitoramentoPage() {
 					{activeView === "operacional" && (activeTab === "ALL" || activeTab === "COBRANCAS") && dashboardData && dashboardData.totalCobrancas > 0 && (
 						<div className="space-y-6 mb-8">
 							{activeRacFilter !== "TODOS" && <ConsolidatedMessageCard rows={filteredData} activeRacFilter={activeRacFilter} />}
-							<h2 className="text-xl font-bold text-foreground flex items-center mt-12">
+							<h2 className="text-heading text-foreground flex items-center mt-12">
 								<AlertTriangle className="w-6 h-6 mr-2 text-destructive" />
 								PAINEL DE INCONSISTÊNCIAS POR UG
 							</h2>
@@ -1270,21 +1257,21 @@ function MonitoramentoPage() {
 
 					{activeView === "operacional" && (activeTab === "ALL" || activeTab === "EXCECOES") && excecoesData.length > 0 && (
 						<div className="space-y-6 mb-8">
-							<h2 className="text-xl font-bold text-foreground flex items-center mt-12">
+							<h2 className="text-heading text-foreground flex items-center mt-12">
 								<CheckCircle2 className="w-6 h-6 mr-2 text-success" />
 								PAINEL DE EXCEÇÕES DO RAC
 							</h2>
-							<div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+							<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<div className="p-6">
-									<p className="text-sm text-muted-foreground mb-4">
+									<p className="text-body text-muted-foreground mb-4">
 										As ocorrências abaixo foram detectadas, mas estão previstas nas exceções do RAC. Nenhuma cobrança será gerada.
 									</p>
 									<div className="overflow-x-auto">
 										<table className="min-w-full divide-y divide-border">
-											<thead>
+											<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 												<tr>
 													{["UG", "Conta", "Descrição", "Saldo", "Fundamento da exceção"].map((h) => (
-														<th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+														<th key={h} className="px-4 py-3 text-left">
 															{h}
 														</th>
 													))}
@@ -1293,11 +1280,11 @@ function MonitoramentoPage() {
 											<tbody className="divide-y divide-border">
 												{excecoesData.map((c, i) => (
 													<tr key={i} className="hover:bg-muted/50">
-														<td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-foreground">{c.ug}</td>
-														<td className="px-3 py-2 whitespace-nowrap text-sm font-mono text-foreground">{c.conta}</td>
-														<td className="px-3 py-2 text-sm text-muted-foreground">{c.descricao}</td>
-														<td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium text-foreground">{formatCurrency(c.saldo)}</td>
-														<td className="px-3 py-2 text-sm text-muted-foreground italic">{c.observacao || "Exceção expressamente prevista no RAC"}</td>
+														<td className="px-3 py-2 whitespace-nowrap text-subheading text-foreground">{c.ug}</td>
+														<td className="px-3 py-2 whitespace-nowrap text-body font-mono text-foreground">{c.conta}</td>
+														<td className="px-3 py-2 text-body text-muted-foreground">{c.descricao}</td>
+														<td className="px-3 py-2 whitespace-nowrap text-subheading text-right text-foreground">{formatCurrency(c.saldo)}</td>
+														<td className="px-3 py-2 text-body text-muted-foreground italic">{c.observacao || "Exceção expressamente prevista no RAC"}</td>
 													</tr>
 												))}
 											</tbody>
@@ -1310,12 +1297,12 @@ function MonitoramentoPage() {
 
 					{activeView === "operacional" && (activeTab === "ALL" || activeTab === "FORA_ESCOPO") && outOfScopeData.length > 0 && (
 						<div className="space-y-6 mb-8 animate-in fade-in duration-500">
-							<h2 className="text-xl font-bold text-foreground flex items-center mt-12">
+							<h2 className="text-heading text-foreground flex items-center mt-12">
 								<AlertCircle className="w-6 h-6 mr-2 text-warning" />
 								PAINEL DE CONTAS FORA DO ESCOPO DO RAC
 							</h2>
 							<div className="bg-warning/10 border border-warning/30 p-4 rounded-xl mb-6">
-								<p className="text-sm text-warning">
+								<p className="text-body text-warning">
 									<span className="font-semibold">Possível inconsistência contábil – conta não parametrizada no RAC.</span>
 									<br />
 									As contas abaixo não foram encontradas na matriz normativa e requerem revisão manual pela equipe da SUCONT-3.
@@ -1328,9 +1315,9 @@ function MonitoramentoPage() {
 					)}
 
 					{activeView === "operacional" && data.length > 0 && dashboardData?.totalCobrancas === 0 && outOfScopeData.length === 0 && (
-						<div className="bg-success/10 border border-success/30 rounded-2xl p-8 text-center animate-in fade-in duration-500">
+						<div className="bg-success/10 border border-success/30 rounded-xl p-8 text-center animate-in fade-in duration-500">
 							<CheckCircle2 className="w-12 h-12 text-success mx-auto mb-3" />
-							<h3 className="text-lg font-semibold text-success">Nenhuma cobrança necessária</h3>
+							<h3 className="text-heading text-success">Nenhuma cobrança necessária</h3>
 							<p className="text-success mt-1">Todas as ocorrências processadas são exceções previstas na matriz normativa.</p>
 						</div>
 					)}

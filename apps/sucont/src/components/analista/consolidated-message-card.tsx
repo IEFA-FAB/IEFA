@@ -105,15 +105,15 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const fullMessage = headerMsg + baseParts.join("\n\n")
 
 	return (
-		<div className="bg-action/10 rounded-2xl shadow-sm border border-action/30 overflow-hidden mb-8">
+		<div className="bg-action/10 rounded-xl shadow-sm border border-action/30 overflow-hidden mb-8">
 			<div className="bg-action/10 border-b border-action/30 px-6 py-4 flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<div>
-						<h2 className="text-lg font-bold text-action">Mensagem Consolidada - {activeRacFilter}</h2>
-						<p className="text-sm text-action">Agrupa todas as UGs com inconsistências nesta questão</p>
+						<h2 className="text-heading text-action">Mensagem Consolidada - {activeRacFilter}</h2>
+						<p className="text-body text-action">Agrupa todas as UGs com inconsistências nesta questão</p>
 					</div>
 				</div>
-				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-action text-action-foreground">
+				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption bg-action text-action-foreground">
 					{Object.keys(groupedByUg).length} UGs / {items.length} Ocorrência(s)
 				</span>
 			</div>
@@ -122,7 +122,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 				<div className="flex flex-col xl:flex-row gap-6">
 					<div className="flex-1 bg-card rounded-xl p-4 border border-border flex flex-col min-w-[300px]">
 						<div className="flex justify-between items-start mb-4">
-							<h3 className="text-sm font-semibold text-foreground">Mensagem Institucional Pronta (Consolidada)</h3>
+							<h3 className="text-subheading text-foreground">Mensagem Institucional Pronta (Consolidada)</h3>
 							<Button
 								type="button"
 								onClick={() => navigator.clipboard.writeText(fullMessage)}
@@ -137,7 +137,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 
 						<div className="grid grid-cols-2 gap-3 mb-4">
 							<div>
-								<label htmlFor="cons-msg-number" className="block text-xs font-medium text-foreground mb-1">
+								<label htmlFor="cons-msg-number" className="block text-caption text-foreground mb-1">
 									Nº da Mensagem
 								</label>
 								<Input
@@ -146,11 +146,11 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 								/>
 							</div>
 							<div>
-								<label htmlFor="cons-send-date" className="block text-xs font-medium text-foreground mb-1">
+								<label htmlFor="cons-send-date" className="block text-caption text-foreground mb-1">
 									Data de Envio
 								</label>
 								<Input
@@ -158,11 +158,11 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 									type="date"
 									value={sendDate}
 									onChange={(e) => setSendDate(e.target.value)}
-									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 								/>
 							</div>
 							<div className="col-span-2">
-								<label htmlFor="cons-message-type" className="block text-xs font-medium text-foreground mb-1">
+								<label htmlFor="cons-message-type" className="block text-caption text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
 								<Select
@@ -172,7 +172,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 								>
 									<SelectTrigger
 										id="cons-message-type"
-										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
+										className="w-full text-body px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -184,7 +184,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 								</Select>
 								{messageType === "COM_PRAZO" && (
 									<div className="mt-2">
-										<label htmlFor="cons-deadline-date" className="block text-xs font-medium text-foreground mb-1">
+										<label htmlFor="cons-deadline-date" className="block text-caption text-foreground mb-1">
 											Data Limite
 										</label>
 										<Input
@@ -192,7 +192,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 											type="date"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+											className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 										/>
 									</div>
 								)}
@@ -200,7 +200,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 						</div>
 
 						<div className="bg-muted/50 p-4 rounded border border-border flex-1 overflow-y-auto min-h-[350px] max-h-[600px]">
-							<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
+							<p className="text-body text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
 						</div>
 					</div>
 				</div>

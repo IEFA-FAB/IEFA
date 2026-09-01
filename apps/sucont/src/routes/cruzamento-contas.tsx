@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, BarChart3, BookOpen, ChevronDown, ChevronUp, Map as MapIcon, RefreshCw } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { AlertCircle, BookOpen, ChevronDown, ChevronUp, Map as MapIcon, RefreshCw } from "lucide-react"
 import { useState } from "react"
 import { FileUpload } from "#/components/cruzamento/FileUpload"
 import { Report } from "#/components/cruzamento/Report"
 import { HubLayout } from "#/components/hub-layout"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import type { ReportData } from "#/lib/cruzamento/analyzer"
 import { analyzeData, parseFile } from "#/lib/cruzamento/analyzer"
@@ -42,51 +43,32 @@ function CruzamentoContas() {
 	}
 
 	return (
-		<HubLayout>
-			{/* PAGE HEADER */}
-			<div className="flex items-center justify-between mb-8">
-				<div className="flex items-center gap-4">
-					<BarChart3 className="text-tech-cyan w-5 h-5" />
-					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Cruzamento de Contas Correntes (Q43)</h2>
-					<div className="flex-grow h-[1px] bg-border" />
-				</div>
-
-				<div className="flex items-center gap-3 ml-4">
-					{reportData && (
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={handleReset}
-							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
-						>
-							<RefreshCw className="w-3.5 h-3.5" />
-							Nova Análise
-						</Button>
-					)}
-					<Link
-						to="/"
-						className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:text-foreground text-xs font-mono rounded-lg transition-colors shadow-sm"
-					>
-						<ArrowLeft className="w-3.5 h-3.5" />
-						Voltar ao Hub
-					</Link>
-				</div>
-			</div>
-
-			{/* ERROR */}
+		<HubLayout
+			actions={
+				reportData && (
+					<Button type="button" variant="outline" size="sm" onClick={handleReset}>
+						<RefreshCw className="w-3.5 h-3.5" />
+						Nova análise
+					</Button>
+				)
+			}
+		>
+			{/* Título, trilha e volta ao hub são do `HubLayout`: o cabeçalho fixo já
+			    diz "Catálogo › Analisar › Cruzamento de Contas Correntes" com o
+			    escopo Q43 ao lado. Repetir aqui dava dois títulos para a mesma tela. */}
 			{error && (
-				<div className="mb-8 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-xl flex items-center gap-3">
-					<div className="w-2 h-2 rounded-full bg-destructive shrink-0" />
-					<p className="text-sm font-medium">{error}</p>
-				</div>
+				<Alert variant="destructive" className="mb-8">
+					<AlertCircle />
+					<AlertTitle>Não foi possível processar</AlertTitle>
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
 			)}
 
 			{!reportData ? (
-				<div className="flex flex-col items-center justify-center min-h-[60vh]">
+				<div className="flex flex-col items-center justify-center">
 					<div className="text-center mb-8 max-w-2xl">
-						<h2 className="text-3xl font-bold text-foreground mb-4 tracking-tight">Confronto Cruzado de Contas</h2>
-						<p className="text-muted-foreground leading-relaxed">
+						<h2 className="text-heading text-foreground mb-4">Confronto Cruzado de Contas</h2>
+						<p className="text-body text-muted-foreground leading-relaxed">
 							Ferramenta automatizada para análise de espelhamento entre as contas <strong>897210300</strong> e <strong>897110300</strong>.
 						</p>
 					</div>
@@ -94,8 +76,8 @@ function CruzamentoContas() {
 					<div className="w-full max-w-2xl mb-10 space-y-4">
 						{/* QUESTÃO 43 */}
 						<div className="bg-action/10 border border-action/30 p-5 rounded-xl shadow-sm text-left">
-							<h3 className="text-xs font-bold text-action uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
-							<p className="text-sm text-action font-medium leading-relaxed">
+							<h3 className="text-label text-action mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
+							<p className="text-subheading text-action leading-relaxed">
 								<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis
 								com os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?
 							</p>
@@ -118,10 +100,10 @@ function CruzamentoContas() {
 
 							{showPath && (
 								<div className="p-6 border-t border-border bg-warning/10">
-									<p className="text-sm text-foreground mb-4">
+									<p className="text-body text-foreground mb-4">
 										Para gerar a planilha compatível com este analisador, acesse o Tesouro Gerencial e siga o caminho abaixo:
 									</p>
-									<div className="bg-card border border-border rounded-lg p-4 font-mono text-xs text-muted-foreground leading-relaxed shadow-inner">
+									<div className="bg-card border border-border rounded-lg p-4 font-mono text-caption text-muted-foreground leading-relaxed shadow-inner">
 										<span className="font-bold text-action">TESOURO GERENCIAL</span>
 										<span className="mx-2 text-muted-foreground">{">"}</span>
 										<span>Relatórios Compartilhados</span>
@@ -162,24 +144,24 @@ function CruzamentoContas() {
 							</Button>
 
 							{showContext && (
-								<div className="p-6 border-t border-border space-y-6 text-sm text-foreground leading-relaxed">
+								<div className="p-6 border-t border-border space-y-6 text-body text-foreground leading-relaxed">
 									<div className="bg-muted/50 p-4 rounded-lg border border-border space-y-4 mb-6">
 										<div>
-											<h4 className="font-bold text-action mb-1 uppercase tracking-wider text-xs">Objetivo da Análise</h4>
+											<h4 className="text-action mb-1 text-label">Objetivo da Análise</h4>
 											<p className="text-muted-foreground">
 												Verificar a conformidade e o espelhamento entre contas contábeis correlatas, garantindo que os registros representem de forma fidedigna
 												os fatos administrativos e a situação patrimonial do COMAER.
 											</p>
 										</div>
 										<div>
-											<h4 className="font-bold text-warning mb-1 uppercase tracking-wider text-xs">Risco Contábil Associado</h4>
+											<h4 className="text-warning mb-1 text-label">Risco Contábil Associado</h4>
 											<p className="text-muted-foreground">
 												A divergência entre os saldos de controle de cobrança indica possível omissão de registros, falha na conciliação ou descompasso
 												temporal. Isso compromete a integridade das demonstrações contábeis e pode ocultar passivos ou ativos reais da União.
 											</p>
 										</div>
 										<div>
-											<h4 className="font-bold text-success mb-1 uppercase tracking-wider text-xs">Importância da Verificação</h4>
+											<h4 className="text-success mb-1 text-label">Importância da Verificação</h4>
 											<p className="text-muted-foreground">
 												A regularização imediata preserva a qualidade da informação contábil, orienta a atuação da Setorial Contábil e fornece subsídios
 												confiáveis para a tomada de decisão da alta administração.
@@ -189,7 +171,7 @@ function CruzamentoContas() {
 
 									<div>
 										<h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
-											<span className="bg-action/15 text-action px-2 py-0.5 rounded text-xs font-mono">897210300</span>
+											<span className="bg-action/15 text-action px-2 py-0.5 rounded text-caption font-mono">897210300</span>
 											EM COBRANÇA
 										</h4>
 										<p className="mb-2">
@@ -211,7 +193,7 @@ function CruzamentoContas() {
 
 									<div>
 										<h4 className="font-bold text-foreground mb-2 flex items-center gap-2">
-											<span className="bg-success/15 text-success px-2 py-0.5 rounded text-xs font-mono">897110300</span>
+											<span className="bg-success/15 text-success px-2 py-0.5 rounded text-caption font-mono">897110300</span>
 											EM COBRANÇA - A RECEBER
 										</h4>
 										<p className="mb-2">
