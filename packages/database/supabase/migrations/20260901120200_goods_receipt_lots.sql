@@ -236,3 +236,10 @@ $$;
 
 comment on function inventory.finalize_goods_receipt(uuid, uuid) is
   'Efetivação atômica do recebimento definitivo: um stock_lot + um stock_movement por LOTE recebido (não por linha de item). Recusa efetivar se a soma dos lotes não fechar com a quantidade conferida.';
+
+-- ERRATA: este `create or replace` foi escrito a partir do corpo ORIGINAL
+-- (20260729170000) e apagou em silêncio as guardas de 20260730120000 —
+-- efetivação única e OF da mesma cozinha. Restauradas em
+-- 20260901120500_finalize_receipt_restore_hardening.sql. Antes de substituir
+-- função, leia a definição VIGENTE (`pg_get_functiondef`), não a migration que
+-- a criou.
