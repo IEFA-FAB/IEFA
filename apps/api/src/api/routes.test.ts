@@ -18,9 +18,11 @@ async function canReachSupabase() {
 		const fetchWithTimeout = ((input: string | URL | Request, init?: RequestInit) =>
 			fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch
 
-		// opinions migrou de sisub para core no split de schemas por domínio.
+		// opinions: sisub → core no split de schemas por domínio, core → kitchen na
+		// promoção do núcleo (20260901120400). A view de compatibilidade em core
+		// ainda responde, mas a sonda tem que bater na tabela real.
 		const supabase = createClient(supabaseUrl, serviceRoleKey, {
-			db: { schema: "core" },
+			db: { schema: "kitchen" },
 			auth: { persistSession: false },
 			global: { fetch: fetchWithTimeout },
 		})

@@ -45,7 +45,7 @@ const listKitchens: ModuleToolDefinition = {
 		// `core.units` não tem coluna `name` — é `display_name`. Com o nome errado o
 		// PostgREST devolve erro e a tool ficava 100% quebrada.
 		const { data, error } = await ctx.supabase
-			.schema("core")
+			.schema("kitchen")
 			.from("kitchen")
 			.select(`id, display_name, type, unit_id, unit:units!kitchen_unit_id_fkey(id, display_name)`)
 			.order("id")

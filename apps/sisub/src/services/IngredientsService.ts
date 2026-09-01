@@ -15,11 +15,14 @@ import type {
 } from "@iefa/database/sisub"
 import type {
 	CatalogScope,
+	ConservationClass,
 	FolderLastReview,
 	IngredientEffectiveNutrientsResult,
 	IngredientLastReview,
 	NutritionReferenceFoodSearchItem,
+	PackageType,
 	PreparationScope,
+	TransportRequirement,
 } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -428,6 +431,38 @@ export function usePurchaseItems(ingredientId: string) {
 // PurchaseItemWriteSchema exige catmat_item_codigo/unit_price positivos — sanitiza 0/inválidos para null.
 const positiveOrNull = (n?: number | null) => (n != null && n > 0 ? n : null)
 
+/**
+ * Acondicionamento exigido pela especificação de compra.
+ * A mesma carne a vácuo e congelada são duas especificações do mesmo insumo —
+ * por isso estes campos são do purchase_item e não do ingredient.
+ */
+export interface ConditioningPayload {
+	conservationClass?: ConservationClass | null
+	storageTempMinC?: number | null
+	storageTempMaxC?: number | null
+	minShelfLifeDaysOnDelivery?: number | null
+	packageType?: PackageType | null
+	packageNetContent?: number | null
+	packageNetContentUnit?: string | null
+	transportRequirement?: TransportRequirement | null
+}
+
+/** Conteúdo e unidade andam juntos (constraint purchase_item_net_content_pair). */
+function conditioningColumns(conditioning: ConditioningPayload | undefined) {
+	const content = positiveOrNull(conditioning?.packageNetContent)
+	const unit = conditioning?.packageNetContentUnit?.trim() || null
+	return {
+		conservation_class: conditioning?.conservationClass ?? null,
+		storage_temp_min_c: conditioning?.storageTempMinC ?? null,
+		storage_temp_max_c: conditioning?.storageTempMaxC ?? null,
+		min_shelf_life_days_on_delivery: positiveOrNull(conditioning?.minShelfLifeDaysOnDelivery),
+		package_type: conditioning?.packageType ?? null,
+		package_net_content: content != null && unit != null ? content : null,
+		package_net_content_unit: content != null && unit != null ? unit : null,
+		transport_requirement: conditioning?.transportRequirement ?? null,
+	}
+}
+
 export interface CreatePurchaseItemPayload {
 	ingredientId: string
 	description: string
@@ -438,6 +473,8 @@ export interface CreatePurchaseItemPayload {
 	catmatItemDescricao?: string | null
 	unitPrice?: number | null
 	conversionFactor?: number | null
+	/** Acondicionamento/conservação EXIGIDOS — vivem no item de compra, não no insumo. */
+	conditioning?: ConditioningPayload
 }
 
 export function useCreatePurchaseItem() {
@@ -456,6 +493,7 @@ export function useCreatePurchaseItem() {
 						catmat_item_descricao: p.catmatItemDescricao ?? null,
 						catmat_match_status: codigo != null ? "matched" : null,
 						unit_price: positiveOrNull(p.unitPrice),
+						...conditioningColumns(p.conditioning),
 					},
 				},
 			})
@@ -491,6 +529,8 @@ export interface UpdatePurchaseItemPayload {
 	unitPrice?: number | null
 	conversionFactor?: number | null
 	isDefault?: boolean
+	/** Acondicionamento/conservação EXIGIDOS — vivem no item de compra, não no insumo. */
+	conditioning?: ConditioningPayload
 }
 
 export function useUpdatePurchaseItem() {
@@ -509,6 +549,7 @@ export function useUpdatePurchaseItem() {
 						catmat_item_descricao: p.catmatItemDescricao ?? null,
 						catmat_match_status: codigo != null ? "matched" : "no_match",
 						unit_price: positiveOrNull(p.unitPrice),
+						...conditioningColumns(p.conditioning),
 					},
 				},
 			})

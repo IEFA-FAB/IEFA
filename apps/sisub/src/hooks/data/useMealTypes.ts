@@ -1,6 +1,6 @@
 import type { MealType, MealTypeInsert, MealTypeUpdate } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import { createMealTypeFn, deleteMealTypeFn, fetchMealTypesFn, restoreMealTypeFn, updateMealTypeFn } from "@/server/meal-types.fn"
 

@@ -7,10 +7,10 @@ import { createRootRouteWithContext, HeadContent, redirect, Scripts } from "@tan
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
 import { useEffect } from "react"
-import { Toaster } from "sonner"
 import { z } from "zod"
 import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
+import { Toaster } from "#/components/ui/toast"
 import { supabase } from "#/lib/supabase"
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools"
 import appCss from "../styles.css?url"
@@ -174,7 +174,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body>
 				{children}
-				<Toaster richColors position="top-right" />
+				<Toaster position="top-right" />
 				<AuthSync />
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}

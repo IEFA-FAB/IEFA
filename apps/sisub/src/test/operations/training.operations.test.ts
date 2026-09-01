@@ -25,14 +25,17 @@ const ACTOR_ID = "00000000-0000-4000-8000-000000000001"
 const RESET_EXCLUSIONS: Record<string, string> = {
 	"access_control.user_permissions": "grants de acesso não são dado operacional; apagar tiraria a permissão do próprio treinando",
 	"access_control.policy_statement": "escopos das políticas apontam para as sentinelas; o reset preserva a política Conjunto Treino",
-	"core.kitchen": "sentinela do ambiente de treino — preservada por definição",
-	"core.mess_halls": "sentinela do ambiente de treino — preservada por definição",
+	"kitchen.kitchen": "sentinela do ambiente de treino — preservada por definição",
+	"kitchen.mess_halls": "sentinela do ambiente de treino — preservada por definição",
+	// `units` continua em core: OM é da Força. Cozinha, refeitório e rancho saíram
+	// para `kitchen` na promoção do núcleo (20260901120400) — as chaves aqui são
+	// qualificadas por schema, então mover a tabela invalida a exclusão em silêncio.
 	"core.units": "sentinela do ambiente de treino — preservada por definição",
 	// Roster de ranchos é CADASTRO, como as sentinelas acima — criar rancho exige `admin:2`,
 	// que o Conjunto Treino não concede, então o treinando não gera linha aqui. O que ele
-	// preenche (core.workforce_submission e, por cascade, quantitativos e observações) está
+	// preenche (kitchen.workforce_submission e, por cascade, quantitativos e observações) está
 	// no reset.
-	"core.rancho": "roster de ranchos é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
+	"kitchen.rancho": "roster de ranchos é cadastro, não dado operacional; criar exige admin:2, fora do Conjunto Treino",
 	// NOTA: as tabelas de execução orçamentária (crédito, empenho, liquidação,
 	// pagamento, conciliação, lote SIAFI) já foram excluídas aqui sob a premissa
 	// de que "o treino não concede módulo financeiro". A premissa era falsa — o
@@ -196,12 +199,12 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			const handle = db
 
 			const [stale] = (await handle.execute(sql`
-				insert into core.training_reset_log (actor_id, started_at, status)
+				insert into kitchen.training_reset_log (actor_id, started_at, status)
 				values (${ACTOR_ID}, now() - interval '2 hours', 'running')
 				returning id
 			`)) as unknown as Array<{ id: string }>
 			const [fresh] = (await handle.execute(sql`
-				insert into core.training_reset_log (actor_id, started_at, status)
+				insert into kitchen.training_reset_log (actor_id, started_at, status)
 				values (${ACTOR_ID}, now(), 'running')
 				returning id
 			`)) as unknown as Array<{ id: string }>
@@ -213,7 +216,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 
 				const rows = (await handle.execute(sql`
 					select id, status, error_message, finished_at
-					from core.training_reset_log
+					from kitchen.training_reset_log
 					where id in (${staleId}, ${freshId})
 				`)) as unknown as Array<{ id: string; status: string; error_message: string | null; finished_at: string | null }>
 
@@ -230,7 +233,7 @@ describeSupabaseIntegration("training operations (integração)", () => {
 				// seria mentir sobre um processo que ainda vai gravar o próprio desfecho.
 				expect(freshRow?.status).toBe("running")
 			} finally {
-				await handle.execute(sql`delete from core.training_reset_log where id in (${staleId}, ${freshId})`)
+				await handle.execute(sql`delete from kitchen.training_reset_log where id in (${staleId}, ${freshId})`)
 			}
 		},
 		RESET_TIMEOUT_MS

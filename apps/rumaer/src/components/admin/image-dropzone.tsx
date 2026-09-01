@@ -6,8 +6,8 @@
 
 import { Loader2, Trash2, Upload } from "lucide-react"
 import { ErrorCode, useDropzone } from "react-dropzone"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 
 type UseImageDropOptions = {

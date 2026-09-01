@@ -58,8 +58,8 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), minDays: z.number().int().default(0) }))
 	.handler(async ({ data }) => {
 		await requireUnitScope(1, data.unitId)
-		const core = getServerClient("core") as unknown as LooseClient
-		const { data: kitchens } = await core.from("kitchen").select("id").or(`unit_id.eq.${data.unitId},purchase_unit_id.eq.${data.unitId}`)
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const { data: kitchens } = await kitchenDb.from("kitchen").select("id").or(`unit_id.eq.${data.unitId},purchase_unit_id.eq.${data.unitId}`)
 		const kitchenIds = (kitchens ?? []).map((k: { id: number }) => k.id)
 		if (kitchenIds.length === 0) return []
 
