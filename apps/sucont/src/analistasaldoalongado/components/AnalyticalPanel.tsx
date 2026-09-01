@@ -1,6 +1,7 @@
 import { Activity, AlertTriangle, BarChart3, FileImage, Filter, PieChart as PieChartIcon, Target, TrendingUp, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import type { PieSectorShapeProps } from "recharts"
+import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { chartChrome } from "#/lib/chart-theme"
@@ -287,11 +288,8 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 										nameKey="ods"
 										onClick={(d) => setSelectedDetailLevel({ type: "ods", name: String(d.name ?? "") })}
 										cursor="pointer"
-									>
-										{odsData.map((_entry, index) => (
-											<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-										))}
-									</Pie>
+										shape={(props: PieSectorShapeProps) => <Sector {...props} fill={COLORS[props.index % COLORS.length]} />}
+									/>
 									<Tooltip
 										formatter={(value) => formatCurrency(Number(value))}
 										contentStyle={{

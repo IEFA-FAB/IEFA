@@ -1,5 +1,6 @@
 import { Download } from "lucide-react"
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useCallback, useRef } from "react"
+import type { PieSectorShapeProps } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -248,16 +249,21 @@ const RechartsAreaChart = lazy(() =>
 const RechartsPieChart = lazy(() =>
 	import("recharts").then((m) => ({
 		default: function PieChartWrapper({ spec }: { spec: ChartSpec }) {
-			const { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } = m
+			const { PieChart, Pie, Sector, Tooltip, Legend, ResponsiveContainer } = m
 			const valueKey = spec.series[0]?.key ?? "value"
 			return (
 				<ResponsiveContainer width="100%" height={300}>
 					<PieChart>
-						<Pie data={spec.data} dataKey={valueKey} nameKey={spec.xAxisKey} cx="50%" cy="50%" outerRadius={100} label>
-							{spec.data.map((_, index) => (
-								<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-							))}
-						</Pie>
+						<Pie
+							data={spec.data}
+							dataKey={valueKey}
+							nameKey={spec.xAxisKey}
+							cx="50%"
+							cy="50%"
+							outerRadius={100}
+							label
+							shape={(props: PieSectorShapeProps) => <Sector {...props} fill={COLORS[props.index % COLORS.length]} />}
+						/>
 						<Tooltip />
 						<Legend />
 					</PieChart>

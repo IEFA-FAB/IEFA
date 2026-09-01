@@ -25,7 +25,8 @@ import {
 	Users,
 } from "lucide-react"
 import { type ChangeEvent, useCallback, useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import type { PieSectorShapeProps } from "recharts"
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, Sector, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
@@ -1497,11 +1498,8 @@ DIREF/SUCONT/SUCONT-3
 													outerRadius={100}
 													paddingAngle={5}
 													dataKey="count"
-												>
-													{managerialData.pairStats.map((entry, index) => (
-														<Cell key={`cell-${index}`} fill={entry.color} />
-													))}
-												</Pie>
+													shape={(props: PieSectorShapeProps) => <Sector {...props} fill={props.payload?.color} />}
+												/>
 												<RechartsTooltip
 													// biome-ignore lint/suspicious/noExplicitAny: recharts formatter overload
 													formatter={(value: any) => [`${value} UGs`, "Ocorrências"]}

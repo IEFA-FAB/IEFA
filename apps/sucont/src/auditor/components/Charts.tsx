@@ -1,5 +1,6 @@
 import { BarChart3, Building2, Layers, LayoutList, Network, User } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import type { BarShapeProps } from "recharts"
 import {
 	Area,
 	AreaChart,
@@ -7,11 +8,11 @@ import {
 	BarChart,
 	Brush,
 	CartesianGrid,
-	Cell,
 	ComposedChart,
 	LabelList,
 	Legend,
 	Line,
+	Rectangle,
 	ReferenceLine,
 	ResponsiveContainer,
 	Tooltip,
@@ -23,6 +24,15 @@ import { formatCompactNumber, formatCurrency, toShortDate } from "../services/da
 import { chartChrome, chartSeries } from "../theme"
 import type { FinancialRecord, TimeFilter } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
+
+/**
+ * Opacidade da barra por posição na curva de Pareto: cheia até 80% do acumulado,
+ * apagada depois. Era um `<Cell>` por ponto — o `shape` recebe o mesmo dado em
+ * `payload` e sobrevive à remoção do `Cell` no recharts 4.
+ */
+function paretoOpacity(payload: { accumulatedPct?: number } | undefined) {
+	return payload?.accumulatedPct && payload.accumulatedPct <= 80 ? 1 : 0.4
+}
 
 interface ChartProps {
 	data: FinancialRecord[]
@@ -637,11 +647,16 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								<Tooltip content={<CustomDetailedTooltip />} />
 								<Legend wrapperStyle={{ paddingTop: "10px" }} />
 
-								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill={chartSeries.bmp} radius={[8, 8, 0, 0]} barSize={isExpanded ? 40 : undefined}>
-									{displayData.map((entry, index) => (
-										<Cell key={`cell-bmp-${index}`} fill={chartSeries.bmp} fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
-									))}
-								</Bar>
+								<Bar
+									yAxisId="left"
+									dataKey="bmpDiff"
+									name="BMP"
+									stackId="a"
+									fill={chartSeries.bmp}
+									radius={[8, 8, 0, 0]}
+									barSize={isExpanded ? 40 : undefined}
+									shape={(props: BarShapeProps) => <Rectangle {...props} fill={chartSeries.bmp} fillOpacity={paretoOpacity(props.payload)} />}
+								/>
 								<Bar
 									yAxisId="left"
 									dataKey="consumoDiff"
@@ -650,11 +665,8 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									fill={chartSeries.consumo}
 									radius={[8, 8, 0, 0]}
 									barSize={isExpanded ? 40 : undefined}
-								>
-									{displayData.map((entry, index) => (
-										<Cell key={`cell-consumo-${index}`} fill={chartSeries.consumo} fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4} />
-									))}
-								</Bar>
+									shape={(props: BarShapeProps) => <Rectangle {...props} fill={chartSeries.consumo} fillOpacity={paretoOpacity(props.payload)} />}
+								/>
 								<Bar
 									yAxisId="left"
 									dataKey="intangivelDiff"
@@ -663,6 +675,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									radius={[8, 8, 0, 0]}
 									fill={chartSeries.intangivel}
 									barSize={isExpanded ? 40 : undefined}
+									shape={(props: BarShapeProps) => <Rectangle {...props} fill={chartSeries.intangivel} fillOpacity={paretoOpacity(props.payload)} />}
 								>
 									<LabelList
 										dataKey="diff"
@@ -698,13 +711,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 											)
 										}}
 									/>
-									{displayData.map((entry, index) => (
-										<Cell
-											key={`cell-intangivel-${index}`}
-											fill={chartSeries.intangivel}
-											fillOpacity={entry.accumulatedPct && entry.accumulatedPct <= 80 ? 1 : 0.4}
-										/>
-									))}
 								</Bar>
 
 								<Line

@@ -23,7 +23,8 @@ import {
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import type { PieSectorShapeProps } from "recharts"
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
@@ -42,6 +43,10 @@ import { cn } from "#/lib/utils"
 // tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
 // que duas categorias são a mesma coisa.
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#6366f1", "#ef4444", "#f43f5e", "#f97316"]
+
+// Paleta do donut de ODS — era um literal dentro do JSX quando cada fatia era um
+// `<Cell>`; virou constante para o `shape` não remontar o array a cada render.
+const ODS_PIE_COLORS = ["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis]
 
 export const Route = createFileRoute("/monitoramento")({
 	component: MonitoramentoPage,
@@ -805,11 +810,16 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<PieChart>
-												<Pie data={managerialData.topRacs} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
-													{managerialData.topRacs.map((_, index) => (
-														<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-													))}
-												</Pie>
+												<Pie
+													data={managerialData.topRacs}
+													cx="50%"
+													cy="50%"
+													innerRadius={60}
+													outerRadius={100}
+													paddingAngle={5}
+													dataKey="value"
+													shape={(props: PieSectorShapeProps) => <Sector {...props} fill={PIE_COLORS[props.index % PIE_COLORS.length]} />}
+												/>
 												<Tooltip
 													contentStyle={{
 														borderRadius: "8px",
@@ -930,18 +940,17 @@ function MonitoramentoPage() {
 									<div className="h-80">
 										<ResponsiveContainer width="100%" height="100%">
 											<PieChart>
-												<Pie data={estrategicoData.topOds} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="count" nameKey="name">
-													{estrategicoData.topOds.map((_, index) => (
-														<Cell
-															key={`cell-${index}`}
-															fill={
-																["var(--success)", "var(--series-bmp)", "var(--warning)", "var(--destructive)", "var(--series-pareto)", chartChrome.axis][
-																	index % 6
-																]
-															}
-														/>
-													))}
-												</Pie>
+												<Pie
+													data={estrategicoData.topOds}
+													cx="50%"
+													cy="50%"
+													innerRadius={60}
+													outerRadius={100}
+													paddingAngle={5}
+													dataKey="count"
+													nameKey="name"
+													shape={(props: PieSectorShapeProps) => <Sector {...props} fill={ODS_PIE_COLORS[props.index % ODS_PIE_COLORS.length]} />}
+												/>
 												<Tooltip
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
 													formatter={(value, _name, item) => [`${Number(value)} (${(Number(item?.payload?.percent) || 0).toFixed(1)}%)`, "Inconsistências"]}
