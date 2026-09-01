@@ -16,24 +16,24 @@
     "embed:backfill": "bun run src/cli/backfill-embeddings.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-agent-runtime": "^3.1116.0",
-    "@hono/zod-validator": "^0.9.0",
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.1123.0",
+    "@hono/zod-validator": "^0.9.1",
     "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/alpha-client": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
-    "@langchain/aws": "^1.4.3",
+    "@langchain/aws": "^1.4.5",
     "@langchain/core": "^1.2.9",
-    "@langchain/langgraph": "^1.4.12",
+    "@langchain/langgraph": "^1.4.13",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
-    "@langchain/openai": "^1.5.10",
+    "@langchain/openai": "^1.5.11",
     "@supabase/supabase-js": "^2.112.4",
     "fflate": "^0.8.3",
-    "hono": "^4.13.4",
+    "hono": "^4.13.5",
     "pg": "^8.23.0",
     "unpdf": "^1.8.0",
     "uuid": "^14.0.2",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",

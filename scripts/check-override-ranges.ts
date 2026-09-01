@@ -27,6 +27,10 @@ const FORCED: Record<string, string> = {
 	"js-yaml": "@redocly/openapi-core pin `4.1.1`; a correção de GHSA-5p4m-2wfm-xmqj não foi backportada para <=4.1.1. Sai quando o redocly subir.",
 	lodash:
 		"cópia aninhada do commitizen pin `4.17.21`, vulnerável a GHSA-r5fr-rjxr-66jc (code injection via _.template). Cadeia é só dev. Sai quando o commitizen subir.",
+	esbuild:
+		"o alvo é a cópia de @esbuild-kit/core-utils@3.3.2, que pin `~0.18.20` — a faixa que carrega GHSA-67mh-4wv8-2f99 (dev server responde a qualquer origem). drizzle-kit@0.31.10 já pin `^0.25.4`, corrigido, e só é arrastado junto porque override do bun é plano. 0.31.10 é a última do drizzle-kit e ainda depende do @esbuild-kit/esm-loader, deprecado, então não há release para esperar. Cadeia é só dev. Verificado que o drizzle-kit ainda carrega e avalia o drizzle.config.ts sob 0.28.2, que é justamente o caminho do loader. Sai quando o drizzle-kit largar o @esbuild-kit, ou quando o repo largar o drizzle-kit.",
+	undici:
+		"o piso `>=8.9.0` existe por @grafana/faro-bundlers-shared@0.12.0, que pin `^8.5.0` — abaixo do 8.9.0 que corrige GHSA-4cwx-7wf7-3272 (high) e mais quatro medium da mesma leva. get-it@9.5.2 (via @sanity/client 8) pin `^7.29.0`, que JÁ é a linha 7 corrigida: ele não ganha nada e só atravessa o major porque override do bun é plano. Nenhuma versão publicada do get-it aceita undici 8, e o @sanity/client 8.4.0 pin `get-it@^9.5.0`. O get-it importa só `Agent`, `EnvHttpProxyAgent`, `ProxyAgent` e `fetch`, os quatro presentes no undici 8.10.0. Sai quando o get-it subir a faixa, ou quando o bun passar a aceitar override escopado por consumidor.",
 }
 
 /**

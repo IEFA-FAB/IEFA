@@ -1,5 +1,5 @@
 import type { PortableTextBlock } from "@sanity/types"
-import type { SortingState, VisibilityState } from "@tanstack/react-table"
+import type { ColumnVisibilityState, SortingState } from "@tanstack/react-table"
 import type React from "react"
 
 export interface PostAuthor {
@@ -70,7 +70,7 @@ export type DbApp = {
 export const FACILITIES_QUERY_KEY = ["facilities_pregoeiro"]
 
 export type TableSettings = {
-	columnVisibility?: VisibilityState
+	columnVisibility?: ColumnVisibilityState
 	sorting?: SortingState
 	pageSize?: number
 	titleFilter?: string
