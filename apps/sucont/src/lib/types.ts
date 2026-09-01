@@ -31,7 +31,6 @@ export interface Tool {
 	 * ele vira dado, e passa a filtrar.
 	 */
 	racQuestions?: number[]
-	iconColor?: string
 	/** Rota interna do TanStack Router. Quando presente, o card navega internamente em vez de abrir URL externa. */
 	internalPath?: string
 }

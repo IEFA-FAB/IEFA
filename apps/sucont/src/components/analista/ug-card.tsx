@@ -103,27 +103,27 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 	const org = getOrganizacao(group.ug)
 
 	return (
-		<div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+		<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 			<div className="bg-muted/50 border-b border-border px-6 py-4 flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<div>
-						<h2 className="text-lg font-semibold text-foreground">
+						<h2 className="text-heading text-foreground">
 							UG {group.ug} ({org.nome}), subordinada ao {org.orgaoSuperior} / {org.ods}
 						</h2>
-						<p className="text-sm text-muted-foreground">
+						<p className="text-body text-muted-foreground">
 							Conferente: {getConferente(group.ug)} | Mês de Referência: {group.mes}
 						</p>
 					</div>
 					{isFocal && (
 						<div className="hidden md:block bg-action/10 border border-action/30 px-3 py-1 rounded-lg">
 							<p className="text-label text-action leading-tight">Análise Focal</p>
-							<p className="text-xs font-semibold text-action">{activeRacFilter}</p>
+							<p className="text-caption text-action">{activeRacFilter}</p>
 						</div>
 					)}
 				</div>
 				<span
 					className={cn(
-						"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+						"inline-flex items-center px-2.5 py-0.5 rounded-full text-caption",
 						type === "INCONSISTENCIA" ? "bg-destructive/15 text-destructive" : "bg-warning/15 text-warning"
 					)}
 				>
@@ -136,18 +136,16 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 					{/* Table */}
 					<div className="flex-1 overflow-x-auto">
 						<table className="min-w-full divide-y divide-border">
-							<thead>
+							<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 								<tr>
-									<th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Conta</th>
-									<th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Descrição</th>
-									{type === "INCONSISTENCIA" && (
-										<th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Questão RAC</th>
-									)}
-									<th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Saldo</th>
+									<th className="px-4 py-3 text-left">Conta</th>
+									<th className="px-4 py-3 text-left">Descrição</th>
+									{type === "INCONSISTENCIA" && <th className="px-4 py-3 text-left">Questão RAC</th>}
+									<th className="px-4 py-3 text-right">Saldo</th>
 									{type === "INCONSISTENCIA" && (
 										<>
-											<th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Classificação</th>
-											<th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Observação</th>
+											<th className="px-4 py-3 text-left">Classificação</th>
+											<th className="px-4 py-3 text-left">Observação</th>
 										</>
 									)}
 								</tr>
@@ -155,23 +153,23 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 							<tbody className="divide-y divide-border">
 								{items.map((c, i) => (
 									<tr key={i} className="hover:bg-muted/50">
-										<td className="px-3 py-2 whitespace-nowrap text-sm font-mono text-foreground">{c.conta}</td>
-										<td className="px-3 py-2 text-sm text-foreground">{c.descricao}</td>
-										{type === "INCONSISTENCIA" && <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-foreground">{c.questaoRAC || "-"}</td>}
-										<td className="px-3 py-2 whitespace-nowrap text-sm text-right font-medium text-foreground">{formatCurrency(c.saldo)}</td>
+										<td className="px-3 py-2 whitespace-nowrap text-body font-mono text-foreground">{c.conta}</td>
+										<td className="px-3 py-2 text-body text-foreground">{c.descricao}</td>
+										{type === "INCONSISTENCIA" && <td className="px-3 py-2 whitespace-nowrap text-subheading text-foreground">{c.questaoRAC || "-"}</td>}
+										<td className="px-3 py-2 whitespace-nowrap text-subheading text-right text-foreground">{formatCurrency(c.saldo)}</td>
 										{type === "INCONSISTENCIA" && (
 											<>
-												<td className="px-3 py-2 whitespace-nowrap text-sm">
+												<td className="px-3 py-2 whitespace-nowrap text-body">
 													<span
 														className={cn(
-															"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
+															"inline-flex items-center px-2 py-0.5 rounded text-caption",
 															c.classificacao === "COBRANÇA COM OBSERVAÇÃO" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
 														)}
 													>
 														{c.classificacao}
 													</span>
 												</td>
-												<td className="px-3 py-2 text-sm text-muted-foreground italic max-w-xs truncate" title={c.observacao}>
+												<td className="px-3 py-2 text-body text-muted-foreground italic max-w-xs truncate" title={c.observacao}>
 													{c.observacao || "-"}
 												</td>
 											</>
@@ -185,7 +183,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 					{/* Message generator */}
 					<div className="flex-1 bg-muted/50 rounded-xl p-4 border border-border flex flex-col min-w-[300px] xl:w-1/2">
 						<div className="flex justify-between items-start mb-4">
-							<h3 className="text-sm font-semibold text-foreground">Mensagem Institucional Pronta</h3>
+							<h3 className="text-subheading text-foreground">Mensagem Institucional Pronta</h3>
 							<Button
 								type="button"
 								onClick={() => navigator.clipboard.writeText(fullMessage)}
@@ -200,7 +198,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 
 						<div className="grid grid-cols-2 gap-3 mb-4">
 							<div>
-								<label htmlFor="ug-msg-number" className="block text-xs font-medium text-foreground mb-1">
+								<label htmlFor="ug-msg-number" className="block text-caption text-foreground mb-1">
 									Nº da Mensagem
 								</label>
 								<Input
@@ -209,11 +207,11 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 								/>
 							</div>
 							<div>
-								<label htmlFor="ug-send-date" className="block text-xs font-medium text-foreground mb-1">
+								<label htmlFor="ug-send-date" className="block text-caption text-foreground mb-1">
 									Data de Envio
 								</label>
 								<Input
@@ -221,11 +219,11 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 									type="date"
 									value={sendDate}
 									onChange={(e) => setSendDate(e.target.value)}
-									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 								/>
 							</div>
 							<div className="col-span-2">
-								<label htmlFor="ug-message-type" className="block text-xs font-medium text-foreground mb-1">
+								<label htmlFor="ug-message-type" className="block text-caption text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
 								<Select
@@ -235,7 +233,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								>
 									<SelectTrigger
 										id="ug-message-type"
-										className="w-full text-sm px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
+										className="w-full text-body px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -247,7 +245,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								</Select>
 								{messageType === "COM_PRAZO" && (
 									<div className="mt-2">
-										<label htmlFor="ug-deadline-date" className="block text-xs font-medium text-foreground mb-1">
+										<label htmlFor="ug-deadline-date" className="block text-caption text-foreground mb-1">
 											Data Limite
 										</label>
 										<Input
@@ -255,7 +253,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 											type="date"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+											className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
 										/>
 									</div>
 								)}
@@ -263,7 +261,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 						</div>
 
 						<div className="bg-muted p-4 rounded border border-border flex-1 overflow-y-auto min-h-[350px] max-h-[600px]">
-							<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
+							<p className="text-body text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
 						</div>
 					</div>
 				</div>

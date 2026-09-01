@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { cn } from "#/lib/utils"
 import { riskColor } from "../theme"
 import type { FinancialRecord } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
@@ -74,8 +75,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					onValueChange={(v) => setLocalGroup(v ?? "ALL")}
 				>
 					<SelectTrigger
-						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-            bg-muted/50 border-border text-foreground`}
+						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 					>
 						<SelectValue />
 					</SelectTrigger>
@@ -96,8 +96,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 						onValueChange={(v) => setLocalMonth(v ?? "TODOS")}
 					>
 						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-              bg-muted/50 border-border text-foreground`}
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 						>
 							<SelectValue />
 						</SelectTrigger>
@@ -128,8 +127,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							onValueChange={(v) => setLocalRisk(v ?? "TODOS")}
 						>
 							<SelectTrigger
-								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-                bg-muted/50 border-border text-foreground`}
+								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 							>
 								<SelectValue />
 							</SelectTrigger>
@@ -149,7 +147,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							className={`absolute top-full right-0 mt-2 w-72 p-3 rounded-lg border shadow-2xl z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200
               bg-card border-border text-foreground`}
 						>
-							<p className="text-[11px] font-bold mb-2 text-action uppercase tracking-wider">Matriz de Risco</p>
+							<p className="text-label mb-2 text-action">Matriz de Risco</p>
 							<p className="text-hint leading-relaxed mb-2">
 								O nível de risco considera duas dimensões: Impacto financeiro da divergência e frequência de ocorrência ao longo dos meses.
 							</p>
@@ -223,7 +221,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
       `}
 			>
 				<div className={`flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-shrink-0 ${isExpanded ? "border-b pb-4" : ""}`}>
-					<h2 className={`font-semibold text-foreground ${isExpanded ? "text-xl" : "text-lg"}`}>{title}</h2>
+					<h2 className={cn("text-foreground", isExpanded ? "text-display" : "text-heading")}>{title}</h2>
 					<div className="flex items-center gap-4">
 						<Controls />
 						{isExpanded && (

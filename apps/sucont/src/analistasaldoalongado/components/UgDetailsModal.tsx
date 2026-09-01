@@ -173,17 +173,17 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 	return (
 		<div className="fixed inset-0 z-50 flex justify-center items-center bg-overlay/60 backdrop-blur-sm p-4 sm:p-6">
-			<div className="w-full max-w-7xl h-full max-h-[90vh] bg-muted/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-border">
+			<div className="w-full max-w-7xl h-full max-h-[90vh] bg-muted/50 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-border">
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
-						<div className="w-12 h-12 rounded-xl bg-fab-100 flex items-center justify-center text-fab-700 font-bold text-lg">UG</div>
+						<div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-action text-heading">UG</div>
 						<div>
 							<div className="flex items-baseline gap-2">
-								<h2 className="text-2xl font-bold text-foreground">{ugData.ug}</h2>
-								{ugData.nome_ug && <span className="text-sm font-medium text-muted-foreground">- {ugData.nome_ug}</span>}
+								<h2 className="text-display text-foreground">{ugData.ug}</h2>
+								{ugData.nome_ug && <span className="text-subheading text-muted-foreground">- {ugData.nome_ug}</span>}
 							</div>
-							<div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+							<div className="flex items-center gap-4 mt-1 text-body text-muted-foreground">
 								<span className="font-medium flex items-center gap-1.5">
 									<User className="w-4 h-4 text-muted-foreground" />
 									Conferente: <span className="text-foreground">{getConferente(ugData.ug)}</span>
@@ -204,7 +204,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							type="button"
 							onClick={exportToExcel}
 							variant="outline"
-							className="gap-2 px-4 py-2 text-sm font-medium text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
+							className="gap-2 px-4 py-2 text-subheading text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
 						>
 							<Download className="w-4 h-4" />
 							Exportar
@@ -227,13 +227,13 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 					{/* Left Side - Table */}
 					<div className="flex-1 flex flex-col border-r border-border bg-card overflow-hidden">
 						<div className="p-4 border-b border-border bg-muted/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-							<h3 className="text-sm font-semibold text-foreground">Tabela Detalhada de Ocorrências</h3>
+							<h3 className="text-subheading text-foreground">Tabela Detalhada de Ocorrências</h3>
 							<div className="relative w-full sm:w-64">
 								<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 								<Input
 									type="text"
 									placeholder="Buscar conta..."
-									className="pl-9 pr-4 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+									className="pl-9 pr-4 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 									value={searchTerm}
 									onChange={(e) => setSearchTerm(e.target.value)}
 								/>
@@ -241,11 +241,11 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						</div>
 
 						{racQuestions.length > 0 && (
-							<div className="px-4 py-3 bg-fab-50 border-b border-fab-100 flex items-start gap-3">
-								<Info className="w-5 h-5 text-fab-600 shrink-0 mt-0.5" />
+							<div className="px-4 py-3 bg-muted/50 border-b border-border flex items-start gap-3">
+								<Info className="w-5 h-5 text-action shrink-0 mt-0.5" />
 								<div>
-									<h4 className="text-sm font-semibold text-fab-900 mb-1">Informação para Análise (Controle Interno SUCONT-3)</h4>
-									<p className="text-xs text-fab-800 mb-2">
+									<h4 className="text-subheading text-foreground mb-1">Informação para Análise (Controle Interno SUCONT-3)</h4>
+									<p className="text-caption text-foreground mb-2">
 										A Análise que está sendo feita é relativa a Saldos Alongados (sem movimentação) que correspondem às seguintes Questões do Roteiro de
 										Acompanhamento Contábil (RAC):
 									</p>
@@ -256,7 +256,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 											size="xs"
 											onClick={() => setSelectedRacFilter("Geral")}
 											className={`rounded font-medium ${
-												selectedRacFilter === "Geral" ? "bg-fab-600 text-white border-fab-600" : "bg-card text-muted-foreground border-border hover:bg-muted"
+												selectedRacFilter === "Geral" ? "bg-action text-white border-action" : "bg-card text-muted-foreground border-border hover:bg-muted"
 											}`}
 										>
 											Todas as Questões
@@ -269,7 +269,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 												size="xs"
 												onClick={() => setSelectedRacFilter(q)}
 												className={`rounded font-medium ${
-													selectedRacFilter === q ? "bg-fab-600 text-white border-fab-600 shadow-sm" : "bg-fab-50 text-fab-700 border-fab-200 hover:bg-fab-100"
+													selectedRacFilter === q ? "bg-action text-white border-action shadow-sm" : "bg-muted/50 text-action border-border hover:bg-muted"
 												}`}
 											>
 												{q}
@@ -281,30 +281,30 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						)}
 
 						<div className="flex-1 overflow-auto">
-							<table className="w-full text-sm text-left text-muted-foreground">
-								<thead className="text-xs text-muted-foreground uppercase bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+							<table className="w-full text-body text-left text-muted-foreground">
+								<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 									<tr>
-										<th className="px-4 py-3 font-medium">Conta Contábil / Nome</th>
-										<th className="px-4 py-3 font-medium">Conta Corrente</th>
-										<th className="px-4 py-3 font-medium cursor-pointer hover:bg-muted/50" onClick={toggleSort}>
+										<th className="px-4 py-3">Conta Contábil / Nome</th>
+										<th className="px-4 py-3">Conta Corrente</th>
+										<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={toggleSort}>
 											<div className="flex items-center gap-1">
 												Saldo (R$)
 												<ArrowUpDown className="w-3.5 h-3.5" />
 											</div>
 										</th>
-										<th className="px-4 py-3 font-medium">Situação</th>
+										<th className="px-4 py-3">Situação</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border">
 									{filteredAndSortedOcorrencias.map((occ, idx) => (
 										<tr key={idx} className="hover:bg-muted/50 transition-colors">
-											<td className="px-4 py-3 font-mono text-xs">
+											<td className="px-4 py-3 font-mono text-caption">
 												{occ.conta_contabil} - {occ.nome_conta}
 											</td>
-											<td className="px-4 py-3 font-mono text-xs">{occ.conta_corrente}</td>
+											<td className="px-4 py-3 font-mono text-caption">{occ.conta_corrente}</td>
 											<td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">{formatCurrency(occ.saldo)}</td>
 											<td className="px-4 py-3">
-												<span className="inline-flex items-center px-2 py-0.5 rounded text-hint font-medium bg-fab-50 text-fab-700 border border-fab-100 whitespace-nowrap">
+												<span className="inline-flex items-center px-2 py-0.5 rounded text-hint bg-muted/50 text-action border border-border whitespace-nowrap">
 													{occ.status}
 												</span>
 											</td>
@@ -327,12 +327,12 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						<div className="p-4 border-b border-border bg-card flex items-center justify-between">
 							<div className="flex items-center gap-2">
 								<Settings2 className="w-4 h-4 text-muted-foreground" />
-								<h3 className="text-sm font-semibold text-foreground">Configurar Mensagem</h3>
+								<h3 className="text-subheading text-foreground">Configurar Mensagem</h3>
 							</div>
 							<Button
 								type="button"
 								onClick={handleCopy}
-								className="gap-2 px-3 py-1.5 text-xs font-medium text-white bg-fab-600 border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+								className="gap-2 px-3 py-1.5 text-caption text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
 							>
 								{copied ? (
 									<>
@@ -351,26 +351,26 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						<div className="p-4 border-b border-border bg-card space-y-4">
 							<div className="grid grid-cols-2 gap-4">
 								<div className="space-y-1.5">
-									<label htmlFor="ug-msg-number" className="text-xs font-medium text-foreground">
+									<label htmlFor="ug-msg-number" className="text-caption text-foreground">
 										Número da Mensagem
 									</label>
 									<Input
 										id="ug-msg-number"
 										type="text"
 										placeholder="Ex: 123"
-										className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 										value={messageNumber}
 										onChange={(e) => setMessageNumber(e.target.value)}
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<label htmlFor="ug-msg-date" className="text-xs font-medium text-foreground">
+									<label htmlFor="ug-msg-date" className="text-caption text-foreground">
 										Data da Mensagem
 									</label>
 									<Input
 										id="ug-msg-date"
 										type="date"
-										className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 										value={messageDate}
 										onChange={(e) => setMessageDate(e.target.value)}
 									/>
@@ -378,7 +378,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="ug-msg-type" className="text-xs font-medium text-foreground">
+								<label htmlFor="ug-msg-type" className="text-caption text-foreground">
 									Tipo de Mensagem
 								</label>
 								<Select
@@ -388,7 +388,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								>
 									<SelectTrigger
 										id="ug-msg-type"
-										className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
 									>
 										<SelectValue />
 									</SelectTrigger>
@@ -401,13 +401,13 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">
-										<label htmlFor="ug-msg-deadline" className="text-xs font-medium text-foreground mb-1.5 block">
+										<label htmlFor="ug-msg-deadline" className="text-caption text-foreground mb-1.5 block">
 											Data Limite
 										</label>
 										<Input
 											id="ug-msg-deadline"
 											type="date"
-											className="px-3 py-1.5 text-sm border-border rounded-lg focus-visible:ring-fab-500 focus-visible:border-fab-500 bg-card text-foreground"
+											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 											value={deadlineDate}
 											onChange={(e) => setDeadlineDate(e.target.value)}
 										/>
@@ -418,7 +418,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 						<div className="flex-1 p-4 overflow-y-auto bg-muted/50">
 							<div className="bg-card p-5 rounded-xl border border-border shadow-sm h-full">
-								<pre className="whitespace-pre-wrap font-sans text-xs text-foreground leading-relaxed">{generatedMessage}</pre>
+								<pre className="whitespace-pre-wrap font-sans text-caption text-foreground leading-relaxed">{generatedMessage}</pre>
 							</div>
 						</div>
 					</div>

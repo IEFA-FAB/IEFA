@@ -83,20 +83,20 @@ function Shell({ children }: { children: React.ReactNode }) {
 				<aside className="hidden lg:flex lg:w-2/5 xl:w-[45%] flex-col justify-center gap-10">
 					<Brand />
 					<div className="flex flex-col gap-2">
-						<h2 className="text-2xl font-bold text-foreground tracking-tight leading-tight">O acompanhamento contábil da seção, num lugar só</h2>
-						<p className="text-sm text-muted-foreground leading-relaxed">
+						<h2 className="text-display text-foreground leading-tight">O acompanhamento contábil da seção, num lugar só</h2>
+						<p className="text-body text-muted-foreground leading-relaxed">
 							Ferramentas de análise, comunicação e consulta do SUCONT-4, organizadas pelo ponto do trabalho em que você está.
 						</p>
 					</div>
 					<ol className="flex flex-col gap-5">
 						{SHELL_HIGHLIGHTS.map((item, i) => (
 							<li key={item.id} className="flex items-start gap-4">
-								<span className="font-mono text-2xl text-muted-foreground/40 tabular-nums leading-none pt-0.5" aria-hidden="true">
+								<span className="font-mono text-display text-muted-foreground/40 tabular-nums leading-none pt-0.5" aria-hidden="true">
 									{String(i + 1).padStart(2, "0")}
 								</span>
 								<div className="flex flex-col gap-0.5">
-									<span className="text-sm font-bold text-foreground">{item.label}</span>
-									<span className="text-xs text-muted-foreground leading-relaxed">{item.description}</span>
+									<span className="text-subheading text-foreground">{item.label}</span>
+									<span className="text-caption text-muted-foreground leading-relaxed">{item.description}</span>
 								</div>
 							</li>
 						))}
@@ -133,7 +133,7 @@ function Brand() {
 				<Monitor className="w-6 h-6" />
 			</div>
 			<div className="flex flex-col">
-				<h1 className="text-base font-bold text-foreground leading-tight">SUCONT-4 HUB</h1>
+				<h1 className="text-heading text-foreground leading-tight">SUCONT-4 HUB</h1>
 				<span className="text-label text-muted-foreground">DIREF • COMAER</span>
 			</div>
 		</div>
@@ -143,11 +143,11 @@ function Brand() {
 // Cartão do formulário — título/subtítulo opcionais no topo.
 function Card({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
 	return (
-		<div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+		<div className="bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col gap-4">
 			{(title || subtitle) && (
 				<div className="flex flex-col gap-1">
-					{title && <h2 className="text-sm font-bold text-foreground">{title}</h2>}
-					{subtitle && <p className="text-xs leading-relaxed text-muted-foreground">{subtitle}</p>}
+					{title && <h2 className="text-subheading text-foreground">{title}</h2>}
+					{subtitle && <p className="text-caption leading-relaxed text-muted-foreground">{subtitle}</p>}
 				</div>
 			)}
 			{children}
@@ -166,7 +166,7 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 
 function FieldError({ children }: { children: React.ReactNode }) {
 	return (
-		<p className="mt-1 flex items-center gap-1 text-xs text-destructive" role="alert">
+		<p className="mt-1 flex items-center gap-1 text-caption text-destructive" role="alert">
 			<CircleAlert className="h-3 w-3 shrink-0" aria-hidden />
 			{children}
 		</p>
@@ -175,7 +175,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive">
+		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-caption text-destructive">
 			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
@@ -184,7 +184,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-xs text-success">
+		<div className="flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-caption text-success">
 			<CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
@@ -197,7 +197,7 @@ function BackToLogin({ onClick }: { onClick: () => void }) {
 			type="button"
 			onClick={onClick}
 			variant="ghost"
-			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-caption text-muted-foreground hover:bg-transparent hover:text-foreground"
 		>
 			<ArrowLeft className="h-3.5 w-3.5" />
 			Voltar ao login
@@ -441,7 +441,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 				<Card>
 					<div className="flex items-center justify-center gap-3 py-6">
 						<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-						<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
+						<span className="text-body text-muted-foreground">Verificando autenticação...</span>
 					</div>
 				</Card>
 			</Shell>
@@ -525,7 +525,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			{searchParams.denied ? (
 				<div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning">
 					<ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-					<p className="text-xs leading-relaxed">
+					<p className="text-caption leading-relaxed">
 						Sua conta está autenticada, mas ainda não possui acesso ao SUCONT-4 HUB. Solicite a liberação a um administrador da seção.
 					</p>
 				</div>
@@ -661,7 +661,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						</Field>
 
 						<div className="flex items-center justify-between">
-							<label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+							<label className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground">
 								<input
 									type="checkbox"
 									checked={rememberMe}
@@ -671,7 +671,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								Lembrar e-mail
 							</label>
-							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-xs font-medium text-tech-blue">
+							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-caption text-tech-blue">
 								Esqueceu a senha?
 							</Button>
 						</div>
@@ -689,7 +689,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					</form>
 				)}
 
-				<p className="text-center text-xs text-muted-foreground">
+				<p className="text-center text-caption text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
 					<Button
 						type="button"

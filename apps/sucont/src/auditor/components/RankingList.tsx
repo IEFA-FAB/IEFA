@@ -158,8 +158,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
           ${isWorse ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10" : "bg-success/5 border-success/20 hover:bg-success/10"}`}
 			>
 				<div
-					className={`absolute -left-1 top-3 w-5 h-5 flex items-center justify-center text-hint font-bold rounded shadow-lg z-10
-          ${isWorse ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}`}
+					className={`absolute -left-1 top-3 w-5 h-5 flex items-center justify-center text-hint rounded shadow-lg z-10 ${isWorse ? "bg-destructive text-destructive-foreground" : "bg-success text-success-foreground"}`}
 				>
 					{rank}
 				</div>
@@ -167,7 +166,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 				<div className="pl-5 flex flex-col gap-1">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2 overflow-hidden">
-							<h4 className={`font-bold text-sm truncate text-foreground`}>{item.ug}</h4>
+							<h4 className={`text-subheading truncate text-foreground`}>{item.ug}</h4>
 
 							<div className="group/tooltip relative flex items-center">
 								<span className={`flex items-center gap-1 text-label px-2 py-0.5 rounded border whitespace-nowrap cursor-help ${catConfig.color}`}>
@@ -208,7 +207,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 						<div className="flex items-center gap-4">
 							<div className="flex flex-col">
 								<span className="text-label text-muted-foreground">Anterior</span>
-								<span className={`text-[11px] font-mono text-muted-foreground`}>
+								<span className={`text-hint font-mono text-muted-foreground`}>
 									<CurrencyDisplay value={prevVal} />
 								</span>
 							</div>
@@ -219,7 +218,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 
 							<div className="flex flex-col">
 								<span className="text-label text-muted-foreground">Atual</span>
-								<span className={`text-[11px] font-mono font-bold text-foreground`}>
+								<span className={`text-hint font-mono text-foreground`}>
 									<CurrencyDisplay value={currVal} />
 								</span>
 							</div>
@@ -227,7 +226,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 
 						<div className="flex flex-col items-end">
 							<span className="text-label text-muted-foreground">Variação</span>
-							<span className={`text-[11px] font-mono font-bold ${isWorse ? "text-destructive" : "text-success"}`}>
+							<span className={`text-hint font-mono ${isWorse ? "text-destructive" : "text-success"}`}>
 								{isWorse ? "+" : "-"}
 								<CurrencyDisplay value={deltaVal} />
 							</span>
@@ -242,7 +241,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		<div className="flex flex-col h-full w-full gap-4 overflow-hidden">
 			<div className="flex items-center justify-between px-2">
 				<div className="flex items-center gap-2">
-					<span className={`text-xs font-bold text-muted-foreground`}>Filtro por Tipo:</span>
+					<span className={`text-caption text-muted-foreground`}>Filtro por Tipo:</span>
 					<Select
 						items={{
 							TODOS: "Todas as Categorias",
@@ -255,8 +254,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 						onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}
 					>
 						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-               bg-muted/50 border-border text-foreground`}
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 						>
 							<SelectValue />
 						</SelectTrigger>
@@ -273,19 +271,19 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 
 			<div className="flex flex-col lg:flex-row h-full w-full gap-4 overflow-hidden">
 				<div
-					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border shadow-xl
+					className={`flex-1 flex flex-col overflow-hidden rounded-xl p-4 border shadow-xl
            border-border bg-card`}
 				>
 					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-destructive/20">
 						<div className="flex items-center gap-2">
 							<TrendingUp className="w-4 h-4 text-destructive" />
-							<h3 className={`text-xs font-bold uppercase tracking-wider text-destructive`}>Piora no Período</h3>
+							<h3 className={`text-label text-destructive`}>Piora no Período</h3>
 						</div>
 						{comparisonLabel && <span className={`text-hint pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
 						{worsened.length === 0 ? (
-							<div className={`text-center py-4 text-xs text-muted-foreground`}>Sem registros.</div>
+							<div className={`text-center py-4 text-caption text-muted-foreground`}>Sem registros.</div>
 						) : (
 							worsened.map((item, idx) => renderCard(item, idx + 1, "worse"))
 						)}
@@ -293,19 +291,19 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 				</div>
 
 				<div
-					className={`flex-1 flex flex-col overflow-hidden rounded-2xl p-4 border shadow-xl
+					className={`flex-1 flex flex-col overflow-hidden rounded-xl p-4 border shadow-xl
            border-border bg-card`}
 				>
 					<div className="flex flex-col gap-1 mb-3 pb-2 border-b border-success/20">
 						<div className="flex items-center gap-2">
 							<TrendingDown className="w-4 h-4 text-success" />
-							<h3 className={`text-xs font-bold uppercase tracking-wider text-success`}>Melhoria no Período</h3>
+							<h3 className={`text-label text-success`}>Melhoria no Período</h3>
 						</div>
 						{comparisonLabel && <span className={`text-hint pl-6 text-muted-foreground`}>{comparisonLabel}</span>}
 					</div>
 					<div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
 						{improved.length === 0 ? (
-							<div className={`text-center py-4 text-xs text-muted-foreground`}>Sem registros.</div>
+							<div className={`text-center py-4 text-caption text-muted-foreground`}>Sem registros.</div>
 						) : (
 							improved.map((item, idx) => renderCard(item, idx + 1, "better"))
 						)}

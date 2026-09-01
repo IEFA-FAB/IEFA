@@ -18,7 +18,7 @@ Mesma ordem de prioridade do sisub:
 1. **Tokens** (`src/styles.css` via `@theme inline`)
 2. **Primitives** (`src/components/ui/`)
 3. **Patterns** (`src/components/ui/`)
-4. **Wrappers semânticos** (`src/components/`)
+4. **Wrappers semânticos** (`src/components/`) — entre eles a **casca**, `hub-layout.tsx`
 5. **Feature-level overrides** (`src/routes/`, `src/<módulo>/components/`) via `className` puramente estrutural
 
 ## 3. Princípios operacionais
@@ -33,6 +33,8 @@ Mesma ordem de prioridade do sisub:
   `useSucontAccess()` antes de renderizar a ação. Ver §7.
 - **Estado vazio não pode mentir.** "Nenhum resultado", "carregando" e "a consulta
   falhou" são três telas. Ver §7.
+- **Toda tela de ferramenta monta o `HubLayout`.** Casca própria — cabeçalho,
+  barra lateral, busca ou rodapé desenhados na rota — é proibida. Ver §4.5.
 
 ## 4. Regras por camada
 
@@ -47,6 +49,15 @@ Mesma ordem de prioridade do sisub:
   (institucional FAB, incluindo a escala numérica `fab-50`…`fab-950`) são tokens
   legítimos, declarados no `@theme inline`. Usá-las é permitido; inventar cor
   fora delas, não.
+- **`fab-*` é MARCA, não folha de estilo.** Permitido não é o mesmo que coerente:
+  três telas (`subitens-genericos`, `conta-generica`, `analista-compatibilidade`)
+  pintavam TUDO com ela — texto de corpo, borda de painel, fundo de ícone, anel de
+  foco, 468 classes ao todo — enquanto as outras nove usavam a escala semântica.
+  Era isso que fazia essas três parecerem outro produto. Cromo (texto, superfície,
+  borda, foco, hover) sai da escala semântica; `fab-*` fica onde é identidade
+  institucional de verdade: o ofício A4 (`plataforma-doc/fab-document.tsx`) e as
+  rampas de dado declaradas. Cor de marca também não tem contrapartida no tema
+  escuro — `--fab-blue` sumia contra o card escuro.
 - **Token que participa de fundo ou texto tem valor nos DOIS temas.** `--tech-bg`
   era hex fixo do tema claro sem contrapartida no `.dark`: no escuro a casca
   ficava cinza-clara enquanto `--foreground` virava quase branco, e título e
@@ -113,6 +124,38 @@ Sete níveis, definidos como `@utility` em `styles.css`. Idênticos aos do sisub
   z-index. Nunca para cor, background de status ou shadow.
 - Features montam peças prontas; quem decide cor e variante é o primitivo.
 
+### 4.5 A casca — `HubLayout`
+
+O `HubLayout` é o único dono de cabeçalho, navegação, largura e rodapé. Uma rota
+que monte a própria casca vira um app dentro do app: era assim que `auditor`,
+`documentacao`, `subitens-genericos` e `centro-monitoramento` funcionavam — quatro
+cascas paralelas, duas delas com **barra lateral própria** competindo com a do hub,
+e uma com busca própria ao lado da busca do hub.
+
+O que a casca já dá, e a ferramenta portanto **não** repete:
+
+| Elemento | Onde mora | Consequência de repetir |
+|----------|-----------|-------------------------|
+| `h1` da tela | Trilha do cabeçalho (`Catálogo › Etapa › Ferramenta`) | Dois títulos para a mesma página |
+| Voltar ao hub | A própria trilha | Seis "Voltar ao Hub" com seis aparências |
+| Escopo (questões do RAC) | Pílula ao lado da trilha | O número no título, fora do dado |
+| Uma linha de descrição | `description`, com padrão vindo do catálogo | A promessa do card e a da tela divergem |
+| Busca `?q=` | `searchable` | Dois campos de busca na mesma tela |
+| Rodapé legal | Rodapé da casca | O `LGPD.md` exigia um rodapé avulso em cada rota órfã |
+| Troca de tema | Botão único do cabeçalho | Uma rota escurecendo só a si mesma |
+
+- **Ação de tela vai na prop `actions`**, à direita do cabeçalho fixo — "Nova
+  análise", "Importar Excel", "Imprimir". Cada ferramenta desenhava uma barra de
+  título só para pendurar dois botões, e não havia duas iguais.
+- **Filtro NÃO vai em `actions`.** Filtro é do conteúdo e mora no corpo, com
+  rótulo. O cabeçalho é navegação e ação; misturar os dois foi o defeito que a
+  barra lateral do hub já tinha corrigido em 2026-08.
+- **`width="wide"` só por dado denso** — tela cuja unidade de leitura é tabela ou
+  matriz (`auditor`, `monitoramento`, `analista-compatibilidade`, `documentacao`).
+  Nunca por preferência.
+- **Segmento de escolha é `Tabs`**, nunca `<button>` pintado à mão: os quatro que
+  existiam não tinham `role="tab"` e nenhum navegava por seta do teclado.
+
 ## 5. Convenções obrigatórias
 
 - **Cores:** escala semântica (`background`, `foreground`, `primary`, `secondary`,
@@ -137,6 +180,23 @@ Sete níveis, definidos como `@utility` em `styles.css`. Idênticos aos do sisub
   `isDarkMode` atravessando a árvore, e proibido componente de rota mutar
   `document.documentElement.classList` — isso troca o tema do app inteiro a partir
   de uma tela.
+- **A escolha de tema mora em UM lugar: `services/theme.tsx`**, persistida em
+  cookie e lida pelo servidor, de forma que o `<html>` já sai pintado do SSR (o
+  mesmo padrão do `themeService.tsx` do sisub). O único controle é o botão do
+  cabeçalho do `HubLayout`. Antes disto o escuro existia só DENTRO do auditor, por
+  `useState(true)` e uma classe `dark` numa `<div>` de rota: entrar na ferramenta
+  escurecia a tela, sair a clareava, e as outras onze telas não alcançavam o tema
+  escuro apesar de todos os tokens `.dark` já estarem escritos.
+- **Sem cookie, o padrão é o claro, escrito explicitamente.** O sisub segue a
+  preferência do SO, mas isso exige repetir o bloco inteiro de tokens escuros
+  dentro de uma `@media (prefers-color-scheme: dark)`. Aqui `.dark` é a única
+  declaração dos tokens escuros — duplicá-la criaria duas fontes para a mesma
+  decisão, livres para divergir sem ninguém notar.
+- **`readThemePreference` vive em `services/theme-preference.ts`, separado do
+  provider.** `@tanstack/react-start/server` puxa `node:async_hooks`; enquanto a
+  leitura morava junto do `ThemeProvider`, todo componente que chamasse
+  `useTheme()` arrastava o módulo de servidor para a árvore, e o harness visual
+  parava de compilar.
 
 ## 6. Proibições explícitas
 
@@ -164,6 +224,17 @@ Sete níveis, definidos como `@utility` em `styles.css`. Idênticos aos do sisub
   0.6875rem.
 - **Proibido** cor da paleta crua em texto sobre fundo colorido (`text-slate-400`
   sobre `bg-blue-600`): lava a cor e reprova contraste.
+- **Proibida classe do Tailwind montada por interpolação** — `text-${color}-600`,
+  `bg-${color}/10`, `border-${color}-600`. O Tailwind varre o CÓDIGO-FONTE por
+  string literal: uma classe montada em tempo de execução nunca chega a existir no
+  CSS. Não é questão de estilo, é elemento sem regra nenhuma — foi assim que a aba
+  ativa do `monitoramento` e os três ícones de destaque do `conta-generica`
+  ficaram sem cor desde que foram escritos, sem nenhum check enxergar. Usar mapa
+  de classes literais.
+- **Proibido campo de cor livre no dado** (`iconColor: "bg-fab-blue"` no
+  catálogo). Cor que não distingue nada só faz a grade parecer sete produtos — e
+  cor de MARCA (`--fab-blue`) não tem contrapartida escura, então sumia no card do
+  tema escuro.
 
 ## 7. Estado e autorização — as duas regras que não são estéticas
 
@@ -194,13 +265,57 @@ quem não tem o nível entrega um 403 depois do trabalho feito, sem mensagem.
 
 ## 8. Dívida registrada
 
-Inventário de 2026-08-31, depois da força-tarefa que quitou a dívida.
+Inventário de 2026-09-01, depois da força-tarefa de unificação da casca.
 
-**Zerados:** classes de paleta Tailwind crua (eram 2.743), cores hex arbitrárias em
-classe (114), texto abaixo de 11px (202), `font-black`/`font-extrabold` (115),
-`title=` como tooltip (19), radius arbitrário (37 de 38), `Select` em Radix.
-Verificação: as 271 classes de token distintas usadas no código foram conferidas
-contra o CSS gerado — nenhuma sem regra correspondente.
+A força-tarefa de 2026-08-31 quitou a dívida de **cor**; esta quitou a de
+**casca, superfície e tipografia** — o que restava fazendo cada ferramenta
+parecer um produto diferente por dentro.
+
+**Zerados em 2026-08-31:** classes de paleta Tailwind crua (eram 2.743), cores hex
+arbitrárias em classe (114), texto abaixo de 11px (202),
+`font-black`/`font-extrabold` (115), `title=` como tooltip (19), radius arbitrário
+(37 de 38), `Select` em Radix.
+
+**Zerados em 2026-09-01:**
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Rotas com casca própria | 4 (`auditor`, `documentacao`, `subitens-genericos`, `centro-monitoramento`) | Todas montam `HubLayout` |
+| Barras laterais concorrentes | 2 | A do hub |
+| Campos de busca concorrentes | 1 | `?q=` do hub (`searchable`) |
+| Cabeçalhos de ferramenta desenhados à mão | 10 | Trilha + `actions` do `HubLayout` |
+| "Voltar ao Hub" avulsos | 6 | A trilha |
+| `rounded-2xl` (1rem fixo, fora da escala de `--radius`) | 134 | `rounded-xl`, ou o primitivo `Card` |
+| `text-<tamanho>` cru em feature | 570 | `.text-display`…`.text-hint` |
+| `tracking-*` / `uppercase` cru em feature | 188 | Embutidos no nível semântico |
+| `text-[Npx]` arbitrário | 17 | `.text-hint` / `.text-caption` / `.text-body` |
+| `text-md` — classe que NÃO EXISTE no Tailwind | 5 | `.text-heading` (nunca tiveram tamanho) |
+| Classes montadas por interpolação (sem regra no CSS) | 4 sítios | Mapa de classes literais |
+| `font-serif italic` (dialeto do `subitens-genericos`) | 30 | Removido |
+| Cores de ícone no dado (`iconColor`) | 7 valores distintos | Uma superfície só |
+| Tema por rota (`useState(true)` no auditor) | 1 | Cookie + botão único do cabeçalho |
+| `LegalFooter` avulso | 4 rotas | Rodapé da casca |
+| Paleta institucional FAB usada como cromo | 468 classes | Escala semântica (§4.1) |
+| Capas de ferramenta (disco com avião/escudo, título com filete dourado, lema entre bússolas, marca-d'água) | 3 telas | Removidas — a descrição sob a trilha já diz o que a ferramenta faz |
+| Zonas de envio com forma própria | 4 | A mesma do `DgcUpload` |
+| Nomes de ferramenta longos demais para a barra | 12 (máx. 39 caracteres) | Máx. 25; a questão do RAC saiu do nome (já é pílula) |
+
+**Primitivos criados** (portados do sisub, o contrato irmão): `card`, `badge`,
+`tabs`, `alert`, `empty`. A ausência deles era a CAUSA da divergência de
+superfície — sem destino, cada ferramenta desenhava o próprio painel, e o raio
+saía de onde o autor estava naquele dia.
+
+**Cabeçalho de tabela** (16 tabelas, 5 escalas de padding: `px-3`, `px-4`, `px-5`,
+`px-6`, `px-10`) foi normalizado NO LUGAR: todo `<thead>` carrega
+`bg-muted/50 border-b border-border text-label text-muted-foreground` e todo `<th>`
+usa `px-4 py-3`, com alinhamento e largura por cima. Não se criou um primitivo
+`Table` porque as 16 tabelas têm ordenação, `colSpan` e células compostas: a troca
+mecânica de tags seria um rewrite que nenhum check verifica e que não dá para
+conferir na tela sem sessão. Ver "Continua em aberto".
+
+Verificação: `scripts/migrate-typography.mjs` é idempotente — rodá-lo de novo na
+árvore migrada não muda nada. O `bun run harness:shot` confirma a casca nos dois
+temas.
 
 ### Exceções permitidas, com o motivo
 
@@ -237,11 +352,14 @@ com hex literal.
 | Item | Volume | Nota |
 |------|--------|------|
 | Componentes-deus | 4 acima de 1.300 linhas | `subitens-genericos`, `conta-generica`, `analista-compatibilidade`, `monitoramento`. Dividir é refatoração de arquitetura, não de estilo |
+| `font-medium`/`semibold`/`bold` SEM tamanho na mesma `className` | 150 | Ênfase em linha, herdando o tamanho do pai. Mapeá-las mecanicamente para um nível semântico MUDARIA o tamanho — `.text-subheading` é 0.875rem, e várias vivem dentro de blocos `.text-caption`. Cada uma exige decidir se é `<strong>`, `.text-subheading` ou nada |
+| Painéis ainda montados à mão | ~40 | `bg-card … rounded-xl border border-border` escrito no lugar de `<Card>`. Já têm a MESMA aparência que o primitivo; a migração é de forma, não de pixel |
+| Primitivo `Table` | 16 tabelas cruas | O cabeçalho já está normalizado (linha acima), então a divergência VISÍVEL foi fechada; falta a estrutural. Migrar exige lidar com ordenação, `colSpan` e célula composta, uma a uma e com a tela na frente |
 | Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção |
 
-Patterns que o sisub tem e o sucont ainda não: `field.tsx` (formulários) e
-`item.tsx` (linhas de lista de entidade). Enquanto não existirem aqui, formulário
-e lista seguem a composição atual — mas não se cria uma terceira convenção.
+O que NÃO é dívida na coluna acima: os 22 `font-*`, 9 `uppercase` e 4 `tracking-*`
+do `plataforma-doc/fab-document.tsx`. É um ofício A4 com tamanhos em `pt` — a
+exceção já registrada na tabela anterior.
 
 ## 9. Política de uso de IA
 
@@ -270,6 +388,13 @@ e lista seguem a composição atual — mas não se cria uma terceira convençã
       `documentElement` a partir da rota?
 - [ ] Leitura remota distingue carregando / falha / vazio (§7.1)?
 - [ ] Ação de escrita atrás de `canEdit`, com a negativa explicada (§7.2)?
+- [ ] A rota monta o `HubLayout`, sem cabeçalho, barra, busca ou rodapé próprios (§4.5)?
+- [ ] Ação da tela em `actions`, e filtro no corpo — não o contrário (§4.5)?
+- [ ] Zero classe do Tailwind montada por interpolação (`bg-${x}`) (§6)?
+- [ ] Superfície via `<Card>`, aviso via `<Alert>`, pílula via `<Badge>`, segmento
+      via `<SegmentedControl>` (filtro) ou `<Tabs>` (com painel)?
+- [ ] Zero `fab-*` como cromo — só como marca institucional (§4.1)?
+- [ ] A tela abre pela TAREFA, sem capa que repita a descrição da trilha (§4.5)?
 
 ## 11. Referências de implementação
 
@@ -280,6 +405,10 @@ e lista seguem a composição atual — mas não se cria uma terceira convençã
 - **Três estados de leitura:** `src/sacdgc/components/DgcRunHistory.tsx`.
 - **Negativa de permissão explicada:** `src/components/read-only-notice.tsx`.
 - **Guard de rota:** `src/routes/__root.tsx` — auth + PBAC nível 1, rotas legais
-  isentas, `z.coerce` no `validateSearch`.
+  isentas, `z.coerce` no `validateSearch`, e o tema resolvido antes do primeiro byte.
+- **Casca:** `src/components/hub-layout.tsx` — trilha, `actions`, `width`,
+  descrição herdada do catálogo, rodapé legal e o botão de tema.
+- **Tema:** `src/services/theme.tsx` (provider) e `theme-preference.ts` (leitura
+  isomórfica, separada de propósito — ver §5).
 - **Contrato irmão:** `apps/sisub/docs/STYLE_CONTRACT.md`. Em caso de dúvida sobre
   um ponto não coberto aqui, ele é a referência.
