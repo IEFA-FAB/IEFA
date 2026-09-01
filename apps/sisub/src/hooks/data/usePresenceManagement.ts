@@ -3,7 +3,7 @@
 import type { PostgrestError } from "@supabase/supabase-js"
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import { deletePresenceFn, fetchForecastsFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
 import type {

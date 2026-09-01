@@ -2,7 +2,6 @@ import type { WorkforceSurvey } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Lock, Plus } from "lucide-react"
 import * as React from "react"
-import { toast } from "sonner"
 import { formatReferenceDate } from "@/components/features/workforce/labels"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { closeWorkforceSurveyFn, createWorkforceSurveyFn, listWorkforceSurveysFn } from "@/server/workforce.fn"
 
 interface WorkforceSurveyControlsProps {

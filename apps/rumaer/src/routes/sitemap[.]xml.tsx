@@ -13,6 +13,7 @@ async function fetchUniformEntries(): Promise<SitemapEntry[]> {
 		const { data, error } = await getRumaerServerClient().from("uniform").select("id, updated_at").is("deleted_at", null).order("ordem", { ascending: true })
 
 		if (error || !data) {
+			// biome-ignore lint/suspicious/noConsole: sinal operacional — o sitemap sai sem os uniformes e responde 200, então só o log denuncia a perda de indexação
 			console.error("[sitemap] falha ao ler uniformes; publicando só as páginas fixas:", error)
 			return []
 		}
@@ -24,6 +25,7 @@ async function fetchUniformEntries(): Promise<SitemapEntry[]> {
 			priority: 0.8,
 		}))
 	} catch (cause) {
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — o sitemap sai sem os uniformes e responde 200, então só o log denuncia a perda de indexação
 		console.error("[sitemap] falha ao ler uniformes; publicando só as páginas fixas:", cause)
 		return []
 	}

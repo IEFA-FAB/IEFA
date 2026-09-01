@@ -13,7 +13,7 @@ import { parseGtin } from "@iefa/sisub-domain/gtin"
 import { createClient } from "@supabase/supabase-js"
 import { fetchWithRetry } from "../../lib/fetch-with-retry.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { importGpc, isAllowedGpcUrl } from "../../workers/gs1-sync/gpc.ts"
+import { type GpcImportOptions, type GpcImportSummary, importGpc, isAllowedGpcUrl } from "../../workers/gs1-sync/gpc.ts"
 
 type Gs1Client = ReturnType<typeof getSupabase>
 
@@ -51,16 +51,28 @@ const gpcSyncRoute = createRoute({
 	path: "/gpc-sync",
 	tags: ["Admin — GS1"],
 	summary: "Import GPC publication",
-	description: "Baixa a publicação GPC (JSON, GPC Browser export) e faz upsert idempotente em gpc_brick.",
+	description:
+		"Baixa a publicação GPC (JSON, GPC Browser export) e faz upsert idempotente em gpc_brick, gpc_attribute, gpc_attribute_value e gpc_brick_attribute. `segmentCodes` limita o import a um recorte da taxonomia (ex.: só alimentos); omitido, importa a publicação inteira.",
 	security: adminSecurity,
 	request: {
 		body: {
-			content: { "application/json": { schema: z.object({ url: z.string().url().optional() }).optional() } },
+			content: {
+				"application/json": {
+					schema: z.object({ url: z.string().url().optional(), segmentCodes: z.array(z.string()).optional() }).optional(),
+				},
+			},
 			required: false,
 		},
 	},
 	responses: {
-		200: { content: { "application/json": { schema: z.object({ bricks: z.number() }) } }, description: "Import concluído" },
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({ bricks: z.number(), attributes: z.number(), attributeValues: z.number(), brickAttributes: z.number() }),
+				},
+			},
+			description: "Import concluído",
+		},
 		400: { content: { "application/json": { schema: ErrorSchema } }, description: "URL ausente (nem body nem GS1_GPC_PUBLICATION_URL)" },
 		401: { content: { "application/json": { schema: ErrorSchema } }, description: "Unauthorized" },
 	},
@@ -136,7 +148,7 @@ export function mapVbgPayload(payload: any): {
 export interface Gs1AdminRoutesDeps {
 	adminSecret?: string
 	getSupabase?: () => Gs1Client
-	runGpcImport?: (supabase: Gs1Client, url: string) => Promise<number>
+	runGpcImport?: (supabase: Gs1Client, url: string, options?: GpcImportOptions) => Promise<GpcImportSummary>
 	fetchVbg?: (gtin: string) => Promise<Response>
 }
 
@@ -171,9 +183,12 @@ export function createGs1AdminRoutes(deps: Gs1AdminRoutesDeps = {}) {
 			if (!url) return c.json({ error: "Informe { url } no body ou configure GS1_GPC_PUBLICATION_URL" }, 400)
 			if (!isAllowedGpcUrl(url)) return c.json({ error: "URL não permitida — apenas https em gs1.org/gs1br.org" }, 400)
 
-			const bricks = await runGpcImport(createSupabase(), url)
-			console.log(`[gs1-admin] GPC import concluído: ${bricks} bricks`)
-			return c.json({ bricks }, 200)
+			const segmentCodes = (body?.segmentCodes as string[] | undefined) ?? undefined
+			const summary = await runGpcImport(createSupabase(), url, { segmentCodes })
+			console.log(
+				`[gs1-admin] GPC import concluído: ${summary.bricks} bricks, ${summary.attributes} atributos, ${summary.attributeValues} valores, ${summary.brickAttributes} vínculos`
+			)
+			return c.json(summary, 200)
 		})
 		.openapi(gtinLookupRoute, async (c) => {
 			const { gtin: rawGtin } = c.req.valid("param")

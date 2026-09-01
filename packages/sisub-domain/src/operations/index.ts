@@ -25,6 +25,32 @@ export {
 export type { CatalogScope, CatalogScopeValue } from "./catalog-scope.ts"
 export { CATALOG_SCOPE_VALUES, folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
 export {
+	CONSERVATION_CLASSES,
+	CONSERVATION_LABELS,
+	type ConditioningSpec,
+	type ConservationClass,
+	describeConditioning,
+	isConservationClass,
+	isPackageType,
+	isTemperatureOutOfRange,
+	meetsMinimumShelfLife,
+	PACKAGE_TYPE_LABELS,
+	PACKAGE_TYPES,
+	type PackageType,
+	parseConservationFromCatmat,
+	parseTemperatureCeiling,
+	requiresRefrigeratedTransport,
+	TEMPERATURE_CONTROLLED,
+	TEMPERATURE_VERDICTS,
+	type TemperatureRange,
+	type TemperatureVerdict,
+	TRANSPORT_LABELS,
+	TRANSPORT_REQUIREMENTS,
+	type TransportRequirement,
+	temperatureDivergenceReason,
+	temperatureVerdict,
+} from "./conditioning.ts"
+export {
 	fetchForecasts,
 	fetchMessHalls,
 	fetchPresences,
@@ -108,6 +134,23 @@ export {
 	updateFrozenPreparation,
 } from "./frozen-preparation.ts"
 export {
+	compareDeclaration,
+	createLocalVerifier,
+	type DeclarationLoader,
+	describeVerdict,
+	type GpcDeclaration,
+	type GpcRequirement,
+	type GtinSpecificationVerifier,
+	isVerdictStale,
+	SPECIFICATION_VERDICTS,
+	type SpecificationComparison,
+	type SpecificationDivergence,
+	type SpecificationVerdict,
+	specFingerprint,
+	type VerificationRequest,
+	type VerificationResult,
+} from "./gs1-specification.ts"
+export {
 	type GtinHierarchyNode,
 	hasValidCheckDigit,
 	normalizeGtin,
@@ -161,6 +204,19 @@ export {
 	updateIngredientItem,
 } from "./ingredients.ts"
 export {
+	EDITABLE_RECEIPT_STATUSES,
+	GOODS_RECEIPT_STATUSES,
+	type GoodsReceiptStatus,
+	isInflow,
+	isReceiptEditable,
+	STOCK_INFLOW_TYPES,
+	STOCK_MOVEMENT_TYPES,
+	STOCK_OUTFLOW_TYPES,
+	type StockMovementType,
+	SUPPLY_ORDER_STATUSES,
+	type SupplyOrderStatus,
+} from "./inventory-vocabulary.ts"
+export {
 	createKitchenDraft,
 	deleteKitchenDraft,
 	fetchKitchenDrafts,
@@ -169,6 +225,15 @@ export {
 	updateKitchenDraft,
 } from "./kitchen-draft.ts"
 export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
+export {
+	competenciaFromDate,
+	type KitchenUnitRef,
+	normalizeNsNumber,
+	type ReceiptValueItem,
+	resolvePurchaseUnitId,
+	roundToCents,
+	suggestedLiquidationValue,
+} from "./liquidation-math.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
 	type IngredientItemLink,
@@ -273,6 +338,28 @@ export {
 	updatePurchaseItem,
 	upsertPurchaseItemIngredient,
 } from "./purchase-item.ts"
+export {
+	checkLotTemperatures,
+	hasTemperatureDivergence,
+	LOT_BALANCE_STATUSES,
+	type LotBalanceStatus,
+	type LotBalanceSummary,
+	type LotTemperatureCheck,
+	type LotValidationIssue,
+	lotBalance,
+	nextSyntheticSequence,
+	type ReceiptLotDraft,
+	roundQuantity,
+	sumLotQuantities,
+	syntheticLotCode,
+	validateReceiptLots,
+} from "./receipt-lots.ts"
+export {
+	divergesFromInvoice,
+	type NfeCostInput,
+	requiresDivergenceReason,
+	unitCostFromNfe,
+} from "./receiving-math.ts"
 export {
 	copyRecipeFlow,
 	createStepTemplate,

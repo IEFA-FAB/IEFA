@@ -1,6 +1,6 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import type { LocalCommitment } from "@/lib/arp-balance"
 import { queryKeys } from "@/lib/query-keys"
 import {

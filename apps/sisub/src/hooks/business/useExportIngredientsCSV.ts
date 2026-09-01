@@ -1,4 +1,4 @@
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientItem } from "@/types/domain/ingredients"
 

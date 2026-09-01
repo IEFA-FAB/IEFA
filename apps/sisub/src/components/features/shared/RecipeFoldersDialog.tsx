@@ -1,6 +1,5 @@
 import { Check, Folder, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -15,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
+import { toast } from "@/components/ui/toast"
 import { useRecipeFolderMutations, useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 
 interface RecipeFoldersDialogProps {

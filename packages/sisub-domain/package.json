@@ -21,7 +21,7 @@
     "@iefa/database": "workspace:*",
     "@iefa/pbac": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
