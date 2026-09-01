@@ -63,9 +63,14 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 						values (${kitchenRow.id}, ${of.id}, ${empenho.id}) returning id`
 					const [item] = await tx`
 						insert into inventory.goods_receipt_item
-							(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, lot_code, expiry_date, unit_cost)
-						values (${receipt.id}, ${ingredient.id}, 60, 60, 'L-RECV-1', '2027-06-30', 5)
+							(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+						values (${receipt.id}, ${ingredient.id}, 60, 60, 5)
 						returning id`
+					// Lote é linha filha desde 20260901120200 — uma entrega traz caixas
+					// de validades diferentes, e é a validade que dirige o FEFO.
+					await tx`
+						insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost)
+						values (${item.id}, 'L-RECV-1', '2027-06-30', 60, 5)`
 
 					// efetivar direto do draft → rejeita (precisa do provisório)
 					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(/provisório/)

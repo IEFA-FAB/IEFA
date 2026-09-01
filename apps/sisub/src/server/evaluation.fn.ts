@@ -1,7 +1,7 @@
 /**
  * @module evaluation.fn
  * Super-admin evaluation feature toggle and user opinion collection.
- * CLIENT: getCoreClient (service role) — all functions.
+ * CLIENT: getKitchenClient (service role) — all functions.
  * TABLES: super_admin_controller (key="evaluation"), opinions.
  * @domain app
  * @migration n-a
@@ -10,7 +10,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
-import { getCoreClient } from "@/lib/supabase.server"
+import { getKitchenClient } from "@/lib/supabase.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
 /**
@@ -20,7 +20,7 @@ import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
  */
 export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async () => {
 	await requireUserId()
-	const { data, error } = await getCoreClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
+	const { data, error } = await getKitchenClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
 
 	if (error) throw new Error(error.message)
 
@@ -45,7 +45,7 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 		// Antes exigia só `requireAuth()` — qualquer sessão autenticada podia sobrescrever a
 		// pergunta global; o gate real vivia só no beforeLoad da rota (client-side).
 		await requireAuthWithPermission("admin", 2)
-		const { data: result, error } = await getCoreClient()
+		const { data: result, error } = await getKitchenClient()
 			.from("super_admin_controller")
 			.upsert({ key: "evaluation", active: data.active, value: data.value }, { onConflict: "key" })
 			.select("key, active, value")
@@ -71,7 +71,7 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 export const fetchEvaluationForUserFn = createServerFn({ method: "GET" }).handler(async (): Promise<EvaluationResult> => {
 	// Self-only: a identidade vem da sessão — o cliente não decide de quem é a avaliação.
 	const userId = await requireUserId()
-	const { data: config, error: configError } = await getCoreClient()
+	const { data: config, error: configError } = await getKitchenClient()
 		.from("super_admin_controller")
 		.select("key, active, value")
 		.eq("key", "evaluation")
@@ -86,7 +86,12 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" }).handle
 		return { shouldAsk: false, question: question || null }
 	}
 
-	const { data: opinion, error: opinionError } = await getCoreClient().from("opinions").select("id").eq("question", question).eq("userId", userId).maybeSingle()
+	const { data: opinion, error: opinionError } = await getKitchenClient()
+		.from("opinions")
+		.select("id")
+		.eq("question", question)
+		.eq("userId", userId)
+		.maybeSingle()
 
 	if (opinionError) throw new Error(opinionError.message)
 
@@ -105,7 +110,7 @@ export const submitEvaluationFn = createServerFn({ method: "POST" })
 	.validator(z.object({ value: z.number(), question: z.string() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const { error } = await getCoreClient()
+		const { error } = await getKitchenClient()
 			.from("opinions")
 			.insert([{ value: data.value, question: data.question, userId }])
 

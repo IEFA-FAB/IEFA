@@ -16,7 +16,7 @@ import { NotFoundError } from "../types/errors.ts"
 import { resolveProducingKitchen } from "./validate-scope.ts"
 
 function fakeDb(row: { type: string | null; kitchenId: number | null } | undefined) {
-	return { query: { kitchenInCore: { findFirst: () => Promise.resolve(row) } } } as unknown as SisubDb
+	return { query: { kitchenInKitchen: { findFirst: () => Promise.resolve(row) } } } as unknown as SisubDb
 }
 
 describe("resolveProducingKitchen", () => {

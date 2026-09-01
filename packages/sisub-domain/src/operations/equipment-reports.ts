@@ -21,7 +21,7 @@ import {
 	equipmentRoleInKitchen,
 	equipmentUnitInKitchen,
 	equipmentUnitRoleInKitchen,
-	kitchenInCore,
+	kitchenInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, isNull } from "drizzle-orm"
@@ -241,7 +241,9 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 	requirePermission(ctx, "analytics", 2)
 	const today = resolveToday(input.today)
 
-	const kitchens = await runQuery("FETCH_FAILED", () => db.select({ id: kitchenInCore.id, displayName: kitchenInCore.displayName }).from(kitchenInCore))
+	const kitchens = await runQuery("FETCH_FAILED", () =>
+		db.select({ id: kitchenInKitchen.id, displayName: kitchenInKitchen.displayName }).from(kitchenInKitchen)
+	)
 	const kitchenName = new Map(kitchens.map((k) => [k.id, k.displayName ?? `Cozinha ${k.id}`]))
 
 	// Denominador do parque vem de TODAS as unidades, antes do filtro: filtrar por um modelo que

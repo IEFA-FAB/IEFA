@@ -69,7 +69,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					const [ingredient] =
 						await tx`insert into kitchen.ingredient (description, measure_unit, correction_factor) values ('ARROZ E2E', 'KG', 1.1) returning id`
 					const [purchaseItem] =
-						await tx`insert into procurement.purchase_item (description, purchase_measure_unit, unit_price) values ('ARROZ E2E FD 5KG', 'FD', 125) returning id`
+						await tx`insert into procurement.purchase_item (description, purchase_measure_unit, unit_price, conservation_class, storage_temp_max_c) values ('ARROZ E2E FD 5KG', 'FD', 125, 'congelado', -12) returning id`
 					await tx`insert into procurement.purchase_item_ingredient (purchase_item_id, ingredient_id, conversion_factor, is_default) values (${purchaseItem.id}, ${ingredient.id}, 5, true)`
 					// GTIN + SKU: fardo de 5 KG
 					await tx`insert into gs1_integration.gtin (gtin, description, net_content, net_content_unit, source) values (${GTIN14}, 'ARROZ E2E 5KG', 5, 'KG', 'manual')`
@@ -138,10 +138,18 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					const [receipt] = await tx`
 						insert into inventory.goods_receipt (kitchen_id, supply_order_id, nfe_document_id, empenho_id)
 						values (${kitchenA.id}, ${supplyOrder.id}, ${nfeDoc.id}, ${empenho.id}) returning id`
-					await tx`
+					const [receiptItem] = await tx`
 						insert into inventory.goods_receipt_item
-							(receipt_id, nfe_item_id, ingredient_id, ingredient_item_id, purchase_item_id, invoiced_qty_base, received_qty_base, lot_code, expiry_date, unit_cost, divergence_reason)
-						values (${receipt.id}, ${nfeItem.id}, ${ingredient.id}, ${sku.id}, ${purchaseItem.id}, 50, 48, 'L-E2E-1', '2027-07-01', 2.5, 'Avaria em 2 KG no transporte')`
+							(receipt_id, nfe_item_id, ingredient_id, ingredient_item_id, purchase_item_id, invoiced_qty_base, received_qty_base, unit_cost, divergence_reason)
+						values (${receipt.id}, ${nfeItem.id}, ${ingredient.id}, ${sku.id}, ${purchaseItem.id}, 50, 48, 2.5, 'Avaria em 2 KG no transporte')
+						returning id`
+
+					// A carga veio em DOIS lotes de validades diferentes — o caso que o
+					// grão antigo (um lot_code por linha de item) não representava.
+					await tx`
+						insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost)
+						values (${receiptItem.id}, 'L-E2E-1', '2027-07-01', 30, 2.5),
+						       (${receiptItem.id}, 'L-E2E-2', '2026-12-01', 18, 2.5)`
 
 					// definitivo direto do draft → bloqueado
 					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(/provisório/)
@@ -149,9 +157,19 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
 					const [{ n: movesBefore }] = await tx`select count(*)::int as n from inventory.stock_movement where kitchen_id = ${kitchenA.id}`
 					expect(movesBefore).toBe(0)
-					// definitivo: lote + movimento + custo + OF parcial + status divergente
+
+					// Soma dos lotes ≠ quantidade conferida → efetivação RECUSADA.
+					// Sem esta guarda o ledger nasceria com saldo diferente do conferido.
+					await expect(
+						tx.savepoint(async (sp) => {
+							await sp`update inventory.goods_receipt_item_lot set quantity_base = 10 where receipt_item_id = ${receiptItem.id} and lot_code = 'L-E2E-2'`
+							return sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
+						})
+					).rejects.toThrow(/Soma dos lotes/)
+
+					// definitivo: UM movimento por LOTE + custo + OF parcial + status divergente
 					const [fin] = await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
-					expect(Number(fin.movements)).toBe(1)
+					expect(Number(fin.movements)).toBe(2)
 					const [grow] = await tx`select status from inventory.goods_receipt where id = ${receipt.id}`
 					expect(grow.status).toBe("divergent") // divergência registrada
 					const [ofRow] = await tx`select status from procurement.supply_order where id = ${supplyOrder.id}`
@@ -160,6 +178,15 @@ describeIf("inventory full cycle E2E (DB)", () => {
 						await tx`select quantity, avg_unit_cost from inventory.stock_cost where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
 					expect(Number(cost.quantity)).toBe(48)
 					expect(Number(cost.avg_unit_cost)).toBe(2.5)
+
+					// As duas validades sobrevivem até o lote de estoque — é o que o
+					// FEFO consome na ordem certa, e o que o grão antigo perdia.
+					const stockLots = await tx`
+						select lot_code, expiry_date, conservation_class from inventory.stock_lot
+						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} order by expiry_date`
+					expect(stockLots.map((row) => row.lot_code)).toEqual(["L-E2E-2", "L-E2E-1"])
+					// Classe de conservação copiada da especificação de compra, congelada no lote.
+					expect(stockLots.every((row) => row.conservation_class === "congelado")).toBe(true)
 
 					// ════ Fase 5 — baixa FEFO a partir do SNAPSHOT do cardápio ════════
 					const [mealType] = await tx`insert into kitchen.meal_type (name, kitchen_id) values ('Almoço E2E', ${kitchenA.id}) returning id`
@@ -214,18 +241,36 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					expect(Number(frozenBal.balance)).toBe(2)
 
 					// ════ Fase 3 — transferência A → B (par atômico) ═════════════════
-					const [lotA] =
-						await tx`select lot_id from inventory.v_stock_balance where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0`
+					// Com dois lotes em saldo, `order by expiry_date` deixa a escolha
+					// determinística: sem ela o planner devolve qualquer um e o teste
+					// passa ou falha conforme o dia.
+					const [lotA] = await tx`
+						select lot_id, balance from inventory.v_stock_balance
+						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0
+						order by expiry_date`
 					await tx`select * from inventory.transfer_stock(${lotA.lot_id}, ${kitchenB.id}, 5, null)`
 					const [balB] = await tx`
 						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenB.id} and ingredient_id = ${ingredient.id}`
 					expect(Number(balB.b)).toBe(5)
 
 					// ════ Fase 3 — contagem física: 30 contados vs 33 no ledger ══════
-					// A: 48 recebidos − 10 produção − 5 transferidos = 33
+					// A: 48 recebidos (em DOIS lotes) − 10 produção − 5 transferidos = 33.
+					// A contagem é do estoque inteiro, não de um lote: contar só um deixaria
+					// o outro intacto e o saldo total nunca fecharia no valor contado.
+					const saldos = await tx`
+						select lot_id, balance from inventory.v_stock_balance
+						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0
+						order by expiry_date`
+					expect(saldos).toHaveLength(2)
+					expect(saldos.reduce((total, row) => total + Number(row.balance), 0)).toBe(33)
+
 					const [count] = await tx`insert into inventory.inventory_count (kitchen_id) values (${kitchenA.id}) returning id`
-					await tx`insert into inventory.inventory_count_item (count_id, lot_id, counted_qty) values (${count.id}, ${lotA.lot_id}, 30)`
+					// O lote que vence primeiro não foi achado na prateleira (0); o outro bate.
+					await tx`
+						insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
+						values (${count.id}, ${saldos[0]?.lot_id}, 0), (${count.id}, ${saldos[1]?.lot_id}, 30)`
 					const [counted] = await tx`select * from inventory.confirm_inventory_count(${count.id}, null)`
+					// Um ajuste só: o lote conferido sem divergência não gera movimento.
 					expect(Number(counted.adjustments)).toBe(1)
 					const [balA] = await tx`
 						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
