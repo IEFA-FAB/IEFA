@@ -20,6 +20,10 @@ export function getRouter() {
 			...context,
 			auth: initialAuth,
 			authActions,
+			// Valor inicial só para satisfazer o contexto na criação do router; o
+			// `beforeLoad` da raiz sobrescreve com o que está no cookie antes de
+			// qualquer render.
+			sidebarOpen: true,
 		},
 		scrollRestoration: true,
 		defaultPreload: "intent",
