@@ -14,7 +14,7 @@ import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { readThemePreference, ThemeProvider } from "@/components/themeService"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import { WebMcpTools } from "@/components/WebMcpTools"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
@@ -167,7 +167,7 @@ function RootDocument() {
 					<ThemeProvider initialTheme={theme}>
 						<CommandPaletteProvider>
 							<Outlet />
-							<Toaster />
+							<Toaster position="bottom-right" />
 						</CommandPaletteProvider>
 					</ThemeProvider>
 				</HotkeysProvider>

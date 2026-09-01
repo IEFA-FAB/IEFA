@@ -10,7 +10,7 @@ import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { readThemePreference, ThemeProvider } from "@/components/themeService"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import { env } from "@/env"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
@@ -126,7 +126,7 @@ function RootDocument() {
 					<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
 						<ThemeProvider initialTheme={theme}>
 							<Outlet />
-							<Toaster />
+							<Toaster position="bottom-right" />
 						</ThemeProvider>
 					</HotkeysProvider>
 				</TenantProvider>

@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import {

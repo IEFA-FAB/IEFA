@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import type { McpApiKey } from "@/server/mcp-keys.fn"
 import { createMcpKeyFn, deleteMcpKeyFn, listMcpKeysFn, revokeMcpKeyFn } from "@/server/mcp-keys.fn"

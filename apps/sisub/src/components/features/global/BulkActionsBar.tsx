@@ -1,6 +1,5 @@
 import { FolderInput, Loader2, RotateCcw, Ruler, Scale, Trash2, X } from "lucide-react"
 import { useId, useMemo, useState } from "react"
-import { toast } from "sonner"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -17,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { type BulkSelectedNode, useBulkIngredientOps } from "@/hooks/business/useBulkIngredientOps"
 import { useFolders } from "@/services/IngredientsService"
 

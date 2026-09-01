@@ -13,7 +13,7 @@ import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { readThemePreference, ThemeProvider } from "@/components/themeService"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
 // A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
@@ -138,7 +138,7 @@ function RootDocument() {
 				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
 					<ThemeProvider initialTheme={theme}>
 						<Outlet />
-						<Toaster />
+						<Toaster position="bottom-right" />
 					</ThemeProvider>
 				</HotkeysProvider>
 				<AuthSync />

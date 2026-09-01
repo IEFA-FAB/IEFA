@@ -1,7 +1,7 @@
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import supabase from "@/lib/supabase"
 
 const DEBOUNCE_MS = 500

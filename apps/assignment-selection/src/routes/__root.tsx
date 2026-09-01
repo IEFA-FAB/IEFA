@@ -1,7 +1,7 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 // A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
 // <link> é o manifesto do build do cliente — o mesmo `/assets/styles.css` que o
 // nitro serve e que o routeRules trata como no-cache. Com `?url` o bundle do
@@ -48,7 +48,7 @@ function RootDocument() {
 					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
 					linkClassName="text-[10px] text-slate-600 transition-colors hover:text-slate-300"
 				/>
-				<Toaster />
+				<Toaster position="top-right" viewportClassName="dark" />
 				<Scripts />
 			</body>
 		</html>

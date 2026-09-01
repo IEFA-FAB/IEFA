@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { AlertCircle, CheckCircle2, Clock, Loader2, Play, RefreshCw, Square } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { toast } from "@/components/ui/toast"
 import { formatSyncDate, statusColor, statusLabel } from "@/lib/compras-sync"
 import type { SyncLog } from "@/types/domain/compras-sync"
 

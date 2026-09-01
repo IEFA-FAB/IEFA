@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle, Loader2, Save } from "lucide-react"
 import { useEffect } from "react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 
 import type { PendingChange } from "@/types/domain/meal"
 
