@@ -124,25 +124,44 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			if (!db) return
 			const scopeBefore = await resolveTrainingScope(db)
 
-			// Contagens filtradas por `[TEST]`: baratas e estáveis. Os arquivos de teste rodam em
-			// PARALELO e outro deles cria e apaga receitas globais durante este — a afirmação real
-			// é sobre o dado de PRODUÇÃO, e o seeder prefixa tudo que é dele.
+			// AMOSTRA de ids, não contagem.
+			//
+			// A versão anterior comparava a contagem GLOBAL de produção antes e depois
+			// do reset. O filtro `[TEST]%` cobria o que os outros arquivos de teste criam
+			// em paralelo, mas não cobre USUÁRIO REAL: a suíte roda contra o banco de
+			// produção e leva ~16 minutos. Em 2026-09-01 ela falhou com 2499 contra 2498
+			// porque alguém cadastrou receitas globais de verdade durante o run.
+			//
+			// O que a asserção quer provar é que o reset não APAGOU dado de produção.
+			// Contagem igual é uma aproximação ruim disso: falha com inserção
+			// concorrente, que é irrelevante, e passaria se o reset apagasse 5 linhas
+			// enquanto usuários criam 6. Identidade não tem esse problema.
+			//
+			// `order by created_at, id limit 50`: as linhas mais ANTIGAS. Inserção
+			// concorrente é sempre mais nova, então não entra na janela; apagar qualquer
+			// linha da amostra muda o conjunto, porque a vaga é preenchida pela próxima.
+			// O desempate por `id` não é enfeite — sem ele, empate de timestamp na 50ª
+			// posição faz as duas amostras escolherem linhas diferentes e o teste falha
+			// sem nada ter sido apagado.
 			const handle = db
-			const countProduction = async () => {
-				const [recipes] = (await handle.execute(
-					sql`select count(*)::int as n from kitchen.recipes where kitchen_id is null and name not like '[TEST]%'`
-				)) as unknown as Array<{ n: number }>
-				const [ingredients] = (await handle.execute(
-					sql`select count(*)::int as n from kitchen.ingredient where description not like '[TEST]%'`
-				)) as unknown as Array<{ n: number }>
-				const [otherKitchens] = (await handle.execute(
-					sql`select count(*)::int as n from kitchen.menu_template
-					    where kitchen_id is not null and kitchen_id <> ${scopeBefore.kitchen_id} and name not like '[TEST]%'`
-				)) as unknown as Array<{ n: number }>
-				return { recipes: recipes?.n, ingredients: ingredients?.n, otherKitchens: otherKitchens?.n }
+			const sampleProduction = async () => {
+				const recipes = (await handle.execute(
+					sql`select id::text as id from kitchen.recipes where kitchen_id is null and name not like '[TEST]%' order by created_at, id limit 50`
+				)) as unknown as Array<{ id: string }>
+				const ingredients = (await handle.execute(
+					sql`select id::text as id from kitchen.ingredient where description not like '[TEST]%' order by created_at, id limit 50`
+				)) as unknown as Array<{ id: string }>
+				const templates = (await handle.execute(
+					sql`select id::text as id from kitchen.menu_template
+					    where kitchen_id is not null and kitchen_id <> ${scopeBefore.kitchen_id} and name not like '[TEST]%'
+					    order by created_at, id limit 50`
+				)) as unknown as Array<{ id: string }>
+				return [...recipes, ...ingredients, ...templates].map((row) => row.id).sort()
 			}
 
-			const before = await countProduction()
+			const productionIds = await sampleProduction()
+			// Guarda contra amostra vazia passar como verde — a suíte já rodou vacuosa neste repo.
+			expect(productionIds.length).toBeGreaterThan(10)
 			const result = await resetTrainingScope(db, ctx)
 
 			expect(result.duration_ms).toBeGreaterThanOrEqual(0)
@@ -154,8 +173,13 @@ describeSupabaseIntegration("training operations (integração)", () => {
 			// Sentinelas intactas, com os MESMOS ids.
 			expect(await resolveTrainingScope(db)).toEqual(scopeBefore)
 
-			// Nada de produção foi tocado.
-			expect(await countProduction()).toEqual(before)
+			// Nada de produção foi APAGADO — a mesma amostra continua lá.
+			//
+			// Reamostrar em vez de consultar os ids: `order by created_at, id limit 50` pega
+			// as linhas MAIS ANTIGAS, então inserção concorrente (que é sempre mais nova)
+			// não entra na janela e não muda o resultado. Apagar qualquer linha da amostra
+			// muda — a vaga é preenchida pela próxima mais antiga e a lista diverge.
+			expect(await sampleProduction()).toEqual(productionIds)
 
 			// Baseline presente: sem ele o treinando abre um ambiente vazio.
 			const info = await fetchTrainingScope(db, ctx)

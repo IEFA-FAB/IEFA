@@ -1,0 +1,41 @@
+##
+# Arredondamento de dinheiro.
+#
+# Como as outras regras deste diretório, esta nasceu de um bug que já aconteceu:
+# `liquidation.fn.ts` fechava o valor sugerido da NS com `Number(total.toFixed(2))`.
+# `(10.005).toFixed(2)` devolve "10.00" — 10,005 em binário é 10,00499…, então o
+# meio-centavo cai SEMPRE para baixo. Num item é um centavo; numa NS que soma
+# dezenas de linhas é um centavo por linha, sempre no mesmo sentido, e a diferença
+# reaparece na conciliação contra o SIAFI sem origem rastreável.
+#
+# O caminho certo é `roundToCents` (@iefa/sisub-domain), que normaliza o erro de
+# representação com `toPrecision(12)` antes de arredondar.
+#
+# Escopo estreito de propósito: `toFixed(2)` para EXIBIR texto é legítimo. A regra
+# só olha os arquivos que produzem valor monetário gravado.
+##
+rules:
+  - id: money-tofixed-rounding
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Valor monetário fechado com `Number(x.toFixed(2))` — use `roundToCents` de `@iefa/sisub-domain`.
+      `toFixed` arredonda o meio-centavo sempre para baixo (10,005 → 10,00), porque o binário
+      guarda 10,00499…. Em soma de várias linhas o viés é sistemático e aparece na conciliação
+      com o SIAFI como diferença sem origem. `roundToCents` normaliza a representação antes de
+      arredondar. Para EXIBIR texto, formate com Intl.NumberFormat em vez de toFixed.
+    paths:
+      include:
+        - "apps/sisub/src/server/liquidation.fn.ts"
+        - "apps/sisub/src/server/reconciliation.fn.ts"
+        - "apps/sisub/src/server/budget.fn.ts"
+        - "packages/sisub-domain/src/operations/budget-math.ts"
+        - "packages/sisub-domain/src/operations/liquidation-math.ts"
+      exclude:
+        - "**/*.test.ts"
+    # `Number($X.toFixed(2))` é arredondamento de VALOR — o defeito. `${x.toFixed(2)}`
+    # dentro de uma mensagem é formatação de TEXTO e não entra aqui: o padrão é
+    # deliberadamente estreito para não gerar achado que o revisor aprende a ignorar.
+    # (Para texto em pt-BR, o certo é Intl.NumberFormat — outra conversa.)
+    patterns:
+      - pattern: Number($X.toFixed(2))

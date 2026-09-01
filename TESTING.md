@@ -9,7 +9,7 @@ produção sem nenhum teste falhar antes**, em ordem de dano.
 | Camada | Medida | Situação |
 |---|---|---|
 | Lógica pura do domínio | 45 módulos em `packages/sisub-domain/src/operations`, 9 com teste | Melhor coberto do repo, mas concentrado em authz e matemática |
-| Server functions (sisub) | 60 arquivos `*.fn.ts`, 5 arquivos de teste próximos | **O maior buraco.** É onde moram autorização, ordem de escrita e tradução de erro |
+| Server functions (sisub) | 60 arquivos `*.fn.ts`; as decisões de `receiving` e `liquidation` já saíram para o domínio e têm teste | **Ainda o maior buraco.** É onde moram autorização, ordem de escrita e tradução de erro |
 | Funções SQL | 26 migrations declaram função ou trigger | Só a suíte de integração as executa — e ela roda em skip por padrão |
 | UI | 340 componentes/rotas `.tsx`, 0 testes de componente | Nenhuma cobertura. Regressão visual e de estado só aparece em uso |
 | Contratos de IA (chat + MCP) | Testes de contrato nos dois lados | Bem servido: `model-args`, `inputSchema` × `toJsonSchema` |
@@ -18,7 +18,7 @@ O gate do CI cobre biome, typecheck, opengrep, codeql, trivy, zizmor, gitleaks,
 `bun audit`, os testes de contrato e a integração contra o banco real. O que ele
 **não** cobre é justamente o que a lista abaixo endereça.
 
-## O que este PR acrescentou
+## Rodada 1 (#255) — acondicionamento, lotes e núcleo
 
 | Arquivo | O que trava |
 |---|---|
@@ -28,6 +28,24 @@ O gate do CI cobre biome, typecheck, opengrep, codeql, trivy, zizmor, gitleaks,
 | `operations/gs1-specification.test.ts` | Precedência `nao_atende` > `indeterminado` > `atende`, e a impressão digital que invalida veredito quando a exigência muda |
 | `gs1-sync/gpc.test.ts` | Atributos GPC (antes descartados), dedupe por código, recorte por segmento |
 | `inventory-cycle.e2e.operations.test.ts` | Entrega com **duas validades**: dois movimentos, duas linhas em `stock_lot`, FEFO na ordem certa, e efetivação recusada quando a soma dos lotes não fecha |
+
+## Rodada 2 — o buraco das server functions, primeira lasca
+
+| Arquivo | O que trava |
+|---|---|
+| `operations/receiving-math.ts` + teste | Custo unitário na unidade base (a nota preça a embalagem, o ledger valora o gênero) e a regra de divergência sem motivo |
+| `operations/liquidation-math.ts` + teste | Valor sugerido da NS, competência, número de NS e — a mais importante — contra qual unidade o escopo é verificado |
+| `operations/inventory-vocabulary.ts` | Tipos de movimento e situações de recebimento como constante, não string solta em quinze arquivos |
+| `operations/sql-vocabulary.contract.test.ts` | 11 pares SQL × TypeScript lidos das migrations reais, mais a **partição entrada/saída** dos tipos de movimento |
+| `.opengrep/rules/money-rounding.yaml` | `toFixed(2)` em valor monetário |
+
+### O que a extração já encontrou
+
+**`Number(total.toFixed(2))` arredonda meio-centavo sempre para baixo.** `(10.005).toFixed(2)` é `"10.00"`, porque 10,005 em binário é 10,00499…. Num item é um centavo; numa NS que soma dezenas de linhas o viés é sistemático e reaparece na conciliação contra o SIAFI como diferença sem origem rastreável. Corrigido com `roundToCents`, que normaliza a representação antes de arredondar, e virou regra de opengrep.
+
+**A partição de custeio não tinha quem a verificasse.** As triggers de custo médio classificam cada tipo de movimento em entrada ou saída por listas literais no SQL. Um tipo novo fora das duas passa pelo ledger sem afetar `inventory.stock_cost` — o saldo anda, o custo médio não — e isso só aparece no balancete do mês seguinte. Agora um teste exige que as duas listas cubram exatamente o vocabulário e não se sobreponham.
+
+**Asserção instável trocada por identidade.** `training.operations.test.ts` comparava a contagem GLOBAL de produção antes e depois do reset. A suíte roda contra o banco de produção por ~16 minutos: em 2026-09-01 ela falhou com 2499 contra 2498 porque usuários cadastraram receitas globais durante o run. O que a asserção quer provar é que o reset não APAGOU dado de produção — então passa a capturar uma amostra de ids antes e exigi-los intactos depois. Inserção concorrente deixa de importar; apagar qualquer linha da amostra falha.
 
 ## Proposta, em ordem de dano
 

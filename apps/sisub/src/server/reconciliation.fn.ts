@@ -12,6 +12,7 @@
  * @migration 20260731160000_finance_siafi_reconciliation
  */
 
+import { roundToCents } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getServerClient } from "@/lib/supabase.server"
@@ -215,7 +216,7 @@ export const resolveDivergenceFn = createServerFn({ method: "POST" })
 		if (data.decisao === "adotado_siafi" && data.documentoTipo === "ne" && data.valorSiafi != null && data.valorSisub != null) {
 			const { data: empenho } = await fin.from("empenho").select("id").eq("unit_id", data.unitId).eq("numero_empenho", data.numeroDocumento).maybeSingle()
 			if (empenho) {
-				const delta = Number((data.valorSiafi - data.valorSisub).toFixed(2))
+				const delta = roundToCents(data.valorSiafi - data.valorSisub)
 				if (Math.abs(delta) > 0.009) {
 					const { error } = await fin.from("empenho_event").insert({
 						empenho_id: empenho.id,
