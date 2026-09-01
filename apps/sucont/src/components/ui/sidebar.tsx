@@ -315,7 +315,7 @@ function SidebarGroupLabel({ className, render, ...props }: useRender.ComponentP
 		props: mergeProps<"div">(
 			{
 				className: cn(
-					"text-sidebar-foreground/70 ring-sidebar-ring h-8 rounded-md px-2 text-xs font-medium transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 flex shrink-0 items-center outline-hidden [&>svg]:shrink-0",
+					"text-sidebar-foreground/70 ring-sidebar-ring h-8 rounded-md px-2 text-xs font-medium transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:pointer-events-none focus-visible:ring-2 [&>svg]:size-4 flex shrink-0 items-center outline-hidden [&>svg]:shrink-0",
 					className
 				),
 			},
@@ -366,23 +366,34 @@ function SidebarMenuButton({
 		tooltip?: string | React.ComponentProps<typeof TooltipContent>
 	} & VariantProps<typeof sidebarMenuButtonVariants>) {
 	const { isMobile, state } = useSidebar()
+
+	/*
+	 * O tooltip só é MONTADO quando serve: barra recolhida, no desktop. Expandida o
+	 * rótulo já está na tela, e na gaveta mobile também.
+	 *
+	 * Montar sempre e esconder o balão com `hidden` — como faz a versão de origem —
+	 * não basta: o Tooltip continua no ar e trata o Escape. Na gaveta mobile o foco
+	 * cai no primeiro item, o tooltip dele abre no foco, e o primeiro Escape fechava
+	 * o BALÃO em vez da gaveta, sem propagar. Era preciso apertar Escape duas vezes
+	 * para sair do menu.
+	 */
+	const showTooltip = Boolean(tooltip) && state === "collapsed" && !isMobile
+
 	const comp = useRender({
 		defaultTagName: "button",
 		props: mergeProps<"button">({ className: cn(sidebarMenuButtonVariants({ variant, size }), className) }, props),
-		render: !tooltip ? render : (renderProps) => <TooltipTrigger {...renderProps} render={render} />,
+		render: !showTooltip ? render : (renderProps) => <TooltipTrigger {...renderProps} render={render} />,
 		state: { slot: "sidebar-menu-button", sidebar: "menu-button", size, active: isActive },
 	})
 
-	if (!tooltip) return comp
+	if (!showTooltip) return comp
 
 	const tooltipProps = typeof tooltip === "string" ? { children: tooltip } : tooltip
 
-	// O tooltip só serve ao modo ícone: expandida, o rótulo já está na tela e
-	// repeti-lo num balão é ruído.
 	return (
 		<Tooltip>
 			{comp}
-			<TooltipContent side="right" align="center" hidden={state !== "collapsed" || isMobile} {...tooltipProps} />
+			<TooltipContent side="right" align="center" {...tooltipProps} />
 		</Tooltip>
 	)
 }

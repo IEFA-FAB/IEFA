@@ -1,10 +1,11 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
-import { FileBarChart, LayoutGrid, LogOut, type LucideIcon, Monitor, Search, SquareKanban, X } from "lucide-react"
+import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Monitor, Search, SquareKanban, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
+import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
@@ -27,7 +28,9 @@ import {
 	SidebarTrigger,
 } from "#/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { sucontTools } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
+import { buildToolCrumbs, buildToolNav, findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
 
 /**
  * Navegação do hub — as três telas do app.
@@ -41,6 +44,9 @@ const NAV_LINKS: Array<{ to: string; label: string; icon: LucideIcon }> = [
 	{ to: "/workspace", label: "Área de trabalho", icon: SquareKanban },
 	{ to: "/reports", label: "Relatórios", icon: FileBarChart },
 ]
+
+/** Ferramentas de rota interna, agrupadas por etapa — a mesma ordem do catálogo. */
+const TOOL_NAV = buildToolNav(sucontTools)
 
 interface HubLayoutProps {
 	children: React.ReactNode
@@ -65,11 +71,7 @@ export function HubLayout({ children, title, description, searchable = false }: 
 				<header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
 					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
-					{title ? (
-						<h1 className="text-subheading text-foreground truncate">{title}</h1>
-					) : (
-						<span className="text-subheading text-muted-foreground truncate">SUCONT-4 HUB</span>
-					)}
+					<HubBreadcrumb title={title} />
 				</header>
 
 				<div className="flex-1">
@@ -102,6 +104,7 @@ export function HubLayout({ children, title, description, searchable = false }: 
 
 function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const activeTool = findToolByPath(sucontTools, pathname)
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar">
@@ -111,7 +114,7 @@ function HubSidebar() {
 
 			<SidebarContent>
 				<SidebarGroup>
-					<SidebarGroupLabel>Telas</SidebarGroupLabel>
+					<SidebarGroupLabel>Hub</SidebarGroupLabel>
 					<SidebarMenu>
 						{NAV_LINKS.map((item) => {
 							const Icon = item.icon
@@ -133,6 +136,39 @@ function HubSidebar() {
 						})}
 					</SidebarMenu>
 				</SidebarGroup>
+
+				{/*
+				 * As ferramentas ficam na barra, agrupadas pela etapa do ciclo — é o que
+				 * dá orientação DENTRO de uma ferramenta: qual está aberta, e o que mais
+				 * existe na mesma etapa. Antes a barra só listava as três telas do hub, e
+				 * ao entrar numa ferramenta nada indicava onde o usuário estava.
+				 */}
+				{TOOL_NAV.map((group) => (
+					<SidebarGroup key={group.id}>
+						<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+						<SidebarMenu>
+							{group.tools.map((tool) => {
+								const target = tool.internalPath as string
+								const isActive = activeTool?.id === tool.id
+								const scope = toolScopeLabel(tool)
+								return (
+									<SidebarMenuItem key={tool.id}>
+										<SidebarMenuButton
+											tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
+											isActive={isActive}
+											render={
+												<Link to={target} aria-current={isActive ? "page" : undefined}>
+													<IconRenderer iconKey={tool.icon} />
+													<span>{tool.title}</span>
+												</Link>
+											}
+										/>
+									</SidebarMenuItem>
+								)
+							})}
+						</SidebarMenu>
+					</SidebarGroup>
+				))}
 			</SidebarContent>
 
 			<SidebarFooter>
@@ -142,6 +178,62 @@ function HubSidebar() {
 
 			<SidebarRail />
 		</Sidebar>
+	)
+}
+
+/**
+ * Trilha do cabeçalho. Dentro de uma ferramenta mostra Catálogo › Etapa ›
+ * Ferramenta, com a etapa levando ao catálogo já filtrado por ela; fora, mostra
+ * só o título da tela.
+ *
+ * O `h1` fica no último item da trilha quando há ferramenta — é o nome da página,
+ * e duplicá-lo abaixo criaria dois títulos para a mesma coisa.
+ */
+function HubBreadcrumb({ title }: { title?: string }) {
+	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const tool = findToolByPath(sucontTools, pathname)
+	const crumbs = buildToolCrumbs(tool)
+	const scope = toolScopeLabel(tool)
+
+	if (crumbs.length === 0) {
+		return title ? (
+			<h1 className="text-subheading text-foreground truncate">{title}</h1>
+		) : (
+			<span className="text-subheading text-muted-foreground truncate">SUCONT-4 HUB</span>
+		)
+	}
+
+	return (
+		<nav aria-label="Trilha de navegação" className="flex min-w-0 items-center gap-1">
+			<ol className="flex min-w-0 items-center gap-1">
+				{crumbs.map((crumb, i) => {
+					const isLast = i === crumbs.length - 1
+					return (
+						<li key={crumb.label} className="flex min-w-0 items-center gap-1">
+							{i > 0 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />}
+							{isLast ? (
+								<h1 className="text-subheading text-foreground truncate">{crumb.label}</h1>
+							) : (
+								<Link
+									to={crumb.to as string}
+									search={crumb.search}
+									className="text-subheading shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+								>
+									{crumb.label}
+								</Link>
+							)}
+						</li>
+					)
+				})}
+			</ol>
+			{/* O escopo da ferramenta: as questões do RAC que ela responde. Mesmo papel
+			    do nome da cozinha/unidade no cabeçalho do sisub. */}
+			{scope && (
+				<span className="ml-2 hidden shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-label text-muted-foreground sm:inline">
+					{scope}
+				</span>
+			)}
+		</nav>
 	)
 }
 
