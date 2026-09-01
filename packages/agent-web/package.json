@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "node-html-markdown": "^2.0.0",
-    "node-html-parser": "^9.0.1"
+    "node-html-parser": "^9.0.2"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
