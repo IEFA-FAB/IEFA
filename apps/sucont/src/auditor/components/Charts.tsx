@@ -1,6 +1,5 @@
 import { BarChart3, Building2, Layers, LayoutList, Network, User } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import type { BarShapeProps } from "recharts"
 import {
 	Area,
 	AreaChart,
@@ -12,7 +11,6 @@ import {
 	LabelList,
 	Legend,
 	Line,
-	Rectangle,
 	ReferenceLine,
 	ResponsiveContainer,
 	Tooltip,
@@ -27,11 +25,16 @@ import { AccountGroup, RiskLevel } from "../types"
 
 /**
  * Opacidade da barra por posição na curva de Pareto: cheia até 80% do acumulado,
- * apagada depois. Era um `<Cell>` por ponto — o `shape` recebe o mesmo dado em
- * `payload` e sobrevive à remoção do `Cell` no recharts 4.
+ * apagada depois. Era um `<Cell>` por ponto (deprecado, sai no recharts 4); agora vai
+ * no próprio dado, em `fillOpacity`, que o recharts espalha no retângulo.
+ *
+ * No dado e não em `shape`: passar `shape` liga o `hasCustomShape` do recharts, que
+ * desliga o descarte de retângulo de dimensão zero — e o `LabelList` é montado a partir
+ * desses retângulos. Uma UG com `intangivelDiff === 0` passaria a ganhar um rótulo de
+ * `diff` que hoje não existe.
  */
-function paretoOpacity(payload: { accumulatedPct?: number } | undefined) {
-	return payload?.accumulatedPct && payload.accumulatedPct <= 80 ? 1 : 0.4
+function paretoOpacity(row: { accumulatedPct?: number } | undefined) {
+	return row?.accumulatedPct && row.accumulatedPct <= 80 ? 1 : 0.4
 }
 
 interface ChartProps {
@@ -397,6 +400,9 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 	const totalFinancialImpact = aggregated.reduce((sum, item) => sum + item.diff, 0)
 
 	const displayData = isExpanded ? paretoData : paretoData.slice(0, 20)
+	// Linhas próprias do Pareto: `displayData` também alimenta o BarChart de Composição
+	// (SIAFI × SILOMS), que não quer opacidade nenhuma.
+	const paretoRows = displayData.map((row) => ({ ...row, fillOpacity: paretoOpacity(row) }))
 
 	if (displayData.length === 0) {
 		return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados para exibir.</div>
@@ -616,7 +622,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								<Bar dataKey="siloms" name="SILOMS" fill={chartSeries.icc} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
 							</BarChart>
 						) : viewMode === "ranking" ? (
-							<ComposedChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 60 }}>
+							<ComposedChart data={paretoRows} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 60 }}>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
@@ -655,7 +661,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									fill={chartSeries.bmp}
 									radius={[8, 8, 0, 0]}
 									barSize={isExpanded ? 40 : undefined}
-									shape={(props: BarShapeProps) => <Rectangle {...props} fill={chartSeries.bmp} fillOpacity={paretoOpacity(props.payload)} />}
 								/>
 								<Bar
 									yAxisId="left"
@@ -665,7 +670,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									fill={chartSeries.consumo}
 									radius={[8, 8, 0, 0]}
 									barSize={isExpanded ? 40 : undefined}
-									shape={(props: BarShapeProps) => <Rectangle {...props} fill={chartSeries.consumo} fillOpacity={paretoOpacity(props.payload)} />}
 								/>
 								<Bar
 									yAxisId="left"
@@ -675,7 +679,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									radius={[8, 8, 0, 0]}
 									fill={chartSeries.intangivel}
 									barSize={isExpanded ? 40 : undefined}
-									shape={(props: BarShapeProps) => <Rectangle {...props} fill={chartSeries.intangivel} fillOpacity={paretoOpacity(props.payload)} />}
 								>
 									<LabelList
 										dataKey="diff"

@@ -126,30 +126,59 @@ describe("argumentos que o modelo manda de verdade", () => {
 	}
 })
 
-describe("opcional dentro de array", () => {
-	test("toda propriedade opcional de item de array aceita null", () => {
-		// O `dropUnexpectedNulls` do `wrapTool` não desce em array de propósito — posição em
-		// array é significativa, e apagar um item deslocaria os demais. Então, dentro de um
-		// item de array, o `null` do modelo chega inteiro ao `.parse()` do handler:
-		// `.optional()` puro reprova a chamada e a run morre com `tool_use_failed`, sem
-		// mensagem. Ali `.nullish()` é obrigatório — é o único ponto em que o boundary não
-		// cobre o domínio. Mesma varredura roda no lado do MCP.
-		const expostos: string[] = []
+/**
+ * Opcionais dentro de item de array que NÃO aceitam `null`.
+ *
+ * O `dropUnexpectedNulls` do `wrapTool` não desce em array de propósito — posição em array
+ * é significativa, e apagar um item deslocaria os demais. Então, dentro de um item de
+ * array, o `null` que o modelo manda chega inteiro ao `.parse()` do handler: `.optional()`
+ * puro reprova a chamada e a run morre com `tool_use_failed`, sem mensagem. Ali `.nullish()`
+ * é obrigatório — é o único ponto em que o boundary não cobre o domínio.
+ */
+function opcionaisDeArrayQueRejeitamNull(schema: JsonSchemaNode | undefined, caminho: string, dentroDeArray = false): string[] {
+	if (!schema) return []
+	const achados: string[] = []
+	for (const ramo of [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]) {
+		achados.push(...opcionaisDeArrayQueRejeitamNull(ramo as JsonSchemaNode, caminho, dentroDeArray))
+	}
+	if (schema.items) achados.push(...opcionaisDeArrayQueRejeitamNull(schema.items, `${caminho}[]`, true))
+	if (!schema.properties) return achados
+	const required = new Set(schema.required ?? [])
+	for (const [name, prop] of Object.entries(schema.properties)) {
+		if (dentroDeArray && !required.has(name) && !allowsNull(prop)) achados.push(`${caminho}.${name}`)
+		achados.push(...opcionaisDeArrayQueRejeitamNull(prop, `${caminho}.${name}`, dentroDeArray))
+	}
+	return achados
+}
 
-		const varrer = (schema: JsonSchemaNode | undefined, caminho: string, dentroDeArray: boolean) => {
-			if (!schema) return
-			for (const ramo of [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]) varrer(ramo as JsonSchemaNode, caminho, dentroDeArray)
-			if (schema.items) varrer(schema.items, `${caminho}[]`, true)
-			if (!schema.properties) return
-			const required = new Set(schema.required ?? [])
-			for (const [name, prop] of Object.entries(schema.properties)) {
-				if (dentroDeArray && !required.has(name) && !allowsNull(prop)) expostos.push(`${caminho}.${name}`)
-				varrer(prop, `${caminho}.${name}`, dentroDeArray)
-			}
+describe("opcional dentro de array", () => {
+	test("a varredura acusa um opcional de item de array que rejeita null", () => {
+		// Prova de não-vacuidade: HOJE nenhuma tool do chat recebe array de objeto (só
+		// `targetDates`, que é array de string), então a varredura abaixo passa por vazio. Sem
+		// este caso ela seria um teste que não testa nada — e o dia em que a primeira tool de
+		// escrita chegar ao chat, é ela quem avisa.
+		const schema: JsonSchemaNode = {
+			type: "object",
+			properties: {
+				items: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: { recipeId: { type: "string" }, sortOrder: { type: "integer" } },
+						required: ["recipeId"],
+					},
+				},
+			},
 		}
 
+		expect(opcionaisDeArrayQueRejeitamNull(schema, "tool")).toEqual(["tool.items[].sortOrder"])
+	})
+
+	test("toda propriedade opcional de item de array aceita null", () => {
+		// Mesma varredura roda no lado do MCP, onde ela é o guard das tools de template.
+		const expostos: string[] = []
 		for (const [, tools] of ALL_TOOLS) {
-			for (const def of tools) varrer(def.parameters as JsonSchemaNode, def.name, false)
+			for (const def of tools) expostos.push(...opcionaisDeArrayQueRejeitamNull(def.parameters as JsonSchemaNode, def.name))
 		}
 
 		expect(expostos).toEqual([])
