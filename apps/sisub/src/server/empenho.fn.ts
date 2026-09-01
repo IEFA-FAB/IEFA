@@ -98,7 +98,7 @@ export const listEmpenhosFn = createServerFn({ method: "GET" })
 
 /** Detalhe com histórico de eventos e saldos. */
 export const fetchEmpenhoFn = createServerFn({ method: "GET" })
-	.validator(z.object({ empenhoId: z.string().uuid() }))
+	.validator(z.object({ empenhoId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const fin = finance()
 		const { data: empenho, error } = await fin.from("empenho").select("*").eq("id", data.empenhoId).single()
@@ -116,7 +116,7 @@ export const fetchEmpenhoFn = createServerFn({ method: "GET" })
 export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			empenhoId: z.string().uuid(),
+			empenhoId: z.uuid(),
 			tipo: z.enum(["ordinario", "estimativo", "global"]).optional(),
 			favorecidoCnpj: z
 				.string()
@@ -158,7 +158,7 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			empenhoId: z.string().uuid(),
+			empenhoId: z.uuid(),
 			tipo: z.enum(["reforco", "anulacao", "cancelamento"]),
 			valor: z.number().positive(),
 			data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

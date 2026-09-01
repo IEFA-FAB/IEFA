@@ -69,7 +69,6 @@ function formatReviewStamp(dateStr: string) {
 // no refine, com a mensagem que o usuário lê.
 const ingredientSchema = z.object({
 	ingredient_id: z
-		.string()
 		.uuid("Insumo inválido")
 		.nullable()
 		.refine((value) => value !== null, "Selecione um insumo"),
@@ -95,7 +94,7 @@ const ingredientSchema = z.object({
 	 */
 	alternatives: z.array(
 		z.object({
-			ingredient_id: z.string().uuid("Substituto inválido"),
+			ingredient_id: z.uuid("Substituto inválido"),
 			ingredient_name: z.string(),
 			measure_unit: z.string(),
 			net_quantity: z
@@ -114,7 +113,7 @@ const recipeSchema = z.object({
 	preparation_time_minutes: z.number(),
 	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20"),
 	/** Pasta de organização — opcional por definição: agrupar é conveniência, não requisito. */
-	folder_id: z.string().uuid().nullable(),
+	folder_id: z.uuid().nullable(),
 	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 })
 

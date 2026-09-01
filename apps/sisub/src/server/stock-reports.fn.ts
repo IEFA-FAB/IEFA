@@ -141,7 +141,7 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 
 /** Ficha de Almoxarifado: ledger cronológico do item com saldo acumulado. */
 export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
-	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.string().uuid(), competencia: competenciaSchema }))
+	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.uuid(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const { from, to } = monthRange(data.competencia)

@@ -145,7 +145,12 @@ function exportAsPng(container: HTMLDivElement, title: string) {
 
 	const { width, height } = svg.getBoundingClientRect()
 	const svgString = new XMLSerializer().serializeToString(clone)
-	const base64 = btoa(unescape(encodeURIComponent(svgString)))
+	// `btoa` só aceita latin-1, então o SVG passa por UTF-8 antes. O caminho antigo era
+	// `unescape(encodeURIComponent(...))`, e `unescape` está deprecado.
+	const utf8 = new TextEncoder().encode(svgString)
+	let binary = ""
+	for (const byte of utf8) binary += String.fromCharCode(byte)
+	const base64 = btoa(binary)
 	const dataUrl = `data:image/svg+xml;base64,${base64}`
 
 	const scale = 2 // 2× for retina-quality export

@@ -32,7 +32,7 @@ export interface MyRouterContext {
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	beforeLoad: async ({ context }) => {
 		try {
-			const authState = await context.queryClient.ensureQueryData(authQueryOptions())
+			const authState = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 			return { auth: authState }
 		} catch (_error) {
 			return { auth: { user: null, isAuthenticated: false } }
@@ -71,7 +71,7 @@ function AuthSync() {
 	useEffect(() => {
 		const {
 			data: { subscription },
-		} = supabase.auth.onAuthStateChange(async (event, session) => {
+		} = supabase.auth.onAuthStateChange((event, session) => {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				// Caminho autêntico: nunca confiar em session.user — vem do storage
 				// (cookies) e não é verificado pelo servidor. Invalida a auth query

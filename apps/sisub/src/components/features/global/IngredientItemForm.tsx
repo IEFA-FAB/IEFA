@@ -14,12 +14,12 @@ import { useCreateIngredientItem, useIngredients, usePurchaseItems, useUpdateIng
 // Schema de validação
 const ingredientItemSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
-	ingredient_id: z.string().uuid("Selecione um insumo"),
+	ingredient_id: z.uuid("Selecione um insumo"),
 	barcode: z.string(),
 	purchase_measure_unit: z.string(),
 	unit_content_quantity: z.number().min(0),
 	correction_factor: z.number().min(0),
-	purchase_item_id: z.string().uuid().nullable(),
+	purchase_item_id: z.uuid().nullable(),
 })
 
 interface IngredientItemFormProps {

@@ -24,7 +24,7 @@ function slugify(s: string) {
 }
 
 export const Route = createFileRoute("/admin/pecas/")({
-	loader: ({ context }) => context.queryClient.ensureQueryData(piecesQueryOptions()),
+	loader: ({ context }) => context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
 	component: PiecesAdmin,
 })
 

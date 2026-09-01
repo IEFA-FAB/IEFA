@@ -249,7 +249,7 @@ export const uploadNfeFn = createServerFn({ method: "POST" })
 
 /** Re-runs matching for a document (e.g. after catalog/supplier-map growth). */
 export const runNfeMatchingFn = createServerFn({ method: "POST" })
-	.validator(z.object({ nfeDocumentId: z.string().uuid() }))
+	.validator(z.object({ nfeDocumentId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireStorageForDocument(2, data.nfeDocumentId)
 		return runMatchingForDocument(data.nfeDocumentId)
@@ -292,7 +292,7 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 
 /** Fetches one NF-e document with its items ordered by n_item. */
 export const fetchNfeDocumentFn = createServerFn({ method: "GET" })
-	.validator(z.object({ nfeDocumentId: z.string().uuid() }))
+	.validator(z.object({ nfeDocumentId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireStorageForDocument(1, data.nfeDocumentId)
 		const inv = inventory()
@@ -305,7 +305,7 @@ export const fetchNfeDocumentFn = createServerFn({ method: "GET" })
 
 /** Ranked purchase_item suggestions for a review-queue item (trigram + GPC boost). */
 export const fetchNfeItemSuggestionsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ nfeItemId: z.string().uuid() }))
+	.validator(z.object({ nfeItemId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("storage", 1)
 		const inv = inventory()
@@ -329,9 +329,9 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 	.validator(
 		z
 			.object({
-				nfeItemId: z.string().uuid(),
-				ingredientItemId: z.string().uuid().optional(),
-				purchaseItemId: z.string().uuid().optional(),
+				nfeItemId: z.uuid(),
+				ingredientItemId: z.uuid().optional(),
+				purchaseItemId: z.uuid().optional(),
 			})
 			.refine((value) => value.ingredientItemId != null || value.purchaseItemId != null, {
 				message: "Informe ingredientItemId ou purchaseItemId",

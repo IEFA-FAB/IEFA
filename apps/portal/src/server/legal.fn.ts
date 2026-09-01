@@ -50,7 +50,7 @@ export const listPendingLegalDocumentsFn = createServerFn({ method: "GET" }).han
 })
 
 export const acknowledgeLegalDocumentsFn = createServerFn({ method: "POST" })
-	.validator(z.object({ documentIds: z.array(z.string().uuid()).min(1).max(LEGAL_DOC_TYPES.length) }))
+	.validator(z.object({ documentIds: z.array(z.uuid()).min(1).max(LEGAL_DOC_TYPES.length) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const request = getRequest()

@@ -18,13 +18,13 @@ import type { Review } from "@/lib/journal/types"
 
 export const Route = createFileRoute("/journal/review/assignment/$assignmentId")({
 	beforeLoad: async ({ context, params, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated || !auth.user) {
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 
-		const assignment = await context.queryClient.ensureQueryData(reviewAssignmentQueryOptions(params.assignmentId))
-		const profile = await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
+		const assignment = await context.queryClient.query({ ...reviewAssignmentQueryOptions(params.assignmentId), staleTime: "static" })
+		const profile = await context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" })
 		const isOwner = assignment.reviewer_id === auth.user.id
 		const isEditor = profile?.role === "editor"
 		// Só o revisor designado (ou um editor, para acompanhamento) acessa o parecer.
@@ -38,10 +38,10 @@ export const Route = createFileRoute("/journal/review/assignment/$assignmentId")
 		}
 	},
 	loader: async ({ context, params }) => {
-		const assignment = await context.queryClient.ensureQueryData(reviewAssignmentQueryOptions(params.assignmentId))
+		const assignment = await context.queryClient.query({ ...reviewAssignmentQueryOptions(params.assignmentId), staleTime: "static" })
 		await Promise.all([
-			context.queryClient.ensureQueryData(reviewQueryOptions(params.assignmentId)),
-			assignment.article_id ? context.queryClient.ensureQueryData(articleVersionsQueryOptions(assignment.article_id)) : Promise.resolve(),
+			context.queryClient.query({ ...reviewQueryOptions(params.assignmentId), staleTime: "static" }),
+			assignment.article_id ? context.queryClient.query({ ...articleVersionsQueryOptions(assignment.article_id), staleTime: "static" }) : Promise.resolve(),
 		])
 	},
 	component: ReviewSubmission,

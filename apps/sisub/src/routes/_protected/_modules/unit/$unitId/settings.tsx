@@ -1,4 +1,4 @@
-import { useForm, useStore } from "@tanstack/react-form"
+import { useForm, useSelector } from "@tanstack/react-form"
 import { createFileRoute, useParams } from "@tanstack/react-router"
 import { Building2, ExternalLink, MapPin, ShieldCheck } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
@@ -231,7 +231,7 @@ function UnitSettingsForm({ unitId, defaultValues }: { unitId: number; defaultVa
 	})
 
 	// Subscreve ao valor atual do campo uasg para acionar o lookup reativo
-	const uasgValue = useStore(form.store, (state) => state.values.uasg)
+	const uasgValue = useSelector(form.store, (state) => state.values.uasg)
 
 	return (
 		<form

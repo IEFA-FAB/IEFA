@@ -25,7 +25,7 @@ export const Route = createFileRoute("/journal/editorial/dashboard")({
 		},
 	},
 	loader: async ({ context }) => {
-		return context.queryClient.ensureQueryData(editorialDashboardQueryOptions())
+		return context.queryClient.query({ ...editorialDashboardQueryOptions(), staleTime: "static" })
 	},
 	component: EditorialDashboard,
 })

@@ -56,9 +56,9 @@ const viewersQueryOptions = (questionnaireId: string) =>
 export const Route = createFileRoute("/_authenticated/responses/$questionnaireId")({
 	beforeLoad: ({ params }) => assertUuidParam(params.questionnaireId),
 	loader: ({ context, params }) => {
-		context.queryClient.ensureQueryData(questionnaireQueryOptions(params.questionnaireId))
-		context.queryClient.ensureQueryData(viewersQueryOptions(params.questionnaireId))
-		return context.queryClient.ensureQueryData(responsesQueryOptions(params.questionnaireId))
+		context.queryClient.query({ ...questionnaireQueryOptions(params.questionnaireId), staleTime: "static" })
+		context.queryClient.query({ ...viewersQueryOptions(params.questionnaireId), staleTime: "static" })
+		return context.queryClient.query({ ...responsesQueryOptions(params.questionnaireId), staleTime: "static" })
 	},
 	component: ResponsesPage,
 })

@@ -74,7 +74,7 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 	.validator(
 		z.object({
 			gtin: z.string().min(8).max(14),
-			purchaseItemId: z.string().uuid(),
+			purchaseItemId: z.uuid(),
 			force: z.boolean().optional(),
 		})
 	)
@@ -138,7 +138,7 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 
 /** Exigências declaradas de um item de compra (tela de especificação). */
 export const listPurchaseItemRequirementsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ purchaseItemId: z.string().uuid() }))
+	.validator(z.object({ purchaseItemId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("global", 1)
 		return await loadRequirements(data.purchaseItemId)

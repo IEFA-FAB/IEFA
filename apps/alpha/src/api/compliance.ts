@@ -21,8 +21,8 @@ import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission 
 type Variables = { user: User; role: AppRole }
 
 const RunBodySchema = z.object({
-	submission_id: z.string().uuid(),
-	extraction_id: z.string().uuid(),
+	submission_id: z.uuid(),
+	extraction_id: z.uuid(),
 })
 
 const EvaluateBodySchema = z.object({

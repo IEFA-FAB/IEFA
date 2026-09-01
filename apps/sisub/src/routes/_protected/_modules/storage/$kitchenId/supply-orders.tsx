@@ -66,7 +66,7 @@ function SupplyOrdersPage() {
 		}
 	}
 
-	async function emit(e: React.FormEvent) {
+	async function emit(e: React.SyntheticEvent) {
 		e.preventDefault()
 		if (!empenhoId || !qty || !expected) return
 		// SICAF é vinculado ao fornecedor do empenho: com CNPJ conhecido, a

@@ -203,7 +203,7 @@ interface ResetViewProps {
 }
 
 function ResetView({ state, dispatch, actions, onNavigate, goToAuth }: ResetViewProps) {
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const pwErr = getPasswordError(state.newPassword)
 		if (pwErr) {
@@ -278,7 +278,7 @@ interface ForgotViewProps {
 }
 
 function ForgotView({ state, dispatch, actions, goToAuth }: ForgotViewProps) {
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const norm = normalizeEmail(state.forgotEmail)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
@@ -378,7 +378,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 		}
 	}
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (isLocked) return
 		const norm = normalizeEmail(state.loginEmail)
@@ -537,7 +537,7 @@ function RegisterTabContent({ state, dispatch, actions, onTabChange }: RegisterT
 		dispatch({ type: "REGISTER_DATA", patch: { email: v }, emailError })
 	}
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const norm = normalizeEmail(state.registerData.email)
 		if (!FAB_EMAIL_REGEX.test(norm)) {

@@ -112,7 +112,7 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
  * Operação escopada ao usuário autenticado — não revoga chaves de outros usuários.
  */
 export const revokeMcpKeyFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const db = getAccessControlClient()
@@ -132,7 +132,7 @@ export const revokeMcpKeyFn = createServerFn({ method: "POST" })
  * Operação escopada ao usuário autenticado.
  */
 export const deleteMcpKeyFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const db = getAccessControlClient()

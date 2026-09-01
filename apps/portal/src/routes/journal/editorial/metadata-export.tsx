@@ -18,8 +18,8 @@ export const Route = createFileRoute("/journal/editorial/metadata-export")({
 	},
 	loader: async ({ context }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(publishedArticlesQueryOptions()),
-			context.queryClient.ensureQueryData(journalSettingsQueryOptions()),
+			context.queryClient.query({ ...publishedArticlesQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...journalSettingsQueryOptions(), staleTime: "static" }),
 		])
 	},
 	component: MetadataExport,

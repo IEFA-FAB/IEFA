@@ -132,13 +132,13 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 export const confirmIssueFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			taskId: z.string().uuid(),
+			taskId: z.uuid(),
 			items: z
 				.array(
 					z.object({
-						ingredientId: z.string().uuid(),
+						ingredientId: z.uuid(),
 						quantity: z.number().positive(),
-						overrideLotId: z.string().uuid().optional(),
+						overrideLotId: z.uuid().optional(),
 						justification: z.string().optional(),
 					})
 				)
@@ -208,8 +208,8 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 export const registerLeftoverFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			taskId: z.string().uuid(),
-			frozenPreparationId: z.string().uuid(),
+			taskId: z.uuid(),
+			frozenPreparationId: z.uuid(),
 			quantity: z.number().positive(),
 			discard: z.boolean().default(false),
 			discardReason: z.string().optional(),

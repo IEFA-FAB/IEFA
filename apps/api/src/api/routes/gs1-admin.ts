@@ -58,7 +58,7 @@ const gpcSyncRoute = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: z.object({ url: z.string().url().optional(), segmentCodes: z.array(z.string()).optional() }).optional(),
+					schema: z.object({ url: z.url().optional(), segmentCodes: z.array(z.string()).optional() }).optional(),
 				},
 			},
 			required: false,

@@ -61,7 +61,7 @@ function MonitoramentoPage() {
 		const reader = new FileReader()
 		reader.onload = (e) => {
 			const rawData = e.target?.result
-			const workbook = XLSX.read(rawData, { type: "binary" })
+			const workbook = XLSX.read(rawData, { type: "array" })
 			const firstSheetName = workbook.SheetNames[0]
 			const worksheet = workbook.Sheets[firstSheetName]
 			const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
@@ -229,7 +229,7 @@ function MonitoramentoPage() {
 
 			setData(processed)
 		}
-		reader.readAsBinaryString(file)
+		reader.readAsArrayBuffer(file)
 	}
 
 	const handleDrop = (e: React.DragEvent) => {

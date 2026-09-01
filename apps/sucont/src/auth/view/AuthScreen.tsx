@@ -296,7 +296,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleLogin = async (e: React.FormEvent) => {
+	const handleLogin = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (isLocked) return
 		const norm = normalizeEmail(loginEmail)
@@ -341,7 +341,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleRegister = async (e: React.FormEvent) => {
+	const handleRegister = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const norm = normalizeEmail(registerData.email)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
@@ -373,7 +373,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleForgotPassword = async (e: React.FormEvent) => {
+	const handleForgotPassword = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const norm = normalizeEmail(forgotEmail)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
@@ -392,7 +392,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleResetPassword = async (e: React.FormEvent) => {
+	const handleResetPassword = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const resetPwErr = getPasswordError(newPassword)
 		if (resetPwErr) {

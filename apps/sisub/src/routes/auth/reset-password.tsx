@@ -223,7 +223,7 @@ function ResetPasswordPage() {
 		}
 	}, [])
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		"use no memo"
 		e.preventDefault()
 		if (!newPassword || getPasswordError(newPassword)) return

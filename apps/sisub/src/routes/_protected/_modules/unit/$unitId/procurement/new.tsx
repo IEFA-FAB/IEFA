@@ -27,7 +27,7 @@ import type { AtaWizardState, KitchenSelectionState, SelectionBucket, TemplateSe
 
 const searchSchema = z.object({
 	step: z.coerce.number().min(1).max(5).optional().default(1),
-	draft: z.string().uuid().optional(),
+	draft: z.uuid().optional(),
 })
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/new")({

@@ -335,7 +335,7 @@ function SubitensGenericos() {
 		reader.onload = (e) => {
 			try {
 				const bstr = e.target?.result
-				const workbook = XLSX.read(bstr, { type: "binary" })
+				const workbook = XLSX.read(bstr, { type: "array" })
 				const sheetName = workbook.SheetNames[0]
 				const worksheet = workbook.Sheets[sheetName]
 
@@ -418,7 +418,7 @@ function SubitensGenericos() {
 			setError("Erro na leitura do arquivo.")
 			setIsProcessing(false)
 		}
-		reader.readAsBinaryString(file)
+		reader.readAsArrayBuffer(file)
 	}, [])
 
 	const onDrop = (e: React.DragEvent) => {

@@ -44,7 +44,7 @@ export const createReportFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteReportFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontEditor()
 		const { error } = await getSucontServerClient().from("report").delete().eq("id", data.id)

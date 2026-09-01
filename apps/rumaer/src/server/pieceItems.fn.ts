@@ -13,7 +13,7 @@ import { getRumaerServerClient } from "@/lib/supabase.server"
 // Catálogo público — ver listPiecesFn.
 // nosemgrep: server-fn-missing-auth-guard
 export const listPieceItemsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ pieceId: z.string().uuid().optional() }))
+	.validator(z.object({ pieceId: z.uuid().optional() }))
 	.handler(async ({ data }): Promise<PieceItemWithPiece[]> => {
 		const supabase = getRumaerServerClient()
 		let query = supabase.from("piece_item").select("*, piece:piece(*)").is("deleted_at", null).order("nome", { ascending: true })

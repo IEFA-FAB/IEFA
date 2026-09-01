@@ -34,7 +34,7 @@ export interface MyRouterContext {
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	beforeLoad: async ({ context }) => {
 		try {
-			const authState = await context.queryClient.ensureQueryData(authQueryOptions())
+			const authState = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 			return { auth: authState }
 		} catch (_error) {
 			// Return unauthenticated state on failure
@@ -112,7 +112,7 @@ function AuthSync() {
 	useEffect(() => {
 		const {
 			data: { subscription },
-		} = supabase.auth.onAuthStateChange(async (event, session) => {
+		} = supabase.auth.onAuthStateChange((event, session) => {
 			// Recuperação em andamento: o guard de `/auth` precisa saber que esta
 			// sessão não significa "já entrou", senão redireciona quem ainda vai
 			// digitar a senha nova.

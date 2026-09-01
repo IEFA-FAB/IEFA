@@ -17,10 +17,10 @@ import { cloneUniformFn, upsertUniformFn } from "@/server/admin.fn"
 export const Route = createFileRoute("/admin/")({
 	loader: async ({ context }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(uniformsQueryOptions({})),
-			context.queryClient.ensureQueryData(allVariantsQueryOptions()),
-			context.queryClient.ensureQueryData(piecesQueryOptions()),
-			context.queryClient.ensureQueryData(pieceItemsQueryOptions()),
+			context.queryClient.query({ ...uniformsQueryOptions({}), staleTime: "static" }),
+			context.queryClient.query({ ...allVariantsQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...pieceItemsQueryOptions(), staleTime: "static" }),
 		])
 	},
 	component: AdminDashboard,

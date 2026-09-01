@@ -27,7 +27,11 @@ const MODULE_HOVER_CLASSES: Record<GroupColor, string> = {
 	admin: "focus:!bg-destructive/10 focus:!text-destructive focus:**:!text-destructive",
 }
 
-const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
+// `navigator.platform` está deprecado; `userAgentData.platform` é o substituto e só existe
+// em Chromium — daí o userAgent como reserva, que contém "Macintosh" no Safari e no Firefox.
+const isMac =
+	typeof navigator !== "undefined" &&
+	/mac/i.test((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.userAgent)
 
 function altLabel(index: number) {
 	// ⌥ is the standard macOS Option/Alt symbol

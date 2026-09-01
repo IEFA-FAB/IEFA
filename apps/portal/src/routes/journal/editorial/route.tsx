@@ -4,7 +4,7 @@ import { userProfileQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/editorial")({
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 
 		if (!auth.isAuthenticated || !auth.user) {
 			throw redirect({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/journal/editorial")({
 			})
 		}
 
-		const profile = await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
+		const profile = await context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" })
 
 		if (profile?.role !== "editor") {
 			throw redirect({

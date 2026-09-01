@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_public/_en/posts/")({
 		},
 	},
 	loader: ({ context: { queryClient } }) => {
-		return queryClient.ensureQueryData(postsQueryOptions)
+		return queryClient.query({ ...postsQueryOptions, staleTime: "static" })
 	},
 	component: PostsIndex,
 })

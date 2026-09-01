@@ -264,8 +264,8 @@ export const deleteIngredientItemFn = createServerFn({ method: "POST" })
 const SaveIngredientDetailsSchema = UpdateIngredientSchema.extend({
 	// Optional: omit to leave manual nutrients untouched (e.g. when linking a table or
 	// unlinking without editing). Only present when the user actually edited the values.
-	nutrients: z.array(z.object({ nutrientId: z.string().uuid(), nutrientValue: z.number().nullable() })).optional(),
-	nutritionReferenceFoodRevisionId: z.string().uuid().nullable().optional(),
+	nutrients: z.array(z.object({ nutrientId: z.uuid(), nutrientValue: z.number().nullable() })).optional(),
+	nutritionReferenceFoodRevisionId: z.uuid().nullable().optional(),
 })
 
 export const saveIngredientDetailsFn = createServerFn({ method: "POST" })

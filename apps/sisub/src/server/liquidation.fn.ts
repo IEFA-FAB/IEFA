@@ -82,7 +82,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
  * recebida × custo unitário). Sugestão — o número da NS vem do SIAFI.
  */
 export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: receipt } = await inv
@@ -122,12 +122,12 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
-			empenhoId: z.string().uuid(),
+			empenhoId: z.uuid(),
 			numeroNs: z.string().min(1),
 			data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			valor: z.number().positive(),
-			goodsReceiptId: z.string().uuid().optional(),
-			nfeDocumentId: z.string().uuid().optional(),
+			goodsReceiptId: z.uuid().optional(),
+			nfeDocumentId: z.uuid().optional(),
 			observacao: z.string().optional(),
 		})
 	)
@@ -169,7 +169,7 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
-			liquidacaoId: z.string().uuid(),
+			liquidacaoId: z.uuid(),
 			numeroOb: z.string().min(1),
 			data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			valor: z.number().positive(),

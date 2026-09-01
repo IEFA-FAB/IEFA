@@ -34,7 +34,7 @@ const TIPO_PECA = z.enum(["cabeca", "torso", "pernas", "calcado", "acessorio", "
 export const upsertUniformFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid().optional(),
+			id: z.uuid().optional(),
 			numero: z.number().int().nullable().optional(),
 			letra: z.string().nullable().optional(),
 			nome: z.string().min(1),
@@ -58,7 +58,7 @@ export const upsertUniformFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteUniformFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const { error } = await getRumaerServerClient().from("uniform").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
@@ -67,7 +67,7 @@ export const deleteUniformFn = createServerFn({ method: "POST" })
 	})
 
 export const cloneUniformFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<Uniform> => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
@@ -118,7 +118,7 @@ export const cloneUniformFn = createServerFn({ method: "POST" })
 	})
 
 export const setUniformCategoriesFn = createServerFn({ method: "POST" })
-	.validator(z.object({ uniformId: z.string().uuid(), categorias: z.array(CATEGORIA) }))
+	.validator(z.object({ uniformId: z.uuid(), categorias: z.array(CATEGORIA) }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
@@ -136,8 +136,8 @@ export const setUniformCategoriesFn = createServerFn({ method: "POST" })
 export const upsertVariantFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid().optional(),
-			uniform_id: z.string().uuid(),
+			id: z.uuid().optional(),
+			uniform_id: z.uuid(),
 			circulo: CIRCULO,
 			genero: GENERO,
 			sub_variacao: z.string().nullable().optional(),
@@ -180,7 +180,7 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteVariantFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
@@ -198,7 +198,7 @@ export const deleteVariantFn = createServerFn({ method: "POST" })
 
 /** Limpa apenas a imagem base da variante (path → null + remove do storage), sem apagar a variante. */
 export const clearVariantImageFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
@@ -217,7 +217,7 @@ export const clearVariantImageFn = createServerFn({ method: "POST" })
 export const upsertPieceFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid().optional(),
+			id: z.uuid().optional(),
 			nome: z.string().min(1),
 			slug: z.string().min(1),
 			tipo: TIPO_PECA.nullable().optional(),
@@ -233,7 +233,7 @@ export const upsertPieceFn = createServerFn({ method: "POST" })
 	})
 
 export const deletePieceFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const { error } = await getRumaerServerClient().from("piece").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
@@ -245,8 +245,8 @@ export const deletePieceFn = createServerFn({ method: "POST" })
 export const upsertPieceItemFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid().optional(),
-			piece_id: z.string().uuid(),
+			id: z.uuid().optional(),
+			piece_id: z.uuid(),
 			nome: z.string().min(1),
 			tamanho: z.string().nullable().optional(),
 			cor: z.string().nullable().optional(),
@@ -264,7 +264,7 @@ export const upsertPieceItemFn = createServerFn({ method: "POST" })
 	})
 
 export const deletePieceItemFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const { error } = await getRumaerServerClient().from("piece_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
@@ -276,11 +276,11 @@ export const deletePieceItemFn = createServerFn({ method: "POST" })
 export const setVariantPiecesFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			variantId: z.string().uuid(),
+			variantId: z.uuid(),
 			pieces: z.array(
 				z.object({
-					piece_id: z.string().uuid(),
-					piece_item_id: z.string().uuid().nullable().optional(),
+					piece_id: z.uuid(),
+					piece_item_id: z.uuid().nullable().optional(),
 					obrigatoriedade: OBRIGATORIEDADE,
 					observacao: z.string().nullable().optional(),
 					restricao_posto: z.array(z.string()).nullable().optional(),
@@ -307,9 +307,9 @@ export const setVariantPiecesFn = createServerFn({ method: "POST" })
 export const addPieceToVariantsFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			variantIds: z.array(z.string().uuid()).min(1),
-			piece_id: z.string().uuid(),
-			piece_item_id: z.string().uuid().nullable().optional(),
+			variantIds: z.array(z.uuid()).min(1),
+			piece_id: z.uuid(),
+			piece_item_id: z.uuid().nullable().optional(),
 			obrigatoriedade: OBRIGATORIEDADE,
 			observacao: z.string().nullable().optional(),
 		})
@@ -370,8 +370,8 @@ export const listAllVariantsFn = createServerFn({ method: "GET" }).handler(async
 export const upsertVariantImageFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			variant_id: z.string().uuid(),
-			piece_id: z.string().uuid(),
+			variant_id: z.uuid(),
+			piece_id: z.uuid(),
 			image_path: z.string().min(1),
 			legenda: z.string().nullable().optional(),
 			// Ver `upsertVariantFn`: o path do look também é derivado da variante + peça.
@@ -410,7 +410,7 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteVariantImageFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireUniformEditor()
 		const supabase = getRumaerServerClient()

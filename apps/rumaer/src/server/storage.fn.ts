@@ -74,7 +74,7 @@ export type UniformPreviewImage = {
 // só informa o id do uniforme, nunca um path arbitrário.
 // nosemgrep: server-fn-missing-auth-guard
 export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<UniformPreviewImage[]> => {
 		const supabase = getRumaerServerClient()
 

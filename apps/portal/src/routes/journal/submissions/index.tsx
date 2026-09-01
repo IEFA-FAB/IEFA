@@ -34,16 +34,16 @@ export const Route = createFileRoute("/journal/submissions/")({
 		},
 	},
 	beforeLoad: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth" })
 		}
 		return { auth }
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user) {
-			await context.queryClient.ensureQueryData(articlesQueryOptions({ submitter_id: auth.user.id }))
+			await context.queryClient.query({ ...articlesQueryOptions({ submitter_id: auth.user.id }), staleTime: "static" })
 		}
 	},
 	component: RouteComponent,

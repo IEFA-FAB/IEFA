@@ -42,7 +42,7 @@ test.describe("Navigation — rotas protegidas", () => {
 		await waitForReactHydration(authenticatedPage, 'a[href*="/diner"]')
 
 		// Captura o timestamp de carregamento da página atual
-		const navStart = await authenticatedPage.evaluate(() => window.performance.timing.navigationStart)
+		const navStart = await authenticatedPage.evaluate(() => window.performance.timeOrigin)
 
 		// Navega para diner via link (SPA navigation) — clica no primeiro link para /diner
 		const dinerLink = authenticatedPage.locator('a[href*="/diner"]').first()
@@ -52,8 +52,8 @@ test.describe("Navigation — rotas protegidas", () => {
 			await dinerLink.click()
 			await authenticatedPage.waitForURL(/\/diner/, { timeout: 10_000 })
 
-			// Verifica que não houve reload completo (navigationStart não mudou)
-			const navStartAfter = await authenticatedPage.evaluate(() => window.performance.timing.navigationStart)
+			// Verifica que não houve reload completo (timeOrigin não mudou)
+			const navStartAfter = await authenticatedPage.evaluate(() => window.performance.timeOrigin)
 			expect(navStartAfter).toBe(navStart)
 		} else {
 			// Se não há link direto visível, navega programaticamente

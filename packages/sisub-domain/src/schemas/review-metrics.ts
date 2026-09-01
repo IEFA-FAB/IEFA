@@ -7,8 +7,8 @@ import { z } from "zod"
  * a cobertura geral (revisados alguma vez / ativos) é independente da janela.
  */
 export const GetReviewMetricsSchema = z.object({
-	from: z.string().datetime().optional(),
-	to: z.string().datetime().optional(),
+	from: z.iso.datetime().optional(),
+	to: z.iso.datetime().optional(),
 	/**
 	 * Recorte do lado INSUMO das métricas — as três abas de /global/ingredients, que são
 	 * três catálogos disjuntos dentro de `kitchen.ingredient`. Omitido ⇒ `insumos`.

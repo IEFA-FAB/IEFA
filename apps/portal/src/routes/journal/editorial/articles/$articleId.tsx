@@ -20,9 +20,9 @@ import {
 export const Route = createFileRoute("/journal/editorial/articles/$articleId")({
 	loader: async ({ context, params }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(articleWithDetailsQueryOptions(params.articleId)),
-			context.queryClient.ensureQueryData(articleReviewsQueryOptions(params.articleId)),
-			context.queryClient.ensureQueryData(articleEventsQueryOptions(params.articleId)),
+			context.queryClient.query({ ...articleWithDetailsQueryOptions(params.articleId), staleTime: "static" }),
+			context.queryClient.query({ ...articleReviewsQueryOptions(params.articleId), staleTime: "static" }),
+			context.queryClient.query({ ...articleEventsQueryOptions(params.articleId), staleTime: "static" }),
 		])
 	},
 	component: ArticleDetailEditor,

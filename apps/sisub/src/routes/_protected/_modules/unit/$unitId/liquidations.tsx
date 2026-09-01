@@ -40,7 +40,7 @@ function LiquidationsPage() {
 
 	const selected = empenhos.find((e) => e.id === empenhoId)
 
-	async function submit(e: React.FormEvent) {
+	async function submit(e: React.SyntheticEvent) {
 		e.preventDefault()
 		if (!empenhoId || !numeroNs || !valor) return
 		setBusy(true)
