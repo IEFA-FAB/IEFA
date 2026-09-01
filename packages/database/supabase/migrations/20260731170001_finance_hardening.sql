@@ -1,3 +1,20 @@
+-- NOTA DE HISTÓRICO (renomeado de 20260731170000 em 2026-09-01)
+--
+-- Este arquivo nasceu com a MESMA versão de 20260731170000_assignment_selection_2026_vacancies.sql.
+-- `supabase_migrations.schema_migrations` tem versão como chave: os dois foram
+-- aplicados em produção, mas só um nome ficou registrado (o do
+-- assignment_selection). O CLI então via este arquivo como pendente para sempre e
+-- todo `db push` parava nele — e re-rodá-lo quebraria em
+-- `create trigger empenho_event_floor`, que já existe.
+--
+-- A correção é dar a ele uma versão própria (…70001, logo depois da outra, que é a
+-- ordem em que rodaram) e marcar essa versão como applied, já que o efeito está em
+-- produção desde 2026-07-31: finance.check_empenho_event_floor, o trigger
+-- empenho_event_floor e siafi_integration.claim_import_batch estão todos lá.
+--
+-- Lição para migration nova: versão é chave primária. Dois arquivos no mesmo
+-- segundo é uma perda silenciosa, não um conflito visível.
+
 -- ============================================================================
 -- Hardening da execução orçamentária (passada de review)
 -- ============================================================================

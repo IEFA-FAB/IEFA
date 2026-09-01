@@ -101,7 +101,7 @@ $$;
 -- ----------------------------------------------------------------------------
 -- 3. Dívida registrada, não resolvida
 -- ----------------------------------------------------------------------------
--- core.user_data.mess_hall_id aponta para kitchen.mess_halls: o núcleo passou
+-- core.user_data.default_mess_hall_id aponta para kitchen.mess_halls: o núcleo passou
 -- a depender do domínio, que é a direção errada. A FK segue a tabela e
 -- continua íntegra, mas isso é wart, não desenho — "qual refeitório este
 -- usuário frequenta" é preferência de subsistência e pertence a um perfil do
@@ -111,7 +111,7 @@ $$;
 -- de perfil, migrar 1.421 linhas e reescrever os leitores, e isso não tem
 -- relação com acondicionamento de insumo. Fica explícito para não virar
 -- decisão implícita.
-comment on column core.user_data.mess_hall_id is
+comment on column core.user_data.default_mess_hall_id is
   'DÍVIDA: núcleo apontando para domínio. Deve migrar para um perfil de subsistência do lado kitchen — ver 20260901120400_core_promotion.sql.';
 
 -- ----------------------------------------------------------------------------

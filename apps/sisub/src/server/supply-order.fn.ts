@@ -143,10 +143,10 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const core = getServerClient("core") as unknown as LooseClient
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
 		const finance = getServerClient("finance") as unknown as LooseClient
 
-		const { data: kitchenRow } = await core.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
 		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 		if (unitId == null) return []
 
