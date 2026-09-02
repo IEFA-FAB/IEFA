@@ -277,3 +277,38 @@ export function buscarEspecie(id: string): Especie | undefined {
 export function especiesPorAmbito(ambito: Ambito): Especie[] {
 	return ESPECIES.filter((e) => e.ambitos.includes(ambito))
 }
+
+/**
+ * Catálogo em texto, para o prompt do modelo.
+ *
+ * Sai daqui, e não de uma lista escrita à mão no prompt, porque espécie nova no catálogo
+ * tem de aparecer para o modelo no mesmo commit — uma cópia no prompt envelheceria em
+ * silêncio, e o modelo continuaria escolhendo entre as espécies de ontem.
+ */
+export function descreverCatalogo(): string {
+	return ESPECIES.map((e) => `- ${e.id} — ${e.rotulo} (${e.fundamento}). Âmbitos: ${e.ambitos.join(", ")}. ${e.descricao}`).join("\n")
+}
+
+/**
+ * Concilia o que o modelo sugeriu com o que a norma permite.
+ *
+ * O par espécie × âmbito não é livre: o ofício externo não existe dentro do COMAER e a
+ * declaração não circula entre OM. Aceitar a sugestão sem conferir renderizaria fecho de
+ * cortesia onde o art. 30 o proíbe, que é justamente o que o catálogo existe para impedir.
+ *
+ * Sugestão incoerente não é descartada em silêncio: a espécie manda, porque é a escolha
+ * mais específica, e o âmbito é puxado para um que a comporte.
+ */
+export function conciliarEspecieAmbito(
+	atual: { especie: string; ambito: Ambito },
+	sugerido: { especie?: string; ambito?: Ambito }
+): { especie: string; ambito: Ambito } {
+	const especie = sugerido.especie && buscarEspecie(sugerido.especie) ? sugerido.especie : atual.especie
+	const definicao = buscarEspecie(especie)
+	if (!definicao) return atual
+
+	const ambito = sugerido.ambito ?? atual.ambito
+	if (definicao.ambitos.includes(ambito)) return { especie, ambito }
+	// O âmbito sugerido não comporta a espécie: fica o primeiro que a norma admite para ela.
+	return { especie, ambito: definicao.ambitos[0] }
+}

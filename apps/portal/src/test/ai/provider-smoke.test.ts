@@ -21,6 +21,7 @@
 import { describe, expect, test } from "bun:test"
 import { createAdapterFromEnv } from "@iefa/ai-provider"
 import { buildChatOptions } from "@/lib/ai-options"
+import { buscarEspecie, descreverCatalogo } from "@/lib/comaer/especies"
 import { RedacaoIaSchema } from "@/lib/comaer/schema"
 import { redacaoJsonSchema } from "@/server/documents-ai.schema"
 
@@ -54,6 +55,31 @@ describeAiSmoke("provider de IA do portal", () => {
 			// modelo escrevendo "Atenciosamente" no corpo duplicaria o fecho no documento.
 			const corpo = redacao.paragrafos.map((p) => p.texto).join("\n")
 			expect(corpo).not.toMatch(/^(Respeitosamente|Atenciosamente)/im)
+		},
+		{ timeout: 120_000 }
+	)
+
+	test(
+		"escolhe a espécie que o rascunho pede, não a que estava no formulário",
+		async () => {
+			// O rascunho é um pleito pessoal: a espécie certa é Requerimento (art. 55), não o
+			// Ofício que o formulário abre por padrão. É o erro que o redator ocasional comete,
+			// e é para isso que o catálogo vai no prompt.
+			const adapter = createAdapterFromEnv("PORTAL", { rateLimitKey: "smoke" })
+			type StructuredArgs = Parameters<typeof adapter.structuredOutput>[0]
+
+			const resposta = await adapter.structuredOutput({
+				chatOptions: buildChatOptions(
+					`Espécie escolhida no formulário: oficio-comaer. Troque-a se o rascunho pedir outra.\n\nRascunho: o 1º Ten QOAP L. Santos vem requerer ao Comandante do IEFA a concessão de licença especial de 30 dias referente ao decênio 2016-2026, prevista em lei.`,
+					`Você redige comunicações oficiais do COMAER segundo a NSCA 5-3/2026 e escolhe a espécie adequada.\n\nCATÁLOGO DE ESPÉCIES:\n${descreverCatalogo()}`
+				) as unknown as StructuredArgs["chatOptions"],
+				outputSchema: redacaoJsonSchema as unknown as StructuredArgs["outputSchema"],
+			})
+
+			const redacao = RedacaoIaSchema.parse(resposta.data)
+			expect(redacao.especie).toBe("requerimento")
+			// Espécie fora do catálogo é pior que espécie ausente: ela viaja até o formulário.
+			expect(buscarEspecie(redacao.especie ?? "")).toBeDefined()
 		},
 		{ timeout: 120_000 }
 	)

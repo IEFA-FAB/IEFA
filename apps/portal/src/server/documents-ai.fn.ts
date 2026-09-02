@@ -16,7 +16,7 @@ import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { generateJson } from "@/lib/ai.server"
 import { requireUserId } from "@/lib/auth.server"
-import { buscarEspecie, type Especie } from "@/lib/comaer/especies"
+import { buscarEspecie, descreverCatalogo, type Especie } from "@/lib/comaer/especies"
 import { type RedacaoIa, RedacaoIaSchema } from "@/lib/comaer/schema"
 import { getDocumentsServerClient } from "@/lib/supabase.server"
 import { redacaoJsonSchema } from "./documents-ai.schema"
@@ -34,12 +34,23 @@ Regras que a norma impõe ao TEXTO:
 - Com agente público federal — militar ou servidor —, o ÚNICO pronome de tratamento é "Senhor" (art. 9º, § 3º). Não escreva "Vossa Senhoria", "Vossa Excelência", "Ilustríssimo", "Digníssimo" nem "doutor" (art. 9º, § 4º), nem no texto nem no vocativo.
 - NÃO escreva fecho de cortesia ("Respeitosamente", "Atenciosamente"): quem decide isso é a norma pelo destinatário, e o sistema o insere (art. 30).
 - NÃO invente número de documento, NUP, nome de organização, data, nome ou posto de signatário. Se algum dado faltar, redija sem ele.
-- O assunto é uma expressão substantiva sucinta, sem verbo conjugado e sem ponto final (art. 37, § 2º, II).`
+- O assunto é uma expressão substantiva sucinta, sem verbo conjugado e sem ponto final (art. 37, § 2º, II).
+
+Você também ESCOLHE a forma do documento, a partir do que o rascunho pede:
+- espécie e âmbito, entre os do catálogo abaixo. Espécie e âmbito têm de ser compatíveis;
+- remetente e destinatários pelo CARGO, nunca pelo nome (art. 36), com "via" quando o expediente tramita por autoridade intermediária;
+- precedência do destinatário em relação ao signatário, que decide o fecho quando o destinatário é externo ao COMAER;
+- prioridade (art. 7º, § 3º): "urgente" só quando o rascunho disser que é.
+
+Preencha apenas o que o rascunho sustentar. Campo sem base no rascunho fica AUSENTE — não use marcador de preenchimento como <NOME>, [cargo], XXXX ou "a definir". Ausente o usuário completa; marcador ele copia para o SIGADAER sem enxergar.
+
+CATÁLOGO DE ESPÉCIES:
+${descreverCatalogo()}`
 
 function promptDe(especie: Especie, ambito: string, modo: "redigir" | "revisar", rascunho: string): string {
 	const contexto = [
-		`Espécie: ${especie.rotulo} (${especie.fundamento}). ${especie.descricao}`,
-		`Âmbito: ${ambito === "externo" ? "destinatário externo ao COMAER" : ambito === "comaer" ? "entre Organizações Militares do COMAER" : "interno à própria Organização Militar"}.`,
+		`Espécie escolhida no formulário: ${especie.id} — ${especie.rotulo} (${especie.fundamento}). Troque-a se o rascunho pedir outra, e diga qual no campo "especie".`,
+		`Âmbito escolhido no formulário: ${ambito === "externo" ? "externo ao COMAER" : ambito === "comaer" ? "entre Organizações Militares do COMAER" : "interno à própria Organização Militar"}. Troque-o se o rascunho indicar outro.`,
 		especie.aberturaSugerida ? `O primeiro parágrafo deve começar por "${especie.aberturaSugerida.trim()}".` : "",
 		especie.paragrafosNumerados ? "" : "Esta espécie não numera parágrafos; escreva texto corrido em parágrafos distintos.",
 	]

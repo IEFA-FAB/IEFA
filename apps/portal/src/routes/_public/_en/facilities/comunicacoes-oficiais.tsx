@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { buscarEspecie } from "@/lib/comaer/especies"
 import { montarDocumento } from "@/lib/comaer/montar"
 import { carregarRascunho, limparRascunho, rascunhoInicial, salvarRascunho } from "@/lib/comaer/rascunho"
+import { aplicarRedacao } from "@/lib/comaer/redacao"
 import type { RedacaoIa } from "@/lib/comaer/schema"
 import type { DocumentoInput } from "@/lib/comaer/tipos"
 
@@ -84,19 +85,9 @@ function ComunicacoesOficiais() {
 
 	const alterar = (patch: Partial<DocumentoInput>) => setInput((atual) => ({ ...atual, ...patch }))
 
-	/**
-	 * A proposta do modelo entra só nos campos de texto, e apenas onde ele de fato
-	 * escreveu: referências e anexos ausentes na resposta não apagam o que o usuário já
-	 * tinha digitado.
-	 */
-	const aplicarRedacao = (redacao: RedacaoIa) =>
-		setInput((atual) => ({
-			...atual,
-			assunto: redacao.assunto ?? atual.assunto,
-			paragrafos: redacao.paragrafos,
-			referencias: redacao.referencias ?? atual.referencias,
-			anexos: redacao.anexos ?? atual.anexos,
-		}))
+	// A regra do que a proposta pode sobrescrever mora em `aplicarRedacao`, fora do
+	// componente: é a decisão mais importante da ferramenta e precisa de teste.
+	const aplicarProposta = (redacao: RedacaoIa) => setInput((atual) => aplicarRedacao(atual, redacao))
 
 	const comecarNovo = () => {
 		limparRascunho()
@@ -150,7 +141,7 @@ function ComunicacoesOficiais() {
 						onNovo={comecarNovo}
 						onSalvo={setDocumentoId}
 					/>
-					<PainelIa input={input} onAplicar={aplicarRedacao} />
+					<PainelIa input={input} onAplicar={aplicarProposta} />
 					<FormularioDocumento input={input} especie={especie} onChange={alterar} />
 					<PainelExportacao doc={doc} />
 				</div>
