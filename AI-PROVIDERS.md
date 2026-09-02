@@ -17,10 +17,52 @@ que não cobre), como os tetos de consumo funcionam e o que ainda falta migrar.
 | sisub — chat dos módulos | `MODULE_CHAT_AI_*` | **bedrock** | groq | ✅ migrado |
 | sisub — assistente de analytics | `ANALYTICS_AI_*` | **bedrock** | groq | ✅ migrado |
 | sucont — oráculo | `SUCONT_AI_*` | **bedrock** | **bedrock** (`gpt-oss-120b`) | ✅ migrado — primário, reserva e tetos aplicados |
+| portal — redação de comunicações oficiais | `PORTAL_AI_*` | **bedrock** (`opus-4-6`) | **bedrock** (`gpt-oss-120b`) | ⚠️ código e modelo verificados; **env ainda não provisionado em prod** |
 | alpha — grafo LangGraph | `ALPHA_AI_*` | nvidia | — | ❌ dívida (ver abaixo) |
 
 `apps/sisub-mcp` não chama modelo: ele **expõe** ferramentas para o modelo do cliente MCP.
-Portal, rumaer, forms, docs e api não usam IA.
+rumaer, forms, docs e api não usam IA.
+
+### portal — redação assistida das comunicações oficiais
+
+`/facilities/comunicacoes-oficiais` (NSCA 5-3/2026) chama o modelo por
+`apps/portal/src/server/documents-ai.fn.ts`, via o ponto único `apps/portal/src/lib/ai.server.ts`.
+Duas restrições próprias deste consumidor, ambas cobradas por contrato em
+`apps/portal/src/test/ai-access.contract.test.ts`:
+
+- **O modelo escreve texto, não identidade.** O JSON Schema publicado só tem assunto,
+  parágrafos, referências e anexos. Numeração, NUP, OM, data e signatário não estão no
+  schema — número de ofício inventado é erro que só aparece depois do despacho.
+- **Documento classificado não vai para provider nenhum.** Grau de sigilo diferente de
+  `ostensivo` é recusado antes da chamada, e a recusa é gravada em `documents.ai_generation`,
+  que é o que torna a afirmação auditável.
+
+Enquanto `PORTAL_AI_PROVIDER`/`PORTAL_AI_MODEL` não existirem na task definition do portal, o
+capability gate responde **503** e o resto do portal sobe normalmente — o painel de redação
+assistida é a única coisa que não funciona.
+
+#### Modelo escolhido (medido em 2026-09-02, conta `103256050857`, `sa-east-1`)
+
+| | valor | como foi verificado |
+|---|---|---|
+| primário | `global.anthropic.claude-opus-4-6-v1` | `converse` real respondeu; `simulate-principal-policy` = `allowed` para `InvokeModelWithResponseStream`; `bun run test:ai` verde com o schema real |
+| reserva | `openai.gpt-oss-120b-1:0` | idem — `test:ai` verde também com ele como primário |
+
+**Perfil `ACTIVE` continua não significando habilitado.** `list-inference-profiles` devolve
+`opus-4-8`, `opus-5`, `sonnet-5`, `fable-5` e `fable-5-1` todos como `ACTIVE`, e mesmo assim
+o `converse` neles responde `AccessDeniedException: … is not available for this account`.
+Respondem hoje: **opus-4-6, opus-4-5, sonnet-4-6, sonnet-4-5, haiku-4-5 e gpt-oss-120b** — a
+mesma lista de 2026-08-21, ou seja, nada novo foi habilitado desde então.
+
+**`bedrock:Converse` dar `implicitDeny` na simulação é esperado, não é bug.** A policy
+`iefa-prod-ecs-task-extra` concede só `bedrock:InvokeModel` e
+`bedrock:InvokeModelWithResponseStream` — e é por essas ações que a Converse API autoriza.
+Simular a ação `Converse`/`ConverseStream` faz uma config correta parecer quebrada; simule
+sempre `InvokeModelWithResponseStream`.
+
+O smoke `apps/portal/src/test/ai/provider-smoke.test.ts` (opt-in, `bun run test:ai`) é
+não-vacuoso por construção: apontado para `opus-4-8` ele falha com o `AccessDeniedException`
+acima, e para `opus-4-6` passa.
 
 ### O que está aplicado em produção (conferido em 2026-08-14 pela CLI)
 

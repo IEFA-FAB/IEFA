@@ -70,6 +70,7 @@ CMD ["bun", "apps/api/dist/index.js"]
 FROM deps AS portal-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
+COPY packages/ai-provider ./packages/ai-provider
 COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
