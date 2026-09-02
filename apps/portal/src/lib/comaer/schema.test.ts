@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test"
-import { fromDateInputValue, newDocument } from "./draft"
+import { beforeEach, describe, expect, it } from "bun:test"
+import { DRAFT_KEY, fromDateInputValue, loadDraft, newDocument, saveDraft } from "./draft"
 import { AiProposalSchema, DocumentPayloadSchema, fromPayload, toPayload } from "./schema"
 
 describe("payload gravado no jsonb", () => {
@@ -67,5 +67,53 @@ describe("data vinda do formulário", () => {
 		expect(fromDateInputValue("").getFullYear()).toBe(hoje.getFullYear())
 		expect(fromDateInputValue("2026-07-03").getDate()).toBe(3)
 		expect(fromDateInputValue("2026-07-03").getMonth()).toBe(6)
+	})
+})
+
+describe("rascunho gravado por outra versão do formato", () => {
+	/**
+	 * O erro que isto fecha: "Cannot read properties of undefined (reading 'trim')". Um
+	 * rascunho gravado antes da renomeação volta com `localidade`/`especie`; o campo novo
+	 * chega `undefined` e a montagem morre no primeiro `city.trim()`, com a tela em branco
+	 * e longe da causa.
+	 */
+	const armazenamento = new Map<string, string>()
+	const localStorageFalso = {
+		getItem: (k: string) => armazenamento.get(k) ?? null,
+		setItem: (k: string, v: string) => void armazenamento.set(k, v),
+		removeItem: (k: string) => void armazenamento.delete(k),
+	}
+
+	beforeEach(() => {
+		armazenamento.clear()
+		;(globalThis as { localStorage?: unknown }).localStorage = localStorageFalso
+	})
+
+	it("descarta o rascunho em formato antigo em vez de devolvê-lo pela metade", () => {
+		armazenamento.set(
+			DRAFT_KEY,
+			JSON.stringify({ especie: "oficio-comaer", ambito: "comaer", sigilo: "ostensivo", localidade: "Brasília", data: new Date().toISOString() })
+		)
+		expect(loadDraft()).toBeNull()
+		expect(armazenamento.has(DRAFT_KEY)).toBe(false)
+	})
+
+	it("apaga a chave da versão anterior ao ler", () => {
+		armazenamento.set("iefa.comaer.rascunho.v1", JSON.stringify({ especie: "oficio-comaer" }))
+		expect(loadDraft()).toBeNull()
+		expect(armazenamento.has("iefa.comaer.rascunho.v1")).toBe(false)
+	})
+
+	it("devolve o rascunho quando o formato confere, com a data reidratada", () => {
+		saveDraft({ ...newDocument(), city: "Rio de Janeiro", date: new Date(2026, 6, 3) })
+		const loaded = loadDraft()
+		expect(loaded?.city).toBe("Rio de Janeiro")
+		expect(loaded?.date).toBeInstanceOf(Date)
+		expect(loaded?.date.getDate()).toBe(3)
+	})
+
+	it("conteúdo corrompido não derruba a tela", () => {
+		armazenamento.set(DRAFT_KEY, "{ isto não é json")
+		expect(loadDraft()).toBeNull()
 	})
 })

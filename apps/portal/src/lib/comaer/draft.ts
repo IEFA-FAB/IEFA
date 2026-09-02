@@ -1,5 +1,5 @@
 /**
- * @module comaer/rascunho
+ * @module comaer/draft
  * Rascunho do documento em `localStorage`.
  *
  * Sem isso, um F5 no meio da redação apaga o ofício inteiro. O papel deste módulo é o do
@@ -11,9 +11,19 @@
  * (art. 7º § 2º) e não há motivo para subi-lo antes de o usuário pedir.
  */
 
+import { DocumentPayloadSchema, fromPayload, toPayload } from "./schema"
 import type { DocumentInput } from "./types"
 
-export const DRAFT_KEY = "iefa.comaer.rascunho.v1"
+/**
+ * A versão faz parte da chave porque o formato do rascunho é o `DocumentPayload`, e ele
+ * muda quando os campos mudam. Sem trocar a chave, o rascunho gravado pela versão anterior
+ * volta com `localidade`/`especie`, o campo novo chega `undefined` e a tela morre em
+ * "Cannot read properties of undefined (reading 'trim')" no primeiro `city.trim()`.
+ */
+export const DRAFT_KEY = "iefa.comaer.draft.v2"
+
+/** Chaves de formatos anteriores: são apagadas na primeira leitura, não migradas. */
+const LEGACY_DRAFT_KEYS = ["iefa.comaer.rascunho.v1"]
 
 export function newDocument(): DocumentInput {
 	return {
@@ -37,22 +47,40 @@ export function newDocument(): DocumentInput {
 	}
 }
 
-/** A data vira ISO na serialização; sem reidratar, `dataPorExtenso` receberia string. */
+/**
+ * O rascunho é VALIDADO, não assumido: o que está no `localStorage` foi escrito por outra
+ * sessão e possivelmente por outra versão do formato. Um `as DocumentInput` cru transforma
+ * qualquer divergência de formato em erro de runtime com a tela em branco, longe da causa.
+ * Rascunho ilegível é descartado — recomeçar em branco é ruim, quebrar é pior.
+ *
+ * A data volta a ser `Date` no caminho: em ISO ela quebraria `dateInFull`.
+ */
 export function loadDraft(): DocumentInput | null {
 	if (typeof localStorage === "undefined") return null
+	for (const legacy of LEGACY_DRAFT_KEYS) localStorage.removeItem(legacy)
 	const stored = localStorage.getItem(DRAFT_KEY)
 	if (!stored) return null
 	try {
-		const parsed = JSON.parse(stored) as DocumentInput & { date: string }
-		return { ...parsed, date: new Date(parsed.date) }
+		const parsed = DocumentPayloadSchema.safeParse(JSON.parse(stored))
+		if (!parsed.success) {
+			localStorage.removeItem(DRAFT_KEY)
+			return null
+		}
+		return fromPayload(parsed.data)
 	} catch {
+		localStorage.removeItem(DRAFT_KEY)
 		return null
 	}
 }
 
 export function saveDraft(input: DocumentInput): void {
 	if (typeof localStorage === "undefined") return
-	localStorage.setItem(DRAFT_KEY, JSON.stringify(input))
+	try {
+		localStorage.setItem(DRAFT_KEY, JSON.stringify(toPayload(input)))
+	} catch {
+		// Rascunho é melhor esforço: cota estourada ou documento em estado intermediário não
+		// podem derrubar a digitação em curso.
+	}
 }
 
 export function clearDraft(): void {
