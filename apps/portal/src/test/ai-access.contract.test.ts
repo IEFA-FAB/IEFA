@@ -12,7 +12,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
 
 const APP_ROOT = resolve(import.meta.dir, "../..")
-const SCAN_DIRS = ["src"]
+const SCAN_DIRS = ["src", "routes"]
 
 /** O próprio ponto de guarda — ele define a cadeia, não a consome. */
 const GUARD_MODULE = "src/lib/ai.server.ts"
@@ -47,11 +47,14 @@ describe("varredura", () => {
 	// Se um refactor renomear os símbolos, os describes abaixo passariam vazios e o
 	// contrato viraria decoração. Este teste é o que denuncia a varredura vazia.
 	it("encontra os caminhos conhecidos até o modelo", () => {
-		expect(VIA_GUARD_MODULE.map((s) => s.path).sort()).toEqual(["src/server/documents-ai.fn.ts"])
+		expect(VIA_GUARD_MODULE.map((s) => s.path).sort()).toEqual(["src/server/documents-ai.fn.ts", "src/server/documents-import.fn.ts"])
 	})
 
-	it("ninguém monta adapter fora do ponto de guarda", () => {
-		expect(DIRECT_ADAPTER.map((s) => s.path)).toEqual([])
+	// A rota Nitro monta o adapter na mão porque o stream não passa por server function.
+	// Quem faz isso precisa da cadeia inteira dentro do próprio arquivo — é o que os testes
+	// abaixo cobram.
+	it("só a rota de conversa monta adapter fora do ponto de guarda", () => {
+		expect(DIRECT_ADAPTER.map((s) => s.path)).toEqual(["routes/api/comunicacoes/chat.post.ts"])
 	})
 })
 
@@ -87,6 +90,39 @@ describe("ponto de guarda — src/lib/ai.server.ts", () => {
 	})
 })
 
+describe.each(DIRECT_ADAPTER.map((s) => [s.path, s] as const))("adapter direto — %s", (_path, source) => {
+	it("tem capability gate antes de montar o adapter", () => {
+		expect(source.text).toContain("getServerCapabilities()")
+		expect(source.text.indexOf("getServerCapabilities()")).toBeLessThan(source.text.indexOf("createAdapterFromEnv("))
+	})
+
+	it("exige sessão — o guard de rota do app é client-side e não alcança rota Nitro", () => {
+		expect(source.text).toMatch(/requirePortalUser\(/)
+		expect(source.text.indexOf("requirePortalUser(")).toBeLessThan(source.text.indexOf("createAdapterFromEnv("))
+	})
+
+	it("aplica o teto ANTES de abrir o SSE", () => {
+		expect(source.text).toContain('enforceRequestRateLimit("PORTAL"')
+		expect(source.text.indexOf("enforceRequestRateLimit(")).toBeLessThan(source.text.indexOf("createAdapterFromEnv("))
+	})
+
+	it("chaveia os tetos do adapter pelo usuário", () => {
+		expect(source.text).toMatch(/createAdapterFromEnv\("PORTAL",\s*\{\s*rateLimitKey:/)
+	})
+
+	// O h3 v2 monta a resposta de erro a partir de `error.headers`: um `setResponseHeader`
+	// no event é descartado nesse caminho e o 429 chega sem a espera.
+	it("carrega o Retry-After dentro do HTTPError, não pelo event", () => {
+		expect(source.text).toMatch(/new HTTPError\(\{[\s\S]*?headers:\s*\{\s*"Retry-After"/)
+		expect(source.text).not.toMatch(/setResponseHeader\(\s*event\s*,\s*"Retry-After"/)
+	})
+
+	it("recusa documento classificado antes de montar o adapter", () => {
+		expect(source.text).toContain('document.classification !== "ostensivo"')
+		expect(source.text.indexOf('document.classification !== "ostensivo"')).toBeLessThan(source.text.indexOf("createAdapterFromEnv("))
+	})
+})
+
 describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server — %s", (_path, source) => {
 	it("exige sessão", () => {
 		expect(source.text).toMatch(/requireUserId\(\)/)
@@ -116,10 +152,16 @@ describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server 
 })
 
 describe("persistência dos documentos", () => {
-	const fns = SOURCES.filter((s) => /^src\/server\/documents.*\.fn\.ts$/.test(s.path))
+	const fns = SOURCES.filter((s) => /^src\/server\/(documents.*|chat-history|writer-profile)\.fn\.ts$/.test(s.path))
 
 	it("encontra as server functions de documento", () => {
-		expect(fns.map((s) => s.path).sort()).toEqual(["src/server/documents-ai.fn.ts", "src/server/documents.fn.ts"])
+		expect(fns.map((s) => s.path).sort()).toEqual([
+			"src/server/chat-history.fn.ts",
+			"src/server/documents-ai.fn.ts",
+			"src/server/documents-import.fn.ts",
+			"src/server/documents.fn.ts",
+			"src/server/writer-profile.fn.ts",
+		])
 	})
 
 	it("toda server function de documento exige sessão", () => {
@@ -143,5 +185,26 @@ describe("persistência dos documentos", () => {
 		for (const source of fns) {
 			expect(source.text, source.path).not.toMatch(/owner_id:\s*data\./)
 		}
+	})
+})
+
+describe("ciclo de vida da conversa", () => {
+	const crud = SOURCES.find((s) => s.path === "src/server/documents.fn.ts")
+	const history = SOURCES.find((s) => s.path === "src/server/chat-history.fn.ts")
+
+	// A conversa guarda pedido em linguagem natural, às vezes mais revelador que o próprio
+	// expediente. Ela morre com o documento, ainda que o documento só saia de vista.
+	it("excluir o documento apaga a conversa dele", () => {
+		expect(crud?.text).toMatch(/from\("chat_message"\)[\s\S]{0,80}\.delete\(\)/)
+		expect(crud?.text).toMatch(/\.delete\(\)[\s\S]{0,120}\.eq\("owner_id", userId\)/)
+	})
+
+	// `document_id` vem do cliente e não prova nada: sem conferir o dono do documento, um id
+	// alheio penduraria mensagens na conversa de outra pessoa.
+	it("gravar mensagem confere o dono do documento antes de inserir", () => {
+		expect(history?.text).toContain('.from("official_document")')
+		expect(history?.text.indexOf('.from("official_document")')).toBeLessThan(
+			history?.text.indexOf('.from("chat_message")\n\t\t\t.insert') ?? Number.MAX_SAFE_INTEGER
+		)
 	})
 })

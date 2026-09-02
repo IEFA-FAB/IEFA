@@ -163,6 +163,11 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): string[] {
 	if (kind.id === "ata") {
 		warnings.push("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I) — o campo Data não é impresso.")
 	}
+	// Minuta importada é o caso clássico de número herdado: o texto vem do documento antigo
+	// e a identidade, não. O aviso fica até o redator preencher.
+	if (input.derivedFromDraft && (input.numbering.sequence === null || !input.nup)) {
+		warnings.push("Documento derivado de minuta: numeração, NUP e data não foram herdados do original — preencha os do expediente novo.")
+	}
 	if (kind.allowsClosing === false && input.scope === "externo") {
 		warnings.push(`${kind.label} não é a espécie para destinatário externo ao COMAER — o fecho de cortesia não se aplica (art. 30).`)
 	}

@@ -13,3 +13,6 @@ export type OfficialDocumentUpdate = TablesUpdate<"official_document">
 
 export type AiGeneration = Tables<"ai_generation">
 export type AiGenerationInsert = TablesInsert<"ai_generation">
+
+export type WriterProfile = Tables<"writer_profile">
+export type WriterProfileInsert = TablesInsert<"writer_profile">

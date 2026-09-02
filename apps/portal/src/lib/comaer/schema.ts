@@ -96,6 +96,7 @@ export const DocumentPayloadSchema = z.object({
 	process: z.object({ nup: z.string().optional(), reference: z.string().optional() }).optional(),
 	despachoOrder: z.number().optional(),
 	decision: z.enum(["DEFERIDO", "DEFERIDA", "INDEFERIDO", "INDEFERIDA", "ARQUIVE-SE"]).optional(),
+	derivedFromDraft: z.boolean().optional(),
 })
 
 export type DocumentPayload = z.infer<typeof DocumentPayloadSchema>

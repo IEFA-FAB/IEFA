@@ -18,7 +18,7 @@ import { draftWithAiFn } from "@/server/documents-ai.fn"
  * A recusa por sigilo é espelhada aqui só para explicar o botão desabilitado — quem
  * decide é a server function, porque o botão é do cliente e o endpoint é público.
  */
-export function AiPanel({ input, onAplicar }: { input: DocumentInput; onAplicar: (proposal: AiProposal) => void }) {
+export function AiPanel({ input, onApply }: { input: DocumentInput; onApply: (proposal: AiProposal) => void }) {
 	const [draft, setRascunho] = useState("")
 	const [mode, setModo] = useState<"redigir" | "revisar">("redigir")
 
@@ -26,7 +26,7 @@ export function AiPanel({ input, onAplicar }: { input: DocumentInput; onAplicar:
 
 	const generate = useMutation({
 		mutationFn: () => draftWithAiFn({ data: { draft, kind: input.kind, scope: input.scope, classification: input.classification, mode } }),
-		onSuccess: onAplicar,
+		onSuccess: onApply,
 	})
 
 	return (

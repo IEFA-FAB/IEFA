@@ -2776,6 +2776,41 @@ export type Database = {
           },
         ]
       }
+      chat_message: {
+        Row: {
+          content: string
+          created_at: string
+          document_id: string
+          id: string
+          owner_id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          document_id: string
+          id?: string
+          owner_id: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          owner_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "official_document"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       official_document: {
         Row: {
           classification: string
@@ -2811,6 +2846,60 @@ export type Database = {
           payload?: Json
           scope?: string
           title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      writer_profile: {
+        Row: {
+          city: string | null
+          created_at: string
+          nup_prefix: string | null
+          om_acronym: string | null
+          om_address: string | null
+          om_email: string | null
+          om_name: string | null
+          om_phone: string | null
+          om_sector: string | null
+          owner_id: string
+          signer_name: string | null
+          signer_position: string | null
+          signer_quadro: string | null
+          signer_rank: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          nup_prefix?: string | null
+          om_acronym?: string | null
+          om_address?: string | null
+          om_email?: string | null
+          om_name?: string | null
+          om_phone?: string | null
+          om_sector?: string | null
+          owner_id: string
+          signer_name?: string | null
+          signer_position?: string | null
+          signer_quadro?: string | null
+          signer_rank?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          nup_prefix?: string | null
+          om_acronym?: string | null
+          om_address?: string | null
+          om_email?: string | null
+          om_name?: string | null
+          om_phone?: string | null
+          om_sector?: string | null
+          owner_id?: string
+          signer_name?: string | null
+          signer_position?: string | null
+          signer_quadro?: string | null
+          signer_rank?: string | null
           updated_at?: string
         }
         Relationships: []

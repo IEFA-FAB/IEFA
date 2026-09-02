@@ -135,5 +135,10 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (error) throw new Error(error.message)
 		if (!linha) notFound()
+
+		// A conversa morre com o documento, ainda que o documento só saia de vista: ela
+		// guarda pedido em linguagem natural, às vezes mais revelador que o próprio
+		// expediente, e não tem por que sobreviver ao que ajudou a construir.
+		await getDocumentsServerClient().from("chat_message").delete().eq("document_id", data.id).eq("owner_id", userId)
 		return { id: linha.id as string }
 	})

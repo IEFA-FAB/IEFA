@@ -15,15 +15,15 @@ import { deleteDocumentFn, listDocumentsFn, loadDocumentFn, saveDocumentFn } fro
 export function DocumentsPanel({
 	input,
 	documentId,
-	onAbrir,
-	onNovo,
-	onSalvo,
+	onOpen,
+	onNew,
+	onSaved,
 }: {
 	input: DocumentInput
 	documentId: string | null
-	onAbrir: (input: DocumentInput, id: string) => void
-	onNovo: () => void
-	onSalvo: (id: string) => void
+	onOpen: (input: DocumentInput, id: string) => void
+	onNew: () => void
+	onSaved: (id: string) => void
 }) {
 	const queryClient = useQueryClient()
 	const list = useQuery({ queryKey: ["documents", "lista"], queryFn: () => listDocumentsFn() })
@@ -33,20 +33,20 @@ export function DocumentsPanel({
 	const save = useMutation({
 		mutationFn: () => saveDocumentFn({ data: { id: documentId ?? undefined, payload: toPayload(input) } }),
 		onSuccess: ({ id }) => {
-			onSalvo(id)
+			onSaved(id)
 			invalidate()
 		},
 	})
 
 	const open = useMutation({
 		mutationFn: (id: string) => loadDocumentFn({ data: { id } }),
-		onSuccess: (document) => onAbrir(fromPayload(document.payload), document.id),
+		onSuccess: (document) => onOpen(fromPayload(document.payload), document.id),
 	})
 
 	const remove = useMutation({
 		mutationFn: (id: string) => deleteDocumentFn({ data: { id } }),
 		onSuccess: ({ id }) => {
-			if (id === documentId) onNovo()
+			if (id === documentId) onNew()
 			invalidate()
 		},
 	})
@@ -65,7 +65,7 @@ export function DocumentsPanel({
 					<FloppyDisk className="size-4" />
 					{save.isPending ? "Salvando…" : documentId ? "Salvar alterações" : "Salvar documento"}
 				</Button>
-				<Button type="button" variant="outline" size="sm" onClick={onNovo}>
+				<Button type="button" variant="outline" size="sm" onClick={onNew}>
 					<Plus className="size-4" /> Novo
 				</Button>
 			</div>

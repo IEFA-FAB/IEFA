@@ -129,6 +129,8 @@ export interface DocumentInput {
 	despachoOrder?: number
 	/** Art. 49 § 2º, III. */
 	decision?: "DEFERIDO" | "DEFERIDA" | "INDEFERIDO" | "INDEFERIDA" | "ARQUIVE-SE"
+	/** Veio de minuta importada: a conferência cobra a identidade que NÃO foi herdada. */
+	derivedFromDraft?: boolean
 }
 
 export type Alignment = "esquerda" | "centro" | "direita" | "justificado"

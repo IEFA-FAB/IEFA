@@ -201,6 +201,8 @@
         "@sanity/image-url": "^2.1.1",
         "@supabase/supabase-js": "^2.112.4",
         "@tailwindcss/vite": "^4.3.3",
+        "@tanstack/ai": "^0.52.1",
+        "@tanstack/ai-react": "^0.22.4",
         "@tanstack/react-devtools": "^0.10.12",
         "@tanstack/react-form": "^1.33.3",
         "@tanstack/react-hotkeys": "^0.10.0",

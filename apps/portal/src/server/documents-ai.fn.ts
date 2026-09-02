@@ -16,36 +16,15 @@ import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { generateJson } from "@/lib/ai.server"
 import { requireUserId } from "@/lib/auth.server"
-import { type DocumentKind, describeCatalog, findKind } from "@/lib/comaer/catalog"
+import { type DocumentKind, findKind } from "@/lib/comaer/catalog"
+import { KIND_CATALOG, NORM_RULES } from "@/lib/comaer/prompt"
 import { type AiProposal, AiProposalSchema } from "@/lib/comaer/schema"
 import { getDocumentsServerClient } from "@/lib/supabase.server"
 import { aiProposalJsonSchema } from "./documents-ai.schema"
 
-const SYSTEM = `Você redige comunicações oficiais do Comando da Aeronáutica segundo a NSCA 5-3/2026 (Anexo I), que adapta o Manual de Redação da Presidência da República ao COMAER.
+const SYSTEM = `${NORM_RULES}
 
-Regras que a norma impõe ao TEXTO:
-- Impessoalidade e padrão culto da língua; clareza, concisão, coesão e coerência (art. 4º e 5º).
-- Não escreva "Tenho a honra de", "Tenho o prazer de" nem "Cumpre-me informar que"; prefira a forma direta (art. 38, I, a e b).
-- Estruture em introdução (o que motiva a comunicação), desenvolvimento (esclarecimentos e fundamentos) e conclusão (a providência pedida ou a posição recomendada), sem trazer fato novo na conclusão (art. 38).
-- Cada ideia distinta em seu próprio parágrafo (art. 38, II).
-- Enumeração vira item, alínea ou subalínea, não lista dentro do parágrafo (art. 39).
-- Evite cognatos repetidos, duplo sentido e expressões regionais (art. 5º, § 2º).
-- Cite norma pela primeira vez com número e data por extenso: "Lei nº 12.527, de 18 de novembro de 2011" (art. 22).
-- Com agente público federal — militar ou servidor —, o ÚNICO pronome de tratamento é "Senhor" (art. 9º, § 3º). Não escreva "Vossa Senhoria", "Vossa Excelência", "Ilustríssimo", "Digníssimo" nem "doutor" (art. 9º, § 4º), nem no texto nem no vocativo.
-- NÃO escreva fecho de cortesia ("Respeitosamente", "Atenciosamente"): quem decide isso é a norma pelo destinatário, e o sistema o insere (art. 30).
-- NÃO invente número de documento, NUP, nome de organização, data, nome ou posto de signatário. Se algum dado faltar, redija sem ele.
-- O assunto é uma expressão substantiva sucinta, sem verbo conjugado e sem ponto final (art. 37, § 2º, II).
-
-Você também ESCOLHE a forma do documento, a partir do que o rascunho pede:
-- espécie e âmbito, entre os do catálogo abaixo. Espécie e âmbito têm de ser compatíveis;
-- remetente e destinatários pelo CARGO, nunca pelo nome (art. 36), com "via" quando o expediente tramita por autoridade intermediária;
-- precedência do destinatário em relação ao signatário, que decide o fecho quando o destinatário é externo ao COMAER;
-- prioridade (art. 7º, § 3º): "urgente" só quando o rascunho disser que é.
-
-Preencha apenas o que o rascunho sustentar. Campo sem base no rascunho fica AUSENTE — não use marcador de preenchimento como <NOME>, [cargo], XXXX ou "a definir". Ausente o usuário completa; marcador ele copia para o SIGADAER sem enxergar.
-
-CATÁLOGO DE ESPÉCIES:
-${describeCatalog()}`
+${KIND_CATALOG}`
 
 function buildPrompt(kind: DocumentKind, scope: string, mode: "redigir" | "revisar", draft: string): string {
 	const context = [

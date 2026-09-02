@@ -16,6 +16,11 @@ export default defineConfig(() => ({
 		devtools(),
 		tanstackStart(),
 		nitro({
+			// Rota Nitro só existe se estiver declarada aqui. Sem isto o arquivo em `routes/` é
+			// compilado e nunca registrado: o pedido cai no catch-all do SSR do TanStack Start,
+			// que responde 307 para /auth — foi o que aconteceu com o chat do sucont, que
+			// devolvia redirect em vez de SSE. `src/test/nitro-routes.contract.test.ts` cobra.
+			handlers: [{ route: "/api/comunicacoes/chat", method: "POST", handler: "./routes/api/comunicacoes/chat.post.ts", format: "web" }],
 			preset: "bun",
 			compressPublicAssets: true,
 			routeRules: {

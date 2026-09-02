@@ -8,7 +8,7 @@ import type { AssembledDocument, Line } from "@/lib/comaer/types"
  * Ela renderiza os MESMOS blocos que o serializador copia para o SIGADAER — a tela é uma
  * apresentação da estrutura, não uma segunda versão dela.
  */
-export function A4Sheet({ doc }: { doc: AssembledDocument }) {
+export function A4Sheet({ doc, highlight = [] }: { doc: AssembledDocument; highlight?: string[] }) {
 	return (
 		<div
 			data-sheet
@@ -16,7 +16,16 @@ export function A4Sheet({ doc }: { doc: AssembledDocument }) {
 			style={{ fontFamily: "Calibri, Carlito, Segoe UI, sans-serif", fontSize: "12pt", lineHeight: 1.35 }}
 		>
 			{doc.blocks.map((bloco) => (
-				<section key={bloco.id} data-bloco={bloco.id} className={blockSpacing(bloco.id)} aria-label={bloco.label}>
+				<section
+					key={bloco.id}
+					data-block={bloco.id}
+					data-changed={highlight.includes(bloco.id) ? "true" : undefined}
+					// Destaque do turno: contorno, não fundo colorido — a folha é o documento que
+					// vai ser impresso, e ele não pode ganhar cor por causa da conversa. Some na
+					// impressão pela mesma razão.
+					className={`${blockSpacing(bloco.id)} ${highlight.includes(bloco.id) ? "outline outline-2 outline-offset-4 outline-foreground/30 print:outline-none" : ""}`}
+					aria-label={bloco.label}
+				>
 					{bloco.lines.map((linha, i) => (
 						<SheetLine key={`${bloco.id}-${i}`} linha={linha} />
 					))}
