@@ -2730,6 +2730,105 @@ export type Database = {
       [_ in never]: never
     }
   }
+  documents: {
+    Tables: {
+      ai_generation: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          erro: string | null
+          especie: string
+          id: string
+          modo: string
+          owner_id: string
+          rascunho: string
+          resultado: Json | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          erro?: string | null
+          especie: string
+          id?: string
+          modo: string
+          owner_id: string
+          rascunho: string
+          resultado?: Json | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          erro?: string | null
+          especie?: string
+          id?: string
+          modo?: string
+          owner_id?: string
+          rascunho?: string
+          resultado?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generation_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "official_document"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      official_document: {
+        Row: {
+          ambito: string
+          created_at: string
+          deleted_at: string | null
+          especie: string
+          id: string
+          owner_id: string
+          payload: Json
+          sigilo: string
+          titulo: string | null
+          updated_at: string
+        }
+        Insert: {
+          ambito: string
+          created_at?: string
+          deleted_at?: string | null
+          especie: string
+          id?: string
+          owner_id: string
+          payload: Json
+          sigilo?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ambito?: string
+          created_at?: string
+          deleted_at?: string | null
+          especie?: string
+          id?: string
+          owner_id?: string
+          payload?: Json
+          sigilo?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   finance: {
     Tables: {
       budget_credit: {
@@ -11240,12 +11339,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11269,11 +11368,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11294,11 +11393,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11319,11 +11418,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11336,11 +11435,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11363,6 +11462,9 @@ export const Constants = {
     Enums: {},
   },
   core: {
+    Enums: {},
+  },
+  documents: {
     Enums: {},
   },
   finance: {
