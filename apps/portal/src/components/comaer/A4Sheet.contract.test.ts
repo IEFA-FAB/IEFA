@@ -13,7 +13,8 @@ import { join, resolve } from "node:path"
 
 const APP_ROOT = resolve(import.meta.dir, "../../..")
 const sheet = readFileSync(join(APP_ROOT, "src/components/comaer/A4Sheet.tsx"), "utf8")
-const route = readFileSync(join(APP_ROOT, "src/routes/_public/_en/facilities/comunicacoes-oficiais.tsx"), "utf8")
+// O `<style>` de impressão mora no editor, ao lado da folha que ele governa.
+const route = readFileSync(join(APP_ROOT, "src/components/comaer/DocumentEditor.tsx"), "utf8")
 
 describe("contrato da impressão", () => {
 	const attribute = sheet.match(/\n\t+(data-[a-z-]+)\n/)?.[1]
