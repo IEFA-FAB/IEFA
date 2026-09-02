@@ -25,6 +25,7 @@ api:
 
 portal:
   - 'apps/portal/**'
+  - 'packages/ai-provider/**'
   - 'packages/auth-kit/**'
   - 'packages/database/**'
   - 'packages/legal-kit/**'

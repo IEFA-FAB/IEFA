@@ -16,6 +16,45 @@ listener_priority = 100
 environment_variables = {
   NODE_ENV = "production"
   PORT     = "3000"
+
+  # IA da redacao assistida de comunicacoes oficiais (/facilities/comunicacoes-oficiais).
+  # Bedrock keyless pela task role do ECS. Nao-secretos.
+  #
+  # Os valores abaixo foram VERIFICADOS na conta 103256050857 em 2026-09-02, nao copiados:
+  #   1. habilitacao (o perfil aparecer ACTIVE NAO basta) — `bedrock-runtime converse` de
+  #      verdade: opus-4-6 e sonnet-4-6 respondem; opus-4-8 e opus-5 devolvem
+  #      `AccessDeniedException: not available for this account`, mesmo listados ACTIVE;
+  #   2. autorizacao da task role — `simulate-principal-policy` para
+  #      `bedrock:InvokeModelWithResponseStream`: allowed no primario e na reserva.
+  #      `bedrock:Converse`/`ConverseStream` dao implicitDeny e isso e ESPERADO: a policy
+  #      `iefa-prod-ecs-task-extra` so concede InvokeModel*, e e por InvokeModel* que a
+  #      Converse API autoriza. Simular a acao `Converse` faz config correta parecer errada;
+  #   3. ponta a ponta com o schema real — `cd apps/portal && bun run test:ai`, que chama o
+  #      modelo com o mesmo JSON Schema da redacao assistida e valida a volta com o Zod do
+  #      boundary. Verde no opus-4-6 e no gpt-oss-120b; vermelho no opus-4-8 (item 1).
+  #
+  # A FORMA do ARN muda com o TIPO do id — `global.anthropic.*` e inference profile (ARN COM
+  # conta) e `openai.gpt-oss-*` e foundation model (ARN SEM conta). Detalhes e os comandos
+  # prontos estao em infra/sucont/terraform.tfvars.example e no AI-PROVIDERS.md.
+  PORTAL_AI_PROVIDER = "bedrock"
+  PORTAL_AI_MODEL    = "global.anthropic.claude-opus-4-6-v1"
+  PORTAL_AI_REGION   = "sa-east-1"
+
+  # Reserva: so entra ANTES do primeiro conteudo e so em falha TRANSITORIA. AccessDenied e
+  # erro de schema propagam — trocar de provider repetiria a falha.
+  PORTAL_FALLBACK_AI_PROVIDER = "bedrock"
+  PORTAL_FALLBACK_AI_MODEL    = "openai.gpt-oss-120b-1:0"
+  PORTAL_FALLBACK_AI_REGION   = "sa-east-1"
+
+  # Tetos por usuario, exceto TOKENS_PER_DAY, que e por PROCESSO: o portal roda com
+  # desired_count = 2, entao o teto diario efetivo e o DOBRO do numero abaixo.
+  # Dimensionado pela carga real desta ferramenta, nao copiado do sucont: uma redacao e
+  # ~1,5k tokens de entrada + ~1,5k de saida, entao 500k/dia/processo cabe ~160 documentos
+  # por processo (~320 no total) — folga larga para um formulario que gera um documento por
+  # clique, e teto de CUSTO com primario da familia Opus.
+  PORTAL_AI_MAX_REQUESTS_PER_MINUTE = "10"
+  PORTAL_AI_MAX_TOKENS_PER_MINUTE   = "60000"
+  PORTAL_AI_MAX_TOKENS_PER_DAY      = "500000"
 }
 
 secret_names = [

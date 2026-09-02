@@ -36,6 +36,17 @@ export function getPortalServerClient(): UntypedClient {
 }
 
 /**
+ * Cliente Supabase com service role para o schema "documents" (comunicações oficiais
+ * redigidas na ferramenta da NSCA 5-3).
+ *
+ * O schema não tem policy permissiva nenhuma: anon e authenticated não leem linha
+ * alguma direto. Todo acesso passa por aqui, e o dono vem sempre da sessão.
+ */
+export function getDocumentsServerClient(): UntypedClient {
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "documents" }) as unknown as UntypedClient
+}
+
+/**
  * Cliente Supabase SSR para operações de autenticação.
  * Lê e escreve cookies de sessão do usuário — necessário para
  * auth.getUser() / auth.getSession() funcionarem no servidor.

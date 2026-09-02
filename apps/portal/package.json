@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
+    "test:ai": "PORTAL_RUN_AI_SMOKE=true bun test --no-env-file src/test/ai/",
     "dev": "bunx --bun vite dev",
     "build": "bunx --bun vite build",
     "serve": "bunx --bun vite preview",
@@ -18,6 +19,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@iefa/ai-provider": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
     "@iefa/pbac": "workspace:*",
