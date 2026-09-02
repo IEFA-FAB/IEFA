@@ -63,15 +63,15 @@ describe("ponto de guarda — src/lib/ai.server.ts", () => {
 	})
 
 	it("aplica o capability gate antes de montar o adapter", () => {
-		const texto = guard?.text ?? ""
-		expect(texto).toContain("getServerCapabilities()")
-		expect(texto.indexOf("getServerCapabilities()")).toBeLessThan(texto.indexOf("createAdapterFromEnv("))
+		const text = guard?.text ?? ""
+		expect(text).toContain("getServerCapabilities()")
+		expect(text.indexOf("getServerCapabilities()")).toBeLessThan(text.indexOf("createAdapterFromEnv("))
 	})
 
 	it("aplica o teto de requisições antes de montar o adapter", () => {
-		const texto = guard?.text ?? ""
-		expect(texto).toContain('enforceRequestRateLimit("PORTAL"')
-		expect(texto.indexOf("enforceRequestRateLimit(")).toBeLessThan(texto.indexOf("createAdapterFromEnv("))
+		const text = guard?.text ?? ""
+		expect(text).toContain('enforceRequestRateLimit("PORTAL"')
+		expect(text.indexOf("enforceRequestRateLimit(")).toBeLessThan(text.indexOf("createAdapterFromEnv("))
 	})
 
 	it("chaveia os tetos do adapter pelo usuário", () => {
@@ -108,10 +108,10 @@ describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server 
 	// Documento classificado não pode chegar a provider nenhum: a recusa tem de vir antes
 	// da chamada, não depois de o texto já ter saído.
 	it("recusa grau de sigilo diferente de ostensivo antes de chamar o modelo", () => {
-		expect(source.text).toContain('data.sigilo !== "ostensivo"')
+		expect(source.text).toContain('data.classification !== "ostensivo"')
 		// Contra a CHAMADA, não contra o import: `indexOf("generateJson")` acharia a linha
 		// de import lá em cima e o teste passaria com a recusa depois da geração.
-		expect(source.text.indexOf('data.sigilo !== "ostensivo"')).toBeLessThan(source.text.indexOf("await generateJson"))
+		expect(source.text.indexOf('data.classification !== "ostensivo"')).toBeLessThan(source.text.indexOf("await generateJson"))
 	})
 })
 
@@ -132,9 +132,9 @@ describe("persistência dos documentos", () => {
 	// dono no WHERE (ou no INSERT, no caso da criação), um id de documento alheio bastaria.
 	it("toda leitura ou escrita de documento amarra o dono da sessão", () => {
 		const crud = SOURCES.find((s) => s.path === "src/server/documents.fn.ts")
-		const acessos = crud?.text.match(/\.from\("official_document"\)[\s\S]*?(?=\n\n|\n\t\treturn)/g) ?? []
-		expect(acessos.length).toBe(5)
-		for (const acesso of acessos) {
+		const accesses = crud?.text.match(/\.from\("official_document"\)[\s\S]*?(?=\n\n|\n\t\treturn)/g) ?? []
+		expect(accesses.length).toBe(5)
+		for (const acesso of accesses) {
 			expect(acesso).toMatch(/\.eq\("owner_id", userId\)|owner_id: userId/)
 		}
 	})

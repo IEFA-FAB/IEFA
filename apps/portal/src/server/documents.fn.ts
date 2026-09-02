@@ -12,43 +12,43 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
-import { DocumentoPayloadSchema } from "@/lib/comaer/schema"
+import { DocumentPayloadSchema } from "@/lib/comaer/schema"
 import { getDocumentsServerClient } from "@/lib/supabase.server"
 
-export interface DocumentoResumo {
+export interface DocumentSummary {
 	id: string
-	especie: string
-	titulo: string | null
-	ambito: string
-	sigilo: string
+	kind: string
+	title: string | null
+	scope: string
+	classification: string
 	updated_at: string
 }
 
 /** Título da lista: o assunto é a ementa (art. 37), e é assim que o redator reconhece o documento. */
-function tituloDe(payload: z.infer<typeof DocumentoPayloadSchema>): string | null {
-	const assunto = payload.assunto?.trim()
-	if (assunto) return assunto.slice(0, 200)
-	const primeiro = payload.paragrafos[0]?.texto.trim()
+function titleOf(payload: z.infer<typeof DocumentPayloadSchema>): string | null {
+	const subject = payload.subject?.trim()
+	if (subject) return subject.slice(0, 200)
+	const primeiro = payload.paragraphs[0]?.text.trim()
 	return primeiro ? primeiro.slice(0, 200) : null
 }
 
 /** Erro do usuário, não do servidor: o Start só preserva o status via `setResponseStatus`. */
-function naoEncontrado(): never {
+function notFound(): never {
 	setResponseStatus(404)
 	throw new Error("Documento não encontrado.")
 }
 
-export const listDocumentsFn = createServerFn({ method: "GET" }).handler(async (): Promise<DocumentoResumo[]> => {
+export const listDocumentsFn = createServerFn({ method: "GET" }).handler(async (): Promise<DocumentSummary[]> => {
 	const userId = await requireUserId()
 	const { data, error } = await getDocumentsServerClient()
 		.from("official_document")
-		.select("id, especie, titulo, ambito, sigilo, updated_at")
+		.select("id, kind, title, scope, classification, updated_at")
 		.eq("owner_id", userId)
 		.is("deleted_at", null)
 		.order("updated_at", { ascending: false })
 		.limit(100)
 	if (error) throw new Error(error.message)
-	return (data ?? []) as DocumentoResumo[]
+	return (data ?? []) as DocumentSummary[]
 })
 
 export const loadDocumentFn = createServerFn({ method: "POST" })
@@ -65,13 +65,13 @@ export const loadDocumentFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 		// Documento de outro dono e documento inexistente respondem igual: distinguir os
 		// dois transformaria a rota num verificador de existência de id alheio.
-		if (!linha) naoEncontrado()
+		if (!linha) notFound()
 
 		// `parse` cru transformaria qualquer aperto futuro do schema em documento
 		// permanentemente inabrível, com um erro de Zod na cara do usuário. O `safeParse`
 		// troca isso por uma mensagem que diz o que aconteceu — e o payload continua no
 		// banco, intacto, para ser migrado.
-		const payload = DocumentoPayloadSchema.safeParse(linha.payload)
+		const payload = DocumentPayloadSchema.safeParse(linha.payload)
 		if (!payload.success) {
 			setResponseStatus(422)
 			throw new Error("Este documento foi salvo em um formato que a versão atual não abre. Ele continua guardado — avise a equipe do portal.")
@@ -80,15 +80,15 @@ export const loadDocumentFn = createServerFn({ method: "POST" })
 	})
 
 export const saveDocumentFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.uuid().optional(), payload: DocumentoPayloadSchema }))
+	.validator(z.object({ id: z.uuid().optional(), payload: DocumentPayloadSchema }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const { payload } = data
-		const colunas = {
-			especie: payload.especie,
-			ambito: payload.ambito,
-			sigilo: payload.sigilo,
-			titulo: tituloDe(payload),
+		const columns = {
+			kind: payload.kind,
+			scope: payload.scope,
+			classification: payload.classification,
+			title: titleOf(payload),
 			payload,
 		}
 		const db = getDocumentsServerClient()
@@ -99,20 +99,20 @@ export const saveDocumentFn = createServerFn({ method: "POST" })
 			// entre checar e escrever.
 			const { data: linha, error } = await db
 				.from("official_document")
-				.update(colunas)
+				.update(columns)
 				.eq("id", data.id)
 				.eq("owner_id", userId)
 				.is("deleted_at", null)
 				.select("id")
 				.maybeSingle()
 			if (error) throw new Error(error.message)
-			if (!linha) naoEncontrado()
+			if (!linha) notFound()
 			return { id: linha.id as string }
 		}
 
 		const { data: linha, error } = await db
 			.from("official_document")
-			.insert({ ...colunas, owner_id: userId })
+			.insert({ ...columns, owner_id: userId })
 			.select("id")
 			.single()
 		if (error) throw new Error(error.message)
@@ -134,6 +134,6 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 			.select("id")
 			.maybeSingle()
 		if (error) throw new Error(error.message)
-		if (!linha) naoEncontrado()
+		if (!linha) notFound()
 		return { id: linha.id as string }
 	})

@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { RedacaoIa } from "@/lib/comaer/schema"
-import type { DocumentoInput } from "@/lib/comaer/tipos"
-import { redigirComIaFn } from "@/server/documents-ai.fn"
+import type { AiProposal } from "@/lib/comaer/schema"
+import type { DocumentInput } from "@/lib/comaer/types"
+import { draftWithAiFn } from "@/server/documents-ai.fn"
 
 /**
  * Redação assistida.
@@ -18,14 +18,14 @@ import { redigirComIaFn } from "@/server/documents-ai.fn"
  * A recusa por sigilo é espelhada aqui só para explicar o botão desabilitado — quem
  * decide é a server function, porque o botão é do cliente e o endpoint é público.
  */
-export function PainelIa({ input, onAplicar }: { input: DocumentoInput; onAplicar: (redacao: RedacaoIa) => void }) {
-	const [rascunho, setRascunho] = useState("")
-	const [modo, setModo] = useState<"redigir" | "revisar">("redigir")
+export function AiPanel({ input, onAplicar }: { input: DocumentInput; onAplicar: (proposal: AiProposal) => void }) {
+	const [draft, setRascunho] = useState("")
+	const [mode, setModo] = useState<"redigir" | "revisar">("redigir")
 
-	const classificado = input.sigilo !== "ostensivo"
+	const classified = input.classification !== "ostensivo"
 
-	const gerar = useMutation({
-		mutationFn: () => redigirComIaFn({ data: { rascunho, especie: input.especie, ambito: input.ambito, sigilo: input.sigilo, modo } }),
+	const generate = useMutation({
+		mutationFn: () => draftWithAiFn({ data: { draft, kind: input.kind, scope: input.scope, classification: input.classification, mode } }),
 		onSuccess: onAplicar,
 	})
 
@@ -36,20 +36,20 @@ export function PainelIa({ input, onAplicar }: { input: DocumentoInput; onAplica
 				<span className="text-[11px] font-mono text-muted-foreground">NSCA 5-3, art. 38 e 39</span>
 			</div>
 
-			{classificado ? (
+			{classified ? (
 				<div className="flex items-start gap-2 text-sm">
 					<WarningTriangle className="size-4 shrink-0 mt-0.5 text-destructive" />
 					<p className="text-muted-foreground">
-						Documento com grau de sigilo <strong>{input.sigilo}</strong> não é enviado a provider de IA. Redija o texto manualmente.
+						Documento com grau de sigilo <strong>{input.classification}</strong> não é enviado a provider de IA. Redija o texto manualmente.
 					</p>
 				</div>
 			) : (
 				<>
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="ia-modo">O que fazer</Label>
-						<Select value={modo} onValueChange={(valor) => setModo(valor as "redigir" | "revisar")}>
-							<SelectTrigger id="ia-modo" className="w-full">
-								<SelectValue>{modo === "redigir" ? "Redigir a partir de anotações" : "Revisar um texto já escrito"}</SelectValue>
+						<Label htmlFor="ai-mode">O que fazer</Label>
+						<Select value={mode} onValueChange={(value) => setModo(value as "redigir" | "revisar")}>
+							<SelectTrigger id="ai-mode" className="w-full">
+								<SelectValue>{mode === "redigir" ? "Redigir a partir de anotações" : "Revisar um texto já escrito"}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="redigir">Redigir a partir de anotações</SelectItem>
@@ -59,14 +59,14 @@ export function PainelIa({ input, onAplicar }: { input: DocumentoInput; onAplica
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="ia-rascunho">{modo === "redigir" ? "Anotações, fatos e números" : "Texto a revisar"}</Label>
+						<Label htmlFor="ai-draft">{mode === "redigir" ? "Anotações, fatos e números" : "Texto a revisar"}</Label>
 						<Textarea
-							id="ia-rascunho"
+							id="ai-draft"
 							rows={6}
-							value={rascunho}
+							value={draft}
 							onChange={(e) => setRascunho(e.target.value)}
 							placeholder={
-								modo === "redigir"
+								mode === "redigir"
 									? "Ex.: pedir ao COMGEP prorrogação do prazo do levantamento de contratações; prazo atual vence em 30 set; motivo: 12 das 31 OM ainda não responderam"
 									: "Cole aqui o texto que já escreveu."
 							}
@@ -76,13 +76,15 @@ export function PainelIa({ input, onAplicar }: { input: DocumentoInput; onAplica
 						</p>
 					</div>
 
-					<Button type="button" size="sm" className="self-start" onClick={() => gerar.mutate()} disabled={gerar.isPending || rascunho.trim().length < 10}>
+					<Button type="button" size="sm" className="self-start" onClick={() => generate.mutate()} disabled={generate.isPending || draft.trim().length < 10}>
 						<Sparks className="size-4" />
-						{gerar.isPending ? "Redigindo…" : modo === "redigir" ? "Redigir" : "Revisar"}
+						{generate.isPending ? "Redigindo…" : mode === "redigir" ? "Redigir" : "Revisar"}
 					</Button>
 
-					{gerar.error && <p className="text-xs text-destructive">{gerar.error instanceof Error ? gerar.error.message : "Falha na redação assistida."}</p>}
-					{gerar.isSuccess && <p className="text-xs text-muted-foreground">Proposta aplicada ao formulário — confira e ajuste antes de copiar.</p>}
+					{generate.error && (
+						<p className="text-xs text-destructive">{generate.error instanceof Error ? generate.error.message : "Falha na redação assistida."}</p>
+					)}
+					{generate.isSuccess && <p className="text-xs text-muted-foreground">Proposta aplicada ao formulário — confira e ajuste antes de copiar.</p>}
 				</>
 			)}
 		</section>

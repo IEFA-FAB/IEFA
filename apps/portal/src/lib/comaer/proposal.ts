@@ -11,41 +11,41 @@
  *    do despacho e signatário não estão no schema da IA e não passam por aqui.
  */
 
-import { conciliarEspecieAmbito } from "./especies"
-import type { RedacaoIa } from "./schema"
-import type { DocumentoInput } from "./tipos"
+import { reconcileKindAndScope } from "./catalog"
+import type { AiProposal } from "./schema"
+import type { DocumentInput } from "./types"
 
-export function aplicarRedacao(atual: DocumentoInput, redacao: RedacaoIa): DocumentoInput {
+export function applyProposal(current: DocumentInput, proposal: AiProposal): DocumentInput {
 	// Espécie e âmbito andam juntos: aceitar um sem o outro produziria par que a norma não
 	// admite (ofício externo dentro do COMAER, declaração entre OM).
-	const { especie, ambito } = conciliarEspecieAmbito({ especie: atual.especie, ambito: atual.ambito }, { especie: redacao.especie, ambito: redacao.ambito })
+	const { kind, scope } = reconcileKindAndScope({ kind: current.kind, scope: current.scope }, { kind: proposal.kind, scope: proposal.scope })
 
-	const destinatarios = redacao.destinatarios?.filter((d) => d.cargo.trim() !== "")
+	const recipients = proposal.recipients?.filter((d) => d.position.trim() !== "")
 
 	return {
-		...atual,
-		especie,
-		ambito,
-		prioridade: redacao.prioridade ?? atual.prioridade,
-		precedencia: redacao.precedencia ?? atual.precedencia,
-		remetente: redacao.remetente?.cargo.trim() ? { ...atual.remetente, ...redacao.remetente } : atual.remetente,
-		destinatarios: destinatarios?.length ? destinatarios : atual.destinatarios,
+		...current,
+		kind,
+		scope,
+		priority: proposal.priority ?? current.priority,
+		precedence: proposal.precedence ?? current.precedence,
+		sender: proposal.sender?.position.trim() ? { ...current.sender, ...proposal.sender } : current.sender,
+		recipients: recipients?.length ? recipients : current.recipients,
 		// Só o que veio preenchido: um endereçamento parcial não pode zerar o tratamento já
 		// escolhido nem o gênero da concordância.
-		enderecamento: redacao.enderecamento
+		addressing: proposal.addressing
 			? {
-					tratamento: redacao.enderecamento.tratamento ?? atual.enderecamento?.tratamento ?? "senhoria",
-					genero: redacao.enderecamento.genero ?? atual.enderecamento?.genero ?? "m",
-					nome: redacao.enderecamento.nome ?? atual.enderecamento?.nome,
-					cargo: redacao.enderecamento.cargo ?? atual.enderecamento?.cargo,
-					linhasEndereco: redacao.enderecamento.linhasEndereco ?? atual.enderecamento?.linhasEndereco,
+					formOfAddress: proposal.addressing.formOfAddress ?? current.addressing?.formOfAddress ?? "senhoria",
+					gender: proposal.addressing.gender ?? current.addressing?.gender ?? "m",
+					name: proposal.addressing.name ?? current.addressing?.name,
+					position: proposal.addressing.position ?? current.addressing?.position,
+					addressLines: proposal.addressing.addressLines ?? current.addressing?.addressLines,
 				}
-			: atual.enderecamento,
-		vocativo: redacao.vocativo ?? atual.vocativo,
-		decisao: redacao.decisao ?? atual.decisao,
-		assunto: redacao.assunto ?? atual.assunto,
-		referencias: redacao.referencias ?? atual.referencias,
-		anexos: redacao.anexos ?? atual.anexos,
-		paragrafos: redacao.paragrafos,
+			: current.addressing,
+		vocativo: proposal.vocativo ?? current.vocativo,
+		decision: proposal.decision ?? current.decision,
+		subject: proposal.subject ?? current.subject,
+		references: proposal.references ?? current.references,
+		annexes: proposal.annexes ?? current.annexes,
+		paragraphs: proposal.paragraphs,
 	}
 }

@@ -4,10 +4,10 @@
  * responde por um artigo, para que a regra possa ser testada contra o texto da norma.
  */
 
-import { isOficialGeneral, postoPorExtenso, quadroPorExtenso } from "./postos"
-import type { Ambito, Enderecamento, Linha, Numeracao, Paragrafo, Parte, Precedencia, Sigilo, Signatario } from "./tipos"
+import { isGeneralOfficer, quadroInFull, rankInFull } from "./ranks"
+import type { Addressing, Classification, Line, Numbering, Paragraph, Party, Precedence, Scope, Signer } from "./types"
 
-const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"] as const
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"] as const
 
 /**
  * Art. 12 § 4º — data por extenso, usada nos textos externos.
@@ -15,42 +15,42 @@ const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julh
  * Os modelos de epígrafe da própria norma escrevem "03 de julho"; o artigo é explícito em
  * sentido contrário, e é ele que vale.
  */
-export function dataPorExtenso(data: Date): string {
-	const dia = data.getDate()
-	return `${dia === 1 ? "1º" : dia} de ${MESES[data.getMonth()]} de ${data.getFullYear()}`
+export function dateInFull(date: Date): string {
+	const day = date.getDate()
+	return `${day === 1 ? "1º" : day} de ${MONTHS[date.getMonth()]} de ${date.getFullYear()}`
 }
 
-export type EstiloDataAbreviada = "ponto" | "barra" | "mes" | "mes-maiusculo"
+export type ShortDateStyle = "ponto" | "barra" | "mes" | "mes-maiusculo"
 
 /** Art. 12 § 5º — formas abreviadas admitidas em texto interno. Maio nunca é abreviado. */
-export function dataAbreviada(data: Date, estilo: EstiloDataAbreviada = "mes"): string {
-	const dia = String(data.getDate()).padStart(2, "0")
-	const ano = data.getFullYear()
-	if (estilo === "ponto" || estilo === "barra") {
-		const mes = String(data.getMonth() + 1).padStart(2, "0")
-		return [dia, mes, String(ano)].join(estilo === "ponto" ? "." : "/")
+export function shortDate(date: Date, style: ShortDateStyle = "mes"): string {
+	const day = String(date.getDate()).padStart(2, "0")
+	const year = date.getFullYear()
+	if (style === "ponto" || style === "barra") {
+		const month = String(date.getMonth() + 1).padStart(2, "0")
+		return [day, month, String(year)].join(style === "ponto" ? "." : "/")
 	}
-	const nome = MESES[data.getMonth()]
+	const name = MONTHS[date.getMonth()]
 	// "excetuando-se o mês de maio, que é escrito sempre por extenso"
-	const abreviado = nome === "maio" ? nome : `${nome.slice(0, 3)}.`
-	return estilo === "mes-maiusculo" ? `${dia} ${abreviado.replace(".", "").toUpperCase()} ${ano}` : `${dia} ${abreviado} ${ano}`
+	const abbreviated = name === "maio" ? name : `${name.slice(0, 3)}.`
+	return style === "mes-maiusculo" ? `${day} ${abbreviated.replace(".", "").toUpperCase()} ${year}` : `${day} ${abbreviated} ${year}`
 }
 
 /** NUP / Protocolo COMAER: 17 dígitos. Entrada já mascarada ou crua. */
-export function formatarNup(entrada: string): string {
-	const digitos = entrada.replace(/\D/g, "")
-	if (digitos.length !== 17) return entrada.trim()
-	return `${digitos.slice(0, 5)}.${digitos.slice(5, 11)}/${digitos.slice(11, 15)}-${digitos.slice(15)}`
+export function formatNup(entry: string): string {
+	const digits = entry.replace(/\D/g, "")
+	if (digits.length !== 17) return entry.trim()
+	return `${digits.slice(0, 5)}.${digits.slice(5, 11)}/${digits.slice(11, 15)}-${digits.slice(15)}`
 }
 
-export function nupValido(entrada: string): boolean {
-	return entrada.replace(/\D/g, "").length === 17
+export function isValidNup(entry: string): boolean {
+	return entry.replace(/\D/g, "").length === 17
 }
 
-const PREFIXO_SIGILO: Record<Sigilo, string> = { ostensivo: "", reservado: "R-", secreto: "S-", ultrassecreto: "US-" }
+const CLASSIFICATION_PREFIX: Record<Classification, string> = { ostensivo: "", reservado: "R-", secreto: "S-", ultrassecreto: "US-" }
 
 /** Escopo da linha de numeração — muda com a espécie e com o âmbito (art. 31 e art. 51 § 5º). */
-export type EscopoNumeracao = "completa" | "interna" | "parecer" | "nenhuma"
+export type NumberingScope = "completa" | "interna" | "parecer" | "nenhuma"
 
 /**
  * Art. 31 — `Ofício nº 34/GAB/255`; com sigilo, `Ofício R-34/GAB/255` (a norma troca o
@@ -58,46 +58,51 @@ export type EscopoNumeracao = "completa" | "interna" | "parecer" | "nenhuma"
  * sequencial e setor (art. 51 § 5º, I, d), e o assunto de interesse particular recebe
  * "s/nº" (art. 51 § 6º e § 7º, b).
  */
-export function linhaNumeracao(especie: string, numeracao: Numeracao, sigilo: Sigilo = "ostensivo", escopo: EscopoNumeracao = "completa"): string {
-	if (escopo === "nenhuma") return ""
+export function numberingLine(
+	kind: string,
+	numbering: Numbering,
+	classification: Classification = "ostensivo",
+	numberingScope: NumberingScope = "completa"
+): string {
+	if (numberingScope === "nenhuma") return ""
 	// O Despacho já se numera por "Nº 183/GABGEP/2377" (art. 48 § 3º, II, d): tratar o
 	// rótulo como ordinal aqui e no fim evita tanto "Nº nº 183" quanto "Nº s/nº".
-	const rotuloOrdinal = especie.trim() === "Nº"
-	if (numeracao.sequencial === null) {
+	const rotuloOrdinal = kind.trim() === "Nº"
+	if (numbering.sequence === null) {
 		// Art. 51 § 6º: "s/nº" no lugar do sequencial. O grau de sigilo não prefixa este
 		// caso — o art. 31 § 2º define o prefixo sobre um sequencial, e não há sequencial.
-		return rotuloOrdinal ? "s/nº" : `${especie} s/nº`
+		return rotuloOrdinal ? "s/nº" : `${kind} s/nº`
 	}
-	const partes: string[] = [String(numeracao.sequencial)]
-	if (escopo === "parecer") {
-		if (numeracao.ordemGeral) partes.push(numeracao.ordemGeral)
-		partes.push(String(numeracao.ano ?? new Date().getFullYear()))
+	const parts: string[] = [String(numbering.sequence)]
+	if (numberingScope === "parecer") {
+		if (numbering.organizationNumber) parts.push(numbering.organizationNumber)
+		parts.push(String(numbering.year ?? new Date().getFullYear()))
 	} else {
-		if (numeracao.setor) partes.push(numeracao.setor)
-		if (escopo === "completa" && numeracao.ordemGeral) partes.push(numeracao.ordemGeral)
+		if (numbering.sector) parts.push(numbering.sector)
+		if (numberingScope === "completa" && numbering.organizationNumber) parts.push(numbering.organizationNumber)
 	}
-	const corpo = partes.join("/")
-	const prefixo = PREFIXO_SIGILO[sigilo]
-	if (rotuloOrdinal) return `Nº ${prefixo}${corpo}`
-	return prefixo ? `${especie} ${prefixo}${corpo}` : `${especie} nº ${corpo}`
+	const body = parts.join("/")
+	const prefix = CLASSIFICATION_PREFIX[classification]
+	if (rotuloOrdinal) return `Nº ${prefix}${body}`
+	return prefix ? `${kind} ${prefix}${body}` : `${kind} nº ${body}`
 }
 
 /** Art. 21 § 3º — A…Z e, esgotado o alfabeto, letras dobradas (AA, AB…). */
-export function letraAnexo(indice: number): string {
+export function annexLetter(index: number): string {
 	const letra = (n: number) => String.fromCharCode(65 + n)
-	if (indice < 26) return letra(indice)
-	return letra(Math.floor(indice / 26) - 1) + letra(indice % 26)
+	if (index < 26) return letra(index)
+	return letra(Math.floor(index / 26) - 1) + letra(index % 26)
 }
 
 /**
  * Art. 37 § 2º, III e V — itens de referência e de anexo: ponto e vírgula em todos,
  * "; e" no penúltimo, ponto final no último.
  */
-export function formatarEnumeracao(itens: string[], marcador: (indice: number) => string): string[] {
-	const limpos = itens.map((t) => t.trim().replace(/[;.]+$/, "")).filter((t) => t.length > 0)
-	return limpos.map((texto, i) => {
-		const fim = i === limpos.length - 1 ? "." : i === limpos.length - 2 ? "; e" : ";"
-		return `${marcador(i)} ${texto}${fim}`
+export function formatEnumeration(items: string[], marker: (index: number) => string): string[] {
+	const cleaned = items.map((t) => t.trim().replace(/[;.]+$/, "")).filter((t) => t.length > 0)
+	return cleaned.map((text, i) => {
+		const ending = i === cleaned.length - 1 ? "." : i === cleaned.length - 2 ? "; e" : ";"
+		return `${marker(i)} ${text}${ending}`
 	})
 }
 
@@ -106,51 +111,51 @@ export function formatarEnumeracao(itens: string[], marcador: (indice: number) =
  * Entre OM do COMAER, o parágrafo único proíbe: devolver "Atenciosamente" aqui seria
  * inserir no documento uma linha que a norma manda não existir.
  */
-export function fechoDeCortesia(ambito: Ambito, precedencia: Precedencia = "igual"): string | null {
-	if (ambito !== "externo") return null
-	return precedencia === "superior" ? "Respeitosamente," : "Atenciosamente,"
+export function courtesyClosing(scope: Scope, precedence: Precedence = "igual"): string | null {
+	if (scope !== "externo") return null
+	return precedence === "superior" ? "Respeitosamente," : "Atenciosamente,"
 }
 
-function juntarComE(itens: string[]): string {
-	if (itens.length <= 1) return itens[0] ?? ""
-	return `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`
+function joinWithAnd(items: string[]): string {
+	if (items.length <= 1) return items[0] ?? ""
+	return `${items.slice(0, -1).join(", ")} e ${items[items.length - 1]}`
 }
 
 /** Art. 36 — preâmbulo pelo CARGO; "via" quando há autoridade intermediária. */
-export function linhasPreambulo(remetente: Parte | undefined, destinatariosBrutos: Parte[]): string[] {
-	const linhas: string[] = []
+export function preambuloLines(sender: Party | undefined, rawRecipients: Party[]): string[] {
+	const lines: string[] = []
 	// Parte sem cargo não vira linha: "Do" sozinho no preâmbulo é o tipo de sobra que se
 	// copia para o SIGADAER sem ninguém reler.
-	const destinatarios = destinatariosBrutos.filter((d) => d.cargo.trim() !== "")
-	if (remetente?.cargo.trim()) linhas.push(`${remetente.genero === "f" ? "Da" : "Do"} ${remetente.cargo}`)
-	if (destinatarios.length === 1) {
-		const d = destinatarios[0]
-		linhas.push(`${d.genero === "f" ? "À" : "Ao"} ${d.cargo}${d.via ? `, via ${d.via}` : ""}`)
-	} else if (destinatarios.length > 1) {
+	const recipients = rawRecipients.filter((d) => d.position.trim() !== "")
+	if (sender?.position.trim()) lines.push(`${sender.gender === "f" ? "Da" : "Do"} ${sender.position}`)
+	if (recipients.length === 1) {
+		const d = recipients[0]
+		lines.push(`${d.gender === "f" ? "À" : "Ao"} ${d.position}${d.via ? `, via ${d.via}` : ""}`)
+	} else if (recipients.length > 1) {
 		// Art. 36, parágrafo único, I: siglas em ordem de antiguidade, vírgula entre elas e
 		// "e" antes da última. A ordem vem de quem preenche — a norma não a deriva de nada
 		// que o app conheça, e reordenar sozinho seria inventar antiguidade.
-		const plural = destinatarios.every((d) => d.genero === "f") ? "Às" : "Aos"
-		linhas.push(`${plural} ${juntarComE(destinatarios.map((d) => d.cargo))}`)
+		const plural = recipients.every((d) => d.gender === "f") ? "Às" : "Aos"
+		lines.push(`${plural} ${joinWithAnd(recipients.map((d) => d.position))}`)
 	}
-	return linhas
+	return lines
 }
 
 /** Art. 51 § 9º, VIII — bloco de endereçamento do ofício externo. */
-export function linhasEnderecamento(e: Enderecamento): string[] {
-	const artigo = e.genero === "f" ? "a Senhora" : "o Senhor"
-	const linhas = [`A Sua ${e.tratamento === "excelencia" ? "Excelência" : "Senhoria"} ${artigo}`]
-	if (e.nome) linhas.push(e.nome.toUpperCase())
-	if (e.cargo) linhas.push(e.cargo)
-	for (const l of e.linhasEndereco ?? []) linhas.push(l)
-	return linhas
+export function addressingLines(e: Addressing): string[] {
+	const artigo = e.gender === "f" ? "a Senhora" : "o Senhor"
+	const lines = [`A Sua ${e.formOfAddress === "excelencia" ? "Excelência" : "Senhoria"} ${artigo}`]
+	if (e.name) lines.push(e.name.toUpperCase())
+	if (e.position) lines.push(e.position)
+	for (const l of e.addressLines ?? []) lines.push(l)
+	return lines
 }
 
 /** Art. 10 — vocativo: "Senhor" + cargo, salvo tratamento especial. */
-export function vocativoPadrao(e: Enderecamento | undefined): string {
+export function defaultVocativo(e: Addressing | undefined): string {
 	if (!e) return "Senhor,"
-	const pronome = e.genero === "f" ? "Senhora" : "Senhor"
-	return e.cargo ? `${pronome} ${e.cargo},` : `${pronome},`
+	const pronome = e.gender === "f" ? "Senhora" : "Senhor"
+	return e.position ? `${pronome} ${e.position},` : `${pronome},`
 }
 
 /**
@@ -158,66 +163,66 @@ export function vocativoPadrao(e: Enderecamento | undefined): string {
  * Oficial-General leva o posto ANTES do nome; os demais, depois. Documento externo grafa
  * posto, quadro, cargo e OM por extenso (art. 26 e art. 40 § 2º).
  */
-export function identificacaoSignatario(s: Signatario, ambito: Ambito): string[] {
-	const externo = ambito === "externo"
-	const montarPatente = (posto?: string, quadro?: string) =>
-		[posto ? (externo ? postoPorExtenso(posto) : posto) : "", quadro ? (externo ? quadroPorExtenso(quadro) : quadro) : ""].filter(Boolean).join(" ")
+export function signerIdentification(s: Signer, scope: Scope): string[] {
+	const externo = scope === "externo"
+	const buildRankLabel = (rank?: string, quadro?: string) =>
+		[rank ? (externo ? rankInFull(rank) : rank) : "", quadro ? (externo ? quadroInFull(quadro) : quadro) : ""].filter(Boolean).join(" ")
 
-	const patente = montarPatente(s.posto, s.quadro)
-	const nome = s.nome.toUpperCase()
-	const principal = s.posto && isOficialGeneral(s.posto) ? [patente, nome].filter(Boolean).join(" ") : [nome, patente].filter(Boolean).join(" ")
+	const rankLabel = buildRankLabel(s.rank, s.quadro)
+	const name = s.name.toUpperCase()
+	const main = s.rank && isGeneralOfficer(s.rank) ? [rankLabel, name].filter(Boolean).join(" ") : [name, rankLabel].filter(Boolean).join(" ")
 
-	const cargoLinha = (() => {
-		if (!s.cargo && !s.om) return null
-		if (!s.cargo) return s.om ?? null
-		if (!s.om || s.cargo.toLowerCase().includes(s.om.toLowerCase())) return s.cargo
-		return `${s.cargo} - ${s.om}`
+	const positionLine = (() => {
+		if (!s.position && !s.om) return null
+		if (!s.position) return s.om ?? null
+		if (!s.om || s.position.toLowerCase().includes(s.om.toLowerCase())) return s.position
+		return `${s.position} - ${s.om}`
 	})()
 
 	// Art. 40 § 7º: o substituto assina ACIMA do nome da autoridade substituída, e o cargo
 	// aparece só sob a substituída.
 	if (s.noImp) {
-		const substituto = (() => {
-			const p = montarPatente(s.noImp.posto, s.noImp.quadro)
-			const n = s.noImp.nome.toUpperCase()
-			return s.noImp.posto && isOficialGeneral(s.noImp.posto) ? [p, n].filter(Boolean).join(" ") : [n, p].filter(Boolean).join(" ")
+		const substitute = (() => {
+			const p = buildRankLabel(s.noImp.rank, s.noImp.quadro)
+			const n = s.noImp.name.toUpperCase()
+			return s.noImp.rank && isGeneralOfficer(s.noImp.rank) ? [p, n].filter(Boolean).join(" ") : [n, p].filter(Boolean).join(" ")
 		})()
-		return [`No Imp ${principal}`, ...(cargoLinha ? [cargoLinha] : []), substituto]
+		return [`No Imp ${main}`, ...(positionLine ? [positionLine] : []), substitute]
 	}
 
-	return [principal, ...(cargoLinha ? [cargoLinha] : [])]
+	return [main, ...(positionLine ? [positionLine] : [])]
 }
 
 /** Art. 40 § 9º — o texto do documento assinado por ordem tem abertura obrigatória. */
-export const ABERTURAS_POR_ORDEM = ["Por ordem d", "Incumbiu-me "] as const
+export const BY_ORDER_OPENINGS = ["Por ordem d", "Incumbiu-me "] as const
 
-export function textoTemAberturaPorOrdem(primeiroParagrafo: string): boolean {
-	return ABERTURAS_POR_ORDEM.some((abertura) => primeiroParagrafo.trimStart().startsWith(abertura))
+export function hasByOrderOpening(primeiroParagrafo: string): boolean {
+	return BY_ORDER_OPENINGS.some((abertura) => primeiroParagrafo.trimStart().startsWith(abertura))
 }
 
 /**
  * Art. 39 — divisões do texto: parágrafo (1.), item (1.1), alínea (a) e subalínea (-).
  * Documento de parágrafo único dispensa a numeração (art. 39, parágrafo único, I).
  */
-export function renderDivisoes(paragrafos: Paragrafo[], numerar = true): Linha[] {
-	const linhas: Linha[] = []
+export function renderDivisions(paragraphs: Paragraph[], shouldNumber = true): Line[] {
+	const lines: Line[] = []
 	// Art. 39, parágrafo único, I: a numeração é facultativa no documento de parágrafo
 	// único — mas só enquanto ele não tiver itens. Item é "1.1", e sem o "1." impresso o
 	// número do item aponta para um parágrafo que o documento não mostra.
-	const temItens = paragrafos.some((p) => (p.itens?.length ?? 0) > 0)
-	const numerarParagrafos = numerar && (paragrafos.length > 1 || temItens)
-	paragrafos.forEach((p, i) => {
-		linhas.push({ texto: numerarParagrafos ? `${i + 1}. ${p.texto}` : p.texto, alinhamento: "justificado", recuoCm: 2.5 })
-		p.itens?.forEach((item, j) => {
+	const hasItems = paragraphs.some((p) => (p.items?.length ?? 0) > 0)
+	const numberParagraphs = shouldNumber && (paragraphs.length > 1 || hasItems)
+	paragraphs.forEach((p, i) => {
+		lines.push({ text: numberParagraphs ? `${i + 1}. ${p.text}` : p.text, alignment: "justificado", indentCm: 2.5 })
+		p.items?.forEach((item, j) => {
 			// Espécie que não numera parágrafo (carta e despacho decisório, art. 45 e 49)
 			// também não pode numerar item por parágrafo: sobra o travessão.
-			const marcador = numerarParagrafos ? `${i + 1}.${j + 1}` : "-"
-			linhas.push({ texto: `${marcador} ${item.texto}`, alinhamento: "justificado", recuoCm: 3.5 })
+			const marker = numberParagraphs ? `${i + 1}.${j + 1}` : "-"
+			lines.push({ text: `${marker} ${item.text}`, alignment: "justificado", indentCm: 3.5 })
 			item.alineas?.forEach((alinea, k) => {
-				linhas.push({ texto: `${String.fromCharCode(97 + k)}) ${alinea.texto}`, alinhamento: "justificado", recuoCm: 4.5 })
-				for (const sub of alinea.subalineas ?? []) linhas.push({ texto: `- ${sub.texto}`, alinhamento: "justificado", recuoCm: 5.5 })
+				lines.push({ text: `${String.fromCharCode(97 + k)}) ${alinea.text}`, alignment: "justificado", indentCm: 4.5 })
+				for (const sub of alinea.subalineas ?? []) lines.push({ text: `- ${sub.text}`, alignment: "justificado", indentCm: 5.5 })
 			})
 		})
 	})
-	return linhas
+	return lines
 }

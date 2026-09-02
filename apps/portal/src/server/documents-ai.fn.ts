@@ -16,10 +16,10 @@ import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { generateJson } from "@/lib/ai.server"
 import { requireUserId } from "@/lib/auth.server"
-import { buscarEspecie, descreverCatalogo, type Especie } from "@/lib/comaer/especies"
-import { type RedacaoIa, RedacaoIaSchema } from "@/lib/comaer/schema"
+import { type DocumentKind, describeCatalog, findKind } from "@/lib/comaer/catalog"
+import { type AiProposal, AiProposalSchema } from "@/lib/comaer/schema"
 import { getDocumentsServerClient } from "@/lib/supabase.server"
-import { redacaoJsonSchema } from "./documents-ai.schema"
+import { aiProposalJsonSchema } from "./documents-ai.schema"
 
 const SYSTEM = `Você redige comunicações oficiais do Comando da Aeronáutica segundo a NSCA 5-3/2026 (Anexo I), que adapta o Manual de Redação da Presidência da República ao COMAER.
 
@@ -45,24 +45,24 @@ Você também ESCOLHE a forma do documento, a partir do que o rascunho pede:
 Preencha apenas o que o rascunho sustentar. Campo sem base no rascunho fica AUSENTE — não use marcador de preenchimento como <NOME>, [cargo], XXXX ou "a definir". Ausente o usuário completa; marcador ele copia para o SIGADAER sem enxergar.
 
 CATÁLOGO DE ESPÉCIES:
-${descreverCatalogo()}`
+${describeCatalog()}`
 
-function promptDe(especie: Especie, ambito: string, modo: "redigir" | "revisar", rascunho: string): string {
-	const contexto = [
-		`Espécie escolhida no formulário: ${especie.id} — ${especie.rotulo} (${especie.fundamento}). Troque-a se o rascunho pedir outra, e diga qual no campo "especie".`,
-		`Âmbito escolhido no formulário: ${ambito === "externo" ? "externo ao COMAER" : ambito === "comaer" ? "entre Organizações Militares do COMAER" : "interno à própria Organização Militar"}. Troque-o se o rascunho indicar outro.`,
-		especie.aberturaSugerida ? `O primeiro parágrafo deve começar por "${especie.aberturaSugerida.trim()}".` : "",
-		especie.paragrafosNumerados ? "" : "Esta espécie não numera parágrafos; escreva texto corrido em parágrafos distintos.",
+function buildPrompt(kind: DocumentKind, scope: string, mode: "redigir" | "revisar", draft: string): string {
+	const context = [
+		`Espécie escolhida no formulário: ${kind.id} — ${kind.label} (${kind.legalBasis}). Troque-a se o rascunho pedir outra, e diga qual no campo "especie".`,
+		`Âmbito escolhido no formulário: ${scope === "externo" ? "externo ao COMAER" : scope === "comaer" ? "entre Organizações Militares do COMAER" : "interno à própria Organização Militar"}. Troque-o se o rascunho indicar outro.`,
+		kind.suggestedOpening ? `O primeiro parágrafo deve começar por "${kind.suggestedOpening.trim()}".` : "",
+		kind.numberedParagraphs ? "" : "Esta espécie não numera parágrafos; escreva texto corrido em parágrafos distintos.",
 	]
 		.filter(Boolean)
 		.join("\n")
 
-	const tarefa =
-		modo === "redigir"
+	const task =
+		mode === "redigir"
 			? "Redija o texto do documento a partir das anotações abaixo."
 			: "Revise o texto abaixo para a norma: corrija tom, impessoalidade e estrutura, preserve TODOS os fatos, números e datas, e não acrescente informação que não esteja no original."
 
-	return `${contexto}\n\n${tarefa}\n\n---\n${rascunho}\n---`
+	return `${context}\n\n${task}\n\n---\n${draft}\n---`
 }
 
 /**
@@ -70,62 +70,62 @@ function promptDe(especie: Especie, ambito: string, modo: "redigir" | "revisar",
  * por sigilo, que é o que torna auditável a afirmação de que documento classificado não
  * foi submetido a provider.
  */
-async function registrar(entrada: { userId: string; modo: string; especie: string; rascunho: string; resultado?: RedacaoIa; erro?: string }): Promise<void> {
+async function recordGeneration(entry: { userId: string; mode: string; kind: string; draft: string; result?: AiProposal; error?: string }): Promise<void> {
 	try {
 		await getDocumentsServerClient()
 			.from("ai_generation")
 			.insert({
-				owner_id: entrada.userId,
-				modo: entrada.modo,
-				especie: entrada.especie,
-				rascunho: entrada.rascunho,
-				resultado: entrada.resultado ?? null,
-				erro: entrada.erro ?? null,
+				owner_id: entry.userId,
+				mode: entry.mode,
+				kind: entry.kind,
+				draft: entry.draft,
+				result: entry.result ?? null,
+				error: entry.error ?? null,
 			})
 	} catch {
 		// Trilha é acessória: perdê-la não pode custar ao usuário o texto já gerado.
 	}
 }
 
-export const redigirComIaFn = createServerFn({ method: "POST" })
+export const draftWithAiFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			rascunho: z.string().trim().min(10, "Escreva ao menos uma frase para a IA trabalhar.").max(8000),
-			especie: z.string(),
-			ambito: z.enum(["interno-om", "comaer", "externo"]),
-			sigilo: z.enum(["ostensivo", "reservado", "secreto", "ultrassecreto"]),
-			modo: z.enum(["redigir", "revisar"]),
+			draft: z.string().trim().min(10, "Escreva ao menos uma frase para a IA trabalhar.").max(8000),
+			kind: z.string(),
+			scope: z.enum(["interno-om", "comaer", "externo"]),
+			classification: z.enum(["ostensivo", "reservado", "secreto", "ultrassecreto"]),
+			mode: z.enum(["redigir", "revisar"]),
 		})
 	)
-	.handler(async ({ data }): Promise<RedacaoIa> => {
+	.handler(async ({ data }): Promise<AiProposal> => {
 		// Dono da chamada vem da sessão: é ele que chaveia os tetos de consumo e o registro.
 		const userId = await requireUserId()
 
-		const especie = buscarEspecie(data.especie)
-		if (!especie) {
+		const kind = findKind(data.kind)
+		if (!kind) {
 			setResponseStatus(422)
-			throw new Error(`Espécie desconhecida: ${data.especie}`)
+			throw new Error(`Espécie desconhecida: ${data.kind}`)
 		}
 
-		if (data.sigilo !== "ostensivo") {
-			await registrar({ userId, modo: data.modo, especie: data.especie, rascunho: data.rascunho, erro: `recusado: sigilo ${data.sigilo}` })
+		if (data.classification !== "ostensivo") {
+			await recordGeneration({ userId, mode: data.mode, kind: data.kind, draft: data.draft, error: `recusado: sigilo ${data.classification}` })
 			setResponseStatus(422)
 			throw new Error("Documento classificado não é enviado a provider de IA. Redija o texto manualmente (art. 7º § 2º e normas de salvaguarda).")
 		}
 
 		try {
-			const bruto = await generateJson<unknown>({
+			const raw = await generateJson<unknown>({
 				userId,
 				system: SYSTEM,
-				user: promptDe(especie, data.ambito, data.modo, data.rascunho),
-				schema: redacaoJsonSchema,
+				user: buildPrompt(kind, data.scope, data.mode, data.draft),
+				schema: aiProposalJsonSchema,
 			})
-			const resultado = RedacaoIaSchema.parse(bruto)
-			await registrar({ userId, modo: data.modo, especie: data.especie, rascunho: data.rascunho, resultado })
-			return resultado
+			const result = AiProposalSchema.parse(raw)
+			await recordGeneration({ userId, mode: data.mode, kind: data.kind, draft: data.draft, result })
+			return result
 		} catch (error) {
-			const mensagem = error instanceof Error ? error.message : "Falha desconhecida na geração."
-			await registrar({ userId, modo: data.modo, especie: data.especie, rascunho: data.rascunho, erro: mensagem })
+			const message = error instanceof Error ? error.message : "Falha desconhecida na geração."
+			await recordGeneration({ userId, mode: data.mode, kind: data.kind, draft: data.draft, error: message })
 			throw error
 		}
 	})

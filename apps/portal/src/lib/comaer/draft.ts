@@ -11,69 +11,69 @@
  * (art. 7º § 2º) e não há motivo para subi-lo antes de o usuário pedir.
  */
 
-import type { DocumentoInput } from "./tipos"
+import type { DocumentInput } from "./types"
 
-export const CHAVE_RASCUNHO = "iefa.comaer.rascunho.v1"
+export const DRAFT_KEY = "iefa.comaer.rascunho.v1"
 
-export function rascunhoInicial(): DocumentoInput {
+export function newDocument(): DocumentInput {
 	return {
-		especie: "oficio-comaer",
-		ambito: "comaer",
-		sigilo: "ostensivo",
-		prioridade: "rotina",
-		om: { nome: "", sigla: "", setor: "", endereco: "", telefone: "", email: "" },
-		numeracao: { sequencial: null, setor: "", ordemGeral: "" },
+		kind: "oficio-comaer",
+		scope: "comaer",
+		classification: "ostensivo",
+		priority: "rotina",
+		om: { name: "", acronym: "", sector: "", address: "", phone: "", email: "" },
+		numbering: { sequence: null, sector: "", organizationNumber: "" },
 		nup: "",
-		localidade: "",
-		data: new Date(),
-		remetente: { cargo: "", genero: "m" },
-		destinatarios: [{ cargo: "", genero: "m" }],
-		assunto: "",
-		referencias: [],
-		anexos: [],
-		precedencia: "igual",
-		paragrafos: [{ texto: "" }],
-		signatario: { nome: "", posto: "", quadro: "", cargo: "", om: "" },
+		city: "",
+		date: new Date(),
+		sender: { position: "", gender: "m" },
+		recipients: [{ position: "", gender: "m" }],
+		subject: "",
+		references: [],
+		annexes: [],
+		precedence: "igual",
+		paragraphs: [{ text: "" }],
+		signer: { name: "", rank: "", quadro: "", position: "", om: "" },
 	}
 }
 
 /** A data vira ISO na serialização; sem reidratar, `dataPorExtenso` receberia string. */
-export function carregarRascunho(): DocumentoInput | null {
+export function loadDraft(): DocumentInput | null {
 	if (typeof localStorage === "undefined") return null
-	const cru = localStorage.getItem(CHAVE_RASCUNHO)
-	if (!cru) return null
+	const stored = localStorage.getItem(DRAFT_KEY)
+	if (!stored) return null
 	try {
-		const dados = JSON.parse(cru) as DocumentoInput & { data: string }
-		return { ...dados, data: new Date(dados.data) }
+		const parsed = JSON.parse(stored) as DocumentInput & { date: string }
+		return { ...parsed, date: new Date(parsed.date) }
 	} catch {
 		return null
 	}
 }
 
-export function salvarRascunho(input: DocumentoInput): void {
+export function saveDraft(input: DocumentInput): void {
 	if (typeof localStorage === "undefined") return
-	localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(input))
+	localStorage.setItem(DRAFT_KEY, JSON.stringify(input))
 }
 
-export function limparRascunho(): void {
+export function clearDraft(): void {
 	if (typeof localStorage === "undefined") return
-	localStorage.removeItem(CHAVE_RASCUNHO)
+	localStorage.removeItem(DRAFT_KEY)
 }
 
 /** `<input type="date">` fala ISO curta; a montagem fala `Date`. */
-export function paraInputDate(data: Date): string {
-	const mes = String(data.getMonth() + 1).padStart(2, "0")
-	const dia = String(data.getDate()).padStart(2, "0")
-	return `${data.getFullYear()}-${mes}-${dia}`
+export function toDateInputValue(date: Date): string {
+	const month = String(date.getMonth() + 1).padStart(2, "0")
+	const day = String(date.getDate()).padStart(2, "0")
+	return `${date.getFullYear()}-${month}-${day}`
 }
 
-export function deInputDate(valor: string): Date {
+export function fromDateInputValue(value: string): Date {
 	// `<input type="date">` limpo devolve "" — e `new Date(NaN, -1, 1)` não é o problema:
 	// com o `?? 1` de antes, o campo vazio datava o documento em 1º de janeiro de 1900 e o
 	// rascunho gravava isso em silêncio. Data ausente volta a ser hoje.
-	const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor)
-	if (!partes) return new Date()
+	const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+	if (!parts) return new Date()
 	// Pelo construtor por partes: "2026-07-03" interpretado como ISO viraria UTC e voltaria
 	// como dia 2 no Brasil.
-	return new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3]))
+	return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
 }

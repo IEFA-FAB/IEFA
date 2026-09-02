@@ -21,9 +21,9 @@
 import { describe, expect, test } from "bun:test"
 import { createAdapterFromEnv } from "@iefa/ai-provider"
 import { buildChatOptions } from "@/lib/ai-options"
-import { buscarEspecie, descreverCatalogo } from "@/lib/comaer/especies"
-import { RedacaoIaSchema } from "@/lib/comaer/schema"
-import { redacaoJsonSchema } from "@/server/documents-ai.schema"
+import { describeCatalog, findKind } from "@/lib/comaer/catalog"
+import { AiProposalSchema } from "@/lib/comaer/schema"
+import { aiProposalJsonSchema } from "@/server/documents-ai.schema"
 
 const enabled = process.env.PORTAL_RUN_AI_SMOKE === "true"
 const describeAiSmoke = enabled ? describe : describe.skip
@@ -45,16 +45,16 @@ describeAiSmoke("provider de IA do portal", () => {
 					`Redija o texto de um Ofício entre OM do COMAER a partir das anotações:\n${RASCUNHO}`,
 					"Você redige comunicações oficiais do COMAER segundo a NSCA 5-3/2026. Impessoal, direto, sem fecho de cortesia."
 				) as unknown as StructuredArgs["chatOptions"],
-				outputSchema: redacaoJsonSchema as unknown as StructuredArgs["outputSchema"],
+				outputSchema: aiProposalJsonSchema as unknown as StructuredArgs["outputSchema"],
 			})
 
-			const redacao = RedacaoIaSchema.parse(resposta.data)
-			expect(redacao.paragrafos.length).toBeGreaterThan(0)
-			expect(redacao.paragrafos[0].texto.length).toBeGreaterThan(20)
+			const proposal = AiProposalSchema.parse(resposta.data)
+			expect(proposal.paragraphs.length).toBeGreaterThan(0)
+			expect(proposal.paragraphs[0].text.length).toBeGreaterThan(20)
 			// O fecho é decisão da norma pelo destinatário (art. 30), e o app o insere: o
 			// modelo escrevendo "Atenciosamente" no corpo duplicaria o fecho no documento.
-			const corpo = redacao.paragrafos.map((p) => p.texto).join("\n")
-			expect(corpo).not.toMatch(/^(Respeitosamente|Atenciosamente)/im)
+			const body = proposal.paragraphs.map((p) => p.text).join("\n")
+			expect(body).not.toMatch(/^(Respeitosamente|Atenciosamente)/im)
 		},
 		{ timeout: 120_000 }
 	)
@@ -71,15 +71,15 @@ describeAiSmoke("provider de IA do portal", () => {
 			const resposta = await adapter.structuredOutput({
 				chatOptions: buildChatOptions(
 					`Espécie escolhida no formulário: oficio-comaer. Troque-a se o rascunho pedir outra.\n\nRascunho: o 1º Ten QOAP L. Santos vem requerer ao Comandante do IEFA a concessão de licença especial de 30 dias referente ao decênio 2016-2026, prevista em lei.`,
-					`Você redige comunicações oficiais do COMAER segundo a NSCA 5-3/2026 e escolhe a espécie adequada.\n\nCATÁLOGO DE ESPÉCIES:\n${descreverCatalogo()}`
+					`Você redige comunicações oficiais do COMAER segundo a NSCA 5-3/2026 e escolhe a espécie adequada.\n\nCATÁLOGO DE ESPÉCIES:\n${describeCatalog()}`
 				) as unknown as StructuredArgs["chatOptions"],
-				outputSchema: redacaoJsonSchema as unknown as StructuredArgs["outputSchema"],
+				outputSchema: aiProposalJsonSchema as unknown as StructuredArgs["outputSchema"],
 			})
 
-			const redacao = RedacaoIaSchema.parse(resposta.data)
-			expect(redacao.especie).toBe("requerimento")
+			const proposal = AiProposalSchema.parse(resposta.data)
+			expect(proposal.kind).toBe("requerimento")
 			// Espécie fora do catálogo é pior que espécie ausente: ela viaja até o formulário.
-			expect(buscarEspecie(redacao.especie ?? "")).toBeDefined()
+			expect(findKind(proposal.kind ?? "")).toBeDefined()
 		},
 		{ timeout: 120_000 }
 	)

@@ -9,148 +9,148 @@
  */
 
 /** Art. 7º § 1º — âmbito, e art. 51: o ofício muda de forma conforme para onde vai. */
-export type Ambito = "interno-om" | "comaer" | "externo"
+export type Scope = "interno-om" | "comaer" | "externo"
 
 /** Art. 7º § 2º — natureza do assunto. Governa o prefixo da numeração (art. 31 § 2º). */
-export type Sigilo = "ostensivo" | "reservado" | "secreto" | "ultrassecreto"
+export type Classification = "ostensivo" | "reservado" | "secreto" | "ultrassecreto"
 
 /** Art. 7º § 3º. */
-export type Prioridade = "rotina" | "urgente"
+export type Priority = "rotina" | "urgente"
 
 /** Art. 30 — decide entre "Respeitosamente" e "Atenciosamente". */
-export type Precedencia = "superior" | "igual" | "inferior"
+export type Precedence = "superior" | "igual" | "inferior"
 
-export type Genero = "m" | "f"
+export type Gender = "m" | "f"
 
 /** Parte do preâmbulo (art. 36): quem envia e quem recebe, pelo CARGO, não pelo nome. */
-export interface Parte {
+export interface Party {
 	/** Cargo ("Chefe do Grupamento de Apoio dos Afonsos") ou sigla da OM ("CO-DCTA"). */
-	cargo: string
+	position: string
 	/** Decide "Do/Da" e "Ao/À" — a norma usa as duas formas nos exemplos do art. 36. */
-	genero?: Genero
+	gender?: Gender
 	/** Art. 36, parágrafo único, III: autoridade intermediária que deve conhecer o assunto. */
 	via?: string
 }
 
-export interface Signatario {
+export interface Signer {
 	/** Nome completo; sai em caixa alta (art. 40). */
-	nome: string
+	name: string
 	/** Sigla do posto/graduação — ver `comaer/postos`. */
-	posto?: string
+	rank?: string
 	/** Quadro/especialidade ("Int", "Av"). */
 	quadro?: string
-	cargo?: string
+	position?: string
 	/** Sigla da OM; vira nome por extenso no documento externo (art. 40 § 2º). */
 	om?: string
 	/** Art. 40 § 7º — assinatura do substituto legal ("No Imp"). */
-	noImp?: { nome: string; posto?: string; quadro?: string }
+	noImp?: { name: string; rank?: string; quadro?: string }
 	/** Art. 40 § 9º — "Por ordem do ..." / "Incumbiu-me o ...". */
-	porOrdemDe?: string
+	byOrderOf?: string
 }
 
 export interface Subalinea {
-	texto: string
+	text: string
 }
 export interface Alinea {
-	texto: string
+	text: string
 	subalineas?: Subalinea[]
 }
 export interface Item {
-	texto: string
+	text: string
 	alineas?: Alinea[]
 }
 /** Art. 39 — parágrafo › item › alínea › subalínea. */
-export interface Paragrafo {
-	texto: string
-	itens?: Item[]
+export interface Paragraph {
+	text: string
+	items?: Item[]
 }
 
-export interface OrganizacaoMilitar {
+export interface MilitaryUnit {
 	/** Nome por extenso, em caixa alta na epígrafe (art. 35, I). */
-	nome: string
-	sigla?: string
+	name: string
+	acronym?: string
 	/** Setor emissor — só aparece no ofício de trâmite interno à OM (art. 51 § 5º, I, c). */
-	setor?: string
+	sector?: string
 	/** Art. 51 § 9º, III — obrigatórios no ofício externo. */
-	endereco?: string
-	telefone?: string
+	address?: string
+	phone?: string
 	email?: string
 }
 
-export interface Numeracao {
+export interface Numbering {
 	/** `null` = s/nº (art. 51 § 6º e § 7º, b: assunto de interesse particular). */
-	sequencial: number | null
+	sequence: number | null
 	/** Indicativo do setor que elabora (art. 31 § 1º, III). */
-	setor?: string
+	sector?: string
 	/** Numeração de ordem geral da organização (art. 31 § 1º, IV). */
-	ordemGeral?: string
+	organizationNumber?: string
 	/** Só no Parecer, que numera por ano (art. 53 § 2º, III). */
-	ano?: number
+	year?: number
 }
 
 /** Endereçamento do ofício externo (art. 51 § 9º, VIII). */
-export interface Enderecamento {
+export interface Addressing {
 	/** Art. 9º § 8º: "Vossa Excelência" fora do Executivo Federal; senão, "Vossa Senhoria". */
-	tratamento: "excelencia" | "senhoria"
-	genero: Genero
-	nome?: string
-	cargo?: string
-	linhasEndereco?: string[]
+	formOfAddress: "excelencia" | "senhoria"
+	gender: Gender
+	name?: string
+	position?: string
+	addressLines?: string[]
 }
 
-export interface DocumentoInput {
-	especie: string
-	ambito: Ambito
-	sigilo: Sigilo
-	prioridade?: Prioridade
-	om: OrganizacaoMilitar
-	numeracao: Numeracao
+export interface DocumentInput {
+	kind: string
+	scope: Scope
+	classification: Classification
+	priority?: Priority
+	om: MilitaryUnit
+	numbering: Numbering
 	/** Protocolo COMAER / NUP — só dígitos ou já mascarado. */
 	nup?: string
-	localidade: string
-	data: Date
-	remetente?: Parte
-	destinatarios: Parte[]
+	city: string
+	date: Date
+	sender?: Party
+	recipients: Party[]
 	/** Art. 51 § 8º, II — o ofício a vários destinatários. */
-	difusao?: "circular" | "difral"
-	assunto?: string
-	referencias?: string[]
-	anexos?: string[]
+	distribution?: "circular" | "difral"
+	subject?: string
+	references?: string[]
+	annexes?: string[]
 	/** Art. 51 § 9º, X — vocativo do ofício externo, seguido de vírgula. */
 	vocativo?: string
-	enderecamento?: Enderecamento
+	addressing?: Addressing
 	/** Posição do destinatário em relação ao signatário (art. 30, II e III). */
-	precedencia?: Precedencia
-	paragrafos: Paragrafo[]
-	signatario: Signatario
+	precedence?: Precedence
+	paragraphs: Paragraph[]
+	signer: Signer
 	/** Art. 48 § 3º, II, b / art. 49 § 2º, II, c — processo e documento de origem. */
-	processo?: { nup?: string; referencia?: string }
+	process?: { nup?: string; reference?: string }
 	/** Ordinal do despacho (art. 48 § 3º, II, c): 1º, 2º, 3º… */
-	ordemDespacho?: number
+	despachoOrder?: number
 	/** Art. 49 § 2º, III. */
-	decisao?: "DEFERIDO" | "DEFERIDA" | "INDEFERIDO" | "INDEFERIDA" | "ARQUIVE-SE"
+	decision?: "DEFERIDO" | "DEFERIDA" | "INDEFERIDO" | "INDEFERIDA" | "ARQUIVE-SE"
 }
 
-export type Alinhamento = "esquerda" | "centro" | "direita" | "justificado"
+export type Alignment = "esquerda" | "centro" | "direita" | "justificado"
 
-export interface Linha {
-	texto: string
-	alinhamento?: Alinhamento
-	negrito?: boolean
+export interface Line {
+	text: string
+	alignment?: Alignment
+	bold?: boolean
 	/** Recuo em cm, como a norma mede (2,5 cm do parágrafo, 1,5 cm da continuação). */
-	recuoCm?: number
+	indentCm?: number
 	/** Linha à direita na MESMA linha da anterior (numeração × localidade e data). */
-	mesmaLinhaDireita?: string
+	rightOnSameLine?: string
 }
 
-export interface BlocoMontado {
-	id: BlocoId
+export interface AssembledBlock {
+	id: BlockId
 	/** Rótulo do campo, usado como alvo de cópia individual para o SIGADAER. */
-	rotulo: string
-	linhas: Linha[]
+	label: string
+	lines: Line[]
 }
 
-export type BlocoId =
+export type BlockId =
 	| "timbre"
 	| "epigrafe"
 	| "titulo"
@@ -167,9 +167,9 @@ export type BlocoId =
 	| "signatario"
 	| "rodape-om"
 
-export interface DocumentoMontado {
-	especie: string
-	blocos: BlocoMontado[]
+export interface AssembledDocument {
+	kind: string
+	blocks: AssembledBlock[]
 	/** Avisos de conformidade — o que a norma exige e o preenchimento não trouxe. */
-	avisos: string[]
+	warnings: string[]
 }

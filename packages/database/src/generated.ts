@@ -2736,35 +2736,35 @@ export type Database = {
         Row: {
           created_at: string
           document_id: string | null
-          erro: string | null
-          especie: string
+          draft: string
+          error: string | null
           id: string
-          modo: string
+          kind: string
+          mode: string
           owner_id: string
-          rascunho: string
-          resultado: Json | null
+          result: Json | null
         }
         Insert: {
           created_at?: string
           document_id?: string | null
-          erro?: string | null
-          especie: string
+          draft: string
+          error?: string | null
           id?: string
-          modo: string
+          kind: string
+          mode: string
           owner_id: string
-          rascunho: string
-          resultado?: Json | null
+          result?: Json | null
         }
         Update: {
           created_at?: string
           document_id?: string | null
-          erro?: string | null
-          especie?: string
+          draft?: string
+          error?: string | null
           id?: string
-          modo?: string
+          kind?: string
+          mode?: string
           owner_id?: string
-          rascunho?: string
-          resultado?: Json | null
+          result?: Json | null
         }
         Relationships: [
           {
@@ -2778,39 +2778,39 @@ export type Database = {
       }
       official_document: {
         Row: {
-          ambito: string
+          classification: string
           created_at: string
           deleted_at: string | null
-          especie: string
           id: string
+          kind: string
           owner_id: string
           payload: Json
-          sigilo: string
-          titulo: string | null
+          scope: string
+          title: string | null
           updated_at: string
         }
         Insert: {
-          ambito: string
+          classification?: string
           created_at?: string
           deleted_at?: string | null
-          especie: string
           id?: string
+          kind: string
           owner_id: string
           payload: Json
-          sigilo?: string
-          titulo?: string | null
+          scope: string
+          title?: string | null
           updated_at?: string
         }
         Update: {
-          ambito?: string
+          classification?: string
           created_at?: string
           deleted_at?: string | null
-          especie?: string
           id?: string
+          kind?: string
           owner_id?: string
           payload?: Json
-          sigilo?: string
-          titulo?: string | null
+          scope?: string
+          title?: string | null
           updated_at?: string
         }
         Relationships: []

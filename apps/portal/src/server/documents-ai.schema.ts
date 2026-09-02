@@ -14,35 +14,35 @@
  * espécie nova tem de chegar ao modelo no mesmo commit em que entra no catálogo.
  */
 
-import { ESPECIES } from "@/lib/comaer/especies"
+import { DOCUMENT_KINDS } from "@/lib/comaer/catalog"
 
-const parteSchema = {
+const partySchema = {
 	type: "object",
 	properties: {
-		cargo: { type: "string" },
-		genero: { type: "string", enum: ["m", "f"], description: "concordância do artigo: m = Do/Ao, f = Da/À" },
+		position: { type: "string" },
+		gender: { type: "string", enum: ["m", "f"], description: "concordância do artigo: m = Do/Ao, f = Da/À" },
 		via: { type: "string", description: "autoridade intermediária, quando o documento tramita via cadeia de comando" },
 	},
 	required: ["cargo"],
 } as const
 
-const paragrafoSchema = {
+const paragraphSchema = {
 	type: "object",
 	properties: {
-		texto: { type: "string" },
-		itens: {
+		text: { type: "string" },
+		items: {
 			type: "array",
 			items: {
 				type: "object",
 				properties: {
-					texto: { type: "string" },
+					text: { type: "string" },
 					alineas: {
 						type: "array",
 						items: {
 							type: "object",
 							properties: {
-								texto: { type: "string" },
-								subalineas: { type: "array", items: { type: "object", properties: { texto: { type: "string" } }, required: ["texto"] } },
+								text: { type: "string" },
+								subalineas: { type: "array", items: { type: "object", properties: { text: { type: "string" } }, required: ["texto"] } },
 							},
 							required: ["texto"],
 						},
@@ -55,35 +55,35 @@ const paragrafoSchema = {
 	required: ["texto"],
 } as const
 
-export const redacaoJsonSchema = {
+export const aiProposalJsonSchema = {
 	type: "object",
 	properties: {
-		especie: { type: "string", enum: ESPECIES.map((e) => e.id), description: "espécie de comunicação oficial adequada ao que o rascunho pede" },
-		ambito: { type: "string", enum: ["interno-om", "comaer", "externo"], description: "para onde o documento vai" },
-		prioridade: { type: "string", enum: ["rotina", "urgente"] },
-		precedencia: {
+		kind: { type: "string", enum: DOCUMENT_KINDS.map((e) => e.id), description: "espécie de comunicação oficial adequada ao que o rascunho pede" },
+		scope: { type: "string", enum: ["interno-om", "comaer", "externo"], description: "para onde o documento vai" },
+		priority: { type: "string", enum: ["rotina", "urgente"] },
+		precedence: {
 			type: "string",
 			enum: ["superior", "igual", "inferior"],
 			description: "posição do destinatário em relação ao signatário; decide o fecho quando o destinatário é externo ao COMAER",
 		},
-		remetente: parteSchema,
-		destinatarios: { type: "array", items: parteSchema },
-		enderecamento: {
+		sender: partySchema,
+		recipients: { type: "array", items: partySchema },
+		addressing: {
 			type: "object",
 			properties: {
-				tratamento: { type: "string", enum: ["excelencia", "senhoria"] },
-				genero: { type: "string", enum: ["m", "f"] },
-				nome: { type: "string" },
-				cargo: { type: "string" },
-				linhasEndereco: { type: "array", items: { type: "string" } },
+				formOfAddress: { type: "string", enum: ["excelencia", "senhoria"] },
+				gender: { type: "string", enum: ["m", "f"] },
+				name: { type: "string" },
+				position: { type: "string" },
+				addressLines: { type: "array", items: { type: "string" } },
 			},
 		},
 		vocativo: { type: "string" },
-		decisao: { type: "string", enum: ["DEFERIDO", "DEFERIDA", "INDEFERIDO", "INDEFERIDA", "ARQUIVE-SE"] },
-		assunto: { type: "string" },
-		paragrafos: { type: "array", items: paragrafoSchema },
-		referencias: { type: "array", items: { type: "string" } },
-		anexos: { type: "array", items: { type: "string" } },
+		decision: { type: "string", enum: ["DEFERIDO", "DEFERIDA", "INDEFERIDO", "INDEFERIDA", "ARQUIVE-SE"] },
+		subject: { type: "string" },
+		paragraphs: { type: "array", items: paragraphSchema },
+		references: { type: "array", items: { type: "string" } },
+		annexes: { type: "array", items: { type: "string" } },
 	},
 	required: ["paragrafos"],
 } as const

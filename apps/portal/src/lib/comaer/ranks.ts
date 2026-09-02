@@ -9,70 +9,70 @@
  * só no ofício externo — e é exatamente o tipo de detalhe que passa batido.
  */
 
-export type Forca = "aer" | "eb" | "mb"
+export type Force = "aer" | "eb" | "mb"
 
-export interface PostoGraduacao {
+export interface Rank {
 	/** Forma abreviada, como no art. 18. */
-	sigla: string
+	acronym: string
 	/** Forma por extenso, obrigatória em documento externo ao COMAER (art. 26). */
-	extenso: string
-	forca: Forca
-	tipo: "posto" | "graduacao"
+	inFull: string
+	force: Force
+	category: "posto" | "graduacao"
 	/** Oficial-General: o posto PRECEDE o nome na identificação do signatário (art. 40). */
-	oficialGeneral?: true
+	generalOfficer?: true
 }
 
-export const POSTOS_GRADUACOES: readonly PostoGraduacao[] = [
+export const RANKS: readonly Rank[] = [
 	// ── Aeronáutica — postos ──
-	{ sigla: "Mar Ar", extenso: "Marechal do Ar", forca: "aer", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Ten Brig", extenso: "Tenente-Brigadeiro", forca: "aer", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Maj Brig", extenso: "Major-Brigadeiro", forca: "aer", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Brig", extenso: "Brigadeiro", forca: "aer", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Cel", extenso: "Coronel", forca: "aer", tipo: "posto" },
-	{ sigla: "Ten Cel", extenso: "Tenente-Coronel", forca: "aer", tipo: "posto" },
-	{ sigla: "Maj", extenso: "Major", forca: "aer", tipo: "posto" },
-	{ sigla: "Cap", extenso: "Capitão", forca: "aer", tipo: "posto" },
-	{ sigla: "1º Ten", extenso: "Primeiro-Tenente", forca: "aer", tipo: "posto" },
-	{ sigla: "2º Ten", extenso: "Segundo-Tenente", forca: "aer", tipo: "posto" },
-	{ sigla: "Asp", extenso: "Aspirante a Oficial", forca: "aer", tipo: "posto" },
+	{ acronym: "Mar Ar", inFull: "Marechal do Ar", force: "aer", category: "posto", generalOfficer: true },
+	{ acronym: "Ten Brig", inFull: "Tenente-Brigadeiro", force: "aer", category: "posto", generalOfficer: true },
+	{ acronym: "Maj Brig", inFull: "Major-Brigadeiro", force: "aer", category: "posto", generalOfficer: true },
+	{ acronym: "Brig", inFull: "Brigadeiro", force: "aer", category: "posto", generalOfficer: true },
+	{ acronym: "Cel", inFull: "Coronel", force: "aer", category: "posto" },
+	{ acronym: "Ten Cel", inFull: "Tenente-Coronel", force: "aer", category: "posto" },
+	{ acronym: "Maj", inFull: "Major", force: "aer", category: "posto" },
+	{ acronym: "Cap", inFull: "Capitão", force: "aer", category: "posto" },
+	{ acronym: "1º Ten", inFull: "Primeiro-Tenente", force: "aer", category: "posto" },
+	{ acronym: "2º Ten", inFull: "Segundo-Tenente", force: "aer", category: "posto" },
+	{ acronym: "Asp", inFull: "Aspirante a Oficial", force: "aer", category: "posto" },
 	// ── Aeronáutica — graduações ──
-	{ sigla: "Cad", extenso: "Cadete", forca: "aer", tipo: "graduacao" },
-	{ sigla: "SO", extenso: "Suboficial", forca: "aer", tipo: "graduacao" },
-	{ sigla: "1S", extenso: "Primeiro-Sargento", forca: "aer", tipo: "graduacao" },
-	{ sigla: "2S", extenso: "Segundo-Sargento", forca: "aer", tipo: "graduacao" },
-	{ sigla: "3S", extenso: "Terceiro-Sargento", forca: "aer", tipo: "graduacao" },
-	{ sigla: "Cb", extenso: "Cabo", forca: "aer", tipo: "graduacao" },
-	{ sigla: "S1", extenso: "Soldado de Primeira-Classe", forca: "aer", tipo: "graduacao" },
-	{ sigla: "S2", extenso: "Soldado de Segunda-Classe", forca: "aer", tipo: "graduacao" },
-	{ sigla: "TM", extenso: "Taifeiro-Mor", forca: "aer", tipo: "graduacao" },
-	{ sigla: "T1", extenso: "Taifeiro de Primeira-Classe", forca: "aer", tipo: "graduacao" },
-	{ sigla: "T2", extenso: "Taifeiro de Segunda-Classe", forca: "aer", tipo: "graduacao" },
-	{ sigla: "Al", extenso: "Aluno", forca: "aer", tipo: "graduacao" },
+	{ acronym: "Cad", inFull: "Cadete", force: "aer", category: "graduacao" },
+	{ acronym: "SO", inFull: "Suboficial", force: "aer", category: "graduacao" },
+	{ acronym: "1S", inFull: "Primeiro-Sargento", force: "aer", category: "graduacao" },
+	{ acronym: "2S", inFull: "Segundo-Sargento", force: "aer", category: "graduacao" },
+	{ acronym: "3S", inFull: "Terceiro-Sargento", force: "aer", category: "graduacao" },
+	{ acronym: "Cb", inFull: "Cabo", force: "aer", category: "graduacao" },
+	{ acronym: "S1", inFull: "Soldado de Primeira-Classe", force: "aer", category: "graduacao" },
+	{ acronym: "S2", inFull: "Soldado de Segunda-Classe", force: "aer", category: "graduacao" },
+	{ acronym: "TM", inFull: "Taifeiro-Mor", force: "aer", category: "graduacao" },
+	{ acronym: "T1", inFull: "Taifeiro de Primeira-Classe", force: "aer", category: "graduacao" },
+	{ acronym: "T2", inFull: "Taifeiro de Segunda-Classe", force: "aer", category: "graduacao" },
+	{ acronym: "Al", inFull: "Aluno", force: "aer", category: "graduacao" },
 	// ── Exército — postos e graduações (usados na menção a pessoal, art. 23) ──
-	{ sigla: "Mar", extenso: "Marechal", forca: "eb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Gen Ex", extenso: "General de Exército", forca: "eb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Gen Div", extenso: "General de Divisão", forca: "eb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Gen Bda", extenso: "General de Brigada", forca: "eb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Ten Cel (EB)", extenso: "Tenente-Coronel", forca: "eb", tipo: "posto" },
-	{ sigla: "S Ten", extenso: "Subtenente", forca: "eb", tipo: "graduacao" },
-	{ sigla: "1º Sgt", extenso: "Primeiro-Sargento", forca: "eb", tipo: "graduacao" },
-	{ sigla: "2º Sgt", extenso: "Segundo-Sargento", forca: "eb", tipo: "graduacao" },
-	{ sigla: "3º Sgt", extenso: "Terceiro-Sargento", forca: "eb", tipo: "graduacao" },
-	{ sigla: "Sd", extenso: "Soldado", forca: "eb", tipo: "graduacao" },
+	{ acronym: "Mar", inFull: "Marechal", force: "eb", category: "posto", generalOfficer: true },
+	{ acronym: "Gen Ex", inFull: "General de Exército", force: "eb", category: "posto", generalOfficer: true },
+	{ acronym: "Gen Div", inFull: "General de Divisão", force: "eb", category: "posto", generalOfficer: true },
+	{ acronym: "Gen Bda", inFull: "General de Brigada", force: "eb", category: "posto", generalOfficer: true },
+	{ acronym: "Ten Cel (EB)", inFull: "Tenente-Coronel", force: "eb", category: "posto" },
+	{ acronym: "S Ten", inFull: "Subtenente", force: "eb", category: "graduacao" },
+	{ acronym: "1º Sgt", inFull: "Primeiro-Sargento", force: "eb", category: "graduacao" },
+	{ acronym: "2º Sgt", inFull: "Segundo-Sargento", force: "eb", category: "graduacao" },
+	{ acronym: "3º Sgt", inFull: "Terceiro-Sargento", force: "eb", category: "graduacao" },
+	{ acronym: "Sd", inFull: "Soldado", force: "eb", category: "graduacao" },
 	// ── Marinha — postos e graduações ──
-	{ sigla: "Alte", extenso: "Almirante", forca: "mb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "Alte Esq", extenso: "Almirante de Esquadra", forca: "mb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "V Alte", extenso: "Vice-Almirante", forca: "mb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "C Alte", extenso: "Contra-Almirante", forca: "mb", tipo: "posto", oficialGeneral: true },
-	{ sigla: "CMG", extenso: "Capitão de Mar e Guerra", forca: "mb", tipo: "posto" },
-	{ sigla: "CF", extenso: "Capitão de Fragata", forca: "mb", tipo: "posto" },
-	{ sigla: "CC", extenso: "Capitão de Corveta", forca: "mb", tipo: "posto" },
-	{ sigla: "CT", extenso: "Capitão-Tenente", forca: "mb", tipo: "posto" },
-	{ sigla: "GM", extenso: "Guarda-Marinha", forca: "mb", tipo: "posto" },
-	{ sigla: "1º SG", extenso: "Primeiro-Sargento", forca: "mb", tipo: "graduacao" },
-	{ sigla: "2º SG", extenso: "Segundo-Sargento", forca: "mb", tipo: "graduacao" },
-	{ sigla: "3º SG", extenso: "Terceiro-Sargento", forca: "mb", tipo: "graduacao" },
-	{ sigla: "MN", extenso: "Marinheiro", forca: "mb", tipo: "graduacao" },
+	{ acronym: "Alte", inFull: "Almirante", force: "mb", category: "posto", generalOfficer: true },
+	{ acronym: "Alte Esq", inFull: "Almirante de Esquadra", force: "mb", category: "posto", generalOfficer: true },
+	{ acronym: "V Alte", inFull: "Vice-Almirante", force: "mb", category: "posto", generalOfficer: true },
+	{ acronym: "C Alte", inFull: "Contra-Almirante", force: "mb", category: "posto", generalOfficer: true },
+	{ acronym: "CMG", inFull: "Capitão de Mar e Guerra", force: "mb", category: "posto" },
+	{ acronym: "CF", inFull: "Capitão de Fragata", force: "mb", category: "posto" },
+	{ acronym: "CC", inFull: "Capitão de Corveta", force: "mb", category: "posto" },
+	{ acronym: "CT", inFull: "Capitão-Tenente", force: "mb", category: "posto" },
+	{ acronym: "GM", inFull: "Guarda-Marinha", force: "mb", category: "posto" },
+	{ acronym: "1º SG", inFull: "Primeiro-Sargento", force: "mb", category: "graduacao" },
+	{ acronym: "2º SG", inFull: "Segundo-Sargento", force: "mb", category: "graduacao" },
+	{ acronym: "3º SG", inFull: "Terceiro-Sargento", force: "mb", category: "graduacao" },
+	{ acronym: "MN", inFull: "Marinheiro", force: "mb", category: "graduacao" },
 ]
 
 /**
@@ -83,7 +83,7 @@ export const POSTOS_GRADUACOES: readonly PostoGraduacao[] = [
  * o que não está aqui volta na própria sigla em vez de virar chute: escrever o quadro
  * errado por extenso num ofício externo é pior do que deixá-lo abreviado.
  */
-export const QUADROS_POR_EXTENSO: Readonly<Record<string, string>> = {
+export const QUADROS_IN_FULL: Readonly<Record<string, string>> = {
 	Ar: "do Ar",
 	Av: "Aviador",
 	Int: "Intendente",
@@ -94,9 +94,9 @@ export const QUADROS_POR_EXTENSO: Readonly<Record<string, string>> = {
 	Capl: "Capelão",
 }
 
-function chave(sigla: string): string {
+function lookupKey(acronym: string): string {
 	return (
-		sigla
+		acronym
 			// NFKD (não NFD): é a forma que decompõe o indicador ordinal "º" em "o". Com NFD
 			// ele passa intacto, e era por isso que "1º Ten" e "1o Ten" produziam chaves
 			// diferentes — a busca "tolerante" documentada logo abaixo não tolerava nada.
@@ -112,21 +112,21 @@ function chave(sigla: string): string {
 }
 
 /** Busca tolerante: aceita "1º Ten", "1o Ten", "1 TEN" e "ten cel". */
-export function buscarPosto(sigla: string, forca: Forca = "aer"): PostoGraduacao | undefined {
-	const alvo = chave(sigla)
-	return POSTOS_GRADUACOES.find((p) => p.forca === forca && chave(p.sigla) === alvo) ?? POSTOS_GRADUACOES.find((p) => chave(p.sigla) === alvo)
+export function findRank(acronym: string, force: Force = "aer"): Rank | undefined {
+	const alvo = lookupKey(acronym)
+	return RANKS.find((p) => p.force === force && lookupKey(p.acronym) === alvo) ?? RANKS.find((p) => lookupKey(p.acronym) === alvo)
 }
 
 /** Posto por extenso (art. 26) — devolve a própria entrada quando desconhecida. */
-export function postoPorExtenso(sigla: string, forca: Forca = "aer"): string {
-	return buscarPosto(sigla, forca)?.extenso ?? sigla
+export function rankInFull(acronym: string, force: Force = "aer"): string {
+	return findRank(acronym, force)?.inFull ?? acronym
 }
 
-export function quadroPorExtenso(sigla: string): string {
-	return QUADROS_POR_EXTENSO[sigla] ?? sigla
+export function quadroInFull(acronym: string): string {
+	return QUADROS_IN_FULL[acronym] ?? acronym
 }
 
 /** Art. 40: só para Oficial-General o posto precede o nome. */
-export function isOficialGeneral(sigla: string, forca: Forca = "aer"): boolean {
-	return buscarPosto(sigla, forca)?.oficialGeneral === true
+export function isGeneralOfficer(acronym: string, force: Force = "aer"): boolean {
+	return findRank(acronym, force)?.generalOfficer === true
 }

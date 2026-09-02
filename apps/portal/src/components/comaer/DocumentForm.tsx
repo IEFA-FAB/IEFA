@@ -1,16 +1,16 @@
 import { Plus, Trash } from "iconoir-react"
 import type { ReactNode } from "react"
-import { EditorTexto } from "@/components/comaer/EditorTexto"
+import { BodyEditor } from "@/components/comaer/BodyEditor"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { type Especie, especiesPorAmbito } from "@/lib/comaer/especies"
-import { POSTOS_GRADUACOES, QUADROS_POR_EXTENSO } from "@/lib/comaer/postos"
-import { deInputDate, paraInputDate } from "@/lib/comaer/rascunho"
-import type { Ambito, DocumentoInput, Parte, Sigilo } from "@/lib/comaer/tipos"
+import { type DocumentKind, kindsForScope } from "@/lib/comaer/catalog"
+import { fromDateInputValue, toDateInputValue } from "@/lib/comaer/draft"
+import { QUADROS_IN_FULL, RANKS } from "@/lib/comaer/ranks"
+import type { Classification, DocumentInput, Party, Scope } from "@/lib/comaer/types"
 
 /**
  * Formulário derivado do catálogo de espécies.
@@ -21,99 +21,99 @@ import type { Ambito, DocumentoInput, Parte, Sigilo } from "@/lib/comaer/tipos"
  * onde a norma não o prevê.
  */
 
-const AMBITOS: { valor: Ambito; rotulo: string; ajuda: string }[] = [
-	{ valor: "interno-om", rotulo: "Interno à OM", ajuda: "Tramita entre setores da própria Organização Militar." },
-	{ valor: "comaer", rotulo: "Entre OM do COMAER", ajuda: "Documento interno ao Comando da Aeronáutica." },
-	{ valor: "externo", rotulo: "Externo ao COMAER", ajuda: "Órgão externo ou particular — posto e cargo por extenso." },
+const SCOPES: { value: Scope; label: string; hint: string }[] = [
+	{ value: "interno-om", label: "Interno à OM", hint: "Tramita entre setores da própria Organização Militar." },
+	{ value: "comaer", label: "Entre OM do COMAER", hint: "Documento interno ao Comando da Aeronáutica." },
+	{ value: "externo", label: "Externo ao COMAER", hint: "Órgão externo ou particular — posto e cargo por extenso." },
 ]
 
-const SIGILOS: { valor: Sigilo; rotulo: string }[] = [
-	{ valor: "ostensivo", rotulo: "Ostensivo" },
-	{ valor: "reservado", rotulo: "Reservado (R-)" },
-	{ valor: "secreto", rotulo: "Secreto (S-)" },
-	{ valor: "ultrassecreto", rotulo: "Ultrassecreto (US-)" },
+const CLASSIFICATIONS: { value: Classification; label: string }[] = [
+	{ value: "ostensivo", label: "Ostensivo" },
+	{ value: "reservado", label: "Reservado (R-)" },
+	{ value: "secreto", label: "Secreto (S-)" },
+	{ value: "ultrassecreto", label: "Ultrassecreto (US-)" },
 ]
 
-const POSTOS_FAB = POSTOS_GRADUACOES.filter((p) => p.forca === "aer")
+const FAB_RANKS = RANKS.filter((p) => p.force === "aer")
 
 interface Props {
-	input: DocumentoInput
-	especie: Especie
-	onChange: (patch: Partial<DocumentoInput>) => void
+	input: DocumentInput
+	kind: DocumentKind
+	onChange: (patch: Partial<DocumentInput>) => void
 }
 
-export function FormularioDocumento({ input, especie, onChange }: Props) {
-	const tem = (bloco: string) => especie.blocos.includes(bloco as never)
+export function DocumentForm({ input, kind, onChange }: Props) {
+	const tem = (bloco: string) => kind.blocks.includes(bloco as never)
 
 	return (
 		<div className="flex flex-col gap-8">
-			<Secao titulo="Espécie e âmbito" fundamento="Anexo I, art. 7º e cap. VIII">
+			<Section title="Espécie e âmbito" legalBasis="Anexo I, art. 7º e cap. VIII">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Campo id="ambito" rotulo="Âmbito">
+					<Field id="scope" label="Âmbito">
 						<Select
-							value={input.ambito}
-							onValueChange={(valor) => {
-								const ambito = valor as Ambito
+							value={input.scope}
+							onValueChange={(value) => {
+								const scope = value as Scope
 								// Trocar de âmbito pode invalidar a espécie: o ofício externo não existe
 								// dentro do COMAER, e manter a escolha antiga renderizaria fecho proibido.
-								const permitidas = especiesPorAmbito(ambito)
-								const especieValida = permitidas.some((e) => e.id === input.especie) ? input.especie : (permitidas[0]?.id ?? input.especie)
-								onChange({ ambito, especie: especieValida })
+								const allowedKinds = kindsForScope(scope)
+								const validKind = allowedKinds.some((e) => e.id === input.kind) ? input.kind : (allowedKinds[0]?.id ?? input.kind)
+								onChange({ scope, kind: validKind })
 							}}
 						>
-							<SelectTrigger id="ambito" className="w-full">
-								<SelectValue>{AMBITOS.find((a) => a.valor === input.ambito)?.rotulo}</SelectValue>
+							<SelectTrigger id="scope" className="w-full">
+								<SelectValue>{SCOPES.find((a) => a.value === input.scope)?.label}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
-								{AMBITOS.map((a) => (
-									<SelectItem key={a.valor} value={a.valor}>
-										{a.rotulo}
+								{SCOPES.map((a) => (
+									<SelectItem key={a.value} value={a.value}>
+										{a.label}
 									</SelectItem>
 								))}
 							</SelectContent>
 						</Select>
-						<Ajuda>{AMBITOS.find((a) => a.valor === input.ambito)?.ajuda}</Ajuda>
-					</Campo>
+						<Hint>{SCOPES.find((a) => a.value === input.scope)?.hint}</Hint>
+					</Field>
 
-					<Campo id="especie" rotulo="Espécie">
-						<Select value={input.especie} onValueChange={(valor) => onChange({ especie: valor as string })}>
-							<SelectTrigger id="especie" className="w-full">
-								<SelectValue>{especie.rotulo}</SelectValue>
+					<Field id="kind" label="Espécie">
+						<Select value={input.kind} onValueChange={(value) => onChange({ kind: value as string })}>
+							<SelectTrigger id="kind" className="w-full">
+								<SelectValue>{kind.label}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
-								{especiesPorAmbito(input.ambito).map((e) => (
+								{kindsForScope(input.scope).map((e) => (
 									<SelectItem key={e.id} value={e.id}>
-										{e.rotulo}
+										{e.label}
 									</SelectItem>
 								))}
 							</SelectContent>
 						</Select>
-						<Ajuda>
-							{especie.descricao} <span className="whitespace-nowrap font-mono text-[11px]">({especie.fundamento})</span>
-						</Ajuda>
-					</Campo>
+						<Hint>
+							{kind.description} <span className="whitespace-nowrap font-mono text-[11px]">({kind.legalBasis})</span>
+						</Hint>
+					</Field>
 
-					<Campo id="sigilo" rotulo="Grau de sigilo">
-						<Select value={input.sigilo} onValueChange={(valor) => onChange({ sigilo: valor as Sigilo })}>
-							<SelectTrigger id="sigilo" className="w-full">
-								<SelectValue>{SIGILOS.find((s) => s.valor === input.sigilo)?.rotulo}</SelectValue>
+					<Field id="classification" label="Grau de sigilo">
+						<Select value={input.classification} onValueChange={(value) => onChange({ classification: value as Classification })}>
+							<SelectTrigger id="classification" className="w-full">
+								<SelectValue>{CLASSIFICATIONS.find((s) => s.value === input.classification)?.label}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
-								{SIGILOS.map((s) => (
-									<SelectItem key={s.valor} value={s.valor}>
-										{s.rotulo}
+								{CLASSIFICATIONS.map((s) => (
+									<SelectItem key={s.value} value={s.value}>
+										{s.label}
 									</SelectItem>
 								))}
 							</SelectContent>
 						</Select>
-					</Campo>
+					</Field>
 
-					{especie.permiteFecho && (
-						<Campo id="precedencia" rotulo="Destinatário em relação ao signatário">
-							<Select value={input.precedencia ?? "igual"} onValueChange={(valor) => onChange({ precedencia: valor as DocumentoInput["precedencia"] })}>
-								<SelectTrigger id="precedencia" className="w-full">
+					{kind.allowsClosing && (
+						<Field id="precedence" label="Destinatário em relação ao signatário">
+							<Select value={input.precedence ?? "igual"} onValueChange={(value) => onChange({ precedence: value as DocumentInput["precedence"] })}>
+								<SelectTrigger id="precedence" className="w-full">
 									<SelectValue>
-										{input.precedencia === "superior" ? "Autoridade superior" : input.precedencia === "inferior" ? "Hierarquia inferior" : "Mesma hierarquia"}
+										{input.precedence === "superior" ? "Autoridade superior" : input.precedence === "inferior" ? "Hierarquia inferior" : "Mesma hierarquia"}
 									</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
@@ -122,142 +122,147 @@ export function FormularioDocumento({ input, especie, onChange }: Props) {
 									<SelectItem value="inferior">Hierarquia inferior</SelectItem>
 								</SelectContent>
 							</Select>
-							<Ajuda>Decide entre “Respeitosamente” e “Atenciosamente” (art. 30).</Ajuda>
-						</Campo>
+							<Hint>Decide entre “Respeitosamente” e “Atenciosamente” (art. 30).</Hint>
+						</Field>
 					)}
 				</div>
-			</Secao>
+			</Section>
 
-			<Secao titulo="Organização expedidora" fundamento="Anexo I, art. 35">
+			<Section title="Organização expedidora" legalBasis="Anexo I, art. 35">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Campo id="om-nome" rotulo="Nome da OM">
+					<Field id="om-name" label="Nome da OM">
 						<Input
-							id="om-nome"
-							value={input.om.nome}
-							onChange={(e) => onChange({ om: { ...input.om, nome: e.target.value } })}
+							id="om-name"
+							value={input.om.name}
+							onChange={(e) => onChange({ om: { ...input.om, name: e.target.value } })}
 							placeholder="Instituto de Economia e Finanças da Aeronáutica"
 						/>
-					</Campo>
-					<Campo id="om-sigla" rotulo="Sigla">
-						<Input id="om-sigla" value={input.om.sigla ?? ""} onChange={(e) => onChange({ om: { ...input.om, sigla: e.target.value } })} placeholder="IEFA" />
-					</Campo>
-					{especie.id === "oficio-interno-om" && (
-						<Campo id="om-setor" rotulo="Setor emissor">
+					</Field>
+					<Field id="om-acronym" label="Sigla">
+						<Input
+							id="om-acronym"
+							value={input.om.acronym ?? ""}
+							onChange={(e) => onChange({ om: { ...input.om, acronym: e.target.value } })}
+							placeholder="IEFA"
+						/>
+					</Field>
+					{kind.id === "oficio-interno-om" && (
+						<Field id="om-sector" label="Setor emissor">
 							<Input
-								id="om-setor"
-								value={input.om.setor ?? ""}
-								onChange={(e) => onChange({ om: { ...input.om, setor: e.target.value } })}
+								id="om-sector"
+								value={input.om.sector ?? ""}
+								onChange={(e) => onChange({ om: { ...input.om, sector: e.target.value } })}
 								placeholder="Gabinete"
 							/>
-						</Campo>
+						</Field>
 					)}
-					{(tem("rodape-om") || especie.id === "oficio-externo") && (
+					{(tem("rodape-om") || kind.id === "oficio-externo") && (
 						<>
-							<Campo id="om-endereco" rotulo="Endereço">
-								<Input id="om-endereco" value={input.om.endereco ?? ""} onChange={(e) => onChange({ om: { ...input.om, endereco: e.target.value } })} />
-							</Campo>
-							<Campo id="om-telefone" rotulo="Telefone">
-								<Input id="om-telefone" value={input.om.telefone ?? ""} onChange={(e) => onChange({ om: { ...input.om, telefone: e.target.value } })} />
-							</Campo>
-							<Campo id="om-email" rotulo="E-mail institucional">
+							<Field id="om-address" label="Endereço">
+								<Input id="om-address" value={input.om.address ?? ""} onChange={(e) => onChange({ om: { ...input.om, address: e.target.value } })} />
+							</Field>
+							<Field id="om-phone" label="Telefone">
+								<Input id="om-phone" value={input.om.phone ?? ""} onChange={(e) => onChange({ om: { ...input.om, phone: e.target.value } })} />
+							</Field>
+							<Field id="om-email" label="E-mail institucional">
 								<Input id="om-email" value={input.om.email ?? ""} onChange={(e) => onChange({ om: { ...input.om, email: e.target.value } })} />
-							</Campo>
+							</Field>
 						</>
 					)}
 				</div>
-			</Secao>
+			</Section>
 
-			<Secao titulo="Numeração, protocolo e data" fundamento="Anexo I, art. 31 e art. 35">
+			<Section title="Numeração, protocolo e data" legalBasis="Anexo I, art. 31 e art. 35">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					{especie.numeracao !== "nenhuma" && (
+					{kind.numbering !== "nenhuma" && (
 						<>
-							<Campo id="sequencial" rotulo="Sequencial do setor">
+							<Field id="sequence" label="Sequencial do setor">
 								<Input
-									id="sequencial"
+									id="sequence"
 									inputMode="numeric"
-									value={input.numeracao.sequencial ?? ""}
+									value={input.numbering.sequence ?? ""}
 									placeholder="s/nº quando vazio"
 									onChange={(e) =>
-										onChange({ numeracao: { ...input.numeracao, sequencial: e.target.value.trim() === "" ? null : Number(e.target.value.replace(/\D/g, "")) } })
+										onChange({ numbering: { ...input.numbering, sequence: e.target.value.trim() === "" ? null : Number(e.target.value.replace(/\D/g, "")) } })
 									}
 								/>
-								<Ajuda>Vazio produz “s/nº” — assunto de interesse particular (art. 51 § 6º).</Ajuda>
-							</Campo>
-							<Campo id="setor" rotulo="Indicativo do setor">
+								<Hint>Vazio produz “s/nº” — assunto de interesse particular (art. 51 § 6º).</Hint>
+							</Field>
+							<Field id="sector" label="Indicativo do setor">
 								<Input
-									id="setor"
-									value={input.numeracao.setor ?? ""}
-									onChange={(e) => onChange({ numeracao: { ...input.numeracao, setor: e.target.value } })}
+									id="sector"
+									value={input.numbering.sector ?? ""}
+									onChange={(e) => onChange({ numbering: { ...input.numbering, sector: e.target.value } })}
 									placeholder="GAB"
 								/>
-							</Campo>
-							{especie.numeracao !== "interna" && (
-								<Campo id="ordem-geral" rotulo={especie.numeracao === "parecer" ? "Ordem geral da OM" : "Numeração de ordem geral"}>
+							</Field>
+							{kind.numbering !== "interna" && (
+								<Field id="organization-number" label={kind.numbering === "parecer" ? "Ordem geral da OM" : "Numeração de ordem geral"}>
 									<Input
-										id="ordem-geral"
-										value={input.numeracao.ordemGeral ?? ""}
-										onChange={(e) => onChange({ numeracao: { ...input.numeracao, ordemGeral: e.target.value } })}
+										id="organization-number"
+										value={input.numbering.organizationNumber ?? ""}
+										onChange={(e) => onChange({ numbering: { ...input.numbering, organizationNumber: e.target.value } })}
 										placeholder="255"
 									/>
-								</Campo>
+								</Field>
 							)}
 						</>
 					)}
 					{tem("nup") && (
-						<Campo id="nup" rotulo="Protocolo COMAER (NUP)">
+						<Field id="nup" label="Protocolo COMAER (NUP)">
 							<Input id="nup" value={input.nup ?? ""} onChange={(e) => onChange({ nup: e.target.value })} placeholder="68000.000000/2026-00" />
-						</Campo>
+						</Field>
 					)}
-					<Campo id="localidade" rotulo="Localidade">
-						<Input id="localidade" value={input.localidade} onChange={(e) => onChange({ localidade: e.target.value })} placeholder="Brasília" />
-					</Campo>
-					<Campo id="data" rotulo="Data">
-						<Input id="data" type="date" value={paraInputDate(input.data)} onChange={(e) => onChange({ data: deInputDate(e.target.value) })} />
-					</Campo>
+					<Field id="city" label="Localidade">
+						<Input id="city" value={input.city} onChange={(e) => onChange({ city: e.target.value })} placeholder="Brasília" />
+					</Field>
+					<Field id="date" label="Data">
+						<Input id="date" type="date" value={toDateInputValue(input.date)} onChange={(e) => onChange({ date: fromDateInputValue(e.target.value) })} />
+					</Field>
 				</div>
-			</Secao>
+			</Section>
 
 			{tem("preambulo") && (
-				<Secao titulo="Preâmbulo" fundamento="Anexo I, art. 36">
+				<Section title="Preâmbulo" legalBasis="Anexo I, art. 36">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<CampoParte
-							id="remetente"
-							rotulo="Do (cargo do remetente)"
-							parte={input.remetente ?? { cargo: "" }}
-							onChange={(parte) => onChange({ remetente: parte })}
+						<PartyField
+							id="sender"
+							label="Do (cargo do remetente)"
+							parte={input.sender ?? { position: "" }}
+							onChange={(parte) => onChange({ sender: parte })}
 						/>
 					</div>
 					<Separator className="my-4" />
 					<div className="flex flex-col gap-3">
 						<Label>Ao (destinatários)</Label>
-						{input.destinatarios.map((destinatario, i) => (
+						{input.recipients.map((destinatario, i) => (
 							<div key={i} className="flex flex-col sm:flex-row gap-2 items-start">
 								<div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
 									<Input
-										value={destinatario.cargo}
-										onChange={(e) => onChange({ destinatarios: input.destinatarios.map((d, j) => (j === i ? { ...d, cargo: e.target.value } : d)) })}
+										value={destinatario.position}
+										onChange={(e) => onChange({ recipients: input.recipients.map((d, j) => (j === i ? { ...d, position: e.target.value } : d)) })}
 										placeholder="Cargo ou sigla da OM"
 										className="sm:col-span-2"
 										aria-label={`Destinatário ${i + 1}`}
 									/>
 									<Input
 										value={destinatario.via ?? ""}
-										onChange={(e) => onChange({ destinatarios: input.destinatarios.map((d, j) => (j === i ? { ...d, via: e.target.value } : d)) })}
+										onChange={(e) => onChange({ recipients: input.recipients.map((d, j) => (j === i ? { ...d, via: e.target.value } : d)) })}
 										placeholder="via (opcional)"
 										aria-label={`Via do destinatário ${i + 1}`}
 									/>
 								</div>
 								<div className="flex gap-2">
-									<GeneroToggle
-										valor={destinatario.genero ?? "m"}
-										onChange={(genero) => onChange({ destinatarios: input.destinatarios.map((d, j) => (j === i ? { ...d, genero } : d)) })}
+									<GenderToggle
+										value={destinatario.gender ?? "m"}
+										onChange={(gender) => onChange({ recipients: input.recipients.map((d, j) => (j === i ? { ...d, gender } : d)) })}
 									/>
 									<Button
 										type="button"
 										variant="ghost"
 										size="sm"
 										aria-label={`Remover destinatário ${i + 1}`}
-										onClick={() => onChange({ destinatarios: input.destinatarios.filter((_, j) => j !== i) })}
+										onClick={() => onChange({ recipients: input.recipients.filter((_, j) => j !== i) })}
 									>
 										<Trash className="size-4" />
 									</Button>
@@ -265,22 +270,17 @@ export function FormularioDocumento({ input, especie, onChange }: Props) {
 							</div>
 						))}
 						<div className="flex gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onClick={() => onChange({ destinatarios: [...input.destinatarios, { cargo: "", genero: "m" }] })}
-							>
+							<Button type="button" variant="outline" size="sm" onClick={() => onChange({ recipients: [...input.recipients, { position: "", gender: "m" }] })}>
 								<Plus className="size-4" /> Destinatário
 							</Button>
-							{input.destinatarios.length > 1 && (
+							{input.recipients.length > 1 && (
 								<Select
-									value={input.difusao ?? "nenhuma"}
-									onValueChange={(valor) => onChange({ difusao: valor === "nenhuma" ? undefined : (valor as "circular" | "difral") })}
+									value={input.distribution ?? "nenhuma"}
+									onValueChange={(value) => onChange({ distribution: value === "nenhuma" ? undefined : (value as "circular" | "difral") })}
 								>
 									<SelectTrigger className="w-56">
 										<SelectValue>
-											{input.difusao === "circular" ? "Caráter circular" : input.difusao === "difral" ? "DIFRAL" : "Sem caráter de difusão"}
+											{input.distribution === "circular" ? "Caráter circular" : input.distribution === "difral" ? "DIFRAL" : "Sem caráter de difusão"}
 										</SelectValue>
 									</SelectTrigger>
 									<SelectContent>
@@ -292,135 +292,135 @@ export function FormularioDocumento({ input, especie, onChange }: Props) {
 							)}
 						</div>
 					</div>
-				</Secao>
+				</Section>
 			)}
 
 			{tem("enderecamento") && (
-				<Secao titulo="Endereçamento" fundamento="Anexo I, art. 51 § 9º, VIII">
+				<Section title="Endereçamento" legalBasis="Anexo I, art. 51 § 9º, VIII">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<Campo id="tratamento" rotulo="Forma de tratamento">
+						<Field id="form-of-address" label="Forma de tratamento">
 							<Select
-								value={input.enderecamento?.tratamento ?? "senhoria"}
-								onValueChange={(valor) => onChange({ enderecamento: { genero: "m", ...input.enderecamento, tratamento: valor as "excelencia" | "senhoria" } })}
+								value={input.addressing?.formOfAddress ?? "senhoria"}
+								onValueChange={(value) => onChange({ addressing: { gender: "m", ...input.addressing, formOfAddress: value as "excelencia" | "senhoria" } })}
 							>
-								<SelectTrigger id="tratamento" className="w-full">
-									<SelectValue>{input.enderecamento?.tratamento === "excelencia" ? "Vossa Excelência" : "Vossa Senhoria"}</SelectValue>
+								<SelectTrigger id="form-of-address" className="w-full">
+									<SelectValue>{input.addressing?.formOfAddress === "excelencia" ? "Vossa Excelência" : "Vossa Senhoria"}</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="excelencia">Vossa Excelência</SelectItem>
 									<SelectItem value="senhoria">Vossa Senhoria</SelectItem>
 								</SelectContent>
 							</Select>
-							<Ajuda>Só fora do Executivo Federal: com agente público federal, o pronome é sempre “Senhor” (art. 9º § 3º).</Ajuda>
-						</Campo>
-						<Campo id="dest-nome" rotulo="Nome do destinatário">
+							<Hint>Só fora do Executivo Federal: com agente público federal, o pronome é sempre “Senhor” (art. 9º § 3º).</Hint>
+						</Field>
+						<Field id="recipient-name" label="Nome do destinatário">
 							<Input
-								id="dest-nome"
-								value={input.enderecamento?.nome ?? ""}
-								onChange={(e) => onChange({ enderecamento: { tratamento: "senhoria", genero: "m", ...input.enderecamento, nome: e.target.value } })}
+								id="recipient-name"
+								value={input.addressing?.name ?? ""}
+								onChange={(e) => onChange({ addressing: { formOfAddress: "senhoria", gender: "m", ...input.addressing, name: e.target.value } })}
 							/>
-						</Campo>
-						<Campo id="dest-cargo" rotulo="Cargo">
+						</Field>
+						<Field id="recipient-position" label="Cargo">
 							<Input
-								id="dest-cargo"
-								value={input.enderecamento?.cargo ?? ""}
-								onChange={(e) => onChange({ enderecamento: { tratamento: "senhoria", genero: "m", ...input.enderecamento, cargo: e.target.value } })}
+								id="recipient-position"
+								value={input.addressing?.position ?? ""}
+								onChange={(e) => onChange({ addressing: { formOfAddress: "senhoria", gender: "m", ...input.addressing, position: e.target.value } })}
 							/>
-						</Campo>
-						<Campo id="dest-genero" rotulo="Gênero do tratamento">
-							<GeneroToggle
-								valor={input.enderecamento?.genero ?? "m"}
-								onChange={(genero) => onChange({ enderecamento: { tratamento: "senhoria", ...input.enderecamento, genero } })}
+						</Field>
+						<Field id="recipient-gender" label="Gênero do tratamento">
+							<GenderToggle
+								value={input.addressing?.gender ?? "m"}
+								onChange={(gender) => onChange({ addressing: { formOfAddress: "senhoria", ...input.addressing, gender } })}
 							/>
-						</Campo>
-						<Campo id="dest-endereco" rotulo="Endereço" className="sm:col-span-2">
+						</Field>
+						<Field id="recipient-address" label="Endereço" className="sm:col-span-2">
 							<Textarea
-								id="dest-endereco"
+								id="recipient-address"
 								rows={2}
-								value={(input.enderecamento?.linhasEndereco ?? []).join("\n")}
+								value={(input.addressing?.addressLines ?? []).join("\n")}
 								onChange={(e) =>
 									// Sem `filter(Boolean)`: ele comia a linha vazia recém-criada, o React restaurava
 									// o valor controlado inalterado e o Enter não fazia nada — o endereço de duas
 									// linhas do placeholder só era alcançável colando. Linha em branco não vira
 									// bloco: a montagem já descarta linha sem texto.
 									onChange({
-										enderecamento: { tratamento: "senhoria", genero: "m", ...input.enderecamento, linhasEndereco: e.target.value.split("\n") },
+										addressing: { formOfAddress: "senhoria", gender: "m", ...input.addressing, addressLines: e.target.value.split("\n") },
 									})
 								}
 								placeholder={"Rua ABC, nº 123\nCEP 01010-000 - São Paulo - SP"}
 							/>
-						</Campo>
+						</Field>
 					</div>
-				</Secao>
+				</Section>
 			)}
 
 			{tem("vocativo") && (
-				<Secao titulo="Vocativo" fundamento="Anexo I, art. 10">
-					<Campo id="vocativo" rotulo="Vocativo (vazio usa “Senhor” + cargo)">
+				<Section title="Vocativo" legalBasis="Anexo I, art. 10">
+					<Field id="vocativo" label="Vocativo (vazio usa “Senhor” + cargo)">
 						<Input id="vocativo" value={input.vocativo ?? ""} onChange={(e) => onChange({ vocativo: e.target.value })} placeholder="Senhor Juiz," />
-					</Campo>
-				</Secao>
+					</Field>
+				</Section>
 			)}
 
 			{tem("ementa") && (
-				<Secao titulo="Ementa" fundamento="Anexo I, art. 37">
-					<Campo id="assunto" rotulo="Assunto">
+				<Section title="Ementa" legalBasis="Anexo I, art. 37">
+					<Field id="subject" label="Assunto">
 						<Input
-							id="assunto"
-							value={input.assunto ?? ""}
-							onChange={(e) => onChange({ assunto: e.target.value })}
+							id="subject"
+							value={input.subject ?? ""}
+							onChange={(e) => onChange({ subject: e.target.value })}
 							placeholder="Alteração de período de férias"
 						/>
-					</Campo>
-					{especie.id !== "oficio-externo" && (
+					</Field>
+					{kind.id !== "oficio-externo" && (
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-							<ListaEditavel
-								rotulo="Referências"
-								itens={input.referencias ?? []}
-								onChange={(referencias) => onChange({ referencias })}
+							<EditableList
+								label="Referências"
+								items={input.references ?? []}
+								onChange={(references) => onChange({ references })}
 								placeholder="Ofício nº 136/DP/1288, de 06 mar. 2026, do GAP-AF"
 							/>
-							<ListaEditavel rotulo="Anexos" itens={input.anexos ?? []} onChange={(anexos) => onChange({ anexos })} placeholder="Três folhas de alterações" />
+							<EditableList label="Anexos" items={input.annexes ?? []} onChange={(annexes) => onChange({ annexes })} placeholder="Três folhas de alterações" />
 						</div>
 					)}
-				</Secao>
+				</Section>
 			)}
 
 			{tem("processo") && (
-				<Secao titulo="Processo de origem" fundamento="Anexo I, art. 48 § 3º">
+				<Section title="Processo de origem" legalBasis="Anexo I, art. 48 § 3º">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<Campo id="proc-nup" rotulo="NUP do processo">
-							<Input id="proc-nup" value={input.processo?.nup ?? ""} onChange={(e) => onChange({ processo: { ...input.processo, nup: e.target.value } })} />
-						</Campo>
-						<Campo id="proc-ref" rotulo="Documento de origem">
+						<Field id="process-nup" label="NUP do processo">
+							<Input id="process-nup" value={input.process?.nup ?? ""} onChange={(e) => onChange({ process: { ...input.process, nup: e.target.value } })} />
+						</Field>
+						<Field id="process-reference" label="Documento de origem">
 							<Input
-								id="proc-ref"
-								value={input.processo?.referencia ?? ""}
-								onChange={(e) => onChange({ processo: { ...input.processo, referencia: e.target.value } })}
+								id="process-reference"
+								value={input.process?.reference ?? ""}
+								onChange={(e) => onChange({ process: { ...input.process, reference: e.target.value } })}
 								placeholder="Ofício nº 8/DLE/2045, de 22 abr. 2026, do COMGEP"
 							/>
-						</Campo>
-						{especie.id === "despacho" && (
-							<Campo id="ordem-despacho" rotulo="Ordem do despacho">
+						</Field>
+						{kind.id === "despacho" && (
+							<Field id="despacho-order" label="Ordem do despacho">
 								<Input
-									id="ordem-despacho"
+									id="despacho-order"
 									inputMode="numeric"
-									value={input.ordemDespacho ?? 1}
-									onChange={(e) => onChange({ ordemDespacho: Number(e.target.value.replace(/\D/g, "")) || 1 })}
+									value={input.despachoOrder ?? 1}
+									onChange={(e) => onChange({ despachoOrder: Number(e.target.value.replace(/\D/g, "")) || 1 })}
 								/>
-								<Ajuda>Os despachos são juntados em ordem cronológica crescente (art. 48 § 3º, VI).</Ajuda>
-							</Campo>
+								<Hint>Os despachos são juntados em ordem cronológica crescente (art. 48 § 3º, VI).</Hint>
+							</Field>
 						)}
 					</div>
-				</Secao>
+				</Section>
 			)}
 
-			{especie.id === "despacho-decisorio" && (
-				<Secao titulo="Decisão" fundamento="Anexo I, art. 49 § 2º, III">
-					<Campo id="decisao" rotulo="Abertura do texto">
-						<Select value={input.decisao ?? "DEFERIDO"} onValueChange={(valor) => onChange({ decisao: valor as DocumentoInput["decisao"] })}>
-							<SelectTrigger id="decisao" className="w-full">
-								<SelectValue>{input.decisao ?? "DEFERIDO"}</SelectValue>
+			{kind.id === "despacho-decisorio" && (
+				<Section title="Decisão" legalBasis="Anexo I, art. 49 § 2º, III">
+					<Field id="decision" label="Abertura do texto">
+						<Select value={input.decision ?? "DEFERIDO"} onValueChange={(value) => onChange({ decision: value as DocumentInput["decision"] })}>
+							<SelectTrigger id="decision" className="w-full">
+								<SelectValue>{input.decision ?? "DEFERIDO"}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
 								{["DEFERIDO", "DEFERIDA", "INDEFERIDO", "INDEFERIDA", "ARQUIVE-SE"].map((d) => (
@@ -430,99 +430,99 @@ export function FormularioDocumento({ input, especie, onChange }: Props) {
 								))}
 							</SelectContent>
 						</Select>
-					</Campo>
-				</Secao>
+					</Field>
+				</Section>
 			)}
 
-			<Secao titulo="Texto" fundamento="Anexo I, art. 38 e art. 39">
-				{especie.aberturaSugerida && <Ajuda>Esta espécie abre por “{especie.aberturaSugerida.trim()}…”.</Ajuda>}
-				<EditorTexto paragrafos={input.paragrafos} onChange={(paragrafos) => onChange({ paragrafos })} />
-			</Secao>
+			<Section title="Texto" legalBasis="Anexo I, art. 38 e art. 39">
+				{kind.suggestedOpening && <Hint>Esta espécie abre por “{kind.suggestedOpening.trim()}…”.</Hint>}
+				<BodyEditor paragraphs={input.paragraphs} onChange={(paragraphs) => onChange({ paragraphs })} />
+			</Section>
 
-			<Secao titulo="Identificação do signatário" fundamento="Anexo I, art. 40">
+			<Section title="Identificação do signatário" legalBasis="Anexo I, art. 40">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Campo id="sig-nome" rotulo="Nome completo">
-						<Input id="sig-nome" value={input.signatario.nome} onChange={(e) => onChange({ signatario: { ...input.signatario, nome: e.target.value } })} />
-					</Campo>
-					<Campo id="sig-posto" rotulo="Posto ou graduação">
-						<Select value={input.signatario.posto || null} onValueChange={(valor) => onChange({ signatario: { ...input.signatario, posto: valor as string } })}>
-							<SelectTrigger id="sig-posto" className="w-full">
-								<SelectValue placeholder="Selecione">{input.signatario.posto || undefined}</SelectValue>
+					<Field id="signer-name" label="Nome completo">
+						<Input id="signer-name" value={input.signer.name} onChange={(e) => onChange({ signer: { ...input.signer, name: e.target.value } })} />
+					</Field>
+					<Field id="signer-rank" label="Posto ou graduação">
+						<Select value={input.signer.rank || null} onValueChange={(value) => onChange({ signer: { ...input.signer, rank: value as string } })}>
+							<SelectTrigger id="signer-rank" className="w-full">
+								<SelectValue placeholder="Selecione">{input.signer.rank || undefined}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
-								{POSTOS_FAB.map((p) => (
-									<SelectItem key={p.sigla} value={p.sigla}>
-										{p.sigla} — {p.extenso}
+								{FAB_RANKS.map((p) => (
+									<SelectItem key={p.acronym} value={p.acronym}>
+										{p.acronym} — {p.inFull}
 									</SelectItem>
 								))}
 							</SelectContent>
 						</Select>
-					</Campo>
-					<Campo id="sig-quadro" rotulo="Quadro ou especialidade">
+					</Field>
+					<Field id="signer-quadro" label="Quadro ou especialidade">
 						<Input
-							id="sig-quadro"
+							id="signer-quadro"
 							list="quadros-comaer"
-							value={input.signatario.quadro ?? ""}
-							onChange={(e) => onChange({ signatario: { ...input.signatario, quadro: e.target.value } })}
+							value={input.signer.quadro ?? ""}
+							onChange={(e) => onChange({ signer: { ...input.signer, quadro: e.target.value } })}
 							placeholder="Int"
 						/>
 						<datalist id="quadros-comaer">
-							{Object.keys(QUADROS_POR_EXTENSO).map((q) => (
+							{Object.keys(QUADROS_IN_FULL).map((q) => (
 								<option key={q} value={q} />
 							))}
 						</datalist>
-					</Campo>
-					<Campo id="sig-cargo" rotulo="Cargo">
+					</Field>
+					<Field id="signer-position" label="Cargo">
 						<Input
-							id="sig-cargo"
-							value={input.signatario.cargo ?? ""}
-							onChange={(e) => onChange({ signatario: { ...input.signatario, cargo: e.target.value } })}
+							id="signer-position"
+							value={input.signer.position ?? ""}
+							onChange={(e) => onChange({ signer: { ...input.signer, position: e.target.value } })}
 						/>
-					</Campo>
-					<Campo id="sig-om" rotulo="OM do signatário">
-						<Input id="sig-om" value={input.signatario.om ?? ""} onChange={(e) => onChange({ signatario: { ...input.signatario, om: e.target.value } })} />
-					</Campo>
-					<Campo id="sig-ordem" rotulo="Assinado por ordem de (opcional)">
+					</Field>
+					<Field id="signer-om" label="OM do signatário">
+						<Input id="signer-om" value={input.signer.om ?? ""} onChange={(e) => onChange({ signer: { ...input.signer, om: e.target.value } })} />
+					</Field>
+					<Field id="signer-by-order" label="Assinado por ordem de (opcional)">
 						<Input
-							id="sig-ordem"
-							value={input.signatario.porOrdemDe ?? ""}
-							onChange={(e) => onChange({ signatario: { ...input.signatario, porOrdemDe: e.target.value || undefined } })}
+							id="signer-by-order"
+							value={input.signer.byOrderOf ?? ""}
+							onChange={(e) => onChange({ signer: { ...input.signer, byOrderOf: e.target.value || undefined } })}
 							placeholder="Comandante-Geral de Apoio"
 						/>
-						<Ajuda>O texto passa a exigir abertura “Por ordem do…” ou “Incumbiu-me o…” (art. 40 § 9º).</Ajuda>
-					</Campo>
+						<Hint>O texto passa a exigir abertura “Por ordem do…” ou “Incumbiu-me o…” (art. 40 § 9º).</Hint>
+					</Field>
 				</div>
-			</Secao>
+			</Section>
 		</div>
 	)
 }
 
-function Secao({ titulo, fundamento, children }: { titulo: string; fundamento: string; children: ReactNode }) {
+function Section({ title, legalBasis, children }: { title: string; legalBasis: string; children: ReactNode }) {
 	return (
 		<section className="border border-border p-4">
 			<div className="flex items-baseline justify-between gap-3 mb-4">
-				<h3 className="text-sm font-semibold tracking-tight uppercase">{titulo}</h3>
-				<span className="text-[11px] font-mono text-muted-foreground">{fundamento}</span>
+				<h3 className="text-sm font-semibold tracking-tight uppercase">{title}</h3>
+				<span className="text-[11px] font-mono text-muted-foreground">{legalBasis}</span>
 			</div>
 			{children}
 		</section>
 	)
 }
 
-function Campo({ id, rotulo, className, children }: { id: string; rotulo: string; className?: string; children: ReactNode }) {
+function Field({ id, label, className, children }: { id: string; label: string; className?: string; children: ReactNode }) {
 	return (
 		<div className={`flex flex-col gap-1.5 ${className ?? ""}`}>
-			<Label htmlFor={id}>{rotulo}</Label>
+			<Label htmlFor={id}>{label}</Label>
 			{children}
 		</div>
 	)
 }
 
-function Ajuda({ children }: { children: ReactNode }) {
+function Hint({ children }: { children: ReactNode }) {
 	return <p className="text-xs text-muted-foreground">{children}</p>
 }
 
-function GeneroToggle({ valor, onChange }: { valor: "m" | "f"; onChange: (genero: "m" | "f") => void }) {
+function GenderToggle({ value, onChange }: { value: "m" | "f"; onChange: (gender: "m" | "f") => void }) {
 	// "Do Chefe" × "Da Diretora", "Ao" × "À": a concordância do art. 36 é escolha de quem
 	// redige, não algo que dê para inferir do cargo digitado.
 	return (
@@ -532,8 +532,8 @@ function GeneroToggle({ valor, onChange }: { valor: "m" | "f"; onChange: (genero
 					key={g}
 					type="button"
 					onClick={() => onChange(g)}
-					aria-pressed={valor === g}
-					className={`px-3 h-8 text-xs transition-colors ${valor === g ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
+					aria-pressed={value === g}
+					className={`px-3 h-8 text-xs transition-colors ${value === g ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
 				>
 					{g === "m" ? "Do / Ao" : "Da / À"}
 				</button>
@@ -542,57 +542,47 @@ function GeneroToggle({ valor, onChange }: { valor: "m" | "f"; onChange: (genero
 	)
 }
 
-function CampoParte({ id, rotulo, parte, onChange }: { id: string; rotulo: string; parte: Parte; onChange: (parte: Parte) => void }) {
+function PartyField({ id, label, parte, onChange }: { id: string; label: string; parte: Party; onChange: (parte: Party) => void }) {
 	return (
 		<div className="flex flex-col gap-1.5 sm:col-span-2">
-			<Label htmlFor={id}>{rotulo}</Label>
+			<Label htmlFor={id}>{label}</Label>
 			<div className="flex gap-2">
 				<Input
 					id={id}
-					value={parte.cargo}
-					onChange={(e) => onChange({ ...parte, cargo: e.target.value })}
+					value={parte.position}
+					onChange={(e) => onChange({ ...parte, position: e.target.value })}
 					placeholder="Diretor do Instituto de Economia e Finanças da Aeronáutica"
 				/>
-				<GeneroToggle valor={parte.genero ?? "m"} onChange={(genero) => onChange({ ...parte, genero })} />
+				<GenderToggle value={parte.gender ?? "m"} onChange={(gender) => onChange({ ...parte, gender })} />
 			</div>
 		</div>
 	)
 }
 
-function ListaEditavel({
-	rotulo,
-	itens,
-	onChange,
-	placeholder,
-}: {
-	rotulo: string
-	itens: string[]
-	onChange: (itens: string[]) => void
-	placeholder?: string
-}) {
+function EditableList({ label, items, onChange, placeholder }: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
 	return (
 		<div className="flex flex-col gap-2">
-			<Label>{rotulo}</Label>
-			{itens.map((item, i) => (
+			<Label>{label}</Label>
+			{items.map((item, i) => (
 				<div key={i} className="flex gap-2">
 					<Input
 						value={item}
-						onChange={(e) => onChange(itens.map((it, j) => (j === i ? e.target.value : it)))}
+						onChange={(e) => onChange(items.map((it, j) => (j === i ? e.target.value : it)))}
 						placeholder={placeholder}
-						aria-label={`${rotulo} ${i + 1}`}
+						aria-label={`${label} ${i + 1}`}
 					/>
 					<Button
 						type="button"
 						variant="ghost"
 						size="sm"
-						aria-label={`Remover ${rotulo.toLowerCase()} ${i + 1}`}
-						onClick={() => onChange(itens.filter((_, j) => j !== i))}
+						aria-label={`Remover ${label.toLowerCase()} ${i + 1}`}
+						onClick={() => onChange(items.filter((_, j) => j !== i))}
 					>
 						<Trash className="size-4" />
 					</Button>
 				</div>
 			))}
-			<Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange([...itens, ""])}>
+			<Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange([...items, ""])}>
 				<Plus className="size-4" /> Adicionar
 			</Button>
 		</div>

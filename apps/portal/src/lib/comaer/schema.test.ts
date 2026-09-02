@@ -1,25 +1,25 @@
 import { describe, expect, it } from "bun:test"
-import { deInputDate, rascunhoInicial } from "./rascunho"
-import { DocumentoPayloadSchema, dePayload, paraPayload, RedacaoIaSchema } from "./schema"
+import { fromDateInputValue, newDocument } from "./draft"
+import { AiProposalSchema, DocumentPayloadSchema, fromPayload, toPayload } from "./schema"
 
 describe("payload gravado no jsonb", () => {
 	it("preserva a data pela ida e volta", () => {
-		const input = { ...rascunhoInicial(), localidade: "Brasília", data: new Date(2026, 6, 3) }
-		const voltou = dePayload(paraPayload(input))
+		const input = { ...newDocument(), city: "Brasília", date: new Date(2026, 6, 3) }
+		const roundTripped = fromPayload(toPayload(input))
 		// Sem o par ISO/Date, o documento salvo abriria com `data.getDate is not a function`
 		// — e só ao ABRIR, nunca ao salvar.
-		expect(voltou.data).toBeInstanceOf(Date)
-		expect(voltou.data.getTime()).toBe(input.data.getTime())
-		expect(voltou.localidade).toBe("Brasília")
+		expect(roundTripped.date).toBeInstanceOf(Date)
+		expect(roundTripped.date.getTime()).toBe(input.date.getTime())
+		expect(roundTripped.city).toBe("Brasília")
 	})
 
 	it("rejeita payload sem os campos que a montagem exige", () => {
-		expect(() => DocumentoPayloadSchema.parse({ especie: "oficio-comaer" })).toThrow()
+		expect(() => DocumentPayloadSchema.parse({ kind: "oficio-comaer" })).toThrow()
 	})
 
 	it("aceita sequencial nulo — é o s/nº do art. 51 § 6º, não um campo faltando", () => {
-		const input = { ...rascunhoInicial(), numeracao: { sequencial: null } }
-		expect(dePayload(paraPayload(input)).numeracao.sequencial).toBeNull()
+		const input = { ...newDocument(), numbering: { sequence: null } }
+		expect(fromPayload(toPayload(input)).numbering.sequence).toBeNull()
 	})
 })
 
@@ -31,31 +31,31 @@ describe("saída do modelo", () => {
 	 * registrada no CLAUDE.md como já tendo matado run de tool no sisub.
 	 */
 	it("aceita null nos opcionais aninhados em array e os normaliza para ausência", () => {
-		const saida = RedacaoIaSchema.parse({
-			assunto: null,
-			referencias: null,
-			anexos: null,
-			paragrafos: [
-				{ texto: "Primeiro.", itens: null },
-				{ texto: "Segundo.", itens: [{ texto: "Item", alineas: null }] },
+		const output = AiProposalSchema.parse({
+			subject: null,
+			references: null,
+			annexes: null,
+			paragraphs: [
+				{ text: "Primeiro.", items: null },
+				{ text: "Segundo.", items: [{ text: "Item", alineas: null }] },
 			],
 		})
-		expect(saida.assunto).toBeUndefined()
-		expect(saida.referencias).toBeUndefined()
-		expect(saida.paragrafos[0].itens).toBeUndefined()
-		expect(saida.paragrafos[1].itens?.[0].alineas).toBeUndefined()
+		expect(output.subject).toBeUndefined()
+		expect(output.references).toBeUndefined()
+		expect(output.paragraphs[0].items).toBeUndefined()
+		expect(output.paragraphs[1].items?.[0].alineas).toBeUndefined()
 	})
 
 	it("preserva a hierarquia completa quando o modelo a devolve", () => {
-		const saida = RedacaoIaSchema.parse({
-			assunto: "Levantamento de contratações",
-			paragrafos: [{ texto: "P", itens: [{ texto: "I", alineas: [{ texto: "a", subalineas: [{ texto: "s" }] }] }] }],
+		const output = AiProposalSchema.parse({
+			subject: "Levantamento de contratações",
+			paragraphs: [{ text: "P", items: [{ text: "I", alineas: [{ text: "a", subalineas: [{ text: "s" }] }] }] }],
 		})
-		expect(saida.paragrafos[0].itens?.[0].alineas?.[0].subalineas?.[0].texto).toBe("s")
+		expect(output.paragraphs[0].items?.[0].alineas?.[0].subalineas?.[0].text).toBe("s")
 	})
 
 	it("exige ao menos um parágrafo — resposta sem texto não é redação", () => {
-		expect(() => RedacaoIaSchema.parse({ paragrafos: [] })).toThrow()
+		expect(() => AiProposalSchema.parse({ paragraphs: [] })).toThrow()
 	})
 })
 
@@ -64,8 +64,8 @@ describe("data vinda do formulário", () => {
 		// `<input type="date">` limpo devolve "": com o `?? 1` de antes, `new Date(NaN, -1, 1)`
 		// virava 1º de janeiro de 1900 e o rascunho gravava isso sem avisar ninguém.
 		const hoje = new Date()
-		expect(deInputDate("").getFullYear()).toBe(hoje.getFullYear())
-		expect(deInputDate("2026-07-03").getDate()).toBe(3)
-		expect(deInputDate("2026-07-03").getMonth()).toBe(6)
+		expect(fromDateInputValue("").getFullYear()).toBe(hoje.getFullYear())
+		expect(fromDateInputValue("2026-07-03").getDate()).toBe(3)
+		expect(fromDateInputValue("2026-07-03").getMonth()).toBe(6)
 	})
 })

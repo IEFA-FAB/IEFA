@@ -2,8 +2,8 @@ import { Check, Copy, WarningTriangle } from "iconoir-react"
 import { useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { camposParaCopia, copiarDocumento, paraHtml, paraTextoPlano } from "@/lib/comaer/sigadaer"
-import type { DocumentoMontado } from "@/lib/comaer/tipos"
+import { copyableFields, copyDocument, toHtml, toPlainText } from "@/lib/comaer/sigadaer"
+import type { AssembledDocument } from "@/lib/comaer/types"
 
 /**
  * Saída para o SIGADAER.
@@ -12,35 +12,35 @@ import type { DocumentoMontado } from "@/lib/comaer/tipos"
  * (assunto, destinatário, corpo), e um único botão "copiar tudo" obrigaria a recortar o
  * texto de volta à mão — que é onde se perde a numeração de parágrafo.
  */
-export function PainelExportacao({ doc }: { doc: DocumentoMontado }) {
-	const campos = camposParaCopia(doc)
+export function ExportPanel({ doc }: { doc: AssembledDocument }) {
+	const fields = copyableFields(doc)
 
 	return (
 		<div className="flex flex-col gap-4">
-			<BotaoCopiar rotulo="Copiar documento inteiro" texto={paraTextoPlano(doc)} html={paraHtml(doc)} className="w-full justify-center" variante="default" />
+			<CopyButton label="Copiar documento inteiro" text={toPlainText(doc)} html={toHtml(doc)} className="w-full justify-center" variant="default" />
 
 			<div className="flex flex-col">
 				<h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Copiar campo a campo</h3>
 				<ul className="flex flex-col border border-border divide-y divide-border">
-					{campos.map((campo) => (
-						<li key={campo.id} className="flex items-center justify-between gap-3 px-3 py-2">
+					{fields.map((field) => (
+						<li key={field.id} className="flex items-center justify-between gap-3 px-3 py-2">
 							<div className="min-w-0">
-								<p className="text-sm font-medium">{campo.rotulo}</p>
-								<p className="text-xs text-muted-foreground truncate">{campo.texto.split("\n")[0]}</p>
+								<p className="text-sm font-medium">{field.label}</p>
+								<p className="text-xs text-muted-foreground truncate">{field.text.split("\n")[0]}</p>
 							</div>
-							<BotaoCopiar rotulo="Copiar" texto={campo.texto} html={campo.html} variante="ghost" />
+							<CopyButton label="Copiar" text={field.text} html={field.html} variant="ghost" />
 						</li>
 					))}
 				</ul>
 			</div>
 
-			{doc.avisos.length > 0 && (
+			{doc.warnings.length > 0 && (
 				<Alert variant="destructive">
 					<WarningTriangle />
 					<AlertTitle>Conferir antes de despachar</AlertTitle>
 					<AlertDescription>
 						<ul className="list-disc pl-4 flex flex-col gap-1">
-							{doc.avisos.map((aviso) => (
+							{doc.warnings.map((aviso) => (
 								<li key={aviso}>{aviso}</li>
 							))}
 						</ul>
@@ -51,24 +51,24 @@ export function PainelExportacao({ doc }: { doc: DocumentoMontado }) {
 	)
 }
 
-function BotaoCopiar({
-	rotulo,
-	texto,
+function CopyButton({
+	label,
+	text,
 	html,
 	className,
-	variante,
+	variant,
 }: {
-	rotulo: string
-	texto: string
+	label: string
+	text: string
 	html: string
 	className?: string
-	variante: "default" | "ghost"
+	variant: "default" | "ghost"
 }) {
-	const [estado, setEstado] = useState<"pronto" | "copiado" | "erro">("pronto")
+	const [state, setEstado] = useState<"pronto" | "copiado" | "erro">("pronto")
 
-	const copiar = async () => {
+	const runCopy = async () => {
 		try {
-			await copiarDocumento({ texto, html })
+			await copyDocument({ text, html })
 			setEstado("copiado")
 		} catch {
 			// Navegador sem permissão de área de transferência: dizer que copiou seria pior
@@ -79,9 +79,9 @@ function BotaoCopiar({
 	}
 
 	return (
-		<Button type="button" variant={variante} size="sm" onClick={copiar} className={className}>
-			{estado === "copiado" ? <Check className="size-4" /> : <Copy className="size-4" />}
-			{estado === "copiado" ? "Copiado" : estado === "erro" ? "Falhou — copie manualmente" : rotulo}
+		<Button type="button" variant={variant} size="sm" onClick={runCopy} className={className}>
+			{state === "copiado" ? <Check className="size-4" /> : <Copy className="size-4" />}
+			{state === "copiado" ? "Copiado" : state === "erro" ? "Falhou — copie manualmente" : label}
 		</Button>
 	)
 }

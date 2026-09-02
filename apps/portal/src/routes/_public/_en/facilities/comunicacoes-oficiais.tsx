@@ -2,18 +2,18 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Printer, RefreshDouble } from "iconoir-react"
 import { useEffect, useMemo, useState } from "react"
 import { authQueryOptions } from "@/auth/service"
-import { FolhaA4 } from "@/components/comaer/FolhaA4"
-import { FormularioDocumento } from "@/components/comaer/FormularioDocumento"
-import { PainelDocumentos } from "@/components/comaer/PainelDocumentos"
-import { PainelExportacao } from "@/components/comaer/PainelExportacao"
-import { PainelIa } from "@/components/comaer/PainelIa"
+import { A4Sheet } from "@/components/comaer/A4Sheet"
+import { AiPanel } from "@/components/comaer/AiPanel"
+import { DocumentForm } from "@/components/comaer/DocumentForm"
+import { DocumentsPanel } from "@/components/comaer/DocumentsPanel"
+import { ExportPanel } from "@/components/comaer/ExportPanel"
 import { Button } from "@/components/ui/button"
-import { buscarEspecie } from "@/lib/comaer/especies"
-import { montarDocumento } from "@/lib/comaer/montar"
-import { carregarRascunho, limparRascunho, rascunhoInicial, salvarRascunho } from "@/lib/comaer/rascunho"
-import { aplicarRedacao } from "@/lib/comaer/redacao"
-import type { RedacaoIa } from "@/lib/comaer/schema"
-import type { DocumentoInput } from "@/lib/comaer/tipos"
+import { assembleDocument } from "@/lib/comaer/assemble"
+import { findKind } from "@/lib/comaer/catalog"
+import { clearDraft, loadDraft, newDocument, saveDraft } from "@/lib/comaer/draft"
+import { applyProposal } from "@/lib/comaer/proposal"
+import type { AiProposal } from "@/lib/comaer/schema"
+import type { DocumentInput } from "@/lib/comaer/types"
 
 export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-oficiais")({
 	staticData: {
@@ -64,38 +64,38 @@ export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-ofici
  * documento classificado (art. 7º § 2º) antes de qualquer chamada a provider.
  */
 function ComunicacoesOficiais() {
-	const [input, setInput] = useState<DocumentoInput>(rascunhoInicial)
-	const [documentoId, setDocumentoId] = useState<string | null>(null)
+	const [input, setInput] = useState<DocumentInput>(newDocument)
+	const [documentId, setDocumentoId] = useState<string | null>(null)
 	const [restaurado, setRestaurado] = useState(false)
 
 	// O rascunho só é lido no cliente: ler no SSR entregaria HTML diferente do que o
 	// navegador montaria e a hidratação descartaria a árvore.
 	useEffect(() => {
-		const salvo = carregarRascunho()
+		const salvo = loadDraft()
 		if (salvo) setInput(salvo)
 		setRestaurado(true)
 	}, [])
 
 	useEffect(() => {
-		if (restaurado) salvarRascunho(input)
+		if (restaurado) saveDraft(input)
 	}, [input, restaurado])
 
-	const especie = buscarEspecie(input.especie) ?? buscarEspecie("oficio-comaer")
-	const doc = useMemo(() => (especie ? montarDocumento({ ...input, especie: especie.id }) : null), [input, especie])
+	const kind = findKind(input.kind) ?? findKind("oficio-comaer")
+	const doc = useMemo(() => (kind ? assembleDocument({ ...input, kind: kind.id }) : null), [input, kind])
 
-	const alterar = (patch: Partial<DocumentoInput>) => setInput((atual) => ({ ...atual, ...patch }))
+	const updateField = (patch: Partial<DocumentInput>) => setInput((current) => ({ ...current, ...patch }))
 
 	// A regra do que a proposta pode sobrescrever mora em `aplicarRedacao`, fora do
 	// componente: é a decisão mais importante da ferramenta e precisa de teste.
-	const aplicarProposta = (redacao: RedacaoIa) => setInput((atual) => aplicarRedacao(atual, redacao))
+	const applyAiProposal = (proposal: AiProposal) => setInput((current) => applyProposal(current, proposal))
 
-	const comecarNovo = () => {
-		limparRascunho()
-		setInput(rascunhoInicial())
+	const startNewDocument = () => {
+		clearDraft()
+		setInput(newDocument())
 		setDocumentoId(null)
 	}
 
-	if (!especie || !doc) return null
+	if (!kind || !doc) return null
 
 	return (
 		<div className="w-full py-10">
@@ -116,11 +116,11 @@ function ComunicacoesOficiais() {
 						<a href="/docs/NSCA 5-3.pdf" className="underline underline-offset-4" target="_blank" rel="noreferrer">
 							NSCA 5-3/2026
 						</a>{" "}
-						(Portaria GABAER/GC3 nº 1.574, de 4 de fevereiro de 2026), que revogou a NSCA 10-2/2019. A saída é pronta para colar no SIGADAER, campo a campo.
+						(Portaria GABAER/GC3 nº 1.574, de 4 de fevereiro de 2026), que revogou a NSCA 10-2/2019. A saída é pronta para colar no SIGADAER, field a field.
 					</p>
 				</div>
 				<div className="flex gap-2">
-					<Button type="button" variant="outline" size="sm" onClick={comecarNovo}>
+					<Button type="button" variant="outline" size="sm" onClick={startNewDocument}>
 						<RefreshDouble className="size-4" /> Novo
 					</Button>
 					<Button type="button" size="sm" onClick={() => window.print()}>
@@ -131,25 +131,25 @@ function ComunicacoesOficiais() {
 
 			<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-8 items-start">
 				<div data-imprimir-oculto className="flex flex-col gap-8 min-w-0">
-					<PainelDocumentos
+					<DocumentsPanel
 						input={input}
-						documentoId={documentoId}
-						onAbrir={(documento, id) => {
-							setInput(documento)
+						documentId={documentId}
+						onAbrir={(document, id) => {
+							setInput(document)
 							setDocumentoId(id)
 						}}
-						onNovo={comecarNovo}
+						onNovo={startNewDocument}
 						onSalvo={setDocumentoId}
 					/>
-					<PainelIa input={input} onAplicar={aplicarProposta} />
-					<FormularioDocumento input={input} especie={especie} onChange={alterar} />
-					<PainelExportacao doc={doc} />
+					<AiPanel input={input} onAplicar={applyAiProposal} />
+					<DocumentForm input={input} kind={kind} onChange={updateField} />
+					<ExportPanel doc={doc} />
 				</div>
 
 				{/* A folha acompanha a rolagem do formulário: conferir o efeito de um campo
 				    exige vê-lo, e no desktop há largura de sobra para os dois. */}
 				<div className="overflow-x-auto xl:sticky xl:top-20">
-					<FolhaA4 doc={doc} />
+					<A4Sheet doc={doc} />
 				</div>
 			</div>
 		</div>
