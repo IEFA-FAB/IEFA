@@ -61,6 +61,7 @@ import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/su
 import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as PublicEnFacilitiesIndexRouteImport } from './routes/_public/_en/facilities/index'
+import { Route as PublicEnFacilitiesComunicacoesOficiaisRouteImport } from './routes/_public/_en/facilities/comunicacoes-oficiais'
 import { Route as PublicEnFacilitiesPregoeiroRouteImport } from './routes/_public/_en/facilities/pregoeiro'
 import { Route as PublicEnPostsIndexRouteImport } from './routes/_public/_en/posts/index'
 import { Route as PublicEnPostsSlugRouteImport } from './routes/_public/_en/posts/$slug'
@@ -341,6 +342,12 @@ const PublicEnFacilitiesIndexRoute = PublicEnFacilitiesIndexRouteImport.update({
   path: '/facilities/',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicEnFacilitiesComunicacoesOficiaisRoute =
+  PublicEnFacilitiesComunicacoesOficiaisRouteImport.update({
+    id: '/_en/facilities/comunicacoes-oficiais',
+    path: '/facilities/comunicacoes-oficiais',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
 const PublicEnFacilitiesPregoeiroRoute =
   PublicEnFacilitiesPregoeiroRouteImport.update({
     id: '/_en/facilities/pregoeiro',
@@ -444,6 +451,7 @@ export interface FileRoutesByFullPath {
   '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/facilities/comunicacoes-oficiais': typeof PublicEnFacilitiesComunicacoesOficiaisRoute
   '/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
   '/posts/$slug': typeof PublicEnPostsSlugRoute
   '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
@@ -504,6 +512,7 @@ export interface FileRoutesByTo {
   '/journal/review': typeof JournalReviewIndexRoute
   '/journal/submissions': typeof JournalSubmissionsIndexRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/facilities/comunicacoes-oficiais': typeof PublicEnFacilitiesComunicacoesOficiaisRoute
   '/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
   '/posts/$slug': typeof PublicEnPostsSlugRoute
   '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
@@ -568,6 +577,7 @@ export interface FileRoutesById {
   '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/_public/_en/facilities/comunicacoes-oficiais': typeof PublicEnFacilitiesComunicacoesOficiaisRoute
   '/_public/_en/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
   '/_public/_en/posts/$slug': typeof PublicEnPostsSlugRoute
   '/_public/_pt/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | '/journal/review/'
     | '/journal/submissions/'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/facilities/comunicacoes-oficiais'
     | '/facilities/pregoeiro'
     | '/posts/$slug'
     | '/instalacoes/pregoeiro'
@@ -692,6 +703,7 @@ export interface FileRouteTypes {
     | '/journal/review'
     | '/journal/submissions'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/facilities/comunicacoes-oficiais'
     | '/facilities/pregoeiro'
     | '/posts/$slug'
     | '/instalacoes/pregoeiro'
@@ -755,6 +767,7 @@ export interface FileRouteTypes {
     | '/journal/review/'
     | '/journal/submissions/'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/_public/_en/facilities/comunicacoes-oficiais'
     | '/_public/_en/facilities/pregoeiro'
     | '/_public/_en/posts/$slug'
     | '/_public/_pt/instalacoes/pregoeiro'
@@ -1147,6 +1160,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEnFacilitiesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/_en/facilities/comunicacoes-oficiais': {
+      id: '/_public/_en/facilities/comunicacoes-oficiais'
+      path: '/facilities/comunicacoes-oficiais'
+      fullPath: '/facilities/comunicacoes-oficiais'
+      preLoaderRoute: typeof PublicEnFacilitiesComunicacoesOficiaisRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/_en/facilities/pregoeiro': {
       id: '/_public/_en/facilities/pregoeiro'
       path: '/facilities/pregoeiro'
@@ -1232,6 +1252,7 @@ interface PublicRouteRouteChildren {
   PublicPtRoteiroRoute: typeof PublicPtRoteiroRoute
   PublicPtSobreRoute: typeof PublicPtSobreRoute
   PublicPtTermosDeUsoRoute: typeof PublicPtTermosDeUsoRoute
+  PublicEnFacilitiesComunicacoesOficiaisRoute: typeof PublicEnFacilitiesComunicacoesOficiaisRoute
   PublicEnFacilitiesPregoeiroRoute: typeof PublicEnFacilitiesPregoeiroRoute
   PublicEnPostsSlugRoute: typeof PublicEnPostsSlugRoute
   PublicPtInstalacoesPregoeiroRoute: typeof PublicPtInstalacoesPregoeiroRoute
@@ -1261,6 +1282,8 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicPtRoteiroRoute: PublicPtRoteiroRoute,
   PublicPtSobreRoute: PublicPtSobreRoute,
   PublicPtTermosDeUsoRoute: PublicPtTermosDeUsoRoute,
+  PublicEnFacilitiesComunicacoesOficiaisRoute:
+    PublicEnFacilitiesComunicacoesOficiaisRoute,
   PublicEnFacilitiesPregoeiroRoute: PublicEnFacilitiesPregoeiroRoute,
   PublicEnPostsSlugRoute: PublicEnPostsSlugRoute,
   PublicPtInstalacoesPregoeiroRoute: PublicPtInstalacoesPregoeiroRoute,
