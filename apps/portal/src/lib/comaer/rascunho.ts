@@ -2,10 +2,13 @@
  * @module comaer/rascunho
  * Rascunho do documento em `localStorage`.
  *
- * Sem isso, um F5 no meio da redação apaga o ofício inteiro — e o app não tem (ainda)
- * persistência em banco nem login obrigatório. O rascunho é local ao navegador de
- * propósito: o conteúdo pode ser sigiloso (art. 7º § 2º) e não há motivo para subi-lo a
- * lugar nenhum antes de o usuário pedir.
+ * Sem isso, um F5 no meio da redação apaga o ofício inteiro. O papel deste módulo é o do
+ * documento EM EDIÇÃO; o que o usuário decide salvar vai para o schema `documents`
+ * (`@/server/documents.fn`). Os dois convivem porque respondem a coisas diferentes:
+ * sobreviver ao recarregar a página × existir depois de trocar de máquina.
+ *
+ * Continua sendo local ao navegador de propósito: o conteúdo pode ser sigiloso
+ * (art. 7º § 2º) e não há motivo para subi-lo antes de o usuário pedir.
  */
 
 import type { DocumentoInput } from "./tipos"
@@ -65,7 +68,12 @@ export function paraInputDate(data: Date): string {
 }
 
 export function deInputDate(valor: string): Date {
-	const [ano, mes, dia] = valor.split("-").map(Number)
-	// Sem o construtor por partes, "2026-07-03" viraria UTC e voltaria como dia 2 no Brasil.
-	return new Date(ano, (mes ?? 1) - 1, dia ?? 1)
+	// `<input type="date">` limpo devolve "" — e `new Date(NaN, -1, 1)` não é o problema:
+	// com o `?? 1` de antes, o campo vazio datava o documento em 1º de janeiro de 1900 e o
+	// rascunho gravava isso em silêncio. Data ausente volta a ser hoje.
+	const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor)
+	if (!partes) return new Date()
+	// Pelo construtor por partes: "2026-07-03" interpretado como ISO viraria UTC e voltaria
+	// como dia 2 no Brasil.
+	return new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3]))
 }

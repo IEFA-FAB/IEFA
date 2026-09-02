@@ -157,6 +157,12 @@ function conferir(input: DocumentoInput, especie: Especie): string[] {
 	if (especie.aberturaSugerida && input.paragrafos.length > 0 && !input.paragrafos[0].texto.trimStart().startsWith(especie.aberturaSugerida.trim())) {
 		avisos.push(`${especie.rotulo}: o texto deve começar por “${especie.aberturaSugerida.trim()}…” (${especie.fundamento}).`)
 	}
+	// A Ata não tem linha de data: o art. 44 § 3º, I manda data, hora e local nas linhas
+	// INICIAIS DO TEXTO. O campo Data do formulário não tem para onde ir, e sem este aviso
+	// o usuário o preenche achando que apareceu em algum lugar.
+	if (especie.id === "ata") {
+		avisos.push("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I) — o campo Data não é impresso.")
+	}
 	if (especie.permiteFecho === false && input.ambito === "externo") {
 		avisos.push(`${especie.rotulo} não é a espécie para destinatário externo ao COMAER — o fecho de cortesia não se aplica (art. 30).`)
 	}
@@ -189,10 +195,18 @@ export function montarDocumento(input: DocumentoInput): DocumentoMontado {
 			case "numeracao": {
 				const texto = linhaNumeracao(especie.rotuloNumeracao, input.numeracao, input.sigilo, especie.numeracao)
 				if (texto) push(id, [{ texto, mesmaLinhaDireita: especie.dataNaLinha === "numeracao" ? localidadeEData(input) : undefined }])
+				else if (especie.dataNaLinha === "numeracao") push("localidade-data", [{ texto: localidadeEData(input), alinhamento: "direita" }])
 				break
 			}
 			case "nup": {
-				if (!input.nup) break
+				// A data viaja na linha do NUP no requerimento (art. 55 § 2º, III) e na da
+				// numeração nas demais. Quando essa linha não existe — requerimento ainda sem
+				// NUP —, a data tem de cair em linha própria: antes ela sumia junto, e o
+				// documento saía sem data nenhuma sem nada avisar.
+				if (!input.nup) {
+					if (especie.dataNaLinha === "nup") push("localidade-data", [{ texto: localidadeEData(input), alinhamento: "direita" }])
+					break
+				}
 				push(id, [
 					{
 						texto: `Protocolo COMAER nº ${formatarNup(input.nup)}`,

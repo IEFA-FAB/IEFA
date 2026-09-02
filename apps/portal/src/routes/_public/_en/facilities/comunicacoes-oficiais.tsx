@@ -58,9 +58,9 @@ export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-ofici
  * A saída principal é a área de transferência, não o papel: o despacho acontece no
  * SIGADAER. A impressão existe, mas é o caminho secundário.
  *
- * Tudo mora no navegador — não há server function nem gravação. O conteúdo pode ser
- * classificado (art. 7º § 2º) e não há razão para ele sair da máquina de quem redige antes
- * de o próprio SIGADAER recebê-lo.
+ * O rascunho em edição vive no navegador; salvar é ato explícito e leva o documento para o
+ * schema `documents`, sob o dono da sessão. A redação assistida é opcional e recusa
+ * documento classificado (art. 7º § 2º) antes de qualquer chamada a provider.
  */
 function ComunicacoesOficiais() {
 	const [input, setInput] = useState<DocumentoInput>(rascunhoInicial)

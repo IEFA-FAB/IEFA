@@ -11,6 +11,7 @@ import {
 	linhasPreambulo,
 	renderDivisoes,
 } from "./format"
+import { postoPorExtenso } from "./postos"
 
 /**
  * Os casos abaixo são os EXEMPLOS da NSCA 5-3/2026, Anexo I — não invenções de teste.
@@ -176,5 +177,42 @@ describe("divisões do texto (art. 39)", () => {
 
 	it("dispensa a numeração quando o documento tem parágrafo único (parágrafo único, I)", () => {
 		expect(renderDivisoes([{ texto: "Único" }]).map((l) => l.texto)).toEqual(["Único"])
+	})
+})
+
+/**
+ * Regressões apontadas pela revisão do PR #264. Cada uma nasceu de um caminho que os
+ * testes acima não visitavam — não de uma regra da norma lida errado.
+ */
+describe("regressões", () => {
+	it("acha o posto com ordinal escrito de qualquer jeito (art. 26)", () => {
+		// `normalize("NFD")` deixa o "º" intacto — só o NFKD o decompõe. Sem isso, a busca
+		// "tolerante" não achava "1º Ten" digitado como "1o Ten", o posto ficava abreviado
+		// num documento externo e ainda saía um aviso de art. 18 falso.
+		for (const escrito of ["1º Ten", "1o Ten", "1 TEN", "1ºTen"]) {
+			expect(postoPorExtenso(escrito), escrito).toBe("Primeiro-Tenente")
+		}
+	})
+
+	it("não abrevia palavra que só termina em “o”", () => {
+		expect(postoPorExtenso("Cabo")).toBe("Cabo")
+		expect(postoPorExtenso("Cb")).toBe("Cabo")
+	})
+
+	it("o despacho sem sequencial não vira “Nº s/nº”", () => {
+		expect(linhaNumeracao("Nº", { sequencial: null })).toBe("s/nº")
+		expect(linhaNumeracao("Ofício", { sequencial: null })).toBe("Ofício s/nº")
+	})
+
+	it("numera o parágrafo único quando ele tem itens — “1.1” exige um “1.” impresso", () => {
+		const comItens = renderDivisoes([{ texto: "Único", itens: [{ texto: "Item" }] }])
+		expect(comItens.map((l) => l.texto)).toEqual(["1. Único", "1.1 Item"])
+	})
+
+	it("espécie que não numera parágrafo também não numera item por parágrafo", () => {
+		// Carta e despacho decisório (art. 45 e 49): "1.1" apontaria para um parágrafo que
+		// o documento não mostra.
+		const semNumero = renderDivisoes([{ texto: "Primeiro", itens: [{ texto: "Item" }] }, { texto: "Segundo" }], false)
+		expect(semNumero.map((l) => l.texto)).toEqual(["Primeiro", "- Item", "Segundo"])
 	})
 })

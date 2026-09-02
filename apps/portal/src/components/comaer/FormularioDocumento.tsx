@@ -339,8 +339,12 @@ export function FormularioDocumento({ input, especie, onChange }: Props) {
 								rows={2}
 								value={(input.enderecamento?.linhasEndereco ?? []).join("\n")}
 								onChange={(e) =>
+									// Sem `filter(Boolean)`: ele comia a linha vazia recém-criada, o React restaurava
+									// o valor controlado inalterado e o Enter não fazia nada — o endereço de duas
+									// linhas do placeholder só era alcançável colando. Linha em branco não vira
+									// bloco: a montagem já descarta linha sem texto.
 									onChange({
-										enderecamento: { tratamento: "senhoria", genero: "m", ...input.enderecamento, linhasEndereco: e.target.value.split("\n").filter(Boolean) },
+										enderecamento: { tratamento: "senhoria", genero: "m", ...input.enderecamento, linhasEndereco: e.target.value.split("\n") },
 									})
 								}
 								placeholder={"Rua ABC, nº 123\nCEP 01010-000 - São Paulo - SP"}

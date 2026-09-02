@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { rascunhoInicial } from "./rascunho"
+import { deInputDate, rascunhoInicial } from "./rascunho"
 import { DocumentoPayloadSchema, dePayload, paraPayload, RedacaoIaSchema } from "./schema"
 
 describe("payload gravado no jsonb", () => {
@@ -56,5 +56,16 @@ describe("saída do modelo", () => {
 
 	it("exige ao menos um parágrafo — resposta sem texto não é redação", () => {
 		expect(() => RedacaoIaSchema.parse({ paragrafos: [] })).toThrow()
+	})
+})
+
+describe("data vinda do formulário", () => {
+	it("campo de data limpo não datava o documento em 1900", () => {
+		// `<input type="date">` limpo devolve "": com o `?? 1` de antes, `new Date(NaN, -1, 1)`
+		// virava 1º de janeiro de 1900 e o rascunho gravava isso sem avisar ninguém.
+		const hoje = new Date()
+		expect(deInputDate("").getFullYear()).toBe(hoje.getFullYear())
+		expect(deInputDate("2026-07-03").getDate()).toBe(3)
+		expect(deInputDate("2026-07-03").getMonth()).toBe(6)
 	})
 })

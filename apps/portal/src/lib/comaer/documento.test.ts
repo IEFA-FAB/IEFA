@@ -207,3 +207,19 @@ describe("campos em branco", () => {
 		])
 	})
 })
+
+describe("regressões apontadas na revisão", () => {
+	it("o requerimento sem NUP ainda imprime a data (art. 55 § 2º, III)", () => {
+		// A data viajava na linha do NUP; sem NUP, o `break` levava a data junto e o
+		// documento saía sem data nenhuma, sem nada avisar.
+		const doc = montarDocumento(base({ especie: "requerimento", nup: undefined }))
+		const data = doc.blocos.find((b) => b.id === "localidade-data")
+		expect(data?.linhas[0].texto).toBe("Brasília, 3 de julho de 2026.")
+	})
+
+	it("avisa que a data da Ata mora no texto, já que ela não tem linha de data", () => {
+		const doc = montarDocumento(base({ especie: "ata" }))
+		expect(doc.blocos.map((b) => b.id)).not.toContain("localidade-data")
+		expect(doc.avisos.join(" ")).toContain("art. 44 § 3º, I")
+	})
+})

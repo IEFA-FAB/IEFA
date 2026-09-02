@@ -60,7 +60,14 @@ export type EscopoNumeracao = "completa" | "interna" | "parecer" | "nenhuma"
  */
 export function linhaNumeracao(especie: string, numeracao: Numeracao, sigilo: Sigilo = "ostensivo", escopo: EscopoNumeracao = "completa"): string {
 	if (escopo === "nenhuma") return ""
-	if (numeracao.sequencial === null) return `${especie} s/nº`
+	// O Despacho já se numera por "Nº 183/GABGEP/2377" (art. 48 § 3º, II, d): tratar o
+	// rótulo como ordinal aqui e no fim evita tanto "Nº nº 183" quanto "Nº s/nº".
+	const rotuloOrdinal = especie.trim() === "Nº"
+	if (numeracao.sequencial === null) {
+		// Art. 51 § 6º: "s/nº" no lugar do sequencial. O grau de sigilo não prefixa este
+		// caso — o art. 31 § 2º define o prefixo sobre um sequencial, e não há sequencial.
+		return rotuloOrdinal ? "s/nº" : `${especie} s/nº`
+	}
 	const partes: string[] = [String(numeracao.sequencial)]
 	if (escopo === "parecer") {
 		if (numeracao.ordemGeral) partes.push(numeracao.ordemGeral)
@@ -71,9 +78,7 @@ export function linhaNumeracao(especie: string, numeracao: Numeracao, sigilo: Si
 	}
 	const corpo = partes.join("/")
 	const prefixo = PREFIXO_SIGILO[sigilo]
-	// O Despacho já se numera por "Nº 183/GABGEP/2377" (art. 48 § 3º, II, d): repetir o
-	// "nº" produziria "Nº nº 183".
-	if (especie.trim() === "Nº") return `Nº ${prefixo}${corpo}`
+	if (rotuloOrdinal) return `Nº ${prefixo}${corpo}`
 	return prefixo ? `${especie} ${prefixo}${corpo}` : `${especie} nº ${corpo}`
 }
 
@@ -196,11 +201,18 @@ export function textoTemAberturaPorOrdem(primeiroParagrafo: string): boolean {
  */
 export function renderDivisoes(paragrafos: Paragrafo[], numerar = true): Linha[] {
 	const linhas: Linha[] = []
-	const numerarParagrafos = numerar && paragrafos.length > 1
+	// Art. 39, parágrafo único, I: a numeração é facultativa no documento de parágrafo
+	// único — mas só enquanto ele não tiver itens. Item é "1.1", e sem o "1." impresso o
+	// número do item aponta para um parágrafo que o documento não mostra.
+	const temItens = paragrafos.some((p) => (p.itens?.length ?? 0) > 0)
+	const numerarParagrafos = numerar && (paragrafos.length > 1 || temItens)
 	paragrafos.forEach((p, i) => {
 		linhas.push({ texto: numerarParagrafos ? `${i + 1}. ${p.texto}` : p.texto, alinhamento: "justificado", recuoCm: 2.5 })
 		p.itens?.forEach((item, j) => {
-			linhas.push({ texto: `${i + 1}.${j + 1} ${item.texto}`, alinhamento: "justificado", recuoCm: 3.5 })
+			// Espécie que não numera parágrafo (carta e despacho decisório, art. 45 e 49)
+			// também não pode numerar item por parágrafo: sobra o travessão.
+			const marcador = numerarParagrafos ? `${i + 1}.${j + 1}` : "-"
+			linhas.push({ texto: `${marcador} ${item.texto}`, alinhamento: "justificado", recuoCm: 3.5 })
 			item.alineas?.forEach((alinea, k) => {
 				linhas.push({ texto: `${String.fromCharCode(97 + k)}) ${alinea.texto}`, alinhamento: "justificado", recuoCm: 4.5 })
 				for (const sub of alinea.subalineas ?? []) linhas.push({ texto: `- ${sub.texto}`, alinhamento: "justificado", recuoCm: 5.5 })

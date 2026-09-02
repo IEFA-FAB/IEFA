@@ -66,7 +66,17 @@ export const loadDocumentFn = createServerFn({ method: "POST" })
 		// Documento de outro dono e documento inexistente respondem igual: distinguir os
 		// dois transformaria a rota num verificador de existência de id alheio.
 		if (!linha) naoEncontrado()
-		return { id: linha.id as string, payload: DocumentoPayloadSchema.parse(linha.payload) }
+
+		// `parse` cru transformaria qualquer aperto futuro do schema em documento
+		// permanentemente inabrível, com um erro de Zod na cara do usuário. O `safeParse`
+		// troca isso por uma mensagem que diz o que aconteceu — e o payload continua no
+		// banco, intacto, para ser migrado.
+		const payload = DocumentoPayloadSchema.safeParse(linha.payload)
+		if (!payload.success) {
+			setResponseStatus(422)
+			throw new Error("Este documento foi salvo em um formato que a versão atual não abre. Ele continua guardado — avise a equipe do portal.")
+		}
+		return { id: linha.id as string, payload: payload.data }
 	})
 
 export const saveDocumentFn = createServerFn({ method: "POST" })

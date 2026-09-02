@@ -95,12 +95,20 @@ export const QUADROS_POR_EXTENSO: Readonly<Record<string, string>> = {
 }
 
 function chave(sigla: string): string {
-	return sigla
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[.\s]/g, "")
-		.replace(/o$/i, "")
-		.toLowerCase()
+	return (
+		sigla
+			// NFKD (não NFD): é a forma que decompõe o indicador ordinal "º" em "o". Com NFD
+			// ele passa intacto, e era por isso que "1º Ten" e "1o Ten" produziam chaves
+			// diferentes — a busca "tolerante" documentada logo abaixo não tolerava nada.
+			.normalize("NFKD")
+			.replace(/[\u0300-\u036f]/g, "")
+			// "1o Ten", "1oTen" e "1 Ten" viram a mesma coisa. O "o" só cai depois de dígito
+			// — senão "Cabo" e "Suboficial" seriam mutilados — e sem exigir fronteira de
+			// palavra, que não existe em "1oTen".
+			.replace(/(\d)\s*o/gi, "$1")
+			.replace(/[.\s]/g, "")
+			.toLowerCase()
+	)
 }
 
 /** Busca tolerante: aceita "1º Ten", "1o Ten", "1 TEN" e "ten cel". */
