@@ -47,6 +47,24 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 - **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 
+### Nomenclatura: identificador em inglês, valor de domínio na língua da norma
+
+Regra do repo, e a fronteira é essa:
+
+- **Identificador é em inglês** — função, tipo, variável, campo, arquivo. Função começa por
+  verbo (`assembleDocument`, `formatNup`, `applyProposal`, `loadDraft`), predicado por
+  `is`/`has` (`isGeneralOfficer`, `hasByOrderOpening`), constante em `SCREAMING_SNAKE`.
+- **Fica em português só o que não tem equivalente inglês fiel, ou o que é o nome de uma
+  integração externa.** São termos que nomeiam artefato jurídico ou institucional, e
+  traduzi-los quebraria a rastreabilidade até a norma: `nup`, `om`, `ementa`, `epigrafe`,
+  `preambulo`, `fecho`, `vocativo`, `alinea`, `subalinea`, `posto`, `quadro`, `despacho`,
+  `noImp`, `sigadaer`, `comaer`. Na dúvida, o teste é: existe termo inglês que um leitor da
+  NSCA reconheceria como a mesma coisa? Se não existe, mantenha o português.
+- **Valor de domínio NÃO se traduz** — `"oficio-comaer"`, `"ostensivo"`, `"reservado"`,
+  `"interno-om"` são o vocabulário da norma e viram dado gravado. Identificador em inglês
+  apontando para valor em português é o esperado, não uma inconsistência: `kind: "oficio-externo"`.
+- Comentário e mensagem ao usuário seguem em português; mensagem de commit, em inglês.
+
 ### Ferramentas de IA (chat dos módulos + servidor MCP)
 
 Os dois expõem o mesmo domínio para modelos diferentes. Regra para não divergirem:

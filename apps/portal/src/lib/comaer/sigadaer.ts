@@ -16,54 +16,54 @@
  *    campos separados; copiar tudo obrigaria a recortar assunto e destinatário à mão.
  */
 
-import type { BlocoMontado, DocumentoMontado, Linha } from "./tipos"
+import type { AssembledBlock, AssembledDocument, Line } from "./types"
 
-function linhaPlano(l: Linha): string {
+function plainLine(l: Line): string {
 	// Alinhamento à direita não existe em texto puro: a localidade e a data descem para a
 	// linha seguinte em vez de virar espaçamento fake, que qualquer editor destrói.
-	return l.mesmaLinhaDireita ? `${l.texto}\n${l.mesmaLinhaDireita}` : l.texto
+	return l.rightOnSameLine ? `${l.text}\n${l.rightOnSameLine}` : l.text
 }
 
-export function blocoParaTextoPlano(bloco: BlocoMontado): string {
-	return bloco.linhas.map(linhaPlano).join("\n")
+export function blockToPlainText(bloco: AssembledBlock): string {
+	return bloco.lines.map(plainLine).join("\n")
 }
 
-export function paraTextoPlano(doc: DocumentoMontado): string {
-	return doc.blocos.map(blocoParaTextoPlano).join("\n\n")
+export function toPlainText(doc: AssembledDocument): string {
+	return doc.blocks.map(blockToPlainText).join("\n\n")
 }
 
-function escaparHtml(texto: string): string {
-	return texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+function escapeHtml(text: string): string {
+	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
-function linhaHtml(l: Linha): string {
-	const corpo = escaparHtml(l.texto)
-	const marcado = l.negrito ? `<strong>${corpo}</strong>` : corpo
-	return l.mesmaLinhaDireita ? `<p>${marcado}<br>${escaparHtml(l.mesmaLinhaDireita)}</p>` : `<p>${marcado}</p>`
+function htmlLine(l: Line): string {
+	const body = escapeHtml(l.text)
+	const marcado = l.bold ? `<strong>${body}</strong>` : body
+	return l.rightOnSameLine ? `<p>${marcado}<br>${escapeHtml(l.rightOnSameLine)}</p>` : `<p>${marcado}</p>`
 }
 
-export function blocoParaHtml(bloco: BlocoMontado): string {
-	return bloco.linhas.map(linhaHtml).join("")
+export function blockToHtml(bloco: AssembledBlock): string {
+	return bloco.lines.map(htmlLine).join("")
 }
 
-export function paraHtml(doc: DocumentoMontado): string {
-	return doc.blocos.map(blocoParaHtml).join("")
+export function toHtml(doc: AssembledDocument): string {
+	return doc.blocks.map(blockToHtml).join("")
 }
 
-export interface CampoCopiavel {
+export interface CopyableField {
 	id: string
-	rotulo: string
-	texto: string
+	label: string
+	text: string
 	html: string
 }
 
 /** Campos individuais, na ordem do documento, para colar um a um no formulário. */
-export function camposParaCopia(doc: DocumentoMontado): CampoCopiavel[] {
-	return doc.blocos.map((bloco) => ({
+export function copyableFields(doc: AssembledDocument): CopyableField[] {
+	return doc.blocks.map((bloco) => ({
 		id: bloco.id,
-		rotulo: bloco.rotulo,
-		texto: blocoParaTextoPlano(bloco),
-		html: blocoParaHtml(bloco),
+		label: bloco.label,
+		text: blockToPlainText(bloco),
+		html: blockToHtml(bloco),
 	}))
 }
 
@@ -75,15 +75,15 @@ export function camposParaCopia(doc: DocumentoMontado): CampoCopiavel[] {
  * simples entrega a marcação crua; sem o `text/html`, o editor rico perde o negrito do
  * assunto. O `writeText` fica como reserva para navegador sem `ClipboardItem`.
  */
-export async function copiarDocumento({ texto, html }: { texto: string; html: string }): Promise<void> {
+export async function copyDocument({ text, html }: { text: string; html: string }): Promise<void> {
 	if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
 		await navigator.clipboard.write([
 			new ClipboardItem({
 				"text/html": new Blob([html], { type: "text/html" }),
-				"text/plain": new Blob([texto], { type: "text/plain" }),
+				"text/plain": new Blob([text], { type: "text/plain" }),
 			}),
 		])
 		return
 	}
-	await navigator.clipboard.writeText(texto)
+	await navigator.clipboard.writeText(text)
 }

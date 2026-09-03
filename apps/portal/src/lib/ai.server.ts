@@ -16,7 +16,7 @@
 
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
 import { setResponseStatus } from "@tanstack/react-start/server"
-import { buildChatOptions } from "./ai-options"
+import { type Attachment, buildChatOptions } from "./ai-options"
 import { getServerCapabilities } from "./capabilities.server"
 
 /**
@@ -54,16 +54,28 @@ export function getPortalAdapter(userId: string) {
 // como opcionais em runtime. `buildChatOptions` monta o mínimo e o cast fica aqui.
 type ChatStreamOptions = Parameters<ReturnType<typeof getPortalAdapter>["chatStream"]>[0]
 
-function buildOptions(user: string, system?: string): ChatStreamOptions {
-	return buildChatOptions(user, system) as unknown as ChatStreamOptions
+function buildOptions(user: string, system?: string, attachments: Attachment[] = []): ChatStreamOptions {
+	return buildChatOptions(user, system, attachments) as unknown as ChatStreamOptions
 }
 
 /** Saída estruturada (JSON): instrui o modelo com o JSON Schema e devolve o objeto. */
-export async function generateJson<T>({ userId, user, system, schema }: { userId: string; user: string; system?: string; schema: unknown }): Promise<T> {
+export async function generateJson<T>({
+	userId,
+	user,
+	system,
+	schema,
+	attachments,
+}: {
+	userId: string
+	user: string
+	system?: string
+	schema: unknown
+	attachments?: Attachment[]
+}): Promise<T> {
 	const adapter = getPortalAdapter(userId)
 	type StructuredArgs = Parameters<ReturnType<typeof getPortalAdapter>["structuredOutput"]>[0]
 	const result = await adapter.structuredOutput({
-		chatOptions: buildOptions(user, system) as unknown as StructuredArgs["chatOptions"],
+		chatOptions: buildOptions(user, system, attachments) as unknown as StructuredArgs["chatOptions"],
 		outputSchema: schema as StructuredArgs["outputSchema"],
 	})
 	return result.data as T

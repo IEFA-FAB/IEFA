@@ -21,10 +21,33 @@ import { silentAdapterLogger } from "./ai-logger"
  */
 export const MAX_OUTPUT_TOKENS = 4096
 
-/** Opções de chamada — o mesmo objeto usado pela server function e pelo smoke. */
-export function buildChatOptions(user: string, system?: string) {
+/** Anexo enviado ao modelo — imagem (digitalização) ou documento (PDF e afins). */
+export interface Attachment {
+	kind: "image" | "document"
+	mimeType: string
+	/** Conteúdo em base64, sem o prefixo `data:`. */
+	base64: string
+}
+
+/**
+ * Opções de chamada — o mesmo objeto usado pela server function, pela importação e pelo
+ * smoke.
+ *
+ * Com anexo, o conteúdo vira lista de partes: o texto continua presente porque o Bedrock
+ * EXIGE um bloco de texto junto do documento, e porque o anexo precisa vir anunciado como
+ * dado — o conteúdo de uma minuta é texto de terceiro, e "desconsidere as instruções
+ * anteriores" dentro dela é um ataque plausível.
+ */
+export function buildChatOptions(user: string, system?: string, attachments: Attachment[] = []) {
+	const content =
+		attachments.length === 0
+			? user
+			: [
+					{ type: "text" as const, content: user },
+					...attachments.map((a) => ({ type: a.kind, source: { type: "data" as const, mimeType: a.mimeType, value: a.base64 } })),
+				]
 	return {
-		messages: [{ role: "user" as const, content: user }],
+		messages: [{ role: "user" as const, content }],
 		systemPrompts: system ? [system] : [],
 		modelOptions: {
 			maxTokens: MAX_OUTPUT_TOKENS,

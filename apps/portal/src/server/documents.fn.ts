@@ -12,43 +12,48 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
-import { DocumentoPayloadSchema } from "@/lib/comaer/schema"
+import { DocumentPayloadSchema } from "@/lib/comaer/schema"
 import { getDocumentsServerClient } from "@/lib/supabase.server"
 
-export interface DocumentoResumo {
+export interface DocumentSummary {
 	id: string
-	especie: string
-	titulo: string | null
-	ambito: string
-	sigilo: string
+	kind: string
+	title: string | null
+	scope: string
+	classification: string
 	updated_at: string
 }
 
 /** Título da lista: o assunto é a ementa (art. 37), e é assim que o redator reconhece o documento. */
-function tituloDe(payload: z.infer<typeof DocumentoPayloadSchema>): string | null {
-	const assunto = payload.assunto?.trim()
-	if (assunto) return assunto.slice(0, 200)
-	const primeiro = payload.paragrafos[0]?.texto.trim()
+function titleOf(payload: z.infer<typeof DocumentPayloadSchema>): string | null {
+	const subject = payload.subject?.trim()
+	if (subject) return subject.slice(0, 200)
+	const primeiro = payload.paragraphs[0]?.text.trim()
 	return primeiro ? primeiro.slice(0, 200) : null
 }
 
 /** Erro do usuário, não do servidor: o Start só preserva o status via `setResponseStatus`. */
-function naoEncontrado(): never {
+function notFound(): never {
 	setResponseStatus(404)
 	throw new Error("Documento não encontrado.")
 }
 
-export const listDocumentsFn = createServerFn({ method: "GET" }).handler(async (): Promise<DocumentoResumo[]> => {
+export const listDocumentsFn = createServerFn({ method: "GET" }).handler(async (): Promise<DocumentSummary[]> => {
 	const userId = await requireUserId()
 	const { data, error } = await getDocumentsServerClient()
 		.from("official_document")
-		.select("id, especie, titulo, ambito, sigilo, updated_at")
+		.select("id, kind, title, scope, classification, updated_at")
 		.eq("owner_id", userId)
 		.is("deleted_at", null)
 		.order("updated_at", { ascending: false })
 		.limit(100)
-	if (error) throw new Error(error.message)
-	return (data ?? []) as DocumentoResumo[]
+	// A mensagem do PostgREST vai no `cause`, não na tela: o `DefaultCatchBoundary` imprime
+	// a mensagem literalmente, e "column x does not exist" não diz nada a quem redige ofício.
+	if (error) {
+		setResponseStatus(500)
+		throw new Error("Não deu para ler seus documentos agora.", { cause: error })
+	}
+	return (data ?? []) as DocumentSummary[]
 })
 
 export const loadDocumentFn = createServerFn({ method: "POST" })
@@ -62,16 +67,19 @@ export const loadDocumentFn = createServerFn({ method: "POST" })
 			.eq("owner_id", userId)
 			.is("deleted_at", null)
 			.maybeSingle()
-		if (error) throw new Error(error.message)
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para abrir este documento agora. Ele continua salvo; tente de novo em instantes.", { cause: error })
+		}
 		// Documento de outro dono e documento inexistente respondem igual: distinguir os
 		// dois transformaria a rota num verificador de existência de id alheio.
-		if (!linha) naoEncontrado()
+		if (!linha) notFound()
 
 		// `parse` cru transformaria qualquer aperto futuro do schema em documento
 		// permanentemente inabrível, com um erro de Zod na cara do usuário. O `safeParse`
 		// troca isso por uma mensagem que diz o que aconteceu — e o payload continua no
 		// banco, intacto, para ser migrado.
-		const payload = DocumentoPayloadSchema.safeParse(linha.payload)
+		const payload = DocumentPayloadSchema.safeParse(linha.payload)
 		if (!payload.success) {
 			setResponseStatus(422)
 			throw new Error("Este documento foi salvo em um formato que a versão atual não abre. Ele continua guardado — avise a equipe do portal.")
@@ -80,15 +88,15 @@ export const loadDocumentFn = createServerFn({ method: "POST" })
 	})
 
 export const saveDocumentFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.uuid().optional(), payload: DocumentoPayloadSchema }))
+	.validator(z.object({ id: z.uuid().optional(), payload: DocumentPayloadSchema }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const { payload } = data
-		const colunas = {
-			especie: payload.especie,
-			ambito: payload.ambito,
-			sigilo: payload.sigilo,
-			titulo: tituloDe(payload),
+		const columns = {
+			kind: payload.kind,
+			scope: payload.scope,
+			classification: payload.classification,
+			title: titleOf(payload),
 			payload,
 		}
 		const db = getDocumentsServerClient()
@@ -99,24 +107,56 @@ export const saveDocumentFn = createServerFn({ method: "POST" })
 			// entre checar e escrever.
 			const { data: linha, error } = await db
 				.from("official_document")
-				.update(colunas)
+				.update(columns)
 				.eq("id", data.id)
 				.eq("owner_id", userId)
 				.is("deleted_at", null)
 				.select("id")
 				.maybeSingle()
-			if (error) throw new Error(error.message)
-			if (!linha) naoEncontrado()
+			if (error) {
+				setResponseStatus(500)
+				throw new Error("Não deu para salvar as alterações agora.", { cause: error })
+			}
+			if (!linha) notFound()
 			return { id: linha.id as string }
 		}
 
 		const { data: linha, error } = await db
 			.from("official_document")
-			.insert({ ...colunas, owner_id: userId })
+			.insert({ ...columns, owner_id: userId })
 			.select("id")
 			.single()
-		if (error) throw new Error(error.message)
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para salvar o documento agora.", { cause: error })
+		}
 		return { id: linha.id as string }
+	})
+
+/**
+ * Desfaz a exclusão.
+ *
+ * A exclusão é lógica justamente para isto. A conversa, essa não volta: ela é apagada de
+ * fato no momento da exclusão, e o texto de confirmação diz isso antes.
+ */
+export const restoreDocumentFn = createServerFn({ method: "POST" })
+	.validator(z.object({ id: z.uuid() }))
+	.handler(async ({ data }) => {
+		const userId = await requireUserId()
+		const { data: row, error } = await getDocumentsServerClient()
+			.from("official_document")
+			.update({ deleted_at: null })
+			.eq("id", data.id)
+			.eq("owner_id", userId)
+			.not("deleted_at", "is", null)
+			.select("id")
+			.maybeSingle()
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para restaurar o documento agora.", { cause: error })
+		}
+		if (!row) notFound()
+		return { id: row.id as string }
 	})
 
 export const deleteDocumentFn = createServerFn({ method: "POST" })
@@ -125,7 +165,22 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 		const userId = await requireUserId()
 		// Exclusão lógica: o documento pode já ter virado expediente no SIGADAER, e a
 		// versão que o originou é o que explica o que foi despachado.
-		const { data: linha, error } = await getDocumentsServerClient()
+		const db = getDocumentsServerClient()
+
+		// A conversa morre com o documento, ainda que o documento só saia de vista: ela guarda
+		// pedido em linguagem natural, às vezes mais revelador que o próprio expediente.
+		//
+		// Ela vai PRIMEIRO, e é o que decide a ordem: apagada depois, uma falha aqui deixava a
+		// conversa órfã com o documento já invisível — e a tela mandava tentar de novo, coisa
+		// que o filtro `deleted_at is null` do passo seguinte tornava impossível. Falhando
+		// antes, nada mudou e o "tentar de novo" funciona de verdade.
+		const removed = await db.from("chat_message").delete().eq("document_id", data.id).eq("owner_id", userId)
+		if (removed.error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para excluir o documento agora. Nada foi alterado; tente de novo.", { cause: removed.error })
+		}
+
+		const { data: linha, error } = await db
 			.from("official_document")
 			.update({ deleted_at: new Date().toISOString() })
 			.eq("id", data.id)
@@ -133,7 +188,10 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 			.is("deleted_at", null)
 			.select("id")
 			.maybeSingle()
-		if (error) throw new Error(error.message)
-		if (!linha) naoEncontrado()
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para excluir o documento agora.", { cause: error })
+		}
+		if (!linha) notFound()
 		return { id: linha.id as string }
 	})
