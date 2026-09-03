@@ -15,10 +15,14 @@ export function A4Sheet({
 	onEdit,
 }: {
 	doc: AssembledDocument
+	/** Blocos alterados no último turno da conversa. */
 	highlight?: string[]
 	/** Quando presente, as linhas que sabem sua origem viram editáveis no próprio papel. */
 	onEdit?: (target: EditTarget, value: string) => void
 }) {
+	// Blocos com pendência apontada pela conferência — marcados na própria folha, que é
+	// onde a pessoa olha. Antes a lista só existia no rodapé do painel de exportação.
+	const withFinding = new Map(doc.warnings.filter((w) => w.block).map((w) => [w.block as string, w.severity]))
 	return (
 		<div
 			data-sheet
@@ -30,11 +34,23 @@ export function A4Sheet({
 					key={bloco.id}
 					data-block={bloco.id}
 					data-changed={highlight.includes(bloco.id) ? "true" : undefined}
+					data-finding={withFinding.get(bloco.id)}
 					// Destaque do turno: contorno, não fundo colorido — a folha é o documento que
 					// vai ser impresso, e ele não pode ganhar cor por causa da conversa. Some na
 					// impressão pela mesma razão.
-					className={`${blockSpacing(bloco.id)} ${highlight.includes(bloco.id) ? "outline outline-2 outline-offset-4 outline-foreground/30 print:outline-none" : ""}`}
-					aria-label={bloco.label}
+					className={`${blockSpacing(bloco.id)} ${
+						highlight.includes(bloco.id)
+							? // Preto fixo, não `--foreground`: a folha é sempre branca, e o token de tema
+								// deixava o destaque branco-sobre-branco no tema escuro — o único sinal de
+								// que a IA mexeu no documento sumia para metade dos usuários.
+								"outline outline-2 outline-offset-2 outline-black/60 print:outline-none"
+							: withFinding.has(bloco.id)
+								? "outline outline-1 outline-offset-2 outline-dashed outline-black/30 print:outline-none"
+								: ""
+					}`}
+					// Equivalente textual: o contorno é visual, e "3 alterações neste turno" não diz
+					// ONDE sem isto.
+					aria-label={`${bloco.label}${highlight.includes(bloco.id) ? " — alterado neste turno" : ""}${withFinding.has(bloco.id) ? " — com pendência" : ""}`}
 				>
 					{bloco.lines.map((linha, i) => (
 						<SheetLine key={`${bloco.id}-${i}`} linha={linha} onEdit={onEdit} />
@@ -132,6 +148,10 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 	const [editing, setEditing] = useState(false)
 	const [value, setValue] = useState(line.edit?.value ?? "")
 	const field = useRef<HTMLTextAreaElement>(null)
+	const trigger = useRef<HTMLButtonElement>(null)
+	// Ao sair da edição o textarea desmonta com o foco dentro e o foco cai no `<body>`:
+	// quem usa teclado voltava ao topo da folha a cada correção.
+	const returnFocus = useRef(false)
 
 	useEffect(() => {
 		if (!editing) setValue(line.edit?.value ?? "")
@@ -139,9 +159,14 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 
 	useEffect(() => {
 		if (editing) field.current?.focus()
+		else if (returnFocus.current) {
+			returnFocus.current = false
+			trigger.current?.focus()
+		}
 	}, [editing])
 
 	const commit = () => {
+		returnFocus.current = true
 		setEditing(false)
 		if (value !== line.edit?.value) onCommit(value)
 	}
@@ -149,11 +174,14 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 	if (!editing) {
 		return (
 			<button
+				ref={trigger}
 				type="button"
 				onClick={() => setEditing(true)}
-				className={`${className} block w-full text-inherit bg-transparent border-0 p-0 cursor-text hover:bg-black/[0.04] print:hover:bg-transparent`}
+				// Sublinhado pontilhado permanente: em toque não existe hover, e sem uma marca
+				// visível a folha parece estática — ninguém descobre que dá para corrigir aqui.
+				className={`${className} block w-full text-inherit bg-transparent border-0 p-0 cursor-text underline decoration-dotted decoration-black/25 underline-offset-4 hover:bg-black/[0.04] hover:decoration-black/60 print:no-underline print:hover:bg-transparent`}
 				style={style}
-				title="Clique para editar"
+				aria-label={`${line.text} — editar esta linha`}
 			>
 				{line.bold ? <strong>{line.text}</strong> : line.text}
 			</button>
@@ -167,19 +195,24 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 			onChange={(e) => setValue(e.target.value)}
 			onBlur={commit}
 			onKeyDown={(e) => {
-				if (e.key === "Enter" && !e.shiftKey) {
+				// Enter quebra linha — é o gesto natural dentro de um parágrafo. Confirmar é
+				// Ctrl/Cmd+Enter, ou sair do campo.
+				if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 					e.preventDefault()
 					commit()
 				}
 				if (e.key === "Escape") {
 					setValue(line.edit?.value ?? "")
+					returnFocus.current = true
 					setEditing(false)
 				}
 			}}
-			rows={Math.max(1, Math.ceil(value.length / 90))}
-			className={`${className} block w-full bg-transparent border border-dashed border-black/40 p-0 resize-none font-[inherit] text-[inherit] leading-[inherit]`}
+			// Conta as quebras de linha, não só o comprimento: parágrafo com quebras abria com
+			// altura errada e o texto sumia para fora do campo.
+			rows={Math.max(1, value.split("\n").length, Math.ceil(value.length / 90))}
+			className={`${className} block w-full bg-transparent border border-black/40 p-0 resize-none font-[inherit] text-[inherit] leading-[inherit] print:border-0`}
 			style={style}
-			aria-label="Editar esta linha do documento"
+			aria-label="Editar esta linha do documento. Ctrl+Enter confirma, Esc descarta."
 		/>
 	)
 }

@@ -187,9 +187,24 @@ export type BlockId =
 	| "signatario"
 	| "rodape-om"
 
+/**
+ * Achado da conferência.
+ *
+ * Dois níveis, porque são duas conversas diferentes: `pending` é campo que falta
+ * preencher — normal num documento em construção, e não pode acender alerta vermelho no
+ * documento em branco. `nonCompliant` é o documento preenchido contrariando a norma, e
+ * esse merece o vermelho. Sem a distinção, o aviso mais grave vira paisagem.
+ */
+export interface ComplianceFinding {
+	text: string
+	severity: "pending" | "nonCompliant"
+	/** Bloco da folha a que o achado se refere, para o preview marcá-lo. */
+	block?: BlockId
+}
+
 export interface AssembledDocument {
 	kind: string
 	blocks: AssembledBlock[]
-	/** Avisos de conformidade — o que a norma exige e o preenchimento não trouxe. */
-	warnings: string[]
+	/** Conferência: o que falta preencher e o que contraria a norma. */
+	warnings: ComplianceFinding[]
 }

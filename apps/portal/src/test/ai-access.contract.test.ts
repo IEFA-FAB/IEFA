@@ -47,7 +47,7 @@ describe("varredura", () => {
 	// Se um refactor renomear os símbolos, os describes abaixo passariam vazios e o
 	// contrato viraria decoração. Este teste é o que denuncia a varredura vazia.
 	it("encontra os caminhos conhecidos até o modelo", () => {
-		expect(VIA_GUARD_MODULE.map((s) => s.path).sort()).toEqual(["src/server/documents-ai.fn.ts", "src/server/documents-import.fn.ts"])
+		expect(VIA_GUARD_MODULE.map((s) => s.path).sort()).toEqual(["src/server/documents-import.fn.ts"])
 	})
 
 	// A rota Nitro monta o adapter na mão porque o stream não passa por server function.
@@ -157,7 +157,6 @@ describe("persistência dos documentos", () => {
 	it("encontra as server functions de documento", () => {
 		expect(fns.map((s) => s.path).sort()).toEqual([
 			"src/server/chat-history.fn.ts",
-			"src/server/documents-ai.fn.ts",
 			"src/server/documents-import.fn.ts",
 			"src/server/documents.fn.ts",
 			"src/server/writer-profile.fn.ts",
@@ -175,7 +174,8 @@ describe("persistência dos documentos", () => {
 	it("toda leitura ou escrita de documento amarra o dono da sessão", () => {
 		const crud = SOURCES.find((s) => s.path === "src/server/documents.fn.ts")
 		const accesses = crud?.text.match(/\.from\("official_document"\)[\s\S]*?(?=\n\n|\n\t\treturn)/g) ?? []
-		expect(accesses.length).toBe(5)
+		// list, load, update, insert, delete e restore
+		expect(accesses.length).toBe(6)
 		for (const acesso of accesses) {
 			expect(acesso).toMatch(/\.eq\("owner_id", userId\)|owner_id: userId/)
 		}

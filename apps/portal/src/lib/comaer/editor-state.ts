@@ -65,9 +65,19 @@ export function applyChatPatch(state: EditorState, name: string, args: Record<st
 
 /** Desfaz o último turno inteiro. Sem turno, devolve o estado intacto. */
 export function undoTurn(state: EditorState): EditorState {
-	const last = state.turns[state.turns.length - 1]
-	if (!last) return state
-	return { document: last.before, turns: state.turns.slice(0, -1) }
+	// Turno em que o modelo só respondeu uma pergunta não alterou nada, e desfazê-lo não
+	// faz nada — o usuário conclui que o desfazer está quebrado e clica de novo, desfazendo
+	// o que não queria. Turnos vazios são descartados antes de reverter.
+	const turns = [...state.turns]
+	while (turns.length > 0 && turns[turns.length - 1].changes === 0) turns.pop()
+	const last = turns[turns.length - 1]
+	if (!last) return { ...state, turns: [] }
+	return { document: last.before, turns: turns.slice(0, -1) }
+}
+
+/** Há algo a desfazer? Turno sem alteração não conta. */
+export function canUndo(state: EditorState): boolean {
+	return state.turns.some((turn) => turn.changes > 0)
 }
 
 /** Blocos alterados no último turno — o que o preview destaca. */

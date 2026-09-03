@@ -26,7 +26,7 @@ import {
 	signerIdentification,
 } from "./format"
 import { rankInFull } from "./ranks"
-import type { AssembledBlock, AssembledDocument, BlockId, DocumentInput, Line } from "./types"
+import type { AssembledBlock, AssembledDocument, BlockId, ComplianceFinding, DocumentInput, Line } from "./types"
 
 const BLOCK_LABELS: Record<BlockId, string> = {
 	timbre: "Timbre",
@@ -144,48 +144,95 @@ function footerBlock(input: DocumentInput): Line[] {
 	return dados.length > 0 ? [{ text: dados.join(" - ") }] : []
 }
 
-/** Conferências que a norma faz e o formulário sozinho não faz. */
-function checkCompliance(input: DocumentInput, kind: DocumentKind): string[] {
-	const warnings: string[] = []
+/**
+ * Conferência do documento: o que falta preencher e o que contraria a norma.
+ *
+ * Duas regras de convívio, aprendidas na auditoria:
+ *
+ * 1. **Documento intocado não recebe achado nenhum.** Antes, um documento em branco já
+ *    abria com alerta vermelho de NUP ausente — o aviso mais grave da ferramenta era
+ *    também o primeiro, sempre, e virava paisagem.
+ * 2. **Campo vazio é `pending`, norma contrariada é `nonCompliant`.** São duas conversas:
+ *    "ainda falta" e "está errado". Misturá-las gasta o vermelho no que é rotina.
+ */
+function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFinding[] {
+	const findings: ComplianceFinding[] = []
+	const pending = (text: string, block?: BlockId) => findings.push({ text, severity: "pending", block })
+	const nonCompliant = (text: string, block?: BlockId) => findings.push({ text, severity: "nonCompliant", block })
 
-	if (kind.blocks.includes("nup") && !(input.nup && isValidNup(input.nup))) {
-		warnings.push("Protocolo COMAER (NUP) ausente ou incompleto — são 17 dígitos (art. 48 § 4º).")
+	// Documento em que ninguém escreveu nada ainda não tem o que conferir.
+	const started =
+		input.om.name.trim() !== "" || input.subject?.trim() !== "" || input.signer.name.trim() !== "" || input.paragraphs.some((p) => p.text.trim() !== "")
+	if (!started) return findings
+
+	// ── O que falta preencher ────────────────────────────────────────────────
+	// A montagem NÃO renderiza bloco vazio: sem estes avisos, a OM some da epígrafe e o
+	// signatário some do fim, e a folha continua parecendo um documento plausível.
+	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora — sem ele a epígrafe não é impressa (art. 35, I).", "epigrafe")
+	if (input.signer.name.trim() === "") pending("Falta o nome do signatário — sem ele o documento sai sem assinatura (art. 40).", "signatario")
+	if (input.city.trim() === "") pending("Falta a localidade — ela abre a linha da data (art. 35, III, b).", "numeracao")
+	if (kind.blocks.includes("preambulo") && input.recipients.every((r) => r.position.trim() === "")) {
+		pending("Falta o destinatário — o preâmbulo diz a quem o expediente se dirige (art. 36).", "preambulo")
 	}
-	if (input.paragraphs.length === 0) warnings.push("O documento está sem texto (art. 38).")
+	if (kind.blocks.includes("ementa") && !input.subject?.trim()) {
+		pending("Falta o assunto — é o resumo que permite reconhecer o documento de imediato (art. 37).", "ementa")
+	}
+	if (kind.blocks.includes("nup") && !(input.nup && isValidNup(input.nup))) {
+		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER — são 17 dígitos (art. 48 § 4º).", "nup")
+	}
+	if (kind.numbering !== "nenhuma" && input.numbering.sequence === null && kind.id !== "oficio-particular") {
+		pending(
+			'Falta o número sequencial da seção. Sem ele o documento sai como "s/nº", forma que a norma reserva ao expediente de interesse particular (art. 51 § 6º).',
+			"numeracao"
+		)
+	}
+	if (input.paragraphs.every((p) => p.text.trim() === "")) pending("O documento está sem texto (art. 38).", "texto")
 
+	// ── O que contraria a norma ──────────────────────────────────────────────
 	if (input.signer.byOrderOf && input.paragraphs.length > 0 && !hasByOrderOpening(input.paragraphs[0].text)) {
-		warnings.push('Documento assinado por ordem: o texto deve começar por "Por ordem do…" ou "Incumbiu-me o…" (art. 40 § 9º).')
+		nonCompliant('Documento assinado por ordem: o texto deve começar por "Por ordem do…" ou "Incumbiu-me o…" (art. 40 § 9º).', "texto")
 	}
 	if (input.scope === "externo" && input.signer.rank && rankInFull(input.signer.rank) === input.signer.rank) {
-		warnings.push(`Posto "${input.signer.rank}" não está na tabela do art. 18 — em documento externo ele precisa sair por extenso (art. 26).`)
+		nonCompliant(
+			`Não sei escrever "${input.signer.rank}" por extenso, e em documento externo o posto vai por extenso (art. 26). Escolha o posto na lista do campo "Posto ou graduação".`,
+			"signatario"
+		)
 	}
 	if (kind.id === "oficio-externo" && ((input.references?.length ?? 0) > 0 || (input.annexes?.length ?? 0) > 0)) {
-		warnings.push("No ofício externo, referências e anexos são citados no texto, não na ementa (art. 51 § 9º, IX).")
+		nonCompliant("No ofício externo, referências e anexos são citados no texto, não na ementa (art. 51 § 9º, IX).", "ementa")
 	}
 	if (input.distribution) {
 		if (input.recipients.some((d) => /cmtaer|comandante da aeron[áa]utica/i.test(d.position))) {
-			warnings.push("Ofício circular não pode ser endereçado ao CMTAER — confeccione documento específico (art. 51 § 8º, IV).")
+			nonCompliant("Ofício circular não pode ser endereçado ao CMTAER — confeccione documento específico para essa autoridade (art. 51 § 8º, IV).", "preambulo")
 		}
-		warnings.push("Ofício circular ou DIFRAL não inaugura processo (art. 51 § 8º, III).")
+		nonCompliant(
+			"Ofício a vários destinatários não pode ser a peça que abre o processo (art. 51 § 8º, III). Se o assunto exige processo novo, expeça um ofício individual ao destinatário principal e mande o circular depois.",
+			"preambulo"
+		)
 	}
 	if (kind.suggestedOpening && input.paragraphs.length > 0 && !input.paragraphs[0].text.trimStart().startsWith(kind.suggestedOpening.trim())) {
-		warnings.push(`${kind.label}: o texto deve começar por “${kind.suggestedOpening.trim()}…” (${kind.legalBasis}).`)
+		nonCompliant(`${kind.label}: o texto deve começar por “${kind.suggestedOpening.trim()}…” (${kind.legalBasis}).`, "texto")
 	}
 	// A Ata não tem linha de data: o art. 44 § 3º, I manda data, hora e local nas linhas
-	// INICIAIS DO TEXTO. O campo Data do formulário não tem para onde ir, e sem este aviso
-	// o usuário o preenche achando que apareceu em algum lugar.
+	// INICIAIS DO TEXTO. O campo Data do formulário não tem para onde ir.
 	if (kind.id === "ata") {
-		warnings.push("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I) — o campo Data não é impresso.")
+		pending("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I) — o campo Data não é impresso.", "texto")
 	}
-	// Minuta importada é o caso clássico de número herdado: o texto vem do documento antigo
-	// e a identidade, não. O aviso fica até o redator preencher.
 	if (input.derivedFromDraft && (input.numbering.sequence === null || !input.nup)) {
-		warnings.push("Documento derivado de minuta: numeração, NUP e data não foram herdados do original — preencha os do expediente novo.")
+		pending(
+			"Documento vindo de minuta: numeração, NUP e data continuam em branco de propósito — preencha os do expediente novo antes de despachar.",
+			"numeracao"
+		)
 	}
+	// O catálogo oferece a Certidão em âmbito externo; acusar a escolha que a própria
+	// ferramenta ofereceu seria culpar o usuário pelo cardápio. O que cabe é explicar.
 	if (kind.allowsClosing === false && input.scope === "externo") {
-		warnings.push(`${kind.label} não é a espécie para destinatário externo ao COMAER — o fecho de cortesia não se aplica (art. 30).`)
+		pending(
+			`${kind.label} não leva fecho de cortesia — a folha termina no signatário (art. 30). Se o destinatário externo espera "Atenciosamente", a espécie é o Ofício — órgão externo ao COMAER.`,
+			"signatario"
+		)
 	}
-	return warnings
+	return findings
 }
 
 export function assembleDocument(input: DocumentInput): AssembledDocument {

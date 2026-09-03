@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test"
-import { DRAFT_KEY, fromDateInputValue, loadDraft, newDocument, saveDraft } from "./draft"
+import { DRAFT_KEY, documentDraftKey, fromDateInputValue, isDirty, loadDraft, newDocument, saveDraft } from "./draft"
 import { AiProposalSchema, DocumentPayloadSchema, fromPayload, toPayload } from "./schema"
 
 describe("payload gravado no jsonb", () => {
@@ -115,5 +115,28 @@ describe("rascunho gravado por outra versão do formato", () => {
 	it("conteúdo corrompido não derruba a tela", () => {
 		armazenamento.set(DRAFT_KEY, "{ isto não é json")
 		expect(loadDraft()).toBeNull()
+	})
+})
+
+describe("rascunho de documento salvo", () => {
+	/**
+	 * O documento novo tinha rede; o salvo não tinha nenhuma. Vinte minutos de reescrita
+	 * viviam só em memória, e um F5 devolvia a versão do banco sem avisar.
+	 */
+	it("guarda e devolve o rascunho por documento, sem misturar com o do documento novo", () => {
+		const doc = { ...newDocument(), subject: "Documento salvo", city: "Recife" }
+		saveDraft({ ...newDocument(), subject: "Rascunho novo" })
+		saveDraft(doc, documentDraftKey("11111111-1111-4111-8111-111111111111"))
+
+		expect(loadDraft()?.subject).toBe("Rascunho novo")
+		expect(loadDraft(documentDraftKey("11111111-1111-4111-8111-111111111111"))?.subject).toBe("Documento salvo")
+	})
+
+	it("sabe dizer se há alteração não salva", () => {
+		const saved = { ...newDocument(), subject: "Como está no banco" }
+		expect(isDirty(saved, saved)).toBe(false)
+		expect(isDirty({ ...saved, subject: "Editado agora" }, saved)).toBe(true)
+		// Documento novo não tem base de comparação: não existe "não salvo" a apontar.
+		expect(isDirty(saved, null)).toBe(false)
 	})
 })

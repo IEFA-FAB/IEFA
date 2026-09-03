@@ -29,7 +29,7 @@ const FIELDS: { key: keyof WriterProfile; label: string; placeholder?: string }[
  * continue sem inventar identidade: o que está aqui é do usuário e entra no documento
  * NOVO; o que falta vira pergunta na conversa, não palpite.
  */
-export function WriterProfilePanel({ onSaved }: { onSaved: (profile: WriterProfile) => void }) {
+export function WriterProfilePanel({ onSaved }: { onSaved?: (profile: WriterProfile) => void } = {}) {
 	const queryClient = useQueryClient()
 	const stored = useQuery({ queryKey: ["writer-profile"], queryFn: () => loadWriterProfileFn() })
 	const [draft, setDraft] = useState<WriterProfile>(EMPTY_PROFILE)
@@ -43,7 +43,7 @@ export function WriterProfilePanel({ onSaved }: { onSaved: (profile: WriterProfi
 		mutationFn: () => saveWriterProfileFn({ data: { profile: draft } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["writer-profile"] })
-			onSaved(draft)
+			onSaved?.(draft)
 		},
 	})
 
@@ -52,10 +52,10 @@ export function WriterProfilePanel({ onSaved }: { onSaved: (profile: WriterProfi
 	return (
 		<section className="border border-border p-4 flex flex-col gap-4">
 			<div className="flex items-baseline justify-between gap-3">
-				<h3 className="text-sm font-semibold tracking-tight uppercase flex items-center gap-2">
+				<h3 className="text-label text-foreground flex items-center gap-2">
 					<User className="size-4" /> Meus dados fixos
 				</h3>
-				<Button type="button" variant="ghost" size="sm" onClick={() => setOpen((value) => !value)}>
+				<Button type="button" variant="ghost" size="sm" aria-expanded={open} aria-controls="writer-profile-fields" onClick={() => setOpen((value) => !value)}>
 					{open ? "Fechar" : "Editar"}
 				</Button>
 			</div>
@@ -63,7 +63,7 @@ export function WriterProfilePanel({ onSaved }: { onSaved: (profile: WriterProfi
 			<p className="text-xs text-muted-foreground">
 				{missing.length === 0 ? (
 					<>
-						<Check className="inline size-3 text-green-600" /> OM, signatário e localidade preenchem cada documento novo.
+						<Check className="inline size-4" /> OM, signatário e localidade preenchem cada documento novo.
 					</>
 				) : (
 					<>Falta preencher: {missing.join(", ")}. Sem isso, a conversa vai perguntar por eles a cada documento.</>
@@ -71,7 +71,7 @@ export function WriterProfilePanel({ onSaved }: { onSaved: (profile: WriterProfi
 			</p>
 
 			{open && (
-				<>
+				<div id="writer-profile-fields" className="flex flex-col gap-4">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 						{FIELDS.map((field) => (
 							<div key={field.key} className="flex flex-col gap-1.5">
@@ -93,8 +93,17 @@ export function WriterProfilePanel({ onSaved }: { onSaved: (profile: WriterProfi
 							O sequencial do setor não entra aqui: é contador da seção, e sugerir número errado é pior que não sugerir.
 						</span>
 					</div>
-					{save.error && <p className="text-xs text-destructive">{save.error instanceof Error ? save.error.message : "Falha ao salvar o perfil."}</p>}
-				</>
+					{save.isSuccess && (
+						<p role="status" className="text-xs text-muted-foreground">
+							Perfil salvo. Documentos novos passam a nascer com esses dados.
+						</p>
+					)}
+					{save.error && (
+						<p role="alert" className="text-xs text-destructive">
+							Não deu para salvar o perfil. Tente de novo.
+						</p>
+					)}
+				</div>
 			)}
 		</section>
 	)

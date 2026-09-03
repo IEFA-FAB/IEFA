@@ -1,6 +1,6 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowRight, Sparks, Undo, WarningTriangle } from "iconoir-react"
+import { ArrowRight, Undo, WarningTriangle } from "iconoir-react"
 import type React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -10,9 +10,9 @@ import type { DocumentInput } from "@/lib/comaer/types"
 import { appendChatHistoryFn, loadChatHistoryFn } from "@/server/chat-history.fn"
 
 /**
- * Conversa que redige o documento.
+ * Redação assistida.
  *
- * O documento vai INTEIRO em `forwardedProps` a cada turno, e volta em remendos: o modelo
+ * O documento vai INTEIRO em `forwardedProps` a cada turno e volta em remendos: o modelo
  * chama ferramentas, e é o cliente que as aplica. Assim o formulário continua editável
  * durante a conversa — se o servidor gravasse, o turno seguinte sobrescreveria o que o
  * usuário digitou à mão.
@@ -28,6 +28,7 @@ export function ChatPanel({
 	onBeginTurn,
 	onPatch,
 	onUndo,
+	onStreamingChange,
 }: {
 	document: DocumentInput
 	/** Documento salvo: só ele tem histórico. Rascunho de navegador conversa de memória. */
@@ -37,6 +38,8 @@ export function ChatPanel({
 	onBeginTurn: () => void
 	onPatch: (name: string, args: Record<string, unknown>) => void
 	onUndo: () => void
+	/** O editor precisa saber que há um turno em curso para não salvar pela metade. */
+	onStreamingChange?: (streaming: boolean) => void
 }) {
 	const history = useQuery({
 		queryKey: ["chat-history", documentId],
@@ -44,15 +47,16 @@ export function ChatPanel({
 		enabled: Boolean(documentId),
 	})
 
-	// `useChat` lê `initialMessages` UMA vez, na montagem. O histórico chega depois, então
-	// a conversa é remontada quando o documento (ou o histórico dele) muda — sem a `key`, o
+	// `useChat` lê `initialMessages` UMA vez, na montagem. O histórico chega depois, então a
+	// conversa é remontada quando o documento (ou o histórico dele) muda — sem a `key`, o
 	// painel abria vazio sobre um documento que tinha conversa gravada.
-	if (documentId && history.isLoading)
+	if (documentId && history.isLoading) {
 		return (
 			<ChatShell changes={changes} canUndo={canUndo} onUndo={onUndo}>
-				{null}
+				<p className="p-4 text-sm text-muted-foreground">Carregando a conversa deste documento…</p>
 			</ChatShell>
 		)
+	}
 
 	return (
 		<Conversation
@@ -65,6 +69,7 @@ export function ChatPanel({
 			onBeginTurn={onBeginTurn}
 			onPatch={onPatch}
 			onUndo={onUndo}
+			onStreamingChange={onStreamingChange}
 		/>
 	)
 }
@@ -74,10 +79,10 @@ function ChatShell({ changes, canUndo, onUndo, children }: { changes: number; ca
 	return (
 		<section className="border border-border flex flex-col min-h-[32rem]">
 			<header className="flex items-baseline justify-between gap-3 border-b border-border px-4 py-3">
-				<h3 className="text-sm font-semibold tracking-tight uppercase">Conversa</h3>
+				<h3 className="text-label text-foreground">Redação assistida</h3>
 				<div className="flex items-center gap-3">
 					{changes > 0 && (
-						<span className="text-[11px] font-mono text-muted-foreground">
+						<span className="text-label text-muted-foreground">
 							{changes} {changes === 1 ? "alteração" : "alterações"} neste turno
 						</span>
 					)}
@@ -102,6 +107,7 @@ function Conversation({
 	onBeginTurn,
 	onPatch,
 	onUndo,
+	onStreamingChange,
 }: {
 	document: DocumentInput
 	documentId: string | null
@@ -111,8 +117,10 @@ function Conversation({
 	onBeginTurn: () => void
 	onPatch: (name: string, args: Record<string, unknown>) => void
 	onUndo: () => void
+	onStreamingChange?: (streaming: boolean) => void
 }) {
 	const [text, setText] = useState("")
+	const [interrupted, setInterrupted] = useState(false)
 	const applied = useRef(new Set<string>())
 	const bottom = useRef<HTMLDivElement>(null)
 
@@ -135,8 +143,27 @@ function Conversation({
 
 	const { messages, sendMessage, isLoading, error, stop } = useChat({ connection, forwardedProps, initialMessages })
 
-	// Persistir só o que fechou: mensagem gravada no meio do stream volta pela metade na
-	// próxima abertura, e a conversa passa a mentir sobre o que foi dito.
+	useEffect(() => {
+		onStreamingChange?.(isLoading)
+	}, [isLoading, onStreamingChange])
+
+	useEffect(() => {
+		for (const message of messages) {
+			if (message.role !== "assistant") continue
+			for (const part of message.parts) {
+				if (part.type !== "tool-call") continue
+				// Só quando os argumentos terminaram de chegar: aplicar no meio do stream
+				// entregaria JSON pela metade.
+				if (part.input === undefined || applied.current.has(part.id)) continue
+				applied.current.add(part.id)
+				onPatch(part.name, part.input as Record<string, unknown>)
+			}
+		}
+		// Rolagem suave é enjoo para quem pediu menos movimento no sistema.
+		const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+		bottom.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" })
+	}, [messages, onPatch])
+
 	// O histórico já está no banco: persistir de novo duplicaria a conversa a cada abertura.
 	const persisted = useRef(history.length)
 	useEffect(() => {
@@ -155,30 +182,27 @@ function Conversation({
 			.filter((message) => message.content.length > 0)
 		if (pending.length === 0) return
 		persisted.current = messages.length
-		void appendChatHistoryFn({ data: { documentId, messages: pending.slice(-10) } })
-	}, [messages, isLoading, documentId])
-
-	useEffect(() => {
-		for (const message of messages) {
-			if (message.role !== "assistant") continue
-			for (const part of message.parts) {
-				if (part.type !== "tool-call") continue
-				// Só quando os argumentos terminaram de chegar: aplicar no meio do stream
-				// entregaria JSON pela metade.
-				if (part.input === undefined || applied.current.has(part.id)) continue
-				applied.current.add(part.id)
-				onPatch(part.name, part.input as Record<string, unknown>)
-			}
-		}
-		bottom.current?.scrollIntoView({ behavior: "smooth" })
-	}, [messages, onPatch])
+		// Resposta interrompida é gravada COMO interrompida: sem a marca, ao reabrir o
+		// documento o histórico mostra meio parágrafo como se fosse a resposta inteira.
+		const marked = interrupted
+			? pending.map((m, i) => (i === pending.length - 1 && m.role === "assistant" ? { ...m, content: `${m.content}\n\n[turno interrompido]` } : m))
+			: pending
+		void appendChatHistoryFn({ data: { documentId, messages: marked.slice(-10) } })
+	}, [messages, isLoading, documentId, interrupted])
 
 	const send = async () => {
 		const message = text.trim()
 		if (!message || isLoading) return
-		setText("")
+		setInterrupted(false)
 		onBeginTurn()
-		await sendMessage(message)
+		try {
+			await sendMessage(message)
+			// O campo só é limpo quando a mensagem partiu. Limpar antes jogava fora cinco
+			// linhas de pedido quando o SSE não abria.
+			setText("")
+		} catch {
+			// O erro já é exibido; o texto fica onde está para reenviar.
+		}
 	}
 
 	const classified = document.classification !== "ostensivo"
@@ -189,16 +213,19 @@ function Conversation({
 				<div className="flex items-start gap-2 p-4 text-sm">
 					<WarningTriangle className="size-4 shrink-0 mt-0.5 text-destructive" />
 					<p className="text-muted-foreground">
-						Documento com grau de sigilo <strong>{document.classification}</strong> não é enviado a provider de IA. Redija o texto manualmente.
+						Documento sigiloso não sai desta rede: nem o texto nem os anexos são enviados a serviço de inteligência artificial. Redija no formulário — a folha,
+						a conferência e a cópia para o SIGADAER continuam funcionando.
 					</p>
 				</div>
 			) : (
 				<>
-					<div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 max-h-[28rem]">
+					{/* Região viva: sem ela, quem usa leitor de tela não recebe a resposta do
+					    modelo — e este é o modo primário da ferramenta. */}
+					<div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 max-h-[28rem]" aria-live="polite" aria-busy={isLoading}>
 						{messages.length === 0 && (
 							<p className="text-sm text-muted-foreground">
-								Diga o que o documento precisa dizer. Eu escolho a espécie, escrevo o texto na forma da NSCA 5-3 e pergunto o que faltar — numeração, NUP, OM e
-								signatário continuam sendo seus.
+								Diga o que o documento precisa dizer. A redação assistida escolhe a espécie, escreve o texto na forma da NSCA 5-3 e pergunta o que faltar —
+								numeração, NUP, OM e signatário continuam sendo seus, e se preenchem em “Dados do expediente”.
 							</p>
 						)}
 						{messages.map((message) => (
@@ -206,11 +233,11 @@ function Conversation({
 								<div className={`border border-border px-3 py-2 text-sm ${message.role === "user" ? "bg-accent" : "bg-card"}`}>
 									{message.parts.map((part, i) =>
 										part.type === "text" ? (
-											<p key={i} className="whitespace-pre-wrap">
+											<p key={`${message.id}-${i}`} className="whitespace-pre-wrap">
 												{part.content}
 											</p>
 										) : part.type === "tool-call" ? (
-											<p key={i} className="text-xs font-mono text-muted-foreground mt-1">
+											<p key={`${message.id}-${i}`} className="text-label text-muted-foreground mt-1">
 												↳ {part.name}
 											</p>
 										) : null
@@ -218,13 +245,24 @@ function Conversation({
 								</div>
 							</div>
 						))}
-						{isLoading && <p className="text-xs text-muted-foreground animate-pulse">Redigindo…</p>}
+						{isLoading && (
+							<p role="status" className="text-xs text-muted-foreground">
+								Redigindo…
+							</p>
+						)}
+						{interrupted && !isLoading && (
+							<p className="text-xs text-muted-foreground">Turno interrompido. As alterações já aplicadas continuam no documento.</p>
+						)}
 						<div ref={bottom} />
 					</div>
 
-					{error && <p className="text-xs text-destructive px-4 pb-2">{error.message}</p>}
+					{error && (
+						<p role="alert" className="text-xs text-destructive px-4 pb-2">
+							{friendlyError(error)} Sua mensagem continua no campo abaixo.
+						</p>
+					)}
 
-					<div className="border-t border-border p-3 flex items-end gap-2">
+					<div className="border-t border-border p-4 flex items-end gap-2">
 						<Textarea
 							value={text}
 							onChange={(e) => setText(e.target.value)}
@@ -239,20 +277,36 @@ function Conversation({
 							aria-label="Mensagem para a redação assistida"
 						/>
 						{isLoading ? (
-							<Button type="button" variant="outline" size="sm" onClick={stop}>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									setInterrupted(true)
+									stop()
+								}}
+							>
 								Parar
 							</Button>
 						) : (
-							<Button type="button" size="sm" onClick={() => void send()} disabled={text.trim().length === 0} aria-label="Enviar">
+							<Button type="button" size="sm" onClick={() => void send()} disabled={text.trim().length === 0} aria-label="Enviar mensagem">
 								<ArrowRight className="size-4" />
 							</Button>
 						)}
 					</div>
-					<p className="text-[11px] text-muted-foreground px-3 pb-3 flex items-center gap-1">
-						<Sparks className="size-3" /> A conversa altera o documento ao lado. Cada turno pode ser desfeito.
-					</p>
+					<p className="text-xs text-muted-foreground px-4 pb-4">A conversa altera o documento ao lado. Cada turno pode ser desfeito.</p>
 				</>
 			)}
 		</ChatShell>
 	)
+}
+
+/** Erro de provider e de rede chegam crus; o que a pessoa precisa saber é o que fazer. */
+function friendlyError(error: Error): string {
+	const message = error.message ?? ""
+	if (/429/.test(message)) return "Muitos pedidos em pouco tempo — aguarde alguns segundos e envie de novo."
+	if (/503|indispon/i.test(message))
+		return "A redação assistida está fora do ar. Escreva o texto no formulário — a folha e a cópia para o SIGADAER continuam funcionando."
+	if (/fetch|network|Failed to fetch/i.test(message)) return "Sem conexão com o servidor."
+	return "A redação assistida não conseguiu responder."
 }

@@ -20,7 +20,7 @@ import { requireUserId } from "@/lib/auth.server"
 import { KIND_CATALOG, NORM_RULES } from "@/lib/comaer/prompt"
 import { type AiProposal, AiProposalSchema } from "@/lib/comaer/schema"
 import { getDocumentsServerClient } from "@/lib/supabase.server"
-import { aiProposalJsonSchema } from "./documents-ai.schema"
+import { aiProposalJsonSchema } from "./document-extraction.schema"
 
 /** Formatos aceitos, alinhados com o que o adapter sabe enviar ao Bedrock. */
 const DOCUMENT_MIMES = ["application/pdf", "text/plain", "text/markdown", "text/html", "text/csv"] as const

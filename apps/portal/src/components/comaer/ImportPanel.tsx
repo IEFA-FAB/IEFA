@@ -20,6 +20,7 @@ const ACCEPT = ".pdf,.txt,.md,.html,.csv,image/png,image/jpeg,image/webp"
 export function ImportPanel({ input, onImported }: { input: DocumentInput; onImported: (proposal: AiProposal) => void }) {
 	const [text, setText] = useState("")
 	const [fileName, setFileName] = useState<string | null>(null)
+	const [fileError, setFileError] = useState<string | null>(null)
 	const fileInput = useRef<HTMLInputElement>(null)
 
 	const classified = input.classification !== "ostensivo"
@@ -48,24 +49,24 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 	return (
 		<section className="border border-border p-4 flex flex-col gap-4">
 			<div className="flex items-baseline justify-between gap-3">
-				<h3 className="text-sm font-semibold tracking-tight uppercase">Partir de uma minuta</h3>
-				<span className="text-[11px] font-mono text-muted-foreground">numeração, NUP e data não são herdados</span>
+				<h3 className="text-label text-foreground">Partir de uma minuta</h3>
+				<span className="text-label text-muted-foreground">numeração, NUP e data não são herdados</span>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="import-text">Cole o texto do ofício antigo</Label>
+				<Label htmlFor="import-text">Cole o texto da minuta</Label>
 				<Textarea
 					id="import-text"
 					rows={4}
 					value={text}
 					onChange={(e) => setText(e.target.value)}
-					placeholder="Cole aqui o corpo do documento copiado do SIGADAER."
+					placeholder="Cole o corpo do documento — do SIGADAER, do Word ou de um PDF. Também dá para enviar o arquivo ou uma foto da folha, no botão abaixo."
 				/>
 			</div>
 
 			<div className="flex flex-wrap items-center gap-2">
 				<Button type="button" size="sm" onClick={() => importDraft.mutate(undefined)} disabled={importDraft.isPending || text.trim().length < 20}>
-					{importDraft.isPending && !fileName ? "Extraindo…" : "Importar do texto"}
+					{importDraft.isPending && importDraft.variables === undefined ? "Extraindo…" : "Importar do texto"}
 				</Button>
 
 				<input
@@ -73,24 +74,44 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 					type="file"
 					accept={ACCEPT}
 					className="sr-only"
-					aria-label="Arquivo da minuta"
+					tabIndex={-1}
+					aria-hidden
 					onChange={(e) => {
 						const file = e.target.files?.[0]
 						if (!file) return
+						// `toBase64` percorre os bytes em laço síncrono: um digitalizado de 10 MB
+						// congelaria a aba antes de qualquer requisição sair. O teto do Bedrock é
+						// 4,5 MB, então recusar aqui é recusar o que o serviço recusaria depois.
+						if (file.size > 4.5 * 1024 * 1024) {
+							setFileError("Arquivo acima de 4,5 MB. Reduza a digitalização ou cole o texto.")
+							return
+						}
+						setFileError(null)
 						setFileName(file.name)
 						importDraft.mutate(file)
 					}}
 				/>
 				<Button type="button" variant="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={importDraft.isPending}>
-					<Upload className="size-4" /> {importDraft.isPending && fileName ? "Lendo o arquivo…" : "PDF ou digitalização"}
+					<Upload className="size-4" /> {importDraft.isPending && importDraft.variables !== undefined ? "Lendo o arquivo…" : "PDF ou digitalização"}
 				</Button>
 				{fileName && <span className="text-xs text-muted-foreground truncate max-w-[16rem]">{fileName}</span>}
 			</div>
 
-			{importDraft.error && (
-				<p className="text-xs text-destructive">{importDraft.error instanceof Error ? importDraft.error.message : "Falha ao importar a minuta."}</p>
+			{fileError && (
+				<p role="alert" className="text-xs text-destructive">
+					{fileError}
+				</p>
 			)}
-			{importDraft.isSuccess && <p className="text-xs text-muted-foreground">Minuta importada — confira numeração, NUP e data antes de despachar.</p>}
+			{importDraft.error && (
+				<p role="alert" className="text-xs text-destructive">
+					Não deu para ler a minuta. Tente colar o texto em vez do arquivo — a extração depende da redação assistida, e ela pode estar fora do ar.
+				</p>
+			)}
+			{importDraft.isSuccess && (
+				<p role="status" className="text-xs text-muted-foreground">
+					Minuta importada — confira numeração, NUP e data antes de despachar.
+				</p>
+			)}
 		</section>
 	)
 }

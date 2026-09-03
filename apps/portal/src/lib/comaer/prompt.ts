@@ -36,7 +36,10 @@ export const KIND_CATALOG = `CATÁLOGO DE ESPÉCIES:\n${describeCatalog()}`
  * documento, e é isso que separa uma IA que orienta de uma que preenche por conta própria.
  */
 export function buildChatSystemPrompt(assembled: AssembledDocument): string {
-	const pending = assembled.warnings.length > 0 ? assembled.warnings.map((w) => `- ${w}`).join("\n") : "- (nenhuma pendência apontada pela conferência)"
+	const pending =
+		assembled.warnings.length > 0
+			? assembled.warnings.map((w) => `- [${w.severity === "nonCompliant" ? "contraria a norma" : "falta preencher"}] ${w.text}`).join("\n")
+			: "- (nenhuma pendência apontada pela conferência)"
 
 	return `${NORM_RULES}
 

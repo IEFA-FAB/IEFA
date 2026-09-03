@@ -23,7 +23,7 @@ import { createAdapterFromEnv } from "@iefa/ai-provider"
 import { buildChatOptions } from "@/lib/ai-options"
 import { describeCatalog, findKind } from "@/lib/comaer/catalog"
 import { AiProposalSchema } from "@/lib/comaer/schema"
-import { aiProposalJsonSchema } from "@/server/documents-ai.schema"
+import { aiProposalJsonSchema } from "@/server/document-extraction.schema"
 
 const enabled = process.env.PORTAL_RUN_AI_SMOKE === "true"
 const describeAiSmoke = enabled ? describe : describe.skip

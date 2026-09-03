@@ -22,6 +22,17 @@ import type { DocumentInput } from "./types"
  */
 export const DRAFT_KEY = "iefa.comaer.draft.v2"
 
+/**
+ * Rascunho de um documento JÁ SALVO.
+ *
+ * O documento novo tinha rede; o salvo não tinha nenhuma — vinte minutos de reescrita
+ * viviam só em memória, e um F5 devolvia a versão do banco sem avisar. Agora cada
+ * documento salvo tem a sua chave.
+ */
+export function documentDraftKey(documentId: string): string {
+	return `${DRAFT_KEY}:${documentId}`
+}
+
 /** Chaves de formatos anteriores: são apagadas na primeira leitura, não migradas. */
 const LEGACY_DRAFT_KEYS = ["iefa.comaer.rascunho.v1"]
 
@@ -55,37 +66,37 @@ export function newDocument(): DocumentInput {
  *
  * A data volta a ser `Date` no caminho: em ISO ela quebraria `dateInFull`.
  */
-export function loadDraft(): DocumentInput | null {
+export function loadDraft(key: string = DRAFT_KEY): DocumentInput | null {
 	if (typeof localStorage === "undefined") return null
 	for (const legacy of LEGACY_DRAFT_KEYS) localStorage.removeItem(legacy)
-	const stored = localStorage.getItem(DRAFT_KEY)
+	const stored = localStorage.getItem(key)
 	if (!stored) return null
 	try {
 		const parsed = DocumentPayloadSchema.safeParse(JSON.parse(stored))
 		if (!parsed.success) {
-			localStorage.removeItem(DRAFT_KEY)
+			localStorage.removeItem(key)
 			return null
 		}
 		return fromPayload(parsed.data)
 	} catch {
-		localStorage.removeItem(DRAFT_KEY)
+		localStorage.removeItem(key)
 		return null
 	}
 }
 
-export function saveDraft(input: DocumentInput): void {
+export function saveDraft(input: DocumentInput, key: string = DRAFT_KEY): void {
 	if (typeof localStorage === "undefined") return
 	try {
-		localStorage.setItem(DRAFT_KEY, JSON.stringify(toPayload(input)))
+		localStorage.setItem(key, JSON.stringify(toPayload(input)))
 	} catch {
 		// Rascunho é melhor esforço: cota estourada ou documento em estado intermediário não
 		// podem derrubar a digitação em curso.
 	}
 }
 
-export function clearDraft(): void {
+export function clearDraft(key: string = DRAFT_KEY): void {
 	if (typeof localStorage === "undefined") return
-	localStorage.removeItem(DRAFT_KEY)
+	localStorage.removeItem(key)
 }
 
 /** `<input type="date">` fala ISO curta; a montagem fala `Date`. */
@@ -104,4 +115,20 @@ export function fromDateInputValue(value: string): Date {
 	// Pelo construtor por partes: "2026-07-03" interpretado como ISO viraria UTC e voltaria
 	// como dia 2 no Brasil.
 	return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
+}
+
+/**
+ * O documento em edição difere do que está gravado?
+ *
+ * Comparar o payload serializado é o suficiente e é honesto: é exatamente o que seria
+ * gravado. Sem isto não há como dizer "alterações não salvas", e a pessoa fecha a aba
+ * achando que salvou.
+ */
+export function isDirty(current: DocumentInput, saved: DocumentInput | null): boolean {
+	if (!saved) return false
+	try {
+		return JSON.stringify(toPayload(current)) !== JSON.stringify(toPayload(saved))
+	} catch {
+		return true
+	}
 }

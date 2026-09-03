@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { DotsGrid3x3, List, Page, Plus, Search, Trash } from "iconoir-react"
-import { useEffect, useState } from "react"
+import { DotsGrid3x3, List, Page, Plus, Search, Trash, Upload } from "iconoir-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { WriterProfilePanel } from "@/components/comaer/WriterProfilePanel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { findKind } from "@/lib/comaer/catalog"
-import { loadDraft } from "@/lib/comaer/draft"
+import { clearDraft, loadDraft } from "@/lib/comaer/draft"
 import { filterDocuments, kindsPresent } from "@/lib/comaer/library"
-import { type DocumentSummary, deleteDocumentFn, listDocumentsFn } from "@/server/documents.fn"
+import { type DocumentSummary, deleteDocumentFn, listDocumentsFn, restoreDocumentFn } from "@/server/documents.fn"
 
 type Layout = "grid" | "list"
 const LAYOUT_KEY = "iefa.comaer.library-layout"
@@ -28,14 +29,20 @@ export function DocumentLibrary() {
 	const [draftSubject, setDraftSubject] = useState<string | null>(null)
 	const [search, setSearch] = useState("")
 	const [kindFilter, setKindFilter] = useState<string | null>(null)
+	const [confirming, setConfirming] = useState<string | null>(null)
+	const heading = useRef<HTMLHeadingElement>(null)
+
+	const refreshDraft = useCallback(() => {
+		const draft = loadDraft()
+		setDraftSubject(draft ? draft.subject?.trim() || "Documento sem assunto" : null)
+	}, [])
 
 	// `localStorage` só existe no cliente; ler durante o SSR quebraria a hidratação.
 	useEffect(() => {
 		const stored = localStorage.getItem(LAYOUT_KEY)
 		if (stored === "grid" || stored === "list") setLayout(stored)
-		const draft = loadDraft()
-		setDraftSubject(draft ? draft.subject?.trim() || "Documento sem assunto" : null)
-	}, [])
+		refreshDraft()
+	}, [refreshDraft])
 
 	const chooseLayout = (next: Layout) => {
 		setLayout(next)
@@ -44,9 +51,26 @@ export function DocumentLibrary() {
 
 	const documents = useQuery({ queryKey: ["documents", "lista"], queryFn: () => listDocumentsFn() })
 
+	const [lastRemoved, setLastRemoved] = useState<{ id: string; title: string | null } | null>(null)
+
+	const restore = useMutation({
+		mutationFn: (id: string) => restoreDocumentFn({ data: { id } }),
+		onSuccess: () => {
+			setLastRemoved(null)
+			queryClient.invalidateQueries({ queryKey: ["documents", "lista"] })
+		},
+	})
+
 	const remove = useMutation({
 		mutationFn: (id: string) => deleteDocumentFn({ data: { id } }),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents", "lista"] }),
+		onSuccess: (_result, id) => {
+			setLastRemoved({ id, title: all.find((d) => d.id === id)?.title ?? null })
+			setConfirming(null)
+			queryClient.invalidateQueries({ queryKey: ["documents", "lista"] })
+			// O card sumiu debaixo do foco; devolvê-lo ao cabeçalho evita que o próximo Tab
+			// caia no "Excluir" da linha vizinha.
+			heading.current?.focus()
+		},
 	})
 
 	const all = documents.data ?? []
@@ -58,19 +82,31 @@ export function DocumentLibrary() {
 		<div className="w-full py-10 flex flex-col gap-8">
 			<header className="flex flex-wrap items-end justify-between gap-4">
 				<div>
-					<h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance">Comunicações Oficiais</h1>
+					<h1 ref={heading} tabIndex={-1} className="text-3xl md:text-4xl font-bold tracking-tight text-balance outline-none">
+						Meus documentos
+					</h1>
 					<p className="text-muted-foreground mt-2 text-pretty max-w-2xl">
-						Seus documentos redigidos conforme a{" "}
+						Comunicações oficiais redigidas conforme a{" "}
 						<a href="/docs/NSCA 5-3.pdf" className="underline underline-offset-4" target="_blank" rel="noreferrer">
 							NSCA 5-3/2026
 						</a>
-						. Escolha um para continuar, ou comece outro.
+						. Escolha um para continuar, comece outro, ou parta de uma minuta antiga.
 					</p>
 				</div>
-				<Button size="sm" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" />}>
-					<Plus className="size-4" /> Novo documento
-				</Button>
+				<div className="flex flex-wrap gap-2">
+					<Button variant="outline" size="sm" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" search={{ minuta: true }} />}>
+						<Upload className="size-4" /> Partir de uma minuta
+					</Button>
+					<Button size="sm" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" />}>
+						<Plus className="size-4" /> Novo documento
+					</Button>
+				</div>
 			</header>
+
+			{/* Dados fixos ficam aqui: é a decisão "quem sou eu nos documentos", e ela não
+			    compete com a redação. Sem esta tela o perfil era inalcançável e a redação
+			    assistida perguntava OM e signatário em cada documento novo. */}
+			<WriterProfilePanel />
 
 			<div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-3">
 				<div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
@@ -101,7 +137,7 @@ export function DocumentLibrary() {
 						</Select>
 					)}
 
-					<span className="text-sm text-muted-foreground">
+					<span className="text-sm text-muted-foreground" role="status">
 						{documents.isLoading
 							? "Carregando…"
 							: filtering
@@ -123,7 +159,7 @@ export function DocumentLibrary() {
 							aria-pressed={layout === value}
 							aria-label={label}
 							onClick={() => chooseLayout(value)}
-							className={`px-3 h-8 transition-colors ${layout === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
+							className={`px-3 h-9 transition-colors ${layout === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
 						>
 							<Icon className="size-4" />
 						</button>
@@ -132,22 +168,56 @@ export function DocumentLibrary() {
 			</div>
 
 			{documents.error && (
-				<p className="text-sm text-destructive">{documents.error instanceof Error ? documents.error.message : "Falha ao carregar seus documentos."}</p>
+				<p role="alert" className="text-sm text-destructive">
+					Não deu para carregar seus documentos. Recarregue a página; se persistir, o serviço pode estar fora do ar.
+				</p>
+			)}
+			{lastRemoved && (
+				<div className="border border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3" role="status">
+					<span className="text-sm">“{lastRemoved.title ?? "Documento sem assunto"}” foi excluído. A conversa dele não pode ser recuperada.</span>
+					<div className="flex gap-2">
+						<Button type="button" variant="outline" size="sm" onClick={() => restore.mutate(lastRemoved.id)} disabled={restore.isPending}>
+							{restore.isPending ? "Restaurando…" : "Desfazer"}
+						</Button>
+						<Button type="button" variant="ghost" size="sm" onClick={() => setLastRemoved(null)}>
+							Dispensar
+						</Button>
+					</div>
+				</div>
+			)}
+
+			{remove.error && (
+				<p role="alert" className="text-sm text-destructive">
+					Não deu para excluir o documento. Tente de novo.
+				</p>
 			)}
 
 			{draftSubject && (
 				<section className="flex flex-col gap-2">
-					<h2 className="text-xs uppercase tracking-wider text-muted-foreground">Em edição, ainda sem salvar</h2>
-					<Link
-						to="/facilities/comunicacoes-oficiais/novo"
-						className="border border-border p-4 flex items-center justify-between gap-4 hover:bg-accent transition-colors"
-					>
-						<span className="flex items-center gap-3 min-w-0">
-							<Page className="size-5 shrink-0 text-muted-foreground" />
+					<h2 className="text-label text-muted-foreground">Em edição, ainda sem salvar</h2>
+					<div className="border border-border flex flex-wrap items-center justify-between gap-3 p-4">
+						<Link to="/facilities/comunicacoes-oficiais/novo" className="flex items-center gap-3 min-w-0 flex-1 hover:underline underline-offset-4">
+							<Page className="size-4 shrink-0 text-muted-foreground" />
 							<span className="truncate font-medium">{draftSubject}</span>
-						</span>
-						<span className="text-xs text-muted-foreground shrink-0">rascunho deste navegador</span>
-					</Link>
+						</Link>
+						<div className="flex items-center gap-2">
+							<span className="text-xs text-muted-foreground">rascunho deste navegador</span>
+							{/* "Novo documento" reabria este rascunho sem dizer nada, e digitar por cima
+							    o destruía. Descartar passou a ser ato explícito. */}
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => {
+									if (!window.confirm("Descartar o rascunho em edição? Ele não pode ser recuperado.")) return
+									clearDraft()
+									refreshDraft()
+								}}
+							>
+								Descartar
+							</Button>
+						</div>
+					</div>
 				</section>
 			)}
 
@@ -172,7 +242,7 @@ export function DocumentLibrary() {
 				<div className="border border-border p-10 text-center flex flex-col items-center gap-3">
 					<Page className="size-8 text-muted-foreground" />
 					<p className="text-sm text-muted-foreground max-w-md">
-						Nenhum documento salvo ainda. Comece um novo — ou parta de uma minuta existente, colando o texto de um ofício antigo dentro do editor.
+						Nenhum documento salvo ainda. Comece um novo — ou parta de uma minuta, colando o texto de um ofício antigo ou enviando o PDF.
 					</p>
 					<Button size="sm" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" />}>
 						<Plus className="size-4" /> Novo documento
@@ -181,24 +251,31 @@ export function DocumentLibrary() {
 			) : layout === "grid" ? (
 				<ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 					{items.map((document) => (
-						<li key={document.id} className="border border-border flex flex-col">
+						<li key={document.id} className="border border-border flex flex-col shadow-hard-sm">
 							<Link
 								to="/facilities/comunicacoes-oficiais/$documentId"
 								params={{ documentId: document.id }}
 								className="flex-1 p-4 flex flex-col gap-3 hover:bg-accent transition-colors"
 							>
-								<Page className="size-6 text-muted-foreground" />
+								<Page className="size-4 text-muted-foreground" />
 								<span className="font-medium leading-snug line-clamp-3">{document.title ?? "Documento sem assunto"}</span>
 								<DocumentMeta document={document} />
 							</Link>
-							<RemoveButton onRemove={() => remove.mutate(document.id)} title={document.title} pending={remove.isPending} />
+							<RemoveRow
+								document={document}
+								confirming={confirming === document.id}
+								pending={remove.isPending && remove.variables === document.id}
+								onAsk={() => setConfirming(document.id)}
+								onCancel={() => setConfirming(null)}
+								onConfirm={() => remove.mutate(document.id)}
+							/>
 						</li>
 					))}
 				</ul>
 			) : (
 				<ul className="border border-border divide-y divide-border">
 					{items.map((document) => (
-						<li key={document.id} className="flex items-center justify-between gap-4">
+						<li key={document.id} className="flex flex-wrap items-center justify-between gap-2">
 							<Link
 								to="/facilities/comunicacoes-oficiais/$documentId"
 								params={{ documentId: document.id }}
@@ -211,7 +288,14 @@ export function DocumentLibrary() {
 								</span>
 							</Link>
 							<div className="pr-2">
-								<RemoveButton onRemove={() => remove.mutate(document.id)} title={document.title} pending={remove.isPending} inline />
+								<RemoveRow
+									document={document}
+									confirming={confirming === document.id}
+									pending={remove.isPending && remove.variables === document.id}
+									onAsk={() => setConfirming(document.id)}
+									onCancel={() => setConfirming(null)}
+									onConfirm={() => remove.mutate(document.id)}
+								/>
 							</div>
 						</li>
 					))}
@@ -238,10 +322,47 @@ function DocumentMeta({ document }: { document: DocumentSummary }) {
 	)
 }
 
-function RemoveButton({ onRemove, title, pending, inline }: { onRemove: () => void; title: string | null; pending: boolean; inline?: boolean }) {
+/**
+ * Excluir com confirmação no próprio card.
+ *
+ * Era um clique só, sem volta, num ícone colado na área que abre o documento. O documento
+ * é excluído logicamente, mas para quem usa não havia diferença: sem confirmação e sem
+ * lixeira, a perda é definitiva.
+ */
+function RemoveRow({
+	document,
+	confirming,
+	pending,
+	onAsk,
+	onCancel,
+	onConfirm,
+}: {
+	document: DocumentSummary
+	confirming: boolean
+	pending: boolean
+	onAsk: () => void
+	onCancel: () => void
+	onConfirm: () => void
+}) {
+	if (confirming) {
+		return (
+			<div className="border-t border-border px-3 py-2 flex items-center justify-between gap-2 text-xs">
+				<span>Excluir? A conversa dele é apagada junto.</span>
+				<div className="flex gap-1">
+					<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+						Cancelar
+					</Button>
+					<Button type="button" size="sm" onClick={onConfirm} disabled={pending}>
+						{pending ? "Excluindo…" : "Excluir"}
+					</Button>
+				</div>
+			</div>
+		)
+	}
+
 	return (
-		<div className={inline ? "" : "border-t border-border px-2 py-1 flex justify-end"}>
-			<Button type="button" variant="ghost" size="sm" aria-label={`Excluir ${title ?? "documento"}`} onClick={onRemove} disabled={pending}>
+		<div className="border-t border-border px-2 py-1 flex justify-end">
+			<Button type="button" variant="ghost" size="sm" aria-label={`Excluir ${document.title ?? "documento"}`} onClick={onAsk}>
 				<Trash className="size-4" />
 			</Button>
 		</div>

@@ -99,16 +99,29 @@ describe("montagem do documento", () => {
 	})
 })
 
+/** Texto de todos os achados, para as asserções que só querem saber se foi apontado. */
 describe("conferência de conformidade", () => {
 	it("acusa NUP ausente ou incompleto", () => {
-		expect(assembleDocument(base({ nup: undefined })).warnings.join(" ")).toContain("NUP")
-		expect(assembleDocument(base({ nup: "680" })).warnings.join(" ")).toContain("NUP")
-		expect(assembleDocument(base()).warnings.join(" ")).not.toContain("NUP")
+		expect(
+			assembleDocument(base({ nup: undefined }))
+				.warnings.map((w) => w.text)
+				.join(" ")
+		).toContain("NUP")
+		expect(
+			assembleDocument(base({ nup: "680" }))
+				.warnings.map((w) => w.text)
+				.join(" ")
+		).toContain("NUP")
+		expect(
+			assembleDocument(base())
+				.warnings.map((w) => w.text)
+				.join(" ")
+		).not.toContain("NUP")
 	})
 
 	it("acusa documento por ordem sem a abertura obrigatória (art. 40 § 9º)", () => {
 		const semAbertura = assembleDocument(base({ signer: { ...base().signer, byOrderOf: "Comandante-Geral de Apoio" } }))
-		expect(semAbertura.warnings.join(" ")).toContain("Por ordem")
+		expect(semAbertura.warnings.map((w) => w.text).join(" ")).toContain("Por ordem")
 
 		const comAbertura = assembleDocument(
 			base({
@@ -116,17 +129,17 @@ describe("conferência de conformidade", () => {
 				paragraphs: [{ text: "Por ordem do Comandante-Geral de Apoio, informo que…" }],
 			})
 		)
-		expect(comAbertura.warnings.join(" ")).not.toContain("Por ordem")
+		expect(comAbertura.warnings.map((w) => w.text).join(" ")).not.toContain("Por ordem")
 	})
 
 	it("acusa ofício circular endereçado ao CMTAER (art. 51 § 8º, IV)", () => {
 		const doc = assembleDocument(base({ distribution: "circular", recipients: [{ position: "CMTAER" }, { position: "COMGEP" }] }))
-		expect(doc.warnings.join(" ")).toContain("CMTAER")
+		expect(doc.warnings.map((w) => w.text).join(" ")).toContain("CMTAER")
 	})
 
 	it("acusa referência e anexo na ementa do ofício externo (art. 51 § 9º, IX)", () => {
 		const doc = assembleDocument(base({ kind: "oficio-externo", scope: "externo", references: ["Ofício nº 1/GAB/2"], sender: undefined, recipients: [] }))
-		expect(doc.warnings.join(" ")).toContain("referências e anexos são citados no texto")
+		expect(doc.warnings.map((w) => w.text).join(" ")).toContain("referências e anexos são citados no texto")
 	})
 })
 
@@ -218,6 +231,65 @@ describe("regressões apontadas na revisão", () => {
 	it("avisa que a data da Ata mora no texto, já que ela não tem linha de data", () => {
 		const doc = assembleDocument(base({ kind: "ata" }))
 		expect(doc.blocks.map((b) => b.id)).not.toContain("localidade-data")
-		expect(doc.warnings.join(" ")).toContain("art. 44 § 3º, I")
+		expect(doc.warnings.map((w) => w.text).join(" ")).toContain("art. 44 § 3º, I")
 	})
 })
+
+describe("conferência em dois níveis", () => {
+	it("documento intocado não recebe achado nenhum", () => {
+		// O alerta vermelho de NUP ausente abria em TODO documento em branco. O aviso mais
+		// grave era também o primeiro, sempre — e virava paisagem.
+		const blank = montarDocumentoEmBranco()
+		expect(assembleDocument(blank).warnings).toEqual([])
+	})
+
+	it("campo vazio é pendência, norma contrariada é desconformidade", () => {
+		const semOm = assembleDocument({ ...base(), om: { name: "" } })
+		expect(semOm.warnings.find((w) => w.text.includes("nome da OM"))?.severity).toBe("pending")
+
+		const circular = assembleDocument(base({ distribution: "circular", recipients: [{ position: "CMTAER" }] }))
+		expect(circular.warnings.find((w) => w.text.includes("CMTAER"))?.severity).toBe("nonCompliant")
+	})
+
+	it("aponta o vazio que a montagem esconde", () => {
+		// Bloco vazio não é renderizado: sem estes achados, a OM some da epígrafe e o
+		// signatário some do fim, e a folha continua parecendo um documento plausível.
+		const doc = assembleDocument({ ...base(), om: { name: "" }, signer: { name: "" }, city: "", subject: "", recipients: [{ position: "" }] })
+		const texts = doc.warnings.map((w) => w.text).join(" ")
+		expect(texts).toContain("nome da OM")
+		expect(texts).toContain("nome do signatário")
+		expect(texts).toContain("localidade")
+		expect(texts).toContain("destinatário")
+		expect(texts).toContain("assunto")
+	})
+
+	it('aponta o "s/nº" fora do expediente de interesse particular (art. 51 § 6º)', () => {
+		const semNumero = assembleDocument(base({ numbering: { sequence: null, sector: "GAB", organizationNumber: "255" } }))
+		expect(semNumero.warnings.map((w) => w.text).join(" ")).toContain("s/nº")
+
+		// No ofício de interesse particular o "s/nº" é a forma certa: não há o que apontar.
+		const particular = assembleDocument(base({ kind: "oficio-particular", numbering: { sequence: null } }))
+		expect(particular.warnings.map((w) => w.text).join(" ")).not.toContain("s/nº")
+	})
+
+	it("cada achado aponta o bloco da folha a que se refere", () => {
+		// É o que permite ao preview marcar onde está a pendência.
+		const doc = assembleDocument({ ...base(), om: { name: "" }, nup: undefined })
+		expect(doc.warnings.find((w) => w.text.includes("nome da OM"))?.block).toBe("epigrafe")
+		expect(doc.warnings.find((w) => w.text.includes("NUP"))?.block).toBe("nup")
+	})
+
+	it("a Certidão externa é explicada, não acusada", () => {
+		// O catálogo oferece a Certidão em âmbito externo; acusar a escolha que a própria
+		// ferramenta ofereceu seria culpar o usuário pelo cardápio.
+		const doc = assembleDocument(base({ kind: "certidao", scope: "externo", paragraphs: [{ text: "Certifico, para fins de comprovação." }] }))
+		const fecho = doc.warnings.find((w) => w.text.includes("fecho de cortesia"))
+		expect(fecho?.severity).toBe("pending")
+		expect(fecho?.text).toContain("Ofício — órgão externo")
+	})
+})
+
+/** Documento recém-criado, sem uma tecla digitada. */
+function montarDocumentoEmBranco() {
+	return { ...base(), om: { name: "" }, subject: "", signer: { name: "" }, paragraphs: [{ text: "" }], nup: undefined, city: "" }
+}

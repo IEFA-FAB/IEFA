@@ -119,6 +119,29 @@ export const saveDocumentFn = createServerFn({ method: "POST" })
 		return { id: linha.id as string }
 	})
 
+/**
+ * Desfaz a exclusão.
+ *
+ * A exclusão é lógica justamente para isto. A conversa, essa não volta: ela é apagada de
+ * fato no momento da exclusão, e o texto de confirmação diz isso antes.
+ */
+export const restoreDocumentFn = createServerFn({ method: "POST" })
+	.validator(z.object({ id: z.uuid() }))
+	.handler(async ({ data }) => {
+		const userId = await requireUserId()
+		const { data: row, error } = await getDocumentsServerClient()
+			.from("official_document")
+			.update({ deleted_at: null })
+			.eq("id", data.id)
+			.eq("owner_id", userId)
+			.not("deleted_at", "is", null)
+			.select("id")
+			.maybeSingle()
+		if (error) throw new Error(error.message)
+		if (!row) notFound()
+		return { id: row.id as string }
+	})
+
 export const deleteDocumentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }) => {

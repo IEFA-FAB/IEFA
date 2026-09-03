@@ -8,8 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { type DocumentKind, kindsForScope } from "@/lib/comaer/catalog"
-import { fromDateInputValue, toDateInputValue } from "@/lib/comaer/draft"
-import { QUADROS_IN_FULL, RANKS } from "@/lib/comaer/ranks"
+import { QUADROS_IN_FULL } from "@/lib/comaer/ranks"
 import type { Classification, DocumentInput, Party, Scope } from "@/lib/comaer/types"
 
 /**
@@ -28,13 +27,11 @@ const SCOPES: { value: Scope; label: string; hint: string }[] = [
 ]
 
 const CLASSIFICATIONS: { value: Classification; label: string }[] = [
-	{ value: "ostensivo", label: "Ostensivo" },
+	{ value: "ostensivo", label: "Ostensivo — sem restrição de acesso" },
 	{ value: "reservado", label: "Reservado (R-)" },
 	{ value: "secreto", label: "Secreto (S-)" },
 	{ value: "ultrassecreto", label: "Ultrassecreto (US-)" },
 ]
-
-const FAB_RANKS = RANKS.filter((p) => p.force === "aer")
 
 interface Props {
 	input: DocumentInput
@@ -72,7 +69,6 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 								))}
 							</SelectContent>
 						</Select>
-						<Hint>{SCOPES.find((a) => a.value === input.scope)?.hint}</Hint>
 					</Field>
 
 					<Field id="kind" label="Espécie">
@@ -88,14 +84,18 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 								))}
 							</SelectContent>
 						</Select>
-						<Hint>
-							{kind.description} <span className="whitespace-nowrap font-mono text-[11px]">({kind.legalBasis})</span>
-						</Hint>
+						<p id="kind-hint" className="text-xs text-muted-foreground">
+							{kind.description} <span className="whitespace-nowrap font-mono">({kind.legalBasis})</span>
+						</p>
 					</Field>
 
-					<Field id="classification" label="Grau de sigilo">
+					<Field
+						id="classification"
+						label="Natureza do assunto"
+						hint="Ostensivo é o padrão. O grau escolhido prefixa a numeração (R-, S-, US-) e desliga a redação assistida (art. 7º § 2º e art. 31 § 2º)."
+					>
 						<Select value={input.classification} onValueChange={(value) => onChange({ classification: value as Classification })}>
-							<SelectTrigger id="classification" className="w-full">
+							<SelectTrigger id="classification" aria-describedby="classification-hint" className="w-full">
 								<SelectValue>{CLASSIFICATIONS.find((s) => s.value === input.classification)?.label}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
@@ -107,6 +107,13 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 							</SelectContent>
 						</Select>
 					</Field>
+
+					{kind.allowsClosing === false && (
+						<p className="text-xs text-muted-foreground sm:col-span-2">
+							Esta espécie não leva fecho de cortesia: entre OM do COMAER ele não deve ser empregado (art. 30, parágrafo único). O documento termina na
+							identificação do signatário.
+						</p>
+					)}
 
 					{kind.allowsClosing && (
 						<Field id="precedence" label="Destinatário em relação ao signatário">
@@ -122,105 +129,36 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 									<SelectItem value="inferior">Hierarquia inferior</SelectItem>
 								</SelectContent>
 							</Select>
-							<Hint>Decide entre “Respeitosamente” e “Atenciosamente” (art. 30).</Hint>
 						</Field>
 					)}
 				</div>
 			</Section>
 
-			<Section title="Organização expedidora" legalBasis="Anexo I, art. 35">
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Field id="om-name" label="Nome da OM">
-						<Input
-							id="om-name"
-							value={input.om.name}
-							onChange={(e) => onChange({ om: { ...input.om, name: e.target.value } })}
-							placeholder="Instituto de Economia e Finanças da Aeronáutica"
-						/>
-					</Field>
-					<Field id="om-acronym" label="Sigla">
-						<Input
-							id="om-acronym"
-							value={input.om.acronym ?? ""}
-							onChange={(e) => onChange({ om: { ...input.om, acronym: e.target.value } })}
-							placeholder="IEFA"
-						/>
-					</Field>
-					{kind.id === "oficio-interno-om" && (
-						<Field id="om-sector" label="Setor emissor">
-							<Input
-								id="om-sector"
-								value={input.om.sector ?? ""}
-								onChange={(e) => onChange({ om: { ...input.om, sector: e.target.value } })}
-								placeholder="Gabinete"
-							/>
+			{(tem("rodape-om") || kind.id === "oficio-externo") && (
+				<Section title="Contato da OM no rodapé" legalBasis="Anexo I, art. 51 § 9º, III">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<Field id="om-address" label="Endereço">
+							<Input id="om-address" value={input.om.address ?? ""} onChange={(e) => onChange({ om: { ...input.om, address: e.target.value } })} />
 						</Field>
-					)}
-					{(tem("rodape-om") || kind.id === "oficio-externo") && (
-						<>
-							<Field id="om-address" label="Endereço">
-								<Input id="om-address" value={input.om.address ?? ""} onChange={(e) => onChange({ om: { ...input.om, address: e.target.value } })} />
-							</Field>
-							<Field id="om-phone" label="Telefone">
-								<Input id="om-phone" value={input.om.phone ?? ""} onChange={(e) => onChange({ om: { ...input.om, phone: e.target.value } })} />
-							</Field>
-							<Field id="om-email" label="E-mail institucional">
-								<Input id="om-email" value={input.om.email ?? ""} onChange={(e) => onChange({ om: { ...input.om, email: e.target.value } })} />
-							</Field>
-						</>
-					)}
-				</div>
-			</Section>
-
-			<Section title="Numeração, protocolo e data" legalBasis="Anexo I, art. 31 e art. 35">
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					{kind.numbering !== "nenhuma" && (
-						<>
-							<Field id="sequence" label="Sequencial do setor">
+						<Field id="om-phone" label="Telefone">
+							<Input id="om-phone" value={input.om.phone ?? ""} onChange={(e) => onChange({ om: { ...input.om, phone: e.target.value } })} />
+						</Field>
+						<Field id="om-email" label="E-mail institucional">
+							<Input id="om-email" value={input.om.email ?? ""} onChange={(e) => onChange({ om: { ...input.om, email: e.target.value } })} />
+						</Field>
+						{kind.id === "oficio-interno-om" && (
+							<Field id="om-sector" label="Setor emissor">
 								<Input
-									id="sequence"
-									inputMode="numeric"
-									value={input.numbering.sequence ?? ""}
-									placeholder="s/nº quando vazio"
-									onChange={(e) =>
-										onChange({ numbering: { ...input.numbering, sequence: e.target.value.trim() === "" ? null : Number(e.target.value.replace(/\D/g, "")) } })
-									}
-								/>
-								<Hint>Vazio produz “s/nº” — assunto de interesse particular (art. 51 § 6º).</Hint>
-							</Field>
-							<Field id="sector" label="Indicativo do setor">
-								<Input
-									id="sector"
-									value={input.numbering.sector ?? ""}
-									onChange={(e) => onChange({ numbering: { ...input.numbering, sector: e.target.value } })}
-									placeholder="GAB"
+									id="om-sector"
+									value={input.om.sector ?? ""}
+									onChange={(e) => onChange({ om: { ...input.om, sector: e.target.value } })}
+									placeholder="Gabinete"
 								/>
 							</Field>
-							{kind.numbering !== "interna" && (
-								<Field id="organization-number" label={kind.numbering === "parecer" ? "Ordem geral da OM" : "Numeração de ordem geral"}>
-									<Input
-										id="organization-number"
-										value={input.numbering.organizationNumber ?? ""}
-										onChange={(e) => onChange({ numbering: { ...input.numbering, organizationNumber: e.target.value } })}
-										placeholder="255"
-									/>
-								</Field>
-							)}
-						</>
-					)}
-					{tem("nup") && (
-						<Field id="nup" label="Protocolo COMAER (NUP)">
-							<Input id="nup" value={input.nup ?? ""} onChange={(e) => onChange({ nup: e.target.value })} placeholder="68000.000000/2026-00" />
-						</Field>
-					)}
-					<Field id="city" label="Localidade">
-						<Input id="city" value={input.city} onChange={(e) => onChange({ city: e.target.value })} placeholder="Brasília" />
-					</Field>
-					<Field id="date" label="Data">
-						<Input id="date" type="date" value={toDateInputValue(input.date)} onChange={(e) => onChange({ date: fromDateInputValue(e.target.value) })} />
-					</Field>
-				</div>
-			</Section>
+						)}
+					</div>
+				</Section>
+			)}
 
 			{tem("preambulo") && (
 				<Section title="Preâmbulo" legalBasis="Anexo I, art. 36">
@@ -254,6 +192,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 								</div>
 								<div className="flex gap-2">
 									<GenderToggle
+										label={`Concordância do destinatário ${i + 1}`}
 										value={destinatario.gender ?? "m"}
 										onChange={(gender) => onChange({ recipients: input.recipients.map((d, j) => (j === i ? { ...d, gender } : d)) })}
 									/>
@@ -311,7 +250,6 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 									<SelectItem value="senhoria">Vossa Senhoria</SelectItem>
 								</SelectContent>
 							</Select>
-							<Hint>Só fora do Executivo Federal: com agente público federal, o pronome é sempre “Senhor” (art. 9º § 3º).</Hint>
 						</Field>
 						<Field id="recipient-name" label="Nome do destinatário">
 							<Input
@@ -329,6 +267,8 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 						</Field>
 						<Field id="recipient-gender" label="Gênero do tratamento">
 							<GenderToggle
+								id="recipient-gender"
+								label="Gênero do tratamento"
 								value={input.addressing?.gender ?? "m"}
 								onChange={(gender) => onChange({ addressing: { formOfAddress: "senhoria", ...input.addressing, gender } })}
 							/>
@@ -364,14 +304,9 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 
 			{tem("ementa") && (
 				<Section title="Ementa" legalBasis="Anexo I, art. 37">
-					<Field id="subject" label="Assunto">
-						<Input
-							id="subject"
-							value={input.subject ?? ""}
-							onChange={(e) => onChange({ subject: e.target.value })}
-							placeholder="Alteração de período de férias"
-						/>
-					</Field>
+					{/* O assunto é editado no título da página — ter dois campos para o mesmo dado
+					    fazia a pessoa duvidar de qual valia. */}
+					<p className="text-xs text-muted-foreground">O assunto é o título no alto da página: clique nele para alterar.</p>
 					{kind.id !== "oficio-externo" && (
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
 							<EditableList
@@ -408,7 +343,6 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 									value={input.despachoOrder ?? 1}
 									onChange={(e) => onChange({ despachoOrder: Number(e.target.value.replace(/\D/g, "")) || 1 })}
 								/>
-								<Hint>Os despachos são juntados em ordem cronológica crescente (art. 48 § 3º, VI).</Hint>
 							</Field>
 						)}
 					</div>
@@ -435,29 +369,12 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			<Section title="Texto" legalBasis="Anexo I, art. 38 e art. 39">
-				{kind.suggestedOpening && <Hint>Esta espécie abre por “{kind.suggestedOpening.trim()}…”.</Hint>}
+				{kind.suggestedOpening && <p className="text-xs text-muted-foreground">Esta espécie abre por “{kind.suggestedOpening.trim()}…”.</p>}
 				<BodyEditor paragraphs={input.paragraphs} onChange={(paragraphs) => onChange({ paragraphs })} />
 			</Section>
 
-			<Section title="Identificação do signatário" legalBasis="Anexo I, art. 40">
+			<Section title="Assinatura por ordem e substituição" legalBasis="Anexo I, art. 40 § 7º e § 9º">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Field id="signer-name" label="Nome completo">
-						<Input id="signer-name" value={input.signer.name} onChange={(e) => onChange({ signer: { ...input.signer, name: e.target.value } })} />
-					</Field>
-					<Field id="signer-rank" label="Posto ou graduação">
-						<Select value={input.signer.rank || null} onValueChange={(value) => onChange({ signer: { ...input.signer, rank: value as string } })}>
-							<SelectTrigger id="signer-rank" className="w-full">
-								<SelectValue placeholder="Selecione">{input.signer.rank || undefined}</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{FAB_RANKS.map((p) => (
-									<SelectItem key={p.acronym} value={p.acronym}>
-										{p.acronym} — {p.inFull}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</Field>
 					<Field id="signer-quadro" label="Quadro ou especialidade">
 						<Input
 							id="signer-quadro"
@@ -472,24 +389,17 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 							))}
 						</datalist>
 					</Field>
-					<Field id="signer-position" label="Cargo">
-						<Input
-							id="signer-position"
-							value={input.signer.position ?? ""}
-							onChange={(e) => onChange({ signer: { ...input.signer, position: e.target.value } })}
-						/>
-					</Field>
 					<Field id="signer-om" label="OM do signatário">
 						<Input id="signer-om" value={input.signer.om ?? ""} onChange={(e) => onChange({ signer: { ...input.signer, om: e.target.value } })} />
 					</Field>
-					<Field id="signer-by-order" label="Assinado por ordem de (opcional)">
+					<Field id="signer-by-order" label="Assinado por ordem de" hint="O texto passa a exigir abertura “Por ordem do…” ou “Incumbiu-me o…” (art. 40 § 9º).">
 						<Input
 							id="signer-by-order"
+							aria-describedby="signer-by-order-hint"
 							value={input.signer.byOrderOf ?? ""}
 							onChange={(e) => onChange({ signer: { ...input.signer, byOrderOf: e.target.value || undefined } })}
 							placeholder="Comandante-Geral de Apoio"
 						/>
-						<Hint>O texto passa a exigir abertura “Por ordem do…” ou “Incumbiu-me o…” (art. 40 § 9º).</Hint>
 					</Field>
 				</div>
 			</Section>
@@ -501,44 +411,72 @@ function Section({ title, legalBasis, children }: { title: string; legalBasis: s
 	return (
 		<section className="border border-border p-4">
 			<div className="flex items-baseline justify-between gap-3 mb-4">
-				<h3 className="text-sm font-semibold tracking-tight uppercase">{title}</h3>
-				<span className="text-[11px] font-mono text-muted-foreground">{legalBasis}</span>
+				<h3 className="text-label text-foreground">{title}</h3>
+				<span className="text-label text-muted-foreground">{legalBasis}</span>
 			</div>
 			{children}
 		</section>
 	)
 }
 
-function Field({ id, label, className, children }: { id: string; label: string; className?: string; children: ReactNode }) {
+function Field({
+	id,
+	label,
+	hint,
+	required,
+	className,
+	children,
+}: {
+	id: string
+	label: string
+	hint?: ReactNode
+	required?: boolean
+	className?: string
+	children: ReactNode
+}) {
 	return (
 		<div className={`flex flex-col gap-1.5 ${className ?? ""}`}>
-			<Label htmlFor={id}>{label}</Label>
+			<Label htmlFor={id}>
+				{label}
+				{required && (
+					<span className="text-muted-foreground" aria-hidden>
+						{" "}
+						*
+					</span>
+				)}
+			</Label>
 			{children}
+			{/* A ajuda é ligada ao campo por `aria-describedby`: solta, ela nunca chega a quem
+			    usa leitor de tela — e é nela que a regra da norma está escrita. */}
+			{hint && (
+				<p id={`${id}-hint`} className="text-xs text-muted-foreground">
+					{hint}
+				</p>
+			)}
 		</div>
 	)
 }
 
-function Hint({ children }: { children: ReactNode }) {
-	return <p className="text-xs text-muted-foreground">{children}</p>
-}
-
-function GenderToggle({ value, onChange }: { value: "m" | "f"; onChange: (gender: "m" | "f") => void }) {
+function GenderToggle({ value, onChange, label, id }: { value: "m" | "f"; onChange: (gender: "m" | "f") => void; label: string; id?: string }) {
 	// "Do Chefe" × "Da Diretora", "Ao" × "À": a concordância do art. 36 é escolha de quem
 	// redige, não algo que dê para inferir do cargo digitado.
 	return (
-		<div className="flex border border-input">
+		// Grupo nomeado: sem isto o leitor de tela anuncia dois botões "Do / Ao" soltos, sem
+		// dizer a que destinatário pertencem.
+		<fieldset className="flex border border-input" id={id}>
+			<legend className="sr-only">{label}</legend>
 			{(["m", "f"] as const).map((g) => (
 				<button
 					key={g}
 					type="button"
 					onClick={() => onChange(g)}
 					aria-pressed={value === g}
-					className={`px-3 h-8 text-xs transition-colors ${value === g ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
+					className={`px-3 h-9 text-xs transition-colors ${value === g ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
 				>
 					{g === "m" ? "Do / Ao" : "Da / À"}
 				</button>
 			))}
-		</div>
+		</fieldset>
 	)
 }
 
@@ -553,7 +491,7 @@ function PartyField({ id, label, parte, onChange }: { id: string; label: string;
 					onChange={(e) => onChange({ ...parte, position: e.target.value })}
 					placeholder="Diretor do Instituto de Economia e Finanças da Aeronáutica"
 				/>
-				<GenderToggle value={parte.gender ?? "m"} onChange={(gender) => onChange({ ...parte, gender })} />
+				<GenderToggle label={`Concordância — ${label}`} value={parte.gender ?? "m"} onChange={(gender) => onChange({ ...parte, gender })} />
 			</div>
 		</div>
 	)

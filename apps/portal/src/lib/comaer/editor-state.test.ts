@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { newDocument } from "./draft"
-import { applyChatPatch, beginTurn, editDocument, initialEditorState, lastTurnChanges, touchedBlocks, undoTurn } from "./editor-state"
+import { applyChatPatch, beginTurn, canUndo, editDocument, initialEditorState, lastTurnChanges, touchedBlocks, undoTurn } from "./editor-state"
 
 function stateWithText() {
 	return initialEditorState({ ...newDocument(), city: "Brasília", paragraphs: [{ text: "Primeiro." }, { text: "Segundo." }] })
@@ -50,5 +50,24 @@ describe("turno da conversa", () => {
 		const outro = initialEditorState({ ...newDocument(), subject: "Outro documento" })
 		expect(outro.turns).toHaveLength(0)
 		expect(undoTurn(outro).document.subject).toBe("Outro documento")
+	})
+})
+
+describe("turno sem alteração", () => {
+	it("não conta para o desfazer — o modelo só respondeu uma pergunta", () => {
+		let state = beginTurn(stateWithText())
+		state = applyChatPatch(state, "set_ementa", { subject: "Assunto" })
+		state = beginTurn(state) // turno em que a IA só perguntou
+		expect(canUndo(state)).toBe(true)
+
+		// Desfazer volta ao estado ANTES do turno que mexeu, pulando o vazio.
+		const undone = undoTurn(state)
+		expect(undone.document.subject).toBe("")
+	})
+
+	it("com apenas turnos vazios, não há o que desfazer", () => {
+		const state = beginTurn(beginTurn(stateWithText()))
+		expect(canUndo(state)).toBe(false)
+		expect(undoTurn(state).document).toEqual(state.document)
 	})
 })
