@@ -212,15 +212,37 @@ export function renderDivisions(paragraphs: Paragraph[], shouldNumber = true): L
 	const hasItems = paragraphs.some((p) => (p.items?.length ?? 0) > 0)
 	const numberParagraphs = shouldNumber && (paragraphs.length > 1 || hasItems)
 	paragraphs.forEach((p, i) => {
-		lines.push({ text: numberParagraphs ? `${i + 1}. ${p.text}` : p.text, alignment: "justificado", indentCm: 2.5 })
+		lines.push({
+			text: numberParagraphs ? `${i + 1}. ${p.text}` : p.text,
+			alignment: "justificado",
+			indentCm: 2.5,
+			edit: { target: { field: "paragraph", paragraph: i }, value: p.text },
+		})
 		p.items?.forEach((item, j) => {
 			// Espécie que não numera parágrafo (carta e despacho decisório, art. 45 e 49)
 			// também não pode numerar item por parágrafo: sobra o travessão.
 			const marker = numberParagraphs ? `${i + 1}.${j + 1}` : "-"
-			lines.push({ text: `${marker} ${item.text}`, alignment: "justificado", indentCm: 3.5 })
+			lines.push({
+				text: `${marker} ${item.text}`,
+				alignment: "justificado",
+				indentCm: 3.5,
+				edit: { target: { field: "item", paragraph: i, item: j }, value: item.text },
+			})
 			item.alineas?.forEach((alinea, k) => {
-				lines.push({ text: `${String.fromCharCode(97 + k)}) ${alinea.text}`, alignment: "justificado", indentCm: 4.5 })
-				for (const sub of alinea.subalineas ?? []) lines.push({ text: `- ${sub.text}`, alignment: "justificado", indentCm: 5.5 })
+				lines.push({
+					text: `${String.fromCharCode(97 + k)}) ${alinea.text}`,
+					alignment: "justificado",
+					indentCm: 4.5,
+					edit: { target: { field: "alinea", paragraph: i, item: j, alinea: k }, value: alinea.text },
+				})
+				for (const [l, sub] of (alinea.subalineas ?? []).entries()) {
+					lines.push({
+						text: `- ${sub.text}`,
+						alignment: "justificado",
+						indentCm: 5.5,
+						edit: { target: { field: "subalinea", paragraph: i, item: j, alinea: k, subalinea: l }, value: sub.text },
+					})
+				}
 			})
 		})
 	})

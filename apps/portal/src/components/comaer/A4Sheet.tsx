@@ -1,5 +1,6 @@
 import type React from "react"
-import type { AssembledDocument, Line } from "@/lib/comaer/types"
+import { useEffect, useRef, useState } from "react"
+import type { AssembledDocument, EditTarget, Line } from "@/lib/comaer/types"
 
 /**
  * A folha, com as medidas do art. 20 da NSCA 5-3/2026: margens 2 cm (superior, inferior e
@@ -8,7 +9,16 @@ import type { AssembledDocument, Line } from "@/lib/comaer/types"
  * Ela renderiza os MESMOS blocos que o serializador copia para o SIGADAER — a tela é uma
  * apresentação da estrutura, não uma segunda versão dela.
  */
-export function A4Sheet({ doc, highlight = [] }: { doc: AssembledDocument; highlight?: string[] }) {
+export function A4Sheet({
+	doc,
+	highlight = [],
+	onEdit,
+}: {
+	doc: AssembledDocument
+	highlight?: string[]
+	/** Quando presente, as linhas que sabem sua origem viram editáveis no próprio papel. */
+	onEdit?: (target: EditTarget, value: string) => void
+}) {
 	return (
 		<div
 			data-sheet
@@ -27,7 +37,7 @@ export function A4Sheet({ doc, highlight = [] }: { doc: AssembledDocument; highl
 					aria-label={bloco.label}
 				>
 					{bloco.lines.map((linha, i) => (
-						<SheetLine key={`${bloco.id}-${i}`} linha={linha} />
+						<SheetLine key={`${bloco.id}-${i}`} linha={linha} onEdit={onEdit} />
 					))}
 				</section>
 			))}
@@ -64,7 +74,7 @@ function indent(linha: Line): React.CSSProperties | undefined {
 	return { paddingLeft: `${linha.indentCm}cm`, textIndent: linha.indentCm === 2.5 ? "-2.5cm" : undefined }
 }
 
-function SheetLine({ linha }: { linha: Line }) {
+function SheetLine({ linha, onEdit }: { linha: Line; onEdit?: (target: EditTarget, value: string) => void }) {
 	const alignment =
 		linha.alignment === "centro"
 			? "text-center"
@@ -85,9 +95,91 @@ function SheetLine({ linha }: { linha: Line }) {
 		)
 	}
 
+	// Linha que sabe sua origem é editável no lugar: trocar um número não deveria exigir
+	// voltar ao formulário nem pedir à IA.
+	if (onEdit && linha.edit) {
+		return (
+			<EditableLine
+				line={linha}
+				className={alignment}
+				style={indent(linha)}
+				onCommit={(value) => {
+					if (linha.edit) onEdit(linha.edit.target, value)
+				}}
+			/>
+		)
+	}
+
 	return (
 		<p className={alignment} style={indent(linha)}>
 			{conteudo}
 		</p>
+	)
+}
+
+/**
+ * Linha editável: mostra o texto MONTADO e edita o texto CRU.
+ *
+ * A caixa abre com `edit.value` — sem o "1." do parágrafo nem o "Assunto: " da ementa —
+ * porque é o valor cru que volta para o documento; abrir com o texto montado gravaria o
+ * marcador dentro do próprio campo na segunda edição.
+ *
+ * Enter confirma, Escape descarta, sair do campo confirma. Textarea em vez de
+ * `contentEditable`: com `contentEditable` a folha remonta a cada tecla, o cursor pula
+ * para o começo e a edição fica impossível em texto longo.
+ */
+function EditableLine({ line, className, style, onCommit }: { line: Line; className: string; style?: React.CSSProperties; onCommit: (value: string) => void }) {
+	const [editing, setEditing] = useState(false)
+	const [value, setValue] = useState(line.edit?.value ?? "")
+	const field = useRef<HTMLTextAreaElement>(null)
+
+	useEffect(() => {
+		if (!editing) setValue(line.edit?.value ?? "")
+	}, [line.edit?.value, editing])
+
+	useEffect(() => {
+		if (editing) field.current?.focus()
+	}, [editing])
+
+	const commit = () => {
+		setEditing(false)
+		if (value !== line.edit?.value) onCommit(value)
+	}
+
+	if (!editing) {
+		return (
+			<button
+				type="button"
+				onClick={() => setEditing(true)}
+				className={`${className} block w-full text-inherit bg-transparent border-0 p-0 cursor-text hover:bg-black/[0.04] print:hover:bg-transparent`}
+				style={style}
+				title="Clique para editar"
+			>
+				{line.bold ? <strong>{line.text}</strong> : line.text}
+			</button>
+		)
+	}
+
+	return (
+		<textarea
+			ref={field}
+			value={value}
+			onChange={(e) => setValue(e.target.value)}
+			onBlur={commit}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" && !e.shiftKey) {
+					e.preventDefault()
+					commit()
+				}
+				if (e.key === "Escape") {
+					setValue(line.edit?.value ?? "")
+					setEditing(false)
+				}
+			}}
+			rows={Math.max(1, Math.ceil(value.length / 90))}
+			className={`${className} block w-full bg-transparent border border-dashed border-black/40 p-0 resize-none font-[inherit] text-[inherit] leading-[inherit]`}
+			style={style}
+			aria-label="Editar esta linha do documento"
+		/>
 	)
 }

@@ -22,10 +22,11 @@ import {
 	touchedBlocks,
 	undoTurn,
 } from "@/lib/comaer/editor-state"
+import { applyInlineEdit } from "@/lib/comaer/inline-edit"
 import { applyProposal } from "@/lib/comaer/proposal"
 import type { AiProposal } from "@/lib/comaer/schema"
 import { toPayload } from "@/lib/comaer/schema"
-import type { DocumentInput } from "@/lib/comaer/types"
+import type { DocumentInput, EditTarget } from "@/lib/comaer/types"
 import { seedFromProfile } from "@/lib/comaer/writer-profile"
 import { saveDocumentFn } from "@/server/documents.fn"
 import { loadWriterProfileFn } from "@/server/writer-profile.fn"
@@ -102,6 +103,10 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 	const updateField = (patch: Partial<DocumentInput>) => setState((current) => editDocument(current, patch))
 	const applyAiProposal = (proposal: AiProposal) => setState((current) => ({ ...current, document: applyProposal(current.document, proposal) }))
 
+	// Edição no próprio papel. Vale para os dois modos: trocar um número é correção que se
+	// faz olhando o documento, não abrindo uma conversa.
+	const editInSheet = (target: EditTarget, value: string) => setState((current) => editDocument(current, applyInlineEdit(current.document, target, value)))
+
 	// `useCallback` porque o painel de conversa aplica remendos dentro de um efeito sobre as
 	// mensagens: uma função nova a cada render reexecutaria o efeito e reaplicaria tudo.
 	const applyPatchFromChat = useCallback((name: string, args: Record<string, unknown>) => setState((current) => applyChatPatch(current, name, args)), [])
@@ -141,7 +146,7 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 					<Button variant="ghost" size="sm" className="-ml-2 mb-2" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais" />}>
 						<ArrowLeft className="size-4" /> Meus documentos
 					</Button>
-					<h1 className="text-2xl md:text-3xl font-bold tracking-tight text-balance truncate">{input.subject?.trim() || "Documento sem assunto"}</h1>
+					<EditableTitle value={input.subject ?? ""} onChange={(subject) => updateField({ subject })} />
 					<p className="text-muted-foreground mt-1 text-sm">
 						{kind.label} · <span className="font-mono text-xs">{kind.legalBasis}</span>
 						{isDraft && " · não salvo"}
@@ -222,9 +227,60 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 				    Oculta ela sai da TELA, não do DOM: a impressão é a própria folha, e
 				    desmontá-la faria "Imprimir" sair em branco com o preview fechado. */}
 				<div className={`overflow-x-auto xl:sticky xl:top-20 ${showPreview ? "" : "hidden print:block"}`}>
-					<A4Sheet doc={doc} highlight={touchedBlocks(state)} />
+					<A4Sheet doc={doc} highlight={touchedBlocks(state)} onEdit={editInSheet} />
 				</div>
 			</div>
 		</div>
+	)
+}
+
+/**
+ * Título do documento — que é o ASSUNTO da ementa (art. 37).
+ *
+ * Clicar e escrever, como em qualquer editor: antes ele era só um rótulo, e trocar o
+ * assunto obrigava a descer até o formulário. Enter confirma, Escape descarta.
+ */
+function EditableTitle({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+	const [editing, setEditing] = useState(false)
+	const [draft, setDraftValue] = useState(value)
+
+	useEffect(() => {
+		if (!editing) setDraftValue(value)
+	}, [value, editing])
+
+	if (!editing) {
+		return (
+			<button
+				type="button"
+				onClick={() => setEditing(true)}
+				className="text-2xl md:text-3xl font-bold tracking-tight text-balance text-left hover:bg-accent px-1 -mx-1 max-w-full truncate"
+				title="Clique para renomear"
+			>
+				{value.trim() || "Documento sem assunto"}
+			</button>
+		)
+	}
+
+	return (
+		<input
+			// biome-ignore lint/a11y/noAutofocus: o campo só existe depois do clique do usuário
+			autoFocus
+			value={draft}
+			onChange={(e) => setDraftValue(e.target.value)}
+			onBlur={() => {
+				setEditing(false)
+				if (draft !== value) onChange(draft)
+			}}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") e.currentTarget.blur()
+				if (e.key === "Escape") {
+					setDraftValue(value)
+					setEditing(false)
+				}
+			}}
+			aria-label="Assunto do documento"
+			placeholder="Assunto do documento"
+			className="text-2xl md:text-3xl font-bold tracking-tight bg-transparent border-b border-border outline-none w-full max-w-xl"
+		/>
 	)
 }

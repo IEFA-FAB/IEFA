@@ -87,14 +87,28 @@ function ementaBlock(input: DocumentInput, kind: DocumentKind): Line[] {
 	const lines: Line[] = []
 	if (input.subject) {
 		// Art. 51 § 9º, IX: no ofício externo o assunto vai em negrito e sozinho.
-		lines.push({ text: `Assunto: ${input.subject.replace(/\.?$/, ".")}`, bold: kind.id === "oficio-externo" })
+		lines.push({
+			text: `Assunto: ${input.subject.replace(/\.?$/, ".")}`,
+			bold: kind.id === "oficio-externo",
+			edit: { target: { field: "subject" }, value: input.subject },
+		})
 	}
 	if (kind.id !== "oficio-externo") {
 		// Art. 37 § 2º, II: a primeira linha leva o rótulo; as seguintes alinham sob ela.
 		const refItems = formatEnumeration(input.references ?? [], (i) => `${i + 1}.`)
-		for (const [i, text] of refItems.entries()) lines.push({ text: i === 0 ? `Referência: ${text}` : text, indentCm: i === 0 ? 0 : 2.5 })
+		for (const [i, text] of refItems.entries())
+			lines.push({
+				text: i === 0 ? `Referência: ${text}` : text,
+				indentCm: i === 0 ? 0 : 2.5,
+				edit: { target: { field: "reference", index: i }, value: (input.references ?? [])[i] ?? "" },
+			})
 		const annexes = formatEnumeration(input.annexes ?? [], (i) => `${annexLetter(i)}.`)
-		for (const [i, text] of annexes.entries()) lines.push({ text: i === 0 ? `Anexo: ${text}` : text, indentCm: i === 0 ? 0 : 2.5 })
+		for (const [i, text] of annexes.entries())
+			lines.push({
+				text: i === 0 ? `Anexo: ${text}` : text,
+				indentCm: i === 0 ? 0 : 2.5,
+				edit: { target: { field: "annex", index: i }, value: (input.annexes ?? [])[i] ?? "" },
+			})
 	}
 	return lines
 }

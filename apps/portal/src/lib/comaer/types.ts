@@ -135,8 +135,26 @@ export interface DocumentInput {
 
 export type Alignment = "esquerda" | "centro" | "direita" | "justificado"
 
+/**
+ * De onde a linha veio, quando ela pode ser editada no próprio papel.
+ *
+ * A folha renderiza um documento MONTADO — texto derivado, com marcador e prefixo. Editar
+ * ali exige saber escrever de volta na origem: o alvo diz qual campo é, e `value` traz o
+ * texto cru, sem o "1." nem o "Assunto: " que a montagem acrescentou.
+ */
+export type EditTarget =
+	| { field: "subject" }
+	| { field: "paragraph"; paragraph: number }
+	| { field: "item"; paragraph: number; item: number }
+	| { field: "alinea"; paragraph: number; item: number; alinea: number }
+	| { field: "subalinea"; paragraph: number; item: number; alinea: number; subalinea: number }
+	| { field: "reference"; index: number }
+	| { field: "annex"; index: number }
+
 export interface Line {
 	text: string
+	/** Presente quando a linha é editável direto na folha. */
+	edit?: { target: EditTarget; value: string }
 	alignment?: Alignment
 	bold?: boolean
 	/** Recuo em cm, como a norma mede (2,5 cm do parágrafo, 1,5 cm da continuação). */
