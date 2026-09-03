@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ArrowLeft, FloppyDisk, Printer } from "iconoir-react"
+import { ArrowLeft, Eye, EyeClosed, FloppyDisk, Printer } from "iconoir-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { A4Sheet } from "@/components/comaer/A4Sheet"
 import { AiPanel } from "@/components/comaer/AiPanel"
@@ -30,6 +30,8 @@ import { seedFromProfile } from "@/lib/comaer/writer-profile"
 import { saveDocumentFn } from "@/server/documents.fn"
 import { loadWriterProfileFn } from "@/server/writer-profile.fn"
 
+const PREVIEW_KEY = "iefa.comaer.preview"
+
 /**
  * Editor de um documento.
  *
@@ -44,12 +46,28 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 	const navigate = useNavigate()
 	const [state, setState] = useState<EditorState>(() => initialEditorState(initialDocument ?? newDocument()))
 	const [restored, setRestored] = useState(Boolean(initialDocument))
-	const [mode, setMode] = useState<"form" | "chat">("form")
+	// Conversa é o modo primário: ela orienta, pergunta o que falta e explica a norma. O
+	// formulário fica para o ajuste fino de quem já sabe onde mexer.
+	const [mode, setMode] = useState<"form" | "chat">("chat")
+	const [showPreview, setShowPreview] = useState(true)
 	const [saving, setSaving] = useState(false)
 	const [saveError, setSaveError] = useState<string | null>(null)
 
 	const input = state.document
 	const isDraft = documentId === null
+
+	// `localStorage` só existe no cliente; ler no SSR entregaria HTML diferente do que o
+	// navegador montaria.
+	useEffect(() => {
+		setShowPreview(localStorage.getItem(PREVIEW_KEY) !== "hidden")
+	}, [])
+
+	const togglePreview = () => {
+		setShowPreview((visible) => {
+			localStorage.setItem(PREVIEW_KEY, visible ? "hidden" : "visible")
+			return !visible
+		})
+	}
 
 	// O rascunho do navegador só vale para documento novo, e só é lido no cliente: ler no
 	// SSR entregaria HTML diferente do que o navegador montaria e a hidratação descartaria
@@ -130,6 +148,10 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 					</p>
 				</div>
 				<div className="flex gap-2">
+					<Button type="button" variant="outline" size="sm" onClick={togglePreview} aria-pressed={!showPreview}>
+						{showPreview ? <EyeClosed className="size-4" /> : <Eye className="size-4" />}
+						{showPreview ? "Ocultar preview" : "Mostrar preview"}
+					</Button>
 					<Button type="button" size="sm" onClick={save} disabled={saving}>
 						<FloppyDisk className="size-4" /> {saving ? "Salvando…" : isDraft ? "Salvar documento" : "Salvar alterações"}
 					</Button>
@@ -141,7 +163,7 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 
 			{saveError && <p className="text-sm text-destructive mb-4">{saveError}</p>}
 
-			<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-8 items-start">
+			<div className={`grid grid-cols-1 gap-8 items-start ${showPreview ? "xl:grid-cols-[minmax(0,1fr)_auto]" : ""}`}>
 				<div className="flex flex-col gap-8 min-w-0">
 					{/* Formulário e conversa são dois modos do MESMO documento: trocar de modo não
 					    salva, não descarta e não converte nada. */}
@@ -195,8 +217,11 @@ export function DocumentEditor({ documentId, initialDocument }: { documentId: st
 					<ExportPanel doc={doc} />
 				</div>
 
-				{/* A folha acompanha a rolagem: conferir o efeito de um campo exige vê-lo. */}
-				<div className="overflow-x-auto xl:sticky xl:top-20">
+				{/* A folha acompanha a rolagem: conferir o efeito de um campo exige vê-lo. Some
+				    quando o redator pede — em tela estreita ela rouba a largura da conversa.
+				    Oculta ela sai da TELA, não do DOM: a impressão é a própria folha, e
+				    desmontá-la faria "Imprimir" sair em branco com o preview fechado. */}
+				<div className={`overflow-x-auto xl:sticky xl:top-20 ${showPreview ? "" : "hidden print:block"}`}>
 					<A4Sheet doc={doc} highlight={touchedBlocks(state)} />
 				</div>
 			</div>

@@ -34,3 +34,12 @@ describe("contrato da impressão", () => {
 		for (const selector of new Set(selectors)) expect(sheet).toContain(selector)
 	})
 })
+
+describe("preview ocultável", () => {
+	// Ocultar o preview não pode desmontar a folha: a impressão É a folha, e o `<style>`
+	// torna visível só o que está dentro dela. Desmontada, "Imprimir" sai em branco.
+	it("esconde a folha por classe, e a reexibe na impressão", () => {
+		expect(route).toContain("hidden print:block")
+		expect(route).not.toMatch(/\{showPreview && \([\s\S]{0,80}<A4Sheet/)
+	})
+})

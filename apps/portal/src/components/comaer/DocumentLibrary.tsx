@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { DotsGrid3x3, List, Page, Plus, Trash } from "iconoir-react"
+import { DotsGrid3x3, List, Page, Plus, Search, Trash } from "iconoir-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { findKind } from "@/lib/comaer/catalog"
 import { loadDraft } from "@/lib/comaer/draft"
+import { filterDocuments, kindsPresent } from "@/lib/comaer/library"
 import { type DocumentSummary, deleteDocumentFn, listDocumentsFn } from "@/server/documents.fn"
 
 type Layout = "grid" | "list"
@@ -23,6 +26,8 @@ export function DocumentLibrary() {
 	const queryClient = useQueryClient()
 	const [layout, setLayout] = useState<Layout>("grid")
 	const [draftSubject, setDraftSubject] = useState<string | null>(null)
+	const [search, setSearch] = useState("")
+	const [kindFilter, setKindFilter] = useState<string | null>(null)
 
 	// `localStorage` só existe no cliente; ler durante o SSR quebraria a hidratação.
 	useEffect(() => {
@@ -44,7 +49,10 @@ export function DocumentLibrary() {
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents", "lista"] }),
 	})
 
-	const items = documents.data ?? []
+	const all = documents.data ?? []
+	const kinds = kindsPresent(all)
+	const items = filterDocuments(all, { search, kind: kindFilter })
+	const filtering = search.trim() !== "" || kindFilter !== null
 
 	return (
 		<div className="w-full py-10 flex flex-col gap-8">
@@ -64,10 +72,43 @@ export function DocumentLibrary() {
 				</Button>
 			</header>
 
-			<div className="flex items-center justify-between gap-4 border-b border-border pb-3">
-				<span className="text-sm text-muted-foreground">
-					{documents.isLoading ? "Carregando…" : `${items.length} ${items.length === 1 ? "documento" : "documentos"}`}
-				</span>
+			<div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-3">
+				<div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+					<div className="relative flex-1 min-w-[14rem] max-w-sm">
+						<Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+						<Input
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							placeholder="Buscar por assunto ou espécie"
+							aria-label="Buscar documentos"
+							className="pl-8"
+						/>
+					</div>
+
+					{kinds.length > 1 && (
+						<Select value={kindFilter ?? "todas"} onValueChange={(value) => setKindFilter(value === "todas" ? null : (value as string))}>
+							<SelectTrigger aria-label="Filtrar por espécie" className="w-64">
+								<SelectValue>{kindFilter ? (kinds.find((k) => k.id === kindFilter)?.label ?? kindFilter) : "Todas as espécies"}</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="todas">Todas as espécies</SelectItem>
+								{kinds.map((kind) => (
+									<SelectItem key={kind.id} value={kind.id}>
+										{kind.label} ({kind.count})
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					)}
+
+					<span className="text-sm text-muted-foreground">
+						{documents.isLoading
+							? "Carregando…"
+							: filtering
+								? `${items.length} de ${all.length}`
+								: `${all.length} ${all.length === 1 ? "documento" : "documentos"}`}
+					</span>
+				</div>
 				<fieldset className="flex border border-border">
 					<legend className="sr-only">Forma de exibição</legend>
 					{(
@@ -110,7 +151,24 @@ export function DocumentLibrary() {
 				</section>
 			)}
 
-			{!documents.isLoading && items.length === 0 ? (
+			{!documents.isLoading && items.length === 0 && filtering ? (
+				<div className="border border-border p-10 text-center flex flex-col items-center gap-3">
+					<Search className="size-8 text-muted-foreground" />
+					<p className="text-sm text-muted-foreground max-w-md">
+						Nenhum documento com esse filtro. A busca ignora acento e maiúscula, e procura também na espécie.
+					</p>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => {
+							setSearch("")
+							setKindFilter(null)
+						}}
+					>
+						Limpar filtros
+					</Button>
+				</div>
+			) : !documents.isLoading && items.length === 0 ? (
 				<div className="border border-border p-10 text-center flex flex-col items-center gap-3">
 					<Page className="size-8 text-muted-foreground" />
 					<p className="text-sm text-muted-foreground max-w-md">
