@@ -82,7 +82,11 @@ export function DocumentLibrary() {
 		<div className="w-full py-10 flex flex-col gap-8">
 			<header className="flex flex-wrap items-end justify-between gap-4">
 				<div>
-					<h1 ref={heading} tabIndex={-1} className="text-3xl md:text-4xl font-bold tracking-tight text-balance outline-none">
+					<h1
+						ref={heading}
+						tabIndex={-1}
+						className="text-headline text-balance outline-hidden focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+					>
 						Meus documentos
 					</h1>
 					<p className="text-muted-foreground mt-2 text-pretty max-w-2xl">
@@ -140,9 +144,11 @@ export function DocumentLibrary() {
 					<span className="text-sm text-muted-foreground" role="status">
 						{documents.isLoading
 							? "Carregando…"
-							: filtering
-								? `${items.length} de ${all.length}`
-								: `${all.length} ${all.length === 1 ? "documento" : "documentos"}`}
+							: documents.isError
+								? ""
+								: filtering
+									? `${items.length} de ${all.length}`
+									: `${all.length} ${all.length === 1 ? "documento" : "documentos"}`}
 					</span>
 				</div>
 				<fieldset className="flex border border-border">
@@ -167,23 +173,32 @@ export function DocumentLibrary() {
 				</fieldset>
 			</div>
 
-			{documents.error && (
-				<p role="alert" className="text-sm text-destructive">
-					Não deu para carregar seus documentos. Recarregue a página; se persistir, o serviço pode estar fora do ar.
-				</p>
+			{documents.isError && (
+				<div role="alert" className="border border-border p-4 flex flex-wrap items-center justify-between gap-3">
+					<p className="text-sm text-destructive">Não deu para carregar seus documentos. Eles continuam salvos; foi a leitura que falhou.</p>
+					<Button type="button" variant="outline" size="sm" onClick={() => documents.refetch()} disabled={documents.isFetching}>
+						{documents.isFetching ? "Tentando…" : "Tentar de novo"}
+					</Button>
+				</div>
 			)}
 			{lastRemoved && (
 				<div className="border border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3" role="status">
-					<span className="text-sm">“{lastRemoved.title ?? "Documento sem assunto"}” foi excluído. A conversa dele não pode ser recuperada.</span>
+					<span className="text-sm">“{lastRemoved.title ?? "Documento sem assunto"}” foi excluído. A conversa gravada com a redação assistida não volta.</span>
 					<div className="flex gap-2">
 						<Button type="button" variant="outline" size="sm" onClick={() => restore.mutate(lastRemoved.id)} disabled={restore.isPending}>
 							{restore.isPending ? "Restaurando…" : "Desfazer"}
 						</Button>
 						<Button type="button" variant="ghost" size="sm" onClick={() => setLastRemoved(null)}>
-							Dispensar
+							Fechar aviso
 						</Button>
 					</div>
 				</div>
+			)}
+
+			{restore.error && (
+				<p role="alert" className="text-sm text-destructive">
+					Não deu para restaurar o documento. Tente de novo pelo botão “Desfazer”.
+				</p>
 			)}
 
 			{remove.error && (
@@ -238,20 +253,25 @@ export function DocumentLibrary() {
 						Limpar filtros
 					</Button>
 				</div>
-			) : !documents.isLoading && items.length === 0 ? (
+			) : !documents.isLoading && !documents.isError && items.length === 0 ? (
 				<div className="border border-border p-10 text-center flex flex-col items-center gap-3">
 					<Page className="size-8 text-muted-foreground" />
 					<p className="text-sm text-muted-foreground max-w-md">
-						Nenhum documento salvo ainda. Comece um novo — ou parta de uma minuta, colando o texto de um ofício antigo ou enviando o PDF.
+						Nenhum documento salvo ainda. Comece do zero, ou parta de uma minuta: um ofício antigo cujo texto você cola aqui, ou o PDF dele.
 					</p>
-					<Button size="sm" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" />}>
-						<Plus className="size-4" /> Novo documento
-					</Button>
+					<div className="flex flex-wrap gap-2 justify-center">
+						<Button size="sm" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" />}>
+							<Plus className="size-4" /> Novo documento
+						</Button>
+						<Button size="sm" variant="outline" nativeButton={false} render={<Link to="/facilities/comunicacoes-oficiais/novo" search={{ minuta: true }} />}>
+							Partir de uma minuta
+						</Button>
+					</div>
 				</div>
 			) : layout === "grid" ? (
 				<ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 					{items.map((document) => (
-						<li key={document.id} className="border border-border flex flex-col shadow-hard-sm">
+						<li key={document.id} className="border border-border flex flex-col shadow-hard-sm brutal-hover">
 							<Link
 								to="/facilities/comunicacoes-oficiais/$documentId"
 								params={{ documentId: document.id }}
@@ -315,7 +335,7 @@ function DocumentMeta({ document }: { document: DocumentSummary }) {
 			{document.classification !== "ostensivo" && (
 				<>
 					<span aria-hidden>·</span>
-					<span className="uppercase tracking-wider text-destructive">{document.classification}</span>
+					<span className="text-label text-destructive">{document.classification}</span>
 				</>
 			)}
 		</span>

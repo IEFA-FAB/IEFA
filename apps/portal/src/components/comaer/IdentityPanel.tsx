@@ -24,22 +24,29 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 	const ids = useId()
 	const field = (name: string) => `${ids}-${name}`
 
-	const filled = [
+	// O denominador conta só o que ESTA espécie mostra: a Ata não tem numeração e o Parecer
+	// não tem NUP. Dividir sempre por oito exibia um débito contra campos que não existem na
+	// tela, e que a pessoa nunca conseguiria zerar.
+	const numbered = kind.numbering !== "nenhuma"
+	const hasNup = kind.blocks.includes("nup")
+	const required: string[] = [
 		input.om.name.trim(),
-		input.numbering.sequence !== null ? "n" : "",
-		input.numbering.sector?.trim() ?? "",
-		input.nup?.trim() ?? "",
+		...(numbered ? [input.numbering.sequence !== null ? "n" : "", input.numbering.sector?.trim() ?? ""] : []),
+		...(hasNup ? [input.nup?.trim() ?? ""] : []),
 		input.city.trim(),
 		input.signer.name.trim(),
 		input.signer.rank?.trim() ?? "",
 		input.signer.position?.trim() ?? "",
-	].filter(Boolean).length
+	]
+	const filled = required.filter(Boolean).length
 
 	return (
 		<section className="border border-border p-4 flex flex-col gap-4">
 			<div className="flex items-baseline justify-between gap-3">
-				<h3 className="text-label text-foreground">Dados do expediente</h3>
-				<span className="text-label text-muted-foreground">{filled} de 8 preenchidos</span>
+				<h2 className="text-label text-foreground">Dados do documento</h2>
+				<span className="text-label text-muted-foreground">
+					{filled} de {required.length} preenchidos
+				</span>
 			</div>
 
 			<p className="text-xs text-muted-foreground">
@@ -81,7 +88,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 						<Campo
 							id={field("sequence")}
 							label="Sequencial da seção"
-							hint='Vem do controle da sua seção. Em branco, o documento sai como "s/nº" — forma reservada ao expediente de interesse particular (art. 51 § 6º).'
+							hint='Vem do controle da sua seção. Em branco, o documento sai como "s/nº", forma reservada ao expediente de interesse particular (art. 51 § 6º).'
 							required
 						>
 							<Input
@@ -157,7 +164,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 						<SelectContent>
 							{FAB_RANKS.map((rank) => (
 								<SelectItem key={rank.acronym} value={rank.acronym}>
-									{rank.acronym} — {rank.inFull}
+									{rank.acronym}: {rank.inFull}
 								</SelectItem>
 							))}
 						</SelectContent>

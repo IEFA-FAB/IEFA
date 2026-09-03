@@ -47,7 +47,12 @@ export const listDocumentsFn = createServerFn({ method: "GET" }).handler(async (
 		.is("deleted_at", null)
 		.order("updated_at", { ascending: false })
 		.limit(100)
-	if (error) throw new Error(error.message)
+	// A mensagem do PostgREST vai no `cause`, não na tela: o `DefaultCatchBoundary` imprime
+	// a mensagem literalmente, e "column x does not exist" não diz nada a quem redige ofício.
+	if (error) {
+		setResponseStatus(500)
+		throw new Error("Não deu para ler seus documentos agora.", { cause: error })
+	}
 	return (data ?? []) as DocumentSummary[]
 })
 
@@ -62,7 +67,10 @@ export const loadDocumentFn = createServerFn({ method: "POST" })
 			.eq("owner_id", userId)
 			.is("deleted_at", null)
 			.maybeSingle()
-		if (error) throw new Error(error.message)
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para abrir este documento agora. Ele continua salvo; tente de novo em instantes.", { cause: error })
+		}
 		// Documento de outro dono e documento inexistente respondem igual: distinguir os
 		// dois transformaria a rota num verificador de existência de id alheio.
 		if (!linha) notFound()
@@ -105,7 +113,10 @@ export const saveDocumentFn = createServerFn({ method: "POST" })
 				.is("deleted_at", null)
 				.select("id")
 				.maybeSingle()
-			if (error) throw new Error(error.message)
+			if (error) {
+				setResponseStatus(500)
+				throw new Error("Não deu para salvar as alterações agora.", { cause: error })
+			}
 			if (!linha) notFound()
 			return { id: linha.id as string }
 		}
@@ -115,7 +126,10 @@ export const saveDocumentFn = createServerFn({ method: "POST" })
 			.insert({ ...columns, owner_id: userId })
 			.select("id")
 			.single()
-		if (error) throw new Error(error.message)
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para salvar o documento agora.", { cause: error })
+		}
 		return { id: linha.id as string }
 	})
 
@@ -137,7 +151,10 @@ export const restoreDocumentFn = createServerFn({ method: "POST" })
 			.not("deleted_at", "is", null)
 			.select("id")
 			.maybeSingle()
-		if (error) throw new Error(error.message)
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para restaurar o documento agora.", { cause: error })
+		}
 		if (!row) notFound()
 		return { id: row.id as string }
 	})
@@ -156,12 +173,21 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 			.is("deleted_at", null)
 			.select("id")
 			.maybeSingle()
-		if (error) throw new Error(error.message)
+		if (error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para excluir o documento agora.", { cause: error })
+		}
 		if (!linha) notFound()
 
 		// A conversa morre com o documento, ainda que o documento só saia de vista: ela
 		// guarda pedido em linguagem natural, às vezes mais revelador que o próprio
 		// expediente, e não tem por que sobreviver ao que ajudou a construir.
-		await getDocumentsServerClient().from("chat_message").delete().eq("document_id", data.id).eq("owner_id", userId)
+		// A tela promete, duas vezes, que a conversa é apagada. Descartar o erro daqui deixaria
+		// texto em linguagem natural para trás com a promessa dada.
+		const removed = await getDocumentsServerClient().from("chat_message").delete().eq("document_id", data.id).eq("owner_id", userId)
+		if (removed.error) {
+			setResponseStatus(500)
+			throw new Error("O documento foi excluído, mas a conversa dele não. Tente excluir de novo; se persistir, avise a equipe do portal.")
+		}
 		return { id: linha.id as string }
 	})

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test"
-import { DRAFT_KEY, documentDraftKey, fromDateInputValue, isDirty, loadDraft, newDocument, saveDraft } from "./draft"
+import { DRAFT_KEY, documentDraftKey, fromDateInputValue, hasContent, isDirty, loadDraft, newDocument, saveDraft } from "./draft"
 import { AiProposalSchema, DocumentPayloadSchema, fromPayload, toPayload } from "./schema"
 
 describe("payload gravado no jsonb", () => {
@@ -138,5 +138,16 @@ describe("rascunho de documento salvo", () => {
 		expect(isDirty({ ...saved, subject: "Editado agora" }, saved)).toBe(true)
 		// Documento novo não tem base de comparação: não existe "não salvo" a apontar.
 		expect(isDirty(saved, null)).toBe(false)
+	})
+})
+
+describe("o que vale guardar", () => {
+	it("documento só com identidade do perfil não vira rascunho", () => {
+		// Abrir "Novo documento" e voltar deixava um cartão vazio na biblioteca, que a pessoa
+		// tinha de descartar sem nunca ter digitado nada.
+		const seeded = { ...newDocument(), om: { ...newDocument().om, name: "BAAN" }, city: "Anápolis" }
+		expect(hasContent(seeded)).toBe(false)
+		expect(hasContent({ ...seeded, subject: "Prorrogação" })).toBe(true)
+		expect(hasContent({ ...seeded, paragraphs: [{ text: "Solicito." }] })).toBe(true)
 	})
 })

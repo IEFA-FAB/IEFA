@@ -42,8 +42,24 @@ describe("dados fixos do redator", () => {
 	})
 
 	it("lista o que falta no perfil, para a tela convidar em vez de acusar", () => {
-		expect(missingProfileFields(null)).toEqual(["OM", "signatário", "localidade"])
-		expect(missingProfileFields({ ...profile, city: "  " })).toEqual(["localidade"])
+		expect(missingProfileFields(null)).toEqual(["Nome da OM", "Nome do signatário", "Localidade padrão"])
+		expect(missingProfileFields({ ...profile, city: "  " })).toEqual(["Localidade padrão"])
 		expect(missingProfileFields(profile)).toEqual([])
+	})
+})
+
+describe("semear sem sobrescrever", () => {
+	/**
+	 * O perfil chega por consulta assíncrona. Quem digita a localidade ou o NUP antes de ela
+	 * responder perdia os dois, e a semeadura não é turno de conversa: não havia desfazer.
+	 */
+	it("preenche só o campo vazio e deixa intacto o que já foi escrito", () => {
+		const typed = { ...newDocument(), city: "Recife", nup: "68000.111111/2026-11" }
+		const seeded = seedFromProfile(typed, profile)
+
+		expect(seeded.city).toBe("Recife")
+		expect(seeded.nup).toBe("68000.111111/2026-11")
+		expect(seeded.om.name).toBe(profile.om_name)
+		expect(seeded.signer.name).toBe(profile.signer_name)
 	})
 })

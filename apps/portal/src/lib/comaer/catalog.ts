@@ -261,7 +261,7 @@ export const DOCUMENT_KINDS: readonly DocumentKind[] = [
 	},
 	{
 		id: "ordem-tecnica",
-		label: "Ordem Técnica",
+		label: "Ordem técnica",
 		numberingLabel: "Ordem Técnica",
 		description: "Estabelece padrões e procedimentos técnicos: sumário, finalidade, âmbito, legislação e procedimentos.",
 		legalBasis: "Anexo I, art. 52",

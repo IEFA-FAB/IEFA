@@ -32,7 +32,12 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 				: { text, classification: input.classification }
 			return importDraftFn({ data: payload })
 		},
-		onSuccess: onImported,
+		onSuccess: (proposal) => {
+			// O texto colado já virou documento: mantê-lo no campo convida a importar de novo,
+			// por cima do que a pessoa acabou de ajustar.
+			setText("")
+			onImported(proposal)
+		},
 	})
 
 	if (classified) {
@@ -40,7 +45,8 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 			<section className="border border-border p-4 flex items-start gap-2 text-sm">
 				<WarningTriangle className="size-4 shrink-0 mt-0.5 text-destructive" />
 				<p className="text-muted-foreground">
-					Documento com grau de sigilo <strong>{input.classification}</strong>: nem o texto nem o arquivo são enviados a provider de IA.
+					Documento sigiloso não sai desta rede: nem o texto nem o arquivo são enviados a serviço de inteligência artificial. Redija no formulário: a folha, a
+					conferência e a cópia para o SIGADAER continuam funcionando.
 				</p>
 			</section>
 		)
@@ -49,7 +55,7 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 	return (
 		<section className="border border-border p-4 flex flex-col gap-4">
 			<div className="flex items-baseline justify-between gap-3">
-				<h3 className="text-label text-foreground">Partir de uma minuta</h3>
+				<h2 className="text-label text-foreground">Partir de uma minuta</h2>
 				<span className="text-label text-muted-foreground">numeração, NUP e data não são herdados</span>
 			</div>
 
@@ -92,7 +98,7 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 					}}
 				/>
 				<Button type="button" variant="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={importDraft.isPending}>
-					<Upload className="size-4" /> {importDraft.isPending && importDraft.variables !== undefined ? "Lendo o arquivo…" : "PDF ou digitalização"}
+					<Upload className="size-4" /> {importDraft.isPending && importDraft.variables !== undefined ? "Lendo o arquivo…" : "Enviar PDF ou digitalização"}
 				</Button>
 				{fileName && <span className="text-xs text-muted-foreground truncate max-w-[16rem]">{fileName}</span>}
 			</div>
@@ -104,12 +110,14 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 			)}
 			{importDraft.error && (
 				<p role="alert" className="text-xs text-destructive">
-					Não deu para ler a minuta. Tente colar o texto em vez do arquivo — a extração depende da redação assistida, e ela pode estar fora do ar.
+					Não deu para ler a minuta. Tente colar o texto em vez do arquivo: a extração depende da redação assistida, e ela pode estar fora do ar.
 				</p>
 			)}
-			{importDraft.isSuccess && (
+			{/* A confirmação some ao mexer no texto de novo: mantida, ela ficava afirmando
+			    "importada" horas depois, sobre um documento já reescrito. */}
+			{importDraft.isSuccess && !importDraft.isPending && (
 				<p role="status" className="text-xs text-muted-foreground">
-					Minuta importada — confira numeração, NUP e data antes de despachar.
+					Minuta importada. Confira numeração, NUP e data antes de despachar.
 				</p>
 			)}
 		</section>

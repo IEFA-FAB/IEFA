@@ -10,6 +10,7 @@
  * ferramenta, e desfazer uma delas deixaria o documento num meio-termo que ninguém pediu.
  */
 
+import { dropModelNulls } from "./tools/definitions"
 import { applyPatch, PatchError } from "./tools/patch"
 import type { DocumentInput } from "./types"
 
@@ -25,6 +26,14 @@ export interface ConversationTurn {
 export interface EditorState {
 	document: DocumentInput
 	turns: ConversationTurn[]
+	/**
+	 * Nome da ferramenta cujo remendo foi recusado.
+	 *
+	 * O documento fica intacto, mas a transcrição continua mostrando “↳ write_body” como se
+	 * algo tivesse acontecido. Sem isto, o usuário vê a ferramenta rodar e não mudar nada, e
+	 * conclui que a folha é que está errada.
+	 */
+	rejectedPatch?: string
 }
 
 export function initialEditorState(document: DocumentInput): EditorState {
@@ -38,7 +47,7 @@ export function editDocument(state: EditorState, patch: Partial<DocumentInput>):
 
 /** Começa um turno da conversa, guardando o documento de agora para o desfazer. */
 export function beginTurn(state: EditorState): EditorState {
-	return { ...state, turns: [...state.turns, { before: state.document, touched: [], changes: 0 }] }
+	return { ...state, rejectedPatch: undefined, turns: [...state.turns, { before: state.document, touched: [], changes: 0 }] }
 }
 
 /**
@@ -50,15 +59,19 @@ export function beginTurn(state: EditorState): EditorState {
  */
 export function applyChatPatch(state: EditorState, name: string, args: Record<string, unknown>): EditorState {
 	try {
-		const patch = applyPatch(state.document, name, args)
+		// A mesma poda de `null` do servidor. O modelo manda `null` para dizer "não mexi", e o
+		// despacho do servidor já a aplica; o cliente aplicava o remendo cru, e as duas metades
+		// do mesmo caminho passavam a discordar sobre o que o modelo pediu.
+		const patch = applyPatch(state.document, name, dropModelNulls(args))
 		const turns = state.turns.length > 0 ? state.turns : [{ before: state.document, touched: [], changes: 0 }]
 		const last = turns[turns.length - 1]
 		return {
 			document: patch.document,
+			rejectedPatch: undefined,
 			turns: [...turns.slice(0, -1), { ...last, touched: [...new Set([...last.touched, ...patch.touched])], changes: last.changes + 1 }],
 		}
 	} catch (error) {
-		if (error instanceof PatchError) return state
+		if (error instanceof PatchError) return { ...state, rejectedPatch: name }
 		throw error
 	}
 }

@@ -71,3 +71,31 @@ describe("turno sem alteração", () => {
 		expect(undoTurn(state).document).toEqual(state.document)
 	})
 })
+
+describe("remendo recusado", () => {
+	/**
+	 * A transcrição mostra "↳ Trocou um parágrafo" mesmo quando o remendo foi recusado. Sem a
+	 * marca, o usuário vê a ferramenta rodar, o documento não mudar, e conclui que a folha é
+	 * que está errada.
+	 */
+	it("marca a recusa e não altera o documento", () => {
+		const state = applyChatPatch(initialEditorState(newDocument()), "replace_paragraph", { number: 99, text: "..." })
+		expect(state.rejectedPatch).toBe("replace_paragraph")
+		// `newDocument()` já nasce com cinco parágrafos vazios: o que importa é que nenhum foi tocado.
+		expect(state.document.paragraphs.every((p) => p.text === "")).toBe(true)
+	})
+
+	it("limpa a marca no remendo seguinte que dá certo", () => {
+		let state = applyChatPatch(initialEditorState(newDocument()), "replace_paragraph", { number: 99, text: "..." })
+		state = applyChatPatch(state, "write_body", { paragraphs: [{ text: "Texto." }] })
+		expect(state.rejectedPatch).toBeUndefined()
+	})
+
+	it("poda o `null` do modelo como o servidor faz, e não recusa o turno por causa dele", () => {
+		// O despacho do servidor já poda; o cliente aplicava o remendo cru, e as duas metades
+		// do mesmo caminho passavam a discordar sobre o que o modelo pediu.
+		const state = applyChatPatch(initialEditorState(newDocument()), "set_form", { kind: "requerimento", scope: null })
+		expect(state.rejectedPatch).toBeUndefined()
+		expect(state.document.kind).toBe("requerimento")
+	})
+})

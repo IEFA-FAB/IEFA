@@ -24,12 +24,12 @@ export function ExportPanel({ doc }: { doc: AssembledDocument }) {
 	return (
 		<section className="border border-border p-4 flex flex-col gap-4">
 			<div className="flex items-baseline justify-between gap-3">
-				<h3 className="text-label text-foreground">Levar para o SIGADAER</h3>
+				<h2 className="text-label text-foreground">Conferir e levar para o SIGADAER</h2>
 				<span className="text-label text-muted-foreground">art. 51 § 8º</span>
 			</div>
 
 			{nonCompliant.length > 0 && (
-				<Alert variant="destructive" role="alert">
+				<Alert variant="destructive">
 					<WarningTriangle />
 					<AlertTitle>Conferir antes de despachar</AlertTitle>
 					<AlertDescription>
@@ -42,8 +42,10 @@ export function ExportPanel({ doc }: { doc: AssembledDocument }) {
 				</Alert>
 			)}
 
+			{/* `role="status"`: a lista muda a cada tecla digitada, e o `role="alert"` do primitivo
+			    relia tudo, do começo, interrompendo quem está preenchendo. */}
 			{pending.length > 0 && (
-				<Alert>
+				<Alert role="status">
 					<InfoCircle />
 					<AlertTitle>Falta preencher</AlertTitle>
 					<AlertDescription>
@@ -57,7 +59,8 @@ export function ExportPanel({ doc }: { doc: AssembledDocument }) {
 			)}
 
 			<CopyButton
-				label={doc.warnings.length > 0 ? "Copiar mesmo assim" : "Copiar documento inteiro"}
+				// "Mesmo assim" é para quem passa por cima da NORMA. Falta de NUP é só falta de NUP.
+				label={nonCompliant.length > 0 ? "Copiar mesmo assim" : "Copiar documento inteiro"}
 				text={toPlainText(doc)}
 				html={toHtml(doc)}
 				className="w-full"
@@ -119,7 +122,16 @@ function CopyButton({
 
 	return (
 		<div className={className}>
-			<Button type="button" variant={variant} size="sm" onClick={copy} aria-label={accessibleName} className={className ? "w-full justify-center" : undefined}>
+			<Button
+				type="button"
+				variant={variant}
+				size="sm"
+				onClick={copy}
+				// Enquanto o botão diz "Copiado", o nome acessível diz o mesmo: comando de voz
+				// procura o que está escrito na tela.
+				aria-label={accessibleName ? (state === "copied" ? `Copiado: ${accessibleName}` : accessibleName) : undefined}
+				className={className ? "w-full justify-center" : undefined}
+			>
 				{state === "copied" ? <Check className="size-4" /> : <Copy className="size-4" />}
 				{state === "copied" ? "Copiado" : label}
 			</Button>

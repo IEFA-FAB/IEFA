@@ -103,6 +103,9 @@ function LevelEditor({
 								onChange={(e) => applyAt(nodePath, (siblings, index) => siblings.map((n, k) => (k === index ? { ...n, text: e.target.value } : n)))}
 								rows={level === 1 ? 3 : 2}
 								placeholder={`Texto ${level === 1 ? "do parágrafo" : level === 2 ? "do item" : level === 3 ? "da alínea" : "da subalínea"}`}
+								// O marcador ao lado é um `span`: sem o nome aqui, esta é a principal superfície
+								// de escrita da ferramenta e se apresenta como N campos idênticos.
+								aria-label={`${LEVEL_LABELS[level - 1]} ${marker(nodePath)}`}
 								className="flex-1"
 							/>
 							<Button

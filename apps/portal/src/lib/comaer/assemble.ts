@@ -161,8 +161,12 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	const nonCompliant = (text: string, block?: BlockId) => findings.push({ text, severity: "nonCompliant", block })
 
 	// Documento em que ninguém escreveu nada ainda não tem o que conferir.
-	const started =
-		input.om.name.trim() !== "" || input.subject?.trim() !== "" || input.signer.name.trim() !== "" || input.paragraphs.some((p) => p.text.trim() !== "")
+	// O que conta como "começou" é o que SÓ o redator escreve: o assunto e o texto. A
+	// identidade (OM, signatário, localidade) nasce preenchida para quem tem perfil salvo —
+	// medir por ela devolvia a lista de pendências no documento em branco, justamente para
+	// quem configurou a ferramenta. `subject` é opcional: `undefined?.trim() !== ""` é
+	// verdadeiro e ligava a conferência sozinho.
+	const started = (input.subject ?? "").trim() !== "" || input.paragraphs.some((p) => p.text.trim() !== "")
 	if (!started) return findings
 
 	// ── O que falta preencher ────────────────────────────────────────────────
@@ -194,7 +198,7 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	}
 	if (input.scope === "externo" && input.signer.rank && rankInFull(input.signer.rank) === input.signer.rank) {
 		nonCompliant(
-			`Não sei escrever "${input.signer.rank}" por extenso, e em documento externo o posto vai por extenso (art. 26). Escolha o posto na lista do campo "Posto ou graduação".`,
+			`O posto "${input.signer.rank}" não está na lista de graus da FAB, e em documento externo o posto vai por extenso (art. 26). Escolha o posto no campo "Posto ou graduação".`,
 			"signatario"
 		)
 	}

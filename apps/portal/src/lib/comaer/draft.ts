@@ -132,3 +132,18 @@ export function isDirty(current: DocumentInput, saved: DocumentInput | null): bo
 		return true
 	}
 }
+
+/**
+ * O documento tem algo que valha guardar?
+ *
+ * Serve para o rascunho local não nascer da simples visita à tela: sem isto, abrir "Novo
+ * documento" e voltar deixava na biblioteca um cartão vazio para a pessoa descartar.
+ * Identidade semeada do perfil não conta — ela não foi escrita aqui.
+ */
+export function hasContent(document: DocumentInput): boolean {
+	return (
+		(document.subject ?? "").trim() !== "" ||
+		document.paragraphs.some((p) => p.text.trim() !== "") ||
+		document.recipients.some((r) => (r.position ?? "").trim() !== "")
+	)
+}

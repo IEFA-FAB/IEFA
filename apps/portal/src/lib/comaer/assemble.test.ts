@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { assembleDocument } from "./assemble"
 import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind } from "./catalog"
+import { newDocument } from "./draft"
 import { copyableFields, toHtml, toPlainText } from "./sigadaer"
 import type { DocumentInput } from "./types"
+import { seedFromProfile } from "./writer-profile"
 
 function base(over: Partial<DocumentInput> = {}): DocumentInput {
 	return {
@@ -294,3 +296,36 @@ describe("conferência em dois níveis", () => {
 function montarDocumentoEmBranco() {
 	return { ...base(), om: { name: "" }, subject: "", signer: { name: "" }, paragraphs: [{ text: "" }], nup: undefined, city: "" }
 }
+
+describe("documento intocado com perfil salvo", () => {
+	/**
+	 * A conferência mede "começou a escrever" pelo assunto e pelo texto, não pela identidade:
+	 * com perfil salvo, a OM, o signatário e a localidade já nascem preenchidos, e medir por
+	 * eles devolvia a lista inteira de pendências no documento em branco — justamente para
+	 * quem configurou a ferramenta.
+	 */
+	it("não aponta nada quando só a identidade veio do perfil", () => {
+		const seeded = seedFromProfile(newDocument(), {
+			om_name: "Base Aérea de Anápolis",
+			om_acronym: "BAAN",
+			om_sector: "GAB",
+			om_address: null,
+			om_phone: null,
+			om_email: null,
+			city: "Anápolis",
+			nup_prefix: null,
+			signer_name: "Fulano de Tal",
+			signer_rank: "Cel",
+			signer_quadro: "Int",
+			signer_position: "Diretor",
+		})
+		expect(assembleDocument(seeded).warnings).toEqual([])
+	})
+
+	it("não aponta nada quando o assunto vem indefinido no payload", () => {
+		// `subject` é opcional: `undefined?.trim() !== ""` é VERDADEIRO e ligava a conferência
+		// sozinho, em todo documento cujo payload não trazia a chave.
+		const { subject: _subject, ...rest } = newDocument()
+		expect(assembleDocument(rest).warnings).toEqual([])
+	})
+})

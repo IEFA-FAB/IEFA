@@ -73,7 +73,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 
 					<Field id="kind" label="Espécie">
 						<Select value={input.kind} onValueChange={(value) => onChange({ kind: value as string })}>
-							<SelectTrigger id="kind" className="w-full">
+							<SelectTrigger id="kind" aria-describedby="kind-hint" className="w-full">
 								<SelectValue>{kind.label}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
@@ -265,7 +265,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 								onChange={(e) => onChange({ addressing: { formOfAddress: "senhoria", gender: "m", ...input.addressing, position: e.target.value } })}
 							/>
 						</Field>
-						<Field id="recipient-gender" label="Gênero do tratamento">
+						<Field label="Gênero do tratamento">
 							<GenderToggle
 								id="recipient-gender"
 								label="Gênero do tratamento"
@@ -311,11 +311,18 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
 							<EditableList
 								label="Referências"
+								itemLabel="Referência"
 								items={input.references ?? []}
 								onChange={(references) => onChange({ references })}
 								placeholder="Ofício nº 136/DP/1288, de 06 mar. 2026, do GAP-AF"
 							/>
-							<EditableList label="Anexos" items={input.annexes ?? []} onChange={(annexes) => onChange({ annexes })} placeholder="Três folhas de alterações" />
+							<EditableList
+								label="Anexos"
+								itemLabel="Anexo"
+								items={input.annexes ?? []}
+								onChange={(annexes) => onChange({ annexes })}
+								placeholder="Três folhas de alterações"
+							/>
 						</div>
 					)}
 				</Section>
@@ -411,7 +418,7 @@ function Section({ title, legalBasis, children }: { title: string; legalBasis: s
 	return (
 		<section className="border border-border p-4">
 			<div className="flex items-baseline justify-between gap-3 mb-4">
-				<h3 className="text-label text-foreground">{title}</h3>
+				<h2 className="text-label text-foreground">{title}</h2>
 				<span className="text-label text-muted-foreground">{legalBasis}</span>
 			</div>
 			{children}
@@ -427,7 +434,8 @@ function Field({
 	className,
 	children,
 }: {
-	id: string
+	/** Ausente quando o campo é um grupo: `<fieldset>` não é rotulável por `<label>`. */
+	id?: string
 	label: string
 	hint?: ReactNode
 	required?: boolean
@@ -491,13 +499,25 @@ function PartyField({ id, label, parte, onChange }: { id: string; label: string;
 					onChange={(e) => onChange({ ...parte, position: e.target.value })}
 					placeholder="Diretor do Instituto de Economia e Finanças da Aeronáutica"
 				/>
-				<GenderToggle label={`Concordância — ${label}`} value={parte.gender ?? "m"} onChange={(gender) => onChange({ ...parte, gender })} />
+				<GenderToggle label={`Concordância: ${label}`} value={parte.gender ?? "m"} onChange={(gender) => onChange({ ...parte, gender })} />
 			</div>
 		</div>
 	)
 }
 
-function EditableList({ label, items, onChange, placeholder }: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
+function EditableList({
+	label,
+	itemLabel,
+	items,
+	onChange,
+	placeholder,
+}: {
+	label: string
+	itemLabel: string
+	items: string[]
+	onChange: (items: string[]) => void
+	placeholder?: string
+}) {
 	return (
 		<div className="flex flex-col gap-2">
 			<Label>{label}</Label>
@@ -521,7 +541,7 @@ function EditableList({ label, items, onChange, placeholder }: { label: string; 
 				</div>
 			))}
 			<Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange([...items, ""])}>
-				<Plus className="size-4" /> Adicionar
+				<Plus className="size-4" /> {itemLabel}
 			</Button>
 		</div>
 	)

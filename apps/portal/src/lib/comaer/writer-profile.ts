@@ -56,34 +56,40 @@ function value(field: string | null | undefined): string {
  */
 export function seedFromProfile(document: DocumentInput, profile: WriterProfile | null): DocumentInput {
 	if (!profile) return document
+	// Preenche o VAZIO, nunca por cima. O perfil chega por consulta assíncrona: quem digita a
+	// localidade ou o NUP antes dela responder perdia os dois, e isso não é turno de conversa
+	// — não havia como desfazer.
+	const fill = (current: string | undefined, stored: string | null | undefined): string => ((current ?? "").trim() === "" ? value(stored) : (current ?? ""))
 	return {
 		...document,
 		om: {
-			name: value(profile.om_name),
-			acronym: value(profile.om_acronym),
-			sector: value(profile.om_sector),
-			address: value(profile.om_address),
-			phone: value(profile.om_phone),
-			email: value(profile.om_email),
+			name: fill(document.om.name, profile.om_name),
+			acronym: fill(document.om.acronym, profile.om_acronym),
+			sector: fill(document.om.sector, profile.om_sector),
+			address: fill(document.om.address, profile.om_address),
+			phone: fill(document.om.phone, profile.om_phone),
+			email: fill(document.om.email, profile.om_email),
 		},
-		city: value(profile.city),
-		nup: value(profile.nup_prefix),
+		city: fill(document.city, profile.city),
+		nup: fill(document.nup, profile.nup_prefix),
 		signer: {
-			name: value(profile.signer_name),
-			rank: value(profile.signer_rank),
-			quadro: value(profile.signer_quadro),
-			position: value(profile.signer_position),
-			om: value(profile.om_acronym),
+			name: fill(document.signer.name, profile.signer_name),
+			rank: fill(document.signer.rank, profile.signer_rank),
+			quadro: fill(document.signer.quadro, profile.signer_quadro),
+			position: fill(document.signer.position, profile.signer_position),
+			om: fill(document.signer.om, profile.om_acronym),
 		},
 	}
 }
 
 /** O que o formulário mostra como "faltando no seu perfil" — não é erro, é convite. */
 export function missingProfileFields(profile: WriterProfile | null): string[] {
-	if (!profile) return ["OM", "signatário", "localidade"]
+	// Os nomes são os RÓTULOS dos campos: "OM" mandava a pessoa procurar um campo com esse
+	// nome, que não existe atrás do botão Editar.
+	if (!profile) return ["Nome da OM", "Nome do signatário", "Localidade padrão"]
 	const missing: string[] = []
-	if (!value(profile.om_name)) missing.push("OM")
-	if (!value(profile.signer_name)) missing.push("signatário")
-	if (!value(profile.city)) missing.push("localidade")
+	if (!value(profile.om_name)) missing.push("Nome da OM")
+	if (!value(profile.signer_name)) missing.push("Nome do signatário")
+	if (!value(profile.city)) missing.push("Localidade padrão")
 	return missing
 }
