@@ -165,7 +165,22 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 		const userId = await requireUserId()
 		// Exclusão lógica: o documento pode já ter virado expediente no SIGADAER, e a
 		// versão que o originou é o que explica o que foi despachado.
-		const { data: linha, error } = await getDocumentsServerClient()
+		const db = getDocumentsServerClient()
+
+		// A conversa morre com o documento, ainda que o documento só saia de vista: ela guarda
+		// pedido em linguagem natural, às vezes mais revelador que o próprio expediente.
+		//
+		// Ela vai PRIMEIRO, e é o que decide a ordem: apagada depois, uma falha aqui deixava a
+		// conversa órfã com o documento já invisível — e a tela mandava tentar de novo, coisa
+		// que o filtro `deleted_at is null` do passo seguinte tornava impossível. Falhando
+		// antes, nada mudou e o "tentar de novo" funciona de verdade.
+		const removed = await db.from("chat_message").delete().eq("document_id", data.id).eq("owner_id", userId)
+		if (removed.error) {
+			setResponseStatus(500)
+			throw new Error("Não deu para excluir o documento agora. Nada foi alterado; tente de novo.", { cause: removed.error })
+		}
+
+		const { data: linha, error } = await db
 			.from("official_document")
 			.update({ deleted_at: new Date().toISOString() })
 			.eq("id", data.id)
@@ -178,16 +193,5 @@ export const deleteDocumentFn = createServerFn({ method: "POST" })
 			throw new Error("Não deu para excluir o documento agora.", { cause: error })
 		}
 		if (!linha) notFound()
-
-		// A conversa morre com o documento, ainda que o documento só saia de vista: ela
-		// guarda pedido em linguagem natural, às vezes mais revelador que o próprio
-		// expediente, e não tem por que sobreviver ao que ajudou a construir.
-		// A tela promete, duas vezes, que a conversa é apagada. Descartar o erro daqui deixaria
-		// texto em linguagem natural para trás com a promessa dada.
-		const removed = await getDocumentsServerClient().from("chat_message").delete().eq("document_id", data.id).eq("owner_id", userId)
-		if (removed.error) {
-			setResponseStatus(500)
-			throw new Error("O documento foi excluído, mas a conversa dele não. Tente excluir de novo; se persistir, avise a equipe do portal.")
-		}
 		return { id: linha.id as string }
 	})

@@ -35,10 +35,17 @@ export function ChatPanel({
 	/** O editor precisa saber que há um turno em curso para não salvar pela metade. */
 	onStreamingChange?: (streaming: boolean) => void
 }) {
+	// Sem `staleTime`/`refetchOnWindowFocus`, voltar para a aba no meio de um turno refazia a
+	// consulta, o histórico voltava mais longo, a `key` abaixo mudava e o `useChat` remontava
+	// — abortando o stream em curso. Quem escreve aqui é este mesmo painel: não há segunda
+	// fonte para o histórico ficar desatualizado.
 	const history = useQuery({
 		queryKey: ["chat-history", documentId],
 		queryFn: () => (documentId ? loadChatHistoryFn({ data: { documentId } }) : Promise.resolve([])),
 		enabled: Boolean(documentId),
+		staleTime: Number.POSITIVE_INFINITY,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
 	})
 
 	// `useChat` lê `initialMessages` UMA vez, na montagem. O histórico chega depois, então a
@@ -54,7 +61,9 @@ export function ChatPanel({
 
 	return (
 		<Conversation
-			key={`${documentId ?? "novo"}:${history.data?.length ?? 0}`}
+			// A `key` distingue "antes" de "depois" do histórico chegar, e nada além disso: o
+			// tamanho da conversa mudava a cada turno gravado e remontava o painel.
+			key={`${documentId ?? "novo"}:${history.isSuccess ? "carregado" : "vazio"}`}
 			document={document}
 			documentId={documentId}
 			history={history.data ?? []}

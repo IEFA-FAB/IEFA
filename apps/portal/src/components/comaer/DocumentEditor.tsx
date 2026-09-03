@@ -10,7 +10,7 @@ import { IdentityPanel } from "@/components/comaer/IdentityPanel"
 import { ImportPanel } from "@/components/comaer/ImportPanel"
 import { Button } from "@/components/ui/button"
 import { assembleDocument } from "@/lib/comaer/assemble"
-import { findKind } from "@/lib/comaer/catalog"
+import { resolveKind } from "@/lib/comaer/catalog"
 import { clearDraft, documentDraftKey, hasContent, isDirty, loadDraft, newDocument, saveDraft } from "@/lib/comaer/draft"
 import {
 	applyChatPatch,
@@ -139,8 +139,8 @@ export function DocumentEditor({
 		setState((current) => initialEditorState(seedFromProfile(current.document, loaded)))
 	}, [storedProfile.data, restored, isDraft])
 
-	const kind = findKind(input.kind) ?? findKind("oficio-comaer")
-	const doc = useMemo(() => (kind ? assembleDocument({ ...input, kind: kind.id }) : null), [input, kind])
+	const kind = resolveKind(input.kind)
+	const doc = useMemo(() => assembleDocument({ ...input, kind: kind.id }), [input, kind])
 
 	const dirty = isDraft ? false : isDirty(input, baseline)
 
@@ -215,8 +215,6 @@ export function DocumentEditor({
 		setMode(next)
 		localStorage.setItem(MODE_KEY, next)
 	}
-
-	if (!kind || !doc) return null
 
 	// A conferência separa "falta preencher" de "contraria a norma"; o contador do cabeçalho
 	// chamava as duas coisas de "pendência" e desfazia a separação na única linha que a

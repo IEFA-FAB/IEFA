@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { assembleDocument } from "./assemble"
-import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind } from "./catalog"
+import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind, resolveKind } from "./catalog"
 import { newDocument } from "./draft"
 import { copyableFields, toHtml, toPlainText } from "./sigadaer"
 import type { DocumentInput } from "./types"
@@ -327,5 +327,23 @@ describe("documento intocado com perfil salvo", () => {
 		// sozinho, em todo documento cujo payload não trazia a chave.
 		const { subject: _subject, ...rest } = newDocument()
 		expect(assembleDocument(rest).warnings).toEqual([])
+	})
+})
+
+describe("espécie fora do catálogo", () => {
+	/**
+	 * `kind` é `z.string()` no payload de propósito: restringi-lo tornaria inabrível um
+	 * documento salvo com espécie que depois saísse da lista. O preço é que todo consumidor
+	 * precisa cair para algum lugar — a rota da conversa não caía, e um documento assim
+	 * renderizava normal na tela e derrubava toda mensagem enviada.
+	 */
+	it("a montagem lança, e é por isso que quem monta passa pelo `resolveKind`", () => {
+		expect(() => assembleDocument({ ...newDocument(), kind: "portaria-inexistente" })).toThrow()
+		expect(resolveKind("portaria-inexistente").id).toBe("oficio-comaer")
+		expect(() => assembleDocument({ ...newDocument(), kind: resolveKind("portaria-inexistente").id })).not.toThrow()
+	})
+
+	it("espécie conhecida atravessa intacta", () => {
+		expect(resolveKind("requerimento").id).toBe("requerimento")
 	})
 })

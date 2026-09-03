@@ -23,7 +23,7 @@ const partySchema = {
 		gender: { type: "string", enum: ["m", "f"], description: "concordância do artigo: m = Do/Ao, f = Da/À" },
 		via: { type: "string", description: "autoridade intermediária, quando o documento tramita via cadeia de comando" },
 	},
-	required: ["cargo"],
+	required: ["position"],
 } as const
 
 const paragraphSchema = {
@@ -42,17 +42,17 @@ const paragraphSchema = {
 							type: "object",
 							properties: {
 								text: { type: "string" },
-								subalineas: { type: "array", items: { type: "object", properties: { text: { type: "string" } }, required: ["texto"] } },
+								subalineas: { type: "array", items: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
 							},
-							required: ["texto"],
+							required: ["text"],
 						},
 					},
 				},
-				required: ["texto"],
+				required: ["text"],
 			},
 		},
 	},
-	required: ["texto"],
+	required: ["text"],
 } as const
 
 export const aiProposalJsonSchema = {
@@ -85,5 +85,5 @@ export const aiProposalJsonSchema = {
 		references: { type: "array", items: { type: "string" } },
 		annexes: { type: "array", items: { type: "string" } },
 	},
-	required: ["paragrafos"],
+	required: ["paragraphs"],
 } as const

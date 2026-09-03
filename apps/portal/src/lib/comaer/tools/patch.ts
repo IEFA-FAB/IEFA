@@ -86,12 +86,24 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 		}
 
 		case "set_parties": {
+			const asGender = (value: unknown): "m" | "f" | undefined => (value === "m" || value === "f" ? value : undefined)
+			// `null` de dentro de array chega INTEIRO: a poda do boundary não desce em array, de
+			// propósito (posição em array é significativa). Copiar `gender`/`via` como vieram
+			// gravava `null` num campo `.optional()` — o documento parava de serializar, o salvar
+			// falhava, o rascunho local parava em silêncio e todo turno seguinte ia sem contexto.
 			const recipients = Array.isArray(args.recipients)
-				? (args.recipients as { position?: string; gender?: "m" | "f"; via?: string }[])
+				? (args.recipients as { position?: unknown; gender?: unknown; via?: unknown }[])
 						.filter((r) => typeof r.position === "string" && r.position.trim() !== "")
-						.map((r) => ({ position: r.position as string, gender: r.gender, via: r.via }))
+						.map((r) => ({
+							position: r.position as string,
+							gender: asGender(r.gender),
+							via: typeof r.via === "string" && r.via.trim() !== "" ? r.via : undefined,
+						}))
 				: undefined
-			const sender = args.sender as { position?: string; gender?: "m" | "f" } | undefined
+			const rawSender = args.sender as { position?: unknown; gender?: unknown } | null | undefined
+			const sender = rawSender
+				? { position: typeof rawSender.position === "string" ? rawSender.position : undefined, gender: asGender(rawSender.gender) }
+				: undefined
 			const addressing = args.addressing as DocumentInput["addressing"] | undefined
 			const next: DocumentInput = {
 				...document,

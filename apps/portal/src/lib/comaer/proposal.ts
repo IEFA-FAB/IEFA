@@ -20,7 +20,12 @@ export function applyProposal(current: DocumentInput, proposal: AiProposal): Doc
 	// admite (ofício externo dentro do COMAER, declaração entre OM).
 	const { kind, scope } = reconcileKindAndScope({ kind: current.kind, scope: current.scope }, { kind: proposal.kind, scope: proposal.scope })
 
-	const recipients = proposal.recipients?.filter((d) => d.position.trim() !== "")
+	// `null` do modelo em campo `.nullish()` da proposta não pode virar `null` no documento,
+	// cujo `gender`/`via` são `.optional()`: o documento pararia de serializar, e a falha
+	// apareceria só no salvar, longe daqui.
+	const recipients = proposal.recipients
+		?.filter((d) => d.position.trim() !== "")
+		.map((d) => ({ position: d.position, gender: d.gender ?? undefined, via: d.via ?? undefined }))
 
 	return {
 		...current,
@@ -28,7 +33,11 @@ export function applyProposal(current: DocumentInput, proposal: AiProposal): Doc
 		scope,
 		priority: proposal.priority ?? current.priority,
 		precedence: proposal.precedence ?? current.precedence,
-		sender: proposal.sender?.position.trim() ? { ...current.sender, ...proposal.sender } : current.sender,
+		// Campo a campo, como o endereçamento logo abaixo: o `parse` da proposta EMITE a chave
+		// `gender` mesmo ausente, e o espalhamento apagava a concordância já escolhida.
+		sender: proposal.sender?.position.trim()
+			? { position: proposal.sender.position, gender: proposal.sender.gender ?? current.sender?.gender }
+			: current.sender,
 		recipients: recipients?.length ? recipients : current.recipients,
 		// Só o que veio preenchido: um endereçamento parcial não pode zerar o tratamento já
 		// escolhido nem o gênero da concordância.

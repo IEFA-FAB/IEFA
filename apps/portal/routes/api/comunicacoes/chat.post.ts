@@ -21,6 +21,7 @@ import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { assembleDocument } from "@/lib/comaer/assemble"
+import { resolveKind } from "@/lib/comaer/catalog"
 import { buildChatSystemPrompt, describeDocument } from "@/lib/comaer/prompt"
 import { DocumentPayloadSchema, fromPayload } from "@/lib/comaer/schema"
 import { buildChatTools } from "@/lib/comaer/tools/server"
@@ -73,7 +74,10 @@ export default defineHandler(async (event: H3Event) => {
 		throw error
 	}
 
-	const assembled = assembleDocument(document)
+	// A espécie passa pela mesma queda que a folha e a biblioteca já fazem: `assembleDocument`
+	// LANÇA para espécie fora do catálogo, e um documento gravado assim renderizava normal na
+	// tela e derrubava toda mensagem enviada, com 500 e sem explicação.
+	const assembled = assembleDocument({ ...document, kind: resolveKind(document.kind).id })
 	const adapter = createAdapterFromEnv("PORTAL", { rateLimitKey: user.id })
 
 	const stream = chat({

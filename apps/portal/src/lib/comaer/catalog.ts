@@ -276,6 +276,22 @@ export const DOCUMENT_KINDS: readonly DocumentKind[] = [
 	},
 ]
 
+/**
+ * A espécie de um documento gravado, com queda para o ofício entre OM.
+ *
+ * `kind` é `z.string()` no payload de propósito: restringir ao catálogo tornaria inabrível
+ * um documento salvo com espécie que depois saísse da lista. O preço é que TODO consumidor
+ * precisa cair para algum lugar — a folha e a biblioteca caíam, e a rota da conversa
+ * lançava, então o documento aparecia normal na tela e derrubava toda mensagem enviada.
+ */
+export function resolveKind(id: string): DocumentKind {
+	const found = findKind(id)
+	if (found) return found
+	const fallback = findKind("oficio-comaer")
+	if (!fallback) throw new Error("Catálogo de espécies vazio.")
+	return fallback
+}
+
 export function findKind(id: string): DocumentKind | undefined {
 	return DOCUMENT_KINDS.find((e) => e.id === id)
 }

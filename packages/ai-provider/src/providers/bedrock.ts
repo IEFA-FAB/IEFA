@@ -114,8 +114,12 @@ function contentBlocksFromMessage(msg: TextOptions["messages"][number]): Content
 		let documents = 0
 		let images = 0
 		for (const part of msg.content) {
-			if (part.type === "text" && part.content) {
-				blocks.push({ text: part.content })
+			if (part.type === "text") {
+				// Texto vazio é texto, não parte desconhecida: o `else` abaixo existe para tipo que
+				// o adapter não sabe enviar. Resposta só com gráfico é persistida com conteúdo
+				// vazio no sisub e volta como parte de texto vazia — derrubá-la mataria a
+				// conversa inteira ao reabrir.
+				if (part.content) blocks.push({ text: part.content })
 			} else if (part.type === "image" && part.source.type === "data") {
 				images += 1
 				if (images > MAX_IMAGES_PER_MESSAGE) throw new Error(`Bedrock aceita no máximo ${MAX_IMAGES_PER_MESSAGE} imagens por mensagem.`)

@@ -63,3 +63,23 @@ describe("blocos de conteúdo", () => {
 		expect(blocks.some((b) => "image" in b)).toBe(true)
 	})
 })
+
+describe("parte de texto vazia", () => {
+	/**
+	 * O `throw` de parte não suportada existe para tipo que o adapter não sabe enviar. Texto
+	 * vazio não é isso: o sisub grava resposta só com gráfico com conteúdo vazio e a reenvia
+	 * como parte de texto vazia. Tratá-la como desconhecida derrubava a conversa ao reabrir.
+	 */
+	it("é ignorada, não tratada como parte desconhecida", () => {
+		const soVazio = { role: "assistant", content: [{ type: "text", content: "" }] } as Parameters<typeof toBlocks>[0]
+		const comTexto = {
+			role: "assistant",
+			content: [
+				{ type: "text", content: "" },
+				{ type: "text", content: "Segue." },
+			],
+		} as Parameters<typeof toBlocks>[0]
+		expect(() => toBlocks(soVazio)).not.toThrow()
+		expect(toBlocks(comTexto)).toEqual([{ text: "Segue." }])
+	})
+})

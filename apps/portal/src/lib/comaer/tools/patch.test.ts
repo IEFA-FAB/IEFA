@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { newDocument } from "../draft"
+import { toPayload } from "../schema"
 import { CHAT_TOOLS, dropModelNulls } from "./definitions"
 import { applyPatch, PatchError } from "./patch"
 
@@ -70,5 +71,29 @@ describe("contrato das tools", () => {
 	it("a poda não desce em array — posição em array é significativa", () => {
 		const args = dropModelNulls({ recipients: [{ position: "COMGEP", via: null }] })
 		expect(args.recipients).toEqual([{ position: "COMGEP", via: null }])
+	})
+})
+
+describe("null do modelo dentro de array", () => {
+	/**
+	 * `dropModelNulls` não desce em array, de propósito: posição em array é significativa.
+	 * O `null` aninhado chega inteiro, e `ParteSchema.gender` é `.optional()`, não `.nullish()`.
+	 * Copiá-lo como veio gravava `null` no documento: `toPayload` passava a lançar, o salvar
+	 * falhava, o rascunho local parava em silêncio e todo turno seguinte ia sem contexto.
+	 */
+	it("um destinatário com `gender` e `via` nulos ainda produz documento serializável", () => {
+		const patch = applyPatch(newDocument(), "set_parties", {
+			recipients: [{ position: "Chefe do COMGEP", gender: null, via: null }],
+			sender: { position: "Chefe da Divisão de Ensino", gender: null },
+		})
+
+		expect(patch.document.recipients[0]).toEqual({ position: "Chefe do COMGEP", gender: undefined, via: undefined })
+		expect(() => toPayload(patch.document)).not.toThrow()
+	})
+
+	it("gênero fora do enum é descartado em vez de gravado", () => {
+		const patch = applyPatch(newDocument(), "set_parties", { recipients: [{ position: "Chefe do COMGEP", gender: "masculino" }] })
+		expect(patch.document.recipients[0]?.gender).toBeUndefined()
+		expect(() => toPayload(patch.document)).not.toThrow()
 	})
 })
