@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-ofici
 		return { document: fromPayload(document.payload), id: document.id }
 	},
 	component: DocumentRoute,
-	head: () => ({ meta: [{ title: "Comunicações Oficiais — Portal IEFA" }] }),
+	head: () => ({ meta: [{ title: "Comunicações Oficiais | Portal IEFA" }] }),
 })
 
 function DocumentRoute() {

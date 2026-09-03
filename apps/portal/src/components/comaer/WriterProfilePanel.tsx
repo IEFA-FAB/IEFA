@@ -16,10 +16,10 @@ const FIELDS: { key: keyof WriterProfile; label: string; placeholder?: string }[
 	{ key: "om_phone", label: "Telefone", placeholder: "(21) 2101-0000" },
 	{ key: "om_email", label: "E-mail institucional", placeholder: "gabinete@fab.mil.br" },
 	{ key: "nup_prefix", label: "Prefixo do NUP", placeholder: "68000" },
-	{ key: "signer_name", label: "Signatário — nome", placeholder: "Fulano de Tal" },
-	{ key: "signer_rank", label: "Signatário — posto", placeholder: "Cel" },
-	{ key: "signer_quadro", label: "Signatário — quadro", placeholder: "Int" },
-	{ key: "signer_position", label: "Signatário — cargo", placeholder: "Diretor" },
+	{ key: "signer_name", label: "Nome do signatário", placeholder: "Fulano de Tal" },
+	{ key: "signer_rank", label: "Posto do signatário", placeholder: "Cel" },
+	{ key: "signer_quadro", label: "Quadro do signatário", placeholder: "Int" },
+	{ key: "signer_position", label: "Cargo do signatário", placeholder: "Diretor" },
 ]
 
 /**

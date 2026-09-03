@@ -44,6 +44,12 @@
 
 /* ---- LIGHT MODE ---- */
 :root {
+  /* Papel e tinta da folha A4: constantes nos dois temas, porque a folha É o documento
+     impresso — não é superfície da interface. Tingidos para o mesmo quente do canvas;
+     branco e preto absolutos endurecem a página inteira. */
+  --paper:                 oklch(0.9950 0.002 98);
+  --ink:                   oklch(0.1500 0.004 98);
+
   /* Canvas: off-white levemente quente — papel, não néon */
   --background:            oklch(0.9875 0.003 98);
   --foreground:            oklch(0.1000 0 0);
@@ -298,6 +304,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border:            var(--sidebar-border);
   --color-sidebar-ring:              var(--sidebar-ring);
+
+  --color-paper:                     var(--paper);
+  --color-ink:                       var(--ink);
 
   --font-sans:  var(--font-sans);
   --font-mono:  var(--font-mono);

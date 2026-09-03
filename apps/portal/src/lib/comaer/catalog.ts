@@ -59,10 +59,17 @@ export interface DocumentKind {
 
 const OFICIO_BLOCKS = ["timbre", "epigrafe", "numeracao", "nup", "preambulo", "ementa", "texto", "signatario"] as const satisfies readonly BlockId[]
 
+/**
+ * O rótulo do ofício externo é citado pela conferência de conformidade: é a espécie que a
+ * pessoa deve escolher quando quer o fecho de cortesia. Fica aqui para que renomear a
+ * espécie renomeie também a explicação.
+ */
+export const EXTERNAL_OFICIO_LABEL = "Ofício a órgão externo ao COMAER"
+
 export const DOCUMENT_KINDS: readonly DocumentKind[] = [
 	{
 		id: "oficio-interno-om",
-		label: "Ofício — trâmite interno à OM",
+		label: "Ofício interno à OM",
 		numberingLabel: "Ofício",
 		description: "Circula entre setores da própria Organização Militar. Numeração só com sequencial e sigla do setor.",
 		legalBasis: "Anexo I, art. 51, § 5º",
@@ -76,7 +83,7 @@ export const DOCUMENT_KINDS: readonly DocumentKind[] = [
 	},
 	{
 		id: "oficio-comaer",
-		label: "Ofício — entre OM do COMAER",
+		label: "Ofício entre OM do COMAER",
 		numberingLabel: "Ofício",
 		description: "Documento padrão de comunicação administrativa entre Organizações Militares. Admite caráter circular ou DIFRAL.",
 		legalBasis: "Anexo I, art. 51, § 8º",
@@ -90,7 +97,7 @@ export const DOCUMENT_KINDS: readonly DocumentKind[] = [
 	},
 	{
 		id: "oficio-externo",
-		label: "Ofício — órgão externo ao COMAER",
+		label: EXTERNAL_OFICIO_LABEL,
 		numberingLabel: "Ofício",
 		description: "Segue a diagramação do Manual de Redação da Presidência da República: endereçamento, vocativo e fecho de cortesia.",
 		legalBasis: "Anexo I, art. 51, § 9º",
@@ -104,7 +111,7 @@ export const DOCUMENT_KINDS: readonly DocumentKind[] = [
 	},
 	{
 		id: "oficio-particular",
-		label: "Ofício — interesse particular (s/nº)",
+		label: "Ofício de interesse particular (s/nº)",
 		numberingLabel: "Ofício",
 		description: "Assunto de interesse particular do agente público: epígrafe só com o nome da OM, sem número e sem cargo no signatário.",
 		legalBasis: "Anexo I, art. 51, § 6º e § 7º",

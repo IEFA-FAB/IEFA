@@ -26,7 +26,7 @@ export function A4Sheet({
 	return (
 		<div
 			data-sheet
-			className="bg-white text-black w-[210mm] min-h-[297mm] border border-border shadow-none pt-[2cm] pr-[2cm] pb-[2cm] pl-[3cm] print:border-0 print:w-auto print:min-h-0 print:p-0"
+			className="bg-paper text-ink w-[210mm] min-h-[297mm] border border-border shadow-none pt-[2cm] pr-[2cm] pb-[2cm] pl-[3cm] print:border-0 print:w-auto print:min-h-0 print:p-0"
 			style={{ fontFamily: "Calibri, Carlito, Segoe UI, sans-serif", fontSize: "12pt", lineHeight: 1.35 }}
 		>
 			{doc.blocks.map((bloco) => (
@@ -43,14 +43,14 @@ export function A4Sheet({
 							? // Preto fixo, não `--foreground`: a folha é sempre branca, e o token de tema
 								// deixava o destaque branco-sobre-branco no tema escuro — o único sinal de
 								// que a IA mexeu no documento sumia para metade dos usuários.
-								"outline outline-2 outline-offset-2 outline-black/60 print:outline-none"
+								"outline outline-2 outline-offset-2 outline-ink/70 print:outline-none"
 							: withFinding.has(bloco.id)
-								? "outline outline-1 outline-offset-2 outline-dashed outline-black/30 print:outline-none"
+								? "outline outline-1 outline-offset-2 outline-dashed outline-ink/35 print:outline-none"
 								: ""
 					}`}
 					// Equivalente textual: o contorno é visual, e "3 alterações neste turno" não diz
 					// ONDE sem isto.
-					aria-label={`${bloco.label}${highlight.includes(bloco.id) ? " — alterado neste turno" : ""}${withFinding.has(bloco.id) ? " — com pendência" : ""}`}
+					aria-label={`${bloco.label}${highlight.includes(bloco.id) ? ", alterado neste turno" : ""}${withFinding.has(bloco.id) ? ", com pendência" : ""}`}
 				>
 					{bloco.lines.map((linha, i) => (
 						<SheetLine key={`${bloco.id}-${i}`} linha={linha} onEdit={onEdit} />
@@ -179,9 +179,9 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 				onClick={() => setEditing(true)}
 				// Sublinhado pontilhado permanente: em toque não existe hover, e sem uma marca
 				// visível a folha parece estática — ninguém descobre que dá para corrigir aqui.
-				className={`${className} block w-full text-inherit bg-transparent border-0 p-0 cursor-text underline decoration-dotted decoration-black/25 underline-offset-4 hover:bg-black/[0.04] hover:decoration-black/60 print:no-underline print:hover:bg-transparent`}
+				className={`${className} block w-full text-inherit bg-transparent border-0 p-0 cursor-text underline decoration-dotted decoration-ink/25 underline-offset-4 hover:bg-ink/[0.05] hover:decoration-ink/60 print:no-underline print:hover:bg-transparent`}
 				style={style}
-				aria-label={`${line.text} — editar esta linha`}
+				aria-label={`Editar esta linha: ${line.text}`}
 			>
 				{line.bold ? <strong>{line.text}</strong> : line.text}
 			</button>
@@ -210,7 +210,7 @@ function EditableLine({ line, className, style, onCommit }: { line: Line; classN
 			// Conta as quebras de linha, não só o comprimento: parágrafo com quebras abria com
 			// altura errada e o texto sumia para fora do campo.
 			rows={Math.max(1, value.split("\n").length, Math.ceil(value.length / 90))}
-			className={`${className} block w-full bg-transparent border border-black/40 p-0 resize-none font-[inherit] text-[inherit] leading-[inherit] print:border-0`}
+			className={`${className} block w-full bg-transparent border border-ink/40 p-0 resize-none font-[inherit] text-[inherit] leading-[inherit] print:border-0`}
 			style={style}
 			aria-label="Editar esta linha do documento. Ctrl+Enter confirma, Esc descarta."
 		/>

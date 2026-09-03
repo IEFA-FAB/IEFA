@@ -110,7 +110,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 							<Campo
 								id={field("organization")}
 								label="Numeração de ordem geral da organização"
-								hint="O contador único da OM — o último número da linha: Ofício nº 34/GAB/255 (art. 31 § 1º, IV)."
+								hint="O contador único da OM, o último número da linha: Ofício nº 34/GAB/255 (art. 31 § 1º, IV)."
 							>
 								<Input
 									id={field("organization")}
@@ -125,7 +125,7 @@ export function IdentityPanel({ input, kind, onChange }: { input: DocumentInput;
 				)}
 
 				{kind.blocks.includes("nup") && (
-					<Campo id={field("nup")} label="Protocolo COMAER (NUP)" hint="Peça ao protocolo da OM ou copie o do processo no SIGADAER — são 17 dígitos." required>
+					<Campo id={field("nup")} label="Protocolo COMAER (NUP)" hint="Peça ao protocolo da OM ou copie o do processo no SIGADAER. São 17 dígitos." required>
 						<Input
 							id={field("nup")}
 							aria-describedby={`${field("nup")}-hint`}

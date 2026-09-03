@@ -23,11 +23,11 @@ import type { Classification, DocumentInput, Party, Scope } from "@/lib/comaer/t
 const SCOPES: { value: Scope; label: string; hint: string }[] = [
 	{ value: "interno-om", label: "Interno à OM", hint: "Tramita entre setores da própria Organização Militar." },
 	{ value: "comaer", label: "Entre OM do COMAER", hint: "Documento interno ao Comando da Aeronáutica." },
-	{ value: "externo", label: "Externo ao COMAER", hint: "Órgão externo ou particular — posto e cargo por extenso." },
+	{ value: "externo", label: "Externo ao COMAER", hint: "Órgão externo ou particular. Posto e cargo por extenso." },
 ]
 
 const CLASSIFICATIONS: { value: Classification; label: string }[] = [
-	{ value: "ostensivo", label: "Ostensivo — sem restrição de acesso" },
+	{ value: "ostensivo", label: "Ostensivo (sem restrição de acesso)" },
 	{ value: "reservado", label: "Reservado (R-)" },
 	{ value: "secreto", label: "Secreto (S-)" },
 	{ value: "ultrassecreto", label: "Ultrassecreto (US-)" },

@@ -304,9 +304,9 @@ function Conversation({
 /** Erro de provider e de rede chegam crus; o que a pessoa precisa saber é o que fazer. */
 function friendlyError(error: Error): string {
 	const message = error.message ?? ""
-	if (/429/.test(message)) return "Muitos pedidos em pouco tempo — aguarde alguns segundos e envie de novo."
+	if (/429/.test(message)) return "Muitos pedidos em pouco tempo. Aguarde alguns segundos e envie de novo."
 	if (/503|indispon/i.test(message))
-		return "A redação assistida está fora do ar. Escreva o texto no formulário — a folha e a cópia para o SIGADAER continuam funcionando."
+		return "A redação assistida está fora do ar. Escreva o texto no formulário: a folha e a cópia para o SIGADAER continuam funcionando."
 	if (/fetch|network|Failed to fetch/i.test(message)) return "Sem conexão com o servidor."
 	return "A redação assistida não conseguiu responder."
 }

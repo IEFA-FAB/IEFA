@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-ofici
 	// à mão, em vez de exigir entrar, trocar de modo e rolar.
 	validateSearch: z.object({ minuta: z.boolean().optional() }),
 	component: NovoDocumento,
-	head: () => ({ meta: [{ title: "Novo documento — Comunicações Oficiais" }] }),
+	head: () => ({ meta: [{ title: "Novo documento | Comunicações Oficiais" }] }),
 })
 
 function NovoDocumento() {

@@ -60,7 +60,7 @@ export function ImportPanel({ input, onImported }: { input: DocumentInput; onImp
 					rows={4}
 					value={text}
 					onChange={(e) => setText(e.target.value)}
-					placeholder="Cole o corpo do documento — do SIGADAER, do Word ou de um PDF. Também dá para enviar o arquivo ou uma foto da folha, no botão abaixo."
+					placeholder="Cole o corpo do documento, vindo do SIGADAER, do Word ou de um PDF. Também dá para enviar o arquivo ou uma foto da folha, no botão abaixo."
 				/>
 			</div>
 

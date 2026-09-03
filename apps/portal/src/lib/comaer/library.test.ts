@@ -44,8 +44,8 @@ describe("espécies presentes", () => {
 		// Um filtro que oferece 14 espécies para uma lista de 3 documentos faz o usuário
 		// procurar em gaveta vazia.
 		expect(kindsPresent(items)).toEqual([
-			{ id: "oficio-comaer", label: "Ofício — entre OM do COMAER", count: 1 },
-			{ id: "oficio-externo", label: "Ofício — órgão externo ao COMAER", count: 1 },
+			{ id: "oficio-externo", label: "Ofício a órgão externo ao COMAER", count: 1 },
+			{ id: "oficio-comaer", label: "Ofício entre OM do COMAER", count: 1 },
 			{ id: "parecer", label: "Parecer", count: 1 },
 			{ id: "requerimento", label: "Requerimento", count: 1 },
 		])

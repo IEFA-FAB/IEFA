@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { assembleDocument } from "./assemble"
-import { DOCUMENT_KINDS, findKind } from "./catalog"
+import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind } from "./catalog"
 import { copyableFields, toHtml, toPlainText } from "./sigadaer"
 import type { DocumentInput } from "./types"
 
@@ -285,7 +285,8 @@ describe("conferência em dois níveis", () => {
 		const doc = assembleDocument(base({ kind: "certidao", scope: "externo", paragraphs: [{ text: "Certifico, para fins de comprovação." }] }))
 		const fecho = doc.warnings.find((w) => w.text.includes("fecho de cortesia"))
 		expect(fecho?.severity).toBe("pending")
-		expect(fecho?.text).toContain("Ofício — órgão externo")
+		// A mensagem cita o rótulo do catálogo; se ele mudar de nome, ela acompanha.
+		expect(fecho?.text).toContain(EXTERNAL_OFICIO_LABEL)
 	})
 })
 

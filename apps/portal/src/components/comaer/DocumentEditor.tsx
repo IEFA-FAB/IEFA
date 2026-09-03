@@ -153,7 +153,7 @@ export function DocumentEditor({
 			setSaveError(
 				error instanceof Error && /não encontrado/i.test(error.message)
 					? "Este documento não está mais disponível para gravação."
-					: "Não deu para salvar. O texto continua nesta tela — tente de novo; se persistir, copie o documento inteiro antes de fechar a aba."
+					: "Não deu para salvar. O texto continua nesta tela: tente de novo; se persistir, copie o documento inteiro antes de fechar a aba."
 			)
 		} finally {
 			setSaving(false)
@@ -367,7 +367,7 @@ function EditableTitle({ value, printed, onChange }: { value: string; printed: b
 				type="button"
 				onClick={() => setEditing(true)}
 				className="text-left hover:bg-accent px-1 -mx-1 max-w-full truncate"
-				aria-label={`${value.trim() || "Documento sem assunto"} — ${printed ? "editar o assunto" : "renomear (não é impresso)"}`}
+				aria-label={`${printed ? "Editar o assunto" : "Renomear (não é impresso)"}: ${value.trim() || "Documento sem assunto"}`}
 			>
 				{value.trim() || (printed ? "Documento sem assunto" : "Documento sem nome")}
 			</button>
@@ -388,7 +388,7 @@ function EditableTitle({ value, printed, onChange }: { value: string; printed: b
 					finish(false)
 				}
 			}}
-			aria-label={printed ? "Assunto do documento" : "Nome do documento — só para localizá-lo na lista"}
+			aria-label={printed ? "Assunto do documento" : "Nome do documento, só para localizá-lo na lista"}
 			placeholder={printed ? "Assunto do documento" : "Nome do documento"}
 			className="bg-transparent border-b border-border w-full max-w-xl"
 		/>

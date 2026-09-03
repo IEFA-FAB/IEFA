@@ -9,7 +9,7 @@
  * sistema, e o erro só apareceria depois do despacho.
  */
 
-import { type DocumentKind, findKind } from "./catalog"
+import { type DocumentKind, EXTERNAL_OFICIO_LABEL, findKind } from "./catalog"
 import {
 	addressingLines,
 	annexLetter,
@@ -168,17 +168,17 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	// ── O que falta preencher ────────────────────────────────────────────────
 	// A montagem NÃO renderiza bloco vazio: sem estes avisos, a OM some da epígrafe e o
 	// signatário some do fim, e a folha continua parecendo um documento plausível.
-	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora — sem ele a epígrafe não é impressa (art. 35, I).", "epigrafe")
-	if (input.signer.name.trim() === "") pending("Falta o nome do signatário — sem ele o documento sai sem assinatura (art. 40).", "signatario")
-	if (input.city.trim() === "") pending("Falta a localidade — ela abre a linha da data (art. 35, III, b).", "numeracao")
+	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora: sem ele a epígrafe não é impressa (art. 35, I).", "epigrafe")
+	if (input.signer.name.trim() === "") pending("Falta o nome do signatário: sem ele o documento sai sem assinatura (art. 40).", "signatario")
+	if (input.city.trim() === "") pending("Falta a localidade, que abre a linha da data (art. 35, III, b).", "numeracao")
 	if (kind.blocks.includes("preambulo") && input.recipients.every((r) => r.position.trim() === "")) {
-		pending("Falta o destinatário — o preâmbulo diz a quem o expediente se dirige (art. 36).", "preambulo")
+		pending("Falta o destinatário: o preâmbulo diz a quem o expediente se dirige (art. 36).", "preambulo")
 	}
 	if (kind.blocks.includes("ementa") && !input.subject?.trim()) {
-		pending("Falta o assunto — é o resumo que permite reconhecer o documento de imediato (art. 37).", "ementa")
+		pending("Falta o assunto: é o resumo que permite reconhecer o documento de imediato (art. 37).", "ementa")
 	}
 	if (kind.blocks.includes("nup") && !(input.nup && isValidNup(input.nup))) {
-		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER — são 17 dígitos (art. 48 § 4º).", "nup")
+		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER: são 17 dígitos (art. 48 § 4º).", "nup")
 	}
 	if (kind.numbering !== "nenhuma" && input.numbering.sequence === null && kind.id !== "oficio-particular") {
 		pending(
@@ -203,7 +203,7 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	}
 	if (input.distribution) {
 		if (input.recipients.some((d) => /cmtaer|comandante da aeron[áa]utica/i.test(d.position))) {
-			nonCompliant("Ofício circular não pode ser endereçado ao CMTAER — confeccione documento específico para essa autoridade (art. 51 § 8º, IV).", "preambulo")
+			nonCompliant("Ofício circular não pode ser endereçado ao CMTAER. Confeccione documento específico para essa autoridade (art. 51 § 8º, IV).", "preambulo")
 		}
 		nonCompliant(
 			"Ofício a vários destinatários não pode ser a peça que abre o processo (art. 51 § 8º, III). Se o assunto exige processo novo, expeça um ofício individual ao destinatário principal e mande o circular depois.",
@@ -216,11 +216,11 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	// A Ata não tem linha de data: o art. 44 § 3º, I manda data, hora e local nas linhas
 	// INICIAIS DO TEXTO. O campo Data do formulário não tem para onde ir.
 	if (kind.id === "ata") {
-		pending("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I) — o campo Data não é impresso.", "texto")
+		pending("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I); o campo Data não é impresso.", "texto")
 	}
 	if (input.derivedFromDraft && (input.numbering.sequence === null || !input.nup)) {
 		pending(
-			"Documento vindo de minuta: numeração, NUP e data continuam em branco de propósito — preencha os do expediente novo antes de despachar.",
+			"Documento vindo de minuta: numeração, NUP e data continuam em branco de propósito. Preencha os do expediente novo antes de despachar.",
 			"numeracao"
 		)
 	}
@@ -228,7 +228,7 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	// ferramenta ofereceu seria culpar o usuário pelo cardápio. O que cabe é explicar.
 	if (kind.allowsClosing === false && input.scope === "externo") {
 		pending(
-			`${kind.label} não leva fecho de cortesia — a folha termina no signatário (art. 30). Se o destinatário externo espera "Atenciosamente", a espécie é o Ofício — órgão externo ao COMAER.`,
+			`${kind.label} não leva fecho de cortesia: a folha termina no signatário (art. 30). Se o destinatário externo espera "Atenciosamente", a espécie é o “${EXTERNAL_OFICIO_LABEL}”.`,
 			"signatario"
 		)
 	}
