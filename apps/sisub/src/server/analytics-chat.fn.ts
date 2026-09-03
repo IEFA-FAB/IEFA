@@ -34,7 +34,15 @@ export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(asyn
 		.limit(50)
 
 	if (error) throw new Error(error.message)
-	return data ?? []
+
+	// `analytics_chat_session` é uma VIEW: o gerador de tipos não consegue provar NOT NULL e
+	// devolve tudo anulável. As colunas são NOT NULL nas tabelas de base, então o estreitamento
+	// aqui é honesto — e preferível a um cast, que esconderia uma linha realmente incompleta.
+	return (data ?? []).flatMap((row) =>
+		row.id && row.user_id && row.title && row.created_at && row.updated_at
+			? [{ id: row.id, user_id: row.user_id, title: row.title, created_at: row.created_at, updated_at: row.updated_at }]
+			: []
+	)
 })
 
 /**
@@ -58,8 +66,12 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
 			.single()
 
 		if (error) throw new Error(error.message)
-		if (!row) throw new Error("Sessão não criada")
-		return row
+		if (!row?.id || !row.user_id || !row.title || !row.created_at || !row.updated_at) {
+			// A VIEW faz o gerador tipar tudo como anulável; a checagem também cobre o caso real
+			// de o insert não devolver a linha.
+			throw new Error("Sessão não criada")
+		}
+		return { id: row.id, user_id: row.user_id, title: row.title, created_at: row.created_at, updated_at: row.updated_at }
 	})
 
 /**

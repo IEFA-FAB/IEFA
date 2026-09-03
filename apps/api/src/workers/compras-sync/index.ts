@@ -19,11 +19,11 @@ import {
 	syncServicoSubclasse,
 	syncServicoUnidadeMedida,
 } from "./servico.ts"
+import { COMPRAS_SYNC_SOURCE, hasLiveSync, isSyncLive, recoverStaleSyncs } from "./sync-log.ts"
 
 const TOTAL_STEPS = 15
 
 // Heartbeat timeout: se não atualizar em 90s, o processo é considerado morto
-const HEARTBEAT_TIMEOUT_MS = 90_000
 
 type StepFn = (supabase: SupabaseClient<any, any>, updateProgress: (page: number, totalPages: number, upserted: number) => Promise<void>) => Promise<number>
 
@@ -84,53 +84,6 @@ export interface RunComprasSyncOptions {
 	triggeredBy: "cron" | "manual"
 }
 
-// ── Heartbeat liveness check ──────────────────────────────────────────────────
-
-export function isSyncLive(heartbeatAt: string | null, startedAt: string): boolean {
-	const threshold = Date.now() - HEARTBEAT_TIMEOUT_MS
-	// Recém criado (sem heartbeat ainda): usa started_at com margem de 15s
-	if (!heartbeatAt) {
-		return new Date(startedAt).getTime() > Date.now() - 15_000
-	}
-	return new Date(heartbeatAt).getTime() > threshold
-}
-
-// ── Recupera syncs presas por morte/restart de instância ──────────────────────
-
-async function recoverStaleSyncs(supabase: SupabaseClient<any, any>): Promise<void> {
-	const { data: stale, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-
-	if (error || !stale?.length) return
-
-	const dead = stale.filter((s) => !isSyncLive(s.heartbeat_at, s.started_at))
-	if (!dead.length) return
-
-	for (const log of dead) {
-		console.warn(`[compras-sync] Recovery: sync #${log.id} sem heartbeat — marcando como error`)
-
-		await supabase
-			.from("compras_sync_step")
-			.update({ status: "error", error_message: "instance_died", finished_at: new Date().toISOString() })
-			.eq("sync_id", log.id)
-			.in("status", ["running", "pending"])
-
-		await supabase
-			.from("compras_sync_log")
-			.update({ status: "error", error_message: "API instance died or restarted mid-sync", finished_at: new Date().toISOString() })
-			.eq("id", log.id)
-	}
-
-	console.log(`[compras-sync] Recovery: ${dead.length} sync(s) morta(s) marcada(s) como error`)
-}
-
-// ── Concorrência: retorna true se já há uma sync viva rodando ─────────────────
-
-export async function hasLiveSync(supabase: SupabaseClient<any, any>): Promise<boolean> {
-	const { data, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-	if (error || !data?.length) return false
-	return data.some((s) => isSyncLive(s.heartbeat_at, s.started_at))
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export async function runComprasSync(opts: RunComprasSyncOptions): Promise<number> {
@@ -155,7 +108,7 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 	// ── Criar log geral ────────────────────────────────────────────────────────
 	const { data: logRow, error: logErr } = await supabase
 		.from("compras_sync_log")
-		.insert({ triggered_by: opts.triggeredBy, total_steps: TOTAL_STEPS })
+		.insert({ triggered_by: opts.triggeredBy, total_steps: TOTAL_STEPS, source: COMPRAS_SYNC_SOURCE })
 		.select("id")
 		.single()
 
@@ -312,3 +265,6 @@ export async function startComprasSyncWorker() {
 	scheduleNextRun()
 	console.log("[compras-sync] Worker agendado (toda segunda-feira 03:00 BRT)")
 }
+
+// Reexportados de `sync-log.ts` — quem já importava daqui continua funcionando.
+export { COMPRAS_SYNC_SOURCE, hasLiveSync, isSyncLive, recoverStaleSyncs }

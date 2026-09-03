@@ -1,0 +1,44 @@
+##
+# O código do PNCP NÃO toca a prova de auditoria da Lei 14.133/2021.
+#
+# Como as outras regras deste diretório, esta nasceu de um erro real de projeto — só que pego
+# antes do merge. A primeira versão do change `sisub-pncp-integration` propunha levar amostras
+# do PNCP para dentro de `procurement.compras_amostra`, marcadas por uma coluna `origem`. Duas
+# medições derrubaram a ideia:
+#
+#   1. A `descricao` do item no PNCP é o nome da CLASSE CATMAT, não o produto. Numa compra real
+#      da FAB, 10 itens têm 3 descrições, com "Carne de ave in natura" repetida sete vezes a
+#      quatro preços — frango inteiro, coxa, peito e filé, sem nenhum campo que os distinga.
+#      Casar com o catálogo por texto não é caro: é indecidível.
+#   2. `savePrecoAuditFn` não escreve na tabela — chama a RPC `upsert_compras_amostras`, de lista
+#      fixa com 16 colunas. A amostra do PNCP entraria com o `default 'siasg'`, sem erro, e o
+#      `ON CONFLICT ... DO UPDATE` é no-op: a procedência errada ficaria gravada para sempre.
+#
+# A separação virou invariante do change, e invariante sem gate volta na próxima refatoração.
+##
+rules:
+  - id: pncp-must-not-write-price-audit
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Código do PNCP escrevendo na prova de auditoria de preço. `procurement.compras_amostra`,
+      `procurement_pesquisa_preco*` e a RPC `upsert_compras_amostras` sustentam a memória de
+      cálculo exigida pela Lei 14.133/2021, e o acervo do PNCP não pode alimentá-los: a fonte não
+      carrega o produto (a descrição é o nome da classe CATMAT), então qualquer vínculo seria
+      casamento textual gravado como fato. O PNCP é tela de referência, não evidência — ver
+      `openspec/changes/sisub-pncp-integration/review.md` §1.
+    paths:
+      include:
+        - "apps/api/src/workers/pncp-*/**"
+        - "apps/api/src/api/routes/pncp-*"
+        - "apps/sisub/src/server/pncp-*.fn.ts"
+        - "packages/sisub-domain/src/utils/pncp-*"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: $X.from("compras_amostra")
+          - pattern: $X.from("procurement_pesquisa_preco")
+          - pattern: $X.from("procurement_pesquisa_preco_item")
+          - pattern: $X.from("procurement_pesquisa_preco_amostra")
+          - pattern: $X.rpc("upsert_compras_amostras", ...)

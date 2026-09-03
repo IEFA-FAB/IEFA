@@ -1652,6 +1652,7 @@ export type Database = {
           finished_at: string | null
           heartbeat_at: string | null
           id: number
+          source: string
           started_at: string
           status: string
           stop_requested: boolean
@@ -1668,6 +1669,7 @@ export type Database = {
           finished_at?: string | null
           heartbeat_at?: string | null
           id?: number
+          source?: string
           started_at?: string
           status?: string
           stop_requested?: boolean
@@ -1684,6 +1686,7 @@ export type Database = {
           finished_at?: string | null
           heartbeat_at?: string | null
           id?: number
+          source?: string
           started_at?: string
           status?: string
           stop_requested?: boolean
@@ -1745,6 +1748,117 @@ export type Database = {
           },
         ]
       }
+      pncp_pca_item: {
+        Row: {
+          ano_pca: number
+          catalogo: string | null
+          categoria_item: string | null
+          classificacao_catalogo: string | null
+          cnpj_orgao: string
+          codigo_classe: string | null
+          codigo_item: string | null
+          codigo_pdm: string | null
+          collected_at: string
+          data_desejada: string | null
+          descricao_item: string | null
+          id: string
+          id_item_pca: string
+          identificador_contratacao: string | null
+          nome_classe: string | null
+          nome_contratacao: string | null
+          nome_pdm: string | null
+          nome_unidade: string | null
+          quantidade_estimada: number | null
+          removed_at: string | null
+          uasg: string
+          unidade_fornecimento: string | null
+          valor_orcamentario: number | null
+          valor_total_estimado: number | null
+          valor_unitario_estimado: number | null
+        }
+        Insert: {
+          ano_pca: number
+          catalogo?: string | null
+          categoria_item?: string | null
+          classificacao_catalogo?: string | null
+          cnpj_orgao: string
+          codigo_classe?: string | null
+          codigo_item?: string | null
+          codigo_pdm?: string | null
+          collected_at?: string
+          data_desejada?: string | null
+          descricao_item?: string | null
+          id?: string
+          id_item_pca: string
+          identificador_contratacao?: string | null
+          nome_classe?: string | null
+          nome_contratacao?: string | null
+          nome_pdm?: string | null
+          nome_unidade?: string | null
+          quantidade_estimada?: number | null
+          removed_at?: string | null
+          uasg: string
+          unidade_fornecimento?: string | null
+          valor_orcamentario?: number | null
+          valor_total_estimado?: number | null
+          valor_unitario_estimado?: number | null
+        }
+        Update: {
+          ano_pca?: number
+          catalogo?: string | null
+          categoria_item?: string | null
+          classificacao_catalogo?: string | null
+          cnpj_orgao?: string
+          codigo_classe?: string | null
+          codigo_item?: string | null
+          codigo_pdm?: string | null
+          collected_at?: string
+          data_desejada?: string | null
+          descricao_item?: string | null
+          id?: string
+          id_item_pca?: string
+          identificador_contratacao?: string | null
+          nome_classe?: string | null
+          nome_contratacao?: string | null
+          nome_pdm?: string | null
+          nome_unidade?: string | null
+          quantidade_estimada?: number | null
+          removed_at?: string | null
+          uasg?: string
+          unidade_fornecimento?: string | null
+          valor_orcamentario?: number | null
+          valor_total_estimado?: number | null
+          valor_unitario_estimado?: number | null
+        }
+        Relationships: []
+      }
+      pncp_pca_snapshot: {
+        Row: {
+          ano_pca: number
+          applied_at: string
+          byte_size: number
+          cnpj_orgao: string
+          content_hash: string
+          row_count: number
+        }
+        Insert: {
+          ano_pca: number
+          applied_at?: string
+          byte_size: number
+          cnpj_orgao: string
+          content_hash: string
+          row_count: number
+        }
+        Update: {
+          ano_pca?: number
+          applied_at?: string
+          byte_size?: number
+          cnpj_orgao?: string
+          content_hash?: string
+          row_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1768,189 +1882,44 @@ export type Database = {
   }
   core: {
     Tables: {
-      analytics_chat_message: {
+      item: {
         Row: {
-          chart: Json | null
-          chart_type_override: string | null
-          content: string
+          catalog_scope: string
           created_at: string
-          error: string | null
+          deleted_at: string | null
+          description: string
           id: string
-          input_tokens: number | null
-          langsmith_run_id: string | null
-          latency_ms: number | null
-          model: string | null
-          output_tokens: number | null
-          role: string
-          session_id: string
-        }
-        Insert: {
-          chart?: Json | null
-          chart_type_override?: string | null
-          content?: string
-          created_at?: string
-          error?: string | null
-          id?: string
-          input_tokens?: number | null
-          langsmith_run_id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          output_tokens?: number | null
-          role: string
-          session_id: string
-        }
-        Update: {
-          chart?: Json | null
-          chart_type_override?: string | null
-          content?: string
-          created_at?: string
-          error?: string | null
-          id?: string
-          input_tokens?: number | null
-          langsmith_run_id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          output_tokens?: number | null
-          role?: string
-          session_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "analytics_chat_message_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "analytics_chat_session"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      analytics_chat_session: {
-        Row: {
-          created_at: string
-          id: string
-          title: string
+          kind: string
+          measure_unit: string | null
           updated_at: string
-          user_id: string
         }
         Insert: {
+          catalog_scope?: string
           created_at?: string
+          deleted_at?: string | null
+          description: string
           id?: string
-          title?: string
+          kind?: string
+          measure_unit?: string | null
           updated_at?: string
-          user_id: string
         }
         Update: {
+          catalog_scope?: string
           created_at?: string
+          deleted_at?: string | null
+          description?: string
           id?: string
-          title?: string
+          kind?: string
+          measure_unit?: string | null
           updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      changelog: {
-        Row: {
-          body: string
-          id: string
-          published: boolean
-          published_at: string
-          tags: string[] | null
-          title: string
-          version: string | null
-        }
-        Insert: {
-          body: string
-          id?: string
-          published?: boolean
-          published_at?: string
-          tags?: string[] | null
-          title: string
-          version?: string | null
-        }
-        Update: {
-          body?: string
-          id?: string
-          published?: boolean
-          published_at?: string
-          tags?: string[] | null
-          title?: string
-          version?: string | null
-        }
-        Relationships: []
-      }
-      kitchen: {
-        Row: {
-          address_bairro: string | null
-          address_cep: string | null
-          address_complemento: string | null
-          address_logradouro: string | null
-          address_municipio: string | null
-          address_numero: string | null
-          address_uf: string | null
-          created_at: string
-          display_name: string | null
-          id: number
-          is_training: boolean
-          kitchen_id: number | null
-          purchase_unit_id: number | null
-          type: Database["sisub"]["Enums"]["kitchen_type"] | null
-          unit_id: number | null
-        }
-        Insert: {
-          address_bairro?: string | null
-          address_cep?: string | null
-          address_complemento?: string | null
-          address_logradouro?: string | null
-          address_municipio?: string | null
-          address_numero?: string | null
-          address_uf?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: number
-          is_training?: boolean
-          kitchen_id?: number | null
-          purchase_unit_id?: number | null
-          type?: Database["sisub"]["Enums"]["kitchen_type"] | null
-          unit_id?: number | null
-        }
-        Update: {
-          address_bairro?: string | null
-          address_cep?: string | null
-          address_complemento?: string | null
-          address_logradouro?: string | null
-          address_municipio?: string | null
-          address_numero?: string | null
-          address_uf?: string | null
-          created_at?: string
-          display_name?: string | null
-          id?: number
-          is_training?: boolean
-          kitchen_id?: number | null
-          purchase_unit_id?: number | null
-          type?: Database["sisub"]["Enums"]["kitchen_type"] | null
-          unit_id?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "kitchen_kitchen_id_fkey"
-            columns: ["kitchen_id"]
+            foreignKeyName: "item_measure_unit_fkey"
+            columns: ["measure_unit"]
             isOneToOne: false
-            referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_purchase_unit_id_fkey"
-            columns: ["purchase_unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
+            referencedRelation: "measure_unit"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -1972,373 +1941,6 @@ export type Database = {
           created_at?: string
           description?: string
           dimension?: string
-        }
-        Relationships: []
-      }
-      mess_halls: {
-        Row: {
-          code: string
-          display_name: string | null
-          id: number
-          is_training: boolean
-          kitchen_id: number | null
-          unit_id: number
-        }
-        Insert: {
-          code: string
-          display_name?: string | null
-          id?: number
-          is_training?: boolean
-          kitchen_id?: number | null
-          unit_id: number
-        }
-        Update: {
-          code?: string
-          display_name?: string | null
-          id?: number
-          is_training?: boolean
-          kitchen_id?: number | null
-          unit_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mess_halls_kitchen_id_fkey"
-            columns: ["kitchen_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mess_halls_unit_fk"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mess_halls_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      migration_folder_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_grupo_produto: number
-          new_folder_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_grupo_produto: number
-          new_folder_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_grupo_produto?: number
-          new_folder_id?: string
-        }
-        Relationships: []
-      }
-      migration_nutrient_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_nutriente: number
-          new_nutrient_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_nutriente: number
-          new_nutrient_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_nutriente?: number
-          new_nutrient_id?: string
-        }
-        Relationships: []
-      }
-      migration_product_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_descricao: string | null
-          legacy_id_insumo: number
-          new_product_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_descricao?: string | null
-          legacy_id_insumo: number
-          new_product_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_descricao?: string | null
-          legacy_id_insumo?: number
-          new_product_id?: string
-        }
-        Relationships: []
-      }
-      migration_recipe_lookup: {
-        Row: {
-          created_at: string | null
-          legacy_id_preparacao: number
-          legacy_rendimento: number | null
-          new_recipe_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          legacy_id_preparacao: number
-          legacy_rendimento?: number | null
-          new_recipe_id: string
-        }
-        Update: {
-          created_at?: string | null
-          legacy_id_preparacao?: number
-          legacy_rendimento?: number | null
-          new_recipe_id?: string
-        }
-        Relationships: []
-      }
-      module_chat_message: {
-        Row: {
-          content: string
-          created_at: string
-          error: string | null
-          id: string
-          input_tokens: number | null
-          langsmith_run_id: string | null
-          latency_ms: number | null
-          model: string | null
-          output_tokens: number | null
-          role: string
-          session_id: string
-          tool_call_id: string | null
-          tool_calls: Json | null
-          tool_name: string | null
-          tool_result: Json | null
-        }
-        Insert: {
-          content?: string
-          created_at?: string
-          error?: string | null
-          id?: string
-          input_tokens?: number | null
-          langsmith_run_id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          output_tokens?: number | null
-          role: string
-          session_id: string
-          tool_call_id?: string | null
-          tool_calls?: Json | null
-          tool_name?: string | null
-          tool_result?: Json | null
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          error?: string | null
-          id?: string
-          input_tokens?: number | null
-          langsmith_run_id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          output_tokens?: number | null
-          role?: string
-          session_id?: string
-          tool_call_id?: string | null
-          tool_calls?: Json | null
-          tool_name?: string | null
-          tool_result?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "module_chat_message_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "module_chat_session"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      module_chat_session: {
-        Row: {
-          created_at: string
-          id: string
-          module: string
-          scope_id: number | null
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          module: string
-          scope_id?: number | null
-          title?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          module?: string
-          scope_id?: number | null
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      opinions: {
-        Row: {
-          created_at: string
-          id: number
-          question: string | null
-          userId: string | null
-          value: number | null
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          question?: string | null
-          userId?: string | null
-          value?: number | null
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          question?: string | null
-          userId?: string | null
-          value?: number | null
-        }
-        Relationships: []
-      }
-      rancho: {
-        Row: {
-          active: boolean
-          code: string
-          created_at: string
-          display_name: string
-          elo_code: string
-          id: number
-          kitchen_id: number | null
-          mess_hall_id: number | null
-          notes: string | null
-          produces_own_meals: boolean
-          unit_id: number
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          code: string
-          created_at?: string
-          display_name: string
-          elo_code: string
-          id?: number
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean
-          unit_id: number
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          code?: string
-          created_at?: string
-          display_name?: string
-          elo_code?: string
-          id?: number
-          kitchen_id?: number | null
-          mess_hall_id?: number | null
-          notes?: string | null
-          produces_own_meals?: boolean
-          unit_id?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rancho_kitchen_id_fkey"
-            columns: ["kitchen_id"]
-            isOneToOne: false
-            referencedRelation: "kitchen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rancho_mess_hall_id_fkey"
-            columns: ["mess_hall_id"]
-            isOneToOne: false
-            referencedRelation: "mess_halls"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rancho_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      super_admin_controller: {
-        Row: {
-          active: boolean | null
-          created_at: string
-          key: string
-          value: string | null
-        }
-        Insert: {
-          active?: boolean | null
-          created_at?: string
-          key: string
-          value?: string | null
-        }
-        Update: {
-          active?: boolean | null
-          created_at?: string
-          key?: string
-          value?: string | null
-        }
-        Relationships: []
-      }
-      training_reset_log: {
-        Row: {
-          actor_id: string
-          deleted_counts: Json
-          duration_ms: number | null
-          error_message: string | null
-          finished_at: string | null
-          id: string
-          queued_ms: number | null
-          started_at: string
-          status: string
-        }
-        Insert: {
-          actor_id: string
-          deleted_counts?: Json
-          duration_ms?: number | null
-          error_message?: string | null
-          finished_at?: string | null
-          id?: string
-          queued_ms?: number | null
-          started_at?: string
-          status?: string
-        }
-        Update: {
-          actor_id?: string
-          deleted_counts?: Json
-          duration_ms?: number | null
-          error_message?: string | null
-          finished_at?: string | null
-          id?: string
-          queued_ms?: number | null
-          started_at?: string
-          status?: string
         }
         Relationships: []
       }
@@ -2463,66 +2065,637 @@ export type Database = {
         }
         Relationships: []
       }
-      workforce_category: {
+    }
+    Views: {
+      analytics_chat_message: {
         Row: {
-          code: string
-          created_at: string
-          deleted_at: string | null
-          description: string | null
-          id: string
-          is_career: boolean
-          is_technical: boolean
-          name: string
-          sort_order: number
+          chart: Json | null
+          chart_type_override: string | null
+          content: string | null
+          created_at: string | null
+          error: string | null
+          id: string | null
+          input_tokens: number | null
+          langsmith_run_id: string | null
+          latency_ms: number | null
+          model: string | null
+          output_tokens: number | null
+          role: string | null
+          session_id: string | null
         }
         Insert: {
-          code: string
-          created_at?: string
-          deleted_at?: string | null
-          description?: string | null
-          id?: string
-          is_career?: boolean
-          is_technical?: boolean
-          name: string
-          sort_order?: number
+          chart?: Json | null
+          chart_type_override?: string | null
+          content?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string | null
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role?: string | null
+          session_id?: string | null
         }
         Update: {
-          code?: string
-          created_at?: string
+          chart?: Json | null
+          chart_type_override?: string | null
+          content?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string | null
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_chat_message_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_chat_session"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_chat_session: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      changelog: {
+        Row: {
+          body: string | null
+          id: string | null
+          published: boolean | null
+          published_at: string | null
+          tags: string[] | null
+          title: string | null
+          version: string | null
+        }
+        Insert: {
+          body?: string | null
+          id?: string | null
+          published?: boolean | null
+          published_at?: string | null
+          tags?: string[] | null
+          title?: string | null
+          version?: string | null
+        }
+        Update: {
+          body?: string | null
+          id?: string | null
+          published?: boolean | null
+          published_at?: string | null
+          tags?: string[] | null
+          title?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
+      kitchen: {
+        Row: {
+          address_bairro: string | null
+          address_cep: string | null
+          address_complemento: string | null
+          address_logradouro: string | null
+          address_municipio: string | null
+          address_numero: string | null
+          address_uf: string | null
+          created_at: string | null
+          display_name: string | null
+          id: number | null
+          is_training: boolean | null
+          kitchen_id: number | null
+          purchase_unit_id: number | null
+          type: Database["sisub"]["Enums"]["kitchen_type"] | null
+          unit_id: number | null
+        }
+        Insert: {
+          address_bairro?: string | null
+          address_cep?: string | null
+          address_complemento?: string | null
+          address_logradouro?: string | null
+          address_municipio?: string | null
+          address_numero?: string | null
+          address_uf?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: number | null
+          is_training?: boolean | null
+          kitchen_id?: number | null
+          purchase_unit_id?: number | null
+          type?: Database["sisub"]["Enums"]["kitchen_type"] | null
+          unit_id?: number | null
+        }
+        Update: {
+          address_bairro?: string | null
+          address_cep?: string | null
+          address_complemento?: string | null
+          address_logradouro?: string | null
+          address_municipio?: string | null
+          address_numero?: string | null
+          address_uf?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: number | null
+          is_training?: boolean | null
+          kitchen_id?: number | null
+          purchase_unit_id?: number | null
+          type?: Database["sisub"]["Enums"]["kitchen_type"] | null
+          unit_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_purchase_unit_id_fkey"
+            columns: ["purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mess_halls: {
+        Row: {
+          code: string | null
+          display_name: string | null
+          id: number | null
+          is_training: boolean | null
+          kitchen_id: number | null
+          unit_id: number | null
+        }
+        Insert: {
+          code?: string | null
+          display_name?: string | null
+          id?: number | null
+          is_training?: boolean | null
+          kitchen_id?: number | null
+          unit_id?: number | null
+        }
+        Update: {
+          code?: string | null
+          display_name?: string | null
+          id?: number | null
+          is_training?: boolean | null
+          kitchen_id?: number | null
+          unit_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mess_halls_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mess_halls_unit_fk"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mess_halls_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_folder_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_id_grupo_produto: number | null
+          new_folder_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_id_grupo_produto?: number | null
+          new_folder_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          legacy_id_grupo_produto?: number | null
+          new_folder_id?: string | null
+        }
+        Relationships: []
+      }
+      migration_nutrient_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_id_nutriente: number | null
+          new_nutrient_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_id_nutriente?: number | null
+          new_nutrient_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          legacy_id_nutriente?: number | null
+          new_nutrient_id?: string | null
+        }
+        Relationships: []
+      }
+      migration_product_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_descricao: string | null
+          legacy_id_insumo: number | null
+          new_product_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_descricao?: string | null
+          legacy_id_insumo?: number | null
+          new_product_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          legacy_descricao?: string | null
+          legacy_id_insumo?: number | null
+          new_product_id?: string | null
+        }
+        Relationships: []
+      }
+      migration_recipe_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_id_preparacao: number | null
+          legacy_rendimento: number | null
+          new_recipe_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_id_preparacao?: number | null
+          legacy_rendimento?: number | null
+          new_recipe_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          legacy_id_preparacao?: number | null
+          legacy_rendimento?: number | null
+          new_recipe_id?: string | null
+        }
+        Relationships: []
+      }
+      module_chat_message: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          error: string | null
+          id: string | null
+          input_tokens: number | null
+          langsmith_run_id: string | null
+          latency_ms: number | null
+          model: string | null
+          output_tokens: number | null
+          role: string | null
+          session_id: string | null
+          tool_call_id: string | null
+          tool_calls: Json | null
+          tool_name: string | null
+          tool_result: Json | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string | null
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role?: string | null
+          session_id?: string | null
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string | null
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role?: string | null
+          session_id?: string | null
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_chat_message_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "module_chat_session"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_chat_session: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          module: string | null
+          scope_id: number | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          module?: string | null
+          scope_id?: number | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          module?: string | null
+          scope_id?: number | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      opinions: {
+        Row: {
+          created_at: string | null
+          id: number | null
+          question: string | null
+          userId: string | null
+          value: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number | null
+          question?: string | null
+          userId?: string | null
+          value?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number | null
+          question?: string | null
+          userId?: string | null
+          value?: number | null
+        }
+        Relationships: []
+      }
+      rancho: {
+        Row: {
+          active: boolean | null
+          code: string | null
+          created_at: string | null
+          display_name: string | null
+          elo_code: string | null
+          id: number | null
+          kitchen_id: number | null
+          mess_hall_id: number | null
+          notes: string | null
+          produces_own_meals: boolean | null
+          unit_id: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          elo_code?: string | null
+          id?: number | null
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean | null
+          unit_id?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          elo_code?: string | null
+          id?: number | null
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean | null
+          unit_id?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rancho_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rancho_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rancho_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      super_admin_controller: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          key: string | null
+          value: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          key?: string | null
+          value?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          key?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
+      training_reset_log: {
+        Row: {
+          actor_id: string | null
+          deleted_counts: Json | null
+          duration_ms: number | null
+          error_message: string | null
+          finished_at: string | null
+          id: string | null
+          queued_ms: number | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          deleted_counts?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string | null
+          queued_ms?: number | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          deleted_counts?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string | null
+          queued_ms?: number | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      v_measure_unit_review: {
+        Row: {
+          raw_value: string | null
+          source_description: string | null
+          source_id: string | null
+          source_table: string | null
+        }
+        Relationships: []
+      }
+      v_user_identity: {
+        Row: {
+          display_name: string | null
+          id: string | null
+        }
+        Relationships: []
+      }
+      workforce_category: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string | null
+          is_career: boolean | null
+          is_technical: boolean | null
+          name: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
           deleted_at?: string | null
           description?: string | null
-          id?: string
-          is_career?: boolean
-          is_technical?: boolean
-          name?: string
-          sort_order?: number
+          id?: string | null
+          is_career?: boolean | null
+          is_technical?: boolean | null
+          name?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_career?: boolean | null
+          is_technical?: boolean | null
+          name?: string | null
+          sort_order?: number | null
         }
         Relationships: []
       }
       workforce_headcount: {
         Row: {
-          category_id: string
-          created_at: string
-          headcount: number
-          id: string
-          submission_id: string
-          updated_at: string
+          category_id: string | null
+          created_at: string | null
+          headcount: number | null
+          id: string | null
+          submission_id: string | null
+          updated_at: string | null
         }
         Insert: {
-          category_id: string
-          created_at?: string
-          headcount: number
-          id?: string
-          submission_id: string
-          updated_at?: string
+          category_id?: string | null
+          created_at?: string | null
+          headcount?: number | null
+          id?: string | null
+          submission_id?: string | null
+          updated_at?: string | null
         }
         Update: {
-          category_id?: string
-          created_at?: string
-          headcount?: number
-          id?: string
-          submission_id?: string
-          updated_at?: string
+          category_id?: string | null
+          created_at?: string | null
+          headcount?: number | null
+          id?: string | null
+          submission_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2543,28 +2716,28 @@ export type Database = {
       }
       workforce_note: {
         Row: {
-          created_at: string
-          detail: string
-          id: string
-          kind: string
+          created_at: string | null
+          detail: string | null
+          id: string | null
+          kind: string | null
           quantity: number | null
-          submission_id: string
+          submission_id: string | null
         }
         Insert: {
-          created_at?: string
-          detail: string
-          id?: string
-          kind: string
+          created_at?: string | null
+          detail?: string | null
+          id?: string | null
+          kind?: string | null
           quantity?: number | null
-          submission_id: string
+          submission_id?: string | null
         }
         Update: {
-          created_at?: string
-          detail?: string
-          id?: string
-          kind?: string
+          created_at?: string | null
+          detail?: string | null
+          id?: string | null
+          kind?: string | null
           quantity?: number | null
-          submission_id?: string
+          submission_id?: string | null
         }
         Relationships: [
           {
@@ -2578,34 +2751,34 @@ export type Database = {
       }
       workforce_submission: {
         Row: {
-          created_at: string
+          created_at: string | null
           declared_total: number | null
-          id: string
-          rancho_id: number
+          id: string | null
+          rancho_id: number | null
           submitted_at: string | null
           submitted_by: string | null
-          survey_id: string
-          updated_at: string
+          survey_id: string | null
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           declared_total?: number | null
-          id?: string
-          rancho_id: number
+          id?: string | null
+          rancho_id?: number | null
           submitted_at?: string | null
           submitted_by?: string | null
-          survey_id: string
-          updated_at?: string
+          survey_id?: string | null
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           declared_total?: number | null
-          id?: string
-          rancho_id?: number
+          id?: string | null
+          rancho_id?: number | null
           submitted_at?: string | null
           submitted_by?: string | null
-          survey_id?: string
-          updated_at?: string
+          survey_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2627,54 +2800,36 @@ export type Database = {
       workforce_survey: {
         Row: {
           closed_at: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
-          id: string
-          opened_at: string
-          reference_date: string
+          id: string | null
+          opened_at: string | null
+          reference_date: string | null
           source: string | null
-          status: string
-          title: string
+          status: string | null
+          title: string | null
         }
         Insert: {
           closed_at?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
-          id?: string
-          opened_at?: string
-          reference_date: string
+          id?: string | null
+          opened_at?: string | null
+          reference_date?: string | null
           source?: string | null
-          status?: string
-          title: string
+          status?: string | null
+          title?: string | null
         }
         Update: {
           closed_at?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
-          id?: string
-          opened_at?: string
-          reference_date?: string
+          id?: string | null
+          opened_at?: string | null
+          reference_date?: string | null
           source?: string | null
-          status?: string
-          title?: string
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      v_measure_unit_review: {
-        Row: {
-          raw_value: string | null
-          source_description: string | null
-          source_id: string | null
-          source_table: string | null
-        }
-        Relationships: []
-      }
-      v_user_identity: {
-        Row: {
-          display_name: string | null
-          id: string | null
+          status?: string | null
+          title?: string | null
         }
         Relationships: []
       }
@@ -3579,6 +3734,53 @@ export type Database = {
   }
   gs1_integration: {
     Tables: {
+      gpc_attribute: {
+        Row: {
+          attribute_code: string
+          attribute_title: string
+          synced_at: string
+        }
+        Insert: {
+          attribute_code: string
+          attribute_title: string
+          synced_at?: string
+        }
+        Update: {
+          attribute_code?: string
+          attribute_title?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
+      gpc_attribute_value: {
+        Row: {
+          attribute_code: string
+          synced_at: string
+          value_code: string
+          value_title: string
+        }
+        Insert: {
+          attribute_code: string
+          synced_at?: string
+          value_code: string
+          value_title: string
+        }
+        Update: {
+          attribute_code?: string
+          synced_at?: string
+          value_code?: string
+          value_title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpc_attribute_value_attribute_code_fkey"
+            columns: ["attribute_code"]
+            isOneToOne: false
+            referencedRelation: "gpc_attribute"
+            referencedColumns: ["attribute_code"]
+          },
+        ]
+      }
       gpc_brick: {
         Row: {
           brick_code: string
@@ -3614,6 +3816,32 @@ export type Database = {
           synced_at?: string
         }
         Relationships: []
+      }
+      gpc_brick_attribute: {
+        Row: {
+          attribute_code: string
+          brick_code: string
+          synced_at: string
+        }
+        Insert: {
+          attribute_code: string
+          brick_code: string
+          synced_at?: string
+        }
+        Update: {
+          attribute_code?: string
+          brick_code?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpc_brick_attribute_attribute_code_fkey"
+            columns: ["attribute_code"]
+            isOneToOne: false
+            referencedRelation: "gpc_attribute"
+            referencedColumns: ["attribute_code"]
+          },
+        ]
       }
       gtin: {
         Row: {
@@ -3674,6 +3902,94 @@ export type Database = {
           },
         ]
       }
+      gtin_gpc_attribute: {
+        Row: {
+          attribute_code: string
+          declared_at: string
+          declared_by: string | null
+          gtin: string
+          source: string
+          value_code: string
+        }
+        Insert: {
+          attribute_code: string
+          declared_at?: string
+          declared_by?: string | null
+          gtin: string
+          source?: string
+          value_code: string
+        }
+        Update: {
+          attribute_code?: string
+          declared_at?: string
+          declared_by?: string | null
+          gtin?: string
+          source?: string
+          value_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gtin_gpc_attribute_attribute_code_fkey"
+            columns: ["attribute_code"]
+            isOneToOne: false
+            referencedRelation: "gpc_attribute"
+            referencedColumns: ["attribute_code"]
+          },
+          {
+            foreignKeyName: "gtin_gpc_attribute_gtin_fkey"
+            columns: ["gtin"]
+            isOneToOne: false
+            referencedRelation: "gtin"
+            referencedColumns: ["gtin"]
+          },
+          {
+            foreignKeyName: "gtin_gpc_attribute_value_code_fkey"
+            columns: ["value_code"]
+            isOneToOne: false
+            referencedRelation: "gpc_attribute_value"
+            referencedColumns: ["value_code"]
+          },
+        ]
+      }
+      gtin_specification_check: {
+        Row: {
+          checked_at: string
+          checked_by: string | null
+          divergences: Json
+          gtin: string
+          id: string
+          purchase_item_id: string
+          raw_response: Json | null
+          source: string
+          spec_fingerprint: string
+          verdict: string
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string | null
+          divergences?: Json
+          gtin: string
+          id?: string
+          purchase_item_id: string
+          raw_response?: Json | null
+          source: string
+          spec_fingerprint: string
+          verdict: string
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string | null
+          divergences?: Json
+          gtin?: string
+          id?: string
+          purchase_item_id?: string
+          raw_response?: Json | null
+          source?: string
+          spec_fingerprint?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
       supplier_product_map: {
         Row: {
           confidence: string
@@ -3732,6 +4048,18 @@ export type Database = {
           ingredient_id?: string | null
           ingredient_item_id?: string | null
           raw_barcode?: string | null
+        }
+        Relationships: []
+      }
+      v_gtin_specification_latest: {
+        Row: {
+          checked_at: string | null
+          divergences: Json | null
+          gtin: string | null
+          purchase_item_id: string | null
+          source: string | null
+          spec_fingerprint: string | null
+          verdict: string | null
         }
         Relationships: []
       }
@@ -4071,13 +4399,11 @@ export type Database = {
       goods_receipt_item: {
         Row: {
           divergence_reason: string | null
-          expiry_date: string | null
           frozen_preparation_id: string | null
           id: string
           ingredient_id: string | null
           ingredient_item_id: string | null
           invoiced_qty_base: number | null
-          lot_code: string | null
           nfe_item_id: string | null
           purchase_item_id: string | null
           receipt_id: string
@@ -4086,13 +4412,11 @@ export type Database = {
         }
         Insert: {
           divergence_reason?: string | null
-          expiry_date?: string | null
           frozen_preparation_id?: string | null
           id?: string
           ingredient_id?: string | null
           ingredient_item_id?: string | null
           invoiced_qty_base?: number | null
-          lot_code?: string | null
           nfe_item_id?: string | null
           purchase_item_id?: string | null
           receipt_id: string
@@ -4101,13 +4425,11 @@ export type Database = {
         }
         Update: {
           divergence_reason?: string | null
-          expiry_date?: string | null
           frozen_preparation_id?: string | null
           id?: string
           ingredient_id?: string | null
           ingredient_item_id?: string | null
           invoiced_qty_base?: number | null
-          lot_code?: string | null
           nfe_item_id?: string | null
           purchase_item_id?: string | null
           receipt_id?: string
@@ -4127,6 +4449,56 @@ export type Database = {
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "goods_receipt"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goods_receipt_item_lot: {
+        Row: {
+          created_at: string
+          divergence_reason: string | null
+          expiry_date: string | null
+          id: string
+          lot_code: string
+          measured_temperature_c: number | null
+          quantity_base: number
+          receipt_item_id: string
+          temperature_ack_at: string | null
+          temperature_ack_by: string | null
+          unit_cost: number | null
+        }
+        Insert: {
+          created_at?: string
+          divergence_reason?: string | null
+          expiry_date?: string | null
+          id?: string
+          lot_code: string
+          measured_temperature_c?: number | null
+          quantity_base: number
+          receipt_item_id: string
+          temperature_ack_at?: string | null
+          temperature_ack_by?: string | null
+          unit_cost?: number | null
+        }
+        Update: {
+          created_at?: string
+          divergence_reason?: string | null
+          expiry_date?: string | null
+          id?: string
+          lot_code?: string
+          measured_temperature_c?: number | null
+          quantity_base?: number
+          receipt_item_id?: string
+          temperature_ack_at?: string | null
+          temperature_ack_by?: string | null
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goods_receipt_item_lot_receipt_item_id_fkey"
+            columns: ["receipt_item_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipt_item"
             referencedColumns: ["id"]
           },
         ]
@@ -4411,10 +4783,12 @@ export type Database = {
       }
       stock_lot: {
         Row: {
+          conservation_class: string | null
           created_at: string
           expiry_date: string | null
           frozen_preparation_id: string | null
           goods_receipt_item_id: string | null
+          goods_receipt_item_lot_id: string | null
           id: string
           ingredient_id: string | null
           kitchen_id: number
@@ -4422,10 +4796,12 @@ export type Database = {
           unit_cost: number | null
         }
         Insert: {
+          conservation_class?: string | null
           created_at?: string
           expiry_date?: string | null
           frozen_preparation_id?: string | null
           goods_receipt_item_id?: string | null
+          goods_receipt_item_lot_id?: string | null
           id?: string
           ingredient_id?: string | null
           kitchen_id: number
@@ -4433,10 +4809,12 @@ export type Database = {
           unit_cost?: number | null
         }
         Update: {
+          conservation_class?: string | null
           created_at?: string
           expiry_date?: string | null
           frozen_preparation_id?: string | null
           goods_receipt_item_id?: string | null
+          goods_receipt_item_lot_id?: string | null
           id?: string
           ingredient_id?: string | null
           kitchen_id?: number
@@ -4449,6 +4827,13 @@ export type Database = {
             columns: ["goods_receipt_item_id"]
             isOneToOne: false
             referencedRelation: "goods_receipt_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_goods_receipt_item_lot_id_fkey"
+            columns: ["goods_receipt_item_lot_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipt_item_lot"
             referencedColumns: ["id"]
           },
         ]
@@ -5364,6 +5749,86 @@ export type Database = {
   }
   kitchen: {
     Tables: {
+      analytics_chat_message: {
+        Row: {
+          chart: Json | null
+          chart_type_override: string | null
+          content: string
+          created_at: string
+          error: string | null
+          id: string
+          input_tokens: number | null
+          langsmith_run_id: string | null
+          latency_ms: number | null
+          model: string | null
+          output_tokens: number | null
+          role: string
+          session_id: string
+        }
+        Insert: {
+          chart?: Json | null
+          chart_type_override?: string | null
+          content?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role: string
+          session_id: string
+        }
+        Update: {
+          chart?: Json | null
+          chart_type_override?: string | null
+          content?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_chat_message_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_chat_session"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_chat_session: {
+        Row: {
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ceafa: {
         Row: {
           created_at: string
@@ -5385,6 +5850,36 @@ export type Database = {
           id?: string
           legacy_id?: number | null
           quantity?: number
+        }
+        Relationships: []
+      }
+      changelog: {
+        Row: {
+          body: string
+          id: string
+          published: boolean
+          published_at: string
+          tags: string[] | null
+          title: string
+          version: string | null
+        }
+        Insert: {
+          body: string
+          id?: string
+          published?: boolean
+          published_at?: string
+          tags?: string[] | null
+          title: string
+          version?: string | null
+        }
+        Update: {
+          body?: string
+          id?: string
+          published?: boolean
+          published_at?: string
+          tags?: string[] | null
+          title?: string
+          version?: string | null
         }
         Relationships: []
       }
@@ -5420,6 +5915,13 @@ export type Database = {
           status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "daily_menu_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "daily_menu_meal_type_id_fkey"
             columns: ["meal_type_id"]
@@ -5612,6 +6114,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "equipment_maintenance_plan_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "equipment_maintenance_plan_model_id_fkey"
             columns: ["model_id"]
             isOneToOne: false
@@ -5709,7 +6218,15 @@ export type Database = {
           weight_kg?: number | null
           width_cm?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "equipment_model_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment_model_role: {
         Row: {
@@ -5846,6 +6363,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "equipment_unit_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "equipment_unit_model_id_fkey"
             columns: ["model_id"]
             isOneToOne: false
@@ -5928,6 +6452,41 @@ export type Database = {
           parent_id?: string | null
         }
         Relationships: []
+      }
+      folder_review: {
+        Row: {
+          folder_id: string
+          id: string
+          note: string | null
+          reviewed_at: string
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+        }
+        Insert: {
+          folder_id: string
+          id?: string
+          note?: string | null
+          reviewed_at?: string
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+        }
+        Update: {
+          folder_id?: string
+          id?: string
+          note?: string | null
+          reviewed_at?: string
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folder_review_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folder"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       frozen_preparation: {
         Row: {
@@ -6383,6 +6942,68 @@ export type Database = {
           },
         ]
       }
+      kitchen: {
+        Row: {
+          address_bairro: string | null
+          address_cep: string | null
+          address_complemento: string | null
+          address_logradouro: string | null
+          address_municipio: string | null
+          address_numero: string | null
+          address_uf: string | null
+          created_at: string
+          display_name: string | null
+          id: number
+          is_training: boolean
+          kitchen_id: number | null
+          purchase_unit_id: number | null
+          type: Database["sisub"]["Enums"]["kitchen_type"] | null
+          unit_id: number | null
+        }
+        Insert: {
+          address_bairro?: string | null
+          address_cep?: string | null
+          address_complemento?: string | null
+          address_logradouro?: string | null
+          address_municipio?: string | null
+          address_numero?: string | null
+          address_uf?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: number
+          is_training?: boolean
+          kitchen_id?: number | null
+          purchase_unit_id?: number | null
+          type?: Database["sisub"]["Enums"]["kitchen_type"] | null
+          unit_id?: number | null
+        }
+        Update: {
+          address_bairro?: string | null
+          address_cep?: string | null
+          address_complemento?: string | null
+          address_logradouro?: string | null
+          address_municipio?: string | null
+          address_numero?: string | null
+          address_uf?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: number
+          is_training?: boolean
+          kitchen_id?: number | null
+          purchase_unit_id?: number | null
+          type?: Database["sisub"]["Enums"]["kitchen_type"] | null
+          unit_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_forecasts: {
         Row: {
           created_at: string | null
@@ -6414,7 +7035,15 @@ export type Database = {
           user_id?: string
           will_eat?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meal_forecasts_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meal_presences: {
         Row: {
@@ -6444,7 +7073,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meal_presences_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meal_type: {
         Row: {
@@ -6471,7 +7108,15 @@ export type Database = {
           name?: string | null
           sort_order?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meal_type_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       menu_items: {
         Row: {
@@ -6588,6 +7233,13 @@ export type Database = {
             referencedRelation: "menu_template"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "menu_template_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
         ]
       }
       menu_template_items: {
@@ -6693,6 +7345,211 @@ export type Database = {
           },
         ]
       }
+      mess_halls: {
+        Row: {
+          code: string
+          display_name: string | null
+          id: number
+          is_training: boolean
+          kitchen_id: number | null
+          unit_id: number
+        }
+        Insert: {
+          code: string
+          display_name?: string | null
+          id?: number
+          is_training?: boolean
+          kitchen_id?: number | null
+          unit_id: number
+        }
+        Update: {
+          code?: string
+          display_name?: string | null
+          id?: number
+          is_training?: boolean
+          kitchen_id?: number | null
+          unit_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mess_halls_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      migration_folder_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_id_grupo_produto: number
+          new_folder_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_id_grupo_produto: number
+          new_folder_id: string
+        }
+        Update: {
+          created_at?: string | null
+          legacy_id_grupo_produto?: number
+          new_folder_id?: string
+        }
+        Relationships: []
+      }
+      migration_nutrient_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_id_nutriente: number
+          new_nutrient_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_id_nutriente: number
+          new_nutrient_id: string
+        }
+        Update: {
+          created_at?: string | null
+          legacy_id_nutriente?: number
+          new_nutrient_id?: string
+        }
+        Relationships: []
+      }
+      migration_product_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_descricao: string | null
+          legacy_id_insumo: number
+          new_product_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_descricao?: string | null
+          legacy_id_insumo: number
+          new_product_id: string
+        }
+        Update: {
+          created_at?: string | null
+          legacy_descricao?: string | null
+          legacy_id_insumo?: number
+          new_product_id?: string
+        }
+        Relationships: []
+      }
+      migration_recipe_lookup: {
+        Row: {
+          created_at: string | null
+          legacy_id_preparacao: number
+          legacy_rendimento: number | null
+          new_recipe_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          legacy_id_preparacao: number
+          legacy_rendimento?: number | null
+          new_recipe_id: string
+        }
+        Update: {
+          created_at?: string | null
+          legacy_id_preparacao?: number
+          legacy_rendimento?: number | null
+          new_recipe_id?: string
+        }
+        Relationships: []
+      }
+      module_chat_message: {
+        Row: {
+          content: string
+          created_at: string
+          error: string | null
+          id: string
+          input_tokens: number | null
+          langsmith_run_id: string | null
+          latency_ms: number | null
+          model: string | null
+          output_tokens: number | null
+          role: string
+          session_id: string
+          tool_call_id: string | null
+          tool_calls: Json | null
+          tool_name: string | null
+          tool_result: Json | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role: string
+          session_id: string
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          langsmith_run_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          role?: string
+          session_id?: string
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_chat_message_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "module_chat_session"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_chat_session: {
+        Row: {
+          created_at: string
+          id: string
+          module: string
+          scope_id: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module: string
+          scope_id?: number | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module?: string
+          scope_id?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nutrient: {
         Row: {
           created_at: string
@@ -6732,6 +7589,30 @@ export type Database = {
         }
         Relationships: []
       }
+      opinions: {
+        Row: {
+          created_at: string
+          id: number
+          question: string | null
+          userId: string | null
+          value: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          question?: string | null
+          userId?: string | null
+          value?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          question?: string | null
+          userId?: string | null
+          value?: number | null
+        }
+        Relationships: []
+      }
       other_presences: {
         Row: {
           admin_id: string | null
@@ -6760,7 +7641,15 @@ export type Database = {
           mess_hall_id?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "other_presences_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       preparation_group: {
         Row: {
@@ -6842,10 +7731,77 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "production_task_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "production_task_menu_item_id_fkey"
             columns: ["menu_item_id"]
             isOneToOne: true
             referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rancho: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          display_name: string
+          elo_code: string
+          id: number
+          kitchen_id: number | null
+          mess_hall_id: number | null
+          notes: string | null
+          produces_own_meals: boolean
+          unit_id: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          display_name: string
+          elo_code: string
+          id?: number
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean
+          unit_id: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          display_name?: string
+          elo_code?: string
+          id?: number
+          kitchen_id?: number | null
+          mess_hall_id?: number | null
+          notes?: string | null
+          produces_own_meals?: boolean
+          unit_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rancho_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rancho_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
             referencedColumns: ["id"]
           },
         ]
@@ -7375,6 +8331,13 @@ export type Database = {
             referencedRelation: "recipe_folder"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recipes_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
         ]
       }
       step_template: {
@@ -7405,7 +8368,15 @@ export type Database = {
           kitchen_id?: number | null
           name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "step_template_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       step_template_utensil: {
         Row: {
@@ -7446,6 +8417,63 @@ export type Database = {
           },
         ]
       }
+      super_admin_controller: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          key: string
+          value: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          key: string
+          value?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          key?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
+      training_reset_log: {
+        Row: {
+          actor_id: string
+          deleted_counts: Json
+          duration_ms: number | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          queued_ms: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          actor_id: string
+          deleted_counts?: Json
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          queued_ms?: number | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          actor_id?: string
+          deleted_counts?: Json
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          queued_ms?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       utensil: {
         Row: {
           created_at: string
@@ -7473,6 +8501,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "utensil_kitchen_id_fkey"
+            columns: ["kitchen_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "utensil_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
@@ -7481,8 +8516,222 @@ export type Database = {
           },
         ]
       }
+      workforce_category: {
+        Row: {
+          code: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          is_career: boolean
+          is_technical: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_career?: boolean
+          is_technical?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_career?: boolean
+          is_technical?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      workforce_headcount: {
+        Row: {
+          category_id: string
+          created_at: string
+          headcount: number
+          id: string
+          submission_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          headcount: number
+          id?: string
+          submission_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          headcount?: number
+          id?: string
+          submission_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_headcount_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_headcount_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_submission"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workforce_note: {
+        Row: {
+          created_at: string
+          detail: string
+          id: string
+          kind: string
+          quantity: number | null
+          submission_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail: string
+          id?: string
+          kind: string
+          quantity?: number | null
+          submission_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string
+          id?: string
+          kind?: string
+          quantity?: number | null
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_note_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_submission"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workforce_submission: {
+        Row: {
+          created_at: string
+          declared_total: number | null
+          id: string
+          rancho_id: number
+          submitted_at: string | null
+          submitted_by: string | null
+          survey_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          declared_total?: number | null
+          id?: string
+          rancho_id: number
+          submitted_at?: string | null
+          submitted_by?: string | null
+          survey_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          declared_total?: number | null
+          id?: string
+          rancho_id?: number
+          submitted_at?: string | null
+          submitted_by?: string | null
+          survey_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_submission_rancho_id_fkey"
+            columns: ["rancho_id"]
+            isOneToOne: false
+            referencedRelation: "rancho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_submission_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_survey"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workforce_survey: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          opened_at: string
+          reference_date: string
+          source: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_at?: string
+          reference_date: string
+          source?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_at?: string
+          reference_date?: string
+          source?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
+      folder_last_review: {
+        Row: {
+          folder_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folder_review_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredient_last_review: {
         Row: {
           ingredient_id: string | null
@@ -7549,7 +8798,15 @@ export type Database = {
           updated_at: string | null
           user_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meal_presences_mess_hall_id_fkey"
+            columns: ["mess_hall_id"]
+            isOneToOne: false
+            referencedRelation: "mess_halls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -8443,6 +9700,13 @@ export type Database = {
             referencedRelation: "purchase_item"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "procurement_list_item_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
         ]
       }
       procurement_list_kitchen: {
@@ -8815,6 +10079,7 @@ export type Database = {
           catmat_item_descricao: string | null
           catmat_match_score: number | null
           catmat_match_status: string | null
+          conservation_class: string | null
           created_at: string
           deleted_at: string | null
           delivery_conditioning: string | null
@@ -8825,7 +10090,14 @@ export type Database = {
           gpc_family_code: string | null
           gpc_segment_code: string | null
           id: string
+          min_shelf_life_days_on_delivery: number | null
+          package_net_content: number | null
+          package_net_content_unit: string | null
+          package_type: string | null
           purchase_measure_unit: string | null
+          storage_temp_max_c: number | null
+          storage_temp_min_c: number | null
+          transport_requirement: string | null
           unit_price: number | null
           updated_at: string
         }
@@ -8834,6 +10106,7 @@ export type Database = {
           catmat_item_descricao?: string | null
           catmat_match_score?: number | null
           catmat_match_status?: string | null
+          conservation_class?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_conditioning?: string | null
@@ -8844,7 +10117,14 @@ export type Database = {
           gpc_family_code?: string | null
           gpc_segment_code?: string | null
           id?: string
+          min_shelf_life_days_on_delivery?: number | null
+          package_net_content?: number | null
+          package_net_content_unit?: string | null
+          package_type?: string | null
           purchase_measure_unit?: string | null
+          storage_temp_max_c?: number | null
+          storage_temp_min_c?: number | null
+          transport_requirement?: string | null
           unit_price?: number | null
           updated_at?: string
         }
@@ -8853,6 +10133,7 @@ export type Database = {
           catmat_item_descricao?: string | null
           catmat_match_score?: number | null
           catmat_match_status?: string | null
+          conservation_class?: string | null
           created_at?: string
           deleted_at?: string | null
           delivery_conditioning?: string | null
@@ -8863,11 +10144,63 @@ export type Database = {
           gpc_family_code?: string | null
           gpc_segment_code?: string | null
           id?: string
+          min_shelf_life_days_on_delivery?: number | null
+          package_net_content?: number | null
+          package_net_content_unit?: string | null
+          package_type?: string | null
           purchase_measure_unit?: string | null
+          storage_temp_max_c?: number | null
+          storage_temp_min_c?: number | null
+          transport_requirement?: string | null
           unit_price?: number | null
           updated_at?: string
         }
         Relationships: []
+      }
+      purchase_item_gpc_requirement: {
+        Row: {
+          accepted_value_codes: string[]
+          attribute_code: string
+          created_at: string
+          id: string
+          notes: string | null
+          purchase_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_value_codes: string[]
+          attribute_code: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          purchase_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_value_codes?: string[]
+          attribute_code?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          purchase_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_item_gpc_requirement_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_item_gpc_requirement_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+        ]
       }
       purchase_item_ingredient: {
         Row: {
@@ -8904,6 +10237,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "purchase_item"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_item_ingredient_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
           },
         ]
       }
@@ -8996,6 +10336,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "supply_order_item_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_item_conditioning_review"
+            referencedColumns: ["purchase_item_id"]
+          },
+          {
             foreignKeyName: "supply_order_item_supply_order_id_fkey"
             columns: ["supply_order_id"]
             isOneToOne: false
@@ -9006,7 +10353,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_purchase_item_conditioning_review: {
+        Row: {
+          catmat_item_codigo: number | null
+          conservation_class: string | null
+          delivery_conditioning: string | null
+          description: string | null
+          itens_vinculados: number | null
+          pendencia: string | null
+          pista_catmat: string | null
+          purchase_item_id: string | null
+        }
+        Insert: {
+          catmat_item_codigo?: number | null
+          conservation_class?: string | null
+          delivery_conditioning?: string | null
+          description?: string | null
+          itens_vinculados?: never
+          pendencia?: never
+          pista_catmat?: never
+          purchase_item_id?: string | null
+        }
+        Update: {
+          catmat_item_codigo?: number | null
+          conservation_class?: string | null
+          delivery_conditioning?: string | null
+          description?: string | null
+          itens_vinculados?: never
+          pendencia?: never
+          pista_catmat?: never
+          purchase_item_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       upsert_compras_amostras: { Args: { p_samples: Json }; Returns: string[] }
@@ -9975,12 +11354,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10004,11 +11383,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10029,11 +11408,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10054,11 +11433,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10071,11 +11450,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
