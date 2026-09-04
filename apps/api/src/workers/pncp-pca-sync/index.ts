@@ -1,7 +1,7 @@
 import { parsePcaCsv } from "@iefa/sisub-domain/pncp-pca"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { hasLiveSync, PNCP_PCA_SYNC_SOURCE, recoverStaleSyncs } from "../compras-sync/sync-log.ts"
+import { beatSync, claimSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { fetchPcaCsv } from "./client.ts"
 import { dedupeAnos } from "./index-pure.ts"
 import { checkSnapshotSanity, contentHash, planReconciliation } from "./reconcile.ts"
@@ -196,41 +196,38 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 	const currentYear = new Date().getFullYear()
 	const anos = dedupeAnos(opts.anos ?? [currentYear, currentYear + 1])
 
-	await recoverStaleSyncs(supabase, PNCP_PCA_SYNC_SOURCE)
+	// Trava de concorrência garantida pelo banco: `claimSync` recupera as execuções mortas
+	// desta origem e disputa o índice parcial único — a perdedora recebe 23505.
+	const claim = await claimSync(supabase, {
+		source: SYNC_SOURCES.pncpPca,
+		triggeredBy: opts.triggeredBy,
+		totalSteps: anos.length,
+	})
 
-	if (await hasLiveSync(supabase, PNCP_PCA_SYNC_SOURCE)) {
+	if (!claim.claimed) {
 		console.log("[pncp-pca] Ingestão já em andamento. Saindo silenciosamente.")
 		return SYNC_ALREADY_RUNNING
 	}
 
-	const { data: logRow, error: logErr } = await supabase
-		.from("compras_sync_log")
-		.insert({ triggered_by: opts.triggeredBy, total_steps: anos.length, source: PNCP_PCA_SYNC_SOURCE })
-		.select("id")
-		.single()
-
-	if (logErr || !logRow) throw new Error(`Falha ao criar compras_sync_log: ${logErr?.message}`)
-	const syncId = logRow.id as number
-
-	// Primeiro heartbeat imediato: sem ele `isSyncLive` expira em 15 s, um segundo disparo passa
-	// pelo guard de 409 e a recuperação marca a execução saudável como `instance_died`.
-	await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
+	const syncId = claim.syncId
 
 	const { error: stepsErr } = await supabase
-		.from("compras_sync_step")
+		.from("integration_sync_step")
 		.insert(anos.map((ano) => ({ sync_id: syncId, step_name: `pca.${ano}`, status: "pending" })))
 	if (stepsErr) throw new Error(`Falha ao criar os steps do PCA: ${stepsErr.message}`)
 
-	const heartbeat = async () => {
-		await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
-	}
+	const heartbeat = () => beatSync(supabase, syncId)
 
 	let failed = 0
 	let upserted = 0
 
 	for (const ano of anos) {
 		const stepName = `pca.${ano}`
-		await supabase.from("compras_sync_step").update({ status: "running", started_at: new Date().toISOString() }).eq("sync_id", syncId).eq("step_name", stepName)
+		await supabase
+			.from("integration_sync_step")
+			.update({ status: "running", started_at: new Date().toISOString() })
+			.eq("sync_id", syncId)
+			.eq("step_name", stepName)
 
 		try {
 			const r = await syncPcaYear(supabase, cnpj, ano, heartbeat)
@@ -239,7 +236,7 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 			upserted += r.inserted ?? 0
 
 			await supabase
-				.from("compras_sync_step")
+				.from("integration_sync_step")
 				.update({
 					status: isFailure ? "error" : "success",
 					records_upserted: r.inserted ?? 0,
@@ -255,17 +252,17 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 			failed++
 			console.error(`[pncp-pca] ${cnpj}/${ano} falhou:`, err)
 			await supabase
-				.from("compras_sync_step")
+				.from("integration_sync_step")
 				.update({ status: "error", error_message: String(err), finished_at: new Date().toISOString() })
 				.eq("sync_id", syncId)
 				.eq("step_name", stepName)
 		}
 
-		await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
+		await beatSync(supabase, syncId)
 	}
 
 	await supabase
-		.from("compras_sync_log")
+		.from("integration_sync_log")
 		.update({
 			status: failed > 0 ? "error" : "success",
 			completed_steps: anos.length,

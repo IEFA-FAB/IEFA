@@ -2,7 +2,8 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { COMPRAS_SYNC_SOURCE, hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
+import { SYNC_SOURCES } from "../../lib/sync-log.ts"
+import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
 function getSupabase() {
 	// compras_sync_log / compras_sync_step foram movidas para compras_gov_integration
@@ -172,7 +173,7 @@ comprasAdminRoutes
 	.openapi(triggerSyncRoute, async (c) => {
 		const supabase = getSupabase()
 
-		if (await hasLiveSync(supabase)) {
+		if (await hasLiveSync(supabase, SYNC_SOURCES.comprasGov)) {
 			return c.json({ error: "Sync já está em andamento" }, 409)
 		}
 
@@ -183,9 +184,9 @@ comprasAdminRoutes
 		await new Promise((resolve) => setTimeout(resolve, 200))
 
 		const { data: latest } = await supabase
-			.from("compras_sync_log")
+			.from("integration_sync_log")
 			.select("id")
-			.eq("source", COMPRAS_SYNC_SOURCE)
+			.eq("source", SYNC_SOURCES.comprasGov)
 			.eq("triggered_by", "manual")
 			.order("started_at", { ascending: false })
 			.limit(1)
@@ -200,16 +201,16 @@ comprasAdminRoutes
 		const supabase = getSupabase()
 
 		const { data: log, error } = await supabase
-			.from("compras_sync_log")
+			.from("integration_sync_log")
 			.select("*")
-			.eq("source", COMPRAS_SYNC_SOURCE)
+			.eq("source", SYNC_SOURCES.comprasGov)
 			.order("started_at", { ascending: false })
 			.limit(1)
 			.single()
 
 		if (error || !log) return c.json({ error: "Nenhuma sync encontrada" }, 404)
 
-		const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
+		const { data: steps } = await supabase.from("integration_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
 
 		return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
 	})
@@ -220,11 +221,11 @@ comprasAdminRoutes
 		const { id } = c.req.valid("param")
 		const supabase = getSupabase()
 
-		const { data: log, error } = await supabase.from("compras_sync_log").select("*").eq("source", COMPRAS_SYNC_SOURCE).eq("id", id).single()
+		const { data: log, error } = await supabase.from("integration_sync_log").select("*").eq("source", SYNC_SOURCES.comprasGov).eq("id", id).single()
 
 		if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
 
-		const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
+		const { data: steps } = await supabase.from("integration_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
 
 		return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
 	})
@@ -235,12 +236,12 @@ comprasAdminRoutes
 		const { id } = c.req.valid("param")
 		const supabase = getSupabase()
 
-		const { data: log, error } = await supabase.from("compras_sync_log").select("id, status").eq("source", COMPRAS_SYNC_SOURCE).eq("id", id).single()
+		const { data: log, error } = await supabase.from("integration_sync_log").select("id, status").eq("source", SYNC_SOURCES.comprasGov).eq("id", id).single()
 
 		if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
 		if (log.status !== "running") return c.json({ error: "Sync não está em andamento" }, 409)
 
-		await supabase.from("compras_sync_log").update({ stop_requested: true }).eq("id", id)
+		await supabase.from("integration_sync_log").update({ stop_requested: true }).eq("id", id)
 
 		console.log(`[compras-admin] Stop solicitado para sync #${id}`)
 		return c.json({ message: "Parada solicitada — será aplicada ao fim do step atual" }, 200)

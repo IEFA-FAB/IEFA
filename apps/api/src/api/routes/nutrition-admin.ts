@@ -169,7 +169,7 @@ export function createNutritionAdminRoutes(deps: NutritionAdminRoutesDeps = {}) 
 			if (await isLive(supabase)) return c.json({ error: "Sync já está em andamento" }, 409)
 
 			const { data: logRow, error: logErr } = await supabase
-				.from("nutrition_sync_log")
+				.from("integration_sync_log")
 				.insert({ triggered_by: triggeredBy, total_steps: totalSteps })
 				.select("id")
 				.single()
@@ -180,7 +180,10 @@ export function createNutritionAdminRoutes(deps: NutritionAdminRoutesDeps = {}) 
 				.then((syncId) => console.log(`[nutrition-admin] Sync ${triggeredBy} #${syncId} concluída`))
 				.catch(async (err) => {
 					const message = err instanceof Error ? err.message : String(err)
-					await supabase.from("nutrition_sync_log").update({ status: "error", error_message: message, finished_at: new Date().toISOString() }).eq("id", syncId)
+					await supabase
+						.from("integration_sync_log")
+						.update({ status: "error", error_message: message, finished_at: new Date().toISOString() })
+						.eq("id", syncId)
 					console.error(`[nutrition-admin] Sync ${triggeredBy} falhou:`, err)
 				})
 
@@ -188,29 +191,29 @@ export function createNutritionAdminRoutes(deps: NutritionAdminRoutesDeps = {}) 
 		})
 		.openapi(getSyncLatestRoute, async (c) => {
 			const supabase = createSupabase()
-			const { data: log, error } = await supabase.from("nutrition_sync_log").select("*").order("started_at", { ascending: false }).limit(1).single()
+			const { data: log, error } = await supabase.from("integration_sync_log").select("*").order("started_at", { ascending: false }).limit(1).single()
 			if (error || !log) return c.json({ error: "Nenhuma sync encontrada" }, 404)
 
-			const { data: steps } = await supabase.from("nutrition_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
+			const { data: steps } = await supabase.from("integration_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
 			return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
 		})
 		.openapi(getSyncByIdRoute, async (c) => {
 			const { id } = c.req.valid("param")
 			const supabase = createSupabase()
-			const { data: log, error } = await supabase.from("nutrition_sync_log").select("*").eq("id", id).single()
+			const { data: log, error } = await supabase.from("integration_sync_log").select("*").eq("id", id).single()
 			if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
 
-			const { data: steps } = await supabase.from("nutrition_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
+			const { data: steps } = await supabase.from("integration_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
 			return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
 		})
 		.openapi(stopSyncRoute, async (c) => {
 			const { id } = c.req.valid("param")
 			const supabase = createSupabase()
-			const { data: log, error } = await supabase.from("nutrition_sync_log").select("id, status").eq("id", id).single()
+			const { data: log, error } = await supabase.from("integration_sync_log").select("id, status").eq("id", id).single()
 			if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
 			if (log.status !== "running") return c.json({ error: "Sync não está em andamento" }, 409)
 
-			await supabase.from("nutrition_sync_log").update({ stop_requested: true }).eq("id", id)
+			await supabase.from("integration_sync_log").update({ stop_requested: true }).eq("id", id)
 			console.log(`[nutrition-admin] Stop solicitado para sync #${id}`)
 			return c.json({ message: "Parada solicitada" }, 200)
 		})

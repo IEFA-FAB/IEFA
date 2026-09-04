@@ -56,7 +56,7 @@ describe("Admin nutrition sync routes", () => {
 
 		expect(res.status).toBe(202)
 		expect(body).toEqual({ sync_id: 42, message: "Sync iniciada em background" })
-		expect(supabase.inserts).toEqual([{ table: "nutrition_sync_log", row: { triggered_by: "test", total_steps: 1 } }])
+		expect(supabase.inserts).toEqual([{ table: "integration_sync_log", row: { triggered_by: "test", total_steps: 1 } }])
 		expect(calls).toEqual([{ triggeredBy: "test", syncId: 42, maxSteps: undefined }])
 	})
 
@@ -80,7 +80,7 @@ describe("Admin nutrition sync routes", () => {
 		})
 
 		expect(res.status).toBe(202)
-		expect(supabase.inserts).toEqual([{ table: "nutrition_sync_log", row: { triggered_by: "test", total_steps: 2 } }])
+		expect(supabase.inserts).toEqual([{ table: "integration_sync_log", row: { triggered_by: "test", total_steps: 2 } }])
 		expect(calls).toEqual([{ triggeredBy: "test", syncId: 42, maxSteps: 2 }])
 	})
 

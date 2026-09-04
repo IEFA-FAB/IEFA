@@ -2,7 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { hasLiveSync, PNCP_PCA_SYNC_SOURCE } from "../../workers/compras-sync/sync-log.ts"
+import { hasLiveSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { COMAER_CNPJ, runPcaSync, SYNC_ALREADY_RUNNING } from "../../workers/pncp-pca-sync/index.ts"
 
 /**
@@ -82,7 +82,7 @@ pncpPcaAdminRoutes
 	.openapi(triggerRoute, async (c) => {
 		const supabase = getSupabase()
 
-		if (await hasLiveSync(supabase, PNCP_PCA_SYNC_SOURCE)) {
+		if (await hasLiveSync(supabase, SYNC_SOURCES.pncpPca)) {
 			return c.json({ error: "Ingestão do PCA já está em andamento" }, 409)
 		}
 
@@ -101,9 +101,9 @@ pncpPcaAdminRoutes
 		// Só interessa a execução AINDA viva: sem o filtro de status, uma corrida perdida
 		// devolveria o id de um sync manual antigo e já finalizado como se fosse o recém-criado.
 		const { data: latest } = await supabase
-			.from("compras_sync_log")
+			.from("integration_sync_log")
 			.select("id")
-			.eq("source", PNCP_PCA_SYNC_SOURCE)
+			.eq("source", SYNC_SOURCES.pncpPca)
 			.eq("triggered_by", "manual")
 			.eq("status", "running")
 			.order("started_at", { ascending: false })
@@ -115,9 +115,9 @@ pncpPcaAdminRoutes
 
 	.openapi(latestRoute, async (c) => {
 		const { data } = await getSupabase()
-			.from("compras_sync_log")
+			.from("integration_sync_log")
 			.select("id, status, started_at, finished_at, total_steps, completed_steps, failed_steps, total_upserted, error_message")
-			.eq("source", PNCP_PCA_SYNC_SOURCE)
+			.eq("source", SYNC_SOURCES.pncpPca)
 			.order("started_at", { ascending: false })
 			.limit(1)
 			.maybeSingle()

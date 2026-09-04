@@ -13,5 +13,11 @@ export type TablesUpdate<T extends keyof ComprasGovSchema["Tables"]> = ComprasGo
 
 export type ComprasMaterialItem = Tables<"compras_material_item">
 export type ComprasServicoItem = Tables<"compras_servico_item">
-export type ComprasSyncLog = Tables<"compras_sync_log">
-export type ComprasSyncStep = Tables<"compras_sync_step">
+/**
+ * Log de execução COMPARTILHADO por todas as integrações, discriminado por `source`.
+ * Os aliases antigos seguem exportados porque há consumidor fora deste pacote.
+ */
+export type IntegrationSyncLog = Tables<"integration_sync_log">
+export type IntegrationSyncStep = Tables<"integration_sync_step">
+export type ComprasSyncLog = IntegrationSyncLog
+export type ComprasSyncStep = IntegrationSyncStep

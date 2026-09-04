@@ -1,9 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { beatSync, claimSync, hasLiveSync, recoverStaleSyncs, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { importIbge } from "./importers/ibge.ts"
 import { importTaco } from "./importers/taco.ts"
 import { importUsda } from "./importers/usda.ts"
-
-const HEARTBEAT_TIMEOUT_MS = 90_000
 
 export type NutritionReferenceSyncTriggeredBy = "cron" | "manual" | "test"
 type StepFn = (supabase: SupabaseClient<any, any>) => Promise<number>
@@ -40,6 +39,22 @@ function getSupabase() {
 	})
 }
 
+/**
+ * Cliente do LOG. O log de execução é compartilhado por todas as integrações e mora em
+ * `compras_gov_integration`, não no schema de dados desta sincronização.
+ */
+function getLogClient() {
+	const supabaseUrl = process.env.API_SUPABASE_URL
+	const serviceRoleKey = process.env.API_SUPABASE_SERVICE_ROLE_KEY
+	if (!supabaseUrl || !serviceRoleKey) {
+		throw new Error("API_SUPABASE_URL and API_SUPABASE_SERVICE_ROLE_KEY are required for nutrition sync")
+	}
+	return createClient(supabaseUrl, serviceRoleKey, {
+		db: { schema: "compras_gov_integration" },
+		auth: { persistSession: false },
+	})
+}
+
 function selectSteps(opts: Pick<RunNutritionReferenceSyncOptions, "triggeredBy" | "maxSteps">) {
 	const defaultMaxSteps = opts.triggeredBy === "test" ? NUTRITION_REFERENCE_SYNC_TEST_STEPS : STEPS.length
 	const maxSteps = Math.max(1, Math.min(opts.maxSteps ?? defaultMaxSteps, STEPS.length))
@@ -50,42 +65,6 @@ export function getNutritionReferenceSyncTotalSteps(opts: Pick<RunNutritionRefer
 	return selectSteps(opts).length
 }
 
-export function isNutritionSyncLive(heartbeatAt: string | null, startedAt: string): boolean {
-	const threshold = Date.now() - HEARTBEAT_TIMEOUT_MS
-	if (!heartbeatAt) return new Date(startedAt).getTime() > Date.now() - 15_000
-	return new Date(heartbeatAt).getTime() > threshold
-}
-
-async function recoverStaleSyncs(supabase: SupabaseClient<any, any>) {
-	const { data: stale, error } = await supabase.from("nutrition_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-	if (error || !stale?.length) return
-
-	const dead = stale.filter((sync) => !isNutritionSyncLive(sync.heartbeat_at, sync.started_at))
-	for (const log of dead) {
-		console.warn(`[nutrition-sync] Recovery: sync #${log.id} sem heartbeat`)
-		await supabase
-			.from("nutrition_sync_step")
-			.update({ status: "error", error_message: "instance_died", finished_at: new Date().toISOString() })
-			.eq("sync_id", log.id)
-			.in("status", ["running", "pending"])
-		await supabase
-			.from("nutrition_sync_log")
-			.update({ status: "error", error_message: "API instance died or restarted mid-sync", finished_at: new Date().toISOString() })
-			.eq("id", log.id)
-	}
-}
-
-export async function hasLiveNutritionSync(supabase: SupabaseClient<any, any>) {
-	const { data, error } = await supabase.from("nutrition_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-	if (error || !data?.length) return false
-	return data.some((sync) => isNutritionSyncLive(sync.heartbeat_at, sync.started_at))
-}
-
-/**
- * Records a blocked source (TBCA, Tucunduva). These require a manually-obtained
- * authorized file, so the worker never downloads them — it only marks the release
- * as blocked. Scoped to the source's own release row; no other data is touched.
- */
 async function writeBlockedSource(supabase: SupabaseClient<any, any>, source: BlockedSource): Promise<number> {
 	const { error } = await supabase.from("source_release").upsert(
 		{
@@ -102,95 +81,102 @@ async function writeBlockedSource(supabase: SupabaseClient<any, any>, source: Bl
 	return 0
 }
 
+/** Mantido para o painel e o teste da rota; delega ao controle compartilhado. */
+export async function hasLiveNutritionSync(supabase: SupabaseClient<any, any>) {
+	return hasLiveSync(supabase, SYNC_SOURCES.nutritionReference)
+}
+
 export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncOptions): Promise<number> {
 	const supabase = getSupabase()
+	const log = getLogClient()
 	const steps = selectSteps(opts)
-	await recoverStaleSyncs(supabase)
-
-	if (!opts.syncId && (await hasLiveNutritionSync(supabase))) {
-		if (opts.triggeredBy === "cron") console.log("[nutrition-sync] Sync já em andamento. Saindo.")
-		return -1
-	}
 
 	let syncId = opts.syncId
 	if (!syncId) {
-		const { data: logRow, error: logErr } = await supabase
-			.from("nutrition_sync_log")
-			.insert({ triggered_by: opts.triggeredBy, total_steps: steps.length })
-			.select("id")
-			.single()
-		if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
-		syncId = Number(logRow.id)
+		// A exclusão é do banco: `claimSync` compete pelo índice parcial único e a perdedora
+		// recebe 23505, em vez de duas execuções passarem por um "verifica e insere".
+		const claim = await claimSync(log, {
+			source: SYNC_SOURCES.nutritionReference,
+			triggeredBy: opts.triggeredBy === "cron" ? "cron" : "manual",
+			totalSteps: steps.length,
+		})
+		if (!claim.claimed) {
+			if (opts.triggeredBy === "cron") console.log("[nutrition-sync] Sync já em andamento. Saindo.")
+			return -1
+		}
+		syncId = claim.syncId
+	} else {
+		await recoverStaleSyncs(log, SYNC_SOURCES.nutritionReference)
 	}
 
-	await supabase.from("nutrition_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
-	const { error: stepsErr } = await supabase
-		.from("nutrition_sync_step")
+	await beatSync(log, syncId)
+	const { error: stepsErr } = await log
+		.from("integration_sync_step")
 		.insert(steps.map((step) => ({ sync_id: syncId, step_name: step.name, status: "pending" })))
 	if (stepsErr) {
 		await supabase
-			.from("nutrition_sync_log")
+			.from("integration_sync_log")
 			.update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() })
 			.eq("id", syncId)
 		throw new Error(`Falha ao criar nutrition_sync_step: ${stepsErr.message}`)
 	}
 
 	for (const step of steps) {
-		if (await isStopRequested(supabase, syncId)) {
+		if (await isStopRequested(log, syncId)) {
 			console.log(`[nutrition-sync] Stop solicitado — abortando antes do step ${step.name}`)
 			await supabase
-				.from("nutrition_sync_step")
+				.from("integration_sync_step")
 				.update({ status: "error", error_message: "manually stopped", finished_at: new Date().toISOString() })
 				.eq("sync_id", syncId)
 				.eq("status", "pending")
 			await supabase
-				.from("nutrition_sync_log")
+				.from("integration_sync_log")
 				.update({ status: "error", error_message: "Parada manualmente pelo usuário", finished_at: new Date().toISOString() })
 				.eq("id", syncId)
 			return syncId
 		}
-		await runStep(supabase, syncId, step.name, step.fn)
+		await runStep(supabase, log, syncId, step.name, step.fn)
 	}
 
-	const { data: finalLog } = await supabase.from("nutrition_sync_log").select("successful_steps, failed_steps").eq("id", syncId).single()
+	const { data: finalLog } = await log.from("integration_sync_log").select("successful_steps, failed_steps").eq("id", syncId).single()
 	const failedSteps = finalLog?.failed_steps ?? 0
 	const successfulSteps = finalLog?.successful_steps ?? 0
 	const finalStatus = failedSteps === 0 ? "success" : successfulSteps > 0 ? "partial" : "error"
-	await supabase.from("nutrition_sync_log").update({ status: finalStatus, finished_at: new Date().toISOString() }).eq("id", syncId)
+	await log.from("integration_sync_log").update({ status: finalStatus, finished_at: new Date().toISOString() }).eq("id", syncId)
 
 	console.log(`[nutrition-sync] Sync #${syncId} concluída: ${finalStatus}`)
 	return syncId
 }
 
-async function isStopRequested(supabase: SupabaseClient<any, any>, syncId: number) {
-	const { data } = await supabase.from("nutrition_sync_log").select("stop_requested").eq("id", syncId).single()
+async function isStopRequested(log: SupabaseClient<any, any>, syncId: number) {
+	const { data } = await log.from("integration_sync_log").select("stop_requested").eq("id", syncId).single()
 	return Boolean(data?.stop_requested)
 }
 
-async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepName: string, fn: StepFn) {
+async function runStep(data: SupabaseClient<any, any>, log: SupabaseClient<any, any>, syncId: number, stepName: string, fn: StepFn) {
 	const now = new Date().toISOString()
 	await Promise.all([
-		supabase.from("nutrition_sync_step").update({ status: "running", started_at: now }).eq("sync_id", syncId).eq("step_name", stepName),
-		supabase.from("nutrition_sync_log").update({ heartbeat_at: now }).eq("id", syncId),
+		log.from("integration_sync_step").update({ status: "running", started_at: now }).eq("sync_id", syncId).eq("step_name", stepName),
+		log.from("integration_sync_log").update({ heartbeat_at: now }).eq("id", syncId),
 	])
 
 	try {
-		const upserted = await fn(supabase)
-		await supabase
-			.from("nutrition_sync_step")
+		const upserted = await fn(data)
+		await log
+			.from("integration_sync_step")
 			.update({ status: "success", finished_at: new Date().toISOString(), records_upserted: upserted })
 			.eq("sync_id", syncId)
 			.eq("step_name", stepName)
-		await supabase.rpc("nutrition_sync_step_success", { p_sync_id: syncId, p_upserted: upserted })
+		await log.rpc("integration_sync_step_success", { p_sync_id: syncId, p_upserted: upserted })
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		console.error(`[nutrition-sync] Step '${stepName}' falhou: ${message}`)
-		await supabase
-			.from("nutrition_sync_step")
+		await log
+			.from("integration_sync_step")
 			.update({ status: "error", finished_at: new Date().toISOString(), error_message: message })
 			.eq("sync_id", syncId)
 			.eq("step_name", stepName)
-		await supabase.rpc("nutrition_sync_step_failure", { p_sync_id: syncId })
+		await log.rpc("integration_sync_step_failure", { p_sync_id: syncId })
 	}
 }
 
@@ -219,8 +205,7 @@ function scheduleNextRun() {
 }
 
 export async function startNutritionReferenceSyncWorker() {
-	const supabase = getSupabase()
-	await recoverStaleSyncs(supabase)
+	await recoverStaleSyncs(getLogClient(), SYNC_SOURCES.nutritionReference)
 	scheduleNextRun()
 	console.log("[nutrition-sync] Worker agendado (toda terça-feira 03:00 BRT)")
 }
