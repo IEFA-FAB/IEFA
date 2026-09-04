@@ -1,3 +1,4 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
 import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
 import { useEffect, useRef, useState } from "react"
@@ -20,18 +21,6 @@ function getPasswordError(v: string): string | null {
 	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
 	if (!/\d/.test(v)) return "Inclua pelo menos um número."
 	return null
-}
-
-function safeRedirect(target: string | null | undefined, fallback = "/"): string {
-	if (!target) return fallback
-	let decoded = target
-	try {
-		decoded = decodeURIComponent(target)
-	} catch {}
-	if (decoded.startsWith("/") && !decoded.startsWith("//")) {
-		return decoded
-	}
-	return fallback
 }
 
 // view derivada da URL — "reset" ativado por token_hash (ou pela sessão de
@@ -169,7 +158,7 @@ export function AuthScreen({
 
 	useEffect(() => {
 		if (!isLoading && isAuthenticated) {
-			onNavigate({ to: safeRedirect(searchParams.redirect, "/"), replace: true })
+			onNavigate({ to: safeRedirect(searchParams.redirect) ?? "/", replace: true })
 		}
 	}, [isAuthenticated, isLoading, searchParams.redirect, onNavigate])
 
@@ -232,7 +221,7 @@ export function AuthScreen({
 			onSuccess()
 			if (rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-			await onNavigate({ to: safeRedirect(searchParams.redirect, "/"), replace: true })
+			await onNavigate({ to: safeRedirect(searchParams.redirect) ?? "/", replace: true })
 		} catch (err) {
 			onFailure()
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"

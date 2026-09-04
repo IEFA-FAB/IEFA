@@ -1,9 +1,14 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { z } from "zod"
 import { isPasswordRecovery, urlLooksLikeRecovery } from "@/auth/recovery-session"
 
+// `redirect` entra como `unknown` de propósito: o router coage search param numérico
+// (`?redirect=5` chega como number) e um `z.string()` derrubaria a rota inteira em vez
+// de ignorar o valor. O `safeRedirect` sanitiza aqui, no ponto por onde TODO consumidor
+// da rota passa — beforeLoad e tela —, então nenhum deles precisa lembrar do guard.
 const authSearchSchema = z.object({
-	redirect: z.string().optional(),
+	redirect: z.unknown().optional().transform(safeRedirect),
 })
 
 export const Route = createFileRoute("/auth")({

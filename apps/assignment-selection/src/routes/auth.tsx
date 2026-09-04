@@ -1,10 +1,10 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { AlertCircle, Loader2, Lock, LogOut, Mail, ShieldAlert } from "lucide-react"
 import { type SyntheticEvent, useState } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import { authQueryOptions } from "@/lib/auth"
-import { safeRedirect } from "@/lib/redirect"
 
 type AuthSearch = { redirect?: string }
 
