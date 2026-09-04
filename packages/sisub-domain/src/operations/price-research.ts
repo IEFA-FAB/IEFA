@@ -305,76 +305,81 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 
 	const idempotencyKey = idempotencyKeyFor(input)
 
-	return db.transaction(async (tx) => {
-		const inserted = await runQuery(
-			"INSERT_FAILED",
-			() =>
-				tx
-					.insert(procurementPesquisaPrecoInProcurement)
-					.values({
-						ataId: input.ataId ?? null,
-						referenceMethod: input.method,
-						periodMonths: input.periodMonths ?? null,
-						totalItems: 1,
-						itemsWithPrice: input.validCount > 0 ? 1 : 0,
-						itemsWithoutCatmat: 0,
-						nonCompliantItems: 0,
-						idempotencyKey,
-					})
-					// O `where` repete o predicado do índice parcial — sem ele o Postgres não
-					// infere o árbitro e recusa o comando inteiro (42P10).
-					.onConflictDoNothing({
-						target: procurementPesquisaPrecoInProcurement.idempotencyKey,
-						where: isNotNull(procurementPesquisaPrecoInProcurement.idempotencyKey),
-					})
-					.returning({ id: procurementPesquisaPrecoInProcurement.id }),
-			{ prefix: "Erro ao salvar pesquisa" }
-		)
+	// `runQuery` por FORA da transação também: o erro de BEGIN/COMMIT ou de aquisição de
+	// conexão não passa pelos `runQuery` internos, e cru ele chega como o SQL despejado, com
+	// a causa real escondida em `.cause`. `runQuery` repassa `DomainError` intacto.
+	return runQuery("TRANSACTION_FAILED", () =>
+		db.transaction(async (tx) => {
+			const inserted = await runQuery(
+				"INSERT_FAILED",
+				() =>
+					tx
+						.insert(procurementPesquisaPrecoInProcurement)
+						.values({
+							ataId: input.ataId ?? null,
+							referenceMethod: input.method,
+							periodMonths: input.periodMonths ?? null,
+							totalItems: 1,
+							itemsWithPrice: input.validCount > 0 ? 1 : 0,
+							itemsWithoutCatmat: 0,
+							nonCompliantItems: 0,
+							idempotencyKey,
+						})
+						// O `where` repete o predicado do índice parcial — sem ele o Postgres não
+						// infere o árbitro e recusa o comando inteiro (42P10).
+						.onConflictDoNothing({
+							target: procurementPesquisaPrecoInProcurement.idempotencyKey,
+							where: isNotNull(procurementPesquisaPrecoInProcurement.idempotencyKey),
+						})
+						.returning({ id: procurementPesquisaPrecoInProcurement.id }),
+				{ prefix: "Erro ao salvar pesquisa" }
+			)
 
-		// Conflito: pesquisa idêntica já existe hoje — devolve a existente sem duplicar.
-		const research = inserted[0]
-		if (!research) return loadIdempotentResearch(tx, idempotencyKey)
+			// Conflito: pesquisa idêntica já existe hoje — devolve a existente sem duplicar.
+			const research = inserted[0]
+			if (!research) return loadIdempotentResearch(tx, idempotencyKey)
 
-		const dateFiltered = input.dateFilteredCount ?? input.rawCount
-		const researchItem = await insertOneOrFail(
-			"INSERT_FAILED",
-			"Erro ao salvar item da pesquisa: no row returned",
-			() =>
-				tx
-					.insert(procurementPesquisaPrecoItemInProcurement)
-					.values({
-						researchId: research.id,
-						ataItemId: input.ataItemId ?? null,
-						catmatCodigo: input.catmatCodigo,
-						catmatDescricao: input.catmatDescricao ?? null,
-						productName: input.catmatDescricao ?? String(input.catmatCodigo),
-						totalRaw: input.rawCount,
-						totalAfterDateFilter: dateFiltered,
-						// Não há filtro de similaridade/poluição CATMAT nesta pesquisa — a etapa é
-						// registrada como passa-tudo (nenhuma amostra descartada por poluição).
-						totalAfterPollutionFilter: dateFiltered,
-						totalAfterOutlier: input.validCount,
-						priceMin: String(input.stats.min),
-						priceMax: String(input.stats.max),
-						priceMean: String(input.stats.mean),
-						priceMedian: String(input.stats.median),
-						stdDev: String(input.stats.stdDev),
-						cvPct: String(input.stats.cv),
-						uniqueSources: input.stats.uniqueSources,
-						referencePrice: String(input.referencePrice),
-						referenceMethod: input.method,
-						isCompliant: input.validCount >= MIN_COMPLIANT_SAMPLES && input.stats.uniqueSources >= MIN_COMPLIANT_SAMPLES,
-						nonComplianceReasons: [
-							...(input.validCount < MIN_COMPLIANT_SAMPLES ? ["Menos de 3 amostras válidas"] : []),
-							...(input.stats.uniqueSources < MIN_COMPLIANT_SAMPLES ? ["Menos de 3 UASGs distintas"] : []),
-						],
-					})
-					.returning({ id: procurementPesquisaPrecoItemInProcurement.id }),
-			{ prefix: "Erro ao salvar item da pesquisa" }
-		)
+			const dateFiltered = input.dateFilteredCount ?? input.rawCount
+			const researchItem = await insertOneOrFail(
+				"INSERT_FAILED",
+				"Erro ao salvar item da pesquisa: no row returned",
+				() =>
+					tx
+						.insert(procurementPesquisaPrecoItemInProcurement)
+						.values({
+							researchId: research.id,
+							ataItemId: input.ataItemId ?? null,
+							catmatCodigo: input.catmatCodigo,
+							catmatDescricao: input.catmatDescricao ?? null,
+							productName: input.catmatDescricao ?? String(input.catmatCodigo),
+							totalRaw: input.rawCount,
+							totalAfterDateFilter: dateFiltered,
+							// Não há filtro de similaridade/poluição CATMAT nesta pesquisa — a etapa é
+							// registrada como passa-tudo (nenhuma amostra descartada por poluição).
+							totalAfterPollutionFilter: dateFiltered,
+							totalAfterOutlier: input.validCount,
+							priceMin: String(input.stats.min),
+							priceMax: String(input.stats.max),
+							priceMean: String(input.stats.mean),
+							priceMedian: String(input.stats.median),
+							stdDev: String(input.stats.stdDev),
+							cvPct: String(input.stats.cv),
+							uniqueSources: input.stats.uniqueSources,
+							referencePrice: String(input.referencePrice),
+							referenceMethod: input.method,
+							isCompliant: input.validCount >= MIN_COMPLIANT_SAMPLES && input.stats.uniqueSources >= MIN_COMPLIANT_SAMPLES,
+							nonComplianceReasons: [
+								...(input.validCount < MIN_COMPLIANT_SAMPLES ? ["Menos de 3 amostras válidas"] : []),
+								...(input.stats.uniqueSources < MIN_COMPLIANT_SAMPLES ? ["Menos de 3 UASGs distintas"] : []),
+							],
+						})
+						.returning({ id: procurementPesquisaPrecoItemInProcurement.id }),
+				{ prefix: "Erro ao salvar item da pesquisa" }
+			)
 
-		await persistSamples(tx, researchItem.id, input)
+			await persistSamples(tx, researchItem.id, input)
 
-		return { researchId: research.id, researchItemId: researchItem.id }
-	})
+			return { researchId: research.id, researchItemId: researchItem.id }
+		})
+	)
 }

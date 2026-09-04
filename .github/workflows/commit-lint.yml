@@ -13,6 +13,13 @@
 # `edited` também: corrigir o título tem que reavaliar o check, senão o gate vira
 # um carimbo do primeiro rascunho.
 #
+# Com UM commit só o GitHub usa o subject DELE, não o título do PR — é o mesmo campo
+# `COMMIT_OR_PR_TITLE` decidindo diferente conforme a contagem. Por isso o job checa os
+# dois: o título sempre, e o subject do commit único quando o PR tem exatamente um. Sem
+# isso o PR de um commit feito sem o hook local (`git commit --no-verify`, worktree sem
+# `node_modules`, commit pela interface do GitHub) passaria verde e derrubaria na main a
+# mesma mensagem torta que este gate existe para barrar.
+#
 # O que este workflow NÃO cobre: idioma. "mensagem de commit sempre em inglês"
 # (CLAUDE.md) continua sendo disciplina humana e assunto de revisão.
 name: commit-lint
@@ -32,7 +39,7 @@ jobs:
   pr-title:
     name: título do PR (Conventional Commits)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -62,5 +69,22 @@ jobs:
             echo "O título do PR é a mensagem que fica na main depois do squash."
             echo "Formato: <tipo>(<escopo>): <descrição em inglês>"
             echo "Ex.: feat(sucont): add the account reconciliation report"
+            exit 1
+          }
+
+      # Só faz sentido com exatamente 1 commit: aí é o subject dele que o squash usa.
+      # `gh api` pagina em 100 por página, e o passo nem roda fora desse caso.
+      - name: Lint the single commit subject
+        if: github.event.pull_request.commits == 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMITS_URL: ${{ github.event.pull_request.commits_url }}
+        run: |
+          SUBJECT="$(gh api "$COMMITS_URL" --jq '.[0].commit.message' | head -n 1)"
+          printf '%s\n' "$SUBJECT" | bunx --no-install commitlint || {
+            echo ""
+            echo "PR de um commit só: o subject DELE é o que fica na main, não o título do PR."
+            echo "Subject recebido: $SUBJECT"
+            echo "Corrija com: git commit --amend  (e force-push na branch)"
             exit 1
           }
