@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import { hasLiveSync, PNCP_PCA_SYNC_SOURCE, recoverStaleSyncs } from "../compras-sync/sync-log.ts"
 import { fetchPcaCsv } from "./client.ts"
+import { dedupeAnos } from "./index-pure.ts"
 import { checkSnapshotSanity, contentHash, planReconciliation } from "./reconcile.ts"
 
 /**
@@ -47,8 +48,21 @@ function getClient(): SupabaseClient<any, any> {
 	})
 }
 
-/** Ingere um par órgão/ano. Devolve o que aconteceu, sem lançar em falha esperada. */
-export async function syncPcaYear(supabase: SupabaseClient<any, any>, cnpj: string, ano: number): Promise<PcaSyncYearResult> {
+/**
+ * Ingere um par órgão/ano. Devolve o que aconteceu, sem lançar em falha esperada.
+ *
+ * `beat` é chamado ao longo do trabalho porque UM ano já dura mais que os 90 s de
+ * `HEARTBEAT_TIMEOUT_MS`: são até 35 s só de download, ~43 páginas de leitura e ~43 lotes de
+ * upsert para 21 mil linhas. Sem batida no meio, um disparo concorrente enxerga a execução viva
+ * como morta, `recoverStaleSyncs` a marca `instance_died` e uma segunda ingestão do mesmo
+ * órgão/ano começa por cima.
+ */
+export async function syncPcaYear(
+	supabase: SupabaseClient<any, any>,
+	cnpj: string,
+	ano: number,
+	beat: () => Promise<void> = async () => {}
+): Promise<PcaSyncYearResult> {
 	const res = await fetchPcaCsv(cnpj, ano)
 
 	// 204: o órgão não publicou plano nesse ano. Ausência, não erro.
@@ -65,6 +79,8 @@ export async function syncPcaYear(supabase: SupabaseClient<any, any>, cnpj: stri
 	if (snapshot?.content_hash === hash) {
 		return { ano, status: "unchanged", detail: "conteúdo idêntico ao último aplicado" }
 	}
+
+	await beat()
 
 	const { items, skipped } = parsePcaCsv(res.content)
 
@@ -89,6 +105,7 @@ export async function syncPcaYear(supabase: SupabaseClient<any, any>, cnpj: stri
 			known.push({ idItemPca: r.id_item_pca, removed: r.removed_at !== null })
 		}
 		if (page.length < CHUNK) break
+		await beat()
 	}
 
 	// Guarda de completude: a origem responde `Content-Length: None` (chunked), então arquivo
@@ -136,6 +153,7 @@ export async function syncPcaYear(supabase: SupabaseClient<any, any>, cnpj: stri
 	for (let i = 0; i < rows.length; i += CHUNK) {
 		const { error } = await supabase.from("pncp_pca_item").upsert(rows.slice(i, i + CHUNK), { onConflict: "cnpj_orgao,ano_pca,id_item_pca" })
 		if (error) throw new Error(`Falha ao gravar itens do PCA ${cnpj}/${ano}: ${error.message}`)
+		await beat()
 	}
 
 	for (let i = 0; i < plan.removeIds.length; i += CHUNK) {
@@ -176,7 +194,7 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 	const supabase = getClient()
 	const cnpj = opts.cnpj ?? COMAER_CNPJ
 	const currentYear = new Date().getFullYear()
-	const anos = opts.anos ?? [currentYear, currentYear + 1]
+	const anos = dedupeAnos(opts.anos ?? [currentYear, currentYear + 1])
 
 	await recoverStaleSyncs(supabase, PNCP_PCA_SYNC_SOURCE)
 
@@ -198,7 +216,14 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 	// pelo guard de 409 e a recuperação marca a execução saudável como `instance_died`.
 	await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
 
-	await supabase.from("compras_sync_step").insert(anos.map((ano) => ({ sync_id: syncId, step_name: `pca.${ano}`, status: "pending" })))
+	const { error: stepsErr } = await supabase
+		.from("compras_sync_step")
+		.insert(anos.map((ano) => ({ sync_id: syncId, step_name: `pca.${ano}`, status: "pending" })))
+	if (stepsErr) throw new Error(`Falha ao criar os steps do PCA: ${stepsErr.message}`)
+
+	const heartbeat = async () => {
+		await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
+	}
 
 	let failed = 0
 	let upserted = 0
@@ -208,7 +233,7 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 		await supabase.from("compras_sync_step").update({ status: "running", started_at: new Date().toISOString() }).eq("sync_id", syncId).eq("step_name", stepName)
 
 		try {
-			const r = await syncPcaYear(supabase, cnpj, ano)
+			const r = await syncPcaYear(supabase, cnpj, ano, heartbeat)
 			const isFailure = r.status === "error" || r.status === "refused"
 			if (isFailure) failed++
 			upserted += r.inserted ?? 0

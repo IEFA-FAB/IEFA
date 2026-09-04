@@ -24,6 +24,12 @@ const MAX_LIMIT = 500
 const SCAN_PAGE = 1000
 const CATALOG_CHUNK = 500
 
+/** Normaliza CATMAT para comparação: o PCA guarda texto, o catálogo guarda número. */
+function catmatKey(code: string | number): string {
+	const n = Number(code)
+	return Number.isFinite(n) ? String(n) : String(code).trim()
+}
+
 const FetchPcaSchema = z.object({
 	ano: z.number().int().min(2020).max(2100),
 	/** `true` restringe às 6 classes CATMAT de gênero alimentício. */
@@ -124,10 +130,14 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 		const codes = [...new Set(items.map((r) => r.codigo_item).filter((c): c is string => !!c))]
 
 		// Cobertura derivada: um insumo cadastrado depois muda a resposta sem nova ingestão.
+		//
+		// A chave é NORMALIZADA nos dois lados. O `codigo_item` do PCA é texto e o do catálogo é
+		// número; comparar `"0617629"` com `String(617629)` daria "não coberto" para um item que
+		// está lá. Os dados de hoje não têm zero à esquerda, mas a coincidência não é contrato.
 		const catalog = new Map<string, string>()
 		const lookup = [...new Set([...codes, ...scopeCodes])]
 		for (let i = 0; i < lookup.length; i += CATALOG_CHUNK) {
-			const { data: matches } = await getProcurementClient()
+			const { data: matches, error: catErr } = await getProcurementClient()
 				.from("purchase_item")
 				.select("catmat_item_codigo, description")
 				.is("deleted_at", null)
@@ -138,8 +148,11 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 						.map(Number)
 						.filter(Number.isFinite)
 				)
+			// Engolir este erro renderizaria "0 no catálogo" e todo item como não cadastrado —
+			// número silenciosamente errado, que é o modo de falha que este change combate.
+			if (catErr) throw new Error(`Falha ao cruzar o plano com o catálogo: ${catErr.message}`)
 			for (const m of matches ?? []) {
-				if (m.catmat_item_codigo != null) catalog.set(String(m.catmat_item_codigo), m.description ?? "")
+				if (m.catmat_item_codigo != null) catalog.set(catmatKey(m.catmat_item_codigo), m.description ?? "")
 			}
 		}
 
@@ -154,8 +167,8 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 			unidadeFornecimento: r.unidade_fornecimento,
 			quantidadeEstimada: r.quantidade_estimada === null ? null : Number(r.quantidade_estimada),
 			valorUnitarioEstimado: r.valor_unitario_estimado === null ? null : Number(r.valor_unitario_estimado),
-			cobertoPeloCatalogo: r.codigo_item ? catalog.has(r.codigo_item) : false,
-			insumo: r.codigo_item ? (catalog.get(r.codigo_item) ?? null) : null,
+			cobertoPeloCatalogo: r.codigo_item ? catalog.has(catmatKey(r.codigo_item)) : false,
+			insumo: r.codigo_item ? (catalog.get(catmatKey(r.codigo_item)) ?? null) : null,
 		}))
 
 		const comQuantidade = scope.filter((r) => r.quantidade_estimada !== null)
@@ -167,7 +180,7 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 			comQuantidade: comQuantidade.length,
 			semQuantidade: scope.length - comQuantidade.length,
 			catmatsDistintos: scopeCodes.length,
-			catmatsNoCatalogo: scopeCodes.filter((c) => catalog.has(c)).length,
+			catmatsNoCatalogo: scopeCodes.filter((c) => catalog.has(catmatKey(c))).length,
 			quantidadeSomada: comQuantidade.reduce((acc, r) => acc + Number(r.quantidade_estimada ?? 0), 0),
 			itensForaDaSoma: scope.length - comQuantidade.length,
 		}
@@ -216,7 +229,10 @@ export const fetchPcaUasgsFn = createServerFn({ method: "GET" })
 				.eq("ano_pca", data.ano)
 				.is("removed_at", null)
 				.in("codigo_classe", [...PCA_FOOD_CLASS_CODES])
+				// Desempate obrigatório: `uasg` se repete, e sem chave única a fronteira de página
+				// duplica ou perde linhas — justamente as contagens que orientam a curadoria.
 				.order("uasg")
+				.order("id_item_pca")
 				.range(from, from + SCAN_PAGE - 1)
 
 			if (error) throw new Error(`Falha ao ler as UASGs do plano: ${error.message}`)
@@ -233,7 +249,8 @@ export const fetchPcaUasgsFn = createServerFn({ method: "GET" })
 			byUasg.set(r.uasg, cur)
 		}
 
-		const { data: units } = await getProcurementClient().schema("core").from("units").select("uasg").not("uasg", "is", null)
+		const { data: units, error: unitsErr } = await getProcurementClient().schema("core").from("units").select("uasg").not("uasg", "is", null)
+		if (unitsErr) throw new Error(`Falha ao ler as UASGs já cadastradas: ${unitsErr.message}`)
 		const cadastradas = new Set((units ?? []).map((u: { uasg: string }) => u.uasg))
 
 		const uasgs = [...byUasg.entries()]

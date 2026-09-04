@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { dedupeAnos } from "./index-pure.ts"
 import { checkSnapshotSanity, contentHash, planReconciliation } from "./reconcile.ts"
 
 const item = (idItemPca: string) => ({ idItemPca })
@@ -73,5 +74,17 @@ describe("contentHash", () => {
 
 	test("um byte diferente muda o hash", async () => {
 		expect(await contentHash("a;b\n1;2")).not.toBe(await contentHash("a;b\n1;3"))
+	})
+})
+
+describe("dedupeAnos", () => {
+	test("ano repetido no corpo da rota não vira step duplicado", () => {
+		// `UNIQUE (sync_id, step_name)` derrubaria o lote inteiro, e a ingestão rodaria sem
+		// nenhum step enquanto o log reportava sucesso.
+		expect(dedupeAnos([2026, 2026])).toEqual([2026])
+	})
+
+	test("ordena e preserva os distintos", () => {
+		expect(dedupeAnos([2027, 2025, 2026, 2025])).toEqual([2025, 2026, 2027])
 	})
 })
