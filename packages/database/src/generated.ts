@@ -1644,7 +1644,7 @@ export type Database = {
         }
         Relationships: []
       }
-      compras_sync_log: {
+      integration_sync_log: {
         Row: {
           completed_steps: number
           error_message: string | null
@@ -1652,6 +1652,7 @@ export type Database = {
           finished_at: string | null
           heartbeat_at: string | null
           id: number
+          source: string
           started_at: string
           status: string
           stop_requested: boolean
@@ -1668,6 +1669,7 @@ export type Database = {
           finished_at?: string | null
           heartbeat_at?: string | null
           id?: number
+          source?: string
           started_at?: string
           status?: string
           stop_requested?: boolean
@@ -1684,6 +1686,7 @@ export type Database = {
           finished_at?: string | null
           heartbeat_at?: string | null
           id?: number
+          source?: string
           started_at?: string
           status?: string
           stop_requested?: boolean
@@ -1695,7 +1698,7 @@ export type Database = {
         }
         Relationships: []
       }
-      compras_sync_step: {
+      integration_sync_step: {
         Row: {
           current_page: number
           error_message: string | null
@@ -1740,21 +1743,132 @@ export type Database = {
             foreignKeyName: "compras_sync_step_sync_id_fkey"
             columns: ["sync_id"]
             isOneToOne: false
-            referencedRelation: "compras_sync_log"
+            referencedRelation: "integration_sync_log"
             referencedColumns: ["id"]
           },
         ]
+      }
+      pncp_pca_item: {
+        Row: {
+          ano_pca: number
+          catalogo: string | null
+          categoria_item: string | null
+          classificacao_catalogo: string | null
+          cnpj_orgao: string
+          codigo_classe: string | null
+          codigo_item: string | null
+          codigo_pdm: string | null
+          collected_at: string
+          data_desejada: string | null
+          descricao_item: string | null
+          id: string
+          id_item_pca: string
+          identificador_contratacao: string | null
+          nome_classe: string | null
+          nome_contratacao: string | null
+          nome_pdm: string | null
+          nome_unidade: string | null
+          quantidade_estimada: number | null
+          removed_at: string | null
+          uasg: string
+          unidade_fornecimento: string | null
+          valor_orcamentario: number | null
+          valor_total_estimado: number | null
+          valor_unitario_estimado: number | null
+        }
+        Insert: {
+          ano_pca: number
+          catalogo?: string | null
+          categoria_item?: string | null
+          classificacao_catalogo?: string | null
+          cnpj_orgao: string
+          codigo_classe?: string | null
+          codigo_item?: string | null
+          codigo_pdm?: string | null
+          collected_at?: string
+          data_desejada?: string | null
+          descricao_item?: string | null
+          id?: string
+          id_item_pca: string
+          identificador_contratacao?: string | null
+          nome_classe?: string | null
+          nome_contratacao?: string | null
+          nome_pdm?: string | null
+          nome_unidade?: string | null
+          quantidade_estimada?: number | null
+          removed_at?: string | null
+          uasg: string
+          unidade_fornecimento?: string | null
+          valor_orcamentario?: number | null
+          valor_total_estimado?: number | null
+          valor_unitario_estimado?: number | null
+        }
+        Update: {
+          ano_pca?: number
+          catalogo?: string | null
+          categoria_item?: string | null
+          classificacao_catalogo?: string | null
+          cnpj_orgao?: string
+          codigo_classe?: string | null
+          codigo_item?: string | null
+          codigo_pdm?: string | null
+          collected_at?: string
+          data_desejada?: string | null
+          descricao_item?: string | null
+          id?: string
+          id_item_pca?: string
+          identificador_contratacao?: string | null
+          nome_classe?: string | null
+          nome_contratacao?: string | null
+          nome_pdm?: string | null
+          nome_unidade?: string | null
+          quantidade_estimada?: number | null
+          removed_at?: string | null
+          uasg?: string
+          unidade_fornecimento?: string | null
+          valor_orcamentario?: number | null
+          valor_total_estimado?: number | null
+          valor_unitario_estimado?: number | null
+        }
+        Relationships: []
+      }
+      pncp_pca_snapshot: {
+        Row: {
+          ano_pca: number
+          applied_at: string
+          byte_size: number
+          cnpj_orgao: string
+          content_hash: string
+          row_count: number
+        }
+        Insert: {
+          ano_pca: number
+          applied_at?: string
+          byte_size: number
+          cnpj_orgao: string
+          content_hash: string
+          row_count: number
+        }
+        Update: {
+          ano_pca?: number
+          applied_at?: string
+          byte_size?: number
+          cnpj_orgao?: string
+          content_hash?: string
+          row_count?: number
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      compras_sync_step_failure: {
+      integration_sync_step_failure: {
         Args: { p_sync_id: number }
         Returns: undefined
       }
-      compras_sync_step_success: {
+      integration_sync_step_success: {
         Args: { p_sync_id: number; p_upserted: number }
         Returns: undefined
       }
@@ -9145,107 +9259,6 @@ export type Database = {
           },
         ]
       }
-      nutrition_sync_log: {
-        Row: {
-          completed_steps: number
-          error_message: string | null
-          failed_steps: number
-          finished_at: string | null
-          heartbeat_at: string | null
-          id: number
-          started_at: string
-          status: string
-          stop_requested: boolean
-          successful_steps: number
-          total_deactivated: number
-          total_steps: number
-          total_upserted: number
-          triggered_by: string
-        }
-        Insert: {
-          completed_steps?: number
-          error_message?: string | null
-          failed_steps?: number
-          finished_at?: string | null
-          heartbeat_at?: string | null
-          id?: number
-          started_at?: string
-          status?: string
-          stop_requested?: boolean
-          successful_steps?: number
-          total_deactivated?: number
-          total_steps?: number
-          total_upserted?: number
-          triggered_by?: string
-        }
-        Update: {
-          completed_steps?: number
-          error_message?: string | null
-          failed_steps?: number
-          finished_at?: string | null
-          heartbeat_at?: string | null
-          id?: number
-          started_at?: string
-          status?: string
-          stop_requested?: boolean
-          successful_steps?: number
-          total_deactivated?: number
-          total_steps?: number
-          total_upserted?: number
-          triggered_by?: string
-        }
-        Relationships: []
-      }
-      nutrition_sync_step: {
-        Row: {
-          current_page: number
-          error_message: string | null
-          finished_at: string | null
-          id: number
-          records_deactivated: number
-          records_upserted: number
-          started_at: string | null
-          status: string
-          step_name: string
-          sync_id: number
-          total_pages: number | null
-        }
-        Insert: {
-          current_page?: number
-          error_message?: string | null
-          finished_at?: string | null
-          id?: number
-          records_deactivated?: number
-          records_upserted?: number
-          started_at?: string | null
-          status?: string
-          step_name: string
-          sync_id: number
-          total_pages?: number | null
-        }
-        Update: {
-          current_page?: number
-          error_message?: string | null
-          finished_at?: string | null
-          id?: number
-          records_deactivated?: number
-          records_upserted?: number
-          started_at?: string | null
-          status?: string
-          step_name?: string
-          sync_id?: number
-          total_pages?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nutrition_sync_step_sync_id_fkey"
-            columns: ["sync_id"]
-            isOneToOne: false
-            referencedRelation: "nutrition_sync_log"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       source: {
         Row: {
           citation: string | null
@@ -9358,14 +9371,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      nutrition_sync_step_failure: {
-        Args: { p_sync_id: number }
-        Returns: undefined
-      }
-      nutrition_sync_step_success: {
-        Args: { p_sync_id: number; p_upserted: number }
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

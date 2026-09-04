@@ -206,6 +206,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3, minLevel: 2 },
 			{ title: "Efetivo da Rede", url: "/analytics/workforce", icon: Users, minLevel: 2 },
 			{ title: "Equipamentos", url: "/analytics/equipment", icon: CookingPot, minLevel: 2 },
+			{ title: "Plano de Contratações", url: "/analytics/procurement-plan", icon: ClipboardList, minLevel: 2 },
 			{ title: "Assistente IA", url: "/analytics/chat", icon: MessageSquare },
 		],
 	},

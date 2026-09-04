@@ -37,6 +37,7 @@ import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_pr
 import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
 import { Route as ProtectedModulesAnalyticsEquipmentRouteImport } from './routes/_protected/_modules/analytics/equipment'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
+import { Route as ProtectedModulesAnalyticsProcurementPlanRouteImport } from './routes/_protected/_modules/analytics/procurement-plan'
 import { Route as ProtectedModulesAnalyticsWorkforceRouteImport } from './routes/_protected/_modules/analytics/workforce'
 import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
@@ -286,6 +287,12 @@ const ProtectedModulesAnalyticsGlobalRoute =
   ProtectedModulesAnalyticsGlobalRouteImport.update({
     id: '/global',
     path: '/global',
+    getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsProcurementPlanRoute =
+  ProtectedModulesAnalyticsProcurementPlanRouteImport.update({
+    id: '/procurement-plan',
+    path: '/procurement-plan',
     getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
   } as any)
 const ProtectedModulesAnalyticsWorkforceRoute =
@@ -932,6 +939,7 @@ export interface FileRoutesByFullPath {
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/equipment': typeof ProtectedModulesAnalyticsEquipmentRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/analytics/procurement-plan': typeof ProtectedModulesAnalyticsProcurementPlanRoute
   '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
@@ -1054,6 +1062,7 @@ export interface FileRoutesByTo {
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/equipment': typeof ProtectedModulesAnalyticsEquipmentRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/analytics/procurement-plan': typeof ProtectedModulesAnalyticsProcurementPlanRoute
   '/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
@@ -1184,6 +1193,7 @@ export interface FileRoutesById {
   '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/_protected/_modules/analytics/equipment': typeof ProtectedModulesAnalyticsEquipmentRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/_protected/_modules/analytics/procurement-plan': typeof ProtectedModulesAnalyticsProcurementPlanRoute
   '/_protected/_modules/analytics/workforce': typeof ProtectedModulesAnalyticsWorkforceRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/_protected/_modules/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
@@ -1314,6 +1324,7 @@ export interface FileRouteTypes {
     | '/analytics/chat'
     | '/analytics/equipment'
     | '/analytics/global'
+    | '/analytics/procurement-plan'
     | '/analytics/workforce'
     | '/diner/forecast'
     | '/diner/mcp-keys'
@@ -1436,6 +1447,7 @@ export interface FileRouteTypes {
     | '/analytics/chat'
     | '/analytics/equipment'
     | '/analytics/global'
+    | '/analytics/procurement-plan'
     | '/analytics/workforce'
     | '/diner/forecast'
     | '/diner/mcp-keys'
@@ -1565,6 +1577,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/analytics/chat'
     | '/_protected/_modules/analytics/equipment'
     | '/_protected/_modules/analytics/global'
+    | '/_protected/_modules/analytics/procurement-plan'
     | '/_protected/_modules/analytics/workforce'
     | '/_protected/_modules/diner/forecast'
     | '/_protected/_modules/diner/mcp-keys'
@@ -1871,6 +1884,13 @@ declare module '@tanstack/react-router' {
       path: '/global'
       fullPath: '/analytics/global'
       preLoaderRoute: typeof ProtectedModulesAnalyticsGlobalRouteImport
+      parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
+    }
+    '/_protected/_modules/analytics/procurement-plan': {
+      id: '/_protected/_modules/analytics/procurement-plan'
+      path: '/procurement-plan'
+      fullPath: '/analytics/procurement-plan'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsProcurementPlanRouteImport
       parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
     }
     '/_protected/_modules/analytics/workforce': {
@@ -2587,6 +2607,7 @@ interface ProtectedModulesAnalyticsRouteRouteChildren {
   ProtectedModulesAnalyticsChatRoute: typeof ProtectedModulesAnalyticsChatRoute
   ProtectedModulesAnalyticsEquipmentRoute: typeof ProtectedModulesAnalyticsEquipmentRoute
   ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
+  ProtectedModulesAnalyticsProcurementPlanRoute: typeof ProtectedModulesAnalyticsProcurementPlanRoute
   ProtectedModulesAnalyticsWorkforceRoute: typeof ProtectedModulesAnalyticsWorkforceRoute
   ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
 }
@@ -2597,6 +2618,8 @@ const ProtectedModulesAnalyticsRouteRouteChildren: ProtectedModulesAnalyticsRout
     ProtectedModulesAnalyticsEquipmentRoute:
       ProtectedModulesAnalyticsEquipmentRoute,
     ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
+    ProtectedModulesAnalyticsProcurementPlanRoute:
+      ProtectedModulesAnalyticsProcurementPlanRoute,
     ProtectedModulesAnalyticsWorkforceRoute:
       ProtectedModulesAnalyticsWorkforceRoute,
     ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,

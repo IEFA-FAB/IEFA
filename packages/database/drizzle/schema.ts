@@ -590,7 +590,7 @@ export const comprasServicoNaturezaDespesaInComprasGovIntegration = comprasGovIn
 	unique("compras_servico_natureza_desp_codigo_servico_codigo_naturez_key").on(table.codigoServico, table.codigoNaturezaDespesa),
 ]);
 
-export const comprasSyncLogInComprasGovIntegration = comprasGovIntegration.table("compras_sync_log", {
+export const integrationSyncLogInComprasGovIntegration = comprasGovIntegration.table("integration_sync_log", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
@@ -606,7 +606,7 @@ export const comprasSyncLogInComprasGovIntegration = comprasGovIntegration.table
 	heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: 'string' }),
 	stopRequested: boolean("stop_requested").default(false).notNull(),
 }, (table) => [
-	index("idx_compras_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_integration_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
 ]);
 
 export const ingredientInKitchen = kitchen.table("ingredient", {
@@ -734,7 +734,7 @@ export const purchaseItemIngredientInProcurement = procurement.table("purchase_i
 	unique("purchase_item_ingredient_purchase_item_id_ingredient_id_key").on(table.purchaseItemId, table.ingredientId),
 ]);
 
-export const comprasSyncStepInComprasGovIntegration = comprasGovIntegration.table("compras_sync_step", {
+export const integrationSyncStepInComprasGovIntegration = comprasGovIntegration.table("integration_sync_step", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	syncId: bigint("sync_id", { mode: "number" }).notNull(),
@@ -750,10 +750,10 @@ export const comprasSyncStepInComprasGovIntegration = comprasGovIntegration.tabl
 }, (table) => [
 	foreignKey({
 			columns: [table.syncId],
-			foreignColumns: [comprasSyncLogInComprasGovIntegration.id],
-			name: "compras_sync_step_sync_id_fkey"
+			foreignColumns: [integrationSyncLogInComprasGovIntegration.id],
+			name: "integration_sync_step_sync_id_fkey"
 		}).onDelete("cascade"),
-	unique("compras_sync_step_sync_id_step_name_key").on(table.syncId, table.stepName),
+	unique("integration_sync_step_sync_id_step_name_key").on(table.syncId, table.stepName),
 ]);
 
 export const nutritionSourceInNutritionReference = nutritionReference.table("source", {
@@ -913,46 +913,6 @@ export const nutritionFoodNutrientValueInNutritionReference = nutritionReference
 		}).onDelete("cascade"),
 	unique("food_nutrient_value_food_revision_id_component_id_key").on(table.foodRevisionId, table.componentId),
 	check("nutrition_food_nutrient_value_kind_check", sql`value_kind = ANY (ARRAY['measured'::text, 'calculated'::text, 'assumed'::text, 'trace'::text, 'not_analyzed'::text, 'missing'::text])`),
-]);
-
-export const nutritionSyncLogInNutritionReference = nutritionReference.table("nutrition_sync_log", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
-	triggeredBy: text("triggered_by").default('cron').notNull(),
-	status: text().default('running').notNull(),
-	totalSteps: integer("total_steps").default(0).notNull(),
-	completedSteps: integer("completed_steps").default(0).notNull(),
-	successfulSteps: integer("successful_steps").default(0).notNull(),
-	failedSteps: integer("failed_steps").default(0).notNull(),
-	totalUpserted: integer("total_upserted").default(0).notNull(),
-	totalDeactivated: integer("total_deactivated").default(0).notNull(),
-	errorMessage: text("error_message"),
-	heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: 'string' }),
-	stopRequested: boolean("stop_requested").default(false).notNull(),
-}, (table) => [
-	index("nutrition_sync_log_started_at_idx").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
-]);
-
-export const nutritionSyncStepInNutritionReference = nutritionReference.table("nutrition_sync_step", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	syncId: bigint("sync_id", { mode: "number" }).notNull(),
-	stepName: text("step_name").notNull(),
-	status: text().default('pending').notNull(),
-	currentPage: integer("current_page").default(0).notNull(),
-	totalPages: integer("total_pages"),
-	recordsUpserted: integer("records_upserted").default(0).notNull(),
-	recordsDeactivated: integer("records_deactivated").default(0).notNull(),
-	errorMessage: text("error_message"),
-	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
-	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	foreignKey({
-			columns: [table.syncId],
-			foreignColumns: [nutritionSyncLogInNutritionReference.id],
-			name: "nutrition_sync_step_sync_id_fkey"
-		}).onDelete("cascade"),
-	unique("nutrition_sync_step_sync_id_step_name_key").on(table.syncId, table.stepName),
 ]);
 
 export const unitsInCore = core.table("units", {

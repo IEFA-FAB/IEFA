@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
+import { claimSync, hasLiveSync, isSyncLive, recoverStaleSyncs, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import {
 	syncMaterialCaracteristica,
 	syncMaterialClasse,
@@ -23,7 +24,6 @@ import {
 const TOTAL_STEPS = 15
 
 // Heartbeat timeout: se não atualizar em 90s, o processo é considerado morto
-const HEARTBEAT_TIMEOUT_MS = 90_000
 
 type StepFn = (supabase: SupabaseClient<any, any>, updateProgress: (page: number, totalPages: number, upserted: number) => Promise<void>) => Promise<number>
 
@@ -84,53 +84,6 @@ export interface RunComprasSyncOptions {
 	triggeredBy: "cron" | "manual"
 }
 
-// ── Heartbeat liveness check ──────────────────────────────────────────────────
-
-export function isSyncLive(heartbeatAt: string | null, startedAt: string): boolean {
-	const threshold = Date.now() - HEARTBEAT_TIMEOUT_MS
-	// Recém criado (sem heartbeat ainda): usa started_at com margem de 15s
-	if (!heartbeatAt) {
-		return new Date(startedAt).getTime() > Date.now() - 15_000
-	}
-	return new Date(heartbeatAt).getTime() > threshold
-}
-
-// ── Recupera syncs presas por morte/restart de instância ──────────────────────
-
-async function recoverStaleSyncs(supabase: SupabaseClient<any, any>): Promise<void> {
-	const { data: stale, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-
-	if (error || !stale?.length) return
-
-	const dead = stale.filter((s) => !isSyncLive(s.heartbeat_at, s.started_at))
-	if (!dead.length) return
-
-	for (const log of dead) {
-		console.warn(`[compras-sync] Recovery: sync #${log.id} sem heartbeat — marcando como error`)
-
-		await supabase
-			.from("compras_sync_step")
-			.update({ status: "error", error_message: "instance_died", finished_at: new Date().toISOString() })
-			.eq("sync_id", log.id)
-			.in("status", ["running", "pending"])
-
-		await supabase
-			.from("compras_sync_log")
-			.update({ status: "error", error_message: "API instance died or restarted mid-sync", finished_at: new Date().toISOString() })
-			.eq("id", log.id)
-	}
-
-	console.log(`[compras-sync] Recovery: ${dead.length} sync(s) morta(s) marcada(s) como error`)
-}
-
-// ── Concorrência: retorna true se já há uma sync viva rodando ─────────────────
-
-export async function hasLiveSync(supabase: SupabaseClient<any, any>): Promise<boolean> {
-	const { data, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-	if (error || !data?.length) return false
-	return data.some((s) => isSyncLive(s.heartbeat_at, s.started_at))
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export async function runComprasSync(opts: RunComprasSyncOptions): Promise<number> {
@@ -139,43 +92,40 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 		auth: { persistSession: false },
 	})
 
-	// Auto-recuperação: limpa syncs presas antes de verificar o lock.
-	// Garante que um restart da API desbloqueie imediatamente qualquer sync morta,
-	// mesmo em triggers manuais (não apenas no startup do worker).
-	await recoverStaleSyncs(supabase)
+	// ── Trava de concorrência, garantida pelo banco ────────────────────────────
+	// `claimSync` recupera as execuções mortas desta origem e disputa o índice parcial único:
+	// a perdedora recebe 23505. Não há janela entre verificar e inserir.
+	const claim = await claimSync(supabase, {
+		source: SYNC_SOURCES.comprasGov,
+		triggeredBy: opts.triggeredBy,
+		totalSteps: TOTAL_STEPS,
+	})
 
-	// ── Trava de concorrência (heartbeat-aware) ────────────────────────────────
-	if (await hasLiveSync(supabase)) {
+	if (!claim.claimed) {
 		if (opts.triggeredBy === "cron") {
 			console.log("[compras-sync] Sync já em andamento. Saindo silenciosamente.")
 		}
 		return -1
 	}
 
-	// ── Criar log geral ────────────────────────────────────────────────────────
-	const { data: logRow, error: logErr } = await supabase
-		.from("compras_sync_log")
-		.insert({ triggered_by: opts.triggeredBy, total_steps: TOTAL_STEPS })
-		.select("id")
-		.single()
-
-	if (logErr || !logRow) {
-		throw new Error(`Falha ao criar compras_sync_log: ${logErr?.message}`)
-	}
-
-	const syncId = logRow.id as number
+	const syncId = claim.syncId
 
 	// Primeiro heartbeat imediato para que o lock funcione antes de qualquer step
-	await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
+	await supabase.from("integration_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
 
 	console.log(`[compras-sync] Iniciando sync #${syncId} (${opts.triggeredBy}) — ${WAVES.length} waves, ${TOTAL_STEPS} steps`)
 
 	// ── Criar todos os step records como 'pending' ─────────────────────────────
 	const allSteps = WAVES.flat()
-	const { error: stepsErr } = await supabase.from("compras_sync_step").insert(allSteps.map((s) => ({ sync_id: syncId, step_name: s.name, status: "pending" })))
+	const { error: stepsErr } = await supabase
+		.from("integration_sync_step")
+		.insert(allSteps.map((s) => ({ sync_id: syncId, step_name: s.name, status: "pending" })))
 
 	if (stepsErr) {
-		await supabase.from("compras_sync_log").update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() }).eq("id", syncId)
+		await supabase
+			.from("integration_sync_log")
+			.update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() })
+			.eq("id", syncId)
 		throw new Error(`Falha ao criar steps: ${stepsErr.message}`)
 	}
 
@@ -184,17 +134,17 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 		const wave = WAVES[waveIdx]
 
 		// Verifica stop_requested antes de cada wave
-		const { data: logState } = await supabase.from("compras_sync_log").select("stop_requested").eq("id", syncId).single()
+		const { data: logState } = await supabase.from("integration_sync_log").select("stop_requested").eq("id", syncId).single()
 
 		if (logState?.stop_requested) {
 			console.log(`[compras-sync] Stop solicitado — abortando antes da wave ${waveIdx + 1}`)
 			await supabase
-				.from("compras_sync_step")
+				.from("integration_sync_step")
 				.update({ status: "error", error_message: "manually stopped", finished_at: new Date().toISOString() })
 				.eq("sync_id", syncId)
 				.eq("status", "pending")
 			await supabase
-				.from("compras_sync_log")
+				.from("integration_sync_log")
 				.update({ status: "error", error_message: "Parada manualmente pelo usuário", finished_at: new Date().toISOString() })
 				.eq("id", syncId)
 			return syncId
@@ -208,13 +158,13 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 	}
 
 	// ── Finalizar log geral ────────────────────────────────────────────────────
-	const { data: finalLog } = await supabase.from("compras_sync_log").select("successful_steps, failed_steps").eq("id", syncId).single()
+	const { data: finalLog } = await supabase.from("integration_sync_log").select("successful_steps, failed_steps").eq("id", syncId).single()
 
 	const failedSteps = finalLog?.failed_steps ?? 0
 	const successfulSteps = finalLog?.successful_steps ?? 0
 	const finalStatus = failedSteps === 0 ? "success" : successfulSteps > 0 ? "partial" : "error"
 
-	await supabase.from("compras_sync_log").update({ status: finalStatus, finished_at: new Date().toISOString() }).eq("id", syncId)
+	await supabase.from("integration_sync_log").update({ status: finalStatus, finished_at: new Date().toISOString() }).eq("id", syncId)
 
 	console.log(`[compras-sync] Sync #${syncId} concluída: ${finalStatus} (${successfulSteps}/${TOTAL_STEPS} steps com sucesso)`)
 
@@ -228,22 +178,22 @@ async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepN
 
 	const now = new Date().toISOString()
 	await Promise.all([
-		supabase.from("compras_sync_step").update({ status: "running", started_at: now }).eq("sync_id", syncId).eq("step_name", stepName),
+		supabase.from("integration_sync_step").update({ status: "running", started_at: now }).eq("sync_id", syncId).eq("step_name", stepName),
 		// Heartbeat no início de cada step — múltiplos steps paralelos atualizam
 		// a mesma linha; o último writer vence mas qualquer um mantém o lock vivo
-		supabase.from("compras_sync_log").update({ heartbeat_at: now }).eq("id", syncId),
+		supabase.from("integration_sync_log").update({ heartbeat_at: now }).eq("id", syncId),
 	])
 
 	const updateProgress = async (page: number, totalPages: number, upserted: number) => {
 		const ts = new Date().toISOString()
 		await Promise.all([
 			supabase
-				.from("compras_sync_step")
+				.from("integration_sync_step")
 				.update({ current_page: page, total_pages: totalPages, records_upserted: upserted })
 				.eq("sync_id", syncId)
 				.eq("step_name", stepName),
 			// Heartbeat por página — mantém o lock vivo durante processamento longo
-			supabase.from("compras_sync_log").update({ heartbeat_at: ts }).eq("id", syncId),
+			supabase.from("integration_sync_log").update({ heartbeat_at: ts }).eq("id", syncId),
 		])
 	}
 
@@ -251,12 +201,12 @@ async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepN
 		const upserted = await fn(supabase, updateProgress)
 
 		await supabase
-			.from("compras_sync_step")
+			.from("integration_sync_step")
 			.update({ status: "success", finished_at: new Date().toISOString(), records_upserted: upserted })
 			.eq("sync_id", syncId)
 			.eq("step_name", stepName)
 
-		await supabase.rpc("compras_sync_step_success", { p_sync_id: syncId, p_upserted: upserted })
+		await supabase.rpc("integration_sync_step_success", { p_sync_id: syncId, p_upserted: upserted })
 
 		console.log(`[compras-sync] Step '${stepName}' concluído: ${upserted} registros`)
 	} catch (err) {
@@ -264,12 +214,12 @@ async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepN
 		console.error(`[compras-sync] Step '${stepName}' falhou:`, message)
 
 		await supabase
-			.from("compras_sync_step")
+			.from("integration_sync_step")
 			.update({ status: "error", finished_at: new Date().toISOString(), error_message: message })
 			.eq("sync_id", syncId)
 			.eq("step_name", stepName)
 
-		await supabase.rpc("compras_sync_step_failure", { p_sync_id: syncId })
+		await supabase.rpc("integration_sync_step_failure", { p_sync_id: syncId })
 	}
 }
 
@@ -307,8 +257,11 @@ export async function startComprasSyncWorker() {
 
 	// Recupera syncs presas de instâncias anteriores (belt-and-suspenders;
 	// runComprasSync também chama isso, mas aqui garante limpeza antes do schedule)
-	await recoverStaleSyncs(supabase)
+	await recoverStaleSyncs(supabase, SYNC_SOURCES.comprasGov)
 
 	scheduleNextRun()
 	console.log("[compras-sync] Worker agendado (toda segunda-feira 03:00 BRT)")
 }
+
+// Reexportados do controle compartilhado — quem já importava daqui continua funcionando.
+export { hasLiveSync, isSyncLive, recoverStaleSyncs, SYNC_SOURCES }
