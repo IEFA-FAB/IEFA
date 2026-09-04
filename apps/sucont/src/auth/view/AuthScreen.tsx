@@ -1,3 +1,4 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Loader2, Lock, Mail, Monitor, ShieldAlert, User } from "lucide-react"
@@ -21,16 +22,6 @@ function getPasswordError(v: string): string | null {
 	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
 	if (!/\d/.test(v)) return "Inclua pelo menos um número."
 	return null
-}
-
-function safeRedirect(target: string | null | undefined, fallback = "/"): string {
-	if (!target) return fallback
-	let decoded = target
-	try {
-		decoded = decodeURIComponent(target)
-	} catch {}
-	if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded
-	return fallback
 }
 
 // View derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
@@ -259,7 +250,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	// da tela de nova senha, onde o verifyOtp já cria uma sessão de recuperação).
 	useEffect(() => {
 		if (!isLoading && isAuthenticated && currentView === "auth") {
-			onNavigate({ to: safeRedirect(searchParams.redirect, "/"), replace: true })
+			onNavigate({ to: safeRedirect(searchParams.redirect) ?? "/", replace: true })
 		}
 	}, [isAuthenticated, isLoading, currentView, searchParams.redirect, onNavigate])
 
@@ -317,7 +308,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			onSuccess()
 			if (rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-			await onNavigate({ to: safeRedirect(searchParams.redirect, "/"), replace: true })
+			await onNavigate({ to: safeRedirect(searchParams.redirect) ?? "/", replace: true })
 		} catch (err) {
 			onFailure()
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"

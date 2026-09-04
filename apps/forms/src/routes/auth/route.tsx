@@ -1,22 +1,19 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { z } from "zod"
 import { env } from "@/env"
 import { isPasswordRecoveryLink } from "@/lib/auth-otp"
 
 const authSearchSchema = z.object({
-	redirect: z.string().optional(),
+	// `unknown` de propósito: o router coage `?redirect=5` para número, e `z.string()`
+	// derrubaria a rota inteira em vez de ignorar o valor. Ver `safeRedirect` no auth-kit.
+	redirect: z.unknown().optional().transform(safeRedirect),
 	// token_hash/type precisam ser visíveis aqui: o verifyOtp do link de email cria
 	// sessão e re-dispara este beforeLoad — sem isso o usuário é chutado pra fora
 	// do formulário de nova senha antes de digitar.
 	token_hash: z.string().optional(),
 	type: z.string().optional(),
 })
-
-// Só aceita caminho interno absoluto: "//host" e URLs externas viram open redirect.
-function safeRedirect(target: string | undefined) {
-	if (!target?.startsWith("/") || target.startsWith("//")) return "/dashboard"
-	return target
-}
 
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
@@ -25,7 +22,9 @@ export const Route = createFileRoute("/auth")({
 		// senha). Em signup/invite/magiclink o verifyOtp já criou a sessão, então
 		// redirecionar é o esperado — senão o link fica consumido e o usuário parado aqui.
 		if (context.auth.isAuthenticated && !isPasswordRecoveryLink(search)) {
-			throw redirect({ href: safeRedirect(search.redirect) })
+			// `href` (não `to`) sai VERBATIM no header `Location` do 307 — aqui o valor já
+			// veio saneado pelo `validateSearch`, que é o que impede a saída de origem.
+			throw redirect({ href: search.redirect ?? "/dashboard" })
 		}
 	},
 	component: AuthLayout,

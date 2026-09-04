@@ -1,3 +1,4 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { useCallback, useMemo } from "react"
@@ -7,7 +8,9 @@ import { AuthScreen } from "#/auth/view/AuthScreen"
 import { supabase } from "#/lib/supabase"
 
 const authSearchSchema = z.object({
-	redirect: z.string().optional(),
+	// `unknown` de propósito: o router coage `?redirect=5` para número, e `z.string()`
+	// derrubaria a rota inteira em vez de ignorar o valor. Ver `safeRedirect` no auth-kit.
+	redirect: z.unknown().optional().transform(safeRedirect),
 	denied: z.string().optional(),
 	tab: z.enum(["login", "register"]).optional().default("login"),
 	view: z.enum(["forgot"]).optional(),

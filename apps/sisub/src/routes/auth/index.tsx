@@ -1,6 +1,7 @@
 // Routing
 
 // Hooks + Services
+import { safeRedirect } from "@iefa/auth-kit"
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
 import { createFileRoute } from "@tanstack/react-router"
 // Icons
@@ -42,7 +43,9 @@ import supabase from "@/lib/supabase"
    ======================================================================== */
 
 const searchSchema = z.object({
-	redirect: z.string().optional(),
+	// `unknown` de propósito: o router coage `?redirect=5` para número, e `z.string()`
+	// derrubaria a rota inteira em vez de ignorar o valor. Ver `safeRedirect` no auth-kit.
+	redirect: z.unknown().optional().transform(safeRedirect),
 	tab: z.enum(["login", "register"]).optional().default("login"),
 	token_hash: z.string().optional(),
 	type: z.string().optional(),

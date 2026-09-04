@@ -1,3 +1,4 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
@@ -84,7 +85,9 @@ export const getRouter = () => {
 							return router.invalidate()
 						}
 						if (router.state.location.pathname.startsWith("/auth")) {
-							const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
+							// `location.search` aqui é a saída CRUA do parseLocation — o `validateSearch`
+							// da rota não passou por este caminho, então o guard tem que ser explícito.
+							const redirectTo = safeRedirect((router.state.location.search as Record<string, unknown>)?.redirect) ?? "/hub"
 							return router.navigate({ to: redirectTo })
 						}
 						return router.invalidate()

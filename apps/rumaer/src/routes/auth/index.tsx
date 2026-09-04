@@ -1,3 +1,4 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -8,7 +9,9 @@ import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
 
 const authSearchSchema = z.object({
-	redirect: z.string().optional(),
+	// `unknown` de propósito: o router coage `?redirect=5` para número, e `z.string()`
+	// derrubaria a rota inteira em vez de ignorar o valor. Ver `safeRedirect` no auth-kit.
+	redirect: z.unknown().optional().transform(safeRedirect),
 	tab: z.enum(["login", "register"]).optional().default("login"),
 	view: z.enum(["forgot"]).optional(),
 	token_hash: z.string().optional(),

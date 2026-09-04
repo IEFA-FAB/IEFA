@@ -1,3 +1,4 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
 import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
 import { useEffect, useReducer } from "react"
@@ -21,18 +22,6 @@ function getPasswordError(v: string): string | null {
 	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
 	if (!/\d/.test(v)) return "Inclua pelo menos um número."
 	return null
-}
-
-function safeRedirect(target: string | null | undefined, fallback = "/"): string {
-	if (!target) return fallback
-	let decoded = target
-	try {
-		decoded = decodeURIComponent(target)
-	} catch {}
-	if (decoded.startsWith("/") && !decoded.startsWith("//")) {
-		return decoded
-	}
-	return fallback
 }
 
 // view derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
@@ -398,7 +387,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
 			// href (não to): o destino salvo pode carregar query string, e `to` é
 			// resolvido como pathname puro — o "?" vira parte do path e cai em NotFound.
-			await onNavigate({ href: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
+			await onNavigate({ href: safeRedirect(searchParams.redirect) ?? "/dashboard", replace: true })
 		} catch (err) {
 			onFailure()
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"
