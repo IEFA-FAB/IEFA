@@ -9,10 +9,10 @@
   },
   "scripts": {
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.4"
+    "@supabase/supabase-js": "^2.115.0"
   },
   "peerDependencies": {
     "react": "^19.2"
@@ -21,7 +21,6 @@
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.0",
     "@types/react": "^19.2.18",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "typescript": "^7.0.2"
   }
 }

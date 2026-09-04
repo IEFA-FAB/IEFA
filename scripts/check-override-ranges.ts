@@ -21,12 +21,7 @@ type LockPkg = [string, ...unknown[]]
 
 /** Override que sai da faixa do consumidor de propósito. Cada entrada é dívida com saída. */
 const FORCED: Record<string, string> = {
-	tmp: "external-editor@3.1.0 pin `^0.0.33`, sem release na linha 0.0.x que corrija GHSA-ph9p-34f9-6g65 (path traversal). Cadeia é só dev (commitizen → inquirer). Sai quando inquirer trocar o external-editor.",
-	"ip-address":
-		"express-rate-limit pin exato `10.1.0`, sem correção nessa versão para GHSA-mwp4-54f8-5fhr (SSRF). Cadeia é o SDK do MCP. Sai quando express-rate-limit subir o pin.",
 	"js-yaml": "@redocly/openapi-core pin `4.1.1`; a correção de GHSA-5p4m-2wfm-xmqj não foi backportada para <=4.1.1. Sai quando o redocly subir.",
-	lodash:
-		"cópia aninhada do commitizen pin `4.17.21`, vulnerável a GHSA-r5fr-rjxr-66jc (code injection via _.template). Cadeia é só dev. Sai quando o commitizen subir.",
 	esbuild:
 		"o alvo é a cópia de @esbuild-kit/core-utils@3.3.2, que pin `~0.18.20` — a faixa que carrega GHSA-67mh-4wv8-2f99 (dev server responde a qualquer origem). drizzle-kit@0.31.10 já pin `^0.25.4`, corrigido, e só é arrastado junto porque override do bun é plano. 0.31.10 é a última do drizzle-kit e ainda depende do @esbuild-kit/esm-loader, deprecado, então não há release para esperar. Cadeia é só dev. Verificado que o drizzle-kit ainda carrega e avalia o drizzle.config.ts sob 0.28.2, que é justamente o caminho do loader. Sai quando o drizzle-kit largar o @esbuild-kit, ou quando o repo largar o drizzle-kit.",
 	undici:

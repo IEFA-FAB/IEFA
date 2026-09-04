@@ -16,15 +16,15 @@
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/zod-openapi": "^1.6.1",
+    "@hono/zod-openapi": "^1.6.2",
     "@iefa/agent-web": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
     "@scalar/hono-api-reference": "^0.12.0",
-    "@supabase/supabase-js": "^2.112.4",
+    "@supabase/supabase-js": "^2.115.0",
     "fast-xml-parser": "^5.11.1",
     "fflate": "^0.8.3",
     "hono": "^4.13.5",
@@ -34,7 +34,6 @@
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "bun-types": "^1.4.0",
     "typescript": "^7.0.2"
   }

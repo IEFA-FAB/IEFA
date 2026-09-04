@@ -10,12 +10,12 @@
   },
   "scripts": {
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@iefa/database": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",
-    "@supabase/supabase-js": "^2.112.4",
+    "@supabase/supabase-js": "^2.115.0",
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-breaks": "^4.0.0",
@@ -33,7 +33,6 @@
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.0",
     "@types/react": "^19.2.18",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "typescript": "^7.0.2"
   }
 }

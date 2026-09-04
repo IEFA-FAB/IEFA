@@ -27,7 +27,7 @@ export const getRouter = () => {
 
 	setupRouterSsrQueryIntegration({
 		router,
-		// Cast via unknown: tsgo resolve @tanstack/query-core por dois caminhos (hoisting
+		// Cast via unknown: tsc resolve @tanstack/query-core por dois caminhos (hoisting
 		// de workspace do Bun); ambos apontam pro mesmo runtime (5.10x).
 		queryClient: rqContext.queryClient as unknown as Parameters<typeof setupRouterSsrQueryIntegration>[0]["queryClient"],
 	})

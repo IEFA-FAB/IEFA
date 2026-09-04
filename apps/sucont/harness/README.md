@@ -4,7 +4,7 @@ Renderiza componentes reais fora do app, nos dois temas: o módulo `auditor` com
 fixture determinística (`main.tsx`, servido em `/`) e a casca do hub com o
 catálogo (`hub.tsx`, em `/hub.html`).
 
-Existe porque **nenhum check enxerga uma cor errada**: `tsgo`, `vite build` e a
+Existe porque **nenhum check enxerga uma cor errada**: `tsc`, `vite build` e a
 suíte passam com um gráfico pintado de branco sobre branco. E a rota `/auditor`
 não serve para verificação rápida — exige sessão, grant `sucont` nível 1 e uma
 planilha carregada.

@@ -26,47 +26,20 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
-    ignore:
-      # `@types/node` >= 26.1.1 quebra o typecheck do sisub-mcp: o `IncomingMessage`
-      # dele passa a exigir `signal`, e o `@modelcontextprotocol/sdk` traz uma cópia
-      # aninhada de `@types/node` que não tem — os dois tipos deixam de ser
-      # compatíveis e `src/index.ts` para de compilar (TS2741/TS2345).
-      # O PR #111 segurou isso só via lockfile, e o #184 provou que lockfile não
-      # segura nada: `^26.0.0` reresolve para 26.1.x no primeiro install. Daí o par
-      # pin exato nos package.json + este ignore. Remover quando o SDK do MCP subir
-      # a cópia aninhada dele.
-      - dependency-name: "@types/node"
-        versions: [">=26.1.0"]
-      # `vite` >= 8.2.0 quebra o typecheck dos 6 apps que usam `@rolldown/plugin-babel`
-      # (todos menos o docs): o plugin traz a própria cópia de vite, e sob 8.2.x o
-      # `Plugin` dele deixa de ser o `Plugin` do app — o array de `plugins` no
-      # `vite.config.ts` para de casar com `PluginOption` (TS2321/TS2769). Não é o
-      # config: `await` no plugin não resolve, porque o tipo vem da outra cópia.
-      # `@rolldown/plugin-babel@0.2.3` é a última publicada e ainda não acompanha o
-      # 8.2. Por isso o pin exato `"vite": "8.1.5"` nos apps. Remover os dois quando
-      # o plugin publicar versão que aceite vite 8.2.
-      - dependency-name: "vite"
-        versions: [">=8.2.0"]
+    # Sem `ignore` hoje: os três pins que existiam aqui (`vite` >=8.2, `@types/node`
+    # >=26.1, `h3` >rc.22) eram todos o MESMO defeito — uma segunda cópia do pacote na
+    # árvore, não a versão nova. Com o pin exato fora dos apps o bun resolve uma cópia
+    # só e o typecheck passa. Antes de pinar de novo, confira quantas cópias o
+    # bun.lock resolve; pin exato num app é o que CRIA a segunda quando uma
+    # transitiva flutua (foi o vitest arrastando o próprio vite).
 
-      # `h3` acima de `2.0.1-rc.22` quebra o typecheck do sisub: o `nitro`
-      # (3.0.260610-beta, a última) pina `h3` em `2.0.1-rc.22` EXATO. Subir o app
-      # cria uma segunda cópia, e o `H3Event` importado de `h3` deixa de ser o
-      # `H3Event` que o `defineHandler` do nitro espera — as duas rotas SSE
-      # (`routes/api/analytics/stream.post.ts`, `routes/api/module-chat/stream.post.ts`)
-      # param de compilar (TS2769). Como `^2.0.1-rc.22` aceita rc.29, o range sozinho
-      # não segura: daí o pin exato `"h3": "2.0.1-rc.22"` no apps/sisub/package.json.
-      # Remover os dois quando o nitro publicar beta com h3 rc.29+ (rc.27 traz
-      # correções de `x-forwarded-*` e de header `Host` que a gente quer).
-      - dependency-name: "h3"
-        versions: [">2.0.1-rc.22"]
-
-      # `xlsx` NÃO é rastreado por aqui e isso é de propósito: ele vem do tarball
-      # oficial da SheetJS (cdn.sheetjs.com), não do registry. A SheetJS parou de
-      # publicar no npm no 0.19 e o que ficou lá (0.18.5) carrega duas high sem
-      # correção possível. O dependabot não abre PR para dependência por URL, então
-      # subir de versão é MANUAL: conferir https://cdn.sheetjs.com/ e trocar a URL
-      # nos package.json de apps/api e apps/sucont. A integridade sha512 do tarball
-      # fica gravada no bun.lock (Bun 1.4), então a troca não passa despercebida.
+    # `xlsx` NÃO é rastreado por aqui e isso é de propósito: ele vem do tarball
+    # oficial da SheetJS (cdn.sheetjs.com), não do registry. A SheetJS parou de
+    # publicar no npm no 0.19 e o que ficou lá (0.18.5) carrega duas high sem
+    # correção possível. O dependabot não abre PR para dependência por URL, então
+    # subir de versão é MANUAL: conferir https://cdn.sheetjs.com/ e trocar a URL
+    # nos package.json de apps/api e apps/sucont. A integridade sha512 do tarball
+    # fica gravada no bun.lock (Bun 1.4), então a troca não passa despercebida.
     groups:
       # Um PR por família: subir React/TanStack/etc. peça por peça só cria conflito de peer.
       react:

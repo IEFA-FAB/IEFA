@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "bun test --no-env-file"
   },
   "exports": {
@@ -19,14 +19,14 @@
     "./langchain-compat": "./src/langchain-compat.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1123.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1126.0",
     "@langchain/openai": "^1.5.11",
-    "@tanstack/ai": "^0.52.1",
-    "@tanstack/ai-anthropic": "^0.18.3",
-    "@tanstack/ai-gemini": "^0.26.5",
-    "@tanstack/ai-groq": "^0.7.3",
-    "@tanstack/ai-ollama": "^0.10.3",
-    "@tanstack/ai-openai": "^0.22.3"
+    "@tanstack/ai": "^0.53.0",
+    "@tanstack/ai-anthropic": "^0.18.5",
+    "@tanstack/ai-gemini": "^0.29.1",
+    "@tanstack/ai-groq": "^0.7.4",
+    "@tanstack/ai-ollama": "^0.11.1",
+    "@tanstack/ai-openai": "^0.22.5"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1"
@@ -39,7 +39,6 @@
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "typescript": "^7.0.2"
   }
 }
