@@ -1,118 +1,61 @@
 /**
  * @module evaluation.fn
- * Super-admin evaluation feature toggle and user opinion collection.
- * CLIENT: getKitchenClient (service role) — all functions.
+ * Wrapper fino sobre as operations de avaliação de `@iefa/sisub-domain` (Drizzle).
  * TABLES: super_admin_controller (key="evaluation"), opinions.
+ *
+ * O gate `admin:2` da escrita da config mora AGORA na operation — não aqui e muito menos no
+ * `beforeLoad` da rota. O endpoint `/_serverFn/...` é chamável direto, sem passar pelo router.
  * @domain app
- * @migration n-a
+ * @migration done
  */
 
+import { fetchEvalConfig, fetchEvaluationForUser, SubmitEvaluationSchema, submitEvaluation, UpsertEvalConfigSchema, upsertEvalConfig } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
-import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
-import { getKitchenClient } from "@/lib/supabase.server"
+import { requireAuth, requireUserId } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
 /**
- * Returns the current evaluation config (active flag + question text). Never throws on missing row — returns { active: false, value: "" }.
- *
- * @throws {Error} on Supabase query failure.
+ * Config corrente (flag + texto da pergunta). Nunca lança por linha ausente — devolve
+ * `{ active: false, value: "" }`.
  */
-export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async () => {
+export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async (): Promise<EvalConfig> => {
 	await requireUserId()
-	const { data, error } = await getKitchenClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
-
-	if (error) throw new Error(error.message)
-
-	return {
-		active: !!data?.active,
-		value: typeof data?.value === "string" ? data.value : data?.value == null ? "" : String(data.value),
-	} as EvalConfig
+	return fetchEvalConfig(getDb()).catch(handleDomainError)
 })
 
 /**
- * Upserts the evaluation config (conflict on key="evaluation") and returns the saved state.
+ * Upsert da config da avaliação (chave `evaluation`).
  *
  * @remarks
- * SIDE EFFECTS: writes to super_admin_controller with key "evaluation".
- *
- * @throws {Error} on Supabase upsert failure.
+ * SIDE EFFECTS: escreve em super_admin_controller. Exige `admin:2` (guard na operation).
  */
 export const upsertEvalConfigFn = createServerFn({ method: "POST" })
-	.validator(z.object({ active: z.boolean(), value: z.string() }))
-	.handler(async ({ data }) => {
-		// Escrita da config de avaliação é administração de plataforma (módulo `admin`, nível 2).
-		// Antes exigia só `requireAuth()` — qualquer sessão autenticada podia sobrescrever a
-		// pergunta global; o gate real vivia só no beforeLoad da rota (client-side).
-		await requireAuthWithPermission("admin", 2)
-		const { data: result, error } = await getKitchenClient()
-			.from("super_admin_controller")
-			.upsert({ key: "evaluation", active: data.active, value: data.value }, { onConflict: "key" })
-			.select("key, active, value")
-			.maybeSingle()
-
-		if (error) throw new Error(error.message)
-
-		return {
-			active: !!result?.active,
-			value: typeof result?.value === "string" ? result.value : result?.value == null ? "" : String(result.value),
-		} as EvalConfig
+	.validator(UpsertEvalConfigSchema)
+	.handler(async ({ data }): Promise<EvalConfig> => {
+		const ctx = await requireAuth()
+		return upsertEvalConfig(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 /**
- * Determines whether a user should be shown the evaluation prompt: checks if active and user hasn't already answered the current question.
- *
- * @remarks
- * Two-step: (1) fetch config — returns { shouldAsk: false } early if inactive or question is blank;
- * (2) check opinions table for (user_id, question) pair.
- *
- * @throws {Error} on config or opinion query failure.
+ * Diz se o usuário da sessão ainda deve ver o convite de avaliação.
+ * Self-only: a identidade vem da sessão — o cliente não decide de quem é a avaliação.
  */
 export const fetchEvaluationForUserFn = createServerFn({ method: "GET" }).handler(async (): Promise<EvaluationResult> => {
-	// Self-only: a identidade vem da sessão — o cliente não decide de quem é a avaliação.
-	const userId = await requireUserId()
-	const { data: config, error: configError } = await getKitchenClient()
-		.from("super_admin_controller")
-		.select("key, active, value")
-		.eq("key", "evaluation")
-		.maybeSingle()
-
-	if (configError) throw new Error(configError.message)
-
-	const isActive = !!config?.active
-	const question = (config?.value ?? "") as string
-
-	if (!isActive || !question) {
-		return { shouldAsk: false, question: question || null }
-	}
-
-	const { data: opinion, error: opinionError } = await getKitchenClient()
-		.from("opinions")
-		.select("id")
-		.eq("question", question)
-		.eq("userId", userId)
-		.maybeSingle()
-
-	if (opinionError) throw new Error(opinionError.message)
-
-	return { shouldAsk: !opinion, question }
+	const ctx = await requireAuth()
+	return fetchEvaluationForUser(getDb(), ctx).catch(handleDomainError)
 })
 
 /**
- * Records a user's evaluation answer for a specific question.
+ * Registra a resposta do usuário autenticado.
  *
  * @remarks
- * SIDE EFFECTS: inserts into opinions. No uniqueness enforcement — duplicate answers are silently allowed.
- *
- * @throws {Error} on Supabase insert failure.
+ * SIDE EFFECTS: insere em opinions. Sem unicidade — resposta repetida é aceita.
  */
 export const submitEvaluationFn = createServerFn({ method: "POST" })
-	.validator(z.object({ value: z.number(), question: z.string() }))
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const { error } = await getKitchenClient()
-			.from("opinions")
-			.insert([{ value: data.value, question: data.question, userId }])
-
-		if (error) throw new Error(error.message)
+	.validator(SubmitEvaluationSchema)
+	.handler(async ({ data }): Promise<void> => {
+		const ctx = await requireAuth()
+		return submitEvaluation(getDb(), ctx, data).catch(handleDomainError)
 	})

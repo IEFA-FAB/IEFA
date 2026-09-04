@@ -1,127 +1,71 @@
 /**
  * @module policy.fn
- * Policy rule CRUD and AI review prompt generation for product and recipe quality control.
- * CLIENT: getProcurementClient (service role) — all functions.
- * TABLE: policy_rule (soft-delete via deleted_at). Targets: "product" | "recipe".
+ * Wrappers finos sobre as operations de `@iefa/sisub-domain` (Drizzle) + geração do prompt
+ * de revisão por IA. As regras vivem em `procurement.policy_rule` (soft-delete via
+ * `deleted_at`; alvos: "product" | "recipe") e são catálogo da SDAB: leitura `global:1`,
+ * escrita `global:2`.
+ *
+ * O gate de escrita fica DUPLICADO de propósito: `requireAuthWithPermission("global", 2)`
+ * aqui e `requirePermission(ctx, "global", 2)` na operation. O contrato de segurança
+ * (`security-contracts.test.ts`) inspeciona este arquivo, e a operation precisa se defender
+ * sozinha porque o Drizzle conecta pelo role do projeto e bypassa RLS.
  * @domain app
- * @migration n-a
+ * @migration done
  */
 
+import {
+	CreatePolicyRuleSchema,
+	createPolicyRule,
+	DeletePolicyRuleSchema,
+	deletePolicyRule,
+	ListPolicyRulesSchema,
+	listPolicyRules,
+	UpdatePolicyRuleSchema,
+	updatePolicyRule,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
-import { getProcurementClient } from "@/lib/supabase.server"
+import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 
 // ============================================================================
 // CRUD
 // ============================================================================
 
-/**
- * Lists active policy rules for a target type ordered by display_order then created_at.
- *
- * @throws {Error} on Supabase query failure.
- */
+/** Lista as regras ativas e inativas de um alvo, ordenadas por display_order e depois created_at. */
 export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
+	.validator(ListPolicyRulesSchema)
 	.handler(async ({ data }): Promise<PolicyRule[]> => {
-		await requireUserId()
-		const { data: result, error } = await getProcurementClient()
-			.from("policy_rule")
-			.select("*")
-			.eq("target", data.target)
-			.is("deleted_at", null)
-			.order("display_order", { ascending: true })
-			.order("created_at", { ascending: true })
-
-		if (error) throw new Error(error.message)
-		return (result ?? []) as PolicyRule[]
+		const ctx = await requireAuth()
+		return listPolicyRules(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Creates a policy rule for a target type. display_order defaults to 0.
- *
- * @remarks
- * SIDE EFFECTS: inserts into policy_rule.
- *
- * @throws {Error} on Supabase insert failure.
- */
+/** Cria uma regra de política. `display_order` default 0. */
 export const createPolicyRuleFn = createServerFn({ method: "POST" })
-	.validator(
-		z.object({
-			target: z.enum(["product", "recipe"]),
-			title: z.string().min(3, "Mínimo de 3 caracteres"),
-			description: z.string().min(10, "Mínimo de 10 caracteres"),
-			display_order: z.number().int().min(0).optional(),
-		})
-	)
+	.validator(CreatePolicyRuleSchema)
 	.handler(async ({ data }): Promise<PolicyRule> => {
 		// Regras de política são do catálogo da SDAB — `requireAuth()` sozinho deixava
 		// qualquer sessão válida criar, alterar e apagar regra de revisão.
-		await requireAuthWithPermission("global", 2)
-		const { data: result, error } = await getProcurementClient()
-			.from("policy_rule")
-			.insert({
-				target: data.target,
-				title: data.title,
-				description: data.description,
-				display_order: data.display_order ?? 0,
-			})
-			.select("*")
-			.single()
-
-		if (error) throw new Error(error.message)
-		return result as PolicyRule
+		const ctx = await requireAuthWithPermission("global", 2)
+		return createPolicyRule(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Patches a policy rule's title, description, display_order or active flag — only provided fields are updated.
- *
- * @remarks
- * SIDE EFFECTS: updates policy_rule + stamps updated_at. Guards against updating soft-deleted rules (IS deleted_at NULL).
- *
- * @throws {Error} on Supabase update failure or not found.
- */
+/** Patch de título, descrição, ordem ou flag `active` — só os campos enviados mudam. */
 export const updatePolicyRuleFn = createServerFn({ method: "POST" })
-	.validator(
-		z.object({
-			id: z.uuid(),
-			title: z.string().min(3).optional(),
-			description: z.string().min(10).optional(),
-			display_order: z.number().int().min(0).optional(),
-			active: z.boolean().optional(),
-		})
-	)
+	.validator(UpdatePolicyRuleSchema)
 	.handler(async ({ data }): Promise<PolicyRule> => {
-		await requireAuthWithPermission("global", 2)
-		const { id, ...fields } = data
-
-		const payload = {
-			updated_at: new Date().toISOString(),
-			...(fields.title !== undefined && { title: fields.title }),
-			...(fields.description !== undefined && { description: fields.description }),
-			...(fields.display_order !== undefined && { display_order: fields.display_order }),
-			...(fields.active !== undefined && { active: fields.active }),
-		}
-
-		const { data: result, error } = await getProcurementClient().from("policy_rule").update(payload).eq("id", id).is("deleted_at", null).select("*").single()
-
-		if (error) throw new Error(error.message)
-		return result as PolicyRule
+		const ctx = await requireAuthWithPermission("global", 2)
+		return updatePolicyRule(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Soft-deletes a policy rule by setting deleted_at. Guards against double-deletion via IS(deleted_at, null).
- *
- * @throws {Error} on Supabase update failure.
- */
+/** Soft-delete: carimba `deleted_at`. Regra já excluída (ou inexistente) falha como não encontrada. */
 export const deletePolicyRuleFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.uuid() }))
+	.validator(DeletePolicyRuleSchema)
 	.handler(async ({ data }): Promise<void> => {
-		await requireAuthWithPermission("global", 2)
-		const { error } = await getProcurementClient().from("policy_rule").update({ deleted_at: new Date().toISOString() }).eq("id", data.id).is("deleted_at", null)
-
-		if (error) throw new Error(error.message)
+		const ctx = await requireAuthWithPermission("global", 2)
+		return deletePolicyRule(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // ============================================================================
@@ -129,36 +73,24 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 // ============================================================================
 
 /**
- * Generates a structured markdown review prompt for Claude containing active policy rules and MCP database hints.
+ * Gera um prompt de revisão em markdown com as regras ATIVAS do alvo e as dicas de tabela do MCP.
  *
  * @remarks
- * Prompt instructs the LLM to fetch all active items via Supabase MCP, evaluate each against every rule,
- * and report PASSA/FALHA per rule with a final APROVADO/REPROVADO verdict.
- * Table hints are target-specific: product → sisub.ingredient; recipe → sisub.recipes + joins.
- * Returns a plain-language message (not throw) if no active rules exist for the target.
- * Generated date is embedded in the prompt footer.
- *
- * @throws {Error} on Supabase query failure.
+ * O prompt instrui o modelo a buscar os itens ativos pelo MCP do Supabase, avaliar cada um contra
+ * todas as regras e reportar PASSA/FALHA por regra, com veredito final APROVADO/REPROVADO.
+ * As dicas de tabela dependem do alvo: product → sisub.ingredient; recipe → sisub.recipes + joins.
+ * Sem regra ativa devolve uma mensagem em texto (não lança). A data de geração vai no rodapé.
  */
 export const generateReviewPromptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<string> => {
-		await requireUserId()
-		const supabase = getProcurementClient()
+		const ctx = await requireAuth()
 		const target: PolicyTarget = data.target
 
-		// Busca apenas as regras ativas — os itens serão buscados pelo Claude via MCP
-		const { data: rules, error: rulesError } = await supabase
-			.from("policy_rule")
-			.select("title, description")
-			.eq("target", target)
-			.is("deleted_at", null)
-			.eq("active", true)
-			.order("display_order", { ascending: true })
+		// Só as regras ativas — os itens serão buscados pelo modelo via MCP.
+		const rules = await listPolicyRules(getDb(), ctx, { target, activeOnly: true }).catch(handleDomainError)
 
-		if (rulesError) throw new Error(rulesError.message)
-
-		if (!rules || rules.length === 0) {
+		if (rules.length === 0) {
 			return `Nenhuma regra de política ativa encontrada para ${target === "product" ? "insumos" : "preparações"}.`
 		}
 
