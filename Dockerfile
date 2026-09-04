@@ -192,6 +192,7 @@ FROM deps AS assignment-selection-build
 ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_URL
 ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
 COPY packages/agent-web ./packages/agent-web
+COPY packages/auth-kit ./packages/auth-kit
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac

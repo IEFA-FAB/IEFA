@@ -1,9 +1,12 @@
+import { safeRedirect } from "@iefa/auth-kit"
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { z } from "zod"
 import { isPasswordRecovery, urlLooksLikeRecovery } from "@/auth/recovery-session"
 
 const authSearchSchema = z.object({
-	redirect: z.string().optional(),
+	// `unknown` de propósito: o router coage `?redirect=5` para número, e `z.string()`
+	// derrubaria a rota inteira em vez de ignorar o valor. Ver `safeRedirect` no auth-kit.
+	redirect: z.unknown().optional().transform(safeRedirect),
 })
 
 export const Route = createFileRoute("/auth")({

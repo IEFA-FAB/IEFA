@@ -84,6 +84,7 @@ sucont:
 assignment_selection:
   - 'apps/assignment-selection/**'
   - 'packages/agent-web/**'
+  - 'packages/auth-kit/**'
   - 'packages/database/**'
   - 'packages/legal-kit/**'
   - 'packages/pbac/**'
