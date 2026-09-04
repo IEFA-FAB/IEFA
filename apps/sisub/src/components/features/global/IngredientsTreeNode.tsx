@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { CalendarCheck, CircleCheck, ClipboardCheck, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -15,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TREE_LEAF_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
 import { cn } from "@/lib/cn"

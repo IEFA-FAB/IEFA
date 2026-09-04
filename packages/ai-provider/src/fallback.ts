@@ -172,11 +172,3 @@ export function withFallbackChain(primary: AnyTextAdapter, ...fallbacks: AnyText
 		},
 	} as AnyTextAdapter
 }
-
-/**
- * @deprecated Use `withFallbackChain`. Mantido porque a assinatura de dois adapters ainda é
- * usada por chamadores antigos; a semântica agora é a da cadeia (troca também em `RUN_ERROR`).
- */
-export function withFallback(primary: AnyTextAdapter, fallback: AnyTextAdapter): AnyTextAdapter {
-	return withFallbackChain(primary, fallback)
-}

@@ -6,12 +6,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useReducer, useRef } from "react"
-import { toast } from "sonner"
 import { z } from "zod"
 import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
 import { insertPresenceFn } from "@/server/presence.fn"
@@ -91,10 +91,10 @@ export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")
 		const unitParam = search.unit ?? search.u
 		if (!unitParam) return
 
-		const messHall = await context.queryClient.ensureQueryData(messHallByCodeQueryOptions(unitParam))
+		const messHall = await context.queryClient.query({ ...messHallByCodeQueryOptions(unitParam), staleTime: "static" })
 
 		if (messHall) {
-			await context.queryClient.ensureQueryData(userMealForecastQueryOptions(user.id, todayISO(), inferDefaultMeal(), messHall.id))
+			await context.queryClient.query({ ...userMealForecastQueryOptions(user.id, todayISO(), inferDefaultMeal(), messHall.id), staleTime: "static" })
 		}
 	},
 	component: SelfCheckin,

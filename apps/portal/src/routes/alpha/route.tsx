@@ -11,7 +11,7 @@ import { AppLayout } from "@/components/AppLayout"
  */
 export const Route = createFileRoute("/alpha")({
 	beforeLoad: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth" })
 		}

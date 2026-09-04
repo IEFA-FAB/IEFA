@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Send, XCircle } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { toast } from "@/components/ui/toast"
 import { checkSupplierSicafFn } from "@/server/replenishment.fn"
 import { cancelSupplyOrderFn, createSupplyOrderFn, listEmpenhosForKitchenFn, listSupplyOrdersFn } from "@/server/supply-order.fn"
 
@@ -66,7 +66,7 @@ function SupplyOrdersPage() {
 		}
 	}
 
-	async function emit(e: React.FormEvent) {
+	async function emit(e: React.SyntheticEvent) {
 		e.preventDefault()
 		if (!empenhoId || !qty || !expected) return
 		// SICAF é vinculado ao fornecedor do empenho: com CNPJ conhecido, a

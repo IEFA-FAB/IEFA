@@ -12,6 +12,25 @@
 
 import { requireKitchen } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls } from "@iefa/sisub-domain/agent"
+// `Server` (baixo nível) e não `McpServer`: o SDK marca o `Server` como
+// "@deprecated ... only use for advanced use cases", e este é um deles.
+//
+// O `McpServer.registerTool` só aceita schema Zod e faz o parse ANTES de chamar o
+// handler. Aqui o despacho passa `dropUnexpectedNulls` primeiro, de propósito: o
+// modelo preenche o campo que não quer usar com `null` em vez de omitir, e 34 das 62
+// propriedades opcionais destas tools são `.optional()` puro (medido em 2026-09-01)
+// — como devem ser, porque no ERP ausente significa "não mexe" e `null` significa
+// "limpa a coluna". Sob o `registerTool` o parse acontece antes da poda e essas 34
+// viram `tool_use_failed` — erro sem mensagem, run morta — em vez de chamada válida.
+//
+// Além disso o `registerTool` converte o Zod com o default do `reused`, que emite
+// `$defs`/`$ref`; o `toJsonSchema` do domínio usa `reused: "inline"` porque cliente
+// MCP não resolve `$ref`. Hoje nenhum dos 252 schemas do domínio reusa subschema e
+// as duas conversões batem byte a byte, mas o primeiro que reusar divergiria só do
+// lado do MCP, calado.
+//
+// Sai daqui quando o SDK deixar publicar o JSON Schema já pronto e rodar a
+// normalização antes do parse.
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import {
 	CallToolRequestSchema,

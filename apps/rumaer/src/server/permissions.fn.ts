@@ -71,7 +71,7 @@ export const grantRumaerPermissionFn = createServerFn({ method: "POST" })
 
 /** Revoga um grant `rumaer`. O `.eq("module", ...)` garante que só grants do rumaer sejam apagados. */
 export const revokeRumaerPermissionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ permissionId: z.string().uuid() }))
+	.validator(z.object({ permissionId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireRumaerAdmin()
 		const { error } = await getAccessControlClient().from("user_permissions").delete().eq("id", data.permissionId).eq("module", MODULE)

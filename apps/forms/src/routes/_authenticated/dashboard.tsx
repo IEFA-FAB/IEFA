@@ -29,8 +29,8 @@ const editableSharedQueryOptions = (tags?: string[] | null) =>
 export const Route = createFileRoute("/_authenticated/dashboard")({
 	loader: ({ context }) => {
 		const { tagFilter } = TENANTS[env.VITE_APP_TENANT]
-		context.queryClient.ensureQueryData(questionnairesQueryOptions(tagFilter))
-		return context.queryClient.ensureQueryData(editableSharedQueryOptions(tagFilter))
+		context.queryClient.query({ ...questionnairesQueryOptions(tagFilter), staleTime: "static" })
+		return context.queryClient.query({ ...editableSharedQueryOptions(tagFilter), staleTime: "static" })
 	},
 	component: DashboardPage,
 })

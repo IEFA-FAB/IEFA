@@ -83,14 +83,14 @@ export type UpdateProductionTaskRecord = z.infer<typeof UpdateProductionTaskReco
 
 /** Ajuste de porções planejadas direto do painel de produção. */
 export const AdjustProductionPortionsSchema = z.object({
-	menuItemId: z.string().uuid(),
+	menuItemId: z.uuid(),
 	plannedPortionQuantity: z.number().positive(),
 })
 export type AdjustProductionPortions = z.infer<typeof AdjustProductionPortionsSchema>
 
 /** Substituição de insumo registrada durante o turno (chão de fábrica). */
 export const RecordProductionSubstitutionSchema = z.object({
-	menuItemId: z.string().uuid(),
+	menuItemId: z.uuid(),
 	ingredientId: z.string().min(1),
 	rationale: z.string().min(1).max(500),
 })

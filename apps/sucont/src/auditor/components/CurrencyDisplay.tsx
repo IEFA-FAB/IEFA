@@ -1,3 +1,5 @@
+import { cn } from "#/lib/utils"
+
 interface CurrencyDisplayProps {
 	value: number
 	className?: string
@@ -17,7 +19,7 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({ value, classNa
 	const decimalPart = parts[1]
 
 	return (
-		<span className={`font-bold tracking-tight ${className}`}>
+		<span className={cn("tabular-nums", className)}>
 			{integerPart}
 			<span className="text-[0.7em]">,{decimalPart}</span>
 		</span>

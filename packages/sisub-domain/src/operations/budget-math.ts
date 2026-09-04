@@ -7,6 +7,8 @@
  * terceira grandeza derivada, sempre exibida com rótulo próprio.
  */
 
+import { roundToCents } from "./liquidation-math.ts"
+
 export interface BudgetCreditSnapshot {
 	dotacao: number
 	empenhadoSiafi: number
@@ -51,7 +53,7 @@ export function localCommitmentAfterSnapshot(entries: readonly LocalEmpenhoEntry
 		if (Number.isNaN(when) || when <= snapshot) return acc
 		return acc + Number(entry.valor ?? 0)
 	}, 0)
-	return Number(total.toFixed(2))
+	return roundToCents(total)
 }
 
 export function projectBudget(snapshot: BudgetCreditSnapshot, entries: readonly LocalEmpenhoEntry[], now: number = Date.now()): BudgetProjection {
@@ -63,7 +65,7 @@ export function projectBudget(snapshot: BudgetCreditSnapshot, entries: readonly 
 		empenhadoSiafi: snapshot.empenhadoSiafi,
 		saldoSiafi: snapshot.saldoSiafi,
 		comprometimentoLocal,
-		saldoProjetado: Number((snapshot.saldoSiafi - comprometimentoLocal).toFixed(2)),
+		saldoProjetado: roundToCents(snapshot.saldoSiafi - comprometimentoLocal),
 		snapshotAt: snapshot.snapshotAt,
 		snapshotAgeDays: ageDays,
 		snapshotStale: ageDays > STALE_AFTER_DAYS,
@@ -92,7 +94,7 @@ export function checkCreditForEmpenho(valor: number, projection: BudgetProjectio
 			message: "Sem dado de crédito importado para esta classificação — o empenho será registrado sem verificação de crédito",
 		}
 	}
-	const excedente = Number((valor - projection.saldoProjetado).toFixed(2))
+	const excedente = roundToCents(valor - projection.saldoProjetado)
 	const idade = projection.snapshotAgeDays === 0 ? "hoje" : `há ${projection.snapshotAgeDays} dia(s)`
 	if (excedente > 0) {
 		return {

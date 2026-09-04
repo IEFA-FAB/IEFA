@@ -47,7 +47,50 @@ function generateId(prefix: string): string {
 // o enum EventType do AG-UI.
 const asChunk = (chunk: Record<string, unknown>): StreamChunk => chunk as unknown as StreamChunk
 
+/**
+ * Limites do serviço (Converse): até 20 imagens de 3,75 MB e 5 documentos de 4,5 MB por
+ * mensagem, e só em mensagem de papel `user`. Validar aqui devolve um erro que diz o que
+ * violou; deixar passar devolve um ValidationException genérico do provider.
+ */
+const MAX_IMAGES_PER_MESSAGE = 20
+const MAX_DOCUMENTS_PER_MESSAGE = 5
+const MAX_DOCUMENT_BYTES = 4.5 * 1024 * 1024
+
+/** Formatos que o Converse aceita como documento, pelo MIME de origem. */
+const DOCUMENT_FORMAT_BY_MIME: Record<string, string> = {
+	"application/pdf": "pdf",
+	"application/msword": "doc",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+	"application/vnd.ms-excel": "xls",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+	"text/csv": "csv",
+	"text/html": "html",
+	"text/markdown": "md",
+	"text/plain": "txt",
+}
+
+function documentBlock(mimeType: string, base64: string, index: number): ContentBlock {
+	if (index > MAX_DOCUMENTS_PER_MESSAGE) throw new Error(`Bedrock aceita no máximo ${MAX_DOCUMENTS_PER_MESSAGE} documentos por mensagem.`)
+
+	const format = DOCUMENT_FORMAT_BY_MIME[mimeType.split(";")[0].trim()]
+	if (!format) throw new Error(`Formato de documento não aceito pelo Bedrock: "${mimeType}". Aceitos: ${Object.values(DOCUMENT_FORMAT_BY_MIME).join(", ")}.`)
+
+	const bytes = Buffer.from(base64, "base64")
+	if (bytes.byteLength > MAX_DOCUMENT_BYTES) {
+		throw new Error(`Documento com ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB excede o limite de 4,5 MB do Bedrock.`)
+	}
+
+	// O nome é NEUTRO de propósito: a própria AWS documenta o campo como vetor de injeção
+	// de prompt — o modelo pode ler o nome do arquivo como instrução.
+	return { document: { format, name: `documento ${index}`, source: { bytes } } } as unknown as ContentBlock
+}
+
 // ── Conversão de mensagens (ModelMessage → Bedrock Converse) ──────────────────
+
+/** Exportado só para teste: a conversão é a parte do adapter que já quebrou em silêncio. */
+export function contentBlocksFromMessageForTest(msg: TextOptions["messages"][number]): ContentBlock[] {
+	return contentBlocksFromMessage(msg)
+}
 
 function contentBlocksFromMessage(msg: TextOptions["messages"][number]): ContentBlock[] {
 	// Resultado de tool → bloco toolResult (Bedrock exige que resultados de tool
@@ -68,15 +111,38 @@ function contentBlocksFromMessage(msg: TextOptions["messages"][number]): Content
 	const blocks: ContentBlock[] = []
 
 	if (Array.isArray(msg.content)) {
+		let documents = 0
+		let images = 0
 		for (const part of msg.content) {
-			if (part.type === "text" && part.content) {
-				blocks.push({ text: part.content })
+			if (part.type === "text") {
+				// Texto vazio é texto, não parte desconhecida: o `else` abaixo existe para tipo que
+				// o adapter não sabe enviar. Resposta só com gráfico é persistida com conteúdo
+				// vazio no sisub e volta como parte de texto vazia — derrubá-la mataria a
+				// conversa inteira ao reabrir.
+				if (part.content) blocks.push({ text: part.content })
 			} else if (part.type === "image" && part.source.type === "data") {
+				images += 1
+				if (images > MAX_IMAGES_PER_MESSAGE) throw new Error(`Bedrock aceita no máximo ${MAX_IMAGES_PER_MESSAGE} imagens por mensagem.`)
 				const format = (part.source.mimeType.split("/")[1] ?? "png") as "png" | "jpeg" | "gif" | "webp"
 				blocks.push({
 					image: { format, source: { bytes: Buffer.from(part.source.value, "base64") } },
 				})
+			} else if (part.type === "document" && part.source.type === "data") {
+				documents += 1
+				blocks.push(documentBlock(part.source.mimeType, part.source.value, documents))
+			} else {
+				// Parte não suportada NÃO pode sumir calada: o modelo responderia sobre o que
+				// sobrou, e a resposta pareceria apenas ruim em vez de incompleta. Este `throw`
+				// existe porque o descarte silencioso já esteve aqui.
+				throw new Error(
+					`Parte de mensagem não suportada pelo adapter do Bedrock: type="${part.type}"${"source" in part ? ` source="${part.source.type}"` : ""}.`
+				)
 			}
+		}
+		// Restrição do serviço: mensagem com documento exige um bloco de texto junto, ou a
+		// chamada volta ValidationException sem dizer o motivo.
+		if (documents > 0 && !blocks.some((block) => "text" in block)) {
+			blocks.unshift({ text: "Documento anexado pelo usuário." })
 		}
 	} else if (typeof msg.content === "string" && msg.content) {
 		blocks.push({ text: msg.content })

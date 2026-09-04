@@ -1,285 +1,340 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useRouter, useRouterState } from "@tanstack/react-router"
-import { Activity, FileText, LayoutGrid, LogOut, Menu, MessageSquare, Monitor, Search, ShieldCheck, X, Zap } from "lucide-react"
+import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
+import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Monitor, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
+import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
-import { SidebarRailItem } from "#/components/sidebar-rail-item"
-import { externalSystems, iaTools, reportTools } from "#/lib/data"
-import { ALL_CATEGORIES, useHubFilters } from "#/lib/hub-filters"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
+import { Separator } from "#/components/ui/separator"
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarGroup,
+	SidebarGroupLabel,
+	SidebarHeader,
+	SidebarInset,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarMenuSkeleton,
+	SidebarProvider,
+	SidebarRail,
+	SidebarSeparator,
+	SidebarTrigger,
+	useSidebar,
+} from "#/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { sucontTools } from "#/lib/data"
+import { useHubFilters } from "#/lib/hub-filters"
+import { buildToolCrumbs, buildToolNav, findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
+import { cn } from "#/lib/utils"
+import { useTheme } from "#/services/theme"
 
-const NAV_CATEGORIES = [
-	{ id: ALL_CATEGORIES, icon: LayoutGrid },
-	{ id: "Auditoria", icon: ShieldCheck },
-	{ id: "Monitoramento", icon: Activity },
-	{ id: "IA / Chatbot", icon: MessageSquare },
-	{ id: "Automação", icon: Zap },
-	{ id: "Documentação", icon: FileText },
+/**
+ * Navegação do hub — as três telas do app.
+ *
+ * A barra lateral é só navegação; o filtro por etapa mora na tela que filtra (o
+ * catálogo). Antes as duas coisas tinham a mesma aparência e o usuário não tinha
+ * como saber qual delas o botão faria.
+ */
+const NAV_LINKS: Array<{ to: string; label: string; icon: LucideIcon }> = [
+	{ to: "/", label: "Catálogo", icon: LayoutGrid },
+	{ to: "/workspace", label: "Área de trabalho", icon: SquareKanban },
+	{ to: "/reports", label: "Relatórios", icon: FileBarChart },
 ]
 
-const NAV_TABS = [
-	{ to: "/", label: "DASHBOARD" },
-	{ to: "/workspace", label: "ÁREA DE TRABALHO" },
-	{ to: "/reports", label: "RELATÓRIOS" },
-] as const
+/** Ferramentas de rota interna, agrupadas por etapa — a mesma ordem do catálogo. */
+const TOOL_NAV = buildToolNav(sucontTools)
 
 interface HubLayoutProps {
 	children: React.ReactNode
+	/** Título da tela. Vira o `h1` da página — os cabeçalhos internos são `h2`. */
+	title?: string
+	/**
+	 * Uma linha sobre o que a tela faz, abaixo do título.
+	 *
+	 * Numa rota de ferramenta, o padrão é a `description` do catálogo: a mesma
+	 * frase que o card promete, agora dentro da ferramenta. Passar aqui só quando
+	 * a tela precisar dizer algo que o catálogo não diz.
+	 */
+	description?: string
 	/** A tela consome `?q=`. Sem isso a barra de busca some — campo que não filtra nada mente sobre o que faz. */
 	searchable?: boolean
+	/**
+	 * Ações da tela, à direita do cabeçalho fixo — "Nova análise", "Importar",
+	 * "Imprimir".
+	 *
+	 * Existe porque cada ferramenta desenhava a própria barra de título só para
+	 * ter onde pendurar dois botões, e nenhuma duas iguais: sete alturas, sete
+	 * tipografias e sete posições para a MESMA ação. Aqui a ação tem um lugar, e
+	 * ele é o mesmo em todas as telas.
+	 */
+	actions?: React.ReactNode
+	/**
+	 * Largura do conteúdo. `wide` é para tela cuja unidade de leitura é a tabela
+	 * ou a matriz — o auditor e o monitoramento perdem sentido espremidos em
+	 * 72rem. O resto do hub usa `default`, e uma tela só escapa por ter dado
+	 * denso, nunca por preferência.
+	 */
+	width?: "default" | "wide"
 }
 
-export function HubLayout({ children, searchable = false }: HubLayoutProps) {
-	const { category, setCategory } = useHubFilters()
+const CONTENT_WIDTH = {
+	default: "max-w-6xl",
+	wide: "max-w-[110rem]",
+} as const
+
+export function HubLayout({ children, title, description, searchable = false, actions, width = "default" }: HubLayoutProps) {
+	// Estado da barra lida do cookie no `beforeLoad` da raiz: o HTML do SSR já sai
+	// no estado certo, sem o salto de 16rem na hidratação.
+	const { sidebarOpen } = useRouteContext({ from: "__root__" })
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	// O menu mobile guarda a rota em que foi aberto: navegar muda o pathname e o
-	// painel — que é overlay e cobriria a tela nova — se fecha sozinho.
-	const [menuPath, setMenuPath] = useState<string | null>(null)
-	const menuOpen = menuPath === pathname
+	const tool = findToolByPath(sucontTools, pathname)
+	const blurb = description ?? tool?.description
+	const maxWidth = CONTENT_WIDTH[width]
 
 	return (
-		<div className="min-h-screen bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan flex">
-			{/* ── Left Sidebar (desktop) ───────────────────────── */}
-			<aside className="w-64 hidden lg:flex flex-col p-6 fixed top-0 left-0 h-screen bg-card border-r border-border z-20">
-				<HubBrand />
+		<SidebarProvider defaultOpen={sidebarOpen} className="bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan">
+			<HubSidebar />
 
-				<CategoryNav activeCategory={category} onSelect={setCategory} />
-
-				<div className="mt-auto flex flex-col gap-3">
-					<UserBlock />
-					<div className="p-4 bg-muted/50 rounded-2xl border border-border">
-						<div className="flex items-center gap-2 mb-2">
-							<ShieldCheck className="w-3 h-3 text-tech-blue" />
-							<span className="text-[10px] font-bold text-muted-foreground uppercase">Uso Institucional</span>
-						</div>
-						<p className="text-[11px] text-muted-foreground leading-relaxed">
-							Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).
-						</p>
+			<SidebarInset className="bg-transparent min-w-0">
+				<header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
+					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
+					<HubBreadcrumb title={title} />
+					<div className="ml-auto flex shrink-0 items-center gap-2">
+						{actions}
+						<ThemeToggle />
 					</div>
-				</div>
-			</aside>
-
-			{/* ── Mobile top bar + drawer ───────────────────────── */}
-			<div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-card border-b border-border">
-				<div className="flex items-center gap-2 min-w-0">
-					<div className="w-8 h-8 bg-tech-blue rounded-lg flex items-center justify-center text-white shrink-0">
-						<Monitor className="w-4 h-4" />
-					</div>
-					<span className="text-xs font-bold text-foreground truncate">SUCONT-4 HUB</span>
-				</div>
-				<button
-					type="button"
-					onClick={() => setMenuPath(pathname)}
-					aria-label="Abrir menu"
-					aria-expanded={menuOpen}
-					className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-				>
-					<Menu className="w-5 h-5" />
-				</button>
-			</div>
-
-			{menuOpen && <MobileMenu activeCategory={category} onSelect={setCategory} onClose={() => setMenuPath(null)} />}
-
-			{/* ── Main Area ─────────────────────────────────────── */}
-			<div className="flex-grow lg:ml-64 lg:mr-16 relative z-10 pt-14 lg:pt-0">
-				{/* Header */}
-				<header className="pt-8 lg:pt-12 pb-10 px-4 md:px-8 max-w-6xl mx-auto">
-					<div className="relative bg-slate-900 rounded-[2rem] p-6 md:p-12 overflow-hidden mb-8 md:mb-12 shadow-2xl">
-						{/* decorative */}
-						<div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
-							<svg viewBox="0 0 100 100" className="w-full h-full text-white fill-current" aria-hidden="true">
-								<path d="M50 10 L90 90 L50 70 L10 90 Z" />
-							</svg>
-						</div>
-
-						<div className="relative z-10">
-							<div className="flex flex-wrap gap-2 mb-6">
-								<span className="text-[10px] font-bold text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
-									Força Aérea Brasileira
-								</span>
-								<span className="text-[10px] font-bold text-white/70 bg-white/10 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
-									DIREF • SUCONT
-								</span>
-							</div>
-
-							<h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 leading-tight">
-								SUCONT-4 <span className="text-tech-cyan">HUB</span>
-							</h1>
-
-							<p className="text-white/70 max-w-2xl text-sm leading-relaxed mb-10">
-								Plataforma centralizada para ferramentas de análise contábil e suporte ao usuário. Promovendo excelência, padronização e apoio à tomada de
-								decisão no Comando da Aeronáutica.
-							</p>
-
-							<div className="flex flex-wrap gap-3 md:gap-4">
-								{NAV_TABS.map((tab) => (
-									<Link
-										key={tab.to}
-										to={tab.to}
-										className={`flex items-center gap-2 px-5 md:px-6 py-3 rounded-xl font-bold text-xs md:text-sm transition-all ${
-											pathname === tab.to ? "bg-tech-blue text-white shadow-lg" : "bg-white/5 text-white hover:bg-white/10"
-										}`}
-									>
-										{tab.label}
-									</Link>
-								))}
-							</div>
-						</div>
-					</div>
-
-					{searchable && <HubSearchBar />}
 				</header>
 
-				{/* Page content */}
-				<main className="px-4 md:px-8 pb-24 max-w-6xl mx-auto">{children}</main>
-
-				{/* Footer */}
-				<footer className="px-4 md:px-8 pb-12 max-w-6xl mx-auto mt-4 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
-					<div className="flex gap-8">
-						<SystemStatus />
-						<div className="flex flex-col">
-							<span className="text-[10px] font-mono uppercase text-muted-foreground">Versão Hub</span>
-							<span className="text-xs font-mono text-muted-foreground">v4.0.0-START</span>
-						</div>
+				<div className="flex-1">
+					<div className={cn("mx-auto w-full px-4 pt-8 pb-24 md:px-8", maxWidth)}>
+						{(blurb || searchable) && (
+							<div className="mb-8 flex flex-col gap-6">
+								{blurb && <p className="text-caption text-muted-foreground">{blurb}</p>}
+								{searchable && <HubSearchBar />}
+							</div>
+						)}
+						{children}
 					</div>
-					<div className="flex flex-col items-center gap-2 md:items-end">
-						<LegalFooterLinks
-							className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
-							linkClassName="text-[10px] font-mono uppercase text-muted-foreground transition-colors hover:text-foreground"
-						/>
-						<div className="text-[10px] font-mono text-muted-foreground text-center md:text-right">
-							© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB
-							<br />
-							ACESSO RESTRITO
+
+					<footer
+						className={cn(
+							"no-print mx-auto mt-4 flex flex-col items-center justify-between gap-6 border-t border-border px-4 pt-8 pb-12 md:flex-row md:px-8",
+							maxWidth
+						)}
+					>
+						<div className="flex flex-col items-center gap-2 md:items-end">
+							<LegalFooterLinks
+								className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
+								linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
+							/>
+							<p className="text-hint font-mono text-muted-foreground text-center md:text-right">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
 						</div>
-					</div>
-				</footer>
-			</div>
-
-			{/* ── Right Sidebar Rail (desktop) ──────────────────── */}
-			<aside className="fixed right-0 top-0 h-screen w-16 bg-card border-l border-border z-30 hidden lg:flex flex-col items-center py-6 gap-4 overflow-y-auto">
-				<div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center text-muted-foreground mb-4 shrink-0">
-					<LayoutGrid className="w-4 h-4" />
+					</footer>
 				</div>
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{externalSystems.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-
-				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{iaTools.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-
-				<div className="w-8 h-[1px] bg-border my-1 shrink-0" />
-
-				<div className="flex flex-col gap-3 shrink-0">
-					{reportTools.map((tool, i) => (
-						<SidebarRailItem key={tool.id} tool={tool} index={i} side="right" />
-					))}
-				</div>
-			</aside>
+			</SidebarInset>
 
 			<LegalNotice />
-		</div>
+		</SidebarProvider>
+	)
+}
+
+/**
+ * Troca de tema — o único controle de tema do app.
+ *
+ * A escolha vive num cookie lido pelo servidor (`services/theme.tsx`), então o
+ * `<html>` já sai pintado do SSR. Antes, o escuro existia só dentro do auditor,
+ * por estado local numa `<div>` de rota: entrar na ferramenta escurecia a tela e
+ * sair a clareava, e as outras onze telas não alcançavam o escuro apesar de todos
+ * os tokens `.dark` existirem.
+ */
+function ThemeToggle() {
+	const { theme, toggle } = useTheme()
+	const label = theme === "dark" ? "Usar tema claro" : "Usar tema escuro"
+
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button type="button" variant="ghost" size="icon-sm" aria-label={label} onClick={toggle} className="text-muted-foreground hover:text-foreground">
+						{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+					</Button>
+				}
+			/>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
+	)
+}
+
+function HubSidebar() {
+	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const activeTool = findToolByPath(sucontTools, pathname)
+	const hubLabelId = useId()
+	const groupLabelId = useId()
+
+	return (
+		<Sidebar collapsible="icon" variant="sidebar" className="no-print">
+			<SidebarHeader>
+				<HubBrand />
+			</SidebarHeader>
+
+			<SidebarContent>
+				{/* A barra é navegação: sem o landmark, o leitor de tela vê duas listas
+				    soltas e o rótulo do grupo não se liga a nenhuma delas. */}
+				<nav aria-label="Navegação do hub">
+					<SidebarGroup>
+						<SidebarGroupLabel id={hubLabelId}>Hub</SidebarGroupLabel>
+						<SidebarMenu aria-labelledby={hubLabelId}>
+							{NAV_LINKS.map((item) => {
+								const Icon = item.icon
+								const isActive = pathname === item.to
+								return (
+									<SidebarMenuItem key={item.to}>
+										<SidebarMenuButton
+											tooltip={item.label}
+											isActive={isActive}
+											render={
+												<Link to={item.to} aria-current={isActive ? "page" : undefined}>
+													<Icon />
+													<span>{item.label}</span>
+												</Link>
+											}
+										/>
+									</SidebarMenuItem>
+								)
+							})}
+						</SidebarMenu>
+					</SidebarGroup>
+
+					{/*
+					 * As ferramentas ficam na barra, agrupadas pela etapa do ciclo — é o que
+					 * dá orientação DENTRO de uma ferramenta: qual está aberta, e o que mais
+					 * existe na mesma etapa. Antes a barra só listava as três telas do hub, e
+					 * ao entrar numa ferramenta nada indicava onde o usuário estava.
+					 */}
+					{TOOL_NAV.map((group) => (
+						<SidebarGroup key={group.id}>
+							<SidebarGroupLabel id={`${groupLabelId}-${group.id}`}>{group.label}</SidebarGroupLabel>
+							<SidebarMenu aria-labelledby={`${groupLabelId}-${group.id}`}>
+								{group.tools.map((tool) => {
+									const target = tool.internalPath as string
+									const isActive = activeTool?.id === tool.id
+									const scope = toolScopeLabel(tool)
+									return (
+										<SidebarMenuItem key={tool.id}>
+											<SidebarMenuButton
+												tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
+												isActive={isActive}
+												render={
+													<Link to={target} aria-current={isActive ? "page" : undefined}>
+														<IconRenderer iconKey={tool.icon} />
+														<span>{tool.title}</span>
+													</Link>
+												}
+											/>
+										</SidebarMenuItem>
+									)
+								})}
+							</SidebarMenu>
+						</SidebarGroup>
+					))}
+				</nav>
+			</SidebarContent>
+
+			<SidebarFooter>
+				<SidebarSeparator />
+				<NavUser />
+			</SidebarFooter>
+
+			<SidebarRail />
+		</Sidebar>
+	)
+}
+
+/**
+ * Trilha do cabeçalho. Dentro de uma ferramenta mostra Catálogo › Etapa ›
+ * Ferramenta, com a etapa levando ao catálogo já filtrado por ela; fora, mostra
+ * só o título da tela.
+ *
+ * O `h1` fica no último item da trilha quando há ferramenta — é o nome da página,
+ * e duplicá-lo abaixo criaria dois títulos para a mesma coisa.
+ */
+function HubBreadcrumb({ title }: { title?: string }) {
+	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const tool = findToolByPath(sucontTools, pathname)
+	const crumbs = buildToolCrumbs(tool)
+	const scope = toolScopeLabel(tool)
+
+	if (crumbs.length === 0) {
+		return title ? (
+			<h1 className="text-subheading text-foreground truncate">{title}</h1>
+		) : (
+			<span className="text-subheading text-muted-foreground truncate">SUCONT-4 HUB</span>
+		)
+	}
+
+	return (
+		<nav aria-label="Trilha de navegação" className="flex min-w-0 items-center gap-1">
+			<ol className="flex min-w-0 items-center gap-1">
+				{crumbs.map((crumb, i) => {
+					const isLast = i === crumbs.length - 1
+					return (
+						<li key={crumb.label} className="flex min-w-0 items-center gap-1">
+							{i > 0 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />}
+							{isLast ? (
+								<h1 className="text-subheading text-foreground truncate">{crumb.label}</h1>
+							) : (
+								<Link
+									to={crumb.to as string}
+									search={crumb.search}
+									className="text-subheading shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+								>
+									{crumb.label}
+								</Link>
+							)}
+						</li>
+					)
+				})}
+			</ol>
+			{/* O escopo da ferramenta: as questões do RAC que ela responde. Mesmo papel
+			    do nome da cozinha/unidade no cabeçalho do sisub. */}
+			{scope && (
+				<span className="ml-2 hidden shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-label text-muted-foreground sm:inline">
+					{scope}
+				</span>
+			)}
+		</nav>
 	)
 }
 
 function HubBrand() {
 	return (
-		<div className="flex items-center gap-3 mb-10">
-			<div className="w-10 h-10 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg">
-				<Monitor className="w-6 h-6" />
-			</div>
-			<div className="flex flex-col">
-				<h2 className="text-sm font-bold text-foreground leading-tight">Centro de Monitoramento</h2>
-				<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">DIREF • COMAER</span>
-			</div>
-		</div>
-	)
-}
-
-function CategoryNav({ activeCategory, onSelect }: { activeCategory: string; onSelect: (category: string) => void }) {
-	return (
-		<nav className="flex flex-col gap-2" aria-label="Categorias de ferramentas">
-			{NAV_CATEGORIES.map((cat) => {
-				const Icon = cat.icon
-				const isActive = activeCategory === cat.id
-				return (
-					<button
-						key={cat.id}
-						type="button"
-						onClick={() => onSelect(cat.id)}
-						aria-current={isActive ? "page" : undefined}
-						className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-							isActive ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted/50"
-						}`}
-					>
-						<Icon className="w-4 h-4" />
-						<span className="text-xs font-bold">{cat.id}</span>
-					</button>
-				)
-			})}
-		</nav>
-	)
-}
-
-function MobileMenu({ activeCategory, onSelect, onClose }: { activeCategory: string; onSelect: (category: string) => void; onClose: () => void }) {
-	const panelRef = useRef<HTMLDivElement>(null)
-
-	// Esc fecha; o foco vai para o painel para que o leitor de tela anuncie o menu.
-	useEffect(() => {
-		panelRef.current?.focus()
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose()
-		}
-		document.addEventListener("keydown", onKeyDown)
-		return () => document.removeEventListener("keydown", onKeyDown)
-	}, [onClose])
-
-	return (
-		<div className="lg:hidden fixed inset-0 z-50 flex">
-			<button type="button" aria-label="Fechar menu" onClick={onClose} className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
-			<div
-				ref={panelRef}
-				role="dialog"
-				aria-modal="true"
-				aria-label="Menu do hub"
-				tabIndex={-1}
-				className="relative w-72 max-w-[85vw] h-full bg-card p-6 flex flex-col overflow-y-auto shadow-xl outline-none"
-			>
-				<div className="flex items-start justify-between gap-2">
-					<HubBrand />
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label="Fechar menu"
-						className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-					>
-						<X className="w-4 h-4" />
-					</button>
-				</div>
-
-				<CategoryNav
-					activeCategory={activeCategory}
-					onSelect={(category) => {
-						onSelect(category)
-						onClose()
-					}}
+		<SidebarMenu>
+			<SidebarMenuItem>
+				<SidebarMenuButton
+					size="lg"
+					tooltip="SUCONT-4 HUB"
+					render={
+						<Link to="/">
+							<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-white">
+								<Monitor className="size-4" />
+							</div>
+							<div className="grid flex-1 text-left leading-tight">
+								<span className="truncate text-subheading text-foreground">SUCONT-4 HUB</span>
+								<span className="truncate text-label text-muted-foreground">DIREF • COMAER</span>
+							</div>
+						</Link>
+					}
 				/>
-
-				<div className="mt-auto pt-6">
-					<UserBlock />
-				</div>
-			</div>
-		</div>
+			</SidebarMenuItem>
+		</SidebarMenu>
 	)
 }
 
@@ -315,72 +370,67 @@ function HubSearchBar() {
 	}
 
 	return (
-		<div className="flex items-center gap-3 bg-card p-3 rounded-2xl border border-border shadow-sm">
-			<Search className="w-4 h-4 text-muted-foreground ml-2 shrink-0" aria-hidden="true" />
+		<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
+			<Search className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 			<label htmlFor={inputId} className="sr-only">
 				Buscar no hub
 			</label>
-			<input
+			<Input
 				id={inputId}
 				type="search"
 				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-				className="bg-transparent border-none outline-none text-sm text-muted-foreground w-full"
+				className="h-auto w-full border-none bg-transparent p-0 text-body text-muted-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0 dark:bg-transparent"
 				value={draft}
 				onChange={(e) => onChange(e.target.value)}
 			/>
 			{draft !== "" && (
-				<button
+				<Button
 					type="button"
 					onClick={clear}
 					aria-label="Limpar busca"
-					className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+					variant="ghost"
+					size="icon-xs"
+					className="size-7 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
 				>
-					<X className="w-3.5 h-3.5" />
-				</button>
+					<X className="size-3.5" />
+				</Button>
 			)}
 		</div>
 	)
 }
 
 /**
- * Status real do SSR, sondando a mesma rota `/health` que o ALB usa. Antes era um
- * texto fixo "OPERACIONAL", que por definição nunca informava nada.
+ * Nome de exibição a partir do que o cadastro tem. `user_metadata.name` é o que o
+ * `signUp` grava; sem ele, a parte local do e-mail é o melhor palpite — melhor que
+ * repetir o endereço inteiro duas vezes na mesma linha.
  */
-function SystemStatus() {
-	const { data, isPending, isError } = useQuery({
-		queryKey: ["sucont", "health"],
-		queryFn: async () => {
-			const res = await fetch("/health", { headers: { accept: "text/html" } })
-			if (!res.ok) throw new Error(`health ${res.status}`)
-			return true
-		},
-		// URL relativa não resolve no SSR: a sonda é só do browser.
-		enabled: typeof window !== "undefined",
-		refetchInterval: 60_000,
-		retry: 1,
-	})
-
-	const state = isPending ? "checking" : isError || !data ? "down" : "up"
-	const label = state === "checking" ? "VERIFICANDO" : state === "up" ? "OPERACIONAL" : "INSTÁVEL"
-	const tone = state === "checking" ? "text-muted-foreground" : state === "up" ? "text-success" : "text-destructive"
-	const dot = state === "checking" ? "bg-slate-300" : state === "up" ? "bg-success" : "bg-destructive"
-
-	return (
-		<div className="flex flex-col">
-			<span className="text-[10px] font-mono uppercase text-muted-foreground">Status do Sistema</span>
-			<span className={`text-xs font-mono flex items-center gap-2 ${tone}`} aria-live="polite">
-				<span className={`w-1.5 h-1.5 rounded-full ${dot} ${state === "checking" ? "animate-pulse" : ""}`} />
-				{label}
-			</span>
-		</div>
-	)
+function displayName(name: string | undefined, email: string): string {
+	const raw = name?.trim() || email.split("@")[0]?.replace(/[._-]+/g, " ") || ""
+	return raw.replace(/\b\p{L}/gu, (c) => c.toUpperCase())
 }
 
-function UserBlock() {
+function initials(label: string): string {
+	const parts = label.split(/\s+/).filter(Boolean)
+	if (parts.length === 0) return "?"
+	const first = parts[0]?.[0] ?? ""
+	const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : ""
+	return (first + last).toUpperCase()
+}
+
+/**
+ * Identidade + saída, no formato do `NavUser` do sisub: linha de menu que colapsa
+ * para o avatar quando a barra está em modo ícone.
+ */
+function NavUser() {
+	// Na gaveta mobile o foco cai no primeiro item e o tooltip abre no foco,
+	// engolindo o primeiro Escape — o mesmo defeito já corrigido no
+	// `SidebarMenuButton`. Aqui a saída é a mesma: não montar onde não serve.
+	const { isMobile } = useSidebar()
 	const router = useRouter()
 	const queryClient = useQueryClient()
-	const { data: auth } = useQuery(authQueryOptions())
-	const email = auth?.user?.email ?? ""
+	const { data: auth, isPending } = useQuery(authQueryOptions())
+	const user = auth?.user ?? null
+	const email = user?.email ?? ""
 
 	async function logout() {
 		await authActions.signOut()
@@ -388,22 +438,73 @@ function UserBlock() {
 		await router.navigate({ to: "/auth" })
 	}
 
+	if (isPending) {
+		return (
+			<SidebarMenu>
+				<SidebarMenuItem>
+					<SidebarMenuSkeleton showIcon />
+				</SidebarMenuItem>
+			</SidebarMenu>
+		)
+	}
+
+	if (!user) {
+		return (
+			<SidebarMenu>
+				<SidebarMenuItem>
+					<SidebarMenuButton tooltip="Entrar" render={<Link to="/auth">Entrar</Link>} />
+				</SidebarMenuItem>
+			</SidebarMenu>
+		)
+	}
+
+	const name = displayName(user.user_metadata?.name as string | undefined, email)
+
 	return (
-		<div className="flex items-center justify-between gap-2 p-3 bg-card rounded-2xl border border-border">
-			<div className="flex flex-col min-w-0">
-				<span className="text-[10px] font-bold text-muted-foreground uppercase">Sessão</span>
-				<span className="text-[10px] text-muted-foreground truncate" title={email}>
-					{email || "—"}
-				</span>
-			</div>
-			<button
-				type="button"
-				onClick={logout}
-				aria-label="Sair da conta"
-				className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-			>
-				<LogOut className="w-4 h-4" />
-			</button>
-		</div>
+		<SidebarMenu>
+			<SidebarMenuItem className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-0">
+				{withTooltip(
+					isMobile,
+					email,
+					<SidebarMenuButton size="lg" className="cursor-default">
+						<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-label text-white">{initials(name)}</div>
+						<div className="grid flex-1 text-left leading-tight">
+							<span className="truncate text-caption text-foreground">{name}</span>
+							<span className="truncate text-hint text-muted-foreground">{email}</span>
+						</div>
+					</SidebarMenuButton>
+				)}
+
+				{withTooltip(
+					isMobile,
+					"Sair",
+					<Button
+						type="button"
+						onClick={logout}
+						aria-label="Sair"
+						variant="ghost"
+						size="icon-sm"
+						className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+					>
+						<LogOut className="size-4" />
+					</Button>
+				)}
+			</SidebarMenuItem>
+		</SidebarMenu>
+	)
+}
+
+/**
+ * Envolve num tooltip apenas fora do mobile. Na gaveta o Tooltip montado captura
+ * o Escape antes do diálogo; e o rótulo já está visível ali, então o balão não
+ * acrescenta nada.
+ */
+function withTooltip(isMobile: boolean, content: string, trigger: React.ReactElement) {
+	if (isMobile) return trigger
+	return (
+		<Tooltip>
+			<TooltipTrigger render={trigger} />
+			<TooltipContent side="right">{content}</TooltipContent>
+		</Tooltip>
 	)
 }

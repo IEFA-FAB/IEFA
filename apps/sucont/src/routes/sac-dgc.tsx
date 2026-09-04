@@ -4,6 +4,7 @@ import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } fr
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
 import { analyzeUg } from "#/sacdgc/client"
 import { DgcReport } from "#/sacdgc/components/DgcReport"
 import { DgcRunHistory } from "#/sacdgc/components/DgcRunHistory"
@@ -241,41 +242,28 @@ function SacDgcPage() {
 	}, [base, states])
 
 	return (
-		<HubLayout>
-			<div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-				<div className="flex items-center gap-4">
-					<FileSearch className="text-tech-cyan w-5 h-5" />
-					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">SAC-DGC — Análise Crítica do Demonstrativo Gerencial de Custos</h2>
-				</div>
-
-				<div className="flex items-center gap-3">
+		<HubLayout
+			actions={
+				<>
 					{isRunning && (
-						<button
-							type="button"
-							onClick={() => abortRef.current?.abort()}
-							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-destructive/30 hover:text-destructive text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-						>
+						<Button variant="outline" size="sm" onClick={() => abortRef.current?.abort()}>
 							<StopCircle className="w-3.5 h-3.5" />
 							Interromper
-						</button>
+						</Button>
 					)}
 					{base && (
-						<button
-							type="button"
-							onClick={handleReset}
-							className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-						>
+						<Button variant="outline" size="sm" onClick={handleReset}>
 							<RefreshCw className="w-3.5 h-3.5" />
 							Nova base
-						</button>
+						</Button>
 					)}
-				</div>
-			</div>
-
+				</>
+			}
+		>
 			{!base && (
 				<div className="space-y-8">
 					<div className="max-w-3xl mx-auto text-center">
-						<p className="text-muted-foreground leading-relaxed">
+						<p className="text-body text-muted-foreground leading-relaxed">
 							Envie os quatro painéis do DGC da competência. A base é lida no seu navegador e recortada por Unidade Gestora; ao pedir a análise, apenas o
 							recorte da UG selecionada é enviado ao modelo.
 						</p>
@@ -312,7 +300,7 @@ function SacDgcPage() {
 
 					{!canEdit && !isStoredView && (
 						<p
-							className="flex items-start gap-3 text-sm text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4"
+							className="flex items-start gap-3 text-body text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4"
 							data-testid="dgc-readonly-notice"
 						>
 							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -322,7 +310,7 @@ function SacDgcPage() {
 
 					{persistError && (
 						<p
-							className="flex items-start gap-3 text-sm text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4"
+							className="flex items-start gap-3 text-body text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4"
 							data-testid="dgc-persist-error"
 						>
 							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -331,7 +319,7 @@ function SacDgcPage() {
 					)}
 
 					{!isStoredView && base.panelsFound.length < 4 && (
-						<p className="flex items-start gap-3 text-sm text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4">
+						<p className="flex items-start gap-3 text-body text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4">
 							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
 							<span>
 								Só {base.panelsFound.length} de 4 painéis foram reconhecidos. A análise segue possível, e a ausência é declarada ao modelo — mas os apontamentos
@@ -341,7 +329,7 @@ function SacDgcPage() {
 					)}
 
 					{!isStoredView && base.skippedRows > 0 && (
-						<p className="flex items-start gap-3 text-sm text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4">
+						<p className="flex items-start gap-3 text-body text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4">
 							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
 							<span>{base.skippedRows} linha(s) foram ignoradas por não trazerem um código de UG reconhecível.</span>
 						</p>
@@ -369,9 +357,9 @@ function StatTile({ icon, label, value, testId }: { icon: React.ReactNode; label
 		<div className="bg-card border border-border rounded-xl p-5">
 			<div className="flex items-center gap-2 text-muted-foreground mb-2">
 				{icon}
-				<span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+				<span className="text-label">{label}</span>
 			</div>
-			<p className="text-sm font-bold text-foreground truncate" title={value} data-testid={testId}>
+			<p className="text-subheading text-foreground truncate" title={value} data-testid={testId}>
 				{value}
 			</p>
 		</div>

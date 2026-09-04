@@ -9,7 +9,7 @@ import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -27,7 +27,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	// Pre-load auth state for all routes
 	beforeLoad: async ({ context }) => {
 		try {
-			const authState = await context.queryClient.ensureQueryData(authQueryOptions())
+			const authState = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 			return { auth: authState }
 		} catch (_error) {
 			// Return unauthenticated state on failure
@@ -163,7 +163,7 @@ function RootDocument() {
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<ThemeProvider initialTheme={theme}>
 					<Outlet />
-					<Toaster position="bottom-center" richColors expand className="z-2147483647" />
+					<Toaster position="bottom-center" viewportClassName="z-2147483647" />
 				</ThemeProvider>
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}

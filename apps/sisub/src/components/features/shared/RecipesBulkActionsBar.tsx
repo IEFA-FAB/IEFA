@@ -1,6 +1,5 @@
 import { FolderInput, GitFork, Loader2, RotateCcw, Trash2, X } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -16,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { type BulkSelectedRecipe, useBulkRecipeOps } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 

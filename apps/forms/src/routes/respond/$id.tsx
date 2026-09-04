@@ -33,7 +33,7 @@ export const Route = createFileRoute("/respond/$id")({
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 	},
-	loader: ({ context, params }) => context.queryClient.ensureQueryData(questionnaireQueryOptions(params.id)),
+	loader: ({ context, params }) => context.queryClient.query({ ...questionnaireQueryOptions(params.id), staleTime: "static" }),
 	component: RespondPage,
 })
 

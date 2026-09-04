@@ -163,11 +163,11 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			direction: z.enum(["in", "out"]),
 			quantity: z.number().positive(),
 			justification: z.string().min(5, "Justificativa obrigatória (mínimo 5 caracteres)"),
-			lotId: z.string().uuid().optional(),
+			lotId: z.uuid().optional(),
 			newLot: z
 				.object({
-					ingredientId: z.string().uuid().optional(),
-					frozenPreparationId: z.string().uuid().optional(),
+					ingredientId: z.uuid().optional(),
+					frozenPreparationId: z.uuid().optional(),
 					lotCode: z.string().optional(),
 					expiryDate: z
 						.string()
@@ -234,7 +234,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 
 /** Transferência atômica entre cozinhas (função SQL: par transfer_out/in). */
 export const createTransferFn = createServerFn({ method: "POST" })
-	.validator(z.object({ lotId: z.string().uuid(), toKitchenId: z.number().int().positive(), quantity: z.number().positive() }))
+	.validator(z.object({ lotId: z.uuid(), toKitchenId: z.number().int().positive(), quantity: z.number().positive() }))
 	.handler(async ({ data }) => {
 		// escopo pela cozinha de ORIGEM do lote (quem cede precisa da permissão)
 		const { data: lotRow } = await inventory().from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
@@ -266,7 +266,7 @@ export const createInventoryCountFn = createServerFn({ method: "POST" })
 	})
 
 export const upsertCountItemFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.string().uuid(), lotId: z.string().uuid(), countedQty: z.number().nonnegative() }))
+	.validator(z.object({ countId: z.uuid(), lotId: z.uuid(), countedQty: z.number().nonnegative() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count } = await inv.from("inventory_count").select("kitchen_id, status").eq("id", data.countId).maybeSingle()
@@ -284,7 +284,7 @@ export const upsertCountItemFn = createServerFn({ method: "POST" })
 
 /** Confirmação atômica: divergências viram ajustes vinculados à contagem. */
 export const confirmInventoryCountFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.string().uuid() }))
+	.validator(z.object({ countId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: count } = await inventory().from("inventory_count").select("kitchen_id").eq("id", data.countId).maybeSingle()
 		if (!count) throw new Error("Contagem não encontrada")

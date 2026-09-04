@@ -1,7 +1,7 @@
 /**
  * @module analytics-chat.fn
  * LLM analytics chat session and message management with per-user ownership enforcement.
- * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getCoreClient (service role, DB reads/writes).
+ * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getKitchenClient (service role, DB reads/writes).
  * TABLES: analytics_chat_session, analytics_chat_message.
  * Auth: all functions call requireUserId() — throws "Não autenticado" if JWT is invalid or missing.
  * @domain app
@@ -12,7 +12,7 @@ import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
-import { getCoreClient } from "@/lib/supabase.server"
+import { getKitchenClient } from "@/lib/supabase.server"
 import { CHART_TYPES } from "@/types/domain/analytics-chat"
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ import { CHART_TYPES } from "@/types/domain/analytics-chat"
  */
 export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const userId = await requireUserId()
-	const supabase = getCoreClient()
+	const supabase = getKitchenClient()
 
 	const { data, error } = await supabase
 		.from("analytics_chat_session")
@@ -57,7 +57,7 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getCoreClient()
+		const supabase = getKitchenClient()
 
 		const { data: row, error } = await supabase
 			.from("analytics_chat_session")
@@ -83,10 +83,10 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on update failure.
  */
 export const renameChatSessionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
+	.validator(z.object({ sessionId: z.uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getCoreClient()
+		const supabase = getKitchenClient()
 
 		const { error } = await supabase.from("analytics_chat_session").update({ title: data.title }).eq("id", data.sessionId).eq("user_id", userId)
 
@@ -99,10 +99,10 @@ export const renameChatSessionFn = createServerFn({ method: "POST" })
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on delete failure.
  */
 export const deleteChatSessionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getCoreClient()
+		const supabase = getKitchenClient()
 
 		const { error } = await supabase.from("analytics_chat_session").delete().eq("id", data.sessionId).eq("user_id", userId)
 
@@ -133,10 +133,10 @@ type MessageRow = {
 }
 
 export const getChatMessagesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getCoreClient()
+		const supabase = getKitchenClient()
 
 		// Single round-trip: ownership check (session.user_id) + messages via nested select.
 		// PostgREST resolves the FK relationship server-side; we cast the nested array
@@ -175,7 +175,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.validator(
 		z
 			.object({
-				sessionId: z.string().uuid(),
+				sessionId: z.uuid(),
 				role: z.enum(["user", "assistant"]),
 				content: z.string(),
 				chart: z.any().optional(),
@@ -195,7 +195,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 
 				if (data.role === "user" && !hasContent) {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: "custom",
 						path: ["content"],
 						message: "Mensagem do usuário não pode ser vazia",
 					})
@@ -203,7 +203,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 
 				if (data.role === "assistant" && !hasContent && !hasChart && !hasError) {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: "custom",
 						path: ["content"],
 						message: "Mensagem do assistente precisa ter conteúdo, gráfico ou erro",
 					})
@@ -212,7 +212,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getCoreClient()
+		const supabase = getKitchenClient()
 
 		// Verify session ownership — single client reused for the insert below
 		const { data: session, error: sessionError } = await supabase
@@ -259,13 +259,13 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			messageId: z.string().uuid(),
+			messageId: z.uuid(),
 			chartTypeOverride: z.enum(CHART_TYPES),
 		})
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getCoreClient()
+		const supabase = getKitchenClient()
 
 		// Verify the message belongs to a session owned by this user (FK: message → session)
 		const { data: msg, error: lookupError } = await supabase

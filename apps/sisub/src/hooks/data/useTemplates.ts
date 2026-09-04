@@ -1,7 +1,7 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
 import type { EditScope } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import {

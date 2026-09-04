@@ -1,11 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { Activity, AlertTriangle, ArrowLeft, Database, FileSpreadsheet, Layers, LayoutDashboard, Loader2, Moon, Sun, UploadCloud } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { Activity, AlertTriangle, Database, FileSpreadsheet, Layers, LayoutDashboard, Loader2, UploadCloud } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { ChartWrapper } from "#/auditor/components/ChartWrapper"
-import { CustomSelect } from "#/auditor/components/CustomSelect"
 import { FileUploadModal } from "#/auditor/components/FileUploadModal"
 import { HealthScoreGauge } from "#/auditor/components/HealthScoreGauge"
 import { RankingList } from "#/auditor/components/RankingList"
@@ -27,7 +25,11 @@ import { iccColor, iccLabel } from "#/auditor/theme"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
 import { useSucontAccess } from "#/auth/pbac"
-import { cn } from "#/lib/utils"
+import { HubLayout } from "#/components/hub-layout"
+import { Button } from "#/components/ui/button"
+import { Combobox } from "#/components/ui/combobox"
+import { SegmentedControl } from "#/components/ui/segmented-control"
+import { toast } from "#/components/ui/toast"
 import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
@@ -85,10 +87,6 @@ function AuditorPage() {
 	const [selectedHierarchyFilter, setSelectedHierarchyFilter] = useState<string[]>(["TODOS"])
 	const [selectedRisk, _setSelectedRisk] = useState<string>("TODOS")
 	const [searchTerm, _setSearchTerm] = useState("")
-	// A variante do projeto é `&:is(.dark *)`, então qualquer ancestral com a classe
-	// serve. Antes isto ia para o <html> num efeito, e uma rota trocava o tema do app
-	// inteiro — com um flash de volta ao claro toda vez que o usuário saía da tela.
-	const [isDarkMode, setIsDarkMode] = useState(true)
 
 	// Importar grava: `startAuditorRunFn` e `saveAuditorBalancesFn` exigem nível 2.
 	// Sem esta checagem o operador de nível 1 subia a planilha, esperava o parse da
@@ -420,8 +418,29 @@ function AuditorPage() {
 		setIsMessageModalOpen(true)
 	}
 
+	const hierarchyOptions = [
+		{
+			value: "TODOS",
+			label: `Todas as ${selectedHierarchyLevel === "ODS" ? "ODSs" : selectedHierarchyLevel === "ORGAO" ? "Órgãos" : "UGs"}`,
+		},
+		...(selectedHierarchyLevel === "ODS" ? uniqueODS : selectedHierarchyLevel === "ORGAO" ? uniqueOrgaos : uniqueUGs).map((opt) => ({
+			value: opt,
+			label: opt,
+		})),
+	]
+
 	return (
-		<div className={cn("min-h-screen pb-12 transition-colors duration-300 bg-background text-foreground", isDarkMode && "dark")}>
+		<HubLayout
+			width="wide"
+			actions={
+				canEdit && (
+					<Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
+						<UploadCloud className="w-4 h-4" />
+						<span className="hidden sm:inline">Importar Excel</span>
+					</Button>
+				)
+			}
+		>
 			{/* `canEdit` também aqui: fechar o gatilho não basta se o modal segue montável. */}
 			<FileUploadModal isOpen={isUploadModalOpen && canEdit} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} />
 
@@ -435,102 +454,83 @@ function AuditorPage() {
 				analysisRunId={lastRunId}
 			/>
 
-			{/* STICKY TOP NAV */}
-			<nav className={`bg-card/95 border-border border-b sticky top-0 z-40 backdrop-blur-md`}>
-				<div className="max-w-[1800px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-					<div className="flex items-center gap-6 min-w-max">
-						<div className="flex items-center gap-3">
-							<Link
-								to="/"
-								className={`p-2 rounded-lg transition-colors border border-border text-muted-foreground hover:bg-muted hover:text-foreground`}
-								title="Voltar ao Hub"
-							>
-								<ArrowLeft className="w-4 h-4" />
-							</Link>
-							<div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20">
-								<Activity className="w-5 h-5 text-white" />
-							</div>
-							<h1 className={`text-lg font-bold tracking-tight hidden lg:block text-foreground`}>
-								SIAFI <span className="text-muted-foreground mx-1">x</span> SILOMS
-							</h1>
-						</div>
+			{/*
+			 * Filtros da tela, no corpo — não no cabeçalho fixo, que é navegação e
+			 * ação. Antes eles moravam numa barra de topo própria do auditor, a
+			 * segunda do app: o usuário via duas barras empilhadas, e a de baixo
+			 * repetia um botão de voltar que a trilha de cima já dava.
+			 */}
+			<div className="mb-6 flex flex-wrap items-end gap-4">
+				<div className="flex flex-col gap-2">
+					<span className="text-label text-muted-foreground">Agregar por</span>
+					<SegmentedControl
+						label="Agregar por"
+						value={selectedHierarchyLevel}
+						onValueChange={setSelectedHierarchyLevel}
+						options={[
+							{
+								value: "ODS",
+								label: (
+									<>
+										<Layers />
+										ODS
+									</>
+								),
+							},
+							{
+								value: "ORGAO",
+								label: (
+									<>
+										<Database />
+										Órgão
+									</>
+								),
+							},
+							{
+								value: "UG",
+								label: (
+									<>
+										<LayoutDashboard />
+										UG
+									</>
+								),
+							},
+						]}
+					/>
+				</div>
 
-						<div className="flex items-center gap-3">
-							<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-								{(["ODS", "ORGAO", "UG"] as const).map((level) => (
-									<button
-										key={level}
-										type="button"
-										onClick={() => setSelectedHierarchyLevel(level)}
-										className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1
-                      ${selectedHierarchyLevel === level ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
-                    `}
-									>
-										{level === "ODS" && <Layers className="w-3 h-3" />}
-										{level === "ORGAO" && <Database className="w-3 h-3" />}
-										{level === "UG" && <LayoutDashboard className="w-3 h-3" />}
-										{level === "ORGAO" ? "Órgão" : level}
-									</button>
-								))}
-							</div>
-
-							<div className="w-40 hidden md:block">
-								<CustomSelect
-									value={selectedHierarchyFilter[0]}
-									onChange={(val) => setSelectedHierarchyFilter([val])}
-									options={[
-										{
-											value: "TODOS",
-											label: `Todas as ${selectedHierarchyLevel === "ODS" ? "ODSs" : selectedHierarchyLevel === "ORGAO" ? "Órgãos" : "UGs"}`,
-										},
-										...(selectedHierarchyLevel === "ODS" ? uniqueODS : selectedHierarchyLevel === "ORGAO" ? uniqueOrgaos : uniqueUGs).map((opt) => ({
-											value: opt,
-											label: opt,
-										})),
-									]}
-									placeholder={`Filtrar ${selectedHierarchyLevel}`}
-								/>
-							</div>
-
-							<div className="w-40 hidden md:block">
-								<CustomSelect
-									value={selectedMonth}
-									onChange={setSelectedMonth}
-									options={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
-									placeholder="Mês de Ref."
-								/>
-							</div>
-						</div>
-					</div>
-
-					<div className="flex items-center gap-3">
-						{canEdit && (
-							<button
-								type="button"
-								onClick={() => setIsUploadModalOpen(true)}
-								className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap"
-							>
-								<UploadCloud className="w-4 h-4" />
-								<span className="hidden sm:inline">Importar Excel</span>
-							</button>
-						)}
-
-						<button
-							type="button"
-							onClick={() => setIsDarkMode(!isDarkMode)}
-							className={`p-2 rounded-full transition-colors border border-border text-muted-foreground hover:bg-muted`}
-						>
-							{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-						</button>
+				<div className="flex flex-col gap-2">
+					<span className="text-label text-muted-foreground">{selectedHierarchyLevel === "ORGAO" ? "Órgão" : selectedHierarchyLevel}</span>
+					<div className="w-48">
+						<Combobox
+							aria-label={`Filtrar por ${selectedHierarchyLevel}`}
+							value={selectedHierarchyFilter[0]}
+							onValueChange={(val) => setSelectedHierarchyFilter([val])}
+							items={hierarchyOptions}
+							placeholder={`Filtrar ${selectedHierarchyLevel}`}
+						/>
 					</div>
 				</div>
-			</nav>
 
-			<main className="max-w-[1800px] mx-auto px-4 sm:px-6 space-y-6">
+				<div className="flex flex-col gap-2">
+					<span className="text-label text-muted-foreground">Competência</span>
+					<div className="w-48">
+						<Combobox
+							aria-label="Mês de referência"
+							value={selectedMonth}
+							onValueChange={setSelectedMonth}
+							items={uniqueMonths.map((m) => ({ value: m, label: toShortDate(m) }))}
+							placeholder="Mês de Ref."
+						/>
+					</div>
+				</div>
+			</div>
+
+			<div className="space-y-6">
 				{/* RESULTADO DA GRAVAÇÃO */}
 				{persistOutcome && (
 					<div
-						className={`mt-6 rounded-lg border p-4 text-sm ${
+						className={`mt-6 rounded-lg border p-4 text-body ${
 							persistOutcome.status === "complete"
 								? "border-border bg-card text-foreground"
 								: persistOutcome.status === "partial"
@@ -546,7 +546,7 @@ function AuditorPage() {
 										: persistOutcome.status === "partial"
 											? "Gravação INCOMPLETA — a série no banco está pela metade"
 											: "Análise não gravada"}
-									<span className="font-normal text-muted-foreground dark:text-muted-foreground"> · {persistOutcome.filename}</span>
+									<span className="font-normal text-muted-foreground"> · {persistOutcome.filename}</span>
 								</p>
 
 								{persistOutcome.status === "failed" ? (
@@ -569,22 +569,23 @@ function AuditorPage() {
 									</>
 								)}
 							</div>
-							<button
-								type="button"
+							<Button
+								variant="link"
+								size="sm"
 								onClick={() => setPersistOutcome(null)}
-								className="text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground dark:hover:text-slate-200"
+								className="text-label text-muted-foreground hover:text-foreground no-underline"
 							>
 								Fechar
-							</button>
+							</Button>
 						</div>
 
 						{persistOutcome.conflicts.length > 0 && (
 							<details className="mt-3">
-								<summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">
+								<summary className="cursor-pointer text-label text-muted-foreground">
 									Competências que já existiam com outro valor ({persistOutcome.changed}
 									{persistOutcome.conflictsTruncated ? ", listando as primeiras" : ""})
 								</summary>
-								<div className="mt-2 max-h-64 overflow-y-auto font-mono text-xs">
+								<div className="mt-2 max-h-64 overflow-y-auto font-mono text-caption">
 									{persistOutcome.conflicts.map((c) => (
 										<div key={`${c.period}-${c.ugCodigo}-${c.accountGroup}`} className="py-0.5">
 											{c.period} · {c.ugCodigo} · {c.accountGroup}: SIAFI {formatCurrency(c.previous.siafiValue)} → {formatCurrency(c.next.siafiValue)} · SILOMS{" "}
@@ -599,7 +600,7 @@ function AuditorPage() {
 
 				{/* FALHA DE LEITURA — distinta do estado vazio */}
 				{storedError && localRows.length === 0 && (
-					<div className={`mt-6 rounded-lg border p-4 text-sm border-destructive/30 bg-destructive/10 text-destructive`}>
+					<div className={`mt-6 rounded-lg border p-4 text-body border-destructive/30 bg-destructive/10 text-destructive`}>
 						<p className="font-bold">Não foi possível ler a série gravada</p>
 						<p className="mt-1">{storedError instanceof Error ? storedError.message : "Erro desconhecido"} — a tela abaixo NÃO reflete o que está no banco.</p>
 					</div>
@@ -620,17 +621,13 @@ function AuditorPage() {
           `}
 					>
 						<FileSpreadsheet className={`w-16 h-16 mb-4 text-muted-foreground`} />
-						<h2 className={`text-xl font-bold text-foreground`}>Nenhuma competência na base</h2>
+						<h2 className={`text-heading text-foreground`}>Nenhuma competência na base</h2>
 						{canEdit ? (
 							<>
 								<p className="text-muted-foreground mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
-								<button
-									type="button"
-									onClick={() => setIsUploadModalOpen(true)}
-									className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 transition-colors"
-								>
+								<Button size="lg" onClick={() => setIsUploadModalOpen(true)} className="bg-action text-action-foreground hover:bg-action/80">
 									{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
-								</button>
+								</Button>
 							</>
 						) : (
 							!loadingAccess && (
@@ -663,25 +660,25 @@ function AuditorPage() {
 										{
 											id: AccountGroup.BMP,
 											label: "BMP",
-											activeClass: "text-destructive border border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.2)]",
+											activeClass: "text-destructive border border-destructive shadow-[0_0_10px_rgba(220,38,38,0.2)]",
 										},
 										{
 											id: AccountGroup.CONSUMO,
 											label: "CONSUMO",
-											activeClass: "text-blue-600 border border-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.2)]",
+											activeClass: "text-action border border-action shadow-[0_0_10px_rgba(37,99,235,0.2)]",
 										},
 										{
 											id: AccountGroup.INTANGIVEL,
 											label: "INTANGÍVEL",
-											activeClass: "text-success border border-emerald-600 shadow-[0_0_10px_rgba(5,150,105,0.2)]",
+											activeClass: "text-success border border-success shadow-[0_0_10px_rgba(5,150,105,0.2)]",
 										},
 									].map((tab) => (
 										<button
 											key={tab.id}
 											type="button"
 											onClick={() => setSelectedGroup(tab.id)}
-											className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap border border-transparent
-                        ${selectedGroup === tab.id ? tab.activeClass : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50"}
+											className={`px-4 py-2 text-label rounded-lg transition-all whitespace-nowrap border border-transparent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
+                        ${selectedGroup === tab.id ? tab.activeClass : "text-muted-foreground hover:text-foreground hover:bg-muted"}
                       `}
 										>
 											{tab.label}
@@ -697,8 +694,8 @@ function AuditorPage() {
 												key={tf}
 												type="button"
 												onClick={() => setTimeFilter(tf)}
-												className={`px-3 py-2 text-xs font-bold rounded-lg transition-all
-                          ${timeFilter === tf ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground hover:text-foreground dark:hover:text-slate-300"}
+												className={`px-3 py-2 text-label rounded-lg transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
+                          ${timeFilter === tf ? "bg-action text-action-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                         `}
 											>
 												{tf}
@@ -709,22 +706,19 @@ function AuditorPage() {
 
 								{/* Toggles */}
 								<div className="col-span-1 md:col-span-3 flex justify-end items-center gap-3">
-									<div
-										className={`flex items-center gap-2 px-3 py-2 rounded-lg border
-                       bg-muted border-border`}
-										title="Quantidade de UGs consideradas na visualização atual"
-									>
-										<Database className="w-3.5 h-3.5 text-blue-500" />
+									<div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted border-border">
+										<span className="sr-only">Quantidade de UGs consideradas na visualização atual</span>
+										<Database className="w-3.5 h-3.5 text-action" />
 										<div className="flex flex-col leading-none">
-											<span className={`text-[9px] font-bold uppercase text-muted-foreground`}>Registros Totais</span>
-											<span className={`text-xs font-bold text-foreground`}>{stats.totalUGsCount} UGs</span>
+											<span className="text-label text-muted-foreground">Registros Totais</span>
+											<span className={`text-caption text-foreground`}>{stats.totalUGsCount} UGs</span>
 										</div>
 									</div>
 
 									<button
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
-										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border transition-all
+										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-label border transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
                       ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "bg-card text-muted-foreground border-border"}
                     `}
 									>
@@ -752,7 +746,7 @@ function AuditorPage() {
 								value={stats.totalSiafi}
 								subtitle="Contábil (Completo)"
 								icon={LayoutDashboard}
-								bgClass="bg-slate-700/50"
+								bgClass="bg-surface-inverted-border/50"
 								trendData={trendSeries.siafi}
 								variation={`${Math.abs(stats.siafiVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.siafiVar >= 0}
@@ -762,7 +756,7 @@ function AuditorPage() {
 								value={stats.totalSiloms}
 								subtitle="Físico (Completo)"
 								icon={Layers}
-								bgClass="bg-slate-700/50"
+								bgClass="bg-surface-inverted-border/50"
 								trendData={trendSeries.siloms}
 								variation={`${Math.abs(stats.silomsVar).toFixed(1)}% vs período anterior`}
 								isPositive={stats.silomsVar >= 0}
@@ -780,15 +774,15 @@ function AuditorPage() {
 
 							{/* ICC Card */}
 							<div
-								className={`bg-card border-border hover:bg-muted/50 backdrop-blur-md rounded-2xl shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
+								className={`bg-card border-border hover:bg-muted/50 rounded-xl shadow-sm border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
 							>
 								<div className="flex justify-between items-start relative z-10">
 									<div className="flex-1">
-										<p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">ICC</p>
-										<h3 className={`text-xs font-black tracking-tight leading-tight text-foreground`}>Indicador de Conciliação Contábil</h3>
+										<p className="text-label text-muted-foreground mb-0.5">ICC</p>
+										<h3 className="text-subheading text-foreground">Indicador de Conciliação Contábil</h3>
 									</div>
-									<div className="w-10 h-10 rounded-lg bg-indigo-600 shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2">
-										<Activity className="w-5 h-5 text-white" />
+									<div className="w-10 h-10 rounded-lg bg-action flex items-center justify-center flex-shrink-0 ml-2">
+										<Activity className="w-5 h-5 text-action-foreground" />
 									</div>
 								</div>
 								<div className="mt-1 flex-1 flex items-center justify-center">
@@ -868,7 +862,7 @@ function AuditorPage() {
 						</ChartWrapper>
 					</>
 				)}
-			</main>
-		</div>
+			</div>
+		</HubLayout>
 	)
 }

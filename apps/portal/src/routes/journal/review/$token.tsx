@@ -13,10 +13,10 @@ import {
 
 export const Route = createFileRoute("/journal/review/$token")({
 	loader: async ({ context, params }) => {
-		const assignment = await context.queryClient.ensureQueryData(reviewAssignmentByTokenQueryOptions(params.token))
+		const assignment = await context.queryClient.query({ ...reviewAssignmentByTokenQueryOptions(params.token), staleTime: "static" })
 		await Promise.all([
-			context.queryClient.ensureQueryData(articleQueryOptions(assignment.article_id)),
-			context.queryClient.ensureQueryData(journalSettingsQueryOptions()),
+			context.queryClient.query({ ...articleQueryOptions(assignment.article_id), staleTime: "static" }),
+			context.queryClient.query({ ...journalSettingsQueryOptions(), staleTime: "static" }),
 		])
 		return assignment
 	},

@@ -29,7 +29,7 @@ function NewWeeklyPlanPage() {
 
 	const { mutate: createTemplate, isPending } = useCreateTemplate()
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (!name.trim()) return
 

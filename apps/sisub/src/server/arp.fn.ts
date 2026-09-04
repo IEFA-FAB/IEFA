@@ -110,7 +110,7 @@ const ArpDataSchema = z.object({
 export const importArpItemsFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			ataId: z.string().uuid(),
+			ataId: z.uuid(),
 			unitId: z.number().int().positive(),
 			arpData: ArpDataSchema,
 		})
@@ -254,7 +254,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
  * @throws {Error} if ARP not found locally, on HTTP failure (3 retries), on empty API response, or on any item update failure.
  */
 export const syncArpBalanceFn = createServerFn({ method: "POST" })
-	.validator(z.object({ arpId: z.string().uuid() }))
+	.validator(z.object({ arpId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const supabase = getProcurementClient()
@@ -322,7 +322,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
  * Returns the ARP linked to an ATA with all its items ordered by numero_item, or null if none exists.
  */
 export const fetchArpForAtaFn = createServerFn({ method: "GET" })
-	.validator(z.object({ ataId: z.string().uuid() }))
+	.validator(z.object({ ataId: z.uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
 		await requireUserId()
 		const supabase = getProcurementClient()
@@ -344,7 +344,7 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
  * @throws {Error} on Supabase query failure.
  */
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
-	.validator(z.object({ arpItemId: z.string().uuid() }))
+	.validator(z.object({ arpItemId: z.uuid() }))
 	.handler(async ({ data }): Promise<Empenho[]> => {
 		await requireUserId()
 		const { data: empenhos, error } = await getProcurementClient()
@@ -372,7 +372,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
-			arpItemId: z.string().uuid(),
+			arpItemId: z.uuid(),
 			numeroEmpenho: z.string().min(1, "Número do empenho obrigatório"),
 			dataEmpenho: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (YYYY-MM-DD)"),
 			quantidadeEmpenhada: z.number().positive("Quantidade deve ser positiva"),
@@ -424,7 +424,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
  * show both, never sum them.
  */
 export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ arpId: z.string().uuid() }))
+	.validator(z.object({ arpId: z.uuid() }))
 	.handler(async ({ data }): Promise<Record<string, LocalCommitment>> => {
 		await requireUserId()
 		const supabase = getProcurementClient()
@@ -451,7 +451,7 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
  * oficial da ARP.
  */
 export const fetchArpExecutionFn = createServerFn({ method: "GET" })
-	.validator(z.object({ arpId: z.string().uuid() }))
+	.validator(z.object({ arpId: z.uuid() }))
 	.handler(async ({ data }): Promise<Record<string, { liquidado: number; pago: number; aLiquidar: number }>> => {
 		await requireUserId()
 		const supabase = getProcurementClient()
@@ -498,7 +498,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
  * @throws {Error} on Supabase update failure.
  */
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
-	.validator(z.object({ empenhoId: z.string().uuid() }))
+	.validator(z.object({ empenhoId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getProcurementClient().schema("finance").from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)

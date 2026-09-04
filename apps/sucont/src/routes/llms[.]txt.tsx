@@ -24,7 +24,7 @@ export const Route = createFileRoute("/llms.txt")({
 							links: sucontTools.map((tool) => ({
 								title: tool.title,
 								url: `${siteUrl()}/auth`,
-								summary: `${tool.description} — categoria: ${tool.category}.`,
+								summary: `${tool.description} — etapa: ${tool.stage}${tool.racQuestions?.length ? `; questões do RAC: ${tool.racQuestions.join(", ")}` : ""}.`,
 							})),
 						},
 					],

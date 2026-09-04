@@ -18,8 +18,8 @@ const sharedQueryOptions = () =>
 export const Route = createFileRoute("/_authenticated/responses/")({
 	loader: ({ context }) => {
 		const { tagFilter } = TENANTS[env.VITE_APP_TENANT]
-		context.queryClient.ensureQueryData(questionnairesQueryOptions(tagFilter))
-		return context.queryClient.ensureQueryData(sharedQueryOptions())
+		context.queryClient.query({ ...questionnairesQueryOptions(tagFilter), staleTime: "static" })
+		return context.queryClient.query({ ...sharedQueryOptions(), staleTime: "static" })
 	},
 	component: ResponsesIndexPage,
 })

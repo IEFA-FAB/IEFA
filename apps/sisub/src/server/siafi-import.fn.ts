@@ -112,7 +112,7 @@ export const listImportBatchesFn = createServerFn({ method: "GET" })
 
 /** Linhas de um lote — inclui as não reconhecidas, para diagnóstico de layout. */
 export const fetchImportBatchFn = createServerFn({ method: "GET" })
-	.validator(z.object({ batchId: z.string().uuid() }))
+	.validator(z.object({ batchId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const si = siafi()
 		const { data: batch, error } = await si.from("import_batch").select("*").eq("id", data.batchId).single()

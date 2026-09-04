@@ -67,7 +67,7 @@ export const lookupGtinFn = createServerFn({ method: "GET" })
 export const attachGtinToIngredientItemFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			ingredientItemId: z.string().uuid(),
+			ingredientItemId: z.uuid(),
 			gtin: z.string().min(8).max(14),
 			description: z.string().optional(),
 		})

@@ -1,8 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { AlertCircle, ArrowLeft, BarChart3, FileText, HelpCircle, History, Layout, Loader2, Plus, Printer, Settings, Shield, Sparkles } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { AlertCircle, BarChart3, FileText, Lightbulb, Loader2, Plus, Printer, Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
+import { HubLayout } from "#/components/hub-layout"
+import { InstitutionalCredits } from "#/components/institutional-credits"
 import { DataAnalysisReport } from "#/components/plataforma-doc/data-analysis-report"
 import { FabDocument } from "#/components/plataforma-doc/fab-document"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
+import { Button } from "#/components/ui/button"
+import { SegmentedControl } from "#/components/ui/segmented-control"
 import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/document-ai.fn"
 import { adaptDraftFn } from "#/server/document-ai.fn"
 
@@ -51,237 +56,165 @@ function PlataformaDoc() {
 	}
 
 	return (
-		<div className="min-h-screen flex flex-col bg-muted/50">
-			{/* Header */}
-			<header className="no-print bg-card border-b border-border px-8 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-				<div className="flex items-center gap-4">
-					{/* Botão voltar ao hub */}
-					<Link to="/" className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors" title="Voltar ao Hub">
-						<ArrowLeft className="w-4 h-4" />
-					</Link>
+		<HubLayout
+			width="wide"
+			actions={
+				docData && (
+					<>
+						<Button type="button" variant="outline" size="sm" onClick={handleReset}>
+							<Plus className="w-3.5 h-3.5" /> Novo
+						</Button>
+						<Button type="button" size="sm" onClick={handlePrint}>
+							<Printer className="w-3.5 h-3.5" /> Imprimir
+						</Button>
+					</>
+				)
+			}
+		>
+			{/*
+			 * O tipo de documento é escolha da tela, não navegação: abas no corpo.
+			 * Antes eram dois `<button>` num segmento próprio, dentro de um cabeçalho
+			 * próprio, ao lado de uma coluna de ícones em que três dos quatro botões
+			 * não tinham `onClick` nenhum — decoração que prometia histórico,
+			 * configurações e ajuda inexistentes.
+			 */}
+			<SegmentedControl
+				label="Tipo de documento"
+				value={docType}
+				onValueChange={setDocType}
+				className="mb-8"
+				options={[
+					{
+						value: "FAB_OFFICE",
+						label: (
+							<>
+								<FileText />
+								Ofício FAB
+							</>
+						),
+					},
+					{
+						value: "DATA_ANALYSIS",
+						label: (
+							<>
+								<BarChart3 />
+								Relatório de dados
+							</>
+						),
+					},
+				]}
+			/>
 
-					<div className="w-px h-6 bg-muted" />
+			<div>
+				{!docData ? (
+					/* ── Área de rascunho ── */
+					<div className="flex flex-col items-center">
+						<div className="w-full max-w-2xl">
+							<div className="mb-10 text-center">
+								<div className="inline-flex items-center gap-2 px-3 py-1 bg-action/10 text-action rounded-full text-label mb-4">
+									<Sparkles className="w-3 h-3" /> Inteligência Documental
+								</div>
+								<h2 className="text-heading text-foreground mb-4">{docType === "FAB_OFFICE" ? "Redigir Ofício Militar" : "Análise de Dados Patrimoniais"}</h2>
+								<p className="text-heading text-muted-foreground leading-relaxed max-w-lg mx-auto">
+									{docType === "FAB_OFFICE"
+										? "Insira os fatos ou um rascunho informal. Nossa IA adaptará para o padrão oficial da FAB com fundamentação técnica."
+										: "Cole os dados brutos ou a mensagem de regularização. Geraremos um relatório executivo com tabelas e métricas."}
+								</p>
+							</div>
 
-					<div className="bg-[#1B365D] p-2 rounded-lg shadow-lg shadow-blue-900/20">
-						<Shield className="w-5 h-5 text-white" />
-					</div>
-					<div>
-						<h1 className="text-lg font-bold text-foreground leading-none">Plataforma de Documentação</h1>
-						<p className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-[0.15em]">Divisão de Contabilidade Patrimonial</p>
-					</div>
-				</div>
+							<div className="relative group">
+								<textarea
+									value={draft}
+									onChange={(e) => setDraft(e.target.value)}
+									placeholder={docType === "FAB_OFFICE" ? "Ex: Baixa de parafuso de US$ 208 mil por erro de 2010..." : "Cole aqui os dados da mensagem..."}
+									className="w-full border border-border rounded-xl p-4 text-foreground focus:outline-none focus:ring-2 focus-visible:ring-ring font-sans bg-card min-h-[350px] text-heading resize-none shadow-sm focus:border-action transition-all"
+								/>
+								<div className="absolute bottom-4 right-4 flex items-center gap-2">
+									<span className="text-muted-foreground font-mono text-label">{draft.length} caracteres</span>
+								</div>
+							</div>
 
-				<div className="flex items-center gap-4">
-					{/* Seletor de tipo */}
-					<div className="flex bg-muted p-1 rounded-xl border border-border">
-						<button
-							type="button"
-							onClick={() => setDocType("FAB_OFFICE")}
-							className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-2 ${
-								docType === "FAB_OFFICE" ? "bg-card text-[#1B365D] shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
-							}`}
-						>
-							<FileText className="w-3.5 h-3.5" />
-							OFÍCIO FAB
-						</button>
-						<button
-							type="button"
-							onClick={() => setDocType("DATA_ANALYSIS")}
-							className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-2 ${
-								docType === "DATA_ANALYSIS" ? "bg-card text-[#1B365D] shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
-							}`}
-						>
-							<BarChart3 className="w-3.5 h-3.5" />
-							RELATÓRIO DE DADOS
-						</button>
-					</div>
+							{error && (
+								<Alert variant="destructive" className="mt-4">
+									<AlertCircle />
+									<AlertTitle>Não foi possível gerar o documento</AlertTitle>
+									<AlertDescription>{error}</AlertDescription>
+								</Alert>
+							)}
 
-					{docData && (
-						<div className="flex items-center gap-2 ml-4 pl-4 border-l border-border">
-							<button
-								type="button"
-								onClick={handleReset}
-								className="flex items-center gap-2 py-1.5 px-3 text-xs font-bold border border-border text-foreground hover:bg-muted/50 rounded-xl transition-colors"
-							>
-								<Plus className="w-3.5 h-3.5" /> Novo
-							</button>
-							<button
-								type="button"
-								onClick={handlePrint}
-								className="flex items-center gap-2 py-1.5 px-3 text-xs font-bold bg-[#1B365D] hover:bg-[#0056B3] text-white rounded-xl transition-colors"
-							>
-								<Printer className="w-3.5 h-3.5" /> Imprimir
-							</button>
+							<Button type="button" onClick={handleGenerate} disabled={isGenerating || !draft.trim()} size="lg" className="mt-8 w-full">
+								{isGenerating ? (
+									<div className="flex flex-col items-center">
+										<div className="flex items-center gap-3">
+											<Loader2 className="w-6 h-6 animate-spin" />
+											<span>Processando Inteligência...</span>
+										</div>
+										{loadingTime > 10 && (
+											<span className="text-hint mt-1 opacity-70 animate-pulse">
+												{loadingTime > 25 ? "Quase lá, finalizando estrutura..." : "Analisando dados complexos..."}
+											</span>
+										)}
+									</div>
+								) : (
+									<>
+										<Sparkles className="w-6 h-6" />
+										Gerar Documento Profissional
+									</>
+								)}
+							</Button>
 						</div>
-					)}
-				</div>
-			</header>
-
-			{/* Workspace */}
-			<main className="flex-1 flex overflow-hidden">
-				{/* Sidebar */}
-				<aside className="no-print w-16 bg-card border-r border-border flex flex-col items-center py-6 gap-8">
-					<button type="button" className="p-2 text-blue-600 bg-blue-50 rounded-xl">
-						<Layout className="w-5 h-5" />
-					</button>
-					<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
-						<History className="w-5 h-5" />
-					</button>
-					<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
-						<Settings className="w-5 h-5" />
-					</button>
-					<div className="mt-auto">
-						<button type="button" className="p-2 text-muted-foreground hover:text-foreground transition-colors">
-							<HelpCircle className="w-5 h-5" />
-						</button>
 					</div>
-				</aside>
-
-				<div className="flex-1 overflow-hidden relative">
-					{!docData ? (
-						/* ── Área de rascunho ── */
-						<div className="flex-1 p-12 flex flex-col items-center justify-center bg-card h-full overflow-y-auto">
-							<div className="w-full max-w-2xl">
-								<div className="mb-10 text-center">
-									<div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
-										<Sparkles className="w-3 h-3" /> Inteligência Documental
-									</div>
-									<h2 className="text-4xl font-bold text-foreground mb-4">
-										{docType === "FAB_OFFICE" ? "Redigir Ofício Militar" : "Análise de Dados Patrimoniais"}
-									</h2>
-									<p className="text-lg text-muted-foreground leading-relaxed max-w-lg mx-auto">
-										{docType === "FAB_OFFICE"
-											? "Insira os fatos ou um rascunho informal. Nossa IA adaptará para o padrão oficial da FAB com fundamentação técnica."
-											: "Cole os dados brutos ou a mensagem de regularização. Geraremos um relatório executivo com tabelas e métricas."}
-									</p>
-								</div>
-
-								<div className="relative group">
-									<textarea
-										value={draft}
-										onChange={(e) => setDraft(e.target.value)}
-										placeholder={docType === "FAB_OFFICE" ? "Ex: Baixa de parafuso de US$ 208 mil por erro de 2010..." : "Cole aqui os dados da mensagem..."}
-										className="w-full border border-border rounded-xl p-4 text-foreground focus:outline-none focus:ring-2 focus-visible:ring-ring font-sans bg-card min-h-[350px] text-lg resize-none shadow-sm focus:border-blue-500 transition-all"
-									/>
-									<div className="absolute bottom-4 right-4 flex items-center gap-2">
-										<span className="text-[10px] text-muted-foreground font-mono font-bold uppercase tracking-wider">{draft.length} caracteres</span>
-									</div>
-								</div>
-
-								{error && (
-									<div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-700 text-sm">
-										<AlertCircle className="w-5 h-5 shrink-0" />
-										{error}
+				) : (
+					/* ── Área de preview ── */
+					<div className="flex justify-center">
+						<div className="relative flex gap-8">
+							<div className="overflow-hidden rounded-lg border border-border bg-card">
+								{docType === "FAB_OFFICE" && docData && "paragraphs" in docData ? (
+									<FabDocument data={docData as FabDocumentData} onChange={setDocData} />
+								) : docType === "DATA_ANALYSIS" && docData && "tableData" in docData ? (
+									<DataAnalysisReport data={docData as DataAnalysisData} />
+								) : (
+									<div className="p-20 text-center bg-card min-h-[600px] flex flex-col items-center justify-center">
+										<div className="bg-destructive/10 p-4 rounded-full mb-6">
+											<AlertCircle className="w-12 h-12 text-destructive" />
+										</div>
+										<h3 className="text-heading text-foreground mb-2">Erro na Estrutura do Documento</h3>
+										<p className="text-muted-foreground max-w-md mx-auto mb-8">
+											Ocorreu um problema ao processar os dados gerados pela IA. Por favor, tente reformular seu rascunho.
+										</p>
+										<Button
+											type="button"
+											onClick={() => setDocData(null)}
+											className="bg-tech-blue hover:bg-action text-surface-inverted-foreground px-6 py-3 rounded-xl"
+										>
+											Voltar ao Início
+										</Button>
 									</div>
 								)}
+							</div>
 
-								<button
-									type="button"
-									onClick={handleGenerate}
-									disabled={isGenerating || !draft.trim()}
-									className="mt-8 w-full py-5 text-lg flex items-center justify-center gap-3 bg-[#1B365D] hover:bg-[#0056B3] text-white font-bold rounded-xl shadow-xl shadow-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									{isGenerating ? (
-										<div className="flex flex-col items-center">
-											<div className="flex items-center gap-3">
-												<Loader2 className="w-6 h-6 animate-spin" />
-												<span>Processando Inteligência...</span>
-											</div>
-											{loadingTime > 10 && (
-												<span className="text-[10px] mt-1 opacity-70 animate-pulse">
-													{loadingTime > 25 ? "Quase lá, finalizando estrutura..." : "Analisando dados complexos..."}
-												</span>
-											)}
-										</div>
-									) : (
-										<>
-											<Sparkles className="w-6 h-6" />
-											Gerar Documento Profissional
-										</>
-									)}
-								</button>
+							{/* Imprimir e Novo saíram daqui: viraram as `actions` do cabeçalho, onde
+							    toda ferramenta do hub põe a ação da tela. Ter os dois nos dois
+							    lugares é a mesma ação com duas aparências. */}
+							<div className="no-print w-64 shrink-0">
+								<Alert variant="info" className="sticky top-20">
+									<Lightbulb />
+									<AlertTitle>Como ajustar</AlertTitle>
+									<AlertDescription>
+										{docType === "FAB_OFFICE"
+											? "Clique em qualquer campo do ofício para editar antes de imprimir."
+											: "O relatório vem da análise dos dados enviados. Confira as tabelas comparativas."}
+									</AlertDescription>
+								</Alert>
 							</div>
 						</div>
-					) : (
-						/* ── Área de preview ── */
-						<div className="flex-1 bg-muted/50 overflow-y-auto p-12 flex justify-center h-full">
-							<div className="relative flex gap-8">
-								<div className="shadow-2xl rounded-sm overflow-hidden bg-card">
-									{docType === "FAB_OFFICE" && docData && "paragraphs" in docData ? (
-										<FabDocument data={docData as FabDocumentData} onChange={setDocData} />
-									) : docType === "DATA_ANALYSIS" && docData && "tableData" in docData ? (
-										<DataAnalysisReport data={docData as DataAnalysisData} />
-									) : (
-										<div className="p-20 text-center bg-card min-h-[600px] flex flex-col items-center justify-center">
-											<div className="bg-destructive/10 p-4 rounded-full mb-6">
-												<AlertCircle className="w-12 h-12 text-destructive" />
-											</div>
-											<h3 className="text-xl font-bold text-foreground mb-2">Erro na Estrutura do Documento</h3>
-											<p className="text-muted-foreground max-w-md mx-auto mb-8">
-												Ocorreu um problema ao processar os dados gerados pela IA. Por favor, tente reformular seu rascunho.
-											</p>
-											<button
-												type="button"
-												onClick={() => setDocData(null)}
-												className="bg-[#1B365D] hover:bg-[#0056B3] text-white font-bold px-6 py-3 rounded-xl transition-colors"
-											>
-												Voltar ao Início
-											</button>
-										</div>
-									)}
-								</div>
+					</div>
+				)}
+			</div>
 
-								{/* Painel lateral de ações */}
-								<div className="no-print w-64 shrink-0">
-									<div className="sticky top-0 space-y-4">
-										<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-											<h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Ações do Documento</h4>
-											<div className="space-y-2">
-												<button
-													type="button"
-													onClick={handlePrint}
-													className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-xl transition-colors"
-												>
-													<Printer className="w-4 h-4 text-muted-foreground" /> PDF / Imprimir
-												</button>
-												<button
-													type="button"
-													onClick={handleReset}
-													className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-xl transition-colors"
-												>
-													<Plus className="w-4 h-4 text-muted-foreground" /> Novo Rascunho
-												</button>
-											</div>
-										</div>
-
-										<div className="bg-blue-600 p-6 rounded-2xl shadow-lg shadow-blue-900/20 text-white">
-											<h4 className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-2">Dica de UX</h4>
-											<p className="text-xs leading-relaxed opacity-90">
-												{docType === "FAB_OFFICE"
-													? "Você pode clicar em qualquer campo do ofício para fazer ajustes manuais antes de imprimir."
-													: "O relatório foi gerado com base em auditoria de dados. Verifique as tabelas comparativas."}
-											</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					)}
-				</div>
-			</main>
-
-			{/* Footer */}
-			<footer className="no-print bg-card border-t border-border px-8 py-3 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
-				<div className="flex items-center gap-2">
-					<div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-					<span>Sistema de Apoio à Gestão Patrimonial</span>
-				</div>
-				<div className="flex items-center gap-4">
-					<span>v2.4.0-PRO</span>
-					<span className="w-1 h-1 bg-slate-300 rounded-full" />
-					<span>Status: Operacional</span>
-				</div>
-			</footer>
-		</div>
+			{/* Único lugar dos créditos institucionais: eles repetiam em seis rotas de
+			    trabalho, onde ninguém os consulta. */}
+			<InstitutionalCredits className="no-print mt-10" />
+		</HubLayout>
 	)
 }

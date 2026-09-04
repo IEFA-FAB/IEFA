@@ -12,7 +12,7 @@
 import {
 	dailyMenuInKitchen,
 	folderInKitchen,
-	kitchenInCore,
+	kitchenInKitchen,
 	menuItemsInKitchen,
 	procurementArpInProcurement,
 	procurementArpItemInProcurement,
@@ -53,7 +53,9 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 
 	let kitchenIds: number[] | undefined
 	if (unitId) {
-		const kitchens = await runQuery("QUERY_FAILED", () => db.select({ id: kitchenInCore.id }).from(kitchenInCore).where(eq(kitchenInCore.unitId, unitId)))
+		const kitchens = await runQuery("QUERY_FAILED", () =>
+			db.select({ id: kitchenInKitchen.id }).from(kitchenInKitchen).where(eq(kitchenInKitchen.unitId, unitId))
+		)
 		kitchenIds = kitchens.map((k) => k.id)
 		if (kitchenIds.length === 0) return []
 	}
@@ -313,7 +315,9 @@ export async function fetchUnitDashboard(
 	const upcomingIngredientIds = new Set<string>()
 
 	if (ingredientIds.length > 0) {
-		const kitchens = await runQuery("QUERY_FAILED", () => db.select({ id: kitchenInCore.id }).from(kitchenInCore).where(eq(kitchenInCore.unitId, input.unitId)))
+		const kitchens = await runQuery("QUERY_FAILED", () =>
+			db.select({ id: kitchenInKitchen.id }).from(kitchenInKitchen).where(eq(kitchenInKitchen.unitId, input.unitId))
+		)
 		const kitchenIds = kitchens.map((k) => k.id)
 
 		if (kitchenIds.length > 0) {

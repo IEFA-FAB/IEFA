@@ -3,37 +3,110 @@
  * Recebimento físico em dois estágios (Lei 14.133, art. 140): draft →
  * provisional → definitive/divergent. Só a efetivação do definitivo (função
  * SQL atômica) cria lotes + movimentos e atualiza o status da OF.
- * Itens nascem dos nfe_item já correlacionados; lote/validade pré-preenchidos
- * do grupo rastro; o scanner de GTIN confere item da nota × produto físico.
- * CLIENT: getServerClient (service role, schemas inventory/kitchen).
+ *
+ * O lote é filho da linha do item (`goods_receipt_item_lot`): uma entrega traz
+ * caixas de validades diferentes do mesmo item, e é a validade que dirige o
+ * FEFO. A temperatura aferida também mora no lote — as caixas congeladas e as
+ * resfriadas da mesma entrega podem chegar em condições diferentes. Medir é
+ * opcional e nunca bloqueia; fora da faixa vira divergência com registro de
+ * quem aceitou.
+ *
+ * CLIENT: getServerClient (service role, schemas inventory/kitchen/procurement).
  * AUTH: `storage` nível 2 (provisório), nível 3 (definitivo).
  * @domain kitchen
- * @migration 20260729170000_procurement_supply_order_goods_receipt
+ * @migration 20260901120200_goods_receipt_lots
  */
 
+import {
+	type ConservationClass,
+	divergesFromInvoice,
+	isTemperatureOutOfRange,
+	requiresDivergenceReason,
+	temperatureDivergenceReason,
+	temperatureVerdict,
+	unitCostFromNfe,
+} from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
+// biome-ignore lint/suspicious/noExplicitAny: tabelas do módulo inventory ainda fora dos tipos gerados até o regen pós-migration
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
 
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
+const procurement = () => getServerClient("procurement") as unknown as LooseClient
+
+const IsoDate = z
+	.string()
+	.regex(/^\d{4}-\d{2}-\d{2}$/)
+	.nullable()
+
+/** Recebimento já efetivado não aceita mais escrita — nem de lote. */
+async function requireOpenReceipt(receiptId: string, level: 2 | 3) {
+	const inv = inventory()
+	const { data: receipt } = await inv.from("goods_receipt").select("id, status, kitchen_id").eq("id", receiptId).maybeSingle()
+	if (!receipt) throw new Error("Recebimento não encontrado")
+	const auth = await requireStorageForKitchen(level, Number(receipt.kitchen_id))
+	if (receipt.status === "definitive") throw new Error("Recebimento já efetivado — não pode ser alterado")
+	return { receipt, ...auth }
+}
+
+/** Sobe da linha do lote até o recebimento, para autorizar por cozinha. */
+async function receiptIdForLotItem(receiptItemId: string): Promise<string> {
+	const { data: item } = await inventory().from("goods_receipt_item").select("receipt_id").eq("id", receiptItemId).maybeSingle()
+	if (!item) throw new Error("Item do recebimento não encontrado")
+	return item.receipt_id as string
+}
+
+/**
+ * Faixa de temperatura exigida pela especificação de compra da linha.
+ * Sem purchase_item na linha, cai na especificação padrão do insumo — a mesma
+ * resolução que `finalize_goods_receipt` faz para gravar a classe no lote.
+ */
+async function requiredRangeFor(
+	purchaseItemId: string | null,
+	ingredientId: string | null
+): Promise<{ minC: number | null; maxC: number | null; conservationClass: ConservationClass | null }> {
+	const proc = procurement()
+	const columns = "conservation_class, storage_temp_min_c, storage_temp_max_c"
+
+	let spec: Record<string, unknown> | null = null
+	if (purchaseItemId) {
+		const { data } = await proc.from("purchase_item").select(columns).eq("id", purchaseItemId).maybeSingle()
+		spec = data ?? null
+	}
+	if (!spec && ingredientId) {
+		const { data } = await proc
+			.from("purchase_item_ingredient")
+			.select(`purchase_item:purchase_item_id (${columns})`)
+			.eq("ingredient_id", ingredientId)
+			.eq("is_default", true)
+			.maybeSingle()
+		spec = (data as { purchase_item?: Record<string, unknown> } | null)?.purchase_item ?? null
+	}
+
+	return {
+		minC: spec?.storage_temp_min_c != null ? Number(spec.storage_temp_min_c) : null,
+		maxC: spec?.storage_temp_max_c != null ? Number(spec.storage_temp_max_c) : null,
+		conservationClass: (spec?.conservation_class as ConservationClass | undefined) ?? null,
+	}
+}
 
 /**
  * Cria o recebimento a partir de uma NF-e conferida: um goods_receipt_item por
- * nfe_item resolvido (matched/review com ingredient), com quantidade faturada
- * como ponto de partida e lote/validade do rastro quando houver.
+ * nfe_item resolvido, e um lote inicial por item com o rastro da nota
+ * (lote/validade), que o conferente desdobra em vários se a carga vier
+ * fracionada.
  */
 export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			kitchenId: z.number().int().positive(),
-			nfeDocumentId: z.string().uuid(),
-			supplyOrderId: z.string().uuid().optional(),
-			empenhoId: z.string().uuid().optional(),
+			nfeDocumentId: z.uuid(),
+			supplyOrderId: z.uuid().optional(),
+			empenhoId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -48,7 +121,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			throw new Error("NF-e pertence a outra cozinha")
 		}
 		if (data.supplyOrderId) {
-			const proc = getServerClient("procurement") as unknown as LooseClient
+			const proc = procurement()
 			const { data: order } = await proc.from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
 			if (!order || Number(order.kitchen_id) !== data.kitchenId) throw new Error("OF não encontrada ou de outra cozinha")
 		}
@@ -80,23 +153,25 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			throw new Error(`Erro ao criar recebimento: ${error?.message}`)
 		}
 
-		const rows = resolvable.map(
-			(item: {
-				id: string
-				ingredient_id: string
-				ingredient_item_id: string | null
-				purchase_item_id: string | null
-				matched_qty_base: number | null
-				unit_price: number | null
-				commercial_qty: number | null
-				lot_code: string | null
-				expiry_date: string | null
-			}) => {
-				const invoiced = item.matched_qty_base
-				// custo unitário na base: valor total do item / quantidade base
-				const totalValue = item.unit_price != null && item.commercial_qty != null ? item.unit_price * item.commercial_qty : null
-				const unitCostBase = totalValue != null && invoiced != null && invoiced > 0 ? Number((totalValue / invoiced).toFixed(4)) : null
-				return {
+		type NfeItemRow = {
+			id: string
+			ingredient_id: string
+			ingredient_item_id: string | null
+			purchase_item_id: string | null
+			matched_qty_base: number | null
+			unit_price: number | null
+			commercial_qty: number | null
+			lot_code: string | null
+			expiry_date: string | null
+		}
+
+		const prepared = (resolvable as NfeItemRow[]).map((item) => {
+			const invoiced = item.matched_qty_base
+			// Custo na unidade BASE: a nota preça a embalagem, o ledger valora o gênero.
+			// Ver `unitCostFromNfe` — extraída para poder ser testada.
+			const unitCostBase = unitCostFromNfe({ invoicedQtyBase: invoiced, unitPrice: item.unit_price, commercialQty: item.commercial_qty })
+			return {
+				row: {
 					receipt_id: receipt.id,
 					nfe_item_id: item.id,
 					ingredient_id: item.ingredient_id,
@@ -105,32 +180,56 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 					purchase_item_id: item.purchase_item_id,
 					invoiced_qty_base: invoiced,
 					received_qty_base: invoiced ?? 0,
-					lot_code: item.lot_code,
-					expiry_date: item.expiry_date,
 					unit_cost: unitCostBase,
-				}
+				},
+				lotCode: item.lot_code,
+				expiryDate: item.expiry_date,
 			}
-		)
-		const { error: insertError } = await inv.from("goods_receipt_item").insert(rows)
-		if (insertError) {
+		})
+
+		const { data: inserted, error: insertError } = await inv
+			.from("goods_receipt_item")
+			.insert(prepared.map((entry) => entry.row))
+			.select("id, nfe_item_id, received_qty_base, unit_cost")
+		if (insertError || !inserted) {
 			await inv.from("goods_receipt").delete().eq("id", receipt.id)
-			throw new Error(`Erro ao criar itens do recebimento: ${insertError.message}`)
+			throw new Error(`Erro ao criar itens do recebimento: ${insertError?.message}`)
 		}
-		return { receiptId: receipt.id as string, itemsCount: rows.length, skipped: (items ?? []).length - rows.length }
+
+		// Lote inicial com o rastro da nota. Quantidade zero não gera lote: o
+		// check `quantity_base > 0` recusaria, e um item faturado com zero é
+		// justamente o que o conferente ainda vai preencher.
+		const byNfeItem = new Map(prepared.map((entry) => [entry.row.nfe_item_id, entry]))
+		const lotRows = (inserted as Array<{ id: string; nfe_item_id: string; received_qty_base: number; unit_cost: number | null }>)
+			.filter((item) => Number(item.received_qty_base) > 0)
+			.map((item, index) => {
+				const source = byNfeItem.get(item.nfe_item_id)
+				return {
+					receipt_item_id: item.id,
+					lot_code: source?.lotCode?.trim() || `SEM-LOTE-${new Date().toISOString().slice(0, 10)}-${index + 1}`,
+					expiry_date: source?.expiryDate ?? null,
+					quantity_base: Number(item.received_qty_base),
+					unit_cost: item.unit_cost,
+				}
+			})
+
+		if (lotRows.length > 0) {
+			const { error: lotError } = await inv.from("goods_receipt_item_lot").insert(lotRows)
+			if (lotError) {
+				await inv.from("goods_receipt").delete().eq("id", receipt.id)
+				throw new Error(`Erro ao criar lotes do recebimento: ${lotError.message}`)
+			}
+		}
+
+		return { receiptId: receipt.id as string, itemsCount: prepared.length, skipped: (items ?? []).length - prepared.length }
 	})
 
-/** Conferência: quantidade física + lote/validade + motivo de divergência por item. */
+/** Conferência da LINHA: quantidade física + motivo de divergência. Lote é escrita à parte. */
 export const updateReceiptItemFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			receiptItemId: z.string().uuid(),
+			receiptItemId: z.uuid(),
 			receivedQtyBase: z.number().nonnegative(),
-			lotCode: z.string().optional(),
-			expiryDate: z
-				.string()
-				.regex(/^\d{4}-\d{2}-\d{2}$/)
-				.nullable()
-				.optional(),
 			divergenceReason: z.string().nullable().optional(),
 		})
 	)
@@ -140,14 +239,11 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 
 		const { data: item } = await inv.from("goods_receipt_item").select("id, invoiced_qty_base, receipt_id").eq("id", data.receiptItemId).single()
 		if (!item) throw new Error("Item do recebimento não encontrado")
-		const { data: receipt } = await inv.from("goods_receipt").select("status, kitchen_id").eq("id", item.receipt_id).single()
-		if (!receipt) throw new Error("Recebimento não encontrado")
-		await requireStorageForKitchen(2, Number(receipt.kitchen_id))
-		if (receipt.status === "definitive") throw new Error("Recebimento já efetivado — não pode ser alterado")
+		await requireOpenReceipt(item.receipt_id as string, 2)
 
 		const invoiced = item.invoiced_qty_base != null ? Number(item.invoiced_qty_base) : null
-		const diverges = invoiced != null && data.receivedQtyBase !== invoiced
-		if (diverges && !data.divergenceReason?.trim()) {
+		const diverges = divergesFromInvoice(invoiced, data.receivedQtyBase)
+		if (requiresDivergenceReason(invoiced, data.receivedQtyBase, data.divergenceReason)) {
 			throw new Error("Quantidade física difere da faturada — informe o motivo da divergência")
 		}
 
@@ -155,17 +251,84 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 			.from("goods_receipt_item")
 			.update({
 				received_qty_base: data.receivedQtyBase,
-				lot_code: data.lotCode?.trim() || null,
-				expiry_date: data.expiryDate ?? null,
 				divergence_reason: diverges ? (data.divergenceReason?.trim() ?? null) : null,
 			})
 			.eq("id", data.receiptItemId)
 		if (error) throw new Error(`Erro ao atualizar item: ${error.message}`)
 	})
 
+/**
+ * Cria ou atualiza um lote da linha.
+ *
+ * A temperatura NÃO bloqueia: fora da faixa exigida, o lote é gravado com
+ * motivo de divergência preenchido e o registro de quem aceitou. Travar aqui
+ * faria a cozinha sem termômetro calibrado digitar um número plausível — pior
+ * que a ausência, porque parece prova.
+ */
+export const upsertReceiptLotFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			lotId: z.uuid().optional(),
+			receiptItemId: z.uuid(),
+			lotCode: z.string().trim().min(1, "Informe o código do lote"),
+			expiryDate: IsoDate.optional(),
+			quantityBase: z.number().positive("Quantidade do lote precisa ser maior que zero"),
+			unitCost: z.number().nonnegative().nullable().optional(),
+			measuredTemperatureC: z.number().nullable().optional(),
+			/** Confirmação explícita de aceite quando a temperatura sai da faixa. */
+			acceptOutOfRange: z.boolean().optional(),
+		})
+	)
+	.handler(async ({ data }) => {
+		const receiptId = await receiptIdForLotItem(data.receiptItemId)
+		const { userId } = await requireOpenReceipt(receiptId, 2)
+		const inv = inventory()
+
+		const { data: item } = await inv.from("goods_receipt_item").select("id, purchase_item_id, ingredient_id").eq("id", data.receiptItemId).single()
+		if (!item) throw new Error("Item do recebimento não encontrado")
+
+		const range = await requiredRangeFor(item.purchase_item_id ?? null, item.ingredient_id ?? null)
+		const measured = data.measuredTemperatureC ?? null
+		const verdict = temperatureVerdict(measured, range)
+		const outOfRange = isTemperatureOutOfRange(verdict)
+
+		if (outOfRange && !data.acceptOutOfRange) {
+			throw new Error(`${temperatureDivergenceReason(measured as number, range)} Confirme o aceite para registrar mesmo assim.`)
+		}
+
+		const payload = {
+			receipt_item_id: data.receiptItemId,
+			lot_code: data.lotCode.trim(),
+			expiry_date: data.expiryDate ?? null,
+			quantity_base: data.quantityBase,
+			unit_cost: data.unitCost ?? null,
+			measured_temperature_c: measured,
+			divergence_reason: outOfRange ? temperatureDivergenceReason(measured as number, range) : null,
+			temperature_ack_by: outOfRange ? userId : null,
+			temperature_ack_at: outOfRange ? new Date().toISOString() : null,
+		}
+
+		const query = data.lotId ? inv.from("goods_receipt_item_lot").update(payload).eq("id", data.lotId) : inv.from("goods_receipt_item_lot").insert(payload)
+		const { error } = await query
+		if (error) {
+			if (error.code === "23505") throw new Error(`Lote "${data.lotCode}" já lançado nesta linha`)
+			throw new Error(`Erro ao gravar lote: ${error.message}`)
+		}
+		return { verdict, outOfRange }
+	})
+
+export const deleteReceiptLotFn = createServerFn({ method: "POST" })
+	.validator(z.object({ lotId: z.uuid(), receiptItemId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const receiptId = await receiptIdForLotItem(data.receiptItemId)
+		await requireOpenReceipt(receiptId, 2)
+		const { error } = await inventory().from("goods_receipt_item_lot").delete().eq("id", data.lotId).eq("receipt_item_id", data.receiptItemId)
+		if (error) throw new Error(`Erro ao remover lote: ${error.message}`)
+	})
+
 /** Estágio 1: recebimento provisório (não movimenta estoque). */
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
@@ -180,7 +343,7 @@ export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 
 /** Estágio 2: efetivação atômica (função SQL) — lotes + movimentos + OF. */
 export const finalizeReceiptFn = createServerFn({ method: "POST" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
@@ -205,9 +368,9 @@ export const listReceiptsFn = createServerFn({ method: "GET" })
 		return receipts ?? []
 	})
 
-/** Detalhe do recebimento com itens + descrições (para conferência e termo). */
+/** Detalhe do recebimento: itens + lotes + acondicionamento exigido (para conferência e termo). */
 export const fetchReceiptFn = createServerFn({ method: "GET" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuthWithPermission("storage", 1)
 		const inv = inventory()
@@ -218,27 +381,53 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 		await requireStorageForKitchen(1, Number(receipt.kitchen_id))
 		const { data: items } = await inv.from("goods_receipt_item").select("*").eq("receipt_id", data.receiptId)
 
-		const ingredientIds = [...new Set((items ?? []).map((i: { ingredient_id: string | null }) => i.ingredient_id).filter(Boolean))] as string[]
+		const itemRows = (items ?? []) as Array<Record<string, unknown>>
+		const itemIds = itemRows.map((item) => item.id as string)
+		const { data: lots } = itemIds.length > 0 ? await inv.from("goods_receipt_item_lot").select("*").in("receipt_item_id", itemIds) : { data: [] }
+		const lotsByItem = new Map<string, Array<Record<string, unknown>>>()
+		for (const lot of (lots ?? []) as Array<Record<string, unknown>>) {
+			const key = lot.receipt_item_id as string
+			const bucket = lotsByItem.get(key)
+			if (bucket) bucket.push(lot)
+			else lotsByItem.set(key, [lot])
+		}
+
+		const ingredientIds = [...new Set(itemRows.map((item) => item.ingredient_id).filter(Boolean))] as string[]
 		const names = new Map<string, { description: string; measure_unit: string | null }>()
 		if (ingredientIds.length > 0) {
 			const { data: ings } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
 			for (const ing of ings ?? []) names.set(ing.id, ing)
 		}
 		// GTINs vinculados aos itens (para a conferência por scanner)
-		const itemIds = [...new Set((items ?? []).map((i: { ingredient_item_id: string | null }) => i.ingredient_item_id).filter(Boolean))] as string[]
+		const skuIds = [...new Set(itemRows.map((item) => item.ingredient_item_id).filter(Boolean))] as string[]
 		const gtinByItemId = new Map<string, string | null>()
-		if (itemIds.length > 0) {
-			const { data: skus } = await kit.from("ingredient_item").select("id, gtin").in("id", itemIds)
+		if (skuIds.length > 0) {
+			const { data: skus } = await kit.from("ingredient_item").select("id, gtin").in("id", skuIds)
 			for (const sku of skus ?? []) gtinByItemId.set(sku.id, sku.gtin)
+		}
+
+		// Acondicionamento exigido, por especificação de compra da linha.
+		const purchaseItemIds = [...new Set(itemRows.map((item) => item.purchase_item_id).filter(Boolean))] as string[]
+		const specById = new Map<string, Record<string, unknown>>()
+		if (purchaseItemIds.length > 0) {
+			const { data: specs } = await procurement()
+				.from("purchase_item")
+				.select(
+					"id, conservation_class, storage_temp_min_c, storage_temp_max_c, package_type, package_net_content, package_net_content_unit, transport_requirement, min_shelf_life_days_on_delivery, delivery_conditioning"
+				)
+				.in("id", purchaseItemIds)
+			for (const spec of (specs ?? []) as Array<Record<string, unknown>>) specById.set(spec.id as string, spec)
 		}
 
 		return {
 			...receipt,
-			items: (items ?? []).map((item: Record<string, unknown>) => ({
+			items: itemRows.map((item) => ({
 				...item,
 				description: names.get(item.ingredient_id as string)?.description ?? "—",
 				measure_unit: names.get(item.ingredient_id as string)?.measure_unit ?? null,
 				gtin: item.ingredient_item_id ? (gtinByItemId.get(item.ingredient_item_id as string) ?? null) : null,
+				conditioning: item.purchase_item_id ? (specById.get(item.purchase_item_id as string) ?? null) : null,
+				lots: lotsByItem.get(item.id as string) ?? [],
 			})),
 		}
 	})

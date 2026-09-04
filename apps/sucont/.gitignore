@@ -17,3 +17,4 @@ data_test
 .auth
 test-results
 playwright-report
+harness/dist-harness/

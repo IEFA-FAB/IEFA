@@ -10,33 +10,36 @@
  * A saída é `var(--token)`: atributo de apresentação SVG resolve custom property,
  * e a folha já redefine os tokens sob `.dark`. Quem troca de tema passa a ser o
  * CSS, e o componente deixa de saber que existe tema.
+ *
+ * Os nomes são os das variáveis BASE (`--card`, `--foreground`, `--series-*`), e
+ * NÃO os utilitários `--color-*` do `@theme inline`. A diferença não é cosmética:
+ * o Tailwind emite `--color-card: var(--card)` no `:root`, e uma custom property
+ * é computada no elemento em que é declarada — então `--color-card` congela o
+ * valor do tema claro e todo descendente herda esse valor já resolvido, inclusive
+ * dentro de `.dark`. Usar `--color-*` aqui deixava o gráfico inteiro preso no
+ * tema claro: no escuro, o rótulo de valor saía branco sobre branco.
  */
 
+import { chartChrome } from "#/lib/chart-theme"
 import { RiskLevel } from "./types"
 
-/** Cromo: eixo, grade, superfície. Papel semântico, não cor. */
-export const chartChrome = {
-	/** Linhas da grade e bordas de célula. */
-	grid: "var(--color-border)",
-	/** Rótulos de eixo e legenda. */
-	axis: "var(--color-muted-foreground)",
-	/** Fundo de rótulo desenhado sobre o gráfico. */
-	surface: "var(--color-card)",
-	/** Superfície rebaixada: cursor do tooltip, faixa alternada. */
-	surfaceMuted: "var(--color-muted)",
-	/** Texto sobre `surface`. */
-	label: "var(--color-foreground)",
-} as const
+export { chartChrome }
 
 /** Séries do confronto, nomeadas pelo dado que carregam. */
 export const chartSeries = {
-	siafi: "var(--color-series-siafi)",
-	siloms: "var(--color-series-siloms)",
-	diff: "var(--color-series-diff)",
-	pareto: "var(--color-series-pareto)",
-	accumulated: "var(--color-series-accum)",
+	siafi: "var(--series-siafi)",
+	siloms: "var(--series-siloms)",
+	diff: "var(--series-diff)",
+	pareto: "var(--series-pareto)",
+	accumulated: "var(--series-accum)",
 	/** Eixo secundário do gráfico de Pareto. */
-	axisAlt: "var(--color-series-axis-alt)",
+	axisAlt: "var(--series-axis-alt)",
+	/** Grupos de conta — mesma fonte para a barra e para o marcador da legenda. */
+	bmp: "var(--series-bmp)",
+	consumo: "var(--series-consumo)",
+	intangivel: "var(--series-intangivel)",
+	/** Índice de Conciliação Contábil, quando plotado como série. */
+	icc: "var(--series-icc)",
 } as const
 
 /**

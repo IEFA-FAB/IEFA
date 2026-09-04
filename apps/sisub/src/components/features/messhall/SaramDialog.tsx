@@ -37,7 +37,7 @@ export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onCh
 		onChange(normalizeDigits(pasted))
 	}
 
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
 		e.preventDefault()
 		if (canSubmit) onSubmit()
 	}

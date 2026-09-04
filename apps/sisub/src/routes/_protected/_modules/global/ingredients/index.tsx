@@ -47,7 +47,7 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/")
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	// Cada aba tem seu próprio escopo de leitura (query key distinta): pré-carregar a
 	// árvore de insumos ao abrir direto em outra aba só atrasaria o TTFB.
-	loader: ({ context, deps }) => context.queryClient.ensureQueryData(treeOptionsForTab(deps.tab ?? "insumos")),
+	loader: ({ context, deps }) => context.queryClient.query({ ...treeOptionsForTab(deps.tab ?? "insumos"), staleTime: "static" }),
 	component: IngredientsPage,
 	head: () => ({
 		meta: [

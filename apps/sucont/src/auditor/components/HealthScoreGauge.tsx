@@ -1,4 +1,4 @@
-import { chartChrome, iccColor, iccLabel } from "../theme"
+import { chartChrome, ICC_RAMP, iccColor, iccLabel } from "../theme"
 
 interface HealthScoreGaugeProps {
 	score: number
@@ -22,9 +22,9 @@ export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score }) => 
 				<title id="health-score-title">Indicador de saúde ICC: {normalizedScore.toFixed(1)}%</title>
 				<defs>
 					<linearGradient id="iccGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-						<stop offset="0%" stopColor="#ef4444" />
-						<stop offset="50%" stopColor="#f59e0b" />
-						<stop offset="100%" stopColor="#10b981" />
+						<stop offset="0%" stopColor={ICC_RAMP[ICC_RAMP.length - 1].color} />
+						<stop offset="50%" stopColor={ICC_RAMP[2].color} />
+						<stop offset="100%" stopColor={ICC_RAMP[0].color} />
 					</linearGradient>
 
 					<filter id="arcShadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -63,11 +63,13 @@ export const HealthScoreGauge: React.FC<HealthScoreGaugeProps> = ({ score }) => 
 
 			<div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
 				<div className="flex flex-col items-center">
-					<span className="text-xl font-black font-mono tracking-tighter drop-shadow-sm" style={{ color: iccColor(score) }}>
+					<span className="text-heading font-mono" style={{ color: iccColor(score) }}>
 						{score.toFixed(1)}%
 					</span>
 					<div className="h-px w-8 my-0.5 bg-border" />
-					<span className="text-hint font-bold text-muted-foreground uppercase tracking-widest text-center px-2">{iccLabel(score)}</span>
+					{/* `.text-hint`, não `.text-label`: o rótulo cabe dentro do arco, e o
+					    letter-spacing do label o fazia transbordar sobre o traçado. */}
+					<span className="text-hint text-muted-foreground text-center px-2 leading-tight">{iccLabel(score)}</span>
 				</div>
 			</div>
 		</div>

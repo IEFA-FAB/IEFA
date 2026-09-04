@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { FileUp, FileX2 } from "lucide-react"
 import { useRef, useState } from "react"
-import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import { toast } from "@/components/ui/toast"
 import { listNfeDocumentsFn, uploadNfeFn } from "@/server/nfe.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nfe/")({

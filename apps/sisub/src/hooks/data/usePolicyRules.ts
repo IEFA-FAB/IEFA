@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/toast"
 import { queryKeys } from "@/lib/query-keys"
 import { createPolicyRuleFn, deletePolicyRuleFn, fetchPolicyRulesFn, generateReviewPromptFn, updatePolicyRuleFn } from "@/server/policy.fn"
 import type { PolicyRule, PolicyRuleInsert, PolicyRuleUpdate, PolicyTarget } from "@/types/domain/policy"

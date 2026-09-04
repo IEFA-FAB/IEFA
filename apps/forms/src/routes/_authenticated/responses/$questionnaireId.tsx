@@ -3,7 +3,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { ArrowLeft, EditPencil, HistoricShield, NavArrowDown, Redo } from "iconoir-react"
 import { useCallback, useMemo, useState } from "react"
-import { toast } from "sonner"
 import { ViewerManager } from "@/components/forms/ViewerManager"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/useAuth"
 import { EVALUATION_TYPES } from "@/lib/5s-constants"
 import {
@@ -56,9 +56,9 @@ const viewersQueryOptions = (questionnaireId: string) =>
 export const Route = createFileRoute("/_authenticated/responses/$questionnaireId")({
 	beforeLoad: ({ params }) => assertUuidParam(params.questionnaireId),
 	loader: ({ context, params }) => {
-		context.queryClient.ensureQueryData(questionnaireQueryOptions(params.questionnaireId))
-		context.queryClient.ensureQueryData(viewersQueryOptions(params.questionnaireId))
-		return context.queryClient.ensureQueryData(responsesQueryOptions(params.questionnaireId))
+		context.queryClient.query({ ...questionnaireQueryOptions(params.questionnaireId), staleTime: "static" })
+		context.queryClient.query({ ...viewersQueryOptions(params.questionnaireId), staleTime: "static" })
+		return context.queryClient.query({ ...responsesQueryOptions(params.questionnaireId), staleTime: "static" })
 	},
 	component: ResponsesPage,
 })

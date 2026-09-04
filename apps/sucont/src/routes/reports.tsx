@@ -3,11 +3,13 @@ import { createFileRoute } from "@tanstack/react-router"
 import { FileBarChart, Loader2, Plus } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState } from "react"
-import { toast } from "sonner"
 import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { ToolCard } from "#/components/tool-card"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
+import { toast } from "#/components/ui/toast"
 import { useHubFilters } from "#/lib/hub-filters"
 import type { Tool } from "#/lib/types"
 import { createReportFn, deleteReportFn, listReportsFn } from "#/server/reports.fn"
@@ -62,8 +64,7 @@ function Reports() {
 		description: r.description ?? "",
 		url: r.url,
 		icon: r.icon ?? "FileBarChart",
-		category: r.category ?? "Relatórios",
-		iconColor: "bg-tech-blue",
+		stage: "acompanhar" as const,
 	}))
 
 	const filtered = asTools.filter(
@@ -71,11 +72,11 @@ function Reports() {
 	)
 
 	return (
-		<HubLayout searchable>
+		<HubLayout title="Relatórios" description="Relatórios da seção e seus anexos." searchable>
 			<div className="space-y-8">
 				<div className="flex items-center gap-4">
 					<FileBarChart className="text-tech-cyan w-5 h-5" />
-					<h2 className="text-foreground font-bold uppercase tracking-widest text-sm">Gestão de Relatórios</h2>
+					<h2 className="text-foreground text-label">Gestão de Relatórios</h2>
 					<div className="flex-grow h-[1px] bg-border" />
 				</div>
 
@@ -83,13 +84,15 @@ function Reports() {
 
 				{canEdit && (
 					<div className="flex justify-end">
-						<button
+						<Button
 							type="button"
+							variant="outline"
+							size="sm"
 							onClick={() => setIsAdding(true)}
-							className="flex items-center gap-2 bg-card border border-border text-tech-cyan px-4 py-2 rounded-md text-xs font-mono hover:bg-muted/50 transition-all shadow-sm"
+							className="flex items-center gap-2 bg-card border border-border text-tech-cyan px-4 py-2 rounded-md text-caption font-mono hover:bg-muted/50 transition-all shadow-sm"
 						>
 							<Plus className="w-4 h-4" /> ANEXAR RELATÓRIO
-						</button>
+						</Button>
 					</div>
 				)}
 
@@ -99,7 +102,7 @@ function Reports() {
 						animate={{ opacity: 1, scale: 1 }}
 						className="bg-card border border-tech-cyan/30 p-6 rounded-lg shadow-lg"
 					>
-						<h3 className="text-foreground font-bold mb-4 text-sm uppercase">Novo Relatório</h3>
+						<h3 className="text-foreground mb-4 text-label">Novo Relatório</h3>
 						<form
 							onSubmit={(e) => {
 								e.preventDefault()
@@ -112,45 +115,52 @@ function Reports() {
 							}}
 							className="grid grid-cols-1 md:grid-cols-2 gap-4"
 						>
-							<input
+							<Input
 								name="title"
 								placeholder="Título do Relatório"
 								required
-								className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
+								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground focus:border-tech-cyan outline-none"
 							/>
-							<input
+							<Input
 								name="url"
 								placeholder="URL do Relatório"
 								required
-								className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground focus:border-tech-cyan outline-none"
+								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground focus:border-tech-cyan outline-none"
 							/>
 							<textarea
 								name="description"
 								placeholder="Descrição breve"
-								className="bg-muted/50 border border-border p-2 rounded text-xs text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
+								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 							/>
 							<div className="flex gap-2 md:col-span-2 justify-end">
-								<button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs text-muted-foreground hover:text-foreground">
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									onClick={() => setIsAdding(false)}
+									className="px-4 py-2 text-caption text-muted-foreground hover:text-foreground"
+								>
 									CANCELAR
-								</button>
-								<button
+								</Button>
+								<Button
 									type="submit"
+									variant="ghost"
 									disabled={createMutation.isPending}
-									className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md inline-flex items-center gap-2"
+									className="bg-tech-cyan text-white px-6 py-2 rounded text-label shadow-md inline-flex items-center gap-2"
 								>
 									{createMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR RELATÓRIO
-								</button>
+								</Button>
 							</div>
 						</form>
 					</motion.div>
 				)}
 
 				{isLoading ? (
-					<div className="flex items-center justify-center py-16 text-muted-foreground gap-2 text-sm font-mono">
+					<div className="flex items-center justify-center py-16 text-muted-foreground gap-2 text-body font-mono">
 						<Loader2 className="w-4 h-4 animate-spin" /> Carregando relatórios...
 					</div>
 				) : filtered.length === 0 ? (
-					<p className="text-muted-foreground text-sm font-mono text-center py-16">Nenhum relatório encontrado.</p>
+					<p className="text-muted-foreground text-body font-mono text-center py-16">Nenhum relatório encontrado.</p>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 						{filtered.map((report, i) => (
@@ -183,26 +193,28 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-			<button type="button" aria-label="Cancelar exclusão" onClick={onCancel} className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
-			<div role="alertdialog" aria-modal="true" aria-labelledby="confirm-delete-title" className="relative w-full max-w-md bg-card rounded-2xl p-6 shadow-xl">
-				<h3 id="confirm-delete-title" className="text-foreground font-bold text-sm uppercase mb-2">
+			<button type="button" aria-label="Cancelar exclusão" onClick={onCancel} className="absolute inset-0 bg-overlay/40 backdrop-blur-[2px]" />
+			<div role="alertdialog" aria-modal="true" aria-labelledby="confirm-delete-title" className="relative w-full max-w-md bg-card rounded-xl p-6 shadow-xl">
+				<h3 id="confirm-delete-title" className="text-foreground text-label mb-2">
 					Excluir relatório
 				</h3>
-				<p className="text-muted-foreground text-sm leading-relaxed mb-6">
+				<p className="text-muted-foreground text-body leading-relaxed mb-6">
 					“{title}” sai da lista de todos os operadores da seção. A exclusão é definitiva — não há como desfazer.
 				</p>
 				<div className="flex justify-end gap-2">
-					<button type="button" onClick={onCancel} className="px-4 py-2 text-xs font-bold uppercase text-muted-foreground hover:text-foreground">
+					<Button type="button" variant="ghost" size="sm" onClick={onCancel} className="px-4 py-2 text-label text-muted-foreground hover:text-foreground">
 						Cancelar
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
+						variant="destructive"
+						size="sm"
 						onClick={onConfirm}
 						disabled={isPending}
-						className="inline-flex items-center gap-2 bg-destructive text-white px-5 py-2 rounded-lg font-bold text-xs uppercase shadow-md hover:bg-destructive/90 disabled:opacity-60 transition-colors"
+						className="inline-flex items-center gap-2 bg-destructive text-destructive-foreground px-5 py-2 rounded-lg text-label shadow-md hover:bg-destructive/90 disabled:opacity-60 transition-colors"
 					>
 						{isPending && <Loader2 className="w-3 h-3 animate-spin" />} Excluir
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

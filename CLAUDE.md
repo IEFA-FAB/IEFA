@@ -47,6 +47,24 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 - **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 
+### Nomenclatura: identificador em inglês, valor de domínio na língua da norma
+
+Regra do repo, e a fronteira é essa:
+
+- **Identificador é em inglês** — função, tipo, variável, campo, arquivo. Função começa por
+  verbo (`assembleDocument`, `formatNup`, `applyProposal`, `loadDraft`), predicado por
+  `is`/`has` (`isGeneralOfficer`, `hasByOrderOpening`), constante em `SCREAMING_SNAKE`.
+- **Fica em português só o que não tem equivalente inglês fiel, ou o que é o nome de uma
+  integração externa.** São termos que nomeiam artefato jurídico ou institucional, e
+  traduzi-los quebraria a rastreabilidade até a norma: `nup`, `om`, `ementa`, `epigrafe`,
+  `preambulo`, `fecho`, `vocativo`, `alinea`, `subalinea`, `posto`, `quadro`, `despacho`,
+  `noImp`, `sigadaer`, `comaer`. Na dúvida, o teste é: existe termo inglês que um leitor da
+  NSCA reconheceria como a mesma coisa? Se não existe, mantenha o português.
+- **Valor de domínio NÃO se traduz** — `"oficio-comaer"`, `"ostensivo"`, `"reservado"`,
+  `"interno-om"` são o vocabulário da norma e viram dado gravado. Identificador em inglês
+  apontando para valor em português é o esperado, não uma inconsistência: `kind: "oficio-externo"`.
+- Comentário e mensagem ao usuário seguem em português; mensagem de commit, em inglês.
+
 ### Ferramentas de IA (chat dos módulos + servidor MCP)
 
 Os dois expõem o mesmo domínio para modelos diferentes. Regra para não divergirem:
@@ -54,7 +72,12 @@ Os dois expõem o mesmo domínio para modelos diferentes. Regra para não diverg
 - **Listagem exposta a modelo mora em `@iefa/sisub-domain/agent`** — entrada (schema Zod), teto (`clampLimit`) e projeção definidos uma vez, consumidos pelo chat (`apps/sisub/src/lib/module-chat/tools/`) e pelo MCP (`apps/sisub-mcp/src/tools/`). Testes de contrato nos dois lados comparam o `inputSchema`/`parameters` com `toJsonSchema(...)` do schema compartilhado.
 - **Toda listagem tem `limit` e devolve `total`** — sem o total o modelo lê 30 itens e conclui que o catálogo tem 30.
 - **Resultado de tool tem orçamento** (`MAX_TOOL_RESULT_CHARS`, 60k caracteres em JSON compacto — freio contra patologia; quem dimensiona a resposta normal é o `limit` de cada listagem): ele volta INTEIRO no prompt do turno seguinte. Acima disso o provider responde 413 e a run morre sem mensagem. O teto é aplicado no `wrapTool` (chat) e no despacho (MCP); estourar vira erro de tool que o modelo lê e corrige.
-- **Parâmetro opcional exposto a modelo é `.nullish()`, nunca `.optional()` puro** — modelo não omite campo, ele manda `null`. Com `.optional()` o engine rejeita a chamada, o modelo tenta de novo com sintaxe quebrada e o provider mata a run com `tool_use_failed`, sem mensagem para o usuário. `null` que o schema não previu vira ausência no `wrapTool`/despacho MCP (`dropUnexpectedNulls`). Guarda: `model-args.test.ts` nos dois lados varre todas as tools.
+- **`null` do modelo é ausência, e isso se resolve NO BOUNDARY — não espalhando `.nullish()` pelo domínio.** Modelo não omite campo opcional: ele manda `null`. Quem normaliza é `dropUnexpectedNulls`, no `wrapTool` (chat) e no despacho do MCP — os dois únicos pontos por onde argumento de modelo entra. Por isso o schema do domínio segue com a semântica do ERP, e não com a do provider:
+  - **`.optional()`** (`T | undefined`) é o default de campo de patch: ausente = **não mexe**. `applyTemplateContent` depende disso.
+  - **`.nullable().optional()`** só onde `null` tem significado no ERP: **limpa a coluna**. A operation tem que ramificar em `!== undefined` (é o caso de `UpdateTemplateSchema.description`).
+  - **`.nullish()` é OBRIGATÓRIO dentro de array** — e só ali. `dropUnexpectedNulls` não desce em array de propósito (posição em array é significativa; apagar item deslocaria os demais), então o `null` aninhado chega inteiro no `.parse()` e mata a run com `tool_use_failed`, sem mensagem. Foi o caso de `TemplateItemSchema.headcountOverride`/`sortOrder`.
+  - **Nunca converter `.optional()` de campo de escrita em `.nullish()` "para obedecer a regra"**: `update_template.items` é substituição destrutiva (`if (items !== undefined) delete all + reinsert`). Aceitar `null` ali transforma "o modelo não mexeu nos itens" em "apague os itens do template".
+  Guarda: `model-args.test.ts` nos dois lados varre TODAS as tools — o `null` que vaza para o handler e o opcional dentro de array que não aceita `null`.
 - **Nada de query PostgREST/SQL escrita à mão numa tool** quando a operation existe — foi assim que `list_ingredients` ordenou por coluna inexistente e `list_kitchens` embutiu `units.name`.
 
 ### Providers de IA — Bedrock primeiro

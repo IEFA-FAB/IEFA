@@ -9,6 +9,7 @@
  * @migration 20260729180000_inventory_monthly_closing
  */
 
+import { isInflow } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -20,7 +21,10 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
 
-const INFLOW = new Set(["receipt", "leftover_return", "transfer_in", "adjustment_in"])
+// A partição entrada/saída vive em UM lugar (@iefa/sisub-domain) e é conferida
+// contra as triggers de custeio por sql-vocabulary.contract.test.ts. Esta era a
+// terceira cópia da mesma lista: divergir dela faz o relatório contar o oposto
+// do que o ledger contabilizou.
 const competenciaSchema = z.string().regex(/^\d{4}-\d{2}$/, "Competência no formato YYYY-MM")
 
 function monthRange(competencia: string): { from: string; to: string } {
@@ -113,7 +117,7 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 			}
 			const qty = Number(move.quantity)
 			const val = Number(move.total_cost ?? 0)
-			const inflow = INFLOW.has(move.type)
+			const inflow = isInflow(move.type)
 			if (move.created_at < from) {
 				row.openQty += inflow ? qty : -qty
 				row.openVal += inflow ? val : -val
@@ -141,7 +145,7 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 
 /** Ficha de Almoxarifado: ledger cronológico do item com saldo acumulado. */
 export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
-	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.string().uuid(), competencia: competenciaSchema }))
+	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.uuid(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const { from, to } = monthRange(data.competencia)
@@ -154,7 +158,7 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 			.eq("ingredient_id", data.ingredientId)
 			.lt("created_at", from)
 		let running = 0
-		for (const move of before ?? []) running += INFLOW.has(move.type) ? Number(move.quantity) : -Number(move.quantity)
+		for (const move of before ?? []) running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
 		const opening = Number(running.toFixed(4))
 
 		const { data: moves, error } = await inv
@@ -168,7 +172,7 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(`Erro ao consultar ficha: ${error.message}`)
 
 		const entries = (moves ?? []).map((move: { type: string; quantity: number }) => {
-			running += INFLOW.has(move.type) ? Number(move.quantity) : -Number(move.quantity)
+			running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
 			return { ...move, running: Number(running.toFixed(4)) }
 		})
 		return { opening, entries }
@@ -228,10 +232,10 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
-		const core = getServerClient("core") as unknown as LooseClient
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
 		const finance = getServerClient("finance") as unknown as LooseClient
 
-		const { data: kitchenRow } = await core.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
 		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 		if (unitId == null) return []
 

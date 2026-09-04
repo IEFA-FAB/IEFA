@@ -48,7 +48,7 @@ const UserMilitaryDataSchema = z.object({
 const UserDataSchema = z.object({
 	id: z.uuid(),
 	created_at: z.iso.datetime(),
-	email: z.string().email(),
+	email: z.email(),
 	nrOrdem: z.string(),
 })
 
@@ -127,7 +127,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 // /api/opinion -> opinions
 const [, opinionHandler] = createApiHandler({
 	table: "opinions",
-	schema: "core",
+	schema: "kitchen",
 	select: 'id, created_at, value, question, "userId"',
 	dateColumn: "created_at",
 	dateColumnType: "timestamp",
@@ -470,7 +470,7 @@ const unitsRoute = defineDocRoute({
 // /api/mess-halls -> sisub.mess_halls
 const [, messHallsHandler] = createApiHandler({
 	table: "mess_halls",
-	schema: "core",
+	schema: "kitchen",
 	select: "id, unit_id, code, display_name",
 	defaultOrder: [
 		{ column: "unit_id", ascending: true },

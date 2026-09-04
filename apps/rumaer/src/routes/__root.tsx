@@ -13,7 +13,7 @@ import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { readThemePreference, ThemeProvider } from "@/components/themeService"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
 // A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
@@ -33,7 +33,7 @@ export interface MyRouterContext {
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	beforeLoad: async ({ context }) => {
 		try {
-			const authState = await context.queryClient.ensureQueryData(authQueryOptions())
+			const authState = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 			return { auth: authState }
 		} catch (_error) {
 			// Login é opcional — falha de auth não bloqueia a navegação.
@@ -87,7 +87,7 @@ function AuthSync() {
 	useEffect(() => {
 		const {
 			data: { subscription },
-		} = supabase.auth.onAuthStateChange(async (event, session) => {
+		} = supabase.auth.onAuthStateChange((event, session) => {
 			// Recuperação em andamento: o guard de `/auth` precisa saber que esta
 			// sessão não significa "já entrou", senão redireciona quem ainda vai
 			// digitar a senha nova.
@@ -138,7 +138,7 @@ function RootDocument() {
 				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
 					<ThemeProvider initialTheme={theme}>
 						<Outlet />
-						<Toaster />
+						<Toaster position="bottom-right" />
 					</ThemeProvider>
 				</HotkeysProvider>
 				<AuthSync />

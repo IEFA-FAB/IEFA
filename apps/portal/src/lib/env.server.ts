@@ -4,7 +4,7 @@ import { z } from "zod"
 // Usa process.env (não import.meta.env) porque os handlers de server functions
 // executam no Nitro onde import.meta.env não é injetado pelo Vite.
 const serverEnvSchema = z.object({
-	VITE_IEFA_SUPABASE_URL: z.string().url(),
+	VITE_IEFA_SUPABASE_URL: z.url(),
 	// Chave publishable/anon. Já provisionada no runtime (secret_names em
 	// infra/portal). O client SSR de auth usa ESTA, não a service key: getUser()
 	// valida o JWT do cookie de qualquer forma e uma query acidental por este

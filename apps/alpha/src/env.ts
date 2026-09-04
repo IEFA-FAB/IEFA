@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 const schema = z.object({
-	SUPABASE_URL: z.string().url(),
+	SUPABASE_URL: z.url(),
 	SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 	/**
 	 * Conexão Postgres direta, usada pelo checkpointer do LangGraph.
@@ -14,7 +14,7 @@ const schema = z.object({
 	/** Só é exigida quando algum provedor NVIDIA continua em uso. */
 	NVIDIA_API_KEY: z.string().min(1).optional(),
 	ALPHA_AI_API_KEY: z.string().min(1).optional(),
-	NVIDIA_BASE_URL: z.string().url().default("https://integrate.api.nvidia.com/v1"),
+	NVIDIA_BASE_URL: z.url().default("https://integrate.api.nvidia.com/v1"),
 	LLM_MODEL: z.string().default("openai/gpt-oss-120b"),
 	ALPHA_AI_PROVIDER: z.enum(["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama", "bedrock"]).default("bedrock"),
 	ALPHA_AI_MODEL: z.string().default(""),

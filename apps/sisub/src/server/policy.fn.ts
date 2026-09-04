@@ -85,7 +85,7 @@ export const createPolicyRuleFn = createServerFn({ method: "POST" })
 export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid(),
+			id: z.uuid(),
 			title: z.string().min(3).optional(),
 			description: z.string().min(10).optional(),
 			display_order: z.number().int().min(0).optional(),
@@ -116,7 +116,7 @@ export const updatePolicyRuleFn = createServerFn({ method: "POST" })
  * @throws {Error} on Supabase update failure.
  */
 export const deletePolicyRuleFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAuthWithPermission("global", 2)
 		const { error } = await getProcurementClient().from("policy_rule").update({ deleted_at: new Date().toISOString() }).eq("id", data.id).is("deleted_at", null)

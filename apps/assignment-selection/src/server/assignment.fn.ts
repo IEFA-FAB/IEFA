@@ -38,7 +38,7 @@ export const listEditionsFn = createServerFn({ method: "GET" }).handler(async ()
 // Leitura pública do telão — ver listEditionsFn.
 // nosemgrep: server-fn-missing-auth-guard
 export const getBoardFn = createServerFn({ method: "GET" })
-	.validator(z.object({ editionId: z.string().uuid().nullish() }))
+	.validator(z.object({ editionId: z.uuid().nullish() }))
 	.handler(async ({ data }): Promise<BoardData> => {
 		const supabase = getAssignmentServerClient()
 		const editions = await fetchEditions()
@@ -88,7 +88,7 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 
 /** Ativa uma edição no telão (marca active=true e desmarca as demais). */
 export const setActiveEditionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ editionId: z.string().uuid() }))
+	.validator(z.object({ editionId: z.uuid() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
@@ -100,7 +100,7 @@ export const setActiveEditionFn = createServerFn({ method: "POST" })
 
 /** Liga/desliga a tela de bloqueio do telão para uma edição. */
 export const setEditionLockFn = createServerFn({ method: "POST" })
-	.validator(z.object({ editionId: z.string().uuid(), locked: z.boolean() }))
+	.validator(z.object({ editionId: z.uuid(), locked: z.boolean() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
@@ -113,7 +113,7 @@ export const setEditionLockFn = createServerFn({ method: "POST" })
  * e reseta a revelação da OM (show_om=false) até ele anunciar a vaga.
  */
 export const callPersonFn = createServerFn({ method: "POST" })
-	.validator(z.object({ editionId: z.string().uuid(), personId: z.number().int() }))
+	.validator(z.object({ editionId: z.uuid(), personId: z.number().int() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
@@ -129,7 +129,7 @@ export const callPersonFn = createServerFn({ method: "POST" })
  * escolhas (localidade/estado), reiniciando a edição do zero.
  */
 export const resetEditionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ editionId: z.string().uuid(), clearChoices: z.boolean() }))
+	.validator(z.object({ editionId: z.uuid(), clearChoices: z.boolean() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()

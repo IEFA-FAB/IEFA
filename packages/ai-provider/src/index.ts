@@ -12,7 +12,7 @@ import { rateLimitConfigFromEnv, scopedKey, withRateLimit } from "./rate-limit.j
 import type { AdapterConfig, ProviderType } from "./types.js"
 
 export type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
-export { isRetryableAdapterFailure, withFallback, withFallbackChain } from "./fallback.js"
+export { isRetryableAdapterFailure, withFallbackChain } from "./fallback.js"
 export { withAdapterModel } from "./own-model.js"
 export {
 	defaultRateLimitStore,

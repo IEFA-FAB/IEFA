@@ -1,6 +1,9 @@
 import { Info, Maximize2, Minimize2, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { cn } from "#/lib/utils"
 import { riskColor } from "../theme"
 import type { FinancialRecord } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
@@ -66,10 +69,13 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 	const Controls = () => (
 		<div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
 			<div className="relative">
-				<Select value={localGroup} onValueChange={setLocalGroup}>
+				<Select
+					items={{ ALL: "Todos os Grupos", [AccountGroup.BMP]: "BMP", [AccountGroup.CONSUMO]: "CONSUMO", [AccountGroup.INTANGIVEL]: "INTANGÍVEL" }}
+					value={localGroup}
+					onValueChange={(v) => setLocalGroup(v ?? "ALL")}
+				>
 					<SelectTrigger
-						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-            bg-muted/50 border-border text-foreground`}
+						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 					>
 						<SelectValue />
 					</SelectTrigger>
@@ -84,10 +90,13 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 
 			{!hideMonthFilter && (
 				<div className="relative">
-					<Select value={localMonth} onValueChange={setLocalMonth}>
+					<Select
+						items={{ TODOS: "Todos os Meses", ...Object.fromEntries(availableMonths.map((m) => [m, m])) }}
+						value={localMonth}
+						onValueChange={(v) => setLocalMonth(v ?? "TODOS")}
+					>
 						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-              bg-muted/50 border-border text-foreground`}
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 						>
 							<SelectValue />
 						</SelectTrigger>
@@ -106,10 +115,19 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			{showRiskFilter && (
 				<div className="flex items-center gap-1">
 					<div className="relative">
-						<Select value={localRisk} onValueChange={setLocalRisk}>
+						<Select
+							items={{
+								TODOS: "Todos os Riscos",
+								[RiskLevel.BAIXO]: "Baixo Risco",
+								[RiskLevel.MEDIO]: "Médio Risco",
+								[RiskLevel.ALTO]: "Alto Risco",
+								[RiskLevel.CRITICO]: "Crítico",
+							}}
+							value={localRisk}
+							onValueChange={(v) => setLocalRisk(v ?? "TODOS")}
+						>
 							<SelectTrigger
-								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-ring
-                bg-muted/50 border-border text-foreground`}
+								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
 							>
 								<SelectValue />
 							</SelectTrigger>
@@ -124,16 +142,16 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					</div>
 
 					<div className="group relative">
-						<Info className="w-4 h-4 text-muted-foreground cursor-help hover:text-blue-500 transition-colors" />
+						<Info className="w-4 h-4 text-muted-foreground cursor-help hover:text-action transition-colors" />
 						<div
 							className={`absolute top-full right-0 mt-2 w-72 p-3 rounded-lg border shadow-2xl z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200
               bg-card border-border text-foreground`}
 						>
-							<p className="text-[11px] font-bold mb-2 text-blue-500 uppercase tracking-wider">Matriz de Risco</p>
-							<p className="text-[10px] leading-relaxed mb-2">
+							<p className="text-label mb-2 text-action">Matriz de Risco</p>
+							<p className="text-hint leading-relaxed mb-2">
 								O nível de risco considera duas dimensões: Impacto financeiro da divergência e frequência de ocorrência ao longo dos meses.
 							</p>
-							<div className="space-y-1 text-[9px]">
+							<div className="space-y-1 text-hint">
 								<div className="flex gap-2">
 									<span className="font-bold" style={{ color: riskColor(RiskLevel.BAIXO) }}>
 										Baixo Risco
@@ -164,16 +182,22 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 				</div>
 			)}
 
-			<button
-				type="button"
-				onClick={() => setIsExpanded(!isExpanded)}
-				className={`p-1.5 rounded hover:bg-opacity-80 transition-colors
-          hover:bg-muted text-muted-foreground
-        `}
-				title={isExpanded ? "Minimizar" : "Expandir"}
-			>
-				{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-			</button>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							onClick={() => setIsExpanded(!isExpanded)}
+							className="text-muted-foreground"
+							aria-label={isExpanded ? "Minimizar" : "Expandir"}
+						>
+							{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+						</Button>
+					}
+				/>
+				<TooltipContent>{isExpanded ? "Minimizar" : "Expandir"}</TooltipContent>
+			</Tooltip>
 		</div>
 	)
 
@@ -184,7 +208,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			{isExpanded && (
 				<button
 					type="button"
-					className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 cursor-default"
+					className="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm animate-in fade-in duration-200 cursor-default focus-visible:ring-[3px] focus-visible:ring-ring/50"
 					onClick={() => setIsExpanded(false)}
 					aria-label="Fechar"
 				/>
@@ -197,19 +221,19 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
       `}
 			>
 				<div className={`flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-shrink-0 ${isExpanded ? "border-b pb-4" : ""}`}>
-					<h2 className={`font-semibold text-foreground ${isExpanded ? "text-xl" : "text-lg"}`}>{title}</h2>
+					<h2 className={cn("text-foreground", isExpanded ? "text-display" : "text-heading")}>{title}</h2>
 					<div className="flex items-center gap-4">
 						<Controls />
 						{isExpanded && (
-							<button
-								type="button"
+							<Button
+								variant="ghost"
+								size="icon"
 								onClick={() => setIsExpanded(false)}
-								className={`p-2 rounded-full hover:bg-destructive hover:text-white transition-colors
-                  text-muted-foreground
-                `}
+								className="rounded-full hover:bg-destructive hover:text-destructive-foreground text-muted-foreground"
+								aria-label="Fechar"
 							>
 								<X className="w-6 h-6" />
-							</button>
+							</Button>
 						)}
 					</div>
 				</div>

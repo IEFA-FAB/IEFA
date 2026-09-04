@@ -2,8 +2,11 @@ import { Link } from "@tanstack/react-router"
 import { BookOpen, ChevronRight, ExternalLink, Layout, Trash2 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { IconRenderer } from "#/components/icon-renderer"
+import { Button } from "#/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { formatRacQuestions } from "#/lib/rac"
 import { getToolKind, type ToolKind } from "#/lib/tool-kind"
-import type { Tool } from "#/lib/types"
+import { TOOL_STAGES, type Tool } from "#/lib/types"
 
 interface ToolCardProps {
 	tool: Tool
@@ -11,9 +14,11 @@ interface ToolCardProps {
 	onDelete?: () => void
 }
 
+const STAGE_LABEL = Object.fromEntries(TOOL_STAGES.map((s) => [s.id, s.label]))
+
 const MotionLink = motion(Link)
 
-const cardClassName = "block bg-card rounded-2xl p-8 flex flex-col h-full transition-all duration-300 border border-border shadow-sm"
+const cardClassName = "block bg-card rounded-xl p-8 flex flex-col h-full transition-all duration-300 border border-border shadow-sm"
 
 const KIND_TAG: Record<ToolKind, { label: string; cta: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
 	internal: {
@@ -52,22 +57,31 @@ function CardInner({ tool }: { tool: Tool }) {
 	return (
 		<>
 			<div className="flex justify-between items-start mb-6">
-				<div className={`p-4 ${tool.iconColor || "bg-tech-cyan"} rounded-2xl text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+				{/*
+				 * Uma superfície só para o ícone de TODOS os cards.
+				 *
+				 * O campo `iconColor` do catálogo carregava sete cores diferentes sem
+				 * significado nenhum — `bg-tech-blue` num card, `bg-success` em três,
+				 * `bg-muted-foreground` noutro — e o azul-marinho sumia contra o card no
+				 * tema escuro, porque `--fab-blue` é cor de marca e não tem contrapartida
+				 * escura. Cor que não distingue nada só faz a grade parecer sete produtos.
+				 */}
+				<div className="rounded-xl bg-tech-blue p-4 text-white">
 					<IconRenderer iconKey={tool.icon} className="w-6 h-6" />
 				</div>
 				<div className="flex items-center gap-2">
 					<KindTag kind={kind} />
-					<span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">
-						{tool.category}
+					<span className="text-label text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border">
+						{formatRacQuestions(tool.racQuestions) ?? STAGE_LABEL[tool.stage]}
 					</span>
 				</div>
 			</div>
 
-			<h3 className="text-2xl font-bold text-foreground mb-3 group-hover:text-tech-cyan transition-colors">{tool.title}</h3>
+			<h3 className="text-heading text-foreground mb-3 group-hover:text-tech-cyan transition-colors">{tool.title}</h3>
 
-			<p className="text-muted-foreground text-sm leading-relaxed mb-8 flex-grow">{tool.description}</p>
+			<p className="text-muted-foreground text-body leading-relaxed mb-8 flex-grow">{tool.description}</p>
 
-			<div className="flex items-center text-tech-cyan text-sm font-bold uppercase tracking-tight">
+			<div className="flex items-center text-tech-cyan text-label">
 				{KIND_TAG[kind].cta} <ChevronRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
 			</div>
 		</>
@@ -84,10 +98,9 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 		: ({
 				initial: { opacity: 0, y: 20 },
 				animate: { opacity: 1, y: 0 },
-				whileHover: {
-					y: -8,
-					boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
-				},
+				// Só o deslocamento: a sombra que estava aqui vinha de `rgba()` literal,
+				// que não acompanha o tema e é a "profundidade artificial" que o §6 veta.
+				whileHover: { y: -4 },
 				transition: { delay: Math.min(index, 8) * 0.04 },
 			} as const)
 
@@ -105,15 +118,22 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 
 			{onDelete && (
 				// Canto inferior: no topo o botão cobria a tag de origem e a categoria.
-				<button
-					type="button"
-					onClick={onDelete}
-					className="absolute bottom-6 right-6 p-2 bg-white/80 backdrop-blur-sm rounded-full text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm z-20"
-					aria-label={`Excluir ${tool.title}`}
-					title="Excluir"
-				>
-					<Trash2 className="w-4 h-4" />
-				</button>
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								onClick={onDelete}
+								aria-label={`Excluir ${tool.title}`}
+								className="absolute bottom-6 right-6 z-20 rounded-full bg-card/80 backdrop-blur-sm text-muted-foreground opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+							>
+								<Trash2 className="w-4 h-4" />
+							</Button>
+						}
+					/>
+					<TooltipContent>Excluir</TooltipContent>
+				</Tooltip>
 			)}
 		</div>
 	)

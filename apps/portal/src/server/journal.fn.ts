@@ -47,8 +47,8 @@ const draftMetadataSchema = z.object({
 export const saveDraftFn = createServerFn({ method: "POST" })
 	.validator(
 		draftMetadataSchema.extend({
-			userId: z.string().uuid(),
-			articleId: z.string().uuid().optional(),
+			userId: z.uuid(),
+			articleId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<{ articleId: string }> => {
@@ -127,8 +127,8 @@ export const saveDraftFn = createServerFn({ method: "POST" })
 export const saveVersionDraftFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			articleId: z.string().uuid(),
-			userId: z.string().uuid(),
+			articleId: z.uuid(),
+			userId: z.uuid(),
 			pdfPath: z.string().min(1),
 			sourcePath: z.string().optional(),
 			supplementaryPaths: z.array(z.string()).optional(),
@@ -182,8 +182,8 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
 export const submitArticleFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			articleId: z.string().uuid(),
-			userId: z.string().uuid(),
+			articleId: z.uuid(),
+			userId: z.uuid(),
 			article_type: z.enum(["research", "review", "short_communication", "editorial"]),
 			subject_area: z.string(),
 			title_pt: z.string(),

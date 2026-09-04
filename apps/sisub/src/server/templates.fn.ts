@@ -113,7 +113,7 @@ export const restoreTemplateFn = createServerFn({ method: "POST" })
 // applyTemplateFn: accepts targetDates[] for backward compat with frontend.
 // The domain operation works with startDate/endDate; we derive them from the sorted array.
 const ApplyTemplateFnSchema = z.object({
-	templateId: z.string().uuid(),
+	templateId: z.uuid(),
 	targetDates: z.array(z.string()).min(1),
 	startDayOfWeek: z.number().int().min(1).max(7),
 	kitchenId: z.number().int().positive(),

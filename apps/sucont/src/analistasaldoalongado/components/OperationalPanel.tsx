@@ -14,7 +14,10 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, LabelList, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { chartChrome } from "#/lib/chart-theme"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
 import { exportElementToImage, exportToExcel } from "../utils/exportUtils"
@@ -147,23 +150,27 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			{/* Filters */}
 			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
 				{selectedRac !== "Geral" ? (
-					<button
+					<Button
 						type="button"
 						onClick={() => setIsConsolidatedModalOpen(true)}
-						className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-fab-600 border border-transparent rounded-lg hover:bg-fab-700 transition-colors shadow-sm"
+						className="gap-2 px-4 py-2 text-subheading text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
 					>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
-					</button>
+					</Button>
 				) : (
 					<div />
 				)}
 				<div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
-						<span className="text-xs font-medium text-muted-foreground">Conferente:</span>
-						<Select value={selectedConferente} onValueChange={setSelectedConferente}>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
+						<span className="text-caption text-muted-foreground">Conferente:</span>
+						<Select
+							items={{ Geral: "Todos", ...Object.fromEntries(CONFERENTES_LIST.map((c) => [c, c])) }}
+							value={selectedConferente}
+							onValueChange={(v) => setSelectedConferente(v ?? "Geral")}
+						>
+							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -179,9 +186,13 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 
 					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 						<Filter className="w-4 h-4 text-muted-foreground" />
-						<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
-						<Select value={selectedRac} onValueChange={setSelectedRac}>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
+						<span className="text-caption text-muted-foreground">Questão RAC:</span>
+						<Select
+							items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
+							value={selectedRac}
+							onValueChange={(v) => setSelectedRac(v ?? "Geral")}
+						>
+							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -201,12 +212,12 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
 					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-fab-50 text-fab-600 rounded-lg">
+						<div className="p-2 bg-muted/50 text-action rounded-lg">
 							<Building2 className="w-5 h-5" />
 						</div>
-						<h3 className="text-sm font-medium text-muted-foreground">UGs com Ocorrência</h3>
+						<h3 className="text-subheading text-muted-foreground">UGs com Ocorrência</h3>
 					</div>
-					<p className="text-2xl font-bold text-foreground mt-auto">{filteredAndSortedData.length}</p>
+					<p className="text-display text-foreground mt-auto">{filteredAndSortedData.length}</p>
 				</div>
 
 				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
@@ -214,9 +225,9 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<div className="p-2 bg-warning/10 text-warning rounded-lg">
 							<AlertTriangle className="w-5 h-5" />
 						</div>
-						<h3 className="text-sm font-medium text-muted-foreground">Ocorrências Identificadas</h3>
+						<h3 className="text-subheading text-muted-foreground">Ocorrências Identificadas</h3>
 					</div>
-					<p className="text-2xl font-bold text-foreground mt-auto">{filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}</p>
+					<p className="text-display text-foreground mt-auto">{filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}</p>
 				</div>
 
 				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
@@ -224,24 +235,26 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						<div className="p-2 bg-success/10 text-success rounded-lg">
 							<DollarSign className="w-5 h-5" />
 						</div>
-						<h3 className="text-sm font-medium text-muted-foreground">Saldo Alongado (&gt;3 meses)</h3>
+						<h3 className="text-subheading text-muted-foreground">Saldo Alongado (&gt;3 meses)</h3>
 					</div>
-					<p className="text-2xl font-bold text-foreground mt-auto">{formatCurrency(filteredAndSortedData.reduce((acc, curr) => acc + curr.saldo_total, 0))}</p>
+					<p className="text-display text-foreground mt-auto">{formatCurrency(filteredAndSortedData.reduce((acc, curr) => acc + curr.saldo_total, 0))}</p>
 				</div>
 			</div>
 
 			{/* Main Chart */}
 			<div className="bg-card p-5 rounded-xl border border-border shadow-sm relative" id="chart-top10">
 				<div className="flex justify-between items-start mb-4">
-					<h3 className="text-base font-semibold text-foreground">Total de Saldos Sem Movimentação por UG (&gt;3 meses) - Top 10</h3>
-					<button
+					<h3 className="text-heading text-foreground">Total de Saldos Sem Movimentação por UG (&gt;3 meses) - Top 10</h3>
+					<Button
 						type="button"
 						onClick={() => exportElementToImage("chart-top10", "saldos-top10")}
-						className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+						variant="outline"
+						size="sm"
+						className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar Gráfico</span>
-					</button>
+					</Button>
 				</div>
 				<div className="h-[320px] w-full bg-card">
 					<ResponsiveContainer width="100%" height="100%">
@@ -259,20 +272,27 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						>
 							<defs>
 								<linearGradient id="colorSaldo" x1="0" y1="0" x2="1" y2="0">
-									<stop offset="0%" stopColor="#1e40af" stopOpacity={0.8} />
-									<stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+									<stop offset="0%" stopColor="var(--series-bmp)" stopOpacity={0.8} />
+									<stop offset="100%" stopColor="var(--series-bmp)" stopOpacity={1} />
 								</linearGradient>
 							</defs>
-							<CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+							<CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={chartChrome.grid} />
 							<XAxis
 								type="number"
 								tickFormatter={(val) => `R$ ${(val / 1000000).toFixed(1)}M`}
-								stroke="#64748b"
+								stroke={chartChrome.axis}
 								fontSize={12}
 								tickLine={false}
 								axisLine={false}
 							/>
-							<YAxis dataKey="ug" type="category" width={80} tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }} tickLine={false} axisLine={false} />
+							<YAxis
+								dataKey="ug"
+								type="category"
+								width={80}
+								tick={{ fontSize: 12, fill: chartChrome.axis, fontWeight: 500 }}
+								tickLine={false}
+								axisLine={false}
+							/>
 							<RechartsTooltip
 								content={({ active, payload, label }) => {
 									if (active && payload?.length) {
@@ -285,19 +305,19 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 													UG: {label} {d.nome_ug ? `- ${d.nome_ug}` : ""}
 												</p>
 												<div className="space-y-1.5">
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Conferente:</span>
 														<span className="font-semibold text-foreground">{conferente}</span>
 													</p>
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Saldo Alongado:</span>
-														<span className="font-semibold text-fab-700">{formatCurrency(d.saldo_total)}</span>
+														<span className="font-semibold text-action">{formatCurrency(d.saldo_total)}</span>
 													</p>
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Representatividade:</span>
 														<span className="font-semibold text-success">{percentage}% do total</span>
 													</p>
-													<p className="text-sm text-muted-foreground flex justify-between gap-4">
+													<p className="text-body text-muted-foreground flex justify-between gap-4">
 														<span>Ocorrências:</span>
 														<span className="font-semibold text-foreground">{d.quantidade_ocorrencias}</span>
 													</p>
@@ -307,7 +327,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 									}
 									return null
 								}}
-								cursor={{ fill: "#f1f5f9", opacity: 0.1 }}
+								cursor={{ fill: chartChrome.surfaceMuted, opacity: 0.1 }}
 							/>
 							<Bar dataKey="saldo_total" fill="url(#colorSaldo)" radius={[0, 6, 6, 0]} barSize={20}>
 								<LabelList
@@ -317,7 +337,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 										const num = Number(value)
 										return filteredSaldoTotal > 0 ? `${((num / filteredSaldoTotal) * 100).toFixed(1)}%` : "0.0%"
 									}}
-									fill="#64748b"
+									fill={chartChrome.axis}
 									fontSize={11}
 									fontWeight={500}
 								/>
@@ -331,8 +351,8 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			<div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col">
 				<div className="p-4 border-b border-border flex flex-col sm:flex-row justify-between items-center gap-4 bg-muted/50">
 					<div className="flex items-center gap-3">
-						<h3 className="text-base font-semibold text-foreground">Lista Operacional de UGs</h3>
-						<button
+						<h3 className="text-heading text-foreground">Lista Operacional de UGs</h3>
+						<Button
 							type="button"
 							onClick={() => {
 								const dataToExport = filteredAndSortedData.map((ug) => ({
@@ -346,68 +366,70 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 								}))
 								exportToExcel(dataToExport, "lista_operacional_ugs")
 							}}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-card hover:bg-muted/50 border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
 						>
 							<Download className="w-3.5 h-3.5" />
 							<span>Exportar Excel</span>
-						</button>
+						</Button>
 					</div>
 					<div className="relative w-full sm:w-72">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-						<input
+						<Input
 							type="text"
 							placeholder="Buscar por código, nome ou conferente..."
-							className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-card text-foreground"
+							className="pl-9 pr-4 py-2 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
 					</div>
 				</div>
 				<div className="overflow-x-auto">
-					<table className="w-full text-sm text-left text-muted-foreground">
-						<thead className="text-xs text-muted-foreground uppercase bg-card border-b border-border">
+					<table className="w-full text-body text-left text-muted-foreground">
+						<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 							<tr>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ug")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ug")}>
 									<div className="flex items-center gap-1">
 										UG / Nome {sortField === "ug" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("orgaoSuperior")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("orgaoSuperior")}>
 									<div className="flex items-center gap-1">
 										Órgão Superior{" "}
 										{sortField === "orgaoSuperior" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ods")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ods")}>
 									<div className="flex items-center gap-1">
 										ODS {sortField === "ods" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("conferente")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("conferente")}>
 									<div className="flex items-center gap-1">
 										Conferente{" "}
 										{sortField === "conferente" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("quantidade_ocorrencias")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("quantidade_ocorrencias")}>
 									<div className="flex items-center gap-1">
 										Ocorrências{" "}
 										{sortField === "quantidade_ocorrencias" &&
 											(sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("saldo_total")}>
+								<th className="px-4 py-3 cursor-pointer hover:bg-muted/50" onClick={() => handleSort("saldo_total")}>
 									<div className="flex items-center gap-1">
 										Saldo Alongado (&gt;3 meses){" "}
 										{sortField === "saldo_total" && (sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
 									</div>
 								</th>
-								<th className="px-5 py-3 text-right">Ação</th>
+								<th className="px-4 py-3 text-right">Ação</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border">
 							{filteredAndSortedData.map((row) => (
-								<tr key={row.ug} className="bg-card hover:bg-fab-50/50 transition-colors group">
+								<tr key={row.ug} className="bg-card hover:bg-muted/40 transition-colors group">
 									<td className="px-5 py-3 font-medium text-foreground">
 										{row.ug} - {row.nome_ug || "-"}
 									</td>
@@ -420,20 +442,20 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 										</div>
 									</td>
 									<td className="px-5 py-3">
-										<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-foreground">
-											{row.quantidade_ocorrencias}
-										</span>
+										<span className="inline-flex items-center px-2 py-0.5 rounded text-caption bg-muted text-foreground">{row.quantidade_ocorrencias}</span>
 									</td>
 									<td className="px-5 py-3 font-medium text-foreground">{formatCurrency(row.saldo_total)}</td>
 									<td className="px-5 py-3 text-right">
-										<button
+										<Button
 											type="button"
 											onClick={() => onViewDetails(row, selectedRac)}
-											className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-fab-700 bg-fab-50 border border-fab-200 rounded-lg hover:bg-fab-100 hover:border-fab-300 transition-colors"
+											variant="outline"
+											size="sm"
+											className="gap-1.5 px-3 py-1.5 text-caption text-action bg-muted/50 border-border rounded-lg hover:bg-muted hover:border-border transition-colors"
 										>
 											Analisar
 											<ArrowRight className="w-3.5 h-3.5" />
-										</button>
+										</Button>
 									</td>
 								</tr>
 							))}

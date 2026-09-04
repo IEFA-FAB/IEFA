@@ -17,18 +17,18 @@ export const Route = createFileRoute("/journal/profile")({
 	},
 	beforeLoad: async ({ context }) => {
 		// Ensure user is authenticated
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth" })
 		}
 		return { auth }
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user) {
 			// Pre-load user profile
 			try {
-				await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
+				await context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" })
 			} catch {
 				// Profile doesn't exist yet, will be created on first save
 			}

@@ -1,0 +1,134 @@
+import { useMutation } from "@tanstack/react-query"
+import { Upload, WarningTriangle } from "iconoir-react"
+import { useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import type { AiProposal } from "@/lib/comaer/schema"
+import type { DocumentInput } from "@/lib/comaer/types"
+import { importDraftFn } from "@/server/documents-import.fn"
+
+const ACCEPT = ".pdf,.txt,.md,.html,.csv,image/png,image/jpeg,image/webp"
+
+/**
+ * Partir de uma minuta.
+ *
+ * O que entra é o CONTEÚDO. Numeração, NUP e data ficam em branco e o documento nasce
+ * marcado como derivado: herdar o número do ofício antigo é o erro clássico de quem parte
+ * de minuta, e ninguém percebe até o expediente estar despachado.
+ */
+export function ImportPanel({ input, onImported }: { input: DocumentInput; onImported: (proposal: AiProposal) => void }) {
+	const [text, setText] = useState("")
+	const [fileName, setFileName] = useState<string | null>(null)
+	const [fileError, setFileError] = useState<string | null>(null)
+	const fileInput = useRef<HTMLInputElement>(null)
+
+	const classified = input.classification !== "ostensivo"
+
+	const importDraft = useMutation({
+		mutationFn: async (file?: File) => {
+			const payload = file
+				? { file: { mimeType: file.type as never, base64: await toBase64(file) }, classification: input.classification }
+				: { text, classification: input.classification }
+			return importDraftFn({ data: payload })
+		},
+		onSuccess: (proposal) => {
+			// O texto colado já virou documento: mantê-lo no campo convida a importar de novo,
+			// por cima do que a pessoa acabou de ajustar.
+			setText("")
+			onImported(proposal)
+		},
+	})
+
+	if (classified) {
+		return (
+			<section className="border border-border p-4 flex items-start gap-2 text-sm">
+				<WarningTriangle className="size-4 shrink-0 mt-0.5 text-destructive" />
+				<p className="text-muted-foreground">
+					Documento sigiloso não sai desta rede: nem o texto nem o arquivo são enviados a serviço de inteligência artificial. Redija no formulário: a folha, a
+					conferência e a cópia para o SIGADAER continuam funcionando.
+				</p>
+			</section>
+		)
+	}
+
+	return (
+		<section className="border border-border p-4 flex flex-col gap-4">
+			<div className="flex items-baseline justify-between gap-3">
+				<h2 className="text-label text-foreground">Partir de uma minuta</h2>
+				<span className="text-label text-muted-foreground">numeração, NUP e data não são herdados</span>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label htmlFor="import-text">Cole o texto da minuta</Label>
+				<Textarea
+					id="import-text"
+					rows={4}
+					value={text}
+					onChange={(e) => setText(e.target.value)}
+					placeholder="Cole o corpo do documento, vindo do SIGADAER, do Word ou de um PDF. Também dá para enviar o arquivo ou uma foto da folha, no botão abaixo."
+				/>
+			</div>
+
+			<div className="flex flex-wrap items-center gap-2">
+				<Button type="button" size="sm" onClick={() => importDraft.mutate(undefined)} disabled={importDraft.isPending || text.trim().length < 20}>
+					{importDraft.isPending && importDraft.variables === undefined ? "Extraindo…" : "Importar do texto"}
+				</Button>
+
+				<input
+					ref={fileInput}
+					type="file"
+					accept={ACCEPT}
+					className="sr-only"
+					tabIndex={-1}
+					aria-hidden
+					onChange={(e) => {
+						const file = e.target.files?.[0]
+						if (!file) return
+						// `toBase64` percorre os bytes em laço síncrono: um digitalizado de 10 MB
+						// congelaria a aba antes de qualquer requisição sair. O teto do Bedrock é
+						// 4,5 MB, então recusar aqui é recusar o que o serviço recusaria depois.
+						if (file.size > 4.5 * 1024 * 1024) {
+							setFileError("Arquivo acima de 4,5 MB. Reduza a digitalização ou cole o texto.")
+							return
+						}
+						setFileError(null)
+						setFileName(file.name)
+						importDraft.mutate(file)
+					}}
+				/>
+				<Button type="button" variant="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={importDraft.isPending}>
+					<Upload className="size-4" /> {importDraft.isPending && importDraft.variables !== undefined ? "Lendo o arquivo…" : "Enviar PDF ou digitalização"}
+				</Button>
+				{fileName && <span className="text-xs text-muted-foreground truncate max-w-[16rem]">{fileName}</span>}
+			</div>
+
+			{fileError && (
+				<p role="alert" className="text-xs text-destructive">
+					{fileError}
+				</p>
+			)}
+			{importDraft.error && (
+				<p role="alert" className="text-xs text-destructive">
+					Não deu para ler a minuta. Tente colar o texto em vez do arquivo: a extração depende da redação assistida, e ela pode estar fora do ar.
+				</p>
+			)}
+			{/* A confirmação some ao mexer no texto de novo: mantida, ela ficava afirmando
+			    "importada" horas depois, sobre um documento já reescrito. */}
+			{importDraft.isSuccess && !importDraft.isPending && (
+				<p role="status" className="text-xs text-muted-foreground">
+					Minuta importada. Confira numeração, NUP e data antes de despachar.
+				</p>
+			)}
+		</section>
+	)
+}
+
+/** O `FileReader` devolve `data:<mime>;base64,<conteúdo>`; ao provider vai só o conteúdo. */
+async function toBase64(file: File): Promise<string> {
+	const buffer = await file.arrayBuffer()
+	let binary = ""
+	const bytes = new Uint8Array(buffer)
+	for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i])
+	return btoa(binary)
+}

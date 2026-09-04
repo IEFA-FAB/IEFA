@@ -4,7 +4,7 @@ import { z } from "zod"
 // Usa process.env (não import.meta.env) porque os handlers de server functions
 // executam no Nitro onde import.meta.env não é injetado pelo Vite.
 const serverEnvSchema = z.object({
-	VITE_SISUB_SUPABASE_URL: z.string().url(),
+	VITE_SISUB_SUPABASE_URL: z.url(),
 	// Chave publishable/anon. Já provisionada no runtime (secret_names em
 	// infra/sisub). O client SSR de auth usa ESTA, não a service key: getUser()
 	// valida o JWT do cookie de qualquer forma e uma query acidental por este
@@ -16,7 +16,7 @@ const serverEnvSchema = z.object({
 	// Opcional por ora: nenhum consumidor chama getDb() ainda (rollout incremental).
 	// getDb() valida a presença em call-time. Tornar required quando os *.fn.ts
 	// migrarem (Fase 3) e o secret estiver provisionado no deploy.
-	SISUB_DATABASE_URL: z.string().url().optional(),
+	SISUB_DATABASE_URL: z.url().optional(),
 })
 
 const parsed = serverEnvSchema.safeParse({

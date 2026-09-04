@@ -1,19 +1,16 @@
 import type { Folder, Ingredient } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { useMemo, useState } from "react"
-import { toast } from "sonner"
+import { useMemo } from "react"
 import { z } from "zod"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { cn } from "@/lib/cn"
+import { toast } from "@/components/ui/toast"
 import { useCreateIngredient, useFolders, useUpdateIngredient } from "@/services/IngredientsService"
+import { FolderCombobox } from "./FolderCombobox"
 
 // Schema de validação
 /**
@@ -30,7 +27,7 @@ function buildProductSchema(catalog: "exclude" | "only") {
 	return z
 		.object({
 			description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
-			folder_id: z.string().uuid("Selecione uma pasta").nullable(),
+			folder_id: z.uuid("Selecione uma pasta").nullable(),
 			measure_unit: z.string(),
 			correction_factor: z.number().min(0),
 		})
@@ -64,7 +61,6 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 	const { folders } = useFolders(catalog)
 	const { createIngredient, isCreating } = useCreateIngredient()
 	const { updateIngredient, isUpdating } = useUpdateIngredient()
-	const [folderOpen, setFolderOpen] = useState(false)
 	const productSchema = useMemo(() => buildProductSchema(catalog), [catalog])
 
 	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — exibe a
@@ -156,49 +152,10 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 						{/* Pasta */}
 						<form.Field name="folder_id">
 							{(field) => {
-								const selected = field.state.value ? folderOptions.find((f) => f.id === field.state.value) : null
 								return (
 									<Field>
 										<FieldLabel htmlFor={field.name}>Pasta (Categoria)</FieldLabel>
-										<Popover open={folderOpen} onOpenChange={setFolderOpen}>
-											<PopoverTrigger
-												type="button"
-												role="combobox"
-												aria-expanded={folderOpen}
-												aria-controls="ingredient-folder-combobox-popup"
-												className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between font-normal")}
-											>
-												<span className="truncate">{selected ? selected.path : "Selecione uma pasta..."}</span>
-												<ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
-											</PopoverTrigger>
-											<PopoverContent id="ingredient-folder-combobox-popup" className="w-[--anchor-width] min-w-[320px] p-0" align="start">
-												<Command>
-													<CommandInput placeholder="Pesquisar pasta..." />
-													<CommandList>
-														<CommandEmpty>Nenhuma pasta encontrada.</CommandEmpty>
-														<CommandGroup>
-															{folderOptions.map((f) => {
-																const isSelected = field.state.value === f.id
-																return (
-																	<CommandItem
-																		key={f.id}
-																		value={`${f.path} ${f.id}`}
-																		onSelect={() => {
-																			field.handleChange(f.id)
-																			setFolderOpen(false)
-																		}}
-																		className={cn(isSelected && "font-medium text-accent-foreground")}
-																	>
-																		<Check className={cn("mr-2 size-4 shrink-0 text-accent-foreground", isSelected ? "opacity-100" : "opacity-0")} />
-																		<span className="truncate">{f.path}</span>
-																	</CommandItem>
-																)
-															})}
-														</CommandGroup>
-													</CommandList>
-												</Command>
-											</PopoverContent>
-										</Popover>
+										<FolderCombobox value={field.state.value ?? null} onChange={(id) => field.handleChange(id)} options={folderOptions} />
 										<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 									</Field>
 								)

@@ -11,6 +11,7 @@
  * @migration 20260731150000_finance_liquidacao_pagamento
  */
 
+import { competenciaFromDate, normalizeNsNumber, resolvePurchaseUnitId, roundToCents, suggestedLiquidationValue } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getServerClient } from "@/lib/supabase.server"
@@ -65,8 +66,8 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 
 		const today = Date.now()
 		return liquidacoes.map((row: { id: string; valor: number; data: string }) => {
-			const pago = Number((pagoByLiquidacao.get(row.id) ?? 0).toFixed(2))
-			const aPagar = Number((Number(row.valor) - pago).toFixed(2))
+			const pago = roundToCents(pagoByLiquidacao.get(row.id) ?? 0)
+			const aPagar = roundToCents(Number(row.valor) - pago)
 			return {
 				...(row as unknown as LiquidacaoRow),
 				valor: Number(row.valor),
@@ -82,7 +83,7 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
  * recebida × custo unitário). Sugestão — o número da NS vem do SIAFI.
  */
 export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
-	.validator(z.object({ receiptId: z.string().uuid() }))
+	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: receipt } = await inv
@@ -92,19 +93,23 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 			.maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
 
-		const core = getServerClient("core") as unknown as LooseClient
-		const { data: kitchenRow } = await core.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
-		const unitId = Number(kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id)
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
+		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
+		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
+		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
+		if (unitId == null) throw new Error("Cozinha do recebimento não tem unidade vinculada")
 		await requireUnitScope(1, unitId)
 
 		const { data: items } = await inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
-		const valor = Number(
-			(items ?? [])
-				.reduce(
-					(acc: number, item: { received_qty_base: number; unit_cost: number | null }) => acc + Number(item.received_qty_base) * Number(item.unit_cost ?? 0),
-					0
-				)
-				.toFixed(2)
+		// `suggestedLiquidationValue` fecha em centavo sem o viés do arredondamento
+		// anterior, que descia o meio-centavo sempre — ver `roundToCents` em
+		// liquidation-math.ts.
+		const valor = suggestedLiquidationValue(
+			((items ?? []) as Array<{ received_qty_base: number; unit_cost: number | null }>).map((item) => ({
+				receivedQtyBase: Number(item.received_qty_base),
+				unitCost: item.unit_cost != null ? Number(item.unit_cost) : null,
+			}))
 		)
 
 		return {
@@ -122,12 +127,12 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
-			empenhoId: z.string().uuid(),
+			empenhoId: z.uuid(),
 			numeroNs: z.string().min(1),
 			data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			valor: z.number().positive(),
-			goodsReceiptId: z.string().uuid().optional(),
-			nfeDocumentId: z.string().uuid().optional(),
+			goodsReceiptId: z.uuid().optional(),
+			nfeDocumentId: z.uuid().optional(),
 			observacao: z.string().optional(),
 		})
 	)
@@ -140,10 +145,10 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 			.insert({
 				unit_id: data.unitId,
 				empenho_id: data.empenhoId,
-				numero_ns: data.numeroNs.trim().toUpperCase(),
+				numero_ns: normalizeNsNumber(data.numeroNs),
 				data: data.data,
 				valor: data.valor,
-				competencia: `${data.data.substring(0, 7)}-01`,
+				competencia: competenciaFromDate(data.data),
 				goods_receipt_id: data.goodsReceiptId ?? null,
 				nfe_document_id: data.nfeDocumentId ?? null,
 				observacao: data.observacao?.trim() || null,
@@ -169,7 +174,7 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
-			liquidacaoId: z.string().uuid(),
+			liquidacaoId: z.uuid(),
 			numeroOb: z.string().min(1),
 			data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			valor: z.number().positive(),

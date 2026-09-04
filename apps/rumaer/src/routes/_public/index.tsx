@@ -10,7 +10,7 @@ import { type UniformSearch, uniformSearchSchema } from "@/lib/uniforms/search"
 export const Route = createFileRoute("/_public/")({
 	validateSearch: uniformSearchSchema,
 	loaderDeps: ({ search }) => ({ grupo: search.grupo, categoria: search.categoria }),
-	loader: ({ context, deps }) => context.queryClient.ensureQueryData(uniformsQueryOptions(deps)),
+	loader: ({ context, deps }) => context.queryClient.query({ ...uniformsQueryOptions(deps), staleTime: "static" }),
 	component: HomePage,
 })
 

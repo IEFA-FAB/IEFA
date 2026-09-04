@@ -156,7 +156,7 @@ function AuthPage() {
 	const handleSignIn = async (email: string, password: string) => {
 		await signIn(email, password)
 		// O cookie da sessão acabou de ser gravado, mas o cache da auth query ainda
-		// tem `user: null`. O beforeLoad do root lê esse cache via ensureQueryData —
+		// tem `user: null`. O beforeLoad do root lê esse cache via query({ …, staleTime: "static" }) —
 		// que devolve dado stale/em voo sem esperar — então navegar antes do refetch
 		// resolver faz o _protected mandar de volta pra /auth (o famoso "clicar duas
 		// vezes em Entrar"). Espera o refetch antes de sair da página.
@@ -345,7 +345,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	const emailErr = email ? validateEmail(email) : null
 	const passwordErr = null
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		"use no memo"
 		e.preventDefault()
 		if (isLocked) return
@@ -570,7 +570,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 	const passwordErr = password ? validatePassword(password) : null
 	const confirmErr = confirm && confirm !== password ? "As senhas não coincidem." : null
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		"use no memo"
 		e.preventDefault()
 		if (!name.trim()) {
@@ -813,7 +813,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 
 	const emailErr = email ? validateEmail(email) : null
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent) => {
 		"use no memo"
 		e.preventDefault()
 		const eErr = validateEmail(email)

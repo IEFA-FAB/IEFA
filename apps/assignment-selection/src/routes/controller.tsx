@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Eye, Lock, LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
-import { toast } from "sonner"
 import { ConductPanel } from "@/components/ConductPanel"
 import { ControllerTable, type PersonChanges } from "@/components/ControllerTable"
 import { EditionSelect } from "@/components/EditionSelect"
 import { LegalNotice } from "@/components/LegalNotice"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
 import { authQueryOptions } from "@/lib/auth"
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/controller")({
 	}),
 	// Gate de acesso: exige sessão + concessão (PBAC). O telão "/" segue público.
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/controller")({
 		}
 	},
 	loaderDeps: ({ search }) => ({ edition: search.edition }),
-	loader: ({ context, deps }) => context.queryClient.ensureQueryData(boardQueryOptions(deps.edition)),
+	loader: ({ context, deps }) => context.queryClient.query({ ...boardQueryOptions(deps.edition), staleTime: "static" }),
 	component: ControllerPage,
 })
 

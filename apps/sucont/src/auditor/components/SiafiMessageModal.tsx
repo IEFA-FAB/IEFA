@@ -1,7 +1,9 @@
 import { useMutation } from "@tanstack/react-query"
 import { Check, Copy, Loader2, MessageSquareText, X } from "lucide-react"
 import { useEffect, useState } from "react"
-import { toast } from "sonner"
+import { Button } from "#/components/ui/button"
+import { Input } from "#/components/ui/input"
+import { toast } from "#/components/ui/toast"
 import { registerAuditorMessageFn } from "#/server/auditor.fn"
 import { generateMessage } from "../services/dataProcessor"
 import type { FinancialRecord, TimeFilter } from "../types"
@@ -94,95 +96,95 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 
 	return (
 		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-			<div className="w-[90vw] h-[85vh] bg-card dark:bg-[#1e293b] border border-border dark:border-slate-700 rounded-lg shadow-2xl overflow-hidden flex flex-col">
+			<div className="w-[90vw] h-[85vh] bg-card border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col">
 				{/* Header */}
-				<div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-[#0f172a]">
+				<div className="p-5 border-b border-border flex items-center justify-between bg-muted/50">
 					<div className="flex items-center gap-3">
-						<MessageSquareText className="w-6 h-6 text-blue-600 dark:text-blue-500" />
-						<h2 className="text-xl font-bold text-foreground dark:text-white">
-							Gerar Mensagem SIAFI: <span className="text-blue-600 dark:text-blue-400">{record.ug}</span>
+						<MessageSquareText className="w-6 h-6 text-action" />
+						<h2 className="text-heading text-foreground">
+							Gerar Mensagem SIAFI: <span className="text-action">{record.ug}</span>
 						</h2>
-						<span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg uppercase tracking-wide">
+						<span className="text-caption bg-muted text-muted-foreground px-2 py-0.5 rounded-lg">
 							{context === "RANKING" ? "Modelo Comparativo" : "Modelo Evolutivo"}
 						</span>
 					</div>
-					<button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors">
+					<Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Fechar">
 						<X className="w-6 h-6" />
-					</button>
+					</Button>
 				</div>
 
 				{/* Configuration */}
-				<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-card dark:bg-[#1e293b]">
+				<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-card">
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-number" className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+						<label htmlFor="siafi-msg-number" className="text-label text-muted-foreground">
 							NR MENSAGEM
 						</label>
-						<input
+						<Input
 							id="siafi-msg-number"
 							type="text"
 							readOnly
 							value={assignedNumber !== null ? String(assignedNumber) : "atribuído ao registrar"}
-							className="w-full bg-slate-100 dark:bg-[#020617] border border-slate-300 dark:border-slate-600 rounded-lg py-3 px-4 text-base text-slate-500 dark:text-slate-400 outline-none"
+							className="h-auto bg-muted py-3 px-4 text-body text-muted-foreground shadow-none"
 						/>
-						<p className="text-[11px] text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
+						<p className="text-hint text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
 					</div>
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-deadline" className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+						<label htmlFor="siafi-msg-deadline" className="text-label text-muted-foreground">
 							PRAZO (DATA LIMITE)
 						</label>
-						<input
+						<Input
 							id="siafi-msg-deadline"
 							type="text"
 							value={deadline}
 							onChange={(e) => setDeadline(e.target.value)}
-							className="w-full bg-slate-50 dark:bg-[#020617] border border-slate-300 dark:border-slate-600 rounded-lg py-3 px-4 text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-400 dark:placeholder-slate-600"
+							className="h-auto bg-muted/50 py-3 px-4 text-body text-foreground shadow-none"
 							placeholder="DD/MM/AAAA"
 						/>
 					</div>
 				</div>
 
 				{/* Preview Container */}
-				<div className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-[#0f172a] mx-6 mb-0 rounded-t-xl border-t border-x border-slate-200 dark:border-slate-700">
-					<div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50">
-						<span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wide">Pré-visualização da Mensagem</span>
-						<span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-500/20 uppercase">
-							Formato Texto Simples
-						</span>
+				<div className="flex-1 flex flex-col min-h-0 bg-muted/50 mx-6 mb-0 rounded-t-xl border-t border-x border-border">
+					<div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted">
+						<span className="text-label text-muted-foreground">Pré-visualização da Mensagem</span>
+						<span className="text-label bg-action/10 text-action px-2 py-0.5 rounded-lg border border-action/30">Formato Texto Simples</span>
 					</div>
 
 					<div className="flex-1 p-0 overflow-hidden">
 						<textarea
 							value={editedMessage}
 							onChange={(e) => setEditedMessage(e.target.value)}
-							className="w-full h-full p-6 bg-transparent font-mono text-sm text-foreground dark:text-slate-300 whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
+							className="w-full h-full p-6 bg-transparent font-mono text-body text-foreground whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
 							spellCheck={false}
 						/>
 					</div>
 				</div>
 
 				{/* Footer */}
-				<div className="p-6 bg-card dark:bg-[#1e293b] border-t border-border dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-					<span className="text-xs text-muted-foreground">
+				<div className="p-6 bg-card border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+					<span className="text-caption text-muted-foreground">
 						{assignedNumber !== null
 							? `MSG NR ${assignedNumber} registrada. Cole este texto no sistema de mensageria SIAFI.`
 							: "Registrar grava a mensagem, atribui o número da sequência e copia o texto final."}
 					</span>
 
 					<div className="flex items-center justify-end gap-3">
-						<button
+						<Button
 							type="button"
+							variant="ghost"
+							size="lg"
 							onClick={onClose}
-							className="px-6 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-white transition-colors"
+							className="font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
 						>
 							Cancelar
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
+							size="lg"
+							variant={copied ? "success" : "default"}
 							onClick={handleCopy}
 							disabled={registerMutation.isPending}
-							className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed
-                ${copied ? "bg-success text-white shadow-emerald-900/20 hover:bg-success" : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20"}
-              `}
+							className={`rounded-lg font-bold shadow-lg ${copied ? "" : "bg-action text-action-foreground hover:bg-action/80"}`}
 						>
 							{registerMutation.isPending ? (
 								<Loader2 className="w-4 h-4 animate-spin" />
@@ -192,7 +194,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 								<Copy className="w-4 h-4" />
 							)}
 							{registerMutation.isPending ? "Registrando" : copied ? "Copiado" : assignedNumber !== null ? "Copiar" : "Registrar e copiar"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>

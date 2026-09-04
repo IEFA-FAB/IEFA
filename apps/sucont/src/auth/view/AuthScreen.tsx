@@ -1,9 +1,11 @@
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
+import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Loader2, Lock, Mail, Monitor, ShieldAlert, User } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
+import { TOOL_STAGES } from "#/lib/types"
 import { cn } from "#/lib/utils"
 
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
@@ -60,22 +62,79 @@ export interface AuthScreenProps {
 
 // ─── Shell + primitivos compartilhados ────────────────────────────────────────
 
-// Casca da página: fundo tech + cartão branco central com a marca SUCONT-4 HUB.
+// As etapas vêm de `TOOL_STAGES`, não de uma cópia: são as mesmas quatro que
+// agrupam o catálogo, e aqui dizem a quem ainda não entrou para que serve o hub.
+// Uma segunda lista com o mesmo conteúdo divergiria em silêncio.
+const SHELL_HIGHLIGHTS = TOOL_STAGES
+
+/**
+ * Casca da página de autenticação: duas colunas, como no sisub.
+ *
+ * A coluna da esquerda só aparece a partir de `lg` — em telas estreitas o
+ * formulário ocupa a largura inteira e o material de apresentação sai da frente.
+ * Antes esta tela era um cartão solto no meio de um fundo vazio, sem dizer o que
+ * havia do outro lado do login.
+ */
 function Shell({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="min-h-screen bg-tech-bg flex items-center justify-center p-6">
-			<div className="w-full max-w-sm">
-				<div className="flex items-center gap-3 mb-8 justify-center">
-					<div className="w-11 h-11 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg">
-						<Monitor className="w-6 h-6" />
+		<div className="min-h-screen bg-tech-bg flex flex-col">
+			<div className="flex-1 flex flex-col lg:flex-row lg:items-stretch max-w-6xl w-full mx-auto px-6 py-10 gap-12">
+				{/* ── Apresentação (desktop) ───────────────────── */}
+				<aside className="hidden lg:flex lg:w-2/5 xl:w-[45%] flex-col justify-center gap-10">
+					<Brand />
+					<div className="flex flex-col gap-2">
+						<h2 className="text-display text-foreground leading-tight">O acompanhamento contábil da seção, num lugar só</h2>
+						<p className="text-body text-muted-foreground leading-relaxed">
+							Ferramentas de análise, comunicação e consulta do SUCONT-4, organizadas pelo ponto do trabalho em que você está.
+						</p>
 					</div>
-					<div className="flex flex-col">
-						<h1 className="text-base font-bold text-foreground leading-tight">SUCONT-4 HUB</h1>
-						<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">DIREF • COMAER</span>
+					<ol className="flex flex-col gap-5">
+						{SHELL_HIGHLIGHTS.map((item, i) => (
+							<li key={item.id} className="flex items-start gap-4">
+								<span className="font-mono text-display text-muted-foreground/40 tabular-nums leading-none pt-0.5" aria-hidden="true">
+									{String(i + 1).padStart(2, "0")}
+								</span>
+								<div className="flex flex-col gap-0.5">
+									<span className="text-subheading text-foreground">{item.label}</span>
+									<span className="text-caption text-muted-foreground leading-relaxed">{item.description}</span>
+								</div>
+							</li>
+						))}
+					</ol>
+				</aside>
+
+				{/* ── Formulário ───────────────────────────────── */}
+				<section className="flex-1 flex flex-col justify-center" aria-label="Autenticação">
+					<div className="w-full max-w-sm mx-auto flex flex-col gap-8">
+						{/* A marca acompanha o formulário quando a coluna da esquerda não cabe. */}
+						<div className="lg:hidden flex justify-center">
+							<Brand />
+						</div>
+						{children}
 					</div>
-				</div>
-				{children}
-				<p className="text-center text-[11px] text-muted-foreground mt-6 font-mono">Acesso restrito • Contabilidade Patrimonial</p>
+				</section>
+			</div>
+
+			<footer className="px-6 pb-10 max-w-6xl w-full mx-auto flex flex-col items-center gap-2">
+				<LegalFooterLinks
+					className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
+					linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
+				/>
+				<p className="text-hint font-mono text-muted-foreground">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
+			</footer>
+		</div>
+	)
+}
+
+function Brand() {
+	return (
+		<div className="flex items-center gap-3">
+			<div className="w-11 h-11 bg-tech-blue rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
+				<Monitor className="w-6 h-6" />
+			</div>
+			<div className="flex flex-col">
+				<h1 className="text-heading text-foreground leading-tight">SUCONT-4 HUB</h1>
+				<span className="text-label text-muted-foreground">DIREF • COMAER</span>
 			</div>
 		</div>
 	)
@@ -84,11 +143,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 // Cartão do formulário — título/subtítulo opcionais no topo.
 function Card({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
 	return (
-		<div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+		<div className="bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col gap-4">
 			{(title || subtitle) && (
 				<div className="flex flex-col gap-1">
-					{title && <h2 className="text-sm font-bold text-foreground">{title}</h2>}
-					{subtitle && <p className="text-xs leading-relaxed text-muted-foreground">{subtitle}</p>}
+					{title && <h2 className="text-subheading text-foreground">{title}</h2>}
+					{subtitle && <p className="text-caption leading-relaxed text-muted-foreground">{subtitle}</p>}
 				</div>
 			)}
 			{children}
@@ -107,7 +166,7 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 
 function FieldError({ children }: { children: React.ReactNode }) {
 	return (
-		<p className="mt-1 flex items-center gap-1 text-xs text-destructive" role="alert">
+		<p className="mt-1 flex items-center gap-1 text-caption text-destructive" role="alert">
 			<CircleAlert className="h-3 w-3 shrink-0" aria-hidden />
 			{children}
 		</p>
@@ -116,7 +175,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive">
+		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-caption text-destructive">
 			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
@@ -125,7 +184,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-xs text-success">
+		<div className="flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-caption text-success">
 			<CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
@@ -134,14 +193,15 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<button
+		<Button
 			type="button"
 			onClick={onClick}
-			className="mx-auto mt-5 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+			variant="ghost"
+			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-caption text-muted-foreground hover:bg-transparent hover:text-foreground"
 		>
 			<ArrowLeft className="h-3.5 w-3.5" />
 			Voltar ao login
-		</button>
+		</Button>
 	)
 }
 
@@ -236,7 +296,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleLogin = async (e: React.FormEvent) => {
+	const handleLogin = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (isLocked) return
 		const norm = normalizeEmail(loginEmail)
@@ -281,7 +341,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleRegister = async (e: React.FormEvent) => {
+	const handleRegister = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const norm = normalizeEmail(registerData.email)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
@@ -313,7 +373,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleForgotPassword = async (e: React.FormEvent) => {
+	const handleForgotPassword = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const norm = normalizeEmail(forgotEmail)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
@@ -332,7 +392,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
-	const handleResetPassword = async (e: React.FormEvent) => {
+	const handleResetPassword = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		const resetPwErr = getPasswordError(newPassword)
 		if (resetPwErr) {
@@ -381,7 +441,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 				<Card>
 					<div className="flex items-center justify-center gap-3 py-6">
 						<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-						<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
+						<span className="text-body text-muted-foreground">Verificando autenticação...</span>
 					</div>
 				</Card>
 			</Shell>
@@ -465,7 +525,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			{searchParams.denied ? (
 				<div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning">
 					<ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-					<p className="text-xs leading-relaxed">
+					<p className="text-caption leading-relaxed">
 						Sua conta está autenticada, mas ainda não possui acesso ao SUCONT-4 HUB. Solicite a liberação a um administrador da seção.
 					</p>
 				</div>
@@ -601,7 +661,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						</Field>
 
 						<div className="flex items-center justify-between">
-							<label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+							<label className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground">
 								<input
 									type="checkbox"
 									checked={rememberMe}
@@ -611,9 +671,9 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								Lembrar e-mail
 							</label>
-							<button type="button" onClick={goToForgot} className="text-xs font-medium text-tech-blue transition-colors hover:underline">
+							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-caption text-tech-blue">
 								Esqueceu a senha?
-							</button>
+							</Button>
 						</div>
 
 						<Button type="submit" className="w-full" disabled={isSubmitting || isLocked || !!emailError}>
@@ -629,15 +689,16 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					</form>
 				)}
 
-				<p className="text-center text-xs text-muted-foreground">
+				<p className="text-center text-caption text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
-					<button
+					<Button
 						type="button"
 						onClick={() => switchTab(isRegister ? "login" : "register")}
-						className="font-semibold text-foreground underline-offset-4 hover:underline"
+						variant="link"
+						className="h-auto p-0 font-semibold text-foreground"
 					>
 						{isRegister ? "Entrar" : "Cadastre-se"}
-					</button>
+					</Button>
 				</p>
 			</Card>
 		</Shell>

@@ -115,7 +115,7 @@ export const startDgcRunFn = createServerFn({ method: "POST" })
 export const saveDgcAnalysisFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			runId: z.string().uuid(),
+			runId: z.uuid(),
 			ugCodigo: z.string().trim().min(1).max(40),
 			ugNome: z.string().trim().max(200).nullish(),
 			ugGrupo: z.string().trim().max(60).nullish(),
@@ -164,7 +164,7 @@ export interface StoredDgcAnalysis {
 }
 
 export const loadDgcRunFn = createServerFn({ method: "GET" })
-	.validator(z.object({ runId: z.string().uuid() }))
+	.validator(z.object({ runId: z.uuid() }))
 	.handler(async ({ data }): Promise<StoredDgcAnalysis[]> => {
 		await requireSucontAccess()
 		const { data: rows, error } = await getSucontServerClient()

@@ -10,7 +10,7 @@ import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { readThemePreference, ThemeProvider } from "@/components/themeService"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import { env } from "@/env"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
@@ -32,7 +32,7 @@ export interface MyRouterContext {
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	beforeLoad: async ({ context }) => {
 		try {
-			const authState = await context.queryClient.ensureQueryData(authQueryOptions())
+			const authState = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 			return { auth: authState }
 		} catch (_error) {
 			return { auth: { user: null, isAuthenticated: false } }
@@ -71,7 +71,7 @@ function AuthSync() {
 	useEffect(() => {
 		const {
 			data: { subscription },
-		} = supabase.auth.onAuthStateChange(async (event, session) => {
+		} = supabase.auth.onAuthStateChange((event, session) => {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				// Caminho autêntico: nunca confiar em session.user — vem do storage
 				// (cookies) e não é verificado pelo servidor. Invalida a auth query
@@ -126,7 +126,7 @@ function RootDocument() {
 					<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
 						<ThemeProvider initialTheme={theme}>
 							<Outlet />
-							<Toaster />
+							<Toaster position="bottom-right" />
 						</ThemeProvider>
 					</HotkeysProvider>
 				</TenantProvider>

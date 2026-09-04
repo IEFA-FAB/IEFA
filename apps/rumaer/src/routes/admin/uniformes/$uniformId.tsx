@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, Check, Layers, Loader2, Plus, Trash2, Upload } from "lucide-react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 import { BulkAddPieceDialog } from "@/components/admin/bulk-add-piece-dialog"
 import { ImageDropzone, useImageDrop } from "@/components/admin/image-dropzone"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +11,7 @@ import { Combobox } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/toast"
 import { supabase } from "@/lib/supabase"
 import { pieceItemsQueryOptions, piecesQueryOptions, signedImageQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
 import {
@@ -47,9 +47,9 @@ const EQ_CIVIL = ["esporte", "esporte_fino", "passeio", "passeio_completo", "gal
 export const Route = createFileRoute("/admin/uniformes/$uniformId")({
 	loader: async ({ context, params }) => {
 		await Promise.all([
-			context.queryClient.ensureQueryData(uniformQueryOptions(params.uniformId)),
-			context.queryClient.ensureQueryData(piecesQueryOptions()),
-			context.queryClient.ensureQueryData(pieceItemsQueryOptions()),
+			context.queryClient.query({ ...uniformQueryOptions(params.uniformId), staleTime: "static" }),
+			context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...pieceItemsQueryOptions(), staleTime: "static" }),
 		])
 	},
 	component: UniformEditor,

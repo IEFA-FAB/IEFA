@@ -3,12 +3,12 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Combobox } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { pieceItemsQueryOptions, piecesQueryOptions } from "@/lib/uniforms/hooks"
 import { formatPieceName, GENERO_LABELS, pieceItemAttrs, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
 import { deletePieceItemFn, upsertPieceItemFn } from "@/server/admin.fn"
@@ -17,7 +17,10 @@ const GENEROS = Object.keys(GENERO_LABELS) as Genero[]
 
 export const Route = createFileRoute("/admin/itens/")({
 	loader: async ({ context }) => {
-		await Promise.all([context.queryClient.ensureQueryData(piecesQueryOptions()), context.queryClient.ensureQueryData(pieceItemsQueryOptions())])
+		await Promise.all([
+			context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
+			context.queryClient.query({ ...pieceItemsQueryOptions(), staleTime: "static" }),
+		])
 	},
 	component: PieceItemsAdmin,
 })

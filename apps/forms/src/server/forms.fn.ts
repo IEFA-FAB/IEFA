@@ -299,7 +299,7 @@ export const getQuestionnairesFn = createServerFn({ method: "GET" })
 	})
 
 export const getQuestionnaireFn = createServerFn({ method: "GET" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const user = await requireUser()
 
@@ -358,7 +358,7 @@ export const createQuestionnaireFn = createServerFn({ method: "POST" })
 export const updateQuestionnaireFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid(),
+			id: z.uuid(),
 			title: z.string().min(1).optional(),
 			description: z.string().optional(),
 			response_metadata_config: responseMetadataConfigSchema,
@@ -378,7 +378,7 @@ export const updateQuestionnaireFn = createServerFn({ method: "POST" })
 	})
 
 export const publishQuestionnaireFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const user = await requireUser()
 
@@ -392,9 +392,7 @@ export const publishQuestionnaireFn = createServerFn({ method: "POST" })
 // ── Section CRUD ──────────────────────────────────────────────────────────────
 
 export const createSectionFn = createServerFn({ method: "POST" })
-	.validator(
-		z.object({ questionnaire_id: z.string().uuid(), title: z.string().min(1), description: z.string().optional(), sort_order: z.number().int().optional() })
-	)
+	.validator(z.object({ questionnaire_id: z.uuid(), title: z.string().min(1), description: z.string().optional(), sort_order: z.number().int().optional() }))
 	.handler(async ({ data }) => {
 		const user = await requireUser()
 
@@ -406,7 +404,7 @@ export const createSectionFn = createServerFn({ method: "POST" })
 	})
 
 export const updateSectionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid(), title: z.string().min(1).optional(), description: z.string().optional() }))
+	.validator(z.object({ id: z.uuid(), title: z.string().min(1).optional(), description: z.string().optional() }))
 	.handler(async ({ data: { id, ...updates } }) => {
 		const user = await requireUser()
 
@@ -419,7 +417,7 @@ export const updateSectionFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteSectionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const user = await requireUser()
 
@@ -431,7 +429,7 @@ export const deleteSectionFn = createServerFn({ method: "POST" })
 	})
 
 export const reorderSectionsFn = createServerFn({ method: "POST" })
-	.validator(z.object({ items: z.array(z.object({ id: z.string().uuid(), sort_order: z.number().int() })) }))
+	.validator(z.object({ items: z.array(z.object({ id: z.uuid(), sort_order: z.number().int() })) }))
 	.handler(async ({ data: { items } }) => {
 		const user = await requireUser()
 
@@ -453,7 +451,7 @@ export const reorderSectionsFn = createServerFn({ method: "POST" })
 export const createQuestionFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			section_id: z.string().uuid(),
+			section_id: z.uuid(),
 			text: z.string().min(1),
 			description: z.string().optional(),
 			type: z.enum(["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean", "conformity"]).optional(),
@@ -476,7 +474,7 @@ export const createQuestionFn = createServerFn({ method: "POST" })
 export const updateQuestionFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			id: z.string().uuid(),
+			id: z.uuid(),
 			text: z.string().min(1).optional(),
 			description: z.string().optional(),
 			type: z.enum(["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean", "conformity"]).optional(),
@@ -496,7 +494,7 @@ export const updateQuestionFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteQuestionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const user = await requireUser()
 
@@ -508,7 +506,7 @@ export const deleteQuestionFn = createServerFn({ method: "POST" })
 	})
 
 export const reorderQuestionsFn = createServerFn({ method: "POST" })
-	.validator(z.object({ items: z.array(z.object({ id: z.string().uuid(), sort_order: z.number().int() })) }))
+	.validator(z.object({ items: z.array(z.object({ id: z.uuid(), sort_order: z.number().int() })) }))
 	.handler(async ({ data: { items } }) => {
 		const user = await requireUser()
 
@@ -540,7 +538,7 @@ export const getOmOptionsFn = createServerFn({ method: "GET" })
 	})
 
 export const getMyResponseStateFn = createServerFn({ method: "GET" })
-	.validator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -560,7 +558,7 @@ export const getMyResponseStateFn = createServerFn({ method: "GET" })
 export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			questionnaire_id: z.string().uuid(),
+			questionnaire_id: z.uuid(),
 			// Casa com o enum `forms.evaluation_type` do banco. Como `z.string()` o
 			// valor inválido só era recusado no INSERT, virando erro de driver em vez
 			// de erro de validação na borda.
@@ -596,8 +594,8 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 export const saveAnswerFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			questionnaire_response_id: z.string().uuid(),
-			question_id: z.string().uuid(),
+			questionnaire_response_id: z.uuid(),
+			question_id: z.uuid(),
 			value: z.any(),
 			observation: z.string().nullable().optional(),
 		})
@@ -634,7 +632,7 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 	})
 
 export const submitResponseFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const user = await requireUser()
 
@@ -685,7 +683,7 @@ export const submitResponseFn = createServerFn({ method: "POST" })
 	})
 
 export const getDraftResponseFn = createServerFn({ method: "GET" })
-	.validator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -702,7 +700,7 @@ export const getDraftResponseFn = createServerFn({ method: "GET" })
 	})
 
 export const getResponsesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -729,7 +727,7 @@ export const getResponsesFn = createServerFn({ method: "GET" })
 // ── Response Viewers ──────────────────────────────────────────────────────────
 
 export const getViewersFn = createServerFn({ method: "GET" })
-	.validator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -742,8 +740,8 @@ export const getViewersFn = createServerFn({ method: "GET" })
 export const addViewerFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			questionnaire_id: z.string().uuid(),
-			email: z.string().email(),
+			questionnaire_id: z.uuid(),
+			email: z.email(),
 			scope_mode: z.enum(["global", "scoped"]).optional(),
 			policy: viewerPolicySchema,
 		})
@@ -776,8 +774,8 @@ export const addViewerFn = createServerFn({ method: "POST" })
 export const updateViewerPolicyFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
-			questionnaire_id: z.string().uuid(),
-			viewer_id: z.string().uuid(),
+			questionnaire_id: z.uuid(),
+			viewer_id: z.uuid(),
 			scope_mode: z.enum(["global", "scoped"]),
 			policy: viewerPolicySchema,
 		})
@@ -804,7 +802,7 @@ export const updateViewerPolicyFn = createServerFn({ method: "POST" })
 	})
 
 export const removeViewerFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid(), questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { id, questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -818,7 +816,7 @@ export const removeViewerFn = createServerFn({ method: "POST" })
 // ── Questionnaire Editors ────────────────────────────────────────────────────
 
 export const getEditorsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -832,7 +830,7 @@ export const getEditorsFn = createServerFn({ method: "GET" })
 	})
 
 export const addEditorFn = createServerFn({ method: "POST" })
-	.validator(z.object({ questionnaire_id: z.string().uuid(), email: z.string().email() }))
+	.validator(z.object({ questionnaire_id: z.uuid(), email: z.email() }))
 	.handler(async ({ data: { questionnaire_id, email } }) => {
 		const user = await requireUser()
 
@@ -857,7 +855,7 @@ export const addEditorFn = createServerFn({ method: "POST" })
 	})
 
 export const removeEditorFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ id: z.uuid(), questionnaire_id: z.uuid() }))
 	.handler(async ({ data: { id, questionnaire_id } }) => {
 		const user = await requireUser()
 
@@ -871,7 +869,7 @@ export const removeEditorFn = createServerFn({ method: "POST" })
 // ── Response Versioning ─────────────────────────────────────────────────────
 
 export const reopenResponseFn = createServerFn({ method: "POST" })
-	.validator(z.object({ questionnaire_response_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_response_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_response_id } }) => {
 		const user = await requireUser()
 
@@ -901,7 +899,7 @@ export const reopenResponseFn = createServerFn({ method: "POST" })
 	})
 
 export const getResponseVersionsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ questionnaire_response_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_response_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_response_id } }) => {
 		const user = await requireUser()
 
@@ -936,7 +934,7 @@ export const getResponseVersionsFn = createServerFn({ method: "GET" })
 	})
 
 export const getResponseVersionFn = createServerFn({ method: "GET" })
-	.validator(z.object({ version_id: z.string().uuid() }))
+	.validator(z.object({ version_id: z.uuid() }))
 	.handler(async ({ data: { version_id } }) => {
 		const user = await requireUser()
 
@@ -968,7 +966,7 @@ export const getResponseVersionFn = createServerFn({ method: "GET" })
 	})
 
 export const revertToVersionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ questionnaire_response_id: z.string().uuid(), version_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_response_id: z.uuid(), version_id: z.uuid() }))
 	.handler(async ({ data: { questionnaire_response_id, version_id } }) => {
 		const user = await requireUser()
 

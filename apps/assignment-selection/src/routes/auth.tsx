@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { AlertCircle, Loader2, Lock, LogOut, Mail, ShieldAlert } from "lucide-react"
-import { type FormEvent, useState } from "react"
+import { type SyntheticEvent, useState } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import { authQueryOptions } from "@/lib/auth"
 import { safeRedirect } from "@/lib/redirect"
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/auth")({
 	// Pré-carrega a sessão e desvia quem já está autorizado. Quem está logado mas
 	// SEM concessão permanece aqui (a tela mostra o estado "sem acesso").
 	beforeLoad: async ({ context, search }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.isAuthorized) {
 			throw redirect({ to: search.redirect || "/controller" })
 		}
@@ -64,7 +64,7 @@ function LoginCard() {
 	const [error, setError] = useState<string | null>(null)
 	const [loading, setLoading] = useState(false)
 
-	const handleSubmit = async (e: FormEvent) => {
+	const handleSubmit = async (e: SyntheticEvent) => {
 		e.preventDefault()
 		setError(null)
 
@@ -77,7 +77,7 @@ function LoginCard() {
 		try {
 			await signIn(email, password)
 			await queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
-			const state = await queryClient.fetchQuery(authQueryOptions())
+			const state = await queryClient.query(authQueryOptions())
 			if (state.isAuthorized) {
 				navigate({ to: search.redirect || "/controller" })
 			}

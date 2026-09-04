@@ -30,7 +30,7 @@ export const metadataSchema = z.object({
 // Step 3: Authors
 export const authorSchema = z.object({
 	full_name: z.string().min(2, "Nome completo deve ter pelo menos 2 caracteres").max(200, "Nome muito longo"),
-	email: z.string().email("E-mail inválido").optional().or(z.literal("")),
+	email: z.email("E-mail inválido").optional().or(z.literal("")),
 	affiliation: z.string().max(500, "Afiliação muito longa").optional(),
 	orcid: z
 		.string()
@@ -64,7 +64,11 @@ export const declarationsSchema = z.object({
 })
 
 // Complete submission schema (all steps combined)
-export const completeSubmissionSchema = articleTypeSchema.merge(metadataSchema).merge(authorsSchema).merge(filesSchema).merge(declarationsSchema)
+export const completeSubmissionSchema = articleTypeSchema
+	.extend(metadataSchema.shape)
+	.extend(authorsSchema.shape)
+	.extend(filesSchema.shape)
+	.extend(declarationsSchema.shape)
 
 // Type inference from schemas
 export type ArticleTypeFormData = z.infer<typeof articleTypeSchema>

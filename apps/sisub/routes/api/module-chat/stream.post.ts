@@ -18,7 +18,7 @@ import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
-import { createError, getHeader, type H3Event, readBody, setResponseHeader } from "h3"
+import { type H3Event, HTTPError, readBody } from "h3"
 import { defineHandler } from "nitro"
 import { hasPermission } from "@/auth/pbac"
 import { getServerCapabilities } from "@/lib/capabilities.server"
@@ -40,7 +40,7 @@ const otel = otelMiddleware({
 // ── Auth helpers ────────────────────────────────────────────────────────────
 
 function getAuthClientFromEvent(event: H3Event) {
-	const cookieHeader = getHeader(event, "cookie") ?? ""
+	const cookieHeader = event.req.headers.get("cookie") ?? ""
 	const parsedCookies = cookieHeader.split(";").map((c: string) => {
 		const [name, ...v] = c.split("=")
 		return { name: name.trim(), value: v.join("=") }
@@ -80,7 +80,7 @@ export default defineHandler(async (event: H3Event) => {
 	// 0. Capability gate — fluxo não-essencial: sem secrets de IA o recurso fica
 	// "Em breve" na UI e o endpoint responde 503 (em vez de quebrar o deploy).
 	if (!getServerCapabilities().moduleChat) {
-		throw createError({ statusCode: 503, message: "Assistente IA indisponível — não configurado neste ambiente" })
+		throw new HTTPError({ status: 503, message: "Assistente IA indisponível — não configurado neste ambiente" })
 	}
 
 	// 1. Auth
@@ -91,7 +91,7 @@ export default defineHandler(async (event: H3Event) => {
 	} = await authClient.auth.getUser()
 
 	if (!user || authError) {
-		throw createError({ statusCode: 401, message: "Não autenticado" })
+		throw new HTTPError({ status: 401, message: "Não autenticado" })
 	}
 
 	// 2. Parse body
@@ -101,7 +101,7 @@ export default defineHandler(async (event: H3Event) => {
 	try {
 		params = await chatParamsFromRequestBody(rawBody)
 	} catch {
-		throw createError({ statusCode: 400, message: "Corpo da requisição inválido" })
+		throw new HTTPError({ status: 400, message: "Corpo da requisição inválido" })
 	}
 
 	const { messages } = params
@@ -110,7 +110,7 @@ export default defineHandler(async (event: H3Event) => {
 	const scopeId = fp?.scopeId != null ? Number(fp.scopeId) : undefined
 
 	if (!module || !CHAT_MODULES.includes(module)) {
-		throw createError({ statusCode: 400, message: "Módulo inválido" })
+		throw new HTTPError({ status: 400, message: "Módulo inválido" })
 	}
 
 	// 3. PBAC check
@@ -126,7 +126,7 @@ export default defineHandler(async (event: H3Event) => {
 				: undefined
 
 	if (!hasPermission(permissions, appModule, 1, scope)) {
-		throw createError({ statusCode: 403, message: "Permissão insuficiente" })
+		throw new HTTPError({ status: 403, message: "Permissão insuficiente" })
 	}
 
 	const userLevel = getMaxLevel(permissions, appModule, scopeId)
@@ -150,8 +150,15 @@ export default defineHandler(async (event: H3Event) => {
 		enforceRequestRateLimit("MODULE_CHAT", user.id)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
-			setResponseHeader(event, "Retry-After", String(error.retryAfterSeconds))
-			throw createError({ statusCode: 429, message: error.message, data: { retryAfterSeconds: error.retryAfterSeconds } })
+			// `Retry-After` vai DENTRO do erro. O h3 v2 monta a resposta de erro a partir de
+			// `error.headers`; um header setado no event é descartado nesse caminho, e o
+			// cliente recebe o 429 sem saber quanto esperar.
+			throw new HTTPError({
+				status: 429,
+				message: error.message,
+				headers: { "Retry-After": String(error.retryAfterSeconds) },
+				data: { retryAfterSeconds: error.retryAfterSeconds },
+			})
 		}
 		throw error
 	}

@@ -3,11 +3,11 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, Check, Pencil, Plus, Search, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { piecesQueryOptions } from "@/lib/uniforms/hooks"
 import { formatPieceName, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
 import { deletePieceFn, upsertPieceFn } from "@/server/admin.fn"
@@ -24,7 +24,7 @@ function slugify(s: string) {
 }
 
 export const Route = createFileRoute("/admin/pecas/")({
-	loader: ({ context }) => context.queryClient.ensureQueryData(piecesQueryOptions()),
+	loader: ({ context }) => context.queryClient.query({ ...piecesQueryOptions(), staleTime: "static" }),
 	component: PiecesAdmin,
 })
 

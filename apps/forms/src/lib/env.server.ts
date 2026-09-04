@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 const serverEnvSchema = z.object({
-	VITE_IEFA_SUPABASE_URL: z.string().url(),
+	VITE_IEFA_SUPABASE_URL: z.url(),
 	// Publishable/anon — o client SSR de auth usa ESTA, não a service key (RLS).
 	// Já provisionada no runtime (secret_names em infra/forms e infra/5s).
 	VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),

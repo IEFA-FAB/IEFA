@@ -1,7 +1,9 @@
 import { Activity, AlertTriangle, FileImage, Filter, PieChart as PieChartIcon, Shield, TrendingUp, Users, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { chartChrome, fabScale } from "#/lib/chart-theme"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
 import { exportElementToImage } from "../utils/exportUtils"
@@ -23,7 +25,7 @@ const RAC_QUESTIONS = Object.keys(RAC_MAPPING).sort((a, b) => {
 	return numA - numB
 })
 
-const COLORS = ["#2a57b9", "#488bde", "#9bc7f0", "#c5def6", "#e0edfa"]
+const COLORS = [fabScale[0], fabScale[1], fabScale[2], fabScale[3], fabScale[4]]
 
 export function ManagerialPanel({ data }: ManagerialPanelProps) {
 	const [selectedRac, setSelectedRac] = useState<string>("Geral")
@@ -85,10 +87,14 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				contaMap.set(occ.conta_contabil, (contaMap.get(occ.conta_contabil) || 0) + 1)
 			})
 		})
-		return Array.from(contaMap.entries())
-			.sort((a, b) => b[1] - a[1])
-			.slice(0, 5)
-			.map(([name, value]) => ({ name, value }))
+		return (
+			Array.from(contaMap.entries())
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, 5)
+				// `fill` no dado: o recharts pinta o setor por ele e é dele que saem legenda e
+				// marcador do tooltip. Cor só no `shape` deixaria os dois cinzas.
+				.map(([name, value], index) => ({ name, value, fill: COLORS[index % COLORS.length] }))
+		)
 	}, [filteredData])
 
 	const conferenteStats = useMemo(() => {
@@ -134,9 +140,13 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-end gap-4">
 				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
 					<Filter className="w-4 h-4 text-muted-foreground" />
-					<span className="text-xs font-medium text-muted-foreground">Questão RAC:</span>
-					<Select value={selectedRac} onValueChange={setSelectedRac}>
-						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
+					<span className="text-caption text-muted-foreground">Questão RAC:</span>
+					<Select
+						items={{ Geral: "Todas as Questões", ...Object.fromEntries(RAC_QUESTIONS.map((q) => [q, q])) }}
+						value={selectedRac}
+						onValueChange={(v) => setSelectedRac(v ?? "Geral")}
+					>
+						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -152,14 +162,14 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			</div>
 
 			{/* Visão Estratégica */}
-			<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+			<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
 				<div className="flex items-center gap-3 mb-6">
-					<div className="p-2 bg-fab-50 text-fab-600 rounded-lg">
+					<div className="p-2 bg-muted/50 text-action rounded-lg">
 						<TrendingUp className="w-5 h-5" />
 					</div>
 					<div>
-						<h2 className="text-lg font-bold text-foreground">Visão Estratégica</h2>
-						<p className="text-sm text-muted-foreground">Apoio à Alta Gestão - Riscos e Tendências</p>
+						<h2 className="text-heading text-foreground">Visão Estratégica</h2>
+						<p className="text-body text-muted-foreground">Apoio à Alta Gestão - Riscos e Tendências</p>
 					</div>
 				</div>
 
@@ -167,19 +177,19 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 					<div className="p-5 bg-muted/50 rounded-xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
 							<AlertTriangle className="w-4 h-4 text-warning" />
-							<h3 className="text-sm font-semibold text-foreground">Concentração de Risco</h3>
+							<h3 className="text-subheading text-foreground">Concentração de Risco</h3>
 						</div>
-						<p className="text-3xl font-bold text-foreground">{concentracaoRisco}%</p>
-						<p className="text-xs text-muted-foreground mt-1">do saldo total está concentrado nas Top 5 UGs</p>
+						<p className="text-display text-foreground">{concentracaoRisco}%</p>
+						<p className="text-caption text-muted-foreground mt-1">do saldo total está concentrado nas Top 5 UGs</p>
 					</div>
 
 					<div className="p-5 bg-muted/50 rounded-xl border border-border">
 						<div className="flex items-center gap-2 mb-2">
-							<Activity className="w-4 h-4 text-fab-500" />
-							<h3 className="text-sm font-semibold text-foreground">Impacto Financeiro Global</h3>
+							<Activity className="w-4 h-4 text-action" />
+							<h3 className="text-subheading text-foreground">Impacto Financeiro Global</h3>
 						</div>
-						<p className="text-3xl font-bold text-foreground">{formatCurrency(filteredSaldoTotal)}</p>
-						<p className="text-xs text-muted-foreground mt-1">
+						<p className="text-display text-foreground">{formatCurrency(filteredSaldoTotal)}</p>
+						<p className="text-caption text-muted-foreground mt-1">
 							em saldos alongados (&gt;3 meses) {selectedRac !== "Geral" ? `na ${selectedRac}` : "no COMAER"}
 						</p>
 					</div>
@@ -187,12 +197,12 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 					<div className="p-5 bg-muted/50 rounded-xl border border-border flex flex-col justify-center">
 						<div className="flex items-center gap-2 mb-2">
 							<PieChartIcon className="w-4 h-4 text-success shrink-0" />
-							<h3 className="text-sm font-semibold text-foreground">Conta Mais Crítica</h3>
+							<h3 className="text-subheading text-foreground">Conta Mais Crítica</h3>
 						</div>
-						<p className="text-xl font-bold text-foreground leading-tight" title={contaMaisCritica}>
+						<p className="text-heading text-foreground leading-tight" title={contaMaisCritica}>
 							{contaMaisCritica}
 						</p>
-						<p className="text-xs text-muted-foreground mt-2">maior volume de reincidência {selectedRac !== "Geral" ? "na questão" : "na base"}</p>
+						<p className="text-caption text-muted-foreground mt-2">maior volume de reincidência {selectedRac !== "Geral" ? "na questão" : "na base"}</p>
 					</div>
 				</div>
 			</div>
@@ -200,70 +210,70 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			{/* Visão Tática */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{/* Top 10 UGs por Saldo */}
-				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm relative" id="managerial-top10">
+				<div className="bg-card p-6 rounded-xl border border-border shadow-sm relative" id="managerial-top10">
 					<div className="flex justify-between items-start mb-6">
 						<div>
-							<h3 className="text-md font-bold text-foreground mb-1">Top 10 UGs por Volume Financeiro</h3>
-							<p className="text-xs text-muted-foreground">Unidades com maior saldo retido</p>
+							<h3 className="text-heading text-foreground mb-1">Top 10 UGs por Volume Financeiro</h3>
+							<p className="text-caption text-muted-foreground">Unidades com maior saldo retido</p>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("managerial-top10", "estrategico-top10")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="h-96 bg-card">
 						<ResponsiveContainer width="100%" height="100%">
 							<BarChart data={topUgsBySaldo} layout="vertical" margin={{ top: 5, right: 30, left: 150, bottom: 5 }}>
 								<CartesianGrid strokeDasharray="3 3" horizontal={false} />
-								<XAxis type="number" tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} stroke="#64748b" />
-								<YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 9, fill: "#64748b" }} />
+								<XAxis type="number" tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} stroke={chartChrome.axis} />
+								<YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 9, fill: chartChrome.axis }} />
 								<Tooltip
 									formatter={(value) => formatCurrency(Number(value))}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										borderRadius: "12px",
 										border: "none",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 									}}
 								/>
-								<Bar dataKey="saldo" fill="#2a57b9" radius={[0, 4, 4, 0]} />
+								<Bar dataKey="saldo" fill={fabScale[0]} radius={[0, 4, 4, 0]} />
 							</BarChart>
 						</ResponsiveContainer>
 					</div>
 				</div>
 
 				{/* Top 5 Contas por Ocorrência */}
-				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex flex-col relative" id="managerial-contas">
+				<div className="bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col relative" id="managerial-contas">
 					<div className="flex justify-between items-start mb-6">
 						<div>
-							<h3 className="text-md font-bold text-foreground mb-1">Contas Contábeis Mais Recorrentes</h3>
-							<p className="text-xs text-muted-foreground">Contas com maior número de inconsistências</p>
+							<h3 className="text-heading text-foreground mb-1">Contas Contábeis Mais Recorrentes</h3>
+							<p className="text-caption text-muted-foreground">Contas com maior número de inconsistências</p>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("managerial-contas", "estrategico-contas")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="flex-1 flex flex-col min-h-[300px] bg-card">
 						<ResponsiveContainer width="100%" height={200}>
 							<PieChart>
-								<Pie data={contasRecorrentes} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-									{contasRecorrentes.map((_entry, index) => (
-										<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-									))}
-								</Pie>
+								<Pie data={contasRecorrentes} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" />
 								<Tooltip
 									formatter={(value, name) => [value, getDynamicAccountName(String(name))]}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										borderRadius: "12px",
 										border: "none",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
@@ -273,7 +283,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 						</ResponsiveContainer>
 						<div className="mt-4 flex flex-col gap-2">
 							{contasRecorrentes.map((entry, index) => (
-								<div key={entry.name} className="flex items-start gap-2 text-xs">
+								<div key={entry.name} className="flex items-start gap-2 text-caption">
 									<div className="w-3 h-3 rounded-sm shrink-0 mt-0.5" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
 									<span className="text-muted-foreground font-medium leading-tight">{getDynamicAccountName(entry.name)}</span>
 								</div>
@@ -283,23 +293,25 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				</div>
 
 				{/* Distribuição por ODS */}
-				<div className="bg-card p-6 rounded-2xl border border-border shadow-sm relative" id="managerial-ods">
+				<div className="bg-card p-6 rounded-xl border border-border shadow-sm relative" id="managerial-ods">
 					<div className="flex justify-between items-start mb-6">
 						<div>
 							<div className="flex items-center gap-2 mb-1">
-								<Shield className="w-4 h-4 text-fab-600" />
-								<h3 className="text-md font-bold text-foreground">Distribuição por ODS</h3>
+								<Shield className="w-4 h-4 text-action" />
+								<h3 className="text-heading text-foreground">Distribuição por ODS</h3>
 							</div>
-							<p className="text-xs text-muted-foreground">Saldo total por Organização de Direção Setorial</p>
+							<p className="text-caption text-muted-foreground">Saldo total por Organização de Direção Setorial</p>
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => exportElementToImage("managerial-ods", "estrategico-ods")}
-							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border rounded-lg transition-colors"
+							variant="outline"
+							size="sm"
+							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
-						</button>
+						</Button>
 					</div>
 					<div className="h-64 bg-card">
 						<ResponsiveContainer width="100%" height="100%">
@@ -314,21 +326,21 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 								style={{ cursor: "pointer" }}
 							>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} />
-								<XAxis dataKey="name" fontSize={10} tick={{ fill: "#64748b" }} />
-								<YAxis tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} fontSize={10} tick={{ fill: "#64748b" }} />
+								<XAxis dataKey="name" fontSize={10} tick={{ fill: chartChrome.axis }} />
+								<YAxis tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`} fontSize={10} tick={{ fill: chartChrome.axis }} />
 								<Tooltip
 									formatter={(value) => formatCurrency(Number(value))}
 									contentStyle={{
-										backgroundColor: "white",
+										backgroundColor: chartChrome.surface,
 										borderRadius: "12px",
 										border: "none",
 										boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
 									}}
-									cursor={{ fill: "#f1f5f9" }}
+									cursor={{ fill: chartChrome.surfaceMuted }}
 								/>
 								<Bar
 									dataKey="value"
-									fill="#488bde"
+									fill={fabScale[1]}
 									radius={[4, 4, 0, 0]}
 									onClick={(d) => setSelectedOdsDetails((d.name as string | undefined) ?? null)}
 									cursor="pointer"
@@ -340,14 +352,14 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			</div>
 
 			{/* Saída Gerencial por Conferente */}
-			<div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
+			<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
 				<div className="flex items-center gap-3 mb-6">
-					<div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+					<div className="p-2 bg-action/10 text-action rounded-lg">
 						<Users className="w-5 h-5" />
 					</div>
 					<div>
-						<h2 className="text-lg font-bold text-foreground">Panorama por Conferente</h2>
-						<p className="text-sm text-muted-foreground">Distribuição de responsabilidades e inconsistências</p>
+						<h2 className="text-heading text-foreground">Panorama por Conferente</h2>
+						<p className="text-body text-muted-foreground">Distribuição de responsabilidades e inconsistências</p>
 					</div>
 				</div>
 
@@ -355,27 +367,27 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 					{conferenteStats.map(([nome, stats]) => (
 						<div key={nome} className="p-4 rounded-xl border border-border bg-muted/50 flex flex-col">
 							<div className="flex items-center justify-between mb-3">
-								<h4 className="font-bold text-foreground text-sm">{nome}</h4>
-								<span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase">{stats.ugs.length} UGs</span>
+								<h4 className="text-foreground text-subheading">{nome}</h4>
+								<span className="px-2 py-0.5 bg-action/10 text-action text-label rounded">{stats.ugs.length} UGs</span>
 							</div>
 							<div className="space-y-2 mb-4">
-								<div className="flex justify-between text-xs">
+								<div className="flex justify-between text-caption">
 									<span className="text-muted-foreground">Saldo Total:</span>
 									<span className="font-bold text-foreground">{formatCurrency(stats.saldo)}</span>
 								</div>
-								<div className="flex justify-between text-xs">
+								<div className="flex justify-between text-caption">
 									<span className="text-muted-foreground">Ocorrências:</span>
 									<span className="font-bold text-foreground">{stats.ocorrencias}</span>
 								</div>
 							</div>
 							<div className="mt-auto pt-3 border-t border-border">
-								<p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">UGs com Inconsistência:</p>
+								<p className="text-label text-muted-foreground mb-2">UGs com Inconsistência:</p>
 								<div className="flex flex-wrap gap-1">
 									{stats.ugs.map((ug) => {
 										const ugObj = filteredData.find((item) => item.ug === ug)
 										const displayName = ugObj ? `${ug} - ${ugObj.nome_ug || "-"}` : ug
 										return (
-											<span key={ug} className="px-1.5 py-0.5 bg-card border border-border text-muted-foreground text-[10px] rounded font-mono">
+											<span key={ug} className="px-1.5 py-0.5 bg-card border border-border text-muted-foreground text-hint rounded font-mono">
 												{displayName}
 											</span>
 										)
@@ -388,25 +400,25 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			</div>
 
 			{/* Recomendações */}
-			<div className="bg-fab-50 p-6 rounded-2xl border border-fab-100">
-				<h3 className="text-md font-bold text-fab-900 mb-3">Diretrizes de Acompanhamento (RAC)</h3>
-				<ul className="space-y-2 text-sm text-fab-800">
+			<div className="bg-muted/50 p-6 rounded-xl border border-border">
+				<h3 className="text-heading text-foreground mb-3">Diretrizes de Acompanhamento (RAC)</h3>
+				<ul className="space-y-2 text-body text-foreground">
 					<li className="flex items-start gap-2">
-						<span className="w-1.5 h-1.5 rounded-full bg-fab-500 mt-1.5 shrink-0" />
+						<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 shrink-0" />
 						<p>
 							<strong>Foco de Atuação:</strong> Priorizar o contato e a orientação técnica às 5 UGs que concentram {concentracaoRisco}% das inconsistências
 							financeiras.
 						</p>
 					</li>
 					<li className="flex items-start gap-2">
-						<span className="w-1.5 h-1.5 rounded-full bg-fab-500 mt-1.5 shrink-0" />
+						<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 shrink-0" />
 						<p>
 							<strong>Capacitação:</strong> Avaliar a necessidade de emissão de orientação técnica ou treinamento específico sobre a conta{" "}
 							<strong>{contaMaisCritica}</strong>, devido à sua alta recorrência.
 						</p>
 					</li>
 					<li className="flex items-start gap-2">
-						<span className="w-1.5 h-1.5 rounded-full bg-fab-500 mt-1.5 shrink-0" />
+						<span className="w-1.5 h-1.5 rounded-full bg-action mt-1.5 shrink-0" />
 						<p>
 							<strong>Risco Contábil:</strong> A manutenção de saldos alongados compromete a fidedignidade das demonstrações contábeis do COMAER. A SUCONT-3
 							deve monitorar a regularização destes saldos no próximo ciclo.
@@ -417,20 +429,23 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 
 			{/* Modal - Detalhamento das UGs por ODS */}
 			{selectedOdsDetails && (
-				<div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-					<div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+				<div className="fixed inset-0 z-50 bg-overlay/50 flex items-center justify-center p-4">
+					<div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
-							<h3 className="text-lg font-bold text-foreground">Detalhamento: {selectedOdsDetails}</h3>
-							<button
+							<h3 className="text-heading text-foreground">Detalhamento: {selectedOdsDetails}</h3>
+							<Button
 								type="button"
 								onClick={() => setSelectedOdsDetails(null)}
-								className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+								variant="ghost"
+								size="icon"
+								aria-label="Fechar"
+								className="hover:bg-muted rounded-full text-muted-foreground transition-colors"
 							>
 								<X className="w-5 h-5" />
-							</button>
+							</Button>
 						</div>
 						<div className="p-6 overflow-y-auto">
-							<p className="text-sm text-muted-foreground mb-4">
+							<p className="text-body text-muted-foreground mb-4">
 								UGs vinculadas à {selectedOdsDetails} que estão contribuindo para o saldo de inconsistências.
 							</p>
 							<div className="space-y-3">
@@ -440,7 +455,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 											<p className="font-bold text-foreground">
 												{ug.ug} - {ug.nome_ug || "N/A"}
 											</p>
-											<p className="text-xs text-muted-foreground">
+											<p className="text-caption text-muted-foreground">
 												{getUgHierarchy(ug.ug).orgaoSuperior} • {ug.quantidade_ocorrencias} ocorrência(s)
 											</p>
 										</div>
@@ -448,7 +463,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 									</div>
 								))}
 								{ugsInSelectedOds.length === 0 && (
-									<p className="text-sm text-muted-foreground italic text-center py-4">Nenhuma UG encontrada para os filtros atuais.</p>
+									<p className="text-body text-muted-foreground italic text-center py-4">Nenhuma UG encontrada para os filtros atuais.</p>
 								)}
 							</div>
 						</div>

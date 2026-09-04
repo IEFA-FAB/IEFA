@@ -15,7 +15,7 @@ export const DateRangeSchema = z.object({
 })
 export type DateRange = z.infer<typeof DateRangeSchema>
 
-export const UuidSchema = z.string().uuid()
+export const UuidSchema = z.uuid()
 export type Uuid = z.infer<typeof UuidSchema>
 
 /** Campos de endereço brasileiro compartilhados (cozinha + unidade). UF 2 letras, CEP máx. 9. */

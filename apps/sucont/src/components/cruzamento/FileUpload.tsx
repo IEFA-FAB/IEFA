@@ -48,7 +48,7 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 				htmlFor="cruzamento-dropzone-file"
 				className={cn(
 					"relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-200 ease-in-out cursor-pointer",
-					isDragging ? "border-blue-500 bg-blue-50/50" : "border-border bg-muted/50 hover:bg-muted hover:border-slate-400",
+					isDragging ? "border-action bg-action/5" : "border-border bg-muted/50 hover:bg-muted hover:border-border/80",
 					isLoading && "opacity-50 cursor-not-allowed pointer-events-none"
 				)}
 				onDragEnter={handleDrag}
@@ -58,14 +58,14 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 			>
 				<div className="flex flex-col items-center justify-center pt-5 pb-6">
 					{isLoading ? (
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
+						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-action mb-4" />
 					) : (
 						<UploadCloud className="w-12 h-12 mb-4 text-muted-foreground" />
 					)}
-					<p className="mb-2 text-sm text-foreground font-medium">
-						<span className="font-semibold text-blue-600">Clique para enviar</span> ou arraste e solte
+					<p className="mb-2 text-subheading text-foreground">
+						<span className="font-semibold text-action">Clique para enviar</span> ou arraste e solte
 					</p>
-					<p className="text-xs text-muted-foreground">Planilhas Excel (.xlsx, .xls) ou CSV</p>
+					<p className="text-caption text-muted-foreground">Planilhas Excel (.xlsx, .xls) ou CSV</p>
 				</div>
 				<input
 					id="cruzamento-dropzone-file"
@@ -78,11 +78,11 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 			</label>
 
 			<div className="mt-6 bg-card p-6 rounded-xl border border-border shadow-sm">
-				<h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-					<FileSpreadsheet className="w-4 h-4 text-blue-600" />
+				<h3 className="text-subheading text-foreground mb-3 flex items-center gap-2">
+					<FileSpreadsheet className="w-4 h-4 text-action" />
 					Requisitos da Planilha
 				</h3>
-				<ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+				<ul className="text-body text-muted-foreground space-y-2 list-disc list-inside">
 					<li>
 						A planilha deve conter as colunas: <strong>UG</strong>, <strong>Conta Contábil</strong>, <strong>Conta Corrente</strong> e{" "}
 						<strong>Saldo - R$</strong>.

@@ -1,7 +1,7 @@
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { defineHandler } from "nitro"
-import { createError, type H3Event, readBody } from "nitro/h3"
+import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { getServerCapabilities } from "#/lib/capabilities.server"
 import { requireSucontUser } from "#/lib/nitro-auth.server"
 import { buildSystemPrompt } from "#/lib/oracle-prompt"
@@ -10,7 +10,7 @@ export default defineHandler(async (event: H3Event) => {
 	// Capability gate — sem SUCONT_AI_* o oráculo não está configurado neste
 	// ambiente: 503 em vez de estourar na montagem do adapter.
 	if (!getServerCapabilities().oracle) {
-		throw createError({ statusCode: 503, message: "Oráculo indisponível — IA não configurada neste ambiente" })
+		throw new HTTPError({ status: 503, message: "Oráculo indisponível — IA não configurada neste ambiente" })
 	}
 
 	// O guard de rota do __root é client-side: não alcança esta rota Nitro. Sem a
@@ -24,7 +24,7 @@ export default defineHandler(async (event: H3Event) => {
 		params = await chatParamsFromRequestBody(rawBody)
 	} catch (err) {
 		if (err instanceof Response) {
-			throw createError({ statusCode: 400, message: "Corpo da requisição inválido (AG-UI format esperado)" })
+			throw new HTTPError({ status: 400, message: "Corpo da requisição inválido (AG-UI format esperado)" })
 		}
 		throw err
 	}
@@ -38,11 +38,11 @@ export default defineHandler(async (event: H3Event) => {
 		enforceRequestRateLimit("SUCONT", user.id)
 	} catch (error) {
 		if (error instanceof RateLimitError) {
-			// `Retry-After` vai DENTRO do createError. O h3 v2 monta a resposta de erro a
+			// `Retry-After` vai DENTRO do erro. O h3 v2 monta a resposta de erro a
 			// partir de `error.headers`; um `setResponseHeader` no event é descartado nesse
 			// caminho, e o cliente recebe o 429 sem saber quanto esperar.
-			throw createError({
-				statusCode: 429,
+			throw new HTTPError({
+				status: 429,
 				message: error.message,
 				headers: { "Retry-After": String(error.retryAfterSeconds) },
 				data: { retryAfterSeconds: error.retryAfterSeconds },

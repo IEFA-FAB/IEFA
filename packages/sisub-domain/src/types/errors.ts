@@ -1,4 +1,4 @@
-import type { ZodIssue } from "zod"
+import type { core } from "zod"
 
 export class DomainError extends Error {
 	constructor(
@@ -32,7 +32,7 @@ export class NotFoundError extends DomainError {
 export class ValidationError extends DomainError {
 	constructor(
 		message: string,
-		public readonly issues: ZodIssue[]
+		public readonly issues: core.$ZodIssue[]
 	) {
 		super("VALIDATION_FAILED", message)
 		this.name = "ValidationError"

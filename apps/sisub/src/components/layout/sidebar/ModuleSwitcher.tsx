@@ -4,6 +4,7 @@ import { getHotkeyManager } from "@tanstack/hotkeys"
 import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Kbd } from "@/components/ui/kbd"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
@@ -26,7 +27,11 @@ const MODULE_HOVER_CLASSES: Record<GroupColor, string> = {
 	admin: "focus:!bg-destructive/10 focus:!text-destructive focus:**:!text-destructive",
 }
 
-const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
+// `navigator.platform` está deprecado; `userAgentData.platform` é o substituto e só existe
+// em Chromium — daí o userAgent como reserva, que contém "Macintosh" no Safari e no Firefox.
+const isMac =
+	typeof navigator !== "undefined" &&
+	/mac/i.test((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.userAgent)
 
 function altLabel(index: number) {
 	// ⌥ is the standard macOS Option/Alt symbol
@@ -113,12 +118,7 @@ export function ModuleSwitcher({
 						<TooltipContent>Mudar de módulo</TooltipContent>
 					</Tooltip>
 
-					<DropdownMenuContent
-						className="w-(--radix-dropdown-menu-trigger-width) min-w-56 p-3"
-						align="start"
-						side={isMobile ? "bottom" : "right"}
-						sideOffset={4}
-					>
+					<DropdownMenuContent className="min-w-56 p-3" align="start" side={isMobile ? "bottom" : "right"} sideOffset={4}>
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="text-muted-foreground text-label">Módulos</DropdownMenuLabel>
 							{modules.map((module, i) => (
@@ -131,7 +131,7 @@ export function ModuleSwitcher({
 										<module.logo className="size-3.5" />
 									</div>
 									<span className="flex-1">{module.name}</span>
-									{i < 9 && <kbd className="pointer-events-none ml-auto font-mono text-hint text-muted-foreground">{altLabel(i + 1)}</kbd>}
+									{i < 9 && <Kbd className="ml-auto font-mono text-hint">{altLabel(i + 1)}</Kbd>}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuGroup>

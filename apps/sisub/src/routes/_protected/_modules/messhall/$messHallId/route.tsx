@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId"
 
 		// Busca os ranchos (cache de 10 min via React Query no servidor)
 		const messHalls = expectArray<MessHall>(
-			await context.queryClient.fetchQuery({
+			await context.queryClient.query({
 				queryKey: ["sisub", "mess_halls"],
 				queryFn: () => fetchMessHallsFn(),
 				staleTime: 600_000,

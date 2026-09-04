@@ -18,10 +18,10 @@ export const Route = createFileRoute("/journal/")({
 		},
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (auth.user && auth.isAuthenticated) {
 			try {
-				await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
+				await context.queryClient.query({ ...userProfileQueryOptions(auth.user.id), staleTime: "static" })
 			} catch {
 				// Profile doesn't exist yet, will be auto-created by trigger
 			}

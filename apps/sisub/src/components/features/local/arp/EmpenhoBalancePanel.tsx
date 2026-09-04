@@ -125,7 +125,7 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 
 	const valorTotal = Number(qtd) > 0 && Number(valor) > 0 ? Number(qtd) * Number(valor) : null
 
-	function handleSubmit(e: React.FormEvent) {
+	function handleSubmit(e: React.SyntheticEvent) {
 		e.preventDefault()
 		if (!numero.trim() || !data || !qtd || !valor) return
 		create(

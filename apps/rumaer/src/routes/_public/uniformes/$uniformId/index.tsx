@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils"
 export const Route = createFileRoute("/_public/uniformes/$uniformId/")({
 	validateSearch: uniformViewSchema,
 	loader: async ({ context, params }) => {
-		const uniform = await context.queryClient.ensureQueryData(uniformQueryOptions(params.uniformId))
+		const uniform = await context.queryClient.query({ ...uniformQueryOptions(params.uniformId), staleTime: "static" })
 		if (!uniform) throw notFound()
 	},
 	component: DetailPage,

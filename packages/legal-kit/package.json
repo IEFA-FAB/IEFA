@@ -15,7 +15,7 @@
   "dependencies": {
     "@iefa/database": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",
-    "@supabase/supabase-js": "^2.112.2",
+    "@supabase/supabase-js": "^2.112.4",
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-breaks": "^4.0.0",
