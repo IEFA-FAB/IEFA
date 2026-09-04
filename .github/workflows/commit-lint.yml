@@ -1,0 +1,90 @@
+# Conventional Commits no que de fato entra na `main`.
+#
+# O hook `.husky/commit-msg` já roda o commitlint em commit local, mas ele nunca vê a
+# mensagem que sobra no histórico: o repo faz squash merge e o GitHub está com
+# `squash_merge_commit_title: COMMIT_OR_PR_TITLE`, ou seja, num PR com mais de um commit
+# o título do squash é o TÍTULO DO PR. Esse texto é digitado na interface do GitHub e não
+# passa por hook nenhum — foi por aí que `sucont: correctness fixes... (#246)` e
+# `sucont: Radix→Base UI... (#248)` entraram na main sem tipo, com o hook local instalado
+# e funcionando o tempo todo.
+#
+# Por isso o gate aqui é o título do PR, validado com o MESMO commitlint.config.ts do
+# hook (mesmo type-enum, mesmo scope-enum derivado de apps/ e packages/). Roda em
+# `edited` também: corrigir o título tem que reavaliar o check, senão o gate vira
+# um carimbo do primeiro rascunho.
+#
+# Com UM commit só o GitHub usa o subject DELE, não o título do PR — é o mesmo campo
+# `COMMIT_OR_PR_TITLE` decidindo diferente conforme a contagem. Por isso o job checa os
+# dois: o título sempre, e o subject do commit único quando o PR tem exatamente um. Sem
+# isso o PR de um commit feito sem o hook local (`git commit --no-verify`, worktree sem
+# `node_modules`, commit pela interface do GitHub) passaria verde e derrubaria na main a
+# mesma mensagem torta que este gate existe para barrar.
+#
+# O que este workflow NÃO cobre: idioma. "mensagem de commit sempre em inglês"
+# (CLAUDE.md) continua sendo disciplina humana e assunto de revisão.
+name: commit-lint
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commit-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: título do PR (Conventional Commits)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # O título vai por env, não interpolado no `run`: `${{ ... }}` dentro do shell é
+      # execução arbitrária a partir de texto que qualquer autor de PR controla.
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$PR_TITLE" | bunx --no-install commitlint || {
+            echo ""
+            echo "O título do PR é a mensagem que fica na main depois do squash."
+            echo "Formato: <tipo>(<escopo>): <descrição em inglês>"
+            echo "Ex.: feat(sucont): add the account reconciliation report"
+            exit 1
+          }
+
+      # Só faz sentido com exatamente 1 commit: aí é o subject dele que o squash usa.
+      # `gh api` pagina em 100 por página, e o passo nem roda fora desse caso.
+      - name: Lint the single commit subject
+        if: github.event.pull_request.commits == 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMITS_URL: ${{ github.event.pull_request.commits_url }}
+        run: |
+          SUBJECT="$(gh api "$COMMITS_URL" --jq '.[0].commit.message' | head -n 1)"
+          printf '%s\n' "$SUBJECT" | bunx --no-install commitlint || {
+            echo ""
+            echo "PR de um commit só: o subject DELE é o que fica na main, não o título do PR."
+            echo "Subject recebido: $SUBJECT"
+            echo "Corrija com: git commit --amend  (e force-push na branch)"
+            exit 1
+          }

@@ -38,13 +38,13 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 
 - **Server functions (TanStack Start)**: `createServerFn` with `.validator(z.object(...))` — NOT `.inputValidator()` (deprecated)
 - **Server fn files**: `src/server/*.fn.ts`
-- **Supabase client**: sempre via `@iefa/supabase-kit` (`createServiceRoleClient` / `createAppBrowserClient` / `createSsrAuthClient`), chamado per-request dentro do `.handler()`, nunca singleton. Nunca instanciar `createClient` direto num app — foi assim que os deadlines de fetch que seguram o 502 no ALB existiram em 1 de 6 apps.
+- **Supabase client**: sempre via `@iefa/supabase-kit` (`createServiceRoleClient` / `createAppBrowserClient` / `createSsrAuthClient`), chamado per-request dentro do `.handler()`, nunca singleton. Nunca instanciar `createClient` direto num app — foi assim que os deadlines de fetch que seguram o 502 no ALB existiram em 1 de 6 apps. Exceção conhecida, e é **dívida, não padrão a copiar**: os serviços Hono (`apps/alpha`, `apps/api`) ainda montam `createClient` direto, inclusive em singleton de módulo (`apps/alpha/src/db/supabase.ts`).
 - **Auth**: ações e mensagens de erro via `@iefa/auth-kit`; a trava de login é `useLoginRateLimiter` de `@iefa/auth-kit/react`.
 - **tsconfig**: estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara `paths`.
 - **Imports**: `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado)
 - **Deploy**: `Dockerfile`, `docker-bake.hcl` e `.github/paths-filter.yml` são GERADOS de `apps.manifest.json` (`bun run generate:deploy`). App ou package novo entra no manifesto/package.json, nunca editando os três à mão — o CI falha em drift (`bun run check:deploy`).
 - **Route tree**: `routeTree.gen.ts` is auto-generated — run `bun dev` after new routes
-- **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
+- **Commits**: Conventional Commits via cz-git. **Os escopos não são uma lista digitada**: `commitlint.config.ts` os deriva de `apps/` + `packages/` + das chaves do `apps.manifest.json` (por isso `5s` vale), mais `deps`, `ci`, `scripts` e `root`. Workspace novo já é escopo válido — não há lista para atualizar.
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 
 ### Nomenclatura: identificador em inglês, valor de domínio na língua da norma
@@ -110,6 +110,7 @@ declara, pendências). O essencial:
 | `sisub` | Flat design | `0.5rem` genérico; primitivo `<Card>` usa `rounded-xl` (0.75rem) canônico | `apps/sisub/docs/STYLE_CONTRACT.md` |
 | `portal` | Pale Brutalism 2026 | **Zero radius** (`--radius: 0rem`) — nenhum `rounded-*` exceto pílulas explícitas | `apps/portal/STYLE_CONTRACT.md` |
 | `sucont` | Adota o sistema do `sisub` (flat técnico). Contrato próprio porque a dívida é própria: o app nasceu de 9 ferramentas portadas, cada uma com sua linguagem | `0.5rem` | `apps/sucont/STYLE_CONTRACT.md` |
+| `rumaer` | Institucional Aeronáutico (navy do RCA 35-2 + dourado ≤10%, sombra macia). **Não segue mais o Pale Brutalism do portal** — o contrato antigo foi substituído | `0.625rem` | `apps/rumaer/STYLE_CONTRACT.md` |
 
 ### Proibições globais (todos os apps)
 
@@ -128,10 +129,14 @@ Regras de contribuição para **todos** os devs e agentes de IA no repo.
   - Push na branch/main dispara deploys per-app via paths-filter.
   - **Exceção única: push direto na `main` só com pedido explícito do mantenedor, caso a caso.** Vale apenas para mudança de texto visível (copy, placeholder, label, comentário) ou remoção de código comprovadamente morto — nada que altere lógica, schema, permissão, dependência ou config de deploy. Mesmo aí: `bun run check` + `bun run test` verdes ANTES do push, e conferir o run do CI/CD depois. Um agente nunca decide sozinho por esse caminho; na dúvida, abre PR.
 - **Revisão semântica é sob demanda, com `/code-review`** — rodar ANTES de pedir merge, e relatar os achados no PR. O Greptile não é mais o revisor: a cota open-source caiu para 100 créditos e foi esgotada; ele parou de comentar a partir de 2026-07-31 (PRs #149, #152, #153, #154 passaram sem revisão nenhuma). Ausência de comentário do bot não significa código limpo — confirme com `gh api repos/IEFA-FAB/IEFA/pulls/<n>/reviews` antes de tratar como revisado.
-  - O que o CI cobre sozinho: biome, typecheck, `opengrep` com as regras do repo (gate bloqueante em ERROR), codeql, trivy, zizmor, gitleaks, `bun audit`, os testes de contrato e o gate de integração contra o banco real.
+  - O que o CI cobre **no PR** (`security.yml` + `integration.yml`): `opengrep` com as regras do repo (gate bloqueante em ERROR), codeql, trivy, zizmor, gitleaks, `bun audit` e o gate de integração contra o banco real — este último só quando o PR toca `apps/sisub`, `packages/database` ou `packages/sisub-domain`.
+  - **O que NÃO roda no PR: biome, typecheck e os testes unitários/de contrato.** Eles vivem nos jobs `check-<app>` do `deploy.yml`, que só dispara em `push` na `main` — ou seja, DEPOIS do merge. O gate real antes de mergear é local (`bun run check` + `bun run test`).
   - O que só a revisão sob demanda pega: race entre checagem e mutação, estado vazio que mente sobre falha, ordem de FK, snapshot inconsistente. Nenhum linter enxerga isso.
   - Padrão que causou bug vira **regra** em `.opengrep/rules/`, não só correção pontual — foi assim que o fallback de `kitchen:2` em ativo global e a operação de domínio que descarta `_ctx` viraram gate.
 - **Mensagens de commit sempre em inglês** — subject E body — mesmo com código, comentários ou diff em português. Conventional Commits: `feat(sisub): add Faro observability`, não `adicionar`.
+  - **Formato é gate, idioma não.** O hook `.husky/commit-msg` roda `commitlint --edit` (tipo + `scope-enum` derivado de `apps/`/`packages/`) e o workflow `commit-lint` roda o MESMO config contra o **título do PR**. Nenhum dos dois enxerga idioma: `feat(sisub): adicionar observabilidade` passa nos dois. Inglês segue sendo disciplina humana e assunto de revisão.
+  - **O título do PR é a mensagem que fica na `main`.** O merge é squash e o GitHub está com `squash_merge_commit_title: COMMIT_OR_PR_TITLE` — em PR de mais de um commit o histórico grava o título digitado na interface, que não passa por hook local. Foi assim que `sucont: correctness fixes… (#246)` e `sucont: Radix→Base UI… (#248)` entraram sem tipo com o hook instalado e funcionando.
+  - O hook só existe depois de `bun install` (script `prepare` → `husky` gera `.husky/_`). Em worktree recém-criada, antes do install, não há hook nenhum — o `commit-lint` no PR é a rede que não depende da máquina de ninguém.
 - **Rodar `bun run check` + testes antes de mergear** qualquer PR, e confirmar verde. Typecheck por-arquivo não pega tudo.
   - Testes: `bun run test` (turbo, todos os apps) ou `cd apps/sisub && bunx vitest run`. **Não** rodar `bunx vitest run` da raiz — o alias `@/` não resolve e gera ~32 falsos positivos.
   - **`apps/<app>/.env` fazia a suíte local mentir — a armadilha está FECHADA, não a reabra.** Um teste que importa `@/server/*` puxa `env.server.ts`, que valida credencial na carga do módulo: com o `.env` no disco ele passava na máquina do dev e quebrava no CI, que não tem o arquivo. Verde no PR, vermelho depois do merge. Duas travas, uma por runner:

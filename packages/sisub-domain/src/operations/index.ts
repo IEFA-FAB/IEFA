@@ -24,6 +24,28 @@ export {
 } from "./budget-math.ts"
 export type { CatalogScope, CatalogScopeValue } from "./catalog-scope.ts"
 export { CATALOG_SCOPE_VALUES, folderCatalogFilter, ingredientCatalogFilter } from "./catalog-scope.ts"
+export { type ChangelogEntry, type ChangelogPageResult, type ListChangelogPage, listChangelogPage } from "./changelog.ts"
+export type {
+	AnalyticsChatMessageRow,
+	AnalyticsChatSessionRow,
+	ModuleChatMessageRow,
+	ModuleChatSessionRow,
+} from "./chat-sessions.ts"
+export {
+	createAnalyticsChatSession,
+	createModuleChatSession,
+	deleteAnalyticsChatSession,
+	deleteModuleChatSession,
+	listAnalyticsChatMessages,
+	listAnalyticsChatSessions,
+	listModuleChatMessages,
+	listModuleChatSessions,
+	renameAnalyticsChatSession,
+	renameModuleChatSession,
+	saveAnalyticsChatMessage,
+	saveModuleChatMessage,
+	updateAnalyticsMessageChartType,
+} from "./chat-sessions.ts"
 export {
 	CONSERVATION_CLASSES,
 	CONSERVATION_LABELS,
@@ -124,6 +146,8 @@ export type {
 	OpenIssueReportRow,
 } from "./equipment-reports.ts"
 export { countByCondition, getFleetEquipmentReport, getKitchenEquipmentCondition, getKitchenMaintenanceMatrix } from "./equipment-reports.ts"
+export type { EvalConfig, EvaluationForUser } from "./evaluation.ts"
+export { fetchEvalConfig, fetchEvaluationForUser, submitEvaluation, upsertEvalConfig } from "./evaluation.ts"
 export { type FolderLastReview, type FolderReviewRow, listFolderLastReviews, recordFolderReview } from "./folder-reviews.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
@@ -234,6 +258,7 @@ export {
 	roundToCents,
 	suggestedLiquidationValue,
 } from "./liquidation-math.ts"
+export { createMcpApiKey, deleteMcpApiKey, listMcpApiKeys, type McpApiKeyRow, revokeMcpApiKey } from "./mcp-keys.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
 	type IngredientItemLink,
@@ -302,6 +327,7 @@ export {
 	updatePolicy,
 	updatePolicyStatement,
 } from "./policies.ts"
+export { createPolicyRule, deletePolicyRule, listPolicyRules, type PolicyRuleRow, updatePolicyRule } from "./policy-rules.ts"
 export type { PreparationScope } from "./preparation-scope.ts"
 export {
 	folderOutsidePreparations,
@@ -310,6 +336,13 @@ export {
 	ingredientPreparationFilter,
 } from "./preparation-scope.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
+export {
+	type PriceResearchAuditIds,
+	type PriceResearchSample,
+	type PriceResearchStats,
+	type SavePriceResearchAudit,
+	savePriceResearchAudit,
+} from "./price-research.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
 export {
 	adjustProductionPortions,

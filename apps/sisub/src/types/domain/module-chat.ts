@@ -2,7 +2,11 @@ import type { ComponentType } from "react"
 
 // ── Module identifiers ──────────────────────────────────────────────────────
 
-export const CHAT_MODULES = ["global", "kitchen", "unit", "local-analytics"] as const
+// Mesma razão de `analytics-chat.ts`: a lista é do domínio, que espelha o CHECK da coluna
+// `module_chat_session.module`. Aqui é só reexportação para a UI.
+import { CHAT_MODULES } from "@iefa/sisub-domain/schemas"
+
+export { CHAT_MODULES }
 export type ChatModule = (typeof CHAT_MODULES)[number]
 
 // ── Session ─────────────────────────────────────────────────────────────────

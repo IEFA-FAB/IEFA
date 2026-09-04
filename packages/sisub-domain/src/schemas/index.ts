@@ -1,3 +1,29 @@
+export type {
+	ChartType,
+	ChatModule,
+	ChatSessionRef,
+	CreateAnalyticsChatSession,
+	CreateModuleChatSession,
+	ListModuleChatSessions,
+	RenameChatSession,
+	SaveAnalyticsChatMessage,
+	SaveModuleChatMessage,
+	UpdateMessageChartType,
+} from "./chat.ts"
+export {
+	CHART_TYPES,
+	CHAT_MODULES,
+	ChartTypeSchema,
+	ChatModuleSchema,
+	ChatSessionRefSchema,
+	CreateAnalyticsChatSessionSchema,
+	CreateModuleChatSessionSchema,
+	ListModuleChatSessionsSchema,
+	RenameChatSessionSchema,
+	SaveAnalyticsChatMessageSchema,
+	SaveModuleChatMessageSchema,
+	UpdateMessageChartTypeSchema,
+} from "./chat.ts"
 export type { DateRange, DateString, EditScope, KitchenId, Pagination, SortOrder, Uuid } from "./common.ts"
 export { DateRangeSchema, DateSchema, EditScopeSchema, KitchenIdSchema, PaginationSchema, SortOrderSchema, UuidSchema } from "./common.ts"
 export type {
@@ -102,6 +128,8 @@ export {
 	UpdateEquipmentUnitSchema,
 	UpdateMaintenancePlanSchema,
 } from "./equipment.ts"
+export type { SubmitEvaluation, UpsertEvalConfig } from "./evaluation.ts"
+export { SubmitEvaluationSchema, UpsertEvalConfigSchema } from "./evaluation.ts"
 export type {
 	CreateFrozenPreparation,
 	DeleteFrozenPreparation,
@@ -200,6 +228,8 @@ export {
 	ListUnitKitchensSchema,
 	UpdateKitchenSettingsSchema,
 } from "./kitchens.ts"
+export type { CreateMcpApiKey, DeleteMcpApiKey, RevokeMcpApiKey } from "./mcp-keys.ts"
+export { CreateMcpApiKeySchema, DeleteMcpApiKeySchema, RevokeMcpApiKeySchema } from "./mcp-keys.ts"
 export type {
 	AdjustProductionPortions,
 	DeleteForecast,
@@ -338,6 +368,15 @@ export {
 	UpdatePolicySchema,
 	UpdatePolicyStatementSchema,
 } from "./policies.ts"
+export type { CreatePolicyRule, DeletePolicyRule, ListPolicyRules, PolicyTarget, UpdatePolicyRule } from "./policy-rules.ts"
+export {
+	CreatePolicyRuleSchema,
+	DeletePolicyRuleSchema,
+	ListPolicyRulesSchema,
+	POLICY_TARGETS,
+	PolicyTargetSchema,
+	UpdatePolicyRuleSchema,
+} from "./policy-rules.ts"
 export type {
 	CalculateAtaNeeds,
 	CreateAta,

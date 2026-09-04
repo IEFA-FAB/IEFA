@@ -1,248 +1,86 @@
 /**
  * @module module-chat.fn
- * Agentic chat session and message management with per-user + module + scope ownership enforcement.
- * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getCoreClient (service role, DB reads/writes).
- * TABLES: module_chat_session, module_chat_message.
- * Auth: all functions call requireUserId() — throws "Não autenticado" if JWT is invalid or missing.
+ * Wrapper fino sobre as operations de histórico do chat agêntico em `@iefa/sisub-domain`
+ * (Drizzle). TABLES: module_chat_session, module_chat_message.
+ *
+ * Auth: toda fn resolve o `UserContext` da sessão; a autorização é POSSE — a operation filtra
+ * por `user_id` em toda query, inclusive nas de mensagem. Nenhum endpoint aceita `userId` no
+ * payload.
+ *
+ * As tabelas `module_chat_*` existem no schema Drizzle gerado (`moduleChatSessionInKitchen`,
+ * `moduleChatMessageInKitchen`), então o escape de tipo que este arquivo carregava em cada
+ * `.from()` — herdado de quando elas não estavam nos tipos Supabase gerados — morreu junto com
+ * o acesso PostgREST. Ele desligava a checagem de coluna E de payload: campo escrito errado
+ * passava calado.
  * @domain app
- * @migration n-a
+ * @migration done
  */
 
+import {
+	ChatSessionRefSchema,
+	CreateModuleChatSessionSchema,
+	createModuleChatSession,
+	deleteModuleChatSession,
+	ListModuleChatSessionsSchema,
+	listModuleChatMessages,
+	listModuleChatSessions,
+	type ModuleChatMessageRow,
+	type ModuleChatSessionRow,
+	RenameChatSessionSchema,
+	renameModuleChatSession,
+	SaveModuleChatMessageSchema,
+	saveModuleChatMessage,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
-import { requireUserId } from "@/lib/auth.server"
-import { getCoreClient } from "@/lib/supabase.server"
-import { CHAT_MODULES } from "@/types/domain/module-chat"
-
-// The module_chat_* tables are created via migration but not yet in the generated
-// Supabase types. We use `as any` for .from() calls until types are regenerated.
-// biome-ignore lint/suspicious/noExplicitAny: tables not in generated types yet
-type AnyFrom = any
+import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
+import { handleDomainError } from "@/lib/domain-errors"
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
-/**
- * Lists up to 50 chat sessions for the authenticated user, filtered by module and optional scope.
- */
+/** Até 50 sessões do usuário no módulo. Sem `scopeId` = sessões SEM escopo (`scope_id IS NULL`). */
 export const listModuleChatSessionsFn = createServerFn({ method: "GET" })
-	.validator(
-		z.object({
-			module: z.enum(CHAT_MODULES),
-			scopeId: z.number().int().positive().optional(),
-		})
-	)
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const supabase = getCoreClient()
-
-		let query = supabase
-			.from("module_chat_session" as AnyFrom)
-			.select("id, user_id, module, scope_id, title, created_at, updated_at")
-			.eq("user_id", userId)
-			.eq("module", data.module)
-			.order("updated_at", { ascending: false })
-			.limit(50)
-
-		if (data.scopeId != null) {
-			query = query.eq("scope_id", data.scopeId)
-		} else {
-			query = query.is("scope_id", null)
-		}
-
-		const { data: rows, error } = await query
-
-		if (error) throw new Error(error.message)
-		return rows ?? []
+	.validator(ListModuleChatSessionsSchema)
+	.handler(async ({ data }): Promise<ModuleChatSessionRow[]> => {
+		const ctx = await requireAuth()
+		return listModuleChatSessions(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Creates a new chat session for the authenticated user in the given module + scope.
- */
 export const createModuleChatSessionFn = createServerFn({ method: "POST" })
-	.validator(
-		z.object({
-			title: z.string().min(1).max(200),
-			module: z.enum(CHAT_MODULES),
-			scopeId: z.number().int().positive().optional(),
-		})
-	)
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const supabase = getCoreClient()
-
-		const { data: row, error } = await supabase
-			.from("module_chat_session" as AnyFrom)
-			.insert({
-				user_id: userId,
-				title: data.title,
-				module: data.module,
-				scope_id: data.scopeId ?? null,
-			})
-			.select("id, user_id, module, scope_id, title, created_at, updated_at")
-			.single()
-
-		if (error) throw new Error(error.message)
-		if (!row) throw new Error("Sessão não criada")
-		return row
+	.validator(CreateModuleChatSessionSchema)
+	.handler(async ({ data }): Promise<ModuleChatSessionRow> => {
+		const ctx = await requireAuth()
+		return createModuleChatSession(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Renames a chat session scoped to the authenticated user.
- */
 export const renameModuleChatSessionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ sessionId: z.uuid(), title: z.string().min(1).max(200) }))
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const supabase = getCoreClient()
-
-		const { error } = await supabase
-			.from("module_chat_session" as AnyFrom)
-			.update({ title: data.title })
-			.eq("id", data.sessionId)
-			.eq("user_id", userId)
-
-		if (error) throw new Error(error.message)
+	.validator(RenameChatSessionSchema)
+	.handler(async ({ data }): Promise<void> => {
+		const ctx = await requireAuth()
+		return renameModuleChatSession(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Hard-deletes a chat session and its messages (cascade via FK).
- */
+/** Exclusão definitiva da sessão; as mensagens caem por cascade. */
 export const deleteModuleChatSessionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ sessionId: z.uuid() }))
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const supabase = getCoreClient()
-
-		const { error } = await supabase
-			.from("module_chat_session" as AnyFrom)
-			.delete()
-			.eq("id", data.sessionId)
-			.eq("user_id", userId)
-
-		if (error) throw new Error(error.message)
+	.validator(ChatSessionRefSchema)
+	.handler(async ({ data }): Promise<void> => {
+		const ctx = await requireAuth()
+		return deleteModuleChatSession(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 
-/**
- * Fetches all messages for a session, verifying ownership in a single round-trip.
- */
+/** Mensagens em ordem cronológica. Sessão inexistente ou de terceiro → 404. */
 export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
-	.validator(z.object({ sessionId: z.uuid() }))
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const supabase = getCoreClient()
-
-		const { data: session, error } = await supabase
-			.from("module_chat_session" as AnyFrom)
-			.select("id, module_chat_message(id, session_id, role, content, tool_calls, tool_call_id, tool_name, tool_result, error, created_at)")
-			.eq("id", data.sessionId)
-			.eq("user_id", userId)
-			.single()
-
-		if (error || !session) throw new Error("Sessão não encontrada")
-
-		const sessionRaw = session as unknown as Record<string, unknown>
-		if (!Array.isArray(sessionRaw.module_chat_message)) throw new Error("Sessão não encontrada")
-
-		const messages = sessionRaw.module_chat_message as Array<{ created_at: string }>
-		return messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+	.validator(ChatSessionRefSchema)
+	.handler(async ({ data }): Promise<ModuleChatMessageRow[]> => {
+		const ctx = await requireAuth()
+		return listModuleChatMessages(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Inserts a message into a session after verifying ownership.
- */
 export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
-	.validator(
-		z
-			.object({
-				sessionId: z.uuid(),
-				role: z.enum(["user", "assistant", "tool"]),
-				content: z.string(),
-				toolCalls: z.any().optional(),
-				toolCallId: z.string().optional(),
-				toolName: z.string().optional(),
-				toolResult: z.any().optional(),
-				error: z.string().optional(),
-				// Observability fields
-				model: z.string().optional(),
-				latencyMs: z.number().int().nonnegative().optional(),
-				langsmithRunId: z.string().optional(),
-				inputTokens: z.number().int().nonnegative().optional(),
-				outputTokens: z.number().int().nonnegative().optional(),
-			})
-			.superRefine((data, ctx) => {
-				const hasContent = data.content.trim().length > 0
-				const hasError = Boolean(data.error?.trim())
-				const hasToolResult = data.toolResult != null
-				const hasTerminalToolCall =
-					Array.isArray(data.toolCalls) &&
-					data.toolCalls.some((tc: unknown) => {
-						if (!tc || typeof tc !== "object") return false
-						const status = (tc as { status?: unknown }).status
-						return status === "done" || status === "error"
-					})
-
-				if (data.role === "user" && !hasContent) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["content"],
-						message: "Mensagem do usuário não pode ser vazia",
-					})
-				}
-
-				if (data.role === "assistant" && !hasContent && !hasTerminalToolCall && !hasError) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["content"],
-						message: "Mensagem do assistente precisa ter conteúdo, ferramenta concluída ou erro",
-					})
-				}
-
-				if (data.role === "tool" && !hasContent && !hasToolResult && !hasError) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["content"],
-						message: "Mensagem de ferramenta precisa ter conteúdo, resultado ou erro",
-					})
-				}
-			})
-	)
-	.handler(async ({ data }) => {
-		const userId = await requireUserId()
-		const supabase = getCoreClient()
-
-		// Verify session ownership
-		const { data: session, error: sessionError } = await supabase
-			.from("module_chat_session" as AnyFrom)
-			.select("id")
-			.eq("id", data.sessionId)
-			.eq("user_id", userId)
-			.single()
-
-		if (sessionError || !session) throw new Error("Sessão não encontrada")
-
-		const { data: row, error } = await supabase
-			.from("module_chat_message" as AnyFrom)
-			.insert({
-				session_id: data.sessionId,
-				role: data.role,
-				content: data.content,
-				tool_calls: data.toolCalls ?? null,
-				tool_call_id: data.toolCallId ?? null,
-				tool_name: data.toolName ?? null,
-				tool_result: data.toolResult ?? null,
-				error: data.error ?? null,
-				model: data.model ?? null,
-				latency_ms: data.latencyMs ?? null,
-				langsmith_run_id: data.langsmithRunId ?? null,
-				input_tokens: data.inputTokens ?? null,
-				output_tokens: data.outputTokens ?? null,
-			})
-			.select("id, session_id, role, content, tool_calls, tool_call_id, tool_name, tool_result, error, created_at")
-			.single()
-
-		if (error) throw new Error(error.message)
-		if (!row) throw new Error("Mensagem não salva")
-		return row
+	.validator(SaveModuleChatMessageSchema)
+	.handler(async ({ data }): Promise<ModuleChatMessageRow> => {
+		const ctx = await requireAuth()
+		return saveModuleChatMessage(getDb(), ctx, data).catch(handleDomainError)
 	})

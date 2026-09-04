@@ -10,8 +10,14 @@ export interface ChatSession {
 
 // ── Chart & Message ──────────────────────────────────────────────────────────
 
-/** Single source of truth — derive ChartType from this so fn.ts z.enum stays in sync. */
-export const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const
+// A lista vive no domínio (`@iefa/sisub-domain/schemas`), que é quem valida a escrita e
+// espelha o CHECK da coluna. Este arquivo só a reexporta para a UI: uma segunda cópia aqui
+// divergiria em silêncio — adicionar um tipo de gráfico de um lado só dá 23514 no banco ou
+// rejeição do validador, dependendo de qual lado esqueceu. O subpath `/schemas` não puxa
+// operation nem drizzle para o bundle do client.
+import { CHART_TYPES } from "@iefa/sisub-domain/schemas"
+
+export { CHART_TYPES }
 export type ChartType = (typeof CHART_TYPES)[number]
 
 export interface ChartSpec {
