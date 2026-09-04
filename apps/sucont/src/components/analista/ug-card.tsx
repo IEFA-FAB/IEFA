@@ -3,9 +3,10 @@ import { useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
-import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import type { ProcessedRow } from "#/lib/analista/types"
+import { blocoFundamentacao, FUNDAMENTO_SALDO_TRANSITORIO } from "#/lib/normas"
+import { getConferente } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
 
 interface UGCardProps {
@@ -91,6 +92,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 
 	const baseParts = [introMsg, contextMsg, actionMsg]
 	if (deadlineMsg) baseParts.push(deadlineMsg)
+	baseParts.push(blocoFundamentacao(FUNDAMENTO_SALDO_TRANSITORIO))
 	baseParts.push(closingMsg)
 
 	const assuntoMsg = isFocal

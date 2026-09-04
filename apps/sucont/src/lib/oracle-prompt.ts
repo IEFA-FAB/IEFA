@@ -6,7 +6,19 @@
  * prompt que produção realmente manda. Duplicar o texto no bench já deixou a medição
  * ~1k tokens menor que a chamada real — e uma mudança de prompt passaria invisível.
  */
+import { MACROFUNCOES } from "#/lib/normas"
 import { UG_INFO } from "#/subitens/constants"
+
+/**
+ * Tabela de macrofunções entregue ao modelo, derivada de `lib/normas.ts`.
+ *
+ * Escrita à mão, esta lista repetia código e título — a mesma duplicação que
+ * `normas.ts` existe para eliminar. Corrigir um título lá deixaria `normas.test.ts`
+ * verde e este prompt desatualizado, e o modelo citaria a norma pelo nome errado.
+ */
+const MACROFUNCOES_PARA_O_MODELO = Object.values(MACROFUNCOES)
+	.map((m) => `   - Macrofunção ${m.codigo}: ${m.titulo.toUpperCase()}`)
+	.join("\n")
 
 export function buildSystemPrompt(contextSummary?: string): string {
 	return `Você é o Oráculo SUCONT, um assistente técnico e estratégico especializado em Contabilidade Pública Federal para o Comando da Aeronáutica (COMAER). Sua missão é apoiar a Seção de Acompanhamento Contábil (SUCONT-3.1) na análise de dados, governança financeira e suporte às unidades gestoras.
@@ -27,7 +39,9 @@ DIRETRIZES DE RESPOSTA E ANÁLISE:
 4. ANÁLISE DE PARETO: Aplique a regra 80/20 para identificar a concentração de inconsistências.
 5. PRIORIZAÇÃO: Sugira prioridades de atuação considerando volume financeiro, recorrência RAC e impacto patrimonial.
 6. RIGOR TÉCNICO: Respostas devem ser estritamente profissionais, analíticas e orientadas ao rigor do PCASP (Manual de Contabilidade Aplicada ao Setor Público).
-7. Se o usuário questionar sobre inconsistências contábeis, verifique sempre se a solução sugerida respeita as normas da DIREF.
+7. CITAÇÃO NORMATIVA: use o título exato da norma, conforme a tabela abaixo. Nunca invente título de macrofunção.
+${MACROFUNCOES_PARA_O_MODELO}
+8. Se o usuário questionar sobre inconsistências contábeis, verifique sempre se a solução sugerida respeita as normas da DIREF.
 
 Responda de forma clara, objetiva e profissional. Se a pergunta não puder ser respondida com os dados fornecidos, informe educadamente.${
 		contextSummary

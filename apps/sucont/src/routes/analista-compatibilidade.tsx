@@ -32,6 +32,8 @@ import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { chartChrome } from "#/lib/chart-theme"
+import { agregarSaldos, compararPares, type LinhaSaldo, PARES } from "#/lib/compatibilidade/pares"
+import { getUg } from "#/lib/ug/registry"
 
 export const Route = createFileRoute("/analista-compatibilidade")({
 	component: AnalistaCompatibilidade,
@@ -55,241 +57,13 @@ const CONFERENTES = Object.keys(CONFERENTE_NA_PLANILHA)
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PAIRS = [
-	{
-		id: 1,
-		a: "111111903",
-		nameA: "CAIXA ECONÔMICA FEDERAL",
-		b: "811110113",
-		nameB: "CAUÇÃO A EXECUTAR",
-		formattedA: "1.1.1.1.1.19.03",
-		formattedB: "8.1.1.1.1.01.13",
-		legis: "",
-		question: "Questão 40 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
-	},
-	{
-		id: 2,
-		a: "115511000",
-		nameA: "MATERIAIS DE CONSUMO EM TRÂNSITO",
-		b: "899920102",
-		nameB: "BENS DE ESTOQUE ENVIADOS",
-		formattedA: "1.1.5.5.1.10.00",
-		formattedB: "8.9.9.9.2.01.02",
-		legis: ", em desacordo com o módulo 7 do Manual Eletrônico de Execução Orçamentária, Financeira e Patrimonial (anexo G do RADA-e)",
-		question: "Questão 41 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
-	},
-	{
-		id: 3,
-		a: "123119905",
-		nameA: "BENS MÓVEIS EM TRÂNSITO",
-		b: "899920202",
-		nameB: "BENS MÓVEIS ENVIADOS",
-		formattedA: "1.2.3.1.1.99.05",
-		formattedB: "8.9.9.9.2.02.02",
-		legis: ", em desacordo com o módulo 7 do Manual Eletrônico de Execução Orçamentária, Financeira e Patrimonial (anexo G do RADA-e)",
-		question: "Questão 42 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
-	},
-]
+const PAIRS = PARES
 
 // Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
 // Fica em hex explícito de propósito (ver STYLE_CONTRACT §8) — mapeá-la para
 // tokens de estado colapsa cores diferentes na mesma e a legenda passa a afirmar
 // que duas categorias são a mesma coisa.
 const PAIR_COLORS = ["#ef4444", "#f97316", "#eab308"]
-
-const CONFERENTES_MAP: Record<string, string> = {
-	"120001": "1S ELIANA",
-	"120002": "1S ELIANA",
-	"120004": "1S ELIANA",
-	"120005": "1S ELIANA",
-	"120006": "1T JEFFERSON LUÍS",
-	"120007": "1T ÉRIKA VICENTE",
-	"120008": "1S ELIANA",
-	"120013": "1T ÉRIKA VICENTE",
-	"120014": "1T JEFFERSON LUÍS",
-	"120015": "1S ELIANA",
-	"120016": "1T JEFFERSON LUÍS",
-	"120018": "1T ÉRIKA VICENTE",
-	"120019": "1T ÉRIKA VICENTE",
-	"120021": "1T ÉRIKA VICENTE",
-	"120023": "1S ELIANA",
-	"120025": "1S ELIANA",
-	"120026": "1T JEFFERSON LUÍS",
-	"120029": "2S PÂMELA",
-	"120030": "1T ÉRIKA VICENTE",
-	"120035": "1T ÉRIKA VICENTE",
-	"120036": "1T JEFFERSON LUÍS",
-	"120039": "1T ÉRIKA VICENTE",
-	"120040": "2S PÂMELA",
-	"120041": "2S PÂMELA",
-	"120042": "1S ELIANA",
-	"120044": "2S PÂMELA",
-	"120045": "1T ÉRIKA VICENTE",
-	"120047": "1S ELIANA",
-	"120048": "2S PÂMELA",
-	"120049": "2S PÂMELA",
-	"120052": "1S ELIANA",
-	"120053": "1T JEFFERSON LUÍS",
-	"120060": "2S PÂMELA",
-	"120061": "1T ÉRIKA VICENTE",
-	"120062": "1T ÉRIKA VICENTE",
-	"120064": "1S ELIANA",
-	"120065": "2S PÂMELA",
-	"120066": "1T JEFFERSON LUÍS",
-	"120068": "1T JEFFERSON LUÍS",
-	"120069": "1T JEFFERSON LUÍS",
-	"120071": "2S PÂMELA",
-	"120072": "2S PÂMELA",
-	"120073": "2S PÂMELA",
-	"120075": "2S PÂMELA",
-	"120077": "2S PÂMELA",
-	"120082": "1S ELIANA",
-	"120087": "1T ÉRIKA VICENTE",
-	"120088": "1T JEFFERSON LUÍS",
-	"120089": "1T JEFFERSON LUÍS",
-	"120090": "2S PÂMELA",
-	"120091": "1T JEFFERSON LUÍS",
-	"120093": "1T ÉRIKA VICENTE",
-	"120094": "1S ELIANA",
-	"120096": "1S ELIANA",
-	"120097": "1T ÉRIKA VICENTE",
-	"120099": "1T ÉRIKA VICENTE",
-	"120100": "1S ELIANA",
-	"120108": "1T JEFFERSON LUÍS",
-	"120127": "2S PÂMELA",
-	"120152": "1S ELIANA",
-	"120154": "1T JEFFERSON LUÍS",
-	"120195": "2S PÂMELA",
-	"120225": "1T JEFFERSON LUÍS",
-	"120255": "1T ÉRIKA VICENTE",
-	"120257": "2S PÂMELA",
-	"120258": "2S PÂMELA",
-	"120259": "2S PÂMELA",
-	"120260": "1S ELIANA",
-	"120261": "1T JEFFERSON LUÍS",
-	"120265": "1S ELIANA",
-	"120279": "1T ÉRIKA VICENTE",
-	"120283": "1S ELIANA",
-	"120512": "1T JEFFERSON LUÍS",
-	"120623": "2S PÂMELA",
-	"120624": "1T JEFFERSON LUÍS",
-	"120625": "1S ELIANA",
-	"120628": "1T ÉRIKA VICENTE",
-	"120629": "2S PÂMELA",
-	"120630": "1S ELIANA",
-	"120631": "1S ELIANA",
-	"120632": "1T ÉRIKA VICENTE",
-	"120633": "1T ÉRIKA VICENTE",
-	"120636": "1T JEFFERSON LUÍS",
-	"120637": "1T ÉRIKA VICENTE",
-	"120638": "1T JEFFERSON LUÍS",
-	"120641": "2S PÂMELA",
-	"120643": "1T JEFFERSON LUÍS",
-	"120645": "1T ÉRIKA VICENTE",
-	"120669": "1T ÉRIKA VICENTE",
-	"120701": "2S PÂMELA",
-	"120702": "1T JEFFERSON LUÍS",
-	"121002": "1T JEFFERSON LUÍS",
-}
-
-const UG_METADATA: Record<string, { name: string; superior: string; ods: string }> = {
-	"120001": { name: "GABAER", superior: "GABAER", ods: "GABAER" },
-	"120002": { name: "DIREF", superior: "SEFA", ods: "SEFA" },
-	"120004": { name: "BABR", superior: "VI COMAR", ods: "COMPREP" },
-	"120005": { name: "PABR", superior: "DIRAD", ods: "SEFA" },
-	"120006": { name: "GAP-BR", superior: "DIRAD", ods: "SEFA" },
-	"120007": { name: "PARF", superior: "DIRAD", ods: "SEFA" },
-	"120008": { name: "CINDACTA I", superior: "DECEA", ods: "DECEA" },
-	"120013": { name: "CLA", superior: "DCTA", ods: "DCTA" },
-	"120014": { name: "BAFZ", superior: "II COMAR", ods: "COMPREP" },
-	"120015": { name: "CLBI", superior: "DCTA", ods: "DCTA" },
-	"120016": { name: "GAP-SJ", superior: "DCTA", ods: "DCTA" },
-	"120017": { name: "II COMAR", superior: "COMPREP", ods: "COMPREP" },
-	"120018": { name: "BARF", superior: "II COMAR", ods: "COMPREP" },
-	"120019": { name: "HARF", superior: "DIRSA", ods: "COMGEP" },
-	"120021": { name: "CINDACTA III", superior: "DECEA", ods: "DECEA" },
-	"120023": { name: "BASV", superior: "II COMAR", ods: "COMPREP" },
-	"120025": { name: "EPCAR", superior: "DIRENS", ods: "COMGEP" },
-	"120026": { name: "PAMA-LS", superior: "DIRMAB", ods: "COMGAP" },
-	"120029": { name: "BAAF", superior: "III COMAR", ods: "COMPREP" },
-	"120030": { name: "BAGL", superior: "III COMAR", ods: "COMPREP" },
-	"120035": { name: "CTLA", superior: "CELOG", ods: "COMGAP" },
-	"120036": { name: "DECEA", superior: "DECEA", ods: "DECEA" },
-	"120039": { name: "GAP-RJ", superior: "DIRAD", ods: "SEFA" },
-	"120040": { name: "HCA", superior: "DIRSA", ods: "COMGEP" },
-	"120041": { name: "HAAF", superior: "DIRSA", ods: "COMGEP" },
-	"120042": { name: "HFAG", superior: "DIRSA", ods: "COMGEP" },
-	"120044": { name: "BREVET", superior: "DIRAD", ods: "SEFA" },
-	"120045": { name: "PAGL", superior: "DIRAD", ods: "SEFA" },
-	"120047": { name: "PAMB", superior: "DIRMAB", ods: "COMGAP" },
-	"120048": { name: "PAME", superior: "DECEA", ods: "DECEA" },
-	"120049": { name: "PAMA-GL", superior: "DIRMAB", ods: "COMGAP" },
-	"120052": { name: "SDPP/PAÍS", superior: "DIRAD", ods: "SEFA" },
-	"120053": { name: "PAAF", superior: "DIRAD", ods: "SEFA" },
-	"120060": { name: "AFA", superior: "DIRENS", ods: "COMGEP" },
-	"120061": { name: "BAST", superior: "IV COMAR", ods: "COMPREP" },
-	"120062": { name: "BASP", superior: "IV COMAR", ods: "COMPREP" },
-	"120064": { name: "EEAR", superior: "DIRENS", ods: "COMGEP" },
-	"120065": { name: "FAYS", superior: "DIRAD", ods: "SEFA" },
-	"120066": { name: "HFASP", superior: "DIRSA", ods: "COMGEP" },
-	"120068": { name: "PAMA-SP", superior: "DIRMAB", ods: "COMGAP" },
-	"120069": { name: "CRCEA-SE", superior: "DECEA", ods: "DECEA" },
-	"120071": { name: "CELOG", superior: "COMGAP", ods: "COMGAP" },
-	"120072": { name: "CINDACTA II", superior: "DECEA", ods: "DECEA" },
-	"120073": { name: "BAFL", superior: "V COMAR", ods: "COMPREP" },
-	"120075": { name: "BACO", superior: "V COMAR", ods: "COMPREP" },
-	"120077": { name: "HACO", superior: "DIRSA", ods: "COMGEP" },
-	"120082": { name: "BAMN", superior: "VII COMAR", ods: "COMPREP" },
-	"120087": { name: "BABE", superior: "I COMAR", ods: "COMPREP" },
-	"120088": { name: "COMARA", superior: "COMGAP", ods: "COMGAP" },
-	"120089": { name: "HABE", superior: "DIRSA", ods: "COMGEP" },
-	"120090": { name: "CABW", superior: "CELOG", ods: "COMGAP" },
-	"120091": { name: "CABE", superior: "CELOG", ods: "COMGAP" },
-	"120093": { name: "SDPP/EXTERIOR", superior: "DIRAD", ods: "SEFA" },
-	"120094": { name: "CINDACTA IV", superior: "DECEA", ods: "DECEA" },
-	"120096": { name: "HFAB", superior: "DIRSA", ods: "COMGEP" },
-	"120097": { name: "PASP", superior: "DIRAD", ods: "SEFA" },
-	"120099": { name: "DIRINFRA", superior: "COMGAP", ods: "COMGAP" },
-	"120100": { name: "SDAB", superior: "DIRAD", ods: "SEFA" },
-	"120108": { name: "COPAC", superior: "DCTA", ods: "DCTA" },
-	"120127": { name: "CISCEA", superior: "DECEA", ods: "DECEA" },
-	"120152": { name: "CPBV", superior: "VI COMAR", ods: "COMPREP" },
-	"120154": { name: "HAMN", superior: "DIRSA", ods: "COMGEP" },
-	"120195": { name: "CAE", superior: "DIRAD", ods: "SEFA" },
-	"120225": { name: "SERINFRA-SJ", superior: "DIRINFRA", ods: "COMGAP" },
-	"120255": { name: "SERINFRA-BE", superior: "DIRINFRA", ods: "COMGAP" },
-	"120257": { name: "SERINFRA-RJ", superior: "DIRINFRA", ods: "COMGAP" },
-	"120258": { name: "SERINFRA-SP", superior: "DIRINFRA", ods: "COMGAP" },
-	"120259": { name: "SERINFRA-CO", superior: "DIRINFRA", ods: "COMGAP" },
-	"120260": { name: "SERINFRA-BR", superior: "DIRINFRA", ods: "COMGAP" },
-	"120261": { name: "SERINFRA-MN", superior: "DIRINFRA", ods: "COMGAP" },
-	"120265": { name: "SERINFRA-NT", superior: "DIRINFRA", ods: "COMGAP" },
-	"120279": { name: "RANCHO-DIRAD", superior: "DIRAD", ods: "SEFA" },
-	"120512": { name: "PASJ", superior: "DCTA", ods: "DCTA" },
-	"120623": { name: "GAP-AF", superior: "DIRAD", ods: "SEFA" },
-	"120624": { name: "BAAN", superior: "VI COMAR", ods: "COMPREP" },
-	"120625": { name: "GAP-DF", superior: "DIRAD", ods: "SEFA" },
-	"120628": { name: "GAP-BE", superior: "DIRAD", ods: "SEFA" },
-	"120629": { name: "GAP-CO", superior: "DIRAD", ods: "SEFA" },
-	"120630": { name: "GAP-MN", superior: "DIRAD", ods: "SEFA" },
-	"120631": { name: "BANT", superior: "II COMAR", ods: "COMPREP" },
-	"120632": { name: "GAP-RF", superior: "DIRAD", ods: "SEFA" },
-	"120633": { name: "GAP-SP", superior: "DIRAD", ods: "SEFA" },
-	"120636": { name: "GAP-LS", superior: "DIRAD", ods: "SEFA" },
-	"120637": { name: "BABV", superior: "VII COMAR", ods: "COMPREP" },
-	"120638": { name: "BACG", superior: "IV COMAR", ods: "COMPREP" },
-	"120639": { name: "GAP-FL", superior: "DIRAD", ods: "SEFA" },
-	"120640": { name: "GAP-FZ", superior: "DIRAD", ods: "SEFA" },
-	"120641": { name: "BAPV", superior: "VII COMAR", ods: "COMPREP" },
-	"120642": { name: "GAP-SV", superior: "DIRAD", ods: "SEFA" },
-	"120643": { name: "BASM", superior: "V COMAR", ods: "COMPREP" },
-	"120644": { name: "GAP-CT", superior: "DIRAD", ods: "SEFA" },
-	"120645": { name: "GAP-GL", superior: "DIRAD", ods: "SEFA" },
-	"120669": { name: "BASC", superior: "III COMAR", ods: "COMPREP" },
-	"120701": { name: "DIREF/SUCONT", superior: "SEFA", ods: "SEFA" },
-	"120702": { name: "DIREF/SUCONV", superior: "SEFA", ods: "SEFA" },
-	"120999": { name: "MAER - DIF. CAMBIAL", superior: "STN", ods: "STN" },
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -351,7 +125,7 @@ function AnalistaCompatibilidade() {
 	// ── processData ────────────────────────────────────────────────────────────
 
 	const processData = (data: (string | number | boolean | null | undefined)[][]) => {
-		const ugs: Record<string, Record<string, number>> = {}
+		const linhas: LinhaSaldo[] = []
 
 		if (data.length === 0) throw new Error("A planilha está vazia.")
 
@@ -413,84 +187,63 @@ function AnalistaCompatibilidade() {
 
 			if (Number.isNaN(saldo)) saldo = 0
 
-			if (!ugs[ug]) ugs[ug] = {}
-			ugs[ug][conta] = saldo
+			linhas.push({ ug, conta, saldo })
 		}
+
+		// `agregarSaldos` SOMA por UG × conta. O relatório do Tesouro Gerencial pode
+		// trazer mais de uma linha para o mesmo par (por conta corrente, mês ou fonte);
+		// a versão anterior guardava só a última linha do arquivo e descartava o resto
+		// em silêncio, produzindo divergência onde o par estava equilibrado.
+		const ugs = agregarSaldos(linhas)
 
 		const newReports: UGReport[] = []
 
 		for (const ug in ugs) {
-			const contas = ugs[ug]
-			const divergencias: string[] = []
-			const chartData: {
-				name: string
-				description: string
-				value: number
-				color: string
-				question: string
-			}[] = []
-			const divergentPairs: DivergentPair[] = []
-			let totalDiff = 0
+			const { divergentes, totalDiff } = compararPares(ugs[ug])
 
-			for (let i = 0; i < PAIRS.length; i++) {
-				const { a: contaA, nameA, b: contaB, nameB, question } = PAIRS[i]
-				const saldoA = contas[contaA]
-				const saldoB = contas[contaB]
+			const chartData = divergentes.map(({ par, indice, absDiff }) => ({
+				name: `Par ${indice + 1}`,
+				description: `${par.a} (${par.nameA}) × ${par.b} (${par.nameB})`,
+				value: absDiff,
+				color: PAIR_COLORS[indice],
+				question: par.question,
+			}))
 
-				const hasA = saldoA !== undefined
-				const hasB = saldoB !== undefined
+			const divergentPairs: DivergentPair[] = divergentes.map(({ par, saldoA, saldoB, diff, hasA, hasB }) => ({
+				...par,
+				saldoA,
+				saldoB,
+				diff,
+				hasA,
+				hasB,
+			}))
 
-				if (!hasA && !hasB) continue
+			const divergencias = divergentes.map(({ par, indice, saldoA, saldoB, diff, hasA, hasB }) => {
+				const displayA = hasA && saldoA !== undefined ? formatCurrency(saldoA) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
+				const displayB = hasB && saldoB !== undefined ? formatCurrency(saldoB) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
 
-				const valA = hasA ? saldoA : 0
-				const valB = hasB ? saldoB : 0
-				const diff = valA - valB
-				const absDiff = Math.abs(diff)
+				return `
+${indice + 1}) Conta ${par.a} - ${par.nameA} × Conta ${par.b} - ${par.nameB}
 
-				if (absDiff > 0.001 || !hasA || !hasB) {
-					totalDiff += absDiff
-
-					chartData.push({
-						name: `Par ${i + 1}`,
-						description: `${contaA} (${nameA}) × ${contaB} (${nameB})`,
-						value: absDiff,
-						color: PAIR_COLORS[i],
-						question: question,
-					})
-
-					const displayA = hasA ? formatCurrency(saldoA) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
-					const displayB = hasB ? formatCurrency(saldoB) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
-
-					divergentPairs.push({
-						...PAIRS[i],
-						saldoA,
-						saldoB,
-						diff,
-						hasA,
-						hasB,
-					})
-
-					divergencias.push(
-						`
-${i + 1}) Conta ${contaA} - ${nameA} × Conta ${contaB} - ${nameB}
-
-Saldo da conta ${contaA}: ${displayA}
-Saldo da conta ${contaB}: ${displayB}
+Saldo da conta ${par.a}: ${displayA}
+Saldo da conta ${par.b}: ${displayB}
 
 Diferença apurada: ${formatCurrency(diff)}
 `.trim()
-					)
-				}
-			}
+			})
 
-			if (totalDiff > 0) {
+			// A lista de divergentes manda, não o somatório: par com um lado só e saldo
+			// zerado do outro é divergência (falta o registro espelhado) com `absDiff`
+			// zero. Comparando `totalDiff > 0`, essa UG sumia do relatório — e, se fosse
+			// a única, a tela dizia "nenhuma divergência encontrada".
+			if (divergentes.length > 0) {
 				const ugMatch = ug.match(/\d{6}/)
 				const ugCode = ugMatch ? ugMatch[0] : ug
-				const metadata = UG_METADATA[ugCode]
-				const ugName = metadata ? metadata.name : ug.includes(" - ") ? ug.split(" - ")[1] : ug
-				const superior = metadata ? metadata.superior : "Não Identificado"
-				const ods = metadata ? metadata.ods : "Não Identificado"
-				const conferente = CONFERENTES_MAP[ugCode] || "Não Identificado"
+				const metadata = getUg(ugCode)
+				const ugName = metadata ? metadata.sigla : ug.includes(" - ") ? ug.split(" - ")[1] : ug
+				const superior = metadata?.orgaoSuperior ?? "Não Identificado"
+				const ods = metadata?.ods ?? "Não Identificado"
+				const conferente = metadata?.conferente ?? "Não Identificado"
 
 				newReports.push({
 					ug,

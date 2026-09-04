@@ -1,0 +1,131 @@
+---
+title: Hub SUCONT
+description: O que o app sucont é, como cada ferramenta funciona por dentro e o que ele deliberadamente não faz.
+---
+
+O **sucont** é o hub das divisões de acompanhamento da Subdiretoria de Contabilidade da DIREF:
+
+- **SUCONT-3.1** — Acompanhamento Contábil. Executa o **RAC** (Roteiro de Acompanhamento Contábil), questão a questão, sobre as UGs do COMAER.
+- **SUCONT-4** — Acompanhamento Patrimonial. Concilia SIAFI × SILOMS e acompanha depreciação e prestação de contas.
+
+## A forma de todas as ferramentas analíticas
+
+Oito das ferramentas seguem o mesmo desenho, e entender esse desenho vale mais do que ler as oito:
+
+```
+Tesouro Gerencial (base SIAFI)
+   ↓  o operador exporta o relatório da questão RAC em XLSX/CSV
+Upload no navegador
+   ↓  parse client-side (xlsx / papaparse) — a base NUNCA sai da máquina
+Classificação por regra em código
+   ↓
+Dashboards (operacional / tático / estratégico)  +  Texto de mensagem SIAFI/SAU pronto para copiar
+```
+
+Três consequências que definem o produto:
+
+1. **A base fica no navegador.** O arquivo do Tesouro Gerencial não é enviado ao servidor em nenhuma ferramenta. O que é persistido é o *resultado*, e só em duas delas — Auditor e SAC-DGC (ver abaixo). Nas outras seis, fechou a aba, acabou a análise.
+2. **Nada é escrito no SIAFI.** A saída é *texto* que o operador copia para a mensagem SIAFI ou para o SAU. A cobrança continua sendo ato humano.
+3. **O recorte do dado é responsabilidade do relatório, não do app.** Isso é o ponto mais mal-entendido do sistema e está detalhado em [Ferramentas](/docs/sucont/ferramentas) — várias telas não reimplementam o critério que dá nome a elas (envelhecimento de 3 meses, genericidade da conta), porque o critério já foi aplicado no Tesouro Gerencial na hora de montar o relatório.
+
+<Callout type="warn">
+Corolário: **trocar o relatório de origem muda o resultado sem que o app perceba**. Um arquivo com layout parecido mas recorte diferente é processado normalmente e gera mensagens de cobrança normalmente.
+</Callout>
+
+## Inventário
+
+O hub agrega por **etapa do ciclo** (`analisar`, `comunicar`, `acompanhar`, `consultar`), não por tecnologia — a categoria antiga ("Auditoria", "Automação", "IA / Chatbot") classificava a ferramenta pelo que ela usa por dentro, e ninguém chega ao hub precisando de "uma automação". As questões do RAC são dado (`racQuestions` em `src/lib/types.ts`), e por isso filtram.
+
+| Ferramenta | Rota | Etapa | RAC | Papel |
+|---|---|---|---|---|
+| Auditor SUCONT-4 | `/auditor` | analisar | — | Divergência SIAFI × SILOMS em consumo, BMP e intangível, com série persistida |
+| Monitoramento Patrimonial | `/monitoramento` | acompanhar | Q26–Q28, Q31, Q32, Q36 | Saldos transitórios que não deveriam sobreviver ao mês |
+| Analista Saldo Alongado | `/analistasaldoalongado` | analisar | Q05–Q25 | Saldos sem movimentação, consolidados por UG |
+| Subitens Genéricos | `/subitens-genericos` | analisar | Q34 | Conta corrente com subitem 99/999 |
+| Contas Genéricas | `/conta-generica` | analisar | Q35 | Uso de conta contábil genérica |
+| Compatibilidade de Saldos | `/analista-compatibilidade` | analisar | Q40–Q42 | Três pares de contas que devem espelhar |
+| Cruzamento de Contas | `/cruzamento-contas` | analisar | Q43 | 897210300 × 897110300 por conta corrente |
+| SAC-DGC | `/sac-dgc` | analisar | — | Análise crítica do Demonstrativo Gerencial de Custos por UG, por IA |
+| Automação de Documentos | `/documentacao` | comunicar | — | Rascunho → ofício FAB ou relatório de análise, via IA |
+| Centro de Monitoramento | `/centro-monitoramento` | consultar | — | Inventário dos módulos e oráculos da SUCONT-3, por seção |
+| Área de Trabalho | `/workspace` | — | — | Checklist mensal, avisos, UGs e conferentes |
+| Relatórios | `/reports` | — | — | Links salvos da seção |
+
+Fora do catálogo, o app serve as três rotas legais exigidas de quem trata dado pessoal — `/termos-de-uso`, `/politica-de-privacidade` e `/politica-de-cookies` —, servidas de `iefa.legal_documents` via `@iefa/legal-kit`. Ver [LGPD](/docs/sucont/conformidade) e o `LGPD.md` da raiz.
+
+## O que é persistido
+
+Schema `sucont` no Supabase, sempre por server function em `src/server/*.fn.ts` — nunca com client no navegador. A **base** exportada do Tesouro Gerencial nunca é gravada; o que fica é o resultado apurado e a trilha de quem cobrou o quê.
+
+| Tabela | Conteúdo |
+|---|---|
+| `checklist_item` | Checklist mensal (tarefa, prazo, responsável, caminho no Tesouro Gerencial) |
+| `notice` | Avisos da seção |
+| `report` | Links de relatórios |
+| `unidade_gestora` | Referência de UGs |
+| `document` | Histórico dos documentos gerados por IA (rascunho + JSON gerado) |
+| `analysis_run` | Rodada de análise, por ferramenta (`tool`) e competência |
+| `siloms_siafi_balance` | Grão do Auditor: competência + UG + grupo de contas |
+| `generated_message` | Mensagem institucional emitida, numerada pela sequência do banco |
+| `dgc_analysis` | Análise do SAC-DGC por UG e competência (`alert_count` e `finding_count` são colunas geradas do jsonb) |
+
+Isso mudou o Auditor de natureza: ele era memória de navegador, e comparar competências exigia subir a série inteira de novo. Agora a rodada tem identidade, o número da MSG vem do banco (não do operador) e existe registro de qual arquivo produziu qual número.
+
+## Permissões
+
+Módulo PBAC `sucont`, nos três níveis padrão — ver [PBAC](/docs/pbac):
+
+| Nível | Pode |
+|---|---|
+| 1 | Acessar o hub e todas as ferramentas analíticas |
+| 2 | Editar checklist, avisos, relatórios e UGs; gerar documentos por IA |
+| 3 | Gerenciar os grants do módulo |
+
+As ferramentas analíticas não têm gate próprio: quem entra no hub roda todas. O guard fica no layout, e as escritas usam `requireSucontEditor()`.
+
+## IA
+
+Dois consumidores, ambos por AWS Bedrock via `@iefa/ai-provider` (prefixo de env `SUCONT`):
+
+- **Oráculo SUCONT** — chat SSE em `routes/api/chat/stream.post.ts`, embutido nas telas de Q34, Q35 e Monitoramento. O prompt vive em `src/lib/oracle-prompt.ts`, carrega o mapa de UGs e recebe, por `contextSummary`, um resumo dos dados abertos na interface.
+- **SAC-DGC** — `routes/api/sacdgc/analyze.post.ts`. Recebe só o recorte de uma UG (mais um resumo do grupo, para comparação), com saída estruturada validada por schema.
+- **Automação de Documentos** — `adaptDraftFn` transforma um rascunho livre em ofício padrão FAB ou em relatório de análise, também com saída estruturada.
+
+As três rotas Nitro passam pelos mesmos três gates, nesta ordem:
+
+1. **Capability** — `getServerCapabilities().oracle` (`src/lib/capabilities.server.ts`): sem `SUCONT_AI_*` o endpoint responde 503 e o resto do hub sobe normalmente.
+2. **Sessão + PBAC** — `requireSucontUser(event)` (`src/lib/nitro-auth.server.ts`): rota Nitro roda fora do contexto de request do Start, e o guard do `__root` é client-side. Sem esta checagem o endpoint seria caminho aberto para o Bedrock da conta.
+3. **Teto de consumo** — `enforceRequestRateLimit("SUCONT", user.id)` **antes** de abrir o SSE, com `Retry-After` dentro do `HTTPError` (no h3 v2 um `setResponseHeader` é descartado no caminho de erro).
+
+<Callout type="warn">
+Dívida restante, registrada em `AI-PROVIDERS.md`: o sucont ainda é o único consumidor de modelo **sem provider de reserva** (`SUCONT_FALLBACK_AI_*`) e sem os tetos `SUCONT_AI_MAX_*` definidos no ambiente. É configuração, não código.
+</Callout>
+
+## Onde as regras moram
+
+Nenhuma das regras contábeis está em banco ou em configuração. Todas são literais em TypeScript:
+
+| Regra | Arquivo |
+|---|---|
+| Contas por questão RAC (Q05–Q25) | `src/analistasaldoalongado/utils/rac.ts` |
+| Contas transitórias + exceções por UG (Q26–Q36) | `src/lib/analista/types.ts` |
+| Pares de contas (Q40–Q42) | `src/lib/compatibilidade/pares.ts` |
+| Par 897210300 × 897110300 (Q43) | `src/lib/cruzamento/analyzer.ts` |
+| Subitem genérico (Q34) | `src/routes/subitens-genericos.tsx` |
+| Classificação de risco SIAFI × SILOMS | `src/auditor/services/dataProcessor.ts` |
+| UGs, ODS, órgão superior e conferentes | `src/lib/ug/registry.ts` — **fonte única** |
+| Citações normativas das mensagens | `src/lib/normas.ts` — **fonte única** |
+| Tolerância de comparação de saldo | `src/lib/analysis/tolerancia.ts` |
+
+Mudança de norma, de conta ou de conferente é **mudança de código com deploy**.
+
+## Como isso é verificado
+
+| Camada | Comando | Cobre |
+|---|---|---|
+| Unidade | `bun test --no-env-file src` (no app) | As regras acima: registro de UG, mapa do RAC, contas transitórias, pares Q40–Q42, cruzamento Q43, tolerância, títulos das macrofunções, parser e risco do Auditor, SAC-DGC |
+| Contrato | mesma suíte (`src/test/*.contract.test.ts`) | Rotas Nitro registradas e gate de IA |
+| E2E | `bun run test:e2e` (Playwright) | SAC-DGC com e sem IA, sobre fixtures reais em `e2e/fixtures/` |
+| Visual | `bun run harness:build` + `harness:shot` | Gráficos e o hub fora do app, sem sessão |
+
+O `--no-env-file` não é decoração: sem ele o Bun carrega o `.env` do disco e a suíte passa na máquina do dev com credencial que o CI não tem — verde no PR, vermelho depois do merge.

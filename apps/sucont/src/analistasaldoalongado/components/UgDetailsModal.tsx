@@ -4,8 +4,8 @@ import * as XLSX from "xlsx"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { getConferente } from "#/lib/ug/registry"
 import type { UgConsolidated } from "../utils/analytics"
-import { getConferente } from "../utils/conferentes"
 import { RAC_MAPPING } from "../utils/rac"
 
 interface UgDetailsModalProps {

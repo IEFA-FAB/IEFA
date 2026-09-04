@@ -2,14 +2,18 @@ export const RAC_MAPPING: Record<string, string[]> = {
 	"Questão 5": ["113810601", "113810606"],
 	"Questão 6": ["218913609", "218913610"],
 	"Questão 7": ["113110200"],
+	// Os sete primeiros códigos estavam com um "8" a mais (`2188810102`), o que dá 10
+	// dígitos — conta do SIAFI tem 9, então nunca casavam e as contas ficavam sem
+	// rótulo de questão. Correspondem ao grupo 21881 (consignações e depósitos), como
+	// os demais da lista; a 21881.04.47 aparece nominalmente na Macrofunção 02.03.18.
 	"Questão 8": [
-		"2188810102",
-		"2188810104",
-		"2188810106",
-		"2188810109",
-		"2188810128",
-		"2188810447",
-		"2188810409",
+		"218810102",
+		"218810104",
+		"218810106",
+		"218810109",
+		"218810128",
+		"218810447",
+		"218810409",
 		"218910100",
 		"218910200",
 		"218810114",

@@ -262,7 +262,7 @@ export const initialChecklist: ChecklistItem[] = [
 		task: "Relatório Depreciação > Bem",
 		deadline: "4° dia útil do mês",
 		description:
-			"Comparar o saldo de depreciação acumulada com o saldo do bem no SIAFI. Identificar e reportar UGs com saldo de depreciação superior ao valor contábil do bem.",
+			"Comparar o saldo de depreciação acumulada com o saldo do bem no SIAFI. A depreciação corre até o VALOR RESIDUAL (10% ou 20% conforme a conta, tabela do item 6.3 da Macrofunção 02.03.30) — o teto é o valor depreciável, isto é, custo menos residual. Reportar UGs cuja depreciação acumulada ultrapasse esse teto, e não apenas as que passem de 100% do valor do bem.",
 		responsible: "Cada Responsável",
 		path: "Tesouro Gerencial: Sucont-4.1 > Monitoramento das UG > CONSOLIDADA - COMP BENS MÓVEIS E DEP ACUM",
 	},

@@ -33,6 +33,7 @@ import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { chartChrome } from "#/lib/chart-theme"
+import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { cn } from "#/lib/utils"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { CONFERENTES_MAPPING, UG_INFO } from "#/subitens/constants"
@@ -161,6 +162,8 @@ ${occurrencesList}
 ${deadlineClause}
 Solicitamos a análise e a adoção das providências necessárias para a regularização contábil dos saldos apontados, procedendo com os ajustes adequados conforme as normas vigentes.
 
+${blocoFundamentacao(FUNDAMENTO_CONTA_GENERICA)}
+
 ${conclusion}
 
 Atenciosamente,
@@ -223,6 +226,8 @@ Detalhamento da(s) situação(ões) identificada(s):
 ${occurrencesList}
 ${deadlineClause}
 Solicitamos a análise e a adoção das providências necessárias para a regularização contábil dos saldos apontados, procedendo com os ajustes adequados conforme as normas vigentes.
+
+${blocoFundamentacao(FUNDAMENTO_CONTA_GENERICA)}
 
 ${conclusion}
 

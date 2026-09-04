@@ -1,3 +1,5 @@
+import { arredondarCentavos, saldoZerado } from "#/lib/analysis/tolerancia"
+import { blocoFundamentacao, FUNDAMENTO_CONCILIACAO_SISTEMAS } from "#/lib/normas"
 import {
 	AccountGroup,
 	type FinancialRecord,
@@ -32,7 +34,10 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		if (!stats[key]) {
 			stats[key] = { months: new Set(), maxDiff: 0, totalDiff: 0 }
 		}
-		if (record.difference > 0) {
+		// Divergência é o que passa da tolerância de arredondamento, não `> 0`: resíduo
+		// de meio centavo do parse de moeda contava competência e empurrava a
+		// probabilidade — e, com ela, o nível de risco.
+		if (!saldoZerado(record.difference)) {
 			stats[key].months.add(record.date)
 		}
 		stats[key].maxDiff = Math.max(stats[key].maxDiff, record.difference)
@@ -264,7 +269,7 @@ export const normalizeData = (rawRows: RawInputRow[]): FinancialRecord[] => {
 		const safeUg = row.ug ? String(row.ug).trim() : "DESCONHECIDO"
 
 		const processGroup = (groupEnum: AccountGroup, siafi: number, siloms: number, explicitDiff: number) => {
-			const finalDiff = explicitDiff !== 0 ? Math.abs(explicitDiff) : Math.abs(siafi - siloms)
+			const finalDiff = arredondarCentavos(explicitDiff !== 0 ? Math.abs(explicitDiff) : Math.abs(siafi - siloms))
 
 			let preponderance: "SIAFI" | "SILOMS" | "EQUAL" = "EQUAL"
 			if (siafi > siloms) preponderance = "SIAFI"
@@ -682,11 +687,9 @@ Recomendações:
 
 - Estabelecer rotina mensal de conferência prévia ao fechamento contábil, contemplando a validação cruzada entre SIAFI e SILOMS, de forma a prevenir o acúmulo de inconsistências em períodos subsequentes.
 
-Por fim, cabe alertar que a persistência de inconsistências contábeis poderá ensejar apuração de responsabilidade junto aos órgãos de controle, em especial o Tribunal de Contas da União (TCU), à luz das normas vigentes, incluindo o cumprimento dos Anexos aplicáveis (Anexo 13 A - BMP, Anexo 13 B - Intangível e Anexo 13 C - Consumo).
+Por fim, cabe registrar que a persistência da divergência é ocorrência passível de ressalva na conformidade contábil da UG, além de comprometer a evidenciação exigida nos Anexos aplicáveis (Anexo 13 A - BMP, Anexo 13 B - Intangível e Anexo 13 C - Consumo).
 
-Fundamentação Normativa:
-1. Manual G (RADA-e), Módulo 7.
-2. Manual D (RADA-e), Item 8.
+${blocoFundamentacao(FUNDAMENTO_CONCILIACAO_SISTEMAS)}
 
 Esta Diretoria reconhece o esforço da gestão na manutenção da conformidade contábil e permanece à disposição para o suporte técnico necessário.
 
