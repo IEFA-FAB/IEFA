@@ -1,1 +1,20 @@
-bunx --no-install commitlint --edit "$1"
+# Formato da mensagem de commit: Conventional Commits, com o `scope-enum` derivado dos
+# diretórios de apps/ e packages/ (commitlint.config.ts). Bloqueante.
+#
+# `--no-install` é de propósito: sem node_modules o bunx FALHA em vez de baixar uma
+# versão qualquer do commitlint do registry — hook que se autoconserta silenciosamente
+# é hook que valida com regra diferente da do repo.
+#
+# O que este hook NÃO cobre, e não tem como cobrir:
+#   - idioma. "sempre em inglês" (CLAUDE.md) é disciplina humana; nenhum linter vê.
+#   - o commit que aparece na `main`. O repo faz squash merge, e o título do squash é o
+#     título do PR — que nunca passa por hook local nenhum. Foi assim que `sucont: ...`
+#     (#246, #248) entrou sem tipo. Esse caminho é coberto pelo workflow `commit-lint`.
+if ! bunx --no-install commitlint --edit "$1"; then
+	echo ""
+	echo "Mensagem fora do padrão. Formato: <tipo>(<escopo>): <descrição em inglês>"
+	echo "Ex.: feat(sucont): add the account reconciliation report"
+	echo "Escopos válidos = diretórios de apps/ e packages/ + deps, ci, scripts, root."
+	echo "Prompt interativo: bun run commit"
+	exit 1
+fi
