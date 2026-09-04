@@ -19,6 +19,9 @@ import { checkSnapshotSanity, contentHash, planReconciliation } from "./reconcil
 /** CNPJ raiz do Comando da Aeronáutica — cobre as 200 unidades do órgão. */
 export const COMAER_CNPJ = "00394429000100"
 
+/** Devolvido por `runPcaSync` quando já havia ingestão viva — não é id de sync. */
+export const SYNC_ALREADY_RUNNING = -1
+
 const CHUNK = 500
 
 export interface RunPcaSyncOptions {
@@ -65,12 +68,28 @@ export async function syncPcaYear(supabase: SupabaseClient<any, any>, cnpj: stri
 
 	const { items, skipped } = parsePcaCsv(res.content)
 
-	const { data: knownRows } = await supabase.from("pncp_pca_item").select("id_item_pca, removed_at").eq("cnpj_orgao", cnpj).eq("ano_pca", ano)
+	// PAGINADO de propósito: o PostgREST corta em 1000 linhas por padrão e o acervo tem ~21 mil
+	// por órgão/ano. Um `known` truncado quebraria as duas coisas que dependem dele — a guarda de
+	// completude (comparando contra 1000 em vez do total real) e a própria reconciliação, que
+	// deixaria vivo para sempre tudo o que estivesse além da primeira página.
+	const known: Array<{ idItemPca: string; removed: boolean }> = []
+	for (let from = 0; ; from += CHUNK) {
+		const { data: page, error: knownErr } = await supabase
+			.from("pncp_pca_item")
+			.select("id_item_pca, removed_at")
+			.eq("cnpj_orgao", cnpj)
+			.eq("ano_pca", ano)
+			.order("id_item_pca")
+			.range(from, from + CHUNK - 1)
 
-	const known = (knownRows ?? []).map((r: { id_item_pca: string; removed_at: string | null }) => ({
-		idItemPca: r.id_item_pca,
-		removed: r.removed_at !== null,
-	}))
+		if (knownErr) throw new Error(`Falha ao ler o acervo do PCA ${cnpj}/${ano}: ${knownErr.message}`)
+		if (!page?.length) break
+
+		for (const r of page as Array<{ id_item_pca: string; removed_at: string | null }>) {
+			known.push({ idItemPca: r.id_item_pca, removed: r.removed_at !== null })
+		}
+		if (page.length < CHUNK) break
+	}
 
 	// Guarda de completude: a origem responde `Content-Length: None` (chunked), então arquivo
 	// truncado é indistinguível de arquivo curto. Sem isso, uma conexão cortada marcaria o
@@ -163,7 +182,7 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 
 	if (await hasLiveSync(supabase, PNCP_PCA_SYNC_SOURCE)) {
 		console.log("[pncp-pca] Ingestão já em andamento. Saindo silenciosamente.")
-		return -1
+		return SYNC_ALREADY_RUNNING
 	}
 
 	const { data: logRow, error: logErr } = await supabase
@@ -174,6 +193,10 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 
 	if (logErr || !logRow) throw new Error(`Falha ao criar compras_sync_log: ${logErr?.message}`)
 	const syncId = logRow.id as number
+
+	// Primeiro heartbeat imediato: sem ele `isSyncLive` expira em 15 s, um segundo disparo passa
+	// pelo guard de 409 e a recuperação marca a execução saudável como `instance_died`.
+	await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
 
 	await supabase.from("compras_sync_step").insert(anos.map((ano) => ({ sync_id: syncId, step_name: `pca.${ano}`, status: "pending" })))
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { isFoodClass, PCA_CSV_COLUMNS, PcaCsvError, parseBrDate, parseBrNumber, parsePcaCsv, splitCsvLine } from "./pncp-pca-csv.ts"
+import { isFoodClass, PCA_CSV_COLUMNS, PcaCsvError, parseBrDate, parseBrNumber, parsePcaCsv, splitCsvLine, splitCsvRecords } from "./pncp-pca-csv.ts"
 
 const HEADER = Object.values(PCA_CSV_COLUMNS).join(";")
 
@@ -22,8 +22,28 @@ describe("splitCsvLine", () => {
 		expect(splitCsvLine('a;"diz ""oi""";c')).toEqual(["a", 'diz "oi"', "c"])
 	})
 
+	test("aspas SOLTAS no meio do texto são conteúdo, não delimitador", () => {
+		// O arquivo real traz coisas como `TUBO 5" GALVANIZADO`; tratar isso como abertura de
+		// campo engoliria os separadores seguintes e colaria registros.
+		expect(splitCsvLine('a;TUBO 5" GALVANIZADO;c')).toEqual(["a", 'TUBO 5" GALVANIZADO', "c"])
+	})
+
 	test("campo final vazio é preservado", () => {
 		expect(splitCsvLine("a;b;")).toEqual(["a", "b", ""])
+	})
+})
+
+describe("splitCsvRecords", () => {
+	test("aspas desbalanceadas NÃO engolem as quebras de linha seguintes", () => {
+		// Regressão real: com rastreio ingênuo de aspas, uma polegada solta colou 10 mil
+		// registros num só e o parser devolveu metade do arquivo.
+		const conteudo = 'a;TUBO 5" GALV;c\nd;e;f\ng;h;i'
+
+		expect(splitCsvRecords(conteudo)).toHaveLength(3)
+	})
+
+	test("quebra de linha dentro de campo entre aspas mantém um registro só", () => {
+		expect(splitCsvRecords('a;"linha 1\nlinha 2";c\nd;e;f')).toHaveLength(2)
 	})
 })
 
@@ -110,6 +130,32 @@ describe("parsePcaCsv", () => {
 	test("linha sem id nem UASG é contada como pulada, não gravada", () => {
 		const vazia = ";".repeat(Object.keys(PCA_CSV_COLUMNS).length - 1)
 		const { items, skipped } = parsePcaCsv(`${HEADER}\n${LINHA_REAL}\n${vazia}`)
+
+		expect(items).toHaveLength(1)
+		expect(skipped).toBe(1)
+	})
+
+	test("quebra de linha DENTRO de campo entre aspas não parte o registro", () => {
+		const cols = Object.values(PCA_CSV_COLUMNS)
+		const original = splitCsvLine(LINHA_REAL)
+		const i = cols.indexOf(PCA_CSV_COLUMNS.descricaoItem)
+		original[i] = '"DESCRIÇÃO COM\nQUEBRA DE LINHA"'
+		const linha = original.join(";")
+
+		const { items, skipped } = parsePcaCsv(`${HEADER}\n${linha}`)
+
+		expect(skipped).toBe(0)
+		expect(items).toHaveLength(1)
+		expect(items[0].descricaoItem).toContain("QUEBRA DE LINHA")
+		// o que importa: os campos DEPOIS da descrição não foram perdidos
+		expect(items[0].quantidadeEstimada).toBe(1000)
+		expect(items[0].dataDesejada).toBe("2026-08-04")
+	})
+
+	test("registro com número de colunas errado é pulado, não gravado parcialmente", () => {
+		const truncada = splitCsvLine(LINHA_REAL).slice(0, 5).join(";")
+
+		const { items, skipped } = parsePcaCsv(`${HEADER}\n${LINHA_REAL}\n${truncada}`)
 
 		expect(items).toHaveLength(1)
 		expect(skipped).toBe(1)

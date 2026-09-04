@@ -1,8 +1,9 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
+import { secureCompare } from "../../lib/secure-compare.ts"
 import { hasLiveSync, PNCP_PCA_SYNC_SOURCE } from "../../workers/compras-sync/sync-log.ts"
-import { COMAER_CNPJ, runPcaSync } from "../../workers/pncp-pca-sync/index.ts"
+import { COMAER_CNPJ, runPcaSync, SYNC_ALREADY_RUNNING } from "../../workers/pncp-pca-sync/index.ts"
 
 /**
  * @module pncp-pca-admin
@@ -11,13 +12,6 @@ import { COMAER_CNPJ, runPcaSync } from "../../workers/pncp-pca-sync/index.ts"
  * Espelha `compras-admin.ts`, inclusive o guard por `x-admin-secret`. Toda consulta a
  * `compras_sync_log` filtra por `source` — a tabela é compartilhada com o sync do Compras.gov.
  */
-
-function secureCompare(a: string | undefined, b: string): boolean {
-	if (!a || a.length !== b.length) return false
-	let diff = 0
-	for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-	return diff === 0
-}
 
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
@@ -95,16 +89,23 @@ pncpPcaAdminRoutes
 		const body = c.req.valid("json") ?? {}
 
 		runPcaSync({ triggeredBy: "manual", cnpj: body.cnpj ?? COMAER_CNPJ, anos: body.anos })
-			.then((id) => console.log(`[pncp-pca-admin] Ingestão #${id} concluída`))
+			.then((id) =>
+				id === SYNC_ALREADY_RUNNING
+					? console.log("[pncp-pca-admin] Ingestão abortada: outra já estava viva")
+					: console.log(`[pncp-pca-admin] Ingestão #${id} concluída`)
+			)
 			.catch((err) => console.error("[pncp-pca-admin] Ingestão falhou:", err))
 
 		await new Promise((resolve) => setTimeout(resolve, 200))
 
+		// Só interessa a execução AINDA viva: sem o filtro de status, uma corrida perdida
+		// devolveria o id de um sync manual antigo e já finalizado como se fosse o recém-criado.
 		const { data: latest } = await supabase
 			.from("compras_sync_log")
 			.select("id")
 			.eq("source", PNCP_PCA_SYNC_SOURCE)
 			.eq("triggered_by", "manual")
+			.eq("status", "running")
 			.order("started_at", { ascending: false })
 			.limit(1)
 			.maybeSingle()

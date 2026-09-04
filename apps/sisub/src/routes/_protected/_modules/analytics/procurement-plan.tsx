@@ -81,7 +81,7 @@ function ProcurementPlanPage() {
 				<>
 					{cov ? (
 						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-							<CoverageCard title="Itens de gênero" value={nf.format(data.total)} hint={`${nf.format(cov.total)} nesta página`} />
+							<CoverageCard title="Itens de gênero no exercício" value={nf.format(cov.total)} hint={`${nf.format(data.items.length)} exibidos abaixo`} />
 							<CoverageCard
 								title="Com código CATMAT"
 								value={`${nf.format(cov.comCatmat)}`}

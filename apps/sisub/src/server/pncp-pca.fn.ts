@@ -20,6 +20,10 @@ const COMAER_CNPJ = "00394429000100"
 
 const MAX_LIMIT = 500
 
+/** Páginas de varredura: o PostgREST corta em 1000 linhas por padrão. */
+const SCAN_PAGE = 1000
+const CATALOG_CHUNK = 500
+
 const FetchPcaSchema = z.object({
 	ano: z.number().int().min(2020).max(2100),
 	/** `true` restringe às 6 classes CATMAT de gênero alimentício. */
@@ -93,16 +97,47 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(`Falha ao ler o plano de contratações: ${error.message}`)
 
 		const items = rows ?? []
+
+		// A cobertura descreve o RECORTE INTEIRO, não a página. Uma tela que soma 200 itens ao
+		// lado de um total de 1.300 mente sobre o exercício — e é exatamente o tipo de número
+		// silenciosamente errado que este change existe para não produzir. Paginado porque o
+		// PostgREST corta em 1000.
+		const scope: Array<{ codigo_item: string | null; quantidade_estimada: string | number | null }> = []
+		for (let from = 0; ; from += SCAN_PAGE) {
+			let scan = supabase
+				.from("pncp_pca_item")
+				.select("codigo_item, quantidade_estimada")
+				.eq("cnpj_orgao", COMAER_CNPJ)
+				.eq("ano_pca", data.ano)
+				.is("removed_at", null)
+			if (data.apenasAlimentos) scan = scan.in("codigo_classe", [...PCA_FOOD_CLASS_CODES])
+			if (data.uasg) scan = scan.eq("uasg", data.uasg)
+
+			const { data: page, error: scanErr } = await scan.order("id_item_pca").range(from, from + SCAN_PAGE - 1)
+			if (scanErr) throw new Error(`Falha ao apurar a cobertura do plano: ${scanErr.message}`)
+			if (!page?.length) break
+			scope.push(...page)
+			if (page.length < SCAN_PAGE) break
+		}
+
+		const scopeCodes = [...new Set(scope.map((r) => r.codigo_item).filter((c): c is string => !!c))]
 		const codes = [...new Set(items.map((r) => r.codigo_item).filter((c): c is string => !!c))]
 
 		// Cobertura derivada: um insumo cadastrado depois muda a resposta sem nova ingestão.
 		const catalog = new Map<string, string>()
-		if (codes.length > 0) {
+		const lookup = [...new Set([...codes, ...scopeCodes])]
+		for (let i = 0; i < lookup.length; i += CATALOG_CHUNK) {
 			const { data: matches } = await getProcurementClient()
 				.from("purchase_item")
 				.select("catmat_item_codigo, description")
 				.is("deleted_at", null)
-				.in("catmat_item_codigo", codes.map(Number).filter(Number.isFinite))
+				.in(
+					"catmat_item_codigo",
+					lookup
+						.slice(i, i + CATALOG_CHUNK)
+						.map(Number)
+						.filter(Number.isFinite)
+				)
 			for (const m of matches ?? []) {
 				if (m.catmat_item_codigo != null) catalog.set(String(m.catmat_item_codigo), m.description ?? "")
 			}
@@ -123,18 +158,18 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 			insumo: r.codigo_item ? (catalog.get(r.codigo_item) ?? null) : null,
 		}))
 
-		const comQuantidade = mapped.filter((m) => m.quantidadeEstimada !== null)
+		const comQuantidade = scope.filter((r) => r.quantidade_estimada !== null)
 
 		const coverage: PcaCoverage = {
-			total: mapped.length,
-			comCatmat: mapped.filter((m) => m.codigoItem).length,
-			semCatmat: mapped.filter((m) => !m.codigoItem).length,
+			total: scope.length,
+			comCatmat: scope.filter((r) => r.codigo_item).length,
+			semCatmat: scope.filter((r) => !r.codigo_item).length,
 			comQuantidade: comQuantidade.length,
-			semQuantidade: mapped.length - comQuantidade.length,
-			catmatsDistintos: codes.length,
-			catmatsNoCatalogo: codes.filter((c) => catalog.has(c)).length,
-			quantidadeSomada: comQuantidade.reduce((acc, m) => acc + (m.quantidadeEstimada ?? 0), 0),
-			itensForaDaSoma: mapped.length - comQuantidade.length,
+			semQuantidade: scope.length - comQuantidade.length,
+			catmatsDistintos: scopeCodes.length,
+			catmatsNoCatalogo: scopeCodes.filter((c) => catalog.has(c)).length,
+			quantidadeSomada: comQuantidade.reduce((acc, r) => acc + Number(r.quantidade_estimada ?? 0), 0),
+			itensForaDaSoma: scope.length - comQuantidade.length,
 		}
 
 		const { data: snap } = await supabase
@@ -169,18 +204,29 @@ export const fetchPcaUasgsFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<{ uasgs: PcaUasgRow[]; total: number }> => {
 		await requireAuth()
 
-		const { data: rows, error } = await getComprasGovIntegrationClient()
-			.from("pncp_pca_item")
-			.select("uasg, nome_unidade")
-			.eq("cnpj_orgao", COMAER_CNPJ)
-			.eq("ano_pca", data.ano)
-			.is("removed_at", null)
-			.in("codigo_classe", [...PCA_FOOD_CLASS_CODES])
+		// Paginado: são ~1.300 itens de gênero e o PostgREST corta em 1000. Sem isso, as UASGs
+		// além da primeira página sumiriam justamente da tabela que existe para orientar a
+		// curadoria de `core.units.uasg`.
+		const rows: Array<{ uasg: string; nome_unidade: string | null }> = []
+		for (let from = 0; ; from += SCAN_PAGE) {
+			const { data: page, error } = await getComprasGovIntegrationClient()
+				.from("pncp_pca_item")
+				.select("uasg, nome_unidade")
+				.eq("cnpj_orgao", COMAER_CNPJ)
+				.eq("ano_pca", data.ano)
+				.is("removed_at", null)
+				.in("codigo_classe", [...PCA_FOOD_CLASS_CODES])
+				.order("uasg")
+				.range(from, from + SCAN_PAGE - 1)
 
-		if (error) throw new Error(`Falha ao ler as UASGs do plano: ${error.message}`)
+			if (error) throw new Error(`Falha ao ler as UASGs do plano: ${error.message}`)
+			if (!page?.length) break
+			rows.push(...page)
+			if (page.length < SCAN_PAGE) break
+		}
 
 		const byUasg = new Map<string, { nome: string | null; itens: number }>()
-		for (const r of rows ?? []) {
+		for (const r of rows) {
 			const cur = byUasg.get(r.uasg) ?? { nome: r.nome_unidade, itens: 0 }
 			cur.itens++
 			if (!cur.nome && r.nome_unidade) cur.nome = r.nome_unidade

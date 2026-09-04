@@ -72,35 +72,93 @@ export class PcaCsvError extends Error {
 	}
 }
 
+/**
+ * Divide o arquivo em REGISTROS, respeitando quebra de linha dentro de campo entre aspas.
+ * Partir por `\n` antes de parsear cortaria uma `Descrição do Item` multilinha ao meio e
+ * produziria uma linha que ainda tem id e UASG — gravada com todos os números nulos, e
+ * indistinguível do `0,0000` que a origem usa como ausência.
+ */
+export function splitCsvRecords(content: string, sep = ";"): string[] {
+	const records: string[] = []
+	let current = ""
+	let quoted = false
+	let atFieldStart = true
+
+	for (let i = 0; i < content.length; i++) {
+		const ch = content[i]
+
+		if (ch === '"') {
+			if (quoted) {
+				if (content[i + 1] === '"') {
+					current += '""'
+					i++
+					continue
+				}
+				quoted = false
+			} else if (atFieldStart) {
+				// Aspas só ABREM campo quando ele está começando. O arquivo real traz aspas
+				// desbalanceadas no meio de texto (medidas em polegada, por exemplo); tratá-las
+				// como delimitador engoliria as quebras de linha seguintes e colaria milhares de
+				// registros num só.
+				quoted = true
+			}
+			current += ch
+			atFieldStart = false
+			continue
+		}
+
+		if (!quoted && (ch === "\n" || ch === "\r")) {
+			if (ch === "\r" && content[i + 1] === "\n") i++
+			if (current.trim() !== "") records.push(current)
+			current = ""
+			atFieldStart = true
+			continue
+		}
+
+		current += ch
+		atFieldStart = !quoted && ch === sep
+	}
+	if (current.trim() !== "") records.push(current)
+	return records
+}
+
 /** Divide uma linha de CSV com `;`, respeitando aspas duplas e o escape `""`. */
 export function splitCsvLine(line: string, sep = ";"): string[] {
 	const out: string[] = []
 	let field = ""
 	let quoted = false
+	let atFieldStart = true
 
 	for (let i = 0; i < line.length; i++) {
 		const ch = line[i]
-		if (quoted) {
-			if (ch === '"') {
+
+		if (ch === '"') {
+			if (quoted) {
 				if (line[i + 1] === '"') {
 					field += '"'
 					i++
 				} else {
 					quoted = false
 				}
+			} else if (atFieldStart) {
+				quoted = true
 			} else {
+				// Aspas soltas no meio do texto são conteúdo, não delimitador.
 				field += ch
 			}
+			atFieldStart = false
 			continue
 		}
-		if (ch === '"') {
-			quoted = true
-		} else if (ch === sep) {
+
+		if (!quoted && ch === sep) {
 			out.push(field)
 			field = ""
-		} else {
-			field += ch
+			atFieldStart = true
+			continue
 		}
+
+		field += ch
+		atFieldStart = false
 	}
 	out.push(field)
 	return out
@@ -145,7 +203,7 @@ export interface ParsePcaCsvResult {
  */
 export function parsePcaCsv(content: string): ParsePcaCsvResult {
 	const text = content.replace(/^﻿/, "")
-	const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "")
+	const lines = splitCsvRecords(text)
 
 	if (lines.length === 0) throw new PcaCsvError("CSV do PCA vazio")
 
@@ -170,6 +228,14 @@ export function parsePcaCsv(content: string): ParsePcaCsvResult {
 
 	for (const line of lines.slice(1)) {
 		const cols = splitCsvLine(line)
+
+		// Aridade errada significa registro cortado ou colado — nunca aproveitar parcialmente,
+		// porque o resultado seria valor deslocado de coluna passando por dado válido.
+		if (cols.length !== header.length) {
+			skipped++
+			continue
+		}
+
 		const idItemPca = parseText(at(cols, "idItemPca"))
 		const uasg = parseText(at(cols, "uasg"))
 
