@@ -3,11 +3,19 @@ import { createNutritionAdminRoutes } from "./nutrition-admin.ts"
 
 type Row = Record<string, unknown>
 
+/**
+ * O disparo agora passa por `claimSync`, que recupera execuções mortas antes de inserir — o
+ * fake precisa da cadeia de leitura, não só do `insert`.
+ */
 class FakeSupabase {
 	inserts: Array<{ table: string; row: Row }> = []
 
 	from(table: string) {
-		return {
+		const builder = {
+			select: (_columns?: string) => builder,
+			eq: (_c: string, _v: unknown) => builder,
+			in: (_c: string, _v: unknown[]) => builder,
+			update: (_patch: Row) => builder,
 			insert: (row: Row) => {
 				this.inserts.push({ table, row: { ...row } })
 				return {
@@ -16,7 +24,10 @@ class FakeSupabase {
 					}),
 				}
 			},
+			// biome-ignore lint/suspicious/noThenProperty: o builder do PostgREST é um thenable e o código faz await nele
+			then: (resolve: (r: { data: unknown[]; error: null }) => unknown) => Promise.resolve(resolve({ data: [], error: null })),
 		}
+		return builder
 	}
 }
 
@@ -56,7 +67,11 @@ describe("Admin nutrition sync routes", () => {
 
 		expect(res.status).toBe(202)
 		expect(body).toEqual({ sync_id: 42, message: "Sync iniciada em background" })
-		expect(supabase.inserts).toEqual([{ table: "integration_sync_log", row: { triggered_by: "test", total_steps: 1 } }])
+		expect(supabase.inserts).toHaveLength(1)
+		expect(supabase.inserts[0].table).toBe("integration_sync_log")
+		// `source` é o que impede a execução da nutrição de ocupar a vaga do Compras.gov, e
+		// `triggered_by` precisa chegar como veio — o painel exibe o rótulo `test`.
+		expect(supabase.inserts[0].row).toMatchObject({ triggered_by: "test", total_steps: 1, source: "nutrition_reference", status: "running" })
 		expect(calls).toEqual([{ triggeredBy: "test", syncId: 42, maxSteps: undefined }])
 	})
 
@@ -80,7 +95,7 @@ describe("Admin nutrition sync routes", () => {
 		})
 
 		expect(res.status).toBe(202)
-		expect(supabase.inserts).toEqual([{ table: "integration_sync_log", row: { triggered_by: "test", total_steps: 2 } }])
+		expect(supabase.inserts[0].row).toMatchObject({ triggered_by: "test", total_steps: 2, source: "nutrition_reference" })
 		expect(calls).toEqual([{ triggeredBy: "test", syncId: 42, maxSteps: 2 }])
 	})
 

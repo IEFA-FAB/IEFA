@@ -1,7 +1,7 @@
 import { parsePcaCsv } from "@iefa/sisub-domain/pncp-pca"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { beatSync, claimSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
+import { beatSync, claimSync, finishSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { fetchPcaCsv } from "./client.ts"
 import { dedupeAnos } from "./index-pure.ts"
 import { checkSnapshotSanity, contentHash, planReconciliation } from "./reconcile.ts"
@@ -63,7 +63,11 @@ export async function syncPcaYear(
 	ano: number,
 	beat: () => Promise<void> = async () => {}
 ): Promise<PcaSyncYearResult> {
+	// Bate antes do download: a escada de retentativa do cliente pode passar dos 90 s do
+	// timeout de heartbeat sozinha, e aí um `claimSync` concorrente ceifaria esta execução viva.
+	await beat()
 	const res = await fetchPcaCsv(cnpj, ano)
+	await beat()
 
 	// 204: o órgão não publicou plano nesse ano. Ausência, não erro.
 	if (res.content === null) {
@@ -150,8 +154,13 @@ export async function syncPcaYear(
 		removed_at: null,
 	}))
 
-	for (let i = 0; i < rows.length; i += CHUNK) {
-		const { error } = await supabase.from("pncp_pca_item").upsert(rows.slice(i, i + CHUNK), { onConflict: "cnpj_orgao,ano_pca,id_item_pca" })
+	// Deduplicado por chave natural: um `id_item_pca` repetido no mesmo lote faz o upsert falhar
+	// com 21000 ("ON CONFLICT não pode afetar a linha duas vezes") de forma determinística — o
+	// ano inteiro nunca entraria.
+	const uniqueRows = [...new Map(rows.map((r) => [r.id_item_pca, r])).values()]
+
+	for (let i = 0; i < uniqueRows.length; i += CHUNK) {
+		const { error } = await supabase.from("pncp_pca_item").upsert(uniqueRows.slice(i, i + CHUNK), { onConflict: "cnpj_orgao,ano_pca,id_item_pca" })
 		if (error) throw new Error(`Falha ao gravar itens do PCA ${cnpj}/${ano}: ${error.message}`)
 		await beat()
 	}
@@ -214,7 +223,12 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 	const { error: stepsErr } = await supabase
 		.from("integration_sync_step")
 		.insert(anos.map((ano) => ({ sync_id: syncId, step_name: `pca.${ano}`, status: "pending" })))
-	if (stepsErr) throw new Error(`Falha ao criar os steps do PCA: ${stepsErr.message}`)
+	if (stepsErr) {
+		// Sair de `running` é o que libera a vaga no índice único. Sem isto, a origem fica
+		// bloqueada até a recuperação por heartbeat e o painel reporta execução fantasma.
+		await finishSync(supabase, syncId, { status: "error", errorMessage: `Falha ao criar os steps do PCA: ${stepsErr.message}` })
+		throw new Error(`Falha ao criar os steps do PCA: ${stepsErr.message}`)
+	}
 
 	const heartbeat = () => beatSync(supabase, syncId)
 
@@ -261,17 +275,13 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 		await beatSync(supabase, syncId)
 	}
 
-	await supabase
-		.from("integration_sync_log")
-		.update({
-			status: failed > 0 ? "error" : "success",
-			completed_steps: anos.length,
-			successful_steps: anos.length - failed,
-			failed_steps: failed,
-			total_upserted: upserted,
-			finished_at: new Date().toISOString(),
-		})
-		.eq("id", syncId)
+	await finishSync(supabase, syncId, {
+		status: failed > 0 ? "error" : "success",
+		completedSteps: anos.length,
+		successfulSteps: anos.length - failed,
+		failedSteps: failed,
+		totalUpserted: upserted,
+	})
 
 	return syncId
 }

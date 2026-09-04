@@ -27,7 +27,7 @@ function ProcurementPlanPage() {
 	const currentYear = new Date().getFullYear()
 	const [ano, setAno] = useState(currentYear)
 
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, isError, error } = useQuery({
 		queryKey: ["sisub", "pncp-pca", "items", ano],
 		queryFn: () => fetchPcaItemsFn({ data: { ano, apenasAlimentos: true, limit: 200 } }),
 	})
@@ -66,6 +66,15 @@ function ProcurementPlanPage() {
 
 			{isLoading ? (
 				<Skeleton className="h-64 w-full" />
+			) : isError ? (
+				// Falha de leitura NÃO pode virar "sem plano" — são estados diferentes e um deles
+				// pede reação de quem opera.
+				<Empty>
+					<EmptyHeader>
+						<EmptyTitle>Não foi possível ler o plano</EmptyTitle>
+						<EmptyDescription>{error instanceof Error ? error.message : "Erro desconhecido ao consultar o acervo."}</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
 			) : !data || data.total === 0 ? (
 				<Empty>
 					<EmptyHeader>

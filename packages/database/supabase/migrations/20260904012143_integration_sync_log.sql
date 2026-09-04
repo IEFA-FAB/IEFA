@@ -39,6 +39,16 @@ comment on column compras_gov_integration.integration_sync_log.source is
 
 -- ── 2. Concorrência: uma execução viva por origem, garantida pelo banco ──────
 -- É o coração desta migration. Sem isso, "verifica e insere" é uma corrida.
+--
+-- Antes do índice, normaliza execução presa em `running`: duas linhas assim da mesma origem
+-- fariam a criação do índice falhar e a migration inteira voltar atrás. Elas estão mortas —
+-- nenhum processo sobrevive à janela de heartbeat.
+update compras_gov_integration.integration_sync_log
+   set status = 'error',
+       error_message = coalesce(error_message, 'instance_died (normalizado na consolidação)'),
+       finished_at = coalesce(finished_at, now())
+ where status = 'running';
+
 create unique index if not exists uq_integration_sync_log_one_running_per_source
 	on compras_gov_integration.integration_sync_log (source)
 	where status = 'running';

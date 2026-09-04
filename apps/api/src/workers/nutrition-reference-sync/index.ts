@@ -97,7 +97,7 @@ export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncO
 		// recebe 23505, em vez de duas execuções passarem por um "verifica e insere".
 		const claim = await claimSync(log, {
 			source: SYNC_SOURCES.nutritionReference,
-			triggeredBy: opts.triggeredBy === "cron" ? "cron" : "manual",
+			triggeredBy: opts.triggeredBy,
 			totalSteps: steps.length,
 		})
 		if (!claim.claimed) {
@@ -114,22 +114,19 @@ export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncO
 		.from("integration_sync_step")
 		.insert(steps.map((step) => ({ sync_id: syncId, step_name: step.name, status: "pending" })))
 	if (stepsErr) {
-		await supabase
-			.from("integration_sync_log")
-			.update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() })
-			.eq("id", syncId)
+		await log.from("integration_sync_log").update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() }).eq("id", syncId)
 		throw new Error(`Falha ao criar nutrition_sync_step: ${stepsErr.message}`)
 	}
 
 	for (const step of steps) {
 		if (await isStopRequested(log, syncId)) {
 			console.log(`[nutrition-sync] Stop solicitado — abortando antes do step ${step.name}`)
-			await supabase
+			await log
 				.from("integration_sync_step")
 				.update({ status: "error", error_message: "manually stopped", finished_at: new Date().toISOString() })
 				.eq("sync_id", syncId)
 				.eq("status", "pending")
-			await supabase
+			await log
 				.from("integration_sync_log")
 				.update({ status: "error", error_message: "Parada manualmente pelo usuário", finished_at: new Date().toISOString() })
 				.eq("id", syncId)

@@ -97,7 +97,11 @@ export async function recoverStaleSyncs(supabase: Db, source: SyncSource): Promi
 
 export interface ClaimSyncOptions {
 	source: SyncSource
-	triggeredBy: "cron" | "manual"
+	/**
+	 * Preservado como veio. Não é enum de propósito: a nutrição usa `test` para a execução
+	 * reduzida, e colapsar isso em `manual` apagaria o rótulo que o painel dela exibe.
+	 */
+	triggeredBy: string
 	totalSteps: number
 }
 
