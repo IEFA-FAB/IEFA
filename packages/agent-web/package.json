@@ -9,16 +9,15 @@
   },
   "scripts": {
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "node-html-markdown": "^2.0.0",
-    "node-html-parser": "^9.0.2"
+    "node-html-parser": "^9.0.3"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "typescript": "^7.0.2"
   }
 }
