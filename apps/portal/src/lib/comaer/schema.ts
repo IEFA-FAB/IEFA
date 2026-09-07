@@ -48,7 +48,6 @@ export const DocumentPayloadSchema = z.object({
 	kind: z.string(),
 	scope: z.enum(["interno-om", "comaer", "externo"]),
 	classification: z.enum(["ostensivo", "reservado", "secreto", "ultrassecreto"]),
-	priority: z.enum(["rotina", "urgente"]).optional(),
 	om: z.object({
 		name: z.string(),
 		acronym: z.string().optional(),
@@ -119,8 +118,8 @@ export function fromPayload(payload: unknown): DocumentInput {
  * (posição em array é significativa). Sem isso, a geração morre em erro de schema, que é
  * o que o CLAUDE.md registra como já tendo acontecido no chat do sisub.
  *
- * O modelo decide a FORMA e escreve o TEXTO: espécie, âmbito, destinatários, precedência,
- * vocativo e prioridade saem do próprio rascunho, e são exatamente as escolhas que o
+ * O modelo decide a FORMA e escreve o TEXTO: espécie, âmbito, destinatários, precedência
+ * e vocativo saem do próprio rascunho, e são exatamente as escolhas que o
  * redator ocasional erra — pedir prorrogação por Requerimento em vez de Ofício, ou marcar
  * fecho de cortesia num expediente que circula dentro do COMAER.
  *
@@ -149,7 +148,6 @@ export const AiProposalSchema = z
 	.object({
 		kind: z.string().nullish(),
 		scope: z.enum(["interno-om", "comaer", "externo"]).nullish(),
-		priority: z.enum(["rotina", "urgente"]).nullish(),
 		precedence: z.enum(["superior", "igual", "inferior"]).nullish(),
 		sender: z.object({ position: z.string(), gender: GeneroSchema.nullish() }).nullish(),
 		recipients: z.array(z.object({ position: z.string(), gender: GeneroSchema.nullish(), via: z.string().nullish() })).nullish(),
@@ -193,7 +191,6 @@ export const AiProposalSchema = z
 	.transform((output) => ({
 		kind: output.kind ?? undefined,
 		scope: output.scope ?? undefined,
-		priority: output.priority ?? undefined,
 		precedence: output.precedence ?? undefined,
 		sender: withoutPlaceholder(output.sender?.position)
 			? { position: withoutPlaceholder(output.sender?.position) as string, gender: output.sender?.gender ?? undefined }

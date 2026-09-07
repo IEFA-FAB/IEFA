@@ -5,8 +5,8 @@
  * Módulo separado (sem `createServerFn`, sem client de dados) para poder ser importado
  * por teste sem arrastar `env.server`, que valida credencial na carga do módulo.
  *
- * O schema descreve a FORMA e o TEXTO: espécie, âmbito, partes, precedência, vocativo e
- * prioridade saem do rascunho. Numeração, NUP, OM, localidade, data, ordem do despacho e
+ * O schema descreve a FORMA e o TEXTO: espécie, âmbito, partes, precedência e vocativo
+ * saem do rascunho. Numeração, NUP, OM, localidade, data, ordem do despacho e
  * signatário ficam de fora de propósito — são a identidade do documento e vêm do
  * formulário.
  *
@@ -60,7 +60,6 @@ export const aiProposalJsonSchema = {
 	properties: {
 		kind: { type: "string", enum: DOCUMENT_KINDS.map((e) => e.id), description: "espécie de comunicação oficial adequada ao que o rascunho pede" },
 		scope: { type: "string", enum: ["interno-om", "comaer", "externo"], description: "para onde o documento vai" },
-		priority: { type: "string", enum: ["rotina", "urgente"] },
 		precedence: {
 			type: "string",
 			enum: ["superior", "igual", "inferior"],

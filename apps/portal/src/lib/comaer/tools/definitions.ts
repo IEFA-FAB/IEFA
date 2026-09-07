@@ -53,14 +53,13 @@ export const CHAT_TOOLS: readonly ChatToolDefinition[] = [
 	{
 		name: "set_form",
 		description:
-			"Define a forma do documento: espécie, âmbito, grau de sigilo, prioridade, precedência do destinatário e, no despacho decisório, a decisão. Espécie e âmbito são conciliados pelo catálogo — par impossível é corrigido, não recusado.",
+			"Define a forma do documento: espécie, âmbito, grau de sigilo, precedência do destinatário e, no despacho decisório, a decisão. Espécie e âmbito são conciliados pelo catálogo — par impossível é corrigido, não recusado.",
 		parameters: {
 			type: "object",
 			properties: {
 				kind: nullable("string", { enum: [...DOCUMENT_KINDS.map((k) => k.id), null] }),
 				scope: nullable("string", { enum: ["interno-om", "comaer", "externo", null] }),
 				classification: nullable("string", { enum: ["ostensivo", "reservado", "secreto", "ultrassecreto", null] }),
-				priority: nullable("string", { enum: ["rotina", "urgente", null] }),
 				precedence: nullable("string", { enum: ["superior", "igual", "inferior", null], description: "posição do destinatário em relação ao signatário" }),
 				decision: nullable("string", { enum: ["DEFERIDO", "DEFERIDA", "INDEFERIDO", "INDEFERIDA", "ARQUIVE-SE", null] }),
 			},

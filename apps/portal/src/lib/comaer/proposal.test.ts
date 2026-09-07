@@ -73,7 +73,6 @@ describe("aplicação da proposta do modelo", () => {
 				kind: "oficio-externo",
 				scope: "externo",
 				precedence: "superior",
-				priority: "urgente",
 				recipients: [{ position: "Presidente do Tribunal de Contas da União", gender: "m", via: null }],
 				addressing: { formOfAddress: "excelencia", gender: "m", name: "Fulano de Tal", position: null, addressLines: null },
 				vocativo: "Senhor Presidente,",
@@ -82,7 +81,6 @@ describe("aplicação da proposta do modelo", () => {
 		expect(after.kind).toBe("oficio-externo")
 		expect(after.scope).toBe("externo")
 		expect(after.precedence).toBe("superior")
-		expect(after.priority).toBe("urgente")
 		expect(after.recipients[0].position).toBe("Presidente do Tribunal de Contas da União")
 		expect(after.addressing?.formOfAddress).toBe("excelencia")
 		expect(after.vocativo).toBe("Senhor Presidente,")

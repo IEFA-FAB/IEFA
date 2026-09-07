@@ -31,7 +31,6 @@ export function applyProposal(current: DocumentInput, proposal: AiProposal): Doc
 		...current,
 		kind,
 		scope,
-		priority: proposal.priority ?? current.priority,
 		precedence: proposal.precedence ?? current.precedence,
 		// Campo a campo, como o endereçamento logo abaixo: o `parse` da proposta EMITE a chave
 		// `gender` mesmo ausente, e o espalhamento apagava a concordância já escolhida.

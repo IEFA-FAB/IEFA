@@ -41,7 +41,6 @@ export function newDocument(): DocumentInput {
 		kind: "oficio-comaer",
 		scope: "comaer",
 		classification: "ostensivo",
-		priority: "rotina",
 		om: { name: "", acronym: "", sector: "", address: "", phone: "", email: "" },
 		numbering: { sequence: null, sector: "", organizationNumber: "" },
 		nup: "",

@@ -2,8 +2,9 @@ import { describe, expect, it } from "bun:test"
 import { assembleDocument } from "./assemble"
 import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind, resolveKind } from "./catalog"
 import { newDocument } from "./draft"
-import { copyableFields, toHtml, toPlainText } from "./sigadaer"
-import type { DocumentInput } from "./types"
+import { applyInlineEdit } from "./inline-edit"
+import { sigadaerHandoff, toPlainText } from "./sigadaer"
+import type { BlockId, DocumentInput, EditTarget } from "./types"
 import { seedFromProfile } from "./writer-profile"
 
 function base(over: Partial<DocumentInput> = {}): DocumentInput {
@@ -145,35 +146,221 @@ describe("conferência de conformidade", () => {
 	})
 })
 
-describe("saída para o SIGADAER", () => {
+describe("entrega ao SIGADAER", () => {
 	const doc = assembleDocument(base())
+	const { fields, generated } = sigadaerHandoff(base(), doc)
+	const field = (id: string) => fields.find((c) => c.id === id)
 
-	it("gera HTML sem class, sem style e sem div — o que o sanitizador do editor destruiria", () => {
-		const html = toHtml(doc)
-		expect(html).not.toMatch(/class=|style=|<div/)
-		expect(html).toMatch(/^<p>/)
+	it("não oferece para colar nada que o SIGADAER imprime sozinho", () => {
+		// Timbre, epígrafe, numeração, NUP, preâmbulo e signatário saem do cadastro da UO e
+		// dos campos do formulário. Colá-los na caixa de texto duplicava o cabeçalho DENTRO
+		// do corpo do ofício — foi o motivo de o "copiar documento inteiro" deixar de existir.
+		const texto = field("texto")?.value ?? ""
+		expect(texto).not.toContain("MINISTÉRIO DA DEFESA")
+		expect(texto).not.toContain("Instituto de Economia e Finanças da Aeronáutica")
+		expect(texto).not.toContain("Ofício nº 34/GAB/255")
+		expect(texto).not.toContain("Protocolo COMAER")
+		expect(texto).not.toContain("Do Diretor")
+		expect(texto).not.toContain("FULANO DE TAL")
 	})
 
-	it("mantém a numeração dos parágrafos como texto, não como lista HTML", () => {
-		// `<ol>` deixaria o editor renumerar sozinho, e 1.1 / a) / - não são lista HTML.
-		expect(toHtml(doc)).not.toContain("<ol")
-		expect(toPlainText(doc)).toContain("1. Trata-se de alteração de período de férias.")
+	it("lista o que o SIGADAER preenche, para conferência", () => {
+		expect(generated.map((b) => b.id)).toContain("epigrafe")
+		expect(generated.find((b) => b.id === "numeracao")?.value).toBe("Ofício nº 34/GAB/255\nBrasília, 3 de julho de 2026.")
 	})
 
-	it("escapa marcação vinda do texto do usuário", () => {
-		const comHtml = assembleDocument(base({ paragraphs: [{ text: "Referente ao item <b>2</b> & anexo" }] }))
-		expect(toHtml(comHtml)).toContain("&lt;b&gt;2&lt;/b&gt; &amp; anexo")
+	it("manda o assunto cru para o campo próprio, sem rótulo e sem ponto final", () => {
+		// O SIGADAER imprime o "Assunto:" e o art. 37 § 2º, II quer a ementa sem ponto.
+		expect(field("assunto")?.value).toBe("Alteração de período de férias")
+		expect(field("assunto")?.maxLength).toBe(255)
 	})
 
-	it("oferece cada bloco como campo copiável, na ordem do documento", () => {
-		const fields = copyableFields(doc)
-		expect(fields.map((c) => c.id)).toEqual(doc.blocks.map((b) => b.id))
-		expect(fields.every((c) => c.text.length > 0 && c.html.length > 0)).toBe(true)
+	it("separa o artigo do cargo, porque no formulário são campos diferentes", () => {
+		const feminino = base({
+			sender: { position: "Chefe da Seção de Pesquisa e Inovação", gender: "f" },
+			recipients: [{ position: "Diretora-Geral", gender: "f" }],
+		})
+		const partes = sigadaerHandoff(feminino, assembleDocument(feminino)).fields
+		expect(partes.find((c) => c.id === "remetente-artigo")?.value).toBe("Da")
+		expect(partes.find((c) => c.id === "remetente-artigo")?.choice).toBe(true)
+		expect(partes.find((c) => c.id === "remetente-cargo")?.value).toBe("Chefe da Seção de Pesquisa e Inovação")
+		expect(partes.find((c) => c.id === "destinatario-artigo-0")?.value).toBe("À")
+		expect(partes.find((c) => c.id === "destinatario-cargo-0")?.value).toBe("Diretora-Geral")
 	})
 
-	it("desce a localidade e a data para a linha seguinte no texto puro", () => {
-		const numbering = copyableFields(doc).find((c) => c.id === "numeracao")
-		expect(numbering?.text).toBe("Ofício nº 34/GAB/255\nBrasília, 3 de julho de 2026.")
+	it("leva o “via” junto do cargo do destinatário — o formulário não tem campo para ele", () => {
+		const comVia = base({ recipients: [{ position: "Comandante-Geral do Pessoal", via: "Diretor de Administração do Pessoal" }] })
+		const partes = sigadaerHandoff(comVia, assembleDocument(comVia)).fields
+		expect(partes.find((c) => c.id === "destinatario-cargo-0")?.value).toBe("Comandante-Geral do Pessoal, via Diretor de Administração do Pessoal")
+	})
+
+	it("escapa a numeração do art. 39 para o editor Markdown não renumerar sozinho", () => {
+		// A caixa de texto do SIGADAER é um textarea com editor Markdown: "1. " vira lista
+		// ordenada e "- " vira marcador, e o sistema passa a numerar por conta própria.
+		const comDivisoes = base({
+			paragraphs: [
+				{ text: "Primeiro.", items: [{ text: "Item.", alineas: [{ text: "Alínea.", subalineas: [{ text: "Subalínea." }] }] }] },
+				{ text: "Segundo." },
+			],
+		})
+		const texto = sigadaerHandoff(comDivisoes, assembleDocument(comDivisoes)).fields.find((c) => c.id === "texto")?.value ?? ""
+		expect(texto).toContain("1\\. Primeiro.")
+		expect(texto).toContain("\\- Subalínea.")
+		// "1.1" e "a)" não são marcadores de lista no Markdown: escapar ali só sujaria o texto.
+		expect(texto).toContain("1.1 Item.")
+		expect(texto).toContain("a) Alínea.")
+	})
+
+	it("desmonta o “No Imp”: o SIGADAER tem campo separado e o monta sozinho", () => {
+		// Mandar a forma já montada da folha (art. 40 § 7º) escreveria "No Imp" duas vezes.
+		const comImpedimento = base({ signer: { ...base().signer, noImp: { name: "Sicrano de Tal", rank: "TCel", quadro: "Int" } } })
+		const partes = sigadaerHandoff(comImpedimento, assembleDocument(comImpedimento)).fields
+		expect(partes.find((c) => c.id === "signatario")?.value).not.toContain("No Imp")
+		expect(partes.find((c) => c.id === "signatario")?.value).toContain("FULANO DE TAL")
+		expect(partes.find((c) => c.id === "signatario-impedimento")?.value).toBe("SICRANO DE TAL TCel Int")
+	})
+
+	it("manda a data sem o ordinal, que o campo do SIGADAER lê de volta como data", () => {
+		const primeiroDia = base({ date: new Date(2026, 6, 1) })
+		expect(sigadaerHandoff(primeiroDia, assembleDocument(primeiroDia)).fields.find((c) => c.id === "data")?.value).toBe("1 de julho de 2026")
+		// Na folha o ordinal continua, porque é o que o art. 12 § 4º manda imprimir.
+		expect(toPlainText(assembleDocument(primeiroDia))).toContain("1º de julho de 2026")
+	})
+})
+
+describe("contato da OM", () => {
+	const externo = () =>
+		base({
+			kind: "oficio-externo",
+			scope: "externo",
+			om: { name: "IEFA", acronym: "IEFA", address: "Av. Marechal Câmara, 233", phone: "(21) 2101-4000", email: "iefa@fab.mil.br" },
+			sender: undefined,
+			recipients: [],
+			addressing: { formOfAddress: "senhoria", gender: "m", name: "Beltrano de Tal" },
+		})
+
+	it("imprime endereço, telefone e e-mail UMA vez, no rodapé", () => {
+		// Estava sob a epígrafe E no rodapé: a mesma linha, duas vezes na mesma folha, a
+		// segunda logo acima da linha de numeração.
+		const doc = assembleDocument(externo())
+		const contato = "Av. Marechal Câmara, 233 - (21) 2101-4000 - iefa@fab.mil.br"
+		expect(doc.blocks.filter((b) => b.lines.some((l) => l.text === contato)).map((b) => b.id)).toEqual(["rodape-om"])
+	})
+
+	it("viaja no campo Texto: o SIGADAER não tem campo de contato nem o imprime", () => {
+		// É acréscimo desta ferramenta. Listá-lo como "o sistema preenche" prometia uma linha
+		// que nunca sairia no papel.
+		const documento = externo()
+		const { fields, generated } = sigadaerHandoff(documento, assembleDocument(documento))
+		expect(generated.map((b) => b.id)).not.toContain("rodape-om")
+		expect(fields.find((c) => c.id === "texto")?.value).toContain("Av. Marechal Câmara, 233 - (21) 2101-4000 - iefa@fab.mil.br")
+		expect(fields.find((c) => c.id === "texto")?.hint).toContain("contato da OM")
+	})
+})
+
+describe("partes na entrega ao SIGADAER", () => {
+	it("no ofício de interesse particular manda a pessoa, e o signatário sem cargo (art. 51 § 7º)", () => {
+		// O que se digita no SIGADAER tem de ser o que se conferiu na folha: a entrega ignorava
+		// a espécie e mandava o cargo que a norma omite, mais um remetente diferente do impresso.
+		const particular = base({ kind: "oficio-particular", numbering: { sequence: null } })
+		const doc = assembleDocument(particular)
+		const { fields } = sigadaerHandoff(particular, doc)
+		expect(fields.find((c) => c.id === "remetente-cargo")?.value).toBe("Cel Int FULANO DE TAL")
+		expect(doc.blocks.find((b) => b.id === "preambulo")?.lines[0].text).toBe("Do Cel Int FULANO DE TAL")
+		expect(fields.find((c) => c.id === "signatario")?.value).toBe("FULANO DE TAL Cel Int")
+		expect(
+			doc.blocks
+				.find((b) => b.id === "signatario")
+				?.lines.map((l) => l.text)
+				.join("\n")
+		).toBe("FULANO DE TAL Cel Int")
+	})
+
+	it("no ofício externo tira o destinatário do endereçamento, que é onde ele mora", () => {
+		// Essas espécies não têm preâmbulo e o formulário nem coleta `recipients`: sem a queda,
+		// o painel não oferecia destinatário nenhum justamente no expediente que sai do COMAER.
+		const externo = base({
+			kind: "oficio-externo",
+			scope: "externo",
+			sender: undefined,
+			recipients: [],
+			addressing: { formOfAddress: "excelencia", gender: "f", name: "Fulana de Tal", position: "Juíza Federal da 10ª Vara" },
+		})
+		const { fields } = sigadaerHandoff(externo, assembleDocument(externo))
+		expect(fields.find((c) => c.id === "destinatario-cargo-0")?.value).toBe("Juíza Federal da 10ª Vara")
+		expect(fields.find((c) => c.id === "destinatario-artigo-0")?.value).toBe("À")
+		// Sem cargo no preâmbulo, o remetente cai para o cargo do signatário.
+		expect(fields.find((c) => c.id === "remetente-cargo")?.value).toBe("Diretor")
+	})
+})
+
+describe("achados de conferência", () => {
+	it("acusa número no ofício de interesse particular (art. 51 § 6º)", () => {
+		// O aviso inverso — falta de sequencial — já existia e ISENTA esta espécie. Numerar
+		// aqui não era conferido por ninguém, e o expediente pessoal saía ocupando número da
+		// série da OM, contra o nome da própria espécie ("s/nº").
+		const doc = assembleDocument(base({ kind: "oficio-particular", scope: "comaer", numbering: { sequence: 5, sector: "GAB" } }))
+		const achado = doc.warnings.find((w) => w.text.includes("não recebe número"))
+		expect(achado?.severity).toBe("nonCompliant")
+		expect(achado?.block).toBe("numeracao")
+		// Sem número, nada a acusar.
+		const semNumero = assembleDocument(base({ kind: "oficio-particular", scope: "comaer", numbering: { sequence: null } }))
+		expect(semNumero.warnings.map((w) => w.text).join(" ")).not.toContain("não recebe número")
+	})
+
+	it("acusa assunto acima do que o campo do SIGADAER aceita", () => {
+		// O campo tem maxlength 255 e trunca sem avisar: a ementa chegava cortada ao protocolo.
+		const longo = assembleDocument(base({ subject: "a".repeat(256) }))
+		const achado = longo.warnings.find((w) => w.text.includes("caracteres e o campo do SIGADAER"))
+		expect(achado?.severity).toBe("nonCompliant")
+		expect(
+			assembleDocument(base({ subject: "a".repeat(255) }))
+				.warnings.map((w) => w.text)
+				.join(" ")
+		).not.toContain("campo do SIGADAER")
+	})
+
+	it("ancora a falta de localidade no bloco que de fato carrega a data", () => {
+		// A linha de localidade e data pega carona em blocos diferentes conforme a espécie —
+		// e, no requerimento, conforme o NUP já estar preenchido ou não.
+		const porEspecie: [Partial<DocumentInput>, BlockId][] = [
+			[{}, "numeracao"],
+			[{ kind: "certidao", paragraphs: [{ text: "Certifico, para fins de prova." }] }, "localidade-data"],
+			[{ kind: "requerimento" }, "nup"],
+			[{ kind: "requerimento", nup: undefined }, "localidade-data"],
+		]
+		for (const [over, esperado] of porEspecie) {
+			const doc = assembleDocument(base({ city: "", ...over }))
+			expect(doc.warnings.find((w) => w.text.includes("Falta a localidade"))?.block, esperado).toBe(esperado)
+		}
+	})
+})
+
+describe("referências e anexos com entrada em branco", () => {
+	/**
+	 * O formulário acrescenta item vazio e a pessoa preenche o seguinte. A linha impressa
+	 * renumera (pula o vazio), mas a edição na folha tem de voltar à posição ORIGINAL —
+	 * antes ela gravava no vazio: a linha visível não mudava e nascia uma referência
+	 * invisível no documento.
+	 */
+	it("edita a posição de origem, não a posição impressa", () => {
+		const doc = assembleDocument(base({ references: ["", "Ofício nº 136/DP/1288"], annexes: ["", "", "Três folhas de alterações"] }))
+		const ementa = doc.blocks.find((b) => b.id === "ementa")
+		const referencia = ementa?.lines.find((l) => l.text.startsWith("Referência:"))
+		expect(referencia?.text).toBe("Referência: 1. Ofício nº 136/DP/1288.")
+		expect(referencia?.edit).toEqual({ target: { field: "reference", index: 1 }, value: "Ofício nº 136/DP/1288" })
+		const anexo = ementa?.lines.find((l) => l.text.startsWith("Anexo:"))
+		expect(anexo?.text).toBe("Anexo: A. Três folhas de alterações.")
+		expect(anexo?.edit).toEqual({ target: { field: "annex", index: 2 }, value: "Três folhas de alterações" })
+	})
+
+	it("aplicada de volta, a edição altera a entrada certa", () => {
+		const documento = base({ references: ["", "Ofício nº 136/DP/1288"] })
+		const linha = assembleDocument(documento)
+			.blocks.find((b) => b.id === "ementa")
+			?.lines.find((l) => l.text.startsWith("Referência:"))
+		const depois = applyInlineEdit(documento, linha?.edit?.target as EditTarget, "Ofício nº 9/GAB/1")
+		expect(depois.references).toEqual(["", "Ofício nº 9/GAB/1"])
 	})
 })
 

@@ -5,7 +5,17 @@
  */
 
 import { isGeneralOfficer, quadroInFull, rankInFull } from "./ranks"
-import type { Addressing, Classification, Line, Numbering, Paragraph, Party, Precedence, Scope, Signer } from "./types"
+import type { Addressing, Classification, Line, MilitaryUnit, Numbering, Paragraph, Party, Precedence, Scope, Signer } from "./types"
+
+/**
+ * Endereço, telefone e e-mail da OM numa linha.
+ *
+ * Existe em um lugar só porque a composição estava duplicada, e a duplicação virou o
+ * defeito: o ofício externo imprimia a mesma linha sob a epígrafe E no rodapé.
+ */
+export function omContactLine(om: MilitaryUnit): string {
+	return [om.address, om.phone, om.email].filter(Boolean).join(" - ")
+}
 
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"] as const
 
@@ -94,16 +104,38 @@ export function annexLetter(index: number): string {
 	return letra(Math.floor(index / 26) - 1) + letra(index % 26)
 }
 
+export interface EnumerationEntry {
+	/** Linha pronta, com marcador e pontuação. */
+	text: string
+	/** Texto cru, como está no documento — é o que a edição na folha abre. */
+	value: string
+	/**
+	 * Posição no array ORIGINAL.
+	 *
+	 * Entrada em branco não vira linha, então a posição impressa e a posição guardada
+	 * divergem assim que a pessoa acrescenta um campo e preenche o seguinte. Sem carregar a
+	 * origem, editar a referência visível gravava na entrada vazia: a linha não mudava e
+	 * nascia uma referência invisível no documento.
+	 */
+	sourceIndex: number
+}
+
 /**
  * Art. 37 § 2º, III e V — itens de referência e de anexo: ponto e vírgula em todos,
  * "; e" no penúltimo, ponto final no último.
  */
-export function formatEnumeration(items: string[], marker: (index: number) => string): string[] {
-	const cleaned = items.map((t) => t.trim().replace(/[;.]+$/, "")).filter((t) => t.length > 0)
-	return cleaned.map((text, i) => {
-		const ending = i === cleaned.length - 1 ? "." : i === cleaned.length - 2 ? "; e" : ";"
-		return `${marker(i)} ${text}${ending}`
+export function enumerationEntries(items: string[], marker: (index: number) => string): EnumerationEntry[] {
+	const kept = items
+		.map((raw, sourceIndex) => ({ value: raw, cleaned: raw.trim().replace(/[;.]+$/, ""), sourceIndex }))
+		.filter((entry) => entry.cleaned.length > 0)
+	return kept.map((entry, i) => {
+		const ending = i === kept.length - 1 ? "." : i === kept.length - 2 ? "; e" : ";"
+		return { text: `${marker(i)} ${entry.cleaned}${ending}`, value: entry.value, sourceIndex: entry.sourceIndex }
 	})
+}
+
+export function formatEnumeration(items: string[], marker: (index: number) => string): string[] {
+	return enumerationEntries(items, marker).map((entry) => entry.text)
 }
 
 /**
@@ -156,6 +188,25 @@ export function defaultVocativo(e: Addressing | undefined): string {
 	if (!e) return "Senhor,"
 	const pronome = e.gender === "f" ? "Senhora" : "Senhor"
 	return e.position ? `${pronome} ${e.position},` : `${pronome},`
+}
+
+/**
+ * Art. 51 § 7º, c — no ofício de interesse particular quem envia é a PESSOA, identificada
+ * pelo nome, e não o cargo: é o que separa o expediente pessoal do institucional.
+ */
+export function privateInterestSender(s: Signer): string {
+	return [s.rank, s.quadro, s.name.toUpperCase()].filter(Boolean).join(" ")
+}
+
+/**
+ * Art. 51 § 7º, d — o ofício de interesse particular omite cargo e função do signatário.
+ *
+ * Mora aqui, e não dentro da montagem da folha, porque a entrega ao SIGADAER precisa da
+ * MESMA regra: sem ela, o campo "Signatário" do formulário levava o cargo que a norma
+ * manda omitir, e o que se digitava no sistema não era o que se conferiu na tela.
+ */
+export function signerForKind(signer: Signer, privateInterest: boolean): Signer {
+	return privateInterest ? { ...signer, position: undefined, om: undefined } : signer
 }
 
 /**
