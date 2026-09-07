@@ -62,7 +62,7 @@ describe("contrato das tools", () => {
 
 	it("toda tool aceita chamada com os opcionais em null", () => {
 		// Modelo não omite campo opcional: manda `null`. A poda transforma isso em ausência.
-		const args = dropModelNulls({ kind: null, scope: null, classification: null, priority: null, precedence: null, decision: null })
+		const args = dropModelNulls({ kind: null, scope: null, classification: null, precedence: null, decision: null })
 		expect(args).toEqual({})
 		const { document } = applyPatch(base(), "set_form", args)
 		expect(document.kind).toBe("oficio-comaer")

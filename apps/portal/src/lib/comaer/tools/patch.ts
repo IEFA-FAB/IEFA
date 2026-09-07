@@ -78,7 +78,6 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 				kind,
 				scope,
 				classification: (args.classification as DocumentInput["classification"]) ?? document.classification,
-				priority: (args.priority as DocumentInput["priority"]) ?? document.priority,
 				precedence: (args.precedence as DocumentInput["precedence"]) ?? document.precedence,
 				decision: (args.decision as DocumentInput["decision"]) ?? document.decision,
 			}

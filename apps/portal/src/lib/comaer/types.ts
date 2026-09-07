@@ -14,9 +14,6 @@ export type Scope = "interno-om" | "comaer" | "externo"
 /** Art. 7º § 2º — natureza do assunto. Governa o prefixo da numeração (art. 31 § 2º). */
 export type Classification = "ostensivo" | "reservado" | "secreto" | "ultrassecreto"
 
-/** Art. 7º § 3º. */
-export type Priority = "rotina" | "urgente"
-
 /** Art. 30 — decide entre "Respeitosamente" e "Atenciosamente". */
 export type Precedence = "superior" | "igual" | "inferior"
 
@@ -102,7 +99,6 @@ export interface DocumentInput {
 	kind: string
 	scope: Scope
 	classification: Classification
-	priority?: Priority
 	om: MilitaryUnit
 	numbering: Numbering
 	/** Protocolo COMAER / NUP — só dígitos ou já mascarado. */

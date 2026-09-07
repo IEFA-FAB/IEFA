@@ -390,7 +390,7 @@ export function DocumentEditor({
 					{/* `tabIndex={-1}`: sem ele o link do cabeçalho rola a página e deixa o foco lá em cima,
 					    e o Tab seguinte devolve quem usa teclado ao começo. */}
 					<div id="conferencia" tabIndex={-1} className="scroll-mt-24 outline-hidden focus-visible:outline-2 focus-visible:outline-ring">
-						<ExportPanel doc={doc} />
+						<ExportPanel input={input} doc={doc} />
 					</div>
 				</div>
 

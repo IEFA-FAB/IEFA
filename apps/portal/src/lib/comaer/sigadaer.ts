@@ -1,22 +1,45 @@
 /**
  * @module comaer/sigadaer
- * Saída para a área de transferência — o caminho principal desta ferramenta.
+ * Entrega do documento ao SIGADAER — o caminho principal desta ferramenta.
  *
- * O documento não termina em papel: ele é colado no SIGADAER. Por isso a exportação segue
- * três decisões:
+ * O documento não termina em papel: ele é digitado no SIGADAER, e o SIGADAER **não é uma
+ * folha em branco**. A tela "Editor" da versão 7.14 é um formulário com campos próprios
+ * (`examples/sigadaer pages`), e o sistema monta sozinho o cabeçalho do expediente a
+ * partir deles e do cadastro da UO. Daí as decisões deste módulo:
  *
- * 1. **HTML mínimo e semântico** — só `<p>` e `<strong>`, sem `class`, sem `style`, sem
- *    `<div>`. Editor de sistema legado sanitiza o que não conhece, e HTML com atributo de
- *    layout costuma voltar com parágrafo colapsado ou fonte presa. O que sobra depois da
- *    sanitização tem que continuar sendo o documento.
- * 2. **A numeração é TEXTO, não `<ol>`** — os marcadores da norma (1., 1.1, a), -) não são
- *    lista HTML, e um editor com lista automática renumeraria por conta própria, quebrando
- *    a correspondência entre o que se conferiu na tela e o que foi despachado.
- * 3. **Cópia por campo, não só do documento inteiro** — o SIGADAER tem formulário com
- *    campos separados; copiar tudo obrigaria a recortar assunto e destinatário à mão.
+ * 1. **A unidade de cópia é o CAMPO DO SIGADAER, não o bloco do documento.** Copiar o
+ *    documento inteiro colava timbre, epígrafe, numeração, preâmbulo e signatário DENTRO
+ *    da caixa de texto — tudo isso o SIGADAER já imprime, e o resultado era o cabeçalho
+ *    duplicado no meio do corpo do ofício.
+ * 2. **O que o SIGADAER gera fica visível, sem botão.** Sumir com a epígrafe da lista
+ *    faria a pessoa procurar onde colá-la; listada como "o sistema preenche" ela vira
+ *    conferência — é o valor que tem de bater com o cadastro da UO.
+ * 3. **Texto puro com escape de Markdown, não HTML.** A caixa de texto é um
+ *    `<textarea>` com editor Markdown (`MarkdownEditor-…` no HTML salvo), não um editor
+ *    rico: HTML colado ali aparece como marcação crua. E é justamente em Markdown que
+ *    `1. ` e `- ` no início da linha viram lista automática — que é como a numeração de
+ *    parágrafo da norma (art. 39) seria renumerada pelo próprio sistema, quebrando a
+ *    correspondência entre o que se conferiu na tela e o que foi despachado.
  */
 
-import type { AssembledBlock, AssembledDocument, Line } from "./types"
+import { dateInFull, signerIdentification } from "./format"
+import type { AssembledBlock, AssembledDocument, BlockId, DocumentInput, Line } from "./types"
+
+/**
+ * Blocos que o SIGADAER imprime por conta própria.
+ *
+ * Timbre e epígrafe saem do cadastro da UO; numeração, NUP e a linha de localidade e data
+ * são atribuídas no protocolo; preâmbulo e signatário são montados dos campos "Do/Da",
+ * "Ao/À" e "Signatário". Nenhum deles se cola: colar é duplicar.
+ *
+ * `rodape-om` NÃO está aqui, e a ausência é o ponto: o SIGADAER não imprime contato da OM
+ * em lugar nenhum — o rodapé com endereço, telefone e e-mail é acréscimo desta ferramenta.
+ * Ou ele viaja no campo "Texto", ou não chega ao papel.
+ */
+const GENERATED_BY_SIGADAER: readonly BlockId[] = ["timbre", "epigrafe", "numeracao", "nup", "localidade-data", "preambulo", "signatario"]
+
+/** `maxlength` do campo "Assunto / Título do documento" no formulário. */
+export const SUBJECT_MAX_LENGTH = 255
 
 function plainLine(l: Line): string {
 	// Alinhamento à direita não existe em texto puro: a localidade e a data descem para a
@@ -32,58 +55,160 @@ export function toPlainText(doc: AssembledDocument): string {
 	return doc.blocks.map(blockToPlainText).join("\n\n")
 }
 
-function escapeHtml(text: string): string {
-	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+/**
+ * Neutraliza o que o Markdown leria como ESTRUTURA no início da linha.
+ *
+ * Só o começo da linha, e só o que muda a forma do documento: `1. ` vira lista ordenada e
+ * o editor renumera sozinho; `- ` vira marcador e come a subalínea do art. 39; `#` e `>`
+ * viram título e citação. O item "1.1 " não é atingido de propósito — o Markdown exige
+ * espaço logo após o ponto, e escapar ali sujaria a numeração à toa.
+ *
+ * Ênfase no MEIO da linha (`*`, `_`) fica intocada: documento oficial quase não os usa, e
+ * escapar tudo devolveria contra-barra no texto que a pessoa digitou.
+ */
+export function escapeMarkdownStructure(line: string): string {
+	return line.replace(/^(\s*)(\d+)([.)])(\s)/, "$1$2\\$3$4").replace(/^(\s*)([-+*>#])(\s)/, "$1\\$2$3")
 }
 
-function htmlLine(l: Line): string {
-	const body = escapeHtml(l.text)
-	const marcado = l.bold ? `<strong>${body}</strong>` : body
-	return l.rightOnSameLine ? `<p>${marcado}<br>${escapeHtml(l.rightOnSameLine)}</p>` : `<p>${marcado}</p>`
-}
-
-export function blockToHtml(bloco: AssembledBlock): string {
-	return bloco.lines.map(htmlLine).join("")
-}
-
-export function toHtml(doc: AssembledDocument): string {
-	return doc.blocks.map(blockToHtml).join("")
-}
-
-export interface CopyableField {
-	id: string
-	label: string
-	text: string
-	html: string
-}
-
-/** Campos individuais, na ordem do documento, para colar um a um no formulário. */
-export function copyableFields(doc: AssembledDocument): CopyableField[] {
-	return doc.blocks.map((bloco) => ({
-		id: bloco.id,
-		label: bloco.label,
-		text: blockToPlainText(bloco),
-		html: blockToHtml(bloco),
-	}))
+function blockToMarkdown(bloco: AssembledBlock): string {
+	return bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))).join("\n")
 }
 
 /**
- * Escreve os dois sabores na área de transferência.
+ * Os blocos que sobram para a caixa de texto, na ordem do documento.
  *
- * `text/html` para o editor rico e `text/plain` para o campo que for textarea: quem decide
- * qual usar é o destino da colagem, não nós. Sem o `text/plain` junto, colar num campo
- * simples entrega a marcação crua; sem o `text/html`, o editor rico perde o negrito do
- * assunto. O `writeText` fica como reserva para navegador sem `ClipboardItem`.
+ * A ementa entra pela metade: o assunto tem campo próprio no formulário e o SIGADAER
+ * imprime o rótulo "Assunto:"; referência e anexo não têm campo nenhum, e só chegam ao
+ * papel se forem digitados aqui.
  */
-export async function copyDocument({ text, html }: { text: string; html: string }): Promise<void> {
-	if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-		await navigator.clipboard.write([
-			new ClipboardItem({
-				"text/html": new Blob([html], { type: "text/html" }),
-				"text/plain": new Blob([text], { type: "text/plain" }),
-			}),
-		])
-		return
+function bodyBlocks(doc: AssembledDocument): AssembledBlock[] {
+	return doc.blocks.flatMap((bloco) => {
+		if (GENERATED_BY_SIGADAER.includes(bloco.id)) return []
+		if (bloco.id !== "ementa") return [bloco]
+		const semAssunto = bloco.lines.filter((l) => l.edit?.target.field !== "subject")
+		return semAssunto.length > 0 ? [{ ...bloco, lines: semAssunto }] : []
+	})
+}
+
+export interface SigadaerField {
+	id: string
+	/** Rótulo como está escrito no formulário do SIGADAER. */
+	label: string
+	value: string
+	/** Campo de escolha: o valor é a opção a marcar, não texto a colar. */
+	choice?: boolean
+	/** Acima disso o SIGADAER trunca em silêncio. */
+	maxLength?: number
+	hint?: string
+}
+
+export interface SigadaerGenerated {
+	id: BlockId
+	label: string
+	value: string
+}
+
+export interface SigadaerHandoff {
+	fields: SigadaerField[]
+	/** Só para conferir com o que o SIGADAER imprimir — nada aqui se cola. */
+	generated: SigadaerGenerated[]
+}
+
+/**
+ * A data como o campo do SIGADAER a espera.
+ *
+ * O `<input>` tem `ngbdatepicker` e placeholder "&lt;dd&gt; de &lt;mês por extenso&gt; de
+ * &lt;AAAA&gt;": é lido de volta como data. O ordinal do primeiro dia (art. 12 § 4º) é da
+ * NOSSA folha, e o SIGADAER escreve a própria linha de localidade e data — mandar "1º" ali
+ * arrisca o dia 1 de cada mês não ser reconhecido.
+ */
+function dateForSigadaer(date: Date): string {
+	return dateInFull(date).replace(/^1º /, "1 ")
+}
+
+/** O que digitar em cada campo do formulário, na ordem em que a tela os apresenta. */
+export function sigadaerHandoff(input: DocumentInput, doc: AssembledDocument): SigadaerHandoff {
+	const fields: SigadaerField[] = []
+
+	fields.push({
+		id: "assunto",
+		label: "Assunto / Título do documento",
+		// Sem o rótulo "Assunto: " e sem o ponto final que a folha acrescenta: o SIGADAER
+		// imprime o rótulo, e o art. 37 § 2º, II quer o assunto sem ponto.
+		value: (input.subject ?? "").trim().replace(/\.$/, ""),
+		maxLength: SUBJECT_MAX_LENGTH,
+	})
+
+	fields.push({ id: "data", label: "Data", value: dateForSigadaer(input.date) })
+
+	const senderPosition = input.sender?.position.trim() ?? ""
+	fields.push({
+		id: "remetente-artigo",
+		label: "Do / Da",
+		value: input.sender?.gender === "f" ? "Da" : "Do",
+		choice: true,
+	})
+	fields.push({ id: "remetente-cargo", label: "Cargo ou função do remetente", value: senderPosition })
+
+	const recipients = input.recipients.filter((d) => d.position.trim() !== "")
+	const several = recipients.length > 1
+	recipients.forEach((d, i) => {
+		const ordinal = several ? ` ${i + 1}` : ""
+		fields.push({
+			id: `destinatario-artigo-${i}`,
+			label: `Ao / À${ordinal}`,
+			value: d.gender === "f" ? "À" : "Ao",
+			choice: true,
+			hint: several ? 'Use o botão "+" do formulário para abrir o destinatário seguinte.' : undefined,
+		})
+		fields.push({
+			id: `destinatario-cargo-${i}`,
+			label: `Cargo ou função do destinatário${ordinal}`,
+			// O formulário não tem campo para a autoridade intermediária: o "via" do art. 36,
+			// parágrafo único, III só existe no papel se for digitado junto do cargo.
+			value: d.via?.trim() ? `${d.position}, via ${d.via}` : d.position,
+		})
+	})
+
+	const body = bodyBlocks(doc)
+	fields.push({
+		id: "texto",
+		label: "Texto",
+		value: body.map(blockToMarkdown).join("\n\n"),
+		hint: body.some((b) => b.id === "rodape-om")
+			? // O SIGADAER imprime o signatário DEPOIS da caixa de texto, então o contato que vai
+				// junto do texto sai acima da assinatura, e não abaixo dela como na folha.
+				"Caixa em Markdown: a numeração vai escapada para o editor não renumerar sozinho. O contato da OM vai no fim do texto — o SIGADAER não tem campo para ele e imprime a assinatura depois."
+			: "Caixa em Markdown: a numeração vai escapada para o editor não renumerar sozinho.",
+	})
+
+	// O SIGADAER tem campo separado para o impedimento e monta o "No Imp" sozinho: mandar a
+	// forma já montada da folha (art. 40 § 7º) escreveria "No Imp" duas vezes.
+	fields.push({
+		id: "signatario",
+		label: "Signatário",
+		value: signerIdentification({ ...input.signer, noImp: undefined }, input.scope).join("\n"),
+	})
+	if (input.signer.noImp) {
+		fields.push({
+			id: "signatario-impedimento",
+			label: "Signatário no Impedimento",
+			value: signerIdentification(input.signer.noImp, input.scope).join("\n"),
+		})
 	}
+
+	const generated = doc.blocks.filter((b) => GENERATED_BY_SIGADAER.includes(b.id)).map((b) => ({ id: b.id, label: b.label, value: blockToPlainText(b) }))
+
+	return { fields, generated }
+}
+
+/**
+ * Escreve na área de transferência.
+ *
+ * Só `text/plain`: todo destino é `<input>` ou `<textarea>` — inclusive a caixa do texto,
+ * que é um editor Markdown. O sabor `text/html` que existia aqui virava marcação crua
+ * dentro da caixa.
+ */
+export async function copyField(text: string): Promise<void> {
 	await navigator.clipboard.writeText(text)
 }
