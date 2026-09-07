@@ -22,8 +22,9 @@
  *    correspondência entre o que se conferiu na tela e o que foi despachado.
  */
 
-import { dateInFull, signerIdentification } from "./format"
-import type { AssembledBlock, AssembledDocument, BlockId, DocumentInput, Line } from "./types"
+import { resolveKind } from "./catalog"
+import { dateInFull, privateInterestSender, signerForKind, signerIdentification } from "./format"
+import type { AssembledBlock, AssembledDocument, BlockId, DocumentInput, Line, Party } from "./types"
 
 /**
  * Blocos que o SIGADAER imprime por conta própria.
@@ -66,8 +67,13 @@ export function toPlainText(doc: AssembledDocument): string {
  * Ênfase no MEIO da linha (`*`, `_`) fica intocada: documento oficial quase não os usa, e
  * escapar tudo devolveria contra-barra no texto que a pessoa digitou.
  */
-export function escapeMarkdownStructure(line: string): string {
-	return line.replace(/^(\s*)(\d+)([.)])(\s)/, "$1$2\\$3$4").replace(/^(\s*)([-+*>#])(\s)/, "$1\\$2$3")
+export function escapeMarkdownStructure(text: string): string {
+	// Linha a linha: uma `Line` da montagem pode trazer duas linhas físicas
+	// (`rightOnSameLine`), e um `^` sem `m` deixaria a segunda passar sem escape.
+	return text
+		.split("\n")
+		.map((line) => line.replace(/^(\s*)(\d+)([.)])(\s)/, "$1$2\\$3$4").replace(/^(\s*)([-+*>#])(\s)/, "$1\\$2$3"))
+		.join("\n")
 }
 
 function blockToMarkdown(bloco: AssembledBlock): string {
@@ -126,31 +132,55 @@ function dateForSigadaer(date: Date): string {
 	return dateInFull(date).replace(/^1º /, "1 ")
 }
 
+/** O assunto como o campo do SIGADAER o recebe — a mesma medida que a conferência usa. */
+export function subjectFieldValue(subject: string | undefined): string {
+	// Sem o rótulo "Assunto: " e sem o ponto final que a folha acrescenta: o SIGADAER
+	// imprime o rótulo, e o art. 37 § 2º, II quer o assunto sem ponto.
+	return (subject ?? "").trim().replace(/\.$/, "")
+}
+
+/**
+ * As partes como o formulário do SIGADAER as pede.
+ *
+ * O preâmbulo não é a única origem delas. No ofício de interesse particular quem envia é a
+ * pessoa, pelo nome (art. 51 § 7º, c); no ofício externo e na carta não há preâmbulo, e o
+ * destinatário mora no endereçamento (art. 51 § 9º, VIII) — sem esta queda o painel não
+ * oferecia destinatário NENHUM justamente nas espécies que saem do COMAER.
+ */
+function partiesForForm(input: DocumentInput, privateInterest: boolean): { sender: Party; recipients: Party[] } {
+	const sender: Party = privateInterest
+		? { position: privateInterestSender(input.signer) }
+		: { position: input.sender?.position.trim() || (input.signer.position ?? ""), gender: input.sender?.gender }
+
+	const fromPreambulo = input.recipients.filter((d) => d.position.trim() !== "")
+	if (fromPreambulo.length > 0) return { sender, recipients: fromPreambulo }
+
+	const addressed = input.addressing?.position?.trim() || input.addressing?.name?.trim()
+	return { sender, recipients: addressed ? [{ position: addressed, gender: input.addressing?.gender }] : [] }
+}
+
 /** O que digitar em cada campo do formulário, na ordem em que a tela os apresenta. */
 export function sigadaerHandoff(input: DocumentInput, doc: AssembledDocument): SigadaerHandoff {
 	const fields: SigadaerField[] = []
+	const privateInterest = resolveKind(input.kind).id === "oficio-particular"
+	const { sender, recipients } = partiesForForm(input, privateInterest)
 
 	fields.push({
 		id: "assunto",
 		label: "Assunto / Título do documento",
-		// Sem o rótulo "Assunto: " e sem o ponto final que a folha acrescenta: o SIGADAER
-		// imprime o rótulo, e o art. 37 § 2º, II quer o assunto sem ponto.
-		value: (input.subject ?? "").trim().replace(/\.$/, ""),
+		value: subjectFieldValue(input.subject),
 		maxLength: SUBJECT_MAX_LENGTH,
 	})
 
 	fields.push({ id: "data", label: "Data", value: dateForSigadaer(input.date) })
 
-	const senderPosition = input.sender?.position.trim() ?? ""
+	fields.push({ id: "remetente-artigo", label: "Do / Da", value: sender.gender === "f" ? "Da" : "Do", choice: true })
 	fields.push({
-		id: "remetente-artigo",
-		label: "Do / Da",
-		value: input.sender?.gender === "f" ? "Da" : "Do",
-		choice: true,
+		id: "remetente-cargo",
+		label: privateInterest ? "Remetente (art. 51 § 7º, c: nome, não cargo)" : "Cargo ou função do remetente",
+		value: sender.position,
 	})
-	fields.push({ id: "remetente-cargo", label: "Cargo ou função do remetente", value: senderPosition })
 
-	const recipients = input.recipients.filter((d) => d.position.trim() !== "")
 	const several = recipients.length > 1
 	recipients.forEach((d, i) => {
 		const ordinal = several ? ` ${i + 1}` : ""
@@ -187,7 +217,7 @@ export function sigadaerHandoff(input: DocumentInput, doc: AssembledDocument): S
 	fields.push({
 		id: "signatario",
 		label: "Signatário",
-		value: signerIdentification({ ...input.signer, noImp: undefined }, input.scope).join("\n"),
+		value: signerIdentification(signerForKind({ ...input.signer, noImp: undefined }, privateInterest), input.scope).join("\n"),
 	})
 	if (input.signer.noImp) {
 		fields.push({

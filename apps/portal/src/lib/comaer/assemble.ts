@@ -23,11 +23,13 @@ import {
 	numberingLine,
 	omContactLine,
 	preambuloLines,
+	privateInterestSender,
 	renderDivisions,
+	signerForKind,
 	signerIdentification,
 } from "./format"
 import { rankInFull } from "./ranks"
-import { SUBJECT_MAX_LENGTH } from "./sigadaer"
+import { SUBJECT_MAX_LENGTH, subjectFieldValue } from "./sigadaer"
 import type { AssembledBlock, AssembledDocument, BlockId, ComplianceFinding, DocumentInput, Line } from "./types"
 
 const BLOCK_LABELS: Record<BlockId, string> = {
@@ -116,9 +118,7 @@ function preambuloBlock(input: DocumentInput, kind: DocumentKind): Line[] {
 	// Art. 51 § 7º, c: no ofício de interesse particular, o preâmbulo traz o NOME do
 	// signatário no lugar do cargo — é o que separa o expediente pessoal do institucional.
 	if (kind.id === "oficio-particular") {
-		const s = input.signer
-		const identificacao = [s.rank, s.quadro, s.name.toUpperCase()].filter(Boolean).join(" ")
-		return [{ text: `Do ${identificacao}` }, ...preambuloLines(undefined, input.recipients).map((text) => ({ text }))]
+		return [{ text: `Do ${privateInterestSender(input.signer)}` }, ...preambuloLines(undefined, input.recipients).map((text) => ({ text }))]
 	}
 	return preambuloLines(input.sender, input.recipients).map((text) => ({ text }))
 }
@@ -133,9 +133,10 @@ function bodyBlock(input: DocumentInput, kind: DocumentKind): Line[] {
 }
 
 function signerBlock(input: DocumentInput, kind: DocumentKind): Line[] {
-	// Art. 51 § 7º, d: no ofício de interesse particular omitem-se cargo e função.
-	const signer = kind.id === "oficio-particular" ? { ...input.signer, position: undefined, om: undefined } : input.signer
-	return signerIdentification(signer, input.scope).map((text) => ({ text, alignment: "centro" as const }))
+	return signerIdentification(signerForKind(input.signer, kind.id === "oficio-particular"), input.scope).map((text) => ({
+		text,
+		alignment: "centro" as const,
+	}))
 }
 
 function footerBlock(input: DocumentInput): Line[] {
@@ -154,7 +155,7 @@ function footerBlock(input: DocumentInput): Line[] {
  * 2. **Campo vazio é `pending`, norma contrariada é `nonCompliant`.** São duas conversas:
  *    "ainda falta" e "está errado". Misturá-las gasta o vermelho no que é rotina.
  */
-function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFinding[] {
+function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set<BlockId>): ComplianceFinding[] {
 	const findings: ComplianceFinding[] = []
 	const pending = (text: string, block?: BlockId) => findings.push({ text, severity: "pending", block })
 	const nonCompliant = (text: string, block?: BlockId) => findings.push({ text, severity: "nonCompliant", block })
@@ -173,11 +174,16 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	// signatário some do fim, e a folha continua parecendo um documento plausível.
 	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora: sem ele a epígrafe não é impressa (art. 35, I).", "epigrafe")
 	if (input.signer.name.trim() === "") pending("Falta o nome do signatário: sem ele o documento sai sem assinatura (art. 40).", "signatario")
-	// A âncora acompanha a espécie: em certidão, declaração e apostila a data mora em bloco
-	// próprio, e apontar "numeracao" mandava o realce da folha para um bloco que essas
-	// espécies não têm — o achado ficava só na lista, sem marca no papel.
-	if (input.city.trim() === "")
-		pending("Falta a localidade, que abre a linha da data (art. 35, III, b).", kind.dateOnLine === "propria" ? "localidade-data" : "numeracao")
+	// A âncora sai do que foi RENDERIZADO, não da espécie: a linha de localidade e data
+	// pega carona na numeração, no NUP ou em bloco próprio conforme o caso, e o requerimento
+	// sem NUP muda de um para o outro no meio do preenchimento. Deduzir isso de novo aqui
+	// mandava o realce da folha para um bloco inexistente, e o achado ficava só na lista.
+	if (input.city.trim() === "") {
+		pending(
+			"Falta a localidade, que abre a linha da data (art. 35, III, b).",
+			(["numeracao", "nup", "localidade-data"] as const).find((id) => rendered.has(id))
+		)
+	}
 	if (kind.blocks.includes("preambulo") && input.recipients.every((r) => r.position.trim() === "")) {
 		pending("Falta o destinatário: o preâmbulo diz a quem o expediente se dirige (art. 36).", "preambulo")
 	}
@@ -204,9 +210,12 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind): ComplianceFi
 	}
 	// O campo "Assunto / Título do documento" do SIGADAER tem maxlength 255 e trunca sem
 	// avisar: o documento chega ao protocolo com a ementa cortada no meio de uma palavra.
-	if ((input.subject?.trim().length ?? 0) > SUBJECT_MAX_LENGTH) {
+	// Medido sobre o MESMO valor que vai para o campo — o assunto viaja sem o ponto final,
+	// e contar o ponto acusava truncamento em assunto que cabe exatamente nos 255.
+	const subjectLength = subjectFieldValue(input.subject).length
+	if (subjectLength > SUBJECT_MAX_LENGTH) {
 		nonCompliant(
-			`O assunto tem ${input.subject?.trim().length} caracteres e o campo do SIGADAER aceita ${SUBJECT_MAX_LENGTH}, cortando o resto sem avisar. A ementa é expressão substantiva sucinta (art. 37 § 2º, II).`,
+			`O assunto tem ${subjectLength} caracteres e o campo do SIGADAER aceita ${SUBJECT_MAX_LENGTH}, cortando o resto sem avisar. A ementa é expressão substantiva sucinta (art. 37 § 2º, II).`,
 			"ementa"
 		)
 	}
@@ -341,5 +350,9 @@ export function assembleDocument(input: DocumentInput): AssembledDocument {
 		}
 	}
 
-	return { kind: kind.label, blocks, warnings: checkCompliance(input, kind) }
+	// A conferência recebe os blocos que a montagem REALMENTE imprimiu: é o que permite
+	// ancorar o achado onde o realce da folha consegue prendê-lo. Achado sobre bloco ausente
+	// (a epígrafe sem nome de OM) mantém a âncora semântica de propósito — ela diz de que
+	// campo o achado fala, mesmo quando não há nada para marcar ainda.
+	return { kind: kind.label, blocks, warnings: checkCompliance(input, kind, new Set(blocks.map((b) => b.id))) }
 }

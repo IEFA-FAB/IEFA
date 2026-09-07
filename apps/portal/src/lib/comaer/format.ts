@@ -191,6 +191,25 @@ export function defaultVocativo(e: Addressing | undefined): string {
 }
 
 /**
+ * Art. 51 § 7º, c — no ofício de interesse particular quem envia é a PESSOA, identificada
+ * pelo nome, e não o cargo: é o que separa o expediente pessoal do institucional.
+ */
+export function privateInterestSender(s: Signer): string {
+	return [s.rank, s.quadro, s.name.toUpperCase()].filter(Boolean).join(" ")
+}
+
+/**
+ * Art. 51 § 7º, d — o ofício de interesse particular omite cargo e função do signatário.
+ *
+ * Mora aqui, e não dentro da montagem da folha, porque a entrega ao SIGADAER precisa da
+ * MESMA regra: sem ela, o campo "Signatário" do formulário levava o cargo que a norma
+ * manda omitir, e o que se digitava no sistema não era o que se conferiu na tela.
+ */
+export function signerForKind(signer: Signer, privateInterest: boolean): Signer {
+	return privateInterest ? { ...signer, position: undefined, om: undefined } : signer
+}
+
+/**
  * Art. 40 — identificação do signatário.
  * Oficial-General leva o posto ANTES do nome; os demais, depois. Documento externo grafa
  * posto, quadro, cargo e OM por extenso (art. 26 e art. 40 § 2º).

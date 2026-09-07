@@ -4,7 +4,7 @@ import { DOCUMENT_KINDS, EXTERNAL_OFICIO_LABEL, findKind, resolveKind } from "./
 import { newDocument } from "./draft"
 import { applyInlineEdit } from "./inline-edit"
 import { sigadaerHandoff, toPlainText } from "./sigadaer"
-import type { DocumentInput, EditTarget } from "./types"
+import type { BlockId, DocumentInput, EditTarget } from "./types"
 import { seedFromProfile } from "./writer-profile"
 
 function base(over: Partial<DocumentInput> = {}): DocumentInput {
@@ -258,6 +258,42 @@ describe("contato da OM", () => {
 	})
 })
 
+describe("partes na entrega ao SIGADAER", () => {
+	it("no ofício de interesse particular manda a pessoa, e o signatário sem cargo (art. 51 § 7º)", () => {
+		// O que se digita no SIGADAER tem de ser o que se conferiu na folha: a entrega ignorava
+		// a espécie e mandava o cargo que a norma omite, mais um remetente diferente do impresso.
+		const particular = base({ kind: "oficio-particular", numbering: { sequence: null } })
+		const doc = assembleDocument(particular)
+		const { fields } = sigadaerHandoff(particular, doc)
+		expect(fields.find((c) => c.id === "remetente-cargo")?.value).toBe("Cel Int FULANO DE TAL")
+		expect(doc.blocks.find((b) => b.id === "preambulo")?.lines[0].text).toBe("Do Cel Int FULANO DE TAL")
+		expect(fields.find((c) => c.id === "signatario")?.value).toBe("FULANO DE TAL Cel Int")
+		expect(
+			doc.blocks
+				.find((b) => b.id === "signatario")
+				?.lines.map((l) => l.text)
+				.join("\n")
+		).toBe("FULANO DE TAL Cel Int")
+	})
+
+	it("no ofício externo tira o destinatário do endereçamento, que é onde ele mora", () => {
+		// Essas espécies não têm preâmbulo e o formulário nem coleta `recipients`: sem a queda,
+		// o painel não oferecia destinatário nenhum justamente no expediente que sai do COMAER.
+		const externo = base({
+			kind: "oficio-externo",
+			scope: "externo",
+			sender: undefined,
+			recipients: [],
+			addressing: { formOfAddress: "excelencia", gender: "f", name: "Fulana de Tal", position: "Juíza Federal da 10ª Vara" },
+		})
+		const { fields } = sigadaerHandoff(externo, assembleDocument(externo))
+		expect(fields.find((c) => c.id === "destinatario-cargo-0")?.value).toBe("Juíza Federal da 10ª Vara")
+		expect(fields.find((c) => c.id === "destinatario-artigo-0")?.value).toBe("À")
+		// Sem cargo no preâmbulo, o remetente cai para o cargo do signatário.
+		expect(fields.find((c) => c.id === "remetente-cargo")?.value).toBe("Diretor")
+	})
+})
+
 describe("achados de conferência", () => {
 	it("acusa número no ofício de interesse particular (art. 51 § 6º)", () => {
 		// O aviso inverso — falta de sequencial — já existia e ISENTA esta espécie. Numerar
@@ -284,16 +320,19 @@ describe("achados de conferência", () => {
 		).not.toContain("campo do SIGADAER")
 	})
 
-	it("ancora a falta de localidade no bloco que a espécie realmente imprime", () => {
-		// A folha marca o achado pelo id do bloco RENDERIZADO: em certidão a data mora em
-		// bloco próprio, e apontar "numeracao" mandava o realce para um bloco inexistente.
-		const oficio = assembleDocument(base({ city: "" }))
-		expect(oficio.warnings.find((w) => w.text.includes("Falta a localidade"))?.block).toBe("numeracao")
-		const certidao = assembleDocument(base({ kind: "certidao", city: "", paragraphs: [{ text: "Certifico, para fins de prova." }] }))
-		const achado = certidao.warnings.find((w) => w.text.includes("Falta a localidade"))
-		expect(achado?.block).toBe("localidade-data")
-		// O que o achado aponta tem de EXISTIR na folha: é por esse id que o realce se prende.
-		expect(certidao.blocks.map((b) => b.id)).toContain("localidade-data")
+	it("ancora a falta de localidade no bloco que de fato carrega a data", () => {
+		// A linha de localidade e data pega carona em blocos diferentes conforme a espécie —
+		// e, no requerimento, conforme o NUP já estar preenchido ou não.
+		const porEspecie: [Partial<DocumentInput>, BlockId][] = [
+			[{}, "numeracao"],
+			[{ kind: "certidao", paragraphs: [{ text: "Certifico, para fins de prova." }] }, "localidade-data"],
+			[{ kind: "requerimento" }, "nup"],
+			[{ kind: "requerimento", nup: undefined }, "localidade-data"],
+		]
+		for (const [over, esperado] of porEspecie) {
+			const doc = assembleDocument(base({ city: "", ...over }))
+			expect(doc.warnings.find((w) => w.text.includes("Falta a localidade"))?.block, esperado).toBe(esperado)
+		}
 	})
 })
 
