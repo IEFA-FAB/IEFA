@@ -1,0 +1,10 @@
+# Modelo da lista de emails do ambiente de treino — COPIE para `trainees.local.txt`.
+#
+# `trainees.local.txt` é ignorado pelo git DE PROPÓSITO: a lista é um rol de pessoas
+# identificáveis e este repositório é PÚBLICO. Nome e email de treinando não entram no
+# versionamento — nem aqui, nem no corpo de um PR, nem em mensagem de commit.
+#
+# Uma entrada por linha. `#` inicia comentário, inclusive no fim da linha.
+
+fulano@fab.mil.br         # Fulano
+beltrano@fab.mil.br       # Beltrano

@@ -5,3 +5,7 @@
 # Relatórios e traces gerados após cada run
 playwright-report/
 test-results/
+
+# Rol de treinandos: pessoas identificáveis, e este repositório é público.
+# Modelo versionado: scripts/trainees.example.txt
+scripts/trainees.local.txt
