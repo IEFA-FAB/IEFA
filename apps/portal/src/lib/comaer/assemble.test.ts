@@ -420,7 +420,7 @@ describe("regressões apontadas na revisão", () => {
 	it("avisa que a data da Ata mora no texto, já que ela não tem linha de data", () => {
 		const doc = assembleDocument(base({ kind: "ata" }))
 		expect(doc.blocks.map((b) => b.id)).not.toContain("localidade-data")
-		expect(doc.warnings.map((w) => w.text).join(" ")).toContain("art. 44 § 3º, I")
+		expect(doc.warnings.map((w) => w.text).join(" ")).toContain("data, hora e local abrem o próprio texto")
 	})
 })
 
