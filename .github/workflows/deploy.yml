@@ -209,6 +209,34 @@ jobs:
       concurrency_suffix: api
 
   # ============================================================
+  # PACKAGES  ── os testes que não pertencem a app nenhum
+  # ============================================================
+  # Sem `needs: [changes]` e sem filtro de caminho, de propósito. Os guards daqui não
+  # olham só para `packages/`: o inventário da Política de Cookies varre `apps/*/src/**`
+  # atrás de chave de armazenamento, e um app novo é justamente o que o quebra. Enquanto
+  # cada suíte de package pegava carona no job do app que a consumia — `pbac` e
+  # `sisub-domain` no `check-sisub` —, `legal-kit`, `auth-kit`, `supabase-kit`,
+  # `ai-provider` e `agent-web` não rodavam em CI em lugar nenhum: o guard do inventário
+  # ficou vermelho na `main` por dois merges sem ninguém ver.
+  check-packages:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Tests
+        run: bunx turbo run test --filter=./packages/*
+
+  # ============================================================
   # PORTAL  ── check → build → deploy
   # ============================================================
   check-portal:
