@@ -1,5 +1,14 @@
 ## Why
 
+> **Nota de revisão — 2026-09-08.** A parte de *escolha de provider* desta proposta foi
+> superada pela adoção do **AWS Bedrock como primário** em todo o monorepo (ver `AI-PROVIDERS.md`
+> na raiz). O `packages/ai-provider` e a stack `@tanstack/ai` continuam sendo o que está em
+> produção — o que mudou é que Groq/OpenRouter/Gemini/NVIDIA deixaram de ser destino: sobram
+> como *reserva* sob `<PREFIX>_FALLBACK_AI_*`, e o adapter ganhou um provider `bedrock` que esta
+> proposta não previa. As tarefas de validação por provider (2.6, 3.9, 4.5, 5.4, 5.5) estão
+> marcadas como CADUCAS no `tasks.md`, com o motivo em cada linha. A única pendência real é a
+> **6.3** (deprecar `packages/alpha-client`), ainda consumido por `apps/alpha` via `tracer.ts`.
+
 O monorepo IEFA possui 4 implementações independentes de integração com LLMs — cada uma com seu próprio streaming manual (ReadableStream + SSE), state management, e provider hardcoded. Isso gera duplicação significativa, dificulta a adição de novos providers, e impede reutilização de hooks e componentes entre apps. O sucont já adotou `@tanstack/ai` com suporte multiprovider, provando que a stack funciona no ecossistema. Hora de consolidar sisub, alpha e o pacote compartilhado nesse padrão.
 
 ## What Changes
