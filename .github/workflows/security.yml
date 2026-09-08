@@ -83,7 +83,7 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4.37.6
+        uses: github/codeql-action/upload-sarif@v4.37.9
         with:
           sarif_file: opengrep.sarif
           category: opengrep
@@ -104,7 +104,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: github/codeql-action/init@v4.37.6
+      - uses: github/codeql-action/init@v4.37.9
         with:
           languages: javascript-typescript
           # security-extended inclui as queries de qualidade-com-impacto-em-segurança
@@ -112,7 +112,7 @@ jobs:
           queries: security-extended
           config-file: .github/codeql/config.yml
 
-      - uses: github/codeql-action/analyze@v4.37.6
+      - uses: github/codeql-action/analyze@v4.37.9
         with:
           category: "/language:javascript-typescript"
 
@@ -214,7 +214,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+      - uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
         with:
           # Os workflows de deploy assumem role AWS via OIDC (id-token: write) e aceitam
           # input de workflow_dispatch — exatamente a superfície que o zizmor audita.
@@ -277,7 +277,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0" # relatório, não gate — misconfig de IaC costuma exigir contexto
 
-      - uses: github/codeql-action/upload-sarif@v4.37.6
+      - uses: github/codeql-action/upload-sarif@v4.37.9
         if: always()
         with:
           sarif_file: trivy-config.sarif
