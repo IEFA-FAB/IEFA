@@ -44,7 +44,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 
 	return (
 		<div className="flex flex-col gap-8">
-			<Section title="Espécie e âmbito" legalBasis="Anexo I, art. 7º e cap. VIII">
+			<Section title="Espécie e âmbito">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<Field id="scope" label="Âmbito">
 						<Select
@@ -85,14 +85,14 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 							</SelectContent>
 						</Select>
 						<p id="kind-hint" className="text-xs text-muted-foreground">
-							{kind.description} <span className="whitespace-nowrap font-mono">({kind.legalBasis})</span>
+							{kind.description}
 						</p>
 					</Field>
 
 					<Field
 						id="classification"
 						label="Natureza do assunto"
-						hint="Ostensivo é o padrão. O grau escolhido prefixa a numeração (R-, S-, US-) e desliga a redação assistida (art. 7º § 2º e art. 31 § 2º)."
+						hint="Ostensivo é o padrão. O grau escolhido prefixa a numeração (R-, S-, US-) e desliga a redação assistida."
 					>
 						<Select value={input.classification} onValueChange={(value) => onChange({ classification: value as Classification })}>
 							<SelectTrigger id="classification" aria-describedby="classification-hint" className="w-full">
@@ -110,8 +110,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 
 					{kind.allowsClosing === false && (
 						<p className="text-xs text-muted-foreground sm:col-span-2">
-							Esta espécie não leva fecho de cortesia: entre OM do COMAER ele não deve ser empregado (art. 30, parágrafo único). O documento termina na
-							identificação do signatário.
+							Esta espécie não leva fecho de cortesia: entre OM do COMAER ele não deve ser empregado. O documento termina na identificação do signatário.
 						</p>
 					)}
 
@@ -135,7 +134,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			</Section>
 
 			{(tem("rodape-om") || kind.id === "oficio-externo") && (
-				<Section title="Contato da OM no rodapé" legalBasis="Anexo I, art. 51 § 9º, III">
+				<Section title="Contato da OM no rodapé">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<Field id="om-address" label="Endereço">
 							<Input id="om-address" value={input.om.address ?? ""} onChange={(e) => onChange({ om: { ...input.om, address: e.target.value } })} />
@@ -161,7 +160,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			{tem("preambulo") && (
-				<Section title="Preâmbulo" legalBasis="Anexo I, art. 36">
+				<Section title="Preâmbulo">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<PartyField
 							id="sender"
@@ -235,7 +234,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			{tem("enderecamento") && (
-				<Section title="Endereçamento" legalBasis="Anexo I, art. 51 § 9º, VIII">
+				<Section title="Endereçamento">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<Field id="form-of-address" label="Forma de tratamento">
 							<Select
@@ -295,7 +294,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			{tem("vocativo") && (
-				<Section title="Vocativo" legalBasis="Anexo I, art. 10">
+				<Section title="Vocativo">
 					<Field id="vocativo" label="Vocativo (vazio usa “Senhor” + cargo)">
 						<Input id="vocativo" value={input.vocativo ?? ""} onChange={(e) => onChange({ vocativo: e.target.value })} placeholder="Senhor Juiz," />
 					</Field>
@@ -303,7 +302,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			{tem("ementa") && (
-				<Section title="Ementa" legalBasis="Anexo I, art. 37">
+				<Section title="Ementa">
 					{/* O assunto é editado no título da página — ter dois campos para o mesmo dado
 					    fazia a pessoa duvidar de qual valia. */}
 					<p className="text-xs text-muted-foreground">O assunto é o título no alto da página: clique nele para alterar.</p>
@@ -329,7 +328,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			{tem("processo") && (
-				<Section title="Processo de origem" legalBasis="Anexo I, art. 48 § 3º">
+				<Section title="Processo de origem">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<Field id="process-nup" label="NUP do processo">
 							<Input id="process-nup" value={input.process?.nup ?? ""} onChange={(e) => onChange({ process: { ...input.process, nup: e.target.value } })} />
@@ -357,7 +356,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 			)}
 
 			{kind.id === "despacho-decisorio" && (
-				<Section title="Decisão" legalBasis="Anexo I, art. 49 § 2º, III">
+				<Section title="Decisão">
 					<Field id="decision" label="Abertura do texto">
 						<Select value={input.decision ?? "DEFERIDO"} onValueChange={(value) => onChange({ decision: value as DocumentInput["decision"] })}>
 							<SelectTrigger id="decision" className="w-full">
@@ -375,12 +374,12 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 				</Section>
 			)}
 
-			<Section title="Texto" legalBasis="Anexo I, art. 38 e art. 39">
+			<Section title="Texto">
 				{kind.suggestedOpening && <p className="text-xs text-muted-foreground">Esta espécie abre por “{kind.suggestedOpening.trim()}…”.</p>}
 				<BodyEditor paragraphs={input.paragraphs} onChange={(paragraphs) => onChange({ paragraphs })} />
 			</Section>
 
-			<Section title="Assinatura por ordem e substituição" legalBasis="Anexo I, art. 40 § 7º e § 9º">
+			<Section title="Assinatura por ordem e substituição">
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<Field id="signer-quadro" label="Quadro ou especialidade">
 						<Input
@@ -399,7 +398,7 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 					<Field id="signer-om" label="OM do signatário">
 						<Input id="signer-om" value={input.signer.om ?? ""} onChange={(e) => onChange({ signer: { ...input.signer, om: e.target.value } })} />
 					</Field>
-					<Field id="signer-by-order" label="Assinado por ordem de" hint="O texto passa a exigir abertura “Por ordem do…” ou “Incumbiu-me o…” (art. 40 § 9º).">
+					<Field id="signer-by-order" label="Assinado por ordem de" hint="O texto passa a exigir abertura “Por ordem do…” ou “Incumbiu-me o…”.">
 						<Input
 							id="signer-by-order"
 							aria-describedby="signer-by-order-hint"
@@ -414,13 +413,10 @@ export function DocumentForm({ input, kind, onChange }: Props) {
 	)
 }
 
-function Section({ title, legalBasis, children }: { title: string; legalBasis: string; children: ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="border border-border p-4">
-			<div className="flex items-baseline justify-between gap-3 mb-4">
-				<h2 className="text-label text-foreground">{title}</h2>
-				<span className="text-label text-muted-foreground">{legalBasis}</span>
-			</div>
+			<h2 className="text-label text-foreground mb-4">{title}</h2>
 			{children}
 		</section>
 	)

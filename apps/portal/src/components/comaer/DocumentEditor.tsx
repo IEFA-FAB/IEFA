@@ -244,8 +244,6 @@ export function DocumentEditor({
 					</h1>
 					<p className="text-muted-foreground mt-1 text-sm flex flex-wrap items-center gap-x-2">
 						<span>{kind.label}</span>
-						<span aria-hidden>·</span>
-						<span className="font-mono text-xs">{kind.legalBasis}</span>
 						{checkLabel && (
 							<>
 								<span aria-hidden>·</span>

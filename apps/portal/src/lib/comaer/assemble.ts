@@ -172,34 +172,34 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 	// ── O que falta preencher ────────────────────────────────────────────────
 	// A montagem NÃO renderiza bloco vazio: sem estes avisos, a OM some da epígrafe e o
 	// signatário some do fim, e a folha continua parecendo um documento plausível.
-	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora: sem ele a epígrafe não é impressa (art. 35, I).", "epigrafe")
-	if (input.signer.name.trim() === "") pending("Falta o nome do signatário: sem ele o documento sai sem assinatura (art. 40).", "signatario")
+	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora: sem ele a epígrafe não é impressa.", "epigrafe")
+	if (input.signer.name.trim() === "") pending("Falta o nome do signatário: sem ele o documento sai sem assinatura.", "signatario")
 	// A âncora sai do que foi RENDERIZADO, não da espécie: a linha de localidade e data
 	// pega carona na numeração, no NUP ou em bloco próprio conforme o caso, e o requerimento
 	// sem NUP muda de um para o outro no meio do preenchimento. Deduzir isso de novo aqui
 	// mandava o realce da folha para um bloco inexistente, e o achado ficava só na lista.
 	if (input.city.trim() === "") {
 		pending(
-			"Falta a localidade, que abre a linha da data (art. 35, III, b).",
+			"Falta a localidade, que abre a linha da data.",
 			(["numeracao", "nup", "localidade-data"] as const).find((id) => rendered.has(id))
 		)
 	}
 	if (kind.blocks.includes("preambulo") && input.recipients.every((r) => r.position.trim() === "")) {
-		pending("Falta o destinatário: o preâmbulo diz a quem o expediente se dirige (art. 36).", "preambulo")
+		pending("Falta o destinatário: o preâmbulo diz a quem o expediente se dirige.", "preambulo")
 	}
 	if (kind.blocks.includes("ementa") && !input.subject?.trim()) {
-		pending("Falta o assunto: é o resumo que permite reconhecer o documento de imediato (art. 37).", "ementa")
+		pending("Falta o assunto: é o resumo que permite reconhecer o documento de imediato.", "ementa")
 	}
 	if (kind.blocks.includes("nup") && !(input.nup && isValidNup(input.nup))) {
-		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER: são 17 dígitos (art. 48 § 4º).", "nup")
+		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER: são 17 dígitos.", "nup")
 	}
 	if (kind.numbering !== "nenhuma" && input.numbering.sequence === null && kind.id !== "oficio-particular") {
 		pending(
-			'Falta o número sequencial da seção. Sem ele o documento sai como "s/nº", forma que a norma reserva ao expediente de interesse particular (art. 51 § 6º).',
+			'Falta o número sequencial da seção. Sem ele o documento sai como "s/nº", forma que a norma reserva ao expediente de interesse particular.',
 			"numeracao"
 		)
 	}
-	if (input.paragraphs.every((p) => p.text.trim() === "")) pending("O documento está sem texto (art. 38).", "texto")
+	if (input.paragraphs.every((p) => p.text.trim() === "")) pending("O documento está sem texto.", "texto")
 
 	// ── O que contraria a norma ──────────────────────────────────────────────
 	// A espécie se chama "s/nº" e a norma a define assim: numerar aqui é o inverso exato do
@@ -220,33 +220,33 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 		)
 	}
 	if (input.signer.byOrderOf && input.paragraphs.length > 0 && !hasByOrderOpening(input.paragraphs[0].text)) {
-		nonCompliant('Documento assinado por ordem: o texto deve começar por "Por ordem do…" ou "Incumbiu-me o…" (art. 40 § 9º).', "texto")
+		nonCompliant('Documento assinado por ordem: o texto deve começar por "Por ordem do…" ou "Incumbiu-me o…".', "texto")
 	}
 	if (input.scope === "externo" && input.signer.rank && rankInFull(input.signer.rank) === input.signer.rank) {
 		nonCompliant(
-			`O posto "${input.signer.rank}" não está na lista de graus da FAB, e em documento externo o posto vai por extenso (art. 26). Escolha o posto no campo "Posto ou graduação".`,
+			`O posto "${input.signer.rank}" não está na lista de graus da FAB, e em documento externo o posto vai por extenso. Escolha o posto no campo "Posto ou graduação".`,
 			"signatario"
 		)
 	}
 	if (kind.id === "oficio-externo" && ((input.references?.length ?? 0) > 0 || (input.annexes?.length ?? 0) > 0)) {
-		nonCompliant("No ofício externo, referências e anexos são citados no texto, não na ementa (art. 51 § 9º, IX).", "ementa")
+		nonCompliant("No ofício externo, referências e anexos são citados no texto, não na ementa.", "ementa")
 	}
 	if (input.distribution) {
 		if (input.recipients.some((d) => /cmtaer|comandante da aeron[áa]utica/i.test(d.position))) {
-			nonCompliant("Ofício circular não pode ser endereçado ao CMTAER. Confeccione documento específico para essa autoridade (art. 51 § 8º, IV).", "preambulo")
+			nonCompliant("Ofício circular não pode ser endereçado ao CMTAER. Confeccione documento específico para essa autoridade.", "preambulo")
 		}
 		nonCompliant(
-			"Ofício a vários destinatários não pode ser a peça que abre o processo (art. 51 § 8º, III). Se o assunto exige processo novo, expeça um ofício individual ao destinatário principal e mande o circular depois.",
+			"Ofício a vários destinatários não pode ser a peça que abre o processo. Se o assunto exige processo novo, expeça um ofício individual ao destinatário principal e mande o circular depois.",
 			"preambulo"
 		)
 	}
 	if (kind.suggestedOpening && input.paragraphs.length > 0 && !input.paragraphs[0].text.trimStart().startsWith(kind.suggestedOpening.trim())) {
-		nonCompliant(`${kind.label}: o texto deve começar por “${kind.suggestedOpening.trim()}…” (${kind.legalBasis}).`, "texto")
+		nonCompliant(`${kind.label}: o texto deve começar por “${kind.suggestedOpening.trim()}…”.`, "texto")
 	}
 	// A Ata não tem linha de data: o art. 44 § 3º, I manda data, hora e local nas linhas
 	// INICIAIS DO TEXTO. O campo Data do formulário não tem para onde ir.
 	if (kind.id === "ata") {
-		pending("Na Ata, data, hora e local abrem o próprio texto (art. 44 § 3º, I); o campo Data não é impresso.", "texto")
+		pending("Na Ata, data, hora e local abrem o próprio texto; o campo Data não é impresso.", "texto")
 	}
 	if (input.derivedFromDraft && (input.numbering.sequence === null || !input.nup)) {
 		pending(
@@ -258,7 +258,7 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 	// ferramenta ofereceu seria culpar o usuário pelo cardápio. O que cabe é explicar.
 	if (kind.allowsClosing === false && input.scope === "externo") {
 		pending(
-			`${kind.label} não leva fecho de cortesia: a folha termina no signatário (art. 30). Se o destinatário externo espera "Atenciosamente", a espécie é o “${EXTERNAL_OFICIO_LABEL}”.`,
+			`${kind.label} não leva fecho de cortesia: a folha termina no signatário. Se o destinatário externo espera "Atenciosamente", a espécie é o “${EXTERNAL_OFICIO_LABEL}”.`,
 			"signatario"
 		)
 	}
