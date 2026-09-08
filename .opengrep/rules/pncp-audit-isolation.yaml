@@ -26,7 +26,7 @@ rules:
       cálculo exigida pela Lei 14.133/2021, e o acervo do PNCP não pode alimentá-los: a fonte não
       carrega o produto (a descrição é o nome da classe CATMAT), então qualquer vínculo seria
       casamento textual gravado como fato. O PNCP é tela de referência, não evidência — ver
-      `openspec/changes/sisub-pncp-integration/review.md` §1.
+      `openspec/changes/archive/2026-09-08-sisub-pncp-integration/review.md` §1.
     paths:
       include:
         - "apps/api/src/workers/pncp-*/**"
