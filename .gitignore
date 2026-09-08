@@ -86,3 +86,11 @@ override.tf.json
 
 # === Claude Code local git worktrees (ephemeral, never commit/lint) ===
 .claude/worktrees/
+
+# === Documentos reais usados para conferir o editor da NSCA 5-3 ===
+# apps/portal/examples/ guarda PDF baixado do SIGADAER — expediente real de OM, e entre
+# eles documento pessoal (certidão, inscrição de PNR, ressarcimento de passagem). Serve para
+# conferir a montagem da folha contra o que o SIGADAER produz, e não pode virar commit: um
+# `git add -A` distraído publicaria dado pessoal de terceiro num repo de código.
+# O que o editor precisa para ser testado são as fixtures fictícias de src/lib/comaer.
+apps/portal/examples/
