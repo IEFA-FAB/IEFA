@@ -4,6 +4,7 @@ import { ArrowRight, WarningTriangle } from "iconoir-react"
 import type React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Markdown } from "@/components/ui/markdown"
 import { Textarea } from "@/components/ui/textarea"
 import { toPayload } from "@/lib/comaer/schema"
 import type { DocumentInput } from "@/lib/comaer/types"
@@ -118,7 +119,8 @@ function Conversation({
 	// cima de um campo vazio, que ela continuava ali.
 	const [inFlight, setInFlight] = useState<string | null>(null)
 	const applied = useRef(new Set<string>())
-	const bottom = useRef<HTMLDivElement>(null)
+	const transcript = useRef<HTMLElement>(null)
+	const openedAtBottom = useRef(false)
 
 	const connection = useMemo(() => fetchServerSentEvents("/api/comunicacoes/chat"), [])
 
@@ -158,10 +160,35 @@ function Conversation({
 				onPatch(part.name, part.input as Record<string, unknown>)
 			}
 		}
+	}, [messages, onPatch])
+
+	// A transcrição rola SOZINHA, e a página não.
+	//
+	// `scrollIntoView` num elemento âncora rola TODOS os contêineres roláveis acima dele,
+	// inclusive o documento: cada resposta arrastava a página até o fim, tirando da vista o
+	// formulário e a folha que estão logo abaixo. Mexer no `scrollTop` da caixa atinge só a
+	// caixa.
+	//
+	// E só quando o leitor já está no fim: quem rolou para reler um turno anterior não é
+	// puxado de volta a cada token que chega.
+	useEffect(() => {
+		const box = transcript.current
+		if (!box || messages.length === 0) return
+		// Documento com conversa gravada abre com a caixa no topo, e `scrollTop` zero é a maior
+		// distância possível do fim — a guarda de "já está no fim" sozinha deixaria o painel
+		// aberto na mensagem MAIS ANTIGA. A primeira ida ao fim é incondicional e sem animação:
+		// é posicionamento de abertura, não movimento.
+		if (!openedAtBottom.current) {
+			openedAtBottom.current = true
+			box.scrollTo({ top: box.scrollHeight, behavior: "auto" })
+			return
+		}
+		const distanceFromBottom = box.scrollHeight - box.scrollTop - box.clientHeight
+		if (distanceFromBottom > 120) return
 		// Rolagem suave é enjoo para quem pediu menos movimento no sistema.
 		const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-		bottom.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" })
-	}, [messages, onPatch])
+		box.scrollTo({ top: box.scrollHeight, behavior: reduce ? "auto" : "smooth" })
+	}, [messages])
 
 	// O histórico já está no banco: persistir de novo duplicaria a conversa a cada abertura.
 	const persisted = useRef(history.length)
@@ -237,6 +264,7 @@ function Conversation({
 					    inteira como `aria-live` fazia o leitor de tela reler a resposta do começo a
 					    cada token. Quem anuncia é o aviso abaixo, uma vez, quando o turno termina. */}
 					<section
+						ref={transcript}
 						// biome-ignore lint/a11y/noNoninteractiveTabindex: caixa rolável sem nada focável dentro precisa ser alcançável por teclado
 						tabIndex={0}
 						aria-label="Transcrição da redação assistida"
@@ -254,9 +282,16 @@ function Conversation({
 								<div className={`border border-border px-3 py-2 text-sm ${message.role === "user" ? "bg-accent" : "bg-card"}`}>
 									{message.parts.map((part, i) =>
 										part.type === "text" ? (
-											<p key={`${message.id}-${i}`} className="whitespace-pre-wrap">
-												{part.content}
-											</p>
+											// A resposta do modelo VEM em Markdown; a mensagem do redator é o que ele
+											// digitou e continua literal — interpretar o texto dele mudaria o que ele
+											// escreveu.
+											message.role === "assistant" ? (
+												<Markdown key={`${message.id}-${i}`}>{part.content}</Markdown>
+											) : (
+												<p key={`${message.id}-${i}`} className="whitespace-pre-wrap">
+													{part.content}
+												</p>
+											)
 										) : part.type === "tool-call" ? (
 											<p key={`${message.id}-${i}`} className="text-label text-muted-foreground mt-1">
 												↳ {toolLabel(part.name)}
@@ -270,7 +305,6 @@ function Conversation({
 						{interrupted && !isLoading && (
 							<p className="text-xs text-muted-foreground">Turno interrompido. As alterações já aplicadas continuam no documento.</p>
 						)}
-						<div ref={bottom} />
 					</section>
 
 					{/* Um anúncio por turno, com o resultado — em vez de a resposta inteira relida a

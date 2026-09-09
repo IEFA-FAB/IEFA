@@ -21,10 +21,31 @@ Regras que a norma impõe ao TEXTO:
 - Enumeração vira item, alínea ou subalínea, não lista dentro do parágrafo (art. 39).
 - Evite cognatos repetidos, duplo sentido e expressões regionais (art. 5º, § 2º).
 - Cite norma pela primeira vez com número e data por extenso: "Lei nº 12.527, de 18 de novembro de 2011" (art. 22).
-- Com agente público federal — militar ou servidor —, o ÚNICO pronome de tratamento é "Senhor" (art. 9º, § 3º). Não escreva "Vossa Senhoria", "Vossa Excelência", "Ilustríssimo", "Digníssimo" nem "doutor" (art. 9º, § 4º), nem no texto nem no vocativo.
+- Com agente público federal — militar ou servidor —, o ÚNICO pronome de tratamento é "Senhor" (art. 9º, § 3º). Não escreva "Vossa Senhoria", "Vossa Excelência", "Ilustríssimo", "Digníssimo" nem "doutor" (art. 9º, § 4º), nem no texto nem no vocativo. O endereçamento do ofício externo começa por "A Sua Senhoria o Senhor": é a forma do BLOCO DE ENDEREÇO e não se repete no corpo. Na dúvida, escreva sem tratamento nenhum — "Solicito autorização para…" em vez de "Solicito a Vossa Senhoria autorização para…" —, porque o destinatário já está identificado no preâmbulo.
 - NÃO escreva fecho de cortesia ("Respeitosamente", "Atenciosamente"): quem decide isso é a norma pelo destinatário, e o sistema o insere (art. 30).
 - NÃO invente número de documento, NUP, nome de organização, data, nome ou posto de signatário. Se algum dado faltar, redija sem ele.
 - O assunto é uma expressão substantiva sucinta, sem verbo conjugado e sem ponto final (art. 37, § 2º, II).`
+
+/**
+ * Vocabulário e tom da redação.
+ *
+ * Só a conversa usa: o import LÊ um documento pronto e preserva o texto dele, e uma lista de
+ * expressões preferidas ali viraria reescrita do que o redator quis aproveitar.
+ *
+ * A norma diz o que NÃO escrever (art. 38, I) e não diz o que escrever. Proibição sozinha
+ * empurra o modelo para o registro genérico de carta comercial — foi assim que saiu "Vossa
+ * Senhoria", que a NSCA proíbe e que não aparece em expediente nenhum do COMAER. O que
+ * segura o tom é o repertório positivo: verbo de ofício na primeira pessoa, ligação sóbria
+ * entre parágrafos e fecho sem cortesia.
+ */
+export const WRITING_TONE = `VOCABULÁRIO E TOM (é assim que o expediente do COMAER soa):
+- Verbo de ofício na primeira pessoa do singular, presente do indicativo, abrindo o parágrafo: Solicito, Informo, Comunico, Encaminho, Submeto à apreciação, Reitero, Devolvo, Restituo, Autorizo, Determino (as duas últimas só quando quem assina tem a competência).
+- Abertura que situa o expediente, quando há o que situar: "Em atenção ao Ofício nº …", "Reporto-me ao Ofício nº …", "Em cumprimento ao disposto no art. … da …", "Trata o presente expediente de …".
+- Ligação entre parágrafos, sóbria: "Nesse sentido,", "Para tanto,", "Ademais,", "Por oportuno,", "Cabe destacar que", "Considerando que".
+- Conclusão que pede a providência: "Diante do exposto, solicito …", "Isso posto, submeto o assunto à apreciação de …", e, quando couber, "Coloco-me à disposição para os esclarecimentos que se fizerem necessários.".
+- Prefira a construção impessoal ou o destinatário em terceira pessoa ("o Senhor Comandante", "essa Organização Militar", "esse Comando") a interpelar o destinatário no corpo.
+- Prazo e providência são explícitos: diga o que se pede, de quem e até quando ("solicito resposta até 30 de outubro de 2026").
+- NÃO escreva: "Venho por meio deste", "Vimos por meio desta", "Outrossim", "Sem mais para o momento", "No aguardo de", "Desde já agradeço", "Ao ensejo, renovo protestos", "Prezado", "Caro". São de carta comercial, não de comunicação oficial.`
 
 /** Catálogo de espécies, derivado do catálogo real — nunca escrito à mão no prompt. */
 export const KIND_CATALOG = `CATÁLOGO DE ESPÉCIES:\n${describeCatalog()}`
@@ -42,6 +63,8 @@ export function buildChatSystemPrompt(assembled: AssembledDocument): string {
 			: "- (nenhuma pendência apontada pela conferência)"
 
 	return `${NORM_RULES}
+
+${WRITING_TONE}
 
 Você trabalha em CONVERSA com o redator, sobre um documento que já está aberto na tela dele.
 

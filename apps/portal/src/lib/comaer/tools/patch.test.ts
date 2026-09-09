@@ -29,6 +29,25 @@ describe("remendos do modelo", () => {
 		expect(() => applyPatch(base(), "replace_paragraph", { number: 9, text: "x" })).toThrow(/2 parágrafo/)
 	})
 
+	it("recusa tratamento que a norma proíbe, em vez de gravar o texto e avisar depois", () => {
+		// O modelo lê o erro e reescreve no turno seguinte. Limpar a expressão em silêncio
+		// deixaria a frase sem concordância ("solicito a Senhor que") e ele não saberia do erro.
+		expect(() => applyPatch(base(), "write_body", { paragraphs: [{ text: "Solicito a Vossa Senhoria autorização." }] })).toThrow(PatchError)
+		expect(() => applyPatch(base(), "replace_paragraph", { number: 1, text: "Informo a V. Sª o resultado." })).toThrow(/Senhor/)
+		expect(() => applyPatch(base(), "insert_paragraph", { number: 1, text: "Ao Ilustríssimo Senhor Diretor." })).toThrow(PatchError)
+	})
+
+	it("a proibição desce aos itens e alíneas, não só ao parágrafo", () => {
+		const args = { paragraphs: [{ text: "Solicito o seguinte:", items: [{ text: "encaminhar a Vossa Senhoria o processo;" }] }] }
+		expect(() => applyPatch(base(), "write_body", args)).toThrow(PatchError)
+	})
+
+	it("no âmbito externo a forma de tratamento é escolha do formulário, e o remendo passa", () => {
+		const externo = { ...base(), kind: "oficio-externo" as const, scope: "externo" as const }
+		const { document } = applyPatch(externo, "write_body", { paragraphs: [{ text: "Solicito a Vossa Excelência a designação de perito." }] })
+		expect(document.paragraphs[0].text).toContain("Vossa Excelência")
+	})
+
 	it("não deixa o documento sem texto", () => {
 		const único = { ...newDocument(), paragraphs: [{ text: "Único." }] }
 		expect(() => applyPatch(único, "remove_paragraph", { number: 1 })).toThrow(PatchError)

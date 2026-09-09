@@ -30,6 +30,7 @@ import {
 } from "./format"
 import { rankInFull } from "./ranks"
 import { SUBJECT_MAX_LENGTH, subjectFieldValue } from "./sigadaer"
+import { findForbiddenTreatmentInParagraph, forbiddenTreatmentMessage } from "./treatment"
 import type { AssembledBlock, AssembledDocument, BlockId, ComplianceFinding, DocumentInput, Line } from "./types"
 
 const BLOCK_LABELS: Record<BlockId, string> = {
@@ -218,6 +219,15 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 			`O assunto tem ${subjectLength} caracteres e o campo do SIGADAER aceita ${SUBJECT_MAX_LENGTH}, cortando o resto sem avisar. A ementa é expressão substantiva sucinta (art. 37 § 2º, II).`,
 			"ementa"
 		)
+	}
+	// Tratamento proibido no texto: o remendo do modelo já é recusado por esta mesma regra
+	// (tools/patch); aqui ela alcança o que foi digitado à mão e o que veio de minuta importada.
+	for (const paragraph of input.paragraphs) {
+		const found = findForbiddenTreatmentInParagraph(paragraph, input.scope)
+		if (found) {
+			nonCompliant(forbiddenTreatmentMessage(found), "texto")
+			break
+		}
 	}
 	if (input.signer.byOrderOf && input.paragraphs.length > 0 && !hasByOrderOpening(input.paragraphs[0].text)) {
 		nonCompliant('Documento assinado por ordem: o texto deve começar por "Por ordem do…" ou "Incumbiu-me o…".', "texto")

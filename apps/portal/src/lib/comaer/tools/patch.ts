@@ -13,6 +13,7 @@
  */
 
 import { reconcileKindAndScope } from "../catalog"
+import { findForbiddenTreatmentInParagraph, forbiddenTreatmentMessage } from "../treatment"
 import type { DocumentInput, Paragraph } from "../types"
 
 export type PatchName = "set_form" | "set_parties" | "set_ementa" | "write_body" | "replace_paragraph" | "insert_paragraph" | "remove_paragraph"
@@ -63,6 +64,20 @@ function paragraphIndex(document: DocumentInput, raw: unknown, allowEnd = false)
 		throw new PatchError(`Parágrafo ${String(raw)} não existe. O documento tem ${document.paragraphs.length} parágrafo(s).`)
 	}
 	return number - 1
+}
+
+/**
+ * Tratamento proibido volta como erro de tool — o modelo lê a mensagem e reescreve.
+ *
+ * Recusar a escrita inteira, e não limpar a expressão em silêncio, é deliberado: trocar
+ * "Vossa Senhoria" por "Senhor" no meio da frase produz concordância quebrada ("solicito a
+ * Senhor que"), e o modelo nunca saberia que errou.
+ */
+function assertTreatment(document: DocumentInput, paragraphs: Paragraph[]): void {
+	for (const paragraph of paragraphs) {
+		const found = findForbiddenTreatmentInParagraph(paragraph, document.scope)
+		if (found) throw new PatchError(forbiddenTreatmentMessage(found))
+	}
 }
 
 export function applyPatch(document: DocumentInput, name: string, args: Record<string, unknown>): PatchResult {
@@ -136,12 +151,14 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 		case "write_body": {
 			const paragraphs = asParagraphs(args.paragraphs)
 			if (paragraphs.length === 0) throw new PatchError("O texto precisa de ao menos um parágrafo.")
+			assertTreatment(document, paragraphs)
 			return { document: { ...document, paragraphs }, summary: `Texto reescrito com ${paragraphs.length} parágrafo(s).`, touched: ["texto"] }
 		}
 
 		case "replace_paragraph": {
 			const index = paragraphIndex(document, args.number)
 			const [replacement] = asParagraphs([{ text: args.text, items: args.items }])
+			assertTreatment(document, [replacement])
 			const paragraphs = document.paragraphs.map((p, i) => (i === index ? replacement : p))
 			return { document: { ...document, paragraphs }, summary: `Parágrafo ${index + 1} substituído.`, touched: ["texto"] }
 		}
@@ -149,6 +166,7 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 		case "insert_paragraph": {
 			const index = paragraphIndex(document, args.number, true)
 			const [added] = asParagraphs([{ text: args.text, items: args.items }])
+			assertTreatment(document, [added])
 			const paragraphs = [...document.paragraphs.slice(0, index), added, ...document.paragraphs.slice(index)]
 			return { document: { ...document, paragraphs }, summary: `Parágrafo inserido na posição ${index + 1}.`, touched: ["texto"] }
 		}
