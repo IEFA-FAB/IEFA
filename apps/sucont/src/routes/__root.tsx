@@ -6,12 +6,13 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, redirect, Scripts } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { z } from "zod"
 import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
 import { Toaster } from "#/components/ui/toast"
 import { supabase } from "#/lib/supabase"
+import { syncSucontIdentityFn } from "#/server/user.fn"
 import { ThemeProvider } from "#/services/theme"
 import { readThemePreference } from "#/services/theme-preference"
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools"
@@ -57,8 +58,16 @@ const hubSearchSchema = z.object({
 	q: z.coerce.string().optional().catch(undefined),
 	/** Etapa do ciclo de conformidade. Substituiu `cat`, que classificava a ferramenta pela tecnologia. */
 	etapa: z.enum(["analisar", "comunicar", "acompanhar", "consultar"]).optional().catch(undefined),
-	/** Questão do RAC (5–43). O escopo do trabalho, no mesmo papel que `kitchen`/`unit` têm no sisub. */
+	/** Questão do RAC (1–39). O escopo do trabalho, no mesmo papel que `kitchen`/`unit` têm no sisub. */
 	rac: z.coerce.number().int().min(1).max(99).optional().catch(undefined),
+	/**
+	 * Divisão da SUCONT — o módulo em que se está. Fica na URL porque as três
+	 * divisões COMPARTILHAM as rotas: `/auditor` é da 4 e `/conta-generica` é da 3,
+	 * as duas na raiz. Sem isso o módulo seria estado de componente e o F5 devolveria
+	 * o usuário para outra divisão. Valor inválido de link velho degrada para o
+	 * padrão, em vez de derrubar a rota.
+	 */
+	divisao: z.enum(["sucont-1", "sucont-3", "sucont-4"]).optional().catch(undefined),
 })
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
@@ -152,6 +161,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 // getServerSessionFn → getUser) e re-executa os guards de rota.
 function AuthSync() {
 	const queryClient = useQueryClient()
+	// Uma sincronização de identidade por usuário, por sessão de browser.
+	// `INITIAL_SESSION` dispara a cada carga de página; sem o guarda seria um
+	// upsert por navegação completa, para gravar sempre a mesma linha.
+	const syncedUserId = useRef<string | null>(null)
 	useEffect(() => {
 		const {
 			data: { subscription },
@@ -159,8 +172,16 @@ function AuthSync() {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
 				queryClient.invalidateQueries({ queryKey: mySucontPermissionsQueryOptions().queryKey })
+				// Registra o usuário no cadastro de pessoas do ERP (`core.user_data`) —
+				// é o que o faz existir para a busca por e-mail da gestão de acessos.
+				// Best-effort e sem `await`: falhar aqui não pode atrapalhar o login.
+				if (syncedUserId.current !== session.user.id) {
+					syncedUserId.current = session.user.id
+					void syncSucontIdentityFn().catch(() => {})
+				}
 			}
 			if (event === "SIGNED_OUT") {
+				syncedUserId.current = null
 				queryClient.setQueryData(authQueryOptions().queryKey, { user: null, session: null, isAuthenticated: false, isLoading: false })
 				queryClient.removeQueries({ queryKey: mySucontPermissionsQueryOptions().queryKey })
 			}

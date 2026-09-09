@@ -48,6 +48,37 @@ await page.evaluate(() => document.documentElement.classList.add("dark"))
 await page.waitForTimeout(600)
 await page.screenshot({ path: `${OUT}/hub-dark.png` })
 
+// ── Seletor de módulo e o módulo `admin` ─────────────────────────────────────
+// O caminho é percorrido de verdade — abrir o menu e clicar — porque é o que a
+// captura precisa provar: que o item existe, que a barra lateral TROCA de
+// conteúdo e que a tela do outro módulo usa a mesma casca.
+await page.evaluate(() => document.documentElement.classList.remove("dark"))
+await page.waitForTimeout(300)
+const switcher = () => page.getByRole("button", { name: /Módulo atual/ })
+await switcher().click()
+await page.waitForTimeout(500)
+await page.screenshot({ path: `${OUT}/hub-module-menu.png` })
+
+// Cada divisão tem catálogo e barra lateral próprios: a captura prova que trocar
+// de módulo troca as ferramentas, e não só o rótulo do cabeçalho.
+for (const [nome, arquivo] of [
+	["SUCONT-3", "catalogo-sucont-3"],
+	["SUCONT-1", "catalogo-sucont-1"],
+]) {
+	await page.getByRole("menuitem", { name: new RegExp(`^${nome}`) }).click()
+	await page.waitForTimeout(700)
+	await page.screenshot({ path: `${OUT}/${arquivo}.png` })
+	await switcher().click()
+	await page.waitForTimeout(400)
+}
+
+await page.getByRole("menuitem", { name: /Administração/ }).click()
+await page.waitForTimeout(800)
+await page.screenshot({ path: `${OUT}/admin-permissoes-light.png` })
+await page.evaluate(() => document.documentElement.classList.add("dark"))
+await page.waitForTimeout(600)
+await page.screenshot({ path: `${OUT}/admin-permissoes-dark.png` })
+
 // A fonte do Google não carrega offline; qualquer outro erro é do componente.
 const real = problems.filter((p) => !p.includes("ERR_NAME_NOT_RESOLVED"))
 process.stdout.write(real.length ? `ERROS:\n${real.join("\n")}\n` : "sem erros de console\n")

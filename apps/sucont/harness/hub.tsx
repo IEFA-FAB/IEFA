@@ -16,17 +16,25 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Router
 import type React from "react"
 import { createRoot } from "react-dom/client"
 import { z } from "zod"
+import { SucontPermissionsManager } from "#/components/admin/permissions-manager"
 import { HubLayout } from "#/components/hub-layout"
 import { Route as IndexRoute } from "#/routes/index"
 import "./harness.css"
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 queryClient.setQueryData(["auth", "user"], {
-	user: { email: "nannijpsn@fab.mil.br", user_metadata: { name: "Nanni JPSN" } },
+	// O `id` casa com o primeiro grant do stub de `permissions.fn`: é o que faz a
+	// tela marcar a linha como "Você" e desabilitar o próprio "Revogar".
+	user: { id: "harness-admin", email: "nannijpsn@fab.mil.br", user_metadata: { name: "Nanni JPSN" } },
 	session: null,
 	isAuthenticated: true,
 	isLoading: false,
 })
+
+// Nível 3: é o único que revela o seletor de módulo no topo da barra. Com nível 1
+// ou 2 o cabeçalho volta a ser o atalho para a casa, e o harness deixaria de
+// cobrir justamente o controle novo.
+queryClient.setQueryData(["sucont", "myPermissions"], [{ module: "sucont", level: 3, mess_hall_id: null, kitchen_id: null, unit_id: null }])
 
 const Catalogo = IndexRoute.options.component as () => React.ReactNode
 
@@ -52,6 +60,10 @@ const rootRoute = createRootRoute({
 		q: z.coerce.string().optional().catch(undefined),
 		etapa: z.string().optional().catch(undefined),
 		rac: z.coerce.number().int().optional().catch(undefined),
+		// A divisão da SUCONT: é ela que o seletor de módulo escreve na URL, e sem
+		// declará-la aqui o harness perderia o parâmetro na navegação e a barra
+		// lateral voltaria sempre para a divisão padrão.
+		divisao: z.enum(["sucont-1", "sucont-3", "sucont-4"]).optional().catch(undefined),
 	}),
 })
 const screen = (path: string) => createRoute({ getParentRoute: () => rootRoute, path, component: Catalogo })
@@ -83,8 +95,36 @@ const TOOL_PATHS = [
 	"/centro-monitoramento",
 ]
 
+/**
+ * O módulo `admin`: barra lateral própria e a tela de permissões com dado do stub.
+ *
+ * As DUAS rotas montam a mesma tela porque o harness não tem o `beforeLoad` que,
+ * no app, redireciona `/admin` para `/admin/permissoes`. Sem a entrada de `/admin`
+ * o clique no seletor caía num "Not Found" que não existe em produção.
+ */
+const adminScreen = (path: string) =>
+	createRoute({
+		getParentRoute: () => rootRoute,
+		path,
+		component: () => (
+			<HubLayout
+				title="Permissões"
+				description="Quem entra no SUCONT e em que nível. O acesso vale para as três divisões — não há grant por divisão nem por seção."
+			>
+				<SucontPermissionsManager />
+			</HubLayout>
+		),
+	})
+
 const router = createRouter({
-	routeTree: rootRoute.addChildren([screen("/"), screen("/workspace"), screen("/reports"), ...TOOL_PATHS.map(toolScreen)]),
+	routeTree: rootRoute.addChildren([
+		screen("/"),
+		screen("/workspace"),
+		screen("/reports"),
+		adminScreen("/admin"),
+		adminScreen("/admin/permissoes"),
+		...TOOL_PATHS.map(toolScreen),
+	]),
 	history: createMemoryHistory({ initialEntries: ["/"] }),
 })
 

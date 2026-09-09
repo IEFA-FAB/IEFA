@@ -8,7 +8,7 @@
 
 import { hasPermission, myModulePermissionsQueryConfig } from "@iefa/pbac"
 import { queryOptions, useQuery } from "@tanstack/react-query"
-import { fetchMySucontPermissionsFn } from "#/server/permissions.fn"
+import { fetchMySucontPermissionsFn, listSucontGrantsFn } from "#/server/permissions.fn"
 
 export { hasPermission }
 
@@ -30,3 +30,21 @@ export function useSucontAccess() {
 		canManage: hasPermission(permissions, "sucont", 3),
 	}
 }
+
+/**
+ * Grants `sucont` de TODOS os usuários, com e-mail — a lista de conferência da
+ * tela de permissões.
+ *
+ * Mora aqui, e não em `lib/queries`, pela mesma razão que as options de auth e
+ * PBAC já moram: é leitura do domínio de acesso, e manter o grafo do módulo de
+ * permissões separado do grafo das telas de dado é o que permite o harness
+ * visual montar a tela com um stub só.
+ *
+ * Só resolve para administrador (nível 3) — a fn responde 403 aos demais, e é
+ * por isso que a rota `/admin` barra antes de chegar aqui.
+ */
+export const sucontGrantsQueryOptions = () =>
+	queryOptions({
+		queryKey: ["sucont", "grants"] as const,
+		queryFn: () => listSucontGrantsFn(),
+	})

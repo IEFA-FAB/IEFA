@@ -8,7 +8,7 @@ const statusDe = (records: RawRecord[], contaCorrente: string) => {
 	return ugAnalysis.flatMap((u) => u.details).find((d) => d.contaCorrente === contaCorrente)?.status
 }
 
-describe("cruzamento 897210300 × 897110300 (Q43)", () => {
+describe("cruzamento 897210300 × 897110300 (Q22)", () => {
 	it("ignora contas fora do par", () => {
 		const { stats } = analyzeData([rec("120062", "123119905", "CC1", 100)])
 		expect(stats.totalUgs).toBe(0)

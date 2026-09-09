@@ -24,10 +24,14 @@ export function getAccessControlClient() {
 }
 
 /**
- * Cliente service role apontando para o schema `core` — usado apenas para LER
- * o perfil do usuário (user_data) na busca por e-mail da gestão de acessos.
+ * Cliente service role apontando para o schema `core` — cadastro de pessoas do
+ * ERP (`user_data`). Dois usos, os dois restritos:
+ *   - LER na busca por e-mail da gestão de acessos;
+ *   - GRAVAR a linha do PRÓPRIO usuário no login (`syncSucontIdentityFn`), que é
+ *     o que faz alguém do sucont existir para aquela busca.
+ * Nunca escrever a linha de outra pessoa por aqui.
  */
-export function getCoreReadClient() {
+export function getCoreClient() {
 	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "core" })
 }
 

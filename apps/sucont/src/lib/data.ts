@@ -30,6 +30,8 @@ export const sucontTools: Tool[] = [
 		description: "Confronto SIAFI x SILOMS por competência, com série histórica e matriz de calor.",
 		internalPath: "/auditor",
 		stage: "analisar",
+		// MSG assinada `DIREF/SUCONT/SUCONT-4` (auditor/services/dataProcessor.ts:646)
+		divisions: ["sucont-4"],
 		icon: "ShieldCheck",
 	},
 	{
@@ -38,6 +40,11 @@ export const sucontTools: Tool[] = [
 		description: "Contas de saldo transitório, em quatro visões: operacional a estratégica.",
 		internalPath: "/monitoramento",
 		stage: "acompanhar",
+		// assina SUCONT-3 e o assunto é patrimonial — serve às duas
+		divisions: ["sucont-3", "sucont-4"],
+		// As seis questões das 33 regras de `lib/analista/types.ts`, que é a mesma lista
+		// que a própria tela declara em "Escopo da Análise (RAC)".
+		racQuestions: [16, 26, 30, 35, 36, 37],
 		icon: "Activity",
 	},
 	{
@@ -47,6 +54,8 @@ export const sucontTools: Tool[] = [
 		url: "/documentacao",
 		internalPath: "/documentacao",
 		stage: "comunicar",
+		// o fecho obrigatório do ofício é "SUCONT-4" (server/document-ai.fn.ts:81)
+		divisions: ["sucont-4"],
 		icon: "Zap",
 	},
 	{
@@ -79,6 +88,8 @@ export const sucontTools: Tool[] = [
 		description: "Diretrizes e procedimentos internos da seção.",
 		url: "https://docs.google.com/document/d/1E0rUh29RAmq7mEbJl50xKfA63szBv7kDwXLmTfocOWg/edit?tab=t.n2lgxw4p7bn1#heading=h.vlw5v11g3kkn",
 		stage: "consultar",
+		// procedimentos internos da própria seção
+		divisions: ["sucont-4"],
 		icon: "FileText",
 	},
 	{
@@ -119,6 +130,8 @@ export const sucontTools: Tool[] = [
 		description: "Assistente especializado em normas da FAB e SUCONT-4.",
 		url: "https://notebooklm.google.com/notebook/2ea19b26-e16b-45b8-9aad-22f58d3b457a?authuser=1",
 		stage: "consultar",
+		// normas da SUCONT-4
+		divisions: ["sucont-4"],
 		icon: "Cpu",
 	},
 	{
@@ -127,7 +140,9 @@ export const sucontTools: Tool[] = [
 		description: "Uso de subitens genéricos (99/999) no Tesouro Gerencial, com mensagem à UG e oráculo de IA.",
 		internalPath: "/subitens-genericos",
 		stage: "analisar",
-		racQuestions: [34],
+		// MSG `.../SUCONT-3/...`; item q34 do inventário da 3.1
+		divisions: ["sucont-3"],
+		racQuestions: [28],
 		icon: "FileBarChart",
 	},
 	{
@@ -136,7 +151,9 @@ export const sucontTools: Tool[] = [
 		description: "Espelhamento entre as contas 897210300 e 897110300.",
 		internalPath: "/cruzamento-contas",
 		stage: "analisar",
-		racQuestions: [43],
+		// MSG `.../SUCONT-3/...`; item q43 do inventário da 3.1
+		divisions: ["sucont-3"],
+		racQuestions: [22],
 		icon: "BarChart3",
 	},
 	{
@@ -145,7 +162,9 @@ export const sucontTools: Tool[] = [
 		description: "Saldos incompatíveis entre contas contábeis, com mensagem à UG.",
 		internalPath: "/analista-compatibilidade",
 		stage: "analisar",
-		racQuestions: [40, 41, 42],
+		// MSG `.../SUCONT-3/...`; item q40_42 do inventário da 3.1
+		divisions: ["sucont-3"],
+		racQuestions: [11, 20, 39],
 		icon: "Scale",
 	},
 	{
@@ -154,7 +173,9 @@ export const sucontTools: Tool[] = [
 		description: "Uso indevido de contas contábeis genéricas pelas UGs, com mensagem e oráculo de IA.",
 		internalPath: "/conta-generica",
 		stage: "analisar",
-		racQuestions: [35],
+		// MSG `.../SUCONT-3/...`; item q35 do inventário da 3.1
+		divisions: ["sucont-3"],
+		racQuestions: [29],
 		icon: "Search",
 	},
 	{
@@ -163,7 +184,9 @@ export const sucontTools: Tool[] = [
 		description: "Contas sem movimentação há mais de 3 meses, com mensagem à UG.",
 		internalPath: "/analistasaldoalongado",
 		stage: "analisar",
-		racQuestions: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+		// MSG `.../SUCONT-3/...`; item q05_25 do inventário da 3.1
+		divisions: ["sucont-3"],
+		racQuestions: [7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 21, 23, 24, 25, 27, 31, 32, 33, 34],
 		icon: "Activity",
 	},
 	{
@@ -172,6 +195,8 @@ export const sucontTools: Tool[] = [
 		description: "Análise crítica do Demonstrativo Gerencial de Custos por UG, com alertas e checklist AEC por IA.",
 		internalPath: "/sac-dgc",
 		stage: "analisar",
+		// o DGC é a única ferramenta da SUCONT-1
+		divisions: ["sucont-1"],
 		icon: "FileSearch",
 	},
 	{
@@ -180,6 +205,8 @@ export const sucontTools: Tool[] = [
 		description: "Inventário dos módulos e oráculos da SUCONT-3, por seção.",
 		internalPath: "/centro-monitoramento",
 		stage: "consultar",
+		// é o inventário da própria SUCONT-3 (seções 3.1 e 3.2)
+		divisions: ["sucont-3"],
 		icon: "Landmark",
 	},
 	{

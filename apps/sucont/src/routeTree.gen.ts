@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AnalistaCompatibilidadeRouteImport } from './routes/analista-compatibilidade'
 import { Route as AnalistasaldoalongadoRouteImport } from './routes/analistasaldoalongado'
 import { Route as AuditorRouteImport } from './routes/auditor'
@@ -27,6 +28,8 @@ import { Route as SacDgcRouteImport } from './routes/sac-dgc'
 import { Route as SubitensGenericosRouteImport } from './routes/subitens-genericos'
 import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminPermissoesRouteImport } from './routes/admin/permissoes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
@@ -34,6 +37,11 @@ import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './ro
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalistaCompatibilidadeRoute = AnalistaCompatibilidadeRouteImport.update({
@@ -121,6 +129,16 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
   path: '/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminPermissoesRoute = AdminPermissoesRouteImport.update({
+  id: '/permissoes',
+  path: '/permissoes',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
@@ -141,6 +159,7 @@ const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/analista-compatibilidade': typeof AnalistaCompatibilidadeRoute
   '/analistasaldoalongado': typeof AnalistasaldoalongadoRoute
   '/auditor': typeof AuditorRoute
@@ -158,6 +177,8 @@ export interface FileRoutesByFullPath {
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/permissoes': typeof AdminPermissoesRoute
+  '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
@@ -181,6 +202,8 @@ export interface FileRoutesByTo {
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/permissoes': typeof AdminPermissoesRoute
+  '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
@@ -188,6 +211,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/analista-compatibilidade': typeof AnalistaCompatibilidadeRoute
   '/analistasaldoalongado': typeof AnalistasaldoalongadoRoute
   '/auditor': typeof AuditorRoute
@@ -205,6 +229,8 @@ export interface FileRoutesById {
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/permissoes': typeof AdminPermissoesRoute
+  '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
@@ -213,6 +239,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/analista-compatibilidade'
     | '/analistasaldoalongado'
     | '/auditor'
@@ -230,6 +257,8 @@ export interface FileRouteTypes {
     | '/subitens-genericos'
     | '/termos-de-uso'
     | '/workspace'
+    | '/admin/permissoes'
+    | '/admin/'
     | '/auth/'
     | '/.well-known/agent-skills/index.json'
     | '/.well-known/agent-skills/$skill/SKILL.md'
@@ -253,12 +282,15 @@ export interface FileRouteTypes {
     | '/subitens-genericos'
     | '/termos-de-uso'
     | '/workspace'
+    | '/admin/permissoes'
+    | '/admin'
     | '/auth'
     | '/.well-known/agent-skills/index.json'
     | '/.well-known/agent-skills/$skill/SKILL.md'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/analista-compatibilidade'
     | '/analistasaldoalongado'
     | '/auditor'
@@ -276,6 +308,8 @@ export interface FileRouteTypes {
     | '/subitens-genericos'
     | '/termos-de-uso'
     | '/workspace'
+    | '/admin/permissoes'
+    | '/admin/'
     | '/auth/'
     | '/.well-known/agent-skills/index.json'
     | '/.well-known/agent-skills/$skill/SKILL.md'
@@ -283,6 +317,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AnalistaCompatibilidadeRoute: typeof AnalistaCompatibilidadeRoute
   AnalistasaldoalongadoRoute: typeof AnalistasaldoalongadoRoute
   AuditorRoute: typeof AuditorRoute
@@ -312,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analista-compatibilidade': {
@@ -433,6 +475,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/permissoes': {
+      id: '/admin/permissoes'
+      path: '/permissoes'
+      fullPath: '/admin/permissoes'
+      preLoaderRoute: typeof AdminPermissoesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
@@ -457,8 +513,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteRouteChildren {
+  AdminPermissoesRoute: typeof AdminPermissoesRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminPermissoesRoute: AdminPermissoesRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   AnalistaCompatibilidadeRoute: AnalistaCompatibilidadeRoute,
   AnalistasaldoalongadoRoute: AnalistasaldoalongadoRoute,
   AuditorRoute: AuditorRoute,

@@ -1,12 +1,13 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
-import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Monitor, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
+import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
+import { ModuleSwitcher } from "#/components/module-switcher"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Separator } from "#/components/ui/separator"
@@ -31,7 +32,9 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { sucontTools } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
+import { ADMIN_NAV, findModuleByPath, toolsForDivision } from "#/lib/modules"
 import { buildToolCrumbs, buildToolNav, findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
+import type { SucontDivision } from "#/lib/types"
 import { cn } from "#/lib/utils"
 import { useTheme } from "#/services/theme"
 
@@ -48,8 +51,14 @@ const NAV_LINKS: Array<{ to: string; label: string; icon: LucideIcon }> = [
 	{ to: "/reports", label: "Relatórios", icon: FileBarChart },
 ]
 
-/** Ferramentas de rota interna, agrupadas por etapa — a mesma ordem do catálogo. */
-const TOOL_NAV = buildToolNav(sucontTools)
+/**
+ * Ferramentas de rota interna da divisão, agrupadas por etapa — a mesma ordem do
+ * catálogo. Deixou de ser constante de módulo porque a barra agora depende do
+ * módulo aberto: a SUCONT-3 não mostra o auditor da SUCONT-4.
+ */
+const TOOL_NAV_BY_DIVISION = new Map(
+	(["sucont-1", "sucont-3", "sucont-4"] as const).map((division) => [division, buildToolNav(toolsForDivision(sucontTools, division))])
+)
 
 interface HubLayoutProps {
 	children: React.ReactNode
@@ -175,77 +184,21 @@ function ThemeToggle() {
 
 function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const activeTool = findToolByPath(sucontTools, pathname)
-	const hubLabelId = useId()
-	const groupLabelId = useId()
+	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
+	const module = findModuleByPath(pathname, divisao)
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar" className="no-print">
 			<SidebarHeader>
-				<HubBrand />
+				<ModuleSwitcher />
 			</SidebarHeader>
 
 			<SidebarContent>
 				{/* A barra é navegação: sem o landmark, o leitor de tela vê duas listas
-				    soltas e o rótulo do grupo não se liga a nenhuma delas. */}
-				<nav aria-label="Navegação do hub">
-					<SidebarGroup>
-						<SidebarGroupLabel id={hubLabelId}>Hub</SidebarGroupLabel>
-						<SidebarMenu aria-labelledby={hubLabelId}>
-							{NAV_LINKS.map((item) => {
-								const Icon = item.icon
-								const isActive = pathname === item.to
-								return (
-									<SidebarMenuItem key={item.to}>
-										<SidebarMenuButton
-											tooltip={item.label}
-											isActive={isActive}
-											render={
-												<Link to={item.to} aria-current={isActive ? "page" : undefined}>
-													<Icon />
-													<span>{item.label}</span>
-												</Link>
-											}
-										/>
-									</SidebarMenuItem>
-								)
-							})}
-						</SidebarMenu>
-					</SidebarGroup>
-
-					{/*
-					 * As ferramentas ficam na barra, agrupadas pela etapa do ciclo — é o que
-					 * dá orientação DENTRO de uma ferramenta: qual está aberta, e o que mais
-					 * existe na mesma etapa. Antes a barra só listava as três telas do hub, e
-					 * ao entrar numa ferramenta nada indicava onde o usuário estava.
-					 */}
-					{TOOL_NAV.map((group) => (
-						<SidebarGroup key={group.id}>
-							<SidebarGroupLabel id={`${groupLabelId}-${group.id}`}>{group.label}</SidebarGroupLabel>
-							<SidebarMenu aria-labelledby={`${groupLabelId}-${group.id}`}>
-								{group.tools.map((tool) => {
-									const target = tool.internalPath as string
-									const isActive = activeTool?.id === tool.id
-									const scope = toolScopeLabel(tool)
-									return (
-										<SidebarMenuItem key={tool.id}>
-											<SidebarMenuButton
-												tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
-												isActive={isActive}
-												render={
-													<Link to={target} aria-current={isActive ? "page" : undefined}>
-														<IconRenderer iconKey={tool.icon} />
-														<span>{tool.title}</span>
-													</Link>
-												}
-											/>
-										</SidebarMenuItem>
-									)
-								})}
-							</SidebarMenu>
-						</SidebarGroup>
-					))}
-				</nav>
+				    soltas e o rótulo do grupo não se liga a nenhuma delas.
+				    O conteúdo é o do MÓDULO em que se está — trocar de módulo troca a
+				    barra inteira, senão o seletor no topo seria só um enfeite. */}
+				<nav aria-label={`Navegação — ${module.label}`}>{module.division ? <HubNav division={module.division} /> : <AdminNav />}</nav>
 			</SidebarContent>
 
 			<SidebarFooter>
@@ -255,6 +208,108 @@ function HubSidebar() {
 
 			<SidebarRail />
 		</Sidebar>
+	)
+}
+
+/** Navegação do módulo `admin`: governança do próprio sucont. */
+function AdminNav() {
+	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const labelId = useId()
+
+	return (
+		<SidebarGroup>
+			<SidebarGroupLabel id={labelId}>Administração</SidebarGroupLabel>
+			<SidebarMenu aria-labelledby={labelId}>
+				{ADMIN_NAV.map((item) => {
+					const Icon = item.icon
+					const isActive = pathname === item.to
+					return (
+						<SidebarMenuItem key={item.to}>
+							<SidebarMenuButton
+								tooltip={item.label}
+								isActive={isActive}
+								render={
+									<Link to={item.to as string} aria-current={isActive ? "page" : undefined}>
+										<Icon />
+										<span>{item.label}</span>
+									</Link>
+								}
+							/>
+						</SidebarMenuItem>
+					)
+				})}
+			</SidebarMenu>
+		</SidebarGroup>
+	)
+}
+
+/** Navegação de uma divisão: as três telas do hub mais as ferramentas DELA, por etapa. */
+function HubNav({ division }: { division: SucontDivision }) {
+	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const activeTool = findToolByPath(sucontTools, pathname)
+	const hubLabelId = useId()
+	const groupLabelId = useId()
+	const toolNav = TOOL_NAV_BY_DIVISION.get(division) ?? []
+
+	return (
+		<>
+			<SidebarGroup>
+				<SidebarGroupLabel id={hubLabelId}>Hub</SidebarGroupLabel>
+				<SidebarMenu aria-labelledby={hubLabelId}>
+					{NAV_LINKS.map((item) => {
+						const Icon = item.icon
+						const isActive = pathname === item.to
+						return (
+							<SidebarMenuItem key={item.to}>
+								<SidebarMenuButton
+									tooltip={item.label}
+									isActive={isActive}
+									render={
+										<Link to={item.to} search={true} aria-current={isActive ? "page" : undefined}>
+											<Icon />
+											<span>{item.label}</span>
+										</Link>
+									}
+								/>
+							</SidebarMenuItem>
+						)
+					})}
+				</SidebarMenu>
+			</SidebarGroup>
+
+			{/*
+			 * As ferramentas ficam na barra, agrupadas pela etapa do ciclo — é o que
+			 * dá orientação DENTRO de uma ferramenta: qual está aberta, e o que mais
+			 * existe na mesma etapa. Antes a barra só listava as três telas do hub, e
+			 * ao entrar numa ferramenta nada indicava onde o usuário estava.
+			 */}
+			{toolNav.map((group) => (
+				<SidebarGroup key={group.id}>
+					<SidebarGroupLabel id={`${groupLabelId}-${group.id}`}>{group.label}</SidebarGroupLabel>
+					<SidebarMenu aria-labelledby={`${groupLabelId}-${group.id}`}>
+						{group.tools.map((tool) => {
+							const target = tool.internalPath as string
+							const isActive = activeTool?.id === tool.id
+							const scope = toolScopeLabel(tool)
+							return (
+								<SidebarMenuItem key={tool.id}>
+									<SidebarMenuButton
+										tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
+										isActive={isActive}
+										render={
+											<Link to={target} search={true} aria-current={isActive ? "page" : undefined}>
+												<IconRenderer iconKey={tool.icon} />
+												<span>{tool.title}</span>
+											</Link>
+										}
+									/>
+								</SidebarMenuItem>
+							)
+						})}
+					</SidebarMenu>
+				</SidebarGroup>
+			))}
+		</>
 	)
 }
 
@@ -268,15 +323,18 @@ function HubSidebar() {
  */
 function HubBreadcrumb({ title }: { title?: string }) {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
 	const tool = findToolByPath(sucontTools, pathname)
 	const crumbs = buildToolCrumbs(tool)
 	const scope = toolScopeLabel(tool)
 
 	if (crumbs.length === 0) {
+		// Sem título de tela, o cabeçalho anuncia o módulo — dizer "SUCONT-4 HUB"
+		// dentro da Administração contradiria o seletor da barra lateral.
 		return title ? (
 			<h1 className="text-subheading text-foreground truncate">{title}</h1>
 		) : (
-			<span className="text-subheading text-muted-foreground truncate">SUCONT-4 HUB</span>
+			<span className="text-subheading text-muted-foreground truncate">{findModuleByPath(pathname, divisao).label}</span>
 		)
 	}
 
@@ -293,7 +351,10 @@ function HubBreadcrumb({ title }: { title?: string }) {
 							) : (
 								<Link
 									to={crumb.to as string}
-									search={crumb.search}
+									// A trilha era o único caminho que descartava a busca: voltar ao Catálogo
+									// a partir de uma ferramenta da SUCONT-3 devolvia o catálogo da SUCONT-4,
+									// porque `crumb.search` substitui o objeto inteiro em vez de completá-lo.
+									search={(prev: Record<string, unknown>) => ({ ...prev, ...crumb.search })}
 									className="text-subheading shrink-0 text-muted-foreground transition-colors hover:text-foreground"
 								>
 									{crumb.label}
@@ -311,30 +372,6 @@ function HubBreadcrumb({ title }: { title?: string }) {
 				</span>
 			)}
 		</nav>
-	)
-}
-
-function HubBrand() {
-	return (
-		<SidebarMenu>
-			<SidebarMenuItem>
-				<SidebarMenuButton
-					size="lg"
-					tooltip="SUCONT-4 HUB"
-					render={
-						<Link to="/">
-							<div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-tech-blue text-white">
-								<Monitor className="size-4" />
-							</div>
-							<div className="grid flex-1 text-left leading-tight">
-								<span className="truncate text-subheading text-foreground">SUCONT-4 HUB</span>
-								<span className="truncate text-label text-muted-foreground">DIREF • COMAER</span>
-							</div>
-						</Link>
-					}
-				/>
-			</SidebarMenuItem>
-		</SidebarMenu>
 	)
 }
 

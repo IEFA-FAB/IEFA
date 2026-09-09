@@ -6,9 +6,10 @@ import { Button } from "#/components/ui/button"
 import { Combobox, type ComboboxOption } from "#/components/ui/combobox"
 import { sucontTools } from "#/lib/data"
 import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
+import { toolsForDivision } from "#/lib/modules"
 import { formatRac } from "#/lib/rac"
 import { filterTools } from "#/lib/tool-filter"
-import { TOOL_STAGES, type ToolStage } from "#/lib/types"
+import { TOOL_STAGES, type Tool, type ToolStage } from "#/lib/types"
 
 export const Route = createFileRoute("/")({ component: Catalogo })
 
@@ -33,26 +34,37 @@ const RAC_ANY = "todas"
 /**
  * Questões do RAC que alguma ferramenta declara cobrir, em ordem.
  *
- * São 27 hoje — só o Analista de Saldo Alongado responde 21 delas (Q05–Q25).
- * Como fileira de pílulas isso virava um paredão de 27 botões "Q05", "Q06"… que
+ * São 27 hoje — só o Analista de Saldo Alongado responde 20 delas.
+ * Como fileira de pílulas isso virava um paredão de 27 botões "Q07", "Q08"… que
  * ocupava mais tela que o catálogo que deveria filtrar, e ainda escondia o
  * seletor de etapa embaixo. Uma lista com busca resolve o mesmo em uma linha, e
  * o analista que persegue a Q34 digita "34" em vez de procurar o botão.
  */
-const RAC_OPTIONS: ComboboxOption[] = [
-	{ value: RAC_ANY, label: "Todas as questões" },
-	...[...new Set(sucontTools.flatMap((t) => t.racQuestions ?? []))].sort((a, b) => a - b).map((q) => ({ value: String(q), label: formatRac(q) })),
-]
+/**
+ * As questões da DIVISÃO, não do catálogo inteiro: oferecer as 32 questões de
+ * todas as divisões dentro da SUCONT-1 daria 31 opções que só devolvem lista
+ * vazia — o seletor prometeria um recorte que a divisão não tem.
+ */
+function racOptionsFor(tools: Tool[]): ComboboxOption[] {
+	return [
+		{ value: RAC_ANY, label: "Todas as questões" },
+		...[...new Set(tools.flatMap((t) => t.racQuestions ?? []))].sort((a, b) => a - b).map((q) => ({ value: String(q), label: formatRac(q) })),
+	]
+}
 
 function Catalogo() {
-	const { query, stage, rac, isFiltered, setStage, setRac, clear } = useHubFilters()
-	const filtered = filterTools(sucontTools, { query, stage, rac })
+	const { query, stage, rac, division, isFiltered, setStage, setRac, clear } = useHubFilters()
+	// A divisão recorta ANTES dos filtros: o catálogo é o da divisão em que se está,
+	// e a contagem "X de Y" precisa dizer X de quantas a divisão tem — não de 27.
+	const divisionTools = toolsForDivision(sucontTools, division)
+	const filtered = filterTools(divisionTools, { query, stage, rac })
 
 	// `?rac=` aceita 1–99, e nem toda questão tem ferramenta. Sem esta opção
 	// extra o seletor exibia "Todas as questões" enquanto a lista vinha vazia —
 	// a tela afirmava não haver filtro e mostrava o resultado de um.
+	const baseRacOptions = racOptionsFor(divisionTools)
 	const racOptions =
-		rac != null && !RAC_OPTIONS.some((o) => o.value === String(rac)) ? [...RAC_OPTIONS, { value: String(rac), label: formatRac(rac) }] : RAC_OPTIONS
+		rac != null && !baseRacOptions.some((o) => o.value === String(rac)) ? [...baseRacOptions, { value: String(rac), label: formatRac(rac) }] : baseRacOptions
 
 	// Sem filtro de etapa, o catálogo vem agrupado pelo ciclo: quem chega sem saber
 	// o nome da ferramenta encontra pelo ponto do trabalho em que está.
@@ -110,7 +122,7 @@ function Catalogo() {
 							</Button>
 						)}
 						<span className="text-hint font-mono text-muted-foreground">
-							{filtered.length} de {sucontTools.length}
+							{filtered.length} de {divisionTools.length}
 						</span>
 					</div>
 				</div>

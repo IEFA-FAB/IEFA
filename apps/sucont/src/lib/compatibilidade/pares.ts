@@ -1,6 +1,6 @@
 /**
  * @module lib/compatibilidade/pares
- * Regra das Questões 40, 41 e 42 do RAC: três pares de contas que devem fechar
+ * Regra das Questões 39, 20 e 11 do RAC: três pares de contas que devem fechar
  * por UG.
  *
  * Extraído da rota para poder ser testado. A agregação mora aqui porque era o
@@ -42,7 +42,7 @@ export const PARES: ParDeContas[] = [
 		// contrapartida do PCASP. Enquanto a rotina não estiver referenciada em norma
 		// citável, a mensagem aponta o dever geral de análise e conciliação da 02.03.18.
 		legis: `, em desacordo com o item 5.1 da ${citarMacrofuncao(MACROFUNCOES.encerramento)}, que determina a análise e a conciliação dos saldos, ainda que em nível de conta corrente`,
-		question: "Questão 40 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
+		question: "Questão 39 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
 	},
 	{
 		id: 2,
@@ -53,7 +53,7 @@ export const PARES: ParDeContas[] = [
 		formattedA: "1.1.5.5.1.10.00",
 		formattedB: "8.9.9.9.2.01.02",
 		legis: ", em desacordo com o módulo 7 do Manual Eletrônico de Execução Orçamentária, Financeira e Patrimonial (anexo G do RADA-e)",
-		question: "Questão 41 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
+		question: "Questão 20 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
 	},
 	{
 		id: 3,
@@ -64,7 +64,7 @@ export const PARES: ParDeContas[] = [
 		formattedA: "1.2.3.1.1.99.05",
 		formattedB: "8.9.9.9.2.02.02",
 		legis: ", em desacordo com o módulo 7 do Manual Eletrônico de Execução Orçamentária, Financeira e Patrimonial (anexo G do RADA-e)",
-		question: "Questão 42 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
+		question: "Questão 11 do Roteiro de Acompanhamento Contábil (SUCONT-3)",
 	},
 ]
 

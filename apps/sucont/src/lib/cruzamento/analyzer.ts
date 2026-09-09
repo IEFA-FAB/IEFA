@@ -4,7 +4,7 @@ import { UG_DATA } from "#/lib/cruzamento/ugData"
 import { getConferente } from "#/lib/ug/registry"
 
 /**
- * Contas do par espelhado da Questão 43 do RAC.
+ * Contas do par espelhado da Questão 22 do RAC.
  *
  * `897110300` (8.9.7.1.1.03.00, responsabilidade de terceiros) e `897210300`
  * (8.9.7.2.1.03.00, execução de responsabilidades) devem fechar por conta

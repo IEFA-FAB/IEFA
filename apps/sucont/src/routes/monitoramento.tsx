@@ -587,7 +587,7 @@ function MonitoramentoPage() {
 								<h3 className="text-heading text-foreground mb-2">Escopo da Análise (RAC)</h3>
 								<p className="text-body text-muted-foreground mb-3">Este sistema analisa saldos transitórios com base nas seguintes questões do RAC:</p>
 								<div className="flex flex-wrap gap-2 mb-4">
-									{["Questão 26", "Questão 27", "Questão 28", "Questão 31", "Questão 32", "Questão 36"].map((q) => (
+									{["Questão 35", "Questão 36", "Questão 37", "Questão 16", "Questão 30", "Questão 26"].map((q) => (
 										<span key={q} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption bg-action/10 text-action border border-action/30">
 											{q}
 										</span>
