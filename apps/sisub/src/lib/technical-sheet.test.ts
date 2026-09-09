@@ -10,11 +10,21 @@
 import { describe, expect, test } from "vitest"
 import {
 	correctionFactorFromGross,
+	equipmentCapacityLabel,
+	equipmentQuantityLabel,
+	equipmentTargetLabel,
+	equipmentTechnicalNotes,
+	flowStepLabel,
+	flowStepUtensils,
+	flowTotalMinutes,
+	formatSheetDuration,
 	formatSheetNumber,
 	fromStoredQuantity,
 	portionYieldOrOne,
 	rehydrationIndexFromRehydrated,
 	roundSheetQuantity,
+	type SheetEquipmentRequirement,
+	type SheetFlowStep,
 	technicalSheetLine,
 	technicalSheetTotals,
 	toStoredQuantity,
@@ -225,5 +235,142 @@ describe("roundSheetQuantity", () => {
 	test("valor não finito vira 0 — o campo não pode receber NaN", () => {
 		expect(roundSheetQuantity(Number.NaN)).toBe(0)
 		expect(roundSheetQuantity(Number.POSITIVE_INFINITY)).toBe(0)
+	})
+})
+
+// ── PARTE 04 / 05 ───────────────────────────────────────────────────────────
+// A folha imprimia estas duas Seções em branco mesmo com equipamento e fluxo cadastrados.
+// O que a suíte protege é a diferença entre "não cadastrado" e "zero": duração ausente sai
+// vazia (nunca "0 min"), soma sem nenhuma duração é `null`, e a quantidade de equipamento
+// carrega a batelada de referência — sem ela, "2" lê como duas unidades para a leva inteira.
+
+const requirement = (overrides: Partial<SheetEquipmentRequirement> = {}): SheetEquipmentRequirement => ({
+	quantity: 1,
+	scaling: "per_batch",
+	batch_portions: null,
+	min_capacity_liters: null,
+	min_capacity_gn: null,
+	notes: null,
+	role: { name: "Forno combinado" },
+	model: null,
+	...overrides,
+})
+
+const step = (overrides: Partial<SheetFlowStep> = {}): SheetFlowStep => ({
+	label: null,
+	duration_minutes: null,
+	step_template: null,
+	utensils: [],
+	...overrides,
+})
+
+describe("equipmentTargetLabel", () => {
+	test("o modelo vence o papel — a exigência por modelo é uma restrição, não um sinônimo", () => {
+		const req = requirement({ model: { manufacturer: "Rational", name: "iVario Pro L" } })
+		expect(equipmentTargetLabel(req)).toBe("Rational iVario Pro L")
+	})
+
+	test("modelo sem fabricante sai só com o nome", () => {
+		expect(equipmentTargetLabel(requirement({ role: null, model: { manufacturer: null, name: "iVario Pro L" } }))).toBe("iVario Pro L")
+	})
+
+	test("sem alvo resolvido a folha não imprime vazio", () => {
+		expect(equipmentTargetLabel(requirement({ role: null, model: null }))).toBe("Equipamento")
+	})
+})
+
+describe("equipmentQuantityLabel", () => {
+	test("por batelada, a quantidade carrega a batelada de referência", () => {
+		expect(equipmentQuantityLabel(requirement({ quantity: 2, batch_portions: 100 }))).toBe("2 · por batelada de 100 porções")
+	})
+
+	test("fixo na leva sai sem batelada — ali a quantidade não escala", () => {
+		expect(equipmentQuantityLabel(requirement({ quantity: 2, scaling: "fixed", batch_portions: 100 }))).toBe("2")
+	})
+
+	test("batelada ausente ou zerada não vira 'por batelada de 0 porções'", () => {
+		expect(equipmentQuantityLabel(requirement({ quantity: 3 }))).toBe("3")
+		expect(equipmentQuantityLabel(requirement({ quantity: 3, batch_portions: 0 }))).toBe("3")
+	})
+})
+
+describe("equipmentCapacityLabel", () => {
+	test("GN tem precedência sobre litros — é a unidade em que a exigência foi cadastrada", () => {
+		expect(equipmentCapacityLabel(requirement({ min_capacity_gn: 2, min_capacity_liters: 20 }))).toBe("2 GN")
+	})
+
+	test("litros quando é a única restrição", () => {
+		expect(equipmentCapacityLabel(requirement({ min_capacity_liters: 20 }))).toBe("20 L")
+	})
+
+	test("sem restrição imprime vazio, não um número inventado", () => {
+		expect(equipmentCapacityLabel(requirement())).toBe("")
+	})
+})
+
+describe("formatSheetDuration", () => {
+	test("abaixo de uma hora sai em minutos", () => {
+		expect(formatSheetDuration(45)).toBe("45 min")
+	})
+
+	test("hora cheia não arrasta '0 min'", () => {
+		expect(formatSheetDuration(120)).toBe("2 h")
+	})
+
+	test("hora e resto", () => {
+		expect(formatSheetDuration(90)).toBe("1 h 30 min")
+	})
+
+	test("ausente e não-positivo saem VAZIOS — '0 min' afirmaria que a etapa é instantânea", () => {
+		expect(formatSheetDuration(null)).toBe("")
+		expect(formatSheetDuration(undefined)).toBe("")
+		expect(formatSheetDuration(0)).toBe("")
+		expect(formatSheetDuration(-5)).toBe("")
+		expect(formatSheetDuration(Number.NaN)).toBe("")
+	})
+})
+
+describe("flowTotalMinutes", () => {
+	test("soma as durações declaradas", () => {
+		expect(flowTotalMinutes([step({ duration_minutes: 20 }), step({ duration_minutes: 25 })])).toBe(45)
+	})
+
+	test("etapa sem duração não zera a soma das outras", () => {
+		expect(flowTotalMinutes([step({ duration_minutes: 20 }), step()])).toBe(20)
+	})
+
+	test("nenhuma duração devolve null — 0 imprimiria 'a preparação leva zero minuto'", () => {
+		expect(flowTotalMinutes([step(), step()])).toBeNull()
+		expect(flowTotalMinutes([])).toBeNull()
+	})
+})
+
+describe("flowStepLabel / flowStepUtensils", () => {
+	test("o rótulo digitado vence o do modelo de etapa", () => {
+		expect(flowStepLabel(step({ label: "Cocção do arroz", step_template: { name: "Cocção" } }))).toBe("Cocção do arroz")
+	})
+
+	test("rótulo em branco cai no modelo de etapa", () => {
+		expect(flowStepLabel(step({ label: "   ", step_template: { name: "Cocção" } }))).toBe("Cocção")
+	})
+
+	test("sem rótulo nem modelo a linha ainda tem nome", () => {
+		expect(flowStepLabel(step())).toBe("Etapa")
+	})
+
+	test("utensílios deduplicam e ignoram o vínculo órfão", () => {
+		const utensils = [{ utensil: { name: "Caldeirão" } }, { utensil: { name: "Caldeirão" } }, { utensil: null }, { utensil: { name: "Escumadeira" } }]
+		expect(flowStepUtensils(step({ utensils }))).toEqual(["Caldeirão", "Escumadeira"])
+	})
+})
+
+describe("equipmentTechnicalNotes", () => {
+	test("a observação sai com o equipamento que a originou", () => {
+		const reqs = [requirement({ notes: "cocção sob pressão por 25 min" }), requirement({ notes: null }), requirement({ notes: "   " })]
+		expect(equipmentTechnicalNotes(reqs)).toEqual([{ target: "Forno combinado", note: "cocção sob pressão por 25 min" }])
+	})
+
+	test("sem observação a lista é vazia — a PARTE 05 volta às pautas", () => {
+		expect(equipmentTechnicalNotes([requirement()])).toEqual([])
 	})
 })

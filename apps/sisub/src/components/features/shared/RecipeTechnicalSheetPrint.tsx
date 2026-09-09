@@ -5,10 +5,28 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useRecipeEquipment } from "@/hooks/data/useEquipment"
 import { useRecipe } from "@/hooks/data/useRecipe"
+import { useRecipeFlow } from "@/hooks/data/useRecipeFlow"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { recipeLastReviewQueryOptions } from "@/hooks/data/useRecipes"
-import { formatSheetNumber, portionYieldOrOne, type QuantityBasis, technicalSheetLine, technicalSheetTotals } from "@/lib/technical-sheet"
+import {
+	equipmentCapacityLabel,
+	equipmentQuantityLabel,
+	equipmentTargetLabel,
+	equipmentTechnicalNotes,
+	flowStepLabel,
+	flowStepUtensils,
+	flowTotalMinutes,
+	formatSheetDuration,
+	formatSheetNumber,
+	portionYieldOrOne,
+	type QuantityBasis,
+	type SheetEquipmentRequirement,
+	type SheetFlowStep,
+	technicalSheetLine,
+	technicalSheetTotals,
+} from "@/lib/technical-sheet"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 /**
@@ -30,11 +48,18 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
  * per capita a folha declara 1 porção e o rendimento dessa porção, senão o cabeçalho
  * afirmaria 100 porções sobre uma tabela que descreve uma.
  *
- * Campo que o modelo pede e o SISUB não guarda (pré-preparo, método de cocção,
- * equipamentos, temperatura, observações técnicas, responsável) sai como linha em branco,
- * exatamente como no formulário em papel — a Seção completa à mão. Imprimir "—" ali daria
- * a entender que a informação foi consultada e não existe; a linha diz que é para
- * preencher. Quando esses campos entrarem no cadastro, é aqui que eles aparecem.
+ * As PARTES 04 e 05 saem do cadastro, não em branco: os equipamentos vêm da lista mínima
+ * da preparação (`recipe_equipment_requirement`), as etapas e as durações vêm do Fluxo de
+ * Produção (`recipe_step`), e as observações técnicas vêm das notas dessas exigências — que
+ * é onde a cozinha escreve "cocção sob pressão por 25 min". Enquanto essas duas leituras
+ * não existiam, a folha imprimia as duas Seções vazias mesmo com o dado cadastrado, e quem
+ * recebia o papel concluía que a preparação não declarava equipamento nenhum.
+ *
+ * Campo que o modelo pede e o SISUB continua não guardando (tempo de pré-preparo, tempo de
+ * cocção, método de cocção, temperatura) sai como linha em branco, exatamente como no
+ * formulário em papel — a Seção completa à mão. Imprimir "—" ali daria a entender que a
+ * informação foi consultada e não existe; a linha diz que é para preencher. Quando esses
+ * campos entrarem no cadastro, é aqui que eles aparecem.
  */
 
 interface RecipeTechnicalSheetPrintProps {
@@ -55,6 +80,12 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	const { data: recipe, isLoading, error } = useRecipe(recipeId)
 	const { nameById: folderNameById } = useRecipeFolders()
 	const { data: lastReview } = useQuery(recipeLastReviewQueryOptions(recipeId))
+	// PARTES 04 e 05. Entram no gate de carregamento junto com a preparação: as três chamadas
+	// partem juntas, e imprimir a folha antes destas duas chegarem tira do papel exatamente as
+	// Seções que ninguém confere depois. Falha (quem lê a ficha pode não ter o módulo do fluxo)
+	// não derruba a folha — as listas ficam vazias e as Seções voltam a ser preenchidas à mão.
+	const { data: equipment, isLoading: isEquipmentLoading } = useRecipeEquipment(recipeId)
+	const { data: flow, isLoading: isFlowLoading } = useRecipeFlow(recipeId)
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
@@ -65,7 +96,7 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	// gramatura errada sem perceber. O default é o per capita do modelo oficial.
 	const [basis, setBasis] = useState<QuantityBasis>("porcao")
 
-	if (isLoading) {
+	if (isLoading || isEquipmentLoading || isFlowLoading) {
 		return (
 			<div className="flex items-center justify-center py-24">
 				<Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -78,7 +109,7 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	}
 
 	const detail = recipe as RecipeWithIngredients
-	const sheet = buildSheet(detail, folderNameById, lastReview ?? null, basis)
+	const sheet = buildSheet(detail, folderNameById, lastReview ?? null, basis, equipment ?? [], flow?.steps ?? [])
 
 	return (
 		<div>
@@ -164,7 +195,19 @@ interface Sheet {
 	mixedUnits: string[]
 	prePreparationMethod: string
 	preparationMethod: string
+	/**
+	 * Tempo total da PARTE 04: o campo do cadastro quando existe, senão a soma das durações
+	 * das etapas do fluxo. Nessa ordem porque o campo é a declaração de quem elaborou a
+	 * ficha; a soma é uma estimativa derivada, e sobrepor a declaração por ela apagaria o
+	 * número que a nutricionista escreveu.
+	 */
 	totalTimeMinutes: number | null
+	/** Lista mínima de equipamentos da preparação — PARTE 04. */
+	equipment: SheetEquipmentRequirement[]
+	/** Etapas do Fluxo de Produção — PARTE 04. Vazio quando a preparação não tem fluxo. */
+	steps: SheetFlowStep[]
+	/** Observações gravadas nas exigências de equipamento — PARTE 05. */
+	technicalNotes: { target: string; note: string }[]
 	elaboratedAt: string
 	reviewedAt: string
 	reviewedBy: string
@@ -175,7 +218,9 @@ function buildSheet(
 	recipe: RecipeWithIngredients,
 	folderNameById: Map<string, string>,
 	lastReview: { reviewed_at: string; reviewed_by_name: string | null } | null,
-	basis: QuantityBasis
+	basis: QuantityBasis,
+	equipment: SheetEquipmentRequirement[],
+	steps: SheetFlowStep[]
 ): Sheet {
 	const portionYield = portionYieldOrOne(recipe.portion_yield)
 	const ingredients = (recipe.ingredients ?? []).filter((ri) => !ri.deleted_at)
@@ -219,7 +264,10 @@ function buildSheet(
 		mixedUnits: totals.units.length > 1 ? totals.units : [],
 		prePreparationMethod: recipe.pre_preparation_method ?? "",
 		preparationMethod: recipe.preparation_method ?? "",
-		totalTimeMinutes: recipe.preparation_time_minutes ?? null,
+		totalTimeMinutes: recipe.preparation_time_minutes ?? flowTotalMinutes(steps),
+		equipment,
+		steps,
+		technicalNotes: equipmentTechnicalNotes(equipment),
 		elaboratedAt: formatDate(recipe.created_at),
 		reviewedAt: formatDate(lastReview?.reviewed_at),
 		reviewedBy: lastReview?.reviewed_by_name ?? "",
@@ -365,21 +413,87 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					</tr>
 					<tr>
 						<Label>Tempo total</Label>
-						<Value>{sheet.totalTimeMinutes ? `${sheet.totalTimeMinutes} min` : ""}</Value>
+						<Value>{formatSheetDuration(sheet.totalTimeMinutes)}</Value>
 						<Label>Método de cocção</Label>
 						<Value />
 					</tr>
 					<tr>
-						<Label>Equipamentos</Label>
-						<Value />
 						<Label>Temperatura</Label>
 						<Value />
+						<Label>Etapas do fluxo</Label>
+						<Value>{sheet.steps.length > 0 ? String(sheet.steps.length) : ""}</Value>
 					</tr>
 				</tbody>
 			</table>
 
+			<p className="ftp-field-label">Equipamentos:</p>
+			{sheet.equipment.length === 0 ? (
+				// Sem exigência cadastrada a folha volta às pautas: "nenhum equipamento" e "ninguém
+				// cadastrou ainda" são coisas diferentes, e a tabela vazia afirmaria a primeira.
+				<FreeText value="" lines={2} />
+			) : (
+				<table className="ftp-table ftp-equipment">
+					<thead>
+						<tr>
+							<th>Equipamento</th>
+							<th>Qtd.</th>
+							<th>Capacidade mínima</th>
+						</tr>
+					</thead>
+					<tbody>
+						{/* Índice na chave pelo mesmo motivo da tabela de ingredientes: a linha não
+						    carrega id nesta projeção, e rótulo repetido colidiria. */}
+						{sheet.equipment.map((req, index) => (
+							<tr key={`equipment-${index}`}>
+								<td>{equipmentTargetLabel(req)}</td>
+								<td>{equipmentQuantityLabel(req)}</td>
+								<td>{equipmentCapacityLabel(req) || "—"}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			)}
+
+			{sheet.steps.length > 0 && (
+				<>
+					<p className="ftp-field-label">Etapas do fluxo de produção:</p>
+					<table className="ftp-table ftp-steps">
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Etapa</th>
+								<th>Duração</th>
+								<th>Utensílios</th>
+							</tr>
+						</thead>
+						<tbody>
+							{sheet.steps.map((step, index) => (
+								<tr key={`step-${index}`}>
+									<td className="ftp-num">{index + 1}</td>
+									<td>{flowStepLabel(step)}</td>
+									<td>{formatSheetDuration(step.duration_minutes) || "—"}</td>
+									<td>{flowStepUtensils(step).join(", ") || "—"}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</>
+			)}
+
 			<h2 className="ftp-part">PARTE 05 – OBSERVAÇÕES TÉCNICAS</h2>
-			<FreeText value="" lines={3} />
+			{sheet.technicalNotes.length > 0 && (
+				<ul className="ftp-notes">
+					{sheet.technicalNotes.map((entry, index) => (
+						<li key={`note-${index}`}>
+							<strong>{entry.target}:</strong> {entry.note}
+						</li>
+					))}
+				</ul>
+			)}
+			{/* As pautas ficam mesmo com observação impressa: a Seção acrescenta à mão o que o
+			    cadastro ainda não tem, e uma folha sem espaço para escrever é uma folha que
+			    volta rasurada na margem. */}
+			<FreeText value="" lines={sheet.technicalNotes.length > 0 ? 2 : 3} />
 
 			<table className="ftp-table ftp-info ftp-signoff">
 				<tbody>
@@ -431,6 +545,19 @@ const PRINT_CSS = `
 .ftp-value { width: 28%; }
 .ftp-ingredients { width: 92%; margin: 0 auto; }
 .ftp-ingredients thead th { background: #dce6f1; text-align: center; font-weight: 700; }
+.ftp-equipment, .ftp-steps { width: 92%; margin: 0 auto 8px; }
+.ftp-equipment thead th, .ftp-steps thead th { background: #dce6f1; text-align: center; font-weight: 700; }
+.ftp-notes { margin: 0 0 6px; padding-left: 18px; }
+.ftp-notes li { margin: 0 0 2px; }
+/*
+ * Tarjas do modelo. O navegador descarta cor de fundo na impressão por padrão, e as faixas
+ * que separam rótulo de valor sairiam brancas — a folha impressa perdia a grade que o
+ * formulário em papel tem.
+ */
+.ftp-label, .ftp-ingredients thead th, .ftp-equipment thead th, .ftp-steps thead th {
+	-webkit-print-color-adjust: exact;
+	print-color-adjust: exact;
+}
 .ftp-num { text-align: right; font-variant-numeric: tabular-nums; }
 .ftp-total td { font-weight: 700; }
 .ftp-empty { text-align: center; color: #555; }
@@ -461,6 +588,8 @@ const PRINT_CSS = `
 	.ftp-no-print { display: none !important; }
 	.ftp-doc { border: none; padding: 0; max-width: none; }
 	.ftp-part { break-after: avoid; page-break-after: avoid; }
+	/* Rótulo de bloco não fica sozinho no pé da página, longe da tabela que ele nomeia. */
+	.ftp-field-label { break-after: avoid; page-break-after: avoid; }
 	.ftp-table { break-inside: auto; }
 	.ftp-table tr { break-inside: avoid; page-break-inside: avoid; }
 }

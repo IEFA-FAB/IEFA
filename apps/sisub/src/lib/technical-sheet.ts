@@ -193,3 +193,128 @@ export function formatSheetNumber(value: number, maximumFractionDigits = 3): str
 	if (!Number.isFinite(value)) return "—"
 	return value.toLocaleString("pt-BR", { maximumFractionDigits })
 }
+
+// ── PARTE 04 — tempo, equipamentos e etapas ─────────────────────────────────
+// O modelo em papel pede tempo, método de cocção, equipamentos e temperatura. Quando a FTP
+// impressa nasceu, o SISUB não guardava nada disso e a Seção inteira saía em branco. Guarda
+// desde o épico de equipamentos tipados (`recipe_equipment_requirement`) e do Fluxo de
+// Produção (`recipe_step`) — as formatações que a folha precisa moram aqui, puras, porque a
+// folha de impressão e a tela de edição têm que dizer o mesmo sobre a mesma preparação.
+//
+// Os tipos são ESTRUTURAIS de propósito: o wire das duas operações não é exportado pelo
+// índice do `@iefa/sisub-domain`, e o que a folha usa é um punhado de campos.
+
+/** Exigência de equipamento da preparação, como a folha a lê. */
+export interface SheetEquipmentRequirement {
+	quantity: number
+	/** `"per_batch"` escala com o volume; `"fixed"` vale para a leva inteira. */
+	scaling: string
+	batch_portions: number | null
+	min_capacity_liters: number | null
+	min_capacity_gn: number | null
+	notes: string | null
+	role: { name: string } | null
+	model: { manufacturer: string | null; name: string } | null
+}
+
+/** Etapa do Fluxo de Produção, como a folha a lê. */
+export interface SheetFlowStep {
+	label: string | null
+	duration_minutes: number | null
+	step_template: { name: string } | null
+	utensils: { utensil: { name: string } | null }[]
+}
+
+/**
+ * Alvo da exigência. Modelo primeiro: quem cadastrou o modelo quis AQUELE equipamento, e
+ * imprimir o papel genérico ("forno combinado") apagaria a restrição na folha que vai para
+ * a cozinha. Mesma precedência de `requirementLabel` no domínio.
+ */
+export function equipmentTargetLabel(req: SheetEquipmentRequirement): string {
+	if (req.model != null) {
+		const label = [req.model.manufacturer, req.model.name].filter(Boolean).join(" ").trim()
+		if (label) return label
+	}
+	return req.role?.name?.trim() || "Equipamento"
+}
+
+/** Capacidade mínima exigida, na unidade em que foi cadastrada. Vazio quando não há restrição. */
+export function equipmentCapacityLabel(req: SheetEquipmentRequirement): string {
+	if (req.min_capacity_gn != null) return `${formatSheetNumber(req.min_capacity_gn, 2)} GN`
+	if (req.min_capacity_liters != null) return `${formatSheetNumber(req.min_capacity_liters, 2)} L`
+	return ""
+}
+
+/**
+ * Quantidade exigida COM a escala. A lista descreve uma batelada: "2" sem a batelada de
+ * referência lê como "duas unidades para a leva inteira", que é justamente o erro de
+ * dimensionamento que o campo `batch_portions` existe para evitar.
+ */
+export function equipmentQuantityLabel(req: SheetEquipmentRequirement): string {
+	const quantity = Number.isFinite(req.quantity) ? req.quantity : 1
+	if (req.scaling === "per_batch" && req.batch_portions != null && req.batch_portions > 0) {
+		return `${quantity} · por batelada de ${formatSheetNumber(req.batch_portions, 0)} porções`
+	}
+	return String(quantity)
+}
+
+/** Duração em horas e minutos. Vazio (não "0 min") quando não há duração cadastrada. */
+export function formatSheetDuration(minutes: number | null | undefined): string {
+	if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return ""
+	const total = Math.round(minutes)
+	const hours = Math.floor(total / 60)
+	const rest = total % 60
+	if (hours === 0) return `${rest} min`
+	return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
+}
+
+/**
+ * Soma das durações das etapas do fluxo. `null` quando NENHUMA etapa declara duração —
+ * zero ali seria "a preparação leva zero minuto", e não "ninguém cronometrou ainda".
+ *
+ * É uma soma sequencial, não o caminho crítico do DAG: etapas paralelas entram duas vezes.
+ * Para a folha é o número conservador certo — quem lê planeja a jornada, e subestimar o
+ * tempo de uma preparação é o erro que atrasa a refeição.
+ */
+export function flowTotalMinutes(steps: readonly SheetFlowStep[]): number | null {
+	let total = 0
+	let seen = false
+	for (const step of steps) {
+		const minutes = step.duration_minutes
+		if (minutes != null && Number.isFinite(minutes) && minutes > 0) {
+			total += minutes
+			seen = true
+		}
+	}
+	return seen ? total : null
+}
+
+/** Nome da etapa: o rótulo digitado, senão o do modelo de etapa que a originou. */
+export function flowStepLabel(step: SheetFlowStep): string {
+	return step.label?.trim() || step.step_template?.name?.trim() || "Etapa"
+}
+
+/** Utensílios da etapa, deduplicados e em ordem de cadastro. */
+export function flowStepUtensils(step: SheetFlowStep): string[] {
+	const names: string[] = []
+	for (const link of step.utensils ?? []) {
+		const name = link.utensil?.name?.trim()
+		if (name && !names.includes(name)) names.push(name)
+	}
+	return names
+}
+
+/**
+ * Observações técnicas gravadas nas exigências de equipamento — o único texto livre de
+ * técnica que o SISUB guarda além do modo de preparo ("cocção sob pressão por 25 min" é o
+ * exemplo que o próprio campo sugere). Sai na PARTE 05 com o equipamento que a originou:
+ * solta, a observação não diz de qual equipamento ela fala.
+ */
+export function equipmentTechnicalNotes(requirements: readonly SheetEquipmentRequirement[]): { target: string; note: string }[] {
+	const notes: { target: string; note: string }[] = []
+	for (const req of requirements) {
+		const note = req.notes?.trim()
+		if (note) notes.push({ target: equipmentTargetLabel(req), note })
+	}
+	return notes
+}
