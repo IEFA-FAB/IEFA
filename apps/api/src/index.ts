@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
 import { registerAgentDiscovery } from "./api/agent-discovery.ts"
+import { catalogRoutes } from "./api/routes/catalog.ts"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
 import { gs1AdminRoutes } from "./api/routes/gs1-admin.ts"
 import { legalRoutes } from "./api/routes/legal.ts"
@@ -62,6 +63,7 @@ type HealthResponse =
 // At runtime app === typedApp (same object). TypeScript sees merged schema.
 const typedApp = app
 	.route("/api", api)
+	.route("/api/catalog", catalogRoutes)
 	.route("/api/admin/compras", comprasAdminRoutes)
 	.route("/api/admin/gs1", gs1AdminRoutes)
 	.route("/api/admin/nfe", nfeAdminRoutes)
@@ -110,6 +112,10 @@ const openApiConfig = {
 		title: "Sisub API",
 		description:
 			"API para consulta de dados do sistema de subsistência.\n\n" +
+			"**Catálogo público:** as rotas em `/api/catalog/*` são anônimas e SOMENTE LEITURA — publicam o " +
+			"catálogo global de insumos do SISUB (gêneros de alimentação e itens auxiliares) e a árvore de pastas " +
+			"em que ele está classificado. Não existe verbo de escrita no catálogo, e nenhum dado de preço, " +
+			"contratação, revisão interna ou identificação de usuário é publicado.\n\n" +
 			"**Dados pessoais (LGPD):** os documentos legais estão em `GET /legal` (índice JSON) e " +
 			"`GET /legal/{doc_type}` (markdown). Não existe autoexclusão: pedidos de acesso, correção " +
 			"ou eliminação são processados manualmente pela Secretaria do IEFA, por e-mail para " +

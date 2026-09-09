@@ -6,8 +6,11 @@
 # PostgREST a qualquer um. A mensagem crua vai para o log do servidor (console.error),
 # nunca para a resposta. O caller anônimo recebe só um texto genérico.
 #
-# Escopo restrito ao factory público de propósito: nas rotas /admin (autenticadas por
-# x-admin-secret) devolver o detalhe de validação para o operador é aceitável.
+# Escopo restrito aos handlers públicos de propósito: nas rotas /admin (autenticadas por
+# x-admin-secret) devolver o detalhe de validação para o operador é aceitável. O catálogo
+# público (`routes/catalog.ts`) entra aqui pelo mesmo motivo do factory — é anônimo, e o
+# `details` dele existe para explicar parâmetro inválido AO CLIENTE, nunca para repassar a
+# mensagem do PostgREST.
 #
 # Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
 ##
@@ -22,6 +25,7 @@ rules:
     paths:
       include:
         - "apps/api/src/api/factory.ts"
+        - "apps/api/src/api/routes/catalog.ts"
     patterns:
       - pattern-either:
           - pattern: 'c.json({..., $K: $E.message, ...}, ...)'
