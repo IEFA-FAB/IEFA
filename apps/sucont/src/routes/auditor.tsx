@@ -30,13 +30,17 @@ import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { toast } from "#/components/ui/toast"
-import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
+import { auditorBalancesQueryOptions } from "#/lib/queries"
+import { type BalanceConflict, finalizeAuditorRunFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
+	// Sem prime no loader de propósito: o hub renderiza <Link to="/auditor"> na
+	// barra lateral de todas as telas, e com `defaultPreload: "intent"` +
+	// `defaultPreloadStaleTime: 0` cada passada de mouse rodaria o loader — ou
+	// seja, a série de saldos inteira, que pagina em laço até MAX_ROWS_READ.
+	// A tela busca no mount, como antes.
 	component: AuditorPage,
 })
-
-const balancesQueryKey = ["sucont", "auditor", "balances"] as const
 
 /** Lote de gravação. Acima disso o corpo do POST fica grande demais para um request só. */
 const UPLOAD_CHUNK = 2000
@@ -74,10 +78,7 @@ function AuditorPage() {
 		// na base quando na verdade a leitura falhou — a mentira mais cara possível
 		// numa ferramenta de conciliação.
 		error: storedError,
-	} = useQuery({
-		queryKey: balancesQueryKey,
-		queryFn: () => loadAuditorBalancesFn({ data: {} }),
-	})
+	} = useQuery(auditorBalancesQueryOptions())
 
 	// UI State
 	const [selectedGroup, setSelectedGroup] = useState<string>("ALL")
@@ -372,7 +373,7 @@ function AuditorPage() {
 				// Algo entrou no banco — ele vira a fonte, mesmo que a série esteja
 				// incompleta. Ver dado parcial verdadeiro é melhor que ver arquivo
 				// inteiro que o banco não tem.
-				await queryClient.invalidateQueries({ queryKey: balancesQueryKey })
+				await queryClient.invalidateQueries({ queryKey: auditorBalancesQueryOptions().queryKey })
 				setLocalRows([])
 			}
 

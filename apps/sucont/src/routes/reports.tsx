@@ -11,12 +11,21 @@ import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { toast } from "#/components/ui/toast"
 import { useHubFilters } from "#/lib/hub-filters"
+import { reportsQueryOptions } from "#/lib/queries"
 import type { Tool } from "#/lib/types"
-import { createReportFn, deleteReportFn, listReportsFn } from "#/server/reports.fn"
+import { createReportFn, deleteReportFn } from "#/server/reports.fn"
 
-export const Route = createFileRoute("/reports")({ component: Reports })
-
-const reportsQueryKey = ["sucont", "reports"] as const
+export const Route = createFileRoute("/reports")({
+	// Aquece o cache no loader: a lista sai junto com o HTML em vez de esperar a
+	// hidratação.
+	// Dispara sem esperar: a tela usa `useQuery` e tem o próprio estado de
+	// carregamento. O `.catch` deixa a falha no cache para ela tratar, em vez de
+	// subir para o error boundary do roteador.
+	loader: ({ context }) => {
+		void context.queryClient.query({ ...reportsQueryOptions(), staleTime: "static" }).catch(() => {})
+	},
+	component: Reports,
+})
 
 function Reports() {
 	const { query } = useHubFilters()
@@ -26,17 +35,14 @@ function Reports() {
 	// Exclusão é definitiva e sem desfazer: passa por confirmação explícita.
 	const [pendingDelete, setPendingDelete] = useState<Tool | null>(null)
 
-	const { data: reports = [], isLoading } = useQuery({
-		queryKey: reportsQueryKey,
-		queryFn: () => listReportsFn(),
-	})
+	const { data: reports = [], isLoading } = useQuery(reportsQueryOptions())
 
 	// Anexar e excluir exigem nível 2 (requireSucontEditor nas server fns). Enquanto
 	// a permissão não resolveu, a ação não aparece: melhor um botão que chega tarde
 	// do que um que promete o que o servidor vai negar.
 	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
 
-	const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsQueryKey })
+	const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsQueryOptions().queryKey })
 
 	const createMutation = useMutation({
 		mutationFn: (data: { title: string; url: string; description: string }) => createReportFn({ data }),

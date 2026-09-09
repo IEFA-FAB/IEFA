@@ -9,6 +9,21 @@ import { useAuth } from "@/hooks/useAuth"
 import { type NormativeSource, sourceDocumentsQueryOptions, sourcesQueryOptions, useRefreshSource } from "@/lib/alpha/hooks"
 
 export const Route = createFileRoute("/alpha/fontes")({
+	// Só a listagem de fontes: os documentos de cada fonte são lazy no expandir.
+	loader: ({ context }) => {
+		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
+		// no SSR uma chamada pendurada prenderia a resposta do documento.
+		if (typeof document === "undefined") return
+
+		const token = context.auth.session?.access_token
+		if (!token) return
+
+		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
+		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
+		// (e o SSR) na resposta.
+		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
+		void context.queryClient.query({ ...sourcesQueryOptions(token), staleTime: "static" }).catch(() => {})
+	},
 	component: FontesPage,
 })
 

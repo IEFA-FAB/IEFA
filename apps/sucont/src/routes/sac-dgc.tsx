@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
+import { dgcRunsQueryOptions } from "#/lib/queries"
 import { analyzeUg } from "#/sacdgc/client"
 import { DgcReport } from "#/sacdgc/components/DgcReport"
 import { DgcRunHistory } from "#/sacdgc/components/DgcRunHistory"
@@ -15,20 +16,18 @@ import { buildGroupContext, parseDgcBase } from "#/sacdgc/parser"
 import { toAnalysisRequest } from "#/sacdgc/request"
 import type { DgcBase, UgDataset } from "#/sacdgc/types"
 import { GROUP_ORDER, identifyGroup, ugDisplayName } from "#/sacdgc/ugs"
-import { listDgcRunsFn, loadDgcRunFn, saveDgcAnalysisFn, startDgcRunFn } from "#/server/sacdgc.fn"
+import { loadDgcRunFn, saveDgcAnalysisFn, startDgcRunFn } from "#/server/sacdgc.fn"
 
 export const Route = createFileRoute("/sac-dgc")({
+	// O histórico de rodadas é aquecido no loader, antes do HTML, em vez de só
+	// começar a ser buscado depois da hidratação.
+	// Dispara sem esperar: a tela usa `useQuery` e tem o próprio estado de
+	// carregamento. O `.catch` deixa a falha no cache para ela tratar, em vez de
+	// subir para o error boundary do roteador.
+	loader: ({ context }) => {
+		void context.queryClient.query({ ...dgcRunsQueryOptions(), staleTime: "static" }).catch(() => {})
+	},
 	component: SacDgcPage,
-})
-
-/**
- * Histórico de rodadas gravadas. Em React Query, e não em `useState` + `.catch`,
- * porque os três estados precisam chegar separados na tela: carregando, falhou e
- * vazio. Colapsá-los em `[]` fazia uma consulta morta parecer competência nova.
- */
-const dgcRunsQueryOptions = () => ({
-	queryKey: ["sucont", "dgc", "runs"] as const,
-	queryFn: () => listDgcRunsFn(),
 })
 
 function SacDgcPage() {
