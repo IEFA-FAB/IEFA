@@ -15,7 +15,10 @@
  * físico. Quem confirma é a conferência no recebimento.
  *
  * CLIENT: getServerClient (service role, schemas gs1_integration/procurement).
- * AUTH: `global` nível 1 (leitura do catálogo de compras).
+ * AUTH: `global` nível 2 para verificar (a verificação GRAVA em
+ * `gs1_integration.gtin_specification_check`, e `force` grava sempre — nível 1 é o
+ * acesso de LEITURA do catálogo, hoje concedido também a parceiro externo pela
+ * política "Conjunto Parceiro Externo"); nível 1 para listar as exigências.
  * @domain procurement
  * @migration 20260901120300_gs1_specification_check
  */
@@ -79,7 +82,10 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("global", 1)
+		// Nível 2: este handler INSERE o veredito. Com nível 1, o principal de leitura —
+		// inclusive o parceiro externo, que é a contraparte julgada por esta tabela — escreveria
+		// linhas de auditoria em produção chamando /_serverFn direto, com `force` ignorando o cache.
+		const { userId } = await requireAuthWithPermission("global", 2)
 
 		const gtin = normalizeGtin(data.gtin)
 		if (!gtin) throw new Error("GTIN inválido")

@@ -5,52 +5,50 @@
 -- Treino" não serve para isso: ele concede unit:2, kitchen:2, kitchen-production:2,
 -- messhall:2 e local-analytics:2 — é um sandbox de escrita, não um acesso de leitura.
 --
--- `global` nível 1 é exatamente a fronteira certa: todas as telas de escrita do catálogo
--- (receita nova, edição de receita, plano semanal, equipamentos, locais, política de
--- revisão) exigem `global` nível 2 no `beforeLoad`, e as operações de domínio exigem o
--- mesmo no servidor.
+-- `global` nível 1 é a fronteira certa: todas as telas de escrita do catálogo (receita
+-- nova, edição de receita, plano semanal, equipamentos, locais, política de revisão)
+-- exigem `global` nível 2 no `beforeLoad`, e as operações de domínio exigem o mesmo no
+-- servidor.
 --
--- `managed = true`: a política não é editável pela UI. Sem isso, alguém poderia elevar o
--- statement para nível 2 no console e transformar o acesso de parceiro em escrita no
--- catálogo de produção — mesma proteção que o "Conjunto Treino" já tem.
+-- `managed = true` → a UI recusa editar e remover (`assertPolicyEditable`). Sem isso,
+-- alguém elevaria o statement para nível 2 no console e transformaria o acesso de consulta
+-- num passe de escrita no catálogo de produção.
 --
--- DDL idempotente (reaplicável por db:push ou MCP apply_migration).
+-- QUEM é anexado NÃO está aqui: anexar é operação de console (/admin/permissions), e nome
+-- e e-mail de pessoa externa não entram num repositório público. A migration cria a
+-- política; a administração escolhe os principais.
+--
+-- Idempotente: reaplicar não duplica política nem statements, e reafirma as duas
+-- invariantes de segurança (`managed` e o statement único de nível 1) mesmo que uma
+-- política de mesmo nome já exista — uma criada pelo console nasce com `managed = false` e
+-- statements arbitrários.
 
--- ─── Política ────────────────────────────────────────────────────────────────
+do $$
+declare
+	v_policy_id uuid;
+begin
+	select id into v_policy_id
+	from access_control.policy
+	where name = 'Conjunto Parceiro Externo' and deleted_at is null;
 
-insert into access_control.policy (name, description, managed)
-select
-	'Conjunto Parceiro Externo',
-	'Parceiro institucional externo à FAB: leitura do catálogo global (insumos, receitas, planos semanais, preparações congeladas e filas de revisão). Nenhuma escrita, nenhum escopo de unidade, cozinha ou refeitório.',
-	true
-where not exists (
-	select 1 from access_control.policy
-	where name = 'Conjunto Parceiro Externo' and deleted_at is null
-);
+	if v_policy_id is null then
+		insert into access_control.policy (name, description, managed)
+		values (
+			'Conjunto Parceiro Externo',
+			'Parceiro institucional externo à FAB: leitura do catálogo global (insumos, receitas, planos semanais, preparações congeladas e filas de revisão). Nenhuma escrita, nenhum escopo de unidade, cozinha ou refeitório. Gerenciada: não editável.',
+			true
+		)
+		returning id into v_policy_id;
+	else
+		update access_control.policy
+		set managed = true, updated_at = now()
+		where id = v_policy_id and managed is distinct from true;
+	end if;
 
--- ─── Statement único: global nível 1, sem escopo ─────────────────────────────
+	-- Substituição idempotente: o conjunto de statements é EXATAMENTE um, e o nível é 1.
+	-- Verificar só a existência da política deixaria passar uma homônima com `global:2`.
+	delete from access_control.policy_statement where policy_id = v_policy_id;
 
-insert into access_control.policy_statement (policy_id, module, level)
-select p.id, 'global', 1
-from access_control.policy p
-where p.name = 'Conjunto Parceiro Externo'
-	and p.deleted_at is null
-	and not exists (
-		select 1 from access_control.policy_statement s
-		where s.policy_id = p.id and s.module = 'global'
-	);
-
--- ─── Anexo dos parceiros da GS1 Brasil ───────────────────────────────────────
--- Resolvido por e-mail em vez de UUID: o id do usuário difere entre ambientes e um
--- hard-code apontaria para outra pessoa fora de produção. Quem não existe não é anexado —
--- a migration não falha, e reaplicá-la depois da criação da conta completa o anexo.
--- `lower(email)` porque o cadastro normaliza o e-mail para minúsculas.
-
-insert into access_control.user_policy_attachment (user_id, policy_id)
-select u.id, p.id
-from auth.users u
-cross join access_control.policy p
-where p.name = 'Conjunto Parceiro Externo'
-	and p.deleted_at is null
-	and lower(u.email) in ('leonardo.nunes@gs1br.org', 'pedro.ferreira@gs1br.org')
-on conflict (user_id, policy_id) do nothing;
+	insert into access_control.policy_statement (policy_id, module, level, unit_id, kitchen_id, mess_hall_id)
+	values (v_policy_id, 'global', 1, null, null, null);
+end $$;

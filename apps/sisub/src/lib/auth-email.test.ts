@@ -7,7 +7,7 @@ describe("validateSignUpEmail", () => {
 	})
 
 	it("recusa domínio externo — autocadastro continua restrito à FAB", () => {
-		expect(validateSignUpEmail("leonardo.nunes@gs1br.org")).not.toBeNull()
+		expect(validateSignUpEmail("parceiro.externo@exemplo.org")).not.toBeNull()
 	})
 
 	it("recusa vazio", () => {
@@ -21,7 +21,7 @@ describe("validateSignInEmail", () => {
 	})
 
 	it("aceita conta de parceiro externo — sem isto ela não consegue entrar", () => {
-		expect(validateSignInEmail("leonardo.nunes@gs1br.org")).toBeNull()
+		expect(validateSignInEmail("parceiro.externo@exemplo.org")).toBeNull()
 	})
 
 	it("recusa endereço sem domínio", () => {
