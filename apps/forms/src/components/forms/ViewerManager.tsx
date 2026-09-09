@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Trash } from "iconoir-react"
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { viewersQueryOptions } from "@/lib/queries"
-import { addViewerFn, getOmOptionsFn, removeViewerFn, updateViewerPolicyFn } from "@/server/forms.fn"
+import { omOptionsQueryOptions, viewersQueryOptions } from "@/lib/queries"
+import { addViewerFn, removeViewerFn, updateViewerPolicyFn } from "@/server/forms.fn"
 
 type ViewerBinding = {
 	id?: string
@@ -27,12 +27,6 @@ export type ResponseViewer = {
 	scope_mode: "global" | "scoped"
 	bindings: ViewerBinding[]
 }
-
-const omOptionsQueryOptions = () =>
-	queryOptions({
-		queryKey: ["om-options"],
-		queryFn: () => getOmOptionsFn({ data: {} }),
-	})
 
 function parseLines(value: string) {
 	return Array.from(

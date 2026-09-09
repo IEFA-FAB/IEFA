@@ -23,7 +23,7 @@ import {
 	getScoreBgColor,
 	getScoreColor,
 } from "@/lib/conformity"
-import { questionnaireQueryOptions, viewersQueryOptions } from "@/lib/queries"
+import { myResponseStateQueryOptions, questionnaireQueryOptions, viewersQueryOptions } from "@/lib/queries"
 import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
 import { assertUuidParam } from "@/lib/route-params"
 import { getResponsesFn, getResponseVersionFn, getResponseVersionsFn, reopenResponseFn, revertToVersionFn } from "@/server/forms.fn"
@@ -67,7 +67,10 @@ function ResponsesPage() {
 			setReopening(sessionId)
 			try {
 				await reopenResponseFn({ data: { questionnaire_response_id: sessionId } })
-				queryClient.invalidateQueries({ queryKey: ["responses", questionnaireId] })
+				queryClient.invalidateQueries({ queryKey: responsesQueryOptions(questionnaireId).queryKey })
+				// A resposta volta a ser rascunho: sem isto, /respond/$id abriria o estado
+				// anterior em cache e o rascunho reaberto nunca apareceria.
+				queryClient.invalidateQueries({ queryKey: myResponseStateQueryOptions(questionnaire.id).queryKey })
 				navigate({ to: "/respond/$id", params: { id: questionnaire.id } })
 			} catch (e) {
 				toast.error(e instanceof Error ? e.message : "Erro ao reabrir resposta")
