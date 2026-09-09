@@ -1,9 +1,9 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Check, Refresh, SendDiagonal } from "iconoir-react"
-import { useEffect, useMemo, useReducer } from "react"
+import { useMemo, useReducer } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,12 +13,13 @@ import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/toast"
 import { useAutoSave } from "@/hooks/useAutoSave"
 import { EVALUATION_TYPES, type EvaluationType } from "@/lib/5s-constants"
 import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
-import { questionnaireQueryOptions } from "@/lib/queries"
+import { myResponseStateQueryOptions, omOptionsQueryOptions, questionnaireQueryOptions } from "@/lib/queries"
 import { assertUuidParam } from "@/lib/route-params"
-import { getMyResponseStateFn, getOmOptionsFn, getOrCreateResponseSessionFn, submitResponseFn } from "@/server/forms.fn"
+import { type getMyResponseStateFn, getOrCreateResponseSessionFn, submitResponseFn } from "@/server/forms.fn"
 
 export const Route = createFileRoute("/respond/$id")({
 	beforeLoad: ({ context, location, params }) => {
@@ -28,12 +29,21 @@ export const Route = createFileRoute("/respond/$id")({
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 	},
-	loader: ({ context, params }) => context.queryClient.query({ ...questionnaireQueryOptions(params.id), staleTime: "static" }),
+	loader: async ({ context, params }) => {
+		// As OMs só aparecem no passo de metadados: dispara sem prender a rota.
+		void context.queryClient.query({ ...omOptionsQueryOptions(), staleTime: "static" }).catch(() => {})
+		// Questionário e estado da resposta saem juntos — a tela suspende nos dois,
+		// então esperar pelo segundo não custa ida extra e evita abrir no "carregando".
+		await Promise.all([
+			context.queryClient.query({ ...questionnaireQueryOptions(params.id), staleTime: "static" }),
+			context.queryClient.query({ ...myResponseStateQueryOptions(params.id), staleTime: "static" }),
+		])
+	},
 	component: RespondPage,
 })
 
 type AnswerMap = Record<string, { value: unknown; observation: string | null }>
-type ResponseViewState = "loading" | "metadata" | "draft" | "submitted"
+type ResponseViewState = "metadata" | "draft" | "submitted"
 
 type RespondState = {
 	responseSessionId: string | null
@@ -46,8 +56,6 @@ type RespondState = {
 }
 
 type RespondAction =
-	| { type: "INIT_DRAFT"; sessionId: string; answers: AnswerMap; version: number | null }
-	| { type: "INIT_METADATA" }
 	| { type: "SESSION_CREATED"; sessionId: string }
 	| { type: "SET_ANSWER"; questionId: string; value: unknown }
 	| { type: "TOGGLE_OBS"; questionId: string }
@@ -57,22 +65,31 @@ type RespondAction =
 	| { type: "SUBMIT_FAILED" }
 	| { type: "NEW_RESPONSE" }
 
-const initialRespondState: RespondState = {
-	responseSessionId: null,
-	answers: {},
-	submitting: false,
-	viewState: "loading",
-	submittedAt: null,
-	showObs: {},
-	currentVersion: null,
+type MyResponseState = Awaited<ReturnType<typeof getMyResponseStateFn>>
+
+/**
+ * Estado inicial derivado do que o loader já buscou. Antes isto era um
+ * `useEffect` que chamava a server fn depois da hidratação: a tela abria em
+ * "carregando" mesmo com o questionário já renderizado pelo SSR.
+ */
+function buildInitialRespondState(responseState: MyResponseState): RespondState {
+	const base = { submitting: false, submittedAt: null, showObs: {} }
+
+	if (responseState.status === "draft" && responseState.session) {
+		return {
+			...base,
+			responseSessionId: responseState.session.id,
+			answers: buildAnswerMap(responseState.session.response),
+			currentVersion: responseState.session.current_version ?? null,
+			viewState: "draft",
+		}
+	}
+
+	return { ...base, responseSessionId: null, answers: {}, currentVersion: null, viewState: "metadata" }
 }
 
 function respondReducer(state: RespondState, action: RespondAction): RespondState {
 	switch (action.type) {
-		case "INIT_DRAFT":
-			return { ...state, responseSessionId: action.sessionId, answers: action.answers, currentVersion: action.version, viewState: "draft" }
-		case "INIT_METADATA":
-			return { ...state, viewState: "metadata" }
 		case "SESSION_CREATED":
 			return { ...state, responseSessionId: action.sessionId, answers: {}, viewState: "draft" }
 		case "SET_ANSWER": {
@@ -103,8 +120,6 @@ type MetadataState = {
 	om: string | null
 	omCustom: string
 	secao: string
-	loading: boolean
-	omOptions: { id: number; name: string }[]
 }
 
 type MetadataAction =
@@ -112,16 +127,12 @@ type MetadataAction =
 	| { type: "SET_OM"; value: string | null }
 	| { type: "SET_OM_CUSTOM"; value: string }
 	| { type: "SET_SECAO"; value: string }
-	| { type: "SET_LOADING"; value: boolean }
-	| { type: "SET_OM_OPTIONS"; options: { id: number; name: string }[] }
 
 const initialMetadataState: MetadataState = {
 	evaluationType: null,
 	om: null,
 	omCustom: "",
 	secao: "",
-	loading: false,
-	omOptions: [],
 }
 
 function metadataReducer(state: MetadataState, action: MetadataAction): MetadataState {
@@ -134,10 +145,6 @@ function metadataReducer(state: MetadataState, action: MetadataAction): Metadata
 			return { ...state, omCustom: action.value }
 		case "SET_SECAO":
 			return { ...state, secao: action.value }
-		case "SET_LOADING":
-			return { ...state, loading: action.value }
-		case "SET_OM_OPTIONS":
-			return { ...state, omOptions: action.options }
 		default:
 			return state
 	}
@@ -146,7 +153,8 @@ function metadataReducer(state: MetadataState, action: MetadataAction): Metadata
 function RespondPage() {
 	const { id } = Route.useParams()
 	const { data: questionnaire } = useSuspenseQuery(questionnaireQueryOptions(id))
-	const [state, dispatch] = useReducer(respondReducer, initialRespondState)
+	const { data: responseState } = useSuspenseQuery(myResponseStateQueryOptions(id))
+	const [state, dispatch] = useReducer(respondReducer, responseState, buildInitialRespondState)
 	const { responseSessionId, answers, submitting, viewState, submittedAt, showObs, currentVersion } = state
 
 	const { save, flush, status: saveStatus } = useAutoSave(viewState === "draft" ? responseSessionId : null)
@@ -162,33 +170,6 @@ function RespondPage() {
 	const totalQuestions = allQuestions.length
 	const answeredCount = Object.keys(answers).filter((key) => answers[key]?.value != null && answers[key]?.value !== "").length
 	const progressPct = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0
-
-	useEffect(() => {
-		let isMounted = true
-
-		const init = async () => {
-			const responseState = await getMyResponseStateFn({ data: { questionnaire_id: id } })
-			if (!isMounted) return
-
-			if (responseState.status === "draft" && responseState.session) {
-				dispatch({
-					type: "INIT_DRAFT",
-					sessionId: responseState.session.id,
-					answers: buildAnswerMap(responseState.session.response),
-					version: responseState.session.current_version ?? null,
-				})
-				return
-			}
-
-			dispatch({ type: "INIT_METADATA" })
-		}
-
-		init()
-
-		return () => {
-			isMounted = false
-		}
-	}, [id])
 
 	const handleSubmit = async () => {
 		if (!responseSessionId) return
@@ -212,19 +193,6 @@ function RespondPage() {
 						<Button nativeButton={false} render={<Link to="/dashboard" />}>
 							Ir para o painel
 						</Button>
-					</CardContent>
-				</Card>
-			</ResponseShell>
-		)
-	}
-
-	if (viewState === "loading") {
-		return (
-			<ResponseShell>
-				<Card className="mx-auto max-w-xl">
-					<CardContent className="py-16 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-						<Refresh className="size-4 animate-spin" />
-						Carregando questionário…
 					</CardContent>
 				</Card>
 			</ResponseShell>
@@ -393,31 +361,24 @@ function MetadataStep({
 	onSessionCreated: (session: { id: string }) => void
 }) {
 	const [state, dispatch] = useReducer(metadataReducer, initialMetadataState)
-	const { evaluationType, om, omCustom, secao, loading, omOptions } = state
-
-	useEffect(() => {
-		getOmOptionsFn({ data: {} }).then((options) => dispatch({ type: "SET_OM_OPTIONS", options }))
-	}, [])
+	const { evaluationType, om, omCustom, secao } = state
+	const { data: omOptions = [] } = useQuery(omOptionsQueryOptions())
 
 	const resolvedOm = om === "__outro" ? omCustom.trim() : (om ?? "")
 	const canSubmit = evaluationType && resolvedOm && secao.trim()
 
-	const handleStart = async () => {
-		if (!canSubmit) return
-		dispatch({ type: "SET_LOADING", value: true })
-		try {
-			const session = await getOrCreateResponseSessionFn({
-				data: {
-					questionnaire_id: questionnaireId,
-					evaluation_type: evaluationType,
-					om: resolvedOm,
-					secao: secao.trim(),
-				},
-			})
-			onSessionCreated(session)
-		} finally {
-			dispatch({ type: "SET_LOADING", value: false })
-		}
+	// Criação de sessão é escrita: como mutation ela ganha erro tratado e o
+	// `isPending` que antes era um booleano no reducer.
+	const startMutation = useMutation({
+		mutationFn: (input: { evaluation_type: EvaluationType; om: string; secao: string }) =>
+			getOrCreateResponseSessionFn({ data: { questionnaire_id: questionnaireId, ...input } }),
+		onSuccess: onSessionCreated,
+		onError: (err) => toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a avaliação"),
+	})
+
+	const handleStart = () => {
+		if (!canSubmit || !evaluationType) return
+		startMutation.mutate({ evaluation_type: evaluationType, om: resolvedOm, secao: secao.trim() })
 	}
 
 	return (
@@ -473,8 +434,8 @@ function MetadataStep({
 				</div>
 
 				<div className="pt-2">
-					<Button onClick={handleStart} disabled={!canSubmit || loading} className="w-full">
-						{loading ? <Refresh className="size-4 animate-spin" /> : null}
+					<Button onClick={handleStart} disabled={!canSubmit || startMutation.isPending} className="w-full">
+						{startMutation.isPending ? <Refresh className="size-4 animate-spin" /> : null}
 						Iniciar Avaliação
 					</Button>
 				</div>
