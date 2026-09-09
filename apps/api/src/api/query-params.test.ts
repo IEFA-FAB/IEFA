@@ -1,5 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import { clampLimit, clampOffset, commaListToArray, dayBounds, parseOrderParam, parseSortableOrderParam, toInt } from "./query-params.ts"
+import {
+	clampLimit,
+	clampOffset,
+	commaListToArray,
+	dayBounds,
+	escapeLikePattern,
+	MAX_FILTER_VALUES,
+	MAX_OFFSET,
+	parseListFilter,
+	parseOrderParam,
+	parseSortableOrderParam,
+	toInt,
+} from "./query-params.ts"
 
 describe("clampLimit", () => {
 	test("usa o padrão quando o parâmetro está ausente ou não é número", () => {
@@ -84,6 +96,70 @@ describe("parseSortableOrderParam", () => {
 		const parsed = parseSortableOrderParam(null, sortable)
 		expect(parsed.ok).toBe(true)
 		if (parsed.ok) expect(parsed.order).toEqual([])
+	})
+})
+
+describe("parseSortableOrderParam — teto de regras", () => {
+	const sortable = ["description", "created_at"] as const
+
+	test("mais regras que o teto é rejeitado, mesmo com todas as colunas na allow-list", () => {
+		const parsed = parseSortableOrderParam("description,created_at,description,created_at", sortable)
+		expect(parsed.ok).toBe(false)
+		if (!parsed.ok) expect(parsed.reason).toBe("too-many-rules")
+	})
+
+	test("o motivo distingue coluna desconhecida de lista longa demais", () => {
+		const unknown = parseSortableOrderParam("legacy_id", sortable)
+		expect(unknown.ok).toBe(false)
+		if (!unknown.ok) expect(unknown.reason).toBe("unknown-column")
+	})
+})
+
+describe("clampOffset", () => {
+	test("offset negativo volta para a primeira página", () => {
+		expect(clampOffset("-5")).toBe(0)
+	})
+
+	test("offset além do teto é limitado — acima de 2^53 o range perde precisão e a janela sai errada", () => {
+		expect(clampOffset("99999999999999999999")).toBe(MAX_OFFSET)
+		// Sem o clamp: 1e20 + 49 === 1e20, então `to - from + 1` daria 1 em vez do limite pedido.
+		expect(MAX_OFFSET + 49 - MAX_OFFSET + 1).toBe(50)
+	})
+
+	test("valor ausente ou inválido é a primeira página", () => {
+		expect(clampOffset(null)).toBe(0)
+		expect(clampOffset("abc")).toBe(0)
+	})
+})
+
+describe("escapeLikePattern", () => {
+	test("torna literais os curingas que o SQL interpreta", () => {
+		expect(escapeLikePattern("100%")).toBe("100\\%")
+		expect(escapeLikePattern("A_1")).toBe("A\\_1")
+		expect(escapeLikePattern("a\\b")).toBe("a\\\\b")
+	})
+
+	test("texto comum passa intacto", () => {
+		expect(escapeLikePattern("arroz polido tipo 1")).toBe("arroz polido tipo 1")
+	})
+})
+
+describe("parseListFilter", () => {
+	test("ausente e vazio são 'não filtra', não erro", () => {
+		expect(parseListFilter(null)).toBeNull()
+		expect(parseListFilter("")).toBeNull()
+		expect(parseListFilter(" , , ")).toBeNull()
+	})
+
+	test("lista dentro do teto passa aparada", () => {
+		expect(parseListFilter("KG, L ,UN")).toEqual({ ok: true, values: ["KG", "L", "UN"] })
+	})
+
+	test("lista acima do teto é rejeitada", () => {
+		const many = Array.from({ length: MAX_FILTER_VALUES + 1 }, (_, i) => `v${i}`).join(",")
+		expect(parseListFilter(many)).toEqual({ ok: false })
+		const atLimit = Array.from({ length: MAX_FILTER_VALUES }, (_, i) => `v${i}`).join(",")
+		expect(parseListFilter(atLimit)?.ok).toBe(true)
 	})
 })
 

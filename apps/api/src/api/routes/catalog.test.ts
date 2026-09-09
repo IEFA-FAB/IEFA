@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { OpenAPIHono } from "@hono/zod-openapi"
-import { catalogRoutes, createCatalogRoutes, FOLDER_COLUMNS, INGREDIENT_COLUMNS } from "./catalog.ts"
+import { catalogRoutes, createCatalogRoutes, FOLDER_COLUMNS, FolderSchema, INGREDIENT_COLUMNS, IngredientSchema } from "./catalog.ts"
 
 type Call = { method: string; args: unknown[] }
 type QueryResult = { data: unknown[] | null; error: unknown; count: number | null }
@@ -70,7 +70,9 @@ class FakeSupabase {
 }
 
 function appWith(result: Partial<QueryResult> = {}) {
-	const supabase = new FakeSupabase({ data: result.data ?? [], error: result.error ?? null, count: result.count ?? 0 })
+	// `count` compara com `undefined` em vez de usar `??`: `count: null` é um caso de teste real
+	// (contagem ausente), e com `??` viraria 0 em silêncio — o teste passaria sem exercitar nada.
+	const supabase = new FakeSupabase({ data: result.data ?? [], error: result.error ?? null, count: result.count === undefined ? 0 : result.count })
 	const app = createCatalogRoutes({ getSupabase: () => supabase as any })
 	return { app, supabase }
 }
@@ -385,5 +387,114 @@ describe("Catálogo público — somente leitura", () => {
 		}
 		// Nenhuma escrita chegou perto do banco.
 		expect(supabase.builders.length).toBe(0)
+	})
+})
+
+/**
+ * Guarda de contrato: a allow-list de colunas e o schema publicado no OpenAPI têm que descrever
+ * a MESMA coisa.
+ *
+ * São duas listas separadas — a projeção que vai ao PostgREST e o schema Zod que vira o
+ * documento. Adicionar coluna só na projeção publica um campo que o contrato não menciona;
+ * adicionar só no schema promete um campo que nunca vem. Num contrato público e permanente as
+ * duas divergências são caras, e nenhuma delas quebra nada até alguém reparar.
+ */
+describe("Catálogo público — projeção e contrato OpenAPI não divergem", () => {
+	test("as colunas do insumo são exatamente as chaves do schema publicado", () => {
+		expect(Object.keys(IngredientSchema.shape).sort()).toEqual([...INGREDIENT_COLUMNS].sort())
+	})
+
+	test("as colunas da pasta são exatamente as chaves do schema publicado", () => {
+		expect(Object.keys(FolderSchema.shape).sort()).toEqual([...FOLDER_COLUMNS].sort())
+	})
+
+	test("toda coluna ordenável é também uma coluna publicada — nunca se ordena por dado não exposto", () => {
+		const doc = new OpenAPIHono()
+			.route("/api/catalog", createCatalogRoutes({ getSupabase: () => new FakeSupabase({ data: [], error: null, count: 0 }) as any }))
+			.getOpenAPIDocument({ openapi: "3.0.0", info: { title: "test", version: "1.0.0" } })
+		const orderParam = (doc.paths["/api/catalog/ingredients"] as any).get.parameters.find((p: any) => p.name === "order")
+
+		for (const column of ["description", "created_at"]) {
+			expect(orderParam.description).toContain(column)
+			expect(INGREDIENT_COLUMNS as readonly string[]).toContain(column)
+		}
+	})
+})
+
+describe("Catálogo público — paginação estável e `total` honesto", () => {
+	test("a ordenação sempre termina em `id`, senão a paginação por offset repete e perde linha", async () => {
+		const { app, supabase } = appWith()
+		await app.request("/ingredients?order=created_at:desc")
+		expect(supabase.callArgs("order")).toEqual([
+			["created_at", { ascending: false }],
+			["id", { ascending: true }],
+		])
+	})
+
+	test("o desempate também vale para a ordenação padrão e para /folders", async () => {
+		const ingredients = appWith()
+		await ingredients.app.request("/ingredients")
+		expect(ingredients.supabase.callArgs("order")).toEqual([
+			["description", { ascending: true }],
+			["id", { ascending: true }],
+		])
+
+		const folders = appWith()
+		await folders.app.request("/folders")
+		expect(folders.supabase.callArgs("order")).toEqual([
+			["description", { ascending: true }],
+			["id", { ascending: true }],
+		])
+	})
+
+	test("contagem ausente é 500, nunca `total` igual ao tamanho da página", async () => {
+		const errorSpy = spyOn(console, "error").mockImplementation(() => {})
+		const { app } = appWith({ data: [INGREDIENT_ROW], count: null })
+		const res = await app.request("/ingredients")
+
+		expect(res.status).toBe(500)
+		expect(await res.text()).not.toContain('"total":1')
+		expect(errorSpy).toHaveBeenCalled()
+		errorSpy.mockRestore()
+	})
+})
+
+describe("Catálogo público — entrada do cliente é limitada e literal", () => {
+	test("offset absurdo é limitado: sem teto o range perde precisão e a janela sai errada", async () => {
+		const { app, supabase } = appWith()
+		const body = (await (await app.request("/ingredients?limit=50&offset=99999999999999999999")).json()) as any
+
+		expect(body.offset).toBe(1_000_000)
+		// A janela continua sendo de `limit` linhas — era isso que a perda de precisão quebrava.
+		const [from, to] = supabase.callArgs("range")[0] as [number, number]
+		expect(to - from + 1).toBe(50)
+	})
+
+	test("curinga do LIKE no filtro é literal — `%` não vira 'traga o catálogo inteiro'", async () => {
+		const { app, supabase } = appWith()
+		await app.request(`/ingredients?description_ilike=${encodeURIComponent("100%_A")}`)
+		expect(supabase.callArgs("ilike")[0]).toEqual(["description", "%100\\%\\_A%"])
+	})
+
+	test("lista de filtro longa demais é 400, e não chega a virar query no PostgREST", async () => {
+		const uuids = Array.from({ length: 101 }, (_, i) => `11111111-1111-4111-8111-${String(i).padStart(12, "0")}`).join(",")
+		const { app, supabase } = appWith()
+		const res = await app.request(`/ingredients?folder_id=${uuids}`)
+
+		expect(res.status).toBe(400)
+		expect(supabase.builders.length).toBe(0)
+	})
+
+	test("measure_unit com valores demais é 400", async () => {
+		const { app } = appWith()
+		const many = Array.from({ length: 101 }, (_, i) => `U${i}`).join(",")
+		expect((await app.request(`/ingredients?measure_unit=${many}`)).status).toBe(400)
+	})
+
+	test("ordenação com colunas demais é 400 e não ecoa a entrada", async () => {
+		const { app } = appWith()
+		const res = await app.request("/ingredients?order=description,created_at,description,created_at")
+		expect(res.status).toBe(400)
+		expect(JSON.stringify(await res.json())).not.toContain("created_at,description")
 	})
 })

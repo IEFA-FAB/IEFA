@@ -26,13 +26,22 @@
  *
  * Dívida conhecida e deliberadamente preservada: os serviços Hono montam `createClient` direto
  * em vez de usar `@iefa/supabase-kit`. Este arquivo segue o padrão do arquivo vizinho
- * (`nutrition-admin.ts`), com o client criado por `getSupabase()` — lazy, para que o módulo
- * possa ser importado num teste sem credencial no ambiente.
+ * (`nutrition-admin.ts`), com o client criado por `getSupabase()` — lazy (para que o módulo
+ * possa ser importado num teste sem credencial no ambiente) e memoizado (ver o porquê lá).
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
-import { clampLimit, clampOffset, commaListToArray, parseSortableOrderParam } from "../query-params.ts"
+import {
+	clampLimit,
+	clampOffset,
+	escapeLikePattern,
+	MAX_FILTER_VALUES,
+	MAX_ORDER_RULES,
+	type OrderRule,
+	parseListFilter,
+	parseSortableOrderParam,
+} from "../query-params.ts"
 
 function requiredEnv(name: "API_SUPABASE_URL" | "API_SUPABASE_SERVICE_ROLE_KEY") {
 	const value = process.env[name]
@@ -41,11 +50,45 @@ function requiredEnv(name: "API_SUPABASE_URL" | "API_SUPABASE_SERVICE_ROLE_KEY")
 }
 
 /** Client do catálogo. O catálogo mora em `kitchen` desde o split de schemas por domínio. */
-function getSupabase() {
+function createCatalogClient() {
 	return createClient(requiredEnv("API_SUPABASE_URL"), requiredEnv("API_SUPABASE_SERVICE_ROLE_KEY"), {
 		db: { schema: "kitchen" },
-		auth: { persistSession: false },
+		// `autoRefreshToken: false` não é higiene, é o que impede o vazamento abaixo: em ambiente
+		// não-browser o GoTrueClient liga um `setInterval` de 30s no construtor sempre que a opção
+		// está ligada (o default), e NADA nunca o desliga. Esta rota não tem sessão para renovar.
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
+}
+
+let cachedClient: ReturnType<typeof createCatalogClient> | undefined
+
+/**
+ * Client memoizado no módulo.
+ *
+ * Um client POR REQUISIÇÃO deixaria para trás um ticker de refresh e o próprio client retidos
+ * por ele, por requisição, pelo tempo de vida do container. Numa rota anônima — a única aqui
+ * sem gate de autenticação, e portanto a única que qualquer um pode repetir à vontade — esse é
+ * o caminho mais curto até os 460MB de RSS em que o healthcheck do `index.ts` derruba a task.
+ * Lazy, e não singleton de módulo como `lib/supabase.ts`, para que o arquivo continue
+ * importável num teste sem credencial no ambiente.
+ */
+function getSupabase() {
+	cachedClient ??= createCatalogClient()
+	return cachedClient
+}
+
+/**
+ * Ordem final: a pedida (ou `description`) MAIS `id` como desempate.
+ *
+ * Sem desempate a paginação por offset mente. `created_at` — uma das colunas ordenáveis
+ * publicadas — tem ~102 valores distintos para as 1779 linhas do recorte, e a ordem DENTRO do
+ * empate é indefinida no Postgres: nada obriga a query de `offset=0` e a de `offset=50` a
+ * concordarem. Quem varre o catálogo inteiro recebe linha repetida e perde outra, com o `total`
+ * afirmando que veio tudo. O cliente também não tem como contornar — `id` não é ordenável.
+ */
+function withTiebreaker(rules: OrderRule[]): OrderRule[] {
+	const base = rules.length ? rules : [{ column: "description", ascending: true }]
+	return [...base, { column: "id", ascending: true }]
 }
 
 /**
@@ -94,7 +137,7 @@ const ErrorSchema = z.object({
 	details: z.string().optional(),
 })
 
-const IngredientSchema = z.object({
+export const IngredientSchema = z.object({
 	id: z.uuid(),
 	description: z.string().nullable(),
 	measure_unit: z.string().nullable(),
@@ -105,7 +148,7 @@ const IngredientSchema = z.object({
 	created_at: z.iso.datetime({ offset: true }),
 })
 
-const FolderSchema = z.object({
+export const FolderSchema = z.object({
 	id: z.uuid(),
 	description: z.string().nullable(),
 	parent_id: z.uuid().nullable(),
@@ -213,6 +256,11 @@ const listFoldersRoute = defineCatalogRoute({
 	itemSchema: FolderSchema,
 })
 
+/** Motivo do 400 de ordenação — sem ecoar a entrada do cliente de volta no corpo. */
+function orderErrorDetails(reason: "unknown-column" | "too-many-rules") {
+	return reason === "too-many-rules" ? `A ordenação aceita no máximo ${MAX_ORDER_RULES} colunas` : `Colunas permitidas: ${SORTABLE_COLUMNS.join(", ")}`
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type UuidFilter = { ok: true; values: string[] } | { ok: false }
@@ -224,11 +272,10 @@ type UuidFilter = { ok: true; values: string[] } | { ok: false }
  * erro que é do cliente — e ainda por cima com o log de servidor sujo de requisição inválida.
  */
 function parseUuidFilter(raw: string | null): UuidFilter | null {
-	if (!raw) return null
-	const values = commaListToArray(raw)
-	if (values.length === 0) return null
-	if (!values.every((v) => UUID_PATTERN.test(v))) return { ok: false }
-	return { ok: true, values }
+	const list = parseListFilter(raw)
+	if (!list?.ok) return list
+	if (!list.values.every((v) => UUID_PATTERN.test(v))) return { ok: false }
+	return list
 }
 
 /** `numeric` do PostgREST chega como string; o contrato publica `number | null`. */
@@ -268,11 +315,18 @@ export function createCatalogRoutes(deps: CatalogRoutesDeps = {}) {
 			const sp = new URL(c.req.url).searchParams
 
 			const order = parseSortableOrderParam(sp.get("order"), SORTABLE_COLUMNS)
-			if (!order.ok) return c.json({ error: "Ordenação inválida", details: `Colunas permitidas: ${SORTABLE_COLUMNS.join(", ")}` }, 400)
+			if (!order.ok) return c.json({ error: "Ordenação inválida", details: orderErrorDetails(order.reason) }, 400)
 
 			const folderIds = parseUuidFilter(sp.get("folder_id"))
 			if (folderIds && !folderIds.ok)
-				return c.json({ error: "Parâmetro inválido", details: "folder_id deve ser um UUID, ou uma lista de UUIDs separada por vírgula" }, 400)
+				return c.json(
+					{ error: "Parâmetro inválido", details: `folder_id deve ser um UUID, ou uma lista de até ${MAX_FILTER_VALUES} UUIDs separada por vírgula` },
+					400
+				)
+
+			const measureUnits = parseListFilter(sp.get("measure_unit"))
+			if (measureUnits && !measureUnits.ok)
+				return c.json({ error: "Parâmetro inválido", details: `measure_unit aceita no máximo ${MAX_FILTER_VALUES} valores` }, 400)
 
 			const limit = clampLimit(sp.get("limit"), DEFAULT_LIMIT, MAX_LIMIT)
 			const offset = clampOffset(sp.get("offset"))
@@ -286,14 +340,12 @@ export function createCatalogRoutes(deps: CatalogRoutesDeps = {}) {
 					.is("preparation_group_id", null)
 
 				const description = sp.get("description_ilike")
-				if (description) query = query.ilike("description", `%${description}%`)
+				if (description) query = query.ilike("description", `%${escapeLikePattern(description)}%`)
 				if (folderIds?.ok) query = folderIds.values.length === 1 ? query.eq("folder_id", folderIds.values[0]) : query.in("folder_id", folderIds.values)
-				const measureUnits = commaListToArray(sp.get("measure_unit") ?? "")
-				if (measureUnits.length === 1) query = query.eq("measure_unit", measureUnits[0])
-				else if (measureUnits.length > 1) query = query.in("measure_unit", measureUnits)
+				if (measureUnits?.ok)
+					query = measureUnits.values.length === 1 ? query.eq("measure_unit", measureUnits.values[0]) : query.in("measure_unit", measureUnits.values)
 
-				const finalOrder = order.order.length ? order.order : [{ column: "description", ascending: true }]
-				for (const rule of finalOrder) query = query.order(rule.column, { ascending: rule.ascending ?? true })
+				for (const rule of withTiebreaker(order.order)) query = query.order(rule.column, { ascending: rule.ascending ?? true })
 
 				const { data, error, count } = await query.range(offset, offset + limit - 1)
 				if (error) {
@@ -302,9 +354,16 @@ export function createCatalogRoutes(deps: CatalogRoutesDeps = {}) {
 					console.error("[catalog] Erro Supabase em /ingredients:", error)
 					return c.json({ error: "Erro interno do servidor ao buscar dados" }, 500)
 				}
+				// `total` ausente é falha, não valor a improvisar: cair para o tamanho da página
+				// publicaria "o catálogo tem 50 itens" — exatamente a mentira que o envelope existe
+				// para impedir, e em silêncio.
+				if (count === null) {
+					console.error("[catalog] contagem ausente em /ingredients — resposta sem `total` confiável")
+					return c.json({ error: "Erro interno do servidor ao buscar dados" }, 500)
+				}
 
 				const rows = (data ?? []) as unknown as Record<string, unknown>[]
-				return c.json({ data: rows.map((row) => toNumericColumns(row, INGREDIENT_NUMERIC_COLUMNS)), total: count ?? rows.length, limit, offset } as any, 200)
+				return c.json({ data: rows.map((row) => toNumericColumns(row, INGREDIENT_NUMERIC_COLUMNS)), total: count, limit, offset } as any, 200)
 			} catch (err) {
 				console.error("[catalog] Erro crítico em /ingredients:", err)
 				return c.json({ error: "Erro interno do servidor" }, 500)
@@ -314,11 +373,14 @@ export function createCatalogRoutes(deps: CatalogRoutesDeps = {}) {
 			const sp = new URL(c.req.url).searchParams
 
 			const order = parseSortableOrderParam(sp.get("order"), SORTABLE_COLUMNS)
-			if (!order.ok) return c.json({ error: "Ordenação inválida", details: `Colunas permitidas: ${SORTABLE_COLUMNS.join(", ")}` }, 400)
+			if (!order.ok) return c.json({ error: "Ordenação inválida", details: orderErrorDetails(order.reason) }, 400)
 
 			const parentIds = parseUuidFilter(sp.get("parent_id"))
 			if (parentIds && !parentIds.ok)
-				return c.json({ error: "Parâmetro inválido", details: "parent_id deve ser um UUID, ou uma lista de UUIDs separada por vírgula" }, 400)
+				return c.json(
+					{ error: "Parâmetro inválido", details: `parent_id deve ser um UUID, ou uma lista de até ${MAX_FILTER_VALUES} UUIDs separada por vírgula` },
+					400
+				)
 
 			const scope = sp.get("catalog_scope")
 			if (scope && !CATALOG_SCOPE_VALUES.includes(scope as (typeof CATALOG_SCOPE_VALUES)[number]))
@@ -331,21 +393,24 @@ export function createCatalogRoutes(deps: CatalogRoutesDeps = {}) {
 				let query = createSupabase().from("folder").select(FOLDER_COLUMNS.join(", "), { count: "exact" }).is("deleted_at", null)
 
 				const description = sp.get("description_ilike")
-				if (description) query = query.ilike("description", `%${description}%`)
+				if (description) query = query.ilike("description", `%${escapeLikePattern(description)}%`)
 				if (parentIds?.ok) query = parentIds.values.length === 1 ? query.eq("parent_id", parentIds.values[0]) : query.in("parent_id", parentIds.values)
 				if (scope) query = query.eq("catalog_scope", scope)
 
-				const finalOrder = order.order.length ? order.order : [{ column: "description", ascending: true }]
-				for (const rule of finalOrder) query = query.order(rule.column, { ascending: rule.ascending ?? true })
+				for (const rule of withTiebreaker(order.order)) query = query.order(rule.column, { ascending: rule.ascending ?? true })
 
 				const { data, error, count } = await query.range(offset, offset + limit - 1)
 				if (error) {
 					console.error("[catalog] Erro Supabase em /folders:", error)
 					return c.json({ error: "Erro interno do servidor ao buscar dados" }, 500)
 				}
+				if (count === null) {
+					console.error("[catalog] contagem ausente em /folders — resposta sem `total` confiável")
+					return c.json({ error: "Erro interno do servidor ao buscar dados" }, 500)
+				}
 
 				const rows = (data ?? []) as unknown as Record<string, unknown>[]
-				return c.json({ data: rows, total: count ?? rows.length, limit, offset } as any, 200)
+				return c.json({ data: rows, total: count, limit, offset } as any, 200)
 			} catch (err) {
 				console.error("[catalog] Erro crítico em /folders:", err)
 				return c.json({ error: "Erro interno do servidor" }, 500)
