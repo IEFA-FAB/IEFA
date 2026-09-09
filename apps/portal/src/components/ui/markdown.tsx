@@ -18,6 +18,20 @@
  * 3. **`memo` por bloco.** Durante o stream o estado do chat muda a cada delta e re-renderiza
  *    a transcrição toda; sem isto, as mensagens ANTERIORES — já fechadas — seriam reparseadas
  *    a cada token da mensagem em curso.
+ *
+ * Duas alternativas prontas foram medidas antes desta, e as duas perdem AQUI:
+ *
+ * - **`TextPart` de `@tanstack/ai-react/ui`** é o mesmo `react-markdown`, com um encadeamento
+ *   fixo de `remark-gfm` + `rehype-raw` + `rehype-highlight` + `rehype-sanitize`. O
+ *   `rehype-highlight` arrasta o `lowlight` com as 37 linguagens do `common` para o BUNDLE DO
+ *   NAVEGADOR, e o único jeito de tirá-lo (`disableDefaultPlugins`) leva junto o sanitizador.
+ *   Medido nos dois builds: o chunk do DocumentEditor vai de 265 KB para 604 KB, e o JS total
+ *   do portal, de 4,67 MB para 5,01 MB (+105 KB comprimidos) — para destacar sintaxe num
+ *   painel que redige ofício em português e nunca mostra código.
+ * - **`Bun.markdown`** (nativo, quatro modos, ~2,8 µs por render aqui) é API do RUNTIME: não
+ *   existe no navegador, e esta transcrição é montada no cliente, token a token. Serviria a
+ *   Markdown renderizado no servidor — a página de documentos legais, por exemplo —, que é
+ *   outra mudança.
  */
 
 import { memo } from "react"
