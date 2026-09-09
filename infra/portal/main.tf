@@ -59,14 +59,16 @@ module "service" {
   secrets_kms_key_arn     = local.f.secrets_kms_key_arn
 
   # Service definition (from terraform.tfvars)
-  service_name          = var.service_name
-  docker_target         = var.docker_target
-  container_port        = var.container_port
-  cpu                   = var.cpu
-  memory                = var.memory
-  health_check_path     = var.health_check_path
-  listener_priority     = var.listener_priority
-  environment_variables = var.environment_variables
+  service_name      = var.service_name
+  docker_target     = var.docker_target
+  container_port    = var.container_port
+  cpu               = var.cpu
+  memory            = var.memory
+  health_check_path = var.health_check_path
+  listener_priority = var.listener_priority
+  # local.ai_environment_variables (ai.tf) e config NAO-secreta versionada; o que vier
+  # do secret vence, para um hotfix pelo tfvars nao precisar de PR.
+  environment_variables = merge(local.ai_environment_variables, var.environment_variables)
   secret_names          = var.secret_names
   hosts                 = var.hosts
   path_patterns         = var.path_patterns
