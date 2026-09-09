@@ -24,8 +24,13 @@
  */
 export type SessionIdentity = { userId: string; email: string }
 
-/** Campos de payload que nomeiam um usuário e portanto não podem vir do cliente. */
-export type IdentityField = "userId" | "user_id" | "email"
+/**
+ * Campos de payload que nomeiam um usuário e portanto não podem vir do cliente.
+ *
+ * `adminId` entra por autoria: é quem lançou o registro. Ter permissão para lançar não dá
+ * direito de lançar em nome de outra pessoa.
+ */
+export type IdentityField = "userId" | "user_id" | "adminId" | "email"
 
 /** Nomes de campo de identidade presentes em `T`. */
 type IdentityKeyOf<T> = Extract<keyof T, IdentityField>

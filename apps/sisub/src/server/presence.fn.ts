@@ -24,8 +24,8 @@ import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 
 // Os reads são do FISCAL: devolvem quem comeu onde e quando, e o mapa de previsão de uma lista
 // de comensais escolhida pelo chamador. Exigem `messhall:1` no refeitório consultado — o mesmo
-// que a rota `/messhall` pede, e o único ponto onde isso é exigido, porque
-// `/messhall/$messHallId` não tem `beforeLoad` e o endpoint `/_serverFn/...` é chamável direto.
+// que `$messHallId/route.tsx` já exige no `beforeLoad`. O guard da rota não dispensa este: ele
+// governa a navegação, e `/_serverFn/...` é chamável direto, sem passar por rota nenhuma.
 // Antes exigiam apenas sessão (e, antes disso, nada), então qualquer autenticado enumerava
 // presença de comensal de qualquer rancho. As operations não têm ctx, então o guard é aqui.
 export const fetchPresencesFn = createServerFn({ method: "GET" })

@@ -204,9 +204,11 @@ describe("server function auth contract", () => {
 	/**
 	 * Campos de payload que nomeiam um usuário. `email` está aqui porque
 	 * `core.user_data.email` é UNIQUE e é a chave da busca do console de permissões — um
-	 * email escolhido pelo cliente reivindica a identidade de outra conta.
+	 * email escolhido pelo cliente reivindica a identidade de outra conta. `adminId` está
+	 * aqui porque nomeia AUTORIA: é quem lançou o registro, e deixá-lo vir do cliente
+	 * permite atribuir a ação a outra pessoa mesmo com a permissão correta.
 	 */
-	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|email|nrOrdem|nr_ordem)\b/g
+	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|email|nrOrdem|nr_ordem)\b/g
 
 	/**
 	 * Fns em que um usuário age legitimamente sobre OUTRO. Cada entrada precisa do motivo, e
@@ -216,7 +218,7 @@ describe("server function auth contract", () => {
 	 */
 	const CROSS_USER_SERVER_FNS: Record<string, string> = {
 		fetchUserMealForecastFn: "messhall.fn — o fiscal lê a previsão do comensal que apresentou o QR; o self check-in manda o próprio id",
-		resolveDisplayNameFn: "messhall.fn — o fiscal converte o UUID do QR em nome para conferir a pessoa na fila",
+		resolveDisplayNameFn: "messhall.fn — o fiscal converte o UUID do QR em nome para conferir a pessoa na fila; exige messhall:1 no rancho informado",
 		insertPresenceFn: "presence.fn — o fiscal registra a presença de terceiro; `insertPresence` exige messhall:2 quando o alvo não é o chamador",
 		fetchForecastsFn: "presence.fn — mapa de previsão dos comensais já presentes no refeitório, tela do fiscal",
 		searchUsersByEmailFn: "permissions.fn — o administrador procura a quem conceder permissão; a operation exige admin:2",
@@ -370,6 +372,11 @@ describe("server function auth contract", () => {
 			const handler = handlerOf(fn)
 			// Passar o payload inteiro adiante entrega o campo de identidade junto.
 			const forwardsWholePayload = /\{\s*\.\.\.data\b/.test(handler) || /[(,]\s*data\s*[,)]/.test(handler)
+			// `const { userId } = data` lê o identificador sem escrever `data.userId`: sem isto
+			// a garantia valeria só para os estilos de escrita que já estão na árvore.
+			const destructured = new Set(
+				[...handler.matchAll(/(?:const|let)\s*\{([^}]*)\}\s*=\s*data\b/g)].flatMap((m) => [...m[1].matchAll(/\b(\w+)\b/g)].map((f) => f[1]))
+			)
 			const overridden = new Set(
 				[...handler.matchAll(/withSessionIdentity\(\s*data\s*,[^[]*\[([^\]]*)\]/g)].flatMap((m) => [...m[1].matchAll(/"(\w+)"/g)].map((f) => f[1]))
 			)
@@ -380,6 +387,8 @@ describe("server function auth contract", () => {
 				const where = `${fn.file}:${fn.name} (${field})`
 				if (new RegExp(`\\bdata(?:\\.|\\?\\.)${field}\\b`).test(handler)) {
 					problems.push(`${where} lê o identificador do payload`)
+				} else if (destructured.has(field)) {
+					problems.push(`${where} desestrutura o identificador do payload`)
 				} else if (forwardsWholePayload) {
 					problems.push(`${where} repassa o payload inteiro sem sobrescrever o campo`)
 				}

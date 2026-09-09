@@ -20,9 +20,10 @@ import {
 	resolveDisplayName,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
+import { requireAuth, requireAuthWithPermission, requireSessionIdentity } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { withSessionIdentity } from "@/lib/session-identity"
 
 export const fetchMessHallByCodeFn = createServerFn({ method: "GET" })
 	.validator(FetchMessHallByCodeSchema)
@@ -50,29 +51,37 @@ export const fetchUserMealForecastFn = createServerFn({ method: "GET" })
 		return fetchUserMealForecast(getDb(), ctx, data).catch(handleDomainError)
 	})
 
+// Terceira leitura da tela de fiscalização, e a única que havia ficado com só `requireAuth()`:
+// devolve a contagem de não-cadastrados de qualquer rancho, data e refeição. Mesmo guard das
+// outras duas — o payload traz `messHallId`, então o escopo é exigível.
 export const fetchOtherPresencesCountFn = createServerFn({ method: "GET" })
 	.validator(FetchOtherPresencesCountSchema)
 	.handler(async ({ data }): Promise<number> => {
 		const ctx = await requireAuth()
+		await requireAuthWithPermission("messhall", 1, { type: "mess_hall", id: data.messHallId })
 		return fetchOtherPresencesCount(getDb(), ctx, data).catch(handleDomainError)
 	})
 
+// `addOtherPresence` já exige `messhall:2` no rancho, então quem PODE lançar está resolvido.
+// O que vinha do cliente era a AUTORIA: `adminId` é gravado em `other_presences.admin_id` e é
+// o rastro de quem lançou. Com ele no payload, um fiscal legítimo atribuía o lançamento a
+// outra pessoa — permissão correta, autoria falsificada. Agora vem da sessão.
 export const addOtherPresenceFn = createServerFn({ method: "POST" })
 	.validator(AddOtherPresenceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return addOtherPresence(getDb(), ctx, data).catch(handleDomainError)
+		const session = await requireSessionIdentity()
+		return addOtherPresence(getDb(), ctx, withSessionIdentity(data, session, ["adminId"])).catch(handleDomainError)
 	})
 
-// Resolver o nome de terceiro exige `messhall`; o próprio nome, não. A entrada não traz
-// refeitório, então não há escopo a exigir — o guard é o módulo sem escopo, que já exclui o
-// comensal comum (a permissão implícita de todo mundo é `diner`, não `messhall`). Sem isso
-// qualquer autenticado convertia um UUID em nome de pessoa, e o endpoint `/_serverFn/...` é
-// chamável direto, sem passar pela tela de fiscalização.
+// Resolver o nome de terceiro exige `messhall:1` no rancho informado; o próprio nome, não.
+// O escopo é o mesmo que a rota `/messhall/$messHallId` exige — e é por isso que o schema
+// pede `messHallId` mesmo sem usá-lo na consulta: guard sem escopo aceitaria nível 1 em
+// QUALQUER rancho para resolver o nome de qualquer pessoa da base.
 export const resolveDisplayNameFn = createServerFn({ method: "GET" })
 	.validator(ResolveDisplayNameSchema)
 	.handler(async ({ data }): Promise<string | null> => {
 		const ctx = await requireAuth()
-		if (data.userId !== ctx.userId) await requireAuthWithPermission("messhall", 1)
+		if (data.userId !== ctx.userId) await requireAuthWithPermission("messhall", 1, { type: "mess_hall", id: data.messHallId })
 		return resolveDisplayName(getDb(), ctx, data).catch(handleDomainError)
 	})
