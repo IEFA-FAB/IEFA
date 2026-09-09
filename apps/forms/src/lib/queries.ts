@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query"
-import { getEditorsFn, getQuestionnaireFn, getViewersFn } from "@/server/forms.fn"
+import { getEditorsFn, getMyResponseStateFn, getOmOptionsFn, getQuestionnaireFn, getViewersFn } from "@/server/forms.fn"
 
 /**
  * Factories compartilhadas por loader e componente.
@@ -27,4 +27,22 @@ export const editorsQueryOptions = (questionnaireId: string) =>
 	queryOptions({
 		queryKey: ["editors", questionnaireId] as const,
 		queryFn: () => getEditorsFn({ data: { questionnaire_id: questionnaireId } }),
+	})
+
+/**
+ * Estado da resposta do usuário corrente para um questionário: rascunho em
+ * andamento ou nada começado. Governa qual passo a tela de resposta abre, então
+ * o loader semeia junto com o questionário — as duas leituras saem em paralelo.
+ */
+export const myResponseStateQueryOptions = (questionnaireId: string) =>
+	queryOptions({
+		queryKey: ["my-response-state", questionnaireId] as const,
+		queryFn: () => getMyResponseStateFn({ data: { questionnaire_id: questionnaireId } }),
+	})
+
+/** Lista de OMs ativas. Usada pelo passo de metadados e pelo escopo de visualizadores. */
+export const omOptionsQueryOptions = () =>
+	queryOptions({
+		queryKey: ["om-options"] as const,
+		queryFn: () => getOmOptionsFn({ data: {} }),
 	})
