@@ -6,12 +6,13 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, redirect, Scripts } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { z } from "zod"
 import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
 import { Toaster } from "#/components/ui/toast"
 import { supabase } from "#/lib/supabase"
+import { syncSucontIdentityFn } from "#/server/user.fn"
 import { ThemeProvider } from "#/services/theme"
 import { readThemePreference } from "#/services/theme-preference"
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools"
@@ -150,6 +151,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 // getServerSessionFn → getUser) e re-executa os guards de rota.
 function AuthSync() {
 	const queryClient = useQueryClient()
+	// Uma sincronização de identidade por usuário, por sessão de browser.
+	// `INITIAL_SESSION` dispara a cada carga de página; sem o guarda seria um
+	// upsert por navegação completa, para gravar sempre a mesma linha.
+	const syncedUserId = useRef<string | null>(null)
 	useEffect(() => {
 		const {
 			data: { subscription },
@@ -157,8 +162,16 @@ function AuthSync() {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
 				queryClient.invalidateQueries({ queryKey: mySucontPermissionsQueryOptions().queryKey })
+				// Registra o usuário no cadastro de pessoas do ERP (`core.user_data`) —
+				// é o que o faz existir para a busca por e-mail da gestão de acessos.
+				// Best-effort e sem `await`: falhar aqui não pode atrapalhar o login.
+				if (syncedUserId.current !== session.user.id) {
+					syncedUserId.current = session.user.id
+					void syncSucontIdentityFn().catch(() => {})
+				}
 			}
 			if (event === "SIGNED_OUT") {
+				syncedUserId.current = null
 				queryClient.setQueryData(authQueryOptions().queryKey, { user: null, session: null, isAuthenticated: false, isLoading: false })
 				queryClient.removeQueries({ queryKey: mySucontPermissionsQueryOptions().queryKey })
 			}
