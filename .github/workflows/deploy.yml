@@ -478,9 +478,22 @@ jobs:
         sisub.args.VITE_FARO_ENVIRONMENT=${{ vars.VITE_FARO_ENVIRONMENT }}
     secrets: inherit
 
-  # E2E SISUB temporarily disabled.
-  # Re-enable this job and add it back to deploy-sisub.needs when the CI
-  # webServer timeout / test credentials setup is fixed.
+  # E2E SISUB DESLIGADO POR DECISÃO DE CUSTO — não é defeito pendente.
+  #
+  # A suíte sobe um vite dev, instala Chromium e autentica no Supabase de PRODUÇÃO
+  # via UI (não há seed nem banco de teste). Rodar isso em todo push na main custa
+  # minutos de runner e escreve sessão em prod, para cobrir o que os gates locais
+  # (`bun run check` + `bun run test`) já cobrem de graça. Fica local e sob demanda:
+  # `cd apps/sisub && bun run test:e2e:ci`. Ver TESTING.md, seção "E2E do sisub".
+  #
+  # Se um dia reativar, o job abaixo está correto — mas confira estes três pontos,
+  # que já foram armadilha:
+  #   1. os secrets são E2E_TEST_USER_EMAIL / E2E_TEST_USER_PASSWORD (a versão
+  #      anterior deste comentário pedia SISUB_E2E_TEST_USER_*, que nunca existiram);
+  #   2. a suíte precisa de SISUB_RUN_E2E=true — os scripts test:e2e* já a passam,
+  #      e sem ela o playwright.config.ts ignora o .env de propósito;
+  #   3. banco de teste próprio ANTES de ligar, senão o CI passa a escrever em prod.
+  # Reativar também exige acrescentar `e2e-sisub` a deploy-sisub.needs.
   #
   # e2e-sisub:
   #   needs: [changes, check-sisub]
@@ -509,8 +522,9 @@ jobs:
   #         VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
   #         VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
   #         SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-  #         E2E_TEST_USER_EMAIL: ${{ secrets.SISUB_E2E_TEST_USER_EMAIL }}
-  #         E2E_TEST_USER_PASSWORD: ${{ secrets.SISUB_E2E_TEST_USER_PASSWORD }}
+  #         E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+  #         E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+  #         SISUB_RUN_E2E: "true"
   #     - name: Upload Playwright artifacts
   #       if: always()
   #       uses: actions/upload-artifact@v4
