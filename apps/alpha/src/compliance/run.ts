@@ -10,6 +10,7 @@ import { SUBMISSION_BUCKET } from "../api/submission-bucket.ts"
 import { supabase } from "../db/supabase.ts"
 import type { Contratacao } from "../extraction/schema.ts"
 import { toSubmissionText } from "../extraction/to-text.ts"
+import { FEDERAL_LEGISLATION_TYPES } from "../lib/corpora.ts"
 import { runCrossChecks } from "./cross-checks.ts"
 import { matchSections, type SectionFinding, toComparable } from "./match-sections.ts"
 import { LegalRefResolver } from "./resolve-legal-ref.ts"
@@ -69,7 +70,11 @@ async function loadModelSections(modelDocumentId: string) {
 
 /** Ids das normas vigentes usadas na verificação, para gravar na execução. */
 async function currentLawDocumentIds(): Promise<string[]> {
-	const { data } = await supabase.from("document").select("id").in("document_type", ["LEI", "DECRETO", "IN_SEGES"]).is("superseded_at", null)
+	const { data } = await supabase
+		.from("document")
+		.select("id")
+		.in("document_type", [...FEDERAL_LEGISLATION_TYPES])
+		.is("superseded_at", null)
 
 	return ((data ?? []) as Array<{ id: string }>).map((row) => row.id)
 }

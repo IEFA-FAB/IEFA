@@ -1,9 +1,10 @@
 import type { BaseMessage } from "@langchain/core/messages"
 import { Annotation, messagesStateReducer } from "@langchain/langgraph"
+import type { DocumentType } from "../lib/corpora.ts"
 
 export type Intent = "LEGISLATION" | "SEFA_SYSTEMS" | "PROCUREMENT" | "GENERAL" | "GREETING" | "UNKNOWN"
 
-export type DocumentType = "RADA" | "RBHA" | "ICA" | "MCA" | "NSCA"
+export type { AeronauticalDocumentType, DocumentType, FederalLegislationType } from "../lib/corpora.ts"
 
 export type TerminationReason =
 	| "success"
@@ -15,7 +16,8 @@ export type TerminationReason =
 
 export interface DocumentMetadata {
 	source: string
-	document_type: DocumentType
+	/** `null` quando a linha traz um tipo que o código não conhece. */
+	document_type: DocumentType | null
 	chapter: string
 	article: string
 	section?: string

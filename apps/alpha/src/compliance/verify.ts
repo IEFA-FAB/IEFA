@@ -17,6 +17,7 @@
 import { supabase } from "../db/supabase.ts"
 import type { Contratacao } from "../extraction/schema.ts"
 import { CAMPO_LABELS } from "../extraction/schema.ts"
+import { FEDERAL_LEGISLATION_TYPES } from "../lib/corpora.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
 import { structuredLLM } from "../lib/llm.ts"
 import { radaRetriever } from "../tools/rada-retriever.ts"
@@ -123,7 +124,10 @@ export async function loadActiveRules(): Promise<ChecklistRule[]> {
 export async function judgeRule(rule: ChecklistRule, block: { label: string; text: string }): Promise<RuleVerdict> {
 	const query = [rule.statement, rule.legal_ref.map((ref) => `${ref.dispositivo} ${ref.norma}`).join(" ")].filter(Boolean).join(" ")
 
-	const retrieval = await radaRetriever({ query, top_k: 6 })
+	// Regra da Lei 14.133 se julga contra a legislação federal, não contra norma
+	// aeronáutica: os dois corpora dividem `alpha.document`, e sem o filtro o
+	// veredito sairia embasado no corpus errado.
+	const retrieval = await radaRetriever({ query, top_k: 6, filters: { document_type: FEDERAL_LEGISLATION_TYPES } })
 
 	if (retrieval.documents.length === 0) {
 		return {
