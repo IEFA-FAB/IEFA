@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test --no-env-file",
     "eval": "bun run src/eval/run-eval.ts",
-    "embed:backfill": "bun run src/cli/backfill-embeddings.ts"
+    "embed:backfill": "bun run src/cli/backfill-embeddings.ts",
+    "rada:fetch": "bun run src/cli/rada.ts fetch",
+    "rada:build": "bun run src/cli/rada.ts build"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agent-runtime": "^3.1126.0",

@@ -1,6 +1,6 @@
-import { OpenAIEmbeddings } from "@langchain/openai"
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
+import { embeddingModelId, getEmbeddings } from "../lib/embeddings.ts"
 
 interface FrontmatterData {
 	source?: string
@@ -17,14 +17,17 @@ interface Chunk {
 	chunk_index: number
 }
 
-const embeddings = new OpenAIEmbeddings({
-	model: env.EMB_MODEL,
-	configuration: {
-		baseURL: env.NVIDIA_BASE_URL,
-		apiKey: env.NVIDIA_API_KEY,
-	},
-	dimensions: 1024,
-})
+/**
+ * Fábrica compartilhada, e não um cliente próprio.
+ *
+ * Este módulo montava o seu `OpenAIEmbeddings` contra a NVIDIA e inseria o chunk SEM
+ * `embedding_model`. As duas coisas juntas tornavam invisível tudo que passava por aqui:
+ * a RPC `alpha.match_chunks_cosine` filtra `c.embedding_model = embedding_model_filter`,
+ * e nulo não é igual a nada — o chunk tinha vetor e mesmo assim só era alcançável por
+ * full-text. Pior, o vetor vinha de um modelo diferente do que a consulta usa, o que dá
+ * distância sem significado, que é a falha que a coluna foi criada para impedir.
+ */
+const embeddings = getEmbeddings()
 
 function parseFrontmatter(markdown: string): { data: FrontmatterData; content: string } {
 	const match = markdown.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
@@ -168,6 +171,9 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 			section: chunk.section || null,
 			chunk_index: chunk.chunk_index,
 			token_count: Math.ceil(chunk.content.length / 4),
+			// Quem gerou o vetor viaja com ele: é o que permite trocar de modelo sem
+			// comparar vetores de espaços diferentes em silêncio.
+			embedding_model: embeddingModelId(),
 			metadata: { source, document_type: documentType, year },
 		}))
 
