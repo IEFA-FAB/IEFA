@@ -42,9 +42,11 @@ function authClientSpy(user: User | null, delayMs = 0) {
 // biome-ignore lint/suspicious/noExplicitAny: dublê mínimo do SupabaseClient
 function permissionsClient(rows: Array<Record<string, unknown>>): any {
 	return {
-		from: () => ({
+		// A resolução também sonda `user_policy_attachment`; sem política anexada esse
+		// caminho para na primeira query. Ver `resolve-permissions.test.ts`.
+		from: (table: string) => ({
 			select: () => ({
-				eq: async () => ({ data: rows, error: null }),
+				eq: async () => ({ data: table === "user_permissions" ? rows : [], error: null }),
 			}),
 		}),
 	}

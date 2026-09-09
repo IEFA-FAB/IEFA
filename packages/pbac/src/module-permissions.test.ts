@@ -25,12 +25,14 @@ describe("myModulePermissionsQueryConfig", () => {
 
 function createResolveStub(rows: UserPermission[]) {
 	return {
-		from() {
+		// A resolução também sonda `user_policy_attachment`; sem política anexada esse
+		// caminho para na primeira query. Ver `resolve-permissions.test.ts`.
+		from(table: string) {
 			return {
 				select() {
 					return {
 						eq() {
-							return { data: rows, error: null }
+							return { data: table === "user_permissions" ? rows : [], error: null }
 						},
 					}
 				},
