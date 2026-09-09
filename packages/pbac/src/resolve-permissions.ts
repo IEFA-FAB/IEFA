@@ -16,11 +16,29 @@ const PERMISSION_COLUMNS = "module, level, mess_hall_id, kitchen_id, unit_id"
  * SÓ estes degradam para "sem políticas". Qualquer outro erro (rede, permissão,
  * timeout) propaga: conjunto vazio por falha de infra é um deny silencioso, que
  * ninguém investiga porque parece configuração.
+ *
+ * ATENÇÃO — esta degradação é fail-OPEN, e é o único ponto do arquivo que é.
+ * Descartar a origem de política descarta também os DENY que vêm dela: um usuário
+ * com allow inline e um deny por política volta a ter o allow enquanto ela durar.
+ * `PGRST205` não significa só "tabela ausente" — o PostgREST também o devolve com o
+ * cache de schema velho, a janela logo depois de qualquer DDL no `access_control`.
+ * Por isso ela NÃO é silenciosa: ver `warnMissingPolicyModel`.
  */
 const MISSING_TABLE_CODES = new Set(["PGRST205", "42P01"])
 
 function isMissingTable(error: { code?: string | null }): boolean {
 	return error.code != null && MISSING_TABLE_CODES.has(error.code)
+}
+
+/**
+ * Nenhum consumidor de hoje deveria cair aqui: sisub, sisub-mcp, rumaer e sucont
+ * apontam para o MESMO schema `access_control`, onde as tabelas de política existem.
+ * Se este aviso aparecer, ou um consumidor novo tem um banco sem o modelo, ou o cache
+ * de schema do PostgREST está velho — e no segundo caso permissão está sendo resolvida
+ * a menos. Fica no log porque um fail-open sem rastro é indistinguível de configuração.
+ */
+function warnMissingPolicyModel(error: { code?: string | null; message: string }): void {
+	console.warn(`[pbac] modelo de políticas inacessível (${error.code}): ${error.message} — resolvendo só com os grants inline`)
 }
 
 /** Grants inline — as linhas de `user_permissions` do próprio usuário. */
@@ -51,8 +69,12 @@ async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClien
 
 	if (attachmentError) {
 		// Banco de app que não tem o modelo de políticas: não há política para anexar,
-		// então "nenhuma" é a resposta correta, e não um erro.
-		if (isMissingTable(attachmentError)) return []
+		// então "nenhuma" é a resposta correta, e não um erro. Fail-open, e por isso
+		// registrado — ver `MISSING_TABLE_CODES`.
+		if (isMissingTable(attachmentError)) {
+			warnMissingPolicyModel(attachmentError)
+			return []
+		}
 		throw new Error(`Falha ao buscar políticas do usuário: ${attachmentError.message}`)
 	}
 
@@ -116,7 +138,9 @@ export async function resolveUserPermissions(userId: string, supabase: AnySupaba
 	const [inline, policy] = await Promise.all([fetchInlinePermissions(userId, supabase), fetchPolicyPermissions(userId, supabase)])
 
 	// Resolução compartilhada com o sisub (comensal implícito + precedência de deny).
-	// Sem políticas anexadas — o caso de rumaer e sucont — `policy` é `[]` e o resultado
-	// é idêntico ao de antes, item a item e na mesma ordem.
+	// Sem política anexada — o caso de todo usuário de rumaer e sucont hoje — `policy` é
+	// `[]` e o resultado é idêntico ao de antes, item a item e na mesma ordem. Os quatro
+	// consumidores apontam para o MESMO schema `access_control`: quem GANHA anexo passa a
+	// ser autorizado por ele em todos eles, que é justamente a semântica pretendida.
 	return resolveEffectivePermissions(inline, policy)
 }

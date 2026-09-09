@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, spyOn, test } from "bun:test"
 import { hasPermission } from "./has-permission.ts"
 import { resolveUserPermissions } from "./resolve-permissions.ts"
 import type { UserPermission } from "./types.ts"
@@ -152,8 +152,9 @@ describe("resolveUserPermissions — grants inline", () => {
 	})
 
 	test("sem anexo de política o resultado é o mesmo de antes, e nenhuma outra tabela é lida", async () => {
-		// Requisito duro: rumaer e sucont não têm política anexada e não podem ver diferença
-		// nenhuma — nem no conjunto devolvido, nem em query extra além do sondar do anexo.
+		// Requisito duro: quem não tem política anexada — o caso de todo usuário de rumaer e
+		// sucont hoje — não pode ver diferença nenhuma, nem no conjunto devolvido, nem em
+		// query extra além do sondar do anexo.
 		const { client, visited } = createSupabaseStub({ inline: [KITCHEN_WRITE] })
 
 		const permissions = await resolveUserPermissions("user-1", client)
@@ -266,15 +267,38 @@ describe("resolveUserPermissions — políticas anexadas", () => {
 })
 
 describe("resolveUserPermissions — bancos sem o modelo de políticas", () => {
-	// rumaer e sucont passam clientes que podem apontar para um banco sem as tabelas de
-	// política. Faltar a tabela é "não há política", não indisponibilidade.
-	test.each([["PGRST205"], ["42P01"]])("código %s degrada para 'sem políticas'", async (code) => {
+	// Um consumidor novo pode passar um cliente apontado para um banco sem as tabelas de
+	// política. Faltar a tabela é "não há política", não indisponibilidade — mas como a
+	// degradação é fail-open (descarta também os DENY da política), ela precisa deixar rastro.
+	// Os apps de hoje (sisub, sisub-mcp, rumaer, sucont) compartilham o MESMO schema
+	// `access_control`, onde as tabelas existem: aqui ninguém deveria cair.
+	test.each([["PGRST205"], ["42P01"]])("código %s degrada para 'sem políticas', e avisa", async (code) => {
 		const { client } = createSupabaseStub({
 			inline: [KITCHEN_WRITE],
 			attachmentError: { message: "Could not find the table 'access_control.user_policy_attachment'", code },
 		})
+		const warn = spyOn(console, "warn").mockImplementation(() => {})
 
-		expect(await resolveUserPermissions("user-1", client)).toEqual([KITCHEN_WRITE, DINER_IMPLICIT])
+		try {
+			expect(await resolveUserPermissions("user-1", client)).toEqual([KITCHEN_WRITE, DINER_IMPLICIT])
+			// Fail-open sem rastro é indistinguível de "este usuário não tem política nenhuma".
+			expect(warn).toHaveBeenCalledTimes(1)
+			expect(warn.mock.calls[0]?.[0]).toContain(code)
+		} finally {
+			warn.mockRestore()
+		}
+	})
+
+	test("o caminho normal — sem anexo — não avisa nada", async () => {
+		const { client } = createSupabaseStub({ inline: [KITCHEN_WRITE] })
+		const warn = spyOn(console, "warn").mockImplementation(() => {})
+
+		try {
+			await resolveUserPermissions("user-1", client)
+			expect(warn).not.toHaveBeenCalled()
+		} finally {
+			warn.mockRestore()
+		}
 	})
 
 	test("erro real na busca de anexos propaga em vez de virar conjunto vazio", async () => {

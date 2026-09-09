@@ -33,7 +33,12 @@ function createDataClient(rows: Record<string, Row[]>) {
 				case "mcp_api_keys":
 					return {
 						select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: rows.mcp_api_keys?.[0] ?? null, error: null }) }) }) }),
-						// `last_used_at` é fire-and-forget: o resultado nunca é aguardado.
+						// `last_used_at`: o dublê devolve o builder sem executar nada porque o
+						// código de produção também não executa — `void db.from(...).update(...)`
+						// nunca chama `.then()`, e o `PostgrestBuilder` só dispara o fetch ali.
+						// A escrita nunca aconteceu; isto NÃO é o contrato desejado, é o bug
+						// pré-existente que a revisão desta PR encontrou. Corrigi-lo é outra
+						// mudança (precisa de sink de erro, senão vira unhandled rejection).
 						update: () => ({ eq: () => undefined }),
 					}
 				case "user_permissions":
