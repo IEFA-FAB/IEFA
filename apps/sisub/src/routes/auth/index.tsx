@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { validateSignInEmail, validateSignUpEmail } from "@/lib/auth-email"
 import { parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -77,14 +78,7 @@ export const Route = createFileRoute("/auth/")({
    HELPERS
    ======================================================================== */
 
-const FAB_EMAIL_RE = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
 const REMEMBER_KEY = "fab_remember_email"
-
-function validateEmail(v: string): string | null {
-	if (!v) return "Email obrigatório."
-	if (!FAB_EMAIL_RE.test(v)) return "Use seu email institucional @fab.mil.br (sem caracteres especiais)."
-	return null
-}
 
 function validatePassword(v: string): string | null {
 	if (!v) return "Senha obrigatória."
@@ -209,7 +203,7 @@ function AuthPage() {
 
 				<p className="mt-8 flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
 					<ShieldCheck className="size-3.5 shrink-0" aria-hidden />
-					Acesso restrito a militares da FAB (@fab.mil.br)
+					Cadastro restrito a militares da FAB (@fab.mil.br)
 				</p>
 			</aside>
 
@@ -345,14 +339,14 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	})
 	const { email, password, remember, showPassword, error, isSubmitting } = loginState
 
-	const emailErr = email ? validateEmail(email) : null
+	const emailErr = email ? validateSignInEmail(email) : null
 	const passwordErr = null
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
 		"use no memo"
 		e.preventDefault()
 		if (isLocked) return
-		const eErr = validateEmail(email)
+		const eErr = validateSignInEmail(email)
 		if (!password) {
 			dispatch({ type: "SET_ERROR", value: "Senha obrigatória." })
 			return
@@ -569,7 +563,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 	const [regState, dispatch] = useReducer(registerReducer, initialRegisterState)
 	const { name, email, password, confirm, showPassword, showConfirm, error, isSubmitting, submitted } = regState
 
-	const emailErr = email ? validateEmail(email) : null
+	const emailErr = email ? validateSignUpEmail(email) : null
 	const passwordErr = password ? validatePassword(password) : null
 	const confirmErr = confirm && confirm !== password ? "As senhas não coincidem." : null
 
@@ -580,7 +574,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 			dispatch({ type: "SET_ERROR", value: "Nome obrigatório." })
 			return
 		}
-		const eErr = validateEmail(email)
+		const eErr = validateSignUpEmail(email)
 		const pErr = validatePassword(password)
 		const cErr = password !== confirm ? "As senhas não coincidem." : null
 		if (eErr || pErr || cErr) {
@@ -814,12 +808,12 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 	const [forgotState, dispatch] = useReducer(forgotReducer, initialForgotState)
 	const { email, error, isSubmitting, submitted } = forgotState
 
-	const emailErr = email ? validateEmail(email) : null
+	const emailErr = email ? validateSignInEmail(email) : null
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
 		"use no memo"
 		e.preventDefault()
-		const eErr = validateEmail(email)
+		const eErr = validateSignInEmail(email)
 		if (eErr) {
 			dispatch({ type: "SET_ERROR", value: eErr })
 			return
