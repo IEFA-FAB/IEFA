@@ -1,8 +1,10 @@
 import { Check, Copy, Settings2, X } from "lucide-react"
 import { useMemo, useState } from "react"
+import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useMessageDraft } from "#/hooks/use-editable-message"
 import type { UgConsolidated } from "../utils/analytics"
 import { RAC_MAPPING } from "../utils/rac"
 
@@ -37,6 +39,7 @@ const formatToBrazilianDate = (dateString: string) => {
 
 export function ConsolidatedMessageModal({ data, racFilter, onClose }: ConsolidatedMessageModalProps) {
 	const [copied, setCopied] = useState(false)
+	const draft = useMessageDraft()
 	const [messageNumber, setMessageNumber] = useState("")
 
 	const today = new Date()
@@ -96,9 +99,11 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 		return `${messageHeader}\n\n${subject}\n\n${intro}\n\nNesse contexto, foram identificadas as seguintes ocorrências:\n\n${occurrencesText.trim()}\n\n${actionText}\n\nPor fim, a Divisão de Acompanhamento Contábil e de Suporte ao Usuário (SUCONT-3) permanece à disposição para dirimir eventuais dúvidas sobre o assunto, por intermédio do referido sistema.\n\nAtenciosamente,\n\nDIREF\nSubdiretoria de Contabilidade – SUCONT\nDivisão de Acompanhamento Contábil e de Suporte ao Usuário – SUCONT-3`
 	}, [data, racFilter, messageNumber, messageDate, messageType, deadlineDate])
 
+	const message = draft.of(generatedMessage)
+
 	const handleCopy = async () => {
 		try {
-			await navigator.clipboard.writeText(generatedMessage)
+			await navigator.clipboard.writeText(message.text)
 			setCopied(true)
 			setTimeout(() => setCopied(false), 2000)
 		} catch (_err) {}
@@ -229,10 +234,15 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 						</div>
 					</div>
 
-					<div className="flex-1 p-4 overflow-y-auto bg-muted/50">
-						<div className="bg-card p-6 rounded-xl border border-border shadow-sm min-h-full">
-							<pre className="whitespace-pre-wrap font-sans text-body text-foreground leading-relaxed">{generatedMessage}</pre>
-						</div>
+					<div className="flex-1 flex flex-col p-4 overflow-y-auto bg-muted/50">
+						<EditableMessage
+							label="Mensagem consolidada de saldo alongado"
+							value={message.text}
+							onChange={message.setText}
+							onReset={message.reset}
+							isEdited={message.isEdited}
+							className="flex-1 min-h-full"
+						/>
 					</div>
 				</div>
 			</div>

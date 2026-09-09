@@ -1,9 +1,11 @@
 import { ArrowUpDown, Check, Copy, Download, Info, Search, Settings2, User, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
+import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getConferente } from "#/lib/ug/registry"
 import type { UgConsolidated } from "../utils/analytics"
 import { RAC_MAPPING } from "../utils/rac"
@@ -41,6 +43,7 @@ Object.entries(RAC_MAPPING).forEach(([questao, contas]) => {
 
 export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsModalProps) {
 	const [copied, setCopied] = useState(false)
+	const draft = useMessageDraft()
 	const [searchTerm, setSearchTerm] = useState("")
 	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 	const [selectedRacFilter, setSelectedRacFilter] = useState<string>(initialRacFilter || "Geral")
@@ -133,9 +136,11 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 	if (!ugData) return null
 
+	const message = draft.of(generatedMessage)
+
 	const handleCopy = async () => {
 		try {
-			await navigator.clipboard.writeText(generatedMessage)
+			await navigator.clipboard.writeText(message.text)
 			setCopied(true)
 			setTimeout(() => setCopied(false), 2000)
 		} catch (_err) {}
@@ -416,10 +421,15 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							</div>
 						</div>
 
-						<div className="flex-1 p-4 overflow-y-auto bg-muted/50">
-							<div className="bg-card p-5 rounded-xl border border-border shadow-sm h-full">
-								<pre className="whitespace-pre-wrap font-sans text-caption text-foreground leading-relaxed">{generatedMessage}</pre>
-							</div>
+						<div className="flex-1 flex flex-col p-4 overflow-y-auto bg-muted/50">
+							<EditableMessage
+								label={`Mensagem institucional da UG ${ugData.ug}`}
+								value={message.text}
+								onChange={message.setText}
+								onReset={message.reset}
+								isEdited={message.isEdited}
+								className="flex-1 h-full"
+							/>
 						</div>
 					</div>
 				</div>

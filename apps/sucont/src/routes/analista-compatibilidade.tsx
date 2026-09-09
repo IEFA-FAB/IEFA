@@ -25,12 +25,14 @@ import {
 import { type ChangeEvent, useCallback, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { chartChrome } from "#/lib/chart-theme"
 import { agregarSaldos, compararPares, type LinhaSaldo, PARES } from "#/lib/compatibilidade/pares"
 import { getUg } from "#/lib/ug/registry"
@@ -118,6 +120,7 @@ function AnalistaCompatibilidade() {
 	const [msgNumbers, setMsgNumbers] = useState<Record<string, string>>({})
 	const [msgDates, setMsgDates] = useState<Record<string, string>>({})
 	const [msgSubjects, setMsgSubjects] = useState<Record<string, string>>({})
+	const drafts = useMessageDrafts()
 	const [userProfile, setUserProfile] = useState<string | null>(null)
 	const [conferenteFilter, setConferenteFilter] = useState<string>("all")
 	const [racFilter, setRacFilter] = useState<string>("all")
@@ -489,8 +492,12 @@ DIREF/SUCONT/SUCONT-3
 
 	const copyAll = () => {
 		const allText = filteredReports
-			.map((r) =>
-				generateMessageText(r, messageTypes[r.ug] || "com_prazo", prazos[r.ug] || "", msgNumbers[r.ug] || "", msgDates[r.ug] || "", msgSubjects[r.ug] || "")
+			.map(
+				(r) =>
+					drafts.of(
+						r.ug,
+						generateMessageText(r, messageTypes[r.ug] || "com_prazo", prazos[r.ug] || "", msgNumbers[r.ug] || "", msgDates[r.ug] || "", msgSubjects[r.ug] || "")
+					).text
 			)
 			.join("\n\n-------------------------------------------------------\n\n")
 		navigator.clipboard.writeText(allText)
@@ -945,6 +952,7 @@ DIREF/SUCONT/SUCONT-3
 									const currentMsgDate = msgDates[report.ug] || ""
 									const currentSubject = msgSubjects[report.ug] || ""
 									const msgText = generateMessageText(report, msgType, currentPrazo, currentMsgNum, currentMsgDate, currentSubject)
+									const draft = drafts.of(report.ug, msgText)
 
 									return (
 										<div key={idx} className="bg-card rounded-xl shadow-md border border-border overflow-hidden flex flex-col">
@@ -1138,7 +1146,7 @@ DIREF/SUCONT/SUCONT-3
 															<Button
 																type="button"
 																variant="ghost"
-																onClick={() => copyToClipboard(msgText)}
+																onClick={() => copyToClipboard(draft.text)}
 																className="flex items-center gap-1.5 px-3 py-1.5 bg-action/10 hover:bg-action/20 text-foreground rounded-lg text-subheading transition-colors border border-action/30 whitespace-nowrap"
 															>
 																<Copy className="w-4 h-4" />
@@ -1147,9 +1155,16 @@ DIREF/SUCONT/SUCONT-3
 														</div>
 													</div>
 
-													<div className="bg-muted rounded-xl p-5 border border-border flex-1">
-														<pre className="whitespace-pre-wrap font-mono text-body text-foreground leading-relaxed">{msgText}</pre>
-													</div>
+													<EditableMessage
+														label={`Mensagem institucional da UG ${report.ugCode}`}
+														value={draft.text}
+														onChange={draft.setText}
+														onReset={draft.reset}
+														isEdited={draft.isEdited}
+														className="flex-1"
+														textClassName="rounded-xl p-5 font-mono"
+														rows={18}
+													/>
 												</div>
 											</div>
 										</div>

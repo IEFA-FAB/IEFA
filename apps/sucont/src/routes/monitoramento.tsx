@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
 import { chartChrome } from "#/lib/chart-theme"
-import { getConferente } from "#/lib/ug/registry"
+import { getConferente, isUgAcompanhada } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
 
 // Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
@@ -167,7 +167,7 @@ function MonitoramentoPage() {
 						const conta = String(contaRaw).trim()
 						const saldo = parseSaldo(saldoRaw)
 
-						if (!Number.isNaN(saldo) && saldo !== 0) {
+						if (!Number.isNaN(saldo) && saldo !== 0 && isUgAcompanhada(ug)) {
 							const { classification, description, observation, accountCode, questaoRAC } = classifyAccount(ug, conta, saldo)
 							processed.push({
 								ug,
@@ -226,7 +226,7 @@ function MonitoramentoPage() {
 						}
 					})
 
-					if (foundUg && foundMes && foundConta && foundSaldo && saldo !== 0) {
+					if (foundUg && foundMes && foundConta && foundSaldo && saldo !== 0 && isUgAcompanhada(ug)) {
 						const { classification, description, observation, accountCode, questaoRAC } = classifyAccount(ug, conta, saldo)
 						processed.push({
 							ug,

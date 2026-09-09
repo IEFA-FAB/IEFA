@@ -9,6 +9,8 @@ import {
 	getConferente,
 	getUg,
 	getUgFromText,
+	isUgAcompanhada,
+	UG_FORA_DO_ACOMPANHAMENTO,
 	UG_INATIVAS_SIAFI,
 	UG_SIGLA_A_CONFIRMAR,
 	UNIDADES_GESTORAS,
@@ -145,5 +147,26 @@ describe("consistência com o cadastro do SAC-DGC", () => {
 		for (const codigo of emAmbas) {
 			expect(normalizar(UNIDADES_GESTORAS[codigo].tituloSiafi), `título da UG ${codigo}`).toBe(normalizar(UG_NAMES[codigo]))
 		}
+	})
+})
+
+describe("UGs fora do acompanhamento", () => {
+	// 170999 é a STN — Órgão Central de Contabilidade. Ela aparece na extração por
+	// ser contraparte de lançamento do COMAER; cobrar saldo transitório dela seria
+	// mandar mensagem para quem não executa a despesa.
+	it("exclui a STN (170999) da análise de saldos", () => {
+		expect(UG_FORA_DO_ACOMPANHAMENTO).toContain("170999")
+		expect(isUgAcompanhada("170999")).toBe(false)
+		expect(isUgAcompanhada(" 170999 ")).toBe(false)
+	})
+
+	it("não exclui UG do COMAER, nem UG desconhecida", () => {
+		for (const codigo of CODIGOS) expect(isUgAcompanhada(codigo), `UG ${codigo}`).toBe(true)
+		// UG sem cadastro segue no relatório de propósito: pode ser cadastro faltando.
+		expect(isUgAcompanhada("999999")).toBe(true)
+	})
+
+	it("não lista UG do COMAER como fora do acompanhamento", () => {
+		for (const codigo of UG_FORA_DO_ACOMPANHAMENTO) expect(UNIDADES_GESTORAS[codigo]).toBeUndefined()
 	})
 })

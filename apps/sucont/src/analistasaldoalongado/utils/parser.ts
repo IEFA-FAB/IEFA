@@ -1,5 +1,6 @@
 import Papa from "papaparse"
 import * as XLSX from "xlsx"
+import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedRow {
 	ug: string
@@ -169,7 +170,7 @@ export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 							saldo: Number.isNaN(saldo) ? 0 : saldo,
 						}
 					})
-					.filter((row) => row.ug && row.contaContabil)
+					.filter((row) => row.ug && row.contaContabil && isUgAcompanhada(row.ug))
 
 				resolve(parsedRows)
 			} catch (error) {

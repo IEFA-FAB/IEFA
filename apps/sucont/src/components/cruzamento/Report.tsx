@@ -17,9 +17,11 @@ import {
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
 import type { ReportData, UGAnalysis } from "#/lib/cruzamento/analyzer"
 import { CONFERENTES } from "#/lib/ug/registry"
 
@@ -74,6 +76,7 @@ export function Report({ data }: ReportProps) {
 	})
 	const [showConsolidated, setShowConsolidated] = useState(false)
 	const [copiedConsolidated, setCopiedConsolidated] = useState(false)
+	const drafts = useMessageDrafts()
 
 	const getConfig = (ug: string): MessageConfig => {
 		return (
@@ -211,9 +214,11 @@ Atenciosamente,
 SUCONT-3 • DIREF • COMAER`
 	}
 
+	const consolidatedMessage = drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage())
+
 	const handleCopyMessage = (e: React.MouseEvent, ug: UGAnalysis) => {
 		e.stopPropagation()
-		navigator.clipboard.writeText(generateMessage(ug))
+		navigator.clipboard.writeText(drafts.of(ug.ug, generateMessage(ug)).text)
 		setCopiedUg(ug.ug)
 		setTimeout(() => setCopiedUg(null), 2000)
 	}
@@ -635,7 +640,7 @@ SUCONT-3 • DIREF • COMAER`
 										variant="outline"
 										size="sm"
 										onClick={() => {
-											navigator.clipboard.writeText(generateConsolidatedMessage())
+											navigator.clipboard.writeText(consolidatedMessage.text)
 											setCopiedConsolidated(true)
 											setTimeout(() => setCopiedConsolidated(false), 2000)
 										}}
@@ -729,9 +734,15 @@ SUCONT-3 • DIREF • COMAER`
 									)}
 								</div>
 
-								<div className="bg-card border border-border p-5 rounded-xl shadow-inner max-h-96 overflow-y-auto">
-									<pre className="text-body text-foreground whitespace-pre-wrap font-sans leading-relaxed">{generateConsolidatedMessage()}</pre>
-								</div>
+								<EditableMessage
+									label="Mensagem consolidada de cobrança"
+									value={consolidatedMessage.text}
+									onChange={consolidatedMessage.setText}
+									onReset={consolidatedMessage.reset}
+									isEdited={consolidatedMessage.isEdited}
+									className="max-h-96"
+									rows={16}
+								/>
 							</div>
 						)}
 					</div>
@@ -753,191 +764,203 @@ SUCONT-3 • DIREF • COMAER`
 							<p className="text-muted-foreground">Todas as UGs analisadas estão regulares para o filtro selecionado.</p>
 						</div>
 					) : (
-						filteredUgs.map((ug) => (
-							<div key={ug.ug} className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-								<button
-									type="button"
-									onClick={() => toggleUg(ug.ug)}
-									className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
-								>
-									<div className="flex items-center gap-6">
-										<div className="flex items-center gap-4">
-											<div
-												className={`w-2 h-14 rounded-full shrink-0 ${
-													ug.status === "CRÍTICA" ? "bg-destructive" : ug.status === "ATENÇÃO" ? "bg-warning" : "bg-success"
-												}`}
-											/>
-											<div className="w-12 h-12 rounded-full bg-muted border border-border hidden sm:flex items-center justify-center shrink-0">
-												<Building2 className="w-6 h-6 text-muted-foreground" />
-											</div>
-											<div className="text-left">
-												<div className="text-label text-muted-foreground">
-													UG {ug.ug} — Conferente: <span className="font-bold text-action">{ug.conferente}</span>
+						filteredUgs.map((ug) => {
+							const ugMessage = drafts.of(ug.ug, generateMessage(ug))
+							return (
+								<div key={ug.ug} className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+									<button
+										type="button"
+										onClick={() => toggleUg(ug.ug)}
+										className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
+									>
+										<div className="flex items-center gap-6">
+											<div className="flex items-center gap-4">
+												<div
+													className={`w-2 h-14 rounded-full shrink-0 ${
+														ug.status === "CRÍTICA" ? "bg-destructive" : ug.status === "ATENÇÃO" ? "bg-warning" : "bg-success"
+													}`}
+												/>
+												<div className="w-12 h-12 rounded-full bg-muted border border-border hidden sm:flex items-center justify-center shrink-0">
+													<Building2 className="w-6 h-6 text-muted-foreground" />
 												</div>
-												<div className="font-mono text-heading text-foreground">{ug.ugName && ug.ugName !== "Desconhecida" ? ug.ugName : `UG ${ug.ug}`}</div>
-												{ug.orgaoSuperior && ug.orgaoSuperior !== "-" && (
-													<div className="text-caption text-muted-foreground mt-0.5">
-														{ug.orgaoSuperior} • {ug.ods}
+												<div className="text-left">
+													<div className="text-label text-muted-foreground">
+														UG {ug.ug} — Conferente: <span className="font-bold text-action">{ug.conferente}</span>
 													</div>
-												)}
-											</div>
-										</div>
-										<span className={`px-3 py-1 rounded-md text-label border ${statusColor(ug.status)}`}>{ug.status}</span>
-									</div>
-
-									<div className="flex items-center gap-8">
-										<div className="text-right hidden sm:block">
-											<div className="text-label text-muted-foreground">Inconsistências</div>
-											<div className="font-medium text-foreground">{ug.inconsistenciesCount}</div>
-										</div>
-										<div className="text-right hidden sm:block">
-											<div className="text-label text-muted-foreground">Impacto Financeiro</div>
-											<div className="font-mono font-bold text-foreground">{formatCurrency(ug.financialImpact)}</div>
-										</div>
-										{expandedUg === ug.ug ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
-									</div>
-								</button>
-
-								{expandedUg === ug.ug && (
-									<div className="border-t border-border bg-muted/50 p-6 space-y-6">
-										<div>
-											<h3 className="text-label text-foreground mb-3 flex items-center gap-2">
-												<BarChart3 className="w-4 h-4 text-muted-foreground" />
-												Detalhamento
-											</h3>
-											<div className="overflow-x-auto rounded-lg border border-border bg-card">
-												<table className="w-full text-body text-left">
-													<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
-														<tr>
-															<th className="px-4 py-3">Conta Corrente</th>
-															<th className="px-4 py-3">Tipo</th>
-															<th className="px-4 py-3 text-right">Saldo 897210300</th>
-															<th className="px-4 py-3 text-right">Saldo 897110300</th>
-															<th className="px-4 py-3 text-right">Diferença</th>
-														</tr>
-													</thead>
-													<tbody className="divide-y divide-border">
-														{ug.details.map((row, idx) => (
-															<tr key={idx} className="hover:bg-muted/50">
-																<td className="px-4 py-2 font-mono text-foreground">{row.contaCorrente}</td>
-																<td className="px-4 py-2">
-																	<span className={`px-2 py-0.5 rounded text-hint border ${detailStatusColor(row.status)}`}>{row.status}</span>
-																</td>
-																<td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatCurrency(row.saldo8972)}</td>
-																<td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatCurrency(row.saldo8971)}</td>
-																<td className="px-4 py-2 text-right font-mono font-medium text-foreground">{formatCurrency(row.diferenca)}</td>
-															</tr>
-														))}
-													</tbody>
-												</table>
-											</div>
-										</div>
-
-										{ug.status !== "REGULAR" && (
-											<div className="mt-8">
-												<div className="flex items-center justify-between mb-3">
-													<h3 className="text-label text-foreground flex items-center gap-2">
-														<Send className="w-4 h-4 text-action" />
-														Proposta de Mensagem de Cobrança
-													</h3>
-													<Button
-														type="button"
-														variant="outline"
-														size="sm"
-														onClick={(e) => handleCopyMessage(e, ug)}
-														className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-label rounded-md transition-all shadow-sm"
-													>
-														{copiedUg === ug.ug ? (
-															<>
-																<Check className="w-3.5 h-3.5 text-success" />
-																<span className="text-success">Copiado!</span>
-															</>
-														) : (
-															<>
-																<Copy className="w-3.5 h-3.5" />
-																Copiar Mensagem
-															</>
-														)}
-													</Button>
-												</div>
-
-												<div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex flex-wrap gap-4 items-end">
-													<div className="flex flex-col gap-1.5">
-														<label htmlFor={`ug-report-msg-num-${ug.ug}`} className="text-label text-muted-foreground">
-															Nº da Mensagem
-														</label>
-														<Input
-															id={`ug-report-msg-num-${ug.ug}`}
-															type="text"
-															value={getConfig(ug.ug).msgNum}
-															onChange={(e) => updateConfig(ug.ug, { msgNum: e.target.value })}
-															className="px-3 py-1.5 border border-border rounded-md text-body w-24 focus:outline-none focus:ring-2 focus:ring-action"
-															placeholder="___"
-														/>
-													</div>
-													<div className="flex flex-col gap-1.5">
-														<label htmlFor={`ug-report-msg-date-${ug.ug}`} className="text-label text-muted-foreground">
-															Data da Mensagem
-														</label>
-														<Input
-															id={`ug-report-msg-date-${ug.ug}`}
-															type="date"
-															value={getConfig(ug.ug).msgDate}
-															onChange={(e) => updateConfig(ug.ug, { msgDate: e.target.value })}
-															className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
-														/>
-													</div>
-													<div className="flex flex-col gap-1.5">
-														<label htmlFor={`ug-report-msg-type-${ug.ug}`} className="text-label text-muted-foreground">
-															Tipo de Mensagem
-														</label>
-														<Select
-															items={{ SEM_PRAZO: "Padrão (Sem Prazo)", COM_PRAZO: "Com Prazo", ALERTA: "Alerta (Sem Resposta)" }}
-															value={getConfig(ug.ug).messageType}
-															onValueChange={(value) =>
-																updateConfig(ug.ug, {
-																	messageType: value as MessageConfig["messageType"],
-																})
-															}
-														>
-															<SelectTrigger
-																id={`ug-report-msg-type-${ug.ug}`}
-																className="px-3 py-1.5 border border-border rounded-md text-body focus-visible:ring-2 focus-visible:ring-action"
-															>
-																<SelectValue />
-															</SelectTrigger>
-															<SelectContent>
-																<SelectItem value="SEM_PRAZO">Padrão (Sem Prazo)</SelectItem>
-																<SelectItem value="COM_PRAZO">Com Prazo</SelectItem>
-																<SelectItem value="ALERTA">Alerta (Sem Resposta)</SelectItem>
-															</SelectContent>
-														</Select>
-													</div>
-													{getConfig(ug.ug).messageType === "COM_PRAZO" && (
-														<div className="flex flex-col gap-1.5 ml-2">
-															<label htmlFor={`ug-report-deadline-${ug.ug}`} className="text-label text-muted-foreground">
-																Data do Prazo
-															</label>
-															<Input
-																id={`ug-report-deadline-${ug.ug}`}
-																type="date"
-																value={getConfig(ug.ug).deadlineDate}
-																onChange={(e) => updateConfig(ug.ug, { deadlineDate: e.target.value })}
-																className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
-															/>
+													<div className="font-mono text-heading text-foreground">{ug.ugName && ug.ugName !== "Desconhecida" ? ug.ugName : `UG ${ug.ug}`}</div>
+													{ug.orgaoSuperior && ug.orgaoSuperior !== "-" && (
+														<div className="text-caption text-muted-foreground mt-0.5">
+															{ug.orgaoSuperior} • {ug.ods}
 														</div>
 													)}
 												</div>
+											</div>
+											<span className={`px-3 py-1 rounded-md text-label border ${statusColor(ug.status)}`}>{ug.status}</span>
+										</div>
 
-												<div className="bg-card border border-border p-5 rounded-xl shadow-inner">
-													<pre className="text-body text-foreground whitespace-pre-wrap font-sans leading-relaxed">{generateMessage(ug)}</pre>
+										<div className="flex items-center gap-8">
+											<div className="text-right hidden sm:block">
+												<div className="text-label text-muted-foreground">Inconsistências</div>
+												<div className="font-medium text-foreground">{ug.inconsistenciesCount}</div>
+											</div>
+											<div className="text-right hidden sm:block">
+												<div className="text-label text-muted-foreground">Impacto Financeiro</div>
+												<div className="font-mono font-bold text-foreground">{formatCurrency(ug.financialImpact)}</div>
+											</div>
+											{expandedUg === ug.ug ? (
+												<ChevronUp className="w-5 h-5 text-muted-foreground" />
+											) : (
+												<ChevronDown className="w-5 h-5 text-muted-foreground" />
+											)}
+										</div>
+									</button>
+
+									{expandedUg === ug.ug && (
+										<div className="border-t border-border bg-muted/50 p-6 space-y-6">
+											<div>
+												<h3 className="text-label text-foreground mb-3 flex items-center gap-2">
+													<BarChart3 className="w-4 h-4 text-muted-foreground" />
+													Detalhamento
+												</h3>
+												<div className="overflow-x-auto rounded-lg border border-border bg-card">
+													<table className="w-full text-body text-left">
+														<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
+															<tr>
+																<th className="px-4 py-3">Conta Corrente</th>
+																<th className="px-4 py-3">Tipo</th>
+																<th className="px-4 py-3 text-right">Saldo 897210300</th>
+																<th className="px-4 py-3 text-right">Saldo 897110300</th>
+																<th className="px-4 py-3 text-right">Diferença</th>
+															</tr>
+														</thead>
+														<tbody className="divide-y divide-border">
+															{ug.details.map((row, idx) => (
+																<tr key={idx} className="hover:bg-muted/50">
+																	<td className="px-4 py-2 font-mono text-foreground">{row.contaCorrente}</td>
+																	<td className="px-4 py-2">
+																		<span className={`px-2 py-0.5 rounded text-hint border ${detailStatusColor(row.status)}`}>{row.status}</span>
+																	</td>
+																	<td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatCurrency(row.saldo8972)}</td>
+																	<td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatCurrency(row.saldo8971)}</td>
+																	<td className="px-4 py-2 text-right font-mono font-medium text-foreground">{formatCurrency(row.diferenca)}</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
 												</div>
 											</div>
-										)}
-									</div>
-								)}
-							</div>
-						))
+
+											{ug.status !== "REGULAR" && (
+												<div className="mt-8">
+													<div className="flex items-center justify-between mb-3">
+														<h3 className="text-label text-foreground flex items-center gap-2">
+															<Send className="w-4 h-4 text-action" />
+															Proposta de Mensagem de Cobrança
+														</h3>
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															onClick={(e) => handleCopyMessage(e, ug)}
+															className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-label rounded-md transition-all shadow-sm"
+														>
+															{copiedUg === ug.ug ? (
+																<>
+																	<Check className="w-3.5 h-3.5 text-success" />
+																	<span className="text-success">Copiado!</span>
+																</>
+															) : (
+																<>
+																	<Copy className="w-3.5 h-3.5" />
+																	Copiar Mensagem
+																</>
+															)}
+														</Button>
+													</div>
+
+													<div className="mb-4 p-4 bg-muted/50 border border-border rounded-lg flex flex-wrap gap-4 items-end">
+														<div className="flex flex-col gap-1.5">
+															<label htmlFor={`ug-report-msg-num-${ug.ug}`} className="text-label text-muted-foreground">
+																Nº da Mensagem
+															</label>
+															<Input
+																id={`ug-report-msg-num-${ug.ug}`}
+																type="text"
+																value={getConfig(ug.ug).msgNum}
+																onChange={(e) => updateConfig(ug.ug, { msgNum: e.target.value })}
+																className="px-3 py-1.5 border border-border rounded-md text-body w-24 focus:outline-none focus:ring-2 focus:ring-action"
+																placeholder="___"
+															/>
+														</div>
+														<div className="flex flex-col gap-1.5">
+															<label htmlFor={`ug-report-msg-date-${ug.ug}`} className="text-label text-muted-foreground">
+																Data da Mensagem
+															</label>
+															<Input
+																id={`ug-report-msg-date-${ug.ug}`}
+																type="date"
+																value={getConfig(ug.ug).msgDate}
+																onChange={(e) => updateConfig(ug.ug, { msgDate: e.target.value })}
+																className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
+															/>
+														</div>
+														<div className="flex flex-col gap-1.5">
+															<label htmlFor={`ug-report-msg-type-${ug.ug}`} className="text-label text-muted-foreground">
+																Tipo de Mensagem
+															</label>
+															<Select
+																items={{ SEM_PRAZO: "Padrão (Sem Prazo)", COM_PRAZO: "Com Prazo", ALERTA: "Alerta (Sem Resposta)" }}
+																value={getConfig(ug.ug).messageType}
+																onValueChange={(value) =>
+																	updateConfig(ug.ug, {
+																		messageType: value as MessageConfig["messageType"],
+																	})
+																}
+															>
+																<SelectTrigger
+																	id={`ug-report-msg-type-${ug.ug}`}
+																	className="px-3 py-1.5 border border-border rounded-md text-body focus-visible:ring-2 focus-visible:ring-action"
+																>
+																	<SelectValue />
+																</SelectTrigger>
+																<SelectContent>
+																	<SelectItem value="SEM_PRAZO">Padrão (Sem Prazo)</SelectItem>
+																	<SelectItem value="COM_PRAZO">Com Prazo</SelectItem>
+																	<SelectItem value="ALERTA">Alerta (Sem Resposta)</SelectItem>
+																</SelectContent>
+															</Select>
+														</div>
+														{getConfig(ug.ug).messageType === "COM_PRAZO" && (
+															<div className="flex flex-col gap-1.5 ml-2">
+																<label htmlFor={`ug-report-deadline-${ug.ug}`} className="text-label text-muted-foreground">
+																	Data do Prazo
+																</label>
+																<Input
+																	id={`ug-report-deadline-${ug.ug}`}
+																	type="date"
+																	value={getConfig(ug.ug).deadlineDate}
+																	onChange={(e) => updateConfig(ug.ug, { deadlineDate: e.target.value })}
+																	className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
+																/>
+															</div>
+														)}
+													</div>
+
+													<EditableMessage
+														label={`Mensagem de cobrança da UG ${ug.ug}`}
+														value={ugMessage.text}
+														onChange={ugMessage.setText}
+														onReset={ugMessage.reset}
+														isEdited={ugMessage.isEdited}
+														rows={16}
+													/>
+												</div>
+											)}
+										</div>
+									)}
+								</div>
+							)
+						})
 					)}
 				</div>
 			)}

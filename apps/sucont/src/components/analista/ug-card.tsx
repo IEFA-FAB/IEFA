@@ -1,8 +1,10 @@
 import { Copy } from "lucide-react"
 import { useState } from "react"
+import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import type { ProcessedRow } from "#/lib/analista/types"
 import { blocoFundamentacao, FUNDAMENTO_SALDO_TRANSITORIO } from "#/lib/normas"
@@ -38,6 +40,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 	const [sendDate, setSendDate] = useState(new Date().toISOString().split("T")[0])
 	const [messageType, setMessageType] = useState<"SEM_PRAZO" | "COM_PRAZO" | "ALERTA">("SEM_PRAZO")
 	const [deadlineDate, setDeadlineDate] = useState("")
+	const draft = useMessageDraft()
 
 	const getRacTopic = (rac: string) => {
 		const topics: Record<string, string> = {
@@ -101,6 +104,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 
 	const headerMsg = `Mensagem n° ${msgNumber || "___"}/SUCONT-3/${formatMessageDate(sendDate)}\n\n${assuntoMsg}\n\n`
 	const fullMessage = headerMsg + baseParts.join("\n\n")
+	const message = draft.of(fullMessage)
 
 	const org = getOrganizacao(group.ug)
 
@@ -188,7 +192,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 							<h3 className="text-subheading text-foreground">Mensagem Institucional Pronta</h3>
 							<Button
 								type="button"
-								onClick={() => navigator.clipboard.writeText(fullMessage)}
+								onClick={() => navigator.clipboard.writeText(message.text)}
 								variant="outline"
 								size="xs"
 								className="gap-1 bg-card font-medium text-muted-foreground shadow-sm hover:text-foreground"
@@ -262,9 +266,14 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 							</div>
 						</div>
 
-						<div className="bg-muted p-4 rounded border border-border flex-1 overflow-y-auto min-h-[350px] max-h-[600px]">
-							<p className="text-body text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
-						</div>
+						<EditableMessage
+							label={`Mensagem institucional da UG ${group.ug}`}
+							value={message.text}
+							onChange={message.setText}
+							onReset={message.reset}
+							isEdited={message.isEdited}
+							className="flex-1 min-h-[350px] max-h-[600px]"
+						/>
 					</div>
 				</div>
 			</div>

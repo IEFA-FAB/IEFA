@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx"
 import { arredondarCentavos, saldosDivergem, saldoZerado } from "#/lib/analysis/tolerancia"
 import { UG_DATA } from "#/lib/cruzamento/ugData"
-import { getConferente } from "#/lib/ug/registry"
+import { getConferente, isUgAcompanhada } from "#/lib/ug/registry"
 
 /**
  * Contas do par espelhado da Questão 22 do RAC.
@@ -137,7 +137,7 @@ export function parseFile(file: File): Promise<RawRecord[]> {
 							Saldo: saldo,
 						}
 					})
-					.filter((r) => r.UG && r.ContaContabil && r.ContaCorrente)
+					.filter((r) => r.UG && r.ContaContabil && r.ContaCorrente && isUgAcompanhada(r.UG))
 
 				resolve(records)
 			} catch (err) {

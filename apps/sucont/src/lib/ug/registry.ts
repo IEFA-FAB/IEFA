@@ -293,6 +293,27 @@ export const UG_INATIVAS_SIAFI: readonly string[] = Object.entries(UNIDADES_GEST
 	.filter(([, ug]) => ug.ativoSiafi === false)
 	.map(([codigo]) => codigo)
 
+/**
+ * UGs que aparecem nas extrações do SIAFI mas NÃO são objeto do acompanhamento
+ * da SUCONT.
+ *
+ * `170999` é a Secretaria do Tesouro Nacional — Órgão Central de Contabilidade.
+ * Ela entra nos relatórios por ser a contraparte de lançamentos do COMAER, não
+ * por ter saldo a regularizar: cobrar uma UG do Tesouro por saldo transitório
+ * seria endereçar a mensagem a quem não a executa. As ferramentas de saldo
+ * (impróprio, alongado e cruzamento de contas) descartam essas linhas.
+ *
+ * Isto NÃO é a mesma coisa que UG desconhecida: uma UG fora do registro cai em
+ * ODS "OUTROS" e continua no relatório de propósito — pode ser cadastro faltando.
+ * Aqui a exclusão é deliberada e nomeada.
+ */
+export const UG_FORA_DO_ACOMPANHAMENTO: readonly string[] = ["170999"]
+
+/** A UG entra na análise de saldos? */
+export function isUgAcompanhada(codigo: string): boolean {
+	return !UG_FORA_DO_ACOMPANHAMENTO.includes(codigo.trim())
+}
+
 const CODIGO_UG_REGEX = /\b\d{6}\b/
 
 /** Busca pelo código exato. */
