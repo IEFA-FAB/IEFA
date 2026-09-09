@@ -1,5 +1,5 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
-import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Check, Refresh, SendDiagonal } from "iconoir-react"
@@ -36,7 +36,10 @@ export const Route = createFileRoute("/respond/$id")({
 		// então esperar pelo segundo não custa ida extra e evita abrir no "carregando".
 		await Promise.all([
 			context.queryClient.query({ ...questionnaireQueryOptions(params.id), staleTime: "static" }),
-			context.queryClient.query({ ...myResponseStateQueryOptions(params.id), staleTime: "static" }),
+			// Sem `staleTime` aqui, ao contrário do questionário: o passo que a tela abre
+			// é derivado deste dado uma vez, no `useReducer`. Servir um snapshot do cache
+			// reabriria o rascunho errado — ou um já enviado, em modo editável.
+			context.queryClient.query(myResponseStateQueryOptions(params.id)),
 		])
 	},
 	component: RespondPage,
@@ -154,6 +157,7 @@ function RespondPage() {
 	const { id } = Route.useParams()
 	const { data: questionnaire } = useSuspenseQuery(questionnaireQueryOptions(id))
 	const { data: responseState } = useSuspenseQuery(myResponseStateQueryOptions(id))
+	const queryClient = useQueryClient()
 	const [state, dispatch] = useReducer(respondReducer, responseState, buildInitialRespondState)
 	const { responseSessionId, answers, submitting, viewState, submittedAt, showObs, currentVersion } = state
 
@@ -177,6 +181,10 @@ function RespondPage() {
 		try {
 			await flush()
 			const submitted = await submitResponseFn({ data: { id: responseSessionId } })
+			// A sessão deixou de ser rascunho: sem isto, voltar à página dentro do
+			// `gcTime` reabriria uma resposta já enviada em modo de edição, e todo
+			// autosave passaria a falhar no guard de `status`.
+			await queryClient.invalidateQueries({ queryKey: myResponseStateQueryOptions(id).queryKey })
 			dispatch({ type: "SUBMITTED", submittedAt: submitted.submitted_at ?? null })
 		} catch {
 			dispatch({ type: "SUBMIT_FAILED" })
@@ -360,6 +368,7 @@ function MetadataStep({
 	questionnaireTitle: string
 	onSessionCreated: (session: { id: string }) => void
 }) {
+	const queryClient = useQueryClient()
 	const [state, dispatch] = useReducer(metadataReducer, initialMetadataState)
 	const { evaluationType, om, omCustom, secao } = state
 	const { data: omOptions = [] } = useQuery(omOptionsQueryOptions())
@@ -372,7 +381,10 @@ function MetadataStep({
 	const startMutation = useMutation({
 		mutationFn: (input: { evaluation_type: EvaluationType; om: string; secao: string }) =>
 			getOrCreateResponseSessionFn({ data: { questionnaire_id: questionnaireId, ...input } }),
-		onSuccess: onSessionCreated,
+		onSuccess: (session) => {
+			void queryClient.invalidateQueries({ queryKey: myResponseStateQueryOptions(questionnaireId).queryKey })
+			onSessionCreated(session)
+		},
 		onError: (err) => toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a avaliação"),
 	})
 
