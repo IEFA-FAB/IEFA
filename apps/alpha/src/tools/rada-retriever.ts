@@ -1,12 +1,20 @@
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
-import type { DocumentType, RetrievedDocument } from "../graph/state.ts"
+import type { RetrievedDocument } from "../graph/state.ts"
+import type { DocumentType } from "../lib/corpora.ts"
+import { toDocumentType } from "../lib/corpora.ts"
 import { embeddingError, embeddingModelId, getEmbeddings } from "../lib/embeddings.ts"
 
 export interface RADARetrieverInput {
 	query: string
 	filters?: {
-		document_type?: DocumentType
+		/**
+		 * Corpus a consultar. OBRIGATÓRIO na prática: `alpha.document` guarda a
+		 * legislação aeronáutica e a federal juntas, então omitir o filtro faz a
+		 * busca atravessar os dois. Aceita conjunto porque um corpus é mais de um
+		 * tipo (`AERONAUTICAL_DOCUMENT_TYPES`, `FEDERAL_LEGISLATION_TYPES`).
+		 */
+		document_type?: DocumentType | readonly DocumentType[]
 		year_from?: number
 		year_to?: number
 		chapter?: string
@@ -25,6 +33,13 @@ export interface RADARetrieverOutput {
 		fusion_method: "RRF"
 		threshold_applied: number
 		query_used: string
+		/** Corpus efetivamente consultado; `null` = busca sem filtro (os dois). */
+		document_types_filtered: readonly DocumentType[] | null
+		/**
+		 * `false` = o limiar foi aplicado sobre a ordenação posicional do RRF, não
+		 * sobre score de relevância. Sem isso a degradação do rerank passa batida.
+		 */
+		rerank_applied: boolean
 	}
 }
 
@@ -36,6 +51,19 @@ const RERANK_TOP_N = env.RERANK_TOP_N
 // resultado à versão vigente (`document_chunk.is_current`, espelho de
 // `document.superseded_at is null`). Versões superseded seguem legíveis por ID,
 // para auditoria de pareceres antigos, mas nunca entram na busca.
+/**
+ * Um tipo vira `eq`, conjunto vira `in`. Conjunto vazio seria um filtro que não
+ * casa com nada, então é tratado como ausência de filtro pelo chamador.
+ */
+function applyDocumentTypeFilter<T extends { eq: (column: string, value: string) => T; in: (column: string, values: string[]) => T }>(
+	query: T,
+	documentType: DocumentType | readonly DocumentType[] | undefined
+): T {
+	if (!documentType) return query
+	if (Array.isArray(documentType)) return documentType.length > 0 ? query.in("document_type", [...documentType]) : query
+	return query.eq("document_type", documentType as string)
+}
+
 async function semanticSearch(queryVector: number[], filters: RADARetrieverInput["filters"], topK: number) {
 	const vectorStr = `[${queryVector.join(",")}]`
 	// `embedding_model` evita o pior silêncio possível: comparar um vetor do
@@ -47,9 +75,7 @@ async function semanticSearch(queryVector: number[], filters: RADARetrieverInput
 		embedding_model_filter: embeddingModelId(),
 	})
 
-	if (filters?.document_type) {
-		query = query.eq("document_type", filters.document_type)
-	}
+	query = applyDocumentTypeFilter(query, filters?.document_type)
 	if (filters?.chapter) query = query.eq("chapter", filters.chapter)
 	if (filters?.article) query = query.eq("article", filters.article)
 
@@ -74,7 +100,7 @@ async function keywordSearch(queryText: string, filters: RADARetrieverInput["fil
 		match_count: topK,
 	})
 
-	if (filters?.document_type) query = query.eq("document_type", filters.document_type)
+	query = applyDocumentTypeFilter(query, filters?.document_type)
 	if (filters?.chapter) query = query.eq("chapter", filters.chapter)
 	if (filters?.article) query = query.eq("article", filters.article)
 
@@ -174,13 +200,28 @@ async function rerankNvidia(query: string, docs: Array<{ id: string; content: st
 	}))
 }
 
-async function rerankOrFallback(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<Array<{ id: string; score: number }>> {
-	const posicional = () => docs.map((doc, index) => ({ id: doc.id, score: Math.max(THRESHOLD, 1 - index / Math.max(docs.length, 1)) }))
+interface RerankOutcome {
+	scores: Array<{ id: string; score: number }>
+	/** `false` quando caiu na ordenação posicional do RRF. */
+	applied: boolean
+}
+
+async function rerankOrFallback(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<RerankOutcome> {
+	// O piso em THRESHOLD é deliberado: sem rerank não existe score de
+	// relevância, e deixar o limiar cortar uma ordenação meramente posicional
+	// descartaria documento bom por posição. O preço é que o limiar não filtra
+	// nada nesse modo — por isso `applied: false` sai no `search_metadata`, e a
+	// defesa contra resposta sem base passa a ser o grader.
+	const posicional = (): RerankOutcome => ({
+		scores: docs.map((doc, index) => ({ id: doc.id, score: Math.max(THRESHOLD, 1 - index / Math.max(docs.length, 1)) })),
+		applied: false,
+	})
 
 	if (!env.ALPHA_RERANK_MODEL) return posicional()
 
 	try {
-		return env.ALPHA_AI_PROVIDER === "bedrock" ? await rerankBedrock(query, docs) : await rerankNvidia(query, docs)
+		const scores = env.ALPHA_AI_PROVIDER === "bedrock" ? await rerankBedrock(query, docs) : await rerankNvidia(query, docs)
+		return { scores, applied: true }
 	} catch (error) {
 		// Rerank é melhoria de ordenação, não requisito de correção: sua queda
 		// degrada o resultado, não pode derrubar a recuperação inteira.
@@ -192,6 +233,8 @@ async function rerankOrFallback(query: string, docs: Array<{ id: string; content
 export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetrieverOutput> {
 	const { query, filters, top_k = 10 } = input
 	const queryWithPrefix = `${env.EMB_QUERY_PREFIX}${query}`
+	const requestedTypes = filters?.document_type ? (Array.isArray(filters.document_type) ? [...filters.document_type] : [filters.document_type]) : null
+	const document_types_filtered: readonly DocumentType[] | null = requestedTypes && requestedTypes.length > 0 ? requestedTypes : null
 
 	// Busca semântica é opcional: sem provedor de embedding, a híbrida degrada
 	// para keyword-only em vez de falhar. O `search_metadata` reporta zero
@@ -226,18 +269,20 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 				fusion_method: "RRF",
 				threshold_applied: THRESHOLD,
 				query_used: query,
+				document_types_filtered,
+				rerank_applied: false,
 			},
 		}
 	}
 
 	// Sem modelo de rerank configurado, o score do RRF normalizado assume o
 	// lugar — ordenação pior, não ausência de resultado.
-	const rerankResults = await rerankOrFallback(
+	const rerank = await rerankOrFallback(
 		query,
 		fusedArray.map((f) => f.doc)
 	)
 
-	const rerankMap = new Map(rerankResults.map((r) => [r.id, r.score]))
+	const rerankMap = new Map(rerank.scores.map((r) => [r.id, r.score]))
 
 	const documents: RetrievedDocument[] = fusedArray
 		.map((f) => {
@@ -250,7 +295,7 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 				content: f.doc.content,
 				metadata: {
 					source: f.doc.source ?? "",
-					document_type: (f.doc.document_type ?? "RADA") as DocumentType,
+					document_type: toDocumentType(f.doc.document_type),
 					chapter: f.doc.chapter ?? "",
 					article: f.doc.article ?? "",
 					section: f.doc.section,
@@ -277,6 +322,8 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 			fusion_method: "RRF",
 			threshold_applied: THRESHOLD,
 			query_used: query,
+			document_types_filtered,
+			rerank_applied: rerank.applied,
 		},
 	}
 }

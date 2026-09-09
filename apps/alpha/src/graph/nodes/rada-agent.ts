@@ -1,3 +1,4 @@
+import { AERONAUTICAL_DOCUMENT_TYPES } from "../../lib/corpora"
 import { getLLM } from "../../lib/llm"
 import type { RADARetrieverOutput } from "../../tools/rada-retriever"
 import { radaRetriever } from "../../tools/rada-retriever"
@@ -14,13 +15,21 @@ Reformule para melhorar o recall:
 
 Retorne APENAS a query reformulada.`
 
+/**
+ * O ChatRADA responde sobre legislação aeronáutica, e `alpha.document` também
+ * guarda a Lei 14.133 e os modelos da AGU. Sem este filtro a pergunta sobre o
+ * RADA volta com trecho de norma de contratação — e o usuário não tem como
+ * perceber, porque a interface lista a fonte pelo id do chunk.
+ */
+export const RADA_CORPUS_FILTER = { document_type: AERONAUTICAL_DOCUMENT_TYPES } as const
+
 export async function radaAgentNode(state: AgentState): Promise<Partial<AgentState>> {
 	const iterations = state.retrieval_iterations
 	const query = iterations === 0 ? state.original_query : (state.reformulated_query ?? state.original_query)
 
 	let result: RADARetrieverOutput
 	try {
-		result = await radaRetriever({ query })
+		result = await radaRetriever({ query, filters: RADA_CORPUS_FILTER })
 	} catch {
 		return {
 			has_sufficient_context: false,

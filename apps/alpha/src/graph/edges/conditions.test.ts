@@ -121,7 +121,7 @@ describe("graderCondition", () => {
 		).toBe("no_basis")
 	})
 
-	it("routes to synthesizer when grounding_check is undefined and retries below max", () => {
+	it("retries retrieval when grounding_check is undefined and retries below max", () => {
 		expect(
 			graderCondition(
 				makeState({
@@ -129,10 +129,12 @@ describe("graderCondition", () => {
 					grading_retries: 0,
 				})
 			)
-		).toBe("synthesizer")
+		).toBe("rada_agent")
 	})
 
-	it("routes to synthesizer when not grounded and retries below max", () => {
+	// Regressão: este ramo devolvia "synthesizer", o mesmo do caminho ancorado —
+	// o grader marcava a alucinação e a resposta seguia para o usuário igual.
+	it("retries retrieval when not grounded and retries below max", () => {
 		expect(
 			graderCondition(
 				makeState({
@@ -140,6 +142,18 @@ describe("graderCondition", () => {
 					grading_retries: 1,
 				})
 			)
-		).toBe("synthesizer")
+		).toBe("rada_agent")
+	})
+
+	it("never returns synthesizer for an ungrounded draft", () => {
+		for (const grading_retries of [0, 1, 2, 3, 5]) {
+			const route = graderCondition(
+				makeState({
+					grounding_check: { is_grounded: false, ungrounded_claims: ["x"], confidence: 0.1 },
+					grading_retries,
+				})
+			)
+			expect(route).not.toBe("synthesizer")
+		}
 	})
 })
