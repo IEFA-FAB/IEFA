@@ -1,5 +1,5 @@
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { AlertTriangle, Archive, ArrowLeft, Download, Link2, Lock, Search, Send } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -18,10 +18,10 @@ import { toast } from "@/components/ui/toast"
 import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
+import { useUnitSettings } from "@/hooks/data/useUnitSettings"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { queryKeys } from "@/lib/query-keys"
 import { updateAtaItemPricesFn } from "@/server/ata.fn"
-import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
@@ -58,12 +58,7 @@ function AtaDetailPage() {
 	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
 
 	// UASG da unidade para pré-preencher o modal de busca
-	const { data: unitSettings } = useQuery({
-		queryKey: ["unit", "settings", unitId],
-		queryFn: () => fetchUnitSettingsFn({ data: { unitId } }),
-		enabled: Number.isFinite(unitId) && unitId > 0,
-		staleTime: 10 * 60 * 1000,
-	})
+	const { data: unitSettings } = useUnitSettings(unitId)
 
 	const handleDescriptionChange = (_ingredientId: string, ataItemId: string | null | undefined, description: string) => {
 		if (!ataItemId || !ataId) return

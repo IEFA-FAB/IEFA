@@ -7,6 +7,9 @@ export function useUnitSettings(unitId: number) {
 	return useQuery({
 		queryKey: queryKeys.sisub.unitSettings(unitId),
 		queryFn: () => fetchUnitSettingsFn({ data: { unitId } }),
+		// `unitId` vem de `Number(params.unitId)`: sem o guard, uma rota com param
+		// inválido dispara a busca com NaN.
+		enabled: Number.isFinite(unitId) && unitId > 0,
 		staleTime: 300_000,
 	})
 }

@@ -1,5 +1,5 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Check, Refresh, SendDiagonal } from "iconoir-react"
@@ -16,14 +16,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAutoSave } from "@/hooks/useAutoSave"
 import { EVALUATION_TYPES, type EvaluationType } from "@/lib/5s-constants"
 import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
+import { questionnaireQueryOptions } from "@/lib/queries"
 import { assertUuidParam } from "@/lib/route-params"
-import { getMyResponseStateFn, getOmOptionsFn, getOrCreateResponseSessionFn, getQuestionnaireFn, submitResponseFn } from "@/server/forms.fn"
-
-const questionnaireQueryOptions = (id: string) =>
-	queryOptions({
-		queryKey: ["questionnaire", id],
-		queryFn: () => getQuestionnaireFn({ data: { id } }),
-	})
+import { getMyResponseStateFn, getOmOptionsFn, getOrCreateResponseSessionFn, submitResponseFn } from "@/server/forms.fn"
 
 export const Route = createFileRoute("/respond/$id")({
 	beforeLoad: ({ context, location, params }) => {

@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, EditPencil, Eye, Plus, Refresh, SendDiagonal, Trash } from "iconoir-react"
 import { useEffect, useState } from "react"
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { CONFORMITY_WEIGHTS, type ConformityOptions } from "@/lib/conformity"
+import { editorsQueryOptions, questionnaireQueryOptions, viewersQueryOptions } from "@/lib/queries"
 import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
 import { assertUuidParam } from "@/lib/route-params"
 import {
@@ -21,9 +22,6 @@ import {
 	createSectionFn,
 	deleteQuestionFn,
 	deleteSectionFn,
-	getEditorsFn,
-	getQuestionnaireFn,
-	getViewersFn,
 	publishQuestionnaireFn,
 	removeEditorFn,
 	updateQuestionFn,
@@ -54,24 +52,6 @@ const QUESTION_TYPES = [
 	{ value: "boolean", label: "Sim / Não" },
 	{ value: "conformity", label: "Conformidade (A/AP/NA/NO)" },
 ] as const
-
-const questionnaireQueryOptions = (id: string) =>
-	queryOptions({
-		queryKey: ["questionnaire", id],
-		queryFn: () => getQuestionnaireFn({ data: { id } }),
-	})
-
-const editorsQueryOptions = (questionnaireId: string) =>
-	queryOptions({
-		queryKey: ["editors", questionnaireId],
-		queryFn: () => getEditorsFn({ data: { questionnaire_id: questionnaireId } }),
-	})
-
-const viewersQueryOptions = (questionnaireId: string) =>
-	queryOptions({
-		queryKey: ["viewers", questionnaireId],
-		queryFn: () => getViewersFn({ data: { questionnaire_id: questionnaireId } }),
-	})
 
 export const Route = createFileRoute("/_authenticated/questionnaires/$id")({
 	beforeLoad: ({ params }) => assertUuidParam(params.id),

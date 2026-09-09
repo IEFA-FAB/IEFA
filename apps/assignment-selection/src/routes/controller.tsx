@@ -61,7 +61,7 @@ function ControllerPage() {
 	const mutation = useMutation({
 		mutationFn: (action: () => Promise<unknown>) => action(),
 		onError: (err) => toast.error(err instanceof Error ? err.message : "Erro ao atualizar"),
-		onSettled: () => queryClient.invalidateQueries({ queryKey: ["board", edition ?? "default"] }),
+		onSettled: () => queryClient.invalidateQueries({ queryKey: boardQueryOptions(edition).queryKey }),
 	})
 	const run = (action: () => Promise<unknown>) => mutation.mutate(action)
 	const editionId = data.editionId
