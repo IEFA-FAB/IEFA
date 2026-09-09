@@ -6,7 +6,7 @@ import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getOrganizacao } from "#/lib/analista/organizacao"
-import type { ProcessedRow } from "#/lib/analista/types"
+import { getRacTopic, type ProcessedRow } from "#/lib/analista/types"
 import { blocoFundamentacao, FUNDAMENTO_SALDO_TRANSITORIO } from "#/lib/normas"
 
 interface ConsolidatedMessageCardProps {
@@ -38,18 +38,6 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const [messageType, setMessageType] = useState<"SEM_PRAZO" | "COM_PRAZO" | "ALERTA">("SEM_PRAZO")
 	const [deadlineDate, setDeadlineDate] = useState("")
 	const draft = useMessageDraft()
-
-	const getRacTopic = (rac: string) => {
-		const topics: Record<string, string> = {
-			"Questão 26": "Estoques",
-			"Questão 27": "Bens Móveis",
-			"Questão 28": "Bens Imóveis",
-			"Questão 31": "Fornecedores e Contas a Pagar",
-			"Questão 32": "Perdas Involuntárias",
-			"Questão 36": "Bens a Classificar",
-		}
-		return topics[rac] || "Saldos Transitórios"
-	}
 
 	const items = rows.filter((r) => r.classificacao === "COBRANÇA" || r.classificacao === "COBRANÇA COM OBSERVAÇÃO")
 
