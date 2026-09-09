@@ -18,7 +18,7 @@ que não cobre), como os tetos de consumo funcionam e o que ainda falta migrar.
 | sisub — assistente de analytics | `ANALYTICS_AI_*` | **bedrock** | groq | ✅ migrado |
 | sucont — oráculo | `SUCONT_AI_*` | **bedrock** | **bedrock** (`gpt-oss-120b`) | ✅ migrado — primário, reserva e tetos aplicados |
 | portal — redação de comunicações oficiais | `PORTAL_AI_*` | **bedrock** (`opus-4-6`) | **bedrock** (`gpt-oss-120b`) | ⚠️ código e modelo verificados; **env ainda não provisionado em prod** |
-| alpha — grafo LangGraph | `ALPHA_AI_*` | nvidia | — | ❌ dívida (ver abaixo) |
+| alpha — grafo LangGraph | `ALPHA_AI_*` | **bedrock** | — (não tem reserva) | ✅ migrado — chat e embeddings; rerank desligado (ver abaixo) |
 
 `apps/sisub-mcp` não chama modelo: ele **expõe** ferramentas para o modelo do cliente MCP.
 rumaer, forms, docs e api não usam IA.
@@ -452,20 +452,36 @@ via `createCookieAuthClient` do `@iefa/supabase-kit`. O guard de rota do `__root
 client-side e **não** cobre essas rotas: sem checagem explícita no handler, um endpoint de
 chat é um caminho aberto para o Bedrock da conta.
 
-**alpha** — o único que não tem caminho para o Bedrock. Ele não usa o adapter do
-`@tanstack/ai`: usa LangChain, e `packages/ai-provider/src/langchain-compat.ts` só sabe
-construir `ChatOpenAI`. Para migrar:
+**alpha** — migrado no PR #191 (2026-08-18). O α não usa o adapter do `@tanstack/ai`: usa
+LangChain, e `packages/ai-provider/src/langchain-compat.ts` segue construindo só `ChatOpenAI`
+— mas o α não passa mais por ele no caminho padrão. `getLLM`
+(`apps/alpha/src/lib/llm.ts:31-34`) monta `ChatBedrockConverse` direto quando o provider é
+bedrock, e devolve `BaseChatModel`; o `langchain-compat` cobre apenas os provedores de API
+compatível com a da OpenAI, que ficaram como saída de emergência manual.
 
-1. `ChatBedrockConverse` (`@langchain/aws`) no `langchain-compat`, escolhido pelo mesmo
-   `provider` do `AdapterConfig`;
-2. `ALPHA_AI_PROVIDER` (`apps/alpha/src/env.ts:11`) passa a aceitar `bedrock`;
-3. `getLLM` devolve o tipo base do LangChain em vez de `ChatOpenAI` — os cinco usos são só
-   `.invoke` e `.withStructuredOutput`, ambos suportados.
+| | valor default | onde |
+|---|---|---|
+| chat | `ALPHA_AI_PROVIDER = "bedrock"` | `apps/alpha/src/env.ts:19` |
+| embeddings | `ALPHA_EMBEDDING_PROVIDER = "bedrock"`, `amazon.titan-embed-text-v2:0` | `env.ts:24-25`, `lib/embeddings.ts:37-46` |
+| rerank | `ALPHA_RERANK_MODEL = ""` — **desligado** | `env.ts:27` |
 
-**Embeddings e rerank do alpha continuam na NVIDIA**, e isso é decisão, não esquecimento:
-migrar significa **re-embedar o corpus inteiro**. Se um dia valer a pena,
-`cohere.embed-multilingual-v3` no Bedrock devolve os mesmos 1024 dims da coluna atual — o
-que evita migration de schema, mas não evita o reprocessamento.
+**O α não tem reserva**, e isso é a diferença dele para os outros consumidores:
+`ALPHA_FALLBACK_AI_*` não existe no repo. Falha transitória do Bedrock derruba o turno.
+
+`ALPHA_AI_MODEL` não tem default: sem ele o boot lança (`env.ts:62-65`). É deliberado — não
+existe id de modelo seguro para cravar, porque a habilitação varia por conta e região.
+
+**O rerank é a única pendência de provider, e ela é de habilitação, não de código.** O
+caminho Bedrock está escrito (`tools/rada-retriever.ts`, `RerankCommand` do
+`bedrock-agent-runtime`), mas não há modelo de rerank habilitado em `sa-east-1`, e o ARN é
+montado com `ALPHA_AI_REGION` — não existe `ALPHA_RERANK_REGION`, então chamar us-west-2
+exigiria mudar código, não env. Com o rerank desligado a recuperação cai na ordenação
+posicional do RRF, e o `search_metadata` reporta `rerank_applied: false` para que a
+degradação não passe batida.
+
+Embeddings **não** são mais dívida: `titan-embed-text-v2` devolve os 1024 dims que
+`document_chunk.embedding` já fixa, e `embedding_model` grava `provider:model`, de modo que
+vetor de origem diferente nunca é comparado com o atual.
 
 ---
 

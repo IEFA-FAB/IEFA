@@ -1,32 +1,94 @@
 # Tasks: sisub-om-survey-and-contract-registry
 
+## Nota de revisão — 2026-09-08
+
+Auditoria desta change contra a `main` (`72df5c12`). Veredito: **reescrever/reduzir antes de
+implementar — não arquivar.** O buraco central continua real e sem uma linha de código:
+`survey_campaign`, `survey_response` e `subsistence_contract` não aparecem em nenhum arquivo
+do repositório fora deste diretório, e `finance.empenho.arp_item_id` segue `not null` apontando
+para item de ATA de gênero (`packages/database/drizzle/schema.ts:1132`) — contratação não
+alimentar continua sem onde existir. O que caducou é o entorno, não o problema.
+
+**Classificação das 44 tarefas:** JÁ-FEITA 0 · PARCIAL 4 (2.1, 3.4, 3.5, 3.6) · CADUCA 1 (1.5)
+· VIVA 39. **Tarefa sem marcação abaixo é VIVA**; as marcadas trazem o motivo.
+
+Quatro fatos que a proposta ainda não conhece:
+
+1. **A evidência nº 1 do "Why" ficou factualmente falsa.** A proposta afirma que
+   `core.workforce_*` existe "sem nenhuma linha de código no repo". O PR #243 (`97fc8dc3`,
+   2026-08-27 — o mesmo dia em que a proposta foi escrita) entregou a pilha inteira:
+   `packages/sisub-domain/src/operations/workforce.ts` (10 operations),
+   `workforce.authz.test.ts` (23 testes), `schemas/workforce.ts`, `utils/workforce-metrics.ts`,
+   `apps/sisub/src/server/workforce.fn.ts`, cinco componentes em
+   `apps/sisub/src/components/features/workforce/` e as rotas `/analytics/workforce` e
+   `/local-analytics/$unitId/workforce`; o #245 (`898b690d`) fechou o passo de reset de treino.
+   O argumento "levantamento por OM vira órfão" precisa ser reescrito ao contrário: **já existe
+   um motor de levantamento por OM em produção**, com ciclo de vida de campanha
+   (`createWorkforceSurvey`/`closeWorkforceSurvey`, `admin:2`), resposta por unidade com escopo
+   lido da linha e não do input, e distinção explícita entre branco e zero. A pergunta que a
+   proposta tem de responder passa a ser por que o DIVISA não estende esse motor.
+
+2. **O schema `core` mudou de significado depois da decisão de camada.**
+   `20260901120400_core_promotion.sql` (PR #255) redefiniu `core` como o que é *da Força*,
+   independente de subsistência: sobraram lá apenas `item`, `measure_unit`, `units`, `user_data`
+   e `user_military_data`. Tudo de subsistência — `workforce_*` e `rancho` inclusive — foi para
+   `kitchen`, deixando view de compatibilidade no nome antigo (fase EXPAND). A decisão registrada
+   no `design.md` ("tabelas no schema `core` do sisub") é anterior a essa promoção e precisa ser
+   reconfirmada: pela doutrina vigente, uma tabela chamada `subsistence_contract` nasce em
+   `kitchen`, não em `core`.
+
+3. **O log de sync foi renomeado e ganhou trava de concorrência.**
+   `20260904012143_integration_sync_log.sql` renomeou
+   `compras_gov_integration.compras_sync_log`/`compras_sync_step` para
+   `integration_sync_log`/`integration_sync_step` e criou o índice único parcial
+   `uq_integration_sync_log_one_running_per_source`. As tarefas 3.5/3.6 e
+   `specs/contract-sources-ingestion/spec.md` citam os nomes mortos, e o worker novo precisa de
+   um `source` próprio para não disputar a trava com `pncp_pca`.
+
+4. **O backfill de `uasg` já tem dono, caminho e ferramenta — todos diferentes dos daqui.** O
+   change arquivado `openspec/changes/archive/2026-09-08-sisub-pncp-integration/` carrega a
+   tarefa `0.1` ainda aberta: curar as 26 UASGs faltantes **pela tela**
+   `/unit/$unitId/settings`, cujo campo já dispara `fetchUasgInfoFn` aos 6 dígitos e devolve nome
+   oficial, UF, município e órgão. O PR #266 somou a isso `fetchPcaUasgsFn` e
+   `/analytics/procurement-plan`, que listam as UASGs do plano de contratações com nome oficial e
+   marcam quais já estão cadastradas. É curadoria de dado conferida por humano, não migration.
+
 ## 1. Banco — schema `core`
 
 - [ ] 1.1 [database] Migration `core.survey_campaign` + `core.survey_category`: campanha (code único, título, finalidade, `baseline_year`, `target_year`, status `draft|open|closed`, prazo, autor) e categoria (código, rótulo, `sort_order`, `topic`, ND sugerida, orientação, `deleted_at`), unique (campaign_id, code); RLS ligada sem policy e grants a `service_role`, como as tabelas irmãs do `core`
-- [ ] 1.2 [database] Migration `core.survey_response` + `core.survey_response_item`: resposta única por (campaign_id, unit_id) com status/responsável/submissão; item único por (response_id, category_id) com `realized_amount`/`needed_amount` `numeric(14,2)` anuláveis, resumos, `amount_note`, `previous_situation`, `deadline` (date) + `deadline_note`, `notes`, `fill_source`, `suggestion_snapshot` jsonb; índices por campanha e por unidade
-- [ ] 1.3 [database] Migration `core.subsistence_contract`: espécie, NUP, número, ano, UASG, objeto, fornecedor, ND, `topic` (check do vocabulário durável), vigência, valores, `external_source`/`external_id`/`last_synced_at`; unique parcial (external_source, external_id) e unique parcial (unit_id, kind, numero, uasg, ano); índice (unit_id, topic, vigencia_fim)
-- [ ] 1.4 [database] Migration `core.survey_response_item_contract`: (item_id, contract_id) único, `amount_attributed` anulável, `link_source` `auto|manual`, FKs com `on delete cascade` no item e `restrict` no contrato
-- [ ] 1.5 [database] Migration de saneamento de `core.units`: `uasg` das OMs do levantamento a partir de lista explícita conferida contra `UG_INFO` (`apps/sucont/src/subitens/constants.ts`), inserção da OM `BABV` e reconciliação do code `CINDACTA 2`/`CINDACTA II` — sem heurística por nome, UASG não conferida fica nula
+  - **Ressalva de schema (vale para 1.1–1.4):** reconfirmar o schema antes de escrever o DDL. `20260901120400_core_promotion.sql` esvaziou o `core` de tudo que é subsistência; hoje ele só guarda `item`, `measure_unit`, `units`, `user_data` e `user_military_data`
+- [ ] 1.2 [database] Migration `core.survey_response` + `core.survey_response_item`: resposta única por (campaign_id, unit_id) com status/responsável/submissão; item único por (response_id, category_id) com `realized_amount`/`needed_amount` `numeric(14,2)` anuláveis, resumos, `amount_note`, `previous_situation`, `deadline` (date) + `deadline_note`, `notes`, `fill_source`, `suggestion_snapshot` jsonb; índices por campanha e por unidade — mesma ressalva de schema da 1.1
+- [ ] 1.3 [database] Migration `core.subsistence_contract`: espécie, NUP, número, ano, UASG, objeto, fornecedor, ND, `topic` (check do vocabulário durável), vigência, valores, `external_source`/`external_id`/`last_synced_at`; unique parcial (external_source, external_id) e unique parcial (unit_id, kind, numero, uasg, ano); índice (unit_id, topic, vigencia_fim) — mesma ressalva de schema da 1.1, e ela pesa mais aqui: o próprio nome da tabela diz `subsistence`
+- [ ] 1.4 [database] Migration `core.survey_response_item_contract`: (item_id, contract_id) único, `amount_attributed` anulável, `link_source` `auto|manual`, FKs com `on delete cascade` no item e `restrict` no contrato — mesma ressalva de schema da 1.1
+- [ ] 1.5 **[CADUCA — reescrever]** [database] Migration de saneamento de `core.units`: `uasg` das OMs do levantamento a partir de lista explícita conferida contra `UG_INFO` (`apps/sucont/src/subitens/constants.ts`), inserção da OM `BABV` e reconciliação do code `CINDACTA 2`/`CINDACTA II` — sem heurística por nome, UASG não conferida fica nula
+  - **Por que caducou, nos três pedaços:** (a) *`uasg`* — o caminho já foi decidido de outra forma e por outro change: `archive/2026-09-08-sisub-pncp-integration/tasks.md` tarefa `0.1`, ainda aberta, manda curar pela tela `/unit/$unitId/settings`, e o PR #266 entregou `fetchPcaUasgsFn` + `/analytics/procurement-plan` como apoio; migration de backfill duplicaria a decisão. (b) *`BABV`* — o PR #243 **decidiu explicitamente não criar** a unidade: BABV entrou como `kitchen.rancho.elo_code = 'BABV'` sob a unidade `BAPV`, com a divergência documentada em `20260827163000_workforce_matrix.sql:21-24` ("BABV é Boa Vista, BAPV é Porto Velho"); criar `core.units` BABV agora contradiz isso e deixa o rancho apontando para a unidade errada. (c) *`CINDACTA 2`* — já reconciliado como dado, não como rename: `20260827163100_workforce_matrix_seed.sql:58` mapeia a unidade `CINDACTA 2` ao rótulo `CINDACTA II`. (d) A fonte citada mudou de lugar: o PR #235 unificou o registro de UG e o canônico agora é `UNIDADES_GESTORAS` em `apps/sucont/src/lib/ug/registry.ts` — `UG_INFO` em `subitens/constants.ts` é só alias de compatibilidade, e `UG_SIGLA_A_CONFIRMAR` já marca a UG que não deve ser dada como conferida
 - [ ] 1.6 [database] Aplicar as migrations no projeto remoto e regenerar `generated.ts` + schema Drizzle pelos scripts do package; exportar os tipos novos em `packages/database/src/sisub.ts`
 
 ## 2. Domínio puro (`@iefa/sisub-domain`)
 
-- [ ] 2.1 [sisub-domain] `utils/unit-code.ts`: `normalizeUnitCode` (caixa alta, sem acento, espaço colapsado, romano→arábico, apelidos conhecidos) + teste cobrindo `CINDACTA II`→`CINDACTA 2` e sigla desconhecida
+- [ ] 2.1 **[PARCIAL]** [sisub-domain] `utils/unit-code.ts`: `normalizeUnitCode` (caixa alta, sem acento, espaço colapsado, romano→arábico, apelidos conhecidos) + teste cobrindo `CINDACTA II`→`CINDACTA 2` e sigla desconhecida
+  - A equivalência já existe no repo, como **dado**: `20260827163100_workforce_matrix_seed.sql:58`. Escrever a função é trabalho vivo; inventar uma segunda tabela de apelidos ao lado daquela não é — o util tem de ser a fonte única, e o seed passa a citá-lo ou a ser conferido contra ele
 - [ ] 2.2 [sisub-domain] `utils/survey-crosswalk.ts`: `deriveItemSuggestion` pura (realizado somando pago com fallback em liquidado no ano-base, situação anterior com ATA vigente ou "Sem ATA vigente", prazo da menor vigência futura, evidência com ids) + testes de unidade dos três ramos e do caso sem contratação
 - [ ] 2.3 [sisub-domain] `utils/survey-consolidation.ts`: totais por OM e por categoria, cobertura de resposta e divergência informado × apurado, distinguindo não respondido de zero + testes
 - [ ] 2.4 [sisub-domain] `operations/survey.ts`: campanha (criar/abrir/fechar/reabrir), categoria (criar/desativar, recusando exclusão de categoria respondida), resposta (obter-ou-criar idempotente, salvar item, submeter, validar) com autorização por `_ctx` — dono lido da linha, nunca do input
+  - Molde pronto e testado: `operations/workforce.ts` faz exatamente esse ciclo (`createWorkforceSurvey`/`closeWorkforceSurvey` em `admin:2`, `saveWorkforceSubmission` com escopo resolvido a partir de `rancho.unit_id`). Copiar o formato, não redescobri-lo
 - [ ] 2.5 [sisub-domain] `operations/subsistence-contract.ts`: CRUD escopado por `unit_id`, upsert por identidade externa, vínculo item↔contratação e regra de somente leitura dos valores espelhados
 - [ ] 2.6 [sisub-domain] Testes de authz das operations novas (`*.authz.test.ts`), provando não-vacuidade: remover o guard faz o teste falhar
 - [ ] 2.7 [sisub-domain] `operations/training.ts`: passos de reset das tabelas novas na ordem de FK — vínculos e itens antes de `survey_response`; `subsistence_contract` depois dos vínculos
+  - O passo equivalente do levantamento de efetivo **já está no arquivo** (`operations/training.ts:425-436`, `kitchen.workforce_submission` por subselect em `kitchen.rancho`) — é o molde, inclusive do comentário que explica por que o passo existe mesmo apagando zero linha hoje. Os nomes de tabela aqui dependem do schema resolvido na 1.1
 
 ## 3. Ingestão das fontes existentes
 
 - [ ] 3.1 [sisub-domain] Projeção idempotente de `procurement.procurement_arp` → `core.subsistence_contract` (`external_source='procurement_arp'`, tópico `generos_alimenticios`), sem linha por empenho
+  - **Medir antes de dimensionar:** `archive/2026-09-08-sisub-pncp-integration/review.md` §7 registra `procurement.procurement_arp` com **0 linhas** em produção. A projeção continua sendo o desenho certo, mas hoje nasce vazia — ela não é fonte de valor realizado para o DIVISA, é andaime para quando houver ATA cadastrada
 - [ ] 3.2 [sisub-domain] Derivação dos valores empenhado/liquidado/pago pela cadeia `finance.empenho → liquidacao → pagamento` para as contratações projetadas, recalculável a cada execução
 - [ ] 3.3 [sisub] Server fn de disparo da projeção com `admin` nível 2 e relatório do que foi criado/atualizado
-- [ ] 3.4 [api] Cliente do Compras.gov para contratações por UASG: resolver na tarefa qual módulo cobre contrato com valor executado (contratos, atas ou OCDS), com paginação e timeout
-- [ ] 3.5 [api] Worker `workers/contratacoes-sync`: itera as UASGs de `core.units`, faz upsert por identificador externo, grava passo/heartbeat/parada em `compras_gov_integration.compras_sync_log`/`compras_sync_step`, registra OM sem UASG como passo ignorado com motivo
-- [ ] 3.6 [api] Rota de disparo e de consulta de progresso do worker, no padrão das rotas de sync já existentes
+- [ ] 3.4 **[PARCIAL]** [api] Cliente do Compras.gov para contratações por UASG: resolver na tarefa qual módulo cobre contrato com valor executado (contratos, atas ou OCDS), com paginação e timeout
+  - Parte do levantamento já foi feita e o resultado é **negativo, documentado**: `archive/2026-09-08-sisub-pncp-integration/` varreu a especificação do PNCP inteira, achou um único endpoint de lote (o CSV do PCA) e descartou o caminho das atas porque a `descricao` do item é o nome da **classe** CATMAT, não o produto. Para registro de contratação (número, fornecedor, vigência) a objeção pode não valer — mas releia aquele `review.md` antes de repetir a medição. O que existe hoje de contratual por UASG é o `modulo-arp` sob demanda em `apps/sisub/src/server/arp.fn.ts`; o PCA é plano, nunca contrato
+- [ ] 3.5 **[PARCIAL]** [api] Worker `workers/contratacoes-sync`: itera as UASGs de `core.units`, faz upsert por identificador externo, grava passo/heartbeat/parada em `compras_gov_integration.compras_sync_log`/`compras_sync_step`, registra OM sem UASG como passo ignorado com motivo
+  - **As tabelas citadas não existem mais com esse nome.** `20260904012143_integration_sync_log.sql` renomeou para `compras_gov_integration.integration_sync_log`/`integration_sync_step` e criou `uq_integration_sync_log_one_running_per_source` — um sync rodando por origem. O worker novo precisa de um `source` próprio em `apps/api/src/lib/sync-log.ts` (hoje: `compras_gov`, `nutrition_reference`, `pncp_pca`), senão disputa a trava com o PCA. O molde de worker idempotente com heartbeat e guarda de completude já está escrito em `apps/api/src/workers/pncp-pca-sync/`
+- [ ] 3.6 **[PARCIAL]** [api] Rota de disparo e de consulta de progresso do worker, no padrão das rotas de sync já existentes
+  - O padrão está pronto e é literal: `apps/api/src/api/routes/pncp-pca-admin.ts` (`POST /sync` + `GET /sync/latest`, guarda por `x-admin-secret`). Sobra escrever a rota, não desenhá-la
 
 ## 4. Server functions do `sisub`
 
@@ -55,6 +117,7 @@
 ## 7. Planilha (XLSX)
 
 - [ ] 7.1 [sisub] Adicionar `xlsx` ao `apps/sisub` no mesmo pin de tarball da SheetJS usado por `api` e `sucont` (bump é manual — dependabot não acompanha dependência por URL)
+  - Confirmado em 2026-09-08: `xlsx` **não** está em `apps/sisub/package.json`; o pin `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` está em `apps/api/package.json:31` e `apps/sucont/package.json:59`
 - [ ] 7.2 [sisub] `lib/survey-workbook.ts` puro: parse de aba→OM, linha→categoria, normalização de moeda (texto, separador de milhar, célula vazia ≠ zero) e separação prazo-data × prazo-texto + testes com as células reais da planilha DIVISA
 - [ ] 7.3 [sisub] Geração do caderho de exportação: instruções, aba por OM e resumo recalculado (sem fórmula derivada por subtração), com nota sobre a origem do consolidado
 - [ ] 7.4 [sisub] Teste de ida e volta: exportar → reimportar não altera nenhum valor
@@ -63,6 +126,7 @@
 
 - [ ] 8.1 [database] Seed da campanha "DIVISA 2026" com as sete categorias na ordem da planilha e seus tópicos
 - [ ] 8.2 [sisub] Importar o arquivo real preenchido (`Planilha_Levantamento_DIVISA_por_OM_27-08.xlsx`) num ambiente não produtivo e conferir cobertura, totais e as abas que não casam
+  - **A planilha não entra no repositório.** Precedente firmado duas vezes: o seed do #243 (`20260827163100_workforce_matrix_seed.sql:1-6` — a matriz nomeia militares e cita condição de saúde, então só as observações despersonalizadas foram versionadas) e o #275, que tirou os documentos SIGADAER reais do repo. A validação roda a partir de um arquivo fora do versionamento
 - [ ] 8.3 [sisub] Teste de integração contra o banco real, com rollback, cobrindo resposta idempotente, unicidade do registro e reprojeção sem duplicata — falhando sob `SISUB_INTEGRATION_REQUIRED` se as tabelas não existirem
 - [ ] 8.4 [sisub] Conferir que o consolidado do sistema diverge do `Resumo Geral` da planilha apenas onde a planilha soma errado, e registrar a comparação no PR
 

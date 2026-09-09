@@ -11,7 +11,7 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 - [x] A.5 [database] Migration: `alpha.checklist_rule`, `alpha.submission`, `alpha.extraction`, `alpha.compliance_run`, `alpha.compliance_finding`
 - [x] A.6 [database] Migration: RPCs `alpha.match_chunks_cosine` e `alpha.match_chunks_fts` com filtro de versão vigente
 - [x] A.7 [database] Migration: expor `alpha` no PostgREST (`pgrst.db_schemas` + `notify pgrst`) e atualizar `db:types` / `db:pull` / `db:diff` com o schema novo
-- [ ] A.8 [database] Rodar `bun run db:types` e conferir os tipos gerados do schema `alpha`
+- [x] A.8 [database] Rodar `bun run db:types` e conferir os tipos gerados do schema `alpha` — `packages/database/src/generated.ts:233` traz o bloco `alpha` com as 13 tabelas (`checklist_rule`, `compliance_finding`, `compliance_run`, `document`, `document_chunk`, `explanatory_note`, `extraction`, `normative_source`, `placeholder`, `query_log`, `structure_node`, `submission` + checkpointer) e as RPCs `match_chunks_cosine` / `match_chunks_fts`
 - [x] A.9 [alpha] Cliente Supabase com `db: { schema: "alpha" }` e checkpointer com `PostgresSaver.fromConnString(url, { schema: "alpha" })`
 - [x] A.10 [alpha] Renomear referências de tabela no código (`documents` → `document`, `document_chunks` → `document_chunk`, `query_logs` → `query_log`) em `api/routes.ts`, `tools/rada-retriever.ts` e `ingest/markdown-ingest.ts`
 - [x] A.11 [alpha] `rada-retriever.ts`: filtrar `superseded_at IS NULL` e manter o comportamento do ChatRADA
@@ -97,8 +97,8 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 - [x] H.1 [alpha] Golden set com 7 casos anotados em `src/eval/golden/cases.ts` — **sintéticos**, a substituir por ETP/TR reais antes de calibrar para produção
 - [x] H.2 [alpha] `bun run eval` — precisão, recall e F1 por código e agregados; 9 testes sobre a própria métrica
-- [ ] H.3 [alpha] Calibrar limiares contra golden set **real** — hoje: Dice 0.85, semântico 0.80, rerank 0.45, confiança do juiz 0.60
-- [ ] H.4 [alpha] Revisar e promover o lote de 423 regras semeadas — 6 promovidas para validar o fluxo; as demais dependem de revisão humana
+- [ ] H.3 [alpha] Calibrar limiares contra golden set **real** — hoje: Dice 0.85, semântico 0.80, rerank 0.45, confiança do juiz 0.60 — BLOQUEADA: ETP/TR reais anotados. Os 7 casos de `src/eval/golden/cases.ts` são sintéticos por declaração do próprio arquivo (linha 4). Quem provê: SEFA/ACI, com documentos reais e a anotação de qual achado é verdadeiro
+- [ ] H.4 [alpha] Revisar e promover o lote de 423 regras semeadas — 6 promovidas para validar o fluxo; as demais dependem de revisão humana — BLOQUEADA: revisão jurídica humana das 417 regras `draft`. A bancada (`/alpha/bancada`, G.12) e a rota de mudança de status (G.10) já existem; falta o revisor. Quem provê: ACI/assessoria jurídica
 - [x] H.5 [docs] Página `fontes-e-conformidade.mdx` + etapas 4–7 marcadas como implementadas
 - [x] H.6 [portal] `roadmap.tsx`: 1.4–1.7 em `in-progress` + etapa nova de fontes normativas federais
 - [x] H.7 [alpha] `ALPHA_JOB_SECRET` e `ALPHA_SOURCES_REFRESH_ENABLED` documentados em `.env.schema` e `.env.example`
@@ -107,9 +107,31 @@ Agrupadas por PR. Cada grupo é um Pull Request próprio contra `main` (nunca me
 
 O projeto Supabase antigo foi apagado em 2026-07-31 com o corpus indexado dentro. Não há backup, e reingerir é o único caminho.
 
-- [ ] R.1 [alpha] Obter o(s) Markdown(s) do RADA e colocar em `apps/alpha/knowledge/` — depende de acesso ao RADA
-- [ ] R.2 [alpha] `bun run ingest:all` para reconstruir o corpus; até lá o ChatRADA responde "sem base" a tudo
-- [ ] R.3 [alpha] Conferir que a busca híbrida volta a retornar trechos do RADA
+- [ ] R.1 [alpha] Obter o(s) Markdown(s) do RADA e colocar em `apps/alpha/knowledge/` — depende de acesso ao RADA — BLOQUEADA: o corpus do RADA em Markdown. `apps/alpha/knowledge/` tem só `.gitkeep`. Quem provê: o detentor do RADA (acesso ainda indisponível)
+- [ ] R.2 [alpha] `bun run ingest:all` para reconstruir o corpus — BLOQUEADA: depende de R.1 (corpus do RADA). Sem arquivo, `ingest-all.sh:19-22` sai com código 0 e a mensagem "Nenhum arquivo .md encontrado". **Correção do enunciado**: hoje o ChatRADA NÃO responde "sem base" a tudo — ver a nota de regressão abaixo
+- [ ] R.3 [alpha] Conferir que a busca híbrida volta a retornar trechos do RADA — BLOQUEADA: depende de R.2 (corpus ingerido)
+
+### Regressão silenciosa observada no corpus atual
+
+O corpus **não** está vazio: a ingestão federal (B.14 e D.5) deixou modelos da AGU e
+legislação indexados no mesmo `alpha.document_chunk` que o ChatRADA consulta. Duas
+consequências, hoje, em código:
+
+- `radaAgentNode` chama `radaRetriever({ query })` **sem** filtro de `document_type`
+  (`src/graph/nodes/rada-agent.ts:23`), e o retriever carimba `document_type:
+  (f.doc.document_type ?? "RADA")` (`src/tools/rada-retriever.ts:253`) sobre uma união
+  que só tem `RADA | RBHA | ICA | MCA | NSCA` (`src/graph/state.ts:6`). Pergunta sobre
+  RADA volta com trecho da Lei 14.133 rotulado como norma aeronáutica.
+- Com `ALPHA_RERANK_MODEL` vazio, o fallback posicional devolve
+  `Math.max(THRESHOLD, ...)` (`src/tools/rada-retriever.ts:178`), então o filtro
+  `rerank_score >= THRESHOLD` (`:267`) nunca descarta nada. `after_threshold` é sempre
+  ≥ 1, `radaAgentCondition` vai para o `grader` e o nó `no_basis` fica inalcançável por
+  essa via.
+
+Ou seja: o caminho "sem base" (`src/graph/nodes/no-basis.ts:5`) existe e é honesto, mas
+não é o que o usuário encontra. A UI lista as fontes como UUID de chunk
+(`apps/portal/src/routes/_public/_en/chatRada.tsx:437-458`), sem norma nem tipo, então
+nada na tela denuncia a troca de corpus.
 
 ## Execução real (2026-08-11)
 
@@ -118,8 +140,8 @@ O projeto Supabase antigo foi apagado em 2026-07-31 com o corpus indexado dentro
 - [x] X.3 [alpha] **NVIDIA removida do caminho padrão**: chat, embeddings e rerank passam a ser Bedrock (keyless por task role); `embedding_model` por chunk impede comparar vetores de modelos diferentes
 - [x] X.4 [alpha] **Bedrock validado com credencial real** (profile `iefa-prod`, sa-east-1): `openai.gpt-oss-120b-1:0` ACTIVE e respondendo por Converse com tool calling; Titan v2 devolvendo 1024 dimensões; extração (11 campos/11 spans) e conformidade rodando pelo Bedrock; 1.990 chunks com vetor via `bun run embed:backfill --apply`
 - [x] X.6 [alpha] `bun run embed:backfill` — preenche vetor de chunk sem embedding ou de modelo antigo, sem reingerir (documento citado por parecer não pode ser apagado)
-- [ ] X.7 [alpha] **Não há modelo de rerank no Bedrock em sa-east-1** — `ALPHA_RERANK_MODEL` fica vazio e a ordenação é a do RRF. Decidir entre chamar rerank cross-region (us-west-2) ou seguir sem
-- [ ] X.5 [infra] Aplicar `enable_bedrock_task_access = true` no `foundation` com a região do α em `bedrock_regions` (a policy já ganhou `bedrock:Rerank`)
+- [ ] X.7 [alpha] **Não há modelo de rerank no Bedrock em sa-east-1** — `ALPHA_RERANK_MODEL` fica vazio (`src/env.ts:27`) e a ordenação é a do RRF. Decidir entre chamar rerank cross-region (us-west-2) ou seguir sem — BLOQUEADA: disponibilidade/habilitação de modelo de rerank no Bedrock, que só a AWS + o mantenedor da conta `iefa-prod` resolvem. **A parte de código não está bloqueada**: `rerankBedrock` monta o ARN com `env.ALPHA_AI_REGION` (`src/tools/rada-retriever.ts:137`), então a opção cross-region não é sequer expressável hoje — falta uma `ALPHA_RERANK_REGION` própria
+- [ ] X.5 [infra] Aplicar `enable_bedrock_task_access = true` no `foundation` com a região do α em `bedrock_regions` (a policy já ganhou `bedrock:Rerank`) — BLOQUEADA: `terraform apply` do stack `foundation`. Todo o lado do repositório está pronto — `infra/foundation/variables.tf:90` (default `false`), `infra/foundation/iam.tf:77-103` (com `bedrock:Rerank` na linha 87), `bedrock_regions` já contendo `sa-east-1` por default (`variables.tf:99-100`) e `infra/foundation/terraform.tfvars.example:30`. O valor real vive no secret `TF_TFVARS_JSON` e o apply roda por `workflow_dispatch` em `.github/workflows/terraform-apply.yml`. Quem provê: mantenedor com acesso ao secret e à conta AWS
 
 ## Final
 
