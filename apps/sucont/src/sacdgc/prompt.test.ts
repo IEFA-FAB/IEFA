@@ -39,6 +39,31 @@ describe("DGC_SYSTEM_PROMPT", () => {
 		}
 	})
 
+	// A sigla colide com "Sistema de Controle Interno". Sem a regra, o modelo lia
+	// achado de infraestrutura contra incêndio como falha de controle interno e
+	// recomendava a ação errada.
+	it("fixa SISCON em 63.YY.ZZ como Sistema de Contra Incêndio", () => {
+		expect(DGC_SYSTEM_PROMPT).toMatch(/SISCON.*63\.YY\.ZZ/s)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/CONTRA INCÊNDIO/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/nunca "Sistema de Controle Interno"/i)
+	})
+
+	// O mapeamento lista 27 elos e o Órgão Central declara 32: quem não consta é
+	// UG não mapeada, não UG fora do SISUB.
+	it("traz os elos executivos acrescentados pelo Órgão Central", () => {
+		for (const elo of ["GAP-DF", "BAAN", "GAP-BR → BABR, HFAB", "GAP-RF → HARF"]) {
+			expect(DGC_SYSTEM_PROMPT).toContain(elo)
+		}
+		expect(DGC_SYSTEM_PROMPT).toContain("32 Elos Executivos")
+		expect(DGC_SYSTEM_PROMPT).toContain("66 Elos Usuários")
+	})
+
+	it("proíbe concluir exclusão do SISUB a partir da ausência no mapeamento", () => {
+		expect(DGC_SYSTEM_PROMPT).toMatch(/UG ausente dele é UG NÃO MAPEADA/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/nunca afirme que ela está fora do SISUB/i)
+		expect(DGC_SYSTEM_PROMPT).not.toContain("UG fora da estrutura do SISUB com custo SISUB")
+	})
+
 	it("mantém a exceção do SISTRAN (não alertar UG fora da estrutura)", () => {
 		expect(DGC_SYSTEM_PROMPT).toMatch(/NÃO gere alerta para UG não integrante que possua custo SISTRAN/i)
 	})
