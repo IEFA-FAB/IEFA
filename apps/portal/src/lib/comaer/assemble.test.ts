@@ -50,6 +50,20 @@ describe("catálogo de espécies", () => {
 	})
 })
 
+describe("tratamento no texto digitado à mão", () => {
+	it("a conferência acusa “Vossa Senhoria” no ofício entre OM, com a mesma regra do remendo", () => {
+		const doc = assembleDocument(base({ paragraphs: [{ text: "Solicito a Vossa Senhoria autorização para o afastamento." }] }))
+		const finding = doc.warnings.find((w) => w.text.includes("Vossa Senhoria"))
+		expect(finding?.severity).toBe("nonCompliant")
+		expect(finding?.block).toBe("texto")
+	})
+
+	it("não acusa o texto que trata o destinatário por Senhor", () => {
+		const doc = assembleDocument(base({ paragraphs: [{ text: "Solicito ao Senhor Comandante autorização para o afastamento." }] }))
+		expect(doc.warnings.some((w) => w.text.includes("não é tratamento admitido"))).toBe(false)
+	})
+})
+
 describe("montagem do documento", () => {
 	it("o ofício entre OM do COMAER não recebe fecho de cortesia", () => {
 		const doc = assembleDocument(base({ precedence: "superior" }))
