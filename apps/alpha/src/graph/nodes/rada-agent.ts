@@ -23,9 +23,21 @@ Retorne APENAS a query reformulada.`
  */
 export const RADA_CORPUS_FILTER = { document_type: AERONAUTICAL_DOCUMENT_TYPES } as const
 
+async function reformulate(query: string): Promise<string> {
+	const response = await getLLM(0).invoke([{ role: "user", content: REFORMULATION_PROMPT(query) }])
+	return response.content.toString().trim()
+}
+
 export async function radaAgentNode(state: AgentState): Promise<Partial<AgentState>> {
 	const iterations = state.retrieval_iterations
-	const query = iterations === 0 ? state.original_query : (state.reformulated_query ?? state.original_query)
+
+	// Volta do grader com rascunho não-ancorado. Repetir a MESMA query devolve os MESMOS
+	// chunks, e o rascunho é gerado a temperatura 0: sem reformular, o laço queima duas
+	// chamadas de modelo para chegar ao mesmo `no_basis`. Quem muda o resultado é a query.
+	const isGroundingRetry = state.grading_retries > 0 && state.grounding_check?.is_grounded === false
+	const previousQuery = iterations === 0 ? state.original_query : (state.reformulated_query ?? state.original_query)
+	const retryQuery = isGroundingRetry ? await reformulate(previousQuery) : undefined
+	const query = retryQuery ?? previousQuery
 
 	let result: RADARetrieverOutput
 	try {
@@ -34,7 +46,10 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 		return {
 			has_sufficient_context: false,
 			retrieval_iterations: iterations + 1,
-			termination_reason: "no_documents_found",
+			...(retryQuery ? { reformulated_query: retryQuery } : {}),
+			// Numa retentativa de ancoragem a causa da run é o rascunho não-ancorado. Gravar
+			// `no_documents_found` aqui esconderia a alucinação do usuário e do `query_log`.
+			termination_reason: isGroundingRetry ? "hallucination_detected" : "no_documents_found",
 		}
 	}
 
@@ -45,16 +60,14 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 			retrieved_documents: result.documents,
 			has_sufficient_context: true,
 			retrieval_iterations: newIterations,
+			...(retryQuery ? { reformulated_query: retryQuery } : {}),
 		}
 	}
-
-	const reformulationResponse = await getLLM(0).invoke([{ role: "user", content: REFORMULATION_PROMPT(query) }])
-	const reformulated_query = reformulationResponse.content.toString().trim()
 
 	return {
 		retrieved_documents: [],
 		has_sufficient_context: false,
 		retrieval_iterations: newIterations,
-		reformulated_query,
+		reformulated_query: await reformulate(query),
 	}
 }

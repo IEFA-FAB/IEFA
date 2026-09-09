@@ -9,6 +9,7 @@
  */
 
 import { supabase } from "../db/supabase.ts"
+import { FEDERAL_LEGISLATION_TYPES } from "../lib/corpora.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
 import { canonicalRefLabel, parseNormaIdentity } from "../lib/ref-label.ts"
 
@@ -49,7 +50,7 @@ export class LegalRefResolver {
 			.from("document")
 			.select("id, title")
 			.is("superseded_at", null)
-			.in("document_type", ["LEI", "DECRETO", "IN_SEGES"])
+			.in("document_type", [...FEDERAL_LEGISLATION_TYPES])
 
 		if (error) throw new Error(`consulta de normas falhou: ${error.message}`)
 

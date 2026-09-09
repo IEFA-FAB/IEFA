@@ -36,7 +36,9 @@ function declaresCorpus(call: string, source: string): boolean {
 	if (!call.includes("filters")) return false
 	if (call.includes("document_type")) return true
 
-	const named = call.match(/filters:\s*([A-Za-z_$][\w$]*)/)
+	// `filters: RADA_CORPUS_FILTER` e o shorthand `{ query, filters }` — o segundo é
+	// refatoração válida e não pode deixar o gate vermelho.
+	const named = call.match(/filters:\s*([A-Za-z_$][\w$]*)/) ?? (/\{[^}]*\bfilters\b\s*[,}]/.test(call) ? [call, "filters"] : null)
 	if (!named) return false
 
 	const declaration = source.match(new RegExp(`(?:const|let|var)\\s+${named[1]}\\b[^\n]*(?:\n(?!\\s*(?:const|let|var|export|function)).*)*`))
