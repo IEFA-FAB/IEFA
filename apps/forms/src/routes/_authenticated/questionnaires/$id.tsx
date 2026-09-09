@@ -89,7 +89,7 @@ function EditQuestionnairePage() {
 		setShareUrl(new URL(sharePath, window.location.origin).toString())
 	}, [sharePath])
 
-	const invalidateQuestionnaire = () => queryClient.invalidateQueries({ queryKey: ["questionnaire", id] })
+	const invalidateQuestionnaire = () => queryClient.invalidateQueries({ queryKey: questionnaireQueryOptions(id).queryKey })
 	const invalidateDashboardLists = async () => {
 		await queryClient.invalidateQueries({ queryKey: ["questionnaires"] })
 		await queryClient.invalidateQueries({ queryKey: ["editable-shared-with-me"] })
@@ -126,7 +126,7 @@ function EditQuestionnairePage() {
 		try {
 			await updateQuestionnaireFn({ data: { id, response_metadata_config: { om: { scopeable: checked } } } })
 			await invalidateQuestionnaire()
-			await queryClient.invalidateQueries({ queryKey: ["viewers", id] })
+			await queryClient.invalidateQueries({ queryKey: viewersQueryOptions(id).queryKey })
 		} catch (error) {
 			reportError(error, "Erro ao atualizar segmentação por OM")
 		}
@@ -431,7 +431,7 @@ function EditorManager({ questionnaireId, editors }: { questionnaireId: string; 
 		try {
 			await addEditorFn({ data: { questionnaire_id: questionnaireId, email: email.trim() } })
 			setEmail("")
-			await queryClient.invalidateQueries({ queryKey: ["editors", questionnaireId] })
+			await queryClient.invalidateQueries({ queryKey: editorsQueryOptions(questionnaireId).queryKey })
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Erro ao adicionar editor")
 		} finally {
@@ -443,7 +443,7 @@ function EditorManager({ questionnaireId, editors }: { questionnaireId: string; 
 		setError(null)
 		try {
 			await removeEditorFn({ data: { id, questionnaire_id: questionnaireId } })
-			await queryClient.invalidateQueries({ queryKey: ["editors", questionnaireId] })
+			await queryClient.invalidateQueries({ queryKey: editorsQueryOptions(questionnaireId).queryKey })
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Erro ao remover editor")
 		}
