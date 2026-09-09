@@ -1,8 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono"
 import { z } from "zod"
 import supabase from "../lib/supabase.js"
-
-type OrderRule = { column: string; ascending?: boolean | null }
+import { clampLimit, commaListToArray, dayBounds, type OrderRule, parseOrderParam } from "./query-params.ts"
 
 export type ApiConfig = {
 	table: string
@@ -25,39 +24,6 @@ export const ErrorResponseSchema = z.object({
 	details: z.string().optional(),
 	timestamp: z.string().optional(),
 })
-
-function toInt(v: string | null | undefined, d: number) {
-	const n = v ? parseInt(v, 10) : NaN
-	return Number.isFinite(n) ? n : d
-}
-
-function commaListToArray(v: string) {
-	return v
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean)
-}
-
-function parseOrderParam(v: string | null | undefined): OrderRule[] {
-	if (!v) return []
-	return v
-		.split(",")
-		.map((part) => part.trim())
-		.filter(Boolean)
-		.map((part) => {
-			const [col, dir] = part.split(":").map((s) => s.trim())
-			return {
-				column: col,
-				ascending: dir ? dir.toLowerCase() !== "desc" : true,
-			}
-		})
-}
-
-function dayBounds(dateStr: string) {
-	const start = `${dateStr}T00:00:00.000`
-	const end = `${dateStr}T23:59:59.999`
-	return { start, end }
-}
 
 export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any) => Promise<Response>] {
 	const {
@@ -95,7 +61,7 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			const sp = url.searchParams
 
 			// Validação básica dos parâmetros
-			const limit = Math.min(Math.max(1, toInt(sp.get("limit"), defaultLimit)), maxLimit)
+			const limit = clampLimit(sp.get("limit"), defaultLimit, maxLimit)
 
 			// Inicia query
 			let query = supabase.schema(schema).from(table).select(select).limit(limit)
