@@ -74,8 +74,56 @@ filtra `c.embedding_model = embedding_model_filter`, e nulo não é igual a nada
 ingerido sem esse campo tem vetor e ainda assim só é alcançável por full-text — some da
 busca semântica sem erro nenhum.
 
-## PDF sem camada de texto
+## PDF sem camada de texto — OCR local
 
-Alguns documentos são digitalizados. O `rada:build` os **reporta** e não gera `.md`: ingerir
-documento vazio é pior do que não ter o documento, porque tira a pergunta do caminho honesto
-do "sem base" e a transforma em ruído. Esses precisam de OCR, que não está implementado.
+Do acervo de 92 PDFs, **um** não tem camada de texto: 21 páginas, zero objetos de fonte.
+Não é digitalização — é render digital com o texto em vetor —, o que aliás faz o OCR sair
+muito bom.
+
+O `rada:build` detecta isso (extração devolve vazio) e roda OCR **na máquina**:
+
+```
+pdftoppm -r 300 -gray -png   →   tesseract -l por --psm 1
+```
+
+**Por que local.** O material é interno da FAB; mandar página de norma para serviço de OCR
+de terceiro publicaria o documento.
+
+**Por que dois binários do sistema e não uma lib.** `tesseract` lê imagem, não PDF, e o
+poppler rasteriza. A alternativa em JS (`tesseract.js`) traria dezenas de MB de WASM para o
+`node_modules` de um app que roda em produção, por uma função que só existe no fluxo local
+de coleta — o custo cairia no lugar errado.
+
+### O que instalar
+
+`tesseract` e `pdftoppm` (poppler-utils) vêm da distribuição. O modelo de português
+normalmente **não** vem, e sem ele o OCR erra acento e palavra comum. Não precisa de sudo:
+
+```bash
+mkdir -p ~/rada-e/tessdata
+curl -sSL -o ~/rada-e/tessdata/por.traineddata \
+  https://github.com/tesseract-ocr/tessdata_fast/raw/main/por.traineddata
+```
+
+O `rada:build` procura em `RADA_TESSDATA_DIR`, ou em `<acervo>/tessdata`. Faltando qualquer
+peça, ele **reporta o que falta e como resolver** em vez de gerar documento vazio.
+
+### Custo e cache
+
+Cerca de 3 s por página (65 s nas 21 páginas deste documento). O resultado é cacheado por
+**sha256 do PDF** em `<acervo>/ocr/`, então reconstruir o corpus não repete o
+reconhecimento — só um PDF que mudou de verdade é reprocessado. `--no-ocr` pula a etapa.
+
+### A marca fica na citação
+
+OCR é leitura, não transcrição fiel: número trocado é o erro típico, e numa norma isso
+importa. O documento reconhecido leva `(texto obtido por OCR)` no `source`, que é o campo
+que viaja no `metadata` de cada chunk e aparece na citação — quem lê a resposta consegue
+saber, sem abrir o acervo.
+
+### Uma armadilha que isto expôs
+
+`pdf.js` **transfere** o `ArrayBuffer` para o worker: depois de `pdfToSubmissionText(bytes)`,
+o `bytes` do chamador volta com `byteLength` 0. Foi assim que a primeira tentativa de OCR
+recebeu "Document stream is empty". `to-text.ts` passou a copiar internamente, com teste de
+regressão — nenhum chamador presente ou futuro precisa saber disso.

@@ -26,6 +26,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { pdfToSubmissionText } from "../extraction/to-text.ts"
+import { OcrUnavailableError, ocrPdf } from "../ingest/pdf-ocr.ts"
 import { parseRadaIndex, requireCompleteIndex } from "../ingest/rada-index.ts"
 
 const ARCHIVE = process.env.RADA_ARCHIVE_DIR ?? join(homedir(), "rada-e")
@@ -76,8 +77,12 @@ async function readJson<T>(path: string, fallback: T): Promise<T> {
  * `source` é o rótulo do documento, NÃO a URL: o valor vai para `metadata` de todo
  * chunk, que sai em resposta de API — endereço de intranet não é para sair dali.
  */
-function toMarkdown(entry: CatalogEntry, text: string, sha256: string): string {
-	const source = entry.kind === "submodule" ? `RADA-e Módulo ${entry.letter} — ${entry.title}` : `RADA-e Módulo ${entry.letter}`
+function toMarkdown(entry: CatalogEntry, text: string, sha256: string, viaOcr: boolean): string {
+	// A marca de OCR entra no `source`, que é o que viaja no `metadata` de cada chunk e
+	// aparece na citação. Texto reconhecido não é transcrição fiel — número trocado é o
+	// erro típico — e quem lê a resposta precisa poder saber disso sem abrir o acervo.
+	const base = entry.kind === "submodule" ? `RADA-e Módulo ${entry.letter} — ${entry.title}` : `RADA-e Módulo ${entry.letter}`
+	const source = viaOcr ? `${base} (texto obtido por OCR)` : base
 	return [
 		"---",
 		`source: ${source}`,
@@ -88,7 +93,7 @@ function toMarkdown(entry: CatalogEntry, text: string, sha256: string): string {
 		"",
 		`# ${source}`,
 		"",
-		`<!-- origem: acervo local do RADA-e, sha256 ${sha256.slice(0, 16)} -->`,
+		`<!-- origem: acervo local do RADA-e, sha256 ${sha256.slice(0, 16)}${viaOcr ? ", texto por OCR local" : ""} -->`,
 		"",
 		text,
 		"",
@@ -96,7 +101,8 @@ function toMarkdown(entry: CatalogEntry, text: string, sha256: string): string {
 }
 
 /** Converte o acervo local em `knowledge/*.md`. Não toca a rede. */
-async function build(): Promise<void> {
+async function build(noOcr: boolean): Promise<void> {
+	const tessdataDir = process.env.RADA_TESSDATA_DIR ?? join(ARCHIVE, "tessdata")
 	const catalog = await readJson<Record<string, CatalogEntry>>(join(ARCHIVE, "meta/catalog.json"), {})
 	if (Object.keys(catalog).length === 0)
 		fail(`acervo vazio ou sem catálogo em ${ARCHIVE}/meta/catalog.json — rode 'bun run rada:fetch --apply' conectado à intranet.`)
@@ -125,18 +131,47 @@ async function build(): Promise<void> {
 			continue
 		}
 
-		const { text } = await pdfToSubmissionText(bytes)
+		const extracted = await pdfToSubmissionText(bytes)
+		let text = extracted.text
+		let viaOcr = false
+
 		if (text.trim().length === 0) {
-			// PDF digitalizado sem camada de texto. Ingerir daria documento vazio na base,
-			// que é pior do que não ter o documento: some do "sem base" e vira ruído.
-			attention.push(`${entry.letter} ${entry.title} — PDF sem texto extraível (digitalizado?)`)
+			// Sem camada de texto. Ingerir assim daria documento vazio na base, que é pior
+			// do que não ter o documento: some do caminho honesto do "sem base" e vira ruído.
+			if (noOcr) {
+				attention.push(`${entry.letter} ${entry.title} — sem texto extraível, e --no-ocr foi pedido`)
+				continue
+			}
+			try {
+				const cached = await readFile(join(ARCHIVE, "ocr", `${sha256}.txt`), "utf8").catch(() => null)
+				if (cached) {
+					text = cached
+				} else {
+					// Caro: são segundos por página. O cache é por sha256 do PDF, então
+					// reconstruir o corpus não repete o reconhecimento.
+					process.stdout.write(`   … OCR de ${entry.letter} ${entry.title}\n`)
+					const result = await ocrPdf(bytes, tessdataDir)
+					text = result.text
+					await mkdir(join(ARCHIVE, "ocr"), { recursive: true })
+					await writeFile(join(ARCHIVE, "ocr", `${sha256}.txt`), text, "utf8")
+				}
+				viaOcr = true
+			} catch (error) {
+				const detail = error instanceof OcrUnavailableError ? error.message : error instanceof Error ? error.message : String(error)
+				attention.push(`${entry.letter} ${entry.title} — sem texto extraível e OCR indisponível: ${detail}`)
+				continue
+			}
+		}
+
+		if (text.trim().length === 0) {
+			attention.push(`${entry.letter} ${entry.title} — nem extração nem OCR produziram texto`)
 			continue
 		}
 
 		const file = `rada-${entry.letter.toLowerCase()}-${slug(entry.title)}.md`
-		await writeFile(join(KNOWLEDGE, file), toMarkdown(entry, text, sha256), "utf8")
+		await writeFile(join(KNOWLEDGE, file), toMarkdown(entry, text, sha256, viaOcr), "utf8")
 		built[name] = { sha256, file, builtAt: new Date().toISOString() }
-		created.push(`${entry.letter} ${entry.title} (${text.length} caracteres)`)
+		created.push(`${entry.letter} ${entry.title} (${text.length} caracteres${viaOcr ? ", por OCR" : ""})`)
 	}
 
 	await writeFile(join(KNOWLEDGE, ".rada-build.json"), `${JSON.stringify(built, null, 2)}\n`, "utf8")
@@ -292,12 +327,12 @@ async function main(): Promise<void> {
 	const [command, ...rest] = process.argv.slice(2)
 	const flags = new Set(rest)
 
-	if (command === "build") return await build()
+	if (command === "build") return await build(flags.has("--no-ocr"))
 	if (command === "fetch") {
 		if (flags.has("--pending")) return await fetchPending(flags.has("--insecure-tls"))
 		return await fetchFromIntranet(flags.has("--apply"), flags.has("--insecure-tls"))
 	}
-	fail("uso: rada.ts build | fetch [--apply | --pending] [--insecure-tls]")
+	fail("uso: rada.ts build [--no-ocr] | fetch [--apply | --pending] [--insecure-tls]")
 }
 
 await main()
