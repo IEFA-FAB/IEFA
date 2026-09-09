@@ -24,7 +24,10 @@ app.use(
 	cors({
 		origin: "*",
 		allowMethods: ["GET", "OPTIONS"],
-		allowHeaders: ["Content-Type"],
+		// `x-admin-secret` entra aqui porque as rotas de dado pessoal sob `/api/*` passaram a
+		// exigi-lo: sem o header na allow-list, o preflight barra qualquer consumidor de outra
+		// origem antes mesmo de o guard rodar.
+		allowHeaders: ["Content-Type", "x-admin-secret"],
 		maxAge: 300,
 	})
 )

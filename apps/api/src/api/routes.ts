@@ -3,6 +3,18 @@ import { env } from "../env.ts"
 import { secureCompare } from "../lib/secure-compare.ts"
 import { createApiHandler } from "./factory.js"
 
+/**
+ * Rotas que devolvem DADO PESSOAL e por isso deixaram de ser anônimas.
+ *
+ * Elas nasceram públicas e assim ficaram: `/user-military-data` servia 68 mil registros
+ * nominais de militares (nome, nome de guerra, posto, OM), `/user-data` os e-mails
+ * institucionais com o número de ordem, e as duas de refeição o rastro de presença por
+ * pessoa — tudo num GET, sem sessão, com `Cache-Control: public` e anunciado no llms.txt.
+ *
+ * `/units` e `/mess-halls` seguem públicas: são estrutura organizacional, não pessoa.
+ */
+export const RESTRICTED_PATHS = ["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"] as const
+
 // Schemas de resposta base
 const ErrorSchema = z.object({
 	error: z.string(),
@@ -78,16 +90,17 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 	description: string
 	parameters?: any[]
 	responseSchema: TSchema
-	/** Rota que devolve dado pessoal: exige `x-admin-secret` e documenta o 401. */
-	restricted?: boolean
 }) {
+	// Protegida ou não é decidido pela lista, não por um flag repetido em cada rota: com duas
+	// fontes, a rota nova entra com `security` no OpenAPI e sem guard nenhum no roteador.
+	const restricted = (RESTRICTED_PATHS as readonly string[]).includes(config.path)
 	return createRoute({
 		method: "get" as const,
 		path: config.path,
 		tags: config.tags,
 		summary: config.summary,
 		description: config.description,
-		...(config.restricted ? { security: [{ AdminSecret: [] }] } : {}),
+		...(restricted ? { security: [{ AdminSecret: [] }] } : {}),
 		parameters: [
 			...(config.parameters ?? []),
 			{
@@ -117,7 +130,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 					},
 				},
 			},
-			...(config.restricted
+			...(restricted
 				? {
 						401: {
 							description: "Unauthorized — x-admin-secret ausente ou inválido",
@@ -140,18 +153,6 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 		},
 	})
 }
-
-/**
- * Rotas que devolvem DADO PESSOAL e por isso deixaram de ser anônimas.
- *
- * Elas nasceram públicas e assim ficaram: `/user-military-data` servia 68 mil registros
- * nominais de militares (nome, nome de guerra, posto, OM), `/user-data` os e-mails
- * institucionais com o número de ordem, e as duas de refeição o rastro de presença por
- * pessoa — tudo num GET, sem sessão, com `Cache-Control: public` e anunciado no llms.txt.
- *
- * `/units` e `/mess-halls` seguem públicas: são estrutura organizacional, não pessoa.
- */
-const RESTRICTED_PATHS = ["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"] as const
 
 // /api/opinion -> opinions
 const [, opinionHandler] = createApiHandler({
@@ -193,7 +194,6 @@ const opinionRoute = defineDocRoute({
 		},
 	],
 	responseSchema: OpinionSchema,
-	restricted: true,
 })
 
 // /api/rancho_previsoes -> meal_forecasts
@@ -251,7 +251,6 @@ const forecastRoute = defineDocRoute({
 		},
 	],
 	responseSchema: MealForecastSchema,
-	restricted: true,
 })
 
 // /api/wherewhowhen -> meal_presences
@@ -302,7 +301,6 @@ const presenceRoute = defineDocRoute({
 		},
 	],
 	responseSchema: MealPresenceSchema,
-	restricted: true,
 })
 
 // /api/user-military-data -> user_military_data
@@ -383,7 +381,6 @@ const militaryDataRoute = defineDocRoute({
 		},
 	],
 	responseSchema: UserMilitaryDataSchema,
-	restricted: true,
 })
 
 // /api/user-data -> user_data
@@ -442,7 +439,6 @@ const userDataRoute = defineDocRoute({
 		},
 	],
 	responseSchema: UserDataSchema,
-	restricted: true,
 })
 
 // /api/units -> sisub.units
@@ -572,7 +568,12 @@ for (const path of RESTRICTED_PATHS) {
 		if (!secureCompare(c.req.header("x-admin-secret"), env.ADMIN_SECRET)) {
 			return c.json({ error: "Unauthorized" }, 401)
 		}
-		return next()
+		await next()
+		// O header é carimbado AQUI, e não pela config do `createApiHandler`: aquele middleware
+		// é devolvido no par `[setDefaultHeaders, handler]` e todo call site faz `const [, h] =`,
+		// jogando fora justamente quem escreveria o Cache-Control. Cache compartilhado não
+		// guarda dado pessoal autenticado.
+		c.header("Cache-Control", "no-store")
 	})
 }
 
