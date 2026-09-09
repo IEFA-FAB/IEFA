@@ -33,10 +33,10 @@ export const Route = createFileRoute("/journal/submissions/")({
 			order: 90,
 		},
 	},
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
-			throw redirect({ to: "/auth" })
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		return { auth }
 	},

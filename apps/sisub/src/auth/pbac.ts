@@ -76,6 +76,9 @@ export function requirePermission({ context, preload }: RequirePermissionOptions
 	const userId = context.auth.user?.id
 	if (!userId) {
 		if (preload) return
+		// auth-redirect-without-return-path: rede de segunda linha. Quem chega sem usuário
+		// já passou pelo `_protected`, que redireciona com `location.href`; sem sessão
+		// nenhuma rota deste guard renderiza, então não há caminho útil a preservar.
 		throw redirect({ to: "/auth", replace: true })
 	}
 

@@ -127,6 +127,8 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			permissions = []
 		}
 		const canAccess = hasPermission(permissions, "sucont", 1)
+		// auth-redirect-without-return-path: autenticado e sem concessão no módulo `sucont`.
+		// O `denied` é o que a tela lê para explicar a negativa; devolver o caminho geraria bounce.
 		if (!canAccess && !onPublicRoute) throw redirect({ to: "/auth", search: { denied: "1" } })
 
 		return { auth, sidebarOpen }

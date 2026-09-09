@@ -15,11 +15,11 @@ export const Route = createFileRoute("/journal/profile")({
 			order: 100,
 		},
 	},
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
 		// Ensure user is authenticated
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
-			throw redirect({ to: "/auth" })
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		return { auth }
 	},
