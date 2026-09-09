@@ -11,7 +11,10 @@
  *   → resolveUserPermissions(userId, dataClient) via @iefa/pbac
  *   → UserContext { userId, permissions }
  *
- * resolveUserPermissions aplica implicit allow ("diner") e strip de deny (level 0).
+ * resolveUserPermissions une as DUAS origens do modelo — grants inline (`user_permissions`)
+ * e statements das políticas anexadas (`user_policy_attachment` → `policy_statement`) —,
+ * injeta o implicit allow ("diner") e aplica precedência de deny. É a mesma resolução que o
+ * app do sisub usa: quem recebe acesso por política gerenciada é autorizado aqui também.
  */
 
 import { resolveUserPermissions } from "@iefa/pbac"
