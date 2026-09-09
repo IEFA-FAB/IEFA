@@ -25,10 +25,10 @@ export const Route = createFileRoute("/journal/submit")({
 			order: 80,
 		},
 	},
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated || !auth.user) {
-			throw redirect({ to: "/auth" })
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		// Type assertion: after the guard, we know user is non-null
 		return { auth: auth as typeof auth & { user: NonNullable<typeof auth.user> } }

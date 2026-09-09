@@ -10,10 +10,10 @@ import { AppLayout } from "@/components/AppLayout"
  * portal de propósito: `staticData.nav` não é declarado em nenhuma rota filha.
  */
 export const Route = createFileRoute("/alpha")({
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
-			throw redirect({ to: "/auth" })
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		return { auth }
 	},

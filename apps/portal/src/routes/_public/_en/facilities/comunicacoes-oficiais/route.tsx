@@ -16,9 +16,9 @@ export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-ofici
 	 * e falam com o modelo, e as duas coisas têm dono. O guard real está nas server
 	 * functions — este `beforeLoad` só evita mostrar uma tela que não funcionaria.
 	 */
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
-		if (!auth.isAuthenticated) throw redirect({ to: "/auth" })
+		if (!auth.isAuthenticated) throw redirect({ to: "/auth", search: { redirect: location.href } })
 		return { auth }
 	},
 	component: Outlet,
