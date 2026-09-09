@@ -12,20 +12,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { toast } from "#/components/ui/toast"
 import { getNthBusinessDay } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
+import { checklistQueryOptions, noticesQueryOptions, unidadesGestorasQueryOptions, workspaceNoteQueryOptions } from "#/lib/queries"
 import {
 	createChecklistItemFn,
 	createNoticeFn,
 	deleteChecklistItemFn,
 	deleteNoticeFn,
-	getWorkspaceNoteFn,
-	listChecklistFn,
-	listNoticesFn,
-	listUnidadesGestorasFn,
 	saveWorkspaceNoteFn,
 	updateChecklistResponsibleFn,
 } from "#/server/workspace.fn"
 
-export const Route = createFileRoute("/workspace")({ component: Workspace })
+export const Route = createFileRoute("/workspace")({
+	// As quatro leituras saem juntas aqui, em paralelo entre si, em vez de em fila
+	// atrás da hidratação. Disparadas sem espera: cada `useQuery` da tela tem o
+	// próprio estado de carregamento, e o `.catch` deixa a falha no cache para ele
+	// tratar, em vez de trocar a tela pelo error boundary.
+	loader: ({ context }) => {
+		void context.queryClient.query({ ...checklistQueryOptions(), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...noticesQueryOptions(), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...unidadesGestorasQueryOptions(), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...workspaceNoteQueryOptions(), staleTime: "static" }).catch(() => {})
+	},
+	component: Workspace,
+})
 
 const OPERATORS = ["3S VANESSA", "SGT KLEBSON", "3S TALITA"] as const
 
@@ -37,12 +46,13 @@ function Workspace() {
 	const [isAddingNotice, setIsAddingNotice] = useState(false)
 
 	// ── Queries ────────────────────────────────────────────
-	const { data: checklist = [], isLoading: loadingChecklist } = useQuery({ queryKey: ["sucont", "checklist"], queryFn: () => listChecklistFn() })
-	const { data: notices = [] } = useQuery({ queryKey: ["sucont", "notices"], queryFn: () => listNoticesFn() })
-	const { data: unidades = [] } = useQuery({ queryKey: ["sucont", "unidades"], queryFn: () => listUnidadesGestorasFn() })
-	const { data: noteFromDb = "" } = useQuery({ queryKey: ["sucont", "note"], queryFn: () => getWorkspaceNoteFn() })
+	const { data: checklist = [], isLoading: loadingChecklist } = useQuery(checklistQueryOptions())
+	const { data: notices = [] } = useQuery(noticesQueryOptions())
+	const { data: unidades = [] } = useQuery(unidadesGestorasQueryOptions())
+	const { data: noteFromDb = "" } = useQuery(workspaceNoteQueryOptions())
 
-	const invalidate = (key: string) => queryClient.invalidateQueries({ queryKey: ["sucont", key] })
+	const invalidateChecklist = () => queryClient.invalidateQueries({ queryKey: checklistQueryOptions().queryKey })
+	const invalidateNotices = () => queryClient.invalidateQueries({ queryKey: noticesQueryOptions().queryKey })
 
 	// Checklist, anotações e avisos são escrita de seção: `requireSucontEditor`
 	// (nível 2) barra todas no servidor. A tela reflete isso em vez de oferecer a
@@ -54,18 +64,18 @@ function Workspace() {
 		mutationFn: (data: { task: string; deadline: string; description: string; responsible: string; path: string }) => createChecklistItemFn({ data }),
 		onSuccess: () => {
 			setIsAddingTask(false)
-			invalidate("checklist")
+			invalidateChecklist()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao adicionar"),
 	})
 	const deleteTaskMutation = useMutation({
 		mutationFn: (id: string) => deleteChecklistItemFn({ data: { id } }),
-		onSuccess: () => invalidate("checklist"),
+		onSuccess: () => invalidateChecklist(),
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir"),
 	})
 	const updateResponsibleMutation = useMutation({
 		mutationFn: (data: { id: string; responsible: string }) => updateChecklistResponsibleFn({ data }),
-		onSuccess: () => invalidate("checklist"),
+		onSuccess: () => invalidateChecklist(),
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao atualizar"),
 	})
 	const updateResponsible = (id: string, value: string) => {
@@ -78,13 +88,13 @@ function Workspace() {
 		mutationFn: (data: { content: string; type: "info" | "alert" }) => createNoticeFn({ data }),
 		onSuccess: () => {
 			setIsAddingNotice(false)
-			invalidate("notices")
+			invalidateNotices()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao adicionar aviso"),
 	})
 	const deleteNoticeMutation = useMutation({
 		mutationFn: (id: string) => deleteNoticeFn({ data: { id } }),
-		onSuccess: () => invalidate("notices"),
+		onSuccess: () => invalidateNotices(),
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir aviso"),
 	})
 

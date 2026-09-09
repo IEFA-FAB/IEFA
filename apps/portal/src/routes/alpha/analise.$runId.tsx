@@ -9,6 +9,16 @@ import { useAuth } from "@/hooks/useAuth"
 import { complianceRunQueryOptions, type Finding, SEVERITY_ORDER, type Severity } from "@/lib/alpha/compliance"
 
 export const Route = createFileRoute("/alpha/analise/$runId")({
+	loader: ({ context, params }) => {
+		const token = context.auth.session?.access_token
+		if (!token) return
+
+		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
+		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
+		// (e o SSR) na resposta.
+		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
+		void context.queryClient.query({ ...complianceRunQueryOptions(token, params.runId), staleTime: "static" }).catch(() => {})
+	},
 	component: RelatorioPage,
 })
 

@@ -30,13 +30,23 @@ import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { toast } from "#/components/ui/toast"
-import { type BalanceConflict, finalizeAuditorRunFn, loadAuditorBalancesFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
+import { auditorBalancesQueryOptions } from "#/lib/queries"
+import { type BalanceConflict, finalizeAuditorRunFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
+	// Aquece o cache antes do HTML sair. Sem isto a série de saldos — o maior
+	// payload do app — só começa a ser buscada depois da hidratação, em fila atrás
+	// do `beforeLoad` da raiz (sessão → permissões).
+	//
+	// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
+	// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
+	// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação (e o
+	// SSR) na resposta — no /auditor, a consulta mais pesada do app.
+	loader: ({ context }) => {
+		void context.queryClient.query({ ...auditorBalancesQueryOptions(), staleTime: "static" }).catch(() => {})
+	},
 	component: AuditorPage,
 })
-
-const balancesQueryKey = ["sucont", "auditor", "balances"] as const
 
 /** Lote de gravação. Acima disso o corpo do POST fica grande demais para um request só. */
 const UPLOAD_CHUNK = 2000
@@ -74,10 +84,7 @@ function AuditorPage() {
 		// na base quando na verdade a leitura falhou — a mentira mais cara possível
 		// numa ferramenta de conciliação.
 		error: storedError,
-	} = useQuery({
-		queryKey: balancesQueryKey,
-		queryFn: () => loadAuditorBalancesFn({ data: {} }),
-	})
+	} = useQuery(auditorBalancesQueryOptions())
 
 	// UI State
 	const [selectedGroup, setSelectedGroup] = useState<string>("ALL")
@@ -372,7 +379,7 @@ function AuditorPage() {
 				// Algo entrou no banco — ele vira a fonte, mesmo que a série esteja
 				// incompleta. Ver dado parcial verdadeiro é melhor que ver arquivo
 				// inteiro que o banco não tem.
-				await queryClient.invalidateQueries({ queryKey: balancesQueryKey })
+				await queryClient.invalidateQueries({ queryKey: auditorBalancesQueryOptions().queryKey })
 				setLocalRows([])
 			}
 

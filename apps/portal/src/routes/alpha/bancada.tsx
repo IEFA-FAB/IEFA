@@ -9,6 +9,18 @@ import { useAuth } from "@/hooks/useAuth"
 import { type Rule, rulesQueryOptions, useEvaluateRule, useSetRuleStatus } from "@/lib/alpha/compliance"
 
 export const Route = createFileRoute("/alpha/bancada")({
+	// O filtro de status é estado do componente, não search param: só o valor
+	// inicial ("draft") dá para semear. Trocar o filtro busca normalmente.
+	loader: ({ context }) => {
+		const token = context.auth.session?.access_token
+		if (!token) return
+
+		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
+		// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação
+		// (e o SSR) na resposta.
+		// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
+		void context.queryClient.query({ ...rulesQueryOptions(token, "draft"), staleTime: "static" }).catch(() => {})
+	},
 	component: BancadaPage,
 })
 
