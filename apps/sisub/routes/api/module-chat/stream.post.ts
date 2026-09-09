@@ -13,6 +13,7 @@
 
 import { createAdapterFromEnv, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import type { Database } from "@iefa/database"
+import { NOT_EXPIRED } from "@iefa/pbac"
 import { metrics, trace } from "@opentelemetry/api"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
@@ -70,6 +71,12 @@ async function loadUserPermissions(supabase: ReturnType<typeof getDataClient>, u
 		.from("user_permissions")
 		.select("module, level, mess_hall_id, kitchen_id, unit_id")
 		.eq("user_id", userId)
+		// Mesmo filtro de prazo de `resolveUserPermissions` (@iefa/pbac): grant vencido é
+		// AUSENTE. Esta query é escrita à mão em vez de reusar o resolver porque ela NÃO quer
+		// o comensal implícito — o chat é gateado por módulo real. Sem o filtro, porém, o SSE
+		// virava o único caminho em que um acesso já expirado continuava valendo, e é ele que
+		// escolhe o conjunto de tools pelo `getMaxLevel` abaixo.
+		.or(NOT_EXPIRED)
 	if (error) throw new Error("Erro ao carregar permissões")
 	return ((data ?? []) as UserPermission[]).filter((p) => p.level > 0)
 }

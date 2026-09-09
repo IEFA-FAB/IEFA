@@ -81,10 +81,13 @@ export async function grantUnscopedModulePermission(
 	accessControlClient: AnySupabaseClient,
 	params: { module: AppModule; userId: string; level: number }
 ): Promise<{ ok: true }> {
+	// `expires_at: null` junto do nível: conceder é conceder ACESSO VIVO. Sem isso, reaplicar
+	// um grant sobre uma linha com prazo vencido atualizaria o nível, devolveria `ok` — e o
+	// usuário continuaria sem acesso nenhum, porque a resolução ignora a linha expirada.
 	const applyUpdate = () =>
 		accessControlClient
 			.from("user_permissions")
-			.update({ level: params.level })
+			.update({ level: params.level, expires_at: null })
 			.eq("user_id", params.userId)
 			.eq("module", params.module)
 			.is("mess_hall_id", null)

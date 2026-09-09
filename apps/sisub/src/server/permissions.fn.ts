@@ -41,6 +41,10 @@ export type PermissionRow = {
 	mess_hall_id: number | null
 	kitchen_id: number | null
 	unit_id: number | null
+	/** Prazo do grant. `null` = permanente. */
+	expires_at: string | null
+	/** `true` quando o grant já venceu — calculado com o `now()` do banco, não do browser. */
+	expired: boolean
 }
 
 /**

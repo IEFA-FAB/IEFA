@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { KitchenIdSchema, UuidSchema } from "./common.ts"
-import { APP_MODULES } from "./permissions.ts"
+import { AccessExpirySchema, APP_MODULES } from "./permissions.ts"
 
 /**
  * Nível de um statement. Mesma escala dos grants: 0 = deny explícito, 1 = leitura,
@@ -45,6 +45,19 @@ export type ListPolicies = z.infer<typeof ListPoliciesSchema>
 export const FetchPolicySchema = z.object({ policyId: UuidSchema })
 export type FetchPolicy = z.infer<typeof FetchPolicySchema>
 
+/**
+ * Membros de uma política.
+ *
+ * `includeExpired` default `false`: quem pergunta "quem TEM esta política" recebe quem a
+ * tem de verdade. O console de administração passa `true` — anexo vencido precisa
+ * continuar visível e removível, senão vira linha órfã que ninguém consegue alcançar.
+ */
+export const ListPolicyMembersSchema = z.object({
+	policyId: UuidSchema,
+	includeExpired: z.boolean().optional(),
+})
+export type ListPolicyMembers = z.infer<typeof ListPolicyMembersSchema>
+
 /** Busca de política gerenciada pelo nome — o id vem de migration e varia por ambiente. */
 export const FetchManagedPolicySchema = z.object({ name: z.string().min(1) })
 export type FetchManagedPolicy = z.infer<typeof FetchManagedPolicySchema>
@@ -84,13 +97,30 @@ export type UpdatePolicyStatement = z.infer<typeof UpdatePolicyStatementSchema>
 export const RemovePolicyStatementSchema = z.object({ statementId: UuidSchema })
 export type RemovePolicyStatement = z.infer<typeof RemovePolicyStatementSchema>
 
+/**
+ * Anexo de política. É um UPSERT sobre o unique `(user_id, policy_id)`: anexar de novo a
+ * mesma política REESCREVE o prazo, e é assim que se estende ou encurta um acesso já
+ * concedido.
+ *
+ * Por isso `expires_at` aqui é substituição, não patch — `undefined` e `null` gravam a
+ * mesma coisa (sem prazo). O anexo não tem outro campo editável: um "anexar sem prazo"
+ * que preservasse silenciosamente o prazo antigo seria a leitura errada da ação.
+ */
 export const AttachPolicySchema = z.object({
 	userId: UuidSchema,
 	policyId: UuidSchema,
+	expires_at: AccessExpirySchema.optional(),
 })
 export type AttachPolicy = z.infer<typeof AttachPolicySchema>
 
-export const DetachPolicySchema = AttachPolicySchema
+/**
+ * Desanexar não tem prazo — repetir `AttachPolicySchema` aqui aceitaria um `expires_at`
+ * que o handler ignora, e um cliente que o mandasse acreditaria ter agendado a remoção.
+ */
+export const DetachPolicySchema = z.object({
+	userId: UuidSchema,
+	policyId: UuidSchema,
+})
 export type DetachPolicy = z.infer<typeof DetachPolicySchema>
 
 export const ListUserPoliciesSchema = z.object({ userId: UuidSchema })

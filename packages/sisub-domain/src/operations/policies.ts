@@ -32,6 +32,7 @@ import type {
 	FetchManagedPolicy,
 	FetchPolicy,
 	ListPolicies,
+	ListPolicyMembers,
 	ListUserPolicies,
 	PolicyStatementInput,
 	RemovePolicyStatement,
@@ -41,7 +42,7 @@ import type {
 } from "../schemas/policies.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, mutateOrFail, runQuery } from "../utils/index.ts"
+import { insertOneOrFail, isExpired, mutateOrFail, notExpired, runQuery } from "../utils/index.ts"
 
 export type PolicyStatementRow = {
 	id: string
@@ -163,18 +164,32 @@ export async function fetchPolicy(db: SisubDb, ctx: UserContext, input: FetchPol
 	return { ...(policy as PolicyRow), statements: statements as PolicyStatementRow[] }
 }
 
-/** Políticas anexadas a um usuário. */
-export async function listUserPolicies(db: SisubDb, ctx: UserContext, input: ListUserPolicies): Promise<PolicyRow[]> {
+/** Política anexada a um usuário, com o prazo DO ANEXO (não da política). */
+export type AttachedPolicyRow = PolicyRow & { expires_at: string | null; expired: boolean }
+
+/**
+ * Políticas anexadas a um usuário.
+ *
+ * SEM filtro de expiração: é a superfície de edição do console. Um anexo vencido precisa
+ * continuar visível para poder ser renovado ou desanexado — escondê-lo deixaria a linha
+ * viva no banco e inalcançável na tela. Ele volta marcado com `expired`, calculado pelo
+ * mesmo `now()` do banco que a resolução usa.
+ */
+export async function listUserPolicies(db: SisubDb, ctx: UserContext, input: ListUserPolicies): Promise<AttachedPolicyRow[]> {
 	requirePermission(ctx, "admin", 2)
 
 	return runQuery("FETCH_FAILED", () =>
 		db
-			.select(POLICY_COLS)
+			.select({
+				...POLICY_COLS,
+				expires_at: userPolicyAttachmentInAccessControl.expiresAt,
+				expired: isExpired(userPolicyAttachmentInAccessControl.expiresAt),
+			})
 			.from(userPolicyAttachmentInAccessControl)
 			.innerJoin(policyInAccessControl, eq(policyInAccessControl.id, userPolicyAttachmentInAccessControl.policyId))
 			.where(and(eq(userPolicyAttachmentInAccessControl.userId, input.userId), isNull(policyInAccessControl.deletedAt)))
 			.orderBy(asc(policyInAccessControl.name))
-	) as Promise<PolicyRow[]>
+	) as Promise<AttachedPolicyRow[]>
 }
 
 /** Usuário com uma política anexada — a visão REVERSA de `listUserPolicies`. */
@@ -183,6 +198,10 @@ export type PolicyMember = {
 	email: string | null
 	nrOrdem: string | null
 	attached_at: string
+	/** Prazo do anexo. `null` = permanente. */
+	expires_at: string | null
+	/** `true` quando o anexo já venceu — só aparece com `includeExpired`. */
+	expired: boolean
 }
 
 /**
@@ -191,9 +210,18 @@ export type PolicyMember = {
  * Sem isto, "quem está em treino" só era respondível abrindo usuário por usuário: só existia
  * a direção usuário → políticas. Uma política de turma precisa da direção contrária para
  * ser administrável.
+ *
+ * `includeExpired` default `false`: a pergunta "quem TEM esta política" tem que ser
+ * respondida pelo mesmo critério da autorização, e um anexo vencido não concede nada. O
+ * console passa `true` — lá o anexo vencido precisa aparecer (marcado com `expired`) para
+ * poder ser removido ou renovado.
  */
-export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: FetchPolicy): Promise<PolicyMember[]> {
+export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: ListPolicyMembers): Promise<PolicyMember[]> {
 	requirePermission(ctx, "admin", 2)
+
+	const scope = input.includeExpired
+		? eq(userPolicyAttachmentInAccessControl.policyId, input.policyId)
+		: and(eq(userPolicyAttachmentInAccessControl.policyId, input.policyId), notExpired(userPolicyAttachmentInAccessControl.expiresAt))
 
 	return runQuery("FETCH_FAILED", () =>
 		db
@@ -202,12 +230,14 @@ export async function listPolicyMembers(db: SisubDb, ctx: UserContext, input: Fe
 				email: userDataInCore.email,
 				nrOrdem: userDataInCore.nrOrdem,
 				attached_at: userPolicyAttachmentInAccessControl.createdAt,
+				expires_at: userPolicyAttachmentInAccessControl.expiresAt,
+				expired: isExpired(userPolicyAttachmentInAccessControl.expiresAt),
 			})
 			.from(userPolicyAttachmentInAccessControl)
 			// LEFT: o anexo aponta para auth.users; se o perfil em core.user_data não existir,
 			// a pessoa ainda tem a política e precisa aparecer para poder ser removida.
 			.leftJoin(userDataInCore, eq(userDataInCore.id, userPolicyAttachmentInAccessControl.userId))
-			.where(eq(userPolicyAttachmentInAccessControl.policyId, input.policyId))
+			.where(scope)
 			.orderBy(asc(userDataInCore.email))
 	) as Promise<PolicyMember[]>
 }
@@ -266,7 +296,15 @@ export async function listUserPolicyPermissions(db: SisubDb, userId: string): Pr
 			.from(userPolicyAttachmentInAccessControl)
 			.innerJoin(policyInAccessControl, eq(policyInAccessControl.id, userPolicyAttachmentInAccessControl.policyId))
 			.innerJoin(policyStatementInAccessControl, eq(policyStatementInAccessControl.policyId, policyInAccessControl.id))
-			.where(and(eq(userPolicyAttachmentInAccessControl.userId, userId), isNull(policyInAccessControl.deletedAt)))
+			// Anexo expirado é AUSENTE, não deny: nenhum statement dele entra na resolução, nem
+			// os de `level 0`. A comparação é `now()` do BANCO.
+			.where(
+				and(
+					eq(userPolicyAttachmentInAccessControl.userId, userId),
+					isNull(policyInAccessControl.deletedAt),
+					notExpired(userPolicyAttachmentInAccessControl.expiresAt)
+				)
+			)
 	)
 
 	// `module` é text no banco; o contrato do PBAC usa o union de módulos. Os valores só
@@ -433,6 +471,11 @@ export async function removePolicyStatement(db: SisubDb, ctx: UserContext, input
  * Anexa uma política a um usuário. Idempotente: o unique `(user_id, policy_id)` absorve a
  * repetição, então anexar duas vezes não falha nem duplica.
  *
+ * Reanexar REESCREVE o prazo (`onConflictDoUpdate`), e é essa a forma de estender, encurtar
+ * ou tornar permanente um acesso já concedido — sem isso, `expires_at` só poderia ser
+ * definido no primeiro anexo e um acesso com prazo errado teria que ser desanexado e
+ * reanexado, perdendo `created_at` e `created_by`.
+ *
  * Política GERENCIADA pode ser anexada — a imutabilidade é do conteúdo, não do uso. É
  * justamente assim que o "Conjunto Treino" é concedido.
  */
@@ -449,11 +492,16 @@ export async function attachPolicy(db: SisubDb, ctx: UserContext, input: AttachP
 	const policy = rows[0]
 	if (!policy || policy.deletedAt !== null) throw new NotFoundError("policy", input.policyId)
 
+	const expiresAt = input.expires_at ?? null
+
 	await runQuery("INSERT_FAILED", () =>
 		db
 			.insert(userPolicyAttachmentInAccessControl)
-			.values({ userId: input.userId, policyId: input.policyId, createdBy: ctx.userId })
-			.onConflictDoNothing()
+			.values({ userId: input.userId, policyId: input.policyId, createdBy: ctx.userId, expiresAt })
+			.onConflictDoUpdate({
+				target: [userPolicyAttachmentInAccessControl.userId, userPolicyAttachmentInAccessControl.policyId],
+				set: { expiresAt },
+			})
 			.then(() => undefined)
 	)
 	return { success: true as const }

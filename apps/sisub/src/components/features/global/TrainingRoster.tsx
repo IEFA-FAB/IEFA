@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAttachPolicy, useDetachPolicy, usePolicyMembers, useTrainingPolicy } from "@/hooks/data/usePolicies"
 import { useUserSearch } from "@/hooks/data/useUserSearch"
+import { expiryFromDateInput } from "@/lib/access-expiry"
+import { ExpiryCell, ExpiryField } from "./policies/ExpiryControls"
 
 /**
  * Turma do ambiente de treino.
@@ -31,7 +33,14 @@ export function TrainingRoster() {
 	// A listagem exige `admin:2` — o painel em si é visível em `admin:1` (inclusive para o
 	// próprio treinando, que ganha esse nível pela política). Sem o gate a query dispararia e
 	// falharia, e a tabela mostraria "ninguém em treino" no lugar do erro.
-	const { data: members = [], isLoading: membersLoading, error: membersError } = usePolicyMembers(policy?.id ?? null, { enabled: canWrite })
+	// `includeExpired`: a turma é a tela de ADMINISTRAÇÃO do anexo. Um treinando com prazo
+	// vencido já não tem acesso nenhum, mas some daqui só quando alguém o remove de fato —
+	// escondê-lo deixaria a linha viva no banco e fora do alcance de quem administra.
+	const {
+		data: members = [],
+		isLoading: membersLoading,
+		error: membersError,
+	} = usePolicyMembers(policy?.id ?? null, { enabled: canWrite, includeExpired: true })
 	const attach = useAttachPolicy()
 	const detach = useDetachPolicy()
 
@@ -54,7 +63,8 @@ export function TrainingRoster() {
 				<div>
 					<CardTitle>Treinandos</CardTitle>
 					<p className="text-sm text-muted-foreground mt-0.5">
-						Quem tem acesso ao ambiente de treino. Escreve em tudo que é treino e apenas lê a administração global.
+						Quem tem acesso ao ambiente de treino. Escreve em tudo que é treino e apenas lê a administração global. Um prazo vencido tira o acesso sozinho; a
+						linha fica aqui para ser renovada ou removida.
 					</p>
 				</div>
 				{canWrite && (
@@ -72,13 +82,14 @@ export function TrainingRoster() {
 							<TableHead className="text-foreground text-subheading">Usuário</TableHead>
 							<TableHead className="text-foreground text-subheading">Nr. Ordem</TableHead>
 							<TableHead className="text-foreground text-subheading">Desde</TableHead>
+							<TableHead className="text-foreground text-subheading">Prazo</TableHead>
 							<TableHead className="w-[120px]" />
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{!canWrite ? (
 							<TableRow>
-								<TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">
+								<TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">
 									A turma do treino é visível para quem administra o acesso da SDAB (nível de escrita).
 								</TableCell>
 							</TableRow>
@@ -86,28 +97,31 @@ export function TrainingRoster() {
 							// Erro precisa aparecer como erro: cair no estado vazio afirmaria que não há
 							// ninguém em treino quando na verdade a lista não pôde ser lida.
 							<TableRow>
-								<TableCell colSpan={4} className="h-20 text-center text-sm text-destructive">
+								<TableCell colSpan={5} className="h-20 text-center text-sm text-destructive">
 									Não foi possível carregar a turma: {(membersError as Error).message}
 								</TableCell>
 							</TableRow>
 						) : policyLoading || membersLoading ? (
 							<TableRow>
-								<TableCell colSpan={4}>
+								<TableCell colSpan={5}>
 									<Skeleton className="h-5 w-full" />
 								</TableCell>
 							</TableRow>
 						) : members.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">
+								<TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">
 									Ninguém em treino no momento.
 								</TableCell>
 							</TableRow>
 						) : (
 							members.map((member) => (
-								<TableRow key={member.user_id} className="hover:bg-accent/40">
+								<TableRow key={member.user_id} className={member.expired ? "opacity-60 hover:bg-accent/40" : "hover:bg-accent/40"}>
 									<TableCell className="text-sm">{member.email ?? member.user_id}</TableCell>
 									<TableCell className="text-sm font-mono">{member.nrOrdem ?? "—"}</TableCell>
 									<TableCell className="text-sm">{new Date(member.attached_at).toLocaleDateString("pt-BR")}</TableCell>
+									<TableCell className="text-sm">
+										<ExpiryCell expiresAt={member.expires_at} expired={member.expired} />
+									</TableCell>
 									<TableCell>
 										{canWrite && (
 											<div className="flex justify-end">
@@ -128,9 +142,11 @@ export function TrainingRoster() {
 			<AddTraineeDialog
 				open={addOpen}
 				policyId={policy?.id ?? null}
-				existingIds={new Set(members.map((m) => m.user_id))}
+				// Só quem está em treino DE FATO conta como "já está": um anexo vencido precisa
+				// poder ser readicionado pela mesma tela, e reanexar reescreve o prazo.
+				existingIds={new Set(members.filter((m) => !m.expired).map((m) => m.user_id))}
 				isPending={attach.isPending}
-				onAdd={(userId) => policy && attach.mutate({ userId, policyId: policy.id }, { onSuccess: () => setAddOpen(false) })}
+				onAdd={(userId, expiresAt) => policy && attach.mutate({ userId, policyId: policy.id, expires_at: expiresAt }, { onSuccess: () => setAddOpen(false) })}
 				onClose={() => setAddOpen(false)}
 			/>
 
@@ -176,14 +192,18 @@ function AddTraineeDialog({
 	policyId: string | null
 	existingIds: Set<string>
 	isPending: boolean
-	onAdd: (userId: string) => void
+	onAdd: (userId: string, expiresAt: string | null) => void
 	onClose: () => void
 }) {
 	const [email, setEmail] = React.useState("")
+	const [expiresOn, setExpiresOn] = React.useState("")
 	const { results, isSearching, canSearch } = useUserSearch(email)
 
 	React.useEffect(() => {
-		if (!open) setEmail("")
+		if (!open) {
+			setEmail("")
+			setExpiresOn("")
+		}
 	}, [open])
 
 	return (
@@ -194,6 +214,16 @@ function AddTraineeDialog({
 				</DialogHeader>
 
 				<div className="space-y-3 py-2">
+					{/* O prazo vem ANTES da busca de propósito: ele vale para quem for escolhido a
+					    seguir, e escolher a pessoa já dispara a inclusão. */}
+					<ExpiryField
+						id="trainee-expiry"
+						label="Prazo do treino"
+						value={expiresOn}
+						onChange={setExpiresOn}
+						hint="Opcional. Vazio = permanece em treino até ser removido. Vale para o treinando escolhido abaixo."
+					/>
+
 					<div className="relative">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 						<Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" autoComplete="off" />
@@ -215,7 +245,7 @@ function AddTraineeDialog({
 											key={user.id}
 											type="button"
 											disabled={alreadyIn || isPending || !policyId}
-											onClick={() => onAdd(user.id)}
+											onClick={() => onAdd(user.id, expiryFromDateInput(expiresOn))}
 											className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors enabled:hover:bg-accent disabled:opacity-60"
 										>
 											<div>

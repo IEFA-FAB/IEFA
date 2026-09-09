@@ -1,3 +1,4 @@
+export { isExpired, notExpired } from "./access-expiry.ts"
 export type { RunQueryOptions } from "./drizzle.ts"
 export { describeDriverError, insertOneOrFail, mutateOrFail, runQuery, toColumns, toNumeric, toWire, unwrapPgError } from "./drizzle.ts"
 export type { ConditionIssue, EquipmentCondition } from "./equipment-condition.ts"

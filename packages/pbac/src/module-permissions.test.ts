@@ -32,7 +32,9 @@ function createResolveStub(rows: UserPermission[]) {
 				select() {
 					return {
 						eq() {
-							return { data: table === "user_permissions" ? rows : [], error: null }
+							// `.or(...)` é o filtro de expiração; sem política anexada a sonda de
+							// `user_policy_attachment` devolve vazio.
+							return { or: () => ({ data: table === "user_permissions" ? rows : [], error: null }) }
 						},
 					}
 				},

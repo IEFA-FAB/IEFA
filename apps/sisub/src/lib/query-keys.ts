@@ -54,7 +54,9 @@ export const queryKeys = {
 		ofUser: (userId: string | null) => ["policies", "user", userId] as const,
 		effective: (userId: string | null) => ["policies", "effective", userId] as const,
 		managed: (name: string) => ["policies", "managed", name] as const,
-		members: (policyId: string | null) => ["policies", "members", policyId] as const,
+		// `includeExpired` entra na chave: a lista vigente e a lista com os anexos vencidos
+		// são respostas DIFERENTES do mesmo endpoint e não podem dividir cache.
+		members: (policyId: string | null, includeExpired = false) => ["policies", "members", policyId, { includeExpired }] as const,
 	},
 
 	templates: {

@@ -23,6 +23,7 @@ import {
 	fetchManagedPolicyByName,
 	fetchPolicy,
 	ListPoliciesSchema,
+	ListPolicyMembersSchema,
 	ListUserPoliciesSchema,
 	listEffectiveUserPermissionsWithOrigin,
 	listPolicies,
@@ -56,7 +57,7 @@ export const fetchPolicyFn = createServerFn({ method: "GET" })
 
 /** Turma de uma política: quem a tem anexada. Visão reversa de `fetchUserPoliciesFn`. */
 export const fetchPolicyMembersFn = createServerFn({ method: "GET" })
-	.validator(FetchPolicySchema)
+	.validator(ListPolicyMembersSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listPolicyMembers(getDb(), ctx, data).catch(handleDomainError)

@@ -283,6 +283,7 @@ export type {
 	UpdateUserPermission,
 } from "./permissions.ts"
 export {
+	AccessExpirySchema,
 	APP_MODULES,
 	CreateUserPermissionSchema,
 	DeleteUserPermissionSchema,
@@ -344,6 +345,7 @@ export type {
 	FetchManagedPolicy,
 	FetchPolicy,
 	ListPolicies,
+	ListPolicyMembers,
 	ListUserPolicies,
 	PolicyStatementInput,
 	RemovePolicyStatement,
@@ -360,6 +362,7 @@ export {
 	FetchManagedPolicySchema,
 	FetchPolicySchema,
 	ListPoliciesSchema,
+	ListPolicyMembersSchema,
 	ListUserPoliciesSchema,
 	PolicyLevelSchema,
 	PolicyStatementInputSchema,

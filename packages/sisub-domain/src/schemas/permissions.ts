@@ -1,5 +1,18 @@
 import { z } from "zod"
 
+/**
+ * Prazo de validade de uma concessão: instante ISO 8601, ou `null` para "nunca expira".
+ *
+ * `null` TEM significado — é o valor gravado na coluna e o que LIMPA um prazo existente.
+ * `undefined` (campo ausente) é "não mexe", e é por isso que `updateUserPermission`
+ * ramifica em `!== undefined` em vez de usar `?? null`: um cliente antigo, que não conhece
+ * o campo, não pode apagar o prazo de ninguém só por omiti-lo.
+ *
+ * Data no passado é ACEITA de propósito: é a forma de encerrar um acesso agora, e o
+ * console a mostra como expirada. Recusá-la só trocaria uma operação legítima por um erro.
+ */
+export const AccessExpirySchema = z.iso.datetime({ offset: true }).nullable()
+
 export const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "admin", "analytics", "local-analytics", "storage"] as const
 
 export const FetchUserPermissionsSchema = z.object({ userId: z.string().min(1) })
@@ -18,6 +31,8 @@ export const CreateUserPermissionSchema = z.object({
 	mess_hall_id: z.number().nullable().optional(),
 	kitchen_id: z.number().nullable().optional(),
 	unit_id: z.number().nullable().optional(),
+	/** Ausente ou `null` = grant permanente. */
+	expires_at: AccessExpirySchema.optional(),
 })
 export type CreateUserPermission = z.infer<typeof CreateUserPermissionSchema>
 
@@ -27,6 +42,8 @@ export const UpdateUserPermissionSchema = z.object({
 	mess_hall_id: z.number().nullable().optional(),
 	kitchen_id: z.number().nullable().optional(),
 	unit_id: z.number().nullable().optional(),
+	/** `undefined` = não mexe no prazo; `null` = torna o grant permanente. */
+	expires_at: AccessExpirySchema.optional(),
 })
 export type UpdateUserPermission = z.infer<typeof UpdateUserPermissionSchema>
 
