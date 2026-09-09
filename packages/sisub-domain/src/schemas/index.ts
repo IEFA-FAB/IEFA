@@ -26,6 +26,7 @@ export {
 } from "./chat.ts"
 export type { DateRange, DateString, EditScope, KitchenId, Pagination, SortOrder, Uuid } from "./common.ts"
 export { DateRangeSchema, DateSchema, EditScopeSchema, KitchenIdSchema, PaginationSchema, SortOrderSchema, UuidSchema } from "./common.ts"
+export { MAX_DASHBOARD_RANGE_DAYS, type UnitDashboard, UnitDashboardSchema } from "./dashboard.ts"
 export type {
 	CreateEquipmentModel,
 	CreateEquipmentRole,

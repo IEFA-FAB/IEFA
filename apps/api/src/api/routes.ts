@@ -1,4 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { env } from "../env.ts"
+import { secureCompare } from "../lib/secure-compare.ts"
 import { createApiHandler } from "./factory.js"
 
 // Schemas de resposta base
@@ -76,6 +78,8 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 	description: string
 	parameters?: any[]
 	responseSchema: TSchema
+	/** Rota que devolve dado pessoal: exige `x-admin-secret` e documenta o 401. */
+	restricted?: boolean
 }) {
 	return createRoute({
 		method: "get" as const,
@@ -83,6 +87,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 		tags: config.tags,
 		summary: config.summary,
 		description: config.description,
+		...(config.restricted ? { security: [{ AdminSecret: [] }] } : {}),
 		parameters: [
 			...(config.parameters ?? []),
 			{
@@ -112,6 +117,18 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 					},
 				},
 			},
+			...(config.restricted
+				? {
+						401: {
+							description: "Unauthorized — x-admin-secret ausente ou inválido",
+							content: {
+								"application/json": {
+									schema: ErrorSchema,
+								},
+							},
+						},
+					}
+				: {}),
 			500: {
 				description: "Erro interno do servidor",
 				content: {
@@ -123,6 +140,18 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 		},
 	})
 }
+
+/**
+ * Rotas que devolvem DADO PESSOAL e por isso deixaram de ser anônimas.
+ *
+ * Elas nasceram públicas e assim ficaram: `/user-military-data` servia 68 mil registros
+ * nominais de militares (nome, nome de guerra, posto, OM), `/user-data` os e-mails
+ * institucionais com o número de ordem, e as duas de refeição o rastro de presença por
+ * pessoa — tudo num GET, sem sessão, com `Cache-Control: public` e anunciado no llms.txt.
+ *
+ * `/units` e `/mess-halls` seguem públicas: são estrutura organizacional, não pessoa.
+ */
+const RESTRICTED_PATHS = ["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"] as const
 
 // /api/opinion -> opinions
 const [, opinionHandler] = createApiHandler({
@@ -136,7 +165,7 @@ const [, opinionHandler] = createApiHandler({
 		userId: "userId",
 		question: "question",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const opinionRoute = defineDocRoute({
 	path: "/opinion",
@@ -164,6 +193,7 @@ const opinionRoute = defineDocRoute({
 		},
 	],
 	responseSchema: OpinionSchema,
+	restricted: true,
 })
 
 // /api/rancho_previsoes -> meal_forecasts
@@ -184,7 +214,7 @@ const [, forecastHandler] = createApiHandler({
 		mess_hall_id: "mess_hall_id",
 		will_eat: "will_eat",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const forecastRoute = defineDocRoute({
 	path: "/rancho_previsoes",
@@ -221,6 +251,7 @@ const forecastRoute = defineDocRoute({
 		},
 	],
 	responseSchema: MealForecastSchema,
+	restricted: true,
 })
 
 // /api/wherewhowhen -> meal_presences
@@ -240,7 +271,7 @@ const [, presenceHandler] = createApiHandler({
 		meal: "meal",
 		mess_hall_id: "mess_hall_id",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const presenceRoute = defineDocRoute({
 	path: "/wherewhowhen",
@@ -271,6 +302,7 @@ const presenceRoute = defineDocRoute({
 		},
 	],
 	responseSchema: MealPresenceSchema,
+	restricted: true,
 })
 
 // /api/user-military-data -> user_military_data
@@ -293,7 +325,7 @@ const [, militaryDataHandler] = createApiHandler({
 		sgPosto: "sgPosto",
 		sgOrg: "sgOrg",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const militaryDataRoute = defineDocRoute({
 	path: "/user-military-data",
@@ -351,6 +383,7 @@ const militaryDataRoute = defineDocRoute({
 		},
 	],
 	responseSchema: UserMilitaryDataSchema,
+	restricted: true,
 })
 
 // /api/user-data -> user_data
@@ -369,7 +402,7 @@ const [, userDataHandler] = createApiHandler({
 		email: "email",
 		nrOrdem: "nrOrdem",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const userDataRoute = defineDocRoute({
 	path: "/user-data",
@@ -409,6 +442,7 @@ const userDataRoute = defineDocRoute({
 		},
 	],
 	responseSchema: UserDataSchema,
+	restricted: true,
 })
 
 // /api/units -> sisub.units
@@ -530,7 +564,20 @@ const messHallsRoute = defineDocRoute({
 	responseSchema: MessHallSchema,
 })
 
-export const api = new OpenAPIHono()
+const apiBase = new OpenAPIHono()
+
+// Registrado ANTES dos handlers: middleware que entra depois da rota não é executado por ela.
+for (const path of RESTRICTED_PATHS) {
+	apiBase.use(path, async (c, next) => {
+		if (!secureCompare(c.req.header("x-admin-secret"), env.ADMIN_SECRET)) {
+			return c.json({ error: "Unauthorized" }, 401)
+		}
+		return next()
+	})
+}
+
+// A cadeia continua sendo o valor exportado: é dela que sai o tipo consumido pelos clients RPC.
+export const api = apiBase
 	.openapi(opinionRoute, opinionHandler as any)
 	.openapi(forecastRoute, forecastHandler as any)
 	.openapi(presenceRoute, presenceHandler as any)
