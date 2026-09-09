@@ -3,7 +3,7 @@ import { ACCOUNT_NAMES, getAccountName, getQuestaoByAccount, getRacQuestionTitle
 
 const TODAS_AS_CONTAS = Object.values(RAC_MAPPING).flat()
 
-describe("mapa de contas do RAC (Q05–Q25)", () => {
+describe("mapa de contas do RAC (edição vigente, 39 questões)", () => {
 	it("usa código de conta de 9 dígitos em toda entrada", () => {
 		// Conta do SIAFI tem 9 dígitos. Código maior nunca casa com o dado do relatório
 		// e a conta fica sem rótulo de questão — foi o que aconteceu com a Questão 8,
@@ -23,9 +23,10 @@ describe("mapa de contas do RAC (Q05–Q25)", () => {
 	})
 
 	it("resolve a questão a partir da conta", () => {
-		expect(getQuestaoByAccount("113810601")).toBe("Questão 5")
-		expect(getQuestaoByAccount("218810447")).toBe("Questão 8")
-		expect(getQuestaoByAccount("123119905")).toBe("Questão 19")
+		// 1.1.3.8.1.06.01 — Valores a Receber por Devolução de Despesas Estornadas.
+		expect(getQuestaoByAccount("113810601")).toBe("Questão 33")
+		expect(getQuestaoByAccount("218810447")).toBe("Questão 23")
+		expect(getQuestaoByAccount("123119905")).toBe("Questão 9")
 		expect(getQuestaoByAccount("999999999")).toBeNull()
 	})
 

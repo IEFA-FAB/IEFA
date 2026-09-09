@@ -59,7 +59,7 @@ interface UgGroup {
 
 // ── Constants ────────────────────────────────────────────────
 const RAC_QUESTIONS: Record<string, { title: string; description: string }> = {
-	"RAC 34": {
+	"RAC 28": {
 		title: "Utilização de Contas/Subitens Genéricos",
 		description:
 			"Identificação de saldos em contas contábeis que utilizam subitens genéricos (terminados em 99 ou 999), o que prejudica a transparência e a correta evidenciação dos atos e fatos administrativos.",
@@ -386,7 +386,7 @@ function SubitensGenericos() {
 							contaContabil: String(row[contaCol]).trim(),
 							contaCorrente: cc.trim(),
 							saldo: Number.isNaN(saldo) ? 0 : saldo,
-							racId: "RAC 34",
+							racId: "RAC 28",
 						}
 					})
 					.filter((row: ProcessedData) => GENERIC_SUBITEM_REGEX.test(row.contaCorrente))
@@ -643,7 +643,7 @@ function SubitensGenericos() {
 											<h3 className="text-heading mb-3 text-foreground">Referencial Metodológico (RAC)</h3>
 											<p className="text-body text-muted-foreground leading-relaxed mb-4">
 												Esta verificação integra o processo de <strong>Acompanhamento Contábil do COMAER</strong> conduzido pela SUCONT-3, com base na{" "}
-												<strong>Questão 34 do Roteiro de Acompanhamento Contábil (RAC)</strong>. A finalidade é garantir que os registros representem de forma
+												<strong>Questão 28 do Roteiro de Acompanhamento Contábil (RAC)</strong>. A finalidade é garantir que os registros representem de forma
 												fidedigna os fatos administrativos e a situação patrimonial.
 											</p>
 											<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">

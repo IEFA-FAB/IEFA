@@ -56,7 +56,7 @@ export const FUNDAMENTO_SALDO_TRANSITORIO = [
 ] as const
 
 /**
- * Fundamentação de uso de conta ou subitem genérico (Q34/Q35).
+ * Fundamentação de uso de conta ou subitem genérico (Q28/Q29).
  *
  * A 02.03.18 §5.1 manda evitar o c/c 999. A ocorrência federal correspondente é
  * de materialidade: a transação CONINCONS lista o subelemento 99 que ultrapassa

@@ -34,8 +34,8 @@ const RAC_ANY = "todas"
 /**
  * Questões do RAC que alguma ferramenta declara cobrir, em ordem.
  *
- * São 27 hoje — só o Analista de Saldo Alongado responde 21 delas (Q05–Q25).
- * Como fileira de pílulas isso virava um paredão de 27 botões "Q05", "Q06"… que
+ * São 27 hoje — só o Analista de Saldo Alongado responde 20 delas.
+ * Como fileira de pílulas isso virava um paredão de 27 botões "Q07", "Q08"… que
  * ocupava mais tela que o catálogo que deveria filtrar, e ainda escondia o
  * seletor de etapa embaixo. Uma lista com busca resolve o mesmo em uma linha, e
  * o analista que persegue a Q34 digita "34" em vez de procurar o botão.

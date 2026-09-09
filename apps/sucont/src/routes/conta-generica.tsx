@@ -57,7 +57,7 @@ interface GroupedData {
 const RAC_QUESTIONS = [
 	{
 		id: "35",
-		title: "Questão RAC 35",
+		title: "Questão RAC 29",
 		description: "Utilização de conta genérica",
 		classes: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
 	},
@@ -592,7 +592,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 					{/*
 					 * Capa removida: um escudo de 96px com anel dourado, o título "ANALISTA
 					 * SUCONT" entre dois filetes de ouro, blobs decorativos em quarto-de-
-					 * círculo, um avião de marca-d'água e uma pílula repetindo a Questão 35 —
+					 * círculo, um avião de marca-d'água e uma pílula repetindo a Questão 29 —
 					 * que já é a pílula ao lado da trilha. Nada disso é a tarefa, e nenhuma
 					 * outra ferramenta do hub abre assim.
 					 */}
@@ -694,7 +694,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							</div>
 							<div>
 								<h4 className="text-label text-foreground">Controle Interno SUCONT-3</h4>
-								<p className="text-caption text-muted-foreground">Análise relativa à Questão 35 do Roteiro de Acompanhamento Contábil</p>
+								<p className="text-caption text-muted-foreground">Análise relativa à Questão 29 do Roteiro de Acompanhamento Contábil</p>
 							</div>
 						</div>
 						<div className="hidden sm:block px-3 py-1 bg-warning/10 border border-warning/20 rounded text-label text-foreground">Acompanhamento Contábil</div>

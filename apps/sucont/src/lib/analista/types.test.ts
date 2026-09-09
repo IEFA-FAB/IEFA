@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { classifyAccount, getRacDescription, rules } from "./types"
 
-describe("tabela de contas transitórias (Q26–Q36)", () => {
+describe("tabela de contas transitórias (Q16–Q37)", () => {
 	it("usa código de conta de 9 dígitos em toda regra", () => {
 		// Código de conta do SIAFI tem 9 dígitos. Um código com outro tamanho nunca
 		// casa com o dado do relatório e a regra vira letra morta sem ninguém notar.
@@ -36,7 +36,8 @@ describe("classifyAccount", () => {
 		const r = classifyAccount("120062", "115611000", 1234.56)
 		expect(r.classification).toBe("COBRANÇA")
 		expect(r.accountCode).toBe("115611000")
-		expect(r.questaoRAC).toBe("Questão 26")
+		// 1.1.5.6.1.10.00 — Materiais de Consumo Não Localizados, classificação imprópria de estoque.
+		expect(r.questaoRAC).toBe("Questão 35")
 	})
 
 	it("respeita a exceção prevista para a UG", () => {

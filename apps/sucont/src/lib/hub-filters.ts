@@ -10,7 +10,7 @@ export type StageFilter = ToolStage | typeof ALL_STAGES
 export interface HubFilters {
 	query: string
 	stage: StageFilter
-	/** Questão do RAC (5–43), ou `null` para nenhuma. */
+	/** Questão do RAC (1–39), ou `null` para nenhuma. */
 	rac: number | null
 	/** Divisão da SUCONT em que se está. Nunca nula: sem `?divisao=` vale o padrão. */
 	division: SucontDivision

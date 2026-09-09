@@ -55,7 +55,7 @@ function CruzamentoContas() {
 		>
 			{/* Título, trilha e volta ao hub são do `HubLayout`: o cabeçalho fixo já
 			    diz "Catálogo › Analisar › Cruzamento de Contas Correntes" com o
-			    escopo Q43 ao lado. Repetir aqui dava dois títulos para a mesma tela. */}
+			    escopo Q22 ao lado. Repetir aqui dava dois títulos para a mesma tela. */}
 			{error && (
 				<Alert variant="destructive" className="mb-8">
 					<AlertCircle />
@@ -78,7 +78,7 @@ function CruzamentoContas() {
 						<div className="bg-action/10 border border-action/30 p-5 rounded-xl shadow-sm text-left">
 							<h3 className="text-label text-action mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
 							<p className="text-subheading text-action leading-relaxed">
-								<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis
+								<span className="font-bold">Questão 22</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis
 								com os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?
 							</p>
 						</div>

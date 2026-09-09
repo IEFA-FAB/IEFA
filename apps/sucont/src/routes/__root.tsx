@@ -58,7 +58,7 @@ const hubSearchSchema = z.object({
 	q: z.coerce.string().optional().catch(undefined),
 	/** Etapa do ciclo de conformidade. Substituiu `cat`, que classificava a ferramenta pela tecnologia. */
 	etapa: z.enum(["analisar", "comunicar", "acompanhar", "consultar"]).optional().catch(undefined),
-	/** Questão do RAC (5–43). O escopo do trabalho, no mesmo papel que `kitchen`/`unit` têm no sisub. */
+	/** Questão do RAC (1–39). O escopo do trabalho, no mesmo papel que `kitchen`/`unit` têm no sisub. */
 	rac: z.coerce.number().int().min(1).max(99).optional().catch(undefined),
 	/**
 	 * Divisão da SUCONT — o módulo em que se está. Fica na URL porque as três

@@ -148,7 +148,7 @@ export function Report({ data }: ReportProps) {
 		return `Mensagem nº ${config.msgNum || "___"}/SUCONT-3/${formatFABDate(config.msgDate)}
 
 PARA: ${ug.ugName} (${ug.ug})
-ASSUNTO: Regularização de Inconsistências - Contas de Cobrança (Q43)
+ASSUNTO: Regularização de Inconsistências - Contas de Cobrança (Q22)
 
 Prezado(a) Gestor(a),
 
@@ -193,7 +193,7 @@ SUCONT-3 • DIREF • COMAER`
 		return `Mensagem nº ${consolidatedConfig.msgNum || "___"}/SUCONT-3/${formatFABDate(consolidatedConfig.msgDate)}
 
 PARA: Unidades Gestoras listadas abaixo
-ASSUNTO: Regularização de Inconsistências - Contas de Cobrança (Q43)
+ASSUNTO: Regularização de Inconsistências - Contas de Cobrança (Q22)
 
 Prezados Gestores,
 
@@ -286,7 +286,7 @@ SUCONT-3 • DIREF • COMAER`
 				<div>
 					<h3 className="text-label text-action mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
 					<p className="text-subheading text-action leading-relaxed">
-						<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis com
+						<span className="font-bold">Questão 22</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis com
 						os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?
 					</p>
 					<p className="text-caption text-action mt-2 opacity-80 italic">

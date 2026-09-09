@@ -43,9 +43,8 @@ export const sucontTools: Tool[] = [
 		// assina SUCONT-3 e o assunto é patrimonial — serve às duas
 		divisions: ["sucont-3", "sucont-4"],
 		// As seis questões das 33 regras de `lib/analista/types.ts`, que é a mesma lista
-		// que a própria tela declara em "Escopo da Análise (RAC)". Faltavam aqui: quem
-		// filtrava o hub por Q26 não encontrava a ferramenta que responde a Q26.
-		racQuestions: [26, 27, 28, 31, 32, 36],
+		// que a própria tela declara em "Escopo da Análise (RAC)".
+		racQuestions: [16, 26, 30, 35, 36, 37],
 		icon: "Activity",
 	},
 	{
@@ -143,7 +142,7 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		// MSG `.../SUCONT-3/...`; item q34 do inventário da 3.1
 		divisions: ["sucont-3"],
-		racQuestions: [34],
+		racQuestions: [28],
 		icon: "FileBarChart",
 	},
 	{
@@ -154,7 +153,7 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		// MSG `.../SUCONT-3/...`; item q43 do inventário da 3.1
 		divisions: ["sucont-3"],
-		racQuestions: [43],
+		racQuestions: [22],
 		icon: "BarChart3",
 	},
 	{
@@ -165,7 +164,7 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		// MSG `.../SUCONT-3/...`; item q40_42 do inventário da 3.1
 		divisions: ["sucont-3"],
-		racQuestions: [40, 41, 42],
+		racQuestions: [11, 20, 39],
 		icon: "Scale",
 	},
 	{
@@ -176,7 +175,7 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		// MSG `.../SUCONT-3/...`; item q35 do inventário da 3.1
 		divisions: ["sucont-3"],
-		racQuestions: [35],
+		racQuestions: [29],
 		icon: "Search",
 	},
 	{
@@ -187,7 +186,7 @@ export const sucontTools: Tool[] = [
 		stage: "analisar",
 		// MSG `.../SUCONT-3/...`; item q05_25 do inventário da 3.1
 		divisions: ["sucont-3"],
-		racQuestions: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+		racQuestions: [7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 21, 23, 24, 25, 27, 31, 32, 33, 34],
 		icon: "Activity",
 	},
 	{
