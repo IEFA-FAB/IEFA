@@ -351,7 +351,10 @@ function HubBreadcrumb({ title }: { title?: string }) {
 							) : (
 								<Link
 									to={crumb.to as string}
-									search={crumb.search}
+									// A trilha era o único caminho que descartava a busca: voltar ao Catálogo
+									// a partir de uma ferramenta da SUCONT-3 devolvia o catálogo da SUCONT-4,
+									// porque `crumb.search` substitui o objeto inteiro em vez de completá-lo.
+									search={(prev: Record<string, unknown>) => ({ ...prev, ...crumb.search })}
 									className="text-subheading shrink-0 text-muted-foreground transition-colors hover:text-foreground"
 								>
 									{crumb.label}

@@ -32,9 +32,10 @@ describe("mapa de contas do RAC (edição vigente, 39 questões)", () => {
 
 	it("não repete conta entre questões — a primeira venceria e esconderia a outra", () => {
 		const duplicadas = TODAS_AS_CONTAS.filter((conta, i) => TODAS_AS_CONTAS.indexOf(conta) !== i)
-		expect([...new Set(duplicadas)]).toEqual(["115510100"])
-		// 115510100 aparece em Q13 e Q16 de propósito no roteiro; getQuestaoByAccount
-		// devolve a primeira. Qualquer duplicata NOVA quebra este teste.
+		expect([...new Set(duplicadas)]).toEqual([])
+		// A única duplicata que existia era 115510100, herdada do repositório de origem:
+		// aparecia na trilha de material em trânsito, onde o correto é 115511000. Com ela
+		// desfeita, `getQuestaoByAccount` não depende mais da ordem de declaração.
 	})
 
 	it("nomeia as contas de restos a pagar", () => {

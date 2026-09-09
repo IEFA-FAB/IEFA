@@ -25,7 +25,13 @@ export const RAC_MAPPING: Record<string, string[]> = {
 	"Questão 15": ["115610300", "115610400"],
 	"Questão 17": ["229110000"],
 	"Questão 18": ["115810201", "115510100", "115610800", "115611000", "115810202", "115610900"],
-	"Questão 19": ["115510100", "899920101", "899920102"],
+	// 115511000 (1.1.5.5.1.10.00 — Materiais de Consumo em Trânsito), e não 115510100:
+	// esta trilha confronta o material em trânsito com os bens de estoque a receber e
+	// enviados, o mesmo par que a Compatibilidade de Saldos usa na Q20. O 115510100
+	// (Mercadorias p/ Revenda em Trânsito) pertence à Q18, onde já está — a duplicata
+	// vinha do repositório de origem e fazia `getQuestaoByAccount` decidir por ordem
+	// de declaração.
+	"Questão 19": ["115511000", "899920101", "899920102"],
 	"Questão 21": ["218913609", "218913610"],
 	"Questão 23": [
 		"218810102",

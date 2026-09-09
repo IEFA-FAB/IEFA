@@ -9,7 +9,7 @@ import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
 import { toolsForDivision } from "#/lib/modules"
 import { formatRac } from "#/lib/rac"
 import { filterTools } from "#/lib/tool-filter"
-import { TOOL_STAGES, type ToolStage } from "#/lib/types"
+import { TOOL_STAGES, type Tool, type ToolStage } from "#/lib/types"
 
 export const Route = createFileRoute("/")({ component: Catalogo })
 
@@ -40,10 +40,17 @@ const RAC_ANY = "todas"
  * seletor de etapa embaixo. Uma lista com busca resolve o mesmo em uma linha, e
  * o analista que persegue a Q34 digita "34" em vez de procurar o botão.
  */
-const RAC_OPTIONS: ComboboxOption[] = [
-	{ value: RAC_ANY, label: "Todas as questões" },
-	...[...new Set(sucontTools.flatMap((t) => t.racQuestions ?? []))].sort((a, b) => a - b).map((q) => ({ value: String(q), label: formatRac(q) })),
-]
+/**
+ * As questões da DIVISÃO, não do catálogo inteiro: oferecer as 32 questões de
+ * todas as divisões dentro da SUCONT-1 daria 31 opções que só devolvem lista
+ * vazia — o seletor prometeria um recorte que a divisão não tem.
+ */
+function racOptionsFor(tools: Tool[]): ComboboxOption[] {
+	return [
+		{ value: RAC_ANY, label: "Todas as questões" },
+		...[...new Set(tools.flatMap((t) => t.racQuestions ?? []))].sort((a, b) => a - b).map((q) => ({ value: String(q), label: formatRac(q) })),
+	]
+}
 
 function Catalogo() {
 	const { query, stage, rac, division, isFiltered, setStage, setRac, clear } = useHubFilters()
@@ -55,8 +62,9 @@ function Catalogo() {
 	// `?rac=` aceita 1–99, e nem toda questão tem ferramenta. Sem esta opção
 	// extra o seletor exibia "Todas as questões" enquanto a lista vinha vazia —
 	// a tela afirmava não haver filtro e mostrava o resultado de um.
+	const baseRacOptions = racOptionsFor(divisionTools)
 	const racOptions =
-		rac != null && !RAC_OPTIONS.some((o) => o.value === String(rac)) ? [...RAC_OPTIONS, { value: String(rac), label: formatRac(rac) }] : RAC_OPTIONS
+		rac != null && !baseRacOptions.some((o) => o.value === String(rac)) ? [...baseRacOptions, { value: String(rac), label: formatRac(rac) }] : baseRacOptions
 
 	// Sem filtro de etapa, o catálogo vem agrupado pelo ciclo: quem chega sem saber
 	// o nome da ferramenta encontra pelo ponto do trabalho em que está.

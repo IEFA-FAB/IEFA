@@ -26,17 +26,6 @@ export function buildToolNav(tools: Tool[]): ToolNavGroup[] {
 }
 
 /**
- * Etapa vazia some da barra — e agora um MÓDULO pode ficar vazio inteiro.
- *
- * A SUCONT-1 tem uma ferramenta só; qualquer divisão futura nasce sem nenhuma. A
- * barra precisa saber a diferença entre "nada nesta etapa" e "nada nesta divisão"
- * para dizer a coisa certa em vez de mostrar um vão branco.
- */
-export function isToolNavEmpty(groups: ToolNavGroup[]): boolean {
-	return groups.length === 0
-}
-
-/**
  * Ferramenta cuja rota interna corresponde ao caminho atual.
  *
  * Casa o caminho exato ou um filho dele (`/auditor/relatorio` ainda é o Auditor),

@@ -15,7 +15,10 @@ export const Route = createFileRoute("/admin/permissoes")({
 
 function PermissoesRoute() {
 	return (
-		<HubLayout title="Permissões" description="Quem entra no SUCONT-4 e em que nível. O acesso vale para o hub inteiro — não há grant por seção.">
+		<HubLayout
+			title="Permissões"
+			description="Quem entra no SUCONT e em que nível. O acesso vale para as três divisões — não há grant por divisão nem por seção."
+		>
 			<SucontPermissionsManager />
 		</HubLayout>
 	)

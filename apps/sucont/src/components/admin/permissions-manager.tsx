@@ -52,7 +52,10 @@ export function SucontPermissionsManager() {
 			<Card>
 				<CardHeader>
 					<CardTitle>Quem tem acesso</CardTitle>
-					<CardDescription>Cada pessoa tem um nível só, válido em todo o hub — o acesso não é por seção nem por ferramenta.</CardDescription>
+					<CardDescription>
+						Cada pessoa tem um nível só, válido em todo o hub — o acesso não é por seção nem por ferramenta. Quem aparece como “Política” recebeu o acesso de
+						uma política anexada, e ele não se revoga por aqui.
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<GrantsList
@@ -131,24 +134,35 @@ function GrantsList({
 			{grants.map((grant) => {
 				const isSelf = grant.userId === currentUserId
 				const isExpired = grant.expiresAt !== null && new Date(grant.expiresAt).getTime() <= Date.now()
+				const byPolicy = grant.source === "policy"
 				return (
-					<li key={grant.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+					<li key={`${grant.source}:${grant.userId}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 						<div className="flex min-w-0 flex-col">
 							{/* Sem linha em `core.user_data` não há e-mail para mostrar. O id é feio,
 							    mas identifica; "—" faria a linha parecer corrompida. */}
 							<span className="truncate text-body text-foreground">{grant.email || grant.userId}</span>
 							{isSelf && <span className="text-hint text-muted-foreground">Você</span>}
+							{byPolicy && <span className="truncate text-hint text-muted-foreground">Pela política “{grant.policyName}”</span>}
 						</div>
 						<div className="flex shrink-0 items-center gap-2">
 							{isExpired && <Badge variant="warning">Expirado</Badge>}
+							{byPolicy && <Badge variant="outline">Política</Badge>}
 							<Badge variant={grant.level === 3 ? "destructive" : "muted"}>{LEVEL_LABELS[grant.level] ?? `Nível ${grant.level}`}</Badge>
 							<Button
 								type="button"
 								variant="ghost"
 								size="sm"
-								disabled={isSelf || revokingUserId === grant.userId}
+								disabled={isSelf || byPolicy || revokingUserId === grant.userId}
 								onClick={() => onRevoke(grant.userId)}
-								title={isSelf ? "Ninguém altera o próprio acesso — peça a outro administrador" : "Revogar acesso"}
+								title={
+									// Apagar a linha de `user_permissions` não desfaz um anexo de política:
+									// o botão responderia sucesso e o acesso continuaria de pé.
+									byPolicy
+										? "Acesso emprestado por política — desanexe a política para retirá-lo"
+										: isSelf
+											? "Ninguém altera o próprio acesso — peça a outro administrador"
+											: "Revogar acesso"
+								}
 								className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 							>
 								{revokingUserId === grant.userId ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}

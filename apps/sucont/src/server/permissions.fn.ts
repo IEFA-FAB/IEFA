@@ -11,12 +11,16 @@
  */
 
 import { grantUnscopedModulePermission, resolveModulePermissions, searchUsersByEmail, type UserPermission } from "@iefa/pbac"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
 
 const MODULE = "sucont" as const
+
+// biome-ignore lint/suspicious/noExplicitAny: aceita qualquer schema de SupabaseClient, como no @iefa/pbac
+type AnySupabaseClient = SupabaseClient<any, any>
 
 /**
  * Permissões efetivas do PRÓPRIO usuário (deny removido, filtradas pelo módulo
@@ -87,42 +91,114 @@ export type SucontGrant = {
 	level: number
 	/** ISO 8601, ou `null` para grant sem prazo. Vencido é AUSÊNCIA de acesso, não deny. */
 	expiresAt: string | null
+	/**
+	 * De onde o acesso vem. `policy` é acesso emprestado por uma política anexada ao
+	 * usuário, e NÃO é revogável por esta tela — apagar a linha de `user_permissions`
+	 * não desfaz um anexo de política, e a chamada devolveria sucesso com o acesso
+	 * intacto.
+	 */
+	source: "inline" | "policy"
+	/** Nome da política que empresta o acesso. Só em `source: "policy"`. */
+	policyName?: string
 }
 
 /**
  * Todos os grants `sucont` com o e-mail de quem os tem — a lista de conferência
  * da tela de permissões. Só admin.
  *
- * Devolve inclusive o grant VENCIDO: para a resolução ele não existe (a tela
- * marca como "expirado"), mas omiti-lo da lista faria a linha desaparecer sem
- * que ninguém a tivesse revogado, e o administrador procuraria um acesso que
- * continua gravado.
+ * As DUAS origens do modelo, como `resolveUserPermissions` faz: o grant inline em
+ * `user_permissions` e os statements de política anexada ao usuário. Ler só a
+ * primeira era o defeito: quem recebeu `sucont` por política simplesmente não
+ * aparecia aqui, e o "Revogar" respondia sucesso enquanto o acesso continuava de pé.
  *
- * Duas consultas em vez de um join: `user_permissions` e `user_data` estão em
- * schemas diferentes (`access_control` e `core`), cada um com o seu client — o
+ * Devolve inclusive o grant VENCIDO: para a resolução ele não existe (a tela marca
+ * como "expirado"), mas omiti-lo faria a linha sumir sem que ninguém a tivesse
+ * revogado, e o administrador procuraria um acesso que continua gravado.
+ *
+ * Consultas planas em vez de embed: `user_permissions` e `user_data` moram em
+ * schemas diferentes (`access_control` e `core`), cada um com o seu client, e o
  * PostgREST não atravessa schema no `select` aninhado.
  */
 export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(async (): Promise<SucontGrant[]> => {
 	await requireSucontAdmin()
+	const accessControl = getAccessControlClient()
 
-	const { data: rows, error } = await getAccessControlClient().from("user_permissions").select("user_id, level, expires_at").eq("module", MODULE)
-	if (error) throw new Error(error.message)
-
-	const grants = (rows ?? []) as Array<{ user_id: string; level: number; expires_at: string | null }>
-	if (grants.length === 0) return []
+	const [inline, byPolicy] = await Promise.all([fetchInlineGrants(accessControl), fetchPolicyGrants(accessControl)])
+	const all = [...inline, ...byPolicy]
+	if (all.length === 0) return []
 
 	const { data: users, error: usersError } = await getCoreClient()
 		.from("user_data")
 		.select("id, email")
-		.in(
-			"id",
-			grants.map((g) => g.user_id)
-		)
+		.in("id", [...new Set(all.map((g) => g.userId))])
 	if (usersError) throw new Error(usersError.message)
 
 	const emailById = new Map((users ?? []).map((u: { id: string; email: string | null }) => [u.id, u.email ?? ""]))
 
-	return grants
-		.map((g) => ({ userId: g.user_id, email: emailById.get(g.user_id) ?? "", level: g.level, expiresAt: g.expires_at }))
-		.sort((a, b) => b.level - a.level || a.email.localeCompare(b.email, "pt-BR"))
+	return all.map((g) => ({ ...g, email: emailById.get(g.userId) ?? "" })).sort((a, b) => b.level - a.level || a.email.localeCompare(b.email, "pt-BR"))
 })
+
+type PartialGrant = Omit<SucontGrant, "email">
+
+/** Grants gravados direto na linha do usuário. */
+async function fetchInlineGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {
+	const { data, error } = await accessControl.from("user_permissions").select("user_id, level, expires_at").eq("module", MODULE)
+	if (error) throw new Error(error.message)
+	return ((data ?? []) as Array<{ user_id: string; level: number; expires_at: string | null }>).map((row) => ({
+		userId: row.user_id,
+		level: row.level,
+		expiresAt: row.expires_at,
+		source: "inline" as const,
+	}))
+}
+
+/**
+ * Acesso emprestado por política anexada — o caminho inverso do que
+ * `resolveUserPermissions` percorre: sai dos statements de `sucont`, chega nos
+ * usuários.
+ *
+ * Banco sem o modelo de políticas responde "nenhuma política", não erro: é a mesma
+ * degradação tolerada em `@iefa/pbac`, e aqui ela só encolhe uma lista de
+ * conferência — nunca concede acesso.
+ */
+async function fetchPolicyGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {
+	const { data: statements, error: statementError } = await accessControl.from("policy_statement").select("policy_id, level").eq("module", MODULE)
+	if (statementError) {
+		if (isMissingTable(statementError)) return []
+		throw new Error(statementError.message)
+	}
+
+	const levelByPolicy = new Map<string, number>()
+	for (const row of (statements ?? []) as Array<{ policy_id: string; level: number }>) {
+		// Uma política pode ter mais de um statement do módulo; vale o maior nível,
+		// que é a semântica da resolução.
+		levelByPolicy.set(row.policy_id, Math.max(levelByPolicy.get(row.policy_id) ?? 0, row.level))
+	}
+	if (levelByPolicy.size === 0) return []
+
+	const ids = [...levelByPolicy.keys()]
+	const [{ data: policies, error: policyError }, { data: attachments, error: attachmentError }] = await Promise.all([
+		accessControl.from("policy").select("id, name").in("id", ids).is("deleted_at", null),
+		accessControl.from("user_policy_attachment").select("user_id, policy_id, expires_at").in("policy_id", ids),
+	])
+	if (policyError) throw new Error(policyError.message)
+	if (attachmentError) throw new Error(attachmentError.message)
+
+	// Política com soft delete não empresta nada — mesma regra da resolução.
+	const nameById = new Map((policies ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
+
+	return ((attachments ?? []) as Array<{ user_id: string; policy_id: string; expires_at: string | null }>)
+		.filter((row) => nameById.has(row.policy_id))
+		.map((row) => ({
+			userId: row.user_id,
+			level: levelByPolicy.get(row.policy_id) ?? 0,
+			expiresAt: row.expires_at,
+			source: "policy" as const,
+			policyName: nameById.get(row.policy_id),
+		}))
+}
+
+/** `PGRST205`/`42P01`: o banco não tem o modelo de políticas. Ver `@iefa/pbac`. */
+function isMissingTable(error: { code?: string }): boolean {
+	return error.code === "PGRST205" || error.code === "42P01"
+}

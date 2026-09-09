@@ -56,7 +56,7 @@ interface GroupedData {
 
 const RAC_QUESTIONS = [
 	{
-		id: "35",
+		id: "29",
 		title: "Questão RAC 29",
 		description: "Utilização de conta genérica",
 		classes: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
