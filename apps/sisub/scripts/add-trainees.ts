@@ -72,7 +72,7 @@ function readRoster(file: string): string {
 		if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e
 		throw new Error(
 			`rol não encontrado em "${file}". A lista não é versionada (contém pessoas identificáveis, e o repo é público): ` +
-				`copie scripts/trainees.example.txt para ${DEFAULT_FILE}, ou passe os emails como argumento.`,
+				`copie scripts/trainees.example.txt para ${DEFAULT_FILE}, ou passe os emails como argumento.`
 		)
 	}
 }

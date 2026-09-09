@@ -1,9 +1,21 @@
 > **Revisão de 2026-09-08 (auditoria de estado real).** As 7 tarefas que estavam abertas foram
-> conferidas contra o código. Resultado: **40 feitas / 5 caducas / 1 viva** (46 no total).
-> As caducas são 2.6, 3.9, 4.5, 5.4 e 5.5 — todas mandavam validar contra Gemini/Groq/OpenRouter/
-> NVIDIA, e o repo migrou para **AWS Bedrock no primário**, com provider de API key só como reserva
-> (`AI-PROVIDERS.md`). Elas ficam riscadas, com o motivo na própria linha, em vez de marcadas
-> como feitas: nunca serão executadas como escritas. A única viva é a **6.3**.
+> conferidas contra o código. Resultado: **40 feitas, 1 viva, 5 REMOVIDAS** (de 46 originais).
+>
+> As 5 removidas mandavam escolher e validar provider — Gemini, Groq, OpenRouter, NVIDIA — e a
+> premissa delas caiu com a adoção do **AWS Bedrock no primário**, com provider de API key só
+> como reserva sob `<PREFIX>_FALLBACK_AI_*` (`AI-PROVIDERS.md`). Não são tarefas atrasadas: são
+> instruções de uma arquitetura que o repo não tem mais, e ficar lendo "testar com Gemini" numa
+> lista de pendências desorienta quem chega. Foram apagadas, e o registro do que havia fica aqui:
+>
+> | Removida | Era | Por que não se aplica |
+> |---|---|---|
+> | 2.6 | testar sucont com Gemini e Groq | primário e reserva do sucont são os dois Bedrock; o bench equivalente está em `apps/sucont/model-bench.ts` |
+> | 3.9 | testar analytics do sisub com Groq/OpenRouter/Gemini | `ANALYTICS_AI_*` é Bedrock; o adapter vem só do env (`routes/api/analytics/stream.post.ts:84`) |
+> | 4.5 | testar module-chat com Groq e OpenRouter | `MODULE_CHAT_AI_*` é Bedrock; a substância virou `provider-smoke.test.ts` + `tools/model-args.test.ts`, e o teto de rodadas está em `stream.post.ts:173` |
+> | 5.4 | testar o grafo do α com NVIDIA NIM | `ALPHA_AI_PROVIDER` tem default `bedrock` e `getLLM` monta `ChatBedrockConverse` (PR #191) |
+> | 5.5 | testar nós do α com Groq e Anthropic | o α não tem reserva: `ALPHA_FALLBACK_AI_*` não existe no repo |
+>
+> A única tarefa viva é a **6.3**.
 
 ## 1. Package ai-provider — Fundação
 
@@ -29,7 +41,6 @@
 - [x] 2.3 [sucont] Migrar `AIAssistant.tsx` de `@google/genai` + `await` para `useChat({ connection: fetchServerSentEvents('/api/chat/stream') })` — importar `useChat, fetchServerSentEvents` de `@tanstack/ai-react`
 - [x] 2.4 [sucont] Adaptar UI: `status === 'streaming'` substitui `isLoading`, `messages` do hook substituem `useState<Message[]>`
 - [x] 2.5 [sucont] Remover `@google/genai` do `package.json` — ~~bloqueado: gemini.fn.ts e conta-generica.fn.ts ainda usam @google/genai (fora do escopo desta migração)~~ **FEITA** em `19e8a2c5` (PR #68, "wire DB + PBAC + Bedrock"): a dependência saiu de `apps/sucont/package.json`, `src/server/gemini.fn.ts` deixou de existir e o `conta-generica.fn.ts` passou a chamar `#/lib/ai.server` (→ `@iefa/ai-provider`). O `@google/genai` que sobra no `bun.lock:914` é transitivo de `@tanstack/ai-gemini`, não dependência do app.
-- [ ] ~~2.6 [sucont] Testar com Gemini e Groq — validar streaming end-to-end (requer env vars SUCONT_AI_*)~~ — **CADUCA**: o sucont não fala mais com Gemini nem com Groq. Primário e reserva são os dois Bedrock (`AI-PROVIDERS.md`, tabela "Quem consome IA hoje": `SUCONT_AI_*` = `global.anthropic.claude-opus-4-6-v1`, reserva `openai.gpt-oss-120b-1:0`), e não há mais SDK do Gemini no app (ver 2.5). A validação end-to-end equivalente foi feita contra o Bedrock, nos três caminhos reais do app, por `apps/sucont/model-bench.ts` — bench registrado em `AI-PROVIDERS.md`, "Escolha do modelo do oráculo".
 
 ## 3. Sisub Analytics Chat — Tool Call `render_chart`
 
@@ -41,7 +52,6 @@
 - [x] 3.6 [sisub] Adaptar `ChatInterface.tsx` — renderizar `ToolResultPart` onde `toolName === 'render_chart'` como chart component
 - [x] 3.7 [sisub] Persistência Supabase via `onFinish` callback — salvar mensagem + chart data via React Query mutation com retry
 - [x] 3.8 [sisub] Carregar sessão existente: Supabase → `setMessages()` no hook
-- [ ] ~~3.9 [sisub] Testar com Groq, OpenRouter e Gemini — streaming, chart via tool call, persistência, fallback 429~~ — **CADUCA**: `ANALYTICS_AI_*` é Bedrock no primário e Groq apenas como reserva (`infra/sisub/secrets/sisub.example.json:17-23`); OpenRouter e Gemini não são destino de nenhum consumidor do monorepo (`AI-PROVIDERS.md`, "Quem consome IA hoje"). O endpoint monta o adapter só a partir do env (`apps/sisub/routes/api/analytics/stream.post.ts:84`), então provider deixou de ser variável de teste. Observação (não é tarefa nova): o smoke opt-in de provider existe só para `MODULE_CHAT_AI_*` (`apps/sisub/src/test/ai/provider-smoke.test.ts`), não para `ANALYTICS_AI_*`.
 - [x] 3.10 [sisub] Remover `analytics-chat.stream.ts`, helpers SSE manuais (`useChatSession.ts` foi reescrito, não removido)
 
 ## 4. Sisub Module Chat — Tool Calling + PBAC
@@ -50,7 +60,6 @@
 - [x] 4.2 [sisub] Adaptar `registry.ts` — `getModuleConfig()` retorna array de tool instances filtrados por PBAC level
 - [x] 4.3 [sisub] Reescrever `routes/api/module-chat/stream.post.ts`: `chat({ adapter, messages, tools: filteredTools, middleware: [otelMiddleware({ tracer }), maxIterationsMiddleware(8)] })` + `toServerSentEventsResponse()`
 - [x] 4.4 [sisub] Adaptar UI module-chat — renderizar `ToolCallPart`/`ToolResultPart` dos `message.parts` do `useChat`
-- [ ] ~~4.5 [sisub] Testar com Groq e OpenRouter — PBAC, tool execution, max 8 rounds, erros~~ — **CADUCA** no que manda escolher provider: `MODULE_CHAT_AI_*` é Bedrock no primário e Groq só como reserva (`infra/sisub/secrets/sisub.example.json:7-13`). A substância virou suíte permanente contra o provider realmente configurado: `apps/sisub/src/test/ai/provider-smoke.test.ts` (tool call real + validação dos argumentos que o modelo mandou) e `apps/sisub/src/lib/module-chat/tools/model-args.test.ts` (contrato exaustivo, offline). O teto de rodadas está aplicado em `apps/sisub/routes/api/module-chat/stream.post.ts:173` (`maxIterationsMiddleware(8)`).
 - [x] 4.6 [sisub] Remover imports `@langchain/openai` e `@langchain/core/messages`
 
 ## 5. Alpha — Integração ai-provider para Config
@@ -58,8 +67,6 @@
 - [x] 5.1 [alpha] Adicionar `@iefa/ai-provider` como dependência
 - [x] 5.2 [alpha] Substituir `import { makeChatLLM } from '@iefa/alpha-client/llm'` por `import { makeChatLLM } from '@iefa/ai-provider/langchain-compat'`
 - [x] 5.3 [alpha] Adicionar env vars `ALPHA_AI_PROVIDER`, `ALPHA_AI_MODEL` em `src/env.ts` — fallback para atuais
-- [ ] ~~5.4 [alpha] Testar graph completo com NVIDIA NIM via ai-provider~~ — **CADUCA**: o chat do α não passa mais pela NVIDIA. `ALPHA_AI_PROVIDER` tem default `"bedrock"` (`apps/alpha/src/env.ts:20`), `getLLM` constrói `ChatBedrockConverse` nesse caminho (`apps/alpha/src/lib/llm.ts:33`, commit `806bf3a7` / PR #191) e o infra já vem com Bedrock (`infra/alpha/terraform.tfvars.example:26`). A NVIDIA sobrevive só como caminho alternativo por API key e nos embeddings/rerank (`AI-PROVIDERS.md`, "Dívida registrada — alpha"). Nota: a linha do α na tabela de `AI-PROVIDERS.md` ainda diz `nvidia` e está atrasada em relação ao código — correção fora do escopo desta change.
-- [ ] ~~5.5 [alpha] Testar nós individuais com Groq e Anthropic~~ — **CADUCA**: a regra do repo é Bedrock no primário, com provider de API key existindo só como reserva sob `<PREFIX>_FALLBACK_AI_*` (`AI-PROVIDERS.md`, abertura). O α não tem reserva nenhuma — `ALPHA_FALLBACK_AI_*` não existe em lugar algum do repo (grep vazio) —, então não há caminho para Groq nem para Anthropic a exercitar.
 
 ## 6. Cleanup e Deprecation
 
