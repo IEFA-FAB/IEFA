@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { viewersQueryOptions } from "@/lib/queries"
 import { addViewerFn, getOmOptionsFn, removeViewerFn, updateViewerPolicyFn } from "@/server/forms.fn"
 
 type ViewerBinding = {
@@ -66,7 +67,7 @@ export function ViewerManager({ questionnaireId, viewers, omScopeable }: { quest
 	const editingViewer = useMemo(() => viewers.find((viewer) => viewer.id === editingViewerId) ?? null, [editingViewerId, viewers])
 
 	const invalidateViewers = async () => {
-		await queryClient.invalidateQueries({ queryKey: ["viewers", questionnaireId] })
+		await queryClient.invalidateQueries({ queryKey: viewersQueryOptions(questionnaireId).queryKey })
 	}
 
 	const resetDialog = () => {

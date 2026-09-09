@@ -23,34 +23,15 @@ import {
 	getScoreBgColor,
 	getScoreColor,
 } from "@/lib/conformity"
+import { questionnaireQueryOptions, viewersQueryOptions } from "@/lib/queries"
 import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
 import { assertUuidParam } from "@/lib/route-params"
-import {
-	getQuestionnaireFn,
-	getResponsesFn,
-	getResponseVersionFn,
-	getResponseVersionsFn,
-	getViewersFn,
-	reopenResponseFn,
-	revertToVersionFn,
-} from "@/server/forms.fn"
-
-const questionnaireQueryOptions = (id: string) =>
-	queryOptions({
-		queryKey: ["questionnaire", id],
-		queryFn: () => getQuestionnaireFn({ data: { id } }),
-	})
+import { getResponsesFn, getResponseVersionFn, getResponseVersionsFn, reopenResponseFn, revertToVersionFn } from "@/server/forms.fn"
 
 const responsesQueryOptions = (questionnaireId: string) =>
 	queryOptions({
 		queryKey: ["responses", questionnaireId],
 		queryFn: () => getResponsesFn({ data: { questionnaire_id: questionnaireId } }),
-	})
-
-const viewersQueryOptions = (questionnaireId: string) =>
-	queryOptions({
-		queryKey: ["viewers", questionnaireId],
-		queryFn: () => getViewersFn({ data: { questionnaire_id: questionnaireId } }),
 	})
 
 export const Route = createFileRoute("/_authenticated/responses/$questionnaireId")({

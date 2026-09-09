@@ -1,6 +1,7 @@
 import type { Person, Vacancy } from "@iefa/database/assignment-selection"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
+import { boardQueryOptions } from "@/lib/queries"
 import { ASSIGNMENT_SELECTION_DB_SCHEMA, supabase } from "@/lib/supabase"
 import type { BoardData } from "@/server/assignment.fn"
 
@@ -27,7 +28,7 @@ export function useBoardRealtime(resolvedEditionId: string | null, requestedEdit
 	useEffect(() => {
 		if (!resolvedEditionId) return
 
-		const queryKey = ["board", requestedEdition ?? "default"] as const
+		const { queryKey } = boardQueryOptions(requestedEdition)
 		const patch = (mutate: (d: BoardData) => BoardData) => queryClient.setQueryData<BoardData>(queryKey, (old) => (old ? mutate(old) : old))
 		const resync = () => queryClient.invalidateQueries({ queryKey })
 
