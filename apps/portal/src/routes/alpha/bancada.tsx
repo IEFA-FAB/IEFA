@@ -12,6 +12,10 @@ export const Route = createFileRoute("/alpha/bancada")({
 	// O filtro de status é estado do componente, não search param: só o valor
 	// inicial ("draft") dá para semear. Trocar o filtro busca normalmente.
 	loader: ({ context }) => {
+		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
+		// no SSR uma chamada pendurada prenderia a resposta do documento.
+		if (typeof document === "undefined") return
+
 		const token = context.auth.session?.access_token
 		if (!token) return
 

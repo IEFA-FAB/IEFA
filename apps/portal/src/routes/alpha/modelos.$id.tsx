@@ -9,6 +9,10 @@ import { documentStructureQueryOptions, type StructureNode } from "@/lib/alpha/h
 
 export const Route = createFileRoute("/alpha/modelos/$id")({
 	loader: ({ context, params }) => {
+		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
+		// no SSR uma chamada pendurada prenderia a resposta do documento.
+		if (typeof document === "undefined") return
+
 		const token = context.auth.session?.access_token
 		if (!token) return
 

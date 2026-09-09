@@ -11,6 +11,10 @@ import { type NormativeSource, sourceDocumentsQueryOptions, sourcesQueryOptions,
 export const Route = createFileRoute("/alpha/fontes")({
 	// Só a listagem de fontes: os documentos de cada fonte são lazy no expandir.
 	loader: ({ context }) => {
+		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
+		// no SSR uma chamada pendurada prenderia a resposta do documento.
+		if (typeof document === "undefined") return
+
 		const token = context.auth.session?.access_token
 		if (!token) return
 

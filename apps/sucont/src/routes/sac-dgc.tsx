@@ -19,12 +19,11 @@ import { GROUP_ORDER, identifyGroup, ugDisplayName } from "#/sacdgc/ugs"
 import { loadDgcRunFn, saveDgcAnalysisFn, startDgcRunFn } from "#/server/sacdgc.fn"
 
 export const Route = createFileRoute("/sac-dgc")({
-	// O histórico de rodadas é aquecido no loader, antes do HTML — sem isso a lista
-	// O `.catch` preserva os três estados da tela (carregando, falhou, vazio)
-	// em vez de subir para o error boundary do roteador.
-	// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
-	// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação (e o
-	// SSR) na resposta — no /auditor, a consulta mais pesada do app.
+	// O histórico de rodadas é aquecido no loader, antes do HTML, em vez de só
+	// começar a ser buscado depois da hidratação.
+	// Dispara sem esperar: a tela usa `useQuery` e tem o próprio estado de
+	// carregamento. O `.catch` deixa a falha no cache para ela tratar, em vez de
+	// subir para o error boundary do roteador.
 	loader: ({ context }) => {
 		void context.queryClient.query({ ...dgcRunsQueryOptions(), staleTime: "static" }).catch(() => {})
 	},

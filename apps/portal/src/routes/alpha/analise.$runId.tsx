@@ -10,6 +10,10 @@ import { complianceRunQueryOptions, type Finding, SEVERITY_ORDER, type Severity 
 
 export const Route = createFileRoute("/alpha/analise/$runId")({
 	loader: ({ context, params }) => {
+		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
+		// no SSR uma chamada pendurada prenderia a resposta do documento.
+		if (typeof document === "undefined") return
+
 		const token = context.auth.session?.access_token
 		if (!token) return
 

@@ -16,10 +16,11 @@ import type { Tool } from "#/lib/types"
 import { createReportFn, deleteReportFn } from "#/server/reports.fn"
 
 export const Route = createFileRoute("/reports")({
-	// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-	// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
-	// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação (e o
-	// SSR) na resposta — no /auditor, a consulta mais pesada do app.
+	// Aquece o cache no loader: a lista sai junto com o HTML em vez de esperar a
+	// hidratação.
+	// Dispara sem esperar: a tela usa `useQuery` e tem o próprio estado de
+	// carregamento. O `.catch` deixa a falha no cache para ela tratar, em vez de
+	// subir para o error boundary do roteador.
 	loader: ({ context }) => {
 		void context.queryClient.query({ ...reportsQueryOptions(), staleTime: "static" }).catch(() => {})
 	},

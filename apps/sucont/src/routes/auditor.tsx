@@ -34,17 +34,11 @@ import { auditorBalancesQueryOptions } from "#/lib/queries"
 import { type BalanceConflict, finalizeAuditorRunFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
-	// Aquece o cache antes do HTML sair. Sem isto a série de saldos — o maior
-	// payload do app — só começa a ser buscada depois da hidratação, em fila atrás
-	// do `beforeLoad` da raiz (sessão → permissões).
-	//
-	// O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-	// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
-	// próprio. Bloquear o loader tiraria o skeleton e prenderia a navegação (e o
-	// SSR) na resposta — no /auditor, a consulta mais pesada do app.
-	loader: ({ context }) => {
-		void context.queryClient.query({ ...auditorBalancesQueryOptions(), staleTime: "static" }).catch(() => {})
-	},
+	// Sem prime no loader de propósito: o hub renderiza <Link to="/auditor"> na
+	// barra lateral de todas as telas, e com `defaultPreload: "intent"` +
+	// `defaultPreloadStaleTime: 0` cada passada de mouse rodaria o loader — ou
+	// seja, a série de saldos inteira, que pagina em laço até MAX_ROWS_READ.
+	// A tela busca no mount, como antes.
 	component: AuditorPage,
 })
 
