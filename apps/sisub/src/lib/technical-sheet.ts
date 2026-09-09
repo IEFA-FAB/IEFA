@@ -213,13 +213,22 @@ export interface SheetEquipmentRequirement {
 	min_capacity_liters: number | null
 	min_capacity_gn: number | null
 	notes: string | null
+	/**
+	 * Etapa a que a exigência pertence. Duas exigências do mesmo papel em etapas diferentes
+	 * são a MESMA unidade reusada em sequência (é assim que o domínio conta o atendimento) —
+	 * sem a etapa na linha, o papel as imprime idênticas e a cozinha lê duas unidades.
+	 */
+	recipe_step_id: string | null
 	role: { name: string } | null
 	model: { manufacturer: string | null; name: string } | null
 }
 
 /** Etapa do Fluxo de Produção, como a folha a lê. */
 export interface SheetFlowStep {
+	id: string
 	label: string | null
+	/** A técnica da etapa. É o que a PARTE 03 não tem quando o modo de preparo mora no fluxo. */
+	description: string | null
 	duration_minutes: number | null
 	step_template: { name: string } | null
 	utensils: { utensil: { name: string } | null }[]
@@ -292,6 +301,11 @@ export function flowTotalMinutes(steps: readonly SheetFlowStep[]): number | null
 /** Nome da etapa: o rótulo digitado, senão o do modelo de etapa que a originou. */
 export function flowStepLabel(step: SheetFlowStep): string {
 	return step.label?.trim() || step.step_template?.name?.trim() || "Etapa"
+}
+
+/** Etapa a que a exigência está amarrada, por id — a folha nomeia a etapa na linha. */
+export function stepLabelById(steps: readonly SheetFlowStep[]): Map<string, string> {
+	return new Map(steps.map((step) => [step.id, flowStepLabel(step)]))
 }
 
 /** Utensílios da etapa, deduplicados e em ordem de cadastro. */

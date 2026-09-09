@@ -5,11 +5,11 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { useRecipeEquipment } from "@/hooks/data/useEquipment"
 import { useRecipe } from "@/hooks/data/useRecipe"
-import { useRecipeFlow } from "@/hooks/data/useRecipeFlow"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { recipeLastReviewQueryOptions } from "@/hooks/data/useRecipes"
+import { queryKeys } from "@/lib/query-keys"
+import { type FetchedStep, orderStepsForExecution } from "@/lib/recipe-flow/transform"
 import {
 	equipmentCapacityLabel,
 	equipmentQuantityLabel,
@@ -24,9 +24,12 @@ import {
 	type QuantityBasis,
 	type SheetEquipmentRequirement,
 	type SheetFlowStep,
+	stepLabelById,
 	technicalSheetLine,
 	technicalSheetTotals,
 } from "@/lib/technical-sheet"
+import { fetchRecipeEquipmentFn } from "@/server/equipment.fn"
+import { fetchRecipeFlowFn } from "@/server/recipe-flow.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 /**
@@ -82,10 +85,26 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	const { data: lastReview } = useQuery(recipeLastReviewQueryOptions(recipeId))
 	// PARTES 04 e 05. Entram no gate de carregamento junto com a preparação: as três chamadas
 	// partem juntas, e imprimir a folha antes destas duas chegarem tira do papel exatamente as
-	// Seções que ninguém confere depois. Falha (quem lê a ficha pode não ter o módulo do fluxo)
-	// não derruba a folha — as listas ficam vazias e as Seções voltam a ser preenchidas à mão.
-	const { data: equipment, isLoading: isEquipmentLoading } = useRecipeEquipment(recipeId)
-	const { data: flow, isLoading: isFlowLoading } = useRecipeFlow(recipeId)
+	// Seções que ninguém confere depois. Falha não derruba a folha — as listas ficam vazias e
+	// as duas Seções voltam a ser preenchidas à mão, que é o que a folha já fazia antes.
+	//
+	// `retry: false` em vez dos hooks compartilhados (`useRecipeEquipment`/`useRecipeFlow`): as
+	// duas leituras exigem `kitchen`/`kitchen-production`, e quem lê o catálogo global só com o
+	// módulo `global` toma 403 determinístico. Com o retry padrão (3 tentativas em backoff) a
+	// folha INTEIRA — PARTES 01 a 03 inclusive — ficaria ~7 s no spinner para chegar à mesma
+	// resposta. O gate só vale a pena se ele falha rápido.
+	const { data: equipment, isLoading: isEquipmentLoading } = useQuery({
+		queryKey: queryKeys.equipment.recipeRequirements(recipeId),
+		queryFn: () => fetchRecipeEquipmentFn({ data: { recipeId } }),
+		staleTime: 60 * 1000,
+		retry: false,
+	})
+	const { data: flow, isLoading: isFlowLoading } = useQuery({
+		queryKey: queryKeys.recipeFlow.detail(recipeId),
+		queryFn: () => fetchRecipeFlowFn({ data: { recipeId } }),
+		staleTime: 60 * 1000,
+		retry: false,
+	})
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
@@ -109,7 +128,13 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	}
 
 	const detail = recipe as RecipeWithIngredients
-	const sheet = buildSheet(detail, folderNameById, lastReview ?? null, basis, equipment ?? [], flow?.steps ?? [])
+	// Ordem de EXECUÇÃO, não de cadastro: `fetchRecipeFlow` devolve por `created_at`, e o
+	// checklist do painel de produção já ordena topologicamente pelas arestas de material. Sem
+	// isto o papel e a tela prescrevem sequências diferentes para a mesma preparação. O cast é o
+	// mesmo do checklist — o wire e `FetchedStep` são a mesma linha, com nomes de relation
+	// diferentes nos campos que a ordenação não usa.
+	const steps = flow?.steps ? (orderStepsForExecution(flow.steps as unknown as FetchedStep[]) as unknown as SheetFlowStep[]) : []
+	const sheet = buildSheet(detail, folderNameById, lastReview ?? null, basis, equipment ?? [], steps)
 
 	return (
 		<div>
@@ -208,6 +233,10 @@ interface Sheet {
 	steps: SheetFlowStep[]
 	/** Observações gravadas nas exigências de equipamento — PARTE 05. */
 	technicalNotes: { target: string; note: string }[]
+	/** Nome da etapa por id, para nomear a etapa na linha de equipamento. */
+	stepLabels: Map<string, string>
+	/** Alguma exigência é de etapa? Decide a coluna "Etapa" da tabela de equipamentos. */
+	hasStepScopedEquipment: boolean
 	elaboratedAt: string
 	reviewedAt: string
 	reviewedBy: string
@@ -268,6 +297,8 @@ function buildSheet(
 		equipment,
 		steps,
 		technicalNotes: equipmentTechnicalNotes(equipment),
+		stepLabels: stepLabelById(steps),
+		hasStepScopedEquipment: equipment.some((req) => req.recipe_step_id != null),
 		elaboratedAt: formatDate(recipe.created_at),
 		reviewedAt: formatDate(lastReview?.reviewed_at),
 		reviewedBy: lastReview?.reviewed_by_name ?? "",
@@ -436,6 +467,9 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 					<thead>
 						<tr>
 							<th>Equipamento</th>
+							{/* A coluna só aparece quando ALGUMA exigência é de etapa: numa ficha em que
+							    nenhuma é, ela seria uma coluna de travessões. */}
+							{sheet.hasStepScopedEquipment && <th>Etapa</th>}
 							<th>Qtd.</th>
 							<th>Capacidade mínima</th>
 						</tr>
@@ -446,6 +480,7 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 						{sheet.equipment.map((req, index) => (
 							<tr key={`equipment-${index}`}>
 								<td>{equipmentTargetLabel(req)}</td>
+								{sheet.hasStepScopedEquipment && <td>{(req.recipe_step_id != null ? sheet.stepLabels.get(req.recipe_step_id) : null) ?? "—"}</td>}
 								<td>{equipmentQuantityLabel(req)}</td>
 								<td>{equipmentCapacityLabel(req) || "—"}</td>
 							</tr>
@@ -470,7 +505,12 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 							{sheet.steps.map((step, index) => (
 								<tr key={`step-${index}`}>
 									<td className="ftp-num">{index + 1}</td>
-									<td>{flowStepLabel(step)}</td>
+									<td>
+										{flowStepLabel(step)}
+										{/* A técnica da etapa. Numa preparação cujo modo de preparo mora no fluxo,
+										    a PARTE 03 sai em branco — sem isto o papel não teria método nenhum. */}
+										{step.description?.trim() && <span className="ftp-step-description">{step.description.trim()}</span>}
+									</td>
 									<td>{formatSheetDuration(step.duration_minutes) || "—"}</td>
 									<td>{flowStepUtensils(step).join(", ") || "—"}</td>
 								</tr>
@@ -547,6 +587,7 @@ const PRINT_CSS = `
 .ftp-ingredients thead th { background: #dce6f1; text-align: center; font-weight: 700; }
 .ftp-equipment, .ftp-steps { width: 92%; margin: 0 auto 8px; }
 .ftp-equipment thead th, .ftp-steps thead th { background: #dce6f1; text-align: center; font-weight: 700; }
+.ftp-step-description { display: block; font-size: 10px; color: #333; }
 .ftp-notes { margin: 0 0 6px; padding-left: 18px; }
 .ftp-notes li { margin: 0 0 2px; }
 /*

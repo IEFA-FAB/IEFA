@@ -25,6 +25,7 @@ import {
 	roundSheetQuantity,
 	type SheetEquipmentRequirement,
 	type SheetFlowStep,
+	stepLabelById,
 	technicalSheetLine,
 	technicalSheetTotals,
 	toStoredQuantity,
@@ -251,13 +252,16 @@ const requirement = (overrides: Partial<SheetEquipmentRequirement> = {}): SheetE
 	min_capacity_liters: null,
 	min_capacity_gn: null,
 	notes: null,
+	recipe_step_id: null,
 	role: { name: "Forno combinado" },
 	model: null,
 	...overrides,
 })
 
 const step = (overrides: Partial<SheetFlowStep> = {}): SheetFlowStep => ({
+	id: "step-1",
 	label: null,
+	description: null,
 	duration_minutes: null,
 	step_template: null,
 	utensils: [],
@@ -372,5 +376,14 @@ describe("equipmentTechnicalNotes", () => {
 
 	test("sem observação a lista é vazia — a PARTE 05 volta às pautas", () => {
 		expect(equipmentTechnicalNotes([requirement()])).toEqual([])
+	})
+})
+
+describe("stepLabelById", () => {
+	test("mapeia id → rótulo, com o mesmo fallback da tabela de etapas", () => {
+		const map = stepLabelById([step({ id: "a", label: "Cocção" }), step({ id: "b" })])
+		expect(map.get("a")).toBe("Cocção")
+		expect(map.get("b")).toBe("Etapa")
+		expect(map.has("c")).toBe(false)
 	})
 })
