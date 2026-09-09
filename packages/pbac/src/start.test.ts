@@ -46,7 +46,9 @@ function permissionsClient(rows: Array<Record<string, unknown>>): any {
 		// caminho para na primeira query. Ver `resolve-permissions.test.ts`.
 		from: (table: string) => ({
 			select: () => ({
-				eq: async () => ({ data: table === "user_permissions" ? rows : [], error: null }),
+				// `.or(...)` é o filtro de expiração de `resolveUserPermissions`; o dublê precisa
+				// tê-lo, senão a cadeia quebra antes de devolver as linhas.
+				eq: () => ({ or: async () => ({ data: table === "user_permissions" ? rows : [], error: null }) }),
 			}),
 		}),
 	}

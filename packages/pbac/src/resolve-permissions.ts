@@ -41,9 +41,24 @@ function warnMissingPolicyModel(error: { code?: string | null; message: string }
 	console.warn(`[pbac] modelo de políticas inacessível (${error.code}): ${error.message} — resolvendo só com os grants inline`)
 }
 
+/**
+ * Filtro PostgREST "a linha ainda vale": sem prazo, ou com prazo no futuro.
+ *
+ * `now()` vai como VALOR do filtro, e quem o avalia é o Postgres — o parser de
+ * data/hora aceita a string `now()` do mesmo jeito que aceita `now`, e ambas resolvem
+ * para o `now()` da transação. Isso é deliberado: o relógio do processo Node/Bun não é
+ * fonte da verdade para autorização, e mandar um ISO calculado em JS deixaria um
+ * container com clock adiantado conceder acesso já vencido (ou revogar acesso vivo).
+ *
+ * Grant expirado some do conjunto — ele NÃO vira deny. Um `level 0` expirado deixa de
+ * negar, porque a precedência de deny em `effective-permissions.ts` só enxerga as linhas
+ * que chegam até ela.
+ */
+export const NOT_EXPIRED = "expires_at.is.null,expires_at.gt.now()"
+
 /** Grants inline — as linhas de `user_permissions` do próprio usuário. */
 async function fetchInlinePermissions(userId: string, supabase: AnySupabaseClient): Promise<UserPermission[]> {
-	const { data, error } = await supabase.from("user_permissions").select(PERMISSION_COLUMNS).eq("user_id", userId)
+	const { data, error } = await supabase.from("user_permissions").select(PERMISSION_COLUMNS).eq("user_id", userId).or(NOT_EXPIRED)
 
 	if (error) throw new Error(`Falha ao buscar permissões: ${error.message}`)
 
@@ -65,7 +80,13 @@ async function fetchInlinePermissions(userId: string, supabase: AnySupabaseClien
  * seguem resolvendo exatamente o mesmo conjunto de antes.
  */
 async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClient): Promise<UserPermission[]> {
-	const { data: attachments, error: attachmentError } = await supabase.from("user_policy_attachment").select("policy_id").eq("user_id", userId)
+	// O prazo vale para as DUAS origens: anexo vencido não empresta os statements da
+	// política, do mesmo jeito que grant inline vencido não concede.
+	const { data: attachments, error: attachmentError } = await supabase
+		.from("user_policy_attachment")
+		.select("policy_id")
+		.eq("user_id", userId)
+		.or(NOT_EXPIRED)
 
 	if (attachmentError) {
 		// Banco de app que não tem o modelo de políticas: não há política para anexar,
@@ -113,6 +134,7 @@ async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClien
 		)
 }
 
+
 /**
  * Busca e resolve as permissões efetivas de um usuário diretamente no banco.
  * Sem dependência de TanStack — usável em qualquer runtime Bun/Node.
@@ -123,6 +145,8 @@ async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClien
  *   1. Implicit Allow: injeta "diner" level 1 se nenhuma regra explícita existir.
  *   2. Precedência de deny: um level=0 de QUALQUER origem anula os allows que ele cobre,
  *      em vez de ser apenas descartado — ver `effective-permissions.ts`.
+ *   3. Grant expirado é AUSENTE, nas DUAS origens: a linha nem chega à resolução — ver
+ *      `NOT_EXPIRED`.
  *
  * É a mesma semântica de `listEffectiveUserPermissions` em `@iefa/sisub-domain`. Enquanto
  * esta função lia só a origem inline, quem recebia acesso por política gerenciada (o

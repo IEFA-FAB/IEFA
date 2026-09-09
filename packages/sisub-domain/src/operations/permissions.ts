@@ -27,7 +27,7 @@ import { and, asc, eq, ilike, isNull } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
-import { mutateOrFail, runQuery } from "../utils/index.ts"
+import { isExpired, mutateOrFail, notExpired, runQuery } from "../utils/index.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
 
 /**
@@ -45,7 +45,10 @@ export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUser
 				unit_id: userPermissionsInAccessControl.unitId,
 			})
 			.from(userPermissionsInAccessControl)
-			.where(eq(userPermissionsInAccessControl.userId, input.userId))
+			// Grant expirado é AUSENTE, não deny: ele nem chega à resolução, então um
+			// `level 0` vencido deixa de negar. A comparação é `now()` do BANCO — relógio de
+			// processo não decide autorização.
+			.where(and(eq(userPermissionsInAccessControl.userId, input.userId), notExpired(userPermissionsInAccessControl.expiresAt)))
 	)
 
 	// Segunda origem: os statements das políticas anexadas. A união com os grants inline e
@@ -111,7 +114,9 @@ export async function listEffectiveUserPermissionsWithOrigin(
 					unit_id: userPermissionsInAccessControl.unitId,
 				})
 				.from(userPermissionsInAccessControl)
-				.where(eq(userPermissionsInAccessControl.userId, input.userId))
+				// Mesmo filtro da resolução canônica: o console tem que mostrar o conjunto que
+				// o guard realmente aplica, e não o histórico do que um dia foi concedido.
+				.where(and(eq(userPermissionsInAccessControl.userId, input.userId), notExpired(userPermissionsInAccessControl.expiresAt)))
 		),
 		listUserPolicyStatementsWithSource(db, input.userId),
 	])
@@ -194,7 +199,13 @@ async function listUserPolicyStatementsWithSource(db: SisubDb, userId: string) {
 			.from(userPolicyAttachmentInAccessControl)
 			.innerJoin(policyInAccessControl, eq(policyInAccessControl.id, userPolicyAttachmentInAccessControl.policyId))
 			.innerJoin(policyStatementInAccessControl, eq(policyStatementInAccessControl.policyId, policyInAccessControl.id))
-			.where(and(eq(userPolicyAttachmentInAccessControl.userId, userId), isNull(policyInAccessControl.deletedAt)))
+			.where(
+				and(
+					eq(userPolicyAttachmentInAccessControl.userId, userId),
+					isNull(policyInAccessControl.deletedAt),
+					notExpired(userPolicyAttachmentInAccessControl.expiresAt)
+				)
+			)
 	)
 }
 
@@ -224,8 +235,14 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 				mess_hall_id: userPermissionsInAccessControl.messHallId,
 				kitchen_id: userPermissionsInAccessControl.kitchenId,
 				unit_id: userPermissionsInAccessControl.unitId,
+				expires_at: userPermissionsInAccessControl.expiresAt,
+				expired: isExpired(userPermissionsInAccessControl.expiresAt),
 			})
 			.from(userPermissionsInAccessControl)
+			// SEM filtro de expiração, ao contrário da resolução: esta é a tela de edição.
+			// Esconder o grant vencido o tornaria invisível E inalcançável — não daria para
+			// renovar nem apagar. Ele volta marcado (`expired`), calculado pelo mesmo `now()`
+			// do banco que decide a autorização.
 			.where(eq(userPermissionsInAccessControl.userId, input.userId))
 			.orderBy(asc(userPermissionsInAccessControl.module))
 	)
@@ -241,6 +258,7 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 			messHallId: input.mess_hall_id ?? null,
 			kitchenId: input.kitchen_id ?? null,
 			unitId: input.unit_id ?? null,
+			expiresAt: input.expires_at ?? null,
 		})
 	)
 	return { success: true as const }
@@ -248,15 +266,22 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 
 export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission) {
 	requirePermission(ctx, "admin", 2)
+	// `expires_at` é PATCH, não substituição: ausente = não mexe no prazo, `null` = torna o
+	// grant permanente. Os escopos seguem sendo substituição porque o diálogo sempre os
+	// envia; o prazo, não — um cliente que não conhece o campo apagaria o prazo de todo
+	// grant que editasse.
+	const updates: { level: number; messHallId: number | null; kitchenId: number | null; unitId: number | null; expiresAt?: string | null } = {
+		level: input.level,
+		messHallId: input.mess_hall_id ?? null,
+		kitchenId: input.kitchen_id ?? null,
+		unitId: input.unit_id ?? null,
+	}
+	if (input.expires_at !== undefined) updates.expiresAt = input.expires_at
+
 	await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
 			.update(userPermissionsInAccessControl)
-			.set({
-				level: input.level,
-				messHallId: input.mess_hall_id ?? null,
-				kitchenId: input.kitchen_id ?? null,
-				unitId: input.unit_id ?? null,
-			})
+			.set(updates)
 			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
 			.returning({ id: userPermissionsInAccessControl.id })
 	)

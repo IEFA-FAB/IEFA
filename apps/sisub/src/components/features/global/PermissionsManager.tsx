@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import * as React from "react"
+import { ExpiryCell, ExpiryField } from "@/components/features/global/policies/ExpiryControls"
 import {
 	getScopeOptions,
 	LEVEL_CONFIG,
@@ -25,6 +26,7 @@ import { toast } from "@/components/ui/toast"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { useUserSearch } from "@/hooks/data/useUserSearch"
+import { expiryFromDateInput, expiryToDateInput } from "@/lib/access-expiry"
 import {
 	createUserPermissionFn,
 	deleteUserPermissionFn,
@@ -43,6 +45,8 @@ type FormState = {
 	level: string
 	scopeType: ScopeType
 	scopeId: string
+	/** `yyyy-mm-dd` do `<input type="date">`; string vazia = sem prazo. */
+	expiresOn: string
 }
 
 const INITIAL_FORM: FormState = {
@@ -50,6 +54,7 @@ const INITIAL_FORM: FormState = {
 	level: "1",
 	scopeType: "global",
 	scopeId: "",
+	expiresOn: "",
 }
 
 type DialogState = { mode: "add" } | { mode: "edit"; perm: PermissionRow }
@@ -270,6 +275,23 @@ function PermissionDialog({
 							</div>
 						</div>
 					)}
+					{/* Prazo — opcional, vale para qualquer módulo/escopo. */}
+					<div className="grid grid-cols-4 items-start gap-3">
+						<Label htmlFor="permission-expiry" className="text-right text-sm pt-2">
+							Prazo
+						</Label>
+						<div className="col-span-3">
+							{/* `label={null}`: quem rotula é o <Label> da coluna da esquerda, como nos
+							    demais campos deste diálogo. */}
+							<ExpiryField
+								id="permission-expiry"
+								label={null}
+								value={form.expiresOn}
+								onChange={(v) => setForm((f) => ({ ...f, expiresOn: v }))}
+								hint="Opcional. Vazio = permanente. O acesso vale até o fim do dia escolhido; depois disso a linha some da resolução (não vira bloqueio)."
+							/>
+						</div>
+					</div>
 				</div>
 
 				<DialogFooter className="flex justify-between">
@@ -339,7 +361,7 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 	const openEdit = (perm: PermissionRow) => {
 		const scopeType = scopeTypeOf(perm)
 		const scopeId = (perm.unit_id ?? perm.kitchen_id ?? perm.mess_hall_id)?.toString() ?? ""
-		setForm({ module: perm.module as SisubModule, level: String(perm.level), scopeType, scopeId })
+		setForm({ module: perm.module as SisubModule, level: String(perm.level), scopeType, scopeId, expiresOn: expiryToDateInput(perm.expires_at) })
 		setDialog({ mode: "edit", perm })
 	}
 
@@ -358,6 +380,7 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 					module: form.module,
 					level: Number(form.level),
 					...scopeFromForm(form),
+					expires_at: expiryFromDateInput(form.expiresOn),
 				},
 			}),
 		onSuccess: () => {
@@ -371,11 +394,18 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 	const updatePerm = useMutation({
 		mutationFn: () => {
 			if (dialog?.mode !== "edit") throw new Error("invalid state")
+			// O campo é uma DATA, e o prazo gravado é um INSTANTE. Reenviá-lo sem que o
+			// administrador o tenha tocado moveria um prazo de 10/09 12:00 para o fim do dia
+			// 10/09 no fuso local — esticando o acesso sozinho, e por um valor diferente para
+			// cada administrador. Só vai no payload quando a data mudou de fato; caso
+			// contrário fica ausente e o `!== undefined` da operation preserva o instante.
+			const touched = form.expiresOn !== expiryToDateInput(dialog.perm.expires_at)
 			return updateUserPermissionFn({
 				data: {
 					permissionId: dialog.perm.id,
 					level: Number(form.level),
 					...scopeFromForm(form),
+					...(touched ? { expires_at: expiryFromDateInput(form.expiresOn) } : {}),
 				},
 			})
 		},
@@ -524,6 +554,7 @@ function UserPermissionsPanel({
 							<TableHead className="text-foreground text-subheading">Módulo</TableHead>
 							<TableHead className="text-foreground text-subheading">Nível</TableHead>
 							<TableHead className="text-foreground text-subheading">Escopo</TableHead>
+							<TableHead className="text-foreground text-subheading">Prazo</TableHead>
 							<TableHead className="w-[80px]" />
 						</TableRow>
 					</TableHeader>
@@ -540,12 +571,15 @@ function UserPermissionsPanel({
 									<TableCell>
 										<Skeleton className="h-5 w-24" />
 									</TableCell>
+									<TableCell>
+										<Skeleton className="h-5 w-20" />
+									</TableCell>
 									<TableCell />
 								</TableRow>
 							))
 						) : permissions.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={4} className="h-24 text-center text-muted-foreground text-sm">
+								<TableCell colSpan={5} className="h-24 text-center text-muted-foreground text-sm">
 									<div className="flex flex-col items-center gap-1">
 										<span>Nenhuma permissão cadastrada.</span>
 										<span className="text-xs">Acesso implícito de Comensal ativo por padrão.</span>
@@ -554,7 +588,9 @@ function UserPermissionsPanel({
 							</TableRow>
 						) : (
 							permissions.map((perm) => (
-								<TableRow key={perm.id} className="hover:bg-accent/40">
+								// Vencido some da autorização, mas continua editável aqui: opacidade + badge,
+								// nunca faixa colorida na lateral.
+								<TableRow key={perm.id} className={perm.expired ? "opacity-60 hover:bg-accent/40" : "hover:bg-accent/40"}>
 									<TableCell>
 										<ModuleBadge module={perm.module} />
 									</TableCell>
@@ -563,6 +599,9 @@ function UserPermissionsPanel({
 									</TableCell>
 									<TableCell className="text-sm">
 										<ScopeLabel perm={perm} unitMap={unitMap} kitchenMap={kitchenMap} messHallMap={messHallMap} />
+									</TableCell>
+									<TableCell className="text-sm">
+										<ExpiryCell expiresAt={perm.expires_at} expired={perm.expired} />
 									</TableCell>
 									<TableCell>
 										<div className="flex items-center gap-1 justify-end">
@@ -591,6 +630,11 @@ function UserPermissionsPanel({
 			<p className="text-xs text-muted-foreground">
 				<span className="text-subheading">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma
 				permissão <span className="text-subheading">diner — Negado</span>.
+			</p>
+
+			<p className="text-xs text-muted-foreground">
+				<span className="text-subheading">Prazo:</span> uma permissão expirada deixa de existir para o sistema — some da resolução em vez de virar bloqueio. Um{" "}
+				<span className="text-subheading">Negado</span> expirado, portanto, para de negar. A linha continua aqui para ser renovada ou removida.
 			</p>
 
 			<UserAccessPanel userId={user.id} maps={{ unitMap, kitchenMap, messHallMap }} />

@@ -1,6 +1,6 @@
 "use no memo"
 
-import { Link2, Link2Off, Lock, ShieldOff } from "lucide-react"
+import { CalendarClock, Link2, Link2Off, Lock, ShieldOff } from "lucide-react"
 import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAttachPolicy, useDetachPolicy, useEffectivePermissions, usePolicies, useUserPolicies } from "@/hooks/data/usePolicies"
+import { expiryFromDateInput, expiryToDateInput } from "@/lib/access-expiry"
+import { ExpiryCell, ExpiryField } from "./ExpiryControls"
 import { LEVEL_CONFIG, MODULE_LABELS, type ScopeMaps, type SisubModule, scopeLabel } from "./labels"
 
 /**
@@ -30,12 +32,23 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 
 	const [attachOpen, setAttachOpen] = React.useState(false)
 	const [selectedPolicyId, setSelectedPolicyId] = React.useState("")
+	const [expiresOn, setExpiresOn] = React.useState("")
 	const [detachTarget, setDetachTarget] = React.useState<(typeof attached)[number] | null>(null)
+	// Renovar/encerrar o prazo de um anexo existente é REANEXAR: o upsert reescreve o prazo.
+	const [renewTarget, setRenewTarget] = React.useState<(typeof attached)[number] | null>(null)
 
-	// Política já anexada não é reofertada — anexar de novo é no-op e só confunde.
+	// Política já anexada não é reofertada NO FLUXO DE ANEXO — para mudar o prazo de uma que
+	// já está anexada existe o botão "Prazo" na própria linha, que reabre o mesmo diálogo.
 	const attachedIds = new Set(attached.map((p) => p.id))
 	const available = allPolicies.filter((p) => !attachedIds.has(p.id))
-	const selectedPolicy = available.find((p) => p.id === selectedPolicyId)
+	const selectedPolicy = renewTarget ?? available.find((p) => p.id === selectedPolicyId)
+
+	const closeAttachDialog = () => {
+		setAttachOpen(false)
+		setRenewTarget(null)
+		setSelectedPolicyId("")
+		setExpiresOn("")
+	}
 
 	return (
 		<div className="space-y-6">
@@ -44,7 +57,9 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 				<div className="flex items-start justify-between gap-4">
 					<div>
 						<h3 className="text-heading">Políticas anexadas</h3>
-						<p className="text-sm text-muted-foreground mt-0.5">Conjuntos nomeados de permissões. Desanexar revoga todas as dela de uma vez.</p>
+						<p className="text-sm text-muted-foreground mt-0.5">
+							Conjuntos nomeados de permissões. Desanexar revoga todas as dela de uma vez; um anexo com prazo para de valer sozinho no vencimento.
+						</p>
 					</div>
 					<Button size="sm" onClick={() => setAttachOpen(true)} disabled={available.length === 0} className="gap-1.5 shrink-0">
 						<Link2 className="size-4" />
@@ -59,7 +74,10 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 				) : (
 					<div className="space-y-1">
 						{attached.map((policy) => (
-							<div key={policy.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
+							// Anexo vencido continua listado (opacidade + badge), nunca escondido: ele
+							// não concede mais nada, mas a linha existe e precisa ser renovável ou
+							// removível.
+							<div key={policy.id} className={`flex items-center justify-between rounded-lg border px-4 py-3 ${policy.expired ? "opacity-60" : ""}`}>
 								<div>
 									<p className="text-subheading flex items-center gap-2">
 										{policy.name}
@@ -69,13 +87,30 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 												Gerenciada
 											</Badge>
 										)}
+										<ExpiryCell expiresAt={policy.expires_at} expired={policy.expired} />
 									</p>
 									{policy.description && <p className="text-xs text-muted-foreground mt-0.5">{policy.description}</p>}
 								</div>
-								<Button variant="ghost" size="sm" onClick={() => setDetachTarget(policy)} className="gap-1.5">
-									<Link2Off className="size-4" />
-									Desanexar
-								</Button>
+								<div className="flex items-center gap-1 shrink-0">
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => {
+											setRenewTarget(policy)
+											setSelectedPolicyId(policy.id)
+											setExpiresOn(expiryToDateInput(policy.expires_at))
+											setAttachOpen(true)
+										}}
+										className="gap-1.5"
+									>
+										<CalendarClock className="size-4" />
+										Prazo
+									</Button>
+									<Button variant="ghost" size="sm" onClick={() => setDetachTarget(policy)} className="gap-1.5">
+										<Link2Off className="size-4" />
+										Desanexar
+									</Button>
+								</div>
 							</div>
 						))}
 					</div>
@@ -156,53 +191,46 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 			</div>
 
 			{/* ── Anexar ── */}
-			<Dialog
-				open={attachOpen}
-				onOpenChange={(v) => {
-					if (!v) {
-						setAttachOpen(false)
-						setSelectedPolicyId("")
-					}
-				}}
-			>
+			<Dialog open={attachOpen} onOpenChange={(v) => !v && closeAttachDialog()}>
 				<DialogContent className="sm:max-w-[440px]">
 					<DialogHeader>
-						<DialogTitle>Anexar política</DialogTitle>
+						<DialogTitle>{renewTarget ? `Prazo de "${renewTarget.name}"` : "Anexar política"}</DialogTitle>
 					</DialogHeader>
-					<div className="py-2">
-						<Select value={selectedPolicyId} onValueChange={(v) => setSelectedPolicyId(v ?? "")}>
-							<SelectTrigger className="w-full">
-								<SelectValue placeholder="Selecione a política...">{selectedPolicy?.name}</SelectValue>
-							</SelectTrigger>
-							<SelectContent className="w-auto min-w-(--anchor-width) p-2">
-								{available.map((p) => (
-									<SelectItem key={p.id} value={p.id}>
-										{p.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						{selectedPolicy?.description && <p className="text-xs text-muted-foreground mt-2">{selectedPolicy.description}</p>}
+					<div className="py-2 space-y-4">
+						{/* Renovar é reanexar a MESMA política: o seletor não faz sentido aí. */}
+						{!renewTarget && (
+							<Select value={selectedPolicyId} onValueChange={(v) => setSelectedPolicyId(v ?? "")}>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Selecione a política...">{selectedPolicy?.name}</SelectValue>
+								</SelectTrigger>
+								<SelectContent className="w-auto min-w-(--anchor-width) p-2">
+									{available.map((p) => (
+										<SelectItem key={p.id} value={p.id}>
+											{p.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						)}
+						{selectedPolicy?.description && <p className="text-xs text-muted-foreground">{selectedPolicy.description}</p>}
+						<ExpiryField
+							id="attach-policy-expiry"
+							value={expiresOn}
+							onChange={setExpiresOn}
+							hint="Opcional. Vazio = acesso sem prazo. Depois do vencimento a política deixa de conceder — nenhum statement dela entra, nem os de bloqueio."
+						/>
 					</div>
 					<DialogFooter className="flex justify-between">
-						<Button variant="outline" onClick={() => setAttachOpen(false)} disabled={attach.isPending}>
+						<Button variant="outline" onClick={closeAttachDialog} disabled={attach.isPending}>
 							Cancelar
 						</Button>
 						<Button
 							onClick={() =>
-								attach.mutate(
-									{ userId, policyId: selectedPolicyId },
-									{
-										onSuccess: () => {
-											setAttachOpen(false)
-											setSelectedPolicyId("")
-										},
-									}
-								)
+								attach.mutate({ userId, policyId: selectedPolicyId, expires_at: expiryFromDateInput(expiresOn) }, { onSuccess: closeAttachDialog })
 							}
 							disabled={attach.isPending || !selectedPolicyId}
 						>
-							{attach.isPending ? "Anexando..." : "Anexar"}
+							{attach.isPending ? "Salvando..." : renewTarget ? "Salvar prazo" : "Anexar"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

@@ -69,10 +69,11 @@ export function useTrainingPolicy() {
  * dado de acesso. Telas visíveis em `global:1` precisam pular a busca em vez de disparar
  * uma query que vai falhar.
  */
-export function usePolicyMembers(policyId: string | null, options?: { enabled?: boolean }) {
+export function usePolicyMembers(policyId: string | null, options?: { enabled?: boolean; includeExpired?: boolean }) {
+	const includeExpired = options?.includeExpired ?? false
 	return useQuery({
-		queryKey: queryKeys.policies.members(policyId),
-		queryFn: () => fetchPolicyMembersFn({ data: { policyId: policyId as string } }),
+		queryKey: queryKeys.policies.members(policyId, includeExpired),
+		queryFn: () => fetchPolicyMembersFn({ data: { policyId: policyId as string, includeExpired } }),
 		enabled: !!policyId && (options?.enabled ?? true),
 	})
 }
@@ -160,12 +161,18 @@ export function useRemovePolicyStatement() {
 	})
 }
 
+/**
+ * Anexa (ou REANEXA) uma política.
+ *
+ * `expires_at` é substituição, não patch: reanexar sem prazo torna o acesso permanente, e
+ * é assim que se renova ou encerra um anexo com prazo. `null`/ausente = sem prazo.
+ */
 export function useAttachPolicy() {
 	const invalidate = usePolicyInvalidation()
 	return useMutation({
-		mutationFn: (data: { userId: string; policyId: string }) => attachPolicyFn({ data }),
-		onSuccess: () => {
-			toast.success("Política anexada")
+		mutationFn: (data: { userId: string; policyId: string; expires_at?: string | null }) => attachPolicyFn({ data }),
+		onSuccess: (_result, variables) => {
+			toast.success(variables.expires_at ? "Política anexada com prazo" : "Política anexada")
 			invalidate()
 		},
 		onError: (error: Error) => toast.error("Erro ao anexar política", { description: error.message }),

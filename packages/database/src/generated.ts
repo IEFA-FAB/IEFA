@@ -154,6 +154,7 @@ export type Database = {
       user_permissions: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           kitchen_id: number | null
           level: number
@@ -164,6 +165,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           kitchen_id?: number | null
           level?: number
@@ -174,6 +176,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           kitchen_id?: number | null
           level?: number
@@ -188,6 +191,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          expires_at: string | null
           id: string
           policy_id: string
           user_id: string
@@ -195,6 +199,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           policy_id: string
           user_id: string
@@ -202,6 +207,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           policy_id?: string
           user_id?: string

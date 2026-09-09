@@ -149,7 +149,23 @@ export interface Seeder {
 		messHallId?: number | null
 		kitchenId?: number | null
 		unitId?: number | null
+		/** Prazo do grant (ISO). `null`/ausente = permanente. */
+		expiresAt?: string | null
 	}): Promise<string>
+
+	// ── Políticas nomeadas (access_control) ───────────────────────────────────
+	/** Política NÃO gerenciada — a `managed` é imutável e não serve de fixture. */
+	seedPolicy(opts?: { name?: string; description?: string | null }): Promise<string>
+	seedPolicyStatement(opts: {
+		policyId: string
+		module?: string
+		level?: number
+		unitId?: number | null
+		kitchenId?: number | null
+		messHallId?: number | null
+	}): Promise<string>
+	/** Anexo política↔usuário. `expiresAt` null/ausente = anexo permanente. */
+	seedPolicyAttachment(opts: { userId: string; policyId: string; expiresAt?: string | null }): Promise<string>
 
 	// ── Compras (purchase_item) ────────────────────────────────────────────────
 	seedPurchaseItem(opts?: { description?: string; deleted?: boolean }): Promise<string>
@@ -174,6 +190,9 @@ const TABLE_SCHEMA: Record<string, string> = {
 	user_military_data: "core",
 	// access_control
 	user_permissions: "access_control",
+	policy: "access_control",
+	policy_statement: "access_control",
+	user_policy_attachment: "access_control",
 	// procurement
 	purchase_item: "procurement",
 	purchase_item_ingredient: "procurement",
@@ -444,6 +463,34 @@ export function makeSeeder(client: AnyClient): Seeder {
 				mess_hall_id: opts.messHallId ?? null,
 				kitchen_id: opts.kitchenId ?? null,
 				unit_id: opts.unitId ?? null,
+				expires_at: opts.expiresAt ?? null,
+			})) as string
+		},
+
+		async seedPolicy(opts) {
+			return (await insertReturningId("policy", {
+				name: opts?.name ?? uid("[TEST] Política "),
+				description: opts?.description ?? null,
+				managed: false,
+			})) as string
+		},
+
+		async seedPolicyStatement(opts) {
+			return (await insertReturningId("policy_statement", {
+				policy_id: opts.policyId,
+				module: opts.module ?? "kitchen",
+				level: opts.level ?? 2,
+				unit_id: opts.unitId ?? null,
+				kitchen_id: opts.kitchenId ?? null,
+				mess_hall_id: opts.messHallId ?? null,
+			})) as string
+		},
+
+		async seedPolicyAttachment(opts) {
+			return (await insertReturningId("user_policy_attachment", {
+				user_id: opts.userId,
+				policy_id: opts.policyId,
+				expires_at: opts.expiresAt ?? null,
 			})) as string
 		},
 
