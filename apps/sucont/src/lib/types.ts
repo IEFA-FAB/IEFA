@@ -15,6 +15,24 @@ export const TOOL_STAGES: Array<{ id: ToolStage; label: string; description: str
 	{ id: "consultar", label: "Consultar", description: "Norma, manual e os sistemas de origem do dado" },
 ]
 
+/**
+ * Divisão da SUCONT dona da ferramenta.
+ *
+ * - `sucont-1` — o Demonstrativo Gerencial de Custos (DGC).
+ * - `sucont-3` — Divisão de Acompanhamento Contábil e de Suporte ao Usuário. É a
+ *                divisão das trilhas do RAC; as mensagens que essas ferramentas
+ *                geram fecham com "SUCONT-3".
+ * - `sucont-4` — Divisão de Acompanhamento Patrimonial. Conciliação SIAFI x
+ *                SILOMS e redação de documento; fecham com "DIREF/SUCONT/SUCONT-4".
+ *
+ * A subdivisão 3.1 (Acompanhamento Contábil) / 3.2 (Suporte ao Usuário) NÃO entra
+ * aqui: das ferramentas inventariadas nas duas seções, as seis portadas são todas
+ * da 3.1, e nenhum texto gerado assina a seção — para a UG que recebe a mensagem
+ * existe SUCONT-3. Essa distinção continua onde já vive, dentro do
+ * `/centro-monitoramento`.
+ */
+export type SucontDivision = "sucont-1" | "sucont-3" | "sucont-4"
+
 export interface Tool {
 	id: string
 	title: string
@@ -31,6 +49,18 @@ export interface Tool {
 	 * ele vira dado, e passa a filtrar.
 	 */
 	racQuestions?: number[]
+	/**
+	 * Divisões donas da ferramenta. Mais de uma quando ela serve às duas — o
+	 * Monitoramento Patrimonial é o caso: assina SUCONT-3 e trata assunto da
+	 * SUCONT-4.
+	 *
+	 * AUSENTE significa "sem dono de divisão", e a ferramenta aparece em TODOS os
+	 * módulos. Cobre duas situações que se comportam igual: o sistema federal que
+	 * não é de divisão nenhuma (SIAFI Web, Tesouro Gerencial, Sigadaer, manuais do
+	 * RADA-e) e a ferramenta cuja divisão não se conseguiu determinar. Preencher
+	 * por palpite seria pior: some do catálogo de quem é dono de verdade.
+	 */
+	divisions?: SucontDivision[]
 	/** Rota interna do TanStack Router. Quando presente, o card navega internamente em vez de abrir URL externa. */
 	internalPath?: string
 }

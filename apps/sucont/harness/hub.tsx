@@ -60,6 +60,10 @@ const rootRoute = createRootRoute({
 		q: z.coerce.string().optional().catch(undefined),
 		etapa: z.string().optional().catch(undefined),
 		rac: z.coerce.number().int().optional().catch(undefined),
+		// A divisão da SUCONT: é ela que o seletor de módulo escreve na URL, e sem
+		// declará-la aqui o harness perderia o parâmetro na navegação e a barra
+		// lateral voltaria sempre para a divisão padrão.
+		divisao: z.enum(["sucont-1", "sucont-3", "sucont-4"]).optional().catch(undefined),
 	}),
 })
 const screen = (path: string) => createRoute({ getParentRoute: () => rootRoute, path, component: Catalogo })

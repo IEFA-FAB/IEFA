@@ -6,6 +6,7 @@ import { Button } from "#/components/ui/button"
 import { Combobox, type ComboboxOption } from "#/components/ui/combobox"
 import { sucontTools } from "#/lib/data"
 import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
+import { toolsForDivision } from "#/lib/modules"
 import { formatRac } from "#/lib/rac"
 import { filterTools } from "#/lib/tool-filter"
 import { TOOL_STAGES, type ToolStage } from "#/lib/types"
@@ -45,8 +46,11 @@ const RAC_OPTIONS: ComboboxOption[] = [
 ]
 
 function Catalogo() {
-	const { query, stage, rac, isFiltered, setStage, setRac, clear } = useHubFilters()
-	const filtered = filterTools(sucontTools, { query, stage, rac })
+	const { query, stage, rac, division, isFiltered, setStage, setRac, clear } = useHubFilters()
+	// A divisão recorta ANTES dos filtros: o catálogo é o da divisão em que se está,
+	// e a contagem "X de Y" precisa dizer X de quantas a divisão tem — não de 27.
+	const divisionTools = toolsForDivision(sucontTools, division)
+	const filtered = filterTools(divisionTools, { query, stage, rac })
 
 	// `?rac=` aceita 1–99, e nem toda questão tem ferramenta. Sem esta opção
 	// extra o seletor exibia "Todas as questões" enquanto a lista vinha vazia —
@@ -110,7 +114,7 @@ function Catalogo() {
 							</Button>
 						)}
 						<span className="text-hint font-mono text-muted-foreground">
-							{filtered.length} de {sucontTools.length}
+							{filtered.length} de {divisionTools.length}
 						</span>
 					</div>
 				</div>

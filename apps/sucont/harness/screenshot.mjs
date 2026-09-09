@@ -54,10 +54,24 @@ await page.screenshot({ path: `${OUT}/hub-dark.png` })
 // conteúdo e que a tela do outro módulo usa a mesma casca.
 await page.evaluate(() => document.documentElement.classList.remove("dark"))
 await page.waitForTimeout(300)
-const switcher = page.getByRole("button", { name: /Módulo atual/ })
-await switcher.click()
+const switcher = () => page.getByRole("button", { name: /Módulo atual/ })
+await switcher().click()
 await page.waitForTimeout(500)
 await page.screenshot({ path: `${OUT}/hub-module-menu.png` })
+
+// Cada divisão tem catálogo e barra lateral próprios: a captura prova que trocar
+// de módulo troca as ferramentas, e não só o rótulo do cabeçalho.
+for (const [nome, arquivo] of [
+	["SUCONT-3", "catalogo-sucont-3"],
+	["SUCONT-1", "catalogo-sucont-1"],
+]) {
+	await page.getByRole("menuitem", { name: new RegExp(`^${nome}`) }).click()
+	await page.waitForTimeout(700)
+	await page.screenshot({ path: `${OUT}/${arquivo}.png` })
+	await switcher().click()
+	await page.waitForTimeout(400)
+}
+
 await page.getByRole("menuitem", { name: /Administração/ }).click()
 await page.waitForTimeout(800)
 await page.screenshot({ path: `${OUT}/admin-permissoes-light.png` })

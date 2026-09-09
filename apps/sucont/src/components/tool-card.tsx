@@ -104,10 +104,13 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 				transition: { delay: Math.min(index, 8) * 0.04 },
 			} as const)
 
+	// `search={true}` mantém a busca inteira ao entrar na ferramenta — o que importa
+	// é o `?divisao=`. Sem isso, abrir um card do catálogo da SUCONT-3 devolveria a
+	// barra lateral da SUCONT-4: o `<Link>` do TanStack descarta a busca por padrão.
 	return (
 		<div className="relative group">
 			{tool.internalPath ? (
-				<MotionLink to={tool.internalPath} {...motionProps} className={cardClassName}>
+				<MotionLink to={tool.internalPath} search={true} {...motionProps} className={cardClassName}>
 					<CardInner tool={tool} />
 				</MotionLink>
 			) : (

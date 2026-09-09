@@ -1,5 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import type { ToolStage } from "#/lib/types"
+import { DEFAULT_DIVISION, isDivision } from "#/lib/modules"
+import type { SucontDivision, ToolStage } from "#/lib/types"
 
 /** Etapa sentinela: nenhuma filtragem, mostra o catálogo inteiro. */
 export const ALL_STAGES = "todas" as const
@@ -11,6 +12,8 @@ export interface HubFilters {
 	stage: StageFilter
 	/** Questão do RAC (5–43), ou `null` para nenhuma. */
 	rac: number | null
+	/** Divisão da SUCONT em que se está. Nunca nula: sem `?divisao=` vale o padrão. */
+	division: SucontDivision
 	isFiltered: boolean
 	setQuery: (value: string) => void
 	setStage: (value: StageFilter) => void
@@ -40,11 +43,13 @@ export function useHubFilters(): HubFilters {
 	// `z.coerce` na raiz já entrega número; `NaN` de um valor inválido vira null.
 	const racRaw = search.rac
 	const rac = typeof racRaw === "number" && Number.isFinite(racRaw) ? racRaw : null
+	const division = isDivision(search.divisao) ? search.divisao : DEFAULT_DIVISION
 
 	return {
 		query,
 		stage,
 		rac,
+		division,
 		isFiltered: query.trim() !== "" || stage !== ALL_STAGES || rac !== null,
 		setQuery: (value) => {
 			navigate({ to: ".", search: (prev) => ({ ...prev, q: value.trim() === "" ? undefined : value }), replace: true })
@@ -56,6 +61,9 @@ export function useHubFilters(): HubFilters {
 		setRac: (value) => {
 			navigate({ to: "/", search: (prev) => ({ ...prev, rac: value ?? undefined }) })
 		},
+		// A divisão sobrevive ao "limpar": ela não é filtro, é o módulo em que se está.
+		// Zerá-la aqui jogaria o usuário da SUCONT-3 para o catálogo da SUCONT-4 sem
+		// que ele tivesse trocado de módulo.
 		clear: () => {
 			navigate({ to: ".", search: (prev) => ({ ...prev, q: undefined, etapa: undefined, rac: undefined }), replace: true })
 		},

@@ -23,10 +23,11 @@ import { cn } from "#/lib/utils"
  */
 export function ModuleSwitcher() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
 	const { permissions } = useSucontAccess()
 	const { isMobile } = useSidebar()
 
-	const active = findModuleByPath(pathname)
+	const active = findModuleByPath(pathname, divisao)
 	const modules = accessibleModules(permissions)
 
 	if (modules.length <= 1) {
@@ -37,7 +38,7 @@ export function ModuleSwitcher() {
 						size="lg"
 						tooltip={active.label}
 						render={
-							<Link to={active.home as string}>
+							<Link to={active.home as string} search={moduleSearch(active)}>
 								<ModuleTile module={active} />
 								<ModuleIdentity module={active} />
 							</Link>
@@ -77,7 +78,7 @@ export function ModuleSwitcher() {
 										key={module.id}
 										className="cursor-pointer gap-2 p-2"
 										render={
-											<Link to={module.home as string} aria-current={isActive ? "page" : undefined}>
+											<Link to={module.home as string} search={moduleSearch(module)} aria-current={isActive ? "page" : undefined}>
 												<ModuleTile module={module} size="sm" />
 												<span className="flex min-w-0 flex-1 flex-col text-left">
 													<span className="truncate text-body text-foreground">{module.label}</span>
@@ -95,6 +96,20 @@ export function ModuleSwitcher() {
 			</SidebarMenuItem>
 		</SidebarMenu>
 	)
+}
+
+/**
+ * Busca da URL ao entrar num módulo.
+ *
+ * Leva só a divisão, e deliberadamente NÃO carrega `?q=`, `?etapa=` nem `?rac=`:
+ * trocar de módulo é começar de novo em outra divisão, e herdar um filtro de
+ * questão da divisão anterior abriria o catálogo novo vazio, parecendo que a
+ * divisão não tem ferramenta nenhuma.
+ *
+ * O `admin` não é divisão e entra sem parâmetro.
+ */
+function moduleSearch(module: SucontModule): Record<string, string> {
+	return module.division ? { divisao: module.division } : {}
 }
 
 function ModuleTile({ module, size = "md" }: { module: SucontModule; size?: "sm" | "md" }) {

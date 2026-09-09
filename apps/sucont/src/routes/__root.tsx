@@ -60,6 +60,14 @@ const hubSearchSchema = z.object({
 	etapa: z.enum(["analisar", "comunicar", "acompanhar", "consultar"]).optional().catch(undefined),
 	/** Questão do RAC (5–43). O escopo do trabalho, no mesmo papel que `kitchen`/`unit` têm no sisub. */
 	rac: z.coerce.number().int().min(1).max(99).optional().catch(undefined),
+	/**
+	 * Divisão da SUCONT — o módulo em que se está. Fica na URL porque as três
+	 * divisões COMPARTILHAM as rotas: `/auditor` é da 4 e `/conta-generica` é da 3,
+	 * as duas na raiz. Sem isso o módulo seria estado de componente e o F5 devolveria
+	 * o usuário para outra divisão. Valor inválido de link velho degrada para o
+	 * padrão, em vez de derrubar a rota.
+	 */
+	divisao: z.enum(["sucont-1", "sucont-3", "sucont-4"]).optional().catch(undefined),
 })
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
