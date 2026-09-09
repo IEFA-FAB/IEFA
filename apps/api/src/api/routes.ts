@@ -1,5 +1,19 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { env } from "../env.ts"
+import { secureCompare } from "../lib/secure-compare.ts"
 import { createApiHandler } from "./factory.js"
+
+/**
+ * Rotas que devolvem DADO PESSOAL e por isso deixaram de ser anônimas.
+ *
+ * Elas nasceram públicas e assim ficaram: `/user-military-data` servia 68 mil registros
+ * nominais de militares (nome, nome de guerra, posto, OM), `/user-data` os e-mails
+ * institucionais com o número de ordem, e as duas de refeição o rastro de presença por
+ * pessoa — tudo num GET, sem sessão, com `Cache-Control: public` e anunciado no llms.txt.
+ *
+ * `/units` e `/mess-halls` seguem públicas: são estrutura organizacional, não pessoa.
+ */
+export const RESTRICTED_PATHS = ["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"] as const
 
 // Schemas de resposta base
 const ErrorSchema = z.object({
@@ -77,12 +91,16 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 	parameters?: any[]
 	responseSchema: TSchema
 }) {
+	// Protegida ou não é decidido pela lista, não por um flag repetido em cada rota: com duas
+	// fontes, a rota nova entra com `security` no OpenAPI e sem guard nenhum no roteador.
+	const restricted = (RESTRICTED_PATHS as readonly string[]).includes(config.path)
 	return createRoute({
 		method: "get" as const,
 		path: config.path,
 		tags: config.tags,
 		summary: config.summary,
 		description: config.description,
+		...(restricted ? { security: [{ AdminSecret: [] }] } : {}),
 		parameters: [
 			...(config.parameters ?? []),
 			{
@@ -112,6 +130,18 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 					},
 				},
 			},
+			...(restricted
+				? {
+						401: {
+							description: "Unauthorized — x-admin-secret ausente ou inválido",
+							content: {
+								"application/json": {
+									schema: ErrorSchema,
+								},
+							},
+						},
+					}
+				: {}),
 			500: {
 				description: "Erro interno do servidor",
 				content: {
@@ -136,7 +166,7 @@ const [, opinionHandler] = createApiHandler({
 		userId: "userId",
 		question: "question",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const opinionRoute = defineDocRoute({
 	path: "/opinion",
@@ -184,7 +214,7 @@ const [, forecastHandler] = createApiHandler({
 		mess_hall_id: "mess_hall_id",
 		will_eat: "will_eat",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const forecastRoute = defineDocRoute({
 	path: "/rancho_previsoes",
@@ -240,7 +270,7 @@ const [, presenceHandler] = createApiHandler({
 		meal: "meal",
 		mess_hall_id: "mess_hall_id",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const presenceRoute = defineDocRoute({
 	path: "/wherewhowhen",
@@ -293,7 +323,7 @@ const [, militaryDataHandler] = createApiHandler({
 		sgPosto: "sgPosto",
 		sgOrg: "sgOrg",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const militaryDataRoute = defineDocRoute({
 	path: "/user-military-data",
@@ -369,7 +399,7 @@ const [, userDataHandler] = createApiHandler({
 		email: "email",
 		nrOrdem: "nrOrdem",
 	},
-	cacheControl: "public, max-age=300",
+	cacheControl: "no-store",
 })
 const userDataRoute = defineDocRoute({
 	path: "/user-data",
@@ -530,7 +560,25 @@ const messHallsRoute = defineDocRoute({
 	responseSchema: MessHallSchema,
 })
 
-export const api = new OpenAPIHono()
+const apiBase = new OpenAPIHono()
+
+// Registrado ANTES dos handlers: middleware que entra depois da rota não é executado por ela.
+for (const path of RESTRICTED_PATHS) {
+	apiBase.use(path, async (c, next) => {
+		if (!secureCompare(c.req.header("x-admin-secret"), env.ADMIN_SECRET)) {
+			return c.json({ error: "Unauthorized" }, 401)
+		}
+		await next()
+		// O header é carimbado AQUI, e não pela config do `createApiHandler`: aquele middleware
+		// é devolvido no par `[setDefaultHeaders, handler]` e todo call site faz `const [, h] =`,
+		// jogando fora justamente quem escreveria o Cache-Control. Cache compartilhado não
+		// guarda dado pessoal autenticado.
+		c.header("Cache-Control", "no-store")
+	})
+}
+
+// A cadeia continua sendo o valor exportado: é dela que sai o tipo consumido pelos clients RPC.
+export const api = apiBase
 	.openapi(opinionRoute, opinionHandler as any)
 	.openapi(forecastRoute, forecastHandler as any)
 	.openapi(presenceRoute, presenceHandler as any)

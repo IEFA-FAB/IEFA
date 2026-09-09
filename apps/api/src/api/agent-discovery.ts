@@ -24,8 +24,8 @@ const CATALOG: SiteCatalog = {
 	url: BASE_URL,
 	description: "API pública de consulta a dados do sistema de subsistência da Força Aérea Brasileira.",
 	longDescription:
-		"Mantida pelo IEFA. Os endpoints de leitura sob /api são abertos e não exigem autenticação. " +
-		"Os endpoints sob /api/admin exigem o header x-admin-secret e não são públicos.",
+		"Mantida pelo IEFA. A leitura pública sob /api cobre catálogo e estrutura organizacional. " +
+		"Os endpoints que devolvem dado pessoal e os de /api/admin exigem o header x-admin-secret e não são públicos.",
 	pages: [],
 	discoveryDocuments: [
 		{ path: "/llms.txt", rel: "describedby", type: "text/plain", title: "API guide for agents" },
@@ -38,9 +38,12 @@ const NOTES = [
 	"API REST de leitura, documentada em OpenAPI 3.0 em `/doc`.",
 	"Referência navegável (Scalar) na raiz `/`.",
 	"",
-	"Os endpoints sob `/api` são **abertos**: não exigem autenticação e aceitam CORS de",
-	"qualquer origem. Os endpoints sob `/api/admin` exigem o header `x-admin-secret` e",
-	"não são distribuídos — não tente adivinhá-lo.",
+	"Os endpoints listados abaixo são **abertos**: não exigem autenticação e aceitam CORS",
+	"de qualquer origem. Eles cobrem o catálogo de itens e a estrutura organizacional.",
+	"",
+	"O que devolve DADO PESSOAL não está listado e não é público: exige o header",
+	"`x-admin-secret`, igual aos endpoints sob `/api/admin`. O segredo não é distribuído —",
+	"não tente adivinhá-lo.",
 	"",
 	"Prefira consumir esta API a raspar as interfaces do SISUB: os dados são os mesmos,",
 	"em formato estruturado e estável.",
@@ -52,6 +55,19 @@ interface OpenApiOperation {
 	summary?: string
 	description?: string
 	tags?: string[]
+	/** Requisito de segurança do OpenAPI; presente = a rota exige credencial. */
+	security?: unknown[]
+}
+
+/**
+ * Uma rota é pública quando o próprio documento OpenAPI não lhe atribui `security`.
+ *
+ * Derivar disso, em vez de manter uma lista aqui, é o que impede o llms.txt de voltar a
+ * anunciar como aberta uma rota que passou a exigir credencial — foi assim que as cinco
+ * rotas de dado pessoal ficaram listadas por nome enquanto eram anônimas.
+ */
+function isPublicOperation(operation: OpenApiOperation): boolean {
+	return !operation.security || operation.security.length === 0
 }
 
 /** Forma mínima que interessa aqui — o tipo do OpenAPI completo não agrega nada. */
@@ -72,6 +88,7 @@ function endpointSections(paths: OpenApiPaths): Array<{ heading: string; links: 
 		for (const method of HTTP_METHODS) {
 			const operation = asOperation(operations[method])
 			if (!operation) continue
+			if (!isPublicOperation(operation)) continue
 
 			const tag = operation.tags?.[0] ?? "Endpoints"
 			const links = byTag.get(tag) ?? []
@@ -99,6 +116,20 @@ function renderLlms(paths: OpenApiPaths): string {
 	})
 }
 
+/** Caminhos com requisito de segurança — a mesma fonte que o llms.txt usa para omiti-los. */
+function restrictedPaths(paths: OpenApiPaths): string[] {
+	const restricted: string[] = []
+	for (const [path, operations] of Object.entries(paths)) {
+		if (path.startsWith("/api/admin")) continue
+		const hasRestricted = HTTP_METHODS.some((method) => {
+			const operation = asOperation(operations[method])
+			return operation != null && !isPublicOperation(operation)
+		})
+		if (hasRestricted) restricted.push(path)
+	}
+	return restricted.sort()
+}
+
 const PUBLIC_SIGNAL = formatContentSignal({ search: "yes", aiInput: "yes", aiTrain: "no" })
 const TRAINING_SIGNAL = formatContentSignal({ search: "no", aiInput: "no", aiTrain: "no" })
 
@@ -106,9 +137,10 @@ function group(userAgents: readonly string[], signal: string, rules: string[]): 
 	return [...userAgents.map((agent) => `User-agent: ${agent}`), signal, ...rules].join("\n")
 }
 
-function renderRobots(): string {
-	// `/api/admin/*` exige segredo; rastrear só geraria 401 em série.
-	const rules = ["Allow: /", "Disallow: /api/admin/"]
+function renderRobots(restrictedPaths: string[]): string {
+	// Rota que exige segredo não é superfície de rastreio: geraria 401 em série, e listá-la
+	// como permitida é o convite que colocou dado pessoal na mira de crawler de IA.
+	const rules = ["Allow: /", "Disallow: /api/admin/", ...restrictedPaths.map((path) => `Disallow: ${path}`)]
 
 	return [
 		"# https://www.robotstxt.org/robotstxt.html",
@@ -144,7 +176,10 @@ const API_CATALOG = renderApiCatalog([
  * montado, em vez de manter uma segunda lista de endpoints.
  */
 export function registerAgentDiscovery(app: OpenAPIHono, openApiConfig: Parameters<OpenAPIHono["getOpenAPIDocument"]>[0]): void {
-	app.get("/robots.txt", (c) => c.text(renderRobots(), 200, { "cache-control": "public, max-age=86400" }))
+	app.get("/robots.txt", (c) => {
+		const document = app.getOpenAPIDocument(openApiConfig) as unknown as { paths?: OpenApiPaths }
+		return c.text(renderRobots(restrictedPaths(document.paths ?? {})), 200, { "cache-control": "public, max-age=86400" })
+	})
 
 	app.get("/llms.txt", (c) => {
 		const document = app.getOpenAPIDocument(openApiConfig) as unknown as { paths?: OpenApiPaths }

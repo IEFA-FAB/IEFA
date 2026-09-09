@@ -176,11 +176,9 @@ export const queryKeys = {
 	},
 
 	dashboard: {
-		forecasts: (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) => ["dashboard", "forecasts", params] as const,
-		presences: (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) => ["dashboard", "presences", params] as const,
-		messHalls: (unitId?: number) => ["mess-halls", unitId] as const,
-		units: () => ["units"] as const,
-		userData: (ids?: string[]) => ["user-data", ids] as const,
-		userMilitaryData: (nrOrdemList?: string[]) => ["user-military-data", nrOrdemList] as const,
+		// Uma chave só: o painel virou UMA leitura de servidor. As chaves antigas espelhavam as
+		// rotas anônimas da API pública (forecasts, presences, user-data, user-military-data),
+		// que deixaram de ser chamadas do navegador.
+		unit: (params: { unitId: number; messHallId?: number; startDate: string; endDate: string }) => ["dashboard", "unit", params] as const,
 	},
 }

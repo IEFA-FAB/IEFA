@@ -39,8 +39,10 @@ const canRunIntegration = await canReachSupabase()
 // Dynamic import prevents module-level ZodError when env vars are absent
 const { api } = canRunIntegration ? await import("./routes") : { api: null as any }
 
+// As rotas com dado pessoal deixaram de ser anônimas; a suíte de integração passa a mandar
+// o segredo, senão ela testaria o 401 achando que testa o contrato de dados.
 async function get(path: string) {
-	const res = await api.request(path)
+	const res = await api.request(path, { headers: { "x-admin-secret": process.env.ADMIN_SECRET as string } })
 	const body = await res.json()
 	return { res, body: body as unknown[] }
 }

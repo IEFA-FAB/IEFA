@@ -1,8 +1,14 @@
-import type { AggregatedPresenceRecord, DashboardPresenceRecord, ForecastRecord, PersonDetail } from "@iefa/sisub-domain/types"
-import { useQuery } from "@tanstack/react-query"
+import type {
+	AggregatedPresenceRecord,
+	DashboardPresenceRecord,
+	ForecastRecord,
+	MessHallAPI,
+	PersonDetail,
+	UserDataAPI,
+	UserMilitaryDataAPI,
+} from "@iefa/sisub-domain/types"
 import { AlertTriangle, Check, CheckCircle, ChevronDown, ChevronRight, Copy, TrendingDown, TrendingUp, Users, X } from "lucide-react"
 import { useState } from "react"
-import { PresenceTableSkeleton } from "@/components/features/local/PresenceTableSkeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,11 +17,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
-import { messHallsQueryOptions, userDataQueryOptions, userMilitaryDataQueryOptions } from "@/services/DashboardService"
 
 interface PresenceTableProps {
 	forecasts: ForecastRecord[]
 	presences: DashboardPresenceRecord[]
+	/** Diretório das pessoas que aparecem nas linhas acima — vem junto na leitura do painel. */
+	users: UserDataAPI[]
+	militaries: UserMilitaryDataAPI[]
+	messHalls: MessHallAPI[]
 }
 
 const MEAL_LABELS = {
@@ -85,34 +94,14 @@ function PersonCard({ person, variant }: { person: PersonDetail; variant: "missi
 	)
 }
 
-export default function PresenceTable({ forecasts, presences }: PresenceTableProps) {
+export default function PresenceTable({ forecasts, presences, users, militaries, messHalls }: PresenceTableProps) {
 	const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
-	// Get unique user IDs from forecasts and presences
-	const forecastUserIds = Array.from(new Set(forecasts.map((f) => f.user_id)))
-	const presenceUserIds = Array.from(new Set(presences.map((p) => p.user_id)))
-	const allUserIds = Array.from(new Set([...forecastUserIds, ...presenceUserIds]))
-
-	// ✅ PARALELIZAÇÃO: userData e messHalls executam simultaneamente
-	const { data: userData, isLoading: userDataLoading } = useQuery(userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined))
-	const { data: messHallsData, isLoading: messHallsLoading } = useQuery(messHallsQueryOptions(undefined))
-
-	// ❌ Esta query REALMENTE depende de userData - mantém sequencial
-	const nrOrdemList = userData?.filter((u) => u.nrOrdem !== null).map((u) => u.nrOrdem as string) ?? []
-
-	const { data: militaryData, isLoading: militaryLoading } = useQuery(userMilitaryDataQueryOptions(nrOrdemList.length > 0 ? nrOrdemList : undefined))
-
-	// Consolidate loading states
-	const isLoading = userDataLoading || messHallsLoading
-	const isLoadingMilitary = militaryLoading
-
-	// Show skeleton during initial load
-	if (isLoading || isLoadingMilitary) {
-		return <PresenceTableSkeleton />
-	}
-
-	// Aggregate data when all queries are complete
-	const aggregatedData = aggregatePresenceData(forecasts, presences, userData ?? [], militaryData ?? [], messHallsData ?? [])
+	// Sem query própria: as três leituras que ficavam aqui (user-data, user-military-data e
+	// mess-halls) eram chamadas do navegador contra rotas anônimas da API pública, e a de
+	// user-data aceitava uma lista de ids arbitrária — enumerava qualquer pessoa do sistema.
+	// O painel agora traz tudo numa leitura de servidor, e o skeleton é do componente pai.
+	const aggregatedData = aggregatePresenceData(forecasts, presences, users, militaries, messHalls)
 
 	const toggleOpen = (id: string) => {
 		setOpenIds((prev) => {

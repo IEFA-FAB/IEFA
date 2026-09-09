@@ -72,14 +72,7 @@ export {
 	temperatureDivergenceReason,
 	temperatureVerdict,
 } from "./conditioning.ts"
-export {
-	fetchForecasts,
-	fetchMessHalls,
-	fetchPresences,
-	fetchUnits,
-	fetchUserData,
-	fetchUserMilitaryData,
-} from "./dashboard.ts"
+export { getUnitDashboard, type UnitDashboardData } from "./dashboard.ts"
 export { scaleIngredientQuantity } from "./demand-math.ts"
 export type {
 	EquipmentModelRoleWire,
