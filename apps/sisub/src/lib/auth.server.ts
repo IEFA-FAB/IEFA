@@ -14,6 +14,7 @@ import { createRequestAuth } from "@iefa/pbac/start"
 import { requirePermission } from "@iefa/sisub-domain"
 import type { AppModule, PermissionScope, UserContext } from "@iefa/sisub-domain/types"
 import { handleDomainError } from "@/lib/domain-errors"
+import type { SessionIdentity } from "@/lib/session-identity"
 import { getAccessControlClient, getSupabaseAuthClient } from "@/lib/supabase.server"
 
 const auth = createRequestAuth({
@@ -32,6 +33,20 @@ export const { getRequestUser, requireUserId } = auth
  * @throws {Error} "UNAUTHORIZED" se o JWT estiver ausente ou inválido.
  */
 export const requireUser = auth.requireUser
+
+/**
+ * Identidade da sessão no formato que `withSessionIdentity` consome — o par
+ * (`userId`, `email`) que sobrescreve o que o cliente mandou no payload.
+ *
+ * `requireUser()` é cacheado por request, então chamar isto junto de `requireAuth()`
+ * não custa uma segunda ida ao GoTrue.
+ *
+ * @throws {Error} "UNAUTHORIZED" se o JWT estiver ausente ou inválido.
+ */
+export async function requireSessionIdentity(): Promise<SessionIdentity> {
+	const user = await requireUser()
+	return { userId: user.id, email: user.email ?? "" }
+}
 
 /**
  * Valida o JWT do request (cookies SSR) e resolve as permissões PBAC.
