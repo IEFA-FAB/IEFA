@@ -1174,6 +1174,7 @@ function SubitensGenericos() {
 																	onChange={draft.setText}
 																	onReset={draft.reset}
 																	isEdited={draft.isEdited}
+																	isStale={draft.isStale}
 																	textClassName="max-h-[500px] bg-card p-0 text-foreground/70 leading-relaxed border-0"
 																	rows={18}
 																/>
@@ -1359,6 +1360,7 @@ function SubitensGenericos() {
 																	onChange={draft.setText}
 																	onReset={draft.reset}
 																	isEdited={draft.isEdited}
+																	isStale={draft.isStale}
 																	textClassName="max-h-[500px] bg-card p-0 text-foreground/70 leading-relaxed border-0"
 																	rows={18}
 																/>

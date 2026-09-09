@@ -484,7 +484,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 		return text
 	}
 
-	const singleMessage = drafts.of(CONSOLIDATED_DRAFT_KEY, generateSingleMessage())
+	// A mensagem única concatena todas as UGs do resultado; só é montada no modo em
+	// que ela aparece, senão sai refeita a cada tecla digitada nas mensagens por UG.
+	const singleMessage = messageMode === "unica" ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateSingleMessage()) : null
 
 	const copyToClipboard = (text: string, key: string) => {
 		navigator.clipboard.writeText(text)
@@ -1358,7 +1360,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								)}
 
 								{/* Única message */}
-								{messageMode === "unica" ? (
+								{messageMode === "unica" && singleMessage ? (
 									<div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
 										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 											<div className="p-6 border-b border-border bg-card">
@@ -1396,6 +1398,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 													onChange={singleMessage.setText}
 													onReset={singleMessage.reset}
 													isEdited={singleMessage.isEdited}
+													isStale={singleMessage.isStale}
 													className="h-full"
 													textClassName="rounded-xl bg-card p-6 pr-16 font-mono"
 												/>
@@ -1541,6 +1544,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																onChange={message.setText}
 																onReset={message.reset}
 																isEdited={message.isEdited}
+																isStale={message.isStale}
 																className="h-full"
 																textClassName="rounded-xl bg-card p-6 font-mono"
 															/>

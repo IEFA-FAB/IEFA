@@ -35,7 +35,7 @@
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
-      "notes": "Edição manual da mensagem e exclusão da UG 170999 trazidas em 2026-09-09. O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream só a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
     },
     {
       "repo": "sucont32sau-debug/Analistasaldoalongado",
@@ -48,20 +48,21 @@
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
-      "notes": "Edição manual da mensagem e exclusão da UG 170999 trazidas em 2026-09-09. O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+      "notes": "Trazidos em 2026-09-09: edição manual da mensagem e exclusão da UG 170999 (isUgAcompanhada no filtro do parser). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
     },
     {
       "repo": "sucont32sau-debug/Analistasaldoimproprio",
       "tool": "Analista de saldo impróprio",
       "route": null,
       "targets": [
+        "apps/sucont/src/routes/monitoramento.tsx",
         "apps/sucont/src/lib/analista/",
         "apps/sucont/src/components/analista/"
       ],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
-      "notes": "Sem rota própria no app — confirmar se está dentro de outra ferramenta ou se nunca foi portado. Edição manual da mensagem e exclusão da UG 170999 trazidas em 2026-09-09. O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+      "notes": "A ferramenta é a rota /monitoramento (o app não tem rota com o nome do repo). Trazidos em 2026-09-09: edição manual da mensagem e exclusão da UG 170999 (isUgAcompanhada nos dois ramos do parser). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
     },
     {
       "repo": "sucont32sau-debug/analistacontagenerica",
@@ -74,7 +75,7 @@
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
-      "notes": "Edição manual da mensagem e exclusão da UG 170999 trazidas em 2026-09-09. O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream só a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
     },
     {
       "repo": "sucont32sau-debug/cruzamentocontas",
@@ -88,7 +89,7 @@
       "checkpoint": "3f1245cf",
       "checkpointDate": "2026-07-06",
       "lastReviewed": "2026-09-09",
-      "notes": "Edição manual da mensagem e exclusão da UG 170999 trazidas em 2026-09-09 (hook use-editable-message + isUgAcompanhada)."
+      "notes": "Trazidos em 2026-09-09: edição manual da mensagem e exclusão da UG 170999. A exclusão é do CONTA CORRENTE inteiro que tenha perna na STN, como no upstream (51dc0459) — descartar só a linha da STN desmancharia o par e cobraria ausência da UG do COMAER."
     },
     {
       "repo": "sucont32sau-debug/centromonitoramento",

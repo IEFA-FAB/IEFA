@@ -1161,6 +1161,7 @@ DIREF/SUCONT/SUCONT-3
 														onChange={draft.setText}
 														onReset={draft.reset}
 														isEdited={draft.isEdited}
+														isStale={draft.isStale}
 														className="flex-1"
 														textClassName="rounded-xl p-5 font-mono"
 														rows={18}

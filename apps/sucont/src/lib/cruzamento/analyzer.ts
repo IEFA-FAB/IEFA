@@ -137,7 +137,7 @@ export function parseFile(file: File): Promise<RawRecord[]> {
 							Saldo: saldo,
 						}
 					})
-					.filter((r) => r.UG && r.ContaContabil && r.ContaCorrente && isUgAcompanhada(r.UG))
+					.filter((r) => r.UG && r.ContaContabil && r.ContaCorrente)
 
 				resolve(records)
 			} catch (err) {
@@ -162,7 +162,14 @@ export function analyzeData(records: RawRecord[]): ReportData {
 		}
 	>()
 
+	// Conta corrente com alguma linha fora do acompanhamento (a STN) sai INTEIRO da
+	// análise. Descartar só a linha dela desmancharia o par: o lado que sobra vira
+	// AUSÊNCIA ou DIVERGÊNCIA cobrada da UG do COMAER, que não tem o que corrigir.
+	const contasCorrentesExcluidas = new Set(records.filter((r) => !isUgAcompanhada(r.UG)).map((r) => r.ContaCorrente))
+
 	for (const record of records) {
+		if (contasCorrentesExcluidas.has(record.ContaCorrente)) continue
+
 		if (record.ContaContabil !== CONTA_EXECUCAO_RESPONSABILIDADE && record.ContaContabil !== CONTA_RESPONSABILIDADE) {
 			continue
 		}

@@ -241,6 +241,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 							onChange={message.setText}
 							onReset={message.reset}
 							isEdited={message.isEdited}
+							isStale={message.isStale}
 							className="flex-1 min-h-full"
 						/>
 					</div>

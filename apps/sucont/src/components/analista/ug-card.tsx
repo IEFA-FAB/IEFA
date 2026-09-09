@@ -260,6 +260,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 							onChange={message.setText}
 							onReset={message.reset}
 							isEdited={message.isEdited}
+							isStale={message.isStale}
 							className="flex-1 min-h-[350px] max-h-[600px]"
 						/>
 					</div>

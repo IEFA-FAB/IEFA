@@ -214,7 +214,9 @@ Atenciosamente,
 SUCONT-3 • DIREF • COMAER`
 	}
 
-	const consolidatedMessage = drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage())
+	// Só monta a consolidada quando a seção está aberta: ela varre o ranking inteiro
+	// e seria remontada a cada tecla digitada em qualquer uma das mensagens.
+	const consolidatedMessage = showConsolidated ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage()) : null
 
 	const handleCopyMessage = (e: React.MouseEvent, ug: UGAnalysis) => {
 		e.stopPropagation()
@@ -628,7 +630,7 @@ SUCONT-3 • DIREF • COMAER`
 							{showConsolidated ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
 						</button>
 
-						{showConsolidated && (
+						{showConsolidated && consolidatedMessage && (
 							<div className="p-6 bg-muted/50 space-y-6">
 								<div className="flex items-center justify-between mb-3">
 									<h3 className="text-label text-foreground flex items-center gap-2">
@@ -740,6 +742,7 @@ SUCONT-3 • DIREF • COMAER`
 									onChange={consolidatedMessage.setText}
 									onReset={consolidatedMessage.reset}
 									isEdited={consolidatedMessage.isEdited}
+									isStale={consolidatedMessage.isStale}
 									className="max-h-96"
 									rows={16}
 								/>
@@ -952,6 +955,7 @@ SUCONT-3 • DIREF • COMAER`
 														onChange={ugMessage.setText}
 														onReset={ugMessage.reset}
 														isEdited={ugMessage.isEdited}
+														isStale={ugMessage.isStale}
 														rows={16}
 													/>
 												</div>

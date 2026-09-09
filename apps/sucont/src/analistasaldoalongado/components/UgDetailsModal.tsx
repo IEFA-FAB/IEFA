@@ -428,6 +428,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								onChange={message.setText}
 								onReset={message.reset}
 								isEdited={message.isEdited}
+								isStale={message.isStale}
 								className="flex-1 h-full"
 							/>
 						</div>

@@ -27,16 +27,32 @@ interface Draft {
 	text: string
 }
 
-/** Texto que vale agora: o rascunho, se ele ainda for sobre esta geração. */
+/** Texto que vale agora: o do usuário quando existe rascunho, senão o gerado. */
 export function resolveDraft(draft: Draft | undefined, generated: string): string {
-	return draft !== undefined && draft.base === generated ? draft.text : generated
+	return draft !== undefined ? draft.text : generated
+}
+
+/**
+ * O rascunho ficou para trás da geração?
+ *
+ * Trocar o tipo da mensagem, o prazo, o número ou a data reescreve o texto. O
+ * rascunho NÃO é descartado nesse caso — quem digitou três parágrafos e depois
+ * preencheu o número da mensagem perderia os três parágrafos sem aviso. Em vez
+ * disso a tela avisa que o texto exibido é o da mão do usuário e oferece voltar
+ * ao gerado, porque o inverso também é armadilha: copiar em silêncio um corpo que
+ * ainda diz "até o dia X" depois de a mensagem virar ALERTA.
+ */
+export function isDraftStale(draft: Draft | undefined, generated: string): boolean {
+	return draft !== undefined && draft.base !== generated
 }
 
 export interface MessageDraft {
 	/** Texto a exibir e a copiar. */
 	text: string
-	/** Há edição manual válida para esta geração? */
+	/** O texto exibido é o do usuário, não o gerado. */
 	isEdited: boolean
+	/** O texto gerado mudou depois da edição — o rascunho pode estar desatualizado. */
+	isStale: boolean
 	setText: (text: string) => void
 	/** Descarta o rascunho e volta ao texto gerado. */
 	reset: () => void
@@ -57,6 +73,7 @@ export function useMessageDrafts(): MessageDrafts {
 			return {
 				text,
 				isEdited: text !== generated,
+				isStale: isDraftStale(draft, generated),
 				setText: (next: string) => setDrafts((prev) => ({ ...prev, [key]: { base: generated, text: next } })),
 				reset: () =>
 					setDrafts((prev) => {
