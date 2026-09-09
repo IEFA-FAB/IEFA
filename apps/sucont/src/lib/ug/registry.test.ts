@@ -158,6 +158,8 @@ describe("UGs fora do acompanhamento", () => {
 		expect(UG_FORA_DO_ACOMPANHAMENTO).toContain("170999")
 		expect(isUgAcompanhada("170999")).toBe(false)
 		expect(isUgAcompanhada(" 170999 ")).toBe(false)
+		// A mesma coluna do Tesouro Gerencial vem ora como código, ora como texto.
+		expect(isUgAcompanhada("170999 - SECRETARIA DO TESOURO NACIONAL")).toBe(false)
 	})
 
 	it("não exclui UG do COMAER, nem UG desconhecida", () => {

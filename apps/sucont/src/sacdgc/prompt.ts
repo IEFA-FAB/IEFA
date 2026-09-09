@@ -95,10 +95,10 @@ const REGRAS_CERIMONIAL = `Subcentro 99.03.ZZ — Cerimonial, Medalhística e As
   · Sendo a UG o próprio GABAER, o custo é compatível e não configura impropriedade.`
 
 const REGRAS_NDD = `Módulo 19 — NDD que só pode residir em determinado Sistema. Fora dele, gere alerta.
-1. Serviços públicos → Sistema 31 (SISADM): 33903944 (água e esgoto), 33903943 (energia elétrica), 33904722 (taxa de iluminação pública), 33903945 (gás encanado), 33903958 (telefonia fixa e móvel), 33904014 (telefonia — pacote de dados), 33904710 (taxa de coleta de resíduos sólidos).
-   Exceções legítimas: gás encanado no SISUB (23) e comunicações específicas do SISCEAB (04).
-2. Manutenção e conservação de instalações: 33903916 (bens imóveis), 33903921 (estradas e vias) → 31.01.XX (SISADM) para imóveis funcionais/operacionais e 60.01.XX (SISPNR) para residenciais. Essas NDD em sistemas finalísticos (02 SISMAB, 04 SISCEAB…), fora de equipamento específico da área, indicam erro de apropriação.
-3. Limpeza, conservação e jardinagem → 31.1A.XX (SISADM): 33903978 (limpeza e conservação), 33903022 (material de limpeza e higienização), 33903031 (sementes e mudas), 33903979 (apoio administrativo vinculado à limpeza). Concentrar no SISADM é o que evita distorcer o custo finalístico.
+1. Serviços públicos → Sistema 31 (SISADM), com o título oficial do subitem (MTO): 33903944 (serviços de água e esgoto), 33903943 (serviços de energia elétrica), 33904722 (contribuição para custeio de iluminação pública — é contribuição do art. 149-A da CF, não taxa), 33903945 (serviços de gás), 33903958 (serviços de telecomunicações — telefonia fixa e móvel fora de pacote de dados), 33904014 (telefonia fixa e móvel — pacote de comunicação de dados), 33904710 (taxas — é o subitem genérico, onde entra a coleta de resíduos sólidos).
+   Exceções legítimas: serviços de gás no SISUB (23) e comunicações específicas do SISCEAB (04).
+2. Manutenção e conservação de instalações: 33903916 (manutenção e conservação de bens imóveis), 33903921 (manutenção e conservação de estradas e vias) → 31.01.XX (SISADM) para imóveis funcionais/operacionais e 60.01.XX (SISPNR) para residenciais. Essas NDD em sistemas finalísticos (02 SISMAB, 04 SISCEAB…), fora de equipamento específico da área, indicam erro de apropriação.
+3. Limpeza, conservação e jardinagem → 31.1A.XX (SISADM): 33903978 (limpeza e conservação), 33903022 (material de limpeza e produção de higienização), 33903031 (sementes, mudas de plantas e insumos), 33903979 (serviço de apoio administrativo, técnico e operacional — só a parcela vinculada à limpeza). Concentrar no SISADM é o que evita distorcer o custo finalístico.
 4. Gêneros de alimentação: 33903007 → 23.XX.XX (SISUB). Fora do centro de custo 23 → inconsistência no Sistema de Subsistência.
 5. Módulo 22 — alertas institucionais do Tesouro Gerencial:
    · P_017 (Saúde): custo de atividade de saúde em UG que não seja Organização de Saúde (OSA).

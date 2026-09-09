@@ -64,6 +64,18 @@ describe("DGC_SYSTEM_PROMPT", () => {
 		expect(DGC_SYSTEM_PROMPT).not.toContain("UG fora da estrutura do SISUB com custo SISUB")
 	})
 
+	// Os títulos vêm da tabela de subitens do MTO. "Taxa de iluminação pública" não
+	// existe: o 33904722 é CONTRIBUIÇÃO (art. 149-A da CF), e a taxa com esse fato
+	// gerador é inconstitucional (STF, Súmula Vinculante 41). Prompt com o nome
+	// errado devolve recomendação com o nome errado.
+	it("nomeia os subitens de despesa como o MTO", () => {
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33904722 \(contribuição para custeio de iluminação pública/i)
+		expect(DGC_SYSTEM_PROMPT).not.toMatch(/taxa de iluminação pública/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33903945 \(serviços de gás\)/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33904710 \(taxas —/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33903979 \(serviço de apoio administrativo, técnico e operacional/i)
+	})
+
 	it("mantém a exceção do SISTRAN (não alertar UG fora da estrutura)", () => {
 		expect(DGC_SYSTEM_PROMPT).toMatch(/NÃO gere alerta para UG não integrante que possua custo SISTRAN/i)
 	})

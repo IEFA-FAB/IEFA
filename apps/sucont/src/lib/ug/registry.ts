@@ -309,9 +309,15 @@ export const UG_INATIVAS_SIAFI: readonly string[] = Object.entries(UNIDADES_GEST
  */
 export const UG_FORA_DO_ACOMPANHAMENTO: readonly string[] = ["170999"]
 
-/** A UG entra na análise de saldos? */
-export function isUgAcompanhada(codigo: string): boolean {
-	return !UG_FORA_DO_ACOMPANHAMENTO.includes(codigo.trim())
+/**
+ * A UG entra na análise de saldos?
+ *
+ * Aceita o código puro e o texto do relatório ("170999 - STN"): as planilhas do
+ * Tesouro Gerencial trazem as duas formas na mesma coluna conforme o layout
+ * escolhido na extração, e comparar a string inteira deixaria a exclusão passar.
+ */
+export function isUgAcompanhada(ugOuTexto: string): boolean {
+	return !UG_FORA_DO_ACOMPANHAMENTO.includes(extractCodigoUg(ugOuTexto))
 }
 
 const CODIGO_UG_REGEX = /\b\d{6}\b/
