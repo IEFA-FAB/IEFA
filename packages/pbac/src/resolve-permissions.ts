@@ -38,6 +38,8 @@ function isMissingTable(error: { code?: string | null }): boolean {
  * a menos. Fica no log porque um fail-open sem rastro é indistinguível de configuração.
  */
 function warnMissingPolicyModel(error: { code?: string | null; message: string }): void {
+	// biome-ignore lint/suspicious/noConsole: o pacote não tem logger próprio, e um fail-open
+	// sem rastro é indistinguível de configuração — o aviso É o mecanismo.
 	console.warn(`[pbac] modelo de políticas inacessível (${error.code}): ${error.message} — resolvendo só com os grants inline`)
 }
 
@@ -82,11 +84,7 @@ async function fetchInlinePermissions(userId: string, supabase: AnySupabaseClien
 async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClient): Promise<UserPermission[]> {
 	// O prazo vale para as DUAS origens: anexo vencido não empresta os statements da
 	// política, do mesmo jeito que grant inline vencido não concede.
-	const { data: attachments, error: attachmentError } = await supabase
-		.from("user_policy_attachment")
-		.select("policy_id")
-		.eq("user_id", userId)
-		.or(NOT_EXPIRED)
+	const { data: attachments, error: attachmentError } = await supabase.from("user_policy_attachment").select("policy_id").eq("user_id", userId).or(NOT_EXPIRED)
 
 	if (attachmentError) {
 		// Banco de app que não tem o modelo de políticas: não há política para anexar,
@@ -133,7 +131,6 @@ async function fetchPolicyPermissions(userId: string, supabase: AnySupabaseClien
 			})
 		)
 }
-
 
 /**
  * Busca e resolve as permissões efetivas de um usuário diretamente no banco.
