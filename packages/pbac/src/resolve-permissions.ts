@@ -38,8 +38,7 @@ function isMissingTable(error: { code?: string | null }): boolean {
  * a menos. Fica no log porque um fail-open sem rastro é indistinguível de configuração.
  */
 function warnMissingPolicyModel(error: { code?: string | null; message: string }): void {
-	// biome-ignore lint/suspicious/noConsole: o pacote não tem logger próprio, e um fail-open
-	// sem rastro é indistinguível de configuração — o aviso É o mecanismo.
+	// biome-ignore lint/suspicious/noConsole: o pacote não tem logger próprio, e um fail-open sem rastro é indistinguível de configuração — o aviso É o mecanismo
 	console.warn(`[pbac] modelo de políticas inacessível (${error.code}): ${error.message} — resolvendo só com os grants inline`)
 }
 
