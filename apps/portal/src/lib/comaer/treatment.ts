@@ -13,17 +13,24 @@
  * Instrução negativa não segura o que o contexto sugere; verificação segura.
  */
 
-import type { Scope } from "./types"
+import type { Paragraph, Scope } from "./types"
 
 /**
  * Proibidos SEMPRE (art. 9º, § 4º): não existe destinatário que os receba.
  *
- * "doutor" fica de fora de propósito. A norma o proíbe como tratamento, mas ele aparece
- * legitimamente dentro de nome de instituição e de citação transcrita ("Hospital Dr. …"),
- * e barrar a escrita inteira por causa disso custa mais do que o erro que evita — quem
- * cuida dele é a regra no prompt.
+ * Duas ausências deliberadas, porque a verificação RECUSA a escrita e um falso positivo
+ * custa mais do que o erro que evitaria:
+ *
+ * - **"doutor"**: a norma o proíbe como tratamento, mas ele é parte de nome de instituição
+ *   e de citação transcrita ("Hospital Dr. …"). Quem cuida dele é a regra no prompt.
+ * - **"DD."**, abreviatura arcaica de Digníssimo: casa com "dd.mm.aaaa" num texto que fale
+ *   de formato de data. A forma por extenso continua barrada, e é a que aparece.
+ *
+ * O ponto das abreviaturas é OBRIGATÓRIO, e por isso: sem ele, "Ilma"/"Ilmar" — nome de
+ * gente, e "Ilma" é nome de servidora — casava com a regra, e a escrita do modelo era
+ * recusada em laço enquanto a conferência acusava norma contrariada no texto de quem digitou.
  */
-const ALWAYS_FORBIDDEN = /\b(?:ilustr[íi]ssim[oa]s?|ilmo\.?|ilma\.?|dign[íi]ssim[oa]s?|dd\.)/i
+const ALWAYS_FORBIDDEN = /\b(?:ilustr[íi]ssim[oa]s?|dign[íi]ssim[oa]s?|ilmo\.|ilma\.)/i
 
 /**
  * Proibidos com agente público federal (art. 9º, § 3º): militar ou servidor é tratado por
@@ -56,4 +63,20 @@ export function findForbiddenTreatment(text: string, scope: Scope): string | nul
 /** A mesma explicação nos dois consumidores: o modelo lê como erro de tool, o redator como achado. */
 export function forbiddenTreatmentMessage(found: string): string {
 	return `“${found}” não é tratamento admitido no texto: com agente público federal, militar ou servidor, o pronome é “Senhor” (art. 9º, § 3º e § 4º). O “A Sua Senhoria o Senhor” do endereçamento é a forma do bloco de endereço e não se repete no corpo.`
+}
+
+/**
+ * O mesmo exame descendo ao parágrafo inteiro — texto, itens e alíneas.
+ *
+ * Mora aqui, e não em cada consumidor, porque a assimetria é o defeito: a conferência olhava
+ * só o `text` enquanto o remendo do modelo já olhava os itens, e um item digitado à mão com
+ * "Vossa Senhoria" era impresso enquanto o modelo era recusado pelo mesmo texto.
+ */
+export function findForbiddenTreatmentInParagraph(paragraph: Paragraph, scope: Scope): string | null {
+	const texts = [paragraph.text, ...(paragraph.items ?? []).flatMap((item) => [item.text, ...(item.alineas ?? []).map((alinea) => alinea.text)])]
+	for (const text of texts) {
+		const found = findForbiddenTreatment(text, scope)
+		if (found) return found
+	}
+	return null
 }

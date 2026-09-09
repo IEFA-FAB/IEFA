@@ -58,6 +58,13 @@ describe("tratamento no texto digitado à mão", () => {
 		expect(finding?.block).toBe("texto")
 	})
 
+	it("a conferência desce ao item, como o remendo do modelo já descia", () => {
+		// A assimetria era o defeito: o mesmo texto era recusado no modelo e impresso quando
+		// digitado à mão.
+		const doc = assembleDocument(base({ paragraphs: [{ text: "Solicito o seguinte:", items: [{ text: "encaminhar a Vossa Senhoria o processo;" }] }] }))
+		expect(doc.warnings.some((w) => w.severity === "nonCompliant" && w.text.includes("Vossa Senhoria"))).toBe(true)
+	})
+
 	it("não acusa o texto que trata o destinatário por Senhor", () => {
 		const doc = assembleDocument(base({ paragraphs: [{ text: "Solicito ao Senhor Comandante autorização para o afastamento." }] }))
 		expect(doc.warnings.some((w) => w.text.includes("não é tratamento admitido"))).toBe(false)

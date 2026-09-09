@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { findForbiddenTreatment, forbiddenTreatmentMessage } from "./treatment"
+import { findForbiddenTreatment, findForbiddenTreatmentInParagraph, forbiddenTreatmentMessage } from "./treatment"
 
 describe("tratamento proibido no texto", () => {
 	it("pega “Vossa Senhoria” no que circula dentro do COMAER", () => {
@@ -32,6 +32,27 @@ describe("tratamento proibido no texto", () => {
 		// A norma o proíbe como tratamento, mas ele é parte de nome de instituição e de citação
 		// transcrita; barrar a escrita por causa dele custaria mais do que o erro que evita.
 		expect(findForbiddenTreatment("O atendimento ocorreu no Hospital Dr. Ary Pinheiro.", "comaer")).toBeNull()
+	})
+
+	it("nome de gente não é abreviatura: o ponto é obrigatório", () => {
+		// Sem o ponto exigido, "Ilma" (nome de servidora) e "Ilmar" casavam com a regra: a
+		// escrita do modelo era recusada em laço e a conferência acusava norma contrariada.
+		expect(findForbiddenTreatment("Encaminho o processo ao Sargento Ilmar Souza.", "comaer")).toBeNull()
+		expect(findForbiddenTreatment("A servidora Ilma Ribeiro prestou a informação.", "comaer")).toBeNull()
+		expect(findForbiddenTreatment("Ao Ilmo. Sr. Diretor,", "comaer")).toBe("Ilmo.")
+	})
+
+	it("“dd.” de formato de data não é Digníssimo", () => {
+		expect(findForbiddenTreatment("Preencha a data no formato dd.mm.aaaa.", "comaer")).toBeNull()
+	})
+
+	it("desce ao item e à alínea, que é por onde o texto digitado à mão escapava", () => {
+		const paragraph = {
+			text: "Solicito o seguinte:",
+			items: [{ text: "informar o efetivo;", alineas: [{ text: "encaminhar a Vossa Senhoria o processo;" }] }],
+		}
+		expect(findForbiddenTreatmentInParagraph(paragraph, "comaer")).toBe("Vossa Senhoria")
+		expect(findForbiddenTreatmentInParagraph({ text: "Solicito autorização." }, "comaer")).toBeNull()
 	})
 
 	it("a mensagem diz o que fazer, e não só o que está errado", () => {

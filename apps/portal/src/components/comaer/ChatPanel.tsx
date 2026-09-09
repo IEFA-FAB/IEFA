@@ -120,6 +120,7 @@ function Conversation({
 	const [inFlight, setInFlight] = useState<string | null>(null)
 	const applied = useRef(new Set<string>())
 	const transcript = useRef<HTMLElement>(null)
+	const openedAtBottom = useRef(false)
 
 	const connection = useMemo(() => fetchServerSentEvents("/api/comunicacoes/chat"), [])
 
@@ -173,6 +174,15 @@ function Conversation({
 	useEffect(() => {
 		const box = transcript.current
 		if (!box || messages.length === 0) return
+		// Documento com conversa gravada abre com a caixa no topo, e `scrollTop` zero é a maior
+		// distância possível do fim — a guarda de "já está no fim" sozinha deixaria o painel
+		// aberto na mensagem MAIS ANTIGA. A primeira ida ao fim é incondicional e sem animação:
+		// é posicionamento de abertura, não movimento.
+		if (!openedAtBottom.current) {
+			openedAtBottom.current = true
+			box.scrollTo({ top: box.scrollHeight, behavior: "auto" })
+			return
+		}
 		const distanceFromBottom = box.scrollHeight - box.scrollTop - box.clientHeight
 		if (distanceFromBottom > 120) return
 		// Rolagem suave é enjoo para quem pediu menos movimento no sistema.

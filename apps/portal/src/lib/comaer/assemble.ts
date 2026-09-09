@@ -30,7 +30,7 @@ import {
 } from "./format"
 import { rankInFull } from "./ranks"
 import { SUBJECT_MAX_LENGTH, subjectFieldValue } from "./sigadaer"
-import { findForbiddenTreatment, forbiddenTreatmentMessage } from "./treatment"
+import { findForbiddenTreatmentInParagraph, forbiddenTreatmentMessage } from "./treatment"
 import type { AssembledBlock, AssembledDocument, BlockId, ComplianceFinding, DocumentInput, Line } from "./types"
 
 const BLOCK_LABELS: Record<BlockId, string> = {
@@ -223,7 +223,7 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 	// Tratamento proibido no texto: o remendo do modelo já é recusado por esta mesma regra
 	// (tools/patch); aqui ela alcança o que foi digitado à mão e o que veio de minuta importada.
 	for (const paragraph of input.paragraphs) {
-		const found = findForbiddenTreatment(paragraph.text, input.scope)
+		const found = findForbiddenTreatmentInParagraph(paragraph, input.scope)
 		if (found) {
 			nonCompliant(forbiddenTreatmentMessage(found), "texto")
 			break

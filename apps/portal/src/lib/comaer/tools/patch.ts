@@ -13,7 +13,7 @@
  */
 
 import { reconcileKindAndScope } from "../catalog"
-import { findForbiddenTreatment, forbiddenTreatmentMessage } from "../treatment"
+import { findForbiddenTreatmentInParagraph, forbiddenTreatmentMessage } from "../treatment"
 import type { DocumentInput, Paragraph } from "../types"
 
 export type PatchName = "set_form" | "set_parties" | "set_ementa" | "write_body" | "replace_paragraph" | "insert_paragraph" | "remove_paragraph"
@@ -75,11 +75,8 @@ function paragraphIndex(document: DocumentInput, raw: unknown, allowEnd = false)
  */
 function assertTreatment(document: DocumentInput, paragraphs: Paragraph[]): void {
 	for (const paragraph of paragraphs) {
-		const texts = [paragraph.text, ...(paragraph.items ?? []).flatMap((item) => [item.text, ...(item.alineas ?? []).map((a) => a.text)])]
-		for (const text of texts) {
-			const found = findForbiddenTreatment(text, document.scope)
-			if (found) throw new PatchError(forbiddenTreatmentMessage(found))
-		}
+		const found = findForbiddenTreatmentInParagraph(paragraph, document.scope)
+		if (found) throw new PatchError(forbiddenTreatmentMessage(found))
 	}
 }
 
