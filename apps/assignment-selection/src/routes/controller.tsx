@@ -27,6 +27,8 @@ export const Route = createFileRoute("/controller")({
 			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 		if (!auth.isAuthorized) {
+			// auth-redirect-without-return-path: a sessão é válida, falta a concessão PBAC.
+			// Devolver `/controller` aqui só refaria a mesma checagem e voltaria para cá.
 			throw redirect({ to: "/auth" })
 		}
 	},
