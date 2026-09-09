@@ -31,12 +31,12 @@ export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId/
 // Cache de nomes em memória (evita fetches repetidos por sessão)
 const displayNameCache = new Map<string, string>()
 
-async function resolveDisplayName(userId: string): Promise<string | null> {
+async function resolveDisplayName(userId: string, messHallId: number): Promise<string | null> {
 	if (!userId) return null
 	const cached = displayNameCache.get(userId)
 	if (cached) return cached
 
-	const name = await resolveDisplayNameFn({ data: { userId } })
+	const name = await resolveDisplayNameFn({ data: { userId, messHallId } })
 	if (name) displayNameCache.set(userId, name)
 	return name
 }
@@ -366,7 +366,12 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 				)}
 			</div>
 
-			<FiscalDialog setDialog={setDialog} dialog={dialog} confirmDialog={handleConfirmDialog} resolveDisplayName={resolveDisplayName} />
+			<FiscalDialog
+				setDialog={setDialog}
+				dialog={dialog}
+				confirmDialog={handleConfirmDialog}
+				resolveDisplayName={(userId) => resolveDisplayName(userId, filters.messHallId)}
+			/>
 		</div>
 	)
 }

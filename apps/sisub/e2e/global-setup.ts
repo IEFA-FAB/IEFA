@@ -4,6 +4,44 @@ import { chromium } from "@playwright/test"
 
 const AUTH_FILE = ".auth/user.json"
 
+const REQUIRED_ENV = ["E2E_TEST_USER_EMAIL", "E2E_TEST_USER_PASSWORD"] as const
+
+/**
+ * Credencial do usuário de teste, ou um erro que diz exatamente o que falta.
+ *
+ * A mensagem enumera as vars ausentes e o caminho para ligá-las porque o modo de
+ * falha anterior ("Missing E2E credentials") era indistinguível de dois problemas
+ * diferentes: não ter as vars, e tê-las no `.env` sem a flag que autoriza o
+ * `playwright.config.ts` a carregá-lo.
+ */
+function readCredentials(): { email: string; password: string } {
+	const missing = REQUIRED_ENV.filter((key) => !process.env[key])
+
+	if (missing.length > 0) {
+		throw new Error(
+			[
+				`E2E do sisub abortado — variáveis ausentes: ${missing.join(", ")}.`,
+				"",
+				"Onde configurar: apps/sisub/.env (arquivo local, fora do git — o .env.schema",
+				"lista as chaves) ou export no shell.",
+				"",
+				"Como rodar: cd apps/sisub && bun run test:e2e",
+				"O script liga SISUB_RUN_E2E=true, e é essa flag que autoriza o",
+				"playwright.config.ts a carregar o .env. Sem a flag o arquivo é ignorado de",
+				"propósito, para o runner enxergar o mesmo env de uma máquina limpa.",
+				"",
+				"ATENÇÃO: esta suíte autentica no Supabase de PRODUÇÃO. Ver TESTING.md na raiz.",
+			].join("\n")
+		)
+	}
+
+	// O filtro acima já provou que as duas existem; o cast evita repetir a checagem.
+	return {
+		email: process.env.E2E_TEST_USER_EMAIL as string,
+		password: process.env.E2E_TEST_USER_PASSWORD as string,
+	}
+}
+
 /**
  * Global setup: faz login via UI para que o createBrowserClient (@supabase/ssr)
  * persista a sessão em localStorage E cookies.
@@ -13,12 +51,7 @@ const AUTH_FILE = ".auth/user.json"
  * Login via UI garante que cookies e localStorage ficam corretamente definidos.
  */
 async function globalSetup() {
-	const email = process.env.E2E_TEST_USER_EMAIL
-	const password = process.env.E2E_TEST_USER_PASSWORD
-
-	if (!email || !password) {
-		throw new Error("Missing E2E credentials: E2E_TEST_USER_EMAIL and/or E2E_TEST_USER_PASSWORD")
-	}
+	const { email, password } = readCredentials()
 
 	// Garante que o diretório .auth existe
 	const authDir = path.dirname(AUTH_FILE)

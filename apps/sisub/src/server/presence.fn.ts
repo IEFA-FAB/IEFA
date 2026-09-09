@@ -17,25 +17,28 @@ import {
 	listPresences,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth, requireUserId } from "@/lib/auth.server"
+import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 
-// Os reads exigem sessão (não exigiam: a postura anônima veio da migração e expunha
-// presença de comensal — quem comeu onde e quando — a qualquer chamador do endpoint
-// /_serverFn/...). O nível PBAC por rancho continua sendo um follow-up.
+// Os reads são do FISCAL: devolvem quem comeu onde e quando, e o mapa de previsão de uma lista
+// de comensais escolhida pelo chamador. Exigem `messhall:1` no refeitório consultado — o mesmo
+// que `$messHallId/route.tsx` já exige no `beforeLoad`. O guard da rota não dispensa este: ele
+// governa a navegação, e `/_serverFn/...` é chamável direto, sem passar por rota nenhuma.
+// Antes exigiam apenas sessão (e, antes disso, nada), então qualquer autenticado enumerava
+// presença de comensal de qualquer rancho. As operations não têm ctx, então o guard é aqui.
 export const fetchPresencesFn = createServerFn({ method: "GET" })
 	.validator(ListPresencesSchema)
 	.handler(async ({ data }) => {
-		await requireUserId()
+		await requireAuthWithPermission("messhall", 1, { type: "mess_hall", id: data.messHallId })
 		return (await listPresences(getDb(), data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
 	})
 
 export const fetchForecastsFn = createServerFn({ method: "GET" })
 	.validator(ListForecastMapSchema)
 	.handler(async ({ data }) => {
-		await requireUserId()
+		await requireAuthWithPermission("messhall", 1, { type: "mess_hall", id: data.messHallId })
 		return (await listForecastMap(getDb(), data)) as ForecastMap
 	})
 

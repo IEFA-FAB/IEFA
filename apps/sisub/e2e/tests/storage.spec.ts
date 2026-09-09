@@ -13,17 +13,34 @@ import { expect, test } from "../fixtures/auth"
  * concedida via seed (access_control.user_permissions).
  */
 
-const KITCHEN_ID = process.env.E2E_STORAGE_KITCHEN_ID ?? "1"
+/**
+ * As telas são escopadas por cozinha, então a suíte precisa de uma cozinha REAL onde
+ * o usuário E2E tenha o módulo `storage`. O default silencioso que existia aqui ("1")
+ * era pior que a ausência: onde a cozinha 1 não é a do usuário, o PBAC devolvia ao
+ * /hub e a falha tinha cara de bug de tela; onde ela existia por coincidência, o teste
+ * passava sem ninguém ter escolhido o alvo. Sem a var, agora é skip EXPLÍCITO — o
+ * relatório mostra skipped, nunca verde vazio.
+ *
+ * O hub `/storage` não depende do id e roda de todo jeito? Não: o skip é do arquivo
+ * inteiro, de propósito. Sem cozinha atribuída, "listar cozinhas para seleção" também
+ * não tem o que provar.
+ */
+const KITCHEN_ID = process.env.E2E_STORAGE_KITCHEN_ID
+
+test.skip(() => !KITCHEN_ID, "E2E_STORAGE_KITCHEN_ID não configurada — ver TESTING.md, seção E2E do sisub")
+
+/** Só para o título do teste ficar legível quando a var falta e o run já está em skip. */
+const KITCHEN_SEGMENT = KITCHEN_ID ?? "<E2E_STORAGE_KITCHEN_ID>"
 
 const SCREENS: { path: string; heading: RegExp }[] = [
-	{ path: `/storage/${KITCHEN_ID}/dashboard`, heading: /Painel de Estoque/i },
-	{ path: `/storage/${KITCHEN_ID}/nfe`, heading: /Notas Fiscais/i },
-	{ path: `/storage/${KITCHEN_ID}/supply-orders`, heading: /Ordens de Fornecimento/i },
-	{ path: `/storage/${KITCHEN_ID}/receiving`, heading: /Recebimentos/i },
-	{ path: `/storage/${KITCHEN_ID}/production-issue`, heading: /Baixa por Produção/i },
-	{ path: `/storage/${KITCHEN_ID}/counts`, heading: /Contagem Física/i },
-	{ path: `/storage/${KITCHEN_ID}/reports`, heading: /Relatórios MCASP/i },
-	{ path: `/storage/${KITCHEN_ID}/replenishment`, heading: /Sugestões de Reposição/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/dashboard`, heading: /Painel de Estoque/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/nfe`, heading: /Notas Fiscais/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/supply-orders`, heading: /Ordens de Fornecimento/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/receiving`, heading: /Recebimentos/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/production-issue`, heading: /Baixa por Produção/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/counts`, heading: /Contagem Física/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/reports`, heading: /Relatórios MCASP/i },
+	{ path: `/storage/${KITCHEN_SEGMENT}/replenishment`, heading: /Sugestões de Reposição/i },
 ]
 
 test.describe("Storage — módulo de estoque", () => {
@@ -47,13 +64,13 @@ test.describe("Storage — módulo de estoque", () => {
 	}
 
 	test("dashboard mostra os cards de resumo do ledger", async ({ authenticatedPage }) => {
-		await authenticatedPage.goto(`/storage/${KITCHEN_ID}/dashboard`)
+		await authenticatedPage.goto(`/storage/${KITCHEN_SEGMENT}/dashboard`)
 		await expect(authenticatedPage.getByText(/Itens em estoque/i).first()).toBeVisible({ timeout: 20_000 })
 		await expect(authenticatedPage.getByText(/Vencendo em 30 dias/i).first()).toBeVisible()
 	})
 
 	test("relatórios MCASP mostram balancete e fechamentos", async ({ authenticatedPage }) => {
-		await authenticatedPage.goto(`/storage/${KITCHEN_ID}/reports`)
+		await authenticatedPage.goto(`/storage/${KITCHEN_SEGMENT}/reports`)
 		await expect(authenticatedPage.getByText(/Balancete/i).first()).toBeVisible({ timeout: 20_000 })
 		await expect(authenticatedPage.getByText(/Empenho × Liquidação/i).first()).toBeVisible()
 	})

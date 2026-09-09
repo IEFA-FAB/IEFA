@@ -118,6 +118,88 @@ melhor padrão do repositório. Falta o equivalente para:
 - `@iefa/pbac` × módulos declarados nos apps — hoje um módulo novo pode não ter
   policy e ninguém percebe até o 403.
 
+## E2E do sisub (Playwright) — local, sob demanda
+
+Existem 7 specs em `apps/sisub/e2e/tests/`: `smoke`, `auth`, `navigation`, `authz`,
+`budget`, `storage` e `recipe-form`.
+
+**Está DESLIGADO no CI por decisão de custo, não por defeito.** O job `e2e-sisub`
+segue comentado em `.github/workflows/deploy.yml` e nunca teve run verde. Reativar
+custa minutos de runner em todo push na `main` (vite dev + install do Chromium +
+navegador) para cobrir o que os gates locais já cobrem — e, pior, faria o CI
+autenticar em produção. Se um dia reativar, o comentário no próprio job lista os
+três pontos a conferir antes.
+
+> **A suíte fala com o Supabase de PRODUÇÃO.** Não há seed nem banco de teste: o
+> `global-setup` faz login por UI com uma conta real e grava sessão em
+> `apps/sisub/.auth/user.json`. As specs são read-only por desenho (as mutações
+> ficam na suíte de integração, que roda com rollback), mas **login é escrita**:
+> gera sessão, refresh token e linha de auditoria no GoTrue. Consequências
+> práticas: não rodar em CI, não rodar em paralelo com outra pessoa na mesma conta
+> (a sessão de um invalida a do outro), e nunca usar conta de usuário real.
+
+### Variáveis
+
+Todas em `apps/sisub/.env` (arquivo local, fora do git — as chaves estão descritas em
+`apps/sisub/.env.schema`), ou exportadas no shell; o shell vence o arquivo.
+
+| Var | Obrigatória | Como obter |
+|---|---|---|
+| `SISUB_RUN_E2E` | sim (`true`) | é a flag da suíte; os scripts `test:e2e*` já a passam |
+| `E2E_TEST_USER_EMAIL` | sim | conta de teste dedicada; existe como secret homônimo no GitHub |
+| `E2E_TEST_USER_PASSWORD` | sim | idem |
+| `VITE_SISUB_SUPABASE_URL` | sim | mesma do dev; `vars` do repositório |
+| `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` | sim | mesma do dev; `vars` do repositório |
+| `E2E_BUDGET_UNIT_ID` | não | id de uma unidade REAL onde o usuário E2E tenha o módulo `unit` |
+| `E2E_STORAGE_KITCHEN_ID` | não | id de uma cozinha REAL onde o usuário E2E tenha o módulo `storage` |
+
+As duas últimas são opcionais **e ausentes viram skip explícito**, não verde vazio:
+`budget.spec.ts` e `storage.spec.ts` chamam `test.skip(...)` em escopo de arquivo e
+aparecem como *skipped* no relatório. Elas tinham default `"1"`, que é o pior dos
+mundos — em base onde a unidade/cozinha 1 não pertence ao usuário E2E, o PBAC devolve
+ao `/hub` e a falha tem cara de bug de tela; onde pertence por coincidência, o teste
+passa sem ninguém ter escolhido o alvo.
+
+### Comandos
+
+```bash
+cd apps/sisub
+
+bun run test:e2e         # as 7 specs, chromium
+bun run test:e2e:ci      # subconjunto crítico: smoke, auth, navigation, authz
+bun run test:e2e:full    # as 7 specs em chromium + firefox + webkit
+bun run test:e2e:ui      # modo UI do Playwright
+
+# primeira vez na máquina:
+bunx playwright install --with-deps chromium
+```
+
+O nome `test:e2e:ci` é histórico: nenhum CI o executa. É só o subconjunto que o job
+desligado executaria.
+
+Não rodar por `bunx playwright test` direto — sem a flag `SISUB_RUN_E2E=true` o
+`playwright.config.ts` ignora o `.env` de propósito, e o `global-setup` para dizendo
+quais vars faltam.
+
+### Por que a flag existe
+
+O runner do Playwright era o último lugar do repo que lia o `.env` do disco sem pedir
+licença (um `readFileSync(".env")` à mão despejava todas as chaves em `process.env`).
+É a mesma armadilha que o `bun test` fechou com `--no-env-file` e que o vitest fechou
+com `loadEnv` sob flag: env vindo do disco sem ninguém pedir faz a suíte passar na
+máquina de quem tem o arquivo e falhar onde ele não existe. Aqui o dano é maior que
+verde falso — carregar credencial por acidente é rodar contra produção por acidente.
+Hoje o `playwright.config.ts` usa o mesmo `loadEnv` do `vitest.config.ts` e só injeta
+credencial quando `SISUB_RUN_E2E=true`.
+
+### Quando o run morre sem explicação
+
+O `webServer` do Playwright agora usa `stdout: "pipe"` e `stderr: "pipe"`. Sem os dois,
+crash de boot do vite (env inválida, porta 3000 ocupada, erro de import) chegava como
+`Timed out waiting 120000ms for the web server` — a causa real ia para um stdout
+descartado. Com os pipes, o timeout volta a significar "subiu devagar", e qualquer
+outra coisa aparece como a mensagem que o vite emitiu.
+
 ## Como medir sem enganar
 
 - `bun run test` da raiz, nunca `bunx vitest run` da raiz — o alias `@/` não

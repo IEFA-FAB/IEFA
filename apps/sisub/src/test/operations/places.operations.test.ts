@@ -122,7 +122,8 @@ describeSupabaseIntegration("places operations (regressão)", () => {
 		const email = `${uid("dn-")}@example.invalid`.toLowerCase()
 		await seeder.seedUserData({ id: userId, email })
 
-		const name = await resolveDisplayName(db, ctx, { userId })
+		// `messHallId` só existe para o guard da server fn; a operation não o usa na consulta.
+		const name = await resolveDisplayName(db, ctx, { userId, messHallId: 1 })
 		expect(name).toBe(email)
 	})
 })

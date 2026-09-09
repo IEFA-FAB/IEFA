@@ -59,30 +59,67 @@
       ]
     },
     "test:e2e": {
-      "outputs": ["playwright-report/**", "test-results/**"],
-      "env": ["VITE_SISUB_SUPABASE_URL", "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY", "SISUB_SUPABASE_SECRET_KEY", "E2E_TEST_USER_EMAIL", "E2E_TEST_USER_PASSWORD"]
-    },
-    "test:e2e:ci": {
+      "cache": false,
       "outputs": ["playwright-report/**", "test-results/**"],
       "env": [
         "CI",
-        "VITE_SISUB_SUPABASE_URL",
-        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
-        "SISUB_SUPABASE_SECRET_KEY",
-        "E2E_TEST_USER_EMAIL",
-        "E2E_TEST_USER_PASSWORD"
-      ]
-    },
-    "test:e2e:full": {
-      "outputs": ["playwright-report/**", "test-results/**"],
-      "env": [
-        "CI",
+        "SISUB_RUN_E2E",
         "ALL_BROWSERS",
         "VITE_SISUB_SUPABASE_URL",
         "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
         "SISUB_SUPABASE_SECRET_KEY",
         "E2E_TEST_USER_EMAIL",
-        "E2E_TEST_USER_PASSWORD"
+        "E2E_TEST_USER_PASSWORD",
+        "E2E_BUDGET_UNIT_ID",
+        "E2E_STORAGE_KITCHEN_ID"
+      ]
+    },
+    "test:e2e:ci": {
+      "cache": false,
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "env": [
+        "CI",
+        "SISUB_RUN_E2E",
+        "ALL_BROWSERS",
+        "VITE_SISUB_SUPABASE_URL",
+        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
+        "SISUB_SUPABASE_SECRET_KEY",
+        "E2E_TEST_USER_EMAIL",
+        "E2E_TEST_USER_PASSWORD",
+        "E2E_BUDGET_UNIT_ID",
+        "E2E_STORAGE_KITCHEN_ID"
+      ]
+    },
+    "test:e2e:full": {
+      "cache": false,
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "env": [
+        "CI",
+        "SISUB_RUN_E2E",
+        "ALL_BROWSERS",
+        "VITE_SISUB_SUPABASE_URL",
+        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
+        "SISUB_SUPABASE_SECRET_KEY",
+        "E2E_TEST_USER_EMAIL",
+        "E2E_TEST_USER_PASSWORD",
+        "E2E_BUDGET_UNIT_ID",
+        "E2E_STORAGE_KITCHEN_ID"
+      ]
+    },
+    "test:e2e:ui": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "CI",
+        "SISUB_RUN_E2E",
+        "ALL_BROWSERS",
+        "VITE_SISUB_SUPABASE_URL",
+        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
+        "SISUB_SUPABASE_SECRET_KEY",
+        "E2E_TEST_USER_EMAIL",
+        "E2E_TEST_USER_PASSWORD",
+        "E2E_BUDGET_UNIT_ID",
+        "E2E_STORAGE_KITCHEN_ID"
       ]
     },
     "generate": {
