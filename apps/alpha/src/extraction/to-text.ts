@@ -94,7 +94,12 @@ export function docxToSubmissionText(bytes: Uint8Array): SubmissionText {
 }
 
 export async function pdfToSubmissionText(bytes: Uint8Array): Promise<SubmissionText> {
-	const pdf = await getDocumentProxy(bytes)
+	// A cópia não é desperdício: o pdf.js TRANSFERE o ArrayBuffer para o worker, e o
+	// buffer do chamador volta destacado, com `byteLength` 0. Quem reaproveitasse os
+	// bytes depois de converter — para calcular hash, gravar em storage ou tentar OCR —
+	// receberia vazio, sem erro nenhum. Isolar aqui custa uma cópia e vale por todos os
+	// chamadores, presentes e futuros.
+	const pdf = await getDocumentProxy(bytes.slice())
 	const { text } = await extractText(pdf, { mergePages: true })
 	const lines = (Array.isArray(text) ? text.join("\n") : text).split(/\r?\n/).map((line) => cleanText(line))
 

@@ -94,3 +94,9 @@ override.tf.json
 # `git add -A` distraído publicaria dado pessoal de terceiro num repo de código.
 # O que o editor precisa para ser testado são as fixtures fictícias de src/lib/comaer.
 apps/portal/examples/
+
+# Corpus do RADA-e: conteúdo interno da FAB, coletado da intranet do COMAER.
+# O repositório é público — o material NUNCA entra nele. Só o .gitkeep é versionado.
+# Como reconstruir: apps/alpha `bun run rada:fetch --apply` (na intranet) + `bun run rada:build`.
+apps/alpha/knowledge/*
+!apps/alpha/knowledge/.gitkeep
