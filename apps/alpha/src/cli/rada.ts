@@ -24,7 +24,7 @@
 import { createHash } from "node:crypto"
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { join, resolve, sep } from "node:path"
 import { pdfToSubmissionText } from "../extraction/to-text.ts"
 import { OcrUnavailableError, ocrPdf } from "../ingest/pdf-ocr.ts"
 import { parseRadaIndex, requireCompleteIndex } from "../ingest/rada-index.ts"
@@ -77,6 +77,24 @@ function slug(value: string): string {
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-|-$/g, "")
 		.slice(0, 70)
+}
+
+/**
+ * Caminho de escrita DENTRO do acervo, ou erro.
+ *
+ * Todo nome de arquivo aqui nasce de dado que veio da rede — título de módulo, rótulo de
+ * pendência, entrada de catálogo gravada numa execução anterior. Sem esta checagem, um
+ * `catalog.json` ou `pendencias.tsv` adulterado (ou só corrompido) escreveria fora do
+ * acervo: `..%2F..%2F` num rótulo basta. `slug()` cobre o que passa por ele, mas nem tudo
+ * passa — e uma verificação no ponto de escrita cobre todos os caminhos de uma vez.
+ */
+function archivePath(subdir: string, fileName: string): string {
+	const target = resolve(ARCHIVE, subdir, fileName)
+	const root = resolve(ARCHIVE, subdir)
+	if (target !== root && !target.startsWith(`${root}${sep}`)) {
+		throw new Error(`recusando escrever fora do acervo: ${fileName}`)
+	}
+	return target
 }
 
 async function readJson<T>(path: string, fallback: T): Promise<T> {
@@ -292,13 +310,13 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 
 		const bytes = new Uint8Array(await response.arrayBuffer())
 		const sha256 = createHash("sha256").update(bytes).digest("hex")
-		const current = await readFile(join(ARCHIVE, "pdf", file)).catch(() => null)
+		const current = await readFile(archivePath("pdf", file)).catch(() => null)
 		if (current && createHash("sha256").update(current).digest("hex") === sha256) {
 			unchanged.push(`${module.letter} ${module.title}`)
 			continue
 		}
 
-		await writeFile(join(ARCHIVE, "pdf", file), bytes)
+		await writeFile(archivePath("pdf", file), bytes)
 		catalog[file] = {
 			letter: module.letter,
 			title: module.title,
@@ -347,7 +365,7 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 
 	for (const [kind, origin, label, url] of rows) {
 		const dir = kind === "zip" ? "zip" : "pdf"
-		const file = `${origin}-${slug(label)}.${kind === "zip" ? "zip" : "pdf"}`
+		const file = `${slug(origin)}-${slug(label)}.${kind === "zip" ? "zip" : "pdf"}`
 		try {
 			const response = await fetch(url, {
 				redirect: "follow",
@@ -362,7 +380,7 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 			if (dir === "pdf" && new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("resposta não é PDF")
 
 			await mkdir(join(ARCHIVE, dir), { recursive: true })
-			await writeFile(join(ARCHIVE, dir, file), bytes)
+			await writeFile(archivePath(dir, file), bytes)
 
 			// Sem entrada no catálogo o `build` descarta o arquivo por falta de título e
 			// origem — tudo que o `--pending` recuperava ficava inconversível.
