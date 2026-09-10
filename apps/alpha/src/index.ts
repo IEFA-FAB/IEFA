@@ -20,8 +20,16 @@ const DEEP_PROBE_TIMEOUT_MS = 2000
 async function probeDatabase(): Promise<"ok" | "error"> {
 	try {
 		const { error } = await supabase.from("document").select("id").limit(1).abortSignal(AbortSignal.timeout(DEEP_PROBE_TIMEOUT_MS))
-		return error ? "error" : "ok"
-	} catch {
+		if (error) {
+			// A resposta ao cliente é só "degraded": chave expirada, grant revogado e
+			// timeout são o mesmo 503 para quem olha a tela, e não é dela que sai o
+			// diagnóstico. Sem esta linha, a diferença some para todo mundo.
+			console.error(`[health] banco não respondeu: ${error.message}`)
+			return "error"
+		}
+		return "ok"
+	} catch (cause) {
+		console.error(`[health] banco não respondeu: ${cause instanceof Error ? cause.message : String(cause)}`)
 		return "error"
 	}
 }

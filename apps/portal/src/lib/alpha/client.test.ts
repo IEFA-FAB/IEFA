@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { ALPHA_BASE_URL, fetchAlphaHealth } from "./client"
+import { ALPHA_BASE_URL, DEFAULT_ALPHA_BASE_URL, fetchAlphaHealth } from "./client"
 
 const originalFetch = globalThis.fetch
 
@@ -30,7 +30,10 @@ describe("fetchAlphaHealth", () => {
 
 	it("aponta para o host do α em produção", () => {
 		// `hosts` do stack `infra/alpha`. Errar aqui deixa a tela em "Offline" permanente.
-		expect(ALPHA_BASE_URL).toBe("https://alpha.iefa.com.br")
+		// A asserção é sobre o DEFAULT, não sobre o valor resolvido: o build de produção
+		// não passa `VITE_ALPHA_API_URL`, e o dev que aponta o portal para um α local
+		// não deve receber uma suíte vermelha por isso.
+		expect(DEFAULT_ALPHA_BASE_URL).toBe("https://alpha.iefa.com.br")
 	})
 
 	it("é `ok` só quando o corpo declara `ok`", async () => {

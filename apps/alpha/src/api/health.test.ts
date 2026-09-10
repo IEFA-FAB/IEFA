@@ -64,6 +64,22 @@ describe("GET /health", () => {
 		expect(await res.json()).toMatchObject({ status: "degraded", reason: "database_unreachable", checks: { database: "error" } })
 	})
 
+	it("reaproveita a sonda dentro da janela — a rota é pública", async () => {
+		// `authMiddleware` só cobre `/api/v1/*`: sem a janela, qualquer um dispara uma
+		// consulta no Supabase compartilhado por requisição.
+		let probes = 0
+		const app = createHealthRoutes(async () => {
+			probes += 1
+			return "ok"
+		})
+
+		await app.request("/health?deep=1")
+		await app.request("/health?deep=1")
+		await app.request("/health?deep=1")
+
+		expect(probes).toBe(1)
+	})
+
 	it("ignora `deep` com qualquer outro valor", async () => {
 		const res = await appWith("error").request("/health?deep=true")
 
