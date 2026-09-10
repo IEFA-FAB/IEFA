@@ -36,3 +36,34 @@ describe("isTransientModelFailure", () => {
 		expect(isTransientModelFailure("falhou")).toBe(false)
 	})
 })
+
+describe("isTransientModelFailure — falha de transporte", () => {
+	it("enxerga o código escondido no `cause` do fetch", () => {
+		// `TypeError: fetch failed` não diz nada sozinho: o que aconteceu está em `cause`.
+		// Lendo só o nível de cima, uma queda de conexão passava por falha definitiva — não
+		// retentava e não acionava o modelo de reserva.
+		const fetchFailed = Object.assign(new TypeError("fetch failed"), {
+			cause: Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+		})
+
+		expect(isTransientModelFailure(fetchFailed)).toBe(true)
+	})
+
+	it("reconhece recusa de conexão e falha de DNS", () => {
+		expect(isTransientModelFailure(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }))).toBe(true)
+		expect(isTransientModelFailure(Object.assign(new TypeError("fetch failed"), { cause: { code: "EAI_AGAIN" } }))).toBe(true)
+	})
+
+	it("não confunde erro de negócio que traga `cause` benigno", () => {
+		const validacao = Object.assign(new Error("ValidationException: model not enabled"), { cause: new Error("account not subscribed") })
+
+		expect(isTransientModelFailure(validacao)).toBe(false)
+	})
+
+	it("não entra em laço com `cause` circular", () => {
+		const circular = new Error("boom") as Error & { cause?: unknown }
+		circular.cause = circular
+
+		expect(() => isTransientModelFailure(circular)).not.toThrow()
+	})
+})

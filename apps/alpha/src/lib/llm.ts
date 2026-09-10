@@ -4,6 +4,7 @@ import type { BaseLanguageModelInput } from "@langchain/core/language_models/bas
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { env } from "../env.ts"
 import { messageText } from "./message-text.ts"
+import { MODEL_RETRY_POLICY } from "./retry.ts"
 import { isTransientModelFailure } from "./transient.ts"
 
 /**
@@ -29,8 +30,14 @@ const cache = new Map<string, BaseChatModel>()
 
 function build(model: string, region: string, temperature: number): BaseChatModel {
 	return env.ALPHA_AI_PROVIDER === "bedrock"
-		? new ChatBedrockConverse({ model, region, temperature })
-		: makeChatLLM({ ...openAiCompatibleConfig, model }, { temperature })
+		? // Sem `MODEL_RETRY_POLICY` no Bedrock, e isso é deliberado: o `ChatBedrockConverse`
+			// NÃO passa pelo `AsyncCaller` do LangChain — chama `client.send()` no SDK da AWS
+			// direto. `maxRetries` e `onFailedAttempt` ali seriam configuração inócua,
+			// anunciando uma garantia que não existe. E não há o que consertar: o próprio SDK
+			// classifica autorização negada como não-retentável. Quem tinha o furo era o
+			// caminho envolvido pelo caller — embeddings e os provedores compatíveis com OpenAI.
+			new ChatBedrockConverse({ model, region, temperature })
+		: makeChatLLM({ ...openAiCompatibleConfig, model }, { temperature, ...MODEL_RETRY_POLICY })
 }
 
 export function getLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel {
