@@ -15,6 +15,7 @@ import { BedrockEmbeddings } from "@langchain/aws"
 import type { Embeddings } from "@langchain/core/embeddings"
 import { OpenAIEmbeddings } from "@langchain/openai"
 import { env } from "../env.ts"
+import { MODEL_RETRY_POLICY } from "./retry.ts"
 
 /** Dimensão fixada no schema (`alpha.document_chunk.embedding`). */
 export const EMBEDDING_DIMENSIONS = 1024
@@ -41,6 +42,9 @@ export function getEmbeddings(): Embeddings {
 		cached = new BedrockEmbeddings({
 			model: env.ALPHA_EMBEDDING_MODEL,
 			region: env.ALPHA_AI_REGION,
+			// Sem isto, erro permanente daqui vira minutos de backoff — ver `lib/retry.ts`.
+			// Este cliente foi o que produziu as perguntas de 5 e 6 minutos em produção.
+			...MODEL_RETRY_POLICY,
 		})
 		return cached
 	}

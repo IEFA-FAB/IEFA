@@ -4,6 +4,7 @@ import type { BaseLanguageModelInput } from "@langchain/core/language_models/bas
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { env } from "../env.ts"
 import { messageText } from "./message-text.ts"
+import { MODEL_RETRY_POLICY } from "./retry.ts"
 import { isTransientModelFailure } from "./transient.ts"
 
 /**
@@ -29,8 +30,8 @@ const cache = new Map<string, BaseChatModel>()
 
 function build(model: string, region: string, temperature: number): BaseChatModel {
 	return env.ALPHA_AI_PROVIDER === "bedrock"
-		? new ChatBedrockConverse({ model, region, temperature })
-		: makeChatLLM({ ...openAiCompatibleConfig, model }, { temperature })
+		? new ChatBedrockConverse({ model, region, temperature, ...MODEL_RETRY_POLICY })
+		: makeChatLLM({ ...openAiCompatibleConfig, model }, { temperature, ...MODEL_RETRY_POLICY })
 }
 
 export function getLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel {

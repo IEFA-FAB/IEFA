@@ -19,6 +19,18 @@ const REQUIRES_EXPLICIT_BASE_URL: ReadonlyArray<AdapterConfig["provider"]> = ["o
 export interface ChatLLMOptions {
 	temperature?: number
 	maxTokens?: number
+	/**
+	 * Teto de retentativas do `AsyncCaller` do LangChain. Sem passar nada, ele usa **6**,
+	 * com backoff exponencial — cerca de um minuto gasto numa chamada só.
+	 */
+	maxRetries?: number
+	/**
+	 * Chamado a cada tentativa falha. Lançar interrompe a retentativa e propaga o erro; é
+	 * assim que se impede que uma falha PERMANENTE (credencial, autorização, modelo não
+	 * habilitado) seja retentada — a guarda embutida do LangChain lê o status HTTP de
+	 * `error.status`, campo que o SDK v3 da AWS não usa.
+	 */
+	onFailedAttempt?: (error: unknown) => void
 }
 
 export function makeChatLLM(config: AdapterConfig, options?: ChatLLMOptions): ChatOpenAI {
@@ -42,5 +54,7 @@ export function makeChatLLM(config: AdapterConfig, options?: ChatLLMOptions): Ch
 		},
 		temperature: options?.temperature ?? 0,
 		...(options?.maxTokens ? { maxTokens: options.maxTokens } : {}),
+		...(options?.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
+		...(options?.onFailedAttempt ? { onFailedAttempt: options.onFailedAttempt as never } : {}),
 	})
 }

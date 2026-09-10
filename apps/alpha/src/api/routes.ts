@@ -294,10 +294,26 @@ const app = new Hono<{ Variables: AppVariables }>()
 
 		const tracer = createRunCollector()
 		const startMs = Date.now()
-		const result = await graph.invoke(input, { ...config, ...GRAPH_INVOKE_CONFIG, ...(tracer ? { callbacks: tracer.callbacks } : {}) })
-		const latency_ms = Date.now() - startMs
-		await logQuery(session_id, user.id, message, result, latency_ms, tracer?.getRunId() ?? null)
-		return c.json<MessageResponse>(buildResponse(session_id, result))
+		try {
+			// Mesmo motivo do caminho SSE: sem `signal`, desistir da requisição não desliga
+			// o grafo, e o servidor segue pagando modelo por uma resposta sem destinatário.
+			const result = await graph.invoke(input, {
+				...config,
+				...GRAPH_INVOKE_CONFIG,
+				signal: c.req.raw.signal,
+				...(tracer ? { callbacks: tracer.callbacks } : {}),
+			})
+			await logQuery(session_id, user.id, message, result, Date.now() - startMs, tracer?.getRunId() ?? null)
+			return c.json<MessageResponse>(buildResponse(session_id, result))
+		} catch (error) {
+			// O turno some, mas a sessão não pode ficar sem dono — ver o comentário no SSE.
+			const aborted = c.req.raw.signal.aborted
+			await logQuery(session_id, user.id, message, { termination_reason: aborted ? "aborted" : "error" }, Date.now() - startMs, tracer?.getRunId() ?? null)
+			// 408 e não 499: o 499 é invenção do nginx e não está no conjunto de status que o
+			// Hono tipa. "Request Timeout" é o registrado que descreve o que houve.
+			if (aborted) return c.json({ error: "Request Timeout", code: "ABORTED" }, 408)
+			throw error
+		}
 	})
 
 	// POST /api/v1/sessions/:session_id/messages/stream — streaming de eventos SSE
@@ -314,14 +330,31 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const config = { configurable: { thread_id: session_id } }
 
 		return streamSSE(c, async (stream) => {
+			// O timeout derrubava só o SSE, e o grafo seguia até o fim. Um turno cortado
+			// no minuto 1 continuava consumindo Bedrock por mais cinco, para produzir uma
+			// resposta que ninguém recebeu — e o log ainda a registrava como `success`.
+			// Cancelar a run é o que dá sentido ao teto de tempo.
+			const run = new AbortController()
+			const tracer = createRunCollector()
+			const startMs = Date.now()
+
+			// Cliente foi embora: não há mais a quem responder, e cada nó do grafo custa
+			// uma chamada de modelo.
+			c.req.raw.signal.addEventListener("abort", () => run.abort(), { once: true })
+
 			const timeoutId = setTimeout(async () => {
-				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: "CONNECTION_TIMEOUT" }) })
+				run.abort()
+				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: "CONNECTION_TIMEOUT" }) }).catch(() => {})
 				stream.abort()
 			}, 60_000)
 			try {
-				const tracer = createRunCollector()
-				const startMs = Date.now()
-				const gs = await graph.stream(input, { ...config, ...GRAPH_INVOKE_CONFIG, streamMode: "updates", ...(tracer ? { callbacks: tracer.callbacks } : {}) })
+				const gs = await graph.stream(input, {
+					...config,
+					...GRAPH_INVOKE_CONFIG,
+					streamMode: "updates",
+					signal: run.signal,
+					...(tracer ? { callbacks: tracer.callbacks } : {}),
+				})
 				for await (const chunk of gs) {
 					const node = Object.keys(chunk)[0]
 					await stream.writeSSE({
@@ -336,7 +369,14 @@ const app = new Hono<{ Variables: AppVariables }>()
 				await stream.writeSSE({ event: "complete", data: JSON.stringify(buildResponse(session_id, finalState.values)) })
 			} catch {
 				clearTimeout(timeoutId)
-				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: "INTERNAL_ERROR" }) })
+				// Registrar o turno perdido não é telemetria: `canAccessSession` devolve
+				// `true` para sessão SEM linha em `query_log`, e `POST /sessions` não grava
+				// nada. Sem este registro, todo turno abortado deixaria a sessão sem dono —
+				// legível e continuável por qualquer autenticado. O motivo vai gravado como
+				// é, e não como `success`.
+				const aborted = run.signal.aborted
+				await logQuery(session_id, user.id, message, { termination_reason: aborted ? "aborted" : "error" }, Date.now() - startMs, tracer?.getRunId() ?? null)
+				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: aborted ? "CONNECTION_TIMEOUT" : "INTERNAL_ERROR" }) }).catch(() => {})
 			}
 		})
 	})
