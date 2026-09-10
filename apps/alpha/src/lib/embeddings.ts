@@ -53,6 +53,10 @@ export function getEmbeddings(): Embeddings {
 		model: env.ALPHA_EMBEDDING_MODEL,
 		configuration: { baseURL: env.NVIDIA_BASE_URL, apiKey: env.NVIDIA_API_KEY },
 		dimensions: EMBEDDING_DIMENSIONS,
+		// Também passa pelo `AsyncCaller`, e `radaRetriever` engole erro de embedding —
+		// então aqui a retentativa cega reproduziria o sintoma inteiro: turno lento,
+		// registrado como `success`, sem busca semântica nenhuma.
+		...MODEL_RETRY_POLICY,
 	})
 	return cached
 }

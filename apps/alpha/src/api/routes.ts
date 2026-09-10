@@ -27,6 +27,17 @@ type AppVariables = {
 	role: AppRole
 }
 
+/**
+ * Motivos de término em que NÃO houve resposta do assistente.
+ *
+ * Existem porque a sessão precisa de dono mesmo quando o turno morre (`canAccessSession`
+ * devolve `true` para sessão sem linha em `query_log`), e ao mesmo tempo não podem entrar
+ * no pareamento posicional do histórico, que exige uma linha por resposta.
+ */
+const TURN_ABORTED = "aborted"
+const TURN_ERRORED = "error"
+const TURNS_WITHOUT_ANSWER = [TURN_ABORTED, TURN_ERRORED] as const
+
 /** Linhas de `query_log` lidas para montar a lista de sessões. */
 const ROW_WINDOW = 500
 /** Sessões devolvidas. `truncated` avisa quando há mais do que isto. */
@@ -308,7 +319,14 @@ const app = new Hono<{ Variables: AppVariables }>()
 		} catch (error) {
 			// O turno some, mas a sessão não pode ficar sem dono — ver o comentário no SSE.
 			const aborted = c.req.raw.signal.aborted
-			await logQuery(session_id, user.id, message, { termination_reason: aborted ? "aborted" : "error" }, Date.now() - startMs, tracer?.getRunId() ?? null)
+			await logQuery(
+				session_id,
+				user.id,
+				message,
+				{ termination_reason: aborted ? TURN_ABORTED : TURN_ERRORED },
+				Date.now() - startMs,
+				tracer?.getRunId() ?? null
+			)
 			// 408 e não 499: o 499 é invenção do nginx e não está no conjunto de status que o
 			// Hono tipa. "Request Timeout" é o registrado que descreve o que houve.
 			if (aborted) return c.json({ error: "Request Timeout", code: "ABORTED" }, 408)
@@ -375,7 +393,14 @@ const app = new Hono<{ Variables: AppVariables }>()
 				// legível e continuável por qualquer autenticado. O motivo vai gravado como
 				// é, e não como `success`.
 				const aborted = run.signal.aborted
-				await logQuery(session_id, user.id, message, { termination_reason: aborted ? "aborted" : "error" }, Date.now() - startMs, tracer?.getRunId() ?? null)
+				await logQuery(
+					session_id,
+					user.id,
+					message,
+					{ termination_reason: aborted ? TURN_ABORTED : TURN_ERRORED },
+					Date.now() - startMs,
+					tracer?.getRunId() ?? null
+				)
 				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: aborted ? "CONNECTION_TIMEOUT" : "INTERNAL_ERROR" }) }).catch(() => {})
 			}
 		})
@@ -399,6 +424,11 @@ const app = new Hono<{ Variables: AppVariables }>()
 			.from("query_log")
 			.select("cited_documents, created_at")
 			.eq("session_id", session_id)
+			// Turno abortado ou com erro não deixa mensagem do assistente no checkpointer,
+			// mas deixa linha aqui — para a sessão não ficar sem dono. Contá-lo quebraria a
+			// igualdade que o pareamento exige e apagaria as citações da conversa INTEIRA,
+			// para sempre. Só entra o turno que de fato produziu resposta.
+			.not("termination_reason", "in", `(${TURNS_WITHOUT_ANSWER.join(",")})`)
 			.order("created_at", { ascending: true })
 
 		// `messageText` e não `m.content`: mensagem do assistente restaurada do checkpointer
