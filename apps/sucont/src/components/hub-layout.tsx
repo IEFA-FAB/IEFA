@@ -133,21 +133,6 @@ export function HubLayout({ children, title, description, searchable = false, ac
 						)}
 						{children}
 					</div>
-
-					<footer
-						className={cn(
-							"no-print mx-auto mt-4 flex flex-col items-center justify-between gap-6 border-t border-border px-4 pt-8 pb-12 md:flex-row md:px-8",
-							maxWidth
-						)}
-					>
-						<div className="flex flex-col items-center gap-2 md:items-end">
-							<LegalFooterLinks
-								className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
-								linkClassName="text-label font-mono text-muted-foreground transition-colors hover:text-foreground"
-							/>
-							<p className="text-hint font-mono text-muted-foreground text-center md:text-right">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
-						</div>
-					</footer>
 				</div>
 			</SidebarInset>
 
@@ -184,6 +169,35 @@ function ThemeToggle() {
 	)
 }
 
+/**
+ * Links legais na base da barra lateral — o mesmo lugar que o sisub usa.
+ *
+ * Antes eram um `<footer>` embaixo do conteúdo, repetido em toda tela do hub:
+ * num app de barra lateral a página não termina, ela rola, e o bloco aparecia
+ * pendurado sob tabelas de altura variável como se fosse parte da ferramenta.
+ * Aqui ele fica onde documento institucional fica — fora do fluxo de trabalho,
+ * sempre no mesmo pixel.
+ *
+ * Some no modo ícone, onde não há largura para texto — mesma escolha do sisub. O
+ * link não fica inalcançável: a barra volta em um clique no `SidebarTrigger` ou no
+ * rail, a gaveta mobile mostra o rodapé inteiro, e as três rotas seguem públicas e
+ * linkadas na tela de login. O que o LGPD.md exige é caminho até o documento, não
+ * um link permanentemente pintado na tela.
+ */
+function SidebarLegalLinks() {
+	return (
+		<div className="flex flex-col gap-1 px-2 pb-1 group-data-[collapsible=icon]:hidden">
+			<LegalFooterLinks
+				variant="short"
+				separator={<span className="text-hint text-sidebar-foreground/30">·</span>}
+				className="flex flex-wrap items-center gap-x-2 gap-y-1"
+				linkClassName="text-hint font-mono text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
+			/>
+			<p className="text-hint font-mono text-sidebar-foreground/40">© {new Date().getFullYear()} SUCONT-4 | DIREF | FAB</p>
+		</div>
+	)
+}
+
 function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
@@ -206,6 +220,7 @@ function HubSidebar() {
 			<SidebarFooter>
 				<SidebarSeparator />
 				<NavUser />
+				<SidebarLegalLinks />
 			</SidebarFooter>
 
 			<SidebarRail />
