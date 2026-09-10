@@ -18,7 +18,6 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts"
-import { useIsMobile } from "#/hooks/use-mobile"
 import { formatCompactNumber, formatCurrency, toShortDate } from "../services/dataProcessor"
 import { chartChrome, chartSeries } from "../theme"
 import type { FinancialRecord, TimeFilter } from "../types"
@@ -41,6 +40,18 @@ function paretoOpacity(row: { accumulatedPct?: number } | undefined) {
 const PARETO_LABEL_PITCH = 50
 /** Largura que o eixo de percentual e as margens tiram da faixa das barras, em px. */
 const PARETO_AXIS_GUTTER = 90
+/**
+ * Altura reservada para os nomes de UG inclinados a -45°, em px.
+ *
+ * É o `height` do EIXO que precisa cobri-los, e não a `margin.bottom` do gráfico:
+ * o recharts soma a altura do eixo e a da legenda por cima da margem e ancora a
+ * legenda no fim da faixa, então aumentar a margem empurra os dois juntos e o vão
+ * entre eles continua zero — só encolhe a área de plotagem. Quem transbordava a
+ * faixa do eixo e alcançava a legenda era o texto inclinado: "CINDACTA IV" mede
+ * ~70px na vertical, contra os 60px que o eixo reservava.
+ */
+const PARETO_AXIS_HEIGHT = 84
+const PARETO_AXIS_HEIGHT_EXPANDED = 110
 
 interface ChartProps {
 	data: FinancialRecord[]
@@ -627,13 +638,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 				<div ref={measurePlot} style={containerStyle} className="w-full h-full relative">
 					<ResponsiveContainer width="100%" height="100%">
 						{viewMode === "composition" ? (
-							<BarChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 80 }}>
+							<BarChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: 8 }}>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
 									interval={0}
-									height={isExpanded ? 100 : 60}
+									height={isExpanded ? PARETO_AXIS_HEIGHT_EXPANDED : PARETO_AXIS_HEIGHT}
 									axisLine={false}
 									tickLine={false}
 								/>
@@ -642,6 +653,9 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									tick={{ fill: chartChrome.axis }}
 									axisLine={false}
 									tickLine={false}
+									/* Os 60px padrão do recharts foram dimensionados para "1200M"; o rótulo
+									   compacto chega a "999,99 Mi" e era recortado na borda do SVG. */
+									width={76}
 									domain={[0, "auto"]}
 								/>
 								<Tooltip content={<CustomDetailedTooltip />} cursor={{ fill: chartChrome.surfaceMuted }} />
@@ -650,21 +664,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								<Bar dataKey="siloms" name="SILOMS" fill={chartSeries.icc} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
 							</BarChart>
 						) : viewMode === "ranking" ? (
-							<ComposedChart
-								data={paretoRows}
-								/*
-								  `margin.bottom` = altura do eixo + altura da legenda. Enquanto os dois
-								  valeram 60, a legenda não tinha faixa própria e era impressa em cima
-								  dos nomes inclinados das UGs.
-								*/
-								margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 140 : 96 }}
-							>
+							<ComposedChart data={paretoRows} margin={{ top: 40, right: 30, left: 20, bottom: 8 }}>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
 									interval={0}
-									height={isExpanded ? 100 : 60}
+									height={isExpanded ? PARETO_AXIS_HEIGHT_EXPANDED : PARETO_AXIS_HEIGHT}
 									axisLine={false}
 									tickLine={false}
 								/>
@@ -750,7 +756,26 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 // --- Evolution Area Chart ---
 export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, timeFilter = "MENSAL" }) => {
 	const [viewMode, setViewMode] = useState<"total" | "overlap" | "icc" | "comparison">("total")
-	const isNarrow = useIsMobile()
+	const [plotWidth, setPlotWidth] = useState(0)
+
+	/**
+	 * A decisão de imprimir o valor de cada ponto sai da largura MEDIDA do gráfico,
+	 * pelo mesmo motivo da contagem de barras do Pareto: quem faz os rótulos
+	 * colidirem é o passo entre pontos, e o mesmo `ChartWrapper` mede coisas bem
+	 * diferentes conforme a barra lateral e o modo expandido. Pelo viewport, um
+	 * cartão de 600px numa janela de 1000px ainda amontoava os rótulos, e o modal
+	 * expandido de um tablet estreito os escondia sem precisar.
+	 *
+	 * De quebra some o piscado: `useIsMobile` devolve `false` no SSR e no primeiro
+	 * render, então no celular os rótulos apareciam e sumiam logo depois.
+	 */
+	const measurePlot = useCallback((node: HTMLDivElement | null) => {
+		if (!node) return
+		const observer = new ResizeObserver(([entry]) => setPlotWidth(entry.contentRect.width))
+		observer.observe(node)
+		return () => observer.disconnect()
+	}, [])
+
 	const [brushRange, setBrushRange] = useState<{ start: number; end: number }>({
 		start: 0,
 		end: 0,
@@ -877,6 +902,18 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 
 	if (!data || timeSeries.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados.</div>
 
+	/**
+	 * Conta os pontos VISÍVEIS, não os da série: o `Brush` recorta o domínio, e é o
+	 * passo entre os pontos desenhados que faz um rótulo encostar no vizinho. Um
+	 * rótulo de valor ("3,51 Bi") mede ~48px em negrito de 14px.
+	 *
+	 * Antes da primeira medição o padrão é mostrar — a alternativa esconderia o
+	 * rótulo no render do servidor e o traria depois, que é o piscado que se quer
+	 * evitar.
+	 */
+	const visiblePoints = Math.max(1, brushRange.end - brushRange.start + 1)
+	const showPointLabels = plotWidth === 0 || plotWidth / visiblePoints >= 48
+
 	type BrushChangeRange = { startIndex?: number; endIndex?: number }
 
 	const handleBrushChange = (range: BrushChangeRange) => {
@@ -975,7 +1012,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 				</div>
 			</div>
 
-			<div className="flex-1 min-h-[300px]">
+			<div ref={measurePlot} className="flex-1 min-h-[300px]">
 				<ResponsiveContainer width="100%" height="100%" minHeight={300}>
 					{viewMode === "comparison" ? (
 						<BarChart data={timeSeries} margin={{ top: 25, right: 10, left: 10, bottom: 0 }} barGap={6}>
@@ -1201,7 +1238,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								>
 									{/* Ver a nota do rótulo da série de divergência: em tela estreita os
 									    valores dos pontos se empilham uns sobre os outros. */}
-									{!isNarrow && (
+									{showPointLabels && (
 										<LabelList
 											dataKey="icc"
 											position="top"
@@ -1240,7 +1277,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									  própria curva. O valor continua no tooltip, que é a leitura ponto a
 									  ponto.
 									*/}
-									{!isNarrow && (
+									{showPointLabels && (
 										<LabelList
 											dataKey="totalDiff"
 											position="top"

@@ -396,12 +396,18 @@ pre code {
    sistema mesmo com a classe aplicada. */
 /* Token, e não `rgba(20,20,20,…)`: o cinza fixo era quase invisível no tema escuro,
    e a barra é a ÚNICA pista de que existe conteúdo fora da faixa (abas de período,
-   colunas da matriz de calor). `scrollbar-color` cobre o Firefox, que não implementa
-   os pseudoelementos `::-webkit-scrollbar`. */
-.scrollbar-thin,
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--muted-foreground) transparent;
+   colunas da matriz de calor). */
+/* As propriedades padrão ficam ATRÁS do `@supports`, e não soltas: declarar
+   `scrollbar-width`/`scrollbar-color` faz o Chromium ignorar os pseudoelementos
+   `::-webkit-scrollbar` e voltar à barra nativa — media 10-12px, com setas, contra
+   os 4px daqui. A consulta seleciona quem NÃO conhece o seletor webkit, que é
+   justamente o Firefox. */
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-thin,
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
 }
 .scrollbar-thin::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
