@@ -42,6 +42,15 @@ describe("pdfToSubmissionText", () => {
 		expect(bytes.byteLength).toBe(before)
 	})
 
+	it("devolve a fronteira de página, e não só o texto corrido", async () => {
+		// `pages` é o que permite reconhecer cabeçalho e rodapé: sem a fronteira, borda
+		// de página e meio de parágrafo viram a mesma coisa.
+		const result = await pdfToSubmissionText(minimalPdf())
+
+		expect(result.pages).toHaveLength(1)
+		expect(result.text).toContain("RADA teste")
+	})
+
 	it("permite converter os mesmos bytes duas vezes", async () => {
 		const bytes = minimalPdf()
 

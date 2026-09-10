@@ -85,8 +85,15 @@ export async function ocrUnavailableReason(tessdataDir?: string): Promise<string
 }
 
 export interface OcrResult {
-	text: string
-	pages: number
+	/**
+	 * Texto de cada página, na ordem.
+	 *
+	 * Página, e não documento concatenado: o material reconhecido carrega os MESMOS
+	 * cabeçalhos e rodapés do PDF de texto — no único documento do acervo que passa
+	 * por aqui, o cabeçalho da SEFA aparece em 18 das 21 páginas. Concatenar antes de
+	 * devolver destruiria a fronteira de que `print-artifacts.ts` depende.
+	 */
+	pages: string[]
 }
 
 /**
@@ -126,7 +133,7 @@ export async function ocrPdf(bytes: Uint8Array, tessdataDir?: string): Promise<O
 			texts.push((await readFile(`${base}.txt`, "utf8")).trim())
 		}
 
-		return { text: texts.filter(Boolean).join("\n\n"), pages: pages.length }
+		return { pages: texts }
 	} finally {
 		await rm(workDir, { recursive: true, force: true })
 	}
