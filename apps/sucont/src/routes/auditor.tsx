@@ -716,18 +716,14 @@ function AuditorPage() {
 					<>
 						{/* CONTROLS BAR */}
 						<div className={`sticky top-16 z-30 pt-4 pb-2 transition-colors bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6`}>
-							<div
-								className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-2 rounded-lg border shadow-sm
-                bg-card border-border
-              `}
-							>
+							<div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center py-1">
 								{/* Group Filters */}
 								<div className="col-span-1 md:col-span-5 flex items-center gap-2 p-1 bg-transparent rounded-lg overflow-x-auto">
 									{[
 										{
 											id: "ALL",
 											label: "VISÃO GERAL",
-											activeClass: "bg-background text-foreground",
+											activeClass: "text-foreground border border-border",
 										},
 										{
 											id: AccountGroup.BMP,
@@ -791,7 +787,7 @@ function AuditorPage() {
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
 										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-label border transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
-                      ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "bg-card text-muted-foreground border-border"}
+                      ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "text-muted-foreground border-border hover:text-foreground"}
                     `}
 									>
 										<AlertTriangle className="w-4 h-4" />
