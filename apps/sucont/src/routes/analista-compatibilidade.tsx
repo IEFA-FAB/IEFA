@@ -19,6 +19,7 @@ import {
 import { useCallback, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
@@ -669,8 +670,23 @@ DIREF/SUCONT/SUCONT-3
 
 	// ── Render ─────────────────────────────────────────────────────────────────
 
+	const guide = (
+		<AnalysisGuide
+			source={<TesouroGerencialPath />}
+			reference={
+				<RacReference
+					objective="Confrontar os saldos de contas de controle com os das contas patrimoniais correspondentes — cauções, almoxarifado e bens móveis em trânsito, entre outras."
+					risk="Saldos incompatíveis entre a conta de controle e a patrimonial indicam registro pela metade: um dos lados do fato foi lançado e o outro não."
+					importance="A conciliação entre os pares de contas sustenta a fidedignidade do balanço patrimonial da UG e da consolidação do COMAER."
+				/>
+			}
+			notes={ANALYSIS_NOTES}
+		/>
+	)
+
 	return (
 		<HubLayout
+			guide={guide}
 			width="wide"
 			actions={
 				reports.length > 0 && (
@@ -718,15 +734,6 @@ DIREF/SUCONT/SUCONT-3
 					}
 					error={error}
 					errorTitle="Não foi possível processar a planilha"
-					source={<TesouroGerencialPath />}
-					reference={
-						<RacReference
-							objective="Confrontar os saldos de contas de controle com os das contas patrimoniais correspondentes — cauções, almoxarifado e bens móveis em trânsito, entre outras."
-							risk="Saldos incompatíveis entre a conta de controle e a patrimonial indicam registro pela metade: um dos lados do fato foi lançado e o outro não."
-							importance="A conciliação entre os pares de contas sustenta a fidedignidade do balanço patrimonial da UG e da consolidação do COMAER."
-						/>
-					}
-					notes={ANALYSIS_NOTES}
 				/>
 			)}
 

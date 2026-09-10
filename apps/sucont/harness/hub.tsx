@@ -18,11 +18,13 @@ import type React from "react"
 import { createRoot } from "react-dom/client"
 import { z } from "zod"
 import { SucontPermissionsManager } from "#/components/admin/permissions-manager"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
+import { Button } from "#/components/ui/button"
 import { FileDropzone } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
@@ -94,7 +96,31 @@ const toolScreen = (path: string) =>
 		getParentRoute: () => rootRoute,
 		path,
 		component: () => (
-			<HubLayout>
+			<HubLayout
+				actions={
+					<Button type="button" variant="outline" size="sm">
+						Nova análise
+					</Button>
+				}
+				guide={
+					<AnalysisGuide
+						source={<TesouroGerencialPath />}
+						reference={
+							<RacReference
+								statement="Enunciado da questão do RAC que a ferramenta responde, como ele aparece no roteiro."
+								objective="O que a análise procura na planilha."
+								risk="O que a inconsistência esconde ou provoca."
+								importance="O que a regularização preserva."
+							/>
+						}
+						notes={[
+							{ icon: Search, title: "O que é analisado", text: "Recorte do dado que a ferramenta percorre." },
+							{ icon: MessageSquare, title: "O que é gerado", text: "Mensagem padronizada por UG, pronta para revisão." },
+							{ icon: BookOpen, title: "Como o resultado é lido", text: "As visões em que o achado é apresentado." },
+						]}
+					/>
+				}
+			>
 				<AnalysisStart
 					dropzone={
 						<FileDropzone
@@ -105,20 +131,6 @@ const toolScreen = (path: string) =>
 							columns={["UG", "Conta Contábil", "Conta Corrente", "Saldo"]}
 						/>
 					}
-					source={<TesouroGerencialPath />}
-					reference={
-						<RacReference
-							statement="Enunciado da questão do RAC que a ferramenta responde, como ele aparece no roteiro."
-							objective="O que a análise procura na planilha."
-							risk="O que a inconsistência esconde ou provoca."
-							importance="O que a regularização preserva."
-						/>
-					}
-					notes={[
-						{ icon: Search, title: "O que é analisado", text: "Recorte do dado que a ferramenta percorre." },
-						{ icon: MessageSquare, title: "O que é gerado", text: "Mensagem padronizada por UG, pronta para revisão." },
-						{ icon: BookOpen, title: "Como o resultado é lido", text: "As visões em que o achado é apresentado." },
-					]}
 				/>
 			</HubLayout>
 		),
@@ -132,7 +144,7 @@ const resultScreen = (path: string) =>
 		getParentRoute: () => rootRoute,
 		path,
 		component: () => (
-			<HubLayout>
+			<HubLayout title="Estado de resultado" description="Marcador do harness: as peças compartilhadas depois da planilha entrar.">
 				<div className="space-y-6">
 					<SegmentedControl
 						label="Visão do painel"

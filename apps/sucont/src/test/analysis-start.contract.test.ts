@@ -89,6 +89,15 @@ describe("ordem da tela inicial", () => {
 		expect(file).toBeDefined()
 		expect(file?.text).toContain("<AnalysisStart")
 	})
+
+	it.each(ANALYSIS_ROUTES)("%s entrega as orientações à casca, não à dobra", (route) => {
+		// As explicações moram na gaveta do cabeçalho (`guide` do `HubLayout`), e
+		// não abaixo da zona de envio: quem usa a ferramenta todo dia não rola por
+		// elas, e quem chega tem o botão sempre no mesmo lugar.
+		const file = FILES.find((f) => f.path === route)
+		expect(file?.text).toContain("<AnalysisGuide")
+		expect(file?.text).toMatch(/guide=\{/)
+	})
 })
 
 describe("estado de resultado", () => {

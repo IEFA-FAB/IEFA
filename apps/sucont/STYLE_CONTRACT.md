@@ -136,17 +136,26 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
 
 | Elemento | Onde mora | Consequência de repetir |
 |----------|-----------|-------------------------|
-| `h1` da tela | Trilha do cabeçalho (`Catálogo › Etapa › Ferramenta`) | Dois títulos para a mesma página |
+| `h1` da tela | `PageHeader`, no topo do conteúdo — com a pílula de escopo e a descrição | Dois títulos para a mesma página |
+| Trilha `Catálogo › Etapa › Ferramenta` | Barra fixa — só navegação | O nome da tela no mesmo tamanho e cor do "Catálogo ›" ao lado |
 | Voltar ao hub | A própria trilha | Seis "Voltar ao Hub" com seis aparências |
-| Escopo (questões do RAC) | Pílula ao lado da trilha | O número no título, fora do dado |
-| Uma linha de descrição | `description`, com padrão vindo do catálogo | A promessa do card e a da tela divergem |
+| Escopo (questões do RAC) | Pílula ao lado do `h1`, no `PageHeader` | O número no título, fora do dado |
+| Uma linha de descrição | `PageHeader`, com padrão vindo do catálogo | A promessa do card e a da tela divergem |
+| Orientações da ferramenta | Gaveta "Orientações" (`guide`), à direita das ações | Três cards iguais na dobra de sete telas, lidos todo dia por quem já sabe |
 | Busca `?q=` | `searchable` | Dois campos de busca na mesma tela |
 | Links legais | Rodapé da barra lateral | O `LGPD.md` exigia um rodapé avulso em cada rota órfã |
 | Troca de tema | Botão único do cabeçalho | Uma rota escurecendo só a si mesma |
 
-- **Ação de tela vai na prop `actions`**, à direita do cabeçalho fixo — "Nova
+- **Ação de tela vai na prop `actions`**, à direita do `PageHeader` — "Nova
   análise", "Importar Excel", "Imprimir". Cada ferramenta desenhava uma barra de
-  título só para pendurar dois botões, e não havia duas iguais.
+  título só para pendurar dois botões, e não havia duas iguais. Moravam na
+  barra fixa (2026-09-01 → 2026-09-10); ao lado do título é onde o sisub as põe,
+  e é onde ficam perto do nome da tela a que pertencem.
+- **O item ativo da barra lateral é pintado em `action`** — tint de fundo
+  (`--sidebar-accent`) e texto (`--sidebar-accent-foreground`, mais `!text-action`
+  no item de ferramenta, como o `NavMain` do sisub). Os tokens eram cinza
+  0.967 sobre 0.985: com as sete telas iguais por dentro, o realce que dizia ONDE
+  se está era imperceptível.
 - **Filtro NÃO vai em `actions`.** Filtro é do conteúdo e mora no corpo, com
   rótulo. O cabeçalho é navegação e ação; misturar os dois foi o defeito que a
   barra lateral do hub já tinha corrigido em 2026-08.
@@ -170,9 +179,8 @@ de sistema.
 |---|-------|---------------------|
 | 1 | **Zona de envio** (`FileDropzone`) | Quem chega já sabe o que veio fazer. O campo é a primeira coisa da tela, sem rolagem |
 | 2 | **A falha** (`Alert`) | Sob o campo, porque é do campo que ela fala. Erro no rodapé faz o operador reenviar o mesmo arquivo sem saber |
-| 3 | **Onde extrair o relatório** (`TesouroGerencialPath`) | É o único obstáculo real de quem NÃO pode seguir. Vem antes da teoria porque desbloqueia |
-| 4 | **Referencial do RAC** (`RacReference`) | Justifica o trabalho, não o destrava. Quem já sabe passa por cima |
-| 5 | **Cartões de apoio** (`notes`) | A única parte que se pode ler DEPOIS de já ter enviado o arquivo |
+| 3 | **O que pertence ao envio** (`children`) | Lista de arquivos, botão de carregar — só o que é do ato de enviar |
+| — | **Orientações** (`AnalysisGuide`, na gaveta) | Onde extrair, referencial do RAC e cartões de apoio. Fora da dobra: informação de primeira visita mora a um clique |
 
 - **A zona de envio é `FileDropzone`, sempre.** Uma forma, um realce de arraste
   (`action`), um alvo de clique. O que a ferramenta muda é só o TEXTO: chamada,
@@ -195,7 +203,17 @@ de sistema.
   o número no corpo da tela podia contradizer o do card sem que nada acusasse.
 - **Capa é proibida.** Nada de parágrafo centralizado, disco com avião ou título
   repetindo a descrição da trilha antes do campo. O que a capa dizia de útil vira
-  um dos cartões de apoio, no fim.
+  um dos cartões de apoio.
+- **As orientações moram na gaveta, não na dobra.** `TesouroGerencialPath`,
+  `RacReference` e os cartões de apoio são o `AnalysisGuide`, passado à casca
+  como `guide` e aberto pelo botão "Orientações" do `PageHeader`. Ficaram um dia
+  (2026-09-09) abaixo da zona de envio; padronizados, viraram os mesmos três
+  cards em sete telas, e quem usa a ferramenta toda competência rolava por eles
+  todo dia. Na gaveta, estão a um clique — inclusive DEPOIS de a planilha entrar.
+- **A gaveta não lembra nada.** Fechada por padrão, sempre. Um "já vi" exigiria
+  chave de `localStorage`, e chave nova sem inventário na Política de Cookies
+  derruba a `main` (`sucont:saram-dismissed`, #295→#298). O custo de um clique
+  é menor que o de uma versão nova de documento legal.
 - **Guarda:** `src/test/analysis-start.contract.test.ts` varre o `src/` inteiro
   atrás de `border-2 border-dashed`, de `type="file"` fora do primitivo e do
   caminho do Tesouro Gerencial escrito à mão, e exige `<AnalysisStart>` nas sete
@@ -530,8 +548,8 @@ exceção já registrada na tabela anterior.
       via `<SegmentedControl>` (filtro) ou `<Tabs>` (com painel)?
 - [ ] Zero `fab-*` como cromo — só como marca institucional (§4.1)?
 - [ ] A tela abre pela TAREFA, sem capa que repita a descrição da trilha (§4.5)?
-- [ ] Tela que recebe planilha monta o `AnalysisStart`, com a zona de envio
-      primeiro e os cartões de apoio por último (§4.6)?
+- [ ] Tela que recebe planilha monta o `AnalysisStart` (zona de envio primeiro)
+      e entrega as orientações como `guide` da casca, não na dobra (§4.6)?
 - [ ] A zona de envio é o `FileDropzone`, sem `border-dashed` nem
       `<input type="file">` desenhados na rota (§4.6)?
 - [ ] O caminho do Tesouro Gerencial vem de `TESOURO_GERENCIAL_PATH`, e a questão

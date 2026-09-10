@@ -24,6 +24,7 @@ import * as XLSX from "xlsx"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
 import { UGCard } from "#/components/analista/ug-card"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
@@ -510,8 +511,23 @@ function MonitoramentoPage() {
 		}
 	}, [filteredData, estrategicoData])
 
+	const guide = (
+		<AnalysisGuide
+			source={<TesouroGerencialPath />}
+			reference={
+				<RacReference
+					objective="Acompanhar os saldos de contas transitórias e de controle do COMAER, extraídos do Tesouro Gerencial, para achar o que está fora da conformidade."
+					risk="Saldo transitório que não se movimenta deixa de ser transitório: encobre pendência de conciliação e distorce a posição patrimonial da UG."
+					importance="O acompanhamento por competência mostra a evolução do saldo e separa o que regularizou do que só mudou de lugar."
+				/>
+			}
+			notes={ANALYSIS_NOTES}
+		/>
+	)
+
 	return (
 		<HubLayout
+			guide={guide}
 			width="wide"
 			actions={
 				fileName && (
@@ -537,15 +553,6 @@ function MonitoramentoPage() {
 					}
 					error={error}
 					errorTitle="Não foi possível processar a planilha"
-					source={<TesouroGerencialPath />}
-					reference={
-						<RacReference
-							objective="Acompanhar os saldos de contas transitórias e de controle do COMAER, extraídos do Tesouro Gerencial, para achar o que está fora da conformidade."
-							risk="Saldo transitório que não se movimenta deixa de ser transitório: encobre pendência de conciliação e distorce a posição patrimonial da UG."
-							importance="O acompanhamento por competência mostra a evolução do saldo e separa o que regularizou do que só mudou de lugar."
-						/>
-					}
-					notes={ANALYSIS_NOTES}
 				/>
 			) : (
 				<div className="space-y-8">

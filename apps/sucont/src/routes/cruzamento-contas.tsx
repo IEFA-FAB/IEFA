@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { FileSearch, MessageSquare, RefreshCw, Scale } from "lucide-react"
 import { useState } from "react"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { Report } from "#/components/cruzamento/Report"
 import { HubLayout } from "#/components/hub-layout"
@@ -44,8 +45,26 @@ function CruzamentoContas() {
 		setError(null)
 	}
 
+	const guide = (
+		<AnalysisGuide
+			source={<TesouroGerencialPath />}
+			reference={
+				<RacReference
+					statement="Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis com os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?"
+					objective="Verificar o espelhamento entre as contas 897210300 e 897110300, garantindo que os registros representem de forma fidedigna os fatos administrativos e a situação patrimonial do COMAER."
+					risk="A divergência entre os saldos de controle de cobrança indica possível omissão de registros, falha na conciliação ou descompasso temporal, e pode ocultar passivos ou ativos reais da União."
+					importance="A regularização preserva a qualidade da informação contábil, orienta a atuação da Setorial Contábil e dá base confiável à decisão da alta administração."
+				>
+					<AccountFunctions />
+				</RacReference>
+			}
+			notes={ANALYSIS_NOTES}
+		/>
+	)
+
 	return (
 		<HubLayout
+			guide={guide}
 			actions={
 				reportData && (
 					<Button type="button" variant="outline" size="sm" onClick={handleReset}>
@@ -73,18 +92,6 @@ function CruzamentoContas() {
 					}
 					error={error}
 					errorTitle="Não foi possível processar a planilha"
-					source={<TesouroGerencialPath />}
-					reference={
-						<RacReference
-							statement="Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis com os saldos registrados na conta EM COBRANÇA (8.9.7.2.1.03.00) registrados na SDPP-País?"
-							objective="Verificar o espelhamento entre as contas 897210300 e 897110300, garantindo que os registros representem de forma fidedigna os fatos administrativos e a situação patrimonial do COMAER."
-							risk="A divergência entre os saldos de controle de cobrança indica possível omissão de registros, falha na conciliação ou descompasso temporal, e pode ocultar passivos ou ativos reais da União."
-							importance="A regularização preserva a qualidade da informação contábil, orienta a atuação da Setorial Contábil e dá base confiável à decisão da alta administração."
-						>
-							<AccountFunctions />
-						</RacReference>
-					}
-					notes={ANALYSIS_NOTES}
 				/>
 			) : (
 				<Report data={reportData} />

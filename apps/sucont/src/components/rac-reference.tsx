@@ -61,12 +61,14 @@ export function RacReference({ statement, objective, risk, importance, questions
 					{scope && <Badge variant="action">{scope}</Badge>}
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="space-y-4">
+			{/* `@container`: os três blocos abrem em colunas pela largura do CARD, não
+			    da viewport — na gaveta de orientações (36rem) ficam empilhados. */}
+			<CardContent className="@container space-y-4">
 				{/* Sem prefixo de questão: a pílula do cabeçalho já a nomeia, e a trilha
 				    do `HubLayout` também — prefixar o enunciado seria a terceira vez na
 				    mesma dobra. */}
 				{statement && <p className="text-body text-foreground leading-relaxed">{statement}</p>}
-				<div className="grid gap-4 md:grid-cols-3">
+				<div className="grid gap-4 @2xl:grid-cols-3">
 					{blocks.map((block) => (
 						<div key={block.title} className="rounded-lg border border-border bg-muted/50 p-4">
 							<h3 className="mb-2 text-label text-foreground">{block.title}</h3>

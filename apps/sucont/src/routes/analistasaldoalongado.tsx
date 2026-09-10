@@ -10,6 +10,7 @@ import { consolidateData } from "#/analistasaldoalongado/utils/analytics"
 import type { UgMessage } from "#/analistasaldoalongado/utils/generator"
 import { generateMessages } from "#/analistasaldoalongado/utils/generator"
 import { parseFile } from "#/analistasaldoalongado/utils/parser"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
@@ -100,8 +101,23 @@ function AnalistaSaldoAlongado() {
 		setActiveTab("operacional")
 	}
 
+	const guide = (
+		<AnalysisGuide
+			source={<TesouroGerencialPath />}
+			reference={
+				<RacReference
+					objective="Encontrar saldos parados há mais de três meses em contas que exigem movimentação regular, por UG e por questão do RAC."
+					risk="Saldo alongado indica pendência não tratada — baixa não efetuada, conciliação em aberto ou registro esquecido —, e distorce a posição patrimonial."
+					importance="O apontamento por competência mostra o que envelheceu desde o último ciclo e sustenta a cobrança junto à UG."
+				/>
+			}
+			notes={ANALYSIS_NOTES}
+		/>
+	)
+
 	return (
 		<HubLayout
+			guide={guide}
 			actions={
 				consolidatedData && (
 					<Button type="button" onClick={handleReset} variant="outline" size="sm">
@@ -127,15 +143,6 @@ function AnalistaSaldoAlongado() {
 					}
 					error={error}
 					errorTitle="Não foi possível processar a planilha"
-					source={<TesouroGerencialPath />}
-					reference={
-						<RacReference
-							objective="Encontrar saldos parados há mais de três meses em contas que exigem movimentação regular, por UG e por questão do RAC."
-							risk="Saldo alongado indica pendência não tratada — baixa não efetuada, conciliação em aberto ou registro esquecido —, e distorce a posição patrimonial."
-							importance="O apontamento por competência mostra o que envelheceu desde o último ciclo e sustenta a cobrança junto à UG."
-						/>
-					}
-					notes={ANALYSIS_NOTES}
 				/>
 			) : (
 				<div className="space-y-8">

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { Alert, AlertDescription } from "#/components/ui/alert"
@@ -265,8 +266,11 @@ function SacDgcPage() {
 		return { ugs: base.datasets.length, done }
 	}, [base, states])
 
+	const guide = <AnalysisGuide notes={ANALYSIS_NOTES} />
+
 	return (
 		<HubLayout
+			guide={guide}
 			actions={
 				<>
 					{isRunning && (
@@ -292,12 +296,7 @@ function SacDgcPage() {
 					 * perderam. O que ela dizia de próprio (a base é lida no navegador) é
 					 * agora um dos cartões de apoio, no fim.
 					 */}
-					<AnalysisStart
-						dropzone={<DgcUpload onProcess={handleProcess} isLoading={isReading} />}
-						error={readError}
-						errorTitle="Não foi possível ler a base"
-						notes={ANALYSIS_NOTES}
-					/>
+					<AnalysisStart dropzone={<DgcUpload onProcess={handleProcess} isLoading={isReading} />} error={readError} errorTitle="Não foi possível ler a base" />
 
 					<div className="mx-auto w-full max-w-4xl">
 						<DgcRunHistory

@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import * as XLSX from "xlsx"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
@@ -583,8 +584,24 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 	// ── Render ───────────────────────────────────────────────────────────────────
 
+	const guide = (
+		<AnalysisGuide
+			source={<TesouroGerencialPath />}
+			reference={
+				<RacReference
+					statement="As Unidades Gestoras utilizam contas contábeis genéricas no registro de suas transações?"
+					objective='Identificar o uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.'
+					risk="A conta genérica esconde a natureza real do registro, impede a conciliação por natureza de despesa e distorce a leitura das demonstrações."
+					importance="A reclassificação preserva a fidedignidade dos registros e sustenta a atuação da Setorial Contábil junto à UG."
+				/>
+			}
+			notes={ANALYSIS_NOTES}
+		/>
+	)
+
 	return (
 		<HubLayout
+			guide={guide}
 			actions={
 				result && (
 					<Button variant="outline" size="sm" onClick={resetApp}>
@@ -621,16 +638,6 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 					}
 					error={error}
 					errorTitle="Não foi possível processar a planilha"
-					source={<TesouroGerencialPath />}
-					reference={
-						<RacReference
-							statement="As Unidades Gestoras utilizam contas contábeis genéricas no registro de suas transações?"
-							objective='Identificar o uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.'
-							risk="A conta genérica esconde a natureza real do registro, impede a conciliação por natureza de despesa e distorce a leitura das demonstrações."
-							importance="A reclassificação preserva a fidedignidade dos registros e sustenta a atuação da Setorial Contábil junto à UG."
-						/>
-					}
-					notes={ANALYSIS_NOTES}
 				/>
 			)}
 

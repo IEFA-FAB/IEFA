@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
@@ -578,8 +579,24 @@ function SubitensGenericos() {
 	const COLORS = ["#00205B", "#003DA5", "#D4AF37", "#4A90E2", "#87CEEB", "#B0C4DE", "#4682B4"]
 
 	// ── Render ────────────────────────────────────────────────
+	const guide = (
+		<AnalysisGuide
+			source={<TesouroGerencialPath />}
+			reference={
+				<RacReference
+					statement="As Unidades Gestoras utilizam contas contábeis e subitens genéricos (99, 999, P99, /99) no registro de suas transações?"
+					objective="Identificar a utilização indevida de contas contábeis e subitens genéricos nos registros das Unidades Gestoras."
+					risk="O uso de subitens genéricos oculta a real natureza da transação, prejudicando a transparência, a precisão da informação e a evidenciação contábil."
+					importance="A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER."
+				/>
+			}
+			notes={ANALYSIS_NOTES}
+		/>
+	)
+
 	return (
 		<HubLayout
+			guide={guide}
 			actions={
 				// Só com dados: sem análise carregada, "Nova análise" não desfaz nada.
 				data.length > 0 && (
@@ -617,16 +634,6 @@ function SubitensGenericos() {
 								}
 								error={error}
 								errorTitle="Não foi possível processar a planilha"
-								source={<TesouroGerencialPath />}
-								reference={
-									<RacReference
-										statement="As Unidades Gestoras utilizam contas contábeis e subitens genéricos (99, 999, P99, /99) no registro de suas transações?"
-										objective="Identificar a utilização indevida de contas contábeis e subitens genéricos nos registros das Unidades Gestoras."
-										risk="O uso de subitens genéricos oculta a real natureza da transação, prejudicando a transparência, a precisão da informação e a evidenciação contábil."
-										importance="A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER."
-									/>
-								}
-								notes={ANALYSIS_NOTES}
 							/>
 						</motion.div>
 					) : (
