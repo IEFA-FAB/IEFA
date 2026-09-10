@@ -203,6 +203,45 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.route("/", complianceRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
+	/**
+	 * GET /api/v1/sessions — conversas do usuário, da mais recente para a mais antiga.
+	 *
+	 * A sessão não tem tabela própria: ela é um UUID que o cliente cunha e que o α passa a
+	 * conhecer quando a primeira pergunta é registrada em `query_log`. Daí a lista sair
+	 * daqui, com a primeira pergunta servindo de título — é o que o usuário reconhece.
+	 *
+	 * Sem este endpoint o ChatRADA não tinha como oferecer histórico: a tela chamava um
+	 * `GET /sessions` que nunca existiu e recebia 404.
+	 */
+	.get("/api/v1/sessions", async (c) => {
+		const user = c.get("user")
+
+		const { data, error } = await supabase
+			.from("query_log")
+			.select("session_id, original_query, created_at")
+			.eq("user_id", user.id)
+			.order("created_at", { ascending: false })
+			.limit(500)
+
+		if (error) return c.json({ error: "Internal Server Error", code: "QUERY_FAILED" }, 500)
+
+		// Uma linha por sessão. A ordenação acima é decrescente, então a PRIMEIRA linha de
+		// cada sessão é a mais recente — dela vem o `last_message_at`; o título é a pergunta
+		// mais antiga, que é a que abriu a conversa.
+		const bySession = new Map<string, { session_id: string; title: string; last_message_at: string; messages: number }>()
+		for (const row of data ?? []) {
+			const current = bySession.get(row.session_id)
+			if (current) {
+				current.title = row.original_query ?? current.title
+				current.messages += 1
+			} else {
+				bySession.set(row.session_id, { session_id: row.session_id, title: row.original_query ?? "(sem título)", last_message_at: row.created_at, messages: 1 })
+			}
+		}
+
+		return c.json({ sessions: [...bySession.values()] })
+	})
+
 	.post("/api/v1/sessions", async (c) => {
 		const user = c.get("user")
 		const session_id = uuid()
