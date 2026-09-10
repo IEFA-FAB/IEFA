@@ -92,6 +92,20 @@ type ChunkResponse = {
 	token_count: number
 	metadata: unknown
 	document_id: string
+	/**
+	 * De onde o trecho veio, lido da tabela `document` e não do `metadata`.
+	 *
+	 * O `metadata` do chunk só tem `source` para o corpus ingerido por markdown (o RADA-e).
+	 * Os outros 1990 chunks — Lei 14.133, decretos, modelos da AGU — entram por
+	 * `sources/pipeline.ts` e gravam `{source_id, version_label}`, sem nome de documento.
+	 * Quem cita precisa saber o que está citando, e a resposta tem de vir do dado, nunca
+	 * de um padrão assumido pela tela.
+	 */
+	document: {
+		id: string
+		title: string | null
+		document_type: string | null
+	}
 	_links: {
 		self: { href: string }
 		document: { href: string }
@@ -397,14 +411,18 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const id = c.req.param("id")
 		const { data, error } = await supabase
 			.from("document_chunk")
-			.select("id, content, chapter, article, section, chunk_index, token_count, metadata, document_id")
+			.select("id, content, chapter, article, section, chunk_index, token_count, metadata, document_id, document(id, title, document_type)")
 			.eq("id", id)
 			.single()
 		if (error || !data) {
 			return c.json({ error: "Not Found", code: "CHUNK_NOT_FOUND" }, 404)
 		}
+		const { document, ...chunk } = data as typeof data & { document: { id: string; title: string | null; document_type: string | null } | null }
 		return c.json<ChunkResponse>({
-			...data,
+			...chunk,
+			// FK obrigatória: sem documento o chunk não existiria. O fallback é para o tipo,
+			// não para um caso real — e devolve nome NULO em vez de inventar um.
+			document: document ?? { id: chunk.document_id, title: null, document_type: null },
 			_links: {
 				self: { href: `/api/v1/chunks/${id}` },
 				document: { href: `/api/v1/documents/${data.document_id}` },

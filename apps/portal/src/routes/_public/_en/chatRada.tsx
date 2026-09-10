@@ -13,6 +13,7 @@ import type { ChatAnswer, ChatSessionSummary } from "@/lib/alpha/chat"
 import {
 	answerText,
 	chunkLabel,
+	chunkText,
 	createChatSession,
 	fetchChunk,
 	fetchSessionMessages,
@@ -396,7 +397,7 @@ function CitationPanel({ chunkId, index }: { chunkId: string; index: number }) {
 			<div className="mt-2 bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground">
 				{isLoading && <p>Carregando o trecho…</p>}
 				{isError && <p>Não foi possível carregar este trecho.</p>}
-				{chunk && <p className="whitespace-pre-wrap leading-relaxed">{chunk.content}</p>}
+				{chunk && <p className="whitespace-pre-wrap leading-relaxed">{chunkText(chunk)}</p>}
 			</div>
 		</details>
 	)
@@ -409,7 +410,7 @@ function ReferencesList({ chunkIds }: { chunkIds: string[] }) {
 		<details className="mt-2 max-w-[85%] group">
 			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/40 border border-border px-3 py-2">
 				<LinkIcon className="h-3.5 w-3.5" />
-				Trechos do RADA-e ({chunkIds.length})
+				Trechos citados ({chunkIds.length})
 			</summary>
 			<div className="mt-1 space-y-1">
 				{chunkIds.map((chunkId, index) => (
