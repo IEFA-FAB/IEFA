@@ -105,11 +105,14 @@ function toMarkdown(entry: CatalogEntry, text: string, sha256: string, viaOcr: b
 		"document_type: RADA",
 		`title: ${entry.title}`,
 		`year: ${new Date().getUTCFullYear()}`,
+		// Procedência no FRONTMATTER, não no corpo: o corpo é o que vai para o embedding e
+		// volta citado na resposta. Um `sha256` no meio do texto normativo é ruído que
+		// disputa espaço no chunk e aparece para quem lê a citação.
+		`sha256: ${sha256}`,
+		`ocr: ${viaOcr}`,
 		"---",
 		"",
 		`# ${source}`,
-		"",
-		`<!-- origem: acervo local do RADA-e, sha256 ${sha256.slice(0, 16)}${viaOcr ? ", texto por OCR local" : ""} -->`,
 		"",
 		text,
 		"",
