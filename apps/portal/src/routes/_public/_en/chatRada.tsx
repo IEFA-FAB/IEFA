@@ -263,6 +263,11 @@ function useRagClient(token: string | undefined) {
 					id: `${sid}-${i}`,
 					role: m.role === "human" ? "user" : "assistant",
 					content: m.content,
+					// Sem repassar isto, o painel de fontes do histórico fica sempre vazio: o
+					// `select` da query lê `cited_documents` e receberia `undefined` de todas
+					// as mensagens, e o efeito que espelha o histórico apagaria até as
+					// citações da resposta recém-chegada.
+					cited_documents: m.cited_documents ?? [],
 					created_at: new Date().toISOString(),
 				})) as RemoteMessage[]
 			},

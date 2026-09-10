@@ -163,8 +163,20 @@ function buildResponse(session_id: string, state: any): MessageResponse {
 	}
 }
 
+/**
+ * Registra o turno.
+ *
+ * A falha era engolida, e `query_log` não é só telemetria: é de onde saem a lista de
+ * sessões, as citações do histórico e o dono que `canAccessSession` confere. Perder a
+ * linha em silêncio some com a conversa da lista, desalinha as citações e — o pior —
+ * deixa `canAccessSession` devolver `true` para aquela sessão a QUALQUER autenticado,
+ * porque ela passa a não ter dono registrado.
+ *
+ * Não relança: o usuário já recebeu a resposta, e derrubar o turno depois disso trocaria
+ * um registro perdido por uma resposta perdida. O aviso é o que torna a perda visível.
+ */
 async function logQuery(session_id: string, user_id: string, query: string, state: any, latency_ms: number, langsmith_run_id: string | null = null) {
-	await supabase.from("query_log").insert({
+	const { error } = await supabase.from("query_log").insert({
 		session_id,
 		user_id,
 		original_query: query,
@@ -177,6 +189,8 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 		latency_ms,
 		langsmith_run_id,
 	})
+
+	if (error) console.error(`[query_log] turno não registrado (sessão ${session_id}): ${error.message}`)
 }
 
 // ─── Rotas ────────────────────────────────────────────────────────────────────
@@ -355,12 +369,20 @@ const app = new Hono<{ Variables: AppVariables }>()
 		// `messageText` e não `m.content`: mensagem do assistente restaurada do checkpointer
 		// pode trazer o conteúdo como ARRAY de blocos do Bedrock, e devolvê-lo cru faz o
 		// histórico chegar ao portal como "[object Object]".
+		const raw = (state.values?.messages ?? []) as Array<{ type?: string; content?: unknown }>
+		const answerCount = raw.filter((m) => m.type === "ai").length
+
+		// O pareamento é POSICIONAL, e só vale se as contagens baterem exatamente. Um turno
+		// cujo `query_log` não foi gravado — SSE cortado, timeout depois do checkpoint —
+		// deslocaria todas as respostas seguintes para os trechos de OUTRA pergunta: texto
+		// real da norma sob uma resposta que ele não embasou. Na dúvida, nenhuma citação:
+		// citação errada é pior que citação ausente.
+		const alignable = (logRows ?? []).length === answerCount
+
 		let answerIndex = 0
-		const messages = (state.values?.messages ?? []).map((m: any) => {
+		const messages = raw.map((m) => {
 			const role = m.type ?? "unknown"
-			// As linhas do log seguem a ordem das respostas: a n-ésima mensagem do assistente
-			// corresponde à n-ésima pergunta registrada.
-			const cited = role === "ai" ? ((logRows ?? [])[answerIndex++]?.cited_documents ?? []) : []
+			const cited = role === "ai" && alignable ? ((logRows ?? [])[answerIndex++]?.cited_documents ?? []) : []
 			return { role, content: messageText(m.content), cited_documents: cited as string[] }
 		})
 		return c.json<MessagesListResponse>({
