@@ -19,7 +19,9 @@ import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
  *    campo é a primeira coisa na tela, sem rolagem.
  * 2. **A falha** — imediatamente sob o campo, porque é sobre o campo que ela
  *    fala. Erro no rodapé faz o operador reenviar o mesmo arquivo sem saber.
- * 3. **O que pertence ao ato de enviar** — lista de arquivos, botão de carregar.
+ *
+ * Lista de arquivos e botão de carregar, quando existem (DGC), vão DENTRO do
+ * slot `dropzone`: pertencem ao ato de enviar.
  *
  * Onde extrair o relatório, o referencial do RAC e o que a ferramenta faz saíram
  * daqui: são o `AnalysisGuide`, na gaveta "Orientações" do cabeçalho. Ficaram
@@ -37,14 +39,9 @@ interface AnalysisStartProps {
 	/** Mensagem de falha da leitura. `null` quando não houve. */
 	error?: string | null
 	errorTitle?: string
-	/**
-	 * Conteúdo sob a zona de envio — lista de arquivos escolhidos, botão de
-	 * carregar. Só o que pertence ao ato de enviar.
-	 */
-	children?: React.ReactNode
 }
 
-export function AnalysisStart({ dropzone, error, errorTitle = "Não foi possível ler o arquivo", children }: AnalysisStartProps) {
+export function AnalysisStart({ dropzone, error, errorTitle = "Não foi possível processar a planilha" }: AnalysisStartProps) {
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-6">
 			{dropzone}
@@ -57,9 +54,7 @@ export function AnalysisStart({ dropzone, error, errorTitle = "Não foi possíve
 				</Alert>
 			)}
 
-			{children}
-
-			<p className="text-center text-caption text-muted-foreground">Onde extrair o relatório e o que é analisado estão em Orientações, no cabeçalho.</p>
+			<p className="text-center text-caption text-muted-foreground">As orientações da ferramenta estão no botão Orientações, no cabeçalho.</p>
 		</div>
 	)
 }

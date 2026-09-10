@@ -151,11 +151,12 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
   título só para pendurar dois botões, e não havia duas iguais. Moravam na
   barra fixa (2026-09-01 → 2026-09-10); ao lado do título é onde o sisub as põe,
   e é onde ficam perto do nome da tela a que pertencem.
-- **O item ativo da barra lateral é pintado em `action`** — tint de fundo
-  (`--sidebar-accent`) e texto (`--sidebar-accent-foreground`, mais `!text-action`
-  no item de ferramenta, como o `NavMain` do sisub). Os tokens eram cinza
-  0.967 sobre 0.985: com as sete telas iguais por dentro, o realce que dizia ONDE
-  se está era imperceptível.
+- **O item ativo da barra lateral é pintado em `action`** pelos tokens
+  (`--sidebar-accent` tint de fundo, `--sidebar-accent-foreground` texto) — e só
+  por eles; nada de `!text-*` no call site. Os tokens eram cinza 0.967 sobre
+  0.985: com as sete telas iguais por dentro, o realce que dizia ONDE se está era
+  imperceptível. O hover usa o MESMO tint pela metade e sem trocar a cor do
+  texto: hover e ativo com a mesma cara faziam dois itens parecerem ativos.
 - **Filtro NÃO vai em `actions`.** Filtro é do conteúdo e mora no corpo, com
   rótulo. O cabeçalho é navegação e ação; misturar os dois foi o defeito que a
   barra lateral do hub já tinha corrigido em 2026-08.
@@ -164,8 +165,9 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
   ao trocar de ferramenta a margem lateral saltava sem dizer nada. Tabela larga
   rola em `overflow-x-auto`; o formulário de entrada segue estreito por conta
   própria (`AnalysisStart` é `max-w-4xl`). A prop `width` foi removida.
-- **Segmento de escolha é `Tabs`**, nunca `<button>` pintado à mão: os quatro que
-  existiam não tinham `role="tab"` e nenhum navegava por seta do teclado.
+- **Segmento de escolha é `SegmentedControl`** (filtro ou troca de visão) ou
+  `Tabs` (só com `tabpanel`), nunca `<button>` pintado à mão: os que existiam não
+  tinham papel ARIA e nenhum navegava por seta do teclado. Ver §4.7.
 
 ### 4.6 A tela inicial de análise — `AnalysisStart`
 
@@ -583,7 +585,7 @@ exceção já registrada na tabela anterior.
   `src/components/tesouro-gerencial-path.tsx` e `src/components/rac-reference.tsx`
   (as duas fontes de verdade que a tela consome em vez de repetir). Guarda em
   `src/test/analysis-start.contract.test.ts`.
-- **Casca:** `src/components/hub-layout.tsx` — trilha, `actions`, `width`,
+- **Casca:** `src/components/hub-layout.tsx` — trilha, `PageHeader` (`actions`, `guide`),
   descrição herdada do catálogo, links legais no rodapé da barra lateral e o botão
   de tema.
 - **Tema:** `src/services/theme.tsx` (provider) e `theme-preference.ts` (leitura

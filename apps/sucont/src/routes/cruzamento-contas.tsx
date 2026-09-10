@@ -8,7 +8,7 @@ import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
-import { FileDropzone } from "#/components/ui/file-dropzone"
+import { FileDropzone, SPREADSHEET_ACCEPT } from "#/components/ui/file-dropzone"
 import type { ReportData } from "#/lib/cruzamento/analyzer"
 import { analyzeData, parseFile } from "#/lib/cruzamento/analyzer"
 
@@ -81,17 +81,14 @@ function CruzamentoContas() {
 				<AnalysisStart
 					dropzone={
 						<FileDropzone
-							accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+							accept={SPREADSHEET_ACCEPT}
 							onFiles={handleFiles}
-							prompt="ou arraste o relatório"
 							hint="Excel do Tesouro Gerencial (.xlsx, .xls) ou CSV"
 							columns={["UG", "Conta Contábil", "Conta Corrente", "Saldo - R$"]}
 							isLoading={isLoading}
-							loadingLabel="Lendo a planilha…"
 						/>
 					}
 					error={error}
-					errorTitle="Não foi possível processar a planilha"
 				/>
 			) : (
 				<Report data={reportData} />

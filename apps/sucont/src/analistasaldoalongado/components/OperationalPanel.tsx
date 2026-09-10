@@ -213,12 +213,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 					value={filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}
 					status="warning"
 				/>
-				<StatTile
-					icon={<DollarSign />}
-					label="Saldo alongado (>3 meses)"
-					value={formatCurrency(filteredAndSortedData.reduce((acc, curr) => acc + curr.saldo_total, 0))}
-					status="success"
-				/>
+				<StatTile icon={<DollarSign />} label="Saldo alongado (>3 meses)" value={formatCurrency(filteredSaldoTotal)} status="success" />
 			</div>
 
 			{/* Main Chart */}

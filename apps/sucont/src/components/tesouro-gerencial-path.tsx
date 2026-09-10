@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card"
  * Quatro fontes para a mesma decisão, livres para divergir sem ninguém notar —
  * e uma delas já divergia (parava em "SUCONT-3 - ACOMPANHAMENTO").
  */
-export const TESOURO_GERENCIAL_PATH = [
+const TESOURO_GERENCIAL_PATH = [
 	"TESOURO GERENCIAL",
 	"Relatórios Compartilhados",
 	"Consultas Gerenciais",
@@ -25,13 +25,12 @@ export const TESOURO_GERENCIAL_PATH = [
 ] as const
 
 interface TesouroGerencialPathProps {
-	/** Trilha alternativa, para a ferramenta que consome outro relatório. */
-	steps?: readonly string[]
 	/** Uma linha antes da trilha, quando a extração tem alguma condição. */
 	note?: string
 }
 
-export function TesouroGerencialPath({ steps = TESOURO_GERENCIAL_PATH, note }: TesouroGerencialPathProps) {
+export function TesouroGerencialPath({ note }: TesouroGerencialPathProps) {
+	const steps = TESOURO_GERENCIAL_PATH
 	const lastIndex = steps.length - 1
 
 	return (

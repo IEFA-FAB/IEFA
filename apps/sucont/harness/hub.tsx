@@ -29,6 +29,7 @@ import { FileDropzone } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { StatTile } from "#/components/ui/stat-tile"
+import { sucontTools } from "#/lib/data"
 import { Route as IndexRoute } from "#/routes/index"
 import "./harness.css"
 
@@ -194,18 +195,9 @@ const resultScreen = (path: string) =>
 		),
 	})
 
-const TOOL_PATHS = [
-	"/auditor",
-	"/monitoramento",
-	"/documentacao",
-	"/subitens-genericos",
-	"/cruzamento-contas",
-	"/analista-compatibilidade",
-	"/conta-generica",
-	"/analistasaldoalongado",
-	"/sac-dgc",
-	"/centro-monitoramento",
-]
+// Derivado do catálogo: era uma cópia digitada das dez rotas, e ferramenta nova
+// no `data.ts` aparecia na barra do harness apontando para um "Not Found".
+const TOOL_PATHS = sucontTools.flatMap((tool) => (tool.internalPath ? [tool.internalPath] : []))
 
 /**
  * O módulo `admin`: barra lateral própria e a tela de permissões com dado do stub.

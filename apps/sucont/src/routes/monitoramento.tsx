@@ -31,7 +31,7 @@ import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
-import { FileDropzone } from "#/components/ui/file-dropzone"
+import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { Label } from "#/components/ui/label"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
@@ -104,7 +104,24 @@ function MonitoramentoPage() {
 		setIsReading(true)
 		const reader = new FileReader()
 		reader.onload = (e) => {
-			const rawData = e.target?.result
+			// `XLSX.read` lança em arquivo truncado, protegido por senha ou renomeado.
+			// Sem o `try` a zona ficava travada em "Lendo…" para sempre: o `isReading`
+			// só era desligado no caminho feliz.
+			try {
+				parseWorkbook(e.target?.result)
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "Não foi possível ler a planilha. Confira se é um Excel válido.")
+			} finally {
+				setIsReading(false)
+			}
+		}
+		reader.onerror = () => {
+			setIsReading(false)
+			setError("Não foi possível ler o arquivo.")
+		}
+		reader.readAsArrayBuffer(file)
+
+		function parseWorkbook(rawData: string | ArrayBuffer | null | undefined) {
 			const workbook = XLSX.read(rawData, { type: "array" })
 			const firstSheetName = workbook.SheetNames[0]
 			const worksheet = workbook.Sheets[firstSheetName]
@@ -271,8 +288,6 @@ function MonitoramentoPage() {
 				}
 			}
 
-			setIsReading(false)
-
 			// Cabeçalho não encontrado é FALHA de leitura, não competência limpa: antes
 			// caía em `setData([])` com o nome do arquivo já gravado, e a tela trocava
 			// para o painel mostrando zero ocorrência (§7.1). Nenhuma linha aproveitada
@@ -285,11 +300,6 @@ function MonitoramentoPage() {
 			setFileName(file.name)
 			setData(processed)
 		}
-		reader.onerror = () => {
-			setIsReading(false)
-			setError("Não foi possível ler o arquivo.")
-		}
-		reader.readAsArrayBuffer(file)
 	}
 
 	const handleFiles = (files: File[]) => {
@@ -541,17 +551,14 @@ function MonitoramentoPage() {
 				<AnalysisStart
 					dropzone={
 						<FileDropzone
-							accept=".xlsx,.xls"
+							accept={EXCEL_ACCEPT}
 							onFiles={handleFiles}
-							prompt="ou arraste o relatório"
 							hint="Excel do Tesouro Gerencial (.xlsx, .xls)"
 							columns={["UG", "Mês", "Conta Contábil", "Saldo"]}
 							isLoading={isReading}
-							loadingLabel="Lendo a planilha…"
 						/>
 					}
 					error={error}
-					errorTitle="Não foi possível processar a planilha"
 				/>
 			) : (
 				<div className="space-y-8">

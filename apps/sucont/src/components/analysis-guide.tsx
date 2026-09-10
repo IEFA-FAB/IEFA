@@ -45,7 +45,7 @@ export function AnalysisGuide({ source, reference, notes }: AnalysisGuideProps) 
 			<SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
 				<SheetHeader>
 					<SheetTitle>Orientações da ferramenta</SheetTitle>
-					<SheetDescription>Onde extrair o relatório, o que a norma pede e o que sai da análise.</SheetDescription>
+					<SheetDescription>O que a ferramenta recebe, o que a norma pede e o que sai da análise.</SheetDescription>
 				</SheetHeader>
 				<div className="flex flex-col gap-4 px-4 pb-6">
 					{source}

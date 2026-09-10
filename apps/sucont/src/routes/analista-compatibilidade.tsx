@@ -28,7 +28,7 @@ import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
-import { FileDropzone } from "#/components/ui/file-dropzone"
+import { FileDropzone, SPREADSHEET_ACCEPT } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { SectionHeader } from "#/components/ui/section-header"
@@ -138,7 +138,6 @@ function formatCurrency(value: number | string) {
 function AnalistaCompatibilidade() {
 	const [activeTab, setActiveTab] = useState<"operacional" | "gerencial">("operacional")
 	const [reports, setReports] = useState<UGReport[]>([])
-	const [fileName, setFileName] = useState<string | null>(null)
 	const [isProcessing, setIsProcessing] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [prazos, setPrazos] = useState<Record<string, string>>({})
@@ -303,7 +302,6 @@ Diferença apurada: ${formatCurrency(diff)}
 		const file = files[0]
 		if (!file) return
 
-		setFileName(file.name)
 		setIsProcessing(true)
 		setError(null)
 		setReports([])
@@ -342,7 +340,6 @@ Diferença apurada: ${formatCurrency(diff)}
 	const handleReset = () => {
 		setReports([])
 		setError(null)
-		setFileName(null)
 		setPrazos({})
 		setMessageTypes({})
 		setMsgNumbers({})
@@ -721,18 +718,14 @@ DIREF/SUCONT/SUCONT-3
 				<AnalysisStart
 					dropzone={
 						<FileDropzone
-							accept=".xlsx,.xls,.csv"
+							accept={SPREADSHEET_ACCEPT}
 							onFiles={handleFiles}
-							prompt="ou arraste o relatório"
 							hint="Excel do Tesouro Gerencial (.xlsx, .xls) ou CSV"
 							columns={["UG", "Conta Contábil", "Saldo"]}
 							isLoading={isProcessing}
-							loadingLabel="Processando a planilha…"
-							selectedName={fileName}
 						/>
 					}
 					error={error}
-					errorTitle="Não foi possível processar a planilha"
 				/>
 			)}
 

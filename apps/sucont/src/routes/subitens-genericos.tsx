@@ -26,7 +26,7 @@ import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card"
-import { FileDropzone } from "#/components/ui/file-dropzone"
+import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { SectionHeader } from "#/components/ui/section-header"
@@ -34,6 +34,7 @@ import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { StatTile } from "#/components/ui/stat-tile"
 import { useMessageDrafts } from "#/hooks/use-editable-message"
+import { formatCurrency } from "#/lib/analista/types"
 import { chartChrome } from "#/lib/chart-theme"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
@@ -446,17 +447,9 @@ function SubitensGenericos() {
 		reader.readAsArrayBuffer(file)
 	}, [])
 
-	// O `accept` do campo filtra a JANELA de escolha, não o que é ARRASTADO: a
-	// extensão precisa ser conferida aqui, no único ponto por onde os dois
-	// caminhos passam.
 	const handleFiles = (files: File[]) => {
 		const file = files[0]
-		if (!file) return
-		if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
-			setError("Envie um arquivo Excel (.xlsx ou .xls).")
-			return
-		}
-		processFile(file)
+		if (file) processFile(file)
 	}
 
 	const copyToClipboard = (text: string, index: number) => {
@@ -623,17 +616,14 @@ function SubitensGenericos() {
 							<AnalysisStart
 								dropzone={
 									<FileDropzone
-										accept=".xlsx,.xls"
+										accept={EXCEL_ACCEPT}
 										onFiles={handleFiles}
-										prompt="ou arraste o relatório"
 										hint="Excel do Tesouro Gerencial (.xlsx, .xls)"
 										columns={["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo"]}
 										isLoading={isProcessing}
-										loadingLabel="Processando a planilha…"
 									/>
 								}
 								error={error}
-								errorTitle="Não foi possível processar a planilha"
 							/>
 						</motion.div>
 					) : (
@@ -678,12 +668,7 @@ function SubitensGenericos() {
 									hint="registros"
 									status="action"
 								/>
-								<StatTile
-									label="Volume financeiro"
-									value={new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)}
-									hint="em subitens genéricos"
-									status="warning"
-								/>
+								<StatTile label="Volume financeiro" value={formatCurrency(totalVolume)} hint="em subitens genéricos" status="warning" />
 							</div>
 
 							{/* Filtro no corpo, com rótulo. Era um card de `p-8` com disco de ícone,

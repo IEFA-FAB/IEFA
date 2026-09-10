@@ -29,6 +29,7 @@ const statValueVariants = cva("text-display truncate", {
 })
 
 interface StatTileProps extends React.ComponentProps<"div">, VariantProps<typeof statValueVariants> {
+	"data-testid"?: string
 	label: string
 	value: React.ReactNode
 	/** Ícone ao lado do rótulo. Muda a leitura, não a cor. */
@@ -37,14 +38,18 @@ interface StatTileProps extends React.ComponentProps<"div">, VariantProps<typeof
 	hint?: string
 }
 
-export function StatTile({ label, value, icon, hint, status, className, ...props }: StatTileProps) {
+export function StatTile({ label, value, icon, hint, status, className, "data-testid": testId, ...props }: StatTileProps) {
 	return (
 		<div data-slot="stat-tile" className={cn("flex flex-col gap-1 rounded-xl border border-border bg-card p-4", className)} {...props}>
 			<div className="flex items-center gap-2 text-muted-foreground [&>svg]:size-4 [&>svg]:shrink-0">
 				{icon}
 				<span className="text-label">{label}</span>
 			</div>
-			<p className={statValueVariants({ status })}>{value}</p>
+			{/* O `data-testid` vai no VALOR: os specs e2e fazem `toHaveText` exato, e no
+			    tile inteiro o texto seria rótulo + valor + dica. */}
+			<p className={statValueVariants({ status })} data-testid={testId}>
+				{value}
+			</p>
 			{hint && <p className="text-caption text-muted-foreground">{hint}</p>}
 		</div>
 	)

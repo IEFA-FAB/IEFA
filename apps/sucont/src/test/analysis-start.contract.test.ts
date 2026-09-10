@@ -12,7 +12,7 @@
  * envio, ou que escreva à mão o caminho do Tesouro Gerencial, cai aqui.
  */
 import { describe, expect, it } from "bun:test"
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { extname, join, relative, resolve } from "node:path"
 
 const SRC = resolve(import.meta.dir, "..")
@@ -35,15 +35,27 @@ function sourceFiles(): string[] {
 				walk(full)
 				continue
 			}
+			if (!entry.isFile()) continue
 			if (![".ts", ".tsx"].includes(extname(entry.name))) continue
-			if (entry.name.endsWith(".test.ts") || entry.name.endsWith(".test.tsx")) continue
+			if (entry.name.endsWith(".test.ts") || entry.name.endsWith(".test.tsx") || entry.name.endsWith(".gen.ts")) continue
 			if (PRIMITIVE_FILES.has(full)) continue
-			if (statSync(full).isFile()) out.push(full)
+			out.push(full)
 		}
 	}
 	walk(SRC)
 	return out
 }
+
+/** As sete rotas que começam por uma planilha. Uma lista, para as duas seções. */
+const ANALYSIS_ROUTES = [
+	"routes/cruzamento-contas.tsx",
+	"routes/subitens-genericos.tsx",
+	"routes/conta-generica.tsx",
+	"routes/monitoramento.tsx",
+	"routes/analista-compatibilidade.tsx",
+	"routes/analistasaldoalongado.tsx",
+	"routes/sac-dgc.tsx",
+]
 
 const FILES = sourceFiles().map((path) => ({ path: relative(SRC, path), text: readFileSync(path, "utf8") }))
 
@@ -74,16 +86,6 @@ describe("caminho do Tesouro Gerencial", () => {
 })
 
 describe("ordem da tela inicial", () => {
-	const ANALYSIS_ROUTES = [
-		"routes/cruzamento-contas.tsx",
-		"routes/subitens-genericos.tsx",
-		"routes/conta-generica.tsx",
-		"routes/monitoramento.tsx",
-		"routes/analista-compatibilidade.tsx",
-		"routes/analistasaldoalongado.tsx",
-		"routes/sac-dgc.tsx",
-	]
-
 	it.each(ANALYSIS_ROUTES)("%s monta o `AnalysisStart`", (route) => {
 		const file = FILES.find((f) => f.path === route)
 		expect(file).toBeDefined()
@@ -101,15 +103,6 @@ describe("ordem da tela inicial", () => {
 })
 
 describe("estado de resultado", () => {
-	const ANALYSIS_ROUTES = [
-		"routes/cruzamento-contas.tsx",
-		"routes/subitens-genericos.tsx",
-		"routes/conta-generica.tsx",
-		"routes/monitoramento.tsx",
-		"routes/analista-compatibilidade.tsx",
-		"routes/analistasaldoalongado.tsx",
-		"routes/sac-dgc.tsx",
-	]
 	const routes = () => FILES.filter((f) => ANALYSIS_ROUTES.includes(f.path))
 
 	it("sem sombra artificial fora de overlay", () => {

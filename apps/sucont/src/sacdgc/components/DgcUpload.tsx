@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { Button } from "#/components/ui/button"
-import { FileDropzone, FileDropzoneList } from "#/components/ui/file-dropzone"
+import { FileDropzone, FileDropzoneList, SPREADSHEET_ACCEPT } from "#/components/ui/file-dropzone"
 
 interface DgcUploadProps {
 	onProcess: (files: File[]) => void
@@ -36,7 +36,8 @@ export function DgcUpload({ onProcess, isLoading }: DgcUploadProps) {
 	return (
 		<div className="space-y-4">
 			<FileDropzone
-				accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+				id="sacdgc-dropzone"
+				accept={SPREADSHEET_ACCEPT}
 				multiple
 				onFiles={addFiles}
 				prompt="ou arraste as planilhas"

@@ -1,8 +1,6 @@
-import { useState } from "react"
-import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "#/components/ui/dialog"
-import { FileDropzone } from "#/components/ui/file-dropzone"
+import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 
 interface FileUploadModalProps {
 	isOpen: boolean
@@ -24,29 +22,25 @@ interface FileUploadModalProps {
  * a espera era só espera.
  */
 export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalProps) {
-	const [error, setError] = useState<string | null>(null)
+	// Um caminho só para fechar: Escape, clique fora e "Cancelar" limpam o erro.
+	// Com o "Cancelar" chamando `onClose` direto, o aviso de formato sobrevivia
+	// à próxima abertura — Base UI não dispara `onOpenChange` para prop controlada.
+	function close() {
+		onClose()
+	}
 
 	const handleFiles = (files: File[]) => {
 		const file = files[0]
 		if (!file) return
-		// O `accept` do campo filtra a janela de escolha, não o que é arrastado.
-		if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
-			setError("Envie um arquivo Excel (.xlsx ou .xls).")
-			return
-		}
-		setError(null)
 		onUpload(file)
-		onClose()
+		close()
 	}
 
 	return (
 		<Dialog
 			open={isOpen}
 			onOpenChange={(open) => {
-				if (!open) {
-					setError(null)
-					onClose()
-				}
+				if (!open) close()
 			}}
 		>
 			<DialogContent className="max-w-2xl">
@@ -57,17 +51,10 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
 					</DialogDescription>
 				</DialogHeader>
 
-				<FileDropzone accept=".xlsx,.xls" onFiles={handleFiles} prompt="ou arraste o relatório" hint="Excel (.xlsx, .xls) — suporta o volume das 80+ UGs" />
-
-				{error && (
-					<Alert variant="destructive">
-						<AlertTitle>Formato inválido</AlertTitle>
-						<AlertDescription>{error}</AlertDescription>
-					</Alert>
-				)}
+				<FileDropzone accept={EXCEL_ACCEPT} onFiles={handleFiles} hint="Excel (.xlsx, .xls) — suporta o volume das 80+ UGs" />
 
 				<DialogFooter className="justify-end">
-					<Button type="button" variant="outline" onClick={onClose}>
+					<Button type="button" variant="outline" onClick={close}>
 						Cancelar
 					</Button>
 				</DialogFooter>

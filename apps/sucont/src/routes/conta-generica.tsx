@@ -34,7 +34,7 @@ import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
-import { FileDropzone } from "#/components/ui/file-dropzone"
+import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
@@ -124,7 +124,6 @@ export const Route = createFileRoute("/conta-generica")({
 })
 
 function ContaGenerica() {
-	const [file, setFile] = useState<File | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [isProcessing, setIsProcessing] = useState(false)
 	const [result, setResult] = useState<GroupedData | null>(null)
@@ -162,22 +161,12 @@ function ContaGenerica() {
 
 	// ── File handling ───────────────────────────────────────────────────────────
 
-	// O `accept` do campo filtra a JANELA de escolha, não o que é ARRASTADO: a
-	// extensão precisa ser conferida aqui, no único ponto por onde os dois
-	// caminhos passam.
 	const handleFiles = (files: File[]) => {
 		const f = files[0]
-		if (!f) return
-		if (!f.name.endsWith(".xlsx") && !f.name.endsWith(".xls")) {
-			setError("Envie um arquivo Excel válido (.xlsx ou .xls).")
-			return
-		}
-		setFile(f)
-		processFile(f)
+		if (f) processFile(f)
 	}
 
 	const resetApp = () => {
-		setFile(null)
 		setResult(null)
 		setFoundAny(false)
 		setError(null)
@@ -626,18 +615,14 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 				<AnalysisStart
 					dropzone={
 						<FileDropzone
-							accept=".xlsx,.xls"
+							accept={EXCEL_ACCEPT}
 							onFiles={handleFiles}
-							prompt="ou arraste o relatório"
 							hint='Excel do Tesouro Gerencial — contas com final "99" são identificadas automaticamente'
 							columns={["UG", "Conta Contábil", "Mês", "Saldo - R$"]}
 							isLoading={isProcessing}
-							loadingLabel="Processando o relatório…"
-							selectedName={file?.name ?? null}
 						/>
 					}
 					error={error}
-					errorTitle="Não foi possível processar a planilha"
 				/>
 			)}
 

@@ -1,7 +1,36 @@
 import { FileSpreadsheet, UploadCloud, X } from "lucide-react"
-import { useCallback, useId, useState } from "react"
+import { useId, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { cn } from "#/lib/utils"
+
+/**
+ * Formatos aceitos, uma vez só. Estavam digitados em oito call sites, e um
+ * já tinha divergido (`.xlsx,.xls,.csv` sem os MIME types).
+ */
+export const EXCEL_ACCEPT = ".xlsx,.xls"
+export const SPREADSHEET_ACCEPT = ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+
+/**
+ * O `accept` filtra a JANELA de escolha, não o que é ARRASTADO. Esta é a
+ * conferência que os dois caminhos compartilham — morava copiada em três rotas
+ * (cada uma com a sua mensagem) e faltava numa quarta, onde um `.csv` solto
+ * chegava inteiro ao parser.
+ */
+export function isAcceptedFile(file: File, accept: string): boolean {
+	const name = file.name.toLowerCase()
+	return accept
+		.split(",")
+		.map((token) => token.trim().toLowerCase())
+		.some((token) => (token.startsWith(".") ? name.endsWith(token) : token !== "" && file.type === token))
+}
+
+function acceptedExtensions(accept: string): string {
+	return accept
+		.split(",")
+		.map((token) => token.trim())
+		.filter((token) => token.startsWith("."))
+		.join(", ")
+}
 
 /**
  * Zona de envio do sucont — a única.
@@ -15,16 +44,18 @@ import { cn } from "#/lib/utils"
  * que fazia o foco de teclado se comportar diferente em cada tela.
  *
  * Aqui a forma é uma só e o comportamento também. O que a ferramenta pode mudar
- * é o TEXTO — chamada, formato aceito e colunas exigidas —, porque isso é o
- * conteúdo; forma, cor e estado de arraste não são negociáveis.
+ * é o TEXTO — formato aceito e colunas exigidas —, porque isso é o conteúdo;
+ * forma, cor e estado de arraste não são negociáveis.
  *
  * O `<input type="file">` é nativo de propósito: o primitivo `Input` é text-like
  * e não cobre este campo. É a exceção já registrada no STYLE_CONTRACT §8.
  */
 interface FileDropzoneProps {
-	/** Formatos aceitos, no formato do atributo `accept`. */
+	/** `id` do campo, quando algo de fora precisa alcançá-lo (os specs e2e do DGC). */
+	id?: string
+	/** Formatos aceitos, no formato do atributo `accept`. Ver `EXCEL_ACCEPT` / `SPREADSHEET_ACCEPT`. */
 	accept: string
-	/** Recebe o que foi solto ou escolhido. Sempre uma lista — vazia nunca chega. */
+	/** Recebe o que foi solto ou escolhido E passou no `accept`. Sempre uma lista — vazia nunca chega. */
 	onFiles: (files: File[]) => void
 	/** Aceita mais de um arquivo por vez. */
 	multiple?: boolean
@@ -43,59 +74,64 @@ interface FileDropzoneProps {
 	/** Enquanto verdadeiro, a zona não aceita arquivo e mostra `loadingLabel`. */
 	isLoading?: boolean
 	loadingLabel?: string
-	/** Nome do arquivo já escolhido, no fluxo de arquivo único. Substitui a chamada. */
-	selectedName?: string | null
 	className?: string
 }
 
 export function FileDropzone({
+	id,
 	accept,
 	onFiles,
 	multiple = false,
-	prompt = "ou arraste e solte",
+	prompt = "ou arraste o relatório",
 	hint,
 	columns,
 	isLoading = false,
-	loadingLabel = "Lendo o arquivo…",
-	selectedName,
+	loadingLabel = "Lendo a planilha…",
 	className,
 }: FileDropzoneProps) {
-	const inputId = useId()
+	const generatedId = useId()
+	const inputId = id ?? generatedId
 	const [isDragging, setIsDragging] = useState(false)
+	const [rejected, setRejected] = useState<string | null>(null)
 
-	const emit = useCallback(
-		(list: FileList | null) => {
-			if (!list?.length) return
-			onFiles(Array.from(list))
-		},
-		[onFiles]
-	)
+	function emit(list: FileList | null) {
+		if (!list?.length) return
+		const files = Array.from(list)
+		const accepted = files.filter((file) => isAcceptedFile(file, accept))
+		if (accepted.length === 0) {
+			setRejected(`Formato não aceito. Envie ${acceptedExtensions(accept)}.`)
+			return
+		}
+		setRejected(null)
+		onFiles(accepted)
+	}
 
-	const handleDrag = useCallback((e: React.DragEvent) => {
+	function handleDrag(e: React.DragEvent) {
 		e.preventDefault()
 		e.stopPropagation()
 		setIsDragging(e.type === "dragenter" || e.type === "dragover")
-	}, [])
+	}
 
-	const handleDrop = useCallback(
-		(e: React.DragEvent) => {
-			e.preventDefault()
-			e.stopPropagation()
-			setIsDragging(false)
-			if (isLoading) return
-			emit(e.dataTransfer.files)
-		},
-		[emit, isLoading]
-	)
+	function handleDrop(e: React.DragEvent) {
+		// `preventDefault` SEMPRE, inclusive carregando: sem o handler ativo o drop
+		// cai no documento e o navegador navega para o arquivo solto, descartando
+		// a leitura em curso e todo rascunho de mensagem da tela.
+		e.preventDefault()
+		e.stopPropagation()
+		setIsDragging(false)
+		if (isLoading) return
+		emit(e.dataTransfer.files)
+	}
 
 	return (
 		<label
 			htmlFor={inputId}
+			aria-busy={isLoading || undefined}
 			className={cn(
 				"flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors",
 				"focus-within:ring-[3px] focus-within:ring-ring/50",
-				isDragging || selectedName ? "border-action bg-action/5" : "border-border bg-muted/50 hover:border-border/80 hover:bg-muted",
-				isLoading && "pointer-events-none opacity-50",
+				isDragging ? "border-action bg-action/5" : "border-border bg-muted/50 hover:border-border/80 hover:bg-muted",
+				isLoading && "cursor-wait opacity-50",
 				className
 			)}
 			onDragEnter={handleDrag}
@@ -103,13 +139,11 @@ export function FileDropzone({
 			onDragOver={handleDrag}
 			onDrop={handleDrop}
 		>
-			<UploadCloud className={cn("mb-4 h-11 w-11", isLoading ? "animate-pulse text-muted-foreground" : "text-muted-foreground")} />
+			<UploadCloud className={cn("mb-4 h-11 w-11 text-muted-foreground", isLoading && "animate-pulse")} />
 
 			<p className="mb-1 text-subheading text-foreground">
 				{isLoading ? (
 					loadingLabel
-				) : selectedName ? (
-					selectedName
 				) : (
 					<>
 						<span className="font-semibold text-action">Clique para enviar</span> {prompt}
@@ -117,6 +151,11 @@ export function FileDropzone({
 				)}
 			</p>
 			<p className="text-caption text-muted-foreground">{hint}</p>
+			{rejected && (
+				<p className="mt-2 text-caption text-destructive" role="alert">
+					{rejected}
+				</p>
+			)}
 
 			{columns && columns.length > 0 && (
 				<div className="mt-6 flex flex-col items-center gap-2">
@@ -151,10 +190,8 @@ export function FileDropzone({
 }
 
 /**
- * Lista dos arquivos já escolhidos, sob a zona de envio.
- *
- * Só o fluxo de vários arquivos precisa dela — o de arquivo único mostra o nome
- * dentro da própria zona (`selectedName`).
+ * Lista dos arquivos já escolhidos, sob a zona de envio. Só o fluxo de vários
+ * arquivos precisa dela.
  */
 export function FileDropzoneList({ files, onRemove, disabled }: { files: readonly File[]; onRemove: (file: File) => void; disabled?: boolean }) {
 	if (files.length === 0) return null

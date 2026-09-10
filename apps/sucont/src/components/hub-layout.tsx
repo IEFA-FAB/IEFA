@@ -128,7 +128,7 @@ export function HubLayout({ children, title, description, searchable = false, ac
 				<header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
 					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
-					<HubBreadcrumb title={title} />
+					<HubBreadcrumb />
 					<div className="ml-auto flex shrink-0 items-center gap-2">
 						<ThemeToggle />
 					</div>
@@ -140,8 +140,12 @@ export function HubLayout({ children, title, description, searchable = false, ac
 							<div className="mb-6 flex flex-col gap-6">
 								{heading && (
 									<PageHeader title={heading} description={blurb} badge={scope ? <Badge variant="muted">{scope}</Badge> : undefined}>
-										{actions}
-										{guide}
+										{actions || guide ? (
+											<>
+												{actions}
+												{guide}
+											</>
+										) : undefined}
 									</PageHeader>
 								)}
 								{searchable && <HubSearchBar />}
@@ -329,10 +333,6 @@ function HubNav({ division }: { division: SucontDivision }) {
 									<SidebarMenuButton
 										tooltip={scope ? `${tool.title} · ${scope}` : tool.title}
 										isActive={isActive}
-										// Cor de ação no item ativo, como o `NavMain` do sisub: com as sete
-										// telas iguais por dentro, o realce cinza-sobre-cinza do token não
-										// dizia em qual delas se estava. `!` vence o `data-active:` do botão.
-										className={cn(isActive && "!text-action hover:!text-action")}
 										render={
 											<Link to={target} search={true} aria-current={isActive ? "page" : undefined}>
 												<IconRenderer iconKey={tool.icon} />
@@ -358,7 +358,7 @@ function HubNav({ division }: { division: SucontDivision }) {
  * A trilha é NAVEGAÇÃO: o `h1` da página mora no `PageHeader`, abaixo. O último
  * item aqui é texto simples com `aria-current`, não um segundo título.
  */
-function HubBreadcrumb({ title }: { title?: string }) {
+function HubBreadcrumb() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
 	const tool = findToolByPath(sucontTools, pathname)
@@ -367,13 +367,10 @@ function HubBreadcrumb({ title }: { title?: string }) {
 	if (crumbs.length === 0) {
 		// Sem título de tela, o cabeçalho anuncia o módulo — dizer "SUCONT-4 HUB"
 		// dentro da Administração contradiria o seletor da barra lateral.
-		return title ? (
-			<span className="text-subheading text-foreground truncate" aria-current="page">
-				{title}
-			</span>
-		) : (
-			<span className="text-subheading text-muted-foreground truncate">{findModuleByPath(pathname, divisao).label}</span>
-		)
+		// Fora de ferramenta a barra anuncia o MÓDULO; o título da tela é o `h1` do
+		// `PageHeader`, logo abaixo. Repeti-lo aqui era o "dois títulos" que a
+		// trilha de ferramenta já tinha deixado de fazer.
+		return <span className="text-subheading text-muted-foreground truncate">{findModuleByPath(pathname, divisao).label}</span>
 	}
 
 	return (

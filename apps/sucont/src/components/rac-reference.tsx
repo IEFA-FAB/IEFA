@@ -4,8 +4,7 @@ import type React from "react"
 import { Badge } from "#/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card"
 import { sucontTools } from "#/lib/data"
-import { formatRacQuestions } from "#/lib/rac"
-import { findToolByPath } from "#/lib/tool-nav"
+import { findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
 
 /**
  * Referencial normativo da ferramenta: a questão do RAC que ela responde e o
@@ -31,8 +30,6 @@ interface RacReferenceProps {
 	risk: string
 	/** O que a regularização preserva. */
 	importance: string
-	/** Questões cobertas. Padrão: as do catálogo. Passar só fora de rota de ferramenta. */
-	questions?: readonly number[]
 	/**
 	 * Detalhe normativo extra, depois dos três blocos — a função contábil das
 	 * contas analisadas, por exemplo. Fica aqui, e não num painel à parte, porque
@@ -41,10 +38,11 @@ interface RacReferenceProps {
 	children?: React.ReactNode
 }
 
-export function RacReference({ statement, objective, risk, importance, questions, children }: RacReferenceProps) {
+export function RacReference({ statement, objective, risk, importance, children }: RacReferenceProps) {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const tool = findToolByPath(sucontTools, pathname)
-	const scope = formatRacQuestions(questions ?? tool?.racQuestions)
+	// A MESMA função da pílula do `PageHeader`: se a regra de rótulo mudar, muda nos dois.
+	const scope = toolScopeLabel(tool)
 
 	const blocks = [
 		{ title: "Objetivo da análise", text: objective },
