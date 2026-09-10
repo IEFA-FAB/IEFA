@@ -67,6 +67,9 @@ const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
  */
 const PIPELINE_VERSION = 2
 
+/** Quantas máscaras descartadas o relatório mostra por documento, antes de resumir. */
+const MAX_REPORTED_PATTERNS = 3
+
 /** Um PDF começa por `%PDF-`. Servidor de intranet responde 200 com página de erro. */
 function isPdf(bytes: Uint8Array): boolean {
 	return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-"
@@ -284,6 +287,11 @@ async function build(noOcr: boolean): Promise<void> {
 		built[name] = { sha256, file, builtAt: new Date().toISOString(), pipeline: PIPELINE_VERSION }
 		const removed = cleaned.removedLines > 0 ? `, −${cleaned.removedLines} linhas de impressão` : ""
 		created.push(`${entry.letter} ${entry.title} (${text.length} caracteres${viaOcr ? ", por OCR" : ""}${removed})`)
+		// O QUE saiu, e não só quantas linhas. Remoção errada é o risco desta etapa, e sem
+		// imprimir a máscara ela é invisível: o relatório diria "−218 linhas" tanto para o
+		// cabeçalho do módulo quanto para um parágrafo comido por engano.
+		for (const pattern of cleaned.patterns.slice(0, MAX_REPORTED_PATTERNS)) created.push(`   ↳ ${pattern}`)
+		if (cleaned.patterns.length > MAX_REPORTED_PATTERNS) created.push(`   ↳ … e mais ${cleaned.patterns.length - MAX_REPORTED_PATTERNS}`)
 	}
 
 	await writeFile(join(KNOWLEDGE, ".rada-build.json"), `${JSON.stringify(built, null, 2)}\n`, "utf8")

@@ -89,7 +89,14 @@ const DOCUMENT_STAMP = /^Documento:\s.*\sP[áa]gina\s*\d+\s*\/\s*\d+\s.*Hash\s+M
 /** Rótulo da página de assinatura no relatório — ela não tem "máscara", sai inteira. */
 const SIGNATURE_PAGE_PATTERN = "<página de controle de assinatura>"
 
-/** Padrões de número de página isolado, na borda da página. */
+/**
+ * Números de página, na borda.
+ *
+ * Existem para dar NOME ao que a repetição já pegou, não para autorizar remoção: quem
+ * decide é a repetição. Um `1200` solto no topo de uma página pode ser paginação ou o
+ * valor que abre a continuação de uma tabela, e só a repetição separa os dois —
+ * paginação aparece em quase toda página, valor de tabela não.
+ */
 const PAGE_NUMBER_PATTERNS = [
 	/^\d{1,4}$/,
 	/^[-–—]\s*\d{1,4}\s*[-–—]$/,
@@ -107,17 +114,52 @@ function maskDigits(line: string): string {
 	return line.replace(/\d+/g, "#")
 }
 
-function isPageNumber(line: string): boolean {
+/** Só para o relatório: dizer "número de página" em vez de despejar a máscara. */
+export function isPageNumber(line: string): boolean {
 	return PAGE_NUMBER_PATTERNS.some((pattern) => pattern.test(line))
 }
 
-/** O que sai da borda por forma própria, sem precisar da prova de repetição. */
-function isPrintStampByShape(line: string): boolean {
-	return isPageNumber(line) || DOCUMENT_STAMP.test(line)
+/** Linha que é só um número — a que `maskDigits` reduz a `#`. */
+const BARE_NUMBER = /^\d{1,4}$/
+
+/** Fração dos passos que precisa crescer para a sequência ser paginação. */
+const PAGINATION_MONOTONIC_RATIO = 0.8
+
+/**
+ * Confirma que os números soltos na borda são PAGINAÇÃO, e não valor de tabela.
+ *
+ * A máscara de dígitos é cega aqui, e é o furo que esta função tapa: ela reduz `1200`,
+ * `340` e `57` todos a `#`, então três valores de tabela na borda de três páginas
+ * parecem a mesma linha repetida — e sairiam como se fossem paginação.
+ *
+ * O que separa os dois é a SEQUÊNCIA: número de página cresce ao longo do documento, a
+ * coluna que abre a continuação de uma tabela não. Quando a conta não fecha, a decisão é
+ * MANTER: sobrar um número de página é ruído, comer um valor de tabela é perder dado.
+ */
+function looksLikePagination(body: string[][]): boolean {
+	const perPage = body
+		.map((lines) => lines.find((line, index) => isEdge(index, lines.length) && BARE_NUMBER.test(line)))
+		.filter((value): value is string => value !== undefined)
+		.map(Number)
+
+	if (perPage.length < MIN_PAGES) return false
+
+	const steps = perPage.length - 1
+	const increasing = perPage.slice(1).filter((value, index) => value > perPage[index]).length
+	return increasing >= steps * PAGINATION_MONOTONIC_RATIO
 }
 
-function isSignaturePage(lines: string[]): boolean {
-	return lines.some((line) => SIGNATURE_PAGE_HEADING.test(line))
+/**
+ * Índice da linha onde começa o bloco de controle de assinatura, ou -1.
+ *
+ * O corte é da linha PARA BAIXO, e não da página inteira. Nada garante que o bloco
+ * comece no topo: uma página que termine um dispositivo e só então traga a assinatura
+ * perderia a norma junto, em silêncio. Hoje as três linhas que o antecedem no acervo
+ * são outro artefato (carimbo e brasão), e é justamente por isso que a regra não pode
+ * depender disso continuar verdade.
+ */
+function signatureCutIndex(lines: string[]): number {
+	return lines.findIndex((line) => SIGNATURE_PAGE_HEADING.test(line))
 }
 
 function isEdge(index: number, total: number): boolean {
@@ -129,7 +171,7 @@ export interface StripResult {
 	text: string
 	/** Quantas linhas foram descartadas — o número que o `rada:build` reporta. */
 	removedLines: number
-	/** As máscaras descartadas, da mais frequente para a menos, para conferência humana. */
+	/** Máscaras distintas descartadas, da mais frequente para a menos, para conferência humana. */
 	patterns: string[]
 }
 
@@ -147,49 +189,51 @@ export function stripPrintArtifacts(pages: string[]): StripResult {
 			.map((line) => cleanText(line))
 			.filter(Boolean)
 	)
-	// Página de assinatura sai inteira, e sai ANTES da contagem: ela não é página do
-	// documento, e deixá-la no denominador só empurraria o limiar de repetição para cima.
-	const signaturePages = perPage.filter(isSignaturePage)
-	const removedBySignature = signaturePages.reduce((total, lines) => total + lines.length, 0)
-	const body = perPage.map((lines) => (isSignaturePage(lines) ? [] : lines))
+
+	// O bloco de assinatura sai ANTES da contagem: ele não é página do documento, e
+	// deixá-lo no denominador só empurraria o limiar de repetição para cima.
+	const body = perPage.map((lines) => {
+		const cut = signatureCutIndex(lines)
+		return cut === -1 ? lines : lines.slice(0, cut)
+	})
+	const removedBySignature = perPage.reduce((total, lines, index) => total + (lines.length - body[index].length), 0)
 	const nonEmpty = body.filter((lines) => lines.length > 0)
 
-	if (nonEmpty.length < MIN_PAGES) {
-		// Documento curto demais para a repetição provar algo — mas o que tem forma
-		// própria de artefato ainda sai. Dez submódulos do Módulo H caem aqui.
-		const patterns = signaturePages.length > 0 ? [SIGNATURE_PAGE_PATTERN] : []
-		let removedByShape = 0
-		const short = body.map((lines) =>
-			lines.filter((line, index) => {
-				if (!isEdge(index, lines.length) || !isPrintStampByShape(line)) return true
-				removedByShape++
-				patterns.push(maskDigits(line))
-				return false
-			})
-		)
-		return { text: short.flat().join("\n"), removedLines: removedBySignature + removedByShape, patterns }
-	}
-
 	// Conta PÁGINAS, não ocorrências: um cabeçalho que aparecesse três vezes numa
-	// página só e em nenhuma outra não é cabeçalho.
+	// página só e em nenhuma outra não é cabeçalho. Documento curto demais não tem
+	// repetição que prove nada, e aí o conjunto fica vazio — só a forma própria sai.
 	const pagesByMask = new Map<string, number>()
-	for (const lines of body) {
-		const masks = new Set<string>()
-		for (const [index, line] of lines.entries()) {
-			if (isEdge(index, lines.length) && line.length <= MAX_ARTIFACT_CHARS) masks.add(maskDigits(line))
+	if (nonEmpty.length >= MIN_PAGES) {
+		for (const lines of body) {
+			const masks = new Set<string>()
+			for (const [index, line] of lines.entries()) {
+				if (isEdge(index, lines.length) && line.length <= MAX_ARTIFACT_CHARS) masks.add(maskDigits(line))
+			}
+			for (const mask of masks) pagesByMask.set(mask, (pagesByMask.get(mask) ?? 0) + 1)
 		}
-		for (const mask of masks) pagesByMask.set(mask, (pagesByMask.get(mask) ?? 0) + 1)
 	}
 
 	const threshold = Math.max(MIN_PAGES, Math.ceil(nonEmpty.length * REPEAT_RATIO))
 	const repeated = new Set([...pagesByMask].filter(([, count]) => count >= threshold).map(([mask]) => mask))
 
+	/**
+	 * O carimbo sai por forma, e sem teto de tamanho: título, paginação e hash na mesma
+	 * linha não existem em texto normativo, e um carimbo de 285 caracteres é tão carimbo
+	 * quanto um de 110. Todo o resto precisa da prova de repetição.
+	 */
+	const pagination = looksLikePagination(body)
+	const isArtifact = (line: string) => {
+		if (DOCUMENT_STAMP.test(line)) return true
+		if (line.length > MAX_ARTIFACT_CHARS || !repeated.has(maskDigits(line))) return false
+		// Número solto só sai quando a sequência prova paginação.
+		return !BARE_NUMBER.test(line) || pagination
+	}
+
 	const removedByMask = new Map<string, number>()
 	const kept: string[] = []
 	for (const lines of body) {
 		for (const [index, line] of lines.entries()) {
-			const removable = isEdge(index, lines.length) && line.length <= MAX_ARTIFACT_CHARS
-			if (removable && (repeated.has(maskDigits(line)) || isPrintStampByShape(line))) {
+			if (isEdge(index, lines.length) && isArtifact(line)) {
 				const mask = maskDigits(line)
 				removedByMask.set(mask, (removedByMask.get(mask) ?? 0) + 1)
 				continue
@@ -198,8 +242,8 @@ export function stripPrintArtifacts(pages: string[]): StripResult {
 		}
 	}
 
-	const patterns = [...removedByMask].sort((a, b) => b[1] - a[1]).map(([mask]) => mask)
-	if (signaturePages.length > 0) patterns.push(SIGNATURE_PAGE_PATTERN)
+	const patterns = [...removedByMask].sort((a, b) => b[1] - a[1]).map(([mask]) => (isPageNumber(mask.replace(/#/g, "1")) ? `${mask} (número de página)` : mask))
+	if (removedBySignature > 0) patterns.push(SIGNATURE_PAGE_PATTERN)
 
 	return {
 		text: kept.join("\n"),

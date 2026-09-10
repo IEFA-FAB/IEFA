@@ -157,3 +157,52 @@ describe("stripPrintArtifacts — carimbo do sistema de documento eletrônico", 
 		expect(text).toContain("indicar a página do parecer")
 	})
 })
+
+describe("stripPrintArtifacts — o que a revisão do #301 apontou", () => {
+	it("não leva junto o texto que divide a página com o bloco de assinatura", () => {
+		// O corte é da linha de assinatura PARA BAIXO. Nada garante que o bloco comece no
+		// topo da página, e descartar a página inteira perderia norma em silêncio.
+		const last = [
+			"14.9.3 O encerramento observará o disposto neste módulo.",
+			"Parágrafo único. Os prazos são improrrogáveis.",
+			"CONTROLE DE ASSINATURAS ELETRÔNICAS DO DOCUMENTO",
+			"Hash MD5:",
+		].join("\n")
+		const { text } = stripPrintArtifacts(["Página um.", "Página dois.", "Página três.", last])
+
+		expect(text).toContain("14.9.3 O encerramento")
+		expect(text).toContain("Parágrafo único")
+		expect(text).not.toContain("Hash MD5")
+	})
+
+	it("não descarta número solto sem repetição que o prove", () => {
+		// `1200` no topo da página pode ser paginação ou o valor que abre a continuação de
+		// uma tabela. Quem separa os dois é a repetição: paginação aparece em quase toda
+		// página, valor de tabela não.
+		const page = (first: string) => [first, ...Array.from({ length: 8 }, (_, i) => `linha de corpo ${i}`)].join("\n")
+		const { text } = stripPrintArtifacts([page("1200"), page("340"), page("57")])
+
+		expect(text).toContain("1200")
+		expect(text).toContain("340")
+	})
+
+	it("descarta o carimbo mesmo acima do teto de tamanho", () => {
+		// O teto protege a remoção POR REPETIÇÃO de comer parágrafo. O carimbo sai por
+		// forma própria, e um de 285 caracteres é tão carimbo quanto um de 110.
+		const long = `Documento: ${"NOME MUITO LONGO DE MÓDULO ".repeat(9)} - Página 1/4 - Hash MD5: 8cc9b2da4d0f1b3efb70`
+		expect(long.length).toBeGreaterThan(200)
+
+		const { text } = stripPrintArtifacts([`${long}\nUm.`, `${long}\nDois.`, `${long}\nTrês.`])
+
+		expect(text).toBe("Um.\nDois.\nTrês.")
+	})
+
+	it("relata máscara distinta, e não uma entrada por linha removida", () => {
+		// `patterns` é o canal de conferência humana: repetir a mesma máscara quatro vezes
+		// esconde as outras em vez de mostrar o que saiu.
+		const stamp = (n: number) => `Documento: Módulo 3 - Página ${n}/4 - Hash MD5: 8cc9b2da4d0f`
+		const { patterns } = stripPrintArtifacts([`${stamp(1)}\nUm.`, `${stamp(2)}\nDois.`, `${stamp(3)}\nTrês.`, `${stamp(4)}\nQuatro.`])
+
+		expect(patterns).toHaveLength(1)
+	})
+})

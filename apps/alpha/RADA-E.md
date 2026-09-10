@@ -87,13 +87,23 @@ texto dele: é ele estar na borda e se repetir ao longo do documento.
 
 | | Antes | Depois |
 |---|---|---|
-| chunks com número de página | 68% | 2,5% |
+| chunks com número de página | 68% | 3,1% |
 | chunks com cabeçalho do módulo | 48% | 2,7% |
 | chunks com o carimbo `Hash MD5` | 15% | 0% |
 
 O que sobra é o que **deve** sobrar: um `30` isolado no meio de uma página é o
 denominador de uma fórmula, não paginação. Linha repetida no meio da página também fica —
 um `Início` no fim de uma subseção é texto do documento onde está.
+
+Duas assimetrias deliberadas, as duas na direção de manter:
+
+- **Número solto só sai quando a sequência prova paginação.** A máscara de dígitos reduz
+  `1200`, `340` e `57` todos a `#`, então três valores de tabela na borda de três páginas
+  parecem a mesma linha repetida. Número de página cresce ao longo do documento; coluna de
+  tabela não. Sobrar um número de página é ruído, comer um valor de tabela é perder dado.
+- **O bloco de assinatura é cortado da linha para baixo, não a página inteira.** Nada
+  garante que ele comece no topo — uma página que termine um dispositivo e só então traga
+  a assinatura perderia a norma junto.
 
 **Isto depende de `mergePages: false` na extração.** A fronteira de página é informação, e
 é a primeira coisa que a concatenação destrói; sem ela, borda e miolo viram a mesma coisa
