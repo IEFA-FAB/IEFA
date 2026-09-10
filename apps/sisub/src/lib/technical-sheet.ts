@@ -319,16 +319,68 @@ export function flowStepUtensils(step: SheetFlowStep): string[] {
 }
 
 /**
+ * Ordem em que as exigências vão para o PAPEL — não a de cadastro.
+ *
+ * `loadRequirements` devolve por `created_at`, e a tabela de equipamentos nomeia a etapa de
+ * cada linha. Sem reordenar, a folha lista "Cozinhar e montar" (a última etapa) acima de
+ * "Refogar temperos" (a primeira) e prescreve uma sequência que ela mesma contradiz na
+ * tabela de etapas logo abaixo — a tabela de etapas já sai em ordem de execução. É o mesmo
+ * motivo pelo qual as etapas passaram a ser ordenadas por `orderStepsForExecution`: papel e
+ * tela não podem prescrever sequências opostas para a mesma preparação.
+ *
+ * Exigência da preparação inteira (sem etapa) vem primeiro: ela vale do começo ao fim, e
+ * abrir a lista por ela é o que a cozinha separa antes de encostar no fluxo.
+ *
+ * Exigência amarrada a etapa que NÃO está no fluxo recebido (etapa apagada, ou fluxo negado
+ * por permissão — a folha imprime as duas Seções mesmo assim) vai para o fim, em bloco e na
+ * ordem de cadastro: sem rótulo de etapa na linha, reordenar entre elas embaralharia linhas
+ * que quem lê não tem como recolocar.
+ *
+ * O empate mantém a ordem de cadastro — `Array.prototype.sort` é estável, e é essa a ordem
+ * que o editor mostra. Numa ficha sem exigência de etapa nenhuma, a lista sai intacta.
+ */
+export function orderRequirementsForSheet<T extends { recipe_step_id: string | null }>(requirements: readonly T[], steps: readonly SheetFlowStep[]): T[] {
+	// Sem fluxo carregado não há ordem de execução para seguir, e a coluna "Etapa" sai toda em
+	// travessão: reordenar ali trocaria linhas visualmente idênticas sem nada na folha que
+	// explique a troca. É o caso do fluxo negado por permissão, em que a PARTE 04 imprime
+	// assim mesmo.
+	if (steps.length === 0) return requirements.slice()
+
+	const positionByStep = new Map(steps.map((step, index) => [step.id, index]))
+	const position = (req: T): number => {
+		if (req.recipe_step_id == null) return -1
+		return positionByStep.get(req.recipe_step_id) ?? steps.length
+	}
+	return requirements.slice().sort((a, b) => position(a) - position(b))
+}
+
+/** Uma linha da PARTE 05: a observação, o equipamento que a originou e a etapa onde ele entra. */
+export interface SheetTechnicalNote {
+	target: string
+	/** Etapa da exigência, quando ela é de etapa e o fluxo foi carregado. */
+	step: string | null
+	note: string
+}
+
+/**
  * Observações técnicas gravadas nas exigências de equipamento — o único texto livre de
  * técnica que o SISUB guarda além do modo de preparo ("cocção sob pressão por 25 min" é o
  * exemplo que o próprio campo sugere). Sai na PARTE 05 com o equipamento que a originou:
  * solta, a observação não diz de qual equipamento ela fala.
+ *
+ * A etapa entra pelo mesmo motivo que entrou na tabela de equipamentos: duas exigências do
+ * mesmo papel em etapas diferentes são a MESMA unidade reusada em sequência, e duas notas de
+ * "Fogão industrial" sem a etapa imprimem como instruções concorrentes para um equipamento
+ * só. Sem `stepLabels` (ou com etapa fora do fluxo recebido) a nota sai como antes, com o
+ * alvo apenas — melhor sem a etapa do que com uma etapa que a folha não consegue nomear.
  */
-export function equipmentTechnicalNotes(requirements: readonly SheetEquipmentRequirement[]): { target: string; note: string }[] {
-	const notes: { target: string; note: string }[] = []
+export function equipmentTechnicalNotes(requirements: readonly SheetEquipmentRequirement[], stepLabels?: ReadonlyMap<string, string>): SheetTechnicalNote[] {
+	const notes: SheetTechnicalNote[] = []
 	for (const req of requirements) {
 		const note = req.notes?.trim()
-		if (note) notes.push({ target: equipmentTargetLabel(req), note })
+		if (!note) continue
+		const step = req.recipe_step_id != null ? (stepLabels?.get(req.recipe_step_id) ?? null) : null
+		notes.push({ target: equipmentTargetLabel(req), step, note })
 	}
 	return notes
 }

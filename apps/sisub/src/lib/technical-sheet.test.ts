@@ -20,6 +20,7 @@ import {
 	formatSheetDuration,
 	formatSheetNumber,
 	fromStoredQuantity,
+	orderRequirementsForSheet,
 	portionYieldOrOne,
 	rehydrationIndexFromRehydrated,
 	roundSheetQuantity,
@@ -368,10 +369,72 @@ describe("flowStepLabel / flowStepUtensils", () => {
 	})
 })
 
+describe("orderRequirementsForSheet", () => {
+	const flow = [step({ id: "s1", label: "Refogar" }), step({ id: "s2", label: "Preparar carnes" }), step({ id: "s3", label: "Cozinhar" })]
+
+	test("as exigências de etapa saem na ordem de EXECUÇÃO, não na de cadastro", () => {
+		// Cadastro na ordem inversa do fluxo — é o que `loadRequirements` (asc por created_at) devolve.
+		const reqs = [requirement({ recipe_step_id: "s3" }), requirement({ recipe_step_id: "s1" }), requirement({ recipe_step_id: "s2" })]
+		expect(orderRequirementsForSheet(reqs, flow).map((r) => r.recipe_step_id)).toEqual(["s1", "s2", "s3"])
+	})
+
+	test("a exigência da preparação inteira abre a lista — ela vale do começo ao fim", () => {
+		const reqs = [requirement({ recipe_step_id: "s2" }), requirement({ recipe_step_id: null }), requirement({ recipe_step_id: "s1" })]
+		expect(orderRequirementsForSheet(reqs, flow).map((r) => r.recipe_step_id)).toEqual([null, "s1", "s2"])
+	})
+
+	test("etapa fora do fluxo recebido vai para o fim, em bloco e na ordem de cadastro", () => {
+		// É o caso do fluxo negado por permissão: a folha imprime a PARTE 04 assim mesmo, e sem
+		// rótulo na linha reordenar entre essas exigências embaralharia o que ninguém recoloca.
+		const reqs = [requirement({ recipe_step_id: "sumiu-1" }), requirement({ recipe_step_id: "s2" }), requirement({ recipe_step_id: "sumiu-2" })]
+		expect(orderRequirementsForSheet(reqs, flow).map((r) => r.recipe_step_id)).toEqual(["s2", "sumiu-1", "sumiu-2"])
+	})
+
+	test("empate mantém o cadastro — duas exigências da MESMA etapa não trocam de lugar", () => {
+		const reqs = [requirement({ recipe_step_id: "s1", role: { name: "Fogão" } }), requirement({ recipe_step_id: "s1", role: { name: "Coifa" } })]
+		expect(orderRequirementsForSheet(reqs, flow).map((r) => r.role?.name)).toEqual(["Fogão", "Coifa"])
+	})
+
+	test("ficha sem exigência de etapa e ficha sem fluxo saem intactas", () => {
+		const reqs = [requirement({ role: { name: "Forno" } }), requirement({ role: { name: "Caldeirão" } })]
+		expect(orderRequirementsForSheet(reqs, flow).map((r) => r.role?.name)).toEqual(["Forno", "Caldeirão"])
+		expect(orderRequirementsForSheet(reqs, []).map((r) => r.role?.name)).toEqual(["Forno", "Caldeirão"])
+	})
+
+	test("fluxo não carregado não reordena nada — a coluna Etapa sai toda em travessão", () => {
+		// Fluxo negado por permissão: a PARTE 04 imprime assim mesmo, e trocar linhas
+		// visualmente idênticas sem nada na folha que explique a troca é pior que a ordem de cadastro.
+		const reqs = [requirement({ recipe_step_id: "s2", role: { name: "Forno" } }), requirement({ recipe_step_id: null, role: { name: "Descascador" } })]
+		expect(orderRequirementsForSheet(reqs, []).map((r) => r.role?.name)).toEqual(["Forno", "Descascador"])
+	})
+
+	test("não muta a lista recebida — ela também alimenta a tabela da PARTE 04", () => {
+		const reqs = [requirement({ recipe_step_id: "s3" }), requirement({ recipe_step_id: "s1" })]
+		orderRequirementsForSheet(reqs, flow)
+		expect(reqs.map((r) => r.recipe_step_id)).toEqual(["s3", "s1"])
+	})
+})
+
 describe("equipmentTechnicalNotes", () => {
 	test("a observação sai com o equipamento que a originou", () => {
 		const reqs = [requirement({ notes: "cocção sob pressão por 25 min" }), requirement({ notes: null }), requirement({ notes: "   " })]
-		expect(equipmentTechnicalNotes(reqs)).toEqual([{ target: "Forno combinado", note: "cocção sob pressão por 25 min" }])
+		expect(equipmentTechnicalNotes(reqs)).toEqual([{ target: "Forno combinado", step: null, note: "cocção sob pressão por 25 min" }])
+	})
+
+	test("a etapa entra na nota — duas notas do mesmo papel não podem sair idênticas", () => {
+		const labels = stepLabelById([step({ id: "s1", label: "Refogar" }), step({ id: "s2", label: "Cozinhar" })])
+		const reqs = [requirement({ recipe_step_id: "s1", notes: "fogo alto" }), requirement({ recipe_step_id: "s2", notes: "fogo brando" })]
+		expect(equipmentTechnicalNotes(reqs, labels)).toEqual([
+			{ target: "Forno combinado", step: "Refogar", note: "fogo alto" },
+			{ target: "Forno combinado", step: "Cozinhar", note: "fogo brando" },
+		])
+	})
+
+	test("etapa que a folha não sabe nomear sai sem etapa, não com o id cru", () => {
+		const labels = stepLabelById([step({ id: "s1", label: "Refogar" })])
+		expect(equipmentTechnicalNotes([requirement({ recipe_step_id: "sumiu", notes: "conferir" })], labels)).toEqual([
+			{ target: "Forno combinado", step: null, note: "conferir" },
+		])
 	})
 
 	test("sem observação a lista é vazia — a PARTE 05 volta às pautas", () => {
