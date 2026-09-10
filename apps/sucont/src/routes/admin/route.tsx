@@ -19,6 +19,9 @@ export const Route = createFileRoute("/admin")({
 		const permissions = await context.queryClient.query({ ...mySucontPermissionsQueryOptions(), staleTime: "static" })
 		if (hasPermission(permissions, SUCONT_ADMIN_MODULE, 3)) return
 		if (canAccessHub(permissions)) throw redirect({ to: "/", search: { denied: SUCONT_ADMIN_MODULE } })
+		// auth-redirect-without-return-path: autenticado e sem módulo nenhum do sucont.
+		// Guardar `/admin` como volta devolveria o usuário ao mesmo redirecionamento
+		// depois do login — a mesma escolha do guard da raiz e de `requireModules`.
 		throw redirect({ to: "/auth", search: { denied: "1" } })
 	},
 	component: Outlet,

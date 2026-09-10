@@ -188,6 +188,22 @@ export function findModuleByPath(pathname: string, division?: unknown, fallback:
  * usar. Sem nenhuma divisão (só `sucont-admin`) devolve o padrão — o guard de rota
  * é quem barra, e inventar uma divisão aqui não concederia acesso nenhum.
  */
+/**
+ * A divisão em que a navegação está: a pedida na URL, se o usuário a alcança;
+ * senão, a primeira acessível.
+ *
+ * O `?divisao=` é validado quanto à FORMA no `validateSearch` da raiz, e isso não
+ * é autorização: `/?divisao=sucont-3` numa conta que só tem a SUCONT-4 abria o
+ * catálogo da 3 — vazio, com a barra lateral de uma divisão que o seletor nem
+ * lista. Era exatamente a falha que `defaultDivisionFor` existe para evitar, entrando
+ * pela URL. Não concede nem nega nada: o guard de rota é quem barra; aqui só se
+ * escolhe o que MOSTRAR.
+ */
+export function resolveDivision(permissions: UserPermission[], requested: unknown): SucontDivision {
+	if (isDivision(requested) && hasPermission(permissions, permissionModuleForDivision(requested), 1)) return requested
+	return defaultDivisionFor(permissions)
+}
+
 export function defaultDivisionFor(permissions: UserPermission[]): SucontDivision {
 	const preferred = moduleForDivision(DEFAULT_DIVISION)
 	if (hasPermission(permissions, preferred.permissionModule, 1)) return DEFAULT_DIVISION

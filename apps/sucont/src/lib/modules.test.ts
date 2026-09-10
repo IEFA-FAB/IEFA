@@ -9,6 +9,7 @@ import {
 	isDivision,
 	permissionModulesForPath,
 	permissionModulesForTool,
+	resolveDivision,
 	SUCONT_MODULES,
 	toolBelongsTo,
 	toolsForDivision,
@@ -199,6 +200,32 @@ describe("defaultDivisionFor", () => {
 
 	it("sem divisão nenhuma, devolve o padrão — quem barra é o guard", () => {
 		expect(defaultDivisionFor(grants(["sucont-admin", 3]))).toBe(DEFAULT_DIVISION)
+	})
+})
+
+describe("resolveDivision", () => {
+	it("respeita o `?divisao=` quando o usuário alcança a divisão", () => {
+		expect(resolveDivision(allDivisions(1), "sucont-3")).toBe("sucont-3")
+	})
+
+	it("IGNORA o `?divisao=` de uma divisão que o usuário não tem", () => {
+		// A forma do parâmetro é validada no `validateSearch` da raiz, e isso não é
+		// autorização: sem esta degradação, `/?divisao=sucont-3` numa conta só da
+		// SUCONT-4 abria um catálogo vazio com a barra de uma divisão que o seletor
+		// nem lista.
+		expect(resolveDivision(grants(["sucont-4", 1]), "sucont-3")).toBe("sucont-4")
+		expect(resolveDivision(grants(["sucont-1", 1]), "sucont-4")).toBe("sucont-1")
+	})
+
+	it("um deny escopado na divisão pedida também degrada", () => {
+		const permissions = [...allDivisions(1), ...grants(["sucont-4", 0])]
+		expect(resolveDivision(permissions, "sucont-4")).toBe("sucont-3")
+	})
+
+	it("valor inválido ou ausente cai no padrão acessível", () => {
+		expect(resolveDivision(grants(["sucont-3", 1]), undefined)).toBe("sucont-3")
+		expect(resolveDivision(grants(["sucont-3", 1]), "divisao-inventada")).toBe("sucont-3")
+		expect(resolveDivision(grants(["sucont-3", 1]), 42)).toBe("sucont-3")
 	})
 })
 

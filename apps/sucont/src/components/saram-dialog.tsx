@@ -41,9 +41,10 @@ const NR_ORDEM_MINLEN = 6
 export function SaramDialog() {
 	const queryClient = useQueryClient()
 	const isAuthenticated = useQuery(authQueryOptions()).data?.isAuthenticated ?? false
-	// Vale para quem entra no hub por QUALQUER divisão — o SARAM é da pessoa, não
-	// da divisão em que ela trabalha.
-	const { canAccessHub: canAccess } = useSucontAccess()
+	// O SARAM é da PESSOA, não da divisão em que ela trabalha: vale para qualquer
+	// módulo do sucont, administração inclusive. Restringir às divisões trancaria a
+	// conta só-administradora fora do vínculo, para sempre.
+	const { canUseApp: canAccess } = useSucontAccess()
 
 	// A consulta só dispara com sessão E acesso ao módulo: sem os dois a fn responde
 	// 401/403, e o diálogo não teria onde aparecer de qualquer forma.

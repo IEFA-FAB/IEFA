@@ -90,7 +90,7 @@ function describeDenied(denied: string): string {
  * que o app quebrou — não que falta um acesso. Mesmo papel do `?denied=` do `/hub`
  * do sisub.
  */
-function DeniedNotice({ denied }: { denied: string }) {
+function DeniedNotice({ denied, onDismiss }: { denied: string; onDismiss: () => void }) {
 	return (
 		<Alert variant="warning" className="mb-6">
 			<Lock />
@@ -98,13 +98,25 @@ function DeniedNotice({ denied }: { denied: string }) {
 			<AlertDescription>
 				Essa tela é da {describeDenied(denied)}, e o seu acesso não a inclui. Peça a um administrador do SUCONT o acesso a essa divisão.
 			</AlertDescription>
+			{/* Dispensável: o aviso conta o que acabou de acontecer, e sem esta saída ele
+			    ficava pregado na tela até a próxima navegação — e viajava junto no link
+			    que alguém copiasse do catálogo. */}
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				onClick={onDismiss}
+				aria-label="Dispensar aviso"
+				className="absolute top-2 right-2 text-current hover:bg-warning/15"
+			>
+				<X className="size-4" />
+			</Button>
 		</Alert>
 	)
 }
 
 function Catalogo() {
-	const { denied } = Route.useSearch()
-	const { query, stage, rac, division, isFiltered, setStage, setRac, clear } = useHubFilters()
+	const { query, stage, rac, division, denied, dismissDenied, isFiltered, setStage, setRac, clear } = useHubFilters()
 	// A divisão recorta ANTES dos filtros: o catálogo é o da divisão em que se está,
 	// e a contagem "X de Y" precisa dizer X de quantas a divisão tem — não de 27.
 	const divisionTools = toolsForDivision(sucontTools, division)
@@ -123,7 +135,7 @@ function Catalogo() {
 
 	return (
 		<HubLayout title="Catálogo" description="As ferramentas da seção, agrupadas pelo ponto do trabalho em que você está." searchable>
-			{denied && <DeniedNotice denied={denied} />}
+			{denied && <DeniedNotice denied={denied} onDismiss={dismissDenied} />}
 			<div className="mb-10 flex flex-col gap-4">
 				<div className="flex flex-wrap items-center gap-3">
 					{/* Etapa do ciclo. Mora aqui, e não na barra lateral, porque é filtro

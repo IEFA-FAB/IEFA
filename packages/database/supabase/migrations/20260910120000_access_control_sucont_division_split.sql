@@ -30,8 +30,13 @@
 -- Grants do sucont são sempre globais (escopo nulo), mas o `is not distinct from`
 -- fica para o caso de alguém ter gravado um escopado à mão — dedup por escopo, não
 -- por usuário.
-insert into access_control.user_permissions (user_id, module, level, mess_hall_id, kitchen_id, unit_id)
-select s.user_id, d.module, least(s.level, 2), s.mess_hall_id, s.kitchen_id, s.unit_id
+--
+-- O `expires_at` vai JUNTO. Nenhuma das 5 linhas de hoje tem prazo, mas esta
+-- migração é idempotente e roda de novo: copiar o grant sem o prazo transformaria
+-- um acesso temporário em quatro acessos permanentes, e o vencimento passaria em
+-- silêncio.
+insert into access_control.user_permissions (user_id, module, level, mess_hall_id, kitchen_id, unit_id, expires_at)
+select s.user_id, d.module, least(s.level, 2), s.mess_hall_id, s.kitchen_id, s.unit_id, s.expires_at
 from access_control.user_permissions s
 cross join (values ('sucont-1'), ('sucont-3'), ('sucont-4')) as d(module)
 where s.module = 'sucont'
@@ -47,8 +52,8 @@ where s.module = 'sucont'
 
 -- A administração de acessos, só para quem tinha nível 3. O nível é preservado: é o
 -- que `requireSucontAdmin` cobra, antes e depois.
-insert into access_control.user_permissions (user_id, module, level, mess_hall_id, kitchen_id, unit_id)
-select s.user_id, 'sucont-admin', s.level, s.mess_hall_id, s.kitchen_id, s.unit_id
+insert into access_control.user_permissions (user_id, module, level, mess_hall_id, kitchen_id, unit_id, expires_at)
+select s.user_id, 'sucont-admin', s.level, s.mess_hall_id, s.kitchen_id, s.unit_id, s.expires_at
 from access_control.user_permissions s
 where s.module = 'sucont'
   and s.level >= 3

@@ -1,7 +1,16 @@
 import type { AppModule } from "@/types/domain/permissions"
 
-/** sisub gere só os próprios módulos; rumaer e sucont são geridos nos próprios apps. */
-export type SisubModule = Exclude<AppModule, "rumaer" | "sucont">
+/**
+ * sisub gere só os próprios módulos; rumaer e sucont são geridos nos próprios apps.
+ *
+ * A família do sucont sai por PADRÃO (`sucont-${string}`), e não por uma lista de
+ * nomes: quando ela deixou de ser o módulo `sucont` único e virou quatro
+ * (`sucont-1`, `sucont-3`, `sucont-4`, `sucont-admin`), um `Exclude` que citava só
+ * o nome antigo deixou os quatro vazarem para dentro do `Record<SisubModule, …>`
+ * abaixo — e o typecheck do sisub quebrou por uma mudança feita no sucont. Com o
+ * padrão, um quinto módulo do sucont não chega aqui.
+ */
+export type SisubModule = Exclude<AppModule, "rumaer" | `sucont-${string}`>
 
 export const MODULE_LABELS: Record<SisubModule, string> = {
 	diner: "Comensal",

@@ -48,6 +48,13 @@ export function useSucontAccess(division?: SucontDivision) {
 		canManage: hasPermission(permissions, "sucont-admin", 3),
 		/** Pode entrar no hub — tem ao menos uma divisão. */
 		canAccessHub: canAccessHub(permissions),
+		/**
+		 * Tem acesso ao app por ALGUM módulo, divisão ou administração — o mesmo que a
+		 * raiz cobra. É o gate do que é da PESSOA e não da divisão (vincular o SARAM):
+		 * usar `canAccessHub` aqui deixaria a conta só-administradora, que o split
+		 * passou a permitir, sem nunca conseguir vincular o seu.
+		 */
+		canUseApp: hasAnyPermission(permissions, SUCONT_PERMISSION_MODULES, 1),
 	}
 }
 

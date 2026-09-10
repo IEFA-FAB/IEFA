@@ -36,7 +36,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { sucontTools } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
-import { ADMIN_NAV, defaultDivisionFor, findModuleByPath, toolsForDivision } from "#/lib/modules"
+import { ADMIN_NAV, findModuleByPath, resolveDivision, toolsForDivision } from "#/lib/modules"
 import { buildToolCrumbs, buildToolNav, findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
 import type { SucontDivision } from "#/lib/types"
 import { cn } from "#/lib/utils"
@@ -223,9 +223,9 @@ function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
 	const { permissions } = useSucontAccess()
-	// Mesmo fallback do seletor: a barra tem que mostrar as ferramentas de uma
-	// divisão que o usuário PODE abrir, e não as da SUCONT-4 por herança histórica.
-	const module = findModuleByPath(pathname, divisao, defaultDivisionFor(permissions))
+	// Mesmo resolvedor do seletor: a barra tem que listar as ferramentas de uma
+	// divisão que o usuário PODE abrir, venha ela da URL ou do padrão.
+	const module = findModuleByPath(pathname, resolveDivision(permissions, divisao))
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar" className="no-print">

@@ -43,15 +43,6 @@ export function requireDivisionEditor(division: SucontDivision): Promise<UserCon
 }
 
 /**
- * Gate de uma ferramenta que serve a MAIS DE UMA divisão — o Monitoramento
- * Patrimonial é da SUCONT-3 e da SUCONT-4. Exigir as duas trancaria fora os dois
- * lados; exigir uma escolhida a dedo trancaria o outro.
- */
-export function requireEitherDivisionAccess(divisions: readonly SucontDivision[], minLevel: 1 | 2 = 1): Promise<UserContext> {
-	return auth.requireAnyLevel(divisions.map(permissionModuleForDivision), minLevel)
-}
-
-/**
  * Gate das telas da SEÇÃO — catálogo, área de trabalho, relatórios, avisos.
  *
  * Basta uma divisão qualquer: o checklist mensal e os relatórios não têm coluna de
