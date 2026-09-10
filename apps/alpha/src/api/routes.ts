@@ -1,6 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
 import { createRunCollector } from "@iefa/alpha-client/tracer"
-import { HumanMessage } from "@langchain/core/messages"
 import type { User } from "@supabase/supabase-js"
 import { Hono } from "hono"
 import { streamSSE } from "hono/streaming"
@@ -8,6 +7,7 @@ import { v4 as uuid } from "uuid"
 import { z } from "zod"
 import { supabase } from "../db/supabase"
 import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
+import { buildTurnInput } from "../graph/turn-input.ts"
 import { messageText } from "../lib/message-text.ts"
 import type { AppRole } from "../middleware/auth"
 import { authMiddleware, requireRole } from "../middleware/auth"
@@ -15,6 +15,7 @@ import { embedDocuments } from "../sources/embeddings"
 import { ingestSource } from "../sources/pipeline"
 import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
+import { aciRoutes } from "./aci.ts"
 import { canAccessSession } from "./authorize"
 import { complianceRoutes } from "./compliance"
 import { browserCors } from "./cors.ts"
@@ -205,7 +206,11 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 		session_id,
 		user_id,
 		original_query: query,
-		reformulated_query: state.reformulated_query,
+		// A consulta que efetivamente foi à busca, quando difere do que o usuário escreveu:
+		// a reformulação, se houve; senão a resolvida contra o histórico pelo pré-passe. Sem
+		// isto, "e o prazo?" era registrado sem nenhum registro do que foi buscado, e a
+		// pergunta ficava impossível de reproduzir a partir do log.
+		reformulated_query: state.reformulated_query ?? (state.search_query && state.search_query !== query ? state.search_query : null),
 		intent: state.intent,
 		termination_reason: state.termination_reason ?? "no_documents_found",
 		retrieval_iterations: state.retrieval_iterations ?? 0,
@@ -227,6 +232,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.route("/", submissionRoutes)
 	// Conformidade e bancada de regras (Etapas 1.5–1.7).
 	.route("/", complianceRoutes)
+	// Plataforma ACI (Etapa 1.8): fila, processo, triagem, parecer e relatório final.
+	.route("/", aciRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
 	/**
@@ -300,7 +307,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
-		const input = { messages: [new HumanMessage(message)], session_id, user_id: user.id }
+		const input = buildTurnInput(message, session_id, user.id)
 		const config = { configurable: { thread_id: session_id } }
 
 		const tracer = createRunCollector()
@@ -344,7 +351,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
-		const input = { messages: [new HumanMessage(message)], session_id, user_id: user.id }
+		const input = buildTurnInput(message, session_id, user.id)
 		const config = { configurable: { thread_id: session_id } }
 
 		return streamSSE(c, async (stream) => {

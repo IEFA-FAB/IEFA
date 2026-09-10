@@ -19,14 +19,38 @@ const POLICY_ID = "22222222-2222-2222-2222-222222222222"
 const POLICY_STATEMENT: Row = { policy_id: POLICY_ID, module: "global", level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null }
 
 /**
- * Dublê do client de dados, com a cadeia exata de cada tabela. Os filtros são ignorados —
- * quem prova o recorte por usuário, por política viva e por anexo é
- * `packages/pbac/src/resolve-permissions.test.ts`. Aqui o que está sob teste é se o
- * resultado da resolução chega inteiro ao `UserContext`.
+ * Builder encadeável que devolve `rows` seja qual for o recorte pedido.
+ *
+ * Todo filtro devolve o PRÓPRIO builder, e ele é thenable — como o
+ * `PostgrestBuilder` real, que só dispara no `await`. Antes cada tabela tinha a
+ * cadeia exata escrita à mão (`select().eq()`), e isso quebrava o teste toda vez
+ * que o `@iefa/pbac` acrescentava um filtro: foi o que aconteceu quando
+ * `resolveUserPermissions` passou a encadear `.or(NOT_EXPIRED)` — quatro testes
+ * caíram com `.or is not a function`, e a falha não dizia nada sobre a causa.
+ *
+ * Ignorar o recorte é deliberado, e não uma lacuna: quem prova o filtro por
+ * usuário, por prazo, por política viva e por anexo é
+ * `packages/pbac/src/resolve-permissions.test.ts`, contra a mesma implementação.
+ * Aqui o que está sob teste é se o resultado da resolução chega inteiro ao
+ * `UserContext` — e o controle negativo lá embaixo é o que impede este dublê de
+ * transformar o teste em tautologia.
  */
-function createDataClient(rows: Record<string, Row[]>) {
-	const listOf = (table: string) => ({ data: rows[table] ?? [], error: null })
+function rowsBuilder(rows: Row[]) {
+	const result = { data: rows, error: null }
+	const builder = {
+		select: () => builder,
+		eq: () => builder,
+		or: () => builder,
+		in: () => builder,
+		is: () => builder,
+		// biome-ignore lint/suspicious/noThenProperty: thenable É o contrato aqui — o `PostgrestBuilder` real só dispara a query no `await`, e sem isto o dublê não substitui o client
+		then: <T>(onFulfilled?: (value: typeof result) => T, onRejected?: (reason: unknown) => T) => Promise.resolve(result).then(onFulfilled, onRejected),
+	}
+	return builder
+}
 
+/** Dublê do client de dados usado pelos dois caminhos de credencial. */
+function createDataClient(rows: Record<string, Row[]>) {
 	return {
 		from(table: string) {
 			switch (table) {
@@ -43,11 +67,9 @@ function createDataClient(rows: Record<string, Row[]>) {
 					}
 				case "user_permissions":
 				case "user_policy_attachment":
-					return { select: () => ({ eq: async () => listOf(table) }) }
 				case "policy":
-					return { select: () => ({ in: () => ({ is: async () => listOf(table) }) }) }
 				case "policy_statement":
-					return { select: () => ({ in: async () => listOf(table) }) }
+					return rowsBuilder(rows[table] ?? [])
 				default:
 					throw new Error(`tabela inesperada na autenticação: ${table}`)
 			}

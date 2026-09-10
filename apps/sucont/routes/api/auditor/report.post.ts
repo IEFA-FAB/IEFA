@@ -22,10 +22,8 @@ import { requireSucontUser } from "#/lib/nitro-auth.server"
  * SERVIDOR, por `buildAnalyticNoteMarkdown`, para que exista um único caminho até
  * o documento — a tela não tem como emitir uma nota que não passe pelo montador.
  *
- * Nível 1 na SUCONT-4 basta: a nota é leitura da série, não escrita. Nada aqui
- * persiste. É a divisão do auditor no catálogo (`lib/data.ts`), e é ela que a
- * rota exige — o padrão "qualquer divisão" deixaria quem só tem a SUCONT-1 queimar
- * Bedrock por um endpoint cuja tela ele não abre.
+ * Nível 1 no módulo `sucont-4` basta: a nota é leitura da série, não escrita. Nada
+ * aqui persiste.
  *
  * Eventos emitidos:
  *   `start`   { competence }                  — pedido aceito, geração iniciada
@@ -49,6 +47,11 @@ export default defineHandler(async (event: H3Event) => {
 
 	// O guard de rota do __root é client-side: não alcança esta rota Nitro. Sem a
 	// checagem aqui, o endpoint seria um caminho aberto para o Bedrock da conta.
+	//
+	// A divisão é a da tela que a chama: a nota analítica é do Auditor SIAFI × SILOMS,
+	// que é da SUCONT-4. Aceitá-la de qualquer divisão faria desta rota o caminho que
+	// ignora o split — quem tem só a SUCONT-1 ou a SUCONT-3 queimaria Bedrock por um
+	// documento cuja tela ele não abre.
 	const user = await requireSucontUser(event, ["sucont-4"])
 
 	const parsed = analyticNoteRequestSchema.safeParse(await readBody(event))

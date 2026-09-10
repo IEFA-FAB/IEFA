@@ -351,6 +351,46 @@ pre code {
     background-color: var(--background);
     color: var(--foreground);
   }
+
+  /*
+   * Ponteiro em tudo que é clicável.
+   *
+   * O preflight do Tailwind v4 não devolve mais o `cursor: pointer` que o v3 dava
+   * a `button` — e os gatilhos do Base UI (menu, aba, opção, combobox) são `div`
+   * com `role`, que nunca tiveram ponteiro de agente de usuário. Sem esta regra só
+   * ganha ponteiro quem escreve a utilitária no próprio elemento, um a um.
+   *
+   * Desabilitado fica de fora pelos três dialetos em uso no repo: o `disabled`
+   * nativo, o `aria-disabled` e o `data-disabled` do Base UI.
+   *
+   * `[role="combobox"]` exclui campo editável de propósito: quando o gatilho é um
+   * `<input>`, o Base UI põe o papel no próprio input de busca, e ali o cursor
+   * certo é o de texto.
+   *
+   * `:where()` zera a especificidade da lista, então um `cursor-*` utilitário
+   * escrito no elemento continua vencendo.
+   */
+  :where(
+    button,
+    summary,
+    select,
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="file"],
+    label:has(> input[type="checkbox"], > input[type="radio"]),
+    [role="button"],
+    [role="checkbox"],
+    [role="combobox"]:not(input, textarea, [contenteditable]),
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="option"],
+    [role="radio"],
+    [role="switch"],
+    [role="tab"]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
 }
 
 /* ── Utilitários de impressão (Plataforma de Documentação) ── */
@@ -391,9 +431,28 @@ pre code {
 }
 
 /* ── Scrollbar slim (Módulo Subitens Genéricos) ── */
+/* `height` junto de `width`: a barra HORIZONTAL usa a altura, e sem ela um contêiner
+   com rolagem lateral (matriz de calor, faixas de filtro) ganhava a barra grossa do
+   sistema mesmo com a classe aplicada. */
+/* Token, e não `rgba(20,20,20,…)`: o cinza fixo era quase invisível no tema escuro,
+   e a barra é a ÚNICA pista de que existe conteúdo fora da faixa (abas de período,
+   colunas da matriz de calor). */
+/* As propriedades padrão ficam ATRÁS do `@supports`, e não soltas: declarar
+   `scrollbar-width`/`scrollbar-color` faz o Chromium ignorar os pseudoelementos
+   `::-webkit-scrollbar` e voltar à barra nativa — media 10-12px, com setas, contra
+   os 4px daqui. A consulta seleciona quem NÃO conhece o seletor webkit, que é
+   justamente o Firefox. */
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-thin,
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+}
 .scrollbar-thin::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-track,
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -401,12 +460,12 @@ pre code {
 }
 .scrollbar-thin::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(20, 20, 20, 0.1);
+  background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   border-radius: 10px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(20, 20, 20, 0.2);
+  background: var(--muted-foreground);
 }
 
 /* ─── Hierarquia Tipográfica ─── */

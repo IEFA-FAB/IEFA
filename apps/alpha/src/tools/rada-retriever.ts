@@ -45,6 +45,14 @@ export interface RADARetrieverOutput {
 		 * sobre score de relevância. Sem isso a degradação do rerank passa batida.
 		 */
 		rerank_applied: boolean
+		/**
+		 * A perna semântica estava LIGADA e FALHOU — embedder fora do ar, credencial,
+		 * throttling. Não é o mesmo que `ALPHA_EMBEDDINGS_ENABLED=false`, que é degradação
+		 * declarada. Zero resultado com isto ligado significa "metade da busca não rodou",
+		 * e quem chama precisa saber a diferença: responder de memória do modelo uma
+		 * pergunta sobre o regulamento porque o embedder caiu é o pior desfecho possível.
+		 */
+		semantic_unavailable: boolean
 	}
 }
 
@@ -245,6 +253,7 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 	// Busca semântica é opcional: sem provedor de embedding, a híbrida degrada
 	// para keyword-only em vez de falhar. O `search_metadata` reporta zero
 	// resultados semânticos, então a degradação aparece em vez de passar batida.
+	let semanticUnavailable = false
 	const semanticPromise = env.ALPHA_EMBEDDINGS_ENABLED
 		? getEmbeddings()
 				.embedQuery(queryWithPrefix)
@@ -252,6 +261,8 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 				.catch((error) => {
 					// Recuperação não pode cair porque o embedder caiu: a perna de
 					// full-text segue valendo e o erro fica registrado com contexto.
+					// A marca é o que separa "o corpus não tem" de "metade da busca não rodou".
+					semanticUnavailable = true
 					console.warn(embeddingError(error).message)
 					return [] as Awaited<ReturnType<typeof semanticSearch>>
 				})
@@ -277,6 +288,7 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 				query_used: query,
 				document_types_filtered,
 				rerank_applied: false,
+				semantic_unavailable: semanticUnavailable,
 			},
 		}
 	}
@@ -330,6 +342,7 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 			query_used: query,
 			document_types_filtered,
 			rerank_applied: rerank.applied,
+			semantic_unavailable: semanticUnavailable,
 		},
 	}
 }

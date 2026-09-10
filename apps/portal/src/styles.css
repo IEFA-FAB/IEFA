@@ -363,6 +363,46 @@
     text-decoration-thickness: 1px;
   }
 
+  /*
+   * Ponteiro em tudo que é clicável.
+   *
+   * O preflight do Tailwind v4 não devolve mais o `cursor: pointer` que o v3 dava
+   * a `button` — e os gatilhos do Base UI (menu, aba, opção, combobox) são `div`
+   * com `role`, que nunca tiveram ponteiro de agente de usuário. Sem esta regra só
+   * ganha ponteiro quem escreve a utilitária no próprio elemento, um a um.
+   *
+   * Desabilitado fica de fora pelos três dialetos em uso no repo: o `disabled`
+   * nativo, o `aria-disabled` e o `data-disabled` do Base UI.
+   *
+   * `[role="combobox"]` exclui campo editável de propósito: quando o gatilho é um
+   * `<input>`, o Base UI põe o papel no próprio input de busca, e ali o cursor
+   * certo é o de texto.
+   *
+   * `:where()` zera a especificidade da lista, então um `cursor-*` utilitário
+   * escrito no elemento continua vencendo.
+   */
+  :where(
+    button,
+    summary,
+    select,
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="file"],
+    label:has(> input[type="checkbox"], > input[type="radio"]),
+    [role="button"],
+    [role="checkbox"],
+    [role="combobox"]:not(input, textarea, [contenteditable]),
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="option"],
+    [role="radio"],
+    [role="switch"],
+    [role="tab"]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
   /* Focus: anel preto explícito — sem sombras difusas */
   :focus-visible {
     outline: 2px solid var(--ring);

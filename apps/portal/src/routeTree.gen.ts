@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
+import { Route as AciRouteRouteImport } from './routes/aci/route'
 import { Route as AlphaRouteRouteImport } from './routes/alpha/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AuthDotmdRouteImport } from './routes/auth[.]md'
@@ -19,6 +20,9 @@ import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known.api-catalog'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as AciIndexRouteImport } from './routes/aci/index'
+import { Route as AciChatsRouteImport } from './routes/aci/chats'
+import { Route as AciNovaRouteImport } from './routes/aci/nova'
 import { Route as AlphaBancadaRouteImport } from './routes/alpha/bancada'
 import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
@@ -45,6 +49,8 @@ import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_pub
 import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
 import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
 import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
+import { Route as AciProcessosSubmissionIdRouteImport } from './routes/aci/processos.$submissionId'
+import { Route as AciRelatorioRunIdRouteImport } from './routes/aci/relatorio.$runId'
 import { Route as AlphaAnaliseRunIdRouteImport } from './routes/alpha/analise.$runId'
 import { Route as AlphaAnaliseNovaRouteImport } from './routes/alpha/analise.nova'
 import { Route as AlphaModelosIdRouteImport } from './routes/alpha/modelos.$id'
@@ -77,6 +83,11 @@ import { Route as PublicEnFacilitiesComunicacoesOficiaisNovoRouteImport } from '
 
 const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AciRouteRoute = AciRouteRouteImport.update({
+  id: '/aci',
+  path: '/aci',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlphaRouteRoute = AlphaRouteRouteImport.update({
@@ -123,6 +134,21 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AciIndexRoute = AciIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AciRouteRoute,
+} as any)
+const AciChatsRoute = AciChatsRouteImport.update({
+  id: '/chats',
+  path: '/chats',
+  getParentRoute: () => AciRouteRoute,
+} as any)
+const AciNovaRoute = AciNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => AciRouteRoute,
 } as any)
 const AlphaBancadaRoute = AlphaBancadaRouteImport.update({
   id: '/bancada',
@@ -259,6 +285,17 @@ const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
   id: '/_pt/termos-de-uso',
   path: '/termos-de-uso',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AciProcessosSubmissionIdRoute =
+  AciProcessosSubmissionIdRouteImport.update({
+    id: '/processos/$submissionId',
+    path: '/processos/$submissionId',
+    getParentRoute: () => AciRouteRoute,
+  } as any)
+const AciRelatorioRunIdRoute = AciRelatorioRunIdRouteImport.update({
+  id: '/relatorio/$runId',
+  path: '/relatorio/$runId',
+  getParentRoute: () => AciRouteRoute,
 } as any)
 const AlphaAnaliseRunIdRoute = AlphaAnaliseRunIdRouteImport.update({
   id: '/analise/$runId',
@@ -423,6 +460,7 @@ const PublicEnFacilitiesComunicacoesOficiaisNovoRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
+  '/aci': typeof AciRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
@@ -432,11 +470,14 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/aci/chats': typeof AciChatsRoute
+  '/aci/nova': typeof AciNovaRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
+  '/aci/': typeof AciIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -457,6 +498,8 @@ export interface FileRoutesByFullPath {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/aci/processos/$submissionId': typeof AciProcessosSubmissionIdRoute
+  '/aci/relatorio/$runId': typeof AciRelatorioRunIdRoute
   '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
@@ -495,12 +538,15 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/aci/chats': typeof AciChatsRoute
+  '/aci/nova': typeof AciNovaRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/': typeof PublicIndexRoute
+  '/aci': typeof AciIndexRoute
   '/auth': typeof AuthIndexRoute
   '/journal': typeof JournalIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -521,6 +567,8 @@ export interface FileRoutesByTo {
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
   '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/aci/processos/$submissionId': typeof AciProcessosSubmissionIdRoute
+  '/aci/relatorio/$runId': typeof AciRelatorioRunIdRoute
   '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
@@ -553,6 +601,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_public': typeof PublicRouteRouteWithChildren
+  '/aci': typeof AciRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
@@ -562,12 +611,15 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/aci/chats': typeof AciChatsRoute
+  '/aci/nova': typeof AciNovaRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/_public/': typeof PublicIndexRoute
+  '/aci/': typeof AciIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -588,6 +640,8 @@ export interface FileRoutesById {
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
   '/_public/_pt/sobre': typeof PublicPtSobreRoute
   '/_public/_pt/termos-de-uso': typeof PublicPtTermosDeUsoRoute
+  '/aci/processos/$submissionId': typeof AciProcessosSubmissionIdRoute
+  '/aci/relatorio/$runId': typeof AciRelatorioRunIdRoute
   '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
@@ -622,6 +676,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/aci'
     | '/alpha'
     | '/auth'
     | '/journal'
@@ -631,11 +686,14 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/journal/editorial'
     | '/.well-known/api-catalog'
+    | '/aci/chats'
+    | '/aci/nova'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
+    | '/aci/'
     | '/auth/'
     | '/journal/'
     | '/.well-known/agent-skills/index.json'
@@ -656,6 +714,8 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/aci/processos/$submissionId'
+    | '/aci/relatorio/$runId'
     | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
@@ -694,12 +754,15 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/journal/editorial'
     | '/.well-known/api-catalog'
+    | '/aci/chats'
+    | '/aci/nova'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/'
+    | '/aci'
     | '/auth'
     | '/journal'
     | '/.well-known/agent-skills/index.json'
@@ -720,6 +783,8 @@ export interface FileRouteTypes {
     | '/roteiro'
     | '/sobre'
     | '/termos-de-uso'
+    | '/aci/processos/$submissionId'
+    | '/aci/relatorio/$runId'
     | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
@@ -751,6 +816,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_public'
+    | '/aci'
     | '/alpha'
     | '/auth'
     | '/journal'
@@ -760,12 +826,15 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/journal/editorial'
     | '/.well-known/api-catalog'
+    | '/aci/chats'
+    | '/aci/nova'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/_public/'
+    | '/aci/'
     | '/auth/'
     | '/journal/'
     | '/.well-known/agent-skills/index.json'
@@ -786,6 +855,8 @@ export interface FileRouteTypes {
     | '/_public/_pt/roteiro'
     | '/_public/_pt/sobre'
     | '/_public/_pt/termos-de-uso'
+    | '/aci/processos/$submissionId'
+    | '/aci/relatorio/$runId'
     | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
@@ -819,6 +890,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
+  AciRouteRoute: typeof AciRouteRouteWithChildren
   AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   JournalRouteRoute: typeof JournalRouteRouteWithChildren
@@ -838,6 +910,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PublicRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aci': {
+      id: '/aci'
+      path: '/aci'
+      fullPath: '/aci'
+      preLoaderRoute: typeof AciRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alpha': {
@@ -902,6 +981,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/aci/': {
+      id: '/aci/'
+      path: '/'
+      fullPath: '/aci/'
+      preLoaderRoute: typeof AciIndexRouteImport
+      parentRoute: typeof AciRouteRoute
+    }
+    '/aci/chats': {
+      id: '/aci/chats'
+      path: '/chats'
+      fullPath: '/aci/chats'
+      preLoaderRoute: typeof AciChatsRouteImport
+      parentRoute: typeof AciRouteRoute
+    }
+    '/aci/nova': {
+      id: '/aci/nova'
+      path: '/nova'
+      fullPath: '/aci/nova'
+      preLoaderRoute: typeof AciNovaRouteImport
+      parentRoute: typeof AciRouteRoute
     }
     '/alpha/bancada': {
       id: '/alpha/bancada'
@@ -1084,6 +1184,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/termos-de-uso'
       preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/aci/processos/$submissionId': {
+      id: '/aci/processos/$submissionId'
+      path: '/processos/$submissionId'
+      fullPath: '/aci/processos/$submissionId'
+      preLoaderRoute: typeof AciProcessosSubmissionIdRouteImport
+      parentRoute: typeof AciRouteRoute
+    }
+    '/aci/relatorio/$runId': {
+      id: '/aci/relatorio/$runId'
+      path: '/relatorio/$runId'
+      fullPath: '/aci/relatorio/$runId'
+      preLoaderRoute: typeof AciRelatorioRunIdRouteImport
+      parentRoute: typeof AciRouteRoute
     }
     '/alpha/analise/$runId': {
       id: '/alpha/analise/$runId'
@@ -1377,6 +1491,26 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
   PublicRouteRouteChildren,
 )
 
+interface AciRouteRouteChildren {
+  AciChatsRoute: typeof AciChatsRoute
+  AciNovaRoute: typeof AciNovaRoute
+  AciIndexRoute: typeof AciIndexRoute
+  AciProcessosSubmissionIdRoute: typeof AciProcessosSubmissionIdRoute
+  AciRelatorioRunIdRoute: typeof AciRelatorioRunIdRoute
+}
+
+const AciRouteRouteChildren: AciRouteRouteChildren = {
+  AciChatsRoute: AciChatsRoute,
+  AciNovaRoute: AciNovaRoute,
+  AciIndexRoute: AciIndexRoute,
+  AciProcessosSubmissionIdRoute: AciProcessosSubmissionIdRoute,
+  AciRelatorioRunIdRoute: AciRelatorioRunIdRoute,
+}
+
+const AciRouteRouteWithChildren = AciRouteRoute._addFileChildren(
+  AciRouteRouteChildren,
+)
+
 interface AlphaRouteRouteChildren {
   AlphaBancadaRoute: typeof AlphaBancadaRoute
   AlphaFontesRoute: typeof AlphaFontesRoute
@@ -1470,6 +1604,7 @@ const JournalRouteRouteWithChildren = JournalRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
+  AciRouteRoute: AciRouteRouteWithChildren,
   AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   JournalRouteRoute: JournalRouteRouteWithChildren,

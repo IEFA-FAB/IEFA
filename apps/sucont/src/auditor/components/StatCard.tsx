@@ -30,7 +30,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon
 
 	return (
 		<div
-			className={`rounded-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]
+			className={`rounded-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative min-h-[140px]
       bg-card border-border hover:bg-muted/50
     `}
 		>

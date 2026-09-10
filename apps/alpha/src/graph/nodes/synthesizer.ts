@@ -15,11 +15,16 @@ export async function synthesizerNode(state: AgentState): Promise<Partial<AgentS
 
 	const docsContext = retrieved_documents.map((d, i) => `[${i + 1}] ${d.content}`).join("\n\n")
 
-	const userQuery =
+	const askedAs =
 		messages
 			.filter((m) => m.type === "human")
 			.pop()
 			?.content?.toString() ?? ""
+
+	// As duas formas, quando diferem: a resposta é dirigida ao que o usuário escreveu ("e o
+	// prazo?"), mas precisa saber do que se está falando — e é a forma resolvida que os
+	// documentos recuperados respondem.
+	const userQuery = state.search_query && state.search_query !== askedAs ? `${askedAs}\n(no contexto da conversa: ${state.search_query})` : askedAs
 
 	const final_response = await invokeText(
 		[

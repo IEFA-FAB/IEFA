@@ -89,6 +89,22 @@ export function submissionTextQueryOptions(token: string | undefined, submission
 	})
 }
 
+/** Extração como o histórico a devolve — sem `dropped`/`truncated`, que só existem na resposta da criação. */
+export interface StoredExtraction {
+	id: string
+	payload: ExtractionPayload
+	spans: Partial<Record<CampoKey, SourceSpan>>
+	model: string
+	created_at: string
+}
+
+export function extractionsQueryOptions(token: string | undefined, submissionId: string) {
+	return queryOptions({
+		queryKey: ["alpha", "submissions", submissionId, "extractions"],
+		queryFn: async () => (await alphaRequest<{ extractions: StoredExtraction[] }>(`/api/v1/submissions/${submissionId}/extractions`, token)).extractions,
+	})
+}
+
 export function submissionsQueryOptions(token: string | undefined) {
 	return queryOptions({
 		queryKey: ["alpha", "submissions"],

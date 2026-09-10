@@ -28,7 +28,8 @@
 -- As linhas `module = 'sucont'` NÃO são apagadas. Nenhum código as lê depois desta
 -- migração (`AppModule` deixou de ter o valor), e mantê-las é o que faz um rollback do
 -- deploy devolver o acesso de todo mundo em vez de deixar a base trancada para fora.
--- A limpeza é um passo separado, depois que a versão nova assentar.
+-- A limpeza é um passo separado, depois que a versão nova assentar — feita em
+-- `20260910191735_access_control_drop_legacy_sucont_module`, condicionada à cobertura.
 --
 -- `module` é `text` sem CHECK nas duas tabelas — nenhuma alteração de schema é
 -- necessária, só dados. Idempotente (NOT EXISTS): reaplicar não duplica nem sobrescreve
