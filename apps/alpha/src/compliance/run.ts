@@ -172,7 +172,8 @@ export async function runCompliance(submissionId: string, extractionId: string):
 			}
 			if (verdict.status === "CONFORME") continue
 
-			const guard = await applyCitationGuard(verdict, resolver)
+			// O bloco vai junto: o guard confere se a evidência citada existe mesmo nele.
+			const guard = await applyCitationGuard(verdict, resolver, blockForRule(rule, payload)?.text)
 			if (!guard.kept) {
 				discarded += 1
 				continue

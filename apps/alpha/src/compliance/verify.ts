@@ -21,6 +21,7 @@ import { FEDERAL_LEGISLATION_TYPES } from "../lib/corpora.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
 import { structuredLLM } from "../lib/llm.ts"
 import { radaRetriever } from "../tools/rada-retriever.ts"
+import { evidenceGuardReason } from "./evidence.ts"
 import type { LegalRefResolver } from "./resolve-legal-ref.ts"
 import type { Severity } from "./severity.ts"
 
@@ -178,7 +179,7 @@ export async function judgeRule(rule: ChecklistRule, block: { label: string; tex
 
 export interface GuardOutcome {
 	kept: boolean
-	reason?: "sem_referencia" | "referencia_nao_resolvida" | "confianca_insuficiente"
+	reason?: "sem_referencia" | "referencia_nao_resolvida" | "confianca_insuficiente" | "evidencia_nao_localizada"
 	resolved_refs: LegalRef[]
 }
 
@@ -190,9 +191,15 @@ export interface GuardOutcome {
  * passar uma inconformidade — é apontar uma inconformidade citando artigo
  * inexistente, que é irrecuperável em termos de confiança.
  */
-export async function applyCitationGuard(verdict: RuleVerdict, resolver: LegalRefResolver): Promise<GuardOutcome> {
+export async function applyCitationGuard(verdict: RuleVerdict, resolver: LegalRefResolver, blockText?: string): Promise<GuardOutcome> {
 	if (verdict.status !== "INCONFORME") return { kept: true, resolved_refs: verdict.legal_ref }
 	if (verdict.confidence < MIN_CONFIDENCE) return { kept: false, reason: "confianca_insuficiente", resolved_refs: [] }
+	// Evidência que não está no bloco derruba o achado pelo mesmo motivo que referência não
+	// resolvida derruba: apontar inconformidade citando frase que o documento não contém é
+	// irrecuperável em termos de confiança. `blockText` é opcional para não quebrar chamador
+	// que ainda não o passa; quando vem, é conferido.
+	const semFundamento = evidenceGuardReason(verdict, blockText)
+	if (semFundamento) return { kept: false, reason: semFundamento, resolved_refs: [] }
 	if (verdict.legal_ref.length === 0) return { kept: false, reason: "sem_referencia", resolved_refs: [] }
 
 	const resolutions = await resolver.resolveAll(verdict.legal_ref)
