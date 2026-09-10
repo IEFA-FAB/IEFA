@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Activity, AlertTriangle, Database, FileSpreadsheet, Layers, LayoutDashboard, Loader2, UploadCloud } from "lucide-react"
+import { Activity, AlertTriangle, Database, FileSpreadsheet, FileText, Layers, LayoutDashboard, Loader2, Presentation, UploadCloud } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { AnalyticNoteModal } from "#/auditor/components/AnalyticNoteModal"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { ChartWrapper } from "#/auditor/components/ChartWrapper"
 import { FileUploadModal } from "#/auditor/components/FileUploadModal"
 import { HealthScoreGauge } from "#/auditor/components/HealthScoreGauge"
+import { PresentationMode } from "#/auditor/components/PresentationMode"
 import { RankingList } from "#/auditor/components/RankingList"
 import { SiafiMessageModal } from "#/auditor/components/SiafiMessageModal"
 import { StatCard } from "#/auditor/components/StatCard"
@@ -21,6 +23,7 @@ import {
 	toShortDate,
 } from "#/auditor/services/dataProcessor"
 import { parseExcelFile } from "#/auditor/services/excelParser"
+import { buildReportDataset } from "#/auditor/services/report"
 import { iccColor, iccLabel } from "#/auditor/theme"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
@@ -99,6 +102,8 @@ function AuditorPage() {
 
 	// Modals
 	const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+	const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
+	const [isPresenting, setIsPresenting] = useState(false)
 	const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
 	const [selectedRecordForMessage, setSelectedRecordForMessage] = useState<FinancialRecord | null>(null)
 	const [selectedHistoryForMessage, setSelectedHistoryForMessage] = useState<FinancialRecord[]>([])
@@ -291,6 +296,45 @@ function AuditorPage() {
 		return `Comparando ${currShort} contra ${prevDate}`
 	}, [kpiData, selectedMonth, timeFilter])
 
+	/**
+	 * Recorte que a Nota Analítica Estratégica descreve.
+	 *
+	 * Sai de `baseFilteredData`: o filtro de hierarquia e o de grupo de contas
+	 * entram, o de zerados NÃO. Ocultar zerados é ajuste de leitura do gráfico; numa
+	 * nota que declara "N Unidades Gestoras analisadas", esconder as conciliadas
+	 * transformaria o universo em amostra sem dizer que transformou.
+	 *
+	 * Só é montado com o modal aberto. `buildReportDataset` refaz os deltas em
+	 * quatro escopos, e a tela recalcularia isso a cada troca de filtro para um
+	 * documento que ninguém pediu.
+	 */
+	/** Só o recorte de hierarquia. É o que o telão respeita — ele tem lâmina por natureza. */
+	const hierarchyLabel = useMemo(
+		() =>
+			selectedHierarchyFilter.length === 0 || selectedHierarchyFilter.includes("TODOS")
+				? "todas as UGs"
+				: `${selectedHierarchyLevel === "ORGAO" ? "Órgão" : selectedHierarchyLevel} ${selectedHierarchyFilter.join(", ")}`,
+		[selectedHierarchyFilter, selectedHierarchyLevel]
+	)
+
+	/**
+	 * O recorte da NOTA, que inclui a aba de grupo de contas.
+	 *
+	 * Separado do rótulo do telão de propósito: a apresentação percorre as três
+	 * naturezas em lâminas próprias e ignora a aba, então carimbar "· grupo
+	 * CONSUMO" no rodapé dela descreveria um recorte que a lâmina não aplicou.
+	 */
+	const scopeLabel = useMemo(() => (selectedGroup === "ALL" ? hierarchyLabel : `${hierarchyLabel} · grupo ${selectedGroup}`), [hierarchyLabel, selectedGroup])
+
+	const noteDataset = useMemo(() => {
+		if (!isNoteModalOpen || !selectedMonth || baseFilteredData.length === 0) return null
+
+		const scoped = selectedGroup === "ALL" ? baseFilteredData : baseFilteredData.filter((item) => item.group === selectedGroup)
+		if (scoped.length === 0) return null
+
+		return buildReportDataset({ data: scoped, competence: selectedMonth, timeFilter, scopeLabel })
+	}, [isNoteModalOpen, baseFilteredData, selectedGroup, scopeLabel, selectedMonth, timeFilter])
+
 	// Handlers
 	const uploadMutation = useMutation({
 		mutationFn: async (file: File): Promise<PersistOutcome> => {
@@ -434,16 +478,43 @@ function AuditorPage() {
 	return (
 		<HubLayout
 			actions={
-				canEdit && (
-					<Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
-						<UploadCloud className="w-4 h-4" />
-						<span className="hidden sm:inline">Importar Excel</span>
-					</Button>
-				)
+				<>
+					{/* A nota é leitura da série: nível 1 basta, como o resto do painel. */}
+					{allData.length > 0 && selectedMonth && (
+						<>
+							<Button variant="outline" size="sm" onClick={() => setIsPresenting(true)}>
+								<Presentation className="w-4 h-4" />
+								<span className="hidden sm:inline">Apresentar</span>
+							</Button>
+							<Button variant="outline" size="sm" onClick={() => setIsNoteModalOpen(true)}>
+								<FileText className="w-4 h-4" />
+								<span className="hidden sm:inline">Nota analítica</span>
+							</Button>
+						</>
+					)}
+					{canEdit && (
+						<Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
+							<UploadCloud className="w-4 h-4" />
+							<span className="hidden sm:inline">Importar Excel</span>
+						</Button>
+					)}
+				</>
 			}
 		>
 			{/* `canEdit` também aqui: fechar o gatilho não basta se o modal segue montável. */}
 			<FileUploadModal isOpen={isUploadModalOpen && canEdit} onClose={() => setIsUploadModalOpen(false)} onUpload={handleFileUpload} />
+
+			<AnalyticNoteModal isOpen={isNoteModalOpen} onClose={() => setIsNoteModalOpen(false)} dataset={noteDataset} />
+
+			<PresentationMode
+				isOpen={isPresenting}
+				onClose={() => setIsPresenting(false)}
+				data={baseFilteredData}
+				selectedMonth={selectedMonth}
+				availableMonths={uniqueMonths}
+				timeFilter={timeFilter}
+				scopeLabel={hierarchyLabel}
+			/>
 
 			<SiafiMessageModal
 				isOpen={isMessageModalOpen}

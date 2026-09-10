@@ -141,6 +141,22 @@
       "notes": "Público, sem descrição. Mesma ressalva do analistacriticodgc."
     },
     {
+      "repo": "lsantosnels/VMOBILE-AUDITOR-SUCONT-4",
+      "tool": "Auditor SIAFI × SILOMS — republicação mobile (v6)",
+      "route": "/auditor",
+      "targets": [
+        "apps/sucont/src/auditor/",
+        "apps/sucont/src/routes/auditor.tsx",
+        "apps/sucont/src/server/auditor.fn.ts"
+      ],
+      "portedIn": "PR #207 (a base; esta republicação não trouxe regra nova)",
+      "checkpoint": "54028002",
+      "checkpointDate": "2026-09-10",
+      "lastReviewed": "2026-09-10",
+      "notes": "Criado em 2026-09-10 com o app inteiro num commit só (0b7dc695 é só o README; 54028002 despeja tudo). NÃO é ferramenta nova: é o lsantosnels/SIAFI-x-SILOMS-Auditor republicado. dataProcessor.ts, excelParser.ts, aiService.ts, server.ts, types.ts e ugMapping.ts são byte-idênticos ao HEAD 87d53450 daquele repo. O delta é só interface — VMOBILE é 'versão mobile': TemporalHeatmap responsivo com modal de detalhe ao tocar a célula (a coluna fixa de MSG saiu), RankingList com abas piora/melhora no mobile, cabeçalho e filtros do App.tsx, tooltip do percentual no StatCard, Charts e index.css. Nada disso se porta: a casca do /auditor é a do sucont (HubLayout, tema por cookie, primitivos do STYLE_CONTRACT) e responsividade ali é assunto do contrato de estilo do app, não regra de domínio. Única mudança fora da UI: firebaseService loga o auth anônimo desabilitado como warn em vez de error — Firestore, não se aplica. As pendências reais de domínio eram as do repo de origem e foram fechadas — ver `apps/sucont/src/auditor/README.md`.",
+      "pending": []
+    },
+    {
       "repo": "lsantosnels/SIAFI-x-SILOMS-Auditor",
       "tool": "Auditor SIAFI × SILOMS",
       "route": "/auditor",
@@ -150,9 +166,11 @@
         "apps/sucont/src/server/auditor.fn.ts"
       ],
       "portedIn": "PR #207",
-      "checkpoint": null,
-      "checkpointDate": null,
-      "lastReviewed": null
+      "checkpoint": "87d53450",
+      "checkpointDate": "2026-05-04",
+      "lastReviewed": "2026-09-10",
+      "notes": "Conferido em 2026-09-10 contra o app. Parado desde 2026-05-04 — a evolução migrou para lsantosnels/VMOBILE-AUDITOR-SUCONT-4, que é este mesmo app republicado. ATENÇÃO: dataProcessor.ts upstream carrega os defeitos que o port corrigiu de propósito — risco por UG (e não por UG+grupo, o que faz o Intangível conciliado herdar o 'Crítico' do BMP), `difference > 0` no lugar da tolerância de centavos, probabilidade `meses/12` fixa em vez de relativa à janela carregada, e ausência de `hasPrevious` (o primeiro mês do recorte vira '+100%' contra uma linha que nunca foi carregada). Está tudo comentado em apps/sucont/src/auditor/services/dataProcessor.ts e types.ts: mudança upstream que reintroduza isso é regressão de lá, não pendência daqui. As três pendências que esta conferência abriu foram FECHADAS no mesmo PR: a Nota Analítica Estratégica (agora com os números calculados pelo sistema e só a prosa vinda do modelo, via Bedrock), a heurística `detectInterOM` (`src/auditor/services/inter-om.ts`, com quatro defeitos da origem corrigidos) e o modo apresentação com os donuts de composição. O diff conceitual completo está em `apps/sucont/src/auditor/README.md` — é ele, e não este campo, que deve ser consultado antes de portar qualquer coisa nova de lá. excelParser.ts, types.ts e ugMapping.ts são equivalentes (o ugMapping do app deriva de lib/ug/registry, que é mais atual que a tabela literal upstream). NÃO SE APLICA: Firestore (firebaseService.ts, firestore.rules), chave do Gemini no cliente, servidor Express e o export para Google Docs por OAuth (server.ts) — sairia dado de UG para o Google Drive, o que exigiria entrar no inventário de destinatários da Política de Cookies antes de existir.",
+      "pending": []
     },
     {
       "repo": "lsantosnels/Plataforma-de-Documenta-o",
