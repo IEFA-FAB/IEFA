@@ -298,6 +298,34 @@ export function flowTotalMinutes(steps: readonly SheetFlowStep[]): number | null
 	return seen ? total : null
 }
 
+/**
+ * Tempo total da PARTE 04, em minutos, na ordem de confiança das fontes:
+ *
+ *   1. o total declarado no cadastro — é o número que quem elaborou a ficha escreveu;
+ *   2. a soma das parcelas (pré-preparo + cocção), quando ao menos uma foi declarada;
+ *   3. a soma das durações das etapas do fluxo de produção.
+ *
+ * Zero e `null` são a MESMA coisa aqui: o campo do total nasce em 0 no formulário, e
+ * tratá-lo como declaração faria a folha imprimir "0 min" para toda preparação que
+ * ninguém cronometrou — apagando as duas fontes derivadas que existem justamente para
+ * esse caso.
+ */
+export function sheetTotalMinutes(
+	declaredTotal: number | null | undefined,
+	prePreparationMinutes: number | null | undefined,
+	cookingMinutes: number | null | undefined,
+	flowMinutes: number | null | undefined
+): number | null {
+	if (isPositiveMinutes(declaredTotal)) return declaredTotal
+	const stages = (isPositiveMinutes(prePreparationMinutes) ? prePreparationMinutes : 0) + (isPositiveMinutes(cookingMinutes) ? cookingMinutes : 0)
+	if (stages > 0) return stages
+	return isPositiveMinutes(flowMinutes) ? flowMinutes : null
+}
+
+function isPositiveMinutes(value: number | null | undefined): value is number {
+	return value != null && Number.isFinite(value) && value > 0
+}
+
 /** Nome da etapa: o rótulo digitado, senão o do modelo de etapa que a originou. */
 export function flowStepLabel(step: SheetFlowStep): string {
 	return step.label?.trim() || step.step_template?.name?.trim() || "Etapa"

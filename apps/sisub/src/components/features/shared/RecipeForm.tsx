@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -111,6 +111,18 @@ const recipeSchema = z.object({
 	preparation_method: z.string(),
 	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
 	preparation_time_minutes: z.number(),
+	// Parcelas e parâmetros da cocção (PARTE 04 da ficha). Anuláveis, ao contrário do
+	// tempo total: em branco significa "ninguém cronometrou ainda", e zero significaria
+	// "leva zero minuto" — a folha imprime coisas diferentes para os dois.
+	pre_preparation_time_minutes: z.number().int("Informe minutos inteiros").min(0, "Tempo não pode ser negativo").nullable(),
+	cooking_time_minutes: z.number().int("Informe minutos inteiros").min(0, "Tempo não pode ser negativo").nullable(),
+	cooking_method: z.string(),
+	cooking_temperature_celsius: z
+		.number()
+		.int("Informe graus inteiros")
+		.min(-40, "Temperatura mínima é -40 °C")
+		.max(500, "Temperatura máxima é 500 °C")
+		.nullable(),
 	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20"),
 	/** Pasta de organização — opcional por definição: agrupar é conveniência, não requisito. */
 	folder_id: z.uuid().nullable(),
@@ -150,8 +162,12 @@ const TAB_LABEL: Record<RecipeFormTab, string> = {
 const FIELD_LOCATION: Record<string, { tab: RecipeFormTab; label: string }> = {
 	name: { tab: "detalhes", label: "Nome da preparação" },
 	portion_yield: { tab: "detalhes", label: "Rendimento" },
-	preparation_time_minutes: { tab: "detalhes", label: "Tempo de preparo" },
-	cooking_factor: { tab: "detalhes", label: "Fator de cocção" },
+	preparation_time_minutes: { tab: "detalhes", label: "Tempo total" },
+	pre_preparation_time_minutes: { tab: "detalhes", label: "Tempo de pré-preparo" },
+	cooking_time_minutes: { tab: "detalhes", label: "Tempo de cocção" },
+	cooking_method: { tab: "detalhes", label: "Método de cocção" },
+	cooking_temperature_celsius: { tab: "detalhes", label: "Temperatura de cocção" },
+	cooking_factor: { tab: "detalhes", label: "Índice de cocção" },
 	folder_id: { tab: "detalhes", label: "Pasta" },
 	pre_preparation_method: { tab: "preparo", label: "Pré-preparo" },
 	preparation_method: { tab: "preparo", label: "Modo de preparo" },
@@ -371,6 +387,10 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			preparation_method: initialData?.preparation_method || "",
 			portion_yield: initialData?.portion_yield || 1,
 			preparation_time_minutes: initialData?.preparation_time_minutes ?? 0,
+			pre_preparation_time_minutes: initialData?.pre_preparation_time_minutes ?? null,
+			cooking_time_minutes: initialData?.cooking_time_minutes ?? null,
+			cooking_method: initialData?.cooking_method || "",
+			cooking_temperature_celsius: initialData?.cooking_temperature_celsius ?? null,
 			cooking_factor: initialData?.cooking_factor || 1.0,
 			folder_id: initialData?.folder_id ?? null,
 			ingredients:
@@ -675,7 +695,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<form.Field name="preparation_time_minutes">
 											{(field) => (
 												<Field>
-													<FieldLabel htmlFor="preparation_time_minutes">Tempo de Preparo (min)</FieldLabel>
+													<FieldLabel htmlFor="preparation_time_minutes">Tempo total (min)</FieldLabel>
 													<FieldContent>
 														<Input
 															id="preparation_time_minutes"
@@ -684,6 +704,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 															value={field.state.value ?? 0}
 															onChange={(e) => field.handleChange(Number(e.target.value))}
 														/>
+														<FieldDescription>Em zero, a ficha impressa soma pré-preparo + cocção; sem eles, as durações das etapas do fluxo.</FieldDescription>
 													</FieldContent>
 												</Field>
 											)}
@@ -694,7 +715,10 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										{(field) => (
 											<Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0} className="border-t border-border/60 pt-4">
 												<FieldContent>
-													<FieldLabel htmlFor="cooking_factor">Fator de Cocção (FC)</FieldLabel>
+													{/* "Índice de Cocção (IC)" é o nome do campo NA FICHA impressa, e a PARTE 02
+													    já usa "FC" para o fator de CORREÇÃO do ingrediente — coisa diferente.
+													    Chamar os dois de FC na mesma preparação era a troca esperando acontecer. */}
+													<FieldLabel htmlFor="cooking_factor">Índice de Cocção (IC)</FieldLabel>
 													<FieldDescription>
 														Parâmetro avançado: 1,0 = sem perda de massa; acima disso o alimento perde peso ao cozinhar (ex.: frango ≈ 1,33). Faixa usual:
 														0,5–2,0.
@@ -714,6 +738,103 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											</Field>
 										)}
 									</form.Field>
+								</CardContent>
+							</Card>
+
+							{/* Cocção — os campos da PARTE 04 da ficha impressa que não vêm do fluxo nem dos
+							    equipamentos. Sem eles a folha saía com quatro linhas em branco para
+							    preencher à mão, e o dado não voltava para o cadastro. */}
+							<Card className="mt-6">
+								<CardHeader>
+									<CardTitle>Cocção</CardTitle>
+									<CardDescription>Parâmetros da PARTE 04 da ficha técnica. Em branco, a linha sai vazia na folha impressa.</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+										<form.Field name="pre_preparation_time_minutes">
+											{(field) => (
+												<Field data-invalid={field.state.meta.errors.length > 0}>
+													<FieldLabel htmlFor="pre_preparation_time_minutes">Tempo de pré-preparo (min)</FieldLabel>
+													<FieldContent>
+														<Input
+															id="pre_preparation_time_minutes"
+															type="number"
+															min={0}
+															placeholder="—"
+															value={field.state.value ?? ""}
+															aria-invalid={field.state.meta.errors.length > 0}
+															onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+														/>
+														<FieldDescription>O que antecede a cocção: higienizar, dessalgar, cortar, descongelar.</FieldDescription>
+														<FieldError errors={toFieldErrors(field.state.meta.errors)} />
+													</FieldContent>
+												</Field>
+											)}
+										</form.Field>
+
+										<form.Field name="cooking_time_minutes">
+											{(field) => (
+												<Field data-invalid={field.state.meta.errors.length > 0}>
+													<FieldLabel htmlFor="cooking_time_minutes">Tempo de cocção (min)</FieldLabel>
+													<FieldContent>
+														<Input
+															id="cooking_time_minutes"
+															type="number"
+															min={0}
+															placeholder="—"
+															value={field.state.value ?? ""}
+															aria-invalid={field.state.meta.errors.length > 0}
+															onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+														/>
+														<FieldDescription>Tempo no fogo, no forno ou no equipamento de cocção.</FieldDescription>
+														<FieldError errors={toFieldErrors(field.state.meta.errors)} />
+													</FieldContent>
+												</Field>
+											)}
+										</form.Field>
+									</div>
+
+									<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+										<form.Field name="cooking_method">
+											{(field) => (
+												<Field data-invalid={field.state.meta.errors.length > 0}>
+													<FieldLabel htmlFor="cooking_method">Método de cocção</FieldLabel>
+													<FieldContent>
+														<Input
+															id="cooking_method"
+															placeholder="Calor úmido, forno combinado, fritura por imersão..."
+															value={field.state.value ?? ""}
+															aria-invalid={field.state.meta.errors.length > 0}
+															onChange={(e) => field.handleChange(e.target.value)}
+														/>
+														<FieldError errors={toFieldErrors(field.state.meta.errors)} />
+													</FieldContent>
+												</Field>
+											)}
+										</form.Field>
+
+										<form.Field name="cooking_temperature_celsius">
+											{(field) => (
+												<Field data-invalid={field.state.meta.errors.length > 0}>
+													<FieldLabel htmlFor="cooking_temperature_celsius">Temperatura (°C)</FieldLabel>
+													<FieldContent>
+														<Input
+															id="cooking_temperature_celsius"
+															type="number"
+															min={-40}
+															max={500}
+															placeholder="—"
+															value={field.state.value ?? ""}
+															aria-invalid={field.state.meta.errors.length > 0}
+															onChange={(e) => field.handleChange(e.target.value === "" ? null : Number(e.target.value))}
+														/>
+														<FieldDescription>Temperatura do equipamento durante a cocção.</FieldDescription>
+														<FieldError errors={toFieldErrors(field.state.meta.errors)} />
+													</FieldContent>
+												</Field>
+											)}
+										</form.Field>
+									</div>
 								</CardContent>
 							</Card>
 

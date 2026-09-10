@@ -36,8 +36,12 @@ const FIELD_LABELS: Record<string, string> = {
 	pre_preparation_method: "Pré-preparo",
 	preparation_method: "Modo de Preparo",
 	portion_yield: "Rendimento (porções)",
-	preparation_time_minutes: "Tempo de Preparo (min)",
-	cooking_factor: "Fator de Cocção",
+	preparation_time_minutes: "Tempo total (min)",
+	pre_preparation_time_minutes: "Tempo de pré-preparo (min)",
+	cooking_time_minutes: "Tempo de cocção (min)",
+	cooking_method: "Método de cocção",
+	cooking_temperature_celsius: "Temperatura de cocção (°C)",
+	cooking_factor: "Índice de Cocção (IC)",
 	rational_id: "Código Rational",
 }
 

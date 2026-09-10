@@ -317,6 +317,10 @@ export const recipesInKitchen = kitchen.table("recipes", {
 	prePreparationMethod: text("pre_preparation_method"),
 	portionYield: numeric("portion_yield"),
 	preparationTimeMinutes: smallint("preparation_time_minutes"),
+	prePreparationTimeMinutes: smallint("pre_preparation_time_minutes"),
+	cookingTimeMinutes: smallint("cooking_time_minutes"),
+	cookingMethod: text("cooking_method"),
+	cookingTemperatureCelsius: smallint("cooking_temperature_celsius"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	kitchenId: bigint("kitchen_id", { mode: "number" }),
 	baseRecipeId: uuid("base_recipe_id"),

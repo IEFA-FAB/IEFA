@@ -112,7 +112,20 @@ export const CreateRecipeSchema = z.object({
 	 */
 	prePreparationMethod: z.string().optional(),
 	portionYield: z.number().positive(),
+	/**
+	 * Tempo TOTAL declarado, em minutos. Segue sendo a declaração de quem elaborou a
+	 * ficha: a folha impressa só deriva o total (parcelas abaixo, senão as etapas do
+	 * fluxo) quando este campo está vazio.
+	 */
 	preparationTimeMinutes: z.number().int().nonnegative().optional(),
+	/** Minutos do pré-preparo — parcela do total, PARTE 04 da ficha. */
+	prePreparationTimeMinutes: z.number().int().nonnegative().optional(),
+	/** Minutos de cocção — parcela do total, PARTE 04 da ficha. */
+	cookingTimeMinutes: z.number().int().nonnegative().optional(),
+	/** Método de cocção em texto livre (calor úmido, forno combinado, fritura...). */
+	cookingMethod: z.string().optional(),
+	/** Temperatura de cocção em °C. A faixa acompanha o CHECK da coluna. */
+	cookingTemperatureCelsius: z.number().int().min(-40).max(500).optional(),
 	cookingFactor: z.number().positive().optional(),
 	rationalId: z.string().optional(),
 	kitchenId: KitchenIdSchema.nullable().optional(),

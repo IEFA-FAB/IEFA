@@ -26,6 +26,7 @@ import {
 	type SheetEquipmentRequirement,
 	type SheetFlowStep,
 	type SheetTechnicalNote,
+	sheetTotalMinutes,
 	stepLabelById,
 	technicalSheetLine,
 	technicalSheetTotals,
@@ -223,12 +224,18 @@ interface Sheet {
 	prePreparationMethod: string
 	preparationMethod: string
 	/**
-	 * Tempo total da PARTE 04: o campo do cadastro quando existe, senão a soma das durações
-	 * das etapas do fluxo. Nessa ordem porque o campo é a declaração de quem elaborou a
-	 * ficha; a soma é uma estimativa derivada, e sobrepor a declaração por ela apagaria o
-	 * número que a nutricionista escreveu.
+	 * Tempo total da PARTE 04: o campo do cadastro quando existe, senão a soma das parcelas
+	 * (pré-preparo + cocção), senão a soma das durações das etapas do fluxo. Nessa ordem
+	 * porque o campo é a declaração de quem elaborou a ficha; as somas são estimativas
+	 * derivadas, e sobrepor a declaração por elas apagaria o número que a nutricionista
+	 * escreveu (ver `sheetTotalMinutes`).
 	 */
 	totalTimeMinutes: number | null
+	/** Parcelas e parâmetros da cocção, do cadastro — PARTE 04. */
+	prePreparationTimeMinutes: number | null
+	cookingTimeMinutes: number | null
+	cookingMethod: string
+	cookingTemperatureCelsius: number | null
 	/** Lista mínima de equipamentos da preparação — PARTE 04, na ordem de execução do fluxo. */
 	equipment: SheetEquipmentRequirement[]
 	/** Etapas do Fluxo de Produção — PARTE 04. Vazio quando a preparação não tem fluxo. */
@@ -300,7 +307,16 @@ function buildSheet(
 		mixedUnits: totals.units.length > 1 ? totals.units : [],
 		prePreparationMethod: recipe.pre_preparation_method ?? "",
 		preparationMethod: recipe.preparation_method ?? "",
-		totalTimeMinutes: recipe.preparation_time_minutes ?? flowTotalMinutes(steps),
+		totalTimeMinutes: sheetTotalMinutes(
+			recipe.preparation_time_minutes,
+			recipe.pre_preparation_time_minutes,
+			recipe.cooking_time_minutes,
+			flowTotalMinutes(steps)
+		),
+		prePreparationTimeMinutes: recipe.pre_preparation_time_minutes ?? null,
+		cookingTimeMinutes: recipe.cooking_time_minutes ?? null,
+		cookingMethod: recipe.cooking_method ?? "",
+		cookingTemperatureCelsius: recipe.cooking_temperature_celsius ?? null,
 		equipment: orderedEquipment,
 		steps,
 		technicalNotes: equipmentTechnicalNotes(orderedEquipment, stepLabels),
@@ -445,19 +461,21 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 				<tbody>
 					<tr>
 						<Label>Tempo de pré-preparo</Label>
-						<Value />
+						<Value>{formatSheetDuration(sheet.prePreparationTimeMinutes)}</Value>
 						<Label>Tempo de cocção</Label>
-						<Value />
+						<Value>{formatSheetDuration(sheet.cookingTimeMinutes)}</Value>
 					</tr>
 					<tr>
 						<Label>Tempo total</Label>
 						<Value>{formatSheetDuration(sheet.totalTimeMinutes)}</Value>
 						<Label>Método de cocção</Label>
-						<Value />
+						<Value>{sheet.cookingMethod}</Value>
 					</tr>
 					<tr>
 						<Label>Temperatura</Label>
-						<Value />
+						{/* Graus com o símbolo: "180" sozinho num campo de ficha lê tanto como °C
+						    quanto como minuto de forno. */}
+						<Value>{sheet.cookingTemperatureCelsius != null ? `${formatSheetNumber(sheet.cookingTemperatureCelsius, 0)} °C` : ""}</Value>
 						<Label>Etapas do fluxo</Label>
 						<Value>{sheet.steps.length > 0 ? String(sheet.steps.length) : ""}</Value>
 					</tr>

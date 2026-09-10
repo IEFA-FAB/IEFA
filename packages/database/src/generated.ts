@@ -8466,6 +8466,9 @@ export type Database = {
         Row: {
           base_recipe_id: string | null
           cooking_factor: number | null
+          cooking_method: string | null
+          cooking_temperature_celsius: number | null
+          cooking_time_minutes: number | null
           created_at: string
           deleted_at: string | null
           folder_id: string | null
@@ -8475,6 +8478,7 @@ export type Database = {
           name: string
           portion_yield: number | null
           pre_preparation_method: string | null
+          pre_preparation_time_minutes: number | null
           preparation_method: string | null
           preparation_time_minutes: number | null
           rational_id: string | null
@@ -8484,6 +8488,9 @@ export type Database = {
         Insert: {
           base_recipe_id?: string | null
           cooking_factor?: number | null
+          cooking_method?: string | null
+          cooking_temperature_celsius?: number | null
+          cooking_time_minutes?: number | null
           created_at?: string
           deleted_at?: string | null
           folder_id?: string | null
@@ -8493,6 +8500,7 @@ export type Database = {
           name: string
           portion_yield?: number | null
           pre_preparation_method?: string | null
+          pre_preparation_time_minutes?: number | null
           preparation_method?: string | null
           preparation_time_minutes?: number | null
           rational_id?: string | null
@@ -8502,6 +8510,9 @@ export type Database = {
         Update: {
           base_recipe_id?: string | null
           cooking_factor?: number | null
+          cooking_method?: string | null
+          cooking_temperature_celsius?: number | null
+          cooking_time_minutes?: number | null
           created_at?: string
           deleted_at?: string | null
           folder_id?: string | null
@@ -8511,6 +8522,7 @@ export type Database = {
           name?: string
           portion_yield?: number | null
           pre_preparation_method?: string | null
+          pre_preparation_time_minutes?: number | null
           preparation_method?: string | null
           preparation_time_minutes?: number | null
           rational_id?: string | null

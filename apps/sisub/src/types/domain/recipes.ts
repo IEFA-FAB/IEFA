@@ -77,7 +77,13 @@ export interface RecipeFormData {
 	/** Pré-preparo — o que antecede a cocção (PARTE 03 do modelo FTP/SIA). */
 	pre_preparation_method?: string | null
 	portion_yield: number
+	/** Tempo TOTAL declarado (min). Vazio deixa a folha derivar das parcelas/fluxo. */
 	preparation_time_minutes?: number | null
+	/** Parcelas do tempo e parâmetros da cocção — PARTE 04 da ficha FTP/SIA. */
+	pre_preparation_time_minutes?: number | null
+	cooking_time_minutes?: number | null
+	cooking_method?: string | null
+	cooking_temperature_celsius?: number | null
 	cooking_factor?: number | null
 	rational_id?: string | null
 	kitchen_id?: number | null
