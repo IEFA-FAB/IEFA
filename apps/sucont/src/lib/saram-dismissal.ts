@@ -3,51 +3,48 @@
  * Dispensa do pedido de SARAM, guardada FORA do componente de propósito.
  *
  * O `HubLayout` — que monta o diálogo — é renderizado por CADA uma das nove rotas
- * do hub; não é um layout compartilhado do roteador. Em estado local, "Agora não"
- * morreria na primeira navegação e o diálogo reabriria sobre a tela seguinte.
+ * do hub; não é um layout compartilhado do roteador. Em estado de componente,
+ * "Agora não" morreria na primeira navegação e o diálogo reabriria sobre a tela
+ * seguinte. Estado de módulo sobrevive à remontagem porque a navegação do
+ * TanStack Router não recarrega o bundle.
  *
- * `sessionStorage` atravessa remontagem e F5 e some ao fechar a aba: no próximo
- * login o pedido volta, que é o comportamento anunciado ao usuário.
+ * **Nada é gravado no dispositivo, e isso é a decisão, não um descuido.**
+ * `sessionStorage` seria o encaixe literal de "vale enquanto a aba estiver
+ * aberta" — e cobriria também o F5, que aqui volta a perguntar. Mas chave de
+ * armazenamento entra no inventário da Política de Cookies ANTES de entrar em uso
+ * (regra do CLAUDE.md, com guard em `@iefa/legal-kit`), e versão nova de documento
+ * legal é linha nova publicada em prod, que pede nova ciência de TODO usuário de
+ * TODOS os apps. Um flag de conveniência de uma tela do sucont não paga esse
+ * preço. Perguntar de novo depois de um recarregamento é o custo, e ele é barato:
+ * o pedido é dispensável e leva um clique.
  *
  * Mora em `lib/` para que o `__root` possa esquecer a dispensa no logout sem
  * importar um componente de tela.
  */
 
-const DISMISS_KEY = "sucont:saram-dismissed"
-
 /**
- * Roda na inicialização do estado, que no SSR não tem `window`. Não há divergência
- * de hidratação: o diálogo só abre depois que a consulta de identidade resolve, o
- * que nunca acontece no servidor.
+ * Só do lado do cliente. No servidor o valor é sempre `false`: um módulo é
+ * compartilhado entre requisições, e um `true` deixado por uma sessão calaria o
+ * pedido na renderização da seguinte.
  */
+let dismissedInThisTab = false
+
 export function readSaramDismissal(): boolean {
 	if (typeof window === "undefined") return false
-	try {
-		return window.sessionStorage.getItem(DISMISS_KEY) === "1"
-	} catch {
-		// Armazenamento bloqueado (política do navegador, aba restrita): não dispensar
-		// é o pior caso aceitável — pedir de novo, nunca gravar errado.
-		return false
-	}
+	return dismissedInThisTab
 }
 
 export function rememberSaramDismissal(): void {
-	try {
-		window.sessionStorage.setItem(DISMISS_KEY, "1")
-	} catch {
-		// Ver `readSaramDismissal`: sem armazenamento o pedido volta na próxima tela.
-	}
+	if (typeof window === "undefined") return
+	dismissedInThisTab = true
 }
 
 /**
  * Esquece a dispensa. Chamado no `SIGNED_OUT` pela mesma razão que o cache de
  * identidade é descartado ali: numa máquina compartilhada, o "agora não" de quem
- * saiu calaria o pedido para quem entra em seguida.
+ * saiu calaria o pedido para quem entra em seguida — e trocar de conta sem
+ * recarregar a página é o caminho normal de saída do hub.
  */
 export function forgetSaramDismissal(): void {
-	try {
-		window.sessionStorage.removeItem(DISMISS_KEY)
-	} catch {
-		// Sem armazenamento não há dispensa gravada para esquecer.
-	}
+	dismissedInThisTab = false
 }
