@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./core": "./src/core.ts",
     "./generated": "./src/generated.ts",
     "./sisub": "./src/sisub.ts",
     "./compras-gov": "./src/compras-gov.ts",

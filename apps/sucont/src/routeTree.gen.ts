@@ -30,6 +30,7 @@ import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminPermissoesRouteImport } from './routes/admin/permissoes'
+import { Route as AdminPessoasRouteImport } from './routes/admin/pessoas'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
@@ -139,6 +140,11 @@ const AdminPermissoesRoute = AdminPermissoesRouteImport.update({
   path: '/permissoes',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminPessoasRoute = AdminPessoasRouteImport.update({
+  id: '/pessoas',
+  path: '/pessoas',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
+  '/admin/pessoas': typeof AdminPessoasRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
+  '/admin/pessoas': typeof AdminPessoasRoute
   '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/workspace': typeof WorkspaceRoute
   '/admin/permissoes': typeof AdminPermissoesRoute
+  '/admin/pessoas': typeof AdminPessoasRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/workspace'
     | '/admin/permissoes'
+    | '/admin/pessoas'
     | '/admin/'
     | '/auth/'
     | '/.well-known/agent-skills/index.json'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/workspace'
     | '/admin/permissoes'
+    | '/admin/pessoas'
     | '/admin'
     | '/auth'
     | '/.well-known/agent-skills/index.json'
@@ -309,6 +320,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/workspace'
     | '/admin/permissoes'
+    | '/admin/pessoas'
     | '/admin/'
     | '/auth/'
     | '/.well-known/agent-skills/index.json'
@@ -489,6 +501,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPermissoesRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/pessoas': {
+      id: '/admin/pessoas'
+      path: '/pessoas'
+      fullPath: '/admin/pessoas'
+      preLoaderRoute: typeof AdminPessoasRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
@@ -515,11 +534,13 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminPermissoesRoute: typeof AdminPermissoesRoute
+  AdminPessoasRoute: typeof AdminPessoasRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminPermissoesRoute: AdminPermissoesRoute,
+  AdminPessoasRoute: AdminPessoasRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

@@ -2019,6 +2019,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          name_key: string | null
           nr_ordem: string | null
           updated_at: string
           user_id: string | null
@@ -2028,6 +2029,7 @@ export type Database = {
           created_at?: string
           display_name: string
           id?: string
+          name_key?: string | null
           nr_ordem?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2037,6 +2039,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          name_key?: string | null
           nr_ordem?: string | null
           updated_at?: string
           user_id?: string | null

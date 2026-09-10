@@ -21,7 +21,7 @@
 
 import type { AppModule, UserContext } from "@iefa/pbac"
 import { createRequestAuth } from "@iefa/pbac/start"
-import { permissionModuleForDivision, SUCONT_DIVISION_MODULES } from "#/lib/permission-modules"
+import { permissionModuleForDivision, SUCONT_DIVISION_MODULES, SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient, getSucontAuthClient } from "#/lib/supabase.server"
 import type { SucontDivision } from "#/lib/types"
 
@@ -56,6 +56,19 @@ export function requireSucontAccess(minLevel: 1 | 2 = 1): Promise<UserContext> {
 /** Gate de escrita das telas da seção: nível 2 em qualquer divisão. */
 export function requireSucontEditor(): Promise<UserContext> {
 	return requireSucontAccess(2)
+}
+
+/**
+ * Gate do que é do APP e não de uma divisão — hoje, ler o cadastro de pessoas.
+ *
+ * Aceita QUALQUER módulo do sucont, inclusive `sucont-admin`. É a contrapartida
+ * de `canUseApp` no cliente: a conta só-administradora, que o split passou a
+ * permitir, precisa dos rótulos das pessoas para a tela que ela administra —
+ * com o gate de divisão ela abria `/admin/pessoas` num erro permanente, enquanto
+ * toda escrita da mesma tela teria funcionado.
+ */
+export function requireSucontApp(): Promise<UserContext> {
+	return auth.requireAnyLevel(SUCONT_PERMISSION_MODULES as readonly AppModule[], 1)
 }
 
 /** Gate de administração de grants do SUCONT: exige `sucont-admin` nível 3. */

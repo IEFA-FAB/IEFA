@@ -34,6 +34,10 @@ export default defineConfig({
 		alias: [
 			{ find: /^#\/server\/auth\.fn$/, replacement: resolve(__dirname, "./stubs/auth.fn.ts") },
 			{ find: /^#\/server\/legal\.fn$/, replacement: resolve(__dirname, "./stubs/legal.fn.ts") },
+			{ find: /^#\/server\/notifications\.fn$/, replacement: resolve(__dirname, "./stubs/notifications.fn.ts") },
+			{ find: /^#\/server\/people\.fn$/, replacement: resolve(__dirname, "./stubs/people.fn.ts") },
+			{ find: /^#\/server\/workspace\.fn$/, replacement: resolve(__dirname, "./stubs/workspace.fn.ts") },
+			{ find: /^#\/server\/(auditor|reports|sacdgc)\.fn$/, replacement: resolve(__dirname, "./stubs/data-fns.ts") },
 			{ find: /^#\/server\/permissions\.fn$/, replacement: resolve(__dirname, "./stubs/permissions.fn.ts") },
 			{ find: /^#\/server\/user\.fn$/, replacement: resolve(__dirname, "./stubs/user.fn.ts") },
 			{ find: /^#\//, replacement: `${resolve(__dirname, "../src")}/` },

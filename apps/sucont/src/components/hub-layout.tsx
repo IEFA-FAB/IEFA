@@ -9,6 +9,7 @@ import { authActions, authQueryOptions } from "#/auth/service"
 import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
 import { ModuleSwitcher } from "#/components/module-switcher"
+import { NotificationBell } from "#/components/notification-bell"
 import { SaramDialog } from "#/components/saram-dialog"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
@@ -130,7 +131,8 @@ export function HubLayout({ children, title, description, searchable = false, ac
 					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
 					<HubBreadcrumb />
-					<div className="ml-auto flex shrink-0 items-center gap-2">
+					<div className="ml-auto flex shrink-0 items-center gap-1">
+						<NotificationBell />
 						<ThemeToggle />
 					</div>
 				</header>
