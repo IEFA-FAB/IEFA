@@ -23,7 +23,8 @@ const item = (over: Partial<ChecklistCurrent>): ChecklistCurrent =>
 		task: "Tarefa",
 		deadline: "Mensal",
 		description: "Descrição da atividade da seção.",
-		responsible: "3S VANESSA",
+		assign_to_all: false,
+		assignees: [],
 		path: null,
 		recurrence: "monthly",
 		business_day: null,
@@ -46,7 +47,7 @@ export async function listChecklistFn(): Promise<ChecklistCurrent[]> {
 			business_day: 2,
 			due_on: addDays(TODAY, -6),
 			description: "Confirmar se cada UG realizou a carga do arquivo XML de depreciação e baixa de bens.",
-			responsible: "Cada Responsável",
+			assign_to_all: true,
 			path: "Tesouro Gerencial: Sucont-4.1 > Monitoramento das UG > Acomp. registro da depreciação",
 			sort_order: 1,
 		}),
@@ -59,7 +60,7 @@ export async function listChecklistFn(): Promise<ChecklistCurrent[]> {
 			done_at: `${addDays(TODAY, -4)}T14:30:00Z`,
 			done_by: "harness-admin",
 			description: "Comparar o saldo de depreciação acumulada com o saldo do bem no SIAFI.",
-			responsible: "Cada Responsável",
+			assign_to_all: true,
 			sort_order: 2,
 		}),
 		item({
@@ -69,13 +70,17 @@ export async function listChecklistFn(): Promise<ChecklistCurrent[]> {
 			competencia: addDays(TODAY, -3),
 			due_on: TODAY,
 			description: "Acompanhamento do fechamento SIAFI.",
-			responsible: "Vanessa",
+			assignees: [{ id: "p-vanessa", label: "3S VANESSA" }],
 			sort_order: 3,
 		}),
 		item({
 			task: "Conciliação Mensal de Contas de Trânsito",
 			description: "Verificar discrepâncias entre conta de trânsito e conta de controle.",
-			responsible: "SGT KLEBSON, 3S VANESSA, SGT IARA",
+			assignees: [
+				{ id: "p-vanessa", label: "3S VANESSA" },
+				{ id: "p-iara", label: "SGT IARA" },
+				{ id: "p-klebson", label: "SGT KLEBSON" },
+			],
 			sort_order: 4,
 		}),
 	]
@@ -89,7 +94,11 @@ export async function setChecklistDoneFn(): Promise<{ ok: true }> {
 	return { ok: true }
 }
 
-export async function updateChecklistResponsibleFn(): Promise<{ ok: true }> {
+export async function setChecklistAssigneesFn(): Promise<{ ok: true }> {
+	return { ok: true }
+}
+
+export async function setUgOperatorFn(): Promise<{ ok: true }> {
 	return { ok: true }
 }
 
@@ -127,11 +136,11 @@ export async function saveWorkspaceNoteFn(): Promise<{ ok: true }> {
 }
 
 export async function listUnidadesGestorasFn(): Promise<UnidadeGestora[]> {
-	const ug = (codigo: string, nome: string, operador: string): UnidadeGestora =>
+	const ug = (codigo: string, nome: string, operatorPersonId: string | null): UnidadeGestora =>
 		({
 			codigo,
 			nome,
-			operador,
+			operator_person_id: operatorPersonId,
 			ods: null,
 			orgao_superior: null,
 			is_setorial: false,
@@ -140,10 +149,13 @@ export async function listUnidadesGestorasFn(): Promise<UnidadeGestora[]> {
 			updated_at: "2026-07-06T12:00:00Z",
 		}) as UnidadeGestora
 	return [
-		ug("120005", "PABR", "3S VANESSA"),
-		ug("120014", "BAFZ", "3S VANESSA"),
-		ug("120001", "GABAER", "SGT KLEBSON"),
-		ug("120008", "CINDACTA I", "SGT KLEBSON"),
-		ug("120004", "BABR", "3S TALITA"),
+		ug("120005", "PABR", "p-vanessa"),
+		ug("120014", "BAFZ", "p-vanessa"),
+		ug("120001", "GABAER", "p-klebson"),
+		ug("120008", "CINDACTA I", "p-klebson"),
+		ug("120004", "BABR", "p-talita"),
+		// UG sem operador: com a lista de nomes escrita no arquivo, uma linha
+		// assim sumia da tela e do total. O harness cobre isso.
+		ug("120099", "DIRINFRA", null),
 	]
 }

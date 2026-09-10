@@ -1,6 +1,6 @@
 import type { AppModule, UserPermission } from "@iefa/pbac"
 import { hasPermission } from "@iefa/pbac"
-import { Boxes, Calculator, KeyRound, type LucideIcon, ShieldUser } from "lucide-react"
+import { Boxes, Calculator, KeyRound, type LucideIcon, ShieldUser, UsersRound } from "lucide-react"
 import { sucontTools } from "#/lib/data"
 import { permissionModuleForDivision, SUCONT_ADMIN_MODULE, SUCONT_DIVISION_MODULES } from "#/lib/permission-modules"
 import { findToolByPath } from "#/lib/tool-nav"
@@ -116,7 +116,10 @@ export const SUCONT_MODULES: SucontModule[] = [
 ]
 
 /** Navegação do módulo `admin`. As divisões montam a delas a partir do catálogo. */
-export const ADMIN_NAV: Array<{ to: string; label: string; icon: LucideIcon }> = [{ to: "/admin/permissoes", label: "Permissões", icon: KeyRound }]
+export const ADMIN_NAV: Array<{ to: string; label: string; icon: LucideIcon }> = [
+	{ to: "/admin/permissoes", label: "Permissões", icon: KeyRound },
+	{ to: "/admin/pessoas", label: "Pessoas", icon: UsersRound },
+]
 
 /**
  * Divisão padrão — a que responde quando a URL não diz e a rota não denuncia.

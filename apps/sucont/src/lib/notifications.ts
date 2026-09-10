@@ -12,6 +12,7 @@
 
 import { queryOptions } from "@tanstack/react-query"
 import { listNotificationsFn } from "#/server/notifications.fn"
+import { listSectionPeopleFn } from "#/server/people.fn"
 
 /**
  * `staleTime` curto porque o número da bolinha é a promessa da tela: um cache
@@ -24,4 +25,15 @@ export const notificationsQueryOptions = () =>
 		queryKey: ["sucont", "notifications"] as const,
 		queryFn: () => listNotificationsFn(),
 		staleTime: 60_000,
+	})
+
+/**
+ * Pessoas da seção. Fica junto do sino, e não em `lib/queries.ts`, porque quem
+ * consome é a tela de pessoas E o seletor de responsável do cronograma — e
+ * `lib/queries.ts` arrasta o grafo de server functions das ferramentas.
+ */
+export const sectionPeopleQueryOptions = () =>
+	queryOptions({
+		queryKey: ["sucont", "people"] as const,
+		queryFn: () => listSectionPeopleFn(),
 	})

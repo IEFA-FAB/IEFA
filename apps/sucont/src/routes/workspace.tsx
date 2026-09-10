@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bell, ClipboardList, Edit2, Loader2, Plus, StickyNote, Terminal, Trash2, Users, X } from "lucide-react"
+import { Bell, ClipboardList, Loader2, Plus, StickyNote, Terminal, Trash2, Users, X } from "lucide-react"
 import { motion } from "motion/react"
 import React, { useEffect, useRef, useState } from "react"
 import { requireAnyDivision, useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
+import { AssigneePicker, type AssigneeValue, OperatorPicker } from "#/components/people-picker"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { Button } from "#/components/ui/button"
 import { Checkbox } from "#/components/ui/checkbox"
@@ -18,13 +19,15 @@ import {
 	type DeadlineStatus,
 	deadlineStatus,
 	MAX_BUSINESS_DAY,
+	parseAssignees,
 	RECURRENCE_LABELS,
 	UPCOMING_WINDOW_DAYS,
 } from "#/lib/checklist"
 import { useHubFilters } from "#/lib/hub-filters"
-import { notificationsQueryOptions } from "#/lib/notifications"
+import { notificationsQueryOptions, sectionPeopleQueryOptions } from "#/lib/notifications"
 import { checklistQueryOptions, noticesQueryOptions, unidadesGestorasQueryOptions, workspaceNoteQueryOptions } from "#/lib/queries"
 import { cn } from "#/lib/utils"
+import type { SectionPerson } from "#/server/people.fn"
 import type { ChecklistRecurrenceInput } from "#/server/workspace.fn"
 import {
 	createChecklistItemFn,
@@ -32,8 +35,9 @@ import {
 	deleteChecklistItemFn,
 	deleteNoticeFn,
 	saveWorkspaceNoteFn,
+	setChecklistAssigneesFn,
 	setChecklistDoneFn,
-	updateChecklistResponsibleFn,
+	setUgOperatorFn,
 } from "#/server/workspace.fn"
 
 export const Route = createFileRoute("/workspace")({
@@ -48,11 +52,10 @@ export const Route = createFileRoute("/workspace")({
 		void context.queryClient.query({ ...noticesQueryOptions(), staleTime: "static" }).catch(() => {})
 		void context.queryClient.query({ ...unidadesGestorasQueryOptions(), staleTime: "static" }).catch(() => {})
 		void context.queryClient.query({ ...workspaceNoteQueryOptions(), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...sectionPeopleQueryOptions(), staleTime: "static" }).catch(() => {})
 	},
 	component: Workspace,
 })
-
-const OPERATORS = ["3S VANESSA", "SGT KLEBSON", "3S TALITA"] as const
 
 /**
  * A linha abaixo do rótulo do prazo. Diz a DATA e o que ela significa hoje.
@@ -73,7 +76,6 @@ function deadlineHint(status: DeadlineStatus, dueOn: string | null, doneAt: stri
 function Workspace() {
 	const { query: searchQuery } = useHubFilters()
 	const queryClient = useQueryClient()
-	const [editingId, setEditingId] = useState<string | null>(null)
 	const [isAddingTask, setIsAddingTask] = useState(false)
 	const [isAddingNotice, setIsAddingNotice] = useState(false)
 
@@ -82,12 +84,14 @@ function Workspace() {
 	const { data: notices = [] } = useQuery(noticesQueryOptions())
 	const { data: unidades = [] } = useQuery(unidadesGestorasQueryOptions())
 	const { data: noteFromDb = "" } = useQuery(workspaceNoteQueryOptions())
+	const { data: people = [] } = useQuery(sectionPeopleQueryOptions())
 
 	const invalidateChecklist = () => queryClient.invalidateQueries({ queryKey: checklistQueryOptions().queryKey })
 	// O sino também: marcar uma tarefa como feita RESOLVE a notificação de prazo
 	// perdido dela (gatilho no banco), e publicar um aviso cria uma para o próprio
 	// autor. Sem esta invalidação a bolinha só corrigiria no recarregamento.
 	const invalidateNotifications = () => queryClient.invalidateQueries({ queryKey: notificationsQueryOptions().queryKey })
+	const invalidatePeople = () => queryClient.invalidateQueries({ queryKey: sectionPeopleQueryOptions().queryKey })
 	const invalidateNotices = () => {
 		queryClient.invalidateQueries({ queryKey: noticesQueryOptions().queryKey })
 		invalidateNotifications()
@@ -102,7 +106,8 @@ function Workspace() {
 
 	// ── Mutations: checklist ───────────────────────────────
 	const addTaskMutation = useMutation({
-		mutationFn: (data: { task: string; description: string; responsible: string; path: string } & ChecklistRecurrenceInput) => createChecklistItemFn({ data }),
+		mutationFn: (data: { task: string; description: string; path: string; personIds: string[]; assignToAll: boolean } & ChecklistRecurrenceInput) =>
+			createChecklistItemFn({ data }),
 		onSuccess: () => {
 			setIsAddingTask(false)
 			invalidateChecklist()
@@ -122,15 +127,25 @@ function Workspace() {
 		onSuccess: () => invalidateChecklist(),
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir"),
 	})
-	const updateResponsibleMutation = useMutation({
-		mutationFn: (data: { id: string; responsible: string }) => updateChecklistResponsibleFn({ data }),
-		onSuccess: () => invalidateChecklist(),
-		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao atualizar"),
+	const setAssigneesMutation = useMutation({
+		mutationFn: (data: { id: string; personIds: string[]; assignToAll: boolean }) => setChecklistAssigneesFn({ data }),
+		onSuccess: () => {
+			invalidateChecklist()
+			invalidatePeople()
+			// Atribuir gera notificação para quem entrou e resolve a de quem saiu —
+			// os dois por gatilho no banco. Sem isto a bolinha só corrigiria no F5.
+			invalidateNotifications()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao atualizar os responsáveis"),
 	})
-	const updateResponsible = (id: string, value: string) => {
-		setEditingId(null)
-		updateResponsibleMutation.mutate({ id, responsible: value })
-	}
+	const setUgOperatorMutation = useMutation({
+		mutationFn: (data: { codigo: string; personId: string | null }) => setUgOperatorFn({ data }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: unidadesGestorasQueryOptions().queryKey })
+			invalidatePeople()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao mudar o operador"),
+	})
 
 	// ── Mutations: notices ─────────────────────────────────
 	const addNoticeMutation = useMutation({
@@ -185,13 +200,26 @@ function Workspace() {
 	// ── Filtro ─────────────────────────────────────────────
 	const needle = searchQuery.toLowerCase()
 	const filteredChecklist = checklist.filter((item) =>
-		[item.task, item.description, item.responsible].some((field) => (field ?? "").toLowerCase().includes(needle))
+		[item.task, item.description, ...parseAssignees(item.assignees).map((a) => a.label)].some((field) => (field ?? "").toLowerCase().includes(needle))
 	)
 
 	// "Hoje" em Brasília, e não `new Date()`: o container roda em UTC e das 21h à
 	// meia-noite um prazo de hoje já aparecia como vencido.
 	const today = todayInBrasilia()
 	const upcomingUntil = addDays(today, UPCOMING_WINDOW_DAYS)
+
+	// Um grupo por pessoa da seção, na ordem do cadastro, mais "sem operador"
+	// quando houver UG órfã. Pessoa sem nenhuma UG continua aparecendo: um cartão
+	// vazio diz "esta pessoa está livre", que é informação; escondê-lo faria a
+	// distribuição parecer completa.
+	const ugGroups = [
+		...people.map((person) => ({
+			id: person.id as string | null,
+			label: person.label,
+			units: unidades.filter((u) => u.operator_person_id === person.id),
+		})),
+		{ id: null, label: "Sem operador", units: unidades.filter((u) => !u.operator_person_id) },
+	].filter((group) => group.id !== null || group.units.length > 0)
 
 	return (
 		<HubLayout title="Área de trabalho" description="Cronograma, anotações e avisos da seção." searchable>
@@ -224,7 +252,12 @@ function Workspace() {
 					)}
 
 					{isAddingTask && canEdit && (
-						<AddTaskForm onSave={(data) => addTaskMutation.mutate(data)} onCancel={() => setIsAddingTask(false)} pending={addTaskMutation.isPending} />
+						<AddTaskForm
+							people={people}
+							onSave={(data) => addTaskMutation.mutate(data)}
+							onCancel={() => setIsAddingTask(false)}
+							pending={addTaskMutation.isPending}
+						/>
 					)}
 
 					{loadingChecklist ? (
@@ -291,30 +324,20 @@ function Workspace() {
 												</div>
 											</div>
 
-											<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
-												<span className="font-mono text-label text-muted-foreground mb-1">Responsável</span>
-												{editingId === item.id ? (
-													<Input
-														className="bg-muted/50 border-tech-cyan/30 text-foreground p-1 rounded w-full focus:border-tech-cyan"
-														defaultValue={item.responsible ?? ""}
-														autoFocus
-														onKeyDown={(e) => {
-															if (e.key === "Enter") updateResponsible(item.id as string, e.currentTarget.value)
-															if (e.key === "Escape") setEditingId(null)
-														}}
-														onBlur={(e) => updateResponsible(item.id as string, e.target.value)}
-													/>
-												) : canEdit ? (
-													<Button type="button" variant="ghost" className="h-auto p-0 gap-2 group hover:bg-transparent" onClick={() => setEditingId(item.id)}>
-														<span className="text-subheading text-tech-cyan">{item.responsible}</span>
-														<Edit2 className="w-3 h-3 text-muted-foreground group-hover:text-tech-cyan transition-colors" />
-													</Button>
-												) : (
-													// `.text-subheading`, não `.text-label`: o rótulo embute caixa alta, e este é
-													// um nome DIGITADO pelo usuário — em maiúsculas ele deixa de bater com o campo
-													// de edição ao lado e com o texto que a busca da tela filtra.
-													<span className="text-subheading text-tech-cyan">{item.responsible}</span>
-												)}
+											<div className="md:w-56 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
+												<span className="font-mono text-label text-muted-foreground mb-1">Responsáveis</span>
+												{/*
+												 * O campo de texto virou seleção sobre o cadastro de pessoas.
+												 * Antes, o Enter e o `onBlur` disparavam o MESMO salvamento —
+												 * o Enter desmontava o campo e o blur ainda podia escapar,
+												 * gravando duas vezes. Aqui a escrita sai do popover, uma vez.
+												 */}
+												<AssigneePicker
+													people={people}
+													disabled={!canEdit || setAssigneesMutation.isPending}
+													value={{ personIds: parseAssignees(item.assignees).map((a) => a.id), assignToAll: Boolean(item.assign_to_all) }}
+													onChange={(next) => setAssigneesMutation.mutate({ id: item.id as string, ...next })}
+												/>
 												{canEdit && (
 													<Button
 														type="button"
@@ -418,38 +441,53 @@ function Workspace() {
 						<div className="flex-grow h-[1px] bg-border" />
 					</div>
 
+					{/*
+					 * Os grupos saem do DADO, não de uma lista de três nomes escrita no
+					 * arquivo. Com a lista fixa, UG cujo operador não estivesse nela
+					 * sumia da tela sem aviso, e o "Total: N UGs" de cada cartão somava
+					 * só o que tinha sobrado — a tela mentia sobre a cobertura.
+					 * "Sem operador" é um grupo de verdade: ele é a fila de trabalho.
+					 */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						{OPERATORS.map((operator) => {
-							const units = unidades.filter((u) => u.operador === operator)
-							return (
-								<div key={operator} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-									<div className="bg-muted/50 p-3 border-b border-border">
-										<h4 className="text-foreground text-center text-label">{operator}</h4>
-									</div>
-									<div className="p-4 max-h-96 overflow-y-auto">
-										<table className="w-full text-hint font-mono">
-											<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
-												<tr>
-													<th className="px-4 py-3 text-left pb-2">UG</th>
-													<th className="px-4 py-3 text-left pb-2">NOME</th>
-												</tr>
-											</thead>
-											<tbody className="divide-y divide-border">
-												{units.map((u) => (
-													<tr key={u.codigo} className="hover:bg-muted/50 transition-colors">
-														<td className="py-2 text-tech-cyan font-bold">{u.codigo}</td>
-														<td className="py-2 text-muted-foreground">{u.nome}</td>
-													</tr>
-												))}
-											</tbody>
-										</table>
-									</div>
-									<div className="bg-muted/50 p-2 text-center border-t border-border">
-										<span className="text-hint font-mono text-muted-foreground">Total: {units.length} UGs</span>
-									</div>
+						{ugGroups.map((group) => (
+							<div key={group.id ?? "sem-operador"} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+								<div className="bg-muted/50 p-3 border-b border-border">
+									<h4 className={cn("text-center text-label", group.id ? "text-foreground" : "text-muted-foreground")}>{group.label}</h4>
 								</div>
-							)
-						})}
+								<div className="p-4 max-h-96 overflow-y-auto">
+									<table className="w-full text-hint font-mono">
+										<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
+											<tr>
+												<th className="px-4 py-3 text-left pb-2">UG</th>
+												<th className="px-4 py-3 text-left pb-2">NOME</th>
+												{canEdit && <th className="w-8 px-2 py-3" />}
+											</tr>
+										</thead>
+										<tbody className="divide-y divide-border">
+											{group.units.map((u) => (
+												<tr key={u.codigo} className="group/ug hover:bg-muted/50 transition-colors">
+													<td className="py-2 text-tech-cyan font-bold">{u.codigo}</td>
+													<td className="py-2 text-muted-foreground">{u.nome}</td>
+													{canEdit && (
+														<td className="py-2 pr-1 text-right">
+															<OperatorPicker
+																people={people}
+																value={u.operator_person_id}
+																label={u.nome}
+																onChange={(personId) => setUgOperatorMutation.mutate({ codigo: u.codigo, personId })}
+															/>
+														</td>
+													)}
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+								<div className="bg-muted/50 p-2 text-center border-t border-border">
+									<span className="text-hint font-mono text-muted-foreground">Total: {group.units.length} UGs</span>
+								</div>
+							</div>
+						))}
 					</div>
 				</section>
 			</div>
@@ -468,16 +506,19 @@ function Workspace() {
  * divergência que a tela tinha.
  */
 function AddTaskForm({
+	people,
 	onSave,
 	onCancel,
 	pending,
 }: {
-	onSave: (data: { task: string; description: string; responsible: string; path: string } & ChecklistRecurrenceInput) => void
+	people: SectionPerson[]
+	onSave: (data: { task: string; description: string; path: string; personIds: string[]; assignToAll: boolean } & ChecklistRecurrenceInput) => void
 	onCancel: () => void
 	pending: boolean
 }) {
 	const [recurrence, setRecurrence] = React.useState<ChecklistRecurrence>("monthly_business_day")
 	const [businessDay, setBusinessDay] = React.useState("2")
+	const [assignees, setAssignees] = React.useState<AssigneeValue>({ personIds: [], assignToAll: false })
 
 	return (
 		<motion.div
@@ -493,8 +534,9 @@ function AddTaskForm({
 					const base = {
 						task: fd.get("task") as string,
 						description: (fd.get("description") as string) ?? "",
-						responsible: fd.get("responsible") as string,
 						path: (fd.get("path") as string) ?? "",
+						personIds: assignees.personIds,
+						assignToAll: assignees.assignToAll,
 					}
 					// A união é discriminada no servidor: `businessDay` só existe no ramo
 					// que o usa. Mandá-lo sempre faria o schema recusar a tarefa semanal.
@@ -503,7 +545,12 @@ function AddTaskForm({
 				className="grid grid-cols-1 md:grid-cols-2 gap-4"
 			>
 				<Input name="task" placeholder="Título da Tarefa" required className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan" />
-				<Input name="responsible" placeholder="Responsável" required className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan" />
+				<div className="flex flex-col gap-1">
+					<span className="font-mono text-label text-muted-foreground">Responsáveis</span>
+					{/* Tarefa pode nascer sem dono — é melhor do que forçar um nome
+					    inventado só para o formulário aceitar. */}
+					<AssigneePicker people={people} value={assignees} onChange={setAssignees} />
+				</div>
 				<div className="flex flex-col gap-1">
 					<label htmlFor="task-recurrence" className="font-mono text-label text-muted-foreground">
 						Recorrência

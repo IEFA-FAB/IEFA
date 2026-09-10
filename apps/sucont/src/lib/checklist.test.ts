@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { deadlineLabel, deadlineStatus } from "#/lib/checklist"
+import { deadlineLabel, deadlineStatus, parseAssignees } from "#/lib/checklist"
 
 describe("deadlineLabel", () => {
 	it("usa o indicador ordinal masculino, não o sinal de grau", () => {
@@ -33,5 +33,24 @@ describe("deadlineStatus", () => {
 	it("prazo além da janela não é 'próximo' — senão o sino nunca esvazia", () => {
 		expect(deadlineStatus("2026-09-18", null, today, upcomingUntil)).toBe("scheduled")
 		expect(deadlineStatus("2026-09-30", null, today, upcomingUntil)).toBe("scheduled")
+	})
+})
+
+describe("parseAssignees", () => {
+	it("lê o par (id, rótulo) que a view entrega", () => {
+		expect(parseAssignees([{ id: "a", label: "3S VANESSA" }])).toEqual([{ id: "a", label: "3S VANESSA" }])
+	})
+
+	it("devolve lista vazia para tarefa sem responsável", () => {
+		expect(parseAssignees([])).toEqual([])
+	})
+
+	// A coluna é `jsonb`, e o tipo gerado é `Json` — o compilador não protege
+	// contra a forma mudar. Descartar o que não tem a forma esperada mantém a tela
+	// viva em vez de derrubá-la num `.map` de `undefined`.
+	it("descarta entrada fora de forma sem derrubar a tela", () => {
+		expect(parseAssignees(null)).toEqual([])
+		expect(parseAssignees("3S VANESSA")).toEqual([])
+		expect(parseAssignees([{ id: 1, label: "x" }, null, { label: "sem id" }, { id: "ok", label: "OK" }])).toEqual([{ id: "ok", label: "OK" }])
 	})
 })

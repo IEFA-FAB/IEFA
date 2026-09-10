@@ -46,3 +46,23 @@ export function deadlineStatus(dueOn: string, doneAt: string | null, today: stri
 	if (dueOn === today) return "today"
 	return dueOn <= upcomingUntil ? "upcoming" : "scheduled"
 }
+
+/** Um responsável já resolvido pela view — o par (id, melhor rótulo). */
+export type Assignee = { id: string; label: string }
+
+/**
+ * Lê a coluna `assignees` da view, que é `jsonb`.
+ *
+ * O tipo gerado a partir de uma coluna jsonb é `Json`, ou seja, "qualquer coisa":
+ * o compilador não sabe o formato e não protege contra ele mudar. A checagem aqui
+ * é a fronteira — descartar o que não tem a forma esperada mantém a tela viva se
+ * a view for alterada, em vez de derrubá-la num `.map` de `undefined`.
+ */
+export function parseAssignees(value: unknown): Assignee[] {
+	if (!Array.isArray(value)) return []
+	return value.flatMap((entry) =>
+		entry && typeof entry === "object" && typeof (entry as Assignee).id === "string" && typeof (entry as Assignee).label === "string"
+			? [{ id: (entry as Assignee).id, label: (entry as Assignee).label }]
+			: []
+	)
+}

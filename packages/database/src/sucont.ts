@@ -30,6 +30,11 @@ export type ChecklistOccurrenceInsert = TablesInsert<"checklist_occurrence">
 
 export type Holiday = Tables<"holiday">
 
+/** Quem trabalha na seção — a fronteira do sucont sobre `core.person`. */
+export type SectionMember = Tables<"section_member">
+
+export type ChecklistItemAssignee = Tables<"checklist_item_assignee">
+
 export type SucontNotification = Tables<"notification">
 
 export type Notice = Tables<"notice">

@@ -38,6 +38,7 @@ const PUBLIC_ROUTES = new Map([
 	["admin/route.tsx", "tem guard próprio: `sucont-admin` nível 3"],
 	["admin/index.tsx", "filha de admin/route.tsx, que já cobra o nível"],
 	["admin/permissoes.tsx", "filha de admin/route.tsx, que já cobra o nível"],
+	["admin/pessoas.tsx", "filha de admin/route.tsx, que já cobra o nível"],
 ])
 
 function routeFiles(): string[] {

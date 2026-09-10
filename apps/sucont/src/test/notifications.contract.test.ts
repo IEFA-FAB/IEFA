@@ -32,11 +32,22 @@ const NOTIFICATION_SQL = readdirSync(MIGRATIONS_DIR)
 	.filter((text) => text.includes("sucont.notification"))
 	.join("\n")
 
+/** As migrations que criam ou alteram o cadastro de pessoas. */
+const PERSON_SQL = readdirSync(MIGRATIONS_DIR)
+	.filter((name) => name.endsWith(".sql"))
+	.map((name) => readFileSync(join(MIGRATIONS_DIR, name), "utf8"))
+	.filter((text) => text.includes("core.person"))
+	.join("\n")
+
 const INBOX_FN = readFileSync(resolve(import.meta.dir, "../server/notifications.fn.ts"), "utf8")
 
 describe("varredura", () => {
 	it("encontrou o SQL do sino — um filtro que não casa passaria os testes abaixo vazios", () => {
 		expect(NOTIFICATION_SQL).toContain("create table sucont.notification")
+	})
+
+	it("encontrou o SQL do cadastro de pessoas", () => {
+		expect(PERSON_SQL).toContain("create table core.person")
 	})
 })
 
@@ -85,10 +96,18 @@ describe("endereçamento", () => {
 		expect(INBOX_FN).not.toMatch(/user_id:\s*z\./)
 	})
 
-	it("tira o destinatário da sessão e filtra toda leitura e escrita por ele", () => {
+	it("tira o destinatário da sessão e filtra TODA consulta à caixa de entrada por ele", () => {
 		expect(INBOX_FN).toContain("await requireSucontAccess()")
-		// Duas chamadas de leitura (lista e contagem) e uma de escrita (marcar lida).
-		expect(INBOX_FN.match(/\.eq\("user_id", ctx\.userId\)/g)?.length).toBe(3)
+
+		// Invariante, e não uma contagem: qualquer acesso novo a `notification`
+		// precisa do filtro. Um número mágico só reprovaria a linha a mais — e
+		// passaria feliz se a consulta nova fosse justamente a sem filtro.
+		const chains = INBOX_FN.split('.from("notification")').slice(1)
+		expect(chains.length).toBeGreaterThan(0)
+		for (const chain of chains) {
+			const upToNextQuery = chain.split(".from(")[0] ?? ""
+			expect(upToNextQuery).toContain('.eq("user_id", ctx.userId)')
+		}
 	})
 })
 
@@ -101,6 +120,45 @@ describe("RPC do sino não é chamável pelo browser", () => {
 			expect(revoked).toContain(fn)
 		}
 		expect(revoked).toMatch(/from public, anon, authenticated/)
+	})
+})
+
+describe("cadastro de pessoas", () => {
+	// `core.person` guarda ponteiros e um nome de reserva. Guardar posto ou e-mail
+	// aqui criaria uma segunda verdade que envelhece — posto muda com promoção.
+	it("não copia e-mail, posto nem nome de guerra para dentro de `core.person`", () => {
+		const create = PERSON_SQL.slice(PERSON_SQL.indexOf("create table core.person ("))
+		const body = create.slice(0, create.indexOf(");"))
+		for (const forbidden of ["email", "posto", "nome_guerra", "sgPosto", "nmGuerra"]) {
+			expect(body).not.toContain(forbidden)
+		}
+	})
+
+	it("aceita pessoa sem conta e sem SARAM, e impede que dois reivindiquem o mesmo SARAM", () => {
+		expect(PERSON_SQL).toMatch(/nr_ordem text unique/)
+		expect(PERSON_SQL).toMatch(/user_id uuid unique references auth\.users \(id\) on delete set null/)
+		expect(PERSON_SQL).toMatch(/display_name text not null/)
+	})
+
+	// O backfill APAGA as colunas de origem no passo seguinte. Um casamento que
+	// resolve zero linha é indistinguível de um que resolveu todas.
+	it("prova que o backfill não foi vácuo antes de apagar a origem", () => {
+		const guard = PERSON_SQL.indexOf("raise exception 'backfill incompleto")
+		const drop = PERSON_SQL.indexOf("drop column responsible")
+		expect(guard).toBeGreaterThan(0)
+		expect(drop).toBeGreaterThan(guard)
+	})
+
+	// O vínculo com o efetivo é decisão humana: no cadastro real, "3S VANESSA"
+	// casa com quatorze militares. Um backfill que escolhesse um deles estaria
+	// certo por acaso em 7% dos casos.
+	it("não tenta adivinhar SARAM no backfill", () => {
+		const backfill = PERSON_SQL.slice(PERSON_SQL.indexOf("-- ── Backfill"), PERSON_SQL.indexOf("drop column responsible"))
+		expect(backfill).not.toContain("user_military_data")
+	})
+
+	it("resolve o rótulo numa view só, e ela é security_invoker", () => {
+		expect(PERSON_SQL).toMatch(/create view core\.person_identity\s+with \(security_invoker = true\)/)
 	})
 })
 

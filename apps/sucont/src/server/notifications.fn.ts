@@ -24,7 +24,7 @@ import { z } from "zod"
 import { requireSucontAccess } from "#/lib/auth.server"
 import { addDays, todayInBrasilia } from "#/lib/brasilia"
 import { UPCOMING_WINDOW_DAYS } from "#/lib/checklist"
-import { getSucontServerClient } from "#/lib/supabase.server"
+import { getCoreClient, getSucontServerClient } from "#/lib/supabase.server"
 
 /**
  * Teto de itens do painel. É da CONSULTA, não do storage: a purga do banco é por
@@ -63,6 +63,21 @@ export const listNotificationsFn = createServerFn({ method: "GET" }).handler(asy
 	const today = todayInBrasilia()
 	const upcomingUntil = addDays(today, UPCOMING_WINDOW_DAYS)
 
+	// Quem sou eu no cadastro de pessoas. Pode não haver linha: `core.person` é
+	// preenchido pela tela de pessoas, e uma conta recém-criada ainda não foi
+	// vinculada a ninguém.
+	const { data: me, error: meError } = await getCoreClient().from("person").select("id").eq("user_id", ctx.userId).maybeSingle()
+	if (meError) throw new Error(meError.message)
+
+	// Tarefas que respondem a mim. Sem pessoa vinculada, a lista fica vazia e o
+	// filtro abaixo degrada para "mostra todos os prazos" — ver o comentário lá.
+	const mine = new Set<string>()
+	if (me?.id) {
+		const { data: assigned, error: assignedError } = await db.from("checklist_item_assignee").select("item_id").eq("person_id", me.id)
+		if (assignedError) throw new Error(assignedError.message)
+		for (const row of assigned ?? []) mine.add(row.item_id)
+	}
+
 	const [inbox, unread, deadlines] = await Promise.all([
 		// Resolvida não aparece: o fato deixou de ser verdade (o aviso foi apagado,
 		// a tarefa foi marcada como feita). Ela continua na tabela até a purga só
@@ -77,7 +92,7 @@ export const listNotificationsFn = createServerFn({ method: "GET" }).handler(asy
 		db.from("notification").select("id", { count: "exact", head: true }).eq("user_id", ctx.userId).is("resolved_at", null).is("read_at", null),
 		db
 			.from("checklist_current")
-			.select("id, task, deadline, due_on, competencia")
+			.select("id, task, deadline, due_on, competencia, assign_to_all")
 			.is("done_at", null)
 			.gte("due_on", today)
 			.lte("due_on", upcomingUntil)
@@ -91,14 +106,20 @@ export const listNotificationsFn = createServerFn({ method: "GET" }).handler(asy
 	return {
 		items: inbox.data ?? [],
 		unread: unread.count ?? 0,
-		upcoming: (deadlines.data ?? []).flatMap((row) =>
+		upcoming: (deadlines.data ?? []).flatMap((row) => {
 			// A view resolve `due_on` e `competencia` para todo item, mas o tipo
 			// gerado da view é nullable em toda coluna. Descartar em vez de fingir
 			// com `!`: item sem prazo não tem o que anunciar.
-			row.id && row.due_on && row.competencia
-				? [{ itemId: row.id, task: row.task ?? "", deadline: row.deadline, dueOn: row.due_on, competencia: row.competencia }]
-				: []
-		),
+			if (!row.id || !row.due_on || !row.competencia) return []
+			// "Cada responsável" vale para todo mundo; o resto é de quem foi
+			// designado. Enquanto o usuário não tem pessoa vinculada, `mine` está
+			// vazio e a tela mostra TODOS os prazos — degradar para o quadro
+			// completo é melhor do que um sino que esconde o prazo de amanhã
+			// porque falta um cadastro que ele não controla.
+			const isMine = mine.size === 0 || row.assign_to_all || mine.has(row.id)
+			if (!isMine) return []
+			return [{ itemId: row.id, task: row.task ?? "", deadline: row.deadline, dueOn: row.due_on, competencia: row.competencia }]
+		}),
 	}
 })
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { AlertTriangle, Bell, CalendarClock, Loader2, Megaphone } from "lucide-react"
+import { AlertTriangle, Bell, CalendarClock, Loader2, Megaphone, UserRoundCheck } from "lucide-react"
 import type React from "react"
 import { useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
@@ -156,8 +156,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 	)
 }
 
+/** Ícone e cor por tipo. Três coisas diferentes não podem chegar com a mesma cara. */
+const KIND_STYLE = {
+	prazo_perdido: { Icon: AlertTriangle, tone: "text-warning" },
+	atribuicao: { Icon: UserRoundCheck, tone: "text-tech-cyan" },
+	aviso: { Icon: Megaphone, tone: "text-action" },
+} as const
+
 function PendingRow({ item, onNavigate }: { item: NotificationItem; onNavigate: () => void }) {
-	const Icon = item.kind === "prazo_perdido" ? AlertTriangle : Megaphone
+	const { Icon, tone } = KIND_STYLE[item.kind as keyof typeof KIND_STYLE] ?? KIND_STYLE.aviso
 	// `href` é coluna de texto: só rota interna entra no `to`. Hoje só os gatilhos
 	// do banco escrevem ali, mas um destino absoluto vindo de uma linha da tabela
 	// viraria redirecionamento externo a um clique de distância.
@@ -170,7 +177,7 @@ function PendingRow({ item, onNavigate }: { item: NotificationItem; onNavigate: 
 				onClick={onNavigate}
 				className={cn("flex gap-3 px-4 py-3 transition-colors hover:bg-muted/50", !item.read_at && "bg-action/5")}
 			>
-				<Icon className={cn("mt-0.5 size-4 shrink-0", item.kind === "prazo_perdido" ? "text-warning" : "text-action")} />
+				<Icon className={cn("mt-0.5 size-4 shrink-0", tone)} />
 				<div className="min-w-0">
 					<p className="truncate text-subheading text-foreground">{item.title}</p>
 					{item.body && <p className="mt-0.5 line-clamp-2 text-caption text-muted-foreground">{item.body}</p>}

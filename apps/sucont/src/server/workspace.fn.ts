@@ -58,15 +58,18 @@ export const createChecklistItemFn = createServerFn({ method: "POST" })
 			.object({
 				task: z.string().min(1),
 				description: z.string().optional(),
-				responsible: z.string().optional(),
 				path: z.string().optional(),
+				/** Vazio + `assignToAll` falso é tarefa sem dono — legítimo, e a tela mostra assim. */
+				personIds: z.array(z.uuid()).default([]),
+				assignToAll: z.boolean().default(false),
 			})
 			.and(RecurrenceSchema)
 	)
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontEditor()
+		const db = getSucontServerClient()
 		const businessDay = data.recurrence === "monthly_business_day" ? data.businessDay : null
-		const { error } = await getSucontServerClient()
+		const { data: row, error } = await db
 			.from("checklist_item")
 			.insert({
 				task: data.task,
@@ -76,11 +79,20 @@ export const createChecklistItemFn = createServerFn({ method: "POST" })
 				recurrence: data.recurrence,
 				business_day: businessDay,
 				description: data.description ?? "",
-				responsible: data.responsible ?? "Pendente",
 				path: data.path || null,
+				assign_to_all: data.assignToAll,
 				sort_order: 999,
 			})
+			.select("id")
+			.single()
 		if (error) throw new Error(error.message)
+
+		if (data.personIds.length > 0) {
+			const { error: assigneeError } = await db
+				.from("checklist_item_assignee")
+				.insert(data.personIds.map((personId) => ({ item_id: row.id, person_id: personId })))
+			if (assigneeError) throw new Error(assigneeError.message)
+		}
 		return { ok: true }
 	})
 
@@ -125,11 +137,58 @@ export const setChecklistDoneFn = createServerFn({ method: "POST" })
 		return { ok: true }
 	})
 
-export const updateChecklistResponsibleFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.uuid(), responsible: z.string() }))
+/**
+ * Substitui os responsáveis de uma tarefa.
+ *
+ * Antes era um campo de texto, e uma linha dele empacotava três pessoas
+ * ("SGT KLEBSON, 3S VANESSA, SGT IARA") — nenhuma consulta conseguia responder "o
+ * que é meu", que é a pergunta que o sino faz.
+ *
+ * A escrita é DIFERENCIAL, não "apaga tudo e reinsere": os gatilhos do banco
+ * notificam quem entra e resolvem a notificação de quem sai. Um delete-all faria
+ * cada salvamento re-notificar todo mundo que já era responsável.
+ */
+export const setChecklistAssigneesFn = createServerFn({ method: "POST" })
+	.validator(z.object({ id: z.uuid(), personIds: z.array(z.uuid()), assignToAll: z.boolean() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontEditor()
-		const { error } = await getSucontServerClient().from("checklist_item").update({ responsible: data.responsible }).eq("id", data.id)
+		const db = getSucontServerClient()
+
+		const { error: flagError } = await db.from("checklist_item").update({ assign_to_all: data.assignToAll }).eq("id", data.id)
+		if (flagError) throw new Error(flagError.message)
+
+		const { data: current, error: currentError } = await db.from("checklist_item_assignee").select("person_id").eq("item_id", data.id)
+		if (currentError) throw new Error(currentError.message)
+
+		const before = new Set((current ?? []).map((row) => row.person_id))
+		const after = new Set(data.personIds)
+		const added = data.personIds.filter((id) => !before.has(id))
+		const removed = [...before].filter((id) => !after.has(id))
+
+		if (removed.length > 0) {
+			const { error } = await db.from("checklist_item_assignee").delete().eq("item_id", data.id).in("person_id", removed)
+			if (error) throw new Error(error.message)
+		}
+		if (added.length > 0) {
+			const { error } = await db.from("checklist_item_assignee").insert(added.map((personId) => ({ item_id: data.id, person_id: personId })))
+			if (error) throw new Error(error.message)
+		}
+		return { ok: true }
+	})
+
+/**
+ * Define o operador de uma Unidade Gestora.
+ *
+ * `null` é "sem operador" — um estado que a tela precisa poder mostrar. Enquanto o
+ * campo era texto livre e a tela agrupava por uma lista de três nomes escrita à
+ * mão, UG com operador fora da lista simplesmente sumia, e o rodapé "Total: N UGs"
+ * somava só o que sobrou.
+ */
+export const setUgOperatorFn = createServerFn({ method: "POST" })
+	.validator(z.object({ codigo: z.string().min(1), personId: z.uuid().nullable() }))
+	.handler(async ({ data }): Promise<{ ok: true }> => {
+		await requireSucontEditor()
+		const { error } = await getSucontServerClient().from("unidade_gestora").update({ operator_person_id: data.personId }).eq("codigo", data.codigo)
 		if (error) throw new Error(error.message)
 		return { ok: true }
 	})

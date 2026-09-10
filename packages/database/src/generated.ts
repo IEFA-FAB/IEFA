@@ -1939,6 +1939,36 @@ export type Database = {
         }
         Relationships: []
       }
+      person: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_name: string
+          id: string
+          nr_ordem: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_name: string
+          id?: string
+          nr_ordem?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_name?: string
+          id?: string
+          nr_ordem?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       units: {
         Row: {
           address_bairro: string | null
@@ -2491,6 +2521,20 @@ export type Database = {
         }
         Relationships: []
       }
+      person_identity: {
+        Row: {
+          active: boolean | null
+          display_name: string | null
+          email: string | null
+          id: string | null
+          label: string | null
+          nome_guerra: string | null
+          nr_ordem: string | null
+          posto: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       rancho: {
         Row: {
           active: boolean | null
@@ -2830,7 +2874,7 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      person_name_key: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
@@ -11080,6 +11124,7 @@ export type Database = {
       }
       checklist_item: {
         Row: {
+          assign_to_all: boolean
           business_day: number | null
           created_at: string
           deadline: string | null
@@ -11087,12 +11132,12 @@ export type Database = {
           id: string
           path: string | null
           recurrence: string
-          responsible: string | null
           sort_order: number
           task: string
           updated_at: string
         }
         Insert: {
+          assign_to_all?: boolean
           business_day?: number | null
           created_at?: string
           deadline?: string | null
@@ -11100,12 +11145,12 @@ export type Database = {
           id?: string
           path?: string | null
           recurrence?: string
-          responsible?: string | null
           sort_order?: number
           task: string
           updated_at?: string
         }
         Update: {
+          assign_to_all?: boolean
           business_day?: number | null
           created_at?: string
           deadline?: string | null
@@ -11113,12 +11158,44 @@ export type Database = {
           id?: string
           path?: string | null
           recurrence?: string
-          responsible?: string | null
           sort_order?: number
           task?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      checklist_item_assignee: {
+        Row: {
+          created_at: string
+          item_id: string
+          person_id: string
+        }
+        Insert: {
+          created_at?: string
+          item_id: string
+          person_id: string
+        }
+        Update: {
+          created_at?: string
+          item_id?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_item_assignee_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_current"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_item_assignee_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       checklist_occurrence: {
         Row: {
@@ -11412,6 +11489,21 @@ export type Database = {
         }
         Relationships: []
       }
+      section_member: {
+        Row: {
+          created_at: string
+          person_id: string
+        }
+        Insert: {
+          created_at?: string
+          person_id: string
+        }
+        Update: {
+          created_at?: string
+          person_id?: string
+        }
+        Relationships: []
+      }
       siloms_siafi_balance: {
         Row: {
           account_group: string
@@ -11473,7 +11565,7 @@ export type Database = {
           is_stn: boolean
           nome: string
           ods: string | null
-          operador: string | null
+          operator_person_id: string | null
           orgao_superior: string | null
           updated_at: string
         }
@@ -11484,7 +11576,7 @@ export type Database = {
           is_stn?: boolean
           nome: string
           ods?: string | null
-          operador?: string | null
+          operator_person_id?: string | null
           orgao_superior?: string | null
           updated_at?: string
         }
@@ -11495,7 +11587,7 @@ export type Database = {
           is_stn?: boolean
           nome?: string
           ods?: string | null
-          operador?: string | null
+          operator_person_id?: string | null
           orgao_superior?: string | null
           updated_at?: string
         }
@@ -11526,6 +11618,8 @@ export type Database = {
     Views: {
       checklist_current: {
         Row: {
+          assign_to_all: boolean | null
+          assignees: Json | null
           business_day: number | null
           competencia: string | null
           created_at: string | null
@@ -11537,7 +11631,6 @@ export type Database = {
           id: string | null
           path: string | null
           recurrence: string | null
-          responsible: string | null
           sort_order: number | null
           task: string | null
           updated_at: string | null
@@ -11556,6 +11649,18 @@ export type Database = {
       }
       last_business_day: { Args: { p_month: string }; Returns: string }
       notification_audience: { Args: never; Returns: string[] }
+      notify_person: {
+        Args: {
+          p_body: string
+          p_href: string
+          p_kind: string
+          p_occurrence_on: string
+          p_person_id: string
+          p_subject_id: string
+          p_title: string
+        }
+        Returns: number
+      }
       notify_section: {
         Args: {
           p_body: string
@@ -11573,6 +11678,7 @@ export type Database = {
       }
       purge_notifications: { Args: never; Returns: number }
       run_notification_tick: { Args: never; Returns: Json }
+      today: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
