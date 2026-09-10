@@ -63,6 +63,25 @@ describe("CreateRecipeSchema", () => {
 		expect(result.success).toBe(false)
 	})
 
+	test("aceita os parâmetros de cocção da PARTE 04", () => {
+		const result = CreateRecipeSchema.safeParse({
+			name: "Teste",
+			portionYield: 100,
+			prePreparationTimeMinutes: 20,
+			cookingTimeMinutes: 40,
+			cookingMethod: "calor úmido",
+			cookingTemperatureCelsius: 180,
+		})
+		expect(result.success).toBe(true)
+	})
+
+	test("rejeita tempo de parcela negativo e temperatura fora da faixa do CHECK", () => {
+		expect(CreateRecipeSchema.safeParse({ name: "Teste", portionYield: 100, prePreparationTimeMinutes: -1 }).success).toBe(false)
+		expect(CreateRecipeSchema.safeParse({ name: "Teste", portionYield: 100, cookingTimeMinutes: -1 }).success).toBe(false)
+		expect(CreateRecipeSchema.safeParse({ name: "Teste", portionYield: 100, cookingTemperatureCelsius: 501 }).success).toBe(false)
+		expect(CreateRecipeSchema.safeParse({ name: "Teste", portionYield: 100, cookingTemperatureCelsius: -41 }).success).toBe(false)
+	})
+
 	test("aceita kitchenId null (receita global)", () => {
 		const result = CreateRecipeSchema.safeParse({
 			name: "Receita Global",

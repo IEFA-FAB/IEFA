@@ -26,6 +26,7 @@ import {
 	roundSheetQuantity,
 	type SheetEquipmentRequirement,
 	type SheetFlowStep,
+	sheetTotalMinutes,
 	stepLabelById,
 	technicalSheetLine,
 	technicalSheetTotals,
@@ -347,6 +348,41 @@ describe("flowTotalMinutes", () => {
 	test("nenhuma duração devolve null — 0 imprimiria 'a preparação leva zero minuto'", () => {
 		expect(flowTotalMinutes([step(), step()])).toBeNull()
 		expect(flowTotalMinutes([])).toBeNull()
+	})
+})
+
+describe("sheetTotalMinutes", () => {
+	test("o total declarado vence as parcelas e o fluxo", () => {
+		expect(sheetTotalMinutes(90, 20, 40, 55)).toBe(90)
+	})
+
+	test("sem total declarado, soma pré-preparo + cocção", () => {
+		expect(sheetTotalMinutes(null, 20, 40, 55)).toBe(60)
+	})
+
+	test("uma parcela só NÃO vence o fluxo — ela descreve um pedaço, o fluxo a preparação", () => {
+		expect(sheetTotalMinutes(null, 20, null, 240)).toBe(240)
+		expect(sheetTotalMinutes(null, null, 40, 240)).toBe(240)
+	})
+
+	test("sem fluxo, a parcela declarada é a melhor informação que existe", () => {
+		expect(sheetTotalMinutes(null, 20, null, null)).toBe(20)
+		expect(sheetTotalMinutes(null, null, 40, null)).toBe(40)
+	})
+
+	test("sem total e sem parcelas, cai no fluxo", () => {
+		expect(sheetTotalMinutes(null, null, null, 55)).toBe(55)
+	})
+
+	test("zero é ausência: o campo do formulário nasce em 0 e não é declaração", () => {
+		expect(sheetTotalMinutes(0, 20, 40, 55)).toBe(60)
+		expect(sheetTotalMinutes(0, 0, 0, 55)).toBe(55)
+		expect(sheetTotalMinutes(null, 20, 0, 240)).toBe(240)
+	})
+
+	test("sem fonte nenhuma devolve null — a folha imprime a linha em branco", () => {
+		expect(sheetTotalMinutes(null, null, null, null)).toBeNull()
+		expect(sheetTotalMinutes(0, 0, 0, 0)).toBeNull()
 	})
 })
 

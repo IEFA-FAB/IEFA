@@ -134,6 +134,15 @@ export interface AgentRecipeDetail {
 	version: number
 	portion_yield: number | null
 	preparation_time_minutes: number | null
+	/**
+	 * Parâmetros de cocção da PARTE 04 da ficha. Vêm para o modelo porque a folha impressa e
+	 * o MCP já os mostram: sem eles, o chat responde "não cadastrado" para uma temperatura
+	 * que está no papel na mão de quem perguntou.
+	 */
+	pre_preparation_time_minutes: number | null
+	cooking_time_minutes: number | null
+	cooking_method: string | null
+	cooking_temperature_celsius: number | null
 	cooking_factor: number | null
 	/** Pré-preparo — o que antecede a cocção. Campo próprio da ficha, ver `preparation_method`. */
 	pre_preparation_method: string | null
@@ -158,6 +167,10 @@ export async function agentGetRecipe(db: SisubDb, ctx: UserContext, input: { rec
 		version: recipe.version,
 		portion_yield: recipe.portion_yield == null ? null : Number(recipe.portion_yield),
 		preparation_time_minutes: recipe.preparation_time_minutes,
+		pre_preparation_time_minutes: recipe.pre_preparation_time_minutes,
+		cooking_time_minutes: recipe.cooking_time_minutes,
+		cooking_method: recipe.cooking_method,
+		cooking_temperature_celsius: recipe.cooking_temperature_celsius,
 		cooking_factor: recipe.cooking_factor == null ? null : Number(recipe.cooking_factor),
 		pre_preparation_method: recipe.pre_preparation_method,
 		preparation_method: recipe.preparation_method,
