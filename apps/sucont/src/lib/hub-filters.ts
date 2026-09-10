@@ -1,11 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { DEFAULT_DIVISION, isDivision } from "#/lib/modules"
-import type { SucontDivision, ToolStage } from "#/lib/types"
-
-/** Etapa sentinela: nenhuma filtragem, mostra o catálogo inteiro. */
-export const ALL_STAGES = "todas" as const
-
-export type StageFilter = ToolStage | typeof ALL_STAGES
+import { useSucontAccess } from "#/auth/pbac"
+import { defaultDivisionFor, isDivision } from "#/lib/modules"
+import { ALL_STAGES, type StageFilter, type SucontDivision } from "#/lib/types"
 
 export interface HubFilters {
 	query: string
@@ -37,13 +33,17 @@ export interface HubFilters {
 export function useHubFilters(): HubFilters {
 	const search = useSearch({ strict: false })
 	const navigate = useNavigate()
+	const { permissions } = useSucontAccess()
 
 	const query = search.q ?? ""
 	const stage = (search.etapa ?? ALL_STAGES) as StageFilter
 	// `z.coerce` na raiz já entrega número; `NaN` de um valor inválido vira null.
 	const racRaw = search.rac
 	const rac = typeof racRaw === "number" && Number.isFinite(racRaw) ? racRaw : null
-	const division = isDivision(search.divisao) ? search.divisao : DEFAULT_DIVISION
+	// Sem `?divisao=`, vale a primeira divisão ACESSÍVEL. Com o padrão histórico cru
+	// (SUCONT-4), quem só tem a SUCONT-3 abriria o catálogo vazio e concluiria que o
+	// hub não tem ferramenta nenhuma.
+	const division = isDivision(search.divisao) ? search.divisao : defaultDivisionFor(permissions)
 
 	return {
 		query,

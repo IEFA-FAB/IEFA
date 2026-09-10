@@ -4,7 +4,9 @@
  * Unidades Gestoras — persistidos no schema `sucont`. Antes viviam só em localStorage
  * (por-browser); agora são dados compartilhados da seção.
  *
- * Leitura exige `sucont` nível 1; escrita, nível 2 (requireSucontEditor).
+ * Telas da SEÇÃO, não de divisão: o checklist, os avisos e as UGs não têm coluna de
+ * divisão e valem para os três lados. Leitura exige nível 1 em QUALQUER divisão;
+ * escrita, nível 2 em qualquer uma (requireSucontEditor).
  */
 
 import type { ChecklistItem, Notice, UnidadeGestora } from "@iefa/database/sucont"

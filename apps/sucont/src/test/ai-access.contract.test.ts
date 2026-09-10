@@ -61,9 +61,9 @@ describe.each(DIRECT_ADAPTER.map((s) => [s.path, s] as const))("adapter direto �
 		expect(source.text.indexOf("getServerCapabilities()")).toBeLessThan(source.text.indexOf("createAdapterFromEnv("))
 	})
 
-	it("exige sessão e permissão do módulo sucont", () => {
+	it("exige sessão e permissão de um módulo do sucont", () => {
 		expect(source.text).toMatch(/auth\.getUser\(\)|requireSucont/)
-		expect(source.text).toMatch(/hasPermission\([^)]*"sucont"|requireSucont/)
+		expect(source.text).toMatch(/hasAnyPermission\([^)]*sucont|requireSucont/i)
 	})
 
 	it("aplica o teto de requisições antes de montar o adapter", () => {
@@ -91,8 +91,11 @@ describe.each(DIRECT_ADAPTER.map((s) => [s.path, s] as const))("adapter direto �
 })
 
 describe.each(VIA_GUARD_MODULE.map((s) => [s.path, s] as const))("via ai.server — %s", (_path, source) => {
-	it("exige conta com grant do sucont", () => {
-		expect(source.text).toMatch(/requireSucont(Access|Editor|Admin)\(\)/)
+	it("exige conta com grant de um módulo do sucont", () => {
+		// `requireDivision*` é o gate da ferramenta que pertence a UMA divisão;
+		// `requireSucont*`, o das telas da seção. Fora dessa lista, o endpoint de IA
+		// estaria aberto a qualquer sessão autenticada.
+		expect(source.text).toMatch(/require(SucontAccess|SucontEditor|SucontAdmin|DivisionAccess|DivisionEditor|EitherDivisionAccess)\(/)
 	})
 
 	// O dono precisa vir do UserContext do guard. Aceitar `userId` do input validado

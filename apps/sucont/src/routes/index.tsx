@@ -1,17 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Activity, BookOpen, LayoutGrid, type LucideIcon, Send, ShieldCheck, X } from "lucide-react"
+import { Activity, BookOpen, LayoutGrid, Lock, type LucideIcon, Send, ShieldCheck, X } from "lucide-react"
+import { requireAnyDivision } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ToolCard } from "#/components/tool-card"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import { Combobox, type ComboboxOption } from "#/components/ui/combobox"
 import { sucontTools } from "#/lib/data"
-import { ALL_STAGES, type StageFilter, useHubFilters } from "#/lib/hub-filters"
+import { useHubFilters } from "#/lib/hub-filters"
 import { toolsForDivision } from "#/lib/modules"
 import { formatRac } from "#/lib/rac"
 import { filterTools } from "#/lib/tool-filter"
-import { TOOL_STAGES, type Tool, type ToolStage } from "#/lib/types"
+import { ALL_STAGES, type StageFilter, TOOL_STAGES, type Tool, type ToolStage } from "#/lib/types"
 
-export const Route = createFileRoute("/")({ component: Catalogo })
+export const Route = createFileRoute("/")({
+	// Tela da seção: basta uma divisão qualquer.
+	beforeLoad: requireAnyDivision,
+	component: Catalogo,
+})
 
 const STAGE_ICON: Record<ToolStage, LucideIcon> = {
 	analisar: ShieldCheck,
@@ -52,7 +58,52 @@ function racOptionsFor(tools: Tool[]): ComboboxOption[] {
 	]
 }
 
+/**
+ * Rótulo de um módulo negado, para o aviso do redirecionamento.
+ *
+ * O guard manda os módulos crus na URL (`?denied=sucont-4`, ou `a+b` quando a
+ * ferramenta serve a duas). Sem esta tradução o usuário leria o nome interno do
+ * grant, que não é o nome de nada que ele conheça.
+ */
+const DENIED_LABELS: Record<string, string> = {
+	"sucont-1": "SUCONT-1",
+	"sucont-3": "SUCONT-3",
+	"sucont-4": "SUCONT-4",
+	"sucont-admin": "Administração de acessos",
+}
+
+function describeDenied(denied: string): string {
+	const labels = denied
+		.split("+")
+		.map((m) => DENIED_LABELS[m])
+		.filter(Boolean)
+	if (labels.length === 0) return "essa parte do SUCONT"
+	if (labels.length === 1) return labels[0]
+	return `${labels.slice(0, -1).join(", ")} ou ${labels[labels.length - 1]}`
+}
+
+/**
+ * Aviso do redirecionamento por falta de acesso.
+ *
+ * Existe para o guard não devolver o usuário em silêncio: sem ele, clicar num link
+ * de uma divisão que não se tem apenas recarrega o catálogo, e a leitura natural é
+ * que o app quebrou — não que falta um acesso. Mesmo papel do `?denied=` do `/hub`
+ * do sisub.
+ */
+function DeniedNotice({ denied }: { denied: string }) {
+	return (
+		<Alert variant="warning" className="mb-6">
+			<Lock />
+			<AlertTitle>Acesso não concedido</AlertTitle>
+			<AlertDescription>
+				Essa tela é da {describeDenied(denied)}, e o seu acesso não a inclui. Peça a um administrador do SUCONT o acesso a essa divisão.
+			</AlertDescription>
+		</Alert>
+	)
+}
+
 function Catalogo() {
+	const { denied } = Route.useSearch()
 	const { query, stage, rac, division, isFiltered, setStage, setRac, clear } = useHubFilters()
 	// A divisão recorta ANTES dos filtros: o catálogo é o da divisão em que se está,
 	// e a contagem "X de Y" precisa dizer X de quantas a divisão tem — não de 27.
@@ -72,6 +123,7 @@ function Catalogo() {
 
 	return (
 		<HubLayout title="Catálogo" description="As ferramentas da seção, agrupadas pelo ponto do trabalho em que você está." searchable>
+			{denied && <DeniedNotice denied={denied} />}
 			<div className="mb-10 flex flex-col gap-4">
 				<div className="flex flex-wrap items-center gap-3">
 					{/* Etapa do ciclo. Mora aqui, e não na barra lateral, porque é filtro

@@ -8,11 +8,13 @@
  * imports resolver. As três de administração devolvem dado fixo: é o que faz a
  * tela de permissões renderizar a lista, e não o estado de falha.
  */
-import type { UserPermission } from "@iefa/pbac"
+import type { AppModule, UserPermission } from "@iefa/pbac"
 
 export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
+export type SucontGrantTarget = { module: "sucont-1" | "sucont-3" | "sucont-4"; level: 1 | 2 } | { module: "sucont-admin"; level: 3 }
 export type SucontGrant = {
 	userId: string
+	module: AppModule
 	email: string
 	nrOrdem: string | null
 	posto: string | null
@@ -32,6 +34,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 		// SARAM vinculado e encontrado no cadastro: a linha é nomeada como na OM.
 		{
 			userId: "harness-admin",
+			module: "sucont-admin",
 			email: "nannijpsn@fab.mil.br",
 			nrOrdem: "7379749",
 			posto: "1T",
@@ -40,11 +43,35 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 			expiresAt: null,
 			source: "inline",
 		},
+		// A MESMA pessoa em duas divisões — é o caso que o split introduz, e o que a
+		// tela precisa mostrar sem parecer duplicata.
+		{
+			userId: "harness-admin",
+			module: "sucont-4",
+			email: "nannijpsn@fab.mil.br",
+			nrOrdem: "7379749",
+			posto: "1T",
+			nomeGuerra: "NANNI",
+			level: 2,
+			expiresAt: null,
+			source: "inline",
+		},
 		// Sem SARAM: o e-mail segura o rótulo.
-		{ userId: "harness-editor", email: "editor@fab.mil.br", nrOrdem: null, posto: null, nomeGuerra: null, level: 2, expiresAt: null, source: "inline" },
+		{
+			userId: "harness-editor",
+			module: "sucont-3",
+			email: "editor@fab.mil.br",
+			nrOrdem: null,
+			posto: null,
+			nomeGuerra: null,
+			level: 2,
+			expiresAt: null,
+			source: "inline",
+		},
 		// Acesso emprestado por política: linha somente-leitura, "Revogar" desabilitado.
 		{
 			userId: "harness-policy",
+			module: "sucont-1",
 			email: "parceiro@fab.mil.br",
 			nrOrdem: "1234567",
 			posto: null,
@@ -58,6 +85,7 @@ export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 		// tela deve ficar no pior caso.
 		{
 			userId: "8f1c0b6e-0000-4000-8000-000000000000",
+			module: "sucont-3",
 			email: "",
 			nrOrdem: null,
 			posto: null,

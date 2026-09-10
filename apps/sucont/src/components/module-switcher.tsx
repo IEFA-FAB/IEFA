@@ -5,7 +5,7 @@ import { Check, ChevronsUpDown } from "lucide-react"
 import { useSucontAccess } from "#/auth/pbac"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "#/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "#/components/ui/sidebar"
-import { accessibleModules, findModuleByPath, type SucontModule } from "#/lib/modules"
+import { accessibleModules, defaultDivisionFor, findModuleByPath, type SucontModule } from "#/lib/modules"
 import { cn } from "#/lib/utils"
 
 /**
@@ -27,7 +27,10 @@ export function ModuleSwitcher() {
 	const { permissions } = useSucontAccess()
 	const { isMobile } = useSidebar()
 
-	const active = findModuleByPath(pathname, divisao)
+	// O padrão do fallback é a primeira divisão ACESSÍVEL, não a SUCONT-4 crua: com o
+	// acesso separado por divisão, quem só tem a SUCONT-3 veria o cabeçalho anunciando
+	// um módulo que o seletor abaixo nem lista.
+	const active = findModuleByPath(pathname, divisao, defaultDivisionFor(permissions))
 	const modules = accessibleModules(permissions)
 
 	if (modules.length <= 1) {

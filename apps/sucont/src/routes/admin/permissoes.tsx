@@ -17,7 +17,7 @@ function PermissoesRoute() {
 	return (
 		<HubLayout
 			title="Permissões"
-			description="Quem entra no SUCONT e em que nível. O acesso vale para as três divisões — não há grant por divisão nem por seção."
+			description="Quem entra no SUCONT, em qual divisão e em que nível. Cada divisão é um acesso separado: ter a SUCONT-3 não abre as ferramentas da SUCONT-4."
 		>
 			<SucontPermissionsManager />
 		</HubLayout>

@@ -12,17 +12,24 @@
  * cópia por arquivo é uma cópia que um dia sai do ar sem ninguém notar.
  */
 
-import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
+import type { AppModule } from "@iefa/pbac"
+import { hasAnyPermission, resolveUserPermissions } from "@iefa/pbac"
 import { createCookieAuthClient } from "@iefa/supabase-kit"
 import { type H3Event, HTTPError } from "nitro/h3"
 import { envServer } from "#/lib/env.server"
+import { SUCONT_DIVISION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient } from "#/lib/supabase.server"
 
 /**
- * @throws 401 sem sessão válida, 403 sem grant `sucont` nível 1.
+ * @param modules módulos do PBAC que autorizam a rota — o padrão é "qualquer uma das
+ *   três divisões", para o endpoint que não é de uma ferramenta específica. Rota de
+ *   ferramenta passa a divisão DELA: o `/api/sacdgc/analyze` é da SUCONT-1, e aceitá-lo
+ *   de qualquer divisão desfaria, pela porta dos fundos, a separação que os guards de
+ *   rota e as server functions aplicam.
+ * @throws 401 sem sessão válida, 403 sem grant em nenhum dos módulos.
  * @returns o id do usuário — dono da chamada ao modelo e chave dos tetos.
  */
-export async function requireSucontUser(event: H3Event): Promise<{ id: string }> {
+export async function requireSucontUser(event: H3Event, modules: readonly AppModule[] = SUCONT_DIVISION_MODULES): Promise<{ id: string }> {
 	const auth = createCookieAuthClient({
 		url: envServer.VITE_SUCONT_SUPABASE_URL,
 		key: envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY,
@@ -36,7 +43,7 @@ export async function requireSucontUser(event: H3Event): Promise<{ id: string }>
 	if (!user || error) throw new HTTPError({ status: 401, message: "Não autenticado" })
 
 	const permissions = await resolveUserPermissions(user.id, getAccessControlClient())
-	if (!hasPermission(permissions, "sucont", 1)) {
+	if (!hasAnyPermission(permissions, modules, 1)) {
 		throw new HTTPError({ status: 403, message: "Permissão insuficiente" })
 	}
 

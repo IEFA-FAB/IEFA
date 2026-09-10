@@ -9,9 +9,10 @@ import { createIsomorphicFn } from "@tanstack/react-start"
 import { useEffect, useRef } from "react"
 import { z } from "zod"
 import { myIdentityQueryKey } from "#/auth/identity"
-import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
+import { hasAnyPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
 import { Toaster } from "#/components/ui/toast"
+import { SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { forgetSaramDismissal } from "#/lib/saram-dismissal"
 import { supabase } from "#/lib/supabase"
 import { syncSucontIdentityFn } from "#/server/user.fn"
@@ -70,6 +71,13 @@ const hubSearchSchema = z.object({
 	 * padrão, em vez de derrubar a rota.
 	 */
 	divisao: z.enum(["sucont-1", "sucont-3", "sucont-4"]).optional().catch(undefined),
+	/**
+	 * Módulo(s) que um guard de rota negou, para a tela de destino explicar a
+	 * negativa em vez de o usuário ver um redirecionamento mudo — o mesmo papel do
+	 * `?denied=` do `/hub` do sisub. Vários módulos vêm juntos, separados por `+`,
+	 * quando a ferramenta serve a mais de uma divisão.
+	 */
+	denied: z.coerce.string().optional().catch(undefined),
 })
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
@@ -130,16 +138,26 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			return { auth, sidebarOpen }
 		}
 
-		// Autenticado → exige grant `sucont` nível 1 para entrar no hub.
+		// Autenticado → exige grant em ALGUM módulo do sucont para passar da porta.
+		//
+		// Aqui o gate é deliberadamente largo: quem tem qualquer uma das divisões, ou
+		// só a administração de acessos, entra. Qual TELA cada um alcança é decisão
+		// das rotas — `/admin` cobra `sucont-admin` 3, e cada ferramenta cobra a
+		// divisão dela (ver `requireToolAccess`). Cobrar uma divisão específica na
+		// raiz trancaria o administrador para fora da própria tela de acessos.
+		//
+		// As permissões ficam no cache do queryClient, que é de onde os guards das
+		// rotas filhas as leem — sem um segundo round-trip por navegação.
 		let permissions: UserPermission[] = []
 		try {
 			permissions = await context.queryClient.query({ ...mySucontPermissionsQueryOptions(), staleTime: "static" })
 		} catch {
 			permissions = []
 		}
-		const canAccess = hasPermission(permissions, "sucont", 1)
-		// auth-redirect-without-return-path: autenticado e sem concessão no módulo `sucont`.
-		// O `denied` é o que a tela lê para explicar a negativa; devolver o caminho geraria bounce.
+		const canAccess = hasAnyPermission(permissions, SUCONT_PERMISSION_MODULES, 1)
+		// auth-redirect-without-return-path: autenticado e sem concessão em módulo nenhum
+		// do sucont. O `denied` é o que a tela lê para explicar a negativa; devolver o
+		// caminho geraria bounce.
 		if (!canAccess && !onPublicRoute) throw redirect({ to: "/auth", search: { denied: "1" } })
 
 		return { auth, sidebarOpen }

@@ -10,8 +10,8 @@
  * As planilhas do DGC NÃO sobem para o servidor: a base é lida no navegador e só
  * o recorte da UG trafega, e só para o modelo. O que persiste é o resultado.
  *
- * Gate: leitura exige `sucont` nível 1 (requireSucontAccess); escrita, nível 2
- * (requireSucontEditor) — mesma divisão do auditor SIAFI x SILOMS.
+ * Gate: a ferramenta é da SUCONT-1 (Custos / DGC) — leitura exige `sucont-1` nível 1,
+ * escrita, nível 2. Não é a divisão do auditor SIAFI x SILOMS, que é da SUCONT-4.
  *
  * As contagens de alertas e apontamentos NÃO são aceitas do cliente: são colunas
  * geradas no banco a partir do próprio jsonb. Um número que discordasse do
@@ -21,12 +21,17 @@
 import type { AnalysisRun } from "@iefa/database/sucont"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireSucontAccess, requireSucontEditor } from "#/lib/auth.server"
+import { requireDivisionAccess, requireDivisionEditor } from "#/lib/auth.server"
 import { getSucontServerClient } from "#/lib/supabase.server"
 import { competenceToPeriod } from "#/sacdgc/summary"
 import type { DgcAnalysis } from "#/sacdgc/types"
 
 const TOOL = "sac-dgc" as const
+
+/** O SAC-DGC é da SUCONT-1 — ver `divisions` da ferramenta em `lib/data.ts`. */
+const DIVISION = "sucont-1" as const
+const requireAccess = () => requireDivisionAccess(DIVISION)
+const requireEditor = () => requireDivisionEditor(DIVISION)
 
 /** Teto de rodadas listadas. A seção trabalha por competência; 50 cobre anos de histórico. */
 const MAX_RUNS = 50
@@ -72,7 +77,7 @@ const analysisSchema = z.object({
 // ── Rodadas ───────────────────────────────────────────────────────────────────
 
 export const listDgcRunsFn = createServerFn({ method: "GET" }).handler(async (): Promise<AnalysisRun[]> => {
-	await requireSucontAccess()
+	await requireAccess()
 	const { data, error } = await getSucontServerClient()
 		.from("analysis_run")
 		.select("*")
@@ -93,7 +98,7 @@ export const startDgcRunFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ runId: string }> => {
-		const ctx = await requireSucontEditor()
+		const ctx = await requireEditor()
 		const { data: row, error } = await getSucontServerClient()
 			.from("analysis_run")
 			.insert({
@@ -124,7 +129,7 @@ export const saveDgcAnalysisFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ id: string }> => {
-		const ctx = await requireSucontEditor()
+		const ctx = await requireEditor()
 		const { data: row, error } = await getSucontServerClient()
 			.from("dgc_analysis")
 			.upsert(
@@ -166,7 +171,7 @@ export interface StoredDgcAnalysis {
 export const loadDgcRunFn = createServerFn({ method: "GET" })
 	.validator(z.object({ runId: z.uuid() }))
 	.handler(async ({ data }): Promise<StoredDgcAnalysis[]> => {
-		await requireSucontAccess()
+		await requireAccess()
 		const { data: rows, error } = await getSucontServerClient()
 			.from("dgc_analysis")
 			.select("id, ug_codigo, ug_nome, ug_grupo, competence, period, alert_count, finding_count, model, created_at, analysis")

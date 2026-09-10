@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import * as XLSX from "xlsx"
+import { requireToolAccess } from "#/auth/pbac"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
@@ -120,6 +121,8 @@ const ANALYSIS_NOTES = [
 ] as const
 
 export const Route = createFileRoute("/conta-generica")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/conta-generica"),
 	component: ContaGenerica,
 })
 

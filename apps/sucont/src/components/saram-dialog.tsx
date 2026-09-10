@@ -41,7 +41,9 @@ const NR_ORDEM_MINLEN = 6
 export function SaramDialog() {
 	const queryClient = useQueryClient()
 	const isAuthenticated = useQuery(authQueryOptions()).data?.isAuthenticated ?? false
-	const { canAccess } = useSucontAccess()
+	// Vale para quem entra no hub por QUALQUER divisão — o SARAM é da pessoa, não
+	// da divisão em que ela trabalha.
+	const { canAccessHub: canAccess } = useSucontAccess()
 
 	// A consulta só dispara com sessão E acesso ao módulo: sem os dois a fn responde
 	// 401/403, e o diálogo não teria onde aparecer de qualquer forma.

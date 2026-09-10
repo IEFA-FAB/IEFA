@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Bell, ClipboardList, Edit2, Loader2, Plus, StickyNote, Terminal, Trash2, Users, X } from "lucide-react"
 import { motion } from "motion/react"
 import React, { useEffect, useRef, useState } from "react"
-import { useSucontAccess } from "#/auth/pbac"
+import { requireAnyDivision, useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { Button } from "#/components/ui/button"
@@ -23,6 +23,8 @@ import {
 } from "#/server/workspace.fn"
 
 export const Route = createFileRoute("/workspace")({
+	// Tela da seção: basta uma divisão qualquer.
+	beforeLoad: requireAnyDivision,
 	// As quatro leituras saem juntas aqui, em paralelo entre si, em vez de em fila
 	// atrás da hidratação. Disparadas sem espera: cada `useQuery` da tela tem o
 	// próprio estado de carregamento, e o `.catch` deixa a falha no cache para ele
@@ -57,7 +59,9 @@ function Workspace() {
 	// Checklist, anotações e avisos são escrita de seção: `requireSucontEditor`
 	// (nível 2) barra todas no servidor. A tela reflete isso em vez de oferecer a
 	// ação e devolver 403 depois do formulário preenchido.
-	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
+	// Tela da SEÇÃO: quem edita por qualquer divisão edita aqui — é o mesmo
+	// `requireSucontEditor` que a server function cobra.
+	const { canEditAny: canEdit, isLoading: loadingAccess } = useSucontAccess()
 
 	// ── Mutations: checklist ───────────────────────────────
 	const addTaskMutation = useMutation({

@@ -56,7 +56,7 @@ describe("resolveModulePermissions", () => {
 	})
 
 	test("não devolve o diner implícito injetado pela resolução", async () => {
-		const permissions = await resolveModulePermissions("user-1", createResolveStub([]) as never, "sucont")
+		const permissions = await resolveModulePermissions("user-1", createResolveStub([]) as never, "sucont-4")
 
 		expect(permissions).toEqual([])
 	})
@@ -169,13 +169,13 @@ describe("grantUnscopedModulePermission", () => {
 	test("atualiza o grant unscoped existente sem inserir", async () => {
 		const { stub, calls } = createGrantStub({ updateResults: [{ data: [{ id: "p1" }], error: null }] })
 
-		const result = await grantUnscopedModulePermission(stub as never, { module: "sucont", userId: "u1", level: 2 })
+		const result = await grantUnscopedModulePermission(stub as never, { module: "sucont-4", userId: "u1", level: 2 })
 
 		expect(result).toEqual({ ok: true })
 		expect(calls.inserts).toHaveLength(0)
 		expect(calls.updates[0]?.filters).toEqual([
 			["eq", "user_id", "u1"],
-			["eq", "module", "sucont"],
+			["eq", "module", "sucont-4"],
 			["is", "mess_hall_id", null],
 			["is", "kitchen_id", null],
 			["is", "unit_id", null],
@@ -209,6 +209,6 @@ describe("grantUnscopedModulePermission", () => {
 	test("propaga erro de insert que não é unique_violation", async () => {
 		const { stub } = createGrantStub({ updateResults: [{ data: [], error: null }], insertError: { message: "boom", code: "XX000" } })
 
-		await expect(grantUnscopedModulePermission(stub as never, { module: "sucont", userId: "u1", level: 1 })).rejects.toThrow("boom")
+		await expect(grantUnscopedModulePermission(stub as never, { module: "sucont-4", userId: "u1", level: 1 })).rejects.toThrow("boom")
 	})
 })

@@ -1,7 +1,8 @@
-import type { UserPermission } from "@iefa/pbac"
+import type { AppModule, UserPermission } from "@iefa/pbac"
 import { hasPermission } from "@iefa/pbac"
 import { Boxes, Calculator, KeyRound, type LucideIcon, ShieldUser } from "lucide-react"
 import { sucontTools } from "#/lib/data"
+import { permissionModuleForDivision, SUCONT_ADMIN_MODULE, SUCONT_DIVISION_MODULES } from "#/lib/permission-modules"
 import { findToolByPath } from "#/lib/tool-nav"
 import type { SucontDivision, Tool } from "#/lib/types"
 
@@ -23,12 +24,22 @@ import type { SucontDivision, Tool } from "#/lib/types"
  *   Dentro de uma ferramenta, quem manda é a divisão DELA: abrir o link direto de
  *   `/conta-generica` mostra a barra da SUCONT-3 sem precisar do parâmetro.
  *
- * Módulo NÃO é módulo do PBAC: os quatro vivem sob o grant `sucont` e se
- * distinguem pelo nível (`minLevel`). Criar módulo PBAC por divisão obrigaria a
- * conceder o mesmo acesso várias vezes.
+ * Cada módulo É um módulo do PBAC (`sucont-1`, `sucont-3`, `sucont-4`,
+ * `sucont-admin`), com grant próprio. Antes os quatro viviam sob um grant `sucont`
+ * único e se distinguiam só pelo nível: quem entrava para trabalhar na SUCONT-3
+ * abria o auditor da SUCONT-4 e o SAC-DGC da SUCONT-1 pelo mesmo grant. O escopo do
+ * PBAC não serve aqui — ele é um id numérico de unidade/cozinha/refeitório, e
+ * divisão da SUCONT não é nenhum dos três —, então a separação é por MÓDULO, como o
+ * sisub faz entre `global` e `admin`.
  */
 export interface SucontModule {
 	id: "sucont-1" | "sucont-3" | "sucont-4" | "admin"
+	/**
+	 * Módulo do PBAC que governa o acesso. É o `id`, exceto no `admin`, cujo módulo
+	 * se chama `sucont-admin` — a tabela `access_control.user_permissions` é
+	 * compartilhada pelo ERP inteiro, e um módulo chamado só `admin` já é o do sisub.
+	 */
+	permissionModule: AppModule
 	/** Nome no seletor e no cabeçalho da barra lateral. */
 	label: string
 	/**
@@ -47,7 +58,7 @@ export interface SucontModule {
 	division: SucontDivision | null
 	/** Prefixo de rota exclusivo, quando existe. Só o `admin` tem. */
 	basePath: string | null
-	/** Nível mínimo do grant `sucont` para entrar. */
+	/** Nível mínimo do `permissionModule` para entrar. */
 	minLevel: number
 	/** Ladrilho do ícone. */
 	tileClassName: string
@@ -56,6 +67,7 @@ export interface SucontModule {
 export const SUCONT_MODULES: SucontModule[] = [
 	{
 		id: "sucont-4",
+		permissionModule: "sucont-4",
 		label: "SUCONT-4",
 		caption: "Patrimonial",
 		icon: Boxes,
@@ -67,6 +79,7 @@ export const SUCONT_MODULES: SucontModule[] = [
 	},
 	{
 		id: "sucont-3",
+		permissionModule: "sucont-3",
 		label: "SUCONT-3",
 		caption: "Contábil",
 		icon: Calculator,
@@ -78,6 +91,7 @@ export const SUCONT_MODULES: SucontModule[] = [
 	},
 	{
 		id: "sucont-1",
+		permissionModule: "sucont-1",
 		label: "SUCONT-1",
 		caption: "Custos (DGC)",
 		icon: Calculator,
@@ -89,6 +103,7 @@ export const SUCONT_MODULES: SucontModule[] = [
 	},
 	{
 		id: "admin",
+		permissionModule: SUCONT_ADMIN_MODULE,
 		label: "Administração",
 		caption: "Acessos do SUCONT",
 		icon: ShieldUser,
@@ -148,7 +163,7 @@ export function toolsForDivision(tools: Tool[], division: SucontDivision): Tool[
  *    padrão da SUCONT-4 mostraria uma barra lateral que não contém a tela aberta.
  * 3. Fora de ferramenta (catálogo, área de trabalho, relatórios), manda a URL.
  */
-export function findModuleByPath(pathname: string, division?: unknown): SucontModule {
+export function findModuleByPath(pathname: string, division?: unknown, fallback: SucontDivision = DEFAULT_DIVISION): SucontModule {
 	const admin = SUCONT_MODULES.find((m) => m.basePath && isUnder(pathname, m.basePath))
 	if (admin) return admin
 
@@ -160,17 +175,64 @@ export function findModuleByPath(pathname: string, division?: unknown): SucontMo
 		return moduleForDivision(tool.divisions[0])
 	}
 
-	return moduleForDivision(requested)
+	return moduleForDivision(requested ?? fallback)
+}
+
+/**
+ * Divisão que responde quando a URL não diz — a primeira ACESSÍVEL, na ordem do
+ * registro.
+ *
+ * Não é `DEFAULT_DIVISION` cru porque o padrão é a SUCONT-4, e com o acesso
+ * separado por divisão nem todo mundo a tem: quem só trabalha na SUCONT-3 abriria
+ * o hub num catálogo vazio, com a barra lateral de uma divisão que ele não pode
+ * usar. Sem nenhuma divisão (só `sucont-admin`) devolve o padrão — o guard de rota
+ * é quem barra, e inventar uma divisão aqui não concederia acesso nenhum.
+ */
+export function defaultDivisionFor(permissions: UserPermission[]): SucontDivision {
+	const preferred = moduleForDivision(DEFAULT_DIVISION)
+	if (hasPermission(permissions, preferred.permissionModule, 1)) return DEFAULT_DIVISION
+	const first = SUCONT_MODULES.find((m) => m.division && hasPermission(permissions, m.permissionModule, 1))
+	return (first?.division as SucontDivision | undefined) ?? DEFAULT_DIVISION
 }
 
 /**
  * Módulos que o usuário pode abrir, na ordem do registro.
  *
- * A tela nunca oferece o que a política nega: sem nível 3 a Administração não
- * aparece no seletor, em vez de aparecer e devolver um redirecionamento.
+ * A tela nunca oferece o que a política nega: sem `sucont-admin` a Administração
+ * não aparece no seletor, e sem `sucont-1` a divisão de Custos também não — em vez
+ * de aparecerem e devolverem um redirecionamento.
  */
 export function accessibleModules(permissions: UserPermission[]): SucontModule[] {
-	return SUCONT_MODULES.filter((module) => hasPermission(permissions, "sucont", module.minLevel))
+	return SUCONT_MODULES.filter((module) => hasPermission(permissions, module.permissionModule, module.minLevel))
+}
+
+/**
+ * Módulos do PBAC que autorizam uma ferramenta.
+ *
+ * Ferramenta sem `divisions` pertence a todas (ver `Tool.divisions`), e por isso
+ * qualquer divisão a abre. Ferramenta de duas divisões abre para quem tem
+ * qualquer uma delas — `/monitoramento` é da 3 e da 4, e exigir as duas trancaria
+ * fora os dois lados.
+ */
+export function permissionModulesForTool(tool: Tool): AppModule[] {
+	if (!tool.divisions || tool.divisions.length === 0) return SUCONT_DIVISION_MODULES
+	return tool.divisions.map(permissionModuleForDivision)
+}
+
+/**
+ * Módulos que autorizam uma ROTA interna, a partir do catálogo.
+ *
+ * O guard de rota sai daqui, e não de uma segunda lista escrita à mão: a divisão
+ * de cada ferramenta já está declarada em `sucontTools`, e uma cópia paralela
+ * divergiria em silêncio — a tela sumiria do catálogo da divisão e continuaria
+ * alcançável por URL.
+ *
+ * Caminho que não é de ferramenta (catálogo, área de trabalho, relatórios) volta
+ * as três divisões: são telas da seção inteira.
+ */
+export function permissionModulesForPath(pathname: string): AppModule[] {
+	const tool = findToolByPath(sucontTools, pathname)
+	return tool ? permissionModulesForTool(tool) : SUCONT_DIVISION_MODULES
 }
 
 /** Casa o caminho exato ou um filho — `startsWith` cru faria `/administrativo` cair em `/admin`. */

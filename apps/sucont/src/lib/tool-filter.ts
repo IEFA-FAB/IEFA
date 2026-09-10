@@ -1,5 +1,4 @@
-import { ALL_STAGES, type StageFilter } from "#/lib/hub-filters"
-import { TOOL_STAGES, type Tool } from "#/lib/types"
+import { ALL_STAGES, type StageFilter, TOOL_STAGES, type Tool } from "#/lib/types"
 
 const STAGE_LABEL = new Map(TOOL_STAGES.map((s) => [s.id, s.label.toLowerCase()]))
 

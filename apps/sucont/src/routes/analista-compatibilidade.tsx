@@ -19,6 +19,7 @@ import {
 import { useCallback, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { requireToolAccess } from "#/auth/pbac"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
@@ -64,6 +65,8 @@ const ANALYSIS_NOTES = [
 ] as const
 
 export const Route = createFileRoute("/analista-compatibilidade")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/analista-compatibilidade"),
 	component: AnalistaCompatibilidade,
 })
 

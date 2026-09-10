@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AlertCircle, BarChart3, FileText, Lightbulb, Loader2, Plus, Printer, Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
+import { requireToolAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { InstitutionalCredits } from "#/components/institutional-credits"
 import { DataAnalysisReport } from "#/components/plataforma-doc/data-analysis-report"
@@ -11,7 +12,11 @@ import { SegmentedControl } from "#/components/ui/segmented-control"
 import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/document-ai.fn"
 import { adaptDraftFn } from "#/server/document-ai.fn"
 
-export const Route = createFileRoute("/documentacao")({ component: PlataformaDoc })
+export const Route = createFileRoute("/documentacao")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/documentacao"),
+	component: PlataformaDoc,
+})
 
 function PlataformaDoc() {
 	const [docType, setDocType] = useState<DocumentType>("FAB_OFFICE")

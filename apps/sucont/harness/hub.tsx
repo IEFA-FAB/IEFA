@@ -17,6 +17,7 @@ import { AlertTriangle, BookOpen, MessageSquare, Search } from "lucide-react"
 import type React from "react"
 import { createRoot } from "react-dom/client"
 import { z } from "zod"
+import { mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { SucontPermissionsManager } from "#/components/admin/permissions-manager"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
@@ -43,10 +44,24 @@ queryClient.setQueryData(["auth", "user"], {
 	isLoading: false,
 })
 
-// Nível 3: é o único que revela o seletor de módulo no topo da barra. Com nível 1
-// ou 2 o cabeçalho volta a ser o atalho para a casa, e o harness deixaria de
-// cobrir justamente o controle novo.
-queryClient.setQueryData(["sucont", "myPermissions"], [{ module: "sucont", level: 3, mess_hall_id: null, kitchen_id: null, unit_id: null }])
+// As três divisões mais a administração: é o conjunto que revela o seletor de
+// módulo no topo da barra. Com uma divisão só, o cabeçalho volta a ser o atalho
+// para a casa, e o harness deixaria de cobrir justamente o controle novo.
+//
+// A chave sai de `mySucontPermissionsQueryOptions()`, e não digitada aqui: ela é
+// derivada da lista de módulos, e uma cópia à mão silenciaria o cache no dia em que
+// um módulo entrasse — a tela renderizaria como se ninguém tivesse acesso a nada.
+queryClient.setQueryData(
+	mySucontPermissionsQueryOptions().queryKey,
+	(
+		[
+			{ module: "sucont-4", level: 2 },
+			{ module: "sucont-3", level: 2 },
+			{ module: "sucont-1", level: 2 },
+			{ module: "sucont-admin", level: 3 },
+		] as const
+	).map((p) => ({ ...p, mess_hall_id: null, kitchen_id: null, unit_id: null }))
+)
 
 // SARAM já vinculado: sem isto o diálogo de primeiro acesso (montado pelo
 // HubLayout) abriria sobre TODA tela do harness, e o que está sob exame é a
@@ -213,7 +228,7 @@ const adminScreen = (path: string) =>
 		component: () => (
 			<HubLayout
 				title="Permissões"
-				description="Quem entra no SUCONT e em que nível. O acesso vale para as três divisões — não há grant por divisão nem por seção."
+				description="Quem entra no SUCONT, em qual divisão e em que nível. Cada divisão é um acesso separado: ter a SUCONT-3 não abre as ferramentas da SUCONT-4."
 			>
 				<SucontPermissionsManager />
 			</HubLayout>

@@ -137,10 +137,10 @@ describe("createRequestAuth — gates", () => {
 		currentRequest = new Request("https://app.local/")
 		const auth = createRequestAuth({
 			getAuthClient: authClientSpy(fakeUser()).client,
-			getPermissionsClient: () => permissionsClient([{ module: "sucont", level: 2 }]),
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-4", level: 2 }]),
 		})
 
-		const ctx = await auth.requireLevel("sucont", 2)
+		const ctx = await auth.requireLevel("sucont-4", 2)
 		expect(ctx.userId).toBe("u-1")
 	})
 
@@ -148,11 +148,11 @@ describe("createRequestAuth — gates", () => {
 		currentRequest = new Request("https://app.local/")
 		const auth = createRequestAuth({
 			getAuthClient: authClientSpy(fakeUser()).client,
-			getPermissionsClient: () => permissionsClient([{ module: "sucont", level: 1 }]),
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-4", level: 1 }]),
 		})
 
-		expect(auth.requireLevel("sucont", 2)).rejects.toThrow("FORBIDDEN: sucont")
-		await auth.requireLevel("sucont", 2).catch(() => {})
+		expect(auth.requireLevel("sucont-4", 2)).rejects.toThrow("FORBIDDEN: sucont-4")
+		await auth.requireLevel("sucont-4", 2).catch(() => {})
 		// 403, não 401: o usuário está autenticado — errar isso manda quem já entrou
 		// de volta para a tela de login, num laço.
 		expect(lastStatus).toBe(403)
@@ -169,7 +169,7 @@ describe("createRequestAuth — gates", () => {
 			},
 		})
 
-		await auth.requireLevel("sucont", 1).catch(() => {})
+		await auth.requireLevel("sucont-4", 1).catch(() => {})
 		expect(lastStatus).toBe(401)
 		expect(permissionsRead).toBe(false)
 	})
@@ -190,11 +190,49 @@ describe("createRequestAuth — gates", () => {
 		currentRequest = new Request("https://app.local/")
 		const auth = createRequestAuth({
 			getAuthClient: authClientSpy(fakeUser()).client,
-			getPermissionsClient: () => permissionsClient([{ module: "sucont", level: 1 }]),
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-4", level: 1 }]),
 			messages: { forbidden: (m) => `Sem acesso ao módulo ${m}.` },
 		})
 
-		expect(auth.requireLevel("sucont", 2)).rejects.toThrow("Sem acesso ao módulo sucont.")
+		expect(auth.requireLevel("sucont-4", 2)).rejects.toThrow("Sem acesso ao módulo sucont-4.")
+	})
+
+	test("requireAnyLevel passa quando UM dos módulos concede", async () => {
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser()).client,
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-3", level: 1 }]),
+		})
+
+		const ctx = await auth.requireAnyLevel(["sucont-3", "sucont-4"], 1)
+		expect(ctx.userId).toBe("u-1")
+	})
+
+	test("requireAnyLevel sinaliza 403 e nomeia os módulos quando nenhum concede", async () => {
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser()).client,
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-1", level: 2 }]),
+		})
+
+		expect(auth.requireAnyLevel(["sucont-3", "sucont-4"], 1)).rejects.toThrow("FORBIDDEN: sucont-3 | sucont-4")
+		await auth.requireAnyLevel(["sucont-3", "sucont-4"], 1).catch(() => {})
+		expect(lastStatus).toBe(403)
+	})
+
+	test("requireAnyLevel cobra o nível em cada módulo, não somado entre eles", async () => {
+		// Ter leitura em duas divisões não é ter escrita em nenhuma.
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser()).client,
+			getPermissionsClient: () =>
+				permissionsClient([
+					{ module: "sucont-3", level: 1 },
+					{ module: "sucont-4", level: 1 },
+				]),
+		})
+
+		expect(auth.requireAnyLevel(["sucont-3", "sucont-4"], 2)).rejects.toThrow("FORBIDDEN")
 	})
 
 	test("requireAuth sem getPermissionsClient falha explicitamente", async () => {

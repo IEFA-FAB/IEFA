@@ -21,6 +21,7 @@ import {
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { requireToolAccess } from "#/auth/pbac"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
 import { UGCard } from "#/components/analista/ug-card"
@@ -86,6 +87,8 @@ const ANALYSIS_NOTES = [
 ] as const
 
 export const Route = createFileRoute("/monitoramento")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/monitoramento"),
 	component: MonitoramentoPage,
 })
 

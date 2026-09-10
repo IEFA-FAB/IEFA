@@ -54,3 +54,18 @@ export function hasPermission(permissions: UserPermission[], module: AppModule, 
 		return matchesScope(p, scope)
 	})
 }
+
+/**
+ * `true` quando QUALQUER um dos módulos concede o nível mínimo.
+ *
+ * Para o recurso que mais de um módulo legitimamente alcança — no sucont, a casca do
+ * app e as telas compartilhadas (catálogo, área de trabalho, relatórios), que valem
+ * para quem tem qualquer uma das divisões. É a versão booleana de
+ * {@link requireAnyPermission}, para guard de rota e renderização condicional.
+ *
+ * A precedência de deny continua sendo POR MÓDULO: um deny em `sucont-4` não derruba
+ * um allow em `sucont-3`. É o que se quer — negar uma divisão não é negar o app.
+ */
+export function hasAnyPermission(permissions: UserPermission[], modules: readonly AppModule[], minLevel = 1, scope?: PermissionScope): boolean {
+	return modules.some((module) => hasPermission(permissions, module, minLevel, scope))
+}

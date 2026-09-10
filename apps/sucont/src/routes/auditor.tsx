@@ -24,7 +24,7 @@ import { parseExcelFile } from "#/auditor/services/excelParser"
 import { iccColor, iccLabel } from "#/auditor/theme"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
-import { useSucontAccess } from "#/auth/pbac"
+import { requireToolAccess, useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
@@ -35,6 +35,8 @@ import { auditorBalancesQueryOptions } from "#/lib/queries"
 import { type BalanceConflict, finalizeAuditorRunFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/auditor"),
 	// Sem prime no loader de propósito: o hub renderiza <Link to="/auditor"> na
 	// barra lateral de todas as telas, e com `defaultPreload: "intent"` +
 	// `defaultPreloadStaleTime: 0` cada passada de mouse rodaria o loader — ou
@@ -94,7 +96,9 @@ function AuditorPage() {
 	// Sem esta checagem o operador de nível 1 subia a planilha, esperava o parse da
 	// série inteira e só então tomava 403 — perdendo o trabalho e sem saber por quê.
 	// Consultar a série já gravada continua liberado no nível 1.
-	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
+	// O auditor é da SUCONT-4: o botão de escrita segue a divisão DELA, não "alguma divisão".
+	// Pintá-lo por acesso genérico prometeria uma gravação que o servidor recusa.
+	const { canEdit, isLoading: loadingAccess } = useSucontAccess("sucont-4")
 	const [hideZeros, setHideZeros] = useState(true)
 
 	// Modals

@@ -18,14 +18,27 @@ import type { AppModule, UserPermission } from "./types.ts"
 type AnySupabaseClient = SupabaseClient<any, any>
 
 /**
- * Permissões efetivas do usuário FILTRADAS pelo módulo do app (deny removido,
+ * Permissões efetivas do usuário FILTRADAS pelos módulos do app (deny removido,
  * "diner" implícito injetado pela resolução). A tabela é compartilhada: devolver
  * grants de outros apps (global, kitchen, …) para o browser vazaria autorização
  * cross-app sem uso local.
+ *
+ * Aceita mais de um módulo porque um app pode ter vários: o sucont tem quatro
+ * (`sucont-1`, `sucont-3`, `sucont-4`, `sucont-admin`) e precisa dos quatro num
+ * fetch só — uma query por módulo pagaria a resolução inteira quatro vezes por
+ * carga de página, e o guard da raiz precisa de todos para decidir.
+ *
+ * Os DENY dos módulos pedidos vêm junto: `hasPermission` os aplica, e filtrá-los
+ * aqui devolveria ao cliente um conjunto que reautoriza o que foi negado.
  */
-export async function resolveModulePermissions(userId: string, accessControlClient: AnySupabaseClient, module: AppModule): Promise<UserPermission[]> {
+export async function resolveModulePermissions(
+	userId: string,
+	accessControlClient: AnySupabaseClient,
+	modules: AppModule | readonly AppModule[]
+): Promise<UserPermission[]> {
+	const wanted = new Set<AppModule>(typeof modules === "string" ? [modules] : modules)
 	const all = await resolveUserPermissions(userId, accessControlClient)
-	return all.filter((p) => p.module === module)
+	return all.filter((p) => wanted.has(p.module))
 }
 
 /**
@@ -35,9 +48,12 @@ export async function resolveModulePermissions(userId: string, accessControlClie
  * sisub-mcp), então cada app embrulha este objeto com o PRÓPRIO
  * `queryOptions()`/`useQuery` no wrapper fino (auth/pbac.ts).
  */
-export function myModulePermissionsQueryConfig(module: AppModule, fetchMyPermissions: () => Promise<UserPermission[]>) {
+export function myModulePermissionsQueryConfig(module: AppModule | readonly AppModule[], fetchMyPermissions: () => Promise<UserPermission[]>) {
+	// Chave estável: um app de vários módulos tem UM cache de permissões, e a ordem
+	// em que o chamador lista os módulos não pode criar um segundo.
+	const key = typeof module === "string" ? module : [...module].sort().join("+")
 	return {
-		queryKey: [module, "myPermissions"] as const,
+		queryKey: [key, "myPermissions"] as const,
 		queryFn: fetchMyPermissions,
 		staleTime: 1000 * 60 * 30, // 30 min — permissões mudam com baixa frequência
 		gcTime: 1000 * 60 * 60,
