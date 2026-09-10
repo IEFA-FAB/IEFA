@@ -17,6 +17,20 @@ describe("composeNonRadaAnswer", () => {
 		expect(composeNonRadaAnswer({ hasAnswer: true, source: "ICA 100-12", answer: "  " })).toBe(NO_BASIS_ANSWER)
 	})
 
+	// O caminho existe porque a resposta NÃO veio do corpus: citá-lo aqui inverteria a
+	// ressalva, atribuindo ao regulamento uma afirmação sem nenhum trecho por trás.
+	it("recusa o próprio corpus como fonte declarada", () => {
+		expect(composeNonRadaAnswer({ hasAnswer: true, source: "RADA-e", answer: "o prazo é de cinco dias" })).toBe(NO_BASIS_ANSWER)
+		expect(composeNonRadaAnswer({ hasAnswer: true, source: "RADA-e, Módulo F", answer: "o prazo é de cinco dias" })).toBe(NO_BASIS_ANSWER)
+		expect(composeNonRadaAnswer({ hasAnswer: true, source: "rada", answer: "o prazo é de cinco dias" })).toBe(NO_BASIS_ANSWER)
+	})
+
+	// A recusa é da AUTORREFERÊNCIA, não de qualquer norma aeronáutica: ICA e Lei seguem
+	// valendo como fonte declarada de fora do corpus.
+	it("mantém outras fontes nomeadas", () => {
+		expect(composeNonRadaAnswer({ hasAnswer: true, source: "ICA 100-12", answer: "x" })).toContain("com base em ICA 100-12")
+	})
+
 	it("respeita o modelo dizendo que não sabe", () => {
 		expect(composeNonRadaAnswer({ hasAnswer: false, source: "Lei 14.133", answer: "talvez seja isso" })).toBe(NO_BASIS_ANSWER)
 	})

@@ -1,25 +1,26 @@
 import { AIMessage } from "@langchain/core/messages"
-import type { AgentState, TerminationReason } from "../state.ts"
+import type { AgentState } from "../state.ts"
 
-const FALLBACK_MESSAGES: Record<TerminationReason, string> = {
-	// Mesma forma da ressalva do chat geral: quem pergunta ao ChatRADA precisa saber que a
-	// informação não está no regulamento, e não receber um "não encontrei" ambíguo que
-	// poderia ser lido como falha de busca.
-	no_documents_found: "Essa informação não existe no RADA-e e não tenho certeza sobre ela.",
-	low_relevance_score: "Essa informação não existe no RADA-e e não tenho certeza sobre ela.",
-	hallucination_detected: "Não foi possível gerar uma resposta verificável com base na legislação disponível.",
-	max_iterations_reached: "Após múltiplas tentativas de busca, não foi encontrado embasamento normativo suficiente para sua consulta.",
-	max_retries_reached: "A resposta gerada não pôde ser verificada contra a legislação disponível. Por favor, reformule sua consulta.",
-	success: "",
-}
+/**
+ * Fim do caminho da ALUCINAÇÃO, e só dele.
+ *
+ * Busca vazia deixou de terminar aqui: ela vai ao chat geral, que compõe a resposta com a
+ * ressalva de procedência (`radaAgentCondition`). O que sobra para este nó é o rascunho que
+ * afirmou sem base — pelo `graderCondition`, quando as retentativas de ancoragem se
+ * esgotam, ou pelo laço de ancoragem que esgotou a recuperação.
+ *
+ * Por isso a mensagem é UMA. Havia um mapa por `termination_reason` com cinco textos, e
+ * quatro deles ficaram inalcançáveis quando os caminhos que os traziam mudaram de destino —
+ * mensagem inalcançável não é rede de segurança, é o texto que ninguém percebe estar errado.
+ * Um motivo diferente chegando aqui é um caminho novo no grafo, e a frase continua honesta:
+ * ela declara que não foi possível VERIFICAR a resposta, sem prometer por que.
+ */
+const UNVERIFIABLE_DRAFT = "Não foi possível gerar uma resposta verificável com base na legislação disponível."
 
-export async function noBasisNode(state: AgentState): Promise<Partial<AgentState>> {
-	const reason = state.termination_reason ?? "no_documents_found"
-	const final_response = FALLBACK_MESSAGES[reason] || "Não foi possível processar sua consulta no momento."
-
+export async function noBasisNode(_state: AgentState): Promise<Partial<AgentState>> {
 	return {
-		final_response,
+		final_response: UNVERIFIABLE_DRAFT,
 		cited_documents: [],
-		messages: [new AIMessage(final_response)],
+		messages: [new AIMessage(UNVERIFIABLE_DRAFT)],
 	}
 }

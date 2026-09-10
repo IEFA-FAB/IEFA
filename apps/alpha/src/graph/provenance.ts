@@ -28,6 +28,16 @@ export interface NonRadaAnswer {
 /** Usada quando não há fonte, ou quando a declaração do modelo é incoerente. */
 export const NO_BASIS_ANSWER = "Essa informação não existe no RADA-e e não tenho certeza sobre ela."
 
+/**
+ * Fonte que o modelo NÃO pode declarar aqui: o próprio corpus.
+ *
+ * Este caminho só existe quando a resposta não veio do RADA-e — ou porque ele não foi
+ * consultado, ou porque a busca não trouxe nada. Aceitar `source: "RADA-e"` produziria a
+ * frase mais enganosa possível: "não é proveniente do RADA-e, mas com base no RADA-e",
+ * atribuindo ao regulamento uma afirmação que nenhum trecho recuperado embasa.
+ */
+const CORPUS_SELF_REFERENCE = /\brada\b/i
+
 export function composeNonRadaAnswer(declared: NonRadaAnswer): string {
 	const source = declared.source?.trim()
 	const answer = declared.answer?.trim()
@@ -35,6 +45,7 @@ export function composeNonRadaAnswer(declared: NonRadaAnswer): string {
 	// Os três precisam valer juntos. Resposta sem fonte é exatamente o caso que a regra
 	// existe para impedir: conteúdo plausível, procedência nenhuma.
 	if (!declared.hasAnswer || !source || !answer) return NO_BASIS_ANSWER
+	if (CORPUS_SELF_REFERENCE.test(source)) return NO_BASIS_ANSWER
 
 	return `Essa informação não é proveniente do RADA-e, mas com base em ${source}: ${answer}`
 }

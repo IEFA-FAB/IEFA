@@ -2,18 +2,34 @@ import { AERONAUTICAL_DOCUMENT_TYPES } from "../../lib/corpora"
 import { invokeText } from "../../lib/llm"
 import type { RADARetrieverOutput } from "../../tools/rada-retriever"
 import { radaRetriever } from "../../tools/rada-retriever"
+import { MAX_RETRIEVAL_ITERATIONS } from "../edges/conditions"
 import type { AgentState } from "../state"
 
+/**
+ * A reformulação é a segunda chance da pergunta, e as duas regras novas atacam falhas
+ * medidas na recuperação, não estilo:
+ *
+ * - **Sigla por extenso**: a perna semântica não sabe o que é "TTAC" — o vetor de um
+ *   acrônimo desconhecido não fica perto do trecho que o define. Quem casa é o extenso,
+ *   que é como a norma escreve.
+ * - **Fora as palavras interrogativas**: `match_chunks_fts` usa `websearch_to_tsquery`,
+ *   que CONJUNTA os termos. "o que significa TTAC na FAB" exige `signific` E `ttac` E
+ *   `fab` no mesmo trecho; a perna textual devolve zero, e sobra só a semântica.
+ */
 const REFORMULATION_PROMPT = (query: string) =>
-	`Você é especialista em legislação aeronáutica brasileira (RADA, RBHA, ICA).
-A query "${query}" não retornou documentos relevantes.
+	`Você é especialista na legislação aeronáutica brasileira e na administração da Aeronáutica (RADA-e, RBHA, ICA, MCA, NSCA).
+A consulta "${query}" não trouxe nenhum trecho do corpus.
 
-Reformule para melhorar o recall:
-- Use terminologia técnica aeronáutica (ex: "piloto" → "comandante")
-- Considere artigos ou capítulos relacionados
-- Não invente termos que não existem na legislação
+Reformule para melhorar o recall, seguindo estas regras:
+- SIGLA: escreva a forma POR EXTENSO ("TTAC" → "Termo de Transmissão e Assunção de Cargo").
+  É o extenso que aparece no texto da norma que define a sigla.
+- Corte palavra interrogativa e de ligação ("o que é", "como faço", "qual", "preciso saber").
+  A busca textual exige TODOS os termos no MESMO trecho: cada palavra que a norma não usa
+  é um trecho a menos que casa.
+- Use o vocabulário da norma (ex: "chefe" → "Agente da Administração"; "piloto" → "comandante").
+- Não invente termo que não exista na legislação.
 
-Retorne APENAS a query reformulada.`
+Retorne APENAS a consulta reformulada, sem aspas e sem explicação.`
 
 /**
  * O ChatRADA responde sobre legislação aeronáutica, e `alpha.document` também
@@ -27,6 +43,20 @@ async function reformulate(query: string): Promise<string> {
 	return (await invokeText([{ role: "user", content: REFORMULATION_PROMPT(query) }])).trim()
 }
 
+/**
+ * `undefined` quando não houve reformulação utilizável — o modelo caiu, ou devolveu vazio.
+ * Reformular é melhoria de recall, não requisito de correção: sua falha encerra a busca e
+ * deixa o turno seguir para a resposta de contingência, em vez de derrubar o turno.
+ */
+async function reformulateOrGiveUp(query: string): Promise<string | undefined> {
+	try {
+		return (await reformulate(query)) || undefined
+	} catch (error) {
+		console.warn(`[rada_agent] reformulação indisponível, encerrando a busca: ${error instanceof Error ? error.message : String(error)}`)
+		return undefined
+	}
+}
+
 export async function radaAgentNode(state: AgentState): Promise<Partial<AgentState>> {
 	const iterations = state.retrieval_iterations
 
@@ -35,20 +65,30 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 	// chamadas de modelo para chegar ao mesmo `no_basis`. Quem muda o resultado é a query.
 	const isGroundingRetry = state.grading_retries > 0 && state.grounding_check?.is_grounded === false
 	const previousQuery = iterations === 0 ? state.original_query : (state.reformulated_query ?? state.original_query)
-	const retryQuery = isGroundingRetry ? await reformulate(previousQuery) : undefined
+	// `OrGiveUp` aqui pelo mesmo motivo do outro ponto de reformulação: uma falha do modelo
+	// não pode derrubar o turno. Sem reformulação, a retentativa repete a consulta anterior
+	// — desperdício limitado, porque `grading_retries` fecha o laço em duas voltas.
+	const retryQuery = isGroundingRetry ? await reformulateOrGiveUp(previousQuery) : undefined
 	const query = retryQuery ?? previousQuery
 
 	let result: RADARetrieverOutput
 	try {
 		result = await radaRetriever({ query, filters: RADA_CORPUS_FILTER })
-	} catch {
+	} catch (error) {
+		// O erro era engolido por um `catch {}` vazio. Queda da RPC de busca é indistinguível
+		// de "o RADA-e não trata do assunto" pela resposta do usuário, e sem esta linha não
+		// havia NENHUM lugar onde a diferença aparecesse.
+		console.error(`[rada_agent] busca indisponível: ${error instanceof Error ? error.message : String(error)}`)
 		return {
 			has_sufficient_context: false,
 			retrieval_iterations: iterations + 1,
+			// `unavailable`, e não `empty`: este turno NÃO pode terminar no chat geral, que
+			// responderia de memória do modelo uma pergunta sobre o regulamento.
+			retrieval_outcome: "unavailable",
 			...(retryQuery ? { reformulated_query: retryQuery } : {}),
 			// Numa retentativa de ancoragem a causa da run é o rascunho não-ancorado. Gravar
-			// `no_documents_found` aqui esconderia a alucinação do usuário e do `query_log`.
-			termination_reason: isGroundingRetry ? "hallucination_detected" : "no_documents_found",
+			// a falha de busca aqui esconderia a alucinação do usuário e do `query_log`.
+			termination_reason: isGroundingRetry ? "hallucination_detected" : "retrieval_unavailable",
 		}
 	}
 
@@ -59,14 +99,40 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 			retrieved_documents: result.documents,
 			has_sufficient_context: true,
 			retrieval_iterations: newIterations,
+			retrieval_outcome: "found",
 			...(retryQuery ? { reformulated_query: retryQuery } : {}),
 		}
 	}
+
+	// Reformular na passagem que ESGOTA o orçamento seria uma chamada de modelo cujo
+	// resultado ninguém lê — o próximo nó é o chat geral, que responde da pergunta
+	// original. Pior: ela ficava fora do `try`, então uma falha do Bedrock derrubava o
+	// turno inteiro justamente quando a resposta de contingência já estava garantida.
+	const willRetry = newIterations < MAX_RETRIEVAL_ITERATIONS
+	const nextQuery = willRetry ? await reformulateOrGiveUp(query) : undefined
+
+	// A consulta REALMENTE usada neste turno tem de sobreviver ao retorno, senão o
+	// `query_log` atribui à pergunta a reformulação da passagem anterior — o mesmo tipo de
+	// mentira que o reset de `reformulated_query` existe para impedir.
+	const queryToRecord = nextQuery ?? retryQuery
 
 	return {
 		retrieved_documents: [],
 		has_sufficient_context: false,
 		retrieval_iterations: newIterations,
-		reformulated_query: await reformulate(query),
+		retrieval_outcome: "empty",
+		// Reformulação indisponível encerra o laço em vez de repetir a MESMA consulta: a
+		// temperatura é 0 e a busca é determinística, então a repetição devolveria os mesmos
+		// zero documentos. Sinal próprio, e não `retrieval_iterations` inflado: o contador é
+		// telemetria, e uma tentativa registrada como três esconde exatamente esta falha.
+		...(willRetry && !nextQuery ? { retrieval_halted: true } : {}),
+		...(queryToRecord ? { reformulated_query: queryToRecord } : {}),
+		// Mesmo cuidado do `catch`: numa retentativa de ancoragem a causa do turno é a
+		// alucinação, e carimbar `no_documents_found` aqui a apagaria — inclusive escolhendo
+		// a mensagem errada no `no_basis`, que é para onde esse turno vai.
+		// Vale só para ESTE turno: `buildTurnInput` não consegue zerar `termination_reason`
+		// (o LangGraph ignora `undefined` no input), e quem diz ao chat geral que a busca
+		// aconteceu e voltou vazia é `retrieval_outcome`, não este campo.
+		termination_reason: isGroundingRetry ? "hallucination_detected" : "no_documents_found",
 	}
 }
