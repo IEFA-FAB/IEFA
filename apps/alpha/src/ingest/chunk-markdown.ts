@@ -25,6 +25,22 @@ const CHUNK_CHARS = MAX_CHUNK_TOKENS * 4
 const CHUNK_OVERLAP_CHARS = 200
 
 /**
+ * Piso para fechar chunk numa fronteira de dispositivo.
+ *
+ * Sem ele, cada linha do índice do manual (`3.2. ARRECADAÇÃO DE VALORES…`) viraria um
+ * chunk de 60 caracteres: um vetor por linha de sumário, que casa com a consulta e não
+ * responde nada. Abaixo do piso a fronteira é ignorada e o acúmulo continua — o chunk
+ * sai rotulado com o dispositivo que o ABRIU, que é onde a citação deve apontar.
+ *
+ * O valor sai de uma restrição a jusante: `RERANK_TOP_N` entrega **cinco** chunks ao
+ * modelo, e mais nada. Medido sobre o acervo, o piso decide o tamanho da evidência por
+ * resposta — 400 dá mediana de 595 caracteres (≈3 KB para o modelo, contra os ≈10 KB de
+ * hoje), 1000 dá 1216 (≈6 KB) e mantém 77% dos chunks rotulados com dispositivo. Cortar
+ * mais fino melhora a precisão do vetor e estreita a resposta; este é o meio-termo.
+ */
+const MIN_CHUNK_CHARS = 1000
+
+/**
  * Descarta as linhas de comentário HTML.
  *
  * Por LINHA, e não por regex de `<!--…-->`: o corpo dos documentos é markdown gerado pelo
@@ -44,6 +60,9 @@ function stripCommentLines(text: string): string {
 		.join("\n")
 }
 
+/** Numeração decimal já marcada como heading: `### 14.1`, `#### 10.2.10.1.3 Os militares…`. */
+const DECIMAL_DEVICE = /^#{1,4}\s+(\d+(?:\.\d+)*)[.)]?(?:\s|$)/
+
 export function chunkByArticle(rawContent: string): Chunk[] {
 	const content = stripCommentLines(rawContent)
 	const chunks: Chunk[] = []
@@ -51,7 +70,22 @@ export function chunkByArticle(rawContent: string): Chunk[] {
 	let currentArticle = ""
 	let currentSection = ""
 	let buffer: string[] = []
+	// O dispositivo que ABRIU o buffer, e não o último visto: com o piso de tamanho um
+	// chunk pode atravessar mais de uma fronteira, e a citação tem de apontar para onde
+	// o texto começa, não para onde ele por acaso terminou.
+	let bufferChapter = ""
+	let bufferArticle = ""
+	let bufferSection = ""
 	let chunkIndex = 0
+
+	const append = (line: string) => {
+		if (buffer.length === 0) {
+			bufferChapter = currentChapter
+			bufferArticle = currentArticle
+			bufferSection = currentSection
+		}
+		buffer.push(line)
+	}
 
 	const flushBuffer = () => {
 		const text = buffer.join("\n").trim()
@@ -70,18 +104,18 @@ export function chunkByArticle(rawContent: string): Chunk[] {
 					if (slice.length <= 20) continue
 					chunks.push({
 						content: slice,
-						chapter: currentChapter,
-						article: currentArticle,
-						section: currentSection,
+						chapter: bufferChapter,
+						article: bufferArticle,
+						section: bufferSection,
 						chunk_index: chunkIndex++,
 					})
 				}
 			} else {
 				chunks.push({
 					content: text,
-					chapter: currentChapter,
-					article: currentArticle,
-					section: currentSection,
+					chapter: bufferChapter,
+					article: bufferArticle,
+					section: bufferSection,
 					chunk_index: chunkIndex++,
 				})
 			}
@@ -89,26 +123,50 @@ export function chunkByArticle(rawContent: string): Chunk[] {
 		buffer = []
 	}
 
+	/** Fecha o chunk só quando já há texto suficiente para ele valer um vetor. */
+	const flushAtDevice = () => {
+		if (buffer.join("\n").trim().length >= MIN_CHUNK_CHARS) flushBuffer()
+	}
+
 	for (const line of content.split("\n")) {
 		const chapterMatch = line.match(/^#{1,3}\s+(Cap[íi]tulo\s+[IVXLCDM\d]+)/i)
-		const articleMatch = line.match(/^#{1,4}\s+(Art\.\s*\d+[ºo°]?)/i)
+		const articleMatch = line.match(/^#{1,4}\s+(Art\.?\s*\d+\s*[ºo°]?)/i)
 		const sectionMatch = line.match(/^#{1,4}\s+(Se[çc][ãa]o\s+[IVXLCDM\d]+)/i)
+		const decimalMatch = line.match(DECIMAL_DEVICE)
 
 		if (chapterMatch) {
-			flushBuffer()
+			flushAtDevice()
 			currentChapter = chapterMatch[1]
+			currentSection = ""
 			currentArticle = ""
-			buffer.push(line)
+			append(line)
 		} else if (articleMatch) {
-			flushBuffer()
+			flushAtDevice()
 			currentArticle = articleMatch[1]
-			buffer.push(line)
+			append(line)
 		} else if (sectionMatch) {
-			flushBuffer()
+			flushAtDevice()
 			currentSection = sectionMatch[1]
-			buffer.push(line)
+			currentArticle = ""
+			append(line)
+		} else if (decimalMatch) {
+			// Manual administrativo numera por decimal, não por artigo. A PROFUNDIDADE diz
+			// o que a numeração é: `14` é o módulo, `14.1` a seção, `14.1.1` o dispositivo.
+			flushAtDevice()
+			const depth = decimalMatch[1].split(".").length
+			if (depth <= 1) {
+				currentChapter = decimalMatch[1]
+				currentSection = ""
+				currentArticle = ""
+			} else if (depth === 2) {
+				currentSection = decimalMatch[1]
+				currentArticle = ""
+			} else {
+				currentArticle = decimalMatch[1]
+			}
+			append(line)
 		} else {
-			buffer.push(line)
+			append(line)
 		}
 	}
 	flushBuffer()

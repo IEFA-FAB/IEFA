@@ -26,6 +26,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join, resolve, sep } from "node:path"
 import { pdfToSubmissionText } from "../extraction/to-text.ts"
+import { markNormativeDevices } from "../ingest/normative-devices.ts"
 import { OcrUnavailableError, ocrPdf } from "../ingest/pdf-ocr.ts"
 import { stripPrintArtifacts } from "../ingest/print-artifacts.ts"
 import { parseRadaIndex, requireCompleteIndex } from "../ingest/rada-index.ts"
@@ -64,8 +65,9 @@ const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
  *
  * 1 (implícito, sem o campo): extração crua, com cabeçalho e número de página.
  * 2: remoção de artefato de impressão (`ingest/print-artifacts.ts`).
+ * 3: marcação de dispositivo (`ingest/normative-devices.ts`).
  */
-const PIPELINE_VERSION = 2
+const PIPELINE_VERSION = 3
 
 /** Quantas máscaras descartadas o relatório mostra por documento, antes de resumir. */
 const MAX_REPORTED_PATTERNS = 3
@@ -275,7 +277,11 @@ async function build(noOcr: boolean): Promise<void> {
 		// em mãos. Depois de concatenar não há mais como distinguir a borda do miolo — e
 		// era assim que o título do módulo entrava em metade dos chunks daquele módulo.
 		const cleaned = stripPrintArtifacts(pages)
-		const text = cleaned.text
+		// O dispositivo vira heading markdown AQUI, e não na ingestão: é a única etapa que
+		// ainda enxerga o documento inteiro. `chunkByArticle` corta por dispositivo, mas só
+		// reconhece o que estiver marcado — sem esta linha, o corpus RADA chega à base com
+		// `chapter`, `article` e `section` nulos, como esteve nos 2440 chunks de produção.
+		const text = markNormativeDevices(cleaned.text)
 
 		if (text.trim().length === 0) {
 			attention.push(`${entry.letter} ${entry.title} — nem extração nem OCR produziram texto`)

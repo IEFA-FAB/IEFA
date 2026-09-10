@@ -121,6 +121,45 @@ markdown gerado incrementa esse número.
 Do markdown para a frente o encadeamento já estava certo: o `content_hash` do
 `markdown-ingest.ts` muda, os chunks antigos são apagados e o documento é re-embedado.
 
+## Dispositivo: o que o chunk diz que é
+
+`chunkByArticle` corta por dispositivo, mas só reconhece dispositivo em linha com
+marcador markdown — e o `rada:build` nunca gerava nenhum. Em produção isso deu 2440
+chunks com `chapter`, `article` e `section` **nulos**, todos eles. Três consequências:
+o corte por dispositivo não acontecia (todo manual caía na janela deslizante de 2048
+caracteres, cortando dispositivo ao meio), os filtros `chapter`/`article` do
+`radaRetriever` existiam e nunca casavam nada, e o prompt do verificador rendia
+`[1] RADA-e Módulo G — , :` em toda evidência.
+
+`ingest/normative-devices.ts` marca o início de dispositivo antes de gravar o markdown.
+O RADA-e é manual administrativo, não código: a portaria do GABAER numera por `Art. Nº`,
+mas os quinze manuais numeram por decimal (`14.1`, `10.2.10.1.3`), e a **profundidade**
+diz o que é o quê — `14` é o módulo, `14.1` a seção, `14.1.1` o dispositivo.
+
+Três formas se parecem com dispositivo e não são, todas cobertas por teste:
+
+- **separador de milhar** (`1.234 unidades`) — manual nenhum tem item `234` dentro do `1`;
+- **conta contábil do SIAFI** (`4.5.1.1.2.02.00 - REPASSE RECEBIDO`) — profundidade acima
+  de cinco, ou segmento com zero à esquerda;
+- **enumeração dentro do dispositivo** (`1) Sim, quando…`) — por isso título de primeiro
+  nível exige o resto da linha em caixa alta.
+
+Resultado no corpus: **77% dos chunks com artigo, 81% com seção, 4% sem rótulo nenhum.**
+
+### Por que o chunk não fecha em toda fronteira
+
+`MIN_CHUNK_CHARS` existe porque o índice do manual é uma linha por seção: fechar chunk em
+cada fronteira daria um vetor por linha de sumário — 11.697 chunks, 40% deles abaixo de
+200 caracteres, que casam com a consulta e não respondem nada.
+
+O valor sai de uma restrição a jusante: `RERANK_TOP_N` entrega **cinco** chunks ao modelo,
+e mais nada. Medido sobre o acervo, o piso decide o tamanho da evidência por resposta —
+400 dá mediana de 595 caracteres (≈3 KB para o modelo, contra os ≈10 KB de hoje), 1000 dá
+1216 (≈6 KB). Mexer num exige revisar o outro.
+
+Chunk que atravessa mais de uma fronteira sai rotulado com o dispositivo que o **abriu**:
+dizer "Art. 9º" sobre um trecho que começa no 7º manda o leitor conferir a norma errada.
+
 ## Por que `embedding_model` importa aqui
 
 `markdown-ingest.ts` grava `embedding_model` em cada chunk e usa a fábrica compartilhada
