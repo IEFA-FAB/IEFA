@@ -40,7 +40,13 @@ export async function routerNode(state: AgentState): Promise<Partial<AgentState>
 
 		const intent = (result as { intent: Intent }).intent ?? "UNKNOWN"
 		return { intent, original_query: query }
-	} catch {
+	} catch (error) {
+		// `UNKNOWN` roteia para o chat geral, que responde SEM consultar o corpus. Um
+		// classificador que falha sempre — porque o modelo configurado não emite tool call,
+		// por exemplo — transforma o ChatRADA num chat comum, e em silêncio: toda pergunta
+		// era respondida de memória do modelo, sem nenhum sinal de erro. O aviso é o que
+		// distingue "não soube classificar" de "o classificador está quebrado".
+		console.warn(`[router] classificação falhou, caindo em UNKNOWN: ${error instanceof Error ? error.message : String(error)}`)
 		return { intent: "UNKNOWN", original_query: query }
 	}
 }

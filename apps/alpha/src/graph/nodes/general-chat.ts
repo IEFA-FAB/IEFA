@@ -1,5 +1,6 @@
 import { AIMessage } from "@langchain/core/messages"
 import { getLLM } from "../../lib/llm"
+import { messageText } from "../../lib/message-text.ts"
 import type { AgentState } from "../state"
 
 const SYSTEM_PROMPT = `Você é o ATLAS, assistente virtual da SEFA (Secretaria de Economia, Finanças e Administração da Aeronáutica).
@@ -8,7 +9,7 @@ Responda de forma prestativa e profissional. Para perguntas gerais e saudações
 export async function generalChatNode(state: AgentState): Promise<Partial<AgentState>> {
 	const response = await getLLM(0.7).invoke([{ role: "system", content: SYSTEM_PROMPT }, ...state.messages])
 
-	const final_response = response.content.toString()
+	const final_response = messageText(response.content)
 
 	return {
 		final_response,

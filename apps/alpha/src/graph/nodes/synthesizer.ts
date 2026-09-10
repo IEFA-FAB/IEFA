@@ -1,5 +1,6 @@
 import { AIMessage } from "@langchain/core/messages"
 import { getLLM } from "../../lib/llm"
+import { messageText } from "../../lib/message-text.ts"
 import type { AgentState } from "../state"
 
 const SYSTEM_PROMPT = `Você é o ATLAS, assistente especializado em legislação aeronáutica.
@@ -29,7 +30,7 @@ export async function synthesizerNode(state: AgentState): Promise<Partial<AgentS
 		},
 	])
 
-	const final_response = response.content.toString()
+	const final_response = messageText(response.content)
 	const cited_documents = retrieved_documents.map((d) => d.id)
 
 	return {
