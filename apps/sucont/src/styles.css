@@ -391,9 +391,13 @@ pre code {
 }
 
 /* ── Scrollbar slim (Módulo Subitens Genéricos) ── */
+/* `height` junto de `width`: a barra HORIZONTAL usa a altura, e sem ela um contêiner
+   com rolagem lateral (matriz de calor, faixas de filtro) ganhava a barra grossa do
+   sistema mesmo com a classe aplicada. */
 .scrollbar-thin::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-track,
 .custom-scrollbar::-webkit-scrollbar-track {
