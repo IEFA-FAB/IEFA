@@ -149,6 +149,11 @@ export function parseFile(file: File): Promise<RawRecord[]> {
 	})
 }
 
+/** Linha de uma das duas contas do cruzamento (897210300 × 897110300). */
+function ehContaDoPar(contaContabil: string): boolean {
+	return contaContabil === CONTA_EXECUCAO_RESPONSABILIDADE || contaContabil === CONTA_RESPONSABILIDADE
+}
+
 export function analyzeData(records: RawRecord[]): ReportData {
 	const map = new Map<
 		string,
@@ -165,14 +170,11 @@ export function analyzeData(records: RawRecord[]): ReportData {
 	// Conta corrente com alguma linha fora do acompanhamento (a STN) sai INTEIRO da
 	// análise. Descartar só a linha dela desmancharia o par: o lado que sobra vira
 	// AUSÊNCIA ou DIVERGÊNCIA cobrada da UG do COMAER, que não tem o que corrigir.
-	const contasCorrentesExcluidas = new Set(records.filter((r) => !isUgAcompanhada(r.UG)).map((r) => r.ContaCorrente))
+	const contasCorrentesExcluidas = new Set(records.filter((r) => !isUgAcompanhada(r.UG) && ehContaDoPar(r.ContaContabil)).map((r) => r.ContaCorrente))
 
 	for (const record of records) {
+		if (!ehContaDoPar(record.ContaContabil)) continue
 		if (contasCorrentesExcluidas.has(record.ContaCorrente)) continue
-
-		if (record.ContaContabil !== CONTA_EXECUCAO_RESPONSABILIDADE && record.ContaContabil !== CONTA_RESPONSABILIDADE) {
-			continue
-		}
 
 		if (!map.has(record.ContaCorrente)) {
 			map.set(record.ContaCorrente, {

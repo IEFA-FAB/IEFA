@@ -768,7 +768,9 @@ SUCONT-3 • DIREF • COMAER`
 						</div>
 					) : (
 						filteredUgs.map((ug) => {
-							const ugMessage = drafts.of(ug.ug, generateMessage(ug))
+							// Só monta a mensagem do cartão aberto: montá-la para a lista inteira
+							// refaria o texto de todas as UGs a cada tecla digitada em qualquer uma.
+							const ugMessage = expandedUg === ug.ug ? drafts.of(ug.ug, generateMessage(ug)) : null
 							return (
 								<div key={ug.ug} className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 									<button
@@ -818,7 +820,7 @@ SUCONT-3 • DIREF • COMAER`
 										</div>
 									</button>
 
-									{expandedUg === ug.ug && (
+									{expandedUg === ug.ug && ugMessage && (
 										<div className="border-t border-border bg-muted/50 p-6 space-y-6">
 											<div>
 												<h3 className="text-label text-foreground mb-3 flex items-center gap-2">

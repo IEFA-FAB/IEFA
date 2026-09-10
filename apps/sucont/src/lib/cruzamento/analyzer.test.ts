@@ -92,6 +92,17 @@ describe("cruzamento 897210300 × 897110300 (Q22)", () => {
 		expect(stats.totalUgs).toBe(0)
 	})
 
+	// A planilha de origem traz várias contas na mesma extração. Uma linha da STN em
+	// conta que não é do par não pode derrubar o par que compartilha o conta corrente.
+	it("só exclui pela linha da STN que esteja numa das contas do par", () => {
+		const records = [
+			rec("170999", "123119905", "CC1", 100),
+			rec(UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE, CONTA_EXECUCAO_RESPONSABILIDADE, "CC1", 500),
+			rec("120062", CONTA_RESPONSABILIDADE, "CC1", 400),
+		]
+		expect(statusDe(records, "CC1")).toBe("DIVERGÊNCIA DE SALDO")
+	})
+
 	it("não deixa a exclusão da STN alcançar conta corrente só do COMAER", () => {
 		const records = [rec("170999", CONTA_RESPONSABILIDADE, "CC1", 100), rec("120062", CONTA_RESPONSABILIDADE, "CC2", 900)]
 		expect(statusDe(records, "CC2")).toBe("AUSÊNCIA NA 897210300")

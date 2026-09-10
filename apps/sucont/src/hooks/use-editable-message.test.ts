@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { isDraftStale, resolveDraft } from "#/hooks/use-editable-message"
+import { applyEdit, isDraftStale, resolveDraft } from "#/hooks/use-editable-message"
 
 describe("resolveDraft", () => {
 	it("devolve o texto gerado quando não há rascunho", () => {
@@ -25,5 +25,22 @@ describe("resolveDraft", () => {
 
 	it("aceita rascunho vazio (o usuário pode apagar tudo)", () => {
 		expect(resolveDraft({ base: "gerado", text: "" }, "gerado")).toBe("")
+	})
+})
+
+describe("applyEdit", () => {
+	it("guarda o texto do usuário junto da geração que ele editou", () => {
+		expect(applyEdit({}, "120062", "gerado", "editado")).toEqual({ "120062": { base: "gerado", text: "editado" } })
+	})
+
+	// Rascunho idêntico ao gerado some da tela (sem aviso, sem botão de restaurar) e
+	// continuaria mascarando as regerações seguintes.
+	it("apaga o rascunho quando o usuário volta ao texto gerado", () => {
+		expect(applyEdit({ "120062": { base: "gerado", text: "editado" } }, "120062", "gerado", "gerado")).toEqual({})
+	})
+
+	it("não mexe no rascunho das outras UGs", () => {
+		const prev = { "120062": { base: "a", text: "b" }, "120039": { base: "c", text: "d" } }
+		expect(applyEdit(prev, "120062", "a", "a")).toEqual({ "120039": { base: "c", text: "d" } })
 	})
 })

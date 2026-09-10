@@ -182,6 +182,7 @@ function ContaGenerica() {
 		setMessageMode("individual")
 		setMessageType("sem_prazo")
 		setDeadline("")
+		drafts.resetAll()
 		if (fileInputRef.current) fileInputRef.current.value = ""
 	}
 

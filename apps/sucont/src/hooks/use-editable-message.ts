@@ -46,6 +46,21 @@ export function isDraftStale(draft: Draft | undefined, generated: string): boole
 	return draft !== undefined && draft.base !== generated
 }
 
+/**
+ * Rascunhos depois de uma digitação.
+ *
+ * Voltar ao texto gerado na mão é o mesmo que não ter rascunho: guardar um
+ * rascunho idêntico ao gerado o esconderia da tela (sem aviso de edição e sem
+ * botão de restaurar) e ele seguiria mascarando as regerações seguintes.
+ */
+export function applyEdit(prev: Record<string, Draft>, key: string, generated: string, next: string): Record<string, Draft> {
+	if (next !== generated) return { ...prev, [key]: { base: generated, text: next } }
+	if (prev[key] === undefined) return prev
+	const cleared = { ...prev }
+	delete cleared[key]
+	return cleared
+}
+
 export interface MessageDraft {
 	/** Texto a exibir e a copiar. */
 	text: string
@@ -60,6 +75,8 @@ export interface MessageDraft {
 
 export interface MessageDrafts {
 	of(key: string, generated: string): MessageDraft
+	/** Descarta todos os rascunhos — a tela trocou de arquivo/análise. */
+	resetAll(): void
 }
 
 /** Rascunhos por chave — para tela que lista uma mensagem por UG. */
@@ -74,7 +91,7 @@ export function useMessageDrafts(): MessageDrafts {
 				text,
 				isEdited: text !== generated,
 				isStale: isDraftStale(draft, generated),
-				setText: (next: string) => setDrafts((prev) => ({ ...prev, [key]: { base: generated, text: next } })),
+				setText: (next: string) => setDrafts((prev) => applyEdit(prev, key, generated, next)),
 				reset: () =>
 					setDrafts((prev) => {
 						if (prev[key] === undefined) return prev
@@ -87,7 +104,9 @@ export function useMessageDrafts(): MessageDrafts {
 		[drafts]
 	)
 
-	return useMemo(() => ({ of }), [of])
+	const resetAll = useCallback(() => setDrafts({}), [])
+
+	return useMemo(() => ({ of, resetAll }), [of, resetAll])
 }
 
 /**

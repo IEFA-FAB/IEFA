@@ -285,6 +285,7 @@ function SubitensGenericos() {
 		setMessageMode("individual")
 		setSelectedConferente("all")
 		setDashboardTab("operacional")
+		drafts.resetAll()
 	}
 
 	const updateUgConfig = (ug: string, field: string, value: string) => {

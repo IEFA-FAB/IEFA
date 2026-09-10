@@ -286,6 +286,7 @@ Diferença apurada: ${formatCurrency(diff)}
 		setMsgNumbers({})
 		setMsgDates({})
 		setMsgSubjects({})
+		drafts.resetAll()
 
 		const reader = new FileReader()
 		reader.onload = (evt) => {
@@ -321,6 +322,7 @@ Diferença apurada: ${formatCurrency(diff)}
 		setMsgNumbers({})
 		setMsgDates({})
 		setMsgSubjects({})
+		drafts.resetAll()
 	}
 
 	// ── generateMessageText ────────────────────────────────────────────────────
