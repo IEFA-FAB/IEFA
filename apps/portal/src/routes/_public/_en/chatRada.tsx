@@ -22,16 +22,13 @@ import {
 	parseSseBuffer,
 	sendMessage,
 } from "@/lib/alpha/chat"
-import { ALPHA_BASE_URL } from "@/lib/alpha/client"
+import { fetchAlphaHealth } from "@/lib/alpha/client"
 import type { ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
 
 /* =========================
    Constantes
 ========================= */
 
-// Sem URL cravada: `ALPHA_BASE_URL` respeita `VITE_ALPHA_API_URL`, que é o que o resto do
-// console do α já usa. Esta tela ignorava a variável e apontava para produção sempre.
-const API_BASE = ALPHA_BASE_URL
 const USE_STREAM = true
 
 // localStorage keys (somente quando logado)
@@ -293,36 +290,37 @@ function useRagClient(token: string | undefined) {
    Queries (TanStack Query)
 ========================= */
 
+/** Backoff enquanto o α está fora: Fibonacci em ms, teto de 30 s. */
+const HEALTH_BACKOFF_MS = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 30000]
+
+/** Ritmo com o α no ar. A sonda toca o banco; de 1 em 1 segundo seria carga sem pergunta. */
+const HEALTH_OK_INTERVAL_MS = 30_000
+
 function useHealthQuery() {
-	const [retryCount, setRetryCount] = useState(0)
+	/**
+	 * Falhas seguidas, em ref e não em state.
+	 *
+	 * O contador só decide o próximo intervalo, e mantê-lo em state re-renderizaria
+	 * a conversa inteira a cada sonda. O `useEffect` que fazia isso antes dependia
+	 * de `isFetched`, que vira `true` na primeira resposta e nunca mais muda: o
+	 * contador parava em 1 e o backoff congelava em 2 s — para sempre, no ar ou
+	 * fora dele. Eram 30 requisições por minuto, por aba aberta.
+	 */
+	const consecutiveFailures = useRef(0)
 
-	// Fibonacci sequence capped at 30s: 1, 2, 3, 5, 8, 13, 21, 30
-	const fibIntervals = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 30000]
-	const currentInterval = fibIntervals[Math.min(retryCount, fibIntervals.length - 1)]
-
-	const query = useQuery({
+	return useQuery({
 		queryKey: QUERY_KEYS.health,
 		queryFn: async () => {
-			try {
-				const res = await fetch(`${API_BASE}/health`)
-				const data = await res.json().catch(() => ({}))
-				return res.ok && data?.status === "ok" ? ("ok" as const) : ("error" as const)
-			} catch {
-				return "error" as const
-			}
+			const status = await fetchAlphaHealth()
+			consecutiveFailures.current = status === "ok" ? 0 : consecutiveFailures.current + 1
+			return status
 		},
-		refetchInterval: currentInterval,
+		refetchInterval: () => {
+			const failures = consecutiveFailures.current
+			return failures === 0 ? HEALTH_OK_INTERVAL_MS : HEALTH_BACKOFF_MS[Math.min(failures - 1, HEALTH_BACKOFF_MS.length - 1)]
+		},
 		initialData: "loading" as const,
 	})
-
-	useEffect(() => {
-		if (query.isFetched) {
-			setRetryCount((c) => c + 1)
-		}
-		// Intentionally tracks only isFetched to increment on each fetch result
-	}, [query.isFetched])
-
-	return query
 }
 
 function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: boolean, userId: string | null) {
