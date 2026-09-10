@@ -2,11 +2,24 @@ import { useMemo } from "react"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 import { chartChrome, chartSeries } from "#/auditor/theme"
 import { AccountGroup, type FinancialRecord } from "#/auditor/types"
+import { fabScale } from "#/lib/chart-theme"
 import { formatCompactNumber, formatCurrency } from "../services/dataProcessor"
 
 interface CompositionDonutsProps {
 	data: FinancialRecord[]
+	/**
+	 * Em que o segundo anel reparte a divergência.
+	 *
+	 * `"group"` (padrão) serve ao painel, que mostra as três naturezas de bem
+	 * juntas. `"ug"` serve à lâmina do telão, que já é de UMA natureza: ali o anel
+	 * por natureza seria sempre um círculo de 100% com duas fatias zeradas na
+	 * legenda — um gráfico que não responde pergunta nenhuma.
+	 */
+	breakdown?: "group" | "ug"
 }
+
+/** Quantas unidades ganham fatia própria antes do agrupamento em "Outras". */
+const TOP_UGS = 5
 
 /** Fatia com rótulo, valor e cor já resolvida em token. */
 interface Slice {
@@ -78,7 +91,7 @@ function Donut({ slices, center, caption }: { slices: Slice[]; center: React.Rea
  * medir conciliação. A leitura que aquele anel tentava dar é a do ICC, que o app
  * já calcula — então é ela que está aqui, sobre a base do SIAFI.
  */
-export function CompositionDonuts({ data }: CompositionDonutsProps) {
+export function CompositionDonuts({ data, breakdown = "group" }: CompositionDonutsProps) {
 	const stats = useMemo(() => {
 		let siafi = 0
 		let difference = 0
@@ -96,6 +109,19 @@ export function CompositionDonuts({ data }: CompositionDonutsProps) {
 		const conciliated = Math.max(0, siafi - difference)
 		const base = conciliated + difference
 
+		// Divergência por unidade: as maiores ganham fatia, o resto vira uma só. Sem
+		// o agrupamento, 84 UGs viram 84 fatias de um grau cada.
+		const byUg = new Map<string, { label: string; value: number }>()
+		for (const record of data) {
+			const entry = byUg.get(record.cod)
+			if (entry) entry.value += Math.abs(record.difference)
+			else byUg.set(record.cod, { label: record.ug, value: Math.abs(record.difference) })
+		}
+		const rankedUgs = [...byUg.values()].filter((u) => u.value > 0).sort((a, b) => b.value - a.value)
+		const others = rankedUgs.slice(TOP_UGS).reduce((acc, u) => acc + u.value, 0)
+		const ugSlices: Slice[] = rankedUgs.slice(0, TOP_UGS).map((u, index) => ({ name: u.label, value: u.value, color: fabScale[index % fabScale.length] }))
+		if (others > 0) ugSlices.push({ name: `Outras (${rankedUgs.length - TOP_UGS})`, value: others, color: chartChrome.axis })
+
 		return {
 			conciliation: [
 				{ name: "Conciliado", value: conciliated, color: chartSeries.icc },
@@ -106,6 +132,7 @@ export function CompositionDonuts({ data }: CompositionDonutsProps) {
 				{ name: "Consumo", value: byGroup[AccountGroup.CONSUMO], color: chartSeries.consumo },
 				{ name: "Intangível", value: byGroup[AccountGroup.INTANGIVEL], color: chartSeries.intangivel },
 			] satisfies Slice[],
+			ugs: ugSlices,
 			difference,
 			conciliatedPct: base > 0 ? (conciliated / base) * 100 : 0,
 		}
@@ -124,8 +151,8 @@ export function CompositionDonuts({ data }: CompositionDonutsProps) {
 				}
 			/>
 			<Donut
-				caption="Divergência por natureza de bem"
-				slices={stats.groups}
+				caption={breakdown === "ug" ? "Divergência por Unidade Gestora" : "Divergência por natureza de bem"}
+				slices={breakdown === "ug" ? stats.ugs : stats.groups}
 				center={
 					// Compacto, e não o valor por extenso: o furo do anel tem a largura do
 					// raio interno, e "R$ 42.631.936,01" sai por baixo do arco. O valor

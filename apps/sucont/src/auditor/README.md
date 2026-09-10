@@ -50,11 +50,20 @@ arquivo, inclusive quando nenhum dos dois sistemas reporta nada naquela natureza
 É conveniente para o cruzamento e veneno para qualquer agregado: numa competência
 com 84 UGs entram ~170 registros de zero absoluto.
 
-Todo agregado novo passa por `hasBalance` (`services/report.ts`). Sem ele, esses
-registros enchiam a tabela das maiores divergências com linhas de R$ 0,00,
-contavam como "equilibrados" na preponderância — afirmando conciliação sobre
-contas que ninguém reportou —, inflavam a contagem de UGs por grupo e faziam uma
-natureza vazia projetar "ICC 100%" no telão.
+O corte é aplicado **uma vez, na entrada** de `buildReportDataset` (`hasBalance`,
+em `services/report.ts`). Filtro por agregado é filtro que o agregado seguinte
+esquece — foi exatamente o que aconteceu entre duas passadas de revisão: a
+primeira fechou preponderância, tabela e grupos, e `buildTrends` e a hipótese de
+transferência continuaram lendo a série crua.
+
+O que esses registros faziam: enchiam a tabela das maiores divergências com
+linhas de R$ 0,00; contavam como "equilibrados" na preponderância, afirmando
+conciliação sobre contas que ninguém reportou; inflavam a contagem de UGs por
+grupo; faziam natureza vazia projetar "ICC 100%" no telão; transformavam **"a
+conta deixou de ser reportada" em "a UG reduziu 100% da divergência"** na seção
+de tendências (com o prompt mandando o modelo reconhecer o esforço); e davam à
+hipótese de transferência uma ponta cujo SILOMS parecia parado só porque nada
+foi reportado.
 
 A distinção é: zero nos dois sistemas é **ausência**; saldo igual e não-nulo nos
 dois é **conciliação**, e continua contando.

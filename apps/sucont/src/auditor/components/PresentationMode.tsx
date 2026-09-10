@@ -317,7 +317,9 @@ export function PresentationMode({ isOpen, onClose, data, selectedMonth, availab
 							<ComparisonChart data={groupRows} />
 						</div>
 						<div className="min-h-0">
-							<CompositionDonuts data={groupRows} />
+							{/* Por UG: a lâmina já é de uma natureza só, então repartir por natureza
+							    devolveria sempre um anel de 100% com duas fatias zeradas. */}
+							<CompositionDonuts data={groupRows} breakdown="ug" />
 						</div>
 					</div>
 				)}

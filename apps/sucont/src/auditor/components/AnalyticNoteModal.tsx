@@ -82,8 +82,10 @@ function Prose({ text }: { text: string }) {
 
 	return (
 		<div className="space-y-3">
-			{paragraphs.map((paragraph) => (
-				<p key={paragraph.slice(0, 60)} className="text-body text-foreground leading-relaxed">
+			{/* Chave posicional: o texto é do modelo e dois parágrafos podem abrir igual
+			    ("Cabe registrar que…"), o que colapsaria os dois num só. */}
+			{paragraphs.map((paragraph, index) => (
+				<p key={index} className="text-body text-foreground leading-relaxed">
 					{paragraph}
 				</p>
 			))}
@@ -138,6 +140,12 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 		reset()
 		setCopied(false)
 	}, [isOpen, reset])
+
+	// Sair da rota com a nota em geração é a mesma coisa que fechar o modal, e o
+	// efeito acima não alcança esse caso: ele só roda quando `isOpen` muda, e sair
+	// da tela desmonta a árvore inteira sem passar por lá. Sem esta limpeza o
+	// servidor levava a run de 8 mil tokens até o fim, no teto do usuário.
+	useEffect(() => () => abortRef.current?.abort(), [])
 
 	const result = mutation.data ?? null
 	const note: AnalyticNote | null = result?.note ?? null

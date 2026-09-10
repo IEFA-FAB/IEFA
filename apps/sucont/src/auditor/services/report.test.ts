@@ -166,6 +166,23 @@ describe("buildReportDataset — tendências", () => {
 		expect(cresceu?.deltaPct).toBe(50)
 	})
 
+	// Achado de revisão: `buildTrends` lia a série crua. Uma conta que simplesmente
+	// deixou de ser reportada virava a maior "Melhoria" da competência — e a seção
+	// de tendências elogiava uma redução de 100% numa nota cujo cabeçalho declarava
+	// zero unidades analisadas.
+	it("não trata conta que deixou de ser reportada como redução de divergência", () => {
+		const sumiu = normalizeData([
+			raw("2025-06", "120400", "BAAF", { bmp: [8000, 5000] }),
+			// A mesma UG na competência seguinte, sem saldo em nenhum dos dois sistemas.
+			raw("2025-07", "120400", "BAAF", {}),
+		])
+		const depois = buildReportDataset({ data: sumiu, competence: "2025-07", timeFilter: "MENSAL", scopeLabel: "todas as UGs" })
+
+		expect(depois.ugCount).toBe(0)
+		expect(depois.trends.flatMap((t) => t.improving)).toEqual([])
+		expect(depois.trends.flatMap((t) => t.worsening)).toEqual([])
+	})
+
 	it("ignora a unidade que não tem competência anterior na base", () => {
 		const todas = [...(mensal?.worsening ?? []), ...(mensal?.improving ?? [])]
 		expect(todas.some((i) => i.ug === "BAAN")).toBe(false)
@@ -194,5 +211,21 @@ describe("buildReportDataset — grupos e hipóteses", () => {
 
 	it("não levanta hipótese de transferência sob o piso de materialidade", () => {
 		expect(dataset.interOm).toEqual([])
+	})
+
+	// Mesmo achado, outra porta: a hipótese lia a série crua, e uma conta que sumiu
+	// casava com uma que cresceu — o SILOMS da primeira parecia "parado" só porque
+	// nada foi reportado. A seção 3-A nomeava uma UG fora do conjunto analisado.
+	it("não pareia unidade que deixou de ser reportada com unidade que cresceu", () => {
+		const sumiuEcresceu = normalizeData([
+			raw("2025-06", "120400", "BAAF", { bmp: [5_000_000, 0] }),
+			raw("2025-06", "120500", "BAGL", { bmp: [1000, 0] }),
+			raw("2025-07", "120400", "BAAF", {}),
+			raw("2025-07", "120500", "BAGL", { bmp: [5_001_000, 0] }),
+		])
+		const depois = buildReportDataset({ data: sumiuEcresceu, competence: "2025-07", timeFilter: "MENSAL", scopeLabel: "todas as UGs" })
+
+		expect(depois.interOm).toEqual([])
+		expect(depois.ugCount).toBe(1)
 	})
 })

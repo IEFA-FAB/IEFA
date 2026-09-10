@@ -234,13 +234,28 @@ function buildGroups(current: FinancialRecord[]): ReportGroupSummary[] {
 export function buildReportDataset(input: BuildReportInput): ReportDataset {
 	const { data, competence, timeFilter, scopeLabel } = input
 
-	const currentScope = recalculateDeltas(data, timeFilter)
-	// `hasBalance` aqui, e não em cada agregado: todo número da nota sai deste
-	// recorte, e um filtro por agregado é um filtro que um agregado novo esquece.
-	const current = currentScope.filter((r) => r.date === competence && hasBalance(r))
+	/**
+	 * A série que a nota descreve, sem os registros que nenhum dos dois sistemas
+	 * reportou.
+	 *
+	 * O filtro é aplicado UMA vez, na entrada, e não por agregado: um filtro por
+	 * agregado é um filtro que o agregado seguinte esquece. Foi o que aconteceu —
+	 * `buildTrends` e a hipótese de transferência liam `data` cru e transformavam
+	 * "a conta deixou de ser reportada" em "a UG reduziu 100% da divergência", numa
+	 * nota cujo cabeçalho declarava zero unidades analisadas.
+	 *
+	 * O corte também acerta a tendência dos dois lados: uma conta que só existe em
+	 * uma das duas competências perde o `hasPrevious`, e sem ele não entra em
+	 * tendência nenhuma. É o certo — não há variação a declarar contra um período
+	 * em que a conta não foi reportada.
+	 */
+	const balanced = data.filter(hasBalance)
+
+	const currentScope = recalculateDeltas(balanced, timeFilter)
+	const current = currentScope.filter((r) => r.date === competence)
 
 	const previousPeriod = shiftPeriod(competence, SCOPE_GAP[timeFilter] ?? 1)
-	const previousRows = data.filter((r) => r.date === previousPeriod && hasBalance(r))
+	const previousRows = balanced.filter((r) => r.date === previousPeriod)
 
 	const totals = sumTotals(current)
 
@@ -263,7 +278,7 @@ export function buildReportDataset(input: BuildReportInput): ReportDataset {
 		competenceLabel: toShortDate(competence),
 		timeFilter,
 		scopeLabel,
-		periodsLoaded: new Set(data.map((r) => r.date)).size,
+		periodsLoaded: new Set(balanced.map((r) => r.date)).size,
 		ugCount: new Set(current.map((r) => r.cod)).size,
 		recordCount: current.length,
 		totals,
@@ -277,10 +292,10 @@ export function buildReportDataset(input: BuildReportInput): ReportDataset {
 		},
 		groups: buildGroups(current),
 		topOffenders,
-		trends: buildTrends(data, competence),
+		trends: buildTrends(balanced, competence),
 		// A hipótese de transferência é sempre MENSAL: ela descreve um movimento
 		// entre duas competências consecutivas. Lida sobre um passo semestral, o
 		// "casamento" cruzaria seis meses de escrituração das duas pontas.
-		interOm: detectInterOmTransfers(recalculateDeltas(data, "MENSAL").filter((r) => r.date === competence)),
+		interOm: detectInterOmTransfers(recalculateDeltas(balanced, "MENSAL").filter((r) => r.date === competence)),
 	}
 }

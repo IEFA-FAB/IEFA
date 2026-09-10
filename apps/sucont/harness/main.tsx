@@ -170,6 +170,11 @@ function Harness({ dark }: { dark: boolean }) {
 				<CompositionDonuts data={data.filter((d) => d.date === latest)} />
 			</Panel>
 
+			{/* Repartição por UG: é a que a lâmina do telão usa, onde a natureza já é uma só. */}
+			<Panel title="CompositionDonutsUG (lâmina de uma natureza)" tall>
+				<CompositionDonuts data={data.filter((d) => d.date === latest && d.group === "BMP")} breakdown="ug" />
+			</Panel>
+
 			<Panel title="RankingList">
 				<RankingList data={data.filter((d) => d.date === latest)} historicalData={data} comparisonLabel="vs mês anterior" onSendMessage={() => {}} />
 			</Panel>
