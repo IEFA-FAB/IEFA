@@ -47,6 +47,24 @@ export const LEGAL_DOC_TITLES = {
 	},
 } as const satisfies Record<LegalLocale, Record<LegalDocType, string>>
 
+/**
+ * Rótulo curto do mesmo documento, para onde não há largura: barra lateral,
+ * rodapé de uma linha. "Política de" some porque o contexto já é o de documento
+ * legal — o título por extenso continua sendo o do documento aberto.
+ */
+export const LEGAL_DOC_SHORT_TITLES = {
+	"pt-BR": {
+		terms_of_use: "Termos",
+		privacy_policy: "Privacidade",
+		cookie_policy: "Cookies",
+	},
+	"en-US": {
+		terms_of_use: "Terms",
+		privacy_policy: "Privacy",
+		cookie_policy: "Cookies",
+	},
+} as const satisfies Record<LegalLocale, Record<LegalDocType, string>>
+
 export type LegalDocument = {
 	id: string
 	doc_type: LegalDocType

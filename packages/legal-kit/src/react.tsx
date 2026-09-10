@@ -1,10 +1,19 @@
+import { Fragment, type ReactNode } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import rehypeSanitize from "rehype-sanitize"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { LEGAL_CONTACT_EMAIL } from "./contact.ts"
 import { formatEffectiveDate } from "./format.ts"
-import { DEFAULT_LEGAL_LOCALE, LEGAL_DOC_PATHS, LEGAL_DOC_TITLES, type LegalDocType, type LegalDocument, type LegalLocale } from "./types.ts"
+import {
+	DEFAULT_LEGAL_LOCALE,
+	LEGAL_DOC_PATHS,
+	LEGAL_DOC_SHORT_TITLES,
+	LEGAL_DOC_TITLES,
+	type LegalDocType,
+	type LegalDocument,
+	type LegalLocale,
+} from "./types.ts"
 
 /**
  * Renderização compartilhada dos documentos legais.
@@ -116,6 +125,18 @@ export type LegalFooterLinksProps = {
 	className?: string
 	linkClassName?: string
 	docTypes?: readonly LegalDocType[]
+	/**
+	 * `short` troca "Política de Privacidade" por "Privacidade". Para barra
+	 * lateral e rodapé de uma linha, onde o título por extenso quebra em duas
+	 * linhas e o bloco legal passa a pesar mais que a navegação do app.
+	 */
+	variant?: "full" | "short"
+	/**
+	 * Separador entre os links — `"·"` numa fila estreita. Sem ele, três rótulos
+	 * curtos lado a lado se leem como uma frase só. É decorativo: fica fora da
+	 * ordem de leitura do leitor de tela.
+	 */
+	separator?: ReactNode
 }
 
 const DEFAULT_FOOTER_DOCS: readonly LegalDocType[] = ["terms_of_use", "privacy_policy", "cookie_policy"]
@@ -126,13 +147,20 @@ export function LegalFooterLinks({
 	className = "flex flex-wrap items-center gap-x-3 gap-y-1",
 	linkClassName = "text-xs text-muted-foreground transition-colors hover:text-foreground",
 	docTypes = DEFAULT_FOOTER_DOCS,
+	variant = "full",
+	separator,
 }: LegalFooterLinksProps) {
+	const titles = variant === "short" ? LEGAL_DOC_SHORT_TITLES : LEGAL_DOC_TITLES
+
 	return (
 		<nav aria-label={STRINGS[locale].legalNav} className={className}>
-			{docTypes.map((docType) => (
-				<a key={docType} href={LEGAL_DOC_PATHS[locale][docType]} className={linkClassName}>
-					{LEGAL_DOC_TITLES[locale][docType]}
-				</a>
+			{docTypes.map((docType, index) => (
+				<Fragment key={docType}>
+					{separator && index > 0 ? <span aria-hidden="true">{separator}</span> : null}
+					<a href={LEGAL_DOC_PATHS[locale][docType]} className={linkClassName}>
+						{titles[locale][docType]}
+					</a>
+				</Fragment>
 			))}
 		</nav>
 	)
