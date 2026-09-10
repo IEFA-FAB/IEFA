@@ -22,14 +22,27 @@
  * `RADA_INDEX_URL`.
  */
 import { createHash } from "node:crypto"
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { pdfToSubmissionText } from "../extraction/to-text.ts"
 import { OcrUnavailableError, ocrPdf } from "../ingest/pdf-ocr.ts"
 import { parseRadaIndex, requireCompleteIndex } from "../ingest/rada-index.ts"
 
-const ARCHIVE = process.env.RADA_ARCHIVE_DIR ?? join(homedir(), "rada-e")
+/**
+ * Expande `~` no início do caminho.
+ *
+ * O `.env.schema` documenta `~/rada-e`, e o shell não expande valor lido de arquivo: sem
+ * isto, `RADA_ARCHIVE_DIR=~/rada-e` criava `apps/alpha/~/rada-e/` DENTRO da árvore do
+ * repositório — que é público —, num caminho que nenhuma regra do `.gitignore` cobre. PDF
+ * interno da FAB ficava a um `git add -A` de distância.
+ */
+export function expandHome(path: string): string {
+	if (path === "~") return homedir()
+	return path.startsWith("~/") ? join(homedir(), path.slice(2)) : path
+}
+
+const ARCHIVE = expandHome(process.env.RADA_ARCHIVE_DIR ?? join(homedir(), "rada-e"))
 const KNOWLEDGE = new URL("../../knowledge/", import.meta.url).pathname
 const REQUEST_TIMEOUT_MS = 120_000
 
@@ -39,6 +52,9 @@ interface CatalogEntry {
 	title: string
 	url: string
 	kind: "portaria" | "module" | "submodule"
+	/** Tamanho e data do último download, para o dry-run comparar sem baixar de novo. */
+	bytes?: number
+	lastModified?: string | null
 }
 
 /** O que já foi convertido, para não gastar conversão em arquivo inalterado. */
@@ -102,7 +118,11 @@ function toMarkdown(entry: CatalogEntry, text: string, sha256: string, viaOcr: b
 
 /** Converte o acervo local em `knowledge/*.md`. Não toca a rede. */
 async function build(noOcr: boolean): Promise<void> {
-	const tessdataDir = process.env.RADA_TESSDATA_DIR ?? join(ARCHIVE, "tessdata")
+	// Só sobrescreve o diretório de modelos do tesseract se ele existir de verdade:
+	// apontar `TESSDATA_PREFIX` para um caminho inexistente ESCONDE o modelo que a
+	// distribuição instalou, e o `por` do sistema passava a ser reportado como ausente.
+	const configured = expandHome(process.env.RADA_TESSDATA_DIR ?? join(ARCHIVE, "tessdata"))
+	const tessdataDir = (await stat(configured).catch(() => null))?.isDirectory() ? configured : undefined
 	const catalog = await readJson<Record<string, CatalogEntry>>(join(ARCHIVE, "meta/catalog.json"), {})
 	if (Object.keys(catalog).length === 0)
 		fail(`acervo vazio ou sem catálogo em ${ARCHIVE}/meta/catalog.json — rode 'bun run rada:fetch --apply' conectado à intranet.`)
@@ -126,7 +146,17 @@ async function build(noOcr: boolean): Promise<void> {
 
 		const bytes = new Uint8Array(await readFile(join(ARCHIVE, "pdf", name)))
 		const sha256 = createHash("sha256").update(bytes).digest("hex")
-		if (built[name]?.sha256 === sha256) {
+		// O sha256 diz que o PDF não mudou; ele NÃO diz que a saída continua lá. Apagar
+		// `knowledge/*.md` deixa para trás o `.rada-build.json` (é dotfile), e sem esta
+		// conferência o build virava no-op silencioso e o `ingest:all` saía 0 sobre nada.
+		const priorBuild = built[name]
+		const outputExists = priorBuild
+			? await stat(join(KNOWLEDGE, priorBuild.file)).then(
+					() => true,
+					() => false
+				)
+			: false
+		if (priorBuild?.sha256 === sha256 && outputExists) {
 			unchanged.push(`${entry.letter} ${entry.title}`)
 			continue
 		}
@@ -206,6 +236,8 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 	const changed: string[] = []
 	const unchanged: string[] = []
 	const attention: string[] = []
+	/** Linhas de `pendencias.tsv`: tipo, origem, rótulo, URL. */
+	const pendingRows: string[][] = []
 
 	for (const module of modules) {
 		let head: Response
@@ -216,11 +248,13 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 			// Quatro hosts do RADA-e servem certificado autoassinado, dois deles vencidos.
 			// Sem --insecure-tls esses módulos são REPORTADOS, nunca omitidos em silêncio.
 			attention.push(`${module.letter} — ${/certificate|tls|ssl/i.test(reason) ? `certificado não confiável: ${reason}` : reason}`)
+			pendingRows.push(["pdf", module.letter, module.title, module.url])
 			continue
 		}
 
 		if (!head.ok) {
 			attention.push(`${module.letter} — HTTP ${head.status}`)
+			pendingRows.push(["pdf", module.letter, module.title, module.url])
 			continue
 		}
 		if (!(head.headers.get("content-type") ?? "").includes("pdf")) {
@@ -232,14 +266,24 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 		}
 
 		const file = known.get(module.url) ?? `${module.letter}-${slug(module.title)}.pdf`
+		const recorded = catalog[file]
+		const remoteBytes = Number(head.headers.get("content-length")) || undefined
+		const remoteModified = head.headers.get("last-modified")
+
 		if (!apply) {
-			changed.push(`${module.letter} ${module.title} → ${file}`)
+			// O `HEAD` já está em mãos: comparar com o que o catálogo registrou é o que
+			// torna a prévia útil. Sem isso todo módulo aparecia como "baixaria", e o
+			// dry-run não distinguia mudança real de nenhuma.
+			const same = recorded && recorded.bytes === remoteBytes && recorded.lastModified === remoteModified
+			if (same) unchanged.push(`${module.letter} ${module.title}`)
+			else changed.push(`${module.letter} ${module.title} → ${file}${recorded ? "" : " (novo)"}`)
 			continue
 		}
 
 		const response = await request(module.url, { redirect: "follow" })
 		if (!response.ok) {
 			attention.push(`${module.letter} — download HTTP ${response.status}`)
+			pendingRows.push(["pdf", module.letter, module.title, module.url])
 			continue
 		}
 
@@ -252,11 +296,23 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 		}
 
 		await writeFile(join(ARCHIVE, "pdf", file), bytes)
-		catalog[file] = { letter: module.letter, title: module.title, url: module.url, kind: "module" }
+		catalog[file] = {
+			letter: module.letter,
+			title: module.title,
+			url: module.url,
+			kind: "module",
+			bytes: bytes.byteLength,
+			lastModified: remoteModified,
+		}
 		changed.push(`${module.letter} ${module.title} (${(bytes.byteLength / 1048576).toFixed(1)} MB)`)
 	}
 
-	if (apply) await writeFile(join(ARCHIVE, "meta/catalog.json"), `${JSON.stringify(catalog, null, 2)}\n`, "utf8")
+	if (apply) {
+		await writeFile(join(ARCHIVE, "meta/catalog.json"), `${JSON.stringify(catalog, null, 2)}\n`, "utf8")
+		// Sem gravar isto, `--pending` só funcionava com a lista escrita à mão. O que não
+		// veio agora é exatamente o que a próxima sessão na intranet precisa tentar.
+		await writeFile(join(ARCHIVE, "meta/pendencias.tsv"), pendingRows.map((row) => row.join("\t")).join("\n") + (pendingRows.length ? "\n" : ""), "utf8")
+	}
 	report({ [apply ? "⬇  Baixados" : "⬇  Mudaram (baixaria)"]: changed, "•  Sem mudança": unchanged, "⚠  Precisam de atenção": attention })
 	console.log(apply ? "Próximo passo: bun run rada:build\n" : "Nada foi escrito. Rode com --apply.\n")
 }
@@ -279,6 +335,10 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 		.map((line) => line.split("\t"))
 		.filter((cols): cols is [string, string, string, string] => cols.length === 4 && cols[3].startsWith("http"))
 
+	const catalogPath = join(ARCHIVE, "meta/catalog.json")
+	const catalog = await readJson<Record<string, CatalogEntry>>(catalogPath, {})
+	let catalogChanged = false
+
 	const done: string[] = []
 	const stillPending: string[][] = []
 
@@ -300,6 +360,13 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 
 			await mkdir(join(ARCHIVE, dir), { recursive: true })
 			await writeFile(join(ARCHIVE, dir, file), bytes)
+
+			// Sem entrada no catálogo o `build` descarta o arquivo por falta de título e
+			// origem — tudo que o `--pending` recuperava ficava inconversível.
+			if (dir === "pdf") {
+				catalog[file] = { letter: origin, title: label, url, kind: "submodule", bytes: bytes.byteLength, lastModified: null }
+				catalogChanged = true
+			}
 			done.push(`${origin} ${label} (${(bytes.byteLength / 1048576).toFixed(1)} MB)`)
 		} catch (error) {
 			stillPending.push([kind, origin, label, url])
@@ -307,6 +374,7 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 		}
 	}
 
+	if (catalogChanged) await writeFile(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`, "utf8")
 	await writeFile(listPath, stillPending.map((cols) => cols.join("\t")).join("\n") + (stillPending.length ? "\n" : ""), "utf8")
 	report({ "⬇  Recuperados": done, "⚠  Ainda pendentes": stillPending.map(([, origin, label]) => `${origin} ${label}`) })
 }
@@ -335,4 +403,6 @@ async function main(): Promise<void> {
 	fail("uso: rada.ts build [--no-ocr] | fetch [--apply | --pending] [--insecure-tls]")
 }
 
-await main()
+// Só executa quando chamado como programa. Sem isto, importar qualquer coisa deste
+// arquivo — num teste, por exemplo — dispararia a coleta.
+if (import.meta.main) await main()

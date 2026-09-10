@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { supabase } from "../db/supabase.ts"
 import { env } from "../env.ts"
 import { embeddingModelId, getEmbeddings } from "../lib/embeddings.ts"
@@ -119,16 +120,38 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 	const title = frontmatter.title ?? source
 	const year = frontmatter.year ?? new Date().getFullYear()
 
-	const { data: existing } = await supabase.from("document").select("id").eq("source", source).single()
+	// O hash do markdown decide se há trabalho a fazer. Antes, um documento já existente
+	// era reaproveitado e todo `chunk_index` já gravado era pulado: módulo revisto entrava
+	// como "0 criados, N pulados" e a base seguia servindo o texto SUPERSEDIDO, com a
+	// ingestão relatando sucesso. Para uma norma isso é o pior desfecho possível.
+	const contentHash = createHash("sha256").update(markdown).digest("hex")
+
+	const { data: existing } = await supabase.from("document").select("id, content_hash").eq("source", source).single()
 
 	let documentId: string
 
 	if (existing) {
 		documentId = existing.id
+
+		if (existing.content_hash === contentHash) return { chunks_created: 0, chunks_skipped: 0 }
+
+		// Conteúdo mudou. Este caminho é deliberadamente SEM versionamento — a coluna
+		// `version_label` do schema é nula "para o corpus legado da FAB, ingerido por
+		// markdown", e quem versiona é `sources/pipeline.ts`. Então os chunks antigos são
+		// substituídos, não superseditados: manter os dois lados sem rótulo de versão
+		// devolveria as duas redações na mesma busca, sem como distingui-las.
+		const { error: deleteError } = await supabase.from("document_chunk").delete().eq("document_id", documentId)
+		if (deleteError) throw new Error(`Failed to clear previous chunks: ${deleteError.message}`)
+
+		const { error: updateError } = await supabase
+			.from("document")
+			.update({ title, year, raw_content: markdown, content_hash: contentHash, updated_at: new Date().toISOString() })
+			.eq("id", documentId)
+		if (updateError) throw new Error(`Failed to update document: ${updateError.message}`)
 	} else {
 		const { data: doc, error } = await supabase
 			.from("document")
-			.insert({ source, document_type: documentType, title, year, raw_content: markdown })
+			.insert({ source, document_type: documentType, title, year, raw_content: markdown, content_hash: contentHash })
 			.select("id")
 			.single()
 		if (error || !doc) throw new Error(`Failed to insert document: ${error?.message}`)

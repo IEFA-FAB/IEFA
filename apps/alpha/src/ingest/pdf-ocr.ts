@@ -36,9 +36,16 @@ export class OcrUnavailableError extends Error {
 }
 
 async function run(command: string[], env?: Record<string, string>): Promise<{ ok: boolean; stdout: string; stderr: string }> {
-	const proc = Bun.spawn(command, { stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
-	const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
-	return { ok: (await proc.exited) === 0, stdout, stderr }
+	try {
+		const proc = Bun.spawn(command, { stdout: "pipe", stderr: "pipe", env: { ...process.env, ...env } })
+		const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
+		return { ok: (await proc.exited) === 0, stdout, stderr }
+	} catch (error) {
+		// Binário ausente faz o `Bun.spawn` LANÇAR, não devolver código de saída. Sem este
+		// catch, a mensagem "instale o poppler-utils" era ramo morto e o usuário recebia um
+		// ENOENT cru.
+		return { ok: false, stdout: "", stderr: error instanceof Error ? error.message : String(error) }
+	}
 }
 
 /**
@@ -61,8 +68,10 @@ export function sortPageFiles(files: string[]): string[] {
  */
 export async function ocrUnavailableReason(tessdataDir?: string): Promise<string | null> {
 	const [poppler, tess] = await Promise.all([run(["pdftoppm", "-v"]), run(["tesseract", "--version"])])
-	if (!poppler.ok && !/pdftoppm/i.test(poppler.stderr)) return "`pdftoppm` não encontrado — instale o poppler-utils."
-	if (!tess.ok && !/tesseract/i.test(tess.stdout + tess.stderr)) return "`tesseract` não encontrado — instale o tesseract-ocr."
+	// `pdftoppm -v` sai com código != 0 e escreve a versão no stderr; o que distingue
+	// "instalado" de "ausente" é a versão aparecer, não o código de saída.
+	if (!/pdftoppm/i.test(poppler.stdout + poppler.stderr)) return "`pdftoppm` não encontrado — instale o poppler-utils."
+	if (!/tesseract/i.test(tess.stdout + tess.stderr)) return "`tesseract` não encontrado — instale o tesseract-ocr."
 
 	const langs = await run(["tesseract", "--list-langs"], tessdataDir ? { TESSDATA_PREFIX: tessdataDir } : undefined)
 	if (!new RegExp(`^${OCR_LANGUAGE}$`, "m").test(langs.stdout + langs.stderr)) {
