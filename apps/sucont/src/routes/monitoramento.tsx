@@ -528,7 +528,6 @@ function MonitoramentoPage() {
 	return (
 		<HubLayout
 			guide={guide}
-			width="wide"
 			actions={
 				fileName && (
 					<Button type="button" variant="outline" size="sm" onClick={clearData}>

@@ -1,3 +1,14 @@
+/**
+ * Inventário dos módulos e oráculos da SUCONT-3, por seção.
+ *
+ * Item com `internalPath` é ferramenta que JÁ FOI PORTADA para dentro do hub: a
+ * rota interna substitui a versão legada hospedada fora (`*.sucont3-2sau.workers.dev`,
+ * `ai.studio`), que ficou como duplicata pior — sem o controle de acesso, a edição
+ * de mensagem e a exclusão da UG 170999 que só existem aqui. O caminho tem que
+ * casar com um `internalPath` de `sucontTools` (`centro-monitoramento-data.test.ts`
+ * garante). Item com `url` é o que continua fora de propósito: planilha, caderno
+ * do NotebookLM, sistema federal.
+ */
 export const modulesData = {
 	"3.1": {
 		title: "SUCONT-3.1 — Seção de Acompanhamento Contábil",
@@ -7,7 +18,7 @@ export const modulesData = {
 				name: "Cruzamento de Contas Correntes de Cobrança (Q22)",
 				purpose: "Analisar e cruzar dados de contas correntes de cobrança para identificar divergências.",
 				examples: ["Analisar Q22", "Verificar divergências de cobrança", "Gerar relatório de contas correntes"],
-				url: "https://cruzamentoscontas.sucont3-2sau.workers.dev/",
+				internalPath: "/cruzamento-contas",
 				group: "Analistas SUCONT - Análises automatizadas do RAC",
 			},
 			{
@@ -15,7 +26,7 @@ export const modulesData = {
 				name: "Monitoramento de Contas de Saldo Transitório (Q35, Q36, Q37, Q16, Q30, Q26)",
 				purpose: "Acompanhar contas com saldos transitórios e identificar pendências de regularização.",
 				examples: ["Listar contas transitórias", "Verificar Q35", "Analisar pendências Q16"],
-				url: "https://analistasaldosimproprios.sucont3-2sau.workers.dev/",
+				internalPath: "/monitoramento",
 				group: "Analistas SUCONT - Análises automatizadas do RAC",
 			},
 			{
@@ -23,7 +34,7 @@ export const modulesData = {
 				name: "Monitoramento de Saldos Alongados (20 questões do RAC)",
 				purpose: "Monitorar saldos que permanecem alongados e exigem providências das Unidades Gestoras.",
 				examples: ["Analisar saldos alongados", "Consultar Q07", "Relatório de envelhecimento de saldos"],
-				url: "https://analistasaldoalongado.sucont3-2sau.workers.dev/",
+				internalPath: "/analistasaldoalongado",
 				group: "Analistas SUCONT - Análises automatizadas do RAC",
 			},
 			{
@@ -31,7 +42,7 @@ export const modulesData = {
 				name: "Uso de Subitens Genéricos (Q28)",
 				purpose: "Identificar o uso de subitens genéricos nas apropriações contábeis.",
 				examples: ["Verificar Q28", "Listar subitens genéricos", "Analisar apropriações indevidas"],
-				url: "https://ai.studio/apps/ae41b970-96e8-47ea-ae35-827fa1eb96dd",
+				internalPath: "/subitens-genericos",
 				group: "Analistas SUCONT - Análises automatizadas do RAC",
 			},
 			{
@@ -39,7 +50,7 @@ export const modulesData = {
 				name: "Compatibilidade entre Contas (Q39, Q20, Q11)",
 				purpose: "Verificar a compatibilidade entre contas contábeis e identificar lançamentos atípicos.",
 				examples: ["Analisar compatibilidade", "Consultar Q39", "Verificar lançamentos atípicos"],
-				url: "https://analistacompatibilidade.sucont3-2sau.workers.dev/",
+				internalPath: "/analista-compatibilidade",
 				group: "Analistas SUCONT - Análises automatizadas do RAC",
 			},
 			{
@@ -47,7 +58,7 @@ export const modulesData = {
 				name: "Uso de Contas Contábeis Genéricas (Q29)",
 				purpose: "Identificar e analisar o uso indevido de contas contábeis genéricas no COMAER, com base no RAC.",
 				examples: ["Mostrar inconsistências", "Mostrar minhas UGs", "Cobrar apenas a questão RAC", "Gerar análise gerencial"],
-				url: "https://analistacontagenerica.sucont3-2sau.workers.dev/",
+				internalPath: "/conta-generica",
 				group: "Analistas SUCONT - Análises automatizadas do RAC",
 			},
 			{

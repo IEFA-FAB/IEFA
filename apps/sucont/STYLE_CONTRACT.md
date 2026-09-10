@@ -159,9 +159,11 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
 - **Filtro NÃO vai em `actions`.** Filtro é do conteúdo e mora no corpo, com
   rótulo. O cabeçalho é navegação e ação; misturar os dois foi o defeito que a
   barra lateral do hub já tinha corrigido em 2026-08.
-- **`width="wide"` só por dado denso** — tela cuja unidade de leitura é tabela ou
-  matriz (`auditor`, `monitoramento`, `analista-compatibilidade`, `documentacao`).
-  Nunca por preferência.
+- **Uma largura para o hub inteiro** (`max-w-[96rem]`). Havia `default` (72rem)
+  e `wide` (110rem, "só por dado denso"): quatro telas eram `wide` e oito não, e
+  ao trocar de ferramenta a margem lateral saltava sem dizer nada. Tabela larga
+  rola em `overflow-x-auto`; o formulário de entrada segue estreito por conta
+  própria (`AnalysisStart` é `max-w-4xl`). A prop `width` foi removida.
 - **Segmento de escolha é `Tabs`**, nunca `<button>` pintado à mão: os quatro que
   existiam não tinham `role="tab"` e nenhum navegava por seta do teclado.
 

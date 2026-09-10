@@ -95,21 +95,22 @@ interface HubLayoutProps {
 	 * de a planilha entrar.
 	 */
 	guide?: React.ReactNode
-	/**
-	 * Largura do conteúdo. `wide` é para tela cuja unidade de leitura é a tabela
-	 * ou a matriz — o auditor e o monitoramento perdem sentido espremidos em
-	 * 72rem. O resto do hub usa `default`, e uma tela só escapa por ter dado
-	 * denso, nunca por preferência.
-	 */
-	width?: "default" | "wide"
 }
 
-const CONTENT_WIDTH = {
-	default: "max-w-6xl",
-	wide: "max-w-[110rem]",
-} as const
+/**
+ * Uma largura para o hub inteiro.
+ *
+ * Havia duas — `default` (72rem) e `wide` (110rem), esta "só por dado denso".
+ * Na prática quatro telas eram `wide` e oito não, e ao trocar de ferramenta a
+ * margem lateral saltava: o mesmo `PageHeader`, a mesma barra, e o conteúdo ora
+ * encostado na borda, ora com 10rem de folga de cada lado. Com as sete telas de
+ * análise iguais por dentro, era a diferença mais visível que restava, e não
+ * dizia nada — tabela larga já rola em `overflow-x-auto`. O formulário de
+ * entrada segue estreito por conta própria (`AnalysisStart` é `max-w-4xl`).
+ */
+const CONTENT_WIDTH = "max-w-[96rem]"
 
-export function HubLayout({ children, title, description, searchable = false, actions, guide, width = "default" }: HubLayoutProps) {
+export function HubLayout({ children, title, description, searchable = false, actions, guide }: HubLayoutProps) {
 	// Estado da barra lida do cookie no `beforeLoad` da raiz: o HTML do SSR já sai
 	// no estado certo, sem o salto de 16rem na hidratação.
 	const { sidebarOpen } = useRouteContext({ from: "__root__" })
@@ -118,7 +119,6 @@ export function HubLayout({ children, title, description, searchable = false, ac
 	const blurb = description ?? tool?.description
 	const heading = title ?? tool?.title
 	const scope = toolScopeLabel(tool)
-	const maxWidth = CONTENT_WIDTH[width]
 
 	return (
 		<SidebarProvider defaultOpen={sidebarOpen} className="bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan">
@@ -135,7 +135,7 @@ export function HubLayout({ children, title, description, searchable = false, ac
 				</header>
 
 				<div className="flex-1">
-					<div className={cn("mx-auto w-full px-4 pt-6 pb-24 md:px-8", maxWidth)}>
+					<div className={cn("mx-auto w-full px-4 pt-6 pb-24 md:px-8", CONTENT_WIDTH)}>
 						{(heading || searchable) && (
 							<div className="mb-6 flex flex-col gap-6">
 								{heading && (

@@ -687,7 +687,6 @@ DIREF/SUCONT/SUCONT-3
 	return (
 		<HubLayout
 			guide={guide}
-			width="wide"
 			actions={
 				reports.length > 0 && (
 					<Button type="button" variant="outline" size="sm" onClick={handleReset}>

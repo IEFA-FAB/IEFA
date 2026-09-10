@@ -57,7 +57,6 @@ function PlataformaDoc() {
 
 	return (
 		<HubLayout
-			width="wide"
 			actions={
 				docData && (
 					<>

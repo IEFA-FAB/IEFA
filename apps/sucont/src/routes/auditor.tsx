@@ -433,7 +433,6 @@ function AuditorPage() {
 
 	return (
 		<HubLayout
-			width="wide"
 			actions={
 				canEdit && (
 					<Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
