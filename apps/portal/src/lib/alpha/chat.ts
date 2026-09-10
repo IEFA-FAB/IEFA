@@ -36,7 +36,35 @@ interface SessionCreated {
 
 interface MessagesList {
 	session_id: string
-	messages: Array<{ role: string; content: string }>
+	messages: Array<{ role: string; content: string; cited_documents?: string[] }>
+}
+
+/**
+ * Um trecho citado, como o α o guarda.
+ *
+ * `metadata.source` é o rótulo do documento ("RADA-e Módulo C"); `chapter` e `article` são
+ * o dispositivo. É com isso que a citação deixa de ser um UUID e vira uma referência que
+ * alguém consegue conferir.
+ */
+export interface ChunkDetail {
+	id: string
+	content: string
+	chapter: string | null
+	article: string | null
+	section: string | null
+	chunk_index: number
+	metadata: { source?: string; document_type?: string; year?: number } | null
+}
+
+export async function fetchChunk(token: string, chunkId: string): Promise<ChunkDetail> {
+	return await alphaRequest<ChunkDetail>(`/api/v1/chunks/${chunkId}`, token)
+}
+
+/** Rótulo curto do trecho: documento e dispositivo, quando houver. */
+export function chunkLabel(chunk: ChunkDetail): string {
+	const dispositivo = [chunk.chapter, chunk.article].filter(Boolean).join(", ")
+	const documento = chunk.metadata?.source?.trim() || "Trecho do RADA-e"
+	return dispositivo ? `${documento} — ${dispositivo}` : documento
 }
 
 /** Uma conversa anterior, como o α a deriva do `query_log`. */

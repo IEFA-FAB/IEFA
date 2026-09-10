@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { answerText, parseSseBuffer } from "./chat"
+import { answerText, chunkLabel, parseSseBuffer } from "./chat"
 
 describe("parseSseBuffer", () => {
 	it("lê o nome do evento, não só o dado", () => {
@@ -50,5 +50,30 @@ describe("answerText", () => {
 		const semBase = answerText({ session_id: "s", final_response: "   ", cited_documents: [], termination_reason: "no_documents_found" })
 
 		expect(semBase.length).toBeGreaterThan(0)
+	})
+})
+
+describe("chunkLabel", () => {
+	const base = { id: "c1", content: "…", chapter: null, article: null, section: null, chunk_index: 0, metadata: null }
+
+	it("junta documento e dispositivo", () => {
+		expect(chunkLabel({ ...base, chapter: "Capítulo II", article: "Art. 7º", metadata: { source: "RADA-e Módulo C" } })).toBe(
+			"RADA-e Módulo C — Capítulo II, Art. 7º"
+		)
+	})
+
+	it("usa só o documento quando não há dispositivo", () => {
+		expect(chunkLabel({ ...base, metadata: { source: "RADA-e Módulo A" } })).toBe("RADA-e Módulo A")
+	})
+
+	it("nunca devolve rótulo vazio", () => {
+		// O rótulo é o que substitui o UUID na tela; vazio devolveria a citação ao estado
+		// que esta mudança existe para corrigir.
+		expect(chunkLabel(base).length).toBeGreaterThan(0)
+		expect(chunkLabel({ ...base, metadata: { source: "   " } }).length).toBeGreaterThan(0)
+	})
+
+	it("tolera dispositivo parcial", () => {
+		expect(chunkLabel({ ...base, article: "Art. 3º", metadata: { source: "RADA-e Módulo B" } })).toBe("RADA-e Módulo B — Art. 3º")
 	})
 })

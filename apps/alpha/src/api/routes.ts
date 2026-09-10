@@ -78,7 +78,7 @@ type MessageResponse = {
 
 type MessagesListResponse = {
 	session_id: string
-	messages: Array<{ role: string; content: string }>
+	messages: Array<{ role: string; content: string; cited_documents: string[] }>
 	_links: { self: { href: string } }
 }
 
@@ -342,13 +342,27 @@ const app = new Hono<{ Variables: AppVariables }>()
 		}
 
 		const state = await graph.getState({ configurable: { thread_id: session_id } })
+		// O checkpointer guarda o texto das mensagens, mas não o que foi citado — isso vive
+		// em `query_log`, uma linha por pergunta. Sem esta junção, reabrir uma conversa
+		// devolvia as respostas sem nenhuma referência, e o painel de fontes ficava vazio
+		// para tudo que não fosse o turno recém-respondido.
+		const { data: logRows } = await supabase
+			.from("query_log")
+			.select("cited_documents, created_at")
+			.eq("session_id", session_id)
+			.order("created_at", { ascending: true })
+
 		// `messageText` e não `m.content`: mensagem do assistente restaurada do checkpointer
 		// pode trazer o conteúdo como ARRAY de blocos do Bedrock, e devolvê-lo cru faz o
 		// histórico chegar ao portal como "[object Object]".
-		const messages = (state.values?.messages ?? []).map((m: any) => ({
-			role: m.type ?? "unknown",
-			content: messageText(m.content),
-		}))
+		let answerIndex = 0
+		const messages = (state.values?.messages ?? []).map((m: any) => {
+			const role = m.type ?? "unknown"
+			// As linhas do log seguem a ordem das respostas: a n-ésima mensagem do assistente
+			// corresponde à n-ésima pergunta registrada.
+			const cited = role === "ai" ? ((logRows ?? [])[answerIndex++]?.cited_documents ?? []) : []
+			return { role, content: messageText(m.content), cited_documents: cited as string[] }
+		})
 		return c.json<MessagesListResponse>({
 			session_id,
 			messages,

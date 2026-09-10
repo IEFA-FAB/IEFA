@@ -34,6 +34,8 @@ export type AskResponse = {
 }
 
 export type RemoteMessage = {
+	/** Ids de chunk citados na resposta; vazio para mensagem do usuário. */
+	cited_documents?: string[]
 	role: "user" | "assistant" | "system"
 	content: string
 	content_json?:
