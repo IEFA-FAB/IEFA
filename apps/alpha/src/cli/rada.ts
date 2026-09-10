@@ -27,6 +27,7 @@ import { homedir } from "node:os"
 import { join, resolve, sep } from "node:path"
 import { pdfToSubmissionText } from "../extraction/to-text.ts"
 import { OcrUnavailableError, ocrPdf } from "../ingest/pdf-ocr.ts"
+import { stripPrintArtifacts } from "../ingest/print-artifacts.ts"
 import { parseRadaIndex, requireCompleteIndex } from "../ingest/rada-index.ts"
 
 /**
@@ -52,6 +53,19 @@ const REQUEST_TIMEOUT_MS = 120_000
  * arquivo alheio — encha o disco de quem coleta.
  */
 const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
+/**
+ * Versão do pipeline de conversão, gravada no registro de build ao lado do sha256.
+ *
+ * O sha256 é do PDF, e mudar o conversor não muda o PDF. Sem esta versão, um build
+ * com regra de limpeza nova sairia "sem mudança" nos 92 arquivos e o corpus corrigido
+ * nunca chegaria à base — a correção existiria no código e em lugar nenhum além dele.
+ * Toda mudança que altere o markdown gerado incrementa aqui.
+ *
+ * 1 (implícito, sem o campo): extração crua, com cabeçalho e número de página.
+ * 2: remoção de artefato de impressão (`ingest/print-artifacts.ts`).
+ */
+const PIPELINE_VERSION = 2
 
 /** Um PDF começa por `%PDF-`. Servidor de intranet responde 200 com página de erro. */
 function isPdf(bytes: Uint8Array): boolean {
@@ -89,6 +103,8 @@ interface BuildRecord {
 	sha256: string
 	file: string
 	builtAt: string
+	/** Ausente nos registros da primeira geração — e é o que os invalida. */
+	pipeline?: number
 }
 
 function fail(message: string): never {
@@ -164,6 +180,28 @@ function toMarkdown(entry: CatalogEntry, text: string, sha256: string, viaOcr: b
 	].join("\n")
 }
 
+/**
+ * OCR com cache por sha256 do PDF — guardando as PÁGINAS, não o documento concatenado.
+ *
+ * O cache guarda o reconhecimento CRU, antes da limpeza: mudar a regra de artefato não
+ * pode custar de novo os 3 s por página. O formato antigo (`<sha>.txt`, documento
+ * inteiro numa string) NÃO é lido: dele não se recupera a fronteira de página, e
+ * aproveitá-lo devolveria texto sujo em silêncio — que é o defeito que a limpeza existe
+ * para fechar. O `.txt` que sobrar no acervo é lixo e pode ser apagado.
+ */
+async function ocrPages(bytes: Uint8Array, sha256: string, tessdataDir: string | undefined, label: string): Promise<string[]> {
+	const cachePath = join(ARCHIVE, "ocr", `${sha256}.json`)
+	const cached = await readJson<{ pages?: string[] } | null>(cachePath, null)
+	if (cached?.pages?.length) return cached.pages
+
+	// Caro: são segundos por página.
+	process.stdout.write(`   … OCR de ${label}\n`)
+	const { pages } = await ocrPdf(bytes, tessdataDir)
+	await mkdir(join(ARCHIVE, "ocr"), { recursive: true })
+	await writeFile(cachePath, `${JSON.stringify({ pages })}\n`, "utf8")
+	return pages
+}
+
 /** Converte o acervo local em `knowledge/*.md`. Não toca a rede. */
 async function build(noOcr: boolean): Promise<void> {
 	// Só sobrescreve o diretório de modelos do tesseract se ele existir de verdade:
@@ -204,16 +242,16 @@ async function build(noOcr: boolean): Promise<void> {
 					() => false
 				)
 			: false
-		if (priorBuild?.sha256 === sha256 && outputExists) {
+		if (priorBuild?.sha256 === sha256 && priorBuild.pipeline === PIPELINE_VERSION && outputExists) {
 			unchanged.push(`${entry.letter} ${entry.title}`)
 			continue
 		}
 
 		const extracted = await pdfToSubmissionText(bytes)
-		let text = extracted.text
+		let pages = extracted.pages
 		let viaOcr = false
 
-		if (text.trim().length === 0) {
+		if (extracted.text.trim().length === 0) {
 			// Sem camada de texto. Ingerir assim daria documento vazio na base, que é pior
 			// do que não ter o documento: some do caminho honesto do "sem base" e vira ruído.
 			if (noOcr) {
@@ -221,18 +259,7 @@ async function build(noOcr: boolean): Promise<void> {
 				continue
 			}
 			try {
-				const cached = await readFile(join(ARCHIVE, "ocr", `${sha256}.txt`), "utf8").catch(() => null)
-				if (cached) {
-					text = cached
-				} else {
-					// Caro: são segundos por página. O cache é por sha256 do PDF, então
-					// reconstruir o corpus não repete o reconhecimento.
-					process.stdout.write(`   … OCR de ${entry.letter} ${entry.title}\n`)
-					const result = await ocrPdf(bytes, tessdataDir)
-					text = result.text
-					await mkdir(join(ARCHIVE, "ocr"), { recursive: true })
-					await writeFile(join(ARCHIVE, "ocr", `${sha256}.txt`), text, "utf8")
-				}
+				pages = await ocrPages(bytes, sha256, tessdataDir, `${entry.letter} ${entry.title}`)
 				viaOcr = true
 			} catch (error) {
 				const detail = error instanceof OcrUnavailableError ? error.message : error instanceof Error ? error.message : String(error)
@@ -241,6 +268,12 @@ async function build(noOcr: boolean): Promise<void> {
 			}
 		}
 
+		// Cabeçalho, rodapé e número de página saem AQUI, com a fronteira de página ainda
+		// em mãos. Depois de concatenar não há mais como distinguir a borda do miolo — e
+		// era assim que o título do módulo entrava em metade dos chunks daquele módulo.
+		const cleaned = stripPrintArtifacts(pages)
+		const text = cleaned.text
+
 		if (text.trim().length === 0) {
 			attention.push(`${entry.letter} ${entry.title} — nem extração nem OCR produziram texto`)
 			continue
@@ -248,8 +281,9 @@ async function build(noOcr: boolean): Promise<void> {
 
 		const file = `rada-${entry.letter.toLowerCase()}-${slug(entry.title)}.md`
 		await writeFile(join(KNOWLEDGE, file), toMarkdown(entry, text, sha256, viaOcr), "utf8")
-		built[name] = { sha256, file, builtAt: new Date().toISOString() }
-		created.push(`${entry.letter} ${entry.title} (${text.length} caracteres${viaOcr ? ", por OCR" : ""})`)
+		built[name] = { sha256, file, builtAt: new Date().toISOString(), pipeline: PIPELINE_VERSION }
+		const removed = cleaned.removedLines > 0 ? `, −${cleaned.removedLines} linhas de impressão` : ""
+		created.push(`${entry.letter} ${entry.title} (${text.length} caracteres${viaOcr ? ", por OCR" : ""}${removed})`)
 	}
 
 	await writeFile(join(KNOWLEDGE, ".rada-build.json"), `${JSON.stringify(built, null, 2)}\n`, "utf8")

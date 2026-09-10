@@ -20,6 +20,17 @@ export interface SubmissionText {
 	nodes: StructureNodeDraft[]
 }
 
+/**
+ * O que sai de um PDF, com a fronteira de página preservada.
+ *
+ * `pages` existe para o coletor do RADA-e: cabeçalho, rodapé e número de página só
+ * são reconhecíveis por ESTAREM na borda da página, e a fronteira é a primeira coisa
+ * que a concatenação destrói. Quem só quer o texto corrido continua lendo `text`.
+ */
+export interface PdfSubmissionText extends SubmissionText {
+	pages: string[]
+}
+
 /** `Heading1`, `Ttulo1`, `Heading 2`. */
 const HEADING_STYLE = /^(?:heading|titulo|ttulo|t[íi]tulo)\s*(\d)/i
 
@@ -93,15 +104,23 @@ export function docxToSubmissionText(bytes: Uint8Array): SubmissionText {
 	}
 }
 
-export async function pdfToSubmissionText(bytes: Uint8Array): Promise<SubmissionText> {
+export async function pdfToSubmissionText(bytes: Uint8Array): Promise<PdfSubmissionText> {
 	// A cópia não é desperdício: o pdf.js TRANSFERE o ArrayBuffer para o worker, e o
 	// buffer do chamador volta destacado, com `byteLength` 0. Quem reaproveitasse os
 	// bytes depois de converter — para calcular hash, gravar em storage ou tentar OCR —
 	// receberia vazio, sem erro nenhum. Isolar aqui custa uma cópia e vale por todos os
 	// chamadores, presentes e futuros.
 	const pdf = await getDocumentProxy(bytes.slice())
-	const { text } = await extractText(pdf, { mergePages: true })
-	const lines = (Array.isArray(text) ? text.join("\n") : text).split(/\r?\n/).map((line) => cleanText(line))
+	// `mergePages: false` porque a fronteira de página é informação, não formatação: é
+	// o que permite reconhecer cabeçalho e rodapé (ver `ingest/print-artifacts.ts`). O
+	// `text` daqui segue idêntico ao de antes — o `mergePages` do unpdf junta as páginas
+	// com `\n` e colapsa espaço, que é exatamente o que `cleanText` já faz por linha.
+	const { text } = await extractText(pdf, { mergePages: false })
+	const pages = Array.isArray(text) ? text : [text]
+	const lines = pages
+		.join("\n")
+		.split(/\r?\n/)
+		.map((line) => cleanText(line))
 
 	const paragraphs = lines.map((line) => {
 		// A numeração inteira define o nível ("2.1.3" → 3). Contar pontos no
@@ -112,7 +131,7 @@ export async function pdfToSubmissionText(bytes: Uint8Array): Promise<Submission
 		return { level, text: line }
 	})
 
-	return { text: lines.filter(Boolean).join("\n"), nodes: buildNodes(paragraphs) }
+	return { text: lines.filter(Boolean).join("\n"), nodes: buildNodes(paragraphs), pages }
 }
 
 export async function toSubmissionText(bytes: Uint8Array, mimeType: string): Promise<SubmissionText> {
