@@ -77,13 +77,37 @@ describe("buildReportDataset — totais", () => {
 
 	it("conta unidades e registros separadamente", () => {
 		expect(dataset.ugCount).toBe(3)
-		// Três UGs × três grupos de contas — o número que a origem confundia com unidades.
-		expect(dataset.recordCount).toBe(9)
+		// Registro é o par (UG, grupo de contas) COM saldo — o número que a origem
+		// confundia com unidades. `normalizeData` emitiria nove: três UGs × três
+		// naturezas, cinco delas sem saldo em nenhum dos dois sistemas.
+		expect(dataset.recordCount).toBe(4)
 		expect(dataset.periodsLoaded).toBe(2)
 	})
 
 	it("classifica a preponderância registro a registro", () => {
-		expect(dataset.preponderance).toEqual({ siafi: 3, siloms: 1, equal: 5 })
+		expect(dataset.preponderance).toEqual({ siafi: 3, siloms: 1, equal: 0 })
+	})
+
+	// Zero nos dois sistemas é ausência de saldo, não conciliação. Contá-lo como
+	// "equilibrado" afirmaria, num documento assinado, que cinco contas estão
+	// conciliadas quando nenhuma delas foi sequer reportada.
+	it("não trata natureza sem saldo algum como conta conciliada", () => {
+		const semSaldo = normalizeData([raw("2025-07", "120400", "BAFZ", {})])
+		const vazio = buildReportDataset({ data: semSaldo, competence: "2025-07", timeFilter: "MENSAL", scopeLabel: "todas as UGs" })
+
+		expect(vazio.recordCount).toBe(0)
+		expect(vazio.ugCount).toBe(0)
+		expect(vazio.preponderance).toEqual({ siafi: 0, siloms: 0, equal: 0 })
+		expect(vazio.topOffenders).toEqual([])
+		expect(vazio.groups).toEqual([])
+	})
+
+	it("mantém a conta conciliada de verdade — saldo igual e não-nulo nos dois", () => {
+		const conciliada = normalizeData([raw("2025-07", "120400", "BAFZ", { bmp: [3000, 3000] })])
+		const iguais = buildReportDataset({ data: conciliada, competence: "2025-07", timeFilter: "MENSAL", scopeLabel: "todas as UGs" })
+
+		expect(iguais.recordCount).toBe(1)
+		expect(iguais.preponderance).toEqual({ siafi: 0, siloms: 0, equal: 1 })
 	})
 
 	it("traz a competência anterior quando ela está na base", () => {
@@ -103,6 +127,11 @@ describe("buildReportDataset — maiores divergências", () => {
 			["GAP-SP", 3000],
 			["GAP-RJ", 500],
 		])
+	})
+
+	it("não enche a tabela com registros sem saldo em nenhum dos sistemas", () => {
+		for (const offender of dataset.topOffenders) expect(offender.siafi !== 0 || offender.siloms !== 0).toBe(true)
+		expect(dataset.topOffenders).toHaveLength(4)
 	})
 
 	it("corta no teto declarado", () => {
@@ -151,8 +180,10 @@ describe("buildReportDataset — tendências", () => {
 })
 
 describe("buildReportDataset — grupos e hipóteses", () => {
-	it("mantém a ordem fixa dos grupos de contas", () => {
-		expect(dataset.groups.map((g) => g.group)).toEqual([AccountGroup.BMP, AccountGroup.CONSUMO, AccountGroup.INTANGIVEL])
+	// Ordem fixa, e sem a natureza que não tem saldo nenhum: a origem imprimia uma
+	// linha "Bens Intangíveis · R$ 0,00 · 3 UGs" para contas que ninguém reportou.
+	it("mantém a ordem fixa dos grupos e omite a natureza sem saldo", () => {
+		expect(dataset.groups.map((g) => g.group)).toEqual([AccountGroup.BMP, AccountGroup.CONSUMO])
 	})
 
 	it("soma a divergência por grupo", () => {

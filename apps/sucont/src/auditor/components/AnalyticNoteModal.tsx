@@ -111,7 +111,12 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 			abortRef.current?.abort()
 			const controller = new AbortController()
 			abortRef.current = controller
-			return generateAnalyticNote(toAnalyticNoteRequest(input), controller.signal)
+			const generated = await generateAnalyticNote(toAnalyticNoteRequest(input), controller.signal)
+			// O recorte volta JUNTO com a nota, e é dele que as tabelas abaixo são
+			// desenhadas. A prop `dataset` é viva: a série é `useQuery`, e um refetch
+			// em segundo plano moveria os números da tela para longe da prosa que os
+			// interpreta — e para longe do Markdown que o operador acabou de baixar.
+			return { ...generated, dataset: input }
 		},
 		onError: (error) => {
 			// Cancelamento é ato do operador (fechou o modal, mandou interromper), não
@@ -136,6 +141,8 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 
 	const result = mutation.data ?? null
 	const note: AnalyticNote | null = result?.note ?? null
+	/** Recorte congelado no momento da geração. Ver o comentário do `mutationFn`. */
+	const snapshot = result?.dataset ?? null
 
 	const handleCopy = async () => {
 		if (!result) return
@@ -149,14 +156,22 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 	}
 
 	const handleDownload = () => {
-		if (!result || !dataset) return
+		if (!result || !snapshot) return
 		const blob = new Blob([result.markdown], { type: "text/markdown;charset=utf-8" })
 		const url = URL.createObjectURL(blob)
 		const anchor = document.createElement("a")
 		anchor.href = url
-		anchor.download = `nota-analitica-siafi-siloms-${dataset.competence}.md`
+		anchor.download = `nota-analitica-siafi-siloms-${snapshot.competence}.md`
+		// Anexada ao documento e revogada no tique seguinte: revogar o blob na mesma
+		// volta do laço de eventos corre com a leitura do arquivo pelo navegador, e a
+		// nota — que passa de 30 KB — falha ao baixar sem erro nenhum.
+		anchor.style.display = "none"
+		document.body.appendChild(anchor)
 		anchor.click()
-		URL.revokeObjectURL(url)
+		setTimeout(() => {
+			anchor.remove()
+			URL.revokeObjectURL(url)
+		}, 0)
 	}
 
 	return (
@@ -168,9 +183,11 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 							<FileText className="size-5 shrink-0 text-action" />
 							<span className="truncate">{NOTE_TITLE}</span>
 						</DialogTitle>
-						{dataset && (
+						{/* Depois de gerada, o cabeçalho descreve o recorte que a produziu — não o que a tela tem agora. */}
+						{(snapshot ?? dataset) && (
 							<p className="mt-1 text-caption text-muted-foreground">
-								{dataset.competenceLabel} · {SCOPE_LABEL[dataset.timeFilter] ?? dataset.timeFilter} · {dataset.scopeLabel}
+								{(snapshot ?? dataset)?.competenceLabel} · {SCOPE_LABEL[(snapshot ?? dataset)?.timeFilter ?? ""] ?? (snapshot ?? dataset)?.timeFilter} ·{" "}
+								{(snapshot ?? dataset)?.scopeLabel}
 							</p>
 						)}
 					</div>
@@ -259,25 +276,25 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 						</div>
 					)}
 
-					{dataset && result && note && (
+					{snapshot && result && note && (
 						<article className="space-y-8">
 							<section className="space-y-3">
 								<SectionHeader title="1. Sumário executivo e diagnóstico" />
 								<NoteTable
 									head={["Indicador", "Valor"]}
 									rows={[
-										["Saldo total SIAFI", formatCurrency(dataset.totals.siafi)],
-										["Saldo total SILOMS", formatCurrency(dataset.totals.siloms)],
-										["Divergência total (soma dos módulos)", formatCurrency(dataset.totals.absoluteDifference)],
-										["Diferença líquida (SIAFI − SILOMS)", formatCurrency(dataset.totals.netDifference)],
-										["Unidades Gestoras analisadas", String(dataset.ugCount)],
+										["Saldo total SIAFI", formatCurrency(snapshot.totals.siafi)],
+										["Saldo total SILOMS", formatCurrency(snapshot.totals.siloms)],
+										["Divergência total (soma dos módulos)", formatCurrency(snapshot.totals.absoluteDifference)],
+										["Diferença líquida (SIAFI − SILOMS)", formatCurrency(snapshot.totals.netDifference)],
+										["Unidades Gestoras analisadas", String(snapshot.ugCount)],
 										[
 											"Preponderância",
-											`SIAFI maior em ${dataset.preponderance.siafi} · SILOMS maior em ${dataset.preponderance.siloms} · equilibrados ${dataset.preponderance.equal}`,
+											`SIAFI maior em ${snapshot.preponderance.siafi} · SILOMS maior em ${snapshot.preponderance.siloms} · equilibrados ${snapshot.preponderance.equal}`,
 										],
 										[
-											`Competência anterior (${dataset.previous?.label ?? "—"})`,
-											dataset.previous ? formatCurrency(dataset.previous.totals.absoluteDifference) : "não consta na base carregada",
+											`Competência anterior (${snapshot.previous?.label ?? "—"})`,
+											snapshot.previous ? formatCurrency(snapshot.previous.totals.absoluteDifference) : "não consta na base carregada",
 										],
 									]}
 								/>
@@ -285,10 +302,10 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 							</section>
 
 							<section className="space-y-3">
-								<SectionHeader title={`2. Unidades críticas — as ${dataset.topOffenders.length} maiores divergências`} />
+								<SectionHeader title={`2. Unidades críticas — as ${snapshot.topOffenders.length} maiores divergências`} />
 								<NoteTable
 									head={["UG", "Cód.", "Grupo", "Divergência", "SIAFI", "SILOMS", "Situação", "Risco"]}
-									rows={dataset.topOffenders.map((o) => [
+									rows={snapshot.topOffenders.map((o) => [
 										o.ug,
 										o.cod,
 										groupLabel(o.group),
@@ -309,7 +326,8 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 								) : (
 									<div className="grid gap-3">
 										{note.destaquesDeAlerta.map((highlight, index) => (
-											<div key={highlight.titulo} className="rounded-lg border border-border bg-card p-4">
+											// Chave posicional: o título vem do modelo e pode repetir.
+											<div key={index} className="rounded-lg border border-border bg-card p-4">
 												<h3 className="text-subheading text-foreground">
 													3.{index + 1} {highlight.titulo}
 													{highlight.unidade && <span className="text-muted-foreground"> — {highlight.unidade}</span>}
@@ -325,12 +343,12 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 								)}
 							</section>
 
-							{dataset.interOm.length > 0 && (
+							{snapshot.interOm.length > 0 && (
 								<section className="space-y-3">
 									<SectionHeader title="3-A. Possíveis transferências entre OMs sem contrapartida no SILOMS" />
 									<NoteTable
 										head={["Unidade A", "Unidade B", "Grupo", "Valor do movimento", "Resíduo do casamento"]}
-										rows={dataset.interOm.map((t) => [
+										rows={snapshot.interOm.map((t) => [
 											`${t.ugA} (${t.codA})`,
 											`${t.ugB} (${t.codB})`,
 											groupLabel(t.group),
@@ -352,7 +370,7 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 							<section className="space-y-4">
 								<SectionHeader title="4. Dinâmica de tendências e evolução" />
 								<Prose text={note.leituraTendencias} />
-								{dataset.trends.map((scope) => (
+								{snapshot.trends.map((scope) => (
 									<div key={scope.scope} className="space-y-3">
 										<h3 className="text-subheading text-foreground">{SCOPE_LABEL[scope.scope] ?? scope.scope}</h3>
 										<p className="text-label text-muted-foreground">Agravamento</p>
@@ -397,7 +415,7 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 								<SectionHeader title="5. Gargalos por natureza de bem" />
 								<NoteTable
 									head={["Grupo", "Divergência", "SIAFI", "SILOMS", "UGs"]}
-									rows={dataset.groups.map((g) => [
+									rows={snapshot.groups.map((g) => [
 										groupLabel(g.group),
 										formatCurrency(g.difference),
 										formatCurrency(g.siafi),
@@ -414,8 +432,9 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 									<p className="text-body text-muted-foreground">O modelo não produziu recomendações para esta competência.</p>
 								) : (
 									<ol className="ml-5 list-decimal space-y-2">
-										{note.planoDeAcao.map((item) => (
-											<li key={item.slice(0, 60)} className="text-body text-foreground leading-relaxed">
+										{note.planoDeAcao.map((item, index) => (
+											// Chave posicional: a recomendação vem do modelo e pode repetir.
+											<li key={index} className="text-body text-foreground leading-relaxed">
 												{item}
 											</li>
 										))}

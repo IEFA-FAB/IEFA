@@ -4,6 +4,7 @@ import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { CompositionDonuts } from "#/auditor/components/CompositionDonuts"
 import { HealthScoreGauge } from "#/auditor/components/HealthScoreGauge"
 import { formatCurrency, toShortDate } from "#/auditor/services/dataProcessor"
+import { hasBalance, SCOPE_GAP, shiftPeriod } from "#/auditor/services/report"
 import { iccColor, iccLabel } from "#/auditor/theme"
 import { AccountGroup, type FinancialRecord, type TimeFilter } from "#/auditor/types"
 import { Button } from "#/components/ui/button"
@@ -60,7 +61,12 @@ interface GroupStats {
 	difference: number
 	siafi: number
 	siloms: number
-	icc: number
+	/**
+	 * Índice de Conciliação Contábil. `null` quando a natureza não tem saldo algum
+	 * na competência — sem base não existe índice, e o "100%" que a fórmula devolve
+	 * para o conjunto vazio afirma no telão que está tudo conciliado.
+	 */
+	icc: number | null
 	/** Variação da divergência contra o período anterior, em %. `null` sem base. */
 	variation: number | null
 }
@@ -77,7 +83,7 @@ function statsFor(records: FinancialRecord[], previous: FinancialRecord[]): Grou
 		difference,
 		siafi,
 		siloms,
-		icc: siafi > 0 ? Math.max(0, (1 - difference / siafi) * 100) : difference === 0 ? 100 : 0,
+		icc: records.length === 0 ? null : siafi > 0 ? Math.max(0, (1 - difference / siafi) * 100) : difference === 0 ? 100 : 0,
 		// Sem competência anterior carregada, ou com ela zerada, não há percentual a
 		// declarar. O telão é lido de longe e um "+100%" inventado não se desfaz.
 		variation: previous.length > 0 && previousDifference > 0 ? ((difference - previousDifference) / previousDifference) * 100 : null,
@@ -116,15 +122,25 @@ export function PresentationMode({ isOpen, onClose, data, selectedMonth, availab
 
 	const slide = SLIDES[index] ?? SLIDES[0]
 
+	/**
+	 * Competência de comparação: o passo do escopo ATIVO, não a vizinha carregada.
+	 *
+	 * A tela por trás do telão anuncia "Comparando JUL/25 contra JAN/25" em
+	 * SEMESTRAL; pegar a competência adjacente faria a lâmina declarar redução
+	 * contra JUN/25 sob o mesmo rótulo, e o telão é a versão que a plateia lê.
+	 */
 	const previousMonth = useMemo(() => {
-		const position = availableMonths.indexOf(selectedMonth)
-		return position > 0 ? availableMonths[position - 1] : null
-	}, [availableMonths, selectedMonth])
+		const target = shiftPeriod(selectedMonth, SCOPE_GAP[timeFilter] ?? 1)
+		return availableMonths.includes(target) ? target : null
+	}, [availableMonths, selectedMonth, timeFilter])
 
 	/** Recortes por grupo, calculados uma vez para todas as lâminas. */
 	const byGroup = useMemo(() => {
-		const current = data.filter((r) => r.date === selectedMonth)
-		const previous = previousMonth ? data.filter((r) => r.date === previousMonth) : []
+		// `hasBalance`: `normalizeData` materializa as três naturezas para toda UG,
+		// então uma natureza sem saldo nenhum chegaria aqui como dezenas de registros
+		// zerados — e a lâmina os apresentaria como conciliados.
+		const current = data.filter((r) => r.date === selectedMonth && hasBalance(r))
+		const previous = previousMonth ? data.filter((r) => r.date === previousMonth && hasBalance(r)) : []
 
 		const pick = (group: SlideGroup, rows: FinancialRecord[]) => (group === "ALL" ? rows : rows.filter((r) => r.group === group))
 
@@ -222,9 +238,13 @@ export function PresentationMode({ isOpen, onClose, data, selectedMonth, availab
 									</div>
 									<div className="border-border border-t pt-4">
 										<p className="text-caption text-muted-foreground">Índice de Conciliação Contábil</p>
-										<p className="text-heading" style={{ color: iccColor(stats.icc) }}>
-											{stats.icc.toFixed(1)}% · {iccLabel(stats.icc)}
-										</p>
+										{stats.icc === null ? (
+											<p className="text-heading text-muted-foreground">sem saldo na competência</p>
+										) : (
+											<p className="text-heading" style={{ color: iccColor(stats.icc) }}>
+												{stats.icc.toFixed(1)}% · {iccLabel(stats.icc)}
+											</p>
+										)}
 									</div>
 									<VariationBadge variation={stats.variation} />
 								</div>
@@ -241,7 +261,7 @@ export function PresentationMode({ isOpen, onClose, data, selectedMonth, availab
 							<StatTile label="Saldo SILOMS" value={formatCurrency(groupStats.siloms)} icon={<Layers />} />
 							<div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border bg-card p-4">
 								<span className="text-label text-muted-foreground">ICC</span>
-								<HealthScoreGauge score={groupStats.icc} />
+								{groupStats.icc === null ? <span className="text-body text-muted-foreground">sem saldo</span> : <HealthScoreGauge score={groupStats.icc} />}
 							</div>
 						</div>
 

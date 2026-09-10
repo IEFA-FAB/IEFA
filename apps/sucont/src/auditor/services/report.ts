@@ -39,7 +39,23 @@ export const TREND_SIZE = 5
 export const TREND_SCOPES: readonly TimeFilter[] = ["MENSAL", "TRIMESTRAL", "SEMESTRAL"] as const
 
 /** Passo em meses de cada escopo — mesma tabela do `recalculateDeltas`. */
-const SCOPE_GAP: Record<TimeFilter, number> = { MENSAL: 1, TRIMESTRAL: 3, SEMESTRAL: 6, ANUAL: 12 }
+export const SCOPE_GAP: Record<TimeFilter, number> = { MENSAL: 1, TRIMESTRAL: 3, SEMESTRAL: 6, ANUAL: 12 }
+
+/**
+ * O registro tem saldo em pelo menos um dos sistemas?
+ *
+ * `normalizeData` materializa os TRÊS grupos de contas para toda linha do
+ * arquivo, mesmo quando nenhum dos dois sistemas reporta nada naquele grupo. Isso
+ * é conveniente para o cruzamento, e veneno para qualquer agregado: numa
+ * competência com 84 UGs entram ~170 registros de zero absoluto, que enchem a
+ * tabela das maiores divergências com linhas de R$ 0,00, contam como
+ * "equilibrados" na preponderância — como se estivessem conciliados, quando na
+ * verdade não foram reportados — e inflam a contagem de UGs de cada grupo.
+ *
+ * Zero nos DOIS sistemas é ausência de saldo, não conciliação. Saldo igual e
+ * não-nulo nos dois É conciliação, e continua contando.
+ */
+export const hasBalance = (record: Pick<FinancialRecord, "siafiValue" | "silomsValue">) => record.siafiValue !== 0 || record.silomsValue !== 0
 
 export interface ReportTotals {
 	siafi: number
@@ -133,7 +149,7 @@ function sumTotals(records: FinancialRecord[]): ReportTotals {
 }
 
 /** `2025-07` menos `gap` meses. */
-function shiftPeriod(period: string, gap: number): string {
+export function shiftPeriod(period: string, gap: number): string {
 	const [yearStr, monthStr] = period.split("-")
 	let year = Number.parseInt(yearStr, 10)
 	let month = Number.parseInt(monthStr, 10) - gap
@@ -219,10 +235,12 @@ export function buildReportDataset(input: BuildReportInput): ReportDataset {
 	const { data, competence, timeFilter, scopeLabel } = input
 
 	const currentScope = recalculateDeltas(data, timeFilter)
-	const current = currentScope.filter((r) => r.date === competence)
+	// `hasBalance` aqui, e não em cada agregado: todo número da nota sai deste
+	// recorte, e um filtro por agregado é um filtro que um agregado novo esquece.
+	const current = currentScope.filter((r) => r.date === competence && hasBalance(r))
 
 	const previousPeriod = shiftPeriod(competence, SCOPE_GAP[timeFilter] ?? 1)
-	const previousRows = data.filter((r) => r.date === previousPeriod)
+	const previousRows = data.filter((r) => r.date === previousPeriod && hasBalance(r))
 
 	const totals = sumTotals(current)
 

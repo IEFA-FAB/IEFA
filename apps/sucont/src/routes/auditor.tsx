@@ -308,14 +308,23 @@ function AuditorPage() {
 	 * quatro escopos, e a tela recalcularia isso a cada troca de filtro para um
 	 * documento que ninguém pediu.
 	 */
-	/** O recorte ativo em uma linha — vai no cabeçalho da nota e no rodapé do telão. */
-	const scopeLabel = useMemo(() => {
-		const hierarchy =
+	/** Só o recorte de hierarquia. É o que o telão respeita — ele tem lâmina por natureza. */
+	const hierarchyLabel = useMemo(
+		() =>
 			selectedHierarchyFilter.length === 0 || selectedHierarchyFilter.includes("TODOS")
 				? "todas as UGs"
-				: `${selectedHierarchyLevel === "ORGAO" ? "Órgão" : selectedHierarchyLevel} ${selectedHierarchyFilter.join(", ")}`
-		return selectedGroup === "ALL" ? hierarchy : `${hierarchy} · grupo ${selectedGroup}`
-	}, [selectedGroup, selectedHierarchyFilter, selectedHierarchyLevel])
+				: `${selectedHierarchyLevel === "ORGAO" ? "Órgão" : selectedHierarchyLevel} ${selectedHierarchyFilter.join(", ")}`,
+		[selectedHierarchyFilter, selectedHierarchyLevel]
+	)
+
+	/**
+	 * O recorte da NOTA, que inclui a aba de grupo de contas.
+	 *
+	 * Separado do rótulo do telão de propósito: a apresentação percorre as três
+	 * naturezas em lâminas próprias e ignora a aba, então carimbar "· grupo
+	 * CONSUMO" no rodapé dela descreveria um recorte que a lâmina não aplicou.
+	 */
+	const scopeLabel = useMemo(() => (selectedGroup === "ALL" ? hierarchyLabel : `${hierarchyLabel} · grupo ${selectedGroup}`), [hierarchyLabel, selectedGroup])
 
 	const noteDataset = useMemo(() => {
 		if (!isNoteModalOpen || !selectedMonth || baseFilteredData.length === 0) return null
@@ -504,7 +513,7 @@ function AuditorPage() {
 				selectedMonth={selectedMonth}
 				availableMonths={uniqueMonths}
 				timeFilter={timeFilter}
-				scopeLabel={scopeLabel}
+				scopeLabel={hierarchyLabel}
 			/>
 
 			<SiafiMessageModal

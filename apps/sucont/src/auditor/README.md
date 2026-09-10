@@ -43,6 +43,22 @@ lá**, não pendência daqui.
 | 12 | Donut "Composição SIAFI × SILOMS (%)" | SIAFI e SILOMS são duas MEDIDAS do mesmo patrimônio, não duas partes dele: somá-los inventa um denominador | `CompositionDonuts.tsx` → conciliado × divergente |
 | 13 | `detectInterOM` lia `previousSiafiValue \|\| 0`, pareava a mesma UG consigo, cruzava competências e cortava por ordem de iteração | Cada um dos quatro produz um par que não existe, ou esconde o par que existe | `inter-om.ts` |
 
+## Registro sem saldo não é registro conciliado
+
+`normalizeData` materializa as **três** naturezas de bem para toda linha do
+arquivo, inclusive quando nenhum dos dois sistemas reporta nada naquela natureza.
+É conveniente para o cruzamento e veneno para qualquer agregado: numa competência
+com 84 UGs entram ~170 registros de zero absoluto.
+
+Todo agregado novo passa por `hasBalance` (`services/report.ts`). Sem ele, esses
+registros enchiam a tabela das maiores divergências com linhas de R$ 0,00,
+contavam como "equilibrados" na preponderância — afirmando conciliação sobre
+contas que ninguém reportou —, inflavam a contagem de UGs por grupo e faziam uma
+natureza vazia projetar "ICC 100%" no telão.
+
+A distinção é: zero nos dois sistemas é **ausência**; saldo igual e não-nulo nos
+dois é **conciliação**, e continua contando.
+
 ## Nota Analítica Estratégica
 
 Regra que sustenta o documento: **os números são do sistema, o texto é do
