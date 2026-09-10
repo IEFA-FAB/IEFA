@@ -9,7 +9,9 @@
  * `No tool calls found in the response` ENTRA na lista, e a medição é a razão: o
  * `openai.gpt-oss-120b-1:0` falhou assim uma vez e acertou 6/6 logo depois, com o mesmo
  * prompt. É instabilidade de geração, não falta de capacidade — e no α custa caro, porque
- * o classificador que falha cai em `UNKNOWN`, e `UNKNOWN` responde SEM consultar o corpus.
+ * o pré-passe que falha cai em `UNKNOWN` e busca com a pergunta CRUA, sem resolver o que a
+ * conversa deixou implícito. (`UNKNOWN` consulta o corpus desde que o roteador passou a
+ * consultá-lo por padrão; o que se perde na falha é a reescrita, não a busca.)
  */
 
 const RETRYABLE = [

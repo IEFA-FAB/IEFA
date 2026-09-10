@@ -25,6 +25,7 @@ export function buildTurnInput(message: string, session_id: string, user_id: str
 		user_id,
 		retrieval_iterations: 0,
 		grading_retries: 0,
+		search_query: "",
 		retrieval_outcome: null,
 		retrieval_halted: false,
 		reformulated_query: null,

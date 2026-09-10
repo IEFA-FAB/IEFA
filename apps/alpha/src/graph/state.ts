@@ -68,6 +68,18 @@ export const AgentStateAnnotation = Annotation.Root({
 		default: () => "",
 	}),
 	/**
+	 * A pergunta como ela vai à BUSCA — resolvida contra o histórico pelo pré-passe.
+	 *
+	 * Separada de `original_query` porque as duas têm leitores diferentes: o `query_log` e o
+	 * sintetizador querem o que o usuário escreveu ("e o prazo?"), e a recuperação precisa
+	 * do que aquilo significa na conversa ("prazo para lavrar o TTAC"). Vazia = usar a
+	 * pergunta crua, que é o piso de todo caminho de falha.
+	 */
+	search_query: Annotation<string>({
+		reducer: (_, next) => next,
+		default: () => "",
+	}),
+	/**
 	 * `null`, e não `undefined`, porque este canal PRECISA ser zerado a cada turno: o
 	 * `query_log` grava a reformulação de todo turno, e o LangGraph ignora chave com
 	 * `undefined` no input — a consulta reformulada da pergunta anterior era registrada

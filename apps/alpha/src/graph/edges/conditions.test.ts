@@ -9,6 +9,7 @@ function makeState(overrides: Partial<AgentState>): AgentState {
 		user_id: undefined,
 		intent: "UNKNOWN",
 		original_query: "",
+		search_query: "",
 		reformulated_query: null,
 		retrieved_documents: [],
 		has_sufficient_context: false,

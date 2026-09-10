@@ -35,11 +35,20 @@ environment_variables = {
   #
   # Medido em 2026-09-10 contra sa-east-1, com o prompt real do roteador: os dois modelos
   # classificam igual (LEGISLATION 6/6). A diferença é estabilidade — o gpt-oss falhou uma
-  # vez com `No tool calls found in the response`, e no α essa falha é cara: o classificador
-  # cai em `UNKNOWN`, e `UNKNOWN` responde SEM consultar o corpus. Por isso ele é a reserva,
-  # não o primário, e a falta de tool call conta como transitória para acionar a troca.
+  # vez com `No tool calls found in the response`, e no α essa falha é cara: o pré-passe cai
+  # em `UNKNOWN` e busca com a pergunta crua, sem resolver o histórico. Por isso ele é a
+  # reserva, não o primário, e a falta de tool call conta como transitória para a troca.
   ALPHA_AI_MODEL          = "global.anthropic.claude-opus-4-6-v1"
   ALPHA_FALLBACK_AI_MODEL = "openai.gpt-oss-120b-1:0"
+
+  # Modelo do pré-passe (classificação + reescrita da pergunta para a busca), uma chamada
+  # por turno. Vazio usa o primário — que aqui é um Opus, para um trabalho que não redige
+  # nada. Antes de apontar para um modelo menor, confira as DUAS coisas que já morderam:
+  # habilitação do modelo na conta/região e o escopo de ARN da task role (só `global.*` e
+  # `gpt-oss`; prefixo `us.` é implicitDeny). E ele tem de emitir tool call de forma
+  # confiável: a falta de tool call conta como transitória e repete o pré-passe na reserva,
+  # o que troca a economia por duas chamadas no mesmo turno.
+  # ALPHA_FAST_AI_MODEL   = ""
 }
 
 # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL vêm dos secrets do

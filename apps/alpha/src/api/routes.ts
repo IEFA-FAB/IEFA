@@ -205,7 +205,11 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 		session_id,
 		user_id,
 		original_query: query,
-		reformulated_query: state.reformulated_query,
+		// A consulta que efetivamente foi à busca, quando difere do que o usuário escreveu:
+		// a reformulação, se houve; senão a resolvida contra o histórico pelo pré-passe. Sem
+		// isto, "e o prazo?" era registrado sem nenhum registro do que foi buscado, e a
+		// pergunta ficava impossível de reproduzir a partir do log.
+		reformulated_query: state.reformulated_query ?? (state.search_query && state.search_query !== query ? state.search_query : null),
 		intent: state.intent,
 		termination_reason: state.termination_reason ?? "no_documents_found",
 		retrieval_iterations: state.retrieval_iterations ?? 0,

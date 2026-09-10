@@ -33,6 +33,7 @@ describe("buildTurnInput", () => {
 		// anterior é registrada como se fosse a desta.
 		expect(input.reformulated_query).toBeNull()
 		expect(input.grading_retries).toBe(0)
+		expect(input.search_query).toBe("")
 		expect(input.retrieval_outcome).toBeNull()
 		expect(input.retrieval_halted).toBe(false)
 		expect(input.has_sufficient_context).toBe(false)

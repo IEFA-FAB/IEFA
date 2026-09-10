@@ -1,6 +1,6 @@
 import { AIMessage } from "@langchain/core/messages"
 import { invokeStructured, invokeText } from "../../lib/llm"
-import { composeNonRadaAnswer, type NonRadaAnswer } from "../provenance"
+import { composeNonRadaAnswer, NO_BASIS_ANSWER, type NonRadaAnswer } from "../provenance"
 import type { AgentState } from "../state"
 
 /**
@@ -65,12 +65,16 @@ export async function generalChatNode(state: AgentState): Promise<Partial<AgentS
 	return {
 		final_response,
 		cited_documents: [],
-		// Lido de `retrieval_outcome`, e não de `termination_reason`: aquele é zerado a cada
-		// turno por `buildTurnInput`, este NÃO tem como ser (o LangGraph ignora `undefined`
-		// no input) e traria o motivo da pergunta ANTERIOR da sessão — uma saudação depois de
-		// uma busca vazia seria registrada como `no_documents_found`. `unavailable` não chega
-		// aqui: busca fora do ar termina no `no_basis`.
-		termination_reason: state.retrieval_outcome === null ? "success" : "no_documents_found",
+		// Duas coisas, na ordem: uma resposta que acabou sendo a frase "sem base" É um turno
+		// sem resposta, venha ele de onde vier — registrá-la como `success` só porque o
+		// roteador mandou direto para cá tornaria o MESMO desfecho invisível conforme a rota.
+		//
+		// No mais, lido de `retrieval_outcome` e não de `termination_reason`: aquele é zerado
+		// a cada turno por `buildTurnInput`, este NÃO tem como ser (o LangGraph ignora
+		// `undefined` no input) e traria o motivo da pergunta ANTERIOR da sessão — uma
+		// saudação depois de uma busca vazia seria registrada como `no_documents_found`.
+		// `unavailable` não chega aqui: busca fora do ar termina no `no_basis`.
+		termination_reason: final_response === NO_BASIS_ANSWER || state.retrieval_outcome !== null ? "no_documents_found" : "success",
 		messages: [new AIMessage(final_response)],
 	}
 }

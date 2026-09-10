@@ -464,9 +464,21 @@ compatível com a da OpenAI, que ficaram como saída de emergência manual.
 | chat | `ALPHA_AI_PROVIDER = "bedrock"` | `apps/alpha/src/env.ts:19` |
 | embeddings | `ALPHA_EMBEDDING_PROVIDER = "bedrock"`, `amazon.titan-embed-text-v2:0` | `env.ts:24-25`, `lib/embeddings.ts:37-46` |
 | rerank | `ALPHA_RERANK_MODEL = ""` — **desligado** | `env.ts:27` |
+| pré-passe | `ALPHA_FAST_AI_MODEL = ""` — vazio usa o primário | `env.ts`, `lib/llm.ts` (`ModelTier`) |
 
-**O α não tem reserva**, e isso é a diferença dele para os outros consumidores:
-`ALPHA_FALLBACK_AI_*` não existe no repo. Falha transitória do Bedrock derruba o turno.
+O α **tem** reserva (`ALPHA_FALLBACK_AI_MODEL`), ao contrário do que esta seção afirmava:
+`getFallbackLLM`/`withModelFallback` em `lib/llm.ts`, com a mesma semântica dos demais
+consumidores — só falha transitória, e só antes de qualquer conteúdo.
+
+**A camada `fast` é escolha de custo, não de capacidade.** O pré-passe do grafo — classificar
+a intenção e reescrever a pergunta contra o histórico — roda uma vez por turno, antes de
+qualquer recuperação, e hoje isso acontece no primário, que em produção é um Opus. Com
+`ALPHA_FAST_AI_MODEL` apontado para um modelo menor, o turno inteiro fica mais barato sem
+tocar em quem redige a resposta. Requisito do modelo escolhido: emitir tool call de forma
+confiável. `No tool calls found in the response` está na lista de falhas transitórias
+(`lib/transient.ts`), então cada ocorrência repete o pré-passe na reserva — duas chamadas no
+mesmo turno, e a economia vira prejuízo se for frequente. Só quando não há reserva
+configurada é que a falha propaga e o pré-passe cai em `UNKNOWN`, buscando com a pergunta crua.
 
 `ALPHA_AI_MODEL` não tem default: sem ele o boot lança (`env.ts:62-65`). É deliberado — não
 existe id de modelo seguro para cravar, porque a habilitação varia por conta e região.
