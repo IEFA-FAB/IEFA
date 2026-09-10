@@ -57,9 +57,10 @@ describe("chunkByArticle", () => {
 	it("remove comentário aninhado sem deixar resíduo", () => {
 		// Uma passada só deixaria `-->` no texto: a remoção do comentário interno cria um
 		// delimitador novo, depois do ponto por onde o replace já passou.
-		const chunks = chunkByArticle(`<!--<!-- gerado -->-->\n${"O texto normativo de verdade. ".repeat(5)}`)
+		const chunks = chunkByArticle(`<!--<!-- gerado -->-->\n-->\n${"O texto normativo de verdade. ".repeat(5)}`)
 
 		expect(chunks.some((c) => c.content.includes("-->"))).toBe(false)
+		expect(chunks.some((c) => c.content.includes("<!--"))).toBe(false)
 	})
 
 	it("carrega capítulo e artigo para os chunks seguintes", () => {

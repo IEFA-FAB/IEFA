@@ -24,33 +24,28 @@ const CHUNK_CHARS = MAX_CHUNK_TOKENS * 4
 /** Sobreposição para não cortar dispositivo ao meio na fronteira entre chunks. */
 const CHUNK_OVERLAP_CHARS = 200
 
-/** Comentário HTML não é norma: é metadado de quem gerou o arquivo. */
-const HTML_COMMENT = /<!--[\s\S]*?-->/g
-
-/** Delimitador de comentário que sobra quando o par não fecha na mesma altura. */
-const ORPHAN_DELIMITER = /<!--|-->/g
-
 /**
- * Remove comentários HTML e os delimitadores que sobrarem.
+ * Descarta as linhas de comentário HTML.
  *
- * Uma passada só não basta, e repetir também não: em `<!--<!--x-->-->` a captura não-gulosa
- * consome do primeiro `<!--` até o primeiro `-->`, e o `-->` final fica órfão — não há mais
- * `<!--` para casar com ele, então repetir o replace não muda nada. Aqui isso é resíduo no
- * texto que vai para o embedding, não brecha; mas o resíduo entra no chunk e aparece na
- * citação, então os delimitadores soltos saem depois da varredura.
+ * Por LINHA, e não por regex de `<!--…-->`: o corpo dos documentos é markdown gerado pelo
+ * coletor, onde o comentário sempre ocupa a linha inteira. Uma expressão que casa o par de
+ * delimitadores é um filtro de tag — e filtro de tag por regex erra nas formas exóticas
+ * (`<!-->`, aninhamento), além de deixar delimitador órfão quando a captura não-gulosa
+ * fecha cedo demais. Aqui não há nada a sanitizar: há metadado de geração a remover antes
+ * do embedding, para não virar ruído na citação.
  */
-function stripHtmlComments(text: string): string {
-	let current = text
-	for (;;) {
-		const next = current.replace(HTML_COMMENT, "")
-		if (next === current) break
-		current = next
-	}
-	return current.replace(ORPHAN_DELIMITER, "")
+function stripCommentLines(text: string): string {
+	return text
+		.split("\n")
+		.filter((line) => {
+			const trimmed = line.trim()
+			return !trimmed.startsWith("<!--") && trimmed !== "-->"
+		})
+		.join("\n")
 }
 
 export function chunkByArticle(rawContent: string): Chunk[] {
-	const content = stripHtmlComments(rawContent)
+	const content = stripCommentLines(rawContent)
 	const chunks: Chunk[] = []
 	let currentChapter = ""
 	let currentArticle = ""
