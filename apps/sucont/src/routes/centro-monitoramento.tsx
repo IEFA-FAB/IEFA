@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, ChevronRight, ExternalLink, Search, Star } from "lucide-react"
 import { useMemo, useState } from "react"
+import { requireToolAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
@@ -12,6 +13,8 @@ import { modulesData, routingKeywords } from "#/lib/centro-monitoramento-data"
 import { useHubFilters } from "#/lib/hub-filters"
 
 export const Route = createFileRoute("/centro-monitoramento")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/centro-monitoramento"),
 	component: RouteComponent,
 })
 

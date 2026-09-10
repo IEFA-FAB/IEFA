@@ -1,7 +1,8 @@
 /**
  * @module reports.fn
  * Relatórios salvos (links) da seção — persistidos no schema `sucont`.
- * Antes viviam só em localStorage. Leitura exige `sucont` nível 1; escrita, nível 2.
+ * Antes viviam só em localStorage. São da SEÇÃO, não de uma divisão: leitura exige
+ * nível 1 em QUALQUER divisão; escrita, nível 2 em qualquer uma.
  */
 
 import type { Report } from "@iefa/database/sucont"

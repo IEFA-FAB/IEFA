@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { FileSearch, MessageSquare, RefreshCw, Scale } from "lucide-react"
 import { useState } from "react"
+import { requireToolAccess } from "#/auth/pbac"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { Report } from "#/components/cruzamento/Report"
@@ -13,6 +14,8 @@ import type { ReportData } from "#/lib/cruzamento/analyzer"
 import { analyzeData, parseFile } from "#/lib/cruzamento/analyzer"
 
 export const Route = createFileRoute("/cruzamento-contas")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/cruzamento-contas"),
 	component: CruzamentoContas,
 })
 

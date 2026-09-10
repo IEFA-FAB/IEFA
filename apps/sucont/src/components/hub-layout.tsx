@@ -4,6 +4,7 @@ import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/reac
 import { ChevronRight, FileBarChart, LayoutGrid, LogOut, type LucideIcon, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
+import { useSucontAccess } from "#/auth/pbac"
 import { authActions, authQueryOptions } from "#/auth/service"
 import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
@@ -35,7 +36,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { sucontTools } from "#/lib/data"
 import { useHubFilters } from "#/lib/hub-filters"
-import { ADMIN_NAV, findModuleByPath, toolsForDivision } from "#/lib/modules"
+import { ADMIN_NAV, findModuleByPath, resolveDivision, toolsForDivision } from "#/lib/modules"
 import { buildToolCrumbs, buildToolNav, findToolByPath, toolScopeLabel } from "#/lib/tool-nav"
 import type { SucontDivision } from "#/lib/types"
 import { cn } from "#/lib/utils"
@@ -221,7 +222,10 @@ function SidebarLegalLinks() {
 function HubSidebar() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
-	const module = findModuleByPath(pathname, divisao)
+	const { permissions } = useSucontAccess()
+	// Mesmo resolvedor do seletor: a barra tem que listar as ferramentas de uma
+	// divisão que o usuário PODE abrir, venha ela da URL ou do padrão.
+	const module = findModuleByPath(pathname, resolveDivision(permissions, divisao))
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar" className="no-print">

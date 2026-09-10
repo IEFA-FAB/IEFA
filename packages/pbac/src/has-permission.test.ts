@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { hasPermission } from "./has-permission.ts"
+import { hasAnyPermission, hasPermission } from "./has-permission.ts"
 import type { UserPermission } from "./types.ts"
 
 function permission(overrides: Partial<UserPermission> = {}): UserPermission {
@@ -49,5 +49,42 @@ describe("hasPermission", () => {
 		const permissions = [permission({ module: "storage", level: 1, unit_id: 3 })]
 
 		expect(hasPermission(permissions, "storage")).toBe(true)
+	})
+})
+
+describe("hasAnyPermission", () => {
+	test("basta um módulo conceder", () => {
+		const permissions = [permission({ module: "sucont-3", level: 1 })]
+
+		expect(hasAnyPermission(permissions, ["sucont-3", "sucont-4"], 1)).toBe(true)
+	})
+
+	test("nega quando nenhum concede", () => {
+		const permissions = [permission({ module: "sucont-1", level: 2 })]
+
+		expect(hasAnyPermission(permissions, ["sucont-3", "sucont-4"], 1)).toBe(false)
+	})
+
+	test("o nível é cobrado em cada módulo, não somado entre eles", () => {
+		// Dois acessos de leitura não fazem um de escrita: exigir nível 2 com dois
+		// grants de nível 1 tem de negar.
+		const permissions = [permission({ module: "sucont-3", level: 1 }), permission({ module: "sucont-4", level: 1 })]
+
+		expect(hasAnyPermission(permissions, ["sucont-3", "sucont-4"], 2)).toBe(false)
+	})
+
+	test("deny de um módulo NÃO derruba o allow de outro", () => {
+		// Negar a SUCONT-4 é negar aquela divisão, não o app: a precedência de deny é
+		// por módulo, e propagá-la para a lista trancaria as outras duas junto.
+		const permissions = [permission({ module: "sucont-3", level: 1 }), permission({ module: "sucont-4", level: 0 })]
+
+		expect(hasAnyPermission(permissions, ["sucont-3", "sucont-4"], 1)).toBe(true)
+		expect(hasPermission(permissions, "sucont-4", 1)).toBe(false)
+	})
+
+	test("lista vazia nega — nenhum módulo é 'qualquer módulo'", () => {
+		const permissions = [permission({ module: "sucont-3", level: 3 })]
+
+		expect(hasAnyPermission(permissions, [], 1)).toBe(false)
 	})
 })

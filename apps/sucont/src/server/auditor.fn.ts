@@ -11,7 +11,8 @@
  * (chave natural: competência + UG + grupo de contas) e a mensagem institucional
  * vira `generated_message`, numerada pela sequência real do banco.
  *
- * Leitura exige `sucont` nível 1; escrita, nível 2 (requireSucontEditor).
+ * Acesso é o da divisão DONA da ferramenta — SUCONT-4, a mesma que assina a MSG
+ * (`DIREF/SUCONT/SUCONT-4`). Leitura exige `sucont-4` nível 1; escrita, nível 2.
  */
 
 import type { AnalysisRun, GeneratedMessage } from "@iefa/database/sucont"
@@ -19,7 +20,13 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { applyMessageNumber, balanceGrainKey, dedupeBalanceGrain } from "#/auditor/services/dataProcessor"
 import { AccountGroup, type StoredBalanceRow } from "#/auditor/types"
-import { requireSucontAccess, requireSucontEditor } from "#/lib/auth.server"
+import { requireDivisionAccess, requireDivisionEditor } from "#/lib/auth.server"
+
+/** O auditor SIAFI x SILOMS é da SUCONT-4 — ver `divisions` da ferramenta em `lib/data.ts`. */
+const DIVISION = "sucont-4" as const
+const requireAccess = () => requireDivisionAccess(DIVISION)
+const requireEditor = () => requireDivisionEditor(DIVISION)
+
 import { getSucontServerClient } from "#/lib/supabase.server"
 
 /** Lotes de escrita/leitura. PostgREST devolve no máximo 1000 linhas por request. */
@@ -56,7 +63,7 @@ const grainKey = balanceGrainKey
 // ── Rodadas de análise ────────────────────────────────────────────────────────
 
 export const listAuditorRunsFn = createServerFn({ method: "GET" }).handler(async (): Promise<AnalysisRun[]> => {
-	await requireSucontAccess()
+	await requireAccess()
 	const { data, error } = await getSucontServerClient()
 		.from("analysis_run")
 		.select("*")
@@ -77,7 +84,7 @@ export const startAuditorRunFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ runId: string }> => {
-		const ctx = await requireSucontEditor()
+		const ctx = await requireEditor()
 		const { data: row, error } = await getSucontServerClient()
 			.from("analysis_run")
 			.insert({
@@ -134,7 +141,7 @@ export const saveAuditorBalancesFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<SaveBalancesResult> => {
-		const ctx = await requireSucontEditor()
+		const ctx = await requireEditor()
 		const client = getSucontServerClient()
 
 		// Deduplica pelo grão ANTES de qualquer coisa — senão o Postgres aborta o lote
@@ -246,7 +253,7 @@ export const loadAuditorBalancesFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<StoredBalance[]> => {
-		await requireSucontAccess()
+		await requireAccess()
 		const client = getSucontServerClient()
 
 		const out: StoredBalance[] = []
@@ -286,7 +293,7 @@ export const loadAuditorBalancesFn = createServerFn({ method: "POST" })
 // ── Mensagens institucionais ──────────────────────────────────────────────────
 
 export const listGeneratedMessagesFn = createServerFn({ method: "GET" }).handler(async (): Promise<GeneratedMessage[]> => {
-	await requireSucontAccess()
+	await requireAccess()
 	const { data, error } = await getSucontServerClient()
 		.from("generated_message")
 		.select("*")
@@ -314,7 +321,7 @@ export const registerAuditorMessageFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ id: string; number: number; corpo: string }> => {
-		const ctx = await requireSucontEditor()
+		const ctx = await requireEditor()
 		const client = getSucontServerClient()
 
 		const { data: row, error } = await client
@@ -358,7 +365,7 @@ export const finalizeAuditorRunFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ ok: true }> => {
-		await requireSucontEditor()
+		await requireEditor()
 		const client = getSucontServerClient()
 
 		const { data: run, error: readError } = await client.from("analysis_run").select("summary").eq("id", data.runId).single()

@@ -86,3 +86,15 @@ export interface UnitResponsibility {
 	name: string
 	operator: string
 }
+
+/**
+ * Etapa sentinela: nenhuma filtragem, mostra o catálogo inteiro.
+ *
+ * Mora aqui, e não no hook que a lê (`lib/hub-filters`), porque `lib/tool-filter` —
+ * que é puro e tem teste unitário — precisa dela: importá-la do hook arrastava o
+ * grafo do React Query e das server functions para dentro de um teste de filtro de
+ * string, e a suíte quebrava ao carregar `@iefa/pbac/start`.
+ */
+export const ALL_STAGES = "todas" as const
+
+export type StageFilter = ToolStage | typeof ALL_STAGES

@@ -40,7 +40,9 @@ export default defineHandler(async (event: H3Event) => {
 
 	// O guard de rota do __root é client-side: não alcança esta rota Nitro. Sem a
 	// checagem aqui, o endpoint seria um caminho aberto para o Bedrock da conta.
-	const user = await requireSucontUser(event)
+	// O SAC-DGC é da SUCONT-1: a rota Nitro cobra a MESMA divisão que a tela e as
+	// server functions da ferramenta, senão ela seria o caminho que ignora o split.
+	const user = await requireSucontUser(event, ["sucont-1"])
 
 	const parsed = dgcAnalysisRequestSchema.safeParse(await readBody(event))
 	if (!parsed.success) {

@@ -12,7 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { Skeleton } from "#/components/ui/skeleton"
 import { toast } from "#/components/ui/toast"
 import { describePerson } from "#/lib/identity"
-import { grantSucontPermissionFn, revokeSucontPermissionFn, type SucontGrant, type SucontUserSearchResult, searchUsersByEmailFn } from "#/server/permissions.fn"
+import {
+	grantSucontPermissionFn,
+	revokeSucontPermissionFn,
+	type SucontGrant,
+	type SucontGrantTarget,
+	type SucontUserSearchResult,
+	searchUsersByEmailFn,
+} from "#/server/permissions.fn"
 
 /**
  * Gestão de acesso ao SUCONT — a única tela do módulo `admin`.
@@ -20,16 +27,48 @@ import { grantSucontPermissionFn, revokeSucontPermissionFn, type SucontGrant, ty
  * Duas metades, na ordem em que a pergunta aparece: primeiro QUEM TEM acesso (o
  * que a tela responde sozinha, sem interação), depois conceder. O caminho
  * contrário obrigaria a busca por um e-mail para descobrir o que a lista já diz.
+ *
+ * O acesso é POR MÓDULO desde o split: as três divisões da SUCONT e a
+ * administração de acessos são grants separados. Uma pessoa que trabalha na
+ * SUCONT-3 e na SUCONT-4 tem duas linhas na lista, e cada uma se revoga sozinha.
  */
 
-const LEVELS = [
-	{ value: "1", label: "Acesso", hint: "Abre o hub e as ferramentas" },
-	{ value: "2", label: "Editor", hint: "Edita área de trabalho, relatórios e mensagens" },
-	{ value: "3", label: "Administrador", hint: "Edita e gerencia os acessos" },
-] as const
+/**
+ * O que se concede: um módulo, num nível.
+ *
+ * Os níveis são POR MÓDULO porque não são os mesmos. Divisão vai até 2 (editor); a
+ * administração de acessos só existe em 3 — é o nível que o módulo `sucont` único
+ * exigia antes do split, e o backfill o preservou. Um seletor de nível universal
+ * ofereceria "Administrador" numa divisão, gravando um grant que nenhum guard lê.
+ */
+const GRANT_OPTIONS = [
+	{ value: "sucont-4:1", label: "SUCONT-4 — Acesso", hint: "Abre as ferramentas patrimoniais", grant: { module: "sucont-4", level: 1 } },
+	{ value: "sucont-4:2", label: "SUCONT-4 — Editor", hint: "Edita os dados da seção", grant: { module: "sucont-4", level: 2 } },
+	{ value: "sucont-3:1", label: "SUCONT-3 — Acesso", hint: "Abre as ferramentas contábeis", grant: { module: "sucont-3", level: 1 } },
+	{ value: "sucont-3:2", label: "SUCONT-3 — Editor", hint: "Edita os dados da seção", grant: { module: "sucont-3", level: 2 } },
+	{ value: "sucont-1:1", label: "SUCONT-1 — Acesso", hint: "Abre as ferramentas de custos (DGC)", grant: { module: "sucont-1", level: 1 } },
+	{ value: "sucont-1:2", label: "SUCONT-1 — Editor", hint: "Edita os dados da seção", grant: { module: "sucont-1", level: 2 } },
+	{ value: "sucont-admin:3", label: "Administração — Acessos", hint: "Concede e revoga acessos do SUCONT", grant: { module: "sucont-admin", level: 3 } },
+] as const satisfies ReadonlyArray<{ value: string; label: string; hint: string; grant: SucontGrantTarget }>
+
+type GrantOption = (typeof GRANT_OPTIONS)[number]
+
+const GRANT_ITEMS = Object.fromEntries(GRANT_OPTIONS.map((o) => [o.value, o.label]))
+
+/** Rótulo curto do módulo, para a etiqueta de cada linha da lista. */
+const MODULE_LABELS: Record<string, string> = {
+	"sucont-1": "SUCONT-1",
+	"sucont-3": "SUCONT-3",
+	"sucont-4": "SUCONT-4",
+	"sucont-admin": "Administração",
+}
 
 const LEVEL_LABELS: Record<number, string> = { 1: "Acesso", 2: "Editor", 3: "Administrador" }
-const LEVEL_ITEMS = Object.fromEntries(LEVELS.map((l) => [l.value, l.label]))
+
+/** A chave de uma linha da lista — pessoa + módulo + origem, que é o que a torna única. */
+function grantKey(grant: SucontGrant): string {
+	return `${grant.source}:${grant.userId}:${grant.module}`
+}
 
 export function SucontPermissionsManager() {
 	const queryClient = useQueryClient()
@@ -39,8 +78,10 @@ export function SucontPermissionsManager() {
 	const grants = useQuery(sucontGrantsQueryOptions())
 	const invalidateGrants = () => queryClient.invalidateQueries({ queryKey: sucontGrantsQueryOptions().queryKey })
 
+	// Revoga UM grant — pessoa e módulo. Sem o módulo, retirar o acesso à SUCONT-3
+	// de quem também tem a SUCONT-4 apagaria os dois.
 	const revoke = useMutation({
-		mutationFn: (userId: string) => revokeSucontPermissionFn({ data: { userId } }),
+		mutationFn: (grant: SucontGrant) => revokeSucontPermissionFn({ data: { userId: grant.userId, module: grant.module } }),
 		onSuccess: () => {
 			toast.success("Acesso revogado")
 			invalidateGrants()
@@ -54,8 +95,8 @@ export function SucontPermissionsManager() {
 				<CardHeader>
 					<CardTitle>Quem tem acesso</CardTitle>
 					<CardDescription>
-						Cada pessoa tem um nível só, válido em todo o hub — o acesso não é por seção nem por ferramenta. Quem aparece como “Política” recebeu o acesso de
-						uma política anexada, e ele não se revoga por aqui.
+						O acesso é por divisão: cada linha é uma pessoa em um módulo, e quem trabalha em duas divisões aparece duas vezes. Quem aparece como “Política”
+						recebeu o acesso de uma política anexada, e ele não se revoga por aqui.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -64,8 +105,8 @@ export function SucontPermissionsManager() {
 						isLoading={grants.isLoading}
 						error={grants.error}
 						currentUserId={currentUserId}
-						onRevoke={(userId) => revoke.mutate(userId)}
-						revokingUserId={revoke.isPending ? revoke.variables : null}
+						onRevoke={(grant) => revoke.mutate(grant)}
+						revokingKey={revoke.isPending && revoke.variables ? grantKey(revoke.variables) : null}
 					/>
 				</CardContent>
 			</Card>
@@ -81,14 +122,14 @@ function GrantsList({
 	error,
 	currentUserId,
 	onRevoke,
-	revokingUserId,
+	revokingKey,
 }: {
 	grants: SucontGrant[] | undefined
 	isLoading: boolean
 	error: unknown
 	currentUserId: string | null
-	onRevoke: (userId: string) => void
-	revokingUserId: string | null
+	onRevoke: (grant: SucontGrant) => void
+	revokingKey: string | null
 }) {
 	// Carregando, falhou e vazio são três telas — nunca a mesma. Uma lista vazia
 	// depois de um erro afirmaria que ninguém tem acesso ao SUCONT.
@@ -136,9 +177,10 @@ function GrantsList({
 				const isSelf = grant.userId === currentUserId
 				const isExpired = grant.expiresAt !== null && new Date(grant.expiresAt).getTime() <= Date.now()
 				const byPolicy = grant.source === "policy"
+				const key = grantKey(grant)
 				const { primary, secondary } = describePerson(grant)
 				return (
-					<li key={`${grant.source}:${grant.userId}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+					<li key={key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 						<div className="flex min-w-0 flex-col">
 							{/* Posto + nome de guerra quando o SARAM está vinculado, e-mail quando
 							    não — o servidor já escolheu, aqui só se pinta. */}
@@ -150,13 +192,16 @@ function GrantsList({
 						<div className="flex shrink-0 items-center gap-2">
 							{isExpired && <Badge variant="warning">Expirado</Badge>}
 							{byPolicy && <Badge variant="outline">Política</Badge>}
-							<Badge variant={grant.level === 3 ? "destructive" : "muted"}>{LEVEL_LABELS[grant.level] ?? `Nível ${grant.level}`}</Badge>
+							{/* Módulo e nível são duas informações, e a etiqueta única de antes só
+							    cabia uma: "Editor" sem dizer de qual divisão não é um acesso. */}
+							<Badge variant="outline">{MODULE_LABELS[grant.module] ?? grant.module}</Badge>
+							<Badge variant={grant.module === "sucont-admin" ? "destructive" : "muted"}>{LEVEL_LABELS[grant.level] ?? `Nível ${grant.level}`}</Badge>
 							<Button
 								type="button"
 								variant="ghost"
 								size="sm"
-								disabled={isSelf || byPolicy || revokingUserId === grant.userId}
-								onClick={() => onRevoke(grant.userId)}
+								disabled={isSelf || byPolicy || revokingKey === key}
+								onClick={() => onRevoke(grant)}
 								title={
 									// Apagar a linha de `user_permissions` não desfaz um anexo de política:
 									// o botão responderia sucesso e o acesso continuaria de pé.
@@ -168,7 +213,7 @@ function GrantsList({
 								}
 								className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 							>
-								{revokingUserId === grant.userId ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+								{revokingKey === key ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
 								Revogar
 							</Button>
 						</div>
@@ -206,7 +251,8 @@ function PersonLabel({
 function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string | null; onGranted: () => void }) {
 	const [email, setEmail] = useState("")
 	const [selected, setSelected] = useState<SucontUserSearchResult | null>(null)
-	const [level, setLevel] = useState("1")
+	// Uma escolha só: módulo e nível vêm juntos porque os níveis dependem do módulo.
+	const [target, setTarget] = useState<GrantOption["value"]>("sucont-4:1")
 
 	const term = email.trim()
 	const search = useQuery({
@@ -219,7 +265,12 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 	const grant = useMutation({
 		mutationFn: () => {
 			if (!selected) throw new Error("Nenhum usuário selecionado")
-			return grantSucontPermissionFn({ data: { userId: selected.id, level: Number(level) } })
+			const option = GRANT_OPTIONS.find((o) => o.value === target)
+			if (!option) throw new Error("Acesso inválido")
+			// O par vai INTEIRO (`...option.grant`), e não como dois campos lidos à parte:
+			// o validator da fn correlaciona módulo e nível, e desmontar o par aqui perderia
+			// a correlação que a própria lista de opções garante.
+			return grantSucontPermissionFn({ data: { userId: selected.id, ...option.grant } })
 		},
 		onSuccess: () => {
 			toast.success("Acesso concedido")
@@ -236,7 +287,9 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 		<Card>
 			<CardHeader>
 				<CardTitle>Conceder acesso</CardTitle>
-				<CardDescription>Reaplicar um nível sobre quem já tem acesso ATUALIZA o grant — não cria um segundo.</CardDescription>
+				<CardDescription>
+					Um acesso por vez: quem trabalha em duas divisões recebe duas concessões. Reaplicar o mesmo módulo ATUALIZA o grant — não cria um segundo.
+				</CardDescription>
 			</CardHeader>
 			<CardContent className="flex flex-col gap-4">
 				<div className="relative">
@@ -292,18 +345,18 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 						</div>
 
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-							<div className="flex min-w-56 flex-col gap-1.5">
-								<span className="text-label text-muted-foreground">Nível de acesso</span>
+							<div className="flex min-w-72 flex-col gap-1.5">
+								<span className="text-label text-muted-foreground">Acesso a conceder</span>
 								{/* `items` porque valor e rótulo diferem: o Base UI renderiza o VALOR
-								    cru no trigger, e "1" não diz nada a ninguém. */}
-								<Select items={LEVEL_ITEMS} value={level} onValueChange={(v) => setLevel(v ?? "1")}>
+								    cru no trigger, e "sucont-4:1" não diz nada a ninguém. */}
+								<Select items={GRANT_ITEMS} value={target} onValueChange={(v) => setTarget((v as GrantOption["value"]) ?? "sucont-4:1")}>
 									<SelectTrigger>
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{LEVELS.map((l) => (
-											<SelectItem key={l.value} value={l.value}>
-												{l.label} — {l.hint}
+										{GRANT_OPTIONS.map((o) => (
+											<SelectItem key={o.value} value={o.value}>
+												{o.label} — {o.hint}
 											</SelectItem>
 										))}
 									</SelectContent>

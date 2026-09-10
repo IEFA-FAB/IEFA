@@ -15,7 +15,12 @@ export default defineHandler(async (event: H3Event) => {
 
 	// O guard de rota do __root é client-side: não alcança esta rota Nitro. Sem a
 	// checagem aqui, o endpoint seria um caminho aberto para o Bedrock da conta.
-	const user = await requireSucontUser(event)
+	//
+	// A divisão é a da tela que o chama: o oráculo só é montado pelo `AIAssistant`
+	// dos Subitens Genéricos, que é da SUCONT-3. Aceitá-lo de qualquer divisão
+	// deixaria quem tem só a SUCONT-1 queimar Bedrock por um endpoint cuja tela ele
+	// nem abre.
+	const user = await requireSucontUser(event, ["sucont-3"])
 
 	const rawBody = await readBody(event)
 

@@ -1,10 +1,28 @@
 import { describe, expect, it } from "bun:test"
-import type { UserPermission } from "@iefa/pbac"
+import type { AppModule, UserPermission } from "@iefa/pbac"
 import { sucontTools } from "#/lib/data"
-import { accessibleModules, DEFAULT_DIVISION, findModuleByPath, isDivision, SUCONT_MODULES, toolBelongsTo, toolsForDivision } from "#/lib/modules"
+import {
+	accessibleModules,
+	DEFAULT_DIVISION,
+	defaultDivisionFor,
+	findModuleByPath,
+	isDivision,
+	permissionModulesForPath,
+	permissionModulesForTool,
+	resolveDivision,
+	SUCONT_MODULES,
+	toolBelongsTo,
+	toolsForDivision,
+} from "#/lib/modules"
+import { canAccessHub, SUCONT_DIVISION_MODULES } from "#/lib/permission-modules"
 import type { Tool } from "#/lib/types"
 
-const grant = (level: number): UserPermission[] => [{ module: "sucont", level, mess_hall_id: null, kitchen_id: null, unit_id: null }]
+/** Grants inline, unscoped — o único formato que o sucont usa. */
+const grants = (...pairs: Array<[AppModule, number]>): UserPermission[] =>
+	pairs.map(([module, level]) => ({ module, level, mess_hall_id: null, kitchen_id: null, unit_id: null }))
+
+/** Acesso a TODAS as divisões, no mesmo nível — o que o backfill do split concedeu. */
+const allDivisions = (level: number): UserPermission[] => grants(...SUCONT_DIVISION_MODULES.map((m) => [m, level] as [AppModule, number]))
 
 const tool = (id: string, divisions?: Tool["divisions"]): Tool => ({ id, title: id, description: "", icon: "Search", stage: "analisar", divisions })
 
@@ -118,20 +136,131 @@ describe("toolsForDivision, sobre o catálogo real", () => {
 })
 
 describe("accessibleModules", () => {
-	it("nível 1 e 2 alcançam as três divisões, mas não a Administração", () => {
+	it("as três divisões juntas não abrem a Administração", () => {
+		// É o ponto do split: acesso a ferramenta e administração de acessos são grants
+		// separados. Antes, um único `sucont` nível 3 dava os dois.
 		for (const level of [1, 2]) {
-			expect(accessibleModules(grant(level)).map((m) => m.id)).toEqual(["sucont-4", "sucont-3", "sucont-1"])
+			expect(accessibleModules(allDivisions(level)).map((m) => m.id)).toEqual(["sucont-4", "sucont-3", "sucont-1"])
 		}
 	})
 
-	it("nível 3 alcança tudo", () => {
-		expect(accessibleModules(grant(3)).map((m) => m.id)).toEqual(["sucont-4", "sucont-3", "sucont-1", "admin"])
+	it("cada divisão aparece SOZINHA — ter uma não traz as outras", () => {
+		expect(accessibleModules(grants(["sucont-3", 1])).map((m) => m.id)).toEqual(["sucont-3"])
+		expect(accessibleModules(grants(["sucont-1", 2])).map((m) => m.id)).toEqual(["sucont-1"])
+	})
+
+	it("`sucont-admin` abre a Administração e mais nada", () => {
+		// Quem só governa acessos não abre ferramenta nenhuma; o hub fica fechado para ele.
+		expect(accessibleModules(grants(["sucont-admin", 3])).map((m) => m.id)).toEqual(["admin"])
+	})
+
+	it("a Administração exige nível 3, não basta ter o módulo", () => {
+		expect(accessibleModules(grants(["sucont-admin", 2])).map((m) => m.id)).toEqual([])
 	})
 
 	it("sem grant nenhum, nada é alcançável", () => {
 		// A raiz já redireciona quem não tem nível 1; o seletor não pode contradizê-la
 		// enquanto as permissões ainda não chegaram.
 		expect(accessibleModules([])).toEqual([])
+	})
+
+	it("deny de uma divisão não derruba as outras", () => {
+		// Negar a SUCONT-4 não é negar o app: a precedência de deny é por módulo.
+		const permissions = [...allDivisions(1), ...grants(["sucont-4", 0])]
+		expect(accessibleModules(permissions).map((m) => m.id)).toEqual(["sucont-3", "sucont-1"])
+	})
+})
+
+describe("canAccessHub", () => {
+	it("basta uma divisão", () => {
+		expect(canAccessHub(grants(["sucont-1", 1]))).toBe(true)
+	})
+
+	it("só `sucont-admin` NÃO abre o hub", () => {
+		// O hub é o catálogo de ferramentas; administrar acessos não é abrir ferramenta.
+		expect(canAccessHub(grants(["sucont-admin", 3]))).toBe(false)
+	})
+
+	it("sem grant, não abre", () => {
+		expect(canAccessHub([])).toBe(false)
+	})
+})
+
+describe("defaultDivisionFor", () => {
+	it("com a SUCONT-4, vale o padrão histórico", () => {
+		expect(defaultDivisionFor(allDivisions(1))).toBe(DEFAULT_DIVISION)
+	})
+
+	it("sem a SUCONT-4, cai na primeira divisão ACESSÍVEL", () => {
+		// Senão quem só trabalha na SUCONT-3 abriria o hub num catálogo que ele não
+		// pode usar, com a barra lateral de outra divisão.
+		expect(defaultDivisionFor(grants(["sucont-3", 1]))).toBe("sucont-3")
+		expect(defaultDivisionFor(grants(["sucont-1", 1]))).toBe("sucont-1")
+	})
+
+	it("sem divisão nenhuma, devolve o padrão — quem barra é o guard", () => {
+		expect(defaultDivisionFor(grants(["sucont-admin", 3]))).toBe(DEFAULT_DIVISION)
+	})
+})
+
+describe("resolveDivision", () => {
+	it("respeita o `?divisao=` quando o usuário alcança a divisão", () => {
+		expect(resolveDivision(allDivisions(1), "sucont-3")).toBe("sucont-3")
+	})
+
+	it("IGNORA o `?divisao=` de uma divisão que o usuário não tem", () => {
+		// A forma do parâmetro é validada no `validateSearch` da raiz, e isso não é
+		// autorização: sem esta degradação, `/?divisao=sucont-3` numa conta só da
+		// SUCONT-4 abria um catálogo vazio com a barra de uma divisão que o seletor
+		// nem lista.
+		expect(resolveDivision(grants(["sucont-4", 1]), "sucont-3")).toBe("sucont-4")
+		expect(resolveDivision(grants(["sucont-1", 1]), "sucont-4")).toBe("sucont-1")
+	})
+
+	it("um deny escopado na divisão pedida também degrada", () => {
+		const permissions = [...allDivisions(1), ...grants(["sucont-4", 0])]
+		expect(resolveDivision(permissions, "sucont-4")).toBe("sucont-3")
+	})
+
+	it("valor inválido ou ausente cai no padrão acessível", () => {
+		expect(resolveDivision(grants(["sucont-3", 1]), undefined)).toBe("sucont-3")
+		expect(resolveDivision(grants(["sucont-3", 1]), "divisao-inventada")).toBe("sucont-3")
+		expect(resolveDivision(grants(["sucont-3", 1]), 42)).toBe("sucont-3")
+	})
+})
+
+describe("permissionModulesForTool / permissionModulesForPath", () => {
+	it("ferramenta sem divisão vale para as três", () => {
+		expect(permissionModulesForTool(tool("siafi-web"))).toEqual(SUCONT_DIVISION_MODULES)
+	})
+
+	it("ferramenta de duas divisões aceita qualquer uma delas", () => {
+		expect(permissionModulesForTool(tool("x", ["sucont-3", "sucont-4"]))).toEqual(["sucont-3", "sucont-4"])
+	})
+
+	it("a rota de cada ferramenta do catálogo real cobra a divisão DELA", () => {
+		// É o contrato de que o guard de rota e o catálogo não podem divergir: se a
+		// ferramenta some do catálogo de uma divisão, ela também deixa de abrir por URL.
+		expect(permissionModulesForPath("/auditor")).toEqual(["sucont-4"])
+		expect(permissionModulesForPath("/conta-generica")).toEqual(["sucont-3"])
+		expect(permissionModulesForPath("/sac-dgc")).toEqual(["sucont-1"])
+		expect(permissionModulesForPath("/monitoramento")).toEqual(["sucont-3", "sucont-4"])
+	})
+
+	it("caminho que não é de ferramenta vale para as três", () => {
+		// Catálogo, área de trabalho e relatórios são telas da seção inteira.
+		for (const path of ["/", "/workspace", "/reports"]) {
+			expect(permissionModulesForPath(path)).toEqual(SUCONT_DIVISION_MODULES)
+		}
+	})
+
+	it("TODA rota interna do catálogo tem guard derivável", () => {
+		// Varredura: nenhuma ferramenta de rota interna pode cair no caso "as três"
+		// por acidente — se ela declara divisão, o guard tem que cobrar exatamente ela.
+		for (const t of sucontTools) {
+			if (!t.internalPath || !t.divisions) continue
+			expect(permissionModulesForPath(t.internalPath)).toEqual(t.divisions.map((d) => d as AppModule))
+		}
 	})
 })
 
@@ -151,5 +280,12 @@ describe("SUCONT_MODULES", () => {
 		for (const module of SUCONT_MODULES) {
 			expect(findModuleByPath(module.home, module.division).id).toBe(module.id)
 		}
+	})
+
+	it("cada módulo aponta para um módulo do PBAC distinto", () => {
+		// Dois módulos do hub sob o mesmo grant seria o modelo antigo de volta: conceder
+		// um concederia o outro sem que a tela dissesse.
+		const modules = SUCONT_MODULES.map((m) => m.permissionModule)
+		expect(new Set(modules).size).toBe(modules.length)
 	})
 })

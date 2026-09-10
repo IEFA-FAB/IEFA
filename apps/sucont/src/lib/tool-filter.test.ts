@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { ALL_STAGES } from "#/lib/hub-filters"
 import { filterTools } from "#/lib/tool-filter"
-import type { Tool } from "#/lib/types"
+import { ALL_STAGES, type Tool } from "#/lib/types"
 
 const tools: Tool[] = [
 	{ id: "a", title: "Auditor", description: "Análise de dados", icon: "ShieldCheck", stage: "analisar", internalPath: "/auditor" },

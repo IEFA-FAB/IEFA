@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { generateText } from "#/lib/ai.server"
-import { requireSucontAccess } from "#/lib/auth.server"
+import { requireDivisionAccess } from "#/lib/auth.server"
 
 export const oracleContaGenericaFn = createServerFn({ method: "POST" })
 	.validator(
@@ -11,7 +11,8 @@ export const oracleContaGenericaFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const ctx = await requireSucontAccess()
+		// A Conta Genérica é da SUCONT-3 — ver `divisions` da ferramenta em `lib/data.ts`.
+		const ctx = await requireDivisionAccess("sucont-3")
 
 		const text = await generateText({
 			// Dono da chamada vem da sessão, nunca do input — é a chave dos tetos por usuário.

@@ -1,38 +1,69 @@
 /**
  * @module permissions.fn
- * Autogestão de acesso do SUCONT. Cada app do ERP gerencia apenas os grants do
- * PRÓPRIO módulo, mesmo compartilhando a tabela access_control.user_permissions.
- * Aqui TODAS as operações são restritas a `module = 'sucont'`. A lógica
- * compartilhada (filtro por módulo, busca por e-mail, upsert de grant unscoped)
- * vem de @iefa/pbac.
+ * Autogestão de acesso do SUCONT. Cada app do ERP gerencia apenas os grants dos
+ * PRÓPRIOS módulos, mesmo compartilhando a tabela access_control.user_permissions.
+ * Aqui TODAS as operações são restritas aos quatro do sucont — `sucont-1`,
+ * `sucont-3`, `sucont-4` e `sucont-admin` —, e o módulo pedido pelo cliente é
+ * validado contra essa lista: sem isso, um administrador do SUCONT concederia
+ * `global` do sisub pela mesma chamada. A lógica compartilhada (filtro por módulo,
+ * busca por e-mail, upsert de grant unscoped) vem de @iefa/pbac.
  *
- * Gate: administração exige grant `sucont` nível 3 (requireSucontAdmin).
- * Grants do sucont são sempre globais/unscoped; nível 1 (acesso), 2 (editor) ou 3 (admin).
+ * Gate: administração exige `sucont-admin` nível 3 (requireSucontAdmin).
+ * Grants do sucont são sempre globais/unscoped. Nas divisões o nível é 1 (acesso à
+ * divisão) ou 2 (editor); no `sucont-admin` é 3 — é o nível que o módulo `sucont`
+ * único exigia antes do split, e o backfill o preservou.
  */
 
-import { grantUnscopedModulePermission, resolveModulePermissions, searchUsersByEmail, type UserPermission } from "@iefa/pbac"
+import { type AppModule, grantUnscopedModulePermission, resolveModulePermissions, searchUsersByEmail, type UserPermission } from "@iefa/pbac"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
 import { describePerson } from "#/lib/identity"
 import { fetchMilitaryIdentities } from "#/lib/military.server"
+import { SUCONT_ADMIN_MODULE, SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
 
-const MODULE = "sucont" as const
+const MODULES = SUCONT_PERMISSION_MODULES
+
+/**
+ * Módulo + nível que o cliente pode pedir.
+ *
+ * O par é validado JUNTO, e não em dois campos independentes, porque os níveis não
+ * são os mesmos: divisão vai a 1 (acesso) ou 2 (editor), e `sucont-admin` só existe
+ * em 3. Aceitar `sucont-3` nível 3 gravaria um grant que nenhum guard lê — acesso
+ * que a tela mostra como concedido e que não abre porta nenhuma.
+ *
+ * O `enum` do módulo é a trava que impede esta tela de conceder `global`, `kitchen`
+ * ou qualquer outro módulo do ERP na tabela compartilhada.
+ */
+const GrantTargetSchema = z.discriminatedUnion("module", [
+	z.object({ module: z.enum(["sucont-1", "sucont-3", "sucont-4"]), level: z.union([z.literal(1), z.literal(2)]) }),
+	z.object({ module: z.literal(SUCONT_ADMIN_MODULE), level: z.literal(3) }),
+])
+
+/**
+ * O par (módulo, nível) concedível. A tela de acessos tipa as opções do seletor com
+ * ele: assim uma combinação que o servidor recusaria não chega a existir no menu.
+ */
+export type SucontGrantTarget = z.infer<typeof GrantTargetSchema>
 
 // biome-ignore lint/suspicious/noExplicitAny: aceita qualquer schema de SupabaseClient, como no @iefa/pbac
 type AnySupabaseClient = SupabaseClient<any, any>
 
 /**
- * Permissões efetivas do PRÓPRIO usuário (deny removido, filtradas pelo módulo
- * `sucont` — grants de outros apps nunca vão para o browser). O `userId` vem da
- * sessão (`requireUserId`), NUNCA do cliente — senão qualquer um leria as
- * permissões de qualquer userId (IDOR). Usado pelo guard de rota e pelo hook.
+ * Permissões efetivas do PRÓPRIO usuário (deny removido, filtradas pelos quatro
+ * módulos do sucont — grants de outros apps nunca vão para o browser). O `userId`
+ * vem da sessão (`requireUserId`), NUNCA do cliente — senão qualquer um leria as
+ * permissões de qualquer userId (IDOR). Usado pelos guards de rota e pelo hook.
+ *
+ * Os quatro saem num fetch só: o guard da raiz precisa saber se há ALGUM, e o de
+ * cada rota, qual divisão — uma query por módulo pagaria a resolução inteira quatro
+ * vezes por carga de página.
  */
 export const fetchMySucontPermissionsFn = createServerFn({ method: "GET" }).handler(async (): Promise<UserPermission[]> => {
 	const userId = await requireUserId()
-	return resolveModulePermissions(userId, getAccessControlClient(), MODULE)
+	return resolveModulePermissions(userId, getAccessControlClient(), MODULES)
 })
 
 export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
@@ -60,26 +91,35 @@ export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	})
 
 /**
- * Concede/atualiza grant `sucont` (nível 1–3, global) a um usuário. Só admin.
- * O upsert seguro sob concorrência (update-first → insert → retry-em-23505,
+ * Concede/atualiza um grant de módulo do sucont (global/unscoped) a um usuário. Só
+ * admin. O upsert seguro sob concorrência (update-first → insert → retry-em-23505,
  * apoiado no índice parcial único do DB) vive em `grantUnscopedModulePermission`
  * (@iefa/pbac). Não colide com grants de outros apps na mesma tabela.
+ *
+ * Uma chamada = UM módulo. Conceder as três divisões são três chamadas, e é assim
+ * que se quer: a tela pede um módulo por vez, e cada linha é revogável sozinha.
  */
 export const grantSucontPermissionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.string().min(1), level: z.number().int().min(1).max(3) }))
+	.validator(z.object({ userId: z.string().min(1) }).and(GrantTargetSchema))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		const ctx = await requireSucontAdmin()
 		assertNotSelf(ctx.userId, data.userId)
-		return grantUnscopedModulePermission(getAccessControlClient(), { module: MODULE, userId: data.userId, level: data.level })
+		return grantUnscopedModulePermission(getAccessControlClient(), { module: data.module, userId: data.userId, level: data.level })
 	})
 
-/** Revoga o grant `sucont` de um usuário. Só admin, e nunca o próprio. */
+/**
+ * Revoga um grant do sucont. Só admin, e nunca o próprio.
+ *
+ * `module` é obrigatório e restrito à lista do app: apagar "o acesso ao sucont" sem
+ * dizer qual módulo retiraria as três divisões e a administração de uma vez — e
+ * numa tabela compartilhada, um `delete` sem `module` alcançaria o ERP inteiro.
+ */
 export const revokeSucontPermissionFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.string().min(1) }))
+	.validator(z.object({ userId: z.string().min(1), module: z.enum(MODULES as [AppModule, ...AppModule[]]) }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		const ctx = await requireSucontAdmin()
 		assertNotSelf(ctx.userId, data.userId)
-		const { error } = await getAccessControlClient().from("user_permissions").delete().eq("user_id", data.userId).eq("module", MODULE)
+		const { error } = await getAccessControlClient().from("user_permissions").delete().eq("user_id", data.userId).eq("module", data.module)
 		if (error) throw new Error(error.message)
 		return { ok: true }
 	})
@@ -102,6 +142,8 @@ function assertNotSelf(actorId: string, targetId: string): void {
 
 export type SucontGrant = {
 	userId: string
+	/** Módulo do sucont que o grant concede — a divisão, ou a administração de acessos. */
+	module: AppModule
 	/** E-mail institucional. Vazio só quando a conta não tem e-mail no GoTrue. */
 	email: string
 	/** SARAM vinculado à conta, e a identificação militar que ele resolve. */
@@ -123,8 +165,11 @@ export type SucontGrant = {
 }
 
 /**
- * Todos os grants `sucont` com o e-mail de quem os tem — a lista de conferência
- * da tela de permissões. Só admin.
+ * Todos os grants dos módulos do sucont com o e-mail de quem os tem — a lista de
+ * conferência da tela de permissões. Só admin.
+ *
+ * Uma linha por (pessoa, módulo): quem tem SUCONT-3 e SUCONT-4 aparece duas vezes,
+ * porque são dois acessos e cada um se revoga sozinho.
  *
  * As DUAS origens do modelo, como `resolveUserPermissions` faz: o grant inline em
  * `user_permissions` e os statements de política anexada ao usuário. Ler só a
@@ -188,10 +233,14 @@ export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(asyn
 		}
 	})
 
-	// Nível primeiro (administrador no topo é o que se confere), depois o rótulo que
-	// a tela de fato mostra — ordenar por e-mail deixaria a lista visualmente
-	// desordenada assim que os nomes de guerra aparecessem.
-	return identified.sort((a, b) => b.level - a.level || describePerson(a).primary.localeCompare(describePerson(b).primary, "pt-BR"))
+	// Pessoa primeiro, e agora ela é o agrupamento que a tela mostra: com quatro
+	// módulos, ordenar por nível espalharia os grants de uma mesma pessoa pela lista
+	// inteira, e conferir "o que fulano tem" viraria uma varredura. Dentro da pessoa,
+	// o nível decide (administração no topo, que é o que se confere) e o módulo
+	// desempata, para a ordem não oscilar entre dois grants do mesmo nível.
+	return identified.sort(
+		(a, b) => describePerson(a).primary.localeCompare(describePerson(b).primary, "pt-BR") || b.level - a.level || a.module.localeCompare(b.module)
+	)
 })
 
 /**
@@ -221,12 +270,13 @@ async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly st
 
 type PartialGrant = Omit<SucontGrant, "email" | "nrOrdem" | "posto" | "nomeGuerra">
 
-/** Grants gravados direto na linha do usuário. */
+/** Grants gravados direto na linha do usuário, nos quatro módulos do sucont. */
 async function fetchInlineGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {
-	const { data, error } = await accessControl.from("user_permissions").select("user_id, level, expires_at").eq("module", MODULE)
+	const { data, error } = await accessControl.from("user_permissions").select("module, user_id, level, expires_at").in("module", MODULES)
 	if (error) throw new Error(error.message)
-	return ((data ?? []) as Array<{ user_id: string; level: number; expires_at: string | null }>).map((row) => ({
+	return ((data ?? []) as Array<{ module: AppModule; user_id: string; level: number; expires_at: string | null }>).map((row) => ({
 		userId: row.user_id,
+		module: row.module,
 		level: row.level,
 		expiresAt: row.expires_at,
 		source: "inline" as const,
@@ -243,21 +293,26 @@ async function fetchInlineGrants(accessControl: AnySupabaseClient): Promise<Part
  * conferência — nunca concede acesso.
  */
 async function fetchPolicyGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {
-	const { data: statements, error: statementError } = await accessControl.from("policy_statement").select("policy_id, level").eq("module", MODULE)
+	const { data: statements, error: statementError } = await accessControl.from("policy_statement").select("policy_id, module, level").in("module", MODULES)
 	if (statementError) {
 		if (isMissingTable(statementError)) return []
 		throw new Error(statementError.message)
 	}
 
-	const levelByPolicy = new Map<string, number>()
-	for (const row of (statements ?? []) as Array<{ policy_id: string; level: number }>) {
-		// Uma política pode ter mais de um statement do módulo; vale o maior nível,
-		// que é a semântica da resolução.
-		levelByPolicy.set(row.policy_id, Math.max(levelByPolicy.get(row.policy_id) ?? 0, row.level))
+	// Chaveado por política E MÓDULO: uma política que empresta `sucont-3` e
+	// `sucont-4` são dois acessos distintos, e colapsá-los numa linha só faria a
+	// tela mostrar um deles e esconder o outro.
+	const levelByPolicyModule = new Map<string, { policyId: string; module: AppModule; level: number }>()
+	for (const row of (statements ?? []) as Array<{ policy_id: string; module: AppModule; level: number }>) {
+		// Uma política pode ter mais de um statement do MESMO módulo (níveis/escopos
+		// diferentes); vale o maior nível, que é a semântica da resolução.
+		const key = `${row.policy_id}:${row.module}`
+		const current = levelByPolicyModule.get(key)
+		if (!current || row.level > current.level) levelByPolicyModule.set(key, { policyId: row.policy_id, module: row.module, level: row.level })
 	}
-	if (levelByPolicy.size === 0) return []
+	if (levelByPolicyModule.size === 0) return []
 
-	const ids = [...levelByPolicy.keys()]
+	const ids = [...new Set([...levelByPolicyModule.values()].map((v) => v.policyId))]
 	const [{ data: policies, error: policyError }, { data: attachments, error: attachmentError }] = await Promise.all([
 		accessControl.from("policy").select("id, name").in("id", ids).is("deleted_at", null),
 		accessControl.from("user_policy_attachment").select("user_id, policy_id, expires_at").in("policy_id", ids),
@@ -268,15 +323,21 @@ async function fetchPolicyGrants(accessControl: AnySupabaseClient): Promise<Part
 	// Política com soft delete não empresta nada — mesma regra da resolução.
 	const nameById = new Map((policies ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
 
+	// Um anexo por política vira UMA linha por módulo que ela empresta.
 	return ((attachments ?? []) as Array<{ user_id: string; policy_id: string; expires_at: string | null }>)
 		.filter((row) => nameById.has(row.policy_id))
-		.map((row) => ({
-			userId: row.user_id,
-			level: levelByPolicy.get(row.policy_id) ?? 0,
-			expiresAt: row.expires_at,
-			source: "policy" as const,
-			policyName: nameById.get(row.policy_id),
-		}))
+		.flatMap((row) =>
+			[...levelByPolicyModule.values()]
+				.filter((statement) => statement.policyId === row.policy_id)
+				.map((statement) => ({
+					userId: row.user_id,
+					module: statement.module,
+					level: statement.level,
+					expiresAt: row.expires_at,
+					source: "policy" as const,
+					policyName: nameById.get(row.policy_id),
+				}))
+		)
 }
 
 /** `PGRST205`/`42P01`: o banco não tem o modelo de políticas. Ver `@iefa/pbac`. */

@@ -10,6 +10,7 @@ import { consolidateData } from "#/analistasaldoalongado/utils/analytics"
 import type { UgMessage } from "#/analistasaldoalongado/utils/generator"
 import { generateMessages } from "#/analistasaldoalongado/utils/generator"
 import { parseFile } from "#/analistasaldoalongado/utils/parser"
+import { requireToolAccess } from "#/auth/pbac"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
@@ -42,6 +43,8 @@ const ANALYSIS_NOTES = [
 ] as const
 
 export const Route = createFileRoute("/analistasaldoalongado")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/analistasaldoalongado"),
 	component: AnalistaSaldoAlongado,
 })
 

@@ -19,10 +19,20 @@
  * - storage:             Estoque e almoxarifado — sisub
  * - rumaer:              Uniformes RUMAER — rumaer, unscoped/global
  *                          level 2 = editar uniformes; level 3 = gerenciar grants do rumaer.
- * - sucont:              HUB SUCONT-4 (acompanhamento contábil) — sucont, unscoped/global.
- *                          level 1 = acessar o hub e ferramentas; level 2 = editar dados da
- *                          seção (área de trabalho, relatórios, mensagens); level 3 = gerenciar
- *                          grants do sucont.
+ * - sucont-1:            SUCONT-1 (Custos / DGC) — sucont, unscoped/global.
+ * - sucont-3:            SUCONT-3 (Contábil) — sucont, unscoped/global.
+ * - sucont-4:            SUCONT-4 (Patrimonial) — sucont, unscoped/global.
+ *                          Nas três divisões: level 1 = abrir as ferramentas DELA;
+ *                          level 2 = editar os dados da seção (área de trabalho, relatórios,
+ *                          mensagens, análises salvas).
+ * - sucont-admin:        Administração do SUCONT (gerenciar grants dos módulos acima) —
+ *                          sucont, unscoped/global. Usa level 3, o mesmo que o módulo
+ *                          `sucont` único exigia antes do split: o backfill preserva o nível.
+ *
+ * As três divisões são módulos SEPARADOS, e não escopos de um módulo `sucont` único, porque
+ * o escopo do PBAC é um id numérico de unidade/cozinha/refeitório — a divisão da SUCONT não
+ * é nenhum dos três. É o mesmo recorte que o sisub faz com `global` × `admin`: quem trabalha
+ * na SUCONT-3 não passa a enxergar as telas da SUCONT-4 por ter acesso ao app.
  */
 export type AppModule =
 	| "diner"
@@ -36,7 +46,10 @@ export type AppModule =
 	| "local-analytics"
 	| "storage"
 	| "rumaer"
-	| "sucont"
+	| "sucont-1"
+	| "sucont-3"
+	| "sucont-4"
+	| "sucont-admin"
 
 /**
  * Permissão individual de um usuário.

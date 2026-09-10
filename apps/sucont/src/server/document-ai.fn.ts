@@ -2,7 +2,7 @@ import type { DocumentInsert } from "@iefa/database/sucont"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { generateJson } from "#/lib/ai.server"
-import { requireSucontAccess } from "#/lib/auth.server"
+import { requireDivisionAccess } from "#/lib/auth.server"
 import { citarMacrofuncao, MACROFUNCOES, RADAE } from "#/lib/normas"
 import { getSucontServerClient } from "#/lib/supabase.server"
 import { analysisSchema, fabSchema } from "#/server/document-schemas"
@@ -56,7 +56,9 @@ export const adaptDraftFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const ctx = await requireSucontAccess()
+		// A Automação de Documentos é da SUCONT-4 — o fecho obrigatório do ofício é o
+		// dela, e é o que `divisions` declara em `lib/data.ts`.
+		const ctx = await requireDivisionAccess("sucont-4")
 		const { draft, type } = data
 		const isFab = type === "FAB_OFFICE"
 

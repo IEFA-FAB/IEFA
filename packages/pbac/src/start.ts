@@ -18,7 +18,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
 import { PermissionDeniedError } from "./errors.ts"
-import { type MinLevel, requirePermission } from "./guards.ts"
+import { type MinLevel, requireAnyPermission, requirePermission } from "./guards.ts"
 import { resolveUserPermissions } from "./resolve-permissions.ts"
 import type { AppModule, PermissionScope, UserContext } from "./types.ts"
 
@@ -79,6 +79,14 @@ export interface RequestAuth {
 	requireAuth: () => Promise<UserContext>
 	/** `requireAuth` + gate de módulo/nível, traduzindo a negativa em 403. */
 	requireLevel: (module: AppModule, minLevel?: MinLevel, scope?: PermissionScope) => Promise<UserContext>
+	/**
+	 * `requireLevel` que passa se QUALQUER um dos módulos conceder o nível.
+	 *
+	 * Para o recurso compartilhado por vários módulos do mesmo app: no sucont, a área
+	 * de trabalho e os relatórios são da seção inteira, e exigi-los de uma divisão
+	 * específica trancaria fora quem trabalha nas outras.
+	 */
+	requireAnyLevel: (modules: readonly AppModule[], minLevel?: MinLevel, scope?: PermissionScope) => Promise<UserContext>
 }
 
 /**
@@ -92,7 +100,7 @@ export interface RequestAuth {
  *   getPermissionsClient: getAccessControlClient,
  * })
  * export const { getRequestUser, requireUser, requireUserId, requireAuth } = auth
- * export const requireSucontEditor = () => auth.requireLevel("sucont", 2)
+ * export const requireSucontEditor = () => auth.requireLevel("sucont-4", 2)
  * ```
  */
 export function createRequestAuth({ getAuthClient, getPermissionsClient, messages }: RequestAuthConfig): RequestAuth {
@@ -160,5 +168,16 @@ export function createRequestAuth({ getAuthClient, getPermissionsClient, message
 		return ctx
 	}
 
-	return { getRequestUser, requireUser, requireUserId, requireAuth, requireLevel }
+	const requireAnyLevel = async (modules: readonly AppModule[], minLevel: MinLevel = 1, scope?: PermissionScope): Promise<UserContext> => {
+		const ctx = await requireAuth()
+		try {
+			requireAnyPermission(ctx, modules, minLevel, scope)
+		} catch (error) {
+			if (error instanceof PermissionDeniedError) forbidden(messages?.forbidden?.(modules.join(" | ")) ?? `FORBIDDEN: ${modules.join(" | ")}`)
+			throw error
+		}
+		return ctx
+	}
+
+	return { getRequestUser, requireUser, requireUserId, requireAuth, requireLevel, requireAnyLevel }
 }

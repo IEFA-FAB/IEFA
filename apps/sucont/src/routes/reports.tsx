@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { FileBarChart, Loader2, Plus } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState } from "react"
-import { useSucontAccess } from "#/auth/pbac"
+import { requireAnyDivision, useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { ToolCard } from "#/components/tool-card"
@@ -16,6 +16,8 @@ import type { Tool } from "#/lib/types"
 import { createReportFn, deleteReportFn } from "#/server/reports.fn"
 
 export const Route = createFileRoute("/reports")({
+	// Tela da seção: basta uma divisão qualquer.
+	beforeLoad: requireAnyDivision,
 	// Aquece o cache no loader: a lista sai junto com o HTML em vez de esperar a
 	// hidratação.
 	// Dispara sem esperar: a tela usa `useQuery` e tem o próprio estado de
@@ -40,7 +42,9 @@ function Reports() {
 	// Anexar e excluir exigem nível 2 (requireSucontEditor nas server fns). Enquanto
 	// a permissão não resolveu, a ação não aparece: melhor um botão que chega tarde
 	// do que um que promete o que o servidor vai negar.
-	const { canEdit, isLoading: loadingAccess } = useSucontAccess()
+	// Tela da SEÇÃO: quem edita por qualquer divisão edita aqui — é o mesmo
+	// `requireSucontEditor` que a server function cobra.
+	const { canEditAny: canEdit, isLoading: loadingAccess } = useSucontAccess()
 
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsQueryOptions().queryKey })
 

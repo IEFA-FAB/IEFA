@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useSucontAccess } from "#/auth/pbac"
+import { requireToolAccess, useSucontAccess } from "#/auth/pbac"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
@@ -45,6 +45,8 @@ const ANALYSIS_NOTES = [
 ] as const
 
 export const Route = createFileRoute("/sac-dgc")({
+	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
+	beforeLoad: (opts) => requireToolAccess(opts, "/sac-dgc"),
 	// O histórico de rodadas é aquecido no loader, antes do HTML, em vez de só
 	// começar a ser buscado depois da hidratação.
 	// Dispara sem esperar: a tela usa `useQuery` e tem o próprio estado de
@@ -71,7 +73,9 @@ function SacDgcPage() {
 	// (painel faltando, linha descartada) não valem — não houve carga.
 	const [isStoredView, setIsStoredView] = useState(false)
 
-	const { canEdit } = useSucontAccess()
+	// O SAC-DGC é da SUCONT-1: o botão de escrita segue a divisão DELA, não "alguma divisão".
+	// Pintá-lo por acesso genérico prometeria uma gravação que o servidor recusa.
+	const { canEdit } = useSucontAccess("sucont-1")
 	const queryClient = useQueryClient()
 	const abortRef = useRef<AbortController | null>(null)
 	const runningRef = useRef(false)
