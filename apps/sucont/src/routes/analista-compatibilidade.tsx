@@ -1,33 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
-	AlertCircle,
 	AlertTriangle,
 	BarChart3,
 	BookOpen,
 	Building2,
 	CalendarClock,
 	CheckCircle2,
-	ChevronRight,
 	Copy,
-	FileSpreadsheet,
 	FileText,
-	Info,
 	LayoutDashboard,
-	MessageSquareText,
+	MessageSquare,
 	PieChart as PieChartIcon,
 	RefreshCw,
 	Search,
 	ShieldAlert,
 	TrendingDown,
-	Upload,
 	Users,
 } from "lucide-react"
-import { type ChangeEvent, useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
+import { RacReference } from "#/components/rac-reference"
+import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
+import { FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
@@ -36,6 +35,28 @@ import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { chartChrome } from "#/lib/chart-theme"
 import { agregarSaldos, compararPares, type LinhaSaldo, PARES } from "#/lib/compatibilidade/pares"
 import { getUg } from "#/lib/ug/registry"
+
+/**
+ * O que a ferramenta faz com a planilha. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado o arquivo.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Search,
+		title: "O que é analisado",
+		text: "Conformidade entre saldos de contas de controle e das contas patrimoniais correspondentes, por UG e por competência.",
+	},
+	{
+		icon: MessageSquare,
+		title: "O que é gerado",
+		text: "Mensagem padronizada de cobrança e orientação por UG, pronta para envio via SAU, com prazo e número editáveis.",
+	},
+	{
+		icon: BookOpen,
+		title: "Como o resultado é lido",
+		text: "As divergências são agrupadas por par de contas e distribuídas entre os conferentes; cada um filtra as suas.",
+	},
+] as const
 
 export const Route = createFileRoute("/analista-compatibilidade")({
 	component: AnalistaCompatibilidade,
@@ -273,8 +294,8 @@ Diferença apurada: ${formatCurrency(diff)}
 
 	// ── handleFileUpload ───────────────────────────────────────────────────────
 
-	const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0]
+	const handleFiles = (files: File[]) => {
+		const file = files[0]
 		if (!file) return
 
 		setFileName(file.name)
@@ -678,116 +699,31 @@ DIREF/SUCONT/SUCONT-3
 
 			{/* ── Upload section ─────────────────────────────────────────────────── */}
 			{reports.length === 0 && (
-				<div className="space-y-6">
-					{/* Info cards */}
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						<div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:border-action/50 transition-colors">
-							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
-								<Search className="w-6 h-6 text-foreground" />
-							</div>
-							<h3 className="text-heading text-foreground mb-2">O que está sendo analisado</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Análise de conformidade entre saldos de contas de controle e contas patrimoniais (ex: Cauções, Almoxarifado e Bens Móveis em Trânsito),
-								identificando inconsistências nos registros das Unidades Gestoras.
-							</p>
-						</div>
-
-						<div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:border-action/50 transition-colors">
-							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
-								<BookOpen className="w-6 h-6 text-foreground" />
-							</div>
-							<h3 className="text-heading text-foreground mb-2">Referencial Teórico (RAC)</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Baseado no Roteiro de Acompanhamento Contábil (RAC) da SUCONT-3, o aplicativo orienta a atuação da Setorial Contábil para garantir a
-								fidedignidade do balanço patrimonial do COMAER.
-							</p>
-						</div>
-
-						<div className="bg-card p-6 rounded-xl shadow-sm border border-border hover:border-action/50 transition-colors">
-							<div className="bg-action/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
-								<MessageSquareText className="w-6 h-6 text-foreground" />
-							</div>
-							<h3 className="text-heading text-foreground mb-2">Mensagens Automáticas</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Geração instantânea de mensagens padronizadas de cobrança e orientação para as UGs, prontas para envio via SAU, otimizando o processo de
-								regularização contábil.
-							</p>
-						</div>
-					</div>
-
-					{/* Upload card */}
-					<div className="bg-card rounded-xl shadow-sm border border-border p-6">
-						<h2 className="text-heading mb-4 flex items-center gap-2 text-foreground">
-							<FileSpreadsheet className="w-5 h-5 text-action" />
-							Importar Relatório
-						</h2>
-
-						<div className="mb-6 bg-action/5 border border-action/30 rounded-xl p-4">
-							<div className="flex items-start gap-3">
-								<Info className="w-5 h-5 text-action shrink-0 mt-0.5" />
-								<div>
-									<h3 className="text-subheading text-foreground mb-1.5">Caminho do Relatório no Tesouro Gerencial:</h3>
-									<div className="text-caption text-muted-foreground leading-relaxed flex flex-wrap items-center gap-x-1.5 gap-y-1">
-										<span className="font-medium text-foreground">TESOURO GERENCIAL</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>Relatórios Compartilhados</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>Consultas Gerenciais</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>Relatórios de Bancada dos Órgãos Superiores</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>52000 - Ministério da Defesa</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>52111 - Comando da Aeronáutica</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>SEFA</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>DIREF</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span>SUCONT-3 - ACOMPANHAMENTO</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span className="font-bold text-foreground">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<div className="relative">
-							<input
-								type="file"
-								accept=".xlsx, .xls, .csv"
-								onChange={handleFileUpload}
-								className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-								disabled={isProcessing}
-							/>
-							<div
-								className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isProcessing ? "border-border bg-muted" : "border-action/30 bg-action/5 hover:bg-action/10"}`}
-							>
-								<Upload className={`w-8 h-8 mx-auto mb-3 ${isProcessing ? "text-muted-foreground" : "text-foreground"}`} />
-								{isProcessing ? (
-									<p className="text-muted-foreground font-medium">Processando planilha...</p>
-								) : fileName ? (
-									<div>
-										<p className="text-foreground font-medium">{fileName}</p>
-										<p className="text-muted-foreground text-body mt-1">Clique ou arraste outro arquivo para substituir</p>
-									</div>
-								) : (
-									<div>
-										<p className="text-foreground font-medium">Clique ou arraste o arquivo do Tesouro Gerencial (.xlsx)</p>
-										<p className="text-muted-foreground text-body mt-1">Colunas necessárias: UG, Conta Contábil, Saldo</p>
-									</div>
-								)}
-							</div>
-						</div>
-
-						{error && (
-							<div className="mt-4 p-4 bg-destructive/10 text-destructive rounded-lg flex items-start gap-3 text-body">
-								<AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-								<p>{error}</p>
-							</div>
-						)}
-					</div>
-				</div>
+				<AnalysisStart
+					dropzone={
+						<FileDropzone
+							accept=".xlsx,.xls,.csv"
+							onFiles={handleFiles}
+							prompt="ou arraste o relatório"
+							hint="Excel do Tesouro Gerencial (.xlsx, .xls) ou CSV"
+							columns={["UG", "Conta Contábil", "Saldo"]}
+							isLoading={isProcessing}
+							loadingLabel="Processando a planilha…"
+							selectedName={fileName}
+						/>
+					}
+					error={error}
+					errorTitle="Não foi possível processar a planilha"
+					source={<TesouroGerencialPath />}
+					reference={
+						<RacReference
+							objective="Confrontar os saldos de contas de controle com os das contas patrimoniais correspondentes — cauções, almoxarifado e bens móveis em trânsito, entre outras."
+							risk="Saldos incompatíveis entre a conta de controle e a patrimonial indicam registro pela metade: um dos lados do fato foi lançado e o outro não."
+							importance="A conciliação entre os pares de contas sustenta a fidedignidade do balanço patrimonial da UG e da consolidação do COMAER."
+						/>
+					}
+					notes={ANALYSIS_NOTES}
+				/>
 			)}
 
 			{/* ── Results section ────────────────────────────────────────────────── */}

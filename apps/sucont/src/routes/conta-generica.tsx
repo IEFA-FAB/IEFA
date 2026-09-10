@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
-	AlertCircle,
 	AlertOctagon,
 	AlertTriangle,
 	ArrowRight,
@@ -15,7 +14,6 @@ import {
 	DollarSign,
 	FileSpreadsheet,
 	FileText,
-	Info,
 	Landmark,
 	Lightbulb,
 	MessageSquare,
@@ -24,17 +22,17 @@ import {
 	ShieldCheck,
 	Target,
 	TrendingUp,
-	Upload,
 	Wallet,
 } from "lucide-react"
-import type React from "react"
-import { useRef, useState } from "react"
+import { useState } from "react"
 import * as XLSX from "xlsx"
+import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
-import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
+import { RacReference } from "#/components/rac-reference"
+import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
-import { Card, CardContent } from "#/components/ui/card"
+import { FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
@@ -95,6 +93,28 @@ const formatMilitaryDate = (dateStr: string) => {
 
 // ── Route ────────────────────────────────────────────────────────────────────
 
+/**
+ * O que a ferramenta faz com a planilha. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado o arquivo.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Search,
+		title: "O que é analisado",
+		text: 'Uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.',
+	},
+	{
+		icon: MessageSquare,
+		title: "O que é gerado",
+		text: "Texto padronizado por UG, pronto para envio via SIAFI, com a fundamentação normativa já embutida.",
+	},
+	{
+		icon: BookOpen,
+		title: "Como o resultado é lido",
+		text: "Três visões do mesmo dado — estratégica, tática e operacional —, além do oráculo de IA sobre o conjunto carregado.",
+	},
+] as const
+
 export const Route = createFileRoute("/conta-generica")({
 	component: ContaGenerica,
 })
@@ -136,33 +156,20 @@ function ContaGenerica() {
 	const [isAskingOracle, setIsAskingOracle] = useState(false)
 	const [oracleInput, setOracleInput] = useState("")
 
-	const fileInputRef = useRef<HTMLInputElement>(null)
-
 	// ── File handling ───────────────────────────────────────────────────────────
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const f = e.target.files?.[0]
-		if (f) {
-			setFile(f)
-			processFile(f)
+	// O `accept` do campo filtra a JANELA de escolha, não o que é ARRASTADO: a
+	// extensão precisa ser conferida aqui, no único ponto por onde os dois
+	// caminhos passam.
+	const handleFiles = (files: File[]) => {
+		const f = files[0]
+		if (!f) return
+		if (!f.name.endsWith(".xlsx") && !f.name.endsWith(".xls")) {
+			setError("Envie um arquivo Excel válido (.xlsx ou .xls).")
+			return
 		}
-	}
-
-	const handleDragOver = (e: React.DragEvent<HTMLButtonElement>) => {
-		e.preventDefault()
-		e.stopPropagation()
-	}
-
-	const handleDrop = (e: React.DragEvent<HTMLButtonElement>) => {
-		e.preventDefault()
-		e.stopPropagation()
-		const f = e.dataTransfer.files?.[0]
-		if (f && (f.name.endsWith(".xlsx") || f.name.endsWith(".xls"))) {
-			setFile(f)
-			processFile(f)
-		} else {
-			setError("Por favor, envie um arquivo Excel válido (.xlsx ou .xls).")
-		}
+		setFile(f)
+		processFile(f)
 	}
 
 	const resetApp = () => {
@@ -183,7 +190,6 @@ function ContaGenerica() {
 		setMessageType("sem_prazo")
 		setDeadline("")
 		drafts.resetAll()
-		if (fileInputRef.current) fileInputRef.current.value = ""
 	}
 
 	// ── Data processing ─────────────────────────────────────────────────────────
@@ -585,109 +591,44 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 				)
 			}
 		>
-			{error && (
-				<Alert variant="destructive" className="mb-8">
-					<AlertCircle />
-					<AlertTitle>Não foi possível processar</AlertTitle>
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			)}
-
-			{/* UPLOAD STATE */}
-			{!result && !isProcessing && (
-				<>
-					{/*
-					 * Capa removida: um escudo de 96px com anel dourado, o título "ANALISTA
-					 * SUCONT" entre dois filetes de ouro, blobs decorativos em quarto-de-
-					 * círculo, um avião de marca-d'água e uma pílula repetindo a Questão 29 —
-					 * que já é a pílula ao lado da trilha. Nada disso é a tarefa, e nenhuma
-					 * outra ferramenta do hub abre assim.
-					 */}
-					<div className="mx-auto mt-4 max-w-3xl">
-						<div className="mb-6 rounded-xl border border-border bg-muted/50 p-5 text-left">
-							<div className="flex items-center gap-2 mb-3">
-								<Info className="w-4 h-4 text-muted-foreground" />
-								<span className="text-label text-muted-foreground">Caminho do Relatório no Tesouro Gerencial</span>
-							</div>
-							<div className="text-hint text-muted-foreground font-mono leading-relaxed bg-card p-4 rounded-lg border border-border break-words">
-								<span className="font-bold text-foreground">TESOURO GERENCIAL</span>
-								{" > "}Relatórios Compartilhados {" > "}Consultas Gerenciais {" > "}Relatórios de Bancada dos Órgãos Superiores {" > "}52000 - Ministério da
-								Defesa {" > "}52111 - Comando da Aeronáutica {" > "}SEFA {" > "}DIREF {" > "}SUCONT-3 - ACOMPANHAMENTO
-								{" > "} <span className="font-bold text-foreground">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
-							</div>
-						</div>
-
-						{/* Zona de envio no padrão do hub — a mesma do `DgcUpload` e do subitens. */}
-						<button
-							type="button"
-							className={cn(
-								"flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
-								file ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:border-border/80 hover:bg-muted"
-							)}
-							onDragOver={handleDragOver}
-							onDrop={handleDrop}
-							onClick={() => fileInputRef.current?.click()}
-						>
-							<input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx,.xls" className="hidden" />
-							<Upload className="mb-4 h-11 w-11 text-muted-foreground" />
-							<p className="mb-1 text-subheading text-foreground">
-								{file ? (
-									file.name
-								) : (
-									<>
-										<span className="font-semibold text-tech-blue">Clique para enviar</span> ou arraste o relatório
-									</>
-								)}
-							</p>
-							<p className="text-caption text-muted-foreground">Excel do Tesouro Gerencial — contas com final "99" são identificadas automaticamente</p>
-						</button>
-					</div>
-
-					{/*
-					 * Superfície e cor do ícone por classe LITERAL. As classes vinham de
-					 * `bg-${color}/10` e `text-${color}` — interpoladas, e portanto invisíveis
-					 * para o varredor do Tailwind: nenhum dos três ícones jamais teve cor nem
-					 * fundo. Uma delas (`emerald-600`) ainda era paleta crua, proibida pelo §6.
-					 */}
-					<div className="max-w-4xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-						{[
-							{
-								icon: Search,
-								title: "O que está sendo analisado",
-								text: 'Identificação do uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.',
-							},
-							{
-								icon: BookOpen,
-								title: "Referencial Teórico (RAC)",
-								text: "Análise fundamentada no Roteiro de Acompanhamento Contábil (RAC) da SUCONT-3, visando garantir a fidedignidade dos registros.",
-							},
-							{
-								icon: MessageSquare,
-								title: "Mensagens Automáticas",
-								text: "Geração automática de textos padronizados para envio via SIAFI às Unidades Gestoras, facilitando a cobrança e orientação técnica.",
-							},
-						].map(({ icon: Icon, title, text }) => (
-							<Card key={title}>
-								<CardContent>
-									<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-action/10">
-										<Icon className="h-6 w-6 text-action" />
-									</div>
-									<h3 className="text-heading text-foreground mb-2">{title}</h3>
-									<p className="text-caption text-muted-foreground leading-relaxed">{text}</p>
-								</CardContent>
-							</Card>
-						))}
-					</div>
-				</>
-			)}
-
-			{/* PROCESSING */}
-			{isProcessing && (
-				<div className="flex flex-col items-center justify-center py-20">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tech-blue mb-4" />
-					<span className="text-muted-foreground text-heading">Processando relatório...</span>
-					<span className="text-muted-foreground text-body mt-2">Aplicando regras de negócio da SUCONT-3</span>
-				</div>
+			{/*
+			 * Capa removida: um escudo de 96px com anel dourado, o título "ANALISTA
+			 * SUCONT" entre dois filetes de ouro, blobs decorativos em quarto-de-
+			 * círculo, um avião de marca-d'água e uma pílula repetindo a Questão 29 —
+			 * que já é a pílula ao lado da trilha. Nada disso é a tarefa.
+			 *
+			 * O carregamento também deixou de ser uma tela própria: era um bloco de
+			 * `py-20` com anel girando que SUBSTITUÍA a zona de envio, então o campo
+			 * sumia da página enquanto lia. Agora o estado vive na própria zona, como
+			 * nas outras seis ferramentas.
+			 */}
+			{!result && (
+				<AnalysisStart
+					dropzone={
+						<FileDropzone
+							accept=".xlsx,.xls"
+							onFiles={handleFiles}
+							prompt="ou arraste o relatório"
+							hint='Excel do Tesouro Gerencial — contas com final "99" são identificadas automaticamente'
+							columns={["UG", "Conta Contábil", "Mês", "Saldo - R$"]}
+							isLoading={isProcessing}
+							loadingLabel="Processando o relatório…"
+							selectedName={file?.name ?? null}
+						/>
+					}
+					error={error}
+					errorTitle="Não foi possível processar a planilha"
+					source={<TesouroGerencialPath />}
+					reference={
+						<RacReference
+							statement="As Unidades Gestoras utilizam contas contábeis genéricas no registro de suas transações?"
+							objective='Identificar o uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.'
+							risk="A conta genérica esconde a natureza real do registro, impede a conciliação por natureza de despesa e distorce a leitura das demonstrações."
+							importance="A reclassificação preserva a fidedignidade dos registros e sustenta a atuação da Setorial Contábil junto à UG."
+						/>
+					}
+					notes={ANALYSIS_NOTES}
+				/>
 			)}
 
 			{/* RESULTS */}

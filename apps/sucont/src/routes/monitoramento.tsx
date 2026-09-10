@@ -6,7 +6,6 @@ import {
 	BookOpen,
 	Building2,
 	CheckCircle2,
-	ChevronRight,
 	DollarSign,
 	FileText,
 	Filter,
@@ -19,7 +18,6 @@ import {
 	Target,
 	Trash2,
 	TrendingUp,
-	Upload,
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -28,8 +26,12 @@ import * as XLSX from "xlsx"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
 import { UGCard } from "#/components/analista/ug-card"
+import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
+import { RacReference } from "#/components/rac-reference"
+import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
+import { FileDropzone } from "#/components/ui/file-dropzone"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getOrganizacao } from "#/lib/analista/organizacao"
@@ -58,6 +60,28 @@ const VIEW_TABS: Array<{ id: ActiveView; label: string }> = [
 	{ id: "decisao", label: "Apoio à decisão" },
 ]
 
+/**
+ * O que a ferramenta faz com a planilha. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado o arquivo.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Search,
+		title: "O que é analisado",
+		text: "Saldos de contas transitórias e de controle, classificados pelas 33 regras derivadas das questões do RAC no escopo.",
+	},
+	{
+		icon: MessageSquare,
+		title: "O que é gerado",
+		text: "Proposta de mensagem de cobrança e orientação por UG, padronizada e pronta para revisão antes do envio.",
+	},
+	{
+		icon: BookOpen,
+		title: "Como o resultado é lido",
+		text: "Quatro visões do mesmo dado, da operacional à estratégica; conta fora do escopo parametrizado aparece em seção própria para revisão manual.",
+	},
+] as const
+
 export const Route = createFileRoute("/monitoramento")({
 	component: MonitoramentoPage,
 })
@@ -65,14 +89,16 @@ export const Route = createFileRoute("/monitoramento")({
 function MonitoramentoPage() {
 	const [data, setData] = useState<ProcessedRow[]>([])
 	const [fileName, setFileName] = useState<string | null>(null)
-	const [isDragging, setIsDragging] = useState(false)
+	const [isReading, setIsReading] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 	const [activeTab, setActiveTab] = useState<"ALL" | "COBRANCAS" | "EXCECOES" | "FORA_ESCOPO">("ALL")
 	const [activeView, setActiveView] = useState<ActiveView>("operacional")
 	const [activeConferenteFilter, setActiveConferenteFilter] = useState("TODOS")
 	const [activeRacFilter, setActiveRacFilter] = useState("TODOS")
 
 	const processFile = (file: File) => {
-		setFileName(file.name)
+		setError(null)
+		setIsReading(true)
 		const reader = new FileReader()
 		reader.onload = (e) => {
 			const rawData = e.target?.result
@@ -242,20 +268,36 @@ function MonitoramentoPage() {
 				}
 			}
 
+			setIsReading(false)
+
+			// Cabeçalho não encontrado é FALHA de leitura, não competência limpa: antes
+			// caía em `setData([])` com o nome do arquivo já gravado, e a tela trocava
+			// para o painel mostrando zero ocorrência (§7.1). Nenhuma linha aproveitada
+			// COM o cabeçalho lido é vazio de verdade, e segue para o painel.
+			if (dataStartIndex === -1) {
+				setError("Não foi possível encontrar o cabeçalho da tabela com as colunas UG, Mês, Conta Contábil e Saldo. Verifique o formato do arquivo.")
+				return
+			}
+
+			setFileName(file.name)
 			setData(processed)
+		}
+		reader.onerror = () => {
+			setIsReading(false)
+			setError("Não foi possível ler o arquivo.")
 		}
 		reader.readAsArrayBuffer(file)
 	}
 
-	const handleDrop = (e: React.DragEvent) => {
-		e.preventDefault()
-		setIsDragging(false)
-		if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0])
+	const handleFiles = (files: File[]) => {
+		const file = files[0]
+		if (file) processFile(file)
 	}
 
 	const clearData = () => {
 		setData([])
 		setFileName(null)
+		setError(null)
 	}
 
 	const filteredData = useMemo(() => {
@@ -479,102 +521,30 @@ function MonitoramentoPage() {
 			}
 		>
 			{!fileName ? (
-				<div className="space-y-6">
-					{/* Upload zone */}
-					<button
-						type="button"
-						className={cn(
-							"w-full border-2 border-dashed rounded-xl p-12 text-center transition-colors duration-200 cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
-							isDragging ? "border-action bg-action/10" : "border-border hover:border-action hover:bg-muted/50 bg-card"
-						)}
-						onDrop={handleDrop}
-						onDragOver={(e) => {
-							e.preventDefault()
-							setIsDragging(true)
-						}}
-						onDragLeave={(e) => {
-							e.preventDefault()
-							setIsDragging(false)
-						}}
-						onClick={() => document.getElementById("file-upload")?.click()}
-					>
-						<input
-							id="file-upload"
-							type="file"
+				<AnalysisStart
+					dropzone={
+						<FileDropzone
 							accept=".xlsx,.xls"
-							className="hidden"
-							onChange={(e) => {
-								if (e.target.files?.[0]) processFile(e.target.files[0])
-							}}
+							onFiles={handleFiles}
+							prompt="ou arraste o relatório"
+							hint="Excel do Tesouro Gerencial (.xlsx, .xls)"
+							columns={["UG", "Mês", "Conta Contábil", "Saldo"]}
+							isLoading={isReading}
+							loadingLabel="Lendo a planilha…"
 						/>
-						<div className="mx-auto w-16 h-16 bg-action/15 text-action rounded-full flex items-center justify-center mb-4">
-							<Upload className="w-8 h-8" />
-						</div>
-						<h3 className="text-heading text-foreground mb-1">Carregar Planilha do Tesouro Gerencial</h3>
-						<p className="text-muted-foreground text-body max-w-md mx-auto">
-							Arraste e solte o arquivo .xlsx aqui, ou clique para selecionar. A planilha deve conter as colunas UG, Mês, Conta Contábil e Saldo.
-						</p>
-					</button>
-
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-							<div className="w-12 h-12 bg-action/15 text-action rounded-xl flex items-center justify-center mb-4">
-								<Search className="w-6 h-6" />
-							</div>
-							<h3 className="text-heading text-foreground mb-2">O que está sendo analisado</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Saldos de contas contábeis transitórias e de controle do COMAER, extraídos do Tesouro Gerencial, visando identificar inconsistências e valores
-								fora da conformidade.
-							</p>
-						</div>
-						<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center mb-4">
-								<BookOpen className="w-6 h-6" />
-							</div>
-							<h3 className="text-heading text-foreground mb-2">O Referencial Teórico (RAC)</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								A análise é fundamentada no Roteiro de Acompanhamento Contábil (RAC), mapeando as contas de acordo com as diretrizes e exceções previstas nas
-								questões normativas.
-							</p>
-						</div>
-						<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-							<div className="w-12 h-12 bg-success/15 text-success rounded-xl flex items-center justify-center mb-4">
-								<MessageSquare className="w-6 h-6" />
-							</div>
-							<h3 className="text-heading text-foreground mb-2">Mensagens Automáticas</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Geração automática de propostas de mensagens de cobrança e orientação para as UGs, padronizando a comunicação e agilizando a regularização.
-							</p>
-						</div>
-					</div>
-
-					<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-						<h3 className="text-heading text-foreground mb-4 flex items-center">
-							<FileText className="w-5 h-5 mr-2 text-action" />
-							Caminho do Relatório no Tesouro Gerencial
-						</h3>
-						<div className="bg-muted/50 p-4 rounded-lg border border-border text-body text-foreground flex flex-wrap items-center gap-y-2 gap-x-1">
-							{[
-								"TESOURO GERENCIAL",
-								"Relatórios Compartilhados",
-								"Consultas Gerenciais",
-								"Relatórios de Bancada dos Órgãos Superiores",
-								"52000 - Ministério da Defesa",
-								"52111 - Comando da Aeronáutica",
-								"SEFA",
-								"DIREF",
-								"SUCONT-3 - ACOMPANHAMENTO",
-							].map((step, i) => (
-								<span key={step} className="flex items-center gap-x-1">
-									{i > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-									<span className={i === 0 ? "font-medium" : ""}>{step}</span>
-								</span>
-							))}
-							<ChevronRight className="w-4 h-4 text-muted-foreground" />
-							<span className="font-semibold text-action">ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1</span>
-						</div>
-					</div>
-				</div>
+					}
+					error={error}
+					errorTitle="Não foi possível processar a planilha"
+					source={<TesouroGerencialPath />}
+					reference={
+						<RacReference
+							objective="Acompanhar os saldos de contas transitórias e de controle do COMAER, extraídos do Tesouro Gerencial, para achar o que está fora da conformidade."
+							risk="Saldo transitório que não se movimenta deixa de ser transitório: encobre pendência de conciliação e distorce a posição patrimonial da UG."
+							importance="O acompanhamento por competência mostra a evolução do saldo e separa o que regularizou do que só mudou de lugar."
+						/>
+					}
+					notes={ANALYSIS_NOTES}
+				/>
 			) : (
 				<div className="space-y-8">
 					{/* Escopo */}

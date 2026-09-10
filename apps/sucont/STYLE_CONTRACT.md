@@ -156,6 +156,51 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
 - **Segmento de escolha é `Tabs`**, nunca `<button>` pintado à mão: os quatro que
   existiam não tinham `role="tab"` e nenhum navegava por seta do teclado.
 
+### 4.6 A tela inicial de análise — `AnalysisStart`
+
+Sete das doze ferramentas começam do mesmo jeito: uma planilha do Tesouro
+Gerencial entra, um painel sai. Abriam em sete ordens diferentes, com sete zonas
+de envio diferentes. Nenhuma dessas ordens estava errada por si; o que estava
+errado era haver sete — trocar de ferramenta dentro do mesmo hub parecia trocar
+de sistema.
+
+**A ordem é do `AnalysisStart`, e é esta:**
+
+| # | Bloco | Por que nesse lugar |
+|---|-------|---------------------|
+| 1 | **Zona de envio** (`FileDropzone`) | Quem chega já sabe o que veio fazer. O campo é a primeira coisa da tela, sem rolagem |
+| 2 | **A falha** (`Alert`) | Sob o campo, porque é do campo que ela fala. Erro no rodapé faz o operador reenviar o mesmo arquivo sem saber |
+| 3 | **Onde extrair o relatório** (`TesouroGerencialPath`) | É o único obstáculo real de quem NÃO pode seguir. Vem antes da teoria porque desbloqueia |
+| 4 | **Referencial do RAC** (`RacReference`) | Justifica o trabalho, não o destrava. Quem já sabe passa por cima |
+| 5 | **Cartões de apoio** (`notes`) | A única parte que se pode ler DEPOIS de já ter enviado o arquivo |
+
+- **A zona de envio é `FileDropzone`, sempre.** Uma forma, um realce de arraste
+  (`action`), um alvo de clique. O que a ferramenta muda é só o TEXTO: chamada,
+  formato aceito e colunas exigidas. Eram sete zonas — `h-56`, `h-64`, `p-8`,
+  `p-10`, `p-12`; ícone de 32, 44 e 48px; realce em `action`, `tech-cyan` e
+  `ring`; e três alvos de clique distintos (`<label>`, `<button>` que dispara
+  `.click()`, `<input>` transparente por cima), o que fazia o foco de teclado se
+  comportar diferente em cada tela.
+- **As colunas exigidas ficam DENTRO da zona**, como pílulas. Quem envia precisa
+  da informação antes de escolher o arquivo, e no mesmo lugar — não num card
+  "Requisitos da Planilha" abaixo, nem diluída numa frase.
+- **Carregar não é uma tela.** O estado de leitura vive na própria zona
+  (`isLoading`). O `conta-generica` substituía a página inteira por um anel
+  girando de `py-20`: o campo sumia enquanto lia.
+- **O caminho do Tesouro Gerencial tem UMA fonte** —
+  `TESOURO_GERENCIAL_PATH`. As dez etapas estavam escritas à mão em quatro
+  telas, e uma delas já divergia (parava antes da última).
+- **A questão do RAC NÃO é digitada na tela**: o `RacReference` a lê do catálogo
+  pela rota, que é a mesma fonte da pílula ao lado da trilha. Enquanto era texto,
+  o número no corpo da tela podia contradizer o do card sem que nada acusasse.
+- **Capa é proibida.** Nada de parágrafo centralizado, disco com avião ou título
+  repetindo a descrição da trilha antes do campo. O que a capa dizia de útil vira
+  um dos cartões de apoio, no fim.
+- **Guarda:** `src/test/analysis-start.contract.test.ts` varre o `src/` inteiro
+  atrás de `border-2 border-dashed`, de `type="file"` fora do primitivo e do
+  caminho do Tesouro Gerencial escrito à mão, e exige `<AnalysisStart>` nas sete
+  rotas. Nenhum linter enxerga qualquer um dos três.
+
 ## 5. Convenções obrigatórias
 
 - **Cores:** escala semântica (`background`, `foreground`, `primary`, `secondary`,
@@ -297,8 +342,33 @@ arbitrárias em classe (114), texto abaixo de 11px (202),
 | `LegalFooter` avulso | 4 rotas | Rodapé da casca |
 | Paleta institucional FAB usada como cromo | 468 classes | Escala semântica (§4.1) |
 | Capas de ferramenta (disco com avião/escudo, título com filete dourado, lema entre bússolas, marca-d'água) | 3 telas | Removidas — a descrição sob a trilha já diz o que a ferramenta faz |
-| Zonas de envio com forma própria | 4 | A mesma do `DgcUpload` |
+| Zonas de envio com forma própria | 4 | A mesma do `DgcUpload` — só na aparência; a unificação de código veio depois, em §4.6 |
 | Nomes de ferramenta longos demais para a barra | 12 (máx. 39 caracteres) | Máx. 25; a questão do RAC saiu do nome (já é pílula) |
+
+**Zerados em 2026-09-09** — a dívida de **entrada**: as sete telas que começam
+por uma planilha.
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Zonas de envio, agora no código e não só na aparência | 7 | `FileDropzone` |
+| Alturas de zona de envio (`h-56`, `h-64`, `p-8`, `p-10`, `p-12`) | 5 | `p-10` |
+| Alvos de clique diferentes (`<label>`, `<button>` + `.click()`, `<input>` transparente) | 3 | `<label>` + campo `sr-only` |
+| Realces de arraste (`action`, `tech-cyan`, `ring`) | 3 | `action` |
+| Ordens de tela inicial | 7 | `AnalysisStart` (§4.6) |
+| Caminho do Tesouro Gerencial escrito à mão | 4 sítios | `TESOURO_GERENCIAL_PATH` |
+| Formas de dizer as colunas exigidas (card "Requisitos", frase corrida, pílulas, nada) | 4 | Pílulas dentro da zona |
+| Blocos "objetivo / risco / importância" reescritos | 3 | `RacReference`, com a questão vinda do catálogo |
+| Capas antes do campo (parágrafo centralizado, `h2` repetindo a trilha, acordeões) | 3 telas | Removidas |
+| Carregamento como tela própria (`py-20` com anel girando) | 1 | Estado da própria zona |
+| Superfícies de ícone dos cartões de apoio (`bg-action/15`, `bg-success/10`, `bg-action/10`) | 3 | `bg-muted` — cor que não distingue nada |
+| Diálogo de upload desenhado à mão (véu `inset-0`, sem foco preso, `setTimeout` de 800 ms fingindo leitura) | 1 | `Dialog` + `FileDropzone` |
+| Zero state imitando zona de envio no `auditor` | 1 | Primitivo `Empty` |
+
+Corrigido junto, porque a padronização passou por cima: o `monitoramento` não
+tinha estado de falha nenhum — cabeçalho não encontrado caía em `setData([])`
+com o nome do arquivo já gravado, e a tela trocava para o painel mostrando zero
+ocorrência. Falha de leitura agora é `Alert`; competência sem ocorrência segue
+sendo vazio de verdade e abre o painel.
 
 **Primitivos criados** (portados do sisub, o contrato irmão): `card`, `badge`,
 `tabs`, `alert`, `empty`. A ausência deles era a CAUSA da divergência de
@@ -324,7 +394,7 @@ listados para que ninguém os "corrija" de novo.
 
 | Caso | Onde | Por quê |
 |------|------|---------|
-| `<input type="file">` nativo | dropzones de upload | O primitivo `Input` é text-like; o campo é `hidden` e o alvo de clique é o `<label>` |
+| `<input type="file">` nativo | `components/ui/file-dropzone.tsx`, e só ali | O primitivo `Input` é text-like; o campo é `sr-only` e o alvo de clique é o `<label>`. Fora do primitivo é dívida, e o teste de contrato reprova |
 | `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
 | 12 `<input>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm `focus-visible:ring-ring` |
 | 3 `<input>` nativos | cabeçalho de `subitens-genericos` | Design de sublinhado (`bg-transparent border-b`, sem padding). Já têm `focus:border-fab-gold` |
@@ -395,6 +465,12 @@ exceção já registrada na tabela anterior.
       via `<SegmentedControl>` (filtro) ou `<Tabs>` (com painel)?
 - [ ] Zero `fab-*` como cromo — só como marca institucional (§4.1)?
 - [ ] A tela abre pela TAREFA, sem capa que repita a descrição da trilha (§4.5)?
+- [ ] Tela que recebe planilha monta o `AnalysisStart`, com a zona de envio
+      primeiro e os cartões de apoio por último (§4.6)?
+- [ ] A zona de envio é o `FileDropzone`, sem `border-dashed` nem
+      `<input type="file">` desenhados na rota (§4.6)?
+- [ ] O caminho do Tesouro Gerencial vem de `TESOURO_GERENCIAL_PATH`, e a questão
+      do RAC vem do catálogo — nenhum dos dois digitado na tela (§4.6)?
 
 ## 11. Referências de implementação
 
@@ -406,6 +482,11 @@ exceção já registrada na tabela anterior.
 - **Negativa de permissão explicada:** `src/components/read-only-notice.tsx`.
 - **Guard de rota:** `src/routes/__root.tsx` — auth + PBAC nível 1, rotas legais
   isentas, `z.coerce` no `validateSearch`, e o tema resolvido antes do primeiro byte.
+- **Tela inicial de análise:** `src/components/analysis-start.tsx` (a ordem),
+  `src/components/ui/file-dropzone.tsx` (a zona),
+  `src/components/tesouro-gerencial-path.tsx` e `src/components/rac-reference.tsx`
+  (as duas fontes de verdade que a tela consome em vez de repetir). Guarda em
+  `src/test/analysis-start.contract.test.ts`.
 - **Casca:** `src/components/hub-layout.tsx` — trilha, `actions`, `width`,
   descrição herdada do catálogo, links legais no rodapé da barra lateral e o botão
   de tema.

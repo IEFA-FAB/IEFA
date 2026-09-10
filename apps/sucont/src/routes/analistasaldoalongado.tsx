@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router"
 import { BarChart3, BookOpen, LayoutDashboard, ListTodo, MessageSquare, RefreshCw, Search } from "lucide-react"
 import { useState } from "react"
 import { AnalyticalPanel } from "#/analistasaldoalongado/components/AnalyticalPanel"
-import { FileUploader } from "#/analistasaldoalongado/components/FileUploader"
 import { ManagerialPanel } from "#/analistasaldoalongado/components/ManagerialPanel"
 import { OperationalPanel } from "#/analistasaldoalongado/components/OperationalPanel"
 import { UgDetailsModal } from "#/analistasaldoalongado/components/UgDetailsModal"
@@ -11,10 +10,35 @@ import { consolidateData } from "#/analistasaldoalongado/utils/analytics"
 import type { UgMessage } from "#/analistasaldoalongado/utils/generator"
 import { generateMessages } from "#/analistasaldoalongado/utils/generator"
 import { parseFile } from "#/analistasaldoalongado/utils/parser"
+import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
+import { RacReference } from "#/components/rac-reference"
+import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
+import { FileDropzone } from "#/components/ui/file-dropzone"
 import { SegmentedControl } from "#/components/ui/segmented-control"
+
+/**
+ * O que a ferramenta faz com a planilha. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado o arquivo.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Search,
+		title: "O que é analisado",
+		text: "Saldos sem movimentação há mais de três meses em contas que exigem giro regular, contra as vinte questões do RAC no escopo.",
+	},
+	{
+		icon: MessageSquare,
+		title: "O que é gerado",
+		text: "Mensagem institucional padronizada por UG, reunindo num só texto todas as contas alongadas daquela unidade.",
+	},
+	{
+		icon: BookOpen,
+		title: "Como o resultado é lido",
+		text: "Três painéis do mesmo dado — operacional, gerencial e analítico —, com o detalhe por UG acessível de qualquer um deles.",
+	},
+] as const
 
 export const Route = createFileRoute("/analistasaldoalongado")({
 	component: AnalistaSaldoAlongado,
@@ -29,6 +53,11 @@ function AnalistaSaldoAlongado() {
 	const [selectedUg, setSelectedUg] = useState<UgConsolidated | null>(null)
 	const [activeRacFilter, setActiveRacFilter] = useState<string | undefined>(undefined)
 	const [activeTab, setActiveTab] = useState<"operacional" | "gerencial" | "analitico">("operacional")
+
+	const handleFiles = (files: File[]) => {
+		const file = files[0]
+		if (file) void handleFileSelect(file)
+	}
 
 	const handleFileSelect = async (file: File) => {
 		setIsLoading(true)
@@ -84,86 +113,30 @@ function AnalistaSaldoAlongado() {
 		>
 			{/* Main Content */}
 			{!consolidatedData ? (
-				<div className="space-y-10">
-					{/* A capa que existia aqui repetia, em três parágrafos, a mesma frase que
-					    o `HubLayout` já mostra sob a trilha. */}
-					{/* Info Cards */}
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-						<Card className="items-center p-6 text-center">
-							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
-								<Search className="w-6 h-6" />
-							</div>
-							<h3 className="text-heading text-foreground">Análise de Saldos</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Identificação de saldos alongados em contas que exigem movimentação regular, prevenindo distorções patrimoniais.
-							</p>
-						</Card>
-
-						<Card className="items-center p-6 text-center">
-							<div className="w-12 h-12 bg-success/10 text-success rounded-xl flex items-center justify-center shadow-sm">
-								<BookOpen className="w-6 h-6" />
-							</div>
-							<h3 className="text-heading text-foreground">Metodologia RAC</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Aplicação rigorosa do Roteiro de Acompanhamento Contábil para assegurar a conformidade com as normas da Setorial.
-							</p>
-						</Card>
-
-						<Card className="items-center p-6 text-center">
-							<div className="w-12 h-12 bg-action/10 text-action rounded-xl flex items-center justify-center shadow-sm">
-								<MessageSquare className="w-6 h-6" />
-							</div>
-							<h3 className="text-heading text-foreground">Notificação Ágil</h3>
-							<p className="text-body text-muted-foreground leading-relaxed">
-								Geração de mensagens institucionais padronizadas, otimizando a comunicação entre a SUCONT e as Unidades Gestoras.
-							</p>
-						</Card>
-					</div>
-
-					{/* Report Path */}
-					<div className="bg-card p-6 rounded-xl shadow-sm border border-border max-w-5xl mx-auto">
-						<h3 className="font-bold text-foreground mb-5 flex items-center gap-3">
-							<div className="p-2 bg-muted/50 rounded-lg">
-								<BookOpen className="w-4 h-4 text-action" />
-							</div>
-							Extração de Dados (Tesouro Gerencial)
-						</h3>
-						<div className="bg-muted/50 p-4 rounded-xl border border-border text-body text-foreground overflow-x-auto">
-							<div className="flex items-center gap-3 whitespace-nowrap min-w-max">
-								{[
-									"TESOURO GERENCIAL",
-									"Relatórios Compartilhados",
-									"Consultas Gerenciais",
-									"Relatórios de Bancada dos Órgãos Superiores",
-									"52000 - Ministério da Defesa",
-									"52111 - Comando da Aeronáutica",
-									"SEFA",
-									"DIREF",
-									"SUCONT-3 - ACOMPANHAMENTO",
-									"ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1",
-								].map((step, index, array) => (
-									<span key={index} className="flex items-center gap-3">
-										<span
-											className={`px-3 py-1.5 rounded-lg border transition-all ${
-												index === array.length - 1 ? "bg-action text-white font-bold border-action shadow-sm" : "bg-card border-border"
-											}`}
-										>
-											{step}
-										</span>
-										{index < array.length - 1 && <span className="text-muted-foreground font-bold">→</span>}
-									</span>
-								))}
-							</div>
-						</div>
-					</div>
-
-					{/* O `FileUploader` já é a superfície tracejada; envolvê-lo num card dava
-					    duas bordas concêntricas, e a faixa de gradiente no topo do card não
-					    existe em nenhuma outra tela. */}
-					<div className="mx-auto max-w-2xl">
-						<FileUploader onFileSelect={handleFileSelect} isLoading={isLoading} error={error} />
-					</div>
-				</div>
+				<AnalysisStart
+					dropzone={
+						<FileDropzone
+							accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+							onFiles={handleFiles}
+							prompt="ou arraste o relatório"
+							hint="Excel do Tesouro Gerencial (.xlsx, .xls) ou CSV"
+							columns={["UG", "Conta Contábil", "Mês", "Saldo"]}
+							isLoading={isLoading}
+							loadingLabel="Lendo a planilha…"
+						/>
+					}
+					error={error}
+					errorTitle="Não foi possível processar a planilha"
+					source={<TesouroGerencialPath />}
+					reference={
+						<RacReference
+							objective="Encontrar saldos parados há mais de três meses em contas que exigem movimentação regular, por UG e por questão do RAC."
+							risk="Saldo alongado indica pendência não tratada — baixa não efetuada, conciliação em aberto ou registro esquecido —, e distorce a posição patrimonial."
+							importance="O apontamento por competência mostra o que envelheceu desde o último ciclo e sustenta a cobrança junto à UG."
+						/>
+					}
+					notes={ANALYSIS_NOTES}
+				/>
 			) : (
 				<div className="space-y-8">
 					<SegmentedControl

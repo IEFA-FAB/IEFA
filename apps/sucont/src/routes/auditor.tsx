@@ -28,6 +28,7 @@ import { useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "#/components/ui/empty"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { toast } from "#/components/ui/toast"
 import { auditorBalancesQueryOptions } from "#/lib/queries"
@@ -616,29 +617,25 @@ function AuditorPage() {
 				)}
 
 				{allData.length === 0 && !loadingStored && !storedError && (
-					<div
-						className={`flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-lg mt-8
-             border-border bg-card
-          `}
-					>
-						<FileSpreadsheet className={`w-16 h-16 mb-4 text-muted-foreground`} />
-						<h2 className={`text-heading text-foreground`}>Nenhuma competência na base</h2>
-						{canEdit ? (
-							<>
-								<p className="text-muted-foreground mb-6">Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos.</p>
-								<Button size="lg" onClick={() => setIsUploadModalOpen(true)} className="bg-action text-action-foreground hover:bg-action/80">
-									{uploadMutation.isPending ? "Gravando…" : "Carregar Arquivo .XLSX"}
-								</Button>
-							</>
-						) : (
-							!loadingAccess && (
-								<p className="text-muted-foreground max-w-md text-center">
-									Ainda não há competência gravada, e seu acesso é somente leitura. Importar a planilha exige nível 2 no módulo{" "}
-									<span className="font-mono">sucont</span> — peça a um gestor da SUCONT-4.
-								</p>
-							)
+					<Empty className="mt-8">
+						<EmptyHeader>
+							<EmptyMedia variant="icon">
+								<FileSpreadsheet />
+							</EmptyMedia>
+							<EmptyTitle>Nenhuma competência na base</EmptyTitle>
+							<EmptyDescription>
+								{canEdit
+									? "Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos."
+									: !loadingAccess &&
+										"Ainda não há competência gravada, e seu acesso é somente leitura. Importar a planilha exige nível 2 no módulo sucont — peça a um gestor da SUCONT-4."}
+							</EmptyDescription>
+						</EmptyHeader>
+						{canEdit && (
+							<EmptyContent>
+								<Button onClick={() => setIsUploadModalOpen(true)}>{uploadMutation.isPending ? "Gravando…" : "Carregar relatório"}</Button>
+							</EmptyContent>
 						)}
-					</div>
+					</Empty>
 				)}
 
 				{allData.length > 0 && (

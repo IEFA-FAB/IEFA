@@ -1,34 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
-	AlertCircle,
 	CheckCircle2,
-	ChevronRight,
 	Copy,
 	Crosshair,
 	FileSpreadsheet,
 	FileText,
 	Filter,
-	Info,
 	LayoutDashboard,
-	Map as MapIcon,
 	PieChart as PieChartIcon,
 	Plane,
 	Search,
 	Shield,
 	TrendingUp,
-	Upload,
 	X,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import React, { useCallback, useState } from "react"
+import { useCallback, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { AnalysisStart } from "#/components/analysis-start"
 import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
-import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
-import { Badge } from "#/components/ui/badge"
+import { RacReference } from "#/components/rac-reference"
+import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card"
+import { FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
@@ -39,6 +36,28 @@ import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { cn } from "#/lib/utils"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { CONFERENTES_MAPPING, UG_INFO } from "#/subitens/constants"
+
+/**
+ * O que a ferramenta faz com a planilha. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado o arquivo.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Search,
+		title: "O que é analisado",
+		text: "O relatório do Tesouro Gerencial é varrido em busca de subitens genéricos (99, 999, P99, /99) e de outras falhas de classificação previstas no RAC.",
+	},
+	{
+		icon: CheckCircle2,
+		title: "O que é gerado",
+		text: "Para cada UG identificada, uma mensagem institucional formatada, pronta para envio via SAU, com o fundamento normativo já embutido.",
+	},
+	{
+		icon: TrendingUp,
+		title: "Como o resultado é lido",
+		text: "As ocorrências são agregadas por UG, ODS e órgão superior, com curva de Pareto para mostrar onde está a concentração.",
+	},
+] as const
 
 export const Route = createFileRoute("/subitens-genericos")({
 	component: SubitensGenericos,
@@ -243,7 +262,6 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 // ── Main Component ───────────────────────────────────────────
 function SubitensGenericos() {
 	const [data, setData] = useState<UgGroup[]>([])
-	const [isDragging, setIsDragging] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [isProcessing, setIsProcessing] = useState(false)
 	const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
@@ -426,20 +444,17 @@ function SubitensGenericos() {
 		reader.readAsArrayBuffer(file)
 	}, [])
 
-	const onDrop = (e: React.DragEvent) => {
-		e.preventDefault()
-		setIsDragging(false)
-		const file = e.dataTransfer.files[0]
-		if (file && (file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
-			processFile(file)
-		} else {
-			setError("Por favor, envie um arquivo Excel (.xlsx ou .xls).")
+	// O `accept` do campo filtra a JANELA de escolha, não o que é ARRASTADO: a
+	// extensão precisa ser conferida aqui, no único ponto por onde os dois
+	// caminhos passam.
+	const handleFiles = (files: File[]) => {
+		const file = files[0]
+		if (!file) return
+		if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+			setError("Envie um arquivo Excel (.xlsx ou .xls).")
+			return
 		}
-	}
-
-	const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0]
-		if (file) processFile(file)
+		processFile(file)
 	}
 
 	const copyToClipboard = (text: string, index: number) => {
@@ -578,154 +593,40 @@ function SubitensGenericos() {
 					{data.length === 0 ? (
 						<motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
 							{/*
-							 * Zona de envio no padrão do hub — a mesma do `DgcUpload`.
+							 * Ordem e superfícies vêm do `AnalysisStart` — as mesmas das outras
+							 * seis ferramentas que começam por uma planilha.
 							 *
 							 * Aqui havia uma capa institucional: avião num disco de 96px com anel
 							 * dourado, "Análise de SUBITENS Genéricos" com a palavra do meio em
 							 * ouro, e o lema "Defender, Controlar e Integrar" entre duas bússolas.
-							 * Nada disso é a tarefa — a tarefa é enviar uma planilha —, e nenhuma
-							 * outra ferramenta do hub abre assim. O que a capa dizia de útil (o
-							 * que a ferramenta faz) já está na descrição sob a trilha.
+							 * Nada disso é a tarefa — a tarefa é enviar uma planilha —, e o que a
+							 * capa dizia de útil já está na descrição sob a trilha.
 							 */}
-							<label
-								htmlFor="file-upload"
-								onDragOver={(e) => {
-									e.preventDefault()
-									setIsDragging(true)
-								}}
-								onDragLeave={() => setIsDragging(false)}
-								onDrop={onDrop}
-								className={cn(
-									"mx-auto flex max-w-2xl cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors",
-									isDragging ? "border-tech-cyan bg-tech-cyan/5" : "border-border bg-muted/50 hover:border-border/80 hover:bg-muted"
-								)}
-							>
-								<input type="file" onChange={onFileChange} accept=".xlsx,.xls" className="hidden" id="file-upload" />
-
-								{isProcessing ? (
-									<Search className="mb-4 h-11 w-11 animate-pulse text-muted-foreground" />
-								) : (
-									<Upload className="mb-4 h-11 w-11 text-muted-foreground" />
-								)}
-
-								<p className="mb-1 text-subheading text-foreground">
-									{isProcessing ? (
-										"Processando a planilha…"
-									) : (
-										<>
-											<span className="font-semibold text-tech-blue">Clique para enviar</span> ou arraste o relatório
-										</>
-									)}
-								</p>
-								<p className="text-caption text-muted-foreground">Excel do Tesouro Gerencial (.xlsx, .xls)</p>
-
-								<div className="mt-6 flex flex-wrap justify-center gap-2">
-									{["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo"].map((col) => (
-										<Badge key={col} variant="outline">
-											{col}
-										</Badge>
-									))}
-								</div>
-							</label>
-
-							{error && (
-								<Alert variant="destructive" className="mt-8">
-									<AlertCircle />
-									<AlertTitle>Não foi possível processar a planilha</AlertTitle>
-									<AlertDescription>{error}</AlertDescription>
-								</Alert>
-							)}
-
-							<div className="mt-12 space-y-6">
-								{/* Referencial Metodológico */}
-								<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
-									<div className="flex items-start gap-6">
-										<div className="w-12 h-12 shrink-0 bg-muted rounded-xl flex items-center justify-center text-foreground ">
-											<Shield size={24} />
-										</div>
-										<div>
-											<h3 className="text-heading mb-3 text-foreground">Referencial Metodológico (RAC)</h3>
-											<p className="text-body text-muted-foreground leading-relaxed mb-4">
-												Esta verificação integra o processo de <strong>Acompanhamento Contábil do COMAER</strong> conduzido pela SUCONT-3, com base na{" "}
-												<strong>Questão 28 do Roteiro de Acompanhamento Contábil (RAC)</strong>. A finalidade é garantir que os registros representem de forma
-												fidedigna os fatos administrativos e a situação patrimonial.
-											</p>
-											<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-												{[
-													{
-														title: "Objetivo da Análise",
-														text: "Identificar a utilização indevida de contas contábeis e subitens genéricos (ex: 99, 999, P99, /99) nos registros das Unidades Gestoras.",
-													},
-													{
-														title: "Risco Contábil",
-														text: "O uso de subitens genéricos oculta a real natureza da transação, prejudicando a transparência, a precisão da informação e a evidenciação contábil.",
-													},
-													{
-														title: "Importância",
-														text: "A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER.",
-													},
-												].map((card) => (
-													<div key={card.title} className="bg-muted/50 p-4 rounded-xl border border-border">
-														<h4 className="text-label text-foreground mb-2">{card.title}</h4>
-														<p className="text-caption text-muted-foreground leading-relaxed">{card.text}</p>
-													</div>
-												))}
-											</div>
-										</div>
-									</div>
-								</div>
-
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
-										<div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 text-foreground ">
-											<Info size={24} />
-										</div>
-										<h3 className="text-heading mb-3 text-foreground">O que é analisado?</h3>
-										<p className="text-body text-muted-foreground leading-relaxed">
-											O sistema analisa o relatório do Tesouro Gerencial com base nas questões do Roteiro de Acompanhamento Contábil (RAC), identificando
-											inconsistências como o uso de subitens genéricos (99/999) e outras falhas de classificação.
-										</p>
-									</div>
-									<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
-										<div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 text-foreground ">
-											<CheckCircle2 size={24} />
-										</div>
-										<h3 className="text-heading mb-3 text-foreground">Geração Automática</h3>
-										<p className="text-body text-muted-foreground leading-relaxed">
-											Para cada UG identificada, é gerada uma mensagem institucional formatada pronta para ser enviada via SAU, promovendo a regularização
-											contábil de forma padronizada.
-										</p>
-									</div>
-								</div>
-
-								<div className="p-8 bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all">
-									<div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 text-foreground ">
-										<MapIcon size={24} />
-									</div>
-									<h3 className="text-heading mb-4 text-foreground">Caminho do Relatório (Tesouro Gerencial)</h3>
-									<div className="bg-muted/50 p-5 rounded-xl border border-border text-body font-mono text-muted-foreground leading-relaxed">
-										<div className="flex flex-wrap items-center gap-x-2 gap-y-3">
-											{[
-												"TESOURO GERENCIAL",
-												"Relatórios Compartilhados",
-												"Consultas Gerenciais",
-												"Relatórios de Bancada dos Órgãos Superiores",
-												"52000 - Ministério da Defesa",
-												"52111 - Comando da Aeronáutica",
-												"SEFA",
-												"DIREF",
-												"SUCONT-3 - ACOMPANHAMENTO",
-												"ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1",
-											].map((step, i, arr) => (
-												<React.Fragment key={step}>
-													<span className="font-semibold text-foreground">{step}</span>
-													{i < arr.length - 1 && <ChevronRight size={14} className="text-warning shrink-0" />}
-												</React.Fragment>
-											))}
-										</div>
-									</div>
-								</div>
-							</div>
+							<AnalysisStart
+								dropzone={
+									<FileDropzone
+										accept=".xlsx,.xls"
+										onFiles={handleFiles}
+										prompt="ou arraste o relatório"
+										hint="Excel do Tesouro Gerencial (.xlsx, .xls)"
+										columns={["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo"]}
+										isLoading={isProcessing}
+										loadingLabel="Processando a planilha…"
+									/>
+								}
+								error={error}
+								errorTitle="Não foi possível processar a planilha"
+								source={<TesouroGerencialPath />}
+								reference={
+									<RacReference
+										statement="As Unidades Gestoras utilizam contas contábeis e subitens genéricos (99, 999, P99, /99) no registro de suas transações?"
+										objective="Identificar a utilização indevida de contas contábeis e subitens genéricos nos registros das Unidades Gestoras."
+										risk="O uso de subitens genéricos oculta a real natureza da transação, prejudicando a transparência, a precisão da informação e a evidenciação contábil."
+										importance="A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER."
+									/>
+								}
+								notes={ANALYSIS_NOTES}
+							/>
 						</motion.div>
 					) : (
 						<motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">

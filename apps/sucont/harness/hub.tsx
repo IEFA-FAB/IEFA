@@ -13,11 +13,16 @@
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router"
+import { BookOpen, MessageSquare, Search } from "lucide-react"
 import type React from "react"
 import { createRoot } from "react-dom/client"
 import { z } from "zod"
 import { SucontPermissionsManager } from "#/components/admin/permissions-manager"
+import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
+import { RacReference } from "#/components/rac-reference"
+import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
+import { FileDropzone } from "#/components/ui/file-dropzone"
 import { Route as IndexRoute } from "#/routes/index"
 import "./harness.css"
 
@@ -74,15 +79,43 @@ const rootRoute = createRootRoute({
 const screen = (path: string) => createRoute({ getParentRoute: () => rootRoute, path, component: Catalogo })
 
 // Rotas de ferramenta, para inspecionar a orientação DENTRO de uma delas: item
-// ativo na barra e trilha no cabeçalho. O conteúdo é um marcador — o que está sob
-// exame é a casca, não a ferramenta.
+// ativo na barra e trilha no cabeçalho.
+//
+// O conteúdo é a tela inicial de análise DE VERDADE — a mesma composição que as
+// sete ferramentas montam. Era um parágrafo marcador, e por isso o harness não
+// enxergava justamente o que divergia entre elas: a forma da zona de envio, a
+// ordem dos blocos e o comportamento da borda tracejada no tema escuro.
 const toolScreen = (path: string) =>
 	createRoute({
 		getParentRoute: () => rootRoute,
 		path,
 		component: () => (
 			<HubLayout>
-				<p className="text-body text-muted-foreground">Conteúdo da ferramenta (marcador do harness).</p>
+				<AnalysisStart
+					dropzone={
+						<FileDropzone
+							accept=".xlsx,.xls"
+							onFiles={() => {}}
+							prompt="ou arraste o relatório"
+							hint="Excel do Tesouro Gerencial (.xlsx, .xls)"
+							columns={["UG", "Conta Contábil", "Conta Corrente", "Saldo"]}
+						/>
+					}
+					source={<TesouroGerencialPath />}
+					reference={
+						<RacReference
+							statement="Enunciado da questão do RAC que a ferramenta responde, como ele aparece no roteiro."
+							objective="O que a análise procura na planilha."
+							risk="O que a inconsistência esconde ou provoca."
+							importance="O que a regularização preserva."
+						/>
+					}
+					notes={[
+						{ icon: Search, title: "O que é analisado", text: "Recorte do dado que a ferramenta percorre." },
+						{ icon: MessageSquare, title: "O que é gerado", text: "Mensagem padronizada por UG, pronta para revisão." },
+						{ icon: BookOpen, title: "Como o resultado é lido", text: "As visões em que o achado é apresentado." },
+					]}
+				/>
 			</HubLayout>
 		),
 	})

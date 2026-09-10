@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
+import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { Button } from "#/components/ui/button"
 import { dgcRunsQueryOptions } from "#/lib/queries"
@@ -17,6 +18,28 @@ import { toAnalysisRequest } from "#/sacdgc/request"
 import type { DgcBase, UgDataset } from "#/sacdgc/types"
 import { GROUP_ORDER, identifyGroup, ugDisplayName } from "#/sacdgc/ugs"
 import { loadDgcRunFn, saveDgcAnalysisFn, startDgcRunFn } from "#/server/sacdgc.fn"
+
+/**
+ * O que a ferramenta faz com as planilhas. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado os arquivos.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Layers,
+		title: "O que é analisado",
+		text: "Os quatro painéis do DGC da competência, recortados por Unidade Gestora, com alertas e checklist AEC por UG.",
+	},
+	{
+		icon: Database,
+		title: "Onde o arquivo é processado",
+		text: "A base é lida no seu navegador. Ao pedir a análise, só o recorte da UG selecionada é enviado ao modelo — nunca a base inteira.",
+	},
+	{
+		icon: FileSearch,
+		title: "O que fica gravado",
+		text: "Cada análise concluída vira uma rodada no histórico, com a competência e a UG, e pode ser reaberta sem recarregar as planilhas.",
+	},
+] as const
 
 export const Route = createFileRoute("/sac-dgc")({
 	// O histórico de rodadas é aquecido no loader, antes do HTML, em vez de só
@@ -260,16 +283,21 @@ function SacDgcPage() {
 			}
 		>
 			{!base && (
-				<div className="space-y-8">
-					<div className="max-w-3xl mx-auto text-center">
-						<p className="text-body text-muted-foreground leading-relaxed">
-							Envie os quatro painéis do DGC da competência. A base é lida no seu navegador e recortada por Unidade Gestora; ao pedir a análise, apenas o
-							recorte da UG selecionada é enviado ao modelo.
-						</p>
-					</div>
-					<DgcUpload onProcess={handleProcess} isLoading={isReading} error={readError} />
+				<div className="space-y-6">
+					{/*
+					 * A frase que explicava a ferramenta ficava ACIMA da zona de envio, em
+					 * parágrafo centralizado — a mesma capa que as outras seis telas
+					 * perderam. O que ela dizia de próprio (a base é lida no navegador) é
+					 * agora um dos cartões de apoio, no fim.
+					 */}
+					<AnalysisStart
+						dropzone={<DgcUpload onProcess={handleProcess} isLoading={isReading} />}
+						error={readError}
+						errorTitle="Não foi possível ler a base"
+						notes={ANALYSIS_NOTES}
+					/>
 
-					<div className="max-w-3xl mx-auto">
+					<div className="mx-auto w-full max-w-4xl">
 						<DgcRunHistory
 							runs={runs}
 							activeRunId={runId}
