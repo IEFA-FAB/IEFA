@@ -372,14 +372,16 @@ export function IngredientsTreeNode({
 							render={
 								// `tabIndex`/`role`: o Badge não é focável por natureza, e o significado do
 								// número mora no tooltip. Sem isso, teclado e leitor de tela não alcançam a
-								// única explicação que existe.
+								// única explicação que existe. O `role="button"` é só para esse alcance —
+								// não há clique — então `cursor-default` desfaz o ponteiro que a regra de
+								// `@layer base` dá a todo `[role="button"]`.
 								folderReview.reviewed === folderReview.total ? (
-									<Badge variant="outline" className="gap-1 text-muted-foreground" tabIndex={0} role="button">
+									<Badge variant="outline" className="cursor-default gap-1 text-muted-foreground" tabIndex={0} role="button">
 										<CalendarCheck className="size-3" />
 										Revisada
 									</Badge>
 								) : (
-									<Badge variant="outline" className="text-muted-foreground tabular-nums" tabIndex={0} role="button">
+									<Badge variant="outline" className="cursor-default text-muted-foreground tabular-nums" tabIndex={0} role="button">
 										{folderReview.reviewed}/{folderReview.total} revisados
 									</Badge>
 								)
@@ -412,12 +414,12 @@ export function IngredientsTreeNode({
 								// contagem de itens + progresso + este carimbo. O rótulo por extenso mora no
 								// tooltip; aqui fica ícone + data, que é o que se lê de relance.
 								folderConference.addedSince > 0 ? (
-									<Badge variant="warning" className="gap-1 tabular-nums" tabIndex={0} role="button">
+									<Badge variant="warning" className="cursor-default gap-1 tabular-nums" tabIndex={0} role="button">
 										<CircleCheck className="size-3" />
 										{formatReviewDate(folderConference.reviewedAt)} · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
 									</Badge>
 								) : (
-									<Badge variant="outline" className="gap-1 text-muted-foreground tabular-nums" tabIndex={0} role="button">
+									<Badge variant="outline" className="cursor-default gap-1 text-muted-foreground tabular-nums" tabIndex={0} role="button">
 										<CircleCheck className="size-3" />
 										{formatReviewDate(folderConference.reviewedAt)}
 									</Badge>
