@@ -1123,6 +1123,10 @@ export async function evaluateRecipeEquipmentFitness(
 			.where(eq(recipesInKitchen.id, input.recipeId))
 	)
 	const recipeBatch = recipe?.portionYield != null ? Number(recipe.portionYield) : null
+	// Zero é ausência, como na folha impressa: `preparation_time_minutes` nasce em 0 no
+	// formulário da preparação, e `?? null` deixava o painel anunciar "3 rodadas · ~0 min de
+	// equipamento" para toda ficha que ninguém cronometrou.
+	const cycleMinutes = recipe?.prepMinutes != null && recipe.prepMinutes > 0 ? recipe.prepMinutes : null
 	const portions = input.portions ?? null
 
 	// Bateladas: a mesma razão demanda/rendimento que `scaleIngredientQuantity` usa nos insumos.
@@ -1139,7 +1143,7 @@ export async function evaluateRecipeEquipmentFitness(
 		batches,
 		max_parallel_batches: 0,
 		cycles: null as number | null,
-		cycle_minutes: recipe?.prepMinutes ?? null,
+		cycle_minutes: cycleMinutes,
 	}
 	if (requirements.length === 0) {
 		return { satisfied: true, missing_total: 0, requirements: [], unspecified: true, ...empty, max_parallel_batches: batches, cycles: 1 }
@@ -1201,7 +1205,7 @@ export async function evaluateRecipeEquipmentFitness(
 		batches,
 		max_parallel_batches: fitness.maxParallelBatches,
 		cycles: fitness.cycles,
-		cycle_minutes: recipe?.prepMinutes ?? null,
+		cycle_minutes: cycleMinutes,
 		// Devolve TODAS as linhas, inclusive as sequenciais: sumir com a exigência da etapa 7 da
 		// tela faria o usuário achar que ela se perdeu no salvamento.
 		requirements: requirements.map((req) => {

@@ -105,29 +105,58 @@ const ingredientSchema = z.object({
 	),
 })
 
-const recipeSchema = z.object({
-	name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-	pre_preparation_method: z.string(),
-	preparation_method: z.string(),
-	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
-	preparation_time_minutes: z.number(),
-	// Parcelas e parâmetros da cocção (PARTE 04 da ficha). Anuláveis, ao contrário do
-	// tempo total: em branco significa "ninguém cronometrou ainda", e zero significaria
-	// "leva zero minuto" — a folha imprime coisas diferentes para os dois.
-	pre_preparation_time_minutes: z.number().int("Informe minutos inteiros").min(0, "Tempo não pode ser negativo").nullable(),
-	cooking_time_minutes: z.number().int("Informe minutos inteiros").min(0, "Tempo não pode ser negativo").nullable(),
-	cooking_method: z.string(),
-	cooking_temperature_celsius: z
-		.number()
-		.int("Informe graus inteiros")
-		.min(-40, "Temperatura mínima é -40 °C")
-		.max(500, "Temperatura máxima é 500 °C")
-		.nullable(),
-	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20"),
-	/** Pasta de organização — opcional por definição: agrupar é conveniência, não requisito. */
-	folder_id: z.uuid().nullable(),
-	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
-})
+/** Teto da coluna `smallint` no Postgres — ver os campos de tempo abaixo. */
+const MAX_SMALLINT = 32767
+
+const recipeSchema = z
+	.object({
+		name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+		pre_preparation_method: z.string(),
+		preparation_method: z.string(),
+		portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
+		// Teto de `smallint`: sem ele o insert estoura com `22003 smallint out of range`, um erro
+		// de driver que o usuário lê como falha genérica e que perde a edição inteira.
+		preparation_time_minutes: z.number().max(MAX_SMALLINT, "Tempo máximo é 32767 min"),
+		// Parcelas e parâmetros da cocção (PARTE 04 da ficha). Anuláveis, ao contrário do tempo
+		// total: `null` é "ninguém cronometrou ainda" e deixa a folha derivar o total das outras
+		// fontes. Zero é aceito e tratado como ausência em toda a cadeia (ver `sheetTotalMinutes`).
+		pre_preparation_time_minutes: z
+			.number()
+			.int("Informe minutos inteiros")
+			.min(0, "Tempo não pode ser negativo")
+			.max(MAX_SMALLINT, "Tempo máximo é 32767 min")
+			.nullable(),
+		cooking_time_minutes: z
+			.number()
+			.int("Informe minutos inteiros")
+			.min(0, "Tempo não pode ser negativo")
+			.max(MAX_SMALLINT, "Tempo máximo é 32767 min")
+			.nullable(),
+		cooking_method: z.string(),
+		cooking_temperature_celsius: z
+			.number()
+			.int("Informe graus inteiros")
+			.min(-40, "Temperatura mínima é -40 °C")
+			.max(500, "Temperatura máxima é 500 °C")
+			.nullable(),
+		cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20"),
+		/** Pasta de organização — opcional por definição: agrupar é conveniência, não requisito. */
+		folder_id: z.uuid().nullable(),
+		ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
+	})
+	// As parcelas não podem passar do total declarado: a PARTE 04 sairia afirmando
+	// "pré-preparo 30 min, cocção 90 min, tempo total 1 h" na mesma tabela. Só vale quando o
+	// total foi declarado — em 0 ele é ausência, e a folha deriva o total das parcelas.
+	.superRefine((value, ctx) => {
+		const stages = (value.pre_preparation_time_minutes ?? 0) + (value.cooking_time_minutes ?? 0)
+		if (value.preparation_time_minutes > 0 && stages > value.preparation_time_minutes) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["preparation_time_minutes"],
+				message: `Pré-preparo + cocção somam ${stages} min e não cabem no tempo total declarado`,
+			})
+		}
+	})
 
 interface IngredientFormItem {
 	ingredient_id: string | null
@@ -704,7 +733,10 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 															value={field.state.value ?? 0}
 															onChange={(e) => field.handleChange(Number(e.target.value))}
 														/>
-														<FieldDescription>Em zero, a ficha impressa soma pré-preparo + cocção; sem eles, as durações das etapas do fluxo.</FieldDescription>
+														<FieldDescription>
+															Deixe em zero para a ficha derivar o total: pré-preparo + cocção quando ambos estiverem preenchidos, senão as durações das etapas
+															do fluxo.
+														</FieldDescription>
 													</FieldContent>
 												</Field>
 											)}

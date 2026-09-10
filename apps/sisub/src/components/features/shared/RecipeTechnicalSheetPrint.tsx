@@ -61,11 +61,11 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
  * não existiam, a folha imprimia as duas Seções vazias mesmo com o dado cadastrado, e quem
  * recebia o papel concluía que a preparação não declarava equipamento nenhum.
  *
- * Campo que o modelo pede e o SISUB continua não guardando (tempo de pré-preparo, tempo de
- * cocção, método de cocção, temperatura) sai como linha em branco, exatamente como no
- * formulário em papel — a Seção completa à mão. Imprimir "—" ali daria a entender que a
- * informação foi consultada e não existe; a linha diz que é para preencher. Quando esses
- * campos entrarem no cadastro, é aqui que eles aparecem.
+ * Os quatro campos restantes da PARTE 04 — tempo de pré-preparo, tempo de cocção, método de
+ * cocção e temperatura — vêm do cadastro da preparação (card "Cocção", aba Detalhes). Sem o
+ * dado, a linha sai EM BRANCO, exatamente como no formulário em papel: a Seção completa à
+ * mão. Imprimir "—" ali daria a entender que a informação foi consultada e não existe; a
+ * linha diz que é para preencher.
  */
 
 interface RecipeTechnicalSheetPrintProps {

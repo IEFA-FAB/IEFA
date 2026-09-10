@@ -360,9 +360,14 @@ describe("sheetTotalMinutes", () => {
 		expect(sheetTotalMinutes(null, 20, 40, 55)).toBe(60)
 	})
 
-	test("uma parcela só basta — a outra ausente não anula a declarada", () => {
-		expect(sheetTotalMinutes(null, 20, null, 55)).toBe(20)
-		expect(sheetTotalMinutes(null, null, 40, 55)).toBe(40)
+	test("uma parcela só NÃO vence o fluxo — ela descreve um pedaço, o fluxo a preparação", () => {
+		expect(sheetTotalMinutes(null, 20, null, 240)).toBe(240)
+		expect(sheetTotalMinutes(null, null, 40, 240)).toBe(240)
+	})
+
+	test("sem fluxo, a parcela declarada é a melhor informação que existe", () => {
+		expect(sheetTotalMinutes(null, 20, null, null)).toBe(20)
+		expect(sheetTotalMinutes(null, null, 40, null)).toBe(40)
 	})
 
 	test("sem total e sem parcelas, cai no fluxo", () => {
@@ -372,6 +377,7 @@ describe("sheetTotalMinutes", () => {
 	test("zero é ausência: o campo do formulário nasce em 0 e não é declaração", () => {
 		expect(sheetTotalMinutes(0, 20, 40, 55)).toBe(60)
 		expect(sheetTotalMinutes(0, 0, 0, 55)).toBe(55)
+		expect(sheetTotalMinutes(null, 20, 0, 240)).toBe(240)
 	})
 
 	test("sem fonte nenhuma devolve null — a folha imprime a linha em branco", () => {

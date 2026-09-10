@@ -302,13 +302,18 @@ export function flowTotalMinutes(steps: readonly SheetFlowStep[]): number | null
  * Tempo total da PARTE 04, em minutos, na ordem de confiança das fontes:
  *
  *   1. o total declarado no cadastro — é o número que quem elaborou a ficha escreveu;
- *   2. a soma das parcelas (pré-preparo + cocção), quando ao menos uma foi declarada;
- *   3. a soma das durações das etapas do fluxo de produção.
+ *   2. pré-preparo + cocção, quando as DUAS parcelas foram declaradas;
+ *   3. a soma das durações das etapas do fluxo de produção;
+ *   4. a única parcela declarada, se houver.
+ *
+ * A parcela sozinha vem DEPOIS do fluxo de propósito. Ela descreve um pedaço da
+ * preparação, não a preparação inteira: com só a cocção (40 min) preenchida e um fluxo que
+ * soma 240, imprimir 40 no "Tempo total" contradiz a tabela de etapas logo abaixo, no
+ * mesmo papel. Só quando não há fluxo é que a parcela é a melhor informação disponível.
  *
  * Zero e `null` são a MESMA coisa aqui: o campo do total nasce em 0 no formulário, e
  * tratá-lo como declaração faria a folha imprimir "0 min" para toda preparação que
- * ninguém cronometrou — apagando as duas fontes derivadas que existem justamente para
- * esse caso.
+ * ninguém cronometrou — apagando as fontes derivadas que existem justamente para esse caso.
  */
 export function sheetTotalMinutes(
 	declaredTotal: number | null | undefined,
@@ -317,9 +322,13 @@ export function sheetTotalMinutes(
 	flowMinutes: number | null | undefined
 ): number | null {
 	if (isPositiveMinutes(declaredTotal)) return declaredTotal
-	const stages = (isPositiveMinutes(prePreparationMinutes) ? prePreparationMinutes : 0) + (isPositiveMinutes(cookingMinutes) ? cookingMinutes : 0)
-	if (stages > 0) return stages
-	return isPositiveMinutes(flowMinutes) ? flowMinutes : null
+	const hasPre = isPositiveMinutes(prePreparationMinutes)
+	const hasCooking = isPositiveMinutes(cookingMinutes)
+	if (hasPre && hasCooking) return prePreparationMinutes + cookingMinutes
+	if (isPositiveMinutes(flowMinutes)) return flowMinutes
+	if (hasPre) return prePreparationMinutes
+	if (hasCooking) return cookingMinutes
+	return null
 }
 
 function isPositiveMinutes(value: number | null | undefined): value is number {
