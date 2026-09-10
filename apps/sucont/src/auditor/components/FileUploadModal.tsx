@@ -1,6 +1,6 @@
-import { AlertCircle, CheckCircle, FileSpreadsheet, UploadCloud, X } from "lucide-react"
-import { useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "#/components/ui/dialog"
+import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 
 interface FileUploadModalProps {
 	isOpen: boolean
@@ -8,123 +8,57 @@ interface FileUploadModalProps {
 	onUpload: (file: File) => void
 }
 
-export const FileUploadModal: React.FC<FileUploadModalProps> = ({ isOpen, onClose, onUpload }) => {
-	const [isDragging, setIsDragging] = useState(false)
-	const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle")
-	const fileInputRef = useRef<HTMLInputElement>(null)
-
-	if (!isOpen) return null
-
-	const handleDragOver = (e: React.DragEvent) => {
-		e.preventDefault()
-		setIsDragging(true)
+/**
+ * Carga do relatório de evolução, em diálogo.
+ *
+ * O auditor é a única ferramenta que recebe planilha SEM ser na tela inicial —
+ * a tela dele já tem dado carregado, e a carga é uma ação do cabeçalho. Por isso
+ * o diálogo; a zona de envio dentro dele é a mesma das outras seis.
+ *
+ * O que estava aqui antes: um véu `fixed inset-0` desenhado à mão, sem foco
+ * preso nem fechar por Escape, e um `setTimeout` de 800 ms que fingia
+ * processamento antes de chamar `onUpload` — mais 1 s de "Processado com
+ * sucesso!" antes de fechar. A leitura de verdade acontece no `onUpload`, então
+ * a espera era só espera.
+ */
+export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalProps) {
+	// Um caminho só para fechar: Escape, clique fora e "Cancelar" limpam o erro.
+	// Com o "Cancelar" chamando `onClose` direto, o aviso de formato sobrevivia
+	// à próxima abertura — Base UI não dispara `onOpenChange` para prop controlada.
+	function close() {
+		onClose()
 	}
 
-	const handleDragLeave = () => {
-		setIsDragging(false)
-	}
-
-	const handleDrop = (e: React.DragEvent) => {
-		e.preventDefault()
-		setIsDragging(false)
-		if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-			processFile(e.dataTransfer.files[0])
-		}
-	}
-
-	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-		if (e.target.files && e.target.files.length > 0) {
-			processFile(e.target.files[0])
-		}
-	}
-
-	const processFile = (file: File) => {
-		if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
-			setUploadStatus("error")
-			setTimeout(() => setUploadStatus("idle"), 3000)
-			return
-		}
-
-		setUploadStatus("processing")
-		setTimeout(() => {
-			onUpload(file)
-			setUploadStatus("success")
-			setTimeout(() => {
-				onClose()
-				setUploadStatus("idle")
-			}, 1000)
-		}, 800)
+	const handleFiles = (files: File[]) => {
+		const file = files[0]
+		if (!file) return
+		onUpload(file)
+		close()
 	}
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/60 backdrop-blur-sm animate-in fade-in duration-200">
-			<div className={`relative w-full max-w-2xl border rounded-xl shadow-2xl overflow-hidden p-8 text-center bg-card border-border`}>
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={onClose}
-					className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-					aria-label="Fechar"
-				>
-					<X className="w-6 h-6" />
-				</Button>
+		<Dialog
+			open={isOpen}
+			onOpenChange={(open) => {
+				if (!open) close()
+			}}
+		>
+			<DialogContent className="max-w-2xl">
+				<DialogHeader>
+					<DialogTitle>Relatório de Evolução</DialogTitle>
+					<DialogDescription>
+						Carregue o Excel com a evolução mensal das diferenças. Os grupos (BMP, CONSUMO, INTANGÍVEL) são identificados na leitura.
+					</DialogDescription>
+				</DialogHeader>
 
-				<div className="mb-6 flex flex-col items-center">
-					<div className="p-4 bg-action/20 rounded-full mb-4">
-						<FileSpreadsheet className="w-10 h-10 text-action" />
-					</div>
-					<h2 className="text-heading mb-2 text-foreground">Relatório de Evolução</h2>
-					<p className={`max-w-md mx-auto text-muted-foreground`}>
-						Carregue o arquivo Excel contendo a evolução mensal das diferenças. O sistema identifica automaticamente os grupos (BMP, CONSUMO, INTANGÍVEL).
-					</p>
-				</div>
+				<FileDropzone accept={EXCEL_ACCEPT} onFiles={handleFiles} hint="Excel (.xlsx, .xls) — suporta o volume das 80+ UGs" />
 
-				<label
-					htmlFor="file-upload-input"
-					onDragOver={handleDragOver}
-					onDragLeave={handleDragLeave}
-					onDrop={handleDrop}
-					className={`
-            relative border-2 border-dashed rounded-xl p-12 transition-all cursor-pointer group block
-            ${isDragging ? "border-action bg-action/10" : "border-border bg-muted/50 hover:bg-muted/80"}
-          `}
-				>
-					<input id="file-upload-input" type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".xlsx, .xls" className="hidden" />
-
-					{uploadStatus === "processing" && (
-						<div className="flex flex-col items-center animate-pulse">
-							<FileSpreadsheet className="w-12 h-12 text-action mb-4" />
-							<p className="text-action font-medium">Lendo arquivo...</p>
-						</div>
-					)}
-
-					{uploadStatus === "success" && (
-						<div className="flex flex-col items-center animate-pulse">
-							<CheckCircle className="w-12 h-12 text-success mb-4" />
-							<p className="text-success font-medium">Processado com sucesso!</p>
-						</div>
-					)}
-
-					{uploadStatus === "error" && (
-						<div className="flex flex-col items-center">
-							<AlertCircle className="w-12 h-12 text-destructive mb-4" />
-							<p className="text-destructive font-medium">Formato inválido. Use .xlsx ou .xls</p>
-						</div>
-					)}
-
-					{uploadStatus === "idle" && (
-						<div className="flex flex-col items-center">
-							<UploadCloud
-								className={`w-12 h-12 mb-4 transition-colors ${isDragging ? "text-action" : "text-muted-foreground group-hover:text-muted-foreground/80"}`}
-							/>
-							<p className={`text-heading mb-1 text-foreground`}>Clique para enviar ou arraste</p>
-							<p className="text-body text-muted-foreground">XLSX ou XLS</p>
-						</div>
-					)}
-				</label>
-
-				<div className={`mt-6 text-caption text-muted-foreground`}>Suporte para grandes volumes de dados (80+ UGs)</div>
-			</div>
-		</div>
+				<DialogFooter className="justify-end">
+					<Button type="button" variant="outline" onClick={close}>
+						Cancelar
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	)
 }

@@ -136,25 +136,130 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
 
 | Elemento | Onde mora | Consequência de repetir |
 |----------|-----------|-------------------------|
-| `h1` da tela | Trilha do cabeçalho (`Catálogo › Etapa › Ferramenta`) | Dois títulos para a mesma página |
+| `h1` da tela | `PageHeader`, no topo do conteúdo — com a pílula de escopo e a descrição | Dois títulos para a mesma página |
+| Trilha `Catálogo › Etapa › Ferramenta` | Barra fixa — só navegação | O nome da tela no mesmo tamanho e cor do "Catálogo ›" ao lado |
 | Voltar ao hub | A própria trilha | Seis "Voltar ao Hub" com seis aparências |
-| Escopo (questões do RAC) | Pílula ao lado da trilha | O número no título, fora do dado |
-| Uma linha de descrição | `description`, com padrão vindo do catálogo | A promessa do card e a da tela divergem |
+| Escopo (questões do RAC) | Pílula ao lado do `h1`, no `PageHeader` | O número no título, fora do dado |
+| Uma linha de descrição | `PageHeader`, com padrão vindo do catálogo | A promessa do card e a da tela divergem |
+| Orientações da ferramenta | Gaveta "Orientações" (`guide`), à direita das ações | Três cards iguais na dobra de sete telas, lidos todo dia por quem já sabe |
 | Busca `?q=` | `searchable` | Dois campos de busca na mesma tela |
 | Links legais | Rodapé da barra lateral | O `LGPD.md` exigia um rodapé avulso em cada rota órfã |
 | Troca de tema | Botão único do cabeçalho | Uma rota escurecendo só a si mesma |
 
-- **Ação de tela vai na prop `actions`**, à direita do cabeçalho fixo — "Nova
+- **Ação de tela vai na prop `actions`**, à direita do `PageHeader` — "Nova
   análise", "Importar Excel", "Imprimir". Cada ferramenta desenhava uma barra de
-  título só para pendurar dois botões, e não havia duas iguais.
+  título só para pendurar dois botões, e não havia duas iguais. Moravam na
+  barra fixa (2026-09-01 → 2026-09-10); ao lado do título é onde o sisub as põe,
+  e é onde ficam perto do nome da tela a que pertencem.
+- **O item ativo da barra lateral é pintado em `action`** pelos tokens
+  (`--sidebar-accent` tint de fundo, `--sidebar-accent-foreground` texto) — e só
+  por eles; nada de `!text-*` no call site. Os tokens eram cinza 0.967 sobre
+  0.985: com as sete telas iguais por dentro, o realce que dizia ONDE se está era
+  imperceptível. O hover usa o MESMO tint pela metade e sem trocar a cor do
+  texto: hover e ativo com a mesma cara faziam dois itens parecerem ativos.
 - **Filtro NÃO vai em `actions`.** Filtro é do conteúdo e mora no corpo, com
   rótulo. O cabeçalho é navegação e ação; misturar os dois foi o defeito que a
   barra lateral do hub já tinha corrigido em 2026-08.
-- **`width="wide"` só por dado denso** — tela cuja unidade de leitura é tabela ou
-  matriz (`auditor`, `monitoramento`, `analista-compatibilidade`, `documentacao`).
-  Nunca por preferência.
-- **Segmento de escolha é `Tabs`**, nunca `<button>` pintado à mão: os quatro que
-  existiam não tinham `role="tab"` e nenhum navegava por seta do teclado.
+- **Uma largura para o hub inteiro** (`max-w-[96rem]`). Havia `default` (72rem)
+  e `wide` (110rem, "só por dado denso"): quatro telas eram `wide` e oito não, e
+  ao trocar de ferramenta a margem lateral saltava sem dizer nada. Tabela larga
+  rola em `overflow-x-auto`; o formulário de entrada segue estreito por conta
+  própria (`AnalysisStart` é `max-w-4xl`). A prop `width` foi removida.
+- **Segmento de escolha é `SegmentedControl`** (filtro ou troca de visão) ou
+  `Tabs` (só com `tabpanel`), nunca `<button>` pintado à mão: os que existiam não
+  tinham papel ARIA e nenhum navegava por seta do teclado. Ver §4.7.
+
+### 4.6 A tela inicial de análise — `AnalysisStart`
+
+Sete das doze ferramentas começam do mesmo jeito: uma planilha do Tesouro
+Gerencial entra, um painel sai. Abriam em sete ordens diferentes, com sete zonas
+de envio diferentes. Nenhuma dessas ordens estava errada por si; o que estava
+errado era haver sete — trocar de ferramenta dentro do mesmo hub parecia trocar
+de sistema.
+
+**A ordem é do `AnalysisStart`, e é esta:**
+
+| # | Bloco | Por que nesse lugar |
+|---|-------|---------------------|
+| 1 | **Zona de envio** (`FileDropzone`) | Quem chega já sabe o que veio fazer. O campo é a primeira coisa da tela, sem rolagem |
+| 2 | **A falha** (`Alert`) | Sob o campo, porque é do campo que ela fala. Erro no rodapé faz o operador reenviar o mesmo arquivo sem saber |
+| 3 | **O que pertence ao envio** (`children`) | Lista de arquivos, botão de carregar — só o que é do ato de enviar |
+| — | **Orientações** (`AnalysisGuide`, na gaveta) | Onde extrair, referencial do RAC e cartões de apoio. Fora da dobra: informação de primeira visita mora a um clique |
+
+- **A zona de envio é `FileDropzone`, sempre.** Uma forma, um realce de arraste
+  (`action`), um alvo de clique. O que a ferramenta muda é só o TEXTO: chamada,
+  formato aceito e colunas exigidas. Eram sete zonas — `h-56`, `h-64`, `p-8`,
+  `p-10`, `p-12`; ícone de 32, 44 e 48px; realce em `action`, `tech-cyan` e
+  `ring`; e três alvos de clique distintos (`<label>`, `<button>` que dispara
+  `.click()`, `<input>` transparente por cima), o que fazia o foco de teclado se
+  comportar diferente em cada tela.
+- **As colunas exigidas ficam DENTRO da zona**, como pílulas. Quem envia precisa
+  da informação antes de escolher o arquivo, e no mesmo lugar — não num card
+  "Requisitos da Planilha" abaixo, nem diluída numa frase.
+- **Carregar não é uma tela.** O estado de leitura vive na própria zona
+  (`isLoading`). O `conta-generica` substituía a página inteira por um anel
+  girando de `py-20`: o campo sumia enquanto lia.
+- **O caminho do Tesouro Gerencial tem UMA fonte** —
+  `TESOURO_GERENCIAL_PATH`. As dez etapas estavam escritas à mão em quatro
+  telas, e uma delas já divergia (parava antes da última).
+- **A questão do RAC NÃO é digitada na tela**: o `RacReference` a lê do catálogo
+  pela rota, que é a mesma fonte da pílula ao lado da trilha. Enquanto era texto,
+  o número no corpo da tela podia contradizer o do card sem que nada acusasse.
+- **Capa é proibida.** Nada de parágrafo centralizado, disco com avião ou título
+  repetindo a descrição da trilha antes do campo. O que a capa dizia de útil vira
+  um dos cartões de apoio.
+- **As orientações moram na gaveta, não na dobra.** `TesouroGerencialPath`,
+  `RacReference` e os cartões de apoio são o `AnalysisGuide`, passado à casca
+  como `guide` e aberto pelo botão "Orientações" do `PageHeader`. Ficaram um dia
+  (2026-09-09) abaixo da zona de envio; padronizados, viraram os mesmos três
+  cards em sete telas, e quem usa a ferramenta toda competência rolava por eles
+  todo dia. Na gaveta, estão a um clique — inclusive DEPOIS de a planilha entrar.
+- **A gaveta não lembra nada.** Fechada por padrão, sempre. Um "já vi" exigiria
+  chave de `localStorage`, e chave nova sem inventário na Política de Cookies
+  derruba a `main` (`sucont:saram-dismissed`, #295→#298). O custo de um clique
+  é menor que o de uma versão nova de documento legal.
+- **Guarda:** `src/test/analysis-start.contract.test.ts` varre o `src/` inteiro
+  atrás de `border-2 border-dashed`, de `type="file"` fora do primitivo e do
+  caminho do Tesouro Gerencial escrito à mão, e exige `<AnalysisStart>` nas sete
+  rotas. Nenhum linter enxerga qualquer um dos três.
+
+### 4.7 O estado de resultado — segmentado, indicador, cabeçalho de seção, aviso
+
+Depois que a planilha entra, cada ferramenta abre o SEU painel — e era aí que o
+hub voltava a ser nove produtos. As peças que toda tela de resultado tem, e que
+cada uma desenhava à mão:
+
+| Peça | Primitivo | O que existia |
+|------|-----------|---------------|
+| Troca de visão (estratégica / tática / operacional; mensagens / painel) | `SegmentedControl` (`size="lg"` no topo da tela, padrão dentro de seção) | 5 barras pintadas à mão: pílula `rounded-full` com `bg-tech-blue text-white shadow-md`, card `p-2` com botões `rounded-xl`, `border-b` com `shadow-md` no ativo, botões coloridos por estado (`bg-destructive` / `bg-success` / `bg-warning` conforme a aba) |
+| Indicador numérico | `StatTile` | 5 desenhos: `p-4`/`p-5`/`p-6`; `shadow-sm`/`shadow-lg`/`shadow-xl`; quarto-de-círculo decorativo; `border-b-4 border-b-emerald-600`; painel azul-sólido com valor amarelo; disco de ícone tintado por card |
+| Cabeçalho de seção | `SectionHeader` | Disco de 48px com ícone (`bg-muted`, `bg-tech-blue text-white`, `bg-surface-inverted` com borda dourada e `shadow-lg`); `h2` em CAIXA ALTA com ícone colorido; título com `border-b-2` |
+| Aviso de estado (nada a cobrar, conta fora do escopo, só leitura, painel faltando) | `Alert` (`success` / `warning` / `info` / default) | `<p>` e `<div>` com `bg-*/10 border-*/30` escritos no lugar, um deles com disco de 80px e `border-4 border-white` |
+| Filtro de conteúdo | `Label` + `Select` com trigger PADRÃO, ou `SegmentedControl` | `SelectTrigger` com `rounded-none border-0 border-l` colado a botões `tech-blue`; `rounded-full` sem borda; N botões de conferente pintados por estado |
+| Botão de ação (copiar, analisar, ver) | `Button` com `variant` | `variant="ghost"` + `className="bg-tech-blue text-white … shadow-lg"` — o primitivo usado só para desligar o primitivo |
+
+- **`StatTile` pinta o VALOR, não a superfície.** `status` é o único eixo de cor.
+  Indicador com fundo colorido inteiro compete com o `Alert` do lado.
+- **O referencial do RAC NÃO reaparece no resultado.** A pílula da trilha e o
+  `RacReference` da tela inicial já o dizem; o `conta-generica` mostrava um
+  banner "Controle Interno — Questão 29" E um card "Referencial Metodológico"
+  depois do painel, e o `monitoramento` um card "Escopo da Análise" com seis
+  pílulas. O que era próprio deles (o aviso sobre conta fora do escopo) virou
+  `Alert`.
+- **Cabeçalho de card é a superfície do card.** `bg-muted/50 border-b`, como o
+  `ug-card` do monitoramento sempre foi. O card de UG da compatibilidade tinha
+  faixa `tech-blue` sólida com texto branco; o oráculo do `conta-generica`,
+  cabeçalho azul com `shadow-2xl` e borda dupla; o hero estratégico do
+  `subitens`, painel azul de `p-10` com escudo de 300px em marca-d'água.
+- **Cor de série vira PONTO, não faixa.** O item de divergência da
+  compatibilidade tinha `absolute left-0 w-1.5` com a cor do par — o side-stripe
+  do §6, com `style` em vez de classe para escapar do grep.
+- **Painel escuro no meio de painel claro é proibido.** `bg-surface-inverted` /
+  `bg-tech-blue` com `text-white` como superfície de conteúdo existia em três
+  telas e em nenhuma outra parte do hub. `tech-blue` segue onde é MARCA — o
+  avatar da barra e o disco do card do catálogo.
+- **Modal desenhado à mão mantém `shadow-lg`**, porque há sobreposição real — é
+  o caso que §6 admite. `shadow-2xl` não: é o mesmo véu com o dobro de tinta.
 
 ## 5. Convenções obrigatórias
 
@@ -297,8 +402,60 @@ arbitrárias em classe (114), texto abaixo de 11px (202),
 | `LegalFooter` avulso | 4 rotas | Rodapé da casca |
 | Paleta institucional FAB usada como cromo | 468 classes | Escala semântica (§4.1) |
 | Capas de ferramenta (disco com avião/escudo, título com filete dourado, lema entre bússolas, marca-d'água) | 3 telas | Removidas — a descrição sob a trilha já diz o que a ferramenta faz |
-| Zonas de envio com forma própria | 4 | A mesma do `DgcUpload` |
+| Zonas de envio com forma própria | 4 | A mesma do `DgcUpload` — só na aparência; a unificação de código veio depois, em §4.6 |
 | Nomes de ferramenta longos demais para a barra | 12 (máx. 39 caracteres) | Máx. 25; a questão do RAC saiu do nome (já é pílula) |
+
+**Zerados em 2026-09-09** — a dívida de **entrada**: as sete telas que começam
+por uma planilha.
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Zonas de envio, agora no código e não só na aparência | 7 | `FileDropzone` |
+| Alturas de zona de envio (`h-56`, `h-64`, `p-8`, `p-10`, `p-12`) | 5 | `p-10` |
+| Alvos de clique diferentes (`<label>`, `<button>` + `.click()`, `<input>` transparente) | 3 | `<label>` + campo `sr-only` |
+| Realces de arraste (`action`, `tech-cyan`, `ring`) | 3 | `action` |
+| Ordens de tela inicial | 7 | `AnalysisStart` (§4.6) |
+| Caminho do Tesouro Gerencial escrito à mão | 4 sítios | `TESOURO_GERENCIAL_PATH` |
+| Formas de dizer as colunas exigidas (card "Requisitos", frase corrida, pílulas, nada) | 4 | Pílulas dentro da zona |
+| Blocos "objetivo / risco / importância" reescritos | 3 | `RacReference`, com a questão vinda do catálogo |
+| Capas antes do campo (parágrafo centralizado, `h2` repetindo a trilha, acordeões) | 3 telas | Removidas |
+| Carregamento como tela própria (`py-20` com anel girando) | 1 | Estado da própria zona |
+| Superfícies de ícone dos cartões de apoio (`bg-action/15`, `bg-success/10`, `bg-action/10`) | 3 | `bg-muted` — cor que não distingue nada |
+| Diálogo de upload desenhado à mão (véu `inset-0`, sem foco preso, `setTimeout` de 800 ms fingindo leitura) | 1 | `Dialog` + `FileDropzone` |
+| Zero state imitando zona de envio no `auditor` | 1 | Primitivo `Empty` |
+
+Corrigido junto, porque a padronização passou por cima: o `monitoramento` não
+tinha estado de falha nenhum — cabeçalho não encontrado caía em `setData([])`
+com o nome do arquivo já gravado, e a tela trocava para o painel mostrando zero
+ocorrência. Falha de leitura agora é `Alert`; competência sem ocorrência segue
+sendo vazio de verdade e abre o painel.
+
+**Zerados em 2026-09-09 (2ª passada)** — o estado de **resultado**, depois da
+planilha entrar.
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Trocas de visão pintadas à mão | 5 (conta-generica, subitens ×3, compatibilidade, monitoramento) | `SegmentedControl` |
+| Indicadores numéricos desenhados no lugar | 27 tiles em 5 desenhos | `StatTile` |
+| Cabeçalhos de seção com disco de 48px ou em caixa alta | 11 | `SectionHeader` |
+| Avisos de estado em `<p>`/`<div>` tintado | 9 | `Alert` |
+| Referencial do RAC repetido depois do resultado | 3 blocos em 2 telas | Removidos (§4.7) |
+| Painéis escuros (`bg-surface-inverted` / `bg-tech-blue` como superfície) | 4 | `Card` |
+| Faixas de cor de série (`absolute left-0 w-1.5` com `style`) | 1 | Ponto ao lado do nome |
+| `shadow-lg`/`shadow-md`/`shadow-xl`/`shadow-2xl` fora de overlay | 41 | Borda `1px` do token |
+| `bg-tech-blue text-white` em botão via `className` | 14 | `variant` do `Button` |
+| Quarto-de-círculo decorativo, `border-b-4`/`border-t-4 emerald`, escudo em marca-d'água | 6 | Removidos |
+| Grupos de filtro com `SelectTrigger` mutilado (`rounded-none border-0 border-l`) | 3 | Trigger padrão + `Label` |
+| Célula de tabela em `px-10 py-5` | 1 tabela | `px-4 py-3` |
+| `animate-in fade-in` por troca de visão | 8 | Removidos |
+
+**Primitivos criados:** `stat-tile`, `section-header`. **Patterns criados:**
+`analysis-start`, `rac-reference`, `tesouro-gerencial-path`.
+
+O que NÃO entrou, e por quê: os quatro componentes-deus continuam com 1.300+
+linhas — dividi-los é arquitetura, não estilo. O `StatCard` do auditor fica:
+tem sparkline e variação, um papel de dado que o `StatTile` não cobre; só perdeu
+a sombra artificial. As tabelas seguem sem primitivo (linha abaixo).
 
 **Primitivos criados** (portados do sisub, o contrato irmão): `card`, `badge`,
 `tabs`, `alert`, `empty`. A ausência deles era a CAUSA da divergência de
@@ -324,7 +481,7 @@ listados para que ninguém os "corrija" de novo.
 
 | Caso | Onde | Por quê |
 |------|------|---------|
-| `<input type="file">` nativo | dropzones de upload | O primitivo `Input` é text-like; o campo é `hidden` e o alvo de clique é o `<label>` |
+| `<input type="file">` nativo | `components/ui/file-dropzone.tsx`, e só ali | O primitivo `Input` é text-like; o campo é `sr-only` e o alvo de clique é o `<label>`. Fora do primitivo é dívida, e o teste de contrato reprova |
 | `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
 | 12 `<input>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm `focus-visible:ring-ring` |
 | 3 `<input>` nativos | cabeçalho de `subitens-genericos` | Design de sublinhado (`bg-transparent border-b`, sem padding). Já têm `focus:border-fab-gold` |
@@ -395,6 +552,19 @@ exceção já registrada na tabela anterior.
       via `<SegmentedControl>` (filtro) ou `<Tabs>` (com painel)?
 - [ ] Zero `fab-*` como cromo — só como marca institucional (§4.1)?
 - [ ] A tela abre pela TAREFA, sem capa que repita a descrição da trilha (§4.5)?
+- [ ] Tela que recebe planilha monta o `AnalysisStart` (zona de envio primeiro)
+      e entrega as orientações como `guide` da casca, não na dobra (§4.6)?
+- [ ] A zona de envio é o `FileDropzone`, sem `border-dashed` nem
+      `<input type="file">` desenhados na rota (§4.6)?
+- [ ] O caminho do Tesouro Gerencial vem de `TESOURO_GERENCIAL_PATH`, e a questão
+      do RAC vem do catálogo — nenhum dos dois digitado na tela (§4.6)?
+- [ ] Troca de visão é `SegmentedControl`; indicador é `StatTile`; título de
+      seção é `SectionHeader`; aviso de estado é `Alert` (§4.7)?
+- [ ] Zero `shadow-lg`/`shadow-xl`/`shadow-2xl` fora de overlay, zero
+      `bg-tech-blue text-white` em `className` de botão, zero painel escuro
+      dentro de painel claro (§4.7)?
+- [ ] O referencial do RAC aparece UMA vez — na tela inicial —, não depois do
+      resultado (§4.7)?
 
 ## 11. Referências de implementação
 
@@ -406,7 +576,16 @@ exceção já registrada na tabela anterior.
 - **Negativa de permissão explicada:** `src/components/read-only-notice.tsx`.
 - **Guard de rota:** `src/routes/__root.tsx` — auth + PBAC nível 1, rotas legais
   isentas, `z.coerce` no `validateSearch`, e o tema resolvido antes do primeiro byte.
-- **Casca:** `src/components/hub-layout.tsx` — trilha, `actions`, `width`,
+- **Estado de resultado:** `src/components/ui/stat-tile.tsx`,
+  `src/components/ui/section-header.tsx`, `src/components/ui/segmented-control.tsx`
+  e `src/components/ui/alert.tsx` — as quatro peças do §4.7. Guarda em
+  `src/test/analysis-start.contract.test.ts` ("estado de resultado").
+- **Tela inicial de análise:** `src/components/analysis-start.tsx` (a ordem),
+  `src/components/ui/file-dropzone.tsx` (a zona),
+  `src/components/tesouro-gerencial-path.tsx` e `src/components/rac-reference.tsx`
+  (as duas fontes de verdade que a tela consome em vez de repetir). Guarda em
+  `src/test/analysis-start.contract.test.ts`.
+- **Casca:** `src/components/hub-layout.tsx` — trilha, `PageHeader` (`actions`, `guide`),
   descrição herdada do catálogo, links legais no rodapé da barra lateral e o botão
   de tema.
 - **Tema:** `src/services/theme.tsx` (provider) e `theme-preference.ts` (leitura

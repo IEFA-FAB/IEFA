@@ -17,6 +17,7 @@ import { Bar, BarChart, CartesianGrid, LabelList, Tooltip as RechartsTooltip, Re
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { StatTile } from "#/components/ui/stat-tile"
 import { chartChrome } from "#/lib/chart-theme"
 import { getConferente } from "#/lib/ug/registry"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
@@ -148,13 +149,9 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 	return (
 		<div className="space-y-6">
 			{/* Filters */}
-			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+			<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 				{selectedRac !== "Geral" ? (
-					<Button
-						type="button"
-						onClick={() => setIsConsolidatedModalOpen(true)}
-						className="gap-2 px-4 py-2 text-subheading text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
-					>
+					<Button type="button" onClick={() => setIsConsolidatedModalOpen(true)}>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
 					</Button>
@@ -208,37 +205,15 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 				</div>
 			</div>
 
-			{/* Summary Cards */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
-					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-muted/50 text-action rounded-lg">
-							<Building2 className="w-5 h-5" />
-						</div>
-						<h3 className="text-subheading text-muted-foreground">UGs com Ocorrência</h3>
-					</div>
-					<p className="text-display text-foreground mt-auto">{filteredAndSortedData.length}</p>
-				</div>
-
-				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
-					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-warning/10 text-warning rounded-lg">
-							<AlertTriangle className="w-5 h-5" />
-						</div>
-						<h3 className="text-subheading text-muted-foreground">Ocorrências Identificadas</h3>
-					</div>
-					<p className="text-display text-foreground mt-auto">{filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}</p>
-				</div>
-
-				<div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col">
-					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-success/10 text-success rounded-lg">
-							<DollarSign className="w-5 h-5" />
-						</div>
-						<h3 className="text-subheading text-muted-foreground">Saldo Alongado (&gt;3 meses)</h3>
-					</div>
-					<p className="text-display text-foreground mt-auto">{formatCurrency(filteredAndSortedData.reduce((acc, curr) => acc + curr.saldo_total, 0))}</p>
-				</div>
+				<StatTile icon={<Building2 />} label="UGs com ocorrência" value={filteredAndSortedData.length} />
+				<StatTile
+					icon={<AlertTriangle />}
+					label="Ocorrências identificadas"
+					value={filteredAndSortedData.reduce((acc, curr) => acc + curr.quantidade_ocorrencias, 0)}
+					status="warning"
+				/>
+				<StatTile icon={<DollarSign />} label="Saldo alongado (>3 meses)" value={formatCurrency(filteredSaldoTotal)} status="success" />
 			</div>
 
 			{/* Main Chart */}
@@ -300,7 +275,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 										const percentage = filteredSaldoTotal > 0 ? ((d.saldo_total / filteredSaldoTotal) * 100).toFixed(1) : "0.0"
 										const conferente = getConferente(d.ug)
 										return (
-											<div className="bg-card p-4 border border-border shadow-xl rounded-xl">
+											<div className="bg-card p-4 border border-border rounded-xl">
 												<p className="font-bold text-foreground mb-3 border-b border-border pb-2">
 													UG: {label} {d.nome_ug ? `- ${d.nome_ug}` : ""}
 												</p>

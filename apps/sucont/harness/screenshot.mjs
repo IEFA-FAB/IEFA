@@ -79,6 +79,41 @@ await page.evaluate(() => document.documentElement.classList.add("dark"))
 await page.waitForTimeout(600)
 await page.screenshot({ path: `${OUT}/admin-permissoes-dark.png` })
 
+// ── Tela inicial de análise ──────────────────────────────────────────────────
+// A composição que as sete ferramentas montam: zona de envio, onde extrair o
+// relatório, referencial do RAC e cartões de apoio, nessa ordem. É a captura que
+// mostra a borda tracejada e as superfícies nos dois temas — nenhum check
+// enxerga uma zona de envio que sumiu contra o fundo escuro.
+await page.evaluate(() => document.documentElement.classList.remove("dark"))
+await page.goto("http://localhost:4180/hub.html", { waitUntil: "networkidle" })
+await page.waitForTimeout(1200)
+// O módulo padrão do harness é a SUCONT-4; o Monitoramento Patrimonial é a
+// ferramenta dela que abre por planilha.
+await page.getByRole("link", { name: "Monitoramento Patrimonial" }).first().click()
+await page.waitForTimeout(900)
+await page.screenshot({ path: `${OUT}/analise-inicio-light.png`, fullPage: true })
+// A gaveta "Orientações": é onde as explicações foram parar.
+await page.getByRole("button", { name: "Orientações" }).click()
+await page.waitForTimeout(500)
+await page.screenshot({ path: `${OUT}/analise-orientacoes-light.png` })
+await page.keyboard.press("Escape")
+await page.waitForTimeout(400)
+await page.evaluate(() => document.documentElement.classList.add("dark"))
+await page.waitForTimeout(600)
+await page.screenshot({ path: `${OUT}/analise-inicio-dark.png`, fullPage: true })
+
+// ── Estado de resultado ──────────────────────────────────────────────────────
+// Segmentado de visão, indicadores, cabeçalho de seção e avisos — as peças
+// compartilhadas DEPOIS da planilha entrar. O router é de memória, então a rota
+// entra por navegação programática.
+await page.evaluate(() => document.documentElement.classList.remove("dark"))
+await page.evaluate(() => window.__harnessNavigate?.("/harness/resultado"))
+await page.waitForTimeout(900)
+await page.screenshot({ path: `${OUT}/analise-resultado-light.png`, fullPage: true })
+await page.evaluate(() => document.documentElement.classList.add("dark"))
+await page.waitForTimeout(600)
+await page.screenshot({ path: `${OUT}/analise-resultado-dark.png`, fullPage: true })
+
 // A fonte do Google não carrega offline; qualquer outro erro é do componente.
 const real = problems.filter((p) => !p.includes("ERR_NAME_NOT_RESOLVED"))
 process.stdout.write(real.length ? `ERROS:\n${real.join("\n")}\n` : "sem erros de console\n")

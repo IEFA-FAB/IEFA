@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react"
+import { cn } from "#/lib/utils"
 import { formatCompactNumber } from "../services/dataProcessor"
 import { Sparkline } from "./Sparkline"
 
@@ -29,7 +30,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon
 
 	return (
 		<div
-			className={`rounded-lg shadow-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]
+			className={`rounded-lg border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]
       bg-card border-border hover:bg-muted/50
     `}
 		>
@@ -63,7 +64,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon
 
 				<div
 					style={iconColor ? { backgroundColor: iconColor } : undefined}
-					className={`w-10 h-10 rounded-lg ${iconColor ? "" : bgClass} shadow-lg shadow-black/20 flex items-center justify-center flex-shrink-0 ml-2`}
+					className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2", !iconColor && bgClass)}
 				>
 					<Icon className="w-5 h-5 text-white" />
 				</div>

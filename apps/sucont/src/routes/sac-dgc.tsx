@@ -3,8 +3,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import { AlertTriangle, Database, FileSearch, Layers, RefreshCw, StopCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
+import { AnalysisGuide } from "#/components/analysis-guide"
+import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
+import { Alert, AlertDescription } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
+import { StatTile } from "#/components/ui/stat-tile"
 import { dgcRunsQueryOptions } from "#/lib/queries"
 import { analyzeUg } from "#/sacdgc/client"
 import { DgcReport } from "#/sacdgc/components/DgcReport"
@@ -17,6 +21,28 @@ import { toAnalysisRequest } from "#/sacdgc/request"
 import type { DgcBase, UgDataset } from "#/sacdgc/types"
 import { GROUP_ORDER, identifyGroup, ugDisplayName } from "#/sacdgc/ugs"
 import { loadDgcRunFn, saveDgcAnalysisFn, startDgcRunFn } from "#/server/sacdgc.fn"
+
+/**
+ * O que a ferramenta faz com as planilhas. Último bloco da tela inicial: é a
+ * única parte que se pode ler depois de já ter enviado os arquivos.
+ */
+const ANALYSIS_NOTES = [
+	{
+		icon: Layers,
+		title: "O que é analisado",
+		text: "Os quatro painéis do DGC da competência, recortados por Unidade Gestora, com alertas e checklist AEC por UG.",
+	},
+	{
+		icon: Database,
+		title: "Onde o arquivo é processado",
+		text: "A base é lida no seu navegador. Ao pedir a análise, só o recorte da UG selecionada é enviado ao modelo — nunca a base inteira.",
+	},
+	{
+		icon: FileSearch,
+		title: "O que fica gravado",
+		text: "Cada análise concluída vira uma rodada no histórico, com a competência e a UG, e pode ser reaberta sem recarregar as planilhas.",
+	},
+] as const
 
 export const Route = createFileRoute("/sac-dgc")({
 	// O histórico de rodadas é aquecido no loader, antes do HTML, em vez de só
@@ -240,8 +266,11 @@ function SacDgcPage() {
 		return { ugs: base.datasets.length, done }
 	}, [base, states])
 
+	const guide = <AnalysisGuide notes={ANALYSIS_NOTES} />
+
 	return (
 		<HubLayout
+			guide={guide}
 			actions={
 				<>
 					{isRunning && (
@@ -260,16 +289,16 @@ function SacDgcPage() {
 			}
 		>
 			{!base && (
-				<div className="space-y-8">
-					<div className="max-w-3xl mx-auto text-center">
-						<p className="text-body text-muted-foreground leading-relaxed">
-							Envie os quatro painéis do DGC da competência. A base é lida no seu navegador e recortada por Unidade Gestora; ao pedir a análise, apenas o
-							recorte da UG selecionada é enviado ao modelo.
-						</p>
-					</div>
-					<DgcUpload onProcess={handleProcess} isLoading={isReading} error={readError} />
+				<div className="space-y-6">
+					{/*
+					 * A frase que explicava a ferramenta ficava ACIMA da zona de envio, em
+					 * parágrafo centralizado — a mesma capa que as outras seis telas
+					 * perderam. O que ela dizia de próprio (a base é lida no navegador) é
+					 * agora um dos cartões de apoio, no fim.
+					 */}
+					<AnalysisStart dropzone={<DgcUpload onProcess={handleProcess} isLoading={isReading} />} error={readError} errorTitle="Não foi possível ler a base" />
 
-					<div className="max-w-3xl mx-auto">
+					<div className="mx-auto w-full max-w-4xl">
 						<DgcRunHistory
 							runs={runs}
 							activeRunId={runId}
@@ -286,52 +315,48 @@ function SacDgcPage() {
 			{base && !openAnalysis && (
 				<div className="space-y-6">
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-						<StatTile icon={<Database className="w-4 h-4" />} label="Competência" value={base.competence || "não identificada"} testId="dgc-competence" />
+						<StatTile icon={<Database />} label="Competência" value={base.competence || "não identificada"} data-testid="dgc-competence" />
 						<StatTile
 							icon={<Layers className="w-4 h-4" />}
 							label={isStoredView ? "Origem" : "Painéis carregados"}
 							value={isStoredView ? "rodada gravada" : base.panelsFound.length > 0 ? base.panelsFound.join(", ") : "nenhum"}
-							testId="dgc-panels"
+							data-testid="dgc-panels"
 						/>
-						<StatTile icon={<FileSearch className="w-4 h-4" />} label="Unidades na base" value={String(summary?.ugs ?? 0)} testId="dgc-ug-count" />
-						<StatTile icon={<FileSearch className="w-4 h-4" />} label="Análises concluídas" value={String(summary?.done ?? 0)} testId="dgc-done-count" />
+						<StatTile icon={<FileSearch />} label="Unidades na base" value={String(summary?.ugs ?? 0)} data-testid="dgc-ug-count" />
+						<StatTile icon={<FileSearch />} label="Análises concluídas" value={String(summary?.done ?? 0)} data-testid="dgc-done-count" />
 					</div>
 
 					{!canEdit && !isStoredView && (
-						<p
-							className="flex items-start gap-3 text-body text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4"
-							data-testid="dgc-readonly-notice"
-						>
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>Sua conta tem acesso de leitura ao SUCONT. As análises serão geradas e exibidas, mas não ficam gravadas para a seção.</span>
-						</p>
+						<Alert data-testid="dgc-readonly-notice">
+							<AlertTriangle />
+							<AlertDescription>
+								Sua conta tem acesso de leitura ao SUCONT. As análises serão geradas e exibidas, mas não ficam gravadas para a seção.
+							</AlertDescription>
+						</Alert>
 					)}
 
 					{persistError && (
-						<p
-							className="flex items-start gap-3 text-body text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4"
-							data-testid="dgc-persist-error"
-						>
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>{persistError} A análise continua na tela, mas recarregar a página a perde.</span>
-						</p>
+						<Alert variant="warning" data-testid="dgc-persist-error">
+							<AlertTriangle />
+							<AlertDescription>{persistError} A análise continua na tela, mas recarregar a página a perde.</AlertDescription>
+						</Alert>
 					)}
 
 					{!isStoredView && base.panelsFound.length < 4 && (
-						<p className="flex items-start gap-3 text-body text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4">
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>
+						<Alert variant="warning">
+							<AlertTriangle />
+							<AlertDescription>
 								Só {base.panelsFound.length} de 4 painéis foram reconhecidos. A análise segue possível, e a ausência é declarada ao modelo — mas os apontamentos
 								dos painéis faltantes não serão gerados.
-							</span>
-						</p>
+							</AlertDescription>
+						</Alert>
 					)}
 
 					{!isStoredView && base.skippedRows > 0 && (
-						<p className="flex items-start gap-3 text-body text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4">
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>{base.skippedRows} linha(s) foram ignoradas por não trazerem um código de UG reconhecível.</span>
-						</p>
+						<Alert>
+							<AlertTriangle />
+							<AlertDescription>{base.skippedRows} linha(s) foram ignoradas por não trazerem um código de UG reconhecível.</AlertDescription>
+						</Alert>
 					)}
 
 					<DgcUgTable
@@ -348,19 +373,5 @@ function SacDgcPage() {
 
 			{openAnalysis && <DgcReport data={openAnalysis} onBack={() => setOpenUgCode(null)} />}
 		</HubLayout>
-	)
-}
-
-function StatTile({ icon, label, value, testId }: { icon: React.ReactNode; label: string; value: string; testId: string }) {
-	return (
-		<div className="bg-card border border-border rounded-xl p-5">
-			<div className="flex items-center gap-2 text-muted-foreground mb-2">
-				{icon}
-				<span className="text-label">{label}</span>
-			</div>
-			<p className="text-subheading text-foreground truncate" title={value} data-testid={testId}>
-				{value}
-			</p>
-		</div>
 	)
 }

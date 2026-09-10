@@ -9,8 +9,10 @@ import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
 import { ModuleSwitcher } from "#/components/module-switcher"
 import { SaramDialog } from "#/components/saram-dialog"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { PageHeader } from "#/components/ui/page-header"
 import { Separator } from "#/components/ui/separator"
 import {
 	Sidebar,
@@ -76,37 +78,47 @@ interface HubLayoutProps {
 	/** A tela consome `?q=`. Sem isso a barra de busca some — campo que não filtra nada mente sobre o que faz. */
 	searchable?: boolean
 	/**
-	 * Ações da tela, à direita do cabeçalho fixo — "Nova análise", "Importar",
-	 * "Imprimir".
+	 * Ações da tela, à direita do cabeçalho da página — "Nova análise",
+	 * "Importar", "Imprimir".
 	 *
 	 * Existe porque cada ferramenta desenhava a própria barra de título só para
 	 * ter onde pendurar dois botões, e nenhuma duas iguais: sete alturas, sete
 	 * tipografias e sete posições para a MESMA ação. Aqui a ação tem um lugar, e
-	 * ele é o mesmo em todas as telas.
+	 * ele é o mesmo em todas as telas — ao lado do título, como no sisub. Moravam
+	 * na barra fixa; lá, ficavam longe do nome da tela a que pertencem.
 	 */
 	actions?: React.ReactNode
 	/**
-	 * Largura do conteúdo. `wide` é para tela cuja unidade de leitura é a tabela
-	 * ou a matriz — o auditor e o monitoramento perdem sentido espremidos em
-	 * 72rem. O resto do hub usa `default`, e uma tela só escapa por ter dado
-	 * denso, nunca por preferência.
+	 * Orientações da ferramenta — o `<AnalysisGuide />`. Vira o botão
+	 * "Orientações" ao lado das ações. É prop da casca, e não conteúdo da rota,
+	 * para que o botão esteja no MESMO lugar em toda ferramenta, inclusive depois
+	 * de a planilha entrar.
 	 */
-	width?: "default" | "wide"
+	guide?: React.ReactNode
 }
 
-const CONTENT_WIDTH = {
-	default: "max-w-6xl",
-	wide: "max-w-[110rem]",
-} as const
+/**
+ * Uma largura para o hub inteiro.
+ *
+ * Havia duas — `default` (72rem) e `wide` (110rem), esta "só por dado denso".
+ * Na prática quatro telas eram `wide` e oito não, e ao trocar de ferramenta a
+ * margem lateral saltava: o mesmo `PageHeader`, a mesma barra, e o conteúdo ora
+ * encostado na borda, ora com 10rem de folga de cada lado. Com as sete telas de
+ * análise iguais por dentro, era a diferença mais visível que restava, e não
+ * dizia nada — tabela larga já rola em `overflow-x-auto`. O formulário de
+ * entrada segue estreito por conta própria (`AnalysisStart` é `max-w-4xl`).
+ */
+const CONTENT_WIDTH = "max-w-[96rem]"
 
-export function HubLayout({ children, title, description, searchable = false, actions, width = "default" }: HubLayoutProps) {
+export function HubLayout({ children, title, description, searchable = false, actions, guide }: HubLayoutProps) {
 	// Estado da barra lida do cookie no `beforeLoad` da raiz: o HTML do SSR já sai
 	// no estado certo, sem o salto de 16rem na hidratação.
 	const { sidebarOpen } = useRouteContext({ from: "__root__" })
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const tool = findToolByPath(sucontTools, pathname)
 	const blurb = description ?? tool?.description
-	const maxWidth = CONTENT_WIDTH[width]
+	const heading = title ?? tool?.title
+	const scope = toolScopeLabel(tool)
 
 	return (
 		<SidebarProvider defaultOpen={sidebarOpen} className="bg-tech-bg selection:bg-tech-cyan/10 selection:text-tech-cyan">
@@ -116,18 +128,26 @@ export function HubLayout({ children, title, description, searchable = false, ac
 				<header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-tech-bg/80 px-4 backdrop-blur supports-backdrop-filter:bg-tech-bg/60 md:px-6">
 					<SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 					<Separator orientation="vertical" className="mx-1 h-6 data-[orientation=vertical]:self-center" />
-					<HubBreadcrumb title={title} />
+					<HubBreadcrumb />
 					<div className="ml-auto flex shrink-0 items-center gap-2">
-						{actions}
 						<ThemeToggle />
 					</div>
 				</header>
 
 				<div className="flex-1">
-					<div className={cn("mx-auto w-full px-4 pt-8 pb-24 md:px-8", maxWidth)}>
-						{(blurb || searchable) && (
-							<div className="mb-8 flex flex-col gap-6">
-								{blurb && <p className="text-caption text-muted-foreground">{blurb}</p>}
+					<div className={cn("mx-auto w-full px-4 pt-6 pb-24 md:px-8", CONTENT_WIDTH)}>
+						{(heading || searchable) && (
+							<div className="mb-6 flex flex-col gap-6">
+								{heading && (
+									<PageHeader title={heading} description={blurb} badge={scope ? <Badge variant="muted">{scope}</Badge> : undefined}>
+										{actions || guide ? (
+											<>
+												{actions}
+												{guide}
+											</>
+										) : undefined}
+									</PageHeader>
+								)}
 								{searchable && <HubSearchBar />}
 							</div>
 						)}
@@ -335,24 +355,22 @@ function HubNav({ division }: { division: SucontDivision }) {
  * Ferramenta, com a etapa levando ao catálogo já filtrado por ela; fora, mostra
  * só o título da tela.
  *
- * O `h1` fica no último item da trilha quando há ferramenta — é o nome da página,
- * e duplicá-lo abaixo criaria dois títulos para a mesma coisa.
+ * A trilha é NAVEGAÇÃO: o `h1` da página mora no `PageHeader`, abaixo. O último
+ * item aqui é texto simples com `aria-current`, não um segundo título.
  */
-function HubBreadcrumb({ title }: { title?: string }) {
+function HubBreadcrumb() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname })
 	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
 	const tool = findToolByPath(sucontTools, pathname)
 	const crumbs = buildToolCrumbs(tool)
-	const scope = toolScopeLabel(tool)
 
 	if (crumbs.length === 0) {
 		// Sem título de tela, o cabeçalho anuncia o módulo — dizer "SUCONT-4 HUB"
 		// dentro da Administração contradiria o seletor da barra lateral.
-		return title ? (
-			<h1 className="text-subheading text-foreground truncate">{title}</h1>
-		) : (
-			<span className="text-subheading text-muted-foreground truncate">{findModuleByPath(pathname, divisao).label}</span>
-		)
+		// Fora de ferramenta a barra anuncia o MÓDULO; o título da tela é o `h1` do
+		// `PageHeader`, logo abaixo. Repeti-lo aqui era o "dois títulos" que a
+		// trilha de ferramenta já tinha deixado de fazer.
+		return <span className="text-subheading text-muted-foreground truncate">{findModuleByPath(pathname, divisao).label}</span>
 	}
 
 	return (
@@ -364,7 +382,9 @@ function HubBreadcrumb({ title }: { title?: string }) {
 						<li key={crumb.label} className="flex min-w-0 items-center gap-1">
 							{i > 0 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />}
 							{isLast ? (
-								<h1 className="text-subheading text-foreground truncate">{crumb.label}</h1>
+								<span className="text-subheading text-foreground truncate" aria-current="page">
+									{crumb.label}
+								</span>
 							) : (
 								<Link
 									to={crumb.to as string}
@@ -381,13 +401,6 @@ function HubBreadcrumb({ title }: { title?: string }) {
 					)
 				})}
 			</ol>
-			{/* O escopo da ferramenta: as questões do RAC que ela responde. Mesmo papel
-			    do nome da cozinha/unidade no cabeçalho do sisub. */}
-			{scope && (
-				<span className="ml-2 hidden shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-label text-muted-foreground sm:inline">
-					{scope}
-				</span>
-			)}
 		</nav>
 	)
 }

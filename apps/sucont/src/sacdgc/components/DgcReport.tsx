@@ -213,15 +213,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 
 function TabButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
 	return (
-		<Button
-			type="button"
-			onClick={onClick}
-			variant="ghost"
-			className={cn(
-				"h-auto gap-2 rounded-full border px-5 py-2.5 text-label",
-				active ? "bg-tech-blue text-white border-tech-blue hover:bg-tech-blue" : "bg-card text-muted-foreground border-border hover:bg-muted/50"
-			)}
-		>
+		<Button type="button" onClick={onClick} variant={active ? "default" : "outline"} size="sm" aria-pressed={active}>
 			{icon}
 			{children}
 		</Button>

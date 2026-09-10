@@ -180,9 +180,7 @@ Análise crítica do Demonstrativo Gerencial de Custos por UG. Sucessor do `sacd
 
 Catálogo estático (`src/lib/centro-monitoramento-data.ts`) das ferramentas, planilhas e documentos de trabalho da SUCONT-3, organizado por módulo (3.1, 3.2, …), com busca.
 
-<Callout type="warn">
-As entradas de Q05–Q25, Q34, Q35, Q40–Q42 e Q43 apontam para as **versões legadas** hospedadas fora (`*.sucont3-2sau.workers.dev`, `ai.studio`), e não para as rotas equivalentes já portadas para dentro do sucont. Quem chega pelo catálogo usa a ferramenta antiga.
-</Callout>
+As seis trilhas do RAC (Q05–Q25, Q34, Q35, Q40–Q42 e Q43 na numeração do inventário) apontam para as **rotas internas** já portadas (`internalPath`), e não mais para as versões legadas hospedadas fora (`*.sucont3-2sau.workers.dev`, `ai.studio`) — `centro-monitoramento-data.test.ts` garante que cada rota do inventário existe em `sucontTools` e que nenhum host legado volta. O que continua com `url` é o que segue fora de propósito: planilhas, cadernos do NotebookLM e sistemas federais.
 
 ## Área de Trabalho e Relatórios — `/workspace`, `/reports`
 

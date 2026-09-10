@@ -57,12 +57,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 					</Select>
 				</div>
 
-				<Button
-					type="button"
-					onClick={() => onAnalyze(pending.map((d) => d.ugCode))}
-					disabled={busy || pending.length === 0}
-					className="rounded-lg bg-tech-blue px-5 py-2.5 text-label text-white hover:bg-tech-blue/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
-				>
+				<Button type="button" onClick={() => onAnalyze(pending.map((d) => d.ugCode))} disabled={busy || pending.length === 0}>
 					Analisar grupo ({pending.length})
 				</Button>
 			</div>
@@ -108,11 +103,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 									</td>
 									<td className="px-6 py-4 text-right">
 										{state.status === "concluida" ? (
-											<Button
-												type="button"
-												onClick={() => onOpen(dataset.ugCode)}
-												className="rounded-lg bg-tech-cyan px-4 py-2 text-label text-white hover:bg-tech-cyan/90"
-											>
+											<Button type="button" size="sm" variant="outline" onClick={() => onOpen(dataset.ugCode)}>
 												Ver análise
 											</Button>
 										) : (

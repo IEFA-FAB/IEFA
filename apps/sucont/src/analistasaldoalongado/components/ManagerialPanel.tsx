@@ -430,7 +430,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 			{/* Modal - Detalhamento das UGs por ODS */}
 			{selectedOdsDetails && (
 				<div className="fixed inset-0 z-50 bg-overlay/50 flex items-center justify-center p-4">
-					<div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+					<div className="bg-card rounded-xl shadow-lg border border-border w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-heading text-foreground">Detalhamento: {selectedOdsDetails}</h3>
 							<Button

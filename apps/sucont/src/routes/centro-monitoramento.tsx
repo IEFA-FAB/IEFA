@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { ChevronRight, ExternalLink, Search, Star } from "lucide-react"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { ArrowRight, ChevronRight, ExternalLink, Search, Star } from "lucide-react"
 import { useMemo, useState } from "react"
 import { HubLayout } from "#/components/hub-layout"
 import { Badge } from "#/components/ui/badge"
@@ -21,6 +21,8 @@ interface ModuleItem {
 	purpose: string
 	examples: readonly string[]
 	url?: string
+	/** Rota do próprio hub. Ganha de `url`: a ferramenta portada substitui a versão legada. */
+	internalPath?: string
 	group: string
 	highlighted?: boolean
 }
@@ -189,7 +191,16 @@ function ModuleCard({ item, sectionId }: { item: ModuleItem; sectionId?: Section
 			</CardContent>
 
 			<CardFooter>
-				{item.url ? (
+				{/*
+				 * `search={true}` preserva o `?divisao=` ao entrar na ferramenta, como o
+				 * `ToolCard` do catálogo: sem isso a barra lateral voltaria para a SUCONT-4.
+				 */}
+				{item.internalPath ? (
+					<Button className="w-full" nativeButton={false} render={<Link to={item.internalPath} search={true} />}>
+						Abrir no hub
+						<ArrowRight className="size-4" />
+					</Button>
+				) : item.url ? (
 					<Button className="w-full" nativeButton={false} render={<a href={item.url} target="_blank" rel="noopener noreferrer" />}>
 						Acessar ferramenta
 						<ExternalLink className="size-4" />

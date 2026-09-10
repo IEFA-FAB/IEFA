@@ -1,6 +1,7 @@
 import { Copy } from "lucide-react"
 import { useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
@@ -99,7 +100,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const message = draft.of(fullMessage)
 
 	return (
-		<div className="bg-action/10 rounded-xl shadow-sm border border-action/30 overflow-hidden mb-8">
+		<div className="bg-card rounded-xl border border-border overflow-hidden mb-8">
 			<div className="bg-action/10 border-b border-action/30 px-6 py-4 flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<div>
@@ -107,9 +108,9 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 						<p className="text-body text-action">Agrupa todas as UGs com inconsistências nesta questão</p>
 					</div>
 				</div>
-				<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption bg-action text-action-foreground">
-					{Object.keys(groupedByUg).length} UGs / {items.length} Ocorrência(s)
-				</span>
+				<Badge variant="action">
+					{Object.keys(groupedByUg).length} UGs / {items.length} ocorrência(s)
+				</Badge>
 			</div>
 
 			<div className="p-6">
