@@ -10,9 +10,11 @@
 import { queryOptions } from "@tanstack/react-query"
 import { fetchMyIdentityFn } from "#/server/user.fn"
 
+export const myIdentityQueryKey = ["sucont", "myIdentity"] as const
+
 export const myIdentityQueryOptions = () =>
 	queryOptions({
-		queryKey: ["sucont", "myIdentity"] as const,
+		queryKey: myIdentityQueryKey,
 		queryFn: () => fetchMyIdentityFn(),
 		// Muda uma vez na vida da conta; sem sessão a fn responde 401 e insistir só
 		// gastaria requisição.

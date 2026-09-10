@@ -8,9 +8,11 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
 import { useEffect, useRef } from "react"
 import { z } from "zod"
+import { myIdentityQueryKey } from "#/auth/identity"
 import { hasPermission, mySucontPermissionsQueryOptions } from "#/auth/pbac"
 import { type AuthState, type authActions, authQueryOptions } from "#/auth/service"
 import { Toaster } from "#/components/ui/toast"
+import { forgetSaramDismissal } from "#/lib/saram-dismissal"
 import { supabase } from "#/lib/supabase"
 import { syncSucontIdentityFn } from "#/server/user.fn"
 import { ThemeProvider } from "#/services/theme"
@@ -172,6 +174,7 @@ function AuthSync() {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
 				queryClient.invalidateQueries({ queryKey: mySucontPermissionsQueryOptions().queryKey })
+				queryClient.invalidateQueries({ queryKey: myIdentityQueryKey })
 				// Registra o usuário no cadastro de pessoas do ERP (`core.user_data`) —
 				// é o que o faz existir para a busca por e-mail da gestão de acessos.
 				// Best-effort e sem `await`: falhar aqui não pode atrapalhar o login.
@@ -184,6 +187,12 @@ function AuthSync() {
 				syncedUserId.current = null
 				queryClient.setQueryData(authQueryOptions().queryKey, { user: null, session: null, isAuthenticated: false, isLoading: false })
 				queryClient.removeQueries({ queryKey: mySucontPermissionsQueryOptions().queryKey })
+				// Identidade sai junto com as permissões, e pelo mesmo motivo: são dados
+				// DA PESSOA, guardados por 30 min. Numa máquina compartilhada, deixá-la no
+				// cache faria o próximo a entrar herdar o SARAM de quem saiu — e nunca ver
+				// o pedido do seu.
+				queryClient.removeQueries({ queryKey: myIdentityQueryKey })
+				forgetSaramDismissal()
 			}
 		})
 		return () => subscription.unsubscribe()

@@ -102,11 +102,17 @@ export const saveMyNrOrdemFn = createServerFn({ method: "POST" })
 		const core = getCoreClient()
 
 		// A linha já existe em quase todo caso — `syncSucontIdentityFn` a grava no
-		// login. Sem e-mail na conta não há como inserir (`core.user_data.email` é
-		// NOT NULL), então resta atualizar a linha que porventura exista.
-		const { error } = email
-			? await core.from("user_data").upsert({ id: user.id, email, nrOrdem }, { onConflict: "id" })
-			: await core.from("user_data").update({ nrOrdem }).eq("id", user.id)
+		// login. Sem e-mail na conta não há como INSERIR (`core.user_data.email` é
+		// NOT NULL), então resta atualizar a linha que porventura exista — e é
+		// justamente a conta sem e-mail que `syncSucontIdentityFn` desiste de gravar,
+		// então "porventura" ali costuma ser "nenhuma".
+		//
+		// Daí o `.select("id")`: sem ele o update de zero linhas volta SEM erro, o
+		// handler devolveria a identificação resolvida e a tela cantaria sucesso sobre
+		// uma gravação que não houve.
+		const { data: written, error } = email
+			? await core.from("user_data").upsert({ id: user.id, email, nrOrdem }, { onConflict: "id" }).select("id")
+			: await core.from("user_data").update({ nrOrdem }).eq("id", user.id).select("id")
 
 		if (error) {
 			// 23505 aqui é colisão do índice único de EMAIL: outra linha, de outro `id`,
@@ -115,6 +121,12 @@ export const saveMyNrOrdemFn = createServerFn({ method: "POST" })
 			// sozinho, então a mensagem manda para quem resolve.
 			if (error.code === "23505") throw new Error("Seu e-mail já está registrado em outra conta do ERP. Procure o administrador do SUCONT.")
 			throw new Error(error.message)
+		}
+
+		// Conta sem e-mail e sem linha no cadastro: não há o que atualizar, e o ERP
+		// não tem como inseri-la. O caminho de saída passa por quem administra.
+		if (!written || written.length === 0) {
+			throw new Error("Sua conta ainda não está no cadastro de pessoas do ERP. Procure o administrador do SUCONT.")
 		}
 
 		const military = await fetchMilitaryIdentity(nrOrdem)
