@@ -47,7 +47,7 @@ leem o `.sql`, não o banco, então continuariam verdes. Vigente hoje: **2.1.0**
 | portal | `_public/_pt/*` + `_public/_en/*` | rodapé do `AppLayout` | sim |
 | forms | raiz | landing, layout autenticado e **tela de resposta** | sim |
 | rumaer | `_public/*` | rodapé do `AppLayout` | sim |
-| sucont | raiz | rodapé do `HubLayout` | sim |
+| sucont | raiz | rodapé da sidebar do `HubLayout` + tela de login | sim |
 | assignment-selection | raiz | rodapé fixo no `__root` (cobre o telão público) | sim |
 | api | `GET /legal`, `GET /legal/{doc_type}` | `info.contact` do OpenAPI | n/a (sem sessão) |
 | alpha | `GET /legal`, `GET /legal/{doc_type}` | — | n/a (sem sessão) |

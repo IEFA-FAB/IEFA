@@ -174,7 +174,13 @@ function ThemeToggle() {
  * num app de barra lateral a página não termina, ela rola, e o bloco aparecia
  * pendurado sob tabelas de altura variável como se fosse parte da ferramenta.
  * Aqui ele fica onde documento institucional fica — fora do fluxo de trabalho,
- * sempre no mesmo pixel. Some no modo ícone, onde não há largura para texto.
+ * sempre no mesmo pixel.
+ *
+ * Some no modo ícone, onde não há largura para texto — mesma escolha do sisub. O
+ * link não fica inalcançável: a barra volta em um clique no `SidebarTrigger` ou no
+ * rail, a gaveta mobile mostra o rodapé inteiro, e as três rotas seguem públicas e
+ * linkadas na tela de login. O que o LGPD.md exige é caminho até o documento, não
+ * um link permanentemente pintado na tela.
  */
 function SidebarLegalLinks() {
 	return (

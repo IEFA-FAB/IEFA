@@ -126,7 +126,7 @@ Sete níveis, definidos como `@utility` em `styles.css`. Idênticos aos do sisub
 
 ### 4.5 A casca — `HubLayout`
 
-O `HubLayout` é o único dono de cabeçalho, navegação, largura e rodapé. Uma rota
+O `HubLayout` é o único dono de cabeçalho, navegação, largura e barra lateral. Uma rota
 que monte a própria casca vira um app dentro do app: era assim que `auditor`,
 `documentacao`, `subitens-genericos` e `centro-monitoramento` funcionavam — quatro
 cascas paralelas, duas delas com **barra lateral própria** competindo com a do hub,
@@ -141,7 +141,7 @@ O que a casca já dá, e a ferramenta portanto **não** repete:
 | Escopo (questões do RAC) | Pílula ao lado da trilha | O número no título, fora do dado |
 | Uma linha de descrição | `description`, com padrão vindo do catálogo | A promessa do card e a da tela divergem |
 | Busca `?q=` | `searchable` | Dois campos de busca na mesma tela |
-| Rodapé legal | Rodapé da casca | O `LGPD.md` exigia um rodapé avulso em cada rota órfã |
+| Links legais | Rodapé da barra lateral | O `LGPD.md` exigia um rodapé avulso em cada rota órfã |
 | Troca de tema | Botão único do cabeçalho | Uma rota escurecendo só a si mesma |
 
 - **Ação de tela vai na prop `actions`**, à direita do cabeçalho fixo — "Nova
@@ -407,7 +407,8 @@ exceção já registrada na tabela anterior.
 - **Guard de rota:** `src/routes/__root.tsx` — auth + PBAC nível 1, rotas legais
   isentas, `z.coerce` no `validateSearch`, e o tema resolvido antes do primeiro byte.
 - **Casca:** `src/components/hub-layout.tsx` — trilha, `actions`, `width`,
-  descrição herdada do catálogo, rodapé legal e o botão de tema.
+  descrição herdada do catálogo, links legais no rodapé da barra lateral e o botão
+  de tema.
 - **Tema:** `src/services/theme.tsx` (provider) e `theme-preference.ts` (leitura
   isomórfica, separada de propósito — ver §5).
 - **Contrato irmão:** `apps/sisub/docs/STYLE_CONTRACT.md`. Em caso de dúvida sobre
