@@ -31,16 +31,15 @@ environment_variables = {
   # este valor o serviço lança no boot, de propósito, porque cravar um id errado
   # falha só na primeira chamada de modelo, muito depois do deploy parecer bom.
   #
-  # NÃO use `openai.gpt-oss-120b-1:0` aqui. O comentário anterior afirmava que ele fora
-  # "verificado ACTIVE com tool calling"; medido em 2026-09-10 contra sa-east-1, ele
-  # responde `No tool calls found in the response` a todo structured output. No α isso
-  # não degrada, quebra: o classificador de intenção falha, cai em `UNKNOWN`, e UNKNOWN
-  # roteia para o chat geral — o ChatRADA passa a responder de memória do modelo, sem
-  # NUNCA consultar o corpus, e sem erro visível.
+  # Primário em Claude, como na redação assistida do portal, e o gpt-oss como RESERVA.
   #
-  # `global.anthropic.claude-opus-4-6-v1` emite tool call e classifica corretamente
-  # (verificado com o schema real do roteador). É o mesmo modelo do portal.
-  ALPHA_AI_MODEL = "global.anthropic.claude-opus-4-6-v1"
+  # Medido em 2026-09-10 contra sa-east-1, com o prompt real do roteador: os dois modelos
+  # classificam igual (LEGISLATION 6/6). A diferença é estabilidade — o gpt-oss falhou uma
+  # vez com `No tool calls found in the response`, e no α essa falha é cara: o classificador
+  # cai em `UNKNOWN`, e `UNKNOWN` responde SEM consultar o corpus. Por isso ele é a reserva,
+  # não o primário, e a falta de tool call conta como transitória para acionar a troca.
+  ALPHA_AI_MODEL          = "global.anthropic.claude-opus-4-6-v1"
+  ALPHA_FALLBACK_AI_MODEL = "openai.gpt-oss-120b-1:0"
 }
 
 # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL vêm dos secrets do

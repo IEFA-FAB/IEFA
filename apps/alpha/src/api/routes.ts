@@ -9,6 +9,7 @@ import { v4 as uuid } from "uuid"
 import { z } from "zod"
 import { supabase } from "../db/supabase"
 import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
+import { messageText } from "../lib/message-text.ts"
 import type { AppRole } from "../middleware/auth"
 import { authMiddleware, requireRole } from "../middleware/auth"
 import { embedDocuments } from "../sources/embeddings"
@@ -331,9 +332,12 @@ const app = new Hono<{ Variables: AppVariables }>()
 		}
 
 		const state = await graph.getState({ configurable: { thread_id: session_id } })
+		// `messageText` e não `m.content`: mensagem do assistente restaurada do checkpointer
+		// pode trazer o conteúdo como ARRAY de blocos do Bedrock, e devolvê-lo cru faz o
+		// histórico chegar ao portal como "[object Object]".
 		const messages = (state.values?.messages ?? []).map((m: any) => ({
 			role: m.type ?? "unknown",
-			content: m.content,
+			content: messageText(m.content),
 		}))
 		return c.json<MessagesListResponse>({
 			session_id,

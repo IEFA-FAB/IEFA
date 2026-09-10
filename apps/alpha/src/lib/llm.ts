@@ -1,7 +1,10 @@
 import { makeChatLLM } from "@iefa/ai-provider/langchain-compat"
 import { ChatBedrockConverse } from "@langchain/aws"
+import type { BaseLanguageModelInput } from "@langchain/core/language_models/base"
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { env } from "../env.ts"
+import { messageText } from "./message-text.ts"
+import { isTransientModelFailure } from "./transient.ts"
 
 /**
  * Modelo de chat do α.
@@ -22,18 +25,34 @@ const openAiCompatibleConfig = {
 	...(env.ALPHA_AI_PROVIDER === "nvidia" ? { baseUrl: env.NVIDIA_BASE_URL } : {}),
 } as const
 
-const cache = new Map<number, BaseChatModel>()
+const cache = new Map<string, BaseChatModel>()
+
+function build(model: string, region: string, temperature: number): BaseChatModel {
+	return env.ALPHA_AI_PROVIDER === "bedrock"
+		? new ChatBedrockConverse({ model, region, temperature })
+		: makeChatLLM({ ...openAiCompatibleConfig, model }, { temperature })
+}
 
 export function getLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel {
-	const cached = cache.get(temperature)
+	const key = `primary:${temperature}`
+	const cached = cache.get(key)
 	if (cached) return cached
 
-	const llm: BaseChatModel =
-		env.ALPHA_AI_PROVIDER === "bedrock"
-			? new ChatBedrockConverse({ model: env.ALPHA_AI_MODEL, region: env.ALPHA_AI_REGION, temperature })
-			: makeChatLLM(openAiCompatibleConfig, { temperature })
+	const llm = build(env.ALPHA_AI_MODEL, env.ALPHA_AI_REGION, temperature)
+	cache.set(key, llm)
+	return llm
+}
 
-	cache.set(temperature, llm)
+/** Modelo de reserva, ou `null` quando não há um configurado. */
+export function getFallbackLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel | null {
+	if (!env.ALPHA_FALLBACK_AI_MODEL) return null
+
+	const key = `fallback:${temperature}`
+	const cached = cache.get(key)
+	if (cached) return cached
+
+	const llm = build(env.ALPHA_FALLBACK_AI_MODEL, env.ALPHA_FALLBACK_AI_REGION || env.ALPHA_AI_REGION, temperature)
+	cache.set(key, llm)
 	return llm
 }
 
@@ -67,4 +86,46 @@ export function structuredLLM(schema: ToolSchema, temperature: 0 | 0.3 | 0.7 = 0
 		name: schema.name,
 		method: "functionCalling",
 	})
+}
+
+/**
+ * Saída estruturada com reserva.
+ *
+ * A reserva NÃO cobre modelo que não emite tool call: `No tool calls found in the
+ * response` não é falha transitória, então propaga. Isso é deliberado — trocar para outro
+ * modelo sem tool calling repetiria a falha, e o defeito de configuração ficaria escondido
+ * atrás de latência em vez de aparecer.
+ */
+export async function invokeStructured<T>(schema: ToolSchema, messages: BaseLanguageModelInput, temperature: 0 | 0.3 | 0.7 = 0): Promise<T> {
+	return (await withModelFallback(temperature, (llm) =>
+		llm.withStructuredOutput(schema.parameters, { name: schema.name, method: "functionCalling" }).invoke(messages)
+	)) as T
+}
+
+/**
+ * Executa contra o primário e, só em falha TRANSITÓRIA, repete na reserva.
+ *
+ * Nada de stream aqui: o α invoca e espera a resposta inteira, então não existe o problema
+ * de "trocar depois do primeiro conteúdo" que o adapter de stream precisa resolver.
+ *
+ * @param run - Recebe o modelo e produz o resultado
+ * @throws propaga o erro do primário quando não é transitório, ou quando não há reserva
+ */
+export async function withModelFallback<T>(temperature: 0 | 0.3 | 0.7, run: (llm: BaseChatModel) => Promise<T>): Promise<T> {
+	try {
+		return await run(getLLM(temperature))
+	} catch (error) {
+		const fallback = getFallbackLLM(temperature)
+		if (!fallback || !isTransientModelFailure(error)) throw error
+
+		console.warn(
+			`[llm] primário falhou de forma transitória, tentando a reserva (${env.ALPHA_FALLBACK_AI_MODEL}): ${error instanceof Error ? error.message : String(error)}`
+		)
+		return await run(fallback)
+	}
+}
+
+/** Texto do modelo, já extraído dos blocos de conteúdo, com reserva. */
+export async function invokeText(messages: BaseLanguageModelInput, temperature: 0 | 0.3 | 0.7 = 0): Promise<string> {
+	return messageText((await withModelFallback(temperature, (llm) => llm.invoke(messages))).content)
 }

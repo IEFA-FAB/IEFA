@@ -1,6 +1,5 @@
 import { AIMessage } from "@langchain/core/messages"
-import { getLLM } from "../../lib/llm"
-import { messageText } from "../../lib/message-text.ts"
+import { invokeText } from "../../lib/llm"
 import type { AgentState } from "../state"
 
 const SYSTEM_PROMPT = `Você é o ATLAS, assistente especializado em legislação aeronáutica.
@@ -22,15 +21,17 @@ export async function synthesizerNode(state: AgentState): Promise<Partial<AgentS
 			.pop()
 			?.content?.toString() ?? ""
 
-	const response = await getLLM(0.3).invoke([
-		{ role: "system", content: SYSTEM_PROMPT },
-		{
-			role: "user",
-			content: `DOCUMENTOS:\n${docsContext}\n\nRASCUNHO VERIFICADO:\n${generated_response_draft ?? ""}\n\nPERGUNTA ORIGINAL: ${userQuery}`,
-		},
-	])
+	const final_response = await invokeText(
+		[
+			{ role: "system", content: SYSTEM_PROMPT },
+			{
+				role: "user",
+				content: `DOCUMENTOS:\n${docsContext}\n\nRASCUNHO VERIFICADO:\n${generated_response_draft ?? ""}\n\nPERGUNTA ORIGINAL: ${userQuery}`,
+			},
+		],
+		0.3
+	)
 
-	const final_response = messageText(response.content)
 	const cited_documents = retrieved_documents.map((d) => d.id)
 
 	return {

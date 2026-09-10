@@ -1,5 +1,4 @@
-import { getLLM, structuredLLM } from "../../lib/llm"
-import { messageText } from "../../lib/message-text.ts"
+import { invokeStructured, invokeText } from "../../lib/llm"
 import type { AgentState, GroundingCheck } from "../state"
 
 const gradingSchema = {
@@ -39,20 +38,18 @@ export async function graderNode(state: AgentState): Promise<Partial<AgentState>
 			?.content?.toString() ?? ""
 
 	// Gera o draft aqui mesmo, para só então verificar
-	const draftResponse = await getLLM(0).invoke([
+	const draft = await invokeText([
 		{ role: "system", content: DRAFT_SYSTEM_PROMPT },
 		{ role: "user", content: `DOCUMENTOS:\n${docsContext}\n\nPERGUNTA: ${userQuery}` },
 	])
-	const draft = messageText(draftResponse.content)
 
-	const grader = structuredLLM(gradingSchema)
-	const result = (await grader.invoke([
+	const result = await invokeStructured<GroundingCheck>(gradingSchema, [
 		{ role: "system", content: GRADING_SYSTEM_PROMPT },
 		{
 			role: "user",
 			content: `DOCUMENTOS DE SUPORTE:\n${docsContext}\n\nRASCUNHO PARA VERIFICAR:\n${draft}`,
 		},
-	])) as GroundingCheck
+	])
 
 	const grounding_check: GroundingCheck = {
 		is_grounded: result.is_grounded,
