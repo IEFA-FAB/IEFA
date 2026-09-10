@@ -27,6 +27,11 @@ type AppVariables = {
 	role: AppRole
 }
 
+/** Linhas de `query_log` lidas para montar a lista de sessões. */
+const ROW_WINDOW = 500
+/** Sessões devolvidas. `truncated` avisa quando há mais do que isto. */
+const MAX_SESSIONS = 50
+
 // ─── Schemas de input ─────────────────────────────────────────────────────────
 
 const MessageBodySchema = z.object({
@@ -217,12 +222,17 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.get("/api/v1/sessions", async (c) => {
 		const user = c.get("user")
 
+		// Janela deliberada, e o rótulo diz o que ela é. Sem tabela de sessão, a lista sai de
+		// `query_log`, e qualquer limite corta as conversas mais antigas. O título é a
+		// pergunta MAIS RECENTE da conversa dentro da janela — não a que a abriu, que pode
+		// ter ficado de fora — porque um título que muda conforme a janela desliza é pior do
+		// que um título que sempre diz a verdade sobre o que mostra.
 		const { data, error } = await supabase
 			.from("query_log")
 			.select("session_id, original_query, created_at")
 			.eq("user_id", user.id)
 			.order("created_at", { ascending: false })
-			.limit(500)
+			.limit(ROW_WINDOW)
 
 		if (error) return c.json({ error: "Internal Server Error", code: "QUERY_FAILED" }, 500)
 
@@ -232,15 +242,15 @@ const app = new Hono<{ Variables: AppVariables }>()
 		const bySession = new Map<string, { session_id: string; title: string; last_message_at: string; messages: number }>()
 		for (const row of data ?? []) {
 			const current = bySession.get(row.session_id)
-			if (current) {
-				current.title = row.original_query ?? current.title
-				current.messages += 1
-			} else {
+			// As linhas vêm da mais recente para a mais antiga, então a PRIMEIRA de cada
+			// sessão dá o título e a data; as seguintes só contam.
+			if (current) current.messages += 1
+			else
 				bySession.set(row.session_id, { session_id: row.session_id, title: row.original_query ?? "(sem título)", last_message_at: row.created_at, messages: 1 })
-			}
 		}
 
-		return c.json({ sessions: [...bySession.values()] })
+		const sessions = [...bySession.values()].slice(0, MAX_SESSIONS)
+		return c.json({ sessions, truncated: (data?.length ?? 0) >= ROW_WINDOW || bySession.size > MAX_SESSIONS })
 	})
 
 	.post("/api/v1/sessions", async (c) => {

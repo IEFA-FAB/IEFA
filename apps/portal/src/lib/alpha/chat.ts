@@ -8,9 +8,11 @@
  * a cada request) e responde SSE com eventos NOMEADOS. Os caminhos antigos devolvem 404, e
  * a página ficava presa em "verificando conexão".
  *
- * O que o servidor NÃO tem, e por isso não está aqui: listar as sessões de um usuário e
- * apagar uma sessão. A sessão é só um UUID que o cliente cunha e o α reconhece pelo
- * `query_log`; quem quiser um histórico navegável precisa de endpoint novo no α.
+ * A sessão é só um UUID que o cliente cunha e que o α reconhece pelo `query_log` — não há
+ * tabela de sessão. A listagem (`GET /api/v1/sessions`) foi acrescentada ao α para esta
+ * tela; APAGAR uma sessão continua sem servidor, e por isso não está aqui: a conversa vive
+ * também no checkpointer do LangGraph, e um endpoint que removesse só o log declararia uma
+ * exclusão que não aconteceu.
  */
 
 import { ALPHA_BASE_URL, alphaRequest } from "./client"

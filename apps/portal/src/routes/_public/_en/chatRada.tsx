@@ -24,7 +24,9 @@ const API_BASE = ALPHA_BASE_URL
 const USE_STREAM = true
 
 // localStorage keys (somente quando logado)
-const LS_SESSION_ID = "rada_session_id"
+// A chave carrega o usuário: numa máquina compartilhada, a sessão do anterior seria
+// reenviada pelo seguinte e o α responderia 403 em `canAccessSession`, com erro genérico.
+const LS_SESSION_ID = (userId: string) => `rada_session_id:${userId}`
 
 // Query keys centralizados
 const QUERY_KEYS = {
@@ -37,23 +39,23 @@ const QUERY_KEYS = {
    Utils simples
 ========================= */
 
-function loadSessionId(): string | null {
+function loadSessionId(userId: string): string | null {
 	try {
-		return localStorage.getItem(LS_SESSION_ID)
+		return localStorage.getItem(LS_SESSION_ID(userId))
 	} catch {
 		return null
 	}
 }
-function saveSessionId(id: string) {
+function saveSessionId(userId: string, id: string) {
 	try {
-		localStorage.setItem(LS_SESSION_ID, id)
+		localStorage.setItem(LS_SESSION_ID(userId), id)
 	} catch {
 		// noop
 	}
 }
-function clearSessionId() {
+function clearSessionId(userId: string) {
 	try {
-		localStorage.removeItem(LS_SESSION_ID)
+		localStorage.removeItem(LS_SESSION_ID(userId))
 	} catch {
 		// noop
 	}
@@ -169,27 +171,6 @@ function extractReferencesMd(text: string): {
 }
 /* === FIM helpers === */
 
-type ContentJson = {
-	answer?: string
-	question?: string
-	content?: string
-	references?: AskReference[]
-	sources?: string[]
-}
-
-function parseContentJson(input: unknown): ContentJson {
-	if (!input) return {}
-	if (typeof input === "string") {
-		try {
-			return JSON.parse(input) as ContentJson
-		} catch {
-			return {}
-		}
-	}
-	if (typeof input === "object") return input as ContentJson
-	return {}
-}
-
 export const Route = createFileRoute("/_public/_en/chatRada")({
 	/**
 	 * Exige sessão.
@@ -238,7 +219,9 @@ function formatDateShort(iso?: string | null) {
 }
 
 function sessionTitleLikeChatGPT(s: SessionSummary) {
-	const base = `Conversa de ${formatDateShort(s.last_message_at || s.created_at)}`
+	// O α passou a derivar o título da pergunta da conversa; sem isto ele era mapeado e
+	// descartado, e a barra lateral seguia mostrando só a data.
+	const base = s.title?.trim() || `Conversa de ${formatDateShort(s.last_message_at || s.created_at)}`
 	return base.length > 60 ? `${base.slice(0, 57)}…` : base
 }
 
@@ -340,15 +323,6 @@ function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: b
 		queryKey: QUERY_KEYS.sessions(userId),
 		enabled: isLoggedIn && !!userId,
 		queryFn: () => client.sessions(),
-		select: (data) => {
-			return [...data].sort((a, b) => {
-				const ad = new Date(a.last_message_at || a.created_at).getTime()
-				const bd = new Date(b.last_message_at || b.created_at).getTime()
-				return bd - ad
-			})
-		},
-		staleTime: 30_000,
-		gcTime: 5 * 60_000,
 	})
 }
 
@@ -357,33 +331,41 @@ function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLogg
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
 		enabled: isLoggedIn && !!userId && !!sessionId,
 		queryFn: () => client.sessionMessages(sessionId as string),
-		select: (data) => {
-			return data.map((r, i) => {
-				const role = r.role === "system" ? ("assistant" as const) : (r.role as "user" | "assistant")
-				const cj = parseContentJson(r.content_json)
-				const content = role === "assistant" ? String(cj?.answer ?? "") : role === "user" ? String(cj?.question ?? "") : String(cj?.content ?? "")
-
-				const references: AskReference[] = Array.isArray(cj?.references) ? cj.references : []
-				const sources: string[] = Array.isArray(cj?.sources) ? cj.sources : []
-
-				return {
-					id: `${sessionId}-${i}`,
-					role,
-					content,
-					references,
-					sources,
-					createdAt: new Date(r.created_at).getTime(),
-				} as ChatMessage
-			})
-		},
-		staleTime: 10_000,
-		gcTime: 5 * 60_000,
+		// O cliente já entrega `{ id, role, content }` normalizado. O `select` anterior lia
+		// `content_json`, campo do contrato antigo que ninguém mais produz: toda mensagem
+		// restaurada saía vazia, e o `invalidateQueries` disparado após a resposta apagava
+		// da tela a resposta recém-exibida.
+		select: (data): ChatMessage[] =>
+			data.map((m, i) => ({
+				id: `${sessionId}-${i}`,
+				role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+				content: m.content,
+				references: [],
+				sources: [],
+				createdAt: Date.now(),
+			})),
 	})
 }
 
 /* =========================
    Componentes puros
 ========================= */
+
+/**
+ * Converte os ids de chunk citados no formato que a lista renderiza.
+ *
+ * O α cita por id de chunk (`cited_documents`), e o componente lê `n`, `source`, `page` e
+ * `snippet`. Mapear para `{id,title,url}` — como estava — produzia linhas em branco e, pior,
+ * a mesma chave React para todas as citações da mensagem.
+ */
+function toReferences(chunkIds: string[]): AskReference[] {
+	return chunkIds.map((id, index) => ({
+		n: index + 1,
+		source: `Trecho ${index + 1}`,
+		doc_id: id,
+		snippet: `Trecho citado do RADA-e (${id.slice(0, 8)}). Abrir em ${API_BASE}/api/v1/chunks/${id}`,
+	}))
+}
 
 function ReferencesList({ id, references }: { id: string; references: AskReference[] }) {
 	return (
@@ -571,22 +553,38 @@ function ChatRada() {
 	const editorRef = useRef<HTMLTextAreaElement>(null)
 	const sseAbortRef = useRef<AbortController | null>(null)
 
+	// Sair da página no meio de uma resposta deixava o leitor do stream girando por até 60s,
+	// chamando `setMessages` e `invalidateQueries` num componente desmontado. O efeito de
+	// limpeza que fazia isto foi perdido na reescrita do cliente.
+	useEffect(() => {
+		return () => {
+			sseAbortRef.current?.abort()
+			sseAbortRef.current = null
+		}
+	}, [])
+
 	// Login/sessionId sync
 	useEffect(() => {
-		if (isLoggedIn) {
-			const sid = loadSessionId()
+		if (isLoggedIn && userId) {
+			const sid = loadSessionId(userId)
 			if (sid) setSessionId(sid)
 		} else {
 			setSessionId(null)
-			clearSessionId()
+			if (userId) clearSessionId(userId)
 		}
-	}, [isLoggedIn])
+		// `userId` entra na lista: a chave da sessão passou a ser por usuário, então trocar
+		// de conta precisa recarregar a sessão da conta nova em vez de manter a anterior.
+	}, [isLoggedIn, userId])
 
 	// Load history when sessionId changes
 	const { data: sessionMessages = [] } = useSessionMessagesQuery(client, isLoggedIn, userId, sessionId)
 
 	useEffect(() => {
 		if (!isLoggedIn || !userId || !sessionId) return
+		// Lista vazia não substitui a conversa em tela: sessão recém-criada ainda não tem
+		// estado no checkpointer, e espelhar o vazio apagava a pergunta do usuário no meio
+		// do stream.
+		if (sessionMessages.length === 0) return
 		setMessages(sessionMessages)
 	}, [isLoggedIn, userId, sessionId, sessionMessages])
 
@@ -613,7 +611,7 @@ function ChatRada() {
 
 	const startNewSession = () => {
 		if (isLoggedIn) {
-			clearSessionId()
+			clearSessionId(userId)
 			setSessionId(null)
 		}
 		setMessages([])
@@ -626,7 +624,7 @@ function ChatRada() {
 			setMobileView("chat")
 			return
 		}
-		saveSessionId(sid)
+		saveSessionId(userId, sid)
 		setSessionId(sid)
 		setMessages([])
 		setMobileView("chat")
@@ -641,8 +639,7 @@ function ChatRada() {
 	const ensureSession = async (): Promise<string> => {
 		if (sessionId) return sessionId
 		const sid = await client.createSession()
-		setSessionId(sid)
-		saveSessionId(sid)
+		if (userId) saveSessionId(userId, sid)
 		return sid
 	}
 
@@ -686,7 +683,7 @@ function ChatRada() {
 
 				const applyComplete = async (payload: ChatAnswer) => {
 					const text = answerText(payload)
-					const refs = payload.cited_documents.map((id) => ({ id, title: id, url: `${API_BASE}/api/v1/chunks/${id}` }) as unknown as AskReference)
+					const refs = toReferences(payload.cited_documents)
 
 					if (!hasInserted) {
 						hasInserted = true
@@ -699,11 +696,13 @@ function ChatRada() {
 						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: text, references: refs, sources: payload.cited_documents } : m)))
 					}
 
-					if (isLoggedIn && payload.session_id) {
+					if (isLoggedIn && userId && payload.session_id) {
 						setSessionId(payload.session_id)
-						saveSessionId(payload.session_id)
+						saveSessionId(userId, payload.session_id)
+						// Só a lista de sessões. Invalidar o HISTÓRICO aqui refaz a busca e o
+						// efeito que espelha `sessionMessages` sobrescreve a conversa em tela
+						// pela versão do servidor — apagando a resposta recém-exibida.
 						await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
-						await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessionMessages(userId, payload.session_id) })
 					}
 				}
 
@@ -732,16 +731,15 @@ function ChatRada() {
 					role: "assistant",
 					content: answerText(data),
 					sources: data.cited_documents,
-					references: data.cited_documents.map((id) => ({ id, title: id, url: `${API_BASE}/api/v1/chunks/${id}` }) as unknown as AskReference),
+					references: toReferences(data.cited_documents),
 					createdAt: Date.now(),
 				}
 				setMessages((prev) => [...prev, assistantMsg])
 
-				if (isLoggedIn && data?.session_id) {
+				if (isLoggedIn && userId && data?.session_id) {
 					setSessionId(data.session_id)
-					saveSessionId(data.session_id)
+					saveSessionId(userId, data.session_id)
 					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
-					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessionMessages(userId, data.session_id) })
 				}
 			}
 		} catch (err: unknown) {
