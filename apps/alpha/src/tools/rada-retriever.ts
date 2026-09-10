@@ -49,27 +49,13 @@ const THRESHOLD = env.RERANK_THRESHOLD
 const RRF_K = env.RRF_K
 const RERANK_TOP_N = env.RERANK_TOP_N
 
-/**
- * Multiplicador de linhas pedidas às RPCs, por causa do post-filtro descrito em
- * `radaRetriever`: pedindo mais linhas, sobra mais coisa do corpus certo depois da poda.
- */
-const CORPUS_OVERFETCH = 5
-
 // As RPCs `alpha.match_chunks_cosine` / `alpha.match_chunks_fts` já restringem o
 // resultado à versão vigente (`document_chunk.is_current`, espelho de
 // `document.superseded_at is null`). Versões superseded seguem legíveis por ID,
 // para auditoria de pareceres antigos, mas nunca entram na busca.
-/**
- * Um tipo vira `eq`, conjunto vira `in`. Conjunto vazio seria um filtro que não
- * casa com nada, então é tratado como ausência de filtro pelo chamador.
- */
-function applyDocumentTypeFilter<T extends { eq: (column: string, value: string) => T; in: (column: string, values: string[]) => T }>(
-	query: T,
-	documentType: DocumentType | readonly DocumentType[] | undefined
-): T {
-	if (!documentType) return query
-	if (Array.isArray(documentType)) return documentType.length > 0 ? query.in("document_type", [...documentType]) : query
-	return query.eq("document_type", documentType as string)
+/** Um tipo ou um conjunto viram sempre array, que é o que a RPC recebe. */
+function asTypeArray(documentType: DocumentType | readonly DocumentType[]): string[] {
+	return Array.isArray(documentType) ? [...documentType] : [documentType as DocumentType]
 }
 
 async function semanticSearch(queryVector: number[], filters: RADARetrieverInput["filters"], topK: number) {
@@ -77,13 +63,15 @@ async function semanticSearch(queryVector: number[], filters: RADARetrieverInput
 	// `embedding_model` evita o pior silêncio possível: comparar um vetor do
 	// modelo atual com vetores gerados por outro modelo devolve distâncias sem
 	// significado, e a busca "funciona" retornando lixo.
+	// `document_types` vai DENTRO da RPC: ela ordena e corta com `limit match_count`, e o
+	// `set search_path = ''` impede inlining, então um filtro por fora podaria o top-N
+	// GLOBAL em vez de escopar a ordenação.
 	let query = supabase.rpc("match_chunks_cosine", {
 		query_embedding: vectorStr,
 		match_count: topK,
 		embedding_model_filter: embeddingModelId(),
+		document_types: asTypeArray(filters.document_type),
 	})
-
-	query = applyDocumentTypeFilter(query, filters.document_type)
 	if (filters?.chapter) query = query.eq("chapter", filters.chapter)
 	if (filters?.article) query = query.eq("article", filters.article)
 
@@ -106,9 +94,8 @@ async function keywordSearch(queryText: string, filters: RADARetrieverInput["fil
 	let query = supabase.rpc("match_chunks_fts", {
 		query_text: queryText,
 		match_count: topK,
+		document_types: asTypeArray(filters.document_type),
 	})
-
-	query = applyDocumentTypeFilter(query, filters.document_type)
 	if (filters?.chapter) query = query.eq("chapter", filters.chapter)
 	if (filters?.article) query = query.eq("article", filters.article)
 
@@ -246,23 +233,13 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 		throw new Error("radaRetriever: `filters.document_type` vazio — conjunto vazio não filtra nada, apenas deixa de casar com tudo")
 	}
 
-	// LIMITAÇÃO CONHECIDA, com gatilho nomeado: `alpha.match_chunks_cosine` e
-	// `match_chunks_fts` fazem `order by ... limit match_count` DENTRO da função, e o
-	// `set search_path = ''` impede inlining — então o filtro de corpus, que o PostgREST
-	// aplica por fora, poda o top-N GLOBAL em vez de escopar a ordenação. Hoje não tem
-	// efeito prático porque só o corpus federal está povoado (o do RADA nunca foi ingerido).
-	// Quando os dois estiverem cheios, pergunta sobre o RADA passa a receber poucas linhas
-	// aeronáuticas dentre as globais. O over-fetch reduz o dano; a correção é uma RPC que
-	// receba `document_types text[]`, e ela precisa entrar ANTES da ingestão do RADA.
-	const fetchCount = top_k * CORPUS_OVERFETCH
-
 	// Busca semântica é opcional: sem provedor de embedding, a híbrida degrada
 	// para keyword-only em vez de falhar. O `search_metadata` reporta zero
 	// resultados semânticos, então a degradação aparece em vez de passar batida.
 	const semanticPromise = env.ALPHA_EMBEDDINGS_ENABLED
 		? getEmbeddings()
 				.embedQuery(queryWithPrefix)
-				.then((vector) => semanticSearch(vector, filters, fetchCount))
+				.then((vector) => semanticSearch(vector, filters, top_k))
 				.catch((error) => {
 					// Recuperação não pode cair porque o embedder caiu: a perna de
 					// full-text segue valendo e o erro fica registrado com contexto.
@@ -271,7 +248,7 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 				})
 		: Promise.resolve([])
 
-	const [semDocs, keywordDocs] = await Promise.all([semanticPromise, keywordSearch(query, filters, fetchCount)])
+	const [semDocs, keywordDocs] = await Promise.all([semanticPromise, keywordSearch(query, filters, top_k)])
 
 	const fused = rrfFusion(semDocs, keywordDocs)
 	const fusedArray = [...fused.values()].sort((a, b) => b.rrf_score - a.rrf_score).slice(0, RERANK_TOP_N)
