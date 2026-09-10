@@ -642,8 +642,9 @@ const APP_ROADMAPS: AppRoadmap[] = [
 						number: "1.8",
 						label: "Plataforma ACI",
 						description:
-							"Interface completa com persona ACI, integrando etapas 1–7: dashboard do analista, acesso a todos os chats e fluxo de verificação com relatório final de conformidade.",
-						status: "planned",
+							"Interface com persona ACI integrando as etapas 1–7: painel do analista com a fila de processos, hub dos chats, triagem achado a achado, parecer (aprovado, com ressalvas ou reprovado) e relatório final de conformidade imprimível. No portal em /aci.",
+						status: "in-progress",
+						date: "Set 2026",
 					},
 				],
 			},

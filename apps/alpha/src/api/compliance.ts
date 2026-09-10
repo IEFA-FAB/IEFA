@@ -78,7 +78,9 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 
 		const { data: findings } = await supabase
 			.from("compliance_finding")
-			.select("id, rule_id, category, status, severity, section_path, message, legal_ref, suggestion, evidence_span, confidence")
+			.select(
+				"id, rule_id, category, status, severity, section_path, message, legal_ref, suggestion, evidence_span, confidence, triage, triage_note, triaged_at"
+			)
 			.eq("run_id", id)
 
 		return c.json({ run, findings: findings ?? [], _links: { self: { href: `/api/v1/compliance/runs/${id}` } } })

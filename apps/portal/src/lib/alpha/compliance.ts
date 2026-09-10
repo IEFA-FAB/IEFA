@@ -27,6 +27,10 @@ export interface Finding {
 	suggestion: string | null
 	evidence_span: { text?: string } | null
 	confidence: number | null
+	/** Triagem do analista (Etapa 1.8). Ausente em resposta anterior à plataforma. */
+	triage?: "acatado" | "descartado" | null
+	triage_note?: string | null
+	triaged_at?: string | null
 }
 
 export interface ComplianceRun {
