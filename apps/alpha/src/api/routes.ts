@@ -9,6 +9,7 @@ import { v4 as uuid } from "uuid"
 import { z } from "zod"
 import { supabase } from "../db/supabase"
 import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
+import { messageText } from "../lib/message-text.ts"
 import type { AppRole } from "../middleware/auth"
 import { authMiddleware, requireRole } from "../middleware/auth"
 import { embedDocuments } from "../sources/embeddings"
@@ -25,6 +26,11 @@ type AppVariables = {
 	user: User
 	role: AppRole
 }
+
+/** Linhas de `query_log` lidas para montar a lista de sessões. */
+const ROW_WINDOW = 500
+/** Sessões devolvidas. `truncated` avisa quando há mais do que isto. */
+const MAX_SESSIONS = 50
 
 // ─── Schemas de input ─────────────────────────────────────────────────────────
 
@@ -203,6 +209,50 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.route("/", complianceRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
+	/**
+	 * GET /api/v1/sessions — conversas do usuário, da mais recente para a mais antiga.
+	 *
+	 * A sessão não tem tabela própria: ela é um UUID que o cliente cunha e que o α passa a
+	 * conhecer quando a primeira pergunta é registrada em `query_log`. Daí a lista sair
+	 * daqui, com a primeira pergunta servindo de título — é o que o usuário reconhece.
+	 *
+	 * Sem este endpoint o ChatRADA não tinha como oferecer histórico: a tela chamava um
+	 * `GET /sessions` que nunca existiu e recebia 404.
+	 */
+	.get("/api/v1/sessions", async (c) => {
+		const user = c.get("user")
+
+		// Janela deliberada, e o rótulo diz o que ela é. Sem tabela de sessão, a lista sai de
+		// `query_log`, e qualquer limite corta as conversas mais antigas. O título é a
+		// pergunta MAIS RECENTE da conversa dentro da janela — não a que a abriu, que pode
+		// ter ficado de fora — porque um título que muda conforme a janela desliza é pior do
+		// que um título que sempre diz a verdade sobre o que mostra.
+		const { data, error } = await supabase
+			.from("query_log")
+			.select("session_id, original_query, created_at")
+			.eq("user_id", user.id)
+			.order("created_at", { ascending: false })
+			.limit(ROW_WINDOW)
+
+		if (error) return c.json({ error: "Internal Server Error", code: "QUERY_FAILED" }, 500)
+
+		// Uma linha por sessão. A ordenação acima é decrescente, então a PRIMEIRA linha de
+		// cada sessão é a mais recente — dela vem o `last_message_at`; o título é a pergunta
+		// mais antiga, que é a que abriu a conversa.
+		const bySession = new Map<string, { session_id: string; title: string; last_message_at: string; messages: number }>()
+		for (const row of data ?? []) {
+			const current = bySession.get(row.session_id)
+			// As linhas vêm da mais recente para a mais antiga, então a PRIMEIRA de cada
+			// sessão dá o título e a data; as seguintes só contam.
+			if (current) current.messages += 1
+			else
+				bySession.set(row.session_id, { session_id: row.session_id, title: row.original_query ?? "(sem título)", last_message_at: row.created_at, messages: 1 })
+		}
+
+		const sessions = [...bySession.values()].slice(0, MAX_SESSIONS)
+		return c.json({ sessions, truncated: (data?.length ?? 0) >= ROW_WINDOW || bySession.size > MAX_SESSIONS })
+	})
+
 	.post("/api/v1/sessions", async (c) => {
 		const user = c.get("user")
 		const session_id = uuid()
@@ -292,9 +342,12 @@ const app = new Hono<{ Variables: AppVariables }>()
 		}
 
 		const state = await graph.getState({ configurable: { thread_id: session_id } })
+		// `messageText` e não `m.content`: mensagem do assistente restaurada do checkpointer
+		// pode trazer o conteúdo como ARRAY de blocos do Bedrock, e devolvê-lo cru faz o
+		// histórico chegar ao portal como "[object Object]".
 		const messages = (state.values?.messages ?? []).map((m: any) => ({
 			role: m.type ?? "unknown",
-			content: m.content,
+			content: messageText(m.content),
 		}))
 		return c.json<MessagesListResponse>({
 			session_id,

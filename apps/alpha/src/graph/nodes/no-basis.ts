@@ -2,8 +2,11 @@ import { AIMessage } from "@langchain/core/messages"
 import type { AgentState, TerminationReason } from "../state.ts"
 
 const FALLBACK_MESSAGES: Record<TerminationReason, string> = {
-	no_documents_found: "Não foi encontrada base normativa na legislação disponível para responder sua consulta.",
-	low_relevance_score: "Os documentos encontrados não possuem relevância suficiente para embasar uma resposta segura.",
+	// Mesma forma da ressalva do chat geral: quem pergunta ao ChatRADA precisa saber que a
+	// informação não está no regulamento, e não receber um "não encontrei" ambíguo que
+	// poderia ser lido como falha de busca.
+	no_documents_found: "Essa informação não existe no RADA-e e não tenho certeza sobre ela.",
+	low_relevance_score: "Essa informação não existe no RADA-e e não tenho certeza sobre ela.",
 	hallucination_detected: "Não foi possível gerar uma resposta verificável com base na legislação disponível.",
 	max_iterations_reached: "Após múltiplas tentativas de busca, não foi encontrado embasamento normativo suficiente para sua consulta.",
 	max_retries_reached: "A resposta gerada não pôde ser verificada contra a legislação disponível. Por favor, reformule sua consulta.",

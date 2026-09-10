@@ -1,5 +1,5 @@
 import { AERONAUTICAL_DOCUMENT_TYPES } from "../../lib/corpora"
-import { getLLM } from "../../lib/llm"
+import { invokeText } from "../../lib/llm"
 import type { RADARetrieverOutput } from "../../tools/rada-retriever"
 import { radaRetriever } from "../../tools/rada-retriever"
 import type { AgentState } from "../state"
@@ -24,8 +24,7 @@ Retorne APENAS a query reformulada.`
 export const RADA_CORPUS_FILTER = { document_type: AERONAUTICAL_DOCUMENT_TYPES } as const
 
 async function reformulate(query: string): Promise<string> {
-	const response = await getLLM(0).invoke([{ role: "user", content: REFORMULATION_PROMPT(query) }])
-	return response.content.toString().trim()
+	return (await invokeText([{ role: "user", content: REFORMULATION_PROMPT(query) }])).trim()
 }
 
 export async function radaAgentNode(state: AgentState): Promise<Partial<AgentState>> {

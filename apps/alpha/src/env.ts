@@ -21,6 +21,14 @@ const schema = z.object({
 	/** Região do Bedrock; cai para a região padrão da AWS quando ausente. */
 	ALPHA_AI_REGION: z.string().default(process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1"),
 	/** Provedor do embedder — independente do provedor do chat. */
+	/**
+	 * Reserva do chat. Vazio = sem reserva (o turno cai se o primário falhar).
+	 * Só entra em falha TRANSITÓRIA e antes de qualquer conteúdo, como manda a regra do
+	 * repo — erro de credencial ou de capacidade repetiria no outro modelo.
+	 */
+	ALPHA_FALLBACK_AI_MODEL: z.string().default(""),
+	ALPHA_FALLBACK_AI_REGION: z.string().default(""),
+
 	ALPHA_EMBEDDING_PROVIDER: z.enum(["bedrock", "nvidia"]).default("bedrock"),
 	ALPHA_EMBEDDING_MODEL: z.string().default("amazon.titan-embed-text-v2:0"),
 	/** Modelo de rerank do Bedrock; vazio desliga o rerank. */

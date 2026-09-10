@@ -1,24 +1,32 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
-import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, NavArrowLeft, Plus, Refresh, Send, Sparks, Trash, User, WarningCircle } from "iconoir-react"
-import { useEffect, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, NavArrowLeft, Plus, Refresh, Send, Sparks, User, WarningCircle } from "iconoir-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
+import { authQueryOptions } from "@/auth/service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
-import type { AskReference, AskResponse, ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
+import type { ChatAnswer, ChatSessionSummary } from "@/lib/alpha/chat"
+import { answerText, createChatSession, fetchSessionMessages, listChatSessions, openMessageStream, parseSseBuffer, sendMessage } from "@/lib/alpha/chat"
+import { ALPHA_BASE_URL } from "@/lib/alpha/client"
+import type { AskReference, ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
 
 /* =========================
    Constantes
 ========================= */
 
-const API_BASE = "https://alpha.iefa.com.br"
+// Sem URL cravada: `ALPHA_BASE_URL` respeita `VITE_ALPHA_API_URL`, que é o que o resto do
+// console do α já usa. Esta tela ignorava a variável e apontava para produção sempre.
+const API_BASE = ALPHA_BASE_URL
 const USE_STREAM = true
 
 // localStorage keys (somente quando logado)
-const LS_SESSION_ID = "rada_session_id"
+// A chave carrega o usuário: numa máquina compartilhada, a sessão do anterior seria
+// reenviada pelo seguinte e o α responderia 403 em `canAccessSession`, com erro genérico.
+const LS_SESSION_ID = (userId: string) => `rada_session_id:${userId}`
 
 // Query keys centralizados
 const QUERY_KEYS = {
@@ -31,23 +39,23 @@ const QUERY_KEYS = {
    Utils simples
 ========================= */
 
-function loadSessionId(): string | null {
+function loadSessionId(userId: string): string | null {
 	try {
-		return localStorage.getItem(LS_SESSION_ID)
+		return localStorage.getItem(LS_SESSION_ID(userId))
 	} catch {
 		return null
 	}
 }
-function saveSessionId(id: string) {
+function saveSessionId(userId: string, id: string) {
 	try {
-		localStorage.setItem(LS_SESSION_ID, id)
+		localStorage.setItem(LS_SESSION_ID(userId), id)
 	} catch {
 		// noop
 	}
 }
-function clearSessionId() {
+function clearSessionId(userId: string) {
 	try {
-		localStorage.removeItem(LS_SESSION_ID)
+		localStorage.removeItem(LS_SESSION_ID(userId))
 	} catch {
 		// noop
 	}
@@ -163,28 +171,23 @@ function extractReferencesMd(text: string): {
 }
 /* === FIM helpers === */
 
-type ContentJson = {
-	answer?: string
-	question?: string
-	content?: string
-	references?: AskReference[]
-	sources?: string[]
-}
-
-function parseContentJson(input: unknown): ContentJson {
-	if (!input) return {}
-	if (typeof input === "string") {
-		try {
-			return JSON.parse(input) as ContentJson
-		} catch {
-			return {}
-		}
-	}
-	if (typeof input === "object") return input as ContentJson
-	return {}
-}
-
 export const Route = createFileRoute("/_public/_en/chatRada")({
+	/**
+	 * Exige sessão.
+	 *
+	 * A tela nasceu com um modo anônimo — perguntar sem entrar, histórico só para quem
+	 * estivesse logado. Isso não é mais possível: o α autentica TODA rota `/api/v1/*` por
+	 * Bearer, então sem sessão não há pergunta a fazer, e a página deslogada só conseguia
+	 * mostrar erro. Melhor mandar para o login e voltar do que apresentar um chat que não
+	 * responde.
+	 *
+	 * `redirect: location.href` para o usuário voltar à conversa depois de entrar, e não
+	 * cair na home.
+	 */
+	beforeLoad: async ({ context, location }) => {
+		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
+		if (!auth.isAuthenticated) throw redirect({ to: "/auth", search: { redirect: location.href } })
+	},
 	staticData: {
 		nav: {
 			title: "Chat RADA",
@@ -216,7 +219,9 @@ function formatDateShort(iso?: string | null) {
 }
 
 function sessionTitleLikeChatGPT(s: SessionSummary) {
-	const base = `Conversa de ${formatDateShort(s.last_message_at || s.created_at)}`
+	// O α passou a derivar o título da pergunta da conversa; sem isto ele era mapeado e
+	// descartado, e a barra lateral seguia mostrando só a data.
+	const base = s.title?.trim() || `Conversa de ${formatDateShort(s.last_message_at || s.created_at)}`
 	return base.length > 60 ? `${base.slice(0, 57)}…` : base
 }
 
@@ -224,71 +229,57 @@ function sessionTitleLikeChatGPT(s: SessionSummary) {
    Fetch helper e cliente
 ========================= */
 
-async function ragFetch(path: string, init: RequestInit & { jsonBody?: unknown } = {}, opts?: { userId?: string | null; withAuth?: boolean }) {
-	const url = `${API_BASE}${path}`
-	const headers: Record<string, string> = {
-		"Content-Type": "application/json",
-		...(init.headers as Record<string, string>),
-	}
-	if (opts?.withAuth && opts.userId) headers["X-User-Id"] = opts.userId
-
-	const res = await fetch(url, {
-		...init,
-		headers,
-		credentials: opts?.withAuth ? "include" : "omit",
-		body: init.jsonBody ? JSON.stringify(init.jsonBody) : init.body,
-	})
-	return res
-}
-
-function useRagClient(userId: string | null) {
-	const withAuth = !!userId
-
-	return {
-		sessions: async () => {
-			const res = await ragFetch("/sessions", { method: "GET" }, { withAuth, userId })
-			if (!res.ok) throw new Error("Falha ao buscar sessões")
-			const data: SessionSummary[] = await res.json()
-			return data
-		},
-		sessionMessages: async (sid: string) => {
-			const res = await ragFetch(`/sessions/${sid}/messages`, { method: "GET" }, { withAuth, userId })
-			if (!res.ok) throw new Error("Falha ao buscar mensagens")
-			const data: RemoteMessage[] = await res.json()
-			return data
-		},
-		deleteSession: async (sid: string) => {
-			const res = await ragFetch(`/sessions/${sid}`, { method: "DELETE" }, { withAuth, userId })
-			if (!res.ok) throw new Error("Falha ao apagar sessão")
-			return true
-		},
-		ask: async (payload: unknown) => {
-			const res = await ragFetch("/ask", { method: "POST", jsonBody: payload }, { withAuth, userId })
-			if (!res.ok) {
-				const errText = await res.text().catch(() => "Erro desconhecido")
-				throw new Error(errText || `HTTP ${res.status}`)
-			}
-			const data: AskResponse = await res.json()
-			return data
-		},
-		askStream: async (payload: unknown, init?: { signal?: AbortSignal }) => {
-			const res = await ragFetch(
-				"/ask/stream",
-				{
-					method: "POST",
-					jsonBody: payload,
-					headers: { Accept: "text/event-stream" },
-					signal: init?.signal,
-				},
-				{ withAuth, userId }
-			)
-			if (!res.ok) {
-				const errText = await res.text().catch(() => "Erro desconhecido")
-				throw new Error(errText || `HTTP ${res.status}`)
-			}
-			return res
-		},
-	}
+/**
+ * Cliente da conversa.
+ *
+ * Trocado por inteiro: as chamadas antigas (`/ask`, `/sessions`, header `X-User-Id`)
+ * respondem 404 há tempos. O α expõe `/api/v1/sessions*` e autentica por Bearer — o
+ * token da sessão do Supabase, passado a cada request porque expira.
+ */
+function useRagClient(token: string | undefined) {
+	return useMemo(
+		() => ({
+			sessions: async (): Promise<SessionSummary[]> => {
+				if (!token) return []
+				const list = await listChatSessions(token)
+				return list.map(
+					(s: ChatSessionSummary) =>
+						({
+							id: s.session_id,
+							title: s.title,
+							created_at: s.last_message_at,
+							last_message_at: s.last_message_at,
+							updated_at: s.last_message_at,
+							message_count: s.messages,
+						}) as SessionSummary
+				)
+			},
+			sessionMessages: async (sid: string): Promise<RemoteMessage[]> => {
+				if (!token) return []
+				const messages = await fetchSessionMessages(token, sid)
+				// O α devolve o papel do LangChain (`human`/`ai`); a tela fala user/assistant.
+				return messages.map((m, i) => ({
+					id: `${sid}-${i}`,
+					role: m.role === "human" ? "user" : "assistant",
+					content: m.content,
+					created_at: new Date().toISOString(),
+				})) as RemoteMessage[]
+			},
+			createSession: async (): Promise<string> => {
+				if (!token) throw new Error("Sessão expirada — entre novamente.")
+				return await createChatSession(token)
+			},
+			ask: async (sessionId: string, question: string): Promise<ChatAnswer> => {
+				if (!token) throw new Error("Sessão expirada — entre novamente.")
+				return await sendMessage(token, sessionId, question)
+			},
+			askStream: async (sessionId: string, question: string, init?: { signal?: AbortSignal }) => {
+				if (!token) throw new Error("Sessão expirada — entre novamente.")
+				return await openMessageStream(token, sessionId, question, init?.signal)
+			},
+		}),
+		[token]
+	)
 }
 
 /* =========================
@@ -332,15 +323,6 @@ function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: b
 		queryKey: QUERY_KEYS.sessions(userId),
 		enabled: isLoggedIn && !!userId,
 		queryFn: () => client.sessions(),
-		select: (data) => {
-			return [...data].sort((a, b) => {
-				const ad = new Date(a.last_message_at || a.created_at).getTime()
-				const bd = new Date(b.last_message_at || b.created_at).getTime()
-				return bd - ad
-			})
-		},
-		staleTime: 30_000,
-		gcTime: 5 * 60_000,
 	})
 }
 
@@ -349,55 +331,41 @@ function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLogg
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
 		enabled: isLoggedIn && !!userId && !!sessionId,
 		queryFn: () => client.sessionMessages(sessionId as string),
-		select: (data) => {
-			return data.map((r, i) => {
-				const role = r.role === "system" ? ("assistant" as const) : (r.role as "user" | "assistant")
-				const cj = parseContentJson(r.content_json)
-				const content = role === "assistant" ? String(cj?.answer ?? "") : role === "user" ? String(cj?.question ?? "") : String(cj?.content ?? "")
-
-				const references: AskReference[] = Array.isArray(cj?.references) ? cj.references : []
-				const sources: string[] = Array.isArray(cj?.sources) ? cj.sources : []
-
-				return {
-					id: `${sessionId}-${i}`,
-					role,
-					content,
-					references,
-					sources,
-					createdAt: new Date(r.created_at).getTime(),
-				} as ChatMessage
-			})
-		},
-		staleTime: 10_000,
-		gcTime: 5 * 60_000,
-	})
-}
-
-function useDeleteSessionMutation(client: ReturnType<typeof useRagClient>, userId: string | null, _sessionId: string | null) {
-	const queryClient = useQueryClient()
-
-	return useMutation({
-		mutationFn: (sid: string) => client.deleteSession(sid),
-		onMutate: async (sid) => {
-			await queryClient.cancelQueries({ queryKey: QUERY_KEYS.sessions(userId) })
-			const previousSessions = queryClient.getQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId))
-			queryClient.setQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId), (old) => (old ? old.filter((s) => s.id !== sid) : []))
-			return { previousSessions }
-		},
-		onError: (_err, _sid, context) => {
-			if (context?.previousSessions) {
-				queryClient.setQueryData(QUERY_KEYS.sessions(userId), context.previousSessions)
-			}
-		},
-		onSettled: () => {
-			queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
-		},
+		// O cliente já entrega `{ id, role, content }` normalizado. O `select` anterior lia
+		// `content_json`, campo do contrato antigo que ninguém mais produz: toda mensagem
+		// restaurada saía vazia, e o `invalidateQueries` disparado após a resposta apagava
+		// da tela a resposta recém-exibida.
+		select: (data): ChatMessage[] =>
+			data.map((m, i) => ({
+				id: `${sessionId}-${i}`,
+				role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+				content: m.content,
+				references: [],
+				sources: [],
+				createdAt: Date.now(),
+			})),
 	})
 }
 
 /* =========================
    Componentes puros
 ========================= */
+
+/**
+ * Converte os ids de chunk citados no formato que a lista renderiza.
+ *
+ * O α cita por id de chunk (`cited_documents`), e o componente lê `n`, `source`, `page` e
+ * `snippet`. Mapear para `{id,title,url}` — como estava — produzia linhas em branco e, pior,
+ * a mesma chave React para todas as citações da mensagem.
+ */
+function toReferences(chunkIds: string[]): AskReference[] {
+	return chunkIds.map((id, index) => ({
+		n: index + 1,
+		source: `Trecho ${index + 1}`,
+		doc_id: id,
+		snippet: `Trecho citado do RADA-e (${id.slice(0, 8)}). Abrir em ${API_BASE}/api/v1/chunks/${id}`,
+	}))
+}
 
 function ReferencesList({ id, references }: { id: string; references: AskReference[] }) {
 	return (
@@ -559,11 +527,11 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 ========================= */
 
 function ChatRada() {
-	const { user } = useAuth()
+	const { user, session } = useAuth()
 	const userId = user?.id ?? null
 	const isLoggedIn = !!userId
-
-	const client = useRagClient(userId)
+	// O α valida o JWT a cada request; o token vem da sessão corrente, nunca memoizado.
+	const client = useRagClient(session?.access_token)
 	const queryClient = useQueryClient()
 
 	const healthQuery = useHealthQuery()
@@ -585,24 +553,38 @@ function ChatRada() {
 	const editorRef = useRef<HTMLTextAreaElement>(null)
 	const sseAbortRef = useRef<AbortController | null>(null)
 
-	const deleteSessionMutation = useDeleteSessionMutation(client, userId, sessionId)
+	// Sair da página no meio de uma resposta deixava o leitor do stream girando por até 60s,
+	// chamando `setMessages` e `invalidateQueries` num componente desmontado. O efeito de
+	// limpeza que fazia isto foi perdido na reescrita do cliente.
+	useEffect(() => {
+		return () => {
+			sseAbortRef.current?.abort()
+			sseAbortRef.current = null
+		}
+	}, [])
 
 	// Login/sessionId sync
 	useEffect(() => {
-		if (isLoggedIn) {
-			const sid = loadSessionId()
+		if (isLoggedIn && userId) {
+			const sid = loadSessionId(userId)
 			if (sid) setSessionId(sid)
 		} else {
 			setSessionId(null)
-			clearSessionId()
+			if (userId) clearSessionId(userId)
 		}
-	}, [isLoggedIn])
+		// `userId` entra na lista: a chave da sessão passou a ser por usuário, então trocar
+		// de conta precisa recarregar a sessão da conta nova em vez de manter a anterior.
+	}, [isLoggedIn, userId])
 
 	// Load history when sessionId changes
 	const { data: sessionMessages = [] } = useSessionMessagesQuery(client, isLoggedIn, userId, sessionId)
 
 	useEffect(() => {
 		if (!isLoggedIn || !userId || !sessionId) return
+		// Lista vazia não substitui a conversa em tela: sessão recém-criada ainda não tem
+		// estado no checkpointer, e espelhar o vazio apagava a pergunta do usuário no meio
+		// do stream.
+		if (sessionMessages.length === 0) return
 		setMessages(sessionMessages)
 	}, [isLoggedIn, userId, sessionId, sessionMessages])
 
@@ -629,7 +611,7 @@ function ChatRada() {
 
 	const startNewSession = () => {
 		if (isLoggedIn) {
-			clearSessionId()
+			clearSessionId(userId)
 			setSessionId(null)
 		}
 		setMessages([])
@@ -642,39 +624,23 @@ function ChatRada() {
 			setMobileView("chat")
 			return
 		}
-		saveSessionId(sid)
+		saveSessionId(userId, sid)
 		setSessionId(sid)
 		setMessages([])
 		setMobileView("chat")
 	}
 
-	const deleteSession = async (sid: string, e?: React.MouseEvent<HTMLButtonElement>) => {
-		if (!isLoggedIn || !userId) return
-		e?.stopPropagation()
-		try {
-			await deleteSessionMutation.mutateAsync(sid)
-			if (sessionId === sid) {
-				startNewSession()
-			}
-		} catch {
-			// Erro já tratado pela mutation
-		}
-	}
-
-	// Cancel SSE on unmount
-	useEffect(() => {
-		return () => {
-			if (sseAbortRef.current) {
-				sseAbortRef.current.abort()
-				sseAbortRef.current = null
-			}
-		}
-	}, [])
-
-	const buildPayload = (question: string) => {
-		const base: Record<string, string> = { question }
-		if (isLoggedIn && sessionId) base.session_id = sessionId
-		return base
+	/**
+	 * Garante uma sessão antes de perguntar.
+	 *
+	 * O α cunha o UUID em `POST /api/v1/sessions` e passa a reconhecê-lo pelo `query_log`.
+	 * Antes a tela mandava a pergunta solta para `/ask` e esperava a sessão de volta.
+	 */
+	const ensureSession = async (): Promise<string> => {
+		if (sessionId) return sessionId
+		const sid = await client.createSession()
+		if (userId) saveSessionId(userId, sid)
+		return sid
 	}
 
 	const onSubmit = async () => {
@@ -703,7 +669,8 @@ function ChatRada() {
 				const ctrl = new AbortController()
 				sseAbortRef.current = ctrl
 
-				const res = await client.askStream(buildPayload(question), { signal: ctrl.signal })
+				const sid = await ensureSession()
+				const res = await client.askStream(sid, question, { signal: ctrl.signal })
 				if (!res.body) {
 					const errText = await res.text().catch(() => "Erro desconhecido")
 					throw new Error(errText)
@@ -714,80 +681,28 @@ function ChatRada() {
 				let buffer = ""
 				let hasInserted = false
 
-				const applyDelta = (delta: string) => {
-					setMessages((prev) => {
-						if (!hasInserted) {
-							hasInserted = true
-							setSending(false)
-							return [
-								...prev,
-								{
-									id: assistantId,
-									role: "assistant",
-									content: delta,
-									sources: [],
-									references: [],
-									createdAt: Date.now(),
-								} as ChatMessage,
-							]
-						}
-						return prev.map((m) => (m.id === assistantId ? { ...m, content: (m.content || "") + delta } : m))
-					})
-				}
-
-				const applyFinal = async (finalPayload: Record<string, unknown>) => {
-					const answer = String(finalPayload.answer ?? "")
-					const refs = Array.isArray(finalPayload.references) ? (finalPayload.references as AskReference[]) : []
-					const srcs = Array.isArray(finalPayload.sources) ? (finalPayload.sources as string[]) : []
-					const sid = String(finalPayload.session_id || finalPayload.sessionId || "")
+				const applyComplete = async (payload: ChatAnswer) => {
+					const text = answerText(payload)
+					const refs = toReferences(payload.cited_documents)
 
 					if (!hasInserted) {
 						hasInserted = true
 						setSending(false)
 						setMessages((prev) => [
 							...prev,
-							{
-								id: assistantId,
-								role: "assistant",
-								content: answer,
-								references: refs,
-								sources: srcs,
-								createdAt: Date.now(),
-							} as ChatMessage,
+							{ id: assistantId, role: "assistant", content: text, references: refs, sources: payload.cited_documents, createdAt: Date.now() } as ChatMessage,
 						])
 					} else {
-						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: answer, references: refs, sources: srcs } : m)))
+						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: text, references: refs, sources: payload.cited_documents } : m)))
 					}
 
-					if (isLoggedIn && sid) {
-						setSessionId(sid)
-						saveSessionId(sid)
+					if (isLoggedIn && userId && payload.session_id) {
+						setSessionId(payload.session_id)
+						saveSessionId(userId, payload.session_id)
+						// Só a lista de sessões. Invalidar o HISTÓRICO aqui refaz a busca e o
+						// efeito que espelha `sessionMessages` sobrescreve a conversa em tela
+						// pela versão do servidor — apagando a resposta recém-exibida.
 						await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
-						await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessionMessages(userId, sid) })
-					}
-				}
-
-				const processEvent = async (rawEvent: string) => {
-					const lines = rawEvent.split("\n")
-					const dataLines: string[] = []
-					for (const line of lines) {
-						const t = line.trim()
-						if (t.startsWith("data:")) {
-							dataLines.push(t.slice(5).trimStart())
-						}
-					}
-					const data = dataLines.join("\n")
-					if (!data) return
-
-					try {
-						const parsed = JSON.parse(data)
-						if (parsed.type === "token" && typeof parsed.delta === "string") {
-							applyDelta(parsed.delta)
-						} else if (parsed.type === "final") {
-							await applyFinal(parsed)
-						}
-					} catch {
-						// Ignora keep-alives ou fragmentos
 					}
 				}
 
@@ -796,32 +711,35 @@ function ChatRada() {
 					if (done) break
 					buffer += decoder.decode(value, { stream: true })
 
-					const parts = buffer.split("\n\n")
-					buffer = parts.pop() || ""
-					for (const chunk of parts) {
-						await processEvent(chunk)
+					// O α manda `status` a cada nó do grafo e `complete` no fim; o parser
+					// devolve o nome, que é justamente o que a versão anterior descartava.
+					const { events, rest } = parseSseBuffer(buffer)
+					buffer = rest
+					for (const evt of events) {
+						if (evt.event === "complete") await applyComplete(JSON.parse(evt.data) as ChatAnswer)
+						else if (evt.event === "error") throw new Error("A consulta falhou no servidor.")
 					}
 				}
 				buffer += decoder.decode()
 			} else {
-				const data = await client.ask(buildPayload(question))
+				const sid = await ensureSession()
+				const data = await client.ask(sid, question)
 
 				setSending(false)
 				const assistantMsg: ChatMessage = {
 					id: crypto?.randomUUID?.() ?? String(Date.now()),
 					role: "assistant",
-					content: data?.answer ?? "(sem resposta)",
-					sources: Array.isArray(data?.sources) ? data.sources : [],
-					references: Array.isArray(data?.references) ? data.references : [],
+					content: answerText(data),
+					sources: data.cited_documents,
+					references: toReferences(data.cited_documents),
 					createdAt: Date.now(),
 				}
 				setMessages((prev) => [...prev, assistantMsg])
 
-				if (isLoggedIn && data?.session_id) {
+				if (isLoggedIn && userId && data?.session_id) {
 					setSessionId(data.session_id)
-					saveSessionId(data.session_id)
+					saveSessionId(userId, data.session_id)
 					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
-					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessionMessages(userId, data.session_id) })
 				}
 			}
 		} catch (err: unknown) {
@@ -948,18 +866,6 @@ function ChatRada() {
 										<p className={cn("text-sm font-medium truncate", active ? "text-primary" : "text-foreground")}>{sessionTitleLikeChatGPT(s)}</p>
 										<p className="text-[11px] text-muted-foreground mt-0.5">{formatDateShort(s.last_message_at || s.created_at)}</p>
 									</div>
-
-									{/* Delete */}
-									<button
-										type="button"
-										onClick={(e) => deleteSession(s.id, e as React.MouseEvent<HTMLButtonElement>)}
-										className="shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity p-1.5 text-muted-foreground hover:text-rose-600"
-										title="Apagar sessão"
-										aria-label="Apagar sessão"
-										disabled={deleteSessionMutation.isPending}
-									>
-										<Trash className="h-3.5 w-3.5" />
-									</button>
 								</button>
 							)
 						})

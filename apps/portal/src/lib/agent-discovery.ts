@@ -105,14 +105,10 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
 		changefreq: "monthly",
 		priority: 0.7,
 	},
-	{
-		path: "/chatRada",
-		title: "Chat RADA",
-		summary: "Consulta assistida por IA ao acervo documental do RADA.",
-		section: "Facilidades",
-		changefreq: "monthly",
-		priority: 0.7,
-	},
+	// `/chatRada` NÃO entra aqui: passou a exigir sessão, e esta lista alimenta sitemap e
+	// llms.txt. Anunciar uma rota que redireciona para o login manda agente e buscador a uma
+	// página que eles não conseguem ler — mesmo motivo pelo qual `/alpha/*` nunca esteve
+	// nesta lista.
 	{
 		path: "/overseerDashboard",
 		title: "Overseer Dashboard",

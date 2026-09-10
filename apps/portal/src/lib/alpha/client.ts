@@ -9,7 +9,7 @@
  * chamada em vez de memoizado: token expira.
  */
 
-const ALPHA_BASE_URL = (import.meta.env.VITE_ALPHA_API_URL as string | undefined) ?? "https://alpha.iefa.com.br"
+export const ALPHA_BASE_URL = (import.meta.env.VITE_ALPHA_API_URL as string | undefined) ?? "https://alpha.iefa.com.br"
 
 export async function alphaRequest<T>(path: string, token: string | undefined, init: RequestInit = {}): Promise<T> {
 	const isFormData = init.body instanceof FormData

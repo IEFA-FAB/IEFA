@@ -4,7 +4,11 @@
 # Uso:
 #   bash ingest-all.sh
 #   bash ingest-all.sh knowledge/outro-diretorio   # pasta alternativa
-set -euo pipefail
+set -uo pipefail
+# `set -e` NÃO: um arquivo que falha não pode abortar o lote inteiro. Foi assim que a
+# ingestão do RADA-e parou no 5º de 92 sem dizer por quê — o erro do bun morreu dentro
+# da substituição de comando e o script saiu no meio. Cada falha é contada e reportada
+# no fim; o laço segue.
 
 KNOWLEDGE_DIR="${1:-$(dirname "$0")/knowledge}"
 SCRIPT_DIR="$(dirname "$0")"
@@ -56,5 +60,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "✅ Resumo final"
 echo "   chunks criados  : $TOTAL_CREATED"
 echo "   chunks pulados  : $TOTAL_SKIPPED"
-[[ $FAILED -gt 0 ]] && echo "   ❌ com erro      : $FAILED"
+if [[ $FAILED -gt 0 ]]; then
+  echo "   ❌ com erro      : $FAILED"
+  echo ""
+  # Sair 0 aqui reproduziria o defeito que este script existe para não ter: a primeira
+  # ingestão relatou sucesso e parou no 5º de 92. Contar a falha e sair 0 é a mesma mentira,
+  # só mais bem escrita.
+  exit 1
+fi
 echo ""

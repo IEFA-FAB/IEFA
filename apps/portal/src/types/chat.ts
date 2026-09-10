@@ -53,4 +53,7 @@ export type SessionSummary = {
 	id: string
 	created_at: string // ISO
 	last_message_at?: string | null // ISO
+	/** Título derivado da conversa pelo α; ausente em registro antigo. */
+	title?: string
+	message_count?: number
 }

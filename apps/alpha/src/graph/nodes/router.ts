@@ -1,7 +1,7 @@
-import { structuredLLM } from "../../lib/llm"
+import { invokeStructured } from "../../lib/llm"
 import type { AgentState, Intent } from "../state"
 
-const classifier = structuredLLM({
+const routerSchema = {
 	name: "classify_intent",
 	description: "Classifies user intent",
 	parameters: {
@@ -14,7 +14,7 @@ const classifier = structuredLLM({
 		},
 		required: ["intent"],
 	},
-})
+}
 
 const SYSTEM_PROMPT = `Você é um classificador de intenção para o sistema ATLAS da SEFA (Secretaria de Economia, Finanças e Administração da Aeronáutica).
 
@@ -33,14 +33,20 @@ export async function routerNode(state: AgentState): Promise<Partial<AgentState>
 	const query = lastMessage?.content?.toString() ?? ""
 
 	try {
-		const result = await classifier.invoke([
+		const result = await invokeStructured<{ intent: Intent }>(routerSchema, [
 			{ role: "system", content: SYSTEM_PROMPT },
 			{ role: "user", content: query },
 		])
 
-		const intent = (result as { intent: Intent }).intent ?? "UNKNOWN"
+		const intent = result.intent ?? "UNKNOWN"
 		return { intent, original_query: query }
-	} catch {
+	} catch (error) {
+		// `UNKNOWN` roteia para o chat geral, que responde SEM consultar o corpus. Um
+		// classificador que falha sempre — porque o modelo configurado não emite tool call,
+		// por exemplo — transforma o ChatRADA num chat comum, e em silêncio: toda pergunta
+		// era respondida de memória do modelo, sem nenhum sinal de erro. O aviso é o que
+		// distingue "não soube classificar" de "o classificador está quebrado".
+		console.warn(`[router] classificação falhou, caindo em UNKNOWN: ${error instanceof Error ? error.message : String(error)}`)
 		return { intent: "UNKNOWN", original_query: query }
 	}
 }

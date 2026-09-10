@@ -24,7 +24,7 @@
 import { createHash } from "node:crypto"
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { join, resolve, sep } from "node:path"
 import { pdfToSubmissionText } from "../extraction/to-text.ts"
 import { OcrUnavailableError, ocrPdf } from "../ingest/pdf-ocr.ts"
 import { parseRadaIndex, requireCompleteIndex } from "../ingest/rada-index.ts"
@@ -45,6 +45,33 @@ export function expandHome(path: string): string {
 const ARCHIVE = expandHome(process.env.RADA_ARCHIVE_DIR ?? join(homedir(), "rada-e"))
 const KNOWLEDGE = new URL("../../knowledge/", import.meta.url).pathname
 const REQUEST_TIMEOUT_MS = 120_000
+
+/**
+ * Teto por arquivo. O maior módulo do RADA-e tem ~2 MB; 64 MB dá folga larga e ainda
+ * impede que uma resposta inesperada — página de erro gigante, redirecionamento para um
+ * arquivo alheio — encha o disco de quem coleta.
+ */
+const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
+/** Um PDF começa por `%PDF-`. Servidor de intranet responde 200 com página de erro. */
+function isPdf(bytes: Uint8Array): boolean {
+	return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-"
+}
+
+/**
+ * Corpo da resposta, recusando o que for grande demais.
+ *
+ * `Content-Length` é dica, não garantia: quem serve pode mentir ou omitir. Por isso o
+ * tamanho é conferido depois de ler, contra o que realmente chegou.
+ */
+async function downloadBody(response: Response, label: string): Promise<Uint8Array> {
+	const declared = Number(response.headers.get("content-length")) || 0
+	if (declared > MAX_DOWNLOAD_BYTES) throw new Error(`${label}: ${declared} bytes declarados, acima do teto de ${MAX_DOWNLOAD_BYTES}`)
+
+	const bytes = new Uint8Array(await response.arrayBuffer())
+	if (bytes.byteLength > MAX_DOWNLOAD_BYTES) throw new Error(`${label}: ${bytes.byteLength} bytes recebidos, acima do teto`)
+	return bytes
+}
 
 /** Uma entrada do acervo: o PDF no disco e de onde ele veio. */
 interface CatalogEntry {
@@ -79,6 +106,24 @@ function slug(value: string): string {
 		.slice(0, 70)
 }
 
+/**
+ * Caminho de escrita DENTRO do acervo, ou erro.
+ *
+ * Todo nome de arquivo aqui nasce de dado que veio da rede — título de módulo, rótulo de
+ * pendência, entrada de catálogo gravada numa execução anterior. Sem esta checagem, um
+ * `catalog.json` ou `pendencias.tsv` adulterado (ou só corrompido) escreveria fora do
+ * acervo: `..%2F..%2F` num rótulo basta. `slug()` cobre o que passa por ele, mas nem tudo
+ * passa — e uma verificação no ponto de escrita cobre todos os caminhos de uma vez.
+ */
+function archivePath(subdir: string, fileName: string): string {
+	const target = resolve(ARCHIVE, subdir, fileName)
+	const root = resolve(ARCHIVE, subdir)
+	if (target !== root && !target.startsWith(`${root}${sep}`)) {
+		throw new Error(`recusando escrever fora do acervo: ${fileName}`)
+	}
+	return target
+}
+
 async function readJson<T>(path: string, fallback: T): Promise<T> {
 	try {
 		return JSON.parse(await readFile(path, "utf8")) as T
@@ -105,11 +150,14 @@ function toMarkdown(entry: CatalogEntry, text: string, sha256: string, viaOcr: b
 		"document_type: RADA",
 		`title: ${entry.title}`,
 		`year: ${new Date().getUTCFullYear()}`,
+		// Procedência no FRONTMATTER, não no corpo: o corpo é o que vai para o embedding e
+		// volta citado na resposta. Um `sha256` no meio do texto normativo é ruído que
+		// disputa espaço no chunk e aparece para quem lê a citação.
+		`sha256: ${sha256}`,
+		`ocr: ${viaOcr}`,
 		"---",
 		"",
 		`# ${source}`,
-		"",
-		`<!-- origem: acervo local do RADA-e, sha256 ${sha256.slice(0, 16)}${viaOcr ? ", texto por OCR local" : ""} -->`,
 		"",
 		text,
 		"",
@@ -287,15 +335,22 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 			continue
 		}
 
-		const bytes = new Uint8Array(await response.arrayBuffer())
+		const bytes = await downloadBody(response, `${module.letter} ${module.title}`)
+		if (!isPdf(bytes)) {
+			// HEAD disse `application/pdf` e o GET trouxe outra coisa: página de erro,
+			// login, redirecionamento. Gravar isso corromperia o acervo em silêncio.
+			attention.push(`${module.letter} — resposta não é PDF apesar do content-type`)
+			pendingRows.push(["pdf", module.letter, module.title, module.url])
+			continue
+		}
 		const sha256 = createHash("sha256").update(bytes).digest("hex")
-		const current = await readFile(join(ARCHIVE, "pdf", file)).catch(() => null)
+		const current = await readFile(archivePath("pdf", file)).catch(() => null)
 		if (current && createHash("sha256").update(current).digest("hex") === sha256) {
 			unchanged.push(`${module.letter} ${module.title}`)
 			continue
 		}
 
-		await writeFile(join(ARCHIVE, "pdf", file), bytes)
+		await writeFile(archivePath("pdf", file), bytes)
 		catalog[file] = {
 			letter: module.letter,
 			title: module.title,
@@ -344,7 +399,7 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 
 	for (const [kind, origin, label, url] of rows) {
 		const dir = kind === "zip" ? "zip" : "pdf"
-		const file = `${origin}-${slug(label)}.${kind === "zip" ? "zip" : "pdf"}`
+		const file = `${slug(origin)}-${slug(label)}.${kind === "zip" ? "zip" : "pdf"}`
 		try {
 			const response = await fetch(url, {
 				redirect: "follow",
@@ -353,13 +408,12 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 			})
 			if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
-			const bytes = new Uint8Array(await response.arrayBuffer())
-			// Servidor de intranet responde 200 com página de erro. Um PDF começa por
-			// `%PDF-`; sem esta conferência a pendência sairia da lista sem ter sido baixada.
-			if (dir === "pdf" && new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("resposta não é PDF")
+			const bytes = await downloadBody(response, `${origin} ${label}`)
+			// Sem esta conferência a pendência sairia da lista sem ter sido baixada.
+			if (dir === "pdf" && !isPdf(bytes)) throw new Error("resposta não é PDF")
 
 			await mkdir(join(ARCHIVE, dir), { recursive: true })
-			await writeFile(join(ARCHIVE, dir, file), bytes)
+			await writeFile(archivePath(dir, file), bytes)
 
 			// Sem entrada no catálogo o `build` descarta o arquivo por falta de título e
 			// origem — tudo que o `--pending` recuperava ficava inconversível.
