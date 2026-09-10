@@ -1,28 +1,5 @@
 import type { ChecklistItem, Notice, Tool, UnitResponsibility } from "#/lib/types"
 
-// Utility: N-th business day of current month → formatted date string
-export function getNthBusinessDay(n: string): string {
-	const match = n.match(/(\d+)/)
-	if (!match) return n
-	const target = parseInt(match[1], 10)
-	const now = new Date()
-	const year = now.getFullYear()
-	const month = now.getMonth()
-	let count = 0
-	let day = 1
-	while (day <= 31) {
-		const date = new Date(year, month, day)
-		if (date.getMonth() !== month) break
-		const dow = date.getDay()
-		if (dow !== 0 && dow !== 6) {
-			count++
-			if (count === target) return date.toLocaleDateString("pt-BR")
-		}
-		day++
-	}
-	return n
-}
-
 export const sucontTools: Tool[] = [
 	{
 		id: "auditor",

@@ -7,18 +7,32 @@ import { requireAnyDivision, useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
 import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { Button } from "#/components/ui/button"
+import { Checkbox } from "#/components/ui/checkbox"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { toast } from "#/components/ui/toast"
-import { getNthBusinessDay } from "#/lib/data"
+import { addDays, formatBrDate, todayInBrasilia } from "#/lib/brasilia"
+import {
+	CHECKLIST_RECURRENCES,
+	type ChecklistRecurrence,
+	type DeadlineStatus,
+	deadlineStatus,
+	MAX_BUSINESS_DAY,
+	RECURRENCE_LABELS,
+	UPCOMING_WINDOW_DAYS,
+} from "#/lib/checklist"
 import { useHubFilters } from "#/lib/hub-filters"
+import { notificationsQueryOptions } from "#/lib/notifications"
 import { checklistQueryOptions, noticesQueryOptions, unidadesGestorasQueryOptions, workspaceNoteQueryOptions } from "#/lib/queries"
+import { cn } from "#/lib/utils"
+import type { ChecklistRecurrenceInput } from "#/server/workspace.fn"
 import {
 	createChecklistItemFn,
 	createNoticeFn,
 	deleteChecklistItemFn,
 	deleteNoticeFn,
 	saveWorkspaceNoteFn,
+	setChecklistDoneFn,
 	updateChecklistResponsibleFn,
 } from "#/server/workspace.fn"
 
@@ -40,6 +54,22 @@ export const Route = createFileRoute("/workspace")({
 
 const OPERATORS = ["3S VANESSA", "SGT KLEBSON", "3S TALITA"] as const
 
+/**
+ * A linha abaixo do rótulo do prazo. Diz a DATA e o que ela significa hoje.
+ *
+ * Antes dizia só "Data: dd/mm/aaaa", calculada no navegador por uma regex sobre o
+ * texto do prazo — que lia o "1" de "1x por semana" e anunciava o 1º dia útil do
+ * mês para uma tarefa semanal, e que contava fim de semana mas não feriado. Agora
+ * a data vem pronta do banco (`due_on`), com o calendário de feriados aplicado.
+ */
+function deadlineHint(status: DeadlineStatus, dueOn: string | null, doneAt: string | null): string {
+	if (!dueOn) return "Sem prazo definido"
+	if (status === "done" && doneAt) return `Feito em ${formatBrDate(doneAt.slice(0, 10))}`
+	if (status === "overdue") return `Venceu em ${formatBrDate(dueOn)}`
+	if (status === "today") return `Vence hoje, ${formatBrDate(dueOn)}`
+	return `Vence em ${formatBrDate(dueOn)}`
+}
+
 function Workspace() {
 	const { query: searchQuery } = useHubFilters()
 	const queryClient = useQueryClient()
@@ -54,7 +84,14 @@ function Workspace() {
 	const { data: noteFromDb = "" } = useQuery(workspaceNoteQueryOptions())
 
 	const invalidateChecklist = () => queryClient.invalidateQueries({ queryKey: checklistQueryOptions().queryKey })
-	const invalidateNotices = () => queryClient.invalidateQueries({ queryKey: noticesQueryOptions().queryKey })
+	// O sino também: marcar uma tarefa como feita RESOLVE a notificação de prazo
+	// perdido dela (gatilho no banco), e publicar um aviso cria uma para o próprio
+	// autor. Sem esta invalidação a bolinha só corrigiria no recarregamento.
+	const invalidateNotifications = () => queryClient.invalidateQueries({ queryKey: notificationsQueryOptions().queryKey })
+	const invalidateNotices = () => {
+		queryClient.invalidateQueries({ queryKey: noticesQueryOptions().queryKey })
+		invalidateNotifications()
+	}
 
 	// Checklist, anotações e avisos são escrita de seção: `requireSucontEditor`
 	// (nível 2) barra todas no servidor. A tela reflete isso em vez de oferecer a
@@ -65,12 +102,20 @@ function Workspace() {
 
 	// ── Mutations: checklist ───────────────────────────────
 	const addTaskMutation = useMutation({
-		mutationFn: (data: { task: string; deadline: string; description: string; responsible: string; path: string }) => createChecklistItemFn({ data }),
+		mutationFn: (data: { task: string; description: string; responsible: string; path: string } & ChecklistRecurrenceInput) => createChecklistItemFn({ data }),
 		onSuccess: () => {
 			setIsAddingTask(false)
 			invalidateChecklist()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao adicionar"),
+	})
+	const setDoneMutation = useMutation({
+		mutationFn: (data: { id: string; done: boolean }) => setChecklistDoneFn({ data }),
+		onSuccess: () => {
+			invalidateChecklist()
+			invalidateNotifications()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao registrar a execução"),
 	})
 	const deleteTaskMutation = useMutation({
 		mutationFn: (id: string) => deleteChecklistItemFn({ data: { id } }),
@@ -138,12 +183,15 @@ function Workspace() {
 	)
 
 	// ── Filtro ─────────────────────────────────────────────
-	const filteredChecklist = checklist.filter(
-		(item) =>
-			item.task.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			(item.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-			(item.responsible ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+	const needle = searchQuery.toLowerCase()
+	const filteredChecklist = checklist.filter((item) =>
+		[item.task, item.description, item.responsible].some((field) => (field ?? "").toLowerCase().includes(needle))
 	)
+
+	// "Hoje" em Brasília, e não `new Date()`: o container roda em UTC e das 21h à
+	// meia-noite um prazo de hoje já aparecia como vencido.
+	const today = todayInBrasilia()
+	const upcomingUntil = addDays(today, UPCOMING_WINDOW_DAYS)
 
 	return (
 		<HubLayout title="Área de trabalho" description="Cronograma, anotações e avisos da seção." searchable>
@@ -176,64 +224,7 @@ function Workspace() {
 					)}
 
 					{isAddingTask && canEdit && (
-						<motion.div
-							initial={{ opacity: 0, scale: 0.95 }}
-							animate={{ opacity: 1, scale: 1 }}
-							className="bg-card border border-tech-cyan/30 p-6 rounded-lg mb-6 shadow-lg"
-						>
-							<h3 className="text-foreground mb-4 text-label">Nova Atividade</h3>
-							<form
-								onSubmit={(e) => {
-									e.preventDefault()
-									const fd = new FormData(e.currentTarget)
-									addTaskMutation.mutate({
-										task: fd.get("task") as string,
-										deadline: fd.get("deadline") as string,
-										description: (fd.get("description") as string) ?? "",
-										responsible: fd.get("responsible") as string,
-										path: (fd.get("path") as string) ?? "",
-									})
-								}}
-								className="grid grid-cols-1 md:grid-cols-2 gap-4"
-							>
-								<Input
-									name="task"
-									placeholder="Título da Tarefa"
-									required
-									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
-								/>
-								<Input
-									name="deadline"
-									placeholder="Prazo (ex: 2º dia útil)"
-									required
-									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
-								/>
-								<Input
-									name="responsible"
-									placeholder="Responsável"
-									required
-									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
-								/>
-								<Input
-									name="path"
-									placeholder="Caminho/Sistema (Opcional)"
-									className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
-								/>
-								<textarea
-									name="description"
-									placeholder="Descrição da atividade"
-									className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
-								/>
-								<div className="flex gap-2 md:col-span-2 justify-end">
-									<Button type="button" variant="ghost" onClick={() => setIsAddingTask(false)} className="text-muted-foreground hover:text-foreground">
-										CANCELAR
-									</Button>
-									<Button type="submit" disabled={addTaskMutation.isPending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md gap-2">
-										{addTaskMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR TAREFA
-									</Button>
-								</div>
-							</form>
-						</motion.div>
+						<AddTaskForm onSave={(data) => addTaskMutation.mutate(data)} onCancel={() => setIsAddingTask(false)} pending={addTaskMutation.isPending} />
 					)}
 
 					{loadingChecklist ? (
@@ -242,72 +233,103 @@ function Workspace() {
 						</div>
 					) : (
 						<div className="grid grid-cols-1 gap-4">
-							{filteredChecklist.map((item, idx) => (
-								<motion.div
-									key={item.id}
-									initial={{ opacity: 0, x: -20 }}
-									animate={{ opacity: 1, x: 0 }}
-									transition={{ delay: idx * 0.04 }}
-									className="bg-card border border-border p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm"
-								>
-									<div className="flex flex-col md:flex-row justify-between gap-4">
-										<div className="flex-grow">
-											<div className="flex items-start gap-3 mb-2">
-												<div className="flex flex-col shrink-0">
-													<span className="text-tech-cyan font-mono text-label bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 w-fit">
-														{item.deadline}
-													</span>
-													<span className="text-hint font-mono text-muted-foreground mt-1">Data: {getNthBusinessDay(item.deadline ?? "")}</span>
-												</div>
-												<h4 className="text-foreground font-bold">{item.task}</h4>
-											</div>
-											<p className="text-muted-foreground text-caption leading-relaxed mb-3">{item.description}</p>
-											{item.path && (
-												<div className="flex items-start gap-2 text-hint font-mono text-muted-foreground bg-muted/50 p-2 rounded border border-border">
-													<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
-													<span>{item.path}</span>
-												</div>
-											)}
-										</div>
-
-										<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
-											<span className="font-mono text-label text-muted-foreground mb-1">Responsável</span>
-											{editingId === item.id ? (
-												<Input
-													className="bg-muted/50 border-tech-cyan/30 text-foreground p-1 rounded w-full focus:border-tech-cyan"
-													defaultValue={item.responsible ?? ""}
-													autoFocus
-													onKeyDown={(e) => {
-														if (e.key === "Enter") updateResponsible(item.id, e.currentTarget.value)
-														if (e.key === "Escape") setEditingId(null)
-													}}
-													onBlur={(e) => updateResponsible(item.id, e.target.value)}
+							{filteredChecklist.map((item, idx) => {
+								// A view resolve o período para todo item; o tipo gerado é que é
+								// nullable coluna a coluna. Sem id não há o que renderizar.
+								if (!item.id) return null
+								const status = item.due_on ? deadlineStatus(item.due_on, item.done_at, today, upcomingUntil) : "scheduled"
+								const done = Boolean(item.done_at)
+								return (
+									<motion.div
+										key={item.id}
+										initial={{ opacity: 0, x: -20 }}
+										animate={{ opacity: 1, x: 0 }}
+										transition={{ delay: idx * 0.04 }}
+										className={cn(
+											"bg-card border border-border p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm",
+											// Vencido se distingue por borda INTEIRA e tint de fundo,
+											// nunca por faixa colorida de um lado só: `border-l-4` +
+											// canto arredondado do outro lado é proibição global do
+											// monorepo.
+											status === "overdue" && "border-destructive/40 bg-destructive/5",
+											status === "today" && "border-warning/40 bg-warning/5",
+											done && "opacity-70"
+										)}
+									>
+										<div className="flex flex-col md:flex-row justify-between gap-4">
+											<div className="flex-grow flex gap-3">
+												{/*
+												 * A execução é da COMPETÊNCIA corrente, não do item: marcar
+												 * em setembro segue marcado em setembro depois que outubro
+												 * começa. Quem não pode editar vê o estado sem poder mexer,
+												 * em vez de um controle que devolveria 403.
+												 */}
+												<Checkbox
+													className="mt-1 shrink-0"
+													checked={done}
+													disabled={!canEdit || setDoneMutation.isPending}
+													onCheckedChange={(checked) => setDoneMutation.mutate({ id: item.id as string, done: Boolean(checked) })}
+													aria-label={done ? `Desmarcar ${item.task} como feita` : `Marcar ${item.task} como feita`}
 												/>
-											) : canEdit ? (
-												<Button type="button" variant="ghost" className="h-auto p-0 gap-2 group hover:bg-transparent" onClick={() => setEditingId(item.id)}>
+												<div className="min-w-0 flex-grow">
+													<div className="flex items-start gap-3 mb-2">
+														<div className="flex flex-col shrink-0">
+															<span className="text-tech-cyan font-mono text-label bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 w-fit">
+																{item.deadline}
+															</span>
+															<span className="text-hint font-mono text-muted-foreground mt-1">{deadlineHint(status, item.due_on, item.done_at)}</span>
+														</div>
+														<h4 className={cn("text-foreground font-bold", done && "line-through")}>{item.task}</h4>
+													</div>
+													<p className="text-muted-foreground text-caption leading-relaxed mb-3">{item.description}</p>
+													{item.path && (
+														<div className="flex items-start gap-2 text-hint font-mono text-muted-foreground bg-muted/50 p-2 rounded border border-border">
+															<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
+															<span>{item.path}</span>
+														</div>
+													)}
+												</div>
+											</div>
+
+											<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
+												<span className="font-mono text-label text-muted-foreground mb-1">Responsável</span>
+												{editingId === item.id ? (
+													<Input
+														className="bg-muted/50 border-tech-cyan/30 text-foreground p-1 rounded w-full focus:border-tech-cyan"
+														defaultValue={item.responsible ?? ""}
+														autoFocus
+														onKeyDown={(e) => {
+															if (e.key === "Enter") updateResponsible(item.id as string, e.currentTarget.value)
+															if (e.key === "Escape") setEditingId(null)
+														}}
+														onBlur={(e) => updateResponsible(item.id as string, e.target.value)}
+													/>
+												) : canEdit ? (
+													<Button type="button" variant="ghost" className="h-auto p-0 gap-2 group hover:bg-transparent" onClick={() => setEditingId(item.id)}>
+														<span className="text-subheading text-tech-cyan">{item.responsible}</span>
+														<Edit2 className="w-3 h-3 text-muted-foreground group-hover:text-tech-cyan transition-colors" />
+													</Button>
+												) : (
+													// `.text-subheading`, não `.text-label`: o rótulo embute caixa alta, e este é
+													// um nome DIGITADO pelo usuário — em maiúsculas ele deixa de bater com o campo
+													// de edição ao lado e com o texto que a busca da tela filtra.
 													<span className="text-subheading text-tech-cyan">{item.responsible}</span>
-													<Edit2 className="w-3 h-3 text-muted-foreground group-hover:text-tech-cyan transition-colors" />
-												</Button>
-											) : (
-												// `.text-subheading`, não `.text-label`: o rótulo embute caixa alta, e este é
-												// um nome DIGITADO pelo usuário — em maiúsculas ele deixa de bater com o campo
-												// de edição ao lado e com o texto que a busca da tela filtra.
-												<span className="text-subheading text-tech-cyan">{item.responsible}</span>
-											)}
-											{canEdit && (
-												<Button
-													type="button"
-													variant="ghost"
-													onClick={() => deleteTaskMutation.mutate(item.id)}
-													className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all gap-1 text-hint font-mono"
-												>
-													<Trash2 className="w-3 h-3" /> EXCLUIR
-												</Button>
-											)}
+												)}
+												{canEdit && (
+													<Button
+														type="button"
+														variant="ghost"
+														onClick={() => deleteTaskMutation.mutate(item.id as string)}
+														className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all gap-1 text-hint font-mono"
+													>
+														<Trash2 className="w-3 h-3" /> EXCLUIR
+													</Button>
+												)}
+											</div>
 										</div>
-									</div>
-								</motion.div>
-							))}
+									</motion.div>
+								)
+							})}
 						</div>
 					)}
 				</section>
@@ -435,7 +457,110 @@ function Workspace() {
 	)
 }
 
-// ── Helper component ──────────────────────────────────────
+// ── Helper components ─────────────────────────────────────
+/**
+ * Nova atividade.
+ *
+ * O prazo deixou de ser um campo de texto ("Prazo (ex: 2º dia útil)") e virou o
+ * par recorrência + dia útil — os mesmos dois campos que o banco guarda e que o
+ * cron lê. O rótulo continua existindo, mas é DERIVADO no servidor: pedir os dois
+ * deixaria o texto dizer "semanal" enquanto a coluna calculava por mês, que é a
+ * divergência que a tela tinha.
+ */
+function AddTaskForm({
+	onSave,
+	onCancel,
+	pending,
+}: {
+	onSave: (data: { task: string; description: string; responsible: string; path: string } & ChecklistRecurrenceInput) => void
+	onCancel: () => void
+	pending: boolean
+}) {
+	const [recurrence, setRecurrence] = React.useState<ChecklistRecurrence>("monthly_business_day")
+	const [businessDay, setBusinessDay] = React.useState("2")
+
+	return (
+		<motion.div
+			initial={{ opacity: 0, scale: 0.95 }}
+			animate={{ opacity: 1, scale: 1 }}
+			className="bg-card border border-tech-cyan/30 p-6 rounded-lg mb-6 shadow-lg"
+		>
+			<h3 className="text-foreground mb-4 text-label">Nova Atividade</h3>
+			<form
+				onSubmit={(e) => {
+					e.preventDefault()
+					const fd = new FormData(e.currentTarget)
+					const base = {
+						task: fd.get("task") as string,
+						description: (fd.get("description") as string) ?? "",
+						responsible: fd.get("responsible") as string,
+						path: (fd.get("path") as string) ?? "",
+					}
+					// A união é discriminada no servidor: `businessDay` só existe no ramo
+					// que o usa. Mandá-lo sempre faria o schema recusar a tarefa semanal.
+					onSave(recurrence === "monthly_business_day" ? { ...base, recurrence, businessDay: Number(businessDay) } : { ...base, recurrence })
+				}}
+				className="grid grid-cols-1 md:grid-cols-2 gap-4"
+			>
+				<Input name="task" placeholder="Título da Tarefa" required className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan" />
+				<Input name="responsible" placeholder="Responsável" required className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan" />
+				<div className="flex flex-col gap-1">
+					<label htmlFor="task-recurrence" className="font-mono text-label text-muted-foreground">
+						Recorrência
+					</label>
+					<Select items={RECURRENCE_LABELS} value={recurrence} onValueChange={(value) => setRecurrence((value as ChecklistRecurrence | null) ?? "monthly")}>
+						<SelectTrigger id="task-recurrence" className="bg-muted/50 border-border text-foreground">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{CHECKLIST_RECURRENCES.map((option) => (
+								<SelectItem key={option} value={option}>
+									{RECURRENCE_LABELS[option]}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+				{recurrence === "monthly_business_day" && (
+					<div className="flex flex-col gap-1">
+						<label htmlFor="task-business-day" className="font-mono text-label text-muted-foreground">
+							Dia útil do mês
+						</label>
+						<Input
+							id="task-business-day"
+							type="number"
+							min={1}
+							max={MAX_BUSINESS_DAY}
+							required
+							value={businessDay}
+							onChange={(e) => setBusinessDay(e.target.value)}
+							className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
+						/>
+					</div>
+				)}
+				<Input
+					name="path"
+					placeholder="Caminho/Sistema (Opcional)"
+					className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan md:col-span-2"
+				/>
+				<textarea
+					name="description"
+					placeholder="Descrição da atividade"
+					className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
+				/>
+				<div className="flex gap-2 md:col-span-2 justify-end">
+					<Button type="button" variant="ghost" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+						CANCELAR
+					</Button>
+					<Button type="submit" disabled={pending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md gap-2">
+						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR TAREFA
+					</Button>
+				</div>
+			</form>
+		</motion.div>
+	)
+}
+
 function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string, type: "info" | "alert") => void; onCancel: () => void; pending: boolean }) {
 	const [content, setContent] = React.useState("")
 	const [type, setType] = React.useState<"info" | "alert">("info")

@@ -11080,42 +11080,87 @@ export type Database = {
       }
       checklist_item: {
         Row: {
+          business_day: number | null
           created_at: string
           deadline: string | null
           description: string | null
-          done: boolean
           id: string
           path: string | null
+          recurrence: string
           responsible: string | null
           sort_order: number
           task: string
           updated_at: string
         }
         Insert: {
+          business_day?: number | null
           created_at?: string
           deadline?: string | null
           description?: string | null
-          done?: boolean
           id?: string
           path?: string | null
+          recurrence?: string
           responsible?: string | null
           sort_order?: number
           task: string
           updated_at?: string
         }
         Update: {
+          business_day?: number | null
           created_at?: string
           deadline?: string | null
           description?: string | null
-          done?: boolean
           id?: string
           path?: string | null
+          recurrence?: string
           responsible?: string | null
           sort_order?: number
           task?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      checklist_occurrence: {
+        Row: {
+          competencia: string
+          created_at: string
+          done_at: string | null
+          done_by: string | null
+          due_on: string
+          item_id: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_on: string
+          item_id: string
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_on?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_occurrence_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_current"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_occurrence_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dgc_analysis: {
         Row: {
@@ -11250,6 +11295,24 @@ export type Database = {
           },
         ]
       }
+      holiday: {
+        Row: {
+          date: string
+          movable: boolean
+          name: string
+        }
+        Insert: {
+          date: string
+          movable?: boolean
+          name: string
+        }
+        Update: {
+          date?: string
+          movable?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       notice: {
         Row: {
           content: string
@@ -11271,6 +11334,48 @@ export type Database = {
           date?: string | null
           id?: string
           type?: string
+        }
+        Relationships: []
+      }
+      notification: {
+        Row: {
+          body: string | null
+          created_at: string
+          href: string | null
+          id: string
+          kind: string
+          occurrence_on: string | null
+          read_at: string | null
+          resolved_at: string | null
+          subject_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind: string
+          occurrence_on?: string | null
+          read_at?: string | null
+          resolved_at?: string | null
+          subject_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind?: string
+          occurrence_on?: string | null
+          read_at?: string | null
+          resolved_at?: string | null
+          subject_id?: string | null
+          title?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -11419,10 +11524,55 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      checklist_current: {
+        Row: {
+          business_day: number | null
+          competencia: string | null
+          created_at: string | null
+          deadline: string | null
+          description: string | null
+          done_at: string | null
+          done_by: string | null
+          due_on: string | null
+          id: string | null
+          path: string | null
+          recurrence: string | null
+          responsible: string | null
+          sort_order: number | null
+          task: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      business_days: { Args: { p_month: string }; Returns: string[] }
+      checklist_period: {
+        Args: { p_business_day: number; p_on: string; p_recurrence: string }
+        Returns: {
+          competencia: string
+          due_on: string
+        }[]
+      }
+      last_business_day: { Args: { p_month: string }; Returns: string }
+      notification_audience: { Args: never; Returns: string[] }
+      notify_section: {
+        Args: {
+          p_body: string
+          p_href: string
+          p_kind: string
+          p_occurrence_on: string
+          p_subject_id: string
+          p_title: string
+        }
+        Returns: number
+      }
+      nth_business_day: {
+        Args: { p_month: string; p_n: number }
+        Returns: string
+      }
+      purge_notifications: { Args: never; Returns: number }
+      run_notification_tick: { Args: never; Returns: Json }
     }
     Enums: {
       [_ in never]: never

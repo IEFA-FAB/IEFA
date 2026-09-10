@@ -32,6 +32,7 @@ import { SegmentedControl } from "#/components/ui/segmented-control"
 import { StatTile } from "#/components/ui/stat-tile"
 import { sucontTools } from "#/lib/data"
 import { Route as IndexRoute } from "#/routes/index"
+import { Route as WorkspaceRoute } from "#/routes/workspace"
 import "./harness.css"
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -69,6 +70,10 @@ queryClient.setQueryData(
 queryClient.setQueryData(["sucont", "myIdentity"], { nrOrdem: "7379749", posto: "1T", nomeGuerra: "NANNI" })
 
 const Catalogo = IndexRoute.options.component as () => React.ReactNode
+// A área de trabalho entra no harness porque é a tela cujo estado é o mais difícil
+// de reproduzir: prazo vencido, prazo de hoje e execução registrada só existem com
+// dado do banco, e a distinção entre eles é visual.
+const AreaDeTrabalho = WorkspaceRoute.options.component as () => React.ReactNode
 
 // Mesmo `validateSearch` da raiz do app: os filtros do catálogo leem `?q=`,
 // `?etapa=` e `?rac=`.
@@ -99,6 +104,7 @@ const rootRoute = createRootRoute({
 	}),
 })
 const screen = (path: string) => createRoute({ getParentRoute: () => rootRoute, path, component: Catalogo })
+const workspaceScreen = () => createRoute({ getParentRoute: () => rootRoute, path: "/workspace", component: AreaDeTrabalho })
 
 // Rotas de ferramenta, para inspecionar a orientação DENTRO de uma delas: item
 // ativo na barra e trilha no cabeçalho.
@@ -238,7 +244,7 @@ const adminScreen = (path: string) =>
 const router = createRouter({
 	routeTree: rootRoute.addChildren([
 		screen("/"),
-		screen("/workspace"),
+		workspaceScreen(),
 		screen("/reports"),
 		adminScreen("/admin"),
 		adminScreen("/admin/permissoes"),
