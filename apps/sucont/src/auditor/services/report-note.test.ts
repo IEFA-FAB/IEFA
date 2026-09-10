@@ -160,6 +160,20 @@ describe("buildAnalyticNoteMarkdown", () => {
 		expect(comPipe).toContain("| GAP\\|SP | 120200 |")
 	})
 
+	// Escapar `|` sem antes duplicar a barra invertida deixa `A\` virar `A\\|`: uma
+	// barra literal seguida de um separador de coluna DE VERDADE. Achado do CodeQL
+	// (`js/incomplete-sanitization`) — o escape parcial reabre o buraco que fecha.
+	it("duplica a barra invertida ANTES de escapar o pipe", () => {
+		const comBarra = buildAnalyticNoteMarkdown(
+			{ ...DATASET, topOffenders: [{ ...DATASET.topOffenders[0], ug: "GAP\\|SP" }] },
+			normalizeAnalyticNote(FULL_RESPONSE)
+		)
+		expect(comBarra).toContain("| GAP\\\\\\|SP | 120200 |")
+		// A célula continua sendo UMA célula: nenhuma linha da tabela ganhou coluna.
+		const linha = comBarra.split("\n").find((l) => l.includes("120200")) ?? ""
+		expect(linha.split(/(?<!\\)\|/).length - 1).toBe(9)
+	})
+
 	it("avisa que o texto é gerado por modelo", () => {
 		expect(markdown).toContain("gerada com apoio de modelo de linguagem")
 	})

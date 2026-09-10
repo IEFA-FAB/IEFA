@@ -39,8 +39,15 @@ const SCOPE_LABEL: Record<string, string> = {
 
 const groupLabel = (group: string) => GROUP_LABEL[group] ?? group
 
-/** Pipe dentro de célula quebra a tabela Markdown; nome de UG raramente tem, mas pode. */
-const cell = (value: string) => value.replace(/\|/g, "\\|").replace(/\n/g, " ")
+/**
+ * Escapa o conteúdo de uma célula de tabela Markdown.
+ *
+ * A barra invertida vem PRIMEIRO, e a ordem não é detalhe: escapar `|` como `\|`
+ * sem antes duplicar a barra faz um valor que já termina em `\` produzir `\\|` —
+ * uma barra literal seguida de um separador de coluna de verdade, que é
+ * exatamente a quebra de tabela que este escape existe para impedir.
+ */
+const cell = (value: string) => value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\n/g, " ")
 
 const percent = (value: number | null) => (value === null ? NO_VALUE : `${value > 0 ? "+" : ""}${value.toFixed(2)}%`)
 
