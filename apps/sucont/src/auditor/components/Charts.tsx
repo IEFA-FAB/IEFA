@@ -1,5 +1,5 @@
 import { BarChart3, Building2, Layers, LayoutList, Network, User } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
 	Area,
 	AreaChart,
@@ -36,6 +36,11 @@ import { AccountGroup, RiskLevel } from "../types"
 function paretoOpacity(row: { accumulatedPct?: number } | undefined) {
 	return row?.accumulatedPct && row.accumulatedPct <= 80 ? 1 : 0.4
 }
+
+/** Passo horizontal mínimo entre dois nomes de UG inclinados a -45°, em px. */
+const PARETO_LABEL_PITCH = 50
+/** Largura que o eixo de percentual e as margens tiram da faixa das barras, em px. */
+const PARETO_AXIS_GUTTER = 90
 
 interface ChartProps {
 	data: FinancialRecord[]
@@ -227,7 +232,21 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHierarchy, hierarchyLevel = "UG", hierarchyFilter = ["TODOS"] }) => {
 	const [viewMode, setViewMode] = useState<"composition" | "ranking" | "tree">("ranking")
 	const [treeGroupBy, setTreeGroupBy] = useState<"ODS" | "ORGAO" | "UG">("ODS")
-	const isNarrow = useIsMobile()
+	const [plotWidth, setPlotWidth] = useState(0)
+
+	/**
+	 * Ref de callback, não `useRef` + `useEffect`: o componente sai por um `return`
+	 * antecipado enquanto não há dado, e nesse render o nó não existe — um efeito
+	 * com dependência vazia rodaria uma vez, com a ref nula, e nunca mais. A ref de
+	 * callback é chamada toda vez que o nó entra ou sai da árvore, e a função
+	 * devolvida é a limpeza (React 19).
+	 */
+	const measurePlot = useCallback((node: HTMLDivElement | null) => {
+		if (!node) return
+		const observer = new ResizeObserver(([entry]) => setPlotWidth(entry.contentRect.width))
+		observer.observe(node)
+		return () => observer.disconnect()
+	}, [])
 
 	useEffect(() => {
 		if (viewMode === "tree" && setHierarchy) {
@@ -395,12 +414,19 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 	const totalFinancialImpact = aggregated.reduce((sum, item) => sum + item.diff, 0)
 
 	/**
-	 * Menos barras na tela estreita porque o eixo X é NOMINAL: cada barra carrega o
-	 * nome da UG inclinado, e 20 deles em 375px viram um borrão diagonal ilegível —
-	 * o `interval={0}` obriga o recharts a desenhar todos. O corte é só da visão
-	 * compacta; o botão de expandir continua mostrando a série inteira.
+	 * Quantas barras cabem sai da largura MEDIDA da área de plotagem, e não do
+	 * viewport: o eixo X é nominal — cada barra carrega o nome da UG inclinado a
+	 * -45°, e `interval={0}` obriga o recharts a desenhar todos. Quem determina a
+	 * colisão é o passo entre barras, e a mesma janela de 1024px dá plotagens
+	 * diferentes com a barra lateral aberta ou fechada.
+	 *
+	 * `PARETO_LABEL_PITCH`: um nome de UG ocupa ~70px de texto, e inclinado a 45°
+	 * projeta ~50px na horizontal. Abaixo desse passo os nomes se sobrepõem.
+	 *
+	 * O teto de 20 é da visão compacta, não do dado — expandir mostra a série
+	 * inteira, com rolagem horizontal própria.
 	 */
-	const compactCount = isNarrow ? 8 : 20
+	const compactCount = plotWidth > 0 ? Math.min(20, Math.max(6, Math.floor((plotWidth - PARETO_AXIS_GUTTER) / PARETO_LABEL_PITCH))) : 20
 	const displayData = isExpanded ? paretoData : paretoData.slice(0, compactCount)
 	// Linhas próprias do Pareto: `displayData` também alimenta o BarChart de Composição
 	// (SIAFI × SILOMS), que não quer opacidade nenhuma.
@@ -598,7 +624,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 			)}
 
 			<div className={`flex-1 w-full mt-2 ${overflowClass}`}>
-				<div style={containerStyle} className="w-full h-full relative">
+				<div ref={measurePlot} style={containerStyle} className="w-full h-full relative">
 					<ResponsiveContainer width="100%" height="100%">
 						{viewMode === "composition" ? (
 							<BarChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 80 }}>
@@ -612,7 +638,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									tickLine={false}
 								/>
 								<YAxis
-									tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+									tickFormatter={(value) => formatCompactNumber(Number(value))}
 									tick={{ fill: chartChrome.axis }}
 									axisLine={false}
 									tickLine={false}
@@ -956,14 +982,17 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 10 }} axisLine={false} tickLine={false} />
 							<YAxis
-								tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+								/* Mesma unidade do rótulo das barras, que é `formatCompactNumber`. */
+								tickFormatter={(value) => formatCompactNumber(Number(value))}
 								tick={{ fill: chartChrome.axis, fontSize: 10 }}
 								axisLine={false}
 								tickLine={false}
 								domain={[0, (dataMax: number) => dataMax * 1.5]}
 							/>
 							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />
-							<Legend verticalAlign="top" height={20} />
+							{/* Sem `<Legend>` do recharts: a legenda deste gráfico é a de HTML no
+							    cabeçalho, e as duas juntas imprimiam "Ano Anterior / Ano Atual"
+							    duas vezes, uma embaixo da outra. */}
 							<Bar dataKey="prevYearDiff" name="Ano Anterior" fill={chartChrome.axis} fillOpacity={0.5} radius={[4, 4, 0, 0]}>
 								<LabelList
 									dataKey="prevYearDiff"
@@ -1033,7 +1062,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 							  último saía cortado pela borda ("2,76" sem o "Bi"). O `right` também
 							  abriga a etiqueta SELECIONADO da linha de referência.
 							*/
-							margin={{ top: 28, right: 28, left: 10, bottom: 0 }}
+							margin={{ top: 28, right: 44, left: 10, bottom: 0 }}
 						>
 							<defs>
 								<linearGradient id="colorSiafi" x1="0" y1="0" x2="0" y2="1">
@@ -1056,7 +1085,18 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 							{/* `padding`: afasta o primeiro e o último ponto das bordas, para que os
 							    rótulos deles não caiam sobre o eixo Y nem sobre a linha de referência. */}
-							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 12 }} axisLine={false} tickLine={false} padding={{ left: 28, right: 16 }} />
+							{/*
+							  `padding` só à esquerda, e o mínimo que resolve: o primeiro ponto encosta
+							  no eixo Y e o rótulo dele, centralizado, era impresso sobre o tique. À
+							  direita quem dá a folga é a margem do gráfico, que o `Brush` também
+							  respeita.
+
+							  O `Brush` NÃO enxerga o `padding` do eixo — ele desenha a faixa sobre a
+							  área inteira. Cada pixel aqui é um pixel de desalinhamento entre a
+							  alça e o ponto acima dela; 20px numa faixa de ~900px é o preço de ter
+							  o primeiro rótulo legível, e por isso não há folga à direita.
+							*/}
+							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 12 }} axisLine={false} tickLine={false} padding={{ left: 20, right: 0 }} />
 							<YAxis
 								/* Mesma escala do rótulo do ponto (`formatCompactNumber`): o eixo dizia
 								   "3600M" enquanto o rótulo dizia "3,51 Bi" — duas unidades para a
@@ -1066,6 +1106,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								axisLine={false}
 								tickLine={false}
 								width={64}
+								tickMargin={8}
 								domain={viewMode === "icc" ? [0, 110] : ["auto", "auto"]}
 							/>
 							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />

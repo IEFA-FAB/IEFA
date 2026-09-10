@@ -394,6 +394,15 @@ pre code {
 /* `height` junto de `width`: a barra HORIZONTAL usa a altura, e sem ela um contêiner
    com rolagem lateral (matriz de calor, faixas de filtro) ganhava a barra grossa do
    sistema mesmo com a classe aplicada. */
+/* Token, e não `rgba(20,20,20,…)`: o cinza fixo era quase invisível no tema escuro,
+   e a barra é a ÚNICA pista de que existe conteúdo fora da faixa (abas de período,
+   colunas da matriz de calor). `scrollbar-color` cobre o Firefox, que não implementa
+   os pseudoelementos `::-webkit-scrollbar`. */
+.scrollbar-thin,
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
 .scrollbar-thin::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
@@ -405,12 +414,12 @@ pre code {
 }
 .scrollbar-thin::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(20, 20, 20, 0.1);
+  background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
   border-radius: 10px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(20, 20, 20, 0.2);
+  background: var(--muted-foreground);
 }
 
 /* ─── Hierarquia Tipográfica ─── */
