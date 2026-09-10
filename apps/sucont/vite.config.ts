@@ -21,6 +21,7 @@ const config = defineConfig({
 			handlers: [
 				{ route: "/api/chat/stream", method: "POST", handler: "./routes/api/chat/stream.post.ts", format: "web" },
 				{ route: "/api/sacdgc/analyze", method: "POST", handler: "./routes/api/sacdgc/analyze.post.ts", format: "web" },
+				{ route: "/api/auditor/report", method: "POST", handler: "./routes/api/auditor/report.post.ts", format: "web" },
 			],
 		}),
 		tailwindcss(),

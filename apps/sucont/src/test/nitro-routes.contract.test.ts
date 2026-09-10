@@ -36,7 +36,7 @@ const ROUTE_FILES = routeFiles()
 describe("rotas Nitro", () => {
 	// Varredura vazia passaria em tudo o que vem abaixo; este teste é o que a denuncia.
 	it("encontra as rotas conhecidas", () => {
-		expect(ROUTE_FILES).toEqual(["./routes/api/chat/stream.post.ts", "./routes/api/sacdgc/analyze.post.ts"])
+		expect(ROUTE_FILES).toEqual(["./routes/api/auditor/report.post.ts", "./routes/api/chat/stream.post.ts", "./routes/api/sacdgc/analyze.post.ts"])
 	})
 })
 

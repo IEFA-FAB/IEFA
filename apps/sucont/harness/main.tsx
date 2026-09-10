@@ -10,6 +10,7 @@ import { AlertTriangle, Database, Layers, LayoutDashboard } from "lucide-react"
 import { createRoot } from "react-dom/client"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { ChartWrapper } from "#/auditor/components/ChartWrapper"
+import { CompositionDonuts } from "#/auditor/components/CompositionDonuts"
 import { HealthScoreGauge } from "#/auditor/components/HealthScoreGauge"
 import { RankingList } from "#/auditor/components/RankingList"
 import { StatCard } from "#/auditor/components/StatCard"
@@ -163,6 +164,10 @@ function Harness({ dark }: { dark: boolean }) {
 
 			<Panel title="TemporalHeatmap (rampa por célula, no CSS)">
 				<TemporalHeatmap data={data} availableMonths={months} onSendMessage={() => {}} />
+			</Panel>
+
+			<Panel title="CompositionDonuts (conciliado x divergente, divergência por grupo)" tall>
+				<CompositionDonuts data={data.filter((d) => d.date === latest)} />
 			</Panel>
 
 			<Panel title="RankingList">
