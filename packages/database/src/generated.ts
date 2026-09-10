@@ -934,43 +934,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      match_chunks_cosine:
-        | {
-            Args: { match_count?: number; query_embedding: string }
-            Returns: {
-              article: string
-              chapter: string
-              content: string
-              document_id: string
-              document_type: string
-              id: string
-              section: string
-              similarity: number
-              source: string
-              year: number
-            }[]
-          }
-        | {
-            Args: {
-              embedding_model_filter?: string
-              match_count?: number
-              query_embedding: string
-            }
-            Returns: {
-              article: string
-              chapter: string
-              content: string
-              document_id: string
-              document_type: string
-              id: string
-              section: string
-              similarity: number
-              source: string
-              year: number
-            }[]
-          }
+      match_chunks_cosine: {
+        Args: {
+          document_types?: string[]
+          embedding_model_filter?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          article: string
+          chapter: string
+          content: string
+          document_id: string
+          document_type: string
+          id: string
+          section: string
+          similarity: number
+          source: string
+          year: number
+        }[]
+      }
       match_chunks_fts: {
-        Args: { match_count?: number; query_text: string }
+        Args: {
+          document_types?: string[]
+          match_count?: number
+          query_text: string
+        }
         Returns: {
           article: string
           chapter: string

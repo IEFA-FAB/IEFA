@@ -10,9 +10,19 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import type { ChatAnswer, ChatSessionSummary } from "@/lib/alpha/chat"
-import { answerText, createChatSession, fetchSessionMessages, listChatSessions, openMessageStream, parseSseBuffer, sendMessage } from "@/lib/alpha/chat"
+import {
+	answerText,
+	chunkLabel,
+	createChatSession,
+	fetchChunk,
+	fetchSessionMessages,
+	listChatSessions,
+	openMessageStream,
+	parseSseBuffer,
+	sendMessage,
+} from "@/lib/alpha/chat"
 import { ALPHA_BASE_URL } from "@/lib/alpha/client"
-import type { AskReference, ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
+import type { ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
 
 /* =========================
    Constantes
@@ -75,15 +85,6 @@ function prettyStatusText(status: HealthStatus) {
 	if (status === "ok") return "Online"
 	if (status === "loading") return "Conectando…"
 	return "Offline"
-}
-
-function isLikelyUrl(s: string) {
-	try {
-		const u = new URL(s)
-		return !!u.protocol && !!u.host
-	} catch {
-		return false
-	}
 }
 
 /* === Helpers de referências === */
@@ -262,6 +263,11 @@ function useRagClient(token: string | undefined) {
 					id: `${sid}-${i}`,
 					role: m.role === "human" ? "user" : "assistant",
 					content: m.content,
+					// Sem repassar isto, o painel de fontes do histórico fica sempre vazio: o
+					// `select` da query lê `cited_documents` e receberia `undefined` de todas
+					// as mensagens, e o efeito que espelha o histórico apagaria até as
+					// citações da resposta recém-chegada.
+					cited_documents: m.cited_documents ?? [],
 					created_at: new Date().toISOString(),
 				})) as RemoteMessage[]
 			},
@@ -341,7 +347,9 @@ function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLogg
 				role: m.role === "user" ? ("user" as const) : ("assistant" as const),
 				content: m.content,
 				references: [],
-				sources: [],
+				// O α passou a devolver o que foi citado em cada resposta; sem isto, reabrir
+				// uma conversa mostrava as respostas sem nenhuma fonte.
+				sources: m.cited_documents ?? [],
 				createdAt: Date.now(),
 			})),
 	})
@@ -352,77 +360,62 @@ function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLogg
 ========================= */
 
 /**
- * Converte os ids de chunk citados no formato que a lista renderiza.
+ * Painel de um trecho citado.
  *
- * O α cita por id de chunk (`cited_documents`), e o componente lê `n`, `source`, `page` e
- * `snippet`. Mapear para `{id,title,url}` — como estava — produzia linhas em branco e, pior,
- * a mesma chave React para todas as citações da mensagem.
+ * Busca o chunk sob demanda, ao abrir. Antes a citação era um UUID com um snippet
+ * FABRICADO na tela ("Trecho citado do RADA-e (a1b2c3d4)…") — texto que nunca existiu no
+ * regulamento, ao lado de uma resposta que se apresenta como fundamentada nele. Agora o
+ * que aparece é o trecho que de fato embasou a resposta, com documento e dispositivo.
  */
-function toReferences(chunkIds: string[]): AskReference[] {
-	return chunkIds.map((id, index) => ({
-		n: index + 1,
-		source: `Trecho ${index + 1}`,
-		doc_id: id,
-		snippet: `Trecho citado do RADA-e (${id.slice(0, 8)}). Abrir em ${API_BASE}/api/v1/chunks/${id}`,
-	}))
-}
+function CitationPanel({ chunkId, index }: { chunkId: string; index: number }) {
+	const { session } = useAuth()
+	const [open, setOpen] = useState(false)
 
-function ReferencesList({ id, references }: { id: string; references: AskReference[] }) {
+	const {
+		data: chunk,
+		isLoading,
+		isError,
+	} = useQuery({
+		queryKey: ["alpha", "chunk", chunkId],
+		// Só busca depois de abrir: uma resposta cita cinco trechos, e trazer todos de
+		// antemão é peso que quase ninguém abre.
+		enabled: open && !!session?.access_token,
+		queryFn: () => fetchChunk(session?.access_token as string, chunkId),
+		staleTime: Number.POSITIVE_INFINITY, // trecho de norma vigente não muda entre abas
+	})
+
 	return (
-		<details className="mt-2 max-w-[85%] group">
-			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/40 border border-border px-3 py-2">
-				<LinkIcon className="h-3.5 w-3.5" />
-				Referências ({references.length})
+		<details className="bg-muted/20 border border-border p-2" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+			<summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+				<Badge variant="secondary" className="h-5 text-[11px]">
+					[{index + 1}]
+				</Badge>
+				<span className="truncate">{chunk ? chunkLabel(chunk) : "Ver o trecho citado"}</span>
 			</summary>
-			<div className="mt-1 space-y-1">
-				{references.map((ref) => {
-					const refKey = `${ref.doc_id ?? "d"}-${ref.source}-${ref.n}-${ref.page ?? "p"}`
-					return (
-						<details key={`${id}-ref-${refKey}`} className="bg-muted/20 border border-border p-2">
-							<summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-								<Badge variant="secondary" className="h-5 text-[11px]">
-									[{ref.n}]
-								</Badge>
-								<span className="text-xs font-medium truncate">{ref.source}</span>
-								{ref.page != null && <span className="text-xs text-muted-foreground">pág. {ref.page}</span>}
-							</summary>
-							{ref.snippet && (
-								<div className="mt-2 bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground">
-									<p className="italic">
-										{ref.snippet.substring(0, 200)}
-										{ref.snippet.length > 200 ? "..." : ""}
-									</p>
-								</div>
-							)}
-						</details>
-					)
-				})}
+
+			<div className="mt-2 bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground">
+				{isLoading && <p>Carregando o trecho…</p>}
+				{isError && <p>Não foi possível carregar este trecho.</p>}
+				{chunk && <p className="whitespace-pre-wrap leading-relaxed">{chunk.content}</p>}
 			</div>
 		</details>
 	)
 }
 
-function SourcesList({ id, sources }: { id: string; sources: string[] }) {
+function ReferencesList({ chunkIds }: { chunkIds: string[] }) {
+	if (chunkIds.length === 0) return null
+
 	return (
 		<details className="mt-2 max-w-[85%] group">
 			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/40 border border-border px-3 py-2">
 				<LinkIcon className="h-3.5 w-3.5" />
-				Fontes consultadas ({sources.length})
+				Trechos do RADA-e ({chunkIds.length})
 			</summary>
-			<ul className="mt-1 space-y-1">
-				{sources.map((s) => (
-					<li key={`${id}-src-${s}`} className="flex items-start gap-2 bg-muted/20 border border-border p-2">
-						<span className="text-xs text-muted-foreground mt-0.5">•</span>
-						{isLikelyUrl(s) ? (
-							<a className="text-xs text-primary hover:underline break-all transition-colors" href={s} target="_blank" rel="noreferrer noopener">
-								{s}
-							</a>
-						) : (
-							<code className="text-xs bg-muted/70 px-2 py-1 border border-border">{s}</code>
-						)}
-					</li>
+			<div className="mt-1 space-y-1">
+				{chunkIds.map((chunkId, index) => (
+					<CitationPanel key={chunkId} chunkId={chunkId} index={index} />
 				))}
-			</ul>
+			</div>
 		</details>
 	)
 }
@@ -433,7 +426,6 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 
 	const parsed = m.role === "assistant" ? extractReferencesMd(m.content) : null
 	const displayMarkdown = parsed?.mainText ?? m.content
-	const hasReferences = !!(m.references && m.references.length > 0)
 
 	// Pale Brutalism: sharp corners, solid fills, border-first hierarchy
 	const bubbleBase = "px-4 py-3 inline-block max-w-[85%]"
@@ -489,10 +481,9 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 				</div>
 
 				{/* Referências */}
-				{!isUser && !isError && hasReferences && <ReferencesList id={m.id} references={m.references as NonNullable<typeof m.references>} />}
+				{!isUser && !isError && <ReferencesList chunkIds={m.sources ?? []} />}
 
 				{/* Fontes consultadas */}
-				{!isUser && !isError && m.sources && m.sources.length > 0 && <SourcesList id={m.id} sources={m.sources} />}
 
 				{/* Copiar */}
 				<Button
@@ -683,17 +674,16 @@ function ChatRada() {
 
 				const applyComplete = async (payload: ChatAnswer) => {
 					const text = answerText(payload)
-					const refs = toReferences(payload.cited_documents)
 
 					if (!hasInserted) {
 						hasInserted = true
 						setSending(false)
 						setMessages((prev) => [
 							...prev,
-							{ id: assistantId, role: "assistant", content: text, references: refs, sources: payload.cited_documents, createdAt: Date.now() } as ChatMessage,
+							{ id: assistantId, role: "assistant", content: text, references: [], sources: payload.cited_documents, createdAt: Date.now() } as ChatMessage,
 						])
 					} else {
-						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: text, references: refs, sources: payload.cited_documents } : m)))
+						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: text, sources: payload.cited_documents } : m)))
 					}
 
 					if (isLoggedIn && userId && payload.session_id) {
@@ -731,7 +721,7 @@ function ChatRada() {
 					role: "assistant",
 					content: answerText(data),
 					sources: data.cited_documents,
-					references: toReferences(data.cited_documents),
+					references: [],
 					createdAt: Date.now(),
 				}
 				setMessages((prev) => [...prev, assistantMsg])

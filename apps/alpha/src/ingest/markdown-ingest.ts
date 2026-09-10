@@ -35,6 +35,16 @@ function parseFrontmatter(markdown: string): { data: FrontmatterData; content: s
 	return { data, content: match[2] }
 }
 
+/**
+ * Linhas por INSERT. Bem menor que o lote de embedding de propósito.
+ *
+ * Cada linha carrega um vetor de 1024 dimensões, e o índice HNSW é mantido a cada
+ * gravação — o custo por linha CRESCE com o tamanho da tabela. Com 128 estourava o
+ * `statement_timeout` nos módulos maiores; com 25 ainda estourava depois de a base passar
+ * de 10 mil chunks. O embedding tinha ido bem nos dois casos: quem morria era a gravação.
+ */
+const INSERT_BATCH = 10
+
 export async function ingestMarkdown(filePath: string): Promise<{ chunks_created: number; chunks_skipped: number }> {
 	const fs = await import("node:fs")
 	const markdown = fs.readFileSync(filePath, "utf-8")
@@ -130,8 +140,13 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 			metadata: { source, document_type: documentType, year },
 		}))
 
-		const { error: insertError } = await supabase.from("document_chunk").insert(rows)
-		if (insertError) throw new Error(`Failed to insert chunks: ${insertError.message}`)
+		// Insert em lotes MENORES que o de embedding. Cada linha carrega um vetor de 1024
+		// dimensões, e 128 delas de uma vez estouraram o `statement_timeout` do Postgres em
+		// dois dos módulos maiores — o embedding tinha ido bem, e a gravação é que morria.
+		for (let start = 0; start < rows.length; start += INSERT_BATCH) {
+			const { error: insertError } = await supabase.from("document_chunk").insert(rows.slice(start, start + INSERT_BATCH))
+			if (insertError) throw new Error(`Failed to insert chunks: ${insertError.message}`)
+		}
 
 		created += toCreate.length
 		skipped += batch.length - toCreate.length

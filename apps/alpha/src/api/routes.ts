@@ -78,7 +78,7 @@ type MessageResponse = {
 
 type MessagesListResponse = {
 	session_id: string
-	messages: Array<{ role: string; content: string }>
+	messages: Array<{ role: string; content: string; cited_documents: string[] }>
 	_links: { self: { href: string } }
 }
 
@@ -163,8 +163,20 @@ function buildResponse(session_id: string, state: any): MessageResponse {
 	}
 }
 
+/**
+ * Registra o turno.
+ *
+ * A falha era engolida, e `query_log` não é só telemetria: é de onde saem a lista de
+ * sessões, as citações do histórico e o dono que `canAccessSession` confere. Perder a
+ * linha em silêncio some com a conversa da lista, desalinha as citações e — o pior —
+ * deixa `canAccessSession` devolver `true` para aquela sessão a QUALQUER autenticado,
+ * porque ela passa a não ter dono registrado.
+ *
+ * Não relança: o usuário já recebeu a resposta, e derrubar o turno depois disso trocaria
+ * um registro perdido por uma resposta perdida. O aviso é o que torna a perda visível.
+ */
 async function logQuery(session_id: string, user_id: string, query: string, state: any, latency_ms: number, langsmith_run_id: string | null = null) {
-	await supabase.from("query_log").insert({
+	const { error } = await supabase.from("query_log").insert({
 		session_id,
 		user_id,
 		original_query: query,
@@ -177,6 +189,8 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 		latency_ms,
 		langsmith_run_id,
 	})
+
+	if (error) console.error(`[query_log] turno não registrado (sessão ${session_id}): ${error.message}`)
 }
 
 // ─── Rotas ────────────────────────────────────────────────────────────────────
@@ -342,13 +356,35 @@ const app = new Hono<{ Variables: AppVariables }>()
 		}
 
 		const state = await graph.getState({ configurable: { thread_id: session_id } })
+		// O checkpointer guarda o texto das mensagens, mas não o que foi citado — isso vive
+		// em `query_log`, uma linha por pergunta. Sem esta junção, reabrir uma conversa
+		// devolvia as respostas sem nenhuma referência, e o painel de fontes ficava vazio
+		// para tudo que não fosse o turno recém-respondido.
+		const { data: logRows } = await supabase
+			.from("query_log")
+			.select("cited_documents, created_at")
+			.eq("session_id", session_id)
+			.order("created_at", { ascending: true })
+
 		// `messageText` e não `m.content`: mensagem do assistente restaurada do checkpointer
 		// pode trazer o conteúdo como ARRAY de blocos do Bedrock, e devolvê-lo cru faz o
 		// histórico chegar ao portal como "[object Object]".
-		const messages = (state.values?.messages ?? []).map((m: any) => ({
-			role: m.type ?? "unknown",
-			content: messageText(m.content),
-		}))
+		const raw = (state.values?.messages ?? []) as Array<{ type?: string; content?: unknown }>
+		const answerCount = raw.filter((m) => m.type === "ai").length
+
+		// O pareamento é POSICIONAL, e só vale se as contagens baterem exatamente. Um turno
+		// cujo `query_log` não foi gravado — SSE cortado, timeout depois do checkpoint —
+		// deslocaria todas as respostas seguintes para os trechos de OUTRA pergunta: texto
+		// real da norma sob uma resposta que ele não embasou. Na dúvida, nenhuma citação:
+		// citação errada é pior que citação ausente.
+		const alignable = (logRows ?? []).length === answerCount
+
+		let answerIndex = 0
+		const messages = raw.map((m) => {
+			const role = m.type ?? "unknown"
+			const cited = role === "ai" && alignable ? ((logRows ?? [])[answerIndex++]?.cited_documents ?? []) : []
+			return { role, content: messageText(m.content), cited_documents: cited as string[] }
+		})
 		return c.json<MessagesListResponse>({
 			session_id,
 			messages,
