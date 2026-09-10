@@ -27,8 +27,30 @@ const CHUNK_OVERLAP_CHARS = 200
 /** Comentário HTML não é norma: é metadado de quem gerou o arquivo. */
 const HTML_COMMENT = /<!--[\s\S]*?-->/g
 
+/** Delimitador de comentário que sobra quando o par não fecha na mesma altura. */
+const ORPHAN_DELIMITER = /<!--|-->/g
+
+/**
+ * Remove comentários HTML e os delimitadores que sobrarem.
+ *
+ * Uma passada só não basta, e repetir também não: em `<!--<!--x-->-->` a captura não-gulosa
+ * consome do primeiro `<!--` até o primeiro `-->`, e o `-->` final fica órfão — não há mais
+ * `<!--` para casar com ele, então repetir o replace não muda nada. Aqui isso é resíduo no
+ * texto que vai para o embedding, não brecha; mas o resíduo entra no chunk e aparece na
+ * citação, então os delimitadores soltos saem depois da varredura.
+ */
+function stripHtmlComments(text: string): string {
+	let current = text
+	for (;;) {
+		const next = current.replace(HTML_COMMENT, "")
+		if (next === current) break
+		current = next
+	}
+	return current.replace(ORPHAN_DELIMITER, "")
+}
+
 export function chunkByArticle(rawContent: string): Chunk[] {
-	const content = rawContent.replace(HTML_COMMENT, "")
+	const content = stripHtmlComments(rawContent)
 	const chunks: Chunk[] = []
 	let currentChapter = ""
 	let currentArticle = ""

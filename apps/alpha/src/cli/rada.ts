@@ -46,6 +46,33 @@ const ARCHIVE = expandHome(process.env.RADA_ARCHIVE_DIR ?? join(homedir(), "rada
 const KNOWLEDGE = new URL("../../knowledge/", import.meta.url).pathname
 const REQUEST_TIMEOUT_MS = 120_000
 
+/**
+ * Teto por arquivo. O maior módulo do RADA-e tem ~2 MB; 64 MB dá folga larga e ainda
+ * impede que uma resposta inesperada — página de erro gigante, redirecionamento para um
+ * arquivo alheio — encha o disco de quem coleta.
+ */
+const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
+/** Um PDF começa por `%PDF-`. Servidor de intranet responde 200 com página de erro. */
+function isPdf(bytes: Uint8Array): boolean {
+	return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-"
+}
+
+/**
+ * Corpo da resposta, recusando o que for grande demais.
+ *
+ * `Content-Length` é dica, não garantia: quem serve pode mentir ou omitir. Por isso o
+ * tamanho é conferido depois de ler, contra o que realmente chegou.
+ */
+async function downloadBody(response: Response, label: string): Promise<Uint8Array> {
+	const declared = Number(response.headers.get("content-length")) || 0
+	if (declared > MAX_DOWNLOAD_BYTES) throw new Error(`${label}: ${declared} bytes declarados, acima do teto de ${MAX_DOWNLOAD_BYTES}`)
+
+	const bytes = new Uint8Array(await response.arrayBuffer())
+	if (bytes.byteLength > MAX_DOWNLOAD_BYTES) throw new Error(`${label}: ${bytes.byteLength} bytes recebidos, acima do teto`)
+	return bytes
+}
+
 /** Uma entrada do acervo: o PDF no disco e de onde ele veio. */
 interface CatalogEntry {
 	letter: string
@@ -308,7 +335,14 @@ async function fetchFromIntranet(apply: boolean, insecureTls: boolean): Promise<
 			continue
 		}
 
-		const bytes = new Uint8Array(await response.arrayBuffer())
+		const bytes = await downloadBody(response, `${module.letter} ${module.title}`)
+		if (!isPdf(bytes)) {
+			// HEAD disse `application/pdf` e o GET trouxe outra coisa: página de erro,
+			// login, redirecionamento. Gravar isso corromperia o acervo em silêncio.
+			attention.push(`${module.letter} — resposta não é PDF apesar do content-type`)
+			pendingRows.push(["pdf", module.letter, module.title, module.url])
+			continue
+		}
 		const sha256 = createHash("sha256").update(bytes).digest("hex")
 		const current = await readFile(archivePath("pdf", file)).catch(() => null)
 		if (current && createHash("sha256").update(current).digest("hex") === sha256) {
@@ -374,10 +408,9 @@ async function fetchPending(insecureTls: boolean): Promise<void> {
 			})
 			if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
-			const bytes = new Uint8Array(await response.arrayBuffer())
-			// Servidor de intranet responde 200 com página de erro. Um PDF começa por
-			// `%PDF-`; sem esta conferência a pendência sairia da lista sem ter sido baixada.
-			if (dir === "pdf" && new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("resposta não é PDF")
+			const bytes = await downloadBody(response, `${origin} ${label}`)
+			// Sem esta conferência a pendência sairia da lista sem ter sido baixada.
+			if (dir === "pdf" && !isPdf(bytes)) throw new Error("resposta não é PDF")
 
 			await mkdir(join(ARCHIVE, dir), { recursive: true })
 			await writeFile(archivePath(dir, file), bytes)
