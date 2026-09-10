@@ -14,7 +14,9 @@
  */
 
 import { createServerFn } from "@tanstack/react-start"
-import { requireUser } from "#/lib/auth.server"
+import { z } from "zod"
+import { requireUser, requireUserId } from "#/lib/auth.server"
+import { fetchMilitaryIdentity } from "#/lib/military.server"
 import { getCoreClient } from "#/lib/supabase.server"
 
 /**
@@ -44,3 +46,77 @@ export const syncSucontIdentityFn = createServerFn({ method: "POST" }).handler(a
 	if (error.code === "23505") return { ok: false }
 	throw new Error(error.message)
 })
+
+/**
+ * SARAM vinculado à conta e a identificação militar que ele resolve.
+ *
+ * `nrOrdem` é o que a conta declarou; `posto`/`nomeGuerra` são o que o cadastro de
+ * pessoal responde sobre ele. Os dois viajam separados porque a segunda pode faltar
+ * (SARAM digitado errado, ou pessoa ausente do espelho) sem que a primeira falte.
+ */
+export type SucontIdentity = {
+	nrOrdem: string | null
+	posto: string | null
+	nomeGuerra: string | null
+}
+
+const EMPTY_IDENTITY: SucontIdentity = { nrOrdem: null, posto: null, nomeGuerra: null }
+
+/**
+ * Identidade do PRÓPRIO usuário. Sem argumento: o `id` vem do JWT — receber um
+ * `userId` do cliente aqui devolveria o SARAM de qualquer conta (IDOR), e SARAM é
+ * dado pessoal.
+ *
+ * É o que decide se o diálogo de primeiro acesso aparece: `nrOrdem: null` significa
+ * "ainda não informou".
+ */
+export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async (): Promise<SucontIdentity> => {
+	const userId = await requireUserId()
+
+	const { data, error } = await getCoreClient().from("user_data").select("nrOrdem").eq("id", userId).maybeSingle()
+	if (error) throw new Error(error.message)
+
+	const nrOrdem = data?.nrOrdem?.trim() || null
+	if (!nrOrdem) return EMPTY_IDENTITY
+
+	const military = await fetchMilitaryIdentity(nrOrdem)
+	return { nrOrdem, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+})
+
+/**
+ * Vincula um SARAM à PRÓPRIA conta. O número vem do formulário (é input legítimo do
+ * usuário); `id` e `email`, da sessão.
+ *
+ * O SARAM NÃO é validado contra o cadastro de pessoal antes de gravar, de propósito:
+ * o espelho de `core.user_military_data` é uma cópia com data, e recusar quem não
+ * está nela trancaria fora do hub exatamente quem chegou depois da última carga. O
+ * que a gravação devolve é a identificação resolvida — `null` ali é o sinal de que o
+ * número não bate com ninguém, e a tela diz isso em vez de fingir sucesso completo.
+ */
+export const saveMyNrOrdemFn = createServerFn({ method: "POST" })
+	.validator(z.object({ nrOrdem: z.string().regex(/^\d{6,7}$/, "O SARAM tem 6 ou 7 dígitos.") }))
+	.handler(async ({ data }): Promise<SucontIdentity> => {
+		const user = await requireUser()
+		const { nrOrdem } = data
+		const email = user.email?.trim()
+		const core = getCoreClient()
+
+		// A linha já existe em quase todo caso — `syncSucontIdentityFn` a grava no
+		// login. Sem e-mail na conta não há como inserir (`core.user_data.email` é
+		// NOT NULL), então resta atualizar a linha que porventura exista.
+		const { error } = email
+			? await core.from("user_data").upsert({ id: user.id, email, nrOrdem }, { onConflict: "id" })
+			: await core.from("user_data").update({ nrOrdem }).eq("id", user.id)
+
+		if (error) {
+			// 23505 aqui é colisão do índice único de EMAIL: outra linha, de outro `id`,
+			// já detém este endereço. Reivindicá-lo apagaria o cadastro de outra pessoa
+			// (o sisub faz isso deliberadamente; aqui não). O usuário não resolve isso
+			// sozinho, então a mensagem manda para quem resolve.
+			if (error.code === "23505") throw new Error("Seu e-mail já está registrado em outra conta do ERP. Procure o administrador do SUCONT.")
+			throw new Error(error.message)
+		}
+
+		const military = await fetchMilitaryIdentity(nrOrdem)
+		return { nrOrdem, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null }
+	})

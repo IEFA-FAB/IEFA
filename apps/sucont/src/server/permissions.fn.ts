@@ -15,6 +15,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
+import { describePerson } from "#/lib/identity"
+import { fetchMilitaryIdentities } from "#/lib/military.server"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
 
 const MODULE = "sucont" as const
@@ -33,15 +35,28 @@ export const fetchMySucontPermissionsFn = createServerFn({ method: "GET" }).hand
 	return resolveModulePermissions(userId, getAccessControlClient(), MODULE)
 })
 
-export type SucontUserSearchResult = { id: string; email: string }
+export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
 
-/** Busca usuários por e-mail (para conceder acesso). Só admin do sucont. */
+/**
+ * Busca usuários por e-mail (para conceder acesso). Só admin do sucont.
+ *
+ * O resultado sai identificado como a lista de acessos: dois endereços parecidos
+ * (`lsantosnels@` e `larissalsb@`) são fáceis de trocar, e conceder nível 3 à pessoa
+ * errada é o erro que esta tela existe para não cometer.
+ */
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.validator(z.object({ email: z.string().min(1) }))
 	.handler(async ({ data }): Promise<SucontUserSearchResult[]> => {
 		await requireSucontAdmin()
-		// O sucont não usa nrOrdem — descarta o campo do helper compartilhado.
-		return (await searchUsersByEmail(getCoreClient(), data.email)).map(({ id, email }) => ({ id, email }))
+		const rows = await searchUsersByEmail(getCoreClient(), data.email)
+		const military = await fetchMilitaryIdentities(rows.map((r) => r.nrOrdem ?? ""))
+		return rows.map(({ id, email, nrOrdem }) => ({
+			id,
+			email,
+			nrOrdem,
+			posto: (nrOrdem && military.get(nrOrdem)?.posto) || null,
+			nomeGuerra: (nrOrdem && military.get(nrOrdem)?.nomeGuerra) || null,
+		}))
 	})
 
 /**
@@ -87,7 +102,12 @@ function assertNotSelf(actorId: string, targetId: string): void {
 
 export type SucontGrant = {
 	userId: string
+	/** E-mail institucional. Vazio só quando a conta não tem e-mail no GoTrue. */
 	email: string
+	/** SARAM vinculado à conta, e a identificação militar que ele resolve. */
+	nrOrdem: string | null
+	posto: string | null
+	nomeGuerra: string | null
 	level: number
 	/** ISO 8601, ou `null` para grant sem prazo. Vencido é AUSÊNCIA de acesso, não deny. */
 	expiresAt: string | null
@@ -118,6 +138,16 @@ export type SucontGrant = {
  * Consultas planas em vez de embed: `user_permissions` e `user_data` moram em
  * schemas diferentes (`access_control` e `core`), cada um com o seu client, e o
  * PostgREST não atravessa schema no `select` aninhado.
+ *
+ * Cada linha sai IDENTIFICADA — nunca um UUID cru. O `core.user_data` é o cadastro
+ * do ERP e a linha só nasce no login, então quem recebeu grant e ainda não entrou
+ * simplesmente não estava lá: a tela mostrava três UUIDs e um e-mail, e o
+ * administrador não tinha como saber de quem eram os acessos que ele administra.
+ * Duas emendas, nesta ordem:
+ *   - falta de linha em `core.user_data` cai no GoTrue (`auth.admin.getUserById`),
+ *     que é onde a conta existe desde o convite;
+ *   - havendo SARAM vinculado, `core.user_military_data` responde posto e nome de
+ *     guerra, que é como a pessoa é conhecida na OM.
  */
 export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(async (): Promise<SucontGrant[]> => {
 	await requireSucontAdmin()
@@ -127,18 +157,69 @@ export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(asyn
 	const all = [...inline, ...byPolicy]
 	if (all.length === 0) return []
 
-	const { data: users, error: usersError } = await getCoreClient()
-		.from("user_data")
-		.select("id, email")
-		.in("id", [...new Set(all.map((g) => g.userId))])
+	const userIds = [...new Set(all.map((g) => g.userId))]
+	const core = getCoreClient()
+
+	const { data: users, error: usersError } = await core.from("user_data").select("id, email, nrOrdem").in("id", userIds)
 	if (usersError) throw new Error(usersError.message)
 
-	const emailById = new Map((users ?? []).map((u: { id: string; email: string | null }) => [u.id, u.email ?? ""]))
+	const rowById = new Map(
+		((users ?? []) as Array<{ id: string; email: string | null; nrOrdem: string | null }>).map((u) => [u.id, { email: u.email ?? "", nrOrdem: u.nrOrdem }])
+	)
 
-	return all.map((g) => ({ ...g, email: emailById.get(g.userId) ?? "" })).sort((a, b) => b.level - a.level || a.email.localeCompare(b.email, "pt-BR"))
+	const [emailFallback, military] = await Promise.all([
+		fetchEmailsFromAuth(
+			core,
+			userIds.filter((id) => !rowById.get(id)?.email)
+		),
+		fetchMilitaryIdentities(userIds.map((id) => rowById.get(id)?.nrOrdem ?? "")),
+	])
+
+	const identified = all.map((g): SucontGrant => {
+		const row = rowById.get(g.userId)
+		const nrOrdem = row?.nrOrdem?.trim() || null
+		const person = nrOrdem ? military.get(nrOrdem) : undefined
+		return {
+			...g,
+			email: row?.email || emailFallback.get(g.userId) || "",
+			nrOrdem,
+			posto: person?.posto ?? null,
+			nomeGuerra: person?.nomeGuerra ?? null,
+		}
+	})
+
+	// Nível primeiro (administrador no topo é o que se confere), depois o rótulo que
+	// a tela de fato mostra — ordenar por e-mail deixaria a lista visualmente
+	// desordenada assim que os nomes de guerra aparecessem.
+	return identified.sort((a, b) => b.level - a.level || describePerson(a).primary.localeCompare(describePerson(b).primary, "pt-BR"))
 })
 
-type PartialGrant = Omit<SucontGrant, "email">
+/**
+ * E-mails lidos direto do GoTrue, para os `userId` sem e-mail no cadastro do ERP.
+ *
+ * `auth.users` não é alcançável pelo PostgREST — o schema não é exposto —, então a
+ * leitura passa pela API de administração, que a chave service-role destrava. É
+ * LEITURA: gravar a linha de `core.user_data` de outra pessoa a partir daqui seria
+ * escrever cadastro alheio, e é justamente o que `getCoreClient` proíbe.
+ *
+ * Uma chamada por usuário faltante, e só faltam os que nunca entraram — a
+ * alternativa (`listUsers`, paginada sobre a base inteira) custaria mais para
+ * responder a mesma pergunta. Conta apagada no GoTrue volta vazia e o rótulo cai
+ * para o `userId`, que é o que sobra para identificá-la.
+ */
+async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly string[]): Promise<Map<string, string>> {
+	if (userIds.length === 0) return new Map()
+
+	const resolved = await Promise.all(
+		userIds.map(async (id) => {
+			const { data, error } = await core.auth.admin.getUserById(id)
+			return [id, error ? "" : (data.user?.email ?? "")] as const
+		})
+	)
+	return new Map(resolved.filter(([, email]) => email !== ""))
+}
+
+type PartialGrant = Omit<SucontGrant, "email" | "nrOrdem" | "posto" | "nomeGuerra">
 
 /** Grants gravados direto na linha do usuário. */
 async function fetchInlineGrants(accessControl: AnySupabaseClient): Promise<PartialGrant[]> {

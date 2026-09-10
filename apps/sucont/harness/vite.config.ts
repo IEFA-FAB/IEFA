@@ -35,6 +35,7 @@ export default defineConfig({
 			{ find: /^#\/server\/auth\.fn$/, replacement: resolve(__dirname, "./stubs/auth.fn.ts") },
 			{ find: /^#\/server\/legal\.fn$/, replacement: resolve(__dirname, "./stubs/legal.fn.ts") },
 			{ find: /^#\/server\/permissions\.fn$/, replacement: resolve(__dirname, "./stubs/permissions.fn.ts") },
+			{ find: /^#\/server\/user\.fn$/, replacement: resolve(__dirname, "./stubs/user.fn.ts") },
 			{ find: /^#\//, replacement: `${resolve(__dirname, "../src")}/` },
 		],
 	},

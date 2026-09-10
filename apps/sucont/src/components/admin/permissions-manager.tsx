@@ -11,6 +11,7 @@ import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Skeleton } from "#/components/ui/skeleton"
 import { toast } from "#/components/ui/toast"
+import { describePerson } from "#/lib/identity"
 import { grantSucontPermissionFn, revokeSucontPermissionFn, type SucontGrant, type SucontUserSearchResult, searchUsersByEmailFn } from "#/server/permissions.fn"
 
 /**
@@ -135,12 +136,14 @@ function GrantsList({
 				const isSelf = grant.userId === currentUserId
 				const isExpired = grant.expiresAt !== null && new Date(grant.expiresAt).getTime() <= Date.now()
 				const byPolicy = grant.source === "policy"
+				const { primary, secondary } = describePerson(grant)
 				return (
 					<li key={`${grant.source}:${grant.userId}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 						<div className="flex min-w-0 flex-col">
-							{/* Sem linha em `core.user_data` não há e-mail para mostrar. O id é feio,
-							    mas identifica; "—" faria a linha parecer corrompida. */}
-							<span className="truncate text-body text-foreground">{grant.email || grant.userId}</span>
+							{/* Posto + nome de guerra quando o SARAM está vinculado, e-mail quando
+							    não — o servidor já escolheu, aqui só se pinta. */}
+							<span className="truncate text-body text-foreground">{primary}</span>
+							{secondary && <span className="truncate text-hint text-muted-foreground">{secondary}</span>}
 							{isSelf && <span className="text-hint text-muted-foreground">Você</span>}
 							{byPolicy && <span className="truncate text-hint text-muted-foreground">Pela política “{grant.policyName}”</span>}
 						</div>
@@ -173,6 +176,30 @@ function GrantsList({
 				)
 			})}
 		</ul>
+	)
+}
+
+/**
+ * Rótulo de uma pessoa nos resultados da busca — o mesmo par (identificação
+ * militar, e-mail) que a lista de acessos mostra. Conceder nível a quem tem o
+ * e-mail parecido com o de outra pessoa é o erro que esta tela existe para não
+ * cometer, e um endereço sozinho não desfaz a ambiguidade.
+ */
+function PersonLabel({
+	person,
+	primaryClassName = "truncate",
+	secondaryClassName = "truncate text-hint text-muted-foreground",
+}: {
+	person: SucontUserSearchResult
+	primaryClassName?: string
+	secondaryClassName?: string
+}) {
+	const { primary, secondary } = describePerson({ ...person, userId: person.id })
+	return (
+		<span className="flex min-w-0 flex-col">
+			<span className={primaryClassName}>{primary}</span>
+			{secondary && <span className={secondaryClassName}>{secondary}</span>}
+		</span>
 	)
 }
 
@@ -250,7 +277,7 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 										selected?.id === user.id ? "bg-muted" : ""
 									}`}
 								>
-									<span className="truncate">{user.email}</span>
+									<PersonLabel person={user} />
 								</button>
 							</li>
 						))}
@@ -260,7 +287,7 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 				{selected && (
 					<div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/30 p-4">
 						<div className="flex flex-col gap-1">
-							<span className="text-subheading text-foreground">{selected.email}</span>
+							<PersonLabel person={selected} primaryClassName="text-subheading text-foreground" secondaryClassName="text-caption text-muted-foreground" />
 							{isSelf && <span className="text-hint text-warning">Este é o seu próprio acesso — outro administrador precisa alterá-lo.</span>}
 						</div>
 

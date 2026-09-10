@@ -8,6 +8,7 @@ import { authActions, authQueryOptions } from "#/auth/service"
 import { IconRenderer } from "#/components/icon-renderer"
 import { LegalNotice } from "#/components/LegalNotice"
 import { ModuleSwitcher } from "#/components/module-switcher"
+import { SaramDialog } from "#/components/saram-dialog"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Separator } from "#/components/ui/separator"
@@ -151,6 +152,7 @@ export function HubLayout({ children, title, description, searchable = false, ac
 			</SidebarInset>
 
 			<LegalNotice />
+			<SaramDialog />
 		</SidebarProvider>
 	)
 }
