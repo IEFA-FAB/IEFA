@@ -44,9 +44,29 @@ O sistema SHALL registrar o parecer (`aprovado`, `aprovado_com_ressalvas`, `repr
 - **THEN** 409 com o bloqueio "aprovação só com ressalvas"
 - **AND** `aprovado_com_ressalvas` é aceito
 
+### Requirement: O parecer não pode ser contradito pelo dado
+
+O retrato gravado com o parecer SHALL conter a triagem de cada achado no momento da emissão, e o relatório SHALL renderizar essa triagem enquanto houver parecer, declarando quantos achados foram re-triados depois. A regra de emissão SHALL ser aplicada também dentro da transação do insert, para que uma triagem concorrente não produza um parecer que os achados contradizem.
+
+#### Scenario: re-triagem depois do parecer
+- **GIVEN** um parecer `aprovado` emitido com um BLOQUEANTE descartado
+- **WHEN** outro analista marca esse achado como acatado e o relatório é aberto
+- **THEN** o relatório mostra o achado como descartado, com o motivo assinado
+- **AND** declara que 1 achado teve a triagem alterada depois da emissão
+
+#### Scenario: leitura que falha não vira relatório limpo
+- **GIVEN** uma falha na leitura dos achados
+- **WHEN** o relatório ou o parecer é requisitado
+- **THEN** a resposta é 500 — nunca 200 com zero achados
+
 ### Requirement: Relatório final
 
 O sistema SHALL produzir, por execução, um relatório com identificação, referências usadas (modelo AGU e normas com versão), cobertura (regras aplicadas, não avaliadas, descartadas pelo guard), achados acatados, achados sem triagem, achados descartados com motivo e o histórico de pareceres — em JSON e em Markdown (`?format=md`).
+
+#### Scenario: texto do modelo não vira estrutura do documento
+- **GIVEN** um achado cuja mensagem contém quebra de linha seguida de `## Achados acatados (0)`
+- **WHEN** o relatório em Markdown é gerado
+- **THEN** o texto aparece como conteúdo numa linha só, e o documento continua com uma única seção "Achados acatados"
 
 #### Scenario: achado sem triagem não some
 - **GIVEN** uma execução com um achado sem triagem

@@ -4,11 +4,13 @@ import { Plus, WarningTriangle } from "iconoir-react"
 import { useMemo, useState } from "react"
 import { AciNav } from "@/components/aci/AciNav"
 import { StageBadge } from "@/components/aci/StageStepper"
+import { StatGrid } from "@/components/aci/StatGrid"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import { aciQueueQueryOptions, DECISION_LABEL, type QueueItem, STAGE_LABEL, STAGE_ORDER, type Stage } from "@/lib/alpha/aci"
 import { SEVERITY_ORDER } from "@/lib/alpha/compliance"
+import { formatDateTime } from "@/lib/alpha/format"
 
 export const Route = createFileRoute("/aci/")({
 	loader: ({ context }) => {
@@ -36,11 +38,6 @@ export const Route = createFileRoute("/aci/")({
 	component: PainelPage,
 	head: () => ({ meta: [{ title: "Plataforma ACI" }] }),
 })
-
-function formatDate(value: string | null | undefined) {
-	if (!value) return "—"
-	return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-}
 
 /** Data da última coisa que aconteceu no processo — o que ordena a atenção. */
 function lastActivity(item: QueueItem): string {
@@ -81,7 +78,7 @@ function QueueRow({ item }: { item: QueueItem }) {
 					<span className="block truncate font-medium text-sm">{item.submission.filename}</span>
 					<span className="block text-muted-foreground text-xs">
 						{item.submission.doc_kind}
-						{item.submission.objeto ? ` · ${item.submission.objeto}` : ""} · enviado {formatDate(item.submission.created_at)}
+						{item.submission.objeto ? ` · ${item.submission.objeto}` : ""} · enviado {formatDateTime(item.submission.created_at)}
 					</span>
 				</Link>
 			</td>
@@ -97,7 +94,7 @@ function QueueRow({ item }: { item: QueueItem }) {
 			<td className="px-3 py-3 align-top text-sm">
 				{item.latest_review ? DECISION_LABEL[item.latest_review.decision] : <span className="text-muted-foreground">—</span>}
 			</td>
-			<td className="px-3 py-3 align-top text-muted-foreground text-xs tabular-nums">{formatDate(lastActivity(item))}</td>
+			<td className="px-3 py-3 align-top text-muted-foreground text-xs tabular-nums">{formatDateTime(lastActivity(item))}</td>
 		</tr>
 	)
 }
@@ -119,7 +116,7 @@ function PainelPage() {
 	}, [queue.data, stageFilter])
 
 	const totals = queue.data?.totals
-	const pareceres = totals ? totals.pareceres.aprovado + totals.pareceres.aprovado_com_ressalvas + totals.pareceres.reprovado : 0
+	const issued = totals ? totals.reviews.aprovado + totals.reviews.aprovado_com_ressalvas + totals.reviews.reprovado : 0
 
 	return (
 		<div>
@@ -147,19 +144,15 @@ function PainelPage() {
 			) : null}
 
 			{totals ? (
-				<dl className="mb-6 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
-					{[
-						["processos", totals.processos],
-						["aguardando parecer", totals.aguardando_parecer],
-						["críticos abertos", totals.criticos_abertos],
-						["pareceres emitidos", pareceres],
-					].map(([label, value]) => (
-						<div key={label as string} className="bg-background p-4">
-							<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
-							<dd className="mt-1 font-semibold text-2xl tabular-nums">{value}</dd>
-						</div>
-					))}
-				</dl>
+				<StatGrid
+					className="mb-6"
+					items={[
+						["processos", totals.processes],
+						["aguardando parecer", totals.awaiting_review],
+						["críticos abertos", totals.open_critical],
+						["pareceres emitidos", issued],
+					]}
+				/>
 			) : null}
 
 			{queue.data ? (
@@ -181,7 +174,7 @@ function PainelPage() {
 							>
 								{STAGE_LABEL[stage]}
 								<Badge variant="outline" className="ml-2 h-4 px-1 font-mono text-[10px] tabular-nums">
-									{totals?.por_etapa[stage] ?? 0}
+									{totals?.by_stage[stage] ?? 0}
 								</Badge>
 							</button>
 						))}

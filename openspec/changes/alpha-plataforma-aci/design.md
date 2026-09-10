@@ -4,13 +4,17 @@ O α já tem submissão → extração → execução de conformidade, com autor
 
 ## Decisões
 
-### D1 — Etapa derivada, não gravada
+### D1 — Etapa derivada, não gravada; agregação no banco
 
-A etapa do processo (`enviado` → `extraido` → `verificado` → `parecer`) é calculada em `aci/queue.ts` a partir do que existe: extração mais recente, execução mais recente e parecer sobre ela. Gravar um `status` na submissão criaria um segundo lugar para a mesma verdade e desincronizaria na primeira reexecução. Consequências deliberadas: execução `failed`/`running` não conta como verificado; parecer sobre execução antiga é histórico (reexecutar volta para `verificado`).
+A etapa do processo (`enviado` → `extraido` → `verificado` → `parecer`) é calculada por `deriveStage` em `aci/queue.ts` a partir do que existe: extração mais recente, execução mais recente e parecer sobre ela. Gravar um `status` na submissão criaria um segundo lugar para a mesma verdade e desincronizaria na primeira reexecução. Consequências deliberadas: execução `failed`/`running` não conta como verificado; parecer sobre execução antiga é histórico (reexecutar volta para `verificado`).
 
-### D2 — Triagem no achado, parecer em linha nova
+**A leitura, porém, é do banco.** A primeira versão fazia cinco `select` com `in (...)` e juntava em memória: transferia todos os achados de todas as execuções e esbarrava no teto de 1000 linhas do PostgREST **sem erro** — a fila mostrava processo com BLOQUEANTE aberto como limpo. A RPC `alpha.aci_queue` devolve uma linha por submissão (`distinct on` para os mais recentes, `count(*) group by` para os achados), e `deriveStage` continua puro, alimentado por uma linha. O portal também não recalcula a etapa: `GET /aci/processes/:id` já devolve `stage`.
 
-Triagem é uma decisão por achado e revisável: mora no próprio `compliance_finding`, com quem e quando. Parecer é peça do processo: `compliance_review` é append-only e grava um `snapshot` dos achados no momento da emissão (acatados por severidade, descartados, sem triagem), para que reabrir um parecer não dependa do estado atual da triagem. Mesmo princípio da versão de documento legal no `legal-kit`: nunca `UPDATE` no que já foi assinado.
+### D2 — Triagem no achado, parecer em linha nova, retrato por achado
+
+Triagem é uma decisão por achado e revisável: mora no próprio `compliance_finding`, com quem e quando. Parecer é peça do processo: `compliance_review` é append-only. Mesmo princípio da versão de documento legal no `legal-kit`: nunca `UPDATE` no que já foi assinado.
+
+O `snapshot` guarda **a triagem de cada achado** (`id`, severidade, triagem, motivo), e não só contagens. Só com contagens o parecer não se sustentava: qualquer `app_aci` pode re-triar um achado depois da emissão, e o relatório passaria a mostrar um BLOQUEANTE acatado sob um "Aprovado" — combinação que a própria regra proíbe. `resolveFindings` renderiza a triagem assinada e declara quantos achados mudaram desde então; a triagem atual continua editável, porque o processo segue vivo.
 
 ### D3 — Regra de emissão pura e conservadora
 
@@ -21,7 +25,9 @@ Triagem é uma decisão por achado e revisável: mora no próprio `compliance_fi
 - bloqueante acatado só cabe em reprovação;
 - grave acatado desce a aprovação para "com ressalvas".
 
-A rota devolve 409 com `message` legível (o portal exibe `message ?? code`) e a lista de bloqueios. A tela mostra os mesmos contadores antes do clique, mas a regra vive só no α.
+A rota devolve 409 com `message` legível (o portal exibe `message ?? code`) e a lista de bloqueios. A tela **não** recalcula: `GET /compliance/runs/:id/reviews` devolve `current.blockers` por decisão, vindo da mesma função, e o botão de emitir fica desabilitado com o motivo à vista.
+
+Checar antes de gravar é duas requisições, e entre elas cabe uma triagem de outro analista. Por isso a mesma regra vive também no trigger `alpha.compliance_review_guard`, que roda `before insert` com `select ... for update` na execução: as emissões se serializam e o 23514 vira o mesmo 409. A versão em TypeScript existe para a mensagem boa; a do banco, para o invariante.
 
 ### D4 — Relatório final renderizado em Markdown no α
 

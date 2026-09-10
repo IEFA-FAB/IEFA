@@ -17,6 +17,7 @@ import { supabase } from "../db/supabase.ts"
 import type { AppRole } from "../middleware/auth.ts"
 import { requireRole } from "../middleware/auth.ts"
 import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission } from "./authorize.ts"
+import { FINDING_COLUMNS, RUN_COLUMNS } from "./columns.ts"
 
 type Variables = { user: User; role: AppRole }
 
@@ -65,23 +66,16 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
-		const { data: run, error } = await supabase
-			.from("compliance_run")
-			.select(
-				"id, submission_id, extraction_id, model_document_id, law_document_ids, status, rules_applied, rules_not_assessed, discarded_findings, started_at, finished_at"
-			)
-			.eq("id", id)
-			.maybeSingle()
+		const { data: run, error } = await supabase.from("compliance_run").select(RUN_COLUMNS).eq("id", id).maybeSingle()
 
 		if (error) return c.json({ error: "Internal Server Error", code: "RUN_LOOKUP_FAILED" }, 500)
 		if (!run) return c.json({ error: "Not Found", code: "RUN_NOT_FOUND" }, 404)
 
-		const { data: findings } = await supabase
-			.from("compliance_finding")
-			.select(
-				"id, rule_id, category, status, severity, section_path, message, legal_ref, suggestion, evidence_span, confidence, triage, triage_note, triaged_at"
-			)
-			.eq("run_id", id)
+		// `error` conferido: "zero achados" e "a consulta falhou" não podem ser a
+		// mesma resposta — foi assim que a triagem entrou nas colunas e um deploy
+		// antes da migration devolveria toda execução como limpa, com 200.
+		const { data: findings, error: findingsError } = await supabase.from("compliance_finding").select(FINDING_COLUMNS).eq("run_id", id)
+		if (findingsError) return c.json({ error: "Internal Server Error", code: "FINDINGS_FAILED" }, 500)
 
 		return c.json({ run, findings: findings ?? [], _links: { self: { href: `/api/v1/compliance/runs/${id}` } } })
 	})

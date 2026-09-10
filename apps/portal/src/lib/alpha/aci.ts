@@ -3,6 +3,10 @@
  *
  * Mesmo padrão das demais libs do α: `fetch` direto com o token da sessão a
  * cada chamada, porque o α valida o JWT por request e o token expira.
+ *
+ * O que é REGRA (em que etapa o processo está, se a decisão pode ser emitida)
+ * vem calculado do α. A tela renderiza — não redecide: uma cópia da regra aqui
+ * discordaria do 409 do servidor no primeiro ajuste que o α recebesse.
  */
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -10,9 +14,9 @@ import { useAuth } from "@/hooks/useAuth"
 import { ALPHA_BASE_URL, alphaRequest } from "./client"
 import type { ComplianceRun, Finding, Severity } from "./compliance"
 
-export type Stage = "enviado" | "extraido" | "verificado" | "parecer"
+export const STAGE_ORDER = ["enviado", "extraido", "verificado", "parecer"] as const
 
-export const STAGE_ORDER: readonly Stage[] = ["enviado", "extraido", "verificado", "parecer"]
+export type Stage = (typeof STAGE_ORDER)[number]
 
 export const STAGE_LABEL: Record<Stage, string> = {
 	enviado: "Enviado",
@@ -21,9 +25,9 @@ export const STAGE_LABEL: Record<Stage, string> = {
 	parecer: "Parecer emitido",
 }
 
-export type Decision = "aprovado" | "aprovado_com_ressalvas" | "reprovado"
+export const DECISIONS = ["aprovado", "aprovado_com_ressalvas", "reprovado"] as const
 
-export const DECISIONS: readonly Decision[] = ["aprovado", "aprovado_com_ressalvas", "reprovado"]
+export type Decision = (typeof DECISIONS)[number]
 
 export const DECISION_LABEL: Record<Decision, string> = {
 	aprovado: "Aprovado",
@@ -45,7 +49,6 @@ export interface QueueSubmission {
 
 export interface QueueRun {
 	id: string
-	submission_id: string
 	status: string
 	rules_applied: number
 	rules_not_assessed: number
@@ -54,29 +57,23 @@ export interface QueueRun {
 	finished_at: string | null
 }
 
-export interface QueueReview {
-	run_id: string
-	decision: Decision
-	created_at: string
-}
-
 export interface QueueItem {
 	submission: QueueSubmission
 	stage: Stage
-	latest_extraction: { id: string; submission_id: string; created_at: string } | null
+	latest_extraction: { id: string; created_at: string } | null
 	latest_run: QueueRun | null
 	severity_counts: Record<Severity, number>
 	open_critical: number
 	untriaged: number
-	latest_review: QueueReview | null
+	latest_review: { decision: Decision; created_at: string } | null
 }
 
 export interface QueueTotals {
-	processos: number
-	por_etapa: Record<Stage, number>
-	aguardando_parecer: number
-	criticos_abertos: number
-	pareceres: Record<Decision, number>
+	processes: number
+	by_stage: Record<Stage, number>
+	awaiting_review: number
+	open_critical: number
+	reviews: Record<Decision, number>
 }
 
 export interface Queue {
@@ -93,16 +90,33 @@ export interface Review {
 	created_at: string
 }
 
+/** Retrato dos achados — contagens; a lista por achado fica no α, para o relatório. */
+export interface ReviewSnapshot {
+	total: number
+	accepted: number
+	discarded: number
+	untriaged: number
+	accepted_by_severity: Record<Severity, number>
+	untriaged_by_severity: Record<Severity, number>
+}
+
+export interface ReviewsResponse {
+	run_id: string
+	reviews: Review[]
+	/** O que a emissão checaria agora: retrato atual e bloqueios por decisão. */
+	current: { snapshot: ReviewSnapshot; blockers: Record<Decision, string[]> }
+}
+
 export interface ExtractionSummary {
 	id: string
 	model: string
 	created_at: string
-	fields_total: number
-	fields_filled: number
 }
 
-export interface SubmissionDetail {
+export interface ProcessDetail {
 	submission: QueueSubmission & { mime_type: string }
+	/** Derivada no α pela mesma função da fila. */
+	stage: Stage
 	extractions: ExtractionSummary[]
 	runs: ComplianceRun[]
 	reviews: Review[]
@@ -123,6 +137,8 @@ export interface FinalReport {
 	law_documents: ReportDocument[]
 	findings: Finding[]
 	reviews: Review[]
+	/** Achados re-triados depois do parecer: o relatório mostra a triagem assinada. */
+	retriaged_after_review: number
 }
 
 export function aciQueueQueryOptions(token: string | undefined) {
@@ -133,10 +149,19 @@ export function aciQueueQueryOptions(token: string | undefined) {
 	})
 }
 
-export function submissionDetailQueryOptions(token: string | undefined, submissionId: string) {
+export function processDetailQueryOptions(token: string | undefined, submissionId: string) {
 	return queryOptions({
-		queryKey: ["alpha", "submissions", submissionId, "detail"],
-		queryFn: () => alphaRequest<SubmissionDetail>(`/api/v1/submissions/${submissionId}`, token),
+		queryKey: ["alpha", "aci", "process", submissionId],
+		queryFn: () => alphaRequest<ProcessDetail>(`/api/v1/aci/processes/${submissionId}`, token),
+		staleTime: 30_000,
+	})
+}
+
+export function reviewsQueryOptions(token: string | undefined, runId: string) {
+	return queryOptions({
+		queryKey: ["alpha", "compliance", runId, "reviews"],
+		queryFn: () => alphaRequest<ReviewsResponse>(`/api/v1/compliance/runs/${runId}/reviews`, token),
+		staleTime: 30_000,
 	})
 }
 
@@ -144,6 +169,9 @@ export function finalReportQueryOptions(token: string | undefined, runId: string
 	return queryOptions({
 		queryKey: ["alpha", "compliance", runId, "report"],
 		queryFn: () => alphaRequest<FinalReport>(`/api/v1/compliance/runs/${runId}/report`, token),
+		// O relatório junta seis leituras no α; ele só muda por triagem ou parecer,
+		// e as duas mutações já invalidam esta chave.
+		staleTime: 60_000,
 	})
 }
 
@@ -168,12 +196,6 @@ export async function downloadReportMarkdown(token: string | undefined, runId: s
 	URL.revokeObjectURL(url)
 }
 
-function invalidateProcess(queryClient: ReturnType<typeof useQueryClient>, runId: string, submissionId?: string) {
-	queryClient.invalidateQueries({ queryKey: ["alpha", "compliance", runId] })
-	queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"] })
-	if (submissionId) queryClient.invalidateQueries({ queryKey: ["alpha", "submissions", submissionId, "detail"] })
-}
-
 export function useTriageFinding() {
 	const { session } = useAuth()
 	const queryClient = useQueryClient()
@@ -184,7 +206,20 @@ export function useTriageFinding() {
 				method: "PATCH",
 				body: JSON.stringify({ triage, note }),
 			}),
-		onSuccess: (_result, { runId, submissionId }) => invalidateProcess(queryClient, runId, submissionId),
+		onSuccess: (updated, { runId, submissionId }) => {
+			// A resposta do PATCH já é o achado atualizado: escrever no cache evita
+			// refazer a leitura mais cara do α a cada clique de triagem.
+			queryClient.setQueryData<{ run: ComplianceRun; findings: Finding[] }>(["alpha", "compliance", runId], (current) =>
+				current ? { ...current, findings: current.findings.map((finding) => (finding.id === updated.id ? updated : finding)) } : current
+			)
+			// Os bloqueios do parecer dependem da triagem — esses precisam vir do α.
+			queryClient.invalidateQueries({ queryKey: ["alpha", "compliance", runId, "reviews"] })
+			queryClient.invalidateQueries({ queryKey: ["alpha", "compliance", runId, "report"], refetchType: "none" })
+			// Fila e processo: marcados como velhos, buscados na próxima visita. Não
+			// há tela deles montada durante a triagem.
+			queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"], refetchType: "none" })
+			if (submissionId) queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "process", submissionId], refetchType: "none" })
+		},
 	})
 }
 
@@ -198,9 +233,11 @@ export function useIssueReview() {
 				method: "POST",
 				body: JSON.stringify({ decision, notes }),
 			}),
-		onSuccess: (_result, { runId, submissionId }) => {
-			invalidateProcess(queryClient, runId, submissionId)
-			queryClient.invalidateQueries({ queryKey: ["alpha", "compliance", runId, "report"] })
+		onSuccess: (_review, { runId, submissionId }) => {
+			queryClient.invalidateQueries({ queryKey: ["alpha", "compliance", runId, "reviews"] })
+			queryClient.invalidateQueries({ queryKey: ["alpha", "compliance", runId, "report"], refetchType: "none" })
+			queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"], refetchType: "none" })
+			if (submissionId) queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "process", submissionId] })
 		},
 	})
 }

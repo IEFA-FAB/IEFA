@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"
 import { listChatSessions } from "@/lib/alpha/chat"
 import { saveSessionId } from "@/lib/alpha/chat-session"
+import { formatDateTime } from "@/lib/alpha/format"
 
 export const Route = createFileRoute("/aci/chats")({
 	component: ChatsPage,
@@ -42,10 +43,6 @@ const CHATS = [
 		status: "planejado",
 	},
 ] as const
-
-function formatDate(value: string) {
-	return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-}
 
 function ChatsPage() {
 	const { user, session } = useAuth()
@@ -126,7 +123,7 @@ function ChatsPage() {
 								>
 									<span className="min-w-0 truncate text-sm">{item.title}</span>
 									<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-										{item.messages} msg · {formatDate(item.last_message_at)}
+										{item.messages} msg · {formatDateTime(item.last_message_at)}
 									</span>
 								</button>
 							</li>

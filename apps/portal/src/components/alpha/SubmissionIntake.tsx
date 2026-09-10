@@ -31,10 +31,22 @@ export interface IntakeResult {
  * Formulário de envio + extração.
  *
  * Compartilhado entre o console (`/alpha/analise/nova`) e a plataforma
- * (`/aci/nova`): o que muda é o que cada tela faz com o resultado, não o
- * envio. `onExtracted` recebe a submissão e a extração recém-criadas.
+ * (`/aci/nova`): o que muda é o que cada tela faz com o resultado, não o envio.
+ *
+ * São dois avisos porque são dois fatos: `onSubmitted` dispara assim que o
+ * documento existe no α, e `onExtracted` só depois da extração. A extração
+ * falha de verdade (PDF sem texto, teto do modelo), e sem o primeiro aviso o
+ * processo recém-criado ficava invisível — a tela não tinha o id para levar o
+ * analista até ele, e reenviar o mesmo arquivo criava um processo duplicado
+ * parado em "enviado".
  */
-export function SubmissionIntakeForm({ onExtracted }: { onExtracted: (result: IntakeResult) => void }) {
+export function SubmissionIntakeForm({
+	onSubmitted,
+	onExtracted,
+}: {
+	onSubmitted?: (submissionId: string) => void
+	onExtracted: (result: IntakeResult) => void
+}) {
 	const queryClient = useQueryClient()
 	const fileRef = useRef<HTMLInputElement>(null)
 
@@ -50,9 +62,13 @@ export function SubmissionIntakeForm({ onExtracted }: { onExtracted: (result: In
 			if (!file) throw new Error("selecione um arquivo .docx ou .pdf")
 
 			const submission = await createSubmission.mutateAsync({ file, doc_kind: docKind, objeto: objeto ?? undefined })
-			const extraction = await runExtraction.mutateAsync(submission.id)
+			// O processo já existe: a fila precisa saber disso mesmo que a extração
+			// falhe logo abaixo.
 			queryClient.invalidateQueries({ queryKey: ["alpha", "submissions"] })
-			queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"] })
+			queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"], refetchType: "none" })
+			onSubmitted?.(submission.id)
+
+			const extraction = await runExtraction.mutateAsync(submission.id)
 			onExtracted({ submissionId: submission.id, extraction })
 		},
 	})

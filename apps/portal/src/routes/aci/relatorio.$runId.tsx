@@ -2,11 +2,13 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { Download, Printer, WarningTriangle } from "iconoir-react"
 import { AciNav } from "@/components/aci/AciNav"
+import { StatGrid } from "@/components/aci/StatGrid"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import { DECISION_LABEL, downloadReportMarkdown, type FinalReport, finalReportQueryOptions } from "@/lib/alpha/aci"
-import { type Finding, SEVERITY_ORDER } from "@/lib/alpha/compliance"
+import { compareSeverity, type Finding } from "@/lib/alpha/compliance"
+import { formatDateTime } from "@/lib/alpha/format"
 
 export const Route = createFileRoute("/aci/relatorio/$runId")({
 	loader: ({ context, params }) => {
@@ -23,11 +25,6 @@ export const Route = createFileRoute("/aci/relatorio/$runId")({
 	head: () => ({ meta: [{ title: "Relatório final · Plataforma ACI" }] }),
 })
 
-function formatDate(value: string | null | undefined) {
-	if (!value) return "—"
-	return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-}
-
 const CATEGORY_LABEL: Record<string, string> = {
 	ESTRUTURAL: "Estrutura",
 	CONTEUDO: "Conteúdo",
@@ -36,7 +33,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 function sortBySeverity(findings: Finding[]): Finding[] {
 	return [...findings].sort((left, right) => {
-		const bySeverity = SEVERITY_ORDER.indexOf(left.severity) - SEVERITY_ORDER.indexOf(right.severity)
+		const bySeverity = compareSeverity(left.severity, right.severity)
 		if (bySeverity !== 0) return bySeverity
 		return (left.section_path ?? "").localeCompare(right.section_path ?? "")
 	})
@@ -111,7 +108,7 @@ function ReportBody({ report }: { report: FinalReport }) {
 				{review ? (
 					<>
 						<Badge className="text-[10px] uppercase tracking-[0.1em]">{DECISION_LABEL[review.decision]}</Badge>
-						<span className="text-muted-foreground text-xs">{formatDate(review.created_at)}</span>
+						<span className="text-muted-foreground text-xs">{formatDateTime(review.created_at)}</span>
 					</>
 				) : (
 					<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
@@ -121,13 +118,20 @@ function ReportBody({ report }: { report: FinalReport }) {
 			</div>
 			{review?.notes ? <p className="mt-3 whitespace-pre-wrap text-sm">{review.notes}</p> : null}
 
+			{report.retriaged_after_review > 0 ? (
+				<p className="mt-4 border border-border bg-muted p-3 text-sm">
+					{report.retriaged_after_review} achado(s) tiveram a triagem alterada depois da emissão do parecer. Este relatório mostra a triagem no momento da
+					emissão.
+				</p>
+			) : null}
+
 			<dl className="mt-8 grid gap-px border border-border bg-border sm:grid-cols-2">
 				{[
 					["Documento", `${report.submission.filename} (${report.submission.doc_kind})`],
 					["Natureza do objeto", report.submission.objeto ?? "—"],
 					["Modalidade", report.submission.modalidade ?? "—"],
-					["Submetido em", formatDate(report.submission.created_at)],
-					["Execução", `${formatDate(report.run.started_at)} · ${report.run.id}`],
+					["Submetido em", formatDateTime(report.submission.created_at)],
+					["Execução", `${formatDateTime(report.run.started_at)} · ${report.run.id}`],
 					["Extração", report.extraction ? `${report.extraction.model} · ${report.extraction.id}` : "—"],
 				].map(([label, value]) => (
 					<div key={label} className="bg-card p-3">
@@ -159,19 +163,16 @@ function ReportBody({ report }: { report: FinalReport }) {
 
 			<section className="mt-8">
 				<h2 className="border-border border-b pb-2 font-semibold text-lg tracking-tight">Cobertura da análise</h2>
-				<dl className="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
-					{[
+				<StatGrid
+					className="mt-3"
+					tone="card"
+					items={[
 						["regras aplicadas", report.run.rules_applied],
 						["não avaliadas", report.run.rules_not_assessed],
 						["descartados pelo guard", report.run.discarded_findings],
 						["achados apresentados", sorted.length],
-					].map(([label, value]) => (
-						<div key={label as string} className="bg-card p-3">
-							<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
-							<dd className="mt-0.5 font-semibold text-xl tabular-nums">{value}</dd>
-						</div>
-					))}
-				</dl>
+					]}
+				/>
 			</section>
 
 			<FindingGroup title="Achados acatados" findings={accepted} empty="Nenhum achado acatado." />
@@ -184,7 +185,7 @@ function ReportBody({ report }: { report: FinalReport }) {
 					<ul className="mt-3 space-y-2 text-sm">
 						{report.reviews.map((item) => (
 							<li key={item.id}>
-								<span className="text-muted-foreground text-xs tabular-nums">{formatDate(item.created_at)}</span> — {DECISION_LABEL[item.decision]}
+								<span className="text-muted-foreground text-xs tabular-nums">{formatDateTime(item.created_at)}</span> — {DECISION_LABEL[item.decision]}
 								{item.notes ? <span className="text-muted-foreground">: {item.notes}</span> : null}
 							</li>
 						))}

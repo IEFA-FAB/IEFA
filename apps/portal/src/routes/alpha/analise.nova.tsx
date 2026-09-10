@@ -5,20 +5,24 @@ import { ExtractionFieldsView, type IntakeResult, SubmissionIntakeForm } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useRunCompliance } from "@/lib/alpha/compliance"
-import { CAMPO_LABELS } from "@/lib/alpha/submissions"
+import { CAMPO_LABELS, useRunExtraction } from "@/lib/alpha/submissions"
 
 export const Route = createFileRoute("/alpha/analise/nova")({
 	component: NovaAnalisePage,
 })
 
 function NovaAnalisePage() {
+	// O resultado é limpo assim que um envio novo começa: deixar a extração
+	// anterior na tela com o botão de verificar ativo faria o analista rodar a
+	// conformidade do documento errado.
 	const [result, setResult] = useState<IntakeResult | null>(null)
+	const [submissionId, setSubmissionId] = useState<string | null>(null)
 	const navigate = useNavigate()
 	const runCompliance = useRunCompliance()
+	const retryExtraction = useRunExtraction()
 
-	const extraction = result?.extraction ?? null
 	const total = Object.keys(CAMPO_LABELS).length
-	const preenchidos = extraction ? Object.values(extraction.payload).filter((value) => value !== null).length : 0
+	const filled = result ? Object.values(result.extraction.payload).filter((value) => value !== null).length : 0
 
 	return (
 		<div>
@@ -28,10 +32,31 @@ function NovaAnalisePage() {
 			/>
 
 			<div className="mb-8">
-				<SubmissionIntakeForm onExtracted={setResult} />
+				<SubmissionIntakeForm
+					onSubmitted={(id) => {
+						setResult(null)
+						setSubmissionId(id)
+					}}
+					onExtracted={setResult}
+				/>
+
+				{submissionId && !result ? (
+					<div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+						<span>O documento foi enviado, mas a extração não concluiu.</span>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={retryExtraction.isPending}
+							onClick={() => retryExtraction.mutate(submissionId, { onSuccess: (extraction) => setResult({ submissionId, extraction }) })}
+						>
+							{retryExtraction.isPending ? "extraindo…" : "tentar extrair de novo"}
+						</Button>
+						{retryExtraction.isError ? <span className="text-muted-foreground">{(retryExtraction.error as Error).message}</span> : null}
+					</div>
+				) : null}
 			</div>
 
-			{result && extraction ? (
+			{result ? (
 				<>
 					<div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
 						<Button
@@ -39,22 +64,22 @@ function NovaAnalisePage() {
 							variant="outline"
 							disabled={runCompliance.isPending}
 							onClick={async () => {
-								const run = await runCompliance.mutateAsync({ submission_id: result.submissionId, extraction_id: extraction.id })
+								const run = await runCompliance.mutateAsync({ submission_id: result.submissionId, extraction_id: result.extraction.id })
 								navigate({ to: "/alpha/analise/$runId", params: { runId: run.run_id } })
 							}}
 						>
 							{runCompliance.isPending ? "verificando…" : "verificar conformidade"}
 						</Button>
 						<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
-							{preenchidos}/{total} campos
+							{filled}/{total} campos
 						</Badge>
-						<span className="text-muted-foreground">modelo: {extraction.model}</span>
-						{extraction.dropped.length > 0 ? (
-							<span className="text-muted-foreground">{extraction.dropped.length} campo(s) descartado(s) por evidência não localizada</span>
+						<span className="text-muted-foreground">modelo: {result.extraction.model}</span>
+						{result.extraction.dropped.length > 0 ? (
+							<span className="text-muted-foreground">{result.extraction.dropped.length} campo(s) descartado(s) por evidência não localizada</span>
 						) : null}
 					</div>
 
-					<ExtractionFieldsView submissionId={result.submissionId} payload={extraction.payload} spans={extraction.spans} />
+					<ExtractionFieldsView submissionId={result.submissionId} payload={result.extraction.payload} spans={result.extraction.spans} />
 				</>
 			) : null}
 		</div>

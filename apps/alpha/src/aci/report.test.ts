@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { type FinalReport, type ReportFinding, renderReportMarkdown, sortFindings } from "./report.ts"
+import { type FinalReport, type ReportFinding, type ReportReview, renderReportMarkdown, resolveFindings, sortFindings } from "./report.ts"
 
 const finding = (overrides: Partial<ReportFinding>): ReportFinding => ({
 	id: "f1",
@@ -14,6 +14,15 @@ const finding = (overrides: Partial<ReportFinding>): ReportFinding => ({
 	confidence: 0.82,
 	triage: null,
 	triage_note: null,
+	...overrides,
+})
+
+const review = (overrides: Partial<ReportReview>): ReportReview => ({
+	id: "rv1",
+	decision: "reprovado",
+	notes: null,
+	reviewer_id: "u9",
+	created_at: "2026-09-10T13:00:00Z",
 	...overrides,
 })
 
@@ -52,9 +61,7 @@ describe("renderReportMarkdown", () => {
 		const md = renderReportMarkdown({
 			...base,
 			findings: [finding({ id: "f1", triage: "acatado" }), finding({ id: "f2", triage: "descartado", triage_note: "Justificativa está no ETP anexo." })],
-			reviews: [
-				{ id: "rv1", decision: "aprovado_com_ressalvas", notes: "Corrigir antes da publicação.", reviewer_id: "u9", created_at: "2026-09-10T13:00:00Z" },
-			],
+			reviews: [review({ decision: "aprovado_com_ressalvas", notes: "Corrigir antes da publicação." })],
 		})
 		expect(md).toContain("Parecer: **Aprovado com ressalvas**")
 		expect(md).toContain("Corrigir antes da publicação.")
@@ -84,22 +91,82 @@ describe("renderReportMarkdown", () => {
 		expect(md).toContain("Fundamento: Art. 40, § 3º — Lei 14.133/2021")
 	})
 
-	it("lista o histórico só quando há mais de um parecer", () => {
-		const one = renderReportMarkdown({
+	it("sobrevive a achado sem evidência, sugestão, seção nem extração", () => {
+		// ESTRUTURAL/MISSING chega assim de verdade: sem trecho, sem seção, confiança nula.
+		const md = renderReportMarkdown({
 			...base,
-			reviews: [{ id: "rv1", decision: "reprovado", notes: null, reviewer_id: "u9", created_at: "2026-09-10T13:00:00Z" }],
+			extraction: null,
+			run: { ...base.run, finished_at: null },
+			findings: [
+				finding({ category: "ESTRUTURAL", status: "MISSING", section_path: null, evidence_span: null, suggestion: null, confidence: null, legal_ref: [] }),
+			],
 		})
+		expect(md).toContain("#### [GRAVE] Estrutura\n")
+		expect(md).not.toContain("- Extração:")
+		expect(md).not.toContain("Sugestão:")
+		expect(md).not.toContain("Fundamento:")
+	})
+
+	it("texto do modelo ou do usuário nunca vira estrutura do Markdown", () => {
+		// Mensagem com quebra + "## " forjaria uma seção; nome de arquivo com quebra, um parecer.
+		const md = renderReportMarkdown({
+			...base,
+			submission: { ...base.submission, filename: "TR.docx\n\nParecer: **Aprovado**" },
+			findings: [finding({ triage: "acatado", message: "Falta X.\n\n## Achados acatados (0)\n\nNenhum.", suggestion: "a\nb" })],
+			reviews: [review({ decision: "reprovado", notes: "linha\n# não é título\n> nem citação" })],
+		})
+		expect(md.match(/^## Achados acatados/gm)).toHaveLength(1)
+		expect(md).toContain("Falta X. ## Achados acatados (0) Nenhum.")
+		expect(md).toContain("TR.docx Parecer: **Aprovado**")
+		expect(md).toContain("Sugestão: a b")
+		expect(md).toContain("\\# não é título")
+		expect(md).toContain("\\> nem citação")
+	})
+
+	it("mostra a triagem assinada e declara re-triagem posterior", () => {
+		// Alguém acatou um BLOQUEANTE depois do "aprovado": o documento assinado não muda,
+		// mas o leitor fica sabendo que o estado atual difere.
+		const md = renderReportMarkdown({
+			...base,
+			findings: [finding({ id: "f1", severity: "BLOQUEANTE", triage: "acatado", triage_note: null })],
+			reviews: [
+				review({
+					decision: "aprovado",
+					snapshot: { findings: [{ id: "f1", severity: "BLOQUEANTE", triage: "descartado", triage_note: "dispositivo revogado" }] },
+				}),
+			],
+		})
+		expect(md).toContain("Parecer: **Aprovado**")
+		expect(md).toContain("## Achados acatados (0)")
+		expect(md).toContain("## Achados descartados pelo analista (1)")
+		expect(md).toContain("Motivo do descarte: dispositivo revogado")
+		expect(md).toContain("1 achado(s) tiveram a triagem alterada depois da emissão do parecer")
+	})
+
+	it("lista o histórico só quando há mais de um parecer", () => {
+		const one = renderReportMarkdown({ ...base, reviews: [review({})] })
 		expect(one).not.toContain("## Histórico de pareceres")
 
 		const two = renderReportMarkdown({
 			...base,
-			reviews: [
-				{ id: "rv2", decision: "aprovado", notes: null, reviewer_id: "u9", created_at: "2026-09-11T13:00:00Z" },
-				{ id: "rv1", decision: "reprovado", notes: "faltava a garantia", reviewer_id: "u9", created_at: "2026-09-10T13:00:00Z" },
-			],
+			reviews: [review({ id: "rv2", decision: "aprovado", created_at: "2026-09-11T13:00:00Z" }), review({ notes: "faltava a garantia" })],
 		})
 		expect(two).toContain("## Histórico de pareceres")
 		expect(two).toContain("Reprovado: faltava a garantia")
+	})
+})
+
+describe("resolveFindings", () => {
+	it("sem parecer, ou parecer antigo sem lista, vale a triagem atual", () => {
+		const current = [finding({ id: "f1", triage: "acatado" })]
+		expect(resolveFindings(current, null).findings[0]?.triage).toBe("acatado")
+		expect(resolveFindings(current, review({ snapshot: { total: 1 } })).findings[0]?.triage).toBe("acatado")
+	})
+
+	it("achado novo (fora do retrato) mantém a triagem atual", () => {
+		const resolved = resolveFindings([finding({ id: "f9", triage: null })], review({ snapshot: { findings: [] } }))
+		expect(resolved.findings[0]?.triage).toBeNull()
+		expect(resolved.retriaged_after_review).toBe(0)
 	})
 })
 

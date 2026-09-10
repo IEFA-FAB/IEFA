@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { AciNav } from "@/components/aci/AciNav"
 import { SubmissionIntakeForm } from "@/components/alpha/SubmissionIntake"
 
@@ -15,6 +16,9 @@ export const Route = createFileRoute("/aci/nova")({
  */
 function NovaAnalisePage() {
 	const navigate = useNavigate()
+	// Guardado assim que o documento existe no α: se a extração falhar, o
+	// analista ainda tem como chegar ao processo em vez de reenviar o arquivo.
+	const [submissionId, setSubmissionId] = useState<string | null>(null)
 
 	return (
 		<div>
@@ -23,7 +27,20 @@ function NovaAnalisePage() {
 				subtitle="Envie um ETP, Termo de Referência ou Edital. O α extrai os campos da contratação e o processo entra na fila com a extração pronta para verificar."
 			/>
 
-			<SubmissionIntakeForm onExtracted={({ submissionId }) => navigate({ to: "/aci/processos/$submissionId", params: { submissionId } })} />
+			<SubmissionIntakeForm
+				onSubmitted={setSubmissionId}
+				onExtracted={({ submissionId: id }) => navigate({ to: "/aci/processos/$submissionId", params: { submissionId: id } })}
+			/>
+
+			{submissionId ? (
+				<p className="mt-3 text-sm">
+					O documento já está no α.{" "}
+					<Link to="/aci/processos/$submissionId" params={{ submissionId }} className="underline underline-offset-4">
+						Abrir o processo
+					</Link>{" "}
+					para extrair de novo ou acompanhar.
+				</p>
+			) : null}
 
 			<dl className="mt-8 grid gap-px border border-border bg-border sm:grid-cols-3">
 				{[

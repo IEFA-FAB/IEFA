@@ -1,26 +1,28 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { Check, Page, Undo, WarningTriangle, Xmark } from "iconoir-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { AciNav } from "@/components/aci/AciNav"
 import { StageStepper } from "@/components/aci/StageStepper"
+import { StatGrid } from "@/components/aci/StatGrid"
+import { FindingCard } from "@/components/alpha/FindingCard"
 import { ExtractionFieldsView } from "@/components/alpha/SubmissionIntake"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/hooks/useAuth"
+import { DECISION_LABEL, DECISIONS, type Decision, processDetailQueryOptions, reviewsQueryOptions, useIssueReview, useTriageFinding } from "@/lib/alpha/aci"
 import {
-	DECISION_LABEL,
-	DECISIONS,
-	type Decision,
-	type Review,
-	type Stage,
-	submissionDetailQueryOptions,
-	useIssueReview,
-	useTriageFinding,
-} from "@/lib/alpha/aci"
-import { type ComplianceRun, complianceRunQueryOptions, type Finding, SEVERITY_ORDER, type Severity, useRunCompliance } from "@/lib/alpha/compliance"
+	type ComplianceRun,
+	compareSeverity,
+	complianceRunQueryOptions,
+	type Finding,
+	SEVERITY_ORDER,
+	type Severity,
+	useRunCompliance,
+} from "@/lib/alpha/compliance"
+import { formatDateTime } from "@/lib/alpha/format"
 import { alphaRole, canDecide } from "@/lib/alpha/role"
 import { extractionsQueryOptions, useRunExtraction } from "@/lib/alpha/submissions"
 
@@ -33,7 +35,7 @@ export const Route = createFileRoute("/aci/processos/$submissionId")({
 		const token = context.auth.session?.access_token
 		if (!token) return
 
-		void context.queryClient.query({ ...submissionDetailQueryOptions(token, params.submissionId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...processDetailQueryOptions(token, params.submissionId), staleTime: "static" }).catch(() => {})
 	},
 	component: ProcessoPage,
 	head: () => ({ meta: [{ title: "Processo · Plataforma ACI" }] }),
@@ -41,43 +43,18 @@ export const Route = createFileRoute("/aci/processos/$submissionId")({
 
 type Tab = "achados" | "extracao" | "parecer"
 
-function formatDate(value: string | null | undefined) {
-	if (!value) return "—"
-	return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-}
-
-/** Mesma derivação do α (`deriveStage`), sobre o que a tela já tem em mãos. */
-function stageOf(hasExtraction: boolean, run: ComplianceRun | null, review: Review | null): Stage {
-	if (run?.status === "succeeded") return review ? "parecer" : "verificado"
-	if (hasExtraction) return "extraido"
-	return "enviado"
-}
-
-/**
- * Tonalidade de fundo por severidade — etiqueta + fundo, sem faixa lateral
- * (proibida no monorepo) e sem raio (contrato do portal).
- */
-const SEVERITY_TINT: Record<Severity, string> = {
-	BLOQUEANTE: "bg-destructive/10",
-	GRAVE: "bg-destructive/5",
-	MEDIA: "bg-muted",
-	INFORMATIVA: "bg-transparent",
-}
-
 function TriageControls({ finding, runId, submissionId }: { finding: Finding; runId: string; submissionId: string }) {
 	const triage = useTriageFinding()
 	const [discarding, setDiscarding] = useState(false)
 	const [note, setNote] = useState("")
 
-	const current = finding.triage ?? null
-
-	if (current) {
+	if (finding.triage) {
 		return (
 			<div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-				<Badge variant={current === "acatado" ? "default" : "outline"} className="text-[10px] uppercase tracking-[0.1em]">
-					{current}
+				<Badge variant={finding.triage === "acatado" ? "default" : "outline"} className="text-[10px] uppercase tracking-[0.1em]">
+					{finding.triage}
 				</Badge>
-				{current === "descartado" && finding.triage_note ? <span className="text-muted-foreground">motivo: {finding.triage_note}</span> : null}
+				{finding.triage === "descartado" && finding.triage_note ? <span className="text-muted-foreground">motivo: {finding.triage_note}</span> : null}
 				<button
 					type="button"
 					disabled={triage.isPending}
@@ -133,54 +110,6 @@ function TriageControls({ finding, runId, submissionId }: { finding: Finding; ru
 	)
 }
 
-function FindingCard({ finding, runId, submissionId, decider }: { finding: Finding; runId: string; submissionId: string; decider: boolean }) {
-	return (
-		<article className={`border border-border border-b-0 p-4 last:border-b ${SEVERITY_TINT[finding.severity]}`}>
-			<div className="mb-2 flex flex-wrap items-center gap-2">
-				<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
-					{finding.severity}
-				</Badge>
-				<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
-					{finding.category}
-				</Badge>
-				{finding.section_path ? <span className="font-mono text-muted-foreground text-xs">{finding.section_path}</span> : null}
-				{finding.confidence !== null ? <span className="text-muted-foreground text-xs">confiança {finding.confidence.toFixed(2)}</span> : null}
-			</div>
-
-			<p className="text-sm">{finding.message}</p>
-
-			{finding.legal_ref.length > 0 ? (
-				<ul className="mt-2 space-y-0.5">
-					{finding.legal_ref.map((ref) => (
-						<li key={`${ref.norma}-${ref.dispositivo}`} className="font-mono text-[11px] text-muted-foreground">
-							{ref.dispositivo} — {ref.norma}
-						</li>
-					))}
-				</ul>
-			) : null}
-
-			{finding.evidence_span?.text ? <p className="mt-3 bg-background/60 p-2 text-muted-foreground text-xs italic">“{finding.evidence_span.text}”</p> : null}
-
-			{finding.suggestion ? (
-				<p className="mt-3 text-sm">
-					<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Sugestão · </span>
-					{finding.suggestion}
-				</p>
-			) : null}
-
-			{decider ? (
-				<TriageControls finding={finding} runId={runId} submissionId={submissionId} />
-			) : finding.triage ? (
-				<p className="mt-3 text-xs">
-					<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
-						{finding.triage}
-					</Badge>
-				</p>
-			) : null}
-		</article>
-	)
-}
-
 function FindingsTab({ run, submissionId, decider }: { run: ComplianceRun; submissionId: string; decider: boolean }) {
 	const { session } = useAuth()
 	const report = useQuery(complianceRunQueryOptions(session?.access_token, run.id))
@@ -191,7 +120,7 @@ function FindingsTab({ run, submissionId, decider }: { run: ComplianceRun; submi
 		const all = report.data?.findings ?? []
 		const bySeverity = severityFilter === "todas" ? all : all.filter((finding) => finding.severity === severityFilter)
 		const byTriage = onlyPending ? bySeverity.filter((finding) => !finding.triage) : bySeverity
-		return [...byTriage].sort((left, right) => SEVERITY_ORDER.indexOf(left.severity) - SEVERITY_ORDER.indexOf(right.severity))
+		return [...byTriage].sort((left, right) => compareSeverity(left.severity, right.severity))
 	}, [report.data, severityFilter, onlyPending])
 
 	const pending = (report.data?.findings ?? []).filter((finding) => !finding.triage).length
@@ -208,19 +137,15 @@ function FindingsTab({ run, submissionId, decider }: { run: ComplianceRun; submi
 
 	return (
 		<div>
-			<dl className="mb-6 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
-				{[
+			<StatGrid
+				className="mb-6"
+				items={[
 					["regras aplicadas", run.rules_applied],
 					["não avaliadas", run.rules_not_assessed],
 					["descartados pelo guard", run.discarded_findings],
 					["sem triagem", pending],
-				].map(([label, value]) => (
-					<div key={label as string} className="bg-background p-4">
-						<dt className="text-muted-foreground text-xs uppercase tracking-[0.1em]">{label}</dt>
-						<dd className="mt-1 font-semibold text-2xl tabular-nums">{value}</dd>
-					</div>
-				))}
-			</dl>
+				]}
+			/>
 
 			{!run.model_document_id ? (
 				<p className="mb-6 border border-border p-3 text-sm">
@@ -254,7 +179,21 @@ function FindingsTab({ run, submissionId, decider }: { run: ComplianceRun; submi
 			) : (
 				<div>
 					{findings.map((finding) => (
-						<FindingCard key={finding.id} finding={finding} runId={run.id} submissionId={submissionId} decider={decider} />
+						<FindingCard
+							key={finding.id}
+							finding={finding}
+							footer={
+								decider ? (
+									<TriageControls finding={finding} runId={run.id} submissionId={submissionId} />
+								) : finding.triage ? (
+									<p className="mt-3 text-xs">
+										<Badge variant="outline" className="text-[10px] uppercase tracking-[0.1em]">
+											{finding.triage}
+										</Badge>
+									</p>
+								) : null
+							}
+						/>
 					))}
 				</div>
 			)}
@@ -274,7 +213,7 @@ function ExtractionTab({ submissionId }: { submissionId: string }) {
 	return (
 		<div>
 			<p className="mb-4 text-muted-foreground text-xs">
-				extração {formatDate(latest.created_at)} · modelo {latest.model}
+				extração {formatDateTime(latest.created_at)} · modelo {latest.model}
 				{extractions.data && extractions.data.length > 1 ? ` · ${extractions.data.length - 1} anterior(es)` : ""}
 			</p>
 			<ExtractionFieldsView submissionId={submissionId} payload={latest.payload} spans={latest.spans} />
@@ -282,37 +221,35 @@ function ExtractionTab({ submissionId }: { submissionId: string }) {
 	)
 }
 
-function ReviewTab({ run, submissionId, reviews, decider }: { run: ComplianceRun; submissionId: string; reviews: Review[]; decider: boolean }) {
+function ReviewTab({ run, submissionId, decider }: { run: ComplianceRun; submissionId: string; decider: boolean }) {
 	const { session } = useAuth()
-	const report = useQuery(complianceRunQueryOptions(session?.access_token, run.id))
+	const reviews = useQuery(reviewsQueryOptions(session?.access_token, run.id))
 	const issue = useIssueReview()
 
 	const [decision, setDecision] = useState<Decision | null>(null)
 	const [notes, setNotes] = useState("")
 
-	const current = reviews[0] ?? null
-
-	// Resumo do que o α vai checar ao emitir — para o analista ver ANTES de clicar.
-	const summary = useMemo(() => {
-		const all = report.data?.findings ?? []
-		const critical = all.filter((finding) => finding.severity === "BLOQUEANTE" || finding.severity === "GRAVE")
-		return {
-			criticalPending: critical.filter((finding) => !finding.triage).length,
-			blockingAccepted: all.filter((finding) => finding.severity === "BLOQUEANTE" && finding.triage === "acatado").length,
-			graveAccepted: all.filter((finding) => finding.severity === "GRAVE" && finding.triage === "acatado").length,
-			accepted: all.filter((finding) => finding.triage === "acatado").length,
-			discarded: all.filter((finding) => finding.triage === "descartado").length,
-		}
-	}, [report.data])
+	const current = reviews.data?.reviews[0] ?? null
+	// Bloqueios e retrato vêm do α — a mesma função que decide o 409 na emissão.
+	const blockers = decision ? (reviews.data?.current.blockers[decision] ?? []) : []
+	const snapshot = reviews.data?.current.snapshot
 
 	return (
 		<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
 			<div>
+				{reviews.isLoading ? <p className="text-muted-foreground text-sm">carregando pareceres…</p> : null}
+				{reviews.isError ? (
+					<p className="flex items-center gap-2 text-sm">
+						<WarningTriangle className="size-4" />
+						{(reviews.error as Error).message}
+					</p>
+				) : null}
+
 				{current ? (
 					<div className="border border-border p-4">
 						<div className="flex flex-wrap items-center gap-2">
 							<Badge className="text-[10px] uppercase tracking-[0.1em]">{DECISION_LABEL[current.decision]}</Badge>
-							<span className="text-muted-foreground text-xs">{formatDate(current.created_at)}</span>
+							<span className="text-muted-foreground text-xs">{formatDateTime(current.created_at)}</span>
 						</div>
 						{current.notes ? <p className="mt-3 whitespace-pre-wrap text-sm">{current.notes}</p> : null}
 						<div className="mt-4">
@@ -322,21 +259,21 @@ function ReviewTab({ run, submissionId, reviews, decider }: { run: ComplianceRun
 							</Button>
 						</div>
 					</div>
-				) : (
+				) : reviews.data ? (
 					<div className="border border-border p-6">
 						<p className="font-medium text-sm">Nenhum parecer emitido para esta execução.</p>
 						<p className="mt-1 text-muted-foreground text-sm">Trie os achados críticos na aba Achados e emita o parecer ao lado.</p>
 					</div>
-				)}
+				) : null}
 
-				{reviews.length > 1 ? (
+				{reviews.data && reviews.data.reviews.length > 1 ? (
 					<div className="mt-6">
 						<h3 className="mb-2 text-muted-foreground text-xs uppercase tracking-[0.12em]">Pareceres anteriores</h3>
 						<ul className="border border-border">
-							{reviews.slice(1).map((review) => (
+							{reviews.data.reviews.slice(1).map((review) => (
 								<li key={review.id} className="border-border border-b px-4 py-3 text-sm last:border-b-0">
 									<span className="font-medium">{DECISION_LABEL[review.decision]}</span>
-									<span className="text-muted-foreground text-xs"> · {formatDate(review.created_at)}</span>
+									<span className="text-muted-foreground text-xs"> · {formatDateTime(review.created_at)}</span>
 									{review.notes ? <p className="mt-1 text-muted-foreground">{review.notes}</p> : null}
 								</li>
 							))}
@@ -349,26 +286,28 @@ function ReviewTab({ run, submissionId, reviews, decider }: { run: ComplianceRun
 				<h3 className="text-xs uppercase tracking-[0.12em]">{current ? "Novo parecer" : "Emitir parecer"}</h3>
 				<p className="mt-1 text-muted-foreground text-xs">Cada emissão é registro novo; a anterior fica no histórico.</p>
 
-				<dl className="mt-4 space-y-1 text-xs">
-					<div className="flex justify-between gap-2">
-						<dt className="text-muted-foreground">acatados / descartados</dt>
-						<dd className="tabular-nums">
-							{summary.accepted} / {summary.discarded}
-						</dd>
-					</div>
-					<div className="flex justify-between gap-2">
-						<dt className="text-muted-foreground">críticos sem triagem</dt>
-						<dd className={`tabular-nums ${summary.criticalPending > 0 ? "font-medium" : ""}`}>{summary.criticalPending}</dd>
-					</div>
-					<div className="flex justify-between gap-2">
-						<dt className="text-muted-foreground">bloqueantes acatados</dt>
-						<dd className="tabular-nums">{summary.blockingAccepted}</dd>
-					</div>
-					<div className="flex justify-between gap-2">
-						<dt className="text-muted-foreground">graves acatados</dt>
-						<dd className="tabular-nums">{summary.graveAccepted}</dd>
-					</div>
-				</dl>
+				{snapshot ? (
+					<dl className="mt-4 space-y-1 text-xs">
+						<div className="flex justify-between gap-2">
+							<dt className="text-muted-foreground">acatados / descartados</dt>
+							<dd className="tabular-nums">
+								{snapshot.accepted} / {snapshot.discarded}
+							</dd>
+						</div>
+						<div className="flex justify-between gap-2">
+							<dt className="text-muted-foreground">críticos sem triagem</dt>
+							<dd className="tabular-nums">{snapshot.untriaged_by_severity.BLOQUEANTE + snapshot.untriaged_by_severity.GRAVE}</dd>
+						</div>
+						<div className="flex justify-between gap-2">
+							<dt className="text-muted-foreground">bloqueantes acatados</dt>
+							<dd className="tabular-nums">{snapshot.accepted_by_severity.BLOQUEANTE}</dd>
+						</div>
+						<div className="flex justify-between gap-2">
+							<dt className="text-muted-foreground">graves acatados</dt>
+							<dd className="tabular-nums">{snapshot.accepted_by_severity.GRAVE}</dd>
+						</div>
+					</dl>
+				) : null}
 
 				{!decider ? (
 					<p className="mt-4 text-muted-foreground text-sm">Só o perfil ACI emite parecer.</p>
@@ -392,6 +331,17 @@ function ReviewTab({ run, submissionId, reviews, decider }: { run: ComplianceRun
 							</Select>
 						</div>
 
+						{blockers.length > 0 ? (
+							<ul className="space-y-1 border border-border p-3 text-xs">
+								{blockers.map((blocker) => (
+									<li key={blocker} className="flex items-start gap-2">
+										<WarningTriangle className="mt-0.5 size-3 shrink-0" />
+										{blocker}
+									</li>
+								))}
+							</ul>
+						) : null}
+
 						<div>
 							<label htmlFor="aci-notes" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
 								Fundamentação
@@ -406,7 +356,7 @@ function ReviewTab({ run, submissionId, reviews, decider }: { run: ComplianceRun
 						</div>
 
 						<Button
-							disabled={!decision || issue.isPending}
+							disabled={!decision || blockers.length > 0 || issue.isPending}
 							onClick={() => {
 								if (!decision) return
 								issue.mutate(
@@ -443,31 +393,26 @@ function ProcessoPage() {
 	const queryClient = useQueryClient()
 	const decider = canDecide(alphaRole(user))
 
-	const detail = useQuery(submissionDetailQueryOptions(token, submissionId))
+	const detail = useQuery(processDetailQueryOptions(token, submissionId))
 	const runExtraction = useRunExtraction()
 	const runCompliance = useRunCompliance()
 
 	const [tab, setTab] = useState<Tab>("achados")
+	// `null` significa "a execução mais recente" — a escolha do analista é o que
+	// esta variável guarda, e nada a sobrescreve quando os dados chegam.
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
 
 	const runs = detail.data?.runs ?? []
 	const selectedRun = runs.find((run) => run.id === selectedRunId) ?? runs[0] ?? null
 
-	// Execução nova acabou de aparecer: selecioná-la é o que o analista espera.
-	useEffect(() => {
-		if (runs[0] && (selectedRunId === null || !runs.some((run) => run.id === selectedRunId))) setSelectedRunId(runs[0].id)
-	}, [runs, selectedRunId])
-
 	const latestExtraction = detail.data?.extractions[0] ?? null
-	const reviewsOfRun = (detail.data?.reviews ?? []).filter((review) => review.run_id === selectedRun?.id)
-	const stage = stageOf(Boolean(latestExtraction), runs[0] ?? null, (detail.data?.reviews ?? []).find((review) => review.run_id === runs[0]?.id) ?? null)
+	const submission = detail.data?.submission
 
 	const refresh = () => {
+		queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "process", submissionId] })
 		queryClient.invalidateQueries({ queryKey: ["alpha", "submissions", submissionId] })
-		queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"] })
+		queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"], refetchType: "none" })
 	}
-
-	const submission = detail.data?.submission
 
 	return (
 		<div>
@@ -475,7 +420,7 @@ function ProcessoPage() {
 				title={submission?.filename ?? "Processo"}
 				subtitle={
 					submission
-						? `${submission.doc_kind}${submission.objeto ? ` · ${submission.objeto}` : ""}${submission.modalidade ? ` · ${submission.modalidade}` : ""} · enviado ${formatDate(submission.created_at)}`
+						? `${submission.doc_kind}${submission.objeto ? ` · ${submission.objeto}` : ""}${submission.modalidade ? ` · ${submission.modalidade}` : ""} · enviado ${formatDateTime(submission.created_at)}`
 						: undefined
 				}
 				actions={
@@ -495,6 +440,8 @@ function ProcessoPage() {
 										{
 											onSuccess: (run) => {
 												refresh()
+												// A execução nova passa a ser a escolhida; `runs` ainda não a
+												// contém, e é justamente por isso que nada aqui a sobrescreve.
 												setSelectedRunId(run.run_id)
 												setTab("achados")
 											},
@@ -527,7 +474,7 @@ function ProcessoPage() {
 			{detail.data ? (
 				<>
 					<div className="mb-6">
-						<StageStepper stage={stage} />
+						<StageStepper stage={detail.data.stage} />
 					</div>
 
 					{runs.length > 1 ? (
@@ -535,12 +482,12 @@ function ProcessoPage() {
 							<span className="text-muted-foreground text-xs uppercase tracking-[0.1em]">Execução</span>
 							<Select value={selectedRun?.id ?? null} onValueChange={(value) => setSelectedRunId(value)}>
 								<SelectTrigger className="w-72" aria-label="Escolher execução">
-									<SelectValue>{selectedRun ? `${formatDate(selectedRun.started_at)} · ${selectedRun.status}` : "—"}</SelectValue>
+									<SelectValue>{selectedRun ? `${formatDateTime(selectedRun.started_at)} · ${selectedRun.status}` : "—"}</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
 									{runs.map((run) => (
 										<SelectItem key={run.id} value={run.id}>
-											{formatDate(run.started_at)} · {run.status}
+											{formatDateTime(run.started_at)} · {run.status}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -583,9 +530,7 @@ function ProcessoPage() {
 					) : null}
 
 					{tab === "achados" && selectedRun?.status === "succeeded" ? <FindingsTab run={selectedRun} submissionId={submissionId} decider={decider} /> : null}
-					{tab === "parecer" && selectedRun?.status === "succeeded" ? (
-						<ReviewTab run={selectedRun} submissionId={submissionId} reviews={reviewsOfRun} decider={decider} />
-					) : null}
+					{tab === "parecer" && selectedRun?.status === "succeeded" ? <ReviewTab run={selectedRun} submissionId={submissionId} decider={decider} /> : null}
 				</>
 			) : null}
 		</div>

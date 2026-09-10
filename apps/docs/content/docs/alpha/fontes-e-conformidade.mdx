@@ -120,8 +120,9 @@ Etapa 1.8 do roteiro: a persona do analista sobre as etapas 1–7. Rotas autenti
 O que a plataforma acrescenta ao α:
 
 - **Triagem por achado** (`compliance_finding.triage`): `acatado` vai para o parecer, `descartado` exige motivo e fica registrado. Só `app_aci` tria.
-- **Parecer** (`alpha.compliance_review`): `aprovado`, `aprovado_com_ressalvas` ou `reprovado`, com fundamentação e um retrato dos achados no momento da emissão. Cada emissão é linha nova; a anterior vira histórico. A regra de emissão mora em `apps/alpha/src/aci/review.ts`: reprovar é sempre possível; aprovar exige todo achado BLOQUEANTE/GRAVE triado; bloqueante acatado só cabe em reprovação; grave acatado desce a aprovação para "com ressalvas".
-- **Relatório final** (`GET /api/v1/compliance/runs/:id/report`, JSON ou `?format=md`): identificação, referências usadas (modelo AGU e normas, com versão), cobertura da análise, achados acatados, sem triagem e descartados, e o histórico de pareceres. Achado sem triagem nunca some do relatório.
+- **Parecer** (`alpha.compliance_review`): `aprovado`, `aprovado_com_ressalvas` ou `reprovado`, com fundamentação e um retrato dos achados no momento da emissão — inclusive a triagem de cada um. Cada emissão é linha nova; a anterior vira histórico. A regra de emissão mora em `apps/alpha/src/aci/review.ts` **e** no trigger `alpha.compliance_review_guard`: reprovar é sempre possível; aprovar exige todo achado BLOQUEANTE/GRAVE triado; bloqueante acatado só cabe em reprovação; grave acatado desce a aprovação para "com ressalvas". A cópia no banco fecha a corrida entre checar e gravar.
+- **Relatório final** (`GET /api/v1/compliance/runs/:id/report`, JSON ou `?format=md`): identificação, referências usadas (modelo AGU e normas, com versão), cobertura da análise, achados acatados, sem triagem e descartados, e o histórico de pareceres. Achado sem triagem nunca some do relatório. Com parecer emitido, a triagem exibida é a **assinada**; se alguém re-triou depois, o relatório diz quantos.
+- **Fila** (`alpha.aci_queue`): a agregação é do banco, uma linha por processo. Em app, as contagens de achado esbarravam no teto de 1000 linhas do PostgREST em silêncio — e a fila mostrava processo com achado bloqueante como limpo.
 
 ## Comandos
 

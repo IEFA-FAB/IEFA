@@ -10,8 +10,9 @@ Duas lacunas concretas impedem que o α seja usado no processo real:
 ## What Changes
 
 - **Triagem por achado** em `alpha.compliance_finding`: `triage` (`acatado` | `descartado` | nulo), `triage_note`, `triaged_by`, `triaged_at`. Descartar exige motivo.
-- **Parecer** em tabela nova `alpha.compliance_review` (`run_id`, `reviewer_id`, `decision`, `notes`, `snapshot`): append-only, a linha mais recente é a vigente. Regra de emissão pura em `apps/alpha/src/aci/review.ts`.
-- **Rotas ACI no α**: `GET /api/v1/aci/queue` (fila com etapa derivada e contagens), `GET /api/v1/submissions/:id` (processo inteiro), `PATCH /api/v1/compliance/findings/:id` (triagem), `GET|POST /api/v1/compliance/runs/:id/reviews` (parecer), `GET /api/v1/compliance/runs/:id/report` (relatório final, JSON ou Markdown).
+- **Parecer** em tabela nova `alpha.compliance_review` (`run_id`, `reviewer_id`, `decision`, `notes`, `snapshot`): append-only, a linha mais recente é a vigente. O `snapshot` guarda a triagem de **cada** achado, não só contagens — é o que o relatório mostra quando alguém re-tria depois da emissão. Regra de emissão pura em `apps/alpha/src/aci/review.ts` **e** no trigger `alpha.compliance_review_guard`, que a repete dentro do insert com a execução travada.
+- **Fila agregada no banco**: RPC `alpha.aci_queue` devolve uma linha por submissão (extração e execução mais recentes, parecer vigente, contagem de achado por severidade × triagem).
+- **Rotas ACI no α**: `GET /api/v1/aci/queue` (fila com etapa derivada e contagens), `GET /api/v1/aci/processes/:id` (processo inteiro), `PATCH /api/v1/compliance/findings/:id` (triagem), `GET|POST /api/v1/compliance/runs/:id/reviews` (parecer, com os bloqueios de cada decisão), `GET /api/v1/compliance/runs/:id/report` (relatório final, JSON ou Markdown).
 - **Plataforma no portal** (`/aci/*`, autenticada, guard por perfil amplo): painel com a fila, nova análise, processo (trilha de etapas, extração, achados com triagem, parecer), relatório final imprimível e hub dos chats.
 - **Componentes compartilhados** entre console e plataforma: formulário de envio/extração e visão de campos com trecho de origem, extraídos de `/alpha/analise/nova`.
 - **Roadmap e docs**: 1.8 passa a `in-progress`; a página de fontes e conformidade ganha a seção da plataforma.
@@ -29,7 +30,7 @@ Duas lacunas concretas impedem que o α seja usado no processo real:
 ## Impact
 
 - **Apps**: `alpha` (rotas e módulos puros em `src/aci/`) e `portal` (rotas `/aci/*`, libs `lib/alpha/aci.ts`, `role.ts`, `chat-session.ts`, componentes em `components/aci/` e `components/alpha/SubmissionIntake.tsx`). `docs` só texto.
-- **Banco** (`packages/database`, schema `alpha`): migration `20260911100000_alpha_compliance_review.sql` — colunas de triagem em `compliance_finding` + tabela `compliance_review`. **Tem que estar aplicada antes do deploy do α**: `GET /compliance/runs/:id` passa a selecionar as colunas novas e devolveria erro sem elas.
+- **Banco** (`packages/database`, schema `alpha`): migration `20260911100000_alpha_compliance_review.sql` — colunas de triagem em `compliance_finding`, tabela `compliance_review`, trigger `compliance_review_guard` e RPC `aci_queue`. **Tem que estar aplicada antes do deploy do α**: `GET /compliance/runs/:id` passa a selecionar as colunas novas e devolveria erro sem elas.
 - **Perfis**: nada novo. A fila usa os perfis amplos que já existem (`app_aci`, `app_licitacoes`); triagem e parecer exigem `app_aci`, como a promoção de regra.
 - **Sem variável de ambiente nova.**
 

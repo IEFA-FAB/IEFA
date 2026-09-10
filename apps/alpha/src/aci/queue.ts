@@ -2,21 +2,50 @@
  * Fila do analista (Etapa 1.8 — Plataforma ACI).
  *
  * O ACI não olha submissão, extração e execução como três tabelas: olha um
- * PROCESSO e quer saber em que ponto ele está e o que pede atenção. Este
- * módulo reduz as linhas ao que a fila mostra — e é puro para que a regra de
- * "em que etapa está" seja testável sem banco.
+ * PROCESSO e quer saber em que ponto ele está e o que pede atenção. A leitura
+ * agregada é da RPC `alpha.aci_queue` (uma linha por submissão); este módulo
+ * reduz cada linha ao que a fila mostra — e é puro para que a regra de "em que
+ * etapa está" seja testável sem banco.
  */
 
 import { SEVERITY_ORDER, type Severity } from "../compliance/severity.ts"
 
 /** Etapa do processo, na ordem do fluxo. */
-export type Stage = "enviado" | "extraido" | "verificado" | "parecer"
+export const STAGE_ORDER = ["enviado", "extraido", "verificado", "parecer"] as const
 
-export const STAGE_ORDER: readonly Stage[] = ["enviado", "extraido", "verificado", "parecer"]
+export type Stage = (typeof STAGE_ORDER)[number]
+
+export const DECISIONS = ["aprovado", "aprovado_com_ressalvas", "reprovado"] as const
+
+export type Decision = (typeof DECISIONS)[number]
 
 export type Triage = "acatado" | "descartado" | null
 
-export type Decision = "aprovado" | "aprovado_com_ressalvas" | "reprovado"
+/** O que `compliance/run.ts` grava em `compliance_run.status`. */
+export type RunStatus = "running" | "succeeded" | "failed"
+
+/** Uma linha da RPC `alpha.aci_queue`. */
+export interface QueueRow {
+	submission_id: string
+	user_id: string
+	filename: string
+	doc_kind: string
+	modalidade: string | null
+	objeto: string | null
+	submitted_at: string
+	extraction_id: string | null
+	extraction_created_at: string | null
+	run_id: string | null
+	run_status: RunStatus | null
+	run_started_at: string | null
+	run_finished_at: string | null
+	rules_applied: number | null
+	rules_not_assessed: number | null
+	discarded_findings: number | null
+	review_decision: Decision | null
+	review_created_at: string | null
+	finding_counts: Array<{ severity: Severity; triage: Triage; count: number }>
+}
 
 export interface QueueSubmission {
 	id: string
@@ -28,16 +57,9 @@ export interface QueueSubmission {
 	created_at: string
 }
 
-export interface QueueExtraction {
-	id: string
-	submission_id: string
-	created_at: string
-}
-
 export interface QueueRun {
 	id: string
-	submission_id: string
-	status: string
+	status: RunStatus
 	rules_applied: number
 	rules_not_assessed: number
 	discarded_findings: number
@@ -45,24 +67,12 @@ export interface QueueRun {
 	finished_at: string | null
 }
 
-export interface QueueFinding {
-	run_id: string
-	severity: Severity
-	triage: Triage
-}
-
-export interface QueueReview {
-	run_id: string
-	decision: Decision
-	created_at: string
-}
-
 export type SeverityCounts = Record<Severity, number>
 
 export interface QueueItem {
 	submission: QueueSubmission
 	stage: Stage
-	latest_extraction: QueueExtraction | null
+	latest_extraction: { id: string; created_at: string } | null
 	latest_run: QueueRun | null
 	/** Achados da execução mais recente, por severidade — todos, triados ou não. */
 	severity_counts: SeverityCounts
@@ -70,29 +80,23 @@ export interface QueueItem {
 	open_critical: number
 	/** Achados sem triagem, de qualquer severidade. */
 	untriaged: number
-	latest_review: QueueReview | null
+	latest_review: { decision: Decision; created_at: string } | null
 }
 
 export interface QueueTotals {
-	processos: number
-	por_etapa: Record<Stage, number>
-	aguardando_parecer: number
-	criticos_abertos: number
-	pareceres: Record<Decision, number>
+	processes: number
+	by_stage: Record<Stage, number>
+	awaiting_review: number
+	open_critical: number
+	reviews: Record<Decision, number>
 }
 
 export function emptySeverityCounts(): SeverityCounts {
 	return { BLOQUEANTE: 0, GRAVE: 0, MEDIA: 0, INFORMATIVA: 0 }
 }
 
-/** Mais recente por chave, dado um campo de data ISO. Empate mantém a primeira vista. */
-function latestBy<T>(rows: readonly T[], key: (row: T) => string, date: (row: T) => string): Map<string, T> {
-	const latest = new Map<string, T>()
-	for (const row of rows) {
-		const current = latest.get(key(row))
-		if (!current || date(row) > date(current)) latest.set(key(row), row)
-	}
-	return latest
+export function isCritical(severity: Severity): boolean {
+	return SEVERITY_ORDER[severity] <= SEVERITY_ORDER.GRAVE
 }
 
 /**
@@ -103,89 +107,76 @@ function latestBy<T>(rows: readonly T[], key: (row: T) => string, date: (row: T)
  * sem nenhum achado para ler. Parecer só existe sobre a execução mais recente;
  * parecer de execução antiga é histórico, não estado.
  */
-export function deriveStage(extraction: QueueExtraction | null, run: QueueRun | null, review: QueueReview | null): Stage {
-	if (run?.status === "succeeded") return review ? "parecer" : "verificado"
-	if (extraction) return "extraido"
+export function deriveStage(hasExtraction: boolean, runStatus: RunStatus | null, hasReview: boolean): Stage {
+	if (runStatus === "succeeded") return hasReview ? "parecer" : "verificado"
+	if (hasExtraction) return "extraido"
 	return "enviado"
 }
 
-export function isCritical(severity: Severity): boolean {
-	return SEVERITY_ORDER[severity] <= SEVERITY_ORDER.GRAVE
-}
-
-export function buildQueue(input: {
-	submissions: readonly QueueSubmission[]
-	extractions: readonly QueueExtraction[]
-	runs: readonly QueueRun[]
-	findings: readonly QueueFinding[]
-	reviews: readonly QueueReview[]
-}): QueueItem[] {
-	const latestExtraction = latestBy(
-		input.extractions,
-		(row) => row.submission_id,
-		(row) => row.created_at
-	)
-	const latestRun = latestBy(
-		input.runs,
-		(row) => row.submission_id,
-		(row) => row.started_at
-	)
-	const latestReview = latestBy(
-		input.reviews,
-		(row) => row.run_id,
-		(row) => row.created_at
-	)
-
-	const findingsByRun = new Map<string, QueueFinding[]>()
-	for (const finding of input.findings) {
-		const list = findingsByRun.get(finding.run_id) ?? []
-		list.push(finding)
-		findingsByRun.set(finding.run_id, list)
+export function toQueueItem(row: QueueRow): QueueItem {
+	const severity_counts = emptySeverityCounts()
+	let open_critical = 0
+	let untriaged = 0
+	for (const bucket of row.finding_counts) {
+		severity_counts[bucket.severity] += bucket.count
+		if (bucket.triage === null) untriaged += bucket.count
+		if (isCritical(bucket.severity) && bucket.triage !== "descartado") open_critical += bucket.count
 	}
 
-	return input.submissions.map((submission) => {
-		const extraction = latestExtraction.get(submission.id) ?? null
-		const run = latestRun.get(submission.id) ?? null
-		const review = run ? (latestReview.get(run.id) ?? null) : null
-		const findings = run ? (findingsByRun.get(run.id) ?? []) : []
+	const latest_run: QueueRun | null =
+		row.run_id && row.run_status && row.run_started_at
+			? {
+					id: row.run_id,
+					status: row.run_status,
+					rules_applied: row.rules_applied ?? 0,
+					rules_not_assessed: row.rules_not_assessed ?? 0,
+					discarded_findings: row.discarded_findings ?? 0,
+					started_at: row.run_started_at,
+					finished_at: row.run_finished_at,
+				}
+			: null
 
-		const severity_counts = emptySeverityCounts()
-		let open_critical = 0
-		let untriaged = 0
-		for (const finding of findings) {
-			severity_counts[finding.severity] += 1
-			if (finding.triage === null) untriaged += 1
-			if (isCritical(finding.severity) && finding.triage !== "descartado") open_critical += 1
-		}
+	const latest_review = row.review_decision && row.review_created_at ? { decision: row.review_decision, created_at: row.review_created_at } : null
 
-		return {
-			submission,
-			stage: deriveStage(extraction, run, review),
-			latest_extraction: extraction,
-			latest_run: run,
-			severity_counts,
-			open_critical,
-			untriaged,
-			latest_review: review,
-		}
-	})
+	return {
+		submission: {
+			id: row.submission_id,
+			user_id: row.user_id,
+			filename: row.filename,
+			doc_kind: row.doc_kind,
+			modalidade: row.modalidade,
+			objeto: row.objeto,
+			created_at: row.submitted_at,
+		},
+		stage: deriveStage(Boolean(row.extraction_id), latest_run?.status ?? null, latest_review !== null),
+		latest_extraction: row.extraction_id && row.extraction_created_at ? { id: row.extraction_id, created_at: row.extraction_created_at } : null,
+		latest_run,
+		severity_counts,
+		open_critical,
+		untriaged,
+		latest_review,
+	}
+}
+
+export function buildQueue(rows: readonly QueueRow[]): QueueItem[] {
+	return rows.map(toQueueItem)
 }
 
 export function summarizeQueue(items: readonly QueueItem[]): QueueTotals {
 	const totals: QueueTotals = {
-		processos: items.length,
-		por_etapa: { enviado: 0, extraido: 0, verificado: 0, parecer: 0 },
-		aguardando_parecer: 0,
-		criticos_abertos: 0,
-		pareceres: { aprovado: 0, aprovado_com_ressalvas: 0, reprovado: 0 },
+		processes: items.length,
+		by_stage: { enviado: 0, extraido: 0, verificado: 0, parecer: 0 },
+		awaiting_review: 0,
+		open_critical: 0,
+		reviews: { aprovado: 0, aprovado_com_ressalvas: 0, reprovado: 0 },
 	}
 
 	for (const item of items) {
-		totals.por_etapa[item.stage] += 1
-		if (item.stage === "verificado") totals.aguardando_parecer += 1
+		totals.by_stage[item.stage] += 1
+		if (item.stage === "verificado") totals.awaiting_review += 1
 		// Crítico aberto só conta enquanto o parecer não saiu: depois, a decisão já o absorveu.
-		if (item.stage !== "parecer") totals.criticos_abertos += item.open_critical
-		if (item.latest_review) totals.pareceres[item.latest_review.decision] += 1
+		if (item.stage !== "parecer") totals.open_critical += item.open_critical
+		if (item.latest_review) totals.reviews[item.latest_review.decision] += 1
 	}
 
 	return totals

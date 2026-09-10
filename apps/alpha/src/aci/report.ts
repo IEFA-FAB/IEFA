@@ -10,6 +10,7 @@
 
 import { SEVERITY_ORDER, type Severity } from "../compliance/severity.ts"
 import type { Decision, Triage } from "./queue.ts"
+import type { ReviewSnapshot } from "./review.ts"
 
 export interface ReportFinding {
 	id: string
@@ -32,6 +33,8 @@ export interface ReportReview {
 	notes: string | null
 	reviewer_id: string
 	created_at: string
+	/** Parecer gravado antes da versão com `findings` no retrato não tem a lista. */
+	snapshot?: Partial<ReviewSnapshot> | null
 }
 
 export interface ReportDocument {
@@ -84,6 +87,31 @@ function formatDate(iso: string | null): string {
 	return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" })
 }
 
+/**
+ * Texto de uma linha só.
+ *
+ * Mensagem de achado, sugestão, motivo e nome de arquivo entram no Markdown
+ * como conteúdo, nunca como estrutura: uma quebra de linha seguida de `## `
+ * dentro de uma mensagem gerada pelo modelo (ou de um nome de arquivo) viraria
+ * um título falso — e um título falso num parecer é um parecer falso.
+ */
+function inline(text: string): string {
+	return text.replace(/\s*[\r\n]+\s*/g, " ").trim()
+}
+
+/**
+ * Texto de várias linhas (a fundamentação do parecer), sem virar estrutura.
+ *
+ * Linha que começa por marcador de bloco ganha a barra de escape do Markdown.
+ */
+function block(text: string): string {
+	return text
+		.trim()
+		.split(/\r?\n/)
+		.map((line) => (/^\s*[#>]/.test(line) ? line.replace(/^(\s*)/, "$1\\") : line))
+		.join("\n")
+}
+
 /** Ordena por severidade e, dentro dela, pela seção — para o relatório ler na ordem do documento. */
 export function sortFindings(findings: readonly ReportFinding[]): ReportFinding[] {
 	return [...findings].sort((left, right) => {
@@ -93,27 +121,57 @@ export function sortFindings(findings: readonly ReportFinding[]): ReportFinding[
 	})
 }
 
+export interface ResolvedFindings {
+	findings: ReportFinding[]
+	/** Achados cuja triagem atual difere da gravada no parecer vigente. */
+	retriaged_after_review: number
+}
+
+/**
+ * A triagem que o relatório mostra.
+ *
+ * Com parecer emitido, vale a triagem gravada no retrato do parecer — é o que o
+ * analista assinou. Triagem mudada DEPOIS não reescreve o documento; ela é
+ * contada e declarada, para o leitor saber que o estado atual difere do
+ * assinado. Sem parecer (ou parecer antigo sem a lista), vale a triagem atual.
+ */
+export function resolveFindings(findings: readonly ReportFinding[], review: ReportReview | null): ResolvedFindings {
+	const snapshot = review?.snapshot?.findings
+	if (!snapshot) return { findings: [...findings], retriaged_after_review: 0 }
+
+	const signed = new Map(snapshot.map((item) => [item.id, item]))
+	let retriaged = 0
+	const resolved = findings.map((finding) => {
+		const at = signed.get(finding.id)
+		if (!at) return finding
+		if (at.triage !== finding.triage) retriaged += 1
+		return { ...finding, triage: at.triage, triage_note: at.triage_note }
+	})
+
+	return { findings: resolved, retriaged_after_review: retriaged }
+}
+
 function renderFinding(finding: ReportFinding): string {
 	const lines: string[] = []
-	const where = finding.section_path ? ` · seção ${finding.section_path}` : ""
+	const where = finding.section_path ? ` · seção ${inline(finding.section_path)}` : ""
 	lines.push(`#### [${finding.severity}] ${CATEGORY_LABEL[finding.category] ?? finding.category}${where}`)
 	lines.push("")
-	lines.push(finding.message)
+	lines.push(inline(finding.message))
 	if (finding.legal_ref.length > 0) {
 		lines.push("")
-		lines.push(`Fundamento: ${finding.legal_ref.map((ref) => `${ref.dispositivo} — ${ref.norma}`).join("; ")}`)
+		lines.push(`Fundamento: ${finding.legal_ref.map((ref) => `${inline(ref.dispositivo)} — ${inline(ref.norma)}`).join("; ")}`)
 	}
 	if (finding.evidence_span?.text) {
 		lines.push("")
-		lines.push(`> ${finding.evidence_span.text.replace(/\s*\n\s*/g, " ")}`)
+		lines.push(`> ${inline(finding.evidence_span.text)}`)
 	}
 	if (finding.suggestion) {
 		lines.push("")
-		lines.push(`Sugestão: ${finding.suggestion}`)
+		lines.push(`Sugestão: ${inline(finding.suggestion)}`)
 	}
 	if (finding.triage === "descartado" && finding.triage_note) {
 		lines.push("")
-		lines.push(`Motivo do descarte: ${finding.triage_note}`)
+		lines.push(`Motivo do descarte: ${inline(finding.triage_note)}`)
 	}
 	lines.push("")
 	return lines.join("\n")
@@ -130,41 +188,49 @@ function renderFinding(finding: ReportFinding): string {
  */
 export function renderReportMarkdown(report: FinalReport): string {
 	const review = report.reviews[0] ?? null
-	const sorted = sortFindings(report.findings)
+	const { findings: resolved, retriaged_after_review } = resolveFindings(report.findings, review)
+	const sorted = sortFindings(resolved)
 	const accepted = sorted.filter((finding) => finding.triage === "acatado")
 	const discarded = sorted.filter((finding) => finding.triage === "descartado")
 	const pending = sorted.filter((finding) => finding.triage === null)
+	const filename = inline(report.submission.filename)
 
 	const out: string[] = []
-	out.push(`# Relatório de conformidade — ${report.submission.doc_kind} · ${report.submission.filename}`)
+	out.push(`# Relatório de conformidade — ${report.submission.doc_kind} · ${filename}`)
 	out.push("")
 	out.push(`Parecer: **${review ? DECISION_LABEL[review.decision] : "não emitido"}**${review ? ` (${formatDate(review.created_at)})` : ""}`)
 	out.push("")
 	if (review?.notes) {
-		out.push(review.notes.trim())
+		out.push(block(review.notes))
+		out.push("")
+	}
+	if (retriaged_after_review > 0) {
+		out.push(
+			`Atenção: ${retriaged_after_review} achado(s) tiveram a triagem alterada depois da emissão do parecer. Este relatório mostra a triagem no momento da emissão.`
+		)
 		out.push("")
 	}
 
 	out.push("## Identificação")
 	out.push("")
-	out.push(`- Documento: ${report.submission.filename} (${report.submission.doc_kind})`)
+	out.push(`- Documento: ${filename} (${report.submission.doc_kind})`)
 	if (report.submission.objeto) out.push(`- Natureza do objeto: ${report.submission.objeto}`)
-	if (report.submission.modalidade) out.push(`- Modalidade: ${report.submission.modalidade}`)
+	if (report.submission.modalidade) out.push(`- Modalidade: ${inline(report.submission.modalidade)}`)
 	out.push(`- Submetido em: ${formatDate(report.submission.created_at)}`)
 	out.push(`- Execução: ${report.run.id} · ${formatDate(report.run.started_at)}`)
-	if (report.extraction) out.push(`- Extração: ${report.extraction.id} · modelo ${report.extraction.model}`)
+	if (report.extraction) out.push(`- Extração: ${report.extraction.id} · modelo ${inline(report.extraction.model)}`)
 	out.push("")
 
 	out.push("## Referências usadas")
 	out.push("")
 	out.push(
 		report.model_document
-			? `- Modelo AGU: ${report.model_document.title}${report.model_document.version_label ? ` (${report.model_document.version_label})` : ""}`
+			? `- Modelo AGU: ${inline(report.model_document.title)}${report.model_document.version_label ? ` (${inline(report.model_document.version_label)})` : ""}`
 			: "- Modelo AGU: nenhum modelo aplicável — comparação estrutural não executada"
 	)
 	if (report.law_documents.length === 0) out.push("- Legislação: nenhuma norma vigente registrada na execução")
 	for (const law of report.law_documents) {
-		out.push(`- ${law.document_type}: ${law.title}${law.version_label ? ` (${law.version_label})` : ""}`)
+		out.push(`- ${law.document_type}: ${inline(law.title)}${law.version_label ? ` (${inline(law.version_label)})` : ""}`)
 	}
 	out.push("")
 
@@ -203,7 +269,7 @@ export function renderReportMarkdown(report: FinalReport): string {
 		out.push("## Histórico de pareceres")
 		out.push("")
 		for (const item of report.reviews) {
-			out.push(`- ${formatDate(item.created_at)} — ${DECISION_LABEL[item.decision]}${item.notes ? `: ${item.notes.trim()}` : ""}`)
+			out.push(`- ${formatDate(item.created_at)} — ${DECISION_LABEL[item.decision]}${item.notes ? `: ${inline(item.notes)}` : ""}`)
 		}
 		out.push("")
 	}
