@@ -1,3 +1,11 @@
+-- APLICADA em prod em 2026-09-10 via MCP `apply_migration` (versão remota 20260910184943).
+-- O arquivo nasceu como 20260910120000 e foi renomeado para casar com a versão que o MCP
+-- registrou — senão o próximo `db push` tentaria reaplicá-la (seria inócuo, o backfill é
+-- idempotente, mas o drift é o que faz o push inteiro parar).
+--
+-- Precisa rodar ANTES do deploy do código: a partir desta versão nada lê `module = 'sucont'`,
+-- e o container novo subindo sem o backfill deixaria os 5 grants de hoje sem valer nada.
+--
 -- Split do módulo `sucont` (hub único) nos quatro módulos que o app passa a usar:
 --   `sucont-1`, `sucont-3`, `sucont-4` — as três divisões da SUCONT que o hub reúne;
 --   `sucont-admin`                     — governança dos acessos do próprio SUCONT.
