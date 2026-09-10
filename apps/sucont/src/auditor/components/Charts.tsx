@@ -1,5 +1,5 @@
 import { BarChart3, Building2, Layers, LayoutList, Network, User } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
 	Area,
 	AreaChart,
@@ -29,13 +29,29 @@ import { AccountGroup, RiskLevel } from "../types"
  * no próprio dado, em `fillOpacity`, que o recharts espalha no retângulo.
  *
  * No dado e não em `shape`: passar `shape` liga o `hasCustomShape` do recharts, que
- * desliga o descarte de retângulo de dimensão zero — e o `LabelList` é montado a partir
- * desses retângulos. Uma UG com `intangivelDiff === 0` passaria a ganhar um rótulo de
- * `diff` que hoje não existe.
+ * desliga o descarte de retângulo de dimensão zero — uma UG com `intangivelDiff === 0`
+ * passaria a desenhar um retângulo sem altura por cima da pilha.
  */
 function paretoOpacity(row: { accumulatedPct?: number } | undefined) {
 	return row?.accumulatedPct && row.accumulatedPct <= 80 ? 1 : 0.4
 }
+
+/** Passo horizontal mínimo entre dois nomes de UG inclinados a -45°, em px. */
+const PARETO_LABEL_PITCH = 50
+/** Largura que o eixo de percentual e as margens tiram da faixa das barras, em px. */
+const PARETO_AXIS_GUTTER = 90
+/**
+ * Altura reservada para os nomes de UG inclinados a -45°, em px.
+ *
+ * É o `height` do EIXO que precisa cobri-los, e não a `margin.bottom` do gráfico:
+ * o recharts soma a altura do eixo e a da legenda por cima da margem e ancora a
+ * legenda no fim da faixa, então aumentar a margem empurra os dois juntos e o vão
+ * entre eles continua zero — só encolhe a área de plotagem. Quem transbordava a
+ * faixa do eixo e alcançava a legenda era o texto inclinado: "CINDACTA IV" mede
+ * ~70px na vertical, contra os 60px que o eixo reservava.
+ */
+const PARETO_AXIS_HEIGHT = 84
+const PARETO_AXIS_HEIGHT_EXPANDED = 110
 
 interface ChartProps {
 	data: FinancialRecord[]
@@ -227,6 +243,21 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHierarchy, hierarchyLevel = "UG", hierarchyFilter = ["TODOS"] }) => {
 	const [viewMode, setViewMode] = useState<"composition" | "ranking" | "tree">("ranking")
 	const [treeGroupBy, setTreeGroupBy] = useState<"ODS" | "ORGAO" | "UG">("ODS")
+	const [plotWidth, setPlotWidth] = useState(0)
+
+	/**
+	 * Ref de callback, não `useRef` + `useEffect`: o componente sai por um `return`
+	 * antecipado enquanto não há dado, e nesse render o nó não existe — um efeito
+	 * com dependência vazia rodaria uma vez, com a ref nula, e nunca mais. A ref de
+	 * callback é chamada toda vez que o nó entra ou sai da árvore, e a função
+	 * devolvida é a limpeza (React 19).
+	 */
+	const measurePlot = useCallback((node: HTMLDivElement | null) => {
+		if (!node) return
+		const observer = new ResizeObserver(([entry]) => setPlotWidth(entry.contentRect.width))
+		observer.observe(node)
+		return () => observer.disconnect()
+	}, [])
 
 	useEffect(() => {
 		if (viewMode === "tree" && setHierarchy) {
@@ -393,7 +424,21 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 	const totalNetDivergence = aggregated.reduce((sum, item) => sum + item.netDiff, 0)
 	const totalFinancialImpact = aggregated.reduce((sum, item) => sum + item.diff, 0)
 
-	const displayData = isExpanded ? paretoData : paretoData.slice(0, 20)
+	/**
+	 * Quantas barras cabem sai da largura MEDIDA da área de plotagem, e não do
+	 * viewport: o eixo X é nominal — cada barra carrega o nome da UG inclinado a
+	 * -45°, e `interval={0}` obriga o recharts a desenhar todos. Quem determina a
+	 * colisão é o passo entre barras, e a mesma janela de 1024px dá plotagens
+	 * diferentes com a barra lateral aberta ou fechada.
+	 *
+	 * `PARETO_LABEL_PITCH`: um nome de UG ocupa ~70px de texto, e inclinado a 45°
+	 * projeta ~50px na horizontal. Abaixo desse passo os nomes se sobrepõem.
+	 *
+	 * O teto de 20 é da visão compacta, não do dado — expandir mostra a série
+	 * inteira, com rolagem horizontal própria.
+	 */
+	const compactCount = plotWidth > 0 ? Math.min(20, Math.max(6, Math.floor((plotWidth - PARETO_AXIS_GUTTER) / PARETO_LABEL_PITCH))) : 20
+	const displayData = isExpanded ? paretoData : paretoData.slice(0, compactCount)
 	// Linhas próprias do Pareto: `displayData` também alimenta o BarChart de Composição
 	// (SIAFI × SILOMS), que não quer opacidade nenhuma.
 	const paretoRows = displayData.map((row) => ({ ...row, fillOpacity: paretoOpacity(row) }))
@@ -512,7 +557,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 
 	return (
 		<div className="flex flex-col h-full w-full relative">
-			<div className="flex items-center justify-center gap-4 mb-4">
+			{/*
+			  O seletor de visão ficava em `absolute top-0 right-0`, na mesma faixa
+			  vertical do painel de impacto, que é centralizado no fluxo: abaixo de
+			  ~700px os dois se imprimiam um sobre o outro. Agora são irmãos na mesma
+			  linha flex, e o seletor desce quando não cabe ao lado.
+			*/}
+			<div className="flex flex-wrap items-center justify-between gap-3 mb-4">
 				<div
 					className={`flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
           bg-card border-border
@@ -523,54 +574,54 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 						<span className={`text-subheading text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
 					</div>
 				</div>
-			</div>
 
-			<div className="absolute top-0 right-0 z-10 flex items-center gap-4">
-				{viewMode === "tree" && (
-					<div className="flex items-center gap-2 mr-4">
-						<span className={`text-label text-muted-foreground`}>Agrupar por:</span>
-						<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-							{(["ODS", "ORGAO", "UG"] as const).map((gb) => (
-								<button
-									key={gb}
-									type="button"
-									onClick={() => setTreeGroupBy(gb)}
-									className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-								>
-									{gb === "ODS" && <Layers className="w-3 h-3" />}
-									{gb === "ORGAO" && <Building2 className="w-3 h-3" />}
-									{gb === "UG" && <User className="w-3 h-3" />}
-									{gb === "ORGAO" ? "Órgão" : gb}
-								</button>
-							))}
+				<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-4">
+					{viewMode === "tree" && (
+						<div className="flex items-center gap-2 mr-4">
+							<span className={`text-label text-muted-foreground`}>Agrupar por:</span>
+							<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
+								{(["ODS", "ORGAO", "UG"] as const).map((gb) => (
+									<button
+										key={gb}
+										type="button"
+										onClick={() => setTreeGroupBy(gb)}
+										className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+									>
+										{gb === "ODS" && <Layers className="w-3 h-3" />}
+										{gb === "ORGAO" && <Building2 className="w-3 h-3" />}
+										{gb === "UG" && <User className="w-3 h-3" />}
+										{gb === "ORGAO" ? "Órgão" : gb}
+									</button>
+								))}
+							</div>
 						</div>
-					</div>
-				)}
+					)}
 
-				<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-					{(
-						[
-							{ mode: "ranking", icon: LayoutList, label: "Pareto" },
-							{ mode: "tree", icon: Network, label: "Árvore" },
-							{ mode: "composition", icon: BarChart3, label: "Composição" },
-						] as const
-					).map(({ mode, icon: Icon, label }) => (
-						<button
-							key={mode}
-							type="button"
-							onClick={() => setViewMode(mode)}
-							className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-						>
-							<Icon className="w-3 h-3" />
-							{label}
-						</button>
-					))}
+					<div className={`flex min-w-0 max-w-full overflow-x-auto custom-scrollbar rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
+						{(
+							[
+								{ mode: "ranking", icon: LayoutList, label: "Pareto" },
+								{ mode: "tree", icon: Network, label: "Árvore" },
+								{ mode: "composition", icon: BarChart3, label: "Composição" },
+							] as const
+						).map(({ mode, icon: Icon, label }) => (
+							<button
+								key={mode}
+								type="button"
+								onClick={() => setViewMode(mode)}
+								className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+							>
+								<Icon className="w-3 h-3" />
+								{label}
+							</button>
+						))}
+					</div>
 				</div>
 			</div>
 
 			{isExpanded && viewMode === "composition" && (
 				<div
-					className={`mb-2 mr-36 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
+					className={`mb-2 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
            bg-muted/50 border-border`}
 				>
 					<span className="text-label text-muted-foreground">Divergência Líquida</span>
@@ -584,24 +635,27 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 			)}
 
 			<div className={`flex-1 w-full mt-2 ${overflowClass}`}>
-				<div style={containerStyle} className="w-full h-full relative">
+				<div ref={measurePlot} style={containerStyle} className="w-full h-full relative">
 					<ResponsiveContainer width="100%" height="100%">
 						{viewMode === "composition" ? (
-							<BarChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 80 }}>
+							<BarChart data={displayData} margin={{ top: 40, right: 30, left: 20, bottom: 8 }}>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
 									interval={0}
-									height={isExpanded ? 100 : 60}
+									height={isExpanded ? PARETO_AXIS_HEIGHT_EXPANDED : PARETO_AXIS_HEIGHT}
 									axisLine={false}
 									tickLine={false}
 								/>
 								<YAxis
-									tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+									tickFormatter={(value) => formatCompactNumber(Number(value))}
 									tick={{ fill: chartChrome.axis }}
 									axisLine={false}
 									tickLine={false}
+									/* Os 60px padrão do recharts foram dimensionados para "1200M"; o rótulo
+									   compacto chega a "999,99 Mi" e era recortado na borda do SVG. */
+									width={76}
 									domain={[0, "auto"]}
 								/>
 								<Tooltip content={<CustomDetailedTooltip />} cursor={{ fill: chartChrome.surfaceMuted }} />
@@ -610,13 +664,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								<Bar dataKey="siloms" name="SILOMS" fill={chartSeries.icc} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
 							</BarChart>
 						) : viewMode === "ranking" ? (
-							<ComposedChart data={paretoRows} margin={{ top: 40, right: 30, left: 20, bottom: isExpanded ? 120 : 60 }}>
+							<ComposedChart data={paretoRows} margin={{ top: 40, right: 30, left: 20, bottom: 8 }}>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 								<XAxis
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
 									interval={0}
-									height={isExpanded ? 100 : 60}
+									height={isExpanded ? PARETO_AXIS_HEIGHT_EXPANDED : PARETO_AXIS_HEIGHT}
 									axisLine={false}
 									tickLine={false}
 								/>
@@ -639,70 +693,35 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									domain={[0, 100]}
 								/>
 								<Tooltip content={<CustomDetailedTooltip />} />
-								<Legend wrapperStyle={{ paddingTop: "10px" }} />
+								<Legend wrapperStyle={{ paddingTop: "16px" }} />
 
-								<Bar
-									yAxisId="left"
-									dataKey="bmpDiff"
-									name="BMP"
-									stackId="a"
-									fill={chartSeries.bmp}
-									radius={[8, 8, 0, 0]}
-									barSize={isExpanded ? 40 : undefined}
-								/>
-								<Bar
-									yAxisId="left"
-									dataKey="consumoDiff"
-									name="Bens de Consumo"
-									stackId="a"
-									fill={chartSeries.consumo}
-									radius={[8, 8, 0, 0]}
-									barSize={isExpanded ? 40 : undefined}
-								/>
+								{/*
+								  Sem raio nos segmentos: a pilha tem três séries e arredondar o TOPO de
+								  cada uma abria uma greta entre elas — a barra lia como três cápsulas
+								  soltas, e não como uma composição de um mesmo total.
+								*/}
+								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill={chartSeries.bmp} barSize={isExpanded ? 40 : undefined} />
+								<Bar yAxisId="left" dataKey="consumoDiff" name="Bens de Consumo" stackId="a" fill={chartSeries.consumo} barSize={isExpanded ? 40 : undefined} />
+								{/*
+								  Sem `LabelList` do total aqui, e a ausência é deliberada.
+
+								  O rótulo carregava `diff` (o total da UG) pendurado na série
+								  `intangivelDiff` — a última da pilha, e portanto a única cujo topo
+								  coincide com o topo da barra. Só que UG sem intangível produz
+								  retângulo de altura zero, que o recharts descarta, e com ele some o
+								  rótulo: das 20 barras, três traziam o total e dezessete não, sem
+								  critério visível para o leitor. Um rótulo intermitente sobre barras
+								  vizinhas mente mais do que rótulo nenhum. O total de cada UG está no
+								  tooltip, que é onde a leitura por barra acontece.
+								*/}
 								<Bar
 									yAxisId="left"
 									dataKey="intangivelDiff"
 									name="Intangíveis"
 									stackId="a"
-									radius={[8, 8, 0, 0]}
 									fill={chartSeries.intangivel}
 									barSize={isExpanded ? 40 : undefined}
-								>
-									<LabelList
-										dataKey="diff"
-										position="top"
-										angle={-90}
-										offset={20}
-										content={(props: LabelListContentProps) => {
-											const { value } = props
-											const x = Number(props.x ?? 0)
-											const y = Number(props.y ?? 0)
-											const width = Number(props.width ?? 0)
-											if (value === undefined || value === null || value === 0) return <g />
-											const formattedValue = formatCompactNumber(Number(value))
-											if (!isExpanded && width < 20) return <g />
-
-											return (
-												<g transform={`translate(${x + width / 2},${y - 20})`}>
-													<rect
-														x="-14"
-														y="-75"
-														width="28"
-														height="85"
-														fill={chartChrome.surface}
-														fillOpacity={0.9}
-														rx="8"
-														stroke={chartChrome.grid}
-														strokeWidth={1}
-													/>
-													<text x="0" y="0" dy={-8} textAnchor="start" fill={chartChrome.label} fontSize="12" fontWeight="bold" transform="rotate(-90)">
-														{formattedValue}
-													</text>
-												</g>
-											)
-										}}
-									/>
-								</Bar>
+								/>
 
 								<Line
 									yAxisId="right"
@@ -737,6 +756,26 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 // --- Evolution Area Chart ---
 export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, timeFilter = "MENSAL" }) => {
 	const [viewMode, setViewMode] = useState<"total" | "overlap" | "icc" | "comparison">("total")
+	const [plotWidth, setPlotWidth] = useState(0)
+
+	/**
+	 * A decisão de imprimir o valor de cada ponto sai da largura MEDIDA do gráfico,
+	 * pelo mesmo motivo da contagem de barras do Pareto: quem faz os rótulos
+	 * colidirem é o passo entre pontos, e o mesmo `ChartWrapper` mede coisas bem
+	 * diferentes conforme a barra lateral e o modo expandido. Pelo viewport, um
+	 * cartão de 600px numa janela de 1000px ainda amontoava os rótulos, e o modal
+	 * expandido de um tablet estreito os escondia sem precisar.
+	 *
+	 * De quebra some o piscado: `useIsMobile` devolve `false` no SSR e no primeiro
+	 * render, então no celular os rótulos apareciam e sumiam logo depois.
+	 */
+	const measurePlot = useCallback((node: HTMLDivElement | null) => {
+		if (!node) return
+		const observer = new ResizeObserver(([entry]) => setPlotWidth(entry.contentRect.width))
+		observer.observe(node)
+		return () => observer.disconnect()
+	}, [])
+
 	const [brushRange, setBrushRange] = useState<{ start: number; end: number }>({
 		start: 0,
 		end: 0,
@@ -863,6 +902,18 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 
 	if (!data || timeSeries.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados.</div>
 
+	/**
+	 * Conta os pontos VISÍVEIS, não os da série: o `Brush` recorta o domínio, e é o
+	 * passo entre os pontos desenhados que faz um rótulo encostar no vizinho. Um
+	 * rótulo de valor ("3,51 Bi") mede ~48px em negrito de 14px.
+	 *
+	 * Antes da primeira medição o padrão é mostrar — a alternativa esconderia o
+	 * rótulo no render do servidor e o traria depois, que é o piscado que se quer
+	 * evitar.
+	 */
+	const visiblePoints = Math.max(1, brushRange.end - brushRange.start + 1)
+	const showPointLabels = plotWidth === 0 || plotWidth / visiblePoints >= 48
+
 	type BrushChangeRange = { startIndex?: number; endIndex?: number }
 
 	const handleBrushChange = (range: BrushChangeRange) => {
@@ -876,9 +927,15 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 
 	return (
 		<div className="w-full h-full min-h-[300px] flex flex-col select-none">
-			<div className="flex justify-between items-center mb-1 px-2">
-				<div className="flex items-center gap-4">
-					<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
+			{/*
+			  `flex-wrap`: o `ChartWrapper` que hospeda este gráfico recorta o que passa da
+			  largura (`overflow-hidden`), então numa tela de 375px esta barra ficava 200px
+			  mais larga que o cartão e as abas "ICC (%)" e "Comparativo Anual" sumiam sem
+			  virar rolagem — inalcançáveis. Quebrando em linha, tudo continua acessível.
+			*/}
+			<div className="flex flex-wrap justify-between items-center gap-2 mb-1 px-2">
+				<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-4">
+					<div className={`flex min-w-0 max-w-full overflow-x-auto custom-scrollbar rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
 						{(
 							[
 								{ mode: "total", label: "Saldos (Total)" },
@@ -891,7 +948,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								key={mode}
 								type="button"
 								onClick={() => setViewMode(mode)}
-								className={`px-3 py-1.5 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+								className={`px-3 py-1.5 text-hint whitespace-nowrap rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 							>
 								{label}
 							</button>
@@ -906,7 +963,15 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 					)}
 				</div>
 
-				<div className="flex items-center gap-4">
+				{/*
+				  A legenda lista o que ESTE modo desenha, e nada além.
+
+				  "Saldos (Total)" plota uma única área (`totalDiff`), mas a legenda anunciava
+				  SIAFi, SIloms e Divergência — o leitor procurava duas séries que o gráfico
+				  não tem. E o marcador de Divergência saía em `bg-destructive`, enquanto a
+				  área é traçada em `--series-pareto`: cor de legenda que não existe no gráfico.
+				*/}
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-1">
 					{viewMode === "icc" ? (
 						<div className="flex items-center gap-2">
 							<div className="w-3 h-3 rounded-sm bg-(--series-icc)"></div>
@@ -923,40 +988,48 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								<span className="text-label text-muted-foreground">Ano Atual</span>
 							</div>
 						</>
-					) : (
+					) : viewMode === "overlap" ? (
 						<>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-(--series-bmp)"></div>
+								<div className="w-3 h-3 rounded-sm bg-(--series-siafi)"></div>
 								<span className="text-label text-muted-foreground">SIAFi</span>
 							</div>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-(--series-consumo)"></div>
+								<div className="w-3 h-3 rounded-sm bg-(--series-siloms)"></div>
 								<span className="text-label text-muted-foreground">SIloms</span>
 							</div>
 							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-destructive opacity-50"></div>
+								<div className="w-3 h-3 rounded-sm bg-(--series-diff) opacity-50"></div>
 								<span className="text-label text-muted-foreground">Divergência</span>
 							</div>
 						</>
+					) : (
+						<div className="flex items-center gap-2">
+							<div className="w-3 h-3 rounded-sm bg-(--series-pareto)"></div>
+							<span className="text-label text-muted-foreground">Divergência</span>
+						</div>
 					)}
 				</div>
 			</div>
 
-			<div className="flex-1 min-h-[300px]">
+			<div ref={measurePlot} className="flex-1 min-h-[300px]">
 				<ResponsiveContainer width="100%" height="100%" minHeight={300}>
 					{viewMode === "comparison" ? (
 						<BarChart data={timeSeries} margin={{ top: 25, right: 10, left: 10, bottom: 0 }} barGap={6}>
 							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
 							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 10 }} axisLine={false} tickLine={false} />
 							<YAxis
-								tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+								/* Mesma unidade do rótulo das barras, que é `formatCompactNumber`. */
+								tickFormatter={(value) => formatCompactNumber(Number(value))}
 								tick={{ fill: chartChrome.axis, fontSize: 10 }}
 								axisLine={false}
 								tickLine={false}
 								domain={[0, (dataMax: number) => dataMax * 1.5]}
 							/>
 							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />
-							<Legend verticalAlign="top" height={20} />
+							{/* Sem `<Legend>` do recharts: a legenda deste gráfico é a de HTML no
+							    cabeçalho, e as duas juntas imprimiam "Ano Anterior / Ano Atual"
+							    duas vezes, uma embaixo da outra. */}
 							<Bar dataKey="prevYearDiff" name="Ano Anterior" fill={chartChrome.axis} fillOpacity={0.5} radius={[4, 4, 0, 0]}>
 								<LabelList
 									dataKey="prevYearDiff"
@@ -1019,7 +1092,14 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 						<AreaChart
 							key={`chart-${viewMode}-${timeSeries.length}-${timeSeries[0]?.date}`}
 							data={timeSeries}
-							margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+							/*
+							  Margem superior e à direita dimensionadas pelo RÓTULO, não pela série:
+							  o `LabelList` escreve o valor acima de cada ponto, e com `top: 10` o
+							  primeiro rótulo era impresso em cima do tique do eixo Y, enquanto o
+							  último saía cortado pela borda ("2,76" sem o "Bi"). O `right` também
+							  abriga a etiqueta SELECIONADO da linha de referência.
+							*/
+							margin={{ top: 28, right: 44, left: 10, bottom: 0 }}
 						>
 							<defs>
 								<linearGradient id="colorSiafi" x1="0" y1="0" x2="0" y2="1">
@@ -1040,12 +1120,30 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 								</linearGradient>
 							</defs>
 							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartChrome.grid} />
-							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 12 }} axisLine={false} tickLine={false} />
+							{/* `padding`: afasta o primeiro e o último ponto das bordas, para que os
+							    rótulos deles não caiam sobre o eixo Y nem sobre a linha de referência. */}
+							{/*
+							  `padding` só à esquerda, e o mínimo que resolve: o primeiro ponto encosta
+							  no eixo Y e o rótulo dele, centralizado, era impresso sobre o tique. À
+							  direita quem dá a folga é a margem do gráfico, que o `Brush` também
+							  respeita.
+
+							  O `Brush` NÃO enxerga o `padding` do eixo — ele desenha a faixa sobre a
+							  área inteira. Cada pixel aqui é um pixel de desalinhamento entre a
+							  alça e o ponto acima dela; 20px numa faixa de ~900px é o preço de ter
+							  o primeiro rótulo legível, e por isso não há folga à direita.
+							*/}
+							<XAxis dataKey="axisLabel" tick={{ fill: chartChrome.axis, fontSize: 12 }} axisLine={false} tickLine={false} padding={{ left: 20, right: 0 }} />
 							<YAxis
-								tickFormatter={(value) => (viewMode === "icc" ? `${value}%` : `${(value / 1000000).toFixed(0)}M`)}
+								/* Mesma escala do rótulo do ponto (`formatCompactNumber`): o eixo dizia
+								   "3600M" enquanto o rótulo dizia "3,51 Bi" — duas unidades para a
+								   mesma série na mesma tela. */
+								tickFormatter={(value) => (viewMode === "icc" ? `${value}%` : formatCompactNumber(Number(value)))}
 								tick={{ fill: chartChrome.axis, fontSize: 12 }}
 								axisLine={false}
 								tickLine={false}
+								width={64}
+								tickMargin={8}
 								domain={viewMode === "icc" ? [0, 110] : ["auto", "auto"]}
 							/>
 							<Tooltip content={<CustomDetailedTooltip viewMode={viewMode} />} />
@@ -1138,17 +1236,21 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									}}
 									activeDot={{ r: 7, strokeWidth: 0 }}
 								>
-									<LabelList
-										dataKey="icc"
-										position="top"
-										offset={20}
-										formatter={(val) => `${Number(val).toFixed(1)}%`}
-										style={{
-											fontSize: "16px",
-											fontWeight: "900",
-											fill: chartSeries.accumulated,
-										}}
-									/>
+									{/* Ver a nota do rótulo da série de divergência: em tela estreita os
+									    valores dos pontos se empilham uns sobre os outros. */}
+									{showPointLabels && (
+										<LabelList
+											dataKey="icc"
+											position="top"
+											offset={20}
+											formatter={(val) => `${Number(val).toFixed(1)}%`}
+											style={{
+												fontSize: "16px",
+												fontWeight: "900",
+												fill: chartSeries.accumulated,
+											}}
+										/>
+									)}
 								</Area>
 							) : (
 								<Area
@@ -1169,17 +1271,25 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 									}}
 									activeDot={{ r: 6, strokeWidth: 0 }}
 								>
-									<LabelList
-										dataKey="totalDiff"
-										position="top"
-										offset={15}
-										formatter={(val) => formatCompactNumber(Number(val))}
-										style={{
-											fontSize: "14px",
-											fontWeight: "bold",
-											fill: chartSeries.pareto,
-										}}
-									/>
+									{/*
+									  Sem rótulo por ponto na tela estreita: doze competências dividem
+									  ~250px, e os valores se imprimiam uns sobre os outros e sobre a
+									  própria curva. O valor continua no tooltip, que é a leitura ponto a
+									  ponto.
+									*/}
+									{showPointLabels && (
+										<LabelList
+											dataKey="totalDiff"
+											position="top"
+											offset={15}
+											formatter={(val) => formatCompactNumber(Number(val))}
+											style={{
+												fontSize: "14px",
+												fontWeight: "bold",
+												fill: chartSeries.pareto,
+											}}
+										/>
+									)}
 								</Area>
 							)}
 

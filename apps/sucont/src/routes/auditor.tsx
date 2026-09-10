@@ -482,22 +482,24 @@ function AuditorPage() {
 	return (
 		<HubLayout
 			actions={
+				// `aria-label` fixo nos três: abaixo de `sm` o rótulo some e o botão fica
+				// só com o ícone, sem nome acessível nenhum.
 				<>
 					{/* A nota é leitura da série: nível 1 basta, como o resto do painel. */}
 					{allData.length > 0 && selectedMonth && (
 						<>
-							<Button variant="outline" size="sm" onClick={() => setIsPresenting(true)}>
+							<Button variant="outline" size="sm" aria-label="Apresentar" onClick={() => setIsPresenting(true)}>
 								<Presentation className="w-4 h-4" />
 								<span className="hidden sm:inline">Apresentar</span>
 							</Button>
-							<Button variant="outline" size="sm" onClick={() => setIsNoteModalOpen(true)}>
+							<Button variant="outline" size="sm" aria-label="Nota analítica" onClick={() => setIsNoteModalOpen(true)}>
 								<FileText className="w-4 h-4" />
 								<span className="hidden sm:inline">Nota analítica</span>
 							</Button>
 						</>
 					)}
 					{canEdit && (
-						<Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
+						<Button size="sm" aria-label="Importar Excel" onClick={() => setIsUploadModalOpen(true)}>
 							<UploadCloud className="w-4 h-4" />
 							<span className="hidden sm:inline">Importar Excel</span>
 						</Button>
@@ -715,10 +717,21 @@ function AuditorPage() {
 				{allData.length > 0 && (
 					<>
 						{/* CONTROLS BAR */}
-						<div className={`sticky top-16 z-30 pt-4 pb-2 transition-colors bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6`}>
-							<div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center py-1">
+						{/*
+						  `top-14` acompanha o cabeçalho do hub, que tem `h-14`. Com `top-16`
+						  sobrava uma fresta de 8px entre as duas barras grudadas, e o conteúdo
+						  rolava por dentro dela.
+
+						  Flex, e não `grid-cols-12`: cada bloco aqui tem largura própria (as
+						  quatro pílulas de período somam ~345px) e num slot de 4/12 colunas o
+						  conteúdo transbordava a célula SEM recortar — de 768px a ~1400px os três
+						  blocos se imprimiam uns por cima dos outros. Em flex o bloco que não cabe
+						  desce de linha.
+						*/}
+						<div className={`sticky top-14 z-30 pt-4 pb-2 transition-colors bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6`}>
+							<div className="flex flex-col gap-2 py-1 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between xl:gap-4">
 								{/* Group Filters */}
-								<div className="col-span-1 md:col-span-5 flex items-center gap-2 p-1 bg-transparent rounded-lg overflow-x-auto">
+								<div className="flex min-w-0 items-center gap-2 p-1 bg-transparent rounded-lg overflow-x-auto custom-scrollbar">
 									{[
 										{
 											id: "ALL",
@@ -754,15 +767,15 @@ function AuditorPage() {
 									))}
 								</div>
 
-								{/* Time Filters */}
-								<div className="col-span-1 md:col-span-4 flex justify-center">
-									<div className={`flex p-1 rounded-lg bg-muted`}>
+								{/* Time Filters + Toggles */}
+								<div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:justify-end xl:gap-3">
+									<div className={`flex max-w-full shrink-0 overflow-x-auto custom-scrollbar p-1 rounded-lg bg-muted`}>
 										{(["MENSAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"] as TimeFilter[]).map((tf) => (
 											<button
 												key={tf}
 												type="button"
 												onClick={() => setTimeFilter(tf)}
-												className={`px-3 py-2 text-label rounded-lg transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
+												className={`px-3 py-2 text-label rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
                           ${timeFilter === tf ? "bg-action text-action-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
                         `}
 											>
@@ -770,15 +783,15 @@ function AuditorPage() {
 											</button>
 										))}
 									</div>
-								</div>
 
-								{/* Toggles */}
-								<div className="col-span-1 md:col-span-3 flex justify-end items-center gap-3">
-									<div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted border-border">
+									<div className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg border bg-muted border-border">
 										<span className="sr-only">Quantidade de UGs consideradas na visualização atual</span>
 										<Database className="w-3.5 h-3.5 text-action" />
+										{/* Abaixo de `sm` fica só a contagem: o rótulo custava uma linha inteira
+										    da barra grudada, que já ocupa boa parte da tela pequena. O texto
+										    completo continua no `sr-only` acima. */}
 										<div className="flex flex-col leading-none">
-											<span className="text-label text-muted-foreground">Registros Totais</span>
+											<span className="hidden sm:block text-label text-muted-foreground">Registros Totais</span>
 											<span className={`text-caption text-foreground`}>{stats.totalUGsCount} UGs</span>
 										</div>
 									</div>
@@ -786,7 +799,7 @@ function AuditorPage() {
 									<button
 										type="button"
 										onClick={() => setHideZeros(!hideZeros)}
-										className={`flex items-center gap-2 px-4 py-2 rounded-lg text-label border transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 
+										className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-label whitespace-nowrap border transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
                       ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "text-muted-foreground border-border hover:text-foreground"}
                     `}
 									>
@@ -841,8 +854,15 @@ function AuditorPage() {
 							/>
 
 							{/* ICC Card */}
+							{/*
+							  `min-h`, e não `h`: o cabeçalho quebra em três linhas na coluna estreita
+							  do `lg:grid-cols-5` e o arco pede 100px logo abaixo — em altura fixa de
+							  140px com `overflow-hidden` o medidor saía cortado, sem o rótulo da faixa.
+							  Os `StatCard` ao lado usam o mesmo mínimo, e a linha do grid iguala a
+							  altura pelo cartão mais alto.
+							*/}
 							<div
-								className={`bg-card border-border hover:bg-muted/50 rounded-xl shadow-sm border p-4 flex flex-col justify-between transition-all group overflow-hidden relative h-[140px]`}
+								className={`bg-card border-border hover:bg-muted/50 rounded-xl shadow-sm border p-4 flex flex-col justify-between transition-all group overflow-hidden relative min-h-[140px]`}
 							>
 								<div className="flex justify-between items-start relative z-10">
 									<div className="flex-1">
