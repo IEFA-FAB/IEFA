@@ -20,10 +20,12 @@ import {
 	flowTotalMinutes,
 	formatSheetDuration,
 	formatSheetNumber,
+	orderRequirementsForSheet,
 	portionYieldOrOne,
 	type QuantityBasis,
 	type SheetEquipmentRequirement,
 	type SheetFlowStep,
+	type SheetTechnicalNote,
 	stepLabelById,
 	technicalSheetLine,
 	technicalSheetTotals,
@@ -227,12 +229,12 @@ interface Sheet {
 	 * número que a nutricionista escreveu.
 	 */
 	totalTimeMinutes: number | null
-	/** Lista mínima de equipamentos da preparação — PARTE 04. */
+	/** Lista mínima de equipamentos da preparação — PARTE 04, na ordem de execução do fluxo. */
 	equipment: SheetEquipmentRequirement[]
 	/** Etapas do Fluxo de Produção — PARTE 04. Vazio quando a preparação não tem fluxo. */
 	steps: SheetFlowStep[]
 	/** Observações gravadas nas exigências de equipamento — PARTE 05. */
-	technicalNotes: { target: string; note: string }[]
+	technicalNotes: SheetTechnicalNote[]
 	/** Nome da etapa por id, para nomear a etapa na linha de equipamento. */
 	stepLabels: Map<string, string>
 	/** Alguma exigência é de etapa? Decide a coluna "Etapa" da tabela de equipamentos. */
@@ -279,6 +281,11 @@ function buildSheet(
 	// render 50 kg. Cada número vem do total na escala em que ele JÁ está, sem a volta
 	// ÷rendimento ×rendimento — que em binário devolveria 3.332,999… no lugar de 3.333.
 	const portionWeight = basis === "total" ? totals.netWeight / portionYield : totals.netWeight
+	// Uma ordem só para as duas Seções: a tabela da PARTE 04 e as observações da PARTE 05
+	// falam das MESMAS exigências, e listá-las em ordens diferentes obriga quem lê a procurar
+	// no papel de qual linha a observação fala.
+	const orderedEquipment = orderRequirementsForSheet(equipment, steps)
+	const stepLabels = stepLabelById(steps)
 	return {
 		name: recipe.name,
 		category: recipe.folder_id ? (folderNameById.get(recipe.folder_id) ?? "") : "",
@@ -294,10 +301,10 @@ function buildSheet(
 		prePreparationMethod: recipe.pre_preparation_method ?? "",
 		preparationMethod: recipe.preparation_method ?? "",
 		totalTimeMinutes: recipe.preparation_time_minutes ?? flowTotalMinutes(steps),
-		equipment,
+		equipment: orderedEquipment,
 		steps,
-		technicalNotes: equipmentTechnicalNotes(equipment),
-		stepLabels: stepLabelById(steps),
+		technicalNotes: equipmentTechnicalNotes(orderedEquipment, stepLabels),
+		stepLabels,
 		hasStepScopedEquipment: equipment.some((req) => req.recipe_step_id != null),
 		elaboratedAt: formatDate(recipe.created_at),
 		reviewedAt: formatDate(lastReview?.reviewed_at),
@@ -525,7 +532,14 @@ function TechnicalSheetDocument({ sheet }: { sheet: Sheet }) {
 				<ul className="ftp-notes">
 					{sheet.technicalNotes.map((entry, index) => (
 						<li key={`note-${index}`}>
-							<strong>{entry.target}:</strong> {entry.note}
+							{/* A etapa acompanha o alvo: duas observações do mesmo papel em etapas
+							    diferentes falam da mesma unidade reusada em sequência, e sem a etapa
+							    o papel as imprime como instruções concorrentes para um equipamento só. */}
+							<strong>
+								{entry.target}
+								{entry.step ? ` · ${entry.step}` : ""}:
+							</strong>{" "}
+							{entry.note}
 						</li>
 					))}
 				</ul>
