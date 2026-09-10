@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { classifyAccount, getRacDescription, rules } from "./types"
+import { classifyAccount, getRacDescription, getRacTopic, RAC_QUESTOES_NO_ESCOPO, rules } from "./types"
 
 describe("tabela de contas transitórias (Q16–Q37)", () => {
 	it("usa código de conta de 9 dígitos em toda regra", () => {
@@ -20,6 +20,29 @@ describe("tabela de contas transitórias (Q16–Q37)", () => {
 			expect(rule.questaoRAC).toMatch(/^Questão \d+$/)
 			expect(getRacDescription(rule.questaoRAC)).not.toBe("Análise de Saldos Transitórios")
 		}
+	})
+
+	// O assunto é impresso na mensagem enviada à UG ("Mapeamento Contábil - Estoques").
+	// Enquanto os cartões carregavam a própria cópia desta tabela, a renumeração do
+	// RAC deixou as duas em edições diferentes e elas passaram a trocar o assunto
+	// entre si — a antiga Q26 era Estoques, a atual é Bens a Classificar.
+	it("dá assunto próprio a toda questão parametrizada, e o mesmo da descrição", () => {
+		for (const rule of rules) {
+			const assunto = getRacTopic(rule.questaoRAC)
+			expect(assunto, `assunto de ${rule.questaoRAC}`).not.toBe("Saldos Transitórios")
+			expect(getRacDescription(rule.questaoRAC)).toBe(`${assunto} (Saldos que não devem permanecer ao final do mês)`)
+		}
+	})
+
+	it("declara o escopo a partir da própria tabela de contas", () => {
+		expect(RAC_QUESTOES_NO_ESCOPO.length).toBeGreaterThan(0)
+		expect(new Set(RAC_QUESTOES_NO_ESCOPO).size).toBe(RAC_QUESTOES_NO_ESCOPO.length)
+		expect(new Set(RAC_QUESTOES_NO_ESCOPO)).toEqual(new Set(rules.map((r) => r.questaoRAC)))
+	})
+
+	it("cai no rótulo genérico para questão fora do escopo do analista", () => {
+		expect(getRacTopic("Questão 99")).toBe("Saldos Transitórios")
+		expect(getRacTopic("TODOS")).toBe("Saldos Transitórios")
 	})
 
 	it("usa código de UG de 6 dígitos em toda exceção", () => {

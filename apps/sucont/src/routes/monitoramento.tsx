@@ -33,9 +33,9 @@ import { Button } from "#/components/ui/button"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getOrganizacao } from "#/lib/analista/organizacao"
-import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
+import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow, RAC_QUESTOES_NO_ESCOPO } from "#/lib/analista/types"
 import { chartChrome } from "#/lib/chart-theme"
-import { getConferente } from "#/lib/ug/registry"
+import { getConferente, isUgAcompanhada } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
 
 // Paleta CATEGÓRICA de visualização: existe para distinguir categorias entre si.
@@ -167,7 +167,7 @@ function MonitoramentoPage() {
 						const conta = String(contaRaw).trim()
 						const saldo = parseSaldo(saldoRaw)
 
-						if (!Number.isNaN(saldo) && saldo !== 0) {
+						if (!Number.isNaN(saldo) && saldo !== 0 && isUgAcompanhada(ug)) {
 							const { classification, description, observation, accountCode, questaoRAC } = classifyAccount(ug, conta, saldo)
 							processed.push({
 								ug,
@@ -226,7 +226,7 @@ function MonitoramentoPage() {
 						}
 					})
 
-					if (foundUg && foundMes && foundConta && foundSaldo && saldo !== 0) {
+					if (foundUg && foundMes && foundConta && foundSaldo && saldo !== 0 && isUgAcompanhada(ug)) {
 						const { classification, description, observation, accountCode, questaoRAC } = classifyAccount(ug, conta, saldo)
 						processed.push({
 							ug,
@@ -587,7 +587,7 @@ function MonitoramentoPage() {
 								<h3 className="text-heading text-foreground mb-2">Escopo da Análise (RAC)</h3>
 								<p className="text-body text-muted-foreground mb-3">Este sistema analisa saldos transitórios com base nas seguintes questões do RAC:</p>
 								<div className="flex flex-wrap gap-2 mb-4">
-									{["Questão 35", "Questão 36", "Questão 37", "Questão 16", "Questão 30", "Questão 26"].map((q) => (
+									{RAC_QUESTOES_NO_ESCOPO.map((q) => (
 										<span key={q} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption bg-action/10 text-action border border-action/30">
 											{q}
 										</span>

@@ -23,6 +23,7 @@ import { AnimatePresence, motion } from "motion/react"
 import React, { useCallback, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
+import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Badge } from "#/components/ui/badge"
@@ -32,6 +33,7 @@ import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { chartChrome } from "#/lib/chart-theme"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { cn } from "#/lib/utils"
@@ -245,6 +247,7 @@ function SubitensGenericos() {
 	const [error, setError] = useState<string | null>(null)
 	const [isProcessing, setIsProcessing] = useState(false)
 	const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+	const drafts = useMessageDrafts()
 	const [activeTab, setActiveTab] = useState<"messages" | "dashboard">("messages")
 
 	const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split("T")[0])
@@ -282,6 +285,7 @@ function SubitensGenericos() {
 		setMessageMode("individual")
 		setSelectedConferente("all")
 		setDashboardTab("operacional")
+		drafts.resetAll()
 	}
 
 	const updateUgConfig = (ug: string, field: string, value: string) => {
@@ -1017,6 +1021,7 @@ function SubitensGenericos() {
 														currentMsgNumber,
 														"all"
 													)
+													const draft = drafts.of(`ug:${group.ug}`, message)
 
 													return (
 														<motion.div
@@ -1137,7 +1142,7 @@ function SubitensGenericos() {
 																</div>
 
 																<Button
-																	onClick={() => copyToClipboard(message, idx)}
+																	onClick={() => copyToClipboard(draft.text, idx)}
 																	type="button"
 																	variant="default"
 																	className={cn(
@@ -1164,11 +1169,16 @@ function SubitensGenericos() {
 																	<div className="w-2 h-2 rounded-full bg-surface-inverted/20" />
 																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
-																<div className="prose prose-sm max-w-none">
-																	<pre className="whitespace-pre-wrap font-sans text-body leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
-																		{message}
-																	</pre>
-																</div>
+																<EditableMessage
+																	label={`Mensagem institucional da UG ${group.ug}`}
+																	value={draft.text}
+																	onChange={draft.setText}
+																	onReset={draft.reset}
+																	isEdited={draft.isEdited}
+																	isStale={draft.isStale}
+																	textClassName="max-h-[500px] bg-card p-0 text-foreground/70 leading-relaxed border-0"
+																	rows={18}
+																/>
 															</div>
 														</motion.div>
 													)
@@ -1190,6 +1200,7 @@ function SubitensGenericos() {
 														getRacDeadlineText(racId),
 														currentMsgNumber
 													)
+													const draft = drafts.of(`rac:${racId}`, message)
 													const totalSaldo = occurrences.reduce((sum, occ) => sum + occ.saldo, 0)
 													const uniqueUgs = new Set(occurrences.map((o) => o.ug)).size
 
@@ -1317,7 +1328,7 @@ function SubitensGenericos() {
 																</div>
 
 																<Button
-																	onClick={() => copyToClipboard(message, idx)}
+																	onClick={() => copyToClipboard(draft.text, idx)}
 																	type="button"
 																	variant="default"
 																	className={cn(
@@ -1344,11 +1355,16 @@ function SubitensGenericos() {
 																	<div className="w-2 h-2 rounded-full bg-surface-inverted/20" />
 																	<span className="text-label text-foreground/20">Documento Institucional</span>
 																</div>
-																<div className="prose prose-sm max-w-none">
-																	<pre className="whitespace-pre-wrap font-sans text-body leading-relaxed text-foreground/70 max-h-[500px] overflow-y-auto pr-6 scrollbar-thin scrollbar-thumb-foreground/10">
-																		{message}
-																	</pre>
-																</div>
+																<EditableMessage
+																	label={`Mensagem consolidada da ${racId}`}
+																	value={draft.text}
+																	onChange={draft.setText}
+																	onReset={draft.reset}
+																	isEdited={draft.isEdited}
+																	isStale={draft.isStale}
+																	textClassName="max-h-[500px] bg-card p-0 text-foreground/70 leading-relaxed border-0"
+																	rows={18}
+																/>
 															</div>
 														</motion.div>
 													)

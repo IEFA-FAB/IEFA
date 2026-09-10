@@ -299,14 +299,39 @@ export function formatCurrency(value: number) {
 	}).format(value)
 }
 
+/**
+ * Assunto de cada questão do RAC coberta pelo analista de saldos transitórios.
+ *
+ * Fonte ÚNICA do rótulo: o número da questão é impresso NA MENSAGEM enviada à UG
+ * ("Mapeamento Contábil - Estoques"), e os cartões mantinham a própria cópia
+ * desta tabela. Quando a edição atual do RAC renumerou as questões, as cópias
+ * ficaram na numeração antiga e passaram a trocar o assunto entre si: a antiga
+ * Q26 era Estoques e a atual Q26 é Bens a Classificar.
+ */
+const RAC_ASSUNTOS: Record<string, string> = {
+	"Questão 35": "Estoques",
+	"Questão 36": "Bens Móveis",
+	"Questão 37": "Bens Imóveis",
+	"Questão 16": "Fornecedores e Contas a Pagar",
+	"Questão 30": "Perdas Involuntárias",
+	"Questão 26": "Bens a Classificar",
+}
+
+/**
+ * Questões do RAC cobertas pela tabela de contas, na ordem em que aparecem nela.
+ *
+ * A tela do escopo listava as mesmas questões numa constante à parte — e é uma
+ * lista que só se percebe desatualizada lendo a tabela de contas linha a linha.
+ */
+export const RAC_QUESTOES_NO_ESCOPO: readonly string[] = Array.from(new Set(rules.map((r) => r.questaoRAC)))
+
+/** Assunto curto, usado no título e no corpo da mensagem institucional. */
+export function getRacTopic(rac: string): string {
+	return RAC_ASSUNTOS[rac] ?? "Saldos Transitórios"
+}
+
+/** Descrição longa, usada no cabeçalho da tela. */
 export function getRacDescription(rac: string) {
-	const descriptions: Record<string, string> = {
-		"Questão 35": "Estoques (Saldos que não devem permanecer ao final do mês)",
-		"Questão 36": "Bens Móveis (Saldos que não devem permanecer ao final do mês)",
-		"Questão 37": "Bens Imóveis (Saldos que não devem permanecer ao final do mês)",
-		"Questão 16": "Fornecedores e Contas a Pagar (Saldos que não devem permanecer ao final do mês)",
-		"Questão 30": "Perdas Involuntárias (Saldos que não devem permanecer ao final do mês)",
-		"Questão 26": "Bens a Classificar (Saldos que não devem permanecer ao final do mês)",
-	}
-	return descriptions[rac] || "Análise de Saldos Transitórios"
+	const assunto = RAC_ASSUNTOS[rac]
+	return assunto ? `${assunto} (Saldos que não devem permanecer ao final do mês)` : "Análise de Saldos Transitórios"
 }

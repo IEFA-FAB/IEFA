@@ -21,7 +21,6 @@ import {
 	MessageSquare,
 	RefreshCw,
 	Search,
-	Shield,
 	ShieldCheck,
 	Target,
 	TrendingUp,
@@ -31,6 +30,7 @@ import {
 import type React from "react"
 import { useRef, useState } from "react"
 import * as XLSX from "xlsx"
+import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
@@ -38,6 +38,7 @@ import { Card, CardContent } from "#/components/ui/card"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { CONFERENTES, getUg } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
@@ -105,6 +106,7 @@ function ContaGenerica() {
 	const [result, setResult] = useState<GroupedData | null>(null)
 	const [foundAny, setFoundAny] = useState(false)
 	const [copiedUg, setCopiedUg] = useState<string | null>(null)
+	const drafts = useMessageDrafts()
 	const [messageMode, setMessageMode] = useState<"individual" | "unica">("individual")
 	const [deadline, setDeadline] = useState("")
 	const [messageType, setMessageType] = useState<"prazo" | "sem_prazo" | "alerta">("sem_prazo")
@@ -180,6 +182,7 @@ function ContaGenerica() {
 		setMessageMode("individual")
 		setMessageType("sem_prazo")
 		setDeadline("")
+		drafts.resetAll()
 		if (fileInputRef.current) fileInputRef.current.value = ""
 	}
 
@@ -481,6 +484,10 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 		text += `${deadlineText}\n${actionText}\n\n${blocoFundamentacao(FUNDAMENTO_CONTA_GENERICA)}\n\nAtenciosamente,\n\nDivisão de Acompanhamento Contábil e Suporte ao Usuário (SUCONT-3)\nSubdiretoria de Contabilidade (SUCONT)\nDiretoria de Economia e Finanças da Aeronáutica (DIREF)`
 		return text
 	}
+
+	// A mensagem única concatena todas as UGs do resultado; só é montada no modo em
+	// que ela aparece, senão sai refeita a cada tecla digitada nas mensagens por UG.
+	const singleMessage = messageMode === "unica" ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateSingleMessage()) : null
 
 	const copyToClipboard = (text: string, key: string) => {
 		navigator.clipboard.writeText(text)
@@ -1354,7 +1361,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 								)}
 
 								{/* Única message */}
-								{messageMode === "unica" ? (
+								{messageMode === "unica" && singleMessage ? (
 									<div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
 										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 											<div className="p-6 border-b border-border bg-card">
@@ -1385,8 +1392,17 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											</div>
 										</div>
 										<div className="p-6 flex-1 bg-muted/30">
-											<div className="bg-card border border-border rounded-xl p-6 h-full font-mono text-body text-foreground leading-relaxed whitespace-pre-wrap relative">
-												{generateSingleMessage()}
+											<div className="relative flex h-full flex-col">
+												<EditableMessage
+													label="Mensagem institucional consolidada"
+													value={singleMessage.text}
+													onChange={singleMessage.setText}
+													onReset={singleMessage.reset}
+													isEdited={singleMessage.isEdited}
+													isStale={singleMessage.isStale}
+													className="h-full"
+													textClassName="rounded-xl bg-card p-6 pr-16 font-mono"
+												/>
 												<Tooltip>
 													<TooltipTrigger
 														render={
@@ -1394,7 +1410,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																size="icon-sm"
 																aria-label="Copiar Mensagem"
 																onClick={() => {
-																	copyToClipboard(generateSingleMessage(), "unica")
+																	copyToClipboard(singleMessage.text, "unica")
 																}}
 																className="absolute top-4 right-4 bg-muted hover:bg-tech-blue hover:text-white text-muted-foreground rounded-lg shadow-sm"
 															>
@@ -1414,7 +1430,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 										.sort()
 										.map((ug) => {
 											const contas = result[ug]
-											const message = generateMessage(ug, contas)
+											const message = drafts.of(ug, generateMessage(ug, contas))
 											let ugTotalBalance = 0
 											for (const regs of Object.values(contas)) {
 												for (const reg of regs) ugTotalBalance += reg.saldo
@@ -1490,7 +1506,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																	</p>
 																</div>
 																<Button
-																	onClick={() => copyToClipboard(message, ug)}
+																	onClick={() => copyToClipboard(message.text, ug)}
 																	className={`gap-2 px-5 py-2.5 rounded-xl text-label ${
 																		copiedUg === ug
 																			? "bg-success text-success-foreground shadow-lg"
@@ -1523,12 +1539,16 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 															</div>
 														</div>
 														<div className="p-6 flex-1 bg-muted/30">
-															<div className="bg-card border border-border rounded-xl p-6 h-full font-mono text-body text-foreground leading-relaxed whitespace-pre-wrap relative">
-																<div className="absolute top-4 right-4 opacity-10 pointer-events-none">
-																	<Shield className="w-12 h-12 text-foreground" />
-																</div>
-																{message}
-															</div>
+															<EditableMessage
+																label={`Mensagem institucional da UG ${ug}`}
+																value={message.text}
+																onChange={message.setText}
+																onReset={message.reset}
+																isEdited={message.isEdited}
+																isStale={message.isStale}
+																className="h-full"
+																textClassName="rounded-xl bg-card p-6 font-mono"
+															/>
 														</div>
 													</div>
 												</div>

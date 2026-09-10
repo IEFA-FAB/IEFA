@@ -1,10 +1,12 @@
 import { Copy } from "lucide-react"
 import { useState } from "react"
+import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getOrganizacao } from "#/lib/analista/organizacao"
-import type { ProcessedRow } from "#/lib/analista/types"
+import { getRacTopic, type ProcessedRow } from "#/lib/analista/types"
 import { blocoFundamentacao, FUNDAMENTO_SALDO_TRANSITORIO } from "#/lib/normas"
 
 interface ConsolidatedMessageCardProps {
@@ -35,18 +37,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const [sendDate, setSendDate] = useState(new Date().toISOString().split("T")[0])
 	const [messageType, setMessageType] = useState<"SEM_PRAZO" | "COM_PRAZO" | "ALERTA">("SEM_PRAZO")
 	const [deadlineDate, setDeadlineDate] = useState("")
-
-	const getRacTopic = (rac: string) => {
-		const topics: Record<string, string> = {
-			"Questão 26": "Estoques",
-			"Questão 27": "Bens Móveis",
-			"Questão 28": "Bens Imóveis",
-			"Questão 31": "Fornecedores e Contas a Pagar",
-			"Questão 32": "Perdas Involuntárias",
-			"Questão 36": "Bens a Classificar",
-		}
-		return topics[rac] || "Saldos Transitórios"
-	}
+	const draft = useMessageDraft()
 
 	const items = rows.filter((r) => r.classificacao === "COBRANÇA" || r.classificacao === "COBRANÇA COM OBSERVAÇÃO")
 
@@ -105,6 +96,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 	const assuntoMsg = `Assunto: Mapeamento Contábil - ${getRacTopic(activeRacFilter)} - ${mesReferencia}`
 	const headerMsg = `Mensagem n° ${msgNumber || "___"}/SUCONT-3/${formatMessageDate(sendDate)}\n\n${assuntoMsg}\n\n`
 	const fullMessage = headerMsg + baseParts.join("\n\n")
+	const message = draft.of(fullMessage)
 
 	return (
 		<div className="bg-action/10 rounded-xl shadow-sm border border-action/30 overflow-hidden mb-8">
@@ -127,7 +119,7 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 							<h3 className="text-subheading text-foreground">Mensagem Institucional Pronta (Consolidada)</h3>
 							<Button
 								type="button"
-								onClick={() => navigator.clipboard.writeText(fullMessage)}
+								onClick={() => navigator.clipboard.writeText(message.text)}
 								variant="outline"
 								size="xs"
 								className="gap-1 bg-card font-medium text-muted-foreground shadow-sm hover:text-foreground"
@@ -201,9 +193,15 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 							</div>
 						</div>
 
-						<div className="bg-muted/50 p-4 rounded border border-border flex-1 overflow-y-auto min-h-[350px] max-h-[600px]">
-							<p className="text-body text-foreground whitespace-pre-wrap leading-relaxed">{fullMessage}</p>
-						</div>
+						<EditableMessage
+							label="Mensagem institucional consolidada"
+							value={message.text}
+							onChange={message.setText}
+							onReset={message.reset}
+							isEdited={message.isEdited}
+							isStale={message.isStale}
+							className="flex-1 min-h-[350px] max-h-[600px]"
+						/>
 					</div>
 				</div>
 			</div>

@@ -39,6 +39,43 @@ describe("DGC_SYSTEM_PROMPT", () => {
 		}
 	})
 
+	// A sigla colide com "Sistema de Controle Interno". Sem a regra, o modelo lia
+	// achado de infraestrutura contra incêndio como falha de controle interno e
+	// recomendava a ação errada.
+	it("fixa SISCON em 63.YY.ZZ como Sistema de Contra Incêndio", () => {
+		expect(DGC_SYSTEM_PROMPT).toMatch(/SISCON.*63\.YY\.ZZ/s)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/CONTRA INCÊNDIO/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/nunca "Sistema de Controle Interno"/i)
+	})
+
+	// O mapeamento lista 27 elos e o Órgão Central declara 32: quem não consta é
+	// UG não mapeada, não UG fora do SISUB.
+	it("traz os elos executivos acrescentados pelo Órgão Central", () => {
+		for (const elo of ["GAP-DF", "BAAN", "GAP-BR → BABR, HFAB", "GAP-RF → HARF"]) {
+			expect(DGC_SYSTEM_PROMPT).toContain(elo)
+		}
+		expect(DGC_SYSTEM_PROMPT).toContain("32 Elos Executivos")
+		expect(DGC_SYSTEM_PROMPT).toContain("66 Elos Usuários")
+	})
+
+	it("proíbe concluir exclusão do SISUB a partir da ausência no mapeamento", () => {
+		expect(DGC_SYSTEM_PROMPT).toMatch(/UG ausente dele é UG NÃO MAPEADA/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/nunca afirme que ela está fora do SISUB/i)
+		expect(DGC_SYSTEM_PROMPT).not.toContain("UG fora da estrutura do SISUB com custo SISUB")
+	})
+
+	// Os títulos vêm da tabela de subitens do MTO. "Taxa de iluminação pública" não
+	// existe: o 33904722 é CONTRIBUIÇÃO (art. 149-A da CF), e a taxa com esse fato
+	// gerador é inconstitucional (STF, Súmula Vinculante 41). Prompt com o nome
+	// errado devolve recomendação com o nome errado.
+	it("nomeia os subitens de despesa como o MTO", () => {
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33904722 \(contribuição para custeio de iluminação pública/i)
+		expect(DGC_SYSTEM_PROMPT).not.toMatch(/taxa de iluminação pública/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33903945 \(serviços de gás\)/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33904710 \(taxas —/i)
+		expect(DGC_SYSTEM_PROMPT).toMatch(/33903979 \(serviço de apoio administrativo, técnico e operacional/i)
+	})
+
 	it("mantém a exceção do SISTRAN (não alertar UG fora da estrutura)", () => {
 		expect(DGC_SYSTEM_PROMPT).toMatch(/NÃO gere alerta para UG não integrante que possua custo SISTRAN/i)
 	})

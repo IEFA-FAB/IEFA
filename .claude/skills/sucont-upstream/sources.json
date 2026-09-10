@@ -1,0 +1,183 @@
+{
+  "$comment": "Repos de origem das ferramentas portadas para apps/sucont. `checkpoint` é o último commit upstream JÁ conferido contra o app — atualize-o (com a data e o veredito) só depois de conferir de verdade. `targets` são os caminhos do monorepo que implementam aquela ferramenta.",
+  "owners": [
+    "sucont32sau-debug",
+    "lsantosnels"
+  ],
+  "repos": [
+    {
+      "repo": "sucont32sau-debug/sacdgccomaer",
+      "tool": "SAC-DGC — análise crítica do DGC",
+      "route": "/sac-dgc",
+      "targets": [
+        "apps/sucont/src/sacdgc/",
+        "apps/sucont/src/routes/sac-dgc.tsx",
+        "apps/sucont/src/routes/api/sacdgc/",
+        "apps/sucont/src/server/sacdgc.fn.ts"
+      ],
+      "portedIn": "PR #216",
+      "checkpoint": "ec102320",
+      "checkpointDate": "2026-09-09",
+      "lastReviewed": "2026-09-09",
+      "notes": "Upstream é AI Studio + Gemini + Firestore. O port trocou Gemini por Bedrock (@iefa/ai-provider) e Firestore por sucont.dgc_analysis. Ver src/sacdgc/README.md — a tabela de defeitos corrigidos é o diff conceitual. As regras do SISUB (32/66 + GAP-DF/GAP-BR/GAP-RF/BAAN) e do SISCON em 63.YY.ZZ foram trazidas em 2026-09-09; o total declarado não bate com o mapeamento nem lá nem aqui, e o prompt agora diz isso ao modelo.",
+      "pending": [
+        "108dd69c/ab5384e5 — analyzeJustifications: segunda passada de IA que cruza as justificativas da UG (planilha do Forms) com os achados do DGC e gera minuta de comunicação oficial (textoComunicacaoUg). Não existe no sucont; não existia no upstream em 2026-06-30 (b7c64c0a), logo não é omissão do port. Feature nova, precisa de proposta própria."
+      ]
+    },
+    {
+      "repo": "sucont32sau-debug/analistacompatibilidade",
+      "tool": "Analista de compatibilidade",
+      "route": "/analista-compatibilidade",
+      "targets": [
+        "apps/sucont/src/lib/compatibilidade/",
+        "apps/sucont/src/routes/analista-compatibilidade.tsx"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
+      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream só a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+    },
+    {
+      "repo": "sucont32sau-debug/Analistasaldoalongado",
+      "tool": "Analista de saldo alongado",
+      "route": "/analistasaldoalongado",
+      "targets": [
+        "apps/sucont/src/analistasaldoalongado/",
+        "apps/sucont/src/routes/analistasaldoalongado.tsx"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
+      "notes": "Trazidos em 2026-09-09: edição manual da mensagem e exclusão da UG 170999 (isUgAcompanhada no filtro do parser). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+    },
+    {
+      "repo": "sucont32sau-debug/Analistasaldoimproprio",
+      "tool": "Analista de saldo impróprio",
+      "route": null,
+      "targets": [
+        "apps/sucont/src/routes/monitoramento.tsx",
+        "apps/sucont/src/lib/analista/",
+        "apps/sucont/src/components/analista/"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
+      "notes": "A ferramenta é a rota /monitoramento (o app não tem rota com o nome do repo). Trazidos em 2026-09-09: edição manual da mensagem e exclusão da UG 170999 (isUgAcompanhada nos dois ramos do parser). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+    },
+    {
+      "repo": "sucont32sau-debug/analistacontagenerica",
+      "tool": "Analista de conta genérica",
+      "route": "/conta-generica",
+      "targets": [
+        "apps/sucont/src/routes/conta-generica.tsx",
+        "apps/sucont/src/server/conta-generica.fn.ts"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
+      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream só a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+    },
+    {
+      "repo": "sucont32sau-debug/cruzamentocontas",
+      "tool": "Cruzamento de contas",
+      "route": "/cruzamento-contas",
+      "targets": [
+        "apps/sucont/src/lib/cruzamento/",
+        "apps/sucont/src/components/cruzamento/",
+        "apps/sucont/src/routes/cruzamento-contas.tsx"
+      ],
+      "checkpoint": "3f1245cf",
+      "checkpointDate": "2026-07-06",
+      "lastReviewed": "2026-09-09",
+      "notes": "Trazidos em 2026-09-09: edição manual da mensagem e exclusão da UG 170999. A exclusão é do CONTA CORRENTE inteiro que tenha perna na STN, como no upstream (51dc0459) — descartar só a linha da STN desmancharia o par e cobraria ausência da UG do COMAER."
+    },
+    {
+      "repo": "sucont32sau-debug/centromonitoramento",
+      "tool": "Centro de monitoramento",
+      "route": "/centro-monitoramento",
+      "targets": [
+        "apps/sucont/src/routes/centro-monitoramento.tsx",
+        "apps/sucont/src/routes/monitoramento.tsx",
+        "apps/sucont/src/lib/centro-monitoramento-data.ts"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null
+    },
+    {
+      "repo": "sucont32sau-debug/sucontsubitem",
+      "tool": "Subitens genéricos",
+      "route": "/subitens-genericos",
+      "targets": [
+        "apps/sucont/src/subitens/",
+        "apps/sucont/src/routes/subitens-genericos.tsx"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null
+    },
+    {
+      "repo": "sucont32sau-debug/analistacriticodgc",
+      "tool": "Analista crítico do DGC (público)",
+      "route": null,
+      "targets": [
+        "apps/sucont/src/sacdgc/"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null,
+      "notes": "Público. Possível antecessor/variante do sacdgccomaer — conferir se é código vivo ou repositório abandonado antes de tratar achado como pendência."
+    },
+    {
+      "repo": "sucont32sau-debug/sacdgccomaer3",
+      "tool": "SAC-DGC (variante 3, pública)",
+      "route": null,
+      "targets": [
+        "apps/sucont/src/sacdgc/"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null,
+      "notes": "Público, sem descrição. Mesma ressalva do analistacriticodgc."
+    },
+    {
+      "repo": "lsantosnels/SIAFI-x-SILOMS-Auditor",
+      "tool": "Auditor SIAFI × SILOMS",
+      "route": "/auditor",
+      "targets": [
+        "apps/sucont/src/auditor/",
+        "apps/sucont/src/routes/auditor.tsx",
+        "apps/sucont/src/server/auditor.fn.ts"
+      ],
+      "portedIn": "PR #207",
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null
+    },
+    {
+      "repo": "lsantosnels/Plataforma-de-Documenta-o",
+      "tool": "Plataforma de documentação",
+      "route": "/documentacao",
+      "targets": [
+        "apps/sucont/src/components/plataforma-doc/",
+        "apps/sucont/src/routes/documentacao.tsx"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null
+    },
+    {
+      "repo": "lsantosnels/HUBSUCONT-4",
+      "tool": "Hub SUCONT-4 (catálogo)",
+      "route": "/",
+      "targets": [
+        "apps/sucont/src/routes/index.tsx",
+        "apps/sucont/src/lib/data.ts",
+        "apps/sucont/src/lib/types.ts"
+      ],
+      "checkpoint": null,
+      "checkpointDate": null,
+      "lastReviewed": null
+    }
+  ]
+}

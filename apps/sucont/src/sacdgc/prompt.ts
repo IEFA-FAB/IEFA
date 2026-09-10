@@ -32,12 +32,25 @@ const SISTEMAS_COMAER = `- Preparo e Emprego: SISDABRA (COMAE), SICAOP (COMAE), 
 - Defesa e Inteligência: SISDE (COMPREP), SINTAER (CIAER), STI (DTI).
 - Apoio Jurídico: SISJUR (GABAER).`
 
-const REGRAS_SISUB = `SISUB — Sistema de Subsistência (Órgão Central: DIRAD). 28 Elos Executivos (OM apoiadoras) e 63 Elos Usuários (ranchos apoiados).
+/**
+ * Estrutura do SISUB conforme o `sacdgccomaer` (fonte: SUCONT-3), commit ec102320.
+ *
+ * Os totais declarados (32/66) são os do Órgão Central e NÃO batem com o
+ * mapeamento abaixo, que lista 27 Elos Executivos. A divergência vem de lá e é
+ * intencional aqui: corrigir o total para o tamanho da lista afirmaria que o
+ * SISUB tem 27 elos, que é justamente o que não se sabe. O que a lista sustenta
+ * é a classificação de quem ESTÁ nela; por isso a frase seguinte proíbe o modelo
+ * de ler ausência no mapeamento como prova de que a UG está fora do Sistema.
+ */
+const REGRAS_SISUB = `SISUB — Sistema de Subsistência (Órgão Central: DIRAD). 32 Elos Executivos (OM apoiadoras) e 66 Elos Usuários (ranchos apoiados).
+O mapeamento abaixo cobre os elos conhecidos, não os 32. UG ausente dele é UG NÃO MAPEADA: trate a classificação como não confirmada e diga isso no texto — nunca afirme que ela está fora do SISUB só por não constar aqui.
 Elos Executivos e seus Usuários:
   GAP-BE → BABE, SEDE (COMAR I), COMARA, COMAR I, DACO-MN, HABE
   GAP-MN → BAMN, HAMN, CINDACTA IV (em construção)
-  BABV; BAPV; CLA; BAFZ; BACG; CINDACTA II; BAFL; BASM; BASC; DIRAD; EEAR (sem usuários vinculados)
+  BABV; BAPV; CLA; BAFZ; BACG; CINDACTA II; BAFL; BASM; BASC; DIRAD; EEAR; GAP-DF; BAAN (sem usuários vinculados)
   BANT → CLBI
+  GAP-BR → BABR, HFAB
+  GAP-RF → HARF
   BASV → CEMCOHA
   GAP-CO → BACO, SEDE GAP (COMAR V), HACO
   AFA → FAYS
@@ -54,7 +67,7 @@ Elo Usuário: custo SISUB não é obrigatório (a maior parte fica no Elo Execut
   · Custo de PESSOAL vinculado ao SISUB → atenção (verificar alocação entre usuário e executivo).
   · Custo de DEPRECIAÇÃO vinculado ao SISUB → atenção (verificar vinculação dos bens patrimoniais).
   · Baixa de Estoque ou Bens e Serviços → informativo, não é inconsistência.
-UG fora da estrutura do SISUB com custo SISUB → atenção (revisar classificação dos subcentros). Se recorrente ou materialmente relevante → inconsistência relevante.`
+UG NÃO MAPEADA com custo SISUB → atenção (confirmar a vinculação da UG ao Sistema e revisar a classificação dos subcentros). Se recorrente ou materialmente relevante → inconsistência relevante. Redija como verificação pendente, não como classificação indevida provada.`
 
 const REGRAS_SISHT = `SISHT — Sistema de Hotéis de Trânsito (Órgão Central: DIRAD).
 Integrantes: GAP-BE, GAP-AF, CINDACTA I, CLA, EEAR, EPCAR, AFA, BAAN, BABV, BACG, BAFL, BAFZ, BANT, BAPV, BASM, GAP-SJ, GAP-CO, GAP-DF, GAP-GL, GAP-LS, GAP-MN, GAP-RF, PAMA-SP, BASV, BAST, BASP, BASC, PAMA-LS, CEMCOHA, CINDACTA II, CINDACTA III, CINDACTA IV, CRCEA-SE.
@@ -82,10 +95,10 @@ const REGRAS_CERIMONIAL = `Subcentro 99.03.ZZ — Cerimonial, Medalhística e As
   · Sendo a UG o próprio GABAER, o custo é compatível e não configura impropriedade.`
 
 const REGRAS_NDD = `Módulo 19 — NDD que só pode residir em determinado Sistema. Fora dele, gere alerta.
-1. Serviços públicos → Sistema 31 (SISADM): 33903944 (água e esgoto), 33903943 (energia elétrica), 33904722 (taxa de iluminação pública), 33903945 (gás encanado), 33903958 (telefonia fixa e móvel), 33904014 (telefonia — pacote de dados), 33904710 (taxa de coleta de resíduos sólidos).
-   Exceções legítimas: gás encanado no SISUB (23) e comunicações específicas do SISCEAB (04).
-2. Manutenção e conservação de instalações: 33903916 (bens imóveis), 33903921 (estradas e vias) → 31.01.XX (SISADM) para imóveis funcionais/operacionais e 60.01.XX (SISPNR) para residenciais. Essas NDD em sistemas finalísticos (02 SISMAB, 04 SISCEAB…), fora de equipamento específico da área, indicam erro de apropriação.
-3. Limpeza, conservação e jardinagem → 31.1A.XX (SISADM): 33903978 (limpeza e conservação), 33903022 (material de limpeza e higienização), 33903031 (sementes e mudas), 33903979 (apoio administrativo vinculado à limpeza). Concentrar no SISADM é o que evita distorcer o custo finalístico.
+1. Serviços públicos → Sistema 31 (SISADM), com o título oficial do subitem (MTO): 33903944 (serviços de água e esgoto), 33903943 (serviços de energia elétrica), 33904722 (contribuição para custeio de iluminação pública — é contribuição do art. 149-A da CF, não taxa), 33903945 (serviços de gás), 33903958 (serviços de telecomunicações — telefonia fixa e móvel fora de pacote de dados), 33904014 (telefonia fixa e móvel — pacote de comunicação de dados), 33904710 (taxas — é o subitem genérico, onde entra a coleta de resíduos sólidos).
+   Exceções legítimas: serviços de gás no SISUB (23) e comunicações específicas do SISCEAB (04).
+2. Manutenção e conservação de instalações: 33903916 (manutenção e conservação de bens imóveis), 33903921 (manutenção e conservação de estradas e vias) → 31.01.XX (SISADM) para imóveis funcionais/operacionais e 60.01.XX (SISPNR) para residenciais. Essas NDD em sistemas finalísticos (02 SISMAB, 04 SISCEAB…), fora de equipamento específico da área, indicam erro de apropriação.
+3. Limpeza, conservação e jardinagem → 31.1A.XX (SISADM): 33903978 (limpeza e conservação), 33903022 (material de limpeza e produção de higienização), 33903031 (sementes, mudas de plantas e insumos), 33903979 (serviço de apoio administrativo, técnico e operacional — só a parcela vinculada à limpeza). Concentrar no SISADM é o que evita distorcer o custo finalístico.
 4. Gêneros de alimentação: 33903007 → 23.XX.XX (SISUB). Fora do centro de custo 23 → inconsistência no Sistema de Subsistência.
 5. Módulo 22 — alertas institucionais do Tesouro Gerencial:
    · P_017 (Saúde): custo de atividade de saúde em UG que não seja Organização de Saúde (OSA).
@@ -112,6 +125,7 @@ REGRAS DE LEITURA:
 - Isolamento de linha: nunca associe a UG ou a palavra-chave de uma linha ao valor de outra linha.
 - Ruído: ignore cabeçalhos repetidos, células vazias, aspas soltas e quebras visuais. Elas não interrompem a leitura.
 - Sem soma entre painéis: os quatro painéis são visões concorrentes do MESMO universo de custos. Somá-los duplica o custo da UG. Relate segregado por painel.
+- SISCON (regra obrigatória, precedência absoluta): sempre que a sigla "SISCON" aparecer associada a estrutura, classificação ou codificação no padrão 63.YY.ZZ, ela é o Sistema de CONTRA INCÊNDIO — nunca "Sistema de Controle Interno". Ajuste a interpretação do registro, a natureza do item e a recomendação a essa leitura.
 
 # REFERENCIAL NORMATIVO
 
