@@ -13,7 +13,7 @@
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router"
-import { BookOpen, MessageSquare, Search } from "lucide-react"
+import { AlertTriangle, BookOpen, MessageSquare, Search } from "lucide-react"
 import type React from "react"
 import { createRoot } from "react-dom/client"
 import { z } from "zod"
@@ -22,7 +22,11 @@ import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { FileDropzone } from "#/components/ui/file-dropzone"
+import { SectionHeader } from "#/components/ui/section-header"
+import { SegmentedControl } from "#/components/ui/segmented-control"
+import { StatTile } from "#/components/ui/stat-tile"
 import { Route as IndexRoute } from "#/routes/index"
 import "./harness.css"
 
@@ -120,6 +124,64 @@ const toolScreen = (path: string) =>
 		),
 	})
 
+// Estado de RESULTADO de uma ferramenta: o segmentado de visão, os indicadores,
+// o cabeçalho de seção e os avisos — as peças que as sete telas passaram a
+// compartilhar depois da entrada. Uma rota só; o que está sob exame é a forma.
+const resultScreen = (path: string) =>
+	createRoute({
+		getParentRoute: () => rootRoute,
+		path,
+		component: () => (
+			<HubLayout>
+				<div className="space-y-6">
+					<SegmentedControl
+						label="Visão do painel"
+						size="lg"
+						value="operacional"
+						onValueChange={() => {}}
+						options={[
+							{ value: "estrategica", label: "Estratégica" },
+							{ value: "tatica", label: "Tática" },
+							{ value: "operacional", label: "Operacional" },
+						]}
+					/>
+					<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+						<StatTile label="Total de inconsistências" value={128} />
+						<StatTile label="Volume financeiro em risco" value="R$ 4,2 mi" status="destructive" hint="soma absoluta dos saldos irregulares" />
+						<StatTile label="UGs com inconsistências" value={17} status="warning" />
+						<StatTile label="Questão RAC mais frequente" value="Q28" status="action" hint="principal ofensor sistêmico" />
+					</div>
+					<Alert variant="warning">
+						<AlertTriangle />
+						<AlertTitle>Conta fora do escopo também é analisada</AlertTitle>
+						<AlertDescription>Contas que não fazem parte do escopo parametrizado do RAC são destacadas em seção própria.</AlertDescription>
+					</Alert>
+					<SectionHeader
+						icon={<AlertTriangle />}
+						title="Inconsistências por UG"
+						description="Ações de cobrança e auditoria SUCONT-3"
+						actions={
+							<SegmentedControl
+								label="Modo de mensagem"
+								value="individual"
+								onValueChange={() => {}}
+								options={[
+									{ value: "individual", label: "Mensagens individuais" },
+									{ value: "unica", label: "Mensagem única" },
+								]}
+							/>
+						}
+					/>
+					<Alert variant="success">
+						<AlertTriangle />
+						<AlertTitle>Nenhuma cobrança necessária</AlertTitle>
+						<AlertDescription>Todas as ocorrências processadas são exceções previstas na matriz normativa.</AlertDescription>
+					</Alert>
+				</div>
+			</HubLayout>
+		),
+	})
+
 const TOOL_PATHS = [
 	"/auditor",
 	"/monitoramento",
@@ -162,9 +224,14 @@ const router = createRouter({
 		adminScreen("/admin"),
 		adminScreen("/admin/permissoes"),
 		...TOOL_PATHS.map(toolScreen),
+		resultScreen("/harness/resultado"),
 	]),
 	history: createMemoryHistory({ initialEntries: ["/"] }),
 })
+
+// Atalho para a captura chegar a uma rota que não tem link na barra: o router
+// é de memória e não lê a URL.
+;(window as Window & { __harnessNavigate?: (to: string) => void }).__harnessNavigate = (to) => router.navigate({ to })
 
 const el = document.getElementById("root")
 if (!el) throw new Error("harness: #root ausente")

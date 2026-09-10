@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSucontAccess } from "#/auth/pbac"
 import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
+import { Alert, AlertDescription } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
+import { StatTile } from "#/components/ui/stat-tile"
 import { dgcRunsQueryOptions } from "#/lib/queries"
 import { analyzeUg } from "#/sacdgc/client"
 import { DgcReport } from "#/sacdgc/components/DgcReport"
@@ -314,52 +316,48 @@ function SacDgcPage() {
 			{base && !openAnalysis && (
 				<div className="space-y-6">
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-						<StatTile icon={<Database className="w-4 h-4" />} label="Competência" value={base.competence || "não identificada"} testId="dgc-competence" />
+						<StatTile icon={<Database />} label="Competência" value={base.competence || "não identificada"} data-testid="dgc-competence" />
 						<StatTile
 							icon={<Layers className="w-4 h-4" />}
 							label={isStoredView ? "Origem" : "Painéis carregados"}
 							value={isStoredView ? "rodada gravada" : base.panelsFound.length > 0 ? base.panelsFound.join(", ") : "nenhum"}
-							testId="dgc-panels"
+							data-testid="dgc-panels"
 						/>
-						<StatTile icon={<FileSearch className="w-4 h-4" />} label="Unidades na base" value={String(summary?.ugs ?? 0)} testId="dgc-ug-count" />
-						<StatTile icon={<FileSearch className="w-4 h-4" />} label="Análises concluídas" value={String(summary?.done ?? 0)} testId="dgc-done-count" />
+						<StatTile icon={<FileSearch />} label="Unidades na base" value={String(summary?.ugs ?? 0)} data-testid="dgc-ug-count" />
+						<StatTile icon={<FileSearch />} label="Análises concluídas" value={String(summary?.done ?? 0)} data-testid="dgc-done-count" />
 					</div>
 
 					{!canEdit && !isStoredView && (
-						<p
-							className="flex items-start gap-3 text-body text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4"
-							data-testid="dgc-readonly-notice"
-						>
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>Sua conta tem acesso de leitura ao SUCONT. As análises serão geradas e exibidas, mas não ficam gravadas para a seção.</span>
-						</p>
+						<Alert data-testid="dgc-readonly-notice">
+							<AlertTriangle />
+							<AlertDescription>
+								Sua conta tem acesso de leitura ao SUCONT. As análises serão geradas e exibidas, mas não ficam gravadas para a seção.
+							</AlertDescription>
+						</Alert>
 					)}
 
 					{persistError && (
-						<p
-							className="flex items-start gap-3 text-body text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4"
-							data-testid="dgc-persist-error"
-						>
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>{persistError} A análise continua na tela, mas recarregar a página a perde.</span>
-						</p>
+						<Alert variant="warning" data-testid="dgc-persist-error">
+							<AlertTriangle />
+							<AlertDescription>{persistError} A análise continua na tela, mas recarregar a página a perde.</AlertDescription>
+						</Alert>
 					)}
 
 					{!isStoredView && base.panelsFound.length < 4 && (
-						<p className="flex items-start gap-3 text-body text-warning bg-warning/10 border border-warning/30 rounded-xl px-5 py-4">
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>
+						<Alert variant="warning">
+							<AlertTriangle />
+							<AlertDescription>
 								Só {base.panelsFound.length} de 4 painéis foram reconhecidos. A análise segue possível, e a ausência é declarada ao modelo — mas os apontamentos
 								dos painéis faltantes não serão gerados.
-							</span>
-						</p>
+							</AlertDescription>
+						</Alert>
 					)}
 
 					{!isStoredView && base.skippedRows > 0 && (
-						<p className="flex items-start gap-3 text-body text-muted-foreground bg-muted border border-border rounded-xl px-5 py-4">
-							<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-							<span>{base.skippedRows} linha(s) foram ignoradas por não trazerem um código de UG reconhecível.</span>
-						</p>
+						<Alert>
+							<AlertTriangle />
+							<AlertDescription>{base.skippedRows} linha(s) foram ignoradas por não trazerem um código de UG reconhecível.</AlertDescription>
+						</Alert>
 					)}
 
 					<DgcUgTable
@@ -376,19 +374,5 @@ function SacDgcPage() {
 
 			{openAnalysis && <DgcReport data={openAnalysis} onBack={() => setOpenUgCode(null)} />}
 		</HubLayout>
-	)
-}
-
-function StatTile({ icon, label, value, testId }: { icon: React.ReactNode; label: string; value: string; testId: string }) {
-	return (
-		<div className="bg-card border border-border rounded-xl p-5">
-			<div className="flex items-center gap-2 text-muted-foreground mb-2">
-				{icon}
-				<span className="text-label">{label}</span>
-			</div>
-			<p className="text-subheading text-foreground truncate" title={value} data-testid={testId}>
-				{value}
-			</p>
-		</div>
 	)
 }

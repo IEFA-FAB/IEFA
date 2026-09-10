@@ -1,6 +1,7 @@
 import { Copy } from "lucide-react"
 import { useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
@@ -97,7 +98,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 	const org = getOrganizacao(group.ug)
 
 	return (
-		<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+		<div className="bg-card rounded-xl border border-border overflow-hidden">
 			<div className="bg-muted/50 border-b border-border px-6 py-4 flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<div>
@@ -115,14 +116,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 						</div>
 					)}
 				</div>
-				<span
-					className={cn(
-						"inline-flex items-center px-2.5 py-0.5 rounded-full text-caption",
-						type === "INCONSISTENCIA" ? "bg-destructive/15 text-destructive" : "bg-warning/15 text-warning"
-					)}
-				>
-					{items.length} Ocorrência(s)
-				</span>
+				<Badge variant={type === "INCONSISTENCIA" ? "destructive" : "warning"}>{items.length} ocorrência(s)</Badge>
 			</div>
 
 			<div className="p-6">

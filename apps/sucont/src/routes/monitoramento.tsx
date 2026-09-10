@@ -8,8 +8,6 @@ import {
 	CheckCircle2,
 	DollarSign,
 	FileText,
-	Filter,
-	Info,
 	Lightbulb,
 	MessageSquare,
 	PieChart as PieChartIcon,
@@ -30,12 +28,16 @@ import { AnalysisStart } from "#/components/analysis-start"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import { FileDropzone } from "#/components/ui/file-dropzone"
+import { Label } from "#/components/ui/label"
+import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { StatTile } from "#/components/ui/stat-tile"
 import { getOrganizacao } from "#/lib/analista/organizacao"
-import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow, RAC_QUESTOES_NO_ESCOPO } from "#/lib/analista/types"
+import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
 import { chartChrome } from "#/lib/chart-theme"
 import { getConferente, isUgAcompanhada } from "#/lib/ug/registry"
 import { cn } from "#/lib/utils"
@@ -547,97 +549,66 @@ function MonitoramentoPage() {
 				/>
 			) : (
 				<div className="space-y-8">
-					{/* Escopo */}
-					<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-						<div className="flex items-start space-x-3">
-							<div className="p-2 bg-action/15 rounded-lg shrink-0">
-								<Info className="w-5 h-5 text-action" />
-							</div>
-							<div>
-								<h3 className="text-heading text-foreground mb-2">Escopo da Análise (RAC)</h3>
-								<p className="text-body text-muted-foreground mb-3">Este sistema analisa saldos transitórios com base nas seguintes questões do RAC:</p>
-								<div className="flex flex-wrap gap-2 mb-4">
-									{RAC_QUESTOES_NO_ESCOPO.map((q) => (
-										<span key={q} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption bg-action/10 text-action border border-action/30">
-											{q}
-										</span>
-									))}
-								</div>
-								<div className="bg-warning/10 border border-warning/30 p-3 rounded-md">
-									<p className="text-caption text-warning flex items-center">
-										<AlertTriangle className="w-4 h-4 mr-1.5 shrink-0" />
-										<strong>Atenção:</strong>&nbsp;Contas presentes na planilha que não fazem parte do escopo parametrizado do RAC também são analisadas e
-										destacadas em uma seção específica para revisão manual.
-									</p>
-								</div>
-							</div>
-						</div>
-					</div>
+					{/* O card "Escopo da Análise (RAC)" com as seis pílulas repetia a pílula
+					    da trilha e o `RacReference` da tela inicial. O que era próprio dele —
+					    o aviso sobre conta fora do escopo — fica. */}
+					<Alert variant="warning">
+						<AlertTriangle />
+						<AlertTitle>Conta fora do escopo também é analisada</AlertTitle>
+						<AlertDescription>
+							Contas presentes na planilha que não fazem parte do escopo parametrizado do RAC são destacadas em seção própria, para revisão manual.
+						</AlertDescription>
+					</Alert>
 
-					{/* Filtros */}
-					<div className="bg-card p-4 rounded-xl shadow-sm border border-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-						<div className="flex flex-wrap items-center gap-6">
-							<div className="flex items-center space-x-3">
-								<label htmlFor="rac-filter" className="text-label text-muted-foreground flex items-center">
-									<BookOpen className="w-4 h-4 mr-2 text-action" />
-									Questão RAC:
-								</label>
-								<Select items={{ TODOS: "Todas as Questões" }} value={activeRacFilter} onValueChange={(v) => setActiveRacFilter(v ?? "TODOS")}>
-									<SelectTrigger
-										id="rac-filter"
-										className="text-subheading border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 text-foreground"
-									>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="TODOS">Todas as Questões</SelectItem>
-										{Array.from(new Set(data.map((r) => r.questaoRAC).filter((rac): rac is string => Boolean(rac))))
-											.sort()
-											.map((rac) => (
-												<SelectItem key={rac} value={rac}>
-													{rac}
-												</SelectItem>
-											))}
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="flex items-center space-x-3">
-								<label htmlFor="conferente-filter" className="text-label text-muted-foreground flex items-center">
-									<Filter className="w-4 h-4 mr-2 text-action" />
-									Conferente:
-								</label>
-								<Select items={{ TODOS: "Todos os Conferentes" }} value={activeConferenteFilter} onValueChange={(v) => setActiveConferenteFilter(v ?? "TODOS")}>
-									<SelectTrigger
-										id="conferente-filter"
-										className="text-subheading border-border rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-ring py-2 pl-3 pr-3 bg-muted/50 text-foreground"
-									>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="TODOS">Todos os Conferentes</SelectItem>
-										{Array.from(new Set(data.map((r) => getConferente(r.ug))))
-											.sort()
-											.map((conf) => (
-												<SelectItem key={conf} value={conf}>
-													{conf}
-												</SelectItem>
-											))}
-									</SelectContent>
-								</Select>
-							</div>
+					<div className="flex flex-wrap items-end gap-6">
+						<div className="flex flex-col gap-2">
+							<Label htmlFor="rac-filter">Questão do RAC</Label>
+							<Select items={{ TODOS: "Todas as questões" }} value={activeRacFilter} onValueChange={(v) => setActiveRacFilter(v ?? "TODOS")}>
+								<SelectTrigger id="rac-filter" className="w-56">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="TODOS">Todas as questões</SelectItem>
+									{Array.from(new Set(data.map((r) => r.questaoRAC).filter((rac): rac is string => Boolean(rac))))
+										.sort()
+										.map((rac) => (
+											<SelectItem key={rac} value={rac}>
+												{rac}
+											</SelectItem>
+										))}
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="flex flex-col gap-2">
+							<Label htmlFor="conferente-filter">Conferente</Label>
+							<Select items={{ TODOS: "Todos os conferentes" }} value={activeConferenteFilter} onValueChange={(v) => setActiveConferenteFilter(v ?? "TODOS")}>
+								<SelectTrigger id="conferente-filter" className="w-56">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="TODOS">Todos os conferentes</SelectItem>
+									{Array.from(new Set(data.map((r) => getConferente(r.ug))))
+										.sort()
+										.map((conf) => (
+											<SelectItem key={conf} value={conf}>
+												{conf}
+											</SelectItem>
+										))}
+								</SelectContent>
+							</Select>
 						</div>
 						{(activeRacFilter !== "TODOS" || activeConferenteFilter !== "TODOS") && (
 							<Button
 								type="button"
 								variant="ghost"
+								size="sm"
 								onClick={() => {
 									setActiveRacFilter("TODOS")
 									setActiveConferenteFilter("TODOS")
 								}}
-								className="text-label text-destructive hover:text-destructive/80 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors"
 							>
-								<Trash2 className="w-4 h-4" />
-								LIMPAR FILTROS
+								<Trash2 />
+								Limpar filtros
 							</Button>
 						)}
 					</div>
@@ -661,83 +632,45 @@ function MonitoramentoPage() {
 						options={VIEW_TABS.map(({ id, label }) => ({ value: id, label }))}
 					/>
 
-					{/* Banner focal RAC */}
 					{activeView === "operacional" && activeRacFilter !== "TODOS" && (
-						<div className="bg-action text-action-foreground p-6 rounded-xl border border-action flex items-center justify-between animate-in slide-in-from-top duration-500">
-							<div className="flex items-center space-x-4">
-								<div className="p-3 bg-action rounded-xl">
-									<BookOpen className="w-6 h-6 text-action-foreground" />
-								</div>
-								<div>
-									<h2 className="text-heading">
-										{activeRacFilter} — {getRacDescription(activeRacFilter)}
-									</h2>
-									<p className="text-action-foreground text-body">Mostrando apenas UGs com inconsistências nesta questão do RAC</p>
-								</div>
-							</div>
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={() => setActiveRacFilter("TODOS")}
-								className="text-caption bg-action hover:bg-action/80 px-3 py-1.5 rounded-lg border border-action transition-colors"
-							>
-								Limpar Filtro RAC
-							</Button>
-						</div>
+						<Alert variant="info">
+							<BookOpen />
+							<AlertTitle>
+								{activeRacFilter} — {getRacDescription(activeRacFilter)}
+							</AlertTitle>
+							<AlertDescription>
+								Mostrando apenas UGs com inconsistências nesta questão do RAC.{" "}
+								<Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveRacFilter("TODOS")}>
+									Limpar filtro
+								</Button>
+							</AlertDescription>
+						</Alert>
 					)}
 
 					{/* ── VISÃO TÁTICA ── */}
 					{activeView === "tatico" && managerialData && (
-						<div className="space-y-8 animate-in fade-in duration-500">
-							<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
-								<div className="flex items-start space-x-4">
-									<div className="p-3 bg-action/10 rounded-xl shrink-0">
-										<Target className="w-6 h-6 text-action" />
-									</div>
-									<div>
-										<h2 className="text-heading text-foreground mb-2">Painel de Análise Tática (SUCONT-3)</h2>
-										<p className="text-muted-foreground leading-relaxed">
-											Este painel traduz os achados operacionais em informações gerenciais para a Divisão SUCONT-3, alinhadas ao{" "}
-											<strong>Roteiro de Acompanhamento Contábil (RAC)</strong>.
-										</p>
-									</div>
-								</div>
-							</div>
+						<div className="space-y-8">
+							<SectionHeader
+								icon={<Target />}
+								title="Painel de análise tática (SUCONT-3)"
+								description="Traduz os achados operacionais em informação gerencial para a divisão, alinhada ao RAC."
+							/>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-								{[
-									{
-										label: "Total de Inconsistências",
-										value: managerialData.totalIssues,
-										sub: "Registros fora da conformidade RAC",
-										color: "slate",
-									},
-									{
-										label: "Volume Financeiro em Risco",
-										value: formatCurrency(managerialData.totalRiskValue),
-										sub: "Soma absoluta dos saldos irregulares",
-										emphasis: "text-destructive",
-									},
-									{
-										label: "UG mais Crítica (Volume)",
-										value: managerialData.topUgs[0]?.ug || "-",
-										sub: "Maior concentração de inconsistências",
-										emphasis: "text-foreground",
-									},
-									{
-										label: "Questão RAC mais Frequente",
-										value: managerialData.topRacs[0]?.name || "-",
-										sub: "Principal ofensor sistêmico",
-										emphasis: "text-action",
-									},
-								].map(({ label, value, sub, emphasis }) => (
-									<div key={label} className="bg-card p-6 rounded-xl shadow-sm border border-border">
-										<p className="text-subheading text-muted-foreground mb-1">{label}</p>
-										{/* Classe literal: `text-${color}-600` nunca gerou regra. */}
-										<p className={cn("text-display truncate", emphasis)}>{value}</p>
-										<p className="text-caption text-muted-foreground mt-2">{sub}</p>
-									</div>
-								))}
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+								<StatTile label="Total de inconsistências" value={managerialData.totalIssues} hint="registros fora da conformidade RAC" />
+								<StatTile
+									label="Volume financeiro em risco"
+									value={formatCurrency(managerialData.totalRiskValue)}
+									hint="soma absoluta dos saldos irregulares"
+									status="destructive"
+								/>
+								<StatTile label="UG mais crítica (volume)" value={managerialData.topUgs[0]?.ug || "-"} hint="maior concentração de inconsistências" />
+								<StatTile
+									label="Questão RAC mais frequente"
+									value={managerialData.topRacs[0]?.name || "-"}
+									hint="principal ofensor sistêmico"
+									status="action"
+								/>
 							</div>
 
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -851,37 +784,26 @@ function MonitoramentoPage() {
 
 					{/* ── VISÃO ESTRATÉGICA ── */}
 					{activeView === "estrategico" && estrategicoData && (
-						<div className="space-y-8 animate-in fade-in duration-500">
-							<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
-								<div className="flex items-start space-x-4">
-									<div className="p-3 bg-success/15 rounded-xl shrink-0">
-										<Building2 className="w-6 h-6 text-success" />
-									</div>
-									<div>
-										<h2 className="text-heading text-foreground mb-2">Painel de Risco Contábil do COMAER (Estratégico)</h2>
-										<p className="text-muted-foreground leading-relaxed">
-											Visão consolidada para apoio à tomada de decisão da chefia da SUCONT, DIREF e altos escalões do COMAER.
-										</p>
-									</div>
-								</div>
-							</div>
+						<div className="space-y-8">
+							<SectionHeader
+								icon={<Building2 />}
+								title="Painel de risco contábil do COMAER (estratégico)"
+								description="Visão consolidada para a decisão da chefia da SUCONT, da DIREF e dos altos escalões do COMAER."
+							/>
 
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-									<p className="text-subheading text-muted-foreground mb-1">Total de Inconsistências</p>
-									<p className="text-display text-foreground">{estrategicoData.totalIssues}</p>
-									<p className="text-caption text-muted-foreground mt-2">Registros fora da conformidade RAC</p>
-								</div>
-								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-									<p className="text-subheading text-muted-foreground mb-1">Volume Financeiro em Risco</p>
-									<p className="text-display text-destructive">{formatCurrency(estrategicoData.totalRiskValue)}</p>
-									<p className="text-caption text-muted-foreground mt-2">Soma absoluta dos saldos irregulares</p>
-								</div>
-								<div className="bg-card p-6 rounded-xl shadow-sm border border-border">
-									<p className="text-subheading text-muted-foreground mb-1">Maior Risco por ODS</p>
-									<p className="text-display text-success truncate">{estrategicoData.topOds[0]?.name || "-"}</p>
-									<p className="text-caption text-muted-foreground mt-2">{estrategicoData.topOds[0]?.percent.toFixed(1)}% das inconsistências</p>
-								</div>
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+								<StatTile label="Total de inconsistências" value={estrategicoData.totalIssues} hint="registros fora da conformidade RAC" />
+								<StatTile
+									label="Volume financeiro em risco"
+									value={formatCurrency(estrategicoData.totalRiskValue)}
+									hint="soma absoluta dos saldos irregulares"
+									status="destructive"
+								/>
+								<StatTile
+									label="Maior risco por ODS"
+									value={estrategicoData.topOds[0]?.name || "-"}
+									hint={`${estrategicoData.topOds[0]?.percent.toFixed(1)}% das inconsistências`}
+								/>
 							</div>
 
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -972,7 +894,7 @@ function MonitoramentoPage() {
 
 					{/* ── APOIO À DECISÃO ── */}
 					{activeView === "decisao" && decisaoData && (
-						<div className="space-y-8 animate-in fade-in duration-500">
+						<div className="space-y-8">
 							<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
 								<div className="flex items-start space-x-4">
 									<div className="p-3 bg-warning/15 rounded-xl shrink-0">
@@ -1124,101 +1046,40 @@ function MonitoramentoPage() {
 
 					{/* ── VISÃO OPERACIONAL ── */}
 					{activeView === "operacional" && dashboardData && (
-						<div className="space-y-6 mb-8 animate-in fade-in duration-500">
-							<h2 className="text-heading text-foreground flex items-center">
-								<BarChart3 className="w-6 h-6 mr-2 text-action" />
-								VISÃO GERAL
-							</h2>
+						<div className="space-y-6 mb-8">
+							<SectionHeader icon={<BarChart3 />} title="Visão geral" />
 							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-								{[
-									{
-										icon: <FileText className="w-6 h-6" />,
-										bg: "bg-muted text-muted-foreground",
-										label: "Total de Registros Analisados",
-										value: dashboardData.totalRegistros,
-									},
-									{
-										icon: <AlertTriangle className="w-6 h-6" />,
-										bg: "bg-destructive/15 text-destructive",
-										label: "Ocorrências de Cobrança",
-										value: dashboardData.totalCobrancas,
-									},
-									{
-										icon: <Building2 className="w-6 h-6" />,
-										bg: "bg-action/15 text-action",
-										label: "UGs com Inconsistências",
-										value: dashboardData.ugsComInconsistencia,
-									},
-									{
-										icon: <CheckCircle2 className="w-6 h-6" />,
-										bg: "bg-success/15 text-success",
-										label: "Exceções Identificadas",
-										value: dashboardData.totalExcecoes,
-									},
-									{
-										icon: <AlertCircle className="w-6 h-6" />,
-										bg: "bg-warning/15 text-warning",
-										label: "Ocorrências Fora do Escopo",
-										value: dashboardData.totalForaEscopo,
-									},
-									{
-										icon: <DollarSign className="w-6 h-6" />,
-										bg: "bg-success/15 text-success",
-										label: "Valor Total das Inconsistências",
-										value: formatCurrency(dashboardData.volumeFinanceiro),
-									},
-								].map(({ icon, bg, label, value }) => (
-									<div key={label} className="bg-card p-6 rounded-xl shadow-sm border border-border flex items-center space-x-4">
-										<div className={`p-3 ${bg} rounded-xl`}>{icon}</div>
-										<div>
-											<p className="text-subheading text-muted-foreground">{label}</p>
-											<p className="text-display text-foreground">{value}</p>
-										</div>
-									</div>
-								))}
+								<StatTile icon={<FileText />} label="Registros analisados" value={dashboardData.totalRegistros} />
+								<StatTile icon={<AlertTriangle />} label="Ocorrências de cobrança" value={dashboardData.totalCobrancas} status="destructive" />
+								<StatTile icon={<Building2 />} label="UGs com inconsistências" value={dashboardData.ugsComInconsistencia} status="action" />
+								<StatTile icon={<CheckCircle2 />} label="Exceções identificadas" value={dashboardData.totalExcecoes} status="success" />
+								<StatTile icon={<AlertCircle />} label="Ocorrências fora do escopo" value={dashboardData.totalForaEscopo} status="warning" />
+								<StatTile icon={<DollarSign />} label="Valor total das inconsistências" value={formatCurrency(dashboardData.volumeFinanceiro)} />
 							</div>
 						</div>
 					)}
 
 					{activeView === "operacional" && data.length > 0 && (
 						<div className="mb-8">
-							<div className="flex items-center space-x-2 mb-4">
-								<Filter className="w-5 h-5 text-muted-foreground" />
-								<h3 className="text-label text-foreground">Filtrar Visão</h3>
-							</div>
-							<div className="flex flex-wrap gap-2">
-								{(
-									[
-										{ id: "ALL", label: "Todas as Ocorrências", active: "bg-surface-inverted text-surface-inverted-foreground" },
-										{ id: "COBRANCAS", label: "Cobranças (RAC)", active: "bg-destructive text-destructive-foreground" },
-										{ id: "EXCECOES", label: "Exceções (RAC)", active: "bg-success text-success-foreground" },
-										{ id: "FORA_ESCOPO", label: "Fora do Escopo (Inconsistências)", active: "bg-warning text-warning-foreground" },
-									] as const
-								).map(({ id, label, active }) => (
-									<Button
-										key={id}
-										type="button"
-										variant="ghost"
-										onClick={() => setActiveTab(id)}
-										className={cn(
-											"px-4 py-2 rounded-lg text-subheading transition-colors",
-											activeTab === id ? active : "bg-card text-muted-foreground border border-border hover:bg-muted/50"
-										)}
-									>
-										{label}
-									</Button>
-								))}
-							</div>
+							<span className="text-label text-muted-foreground block mb-2">Filtrar visão</span>
+							<SegmentedControl
+								label="Filtrar visão"
+								value={activeTab}
+								onValueChange={setActiveTab}
+								options={[
+									{ value: "ALL", label: "Todas as ocorrências" },
+									{ value: "COBRANCAS", label: "Cobranças (RAC)" },
+									{ value: "EXCECOES", label: "Exceções (RAC)" },
+									{ value: "FORA_ESCOPO", label: "Fora do escopo" },
+								]}
+							/>
 						</div>
 					)}
 
 					{activeView === "operacional" && (activeTab === "ALL" || activeTab === "COBRANCAS") && dashboardData && dashboardData.totalCobrancas > 0 && (
 						<div className="space-y-6 mb-8">
 							{activeRacFilter !== "TODOS" && <ConsolidatedMessageCard rows={filteredData} activeRacFilter={activeRacFilter} />}
-							<h2 className="text-heading text-foreground flex items-center mt-12">
-								<AlertTriangle className="w-6 h-6 mr-2 text-destructive" />
-								PAINEL DE INCONSISTÊNCIAS POR UG
-							</h2>
+							<SectionHeader icon={<AlertTriangle />} title="Inconsistências por UG" className="mt-12" />
 							{Object.values(groupedData).map((group) => (
 								<UGCard key={`${group.ug}-${group.mes}`} group={group} type="INCONSISTENCIA" activeRacFilter={activeRacFilter} />
 							))}
@@ -1227,10 +1088,7 @@ function MonitoramentoPage() {
 
 					{activeView === "operacional" && (activeTab === "ALL" || activeTab === "EXCECOES") && excecoesData.length > 0 && (
 						<div className="space-y-6 mb-8">
-							<h2 className="text-heading text-foreground flex items-center mt-12">
-								<CheckCircle2 className="w-6 h-6 mr-2 text-success" />
-								PAINEL DE EXCEÇÕES DO RAC
-							</h2>
+							<SectionHeader icon={<CheckCircle2 />} title="Exceções do RAC" className="mt-12" />
 							<div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
 								<div className="p-6">
 									<p className="text-body text-muted-foreground mb-4">
@@ -1266,18 +1124,15 @@ function MonitoramentoPage() {
 					)}
 
 					{activeView === "operacional" && (activeTab === "ALL" || activeTab === "FORA_ESCOPO") && outOfScopeData.length > 0 && (
-						<div className="space-y-6 mb-8 animate-in fade-in duration-500">
-							<h2 className="text-heading text-foreground flex items-center mt-12">
-								<AlertCircle className="w-6 h-6 mr-2 text-warning" />
-								PAINEL DE CONTAS FORA DO ESCOPO DO RAC
-							</h2>
-							<div className="bg-warning/10 border border-warning/30 p-4 rounded-xl mb-6">
-								<p className="text-body text-warning">
-									<span className="font-semibold">Possível inconsistência contábil – conta não parametrizada no RAC.</span>
-									<br />
+						<div className="space-y-6 mb-8">
+							<SectionHeader icon={<AlertCircle />} title="Contas fora do escopo do RAC" className="mt-12" />
+							<Alert variant="warning">
+								<AlertTriangle />
+								<AlertTitle>Possível inconsistência contábil — conta não parametrizada no RAC</AlertTitle>
+								<AlertDescription>
 									As contas abaixo não foram encontradas na matriz normativa e requerem revisão manual pela equipe da SUCONT-3.
-								</p>
-							</div>
+								</AlertDescription>
+							</Alert>
 							{Object.values(groupedData).map((group) => (
 								<UGCard key={`fora-${group.ug}-${group.mes}`} group={group} type="FORA_ESCOPO" activeRacFilter={activeRacFilter} />
 							))}
@@ -1285,11 +1140,11 @@ function MonitoramentoPage() {
 					)}
 
 					{activeView === "operacional" && data.length > 0 && dashboardData?.totalCobrancas === 0 && outOfScopeData.length === 0 && (
-						<div className="bg-success/10 border border-success/30 rounded-xl p-8 text-center animate-in fade-in duration-500">
-							<CheckCircle2 className="w-12 h-12 text-success mx-auto mb-3" />
-							<h3 className="text-heading text-success">Nenhuma cobrança necessária</h3>
-							<p className="text-success mt-1">Todas as ocorrências processadas são exceções previstas na matriz normativa.</p>
-						</div>
+						<Alert variant="success">
+							<CheckCircle2 />
+							<AlertTitle>Nenhuma cobrança necessária</AlertTitle>
+							<AlertDescription>Todas as ocorrências processadas são exceções previstas na matriz normativa.</AlertDescription>
+						</Alert>
 					)}
 				</div>
 			)}

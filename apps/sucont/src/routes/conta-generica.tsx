@@ -19,7 +19,6 @@ import {
 	MessageSquare,
 	RefreshCw,
 	Search,
-	ShieldCheck,
 	Target,
 	TrendingUp,
 	Wallet,
@@ -31,15 +30,19 @@ import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
+import { SectionHeader } from "#/components/ui/section-header"
+import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { StatTile } from "#/components/ui/stat-tile"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { CONFERENTES, getUg } from "#/lib/ug/registry"
-import { cn } from "#/lib/utils"
 import { oracleContaGenericaFn } from "#/server/conta-generica.fn"
 
 // ── Data Maps ────────────────────────────────────────────────────────────────
@@ -634,161 +637,66 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 			{/* RESULTS */}
 			{result && !isProcessing && (
 				<div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-					{/* Control info banner */}
-					<div className="bg-action/5 border border-border rounded-xl p-4 flex items-center justify-between">
-						<div className="flex items-center gap-3">
-							<div className="w-8 h-8 rounded-full bg-action/10 flex items-center justify-center">
-								<Compass className="w-4 h-4 text-foreground" />
-							</div>
-							<div>
-								<h4 className="text-label text-foreground">Controle Interno SUCONT-3</h4>
-								<p className="text-caption text-muted-foreground">Análise relativa à Questão 29 do Roteiro de Acompanhamento Contábil</p>
-							</div>
-						</div>
-						<div className="hidden sm:block px-3 py-1 bg-warning/10 border border-warning/20 rounded text-label text-foreground">Acompanhamento Contábil</div>
-					</div>
+					{/*
+					 * O banner "Controle Interno SUCONT-3 — Questão 29" e o card "Referencial
+					 * Metodológico" que ficavam aqui repetiam, DEPOIS do resultado, o que a
+					 * trilha (pílula Q29) e a tela inicial (`RacReference`) já disseram.
+					 */}
+					<SegmentedControl
+						label="Visão do painel"
+						size="lg"
+						value={activeView}
+						onValueChange={setActiveView}
+						options={[
+							{
+								value: "estrategica",
+								label: (
+									<>
+										<Landmark /> Estratégica
+									</>
+								),
+							},
+							{
+								value: "tatica",
+								label: (
+									<>
+										<Target /> Tática
+									</>
+								),
+							},
+							{
+								value: "operacional",
+								label: (
+									<>
+										<FileSpreadsheet /> Operacional
+									</>
+								),
+							},
+						]}
+					/>
 
-					{/* View tabs */}
-					<div className="flex gap-2 bg-card p-2 rounded-xl shadow-sm border border-border">
-						{[
-							{ id: "estrategica", label: "Visão Estratégica", icon: Landmark },
-							{ id: "tatica", label: "Visão Tática", icon: Target },
-							{ id: "operacional", label: "Visão Operacional", icon: FileSpreadsheet },
-						].map(({ id, label, icon: Icon }) => (
-							<button
-								type="button"
-								key={id}
-								onClick={() => setActiveView(id as typeof activeView)}
-								className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-label transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-									activeView === id ? "bg-tech-blue text-white shadow-md" : "text-muted-foreground hover:bg-muted/50"
-								}`}
-							>
-								<Icon className="w-4 h-4" />
-								{label}
-							</button>
-						))}
-					</div>
-
-					{/* Executive Summary */}
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						<div className="bg-card p-6 rounded-xl shadow-lg flex flex-col justify-between relative overflow-hidden group">
-							<div className="absolute top-0 right-0 w-24 h-24 bg-action/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-action/10" />
-							<div className="flex items-center gap-3 mb-4">
-								<div className="p-2.5 bg-action/10 text-foreground rounded-lg">
-									<Building2 className="w-5 h-5" />
-								</div>
-								<h3 className="text-label text-muted-foreground">Unidades Gestoras</h3>
-							</div>
-							<div className="flex items-baseline gap-2">
-								<p className="text-display text-foreground">{totalUGs}</p>
-								<p className="text-label text-muted-foreground">Inconsistentes</p>
-							</div>
-						</div>
-
-						<div className="bg-card p-6 rounded-xl shadow-lg flex flex-col justify-between relative overflow-hidden group">
-							<div className="absolute top-0 right-0 w-24 h-24 bg-warning/5 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-warning/10" />
-							<div className="flex items-center gap-3 mb-4">
-								<div className="p-2.5 bg-warning/10 text-foreground rounded-lg">
-									<Wallet className="w-5 h-5" />
-								</div>
-								<h3 className="text-label text-muted-foreground">Contas Genéricas</h3>
-							</div>
-							<div className="flex items-baseline gap-2">
-								<p className="text-display text-foreground">{totalContas}</p>
-								<p className="text-label text-muted-foreground">Auditadas</p>
-							</div>
-						</div>
-
-						<div className="bg-card p-6 rounded-xl shadow-lg border-b-4 border-b-emerald-600 flex flex-col justify-between relative overflow-hidden group">
-							<div className="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:bg-success/15" />
-							<div className="flex items-center gap-3 mb-4">
-								<div className="p-2.5 bg-success/15 text-success rounded-lg">
-									<DollarSign className="w-5 h-5" />
-								</div>
-								<h3 className="text-label text-muted-foreground">Volume Financeiro</h3>
-							</div>
-							<p className="text-display text-success">{formatCurrency(totalSaldoGeral)}</p>
-						</div>
-					</div>
-
-					{/* RAC methodological context */}
-					<div className="bg-card p-6 rounded-xl shadow-md border border-border">
-						<div className="flex items-center gap-3 mb-5">
-							<div className="p-2 bg-action/10 rounded-lg">
-								<BookOpen className="w-5 h-5 text-foreground" />
-							</div>
-							<h3 className="text-label text-foreground">Referencial Metodológico - RAC</h3>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-							<div className="bg-muted/50 p-4 rounded-xl border border-border">
-								<h4 className="text-label text-foreground mb-3 flex items-center gap-2">
-									<Target className="w-4 h-4 text-foreground" /> Objetivo da Análise
-								</h4>
-								<p className="text-body text-muted-foreground leading-relaxed">
-									Identificar a utilização indevida de contas contábeis genéricas (terminadas em "99"), garantindo que o registro detalhe adequadamente a
-									natureza do fato contábil.
-								</p>
-							</div>
-							<div className="bg-warning/10 p-4 rounded-xl border border-warning/20">
-								<h4 className="text-label text-warning mb-3 flex items-center gap-2">
-									<AlertTriangle className="w-4 h-4 text-warning" /> Risco Contábil
-								</h4>
-								<p className="text-body text-warning/80 leading-relaxed">
-									A falta de detalhamento omite informações relevantes, distorce a situação patrimonial do COMAER e prejudica a transparência e a tomada de
-									decisão.
-								</p>
-							</div>
-							<div className="bg-success/10 p-4 rounded-xl border border-success/20">
-								<h4 className="text-label text-success mb-3 flex items-center gap-2">
-									<ShieldCheck className="w-4 h-4 text-success" /> Importância
-								</h4>
-								<p className="text-body text-success/80 leading-relaxed">
-									Assegurar que as demonstrações contábeis representem de forma fidedigna os fatos administrativos, orientando a regularização e preservando a
-									qualidade da informação.
-								</p>
-							</div>
-						</div>
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+						<StatTile icon={<Building2 />} label="Unidades Gestoras" value={totalUGs} hint="com inconsistência" />
+						<StatTile icon={<Wallet />} label="Contas genéricas" value={totalContas} hint="auditadas" />
+						<StatTile icon={<DollarSign />} label="Volume financeiro" value={formatCurrency(totalSaldoGeral)} status="success" />
 					</div>
 
 					{/* RISK PANEL (estratégica + tática) */}
 					{foundAny && (activeView === "estrategica" || activeView === "tatica") && (
-						<div className="bg-muted/50 p-8 rounded-xl border border-border">
-							<div className="flex items-center gap-4 mb-8 border-b-2 border-border pb-4">
-								<div className="w-12 h-12 bg-surface-inverted rounded-xl flex items-center justify-center shadow-lg border border-warning/50">
-									<Landmark className="w-7 h-7 text-warning" />
-								</div>
-								<div>
-									<h2 className="text-heading text-foreground">Painel de Risco Contábil do COMAER</h2>
-									<p className="text-label text-muted-foreground">Análise Estratégica e Tática - SUCONT / DIREF</p>
-								</div>
-							</div>
+						<div className="space-y-6">
+							<SectionHeader icon={<Landmark />} title="Painel de risco contábil do COMAER" description="Análise estratégica e tática — SUCONT / DIREF" />
 
-							{/* Indicator grid */}
-							<div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-								{/* Idem: `text-${color}` era classe interpolada, e três das quatro cores
-								    eram paleta crua (`amber-500`, `emerald-500`, `purple-500`). */}
-								{[
-									{ label: "Total de Inconsistências", value: totalInconsistencias, emphasis: "text-foreground", type: "number" },
-									{ label: "Volume Financeiro em Risco", value: formatCurrency(totalSaldoGeral), emphasis: "text-destructive", type: "currency" },
-									{ label: "UGs com Inconsistências", value: totalUGs, emphasis: "text-warning", type: "number" },
-									{
-										label: "Média de Inconsistências / UG",
-										value: (totalInconsistencias / (totalUGs || 1)).toFixed(1),
-										emphasis: "text-action",
-										type: "number",
-									},
-								].map(({ label, value, emphasis, type }) => (
-									<div key={label} className="bg-card p-4 rounded-xl border border-border shadow-sm">
-										<p className="text-label text-muted-foreground mb-1">{label}</p>
-										<p className={cn(type === "currency" ? "text-heading mt-2" : "text-display", emphasis)}>{value}</p>
-									</div>
-								))}
+							<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+								<StatTile label="Total de inconsistências" value={totalInconsistencias} />
+								<StatTile label="Volume financeiro em risco" value={formatCurrency(totalSaldoGeral)} status="destructive" />
+								<StatTile label="UGs com inconsistências" value={totalUGs} status="warning" />
+								<StatTile label="Média de inconsistências / UG" value={(totalInconsistencias / (totalUGs || 1)).toFixed(1)} status="action" />
 							</div>
 
 							{/* Estratégica view */}
 							{activeView === "estrategica" && (
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-									<div className="bg-card p-6 rounded-xl shadow-md ">
+									<div className="bg-card p-6 rounded-xl border border-border">
 										<div className="flex items-center gap-2 mb-6">
 											<TrendingUp className="w-5 h-5 text-warning" />
 											<h3 className="text-heading text-foreground">Visão Estratégica (DIREF)</h3>
@@ -810,7 +718,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																	</span>
 																</div>
 																<div className="w-full bg-muted rounded-full h-2">
-																	<div className="bg-tech-blue h-2 rounded-full" style={{ width: `${pct}%` }} />
+																	<div className="bg-action h-2 rounded-full" style={{ width: `${pct}%` }} />
 																</div>
 															</div>
 														)
@@ -838,19 +746,20 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 									{/* Decision support */}
 									<div className="space-y-6">
-										<div className="bg-success p-6 rounded-xl shadow-xl border-b-4 border-success flex flex-col justify-center text-success-foreground">
-											<div className="flex items-center gap-3 mb-4">
-												<DollarSign className="w-8 h-8 text-success-foreground" />
-												<h3 className="text-heading">Impacto Financeiro Total</h3>
-											</div>
-											<p className="text-display mb-2">{formatCurrency(totalFinancialImpact)}</p>
-											<p className="text-label text-success-foreground">Volume total em risco contábil</p>
-										</div>
+										<StatTile
+											icon={<DollarSign />}
+											label="Impacto financeiro total"
+											value={formatCurrency(totalFinancialImpact)}
+											hint="volume total em risco contábil"
+											status="success"
+										/>
 
-										<div className="bg-surface-inverted p-6 rounded-xl shadow-xl ">
+										{/* Era um painel escuro (`bg-surface-inverted`, `shadow-xl`, texto branco)
+										    no meio de uma grade clara — o único do app. */}
+										<div className="bg-card p-6 rounded-xl border border-border">
 											<div className="flex items-center gap-2 mb-6">
 												<AlertOctagon className="w-5 h-5 text-warning" />
-												<h3 className="text-heading text-white">Níveis Críticos</h3>
+												<h3 className="text-heading text-foreground">Níveis críticos</h3>
 											</div>
 											<div className="space-y-4">
 												{[
@@ -865,9 +774,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 														value: `UG ${criticalSummary?.ugVolume} (${getUgName(criticalSummary?.ugVolume || "")})`,
 													},
 												].map(({ label, value }) => (
-													<div key={label} className="bg-white/5 p-4 rounded-xl border border-white/10">
-														<p className="text-label text-warning mb-1">{label}</p>
-														<p className="text-heading text-white">{value}</p>
+													<div key={label} className="bg-muted/50 p-4 rounded-lg border border-border">
+														<p className="text-label text-muted-foreground mb-1">{label}</p>
+														<p className="text-subheading text-foreground">{value}</p>
 													</div>
 												))}
 											</div>
@@ -880,7 +789,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							{activeView === "tatica" && (
 								<div className="space-y-8">
 									<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-										<div className="bg-card p-6 rounded-xl shadow-md">
+										<div className="bg-card p-6 rounded-xl border border-border">
 											<div className="flex items-center gap-2 mb-6">
 												<Target className="w-5 h-5 text-foreground" />
 												<h3 className="text-heading text-foreground">Visão Tática (SUCONT-3)</h3>
@@ -930,7 +839,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 										{/* Pareto + Priority */}
 										<div className="space-y-6">
-											<div className="bg-card p-6 rounded-xl shadow-md border border-action/30">
+											<div className="bg-card p-6 rounded-xl border border-border">
 												<div className="flex items-center gap-2 mb-4">
 													<TrendingUp className="w-5 h-5 text-action" />
 													<h3 className="text-heading text-foreground">Análise de Concentração (Pareto)</h3>
@@ -954,7 +863,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												</div>
 											</div>
 
-											<div className="bg-card p-6 rounded-xl shadow-md border border-success/30">
+											<div className="bg-card p-6 rounded-xl border border-border">
 												<div className="flex items-center gap-2 mb-4">
 													<Target className="w-5 h-5 text-success" />
 													<h3 className="text-heading text-foreground">Priorização de Atuação Imediata</h3>
@@ -989,7 +898,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									</div>
 
 									{/* Conferente distribution */}
-									<div className="bg-card p-6 rounded-xl shadow-md border-t-4 border-t-emerald-600">
+									<div className="bg-card p-6 rounded-xl border border-border">
 										<div className="flex items-center gap-2 mb-6">
 											<Award className="w-5 h-5 text-success" />
 											<h3 className="text-heading text-foreground">Panorama de Distribuição SUCONT-3</h3>
@@ -1035,7 +944,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									</div>
 
 									{/* RAC panorama */}
-									<div className="bg-card p-6 rounded-xl shadow-md">
+									<div className="bg-card p-6 rounded-xl border border-border">
 										<div className="flex items-center gap-2 mb-6">
 											<Target className="w-5 h-5 text-foreground" />
 											<h3 className="text-heading text-foreground">Panorama por Questão RAC</h3>
@@ -1044,7 +953,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											{RAC_QUESTIONS.map((q) => (
 												<div key={q.id} className="bg-muted/50 p-5 rounded-xl border border-border hover:bg-action/5 transition-colors">
 													<div className="flex justify-between items-start mb-3">
-														<span className="px-2 py-1 bg-tech-blue text-white text-label rounded">RAC {q.id}</span>
+														<Badge variant="action">RAC {q.id}</Badge>
 														<span className="text-caption text-foreground">{racStatsMap[q.id].ugs.size} UGs</span>
 													</div>
 													<p className="text-label text-muted-foreground mb-4 h-8 line-clamp-2">{q.description}</p>
@@ -1066,7 +975,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							)}
 
 							{/* ODS Risk Map (both views) */}
-							<div className="mt-8 bg-card p-6 rounded-xl shadow-md">
+							<div className="mt-8 bg-card p-6 rounded-xl border border-border">
 								<div className="flex items-center justify-between mb-6">
 									<div className="flex items-center gap-2">
 										<Compass className="w-5 h-5 text-foreground" />
@@ -1109,36 +1018,27 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 							</div>
 
 							{/* Oracle Chat */}
-							<div className="mt-8 bg-card rounded-xl shadow-2xl border-2 border-border overflow-hidden">
-								<div className="bg-tech-blue p-6 flex items-center justify-between">
-									<div className="flex items-center gap-4">
-										<div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-											<Lightbulb className="w-7 h-7 text-warning" />
-										</div>
-										<div>
-											<h3 className="text-heading text-white">Oráculo SUCONT</h3>
-											<p className="text-label text-warning">Inteligência Artificial de Apoio à Decisão</p>
-										</div>
-									</div>
-									<div className="hidden md:flex gap-2">
-										{["Qual ODS possui maior risco contábil?", "Quais são as 5 UGs mais críticas?", "Resuma o impacto financeiro total."].map((q) => (
-											<Button
-												key={q}
-												size="sm"
-												onClick={() => askOracle(q)}
-												className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-label rounded-lg border border-white/10"
-											>
-												{q.includes("ODS") ? "Risco ODS" : q.includes("5 UGs") ? "Top 5 UGs" : "Impacto"}
-											</Button>
-										))}
-										<Button
-											size="sm"
-											onClick={() => setChatMessages([])}
-											className="px-3 py-1.5 bg-destructive/20 hover:bg-destructive/40 text-white text-label rounded-lg border border-white/10"
-										>
-											Limpar
-										</Button>
-									</div>
+							{/* Era o único painel com cabeçalho azul sólido, `shadow-2xl` e borda
+							    dupla — o chat do monitoramento, que faz a mesma coisa, é um card. */}
+							<div className="mt-8 bg-card rounded-xl border border-border overflow-hidden">
+								<div className="p-4 border-b border-border">
+									<SectionHeader
+										icon={<Lightbulb />}
+										title="Oráculo SUCONT"
+										description="Inteligência artificial de apoio à decisão"
+										actions={
+											<>
+												{["Qual ODS possui maior risco contábil?", "Quais são as 5 UGs mais críticas?", "Resuma o impacto financeiro total."].map((q) => (
+													<Button key={q} type="button" size="sm" variant="outline" onClick={() => askOracle(q)}>
+														{q.includes("ODS") ? "Risco ODS" : q.includes("5 UGs") ? "Top 5 UGs" : "Impacto"}
+													</Button>
+												))}
+												<Button type="button" size="sm" variant="ghost" onClick={() => setChatMessages([])}>
+													Limpar
+												</Button>
+											</>
+										}
+									/>
 								</div>
 
 								<div className="h-[400px] overflow-y-auto p-6 bg-muted/50 space-y-4">
@@ -1154,7 +1054,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											<div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
 												<div
 													className={`max-w-[80%] p-4 rounded-xl shadow-sm ${
-														msg.role === "user" ? "bg-tech-blue text-white rounded-tr-none" : "bg-card text-foreground border border-border rounded-tl-none"
+														msg.role === "user"
+															? "bg-primary text-primary-foreground rounded-tr-none"
+															: "bg-card text-foreground border border-border rounded-tl-none"
 													}`}
 												>
 													<p className="text-body leading-relaxed whitespace-pre-wrap">{msg.text}</p>
@@ -1167,7 +1069,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											<div className="bg-card p-4 rounded-xl border border-border rounded-tl-none flex items-center gap-2">
 												<div className="flex gap-1">
 													{[0, 0.2, 0.4].map((delay) => (
-														<div key={delay} className="w-1.5 h-1.5 bg-tech-blue rounded-full animate-bounce" style={{ animationDelay: `${delay}s` }} />
+														<div key={delay} className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-pulse" style={{ animationDelay: `${delay}s` }} />
 													))}
 												</div>
 												<span className="text-label text-muted-foreground">Oráculo está analisando...</span>
@@ -1184,15 +1086,9 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											onChange={(e) => setOracleInput(e.target.value)}
 											onKeyDown={(e) => e.key === "Enter" && askOracle()}
 											placeholder="Pergunte ao Oráculo sobre o risco contábil..."
-											className="flex-1 bg-muted border-none rounded-xl px-4 py-3 text-subheading focus:ring-2 focus:ring-ring transition-all outline-none"
+											className="flex-1"
 										/>
-										<Button
-											size="icon"
-											aria-label="Enviar pergunta"
-											onClick={() => askOracle()}
-											disabled={isAskingOracle || !oracleInput.trim()}
-											className="bg-tech-blue hover:bg-surface-inverted disabled:opacity-50 text-white p-3 rounded-xl shadow-lg"
-										>
+										<Button size="icon" aria-label="Enviar pergunta" onClick={() => askOracle()} disabled={isAskingOracle || !oracleInput.trim()}>
 											<ArrowRight className="w-5 h-5" />
 										</Button>
 									</div>
@@ -1203,107 +1099,46 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 					{/* OPERACIONAL + no found */}
 					{!foundAny ? (
-						<div className="bg-success/10 border border-success/30 rounded-xl p-8 text-center shadow-lg">
-							<div className="w-20 h-20 bg-success/15 text-success rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-sm">
-								<CheckCircle className="w-10 h-10" />
-							</div>
-							<h3 className="text-display text-success mb-2">Acompanhamento Concluído</h3>
-							<p className="text-success max-w-md mx-auto font-medium">
-								Nenhuma inconsistência foi identificada no relatório analisado. A situação contábil está regular.
-							</p>
-						</div>
+						<Alert variant="success">
+							<CheckCircle />
+							<AlertTitle>Acompanhamento concluído</AlertTitle>
+							<AlertDescription>Nenhuma inconsistência foi identificada no relatório analisado. A situação contábil está regular.</AlertDescription>
+						</Alert>
 					) : (
 						activeView === "operacional" && (
 							<div className="space-y-10">
-								<div className="flex items-center gap-4 border-b-2 border-border pb-4">
-									<div className="w-12 h-12 bg-surface-inverted rounded-xl flex items-center justify-center shadow-lg border border-warning/50">
-										<Compass className="w-7 h-7 text-warning" />
-									</div>
-									<div>
-										<h2 className="text-heading text-foreground">Retrato das Inconsistências</h2>
-										<p className="text-label text-muted-foreground">Ações de Cobrança e Auditoria SUCONT-3</p>
-									</div>
+								<SectionHeader
+									icon={<Compass />}
+									title="Retrato das inconsistências"
+									description="Ações de cobrança e auditoria SUCONT-3"
+									actions={
+										<SegmentedControl
+											label="Modo de mensagem"
+											value={messageMode}
+											onValueChange={setMessageMode}
+											options={[
+												{ value: "individual", label: "Mensagens individuais" },
+												{ value: "unica", label: "Mensagem única (agrupada)" },
+											]}
+										/>
+									}
+								/>
+
+								{/* Filtro no corpo, com rótulo — o segmentado do hub, não N botões
+								    pintados de `tech-blue`/`success` conforme o estado. */}
+								<div className="flex flex-col gap-2">
+									<span className="text-label text-muted-foreground">Filtrar por responsável</span>
+									<SegmentedControl
+										label="Filtrar por responsável"
+										value={conferenteFilter ?? "all"}
+										onValueChange={(value) => setConferenteFilter(value === "all" ? null : value)}
+										options={[{ value: "all", label: "Todos" }, ...CONFERENTES.map((conf) => ({ value: conf, label: conf }))]}
+									/>
 								</div>
-
-								{/* Filters */}
-								<div className="space-y-4">
-									<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-4">
-										<div className="flex items-center gap-2 text-muted-foreground mr-2">
-											<MessageSquare className="w-4 h-4" />
-											<span className="text-label">Modo de Mensagem:</span>
-										</div>
-										<div className="flex bg-muted p-1 rounded-xl">
-											{[
-												{ id: "individual", label: "Mensagens Individuais" },
-												{ id: "unica", label: "Mensagem Única (Agrupada)" },
-											].map(({ id, label }) => (
-												<button
-													type="button"
-													key={id}
-													onClick={() => setMessageMode(id as typeof messageMode)}
-													className={`px-4 py-2 rounded-lg text-label transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-														messageMode === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-													}`}
-												>
-													{label}
-												</button>
-											))}
-										</div>
-									</div>
-
-									<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-4">
-										<div className="flex items-center gap-2 text-muted-foreground mr-2">
-											<Award className="w-4 h-4" />
-											<span className="text-label">Filtrar por Responsável:</span>
-										</div>
-										<div className="flex flex-wrap gap-2">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => setConferenteFilter(null)}
-												className={`px-4 py-2 rounded-xl text-label ${
-													!conferenteFilter
-														? "bg-tech-blue text-white border-tech-blue shadow-md"
-														: "bg-card text-muted-foreground border-border hover:border-border"
-												}`}
-											>
-												Modo Geral
-											</Button>
-											{CONFERENTES.map((conf) => (
-												<Button
-													variant="outline"
-													size="sm"
-													key={conf}
-													onClick={() => setConferenteFilter(conf)}
-													className={`px-4 py-2 rounded-xl text-label ${
-														conferenteFilter === conf
-															? "bg-success text-success-foreground border-success shadow-md"
-															: "bg-card text-muted-foreground border-border hover:border-success/20"
-													}`}
-												>
-													{conf}
-												</Button>
-											))}
-										</div>
-									</div>
-								</div>
-
-								{conferenteFilter && (
-									<div className="flex justify-end">
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() => setConferenteFilter(null)}
-											className="gap-2 px-4 py-2 bg-muted hover:bg-muted/70 text-muted-foreground rounded-xl text-label border-border"
-										>
-											<RefreshCw className="w-3 h-3" /> Limpar Filtro
-										</Button>
-									</div>
-								)}
 
 								{/* Única message */}
 								{messageMode === "unica" && singleMessage ? (
-									<div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
+									<div className="bg-card rounded-xl border border-border overflow-hidden flex flex-col lg:flex-row">
 										<div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 											<div className="p-6 border-b border-border bg-card">
 												<div className="flex items-center gap-3 mb-4">
@@ -1353,7 +1188,8 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																onClick={() => {
 																	copyToClipboard(singleMessage.text, "unica")
 																}}
-																className="absolute top-4 right-4 bg-muted hover:bg-tech-blue hover:text-white text-muted-foreground rounded-lg shadow-sm"
+																variant="outline"
+																className="absolute top-4 right-4"
 															>
 																{copiedUg === "unica" ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
 															</Button>
@@ -1378,7 +1214,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 											}
 
 											return (
-												<div key={ug} className="bg-card rounded-xl shadow-lg border border-border overflow-hidden flex flex-col lg:flex-row diref-card">
+												<div key={ug} className="bg-card rounded-xl border border-border overflow-hidden flex flex-col lg:flex-row">
 													{/* Left: data portrait */}
 													<div className="lg:w-5/12 border-b lg:border-b-0 lg:border-r border-border bg-muted/30 flex flex-col">
 														<div className="p-6 border-b border-border bg-card">
@@ -1395,7 +1231,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																		<div className="military-label">Conferente: {getConferente(ug)}</div>
 																	</div>
 																</div>
-																<span className="px-3 py-1 bg-surface-inverted text-warning text-label rounded">{Object.keys(contas).length} Alerta(s)</span>
+																<Badge variant="warning">{Object.keys(contas).length} alerta(s)</Badge>
 															</div>
 															<div className="mt-4 p-3 bg-action/5 rounded-xl border border-border">
 																<p className="text-label text-muted-foreground mb-1">Saldo Consolidado</p>
@@ -1446,14 +1282,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 																		<span className="text-warning">Inconsistência identificada: utilização de conta contábil genérica.</span>
 																	</p>
 																</div>
-																<Button
-																	onClick={() => copyToClipboard(message.text, ug)}
-																	className={`gap-2 px-5 py-2.5 rounded-xl text-label ${
-																		copiedUg === ug
-																			? "bg-success text-success-foreground shadow-lg"
-																			: "bg-tech-blue text-white hover:bg-surface-inverted shadow-lg"
-																	}`}
-																>
+																<Button type="button" onClick={() => copyToClipboard(message.text, ug)} variant={copiedUg === ug ? "success" : "default"}>
 																	{copiedUg === ug ? (
 																		<>
 																			<Check className="w-4 h-4" /> Copiado

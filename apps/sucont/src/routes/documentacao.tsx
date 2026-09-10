@@ -182,11 +182,7 @@ function PlataformaDoc() {
 										<p className="text-muted-foreground max-w-md mx-auto mb-8">
 											Ocorreu um problema ao processar os dados gerados pela IA. Por favor, tente reformular seu rascunho.
 										</p>
-										<Button
-											type="button"
-											onClick={() => setDocData(null)}
-											className="bg-tech-blue hover:bg-action text-surface-inverted-foreground px-6 py-3 rounded-xl"
-										>
+										<Button type="button" onClick={() => setDocData(null)}>
 											Voltar ao Início
 										</Button>
 									</div>

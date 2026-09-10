@@ -5,7 +5,6 @@ import {
 	BookOpen,
 	Building2,
 	CalendarClock,
-	CheckCircle2,
 	Copy,
 	FileText,
 	LayoutDashboard,
@@ -25,11 +24,16 @@ import { EditableMessage } from "#/components/editable-message"
 import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
+import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { FileDropzone } from "#/components/ui/file-dropzone"
 import { Input } from "#/components/ui/input"
+import { Label } from "#/components/ui/label"
+import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { StatTile } from "#/components/ui/stat-tile"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { chartChrome } from "#/lib/chart-theme"
@@ -729,103 +733,104 @@ DIREF/SUCONT/SUCONT-3
 			{/* ── Results section ────────────────────────────────────────────────── */}
 			{reports.length > 0 && (
 				<div className="space-y-6">
-					{/* Tab switcher */}
-					<div className="flex items-center gap-2 border-b border-border pb-4">
-						<Button
-							type="button"
-							variant="ghost"
-							onClick={() => setActiveTab("operacional")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-all ${activeTab === "operacional" ? "bg-tech-blue text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
-						>
-							<FileText className="w-4 h-4" />
-							Visão Operacional (UGs)
-						</Button>
-						<Button
-							type="button"
-							variant="ghost"
-							onClick={() => setActiveTab("gerencial")}
-							className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-all ${activeTab === "gerencial" ? "bg-tech-blue text-surface-inverted-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"}`}
-						>
-							<LayoutDashboard className="w-4 h-4" />
-							Painel Gerencial (RAC)
-						</Button>
-					</div>
+					<SegmentedControl
+						label="Seção"
+						size="lg"
+						value={activeTab}
+						onValueChange={setActiveTab}
+						options={[
+							{
+								value: "operacional",
+								label: (
+									<>
+										<FileText /> Operacional (UGs)
+									</>
+								),
+							},
+							{
+								value: "gerencial",
+								label: (
+									<>
+										<LayoutDashboard /> Painel gerencial (RAC)
+									</>
+								),
+							},
+						]}
+					/>
 
 					{/* ── Operacional tab ─────────────────────────────────────────────── */}
 					{activeTab === "operacional" && (
 						<>
-							{/* Filter bar */}
-							<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-4 rounded-xl shadow-sm border border-border">
-								<div className="flex items-center gap-3">
-									<div className="bg-success/15 p-2 rounded-lg">
-										<CheckCircle2 className="w-6 h-6 text-success" />
-									</div>
-									<div>
-										<h2 className="text-heading text-foreground">
-											{filteredReports.length} {filteredReports.length === 1 ? "Unidade com Divergência" : "Unidades com Divergências"}
-										</h2>
-										<p className="text-body text-muted-foreground">
-											{conferenteFilter === "all" && racFilter === "all"
-												? "Panorama Geral"
-												: `Filtrado por: ${conferenteFilter === "minhas" ? `Minhas UGs (${userProfile})` : conferenteFilter !== "all" ? conferenteFilter : ""} ${racFilter !== "all" ? (conferenteFilter !== "all" ? " + " : "") + racFilter : ""}`}
-										</p>
-									</div>
-								</div>
-
-								<div className="flex flex-wrap items-center gap-3">
-									{/* RAC Question Filter */}
-									<div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											onClick={() => setRacFilter("all")}
-											className={`px-3 py-1.5 text-label rounded-md transition-all ${racFilter === "all" ? "bg-tech-blue text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-										>
-											Todas Questões
-										</Button>
-										<Select value={racFilter !== "all" ? racFilter : null} onValueChange={(v) => setRacFilter(v ?? "all")}>
-											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-border bg-transparent px-2 py-1.5 text-label text-muted-foreground shadow-none focus-visible:ring-0">
-												<SelectValue placeholder="Filtrar por Questão RAC" />
-											</SelectTrigger>
-											<SelectContent>
-												{racQuestionsList.map((q) => (
-													<SelectItem key={q} value={q}>
-														{q}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-
-									{/* Conferente Filter */}
-									<div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											onClick={() => setConferenteFilter("all")}
-											className={`px-3 py-1.5 text-label rounded-md transition-all ${conferenteFilter === "all" ? "bg-tech-blue text-surface-inverted-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-										>
-											Geral
-										</Button>
-										{userProfile && (
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												onClick={() => setConferenteFilter("minhas")}
-												className={`px-3 py-1.5 text-label rounded-md transition-all ${conferenteFilter === "minhas" ? "bg-action text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-											>
-												Minhas UGs
-											</Button>
+							<SectionHeader
+								title={`${filteredReports.length} ${filteredReports.length === 1 ? "unidade com divergência" : "unidades com divergências"}`}
+								description={
+									conferenteFilter === "all" && racFilter === "all"
+										? "Panorama geral"
+										: `Filtrado por: ${conferenteFilter === "minhas" ? `Minhas UGs (${userProfile})` : conferenteFilter !== "all" ? conferenteFilter : ""} ${racFilter !== "all" ? (conferenteFilter !== "all" ? " + " : "") + racFilter : ""}`
+								}
+								actions={
+									<>
+										{racFilter !== "all" && (
+											<Tooltip>
+												<TooltipTrigger
+													render={
+														<Button type="button" variant="outline" size="sm" onClick={copyRacSummary}>
+															<Copy />
+															Copiar resumo {racFilter}
+														</Button>
+													}
+												/>
+												<TooltipContent>Copiar resumo simplificado para esta questão</TooltipContent>
+											</Tooltip>
 										)}
+										<Button type="button" size="sm" onClick={copyAll}>
+											<Copy />
+											Copiar mensagens filtradas
+										</Button>
+									</>
+								}
+							/>
+
+							{/* Filtro no corpo, com rótulo. Eram dois grupos de botões pintados de
+							    `tech-blue` com um `Select` sem borda colado ao lado. */}
+							<div className="flex flex-wrap items-end gap-6">
+								<div className="flex flex-col gap-2">
+									<Label htmlFor="rac-filter">Questão do RAC</Label>
+									<Select items={{ all: "Todas as questões" }} value={racFilter} onValueChange={(v) => setRacFilter(v ?? "all")}>
+										<SelectTrigger id="rac-filter" className="w-56">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="all">Todas as questões</SelectItem>
+											{racQuestionsList.map((q) => (
+												<SelectItem key={q} value={q}>
+													{q}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="flex flex-col gap-2">
+									<Label htmlFor="conferente-filter-select">Conferente</Label>
+									<div className="flex items-center gap-2">
+										<SegmentedControl
+											label="Conferente"
+											value={conferenteFilter === "all" || conferenteFilter === "minhas" ? conferenteFilter : "outro"}
+											onValueChange={(value) => {
+												if (value !== "outro") setConferenteFilter(value)
+											}}
+											options={[
+												{ value: "all", label: "Geral" },
+												...(userProfile ? [{ value: "minhas", label: "Minhas UGs" }] : []),
+												...(conferenteFilter !== "all" && conferenteFilter !== "minhas" ? [{ value: "outro", label: conferenteFilter }] : []),
+											]}
+										/>
 										<Select
 											value={conferenteFilter !== "all" && conferenteFilter !== "minhas" ? conferenteFilter : null}
 											onValueChange={(v) => setConferenteFilter(v ?? "all")}
 										>
-											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-border bg-transparent px-2 py-1.5 text-label text-muted-foreground shadow-none focus-visible:ring-0">
-												<SelectValue placeholder="Todos" />
+											<SelectTrigger id="conferente-filter-select" className="w-44">
+												<SelectValue placeholder="Escolher conferente" />
 											</SelectTrigger>
 											<SelectContent>
 												{conferentesList.map((c) => (
@@ -836,51 +841,20 @@ DIREF/SUCONT/SUCONT-3
 											</SelectContent>
 										</Select>
 									</div>
-
-									{racFilter !== "all" && (
-										<Tooltip>
-											<TooltipTrigger
-												render={
-													<Button
-														type="button"
-														variant="success"
-														onClick={copyRacSummary}
-														className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-subheading transition-colors shadow-sm"
-													>
-														<Copy className="w-4 h-4" />
-														Copiar Resumo {racFilter}
-													</Button>
-												}
-											/>
-											<TooltipContent>Copiar resumo simplificado para esta questão</TooltipContent>
-										</Tooltip>
-									)}
-
-									<Button
-										type="button"
-										variant="ghost"
-										onClick={copyAll}
-										className="flex items-center gap-2 px-5 py-2.5 bg-tech-blue hover:bg-tech-blue/90 text-surface-inverted-foreground rounded-lg text-subheading transition-colors shadow-sm"
-									>
-										<Copy className="w-4 h-4" />
-										Copiar Mensagens Filtradas
-									</Button>
 								</div>
 							</div>
 
 							{/* UG cards */}
 							<div className="space-y-8">
 								{racFilter !== "all" && filteredReports.length > 0 && (
-									<div className="bg-action text-action-foreground px-6 py-4 rounded-xl shadow-md flex items-center gap-3">
-										<BookOpen className="w-6 h-6" />
-										<div>
-											<h3 className="text-heading">{racFilter}</h3>
-											<p className="text-action-foreground text-body">
-												{PAIRS.find((p) => p.question.includes(racFilter))?.question.split(" do ")[0]} —{" "}
-												{PAIRS.find((p) => p.question.includes(racFilter))?.nameA} × {PAIRS.find((p) => p.question.includes(racFilter))?.nameB}
-											</p>
-										</div>
-									</div>
+									<Alert variant="info">
+										<BookOpen />
+										<AlertTitle>{racFilter}</AlertTitle>
+										<AlertDescription>
+											{PAIRS.find((p) => p.question.includes(racFilter))?.question.split(" do ")[0]} —{" "}
+											{PAIRS.find((p) => p.question.includes(racFilter))?.nameA} × {PAIRS.find((p) => p.question.includes(racFilter))?.nameB}
+										</AlertDescription>
+									</Alert>
 								)}
 
 								{filteredReports.map((report, idx) => {
@@ -893,27 +867,29 @@ DIREF/SUCONT/SUCONT-3
 									const draft = drafts.of(report.ug, msgText)
 
 									return (
-										<div key={idx} className="bg-card rounded-xl shadow-md border border-border overflow-hidden flex flex-col">
-											{/* Card header */}
-											<div className="bg-gradient-to-r from-tech-blue to-tech-blue px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-tech-blue">
+										<div key={idx} className="bg-card rounded-xl border border-border overflow-hidden flex flex-col">
+											{/* Cabeçalho na superfície do card — era uma faixa `tech-blue` sólida
+											    com texto branco, o mesmo cabeçalho do `ug-card` do monitoramento
+											    em outra cor. */}
+											<div className="bg-muted/50 border-b border-border px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 												<div className="flex items-center gap-3">
-													<div className="bg-action text-foreground font-mono text-subheading px-2 py-1 rounded shadow-sm">#{idx + 1}</div>
-													<h3 className="text-heading text-white flex flex-wrap items-center gap-3">
+													<span className="font-mono text-caption text-muted-foreground">#{idx + 1}</span>
+													<h3 className="text-heading text-foreground flex flex-wrap items-center gap-2">
 														{report.ugName} (UG {report.ugCode})
-														<span className="text-caption bg-white/20 text-surface-inverted-accent px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
-															<Building2 className="w-3.5 h-3.5" />
+														<Badge variant="muted">
+															<Building2 />
 															{report.superior} / {report.ods}
-														</span>
-														<span className="text-caption bg-white/20 text-surface-inverted-accent px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5">
-															<Users className="w-3.5 h-3.5" />
+														</Badge>
+														<Badge variant="muted">
+															<Users />
 															Conferente: {report.conferente}
-														</span>
+														</Badge>
 													</h3>
 												</div>
-												<div className="flex items-center gap-2 bg-destructive/20 px-4 py-2 rounded-lg border border-destructive/30">
-													<TrendingDown className="w-5 h-5 text-destructive" />
-													<span className="text-destructive text-subheading">Diferença Total:</span>
-													<span className="text-white font-bold">{formatCurrency(report.totalDiff)}</span>
+												<div className="flex items-center gap-2 text-destructive">
+													<TrendingDown className="w-4 h-4" />
+													<span className="text-caption">Diferença total</span>
+													<span className="text-subheading">{formatCurrency(report.totalDiff)}</span>
 												</div>
 											</div>
 
@@ -929,11 +905,15 @@ DIREF/SUCONT/SUCONT-3
 														{report.chartData.map((data, i) => (
 															<div
 																key={i}
-																className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between shadow-sm relative overflow-hidden gap-3"
+																className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
 															>
-																<div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: data.color }} />
-																<div className="pl-2 flex-1">
-																	<p className="text-label text-muted-foreground mb-1">{data.name}</p>
+																{/* Era uma faixa de 6px colada à esquerda — o side-stripe que o §6
+																    proíbe. A cor da série vira um ponto ao lado do nome. */}
+																<div className="flex-1">
+																	<p className="text-label text-muted-foreground mb-1 flex items-center gap-2">
+																		<span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: data.color }} aria-hidden />
+																		{data.name}
+																	</p>
 																	<p className="text-subheading text-foreground leading-snug">{data.description.split(" × ")[0]}</p>
 																	<p className="text-caption text-muted-foreground my-0.5">×</p>
 																	<p className="text-subheading text-foreground leading-snug">{data.description.split(" × ")[1]}</p>
@@ -942,7 +922,7 @@ DIREF/SUCONT/SUCONT-3
 																		<p className="text-hint text-muted-foreground leading-tight italic">{data.question}</p>
 																	</div>
 																</div>
-																<div className="sm:text-right pl-2 sm:pl-0 border-t sm:border-t-0 border-border pt-2 sm:pt-0 mt-2 sm:mt-0">
+																<div className="sm:text-right border-t sm:border-t-0 border-border pt-2 sm:pt-0 mt-2 sm:mt-0">
 																	<p className="text-label text-muted-foreground mb-1">Diferença</p>
 																	<p className="text-heading" style={{ color: data.color }}>
 																		{formatCurrency(data.value)}
@@ -974,7 +954,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: e.target.value,
 																		}))
 																	}
-																	className="w-16 px-2 py-1 text-body border border-border rounded focus:ring-1 focus:ring-action focus:border-action outline-none bg-card"
+																	className="w-20"
 																/>
 															</div>
 
@@ -992,7 +972,7 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: e.target.value,
 																		}))
 																	}
-																	className="px-2 py-1 text-body border border-border rounded focus:ring-1 focus:ring-action focus:border-action outline-none bg-card"
+																	className="w-auto"
 																/>
 															</div>
 
@@ -1011,54 +991,21 @@ DIREF/SUCONT/SUCONT-3
 																			[report.ug]: e.target.value,
 																		}))
 																	}
-																	className="w-48 px-2 py-1 text-body border border-border rounded focus:ring-1 focus:ring-action focus:border-action outline-none bg-card"
+																	className="w-48"
 																/>
 															</div>
 
-															<div className="flex items-center bg-muted p-1 rounded-lg border border-border">
-																<Button
-																	type="button"
-																	variant="ghost"
-																	size="sm"
-																	onClick={() =>
-																		setMessageTypes((prev) => ({
-																			...prev,
-																			[report.ug]: "com_prazo",
-																		}))
-																	}
-																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "com_prazo" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-																>
-																	Com Prazo
-																</Button>
-																<Button
-																	type="button"
-																	variant="ghost"
-																	size="sm"
-																	onClick={() =>
-																		setMessageTypes((prev) => ({
-																			...prev,
-																			[report.ug]: "sem_prazo",
-																		}))
-																	}
-																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "sem_prazo" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-																>
-																	Sem Prazo
-																</Button>
-																<Button
-																	type="button"
-																	variant="ghost"
-																	size="sm"
-																	onClick={() =>
-																		setMessageTypes((prev) => ({
-																			...prev,
-																			[report.ug]: "alerta",
-																		}))
-																	}
-																	className={`px-3 py-1.5 text-caption rounded-md transition-all ${msgType === "alerta" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-																>
-																	Alerta
-																</Button>
-															</div>
+															<SegmentedControl
+																label="Tipo de mensagem"
+																size="sm"
+																value={msgType}
+																onValueChange={(value) => setMessageTypes((prev) => ({ ...prev, [report.ug]: value }))}
+																options={[
+																	{ value: "com_prazo", label: "Com prazo" },
+																	{ value: "sem_prazo", label: "Sem prazo" },
+																	{ value: "alerta", label: "Alerta" },
+																]}
+															/>
 
 															{msgType === "com_prazo" && (
 																<div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-lg border border-border">
@@ -1076,18 +1023,13 @@ DIREF/SUCONT/SUCONT-3
 																				[report.ug]: e.target.value,
 																			}))
 																		}
-																		className="px-2 py-1 text-body border border-border rounded focus:ring-1 focus:ring-action focus:border-action outline-none bg-card"
+																		className="w-auto"
 																	/>
 																</div>
 															)}
 
-															<Button
-																type="button"
-																variant="ghost"
-																onClick={() => copyToClipboard(draft.text)}
-																className="flex items-center gap-1.5 px-3 py-1.5 bg-action/10 hover:bg-action/20 text-foreground rounded-lg text-subheading transition-colors border border-action/30 whitespace-nowrap"
-															>
-																<Copy className="w-4 h-4" />
+															<Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(draft.text)}>
+																<Copy />
 																Copiar
 															</Button>
 														</div>
@@ -1118,18 +1060,9 @@ DIREF/SUCONT/SUCONT-3
 						<div className="space-y-6">
 							{/* KPIs */}
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-								<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col">
-									<p className="text-label text-muted-foreground mb-1">Total de UGs com Divergência</p>
-									<p className="text-display text-foreground">{reports.length}</p>
-								</div>
-								<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col">
-									<p className="text-label text-muted-foreground mb-1">Volume Financeiro Total</p>
-									<p className="text-display text-destructive">{formatCurrency(managerialData.totalVolume)}</p>
-								</div>
-								<div className="bg-card p-6 rounded-xl shadow-sm border border-border flex flex-col">
-									<p className="text-label text-muted-foreground mb-1">Média por UG</p>
-									<p className="text-display text-warning">{formatCurrency(managerialData.totalVolume / reports.length)}</p>
-								</div>
+								<StatTile label="UGs com divergência" value={reports.length} />
+								<StatTile label="Volume financeiro total" value={formatCurrency(managerialData.totalVolume)} status="destructive" />
+								<StatTile label="Média por UG" value={formatCurrency(managerialData.totalVolume / reports.length)} status="warning" />
 							</div>
 
 							{/* Charts */}
@@ -1227,7 +1160,7 @@ DIREF/SUCONT/SUCONT-3
 													<p className="text-label text-muted-foreground mb-2">Unidades com Inconsistências:</p>
 													<div className="flex flex-wrap gap-1.5">
 														{sup.ugs.map((ug, i) => (
-															<span key={i} className="text-caption bg-card border border-border text-foreground px-2 py-1 rounded-md shadow-sm">
+															<span key={i} className="text-caption bg-card border border-border text-foreground px-2 py-1 rounded-md">
 																{ug.includes(" - ") ? `${ug.split(" - ")[1]} (${ug.split(" - ")[0]})` : `UG ${ug}`}
 															</span>
 														))}
@@ -1269,7 +1202,7 @@ DIREF/SUCONT/SUCONT-3
 													<p className="text-label text-muted-foreground mb-2">Unidades com Inconsistências:</p>
 													<div className="flex flex-wrap gap-1.5">
 														{ods.ugs.map((ug, i) => (
-															<span key={i} className="text-caption bg-card border border-border text-foreground px-2 py-1 rounded-md shadow-sm">
+															<span key={i} className="text-caption bg-card border border-border text-foreground px-2 py-1 rounded-md">
 																{ug.includes(" - ") ? `${ug.split(" - ")[1]} (${ug.split(" - ")[0]})` : `UG ${ug}`}
 															</span>
 														))}
@@ -1311,7 +1244,7 @@ DIREF/SUCONT/SUCONT-3
 													<p className="text-label text-muted-foreground mb-2">Unidades com Inconsistências:</p>
 													<div className="flex flex-wrap gap-1.5">
 														{conf.ugs.map((ug, i) => (
-															<span key={i} className="text-caption bg-card border border-border text-foreground px-2 py-1 rounded-md shadow-sm">
+															<span key={i} className="text-caption bg-card border border-border text-foreground px-2 py-1 rounded-md">
 																{ug.includes(" - ") ? `${ug.split(" - ")[1]} (${ug.split(" - ")[0]})` : `UG ${ug}`}
 															</span>
 														))}

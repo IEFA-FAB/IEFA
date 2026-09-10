@@ -201,6 +201,44 @@ de sistema.
   caminho do Tesouro Gerencial escrito à mão, e exige `<AnalysisStart>` nas sete
   rotas. Nenhum linter enxerga qualquer um dos três.
 
+### 4.7 O estado de resultado — segmentado, indicador, cabeçalho de seção, aviso
+
+Depois que a planilha entra, cada ferramenta abre o SEU painel — e era aí que o
+hub voltava a ser nove produtos. As peças que toda tela de resultado tem, e que
+cada uma desenhava à mão:
+
+| Peça | Primitivo | O que existia |
+|------|-----------|---------------|
+| Troca de visão (estratégica / tática / operacional; mensagens / painel) | `SegmentedControl` (`size="lg"` no topo da tela, padrão dentro de seção) | 5 barras pintadas à mão: pílula `rounded-full` com `bg-tech-blue text-white shadow-md`, card `p-2` com botões `rounded-xl`, `border-b` com `shadow-md` no ativo, botões coloridos por estado (`bg-destructive` / `bg-success` / `bg-warning` conforme a aba) |
+| Indicador numérico | `StatTile` | 5 desenhos: `p-4`/`p-5`/`p-6`; `shadow-sm`/`shadow-lg`/`shadow-xl`; quarto-de-círculo decorativo; `border-b-4 border-b-emerald-600`; painel azul-sólido com valor amarelo; disco de ícone tintado por card |
+| Cabeçalho de seção | `SectionHeader` | Disco de 48px com ícone (`bg-muted`, `bg-tech-blue text-white`, `bg-surface-inverted` com borda dourada e `shadow-lg`); `h2` em CAIXA ALTA com ícone colorido; título com `border-b-2` |
+| Aviso de estado (nada a cobrar, conta fora do escopo, só leitura, painel faltando) | `Alert` (`success` / `warning` / `info` / default) | `<p>` e `<div>` com `bg-*/10 border-*/30` escritos no lugar, um deles com disco de 80px e `border-4 border-white` |
+| Filtro de conteúdo | `Label` + `Select` com trigger PADRÃO, ou `SegmentedControl` | `SelectTrigger` com `rounded-none border-0 border-l` colado a botões `tech-blue`; `rounded-full` sem borda; N botões de conferente pintados por estado |
+| Botão de ação (copiar, analisar, ver) | `Button` com `variant` | `variant="ghost"` + `className="bg-tech-blue text-white … shadow-lg"` — o primitivo usado só para desligar o primitivo |
+
+- **`StatTile` pinta o VALOR, não a superfície.** `status` é o único eixo de cor.
+  Indicador com fundo colorido inteiro compete com o `Alert` do lado.
+- **O referencial do RAC NÃO reaparece no resultado.** A pílula da trilha e o
+  `RacReference` da tela inicial já o dizem; o `conta-generica` mostrava um
+  banner "Controle Interno — Questão 29" E um card "Referencial Metodológico"
+  depois do painel, e o `monitoramento` um card "Escopo da Análise" com seis
+  pílulas. O que era próprio deles (o aviso sobre conta fora do escopo) virou
+  `Alert`.
+- **Cabeçalho de card é a superfície do card.** `bg-muted/50 border-b`, como o
+  `ug-card` do monitoramento sempre foi. O card de UG da compatibilidade tinha
+  faixa `tech-blue` sólida com texto branco; o oráculo do `conta-generica`,
+  cabeçalho azul com `shadow-2xl` e borda dupla; o hero estratégico do
+  `subitens`, painel azul de `p-10` com escudo de 300px em marca-d'água.
+- **Cor de série vira PONTO, não faixa.** O item de divergência da
+  compatibilidade tinha `absolute left-0 w-1.5` com a cor do par — o side-stripe
+  do §6, com `style` em vez de classe para escapar do grep.
+- **Painel escuro no meio de painel claro é proibido.** `bg-surface-inverted` /
+  `bg-tech-blue` com `text-white` como superfície de conteúdo existia em três
+  telas e em nenhuma outra parte do hub. `tech-blue` segue onde é MARCA — o
+  avatar da barra e o disco do card do catálogo.
+- **Modal desenhado à mão mantém `shadow-lg`**, porque há sobreposição real — é
+  o caso que §6 admite. `shadow-2xl` não: é o mesmo véu com o dobro de tinta.
+
 ## 5. Convenções obrigatórias
 
 - **Cores:** escala semântica (`background`, `foreground`, `primary`, `secondary`,
@@ -370,6 +408,33 @@ com o nome do arquivo já gravado, e a tela trocava para o painel mostrando zero
 ocorrência. Falha de leitura agora é `Alert`; competência sem ocorrência segue
 sendo vazio de verdade e abre o painel.
 
+**Zerados em 2026-09-09 (2ª passada)** — o estado de **resultado**, depois da
+planilha entrar.
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Trocas de visão pintadas à mão | 5 (conta-generica, subitens ×3, compatibilidade, monitoramento) | `SegmentedControl` |
+| Indicadores numéricos desenhados no lugar | 27 tiles em 5 desenhos | `StatTile` |
+| Cabeçalhos de seção com disco de 48px ou em caixa alta | 11 | `SectionHeader` |
+| Avisos de estado em `<p>`/`<div>` tintado | 9 | `Alert` |
+| Referencial do RAC repetido depois do resultado | 3 blocos em 2 telas | Removidos (§4.7) |
+| Painéis escuros (`bg-surface-inverted` / `bg-tech-blue` como superfície) | 4 | `Card` |
+| Faixas de cor de série (`absolute left-0 w-1.5` com `style`) | 1 | Ponto ao lado do nome |
+| `shadow-lg`/`shadow-md`/`shadow-xl`/`shadow-2xl` fora de overlay | 41 | Borda `1px` do token |
+| `bg-tech-blue text-white` em botão via `className` | 14 | `variant` do `Button` |
+| Quarto-de-círculo decorativo, `border-b-4`/`border-t-4 emerald`, escudo em marca-d'água | 6 | Removidos |
+| Grupos de filtro com `SelectTrigger` mutilado (`rounded-none border-0 border-l`) | 3 | Trigger padrão + `Label` |
+| Célula de tabela em `px-10 py-5` | 1 tabela | `px-4 py-3` |
+| `animate-in fade-in` por troca de visão | 8 | Removidos |
+
+**Primitivos criados:** `stat-tile`, `section-header`. **Patterns criados:**
+`analysis-start`, `rac-reference`, `tesouro-gerencial-path`.
+
+O que NÃO entrou, e por quê: os quatro componentes-deus continuam com 1.300+
+linhas — dividi-los é arquitetura, não estilo. O `StatCard` do auditor fica:
+tem sparkline e variação, um papel de dado que o `StatTile` não cobre; só perdeu
+a sombra artificial. As tabelas seguem sem primitivo (linha abaixo).
+
 **Primitivos criados** (portados do sisub, o contrato irmão): `card`, `badge`,
 `tabs`, `alert`, `empty`. A ausência deles era a CAUSA da divergência de
 superfície — sem destino, cada ferramenta desenhava o próprio painel, e o raio
@@ -471,6 +536,13 @@ exceção já registrada na tabela anterior.
       `<input type="file">` desenhados na rota (§4.6)?
 - [ ] O caminho do Tesouro Gerencial vem de `TESOURO_GERENCIAL_PATH`, e a questão
       do RAC vem do catálogo — nenhum dos dois digitado na tela (§4.6)?
+- [ ] Troca de visão é `SegmentedControl`; indicador é `StatTile`; título de
+      seção é `SectionHeader`; aviso de estado é `Alert` (§4.7)?
+- [ ] Zero `shadow-lg`/`shadow-xl`/`shadow-2xl` fora de overlay, zero
+      `bg-tech-blue text-white` em `className` de botão, zero painel escuro
+      dentro de painel claro (§4.7)?
+- [ ] O referencial do RAC aparece UMA vez — na tela inicial —, não depois do
+      resultado (§4.7)?
 
 ## 11. Referências de implementação
 
@@ -482,6 +554,10 @@ exceção já registrada na tabela anterior.
 - **Negativa de permissão explicada:** `src/components/read-only-notice.tsx`.
 - **Guard de rota:** `src/routes/__root.tsx` — auth + PBAC nível 1, rotas legais
   isentas, `z.coerce` no `validateSearch`, e o tema resolvido antes do primeiro byte.
+- **Estado de resultado:** `src/components/ui/stat-tile.tsx`,
+  `src/components/ui/section-header.tsx`, `src/components/ui/segmented-control.tsx`
+  e `src/components/ui/alert.tsx` — as quatro peças do §4.7. Guarda em
+  `src/test/analysis-start.contract.test.ts` ("estado de resultado").
 - **Tela inicial de análise:** `src/components/analysis-start.tsx` (a ordem),
   `src/components/ui/file-dropzone.tsx` (a zona),
   `src/components/tesouro-gerencial-path.tsx` e `src/components/rac-reference.tsx`

@@ -178,7 +178,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 	return (
 		<div className="fixed inset-0 z-50 flex justify-center items-center bg-overlay/60 backdrop-blur-sm p-4 sm:p-6">
-			<div className="w-full max-w-7xl h-full max-h-[90vh] bg-muted/50 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-border">
+			<div className="w-full max-w-7xl h-full max-h-[90vh] bg-muted/50 rounded-xl shadow-lg flex flex-col overflow-hidden border border-border">
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
 					<div className="flex items-center gap-4">
@@ -260,9 +260,8 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 											variant="outline"
 											size="xs"
 											onClick={() => setSelectedRacFilter("Geral")}
-											className={`rounded font-medium ${
-												selectedRacFilter === "Geral" ? "bg-action text-white border-action" : "bg-card text-muted-foreground border-border hover:bg-muted"
-											}`}
+											aria-pressed={selectedRacFilter === "Geral"}
+											className={selectedRacFilter === "Geral" ? "bg-primary text-primary-foreground hover:bg-primary/90" : undefined}
 										>
 											Todas as Questões
 										</Button>
@@ -273,9 +272,8 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 												variant="outline"
 												size="xs"
 												onClick={() => setSelectedRacFilter(q)}
-												className={`rounded font-medium ${
-													selectedRacFilter === q ? "bg-action text-white border-action shadow-sm" : "bg-muted/50 text-action border-border hover:bg-muted"
-												}`}
+												aria-pressed={selectedRacFilter === q}
+												className={selectedRacFilter === q ? "bg-primary text-primary-foreground hover:bg-primary/90" : undefined}
 											>
 												{q}
 											</Button>
@@ -334,11 +332,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								<Settings2 className="w-4 h-4 text-muted-foreground" />
 								<h3 className="text-subheading text-foreground">Configurar Mensagem</h3>
 							</div>
-							<Button
-								type="button"
-								onClick={handleCopy}
-								className="gap-2 px-3 py-1.5 text-caption text-white bg-action border-transparent rounded-lg hover:bg-action transition-colors shadow-sm"
-							>
+							<Button type="button" onClick={handleCopy} size="sm">
 								{copied ? (
 									<>
 										<Check className="w-3.5 h-3.5" />

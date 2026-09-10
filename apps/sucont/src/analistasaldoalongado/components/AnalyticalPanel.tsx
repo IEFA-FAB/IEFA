@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { StatTile } from "#/components/ui/stat-tile"
 import { chartChrome } from "#/lib/chart-theme"
 import type { UgConsolidated } from "../utils/analytics"
 import { exportElementToImage } from "../utils/exportUtils"
@@ -141,46 +142,15 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 				</div>
 			</div>
 
-			{/* Summary Header */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
-					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-muted rounded-xl">
-							<TrendingUp className="w-6 h-6 text-action" />
-						</div>
-						<div>
-							<p className="text-subheading text-muted-foreground">Saldo Total Analisado</p>
-							<h3 className="text-display text-foreground">{formatCurrency(totalBalance)}</h3>
-						</div>
-					</div>
-					<div className="text-caption text-muted-foreground">Volume financeiro total sob acompanhamento contábil.</div>
-				</div>
-
-				<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
-					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-warning/15 rounded-xl">
-							<AlertTriangle className="w-6 h-6 text-warning" />
-						</div>
-						<div>
-							<p className="text-subheading text-muted-foreground">Total de Inconsistências</p>
-							<h3 className="text-display text-foreground">{totalOccurrences}</h3>
-						</div>
-					</div>
-					<div className="text-caption text-muted-foreground">Número total de ocorrências identificadas nas UGs.</div>
-				</div>
-
-				<div className="bg-card p-6 rounded-xl border border-border shadow-sm">
-					<div className="flex items-center gap-4 mb-4">
-						<div className="p-3 bg-action/10 rounded-xl">
-							<Target className="w-6 h-6 text-action" />
-						</div>
-						<div>
-							<p className="text-subheading text-muted-foreground">Foco de Atuação (Pareto)</p>
-							<h3 className="text-display text-foreground">{paretoUgs.length} UGs</h3>
-						</div>
-					</div>
-					<div className="text-caption text-muted-foreground">Unidades que concentram ~80% do saldo total.</div>
-				</div>
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<StatTile
+					icon={<TrendingUp />}
+					label="Saldo total analisado"
+					value={formatCurrency(totalBalance)}
+					hint="volume financeiro sob acompanhamento contábil"
+				/>
+				<StatTile icon={<AlertTriangle />} label="Total de inconsistências" value={totalOccurrences} hint="ocorrências identificadas nas UGs" />
+				<StatTile icon={<Target />} label="Foco de atuação (Pareto)" value={`${paretoUgs.length} UGs`} hint="unidades que concentram ~80% do saldo total" />
 			</div>
 
 			{/* Pareto Analysis */}
@@ -188,7 +158,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 				<div className="px-6 py-4 border-b border-border flex items-center justify-between">
 					<div className="flex items-center gap-2">
 						<Activity className="w-5 h-5 text-action" />
-						<h3 className="font-bold text-foreground">Análise de Pareto (Curva ABC)</h3>
+						<h3 className="text-heading text-foreground">Análise de Pareto (Curva ABC)</h3>
 					</div>
 					<Button
 						type="button"
@@ -405,7 +375,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 			{/* Modal - Detalhamento das UGs */}
 			{selectedDetailLevel && (
 				<div className="fixed inset-0 z-50 bg-overlay/50 flex items-center justify-center p-4">
-					<div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+					<div className="bg-card rounded-xl shadow-lg border border-border w-full max-w-2xl max-h-[80vh] flex flex-col">
 						<div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
 							<h3 className="text-heading text-foreground flex items-center gap-2">
 								<Activity className="w-5 h-5 text-action" />

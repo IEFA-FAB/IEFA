@@ -90,3 +90,61 @@ describe("ordem da tela inicial", () => {
 		expect(file?.text).toContain("<AnalysisStart")
 	})
 })
+
+describe("estado de resultado", () => {
+	const ANALYSIS_ROUTES = [
+		"routes/cruzamento-contas.tsx",
+		"routes/subitens-genericos.tsx",
+		"routes/conta-generica.tsx",
+		"routes/monitoramento.tsx",
+		"routes/analista-compatibilidade.tsx",
+		"routes/analistasaldoalongado.tsx",
+		"routes/sac-dgc.tsx",
+	]
+	const routes = () => FILES.filter((f) => ANALYSIS_ROUTES.includes(f.path))
+
+	it("sem sombra artificial fora de overlay", () => {
+		// `shadow-lg`, `shadow-xl` e `shadow-2xl` só cabem em véu de modal, que
+		// não mora em rota. Em card, simulam profundidade que o sistema não tem.
+		const offenders = routes()
+			.filter((f) => /shadow-(lg|xl|2xl|md)\b/.test(stripComments(f.text)))
+			.map((f) => f.path)
+		expect(offenders).toEqual([])
+	})
+
+	it("sem botão pintado por cima do primitivo", () => {
+		// `bg-tech-blue text-white` num `className` é o `Button` usado só para
+		// desligar o `Button`. A cor de ação é `variant`.
+		const offenders = routes()
+			.filter((f) => /bg-tech-blue[^"]*text-white|text-white[^"]*bg-tech-blue/.test(stripComments(f.text)))
+			.map((f) => f.path)
+		expect(offenders).toEqual([])
+	})
+
+	it("sem troca de visão pintada à mão", () => {
+		// A assinatura das cinco barras que existiam: uma comparação com o estado
+		// ativo escolhendo a classe do botão. O `SegmentedControl` faz isso por
+		// `aria-pressed`, sem ternário no call site.
+		const offenders = routes()
+			.filter((f) => /(activeView|activeTab|dashboardTab|messageMode) === \w+ \? "bg-/.test(stripComments(f.text)))
+			.map((f) => f.path)
+		expect(offenders).toEqual([])
+	})
+
+	it("sem decoração de superfície", () => {
+		// Quarto-de-círculo no canto, faixa de acento de 4px embaixo/em cima e
+		// paleta crua: os três marcadores do card "premium" das telas portadas.
+		const offenders = routes()
+			.filter((f) => /rounded-bl-full|border-[bt]-4|emerald-|slate-|amber-/.test(stripComments(f.text)))
+			.map((f) => f.path)
+		expect(offenders).toEqual([])
+	})
+})
+
+/** Comentários explicam o que foi removido citando a classe; não contam como uso. */
+function stripComments(text: string): string {
+	return text
+		.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+		.replace(/\/\*[\s\S]*?\*\//g, "")
+		.replace(/^\s*\/\/.*$/gm, "")
+}
