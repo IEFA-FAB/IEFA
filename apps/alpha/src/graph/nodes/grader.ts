@@ -28,7 +28,12 @@ export async function graderNode(state: AgentState): Promise<Partial<AgentState>
 	const { retrieved_documents, messages, grading_retries } = state
 
 	const docsContext = retrieved_documents
-		.map((d, i) => `[${i + 1}] ${d.metadata.source} — ${d.metadata.chapter}, ${d.metadata.article}:\n${d.content}`)
+		.map((d, i) => {
+			// Só o que existe entra no rótulo. Documento sem dispositivo marcado rendia
+			// `[1] RADA-e Módulo G — , :`, que é ruído no prompt do verificador.
+			const device = [d.metadata.chapter, d.metadata.section, d.metadata.article].filter(Boolean).join(", ")
+			return `[${i + 1}] ${d.metadata.source}${device ? ` — ${device}` : ""}:\n${d.content}`
+		})
 		.join("\n\n")
 
 	const userQuery =
