@@ -19,7 +19,7 @@
 import type { PersonIdentity } from "@iefa/database/core"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireSucontAccess, requireSucontAdmin } from "#/lib/auth.server"
+import { requireSucontAdmin, requireSucontApp } from "#/lib/auth.server"
 import { getCoreClient, getSucontServerClient } from "#/lib/supabase.server"
 
 /**
@@ -64,9 +64,29 @@ export type RosterMatch = {
 	organizacao: string | null
 }
 
+/**
+ * Exige que a pessoa esteja NA SEÇÃO antes de deixar o admin do sucont editá-la.
+ *
+ * `core.person` é do ERP inteiro e `sucont.section_member` é a fronteira deste
+ * app — a leitura já respeita isso, e a escrita tem que respeitar também. Sem a
+ * checagem, um administrador do sucont renomearia ou revincularia o SARAM de uma
+ * pessoa cadastrada por outro app, pelo id. É a mesma lição do `module` obrigatório
+ * na revogação de grant: numa tabela compartilhada, escrita sem escopo alcança o
+ * ERP todo.
+ */
+async function requireSectionMember(personId: string): Promise<void> {
+	const { data, error } = await getSucontServerClient().from("section_member").select("person_id").eq("person_id", personId).maybeSingle()
+	if (error) throw new Error(error.message)
+	if (!data) throw new Error("Esta pessoa não está na seção.")
+}
+
 /** Pessoas da seção, com identidade resolvida e a carga de cada uma. */
 export const listSectionPeopleFn = createServerFn({ method: "GET" }).handler(async (): Promise<SectionPerson[]> => {
-	await requireSucontAccess()
+	// `requireSucontApp`, e não o gate de divisão: quem administra esta tela pode
+	// não ter divisão nenhuma. Com o gate de divisão, `/admin/pessoas` abria num
+	// erro permanente para a conta só-administradora — que é justamente quem o
+	// split criou para operar esta tela.
+	await requireSucontApp()
 	const sucont = getSucontServerClient()
 
 	const { data: members, error: membersError } = await sucont.from("section_member").select("person_id")
@@ -116,28 +136,52 @@ export const listSectionPeopleFn = createServerFn({ method: "GET" }).handler(asy
 })
 
 /**
- * Cadastra uma pessoa na seção pelo nome, sem SARAM nem conta.
+ * Coloca uma pessoa na seção pelo nome, sem SARAM nem conta.
  *
  * É o caminho normal: primeiro a pessoa existe e recebe trabalho, depois alguém
  * vincula o SARAM. Exigir o SARAM na criação travaria o cadastro de quem o admin
  * não tem em mãos naquele momento.
  *
- * O índice único sobre `core.person_name_key(display_name)` impede que "Vanessa"
- * nasça ao lado de "3S VANESSA" — o 23505 vira mensagem, não erro cru.
+ * PROCURA antes de inserir, e a busca é pela chave normalizada (`name_key`), não
+ * pelo texto: `core.person` é do ERP inteiro, então a pessoa pode já existir
+ * porque saiu desta seção um dia ou porque outro app a cadastrou. Inserir
+ * cegamente batia no índice único e devolvia "já existe" numa tela que não
+ * oferecia saída nenhuma — a pessoa ficava inalcançável sem SQL.
+ *
+ * A chave é coluna GERADA (20260910234119) justamente para ser filtrável aqui: o
+ * índice sobre a expressão não era, e duplicar o normalizador em TypeScript
+ * garantiria divergência no primeiro nome acentuado.
  */
 export const createSectionPersonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ displayName: z.string().trim().min(2) }))
-	.handler(async ({ data }): Promise<{ id: string }> => {
+	.handler(async ({ data }): Promise<{ id: string; reused: boolean }> => {
 		await requireSucontAdmin()
-		const { data: person, error } = await getCoreClient().from("person").insert({ display_name: data.displayName }).select("id").single()
-		if (error) {
-			if (error.code === "23505") throw new Error("Já existe uma pessoa ativa com esse nome no cadastro.")
-			throw new Error(error.message)
+		const core = getCoreClient()
+
+		const { data: key, error: keyError } = await core.rpc("person_name_key", { p_name: data.displayName })
+		if (keyError) throw new Error(keyError.message)
+
+		const { data: existing, error: existingError } = await core
+			.from("person")
+			.select("id")
+			.eq("name_key", key as unknown as string)
+			.eq("active", true)
+			.maybeSingle()
+		if (existingError) throw new Error(existingError.message)
+
+		let personId = existing?.id ?? null
+		if (!personId) {
+			const { data: person, error } = await core.from("person").insert({ display_name: data.displayName }).select("id").single()
+			if (error) throw new Error(error.message)
+			personId = person.id
 		}
 
-		const { error: memberError } = await getSucontServerClient().from("section_member").insert({ person_id: person.id })
+		// Recolocar quem já está na seção não é erro, é ausência de mudança.
+		const { error: memberError } = await getSucontServerClient()
+			.from("section_member")
+			.upsert({ person_id: personId }, { onConflict: "person_id", ignoreDuplicates: true })
 		if (memberError) throw new Error(memberError.message)
-		return { id: person.id }
+		return { id: personId, reused: Boolean(existing) }
 	})
 
 /**
@@ -175,6 +219,7 @@ export const linkPersonRosterFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid(), nrOrdem: z.string().trim().min(1).nullable() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontAdmin()
+		await requireSectionMember(data.id)
 		const { error } = await getCoreClient().from("person").update({ nr_ordem: data.nrOrdem }).eq("id", data.id)
 		if (error) {
 			if (error.code === "23505") throw new Error("Esse SARAM já está vinculado a outra pessoa do cadastro.")
@@ -194,6 +239,7 @@ export const linkPersonAccountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid(), email: z.string().trim().min(1).nullable() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontAdmin()
+		await requireSectionMember(data.id)
 		const core = getCoreClient()
 
 		let userId: string | null = null
@@ -223,6 +269,7 @@ export const renamePersonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid(), displayName: z.string().trim().min(2) }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontAdmin()
+		await requireSectionMember(data.id)
 		const { error } = await getCoreClient().from("person").update({ display_name: data.displayName }).eq("id", data.id)
 		if (error) {
 			if (error.code === "23505") throw new Error("Já existe uma pessoa ativa com esse nome no cadastro.")
@@ -247,6 +294,7 @@ export const removeSectionPersonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.uuid() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
 		await requireSucontAdmin()
+		await requireSectionMember(data.id)
 		const sucont = getSucontServerClient()
 
 		const { error: assigneeError } = await sucont.from("checklist_item_assignee").delete().eq("person_id", data.id)

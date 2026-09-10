@@ -424,6 +424,10 @@ export type Database = {
           severity: string
           status: string
           suggestion: string | null
+          triage: string | null
+          triage_note: string | null
+          triaged_at: string | null
+          triaged_by: string | null
         }
         Insert: {
           category: string
@@ -439,6 +443,10 @@ export type Database = {
           severity: string
           status: string
           suggestion?: string | null
+          triage?: string | null
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
         }
         Update: {
           category?: string
@@ -454,6 +462,10 @@ export type Database = {
           severity?: string
           status?: string
           suggestion?: string | null
+          triage?: string | null
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
         }
         Relationships: [
           {
@@ -465,6 +477,44 @@ export type Database = {
           },
           {
             foreignKeyName: "compliance_finding_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_run"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_review: {
+        Row: {
+          created_at: string
+          decision: string
+          id: string
+          notes: string | null
+          reviewer_id: string
+          run_id: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          id?: string
+          notes?: string | null
+          reviewer_id: string
+          run_id: string
+          snapshot?: Json
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          id?: string
+          notes?: string | null
+          reviewer_id?: string
+          run_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_review_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "compliance_run"
@@ -934,6 +984,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      aci_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          discarded_findings: number
+          doc_kind: string
+          extraction_created_at: string
+          extraction_id: string
+          filename: string
+          finding_counts: Json
+          modalidade: string
+          objeto: string
+          review_created_at: string
+          review_decision: string
+          rules_applied: number
+          rules_not_assessed: number
+          run_finished_at: string
+          run_id: string
+          run_started_at: string
+          run_status: string
+          submission_id: string
+          submitted_at: string
+          user_id: string
+        }[]
+      }
       match_chunks_cosine: {
         Args: {
           document_types?: string[]
@@ -1945,6 +2019,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          name_key: string | null
           nr_ordem: string | null
           updated_at: string
           user_id: string | null
@@ -1954,6 +2029,7 @@ export type Database = {
           created_at?: string
           display_name: string
           id?: string
+          name_key?: string | null
           nr_ordem?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1963,6 +2039,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          name_key?: string | null
           nr_ordem?: string | null
           updated_at?: string
           user_id?: string | null

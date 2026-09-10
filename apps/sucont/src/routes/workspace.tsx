@@ -12,7 +12,7 @@ import { Checkbox } from "#/components/ui/checkbox"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { toast } from "#/components/ui/toast"
-import { addDays, formatBrDate, todayInBrasilia } from "#/lib/brasilia"
+import { addDays, dateInBrasilia, formatBrDate, todayInBrasilia } from "#/lib/brasilia"
 import {
 	CHECKLIST_RECURRENCES,
 	type ChecklistRecurrence,
@@ -67,7 +67,7 @@ export const Route = createFileRoute("/workspace")({
  */
 function deadlineHint(status: DeadlineStatus, dueOn: string | null, doneAt: string | null): string {
 	if (!dueOn) return "Sem prazo definido"
-	if (status === "done" && doneAt) return `Feito em ${formatBrDate(doneAt.slice(0, 10))}`
+	if (status === "done" && doneAt) return `Feito em ${formatBrDate(dateInBrasilia(doneAt))}`
 	if (status === "overdue") return `Venceu em ${formatBrDate(dueOn)}`
 	if (status === "today") return `Vence hoje, ${formatBrDate(dueOn)}`
 	return `Vence em ${formatBrDate(dueOn)}`

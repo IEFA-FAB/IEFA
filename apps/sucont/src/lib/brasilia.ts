@@ -36,6 +36,21 @@ export function formatBrDate(isoDate: string): string {
 	return year && month && day ? `${day}/${month}/${year}` : isoDate
 }
 
+/**
+ * Instante (timestamptz do banco) → data ISO em Brasília.
+ *
+ * `iso.slice(0, 10)` num `timestamptz` devolve a data em UTC: um "feito" às 22h
+ * de 30/09 aparecia como 01/10. É a mesma janela de três horas que a migration
+ * `20260910190743` fechou no lado do banco.
+ */
+export function dateInBrasilia(isoTimestamp: string): string {
+	// Data pura já é local — convertê-la seria o erro simétrico: `new Date`
+	// interpreta "2026-09-30" como meia-noite UTC, que em Brasília é dia 29.
+	if (/^\d{4}-\d{2}-\d{2}$/.test(isoTimestamp)) return isoTimestamp
+	const at = new Date(isoTimestamp)
+	return Number.isNaN(at.getTime()) ? isoTimestamp.slice(0, 10) : todayInBrasilia(at)
+}
+
 /** Data de hoje em Brasília no formato que os avisos gravam (`DD/MM/AAAA`). */
 export function todayBrLabel(now: Date = new Date()): string {
 	return formatBrDate(todayInBrasilia(now))

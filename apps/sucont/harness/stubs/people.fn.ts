@@ -78,8 +78,8 @@ export async function searchRosterFn(): Promise<RosterMatch[]> {
 	]
 }
 
-export async function createSectionPersonFn(): Promise<{ id: string }> {
-	return { id: "p-nova" }
+export async function createSectionPersonFn(): Promise<{ id: string; reused: boolean }> {
+	return { id: "p-nova", reused: false }
 }
 
 export async function linkPersonRosterFn(): Promise<{ ok: true }> {

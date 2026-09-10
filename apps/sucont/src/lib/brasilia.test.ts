@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { addDays, formatBrDate, todayBrLabel, todayInBrasilia } from "#/lib/brasilia"
+import { addDays, dateInBrasilia, formatBrDate, todayBrLabel, todayInBrasilia } from "#/lib/brasilia"
 
 describe("todayInBrasilia", () => {
 	it("devolve ISO no fuso de Brasília, não em UTC", () => {
@@ -45,5 +45,20 @@ describe("formatBrDate", () => {
 describe("todayBrLabel", () => {
 	it("carimba o aviso com a data de Brasília", () => {
 		expect(todayBrLabel(new Date("2026-10-01T00:30:00Z"))).toBe("30/09/2026")
+	})
+})
+
+describe("dateInBrasilia", () => {
+	it("não fatia a data em UTC", () => {
+		// Marcar a tarefa como feita às 22h de 30/09 rendia "Feito em 01/10" com
+		// `.slice(0, 10)` — a mesma janela de três horas que a migration
+		// `20260910190743` fechou no banco.
+		expect(dateInBrasilia("2026-10-01T01:00:00Z")).toBe("2026-09-30")
+		expect(dateInBrasilia("2026-10-01T12:00:00Z")).toBe("2026-10-01")
+	})
+
+	it("deixa data pura em paz — converter seria o erro simétrico", () => {
+		// `new Date("2026-09-30")` é meia-noite UTC, que em Brasília ainda é dia 29.
+		expect(dateInBrasilia("2026-09-30")).toBe("2026-09-30")
 	})
 })

@@ -30,20 +30,24 @@ import { markNotificationsReadFn, type NotificationItem, type UpcomingDeadline }
  * que é o que a lista mostra.
  */
 export function NotificationBell() {
-	const { canUseApp } = useSucontAccess()
+	// `canAccessHub` (uma divisão qualquer), e NÃO `canUseApp`: a audiência do sino
+	// é `sucont.notification_audience()`, que só enxerga grant de divisão. A conta
+	// só-administradora nunca terá notificação, e montar o sino para ela deixava um
+	// "não foi possível carregar" fixo no cabeçalho de todas as telas.
+	const { canAccessHub } = useSucontAccess()
 	const [open, setOpen] = useState(false)
 	const queryClient = useQueryClient()
 
 	// Enquanto a sessão não resolve, o botão não existe: montar um sino que
 	// dispara 401 é pior do que não ter sino.
-	const { data, isPending, isError } = useQuery({ ...notificationsQueryOptions(), enabled: canUseApp })
+	const { data, isPending, isError } = useQuery({ ...notificationsQueryOptions(), enabled: canAccessHub })
 
 	const markRead = useMutation({
 		mutationFn: () => markNotificationsReadFn({ data: {} }),
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationsQueryOptions().queryKey }),
 	})
 
-	if (!canUseApp) return null
+	if (!canAccessHub) return null
 
 	const unread = data?.unread ?? 0
 	const items = data?.items ?? []

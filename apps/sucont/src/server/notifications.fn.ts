@@ -69,8 +69,10 @@ export const listNotificationsFn = createServerFn({ method: "GET" }).handler(asy
 	const { data: me, error: meError } = await getCoreClient().from("person").select("id").eq("user_id", ctx.userId).maybeSingle()
 	if (meError) throw new Error(meError.message)
 
-	// Tarefas que respondem a mim. Sem pessoa vinculada, a lista fica vazia e o
-	// filtro abaixo degrada para "mostra todos os prazos" — ver o comentário lá.
+	// Tarefas que respondem a mim. Quem NÃO tem pessoa vinculada vê o quadro
+	// inteiro (ver o filtro adiante); quem tem e não responde por nada vê só os
+	// de "cada responsável" — que é a verdade sobre a carga dele.
+	const linked = Boolean(me?.id)
 	const mine = new Set<string>()
 	if (me?.id) {
 		const { data: assigned, error: assignedError } = await db.from("checklist_item_assignee").select("item_id").eq("person_id", me.id)
@@ -112,11 +114,14 @@ export const listNotificationsFn = createServerFn({ method: "GET" }).handler(asy
 			// com `!`: item sem prazo não tem o que anunciar.
 			if (!row.id || !row.due_on || !row.competencia) return []
 			// "Cada responsável" vale para todo mundo; o resto é de quem foi
-			// designado. Enquanto o usuário não tem pessoa vinculada, `mine` está
-			// vazio e a tela mostra TODOS os prazos — degradar para o quadro
-			// completo é melhor do que um sino que esconde o prazo de amanhã
-			// porque falta um cadastro que ele não controla.
-			const isMine = mine.size === 0 || row.assign_to_all || mine.has(row.id)
+			// designado. Sem pessoa VINCULADA a tela mostra todos os prazos —
+			// degradar para o quadro completo é melhor do que esconder o prazo de
+			// amanhã por falta de um cadastro que o usuário não controla.
+			//
+			// A condição é `linked`, e não "o conjunto está vazio": quem está
+			// vinculado e não responde por nenhuma tarefa também tem conjunto
+			// vazio, e para ele o quadro inteiro seria ruído, não cortesia.
+			const isMine = !linked || row.assign_to_all || mine.has(row.id)
 			if (!isMine) return []
 			return [{ itemId: row.id, task: row.task ?? "", deadline: row.deadline, dueOn: row.due_on, competencia: row.competencia }]
 		}),

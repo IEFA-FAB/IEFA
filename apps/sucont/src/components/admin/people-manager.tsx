@@ -47,9 +47,13 @@ export function SucontPeopleManager() {
 
 	const createPerson = useMutation({
 		mutationFn: (displayName: string) => createSectionPersonFn({ data: { displayName } }),
-		onSuccess: () => {
+		onSuccess: (result) => {
 			setIsAdding(false)
 			setNewName("")
+			// A pessoa pode já existir no ERP — saiu desta seção um dia, ou outro app
+			// a cadastrou. Dizer isso evita a leitura de que houve duplicata, e
+			// explica por que o SARAM já vem preenchido.
+			if (result.reused) toast.success("Essa pessoa já estava no cadastro do ERP e voltou para a seção.")
 			invalidate()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao cadastrar"),
