@@ -23,6 +23,9 @@ describe("composeNonRadaAnswer", () => {
 		expect(composeNonRadaAnswer({ hasAnswer: true, source: "RADA-e", answer: "o prazo é de cinco dias" })).toBe(NO_BASIS_ANSWER)
 		expect(composeNonRadaAnswer({ hasAnswer: true, source: "RADA-e, Módulo F", answer: "o prazo é de cinco dias" })).toBe(NO_BASIS_ANSWER)
 		expect(composeNonRadaAnswer({ hasAnswer: true, source: "rada", answer: "o prazo é de cinco dias" })).toBe(NO_BASIS_ANSWER)
+		// O nome por extenso é como os próprios prompts do α apresentam o corpus ao modelo.
+		expect(composeNonRadaAnswer({ hasAnswer: true, source: "Regulamento de Administração da Aeronáutica", answer: "x" })).toBe(NO_BASIS_ANSWER)
+		expect(composeNonRadaAnswer({ hasAnswer: true, source: "regulamento de administracao da aeronautica", answer: "x" })).toBe(NO_BASIS_ANSWER)
 	})
 
 	// A recusa é da AUTORREFERÊNCIA, não de qualquer norma aeronáutica: ICA e Lei seguem

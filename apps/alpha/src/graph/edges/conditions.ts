@@ -35,8 +35,23 @@ export function routerCondition(state: AgentState): string {
 	}
 }
 
-/** Iterações de recuperação antes de desistir do corpus. */
+/** Iterações de recuperação antes de desistir do corpus, quando a pergunta é do domínio. */
 export const MAX_RETRIEVAL_ITERATIONS = 3
+
+/**
+ * Orçamento de busca da pergunta que caiu no corpus por DÚVIDA do classificador.
+ *
+ * `GENERAL`/`UNKNOWN` chegam à recuperação porque na dúvida se consulta — mas se o RADA-e
+ * não respondeu de primeira, reformular "qual a capital da França" com vocabulário
+ * normativo não vai fazer aparecer. Cada rodada extra custa uma chamada de modelo e uma
+ * busca híbrida, e o SSE corta em 60 s (`routes.ts`): a dúvida paga UMA busca, e a pergunta
+ * do domínio paga as três.
+ */
+export const UNCERTAIN_RETRIEVAL_ITERATIONS = 1
+
+export function retrievalBudget(intent: AgentState["intent"]): number {
+	return intent === "GENERAL" || intent === "UNKNOWN" ? UNCERTAIN_RETRIEVAL_ITERATIONS : MAX_RETRIEVAL_ITERATIONS
+}
 
 /**
  * Esgotar a busca manda ao chat geral — salvo se o turno já alucinou.
@@ -53,7 +68,7 @@ export const MAX_RETRIEVAL_ITERATIONS = 3
  */
 export function radaAgentCondition(state: AgentState): string {
 	if (state.has_sufficient_context) return "grader"
-	if (state.retrieval_halted || state.retrieval_iterations >= MAX_RETRIEVAL_ITERATIONS) {
+	if (state.retrieval_halted || state.retrieval_iterations >= retrievalBudget(state.intent)) {
 		// Turno que já produziu rascunho não-ancorado NÃO ganha o chat geral: ele veio parar
 		// aqui pelo laço do grader, e responder em texto livre depois de uma alucinação
 		// detectada é exatamente o que o `no_basis` existe para impedir. Mesmo predicado que

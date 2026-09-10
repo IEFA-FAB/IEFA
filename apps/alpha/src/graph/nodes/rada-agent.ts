@@ -2,7 +2,7 @@ import { AERONAUTICAL_DOCUMENT_TYPES } from "../../lib/corpora"
 import { invokeText } from "../../lib/llm"
 import type { RADARetrieverOutput } from "../../tools/rada-retriever"
 import { radaRetriever } from "../../tools/rada-retriever"
-import { MAX_RETRIEVAL_ITERATIONS } from "../edges/conditions"
+import { retrievalBudget } from "../edges/conditions"
 import type { AgentState } from "../state"
 
 /**
@@ -69,8 +69,8 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 	const contextualQuery = state.search_query || state.original_query
 	const previousQuery = iterations === 0 ? contextualQuery : (state.reformulated_query ?? contextualQuery)
 	// `OrGiveUp` aqui pelo mesmo motivo do outro ponto de reformulação: uma falha do modelo
-	// não pode derrubar o turno. Sem reformulação, a retentativa repete a consulta anterior
-	// — desperdício limitado, porque `grading_retries` fecha o laço em duas voltas.
+	// não pode derrubar o turno. Sem reformulação a consulta não muda, e é `queryUnchanged`,
+	// no retorno de resultado vazio, que encerra o laço em vez de repetir bytes idênticos.
 	const retryQuery = isGroundingRetry ? await reformulateOrGiveUp(previousQuery) : undefined
 	const query = retryQuery ?? previousQuery
 
@@ -102,6 +102,13 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 
 	const newIterations = iterations + 1
 
+	// Perna semântica ligada e caída, sem nenhum documento no fim: metade da busca não
+	// rodou. O `radaRetriever` NÃO lança nesse caso — ele degrada para keyword-only de
+	// propósito, para não derrubar a recuperação inteira —, então sem esta leitura o turno
+	// virava `empty` e ia responder de memória do modelo. Foi exatamente o incidente que o
+	// α teve com a task role sem permissão de invocar o embedding.
+	const searchWasPartial = result.after_threshold === 0 && result.search_metadata.semantic_unavailable
+
 	if (result.after_threshold >= 1) {
 		return {
 			retrieved_documents: result.documents,
@@ -118,8 +125,9 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 	// turno inteiro justamente quando a resposta de contingência já estava garantida.
 	// `!isGroundingRetry`: nessa volta quem reformula é o INÍCIO do próximo passe
 	// (`retryQuery`), com o mesmo modelo e o mesmo prompt. Calcular aqui também seria uma
-	// chamada paga cujo resultado ninguém busca.
-	const shouldReformulate = newIterations < MAX_RETRIEVAL_ITERATIONS && !isGroundingRetry
+	// chamada paga cujo resultado ninguém busca. Se aquele passe não conseguir reformular,
+	// quem encerra o laço é `queryUnchanged`, abaixo.
+	const shouldReformulate = newIterations < retrievalBudget(state.intent) && !isGroundingRetry
 	const nextQuery = shouldReformulate ? await reformulateOrGiveUp(query) : undefined
 
 	// A consulta REALMENTE usada neste turno tem de sobreviver ao retorno, senão o
@@ -127,16 +135,22 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 	// mentira que o reset de `reformulated_query` existe para impedir.
 	const queryToRecord = nextQuery ?? retryQuery
 
+	const queryUnchanged = isGroundingRetry ? !retryQuery : shouldReformulate && !nextQuery
+
 	return {
 		retrieved_documents: [],
 		has_sufficient_context: false,
 		retrieval_iterations: newIterations,
-		retrieval_outcome: "empty",
+		retrieval_outcome: searchWasPartial ? "unavailable" : "empty",
 		// Reformulação indisponível encerra o laço em vez de repetir a MESMA consulta: a
 		// temperatura é 0 e a busca é determinística, então a repetição devolveria os mesmos
 		// zero documentos. Sinal próprio, e não `retrieval_iterations` inflado: o contador é
 		// telemetria, e uma tentativa registrada como três esconde exatamente esta falha.
-		...(shouldReformulate && !nextQuery ? { retrieval_halted: true } : {}),
+		//
+		// Vale para os DOIS pontos de reformulação. Na retentativa de ancoragem quem muda a
+		// consulta é o `retryQuery` do início do passe; se ele não veio, nada mudou, e o
+		// laço repetiria bytes idênticos até esgotar o orçamento.
+		...(queryUnchanged ? { retrieval_halted: true } : {}),
 		...(queryToRecord ? { reformulated_query: queryToRecord } : {}),
 		// Mesmo cuidado do `catch`: numa retentativa de ancoragem a causa do turno é a
 		// alucinação, e carimbar `no_documents_found` aqui a apagaria — inclusive escolhendo

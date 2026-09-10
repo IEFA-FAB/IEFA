@@ -2,25 +2,36 @@ import { AIMessage } from "@langchain/core/messages"
 import type { AgentState } from "../state.ts"
 
 /**
- * Fim do caminho da ALUCINAÇÃO, e só dele.
+ * Fim dos dois caminhos que NÃO podem ser respondidos em texto livre.
  *
  * Busca vazia deixou de terminar aqui: ela vai ao chat geral, que compõe a resposta com a
- * ressalva de procedência (`radaAgentCondition`). O que sobra para este nó é o rascunho que
- * afirmou sem base — pelo `graderCondition`, quando as retentativas de ancoragem se
- * esgotam, ou pelo laço de ancoragem que esgotou a recuperação.
+ * ressalva de procedência (`radaAgentCondition`). O que sobra são dois desfechos, e eles
+ * dizem coisas diferentes ao usuário:
  *
- * Por isso a mensagem é UMA. Havia um mapa por `termination_reason` com cinco textos, e
- * quatro deles ficaram inalcançáveis quando os caminhos que os traziam mudaram de destino —
- * mensagem inalcançável não é rede de segurança, é o texto que ninguém percebe estar errado.
- * Um motivo diferente chegando aqui é um caminho novo no grafo, e a frase continua honesta:
- * ela declara que não foi possível VERIFICAR a resposta, sem prometer por que.
+ * - **rascunho não-ancorado** — o modelo afirmou o que os documentos não sustentam;
+ * - **busca fora do ar** — a consulta ao corpus falhou, e responder de memória do modelo
+ *   uma pergunta sobre o regulamento seria pior do que admitir a indisponibilidade.
+ *
+ * Havia um mapa com cinco textos, e quatro ficaram inalcançáveis quando os caminhos que os
+ * traziam mudaram de destino — mensagem inalcançável não é rede de segurança, é o texto que
+ * ninguém percebe estar errado. Ficaram os dois que se alcança.
  */
 const UNVERIFIABLE_DRAFT = "Não foi possível gerar uma resposta verificável com base na legislação disponível."
 
-export async function noBasisNode(_state: AgentState): Promise<Partial<AgentState>> {
+const SEARCH_UNAVAILABLE =
+	"A consulta ao RADA-e está indisponível no momento, e por isso não há como responder com base no regulamento. Tente novamente em alguns minutos."
+
+export async function noBasisNode(state: AgentState): Promise<Partial<AgentState>> {
+	// A alucinação tem precedência: um turno pode ter as duas marcas — rascunho não-ancorado
+	// e, na volta seguinte, a busca fora do ar — e aí o que aconteceu de mais grave é o
+	// modelo ter afirmado o que os documentos não sustentam. Dizer "tente em alguns minutos"
+	// ali prometeria que a repetição resolve.
+	const wasUngrounded = state.termination_reason === "hallucination_detected"
+	const final_response = !wasUngrounded && state.retrieval_outcome === "unavailable" ? SEARCH_UNAVAILABLE : UNVERIFIABLE_DRAFT
+
 	return {
-		final_response: UNVERIFIABLE_DRAFT,
+		final_response,
 		cited_documents: [],
-		messages: [new AIMessage(UNVERIFIABLE_DRAFT)],
+		messages: [new AIMessage(final_response)],
 	}
 }

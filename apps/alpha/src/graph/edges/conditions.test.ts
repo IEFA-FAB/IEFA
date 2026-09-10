@@ -82,17 +82,17 @@ describe("radaAgentCondition", () => {
 	// nomeada, `composeNonRadaAnswer` devolve a MESMA frase), e o teto é maior — o chat
 	// geral consegue responder declarando uma fonte de fora do RADA-e.
 	it("falls back to general_chat when iterations reach 3 and no context", () => {
-		expect(radaAgentCondition(makeState({ has_sufficient_context: false, retrieval_iterations: 3 }))).toBe("general_chat")
+		expect(radaAgentCondition(makeState({ intent: "LEGISLATION", has_sufficient_context: false, retrieval_iterations: 3 }))).toBe("general_chat")
 	})
 
 	it("falls back to general_chat when iterations exceed 3", () => {
-		expect(radaAgentCondition(makeState({ has_sufficient_context: false, retrieval_iterations: 10 }))).toBe("general_chat")
+		expect(radaAgentCondition(makeState({ intent: "LEGISLATION", has_sufficient_context: false, retrieval_iterations: 10 }))).toBe("general_chat")
 	})
 
 	// Sem alucinação no turno, o `no_basis` deixou de ser alcançável por aqui.
 	it("never routes to no_basis without a flagged draft", () => {
 		for (const retrieval_iterations of [0, 1, 2, 3, 10]) {
-			expect(radaAgentCondition(makeState({ has_sufficient_context: false, retrieval_iterations }))).not.toBe("no_basis")
+			expect(radaAgentCondition(makeState({ intent: "LEGISLATION", has_sufficient_context: false, retrieval_iterations }))).not.toBe("no_basis")
 		}
 	})
 
@@ -102,6 +102,7 @@ describe("radaAgentCondition", () => {
 		expect(
 			radaAgentCondition(
 				makeState({
+					intent: "LEGISLATION",
 					has_sufficient_context: false,
 					retrieval_iterations: 3,
 					grading_retries: 1,
@@ -116,6 +117,7 @@ describe("radaAgentCondition", () => {
 		expect(
 			radaAgentCondition(
 				makeState({
+					intent: "LEGISLATION",
 					has_sufficient_context: false,
 					retrieval_iterations: 3,
 					retrieval_outcome: "unavailable",
@@ -129,6 +131,7 @@ describe("radaAgentCondition", () => {
 		expect(
 			radaAgentCondition(
 				makeState({
+					intent: "LEGISLATION",
 					has_sufficient_context: false,
 					retrieval_iterations: 3,
 					retrieval_outcome: "empty",
@@ -143,6 +146,7 @@ describe("radaAgentCondition", () => {
 		expect(
 			radaAgentCondition(
 				makeState({
+					intent: "LEGISLATION",
 					has_sufficient_context: false,
 					retrieval_iterations: 1,
 					retrieval_halted: true,
@@ -156,6 +160,7 @@ describe("radaAgentCondition", () => {
 		expect(
 			radaAgentCondition(
 				makeState({
+					intent: "LEGISLATION",
 					has_sufficient_context: false,
 					retrieval_iterations: 3,
 					grading_retries: 0,
@@ -166,11 +171,28 @@ describe("radaAgentCondition", () => {
 	})
 
 	it("loops back to rada_agent when no context and iterations below 3", () => {
-		expect(radaAgentCondition(makeState({ has_sufficient_context: false, retrieval_iterations: 0 }))).toBe("rada_agent")
+		expect(radaAgentCondition(makeState({ intent: "LEGISLATION", has_sufficient_context: false, retrieval_iterations: 0 }))).toBe("rada_agent")
 	})
 
 	it("loops back to rada_agent on second iteration", () => {
-		expect(radaAgentCondition(makeState({ has_sufficient_context: false, retrieval_iterations: 2 }))).toBe("rada_agent")
+		expect(radaAgentCondition(makeState({ intent: "LEGISLATION", has_sufficient_context: false, retrieval_iterations: 2 }))).toBe("rada_agent")
+	})
+
+	// A dúvida do classificador paga UMA busca: se o RADA-e não respondeu de primeira,
+	// reformular "qual a capital da França" com vocabulário normativo não faz aparecer, e
+	// cada rodada extra corre contra o corte de 60 s do SSE.
+	it("gives an uncertain question a single retrieval, not three", () => {
+		for (const intent of ["GENERAL", "UNKNOWN"] as const) {
+			expect(radaAgentCondition(makeState({ intent, has_sufficient_context: false, retrieval_iterations: 0 }))).toBe("rada_agent")
+			expect(radaAgentCondition(makeState({ intent, has_sufficient_context: false, retrieval_iterations: 1 }))).toBe("general_chat")
+		}
+	})
+
+	it("keeps the full budget for a domain question", () => {
+		for (const intent of ["LEGISLATION", "SEFA_SYSTEMS"] as const) {
+			expect(radaAgentCondition(makeState({ intent, has_sufficient_context: false, retrieval_iterations: 1 }))).toBe("rada_agent")
+			expect(radaAgentCondition(makeState({ intent, has_sufficient_context: false, retrieval_iterations: 3 }))).toBe("general_chat")
+		}
 	})
 })
 

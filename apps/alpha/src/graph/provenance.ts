@@ -35,8 +35,11 @@ export const NO_BASIS_ANSWER = "Essa informação não existe no RADA-e e não t
  * consultado, ou porque a busca não trouxe nada. Aceitar `source: "RADA-e"` produziria a
  * frase mais enganosa possível: "não é proveniente do RADA-e, mas com base no RADA-e",
  * atribuindo ao regulamento uma afirmação que nenhum trecho recuperado embasa.
+ *
+ * O nome POR EXTENSO conta igual — é como os próprios prompts do α apresentam o corpus ao
+ * modelo, então é a forma que ele tende a devolver.
  */
-const CORPUS_SELF_REFERENCE = /\brada\b/i
+const CORPUS_SELF_REFERENCE = /\brada\b|regulamento de administra[çc][ãa]o da aeron[áa]utica/i
 
 export function composeNonRadaAnswer(declared: NonRadaAnswer): string {
 	const source = declared.source?.trim()
