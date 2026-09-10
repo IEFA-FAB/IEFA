@@ -36,11 +36,16 @@ export async function graderNode(state: AgentState): Promise<Partial<AgentState>
 		})
 		.join("\n\n")
 
+	// A pergunta resolvida contra o histórico, e não a última mensagem crua: o rascunho de
+	// "e o prazo?" sairia sem assunto, e o verificador o marcaria como não-ancorado — o
+	// pré-passe teria consertado a BUSCA e quebrado a geração no mesmo turno.
 	const userQuery =
+		state.search_query ||
 		messages
 			.filter((m) => m.type === "human")
 			.pop()
-			?.content?.toString() ?? ""
+			?.content?.toString() ||
+		""
 
 	// Gera o draft aqui mesmo, para só então verificar
 	const draft = await invokeText([

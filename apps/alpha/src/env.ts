@@ -28,6 +28,15 @@ const schema = z.object({
 	 */
 	ALPHA_FALLBACK_AI_MODEL: z.string().default(""),
 	ALPHA_FALLBACK_AI_REGION: z.string().default(""),
+	/**
+	 * Modelo do PRÉ-PASSE: classificar a intenção e reescrever a pergunta para a busca.
+	 *
+	 * É trabalho de esforço baixo — decidir entre seis rótulos e resolver "e o prazo?" com
+	 * o histórico —, e roda em TODO turno, antes de qualquer recuperação. Vazio usa o
+	 * primário, que é o comportamento anterior; apontar para um modelo menor derruba custo
+	 * e latência do turno inteiro sem tocar no que redige a resposta.
+	 */
+	ALPHA_FAST_AI_MODEL: z.string().default(""),
 
 	ALPHA_EMBEDDING_PROVIDER: z.enum(["bedrock", "nvidia"]).default("bedrock"),
 	ALPHA_EMBEDDING_MODEL: z.string().default("amazon.titan-embed-text-v2:0"),

@@ -40,12 +40,25 @@ function build(model: string, region: string, temperature: number): BaseChatMode
 		: makeChatLLM({ ...openAiCompatibleConfig, model }, { temperature, ...MODEL_RETRY_POLICY })
 }
 
-export function getLLM(temperature: 0 | 0.3 | 0.7 = 0): BaseChatModel {
-	const key = `primary:${temperature}`
+/**
+ * Camada do modelo.
+ *
+ * `fast` é o pré-passe que roda em todo turno antes da recuperação — classificação de
+ * intenção e reescrita da pergunta para a busca. Sem `ALPHA_FAST_AI_MODEL` configurado ela
+ * É o primário: a camada é uma oportunidade de economia, nunca um requisito de boot.
+ */
+export type ModelTier = "primary" | "fast"
+
+function modelFor(tier: ModelTier): string {
+	return tier === "fast" ? env.ALPHA_FAST_AI_MODEL || env.ALPHA_AI_MODEL : env.ALPHA_AI_MODEL
+}
+
+export function getLLM(temperature: 0 | 0.3 | 0.7 = 0, tier: ModelTier = "primary"): BaseChatModel {
+	const key = `${tier}:${temperature}`
 	const cached = cache.get(key)
 	if (cached) return cached
 
-	const llm = build(env.ALPHA_AI_MODEL, env.ALPHA_AI_REGION, temperature)
+	const llm = build(modelFor(tier), env.ALPHA_AI_REGION, temperature)
 	cache.set(key, llm)
 	return llm
 }
@@ -98,14 +111,22 @@ export function structuredLLM(schema: ToolSchema, temperature: 0 | 0.3 | 0.7 = 0
 /**
  * Saída estruturada com reserva.
  *
- * A reserva NÃO cobre modelo que não emite tool call: `No tool calls found in the
- * response` não é falha transitória, então propaga. Isso é deliberado — trocar para outro
- * modelo sem tool calling repetiria a falha, e o defeito de configuração ficaria escondido
- * atrás de latência em vez de aparecer.
+ * `No tool calls found in the response` CONTA como transitória e aciona a reserva — ver a
+ * medição em `lib/transient.ts`: o `gpt-oss-120b` falhou assim uma vez e acertou 6/6 em
+ * seguida, com o mesmo prompt. É instabilidade de geração, não falta de capacidade. O preço
+ * é que um modelo que nunca emite tool call custa DUAS chamadas por turno antes de falhar,
+ * em vez de uma — o que aparece na latência e na conta, não numa mensagem de erro.
  */
-export async function invokeStructured<T>(schema: ToolSchema, messages: BaseLanguageModelInput, temperature: 0 | 0.3 | 0.7 = 0): Promise<T> {
-	return (await withModelFallback(temperature, (llm) =>
-		llm.withStructuredOutput(schema.parameters, { name: schema.name, method: "functionCalling" }).invoke(messages)
+export async function invokeStructured<T>(
+	schema: ToolSchema,
+	messages: BaseLanguageModelInput,
+	temperature: 0 | 0.3 | 0.7 = 0,
+	tier: ModelTier = "primary"
+): Promise<T> {
+	return (await withModelFallback(
+		temperature,
+		(llm) => llm.withStructuredOutput(schema.parameters, { name: schema.name, method: "functionCalling" }).invoke(messages),
+		tier
 	)) as T
 }
 
@@ -118,9 +139,9 @@ export async function invokeStructured<T>(schema: ToolSchema, messages: BaseLang
  * @param run - Recebe o modelo e produz o resultado
  * @throws propaga o erro do primário quando não é transitório, ou quando não há reserva
  */
-export async function withModelFallback<T>(temperature: 0 | 0.3 | 0.7, run: (llm: BaseChatModel) => Promise<T>): Promise<T> {
+export async function withModelFallback<T>(temperature: 0 | 0.3 | 0.7, run: (llm: BaseChatModel) => Promise<T>, tier: ModelTier = "primary"): Promise<T> {
 	try {
-		return await run(getLLM(temperature))
+		return await run(getLLM(temperature, tier))
 	} catch (error) {
 		const fallback = getFallbackLLM(temperature)
 		if (!fallback || !isTransientModelFailure(error)) throw error
