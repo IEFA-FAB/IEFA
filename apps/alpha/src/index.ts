@@ -1,11 +1,38 @@
 import { registerAgentDiscovery } from "./api/agent-discovery.ts"
+import { createHealthRoutes } from "./api/health.ts"
 import { legalRoutes } from "./api/legal.ts"
 import apiRoutes from "./api/routes.ts"
+import { supabase } from "./db/supabase.ts"
 import { env } from "./env.ts"
 import { refreshAllSources } from "./jobs/refresh-sources.ts"
 import { startSourcesRefreshWorker } from "./jobs/scheduler.ts"
 
-const MEMORY_LIMIT_BYTES = 450 * 1024 * 1024 // 450MB — 90% of ~500MB effective budget
+/** Teto da sonda profunda. Acima disso o banco conta como fora, e não como lento. */
+const DEEP_PROBE_TIMEOUT_MS = 2000
+
+/**
+ * Uma leitura barata no schema `alpha`, só para saber se o banco responde.
+ *
+ * `limit(1)` sem `count` de propósito: contagem exata varre a tabela, e o que a
+ * sonda precisa saber é se a conexão e a credencial estão de pé — não quantos
+ * documentos existem.
+ */
+async function probeDatabase(): Promise<"ok" | "error"> {
+	try {
+		const { error } = await supabase.from("document").select("id").limit(1).abortSignal(AbortSignal.timeout(DEEP_PROBE_TIMEOUT_MS))
+		if (error) {
+			// A resposta ao cliente é só "degraded": chave expirada, grant revogado e
+			// timeout são o mesmo 503 para quem olha a tela, e não é dela que sai o
+			// diagnóstico. Sem esta linha, a diferença some para todo mundo.
+			console.error(`[health] banco não respondeu: ${error.message}`)
+			return "error"
+		}
+		return "ok"
+	} catch (cause) {
+		console.error(`[health] banco não respondeu: ${cause instanceof Error ? cause.message : String(cause)}`)
+		return "error"
+	}
+}
 
 const app = apiRoutes
 	/**
@@ -23,34 +50,13 @@ const app = apiRoutes
 		const report = await refreshAllSources({ apply: true })
 		return c.json(report)
 	})
-	.get("/health", (c) => {
-		const mem = process.memoryUsage()
-		const rss = mem.rss
-
-		if (rss > MEMORY_LIMIT_BYTES) {
-			return c.json(
-				{
-					status: "unhealthy" as const,
-					service: "alpha",
-					reason: "memory_pressure",
-					rss_mb: Math.round(rss / 1024 / 1024),
-					limit_mb: 450,
-				},
-				503
-			)
-		}
-
-		return c.json({
-			status: "ok" as const,
-			service: "alpha",
-			rss_mb: Math.round(rss / 1024 / 1024),
-		})
-	})
 
 startSourcesRefreshWorker(env.ALPHA_SOURCES_REFRESH_ENABLED)
 
-// Documentos legais e robots.txt/llms.txt/.well-known — registrados fora da
-// cadeia tipada acima para não interferir nos tipos do RPC do Hono.
+// Estado do serviço, documentos legais e robots.txt/llms.txt/.well-known —
+// registrados fora da cadeia tipada acima para não interferir nos tipos do RPC
+// do Hono. Nada disso é chamado pelo client tipado.
+app.route("/", createHealthRoutes(probeDatabase))
 app.route("/legal", legalRoutes)
 registerAgentDiscovery(app)
 

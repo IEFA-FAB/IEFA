@@ -73,7 +73,7 @@ const LLMS_TXT = renderLlmsTxt(CATALOG, {
 			url: `${BASE_URL}/.well-known/oauth-protected-resource`,
 			summary: "RFC 9728 — qual emissor pode emitir token para esta API.",
 		},
-		{ title: "Health check", url: `${BASE_URL}/health`, summary: "Estado do serviço." },
+		{ title: "Health check", url: `${BASE_URL}/health`, summary: "Estado do serviço. Com `?deep=1`, inclui a checagem do banco." },
 		{
 			title: "Documentos legais",
 			url: `${BASE_URL}/legal`,
