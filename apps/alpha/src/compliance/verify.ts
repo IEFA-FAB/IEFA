@@ -21,6 +21,8 @@ import { FEDERAL_LEGISLATION_TYPES } from "../lib/corpora.ts"
 import type { LegalRef } from "../lib/legal-ref.ts"
 import { structuredLLM } from "../lib/llm.ts"
 import { radaRetriever } from "../tools/rada-retriever.ts"
+import type { EvidenceGuardReason, EvidenceSpan } from "./evidence.ts"
+import { judgeEvidence } from "./evidence.ts"
 import type { LegalRefResolver } from "./resolve-legal-ref.ts"
 import type { Severity } from "./severity.ts"
 
@@ -178,7 +180,9 @@ export async function judgeRule(rule: ChecklistRule, block: { label: string; tex
 
 export interface GuardOutcome {
 	kept: boolean
-	reason?: "sem_referencia" | "referencia_nao_resolvida" | "confianca_insuficiente"
+	reason?: "sem_referencia" | "referencia_nao_resolvida" | "confianca_insuficiente" | EvidenceGuardReason
+	/** Onde a evidência foi localizada no bloco, quando foi. */
+	span?: EvidenceSpan | null
 	resolved_refs: LegalRef[]
 }
 
@@ -190,15 +194,23 @@ export interface GuardOutcome {
  * passar uma inconformidade — é apontar uma inconformidade citando artigo
  * inexistente, que é irrecuperável em termos de confiança.
  */
-export async function applyCitationGuard(verdict: RuleVerdict, resolver: LegalRefResolver): Promise<GuardOutcome> {
-	if (verdict.status !== "INCONFORME") return { kept: true, resolved_refs: verdict.legal_ref }
+export async function applyCitationGuard(verdict: RuleVerdict, resolver: LegalRefResolver, blockText?: string): Promise<GuardOutcome> {
+	if (verdict.status !== "INCONFORME") return { kept: true, resolved_refs: verdict.legal_ref, span: null }
 	if (verdict.confidence < MIN_CONFIDENCE) return { kept: false, reason: "confianca_insuficiente", resolved_refs: [] }
+	// Evidência que não está no bloco derruba o achado pelo mesmo motivo que referência não
+	// resolvida derruba: apontar inconformidade citando frase que o documento não contém é
+	// irrecuperável em termos de confiança. `blockText` é opcional para não quebrar chamador
+	// que ainda não o passa; quando vem, é conferido.
+	const fundamentacao = judgeEvidence(verdict, blockText)
+	if (fundamentacao.reason) return { kept: false, reason: fundamentacao.reason, resolved_refs: [] }
 	if (verdict.legal_ref.length === 0) return { kept: false, reason: "sem_referencia", resolved_refs: [] }
+
+	const span = fundamentacao.span
 
 	const resolutions = await resolver.resolveAll(verdict.legal_ref)
 	const resolved = resolutions.filter((resolution) => resolution.resolved)
 
 	if (resolved.length === 0) return { kept: false, reason: "referencia_nao_resolvida", resolved_refs: [] }
 
-	return { kept: true, resolved_refs: resolved.map((resolution) => ({ norma: resolution.norma, dispositivo: resolution.dispositivo })) }
+	return { kept: true, resolved_refs: resolved.map((resolution) => ({ norma: resolution.norma, dispositivo: resolution.dispositivo })), span }
 }

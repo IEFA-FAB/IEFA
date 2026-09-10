@@ -120,7 +120,10 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 
 		try {
 			const verdict = await judgeRule(rule as ChecklistRule, { label: label ?? "trecho avulso", text })
-			const guard = await applyCitationGuard(verdict, new LegalRefResolver())
+			// `text` vai junto: sem ele a prévia usada para promover regra aplicaria um gate
+			// mais FROUXO que a execução real, e a regra entraria em produção aprovada por um
+			// critério que ninguém vai repetir.
+			const guard = await applyCitationGuard(verdict, new LegalRefResolver(), text)
 
 			return c.json({ rule_id: id, verdict, guard })
 		} catch (evaluationError) {
