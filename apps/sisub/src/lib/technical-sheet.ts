@@ -340,6 +340,12 @@ export function flowStepUtensils(step: SheetFlowStep): string[] {
  * que o editor mostra. Numa ficha sem exigência de etapa nenhuma, a lista sai intacta.
  */
 export function orderRequirementsForSheet<T extends { recipe_step_id: string | null }>(requirements: readonly T[], steps: readonly SheetFlowStep[]): T[] {
+	// Sem fluxo carregado não há ordem de execução para seguir, e a coluna "Etapa" sai toda em
+	// travessão: reordenar ali trocaria linhas visualmente idênticas sem nada na folha que
+	// explique a troca. É o caso do fluxo negado por permissão, em que a PARTE 04 imprime
+	// assim mesmo.
+	if (steps.length === 0) return requirements.slice()
+
 	const positionByStep = new Map(steps.map((step, index) => [step.id, index]))
 	const position = (req: T): number => {
 		if (req.recipe_step_id == null) return -1

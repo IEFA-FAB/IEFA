@@ -401,6 +401,13 @@ describe("orderRequirementsForSheet", () => {
 		expect(orderRequirementsForSheet(reqs, []).map((r) => r.role?.name)).toEqual(["Forno", "Caldeirão"])
 	})
 
+	test("fluxo não carregado não reordena nada — a coluna Etapa sai toda em travessão", () => {
+		// Fluxo negado por permissão: a PARTE 04 imprime assim mesmo, e trocar linhas
+		// visualmente idênticas sem nada na folha que explique a troca é pior que a ordem de cadastro.
+		const reqs = [requirement({ recipe_step_id: "s2", role: { name: "Forno" } }), requirement({ recipe_step_id: null, role: { name: "Descascador" } })]
+		expect(orderRequirementsForSheet(reqs, []).map((r) => r.role?.name)).toEqual(["Forno", "Descascador"])
+	})
+
 	test("não muta a lista recebida — ela também alimenta a tabela da PARTE 04", () => {
 		const reqs = [requirement({ recipe_step_id: "s3" }), requirement({ recipe_step_id: "s1" })]
 		orderRequirementsForSheet(reqs, flow)
