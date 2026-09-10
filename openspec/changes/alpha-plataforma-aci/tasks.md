@@ -4,8 +4,8 @@ Um PR contra `main`, revisão com `/code-review` antes do merge.
 
 ## A — Banco
 
-- [x] A.1 [database] Migration `20260911100000_alpha_compliance_review.sql`: triagem em `compliance_finding` + tabela `compliance_review` com RLS
-- [ ] A.2 [database] Aplicar a migration em produção ANTES do deploy do α (`bun run db:push` ou MCP) e rodar `bun run db:types`
+- [x] A.1 [database] Migration `20260910233313_alpha_compliance_review.sql`: triagem em `compliance_finding`, tabela `compliance_review` com RLS, trigger `compliance_review_guard` e RPC `aci_queue`
+- [x] A.2 [database] **APLICADA em produção em 2026-09-10** por MCP, antes do merge. O remoto gravou `20260910233313` e o arquivo local foi renomeado para o mesmo carimbo (senão o próximo `db push` tentaria reaplicar). `bun run db:types` rodado: `compliance_review`, `aci_queue` e as colunas de triagem estão em `generated.ts`
 
 ## B — α: módulos puros
 
@@ -59,4 +59,9 @@ Um PR contra `main`, revisão com `/code-review` antes do merge.
 
 - [x] F.1 [root] `bun run check` (Biome + typecheck) verde no α e no portal
 - [x] F.2 [root] testes verdes: α 320 (29 novos), portal 226 (8 novos)
-- [ ] F.3 [alpha] Validar o fluxo ponta a ponta contra o banco real depois da migration: triagem → parecer → relatório
+- [x] F.3 [database] Trigger e RPC validados contra o banco real (2026-09-10, sem gravar nada — bloco `DO` com exceção final):
+  - `aci_queue(5)` devolve o processo com a execução mais recente e `finding_counts` por severidade × triagem (71 GRAVE + 66 INFORMATIVA, sem parecer)
+  - `aprovado` com 71 GRAVE sem triagem → `check_violation` com "71 achado(s) BLOQUEANTE/GRAVE ainda sem triagem"
+  - `reprovado` → passa
+  - parecer sobre execução inexistente → barrado
+- [ ] F.4 [alpha] Fluxo pela interface, depois do deploy: triagem → parecer → relatório em `/aci`

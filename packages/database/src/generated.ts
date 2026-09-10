@@ -424,6 +424,10 @@ export type Database = {
           severity: string
           status: string
           suggestion: string | null
+          triage: string | null
+          triage_note: string | null
+          triaged_at: string | null
+          triaged_by: string | null
         }
         Insert: {
           category: string
@@ -439,6 +443,10 @@ export type Database = {
           severity: string
           status: string
           suggestion?: string | null
+          triage?: string | null
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
         }
         Update: {
           category?: string
@@ -454,6 +462,10 @@ export type Database = {
           severity?: string
           status?: string
           suggestion?: string | null
+          triage?: string | null
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
         }
         Relationships: [
           {
@@ -465,6 +477,44 @@ export type Database = {
           },
           {
             foreignKeyName: "compliance_finding_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_run"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_review: {
+        Row: {
+          created_at: string
+          decision: string
+          id: string
+          notes: string | null
+          reviewer_id: string
+          run_id: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          id?: string
+          notes?: string | null
+          reviewer_id: string
+          run_id: string
+          snapshot?: Json
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          id?: string
+          notes?: string | null
+          reviewer_id?: string
+          run_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_review_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "compliance_run"
@@ -934,6 +984,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      aci_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          discarded_findings: number
+          doc_kind: string
+          extraction_created_at: string
+          extraction_id: string
+          filename: string
+          finding_counts: Json
+          modalidade: string
+          objeto: string
+          review_created_at: string
+          review_decision: string
+          rules_applied: number
+          rules_not_assessed: number
+          run_finished_at: string
+          run_id: string
+          run_started_at: string
+          run_status: string
+          submission_id: string
+          submitted_at: string
+          user_id: string
+        }[]
+      }
       match_chunks_cosine: {
         Args: {
           document_types?: string[]
@@ -1939,6 +2013,36 @@ export type Database = {
         }
         Relationships: []
       }
+      person: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_name: string
+          id: string
+          nr_ordem: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_name: string
+          id?: string
+          nr_ordem?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_name?: string
+          id?: string
+          nr_ordem?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       units: {
         Row: {
           address_bairro: string | null
@@ -2491,6 +2595,20 @@ export type Database = {
         }
         Relationships: []
       }
+      person_identity: {
+        Row: {
+          active: boolean | null
+          display_name: string | null
+          email: string | null
+          id: string | null
+          label: string | null
+          nome_guerra: string | null
+          nr_ordem: string | null
+          posto: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       rancho: {
         Row: {
           active: boolean | null
@@ -2830,7 +2948,7 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      person_name_key: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
@@ -11080,42 +11198,120 @@ export type Database = {
       }
       checklist_item: {
         Row: {
+          assign_to_all: boolean
+          business_day: number | null
           created_at: string
           deadline: string | null
           description: string | null
-          done: boolean
           id: string
           path: string | null
-          responsible: string | null
+          recurrence: string
           sort_order: number
           task: string
           updated_at: string
         }
         Insert: {
+          assign_to_all?: boolean
+          business_day?: number | null
           created_at?: string
           deadline?: string | null
           description?: string | null
-          done?: boolean
           id?: string
           path?: string | null
-          responsible?: string | null
+          recurrence?: string
           sort_order?: number
           task: string
           updated_at?: string
         }
         Update: {
+          assign_to_all?: boolean
+          business_day?: number | null
           created_at?: string
           deadline?: string | null
           description?: string | null
-          done?: boolean
           id?: string
           path?: string | null
-          responsible?: string | null
+          recurrence?: string
           sort_order?: number
           task?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      checklist_item_assignee: {
+        Row: {
+          created_at: string
+          item_id: string
+          person_id: string
+        }
+        Insert: {
+          created_at?: string
+          item_id: string
+          person_id: string
+        }
+        Update: {
+          created_at?: string
+          item_id?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_item_assignee_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_current"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_item_assignee_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_occurrence: {
+        Row: {
+          competencia: string
+          created_at: string
+          done_at: string | null
+          done_by: string | null
+          due_on: string
+          item_id: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_on: string
+          item_id: string
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_on?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_occurrence_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_current"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_occurrence_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dgc_analysis: {
         Row: {
@@ -11250,6 +11446,24 @@ export type Database = {
           },
         ]
       }
+      holiday: {
+        Row: {
+          date: string
+          movable: boolean
+          name: string
+        }
+        Insert: {
+          date: string
+          movable?: boolean
+          name: string
+        }
+        Update: {
+          date?: string
+          movable?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       notice: {
         Row: {
           content: string
@@ -11271,6 +11485,48 @@ export type Database = {
           date?: string | null
           id?: string
           type?: string
+        }
+        Relationships: []
+      }
+      notification: {
+        Row: {
+          body: string | null
+          created_at: string
+          href: string | null
+          id: string
+          kind: string
+          occurrence_on: string | null
+          read_at: string | null
+          resolved_at: string | null
+          subject_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind: string
+          occurrence_on?: string | null
+          read_at?: string | null
+          resolved_at?: string | null
+          subject_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind?: string
+          occurrence_on?: string | null
+          read_at?: string | null
+          resolved_at?: string | null
+          subject_id?: string | null
+          title?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -11304,6 +11560,21 @@ export type Database = {
           id?: string
           title?: string
           url?: string
+        }
+        Relationships: []
+      }
+      section_member: {
+        Row: {
+          created_at: string
+          person_id: string
+        }
+        Insert: {
+          created_at?: string
+          person_id: string
+        }
+        Update: {
+          created_at?: string
+          person_id?: string
         }
         Relationships: []
       }
@@ -11368,7 +11639,7 @@ export type Database = {
           is_stn: boolean
           nome: string
           ods: string | null
-          operador: string | null
+          operator_person_id: string | null
           orgao_superior: string | null
           updated_at: string
         }
@@ -11379,7 +11650,7 @@ export type Database = {
           is_stn?: boolean
           nome: string
           ods?: string | null
-          operador?: string | null
+          operator_person_id?: string | null
           orgao_superior?: string | null
           updated_at?: string
         }
@@ -11390,7 +11661,7 @@ export type Database = {
           is_stn?: boolean
           nome?: string
           ods?: string | null
-          operador?: string | null
+          operator_person_id?: string | null
           orgao_superior?: string | null
           updated_at?: string
         }
@@ -11419,10 +11690,69 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      checklist_current: {
+        Row: {
+          assign_to_all: boolean | null
+          assignees: Json | null
+          business_day: number | null
+          competencia: string | null
+          created_at: string | null
+          deadline: string | null
+          description: string | null
+          done_at: string | null
+          done_by: string | null
+          due_on: string | null
+          id: string | null
+          path: string | null
+          recurrence: string | null
+          sort_order: number | null
+          task: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      business_days: { Args: { p_month: string }; Returns: string[] }
+      checklist_period: {
+        Args: { p_business_day: number; p_on: string; p_recurrence: string }
+        Returns: {
+          competencia: string
+          due_on: string
+        }[]
+      }
+      last_business_day: { Args: { p_month: string }; Returns: string }
+      notification_audience: { Args: never; Returns: string[] }
+      notify_person: {
+        Args: {
+          p_body: string
+          p_href: string
+          p_kind: string
+          p_occurrence_on: string
+          p_person_id: string
+          p_subject_id: string
+          p_title: string
+        }
+        Returns: number
+      }
+      notify_section: {
+        Args: {
+          p_body: string
+          p_href: string
+          p_kind: string
+          p_occurrence_on: string
+          p_subject_id: string
+          p_title: string
+        }
+        Returns: number
+      }
+      nth_business_day: {
+        Args: { p_month: string; p_n: number }
+        Returns: string
+      }
+      purge_notifications: { Args: never; Returns: number }
+      run_notification_tick: { Args: never; Returns: Json }
+      today: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
