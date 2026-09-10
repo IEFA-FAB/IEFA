@@ -73,3 +73,31 @@ describe("markNormativeDevices — o que tem forma de dispositivo e não é", ()
 		expect(markNormativeDevices("10.2.10.1.3 Os militares")).toBe("#### 10.2.10.1.3 Os militares")
 	})
 })
+
+describe("markNormativeDevices — o que a revisão do #302 apontou", () => {
+	it("não abre dispositivo em remissão que dobrou de linha", () => {
+		// A extração preserva uma linha por linha VISUAL: uma remissão longa começa a
+		// linha seguinte por `art. 15 da Portaria…`. Marcar isso rotularia os chunks
+		// seguintes com norma alheia.
+		const remissao = "art. 15 da Portaria nº 1.234/GC3, de 4 de dezembro de 2023"
+
+		expect(markNormativeDevices(remissao)).toBe(remissao)
+	})
+
+	it("continua abrindo dispositivo em artigo de verdade", () => {
+		expect(markNormativeDevices("Art. 15 Fica instituído")).toBe("#### Art. 15 Fica instituído")
+		expect(markNormativeDevices("ART. 15 FICA INSTITUÍDO")).toBe("#### ART. 15 FICA INSTITUÍDO")
+	})
+
+	it("não confunde quantidade no início da linha com título de módulo", () => {
+		// `12 UNIDADES ADMINISTRATIVAS` e `5 DIAS ÚTEIS` são comuns nas tabelas do SIAFI.
+		// Título de primeiro nível ZERA seção e artigo: um falso positivo desses deixa
+		// todos os chunks seguintes rotulados com norma que não é a deles.
+		expect(markNormativeDevices("12 UNIDADES ADMINISTRATIVAS")).toBe("12 UNIDADES ADMINISTRATIVAS")
+		expect(markNormativeDevices("5 DIAS ÚTEIS")).toBe("5 DIAS ÚTEIS")
+	})
+
+	it("não confunde enumeração em caixa alta com título de módulo", () => {
+		expect(markNormativeDevices("2) SIM, QUANDO HOUVER DISPONIBILIDADE")).toBe("2) SIM, QUANDO HOUVER DISPONIBILIDADE")
+	})
+})

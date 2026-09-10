@@ -144,7 +144,20 @@ Três formas se parecem com dispositivo e não são, todas cobertas por teste:
 - **enumeração dentro do dispositivo** (`1) Sim, quando…`) — por isso título de primeiro
   nível exige o resto da linha em caixa alta.
 
-Resultado no corpus: **77% dos chunks com artigo, 81% com seção, 4% sem rótulo nenhum.**
+Resultado no corpus: **80% dos chunks com artigo, 84% com seção, 2% sem rótulo nenhum.**
+
+Duas formas em caixa alta enganam a detecção de título de primeiro nível e por isso o
+**ponto é obrigatório** (`1. CONSIDERAÇÕES INICIAIS`, e não `12 UNIDADES ADMINISTRATIVAS`
+nem `2) SIM, QUANDO HOUVER`): título de primeiro nível ZERA seção e artigo, então um falso
+positivo desses deixa todos os chunks seguintes rotulados com norma que não é a deles. Pelo
+mesmo motivo `Art.` é sensível à caixa — `art. 15 da Portaria…` no início de uma linha é
+remissão que dobrou de linha, não abertura de dispositivo.
+
+O rótulo é o dispositivo vigente **na posição** do trecho. Buffer que passa do teto é
+fatiado, e com o piso de tamanho ele atravessa várias fronteiras: a segunda janela pode
+cair inteira dentro do terceiro dispositivo. Trecho que abre antes de qualquer dispositivo
+— o primeiro chunk de todo documento, que começa no título — herda o primeiro que começa
+dentro dele.
 
 ### Por que o chunk não fecha em toda fronteira
 

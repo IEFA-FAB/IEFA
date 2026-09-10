@@ -141,7 +141,12 @@ export async function judgeRule(rule: ChecklistRule, block: { label: string; tex
 	}
 
 	const normaContext = retrieval.documents
-		.map((document, index) => `[${index + 1}] ${document.metadata.source} ${document.metadata.article}: ${document.content}`)
+		.map((document, index) => {
+			// Só o que existe entra no rótulo, como no grader: documento sem dispositivo
+			// marcado rendia `[1] RADA-e Módulo G : `, que é ruído no prompt do juiz.
+			const device = [document.metadata.chapter, document.metadata.section, document.metadata.article].filter(Boolean).join(", ")
+			return `[${index + 1}] ${document.metadata.source}${device ? ` — ${device}` : ""}: ${document.content}`
+		})
 		.join("\n\n")
 
 	const judge = structuredLLM(judgeSchema)

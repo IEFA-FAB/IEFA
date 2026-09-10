@@ -70,25 +70,62 @@ export function chunkByArticle(rawContent: string): Chunk[] {
 	let currentArticle = ""
 	let currentSection = ""
 	let buffer: string[] = []
-	// O dispositivo que ABRIU o buffer, e não o último visto: com o piso de tamanho um
-	// chunk pode atravessar mais de uma fronteira, e a citação tem de apontar para onde
-	// o texto começa, não para onde ele por acaso terminou.
-	let bufferChapter = ""
-	let bufferArticle = ""
-	let bufferSection = ""
 	let chunkIndex = 0
 
+	/** Onde cada dispositivo começa DENTRO do buffer, para rotular por posição. */
+	interface DeviceMark {
+		offset: number
+		chapter: string
+		article: string
+		section: string
+	}
+	let marks: DeviceMark[] = []
+
 	const append = (line: string) => {
-		if (buffer.length === 0) {
-			bufferChapter = currentChapter
-			bufferArticle = currentArticle
-			bufferSection = currentSection
+		// Buffer só com linha em branco conta como VAZIO: o markdown gerado abre com uma
+		// linha em branco antes do título, e um teste por `length` deixava os primeiros
+		// chunks do documento sem rótulo mesmo com o dispositivo dentro deles.
+		const empty = buffer.every((buffered) => buffered.trim() === "")
+		const offset = empty ? 0 : buffer.join("\n").length + 1
+		if (empty) marks = []
+		if (empty || marks.length === 0 || marks.at(-1)?.offset !== offset) {
+			marks.push({ offset, chapter: currentChapter, article: currentArticle, section: currentSection })
 		}
 		buffer.push(line)
 	}
 
+	/**
+	 * O dispositivo vigente NA POSIÇÃO do trecho, e não o que abriu o buffer.
+	 *
+	 * Com o piso de tamanho um buffer atravessa várias fronteiras, e quando ele passa do
+	 * teto de caracteres é fatiado: a segunda janela pode cair inteira dentro do terceiro
+	 * dispositivo e ainda assim ser citada como o primeiro — que é exatamente o erro de
+	 * rótulo que este trabalho existe para tirar da base.
+	 */
+	const isLabelled = (mark: DeviceMark) => Boolean(mark.chapter || mark.section || mark.article)
+
+	const deviceAt = (start: number, end: number): DeviceMark => {
+		let found: DeviceMark = { offset: 0, chapter: "", article: "", section: "" }
+		for (const mark of marks) {
+			if (mark.offset > start) break
+			found = mark
+		}
+		// Trecho que abre ANTES de qualquer dispositivo — o primeiro chunk de todo
+		// documento, que começa no título — herda o primeiro dispositivo que começa DENTRO
+		// dele. Não é mislabel: o dispositivo está no texto do chunk. Vazio ali seria
+		// honesto e inútil, e era o que a base recebia.
+		if (!isLabelled(found)) {
+			const inner = marks.find((mark) => mark.offset > start && mark.offset < end && isLabelled(mark))
+			if (inner) return inner
+		}
+		return found
+	}
+
 	const flushBuffer = () => {
-		const text = buffer.join("\n").trim()
+		const raw = buffer.join("\n")
+		const text = raw.trim()
+		// `trim()` corta o começo, e as marcas foram gravadas em coordenada do texto CRU.
+		const shift = raw.length - raw.trimStart().length
 		if (text.length > 20) {
 			const tokenEstimate = Math.ceil(text.length / 4)
 			if (tokenEstimate > MAX_CHUNK_TOKENS) {
@@ -102,25 +139,28 @@ export function chunkByArticle(rawContent: string): Chunk[] {
 				for (let offset = 0; offset < text.length; offset += CHUNK_CHARS - CHUNK_OVERLAP_CHARS) {
 					const slice = text.slice(offset, offset + CHUNK_CHARS).trim()
 					if (slice.length <= 20) continue
+					const device = deviceAt(offset + shift, offset + shift + slice.length)
 					chunks.push({
 						content: slice,
-						chapter: bufferChapter,
-						article: bufferArticle,
-						section: bufferSection,
+						chapter: device.chapter,
+						article: device.article,
+						section: device.section,
 						chunk_index: chunkIndex++,
 					})
 				}
 			} else {
+				const device = deviceAt(shift, shift + text.length)
 				chunks.push({
 					content: text,
-					chapter: bufferChapter,
-					article: bufferArticle,
-					section: bufferSection,
+					chapter: device.chapter,
+					article: device.article,
+					section: device.section,
 					chunk_index: chunkIndex++,
 				})
 			}
 		}
 		buffer = []
+		marks = []
 	}
 
 	/** Fecha o chunk só quando já há texto suficiente para ele valer um vetor. */
@@ -130,7 +170,10 @@ export function chunkByArticle(rawContent: string): Chunk[] {
 
 	for (const line of content.split("\n")) {
 		const chapterMatch = line.match(/^#{1,3}\s+(Cap[íi]tulo\s+[IVXLCDM\d]+)/i)
-		const articleMatch = line.match(/^#{1,4}\s+(Art\.?\s*\d+\s*[ºo°]?)/i)
+		// Sem `\s*` antes do ordinal, e com o ordinal preso ao número: `#### Art. 3 o texto
+		// segue` rendia `article: "Art. 3 o"`, e `#### Art. 12 do Decreto` rendia
+		// `"Art. 12 "` — rótulo com espaço no fim não casa em `.eq("article", …)` nenhum.
+		const articleMatch = line.match(/^#{1,4}\s+(Art\.?\s*\d+[ºo°]?)/i)
 		const sectionMatch = line.match(/^#{1,4}\s+(Se[çc][ãa]o\s+[IVXLCDM\d]+)/i)
 		const decimalMatch = line.match(DECIMAL_DEVICE)
 

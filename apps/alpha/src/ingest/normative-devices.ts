@@ -27,8 +27,15 @@ const CHAPTER = /^(cap[íi]tulo\s+(?:[IVXLCDM]+|\d+))\b/i
 /** `SEÇÃO III`, `Seção 2`. */
 const SECTION = /^(se[çc][ãa]o\s+(?:[IVXLCDM]+|\d+))\b/i
 
-/** `Art. 7º`, `Art 12`, `ART. 3o`. */
-const ARTICLE = /^(art\.?\s*\d+\s*[ºo°]?)/i
+/**
+ * `Art. 7º`, `Art 12`, `ART. 3o`.
+ *
+ * Sensível à caixa de propósito. A extração preserva uma linha por linha VISUAL, então
+ * uma remissão que dobra de linha começa por `art. 15 da Portaria nº 1.234/GC3` — e com
+ * `/i` isso abria um dispositivo, rotulando os chunks seguintes com norma alheia. Norma
+ * abre artigo com maiúscula; minúscula no início da linha é continuação de frase.
+ */
+const ARTICLE = /^((?:Art|ART)\.?\s*\d+\s*[ºo°]?)/
 
 /**
  * Numeração decimal no início da linha: `14.1`, `10.2.10.1.3 Os militares…`.
@@ -42,12 +49,17 @@ const DECIMAL = /^(\d+(?:\.\d+)+)[.)]?\s+(\S)/
 /**
  * `1. CONSIDERAÇÕES INICIAIS` — dispositivo de primeiro nível, sem subdivisão.
  *
- * O resto da linha tem de estar em CAIXA ALTA, e é o que separa título de módulo de
- * enumeração dentro de um dispositivo (`1) Sim, quando…`). Sem essa exigência, cada
- * item de uma lista numerada zerava seção e artigo, e os chunks seguintes saíam
- * rotulados com norma que não era a deles.
+ * Duas exigências, e cada uma tapa um furo medido: o resto da linha em CAIXA ALTA separa
+ * título de módulo de enumeração em minúscula (`1) Sim, quando…`), e o PONTO obrigatório
+ * separa das duas formas que a caixa alta sozinha não alcança — quantidade no início da
+ * linha (`12 UNIDADES ADMINISTRATIVAS`, `5 DIAS ÚTEIS`, comuns nas tabelas do SIAFI) e
+ * enumeração em caixa alta (`2) SIM, QUANDO HOUVER`).
+ *
+ * O estrago que isso evita é o pior do módulo: título de primeiro nível ZERA seção e
+ * artigo, então um falso positivo desses deixa todos os chunks seguintes rotulados com
+ * norma que não é a deles.
  */
-const TOP_LEVEL = /^\d{1,2}[.)]?\s+\p{Lu}[^\p{Ll}]*$/u
+const TOP_LEVEL = /^\d{1,2}\.\s+\p{Lu}[^\p{Ll}]*$/u
 
 /**
  * Separador de milhar disfarçado de numeração.
@@ -63,7 +75,14 @@ function isThousandsSeparator(numbering: string): boolean {
 		.some((segment) => segment.length === 3)
 }
 
-/** Profundidade máxima de dispositivo. `10.2.10.1.3` existe; nada mais fundo existe. */
+/**
+ * Profundidade máxima de dispositivo.
+ *
+ * Cinco é empírico, não teórico: `10.2.10.1.3` é dispositivo de verdade e há 1285 deles
+ * no acervo. Conta contábil de cinco segmentos (`4.5.1.1.2`) seria indistinguível pela
+ * forma — mas não existe nenhuma no corpus, e baixar o limite para quatro sacrificaria
+ * os 1285 por um caso que a medição não encontrou.
+ */
 const MAX_DEVICE_DEPTH = 5
 
 /**
