@@ -125,3 +125,26 @@ describe("chunkText", () => {
 		expect(chunkText({ ...base, content: "O item nº #3 da tabela" })).toBe("O item nº #3 da tabela")
 	})
 })
+
+describe("chunkLabel — capítulo redundante", () => {
+	const base = { id: "c1", content: "…", chapter: null, article: null, section: null, chunk_index: 0, metadata: null }
+
+	it("não repete o capítulo que já abre o dispositivo", () => {
+		// 127 trechos são `chapter: "1"` com `section: "1.99"`, e saíam como "1, 1.99".
+		expect(chunkLabel({ ...base, chapter: "1", section: "1.99", metadata: { source: "RADA-e Módulo C" } })).toBe("RADA-e Módulo C — 1.99")
+		expect(chunkLabel({ ...base, chapter: "4", article: "4.1.19", metadata: { source: "RADA-e Módulo D" } })).toBe("RADA-e Módulo D — 4.1.19")
+	})
+
+	it("mantém capítulo e dispositivo quando são coordenadas independentes", () => {
+		expect(chunkLabel({ ...base, chapter: "Capítulo II", article: "Art. 7º", metadata: { source: "RADA-e Módulo C" } })).toBe(
+			"RADA-e Módulo C — Capítulo II, Art. 7º"
+		)
+		// `14` não prefixa `3.2.5`: numerações distintas, as duas informam.
+		expect(chunkLabel({ ...base, chapter: "5", article: "3.2.5", metadata: { source: "RADA-e Módulo F" } })).toBe("RADA-e Módulo F — 5, 3.2.5")
+	})
+
+	it("não confunde prefixo de dígito com prefixo de nível", () => {
+		// `1` prefixa `19.2` como TEXTO, mas não como numeração — o ponto é o que separa.
+		expect(chunkLabel({ ...base, chapter: "1", article: "19.2", metadata: { source: "RADA-e Módulo C" } })).toBe("RADA-e Módulo C — 1, 19.2")
+	})
+})

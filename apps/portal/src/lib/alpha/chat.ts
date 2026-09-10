@@ -72,6 +72,33 @@ export async function fetchChunk(token: string, chunkId: string): Promise<ChunkD
 const UNKNOWN_DOCUMENT = "Documento não identificado"
 
 /**
+ * O capítulo, salvo quando o dispositivo já começa por ele.
+ *
+ * É a mesma redundância da seção, um nível acima: na numeração decimal o capítulo `1` é
+ * o começo de `1.99`, e o rótulo saía "1, 1.99" — 127 trechos assim, mais 684 do tipo
+ * "4, 4.1.19". Só o prefixo NUMÉRICO conta: `Capítulo II` com `Art. 7º` são coordenadas
+ * independentes e continuam aparecendo juntos.
+ */
+function chapterUnlessPrefix(chunk: ChunkDetail): string | null {
+	const dispositivo = chunk.article || chunk.section
+	if (!chunk.chapter || !dispositivo) return chunk.chapter
+	return dispositivo.startsWith(`${chunk.chapter}.`) ? null : chunk.chapter
+}
+
+/**
+ * Texto do trecho como ele se lê na norma.
+ *
+ * A ingestão marca o início de dispositivo com heading markdown (`#### 14.2.2 …`) para
+ * que o corte por dispositivo aconteça. Isso é detalhe do nosso pipeline, não do
+ * regulamento: mostrar `####` na citação vaza implementação para quem só quer conferir a
+ * norma. Tira-se a MARCA e nada mais — nenhuma palavra do texto é alterada, reordenada
+ * ou resumida.
+ */
+export function chunkText(chunk: ChunkDetail): string {
+	return chunk.content.replace(/^#{1,6}[ \t]+/gm, "")
+}
+
+/**
  * Rótulo curto do trecho: documento e dispositivo, quando houver.
  *
  * ─── Nada de procedência suposta ──────────────────────────────────────────────
@@ -89,21 +116,8 @@ const UNKNOWN_DOCUMENT = "Documento não identificado"
  * há artigo — são 226 trechos do acervo que, sem isto, perdiam o dispositivo na tela
  * mesmo com ele gravado.
  */
-/**
- * Texto do trecho como ele se lê na norma.
- *
- * A ingestão marca o início de dispositivo com heading markdown (`#### 14.2.2 …`) para
- * que o corte por dispositivo aconteça. Isso é detalhe do nosso pipeline, não do
- * regulamento: mostrar `####` na citação vaza implementação para quem só quer conferir a
- * norma. Tira-se a MARCA e nada mais — nenhuma palavra do texto é alterada, reordenada
- * ou resumida.
- */
-export function chunkText(chunk: ChunkDetail): string {
-	return chunk.content.replace(/^#{1,6}[ \t]+/gm, "")
-}
-
 export function chunkLabel(chunk: ChunkDetail): string {
-	const dispositivo = [chunk.chapter, chunk.article || chunk.section].filter(Boolean).join(", ")
+	const dispositivo = [chapterUnlessPrefix(chunk), chunk.article || chunk.section].filter(Boolean).join(", ")
 	const documento = chunk.metadata?.source?.trim() || chunk.document?.title?.trim() || UNKNOWN_DOCUMENT
 	return dispositivo ? `${documento} — ${dispositivo}` : documento
 }
