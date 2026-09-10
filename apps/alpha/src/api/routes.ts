@@ -15,6 +15,7 @@ import { embedDocuments } from "../sources/embeddings"
 import { ingestSource } from "../sources/pipeline"
 import { getSource, hasAdapter, listSources, resolveAdapter } from "../sources/registry"
 import type { NormativeSourceRow } from "../sources/types"
+import { aciRoutes } from "./aci.ts"
 import { canAccessSession } from "./authorize"
 import { complianceRoutes } from "./compliance"
 import { browserCors } from "./cors.ts"
@@ -231,6 +232,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 	.route("/", submissionRoutes)
 	// Conformidade e bancada de regras (Etapas 1.5–1.7).
 	.route("/", complianceRoutes)
+	// Plataforma ACI (Etapa 1.8): fila, processo, triagem, parecer e relatório final.
+	.route("/", aciRoutes)
 
 	// POST /api/v1/sessions — cria nova sessão de conversa
 	/**

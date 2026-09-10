@@ -22,6 +22,7 @@ import {
 	parseSseBuffer,
 	sendMessage,
 } from "@/lib/alpha/chat"
+import { clearSessionId, loadSessionId, saveSessionId } from "@/lib/alpha/chat-session"
 import { fetchAlphaHealth } from "@/lib/alpha/client"
 import type { ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
 
@@ -30,11 +31,6 @@ import type { ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@
 ========================= */
 
 const USE_STREAM = true
-
-// localStorage keys (somente quando logado)
-// A chave carrega o usuário: numa máquina compartilhada, a sessão do anterior seria
-// reenviada pelo seguinte e o α responderia 403 em `canAccessSession`, com erro genérico.
-const LS_SESSION_ID = (userId: string) => `rada_session_id:${userId}`
 
 // Query keys centralizados
 const QUERY_KEYS = {
@@ -46,28 +42,6 @@ const QUERY_KEYS = {
 /* =========================
    Utils simples
 ========================= */
-
-function loadSessionId(userId: string): string | null {
-	try {
-		return localStorage.getItem(LS_SESSION_ID(userId))
-	} catch {
-		return null
-	}
-}
-function saveSessionId(userId: string, id: string) {
-	try {
-		localStorage.setItem(LS_SESSION_ID(userId), id)
-	} catch {
-		// noop
-	}
-}
-function clearSessionId(userId: string) {
-	try {
-		localStorage.removeItem(LS_SESSION_ID(userId))
-	} catch {
-		// noop
-	}
-}
 
 function cn(...xs: Array<string | false | null | undefined>) {
 	return xs.filter(Boolean).join(" ")

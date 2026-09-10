@@ -6,6 +6,7 @@ import { ConsoleNav } from "@/components/alpha/ConsoleNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
+import { formatDateTime } from "@/lib/alpha/format"
 import { type NormativeSource, sourceDocumentsQueryOptions, sourcesQueryOptions, useRefreshSource } from "@/lib/alpha/hooks"
 
 export const Route = createFileRoute("/alpha/fontes")({
@@ -26,11 +27,6 @@ export const Route = createFileRoute("/alpha/fontes")({
 	},
 	component: FontesPage,
 })
-
-function formatDate(value: string | null) {
-	if (!value) return "nunca"
-	return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-}
 
 function SourceRow({ source, token }: { source: NormativeSource; token: string | undefined }) {
 	const [expanded, setExpanded] = useState(false)
@@ -57,7 +53,7 @@ function SourceRow({ source, token }: { source: NormativeSource; token: string |
 						{!source.has_adapter ? <span className="text-muted-foreground text-xs">sem adapter</span> : null}
 					</div>
 					<p className="mt-1 truncate text-muted-foreground text-xs">{source.base_url}</p>
-					<p className="mt-1 text-muted-foreground text-xs">última verificação: {formatDate(source.last_checked_at)}</p>
+					<p className="mt-1 text-muted-foreground text-xs">última verificação: {formatDateTime(source.last_checked_at, "nunca")}</p>
 				</div>
 
 				<div className="flex shrink-0 gap-2">

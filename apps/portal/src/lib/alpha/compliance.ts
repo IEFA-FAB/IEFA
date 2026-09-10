@@ -27,6 +27,15 @@ export interface Finding {
 	suggestion: string | null
 	evidence_span: { text?: string } | null
 	confidence: number | null
+	/** Triagem do analista (Etapa 1.8). O α sempre devolve as três colunas. */
+	triage: "acatado" | "descartado" | null
+	triage_note: string | null
+	triaged_at: string | null
+}
+
+/** Ordena por severidade — espelha `compareSeverity` de `compliance/severity.ts` no α. */
+export function compareSeverity(left: Severity, right: Severity): number {
+	return SEVERITY_ORDER.indexOf(left) - SEVERITY_ORDER.indexOf(right)
 }
 
 export interface ComplianceRun {
@@ -72,6 +81,10 @@ export function complianceRunQueryOptions(token: string | undefined, runId: stri
 	return queryOptions({
 		queryKey: ["alpha", "compliance", runId],
 		queryFn: () => alphaRequest<{ run: ComplianceRun; findings: Finding[] }>(`/api/v1/compliance/runs/${runId}`, token),
+		// A execução só muda por triagem, e a triagem já atualiza este cache. Sem
+		// isto o padrão do portal é 0 e a tela refaz a busca a cada montagem e a
+		// cada volta do foco — o relatório é a chamada mais cara do α.
+		staleTime: 60_000,
 	})
 }
 
