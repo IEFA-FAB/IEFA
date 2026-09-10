@@ -116,6 +116,8 @@ declara, pendências). O essencial:
 
 Valem para **qualquer** app do monorepo (sisub, portal, rumaer, sucont, alpha, docs, forms, api…), independente de ter STYLE_CONTRACT próprio.
 
+- **`cursor: pointer` é regra de `@layer base`, não utilitária escrita a mão.** O preflight do Tailwind v4 não devolve mais o ponteiro que o v3 dava a `button`, e os gatilhos do Base UI (menu, aba, opção, combobox, switch) são `div` com `role` — nunca tiveram ponteiro de agente de usuário. Cada `styles.css` de app carrega a mesma regra `:where(...)`, cobrindo `button`, `summary`, `select`, checkbox/radio/file, o `label` que embrulha um dos dois e os `role` clicáveis, com `:disabled`, `[aria-disabled="true"]` e `[data-disabled]` de fora. A lista fica em `:where()` de propósito: especificidade zero, então um `cursor-*` escrito no elemento continua vencendo. Não espalhar `cursor-pointer` em clicável novo — se faltou ponteiro em algo, o lugar de corrigir é a regra base.
+
 - **Side-tab / side-stripe accent border — PROIBIDO.** Nunca usar `border-l`/`border-r` (nem `border-s`/`border-e`) acima de `1px` como acento colorido em cards, itens de lista, callouts ou alertas — inclusive o par `border-l-4 … rounded-r-*` (barra colorida de um lado só + cantos arredondados do outro). É o marcador nº 1 de AI slop segundo o `impeccable` ("Absolute bans"). Distinguir grupo/status/severidade por **outras formas**: borda completa (todos os lados), tint de fundo (`bg-*/5`…`/10`), ícone/número/badge à esquerda, ou nada. Bordas de `1px` uniformes e blockquotes editoriais (`border-l-2` em citação) não são atingidos — a proibição é sobre a *faixa colorida de acento* de um lado só.
 
 ## Workflow & Boas Práticas
