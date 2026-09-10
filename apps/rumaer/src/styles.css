@@ -367,6 +367,10 @@
    * Desabilitado fica de fora pelos três dialetos em uso no repo: o `disabled`
    * nativo, o `aria-disabled` e o `data-disabled` do Base UI.
    *
+   * `[role="combobox"]` exclui campo editável de propósito: quando o gatilho é um
+   * `<input>`, o Base UI põe o papel no próprio input de busca, e ali o cursor
+   * certo é o de texto.
+   *
    * `:where()` zera a especificidade da lista, então um `cursor-*` utilitário
    * escrito no elemento continua vencendo.
    */
@@ -380,7 +384,7 @@
     label:has(> input[type="checkbox"], > input[type="radio"]),
     [role="button"],
     [role="checkbox"],
-    [role="combobox"],
+    [role="combobox"]:not(input, textarea, [contenteditable]),
     [role="menuitem"],
     [role="menuitemcheckbox"],
     [role="menuitemradio"],
