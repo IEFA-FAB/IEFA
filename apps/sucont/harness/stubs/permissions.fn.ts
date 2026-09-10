@@ -10,8 +10,18 @@
  */
 import type { UserPermission } from "@iefa/pbac"
 
-export type SucontUserSearchResult = { id: string; email: string }
-export type SucontGrant = { userId: string; email: string; level: number; expiresAt: string | null; source: "inline" | "policy"; policyName?: string }
+export type SucontUserSearchResult = { id: string; email: string; nrOrdem: string | null; posto: string | null; nomeGuerra: string | null }
+export type SucontGrant = {
+	userId: string
+	email: string
+	nrOrdem: string | null
+	posto: string | null
+	nomeGuerra: string | null
+	level: number
+	expiresAt: string | null
+	source: "inline" | "policy"
+	policyName?: string
+}
 
 export async function fetchMySucontPermissionsFn(): Promise<UserPermission[]> {
 	return []
@@ -19,12 +29,43 @@ export async function fetchMySucontPermissionsFn(): Promise<UserPermission[]> {
 
 export async function listSucontGrantsFn(): Promise<SucontGrant[]> {
 	return [
-		{ userId: "harness-admin", email: "nannijpsn@fab.mil.br", level: 3, expiresAt: null, source: "inline" },
-		{ userId: "harness-editor", email: "editor@fab.mil.br", level: 2, expiresAt: null, source: "inline" },
+		// SARAM vinculado e encontrado no cadastro: a linha é nomeada como na OM.
+		{
+			userId: "harness-admin",
+			email: "nannijpsn@fab.mil.br",
+			nrOrdem: "7379749",
+			posto: "1T",
+			nomeGuerra: "NANNI",
+			level: 3,
+			expiresAt: null,
+			source: "inline",
+		},
+		// Sem SARAM: o e-mail segura o rótulo.
+		{ userId: "harness-editor", email: "editor@fab.mil.br", nrOrdem: null, posto: null, nomeGuerra: null, level: 2, expiresAt: null, source: "inline" },
 		// Acesso emprestado por política: linha somente-leitura, "Revogar" desabilitado.
-		{ userId: "harness-policy", email: "parceiro@fab.mil.br", level: 1, expiresAt: null, source: "policy", policyName: "Conjunto Treino" },
-		// Sem linha em `core.user_data`: a tela cai no id, e é assim que ela deve ficar.
-		{ userId: "8f1c0b6e-0000-4000-8000-000000000000", email: "", level: 1, expiresAt: "2020-01-01T00:00:00.000Z", source: "inline" },
+		{
+			userId: "harness-policy",
+			email: "parceiro@fab.mil.br",
+			nrOrdem: "1234567",
+			posto: null,
+			nomeGuerra: null,
+			level: 1,
+			expiresAt: null,
+			source: "policy",
+			policyName: "Conjunto Treino",
+		},
+		// Nem e-mail no ERP nem no GoTrue, nem SARAM: sobra o id, e é assim que a
+		// tela deve ficar no pior caso.
+		{
+			userId: "8f1c0b6e-0000-4000-8000-000000000000",
+			email: "",
+			nrOrdem: null,
+			posto: null,
+			nomeGuerra: null,
+			level: 1,
+			expiresAt: "2020-01-01T00:00:00.000Z",
+			source: "inline",
+		},
 	]
 }
 

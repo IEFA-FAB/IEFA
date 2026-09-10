@@ -36,6 +36,11 @@ queryClient.setQueryData(["auth", "user"], {
 // cobrir justamente o controle novo.
 queryClient.setQueryData(["sucont", "myPermissions"], [{ module: "sucont", level: 3, mess_hall_id: null, kitchen_id: null, unit_id: null }])
 
+// SARAM já vinculado: sem isto o diálogo de primeiro acesso (montado pelo
+// HubLayout) abriria sobre TODA tela do harness, e o que está sob exame é a
+// casca. Para inspecionar o diálogo, apague esta semente.
+queryClient.setQueryData(["sucont", "myIdentity"], { nrOrdem: "7379749", posto: "1T", nomeGuerra: "NANNI" })
+
 const Catalogo = IndexRoute.options.component as () => React.ReactNode
 
 // Mesmo `validateSearch` da raiz do app: os filtros do catálogo leem `?q=`,
