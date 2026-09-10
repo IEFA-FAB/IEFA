@@ -161,11 +161,13 @@ export async function runCompliance(submissionId: string, extractionId: string):
 
 		const verdicts = await inBatches(rules, RULE_CONCURRENCY, async (rule) => {
 			const block = blockForRule(rule, payload)
-			if (!block) return { rule, verdict: null }
-			return { rule, verdict: await judgeRule(rule, block) }
+			if (!block) return { rule, verdict: null, block: null }
+			// O bloco viaja junto: o guard de fundamentação precisa dele, e recomputá-lo
+			// adiante rejuntaria os 19 campos para toda regra sem `target_field`.
+			return { rule, verdict: await judgeRule(rule, block), block }
 		})
 
-		for (const { rule, verdict } of verdicts) {
+		for (const { rule, verdict, block } of verdicts) {
 			if (!verdict || verdict.status === "NAO_AVALIADA") {
 				notAssessed += 1
 				continue
@@ -173,9 +175,12 @@ export async function runCompliance(submissionId: string, extractionId: string):
 			if (verdict.status === "CONFORME") continue
 
 			// O bloco vai junto: o guard confere se a evidência citada existe mesmo nele.
-			const guard = await applyCitationGuard(verdict, resolver, blockForRule(rule, payload)?.text)
+			const guard = await applyCitationGuard(verdict, resolver, block?.text)
 			if (!guard.kept) {
 				discarded += 1
+				// O motivo é a única pista de por que um achado sumiu. Sem ele, um guard
+				// novo derrubando em massa aparece só como um contador maior.
+				console.warn(`[compliance] achado descartado (regra ${rule.id}): ${guard.reason}`)
 				continue
 			}
 
@@ -188,7 +193,9 @@ export async function runCompliance(submissionId: string, extractionId: string):
 				message: verdict.message,
 				legal_ref: guard.resolved_refs,
 				suggestion: verdict.suggestion,
-				evidence_span: verdict.evidence ? { text: verdict.evidence } : null,
+				// O trecho LOCALIZADO, com posição no bloco — não a transcrição do modelo, que
+				// pode diferir do original em espaçamento, acento e caixa.
+				evidence_span: guard.span ?? (verdict.evidence ? { text: verdict.evidence } : null),
 				confidence: verdict.confidence,
 			})
 		}
