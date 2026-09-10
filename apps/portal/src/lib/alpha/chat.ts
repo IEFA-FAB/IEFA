@@ -54,16 +54,57 @@ export interface ChunkDetail {
 	section: string | null
 	chunk_index: number
 	metadata: { source?: string; document_type?: string; year?: number } | null
+	/**
+	 * Procedência lida da tabela `document`, e não do `metadata` do chunk.
+	 *
+	 * Só o corpus ingerido por markdown (o RADA-e) grava `metadata.source`. Lei 14.133,
+	 * decretos e modelos da AGU — 1990 chunks — entram por outro caminho e não têm esse
+	 * campo. Opcional porque o α passou a devolvê-lo depois desta tela existir.
+	 */
+	document?: { id: string; title: string | null; document_type: string | null } | null
 }
 
 export async function fetchChunk(token: string, chunkId: string): Promise<ChunkDetail> {
 	return await alphaRequest<ChunkDetail>(`/api/v1/chunks/${chunkId}`, token)
 }
 
-/** Rótulo curto do trecho: documento e dispositivo, quando houver. */
+/** Quando não há nome de documento no dado. Declara a ausência em vez de supor a origem. */
+const UNKNOWN_DOCUMENT = "Documento não identificado"
+
+/**
+ * Rótulo curto do trecho: documento e dispositivo, quando houver.
+ *
+ * ─── Nada de procedência suposta ──────────────────────────────────────────────
+ * O nome do documento sai de `metadata.source` ou do título em `document`, e o
+ * último recurso DECLARA a ausência. Assumir "RADA-e" — como estava — carimbava o
+ * corpus errado em tudo que não vem por markdown: um trecho da Lei 14.133 aparecia
+ * como "Trecho do RADA-e — Art. 41 No caso de licitação…", que é atribuir a uma
+ * norma o texto de outra, ao lado de uma resposta que se apresenta como fundamentada.
+ * Não é alcançável pelo ChatRADA hoje, porque ele filtra o corpus aeronáutico; passa a
+ * não ser alcançável por construção.
+ *
+ * ─── Por que `article` OU `section`, e não os dois ────────────────────────────
+ * Nos manuais a numeração é decimal e o artigo JÁ CONTÉM a seção (`14.2` dentro de
+ * `14.2.2.4`), então emendar os dois rende "14.2, 14.2.2.4". A seção entra quando não
+ * há artigo — são 226 trechos do acervo que, sem isto, perdiam o dispositivo na tela
+ * mesmo com ele gravado.
+ */
+/**
+ * Texto do trecho como ele se lê na norma.
+ *
+ * A ingestão marca o início de dispositivo com heading markdown (`#### 14.2.2 …`) para
+ * que o corte por dispositivo aconteça. Isso é detalhe do nosso pipeline, não do
+ * regulamento: mostrar `####` na citação vaza implementação para quem só quer conferir a
+ * norma. Tira-se a MARCA e nada mais — nenhuma palavra do texto é alterada, reordenada
+ * ou resumida.
+ */
+export function chunkText(chunk: ChunkDetail): string {
+	return chunk.content.replace(/^#{1,6}[ \t]+/gm, "")
+}
+
 export function chunkLabel(chunk: ChunkDetail): string {
-	const dispositivo = [chunk.chapter, chunk.article].filter(Boolean).join(", ")
-	const documento = chunk.metadata?.source?.trim() || "Trecho do RADA-e"
+	const dispositivo = [chunk.chapter, chunk.article || chunk.section].filter(Boolean).join(", ")
+	const documento = chunk.metadata?.source?.trim() || chunk.document?.title?.trim() || UNKNOWN_DOCUMENT
 	return dispositivo ? `${documento} — ${dispositivo}` : documento
 }
 
