@@ -34,7 +34,7 @@ import { recordSensitiveOperation } from "./audit.ts"
 const SESSION_USER = "11111111-1111-1111-1111-111111111111"
 const OTHER_USER = "22222222-2222-2222-2222-222222222222"
 
-const ctx: UserContext = { userId: SESSION_USER, permissions: [] }
+const ctx: UserContext = { userId: SESSION_USER, permissions: [], aal: 1, lastFactorAt: null, origin: "session" }
 
 type Captured = { values?: Record<string, unknown>; calls: string[] }
 

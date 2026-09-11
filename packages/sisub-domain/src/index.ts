@@ -3,9 +3,12 @@
 // Guards
 export {
 	type AssetKind,
+	type AssuranceRequirement,
 	authorizeAssetMutation,
+	NO_ASSURANCE,
 	requireAnyPermission,
 	requireAssetWriteForScope,
+	requireAssurance,
 	requireKitchen,
 	requireMessHall,
 	requirePermission,

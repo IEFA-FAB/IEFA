@@ -45,7 +45,7 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"createMcpKeyFn",
 			ctx,
-			() => createMcpApiKey(getDb(), ctx, data),
+			(assurance) => createMcpApiKey(getDb(), ctx, data, assurance),
 			({ row }) => ({ keyId: row.id, label: row.label, keyPrefix: row.key_prefix })
 		).catch(handleDomainError)
 	})

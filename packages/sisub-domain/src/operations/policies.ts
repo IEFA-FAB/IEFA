@@ -22,6 +22,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { UserPermission } from "@iefa/pbac"
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm"
+import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
 import type {
 	AddPolicyStatement,
@@ -314,8 +315,9 @@ export async function listUserPolicyPermissions(db: SisubDb, userId: string): Pr
 
 // ── Escrita: política ────────────────────────────────────────────────────────
 
-export async function createPolicy(db: SisubDb, ctx: UserContext, input: CreatePolicy): Promise<PolicyRow> {
+export async function createPolicy(db: SisubDb, ctx: UserContext, input: CreatePolicy, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<PolicyRow> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -326,8 +328,9 @@ export async function createPolicy(db: SisubDb, ctx: UserContext, input: CreateP
 	return row as PolicyRow
 }
 
-export async function updatePolicy(db: SisubDb, ctx: UserContext, input: UpdatePolicy): Promise<PolicyRow> {
+export async function updatePolicy(db: SisubDb, ctx: UserContext, input: UpdatePolicy, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<PolicyRow> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
 
 	const updates: { name?: string; description?: string | null; updatedAt: string } = { updatedAt: new Date().toISOString() }
@@ -346,8 +349,9 @@ export async function updatePolicy(db: SisubDb, ctx: UserContext, input: UpdateP
  * imediatamente — a resolução filtra `deleted_at IS NULL` — sem apagar os anexos, para que
  * uma remoção acidental seja reversível.
  */
-export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeletePolicy): Promise<void> {
+export async function deletePolicy(db: SisubDb, ctx: UserContext, input: DeletePolicy, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<void> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
 
 	await mutateOrFail("DELETE_FAILED", `policy ${input.policyId} not found`, () =>
@@ -412,8 +416,14 @@ function statementValues(statement: PolicyStatementInput) {
 	}
 }
 
-export async function addPolicyStatement(db: SisubDb, ctx: UserContext, input: AddPolicyStatement): Promise<PolicyStatementRow> {
+export async function addPolicyStatement(
+	db: SisubDb,
+	ctx: UserContext,
+	input: AddPolicyStatement,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<PolicyStatementRow> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, input.policyId)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
@@ -439,8 +449,14 @@ async function resolveStatementPolicy(db: SisubDb, statementId: string): Promise
 	return row.policyId
 }
 
-export async function updatePolicyStatement(db: SisubDb, ctx: UserContext, input: UpdatePolicyStatement): Promise<PolicyStatementRow> {
+export async function updatePolicyStatement(
+	db: SisubDb,
+	ctx: UserContext,
+	input: UpdatePolicyStatement,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<PolicyStatementRow> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
 
 	const row = await insertOneOrFail("UPDATE_FAILED", `policy_statement ${input.statementId} not found`, () =>
@@ -453,8 +469,14 @@ export async function updatePolicyStatement(db: SisubDb, ctx: UserContext, input
 	return row as PolicyStatementRow
 }
 
-export async function removePolicyStatement(db: SisubDb, ctx: UserContext, input: RemovePolicyStatement): Promise<void> {
+export async function removePolicyStatement(
+	db: SisubDb,
+	ctx: UserContext,
+	input: RemovePolicyStatement,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<void> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await assertPolicyEditable(db, await resolveStatementPolicy(db, input.statementId))
 
 	await mutateOrFail("DELETE_FAILED", `policy_statement ${input.statementId} not found`, () =>
@@ -479,8 +501,14 @@ export async function removePolicyStatement(db: SisubDb, ctx: UserContext, input
  * Política GERENCIADA pode ser anexada — a imutabilidade é do conteúdo, não do uso. É
  * justamente assim que o "Conjunto Treino" é concedido.
  */
-export async function attachPolicy(db: SisubDb, ctx: UserContext, input: AttachPolicy): Promise<{ success: true }> {
+export async function attachPolicy(
+	db: SisubDb,
+	ctx: UserContext,
+	input: AttachPolicy,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<{ success: true }> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
@@ -507,8 +535,14 @@ export async function attachPolicy(db: SisubDb, ctx: UserContext, input: AttachP
 	return { success: true as const }
 }
 
-export async function detachPolicy(db: SisubDb, ctx: UserContext, input: DetachPolicy): Promise<{ success: true }> {
+export async function detachPolicy(
+	db: SisubDb,
+	ctx: UserContext,
+	input: DetachPolicy,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<{ success: true }> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 
 	await mutateOrFail("DELETE_FAILED", `attachment ${input.userId}/${input.policyId} not found`, () =>
 		db

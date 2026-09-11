@@ -79,7 +79,7 @@ export const createUserPermissionFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"createUserPermissionFn",
 			ctx,
-			() => createUserPermission(getDb(), ctx, data),
+			(assurance) => createUserPermission(getDb(), ctx, data, assurance),
 			() => ({
 				userId: data.userId,
 				module: data.module,
@@ -99,7 +99,7 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"updateUserPermissionFn",
 			ctx,
-			() => updateUserPermission(getDb(), ctx, data),
+			(assurance) => updateUserPermission(getDb(), ctx, data, assurance),
 			() => ({
 				permissionId: data.permissionId,
 				level: data.level,
@@ -125,7 +125,7 @@ export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"deleteUserPermissionFn",
 			ctx,
-			() => deleteUserPermission(getDb(), ctx, data),
+			(assurance) => deleteUserPermission(getDb(), ctx, data, assurance),
 			(result) => ({
 				permissionId: data.permissionId,
 				userId: result.removed?.userId ?? null,

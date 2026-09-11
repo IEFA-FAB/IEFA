@@ -51,6 +51,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import { desc, eq, inArray, type SQL, sql } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
+import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { ListTrainingResets } from "../schemas/training.ts"
 import type { UserContext } from "../types/context.ts"
@@ -519,8 +520,9 @@ async function closeAbandonedResets(db: SisubDb, currentLogId: string): Promise<
  *
  * @throws {DomainError} escopo ausente/inseguro, ou falha em qualquer etapa (com rollback).
  */
-export async function resetTrainingScope(db: SisubDb, ctx: UserContext): Promise<TrainingResetResult> {
+export async function resetTrainingScope(db: SisubDb, ctx: UserContext, assurance: AssuranceRequirement = NO_ASSURANCE): Promise<TrainingResetResult> {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 
 	// O autor sai do MESMO contexto que foi autorizado. Aceitá-lo por parâmetro permitia
 	// autorizar com um principal e registrar outro no log — uma ação destrutiva atribuída

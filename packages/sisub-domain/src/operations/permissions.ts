@@ -24,6 +24,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import { resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { and, asc, eq, ilike, isNull } from "drizzle-orm"
+import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
@@ -248,8 +249,9 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 	)
 }
 
-export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission) {
+export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await runQuery("INSERT_FAILED", () =>
 		db.insert(userPermissionsInAccessControl).values({
 			userId: input.userId,
@@ -264,8 +266,9 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 	return { success: true as const }
 }
 
-export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission) {
+export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	// `expires_at` é PATCH, não substituição: ausente = não mexe no prazo, `null` = torna o
 	// grant permanente. Os escopos seguem sendo substituição porque o diálogo sempre os
 	// envia; o prazo, não — um cliente que não conhece o campo apagaria o prazo de todo
@@ -296,8 +299,9 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
  * obrigaria a trilha de auditoria a registrar um id órfão — e ninguém conseguiria dizer,
  * meses depois, de quem era o acesso revogado nem em que módulo.
  */
-export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
+export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	const [removed] = await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db.delete(userPermissionsInAccessControl).where(eq(userPermissionsInAccessControl.id, input.permissionId)).returning({
 			id: userPermissionsInAccessControl.id,

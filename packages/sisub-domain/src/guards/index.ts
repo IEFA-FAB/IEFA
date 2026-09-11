@@ -1,4 +1,5 @@
 export { type AssetKind, authorizeAssetMutation, requireAssetWriteForScope, resolveAssetOwner } from "./asset-ownership.ts"
+export { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "./require-assurance.ts"
 export {
 	requireAnyPermission,
 	requireKitchen,

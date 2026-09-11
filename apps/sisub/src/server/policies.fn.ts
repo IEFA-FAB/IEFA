@@ -94,7 +94,7 @@ export const createPolicyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"createPolicyFn",
 			ctx,
-			() => createPolicy(getDb(), ctx, data),
+			(assurance) => createPolicy(getDb(), ctx, data, assurance),
 			(policy) => ({ policyId: policy.id, name: policy.name })
 		).catch(handleDomainError)
 	})
@@ -106,7 +106,7 @@ export const updatePolicyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"updatePolicyFn",
 			ctx,
-			() => updatePolicy(getDb(), ctx, data),
+			(assurance) => updatePolicy(getDb(), ctx, data, assurance),
 			(policy) => ({ policyId: policy.id, name: policy.name })
 		).catch(handleDomainError)
 	})
@@ -118,7 +118,7 @@ export const deletePolicyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"deletePolicyFn",
 			ctx,
-			() => deletePolicy(getDb(), ctx, data),
+			(assurance) => deletePolicy(getDb(), ctx, data, assurance),
 			() => ({ policyId: data.policyId })
 		).catch(handleDomainError)
 	})
@@ -130,7 +130,7 @@ export const addPolicyStatementFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"addPolicyStatementFn",
 			ctx,
-			() => addPolicyStatement(getDb(), ctx, data),
+			(assurance) => addPolicyStatement(getDb(), ctx, data, assurance),
 			(statement) => ({ policyId: data.policyId, statementId: statement.id, module: statement.module, level: statement.level })
 		).catch(handleDomainError)
 	})
@@ -142,7 +142,7 @@ export const updatePolicyStatementFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"updatePolicyStatementFn",
 			ctx,
-			() => updatePolicyStatement(getDb(), ctx, data),
+			(assurance) => updatePolicyStatement(getDb(), ctx, data, assurance),
 			(statement) => ({ statementId: statement.id, module: statement.module, level: statement.level })
 		).catch(handleDomainError)
 	})
@@ -154,7 +154,7 @@ export const removePolicyStatementFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"removePolicyStatementFn",
 			ctx,
-			() => removePolicyStatement(getDb(), ctx, data),
+			(assurance) => removePolicyStatement(getDb(), ctx, data, assurance),
 			() => ({ statementId: data.statementId })
 		).catch(handleDomainError)
 	})
@@ -166,7 +166,7 @@ export const attachPolicyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"attachPolicyFn",
 			ctx,
-			() => attachPolicy(getDb(), ctx, data),
+			(assurance) => attachPolicy(getDb(), ctx, data, assurance),
 			() => ({ userId: data.userId, policyId: data.policyId, expires_at: data.expires_at ?? null })
 		).catch(handleDomainError)
 	})
@@ -178,7 +178,7 @@ export const detachPolicyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"detachPolicyFn",
 			ctx,
-			() => detachPolicy(getDb(), ctx, data),
+			(assurance) => detachPolicy(getDb(), ctx, data, assurance),
 			() => ({ userId: data.userId, policyId: data.policyId })
 		).catch(handleDomainError)
 	})

@@ -282,7 +282,13 @@ describeSupabaseIntegration("training operations (integração)", () => {
 
 	test("reset exige admin nível 2", async () => {
 		if (!db) return
-		const readOnly = { userId: ACTOR_ID, permissions: [{ module: "admin" as const, level: 1, kitchen_id: null, unit_id: null, mess_hall_id: null }] }
+		const readOnly = {
+			userId: ACTOR_ID,
+			permissions: [{ module: "admin" as const, level: 1, kitchen_id: null, unit_id: null, mess_hall_id: null }],
+			aal: 1 as const,
+			lastFactorAt: null,
+			origin: "session" as const,
+		}
 
 		await expect(resetTrainingScope(db, readOnly)).rejects.toThrow(/PERMISSION|Requires admin/i)
 	})

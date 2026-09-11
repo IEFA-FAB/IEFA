@@ -10,8 +10,9 @@
  * do pacote.
  */
 
+import { type AssuranceRequirement, NO_ASSURANCE } from "@iefa/pbac"
 import { createRequestAuth } from "@iefa/pbac/start"
-import { requirePermission } from "@iefa/sisub-domain"
+import { requireAssurance, requirePermission } from "@iefa/sisub-domain"
 import type { AppModule, PermissionScope, UserContext } from "@iefa/sisub-domain/types"
 import { handleDomainError } from "@/lib/domain-errors"
 import type { SessionIdentity } from "@/lib/session-identity"
@@ -64,12 +65,31 @@ export const requireAuth: () => Promise<UserContext> = auth.requireAuth
  *
  * Espelhe aqui o mesmo módulo/nível exigido pela rota que consome o fn.
  *
+ * ## Piso de garantia de identidade
+ *
+ * `assurance` é opcional e `{ require: "none" }` por default: sem ele, o gate é exatamente o
+ * de antes desta mudança. É por aqui que passam `requireUnitScope` (execução orçamentária) e
+ * `requireStorageForKitchen` (estoque) — as duas fns que NÃO delegam a uma domain operation e
+ * portanto não seriam alcançadas pelo guard do `sisub-domain`. A etapa 9 do plano liga o piso
+ * passando `enforcedAssuranceFor("<nomeDaFn>")` nos pontos de chamada.
+ *
+ * A avaliação vem DEPOIS do gate de módulo/nível, de propósito: quem não tem a permissão
+ * recebe negativa de permissão, e não um pedido de segundo fator por uma operação que não
+ * alcança.
+ *
  * @throws {Error} "UNAUTHORIZED" (401) sem sessão; "Requires {module} level {n}" (403) sem permissão.
+ * @throws {AssuranceRequiredError} (403) com `code: "MFA_REQUIRED"` quando o piso não é satisfeito.
  */
-export async function requireAuthWithPermission(module: AppModule, minLevel: 1 | 2 | 3 = 1, scope?: PermissionScope): Promise<UserContext> {
+export async function requireAuthWithPermission(
+	module: AppModule,
+	minLevel: 1 | 2 | 3 = 1,
+	scope?: PermissionScope,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<UserContext> {
 	const ctx = await requireAuth()
 	try {
 		requirePermission(ctx, module, minLevel, scope)
+		requireAssurance(ctx, assurance)
 	} catch (error) {
 		handleDomainError(error)
 	}

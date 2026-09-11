@@ -17,6 +17,7 @@
 
 import { mcpApiKeysInAccessControl, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq } from "drizzle-orm"
+import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import type { CreateMcpApiKey, DeleteMcpApiKey, RevokeMcpApiKey } from "../schemas/mcp-keys.ts"
 import type { UserContext } from "../types/context.ts"
 import { insertOneOrFail, mutateOrFail, runQuery } from "../utils/index.ts"
@@ -66,7 +67,16 @@ export async function listMcpApiKeys(db: SisubDb, ctx: UserContext): Promise<Mcp
 	)
 }
 
-export async function createMcpApiKey(db: SisubDb, ctx: UserContext, input: CreateMcpApiKey): Promise<{ key: string; row: McpApiKeyRow }> {
+export async function createMcpApiKey(
+	db: SisubDb,
+	ctx: UserContext,
+	input: CreateMcpApiKey,
+	assurance: AssuranceRequirement = NO_ASSURANCE
+): Promise<{ key: string; row: McpApiKeyRow }> {
+	// Sem gate de permissão antes: a chave é do PRÓPRIO chamador e não amplia permissão
+	// nenhuma. O piso de garantia existe por outro motivo — a chave é credencial permanente,
+	// sem senha e sem segundo fator (design.md D11).
+	requireAssurance(ctx, assurance)
 	const rawKey = `smcp_${toHex(crypto.getRandomValues(new Uint8Array(32)))}`
 	const keyPrefix = rawKey.slice(0, 12) // "smcp_" + 7 chars
 	// Hash FORA do `insertOneOrFail`: falha de Web Crypto não é falha de insert e não deve

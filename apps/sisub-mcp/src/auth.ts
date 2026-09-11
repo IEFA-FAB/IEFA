@@ -57,7 +57,18 @@ export async function resolveUserContext(jwt: string): Promise<UserContext> {
 
 	try {
 		const permissions = await resolveUserPermissions(user.id, getDataClient("access_control"))
-		return { userId: user.id, permissions }
+		return {
+			userId: user.id,
+			permissions,
+			// Garantia no PISO, mesmo com JWT de sessão: o token chega aqui por cabeçalho de um
+			// cliente MCP, e ler `aal` dele elevaria a execução de um agente com a prova de
+			// identidade que a pessoa deu ao navegador. Nenhuma tool do MCP é operação
+			// classificada; se um dia for, tem que ser barrada — e é este piso que barra.
+			aal: 1,
+			lastFactorAt: null,
+			origin: "session",
+			hasVerifiedFactor: (user.factors ?? []).some((factor) => factor.status === "verified"),
+		}
 	} catch (err) {
 		// M3: não expor detalhes internos ao cliente
 		process.stderr.write(`[sisub-mcp] Erro ao carregar permissões (jwt) user=${user.id}: ${err}\n`)
@@ -93,7 +104,16 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 
 	try {
 		const permissions = await resolveUserPermissions(data.user_id, db)
-		return { userId: data.user_id, permissions }
+		return {
+			userId: data.user_id,
+			permissions,
+			// Credencial permanente, sem senha e sem segundo fator: `aal: 1` e `origin: "api-key"`
+			// fazem dela algo que NUNCA satisfaz exigência de garantia (design.md D11). Até aqui
+			// a chave executava em nome do dono tudo que o step-up deveria proteger.
+			aal: 1,
+			lastFactorAt: null,
+			origin: "api-key",
+		}
 	} catch (err) {
 		process.stderr.write(`[sisub-mcp] Erro ao carregar permissões (api-key) user=${data.user_id}: ${err}\n`)
 		throw new McpError(ErrorCode.InternalError, "Erro interno ao carregar permissões. Tente novamente.")

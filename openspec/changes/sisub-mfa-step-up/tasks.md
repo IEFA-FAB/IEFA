@@ -34,17 +34,17 @@
 
 ## 4. Fundação de garantia no package (inerte)
 
-- [ ] 4.1 [pbac] Estender `UserContext` com `aal: 1 | 2`, `lastFactorAt: number | null`, `origin: "session" | "api-key"`, com defaults seguros
-- [ ] 4.2 [pbac] `src/jwt-claims.ts` conforme o resultado de V3: extrair `aal` e o timestamp da entrada de `amr` com `method === "totp"` — **nunca** `amr[0]`
-- [ ] 4.3 [pbac] Testar `jwt-claims.ts`: `token_refresh` mais recente que `totp`, `amr` ausente, `aal` ausente, múltiplas entradas `totp`
-- [ ] 4.4 [pbac] `src/assurance.ts` — `assertAssurance(ctx, requirement)` puro, com a janela de 15 min
-- [ ] 4.5 [pbac] `src/errors.ts` — `AssuranceRequiredError` com `code`, `nextStep`, `reason`, sinalizando o status HTTP antes do `throw`
-- [ ] 4.6 [pbac] Popular AAL e origem em `createRequestAuth`; testar que payload com `aal: 2` não altera o contexto
-- [ ] 4.7 [pbac] Ligar a exigência em `requireLevel`/`requireAnyLevel` (para os outros apps), avaliando **depois** do gate de módulo/nível
-- [ ] 4.8 [sisub] Ligar a exigência em `requireAuthWithPermission` (`lib/auth.server.ts`) — cobre `requireUnitScope` e `requireStorageForKitchen`
-- [ ] 4.9 [sisub-domain] `guards/require-assurance.ts` e ligação nas operations classificadas
-- [ ] 4.10 [sisub] Teste que varre os guards de rota e falha se algum `beforeLoad` passar a exigir garantia
-- [ ] 4.11 [root] `bun run check` + `bun run test` — 6 apps compilam, nenhum comportamento muda com o registro todo em `"none"`
+- [x] 4.1 [pbac] Estender `UserContext` com `aal: 1 | 2`, `lastFactorAt: number | null`, `origin: "session" | "api-key"`, com defaults seguros
+- [x] 4.2 [pbac] `src/jwt-claims.ts` conforme o resultado de V3: extrair `aal` e o timestamp da entrada de `amr` com `method === "totp"` — **nunca** `amr[0]`
+- [x] 4.3 [pbac] Testar `jwt-claims.ts`: `token_refresh` mais recente que `totp`, `amr` ausente, `aal` ausente, múltiplas entradas `totp`
+- [x] 4.4 [pbac] `src/assurance.ts` — `assertAssurance(ctx, requirement)` puro, com a janela de 15 min
+- [x] 4.5 [pbac] `src/errors.ts` — `AssuranceRequiredError` com `code`, `nextStep`, `reason`, sinalizando o status HTTP antes do `throw`
+- [x] 4.6 [pbac] Popular AAL e origem em `createRequestAuth`; testar que payload com `aal: 2` não altera o contexto
+- [x] 4.7 [pbac] Ligar a exigência em `requireLevel`/`requireAnyLevel` (para os outros apps), avaliando **depois** do gate de módulo/nível
+- [x] 4.8 [sisub] Ligar a exigência em `requireAuthWithPermission` (`lib/auth.server.ts`) — cobre `requireUnitScope` e `requireStorageForKitchen`
+- [x] 4.9 [sisub-domain] `guards/require-assurance.ts` e ligação nas operations classificadas
+- [x] 4.10 [sisub] Teste que varre os guards de rota e falha se algum `beforeLoad` passar a exigir garantia
+- [x] 4.11 [root] `bun run check` + `bun run test` — 6 apps compilam, nenhum comportamento muda com o registro todo em `"none"`
 
 ## 5. Cadastro de fator (sisub)
 

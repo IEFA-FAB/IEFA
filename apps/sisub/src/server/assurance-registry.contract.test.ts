@@ -18,7 +18,14 @@ import { fileURLToPath } from "node:url"
 import { isProtectedAccount } from "@iefa/pbac"
 import type { UserPermission } from "@iefa/sisub-domain/types"
 import { describe, expect, test } from "vitest"
-import { ASSURANCE_REGISTRY, assuranceFor, assuranceReachability, classifiedOperations } from "./assurance-registry"
+import {
+	ASSURANCE_ENFORCEMENT,
+	ASSURANCE_REGISTRY,
+	assuranceFor,
+	assuranceReachability,
+	classifiedOperations,
+	enforcedAssuranceFor,
+} from "./assurance-registry"
 
 const serverDir = dirname(fileURLToPath(import.meta.url))
 
@@ -220,5 +227,39 @@ describe("assurance registry contract", () => {
 
 		expect(selfScoped.map((o) => o.operation).sort()).toEqual(["createMcpKeyFn"])
 		expect(isProtectedAccount([permission("diner", 3)], assuranceReachability())).toBe(false)
+	})
+})
+
+describe("piso efetivo — a inércia da etapa 4", () => {
+	test("a chave de enforcement está DESLIGADA", () => {
+		// Ligar o piso hoje barraria toda operação classificada de todo mundo: não existe uma
+		// única conta com segundo fator cadastrado (as telas de cadastro são a etapa 5). Quem
+		// mudar esta constante tem que passar por aqui e ler o motivo.
+		expect(ASSURANCE_ENFORCEMENT).toBe("off")
+	})
+
+	test("nenhuma operação classificada exige garantia enquanto a chave estiver desligada", () => {
+		const exigindo = classifiedOperations()
+			.map(({ operation }) => ({ operation, applied: enforcedAssuranceFor(operation) }))
+			.filter(({ applied }) => applied.require !== "none")
+
+		expect(exigindo, "operação exigindo segundo fator antes da etapa 9 do plano").toEqual([])
+	})
+
+	test("operação de rotina e nome desconhecido também devolvem `none`", () => {
+		// Nome fora do registro não pode LANÇAR: este caminho roda dentro da requisição do
+		// usuário. Quem reprova nome não classificado é o contrato acima, na suíte.
+		expect(enforcedAssuranceFor("upsertForecastFn").require).toBe("none")
+		expect(enforcedAssuranceFor("fnQueNaoExiste").require).toBe("none")
+	})
+
+	test("o grau e o motivo, quando aplicados, saem do registro — nunca redigitados", () => {
+		// Prova a fonte única sem ligar a chave: o mapeamento entrada→exigência é o mesmo que a
+		// etapa 9 passará a aplicar, e ele deriva do registro linha por linha.
+		for (const { operation, entry } of classifiedOperations()) {
+			const fromRegistry = assuranceFor(operation)
+			expect(fromRegistry?.require).toBe(entry.require)
+			if (fromRegistry?.require !== "none") expect(fromRegistry?.reason).toBe(entry.reason)
+		}
 	})
 })

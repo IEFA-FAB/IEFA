@@ -33,6 +33,10 @@ function ctx(unitId: number | null, level = 2): UserContext {
 	return {
 		userId: "user-1",
 		permissions: [{ module: "unit", level, kitchen_id: null, mess_hall_id: null, unit_id: unitId }],
+		// Eixo de garantia no piso: estes testes são de PERMISSÃO, e os dois eixos são ortogonais.
+		aal: 1,
+		lastFactorAt: null,
+		origin: "session",
 	}
 }
 
@@ -86,7 +90,9 @@ describe("autorização das operações de ATA", () => {
 	})
 
 	test.each(ALL)("%s nega sessão autenticada sem permissão de unidade", async (_name, run) => {
-		await expect(run(fakeDb(), { userId: "user-1", permissions: [] })).rejects.toBeInstanceOf(PermissionDeniedError)
+		await expect(run(fakeDb(), { userId: "user-1", permissions: [], aal: 1, lastFactorAt: null, origin: "session" })).rejects.toBeInstanceOf(
+			PermissionDeniedError
+		)
 	})
 
 	// O guard passa e a operação segue até o stub, que não implementa o resto do Drizzle: o que

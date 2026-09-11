@@ -23,7 +23,7 @@ const SESSION_USER = "11111111-1111-1111-1111-111111111111"
 const OTHER_USER = "22222222-2222-2222-2222-222222222222"
 const KEY_ID = "33333333-3333-3333-3333-333333333333"
 
-const ctx: UserContext = { userId: SESSION_USER, permissions: [] }
+const ctx: UserContext = { userId: SESSION_USER, permissions: [], aal: 1, lastFactorAt: null, origin: "session" }
 
 type Captured = { where?: SQL; values?: Record<string, unknown> }
 

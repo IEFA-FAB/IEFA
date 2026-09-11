@@ -35,7 +35,7 @@
  * @domain app
  */
 
-import type { AssuranceReachability } from "@iefa/pbac"
+import { type AssuranceReachability, type AssuranceRequirement, NO_ASSURANCE } from "@iefa/pbac"
 import type { AppModule } from "@iefa/sisub-domain/types"
 
 /** Grau de garantia de identidade exigido por uma operação. */
@@ -50,8 +50,17 @@ export type AssuranceLevel = "none" | "session" | "fresh"
  */
 export type AssuranceAuthorization =
 	/** Exige módulo + nível do PBAC. É o único caso que separa uma conta de outra. */
-	/** `note` é documental (ex.: "escopo lido da linha") e não influencia a derivação. */
-	| { kind: "permission"; module: AppModule; level: 1 | 2 | 3; note?: string }
+	| {
+			kind: "permission"
+			module: AppModule
+			level: 1 | 2 | 3
+			/**
+			 * Observação sobre COMO o escopo é resolvido, quando isso não é óbvio pela assinatura
+			 * da fn (payload que só traz um id e obriga a ler a unidade da linha, p. ex.).
+			 * Documental: não participa da derivação de conta protegida.
+			 */
+			note?: string
+	  }
 	/** Age só sobre a conta do próprio chamador — qualquer sessão alcança, nenhuma se distingue. */
 	| { kind: "self"; note: string }
 	/** Só exige sessão válida. Sempre dívida: está aqui para ficar visível, não para virar padrão. */
@@ -523,4 +532,47 @@ export function assuranceReachability(): AssuranceReachability[] {
 	}
 
 	return [...lowestByModule].map(([module, level]) => ({ module, level })).sort((a, b) => a.module.localeCompare(b.module))
+}
+
+// ── Piso EFETIVO: o que o guard aplica hoje ──────────────────────────────────
+
+/**
+ * Chave geral do piso de garantia. **DESLIGADA** — e é assim que a etapa 4 do plano termina.
+ *
+ * ## Por que a chave existe, se o registro acima já classifica tudo
+ *
+ * O registro entrou na etapa 2 já preenchido porque a AUDITORIA (D15) o consome: um registro
+ * todo em `"none"` não gravaria linha nenhuma, e a trilha de operações sensíveis não teria
+ * valor. Mas ligar o piso agora barraria TODA operação classificada de TODO MUNDO: hoje não
+ * existe uma única conta com segundo fator cadastrado no projeto — as telas de cadastro são a
+ * etapa 5. O sistema inteiro pararia de empenhar, liquidar e conceder permissão no deploy.
+ *
+ * Então o eixo entra ligado nos pontos de autorização e **sem piso**: quem lê o piso é esta
+ * função, e ela devolve "nenhum" enquanto a chave estiver desligada. A etapa 9 do plano
+ * (`Ativar os pisos`) liga a chave, depois de a adoção estar medida.
+ *
+ * ## O que esta chave NÃO é
+ *
+ * Não é configuração em banco, e não pode virar uma: a especificação proíbe que configuração
+ * em runtime REDUZA a exigência definida em código. Piso ajustável em runtime é piso que
+ * alguém desliga às 23h de uma sexta para destravar um empenho. Aqui é constante, versionada,
+ * revisável em PR — e mudar de `"off"` para `"on"` é um diff de uma linha, que é exatamente o
+ * que o rollback do desenho descreve.
+ */
+export const ASSURANCE_ENFORCEMENT: "off" | "on" = "off"
+
+/**
+ * Piso de garantia EFETIVAMENTE aplicado a uma operação, no formato que
+ * `assertAssurance`/`requireAssurance` consomem.
+ *
+ * Fonte única: o grau e o `reason` saem do `ASSURANCE_REGISTRY` acima, nunca redigitados no
+ * ponto de chamada. Operação fora do registro devolve "nenhum" em vez de lançar porque este
+ * caminho roda DENTRO da requisição do usuário — quem reprova nome não classificado é o
+ * contrato de `assurance-registry.contract.test.ts`, na suíte, onde a falha é barata.
+ */
+export function enforcedAssuranceFor(operation: string): AssuranceRequirement {
+	if (ASSURANCE_ENFORCEMENT === "off") return NO_ASSURANCE
+	const entry = assuranceFor(operation)
+	if (!entry || entry.require === "none") return NO_ASSURANCE
+	return { require: entry.require, reason: entry.reason }
 }

@@ -32,7 +32,7 @@ const RANCHO_ID = 42
 const SURVEY_ID = "11111111-1111-4111-8111-111111111111"
 const NOTE_ID = "22222222-2222-4222-8222-222222222222"
 
-const ctx = (permissions: UserContext["permissions"]): UserContext => ({ userId: "user-1", permissions })
+const ctx = (permissions: UserContext["permissions"]): UserContext => ({ userId: "user-1", permissions, aal: 1, lastFactorAt: null, origin: "session" })
 const perm = (module: UserContext["permissions"][number]["module"], level: number, unitId: number | null = null) =>
 	ctx([{ module, level, kitchen_id: null, mess_hall_id: null, unit_id: unitId }])
 
