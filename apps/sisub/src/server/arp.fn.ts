@@ -12,6 +12,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
+import { requireUnitScope } from "@/lib/unit-auth.server"
 import { getProcurementClient } from "@/lib/supabase.server"
 import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
 
@@ -116,7 +117,11 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<ArpWithItems> => {
-		await requireAuth()
+		// Escrita em `procurement_arp`/`procurement_arp_item` da unidade alvo: exige
+		// nível 2 NAQUELA unidade. `requireAuth()` sozinho deixava qualquer sessão
+		// autenticada importar ARP para qualquer unidade — a service role não tem RLS
+		// para segurar isso.
+		await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
 		const { ataId, unitId, arpData } = data
 
@@ -259,9 +264,17 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		await requireAuth()
 		const supabase = getProcurementClient()
 
-		const { data: arp, error: arpError } = await supabase.from("procurement_arp").select("numero_ata, ano_ata, uasg_gerenciadora").eq("id", data.arpId).single()
+		const { data: arp, error: arpError } = await supabase
+			.from("procurement_arp")
+			.select("unit_id, numero_ata, ano_ata, uasg_gerenciadora")
+			.eq("id", data.arpId)
+			.single()
 
 		if (arpError || !arp) throw new Error("ARP não encontrada")
+		// A unidade sai da LINHA, nunca do input: o payload só traz `arpId`, e aceitar
+		// unidade do cliente permitiria sincronizar ARP de outra unidade alegando a
+		// própria. Guard depois da leitura, antes de qualquer escrita.
+		await requireUnitScope(2, Number(arp.unit_id))
 
 		// Re-consultar itens na API (retorna saldo atualizado)
 		const params = new URLSearchParams({
@@ -381,7 +394,10 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<Empenho> => {
-		const { userId } = await requireAuth()
+		// Empenho é dinheiro público: exige nível 2 NA unidade empenhada. Antes daqui
+		// bastava estar autenticado — qualquer comensal podia registrar empenho em
+		// qualquer unidade, com `unitId` vindo do próprio payload.
+		const { userId } = await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
 		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
 
@@ -500,8 +516,18 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(z.object({ empenhoId: z.uuid() }))
 	.handler(async ({ data }) => {
+		// Autenticação primeiro (o contrato `server-fn-auth` exige guard antes de
+		// qualquer client de DB); o escopo de unidade só é conhecido depois de ler a
+		// linha, e vem DELA — o payload só traz o id.
 		await requireAuth()
-		const { error } = await getProcurementClient().schema("finance").from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
+		const fin = getProcurementClient().schema("finance")
+		// Sem o guard de unidade abaixo, qualquer sessão autenticada anulava qualquer
+		// empenho do sistema.
+		const { data: empenho } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		if (!empenho) throw new Error("Empenho não encontrado")
+		await requireUnitScope(2, Number(empenho.unit_id))
+
+		const { error } = await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
 
 		if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)
 	})
