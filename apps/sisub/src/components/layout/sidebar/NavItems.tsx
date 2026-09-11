@@ -84,6 +84,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode },
 			{ title: "Perfil", url: "/diner/profile", icon: User },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ClipboardCheck },
+			{ title: "Segurança", url: "/diner/security", icon: ShieldCheck },
 			{ title: "Chaves MCP", url: "/diner/mcp-keys", icon: KeyRound },
 		],
 	},

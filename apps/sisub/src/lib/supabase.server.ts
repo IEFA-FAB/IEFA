@@ -1,5 +1,5 @@
 import type { Database } from "@iefa/database"
-import { createServiceRoleClient } from "@iefa/supabase-kit"
+import { createServiceRoleClient, createStatelessAuthClient } from "@iefa/supabase-kit"
 import { createSsrAuthClient } from "@iefa/supabase-kit/start"
 
 import { envServer } from "@/lib/env.server"
@@ -63,5 +63,23 @@ export function getSupabaseAuthClient() {
 		url: envServer.VITE_SISUB_SUPABASE_URL,
 		key: envServer.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY,
 		schema: "sisub",
+	})
+}
+
+/**
+ * Cliente Supabase de autenticação SEM estado — não lê nem escreve cookie.
+ *
+ * Existe para CONFERIR a senha da conta (reautenticação antes do cadastro do primeiro fator
+ * TOTP) sem trocar a sessão de quem está na tela: pelo client SSR, o `signInWithPassword` da
+ * conferência gravaria a sessão nova nos cookies do usuário. Use apenas em
+ * `reauthentication.server.ts`; para identificar o usuário da request, é o
+ * `getSupabaseAuthClient()`.
+ */
+export function getStatelessAuthClient() {
+	// Publishable/anon — NUNCA a service key: este client serve para PROVAR uma credencial
+	// de usuário, e a service role autenticaria qualquer coisa sem provar nada.
+	return createStatelessAuthClient({
+		url: envServer.VITE_SISUB_SUPABASE_URL,
+		publishableKey: envServer.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY,
 	})
 }

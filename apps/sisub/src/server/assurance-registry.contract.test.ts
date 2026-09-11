@@ -225,7 +225,10 @@ describe("assurance registry contract", () => {
 		// receberiam exigência de fator reserva sem alcançar nada de alto impacto.
 		const selfScoped = classifiedOperations().filter(({ entry }) => entry.authorization.every((a) => a.kind !== "permission"))
 
-		expect(selfScoped.map((o) => o.operation).sort()).toEqual(["createMcpKeyFn"])
+		// As duas de MFA entram pelo mesmo motivo e com a mesma consequência: são classificadas
+		// para que cadastro e remoção de fator deixem linha no log (spec de auditoria), e agem
+		// só sobre a conta de quem chama.
+		expect(selfScoped.map((o) => o.operation).sort()).toEqual(["createMcpKeyFn", "unenrollMfaFactorFn", "verifyMfaEnrollmentFn"])
 		expect(isProtectedAccount([permission("diner", 3)], assuranceReachability())).toBe(false)
 	})
 })

@@ -91,6 +91,22 @@ export type AssuranceEntry =
 const SELF_SCOPED_NOTE = "Age apenas sobre a conta do próprio chamador (`ctx.userId`); a chave herda as permissões do dono e não amplia nenhuma."
 
 /**
+ * Cadastro e remoção de fator são classificados pelo LOG, não por piso.
+ *
+ * A spec de auditoria manda registrar cadastro e remoção de fator como evento de segurança, e
+ * neste repo quem grava é o envelope — que só grava operação classificada. Daí a entrada
+ * `"session"`: ela descreve a garantia da sessão no momento em que a linha é escrita (o
+ * `verify` acabou de produzir AAL2; o `unenroll` só roda em AAL2, por exigência do GoTrue).
+ *
+ * O piso NÃO é repassado a guard nenhum em `mfa.fn.ts`, e não pode ser: exigir AAL2 ANTES de
+ * verificar o primeiro fator trancaria toda conta sem fator fora do cadastro. Quem aplica o
+ * piso destas duas operações é o próprio GoTrue. Como `self`, elas também não entram na
+ * derivação de conta protegida — qualquer sessão alcança a própria conta.
+ */
+const MFA_SELF_SCOPED_NOTE =
+	"Age apenas sobre os fatores da conta do próprio chamador; o piso real é o do GoTrue (`unenroll` exige AAL2) e não é repassado pelo registro."
+
+/**
  * As fns de `arp.fn.ts` chamavam só `requireAuth()` até a correção de autorização que este
  * mesmo levantamento provocou: qualquer sessão autenticada registrava empenho em qualquer
  * unidade e anulava qualquer empenho do sistema. Hoje as quatro exigem `unit` nível 2, e nas
@@ -284,6 +300,22 @@ export const ASSURANCE_REGISTRY = {
 
 	// ── messhall.fn.ts
 	addOtherPresenceFn: { require: "none" },
+
+	// ── mfa.fn.ts
+	startMfaEnrollmentFn: { require: "none" },
+	verifyMfaEnrollmentFn: {
+		require: "session",
+		reason: "Esta operação cadastra um dispositivo de verificação em duas etapas na sua conta.",
+		authorization: [{ kind: "self", note: MFA_SELF_SCOPED_NOTE }],
+	},
+	cancelMfaEnrollmentFn: { require: "none" },
+	unenrollMfaFactorFn: {
+		require: "session",
+		reason: "Esta operação remove um dispositivo de verificação em duas etapas da sua conta.",
+		authorization: [{ kind: "self", note: MFA_SELF_SCOPED_NOTE }],
+	},
+	verifyMfaChallengeFn: { require: "none" },
+	signOutOtherSessionsFn: { require: "none" },
 
 	// ── module-chat.fn.ts
 	createModuleChatSessionFn: { require: "none" },

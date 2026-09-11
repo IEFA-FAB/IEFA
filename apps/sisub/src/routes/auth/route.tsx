@@ -32,8 +32,12 @@ export const Route = createFileRoute("/auth")({
 	// quem chegou por um link de recuperação. Essa sessão autentica, mas o usuário
 	// ainda vai digitar a senha nova; redirecioná-lo o deixaria dentro do app com a
 	// senha antiga e sem nenhuma mensagem.
-	beforeLoad: ({ context, search }) => {
+	beforeLoad: ({ context, search, location }) => {
 		const { user } = context.auth
+		// `/auth/challenge` é o SEGUNDO passo do login: quem está nela já tem sessão, por
+		// definição. A proteção inversa mandaria essa pessoa para o /hub no meio do desafio,
+		// desmontando a tela que ela precisa concluir — e um recarregamento faria o mesmo.
+		if (location.pathname.startsWith("/auth/challenge")) return
 		if (user && !isPasswordRecovery() && !urlLooksLikeRecovery()) {
 			throw redirect({ to: search.redirect || "/hub" })
 		}

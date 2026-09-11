@@ -48,19 +48,19 @@
 
 ## 5. Cadastro de fator (sisub)
 
-- [ ] 5.1 [sisub] `server/mfa.fn.ts`: listar fatores, iniciar cadastro com `reauthenticate()` obrigatório antes de `enroll`, verificar, remover
-- [ ] 5.2 [sisub] Registrar cadastro e remoção de fator em `sensitive_operation_log`
-- [ ] 5.3 [sisub] Rota `/_protected/_modules/diner/security`, guard `diner` nível 1, **sem** exigência de garantia
-- [ ] 5.4 [sisub] Componente de cadastro: campo de senha, QR + chave em texto, campo de 6 dígitos, aviso de desconexão das outras sessões antes do botão final
-- [ ] 5.5 [sisub] Mensagem de relógio dessincronizado após dois códigos recusados
-- [ ] 5.6 [sisub] Fator reserva: convite após o primeiro fator; obrigatório e sem opção de pular para conta protegida (usa `isProtectedAccount`)
-- [ ] 5.7 [sisub] Lista de fatores com substituir/remover e `refreshSession()` após remover o último verificado
-- [ ] 5.8 [sisub] Lista de sessões ativas com "Encerrar todas as outras sessões"
-- [ ] 5.9 [sisub] Cartão discreto de segurança em `/diner/profile`
-- [ ] 5.10 [sisub] Tela de desafio de segundo fator no login
-- [ ] 5.11 [sisub] Bloquear cadastro/remoção de fator a partir de sessão originada de recuperação de senha; testar
-- [ ] 5.12 [auth-kit] Traduzir as mensagens de erro de MFA e de reautenticação do GoTrue em `errors.ts`, com teste
-- [ ] 5.13 [sisub] Conferir as telas contra `apps/sisub/docs/STYLE_CONTRACT.md` (flat, sem faixa de acento lateral, ponteiro pela regra de `@layer base`)
+- [x] 5.1 [sisub] `server/mfa.fn.ts`: listar fatores, iniciar cadastro com `reauthenticate()` obrigatório antes de `enroll`, verificar, remover
+- [x] 5.2 [sisub] Registrar cadastro e remoção de fator em `sensitive_operation_log`
+- [x] 5.3 [sisub] Rota `/_protected/_modules/diner/security`, guard `diner` nível 1, **sem** exigência de garantia
+- [x] 5.4 [sisub] Componente de cadastro: campo de senha, QR + chave em texto, campo de 6 dígitos, aviso de desconexão das outras sessões antes do botão final
+- [x] 5.5 [sisub] Mensagem de relógio dessincronizado após dois códigos recusados
+- [x] 5.6 [sisub] Fator reserva: convite após o primeiro fator; obrigatório e sem opção de pular para conta protegida (usa `isProtectedAccount`)
+- [x] 5.7 [sisub] Lista de fatores com substituir/remover e `refreshSession()` após remover o último verificado
+- [x] 5.8 [sisub] Lista de sessões ativas com "Encerrar todas as outras sessões"
+- [x] 5.9 [sisub] Cartão discreto de segurança em `/diner/profile`
+- [x] 5.10 [sisub] Tela de desafio de segundo fator no login
+- [x] 5.11 [sisub] Bloquear cadastro/remoção de fator a partir de sessão originada de recuperação de senha; testar
+- [x] 5.12 [auth-kit] Traduzir as mensagens de erro de MFA e de reautenticação do GoTrue em `errors.ts`, com teste
+- [x] 5.13 [sisub] Conferir as telas contra `apps/sisub/docs/STYLE_CONTRACT.md` (flat, sem faixa de acento lateral, ponteiro pela regra de `@layer base`)
 
 ## 6. Recuperação
 

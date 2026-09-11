@@ -11,6 +11,13 @@ export { resolveEffectivePermissions } from "./effective-permissions.ts"
 export { type AssuranceNextStep, AssuranceRequiredError, type AssuranceRequiredErrorInit, PermissionDeniedError } from "./errors.ts"
 export { type MinLevel, requireAnyPermission, requirePermission } from "./guards.ts"
 export { hasAnyPermission, hasPermission } from "./has-permission.ts"
+/**
+ * Leitura local das claims do access token. Exportada para o app que precisa de uma claim
+ * que o `UserContext` não carrega (`session_id`, `amr` inteiro) — e SEMPRE na mesma ordem
+ * que `createRequestAuth` usa: só depois de `getUser()` ter validado ESTE token. Ver o
+ * cabeçalho de `jwt-claims.ts`: fora dessa ordem, isto é ler o que o cliente escreveu.
+ */
+export { decodeJwtPayload, readSubject } from "./jwt-claims.ts"
 export {
 	grantUnscopedModulePermission,
 	myModulePermissionsQueryConfig,

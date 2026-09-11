@@ -38,6 +38,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	"qr-code": "QR Code",
 	"self-check-in": "Auto Check-in",
 	"mcp-keys": "Chaves MCP",
+	security: "Segurança",
 	chat: "Assistente IA",
 	profile: "Perfil",
 	presence: "Presenças",
