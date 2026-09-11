@@ -1,0 +1,68 @@
+##
+# Classificação de garantia de identidade das server functions de mutação do sisub.
+#
+# A fonte única é `apps/sisub/src/server/assurance-registry.ts`, e quem prova que ela é
+# EXAUSTIVA é `assurance-registry.contract.test.ts`: ele varre `src/server/*.fn.ts`, extrai
+# toda `createServerFn({ method: "POST" })` e reprova a suíte nomeando a que não tiver
+# entrada. Essa verificação é de pertencimento a um conjunto e cruza dois arquivos — o
+# Opengrep avalia uma regra por arquivo de cada vez, e o `mode: join` só sabe casar pares que
+# EXISTEM (não sabe dizer "não há linha correspondente"). Então a checagem de pertencimento
+# fica no teste, e aqui ficam as duas brechas que o teste não alcança sozinho:
+#
+#  1. Mutação declarada FORA de `src/server/*.fn.ts`. O scanner do teste (e o do
+#     `server-fn-auth.contract.test.ts`) só lê esse diretório. Uma `createServerFn` de método
+#     POST criada dentro de uma rota ou de `src/lib/` escapa dos DOIS contratos de uma vez:
+#     nasce sem classificação de garantia e sem verificação de guard, e nada avisa.
+#  2. Entrada classificada sem `reason`. O `reason` é o texto que a pessoa LÊ no modal de
+#     elevação. Sem ele o sistema pede 6 dígitos sem dizer para quê — e é assim que se treina
+#     alguém a digitar código sem ler o motivo, que é o contrário do controle. O tipo
+#     `AssuranceEntry` já obriga em tempo de compilação; esta regra existe porque o typecheck
+#     NÃO roda no PR neste repo (só nos jobs `check-<app>` do deploy, depois do merge), e o
+#     gate do Opengrep roda.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: sisub-mutation-server-fn-outside-scanned-dir
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Server function de MUTAÇÃO declarada fora de `src/server/*.fn.ts`. Os dois contratos
+      de segurança do sisub (`server-fn-auth.contract.test.ts` e
+      `assurance-registry.contract.test.ts`) varrem apenas esse diretório: aqui a fn nasce
+      sem verificação de guard e sem classificação de garantia de identidade, e nada falha
+      até alguém reparar. Mova a fn para `src/server/<dominio>.fn.ts` e classifique-a em
+      `src/server/assurance-registry.ts`.
+    paths:
+      include:
+        - "apps/sisub/src/**"
+      exclude:
+        - "apps/sisub/src/server/*.fn.ts"
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+    patterns:
+      - pattern-either:
+          - pattern: createServerFn($OPTS).handler($HANDLER)
+          - pattern: createServerFn($OPTS).validator($V).handler($HANDLER)
+          - pattern: createServerFn($OPTS).middleware($M).handler($HANDLER)
+          - pattern: createServerFn($OPTS).middleware($M).validator($V).handler($HANDLER)
+      - metavariable-pattern:
+          metavariable: $OPTS
+          pattern: '{..., method: "POST", ...}'
+
+  - id: sisub-assurance-entry-without-reason
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Entrada de ASSURANCE_REGISTRY com exigência de garantia e sem `reason`. O `reason` é a
+      frase que aparece no modal de elevação ("Esta operação altera permissões de acesso.") —
+      sem ela o usuário recebe um pedido de 6 dígitos sem motivo declarado. Toda entrada
+      `"session"`/`"fresh"` precisa de `reason` e de `authorization`.
+    paths:
+      include:
+        - "apps/sisub/src/server/assurance-registry.ts"
+    patterns:
+      - pattern-either:
+          - pattern: '{..., require: "session", ...}'
+          - pattern: '{..., require: "fresh", ...}'
+      - pattern-not: '{..., reason: "...", ...}'
