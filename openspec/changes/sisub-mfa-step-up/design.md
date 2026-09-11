@@ -32,9 +32,10 @@ Partes interessadas: administradores de permissão (dezenas), operadores de exec
 
 Três premissas sustentam o desenho e **nenhuma foi confirmada contra o ambiente real**. São spikes curtas; o resultado de V1 pode mudar a forma do desenho, não apenas um detalhe.
 
-- **V1 — `fresh` depende de o GoTrue renovar `amr` numa sessão já AAL2.** `challenge` + `verify` numa sessão que já está em AAL2 emite token novo com o timestamp de `totp` atualizado? Se recusar ("fator já verificado") ou não atualizar o timestamp, a janela de 15 min nunca reinicia — e o usuário fica permanentemente barrado (ou permanentemente liberado) nas operações críticas. Sem V1, metade do desenho é hipótese.
-- **V2 — o comportamento de `enroll` a partir de sessão AAL1 com fator já existente.** Confirmar que uma conta que já tem fator verificado não consegue cadastrar outro sem estar em AAL2 — é o que fecha o ataque de D14 depois do primeiro cadastro.
-- **V3 — como o projeto assina o JWT.** Signing key assimétrica faz `getClaims()` validar localmente; segredo simétrico faz cada chamada virar round-trip (ver D1). Determina se a leitura de AAL é gratuita ou se precisa reaproveitar o `getUser()` já cacheado.
+- **V1 — RESOLVIDA (2026-09-11): o grau `fresh` funciona.** Medido contra o GoTrue do projeto, com usuário descartável (criado, usado e apagado): `challenge` + `verify` numa sessão **já em AAL2** é aceito (200) e emite token novo com o timestamp de `totp` atualizado — `1789137344` → `1789137375`. A janela de elevação reinicia como o desenho supunha.
+  **Achado colateral que vira requisito**: no token logo após o primeiro `verify`, o `amr` veio `[{password, …}, {totp, …}]` — ou seja, `amr[0]` era **password**. Ler a posição zero não é só frágil na presença de `token_refresh`: ela já está errada no caso mais comum. A extração por `method === "totp"` está confirmada empiricamente.
+- **V2 — RESOLVIDA (2026-09-11): o GoTrue já fecha o segundo fator em diante.** Sessão AAL1 de conta com fator verificado tentando `POST /factors` recebe `403 insufficient_aal — "AAL2 required to enroll a new factor"`. Consequência para D14: o ataque de sessão roubada existe **apenas enquanto a conta não tem nenhum fator**, e é exatamente aí que a reautenticação por senha é obrigatória. Para os fatores seguintes, a plataforma basta.
+- **V3 — RESOLVIDA (2026-09-11): o projeto usa segredo simétrico.** `https://jgigqdpdjgnnuwajtayh.supabase.co/auth/v1/.well-known/jwks.json` devolve `{"keys":[]}`. Portanto `getClaims()` **não** pode ser usado no caminho de request: ele mandaria uma requisição por chamada, dobrando o custo de auth num repo com histórico de 502 por TTFB. A leitura de AAL SHALL decodificar o payload do access token **localmente, sem verificar assinatura**, e somente depois de `getUser()` ter validado esse mesmo token contra o GoTrue — é o token da mesma sessão, já provado autêntico, e o custo é zero requisição adicional.
 
 ## Decisions
 
@@ -55,7 +56,7 @@ export interface UserContext {
 
 O `aal` sai das claims do token da sessão, obtidas por `supabase.auth.getClaims()` — que valida a assinatura. **Nunca** do payload da server function, e **nunca** de `getSession()`, cuja própria tipagem avisa que os valores vindos de cookie não são autênticos.
 
-**Custo a confirmar antes de implementar**: a tipagem do `auth-js` é explícita — com JWT assinado por *segredo simétrico*, `getClaims()` *"always sends a request similar to `getUser()`"*. Isso dobraria o round-trip de auth por request, num repo com histórico de 502 no ALB por TTFB de SSR. Se o projeto ainda usa segredo simétrico, as claims SHALL ser lidas do mesmo `getUser()` já cacheado por request (uma chamada só, aproveitando o `WeakMap` de `createRequestAuth`), ou o projeto migra para signing keys assimétricas antes desta entrega. Ver V3 em "Verificações prévias".
+**Decidido por V3**: o projeto assina com segredo simétrico, então `getClaims()` está **fora** — ele custaria uma requisição por chamada. A leitura é local: decodificar o payload do access token (base64, sem verificar assinatura) **depois** de `getUser()` ter validado o mesmo token, reaproveitando o `WeakMap` por request de `createRequestAuth`. Custo: zero round-trip adicional.
 
 `lastFactorAt` sai da entrada de `amr` cujo `method` é `totp`, **não** de `amr[0]`: a lista tem `token_refresh` e outros métodos, e ler a posição zero faria um refresh de token parecer uma verificação de fator — janela de elevação que se renova sozinha, silenciosamente.
 
@@ -211,7 +212,7 @@ A documentação avisa: o downgrade de AAL2 para AAL1 só acontece **depois do i
 
 Cadastrar o primeiro fator só pode exigir AAL1 — a conta ainda não tem fator. Combinado com o comportamento documentado (*"upon verifying a factor, all other sessions are logged out"*), isso cria um ataque que a versão anterior deste desenho **introduzia**: quem rouba uma sessão cadastra o próprio TOTP, a vítima é desconectada de tudo e o atacante fica em AAL2 — com a vítima sem caminho de volta. Hoje, sem MFA, a vítima ainda conseguiria trocar a senha.
 
-Mitigação: `auth.reauthenticate()` (senha novamente) **antes** de `mfa.enroll`, e registro + aviso ao titular a cada cadastro de fator. Custo de UX: um campo de senha numa tela que a pessoa visita uma vez.
+Mitigação: `auth.reauthenticate()` (senha novamente) **antes** do `mfa.enroll` do **primeiro** fator, e registro + aviso ao titular a cada cadastro. Do segundo fator em diante a plataforma já exige AAL2 por conta própria (V2: `403 insufficient_aal`), então a exigência de senha ali seria atrito sem ganho. Custo de UX: um campo de senha numa tela que a pessoa visita uma vez.
 
 ### D15 — Auditoria das operações sensíveis entra nesta mudança
 

@@ -36,16 +36,20 @@ O sistema SHALL cadastrar fatores por `supabase.auth.mfa.enroll({ factorType: "t
 - **WHEN** o usuário erra o código de verificação duas vezes seguidas
 - **THEN** a mensagem passa a orientar a conferir se data e hora do aparelho estão em ajuste automático
 
-### Requirement: Reautenticação por senha antes de cadastrar fator
-O cadastro de qualquer fator SHALL exigir reautenticação por senha (`auth.reauthenticate()`) imediatamente antes de `mfa.enroll`. Todo cadastro concluído SHALL ser registrado em `access_control.sensitive_operation_log`.
+### Requirement: Reautenticação por senha antes de cadastrar o primeiro fator
+O cadastro do **primeiro** fator de uma conta SHALL exigir reautenticação por senha (`auth.reauthenticate()`) imediatamente antes de `mfa.enroll`. Do segundo fator em diante a exigência SHALL NOT ser repetida, porque o GoTrue já responde `403 insufficient_aal` a `enroll` fora de AAL2. Todo cadastro concluído SHALL ser registrado em `access_control.sensitive_operation_log`.
 
-#### Scenario: Cadastro pede a senha novamente
-- **WHEN** o usuário inicia o cadastro de um fator
+#### Scenario: Primeiro cadastro pede a senha novamente
+- **WHEN** um usuário sem nenhum fator inicia o cadastro
 - **THEN** o sistema exige a senha da conta antes de gerar o QR code
 
-#### Scenario: Sessão roubada não consegue cadastrar fator
-- **WHEN** uma sessão válida sem conhecimento da senha tenta cadastrar um fator
+#### Scenario: Sessão roubada não cadastra o primeiro fator
+- **WHEN** uma sessão válida sem conhecimento da senha tenta cadastrar o primeiro fator
 - **THEN** o sistema rejeita na etapa de reautenticação, e nenhuma sessão do titular é encerrada
+
+#### Scenario: Segundo fator não repete a senha
+- **WHEN** um usuário em AAL2 cadastra o fator reserva
+- **THEN** o sistema não pede a senha novamente
 
 #### Scenario: Cadastro fica registrado
 - **WHEN** um fator é verificado com sucesso

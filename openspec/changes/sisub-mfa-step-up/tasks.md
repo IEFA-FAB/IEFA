@@ -8,22 +8,22 @@
 
 ## 1. Banco e auditoria (entrega valor sozinha, independe das spikes)
 
-- [ ] 1.1 [database] `supabase migration new` para `access_control.sensitive_operation_log` (`actor_id`/FK `on delete restrict`, `operation`, `assurance`, `target jsonb`, `created_at`) com índice por ator e por data
-- [ ] 1.2 [database] `supabase migration new` para `access_control.mfa_recovery_code` (`code_hash` único, `used_at`, FK `on delete cascade`) e `access_control.mfa_reset_log` (`target_user_id`/`performed_by` `on delete restrict`, `method` com check, `reason`)
-- [ ] 1.3 [database] RLS nas três tabelas: dono em `mfa_recovery_code`, leitura `admin` nível 3 nos dois logs, nenhuma escrita por `anon`, nenhuma exposta ao PostgREST anônimo
+- [x] 1.1 [database] `supabase migration new` para `access_control.sensitive_operation_log` (`actor_id`/FK `on delete restrict`, `operation`, `assurance`, `target jsonb`, `created_at`) com índice por ator e por data
+- [x] 1.2 [database] `supabase migration new` para `access_control.mfa_recovery_code` (`code_hash` único, `used_at`, FK `on delete cascade`) e `access_control.mfa_reset_log` (`target_user_id`/`performed_by` `on delete restrict`, `method` com check, `reason`)
+- [x] 1.3 [database] RLS nas três tabelas: dono em `mfa_recovery_code`, leitura `admin` nível 3 nos dois logs, nenhuma escrita por `anon`, nenhuma exposta ao PostgREST anônimo
 - [ ] 1.4 [database] Conferir o carimbo das migrations contra o remoto antes de aplicar — o repo já tem drift dos arquivos `documents_*` aplicados por MCP
 - [ ] 1.5 [database] `db:types` e conferência do `generated.ts`
-- [ ] 1.6 [sisub-domain] `operations/audit.ts`: `recordSensitiveOperation(db, ctx, { operation, assurance, target })`, apenas-inserção, sem update nem delete expostos
-- [ ] 1.7 [sisub-domain] Teste: FK `restrict` impede apagar usuário com histórico; nenhuma superfície de update/delete no log
+- [x] 1.6 [sisub-domain] `operations/audit.ts`: `recordSensitiveOperation(db, ctx, { operation, assurance, target })`, apenas-inserção, sem update nem delete expostos
+- [x] 1.7 [sisub-domain] Teste: FK `restrict` impede apagar usuário com histórico; nenhuma superfície de update/delete no log
 
 ## 2. Registro de classificação (fonte única)
 
-- [ ] 2.1 [sisub] `server/assurance-registry.ts` classificando **toda** server function de mutação como `"none" | "session" | "fresh"`, com o `reason` legível de cada operação classificada
-- [ ] 2.2 [sisub] Teste de contrato que varre `src/server/*.fn.ts` e reprova função de mutação não classificada
-- [ ] 2.3 [sisub] Classificar `"fresh"`: permissões, chave MCP, parceiro externo, reset de treino, exportação nominal, remoção de MFA de terceiro
-- [ ] 2.4 [sisub] Classificar `"session"`: empenho, liquidação, pagamento, conciliação
-- [ ] 2.5 [pbac] Função pura `isProtectedAccount(permissions, registry)` — deriva a conta protegida do registro, sem lista paralela; teste com `unit` nível 2 alcançando empenho
-- [ ] 2.6 [root] Regra em `.opengrep/rules/` para server fn de mutação nova sem entrada no registro
+- [x] 2.1 [sisub] `server/assurance-registry.ts` classificando **toda** server function de mutação como `"none" | "session" | "fresh"`, com o `reason` legível de cada operação classificada
+- [x] 2.2 [sisub] Teste de contrato que varre `src/server/*.fn.ts` e reprova função de mutação não classificada
+- [x] 2.3 [sisub] Classificar `"fresh"`: permissões, chave MCP, parceiro externo, reset de treino, exportação nominal, remoção de MFA de terceiro
+- [x] 2.4 [sisub] Classificar `"session"`: empenho, liquidação, pagamento, conciliação
+- [x] 2.5 [pbac] Função pura `isProtectedAccount(permissions, registry)` — deriva a conta protegida do registro, sem lista paralela; teste com `unit` nível 2 alcançando empenho
+- [x] 2.6 [root] Regra em `.opengrep/rules/` para server fn de mutação nova sem entrada no registro
 
 ## 3. Ligar a auditoria (ainda sem exigir MFA de ninguém)
 
