@@ -37,6 +37,7 @@ import {
 	updatePolicyStatement,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -90,54 +91,94 @@ export const createPolicyFn = createServerFn({ method: "POST" })
 	.validator(CreatePolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createPolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"createPolicyFn",
+			ctx,
+			() => createPolicy(getDb(), ctx, data),
+			(policy) => ({ policyId: policy.id, name: policy.name })
+		).catch(handleDomainError)
 	})
 
 export const updatePolicyFn = createServerFn({ method: "POST" })
 	.validator(UpdatePolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updatePolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"updatePolicyFn",
+			ctx,
+			() => updatePolicy(getDb(), ctx, data),
+			(policy) => ({ policyId: policy.id, name: policy.name })
+		).catch(handleDomainError)
 	})
 
 export const deletePolicyFn = createServerFn({ method: "POST" })
 	.validator(DeletePolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deletePolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"deletePolicyFn",
+			ctx,
+			() => deletePolicy(getDb(), ctx, data),
+			() => ({ policyId: data.policyId })
+		).catch(handleDomainError)
 	})
 
 export const addPolicyStatementFn = createServerFn({ method: "POST" })
 	.validator(AddPolicyStatementSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return addPolicyStatement(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"addPolicyStatementFn",
+			ctx,
+			() => addPolicyStatement(getDb(), ctx, data),
+			(statement) => ({ policyId: data.policyId, statementId: statement.id, module: statement.module, level: statement.level })
+		).catch(handleDomainError)
 	})
 
 export const updatePolicyStatementFn = createServerFn({ method: "POST" })
 	.validator(UpdatePolicyStatementSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updatePolicyStatement(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"updatePolicyStatementFn",
+			ctx,
+			() => updatePolicyStatement(getDb(), ctx, data),
+			(statement) => ({ statementId: statement.id, module: statement.module, level: statement.level })
+		).catch(handleDomainError)
 	})
 
 export const removePolicyStatementFn = createServerFn({ method: "POST" })
 	.validator(RemovePolicyStatementSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return removePolicyStatement(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"removePolicyStatementFn",
+			ctx,
+			() => removePolicyStatement(getDb(), ctx, data),
+			() => ({ statementId: data.statementId })
+		).catch(handleDomainError)
 	})
 
 export const attachPolicyFn = createServerFn({ method: "POST" })
 	.validator(AttachPolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return attachPolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"attachPolicyFn",
+			ctx,
+			() => attachPolicy(getDb(), ctx, data),
+			() => ({ userId: data.userId, policyId: data.policyId, expires_at: data.expires_at ?? null })
+		).catch(handleDomainError)
 	})
 
 export const detachPolicyFn = createServerFn({ method: "POST" })
 	.validator(DetachPolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return detachPolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"detachPolicyFn",
+			ctx,
+			() => detachPolicy(getDb(), ctx, data),
+			() => ({ userId: data.userId, policyId: data.policyId })
+		).catch(handleDomainError)
 	})

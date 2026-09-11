@@ -206,9 +206,11 @@ describe("server function auth contract", () => {
 	 * `core.user_data.email` é UNIQUE e é a chave da busca do console de permissões — um
 	 * email escolhido pelo cliente reivindica a identidade de outra conta. `adminId` está
 	 * aqui porque nomeia AUTORIA: é quem lançou o registro, e deixá-lo vir do cliente
-	 * permite atribuir a ação a outra pessoa mesmo com a permissão correta.
+	 * permite atribuir a ação a outra pessoa mesmo com a permissão correta. `actorId` está
+	 * aqui porque nomeia o ALVO de uma consulta de auditoria: quem filtra o registro de
+	 * operações sensíveis por ator está lendo o histórico de outra pessoa.
 	 */
-	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|email|nrOrdem|nr_ordem)\b/g
+	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|actorId|actor_id|email|nrOrdem|nr_ordem)\b/g
 
 	/**
 	 * Fns em que um usuário age legitimamente sobre OUTRO. Cada entrada precisa do motivo, e
@@ -228,6 +230,7 @@ describe("server function auth contract", () => {
 		fetchEffectivePermissionsFn: "policies.fn — console de políticas: permissões efetivas de terceiro, com origem",
 		attachPolicyFn: "policies.fn — administrador anexa uma política a terceiro",
 		detachPolicyFn: "policies.fn — administrador desanexa uma política de terceiro",
+		listSensitiveOperationsFn: "audit.fn — registro de operações sensíveis filtrado por ator; a fn exige `admin` nível 3, e a operation repete o guard",
 	}
 
 	/**

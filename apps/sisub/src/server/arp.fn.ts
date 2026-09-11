@@ -11,6 +11,7 @@ import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
@@ -438,7 +439,8 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		// Empenho é dinheiro público: exige nível 2 NA unidade empenhada. Antes daqui
 		// bastava estar autenticado — qualquer comensal podia registrar empenho em
 		// qualquer unidade, com `unitId` vindo do próprio payload.
-		const { userId } = await requireUnitScope(2, data.unitId)
+		const ctx = await requireUnitScope(2, data.unitId)
+		const { userId } = ctx
 		const supabase = getProcurementClient()
 		// Mesmo motivo do import: o item de ARP tem que ser da unidade empenhada. Sem isto,
 		// a unidade A empenha contra o saldo da unidade B — e B não consegue anular, porque
@@ -446,33 +448,46 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		if ((await resolveArpItemUnit(supabase, data.arpItemId)) !== data.unitId) throw new Error("O item da ARP informado não pertence a esta unidade")
 		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
 
-		const { data: empenho, error } = await supabase
-			.schema("finance")
-			.from("empenho")
-			.insert({
-				unit_id: data.unitId,
-				arp_item_id: data.arpItemId,
-				numero_empenho: data.numeroEmpenho.trim().toUpperCase(),
-				data_empenho: data.dataEmpenho,
-				quantidade_empenhada: data.quantidadeEmpenhada,
-				valor_unitario: data.valorUnitario,
-				valor_total: valorTotal,
-				nota_lancamento: data.notaLancamento?.trim() || null,
-				status: "ativo",
-				created_by: userId,
+		return withSensitiveAudit(
+			"createEmpenhoFn",
+			ctx,
+			async (): Promise<Empenho> => {
+				const { data: empenho, error } = await supabase
+					.schema("finance")
+					.from("empenho")
+					.insert({
+						unit_id: data.unitId,
+						arp_item_id: data.arpItemId,
+						numero_empenho: data.numeroEmpenho.trim().toUpperCase(),
+						data_empenho: data.dataEmpenho,
+						quantidade_empenhada: data.quantidadeEmpenhada,
+						valor_unitario: data.valorUnitario,
+						valor_total: valorTotal,
+						nota_lancamento: data.notaLancamento?.trim() || null,
+						status: "ativo",
+						created_by: userId,
+					})
+					.select()
+					.single()
+
+				if (error) {
+					if (error.code === "23505") {
+						throw new Error(`Empenho "${data.numeroEmpenho}" já cadastrado para esta unidade`)
+					}
+					throw new Error(`Erro ao registrar empenho: ${error.message}`)
+				}
+				if (!empenho) throw new Error("Empenho não retornado após inserção")
+
+				return empenho
+			},
+			(empenho) => ({
+				empenhoId: empenho.id,
+				unitId: data.unitId,
+				arpItemId: data.arpItemId,
+				numeroEmpenho: data.numeroEmpenho.trim().toUpperCase(),
+				valorTotal,
 			})
-			.select()
-			.single()
-
-		if (error) {
-			if (error.code === "23505") {
-				throw new Error(`Empenho "${data.numeroEmpenho}" já cadastrado para esta unidade`)
-			}
-			throw new Error(`Erro ao registrar empenho: ${error.message}`)
-		}
-		if (!empenho) throw new Error("Empenho não retornado após inserção")
-
-		return empenho
+		)
 	})
 
 // ─── 6b. Comprometimento local por item da ARP ───────────────────────────────
@@ -575,9 +590,16 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 		// usuário procurar um empenho que existe.
 		if (lookupError) throw new Error(`Erro ao buscar empenho: ${lookupError.message}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
-		await requireUnitScope(2, Number(empenho.unit_id))
+		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
 
-		const { error } = await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
+		return withSensitiveAudit(
+			"anularEmpenhoFn",
+			ctx,
+			async () => {
+				const { error } = await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
 
-		if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)
+				if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)
+			},
+			() => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id) })
+		)
 	})

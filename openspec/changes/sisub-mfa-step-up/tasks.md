@@ -27,9 +27,9 @@
 
 ## 3. Ligar a auditoria (ainda sem exigir MFA de ninguém)
 
-- [ ] 3.1 [sisub] Gravar `sensitive_operation_log` em toda execução bem-sucedida de operação classificada, no mesmo ponto onde a garantia será avaliada
-- [ ] 3.2 [sisub] Teste: operação rejeitada não gera linha de sucesso; operação de rotina não gera linha
-- [ ] 3.3 [sisub] Tela de consulta do log em `/admin`, exigindo `admin` nível 3, com limite e total
+- [x] 3.1 [sisub] Gravar `sensitive_operation_log` em toda execução bem-sucedida de operação classificada, no mesmo ponto onde a garantia será avaliada
+- [x] 3.2 [sisub] Teste: operação rejeitada não gera linha de sucesso; operação de rotina não gera linha
+- [x] 3.3 [sisub] Tela de consulta do log em `/admin`, exigindo `admin` nível 3, com limite e total
 - [ ] 3.4 [root] `bun run check` + `bun run test`; abrir PR desta fatia isolada — ela vale mesmo se o MFA parar aqui
 
 ## 4. Fundação de garantia no package (inerte)

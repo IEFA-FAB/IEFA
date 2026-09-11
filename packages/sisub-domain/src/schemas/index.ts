@@ -1,5 +1,11 @@
-export type { AssuranceLevel, RecordSensitiveOperation } from "./audit.ts"
-export { AssuranceLevelSchema, RecordSensitiveOperationSchema } from "./audit.ts"
+export type { AssuranceLevel, ListSensitiveOperations, RecordSensitiveOperation } from "./audit.ts"
+export {
+	AssuranceLevelSchema,
+	ListSensitiveOperationsSchema,
+	RecordSensitiveOperationSchema,
+	SENSITIVE_OPERATION_LIST_DEFAULT,
+	SENSITIVE_OPERATION_LIST_MAX,
+} from "./audit.ts"
 export type {
 	ChartType,
 	ChatModule,

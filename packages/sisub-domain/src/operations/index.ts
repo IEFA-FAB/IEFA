@@ -12,7 +12,13 @@ export {
 	updateAtaItemPrices,
 	updateAtaStatus,
 } from "./ata.ts"
-export { recordSensitiveOperation, type SensitiveOperationLogRow } from "./audit.ts"
+export {
+	type AuditTargetValue,
+	listSensitiveOperations,
+	recordSensitiveOperation,
+	type SensitiveOperationLogEntry,
+	type SensitiveOperationLogRow,
+} from "./audit.ts"
 export {
 	type BudgetCreditSnapshot,
 	type BudgetProjection,

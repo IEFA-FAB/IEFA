@@ -18,6 +18,7 @@ import {
 	revokeMcpApiKey,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -39,7 +40,14 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
 	.validator(CreateMcpApiKeySchema)
 	.handler(async ({ data }): Promise<{ key: string; row: McpApiKey }> => {
 		const ctx = await requireAuth()
-		return createMcpApiKey(getDb(), ctx, data).catch(handleDomainError)
+		// O alvo é a própria chave — nunca o segredo. `rawKey` volta UMA vez para o dono e
+		// não pode encostar no log: uma trilha de auditoria não guarda credencial.
+		return withSensitiveAudit(
+			"createMcpKeyFn",
+			ctx,
+			() => createMcpApiKey(getDb(), ctx, data),
+			({ row }) => ({ keyId: row.id, label: row.label, keyPrefix: row.key_prefix })
+		).catch(handleDomainError)
 	})
 
 /** Revoga (desativa) uma chave do próprio usuário. A linha permanece para auditoria. */

@@ -81,14 +81,13 @@ export type AssuranceEntry =
 const SELF_SCOPED_NOTE = "Age apenas sobre a conta do próprio chamador (`ctx.userId`); a chave herda as permissões do dono e não amplia nenhuma."
 
 /**
- * DÍVIDA pré-existente: `createEmpenhoFn` e `anularEmpenhoFn` em `arp.fn.ts` chamam só
- * `requireAuth()` — qualquer sessão registra ou anula empenho, enquanto as fns de empenho de
- * `empenho.fn.ts` exigem `requireUnitScope(2, …)`. O registro grava o que o código faz, e não
- * o que ele deveria fazer: corrigir o guard é mudança de autorização, com o seu próprio PR.
- * Enquanto isso, estas duas NÃO entram na derivação de conta protegida — "toda conta
- * autenticada" não separa ninguém de ninguém.
+ * As fns de `arp.fn.ts` chamavam só `requireAuth()` até a correção de autorização que este
+ * mesmo levantamento provocou: qualquer sessão autenticada registrava empenho em qualquer
+ * unidade e anulava qualquer empenho do sistema. Hoje as quatro exigem `unit` nível 2, e nas
+ * que recebem apenas um id (`syncArpBalanceFn`, `anularEmpenhoFn`) a unidade sai da LINHA,
+ * nunca do input. O registro grava o que o código faz — e agora o código faz isto.
  */
-const ARP_AUTHENTICATED_ONLY_NOTE = "Hoje só chama `requireAuth()` — DÍVIDA de autorização pré-existente em `arp.fn.ts`, não um gate de propósito."
+const ARP_UNIT_SCOPE_NOTE = "Escopo de unidade lido da linha quando o payload só traz um id (`arp.fn.ts`)."
 
 /**
  * Classificação por server function. Entrada nova nasce `{ require: "none" }`; subir o grau é
@@ -131,12 +130,12 @@ export const ASSURANCE_REGISTRY = {
 	createEmpenhoFn: {
 		require: "session",
 		reason: "Esta operação registra um empenho.",
-		authorization: [{ kind: "authenticated", note: ARP_AUTHENTICATED_ONLY_NOTE }],
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
 	},
 	anularEmpenhoFn: {
 		require: "session",
 		reason: "Esta operação anula um empenho.",
-		authorization: [{ kind: "authenticated", note: ARP_AUTHENTICATED_ONLY_NOTE }],
+		authorization: [{ kind: "permission", module: "unit", level: 2, note: ARP_UNIT_SCOPE_NOTE }],
 	},
 
 	// ── ata.fn.ts

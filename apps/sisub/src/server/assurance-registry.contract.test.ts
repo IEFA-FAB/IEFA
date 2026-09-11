@@ -212,13 +212,13 @@ describe("assurance registry contract", () => {
 		expect(isProtectedAccount([], assuranceReachability())).toBe(false)
 	})
 
-	test("chave MCP e as fns de empenho do arp não entram na derivação", () => {
-		// `createMcpKeyFn` é self-scoped e as duas fns de `arp.fn.ts` só exigem sessão. Se
-		// qualquer uma delas contribuísse, TODA conta autenticada viraria conta protegida — e
-		// os ~800 comensais receberiam exigência de fator reserva.
+	test("operação self-scoped não entra na derivação", () => {
+		// `createMcpKeyFn` age só sobre a conta do próprio chamador. Se contribuísse para a
+		// derivação, TODA conta autenticada viraria conta protegida — e os ~800 comensais
+		// receberiam exigência de fator reserva sem alcançar nada de alto impacto.
 		const selfScoped = classifiedOperations().filter(({ entry }) => entry.authorization.every((a) => a.kind !== "permission"))
 
-		expect(selfScoped.map((o) => o.operation).sort()).toEqual(["anularEmpenhoFn", "createEmpenhoFn", "createMcpKeyFn"])
+		expect(selfScoped.map((o) => o.operation).sort()).toEqual(["createMcpKeyFn"])
 		expect(isProtectedAccount([permission("diner", 3)], assuranceReachability())).toBe(false)
 	})
 })

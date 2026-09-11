@@ -15,6 +15,7 @@
 import { roundToCents } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -86,110 +87,120 @@ export const applyDocumentBatchFn = createServerFn({ method: "POST" })
 		const si = siafi()
 		const { data: batch, error: batchError } = await si.from("import_batch").select("*").eq("id", data.batchId).single()
 		if (batchError || !batch) throw new Error("Lote não encontrado")
-		await requireUnitScope(2, Number(batch.unit_id))
+		const ctx = await requireUnitScope(2, Number(batch.unit_id))
 		if (batch.report_type === "credito") throw new Error("Use a aplicação de crédito para este lote")
-		// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
-		const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
-		if (claimError) throw new Error(claimError.message)
 
-		const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
-		const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
-		if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
+		return withSensitiveAudit(
+			"applyDocumentBatchFn",
+			ctx,
+			async () => {
+				// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
+				const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
+				if (claimError) throw new Error(claimError.message)
 
-		const fin = finance()
-		const now = new Date().toISOString()
-		let created = 0
-		let enriched = 0
-		let divergent = 0
+				const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
+				const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
+				if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
 
-		for (const { id: rowId, parsed } of parsedRows) {
-			if (batch.report_type === "ne") {
-				const numero = String(parsed.numero_ne ?? "")
-					.trim()
-					.toUpperCase()
-				if (!numero) continue
-				const valor = Number(parsed.valor ?? 0)
+				const fin = finance()
+				const now = new Date().toISOString()
+				let created = 0
+				let enriched = 0
+				let divergent = 0
 
-				const { data: existing } = await fin
-					.from("empenho")
-					.select("id, valor_total, nd, ptres, fonte, favorecido_cnpj")
-					.eq("unit_id", batch.unit_id)
-					.eq("numero_empenho", numero)
-					.maybeSingle()
-				if (existing) {
-					// enriquece o que falta; valor divergente NÃO é sobrescrito
-					await fin
-						.from("empenho")
-						.update({
-							nd: existing.nd ?? (parsed.nd as string) ?? null,
-							ptres: existing.ptres ?? (parsed.ptres as string) ?? null,
-							fonte: existing.fonte ?? (parsed.fonte as string) ?? null,
-							favorecido_cnpj: existing.favorecido_cnpj ?? (parsed.favorecido_cnpj as string) ?? null,
-							favorecido_nome: (parsed.favorecido_nome as string) ?? null,
-							siafi_synced_at: now,
-						})
-						.eq("id", existing.id)
-					if (Math.abs(Number(existing.valor_total) - valor) > 0.009) divergent++
-					enriched++
-					await si.from("import_row").update({ applied_table: "finance.empenho", applied_id: existing.id }).eq("id", rowId)
-				} else {
-					const { data: inserted } = await fin
-						.from("empenho")
-						.insert({
-							unit_id: batch.unit_id,
-							numero_empenho: numero,
-							data_empenho: (parsed.data as string) ?? now.substring(0, 10),
-							quantidade_empenhada: 1,
-							valor_unitario: valor,
-							valor_total: valor,
-							nd: (parsed.nd as string) ?? null,
-							ptres: (parsed.ptres as string) ?? null,
-							fonte: (parsed.fonte as string) ?? null,
-							favorecido_cnpj: (parsed.favorecido_cnpj as string) ?? null,
-							favorecido_nome: (parsed.favorecido_nome as string) ?? null,
-							exercicio: Number(String(parsed.data ?? now).substring(0, 4)),
-							origem: "siafi",
-							siafi_synced_at: now,
-							import_batch_id: data.batchId,
-						})
-						.select("id")
-						.maybeSingle()
-					if (inserted) {
-						created++
-						await si.from("import_row").update({ applied_table: "finance.empenho", applied_id: inserted.id }).eq("id", rowId)
+				for (const { id: rowId, parsed } of parsedRows) {
+					if (batch.report_type === "ne") {
+						const numero = String(parsed.numero_ne ?? "")
+							.trim()
+							.toUpperCase()
+						if (!numero) continue
+						const valor = Number(parsed.valor ?? 0)
+
+						const { data: existing } = await fin
+							.from("empenho")
+							.select("id, valor_total, nd, ptres, fonte, favorecido_cnpj")
+							.eq("unit_id", batch.unit_id)
+							.eq("numero_empenho", numero)
+							.maybeSingle()
+						if (existing) {
+							// enriquece o que falta; valor divergente NÃO é sobrescrito
+							await fin
+								.from("empenho")
+								.update({
+									nd: existing.nd ?? (parsed.nd as string) ?? null,
+									ptres: existing.ptres ?? (parsed.ptres as string) ?? null,
+									fonte: existing.fonte ?? (parsed.fonte as string) ?? null,
+									favorecido_cnpj: existing.favorecido_cnpj ?? (parsed.favorecido_cnpj as string) ?? null,
+									favorecido_nome: (parsed.favorecido_nome as string) ?? null,
+									siafi_synced_at: now,
+								})
+								.eq("id", existing.id)
+							if (Math.abs(Number(existing.valor_total) - valor) > 0.009) divergent++
+							enriched++
+							await si.from("import_row").update({ applied_table: "finance.empenho", applied_id: existing.id }).eq("id", rowId)
+						} else {
+							const { data: inserted } = await fin
+								.from("empenho")
+								.insert({
+									unit_id: batch.unit_id,
+									numero_empenho: numero,
+									data_empenho: (parsed.data as string) ?? now.substring(0, 10),
+									quantidade_empenhada: 1,
+									valor_unitario: valor,
+									valor_total: valor,
+									nd: (parsed.nd as string) ?? null,
+									ptres: (parsed.ptres as string) ?? null,
+									fonte: (parsed.fonte as string) ?? null,
+									favorecido_cnpj: (parsed.favorecido_cnpj as string) ?? null,
+									favorecido_nome: (parsed.favorecido_nome as string) ?? null,
+									exercicio: Number(String(parsed.data ?? now).substring(0, 4)),
+									origem: "siafi",
+									siafi_synced_at: now,
+									import_batch_id: data.batchId,
+								})
+								.select("id")
+								.maybeSingle()
+							if (inserted) {
+								created++
+								await si.from("import_row").update({ applied_table: "finance.empenho", applied_id: inserted.id }).eq("id", rowId)
+							}
+						}
+					} else {
+						// NS e OB só entram quando o documento de origem existe no sisub —
+						// sem empenho/liquidação não há onde pendurar a fase seguinte.
+						const numero = String(parsed[batch.report_type === "ns" ? "numero_ns" : "numero_ob"] ?? "")
+							.trim()
+							.toUpperCase()
+						if (!numero) continue
+						const table = batch.report_type === "ns" ? "liquidacao" : "pagamento"
+						const numberColumn = batch.report_type === "ns" ? "numero_ns" : "numero_ob"
+
+						const { data: existing } = await fin.from(table).select("id").eq("unit_id", batch.unit_id).eq(numberColumn, numero).maybeSingle()
+						if (existing) {
+							await fin.from(table).update({ origem: "siafi" }).eq("id", existing.id)
+							enriched++
+							await si
+								.from("import_row")
+								.update({ applied_table: `finance.${table}`, applied_id: existing.id })
+								.eq("id", rowId)
+							continue
+						}
+						// documento só no SIAFI: fica visível na conciliação como
+						// "apenas_siafi" — criar às cegas exigiria adivinhar o vínculo
+						divergent++
 					}
 				}
-			} else {
-				// NS e OB só entram quando o documento de origem existe no sisub —
-				// sem empenho/liquidação não há onde pendurar a fase seguinte.
-				const numero = String(parsed[batch.report_type === "ns" ? "numero_ns" : "numero_ob"] ?? "")
-					.trim()
-					.toUpperCase()
-				if (!numero) continue
-				const table = batch.report_type === "ns" ? "liquidacao" : "pagamento"
-				const numberColumn = batch.report_type === "ns" ? "numero_ns" : "numero_ob"
 
-				const { data: existing } = await fin.from(table).select("id").eq("unit_id", batch.unit_id).eq(numberColumn, numero).maybeSingle()
-				if (existing) {
-					await fin.from(table).update({ origem: "siafi" }).eq("id", existing.id)
-					enriched++
-					await si
-						.from("import_row")
-						.update({ applied_table: `finance.${table}`, applied_id: existing.id })
-						.eq("id", rowId)
-					continue
-				}
-				// documento só no SIAFI: fica visível na conciliação como
-				// "apenas_siafi" — criar às cegas exigiria adivinhar o vínculo
-				divergent++
-			}
-		}
-
-		await si
-			.from("import_batch")
-			.update({ status: "applied", applied_rows: created + enriched, applied_at: now })
-			.eq("id", data.batchId)
-		return { created, enriched, divergent }
+				await si
+					.from("import_batch")
+					.update({ status: "applied", applied_rows: created + enriched, applied_at: now })
+					.eq("id", data.batchId)
+				return { created, enriched, divergent }
+			},
+			// O lote é o alvo: as linhas que ele criou e enriqueceu estão em
+			// `siafi_integration.import_row`, apontando para cada documento aplicado.
+			(result) => ({ batchId: data.batchId, unitId: Number(batch.unit_id), reportType: batch.report_type, ...result })
+		)
 	})
 
 /** Resolução explícita: adotar o valor do SIAFI ou manter o local com justificativa. */
@@ -206,46 +217,63 @@ export const resolveDivergenceFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireUnitScope(2, data.unitId)
+		const ctx = await requireUnitScope(2, data.unitId)
+		const { userId } = ctx
 		if (data.decisao === "mantido_local" && !data.justificativa?.trim()) {
 			throw new Error("Manter o valor local exige justificativa")
 		}
 		const fin = finance()
 
-		// adotar o SIAFI num empenho entra como EVENTO (o valor nunca é editado)
-		if (data.decisao === "adotado_siafi" && data.documentoTipo === "ne" && data.valorSiafi != null && data.valorSisub != null) {
-			const { data: empenho } = await fin.from("empenho").select("id").eq("unit_id", data.unitId).eq("numero_empenho", data.numeroDocumento).maybeSingle()
-			if (empenho) {
-				const delta = roundToCents(data.valorSiafi - data.valorSisub)
-				if (Math.abs(delta) > 0.009) {
-					const { error } = await fin.from("empenho_event").insert({
-						empenho_id: empenho.id,
-						tipo: delta > 0 ? "reforco" : "anulacao",
-						valor: Math.abs(delta),
-						data: new Date().toISOString().substring(0, 10),
-						justificativa: `Conciliação SIAFI: valor ajustado de ${data.valorSisub.toFixed(2)} para ${data.valorSiafi.toFixed(2)}`,
-						origem: "siafi",
-						created_by: userId,
-					})
-					if (error) throw new Error(`Erro ao ajustar empenho: ${error.message}`)
+		return withSensitiveAudit(
+			"resolveDivergenceFn",
+			ctx,
+			async () => {
+				// adotar o SIAFI num empenho entra como EVENTO (o valor nunca é editado)
+				if (data.decisao === "adotado_siafi" && data.documentoTipo === "ne" && data.valorSiafi != null && data.valorSisub != null) {
+					const { data: empenho } = await fin.from("empenho").select("id").eq("unit_id", data.unitId).eq("numero_empenho", data.numeroDocumento).maybeSingle()
+					if (empenho) {
+						const delta = roundToCents(data.valorSiafi - data.valorSisub)
+						if (Math.abs(delta) > 0.009) {
+							const { error } = await fin.from("empenho_event").insert({
+								empenho_id: empenho.id,
+								tipo: delta > 0 ? "reforco" : "anulacao",
+								valor: Math.abs(delta),
+								data: new Date().toISOString().substring(0, 10),
+								justificativa: `Conciliação SIAFI: valor ajustado de ${data.valorSisub.toFixed(2)} para ${data.valorSiafi.toFixed(2)}`,
+								origem: "siafi",
+								created_by: userId,
+							})
+							if (error) throw new Error(`Erro ao ajustar empenho: ${error.message}`)
+						}
+						await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
+					}
 				}
-				await fin.from("empenho").update({ origem: "siafi", siafi_synced_at: new Date().toISOString() }).eq("id", empenho.id)
-			}
-		}
 
-		const { error } = await fin.from("reconciliation_decision").upsert(
-			{
-				unit_id: data.unitId,
-				documento_tipo: data.documentoTipo,
-				numero_documento: data.numeroDocumento,
-				valor_sisub: data.valorSisub ?? null,
-				valor_siafi: data.valorSiafi ?? null,
-				decisao: data.decisao,
-				justificativa: data.justificativa?.trim() || null,
-				decided_by: userId,
-				decided_at: new Date().toISOString(),
+				const { error } = await fin.from("reconciliation_decision").upsert(
+					{
+						unit_id: data.unitId,
+						documento_tipo: data.documentoTipo,
+						numero_documento: data.numeroDocumento,
+						valor_sisub: data.valorSisub ?? null,
+						valor_siafi: data.valorSiafi ?? null,
+						decisao: data.decisao,
+						justificativa: data.justificativa?.trim() || null,
+						decided_by: userId,
+						decided_at: new Date().toISOString(),
+					},
+					{ onConflict: "unit_id,documento_tipo,numero_documento" }
+				)
+				if (error) throw new Error(`Erro ao registrar decisão: ${error.message}`)
 			},
-			{ onConflict: "unit_id,documento_tipo,numero_documento" }
+			// A decisão e os dois valores confrontados entram no alvo: "adotou o SIAFI" sem
+			// dizer de quanto para quanto não responde à pergunta que a conciliação levanta.
+			() => ({
+				unitId: data.unitId,
+				documentoTipo: data.documentoTipo,
+				numeroDocumento: data.numeroDocumento,
+				decisao: data.decisao,
+				valorSisub: data.valorSisub ?? null,
+				valorSiafi: data.valorSiafi ?? null,
+			})
 		)
-		if (error) throw new Error(`Erro ao registrar decisão: ${error.message}`)
 	})

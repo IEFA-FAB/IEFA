@@ -116,8 +116,20 @@ describe("integridade do registro", () => {
 		expect(surface).toEqual([])
 	})
 
-	test("o módulo exporta uma única função em runtime", () => {
-		expect(Object.keys(auditModule).sort()).toEqual(["recordSensitiveOperation"])
+	/**
+	 * Uma escrita e uma leitura. A leitura entrou junto da tela de auditoria e não fere a
+	 * regra apenas-inserção — ela não altera nada. O que a lista literal protege é o
+	 * contrário: qualquer função nova neste módulo reprova a suíte e passa por revisão, que
+	 * é como `deleteOldAuditRows` "só para limpar" é barrado antes de existir.
+	 */
+	test("o módulo exporta exatamente uma escrita (inserção) e uma leitura", () => {
+		expect(Object.keys(auditModule).sort()).toEqual(["listSensitiveOperations", "recordSensitiveOperation"])
+	})
+
+	test("a leitura exige `admin` nível 3 — é a consulta mais sensível do sistema", () => {
+		const source = readFileSync(join(import.meta.dir, "audit.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+		const body = source.slice(source.indexOf("export async function listSensitiveOperations"))
+		expect(body).toContain('requirePermission(ctx, "admin", 3)')
 	})
 
 	test("o código-fonte não monta update nem delete sobre o log", () => {

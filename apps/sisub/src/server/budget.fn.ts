@@ -13,6 +13,7 @@
 import { type BudgetProjection, checkCreditForEmpenho, type LocalEmpenhoEntry, projectBudget } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -154,35 +155,45 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 		const si = siafi()
 		const { data: batch, error: batchError } = await si.from("import_batch").select("*").eq("id", data.batchId).single()
 		if (batchError || !batch) throw new Error("Lote não encontrado")
-		await requireUnitScope(2, Number(batch.unit_id))
+		const ctx = await requireUnitScope(2, Number(batch.unit_id))
 		if (batch.report_type !== "credito") throw new Error(`Este lote é do tipo "${batch.report_type}" — use a aplicação correspondente`)
-		// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
-		const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
-		if (claimError) throw new Error(claimError.message)
 
-		const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
-		const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
-		if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
+		return withSensitiveAudit(
+			"applyCreditBatchFn",
+			ctx,
+			async () => {
+				// reserva sob advisory lock: dois cliques simultâneos não aplicam duas vezes
+				const { error: claimError } = await si.rpc("claim_import_batch", { p_batch_id: data.batchId })
+				if (claimError) throw new Error(claimError.message)
 
-		const competencia = batch.competencia ?? `${new Date().toISOString().substring(0, 7)}-01`
-		const snapshotAt = new Date().toISOString()
-		const payload = parsedRows.map(({ parsed }) => ({
-			unit_id: batch.unit_id,
-			ug: (parsed.ug as string) ?? null,
-			nd: String(parsed.nd),
-			ptres: (parsed.ptres as string) ?? null,
-			fonte: (parsed.fonte as string) ?? null,
-			competencia,
-			dotacao: Number(parsed.dotacao ?? 0),
-			empenhado_siafi: Number(parsed.empenhado ?? 0),
-			saldo_siafi: Number(parsed.saldo ?? Number(parsed.dotacao ?? 0) - Number(parsed.empenhado ?? 0)),
-			snapshot_at: snapshotAt,
-			import_batch_id: data.batchId,
-		}))
+				const { data: rows } = await si.from("import_row").select("id, parsed").eq("batch_id", data.batchId).eq("parse_status", "parsed")
+				const parsedRows = (rows ?? []) as { id: string; parsed: Record<string, unknown> }[]
+				if (parsedRows.length === 0) throw new Error("Lote sem linhas válidas para aplicar")
 
-		const { error } = await finance().from("budget_credit").upsert(payload, { onConflict: "unit_id,ug,nd,ptres,fonte,competencia" })
-		if (error) throw new Error(`Erro ao aplicar crédito: ${error.message}`)
+				const competencia = batch.competencia ?? `${new Date().toISOString().substring(0, 7)}-01`
+				const snapshotAt = new Date().toISOString()
+				const payload = parsedRows.map(({ parsed }) => ({
+					unit_id: batch.unit_id,
+					ug: (parsed.ug as string) ?? null,
+					nd: String(parsed.nd),
+					ptres: (parsed.ptres as string) ?? null,
+					fonte: (parsed.fonte as string) ?? null,
+					competencia,
+					dotacao: Number(parsed.dotacao ?? 0),
+					empenhado_siafi: Number(parsed.empenhado ?? 0),
+					saldo_siafi: Number(parsed.saldo ?? Number(parsed.dotacao ?? 0) - Number(parsed.empenhado ?? 0)),
+					snapshot_at: snapshotAt,
+					import_batch_id: data.batchId,
+				}))
 
-		await si.from("import_batch").update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt }).eq("id", data.batchId)
-		return { applied: payload.length }
+				const { error } = await finance().from("budget_credit").upsert(payload, { onConflict: "unit_id,ug,nd,ptres,fonte,competencia" })
+				if (error) throw new Error(`Erro ao aplicar crédito: ${error.message}`)
+
+				await si.from("import_batch").update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt }).eq("id", data.batchId)
+				return { applied: payload.length }
+			},
+			// O lote identifica o alvo; as linhas de crédito que ele gravou carregam
+			// `import_batch_id` e voltam por ele.
+			(result) => ({ batchId: data.batchId, unitId: Number(batch.unit_id), competencia: batch.competencia ?? null, applied: result.applied })
+		)
 	})
