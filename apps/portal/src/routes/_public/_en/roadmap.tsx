@@ -603,47 +603,47 @@ const APP_ROADMAPS: AppRoadmap[] = [
 						label: "Fontes normativas federais",
 						description:
 							"Ingestão versionada dos modelos oficiais da AGU (43 modelos vigentes) e da legislação federal — Lei 14.133, decretos e INs SEGES. Versão nova nunca sobrescreve a anterior, e a atualização semanal marca para revisão toda regra que cita dispositivo alterado.",
-						status: "in-progress",
-						date: "Jul 2026",
+						status: "done",
+						date: "Ago 2026",
 					},
 					{
 						number: "1.4",
 						label: "AppAnalista",
 						description:
 							"Extrator que transforma ETP/TR em JSON estruturado com todos os atributos da contratação. Cada campo carrega o trecho literal do documento que o originou — sem origem rastreável, o campo é descartado.",
-						status: "in-progress",
-						date: "Jul 2026",
+						status: "done",
+						date: "Ago 2026",
 					},
 					{
 						number: "1.5",
 						label: "ComparadorEstrutural",
 						description:
 							"Compara a estrutura do documento com o modelo oficial da AGU vigente — casamento exato, léxico e semântico, detecção de seções ausentes, extras, renomeadas e fora de ordem. Determinístico, sem LLM.",
-						status: "in-progress",
-						date: "Jul 2026",
+						status: "done",
+						date: "Ago 2026",
 					},
 					{
 						number: "1.6",
 						label: "AppVerificadorRestrito",
 						description:
 							"Verifica inconformidades item a item contra a legislação vigente, com guard de citação: achado que cita dispositivo inexistente é descartado antes de chegar ao relatório.",
-						status: "in-progress",
-						date: "Jul 2026",
+						status: "done",
+						date: "Ago 2026",
 					},
 					{
 						number: "1.7",
 						label: "VerificadorAmplo",
 						description:
 							"Integra 1.4–1.6 e acrescenta checagens cruzadas entre campos. Relatório unificado por severidade, com erro, referência normativa, sugestão e declaração de cobertura da análise.",
-						status: "in-progress",
-						date: "Jul 2026",
+						status: "done",
+						date: "Ago 2026",
 					},
 					{
 						number: "1.8",
 						label: "Plataforma ACI",
 						description:
-							"Interface com persona ACI integrando as etapas 1–7: painel do analista com a fila de processos, hub dos chats, triagem achado a achado, parecer (aprovado, com ressalvas ou reprovado) e relatório final de conformidade imprimível. No portal em /aci.",
-						status: "in-progress",
+							"Interface com persona ACI integrando as etapas 1–7: painel do analista com a fila de processos, hub dos chats, triagem achado a achado, parecer (aprovado, com ressalvas ou reprovado) e relatório final de conformidade imprimível. Achado bloqueante acatado impede a aprovação, e o parecer emitido nunca é sobrescrito. No ar em /aci.",
+						status: "done",
 						date: "Set 2026",
 					},
 				],
