@@ -1,3 +1,4 @@
+import type { CreateMcpApiKey } from "@iefa/sisub-domain/schemas"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
@@ -44,7 +45,7 @@ export function useCreateMcpKey() {
 	const queryClient = useQueryClient()
 
 	return useAssuredMutation({
-		mutationFn: (label: string) => createMcpKeyFn({ data: { label } }),
+		mutationFn: (input: CreateMcpApiKey) => createMcpKeyFn({ data: input }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.sisub.mcpKeys() })
 			// Sem toast aqui — o caller exibe a chave em dialog

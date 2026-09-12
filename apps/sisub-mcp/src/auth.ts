@@ -83,7 +83,7 @@ export async function resolveUserContext(jwt: string): Promise<UserContext> {
 /**
  * Autentica uma API key e carrega permissões PBAC do dono.
  * Atualiza last_used_at de forma assíncrona (fire-and-forget).
- * Lança McpError se a chave for inválida ou revogada.
+ * Lança McpError se a chave for inválida, revogada ou VENCIDA.
  */
 export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 	if (!rawKey.startsWith("smcp_")) {
@@ -93,10 +93,29 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 	const hash = await sha256hex(rawKey)
 	const db = getDataClient("access_control")
 
-	const { data, error } = await db.from("mcp_api_keys").select("user_id").eq("key_hash", hash).eq("is_active", true).single()
+	const { data, error } = await db.from("mcp_api_keys").select("user_id, expires_at").eq("key_hash", hash).eq("is_active", true).single()
 
 	if (error || !data) {
 		throw new McpError(ErrorCode.InvalidRequest, "API key inválida ou revogada")
+	}
+
+	// Prazo: a chave vencida é recusada AQUI, antes de carregar permissão nenhuma.
+	//
+	// O filtro poderia estar no `where` (`.gt("expires_at", agora)`), e a chave vencida cairia
+	// como "inválida ou revogada". A mensagem separada existe porque quem lê isto é um cliente
+	// MCP configurado por uma pessoa: "inválida" manda conferir o que foi colado; "vencida em
+	// 12/09" manda gerar outra, que é a ação certa. Diagnóstico errado custa uma tarde.
+	//
+	// `expires_at` ausente ou ilegível falha FECHADO. A coluna é `not null` desde a migration
+	// de prazo; ausência aqui significa banco fora do formato esperado, e o desfecho seguro
+	// numa credencial permanente é recusar, não presumir prazo infinito — que é exatamente o
+	// estado que esta mudança fecha.
+	const expiresAt = data.expires_at ? Date.parse(data.expires_at) : Number.NaN
+	if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+		throw new McpError(
+			ErrorCode.InvalidRequest,
+			`API key vencida${Number.isFinite(expiresAt) ? ` em ${new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}. Gere uma nova em Chaves de API (MCP), no SISUB.`
+		)
 	}
 
 	// Fire-and-forget: atualizar last_used_at sem bloquear
@@ -107,12 +126,17 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 		return {
 			userId: data.user_id,
 			permissions,
-			// Credencial permanente, sem senha e sem segundo fator: `aal: 1` e `origin: "api-key"`
-			// fazem dela algo que NUNCA satisfaz exigência de garantia (design.md D11). Até aqui
-			// a chave executava em nome do dono tudo que o step-up deveria proteger.
+			// Credencial de prazo longo, sem senha e sem segundo fator: `aal: 1` e
+			// `origin: "api-key"` fazem dela algo que NUNCA satisfaz exigência de garantia
+			// (design.md D11). Até aqui a chave executava em nome do dono tudo que o step-up
+			// deveria proteger.
 			aal: 1,
 			lastFactorAt: null,
 			origin: "api-key",
+			// A chave não carrega a lista de fatores do dono, e não é ela que vai apresentar
+			// nenhum: declarar `false` mantém o contexto completo sem fingir conhecimento. Não
+			// muda desfecho — `assertAssurance` barra a origem `api-key` antes de chegar aqui.
+			hasVerifiedFactor: false,
 		}
 	} catch (err) {
 		process.stderr.write(`[sisub-mcp] Erro ao carregar permissões (api-key) user=${data.user_id}: ${err}\n`)

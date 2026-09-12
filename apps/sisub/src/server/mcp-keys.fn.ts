@@ -46,7 +46,10 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
 			"createMcpKeyFn",
 			ctx,
 			(assurance) => createMcpApiKey(getDb(), ctx, data, assurance),
-			({ row }) => ({ keyId: row.id, label: row.label, keyPrefix: row.key_prefix })
+			// `expiresAt` entra na trilha porque o prazo é metade do que a chave É: uma
+			// investigação que vê "chave criada" sem ver até quando ela vale não responde se a
+			// credencial ainda estava viva no dia do incidente.
+			({ row }) => ({ keyId: row.id, label: row.label, keyPrefix: row.key_prefix, expiresAt: row.expires_at })
 		).catch(handleDomainError)
 	})
 

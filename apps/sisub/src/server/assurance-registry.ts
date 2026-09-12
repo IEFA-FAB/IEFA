@@ -84,7 +84,7 @@ export type AssuranceEntry =
 /**
  * `createMcpKeyFn` cria a chave do PRÓPRIO chamador (`ctx.userId`), e a chave herda as
  * permissões do dono sem ampliar nenhuma. Ela é `fresh` porque uma chave é credencial
- * permanente sem senha e sem segundo fator (design.md D11) — mas não distingue contas:
+ * de prazo longo sem senha e sem segundo fator (design.md D11) — mas não distingue contas:
  * contá-la na derivação de conta protegida tornaria os ~800 comensais "contas protegidas"
  * e esvaziaria o critério.
  */

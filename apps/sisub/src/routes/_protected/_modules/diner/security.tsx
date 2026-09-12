@@ -299,7 +299,10 @@ function SecurityPage() {
 						<Terminal className="size-4 text-muted-foreground" aria-hidden />
 						Chaves de API
 					</CardTitle>
-					<CardDescription>Credenciais permanentes que agem em seu nome no sisub-mcp, sem senha e sem segundo fator.</CardDescription>
+					<CardDescription>
+						Credenciais de prazo longo que agem em seu nome no sisub-mcp, sem senha e sem segundo fator. Elas vencem, e não executam operação protegida por
+						verificação em duas etapas.
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<Button

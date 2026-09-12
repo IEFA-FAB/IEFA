@@ -98,12 +98,12 @@
 
 ## 10. Fechar a chave de API
 
-- [ ] 10.1 [sisub-mcp] `resolveApiKey` devolve `origin: "api-key"`, `aal: 1`
-- [ ] 10.2 [sisub-mcp] Despacho de tool rejeita operação classificada, com mensagem que o modelo consiga ler e corrigir
-- [ ] 10.3 [sisub] `createMcpKeyFn` exige grau `fresh` e prazo (30d/90d/1a)
-- [ ] 10.4 [sisub] UI de `/diner/mcp-keys`: seletor de prazo, aviso do que a chave não executa, destaque de vencimento próximo
-- [ ] 10.5 [sisub] Backfill de prazo nas chaves existentes com aviso prévio — não expirar chave em produção sem avisar
-- [ ] 10.6 [sisub-mcp] Teste de contrato: chave de API nunca satisfaz `"session"` nem `"fresh"`
+- [x] 10.1 [sisub-mcp] `resolveApiKey` devolve `origin: "api-key"`, `aal: 1`
+- [x] 10.2 [sisub-mcp] Despacho de tool rejeita operação classificada, com mensagem que o modelo consiga ler e corrigir
+- [x] 10.3 [sisub] `createMcpKeyFn` exige grau `fresh` e prazo (30d/90d/1a)
+- [x] 10.4 [sisub] UI de `/diner/mcp-keys`: seletor de prazo, aviso do que a chave não executa, destaque de vencimento próximo
+- [x] 10.5 [sisub] Backfill de prazo nas chaves existentes com aviso prévio — não expirar chave em produção sem avisar
+- [x] 10.6 [sisub-mcp] Teste de contrato: chave de API nunca satisfaz `"session"` nem `"fresh"`
 
 ## 11. Fechamento
 

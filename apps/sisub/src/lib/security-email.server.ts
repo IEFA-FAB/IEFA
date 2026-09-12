@@ -36,6 +36,11 @@ export type SecurityNoticeKind =
 	| "mfa-removed-by-recovery-code"
 	/** Um administrador removeu o segundo fator do titular (etapa 7 do plano). */
 	| "mfa-removed-by-admin"
+	/** Uma chave de API do MCP está perto de vencer — aviso PRÉVIO, nunca posterior. */
+	| "mcp-key-expiring"
+
+/** Dados que só o aviso de chave a vencer precisa. */
+export type McpKeyExpiringDetails = { label: string; expiresAt: Date }
 
 /**
  * `true` quando há provider de e-mail configurado.
@@ -50,18 +55,38 @@ export function isSecurityEmailConfigured(): boolean {
 
 const FROM = process.env.SISUB_SECURITY_EMAIL_FROM ?? `SISUB <${LEGAL_CONTACT_EMAIL}>`
 
+const PUBLIC_URL = (process.env.SISUB_PUBLIC_URL ?? "https://sisub.iefa.com.br").replace(/\/+$/, "")
+
 /** Endereço da tela de segurança, para o titular agir se não foi ele. */
-const SECURITY_URL = `${(process.env.SISUB_PUBLIC_URL ?? "https://sisub.iefa.com.br").replace(/\/+$/, "")}/diner/security`
+const SECURITY_URL = `${PUBLIC_URL}/diner/security`
+
+/** Endereço da tela de chaves de API, para o titular renovar a que vai vencer. */
+const MCP_KEYS_URL = `${PUBLIC_URL}/diner/mcp-keys`
 
 function formatMoment(at: Date): string {
 	return at.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })
 }
 
-function buildNotice(kind: SecurityNoticeKind, at: Date): { subject: string; body: string } {
+function buildNotice(kind: SecurityNoticeKind, at: Date, details?: McpKeyExpiringDetails): { subject: string; body: string } {
 	const moment = formatMoment(at)
 	const footer =
 		`<p>Se não foi você, entre em contato imediatamente com ${LEGAL_CONTACT_EMAIL} e troque sua senha.</p>` +
 		`<p><a href="${SECURITY_URL}">Segurança da conta</a></p>`
+
+	if (kind === "mcp-key-expiring") {
+		// Único aviso deste módulo que fala de algo que AINDA NÃO aconteceu: os outros dois
+		// informam um fato consumado, este existe para que o vencimento não seja surpresa. Por
+		// isso não leva o rodapé de "se não foi você" — não houve ação de ninguém a contestar.
+		return {
+			subject: "SISUB — sua chave de API do MCP está perto de vencer",
+			body:
+				`<p>A chave de API <strong>${details?.label ?? "sem nome"}</strong> vence em ` +
+				`${details ? formatMoment(details.expiresAt) : "breve"}.</p>` +
+				`<p>Depois dessa data o cliente MCP para de autenticar. Gere uma nova chave em ` +
+				`<a href="${MCP_KEYS_URL}">Chaves de API (MCP)</a> e substitua a configuração do cliente.</p>` +
+				`<p>Se você não usa mais essa chave, não precisa fazer nada — ela deixará de valer sozinha.</p>`,
+		}
+	}
 
 	if (kind === "mfa-removed-by-admin") {
 		return {
@@ -86,6 +111,8 @@ export type SendSecurityNoticeInput = {
 	kind: SecurityNoticeKind
 	/** Quando o evento aconteceu. Default: agora. */
 	at?: Date
+	/** Só para `mcp-key-expiring`: qual chave, e até quando ela vale. */
+	details?: McpKeyExpiringDetails
 }
 
 /**
@@ -99,7 +126,7 @@ export async function sendSecurityNotice(input: SendSecurityNoticeInput): Promis
 		const apiKey = process.env.SISUB_RESEND_API_KEY
 		if (!apiKey || !input.to) return false
 
-		const { subject, body } = buildNotice(input.kind, input.at ?? new Date())
+		const { subject, body } = buildNotice(input.kind, input.at ?? new Date(), input.details)
 		const response = await fetch("https://api.resend.com/emails", {
 			method: "POST",
 			headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

@@ -13,6 +13,13 @@
  * A chave em claro (`smcp_` + 32 bytes aleatórios em hex) existe uma única vez, no retorno de
  * `createMcpApiKey`. O que persiste é o SHA-256; o prefixo de 12 chars serve só para o usuário
  * reconhecer a linha na lista.
+ *
+ * ## Prazo
+ *
+ * Toda chave nasce com `expires_at` (30, 90 ou 365 dias — ver `MCP_API_KEY_LIFETIME_DAYS`).
+ * Revogar é o caminho ATIVO; o prazo é o passivo, para a chave que ninguém lembrou de
+ * revogar. Quem recusa a chave vencida é `resolveApiKey`, em `apps/sisub-mcp/src/auth.ts` —
+ * aqui a responsabilidade é só gravar o instante, e gravá-lo sempre.
  */
 
 import { mcpApiKeysInAccessControl, type SisubDb } from "@iefa/database/drizzle/sisub"
@@ -30,6 +37,8 @@ export type McpApiKeyRow = {
 	is_active: boolean
 	last_used_at: string | null
 	created_at: string
+	/** Instante em que a chave deixa de autenticar. Nunca nulo — ver a migration de prazo. */
+	expires_at: string
 }
 
 const MCP_API_KEY_COLS = {
@@ -39,6 +48,7 @@ const MCP_API_KEY_COLS = {
 	is_active: mcpApiKeysInAccessControl.isActive,
 	last_used_at: mcpApiKeysInAccessControl.lastUsedAt,
 	created_at: mcpApiKeysInAccessControl.createdAt,
+	expires_at: mcpApiKeysInAccessControl.expiresAt,
 } as const
 
 function toHex(bytes: Uint8Array): string {
@@ -50,6 +60,11 @@ function toHex(bytes: Uint8Array): string {
 async function sha256hex(input: string): Promise<string> {
 	const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input))
 	return toHex(new Uint8Array(buf))
+}
+
+/** Instante de vencimento a partir do prazo escolhido, no formato `timestamptz` do Drizzle. */
+function expiresAtFrom(days: number, now: Date = new Date()): string {
+	return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
 /** Predicado self-only: a linha só é alcançável se pertencer à sessão. */
@@ -74,8 +89,8 @@ export async function createMcpApiKey(
 	assurance: AssuranceRequirement = NO_ASSURANCE
 ): Promise<{ key: string; row: McpApiKeyRow }> {
 	// Sem gate de permissão antes: a chave é do PRÓPRIO chamador e não amplia permissão
-	// nenhuma. O piso de garantia existe por outro motivo — a chave é credencial permanente,
-	// sem senha e sem segundo fator (design.md D11).
+	// nenhuma. O piso de garantia existe por outro motivo — a chave é credencial de prazo
+	// longo, sem senha e sem segundo fator (design.md D11).
 	requireAssurance(ctx, assurance)
 	const rawKey = `smcp_${toHex(crypto.getRandomValues(new Uint8Array(32)))}`
 	const keyPrefix = rawKey.slice(0, 12) // "smcp_" + 7 chars
@@ -91,6 +106,10 @@ export async function createMcpApiKey(
 				label: input.label,
 				keyHash,
 				keyPrefix,
+				// Prazo calculado AQUI, e não pelo default da coluna: o default de 90 dias é rede
+				// para o código antigo da janela de deploy, e usá-lo como caminho normal jogaria
+				// fora a escolha que a tela acabou de perguntar.
+				expiresAt: expiresAtFrom(input.expiresInDays),
 			})
 			.returning(MCP_API_KEY_COLS)
 	)

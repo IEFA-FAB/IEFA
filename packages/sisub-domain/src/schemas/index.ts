@@ -237,8 +237,8 @@ export {
 	ListUnitKitchensSchema,
 	UpdateKitchenSettingsSchema,
 } from "./kitchens.ts"
-export type { CreateMcpApiKey, DeleteMcpApiKey, RevokeMcpApiKey } from "./mcp-keys.ts"
-export { CreateMcpApiKeySchema, DeleteMcpApiKeySchema, RevokeMcpApiKeySchema } from "./mcp-keys.ts"
+export type { CreateMcpApiKey, DeleteMcpApiKey, McpApiKeyLifetimeDays, RevokeMcpApiKey } from "./mcp-keys.ts"
+export { CreateMcpApiKeySchema, DeleteMcpApiKeySchema, MCP_API_KEY_LIFETIME_DAYS, RevokeMcpApiKeySchema } from "./mcp-keys.ts"
 export type {
 	AdjustProductionPortions,
 	DeleteForecast,

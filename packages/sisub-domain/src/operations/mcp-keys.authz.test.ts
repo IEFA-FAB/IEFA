@@ -85,17 +85,43 @@ describe("escopo das chaves de API do MCP", () => {
 	test("createMcpApiKey grava o dono da sessão, não um id vindo do input", async () => {
 		const captured: Captured = {}
 		// O schema não tem campo de dono; o excedente aqui prova que nada dele chega ao insert.
-		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", userId: OTHER_USER } as never)
+		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: 90, userId: OTHER_USER } as never)
 		expect(captured.values?.userId).toBe(SESSION_USER)
 	})
 
 	test("createMcpApiKey devolve a chave em claro uma vez e persiste só o hash", async () => {
 		const captured: Captured = {}
-		const { key } = await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli" })
+		const { key } = await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: 90 })
 
 		expect(key).toMatch(/^smcp_[0-9a-f]{64}$/)
 		expect(captured.values?.keyHash).toMatch(/^[0-9a-f]{64}$/)
 		expect(captured.values?.keyHash).not.toBe(key)
 		expect(captured.values?.keyPrefix).toBe(key.slice(0, 12))
+	})
+})
+
+/**
+ * Prazo: a chave criada aqui é a única credencial do sistema que age sem ninguém na frente do
+ * teclado. Nascer sem vencimento é o estado que a migration de prazo fechou — e o que o
+ * default de 90 dias da coluna cobre é a janela de deploy, nunca o caminho da aplicação.
+ */
+describe("prazo das chaves de API do MCP", () => {
+	test.each([30, 90, 365] as const)("createMcpApiKey grava expires_at para %s dias", async (days) => {
+		const captured: Captured = {}
+		const before = Date.now()
+
+		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: days })
+
+		const expiresAt = Date.parse(String(captured.values?.expiresAt))
+		expect(Number.isFinite(expiresAt), "expires_at ausente ou ilegível no insert").toBe(true)
+		const dias = (expiresAt - before) / (24 * 60 * 60 * 1000)
+		expect(dias).toBeGreaterThan(days - 0.01)
+		expect(dias).toBeLessThan(days + 0.01)
+	})
+
+	test("o prazo nunca sai do default da coluna — o insert sempre informa um", async () => {
+		const captured: Captured = {}
+		await createMcpApiKey(fakeDb(captured, ROW), ctx, { label: "cli", expiresInDays: 30 })
+		expect(Object.keys(captured.values ?? {})).toContain("expiresAt")
 	})
 })
