@@ -1,0 +1,740 @@
+/**
+ * @module assurance-registry
+ * Fonte ÚNICA da classificação de garantia de identidade das server functions de mutação.
+ *
+ * Toda `createServerFn({ method: "POST" })` de `src/server/*.fn.ts` tem aqui uma entrada.
+ * `assurance-registry.contract.test.ts` varre o diretório e reprova a suíte quando alguma
+ * fica de fora — classificação esquecida é operação sensível sem piso, e ela não avisa.
+ *
+ * ## Os dois graus (design.md D2)
+ *
+ * | Grau      | Regra                                                | Custo para o usuário            |
+ * |-----------|------------------------------------------------------|---------------------------------|
+ * | `session` | a sessão precisa estar em AAL2                        | digitou uma vez no login        |
+ * | `fresh`   | AAL2 **e** segundo fator verificado há no máximo 15min | um modal de 6 dígitos na ação   |
+ *
+ * Um grau único ("toda operação sensível pede código fresco") transformaria o operador de
+ * liquidação que trabalha 4 horas seguidas em alguém que digita 6 dígitos umas 16 vezes por
+ * turno — ele deixaria o aplicativo aberto ao lado do teclado e o controle viraria teatro.
+ * Por isso `fresh` só no que é raro e irreversível, e `session` no que é sensível e de volume.
+ *
+ * ## O registro está ligado; o PISO, não
+ *
+ * Os guards já consultam o registro (etapa 4), a auditoria já grava por ele (etapa 3) e o
+ * cálculo de conta protegida já o projeta (D9). O que continua desligado é o PISO: quem decide
+ * se uma operação classificada de fato EXIGE segundo fator é `ASSURANCE_ENFORCEMENT`, no fim
+ * deste arquivo, e ela está toda em zero. Rollback de piso é apagar um módulo daquela lista —
+ * sem migration, sem deploy de banco.
+ *
+ * ## Por que `authorization` mora aqui
+ *
+ * "Quais contas alcançam operação sensível" (design.md D9) é DERIVADO deste registro, não uma
+ * segunda lista: duas listas sobre o mesmo assunto se contradizem em silêncio. Cada operação
+ * classificada declara o requisito de autorização que a fn aplica HOJE — lido do código dela,
+ * não do que seria desejável — e `assuranceReachability()` projeta isso em pares (módulo, nível)
+ * que `isProtectedAccount` de `@iefa/pbac` consome.
+ *
+ * @domain app
+ */
+
+import { type AssuranceReachability, type AssuranceRequirement, NO_ASSURANCE } from "@iefa/pbac"
+import type { AppModule } from "@iefa/sisub-domain/types"
+
+/** Grau de garantia de identidade exigido por uma operação. */
+export type AssuranceLevel = "none" | "session" | "fresh"
+
+/**
+ * Requisito de autorização que a server function aplica hoje.
+ *
+ * As três formas existem porque as três estão no código, e achatá-las em "módulo + nível"
+ * obrigaria a INVENTAR um gate onde não há — e a derivação de conta protegida passaria a
+ * mentir sobre o que o app faz.
+ */
+export type AssuranceAuthorization =
+	/** Exige módulo + nível do PBAC. É o único caso que separa uma conta de outra. */
+	| {
+			kind: "permission"
+			module: AppModule
+			level: 1 | 2 | 3
+			/**
+			 * Observação sobre COMO o escopo é resolvido, quando isso não é óbvio pela assinatura
+			 * da fn (payload que só traz um id e obriga a ler a unidade da linha, p. ex.).
+			 * Documental: não participa da derivação de conta protegida.
+			 */
+			note?: string
+	  }
+	/** Age só sobre a conta do próprio chamador — qualquer sessão alcança, nenhuma se distingue. */
+	| { kind: "self"; note: string }
+	/** Só exige sessão válida. Sempre dívida: está aqui para ficar visível, não para virar padrão. */
+	| { kind: "authenticated"; note: string }
+
+/**
+ * `reason` é obrigatório quando há exigência porque é o texto que o usuário LÊ no modal de
+ * elevação. Sem ele o modal pediria 6 dígitos sem dizer para quê — e é assim que se treina
+ * alguém a digitar código sem ler o motivo, que é o contrário do controle.
+ */
+export type AssuranceEntry =
+	| { require: "none" }
+	| {
+			require: "session" | "fresh"
+			/** Frase em português, exibida no modal de elevação. Descreve a OPERAÇÃO, não a regra. */
+			reason: string
+			/** O que a fn exige hoje para autorizar. Alimenta `assuranceReachability()`. */
+			authorization: readonly AssuranceAuthorization[]
+	  }
+
+/**
+ * `createMcpKeyFn` cria a chave do PRÓPRIO chamador (`ctx.userId`), e a chave herda as
+ * permissões do dono sem ampliar nenhuma. Ela é `fresh` porque uma chave é credencial
+ * de prazo longo sem senha e sem segundo fator (design.md D11) — mas não distingue contas:
+ * contá-la na derivação de conta protegida tornaria os ~800 comensais "contas protegidas"
+ * e esvaziaria o critério.
+ */
+const SELF_SCOPED_NOTE = "Age apenas sobre a conta do próprio chamador (`ctx.userId`); a chave herda as permissões do dono e não amplia nenhuma."
+
+/**
+ * Cadastro e remoção de fator são classificados pelo LOG, não por piso.
+ *
+ * A spec de auditoria manda registrar cadastro e remoção de fator como evento de segurança, e
+ * neste repo quem grava é o envelope — que só grava operação classificada. Daí a entrada
+ * `"session"`: ela descreve a garantia da sessão no momento em que a linha é escrita (o
+ * `verify` acabou de produzir AAL2; o `unenroll` só roda em AAL2, por exigência do GoTrue).
+ *
+ * O piso NÃO é repassado a guard nenhum em `mfa.fn.ts`, e não pode ser: exigir AAL2 ANTES de
+ * verificar o primeiro fator trancaria toda conta sem fator fora do cadastro. Quem aplica o
+ * piso destas duas operações é o próprio GoTrue. Como `self`, elas também não entram na
+ * derivação de conta protegida — qualquer sessão alcança a própria conta.
+ */
+/**
+ * Códigos de recuperação agem só sobre a própria conta — e por isso, como as fns de fator,
+ * não entram na derivação de conta protegida: qualquer sessão alcança a conta dela mesma.
+ *
+ * A EMISSÃO é `fresh` pelo mesmo motivo da chave MCP: dez códigos que removem o segundo
+ * fator são dez credenciais permanentes, sem senha e sem fator (design.md D11). O CONSUMO é
+ * classificado pelo LOG e por nada mais — exigir garantia de identidade para consumir um
+ * código de recuperação seria pedir o segundo fator a quem acabou de perdê-lo, que é o
+ * impasse exato que o código existe para resolver. `consumeRecoveryCode` (o domínio) nem
+ * aceita `AssuranceRequirement`: a impossibilidade é estrutural, não disciplina de quem chama.
+ */
+const RECOVERY_SELF_SCOPED_NOTE =
+	"Age apenas sobre os códigos e os fatores da conta do próprio chamador (`ctx.userId`); o consumo roda em AAL1 por definição e não é gated por garantia."
+
+const MFA_SELF_SCOPED_NOTE =
+	"Age apenas sobre os fatores da conta do próprio chamador; o piso real é o do GoTrue (`unenroll` exige AAL2) e não é repassado pelo registro."
+
+/**
+ * As fns de `arp.fn.ts` chamavam só `requireAuth()` até a correção de autorização que este
+ * mesmo levantamento provocou: qualquer sessão autenticada registrava empenho em qualquer
+ * unidade e anulava qualquer empenho do sistema. Hoje as quatro exigem `unit` nível 2, e nas
+ * que recebem apenas um id (`syncArpBalanceFn`, `anularEmpenhoFn`) a unidade sai da LINHA,
+ * nunca do input. O registro grava o que o código faz — e agora o código faz isto.
+ */
+const ARP_UNIT_SCOPE_NOTE = "Escopo de unidade lido da linha quando o payload só traz um id (`arp.fn.ts`)."
+
+/**
+ * Classificação por server function. Entrada nova nasce `{ require: "none" }`; subir o grau é
+ * decisão de revisão, com o `reason` que o usuário vai ler.
+ *
+ * ### Operações classificadas que AINDA NÃO EXISTEM como server function
+ *
+ * O desenho (D2) lista seis operações `fresh`. Quatro já existem e estão abaixo; duas não têm
+ * server function hoje e entram junto com o código que as criar:
+ *
+ * - **Concessão de acesso a parceiro externo (GS1)** — não é fn própria: o acesso do parceiro é
+ *   concedido pelo console de permissões, com prazo (`expires_at`), por `createUserPermissionFn`
+ *   / `updateUserPermissionFn`, que já estão classificadas como `fresh`. Se um dia virar fluxo
+ *   próprio, a fn nova entra aqui, `fresh`.
+ * - **Exportação de dado nominal** — não existe server fn de mutação que exporte dado nominal.
+ *   `exportCatmatCsvFn` (`stock-reports.fn.ts`) é GET e exporta catálogo de estoque por CATMAT,
+ *   sem pessoa nenhuma. Quando a exportação nominal existir, ela entra aqui como `fresh` — e,
+ *   por ser uma ação explícita de exportação, é a exceção prevista em D3 a "só POST é gated".
+ * - **Remoção de MFA de terceiro** — ENTREGUE na etapa 7: `resetUserMfaFn`
+ *   (`mfa-admin.fn.ts`), classificada abaixo. É a única `fresh` cujo piso o próprio guard da
+ *   fn aplica sobre o ADMINISTRADOR e não sobre o dono do dado.
+ */
+export const ASSURANCE_REGISTRY = {
+	// ── analytics-chat.fn.ts
+	createChatSessionFn: { require: "none" },
+	renameChatSessionFn: { require: "none" },
+	deleteChatSessionFn: { require: "none" },
+	saveChatMessageFn: { require: "none" },
+	updateMessageChartTypeFn: { require: "none" },
+
+	// ── arp.fn.ts
+	importArpItemsFn: { require: "none" },
+	syncArpBalanceFn: { require: "none" },
+	createEmpenhoFn: {
+		require: "session",
+		reason: "Esta operação registra um empenho.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	anularEmpenhoFn: {
+		require: "session",
+		reason: "Esta operação anula um empenho.",
+		authorization: [{ kind: "permission", module: "unit", level: 2, note: ARP_UNIT_SCOPE_NOTE }],
+	},
+
+	// ── ata.fn.ts
+	calculateAtaNeedsFn: { require: "none" },
+	createAtaDraftFn: { require: "none" },
+	updateAtaDraftFn: { require: "none" },
+	saveAtaDraftItemsFn: { require: "none" },
+	finalizeAtaDraftFn: { require: "none" },
+	createAtaFn: { require: "none" },
+	updateAtaStatusFn: { require: "none" },
+	updateAtaItemPricesFn: { require: "none" },
+	updateAtaItemDescriptionFn: { require: "none" },
+	deleteAtaFn: { require: "none" },
+
+	// ── budget.fn.ts
+	applyCreditBatchFn: {
+		require: "session",
+		reason: "Esta operação aplica um lote de crédito orçamentário.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+
+	// ── compras-sync.fn.ts
+	triggerSyncFn: { require: "none" },
+	stopSyncFn: { require: "none" },
+
+	// ── empenho.fn.ts
+	updateEmpenhoClassificationFn: {
+		require: "session",
+		reason: "Esta operação altera a classificação orçamentária de um empenho.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	registerEmpenhoEventFn: {
+		require: "session",
+		reason: "Esta operação registra um evento de empenho (reforço, anulação, cancelamento).",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	inscribeRestosAPagarFn: {
+		require: "session",
+		reason: "Esta operação inscreve empenhos em restos a pagar.",
+		authorization: [{ kind: "permission", module: "unit", level: 3 }],
+	},
+
+	// ── equipment.fn.ts
+	createEquipmentRoleFn: { require: "none" },
+	updateEquipmentRoleFn: { require: "none" },
+	deleteEquipmentRoleFn: { require: "none" },
+	createEquipmentModelFn: { require: "none" },
+	updateEquipmentModelFn: { require: "none" },
+	deleteEquipmentModelFn: { require: "none" },
+	createEquipmentUnitFn: { require: "none" },
+	updateEquipmentUnitFn: { require: "none" },
+	deleteEquipmentUnitFn: { require: "none" },
+	saveRecipeEquipmentFn: { require: "none" },
+	setUtensilRoleFn: { require: "none" },
+	reportEquipmentIssueFn: { require: "none" },
+	updateEquipmentIssueFn: { require: "none" },
+	createMaintenancePlanFn: { require: "none" },
+	updateMaintenancePlanFn: { require: "none" },
+	deleteMaintenancePlanFn: { require: "none" },
+	logMaintenanceFn: { require: "none" },
+
+	// ── evaluation.fn.ts
+	upsertEvalConfigFn: { require: "none" },
+	submitEvaluationFn: { require: "none" },
+
+	// ── forecast.fn.ts
+	persistDefaultMessHallFn: { require: "none" },
+	upsertForecastFn: { require: "none" },
+	deleteForecastFn: { require: "none" },
+
+	// ── frozen_preparation.fn.ts
+	createFrozenPreparationFn: { require: "none" },
+	updateFrozenPreparationFn: { require: "none" },
+	deleteFrozenPreparationFn: { require: "none" },
+
+	// ── gtin-specification.fn.ts
+	verifyGtinAgainstPurchaseItemFn: { require: "none" },
+
+	// ── gtin.fn.ts
+	attachGtinToIngredientItemFn: { require: "none" },
+
+	// ── ingredients.fn.ts
+	setIngredientNutrientsFn: { require: "none" },
+	setIngredientNutritionReferenceFn: { require: "none" },
+	createFolderFn: { require: "none" },
+	updateFolderFn: { require: "none" },
+	deleteFolderFn: { require: "none" },
+	restoreFolderFn: { require: "none" },
+	createIngredientFn: { require: "none" },
+	updateIngredientFn: { require: "none" },
+	deleteIngredientFn: { require: "none" },
+	restoreIngredientFn: { require: "none" },
+	createIngredientItemFn: { require: "none" },
+	updateIngredientItemFn: { require: "none" },
+	deleteIngredientItemFn: { require: "none" },
+	saveIngredientDetailsFn: { require: "none" },
+	recordIngredientVersionFn: { require: "none" },
+	restoreIngredientVersionFn: { require: "none" },
+	recordIngredientReviewFn: { require: "none" },
+	recordFolderReviewFn: { require: "none" },
+
+	// ── kitchen-draft.fn.ts
+	createKitchenDraftFn: { require: "none" },
+	updateKitchenDraftFn: { require: "none" },
+	sendKitchenDraftFn: { require: "none" },
+	deleteKitchenDraftFn: { require: "none" },
+
+	// ── kitchen-settings.fn.ts
+	updateKitchenSettingsFn: { require: "none" },
+
+	// ── legal.fn.ts
+	acknowledgeLegalDocumentsFn: { require: "none" },
+
+	// ── liquidation.fn.ts
+	createLiquidacaoFn: {
+		require: "session",
+		reason: "Esta operação registra uma liquidação.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	createPagamentoFn: { require: "session", reason: "Esta operação registra um pagamento.", authorization: [{ kind: "permission", module: "unit", level: 2 }] },
+
+	// ── mcp-keys.fn.ts
+	createMcpKeyFn: {
+		require: "fresh",
+		reason: "Esta operação cria uma chave de API que age em seu nome, sem senha e sem segundo fator.",
+		authorization: [{ kind: "self", note: SELF_SCOPED_NOTE }],
+	},
+	revokeMcpKeyFn: { require: "none" },
+	deleteMcpKeyFn: { require: "none" },
+
+	// ── meal-types.fn.ts
+	createMealTypeFn: { require: "none" },
+	updateMealTypeFn: { require: "none" },
+	deleteMealTypeFn: { require: "none" },
+	restoreMealTypeFn: { require: "none" },
+
+	// ── messhall.fn.ts
+	addOtherPresenceFn: { require: "none" },
+
+	// ── mfa-admin.fn.ts
+	/**
+	 * O piso `fresh` aqui recai sobre o ADMINISTRADOR, e é o ponto do desenho em que ele
+	 * prova a própria identidade para apagar a de outra pessoa (design.md D10). `admin` nível
+	 * 3 — e não o 2 das concessões de permissão — porque remover o segundo fator de alguém
+	 * desconecta o titular de tudo e não tem desfazer.
+	 */
+	resetUserMfaFn: {
+		require: "fresh",
+		reason: "Esta operação remove o segundo fator de outra pessoa e a desconecta de todas as sessões.",
+		authorization: [{ kind: "permission", module: "admin", level: 3 }],
+	},
+
+	// ── mfa-recovery.fn.ts
+	generateRecoveryCodesFn: {
+		require: "fresh",
+		reason: "Esta operação emite códigos que removem a verificação em duas etapas da sua conta.",
+		authorization: [{ kind: "self", note: RECOVERY_SELF_SCOPED_NOTE }],
+	},
+	consumeRecoveryCodeFn: {
+		require: "session",
+		reason: "Esta operação remove a verificação em duas etapas da sua conta com um código de recuperação.",
+		authorization: [{ kind: "self", note: RECOVERY_SELF_SCOPED_NOTE }],
+	},
+
+	// ── mfa.fn.ts
+	startMfaEnrollmentFn: { require: "none" },
+	verifyMfaEnrollmentFn: {
+		require: "session",
+		reason: "Esta operação cadastra um dispositivo de verificação em duas etapas na sua conta.",
+		authorization: [{ kind: "self", note: MFA_SELF_SCOPED_NOTE }],
+	},
+	cancelMfaEnrollmentFn: { require: "none" },
+	unenrollMfaFactorFn: {
+		require: "session",
+		reason: "Esta operação remove um dispositivo de verificação em duas etapas da sua conta.",
+		authorization: [{ kind: "self", note: MFA_SELF_SCOPED_NOTE }],
+	},
+	verifyMfaChallengeFn: { require: "none" },
+	signOutOtherSessionsFn: { require: "none" },
+
+	// ── module-chat.fn.ts
+	createModuleChatSessionFn: { require: "none" },
+	renameModuleChatSessionFn: { require: "none" },
+	deleteModuleChatSessionFn: { require: "none" },
+	saveModuleChatMessageFn: { require: "none" },
+
+	// ── nfe.fn.ts
+	uploadNfeFn: { require: "none" },
+	runNfeMatchingFn: { require: "none" },
+	resolveNfeItemFn: { require: "none" },
+
+	// ── nutrition-sync.fn.ts
+	triggerNutritionSyncFn: { require: "none" },
+	stopNutritionSyncFn: { require: "none" },
+
+	// ── permissions.fn.ts
+	createUserPermissionFn: {
+		require: "fresh",
+		reason: "Esta operação concede permissões de acesso a um usuário.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	updateUserPermissionFn: {
+		require: "fresh",
+		reason: "Esta operação altera permissões de acesso de um usuário.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	deleteUserPermissionFn: {
+		require: "fresh",
+		reason: "Esta operação revoga permissões de acesso de um usuário.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+
+	// ── places.fn.ts
+	updatePlacesEntityFn: { require: "none" },
+	applyPlacesDiffFn: { require: "none" },
+
+	// ── planning.fn.ts
+	upsertDailyMenuFn: { require: "none" },
+	addMenuItemFn: { require: "none" },
+	updateMenuItemFn: { require: "none" },
+	removeMenuItemFn: { require: "none" },
+	restoreMenuItemFn: { require: "none" },
+	updateHeadcountFn: { require: "none" },
+	updateSubstitutionsFn: { require: "none" },
+
+	// ── policies.fn.ts
+	createPolicyFn: {
+		require: "fresh",
+		reason: "Esta operação cria uma política de acesso.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	updatePolicyFn: {
+		require: "fresh",
+		reason: "Esta operação altera uma política de acesso.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	deletePolicyFn: {
+		require: "fresh",
+		reason: "Esta operação apaga uma política de acesso e revoga o que ela concedia.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	addPolicyStatementFn: {
+		require: "fresh",
+		reason: "Esta operação amplia o que uma política de acesso concede.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	updatePolicyStatementFn: {
+		require: "fresh",
+		reason: "Esta operação altera o que uma política de acesso concede.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	removePolicyStatementFn: {
+		require: "fresh",
+		reason: "Esta operação reduz o que uma política de acesso concede.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	attachPolicyFn: {
+		require: "fresh",
+		reason: "Esta operação concede a um usuário todas as permissões de uma política.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	detachPolicyFn: {
+		require: "fresh",
+		reason: "Esta operação revoga de um usuário as permissões de uma política.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+
+	// ── policy.fn.ts
+	createPolicyRuleFn: { require: "none" },
+	updatePolicyRuleFn: { require: "none" },
+	deletePolicyRuleFn: { require: "none" },
+
+	// ── presence.fn.ts
+	insertPresenceFn: { require: "none" },
+	deletePresenceFn: { require: "none" },
+
+	// ── price-research.fn.ts
+	savePrecoAuditFn: { require: "none" },
+
+	// ── production-issue.fn.ts
+	confirmIssueFn: { require: "none" },
+	registerLeftoverFn: { require: "none" },
+
+	// ── production.fn.ts
+	ensureProductionTasksFn: { require: "none" },
+	updateProductionTaskStatusFn: { require: "none" },
+	updateProductionTaskRecordFn: { require: "none" },
+	adjustProductionPortionsFn: { require: "none" },
+	recordProductionSubstitutionFn: { require: "none" },
+
+	// ── purchase_item.fn.ts
+	createPurchaseItemFn: { require: "none" },
+	updatePurchaseItemFn: { require: "none" },
+	deletePurchaseItemFn: { require: "none" },
+	upsertPurchaseItemIngredientFn: { require: "none" },
+	deletePurchaseItemIngredientFn: { require: "none" },
+	setDefaultPurchaseItemIngredientFn: { require: "none" },
+
+	// ── receiving.fn.ts
+	createReceiptFromNfeFn: { require: "none" },
+	updateReceiptItemFn: { require: "none" },
+	upsertReceiptLotFn: { require: "none" },
+	deleteReceiptLotFn: { require: "none" },
+	setReceiptProvisionalFn: { require: "none" },
+	finalizeReceiptFn: { require: "none" },
+
+	// ── recipe-flow.fn.ts
+	saveRecipeFlowFn: { require: "none" },
+	createStepTemplateFn: { require: "none" },
+	createUtensilFn: { require: "none" },
+
+	// ── recipes.fn.ts
+	createRecipeFn: { require: "none" },
+	saveRecipeEditFn: { require: "none" },
+	deleteRecipeFn: { require: "none" },
+	restoreRecipeFn: { require: "none" },
+	renameRecipeFn: { require: "none" },
+	createRecipeFolderFn: { require: "none" },
+	renameRecipeFolderFn: { require: "none" },
+	deleteRecipeFolderFn: { require: "none" },
+	setRecipeFolderFn: { require: "none" },
+	recordRecipeReviewFn: { require: "none" },
+
+	// ── reconciliation.fn.ts
+	applyDocumentBatchFn: {
+		require: "session",
+		reason: "Esta operação aplica um lote de documentos do SIAFI à conciliação.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+	resolveDivergenceFn: {
+		require: "session",
+		reason: "Esta operação resolve uma divergência de conciliação.",
+		authorization: [{ kind: "permission", module: "unit", level: 2 }],
+	},
+
+	// ── siafi-import.fn.ts
+	uploadSiafiReportFn: { require: "none" },
+
+	// ── stock-reports.fn.ts
+	closeMonthFn: { require: "none" },
+
+	// ── stock.fn.ts
+	createAdjustmentFn: { require: "none" },
+	createTransferFn: { require: "none" },
+	createInventoryCountFn: { require: "none" },
+	upsertCountItemFn: { require: "none" },
+	confirmInventoryCountFn: { require: "none" },
+
+	// ── supply-order.fn.ts
+	createSupplyOrderFn: { require: "none" },
+	cancelSupplyOrderFn: { require: "none" },
+
+	// ── templates.fn.ts
+	createTemplateFn: { require: "none" },
+	createBlankTemplateFn: { require: "none" },
+	forkTemplateFn: { require: "none" },
+	saveTemplateEditFn: { require: "none" },
+	deleteTemplateFn: { require: "none" },
+	restoreTemplateFn: { require: "none" },
+	applyEventTemplateFn: { require: "none" },
+	applyTemplateFn: { require: "none" },
+
+	// ── training.fn.ts
+	resetTrainingScopeFn: {
+		require: "fresh",
+		reason: "Esta operação apaga e recria todos os dados do ambiente de treino.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+
+	// ── unit-settings.fn.ts
+	updateUnitSettingsFn: { require: "none" },
+
+	// ── user.fn.ts
+	syncUserNrOrdemFn: { require: "none" },
+	syncUserEmailFn: { require: "none" },
+
+	// ── workforce.fn.ts
+	saveWorkforceSubmissionFn: { require: "none" },
+	addWorkforceNoteFn: { require: "none" },
+	deleteWorkforceNoteFn: { require: "none" },
+	createWorkforceSurveyFn: { require: "none" },
+	closeWorkforceSurveyFn: { require: "none" },
+	createRanchoFn: { require: "none" },
+	updateRanchoFn: { require: "none" },
+} as const satisfies Record<string, AssuranceEntry>
+
+/** Nome de toda server function de mutação classificada. */
+export type AssuranceOperationName = keyof typeof ASSURANCE_REGISTRY
+
+/** Entrada do registro, ou `undefined` se a operação não estiver classificada. */
+export function assuranceFor(operation: string): AssuranceEntry | undefined {
+	return (ASSURANCE_REGISTRY as Record<string, AssuranceEntry>)[operation]
+}
+
+/** Operações com exigência de garantia (`session` ou `fresh`), com o nome de cada uma. */
+export function classifiedOperations(): { operation: AssuranceOperationName; entry: Extract<AssuranceEntry, { require: "session" | "fresh" }> }[] {
+	return Object.entries(ASSURANCE_REGISTRY)
+		.filter(([, entry]) => entry.require !== "none")
+		.map(([operation, entry]) => ({
+			operation: operation as AssuranceOperationName,
+			entry: entry as Extract<AssuranceEntry, { require: "session" | "fresh" }>,
+		}))
+}
+
+/**
+ * Pares (módulo, nível) que alcançam alguma operação classificada — a entrada de
+ * `isProtectedAccount` de `@iefa/pbac`.
+ *
+ * Guarda o MENOR nível por módulo: se `unit` nível 2 já alcança uma liquidação, exigir 3 na
+ * derivação deixaria de fora justamente o operador que a mudança existe para proteger.
+ *
+ * `self` e `authenticated` ficam de fora de propósito — são alcançadas por qualquer sessão e
+ * portanto não separam uma conta de outra. Incluí-las marcaria os ~800 comensais como contas
+ * protegidas, o que é o mesmo que não ter critério.
+ */
+export function assuranceReachability(): AssuranceReachability[] {
+	const lowestByModule = new Map<AppModule, number>()
+
+	for (const { entry } of classifiedOperations()) {
+		for (const requirement of entry.authorization) {
+			if (requirement.kind !== "permission") continue
+			const current = lowestByModule.get(requirement.module)
+			if (current === undefined || requirement.level < current) lowestByModule.set(requirement.module, requirement.level)
+		}
+	}
+
+	return [...lowestByModule].map(([module, level]) => ({ module, level })).sort((a, b) => a.module.localeCompare(b.module))
+}
+
+// ── Piso EFETIVO: o que o guard aplica hoje ──────────────────────────────────
+/**
+ * Alcance de um grau: em QUE parte do sistema o piso daquele grau já está valendo.
+ *
+ * A granularidade é (grau × população), e não uma chave geral, porque a adoção do segundo
+ * fator acontece por grupo de pessoas e não por data de deploy. Uma chave booleana só
+ * permitiria duas posições — "ninguém é barrado" e "todo mundo é barrado" —, e a segunda
+ * exigiria que as dezenas de operadores de execução orçamentária, os administradores e
+ * quem cria chave de API tivessem cadastrado fator no MESMO dia. Não vai acontecer, e a
+ * saída, quando não acontecesse, seria desligar tudo de novo.
+ */
+export interface AssuranceEnforcementScope {
+	/**
+	 * Módulos PBAC cujas operações classificadas com este grau já exigem o piso.
+	 *
+	 * Lista explícita, sem curinga: ligar o `admin` não pode arrastar o `unit` junto por
+	 * distração. O módulo sai do `authorization` da própria entrada do registro — é o mesmo
+	 * dado que `assuranceReachability()` projeta, então não há segunda lista para divergir.
+	 */
+	readonly modules: readonly AppModule[]
+	/**
+	 * Operações que agem só sobre a conta de quem chama (`self`) — e as que só exigem sessão
+	 * (`authenticated`, que é dívida e está no registro para ficar visível).
+	 *
+	 * Separadas dos módulos porque não têm módulo: `createMcpKeyFn`,
+	 * `generateRecoveryCodesFn`, `verifyMfaEnrollmentFn`, `unenrollMfaFactorFn` e
+	 * `consumeRecoveryCodeFn` são alcançadas por QUALQUER conta do sistema, inclusive os ~800
+	 * comensais. Ligar isto atinge todo mundo de uma vez — ver a ordem de ativação abaixo, e
+	 * em especial a armadilha do grau `session`.
+	 */
+	readonly accountScoped: boolean
+}
+
+export interface AssuranceEnforcementPolicy {
+	readonly session: AssuranceEnforcementScope
+	readonly fresh: AssuranceEnforcementScope
+}
+
+/**
+ * Chave do piso de garantia. **TUDO DESLIGADO** — e é assim que esta etapa termina.
+ *
+ * ## Por que a chave existe, se o registro acima já classifica tudo
+ *
+ * O registro entrou na etapa 2 já preenchido porque a AUDITORIA (D15) o consome: um registro
+ * todo em `"none"` não gravaria linha nenhuma, e a trilha de operações sensíveis não teria
+ * valor. Mas ligar o piso hoje barraria TODA operação classificada de TODO MUNDO: não existe
+ * uma única conta com segundo fator cadastrado no projeto. O sistema inteiro pararia de
+ * empenhar, liquidar e conceder permissão no deploy — e, pior, ninguém conseguiria satisfazer
+ * a exigência, porque o caminho de cadastro estaria do outro lado do gate.
+ *
+ * Então o eixo entra ligado nos pontos de autorização e **sem piso**: quem lê o piso é
+ * `enforcedAssuranceFor`, e ela devolve "nenhum" enquanto o alcance do grau não cobrir a
+ * operação.
+ *
+ * ## O que esta chave NÃO é
+ *
+ * Não é configuração em banco, e não pode virar uma: a especificação proíbe que configuração
+ * em runtime REDUZA a exigência definida em código. Piso ajustável em runtime é piso que
+ * alguém desliga às 23h de uma sexta para destravar um empenho. Aqui é constante, versionada,
+ * revisável em PR — e cada etapa da ativação é um diff de uma linha.
+ *
+ * ## ORDEM DE ATIVAÇÃO RECOMENDADA
+ *
+ * Cada passo só começa quando o painel de adoção (`/admin/mfa-adoption`) mostrar **zero**
+ * contas protegidas sem fator na população daquele passo. O painel é o pré-requisito, não o
+ * relatório: virar a chave sem ele é adivinhar quem vai ser trancado do lado de fora.
+ *
+ * | # | Diff                                        | Quem sente                                    | Por que nesta ordem |
+ * |---|---------------------------------------------|-----------------------------------------------|---------------------|
+ * | 1 | `fresh.modules: ["admin"]`                   | permissões, políticas, reset de treino, reset de MFA de terceiro — poucas dezenas de contas | É a população menor, a que entende o motivo e a que cadastra primeiro. E é a operação mais perigosa do sistema: quem concede permissão concede tudo o mais. |
+ * | 2 | `fresh.accountScoped: true`                  | chave MCP e emissão de códigos de recuperação — qualquer conta, mas só quem escolhe criar | Atinge toda a base, porém só em ação deliberada e rara; quem não tem fator recebe `nextStep: "enroll"` e cadastra ali mesmo, no modal. |
+ * | 3 | `session.modules: ["unit"]`                  | empenho, liquidação, pagamento, conciliação, crédito — dezenas de operadores | É o passo do dinheiro, e o de maior risco de operação parada. `session` custa zero prompt no turno (D2), mas exige que a conta TENHA fator: sem o passo 1 e sem o painel em zero, uma seção inteira para de liquidar numa terça de manhã. |
+ * | 4 | `fresh.modules: ["admin", …]` / demais módulos | conforme o registro crescer                   | Módulo novo com operação classificada entra aqui, nunca por curinga. |
+ *
+ * ## A armadilha do `session.accountScoped`
+ *
+ * **NÃO existe passo que ligue `session.accountScoped`.** As operações `session` de conta
+ * própria são `verifyMfaEnrollmentFn`, `unenrollMfaFactorFn` e `consumeRecoveryCodeFn` — as
+ * três classificadas para deixar linha no log, e nenhuma delas pode exigir AAL2 pelo registro:
+ *
+ * - `verifyMfaEnrollmentFn` é o que PRODUZ o AAL2. Exigi-lo antes tranca toda conta sem fator
+ *   fora do cadastro — o impasse exato que a chave existe para evitar.
+ * - `consumeRecoveryCodeFn` roda, por definição, em AAL1: quem usa código de recuperação é
+ *   quem acabou de perder o segundo fator. Exigi-lo é pedir a chave a quem a perdeu.
+ * - `unenrollMfaFactorFn` já exige AAL2 pelo GoTrue; repetir a exigência aqui só adiciona uma
+ *   forma de errar.
+ *
+ * Hoje `mfa.fn.ts` não repassa o piso a guard nenhum (e `mfa.contract.test.ts` verifica isso),
+ * então ligar a chave não teria efeito — mas a próxima pessoa a instrumentar esse arquivo não
+ * tem como saber disso, e é para ela que este parágrafo está escrito.
+ */
+export const ASSURANCE_ENFORCEMENT: AssuranceEnforcementPolicy = {
+	session: { modules: [], accountScoped: false },
+	fresh: { modules: [], accountScoped: false },
+}
+
+/**
+ * `true` quando o alcance do grau já cobre TODA a autorização declarada pela operação.
+ *
+ * `every`, e não `some`, de propósito: o piso é aplicado por OPERAÇÃO, não por chamador. Uma
+ * operação alcançável por `admin` **e** por `unit` passaria a barrar também o operador de
+ * `unit` se bastasse ligar `admin` — trancando gente de fora antes de a população dela ter
+ * cadastrado fator. Hoje toda entrada classificada tem exatamente uma autorização, então
+ * `every` e `some` coincidem; a diferença aparece no dia em que não coincidirem, que é
+ * exatamente o dia em que ninguém vai reler esta função.
+ */
+function isEnforced(entry: Extract<AssuranceEntry, { require: "session" | "fresh" }>): boolean {
+	const scope = ASSURANCE_ENFORCEMENT[entry.require]
+	// Entrada sem autorização declarada não é alcançável por ninguém em particular; ligar o
+	// piso por omissão seria o contrário do que a lista explícita de módulos garante.
+	if (entry.authorization.length === 0) return false
+
+	return entry.authorization.every((requirement) => (requirement.kind === "permission" ? scope.modules.includes(requirement.module) : scope.accountScoped))
+}
+
+/** Operações cujo piso está EFETIVAMENTE ligado agora. Vazio enquanto a chave não subir. */
+export function enforcedOperations(): AssuranceOperationName[] {
+	return classifiedOperations()
+		.filter(({ entry }) => isEnforced(entry))
+		.map(({ operation }) => operation)
+}
+
+/**
+ * Piso de garantia EFETIVAMENTE aplicado a uma operação, no formato que
+ * `assertAssurance`/`requireAssurance` consomem.
+ *
+ * Fonte única: o grau e o `reason` saem do `ASSURANCE_REGISTRY` acima, nunca redigitados no
+ * ponto de chamada. Operação fora do registro devolve "nenhum" em vez de lançar porque este
+ * caminho roda DENTRO da requisição do usuário — quem reprova nome não classificado é o
+ * contrato de `assurance-registry.contract.test.ts`, na suíte, onde a falha é barata.
+ */
+export function enforcedAssuranceFor(operation: string): AssuranceRequirement {
+	const entry = assuranceFor(operation)
+	if (!entry || entry.require === "none") return NO_ASSURANCE
+	if (!isEnforced(entry)) return NO_ASSURANCE
+	return { require: entry.require, reason: entry.reason }
+}

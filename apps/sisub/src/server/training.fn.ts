@@ -10,6 +10,7 @@
 
 import { fetchTrainingScope, ListTrainingResetsSchema, listTrainingResets, resetTrainingScope } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -28,5 +29,12 @@ export const fetchTrainingResetsFn = createServerFn({ method: "GET" })
 
 export const resetTrainingScopeFn = createServerFn({ method: "POST" }).handler(async () => {
 	const ctx = await requireAuth()
-	return resetTrainingScope(getDb(), ctx).catch(handleDomainError)
+	// O escopo do treino é fixo (uma unidade, uma cozinha, um refeitório): o alvo é a
+	// execução, e é por ela que se chega ao que foi apagado em `kitchen.training_reset_log`.
+	return withSensitiveAudit(
+		"resetTrainingScopeFn",
+		ctx,
+		(assurance) => resetTrainingScope(getDb(), ctx, assurance),
+		(result) => ({ resetId: result.reset_id })
+	).catch(handleDomainError)
 })

@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { listEmpenhosFn } from "@/server/empenho.fn"
 import { createLiquidacaoFn, listLiquidacoesFn } from "@/server/liquidation.fn"
 
@@ -33,6 +35,8 @@ function LiquidationsPage() {
 	const { unitId } = Route.useParams()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
+	// `createLiquidacaoFn` é `"session"` no registro de garantia (`unit` nível 2).
+	const runAssured = useAssuredAction()
 	const [empenhoId, setEmpenhoId] = useState("")
 	const [numeroNs, setNumeroNs] = useState("")
 	const [data, setData] = useState(new Date().toISOString().substring(0, 10))
@@ -45,13 +49,14 @@ function LiquidationsPage() {
 		if (!empenhoId || !numeroNs || !valor) return
 		setBusy(true)
 		try {
-			await createLiquidacaoFn({ data: { unitId: Number(unitId), empenhoId, numeroNs, data, valor: Number(valor) } })
+			await runAssured(() => createLiquidacaoFn({ data: { unitId: Number(unitId), empenhoId, numeroNs, data, valor: Number(valor) } }))
 			toast.success("Liquidação registrada")
 			setNumeroNs("")
 			setValor("")
 			router.invalidate()
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Falha ao registrar liquidação")
+			// Desistir da confirmação de identidade não é falha: o formulário continua preenchido.
+			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao registrar liquidação")
 		} finally {
 			setBusy(false)
 		}

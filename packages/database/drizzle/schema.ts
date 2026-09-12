@@ -419,6 +419,7 @@ export const mcpApiKeysInAccessControl = accessControl.table("mcp_api_keys", {
 	isActive: boolean("is_active").default(true).notNull(),
 	lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).default(sql`(now() + '90 days'::interval)`).notNull(),
 }, (table) => [
 	index("mcp_api_keys_hash_active_idx").using("btree", table.keyHash.asc().nullsLast().op("text_ops")).where(sql`(is_active = true)`),
 	foreignKey({
@@ -2712,4 +2713,83 @@ export const workforceNoteInKitchen = kitchen.table("workforce_note", {
 		}).onDelete("cascade"),
 	check("workforce_note_kind_check", sql`kind = ANY (ARRAY['outsourced'::text, 'leave'::text, 'reassigned'::text, 'shared'::text, 'scope'::text, 'change'::text, 'counting'::text, 'other'::text])`),
 	check("workforce_note_quantity_check", sql`(quantity IS NULL) OR (quantity >= 0)`),
+]);
+
+// ─── MFA e auditoria de operação sensível ────────────────────────────────────
+//
+// PONTE TEMPORÁRIA, mesmo caso das tabelas de política acima. Escritas à mão em
+// paridade com 20260911120000_access_control_sensitive_operation_log.sql,
+// 20260911120100_access_control_mfa_recovery_code.sql e
+// 20260911120200_access_control_mfa_reset_log.sql, para que a camada de domínio
+// compile antes de as migrations serem aplicadas — o `bun run db:drizzle:pull`
+// exige `SISUB_DATABASE_URL` e o banco já com o DDL dentro. Assim que forem
+// aplicadas, o pull regenera estas definições a partir do banco vivo e estas
+// linhas são substituídas pelo que a introspecção produzir.
+
+export const sensitiveOperationLogInAccessControl = accessControl.table("sensitive_operation_log", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	/** Sessão real que executou. Nunca um id vindo do input do cliente. */
+	actorId: uuid("actor_id").notNull(),
+	/** Nome da server function classificada. */
+	operation: text().notNull(),
+	/** Grau de garantia exigido na execução: `session` ou `fresh`. */
+	assurance: text().notNull(),
+	/** Identificação do alvo (ids, escopo), no formato de cada operação. */
+	target: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("sensitive_operation_log_actor_created_idx").using("btree", table.actorId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("sensitive_operation_log_created_idx").using("btree", table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.actorId],
+			foreignColumns: [usersInAuth.id],
+			name: "sensitive_operation_log_actor_id_fkey"
+		}).onDelete("restrict"),
+	check("sensitive_operation_log_assurance_check", sql`assurance = ANY (ARRAY['session'::text, 'fresh'::text])`),
+]);
+
+export const mfaRecoveryCodeInAccessControl = accessControl.table("mfa_recovery_code", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	/** SHA-256 do código em claro, em hex — o padrão de `mcp_api_keys.key_hash`. */
+	codeHash: text("code_hash").notNull(),
+	/** NULL = disponível. Preenchido no consumo; a linha nunca volta a valer. */
+	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("mfa_recovery_code_user_unused_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops")).where(sql`(used_at IS NULL)`),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "mfa_recovery_code_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("mfa_recovery_code_code_hash_key").on(table.codeHash),
+	pgPolicy("mfa_recovery_code: owner read", { as: "permissive", for: "select", to: ["authenticated"], using: sql`((select auth.uid()) = user_id)` }),
+]);
+
+export const mfaResetLogInAccessControl = accessControl.table("mfa_reset_log", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	/** Quem ficou sem fator. */
+	targetUserId: uuid("target_user_id").notNull(),
+	/** Quem executou. No autoatendimento por código, é o próprio titular. */
+	performedBy: uuid("performed_by").notNull(),
+	/** `recovery-code` ou `admin-reset`. */
+	method: text().notNull(),
+	/** Justificativa. Obrigatória em `admin-reset` — exigida pela server fn. */
+	reason: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("mfa_reset_log_target_created_idx").using("btree", table.targetUserId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("mfa_reset_log_performed_by_created_idx").using("btree", table.performedBy.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.targetUserId],
+			foreignColumns: [usersInAuth.id],
+			name: "mfa_reset_log_target_user_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.performedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "mfa_reset_log_performed_by_fkey"
+		}).onDelete("restrict"),
+	check("mfa_reset_log_method_check", sql`method = ANY (ARRAY['recovery-code'::text, 'admin-reset'::text])`),
 ]);

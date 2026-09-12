@@ -13,10 +13,24 @@
  * em estado de erro e `data` permanece `undefined` (default do hook assume o controle).
  */
 
+import { AssuranceRequiredError } from "@iefa/pbac"
 import { DomainError, NotFoundError, PermissionDeniedError } from "@iefa/sisub-domain/types"
 import { setResponseStatus } from "@tanstack/react-start/server"
 
 export function handleDomainError(error: unknown): never {
+	// Garantia de identidade vem ANTES do ramo de permissão e é relançada INTEIRA: é o
+	// `nextStep` que diz à UI qual das três telas abrir (cadastrar fator, digitar o código,
+	// reelevar). Achatá-la num "Forbidden" de string transformaria "prove quem você é" em
+	// "acesso negado" — numa operação que a pessoa PODE fazer, que é o pior desfecho possível
+	// de um controle de segurança. 403 e não 401 de propósito: a sessão é válida, e um 401
+	// faria o interceptador de sessão expirada deslogar quem só precisava de 6 dígitos.
+	//
+	// O erro NÃO estende `DomainError` (o pacote `@iefa/pbac` é agnóstico de app), então sem
+	// este ramo ele cairia no `throw error` do final e viraria 500.
+	if (error instanceof AssuranceRequiredError) {
+		setResponseStatus(403)
+		throw error
+	}
 	if (error instanceof PermissionDeniedError) {
 		setResponseStatus(403)
 		throw new Error(error.message || "Forbidden")

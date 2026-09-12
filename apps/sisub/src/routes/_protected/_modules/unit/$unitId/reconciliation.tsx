@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { fetchPhysicalAccountingFn, fetchReconciliationFn, type ReconciliationRow, resolveDivergenceFn } from "@/server/reconciliation.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/reconciliation")({
@@ -41,6 +43,8 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 	const [open, setOpen] = useState(false)
 	const [justificativa, setJustificativa] = useState("")
 	const [busy, setBusy] = useState(false)
+	// `resolveDivergenceFn` é `"session"` no registro de garantia (`unit` nível 2).
+	const runAssured = useAssuredAction()
 	const meta = SITUACAO_META[row.situacao] ?? { label: row.situacao, className: "" }
 
 	async function resolve(decisao: "adotado_siafi" | "mantido_local") {
@@ -50,22 +54,25 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 		}
 		setBusy(true)
 		try {
-			await resolveDivergenceFn({
-				data: {
-					unitId: Number(unitId),
-					documentoTipo: row.documento_tipo as "ne" | "ns" | "ob",
-					numeroDocumento: row.numero_documento,
-					decisao,
-					justificativa: justificativa.trim() || undefined,
-					valorSisub: row.valor_sisub,
-					valorSiafi: row.valor_siafi,
-				},
-			})
+			await runAssured(() =>
+				resolveDivergenceFn({
+					data: {
+						unitId: Number(unitId),
+						documentoTipo: row.documento_tipo as "ne" | "ns" | "ob",
+						numeroDocumento: row.numero_documento,
+						decisao,
+						justificativa: justificativa.trim() || undefined,
+						valorSisub: row.valor_sisub,
+						valorSiafi: row.valor_siafi,
+					},
+				})
+			)
 			toast.success(decisao === "adotado_siafi" ? "Valor do SIAFI adotado" : "Valor local mantido com justificativa")
 			setOpen(false)
 			onResolved()
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Falha ao resolver divergência")
+			// Desistir da confirmação de identidade não é falha: a justificativa continua na tela.
+			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao resolver divergência")
 		} finally {
 			setBusy(false)
 		}

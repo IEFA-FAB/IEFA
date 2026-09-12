@@ -5,6 +5,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { SecuritySummaryCard } from "@/components/features/diner/SecuritySummaryCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -242,6 +243,11 @@ function ProfilePage() {
 						)}
 					</CardContent>
 				</Card>
+
+				{/* Segurança da conta — cartão discreto, nunca bloqueante (spec `mfa-enrollment`). */}
+				<div className="md:col-span-2">
+					<SecuritySummaryCard />
+				</div>
 			</div>
 		</div>
 	)

@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { type EmpenhoRow, fetchEmpenhoFn, inscribeRestosAPagarFn, listEmpenhosFn, registerEmpenhoEventFn } from "@/server/empenho.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/empenhos")({
@@ -49,6 +51,8 @@ function EmpenhoDetail({ empenhoId, onChanged }: { empenhoId: string; onChanged:
 	const [detail, setDetail] = useState<{ events: EmpenhoEvent[] } | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [busy, setBusy] = useState(false)
+	// `registerEmpenhoEventFn` é `"session"` no registro de garantia (`unit` nível 2).
+	const runAssured = useAssuredAction()
 	const [tipo, setTipo] = useState<"reforco" | "anulacao">("reforco")
 	const [valor, setValor] = useState("")
 	const [justificativa, setJustificativa] = useState("")
@@ -68,15 +72,17 @@ function EmpenhoDetail({ empenhoId, onChanged }: { empenhoId: string; onChanged:
 		}
 		setBusy(true)
 		try {
-			await registerEmpenhoEventFn({
-				data: {
-					empenhoId,
-					tipo,
-					valor: Number(valor),
-					data: new Date().toISOString().substring(0, 10),
-					justificativa: justificativa.trim(),
-				},
-			})
+			await runAssured(() =>
+				registerEmpenhoEventFn({
+					data: {
+						empenhoId,
+						tipo,
+						valor: Number(valor),
+						data: new Date().toISOString().substring(0, 10),
+						justificativa: justificativa.trim(),
+					},
+				})
+			)
 			toast.success(tipo === "reforco" ? "Reforço registrado" : "Anulação registrada")
 			setValor("")
 			setJustificativa("")
@@ -84,7 +90,9 @@ function EmpenhoDetail({ empenhoId, onChanged }: { empenhoId: string; onChanged:
 			setLoading(true)
 			onChanged()
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Falha ao registrar evento")
+			// Desistir da confirmação de identidade não é falha: o valor e a justificativa
+			// continuam na tela, e nada foi lançado.
+			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao registrar evento")
 		} finally {
 			setBusy(false)
 		}
@@ -209,6 +217,8 @@ function EmpenhosPage() {
 	const { unitId } = Route.useParams()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
+	// `inscribeRestosAPagarFn` é `"session"` no registro de garantia (`unit` nível 3).
+	const runAssured = useAssuredAction()
 
 	const totals = empenhos.reduce(
 		(acc, e) => ({
@@ -224,11 +234,11 @@ function EmpenhosPage() {
 		setBusy(true)
 		try {
 			const exercicio = new Date().getFullYear()
-			const result = await inscribeRestosAPagarFn({ data: { unitId: Number(unitId), exercicio } })
+			const result = await runAssured(() => inscribeRestosAPagarFn({ data: { unitId: Number(unitId), exercicio } }))
 			toast.success(`${result.inscritos} empenho(s) inscrito(s) em restos a pagar de ${exercicio}`)
 			router.invalidate()
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Falha ao inscrever RP")
+			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao inscrever RP")
 		} finally {
 			setBusy(false)
 		}

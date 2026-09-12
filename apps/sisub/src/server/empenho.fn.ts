@@ -13,6 +13,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -134,21 +135,36 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 		const fin = finance()
 		const { data: empenho } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
 		if (!empenho) throw new Error("Empenho não encontrado")
-		await requireUnitScope(2, Number(empenho.unit_id))
+		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
 
-		const { error } = await fin
-			.from("empenho")
-			.update({
-				tipo: data.tipo ?? null,
-				favorecido_cnpj: data.favorecidoCnpj ?? null,
-				favorecido_nome: data.favorecidoNome ?? null,
+		return withSensitiveAudit(
+			"updateEmpenhoClassificationFn",
+			ctx,
+			async () => {
+				const { error } = await fin
+					.from("empenho")
+					.update({
+						tipo: data.tipo ?? null,
+						favorecido_cnpj: data.favorecidoCnpj ?? null,
+						favorecido_nome: data.favorecidoNome ?? null,
+						nd: data.nd ?? null,
+						ptres: data.ptres ?? null,
+						fonte: data.fonte ?? null,
+						ug_emitente: data.ugEmitente ?? null,
+					})
+					.eq("id", data.empenhoId)
+				if (error) throw new Error(`Erro ao atualizar empenho: ${error.message}`)
+			},
+			// A classificação nova vai junto: o que muda AQUI é para onde a despesa é
+			// imputada, e sem ela a linha diria apenas que alguém mexeu no empenho.
+			() => ({
+				empenhoId: data.empenhoId,
+				unitId: Number(empenho.unit_id),
 				nd: data.nd ?? null,
 				ptres: data.ptres ?? null,
 				fonte: data.fonte ?? null,
-				ug_emitente: data.ugEmitente ?? null,
 			})
-			.eq("id", data.empenhoId)
-		if (error) throw new Error(`Erro ao atualizar empenho: ${error.message}`)
+		)
 	})
 
 /**
@@ -170,7 +186,8 @@ export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 		const fin = finance()
 		const { data: empenho } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
 		if (!empenho) throw new Error("Empenho não encontrado")
-		const { userId } = await requireUnitScope(2, Number(empenho.unit_id))
+		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
+		const { userId } = ctx
 
 		// anulação não pode derrubar o vigente abaixo do já liquidado
 		if (data.tipo !== "reforco") {
@@ -183,21 +200,28 @@ export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		const { error } = await fin.from("empenho_event").insert({
-			empenho_id: data.empenhoId,
-			tipo: data.tipo,
-			valor: data.valor,
-			data: data.data,
-			documento: data.documento?.trim() || null,
-			justificativa: data.justificativa.trim(),
-			created_by: userId,
-		})
-		if (error) throw new Error(`Erro ao registrar evento: ${error.message}`)
+		return withSensitiveAudit(
+			"registerEmpenhoEventFn",
+			ctx,
+			async () => {
+				const { error } = await fin.from("empenho_event").insert({
+					empenho_id: data.empenhoId,
+					tipo: data.tipo,
+					valor: data.valor,
+					data: data.data,
+					documento: data.documento?.trim() || null,
+					justificativa: data.justificativa.trim(),
+					created_by: userId,
+				})
+				if (error) throw new Error(`Erro ao registrar evento: ${error.message}`)
 
-		// cancelamento total também marca o status do documento
-		if (data.tipo === "cancelamento") {
-			await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
-		}
+				// cancelamento total também marca o status do documento
+				if (data.tipo === "cancelamento") {
+					await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
+				}
+			},
+			() => ({ empenhoId: data.empenhoId, unitId: Number(empenho.unit_id), tipo: data.tipo, valor: data.valor, data: data.data })
+		)
 	})
 
 /**
@@ -207,35 +231,45 @@ export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 export const inscribeRestosAPagarFn = createServerFn({ method: "POST" })
 	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireUnitScope(3, data.unitId)
+		const ctx = await requireUnitScope(3, data.unitId)
+		const { userId } = ctx
 		const fin = finance()
 
-		const { data: rows } = await fin
-			.from("empenho")
-			.select("id")
-			.eq("unit_id", data.unitId)
-			.eq("exercicio", data.exercicio)
-			.eq("status", "ativo")
-			.eq("rp_inscrito", false)
-		const ids = (rows ?? []).map((row: { id: string }) => row.id)
-		if (ids.length === 0) return { inscritos: 0 }
+		return withSensitiveAudit(
+			"inscribeRestosAPagarFn",
+			ctx,
+			async () => {
+				const { data: rows } = await fin
+					.from("empenho")
+					.select("id")
+					.eq("unit_id", data.unitId)
+					.eq("exercicio", data.exercicio)
+					.eq("status", "ativo")
+					.eq("rp_inscrito", false)
+				const ids = (rows ?? []).map((row: { id: string }) => row.id)
+				if (ids.length === 0) return { inscritos: 0 }
 
-		const saldos = await fetchSaldos(ids)
-		let inscritos = 0
-		for (const [empenhoId, saldo] of saldos) {
-			const tipo = saldo.saldo_a_liquidar > 0 ? "nao_processado" : saldo.valor_a_pagar > 0 ? "processado" : null
-			if (!tipo) continue
+				const saldos = await fetchSaldos(ids)
+				let inscritos = 0
+				for (const [empenhoId, saldo] of saldos) {
+					const tipo = saldo.saldo_a_liquidar > 0 ? "nao_processado" : saldo.valor_a_pagar > 0 ? "processado" : null
+					if (!tipo) continue
 
-			await fin.from("empenho").update({ rp_inscrito: true, rp_tipo: tipo, rp_exercicio: data.exercicio }).eq("id", empenhoId)
-			await fin.from("empenho_event").insert({
-				empenho_id: empenhoId,
-				tipo: "rp_inscricao",
-				valor: tipo === "nao_processado" ? saldo.saldo_a_liquidar : saldo.valor_a_pagar,
-				data: `${data.exercicio}-12-31`,
-				justificativa: `Inscrição em restos a pagar ${tipo === "nao_processado" ? "não-processados" : "processados"} do exercício ${data.exercicio}`,
-				created_by: userId,
-			})
-			inscritos++
-		}
-		return { inscritos }
+					await fin.from("empenho").update({ rp_inscrito: true, rp_tipo: tipo, rp_exercicio: data.exercicio }).eq("id", empenhoId)
+					await fin.from("empenho_event").insert({
+						empenho_id: empenhoId,
+						tipo: "rp_inscricao",
+						valor: tipo === "nao_processado" ? saldo.saldo_a_liquidar : saldo.valor_a_pagar,
+						data: `${data.exercicio}-12-31`,
+						justificativa: `Inscrição em restos a pagar ${tipo === "nao_processado" ? "não-processados" : "processados"} do exercício ${data.exercicio}`,
+						created_by: userId,
+					})
+					inscritos++
+				}
+				return { inscritos }
+			},
+			// A execução que não inscreveu nada também deixa linha: "o encerramento foi
+			// disparado e nada havia a inscrever" é uma resposta, ausência de linha não é.
+			(result) => ({ unitId: data.unitId, exercicio: data.exercicio, inscritos: result.inscritos })
+		)
 	})

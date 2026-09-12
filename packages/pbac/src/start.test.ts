@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import type { User } from "@supabase/supabase-js"
+import { AssuranceRequiredError } from "./errors.ts"
 
 /**
  * O módulo lê `getRequest`/`setResponseStatus` do TanStack Start. Aqui eles são
@@ -17,12 +18,21 @@ mock.module("@tanstack/react-start/server", () => ({
 	},
 }))
 
-const { createRequestAuth, forbidden, unauthorized } = await import("./start.ts")
+const { assuranceRequired, createRequestAuth, forbidden, unauthorized } = await import("./start.ts")
 
 const fakeUser = (id = "u-1") => ({ id, email: `${id}@fab.mil.br` }) as User
 
+/**
+ * Monta um access token de verdade (assinatura falsa — a leitura de claims é local e sem
+ * verificação, por decisão registrada em V3).
+ */
+function accessToken(payload: Record<string, unknown>): string {
+	const base64url = (value: string) => btoa(value).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")
+	return [base64url(JSON.stringify({ alg: "HS256" })), base64url(JSON.stringify(payload)), "assinatura-nao-verificada"].join(".")
+}
+
 /** Client de auth que conta quantas vezes o JWT foi validado de fato. */
-function authClientSpy(user: User | null, delayMs = 0) {
+function authClientSpy(user: User | null, delayMs = 0, accessTokenValue?: string) {
 	let calls = 0
 	return {
 		calls: () => calls,
@@ -33,6 +43,7 @@ function authClientSpy(user: User | null, delayMs = 0) {
 					if (delayMs) await new Promise((r) => setTimeout(r, delayMs))
 					return { data: { user } }
 				},
+				getSession: async () => ({ data: { session: accessTokenValue ? { access_token: accessTokenValue } : null } }),
 			},
 		}),
 	}
@@ -251,6 +262,157 @@ describe("helpers de status", () => {
 
 	test("forbidden sinaliza 403 e aceita mensagem própria", () => {
 		expect(() => forbidden("FORBIDDEN: journal")).toThrow("FORBIDDEN: journal")
+		expect(lastStatus).toBe(403)
+	})
+})
+
+describe("createRequestAuth — garantia de identidade no contexto", () => {
+	/** Contexto resolvido com um token de sessão arbitrário. */
+	async function contextFor(payload: Record<string, unknown> | null, user: User = fakeUser()) {
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(user, 0, payload ? accessToken(payload) : undefined).client,
+			getPermissionsClient: () => permissionsClient([{ module: "unit", level: 2 }]),
+		})
+		return auth.requireAuth()
+	}
+
+	test("sessão elevada popula aal, origem e o instante do fator", async () => {
+		const ctx = await contextFor({ sub: "u-1", aal: "aal2", amr: [{ method: "totp", timestamp: 1789137344 }] })
+		expect(ctx.aal).toBe(2)
+		expect(ctx.lastFactorAt).toBe(1789137344)
+		expect(ctx.origin).toBe("session")
+	})
+
+	test("refresh de token não renova a elevação", async () => {
+		const ctx = await contextFor({
+			sub: "u-1",
+			aal: "aal2",
+			amr: [
+				{ method: "token_refresh", timestamp: 1789199999 },
+				{ method: "totp", timestamp: 1789137344 },
+			],
+		})
+		expect(ctx.lastFactorAt).toBe(1789137344)
+	})
+
+	test("claim `aal` ausente vira AAL1", async () => {
+		const ctx = await contextFor({ sub: "u-1" })
+		expect(ctx.aal).toBe(1)
+		expect(ctx.lastFactorAt).toBeNull()
+	})
+
+	test("sem sessão legível o contexto fica no piso, sem lançar", async () => {
+		// Falha de leitura de claim rebaixa a garantia; ela NÃO derruba um request que a
+		// autenticação já aprovou.
+		const ctx = await contextFor(null)
+		expect(ctx.aal).toBe(1)
+		expect(ctx.userId).toBe("u-1")
+	})
+
+	test("token de OUTRO usuário é descartado — elevação não atravessa contas", async () => {
+		// Troca de conta numa aba paralela entre o getUser() e o getSession(). Ler a garantia
+		// do token errado atribuiria a elevação de um usuário a outro.
+		const ctx = await contextFor({ sub: "u-outro", aal: "aal2", amr: [{ method: "totp", timestamp: 1789137344 }] })
+		expect(ctx.aal).toBe(1)
+		expect(ctx.lastFactorAt).toBeNull()
+	})
+
+	test("o AAL vem do TOKEN, nunca do payload da server function", async () => {
+		// O cliente manda `aal: 2` no corpo da requisição de uma sessão AAL1. `requireAuth()`
+		// não recebe payload nenhum — é a razão estrutural de o cenário da spec ser
+		// impossível, e não uma checagem que alguém possa remover sem reprovar a suíte.
+		currentRequest = new Request("https://app.local/", {
+			method: "POST",
+			body: JSON.stringify({ aal: 2, amr: [{ method: "totp", timestamp: 1789199999 }] }),
+		})
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser(), 0, accessToken({ sub: "u-1" })).client,
+			getPermissionsClient: () => permissionsClient([{ module: "unit", level: 2 }]),
+		})
+		const ctx = await auth.requireAuth()
+		expect(ctx.aal).toBe(1)
+		expect(ctx.lastFactorAt).toBeNull()
+	})
+
+	test("só fator VERIFICADO conta como fator cadastrado", async () => {
+		const comFator = { ...fakeUser(), factors: [{ id: "f1", status: "verified" }] } as unknown as User
+		const semFator = { ...fakeUser(), factors: [{ id: "f1", status: "unverified" }] } as unknown as User
+		expect((await contextFor({ sub: "u-1" }, comFator)).hasVerifiedFactor).toBe(true)
+		expect((await contextFor({ sub: "u-1" }, semFator)).hasVerifiedFactor).toBe(false)
+	})
+})
+
+describe("createRequestAuth — piso de garantia nos gates", () => {
+	function authFor(payload: Record<string, unknown>) {
+		currentRequest = new Request("https://app.local/")
+		return createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser(), 0, accessToken(payload)).client,
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-4", level: 2 }]),
+		})
+	}
+
+	const FRESH = { require: "fresh", reason: "Esta operação altera permissões de acesso." } as const
+	const SESSION = { require: "session", reason: "Esta operação registra uma liquidação." } as const
+
+	test("sem o parâmetro, o gate é exatamente o de antes desta mudança", async () => {
+		const ctx = await authFor({ sub: "u-1" }).requireLevel("sucont-4", 2)
+		expect(ctx.userId).toBe("u-1")
+	})
+
+	test("piso `session` barra sessão AAL1 e sinaliza 403", async () => {
+		const auth = authFor({ sub: "u-1" })
+		await auth.requireLevel("sucont-4", 2, undefined, SESSION).catch(() => {})
+		expect(lastStatus).toBe(403)
+		await expect(auth.requireLevel("sucont-4", 2, undefined, SESSION)).rejects.toThrow("Esta operação registra uma liquidação.")
+	})
+
+	test("piso `session` passa em sessão AAL2", async () => {
+		const auth = authFor({ sub: "u-1", aal: "aal2", amr: [{ method: "totp", timestamp: Math.floor(Date.now() / 1000) - 3600 }] })
+		const ctx = await auth.requireLevel("sucont-4", 2, undefined, SESSION)
+		expect(ctx.aal).toBe(2)
+	})
+
+	test("piso `fresh` rejeita elevação vencida", async () => {
+		const auth = authFor({ sub: "u-1", aal: "aal2", amr: [{ method: "totp", timestamp: Math.floor(Date.now() / 1000) - 40 * 60 }] })
+		const error = await auth.requireLevel("sucont-4", 2, undefined, FRESH).catch((e) => e)
+		expect(error.code).toBe("MFA_REQUIRED")
+		expect(error.nextStep).toBe("step-up")
+	})
+
+	test("sem permissão NÃO vira pedido de elevação", async () => {
+		// A ordem é o requisito: o gate de módulo/nível vem primeiro. Invertê-lo faria alguém
+		// sem permissão nenhuma receber um desafio de segundo fator por uma tela que ele não
+		// alcança — e ainda revelaria que a operação existe.
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser(), 0, accessToken({ sub: "u-1" })).client,
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-4", level: 1 }]),
+		})
+		await expect(auth.requireLevel("sucont-4", 2, undefined, FRESH)).rejects.toThrow("FORBIDDEN: sucont-4")
+	})
+
+	test("requireAnyLevel aplica o mesmo piso", async () => {
+		currentRequest = new Request("https://app.local/")
+		const auth = createRequestAuth({
+			getAuthClient: authClientSpy(fakeUser(), 0, accessToken({ sub: "u-1" })).client,
+			getPermissionsClient: () => permissionsClient([{ module: "sucont-3", level: 2 }]),
+		})
+		await expect(auth.requireAnyLevel(["sucont-3", "sucont-4"], 2, undefined, SESSION)).rejects.toThrow("Esta operação registra uma liquidação.")
+		const ctx = await auth.requireAnyLevel(["sucont-3", "sucont-4"], 2)
+		expect(ctx.userId).toBe("u-1")
+	})
+})
+
+describe("assuranceRequired", () => {
+	test("sinaliza 403 e preserva o erro tipado inteiro", () => {
+		const error = new AssuranceRequiredError({
+			nextStep: "step-up",
+			reason: "Esta operação altera permissões de acesso.",
+			grade: "fresh",
+			origin: "session",
+		})
+		expect(() => assuranceRequired(error)).toThrow(error)
 		expect(lastStatus).toBe(403)
 	})
 })

@@ -5,7 +5,8 @@ import { NotFoundError, PermissionDeniedError } from "../types/errors.ts"
 import { type AssetKind, authorizeAssetMutation, requireAssetWriteForScope, resolveAssetOwner } from "./asset-ownership.ts"
 
 function ctx(permissions: UserPermission[]): UserContext {
-	return { userId: "user-1", permissions }
+	// Eixo de garantia no piso: estes testes são de PERMISSÃO, e os dois eixos são ortogonais.
+	return { userId: "user-1", permissions, aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 function permission(overrides: Partial<UserPermission> = {}): UserPermission {

@@ -42,6 +42,7 @@ import {
 	McpError,
 	ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js"
+import { enforceToolAssurance } from "./assurance.ts"
 import { resolveCredential } from "./auth.ts"
 import { getDataClient } from "./supabase.ts"
 import { equipmentTools } from "./tools/equipment.ts"
@@ -84,6 +85,15 @@ export function createMcpServer(credential: string): Server {
 		if (!tool) {
 			throw new McpError(ErrorCode.MethodNotFound, `Tool não encontrada: ${name}`)
 		}
+
+		// Garantia de identidade ANTES do handler: nenhuma credencial do MCP satisfaz grau
+		// nenhum (ver `assurance.ts`), então tool classificada é tool que não executa aqui. O
+		// erro volta como resultado de tool — texto que o modelo lê e pelo qual corrige o
+		// rumo —, e não como McpError de protocolo, que o cliente mostraria como falha de
+		// conexão. Vem antes do `dropUnexpectedNulls` porque nada do argumento importa: a
+		// negativa não depende do que foi pedido.
+		const denied = await enforceToolAssurance(name, credential)
+		if (denied) return denied
 
 		// `null` que o schema da tool não previu é ausência — ver dropUnexpectedNulls.
 		const input = dropUnexpectedNulls(args as Record<string, unknown>, tool.schema.inputSchema)

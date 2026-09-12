@@ -37,9 +37,11 @@ import {
 	updatePolicyStatement,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { tryRevokeRecoveryCodesIfProtected } from "@/lib/mfa-recovery.server"
 
 export const fetchPoliciesFn = createServerFn({ method: "GET" })
 	.validator(ListPoliciesSchema)
@@ -90,54 +92,100 @@ export const createPolicyFn = createServerFn({ method: "POST" })
 	.validator(CreatePolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createPolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"createPolicyFn",
+			ctx,
+			(assurance) => createPolicy(getDb(), ctx, data, assurance),
+			(policy) => ({ policyId: policy.id, name: policy.name })
+		).catch(handleDomainError)
 	})
 
 export const updatePolicyFn = createServerFn({ method: "POST" })
 	.validator(UpdatePolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updatePolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"updatePolicyFn",
+			ctx,
+			(assurance) => updatePolicy(getDb(), ctx, data, assurance),
+			(policy) => ({ policyId: policy.id, name: policy.name })
+		).catch(handleDomainError)
 	})
 
 export const deletePolicyFn = createServerFn({ method: "POST" })
 	.validator(DeletePolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deletePolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"deletePolicyFn",
+			ctx,
+			(assurance) => deletePolicy(getDb(), ctx, data, assurance),
+			() => ({ policyId: data.policyId })
+		).catch(handleDomainError)
 	})
 
 export const addPolicyStatementFn = createServerFn({ method: "POST" })
 	.validator(AddPolicyStatementSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return addPolicyStatement(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"addPolicyStatementFn",
+			ctx,
+			(assurance) => addPolicyStatement(getDb(), ctx, data, assurance),
+			(statement) => ({ policyId: data.policyId, statementId: statement.id, module: statement.module, level: statement.level })
+		).catch(handleDomainError)
 	})
 
 export const updatePolicyStatementFn = createServerFn({ method: "POST" })
 	.validator(UpdatePolicyStatementSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updatePolicyStatement(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"updatePolicyStatementFn",
+			ctx,
+			(assurance) => updatePolicyStatement(getDb(), ctx, data, assurance),
+			(statement) => ({ statementId: statement.id, module: statement.module, level: statement.level })
+		).catch(handleDomainError)
 	})
 
 export const removePolicyStatementFn = createServerFn({ method: "POST" })
 	.validator(RemovePolicyStatementSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return removePolicyStatement(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"removePolicyStatementFn",
+			ctx,
+			(assurance) => removePolicyStatement(getDb(), ctx, data, assurance),
+			() => ({ statementId: data.statementId })
+		).catch(handleDomainError)
 	})
 
 export const attachPolicyFn = createServerFn({ method: "POST" })
 	.validator(AttachPolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return attachPolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"attachPolicyFn",
+			ctx,
+			async (assurance) => {
+				const attached = await attachPolicy(getDb(), ctx, data, assurance)
+				// Política anexada é grant como outro qualquer: ela pode ter acabado de tornar a
+				// conta PROTEGIDA, e conta protegida não dispõe de código de recuperação (D9).
+				await tryRevokeRecoveryCodesIfProtected(data.userId)
+				return attached
+			},
+			() => ({ userId: data.userId, policyId: data.policyId, expires_at: data.expires_at ?? null })
+		).catch(handleDomainError)
 	})
 
 export const detachPolicyFn = createServerFn({ method: "POST" })
 	.validator(DetachPolicySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return detachPolicy(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"detachPolicyFn",
+			ctx,
+			(assurance) => detachPolicy(getDb(), ctx, data, assurance),
+			() => ({ userId: data.userId, policyId: data.policyId })
+		).catch(handleDomainError)
 	})

@@ -1,6 +1,7 @@
 import type { Empenho, ProcurementArp, ProcurementArpItem } from "@iefa/database/sisub"
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, PlusCircle, RefreshCw, XCircle } from "lucide-react"
 import { useState } from "react"
+import { usePBAC } from "@/auth/pbac"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,7 +41,7 @@ function saldoPct(item: ProcurementArpItem): number | null {
 
 // ─── Linha de empenho ─────────────────────────────────────────────────────────
 
-function EmpenhoRow({ empenho, arpItemId, arpId }: { empenho: Empenho; arpItemId: string; arpId: string }) {
+function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: Empenho; arpItemId: string; arpId: string; canWrite: boolean }) {
 	const { mutate: anular, isPending } = useAnularEmpenho(arpItemId, arpId)
 	const [confirming, setConfirming] = useState(false)
 
@@ -96,9 +97,11 @@ function EmpenhoRow({ empenho, arpItemId, arpId }: { empenho: Empenho; arpItemId
 						</Button>
 					</>
 				) : (
-					<Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive hover:text-destructive" onClick={() => setConfirming(true)}>
-						Anular
-					</Button>
+					canWrite && (
+						<Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-destructive hover:text-destructive" onClick={() => setConfirming(true)}>
+							Anular
+						</Button>
+					)
 				)}
 			</div>
 		</div>
@@ -221,11 +224,12 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 interface ArpItemRowProps {
 	item: ProcurementArpItem
 	unitId: number
+	canWrite: boolean
 	arpId: string
 	local: LocalCommitment | undefined
 }
 
-function ArpItemRow({ item, unitId, arpId, local }: ArpItemRowProps) {
+function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 	const [expanded, setExpanded] = useState(false)
 	const [showForm, setShowForm] = useState(false)
 
@@ -311,24 +315,26 @@ function ArpItemRow({ item, unitId, arpId, local }: ArpItemRowProps) {
 							) : (
 								<div className="divide-y divide-border/50">
 									{empenhos.map((emp) => (
-										<EmpenhoRow key={emp.id} empenho={emp} arpItemId={item.id} arpId={arpId} />
+										<EmpenhoRow key={emp.id} empenho={emp} arpItemId={item.id} arpId={arpId} canWrite={canWrite} />
 									))}
 								</div>
 							)}
 
 							{!showForm ? (
-								<Button
-									size="sm"
-									variant="ghost"
-									className="h-7 text-xs gap-1.5 mt-1"
-									onClick={(e) => {
-										e.stopPropagation()
-										setShowForm(true)
-									}}
-								>
-									<PlusCircle className="size-3.5" />
-									Registrar empenho
-								</Button>
+								canWrite && (
+									<Button
+										size="sm"
+										variant="ghost"
+										className="h-7 text-xs gap-1.5 mt-1"
+										onClick={(e) => {
+											e.stopPropagation()
+											setShowForm(true)
+										}}
+									>
+										<PlusCircle className="size-3.5" />
+										Registrar empenho
+									</Button>
+								)
 							) : (
 								<div>
 									<EmpenhoForm unitId={unitId} arpItemId={item.id} arpId={arpId} onSuccess={() => setShowForm(false)} />
@@ -354,6 +360,11 @@ interface EmpenhoBalancePanelProps {
 }
 
 export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelProps) {
+	// A rota exige `unit` nível 1 (leitura), mas importar, sincronizar, empenhar e anular
+	// exigem nível 2 NA unidade. Sem esta checagem os botões aparecem para quem só lê e
+	// falham no servidor — o usuário descobre que não pode depois de tentar.
+	const { can } = usePBAC()
+	const canWrite = can("unit", 2, { type: "unit", id: unitId })
 	const { mutate: syncBalance, isPending: isSyncing } = useSyncArpBalance(ataId)
 	const { data: localCommitments = {} } = useArpLocalCommitments(arp.id)
 
@@ -392,10 +403,12 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 							</span>
 						</p>
 					</div>
-					<Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
-						{isSyncing ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />}
-						Sincronizar saldo
-					</Button>
+					{canWrite && (
+						<Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
+							{isSyncing ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />}
+							Sincronizar saldo
+						</Button>
+					)}
 				</div>
 			</CardHeader>
 
@@ -437,7 +450,7 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{arp.items.map((item) => (
-									<ArpItemRow key={item.id} item={item} unitId={unitId} arpId={arp.id} local={localCommitments[item.id]} />
+									<ArpItemRow key={item.id} item={item} unitId={unitId} arpId={arp.id} local={localCommitments[item.id]} canWrite={canWrite} />
 								))}
 							</tbody>
 						</table>

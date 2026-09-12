@@ -1,6 +1,9 @@
+// Subpath `/schemas` e não a raiz: este módulo é de cliente, e o índice raiz do domínio
+// arrasta as operations (Drizzle) para o bundle do navegador. O de schemas só depende de zod.
+import { MCP_API_KEY_LIFETIME_DAYS, type McpApiKeyLifetimeDays } from "@iefa/sisub-domain/schemas"
 import { useForm } from "@tanstack/react-form"
 import { createFileRoute } from "@tanstack/react-router"
-import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Plus, ShieldOff, Terminal, Trash2 } from "lucide-react"
+import { CalendarClock, Check, Copy, Eye, EyeOff, KeyRound, Loader2, Plus, ShieldAlert, ShieldOff, Terminal, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -22,10 +25,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCreateMcpKey, useDeleteMcpKey, useMcpKeys, useRevokeMcpKey } from "@/hooks/data/useMcpKeys"
+import { formatExpiryDate, mcpKeyExpiry } from "@/lib/mcp-key-expiry"
 import type { McpApiKey } from "@/server/mcp-keys.fn"
 
 // ============================================================================
@@ -46,8 +51,11 @@ export const Route = createFileRoute("/_protected/_modules/diner/mcp-keys")({
 
 function McpKeysPage() {
 	const [createOpen, setCreateOpen] = useState(false)
-	const [revealedKey, setRevealedKey] = useState<string | null>(null)
+	const [revealed, setRevealed] = useState<{ key: string; expiresAt: string } | null>(null)
 	const { data: keys, isLoading } = useMcpKeys()
+
+	// Contagem só das chaves que ainda autenticam: revogada ou já vencida não "vence em breve".
+	const expiringSoon = (keys ?? []).filter((key) => key.is_active && mcpKeyExpiry(key.expires_at).isNear).length
 
 	return (
 		<div className="space-y-6">
@@ -69,6 +77,14 @@ function McpKeysPage() {
 					<p>
 						A chave concede o mesmo nível de acesso que você possui na plataforma. Ela é exibida <strong>apenas uma vez</strong> no momento da criação.
 					</p>
+					<p className="flex items-start gap-2 pt-1">
+						<ShieldAlert className="size-4 shrink-0 mt-0.5" />
+						<span>
+							Uma chave <strong>não executa operação protegida por verificação em duas etapas</strong> — conceder permissão, criar outra chave, liberar acesso a
+							parceiro externo, reiniciar o ambiente de treino, exportar dados nominais. Essas operações exigem um código de 6 dígitos, e chave de API não tem
+							como apresentá-lo: faça-as aqui no sistema.
+						</span>
+					</p>
 				</CardContent>
 			</Card>
 
@@ -76,6 +92,12 @@ function McpKeysPage() {
 			<div className="flex items-center justify-between gap-3">
 				<p className="text-sm text-muted-foreground">
 					{isLoading ? "Carregando…" : `${(keys ?? []).length} ${(keys ?? []).length === 1 ? "chave cadastrada" : "chaves cadastradas"}`}
+					{!isLoading && expiringSoon > 0 && (
+						<span className="text-warning">
+							{" · "}
+							{expiringSoon === 1 ? "1 vence em menos de 30 dias" : `${expiringSoon} vencem em menos de 30 dias`}
+						</span>
+					)}
 				</p>
 				<Button size="sm" onClick={() => setCreateOpen(true)} className="gap-2">
 					<Plus className="size-4" />
@@ -119,13 +141,13 @@ function McpKeysPage() {
 			<CreateKeyDialog
 				open={createOpen}
 				onOpenChange={setCreateOpen}
-				onKeyCreated={(rawKey) => {
+				onKeyCreated={(created) => {
 					setCreateOpen(false)
-					setRevealedKey(rawKey)
+					setRevealed(created)
 				}}
 			/>
 
-			<RevealKeyDialog rawKey={revealedKey} onClose={() => setRevealedKey(null)} />
+			<RevealKeyDialog created={revealed} onClose={() => setRevealed(null)} />
 		</div>
 	)
 }
@@ -161,21 +183,45 @@ function KeyItem({ apiKey }: KeyItemProps) {
 		year: "numeric",
 	})
 
+	const expiry = mcpKeyExpiry(apiKey.expires_at)
+	// Chave vencida é tão inerte quanto revogada — a lista mostra as duas com o mesmo peso,
+	// porque a pergunta que o dono faz aqui é "isto ainda funciona?", não "por que parou".
+	const isSpent = !apiKey.is_active || expiry.isExpired
+	// Destaque do vencimento próximo por tint de fundo + borda inteira: faixa de acento
+	// lateral é proibida no repo (CLAUDE.md), e a cor sozinha não bastaria — o texto ao lado
+	// diz quantos dias faltam.
+	const nearClass = !isSpent && expiry.isNear ? "border-warning/40 bg-warning/5" : ""
+
 	return (
-		<Card className={!apiKey.is_active ? "opacity-60" : ""}>
+		<Card className={isSpent ? "opacity-60" : nearClass}>
 			<CardContent className="flex items-center gap-4 py-4">
 				<KeyRound className="size-5 shrink-0 text-muted-foreground" />
 
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 flex-wrap">
 						<p className="text-subheading">{apiKey.label}</p>
-						<Badge variant={apiKey.is_active ? "default" : "secondary"} className="text-xs">
-							{apiKey.is_active ? "Ativa" : "Revogada"}
-						</Badge>
+						{apiKey.is_active ? (
+							<Badge variant={expiry.isExpired ? "secondary" : "default"} className="text-xs">
+								{expiry.isExpired ? "Vencida" : "Ativa"}
+							</Badge>
+						) : (
+							<Badge variant="secondary" className="text-xs">
+								Revogada
+							</Badge>
+						)}
+						{apiKey.is_active && expiry.isNear && (
+							<Badge variant="warning" className="text-xs gap-1">
+								<CalendarClock className="size-3" />
+								{expiry.days === 1 ? "Vence amanhã" : `Vence em ${expiry.days} dias`}
+							</Badge>
+						)}
 					</div>
 					<p className="text-xs text-muted-foreground mt-0.5 font-mono">{apiKey.key_prefix}…</p>
 					<p className="text-xs text-muted-foreground mt-0.5">
 						Criada em {createdAt} · Último uso: {lastUsed}
+					</p>
+					<p className="text-xs text-muted-foreground mt-0.5">
+						{expiry.isExpired ? `Venceu em ${formatExpiryDate(expiry.at)} — gere uma nova chave` : `Válida até ${formatExpiryDate(expiry.at)}`}
 					</p>
 				</div>
 
@@ -270,19 +316,30 @@ function KeyItem({ apiKey }: KeyItemProps) {
 
 const createKeySchema = z.object({
 	label: z.string().min(1, "Obrigatório").max(100, "Máximo de 100 caracteres"),
+	expiresInDays: z.union([z.literal(30), z.literal(90), z.literal(365)]),
 })
+
+/** Rótulo de cada prazo. A lista vem do domínio; aqui só se diz como cada um se chama. */
+const LIFETIME_LABEL: Record<McpApiKeyLifetimeDays, string> = {
+	30: "30 dias",
+	90: "90 dias",
+	365: "1 ano",
+}
+
+/** Prazo padrão: o do meio. Cobre o uso corrente sem ser o mais longo por inércia. */
+const DEFAULT_LIFETIME: McpApiKeyLifetimeDays = 90
 
 interface CreateKeyDialogProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
-	onKeyCreated: (rawKey: string) => void
+	onKeyCreated: (created: { key: string; expiresAt: string }) => void
 }
 
 function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogProps) {
 	const createMutation = useCreateMcpKey()
 
 	const form = useForm({
-		defaultValues: { label: "" },
+		defaultValues: { label: "", expiresInDays: DEFAULT_LIFETIME as McpApiKeyLifetimeDays },
 		validators: {
 			onChange: ({ value }) => {
 				const result = createKeySchema.safeParse(value)
@@ -296,9 +353,9 @@ function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogPr
 		},
 		onSubmit: async ({ value }) => {
 			try {
-				const result = await createMutation.mutateAsync(value.label)
+				const result = await createMutation.mutateAsync({ label: value.label, expiresInDays: value.expiresInDays })
 				form.reset()
-				onKeyCreated(result.key)
+				onKeyCreated({ key: result.key, expiresAt: result.row.expires_at })
 			} catch {
 				// toast handled by mutation onError
 			}
@@ -345,7 +402,36 @@ function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogPr
 								</Field>
 							)}
 						</form.Field>
+
+						<form.Field name="expiresInDays">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Validade</FieldLabel>
+									<FieldDescription>Toda chave vence. Depois do prazo ela para de autenticar sozinha, mesmo que ninguém lembre de revogá-la.</FieldDescription>
+									<Select
+										value={String(field.state.value)}
+										onValueChange={(value) => field.handleChange(Number(value ?? DEFAULT_LIFETIME) as McpApiKeyLifetimeDays)}
+										disabled={createMutation.isPending}
+									>
+										<SelectTrigger id={field.name} className="w-full">
+											<SelectValue>{LIFETIME_LABEL[field.state.value]}</SelectValue>
+										</SelectTrigger>
+										<SelectContent>
+											{MCP_API_KEY_LIFETIME_DAYS.map((days) => (
+												<SelectItem key={days} value={String(days)}>
+													{LIFETIME_LABEL[days]}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</Field>
+							)}
+						</form.Field>
 					</FieldGroup>
+
+					<p className="text-xs text-muted-foreground">
+						A chave age com as suas permissões, mas <strong>não executa operação protegida por verificação em duas etapas</strong>.
+					</p>
 
 					<DialogFooter className="pt-2">
 						<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
@@ -382,11 +468,12 @@ function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogPr
 // ============================================================================
 
 interface RevealKeyDialogProps {
-	rawKey: string | null
+	created: { key: string; expiresAt: string } | null
 	onClose: () => void
 }
 
-function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
+function RevealKeyDialog({ created, onClose }: RevealKeyDialogProps) {
+	const rawKey = created?.key ?? null
 	const [copied, setCopied] = useState(false)
 	const [visible, setVisible] = useState(false)
 
@@ -441,6 +528,13 @@ function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
 					<p className="text-xs text-muted-foreground">
 						Use o header <code className="font-mono bg-muted px-1 py-0.5 rounded">x-api-key: &lt;chave&gt;</code> nas configurações do cliente MCP.
 					</p>
+
+					{created && (
+						<p className="text-xs text-muted-foreground flex items-center gap-1.5">
+							<CalendarClock className="size-3.5 shrink-0" />
+							Válida até {formatExpiryDate(new Date(created.expiresAt))}. Depois disso o cliente MCP para de autenticar e você gera outra aqui.
+						</p>
+					)}
 				</div>
 
 				<DialogFooter>

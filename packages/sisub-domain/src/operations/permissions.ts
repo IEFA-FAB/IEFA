@@ -24,6 +24,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import { resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { and, asc, eq, ilike, isNull } from "drizzle-orm"
+import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
@@ -248,8 +249,9 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 	)
 }
 
-export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission) {
+export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	await runQuery("INSERT_FAILED", () =>
 		db.insert(userPermissionsInAccessControl).values({
 			userId: input.userId,
@@ -264,8 +266,9 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 	return { success: true as const }
 }
 
-export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission) {
+export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
+	requireAssurance(ctx, assurance)
 	// `expires_at` é PATCH, não substituição: ausente = não mexe no prazo, `null` = torna o
 	// grant permanente. Os escopos seguem sendo substituição porque o diálogo sempre os
 	// envia; o prazo, não — um cliente que não conhece o campo apagaria o prazo de todo
@@ -278,23 +281,124 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 	}
 	if (input.expires_at !== undefined) updates.expiresAt = input.expires_at
 
-	await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
+	// O `user_id` volta da LINHA alterada, e não do input — que nem o traz. É ele que permite
+	// ao chamador reagir à mudança (a invalidação de códigos de recuperação quando a conta
+	// vira protegida, design.md D9) sem precisar confiar num id vindo do cliente.
+	const [row] = await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
 			.update(userPermissionsInAccessControl)
 			.set(updates)
 			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
-			.returning({ id: userPermissionsInAccessControl.id })
+			.returning({ id: userPermissionsInAccessControl.id, userId: userPermissionsInAccessControl.userId })
 	)
-	return { success: true as const }
+	return { success: true as const, user_id: row?.userId ?? null }
 }
 
-export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
+/**
+ * Remove uma concessão e devolve O QUE foi removido.
+ *
+ * O `returning` traz `user_id`/`module`/`level` porque a remoção é destrutiva: depois
+ * dela, o `permissionId` não aponta para linha nenhuma. Devolver só `{ success }`
+ * obrigaria a trilha de auditoria a registrar um id órfão — e ninguém conseguiria dizer,
+ * meses depois, de quem era o acesso revogado nem em que módulo.
+ */
+export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
-	await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
-		db
-			.delete(userPermissionsInAccessControl)
-			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
-			.returning({ id: userPermissionsInAccessControl.id })
+	requireAssurance(ctx, assurance)
+	const [removed] = await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
+		db.delete(userPermissionsInAccessControl).where(eq(userPermissionsInAccessControl.id, input.permissionId)).returning({
+			id: userPermissionsInAccessControl.id,
+			userId: userPermissionsInAccessControl.userId,
+			module: userPermissionsInAccessControl.module,
+			level: userPermissionsInAccessControl.level,
+		})
 	)
-	return { success: true as const }
+	return { success: true as const, removed }
+}
+
+// ── Leitura em lote: o conjunto efetivo de TODAS as contas ───────────────────
+
+/** Uma conta do sistema com o conjunto de permissões que o guard de fato aplica a ela. */
+export interface AccountPermissionSet {
+	userId: string
+	email: string
+	nrOrdem: string | null
+	/** Permissões EFETIVAS (inline + políticas, com precedência de deny), como em `hasPermission`. */
+	permissions: UserPermission[]
+}
+
+/**
+ * Conjunto efetivo de permissões de TODAS as contas, em três queries.
+ *
+ * Alimenta o painel de adoção do segundo fator, que precisa responder "quantas CONTAS
+ * PROTEGIDAS ainda não têm fator" — e conta protegida é derivada do registro de classificação
+ * cruzado com as permissões efetivas (design.md D9), nunca de um número de nível.
+ *
+ * Três selects e um merge em TS, e não uma chamada de `listEffectiveUserPermissions` por
+ * usuário: o app tem ~800 contas, e o N+1 renderizaria a tela em dezenas de segundos — ou, no
+ * SSR, estouraria o orçamento de 60 s do ALB antes de renderizar coisa nenhuma.
+ *
+ * Os filtros de validade são os MESMOS da resolução canônica (grant vencido é ausente, não
+ * deny; política com soft delete não conta), porque um painel que mostrasse um conjunto
+ * diferente do que o guard aplica mandaria o administrador cobrar fator de quem não precisa —
+ * e, pior, deixaria de cobrar de quem precisa.
+ */
+export async function listAccountPermissionSets(db: SisubDb, ctx: UserContext): Promise<AccountPermissionSet[]> {
+	// `admin` nível 3: a lista é nominal e diz, de cada pessoa, se a conta dela está sem
+	// segundo fator — é inventário de fragilidade, e não se entrega a nível 2.
+	requirePermission(ctx, "admin", 3)
+
+	const [accounts, inlineRows, policyRows] = await Promise.all([
+		runQuery("FETCH_FAILED", () =>
+			db.select({ id: userDataInCore.id, email: userDataInCore.email, nrOrdem: userDataInCore.nrOrdem }).from(userDataInCore).orderBy(asc(userDataInCore.email))
+		),
+		runQuery("FETCH_FAILED", () =>
+			db
+				.select({
+					user_id: userPermissionsInAccessControl.userId,
+					module: userPermissionsInAccessControl.module,
+					level: userPermissionsInAccessControl.level,
+					mess_hall_id: userPermissionsInAccessControl.messHallId,
+					kitchen_id: userPermissionsInAccessControl.kitchenId,
+					unit_id: userPermissionsInAccessControl.unitId,
+				})
+				.from(userPermissionsInAccessControl)
+				.where(notExpired(userPermissionsInAccessControl.expiresAt))
+		),
+		runQuery("FETCH_FAILED", () =>
+			db
+				.select({
+					user_id: userPolicyAttachmentInAccessControl.userId,
+					module: policyStatementInAccessControl.module,
+					level: policyStatementInAccessControl.level,
+					mess_hall_id: policyStatementInAccessControl.messHallId,
+					kitchen_id: policyStatementInAccessControl.kitchenId,
+					unit_id: policyStatementInAccessControl.unitId,
+				})
+				.from(userPolicyAttachmentInAccessControl)
+				.innerJoin(policyInAccessControl, eq(policyInAccessControl.id, userPolicyAttachmentInAccessControl.policyId))
+				.innerJoin(policyStatementInAccessControl, eq(policyStatementInAccessControl.policyId, policyInAccessControl.id))
+				.where(and(isNull(policyInAccessControl.deletedAt), notExpired(userPolicyAttachmentInAccessControl.expiresAt)))
+		),
+	])
+
+	const byUser = (rows: { user_id: string }[]) => {
+		const map = new Map<string, UserPermission[]>()
+		for (const { user_id, ...permission } of rows) {
+			const list = map.get(user_id)
+			if (list) list.push(permission as UserPermission)
+			else map.set(user_id, [permission as UserPermission])
+		}
+		return map
+	}
+
+	const inlineByUser = byUser(inlineRows)
+	const policyByUser = byUser(policyRows)
+
+	return accounts.map((account) => ({
+		userId: account.id,
+		email: account.email,
+		nrOrdem: account.nrOrdem,
+		permissions: resolveEffectivePermissions(inlineByUser.get(account.id) ?? [], policyByUser.get(account.id) ?? []),
+	}))
 }

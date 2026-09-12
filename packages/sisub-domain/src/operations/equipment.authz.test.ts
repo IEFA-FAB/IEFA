@@ -45,7 +45,7 @@ const ISSUE_ID = "55555555-5555-4555-8555-555555555555"
 const PLAN_ID = "66666666-6666-4666-8666-666666666666"
 
 function ctx(permissions: UserContext["permissions"]): UserContext {
-	return { userId: "user-1", permissions }
+	return { userId: "user-1", permissions, aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 const kitchenCtx = (kitchenId: number, level = 2) => ctx([{ module: "kitchen", level, kitchen_id: kitchenId, mess_hall_id: null, unit_id: null }])

@@ -7,6 +7,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
+import { AssuranceElevationProvider } from "@/components/features/assurance/AssuranceElevationProvider"
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
 import { Toaster } from "@/components/ui/toast"
@@ -162,7 +163,11 @@ function RootDocument() {
 				/>
 				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<ThemeProvider initialTheme={theme}>
-					<Outlet />
+					{/* Acima do <Outlet /> para que o modal de elevação abra SOBRE a tela em uso,
+					    qualquer que seja ela — sem tirar ninguém da rota nem descartar formulário. */}
+					<AssuranceElevationProvider>
+						<Outlet />
+					</AssuranceElevationProvider>
 					<Toaster position="bottom-center" viewportClassName="z-2147483647" />
 				</ThemeProvider>
 				<TanStackDevtools

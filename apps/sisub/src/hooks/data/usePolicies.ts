@@ -1,6 +1,8 @@
 import type { PolicyStatementInput } from "@iefa/sisub-domain"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
+import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { queryKeys } from "@/lib/query-keys"
 import {
 	addPolicyStatementFn,
@@ -89,75 +91,91 @@ function usePolicyInvalidation() {
 	}
 }
 
+/**
+ * `onError` das mutações de política, com a desistência tratada como desistência.
+ *
+ * As oito mutações deste arquivo são classificadas como `"fresh"` no registro de garantia
+ * (`admin` nível 2): quando o piso subir, fechar o modal de elevação chega aqui como
+ * `ElevationCancelledError`. Um toast vermelho de "erro ao criar política" depois de um
+ * cancelamento deliberado manda a pessoa procurar um problema que ela mesma acabou de
+ * decidir não ter.
+ */
+function reportPolicyError(title: string) {
+	return (error: Error) => {
+		if (isElevationCancelled(error)) return
+		toast.error(title, { description: error.message })
+	}
+}
+
 export function useCreatePolicy() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (data: { name: string; description?: string | null }) => createPolicyFn({ data }),
 		onSuccess: (policy) => {
 			toast.success(`Política "${policy.name}" criada`)
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao criar política", { description: error.message }),
+		onError: reportPolicyError("Erro ao criar política"),
 	})
 }
 
 export function useUpdatePolicy() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (data: { policyId: string; name?: string; description?: string | null }) => updatePolicyFn({ data }),
 		onSuccess: () => {
 			toast.success("Política atualizada")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao atualizar política", { description: error.message }),
+		onError: reportPolicyError("Erro ao atualizar política"),
 	})
 }
 
 export function useDeletePolicy() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (policyId: string) => deletePolicyFn({ data: { policyId } }),
 		onSuccess: () => {
 			toast.success("Política removida")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao remover política", { description: error.message }),
+		onError: reportPolicyError("Erro ao remover política"),
 	})
 }
 
 export function useAddPolicyStatement() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (data: { policyId: string; statement: PolicyStatementInput }) => addPolicyStatementFn({ data }),
 		onSuccess: () => {
 			toast.success("Permissão adicionada à política")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao adicionar permissão", { description: error.message }),
+		onError: reportPolicyError("Erro ao adicionar permissão"),
 	})
 }
 
 export function useUpdatePolicyStatement() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (data: { statementId: string; statement: PolicyStatementInput }) => updatePolicyStatementFn({ data }),
 		onSuccess: () => {
 			toast.success("Permissão atualizada")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao atualizar permissão", { description: error.message }),
+		onError: reportPolicyError("Erro ao atualizar permissão"),
 	})
 }
 
 export function useRemovePolicyStatement() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (statementId: string) => removePolicyStatementFn({ data: { statementId } }),
 		onSuccess: () => {
 			toast.success("Permissão removida da política")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao remover permissão", { description: error.message }),
+		onError: reportPolicyError("Erro ao remover permissão"),
 	})
 }
 
@@ -169,24 +187,24 @@ export function useRemovePolicyStatement() {
  */
 export function useAttachPolicy() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (data: { userId: string; policyId: string; expires_at?: string | null }) => attachPolicyFn({ data }),
 		onSuccess: (_result, variables) => {
 			toast.success(variables.expires_at ? "Política anexada com prazo" : "Política anexada")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao anexar política", { description: error.message }),
+		onError: reportPolicyError("Erro ao anexar política"),
 	})
 }
 
 export function useDetachPolicy() {
 	const invalidate = usePolicyInvalidation()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (data: { userId: string; policyId: string }) => detachPolicyFn({ data }),
 		onSuccess: () => {
 			toast.success("Política desanexada")
 			invalidate()
 		},
-		onError: (error: Error) => toast.error("Erro ao desanexar política", { description: error.message }),
+		onError: reportPolicyError("Erro ao desanexar política"),
 	})
 }

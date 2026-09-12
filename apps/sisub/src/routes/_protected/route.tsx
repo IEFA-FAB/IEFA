@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { userPermissionsQueryOptions } from "@/auth/pbac"
+import { MfaMandateNotice } from "@/components/features/assurance/MfaMandateNotice"
 import { LegalNoticeBanner } from "@/components/features/legal/LegalNoticeBanner"
 import { OnboardingDialogs } from "@/components/providers/OnboardingDialogs"
 import { cn } from "@/lib/cn"
@@ -85,6 +86,10 @@ function ProtectedLayout() {
 		<>
 			<OnboardingDialogs />
 			<LegalNoticeBanner />
+			{/* Faixa dispensável no topo (nunca modal) antes do prazo da obrigatoriedade, e o
+			    encaminhamento ao cadastro depois dele. Sem prazo anunciado não renderiza nada e
+			    não consulta nada. */}
+			<MfaMandateNotice />
 
 			{/* Fundo padronizado sólido e sóbrio com uma suave retícula técnica sem animações/glow */}
 			<div

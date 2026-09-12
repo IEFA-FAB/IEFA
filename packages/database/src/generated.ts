@@ -17,6 +17,7 @@ export type Database = {
       mcp_api_keys: {
         Row: {
           created_at: string
+          expires_at: string
           id: string
           is_active: boolean
           key_hash: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expires_at?: string
           id?: string
           is_active?: boolean
           key_hash: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expires_at?: string
           id?: string
           is_active?: boolean
           key_hash?: string
