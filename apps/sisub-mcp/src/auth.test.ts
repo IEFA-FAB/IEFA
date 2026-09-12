@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
+import { satisfiesAssurance } from "@iefa/pbac"
 import type { UserPermission } from "./types.ts"
 
 /**
@@ -77,7 +78,10 @@ function createDataClient(rows: Record<string, Row[]>) {
 	}
 }
 
-const API_KEY_ROW: Row = { user_id: USER_ID }
+/** Prazo bem no futuro: o caminho feliz não pode depender de quando a suíte roda. */
+const FAR_FUTURE = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+
+const API_KEY_ROW: Row = { user_id: USER_ID, expires_at: FAR_FUTURE }
 
 /** Tabelas de um usuário SEM grant inline nenhum e com uma política anexada. */
 const policyOnlyTables: Record<string, Row[]> = {
@@ -150,5 +154,73 @@ describe("UserContext do MCP inclui permissões vindas de política", () => {
 		expect(globalWrite(ctx.permissions)).toBeUndefined()
 		// Só sobra o comensal implícito, que a resolução injeta para todo usuário válido.
 		expect(ctx.permissions).toEqual([{ module: "diner", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null }])
+	})
+})
+
+/**
+ * Requisito "Credencial de API nunca satisfaz exigência de garantia".
+ *
+ * O irmão em `assurance.test.ts` prova o despacho; aqui a prova é sobre a FONTE do contexto —
+ * a chave nasce sem garantia nenhuma, e é isso que faz a trava lá valer.
+ */
+describe("chave de API não satisfaz garantia de identidade", () => {
+	test("o contexto da chave nasce em AAL1, origem api-key e sem fator", async () => {
+		currentTables = policyOnlyTables
+
+		const ctx = await resolveApiKey("smcp_chave-de-teste")
+
+		expect(ctx.aal).toBe(1)
+		expect(ctx.origin).toBe("api-key")
+		expect(ctx.lastFactorAt).toBeNull()
+		expect(ctx.hasVerifiedFactor).toBe(false)
+	})
+
+	test("nem `session` nem `fresh` são satisfeitos por chave de API", async () => {
+		currentTables = policyOnlyTables
+
+		const ctx = await resolveApiKey("smcp_chave-de-teste")
+
+		expect(satisfiesAssurance(ctx, { require: "session", reason: "r" })).toBe(false)
+		expect(satisfiesAssurance(ctx, { require: "fresh", reason: "r" })).toBe(false)
+		// Controle: sem exigência, a chave continua operando o que as permissões do dono
+		// alcançam — o piso fecha a operação sensível, não o MCP inteiro.
+		expect(satisfiesAssurance(ctx, { require: "none" })).toBe(true)
+	})
+
+	test("a sessão por JWT também não é elevada dentro do MCP", async () => {
+		currentTables = policyOnlyTables
+
+		const ctx = await resolveUserContext("jwt-valido")
+
+		expect(ctx.aal).toBe(1)
+		expect(satisfiesAssurance(ctx, { require: "session", reason: "r" })).toBe(false)
+	})
+})
+
+describe("prazo da chave de API", () => {
+	test("chave vencida é recusada, com mensagem que manda gerar outra", async () => {
+		currentTables = {
+			...policyOnlyTables,
+			mcp_api_keys: [{ user_id: USER_ID, expires_at: new Date(Date.now() - 60_000).toISOString() }],
+		}
+
+		// "Inválida" mandaria conferir o que foi colado; "vencida" manda gerar outra, que é a
+		// ação certa. Diagnóstico errado custa uma tarde de quem configurou o cliente.
+		await expect(resolveApiKey("smcp_chave-de-teste")).rejects.toThrow(/vencida/i)
+	})
+
+	test("chave sem prazo legível falha FECHADO", async () => {
+		// A coluna é `not null` desde a migration de prazo: ausência aqui é banco fora do
+		// formato esperado, e presumir validade infinita seria exatamente o estado que esta
+		// mudança fecha.
+		currentTables = { ...policyOnlyTables, mcp_api_keys: [{ user_id: USER_ID, expires_at: null }] }
+
+		await expect(resolveApiKey("smcp_chave-de-teste")).rejects.toThrow()
+	})
+
+	test("chave dentro do prazo segue autenticando", async () => {
+		currentTables = policyOnlyTables
+
+		await expect(resolveApiKey("smcp_chave-de-teste")).resolves.toMatchObject({ userId: USER_ID })
 	})
 })

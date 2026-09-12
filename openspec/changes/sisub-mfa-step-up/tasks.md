@@ -34,76 +34,83 @@
 
 ## 4. Fundação de garantia no package (inerte)
 
-- [ ] 4.1 [pbac] Estender `UserContext` com `aal: 1 | 2`, `lastFactorAt: number | null`, `origin: "session" | "api-key"`, com defaults seguros
-- [ ] 4.2 [pbac] `src/jwt-claims.ts` conforme o resultado de V3: extrair `aal` e o timestamp da entrada de `amr` com `method === "totp"` — **nunca** `amr[0]`
-- [ ] 4.3 [pbac] Testar `jwt-claims.ts`: `token_refresh` mais recente que `totp`, `amr` ausente, `aal` ausente, múltiplas entradas `totp`
-- [ ] 4.4 [pbac] `src/assurance.ts` — `assertAssurance(ctx, requirement)` puro, com a janela de 15 min
-- [ ] 4.5 [pbac] `src/errors.ts` — `AssuranceRequiredError` com `code`, `nextStep`, `reason`, sinalizando o status HTTP antes do `throw`
-- [ ] 4.6 [pbac] Popular AAL e origem em `createRequestAuth`; testar que payload com `aal: 2` não altera o contexto
-- [ ] 4.7 [pbac] Ligar a exigência em `requireLevel`/`requireAnyLevel` (para os outros apps), avaliando **depois** do gate de módulo/nível
-- [ ] 4.8 [sisub] Ligar a exigência em `requireAuthWithPermission` (`lib/auth.server.ts`) — cobre `requireUnitScope` e `requireStorageForKitchen`
-- [ ] 4.9 [sisub-domain] `guards/require-assurance.ts` e ligação nas operations classificadas
-- [ ] 4.10 [sisub] Teste que varre os guards de rota e falha se algum `beforeLoad` passar a exigir garantia
-- [ ] 4.11 [root] `bun run check` + `bun run test` — 6 apps compilam, nenhum comportamento muda com o registro todo em `"none"`
+- [x] 4.1 [pbac] Estender `UserContext` com `aal: 1 | 2`, `lastFactorAt: number | null`, `origin: "session" | "api-key"`, com defaults seguros
+- [x] 4.2 [pbac] `src/jwt-claims.ts` conforme o resultado de V3: extrair `aal` e o timestamp da entrada de `amr` com `method === "totp"` — **nunca** `amr[0]`
+- [x] 4.3 [pbac] Testar `jwt-claims.ts`: `token_refresh` mais recente que `totp`, `amr` ausente, `aal` ausente, múltiplas entradas `totp`
+- [x] 4.4 [pbac] `src/assurance.ts` — `assertAssurance(ctx, requirement)` puro, com a janela de 15 min
+- [x] 4.5 [pbac] `src/errors.ts` — `AssuranceRequiredError` com `code`, `nextStep`, `reason`, sinalizando o status HTTP antes do `throw`
+- [x] 4.6 [pbac] Popular AAL e origem em `createRequestAuth`; testar que payload com `aal: 2` não altera o contexto
+- [x] 4.7 [pbac] Ligar a exigência em `requireLevel`/`requireAnyLevel` (para os outros apps), avaliando **depois** do gate de módulo/nível
+- [x] 4.8 [sisub] Ligar a exigência em `requireAuthWithPermission` (`lib/auth.server.ts`) — cobre `requireUnitScope` e `requireStorageForKitchen`
+- [x] 4.9 [sisub-domain] `guards/require-assurance.ts` e ligação nas operations classificadas
+- [x] 4.10 [sisub] Teste que varre os guards de rota e falha se algum `beforeLoad` passar a exigir garantia
+- [x] 4.11 [root] `bun run check` + `bun run test` — 6 apps compilam, nenhum comportamento muda com o registro todo em `"none"`
 
 ## 5. Cadastro de fator (sisub)
 
-- [ ] 5.1 [sisub] `server/mfa.fn.ts`: listar fatores, iniciar cadastro com `reauthenticate()` obrigatório antes de `enroll`, verificar, remover
-- [ ] 5.2 [sisub] Registrar cadastro e remoção de fator em `sensitive_operation_log`
-- [ ] 5.3 [sisub] Rota `/_protected/_modules/diner/security`, guard `diner` nível 1, **sem** exigência de garantia
-- [ ] 5.4 [sisub] Componente de cadastro: campo de senha, QR + chave em texto, campo de 6 dígitos, aviso de desconexão das outras sessões antes do botão final
-- [ ] 5.5 [sisub] Mensagem de relógio dessincronizado após dois códigos recusados
-- [ ] 5.6 [sisub] Fator reserva: convite após o primeiro fator; obrigatório e sem opção de pular para conta protegida (usa `isProtectedAccount`)
-- [ ] 5.7 [sisub] Lista de fatores com substituir/remover e `refreshSession()` após remover o último verificado
-- [ ] 5.8 [sisub] Lista de sessões ativas com "Encerrar todas as outras sessões"
-- [ ] 5.9 [sisub] Cartão discreto de segurança em `/diner/profile`
-- [ ] 5.10 [sisub] Tela de desafio de segundo fator no login
-- [ ] 5.11 [sisub] Bloquear cadastro/remoção de fator a partir de sessão originada de recuperação de senha; testar
-- [ ] 5.12 [auth-kit] Traduzir as mensagens de erro de MFA e de reautenticação do GoTrue em `errors.ts`, com teste
-- [ ] 5.13 [sisub] Conferir as telas contra `apps/sisub/docs/STYLE_CONTRACT.md` (flat, sem faixa de acento lateral, ponteiro pela regra de `@layer base`)
+- [x] 5.1 [sisub] `server/mfa.fn.ts`: listar fatores, iniciar cadastro com `reauthenticate()` obrigatório antes de `enroll`, verificar, remover
+- [x] 5.2 [sisub] Registrar cadastro e remoção de fator em `sensitive_operation_log`
+- [x] 5.3 [sisub] Rota `/_protected/_modules/diner/security`, guard `diner` nível 1, **sem** exigência de garantia
+- [x] 5.4 [sisub] Componente de cadastro: campo de senha, QR + chave em texto, campo de 6 dígitos, aviso de desconexão das outras sessões antes do botão final
+- [x] 5.5 [sisub] Mensagem de relógio dessincronizado após dois códigos recusados
+- [x] 5.6 [sisub] Fator reserva: convite após o primeiro fator; obrigatório e sem opção de pular para conta protegida (usa `isProtectedAccount`)
+- [x] 5.7 [sisub] Lista de fatores com substituir/remover e `refreshSession()` após remover o último verificado
+- [x] 5.8 [sisub] Lista de sessões ativas com "Encerrar todas as outras sessões"
+- [x] 5.9 [sisub] Cartão discreto de segurança em `/diner/profile`
+- [x] 5.10 [sisub] Tela de desafio de segundo fator no login
+- [x] 5.11 [sisub] Bloquear cadastro/remoção de fator a partir de sessão originada de recuperação de senha; testar
+- [x] 5.12 [auth-kit] Traduzir as mensagens de erro de MFA e de reautenticação do GoTrue em `errors.ts`, com teste
+- [x] 5.13 [sisub] Conferir as telas contra `apps/sisub/docs/STYLE_CONTRACT.md` (flat, sem faixa de acento lateral, ponteiro pela regra de `@layer base`)
 
 ## 6. Recuperação
 
-- [ ] 6.1 [sisub-domain] `operations/mfa-recovery.ts`: gerar 10 códigos de alta entropia, hash SHA-256 via `crypto.subtle` (padrão de `mcp-keys.ts`), persistir só o hash
-- [ ] 6.2 [sisub-domain] `consumeRecoveryCode`: valida hash, marca `used_at`, devolve para o chamador remover os fatores — **não** produz AAL2
-- [ ] 6.3 [sisub-domain] Regeração invalida os códigos anteriores; conta que **vira** protegida tem os códigos invalidados; testes
-- [ ] 6.4 [sisub] Não gerar códigos para conta protegida; ocultar o atalho no desafio
-- [ ] 6.5 [sisub] Tela de códigos: copiar, baixar, imprimir, confirmação obrigatória antes de concluir
-- [ ] 6.6 [sisub] Fluxo de consumo: `deleteFactor` + `refreshSession` + `mfa_reset_log` + `sensitive_operation_log` + tela obrigatória de recadastro
-- [ ] 6.7 [sisub] Limite de tentativas por (usuário, origem) com teto global; teste de que um terceiro não tranca a recuperação da vítima e de que o reset administrativo nunca é bloqueado
-- [ ] 6.8 [sisub] Envio de e-mail best-effort (padrão do `apps/portal/src/lib/journal/email.server.ts`) e reporte da indisponibilidade do provider em `capabilities.server.ts`
+- [x] 6.1 [sisub-domain] `operations/mfa-recovery.ts`: gerar 10 códigos de alta entropia, hash SHA-256 via `crypto.subtle` (padrão de `mcp-keys.ts`), persistir só o hash
+- [x] 6.2 [sisub-domain] `consumeRecoveryCode`: valida hash, marca `used_at`, devolve para o chamador remover os fatores — **não** produz AAL2
+- [x] 6.3 [sisub-domain] Regeração invalida os códigos anteriores; conta que **vira** protegida tem os códigos invalidados; testes
+- [x] 6.4 [sisub] Não gerar códigos para conta protegida; ocultar o atalho no desafio
+- [x] 6.5 [sisub] Tela de códigos: copiar, baixar, imprimir, confirmação obrigatória antes de concluir
+- [x] 6.6 [sisub] Fluxo de consumo: `deleteFactor` + `refreshSession` + `mfa_reset_log` + `sensitive_operation_log` + tela obrigatória de recadastro
+- [x] 6.7 [sisub] Limite de tentativas por (usuário, origem) com teto global; teste de que um terceiro não tranca a recuperação da vítima e de que o reset administrativo nunca é bloqueado
+- [x] 6.8 [sisub] Envio de e-mail best-effort (padrão do `apps/portal/src/lib/journal/email.server.ts`) e reporte da indisponibilidade do provider em `capabilities.server.ts`
 
 ## 7. Reset administrativo
 
-- [ ] 7.1 [sisub] Server fn de reset: `admin` nível 3 + grau `fresh`, justificativa obrigatória, `deleteFactor`, `mfa_reset_log` + `sensitive_operation_log`, e-mail best-effort
-- [ ] 7.2 [sisub] UI em `/admin/permissions`: ação destacada, confirmação de verificação por canal alternativo, campo de justificativa
-- [ ] 7.3 [sisub] Testes: justificativa vazia rejeitada, administrador sem elevação fresca barrado, log gravado com `performed_by`, operação conclui sem provider de e-mail
-- [ ] 7.4 [docs] Procedimento de último recurso pelo dashboard do Supabase (quem tem acesso, com MFA próprio, mais de uma pessoa)
+- [x] 7.1 [sisub] Server fn de reset: `admin` nível 3 + grau `fresh`, justificativa obrigatória, `deleteFactor`, `mfa_reset_log` + `sensitive_operation_log`, e-mail best-effort
+- [x] 7.2 [sisub] UI em `/admin/permissions`: ação destacada, confirmação de verificação por canal alternativo, campo de justificativa
+- [x] 7.3 [sisub] Testes: justificativa vazia rejeitada, administrador sem elevação fresca barrado, log gravado com `performed_by`, operação conclui sem provider de e-mail
+- [x] 7.4 [docs] Procedimento de último recurso pelo dashboard do Supabase (quem tem acesso, com MFA próprio, mais de uma pessoa)
 
 ## 8. Elevação sem perder trabalho
 
-- [ ] 8.1 [sisub] Wrapper de mutação que captura `MFA_REQUIRED`, guarda o payload e abre o modal sobre a tela atual — sem redirecionar para `/auth`
-- [ ] 8.2 [sisub] Modal com os três caminhos (`enroll`, `challenge`, `step-up`) e o `reason` da operação visível
-- [ ] 8.3 [sisub] Reexecutar a mesma mutação com o payload original após a verificação; cancelar preserva o formulário e não desloga
-- [ ] 8.4 [sisub] Caminho `enroll` no meio de um formulário preenchido: sessão promovida, formulário sobrevive
+- [x] 8.1 [sisub] Wrapper de mutação que captura `MFA_REQUIRED`, guarda o payload e abre o modal sobre a tela atual — sem redirecionar para `/auth`
+- [x] 8.2 [sisub] Modal com os três caminhos (`enroll`, `challenge`, `step-up`) e o `reason` da operação visível
+- [x] 8.3 [sisub] Reexecutar a mesma mutação com o payload original após a verificação; cancelar preserva o formulário e não desloga
+- [x] 8.4 [sisub] Caminho `enroll` no meio de um formulário preenchido: sessão promovida, formulário sobrevive
 - [ ] 8.5 [sisub] Teste e2e: concessão de permissão com elevação vencida → modal → reenvio → permissão gravada → linha no log
 
-## 9. Ativar os pisos
+## 9. Preparar a ativação dos pisos
 
-- [ ] 9.1 [sisub] Ativar `"fresh"` nas operações críticas e validar em ambiente de treino
-- [ ] 9.2 [sisub] Ativar `"session"` nas operações financeiras e validar com um turno real de liquidações (contagem de prompts deve ser zero)
-- [ ] 9.3 [sisub] Painel de adoção para o administrador: quem tem fator, quem tem reserva, quem não tem nenhum
-- [ ] 9.4 [sisub] Faixa dispensável de aviso de obrigatoriedade, com data configurável
-- [ ] 9.5 [sisub] Tela de cadastro obrigatório após o prazo, com a ação de sair sempre visível
+**Escopo corrigido**: 9.1/9.2 NÃO ligam `ASSURANCE_ENFORCEMENT`. Virar a chave hoje trancaria
+todo mundo para fora — nenhuma conta do sistema tem fator cadastrado, então toda operação
+classificada devolveria `MFA_REQUIRED` sem que ninguém conseguisse satisfazer. A ativação é
+passo OPERACIONAL, depois de as pessoas cadastrarem o fator e o painel de 9.3 mostrar zero.
+
+- [x] 9.0 [sisub] Tornar `ASSURANCE_ENFORCEMENT` GRANULAR: por grau (`session`/`fresh`) × população (módulo PBAC / conta própria), tudo desligado, com a ORDEM DE ATIVAÇÃO documentada no arquivo e teste exaustivo de que nenhuma operação classificada exige garantia hoje
+- [x] 9.1 [sisub] Migrar para `useAssuredMutation` as mutações de permissões e de políticas (`admin`) e o reset de treino — inerte enquanto a chave não sobe
+- [x] 9.2 [sisub] Migrar as financeiras (empenho, anulação, liquidação, pagamento, conciliação, crédito, restos a pagar); as telas imperativas usam `useAssuredAction`, o mesmo núcleo sem react-query. Contrato varre os call sites e reprova chamada sem wrapper
+- [x] 9.3 [sisub] Painel de adoção para o administrador: quem tem fator, quem tem reserva, quem não tem nenhum. Lê `auth.mfa_factors` pelo `SISUB_DATABASE_URL` e responde "indisponível" — nunca zero — quando a leitura falha
+- [x] 9.4 [sisub] Faixa dispensável de aviso de obrigatoriedade, com data configurável em constante (`MFA_MANDATE`, hoje `null` = nada aparece)
+- [x] 9.5 [sisub] Tela de cadastro obrigatório após o prazo, reaproveitando `/auth/mfa-enrollment`, com a ação de sair sempre visível
+- [ ] 9.6 [operacional] Ligar os graus na ordem documentada em `assurance-registry.ts`, um PR por passo, cada um só quando o painel de adoção mostrar zero na população daquele passo
 
 ## 10. Fechar a chave de API
 
-- [ ] 10.1 [sisub-mcp] `resolveApiKey` devolve `origin: "api-key"`, `aal: 1`
-- [ ] 10.2 [sisub-mcp] Despacho de tool rejeita operação classificada, com mensagem que o modelo consiga ler e corrigir
-- [ ] 10.3 [sisub] `createMcpKeyFn` exige grau `fresh` e prazo (30d/90d/1a)
-- [ ] 10.4 [sisub] UI de `/diner/mcp-keys`: seletor de prazo, aviso do que a chave não executa, destaque de vencimento próximo
-- [ ] 10.5 [sisub] Backfill de prazo nas chaves existentes com aviso prévio — não expirar chave em produção sem avisar
-- [ ] 10.6 [sisub-mcp] Teste de contrato: chave de API nunca satisfaz `"session"` nem `"fresh"`
+- [x] 10.1 [sisub-mcp] `resolveApiKey` devolve `origin: "api-key"`, `aal: 1`
+- [x] 10.2 [sisub-mcp] Despacho de tool rejeita operação classificada, com mensagem que o modelo consiga ler e corrigir
+- [x] 10.3 [sisub] `createMcpKeyFn` exige grau `fresh` e prazo (30d/90d/1a)
+- [x] 10.4 [sisub] UI de `/diner/mcp-keys`: seletor de prazo, aviso do que a chave não executa, destaque de vencimento próximo
+- [x] 10.5 [sisub] Backfill de prazo nas chaves existentes com aviso prévio — não expirar chave em produção sem avisar
+- [x] 10.6 [sisub-mcp] Teste de contrato: chave de API nunca satisfaz `"session"` nem `"fresh"`
 
 ## 11. Fechamento
 

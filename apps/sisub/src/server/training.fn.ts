@@ -34,7 +34,7 @@ export const resetTrainingScopeFn = createServerFn({ method: "POST" }).handler(a
 	return withSensitiveAudit(
 		"resetTrainingScopeFn",
 		ctx,
-		() => resetTrainingScope(getDb(), ctx),
+		(assurance) => resetTrainingScope(getDb(), ctx, assurance),
 		(result) => ({ resetId: result.reset_id })
 	).catch(handleDomainError)
 })

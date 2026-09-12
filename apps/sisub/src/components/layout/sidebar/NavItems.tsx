@@ -33,6 +33,7 @@ import {
 	Scale,
 	ScrollText,
 	Settings,
+	ShieldAlert,
 	ShieldCheck,
 	ShoppingBasket,
 	ShoppingCart,
@@ -84,6 +85,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode },
 			{ title: "Perfil", url: "/diner/profile", icon: User },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ClipboardCheck },
+			{ title: "Segurança", url: "/diner/security", icon: ShieldCheck },
 			{ title: "Chaves MCP", url: "/diner/mcp-keys", icon: KeyRound },
 		],
 	},
@@ -199,6 +201,9 @@ export const ALL_MODULES: ModuleDef[] = [
 			// Nível 3: o registro reúne, num lugar só, quem mexeu em permissão e quem moveu
 			// dinheiro público. Quem concede acesso (nível 2) não precisa ler o histórico de todos.
 			{ title: "Operações Sensíveis", url: "/admin/audit-log", icon: ScrollText, minLevel: 3 },
+			// Nível 3 pelo mesmo motivo do registro: a lista é nominal e diz de cada pessoa se a
+			// conta dela está sem segundo fator — é inventário de fragilidade.
+			{ title: "Verificação em 2 Etapas", url: "/admin/mfa-adoption", icon: ShieldAlert, minLevel: 3 },
 		],
 	},
 	{

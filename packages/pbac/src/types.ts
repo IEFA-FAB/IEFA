@@ -71,11 +71,51 @@ export interface UserPermission {
 export type PermissionScope = { type: "unit"; id: number } | { type: "mess_hall"; id: number } | { type: "kitchen"; id: number }
 
 /**
+ * Por onde a credencial da request entrou.
+ *
+ * `api-key` é a chave do `sisub-mcp`: credencial permanente, sem senha e sem segundo fator.
+ * O eixo existe separado do `aal` porque "não elevada" e "impossível de elevar" pedem
+ * mensagens diferentes — a primeira manda digitar 6 dígitos, a segunda manda usar a interface.
+ */
+export type CredentialOrigin = "session" | "api-key"
+
+/**
  * Contexto de um usuário autenticado após resolução das permissões.
  * Compartilhado entre apps (sisub, rumaer) — cada app monta o seu no
  * `requireAuth()` do próprio runtime a partir de `resolveUserPermissions`.
+ *
+ * ## O eixo de garantia é ORTOGONAL ao PBAC
+ *
+ * `aal`/`lastFactorAt`/`origin` respondem "quanto esta sessão provou ser quem diz ser", e
+ * NÃO alteram a semântica de nenhum `hasPermission`. Quem não tem permissão continua
+ * recebendo negativa de permissão; a garantia só é consultada DEPOIS, e só por operação
+ * classificada. Ver `assurance.ts`.
+ *
+ * ## Os valores vêm do JWT já validado, nunca do payload
+ *
+ * Quem popula é `createRequestAuth` (`start.ts`), lendo as claims do access token DEPOIS de
+ * `getUser()` tê-lo validado contra o GoTrue. Um `aal` que chegasse pelo corpo da requisição
+ * seria o próprio cliente declarando o quanto se autenticou.
  */
 export interface UserContext {
 	userId: string
 	permissions: UserPermission[]
+	/**
+	 * Garantia da sessão: 1 = só o primeiro fator, 2 = segundo fator verificado.
+	 * Chave de API e qualquer origem sem token de sessão são SEMPRE 1.
+	 */
+	aal: 1 | 2
+	/** Instante (epoch em segundos) da última verificação de segundo fator; `null` se nunca. */
+	lastFactorAt: number | null
+	origin: CredentialOrigin
+	/**
+	 * `true` quando a conta tem ao menos um fator VERIFICADO cadastrado.
+	 *
+	 * Opcional, e ausente significa "não se sabe" — tratado como `false`. Só serve para
+	 * escolher entre pedir cadastro (`enroll`) e pedir código (`challenge`) na negativa: é
+	 * roteamento de tela, nunca decisão de acesso, e por isso não estar preenchido não abre
+	 * nada. Fica fora do trio obrigatório porque nem toda origem de contexto tem como saber
+	 * (a chave de API não carrega a lista de fatores do dono).
+	 */
+	hasVerifiedFactor?: boolean
 }

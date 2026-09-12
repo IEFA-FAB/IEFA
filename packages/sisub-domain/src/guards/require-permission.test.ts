@@ -7,6 +7,10 @@ function ctx(permissions: UserPermission[]): UserContext {
 	return {
 		userId: "user-1",
 		permissions,
+		// Eixo de garantia no piso: estes testes são de PERMISSÃO, e os dois eixos são ortogonais.
+		aal: 1,
+		lastFactorAt: null,
+		origin: "session",
 	}
 }
 

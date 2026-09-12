@@ -11,6 +11,8 @@
  * use getCapabilitiesFn (src/server/capabilities.fn.ts).
  */
 
+import { isSecurityEmailConfigured } from "@/lib/security-email.server"
+
 /**
  * Verifica se um adapter de IA está configurado para um dado prefixo
  * (ex.: "MODULE_CHAT" → MODULE_CHAT_AI_PROVIDER / _AI_MODEL / _AI_API_KEY).
@@ -35,11 +37,25 @@ export type ServerCapabilities = {
 	moduleChat: boolean
 	/** Assistente IA de Analytics — ANALYTICS_AI_* */
 	analyticsChat: boolean
+	/**
+	 * Aviso de segurança por e-mail — SISUB_RESEND_API_KEY.
+	 *
+	 * Reportado aqui porque a spec `mfa-recovery` proíbe que a ausência de provider falhe em
+	 * silêncio (design.md D16): a remoção de segundo fator SEMPRE grava
+	 * `access_control.mfa_reset_log`, e o e-mail é entrega adicional. Com `false`, as telas de
+	 * segurança dizem ao usuário — e ao administrador, no reset — que o titular NÃO será
+	 * avisado por e-mail, em vez de deixá-lo supor que foi.
+	 */
+	securityEmail: boolean
 }
 
 export function getServerCapabilities(): ServerCapabilities {
 	return {
 		moduleChat: hasAiEnv("MODULE_CHAT"),
 		analyticsChat: hasAiEnv("ANALYTICS"),
+		// Quem conhece o nome da variável é o módulo que envia — aqui só se pergunta a ele.
+		// Duas leituras do mesmo env em arquivos diferentes divergem no dia em que uma delas
+		// mudar de nome, e a tela passaria a prometer um aviso que não sai.
+		securityEmail: isSecurityEmailConfigured(),
 	}
 }

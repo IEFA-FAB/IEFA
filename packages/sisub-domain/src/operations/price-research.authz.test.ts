@@ -27,6 +27,10 @@ function ctx(unitId: number | null, level = 2): UserContext {
 	return {
 		userId: "user-1",
 		permissions: [{ module: "unit", level, kitchen_id: null, mess_hall_id: null, unit_id: unitId }],
+		// Eixo de garantia no piso: estes testes são de PERMISSÃO, e os dois eixos são ortogonais.
+		aal: 1,
+		lastFactorAt: null,
+		origin: "session",
 	}
 }
 
@@ -85,7 +89,9 @@ function failure(run: Promise<unknown>): Promise<unknown> {
 
 describe("autorização da memória de cálculo de pesquisa de preço", () => {
 	test("nega sessão autenticada sem permissão de unidade", async () => {
-		await expect(savePriceResearchAudit(fakeDb(), { userId: "user-1", permissions: [] }, input())).rejects.toBeInstanceOf(PermissionDeniedError)
+		await expect(
+			savePriceResearchAudit(fakeDb(), { userId: "user-1", permissions: [], aal: 1, lastFactorAt: null, origin: "session" }, input())
+		).rejects.toBeInstanceOf(PermissionDeniedError)
 	})
 
 	test("deixa passar pesquisa avulsa de quem tem unit:1", async () => {

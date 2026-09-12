@@ -90,6 +90,14 @@ Referência completa: **`AI-PROVIDERS.md`** na raiz (mapa dos consumidores, sem�
 - **Endpoint que abre SSE chama `enforceRequestRateLimit` ANTES do stream** e traduz `RateLimitError` em 429 — depois que o SSE começa não há mais status HTTP, o erro vira conexão cortada sem mensagem.
 - **Fluxo de IA nunca quebra o boot**: sem as vars, a tela fica "Em breve" e o endpoint responde 503 (`capabilities.server.ts`).
 
+### Recuperação de MFA — último recurso
+
+Referência completa: **`MFA-RECOVERY.md`** na raiz (a escada dos quatro caminhos, os
+requisitos de acesso ao dashboard, o registro manual). O essencial: **remover o MFA de
+alguém é sempre ato registrado** — pelo app grava `access_control.mfa_reset_log`
+sozinho; pelo dashboard do Supabase o `insert` é MANUAL, e sem ele a remoção não
+deixa rastro nenhum.
+
 ### LGPD / documentos legais
 
 Referência completa: **`LGPD.md`** na raiz (cobertura por app, o que a política

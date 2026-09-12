@@ -69,7 +69,9 @@ export function fullAccessCtx(userId = "00000000-0000-4000-8000-000000000001"): 
 		kitchen_id: null,
 		unit_id: null,
 	}))
-	return { userId, permissions }
+	// Eixo de garantia no piso: as fixtures exercitam PERMISSÃO, e os dois eixos são
+	// ortogonais. Operação classificada que precise de garantia recebe o piso por parâmetro.
+	return { userId, permissions, aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 // ── Geradores de identificadores únicos por execução ─────────────────────────

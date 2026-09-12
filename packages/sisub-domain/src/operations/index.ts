@@ -261,6 +261,21 @@ export {
 export { createMcpApiKey, deleteMcpApiKey, listMcpApiKeys, type McpApiKeyRow, revokeMcpApiKey } from "./mcp-keys.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	type ConsumedRecoveryCode,
+	consumeRecoveryCode,
+	type GeneratedRecoveryCodes,
+	generateRecoveryCode,
+	generateRecoveryCodes,
+	getRecoveryCodeStatus,
+	type MfaResetLogRow,
+	type MfaResetMethod,
+	normalizeRecoveryCode,
+	type RecordMfaResetInput,
+	type RecoveryCodeStatus,
+	recordMfaReset,
+	revokeRecoveryCodes,
+} from "./mfa-recovery.ts"
+export {
 	type IngredientItemLink,
 	matchNfeItem,
 	type NfeItemForMatch,
@@ -269,10 +284,12 @@ export {
 	type NfeMatchStatus,
 } from "./nfe-matching.ts"
 export {
+	type AccountPermissionSet,
 	createUserPermission,
 	deleteUserPermission,
 	type EffectivePermissionWithOrigin,
 	fetchUserPermissionsAdmin,
+	listAccountPermissionSets,
 	listEffectiveUserPermissions,
 	listEffectiveUserPermissionsWithOrigin,
 	type PermissionOrigin,

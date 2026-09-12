@@ -158,6 +158,16 @@ function AuthPage() {
 		// resolver faz o _protected mandar de volta pra /auth (o famoso "clicar duas
 		// vezes em Entrar"). Espera o refetch antes de sair da página.
 		await queryClient.refetchQueries({ queryKey: authQueryOptions().queryKey })
+
+		// Conta com fator cadastrado entra em AAL1 e precisa do segundo passo: o GoTrue
+		// declara isso no par (nível atual, nível possível) da sessão. Quem não tem fator
+		// nenhum tem os dois iguais e segue direto — nenhuma tela a mais para os comensais.
+		const { data: assuranceLevel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+		if (assuranceLevel?.nextLevel === "aal2" && assuranceLevel.nextLevel !== assuranceLevel.currentLevel) {
+			await navigate({ to: "/auth/challenge", search: { redirect: search.redirect } })
+			return
+		}
+
 		await navigate({ to: search.redirect || "/hub" })
 	}
 

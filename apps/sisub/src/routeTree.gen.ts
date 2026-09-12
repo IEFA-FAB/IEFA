@@ -25,12 +25,16 @@ import { Route as PublicPoliticaDePrivacidadeRouteImport } from './routes/_publi
 import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-de-uso'
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuthChallengeRouteImport } from './routes/auth/challenge'
+import { Route as AuthMfaEnrollmentRouteImport } from './routes/auth/mfa-enrollment'
+import { Route as AuthRecoveryCodeRouteImport } from './routes/auth/recovery-code'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_protected/_modules/analytics/route'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as ProtectedModulesAdminAuditLogRouteImport } from './routes/_protected/_modules/admin/audit-log'
 import { Route as ProtectedModulesAdminEvaluationRouteImport } from './routes/_protected/_modules/admin/evaluation'
+import { Route as ProtectedModulesAdminMfaAdoptionRouteImport } from './routes/_protected/_modules/admin/mfa-adoption'
 import { Route as ProtectedModulesAdminPermissionsRouteImport } from './routes/_protected/_modules/admin/permissions'
 import { Route as ProtectedModulesAdminSyncRoutinesRouteImport } from './routes/_protected/_modules/admin/sync-routines'
 import { Route as ProtectedModulesAdminTrainingRouteImport } from './routes/_protected/_modules/admin/training'
@@ -46,6 +50,7 @@ import { Route as ProtectedModulesDinerMcpKeysRouteImport } from './routes/_prot
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
 import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_protected/_modules/diner/qr-code'
+import { Route as ProtectedModulesDinerSecurityRouteImport } from './routes/_protected/_modules/diner/security'
 import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/self-check-in'
 import { Route as ProtectedModulesGlobalIndexRouteImport } from './routes/_protected/_modules/global/index'
 import { Route as ProtectedModulesGlobalChatRouteImport } from './routes/_protected/_modules/global/chat'
@@ -219,6 +224,21 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthChallengeRoute = AuthChallengeRouteImport.update({
+  id: '/challenge',
+  path: '/challenge',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthMfaEnrollmentRoute = AuthMfaEnrollmentRouteImport.update({
+  id: '/mfa-enrollment',
+  path: '/mfa-enrollment',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthRecoveryCodeRoute = AuthRecoveryCodeRouteImport.update({
+  id: '/recovery-code',
+  path: '/recovery-code',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -252,6 +272,12 @@ const ProtectedModulesAdminEvaluationRoute =
   ProtectedModulesAdminEvaluationRouteImport.update({
     id: '/admin/evaluation',
     path: '/admin/evaluation',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAdminMfaAdoptionRoute =
+  ProtectedModulesAdminMfaAdoptionRouteImport.update({
+    id: '/admin/mfa-adoption',
+    path: '/admin/mfa-adoption',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesAdminPermissionsRoute =
@@ -342,6 +368,12 @@ const ProtectedModulesDinerQrCodeRoute =
   ProtectedModulesDinerQrCodeRouteImport.update({
     id: '/diner/qr-code',
     path: '/diner/qr-code',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerSecurityRoute =
+  ProtectedModulesDinerSecurityRouteImport.update({
+    id: '/diner/security',
+    path: '/diner/security',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerSelfCheckInRoute =
@@ -928,6 +960,9 @@ export interface FileRoutesByFullPath {
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
+  '/auth/challenge': typeof AuthChallengeRoute
+  '/auth/mfa-enrollment': typeof AuthMfaEnrollmentRoute
+  '/auth/recovery-code': typeof AuthRecoveryCodeRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
   '/analytics': typeof ProtectedModulesAnalyticsRouteRouteWithChildren
@@ -941,6 +976,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -954,6 +990,7 @@ export interface FileRoutesByFullPath {
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
+  '/diner/security': typeof ProtectedModulesDinerSecurityRoute
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
@@ -1057,6 +1094,9 @@ export interface FileRoutesByTo {
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
+  '/auth/challenge': typeof AuthChallengeRoute
+  '/auth/mfa-enrollment': typeof AuthMfaEnrollmentRoute
+  '/auth/recovery-code': typeof AuthRecoveryCodeRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -1065,6 +1105,7 @@ export interface FileRoutesByTo {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1078,6 +1119,7 @@ export interface FileRoutesByTo {
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
+  '/diner/security': typeof ProtectedModulesDinerSecurityRoute
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
@@ -1183,6 +1225,9 @@ export interface FileRoutesById {
   '/_public/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
   '/_public/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/_public/tutorial': typeof PublicTutorialRoute
+  '/auth/challenge': typeof AuthChallengeRoute
+  '/auth/mfa-enrollment': typeof AuthMfaEnrollmentRoute
+  '/auth/recovery-code': typeof AuthRecoveryCodeRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -1197,6 +1242,7 @@ export interface FileRoutesById {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/_protected/_modules/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/_protected/_modules/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/_protected/_modules/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
   '/_protected/_modules/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/_protected/_modules/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/_protected/_modules/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1210,6 +1256,7 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/_protected/_modules/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
+  '/_protected/_modules/diner/security': typeof ProtectedModulesDinerSecurityRoute
   '/_protected/_modules/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/_protected/_modules/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/_protected/_modules/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
@@ -1316,6 +1363,9 @@ export interface FileRouteTypes {
     | '/politica-de-privacidade'
     | '/termos-de-uso'
     | '/tutorial'
+    | '/auth/challenge'
+    | '/auth/mfa-enrollment'
+    | '/auth/recovery-code'
     | '/auth/reset-password'
     | '/auth/'
     | '/analytics'
@@ -1329,6 +1379,7 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/admin/audit-log'
     | '/admin/evaluation'
+    | '/admin/mfa-adoption'
     | '/admin/permissions'
     | '/admin/sync-routines'
     | '/admin/training'
@@ -1342,6 +1393,7 @@ export interface FileRouteTypes {
     | '/diner/menu'
     | '/diner/profile'
     | '/diner/qr-code'
+    | '/diner/security'
     | '/diner/self-check-in'
     | '/global/chat'
     | '/global/compras-sync'
@@ -1445,6 +1497,9 @@ export interface FileRouteTypes {
     | '/politica-de-privacidade'
     | '/termos-de-uso'
     | '/tutorial'
+    | '/auth/challenge'
+    | '/auth/mfa-enrollment'
+    | '/auth/recovery-code'
     | '/auth/reset-password'
     | '/auth'
     | '/.well-known/agent-skills/index.json'
@@ -1453,6 +1508,7 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/admin/audit-log'
     | '/admin/evaluation'
+    | '/admin/mfa-adoption'
     | '/admin/permissions'
     | '/admin/sync-routines'
     | '/admin/training'
@@ -1466,6 +1522,7 @@ export interface FileRouteTypes {
     | '/diner/menu'
     | '/diner/profile'
     | '/diner/qr-code'
+    | '/diner/security'
     | '/diner/self-check-in'
     | '/global/chat'
     | '/global/compras-sync'
@@ -1570,6 +1627,9 @@ export interface FileRouteTypes {
     | '/_public/politica-de-privacidade'
     | '/_public/termos-de-uso'
     | '/_public/tutorial'
+    | '/auth/challenge'
+    | '/auth/mfa-enrollment'
+    | '/auth/recovery-code'
     | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
@@ -1584,6 +1644,7 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/_protected/_modules/admin/audit-log'
     | '/_protected/_modules/admin/evaluation'
+    | '/_protected/_modules/admin/mfa-adoption'
     | '/_protected/_modules/admin/permissions'
     | '/_protected/_modules/admin/sync-routines'
     | '/_protected/_modules/admin/training'
@@ -1597,6 +1658,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/menu'
     | '/_protected/_modules/diner/profile'
     | '/_protected/_modules/diner/qr-code'
+    | '/_protected/_modules/diner/security'
     | '/_protected/_modules/diner/self-check-in'
     | '/_protected/_modules/global/chat'
     | '/_protected/_modules/global/compras-sync'
@@ -1815,6 +1877,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/auth/challenge': {
+      id: '/auth/challenge'
+      path: '/challenge'
+      fullPath: '/auth/challenge'
+      preLoaderRoute: typeof AuthChallengeRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/auth/mfa-enrollment': {
+      id: '/auth/mfa-enrollment'
+      path: '/mfa-enrollment'
+      fullPath: '/auth/mfa-enrollment'
+      preLoaderRoute: typeof AuthMfaEnrollmentRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/auth/recovery-code': {
+      id: '/auth/recovery-code'
+      path: '/recovery-code'
+      fullPath: '/auth/recovery-code'
+      preLoaderRoute: typeof AuthRecoveryCodeRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
     '/auth/reset-password': {
       id: '/auth/reset-password'
       path: '/reset-password'
@@ -1855,6 +1938,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/evaluation'
       fullPath: '/admin/evaluation'
       preLoaderRoute: typeof ProtectedModulesAdminEvaluationRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/admin/mfa-adoption': {
+      id: '/_protected/_modules/admin/mfa-adoption'
+      path: '/admin/mfa-adoption'
+      fullPath: '/admin/mfa-adoption'
+      preLoaderRoute: typeof ProtectedModulesAdminMfaAdoptionRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/admin/permissions': {
@@ -1960,6 +2050,13 @@ declare module '@tanstack/react-router' {
       path: '/diner/qr-code'
       fullPath: '/diner/qr-code'
       preLoaderRoute: typeof ProtectedModulesDinerQrCodeRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/security': {
+      id: '/_protected/_modules/diner/security'
+      path: '/diner/security'
+      fullPath: '/diner/security'
+      preLoaderRoute: typeof ProtectedModulesDinerSecurityRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/self-check-in': {
@@ -2924,6 +3021,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   ProtectedModulesAdminAuditLogRoute: typeof ProtectedModulesAdminAuditLogRoute
   ProtectedModulesAdminEvaluationRoute: typeof ProtectedModulesAdminEvaluationRoute
+  ProtectedModulesAdminMfaAdoptionRoute: typeof ProtectedModulesAdminMfaAdoptionRoute
   ProtectedModulesAdminPermissionsRoute: typeof ProtectedModulesAdminPermissionsRoute
   ProtectedModulesAdminSyncRoutinesRoute: typeof ProtectedModulesAdminSyncRoutinesRoute
   ProtectedModulesAdminTrainingRoute: typeof ProtectedModulesAdminTrainingRoute
@@ -2932,6 +3030,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
   ProtectedModulesDinerQrCodeRoute: typeof ProtectedModulesDinerQrCodeRoute
+  ProtectedModulesDinerSecurityRoute: typeof ProtectedModulesDinerSecurityRoute
   ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
   ProtectedModulesGlobalChatRoute: typeof ProtectedModulesGlobalChatRoute
   ProtectedModulesGlobalComprasSyncRoute: typeof ProtectedModulesGlobalComprasSyncRoute
@@ -2983,6 +3082,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
   ProtectedModulesAdminAuditLogRoute: ProtectedModulesAdminAuditLogRoute,
   ProtectedModulesAdminEvaluationRoute: ProtectedModulesAdminEvaluationRoute,
+  ProtectedModulesAdminMfaAdoptionRoute: ProtectedModulesAdminMfaAdoptionRoute,
   ProtectedModulesAdminPermissionsRoute: ProtectedModulesAdminPermissionsRoute,
   ProtectedModulesAdminSyncRoutinesRoute:
     ProtectedModulesAdminSyncRoutinesRoute,
@@ -2992,6 +3092,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
   ProtectedModulesDinerQrCodeRoute: ProtectedModulesDinerQrCodeRoute,
+  ProtectedModulesDinerSecurityRoute: ProtectedModulesDinerSecurityRoute,
   ProtectedModulesDinerSelfCheckInRoute: ProtectedModulesDinerSelfCheckInRoute,
   ProtectedModulesGlobalChatRoute: ProtectedModulesGlobalChatRoute,
   ProtectedModulesGlobalComprasSyncRoute:
@@ -3087,11 +3188,17 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
 )
 
 interface AuthRouteRouteChildren {
+  AuthChallengeRoute: typeof AuthChallengeRoute
+  AuthMfaEnrollmentRoute: typeof AuthMfaEnrollmentRoute
+  AuthRecoveryCodeRoute: typeof AuthRecoveryCodeRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthIndexRoute: typeof AuthIndexRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthChallengeRoute: AuthChallengeRoute,
+  AuthMfaEnrollmentRoute: AuthMfaEnrollmentRoute,
+  AuthRecoveryCodeRoute: AuthRecoveryCodeRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthIndexRoute: AuthIndexRoute,
 }

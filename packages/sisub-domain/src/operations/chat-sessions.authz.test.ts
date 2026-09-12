@@ -43,7 +43,7 @@ const SESSION_OF_B = "11111111-1111-4111-8111-111111111111"
 const MESSAGE_OF_B = "22222222-2222-4222-8222-222222222222"
 
 function ctx(userId: string): UserContext {
-	return { userId, permissions: [] }
+	return { userId, permissions: [], aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 /**

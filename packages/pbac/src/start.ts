@@ -17,8 +17,10 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
-import { PermissionDeniedError } from "./errors.ts"
+import { type AssuranceRequirement, assertAssurance, NO_ASSURANCE } from "./assurance.ts"
+import { AssuranceRequiredError, PermissionDeniedError } from "./errors.ts"
 import { type MinLevel, requireAnyPermission, requirePermission } from "./guards.ts"
+import { type AssuranceClaims, decodeJwtPayload, NO_ASSURANCE_CLAIMS, readAssuranceClaims, readSubject } from "./jwt-claims.ts"
 import { resolveUserPermissions } from "./resolve-permissions.ts"
 import type { AppModule, PermissionScope, UserContext } from "./types.ts"
 
@@ -38,9 +40,38 @@ export function forbidden(message = "FORBIDDEN"): never {
 	throw new Error(message)
 }
 
+/**
+ * Sinaliza 403 e relança a negativa de GARANTIA preservando `code`/`nextStep`/`reason`.
+ *
+ * Mesmo motivo de `unauthorized()`/`forbidden()`: sem `setResponseStatus` antes do `throw`, o
+ * TanStack Start devolve 500 e o cliente não distingue "prove quem você é" de "o servidor
+ * quebrou". O status é 403 e não 401 de propósito — a sessão é válida; o que falta é grau de
+ * garantia, e um 401 faria o interceptador de sessão expirada deslogar quem só precisava
+ * digitar 6 dígitos.
+ *
+ * O erro é relançado INTEIRO (e não convertido em `Error` de mensagem solta) porque é o
+ * `nextStep` que diz à UI qual das três telas abrir. Perder esse campo aqui transformaria a
+ * negativa em "acesso negado" — a leitura errada, numa operação que a pessoa pode fazer.
+ */
+export function assuranceRequired(error: AssuranceRequiredError): never {
+	setResponseStatus(403)
+	throw error
+}
+
 /** Cliente Supabase capaz de validar o JWT do cookie da sessão. */
 interface AuthCapableClient {
-	auth: { getUser(): Promise<{ data: { user: User | null } }> }
+	auth: {
+		getUser(): Promise<{ data: { user: User | null } }>
+		/**
+		 * Sessão do cookie — usada SÓ para alcançar o `access_token` que `getUser()` acabou de
+		 * validar, e nunca para decidir quem é o usuário (a tipagem do próprio supabase-js avisa
+		 * que os valores vindos de cookie não são autênticos).
+		 *
+		 * Opcional porque um client que não a implemente ainda é um client de auth válido: sem
+		 * ela o contexto fica em `aal: 1`, que é a falha FECHADA.
+		 */
+		getSession?(): Promise<{ data: { session: { access_token?: string | null } | null } }>
+	}
 }
 
 export interface RequestAuthConfig {
@@ -77,8 +108,15 @@ export interface RequestAuth {
 	requireUserId: () => Promise<string>
 	/** Usuário + permissões PBAC resolvidas. Exige `getPermissionsClient`. */
 	requireAuth: () => Promise<UserContext>
-	/** `requireAuth` + gate de módulo/nível, traduzindo a negativa em 403. */
-	requireLevel: (module: AppModule, minLevel?: MinLevel, scope?: PermissionScope) => Promise<UserContext>
+	/**
+	 * `requireAuth` + gate de módulo/nível, traduzindo a negativa em 403.
+	 *
+	 * `assurance` é o piso de garantia de identidade da operação, avaliado DEPOIS do gate de
+	 * módulo/nível. Opcional e `{ require: "none" }` por default: quem não passa nada tem
+	 * exatamente o comportamento anterior a esta mudança. É o parâmetro por onde os apps que
+	 * usam estes gates (portal, rumaer, sucont, forms) ligam o piso sem reescrever o guard.
+	 */
+	requireLevel: (module: AppModule, minLevel?: MinLevel, scope?: PermissionScope, assurance?: AssuranceRequirement) => Promise<UserContext>
 	/**
 	 * `requireLevel` que passa se QUALQUER um dos módulos conceder o nível.
 	 *
@@ -86,7 +124,7 @@ export interface RequestAuth {
 	 * de trabalho e os relatórios são da seção inteira, e exigi-los de uma divisão
 	 * específica trancaria fora quem trabalha nas outras.
 	 */
-	requireAnyLevel: (modules: readonly AppModule[], minLevel?: MinLevel, scope?: PermissionScope) => Promise<UserContext>
+	requireAnyLevel: (modules: readonly AppModule[], minLevel?: MinLevel, scope?: PermissionScope, assurance?: AssuranceRequirement) => Promise<UserContext>
 }
 
 /**
@@ -103,6 +141,16 @@ export interface RequestAuth {
  * export const requireSucontEditor = () => auth.requireLevel("sucont-4", 2)
  * ```
  */
+/** Avalia o piso de garantia e, na negativa, sinaliza o status HTTP antes de relançar. */
+function assertAssuranceOrFail(ctx: UserContext, assurance: AssuranceRequirement): void {
+	try {
+		assertAssurance(ctx, assurance)
+	} catch (error) {
+		if (error instanceof AssuranceRequiredError) assuranceRequired(error)
+		throw error
+	}
+}
+
 export function createRequestAuth({ getAuthClient, getPermissionsClient, messages }: RequestAuthConfig): RequestAuth {
 	/**
 	 * `getUser()` valida o JWT contra o servidor Supabase — é um round-trip de rede,
@@ -148,16 +196,80 @@ export function createRequestAuth({ getAuthClient, getPermissionsClient, message
 
 	const requireUserId = async (): Promise<string> => (await requireUser()).id
 
+	/**
+	 * Cache por request das claims de garantia — mesma razão do cache de `getUser()`: uma
+	 * navegação protegida chama `requireAuth()` várias vezes, e decodificar o mesmo token a
+	 * cada uma seria trabalho repetido dentro do caminho crítico do TTFB.
+	 */
+	const assuranceByRequest = new WeakMap<Request, Promise<AssuranceClaims>>()
+
+	/**
+	 * Lê `aal` e `lastFactorAt` do access token da sessão.
+	 *
+	 * A ordem é o contrato: `user` chega aqui JÁ validado por `getUser()`, e o token lido de
+	 * `getSession()` é o mesmo que acabou de ser provado autêntico (a conferência do `sub`
+	 * abaixo é a rede que garante isso). Decodificação local, sem verificar assinatura, porque
+	 * o projeto assina com segredo simétrico e `getClaims()` custaria um round-trip por
+	 * chamada — ver `jwt-claims.ts`.
+	 *
+	 * Todo caminho de falha devolve AAL1: sem `getSession`, sem sessão, token malformado ou
+	 * `sub` divergente. Nunca uma exceção — indisponibilidade de leitura de claim não pode
+	 * derrubar um request que a autenticação já aprovou; ela só rebaixa a garantia.
+	 */
+	const resolveAssuranceClaims = async (user: User): Promise<AssuranceClaims> => {
+		const client = getAuthClient()
+		if (!client.auth.getSession) return { ...NO_ASSURANCE_CLAIMS }
+
+		const { data } = await client.auth.getSession().catch(() => ({ data: { session: null } }))
+		const payload = decodeJwtPayload(data.session?.access_token)
+		// `sub` diferente = o cookie mudou entre as duas leituras (troca de conta numa aba
+		// paralela). Ler a garantia de OUTRA sessão seria atribuir a elevação de um usuário a
+		// outro — o pior defeito possível neste eixo.
+		if (readSubject(payload) !== user.id) return { ...NO_ASSURANCE_CLAIMS }
+		return readAssuranceClaims(payload)
+	}
+
+	const getAssuranceClaims = (user: User): Promise<AssuranceClaims> => {
+		const request = getRequest()
+		if (!request) return resolveAssuranceClaims(user)
+
+		let cached = assuranceByRequest.get(request)
+		if (!cached) {
+			cached = resolveAssuranceClaims(user)
+			assuranceByRequest.set(request, cached)
+		}
+		return cached
+	}
+
 	const requireAuth = async (): Promise<UserContext> => {
 		if (!getPermissionsClient) {
 			throw new Error("createRequestAuth: requireAuth exige `getPermissionsClient`.")
 		}
 		const user = await requireUser()
-		const permissions = await resolveUserPermissions(user.id, getPermissionsClient())
-		return { userId: user.id, permissions }
+		const [permissions, claims] = await Promise.all([resolveUserPermissions(user.id, getPermissionsClient()), getAssuranceClaims(user)])
+		return {
+			userId: user.id,
+			permissions,
+			aal: claims.aal,
+			lastFactorAt: claims.lastFactorAt,
+			// Este caminho é sempre sessão de navegador: quem entra por chave de API não passa
+			// pelo TanStack Start (é o `sisub-mcp`, processo Bun sem router).
+			origin: "session",
+			// `user.factors` já vem do `getUser()` que acabou de ser pago — nenhuma consulta a
+			// `auth.mfa_factors` é necessária, e `auth` nem está exposto ao PostgREST. Só conta
+			// fator VERIFICADO: um cadastro iniciado e abandonado fica `unverified` e não
+			// autentica nada, então tratá-lo como fator mandaria a pessoa para o desafio de um
+			// fator que ela não tem.
+			hasVerifiedFactor: (user.factors ?? []).some((factor) => factor.status === "verified"),
+		}
 	}
 
-	const requireLevel = async (module: AppModule, minLevel: MinLevel = 1, scope?: PermissionScope): Promise<UserContext> => {
+	const requireLevel = async (
+		module: AppModule,
+		minLevel: MinLevel = 1,
+		scope?: PermissionScope,
+		assurance: AssuranceRequirement = NO_ASSURANCE
+	): Promise<UserContext> => {
 		const ctx = await requireAuth()
 		try {
 			requirePermission(ctx, module, minLevel, scope)
@@ -165,10 +277,19 @@ export function createRequestAuth({ getAuthClient, getPermissionsClient, message
 			if (error instanceof PermissionDeniedError) forbidden(messages?.forbidden?.(module) ?? `FORBIDDEN: ${module}`)
 			throw error
 		}
+		// DEPOIS do gate de módulo/nível, de propósito: quem não tem a permissão recebe
+		// negativa de permissão, e não um pedido de segundo fator para uma tela que ele não
+		// alcançaria de qualquer jeito.
+		assertAssuranceOrFail(ctx, assurance)
 		return ctx
 	}
 
-	const requireAnyLevel = async (modules: readonly AppModule[], minLevel: MinLevel = 1, scope?: PermissionScope): Promise<UserContext> => {
+	const requireAnyLevel = async (
+		modules: readonly AppModule[],
+		minLevel: MinLevel = 1,
+		scope?: PermissionScope,
+		assurance: AssuranceRequirement = NO_ASSURANCE
+	): Promise<UserContext> => {
 		const ctx = await requireAuth()
 		try {
 			requireAnyPermission(ctx, modules, minLevel, scope)
@@ -176,6 +297,7 @@ export function createRequestAuth({ getAuthClient, getPermissionsClient, message
 			if (error instanceof PermissionDeniedError) forbidden(messages?.forbidden?.(modules.join(" | ")) ?? `FORBIDDEN: ${modules.join(" | ")}`)
 			throw error
 		}
+		assertAssuranceOrFail(ctx, assurance)
 		return ctx
 	}
 

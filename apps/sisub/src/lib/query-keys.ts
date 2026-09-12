@@ -25,6 +25,11 @@ export const queryKeys = {
 		kitchenSettings: (kitchenId: number) => ["sisub", "kitchen-settings", kitchenId] as const,
 		unitSettings: (unitId: number) => ["sisub", "unit-settings", unitId] as const,
 		mcpKeys: () => ["sisub", "mcp-keys"] as const,
+		mfaOverview: () => ["sisub", "mfa-overview"] as const,
+		activeSessions: () => ["sisub", "active-sessions"] as const,
+		recoveryCodes: () => ["sisub", "recovery-codes"] as const,
+		/** Estado de MFA de OUTRO usuário, na tela de gestão de acesso (`admin` nível 3). */
+		adminUserMfa: (userId: string | null | undefined) => ["sisub", "admin-user-mfa", userId] as const,
 		policyRules: (target: PolicyTarget) => ["sisub", "policy-rules", target] as const,
 		policyPrompt: (target: PolicyTarget) => ["sisub", "policy-prompt", target] as const,
 		analyticsSessions: () => ["sisub", "analytics-chat-sessions"] as const,
@@ -51,6 +56,7 @@ export const queryKeys = {
 	audit: {
 		// Ator e página entram na chave: são respostas diferentes do mesmo endpoint.
 		sensitiveOperations: (actorId: string | null, limit: number, offset: number) => ["audit", "sensitive-operations", actorId, limit, offset] as const,
+		mfaAdoption: () => ["audit", "mfa-adoption"] as const,
 	},
 
 	policies: {

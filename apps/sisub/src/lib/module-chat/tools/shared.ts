@@ -33,7 +33,18 @@ export interface ToolContext {
 
 /** Traduz o contexto da tool para o `UserContext` que os guards do domínio esperam. */
 export function domainCtx(ctx: ToolContext): UserContext {
-	return { userId: ctx.userId, permissions: ctx.permissions }
+	return {
+		userId: ctx.userId,
+		permissions: ctx.permissions,
+		// Garantia no piso, sempre. O `ToolContext` nasce do turno de chat e não carrega o
+		// token da sessão; um modelo decidindo chamar uma ferramenta não é uma pessoa
+		// digitando 6 dígitos, e herdar a elevação da sessão faria a conversa executar em
+		// nome dela. Nenhuma tool de chat é operação classificada — se um dia for, ela tem
+		// que ser barrada aqui, e é este piso que a barra.
+		aal: 1,
+		lastFactorAt: null,
+		origin: "session",
+	}
 }
 
 // ── Tool definition (OpenAI function-calling format) ────────────────────────

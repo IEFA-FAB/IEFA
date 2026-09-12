@@ -287,6 +287,9 @@ describeSupabaseIntegration("production flexibility operations (PR #96)", () => 
 		const otherKitchenCtx: UserContext = {
 			userId: "00000000-0000-4000-8000-000000000002",
 			permissions: [{ module: "kitchen-production", level: 3, kitchen_id: kitchenId + 999_999, unit_id: null, mess_hall_id: null }],
+			aal: 1,
+			lastFactorAt: null,
+			origin: "session",
 		}
 		await expect(fetchProductionBoard(db, otherKitchenCtx, { kitchenId, date })).rejects.toThrow()
 		await expect(ensureProductionTasks(db, otherKitchenCtx, { kitchenId, date })).rejects.toThrow()

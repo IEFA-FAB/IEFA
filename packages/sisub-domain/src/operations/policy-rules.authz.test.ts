@@ -15,7 +15,7 @@ import { PermissionDeniedError } from "../types/errors.ts"
 import { createPolicyRule, deletePolicyRule, listPolicyRules, updatePolicyRule } from "./policy-rules.ts"
 
 function ctx(permissions: UserContext["permissions"]): UserContext {
-	return { userId: "user-1", permissions }
+	return { userId: "user-1", permissions, aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 function global(level: number): UserContext {

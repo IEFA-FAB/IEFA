@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { createPagamentoFn, fetchPaymentPanelFn } from "@/server/liquidation.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/payments")({
@@ -34,20 +36,25 @@ function PayRow({
 	const [numeroOb, setNumeroOb] = useState("")
 	const [valor, setValor] = useState(String(row.a_pagar))
 	const [busy, setBusy] = useState(false)
+	// `createPagamentoFn` é `"session"` no registro de garantia (`unit` nível 2).
+	const runAssured = useAssuredAction()
 	const atrasado = (row.dias_em_aberto ?? 0) > 30
 
 	async function pay() {
 		if (!numeroOb || !valor) return
 		setBusy(true)
 		try {
-			await createPagamentoFn({
-				data: { unitId: Number(unitId), liquidacaoId: row.id, numeroOb, data: new Date().toISOString().substring(0, 10), valor: Number(valor) },
-			})
+			await runAssured(() =>
+				createPagamentoFn({
+					data: { unitId: Number(unitId), liquidacaoId: row.id, numeroOb, data: new Date().toISOString().substring(0, 10), valor: Number(valor) },
+				})
+			)
 			toast.success("Pagamento registrado")
 			setOpen(false)
 			onPaid()
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Falha ao registrar pagamento")
+			// Desistir da confirmação de identidade não é falha: o formulário continua preenchido.
+			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao registrar pagamento")
 		} finally {
 			setBusy(false)
 		}

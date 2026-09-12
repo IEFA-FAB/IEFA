@@ -31,7 +31,7 @@ function perm(module: UserPermission["module"], level: number): UserPermission {
 }
 
 function ctx(userId: string, permissions: UserPermission[] = []): UserContext {
-	return { userId, permissions }
+	return { userId, permissions, aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 /**

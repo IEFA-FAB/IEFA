@@ -237,8 +237,8 @@ export {
 	ListUnitKitchensSchema,
 	UpdateKitchenSettingsSchema,
 } from "./kitchens.ts"
-export type { CreateMcpApiKey, DeleteMcpApiKey, RevokeMcpApiKey } from "./mcp-keys.ts"
-export { CreateMcpApiKeySchema, DeleteMcpApiKeySchema, RevokeMcpApiKeySchema } from "./mcp-keys.ts"
+export type { CreateMcpApiKey, DeleteMcpApiKey, McpApiKeyLifetimeDays, RevokeMcpApiKey } from "./mcp-keys.ts"
+export { CreateMcpApiKeySchema, DeleteMcpApiKeySchema, MCP_API_KEY_LIFETIME_DAYS, RevokeMcpApiKeySchema } from "./mcp-keys.ts"
 export type {
 	AdjustProductionPortions,
 	DeleteForecast,
@@ -283,6 +283,15 @@ export {
 	RestoreMealTypeSchema,
 	UpdateMealTypeSchema,
 } from "./meal-types.ts"
+export type { ConsumeRecoveryCode } from "./mfa-recovery.ts"
+export {
+	ConsumeRecoveryCodeSchema,
+	RECOVERY_CODE_ALPHABET,
+	RECOVERY_CODE_COUNT,
+	RECOVERY_CODE_ENTROPY_BITS,
+	RECOVERY_CODE_GROUP_SIZE,
+	RECOVERY_CODE_GROUPS,
+} from "./mfa-recovery.ts"
 export type {
 	CreateUserPermission,
 	DeleteUserPermission,

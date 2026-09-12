@@ -8,7 +8,9 @@ function permission(overrides: Partial<UserPermission> = {}): UserPermission {
 }
 
 function ctx(permissions: UserPermission[]): UserContext {
-	return { userId: "u1", permissions }
+	// Garantia no piso (AAL1, sem fator): estes testes são só do eixo de PERMISSÃO, e é o
+	// `assurance.test.ts` que cobre o outro. Ver `types.ts` — os dois eixos são ortogonais.
+	return { userId: "u1", permissions, aal: 1, lastFactorAt: null, origin: "session" }
 }
 
 describe("requirePermission", () => {
