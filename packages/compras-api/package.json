@@ -6,10 +6,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.gen.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./query": "./src/query.ts"
   },
   "scripts": {
     "generate": "openapi-typescript ./openapi.json -o ./src/types.gen.ts",
+    "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

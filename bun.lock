@@ -50,6 +50,7 @@
       "dependencies": {
         "@hono/zod-openapi": "^1.6.2",
         "@iefa/agent-web": "workspace:*",
+        "@iefa/compras-api": "workspace:*",
         "@iefa/legal-kit": "workspace:*",
         "@iefa/sisub-domain": "workspace:*",
         "@scalar/hono-api-reference": "^0.12.0",
@@ -303,6 +304,7 @@
         "@iefa/agent-web": "workspace:*",
         "@iefa/ai-provider": "workspace:*",
         "@iefa/auth-kit": "workspace:*",
+        "@iefa/compras-api": "workspace:*",
         "@iefa/database": "workspace:*",
         "@iefa/legal-kit": "workspace:*",
         "@iefa/pbac": "workspace:*",

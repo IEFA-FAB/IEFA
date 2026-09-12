@@ -1,6 +1,7 @@
+import { COMPRAS_BASE_URL, type ComprasGetPath, type ComprasPageQuery } from "@iefa/compras-api"
 import type { ComprasPage } from "./types.ts"
 
-const BASE_URL = "https://dadosabertos.compras.gov.br"
+const BASE_URL = COMPRAS_BASE_URL
 const REQUEST_TIMEOUT_MS = 30_000
 const PAGE_SIZE = 500
 
@@ -104,13 +105,34 @@ async function fetchWithRetry(url: string): Promise<Response> {
 
 // ── Busca de uma única página ─────────────────────────────────────────────────
 
-export async function fetchPage<T>(endpoint: string, pageNumber: number, params: Record<string, string | number> = {}): Promise<ComprasPage<T>> {
+/** Par endpoint + query já validado contra o swagger. Ver `comprasRequest`. */
+export interface ComprasRequest {
+	endpoint: ComprasGetPath
+	params: Record<string, string | number | boolean>
+}
+
+/**
+ * Emparelha endpoint e query conferindo os dois contra o swagger oficial
+ * (@iefa/compras-api). Existe como função só para o TypeScript inferir o
+ * endpoint e checar a query contra ELE — nome de parâmetro inexistente vira erro
+ * de compilação, que é exatamente o que faltava quando três chamadas do sisub
+ * derivaram para parâmetros que a API não tem e passaram a dar 404 em silêncio.
+ *
+ * O runtime segue sendo o `fetchWithRetry` daqui: trocar por openapi-fetch
+ * custaria o pool de work-stealing, o backoff com jitter e a leitura de
+ * `Retry-After`.
+ */
+export function comprasRequest<P extends ComprasGetPath>(endpoint: P, params: ComprasPageQuery<P> = {} as ComprasPageQuery<P>): ComprasRequest {
+	return { endpoint, params: params as Record<string, string | number | boolean> }
+}
+
+export async function fetchPage<T>(request: ComprasRequest, pageNumber: number): Promise<ComprasPage<T>> {
 	const qs = new URLSearchParams({
-		...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+		...Object.fromEntries(Object.entries(request.params).map(([k, v]) => [k, String(v)])),
 		pagina: String(pageNumber),
 		tamanhoPagina: String(PAGE_SIZE),
 	})
-	const url = `${BASE_URL}/${endpoint}?${qs}`
+	const url = `${BASE_URL}${request.endpoint}?${qs}`
 	const res = await fetchWithRetry(url)
 	return res.json() as Promise<ComprasPage<T>>
 }
@@ -127,13 +149,10 @@ export async function fetchPage<T>(endpoint: string, pageNumber: number, params:
  * Por isso não dependemos de `paginasRestantes` para sinalizar o fim; em vez disso,
  * usamos o tamanho da página recebida: página parcial (< PAGE_SIZE) = última página.
  */
-export async function* fetchAllPages<T>(
-	endpoint: string,
-	params: Record<string, string | number> = {}
-): AsyncGenerator<{ page: ComprasPage<T>; pageNumber: number }> {
+export async function* fetchAllPages<T>(request: ComprasRequest): AsyncGenerator<{ page: ComprasPage<T>; pageNumber: number }> {
 	let pagina = 1
 	while (true) {
-		const page = await fetchPage<T>(endpoint, pagina, params)
+		const page = await fetchPage<T>(request, pagina)
 		// Página vazia → fim definitivo (edge case: última página era exatamente PAGE_SIZE)
 		if (page.resultado.length === 0) break
 		yield { page, pageNumber: pagina }
@@ -224,13 +243,12 @@ export function calcConcurrency(): number {
  * @param concurrency - Workers simultâneos (recomendado: 4–8)
  */
 export async function fetchAllPagesParallel<T>(
-	endpoint: string,
-	params: Record<string, string | number> = {},
+	request: ComprasRequest,
 	concurrency: number,
 	onPage: (page: ComprasPage<T>, pageNumber: number) => Promise<void>
 ): Promise<void> {
 	// Página 1: ancora o total de páginas e inicia o pipeline
-	const firstPage = await fetchPage<T>(endpoint, 1, params)
+	const firstPage = await fetchPage<T>(request, 1)
 	await onPage(firstPage, 1)
 
 	const totalPages = firstPage.totalPaginas
@@ -247,7 +265,7 @@ export async function fetchAllPagesParallel<T>(
 			if (pageNumber > totalPages) break
 
 			try {
-				const page = await fetchPage<T>(endpoint, pageNumber, params)
+				const page = await fetchPage<T>(request, pageNumber)
 				if (cancelled) break // descarta resultado se outro worker falhou
 				await onPage(page, pageNumber)
 			} catch (err) {

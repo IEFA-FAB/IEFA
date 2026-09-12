@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { fetchAllPages } from "./client.ts"
+import { comprasRequest, fetchAllPages } from "./client.ts"
 import type { ComprasItemMaterial, ComprasPdmMaterial, ComprasUnidadeFornecimento } from "./types.ts"
 
 export const FOOD_CLASS_CODES = [8905, 8910, 8915, 8920, 8925, 8930, 8935, 8940, 8945, 8950, 8955, 8960, 8965, 8970] as const
@@ -182,18 +182,22 @@ async function syncPdmDetails(
 	summary: FoodMaterialSyncSummary
 ): Promise<void> {
 	if (options.syncUnits) {
-		for await (const { page } of fetchAllPages<ComprasUnidadeFornecimento>("modulo-material/6_consultarMaterialUnidadeFornecimento", {
-			codigoPdm: pdm.codigoPdm,
-			statusUnidadeFornecimentoPdm: 1,
-		})) {
+		for await (const { page } of fetchAllPages<ComprasUnidadeFornecimento>(
+			comprasRequest("/modulo-material/6_consultarMaterialUnidadeFornecimento", {
+				codigoPdm: pdm.codigoPdm,
+				statusUnidadeFornecimentoPdm: true,
+			})
+		)) {
 			await upsertFoodUnits(supabase, page.resultado)
 			summary.unitsUpserted += page.resultado.filter((row) => row.numeroSequencialUnidadeFornecimento != null).length
 		}
 	}
 
-	for await (const { page } of fetchAllPages<FoodItemResponse>("modulo-material/4_consultarItemMaterial", {
-		codigoPdm: pdm.codigoPdm,
-	})) {
+	for await (const { page } of fetchAllPages<FoodItemResponse>(
+		comprasRequest("/modulo-material/4_consultarItemMaterial", {
+			codigoPdm: pdm.codigoPdm,
+		})
+	)) {
 		await upsertFoodItems(supabase, page.resultado)
 		summary.itemsUpserted += page.resultado.length
 	}
@@ -217,10 +221,12 @@ export async function runFoodMaterialSync(options: FoodMaterialSyncOptions = {})
 	for (const classCode of classCodes) {
 		try {
 			let classPdms = 0
-			for await (const { page } of fetchAllPages<FoodPdmResponse>("modulo-material/3_consultarPdmMaterial", {
-				codigoClasse: classCode,
-				statusPdm: 1,
-			})) {
+			for await (const { page } of fetchAllPages<FoodPdmResponse>(
+				comprasRequest("/modulo-material/3_consultarPdmMaterial", {
+					codigoClasse: classCode,
+					statusPdm: true,
+				})
+			)) {
 				await upsertFoodPdms(supabase, page.resultado)
 				summary.pdmsUpserted += page.resultado.length
 				classPdms += page.resultado.length
