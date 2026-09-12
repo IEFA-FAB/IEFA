@@ -64,14 +64,14 @@
 
 ## 6. Recuperação
 
-- [ ] 6.1 [sisub-domain] `operations/mfa-recovery.ts`: gerar 10 códigos de alta entropia, hash SHA-256 via `crypto.subtle` (padrão de `mcp-keys.ts`), persistir só o hash
-- [ ] 6.2 [sisub-domain] `consumeRecoveryCode`: valida hash, marca `used_at`, devolve para o chamador remover os fatores — **não** produz AAL2
-- [ ] 6.3 [sisub-domain] Regeração invalida os códigos anteriores; conta que **vira** protegida tem os códigos invalidados; testes
-- [ ] 6.4 [sisub] Não gerar códigos para conta protegida; ocultar o atalho no desafio
-- [ ] 6.5 [sisub] Tela de códigos: copiar, baixar, imprimir, confirmação obrigatória antes de concluir
-- [ ] 6.6 [sisub] Fluxo de consumo: `deleteFactor` + `refreshSession` + `mfa_reset_log` + `sensitive_operation_log` + tela obrigatória de recadastro
-- [ ] 6.7 [sisub] Limite de tentativas por (usuário, origem) com teto global; teste de que um terceiro não tranca a recuperação da vítima e de que o reset administrativo nunca é bloqueado
-- [ ] 6.8 [sisub] Envio de e-mail best-effort (padrão do `apps/portal/src/lib/journal/email.server.ts`) e reporte da indisponibilidade do provider em `capabilities.server.ts`
+- [x] 6.1 [sisub-domain] `operations/mfa-recovery.ts`: gerar 10 códigos de alta entropia, hash SHA-256 via `crypto.subtle` (padrão de `mcp-keys.ts`), persistir só o hash
+- [x] 6.2 [sisub-domain] `consumeRecoveryCode`: valida hash, marca `used_at`, devolve para o chamador remover os fatores — **não** produz AAL2
+- [x] 6.3 [sisub-domain] Regeração invalida os códigos anteriores; conta que **vira** protegida tem os códigos invalidados; testes
+- [x] 6.4 [sisub] Não gerar códigos para conta protegida; ocultar o atalho no desafio
+- [x] 6.5 [sisub] Tela de códigos: copiar, baixar, imprimir, confirmação obrigatória antes de concluir
+- [x] 6.6 [sisub] Fluxo de consumo: `deleteFactor` + `refreshSession` + `mfa_reset_log` + `sensitive_operation_log` + tela obrigatória de recadastro
+- [x] 6.7 [sisub] Limite de tentativas por (usuário, origem) com teto global; teste de que um terceiro não tranca a recuperação da vítima e de que o reset administrativo nunca é bloqueado
+- [x] 6.8 [sisub] Envio de e-mail best-effort (padrão do `apps/portal/src/lib/journal/email.server.ts`) e reporte da indisponibilidade do provider em `capabilities.server.ts`
 
 ## 7. Reset administrativo
 

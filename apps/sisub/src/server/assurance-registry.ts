@@ -103,6 +103,20 @@ const SELF_SCOPED_NOTE = "Age apenas sobre a conta do próprio chamador (`ctx.us
  * piso destas duas operações é o próprio GoTrue. Como `self`, elas também não entram na
  * derivação de conta protegida — qualquer sessão alcança a própria conta.
  */
+/**
+ * Códigos de recuperação agem só sobre a própria conta — e por isso, como as fns de fator,
+ * não entram na derivação de conta protegida: qualquer sessão alcança a conta dela mesma.
+ *
+ * A EMISSÃO é `fresh` pelo mesmo motivo da chave MCP: dez códigos que removem o segundo
+ * fator são dez credenciais permanentes, sem senha e sem fator (design.md D11). O CONSUMO é
+ * classificado pelo LOG e por nada mais — exigir garantia de identidade para consumir um
+ * código de recuperação seria pedir o segundo fator a quem acabou de perdê-lo, que é o
+ * impasse exato que o código existe para resolver. `consumeRecoveryCode` (o domínio) nem
+ * aceita `AssuranceRequirement`: a impossibilidade é estrutural, não disciplina de quem chama.
+ */
+const RECOVERY_SELF_SCOPED_NOTE =
+	"Age apenas sobre os códigos e os fatores da conta do próprio chamador (`ctx.userId`); o consumo roda em AAL1 por definição e não é gated por garantia."
+
 const MFA_SELF_SCOPED_NOTE =
 	"Age apenas sobre os fatores da conta do próprio chamador; o piso real é o do GoTrue (`unenroll` exige AAL2) e não é repassado pelo registro."
 
@@ -300,6 +314,18 @@ export const ASSURANCE_REGISTRY = {
 
 	// ── messhall.fn.ts
 	addOtherPresenceFn: { require: "none" },
+
+	// ── mfa-recovery.fn.ts
+	generateRecoveryCodesFn: {
+		require: "fresh",
+		reason: "Esta operação emite códigos que removem a verificação em duas etapas da sua conta.",
+		authorization: [{ kind: "self", note: RECOVERY_SELF_SCOPED_NOTE }],
+	},
+	consumeRecoveryCodeFn: {
+		require: "session",
+		reason: "Esta operação remove a verificação em duas etapas da sua conta com um código de recuperação.",
+		authorization: [{ kind: "self", note: RECOVERY_SELF_SCOPED_NOTE }],
+	},
 
 	// ── mfa.fn.ts
 	startMfaEnrollmentFn: { require: "none" },

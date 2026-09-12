@@ -26,6 +26,8 @@ import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-d
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthChallengeRouteImport } from './routes/auth/challenge'
+import { Route as AuthMfaEnrollmentRouteImport } from './routes/auth/mfa-enrollment'
+import { Route as AuthRecoveryCodeRouteImport } from './routes/auth/recovery-code'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_protected/_modules/analytics/route'
@@ -224,6 +226,16 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
 const AuthChallengeRoute = AuthChallengeRouteImport.update({
   id: '/challenge',
   path: '/challenge',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthMfaEnrollmentRoute = AuthMfaEnrollmentRouteImport.update({
+  id: '/mfa-enrollment',
+  path: '/mfa-enrollment',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthRecoveryCodeRoute = AuthRecoveryCodeRouteImport.update({
+  id: '/recovery-code',
+  path: '/recovery-code',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
@@ -942,6 +954,8 @@ export interface FileRoutesByFullPath {
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/challenge': typeof AuthChallengeRoute
+  '/auth/mfa-enrollment': typeof AuthMfaEnrollmentRoute
+  '/auth/recovery-code': typeof AuthRecoveryCodeRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
   '/analytics': typeof ProtectedModulesAnalyticsRouteRouteWithChildren
@@ -1073,6 +1087,8 @@ export interface FileRoutesByTo {
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/challenge': typeof AuthChallengeRoute
+  '/auth/mfa-enrollment': typeof AuthMfaEnrollmentRoute
+  '/auth/recovery-code': typeof AuthRecoveryCodeRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
@@ -1201,6 +1217,8 @@ export interface FileRoutesById {
   '/_public/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/_public/tutorial': typeof PublicTutorialRoute
   '/auth/challenge': typeof AuthChallengeRoute
+  '/auth/mfa-enrollment': typeof AuthMfaEnrollmentRoute
+  '/auth/recovery-code': typeof AuthRecoveryCodeRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -1336,6 +1354,8 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/tutorial'
     | '/auth/challenge'
+    | '/auth/mfa-enrollment'
+    | '/auth/recovery-code'
     | '/auth/reset-password'
     | '/auth/'
     | '/analytics'
@@ -1467,6 +1487,8 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/tutorial'
     | '/auth/challenge'
+    | '/auth/mfa-enrollment'
+    | '/auth/recovery-code'
     | '/auth/reset-password'
     | '/auth'
     | '/.well-known/agent-skills/index.json'
@@ -1594,6 +1616,8 @@ export interface FileRouteTypes {
     | '/_public/termos-de-uso'
     | '/_public/tutorial'
     | '/auth/challenge'
+    | '/auth/mfa-enrollment'
+    | '/auth/recovery-code'
     | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
@@ -1845,6 +1869,20 @@ declare module '@tanstack/react-router' {
       path: '/challenge'
       fullPath: '/auth/challenge'
       preLoaderRoute: typeof AuthChallengeRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/auth/mfa-enrollment': {
+      id: '/auth/mfa-enrollment'
+      path: '/mfa-enrollment'
+      fullPath: '/auth/mfa-enrollment'
+      preLoaderRoute: typeof AuthMfaEnrollmentRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/auth/recovery-code': {
+      id: '/auth/recovery-code'
+      path: '/recovery-code'
+      fullPath: '/auth/recovery-code'
+      preLoaderRoute: typeof AuthRecoveryCodeRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/auth/reset-password': {
@@ -3129,12 +3167,16 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
 
 interface AuthRouteRouteChildren {
   AuthChallengeRoute: typeof AuthChallengeRoute
+  AuthMfaEnrollmentRoute: typeof AuthMfaEnrollmentRoute
+  AuthRecoveryCodeRoute: typeof AuthRecoveryCodeRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthIndexRoute: typeof AuthIndexRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthChallengeRoute: AuthChallengeRoute,
+  AuthMfaEnrollmentRoute: AuthMfaEnrollmentRoute,
+  AuthRecoveryCodeRoute: AuthRecoveryCodeRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthIndexRoute: AuthIndexRoute,
 }

@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { AlertTriangle, KeyRound, ShieldAlert, ShieldCheck, Terminal } from "lucide-react"
+import { AlertTriangle, KeyRound, LifeBuoy, ShieldAlert, ShieldCheck, Terminal } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ActiveSessionsCard } from "@/components/features/diner/ActiveSessionsCard"
 import { MfaBackupInviteDialog } from "@/components/features/diner/MfaBackupInviteDialog"
 import { MfaEnrollDialog } from "@/components/features/diner/MfaEnrollDialog"
 import { MfaFactorList } from "@/components/features/diner/MfaFactorList"
+import { RecoveryCodesDialog } from "@/components/features/diner/RecoveryCodesDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { useActiveSessions, useMfaOverview, useSignOutOtherSessions, useUnenrollMfaFactor } from "@/hooks/data/useMfa"
+import { useGenerateRecoveryCodes, useRecoveryCodeOverview } from "@/hooks/data/useMfaRecovery"
 
 /**
  * Tela de segurança da conta.
@@ -48,11 +50,21 @@ function SecurityPage() {
 	const sessions = useActiveSessions()
 	const unenrollFactor = useUnenrollMfaFactor()
 	const signOutOthers = useSignOutOtherSessions()
+	const recovery = useRecoveryCodeOverview()
+	const generateCodes = useGenerateRecoveryCodes()
 
 	const [enrollOpen, setEnrollOpen] = useState(false)
 	const [enrollIsFirstFactor, setEnrollIsFirstFactor] = useState(false)
 	const [replacingFactorId, setReplacingFactorId] = useState<string | null>(null)
 	const [backupInviteOpen, setBackupInviteOpen] = useState(false)
+	/**
+	 * Os códigos em claro vivem AQUI e em nenhum outro lugar do cliente — nem no cache do
+	 * react-query, que sobrevive à navegação e aparece nas devtools. Saem da memória quando a
+	 * pessoa conclui o diálogo.
+	 */
+	const [freshCodes, setFreshCodes] = useState<string[] | null>(null)
+	/** `true` quando o diálogo de códigos precede o convite ao dispositivo reserva. */
+	const [invitesBackupAfterCodes, setInvitesBackupAfterCodes] = useState(false)
 
 	const factors = overview?.factors ?? []
 	const hasFactor = factors.length > 0
@@ -87,10 +99,45 @@ function SecurityPage() {
 		}
 
 		if (enrollIsFirstFactor) {
+			// Conta protegida NÃO recebe códigos (design.md D9) — para ela o caminho de volta é o
+			// dispositivo reserva, e o convite vem direto.
+			if (overview?.isProtectedAccount === false) {
+				const generated = await issueCodes({ inviteBackupAfter: true })
+				if (generated) return
+			}
 			setBackupInviteOpen(true)
 			return
 		}
 
+		reloadAfterSessionChange()
+	}
+
+	/**
+	 * Emite os códigos e abre o diálogo. Devolve `false` quando a emissão falha — e aí o fluxo
+	 * segue sem eles: um erro ao gerar códigos não pode desfazer o cadastro do fator que
+	 * acabou de ser concluído, nem prender a pessoa numa tela intermediária.
+	 */
+	const issueCodes = async ({ inviteBackupAfter }: { inviteBackupAfter: boolean }): Promise<boolean> => {
+		try {
+			const generated = await generateCodes.mutateAsync()
+			setInvitesBackupAfterCodes(inviteBackupAfter)
+			setFreshCodes(generated.codes)
+			return true
+		} catch (error) {
+			toast.error("Não foi possível gerar os códigos de recuperação", {
+				description: error instanceof Error ? error.message : "Tente novamente pela tela de segurança.",
+			})
+			return false
+		}
+	}
+
+	const handleCodesAcknowledged = () => {
+		setFreshCodes(null)
+		if (invitesBackupAfterCodes) {
+			setInvitesBackupAfterCodes(false)
+			setBackupInviteOpen(true)
+			return
+		}
 		reloadAfterSessionChange()
 	}
 
@@ -205,6 +252,47 @@ function SecurityPage() {
 
 			<ActiveSessionsCard data={sessions.data} isLoading={sessions.isLoading} isSigningOut={signOutOthers.isPending} onSignOutOthers={handleSignOutOthers} />
 
+			{hasFactor && (
+				<Card>
+					<CardHeader>
+						<CardTitle className="flex items-center gap-2">
+							<LifeBuoy className="size-4 text-muted-foreground" aria-hidden />
+							Códigos de recuperação
+						</CardTitle>
+						<CardDescription>Códigos de uso único que devolvem o acesso à conta se você perder o aparelho com o aplicativo autenticador.</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{recovery.isLoading && <Skeleton className="h-10 w-full rounded-lg" />}
+
+						{!recovery.isLoading && recovery.data?.eligible === false && (
+							<p className="text-body text-muted-foreground">
+								Sua conta alcança operações críticas do sistema e, por isso, não utiliza códigos de recuperação — uma folha de papel não pode valer um empenho.
+								Seus caminhos de volta são o dispositivo reserva e o restabelecimento por um administrador.
+							</p>
+						)}
+
+						{!recovery.isLoading && recovery.data?.eligible && (
+							<>
+								<p className="text-body text-muted-foreground">
+									{recovery.data.available > 0
+										? `${recovery.data.available} de ${recovery.data.perGeneration} códigos ainda disponíveis.`
+										: "Você não tem códigos de recuperação disponíveis."}
+								</p>
+								{recovery.data.emailNoticeAvailable === false && (
+									<p className="text-caption text-muted-foreground">
+										Este ambiente não envia aviso por e-mail: o uso de um código fica registrado no histórico do sistema.
+									</p>
+								)}
+								<Button variant="outline" size="sm" disabled={!canManage || generateCodes.isPending} onClick={() => issueCodes({ inviteBackupAfter: false })}>
+									{recovery.data.available > 0 ? "Gerar novos códigos" : "Gerar códigos de recuperação"}
+								</Button>
+								{recovery.data.available > 0 && <p className="text-caption text-muted-foreground">Gerar novos códigos invalida os anteriores.</p>}
+							</>
+						)}
+					</CardContent>
+				</Card>
+			)}
+
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
@@ -239,6 +327,10 @@ function SecurityPage() {
 				isBackup={!enrollIsFirstFactor && replacingFactorId === null}
 				onEnrolled={handleEnrolled}
 			/>
+
+			{freshCodes && (
+				<RecoveryCodesDialog open codes={freshCodes} emailNoticeAvailable={recovery.data?.emailNoticeAvailable !== false} onDone={handleCodesAcknowledged} />
+			)}
 
 			<MfaBackupInviteDialog
 				open={backupInviteOpen}

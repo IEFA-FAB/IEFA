@@ -26,6 +26,9 @@ const authSearchSchema = z.object({
 	redirect: z.unknown().optional().transform(safeRedirect),
 })
 
+/** Rotas de `/auth` que só fazem sentido COM sessão — a proteção inversa não se aplica a elas. */
+const AUTHENTICATED_AUTH_ROUTES = ["/auth/challenge", "/auth/recovery-code", "/auth/mfa-enrollment"] as const
+
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
 	// Proteção inversa: quem já está autenticado não tem o que fazer aqui — EXCETO
@@ -34,10 +37,11 @@ export const Route = createFileRoute("/auth")({
 	// senha antiga e sem nenhuma mensagem.
 	beforeLoad: ({ context, search, location }) => {
 		const { user } = context.auth
-		// `/auth/challenge` é o SEGUNDO passo do login: quem está nela já tem sessão, por
-		// definição. A proteção inversa mandaria essa pessoa para o /hub no meio do desafio,
-		// desmontando a tela que ela precisa concluir — e um recarregamento faria o mesmo.
-		if (location.pathname.startsWith("/auth/challenge")) return
+		// Três telas de `/auth` acontecem COM sessão, por definição: o desafio de segundo fator,
+		// o código de recuperação e o recadastro obrigatório depois de um código consumido. A
+		// proteção inversa mandaria essas pessoas para o /hub no meio do fluxo, desmontando a
+		// tela que elas precisam concluir — e um recarregamento faria o mesmo.
+		if (AUTHENTICATED_AUTH_ROUTES.some((route) => location.pathname.startsWith(route))) return
 		if (user && !isPasswordRecovery() && !urlLooksLikeRecovery()) {
 			throw redirect({ to: search.redirect || "/hub" })
 		}

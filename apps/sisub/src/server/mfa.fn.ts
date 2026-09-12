@@ -31,6 +31,7 @@
 
 import { getAuthErrorMessage } from "@iefa/auth-kit"
 import { isProtectedAccount } from "@iefa/pbac"
+import { getRecoveryCodeStatus } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { sql } from "drizzle-orm"
@@ -72,6 +73,17 @@ export type MfaOverview = {
 	needsBackupFactor: boolean
 	/** `false` quando a sessão nasceu de link de recuperação — nem cadastra nem remove. */
 	canManageFactors: boolean
+	/**
+	 * `true` quando o desafio pode oferecer o atalho "Usar um código de recuperação".
+	 *
+	 * Depende de duas coisas ao mesmo tempo, e as duas precisam vir daqui: a conta NÃO pode
+	 * ser protegida (design.md D9 — para ela os caminhos são o fator reserva e o reset
+	 * administrativo) e precisa haver código não usado. Oferecer o atalho sem código restante
+	 * levaria a pessoa, no pior momento possível, a uma tela sem saída.
+	 */
+	canUseRecoveryCode: boolean
+	/** Códigos de recuperação ainda válidos. Só a contagem — nunca o hash, nunca o código. */
+	recoveryCodesAvailable: number
 }
 
 /** Sessão ativa do titular, na projeção da tela de segurança. */
@@ -163,7 +175,14 @@ const FRIENDLY_NAME = z.string().trim().min(1, "Dê um nome ao dispositivo.").ma
  */
 export const getMfaOverviewFn = createServerFn({ method: "GET" }).handler(async (): Promise<MfaOverview> => {
 	const ctx = await requireAuth()
-	const [factors, claims] = await Promise.all([fetchFactors(), getSessionClaims()])
+	const [factors, claims, recovery] = await Promise.all([
+		fetchFactors(),
+		getSessionClaims(),
+		// Falha de leitura dos códigos NÃO derruba a visão geral: ela alimenta o desafio do
+		// login, e um erro aqui trancaria a tela que a pessoa precisa para entrar. Sem o dado,
+		// o atalho de recuperação simplesmente não aparece.
+		getRecoveryCodeStatus(getDb(), ctx).catch(() => ({ available: 0, generatedAt: null })),
+	])
 
 	const verified = factors.filter((factor) => factor.status === "verified")
 	const protectedAccount = isProtectedAccount(ctx.permissions, assuranceReachability())
@@ -177,6 +196,8 @@ export const getMfaOverviewFn = createServerFn({ method: "GET" }).handler(async 
 		// o fator reserva é obrigatório (spec `mfa-enrollment`), e a tela não oferece pular.
 		needsBackupFactor: protectedAccount && verified.length > 0 && verified.length < 2,
 		canManageFactors: !claims.originatedFromRecovery,
+		canUseRecoveryCode: !protectedAccount && recovery.available > 0,
+		recoveryCodesAvailable: recovery.available,
 	}
 })
 

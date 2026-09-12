@@ -281,14 +281,17 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 	}
 	if (input.expires_at !== undefined) updates.expiresAt = input.expires_at
 
-	await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
+	// O `user_id` volta da LINHA alterada, e não do input — que nem o traz. É ele que permite
+	// ao chamador reagir à mudança (a invalidação de códigos de recuperação quando a conta
+	// vira protegida, design.md D9) sem precisar confiar num id vindo do cliente.
+	const [row] = await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
 			.update(userPermissionsInAccessControl)
 			.set(updates)
 			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
-			.returning({ id: userPermissionsInAccessControl.id })
+			.returning({ id: userPermissionsInAccessControl.id, userId: userPermissionsInAccessControl.userId })
 	)
-	return { success: true as const }
+	return { success: true as const, user_id: row?.userId ?? null }
 }
 
 /**

@@ -1,5 +1,5 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
-import { KeyRound, Loader2, ShieldCheck } from "lucide-react"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { KeyRound, LifeBuoy, Loader2, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -136,6 +136,25 @@ function ChallengePage() {
 								{verifyChallenge.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <KeyRound className="size-4" aria-hidden />}
 								Confirmar
 							</Button>
+
+							{/* Atalho AUSENTE para conta protegida e para quem não tem código restante
+							    (design.md D9): a decisão vem do servidor, em `canUseRecoveryCode`, e não
+							    de um cálculo repetido aqui. Oferecê-lo sem código levaria a pessoa, no
+							    pior momento possível, a uma tela sem saída. */}
+							{overview?.canUseRecoveryCode && (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="w-full"
+									nativeButton={false}
+									render={
+										<Link to="/auth/recovery-code" className="gap-1.5">
+											<LifeBuoy className="size-3.5" aria-hidden />
+											Perdi o aparelho: usar um código de recuperação
+										</Link>
+									}
+								/>
+							)}
 						</form>
 					)}
 				</CardContent>

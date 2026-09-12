@@ -147,6 +147,8 @@ marca uso único → admin.mfa.deleteFactor() → refreshSession() →
 conta sem MFA, sessão AAL1 → tela obrigatória de recadastro → AAL2 → novos códigos
 ```
 
+**Correção vinda da implementação**: `admin.mfa.deleteFactor` *"will log the user out of all active sessions if the deleted factor was verified"*. Esta decisão supunha a sessão sobrevivendo até o recadastro — não sobrevive. O fluxo trata o `refreshSession()` como best-effort e converge nos dois casos, levando a `/auth?redirect=/auth/mfa-enrollment`: ou a sessão resiste e segue direto para o recadastro, ou ela cai e o usuário entra de novo com a senha, já sem fator. Não foi exercido contra um GoTrue real (exige service-role, que não está nesta máquina).
+
 Enquanto não recadastrar, o usuário **não alcança** nenhuma operação `session`/`fresh` — correto, porque ele ainda não provou o segundo fator.
 
 Consequência assumida: quem tem a senha **e** os códigos entra e cadastra o próprio TOTP. Os códigos são, na prática, um segundo fator de papel. Por isso: uso único, hash, limite agressivo server-side, e-mail de aviso a cada consumo, e **indisponíveis para nível 3** — lá o caminho é fator reserva ou reset administrativo.

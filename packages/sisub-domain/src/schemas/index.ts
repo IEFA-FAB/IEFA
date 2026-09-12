@@ -283,6 +283,15 @@ export {
 	RestoreMealTypeSchema,
 	UpdateMealTypeSchema,
 } from "./meal-types.ts"
+export type { ConsumeRecoveryCode } from "./mfa-recovery.ts"
+export {
+	ConsumeRecoveryCodeSchema,
+	RECOVERY_CODE_ALPHABET,
+	RECOVERY_CODE_COUNT,
+	RECOVERY_CODE_ENTROPY_BITS,
+	RECOVERY_CODE_GROUP_SIZE,
+	RECOVERY_CODE_GROUPS,
+} from "./mfa-recovery.ts"
 export type {
 	CreateUserPermission,
 	DeleteUserPermission,

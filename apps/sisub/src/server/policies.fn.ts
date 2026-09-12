@@ -41,6 +41,7 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { revokeRecoveryCodesIfProtected } from "@/lib/mfa-recovery.server"
 
 export const fetchPoliciesFn = createServerFn({ method: "GET" })
 	.validator(ListPoliciesSchema)
@@ -166,7 +167,13 @@ export const attachPolicyFn = createServerFn({ method: "POST" })
 		return withSensitiveAudit(
 			"attachPolicyFn",
 			ctx,
-			(assurance) => attachPolicy(getDb(), ctx, data, assurance),
+			async (assurance) => {
+				const attached = await attachPolicy(getDb(), ctx, data, assurance)
+				// Política anexada é grant como outro qualquer: ela pode ter acabado de tornar a
+				// conta PROTEGIDA, e conta protegida não dispõe de código de recuperação (D9).
+				await revokeRecoveryCodesIfProtected(data.userId)
+				return attached
+			},
 			() => ({ userId: data.userId, policyId: data.policyId, expires_at: data.expires_at ?? null })
 		).catch(handleDomainError)
 	})
