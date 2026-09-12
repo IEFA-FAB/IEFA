@@ -190,10 +190,14 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 				if (error) throw new Error(`Erro ao aplicar crédito: ${error.message}`)
 
 				await si.from("import_batch").update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt }).eq("id", data.batchId)
-				return { applied: payload.length }
+				return { applied: payload.length, competencia }
 			},
 			// O lote identifica o alvo; as linhas de crédito que ele gravou carregam
 			// `import_batch_id` e voltam por ele.
-			(result) => ({ batchId: data.batchId, unitId: Number(batch.unit_id), competencia: batch.competencia ?? null, applied: result.applied })
+			// `competencia` é a EFETIVA (a mesma que as linhas receberam, incluindo o mês
+			// corrente quando o lote não a trazia). Gravar o `null` do lote diria que o
+			// crédito não tem competência, quando ele tem — e é a competência que decide
+			// a qual mês o dinheiro foi lançado.
+			(result) => ({ batchId: data.batchId, unitId: Number(batch.unit_id), competencia: result.competencia, applied: result.applied })
 		)
 	})

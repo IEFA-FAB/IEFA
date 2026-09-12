@@ -117,15 +117,20 @@ export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.validator(DeleteUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		// Alvo pobre por construção: o payload da revogação só traz o id do grant, e a
-		// operation devolve `{ success }`. Quem investiga chega ao usuário e ao módulo pelo
-		// `permissionId` na linha da concessão — que está neste mesmo log.
+		// O alvo sai do que FOI removido, e não do payload: a remoção é destrutiva, então
+		// depois dela o `permissionId` não aponta para linha nenhuma. Registrar só o id
+		// deixaria a trilha incapaz de dizer de quem era o acesso revogado — inclusive para
+		// os grants criados antes desta auditoria existir, que é justamente o caso em que
+		// não há linha de concessão neste log para cruzar.
 		return withSensitiveAudit(
 			"deleteUserPermissionFn",
 			ctx,
 			() => deleteUserPermission(getDb(), ctx, data),
-			() => ({
+			(result) => ({
 				permissionId: data.permissionId,
+				userId: result.removed?.userId ?? null,
+				module: result.removed?.module ?? null,
+				level: result.removed?.level ?? null,
 			})
 		).catch(handleDomainError)
 	})

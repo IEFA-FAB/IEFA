@@ -288,13 +288,23 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 	return { success: true as const }
 }
 
+/**
+ * Remove uma concessão e devolve O QUE foi removido.
+ *
+ * O `returning` traz `user_id`/`module`/`level` porque a remoção é destrutiva: depois
+ * dela, o `permissionId` não aponta para linha nenhuma. Devolver só `{ success }`
+ * obrigaria a trilha de auditoria a registrar um id órfão — e ninguém conseguiria dizer,
+ * meses depois, de quem era o acesso revogado nem em que módulo.
+ */
 export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
 	requirePermission(ctx, "admin", 2)
-	await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
-		db
-			.delete(userPermissionsInAccessControl)
-			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
-			.returning({ id: userPermissionsInAccessControl.id })
+	const [removed] = await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
+		db.delete(userPermissionsInAccessControl).where(eq(userPermissionsInAccessControl.id, input.permissionId)).returning({
+			id: userPermissionsInAccessControl.id,
+			userId: userPermissionsInAccessControl.userId,
+			module: userPermissionsInAccessControl.module,
+			level: userPermissionsInAccessControl.level,
+		})
 	)
-	return { success: true as const }
+	return { success: true as const, removed }
 }

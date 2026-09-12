@@ -199,7 +199,7 @@ function AuditLogPage() {
 								<TableHead className="text-foreground text-subheading">Quando</TableHead>
 								<TableHead className="text-foreground text-subheading">Quem</TableHead>
 								<TableHead className="text-foreground text-subheading">Operação</TableHead>
-								<TableHead className="text-foreground text-subheading">Grau</TableHead>
+								<TableHead className="text-foreground text-subheading">Exigência</TableHead>
 								<TableHead className="text-foreground text-subheading">Alvo</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -247,7 +247,13 @@ function AuditLogPage() {
 											{operationReason(row.operation) && <span className="text-caption text-muted-foreground">{operationReason(row.operation)}</span>}
 										</TableCell>
 										<TableCell>
-											<Badge variant={row.assurance === "fresh" ? "warning" : "secondary"}>{row.assurance === "fresh" ? "Elevação recente" : "Sessão"}</Badge>
+											{/* A coluna registra o grau EXIGIDO pela operação, não o que a sessão provou.
+											    Rotular como "elevação recente" afirmaria uma verificação de segundo fator
+											    que, enquanto os pisos estão desligados, não aconteceu — uma trilha de
+											    auditoria que afirma o que não mediu é pior que uma que não afirma nada. */}
+											<Badge variant={row.assurance === "fresh" ? "warning" : "secondary"}>
+												{row.assurance === "fresh" ? "Exige elevação recente" : "Exige sessão elevada"}
+											</Badge>
 										</TableCell>
 										<TableCell className="max-w-xs truncate font-mono text-caption text-muted-foreground">{formatTarget(row.target)}</TableCell>
 									</TableRow>

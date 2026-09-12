@@ -27,11 +27,18 @@
  * chega aqui, porque `run()` lança. Um log que mistura tentativa com execução não
  * responde "o que foi feito".
  *
- * ## Falha de gravação PROPAGA
+ * ## Falha de gravação PROPAGA — mas dizendo que a operação FOI aplicada
  *
- * `record` lança `DomainError("AUDIT_INSERT_FAILED")` e este helper não engole.
- * Operação sensível que conclui sem deixar rastro é pior que operação que falha: a
- * falha é visível, a lacuna não.
+ * `record` lança `DomainError("AUDIT_INSERT_FAILED")` e este helper não engole:
+ * operação sensível que conclui sem deixar rastro é pior que operação que falha, porque
+ * a falha é visível e a lacuna não.
+ *
+ * O que este helper NÃO pode fazer é deixar o erro parecer "não aconteceu nada". A
+ * mutação já foi confirmada quando a gravação falha, e várias operações classificadas
+ * não são idempotentes — `empenho_event` não tem constraint de unicidade, então um
+ * operador que leia "erro" e repita a ação grava o reforço ou a anulação DUAS VEZES, e
+ * o `v_empenho_vigente` passa a mentir. Por isso o erro é reembrulhado com a mensagem
+ * dizendo explicitamente que a operação foi aplicada e não deve ser repetida.
  *
  * Este arquivo é puro de propósito — nenhum import de `db.server`/`env.server`. O
  * gravador real entra por injeção (`record`), e é isso que deixa `audit.test.ts` provar
@@ -90,6 +97,14 @@ export async function withAudit<T>({ operation, record, run, target }: WithAudit
 	const result = await run()
 	if (entry.require === "none") return result
 
-	await record({ operation, assurance: entry.require, target: target?.(result) })
+	try {
+		await record({ operation, assurance: entry.require, target: target?.(result) })
+	} catch (error) {
+		const detail = error instanceof Error ? error.message : String(error)
+		throw new Error(
+			`A operação FOI APLICADA, mas não foi possível registrá-la na trilha de auditoria. NÃO repita a ação — avise a administração do sistema. Detalhe: ${detail}`,
+			{ cause: error }
+		)
+	}
 	return result
 }
