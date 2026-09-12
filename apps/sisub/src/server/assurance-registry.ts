@@ -50,7 +50,8 @@ export type AssuranceLevel = "none" | "session" | "fresh"
  */
 export type AssuranceAuthorization =
 	/** Exige módulo + nível do PBAC. É o único caso que separa uma conta de outra. */
-	| { kind: "permission"; module: AppModule; level: 1 | 2 | 3 }
+	/** `note` é documental (ex.: "escopo lido da linha") e não influencia a derivação. */
+	| { kind: "permission"; module: AppModule; level: 1 | 2 | 3; note?: string }
 	/** Age só sobre a conta do próprio chamador — qualquer sessão alcança, nenhuma se distingue. */
 	| { kind: "self"; note: string }
 	/** Só exige sessão válida. Sempre dívida: está aqui para ficar visível, não para virar padrão. */
