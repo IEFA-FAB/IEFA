@@ -45,6 +45,7 @@ RUN bun install --frozen-lockfile
 # =============================================================================
 FROM deps AS api-build
 COPY packages/agent-web ./packages/agent-web
+COPY packages/compras-api ./packages/compras-api
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
@@ -244,6 +245,7 @@ ARG FARO_SOURCEMAP_API_KEY
 COPY packages/agent-web ./packages/agent-web
 COPY packages/ai-provider ./packages/ai-provider
 COPY packages/auth-kit ./packages/auth-kit
+COPY packages/compras-api ./packages/compras-api
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac

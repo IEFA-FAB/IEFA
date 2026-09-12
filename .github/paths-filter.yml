@@ -7,6 +7,7 @@
 api:
   - 'apps/api/**'
   - 'packages/agent-web/**'
+  - 'packages/compras-api/**'
   - 'packages/database/**'
   - 'packages/legal-kit/**'
   - 'packages/pbac/**'
@@ -105,6 +106,7 @@ sisub:
   - 'packages/agent-web/**'
   - 'packages/ai-provider/**'
   - 'packages/auth-kit/**'
+  - 'packages/compras-api/**'
   - 'packages/database/**'
   - 'packages/legal-kit/**'
   - 'packages/pbac/**'
