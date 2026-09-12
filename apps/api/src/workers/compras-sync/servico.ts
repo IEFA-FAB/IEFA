@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { fetchAllPages } from "./client.ts"
+import { comprasRequest, fetchAllPages } from "./client.ts"
 import type {
 	ComprasClasseServico,
 	ComprasDivisaoServico,
@@ -17,7 +17,7 @@ type UpdateProgress = (pageNumber: number, totalPages: number, upserted: number)
 
 export async function syncServicoSecao(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasSecaoServico>("modulo-servico/1_consultarSecaoServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasSecaoServico>(comprasRequest("/modulo-servico/1_consultarSecaoServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_secao: r.codigoSecao,
 			nome_secao: r.nomeSecao,
@@ -37,7 +37,7 @@ export async function syncServicoSecao(supabase: SupabaseClient, updateProgress:
 
 export async function syncServicoDivisao(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasDivisaoServico>("modulo-servico/2_consultarDivisaoServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasDivisaoServico>(comprasRequest("/modulo-servico/2_consultarDivisaoServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_divisao: r.codigoDivisao,
 			codigo_secao: r.codigoSecao,
@@ -58,7 +58,7 @@ export async function syncServicoDivisao(supabase: SupabaseClient, updateProgres
 
 export async function syncServicoGrupo(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasGrupoServico>("modulo-servico/3_consultarGrupoServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasGrupoServico>(comprasRequest("/modulo-servico/3_consultarGrupoServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_grupo: r.codigoGrupo,
 			codigo_divisao: r.codigoDivisao,
@@ -79,7 +79,7 @@ export async function syncServicoGrupo(supabase: SupabaseClient, updateProgress:
 
 export async function syncServicoClasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasClasseServico>("modulo-servico/4_consultarClasseServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasClasseServico>(comprasRequest("/modulo-servico/4_consultarClasseServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_classe: r.codigoClasse,
 			codigo_grupo: r.codigoGrupo,
@@ -100,7 +100,7 @@ export async function syncServicoClasse(supabase: SupabaseClient, updateProgress
 
 export async function syncServicoSubclasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasSubclasseServico>("modulo-servico/5_consultarSubClasseServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasSubclasseServico>(comprasRequest("/modulo-servico/5_consultarSubClasseServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_subclasse: r.codigoSubclasse,
 			codigo_classe: r.codigoClasse,
@@ -122,7 +122,7 @@ export async function syncServicoSubclasse(supabase: SupabaseClient, updateProgr
 export async function syncServicoItem(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
 	// Sem filtro de status — necessário para detectar itens desativados
-	for await (const { page, pageNumber } of fetchAllPages<ComprasItemServico>("modulo-servico/6_consultarItemServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasItemServico>(comprasRequest("/modulo-servico/6_consultarItemServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_servico: r.codigoServico,
 			codigo_subclasse: r.codigoSubclasse ?? null,
@@ -146,7 +146,7 @@ export async function syncServicoItem(supabase: SupabaseClient, updateProgress: 
 
 export async function syncServicoUnidadeMedida(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasUnidadeMedidaServico>("modulo-servico/7_consultarUndMedidaServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasUnidadeMedidaServico>(comprasRequest("/modulo-servico/7_consultarUndMedidaServico"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_servico: r.codigoServico,
 			sigla_unidade_medida: r.siglaUnidadeMedida,
@@ -166,7 +166,7 @@ export async function syncServicoUnidadeMedida(supabase: SupabaseClient, updateP
 
 export async function syncServicoNaturezaDespesa(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasNaturezaDespesaServico>("modulo-servico/8_consultarNaturezaDespesaServico")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasNaturezaDespesaServico>(comprasRequest("/modulo-servico/8_consultarNaturezaDespesaServico"))) {
 		const rows = page.resultado
 			.filter((r) => r.nomeNaturezaDespesa != null)
 			.map((r) => ({

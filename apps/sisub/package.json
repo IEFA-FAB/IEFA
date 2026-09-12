@@ -32,6 +32,7 @@
     "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
+    "@iefa/compras-api": "workspace:*",
     "@iefa/database": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
     "@iefa/pbac": "workspace:*",

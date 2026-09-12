@@ -1,7 +1,8 @@
 /**
  * @module arp.fn
  * Integration with Compras.gov.br ARP (Ata de Registro de Preços) API + local empenho management.
- * CLIENT: getProcurementClient (service role). External: dadosabertos.compras.gov.br (30 s timeout, 3 retries, exponential backoff).
+ * CLIENT: getProcurementClient (service role). External: dadosabertos.compras.gov.br via
+ *   `comprasApi` (@/lib/compras.server — 30 s timeout, 3 tentativas, backoff exponencial).
  * TABLES: procurement_arp, procurement_arp_item, empenho.
  * @domain external
  * @migration n-a
@@ -11,77 +12,162 @@ import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
+import { anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem } from "@/lib/arp-compras"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
+import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { getProcurementClient } from "@/lib/supabase.server"
-import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
+import type { ArpWithItems, ComprasArpItemResult, ComprasArpPage } from "@/types/domain/arp"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
-const TIMEOUT_MS = 30_000
-const MAX_RETRIES = 3
+/** Teto por página do módulo ARP; abaixo de 10 a API devolve 400. */
+const PAGE_SIZE = 500
+/** Guarda contra ata gigante: 10 páginas × 500 = 5.000 itens. */
+const MAX_ITEM_PAGES = 10
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function fetchCompras(url: string): Promise<Response> {
-	let lastErr: unknown
-	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-		try {
-			if (attempt > 0) {
-				await new Promise((r) => setTimeout(r, (2 ** attempt - 1) * 1_000))
-			}
-			const res = await fetch(url, {
-				signal: AbortSignal.timeout(TIMEOUT_MS),
-				headers: { accept: "application/json" },
-			})
-			if (!res.ok) throw new Error(`HTTP ${res.status} ao consultar Compras.gov.br`)
-			return res
-		} catch (err) {
-			lastErr = err
-		}
-	}
-	throw lastErr
-}
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-function parseBrDate(value: string | null | undefined): string | null {
-	if (!value) return null
-	const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-	if (match) return `${match[3]}-${match[2]}-${match[1]}`
-	if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.substring(0, 10)
-	return null
-}
+const VigenciaWindowSchema = z.object({
+	dataVigenciaInicialMin: z.string().regex(ISO_DATE, "Data inválida (YYYY-MM-DD)"),
+	dataVigenciaInicialMax: z.string().regex(ISO_DATE, "Data inválida (YYYY-MM-DD)"),
+})
 
 // ─── 1. Buscar ARPs no Compras.gov.br ────────────────────────────────────────
 
 /**
- * Queries Compras.gov.br for ARPs matching the given UASG — read-only, no local persistence.
+ * Queries Compras.gov.br for ARPs whose vigência inicial falls in the given window.
  *
- * @throws {Error} "HTTP {status}" after 3 failed attempts or on AbortSignal timeout (30 s per attempt).
+ * @remarks
+ * `dataVigenciaInicialMin`/`Max` são OBRIGATÓRIOS no swagger e a janela é
+ * limitada a 365 dias — não há como listar "todas as ARPs de uma UASG".
+ * O filtro é sobre o INÍCIO DA VIGÊNCIA, não sobre o ano do número da ata:
+ * uma ata 00150/2024 que só passa a vigorar em janeiro/2025 cai na janela de 2025.
+ *
+ * @throws {Error} on window > 365 days, or "Compras.gov.br retornou {status}" após 3 tentativas.
  */
 export const searchArpFn = createServerFn({ method: "GET" })
 	.validator(
-		z.object({
-			uasgGerenciadora: z.string().min(1),
+		VigenciaWindowSchema.extend({
+			codigoUnidadeGerenciadora: z.string().min(1),
+			/** Número da ata sem zeros à esquerda; combinado com `anoAta` vira o filtro exato NNNNN/AAAA. */
 			numeroAta: z.string().optional(),
-			anoAta: z.string().optional(),
+			anoAta: z
+				.string()
+				.regex(/^\d{4}$/)
+				.optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasArpPage> => {
 		await requireUserId()
-		const params = new URLSearchParams({
-			pagina: "1",
-			tamanhoPagina: "20",
-			uasgGerenciadora: data.uasgGerenciadora,
-		})
-		if (data.numeroAta) params.set("numeroAta", data.numeroAta)
-		if (data.anoAta) params.set("anoAta", data.anoAta)
+		assertVigenciaWindow(data.dataVigenciaInicialMin, data.dataVigenciaInicialMax)
 
-		const url = `${COMPRAS_BASE}/modulo-arp/1_consultarARP?${params}`
-		const res = await fetchCompras(url)
-		return (await res.json()) as ComprasArpPage
+		// Número exato só é aplicável com o ano junto — o filtro da API é NNNNN/AAAA.
+		const numeroAtaRegistroPreco = data.numeroAta && data.anoAta ? formatNumeroAta(data.numeroAta, data.anoAta) : undefined
+
+		return unwrapCompras(
+			await comprasApi.GET("/modulo-arp/1_consultarARP", {
+				params: {
+					query: {
+						pagina: 1,
+						tamanhoPagina: 20,
+						codigoUnidadeGerenciadora: data.codigoUnidadeGerenciadora,
+						dataVigenciaInicialMin: data.dataVigenciaInicialMin,
+						dataVigenciaInicialMax: data.dataVigenciaInicialMax,
+						...(numeroAtaRegistroPreco ? { numeroAtaRegistroPreco } : {}),
+					},
+				},
+			})
+		)
 	})
 
 // ─── 2. Importar ARP + seus itens (persiste no banco) ────────────────────────
+
+/**
+ * Lê todos os itens de UMA ata.
+ *
+ * `2_consultarARPItem` não aceita `numeroAtaRegistroPreco`: os filtros mais
+ * estreitos são `codigoUnidadeGerenciadora` + `numeroCompra` + a janela de
+ * vigência, e uma mesma compra costuma gerar dezenas de atas (a compra 90015 da
+ * UASG 120001 gera 14). Por isso a seleção final da ata é feita aqui, sobre a
+ * resposta.
+ */
+async function fetchArpItems(params: {
+	codigoUnidadeGerenciadora: string
+	numeroAtaRegistroPreco: string
+	numeroCompra?: string | null
+	dataVigenciaInicial: string
+}): Promise<ComprasArpItemResult[]> {
+	const items: ComprasArpItemResult[] = []
+
+	for (let pagina = 1; pagina <= MAX_ITEM_PAGES; pagina++) {
+		const page = unwrapCompras(
+			await comprasApi.GET("/modulo-arp/2_consultarARPItem", {
+				params: {
+					query: {
+						pagina,
+						tamanhoPagina: PAGE_SIZE,
+						// O swagger tipa este campo como integer aqui e como string em
+						// `1_consultarARP` — inconsistência da API, não do app.
+						codigoUnidadeGerenciadora: Number(params.codigoUnidadeGerenciadora),
+						// Janela de um dia: a vigência inicial da própria ata.
+						dataVigenciaInicialMin: params.dataVigenciaInicial,
+						dataVigenciaInicialMax: params.dataVigenciaInicial,
+						...(params.numeroCompra ? { numeroCompra: params.numeroCompra } : {}),
+					},
+				},
+			})
+		)
+
+		const batch = page.resultado ?? []
+		items.push(...batch.filter((item) => item.numeroAtaRegistroPreco === params.numeroAtaRegistroPreco))
+		if (batch.length < PAGE_SIZE) break
+	}
+
+	return items
+}
+
+/**
+ * Lê o saldo de empenho por item da ata.
+ *
+ * @remarks
+ * `saldoEmpenho` NÃO existe em `2_consultarARPItem`; só `4_consultarEmpenhosSaldoItem`
+ * tem. O endpoint devolve APENAS itens que já têm empenho registrado — item sem
+ * empenho fica de fora da resposta, e por isso o chamador trata ausência como
+ * "empenhado = 0", nunca como "sem informação".
+ */
+async function fetchArpSaldos(params: {
+	numeroAtaRegistroPreco: string
+	codigoUnidadeGerenciadora: string
+}): Promise<Map<number, { quantidadeEmpenhada: number; saldoEmpenho: number | null }>> {
+	const page = unwrapCompras(
+		await comprasApi.GET("/modulo-arp/4_consultarEmpenhosSaldoItem", {
+			params: {
+				query: {
+					pagina: 1,
+					tamanhoPagina: PAGE_SIZE,
+					numeroAta: params.numeroAtaRegistroPreco,
+					unidadeGerenciadora: params.codigoUnidadeGerenciadora,
+				},
+			},
+		})
+	)
+
+	const byItem = new Map<number, { quantidadeEmpenhada: number; saldoEmpenho: number | null }>()
+	for (const row of page.resultado ?? []) {
+		const numero = Number(row.numeroItem)
+		if (!Number.isFinite(numero)) continue
+		// A ata pode trazer linha de participante além da gerenciadora; a
+		// gerenciadora é a que corresponde ao saldo que a unidade administra.
+		if (byItem.has(numero) && row.tipo !== "GERENCIADORA") continue
+		byItem.set(numero, {
+			quantidadeEmpenhada: row.quantidadeEmpenhada ?? 0,
+			saldoEmpenho: row.saldoEmpenho ?? null,
+		})
+	}
+	return byItem
+}
 
 /**
  * Imports an ARP and all its items from Compras.gov.br, persisting them locally and linking to internal ATA items by catmat code.
@@ -91,19 +177,22 @@ export const searchArpFn = createServerFn({ method: "GET" })
  *   reconciles procurement_arp_item by numero_item (update matched, insert new, delete stale
  *   ONLY when no finance.empenho references them — empenho.arp_item_id is ON DELETE CASCADE,
  *   so a blind delete+reinsert would silently wipe local empenhos).
+ * `numero_ata` guarda o número CANÔNICO da API ("00002/2025"), que é o formato que
+ *   `4_consultarEmpenhosSaldoItem` exige de volta na sincronização de saldo.
  * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get ata_item_id = null.
  *
- * @throws {Error} on HTTP failure (after 3 retries) or any Supabase write error.
+ * @throws {Error} on HTTP failure (after 3 retries), when the ata has no items, or any Supabase write error.
  */
 
 const ArpDataSchema = z.object({
-	numeroAta: z.string(),
-	anoAta: z.string(),
-	uasgGerenciadora: z.string(),
-	nomeUasgGerenciadora: z.string().nullable().optional(),
+	/** Número canônico da API, no formato NNNNN/AAAA. */
+	numeroAtaRegistroPreco: z.string().min(1),
+	codigoUnidadeGerenciadora: z.string().min(1),
+	nomeUnidadeGerenciadora: z.string().nullable().optional(),
+	numeroCompra: z.string().nullable().optional(),
 	objeto: z.string().nullable().optional(),
-	dataVigenciaIni: z.string().nullable().optional(),
-	dataVigenciaFim: z.string().nullable().optional(),
+	dataVigenciaInicial: z.string().min(1),
+	dataVigenciaFinal: z.string().nullable().optional(),
 	statusAta: z.string().nullable().optional(),
 })
 
@@ -120,19 +209,29 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		const supabase = getProcurementClient()
 		const { ataId, unitId, arpData } = data
 
-		// ── 1. Buscar itens da ARP na API do Compras.gov.br ──────────────────────
+		// ── 1. Buscar itens e saldos da ARP na API do Compras.gov.br ─────────────
 
-		const params = new URLSearchParams({
-			pagina: "1",
-			tamanhoPagina: "500",
-			uasgGerenciadora: arpData.uasgGerenciadora,
-			numeroAta: arpData.numeroAta,
-			anoAta: arpData.anoAta,
-		})
+		const dataVigenciaInicial = parseBrDate(arpData.dataVigenciaInicial)
+		if (!dataVigenciaInicial) throw new Error("ARP sem data de vigência inicial — não é possível consultar os itens")
 
-		const res = await fetchCompras(`${COMPRAS_BASE}/modulo-arp/2_consultarARPItem?${params}`)
-		const page = (await res.json()) as ComprasArpItemPage
-		const apiItems = page.resultado ?? []
+		const [apiItems, saldos] = await Promise.all([
+			fetchArpItems({
+				codigoUnidadeGerenciadora: arpData.codigoUnidadeGerenciadora,
+				numeroAtaRegistroPreco: arpData.numeroAtaRegistroPreco,
+				numeroCompra: arpData.numeroCompra,
+				dataVigenciaInicial,
+			}),
+			fetchArpSaldos({
+				numeroAtaRegistroPreco: arpData.numeroAtaRegistroPreco,
+				codigoUnidadeGerenciadora: arpData.codigoUnidadeGerenciadora,
+			}),
+		])
+
+		// Ata sem item é resposta suspeita (despublicada, janela errada): importar
+		// um cabeçalho vazio deixaria a tela dizendo "vinculada" sem nada dentro.
+		if (apiItems.length === 0) {
+			throw new Error(`O Compras.gov.br não retornou itens para a ARP ${arpData.numeroAtaRegistroPreco}`)
+		}
 
 		// ── 2. Buscar os itens da ATA interna para fazer o match por catmat ──────
 
@@ -153,13 +252,13 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 				{
 					unit_id: unitId,
 					ata_id: ataId,
-					numero_ata: arpData.numeroAta,
-					ano_ata: arpData.anoAta,
-					uasg_gerenciadora: arpData.uasgGerenciadora,
-					nome_uasg_gerenciadora: arpData.nomeUasgGerenciadora ?? null,
+					numero_ata: arpData.numeroAtaRegistroPreco,
+					ano_ata: anoFromNumeroAta(arpData.numeroAtaRegistroPreco),
+					uasg_gerenciadora: arpData.codigoUnidadeGerenciadora,
+					nome_uasg_gerenciadora: arpData.nomeUnidadeGerenciadora ?? null,
 					objeto: arpData.objeto ?? null,
-					data_vigencia_inicio: parseBrDate(arpData.dataVigenciaIni),
-					data_vigencia_fim: parseBrDate(arpData.dataVigenciaFim),
+					data_vigencia_inicio: dataVigenciaInicial,
+					data_vigencia_fim: parseBrDate(arpData.dataVigenciaFinal),
 					status_ata: arpData.statusAta ?? null,
 					last_synced_at: new Date().toISOString(),
 				},
@@ -184,25 +283,35 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			if (item.numero_item != null) byNumeroItem.set(item.numero_item, item.id)
 		}
 
-		const toRow = (item: ComprasArpItemPage["resultado"][number]) => ({
-			arp_id: arp.id,
-			ata_item_id: item.codigoMaterial != null ? (catmatToAtaItemId.get(item.codigoMaterial) ?? null) : null,
-			numero_item: item.numeroItem ?? null,
-			catmat_item_codigo: item.codigoMaterial ?? null,
-			descricao_item: item.descricaoMaterial ?? null,
-			ni_fornecedor: item.niiFornecedor ?? null,
-			nome_fornecedor: item.nomeFornecedor ?? null,
-			valor_unitario: item.valorUnitario ?? null,
-			quantidade_homologada: item.qtdeRegistrada ?? null,
-			medida_catmat: item.unidadeFornecimento ?? null,
-			quantidade_empenhada: item.qtdeEmpenhada ?? 0,
-			saldo_empenho: item.saldoEmpenho ?? null,
-			synced_at: now,
-		})
+		const toRow = (item: ComprasArpItemResult) => {
+			const numero = parseNumeroItem(item.numeroItem)
+			const saldo = numero != null ? saldos.get(numero) : undefined
+			return {
+				arp_id: arp.id,
+				ata_item_id: item.codigoItem != null ? (catmatToAtaItemId.get(item.codigoItem) ?? null) : null,
+				numero_item: numero,
+				catmat_item_codigo: item.codigoItem ?? null,
+				descricao_item: item.descricaoItem ?? null,
+				ni_fornecedor: item.niFornecedor ?? null,
+				nome_fornecedor: item.nomeRazaoSocialFornecedor ?? null,
+				valor_unitario: item.valorUnitario ?? null,
+				quantidade_homologada: item.quantidadeHomologadaItem ?? null,
+				// `2_consultarARPItem` não traz unidade de fornecimento; o campo fica
+				// a cargo do item da ATA interna.
+				medida_catmat: null,
+				// Ausente em `4_consultarEmpenhosSaldoItem` = item sem empenho.
+				// O fallback do saldo é a quantidade homologada, não null: "ainda não
+				// empenhei nada" é saldo cheio, e null apareceria na tela como "—".
+				quantidade_empenhada: saldo?.quantidadeEmpenhada ?? item.quantidadeEmpenhada ?? 0,
+				saldo_empenho: saldo?.saldoEmpenho ?? item.quantidadeHomologadaItem ?? null,
+				synced_at: now,
+			}
+		}
 
 		const matchedIds = new Set<string>()
 		for (const item of apiItems) {
-			const existingId = item.numeroItem != null ? byNumeroItem.get(item.numeroItem) : undefined
+			const numero = parseNumeroItem(item.numeroItem)
+			const existingId = numero != null ? byNumeroItem.get(numero) : undefined
 			if (existingId) {
 				matchedIds.add(existingId)
 				const { error } = await supabase.from("procurement_arp_item").update(toRow(item)).eq("id", existingId)
@@ -210,7 +319,12 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		const newRows = apiItems.filter((item) => item.numeroItem == null || !byNumeroItem.has(item.numeroItem)).map(toRow)
+		const newRows = apiItems
+			.filter((item) => {
+				const numero = parseNumeroItem(item.numeroItem)
+				return numero == null || !byNumeroItem.has(numero)
+			})
+			.map(toRow)
 		if (newRows.length > 0) {
 			const { error } = await supabase.from("procurement_arp_item").insert(newRows)
 			if (error) throw new Error(`Erro ao salvar itens da ARP: ${error.message}`)
@@ -241,7 +355,8 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 // ─── 3. Sincronizar saldo de empenhos via Compras.gov.br ─────────────────────
 
 /**
- * Refreshes qtdeEmpenhada and saldoEmpenho for all items of an ARP by re-querying Compras.gov.br.
+ * Refreshes quantidade_empenhada and saldo_empenho for all items of an ARP via
+ * `modulo-arp/4_consultarEmpenhosSaldoItem`.
  *
  * @remarks
  * SIDE EFFECTS: updates procurement_arp_item.{quantidade_empenhada, saldo_empenho, synced_at} for all matched
@@ -259,51 +374,44 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		await requireAuth()
 		const supabase = getProcurementClient()
 
-		const { data: arp, error: arpError } = await supabase.from("procurement_arp").select("numero_ata, ano_ata, uasg_gerenciadora").eq("id", data.arpId).single()
+		const { data: arp, error: arpError } = await supabase.from("procurement_arp").select("numero_ata, uasg_gerenciadora").eq("id", data.arpId).single()
 
 		if (arpError || !arp) throw new Error("ARP não encontrada")
 
-		// Re-consultar itens na API (retorna saldo atualizado)
-		const params = new URLSearchParams({
-			pagina: "1",
-			tamanhoPagina: "500",
-			uasgGerenciadora: arp.uasg_gerenciadora,
-			numeroAta: arp.numero_ata,
+		const saldos = await fetchArpSaldos({
+			numeroAtaRegistroPreco: arp.numero_ata,
+			codigoUnidadeGerenciadora: arp.uasg_gerenciadora,
 		})
-		if (arp.ano_ata) params.set("anoAta", arp.ano_ata)
-
-		const res = await fetchCompras(`${COMPRAS_BASE}/modulo-arp/2_consultarARPItem?${params}`)
-		const page = (await res.json()) as ComprasArpItemPage
-		const apiItems = page.resultado ?? []
 
 		// Resposta vazia = falha (ata pode ter sido despublicada, API instável…):
 		// preserva snapshot e last_synced_at em vez de fingir sync bem-sucedido.
-		if (apiItems.length === 0) {
-			throw new Error("A API do Compras.gov não retornou itens para esta ARP — snapshot anterior mantido")
+		if (saldos.size === 0) {
+			throw new Error("A API do Compras.gov não retornou saldos para esta ARP — snapshot anterior mantido")
 		}
 
 		// Buscar itens locais para mapear por numero_item
-		const { data: dbItems } = await supabase.from("procurement_arp_item").select("id, numero_item").eq("arp_id", data.arpId)
-
-		const numeroItemToDbId = new Map<number, string>()
-		for (const dbItem of dbItems ?? []) {
-			if (dbItem.numero_item != null) numeroItemToDbId.set(dbItem.numero_item, dbItem.id)
-		}
+		const { data: dbItems } = await supabase.from("procurement_arp_item").select("id, numero_item, quantidade_homologada").eq("arp_id", data.arpId)
 
 		// Atualizar TODOS os itens em um único upsert (uma request PostgREST =
 		// uma transação): ou o snapshot inteiro entra, ou nada entra. Os ids vêm
 		// do banco, então o caminho de INSERT do upsert nunca é atingido.
 		const now = new Date().toISOString()
-		const updates = apiItems
-			.filter((item) => item.numeroItem != null && numeroItemToDbId.has(item.numeroItem))
-			.map((item) => ({
+		const updates = (dbItems ?? [])
+			.filter((item) => item.numero_item != null)
+			.map((item) => {
+				// Item que sumiu da resposta não tem empenho: zera em vez de manter
+				// o valor antigo, senão um empenho cancelado ficaria para sempre no
+				// snapshot local.
 				// biome-ignore lint/style/noNonNullAssertion: filtrado acima
-				id: numeroItemToDbId.get(item.numeroItem!)!,
-				arp_id: data.arpId,
-				quantidade_empenhada: item.qtdeEmpenhada ?? 0,
-				saldo_empenho: item.saldoEmpenho ?? null,
-				synced_at: now,
-			}))
+				const saldo = saldos.get(item.numero_item!)
+				return {
+					id: item.id,
+					arp_id: data.arpId,
+					quantidade_empenhada: saldo?.quantidadeEmpenhada ?? 0,
+					saldo_empenho: saldo?.saldoEmpenho ?? item.quantidade_homologada ?? null,
+					synced_at: now,
+				}
+			})
 		if (updates.length > 0) {
 			const { error: upsertError } = await supabase.from("procurement_arp_item").upsert(updates, { onConflict: "id" })
 			if (upsertError) {

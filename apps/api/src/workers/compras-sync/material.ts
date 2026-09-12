@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { calcConcurrency, fetchAllPages, fetchAllPagesParallel } from "./client.ts"
+import { calcConcurrency, comprasRequest, fetchAllPages, fetchAllPagesParallel } from "./client.ts"
 import type {
 	ComprasCaracteristicaMaterial,
 	ComprasClasseMaterial,
@@ -27,7 +27,7 @@ function parseSupplyCapacity(value: number | string | null | undefined): number 
 
 export async function syncMaterialGrupo(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasGrupoMaterial>("modulo-material/1_consultarGrupoMaterial")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasGrupoMaterial>(comprasRequest("/modulo-material/1_consultarGrupoMaterial"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_grupo: r.codigoGrupo,
 			nome_grupo: r.nomeGrupo,
@@ -47,7 +47,7 @@ export async function syncMaterialGrupo(supabase: SupabaseClient, updateProgress
 
 export async function syncMaterialClasse(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasClasseMaterial>("modulo-material/2_consultarClasseMaterial")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasClasseMaterial>(comprasRequest("/modulo-material/2_consultarClasseMaterial"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_classe: r.codigoClasse,
 			codigo_grupo: r.codigoGrupo,
@@ -68,7 +68,7 @@ export async function syncMaterialClasse(supabase: SupabaseClient, updateProgres
 
 export async function syncMaterialPdm(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasPdmMaterial>("modulo-material/3_consultarPdmMaterial")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasPdmMaterial>(comprasRequest("/modulo-material/3_consultarPdmMaterial"))) {
 		const rows = page.resultado.map((r) => ({
 			codigo_pdm: r.codigoPdm,
 			codigo_classe: r.codigoClasse,
@@ -94,7 +94,7 @@ export async function syncMaterialItem(supabase: SupabaseClient, updateProgress:
 	let totalPages = 0
 
 	const concurrency = calcConcurrency()
-	await fetchAllPagesParallel<ComprasItemMaterial>("modulo-material/4_consultarItemMaterial", {}, concurrency, async (page, pageNumber) => {
+	await fetchAllPagesParallel<ComprasItemMaterial>(comprasRequest("/modulo-material/4_consultarItemMaterial"), concurrency, async (page, pageNumber) => {
 		totalPages = page.totalPaginas
 
 		const rows = page.resultado.map((r) => ({
@@ -128,7 +128,9 @@ export async function syncMaterialItem(supabase: SupabaseClient, updateProgress:
 
 export async function syncMaterialNaturezaDespesa(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasNaturezaDespesaMaterial>("modulo-material/5_consultarMaterialNaturezaDespesa")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasNaturezaDespesaMaterial>(
+		comprasRequest("/modulo-material/5_consultarMaterialNaturezaDespesa")
+	)) {
 		const rows = page.resultado
 			.filter((r) => r.nomeNaturezaDespesa != null)
 			.map((r) => ({
@@ -154,7 +156,9 @@ export async function syncMaterialNaturezaDespesa(supabase: SupabaseClient, upda
 
 export async function syncMaterialUnidadeFornecimento(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
-	for await (const { page, pageNumber } of fetchAllPages<ComprasUnidadeFornecimento>("modulo-material/6_consultarMaterialUnidadeFornecimento")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasUnidadeFornecimento>(
+		comprasRequest("/modulo-material/6_consultarMaterialUnidadeFornecimento")
+	)) {
 		const rows = page.resultado.map((r) => ({
 			codigo_pdm: r.codigoPdm,
 			numero_sequencial_unidade_fornecimento: r.numeroSequencialUnidadeFornecimento ?? null,
@@ -190,7 +194,9 @@ export async function syncMaterialUnidadeFornecimento(supabase: SupabaseClient, 
 export async function syncMaterialCaracteristica(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
 	let totalUpserted = 0
 	// Sem filtro de status (plano: sem filtro de status)
-	for await (const { page, pageNumber } of fetchAllPages<ComprasCaracteristicaMaterial>("modulo-material/7_consultarMaterialCaracteristicas")) {
+	for await (const { page, pageNumber } of fetchAllPages<ComprasCaracteristicaMaterial>(
+		comprasRequest("/modulo-material/7_consultarMaterialCaracteristicas")
+	)) {
 		const rows = page.resultado.map((r) => ({
 			codigo_item: r.codigoItem,
 			codigo_caracteristica: r.codigoCaracteristica,

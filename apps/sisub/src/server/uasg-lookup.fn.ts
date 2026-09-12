@@ -1,7 +1,8 @@
 /**
  * @module uasg-lookup.fn
  * UASG (Unidade Administrativa de Serviços Gerais) lookup from Compras.gov.br. Read-only, no local persistence.
- * CLIENT: external fetch only — no Supabase. External: dadosabertos.compras.gov.br (10 s timeout, no retry).
+ * CLIENT: external only — no Supabase. External: dadosabertos.compras.gov.br via `comprasApi`
+ * (@/lib/compras.server — 30 s timeout, 3 tentativas).
  * AUTH: apenas autenticação (qualquer sessão válida). Sem guard isto é um proxy aberto
  * para a API do Compras.gov usando o IP do nosso servidor — anônimos podiam enumerar UASGs
  * e consumir o rate limit da origem em nome da aplicação.
@@ -9,70 +10,34 @@
  * @migration n-a
  */
 
+import type { components } from "@iefa/compras-api"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
+import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type UasgInfo = {
-	codigoUasg: string
-	nomeUasg: string
-	usoSisg: boolean
-	adesaoSiasg: boolean
-	siglaUf: string
-	codigoMunicipio: number
-	codigoMunicipioIbge: number
-	nomeMunicipioIbge: string
-	codigoUnidadePolo: number
-	nomeUnidadePolo: string
-	codigoUnidadeEspelho: number
-	nomeUnidadeEspelho: string
-	uasgCadastradora: boolean
-	cnpjCpfUasg: string
-	codigoOrgao: number
-	cnpjCpfOrgao: string
-	cnpjCpfOrgaoVinculado: string
-	cnpjCpfOrgaoSuperior: string
-	codigoSiorg: string
-	statusUasg: boolean
-	dataImplantacaoSidec: string
-	dataHoraMovimento: string
-}
-
-type ComprasApiResponse = {
-	resultado: UasgInfo[]
-	totalRegistros: number
-	totalPaginas: number
-	paginasRestantes: number
-}
+export type UasgInfo = components["schemas"]["DmCorpUasgDTO"]
 
 // ─── Server Function ──────────────────────────────────────────────────────────
-
-const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
 
 /**
  * Queries Compras.gov.br for UASG metadata by exact 6-digit code. Returns null if no result found.
  *
- * @throws {Error} "Compras.gov.br retornou {status}" on non-2xx response or AbortSignal timeout (10 s).
+ * `statusUasg` é obrigatório no swagger; fixado em `true` porque a consulta
+ * existe para preencher cadastro — UASG desativada não deve ser oferecida.
+ *
+ * @throws {Error} "Compras.gov.br retornou {status}" em resposta não-2xx ou timeout (30 s).
  */
 export const fetchUasgInfoFn = createServerFn({ method: "GET" })
 	.validator(z.object({ codigoUasg: z.string().length(6) }))
 	.handler(async ({ data }) => {
 		await requireUserId()
-		const url = new URL(`${COMPRAS_BASE}/modulo-uasg/1_consultarUasg`)
-		url.searchParams.set("pagina", "1")
-		url.searchParams.set("codigoUasg", data.codigoUasg)
-		url.searchParams.set("statusUasg", "true")
-
-		const res = await fetch(url.toString(), {
-			headers: { accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		})
-
-		if (!res.ok) throw new Error(`Compras.gov.br retornou ${res.status}`)
-
-		const json = (await res.json()) as ComprasApiResponse
-
-		return json.resultado?.[0] ?? null
+		const page = unwrapCompras(
+			await comprasApi.GET("/modulo-uasg/1_consultarUasg", {
+				params: { query: { pagina: 1, codigoUasg: data.codigoUasg, statusUasg: true } },
+			})
+		)
+		return page.resultado?.[0] ?? null
 	})

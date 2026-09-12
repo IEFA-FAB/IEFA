@@ -1,6 +1,8 @@
+import { COMPRAS_BASE_URL, type ComprasQuery } from "@iefa/compras-api"
 import type { ComprasMaterialPrecoItem, ComprasMaterialPrecoPage } from "./types.ts"
 
-const BASE_URL = "https://dadosabertos.compras.gov.br"
+const BASE_URL = COMPRAS_BASE_URL
+const ENDPOINT = "/modulo-pesquisa-preco/1_consultarMaterial" as const
 const PAGE_SIZE = 500
 const TIMEOUT_MS = 30_000
 const MAX_RETRIES = 3
@@ -20,20 +22,21 @@ export interface ConsultaPrecoParams {
 // ─── Fetch de uma página com retry exponencial ───────────────────────────────
 
 async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoParams, page: number): Promise<ComprasMaterialPrecoPage> {
-	// Contrato atual da API: o item vai no par `tipo`/`codigo`.
-	// O antigo `codigoItemCatalogo=<n>` responde 404 (Resource not found).
-	const qs = new URLSearchParams({
+	// Conferido contra o swagger: `tipo` e `codigo` são obrigatórios, e o antigo
+	// `codigoItemCatalogo=<n>` responde 404 (Resource not found).
+	const query: ComprasQuery<typeof ENDPOINT> = {
 		tipo: "codigoItemCatalogo",
 		codigo: String(catmatCode),
-		pagina: String(page),
-		tamanhoPagina: String(PAGE_SIZE),
-		dataResultado: "true", // apenas compras com resultado homologado
-	})
-	if (params.estado) qs.set("estado", params.estado)
-	if (params.codigoUasg) qs.set("codigoUasg", params.codigoUasg)
-	if (params.codigoMunicipio) qs.set("codigoMunicipio", String(params.codigoMunicipio))
+		pagina: page,
+		tamanhoPagina: PAGE_SIZE,
+		dataResultado: true, // apenas compras com resultado homologado
+		...(params.estado ? { estado: params.estado } : {}),
+		...(params.codigoUasg ? { codigoUasg: params.codigoUasg } : {}),
+		...(params.codigoMunicipio ? { codigoMunicipio: params.codigoMunicipio } : {}),
+	}
 
-	const url = `${BASE_URL}/modulo-pesquisa-preco/1_consultarMaterial?${qs}`
+	const qs = new URLSearchParams(Object.entries(query).map(([k, v]): [string, string] => [k, String(v)]))
+	const url = `${BASE_URL}${ENDPOINT}?${qs}`
 
 	let lastErr: unknown
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {

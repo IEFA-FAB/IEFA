@@ -7,66 +7,47 @@
  * @migration done
  */
 
+import { COMPRAS_MAX_PAGE_SIZE, COMPRAS_MIN_PAGE_SIZE } from "@iefa/compras-api"
 import { savePriceResearchAudit } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
+import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { parseComprasJson } from "@/lib/compras-json"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import type { ComprasMaterialPricePage } from "@/types/domain/price-research"
-
-const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
-const TIMEOUT_MS = 30_000
-const MAX_RETRIES = 3
-/** A API responde 400 ("Informe um número de paginação no intervalo de 10 a 500") fora desta faixa. */
-const MIN_PAGE_SIZE = 10
-const MAX_PAGE_SIZE = 500
-
-async function fetchCompras(url: string): Promise<Response> {
-	let lastErr: unknown
-	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-		try {
-			if (attempt > 0) {
-				await new Promise((r) => setTimeout(r, (2 ** attempt - 1) * 1_000))
-			}
-			const res = await fetch(url, {
-				signal: AbortSignal.timeout(TIMEOUT_MS),
-				headers: { accept: "application/json" },
-			})
-			if (!res.ok) throw new Error(`HTTP ${res.status} ao consultar Compras.gov.br`)
-			return res
-		} catch (err) {
-			lastErr = err
-		}
-	}
-	throw lastErr
-}
 
 export const searchMaterialPricesFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
 			codigoItemCatalogo: z.number().int().positive(),
 			pagina: z.number().int().min(1).default(1),
-			tamanhoPagina: z.number().int().min(MIN_PAGE_SIZE).max(MAX_PAGE_SIZE).default(MAX_PAGE_SIZE),
+			tamanhoPagina: z.number().int().min(COMPRAS_MIN_PAGE_SIZE).max(COMPRAS_MAX_PAGE_SIZE).default(COMPRAS_MAX_PAGE_SIZE),
 			estado: z.string().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasMaterialPricePage> => {
 		await requireUserId()
-		// Contrato atual da API: o item consultado vai no par `tipo`/`codigo`.
-		// O antigo `codigoItemCatalogo=<n>` responde 404 (Resource not found).
-		const params = new URLSearchParams({
-			tipo: "codigoItemCatalogo",
-			codigo: String(data.codigoItemCatalogo),
-			pagina: String(data.pagina),
-			tamanhoPagina: String(data.tamanhoPagina),
-		})
-		if (data.estado) params.set("estado", data.estado)
-
-		const url = `${COMPRAS_BASE}/modulo-pesquisa-preco/1_consultarMaterial?${params}`
-		const res = await fetchCompras(url)
-		return parseComprasJson<ComprasMaterialPricePage>(await res.text())
+		// `parseAs: "text"` de propósito: `idCompra` é um inteiro de 17 dígitos e o
+		// JSON.parse do openapi-fetch corromperia os últimos dígitos antes de nós
+		// vermos o valor. Ver parseComprasJson.
+		const raw = unwrapCompras(
+			await comprasApi.GET("/modulo-pesquisa-preco/1_consultarMaterial", {
+				params: {
+					query: {
+						// O item consultado vai no par `tipo`/`codigo` — os dois obrigatórios.
+						tipo: "codigoItemCatalogo",
+						codigo: String(data.codigoItemCatalogo),
+						pagina: data.pagina,
+						tamanhoPagina: data.tamanhoPagina,
+						...(data.estado ? { estado: data.estado } : {}),
+					},
+				},
+				parseAs: "text",
+			})
+		)
+		return parseComprasJson<ComprasMaterialPricePage>(raw)
 	})
 
 // ─── Schema de amostra (subconjunto de ComprasMaterialPriceResult) ────────────

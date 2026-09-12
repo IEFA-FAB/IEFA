@@ -52,7 +52,7 @@ export function useArpLocalCommitments(arpId: string | null) {
 
 export function useSearchArp() {
 	return useMutation({
-		mutationFn: (params: { uasgGerenciadora: string; numeroAta?: string; anoAta?: string }) => searchArpFn({ data: params }) as Promise<ComprasArpPage>,
+		mutationFn: (params: Parameters<typeof searchArpFn>[0]["data"]) => searchArpFn({ data: params }) as Promise<ComprasArpPage>,
 		onError: (error) => toast.error(`Erro ao buscar ARP: ${error.message}`),
 	})
 }
@@ -66,7 +66,8 @@ export function useImportArp(ataId: string) {
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.arp(ataId) })
 			const n = data.items.length
-			toast.success(`ARP ${data.numero_ata}/${data.ano_ata ?? ""} importada com ${n} ${n === 1 ? "item" : "itens"}`)
+			// numero_ata já guarda o formato canônico NNNNN/AAAA da API.
+			toast.success(`ARP ${data.numero_ata} importada com ${n} ${n === 1 ? "item" : "itens"}`)
 		},
 		onError: (error) => toast.error(`Erro ao importar ARP: ${error.message}`),
 	})

@@ -9,6 +9,7 @@
  */
 
 import { clampLimit } from "@iefa/sisub-domain/agent"
+import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import type { ModuleToolDefinition } from "./shared"
 import { requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
@@ -24,26 +25,12 @@ const ATA_ITEMS_MAX = 100
 /** Quantos IDs cabem num `in.(…)` sem estourar a linha de requisição do gateway. */
 const EMPENHO_ID_BATCH = 100
 
-const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
-const COMPRAS_TIMEOUT_MS = 30_000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1]): number {
 	const unitId = safeInt(ctx.scopeId, "scopeId")
 	requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
 	return unitId
-}
-
-async function fetchComprasJson(url: string): Promise<unknown> {
-	const res = await fetch(url, {
-		signal: AbortSignal.timeout(COMPRAS_TIMEOUT_MS),
-		headers: { accept: "application/json" },
-	})
-	if (!res.ok) {
-		const body = await res.text().catch(() => "")
-		throw new Error(`HTTP ${res.status} ao consultar Compras.gov.br\nURL: ${url}\nResposta: ${body || res.statusText}`)
-	}
-	return res.json()
 }
 
 function toIsoDate(date: Date): string {
@@ -254,17 +241,25 @@ const searchArp: ModuleToolDefinition = {
 		if (!uasg) return toolErr("Unidade sem código UASG configurado")
 
 		const vigencia = arpVigenciaWindow()
-		const params = new URLSearchParams({
-			pagina: "1",
-			tamanhoPagina: "20",
-			codigoUnidadeGerenciadora: uasg,
-			dataVigenciaInicialMin: vigencia.min,
-			dataVigenciaInicialMax: vigencia.max,
-		})
 
 		try {
-			const data = await fetchComprasJson(`${COMPRAS_BASE}/modulo-arp/1_consultarARP?${params}`)
-			return toolOk({ uasg, ...(data && typeof data === "object" ? data : { resultado: [] }) })
+			const page = unwrapCompras(
+				await comprasApi.GET("/modulo-arp/1_consultarARP", {
+					params: {
+						query: {
+							pagina: 1,
+							tamanhoPagina: 20,
+							codigoUnidadeGerenciadora: uasg,
+							dataVigenciaInicialMin: vigencia.min,
+							dataVigenciaInicialMax: vigencia.max,
+						},
+					},
+				})
+			)
+			// A guarda de objeto fica: um corpo que não é objeto (a API já devolveu
+			// texto solto em 200) seria espalhado caractere a caractere no
+			// resultado da tool, e o modelo leria `{"0":"t","1":"e",…}`.
+			return toolOk({ uasg, vigencia, ...(page && typeof page === "object" ? page : { resultado: [] }) })
 		} catch (err) {
 			return toolErr(err instanceof Error ? err.message : "Erro ao consultar Compras.gov.br")
 		}

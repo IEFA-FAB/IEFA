@@ -285,7 +285,9 @@ describe("search_arp", () => {
 		expect(result.success).toBe(true)
 		expect(result.data).toMatchObject({ uasg: "120001", resultado: [{ numeroAta: "1/2026" }] })
 
-		const url = new URL(String(fetchMock.mock.calls[0]?.[0]))
+		// O client tipado (openapi-fetch) chama fetch com um Request, não com uma string.
+		const called = fetchMock.mock.calls[0]?.[0]
+		const url = new URL(called instanceof Request ? called.url : String(called))
 		expect(url.searchParams.get("codigoUnidadeGerenciadora")).toBe("120001")
 		expect(url.searchParams.get("tamanhoPagina")).toBe("20")
 		// Janela de vigência de um ano, fim ≥ início.
@@ -325,6 +327,10 @@ describe("search_arp", () => {
 		const result = await tool("search_arp").handler({}, ctx)
 
 		expect(result.success).toBe(true)
-		expect(result.data).toEqual({ uasg: "120001", resultado: [] })
+		// A janela consultada volta junto: sem ela o modelo lê `resultado: []` e
+		// conclui que a unidade não tem ARP nenhuma, quando pode só estar fora do período.
+		expect(result.data).toMatchObject({ uasg: "120001", resultado: [] })
+		expect(result.data).toHaveProperty("vigencia.min")
+		expect(result.data).toHaveProperty("vigencia.max")
 	})
 })
