@@ -48,6 +48,11 @@ export const queryKeys = {
 		resets: () => ["training", "resets"] as const,
 	},
 
+	audit: {
+		// Ator e página entram na chave: são respostas diferentes do mesmo endpoint.
+		sensitiveOperations: (actorId: string | null, limit: number, offset: number) => ["audit", "sensitive-operations", actorId, limit, offset] as const,
+	},
+
 	policies: {
 		all: () => ["policies"] as const,
 		detail: (policyId: string | null) => ["policies", policyId] as const,

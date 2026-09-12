@@ -23,6 +23,7 @@ import {
 	updateUserPermission,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -75,19 +76,61 @@ export const createUserPermissionFn = createServerFn({ method: "POST" })
 	.validator(CreateUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createUserPermission(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"createUserPermissionFn",
+			ctx,
+			() => createUserPermission(getDb(), ctx, data),
+			() => ({
+				userId: data.userId,
+				module: data.module,
+				level: data.level,
+				mess_hall_id: data.mess_hall_id ?? null,
+				kitchen_id: data.kitchen_id ?? null,
+				unit_id: data.unit_id ?? null,
+				expires_at: data.expires_at ?? null,
+			})
+		).catch(handleDomainError)
 	})
 
 export const updateUserPermissionFn = createServerFn({ method: "POST" })
 	.validator(UpdateUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateUserPermission(getDb(), ctx, data).catch(handleDomainError)
+		return withSensitiveAudit(
+			"updateUserPermissionFn",
+			ctx,
+			() => updateUserPermission(getDb(), ctx, data),
+			() => ({
+				permissionId: data.permissionId,
+				level: data.level,
+				mess_hall_id: data.mess_hall_id ?? null,
+				kitchen_id: data.kitchen_id ?? null,
+				unit_id: data.unit_id ?? null,
+				// `undefined` = o chamador não mexeu no prazo; gravar `null` afirmaria que ele
+				// tornou o grant permanente, que é outra coisa.
+				expires_at: data.expires_at,
+			})
+		).catch(handleDomainError)
 	})
 
 export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.validator(DeleteUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteUserPermission(getDb(), ctx, data).catch(handleDomainError)
+		// O alvo sai do que FOI removido, e não do payload: a remoção é destrutiva, então
+		// depois dela o `permissionId` não aponta para linha nenhuma. Registrar só o id
+		// deixaria a trilha incapaz de dizer de quem era o acesso revogado — inclusive para
+		// os grants criados antes desta auditoria existir, que é justamente o caso em que
+		// não há linha de concessão neste log para cruzar.
+		return withSensitiveAudit(
+			"deleteUserPermissionFn",
+			ctx,
+			() => deleteUserPermission(getDb(), ctx, data),
+			(result) => ({
+				permissionId: data.permissionId,
+				userId: result.removed?.userId ?? null,
+				module: result.removed?.module ?? null,
+				level: result.removed?.level ?? null,
+			})
+		).catch(handleDomainError)
 	})

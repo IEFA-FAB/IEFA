@@ -31,6 +31,7 @@ import {
 	RefreshCw,
 	Sandwich,
 	Scale,
+	ScrollText,
 	Settings,
 	ShieldCheck,
 	ShoppingBasket,
@@ -195,6 +196,9 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Sincronização", url: "/admin/sync-routines", icon: RefreshCw, minLevel: 2 },
 			// Nível 1: o painel mostra o estado do ambiente; só o botão de reset exige nível 2.
 			{ title: "Ambiente de Treino", url: "/admin/training", icon: GraduationCap },
+			// Nível 3: o registro reúne, num lugar só, quem mexeu em permissão e quem moveu
+			// dinheiro público. Quem concede acesso (nível 2) não precisa ler o histórico de todos.
+			{ title: "Operações Sensíveis", url: "/admin/audit-log", icon: ScrollText, minLevel: 3 },
 		],
 	},
 	{

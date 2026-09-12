@@ -29,6 +29,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-passw
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
 import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_protected/_modules/analytics/route'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
+import { Route as ProtectedModulesAdminAuditLogRouteImport } from './routes/_protected/_modules/admin/audit-log'
 import { Route as ProtectedModulesAdminEvaluationRouteImport } from './routes/_protected/_modules/admin/evaluation'
 import { Route as ProtectedModulesAdminPermissionsRouteImport } from './routes/_protected/_modules/admin/permissions'
 import { Route as ProtectedModulesAdminSyncRoutinesRouteImport } from './routes/_protected/_modules/admin/sync-routines'
@@ -240,6 +241,12 @@ const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
     id: '/.well-known/agent-skills/$skill/SKILL.md',
     path: '/.well-known/agent-skills/$skill/SKILL.md',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const ProtectedModulesAdminAuditLogRoute =
+  ProtectedModulesAdminAuditLogRouteImport.update({
+    id: '/admin/audit-log',
+    path: '/admin/audit-log',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesAdminEvaluationRoute =
   ProtectedModulesAdminEvaluationRouteImport.update({
@@ -932,6 +939,7 @@ export interface FileRoutesByFullPath {
   '/storage/$kitchenId': typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
@@ -1055,6 +1063,7 @@ export interface FileRoutesByTo {
   '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/storage/$kitchenId': typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
@@ -1186,6 +1195,7 @@ export interface FileRoutesById {
   '/_protected/_modules/storage/$kitchenId': typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/_protected/_modules/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/_protected/_modules/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
   '/_protected/_modules/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/_protected/_modules/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
@@ -1317,6 +1327,7 @@ export interface FileRouteTypes {
     | '/storage/$kitchenId'
     | '/unit/$unitId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/admin/audit-log'
     | '/admin/evaluation'
     | '/admin/permissions'
     | '/admin/sync-routines'
@@ -1440,6 +1451,7 @@ export interface FileRouteTypes {
     | '/local-analytics/$unitId'
     | '/storage/$kitchenId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/admin/audit-log'
     | '/admin/evaluation'
     | '/admin/permissions'
     | '/admin/sync-routines'
@@ -1570,6 +1582,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/storage/$kitchenId'
     | '/_protected/_modules/unit/$unitId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/_protected/_modules/admin/audit-log'
     | '/_protected/_modules/admin/evaluation'
     | '/_protected/_modules/admin/permissions'
     | '/_protected/_modules/admin/sync-routines'
@@ -1829,6 +1842,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.well-known/agent-skills/$skill/SKILL.md'
       preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_protected/_modules/admin/audit-log': {
+      id: '/_protected/_modules/admin/audit-log'
+      path: '/admin/audit-log'
+      fullPath: '/admin/audit-log'
+      preLoaderRoute: typeof ProtectedModulesAdminAuditLogRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/admin/evaluation': {
       id: '/_protected/_modules/admin/evaluation'
@@ -2902,6 +2922,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesMesshallMessHallIdRouteRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   ProtectedModulesStorageKitchenIdRouteRoute: typeof ProtectedModulesStorageKitchenIdRouteRouteWithChildren
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
+  ProtectedModulesAdminAuditLogRoute: typeof ProtectedModulesAdminAuditLogRoute
   ProtectedModulesAdminEvaluationRoute: typeof ProtectedModulesAdminEvaluationRoute
   ProtectedModulesAdminPermissionsRoute: typeof ProtectedModulesAdminPermissionsRoute
   ProtectedModulesAdminSyncRoutinesRoute: typeof ProtectedModulesAdminSyncRoutinesRoute
@@ -2960,6 +2981,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesStorageKitchenIdRouteRouteWithChildren,
   ProtectedModulesUnitUnitIdRouteRoute:
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
+  ProtectedModulesAdminAuditLogRoute: ProtectedModulesAdminAuditLogRoute,
   ProtectedModulesAdminEvaluationRoute: ProtectedModulesAdminEvaluationRoute,
   ProtectedModulesAdminPermissionsRoute: ProtectedModulesAdminPermissionsRoute,
   ProtectedModulesAdminSyncRoutinesRoute:

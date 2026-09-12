@@ -13,6 +13,13 @@ export {
 	updateAtaStatus,
 } from "./ata.ts"
 export {
+	type AuditTargetValue,
+	listSensitiveOperations,
+	recordSensitiveOperation,
+	type SensitiveOperationLogEntry,
+	type SensitiveOperationLogRow,
+} from "./audit.ts"
+export {
 	type BudgetCreditSnapshot,
 	type BudgetProjection,
 	type CreditCheck,

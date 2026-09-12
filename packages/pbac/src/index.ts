@@ -10,5 +10,6 @@ export {
 	type UserEmailSearchRow,
 } from "./module-permissions.ts"
 export { type ModuleScopes, resolveModuleScopes, type ScopeAxis } from "./module-scopes.ts"
+export { type AssuranceReachability, isProtectedAccount } from "./protected-account.ts"
 export { NOT_EXPIRED, resolveUserPermissions } from "./resolve-permissions.ts"
 export type { AppModule, PermissionScope, UserContext, UserPermission } from "./types.ts"

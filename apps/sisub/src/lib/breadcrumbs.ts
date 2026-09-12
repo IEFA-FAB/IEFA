@@ -55,6 +55,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	evaluation: "Avaliação",
 	"review-queues": "Filas de Revisão",
 	training: "Ambiente de Treino",
+	"audit-log": "Operações Sensíveis",
 	changelog: "Registro de Alterações",
 	tutorial: "Tutorial",
 	dashboard: "Painel",

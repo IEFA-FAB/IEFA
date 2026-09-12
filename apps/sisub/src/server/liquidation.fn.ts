@@ -14,6 +14,7 @@
 import { competenciaFromDate, normalizeNsNumber, resolvePurchaseUnitId, roundToCents, suggestedLiquidationValue } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { withSensitiveAudit } from "@/lib/audit.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -137,36 +138,52 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireUnitScope(2, data.unitId)
+		const ctx = await requireUnitScope(2, data.unitId)
+		const { userId } = ctx
 		const fin = finance()
 
-		const { data: liquidacao, error } = await fin
-			.from("liquidacao")
-			.insert({
-				unit_id: data.unitId,
-				empenho_id: data.empenhoId,
-				numero_ns: normalizeNsNumber(data.numeroNs),
-				data: data.data,
-				valor: data.valor,
-				competencia: competenciaFromDate(data.data),
-				goods_receipt_id: data.goodsReceiptId ?? null,
-				nfe_document_id: data.nfeDocumentId ?? null,
-				observacao: data.observacao?.trim() || null,
-				created_by: userId,
-			})
-			.select("id")
-			.single()
-		if (error || !liquidacao) {
-			if (error?.code === "23505") throw new Error(`NS "${data.numeroNs}" já registrada nesta unidade`)
-			if (error?.message?.includes("excede o empenho")) throw new Error(error.message)
-			throw new Error(`Erro ao registrar liquidação: ${error?.message}`)
-		}
+		return withSensitiveAudit(
+			"createLiquidacaoFn",
+			ctx,
+			async () => {
+				const { data: liquidacao, error } = await fin
+					.from("liquidacao")
+					.insert({
+						unit_id: data.unitId,
+						empenho_id: data.empenhoId,
+						numero_ns: normalizeNsNumber(data.numeroNs),
+						data: data.data,
+						valor: data.valor,
+						competencia: competenciaFromDate(data.data),
+						goods_receipt_id: data.goodsReceiptId ?? null,
+						nfe_document_id: data.nfeDocumentId ?? null,
+						observacao: data.observacao?.trim() || null,
+						created_by: userId,
+					})
+					.select("id")
+					.single()
+				if (error || !liquidacao) {
+					if (error?.code === "23505") throw new Error(`NS "${data.numeroNs}" já registrada nesta unidade`)
+					if (error?.message?.includes("excede o empenho")) throw new Error(error.message)
+					throw new Error(`Erro ao registrar liquidação: ${error?.message}`)
+				}
 
-		// espelha o vínculo no recebimento (o estoque passa a saber que liquidou)
-		if (data.goodsReceiptId) {
-			await inventory().from("goods_receipt").update({ liquidacao_id: liquidacao.id }).eq("id", data.goodsReceiptId)
-		}
-		return { liquidacaoId: liquidacao.id as string }
+				// espelha o vínculo no recebimento (o estoque passa a saber que liquidou)
+				if (data.goodsReceiptId) {
+					await inventory().from("goods_receipt").update({ liquidacao_id: liquidacao.id }).eq("id", data.goodsReceiptId)
+				}
+				return { liquidacaoId: liquidacao.id as string }
+			},
+			// O número da NS vai normalizado: é assim que ele foi gravado, e o log tem que
+			// casar com a linha que ele documenta.
+			(result) => ({
+				liquidacaoId: result.liquidacaoId,
+				unitId: data.unitId,
+				empenhoId: data.empenhoId,
+				numeroNs: normalizeNsNumber(data.numeroNs),
+				valor: data.valor,
+			})
+		)
 	})
 
 /** Registra a OB. O banco garante que não excede a liquidação. */
@@ -184,28 +201,45 @@ export const createPagamentoFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireUnitScope(2, data.unitId)
-		const { data: pagamento, error } = await finance()
-			.from("pagamento")
-			.insert({
-				unit_id: data.unitId,
-				liquidacao_id: data.liquidacaoId,
-				numero_ob: data.numeroOb.trim().toUpperCase(),
-				data: data.data,
+		const ctx = await requireUnitScope(2, data.unitId)
+		const { userId } = ctx
+
+		return withSensitiveAudit(
+			"createPagamentoFn",
+			ctx,
+			async () => {
+				const { data: pagamento, error } = await finance()
+					.from("pagamento")
+					.insert({
+						unit_id: data.unitId,
+						liquidacao_id: data.liquidacaoId,
+						numero_ob: data.numeroOb.trim().toUpperCase(),
+						data: data.data,
+						valor: data.valor,
+						banco: data.banco?.trim() || null,
+						agencia: data.agencia?.trim() || null,
+						conta: data.conta?.trim() || null,
+						created_by: userId,
+					})
+					.select("id")
+					.single()
+				if (error || !pagamento) {
+					if (error?.code === "23505") throw new Error(`OB "${data.numeroOb}" já registrada nesta unidade`)
+					if (error?.message?.includes("excede a liquidação")) throw new Error(error.message)
+					throw new Error(`Erro ao registrar pagamento: ${error?.message}`)
+				}
+				return { pagamentoId: pagamento.id as string }
+			},
+			// Banco, agência e conta ficam FORA: são dado do favorecido, e a operação já os
+			// grava na linha do pagamento. O log identifica o documento, não o duplica.
+			(result) => ({
+				pagamentoId: result.pagamentoId,
+				unitId: data.unitId,
+				liquidacaoId: data.liquidacaoId,
+				numeroOb: data.numeroOb.trim().toUpperCase(),
 				valor: data.valor,
-				banco: data.banco?.trim() || null,
-				agencia: data.agencia?.trim() || null,
-				conta: data.conta?.trim() || null,
-				created_by: userId,
 			})
-			.select("id")
-			.single()
-		if (error || !pagamento) {
-			if (error?.code === "23505") throw new Error(`OB "${data.numeroOb}" já registrada nesta unidade`)
-			if (error?.message?.includes("excede a liquidação")) throw new Error(error.message)
-			throw new Error(`Erro ao registrar pagamento: ${error?.message}`)
-		}
-		return { pagamentoId: pagamento.id as string }
+		)
 	})
 
 /** Contas a pagar + prazo médio por fornecedor (liquidação → pagamento). */
