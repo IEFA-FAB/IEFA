@@ -315,3 +315,90 @@ export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input:
 	)
 	return { success: true as const, removed }
 }
+
+// ── Leitura em lote: o conjunto efetivo de TODAS as contas ───────────────────
+
+/** Uma conta do sistema com o conjunto de permissões que o guard de fato aplica a ela. */
+export interface AccountPermissionSet {
+	userId: string
+	email: string
+	nrOrdem: string | null
+	/** Permissões EFETIVAS (inline + políticas, com precedência de deny), como em `hasPermission`. */
+	permissions: UserPermission[]
+}
+
+/**
+ * Conjunto efetivo de permissões de TODAS as contas, em três queries.
+ *
+ * Alimenta o painel de adoção do segundo fator, que precisa responder "quantas CONTAS
+ * PROTEGIDAS ainda não têm fator" — e conta protegida é derivada do registro de classificação
+ * cruzado com as permissões efetivas (design.md D9), nunca de um número de nível.
+ *
+ * Três selects e um merge em TS, e não uma chamada de `listEffectiveUserPermissions` por
+ * usuário: o app tem ~800 contas, e o N+1 renderizaria a tela em dezenas de segundos — ou, no
+ * SSR, estouraria o orçamento de 60 s do ALB antes de renderizar coisa nenhuma.
+ *
+ * Os filtros de validade são os MESMOS da resolução canônica (grant vencido é ausente, não
+ * deny; política com soft delete não conta), porque um painel que mostrasse um conjunto
+ * diferente do que o guard aplica mandaria o administrador cobrar fator de quem não precisa —
+ * e, pior, deixaria de cobrar de quem precisa.
+ */
+export async function listAccountPermissionSets(db: SisubDb, ctx: UserContext): Promise<AccountPermissionSet[]> {
+	// `admin` nível 3: a lista é nominal e diz, de cada pessoa, se a conta dela está sem
+	// segundo fator — é inventário de fragilidade, e não se entrega a nível 2.
+	requirePermission(ctx, "admin", 3)
+
+	const [accounts, inlineRows, policyRows] = await Promise.all([
+		runQuery("FETCH_FAILED", () =>
+			db.select({ id: userDataInCore.id, email: userDataInCore.email, nrOrdem: userDataInCore.nrOrdem }).from(userDataInCore).orderBy(asc(userDataInCore.email))
+		),
+		runQuery("FETCH_FAILED", () =>
+			db
+				.select({
+					user_id: userPermissionsInAccessControl.userId,
+					module: userPermissionsInAccessControl.module,
+					level: userPermissionsInAccessControl.level,
+					mess_hall_id: userPermissionsInAccessControl.messHallId,
+					kitchen_id: userPermissionsInAccessControl.kitchenId,
+					unit_id: userPermissionsInAccessControl.unitId,
+				})
+				.from(userPermissionsInAccessControl)
+				.where(notExpired(userPermissionsInAccessControl.expiresAt))
+		),
+		runQuery("FETCH_FAILED", () =>
+			db
+				.select({
+					user_id: userPolicyAttachmentInAccessControl.userId,
+					module: policyStatementInAccessControl.module,
+					level: policyStatementInAccessControl.level,
+					mess_hall_id: policyStatementInAccessControl.messHallId,
+					kitchen_id: policyStatementInAccessControl.kitchenId,
+					unit_id: policyStatementInAccessControl.unitId,
+				})
+				.from(userPolicyAttachmentInAccessControl)
+				.innerJoin(policyInAccessControl, eq(policyInAccessControl.id, userPolicyAttachmentInAccessControl.policyId))
+				.innerJoin(policyStatementInAccessControl, eq(policyStatementInAccessControl.policyId, policyInAccessControl.id))
+				.where(and(isNull(policyInAccessControl.deletedAt), notExpired(userPolicyAttachmentInAccessControl.expiresAt)))
+		),
+	])
+
+	const byUser = (rows: { user_id: string }[]) => {
+		const map = new Map<string, UserPermission[]>()
+		for (const { user_id, ...permission } of rows) {
+			const list = map.get(user_id)
+			if (list) list.push(permission as UserPermission)
+			else map.set(user_id, [permission as UserPermission])
+		}
+		return map
+	}
+
+	const inlineByUser = byUser(inlineRows)
+	const policyByUser = byUser(policyRows)
+
+	return accounts.map((account) => ({
+		userId: account.id,
+		email: account.email,
+		nrOrdem: account.nrOrdem,
+		permissions: resolveEffectivePermissions(inlineByUser.get(account.id) ?? [], policyByUser.get(account.id) ?? []),
+	}))
+}

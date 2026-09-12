@@ -1,7 +1,9 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
+import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
 import type { LocalCommitment } from "@/lib/arp-balance"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { queryKeys } from "@/lib/query-keys"
 import {
 	anularEmpenhoFn,
@@ -88,16 +90,25 @@ export function useSyncArpBalance(ataId: string) {
 
 // ─── Mutation: Registrar empenho ──────────────────────────────────────────────
 
+/**
+ * `useAssuredMutation` nas duas mutações de empenho: elas são classificadas como `"session"`
+ * no registro de garantia (`unit` nível 2). O grau `session` não interrompe o turno — quem
+ * digitou o código no login não vê modal nenhum —, mas a conta SEM segundo fator recebe
+ * `nextStep: "enroll"` e cadastra ali mesmo, sem perder o formulário do empenho.
+ */
 export function useCreateEmpenho(arpItemId: string, arpId?: string) {
 	const queryClient = useQueryClient()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (payload: CreateEmpenhoPayload) => createEmpenhoFn({ data: payload }),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
 			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
 			toast.success(`Empenho ${data.numero_empenho} registrado com sucesso`)
 		},
-		onError: (error) => toast.error(error.message),
+		onError: (error) => {
+			if (isElevationCancelled(error)) return
+			toast.error(error.message)
+		},
 	})
 }
 
@@ -105,13 +116,16 @@ export function useCreateEmpenho(arpItemId: string, arpId?: string) {
 
 export function useAnularEmpenho(arpItemId: string, arpId?: string) {
 	const queryClient = useQueryClient()
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (empenhoId: string) => anularEmpenhoFn({ data: { empenhoId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
 			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.ata.arpCommitments(arpId) })
 			toast.success("Empenho anulado — comprometimento local recomposto")
 		},
-		onError: (error) => toast.error(`Erro ao anular empenho: ${error.message}`),
+		onError: (error) => {
+			if (isElevationCancelled(error)) return
+			toast.error(`Erro ao anular empenho: ${error.message}`)
+		},
 	})
 }

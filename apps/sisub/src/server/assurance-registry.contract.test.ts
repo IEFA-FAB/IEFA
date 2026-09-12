@@ -25,6 +25,7 @@ import {
 	assuranceReachability,
 	classifiedOperations,
 	enforcedAssuranceFor,
+	enforcedOperations,
 } from "./assurance-registry"
 
 const serverDir = dirname(fileURLToPath(import.meta.url))
@@ -239,20 +240,55 @@ describe("assurance registry contract", () => {
 	})
 })
 
-describe("piso efetivo — a inércia da etapa 4", () => {
-	test("a chave de enforcement está DESLIGADA", () => {
+describe("piso efetivo — nada exigido hoje, e a chave é granular", () => {
+	test("a chave de enforcement está TODA desligada", () => {
 		// Ligar o piso hoje barraria toda operação classificada de todo mundo: não existe uma
-		// única conta com segundo fator cadastrado (as telas de cadastro são a etapa 5). Quem
-		// mudar esta constante tem que passar por aqui e ler o motivo.
-		expect(ASSURANCE_ENFORCEMENT).toBe("off")
+		// única conta com segundo fator cadastrado no projeto, e o caminho de cadastro ficaria
+		// do outro lado do gate. Quem mudar esta constante passa por aqui e lê o motivo — e a
+		// ordem de ativação recomendada está no cabeçalho da constante.
+		expect(ASSURANCE_ENFORCEMENT).toEqual({
+			session: { modules: [], accountScoped: false },
+			fresh: { modules: [], accountScoped: false },
+		})
 	})
 
-	test("nenhuma operação classificada exige garantia enquanto a chave estiver desligada", () => {
+	test("NENHUMA operação classificada exige garantia hoje — a varredura é exaustiva", () => {
+		// Exaustivo de propósito: a pergunta não é "a chave está em zero?" e sim "existe alguma
+		// operação, qualquer uma, que já barre alguém?". A segunda sobrevive a uma mudança na
+		// forma da chave; a primeira, não.
 		const exigindo = classifiedOperations()
 			.map(({ operation }) => ({ operation, applied: enforcedAssuranceFor(operation) }))
 			.filter(({ applied }) => applied.require !== "none")
 
-		expect(exigindo, "operação exigindo segundo fator antes da etapa 9 do plano").toEqual([])
+		expect(exigindo, "operação exigindo segundo fator antes de a adoção estar medida").toEqual([])
+		expect(enforcedOperations()).toEqual([])
+
+		// E a varredura precisa ter olhado para alguma coisa: um `classifiedOperations()` vazio
+		// faria as duas asserções acima passarem sem provar nada.
+		expect(classifiedOperations().length).toBeGreaterThan(10)
+	})
+
+	test("a granularidade da chave é (grau × população), e cobre cada eixo por si", () => {
+		// Cada grau tem o seu alcance, e o alcance tem os dois eixos que o registro produz:
+		// módulo PBAC (o que separa uma conta de outra) e conta própria (o que atinge todo
+		// mundo). Sem os quatro campos não dá para ligar `fresh` no `admin` sem arrastar junto
+		// a execução orçamentária — que é a razão de a chave ter deixado de ser booleana.
+		for (const grade of ["session", "fresh"] as const) {
+			expect(Array.isArray(ASSURANCE_ENFORCEMENT[grade].modules)).toBe(true)
+			expect(typeof ASSURANCE_ENFORCEMENT[grade].accountScoped).toBe("boolean")
+		}
+	})
+
+	test("todo módulo que o registro alcança é ligável pela chave — sem curinga e sem órfão", () => {
+		// `assuranceReachability()` é a projeção do registro em módulos. Se ela listar um módulo
+		// que a chave não sabe nomear, existe operação classificada sem caminho de ativação —
+		// e alguém vai "resolver" isso com um curinga.
+		const modules = assuranceReachability().map((r) => r.module)
+		expect(modules.length).toBeGreaterThan(0)
+		for (const module of modules) {
+			// O tipo já garante; o teste garante que a lista aceita o valor em tempo de execução.
+			expect([...ASSURANCE_ENFORCEMENT.fresh.modules, module]).toContain(module)
+		}
 	})
 
 	test("operação de rotina e nome desconhecido também devolvem `none`", () => {

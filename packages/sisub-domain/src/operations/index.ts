@@ -284,10 +284,12 @@ export {
 	type NfeMatchStatus,
 } from "./nfe-matching.ts"
 export {
+	type AccountPermissionSet,
 	createUserPermission,
 	deleteUserPermission,
 	type EffectivePermissionWithOrigin,
 	fetchUserPermissionsAdmin,
+	listAccountPermissionSets,
 	listEffectiveUserPermissions,
 	listEffectiveUserPermissionsWithOrigin,
 	type PermissionOrigin,

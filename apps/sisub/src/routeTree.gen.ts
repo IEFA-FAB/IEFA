@@ -34,6 +34,7 @@ import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_pr
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
 import { Route as ProtectedModulesAdminAuditLogRouteImport } from './routes/_protected/_modules/admin/audit-log'
 import { Route as ProtectedModulesAdminEvaluationRouteImport } from './routes/_protected/_modules/admin/evaluation'
+import { Route as ProtectedModulesAdminMfaAdoptionRouteImport } from './routes/_protected/_modules/admin/mfa-adoption'
 import { Route as ProtectedModulesAdminPermissionsRouteImport } from './routes/_protected/_modules/admin/permissions'
 import { Route as ProtectedModulesAdminSyncRoutinesRouteImport } from './routes/_protected/_modules/admin/sync-routines'
 import { Route as ProtectedModulesAdminTrainingRouteImport } from './routes/_protected/_modules/admin/training'
@@ -271,6 +272,12 @@ const ProtectedModulesAdminEvaluationRoute =
   ProtectedModulesAdminEvaluationRouteImport.update({
     id: '/admin/evaluation',
     path: '/admin/evaluation',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAdminMfaAdoptionRoute =
+  ProtectedModulesAdminMfaAdoptionRouteImport.update({
+    id: '/admin/mfa-adoption',
+    path: '/admin/mfa-adoption',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesAdminPermissionsRoute =
@@ -969,6 +976,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1097,6 +1105,7 @@ export interface FileRoutesByTo {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
   '/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1233,6 +1242,7 @@ export interface FileRoutesById {
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
   '/_protected/_modules/admin/audit-log': typeof ProtectedModulesAdminAuditLogRoute
   '/_protected/_modules/admin/evaluation': typeof ProtectedModulesAdminEvaluationRoute
+  '/_protected/_modules/admin/mfa-adoption': typeof ProtectedModulesAdminMfaAdoptionRoute
   '/_protected/_modules/admin/permissions': typeof ProtectedModulesAdminPermissionsRoute
   '/_protected/_modules/admin/sync-routines': typeof ProtectedModulesAdminSyncRoutinesRoute
   '/_protected/_modules/admin/training': typeof ProtectedModulesAdminTrainingRoute
@@ -1369,6 +1379,7 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/admin/audit-log'
     | '/admin/evaluation'
+    | '/admin/mfa-adoption'
     | '/admin/permissions'
     | '/admin/sync-routines'
     | '/admin/training'
@@ -1497,6 +1508,7 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/admin/audit-log'
     | '/admin/evaluation'
+    | '/admin/mfa-adoption'
     | '/admin/permissions'
     | '/admin/sync-routines'
     | '/admin/training'
@@ -1632,6 +1644,7 @@ export interface FileRouteTypes {
     | '/.well-known/agent-skills/$skill/SKILL.md'
     | '/_protected/_modules/admin/audit-log'
     | '/_protected/_modules/admin/evaluation'
+    | '/_protected/_modules/admin/mfa-adoption'
     | '/_protected/_modules/admin/permissions'
     | '/_protected/_modules/admin/sync-routines'
     | '/_protected/_modules/admin/training'
@@ -1925,6 +1938,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/evaluation'
       fullPath: '/admin/evaluation'
       preLoaderRoute: typeof ProtectedModulesAdminEvaluationRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/admin/mfa-adoption': {
+      id: '/_protected/_modules/admin/mfa-adoption'
+      path: '/admin/mfa-adoption'
+      fullPath: '/admin/mfa-adoption'
+      preLoaderRoute: typeof ProtectedModulesAdminMfaAdoptionRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/admin/permissions': {
@@ -3001,6 +3021,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   ProtectedModulesAdminAuditLogRoute: typeof ProtectedModulesAdminAuditLogRoute
   ProtectedModulesAdminEvaluationRoute: typeof ProtectedModulesAdminEvaluationRoute
+  ProtectedModulesAdminMfaAdoptionRoute: typeof ProtectedModulesAdminMfaAdoptionRoute
   ProtectedModulesAdminPermissionsRoute: typeof ProtectedModulesAdminPermissionsRoute
   ProtectedModulesAdminSyncRoutinesRoute: typeof ProtectedModulesAdminSyncRoutinesRoute
   ProtectedModulesAdminTrainingRoute: typeof ProtectedModulesAdminTrainingRoute
@@ -3061,6 +3082,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
   ProtectedModulesAdminAuditLogRoute: ProtectedModulesAdminAuditLogRoute,
   ProtectedModulesAdminEvaluationRoute: ProtectedModulesAdminEvaluationRoute,
+  ProtectedModulesAdminMfaAdoptionRoute: ProtectedModulesAdminMfaAdoptionRoute,
   ProtectedModulesAdminPermissionsRoute: ProtectedModulesAdminPermissionsRoute,
   ProtectedModulesAdminSyncRoutinesRoute:
     ProtectedModulesAdminSyncRoutinesRoute,

@@ -38,8 +38,14 @@ export const activeSessionsQueryOptions = () =>
 // Query Hooks
 // ============================================================================
 
-export function useMfaOverview() {
-	return useQuery(mfaOverviewQueryOptions())
+/**
+ * `enabled` existe para o aviso de obrigatoriedade, que vive no layout `_protected` e
+ * portanto renderiza em TODA tela do sistema: sem prazo anunciado ele desliga a consulta, e
+ * a leitura do painel de MFA (uma ida ao GoTrue por chamada) não entra no caminho de cada
+ * navegação. As telas de segurança chamam sem argumento e seguem como antes.
+ */
+export function useMfaOverview(options?: { enabled?: boolean }) {
+	return useQuery({ ...mfaOverviewQueryOptions(), enabled: options?.enabled ?? true })
 }
 
 export function useActiveSessions() {

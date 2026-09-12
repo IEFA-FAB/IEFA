@@ -88,13 +88,20 @@
 - [x] 8.4 [sisub] Caminho `enroll` no meio de um formulário preenchido: sessão promovida, formulário sobrevive
 - [ ] 8.5 [sisub] Teste e2e: concessão de permissão com elevação vencida → modal → reenvio → permissão gravada → linha no log
 
-## 9. Ativar os pisos
+## 9. Preparar a ativação dos pisos
 
-- [ ] 9.1 [sisub] Ativar `"fresh"` nas operações críticas e validar em ambiente de treino
-- [ ] 9.2 [sisub] Ativar `"session"` nas operações financeiras e validar com um turno real de liquidações (contagem de prompts deve ser zero)
-- [ ] 9.3 [sisub] Painel de adoção para o administrador: quem tem fator, quem tem reserva, quem não tem nenhum
-- [ ] 9.4 [sisub] Faixa dispensável de aviso de obrigatoriedade, com data configurável
-- [ ] 9.5 [sisub] Tela de cadastro obrigatório após o prazo, com a ação de sair sempre visível
+**Escopo corrigido**: 9.1/9.2 NÃO ligam `ASSURANCE_ENFORCEMENT`. Virar a chave hoje trancaria
+todo mundo para fora — nenhuma conta do sistema tem fator cadastrado, então toda operação
+classificada devolveria `MFA_REQUIRED` sem que ninguém conseguisse satisfazer. A ativação é
+passo OPERACIONAL, depois de as pessoas cadastrarem o fator e o painel de 9.3 mostrar zero.
+
+- [x] 9.0 [sisub] Tornar `ASSURANCE_ENFORCEMENT` GRANULAR: por grau (`session`/`fresh`) × população (módulo PBAC / conta própria), tudo desligado, com a ORDEM DE ATIVAÇÃO documentada no arquivo e teste exaustivo de que nenhuma operação classificada exige garantia hoje
+- [x] 9.1 [sisub] Migrar para `useAssuredMutation` as mutações de permissões e de políticas (`admin`) e o reset de treino — inerte enquanto a chave não sobe
+- [x] 9.2 [sisub] Migrar as financeiras (empenho, anulação, liquidação, pagamento, conciliação, crédito, restos a pagar); as telas imperativas usam `useAssuredAction`, o mesmo núcleo sem react-query. Contrato varre os call sites e reprova chamada sem wrapper
+- [x] 9.3 [sisub] Painel de adoção para o administrador: quem tem fator, quem tem reserva, quem não tem nenhum. Lê `auth.mfa_factors` pelo `SISUB_DATABASE_URL` e responde "indisponível" — nunca zero — quando a leitura falha
+- [x] 9.4 [sisub] Faixa dispensável de aviso de obrigatoriedade, com data configurável em constante (`MFA_MANDATE`, hoje `null` = nada aparece)
+- [x] 9.5 [sisub] Tela de cadastro obrigatório após o prazo, reaproveitando `/auth/mfa-enrollment`, com a ação de sair sempre visível
+- [ ] 9.6 [operacional] Ligar os graus na ordem documentada em `assurance-registry.ts`, um PR por passo, cada um só quando o painel de adoção mostrar zero na população daquele passo
 
 ## 10. Fechar a chave de API
 

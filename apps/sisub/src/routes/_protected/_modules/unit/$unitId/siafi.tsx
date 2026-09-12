@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { applyCreditBatchFn } from "@/server/budget.fn"
 import { applyDocumentBatchFn } from "@/server/reconciliation.fn"
 import { type ImportBatchRow, listImportBatchesFn, REPORT_TYPE_LABEL, uploadSiafiReportFn } from "@/server/siafi-import.fn"
@@ -41,6 +43,10 @@ function SiafiPage() {
 	const fileInput = useRef<HTMLInputElement>(null)
 	const [reportType, setReportType] = useState<(typeof REPORT_TYPES)[number]>("credito")
 	const [busy, setBusy] = useState(false)
+	// `applyCreditBatchFn` e `applyDocumentBatchFn` são `"session"` no registro de garantia
+	// (`unit` nível 2): quando o piso subir, a recusa abre o modal de elevação sobre esta tela
+	// e o MESMO lote é reenviado — sem refazer o upload.
+	const runAssured = useAssuredAction()
 
 	async function handleFile(file: File) {
 		setBusy(true)
@@ -69,17 +75,18 @@ function SiafiPage() {
 		setBusy(true)
 		try {
 			if (batch.report_type === "credito") {
-				const result = await applyCreditBatchFn({ data: { batchId: batch.id } })
+				const result = await runAssured(() => applyCreditBatchFn({ data: { batchId: batch.id } }))
 				toast.success(`${result.applied} classificação(ões) de crédito atualizadas`)
 			} else {
-				const result = await applyDocumentBatchFn({ data: { batchId: batch.id } })
+				const result = await runAssured(() => applyDocumentBatchFn({ data: { batchId: batch.id } }))
 				toast.success(
 					`${result.created} documento(s) criado(s), ${result.enriched} enriquecido(s)${result.divergent > 0 ? ` — ${result.divergent} divergência(s) na conciliação` : ""}`
 				)
 			}
 			router.invalidate()
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Falha ao aplicar lote")
+			// Fechar o modal de elevação não é falha: o lote continua estacionado, intacto.
+			if (!isElevationCancelled(err)) toast.error(err instanceof Error ? err.message : "Falha ao aplicar lote")
 		} finally {
 			setBusy(false)
 		}

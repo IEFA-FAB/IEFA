@@ -1,4 +1,5 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
 import type { ResetUserMfa } from "@/lib/mfa-admin-reset"
 import { queryKeys } from "@/lib/query-keys"
 import type { AdminMfaResetResult, AdminUserMfaStatus } from "@/server/mfa-admin.fn"
@@ -32,11 +33,17 @@ export function useUserMfaStatus(userId: string | null | undefined) {
  * curta, confirmação não marcada) e o resultado — inclusive se o aviso por e-mail saiu — na
  * própria tela. Um toast que some em 4 segundos é o pior lugar para o desfecho de uma
  * operação irreversível.
+ *
+ * `useAssuredMutation` porque `resetUserMfaFn` é `"fresh"` (`admin` nível 3): é o ponto em que
+ * o administrador prova a própria identidade para apagar a de outra pessoa (design.md D10).
+ * Quando o piso subir, a recusa abre o modal SOBRE o diálogo já preenchido e o reset é
+ * reenviado com a MESMA justificativa — redigitá-la seria o caminho mais curto para uma
+ * justificativa vazia de conteúdo.
  */
 export function useResetUserMfa() {
 	const queryClient = useQueryClient()
 
-	return useMutation({
+	return useAssuredMutation({
 		mutationFn: (input: ResetUserMfa) => resetUserMfaFn({ data: input }),
 		onSuccess: (_result, input) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.sisub.adminUserMfa(input.targetUserId) })

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { useResetUserMfa, useUserMfaStatus } from "@/hooks/data/useAdminMfa"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { ADMIN_RESET_REASON_HINT, ADMIN_RESET_REASON_MAX_LENGTH, ADMIN_RESET_REASON_MIN_LENGTH, IDENTITY_CHANNEL_CONFIRMATION } from "@/lib/mfa-admin-reset"
 
 /**
@@ -133,6 +134,10 @@ function AdminMfaResetDialog({
 			})
 			handleOpenChange(false)
 		} catch (caught) {
+			// Fechar o modal de elevação não é falha: o diálogo continua aberto, com a
+			// justificativa digitada, e nada foi removido. Um erro em vermelho ali mandaria o
+			// administrador investigar uma desistência dele mesmo.
+			if (isElevationCancelled(caught)) return
 			setError(errorMessage(caught, "Não foi possível remover o segundo fator."))
 		}
 	}

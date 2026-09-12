@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { RotateCcw, TriangleAlert } from "lucide-react"
 import * as React from "react"
@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
+import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { queryKeys } from "@/lib/query-keys"
 import { fetchTrainingResetsFn, fetchTrainingScopeFn, resetTrainingScopeFn } from "@/server/training.fn"
 
@@ -101,7 +103,10 @@ function TrainingPage() {
 		queryFn: () => fetchTrainingResetsFn({ data: { limit: 20 } }),
 	})
 
-	const resetMutation = useMutation({
+	// `useAssuredMutation`: `resetTrainingScopeFn` é `"fresh"` no registro de garantia — apagar
+	// e recriar o ambiente inteiro não tem desfazer. Quando o piso subir, a recusa vira modal
+	// por cima deste diálogo, e o "RESETAR" já digitado sobrevive.
+	const resetMutation = useAssuredMutation({
 		mutationFn: () => resetTrainingScopeFn(),
 		onSuccess: (result) => {
 			toast.success(`Ambiente de treino resetado — ${totalDeleted(result.deleted_counts)} registros removidos`)
@@ -110,7 +115,11 @@ function TrainingPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.scope() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.resets() })
 		},
-		onError: (error: Error) => toast.error("Falha ao resetar", { description: error.message }),
+		onError: (error: Error) => {
+			// Desistir da confirmação de identidade não é falha: nada foi apagado.
+			if (isElevationCancelled(error)) return
+			toast.error("Falha ao resetar", { description: error.message })
+		},
 	})
 
 	return (

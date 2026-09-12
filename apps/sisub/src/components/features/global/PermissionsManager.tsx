@@ -1,6 +1,6 @@
 "use no memo"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import * as React from "react"
 import { usePBAC } from "@/auth/pbac"
@@ -25,10 +25,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
+import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { useUserSearch } from "@/hooks/data/useUserSearch"
 import { expiryFromDateInput, expiryToDateInput } from "@/lib/access-expiry"
+import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import {
 	createUserPermissionFn,
 	deleteUserPermissionFn,
@@ -38,6 +40,20 @@ import {
 	updateUserPermissionFn,
 } from "@/server/permissions.fn"
 import type { AppModule } from "@/types/domain/permissions"
+
+/**
+ * `onError` das mutações de permissão, com a desistência tratada como desistência.
+ *
+ * As três são classificadas como `"fresh"` (`admin` nível 2): quando o piso subir, fechar o
+ * modal de elevação chega aqui como `ElevationCancelledError`. O diálogo de permissão segue
+ * aberto e preenchido — o que se cancelou foi a confirmação de identidade, não o trabalho.
+ */
+function reportPermissionError(title: string) {
+	return (error: Error) => {
+		if (isElevationCancelled(error)) return
+		toast.error(title, { description: error.message })
+	}
+}
 
 // Rótulos, escopos e helpers de escopo vivem em `policies/labels.ts`: o console de
 // políticas usa exatamente os mesmos, e duplicá-los faria as duas telas divergirem.
@@ -374,7 +390,7 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 		queryClient.invalidateQueries({ queryKey: ["userPermissions", selectedUser?.id] })
 	}
 
-	const createPerm = useMutation({
+	const createPerm = useAssuredMutation({
 		mutationFn: () =>
 			createUserPermissionFn({
 				data: {
@@ -390,10 +406,10 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 			closeDialog()
 			invalidatePerms()
 		},
-		onError: (e: Error) => toast.error("Erro ao adicionar", { description: e.message }),
+		onError: reportPermissionError("Erro ao adicionar"),
 	})
 
-	const updatePerm = useMutation({
+	const updatePerm = useAssuredMutation({
 		mutationFn: () => {
 			if (dialog?.mode !== "edit") throw new Error("invalid state")
 			// O campo é uma DATA, e o prazo gravado é um INSTANTE. Reenviá-lo sem que o
@@ -416,17 +432,17 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 			closeDialog()
 			invalidatePerms()
 		},
-		onError: (e: Error) => toast.error("Erro ao atualizar", { description: e.message }),
+		onError: reportPermissionError("Erro ao atualizar"),
 	})
 
-	const deletePerm = useMutation({
+	const deletePerm = useAssuredMutation({
 		mutationFn: (permissionId: string) => deleteUserPermissionFn({ data: { permissionId } }),
 		onSuccess: () => {
 			toast.success("Permissão removida")
 			setDeleteTarget(null)
 			invalidatePerms()
 		},
-		onError: (e: Error) => toast.error("Erro ao remover", { description: e.message }),
+		onError: reportPermissionError("Erro ao remover"),
 	})
 
 	const handleSubmit = () => {

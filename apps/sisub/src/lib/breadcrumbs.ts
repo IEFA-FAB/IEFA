@@ -57,6 +57,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	"review-queues": "Filas de Revisão",
 	training: "Ambiente de Treino",
 	"audit-log": "Operações Sensíveis",
+	"mfa-adoption": "Verificação em 2 Etapas",
 	changelog: "Registro de Alterações",
 	tutorial: "Tutorial",
 	dashboard: "Painel",
