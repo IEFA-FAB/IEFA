@@ -117,7 +117,11 @@ describe("contrato das server fns de recuperação", () => {
 	test("a conta que VIRA protegida perde os códigos, no mesmo ato da concessão", () => {
 		for (const file of ["permissions.fn.ts", "policies.fn.ts"]) {
 			const granting = readFileSync(join(serverDir, file), "utf8")
-			expect(granting, `${file} não invalida os códigos de recuperação do alvo`).toContain("revokeRecoveryCodesIfProtected")
+			// A variante `try…` é a correta AQUI: a concessão já foi confirmada quando a
+			// limpeza roda, e deixá-la derrubar a resposta faria o administrador repetir a
+			// ação e criar grant duplicado. A revogação é higiene; o gate de verdade é a
+			// reavaliação no consumo do código, que recusa conta protegida.
+			expect(granting, `${file} não invalida os códigos de recuperação do alvo`).toContain("tryRevokeRecoveryCodesIfProtected")
 		}
 	})
 

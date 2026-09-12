@@ -19,7 +19,7 @@ import { ADMIN_RESET_REASON_HINT, ADMIN_RESET_REASON_MAX_LENGTH, ADMIN_RESET_REA
  * ## Por que fica separado do resto da tela
  *
  * Conceder e revogar permissão é rotina; remover o segundo fator de alguém desconecta o
- * titular de todas as sessões e não tem desfazer. Misturar a ação à tabela de permissões a
+ * titular dos próprios dispositivos e não tem desfazer. Misturar a ação à tabela de permissões a
  * transformaria num botão a mais numa linha — e é assim que uma operação de exceção vira
  * clique de reflexo. Daí o bloco próprio, ao final, com borda destacada em TODOS os lados:
  * faixa de acento lateral é proibida pelo contrato de estilo.
@@ -52,8 +52,8 @@ export function AdminMfaResetCard({ user }: AdminMfaResetCardProps) {
 			<div className="space-y-1">
 				<h3 className="text-heading">Verificação em duas etapas</h3>
 				<p className="text-sm text-muted-foreground">
-					Remover o segundo fator de {user.email} desconecta a pessoa de todas as sessões e invalida os códigos de recuperação dela. Use apenas quando o titular
-					perdeu o acesso ao dispositivo e a identidade dele já foi confirmada fora do e-mail.
+					Remover o segundo fator de {user.email} apaga os dispositivos e os códigos de recuperação dela, e nenhuma sessão dela continua elevada. Use apenas
+					quando o titular perdeu o acesso ao dispositivo e a identidade dele já foi confirmada fora do e-mail.
 				</p>
 			</div>
 
@@ -155,8 +155,8 @@ function AdminMfaResetDialog({
 						<ShieldOff aria-hidden />
 						<AlertTitle>O que acontece ao confirmar</AlertTitle>
 						<AlertDescription>
-							Todos os dispositivos e os códigos de recuperação da pessoa são removidos, e ela é desconectada de todas as sessões. A operação fica registrada
-							com o seu nome e a justificativa abaixo.
+							Todos os dispositivos e os códigos de recuperação da pessoa são removidos, e nenhuma sessão dela permanece elevada — ela terá de cadastrar um novo
+							dispositivo. A operação fica registrada com o seu nome e a justificativa abaixo.
 						</AlertDescription>
 					</Alert>
 

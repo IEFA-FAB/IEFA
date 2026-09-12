@@ -29,6 +29,8 @@ interface MfaEnrollDialogProps {
 	requiresPassword: boolean
 	/** `true` quando é o dispositivo reserva — muda só o texto, nunca o fluxo. */
 	isBackup?: boolean
+	/** Nomes já em uso na conta. O GoTrue recusa nome repetido, inclusive o do fator que está sendo substituído. */
+	takenNames?: readonly string[]
 	/** Chamado depois da verificação concluída. */
 	onEnrolled: () => void
 }
@@ -42,9 +44,27 @@ function errorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback
 }
 
-export function MfaEnrollDialog({ open, onOpenChange, requiresPassword, isBackup = false, onEnrolled }: MfaEnrollDialogProps) {
+/**
+ * Primeiro nome livre a partir de `base`.
+ *
+ * Existe porque "Substituir" abre este diálogo com o mesmo nome padrão que o fator sendo
+ * trocado quase certamente tem — e o GoTrue recusa nome repetido. A limpeza de fatores
+ * pendentes não ajuda: ela só remove os NÃO verificados, e o que está sendo substituído
+ * está verificado. O usuário via `mfa_factor_name_conflict` no primeiro envio.
+ */
+function firstFreeName(base: string, taken: readonly string[]): string {
+	const used = new Set(taken.map((name) => name.trim().toLowerCase()))
+	if (!used.has(base.toLowerCase())) return base
+	for (let i = 2; i < 50; i++) {
+		const candidate = `${base} ${i}`
+		if (!used.has(candidate.toLowerCase())) return candidate
+	}
+	return `${base} ${Date.now()}`
+}
+
+export function MfaEnrollDialog({ open, onOpenChange, requiresPassword, isBackup = false, takenNames = [], onEnrolled }: MfaEnrollDialogProps) {
 	const [step, setStep] = useState<Step>("identify")
-	const [friendlyName, setFriendlyName] = useState(isBackup ? "Dispositivo reserva" : "Meu autenticador")
+	const [friendlyName, setFriendlyName] = useState(() => firstFreeName(isBackup ? "Dispositivo reserva" : "Meu autenticador", takenNames))
 	const [password, setPassword] = useState("")
 	const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
 	const [code, setCode] = useState("")

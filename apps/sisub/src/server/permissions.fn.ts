@@ -27,7 +27,7 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { revokeRecoveryCodesIfProtected } from "@/lib/mfa-recovery.server"
+import { tryRevokeRecoveryCodesIfProtected } from "@/lib/mfa-recovery.server"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
 export type UserSearchResult = {
@@ -85,7 +85,7 @@ export const createUserPermissionFn = createServerFn({ method: "POST" })
 				// A conta pode ter acabado de virar PROTEGIDA (design.md D9): quem alcança
 				// empenho não tem código de recuperação, e os que ela já tinha valeriam a
 				// partir de agora para uma operação que a mudança existe para fechar.
-				await revokeRecoveryCodesIfProtected(data.userId)
+				await tryRevokeRecoveryCodesIfProtected(data.userId)
 				return created
 			},
 			() => ({
@@ -112,7 +112,7 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 				// O alvo sai da LINHA alterada, nunca do payload: `UpdateUserPermissionSchema`
 				// só traz o id do grant, e subir o nível de um grant é uma das formas de a conta
 				// virar protegida.
-				if (updated.user_id) await revokeRecoveryCodesIfProtected(updated.user_id)
+				if (updated.user_id) await tryRevokeRecoveryCodesIfProtected(updated.user_id)
 				return updated
 			},
 			() => ({

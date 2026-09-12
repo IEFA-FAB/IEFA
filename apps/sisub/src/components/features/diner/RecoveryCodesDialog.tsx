@@ -59,8 +59,13 @@ export function RecoveryCodesDialog({ open, codes, emailNoticeAvailable = true, 
 		const link = document.createElement("a")
 		link.href = url
 		link.download = "sisub-codigos-de-recuperacao.txt"
+		// Anexado ao documento: âncora solta não dispara download em parte dos navegadores.
+		document.body.appendChild(link)
 		link.click()
-		URL.revokeObjectURL(url)
+		link.remove()
+		// Revogar na mesma tarefa pode abortar um download que ainda não começou a ler o
+		// blob — e estes códigos são mostrados UMA vez. Solta na próxima volta do loop.
+		setTimeout(() => URL.revokeObjectURL(url), 0)
 	}
 
 	const handlePrint = () => {

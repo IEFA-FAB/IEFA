@@ -156,8 +156,12 @@ export const getUserMfaStatusFn = createServerFn({ method: "GET" })
  *    fator e descobriria que a operação existe.
  * 2. **Titular existe** — 404 antes de qualquer escrita, e o e-mail dele sai daqui.
  * 3. **`deleteFactor`** por fator, pelo admin API. `mfa.unenroll()` não alcança: ele age
- *    sobre quem chama. O efeito colateral é o desejado — o GoTrue encerra TODAS as sessões do
- *    titular, inclusive a de quem eventualmente roubou uma.
+ *    sobre quem chama. O efeito é o desejado — sem fator verificado, NENHUMA sessão do
+ *    titular permanece elevada, inclusive a de quem eventualmente roubou uma. Note que a
+ *    garantia é essa, e não "as sessões acabaram": a documentação do auth-js fala em
+ *    encerrar sessões, mas o que a operação assegura por construção é a perda da elevação.
+ *    A cópia da tela e do e-mail afirma só isso, para não prometer ao titular um efeito
+ *    que dependeria do comportamento interno do GoTrue.
  * 4. **Códigos de recuperação do alvo caem junto.** Sem isto, o administrador removeria o
  *    fator de uma conta que ele acabou de declarar comprometida e deixaria dez credenciais de
  *    papel válidas — um caminho de entrada que a própria operação existe para fechar.

@@ -328,6 +328,7 @@ function SecurityPage() {
 				onOpenChange={setEnrollOpen}
 				requiresPassword={enrollIsFirstFactor}
 				isBackup={!enrollIsFirstFactor && replacingFactorId === null}
+				takenNames={factors.map((factor) => factor.friendlyName ?? "").filter((name) => name.length > 0)}
 				onEnrolled={handleEnrolled}
 			/>
 

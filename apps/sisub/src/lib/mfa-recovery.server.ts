@@ -49,3 +49,22 @@ export async function revokeRecoveryCodesIfProtected(userId: string): Promise<nu
 	if (!isProtectedAccount(permissions, assuranceReachability())) return 0
 	return revokeRecoveryCodes(getDb(), userId)
 }
+
+/**
+ * Versão best-effort, para chamar DEPOIS de uma concessão de permissão já confirmada.
+ *
+ * A revogação é higiene, não o gate: quem consome um código de recuperação tem a conta
+ * REAVALIADA no momento do consumo e é recusado se tiver virado conta protegida. Deixar
+ * esta limpeza derrubar a concessão seria trocar um risco contido por um concreto — a
+ * concessão já foi gravada, então o erro subiria com a mutação aplicada e o administrador
+ * repetiria a ação, criando grant duplicado.
+ *
+ * Devolve `null` quando não deu para limpar, para o chamador poder relatar sem falhar.
+ */
+export async function tryRevokeRecoveryCodesIfProtected(userId: string): Promise<number | null> {
+	try {
+		return await revokeRecoveryCodesIfProtected(userId)
+	} catch {
+		return null
+	}
+}

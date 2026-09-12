@@ -93,7 +93,7 @@ function buildNotice(kind: SecurityNoticeKind, at: Date, details?: McpKeyExpirin
 			subject: "SISUB — seu segundo fator foi removido por um administrador",
 			body:
 				`<p>Em ${moment}, um administrador removeu a verificação em duas etapas da sua conta no SISUB ` +
-				`e encerrou todas as suas sessões.</p><p>Cadastre um novo dispositivo no próximo acesso.</p>${footer}`,
+				`e nenhuma sessão sua continua com a verificação em duas etapas válida.</p><p>Cadastre um novo dispositivo no próximo acesso.</p>${footer}`,
 		}
 	}
 
