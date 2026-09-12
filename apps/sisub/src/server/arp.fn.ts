@@ -13,6 +13,7 @@ import { z } from "zod"
 import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getProcurementClient } from "@/lib/supabase.server"
+import { requireUnitScope } from "@/lib/unit-auth.server"
 import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -116,8 +117,15 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<ArpWithItems> => {
-		await requireAuth()
+		// Escrita em `procurement_arp`/`procurement_arp_item` da unidade alvo: exige
+		// nível 2 NAQUELA unidade. `requireAuth()` sozinho deixava qualquer sessão
+		// autenticada importar ARP para qualquer unidade — a service role não tem RLS
+		// para segurar isso.
+		await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
+		// A ATA apontada TEM que ser da unidade alegada: sem isto, quem tem nível 2 na
+		// unidade A importa ARP para dentro da ata da unidade B.
+		if ((await resolveAtaUnit(supabase, data.ataId)) !== data.unitId) throw new Error("A ata informada não pertence a esta unidade")
 		const { ataId, unitId, arpData } = data
 
 		// ── 1. Buscar itens da ARP na API do Compras.gov.br ──────────────────────
@@ -259,9 +267,17 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 		await requireAuth()
 		const supabase = getProcurementClient()
 
-		const { data: arp, error: arpError } = await supabase.from("procurement_arp").select("numero_ata, ano_ata, uasg_gerenciadora").eq("id", data.arpId).single()
+		const { data: arp, error: arpError } = await supabase
+			.from("procurement_arp")
+			.select("unit_id, numero_ata, ano_ata, uasg_gerenciadora")
+			.eq("id", data.arpId)
+			.single()
 
 		if (arpError || !arp) throw new Error("ARP não encontrada")
+		// A unidade sai da LINHA, nunca do input: o payload só traz `arpId`, e aceitar
+		// unidade do cliente permitiria sincronizar ARP de outra unidade alegando a
+		// própria. Guard depois da leitura, antes de qualquer escrita.
+		await requireUnitScope(2, Number(arp.unit_id))
 
 		// Re-consultar itens na API (retorna saldo atualizado)
 		const params = new URLSearchParams({
@@ -321,11 +337,48 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 /**
  * Returns the ARP linked to an ATA with all its items ordered by numero_item, or null if none exists.
  */
+/**
+ * Resolve a unidade dona de uma ARP, de um item de ARP ou de uma ATA.
+ *
+ * Existe porque escopar pelo `unitId` do payload fecha só metade do buraco: o cliente
+ * continua escolhendo a CHAVE ESTRANGEIRA. Quem tem `unit` 2 na unidade A poderia
+ * apontar para a ATA ou para o item de ARP da unidade B e, com o guard satisfeito pela
+ * própria unidade, escrever no acervo da outra — e a unidade B nem conseguiria desfazer,
+ * porque o guard de anulação resolve a unidade pela linha, que diria "A".
+ *
+ * A unidade sai SEMPRE da linha apontada, nunca do que o cliente alegou.
+ */
+async function resolveAtaUnit(supabase: ReturnType<typeof getProcurementClient>, ataId: string): Promise<number> {
+	// A tabela chama-se `procurement_list` no schema `procurement`; o nome `ata` sobreviveu
+	// nos identificadores da API e nas constraints, não na tabela.
+	const { data, error } = await supabase.from("procurement_list").select("unit_id").eq("id", ataId).maybeSingle()
+	if (error) throw new Error(`Erro ao resolver a unidade da ata: ${error.message}`)
+	if (!data) throw new Error("Ata não encontrada")
+	return Number(data.unit_id)
+}
+
+async function resolveArpUnit(supabase: ReturnType<typeof getProcurementClient>, arpId: string): Promise<number> {
+	const { data, error } = await supabase.from("procurement_arp").select("unit_id").eq("id", arpId).maybeSingle()
+	if (error) throw new Error(`Erro ao resolver a unidade da ARP: ${error.message}`)
+	if (!data) throw new Error("ARP não encontrada")
+	return Number(data.unit_id)
+}
+
+async function resolveArpItemUnit(supabase: ReturnType<typeof getProcurementClient>, arpItemId: string): Promise<number> {
+	const { data, error } = await supabase.from("procurement_arp_item").select("arp_id").eq("id", arpItemId).maybeSingle()
+	if (error) throw new Error(`Erro ao resolver a unidade do item: ${error.message}`)
+	if (!data) throw new Error("Item da ARP não encontrado")
+	return resolveArpUnit(supabase, String(data.arp_id))
+}
+
 export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 	.validator(z.object({ ataId: z.uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
-		await requireUserId()
+		await requireAuth()
 		const supabase = getProcurementClient()
+		// Execução orçamentária e dado de fornecedor não são públicos entre unidades:
+		// leitura exige nível 1 NA unidade dona da ata.
+		await requireUnitScope(1, await resolveAtaUnit(supabase, data.ataId))
 
 		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("ata_id", data.ataId).maybeSingle()
 
@@ -346,7 +399,8 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpItemId: z.uuid() }))
 	.handler(async ({ data }): Promise<Empenho[]> => {
-		await requireUserId()
+		await requireAuth()
+		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
 		const { data: empenhos, error } = await getProcurementClient()
 			.schema("finance")
 			.from("empenho")
@@ -381,8 +435,15 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<Empenho> => {
-		const { userId } = await requireAuth()
+		// Empenho é dinheiro público: exige nível 2 NA unidade empenhada. Antes daqui
+		// bastava estar autenticado — qualquer comensal podia registrar empenho em
+		// qualquer unidade, com `unitId` vindo do próprio payload.
+		const { userId } = await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
+		// Mesmo motivo do import: o item de ARP tem que ser da unidade empenhada. Sem isto,
+		// a unidade A empenha contra o saldo da unidade B — e B não consegue anular, porque
+		// a anulação resolve a unidade pela linha do empenho, que diria "A".
+		if ((await resolveArpItemUnit(supabase, data.arpItemId)) !== data.unitId) throw new Error("O item da ARP informado não pertence a esta unidade")
 		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
 
 		const { data: empenho, error } = await supabase
@@ -426,8 +487,9 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpId: z.uuid() }))
 	.handler(async ({ data }): Promise<Record<string, LocalCommitment>> => {
-		await requireUserId()
+		await requireAuth()
 		const supabase = getProcurementClient()
+		await requireUnitScope(1, await resolveArpUnit(supabase, data.arpId))
 
 		const { data: items, error: itemsError } = await supabase.from("procurement_arp_item").select("id").eq("arp_id", data.arpId)
 		if (itemsError) throw new Error(`Erro ao buscar itens da ARP: ${itemsError.message}`)
@@ -453,8 +515,9 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
 export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpId: z.uuid() }))
 	.handler(async ({ data }): Promise<Record<string, { liquidado: number; pago: number; aLiquidar: number }>> => {
-		await requireUserId()
+		await requireAuth()
 		const supabase = getProcurementClient()
+		await requireUnitScope(1, await resolveArpUnit(supabase, data.arpId))
 
 		const { data: items } = await supabase.from("procurement_arp_item").select("id").eq("arp_id", data.arpId)
 		const itemIds = (items ?? []).map((item) => item.id)
@@ -500,8 +563,21 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(z.object({ empenhoId: z.uuid() }))
 	.handler(async ({ data }) => {
+		// Autenticação primeiro (o contrato `server-fn-auth` exige guard antes de
+		// qualquer client de DB); o escopo de unidade só é conhecido depois de ler a
+		// linha, e vem DELA — o payload só traz o id.
 		await requireAuth()
-		const { error } = await getProcurementClient().schema("finance").from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
+		const fin = getProcurementClient().schema("finance")
+		// Sem o guard de unidade abaixo, qualquer sessão autenticada anulava qualquer
+		// empenho do sistema.
+		const { data: empenho, error: lookupError } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		// Falha de consulta NÃO pode virar "não encontrado": o diagnóstico errado manda o
+		// usuário procurar um empenho que existe.
+		if (lookupError) throw new Error(`Erro ao buscar empenho: ${lookupError.message}`)
+		if (!empenho) throw new Error("Empenho não encontrado")
+		await requireUnitScope(2, Number(empenho.unit_id))
+
+		const { error } = await fin.from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
 
 		if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)
 	})
