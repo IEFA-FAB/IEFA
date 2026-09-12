@@ -82,10 +82,10 @@
 
 ## 8. Elevação sem perder trabalho
 
-- [ ] 8.1 [sisub] Wrapper de mutação que captura `MFA_REQUIRED`, guarda o payload e abre o modal sobre a tela atual — sem redirecionar para `/auth`
-- [ ] 8.2 [sisub] Modal com os três caminhos (`enroll`, `challenge`, `step-up`) e o `reason` da operação visível
-- [ ] 8.3 [sisub] Reexecutar a mesma mutação com o payload original após a verificação; cancelar preserva o formulário e não desloga
-- [ ] 8.4 [sisub] Caminho `enroll` no meio de um formulário preenchido: sessão promovida, formulário sobrevive
+- [x] 8.1 [sisub] Wrapper de mutação que captura `MFA_REQUIRED`, guarda o payload e abre o modal sobre a tela atual — sem redirecionar para `/auth`
+- [x] 8.2 [sisub] Modal com os três caminhos (`enroll`, `challenge`, `step-up`) e o `reason` da operação visível
+- [x] 8.3 [sisub] Reexecutar a mesma mutação com o payload original após a verificação; cancelar preserva o formulário e não desloga
+- [x] 8.4 [sisub] Caminho `enroll` no meio de um formulário preenchido: sessão promovida, formulário sobrevive
 - [ ] 8.5 [sisub] Teste e2e: concessão de permissão com elevação vencida → modal → reenvio → permissão gravada → linha no log
 
 ## 9. Ativar os pisos
