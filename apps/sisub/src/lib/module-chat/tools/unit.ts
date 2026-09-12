@@ -9,6 +9,7 @@
  */
 
 import { clampLimit } from "@iefa/sisub-domain/agent"
+import { defaultVigenciaWindow } from "@/lib/arp-compras"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import type { ModuleToolDefinition } from "./shared"
 import { requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
@@ -25,22 +26,10 @@ const ATA_ITEMS_MAX = 100
 /** Quantos IDs cabem num `in.(…)` sem estourar a linha de requisição do gateway. */
 const EMPENHO_ID_BATCH = 100
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
-
 function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1]): number {
 	const unitId = safeInt(ctx.scopeId, "scopeId")
 	requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
 	return unitId
-}
-
-function toIsoDate(date: Date): string {
-	return date.toISOString().slice(0, 10)
-}
-
-function arpVigenciaWindow(): { min: string; max: string } {
-	const max = new Date()
-	const min = new Date(max.getTime() - 365 * ONE_DAY_MS)
-	return { min: toIsoDate(min), max: toIsoDate(max) }
 }
 
 const listAtas: ModuleToolDefinition = {
@@ -240,7 +229,7 @@ const searchArp: ModuleToolDefinition = {
 		const uasg = String(unit?.uasg ?? "").trim()
 		if (!uasg) return toolErr("Unidade sem código UASG configurado")
 
-		const vigencia = arpVigenciaWindow()
+		const vigencia = defaultVigenciaWindow()
 
 		try {
 			const page = unwrapCompras(

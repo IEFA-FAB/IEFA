@@ -12,7 +12,7 @@ import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { aggregateLocalCommitments, type LocalCommitment } from "@/lib/arp-balance"
-import { anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem } from "@/lib/arp-compras"
+import { type ArpSaldo, anoFromNumeroAta, assertVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem, resolveArpSaldos } from "@/lib/arp-compras"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
 import { getProcurementClient } from "@/lib/supabase.server"
@@ -57,6 +57,12 @@ export const searchArpFn = createServerFn({ method: "GET" })
 				.string()
 				.regex(/^\d{4}$/)
 				.optional(),
+			// O filtro da API é o par NNNNN/AAAA. Aceitar o número sem o ano faria
+			// a busca ignorar o número em silêncio e devolver a janela inteira, que
+			// o usuário leria como "estas são as atas com esse número".
+		}).refine((v) => !v.numeroAta || Boolean(v.anoAta), {
+			message: "Informe o ano da ata junto com o número",
+			path: ["anoAta"],
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasArpPage> => {
@@ -122,10 +128,14 @@ async function fetchArpItems(params: {
 
 		const batch = page.resultado ?? []
 		items.push(...batch.filter((item) => item.numeroAtaRegistroPreco === params.numeroAtaRegistroPreco))
-		if (batch.length < PAGE_SIZE) break
+		if (batch.length < PAGE_SIZE) return items
 	}
 
-	return items
+	// Parar aqui e devolver o que veio produziria importação parcial — e a
+	// reconciliação apagaria como "sumiu da API" todo item que ficou de fora.
+	throw new Error(
+		`A consulta de itens da ARP ${params.numeroAtaRegistroPreco} passou de ${MAX_ITEM_PAGES * PAGE_SIZE} registros — importação abortada para não gravar ata parcial`
+	)
 }
 
 /**
@@ -135,38 +145,43 @@ async function fetchArpItems(params: {
  * `saldoEmpenho` NÃO existe em `2_consultarARPItem`; só `4_consultarEmpenhosSaldoItem`
  * tem. O endpoint devolve APENAS itens que já têm empenho registrado — item sem
  * empenho fica de fora da resposta, e por isso o chamador trata ausência como
- * "empenhado = 0", nunca como "sem informação".
+ * "empenhado = 0", nunca como "sem informação". Map VAZIO é resposta legítima
+ * (ata sem nenhum empenho), não falha: falha de HTTP já vira exceção em
+ * `unwrapCompras` antes de qualquer escrita.
+ *
+ * @throws {Error} se a ata tiver mais itens com empenho do que o teto de páginas
+ *   — melhor recusar do que zerar em silêncio o saldo do que sobrou de fora.
  */
-async function fetchArpSaldos(params: {
-	numeroAtaRegistroPreco: string
-	codigoUnidadeGerenciadora: string
-}): Promise<Map<number, { quantidadeEmpenhada: number; saldoEmpenho: number | null }>> {
-	const page = unwrapCompras(
-		await comprasApi.GET("/modulo-arp/4_consultarEmpenhosSaldoItem", {
-			params: {
-				query: {
-					pagina: 1,
-					tamanhoPagina: PAGE_SIZE,
-					numeroAta: params.numeroAtaRegistroPreco,
-					unidadeGerenciadora: params.codigoUnidadeGerenciadora,
-				},
-			},
-		})
-	)
+async function fetchArpSaldos(params: { numeroAtaRegistroPreco: string; codigoUnidadeGerenciadora: string }): Promise<Map<number, ArpSaldo>> {
+	const byItem = new Map<number, ArpSaldo>()
 
-	const byItem = new Map<number, { quantidadeEmpenhada: number; saldoEmpenho: number | null }>()
-	for (const row of page.resultado ?? []) {
-		const numero = Number(row.numeroItem)
-		if (!Number.isFinite(numero)) continue
-		// A ata pode trazer linha de participante além da gerenciadora; a
-		// gerenciadora é a que corresponde ao saldo que a unidade administra.
-		if (byItem.has(numero) && row.tipo !== "GERENCIADORA") continue
-		byItem.set(numero, {
-			quantidadeEmpenhada: row.quantidadeEmpenhada ?? 0,
-			saldoEmpenho: row.saldoEmpenho ?? null,
-		})
+	for (let pagina = 1; pagina <= MAX_ITEM_PAGES; pagina++) {
+		const page = unwrapCompras(
+			await comprasApi.GET("/modulo-arp/4_consultarEmpenhosSaldoItem", {
+				params: {
+					query: {
+						pagina,
+						tamanhoPagina: PAGE_SIZE,
+						numeroAta: params.numeroAtaRegistroPreco,
+						unidadeGerenciadora: params.codigoUnidadeGerenciadora,
+					},
+				},
+			})
+		)
+
+		const batch = page.resultado ?? []
+		for (const [numero, saldo] of resolveArpSaldos(batch)) {
+			// Página posterior não sobrescreve: `resolveArpSaldos` já escolheu a
+			// linha certa dentro da página, e o endpoint não repete item entre elas.
+			if (!byItem.has(numero)) byItem.set(numero, saldo)
+		}
+
+		if (batch.length < PAGE_SIZE) return byItem
 	}
-	return byItem
+
+	throw new Error(
+		`A ARP ${params.numeroAtaRegistroPreco} tem mais de ${MAX_ITEM_PAGES * PAGE_SIZE} itens com empenho — sincronização abortada para não zerar saldos`
+	)
 }
 
 /**
@@ -235,12 +250,16 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 2. Buscar os itens da ATA interna para fazer o match por catmat ──────
 
-		const { data: ataItems } = await supabase.from("procurement_list_item").select("id, catmat_item_codigo").eq("list_id", ataId)
+		const { data: ataItems } = await supabase.from("procurement_list_item").select("id, catmat_item_codigo, measure_unit").eq("list_id", ataId)
 
 		const catmatToAtaItemId = new Map<number, string>()
+		// `2_consultarARPItem` não traz unidade de fornecimento; a medida vem do
+		// item da ATA interna, casado pelo mesmo catmat.
+		const catmatToMeasureUnit = new Map<number, string>()
 		for (const item of ataItems ?? []) {
 			if (item.catmat_item_codigo != null) {
 				catmatToAtaItemId.set(item.catmat_item_codigo, item.id)
+				if (item.measure_unit) catmatToMeasureUnit.set(item.catmat_item_codigo, item.measure_unit)
 			}
 		}
 
@@ -296,14 +315,13 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 				nome_fornecedor: item.nomeRazaoSocialFornecedor ?? null,
 				valor_unitario: item.valorUnitario ?? null,
 				quantidade_homologada: item.quantidadeHomologadaItem ?? null,
-				// `2_consultarARPItem` não traz unidade de fornecimento; o campo fica
-				// a cargo do item da ATA interna.
-				medida_catmat: null,
-				// Ausente em `4_consultarEmpenhosSaldoItem` = item sem empenho.
-				// O fallback do saldo é a quantidade homologada, não null: "ainda não
-				// empenhei nada" é saldo cheio, e null apareceria na tela como "—".
-				quantidade_empenhada: saldo?.quantidadeEmpenhada ?? item.quantidadeEmpenhada ?? 0,
-				saldo_empenho: saldo?.saldoEmpenho ?? item.quantidadeHomologadaItem ?? null,
+				medida_catmat: item.codigoItem != null ? (catmatToMeasureUnit.get(item.codigoItem) ?? null) : null,
+				// Linha AUSENTE em `4_consultarEmpenhosSaldoItem` = item sem empenho:
+				// saldo cheio, e não null (que apareceria na tela como "—"). Linha
+				// PRESENTE manda no valor, inclusive quando o saldo dela é zero — o
+				// `??` sobre o saldo resolvido conflataria os dois casos.
+				quantidade_empenhada: saldo ? saldo.quantidadeEmpenhada : 0,
+				saldo_empenho: saldo ? saldo.saldoEmpenho : (item.quantidadeHomologadaItem ?? null),
 				synced_at: now,
 			}
 		}
@@ -383,14 +401,19 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 			codigoUnidadeGerenciadora: arp.uasg_gerenciadora,
 		})
 
-		// Resposta vazia = falha (ata pode ter sido despublicada, API instável…):
-		// preserva snapshot e last_synced_at em vez de fingir sync bem-sucedido.
-		if (saldos.size === 0) {
-			throw new Error("A API do Compras.gov não retornou saldos para esta ARP — snapshot anterior mantido")
-		}
+		// Map vazio é resposta LEGÍTIMA: ata sem nenhum empenho, ou com todos
+		// anulados. Falha real da API já virou exceção em `unwrapCompras`, antes
+		// de qualquer escrita. Tratar vazio como falha (como fazia a versão que
+		// consultava o endpoint de itens) impediria sincronizar ARP recém-importada.
+		const { data: dbItems, error: dbItemsError } = await supabase
+			.from("procurement_arp_item")
+			.select("id, numero_item, quantidade_homologada")
+			.eq("arp_id", data.arpId)
 
-		// Buscar itens locais para mapear por numero_item
-		const { data: dbItems } = await supabase.from("procurement_arp_item").select("id, numero_item, quantidade_homologada").eq("arp_id", data.arpId)
+		// Sem esta guarda, uma leitura que falha vira "0 itens para atualizar" e o
+		// last_synced_at abaixo carimba "sincronizado agora" sobre número velho —
+		// exatamente o que esta função promete não fazer.
+		if (dbItemsError) throw new Error(`Erro ao carregar itens locais da ARP: ${dbItemsError.message} — snapshot anterior mantido`)
 
 		// Atualizar TODOS os itens em um único upsert (uma request PostgREST =
 		// uma transação): ou o snapshot inteiro entra, ou nada entra. Os ids vêm

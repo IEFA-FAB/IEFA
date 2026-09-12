@@ -13,35 +13,47 @@
 
 import { createComprasClient } from "@iefa/compras-api"
 
-const TIMEOUT_MS = 30_000
-const MAX_RETRIES = 3
-
 /**
- * Fetch com backoff exponencial (0s, 1s, 3s) e timeout por tentativa.
+ * Fetch com backoff exponencial e timeout por tentativa.
  *
  * Só repete falha de transporte e 5xx/408/429. Um 4xx é determinístico —
  * repetir um 404 de parâmetro errado três vezes só atrasa o erro e triplica a
  * carga na API pública.
  */
-async function retryingFetch(input: Request): Promise<Response> {
-	let lastErr: unknown
-	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-		if (attempt > 0) await new Promise((r) => setTimeout(r, (2 ** attempt - 1) * 1_000))
-		try {
-			// O Request só pode ser consumido uma vez; clonar antes de cada tentativa.
-			const res = await fetch(input.clone(), { signal: AbortSignal.timeout(TIMEOUT_MS) })
-			if (res.ok) return res
-			const retryable = res.status === 408 || res.status === 429 || res.status >= 500
-			if (!retryable) return res
-			lastErr = new Error(`HTTP ${res.status} ao consultar Compras.gov.br`)
-		} catch (err) {
-			lastErr = err
+function retryingFetch({ timeoutMs, attempts }: { timeoutMs: number; attempts: number }) {
+	return async (input: Request): Promise<Response> => {
+		let lastErr: unknown
+		for (let attempt = 0; attempt < attempts; attempt++) {
+			if (attempt > 0) await new Promise((r) => setTimeout(r, (2 ** attempt - 1) * 1_000))
+			try {
+				// O Request só pode ser consumido uma vez; clonar antes de cada tentativa.
+				const res = await fetch(input.clone(), { signal: AbortSignal.timeout(timeoutMs) })
+				if (res.ok) return res
+				const retryable = res.status === 408 || res.status === 429 || res.status >= 500
+				if (!retryable) return res
+				lastErr = new Error(`HTTP ${res.status} ao consultar Compras.gov.br`)
+			} catch (err) {
+				lastErr = err
+			}
 		}
+		throw lastErr instanceof Error ? lastErr : new Error("Falha ao consultar Compras.gov.br")
 	}
-	throw lastErr instanceof Error ? lastErr : new Error("Falha ao consultar Compras.gov.br")
 }
 
-export const comprasApi = createComprasClient(retryingFetch as typeof fetch)
+/** Consulta iniciada pelo usuário, com tela esperando: até ~93 s no pior caso. */
+export const comprasApi = createComprasClient(retryingFetch({ timeoutMs: 30_000, attempts: 3 }) as typeof fetch)
+
+/**
+ * Client com orçamento curto para o caminho de EMISSÃO de OF.
+ *
+ * A consulta ao SICAF é advisória — falha degrada para `indeterminado` e o
+ * gestor decide com registro. Ela roda dentro do handler de emissão, atrás do
+ * ALB, cujo idle timeout é de 60 s: com a política normal (3 × 30 s), e sendo
+ * duas consultas em sequência, o pior caso passa de 180 s e o usuário recebe
+ * 502 em vez do `indeterminado` que o fluxo promete. Uma tentativa de 8 s por
+ * consulta mantém o pior caso em ~16 s, com folga para o resto da emissão.
+ */
+export const comprasApiFast = createComprasClient(retryingFetch({ timeoutMs: 8_000, attempts: 1 }) as typeof fetch)
 
 /**
  * Converte o `{ data, error }` do openapi-fetch em valor ou exceção.

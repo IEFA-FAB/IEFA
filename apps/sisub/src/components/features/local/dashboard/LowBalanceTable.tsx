@@ -45,9 +45,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 									</p>
 								</td>
 								<td className="py-2.5 px-3 hidden md:table-cell">
-									<p className="text-xs font-mono text-foreground">
-										{item.arp_numero_ata}/{item.arp_ano_ata ?? "—"}
-									</p>
+									<p className="text-xs font-mono text-foreground">{item.arp_numero_ata}</p>
 									<Link
 										to="/unit/$unitId/procurement/$ataId"
 										params={{ unitId: unitIdStr, ataId: item.ata_id }}

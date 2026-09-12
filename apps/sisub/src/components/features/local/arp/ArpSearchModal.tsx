@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { useImportArp, useSearchArp } from "@/hooks/data/useArp"
+import { defaultVigenciaWindow } from "@/lib/arp-compras"
 import type { ComprasArpResult } from "@/types/domain/arp"
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -25,24 +26,6 @@ interface ArpSearchModalProps {
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
-
-function toIsoDate(date: Date): string {
-	return date.toISOString().slice(0, 10)
-}
-
-/**
- * Janela padrão de busca: os últimos 365 dias de vigência inicial.
- *
- * O Compras.gov.br EXIGE `dataVigenciaInicialMin`/`Max` em `1_consultarARP` e
- * rejeita intervalo maior que 365 dias — não existe "listar todas as ARPs da
- * UASG". Por isso a janela é um campo do formulário, e não um detalhe escondido:
- * uma ata fora dela simplesmente não aparece, e o usuário precisa saber disso
- * para mover o período em vez de concluir que a ata não existe.
- */
-function defaultWindow(): { min: string; max: string } {
-	const max = new Date()
-	return { min: toIsoDate(new Date(max.getTime() - COMPRAS_MAX_DATE_WINDOW_DAYS * ONE_DAY_MS)), max: toIsoDate(max) }
-}
 
 function windowDays(min: string, max: string): number | null {
 	const from = Date.parse(`${min}T00:00:00Z`)
@@ -75,7 +58,7 @@ function vigenciaStatus(fim: string | null | undefined): "ativa" | "vencida" | "
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg }: ArpSearchModalProps) {
-	const initialWindow = defaultWindow()
+	const initialWindow = defaultVigenciaWindow()
 	const [uasg, setUasg] = useState(defaultUasg ?? "")
 	const [numero, setNumero] = useState("")
 	const [ano, setAno] = useState("")
@@ -88,6 +71,9 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 
 	const results = searchResult?.resultado ?? []
 	const days = windowDays(vigenciaMin, vigenciaMax)
+	// O filtro da API é o par NNNNN/AAAA: número sem ano seria ignorado em
+	// silêncio, e a janela inteira voltaria como se fosse o resultado da busca.
+	const numeroSemAno = Boolean(numero.trim()) && !ano.trim()
 	const windowError =
 		days === null
 			? "Período inválido"
@@ -98,7 +84,7 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 					: null
 
 	function handleSearch() {
-		if (!uasg.trim() || windowError) return
+		if (!uasg.trim() || windowError || numeroSemAno) return
 		resetSearch()
 		search({
 			codigoUnidadeGerenciadora: uasg.trim(),
@@ -197,13 +183,15 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 						</div>
 					</div>
 
+					{numeroSemAno && <p className="text-xs text-destructive">Informe o ano da ata junto com o número.</p>}
+
 					<p className={windowError ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
 						{windowError ??
 							`O Compras.gov.br busca pela data de INÍCIO da vigência, em janelas de no máximo ${COMPRAS_MAX_DATE_WINDOW_DAYS} dias. Ata que começou a vigorar fora do período não aparece.`}
 					</p>
 				</div>
 
-				<Button onClick={handleSearch} disabled={!uasg.trim() || !!windowError || isSearching} className="self-end gap-2">
+				<Button onClick={handleSearch} disabled={!uasg.trim() || !!windowError || numeroSemAno || isSearching} className="self-end gap-2">
 					{isSearching ? <Spinner className="size-4" /> : <Search className="size-4" />}
 					Buscar
 				</Button>

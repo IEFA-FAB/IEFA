@@ -62,3 +62,52 @@ export function parseNumeroItem(value: string | null | undefined): number | null
 	const n = Number(value)
 	return Number.isFinite(n) ? n : null
 }
+
+// ─── Saldo de empenho (modulo-arp/4_consultarEmpenhosSaldoItem) ───────────────
+
+/** Saldo de um item, já resolvido a partir da linha do endpoint 4. */
+export interface ArpSaldo {
+	quantidadeEmpenhada: number
+	/** `null` só quando a API não deu saldo E não deu como derivá-lo. */
+	saldoEmpenho: number | null
+}
+
+type SaldoRow = {
+	numeroItem?: string | null
+	tipo?: string | null
+	quantidadeRegistrada?: number | null
+	quantidadeEmpenhada?: number | null
+	saldoEmpenho?: number | null
+}
+
+/**
+ * Indexa as linhas de saldo por `numero_item`.
+ *
+ * Duas regras que não são óbvias na resposta:
+ * - a ata pode trazer linha de participante além da gerenciadora, e é a da
+ *   GERENCIADORA que corresponde ao saldo que a unidade administra;
+ * - `saldoEmpenho` ausente NÃO é saldo cheio — a linha existe justamente porque
+ *   há empenho. Deriva de `quantidadeRegistrada - quantidadeEmpenhada` quando dá.
+ *
+ * Item sem empenho não aparece na resposta; quem trata a ausência é o chamador,
+ * porque só ele conhece a quantidade homologada.
+ */
+export function resolveArpSaldos(rows: SaldoRow[]): Map<number, ArpSaldo> {
+	const byItem = new Map<number, ArpSaldo>()
+	const fromGerenciadora = new Set<number>()
+
+	for (const row of rows) {
+		const numero = parseNumeroItem(row.numeroItem)
+		if (numero == null) continue
+
+		const isGerenciadora = row.tipo === "GERENCIADORA"
+		if (byItem.has(numero) && (fromGerenciadora.has(numero) || !isGerenciadora)) continue
+		if (isGerenciadora) fromGerenciadora.add(numero)
+
+		const empenhada = row.quantidadeEmpenhada ?? 0
+		const saldo = row.saldoEmpenho ?? (row.quantidadeRegistrada != null ? row.quantidadeRegistrada - empenhada : null)
+		byItem.set(numero, { quantidadeEmpenhada: empenhada, saldoEmpenho: saldo })
+	}
+
+	return byItem
+}

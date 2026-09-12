@@ -5,10 +5,12 @@
  * pela validação SERVER-SIDE na emissão de OF (review: evidência SICAF vinda
  * do cliente podia ser de outro fornecedor ou estar defasada).
  * Falha da API não bloqueia: retorna `indeterminado` e o gestor decide com
- * registro (`sicaf_ack_by`).
+ * registro (`sicaf_ack_by`). Por isso usa `comprasApiFast` (1 tentativa, 8 s):
+ * a consulta roda dentro da emissão de OF, atrás do idle timeout de 60 s do
+ * ALB, e insistir aqui troca um `indeterminado` honesto por um 502.
  */
 
-import { comprasApi } from "@/lib/compras.server"
+import { comprasApiFast } from "@/lib/compras.server"
 
 export interface SicafResult {
 	status: "regular" | "irregular" | "nao_encontrado" | "indeterminado"
@@ -24,7 +26,7 @@ export interface SicafResult {
  * `ativo=false`, que é o que separa "irregular" de "não encontrado".
  */
 async function queryFornecedor(cnpj: string, ativo: boolean) {
-	const result = await comprasApi.GET("/modulo-fornecedor/1_consultarFornecedor", {
+	const result = await comprasApiFast.GET("/modulo-fornecedor/1_consultarFornecedor", {
 		params: { query: { cnpj, ativo, pagina: 1 } },
 	})
 	if (!result.data) throw new Error(`API respondeu ${result.response.status}`)

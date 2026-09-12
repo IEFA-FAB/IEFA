@@ -97,3 +97,24 @@ describe("checkSupplierSicaf", () => {
 		})
 	})
 })
+
+describe("orçamento de tempo (emissão de OF fica atrás do idle timeout de 60 s do ALB)", () => {
+	test("não repete: uma tentativa por consulta", async () => {
+		const calls = mockCompras({ ativo: { status: 500, body: { message: "boom" } } })
+		const promise = checkSupplierSicaf(CNPJ)
+		await vi.runAllTimersAsync()
+		await expect(promise).resolves.toMatchObject({ status: "indeterminado" })
+		// Com 3 tentativas × 2 consultas o pior caso passaria de 180 s e o ALB
+		// devolveria 502 no lugar do `indeterminado`.
+		expect(calls).toHaveLength(1)
+	})
+
+	test("o pior caso são 2 requisições, não 6", async () => {
+		const calls = mockCompras({
+			ativo: { status: 200, body: page([]) },
+			inativo: { status: 200, body: page([]) },
+		})
+		await checkSupplierSicaf(CNPJ)
+		expect(calls).toHaveLength(2)
+	})
+})

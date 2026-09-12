@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { anoFromNumeroAta, assertVigenciaWindow, defaultVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem } from "./arp-compras"
+import { anoFromNumeroAta, assertVigenciaWindow, defaultVigenciaWindow, formatNumeroAta, parseBrDate, parseNumeroItem, resolveArpSaldos } from "./arp-compras"
 
 describe("formatNumeroAta", () => {
 	// Verificado contra a API: só "00002/2025" retorna a ata; "2/2025" e "00002"
@@ -94,5 +94,46 @@ describe("parseBrDate", () => {
 		expect(parseBrDate(null)).toBeNull()
 		expect(parseBrDate("")).toBeNull()
 		expect(parseBrDate("março de 2025")).toBeNull()
+	})
+})
+
+describe("resolveArpSaldos", () => {
+	test("indexa pelo número do item, convertendo o zero-padded", () => {
+		const m = resolveArpSaldos([{ numeroItem: "00017", tipo: "GERENCIADORA", quantidadeRegistrada: 10, quantidadeEmpenhada: 5, saldoEmpenho: 5 }])
+		expect(m.get(17)).toEqual({ quantidadeEmpenhada: 5, saldoEmpenho: 5 })
+	})
+
+	// Saldo zero é informação, não ausência: um `??` sobre o valor resolvido
+	// transformaria "tudo empenhado" em "saldo cheio".
+	test("preserva saldo zero", () => {
+		const m = resolveArpSaldos([{ numeroItem: "00022", tipo: "GERENCIADORA", quantidadeRegistrada: 100, quantidadeEmpenhada: 100, saldoEmpenho: 0 }])
+		expect(m.get(22)).toEqual({ quantidadeEmpenhada: 100, saldoEmpenho: 0 })
+	})
+
+	// A linha só existe porque HÁ empenho — saldo ausente nela não é saldo cheio.
+	test("deriva o saldo de registrada − empenhada quando a API não manda", () => {
+		const m = resolveArpSaldos([{ numeroItem: "00030", tipo: "GERENCIADORA", quantidadeRegistrada: 96, quantidadeEmpenhada: 60, saldoEmpenho: null }])
+		expect(m.get(30)).toEqual({ quantidadeEmpenhada: 60, saldoEmpenho: 36 })
+	})
+
+	test("sem registrada e sem saldo, devolve null em vez de inventar", () => {
+		const m = resolveArpSaldos([{ numeroItem: "00031", tipo: "GERENCIADORA", quantidadeEmpenhada: 7 }])
+		expect(m.get(31)).toEqual({ quantidadeEmpenhada: 7, saldoEmpenho: null })
+	})
+
+	test("a linha da GERENCIADORA vence a do participante, em qualquer ordem", () => {
+		const participante = { numeroItem: "00040", tipo: "PARTICIPANTE", quantidadeRegistrada: 50, quantidadeEmpenhada: 1, saldoEmpenho: 49 }
+		const gerenciadora = { numeroItem: "00040", tipo: "GERENCIADORA", quantidadeRegistrada: 200, quantidadeEmpenhada: 80, saldoEmpenho: 120 }
+		expect(resolveArpSaldos([participante, gerenciadora]).get(40)).toEqual({ quantidadeEmpenhada: 80, saldoEmpenho: 120 })
+		expect(resolveArpSaldos([gerenciadora, participante]).get(40)).toEqual({ quantidadeEmpenhada: 80, saldoEmpenho: 120 })
+	})
+
+	test("item sem empenho simplesmente não está no mapa", () => {
+		expect(resolveArpSaldos([]).size).toBe(0)
+		expect(resolveArpSaldos([{ numeroItem: "00017", tipo: "GERENCIADORA" }]).has(33)).toBe(false)
+	})
+
+	test("linha sem número utilizável é descartada", () => {
+		expect(resolveArpSaldos([{ numeroItem: null }, { numeroItem: "item 1" }]).size).toBe(0)
 	})
 })
