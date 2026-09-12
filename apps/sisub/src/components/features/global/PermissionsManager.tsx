@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import * as React from "react"
+import { usePBAC } from "@/auth/pbac"
+import { AdminMfaResetCard } from "@/components/features/global/AdminMfaResetCard"
 import { ExpiryCell, ExpiryField } from "@/components/features/global/policies/ExpiryControls"
 import {
 	getScopeOptions,
@@ -527,6 +529,9 @@ function UserPermissionsPanel({
 	onEdit: (perm: PermissionRow) => void
 	onDeleteTarget: (perm: PermissionRow) => void
 }) {
+	const { can } = usePBAC()
+	const canResetMfa = can("admin", 3)
+
 	return (
 		<div className="space-y-4">
 			<div className="flex items-start justify-between gap-4">
@@ -638,6 +643,11 @@ function UserPermissionsPanel({
 			</p>
 
 			<UserAccessPanel userId={user.id} maps={{ unitMap, kitchenMap, messHallMap }} />
+
+			{/* Por último e em bloco próprio: é operação de exceção, não item da rotina de
+			    permissões. O gate de `admin` nível 3 existe no servidor — aqui ele só evita
+			    oferecer ao administrador de nível 2 um botão que o endpoint vai recusar. */}
+			{canResetMfa && <AdminMfaResetCard user={{ id: user.id, email: user.email }} />}
 		</div>
 	)
 }

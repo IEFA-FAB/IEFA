@@ -75,10 +75,10 @@
 
 ## 7. Reset administrativo
 
-- [ ] 7.1 [sisub] Server fn de reset: `admin` nível 3 + grau `fresh`, justificativa obrigatória, `deleteFactor`, `mfa_reset_log` + `sensitive_operation_log`, e-mail best-effort
-- [ ] 7.2 [sisub] UI em `/admin/permissions`: ação destacada, confirmação de verificação por canal alternativo, campo de justificativa
-- [ ] 7.3 [sisub] Testes: justificativa vazia rejeitada, administrador sem elevação fresca barrado, log gravado com `performed_by`, operação conclui sem provider de e-mail
-- [ ] 7.4 [docs] Procedimento de último recurso pelo dashboard do Supabase (quem tem acesso, com MFA próprio, mais de uma pessoa)
+- [x] 7.1 [sisub] Server fn de reset: `admin` nível 3 + grau `fresh`, justificativa obrigatória, `deleteFactor`, `mfa_reset_log` + `sensitive_operation_log`, e-mail best-effort
+- [x] 7.2 [sisub] UI em `/admin/permissions`: ação destacada, confirmação de verificação por canal alternativo, campo de justificativa
+- [x] 7.3 [sisub] Testes: justificativa vazia rejeitada, administrador sem elevação fresca barrado, log gravado com `performed_by`, operação conclui sem provider de e-mail
+- [x] 7.4 [docs] Procedimento de último recurso pelo dashboard do Supabase (quem tem acesso, com MFA próprio, mais de uma pessoa)
 
 ## 8. Elevação sem perder trabalho
 

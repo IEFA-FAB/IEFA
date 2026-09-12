@@ -146,15 +146,9 @@ const ARP_UNIT_SCOPE_NOTE = "Escopo de unidade lido da linha quando o payload s�
  *   `exportCatmatCsvFn` (`stock-reports.fn.ts`) é GET e exporta catálogo de estoque por CATMAT,
  *   sem pessoa nenhuma. Quando a exportação nominal existir, ela entra aqui como `fresh` — e,
  *   por ser uma ação explícita de exportação, é a exceção prevista em D3 a "só POST é gated".
- * - **Remoção de MFA de terceiro** — a fn de reset administrativo nasce na etapa 7 do plano.
- *   Entrada preparada:
- *   ```ts
- *   resetUserMfaFn: {
- *   	require: "fresh",
- *   	reason: "Esta operação remove o segundo fator de outra pessoa e a desconecta de todas as sessões.",
- *   	authorization: [{ kind: "permission", module: "admin", level: 3 }],
- *   },
- *   ```
+ * - **Remoção de MFA de terceiro** — ENTREGUE na etapa 7: `resetUserMfaFn`
+ *   (`mfa-admin.fn.ts`), classificada abaixo. É a única `fresh` cujo piso o próprio guard da
+ *   fn aplica sobre o ADMINISTRADOR e não sobre o dono do dado.
  */
 export const ASSURANCE_REGISTRY = {
 	// ── analytics-chat.fn.ts
@@ -314,6 +308,19 @@ export const ASSURANCE_REGISTRY = {
 
 	// ── messhall.fn.ts
 	addOtherPresenceFn: { require: "none" },
+
+	// ── mfa-admin.fn.ts
+	/**
+	 * O piso `fresh` aqui recai sobre o ADMINISTRADOR, e é o ponto do desenho em que ele
+	 * prova a própria identidade para apagar a de outra pessoa (design.md D10). `admin` nível
+	 * 3 — e não o 2 das concessões de permissão — porque remover o segundo fator de alguém
+	 * desconecta o titular de tudo e não tem desfazer.
+	 */
+	resetUserMfaFn: {
+		require: "fresh",
+		reason: "Esta operação remove o segundo fator de outra pessoa e a desconecta de todas as sessões.",
+		authorization: [{ kind: "permission", module: "admin", level: 3 }],
+	},
 
 	// ── mfa-recovery.fn.ts
 	generateRecoveryCodesFn: {
