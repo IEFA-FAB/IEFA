@@ -2,6 +2,7 @@ import { sisubSchema } from "@iefa/database/drizzle/sisub"
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
+import { guardWithDeadline, PendingSet } from "@/lib/db-deadline"
 import { envServer } from "@/lib/env.server"
 
 /**
@@ -21,6 +22,37 @@ let cached: ReturnType<typeof create> | undefined
 
 // `process.env` e não `import.meta.env`: o handler roda no Nitro. Ver env.server.ts.
 const isDev = process.env.NODE_ENV !== "production"
+
+/**
+ * Prazo de cada query/transação do Drizzle. Folga sobre a mais lenta já medida em produção
+ * (~17 s) e abaixo dos 60 s do ALB — passado disso o request já está perdido de qualquer
+ * jeito, e o que importa é destravar o pool para os próximos. Ver `db-deadline.ts`.
+ */
+const QUERY_DEADLINE_MS = 45_000
+
+/**
+ * Pipeline mínimo. Com o pool cheio o postgres-js empilha a query nova numa conexão OCUPADA,
+ * em round-robin; no default (100) uma conexão travada engolia as queries dos requests
+ * seguintes — foi o 504 de 2026-09-13. Com 1, cada conexão aceita no máximo uma na fila e
+ * passa a `full`; o resto espera conexão livre. NÃO baixar para 0: o `sent.length <
+ * max_pipeline` do `execute` curto-circuita antes do `onexecute` que reserva a conexão do
+ * `begin`, e toda transação falha com UNSAFE_TRANSACTION (medido contra o pooler).
+ *
+ * Fora do literal porque o `Options` tipado do postgres-js não declara `max_pipeline`,
+ * embora o driver o leia (`src/index.js`).
+ */
+const PIPELINE = { max_pipeline: 1 }
+
+/** Pendências de TODOS os pools (inclusive o que foi descartado) — lido pelo `/health`. */
+const pending = new PendingSet()
+
+/**
+ * Operação pendente há mais que o prazo + folga significa que o guard não conseguiu soltá-la:
+ * o processo está num estado de onde não sai sozinho, e o `/health` deve tirá-lo da rotação.
+ */
+export function isDbPoolWedged(): boolean {
+	return pending.oldestPendingMs() > QUERY_DEADLINE_MS * 2
+}
 
 function create() {
 	if (!envServer.SISUB_DATABASE_URL) {
@@ -45,8 +77,23 @@ function create() {
 		idle_timeout: 30, // s — devolve conexão ociosa ao pooler
 		max_lifetime: 60 * 30, // s — recicla conexão a cada 30 min
 		max: 10,
+		...PIPELINE,
 	})
-	return drizzle(client, { schema: sisubSchema })
+	const guarded = guardWithDeadline(client, {
+		deadlineMs: QUERY_DEADLINE_MS,
+		tracker: pending,
+		onExpire: (error) => {
+			// biome-ignore lint/suspicious/noConsole: server-side — é o único rastro de que o pool foi recriado
+			console.error(`[db] ${error.message} — recriando o pool do Drizzle`)
+			// Só descarta se ainda é o pool em uso: várias queries do mesmo pool expiram juntas,
+			// e a segunda não pode derrubar o pool novo que a primeira já criou.
+			if (cached?.$client === guarded) cached = undefined
+			// `timeout: 0` destrói as conexões na hora — esperar o fim das queries em curso é
+			// esperar a travada, que não termina.
+			void client.end({ timeout: 0 })
+		},
+	})
+	return drizzle(guarded, { schema: sisubSchema })
 }
 
 export function getDb() {
