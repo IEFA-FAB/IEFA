@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMfaOverview } from "@/hooks/data/useMfa"
 import { useConsumeRecoveryCode } from "@/hooks/data/useMfaRecovery"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 
 /**
  * Saída do desafio de segundo fator para quem perdeu o aparelho.
@@ -22,6 +23,8 @@ export const Route = createFileRoute("/auth/recovery-code")({
 	beforeLoad: ({ context, location }) => {
 		// Sem sessão não há conta a recuperar: o caminho é a senha, preservando o destino.
 		if (!context.auth.user) throw redirect({ to: "/auth", search: { redirect: location.href } })
+		// Verificação em duas etapas desligada (`MFA_AVAILABLE`): esta etapa não existe.
+		if (!MFA_AVAILABLE) throw redirect({ to: "/hub", replace: true })
 	},
 	component: RecoveryCodePage,
 	head: () => ({

@@ -49,6 +49,7 @@ import {
 import { DomainError } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
+import { assertMfaAvailable } from "@/lib/assurance/mfa-availability.server"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUser } from "@/lib/auth.server"
 import { getServerCapabilities } from "@/lib/capabilities.server"
@@ -151,6 +152,7 @@ async function listVerifiedFactors(userId: string): Promise<{ id: string }[]> {
  * nem código em claro — só a contagem.
  */
 export const getRecoveryCodeOverviewFn = createServerFn({ method: "GET" }).handler(async (): Promise<RecoveryCodeOverview> => {
+	assertMfaAvailable()
 	const ctx = await requireAuth()
 	const [status, factors] = await Promise.all([getRecoveryCodeStatus(getDb(), ctx).catch(handleDomainError), listVerifiedFactors(ctx.userId)])
 
@@ -186,6 +188,7 @@ export const getRecoveryCodeOverviewFn = createServerFn({ method: "GET" }).handl
  * deixa a sessão em AAL2 — então a exigência não custa nada a quem chegou pelo caminho certo.
  */
 export const generateRecoveryCodesFn = createServerFn({ method: "POST" }).handler(async (): Promise<GeneratedRecoveryCodesResult> => {
+	assertMfaAvailable()
 	const ctx = await requireAuth()
 	await requireNonRecoverySession()
 
@@ -243,6 +246,7 @@ export const generateRecoveryCodesFn = createServerFn({ method: "POST" }).handle
 export const consumeRecoveryCodeFn = createServerFn({ method: "POST" })
 	.validator(ConsumeRecoveryCodeSchema)
 	.handler(async ({ data }): Promise<ConsumedRecoveryCodeResult> => {
+		assertMfaAvailable()
 		const ctx = await requireAuth()
 		const user = await requireUser()
 		// Sessão nascida de link de recuperação de SENHA não remove fator (spec `mfa-recovery`):

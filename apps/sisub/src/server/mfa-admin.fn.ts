@@ -45,6 +45,7 @@ import { getAuthErrorMessage } from "@iefa/auth-kit"
 import { recordMfaReset, revokeRecoveryCodes } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
+import { assertMfaAvailable } from "@/lib/assurance/mfa-availability.server"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getServerCapabilities } from "@/lib/capabilities.server"
@@ -132,6 +133,7 @@ async function fetchTargetEmail(userId: string): Promise<string | null> {
 export const getUserMfaStatusFn = createServerFn({ method: "GET" })
 	.validator(ResetUserMfaSchema.pick({ targetUserId: true }))
 	.handler(async ({ data }): Promise<AdminUserMfaStatus> => {
+		assertMfaAvailable()
 		await requireAuthWithPermission("admin", 3)
 		const factors = await listTargetFactors(data.targetUserId)
 
@@ -173,6 +175,7 @@ export const getUserMfaStatusFn = createServerFn({ method: "GET" })
 export const resetUserMfaFn = createServerFn({ method: "POST" })
 	.validator(ResetUserMfaSchema)
 	.handler(async ({ data }): Promise<AdminMfaResetResult> => {
+		assertMfaAvailable()
 		const ctx = await requireAuthWithPermission("admin", 3, undefined, enforcedAssuranceFor("resetUserMfaFn"))
 		// Sessão nascida de link de recuperação de senha provou acesso à CAIXA, não
 		// conhecimento da senha — e é a caixa que o adversário costuma ter. Ela não remove o

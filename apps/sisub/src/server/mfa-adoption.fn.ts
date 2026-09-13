@@ -33,6 +33,7 @@ import { isProtectedAccount } from "@iefa/pbac"
 import { listAccountPermissionSets } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { sql } from "drizzle-orm"
+import { assertMfaAvailable } from "@/lib/assurance/mfa-availability.server"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
@@ -103,6 +104,7 @@ async function fetchVerifiedFactorCounts(): Promise<Map<string, number> | null> 
  * ainda não o tem.
  */
 export const getMfaAdoptionFn = createServerFn({ method: "GET" }).handler(async (): Promise<MfaAdoptionReport> => {
+	assertMfaAvailable()
 	const ctx = await requireAuthWithPermission("admin", 3)
 
 	const [accounts, factorCounts] = await Promise.all([listAccountPermissionSets(getDb(), ctx).catch(handleDomainError), fetchVerifiedFactorCounts()])

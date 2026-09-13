@@ -39,6 +39,7 @@
 
 import { type AssuranceReachability, type AssuranceRequirement, NO_ASSURANCE } from "@iefa/pbac"
 import type { AppModule } from "@iefa/sisub-domain/types"
+import { MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
 
 /** Grau de garantia de identidade exigido por uma operação. */
 export type AssuranceLevel = "none" | "session" | "fresh"
@@ -733,6 +734,10 @@ export function enforcedOperations(): AssuranceOperationName[] {
  * contrato de `assurance-registry.contract.test.ts`, na suíte, onde a falha é barata.
  */
 export function enforcedAssuranceFor(operation: string): AssuranceRequirement {
+	// Fora do modo `enforced` (`MFA_MODE`), segundo fator é opcional: nenhuma operação pode
+	// exigir AAL2 de quem não quis cadastrar. Esta chave é consultada ANTES de
+	// `ASSURANCE_ENFORCEMENT`, então ligar só a segunda por engano não tranca ninguém fora.
+	if (!MFA_ENFORCEMENT_ALLOWED) return NO_ASSURANCE
 	const entry = assuranceFor(operation)
 	if (!entry || entry.require === "none") return NO_ASSURANCE
 	if (!isEnforced(entry)) return NO_ASSURANCE

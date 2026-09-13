@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { AlertTriangle, KeyRound, LifeBuoy, ShieldAlert, ShieldCheck, Terminal } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { useActiveSessions, useMfaOverview, useSignOutOtherSessions, useUnenrollMfaFactor } from "@/hooks/data/useMfa"
 import { useGenerateRecoveryCodes, useRecoveryCodeOverview } from "@/hooks/data/useMfaRecovery"
+import { MFA_AVAILABLE, MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
 
 /**
  * Tela de segurança da conta.
@@ -26,7 +27,11 @@ import { useGenerateRecoveryCodes, useRecoveryCodeOverview } from "@/hooks/data/
  * beco sem saída.
  */
 export const Route = createFileRoute("/_protected/_modules/diner/security")({
-	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
+	beforeLoad: (opts) => {
+		// Verificação em duas etapas desligada (`MFA_AVAILABLE`): a tela não existe para ninguém.
+		if (!MFA_AVAILABLE) throw redirect({ to: "/diner/profile", replace: true })
+		return requirePermission(opts, "diner", 1)
+	},
 	component: SecurityPage,
 	head: () => ({
 		meta: [{ title: "Segurança — SISUB" }, { name: "description", content: "Verificação em duas etapas, dispositivos e sessões da sua conta." }],
@@ -338,7 +343,10 @@ function SecurityPage() {
 
 			<MfaBackupInviteDialog
 				open={backupInviteOpen}
-				mandatory={overview?.isProtectedAccount === true}
+				// Fora do modo `enforced` (`MFA_MODE`) o dispositivo reserva é convite, não exigência:
+				// um diálogo sem "Agora não", sem fechar e surdo ao Esc prenderia na tela quem só
+				// tem um aparelho e escolheu aderir.
+				mandatory={MFA_ENFORCEMENT_ALLOWED && overview?.isProtectedAccount === true}
 				onEnroll={() => openEnrollment({ knownExistingFactor: true })}
 				onSkip={() => {
 					setBackupInviteOpen(false)

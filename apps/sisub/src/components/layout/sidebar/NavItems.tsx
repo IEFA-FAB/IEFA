@@ -45,6 +45,7 @@ import {
 } from "lucide-react"
 import type { ComponentType, SVGProps } from "react"
 import { hasPermission } from "@/auth/pbac"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
@@ -85,7 +86,8 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode },
 			{ title: "Perfil", url: "/diner/profile", icon: User },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ClipboardCheck },
-			{ title: "Segurança", url: "/diner/security", icon: ShieldCheck },
+			// Some junto com a verificação em duas etapas (`MFA_AVAILABLE`).
+			...(MFA_AVAILABLE ? [{ title: "Segurança", url: "/diner/security", icon: ShieldCheck }] : []),
 			{ title: "Chaves MCP", url: "/diner/mcp-keys", icon: KeyRound },
 		],
 	},
@@ -203,7 +205,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Operações Sensíveis", url: "/admin/audit-log", icon: ScrollText, minLevel: 3 },
 			// Nível 3 pelo mesmo motivo do registro: a lista é nominal e diz de cada pessoa se a
 			// conta dela está sem segundo fator — é inventário de fragilidade.
-			{ title: "Verificação em 2 Etapas", url: "/admin/mfa-adoption", icon: ShieldAlert, minLevel: 3 },
+			...(MFA_AVAILABLE ? [{ title: "Verificação em 2 Etapas", url: "/admin/mfa-adoption", icon: ShieldAlert, minLevel: 3 }] : []),
 		],
 	},
 	{

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMfaOverview, useVerifyMfaChallenge } from "@/hooks/data/useMfa"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import { verificationCodeErrorMessage } from "@/lib/mfa-messages"
 
 /**
@@ -22,6 +23,8 @@ export const Route = createFileRoute("/auth/challenge")({
 	beforeLoad: ({ context, location }) => {
 		// Sem sessão não há o que desafiar: o caminho é a senha, preservando o destino.
 		if (!context.auth.user) throw redirect({ to: "/auth", search: { redirect: location.href } })
+		// Verificação em duas etapas desligada (`MFA_AVAILABLE`): esta etapa não existe.
+		if (!MFA_AVAILABLE) throw redirect({ to: "/hub", replace: true })
 	},
 	component: ChallengePage,
 	head: () => ({

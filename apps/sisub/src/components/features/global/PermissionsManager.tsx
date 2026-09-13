@@ -31,6 +31,7 @@ import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { useUserSearch } from "@/hooks/data/useUserSearch"
 import { expiryFromDateInput, expiryToDateInput } from "@/lib/access-expiry"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import {
 	createUserPermissionFn,
 	deleteUserPermissionFn,
@@ -546,7 +547,8 @@ function UserPermissionsPanel({
 	onDeleteTarget: (perm: PermissionRow) => void
 }) {
 	const { can } = usePBAC()
-	const canResetMfa = can("admin", 3)
+	// Sem verificação em duas etapas disponível não há fator a remover pela interface.
+	const canResetMfa = MFA_AVAILABLE && can("admin", 3)
 
 	return (
 		<div className="space-y-4">
