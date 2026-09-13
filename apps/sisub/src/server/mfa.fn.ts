@@ -36,6 +36,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { sql } from "drizzle-orm"
 import { z } from "zod"
+import { MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
 import { assertMfaAvailable } from "@/lib/assurance/mfa-availability.server"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUser } from "@/lib/auth.server"
@@ -70,7 +71,10 @@ export type MfaOverview = {
 	 * registro de classificação, nunca de um número de nível PBAC (design.md D9).
 	 */
 	isProtectedAccount: boolean
-	/** `true` quando falta o fator reserva OBRIGATÓRIO (conta protegida com um fator só). */
+	/**
+	 * `true` quando falta o fator reserva EXIGIDO — conta protegida com um fator só, e só no
+	 * modo `enforced`. Fora dele o reserva é convite, nunca exigência (`MFA_MODE`).
+	 */
 	needsBackupFactor: boolean
 	/** `false` quando a sessão nasceu de link de recuperação — nem cadastra nem remove. */
 	canManageFactors: boolean
@@ -194,9 +198,10 @@ export const getMfaOverviewFn = createServerFn({ method: "GET" }).handler(async 
 		verifiedCount: verified.length,
 		aal: ctx.aal,
 		isProtectedAccount: protectedAccount,
-		// Conta protegida com UM fator é conta a um aparelho perdido de ficar irrecuperável:
-		// o fator reserva é obrigatório (spec `mfa-enrollment`), e a tela não oferece pular.
-		needsBackupFactor: protectedAccount && verified.length > 0 && verified.length < 2,
+		// Conta protegida com UM fator é conta a um aparelho perdido de ficar irrecuperável, e no
+		// modo `enforced` o reserva é obrigatório (spec `mfa-enrollment`). Fora dele segundo fator
+		// é opcional para todos — inclusive o reserva de quem escolheu aderir.
+		needsBackupFactor: MFA_ENFORCEMENT_ALLOWED && protectedAccount && verified.length > 0 && verified.length < 2,
 		canManageFactors: !claims.originatedFromRecovery,
 		canUseRecoveryCode: !protectedAccount && recovery.available > 0,
 		recoveryCodesAvailable: recovery.available,

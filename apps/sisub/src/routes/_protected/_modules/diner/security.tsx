@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { useActiveSessions, useMfaOverview, useSignOutOtherSessions, useUnenrollMfaFactor } from "@/hooks/data/useMfa"
 import { useGenerateRecoveryCodes, useRecoveryCodeOverview } from "@/hooks/data/useMfaRecovery"
-import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
+import { MFA_AVAILABLE, MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
 
 /**
  * Tela de segurança da conta.
@@ -343,7 +343,10 @@ function SecurityPage() {
 
 			<MfaBackupInviteDialog
 				open={backupInviteOpen}
-				mandatory={overview?.isProtectedAccount === true}
+				// Fora do modo `enforced` (`MFA_MODE`) o dispositivo reserva é convite, não exigência:
+				// um diálogo sem "Agora não", sem fechar e surdo ao Esc prenderia na tela quem só
+				// tem um aparelho e escolheu aderir.
+				mandatory={MFA_ENFORCEMENT_ALLOWED && overview?.isProtectedAccount === true}
 				onEnroll={() => openEnrollment({ knownExistingFactor: true })}
 				onSkip={() => {
 					setBackupInviteOpen(false)

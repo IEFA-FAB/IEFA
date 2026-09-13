@@ -7,8 +7,8 @@
  *    basta — `/_serverFn/...` é chamável direto —, então toda server function de MFA passa por
  *    `assertMfaAvailable()`, inclusive as que forem criadas depois.
  * 2. **Fora de `enforced`, ninguém precisa de segundo fator.** O piso por operação, o prazo de
- *    cadastro e a tela de recadastro após código de recuperação consultam
- *    `MFA_ENFORCEMENT_ALLOWED` antes da própria configuração.
+ *    cadastro, a tela de recadastro após código de recuperação e o diálogo de dispositivo
+ *    reserva consultam `MFA_ENFORCEMENT_ALLOWED` antes da própria configuração.
  */
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -58,6 +58,10 @@ describe("modo da verificação em duas etapas", () => {
 		expect(src("routes/_protected/route.tsx")).toMatch(/MFA_ENFORCEMENT_ALLOWED && <MfaMandateNotice \/>/)
 		// Quem gastou um código de recuperação não pode ficar preso entre "cadastrar" e "sair".
 		expect(src("routes/auth/mfa-enrollment.tsx")).toMatch(/!hasFactor && !MFA_ENFORCEMENT_ALLOWED &&/)
+		// Quem aderiu com um aparelho só não pode ficar preso num diálogo de reserva sem saída —
+		// nem na tela (sem "Agora não", sem fechar, surdo ao Esc) nem no aviso que o servidor dispara.
+		expect(src("routes/_protected/_modules/diner/security.tsx")).toMatch(/mandatory=\{MFA_ENFORCEMENT_ALLOWED && overview\?\.isProtectedAccount === true\}/)
+		expect(src("server/mfa.fn.ts")).toMatch(/needsBackupFactor: MFA_ENFORCEMENT_ALLOWED && /)
 	})
 
 	test("fora de enforced, nenhuma operação exige garantia de identidade", () => {
