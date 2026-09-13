@@ -3,6 +3,7 @@ import { userPermissionsQueryOptions } from "@/auth/pbac"
 import { MfaMandateNotice } from "@/components/features/assurance/MfaMandateNotice"
 import { LegalNoticeBanner } from "@/components/features/legal/LegalNoticeBanner"
 import { OnboardingDialogs } from "@/components/providers/OnboardingDialogs"
+import { MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
 import { cn } from "@/lib/cn"
 import { syncUserEmailFn } from "@/server/user.fn"
 import type { UserPermission } from "@/types/domain/permissions"
@@ -89,7 +90,8 @@ function ProtectedLayout() {
 			{/* Faixa dispensável no topo (nunca modal) antes do prazo da obrigatoriedade, e o
 			    encaminhamento ao cadastro depois dele. Sem prazo anunciado não renderiza nada e
 			    não consulta nada. */}
-			<MfaMandateNotice />
+			{/* Prazo de cadastro é exigência: só existe no modo `enforced` (`MFA_MODE`). */}
+			{MFA_ENFORCEMENT_ALLOWED && <MfaMandateNotice />}
 
 			{/* Fundo padronizado sólido e sóbrio com uma suave retícula técnica sem animações/glow */}
 			<div

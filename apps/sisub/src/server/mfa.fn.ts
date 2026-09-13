@@ -36,6 +36,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { sql } from "drizzle-orm"
 import { z } from "zod"
+import { assertMfaAvailable } from "@/lib/assurance/mfa-availability.server"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireUser } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
@@ -174,6 +175,7 @@ const FRIENDLY_NAME = z.string().trim().min(1, "Dê um nome ao dispositivo.").ma
  * pedido de segundo fator).
  */
 export const getMfaOverviewFn = createServerFn({ method: "GET" }).handler(async (): Promise<MfaOverview> => {
+	assertMfaAvailable()
 	const ctx = await requireAuth()
 	const [factors, claims, recovery] = await Promise.all([
 		fetchFactors(),
@@ -211,6 +213,7 @@ export const getMfaOverviewFn = createServerFn({ method: "GET" }).handler(async 
  * false` se falhar, em vez de uma lista vazia que afirmaria não haver outras sessões.
  */
 export const listActiveSessionsFn = createServerFn({ method: "GET" }).handler(async (): Promise<ActiveSessionList> => {
+	assertMfaAvailable()
 	const ctx = await requireAuth()
 	const claims = await getSessionClaims()
 
@@ -281,6 +284,7 @@ export const startMfaEnrollmentFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ factorId: string; secret: string; uri: string }> => {
+		assertMfaAvailable()
 		const user = await requireUser()
 		await requireNonRecoverySession()
 
@@ -334,6 +338,7 @@ export const startMfaEnrollmentFn = createServerFn({ method: "POST" })
 export const verifyMfaEnrollmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ factorId: z.string().min(1), code: VERIFICATION_CODE }))
 	.handler(async ({ data }): Promise<{ factorId: string }> => {
+		assertMfaAvailable()
 		const ctx = await requireAuth()
 		await requireNonRecoverySession()
 
@@ -363,6 +368,7 @@ export const verifyMfaEnrollmentFn = createServerFn({ method: "POST" })
 export const cancelMfaEnrollmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ factorId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<{ success: true }> => {
+		assertMfaAvailable()
 		await requireUser()
 		const factors = await fetchFactors()
 		const target = factors.find((factor) => factor.id === data.factorId)
@@ -389,6 +395,7 @@ export const cancelMfaEnrollmentFn = createServerFn({ method: "POST" })
 export const unenrollMfaFactorFn = createServerFn({ method: "POST" })
 	.validator(z.object({ factorId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<{ factorId: string; sessionDowngraded: boolean }> => {
+		assertMfaAvailable()
 		const ctx = await requireAuth()
 		await requireNonRecoverySession()
 
@@ -434,6 +441,7 @@ export const unenrollMfaFactorFn = createServerFn({ method: "POST" })
 export const verifyMfaChallengeFn = createServerFn({ method: "POST" })
 	.validator(z.object({ factorId: z.string().min(1), code: VERIFICATION_CODE }))
 	.handler(async ({ data }): Promise<{ success: true }> => {
+		assertMfaAvailable()
 		await requireUser()
 
 		const supabase = getSupabaseAuthClient()
@@ -453,6 +461,7 @@ export const verifyMfaChallengeFn = createServerFn({ method: "POST" })
  * clicou em "encerrar as outras" seria deslogado pelo próprio botão.
  */
 export const signOutOtherSessionsFn = createServerFn({ method: "POST" }).handler(async (): Promise<{ success: true }> => {
+	assertMfaAvailable()
 	await requireUser()
 
 	const { error } = await getSupabaseAuthClient().auth.signOut({ scope: "others" })

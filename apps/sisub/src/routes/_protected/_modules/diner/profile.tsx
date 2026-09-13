@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import { queryKeys } from "@/lib/query-keys"
 import { toNameCase } from "@/lib/utils"
 import type { MilitaryDataRow } from "@/types/domain/admin"
@@ -244,10 +245,13 @@ function ProfilePage() {
 					</CardContent>
 				</Card>
 
-				{/* Segurança da conta — cartão discreto, nunca bloqueante (spec `mfa-enrollment`). */}
-				<div className="md:col-span-2">
-					<SecuritySummaryCard />
-				</div>
+				{/* Segurança da conta — cartão discreto, nunca bloqueante (spec `mfa-enrollment`).
+				    Some enquanto a verificação em duas etapas estiver desligada (`MFA_AVAILABLE`). */}
+				{MFA_AVAILABLE && (
+					<div className="md:col-span-2">
+						<SecuritySummaryCard />
+					</div>
+				)}
 			</div>
 		</div>
 	)

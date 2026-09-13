@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import { validateSignInEmail, validateSignUpEmail } from "@/lib/auth-email"
 import { parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/cn"
@@ -162,10 +163,14 @@ function AuthPage() {
 		// Conta com fator cadastrado entra em AAL1 e precisa do segundo passo: o GoTrue
 		// declara isso no par (nível atual, nível possível) da sessão. Quem não tem fator
 		// nenhum tem os dois iguais e segue direto — nenhuma tela a mais para os comensais.
-		const { data: assuranceLevel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-		if (assuranceLevel?.nextLevel === "aal2" && assuranceLevel.nextLevel !== assuranceLevel.currentLevel) {
-			await navigate({ to: "/auth/challenge", search: { redirect: search.redirect } })
-			return
+		// Com a verificação em duas etapas desligada (`MFA_AVAILABLE`), quem já tem fator cadastrado
+		// entra em AAL1 — suficiente, porque nenhuma operação exige AAL2 nesse estado.
+		if (MFA_AVAILABLE) {
+			const { data: assuranceLevel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+			if (assuranceLevel?.nextLevel === "aal2" && assuranceLevel.nextLevel !== assuranceLevel.currentLevel) {
+				await navigate({ to: "/auth/challenge", search: { redirect: search.redirect } })
+				return
+			}
 		}
 
 		await navigate({ to: search.redirect || "/hub" })

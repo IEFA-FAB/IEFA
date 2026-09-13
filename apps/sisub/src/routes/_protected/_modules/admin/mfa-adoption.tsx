@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { ShieldAlert, ShieldCheck, TriangleAlert, UserCheck } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import { queryKeys } from "@/lib/query-keys"
 import { getMfaAdoptionFn, type ProtectedAccountAdoption } from "@/server/mfa-adoption.fn"
 
@@ -23,7 +24,11 @@ import { getMfaAdoptionFn, type ProtectedAccountAdoption } from "@/server/mfa-ad
  * isso que esse número aparece primeiro, sozinho, e em destaque.
  */
 export const Route = createFileRoute("/_protected/_modules/admin/mfa-adoption")({
-	beforeLoad: (opts) => requirePermission(opts, "admin", 3),
+	beforeLoad: (opts) => {
+		// Sem verificação em duas etapas disponível não há adoção a medir.
+		if (!MFA_AVAILABLE) throw redirect({ to: "/hub", replace: true })
+		return requirePermission(opts, "admin", 3)
+	},
 	component: MfaAdoptionPage,
 	head: () => ({
 		meta: [
