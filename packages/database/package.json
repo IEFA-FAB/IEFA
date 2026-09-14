@@ -16,7 +16,8 @@
     "./assignment-selection": "./src/assignment-selection.ts",
     "./sucont": "./src/sucont.ts",
     "./documents": "./src/documents.ts",
-    "./drizzle/sisub": "./drizzle/sisub.ts"
+    "./drizzle/sisub": "./drizzle/sisub.ts",
+    "./postgres-pool": "./src/postgres-pool.ts"
   },
   "scripts": {
     "generate": "bun run db:types",
@@ -31,6 +32,7 @@
     "db:repair:reverted": "bunx supabase migration repair --status reverted",
     "db:drizzle:pull": "bunx drizzle-kit pull && bun run scripts/patch-drizzle-pull.ts",
     "audit:rls": "bun run scripts/audit-rls.ts",
+    "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -28,10 +28,32 @@ function poolConfig(databaseUrl: string): pg.PoolConfig {
 	const url = new URL(databaseUrl)
 	url.searchParams.delete("sslmode")
 
-	return { connectionString: url.toString(), ssl: { rejectUnauthorized: false } }
+	return {
+		connectionString: url.toString(),
+		ssl: { rejectUnauthorized: false },
+		// Limites que o `pg` não dá por padrão. Sem eles, um pooler que não responde deixa a
+		// AQUISIÇÃO de conexão (`connectionTimeoutMillis` 0 = infinito) e a query pendurados
+		// sem prazo — o mesmo mecanismo que prendeu uma task do sisub por cinco horas em
+		// 2026-09-13. Aqui cada turno de chat passa por este pool (`graph.stream`/`getState`),
+		// e o abort do SSE não devolve uma conexão cuja query nunca volta: dez travadas e
+		// todo turno espera para sempre.
+		max: 10,
+		connectionTimeoutMillis: 5_000,
+		// Checkpoint é leitura/escrita pequena por thread; 30 s é patologia, não carga. No
+		// timeout o `pg` rejeita a query e a conexão sai do pool com erro.
+		query_timeout: 30_000,
+		idleTimeoutMillis: 30_000,
+		keepAlive: true,
+	}
 }
 
 const pool = new pg.Pool(poolConfig(env.DATABASE_URL))
+
+// Sem listener, o `error` de uma conexão OCIOSA derrubada pelo servidor (pooler reiniciado,
+// idle kill) é evento não tratado e mata o processo. O pool já descarta a conexão sozinho.
+pool.on("error", (error) => {
+	console.error(`[checkpointer] conexão ociosa do pool caiu: ${error.message}`)
+})
 
 export const checkpointer = new PostgresSaver(pool, undefined, { schema: "alpha" })
 

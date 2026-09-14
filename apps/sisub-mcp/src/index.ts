@@ -18,6 +18,7 @@ import { createServer } from "node:http"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
 import { resolveCredential } from "./auth.ts"
+import { isDbPoolWedged } from "./db.ts"
 import { createMcpServer } from "./server.ts"
 
 const transportMode = process.env.MCP_TRANSPORT ?? "http"
@@ -167,6 +168,13 @@ if (transportMode === "stdio") {
 
 		// ── Health check (sem auth, sem rate limit) ───────────────────────────
 		if (url.pathname === "/health") {
+			// Sem round-trip ao banco: só reprova o processo cujo pool Drizzle ficou preso mesmo
+			// depois do prazo — uma queda do Supabase não pode tirar todas as tasks da rotação.
+			if (isDbPoolWedged()) {
+				res.writeHead(503, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ status: "unhealthy", service: "sisub-mcp", reason: "db_pool_wedged" }))
+				return
+			}
 			res.writeHead(200, { "Content-Type": "application/json" })
 			res.end(JSON.stringify({ status: "ok", service: "sisub-mcp", sessions: sessions.size }))
 			return
@@ -290,6 +298,15 @@ if (transportMode === "stdio") {
 		// Delegar ao SDK MCP
 		await transport.handleRequest(req, res, parsedBody)
 	})
+
+	// O ALB reusa conexões ociosas por até 60 s. O `keepAliveTimeout` padrão do `node:http` é
+	// 5 s: o servidor fecha a conexão que o ALB ainda considera viva, e o request despachado
+	// nela volta 502 — a mesma race que o preload `bun-serve-idle-timeout` fechou nos apps
+	// Nitro e que este servidor, por não passar por `Bun.serve`, nunca recebeu.
+	httpServer.keepAliveTimeout = 65_000
+	httpServer.headersTimeout = 66_000
+	// Streams SSE do MCP (GET) ficam abertos por tempo indeterminado.
+	httpServer.requestTimeout = 0
 
 	httpServer.listen(port, () => {
 		process.stderr.write(`[sisub-mcp] HTTP server rodando em http://localhost:${port}\n`)
