@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.1",
     "drizzle-kit": "^0.31.10",
     "supabase": "2.116.0",
     "typescript": "^7.0.2"

@@ -19,7 +19,7 @@
     "./langchain-compat": "./src/langchain-compat.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1126.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1127.0",
     "@langchain/openai": "^1.5.11",
     "@tanstack/ai": "^0.53.0",
     "@tanstack/ai-anthropic": "^0.18.5",
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.1",
     "typescript": "^7.0.2"
   }
 }

@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.1",
     "@types/react": "^19.2.18",
     "typescript": "^7.0.2"
   }

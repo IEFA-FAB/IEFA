@@ -22,7 +22,7 @@
     "harness:shot": "bun run harness/screenshot.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "^1.7.0",
+    "@base-ui/react": "^1.8.0",
     "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
@@ -37,16 +37,16 @@
     "@tanstack/react-devtools": "^0.10.12",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-query-devtools": "^5.102.8",
-    "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-router": "^1.170.33",
     "@tanstack/react-router-devtools": "^1.167.1",
     "@tanstack/react-router-ssr-query": "^1.167.2",
-    "@tanstack/react-start": "^1.168.49",
+    "@tanstack/react-start": "^1.168.50",
     "@tanstack/react-store": "^0.11.1",
     "@tanstack/store": "^0.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "html-to-image": "^1.11.13",
-    "lucide-react": "^1.40.0",
+    "lucide-react": "^1.41.0",
     "motion": "^13.2.0",
     "nitro": "^3.0.260903-beta",
     "papaparse": "^5.7.0",
@@ -63,11 +63,11 @@
     "@babel/core": "^8.0.1",
     "@biomejs/biome": "^2.5.12",
     "@iefa/tsconfig": "workspace:*",
-    "@rolldown/plugin-babel": "^0.2.3",
+    "@rolldown/plugin-babel": "^0.2.4",
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/devtools-vite": "^0.8.5",
     "@types/babel__core": "^7.20.5",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.1",
     "@types/node": "^26.4.1",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.18",
@@ -76,7 +76,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.63.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
