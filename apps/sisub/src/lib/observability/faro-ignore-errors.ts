@@ -2,7 +2,7 @@
  * Ruído universal do browser — nunca são erros reais da aplicação.
  *
  * ATENÇÃO ao escrever padrão novo: o Faro NÃO testa a mensagem sozinha. O
- * `isErrorIgnored` do faro-core (2.7.1) casa o padrão contra
+ * `isErrorIgnored` do faro-core (2.11.0) casa o padrão contra
  * `message + " " + name + " " + stack`, ou seja, depois da mensagem vem sempre
  * " Error Error: <mensagem>\n    at ...". Âncora `$` nunca casa nessa string, e o
  * padrão vira letra morta sem erro nenhum — foi assim que o
