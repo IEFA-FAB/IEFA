@@ -18,7 +18,7 @@
     "rada:build": "bun run src/cli/rada.ts build"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-agent-runtime": "^3.1126.0",
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.1127.0",
     "@hono/zod-validator": "^0.9.1",
     "@iefa/agent-web": "workspace:*",
     "@iefa/ai-provider": "workspace:*",
@@ -26,12 +26,12 @@
     "@iefa/legal-kit": "workspace:*",
     "@langchain/aws": "^1.4.5",
     "@langchain/core": "^1.2.9",
-    "@langchain/langgraph": "^1.4.13",
+    "@langchain/langgraph": "^1.4.14",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
     "@langchain/openai": "^1.5.11",
     "@supabase/supabase-js": "^2.115.0",
     "fflate": "^0.8.3",
-    "hono": "^4.13.5",
+    "hono": "^4.13.7",
     "pg": "^8.23.0",
     "unpdf": "^1.8.1",
     "uuid": "^14.0.2",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.1",
     "@types/pg": "^8.23.1",
     "typescript": "^7.0.2"
   }

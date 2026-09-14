@@ -13,7 +13,7 @@
     "validate-env": "bun run src/env.ts"
   },
   "dependencies": {
-    "@base-ui/react": "^1.7.0",
+    "@base-ui/react": "^1.8.0",
     "@iefa/agent-web": "workspace:*",
     "@iefa/auth-kit": "workspace:*",
     "@iefa/database": "workspace:*",
@@ -26,10 +26,10 @@
     "@tanstack/react-hotkeys": "^0.10.0",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-query-devtools": "^5.102.8",
-    "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-router": "^1.170.33",
     "@tanstack/react-router-devtools": "^1.167.1",
     "@tanstack/react-router-ssr-query": "^1.167.2",
-    "@tanstack/react-start": "^1.168.49",
+    "@tanstack/react-start": "^1.168.50",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@rolldown/plugin-babel": "^0.2.3",
+    "@rolldown/plugin-babel": "^0.2.4",
     "@tanstack/devtools-vite": "^0.8.5",
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
