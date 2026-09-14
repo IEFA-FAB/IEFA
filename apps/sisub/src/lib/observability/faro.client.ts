@@ -13,6 +13,7 @@
  * quebra o boot (mesmo princípio de capabilities.server.ts).
  */
 import { getWebInstrumentations, initializeFaro } from "@grafana/faro-web-sdk"
+import { FARO_IGNORE_ERRORS } from "./faro-ignore-errors"
 
 const collectorUrl = import.meta.env.VITE_FARO_COLLECTOR_URL
 
@@ -57,12 +58,6 @@ if (typeof window !== "undefined" && collectorUrl) {
 			return item
 		},
 		// Ruído universal do browser — nunca são erros reais da aplicação.
-		ignoreErrors: [
-			/^ResizeObserver loop limit exceeded$/,
-			/^ResizeObserver loop completed with undelivered notifications$/,
-			/^Script error\.$/,
-			/chrome-extension:\/\//,
-			/moz-extension:\/\//,
-		],
+		ignoreErrors: FARO_IGNORE_ERRORS,
 	})
 }
