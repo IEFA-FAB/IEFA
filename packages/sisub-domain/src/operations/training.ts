@@ -87,10 +87,14 @@ const ABANDONED_AFTER = "10 minutes"
  * ver o resultado. Com o teto, a espera vira erro com mensagem, e a linha do log fecha
  * como `failed` em vez de ficar pendurada.
  *
- * 45 s é o dobro da execução mais longa já medida (21,7 s em 695), então uma fila normal
- * de uma execução cabe folgada, e ainda sobra margem para a ALB responder antes de cortar.
+ * 25 s cobre uma fila de uma execução (a mais longa já medida foi 21,7 s em 695). O teto
+ * NÃO pode subir sem olhar o prazo de transação do pool (`@iefa/database/postgres-pool`,
+ * 55 s contados do início do callback): espera + trabalho da própria execução têm que
+ * caber nele, senão quem estoura é o pool — `QUERY_DEADLINE` e reset das conexões da task
+ * inteira — em vez deste teto, e o `RESET_BUSY` com mensagem nunca chega ao usuário.
+ * 25 s + 21,7 s = 46,7 s, dentro dos 55 s e abaixo dos 60 s da ALB.
  */
-const LOCK_TIMEOUT = "45s"
+const LOCK_TIMEOUT = "25s"
 
 export type TrainingScope = {
 	unit_id: number
