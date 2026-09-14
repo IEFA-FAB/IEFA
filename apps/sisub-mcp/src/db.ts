@@ -10,7 +10,7 @@
  * NÃO recriar por request (vazaria conexões e saturaria o pooler). O transaction
  * pooler (porta 6543) não suporta prepared statements → `prepare: false` obrigatório.
  *
- * O pool é o mesmo `createResilientPostgres` do sisub: prazo por operação, pipeline 1 e
+ * O pool é o mesmo `createResilientPostgres` do sisub: prazo por operação e
  * recriação quando uma conexão trava. Antes daqui este app tinha exatamente a configuração
  * que deixou uma task do sisub devolvendo 504 por cinco horas em 2026-09-13.
  *

@@ -10,10 +10,13 @@
  * 504 numa task do sisub, com o `/health` verde.
  *
  * O que este módulo garante:
- * - **Pipeline 1.** Uma conexão ocupada aceita no máximo UMA query na fila e passa a `full`;
- *   o resto espera conexão livre. NÃO baixar para 0: o `sent.length < max_pipeline` do
- *   `execute` curto-circuita antes do `onexecute` que reserva a conexão do `begin`, e toda
- *   transação falha com UNSAFE_TRANSACTION (medido contra o pooler).
+ * - **`max_pipeline` fica no default (100), de propósito.** Com o pool cheio, o `BEGIN` de uma
+ *   transação é empilhado numa conexão ocupada, e a reserva dessa conexão (`onexecute`) só
+ *   roda se `sent.length < max_pipeline`. Com um teto pequeno a conta dá falso, a reserva não
+ *   acontece e a transação morre com UNSAFE_TRANSACTION: com 0, sempre; com 1, justamente
+ *   sob carga, com todas as conexões ocupadas. O pipeline não é mais o perigo: a query
+ *   empilhada atrás de uma conexão travada espera no máximo o prazo da travada, porque o
+ *   reset destrói a conexão e rejeita a fila inteira.
  * - **Prazo contado do INÍCIO DA EXECUÇÃO, não da chamada.** Uma varredura periódica marca a
  *   query quando ela vira a query ativa de uma conexão; a transação, quando o callback começa
  *   (o BEGIN já rodou e a conexão está reservada). Espera na fila do pool não conta: contar
@@ -54,7 +57,7 @@ type Sql = postgres.Sql
 type ConnectionOptions = Parameters<typeof postgres>[1]
 
 export interface ResilientPostgresOptions {
-	/** Opções do postgres-js. `max_pipeline` é decisão deste módulo e é sobrescrito. */
+	/** Opções do postgres-js. Não passar `max_pipeline` pequeno — ver o cabeçalho. */
 	connection: ConnectionOptions
 	/** Prazo de uma query fora de transação, contado do início da execução. */
 	queryDeadlineMs?: number
@@ -87,9 +90,6 @@ interface Pending {
 	expire: (error: QueryDeadlineError) => void
 }
 
-/** Fora do literal porque o `Options` tipado do postgres-js não declara `max_pipeline`. */
-const PIPELINE = { max_pipeline: 1 }
-
 export function createResilientPostgres(url: string, options: ResilientPostgresOptions): ResilientPostgres {
 	const { queryDeadlineMs = 45_000, transactionDeadlineMs = 55_000, queueCeilingMs = 5 * 60_000, sweepIntervalMs = 1000, onReset, now = Date.now } = options
 	const factory = options.factory ?? ((u: string, o: ConnectionOptions) => postgres(u, o) as unknown as Sql)
@@ -102,7 +102,7 @@ export function createResilientPostgres(url: string, options: ResilientPostgresO
 
 	function pool(): Sql {
 		if (current) return current
-		const next = factory(url, { ...options.connection, ...PIPELINE })
+		const next = factory(url, options.connection)
 		if (retired) {
 			Object.assign(next.options.parsers, retired.options.parsers)
 			Object.assign(next.options.serializers, retired.options.serializers)

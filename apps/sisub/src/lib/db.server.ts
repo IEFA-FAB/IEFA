@@ -14,8 +14,8 @@ import { envServer } from "@/lib/env.server"
  * pooler (porta 6543) não suporta prepared statements → `prepare: false` obrigatório.
  *
  * O pool vem de `createResilientPostgres`: prazo por query (45 s) e por transação (55 s)
- * contado do início da execução, pipeline 1, e recriação automática quando uma conexão
- * trava — o 504 de cinco horas de 2026-09-13. O handle é estável: um `db` capturado antes
+ * contado do início da execução, e recriação automática quando uma conexão trava — o 504
+ * de cinco horas de 2026-09-13. O handle é estável: um `db` capturado antes
  * de um reset continua valendo no pool novo.
  *
  * Use em todas as server functions de dados (*.fn.ts) no lugar de
