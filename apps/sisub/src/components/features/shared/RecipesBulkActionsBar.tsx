@@ -47,8 +47,9 @@ export function RecipesBulkActionsBar({ selectedRecipes, kitchenId, showDeleted,
 		onDone()
 	}
 
-	// Fork local só faz sentido para receitas globais (sem kitchen_id próprio).
-	const forkTargets = selectedRecipes.filter((r) => r.kitchenId == null)
+	// Fork local só faz sentido para receitas globais (sem kitchen_id próprio) e vivas: a ficha
+	// técnica é buscada no momento do fork, e a busca não devolve preparação excluída.
+	const forkTargets = selectedRecipes.filter((r) => r.kitchenId == null && !r.deleted)
 
 	const handleFork = async () => {
 		if (kitchenId == null || forkTargets.length === 0) return

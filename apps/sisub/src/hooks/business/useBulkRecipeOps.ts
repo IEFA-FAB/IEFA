@@ -1,16 +1,24 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { queryKeys } from "@/lib/query-keys"
-import { createRecipeFn, deleteRecipeFn, renameRecipeFn, restoreRecipeFn, setRecipeFolderFn } from "@/server/recipes.fn"
+import { createRecipeFn, deleteRecipeFn, fetchRecipeWithIngredientsFn, renameRecipeFn, restoreRecipeFn, setRecipeFolderFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
-/** Receita selecionada para edição em massa — carrega os dados completos (com ingredientes para fork). */
+/**
+ * Receita selecionada para edição em massa — só identificação. A ficha técnica que o fork
+ * copia é buscada por receita no momento do fork: a listagem não a carrega mais (14,5 MB).
+ */
 export interface BulkSelectedRecipe {
 	id: string
 	name: string
 	/** null = global (SDAB); non-null = local de uma cozinha. */
 	kitchenId: number | null
-	data: RecipeWithIngredients
+	/**
+	 * Excluída (soft delete). Não entra no fork: a ficha técnica é buscada por
+	 * `fetchRecipeWithIngredientsFn`, que filtra `deleted_at`, e copiar para a cozinha uma
+	 * preparação que o catálogo já retirou não é uma operação que faça sentido oferecer.
+	 */
+	deleted: boolean
 }
 
 export interface BulkResult {
@@ -81,22 +89,24 @@ export function useBulkRecipeOps() {
 
 	/** Cria cópias locais (na cozinha alvo) das receitas selecionadas, copiando ingredientes. */
 	const forkRecipes = (recipes: BulkSelectedRecipe[], kitchenId: number) =>
-		runBatch(recipes, (r) =>
-			createRecipeFn({
+		runBatch(recipes, async (r) => {
+			// Detalhe por receita, dentro do pool de concorrência: a seleção só guarda o id.
+			const source = (await fetchRecipeWithIngredientsFn({ data: { recipeId: r.id } })) as RecipeWithIngredients
+			return createRecipeFn({
 				data: {
-					name: r.data.name,
-					preparationMethod: r.data.preparation_method ?? undefined,
-					prePreparationMethod: r.data.pre_preparation_method ?? undefined,
-					portionYield: r.data.portion_yield ?? 1,
-					preparationTimeMinutes: r.data.preparation_time_minutes ?? undefined,
-					prePreparationTimeMinutes: r.data.pre_preparation_time_minutes ?? undefined,
-					cookingTimeMinutes: r.data.cooking_time_minutes ?? undefined,
-					cookingMethod: r.data.cooking_method ?? undefined,
-					cookingTemperatureCelsius: r.data.cooking_temperature_celsius ?? undefined,
-					cookingFactor: r.data.cooking_factor ?? undefined,
-					rationalId: r.data.rational_id ?? undefined,
+					name: source.name,
+					preparationMethod: source.preparation_method ?? undefined,
+					prePreparationMethod: source.pre_preparation_method ?? undefined,
+					portionYield: source.portion_yield ?? 1,
+					preparationTimeMinutes: source.preparation_time_minutes ?? undefined,
+					prePreparationTimeMinutes: source.pre_preparation_time_minutes ?? undefined,
+					cookingTimeMinutes: source.cooking_time_minutes ?? undefined,
+					cookingMethod: source.cooking_method ?? undefined,
+					cookingTemperatureCelsius: source.cooking_temperature_celsius ?? undefined,
+					cookingFactor: source.cooking_factor ?? undefined,
+					rationalId: source.rational_id ?? undefined,
 					kitchenId,
-					ingredients: (r.data.ingredients ?? [])
+					ingredients: (source.ingredients ?? [])
 						.filter((ing): ing is typeof ing & { ingredient_id: string; net_quantity: number } => ing.ingredient_id != null && ing.net_quantity != null)
 						.map((ing) => ({
 							ingredientId: ing.ingredient_id,
@@ -106,7 +116,7 @@ export function useBulkRecipeOps() {
 						})),
 				},
 			})
-		)
+		})
 
 	/** Renomeia receitas em lote (localizar e substituir nos nomes). */
 	const replaceNames = (edits: { id: string; newName: string }[]) => runBatch(edits, (e) => renameRecipeFn({ data: { id: e.id, name: e.newName } }))

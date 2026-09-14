@@ -1,15 +1,26 @@
-import type { RecipeLastReview } from "@iefa/sisub-domain"
+import type { RecipeLastReview, RecipeSummary } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { queryKeys } from "@/lib/query-keys"
 import { normalizeForSearch } from "@/lib/text-search"
-import { fetchRecipeLastReviewsFn, fetchRecipeMenuUsageFn, fetchRecipesFn, fetchRecipeWithIngredientsFn, recordRecipeReviewFn } from "@/server/recipes.fn"
+import {
+	fetchRecipeLastReviewsFn,
+	fetchRecipeMenuUsageFn,
+	fetchRecipeSummariesFn,
+	fetchRecipeWithIngredientsFn,
+	recordRecipeReviewFn,
+} from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
+/**
+ * Listagem SEM ficha técnica (`RecipeSummary`). Nenhuma tela de listagem lê ingredientes; quem
+ * precisa do detalhe chama `fetchRecipeWithIngredients`/`useRecipe` por receita. Voltar a
+ * listar com ingredientes é voltar aos 14,5 MB por chamada que derrubaram as tasks.
+ */
 export const recipesQueryOptions = (kitchenId?: number | null, includeDeleted?: boolean) =>
 	queryOptions({
 		queryKey: queryKeys.recipes.list(kitchenId, includeDeleted),
-		queryFn: () => fetchRecipesFn({ data: { kitchenId, includeDeleted } }),
+		queryFn: (): Promise<RecipeSummary[]> => fetchRecipeSummariesFn({ data: { kitchenId, includeDeleted } }),
 		staleTime: 5 * 60 * 1000,
 		gcTime: 5 * 60 * 1000,
 	})

@@ -1,4 +1,4 @@
-import type { Recipe } from "@iefa/database/sisub"
+import type { RecipeSummary } from "@iefa/sisub-domain"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ChefHat, Folder as FolderIcon, Globe, Search } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -29,7 +29,7 @@ interface RecipeSelectorContentProps {
 	selectedRecipeIds: string[]
 	onSelect: (recipeIds: string[]) => void
 	multiSelect: boolean
-	recipes: Recipe[] | undefined
+	recipes: RecipeSummary[] | undefined
 	isLoading: boolean
 }
 
