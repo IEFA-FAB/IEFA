@@ -147,23 +147,47 @@ const HERO_SHADER_MASK = [
 	"linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
 ].join(", ")
 
+// Sonda com o mesmo contexto que a lib pede e devolve o contexto na hora — o
+// navegador limita quantos contextos WebGL vivem ao mesmo tempo.
+function supportsWebGl2(): boolean {
+	try {
+		const gl = document.createElement("canvas").getContext("webgl2")
+		if (!gl) return false
+		gl.getExtension("WEBGL_lose_context")?.loseContext()
+		return true
+	} catch {
+		return false
+	}
+}
+
 function Home() {
 	const { theme } = useTheme()
 	const neuroColors = theme === "dark" ? NEURO_DARK : NEURO_LIGHT
 
 	// Shader starts static (speed=0 renders one frame, no rAF loop — faster init)
 	// After WebGL compiles shaders (~150ms), fade it in then start animating
+	const [shaderSupported, setShaderSupported] = useState(false)
 	const [shaderVisible, setShaderVisible] = useState(false)
 	const [shaderSpeed, setShaderSpeed] = useState(0)
 
 	useEffect(() => {
+		// O NeuroNoise lança "WebGL is not supported" dentro de um efeito async quando
+		// getContext("webgl2") volta null (aceleração desligada, GPU bloqueada, VM):
+		// vira rejeição não tratada e deixa um <canvas> órfão. Fundo é decorativo —
+		// sem WebGL2, a hero fica sem ele.
+		if (!supportsWebGl2()) return
+		setShaderSupported(true)
+
+		let t2: ReturnType<typeof setTimeout> | undefined
 		// 150ms: enough for WebGL shader compilation on most devices
 		const t1 = setTimeout(() => {
 			setShaderVisible(true)
-			const t2 = setTimeout(() => setShaderSpeed(0.08), 400)
-			return () => clearTimeout(t2)
+			t2 = setTimeout(() => setShaderSpeed(0.08), 400)
 		}, 150)
-		return () => clearTimeout(t1)
+		return () => {
+			clearTimeout(t1)
+			clearTimeout(t2)
+		}
 	}, [])
 
 	return (
@@ -185,17 +209,19 @@ function Home() {
 						WebkitMaskComposite: "destination-in",
 					}}
 				>
-					<NeuroNoise
-						{...neuroColors}
-						speed={shaderSpeed}
-						scale={0.55}
-						brightness={1.0}
-						contrast={2.6}
-						maxPixelCount={40000}
-						minPixelRatio={0.05}
-						style={{ position: "absolute", inset: 0 }}
-						className="hero-shader-canvas"
-					/>
+					{shaderSupported && (
+						<NeuroNoise
+							{...neuroColors}
+							speed={shaderSpeed}
+							scale={0.55}
+							brightness={1.0}
+							contrast={2.6}
+							maxPixelCount={40000}
+							minPixelRatio={0.05}
+							style={{ position: "absolute", inset: 0 }}
+							className="hero-shader-canvas"
+						/>
+					)}
 				</div>
 				<div className="relative flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
 					<p className="font-mono text-eyebrow text-muted-foreground mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
