@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export type MealTypeInfo = { id: string; name: string | null }
-export type RecipeWithHeadcount = Recipe & { headcountOverride: number | null }
+/** Só o que a seção exibe: a listagem que alimenta estas telas não traz a ficha técnica. */
+export type RecipeWithHeadcount = Pick<Recipe, "id" | "name" | "rational_id"> & { headcountOverride: number | null }
 
 export function MealTypeSection({
 	mealType,

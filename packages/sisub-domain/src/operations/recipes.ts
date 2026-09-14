@@ -265,8 +265,15 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 		})
 }
 
-/** Linha da listagem sem ficha técnica: identificação, rendimento e onde a receita mora. */
-export type RecipeSummary = Pick<Recipe, "id" | "name" | "version" | "portion_yield" | "preparation_time_minutes" | "kitchen_id" | "folder_id">
+/**
+ * Linha da listagem sem ficha técnica: identificação, rendimento e onde a receita mora.
+ * `rational_id` e `deleted_at` estão aqui pela UI (busca por código do SISUBWEB e o selo de
+ * excluída); a projeção de agente os descarta.
+ */
+export type RecipeSummary = Pick<
+	Recipe,
+	"id" | "name" | "version" | "portion_yield" | "preparation_time_minutes" | "kitchen_id" | "folder_id" | "rational_id" | "deleted_at"
+>
 
 /**
  * Mesma listagem de `listRecipes` — mesmos guards, mesmos filtros, mesma dedup por
@@ -275,6 +282,9 @@ export type RecipeSummary = Pick<Recipe, "id" | "name" | "version" | "portion_yi
  * Existe porque o catálogo tem ~2.000 receitas: com os ingredientes aninhados a resposta
  * passa de 10 MB, o que nenhum consumidor de listagem precisa e nenhum agente aguenta
  * (o provider recusa o turno seguinte). Quem quer o detalhe chama `fetchRecipe`.
+ *
+ * É também o que a UI lista desde 2026-09-14: a versão com ficha técnica devolvia 14,5 MB por
+ * chamada, e uma aba em loop de refetch derrubou as duas tasks do sisub por falta de memória.
  */
 export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: ListRecipes): Promise<RecipeSummary[]> {
 	if (input.kitchenId != null) {
@@ -306,6 +316,8 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 				preparationTimeMinutes: recipesInKitchen.preparationTimeMinutes,
 				kitchenId: recipesInKitchen.kitchenId,
 				folderId: recipesInKitchen.folderId,
+				rationalId: recipesInKitchen.rationalId,
+				deletedAt: recipesInKitchen.deletedAt,
 				baseRecipeId: recipesInKitchen.baseRecipeId,
 			})
 			.from(recipesInKitchen)

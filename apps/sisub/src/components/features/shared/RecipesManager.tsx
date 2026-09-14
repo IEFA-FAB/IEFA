@@ -1,4 +1,4 @@
-import type { Recipe } from "@iefa/database/sisub"
+import type { RecipeSummary } from "@iefa/sisub-domain"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
@@ -56,7 +56,7 @@ function formatReviewDate(iso: string): string {
 }
 
 /** Conteúdo do hovercard de uma preparação: prévia dos ingredientes principais (montado só ao abrir → fetch sob demanda) */
-function RecipeHoverContent({ recipe }: { recipe: Recipe }) {
+function RecipeHoverContent({ recipe }: { recipe: RecipeSummary }) {
 	const isGlobal = !recipe.kitchen_id
 	const { data, isLoading } = useRecipe(recipe.id)
 	const detail = data as RecipeWithIngredients | undefined
@@ -285,7 +285,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	const toggleSelect = (recipe: (typeof filteredRecipes)[number], checked: boolean) => {
 		setSelected((prev) => {
 			const next = new Map(prev)
-			if (checked) next.set(recipe.id, { id: recipe.id, name: recipe.name, kitchenId: recipe.kitchen_id, data: recipe })
+			if (checked) next.set(recipe.id, { id: recipe.id, name: recipe.name, kitchenId: recipe.kitchen_id })
 			else next.delete(recipe.id)
 			return next
 		})
@@ -303,7 +303,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 			for (const node of tree.nodes) {
 				if (node.type !== "recipe") continue
 				const r = node.data
-				next.set(r.id, { id: r.id, name: r.name, kitchenId: r.kitchen_id, data: r })
+				next.set(r.id, { id: r.id, name: r.name, kitchenId: r.kitchen_id })
 			}
 			return next
 		})

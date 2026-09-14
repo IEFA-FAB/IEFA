@@ -26,7 +26,7 @@ import {
 	listRecipeFolders,
 	listRecipeLastReviews,
 	listRecipeMenuUsage,
-	listRecipes,
+	listRecipeSummaries,
 	listRecipeVersions,
 	RecordRecipeReviewSchema,
 	RenameRecipeFolderSchema,
@@ -58,11 +58,19 @@ async function resolveActor(): Promise<{ id: string | null; name: string | null 
 	return { id: user.id, name }
 }
 
-export const fetchRecipesFn = createServerFn({ method: "GET" })
+/**
+ * Listagem de preparações SEM ficha técnica — o que toda tela de listagem consome.
+ *
+ * Substituiu `fetchRecipesFn` (`listRecipes`, com ingredientes aninhados): ~2.200 receitas
+ * davam 14,5 MB por chamada e até 14 s, e em 2026-09-13 uma aba em loop de refetch em
+ * `/global/recipes` levou as duas tasks a OutOfMemory com 13 s de diferença. A ficha técnica
+ * sai por `fetchRecipeFn`, sob demanda (hovercard, fork em lote, snapshot do cardápio).
+ */
+export const fetchRecipeSummariesFn = createServerFn({ method: "GET" })
 	.validator(ListRecipesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listRecipes(getDb(), ctx, data).catch(handleDomainError)
+		return listRecipeSummaries(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchRecipeFn = createServerFn({ method: "GET" })
