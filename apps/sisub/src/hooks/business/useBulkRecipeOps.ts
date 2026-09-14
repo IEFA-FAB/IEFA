@@ -13,6 +13,12 @@ export interface BulkSelectedRecipe {
 	name: string
 	/** null = global (SDAB); non-null = local de uma cozinha. */
 	kitchenId: number | null
+	/**
+	 * Excluída (soft delete). Não entra no fork: a ficha técnica é buscada por
+	 * `fetchRecipeWithIngredientsFn`, que filtra `deleted_at`, e copiar para a cozinha uma
+	 * preparação que o catálogo já retirou não é uma operação que faça sentido oferecer.
+	 */
+	deleted: boolean
 }
 
 export interface BulkResult {

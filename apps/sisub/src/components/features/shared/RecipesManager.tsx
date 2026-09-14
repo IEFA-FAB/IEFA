@@ -285,7 +285,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	const toggleSelect = (recipe: (typeof filteredRecipes)[number], checked: boolean) => {
 		setSelected((prev) => {
 			const next = new Map(prev)
-			if (checked) next.set(recipe.id, { id: recipe.id, name: recipe.name, kitchenId: recipe.kitchen_id })
+			if (checked) next.set(recipe.id, { id: recipe.id, name: recipe.name, kitchenId: recipe.kitchen_id, deleted: recipe.deleted_at != null })
 			else next.delete(recipe.id)
 			return next
 		})
@@ -303,7 +303,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 			for (const node of tree.nodes) {
 				if (node.type !== "recipe") continue
 				const r = node.data
-				next.set(r.id, { id: r.id, name: r.name, kitchenId: r.kitchen_id })
+				next.set(r.id, { id: r.id, name: r.name, kitchenId: r.kitchen_id, deleted: r.deleted_at != null })
 			}
 			return next
 		})

@@ -46,9 +46,11 @@ export function useRealtimeSubscription(options: {
 		const flush = () => {
 			timerRef.current = null
 			const { queryKeyPrefix, message = "Dados atualizados por outro usuário", onUpdate, silent = false } = latest.current
-			// `cancelRefetch: false`: se a query já está buscando, reaproveita a busca em curso em
-			// vez de abrir outra por cima (a anterior não é abortada no servidor).
-			void queryClient.invalidateQueries({ queryKey: queryKeyPrefix }, { cancelRefetch: false })
+			// `cancelRefetch` fica no padrão (true) de propósito: reaproveitar uma busca em curso
+			// (`false`) devolveria dado de ANTES da mudança e o marcaria como fresco por 5 min. A
+			// busca antiga não é abortada no servidor, mas a janela acima limita isso a uma por
+			// janela, e a listagem de receitas deixou de ter 14,5 MB.
+			void queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
 
 			if (!silent) {
 				toast.info(message, {
@@ -56,7 +58,7 @@ export function useRealtimeSubscription(options: {
 					description: "Clique para recarregar",
 					action: {
 						label: "Recarregar",
-						onClick: () => queryClient.refetchQueries({ queryKey: queryKeyPrefix }, { cancelRefetch: false }),
+						onClick: () => queryClient.refetchQueries({ queryKey: queryKeyPrefix }),
 					},
 					duration: 5000,
 				})
