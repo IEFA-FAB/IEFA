@@ -7,6 +7,7 @@ import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEven
 import type { RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
 import { MealTypeSection } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
+import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -14,9 +15,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 /**
@@ -114,6 +117,7 @@ function EventEditorPage() {
 
 	const [editorState, dispatch] = useReducer(eventEditorReducer, initialEventEditorState)
 	const { name, description, items, initialized, selectorOpen, selectedMealTypeId } = editorState
+	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 	const [applyOpen, setApplyOpen] = useState(false)
@@ -191,9 +195,17 @@ function EventEditorPage() {
 	const getGroupItems = (mealTypeId: string): RecipeWithHeadcount[] => {
 		const groupItems = items.filter((i) => i.meal_type_id === mealTypeId)
 		return groupItems.flatMap((item) => {
-			const recipe = allRecipes?.find((r) => r.id === item.recipe_id)
+			const recipe = recipeById.get(item.recipe_id)
 			if (!recipe) return []
-			return [{ ...recipe, headcountOverride: item.headcount_override ?? null }]
+			return [
+				{
+					id: recipe.id,
+					name: recipe.name,
+					rational_id: recipe.rational_id ?? null,
+					headcountOverride: item.headcount_override ?? null,
+					badge: <RecipeVersionBadge outdated={outdatedById.get(recipe.id)} />,
+				},
+			]
 		})
 	}
 
@@ -224,6 +236,10 @@ function EventEditorPage() {
 		}))
 		dispatch({ type: "SET_ITEMS", value: [...filtered, ...newItems] })
 		dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: null })
+	}
+
+	const handleUpdateVersions = (replacements: Map<string, string>) => {
+		dispatch({ type: "SET_ITEMS", value: replaceRecipeVersions(items, replacements) })
 	}
 
 	const handleRemoveRecipe = (mealTypeId: string, recipeId: string) => {
@@ -326,6 +342,7 @@ function EventEditorPage() {
 								Salvo
 							</span>
 						)}
+						<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 						<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
 							<CalendarPlus className="size-4 mr-2" />
 							Aplicar ao Calendário

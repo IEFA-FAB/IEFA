@@ -26,6 +26,8 @@ export type BoardItem = {
 	id: string
 	title: string
 	subtitle?: string | null
+	/** Selo ao lado do título (ex.: versão desatualizada da preparação). */
+	badge?: ReactNode
 	group: MenuItemGroup | null
 	sortOrder: number
 	proportion: number | null
@@ -91,7 +93,10 @@ function SortableItem({
 			</button>
 
 			<div className="flex-1 min-w-0">
-				<p className="text-sm truncate">{item.title}</p>
+				<div className="flex items-center gap-1.5 min-w-0">
+					<p className="text-sm truncate">{item.title}</p>
+					{item.badge}
+				</div>
 				{item.subtitle && <p className="text-xs text-muted-foreground font-mono truncate">{item.subtitle}</p>}
 			</div>
 
