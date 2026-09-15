@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMfaOverview, useVerifyMfaChallenge } from "@/hooks/data/useMfa"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
-import { verificationCodeErrorMessage } from "@/lib/mfa-messages"
+import { readableMfaError, verificationCodeErrorMessage } from "@/lib/mfa-messages"
 
 /**
  * Segundo passo do login: o código de 6 dígitos do aplicativo autenticador.
@@ -60,7 +60,7 @@ function ChallengePage() {
 			const attempts = failedAttempts + 1
 			setFailedAttempts(attempts)
 			setCode("")
-			setError(verificationCodeErrorMessage(attempts, caught instanceof Error && caught.message ? caught.message : "Não foi possível verificar o código."))
+			setError(verificationCodeErrorMessage(attempts, readableMfaError(caught, "Não foi possível verificar o código.")))
 		}
 	}
 

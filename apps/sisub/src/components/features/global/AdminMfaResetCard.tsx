@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast"
 import { useResetUserMfa, useUserMfaStatus } from "@/hooks/data/useAdminMfa"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { ADMIN_RESET_REASON_HINT, ADMIN_RESET_REASON_MAX_LENGTH, ADMIN_RESET_REASON_MIN_LENGTH, IDENTITY_CHANNEL_CONFIRMATION } from "@/lib/mfa-admin-reset"
+import { readableMfaError } from "@/lib/mfa-messages"
 
 /**
  * Reset administrativo do segundo fator de um usuário, na tela de Gestão de Acesso.
@@ -35,10 +36,6 @@ import { ADMIN_RESET_REASON_HINT, ADMIN_RESET_REASON_MAX_LENGTH, ADMIN_RESET_REA
 
 interface AdminMfaResetCardProps {
 	user: { id: string; email: string }
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error && error.message ? error.message : fallback
 }
 
 export function AdminMfaResetCard({ user }: AdminMfaResetCardProps) {
@@ -138,7 +135,7 @@ function AdminMfaResetDialog({
 			// justificativa digitada, e nada foi removido. Um erro em vermelho ali mandaria o
 			// administrador investigar uma desistência dele mesmo.
 			if (isElevationCancelled(caught)) return
-			setError(errorMessage(caught, "Não foi possível remover o segundo fator."))
+			setError(readableMfaError(caught, "Não foi possível remover o segundo fator."))
 		}
 	}
 

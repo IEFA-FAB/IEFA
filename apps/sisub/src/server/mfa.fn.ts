@@ -300,8 +300,17 @@ export const startMfaEnrollmentFn = createServerFn({ method: "POST" })
 			if (!data.password) fail("Confirme a senha da sua conta para cadastrar o primeiro dispositivo.", 400)
 			// O e-mail vem da SESSÃO. Aceitá-lo do payload transformaria isto num oráculo de
 			// senha de qualquer conta do sistema.
-			const passwordMatches = await verifyAccountPassword(user.email ?? "", data.password)
-			if (!passwordMatches) fail("Senha incorreta.", 403)
+			const password = await verifyAccountPassword(user.email ?? "", data.password)
+			if (password.status === "mismatch") fail("Senha incorreta.", 403)
+			if (password.status === "unavailable") {
+				// Limite de tentativas tem frase própria no auth-kit; o resto (rede, 5xx) não diz
+				// nada útil a quem está na tela, e a senha pode estar certa.
+				const rateLimited = (password.error as { code?: unknown } | null)?.code === "over_request_rate_limit"
+				fail(
+					rateLimited ? getAuthErrorMessage(password.error) : "Não foi possível confirmar sua senha agora. Tente de novo em instantes.",
+					rateLimited ? 429 : 503
+				)
+			}
 		}
 
 		// Cadastro abandonado antes da verificação deixa um fator `unverified` para trás, e o
