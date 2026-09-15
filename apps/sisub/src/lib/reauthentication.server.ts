@@ -37,25 +37,38 @@ import { normalizeEmail } from "@iefa/auth-kit"
 import { getStatelessAuthClient } from "@/lib/supabase.server"
 
 /**
- * `true` quando a senha confere com a da conta.
+ * Resultado da conferência.
+ *
+ * Três estados, e não um booleano: "não deu para saber" não pode ser lido como "sim" — mas
+ * também não pode ser lido como "senha incorreta". Um limite de tentativas do GoTrue ou uma
+ * falha de rede respondidos com "Senha incorreta." fazem a pessoa redigitar a senha certa até
+ * desistir do segundo fator.
+ */
+export type PasswordCheck = { status: "match" } | { status: "mismatch" } | { status: "unavailable"; error: unknown }
+
+/** Recusa da CREDENCIAL, e não do serviço. */
+function isCredentialRejection(error: unknown): boolean {
+	const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown }
+	return code === "invalid_credentials" || (typeof message === "string" && /invalid login credentials/i.test(message))
+}
+
+/**
+ * Confere a senha da conta.
  *
  * O `email` DEVE vir da sessão (`requireUser()`), nunca do payload: aceitar o e-mail do
  * cliente transformaria isto num oráculo de senha de qualquer conta do sistema.
- *
- * Erro do provider vira `false` — a função responde "a senha confere?", e "não deu para
- * saber" não pode ser lido como "sim".
  */
-export async function verifyAccountPassword(email: string, password: string): Promise<boolean> {
-	if (!email || !password) return false
+export async function verifyAccountPassword(email: string, password: string): Promise<PasswordCheck> {
+	if (!email || !password) return { status: "mismatch" }
 
 	const client = getStatelessAuthClient()
 
-	const { error } = await client.auth.signInWithPassword({ email: normalizeEmail(email), password })
-	if (error) return false
+	const { error } = await client.auth.signInWithPassword({ email: normalizeEmail(email), password }).catch((thrown: unknown) => ({ error: thrown }))
+	if (error) return isCredentialRejection(error) ? { status: "mismatch" } : { status: "unavailable", error }
 
 	// Escopo LOCAL: revoga apenas a sessão descartável que a conferência acabou de criar.
 	// Falha aqui não invalida a prova da senha — no pior caso sobra uma sessão órfã que
 	// expira sozinha, e derrubar o cadastro por causa disso seria pior.
 	await client.auth.signOut({ scope: "local" }).catch(() => undefined)
-	return true
+	return { status: "match" }
 }

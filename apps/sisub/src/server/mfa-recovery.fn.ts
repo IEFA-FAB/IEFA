@@ -266,6 +266,12 @@ export const consumeRecoveryCodeFn = createServerFn({ method: "POST" })
 			"consumeRecoveryCodeFn",
 			ctx,
 			async (): Promise<Omit<ConsumedRecoveryCodeResult, "emailNotified">> => {
+				// Os fatores são lidos ANTES do consumo: o código é de uso único, e gastá-lo numa conta
+				// sem fator (recuperação já concluída em outra aba, reset administrativo no meio do
+				// caminho) queimaria uma credencial sem remover nada.
+				const factors = await listVerifiedFactors(ctx.userId)
+				if (factors.length === 0) fail("Esta conta não tem mais dispositivo de verificação cadastrado. O código não foi usado — entre normalmente.", 409)
+
 				const consumed = await consumeRecoveryCode(getDb(), ctx, data).catch((error: unknown) => {
 					// Só o palpite ERRADO conta. Falha de banco não pode consumir o orçamento de
 					// tentativas de quem não errou nada.
@@ -275,12 +281,15 @@ export const consumeRecoveryCodeFn = createServerFn({ method: "POST" })
 				RECOVERY_ATTEMPT_LIMITER.recordSuccess(attempt)
 
 				const admin = getAccessControlClient()
-				const factors = await listVerifiedFactors(ctx.userId)
 				for (const factor of factors) {
 					const { error } = await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId: ctx.userId })
 					if (error) {
+						// O código JÁ foi marcado como usado. Dizer só o erro do GoTrue faria a pessoa
+						// repetir o mesmo código e ouvir "inválido ou já utilizado" — sem entender por quê.
 						setResponseStatus(502)
-						throw new Error(getAuthErrorMessage(error))
+						throw new Error(
+							`O código foi aceito e não vale mais, mas o dispositivo não pôde ser removido (${getAuthErrorMessage(error)}). Use outro código ou procure um administrador.`
+						)
 					}
 				}
 

@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { toast } from "@/components/ui/toast"
 import { useCancelMfaEnrollment, useStartMfaEnrollment, useVerifyMfaEnrollment } from "@/hooks/data/useMfa"
-import { OTHER_SESSIONS_SIGNED_OUT_WARNING, verificationCodeErrorMessage } from "@/lib/mfa-messages"
+import { OTHER_SESSIONS_SIGNED_OUT_WARNING, readableMfaError, verificationCodeErrorMessage } from "@/lib/mfa-messages"
 
 /**
  * Cadastro de um fator TOTP, em duas etapas: identificação (nome do dispositivo e, no
@@ -38,10 +39,6 @@ interface MfaEnrollDialogProps {
 /** Agrupa o segredo de 4 em 4 para quem vai digitar à mão sem perder a conta. */
 function groupSecret(secret: string): string {
 	return secret.replaceAll(/(.{4})/g, "$1 ").trim()
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error && error.message ? error.message : fallback
 }
 
 /**
@@ -107,7 +104,7 @@ export function MfaEnrollDialog({ open, onOpenChange, requiresPassword, isBackup
 			setEnrollment(started)
 			setStep("verify")
 		} catch (caught) {
-			setError(errorMessage(caught, "Não foi possível iniciar o cadastro."))
+			setError(readableMfaError(caught, "Não foi possível iniciar o cadastro."))
 		}
 	}
 
@@ -123,13 +120,25 @@ export function MfaEnrollDialog({ open, onOpenChange, requiresPassword, isBackup
 			const attempts = failedAttempts + 1
 			setFailedAttempts(attempts)
 			setCode("")
-			setError(verificationCodeErrorMessage(attempts, errorMessage(caught, "Não foi possível verificar o código.")))
+			setError(verificationCodeErrorMessage(attempts, readableMfaError(caught, "Não foi possível verificar o código.")))
 		}
 	}
 
 	const copySecret = async () => {
 		if (!enrollment) return
-		await navigator.clipboard.writeText(enrollment.secret)
+		// Sem aviso, a falha de cópia faria a pessoa colar no autenticador o que já estava na área
+		// de transferência. Fora de contexto seguro (HTTP) `navigator.clipboard` nem existe e a
+		// chamada lança ANTES de haver promise — por isso try/catch, e não `.then(ok, erro)`.
+		let copied = true
+		try {
+			await navigator.clipboard.writeText(enrollment.secret)
+		} catch {
+			copied = false
+		}
+		if (!copied) {
+			toast.error("Não foi possível copiar a chave", { description: "Selecione a chave e copie manualmente." })
+			return
+		}
 		setSecretCopied(true)
 		setTimeout(() => setSecretCopied(false), 2000)
 	}

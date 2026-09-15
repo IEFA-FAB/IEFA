@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { toast } from "@/components/ui/toast"
 
 /**
  * Os dez códigos de recuperação, exibidos UMA ÚNICA VEZ.
@@ -47,7 +48,18 @@ export function RecoveryCodesDialog({ open, codes, emailNoticeAvailable = true, 
 	const [copied, setCopied] = useState(false)
 
 	const handleCopy = async () => {
-		await navigator.clipboard.writeText(plainText(codes))
+		// Fora de contexto seguro (HTTP) `navigator.clipboard` nem existe, e a chamada lança
+		// ANTES de haver promise — por isso try/catch, e não `.then(ok, erro)`.
+		let ok = true
+		try {
+			await navigator.clipboard.writeText(plainText(codes))
+		} catch {
+			ok = false
+		}
+		if (!ok) {
+			toast.error("Não foi possível copiar os códigos", { description: "Use Baixar ou Imprimir, ou selecione os códigos e copie manualmente." })
+			return
+		}
 		setCopied(true)
 		setTimeout(() => setCopied(false), 2000)
 	}

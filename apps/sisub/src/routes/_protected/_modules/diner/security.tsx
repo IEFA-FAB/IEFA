@@ -8,7 +8,7 @@ import { MfaEnrollDialog } from "@/components/features/diner/MfaEnrollDialog"
 import { MfaFactorList } from "@/components/features/diner/MfaFactorList"
 import { RecoveryCodesDialog } from "@/components/features/diner/RecoveryCodesDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
@@ -17,6 +17,7 @@ import { toast } from "@/components/ui/toast"
 import { useActiveSessions, useMfaOverview, useSignOutOtherSessions, useUnenrollMfaFactor } from "@/hooks/data/useMfa"
 import { useGenerateRecoveryCodes, useRecoveryCodeOverview } from "@/hooks/data/useMfaRecovery"
 import { MFA_AVAILABLE, MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
+import { readableMfaError } from "@/lib/mfa-messages"
 
 /**
  * Tela de segurança da conta.
@@ -74,6 +75,11 @@ function SecurityPage() {
 	const factors = overview?.factors ?? []
 	const hasFactor = factors.length > 0
 	const canManage = overview?.canManageFactors !== false
+	// Conta com fator em sessão AAL1 (fechou o desafio no login, ou abriu direto uma URL): o
+	// GoTrue recusa cadastrar outro fator e remover fator fora de AAL2, e a emissão de códigos
+	// também exige AAL2. Sem este desvio a tela oferecia os botões e só respondia com erro.
+	const needsChallenge = overview?.aal === 1 && hasFactor
+	const canChangeFactors = canManage && !needsChallenge
 
 	const openEnrollment = (options: { replacingFactorId?: string; knownExistingFactor?: boolean } = {}) => {
 		// `knownExistingFactor` existe para o convite ao dispositivo reserva: ele abre logo
@@ -95,7 +101,7 @@ function SecurityPage() {
 				await unenrollFactor.mutateAsync(replacingFactorId)
 			} catch (error) {
 				toast.error("Dispositivo novo cadastrado, mas o antigo não foi removido", {
-					description: error instanceof Error ? error.message : "Tente removê-lo pela lista.",
+					description: readableMfaError(error, "Tente removê-lo pela lista."),
 				})
 			}
 			setReplacingFactorId(null)
@@ -130,7 +136,7 @@ function SecurityPage() {
 			return true
 		} catch (error) {
 			toast.error("Não foi possível gerar os códigos de recuperação", {
-				description: error instanceof Error ? error.message : "Tente novamente pela tela de segurança.",
+				description: readableMfaError(error, "Tente novamente pela tela de segurança."),
 			})
 			return false
 		}
@@ -152,7 +158,7 @@ function SecurityPage() {
 			reloadAfterSessionChange()
 		} catch (error) {
 			toast.error("Não foi possível remover o dispositivo", {
-				description: error instanceof Error ? error.message : "Tente novamente.",
+				description: readableMfaError(error, "Tente novamente."),
 			})
 		}
 	}
@@ -163,7 +169,7 @@ function SecurityPage() {
 			toast.success("As demais sessões foram encerradas.")
 		} catch (error) {
 			toast.error("Não foi possível encerrar as outras sessões", {
-				description: error instanceof Error ? error.message : "Tente novamente.",
+				description: readableMfaError(error, "Tente novamente."),
 			})
 		}
 	}
@@ -179,6 +185,28 @@ function SecurityPage() {
 					<AlertDescription>
 						Nesta sessão você pode consultar, mas não alterar os dispositivos de verificação. Saia e entre novamente com sua senha para gerenciá-los.
 					</AlertDescription>
+				</Alert>
+			)}
+
+			{canManage && needsChallenge && (
+				<Alert>
+					<KeyRound aria-hidden />
+					<AlertTitle>Confirme o código para alterar a verificação em duas etapas</AlertTitle>
+					<AlertDescription>
+						Esta sessão entrou só com a senha. Para cadastrar, substituir ou remover dispositivos, ou gerar códigos de recuperação, confirme antes o código do
+						aplicativo autenticador.
+					</AlertDescription>
+					<AlertAction>
+						<Button
+							size="sm"
+							nativeButton={false}
+							render={
+								<Link to="/auth/challenge" search={{ redirect: "/diner/security" }}>
+									Confirmar código
+								</Link>
+							}
+						/>
+					</AlertAction>
 				</Alert>
 			)}
 
@@ -213,9 +241,7 @@ function SecurityPage() {
 						<Alert variant="destructive">
 							<AlertTriangle aria-hidden />
 							<AlertTitle>Não foi possível verificar o estado da sua conta</AlertTitle>
-							<AlertDescription>
-								{overviewError instanceof Error && overviewError.message ? overviewError.message : "Recarregue a página e tente novamente."}
-							</AlertDescription>
+							<AlertDescription>{readableMfaError(overviewError, "Recarregue a página e tente novamente.")}</AlertDescription>
 						</Alert>
 					)}
 
@@ -242,12 +268,12 @@ function SecurityPage() {
 						<>
 							<MfaFactorList
 								factors={factors}
-								canManage={canManage}
+								canManage={canChangeFactors}
 								isRemoving={unenrollFactor.isPending}
 								onReplace={(factor) => openEnrollment({ replacingFactorId: factor.id })}
 								onRemove={(factor) => handleRemove(factor.id)}
 							/>
-							<Button variant="outline" size="sm" disabled={!canManage} onClick={() => openEnrollment()}>
+							<Button variant="outline" size="sm" disabled={!canChangeFactors} onClick={() => openEnrollment()}>
 								Cadastrar segundo dispositivo
 							</Button>
 						</>
@@ -255,7 +281,12 @@ function SecurityPage() {
 				</CardContent>
 			</Card>
 
-			<ActiveSessionsCard data={sessions.data} isLoading={sessions.isLoading} isSigningOut={signOutOthers.isPending} onSignOutOthers={handleSignOutOthers} />
+			<ActiveSessionsCard
+				data={sessions.isError ? { available: false, sessions: [] } : sessions.data}
+				isLoading={sessions.isLoading}
+				isSigningOut={signOutOthers.isPending}
+				onSignOutOthers={handleSignOutOthers}
+			/>
 
 			{hasFactor && (
 				<Card>
@@ -268,6 +299,12 @@ function SecurityPage() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{recovery.isLoading && <Skeleton className="h-10 w-full rounded-lg" />}
+
+						{!recovery.isLoading && recovery.isError && (
+							<p className="text-body text-destructive">
+								{readableMfaError(recovery.error, "Não foi possível consultar os códigos de recuperação. Recarregue a página.")}
+							</p>
+						)}
 
 						{!recovery.isLoading && recovery.data?.eligible === false && (
 							<p className="text-body text-muted-foreground">
@@ -288,7 +325,12 @@ function SecurityPage() {
 										Este ambiente não envia aviso por e-mail: o uso de um código fica registrado no histórico do sistema.
 									</p>
 								)}
-								<Button variant="outline" size="sm" disabled={!canManage || generateCodes.isPending} onClick={() => issueCodes({ inviteBackupAfter: false })}>
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={!canChangeFactors || generateCodes.isPending}
+									onClick={() => issueCodes({ inviteBackupAfter: false })}
+								>
 									{recovery.data.available > 0 ? "Gerar novos códigos" : "Gerar códigos de recuperação"}
 								</Button>
 								{recovery.data.available > 0 && <p className="text-caption text-muted-foreground">Gerar novos códigos invalida os anteriores.</p>}

@@ -33,7 +33,11 @@ const MESSAGE_BY_CODE: Record<string, string> = {
 	mfa_factor_not_found: "Dispositivo de verificação não encontrado. Atualize a página e comece o cadastro de novo.",
 	mfa_factor_name_conflict: "Já existe um dispositivo com esse nome. Escolha outro nome para este.",
 	mfa_verified_factor_exists: "Este dispositivo já está verificado nesta conta.",
-	over_enrolled_mfa_factors: "Limite de dispositivos de verificação atingido. Remova um antes de cadastrar outro.",
+	too_many_enrolled_mfa_factors: "Limite de dispositivos de verificação atingido. Remova um antes de cadastrar outro.",
+	// A verificação precisa acontecer da mesma rede em que o desafio foi criado.
+	mfa_ip_address_mismatch: "A verificação começou em outra rede. Gere um novo código e tente de novo.",
+	mfa_totp_enroll_not_enabled: "O cadastro de aplicativo autenticador está desativado no servidor. Procure a administração do sistema.",
+	mfa_totp_verify_not_enabled: "A verificação por aplicativo autenticador está desativada no servidor. Procure a administração do sistema.",
 	insufficient_aal: "Confirme o código do seu dispositivo antes de alterar a verificação em duas etapas.",
 	// ── Reautenticação (confirmar a senha antes de cadastrar o primeiro fator)
 	reauthentication_needed: "Confirme a senha da sua conta para continuar.",
@@ -41,6 +45,14 @@ const MESSAGE_BY_CODE: Record<string, string> = {
 	// ── Limite de tentativas: o GoTrue devolve isto antes de avaliar o código
 	over_request_rate_limit: "Muitas tentativas seguidas. Aguarde um instante antes de tentar de novo.",
 	session_not_found: "Sua sessão expirou. Entre novamente para continuar.",
+	session_expired: "Sua sessão expirou. Entre novamente para continuar.",
+	refresh_token_not_found: "Sua sessão expirou. Entre novamente para continuar.",
+	refresh_token_already_used: "Sua sessão expirou. Entre novamente para continuar.",
+	bad_jwt: "Sua sessão expirou. Entre novamente para continuar.",
+	request_timeout: "O serviço de autenticação demorou para responder. Tente de novo em instantes.",
+	// ── Senha: o GoTrue atual manda `code`; a tabela de regex abaixo fica para o que não manda
+	invalid_credentials: "E-mail ou senha incorretos",
+	email_not_confirmed: "Confirme seu e-mail antes de entrar",
 }
 
 /**

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useMfaOverview } from "@/hooks/data/useMfa"
 import { useConsumeRecoveryCode } from "@/hooks/data/useMfaRecovery"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
+import { readableMfaError } from "@/lib/mfa-messages"
 
 /**
  * Saída do desafio de segundo fator para quem perdeu o aparelho.
@@ -49,7 +50,7 @@ function RecoveryCodePage() {
 			// `/auth` encaminha para a senha, guardando o recadastro como destino.
 			window.location.assign(`/auth?redirect=${encodeURIComponent("/auth/mfa-enrollment")}`)
 		} catch (caught) {
-			setError(caught instanceof Error && caught.message ? caught.message : "Não foi possível validar o código de recuperação.")
+			setError(readableMfaError(caught, "Não foi possível validar o código de recuperação."))
 			setCode("")
 		}
 	}

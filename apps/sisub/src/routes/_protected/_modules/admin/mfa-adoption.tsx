@@ -11,6 +11,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
+import { readableMfaError } from "@/lib/mfa-messages"
 import { queryKeys } from "@/lib/query-keys"
 import { getMfaAdoptionFn, type ProtectedAccountAdoption } from "@/server/mfa-adoption.fn"
 
@@ -65,7 +66,7 @@ function MfaAdoptionPage() {
 				<Alert variant="destructive">
 					<TriangleAlert className="size-4" />
 					<AlertTitle>Não foi possível carregar o painel</AlertTitle>
-					<AlertDescription>{(error as Error).message}</AlertDescription>
+					<AlertDescription>{readableMfaError(error, "Recarregue a página e tente novamente.")}</AlertDescription>
 				</Alert>
 			) : null}
 

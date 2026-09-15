@@ -6,11 +6,13 @@ import { RecoveryCodesDialog } from "@/components/features/diner/RecoveryCodesDi
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMfaOverview } from "@/hooks/data/useMfa"
 import { useGenerateRecoveryCodes, useRecoveryCodeOverview } from "@/hooks/data/useMfaRecovery"
 import { MFA_AVAILABLE, MFA_ENFORCEMENT_ALLOWED } from "@/lib/assurance/mfa-availability"
+import { readableMfaError } from "@/lib/mfa-messages"
 
 /**
  * Recadastro obrigatório do segundo fator, depois de um código de recuperação consumido.
@@ -40,7 +42,7 @@ export const Route = createFileRoute("/auth/mfa-enrollment")({
 })
 
 function MfaEnrollmentPage() {
-	const { data: overview } = useMfaOverview()
+	const { data: overview, isLoading, error: overviewError } = useMfaOverview()
 	const recovery = useRecoveryCodeOverview()
 	const generateCodes = useGenerateRecoveryCodes()
 	const { signOut } = useAuth()
@@ -63,7 +65,7 @@ function MfaEnrollmentPage() {
 				return
 			} catch (error) {
 				toast.error("Dispositivo cadastrado, mas os códigos de recuperação não foram gerados", {
-					description: error instanceof Error ? error.message : "Gere-os pela tela de segurança.",
+					description: readableMfaError(error, "Gere-os pela tela de segurança."),
 				})
 			}
 		}
@@ -80,17 +82,32 @@ function MfaEnrollmentPage() {
 						Cadastre a verificação em duas etapas
 					</CardTitle>
 					<CardDescription>
-						{hasFactor
-							? "Sua conta já tem um dispositivo cadastrado. Você pode seguir para o sistema."
-							: MFA_ENFORCEMENT_ALLOWED
-								? "Sua conta está sem segundo fator. Cadastre um dispositivo para voltar a usar as funções protegidas do sistema."
-								: "Sua conta está sem segundo fator. Cadastrar um novo dispositivo é opcional — você pode seguir para o sistema agora e fazer isso depois pela tela de segurança."}
+						{isLoading || overviewError
+							? "Verificando o estado da verificação em duas etapas da sua conta."
+							: hasFactor
+								? "Sua conta já tem um dispositivo cadastrado. Você pode seguir para o sistema."
+								: MFA_ENFORCEMENT_ALLOWED
+									? "Sua conta está sem segundo fator. Cadastre um dispositivo para voltar a usar as funções protegidas do sistema."
+									: "Sua conta está sem segundo fator. Cadastrar um novo dispositivo é opcional — você pode seguir para o sistema agora e fazer isso depois pela tela de segurança."}
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					{/* Só é verdade no modo `enforced`: fora dele nada exige segundo fator, e dizer que
 					    as funções "continuam bloqueadas" seria mentir para quem acabou de perder o dispositivo. */}
-					{!hasFactor && MFA_ENFORCEMENT_ALLOWED && (
+					{isLoading && <Skeleton className="h-20 w-full rounded-lg" />}
+
+					{/* Falha de leitura não vira "sem segundo fator": oferecer o cadastro a quem já tem
+					    dispositivo levaria a um erro do GoTrue que esta tela não explica. */}
+					{!isLoading && overviewError && (
+						<div className="space-y-4">
+							<p className="text-body text-destructive">{readableMfaError(overviewError, "Não foi possível verificar os dispositivos da sua conta.")}</p>
+							<Button variant="outline" className="w-full" onClick={() => window.location.reload()}>
+								Tentar de novo
+							</Button>
+						</div>
+					)}
+
+					{!isLoading && !overviewError && !hasFactor && MFA_ENFORCEMENT_ALLOWED && (
 						<Alert>
 							<ShieldCheck aria-hidden />
 							<AlertTitle>As funções protegidas seguem indisponíveis</AlertTitle>
@@ -100,7 +117,7 @@ function MfaEnrollmentPage() {
 						</Alert>
 					)}
 
-					{hasFactor ? (
+					{isLoading || overviewError ? null : hasFactor ? (
 						<Button className="w-full" onClick={() => window.location.assign("/hub")}>
 							Ir para o sistema
 						</Button>
@@ -112,7 +129,7 @@ function MfaEnrollmentPage() {
 
 					{/* Segundo fator é opcional fora do modo `enforced` (`MFA_MODE`): quem gastou um código
 					    de recuperação não pode ficar preso entre "cadastrar" e "sair". */}
-					{!hasFactor && !MFA_ENFORCEMENT_ALLOWED && (
+					{!isLoading && !overviewError && !hasFactor && !MFA_ENFORCEMENT_ALLOWED && (
 						<Button variant="outline" className="w-full" onClick={() => window.location.assign("/hub")}>
 							Continuar sem verificação em duas etapas
 						</Button>

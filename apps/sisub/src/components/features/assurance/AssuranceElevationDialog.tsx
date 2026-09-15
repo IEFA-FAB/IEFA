@@ -14,7 +14,7 @@ import { toast } from "@/components/ui/toast"
 import { useMfaOverview, useVerifyMfaChallenge } from "@/hooks/data/useMfa"
 import { type AssurancePrompt, resolveElevationStep } from "@/lib/assurance/assurance-error"
 import { syncElevatedSession } from "@/lib/assurance/session-elevation"
-import { verificationCodeErrorMessage } from "@/lib/mfa-messages"
+import { readableMfaError, verificationCodeErrorMessage } from "@/lib/mfa-messages"
 import { queryKeys } from "@/lib/query-keys"
 import supabase from "@/lib/supabase"
 
@@ -45,10 +45,6 @@ interface AssuranceElevationDialogProps {
 }
 
 const FRESHNESS_WINDOW_MINUTES = Math.round(ASSURANCE_FRESHNESS_WINDOW_SECONDS / 60)
-
-function errorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error && error.message ? error.message : fallback
-}
 
 export function AssuranceElevationDialog({ prompt, onResolved }: AssuranceElevationDialogProps) {
 	const queryClient = useQueryClient()
@@ -114,7 +110,7 @@ export function AssuranceElevationDialog({ prompt, onResolved }: AssuranceElevat
 			const attempts = failedAttempts + 1
 			setFailedAttempts(attempts)
 			setCode("")
-			setError(verificationCodeErrorMessage(attempts, errorMessage(caught, "Não foi possível verificar o código.")))
+			setError(verificationCodeErrorMessage(attempts, readableMfaError(caught, "Não foi possível verificar o código.")))
 		}
 	}
 
