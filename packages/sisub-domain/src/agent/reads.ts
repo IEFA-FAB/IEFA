@@ -59,7 +59,7 @@ async function folderNames(db: SisubDb, ids: (string | null)[], table: typeof re
  * de tool filtra receita por pasta, então o UUID só serviria para o modelo copiar na resposta.
  * O `id` fica: é ele que a próxima chamada (`get_recipe`) precisa.
  */
-export type AgentRecipeSummary = Omit<RecipeSummary, "folder_id" | "rational_id" | "deleted_at"> & { folder: string | null }
+export type AgentRecipeSummary = Omit<RecipeSummary, "folder_id" | "rational_id" | "deleted_at" | "base_recipe_id"> & { folder: string | null }
 
 export async function agentListRecipes(
 	db: SisubDb,
@@ -76,10 +76,10 @@ export async function agentListRecipes(
 		page.items.map((r) => r.folder_id),
 		recipeFolderInKitchen
 	)
-	// `rational_id`/`deleted_at` existem no summary pela UI; o contrato da tool não os expõe.
+	// `rational_id`/`deleted_at`/`base_recipe_id` existem no summary pela UI; o contrato da tool não os expõe.
 	return {
 		...page,
-		items: page.items.map(({ folder_id, rational_id: _rationalId, deleted_at: _deletedAt, ...recipe }) => ({
+		items: page.items.map(({ folder_id, rational_id: _rationalId, deleted_at: _deletedAt, base_recipe_id: _baseRecipeId, ...recipe }) => ({
 			...recipe,
 			folder: folder_id == null ? null : (names.get(folder_id) ?? null),
 		})),

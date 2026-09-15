@@ -6,6 +6,7 @@ import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
+import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -15,11 +16,13 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
+import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import type { TemplateItemDraft, TemplateMealDraft } from "@/types/domain/planning"
 
 const WEEKDAYS = [
@@ -205,6 +208,7 @@ function WeeklyMenuEditorPage() {
 
 	const [editorState, dispatch] = useReducer(weeklyMenuEditorReducer, initialWeeklyMenuEditorState)
 	const { name, description, items, meals, initialized, activeTab, selectorOpen, selectedCell } = editorState
+	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 	const prevInitializedRef = useRef(false)
@@ -294,13 +298,14 @@ function WeeklyMenuEditorPage() {
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
 		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
 		return cellItems.flatMap((item) => {
-			const recipe = allRecipes?.find((r) => r.id === item.recipe_id)
+			const recipe = recipeById.get(item.recipe_id)
 			if (!recipe) return []
 			return [
 				{
 					id: item.recipe_id,
 					title: recipe.name ?? item.recipe_id,
 					subtitle: recipe.rational_id ?? null,
+					badge: <RecipeVersionBadge outdated={outdatedById.get(item.recipe_id)} />,
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
 					proportion: item.recommended_proportion ?? null,
@@ -389,6 +394,10 @@ function WeeklyMenuEditorPage() {
 		dispatch({ type: "SET_SELECTED_CELL", value: null })
 	}
 
+	const handleUpdateVersions = (replacements: Map<string, string>) => {
+		dispatch({ type: "SET_ITEMS", value: replaceRecipeVersions(items, replacements) })
+	}
+
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
 		dispatch({ type: "SET_ITEMS", value: items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId)) })
 	}
@@ -440,7 +449,7 @@ function WeeklyMenuEditorPage() {
 		)
 	}
 
-	const recipeMap = new Map(allRecipes?.map((r) => [r.id, r.name ?? r.id]) ?? [])
+	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
 	const totalRecipes = items.length
 	const daysWithContent = WEEKDAYS.filter((d) => items.some((i) => i.day_of_week === d.num)).length
 
@@ -494,6 +503,7 @@ function WeeklyMenuEditorPage() {
 								Salvo
 							</span>
 						)}
+						<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 						<Tooltip>
 							<TooltipTrigger
 								render={

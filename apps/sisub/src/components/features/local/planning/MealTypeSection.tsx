@@ -1,5 +1,6 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { Plus, Users, X } from "lucide-react"
+import type { ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -8,7 +9,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 export type MealTypeInfo = { id: string; name: string | null }
 /** Só o que a seção exibe: a listagem que alimenta estas telas não traz a ficha técnica. */
-export type RecipeWithHeadcount = Pick<Recipe, "id" | "name" | "rational_id"> & { headcountOverride: number | null }
+export type RecipeWithHeadcount = Pick<Recipe, "id" | "name" | "rational_id"> & {
+	headcountOverride: number | null
+	/** Selo ao lado do nome (ex.: versão desatualizada da preparação). */
+	badge?: ReactNode
+}
 
 export function MealTypeSection({
 	mealType,
@@ -50,7 +55,10 @@ export function MealTypeSection({
 					{recipes.map((recipe) => (
 						<div key={recipe.id} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
 							<div className="flex-1 min-w-0">
-								<p className="text-sm truncate">{recipe.name}</p>
+								<div className="flex items-center gap-1.5 min-w-0">
+									<p className="text-sm truncate">{recipe.name}</p>
+									{recipe.badge}
+								</div>
 								{recipe.rational_id && <p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>}
 							</div>
 

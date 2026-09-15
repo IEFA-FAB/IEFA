@@ -267,12 +267,13 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 
 /**
  * Linha da listagem sem ficha técnica: identificação, rendimento e onde a receita mora.
- * `rational_id` e `deleted_at` estão aqui pela UI (busca por código do SISUBWEB e o selo de
- * excluída); a projeção de agente os descarta.
+ * `rational_id`, `deleted_at` e `base_recipe_id` estão aqui pela UI (busca por código do
+ * SISUBWEB, o selo de excluída e a linhagem que o editor de cardápio usa para achar item em
+ * versão antiga); a projeção de agente os descarta.
  */
 export type RecipeSummary = Pick<
 	Recipe,
-	"id" | "name" | "version" | "portion_yield" | "preparation_time_minutes" | "kitchen_id" | "folder_id" | "rational_id" | "deleted_at"
+	"id" | "name" | "version" | "portion_yield" | "preparation_time_minutes" | "kitchen_id" | "folder_id" | "rational_id" | "deleted_at" | "base_recipe_id"
 >
 
 /**
@@ -334,7 +335,7 @@ export async function listRecipeSummaries(db: SisubDb, ctx: UserContext, input: 
 
 	return Array.from(familyMap.values())
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-		.map(({ baseRecipeId: _baseRecipeId, ...summary }) => toNumeric(toWire<RecipeSummary>(summary), RECIPE_NUMERIC_KEYS))
+		.map((summary) => toNumeric(toWire<RecipeSummary>(summary), RECIPE_NUMERIC_KEYS))
 }
 
 /**

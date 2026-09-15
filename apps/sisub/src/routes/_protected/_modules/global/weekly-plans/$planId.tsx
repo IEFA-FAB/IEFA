@@ -5,6 +5,7 @@ import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
+import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,10 +14,12 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
+import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
@@ -150,6 +153,7 @@ function GlobalPlanEditorPage() {
 	const [description, setDescription] = useState("")
 	const [items, setItems] = useState<TemplateItemDraft[]>([])
 	const [initialized, setInitialized] = useState(false)
+	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 	const [activeTab, setActiveTab] = useState("overview")
 	const [selectorOpen, setSelectorOpen] = useState(false)
 	const [selectedCell, setSelectedCell] = useState<{
@@ -178,13 +182,14 @@ function GlobalPlanEditorPage() {
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
 		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
 		return cellItems.flatMap((item) => {
-			const recipe = allRecipes?.find((r) => r.id === item.recipe_id)
+			const recipe = recipeById.get(item.recipe_id)
 			if (!recipe) return []
 			return [
 				{
 					id: item.recipe_id,
 					title: recipe.name ?? item.recipe_id,
 					subtitle: recipe.rational_id ?? null,
+					badge: <RecipeVersionBadge outdated={outdatedById.get(item.recipe_id)} />,
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
 					proportion: item.recommended_proportion ?? null,
@@ -240,6 +245,10 @@ function GlobalPlanEditorPage() {
 		setSelectedCell(null)
 	}
 
+	const handleUpdateVersions = (replacements: Map<string, string>) => {
+		setItems(replaceRecipeVersions(items, replacements))
+	}
+
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
 		setItems(items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId)))
 	}
@@ -271,7 +280,7 @@ function GlobalPlanEditorPage() {
 		})
 	}
 
-	const recipeMap = new Map(allRecipes?.map((r) => [r.id, r.name ?? r.id]) ?? [])
+	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
 	const totalRecipes = items.length
 	const daysWithContent = WEEKDAYS.filter((d) => items.some((i) => i.day_of_week === d.num)).length
 
@@ -299,6 +308,7 @@ function GlobalPlanEditorPage() {
 			<div className="space-y-6">
 				<PageHeader title="Editar Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })}>
 					<div className="flex items-center gap-2">
+						<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
 						<Tooltip>
 							<TooltipTrigger
 								render={
