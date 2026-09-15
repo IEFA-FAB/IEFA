@@ -126,12 +126,15 @@ export function MfaEnrollDialog({ open, onOpenChange, requiresPassword, isBackup
 
 	const copySecret = async () => {
 		if (!enrollment) return
-		// A área de transferência recusa fora de contexto seguro ou sem permissão, e a rejeição
-		// solta não mostraria nada: a pessoa colaria no autenticador o que estava copiado antes.
-		const copied = await navigator.clipboard.writeText(enrollment.secret).then(
-			() => true,
-			() => false
-		)
+		// Sem aviso, a falha de cópia faria a pessoa colar no autenticador o que já estava na área
+		// de transferência. Fora de contexto seguro (HTTP) `navigator.clipboard` nem existe e a
+		// chamada lança ANTES de haver promise — por isso try/catch, e não `.then(ok, erro)`.
+		let copied = true
+		try {
+			await navigator.clipboard.writeText(enrollment.secret)
+		} catch {
+			copied = false
+		}
 		if (!copied) {
 			toast.error("Não foi possível copiar a chave", { description: "Selecione a chave e copie manualmente." })
 			return

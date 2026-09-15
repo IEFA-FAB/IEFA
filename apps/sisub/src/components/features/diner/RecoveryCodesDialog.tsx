@@ -48,10 +48,14 @@ export function RecoveryCodesDialog({ open, codes, emailNoticeAvailable = true, 
 	const [copied, setCopied] = useState(false)
 
 	const handleCopy = async () => {
-		const ok = await navigator.clipboard.writeText(plainText(codes)).then(
-			() => true,
-			() => false
-		)
+		// Fora de contexto seguro (HTTP) `navigator.clipboard` nem existe, e a chamada lança
+		// ANTES de haver promise — por isso try/catch, e não `.then(ok, erro)`.
+		let ok = true
+		try {
+			await navigator.clipboard.writeText(plainText(codes))
+		} catch {
+			ok = false
+		}
 		if (!ok) {
 			toast.error("Não foi possível copiar os códigos", { description: "Use Baixar ou Imprimir, ou selecione os códigos e copie manualmente." })
 			return
