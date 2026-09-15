@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, Percent, Plus, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
@@ -31,6 +32,10 @@ export type BoardItem = {
 	group: MenuItemGroup | null
 	sortOrder: number
 	proportion: number | null
+	/** `id` do DOM para o localizar rolar até o item. */
+	anchorId?: string
+	/** Aparição corrente do localizar. */
+	highlighted?: boolean
 }
 
 type ColumnKey = MenuItemGroup | typeof UNGROUPED_KEY
@@ -67,11 +72,17 @@ function SortableItem({
 	onProportionChange,
 	onRemove,
 	renderExtra,
+	selectionMode,
+	selected,
+	onSelectChange,
 }: {
 	item: BoardItem
 	onProportionChange: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
 	renderExtra?: (item: BoardItem) => ReactNode
+	selectionMode?: boolean
+	selected?: boolean
+	onSelectChange?: (checked: boolean) => void
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
@@ -79,9 +90,18 @@ function SortableItem({
 	return (
 		<div
 			ref={setNodeRef}
+			id={item.anchorId}
 			style={style}
-			className={cn("flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/30 hover:bg-muted/60 transition-colors", isDragging && "opacity-40")}
+			className={cn(
+				"flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/30 hover:bg-muted/60 transition-colors",
+				isDragging && "opacity-40",
+				selected && "bg-primary/10 hover:bg-primary/15",
+				item.highlighted && "ring-2 ring-ring"
+			)}
 		>
+			{selectionMode && (
+				<Checkbox className="shrink-0" checked={!!selected} onCheckedChange={(checked) => onSelectChange?.(checked)} aria-label={`Selecionar ${item.title}`} />
+			)}
 			<button
 				type="button"
 				className="shrink-0 text-muted-foreground/60 hover:text-foreground cursor-grab touch-none active:cursor-grabbing"
@@ -152,6 +172,9 @@ function GroupColumn({
 	onProportionChange,
 	onRemove,
 	renderExtra,
+	selectionMode,
+	selectedIds,
+	onSelectChange,
 }: {
 	columnKey: ColumnKey
 	label: string
@@ -161,6 +184,9 @@ function GroupColumn({
 	onProportionChange: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
 	renderExtra?: (item: BoardItem) => ReactNode
+	selectionMode?: boolean
+	selectedIds?: ReadonlySet<string>
+	onSelectChange?: (id: string, checked: boolean) => void
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `col:${columnKey}`, data: { isColumn: true, columnKey } })
 	const canAdd = onAdd && columnKey !== UNGROUPED_KEY
@@ -193,7 +219,18 @@ function GroupColumn({
 						itemIds.map((id) => {
 							const item = itemMap.get(id)
 							if (!item) return null
-							return <SortableItem key={id} item={item} onProportionChange={onProportionChange} onRemove={onRemove} renderExtra={renderExtra} />
+							return (
+								<SortableItem
+									key={id}
+									item={item}
+									onProportionChange={onProportionChange}
+									onRemove={onRemove}
+									renderExtra={renderExtra}
+									selectionMode={selectionMode}
+									selected={selectedIds?.has(id)}
+									onSelectChange={(checked) => onSelectChange?.(id, checked)}
+								/>
+							)
 						})
 					)}
 				</SortableContext>
@@ -214,6 +251,9 @@ export function MealGroupBoard({
 	onRemove,
 	onAdd,
 	renderExtra,
+	selectionMode,
+	selectedIds,
+	onSelectChange,
 }: {
 	items: BoardItem[]
 	onArrange: (arrangement: BoardArrangement) => void
@@ -221,6 +261,10 @@ export function MealGroupBoard({
 	onRemove: (id: string) => void
 	onAdd?: (group: MenuItemGroup) => void
 	renderExtra?: (item: BoardItem) => ReactNode
+	/** Seleção em massa (dia+refeição atravessados pela barra inferior do editor). */
+	selectionMode?: boolean
+	selectedIds?: ReadonlySet<string>
+	onSelectChange?: (id: string, checked: boolean) => void
 }) {
 	const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
 
@@ -348,6 +392,9 @@ export function MealGroupBoard({
 							onProportionChange={onProportionChange}
 							onRemove={onRemove}
 							renderExtra={renderExtra}
+							selectionMode={selectionMode}
+							selectedIds={selectedIds}
+							onSelectChange={onSelectChange}
 						/>
 					)
 				})}

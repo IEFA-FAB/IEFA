@@ -1,10 +1,13 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, CheckCircle2, Circle, GitFork, Loader2, Plus, Printer, Save, Users } from "lucide-react"
+import { Check, CheckCircle2, Circle, GitFork, ListChecks, Loader2, Plus, Printer, Save, Users } from "lucide-react"
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
+import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
+import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
+import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -21,6 +24,15 @@ import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
+import {
+	applyHeadcountToMeals,
+	countHeadcountTargets,
+	type HeadcountPlan,
+	menuItemKey,
+	removeMenuItems,
+	replaceMenuRecipe,
+	setItemHeadcount,
+} from "@/lib/menu-fill"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import type { TemplateItemDraft, TemplateMealDraft } from "@/types/domain/planning"
@@ -185,6 +197,8 @@ function weeklyMenuEditorReducer(state: WeeklyMenuEditorState, action: WeeklyMen
 	}
 }
 
+const ALL_WEEKDAYS = WEEKDAYS.map((d) => d.num)
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function WeeklyMenuEditorPage() {
@@ -211,6 +225,12 @@ function WeeklyMenuEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	// Seleção em massa: a chave atravessa dia e refeição, então a mesma preparação em dois
+	// dias são dois alvos distintos.
+	const [selectionMode, setSelectionMode] = useState(false)
+	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
+	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
+	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
@@ -294,6 +314,19 @@ function WeeklyMenuEditorPage() {
 		}
 	}, [name, description, items, meals, initialized, willFork, editContext, autoSave, weeklyMenuId, contentSignature])
 
+	// O localizar troca a aba do dia; a rolagem só pode acontecer depois que a aba pintou.
+	useEffect(() => {
+		if (!highlightedKey) return
+		const frame = requestAnimationFrame(() => {
+			document.getElementById(highlightedKey)?.scrollIntoView({ block: "center", behavior: "smooth" })
+		})
+		const timer = setTimeout(() => setHighlightedKey(null), 2500)
+		return () => {
+			cancelAnimationFrame(frame)
+			clearTimeout(timer)
+		}
+	}, [highlightedKey])
+
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
 		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
@@ -306,6 +339,8 @@ function WeeklyMenuEditorPage() {
 					title: recipe.name ?? item.recipe_id,
 					subtitle: recipe.rational_id ?? null,
 					badge: <RecipeVersionBadge outdated={outdatedById.get(item.recipe_id)} />,
+					anchorId: menuItemKey(item),
+					highlighted: highlightedKey === menuItemKey(item),
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
 					proportion: item.recommended_proportion ?? null,
@@ -406,6 +441,44 @@ function WeeklyMenuEditorPage() {
 		? items.filter((i) => i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId).map((i) => i.recipe_id)
 		: []
 
+	const toggleSelection = (key: string, checked: boolean) => {
+		setSelectedKeys((prev) => {
+			const next = new Set(prev)
+			if (checked) next.add(key)
+			else next.delete(key)
+			return next
+		})
+	}
+
+	const clearSelection = () => setSelectedKeys(new Set())
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false)
+		clearSelection()
+	}
+
+	/** Quantitativo do auxiliador → efetivo BASE da refeição, em todos os dias da semana.
+	 * É o campo que alcança todas as preparações da refeição (`applyTemplate` deriva
+	 * `override ?? base`); escrever preparação por preparação faria o mesmo número virar
+	 * exceção em cada item. */
+	const handleApplyHeadcountPlan = (plan: HeadcountPlan, overwrite: boolean) => {
+		dispatch({ type: "SET_MEALS", value: applyHeadcountToMeals(meals, plan, { days: ALL_WEEKDAYS, overwrite }) })
+	}
+
+	const handleBulkHeadcount = (headcount: number | null) => {
+		dispatch({ type: "SET_ITEMS", value: setItemHeadcount(items, selectedKeys, headcount) })
+	}
+
+	const handleBulkRemove = () => {
+		dispatch({ type: "SET_ITEMS", value: removeMenuItems(items, selectedKeys) })
+		clearSelection()
+	}
+
+	const handleBulkReplace = (recipeId: string) => {
+		dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, selectedKeys, recipeId) })
+		clearSelection()
+	}
+
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
@@ -450,6 +523,7 @@ function WeeklyMenuEditorPage() {
 	}
 
 	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
+	const mealTypeIds = (mealTypes ?? []).map((m) => m.id)
 	const totalRecipes = items.length
 	const daysWithContent = WEEKDAYS.filter((d) => items.some((i) => i.day_of_week === d.num)).length
 
@@ -594,6 +668,40 @@ function WeeklyMenuEditorPage() {
 						</CardContent>
 					</Card>
 
+					{/* Preenchimento: localizar, quantitativo por refeição e seleção em massa */}
+					<div className="flex flex-wrap items-center gap-2">
+						<MenuFindBar
+							items={items}
+							nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+							mealTypeOrder={mealTypeIds}
+							dayLabel={(day) => WEEKDAYS.find((d) => d.num === day)?.label ?? String(day)}
+							mealLabel={(mealTypeId) => mealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
+							kitchenId={kitchenId}
+							onGoTo={(match) => {
+								dispatch({ type: "SET_ACTIVE_TAB", value: String(match.item.day_of_week) })
+								setHighlightedKey(match.key)
+							}}
+							onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
+							onSelectMatches={(keys) => {
+								setSelectionMode(true)
+								setSelectedKeys(keys)
+							}}
+						/>
+						<Button type="button" variant="outline" size="sm" onClick={() => setHeadcountOpen(true)}>
+							<Users className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">Quantitativo</span>
+						</Button>
+						<Button
+							type="button"
+							variant={selectionMode ? "default" : "outline"}
+							size="sm"
+							onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+						>
+							<ListChecks className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
+						</Button>
+					</div>
+
 					{/* Tabs: Visão Geral + dias */}
 					<Tabs value={activeTab} onValueChange={(v) => dispatch({ type: "SET_ACTIVE_TAB", value: v })}>
 						<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
@@ -713,6 +821,17 @@ function WeeklyMenuEditorPage() {
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
+														selectionMode={selectionMode}
+														selectedIds={
+															new Set(
+																boardItems
+																	.map((boardItem) => boardItem.id)
+																	.filter((recipeId) => selectedKeys.has(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })))
+															)
+														}
+														onSelectChange={(recipeId, checked) =>
+															toggleSelection(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
+														}
 														renderExtra={(item) => (
 															<div className="flex items-center gap-1 shrink-0" title="Comensais previstos desta preparação">
 																<Users className="size-3 text-muted-foreground" />
@@ -743,6 +862,26 @@ function WeeklyMenuEditorPage() {
 						))}
 					</Tabs>
 				</div>
+
+				<MenuHeadcountDialog
+					open={headcountOpen}
+					onOpenChange={setHeadcountOpen}
+					mealTypes={mealTypes ?? []}
+					scope="meal-base"
+					countTargets={(plan, overwrite) => countHeadcountTargets(meals, plan, { days: ALL_WEEKDAYS, overwrite })}
+					onApply={handleApplyHeadcountPlan}
+				/>
+
+				{selectionMode && selectedKeys.size > 0 && (
+					<MenuSelectionBar
+						count={selectedKeys.size}
+						kitchenId={kitchenId}
+						onSetHeadcount={handleBulkHeadcount}
+						onReplace={handleBulkReplace}
+						onRemove={handleBulkRemove}
+						onClear={clearSelection}
+					/>
+				)}
 
 				<RecipeSelector
 					open={selectorOpen}

@@ -4,8 +4,10 @@ import type { ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 
 export type MealTypeInfo = { id: string; name: string | null }
 /** Só o que a seção exibe: a listagem que alimenta estas telas não traz a ficha técnica. */
@@ -13,6 +15,10 @@ export type RecipeWithHeadcount = Pick<Recipe, "id" | "name" | "rational_id"> & 
 	headcountOverride: number | null
 	/** Selo ao lado do nome (ex.: versão desatualizada da preparação). */
 	badge?: ReactNode
+	/** `id` do DOM para o localizar rolar até a preparação. */
+	anchorId?: string
+	/** Aparição corrente do localizar. */
+	highlighted?: boolean
 }
 
 export function MealTypeSection({
@@ -22,6 +28,9 @@ export function MealTypeSection({
 	onRemoveRecipe,
 	onItemHeadcountChange,
 	emptyLabel = "Nenhuma preparação atribuída",
+	selectionMode,
+	selectedIds,
+	onSelectChange,
 }: {
 	mealType: MealTypeInfo
 	recipes: RecipeWithHeadcount[]
@@ -29,6 +38,10 @@ export function MealTypeSection({
 	onRemoveRecipe: (recipeId: string) => void
 	onItemHeadcountChange: (recipeId: string, value: number | null) => void
 	emptyLabel?: string
+	/** Seleção em massa (a barra inferior do editor age sobre ela). */
+	selectionMode?: boolean
+	selectedIds?: ReadonlySet<string>
+	onSelectChange?: (recipeId: string, checked: boolean) => void
 }) {
 	const hasRecipes = recipes.length > 0
 
@@ -53,7 +66,23 @@ export function MealTypeSection({
 			{hasRecipes ? (
 				<div className="p-3 space-y-1.5">
 					{recipes.map((recipe) => (
-						<div key={recipe.id} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
+						<div
+							key={recipe.id}
+							id={recipe.anchorId}
+							className={cn(
+								"flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors",
+								selectedIds?.has(recipe.id) && "bg-primary/10 hover:bg-primary/15",
+								recipe.highlighted && "ring-2 ring-ring"
+							)}
+						>
+							{selectionMode && (
+								<Checkbox
+									className="shrink-0"
+									checked={!!selectedIds?.has(recipe.id)}
+									onCheckedChange={(checked) => onSelectChange?.(recipe.id, checked)}
+									aria-label={`Selecionar ${recipe.name}`}
+								/>
+							)}
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center gap-1.5 min-w-0">
 									<p className="text-sm truncate">{recipe.name}</p>
