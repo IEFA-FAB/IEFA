@@ -278,7 +278,9 @@ export function PlanningBoard() {
 
 			{/* Cardápios Semanais Palette */}
 			<TemplatePalette
-				templates={templates || []}
+				// Só semanais: evento/exceção não se aplicam por aqui (o aplicador recusa com
+				// NOT_WEEKLY_TEMPLATE) — oferecê-los era levar o usuário a um beco sem saída.
+				templates={(templates || []).filter((t) => t.template_type === "weekly")}
 				selectedTemplateId={selectedTemplateId}
 				onSelectTemplate={(id) => dispatch({ type: "SET_SELECTED_TEMPLATE_ID", value: id })}
 				onCreateNew={() =>

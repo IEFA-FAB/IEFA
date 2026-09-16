@@ -1,6 +1,7 @@
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarDays, Loader2, RefreshCcw, Trash2, UtensilsCrossed } from "lucide-react"
+import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Item, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemHeader, ItemTitle } from "@/components/ui/item"
@@ -17,8 +18,14 @@ interface TrashDrawerProps {
 }
 
 export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
-	const { data: trashItems, isLoading: itemsLoading } = useTrashItems(kitchenId)
-	const { data: deletedTemplates, isLoading: templatesLoading } = useDeletedTemplates(kitchenId)
+	const { data: trashItems, isLoading: itemsLoading, isError: itemsError, refetch: refetchItems, isRefetching: itemsRefetching } = useTrashItems(kitchenId)
+	const {
+		data: deletedTemplates,
+		isLoading: templatesLoading,
+		isError: templatesError,
+		refetch: refetchTemplates,
+		isRefetching: templatesRefetching,
+	} = useDeletedTemplates(kitchenId)
 	const { mutate: restoreItem, isPending: itemRestoring } = useRestoreMenuItem()
 	const { mutate: restoreTemplate, isPending: templateRestoring } = useRestoreTemplate()
 
@@ -40,6 +47,17 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 					<div className="flex justify-center py-10">
 						<Loader2 className="size-8 animate-spin text-muted-foreground" />
 					</div>
+				) : itemsError || templatesError ? (
+					// Lixeira "vazia" depois de uma falha é a leitura mais danosa possível: faz quem
+					// procura um trabalho perdido concluir que ele sumiu de vez.
+					<QueryErrorState
+						message="Não foi possível carregar a lixeira."
+						onRetry={() => {
+							if (itemsError) refetchItems()
+							if (templatesError) refetchTemplates()
+						}}
+						isRetrying={itemsRefetching || templatesRefetching}
+					/>
 				) : (
 					<Tabs defaultValue="items" className="w-full">
 						<TabsList className="grid w-full grid-cols-2">

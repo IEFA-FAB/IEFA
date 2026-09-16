@@ -48,7 +48,13 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 	}
 
 	const handleDelete = (mealType: MealType) => {
-		if (window.confirm(`Tem certeza que deseja remover "${mealType.name}"?\n\nEste tipo de refeição poderá ser recuperado na lixeira.`)) {
+		// Não há lixeira para tipo de refeição (a de Planejamento só guarda itens e templates), então
+		// o aviso diz o que acontece em vez de prometer uma recuperação que a interface não oferece.
+		if (
+			window.confirm(
+				`Tem certeza que deseja remover "${mealType.name}"?\n\nEle sai dos editores de cardápio e do calendário, e não há como restaurá-lo por aqui.`
+			)
+		) {
 			deleteMealType(mealType.id)
 		}
 	}

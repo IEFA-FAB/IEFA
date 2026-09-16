@@ -62,11 +62,12 @@ export function useTemplate(templateId: string | null) {
 	return useQuery(templateQueryOptions(templateId))
 }
 
-export function useDeletedTemplates(kitchenId: number | null) {
+/** `kitchenId: null` é a lixeira do catálogo global; ligue com `{ enabled: true }` onde ela for usada. */
+export function useDeletedTemplates(kitchenId: number | null, options?: { enabled?: boolean }) {
 	return useQuery({
 		queryKey: queryKeys.templates.deleted(kitchenId),
 		queryFn: () => fetchDeletedTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
-		enabled: kitchenId !== null,
+		enabled: options?.enabled ?? kitchenId !== null,
 		staleTime: 1 * 60 * 1000,
 	})
 }
@@ -181,6 +182,9 @@ export function useDeleteTemplate() {
 		mutationFn: (id: string) => deleteTemplateFn({ data: { templateId: id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
+			// A lixeira mora em `deleted_templates`, fora do prefixo acima: sem isto ela seguia
+			// sem o item recém-excluído até recarregar a página.
+			queryClient.invalidateQueries({ queryKey: ["deleted_templates"] })
 			toast.success("Template removido!")
 		},
 		onError: (error) => toast.error(`Erro ao remover template: ${error.message}`),
@@ -193,6 +197,7 @@ export function useRestoreTemplate() {
 		mutationFn: (id: string) => restoreTemplateFn({ data: { templateId: id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
+			queryClient.invalidateQueries({ queryKey: ["deleted_templates"] })
 			toast.success("Template restaurado!")
 		},
 		onError: (error) => toast.error(`Erro ao restaurar template: ${error.message}`),
@@ -211,7 +216,9 @@ export function useApplyEventTemplate() {
 			const dates = result?.datesProcessed?.length ?? 0
 			const dup = result?.itemsAlreadyApplied ?? 0
 			const dupNote = dup > 0 ? ` ${dup} ${dup === 1 ? "item já aplicado foi ignorado" : "itens já aplicados foram ignorados"}.` : ""
-			toast.success(`Aplicado ao calendário! ${result?.itemsCreated ?? 0} itens somados em ${dates} ${dates === 1 ? "dia" : "dias"}.${dupNote}`)
+			const skipped = result?.itemsSkipped ?? 0
+			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "item ignorado" : "itens ignorados"} (sem refeição ou receita).` : ""
+			toast.success(`Aplicado ao calendário! ${result?.itemsCreated ?? 0} itens somados em ${dates} ${dates === 1 ? "dia" : "dias"}.${dupNote}${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar ao calendário: ${error.message}`),
 	})
@@ -222,7 +229,7 @@ export function useApplyTemplate() {
 	return useMutation({
 		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId, conflictMode }: ApplyTemplatePayload) =>
 			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId, conflictMode } }),
-		onSuccess: (result) => {
+		onSuccess: (result, variables) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			// itemsSkipped é contado por ocorrência (data×refeição), não por slot único do template.
@@ -230,6 +237,23 @@ export function useApplyTemplate() {
 			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
 			const preserved = result?.datesSkipped?.length ?? 0
 			const preservedNote = preserved > 0 ? ` Refeições já planejadas foram preservadas em ${preserved} ${preserved === 1 ? "dia" : "dias"}.` : ""
+			if ((result?.menusCreated ?? 0) === 0 && (result?.itemsCreated ?? 0) === 0) {
+				// Verde com "0 criados" dizia que deu certo sem dizer o que aconteceu. O que aconteceu
+				// depende do modo: no Substituir o planejamento dos dias JÁ foi para a lixeira — dizer
+				// "nada mudou" ali mentiria justamente sobre a parte destrutiva.
+				if (variables.conflictMode === "replace") {
+					toast.warning(
+						`O planejamento desses dias foi para a Lixeira, mas o template não tem preparações para eles — os dias ficaram vazios. Restaure pela Lixeira se não era isso.${skippedNote}`
+					)
+					return
+				}
+				const reason =
+					preserved > 0
+						? `as refeições já estavam planejadas em ${preserved} ${preserved === 1 ? "dia" : "dias"} e foram preservadas`
+						: "o template não tem preparações para essas datas"
+				toast.info(`Nada mudou: ${reason}. Para regravar dias já planejados, aplique de novo escolhendo "Substituir".${skippedNote}`)
+				return
+			}
 			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${preservedNote}${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),
