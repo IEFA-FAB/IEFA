@@ -79,7 +79,7 @@ function AtaDetailPage() {
 	const annexRows = useMemo(() => {
 		if (!ata || !annexSettings) return []
 		if (ata.status === "draft") return buildDraftAnnexRows(needs, annexSettings)
-		return ata.meta.snapshot ? buildSnapshotAnnexRows(ata.meta.snapshot.components) : []
+		return ata.meta.snapshot ? buildSnapshotAnnexRows(ata.meta.snapshot.components, ata.items) : []
 	}, [ata, needs, annexSettings])
 
 	const handleExportCSV = () => {

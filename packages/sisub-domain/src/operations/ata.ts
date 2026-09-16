@@ -114,6 +114,7 @@ type AtaSnapshotSelection = {
 	snapshot_source: string
 }
 type AtaSnapshotComponent = {
+	ingredient_id: string | null
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
@@ -1158,6 +1159,7 @@ async function computeAtaMeta(
 					snapshot_source: s.snapshotSource,
 				})),
 				components: components.map((c) => ({
+					ingredient_id: c.ingredientId,
 					ingredient_name: c.ingredientName,
 					folder_description: c.folderDescription,
 					measure_unit: c.measureUnit,
@@ -1298,8 +1300,10 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 			}
 		}
 
-		// Congela o snapshot ao sair do rascunho (publicar OU arquivar direto). Idempotente em republicação.
-		if (input.status !== "draft") {
+		// Congela o snapshot SÓ na saída do rascunho (publicar OU arquivar direto). Arquivar uma ata
+		// publicada não pode recongelar: recalcularia máxima, ciclo e mínimo com a regra e o insumo de
+		// hoje — e daria limites a atas publicadas antes do anexo existir.
+		if (current === "draft") {
 			await buildAtaSnapshot(tx, input.ataId)
 		}
 	})

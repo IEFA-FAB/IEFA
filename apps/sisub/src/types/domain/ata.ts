@@ -34,6 +34,7 @@ export interface AtaSnapshotSelection {
 }
 
 export interface AtaSnapshotComponent {
+	ingredient_id: string | null
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null

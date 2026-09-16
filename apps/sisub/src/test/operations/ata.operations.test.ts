@@ -8,7 +8,7 @@
  * então rastrear o procurement_list (hard delete) limpa cozinhas, seleções e itens.
  */
 
-import type { SisubDb } from "@iefa/database/drizzle/sisub"
+import { procurementListInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	calculateAtaNeeds,
 	createAta,
@@ -22,6 +22,7 @@ import {
 	updateAtaQuantityLimits,
 	updateAtaStatus,
 } from "@iefa/sisub-domain"
+import { eq } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -346,6 +347,13 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 
 		// Publicada: limites imutáveis.
 		await expect(updateAtaQuantityLimits(db, ctx, { ataId: ata.id, maxMarginPercent: 30 })).rejects.toThrow(/ATA_NOT_DRAFT|imutáveis/i)
+
+		// Arquivar não recongela: nem a margem da ata mudando por fora altera o documento publicado.
+		await db.update(procurementListInProcurement).set({ maxMarginPercent: 90 }).where(eq(procurementListInProcurement.id, ata.id))
+		await updateAtaStatus(db, ctx, { ataId: ata.id, status: "archived" })
+		const archived = await fetchAtaDetails(db, ctx, { ataId: ata.id })
+		const archivedAlface = archived?.meta.snapshot?.components.find((c) => c.ingredient_name === "Alface")
+		expect(Number(archivedAlface?.max_quantity)).toBe(624)
 	})
 
 	test("anexo: item de outra ata não é atualizado pelo ajuste de limites", async () => {
