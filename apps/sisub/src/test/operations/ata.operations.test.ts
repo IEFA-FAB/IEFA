@@ -354,7 +354,8 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		const archived = await fetchAtaDetails(db, ctx, { ataId: ata.id })
 		const archivedAlface = archived?.meta.snapshot?.components.find((c) => c.ingredient_name === "Alface")
 		expect(Number(archivedAlface?.max_quantity)).toBe(624)
-	})
+		// ~15 idas ao banco (publicar, arquivar, reler): no runner do CI passa dos 15 s padrão.
+	}, 60_000)
 
 	test("anexo: item de outra ata não é atualizado pelo ajuste de limites", async () => {
 		if (!reachable || !seeder || !db) return
