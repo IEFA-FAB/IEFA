@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Loader2, Plus } from "lucide-react"
+import { ClipboardPaste, Copy, Loader2, Plus, Users } from "lucide-react"
 import { useState } from "react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import {
@@ -19,12 +19,15 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { toast } from "@/components/ui/toast"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
-import { fetchRecipeWithIngredients } from "@/hooks/data/useRecipes"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems } from "@/lib/menu-item-groups"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
+import { MenuHeadcountDialog } from "./MenuHeadcountDialog"
 import { MenuItemCard } from "./MenuItemCard"
 import { RecipeSelector } from "./RecipeSelector"
 import { SubstitutionModal } from "./SubstitutionModal"
@@ -67,7 +70,96 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	} | null>(null)
 
 	const { mutate: deleteMenuItem } = useDeleteMenuItem()
-	const { mutate: addMenuItem } = useAddMenuItem()
+	const { mutateAsync: addMenuItem } = useAddMenuItem({ silent: true })
+	const { mutateAsync: updateDailyMenu } = useUpdateDailyMenu({ silent: true })
+	const [headcountOpen, setHeadcountOpen] = useState(false)
+	// Área de transferência do cardápio do DIA, por cozinha: a do template guarda itens de
+	// rascunho; aqui cada colagem vira item gravado no dia.
+	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>(`sisub:day-menu:clipboard:${kitchenId}`, [])
+
+	/**
+	 * Adiciona preparações a um menu do dia: pula as que já estão lá e resume o resultado num
+	 * toast só. Antes cada uma buscava a ficha técnica inteira — que o servidor nem usa, ele monta
+	 * o snapshot sozinho — e uma falha nessa busca caía num `catch` vazio: a preparação sumia
+	 * sem aviso nenhum.
+	 */
+	const addToMenu = async (
+		menu: DailyMenuWithItems,
+		entries: { recipeId: string; itemGroup?: string | null; recommendedProportion?: number | null }[],
+		verb: "adicionada" | "colada"
+	) => {
+		const present = new Set((menu.menu_items ?? []).map((i) => i.recipe_origin_id))
+		const fresh = entries.filter((e) => !present.has(e.recipeId))
+		const results = await Promise.allSettled(
+			fresh.map((e) =>
+				addMenuItem({
+					daily_menu_id: menu.id,
+					recipe_origin_id: e.recipeId,
+					// Previsão da refeição; sem ela, fica em branco — os 150 que existiam aqui eram
+					// um número inventado entrando na compra.
+					planned_portion_quantity: menu.forecasted_headcount || null,
+					excluded_from_procurement: 0,
+					item_group: e.itemGroup ?? null,
+					recommended_proportion: e.recommendedProportion ?? null,
+				})
+			)
+		)
+		const failed = results.filter((r) => r.status === "rejected").length
+		const done = fresh.length - failed
+		const skipped = entries.length - fresh.length
+		const plural = (n: number) => (n === 1 ? `preparação ${verb}` : `preparações ${verb}s`)
+		const skippedNote = skipped > 0 ? ` ${skipped} já ${skipped === 1 ? "estava" : "estavam"} na refeição.` : ""
+		if (failed > 0) toast.error(`${done} ${plural(done)}, ${failed} falharam.${skippedNote}`)
+		else if (done > 0) toast.success(`${done} ${plural(done)}.${skippedNote}`)
+		else if (skipped > 0) toast.info(`Nada ${verb === "colada" ? "colado" : "adicionado"}:${skippedNote}`)
+	}
+
+	const handleCopyMeal = (menu: DailyMenuWithItems) => {
+		const entries: MenuClipboardEntry[] = (menu.menu_items ?? [])
+			.filter((i) => i.recipe_origin_id)
+			.map((i) => ({
+				recipe_id: i.recipe_origin_id as string,
+				item_group: i.item_group ?? null,
+				headcount_override: null,
+				recommended_proportion: i.recommended_proportion ?? null,
+				meal_type_id: menu.meal_type_id ?? "",
+			}))
+		if (entries.length === 0) return
+		setClipboard(entries)
+		toast.success(`${entries.length} ${entries.length === 1 ? "preparação copiada" : "preparações copiadas"}`)
+	}
+
+	const handlePasteMeal = (menu: DailyMenuWithItems) =>
+		addToMenu(
+			menu,
+			clipboard.map((e) => ({ recipeId: e.recipe_id, itemGroup: e.item_group, recommendedProportion: e.recommended_proportion })),
+			"colada"
+		)
+
+	/** Quantitativo do dia: um número por refeição, gravado de uma vez nas refeições planejadas. */
+	const plannedMeals = meals.filter((m) => m.menu)
+	const countHeadcountTargets = (plan: HeadcountPlan, overwrite: boolean) =>
+		plannedMeals.filter(({ mealType, menu }) => {
+			const value = plan.get(mealType.id)
+			if (value == null || !menu) return false
+			if (!overwrite && menu.forecasted_headcount) return false
+			return menu.forecasted_headcount !== value
+		}).length
+
+	const handleApplyHeadcount = async (plan: HeadcountPlan, overwrite: boolean) => {
+		const targets = plannedMeals.filter(({ mealType, menu }) => {
+			const value = plan.get(mealType.id)
+			return value != null && menu && (overwrite || !menu.forecasted_headcount) && menu.forecasted_headcount !== value
+		})
+		const results = await Promise.allSettled(
+			targets.map(({ mealType, menu }) =>
+				updateDailyMenu({ id: (menu as DailyMenuWithItems).id, updates: { forecasted_headcount: plan.get(mealType.id) as number } })
+			)
+		)
+		const failed = results.filter((r) => r.status === "rejected").length
+		if (failed > 0) toast.error(`${targets.length - failed} refeições atualizadas, ${failed} falharam.`)
+		else toast.success(`${targets.length} ${targets.length === 1 ? "refeição atualizada" : "refeições atualizadas"}.`)
+	}
 
 	const handleDeleteItem = (itemId: string, recipeName: string) => {
 		setItemToDelete({ id: itemId, name: recipeName })
@@ -86,6 +178,14 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 				<SheetHeader className="mb-6">
 					<SheetTitle className="capitalize">{formattedDate}</SheetTitle>
 					<SheetDescription>Planejamento de cardápio do dia.</SheetDescription>
+					{plannedMeals.length > 0 && (
+						<div>
+							<Button type="button" size="sm" variant="outline" onClick={() => setHeadcountOpen(true)}>
+								<Users className="size-4 mr-2" />
+								Quantitativo do dia
+							</Button>
+						</div>
+					)}
 				</SheetHeader>
 
 				{isLoading ? (
@@ -105,11 +205,23 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 									onSubstitute={(item) => setSubstitutionItem(item)}
 									onDelete={handleDeleteItem}
 									onAddRecipe={setRecipeSelectorMenu}
+									onCopyMeal={handleCopyMeal}
+									onPasteMeal={handlePasteMeal}
+									clipboardCount={clipboard.length}
 								/>
 							))}
 						</Accordion>
 					</ScrollArea>
 				)}
+
+				<MenuHeadcountDialog
+					open={headcountOpen}
+					onOpenChange={setHeadcountOpen}
+					mealTypes={plannedMeals.map(({ mealType }) => ({ id: mealType.id, name: mealType.name }))}
+					scope="day-menu"
+					countTargets={countHeadcountTargets}
+					onApply={handleApplyHeadcount}
+				/>
 
 				<SubstitutionModal open={!!substitutionItem} onClose={() => setSubstitutionItem(null)} menuItem={substitutionItem} />
 
@@ -123,31 +235,14 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					selectedRecipeIds={[]}
 					onSelect={async (recipeIds) => {
 						"use no memo"
-						if (!recipeSelectorMenu || recipeIds.length === 0) {
-							setRecipeSelectorMenu(null)
-							return
-						}
-
-						// Create menu items for each selected recipe with snapshots
-						await Promise.all(
-							recipeIds.map(async (recipeId) => {
-								const portionQty = recipeSelectorMenu.forecasted_headcount || 150
-								try {
-									const recipeSnapshot = await fetchRecipeWithIngredients(recipeId)
-
-									// Create menu item with recipe snapshot (PRD RF12)
-									addMenuItem({
-										daily_menu_id: recipeSelectorMenu.id,
-										recipe_origin_id: recipeId,
-										recipe: recipeSnapshot,
-										planned_portion_quantity: portionQty,
-										excluded_from_procurement: 0,
-									})
-								} catch (_error) {}
-							})
-						)
-
+						const menu = recipeSelectorMenu
 						setRecipeSelectorMenu(null)
+						if (!menu || recipeIds.length === 0) return
+						await addToMenu(
+							menu,
+							recipeIds.map((recipeId) => ({ recipeId })),
+							"adicionada"
+						)
 					}}
 					multiSelect={true}
 				/>
@@ -182,6 +277,9 @@ function MealSection({
 	onSubstitute,
 	onDelete,
 	onAddRecipe,
+	onCopyMeal,
+	onPasteMeal,
+	clipboardCount,
 }: {
 	mealType: {
 		id: string
@@ -195,6 +293,9 @@ function MealSection({
 	onSubstitute: (item: MenuItem) => void
 	onDelete: (itemId: string, recipeName: string) => void
 	onAddRecipe: (menu: DailyMenuWithItems) => void
+	onCopyMeal: (menu: DailyMenuWithItems) => void
+	onPasteMeal: (menu: DailyMenuWithItems) => void
+	clipboardCount: number
 }) {
 	const { mutate: createMenu, isPending: isCreating } = useCreateDailyMenu()
 	const { mutate: updateDailyMenu } = useUpdateDailyMenu()
@@ -300,7 +401,23 @@ function MealSection({
 						<MenuEquipmentAlert dailyMenuId={menu.id} />
 
 						<div className="space-y-2">
-							<h4 className="text-subheading">Itens do Cardápio</h4>
+							<div className="flex items-center justify-between gap-2">
+								<h4 className="text-subheading">Itens do Cardápio</h4>
+								<div className="flex items-center gap-1">
+									{menu.menu_items && menu.menu_items.length > 0 && (
+										<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => onCopyMeal(menu)}>
+											<Copy className="size-3.5" />
+											Copiar refeição
+										</Button>
+									)}
+									{clipboardCount > 0 && (
+										<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => onPasteMeal(menu)}>
+											<ClipboardPaste className="size-3.5" />
+											Colar ({clipboardCount})
+										</Button>
+									)}
+								</div>
+							</div>
 							{!menu.menu_items || menu.menu_items.length === 0 ? (
 								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 							) : (

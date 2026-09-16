@@ -29,6 +29,7 @@ import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
 import {
 	applyHeadcountToMeals,
+	applyRecipeSelection,
 	copyMenuItems,
 	countHeadcountTargets,
 	type HeadcountPlan,
@@ -71,12 +72,15 @@ function DayOverviewCard({
 	day,
 	mealTypes,
 	items,
+	meals,
 	recipeMap,
 	onNavigate,
 }: {
 	day: (typeof WEEKDAYS)[number]
 	mealTypes: MealTypeInfo[]
 	items: TemplateItemDraft[]
+	/** Efetivo base por refeição — sem ele, depois do auxiliador não havia como ver o que faltou. */
+	meals: TemplateMealDraft[]
 	recipeMap: Map<string, string>
 	onNavigate: () => void
 }) {
@@ -104,11 +108,18 @@ function DayOverviewCard({
 				{mealTypes.map((mt) => {
 					const mtItems = dayItems.filter((i) => i.meal_type_id === mt.id)
 					const count = mtItems.length
+					const base = meals.find((m) => m.day_of_week === day.num && m.meal_type_id === mt.id)?.base_headcount ?? null
 					const entries = mtItems.map((i) => ({ id: i.recipe_id, name: recipeMap.get(i.recipe_id) }))
 					return (
 						<div key={mt.id} className="flex items-center gap-2">
 							{count > 0 ? <CheckCircle2 className="size-3.5 text-success shrink-0" /> : <Circle className="size-3.5 text-muted-foreground/30 shrink-0" />}
 							<span className={cn("text-xs truncate flex-1", count > 0 ? "text-foreground" : "text-muted-foreground/50")}>{mt.name}</span>
+							{count > 0 &&
+								(base == null ? (
+									<span className="text-xs text-warning shrink-0">sem efetivo</span>
+								) : (
+									<span className="text-xs text-muted-foreground shrink-0 tabular-nums">{base}</span>
+								))}
 							{count > 0 && (
 								<Tooltip>
 									<TooltipTrigger
@@ -247,6 +258,8 @@ function WeeklyMenuEditorPage() {
 	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
 	const [headcountOpen, setHeadcountOpen] = useState(false)
+	// Outros dias em que a seleção do diálogo também entra (só adiciona, nunca remove).
+	const [extraDays, setExtraDays] = useState<ReadonlySet<number>>(new Set())
 	// Área de transferência do cardápio: sobrevive à navegação na aba, então dá para copiar
 	// de um cardápio e colar em outro.
 	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>(`sisub:menu:clipboard:${kitchenId}`, [])
@@ -453,6 +466,7 @@ function WeeklyMenuEditorPage() {
 	}
 
 	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string, group: MenuItemGroup | null) => {
+		setExtraDays(new Set())
 		dispatch({ type: "SET_SELECTED_CELL", value: { dayOfWeek, mealTypeId, group } })
 		dispatch({ type: "SET_SELECTOR_OPEN", value: true })
 	}
@@ -460,26 +474,14 @@ function WeeklyMenuEditorPage() {
 	const handleSelectRecipes = (recipeIds: string[]) => {
 		if (!selectedCell) return
 		const { dayOfWeek, mealTypeId, group } = selectedCell
-		// Preserva grupo/ordem/proporção/headcount das preparações que permanecem na célula.
-		const existingByRecipe = new Map(items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId).map((i) => [i.recipe_id, i]))
-		const filtered = items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId))
-		// Novas preparações entram no grupo escolhido, no fim dele; existentes mantêm seus atributos.
-		let nextInGroup = existingByRecipe.size
-		const newItems: TemplateItemDraft[] = recipeIds.map((recipeId) => {
-			const existing = existingByRecipe.get(recipeId)
-			if (existing) return existing
-			return {
-				day_of_week: dayOfWeek,
-				meal_type_id: mealTypeId,
-				recipe_id: recipeId,
-				headcount_override: null,
-				item_group: group,
-				sort_order: nextInGroup++,
-				recommended_proportion: null,
-			}
-		})
-		dispatch({ type: "SET_ITEMS", value: [...filtered, ...newItems] })
+		// Origem: o diálogo define o conteúdo. Outros dias: só adiciona. Regras em `applyRecipeSelection`.
+		const next = applyRecipeSelection(items, { day: dayOfWeek, mealTypeId, group }, recipeIds, extraDays, (draft) => ({
+			...draft,
+			item_group: draft.item_group as MenuItemGroup | null,
+		}))
+		dispatch({ type: "SET_ITEMS", value: next })
 		dispatch({ type: "SET_SELECTED_CELL", value: null })
+		setExtraDays(new Set())
 	}
 
 	const handleUpdateVersions = (replacements: Map<string, string>) => {
@@ -849,6 +851,7 @@ function WeeklyMenuEditorPage() {
 										day={day}
 										mealTypes={mealTypes ?? []}
 										items={items}
+										meals={meals}
 										recipeMap={recipeMap}
 										onNavigate={() => dispatch({ type: "SET_ACTIVE_TAB", value: String(day.num) })}
 									/>
@@ -1015,6 +1018,42 @@ function WeeklyMenuEditorPage() {
 					selectedRecipeIds={currentCellRecipeIds}
 					onSelect={handleSelectRecipes}
 					multiSelect
+					allowEmpty
+					title={
+						selectedCell
+							? `Preparações de ${mealTypes?.find((m) => m.id === selectedCell.mealTypeId)?.name ?? "refeição"} — ${WEEKDAYS.find((d) => d.num === selectedCell.dayOfWeek)?.label ?? ""}`
+							: undefined
+					}
+					description="Marque o que deve estar nesta refeição: o que já está vem marcado, e desmarcar remove. Nos outros dias escolhidos abaixo, as marcadas são só adicionadas."
+					footerSlot={
+						selectedCell ? (
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="text-sm text-muted-foreground">Adicionar também em:</span>
+								{WEEKDAYS.filter((d) => d.num !== selectedCell.dayOfWeek).map((d) => {
+									const on = extraDays.has(d.num)
+									return (
+										<Button
+											key={d.num}
+											type="button"
+											size="sm"
+											variant={on ? "default" : "outline"}
+											aria-pressed={on}
+											onClick={() =>
+												setExtraDays((prev) => {
+													const nextDays = new Set(prev)
+													if (nextDays.has(d.num)) nextDays.delete(d.num)
+													else nextDays.add(d.num)
+													return nextDays
+												})
+											}
+										>
+											{d.abbr}
+										</Button>
+									)
+								})}
+							</div>
+						) : undefined
+					}
 				/>
 			</div>
 		</TooltipProvider>

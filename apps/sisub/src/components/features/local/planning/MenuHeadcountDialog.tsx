@@ -30,7 +30,7 @@ export function MenuHeadcountDialog({
 	onOpenChange: (open: boolean) => void
 	mealTypes: MealTypeInfo[]
 	/** Só muda o texto: o destino de verdade é decidido no `onApply`. */
-	scope: "meal-base" | "item-headcount"
+	scope: "meal-base" | "item-headcount" | "day-menu"
 	/** Quantos destinos a aplicação vai mudar — vem do rascunho do editor. */
 	countTargets: (plan: HeadcountPlan, overwrite: boolean) => number
 	onApply: (plan: HeadcountPlan, overwrite: boolean) => void
@@ -74,7 +74,9 @@ export function MenuHeadcountDialog({
 					<DialogDescription>
 						{scope === "meal-base"
 							? "Informe quantas pessoas comem em cada refeição. O número vira o efetivo da refeição em todos os dias do cardápio e vale para todas as preparações dela."
-							: "Informe quantas pessoas comem em cada refeição. O número vai para todas as preparações da refeição."}
+							: scope === "day-menu"
+								? "Informe quantas pessoas comem em cada refeição deste dia. O número vira a previsão de comensais da refeição; refeições ainda não planejadas neste dia não recebem."
+								: "Informe quantas pessoas comem em cada refeição. O número vai para todas as preparações da refeição."}
 					</DialogDescription>
 				</DialogHeader>
 

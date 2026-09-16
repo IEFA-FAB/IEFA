@@ -306,3 +306,69 @@ export function pasteMenuItems<T extends MenuDraftItem & { item_group?: string |
 
 	return { items: result, pasted, skipped }
 }
+
+/** Item de template com os campos que o seletor preenche. */
+export type SelectableMenuItem = MenuDraftItem & {
+	item_group?: string | null
+	sort_order?: number
+	recommended_proportion?: number | null
+}
+
+/**
+ * Aplica o resultado do seletor de preparações.
+ *
+ * - Na refeição de ORIGEM o seletor define o conteúdo: vem pré-marcado com o que já está lá, e
+ *   desmarcar remove. Quem permanece mantém grupo, ordem, porcentagem e comensais.
+ * - Nos OUTROS dias escolhidos, só adiciona o que ainda não está naquela refeição. Nunca remove:
+ *   o usuário não viu o conteúdo desses dias no diálogo.
+ *
+ * Preparação nova entra no fim do GRUPO escolhido. Contar a célula inteira fazia a primeira
+ * sobremesa nascer na posição 5 de um grupo vazio.
+ */
+export function applyRecipeSelection<T extends SelectableMenuItem>(
+	items: readonly T[],
+	cell: { day: number; mealTypeId: string; group: string | null },
+	recipeIds: readonly string[],
+	extraDays: Iterable<number>,
+	makeItem: (draft: {
+		day_of_week: number
+		meal_type_id: string
+		recipe_id: string
+		headcount_override: null
+		item_group: string | null
+		sort_order: number
+		recommended_proportion: null
+	}) => T
+): T[] {
+	const inCell = (item: SelectableMenuItem, day: number) => item.day_of_week === day && item.meal_type_id === cell.mealTypeId
+	const groupSize = (source: readonly SelectableMenuItem[], day: number) => source.filter((i) => inCell(i, day) && (i.item_group ?? null) === cell.group).length
+	const draft = (day: number, recipeId: string, sortOrder: number) =>
+		makeItem({
+			day_of_week: day,
+			meal_type_id: cell.mealTypeId,
+			recipe_id: recipeId,
+			headcount_override: null,
+			item_group: cell.group,
+			sort_order: sortOrder,
+			recommended_proportion: null,
+		})
+
+	const existing = new Map(items.filter((i) => inCell(i, cell.day)).map((i) => [i.recipe_id, i]))
+	const next: T[] = items.filter((i) => !inCell(i, cell.day))
+	let order = groupSize([...existing.values()], cell.day)
+	for (const recipeId of new Set(recipeIds)) {
+		const kept = existing.get(recipeId)
+		next.push(kept ?? draft(cell.day, recipeId, order++))
+	}
+
+	for (const day of new Set(extraDays)) {
+		if (day === cell.day) continue
+		const present = new Set(next.filter((i) => inCell(i, day)).map((i) => i.recipe_id))
+		let dayOrder = groupSize(next, day)
+		for (const recipeId of new Set(recipeIds)) {
+			if (present.has(recipeId)) continue
+			next.push(draft(day, recipeId, dayOrder++))
+		}
+	}
+	return next
+}

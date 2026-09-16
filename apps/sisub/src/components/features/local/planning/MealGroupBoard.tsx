@@ -13,11 +13,11 @@ import {
 } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ClipboardPaste, Copy, GripVertical, Percent, Plus, Users, X } from "lucide-react"
+import { ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuGroupLabel, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
@@ -98,6 +98,7 @@ function SortableItem({
 	onCopy,
 	onPaste,
 	canPaste,
+	onMoveToGroup,
 }: {
 	item: BoardItem
 	onProportionChange: (id: string, value: number | null) => void
@@ -112,6 +113,7 @@ function SortableItem({
 	onCopy?: (id: string) => void
 	onPaste?: () => void
 	canPaste?: boolean
+	onMoveToGroup: (id: string, group: MenuItemGroup | null) => void
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
@@ -188,7 +190,9 @@ function SortableItem({
 							if (raw === "") return onHeadcountChange?.(item.id, null)
 							const parsed = Number.parseInt(raw, 10)
 							if (Number.isNaN(parsed)) return
-							onHeadcountChange?.(item.id, Math.max(0, parsed))
+							// Mesmo piso do auxiliador e da barra de seleção: comensais é positivo. Zero
+							// aqui entrava na compra como "ninguém come" sem ninguém ter dito isso.
+							onHeadcountChange?.(item.id, parsed >= 1 ? parsed : null)
 						}}
 						onClick={(e) => e.stopPropagation()}
 					/>
@@ -240,6 +244,15 @@ function SortableItem({
 					<ClipboardPaste className="size-4" />
 					Colar aqui
 				</ContextMenuItem>
+				<ContextMenuGroupLabel>Mover para</ContextMenuGroupLabel>
+				{/* Trocar o grupo só era possível arrastando — no celular as colunas empilham e
+				    arrastar de "Prato principal" para "Guarnição" é atravessar a tela inteira. */}
+				{MENU_ITEM_GROUPS.filter((g) => g !== item.group).map((g) => (
+					<ContextMenuItem key={g} onClick={() => onMoveToGroup(item.id, g)}>
+						<ArrowRightLeft className="size-4" />
+						{MENU_ITEM_GROUP_LABELS[g]}
+					</ContextMenuItem>
+				))}
 				<ContextMenuItem onClick={() => onRemove(item.id)}>
 					<X className="size-4" />
 					Remover
@@ -267,6 +280,7 @@ function GroupColumn({
 	onCopy,
 	onPaste,
 	canPaste,
+	onMoveToGroup,
 }: {
 	columnKey: ColumnKey
 	label: string
@@ -285,6 +299,7 @@ function GroupColumn({
 	onCopy?: (id: string) => void
 	onPaste?: () => void
 	canPaste?: boolean
+	onMoveToGroup: (id: string, group: MenuItemGroup | null) => void
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `col:${columnKey}`, data: { isColumn: true, columnKey } })
 	const canAdd = onAdd && columnKey !== UNGROUPED_KEY
@@ -333,6 +348,7 @@ function GroupColumn({
 									onCopy={onCopy}
 									onPaste={onPaste}
 									canPaste={canPaste}
+									onMoveToGroup={onMoveToGroup}
 								/>
 							)
 						})
@@ -501,6 +517,16 @@ export function MealGroupBoard({
 		onArrange(columnsToArrangement(next))
 	}
 
+	/** Mesmo efeito de arrastar o item para o fim de outra coluna, sem arrastar. */
+	const moveToGroup = (id: string, group: MenuItemGroup | null) => {
+		const target = columnKeyOf(group)
+		const next = {} as Record<ColumnKey, string[]>
+		for (const key of Object.keys(columns) as ColumnKey[]) next[key] = columns[key].filter((itemId) => itemId !== id)
+		next[target] = [...next[target], id]
+		setColumns(next)
+		onArrange(columnsToArrangement(next))
+	}
+
 	const activeItem = activeId ? itemMap.get(activeId) : null
 
 	return (
@@ -537,6 +563,7 @@ export function MealGroupBoard({
 							onCopy={onCopy}
 							onPaste={onPaste}
 							canPaste={canPaste}
+							onMoveToGroup={moveToGroup}
 						/>
 					)
 				})}
