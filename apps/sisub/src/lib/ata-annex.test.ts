@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import type { AtaSnapshotComponent } from "@/types/domain/ata"
-import { annexMaxValue, buildSnapshotAnnexRows } from "./ata-annex"
+import { annexMaxValue, buildAnnexCsv, buildSnapshotAnnexRows } from "./ata-annex"
 
 /** Componente de snapshot mínimo: só os campos que o anexo lê. */
 function component(overrides: Partial<AtaSnapshotComponent>): AtaSnapshotComponent {
@@ -29,6 +29,16 @@ describe("buildSnapshotAnnexRows", () => {
 		expect(rows[0]?.unitPrice).toBe(12)
 		// Valor máximo = máxima congelada (120) × preço atual (12).
 		expect(annexMaxValue(rows)).toBe(1440)
+	})
+
+	test("preço vivo em string (numeric do Drizzle) vira número e o CSV exporta", () => {
+		const rows = buildSnapshotAnnexRows(
+			[component({})],
+			[{ ingredient_id: "ing-1", item_description: null, catmat_item_descricao: null, unit_price: "12.5000" }]
+		)
+		expect(rows[0]?.unitPrice).toBe(12.5)
+		expect(() => buildAnnexCsv(rows)).not.toThrow()
+		expect(buildAnnexCsv(rows)).toContain('"12.5000"')
 	})
 
 	test("sem item vivo, cai no preço congelado do snapshot", () => {

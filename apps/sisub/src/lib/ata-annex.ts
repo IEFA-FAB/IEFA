@@ -110,7 +110,7 @@ export function buildSnapshotAnnexRows(
 		ingredient_id: string | null
 		item_description: string | null
 		catmat_item_descricao: string | null
-		unit_price?: number | null
+		unit_price?: number | string | null
 	}> = []
 ): AtaAnnexRow[] {
 	const liveByIngredient = new Map(liveItems.filter((i) => i.ingredient_id).map((i) => [i.ingredient_id as string, i]))
@@ -140,7 +140,8 @@ export function buildSnapshotAnnexRows(
 			suggestedMinOrderQuantity: null,
 			minOrderQuantity: toNumber(c.min_order_quantity),
 			minOrderSource: null,
-			unitPrice: live?.unit_price ?? toNumber(c.unit_price),
+			// `Number(...)`: numeric chega STRING do Drizzle apesar do tipo gerado dizer number.
+			unitPrice: live?.unit_price != null ? Number(live.unit_price) : toNumber(c.unit_price),
 			warnings: [],
 			choices: null,
 		}
