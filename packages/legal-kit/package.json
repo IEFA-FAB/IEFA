@@ -15,7 +15,7 @@
   "dependencies": {
     "@iefa/database": "workspace:*",
     "@iefa/supabase-kit": "workspace:*",
-    "@supabase/supabase-js": "^2.115.0",
+    "@supabase/supabase-js": "^2.116.0",
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-breaks": "^4.0.0",
@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.2",
     "@types/react": "^19.2.18",
     "typescript": "^7.0.2"
   }
