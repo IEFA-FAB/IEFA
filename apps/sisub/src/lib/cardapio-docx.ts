@@ -32,9 +32,13 @@ export type CardapioDocxData = {
 	signatures: CardapioDocxSignature[]
 	/** 7 colunas, Segunda→Domingo; `date` já formatada (dd/MM) ou null. */
 	columns: { label: string; date: string | null }[]
-	/** Uma linha por tipo de refeição; `cells` alinhado às colunas. */
-	rows: { meal: string; cells: { name: string; proportion: number | null }[][] }[]
-	preparations: { name: string; prePreparation: string | null; method: string | null }[]
+	/**
+	 * Uma linha por tipo de refeição; `cells` e `bases` alinhados às colunas. `demand` é a
+	 * demanda do item já formatada ("120 pax" ou "30%"); `bases`, o efetivo da refeição no dia.
+	 */
+	rows: { meal: string; cells: { name: string; demand: string | null }[][]; bases?: (number | null)[] }[]
+	/** `version` já descrita ("v3" ou "v3 — desatualizada (atual: v5)"). */
+	preparations: { name: string; version?: string | null; prePreparation: string | null; method: string | null }[]
 }
 
 const BLACK = "000000"
@@ -101,15 +105,20 @@ function buildGrid(data: CardapioDocxData): Table {
 					}),
 					...row.cells.map((entries, colIdx) =>
 						bodyCell(
-							entries.map(
-								(e) =>
-									new Paragraph({
-										children: [
-											new TextRun({ text: e.name.toUpperCase(), size: 16 }),
-											...(e.proportion != null ? [new TextRun({ text: ` ${e.proportion}%`, bold: true, size: 16 })] : []),
-										],
-									})
-							),
+							[
+								...(row.bases?.[colIdx] != null && entries.length > 0
+									? [new Paragraph({ children: [new TextRun({ text: `${row.bases[colIdx]} pessoas`, italics: true, size: 14 })] })]
+									: []),
+								...entries.map(
+									(e) =>
+										new Paragraph({
+											children: [
+												new TextRun({ text: e.name.toUpperCase(), size: 16 }),
+												...(e.demand ? [new TextRun({ text: ` ${e.demand}`, bold: true, size: 16 })] : []),
+											],
+										})
+								),
+							],
 							{ shaded: colIdx >= 5 }
 						)
 					),
@@ -133,7 +142,7 @@ function buildPreparations(data: CardapioDocxData): Paragraph[] {
 				new Paragraph({
 					spacing: { after: 40 },
 					children: [
-						new TextRun({ text: `${p.name.toUpperCase()} — `, bold: true, size: 16 }),
+						new TextRun({ text: `${p.name.toUpperCase()}${p.version ? ` (${p.version})` : ""} — `, bold: true, size: 16 }),
 						// Pré-preparo rotulado: sem o rótulo, dessalgue e cocção viram um texto só
 						// e a cozinha executa a ordem errada.
 						...(p.prePreparation ? [new TextRun({ text: `Pré-preparo: ${p.prePreparation}${p.method ? " " : ""}`, italics: true, size: 16 })] : []),

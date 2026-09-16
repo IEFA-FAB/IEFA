@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest"
-import { findOutdatedRecipes, indexLatestByLineage, isSupersededBy, type RecipeVersionRef, replaceRecipeVersions } from "./recipe-versions"
+import {
+	describeRecipeVersion,
+	findOutdatedRecipes,
+	indexLatestByLineage,
+	isSupersededBy,
+	type RecipeVersionRef,
+	replaceRecipeVersions,
+} from "./recipe-versions"
 
 function recipe(overrides: Partial<RecipeVersionRef> & Pick<RecipeVersionRef, "id">): RecipeVersionRef {
 	return { name: overrides.id, version: 1, kitchen_id: null, base_recipe_id: null, ...overrides }
@@ -98,5 +105,16 @@ describe("replaceRecipeVersions", () => {
 	test("a mesma preparação em refeições diferentes é trocada em todas", () => {
 		const result = replaceRecipeVersions([item(1, "almoco", "v2"), item(3, "almoco", "v2"), item(1, "jantar", "v2")], new Map([["v2", "v3"]]))
 		expect(result.map((i) => i.recipe_id)).toEqual(["v3", "v3", "v3"])
+	})
+})
+
+describe("describeRecipeVersion", () => {
+	test("versão em dia sai só com o número", () => {
+		expect(describeRecipeVersion(3, undefined)).toBe("v3")
+	})
+
+	test("versão antiga diz qual é a atual", () => {
+		const outdated = findOutdatedRecipes(["v2"], new Map([root, v2, v3].map((r) => [r.id, r])), indexLatestByLineage([v3]))[0]
+		expect(describeRecipeVersion(2, outdated)).toBe("v2 — desatualizada (atual: v3)")
 	})
 })

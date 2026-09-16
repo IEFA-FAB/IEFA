@@ -8,18 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
 import { isMenuItemGroup, MENU_ITEM_GROUP_LABELS, MENU_ITEM_GROUPS, type MenuItemGroup, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
+import type { OutdatedRecipe } from "@/lib/recipe-versions"
 import type { MenuItem } from "@/types/domain/planning"
+import { RecipeVersionBadge } from "./RecipeVersionUpdateDialog"
 
 interface MenuItemCardProps {
 	item: MenuItem
 	onSubstitute: (item: MenuItem) => void
 	onDelete: (itemId: string, recipeName: string) => void
+	/** Preenchido quando a ficha deste item tem versão mais nova no catálogo. */
+	outdated?: OutdatedRecipe
 }
 
 /**
  * Menu Item Card com controles editáveis para porção planejada e quantidade excluída
  */
-export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps) {
+export function MenuItemCard({ item, onSubstitute, onDelete, outdated }: MenuItemCardProps) {
 	const { mutate: updateMenuItem } = useUpdateMenuItem()
 
 	const recipeName = (item.recipe as { name?: string })?.name || "Preparação sem nome"
@@ -78,6 +82,9 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
 					<p className="text-subheading">{recipeName}</p>
+					{/* O dia guarda a ficha da versão aplicada; sem este selo a cozinha produzia por uma
+					    ficha antiga sem sinal nenhum. Para atualizar, é no cardápio semanal + reaplicar. */}
+					<RecipeVersionBadge outdated={outdated} />
 					{item.origin_template_type === "event" && (
 						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
 							Evento

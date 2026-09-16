@@ -105,3 +105,13 @@ export function replaceRecipeVersions<T extends CellItem>(items: readonly T[], r
 	}
 	return result
 }
+
+/**
+ * Versão da ficha como a folha impressa e o cardápio do dia a descrevem: "v3", ou
+ * "v3 — desatualizada (atual: v5)". A cozinha produz pela folha; sem isso uma ficha antiga saía
+ * idêntica a uma atual.
+ */
+export function describeRecipeVersion(version: number, outdated: OutdatedRecipe | undefined): string {
+	if (!outdated) return `v${version}`
+	return `v${version} — desatualizada (atual: v${outdated.latest.version})`
+}
