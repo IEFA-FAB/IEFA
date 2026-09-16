@@ -26,6 +26,7 @@ export interface AtaAnnexRow {
 	ataItemId: string | null
 	folder: string
 	catmat: number | null
+	catmatDescription: string | null
 	description: string
 	itemDescription: string | null
 	unit: string
@@ -68,6 +69,7 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 			ataItemId: item.ata_item_id ?? null,
 			folder: item.folder_description || "Sem categoria",
 			catmat: item.catmat_item_codigo,
+			catmatDescription: item.catmat_item_descricao,
 			description: item.purchase_item_description ?? item.catmat_item_descricao ?? item.ingredient_name,
 			itemDescription: item.item_description,
 			unit: (item.purchase_quantity != null ? item.purchase_measure_unit : item.measure_unit) ?? "UN",
@@ -95,8 +97,17 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 
 const toNumber = (value: string | null): number | null => (value == null ? null : Number(value))
 
-export function buildSnapshotAnnexRows(components: AtaSnapshotComponent[]): AtaAnnexRow[] {
+/**
+ * Linhas da ata publicada. Números vêm do snapshot; descrição adicional e descrição CATMAT vêm
+ * do item vivo (o snapshot não as congela, e a descrição segue editável depois de publicar).
+ */
+export function buildSnapshotAnnexRows(
+	components: AtaSnapshotComponent[],
+	liveItems: Array<{ ingredient_id: string | null; item_description: string | null; catmat_item_descricao: string | null }> = []
+): AtaAnnexRow[] {
+	const liveByIngredient = new Map(liveItems.filter((i) => i.ingredient_id).map((i) => [i.ingredient_id as string, i]))
 	return components.map((c, index) => {
+		const live = c.ingredient_id ? liveByIngredient.get(c.ingredient_id) : undefined
 		const purchaseQuantity = toNumber(c.purchase_quantity)
 		const targetQuantity = purchaseQuantity ?? Number(c.total_quantity)
 		const maxQuantity = toNumber(c.max_quantity)
@@ -105,8 +116,9 @@ export function buildSnapshotAnnexRows(components: AtaSnapshotComponent[]): AtaA
 			ataItemId: null,
 			folder: c.folder_description || "Sem categoria",
 			catmat: c.catmat_item_codigo,
+			catmatDescription: live?.catmat_item_descricao ?? null,
 			description: c.purchase_item_description ?? c.ingredient_name,
-			itemDescription: null,
+			itemDescription: live?.item_description ?? null,
 			unit: (purchaseQuantity != null ? c.purchase_measure_unit : c.measure_unit) ?? "UN",
 			targetQuantity,
 			marginPercent: c.max_margin_percent,
@@ -142,6 +154,7 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		"Item",
 		"Categoria",
 		"CATMAT",
+		"Descrição CATMAT",
 		"Descrição",
 		"Descrição Adicional",
 		"Unidade",
@@ -157,6 +170,7 @@ export function buildAnnexCsv(rows: AtaAnnexRow[], marginJustification?: string 
 		index + 1,
 		r.folder,
 		r.catmat,
+		r.catmatDescription,
 		r.description,
 		r.itemDescription,
 		r.unit,
