@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { MealSection } from "@/components/features/diner/MealSection"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -52,8 +52,16 @@ function formatDateLabel(dateStr: string): string {
 }
 
 function MenuPage() {
-	const [selectedDate, setSelectedDate] = useState(todayISO)
-	const dates = getDateRange(7)
+	// Datas resolvidas SÓ no navegador. A página renderiza primeiro no servidor, que roda em UTC:
+	// calculando "hoje" nos dois lados, das 21h à meia-noite (UTC-3) servidor e navegador
+	// discordariam do dia — erro de hidratação e o dia errado piscando na tela.
+	const [today, setToday] = useState<string | null>(null)
+	const [chosenDate, setChosenDate] = useState<string | null>(null)
+	useEffect(() => setToday(todayISO()), [])
+
+	const dates = today ? getDateRange(7) : []
+	const selectedDate = chosenDate ?? today ?? ""
+	const setSelectedDate = setChosenDate
 	const selectedIndex = dates.indexOf(selectedDate)
 
 	const canGoPrev = selectedIndex > 0
@@ -65,7 +73,9 @@ function MenuPage() {
 	const defaultMessHall = messHalls.find((m) => String(m.id) === String(defaultMessHallId))
 	const kitchenIds = defaultMessHall?.kitchen_id ? [defaultMessHall.kitchen_id] : []
 
-	const { data: menuContent, isLoading } = useDailyMenuContent(kitchenIds, dates[0], dates[dates.length - 1])
+	const { data: menuContent, isLoading: contentLoading } = useDailyMenuContent(kitchenIds, dates[0] ?? "", dates[dates.length - 1] ?? "")
+	// Antes de o navegador resolver a data, a tela é de carregamento — não "sem cardápio".
+	const isLoading = contentLoading || today === null
 
 	const dayMenu = menuContent?.[selectedDate] ?? {}
 	const hasMeals = MEAL_ORDER.some((k) => (dayMenu[k]?.length ?? 0) > 0)
@@ -81,8 +91,8 @@ function MenuPage() {
 				</Button>
 
 				<div className="text-center">
-					<p className="text-subheading capitalize">{formatDateLabel(selectedDate)}</p>
-					{selectedDate === todayISO() && <span className="text-caption text-primary">Hoje</span>}
+					<p className="text-subheading capitalize">{selectedDate ? formatDateLabel(selectedDate) : "\u00a0"}</p>
+					{selectedDate !== "" && selectedDate === today && <span className="text-caption text-primary">Hoje</span>}
 				</div>
 
 				<Button variant="ghost" size="icon" onClick={() => setSelectedDate(dates[selectedIndex + 1])} disabled={!canGoNext} aria-label="Próximo dia">
