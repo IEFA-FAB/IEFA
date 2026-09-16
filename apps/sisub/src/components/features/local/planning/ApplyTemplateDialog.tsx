@@ -2,6 +2,7 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Calendar, ChevronRight, Loader2 } from "lucide-react"
 import { useState } from "react"
+import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -38,7 +39,10 @@ const WEEKDAYS = [
 ]
 
 export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, plannedDates }: ApplyTemplateDialogProps) {
-	const { data: templates, isLoading } = useMenuTemplates(kitchenId)
+	const { data: allTemplates, isLoading, isError, refetch, isRefetching } = useMenuTemplates(kitchenId)
+	// Só semanais: evento e exceção têm aplicador próprio, e escolhê-los aqui terminava em erro
+	// do servidor DEPOIS de o usuário já ter montado as datas.
+	const templates = allTemplates?.filter((t) => t.template_type === "weekly")
 	const { mutate: applyTemplate, isPending } = useApplyTemplate()
 	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1) // Monday
@@ -164,6 +168,8 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 							<div className="flex justify-center p-4">
 								<Loader2 className="animate-spin text-muted-foreground" />
 							</div>
+						) : isError ? (
+							<QueryErrorState message="Não foi possível carregar os templates." onRetry={() => refetch()} isRetrying={isRefetching} />
 						) : (
 							<ScrollArea className="h-32 border rounded-md">
 								<div className="p-2 space-y-2">

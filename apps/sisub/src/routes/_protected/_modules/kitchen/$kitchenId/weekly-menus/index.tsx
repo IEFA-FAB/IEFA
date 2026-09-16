@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { CalendarDays, Edit, GitFork, Plus, Trash2 } from "lucide-react"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
+import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,10 +25,17 @@ function WeeklyMenusPage() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = Number(kitchenIdStr)
 
-	const { data: templates, isLoading } = useMenuTemplates(kitchenId)
+	const { data: templates, isLoading, isError, refetch, isRefetching } = useMenuTemplates(kitchenId)
 	const { mutate: deleteTemplate, isPending: isDeleting } = useDeleteTemplate()
+	// Criar, adaptar, editar e remover exigem nível 2 NESTA cozinha. Mostrar os botões a quem só
+	// lê levava a um clique que termina em erro de permissão.
+	const { can } = usePBAC()
+	const canWrite = can("kitchen", 2, { type: "kitchen", id: kitchenId })
 
-	const globalTemplates = templates?.filter((t) => t.kitchen_id === null) || []
+	// Só semanais também na seção global: eventos e exceções globais apareciam aqui como
+	// "planos", e adaptar um deles criava um cardápio que sumia desta lista e que o
+	// aplicador recusa.
+	const globalTemplates = templates?.filter((t) => t.kitchen_id === null && t.template_type === "weekly") || []
 	// Allowlist explícita: só cardápios semanais. Eventos vivem em /events, exceções em /exceptions.
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type === "weekly") || []
 
@@ -41,177 +49,195 @@ function WeeklyMenusPage() {
 		<div className="space-y-6">
 			<PageHeader title="Cardápios Semanais">
 				<div className="flex items-center gap-2">
-					<Button
-						size="sm"
-						nativeButton={false}
-						render={
-							<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
-								<Plus className="size-4 mr-2" />
-								Novo Cardápio Semanal
-							</Link>
-						}
-					/>
+					{canWrite && (
+						<Button
+							size="sm"
+							nativeButton={false}
+							render={
+								<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
+									<Plus className="size-4 mr-2" />
+									Novo Cardápio Semanal
+								</Link>
+							}
+						/>
+					)}
 				</div>
 			</PageHeader>
 
-			<div className="space-y-8">
-				{/* Planos Globais da SDAB (somente leitura) */}
-				{globalTemplates.length > 0 && (
-					<div>
-						<div className="flex items-center gap-2 mb-3">
-							<CalendarDays className="size-4 text-muted-foreground" />
-							<h2 className="text-subheading">Planos Globais da SDAB</h2>
-							<Badge variant="outline" className="text-xs">
-								Somente leitura · disponíveis para adaptar
-							</Badge>
-						</div>
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Nome</TableHead>
-										<TableHead>Descrição</TableHead>
-										<TableHead className="w-28 text-center">Preparações</TableHead>
-										<TableHead className="w-32 text-right">Ação</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{globalTemplates.map((template) => (
-										<TableRow key={template.id}>
-											<TableCell className="text-subheading">{template.name}</TableCell>
-											<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
-											<TableCell className="text-center">
-												<Badge variant="secondary" className="font-mono text-xs">
-													{template.recipe_count || 0}
-												</Badge>
-											</TableCell>
-											<TableCell className="text-right">
-												<Button
-													size="sm"
-													variant="outline"
-													nativeButton={false}
-													render={
-														<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }} search={{ forkFrom: template.id }}>
-															<GitFork className="size-3.5 mr-1.5" />
-															Adaptar
-														</Link>
-													}
-												/>
-											</TableCell>
+			{isError ? (
+				<QueryErrorState message="Não foi possível carregar os cardápios semanais." onRetry={() => refetch()} isRetrying={isRefetching} />
+			) : (
+				<div className="space-y-8">
+					{/* Planos Globais da SDAB (somente leitura) */}
+					{globalTemplates.length > 0 && (
+						<div>
+							<div className="flex items-center gap-2 mb-3">
+								<CalendarDays className="size-4 text-muted-foreground" />
+								<h2 className="text-subheading">Planos Globais da SDAB</h2>
+								<Badge variant="outline" className="text-xs">
+									Somente leitura · disponíveis para adaptar
+								</Badge>
+							</div>
+							<div className="rounded-md border">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Nome</TableHead>
+											<TableHead>Descrição</TableHead>
+											<TableHead className="w-28 text-center">Preparações</TableHead>
+											{canWrite && <TableHead className="w-32 text-right">Ação</TableHead>}
 										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
-					</div>
-				)}
-
-				{/* Cardápios Semanais Locais */}
-				<div>
-					<div className="flex items-center justify-between mb-3">
-						<div className="flex items-center gap-2">
-							<h2 className="text-subheading">Cardápios Semanais Locais</h2>
-							<Badge variant="default" className="text-xs">
-								Esta Cozinha
-							</Badge>
-						</div>
-					</div>
-
-					{isLoading ? (
-						<div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando cardápios semanais...</div>
-					) : localTemplates.length === 0 ? (
-						<div className="rounded-md border border-dashed p-10 text-center space-y-3">
-							<CalendarDays className="size-10 mx-auto text-muted-foreground" />
-							<p className="text-subheading text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
-							<p className="text-xs text-muted-foreground">Crie do zero ou adapte um plano global da SDAB.</p>
-							<Button
-								variant="outline"
-								size="sm"
-								className="mt-2"
-								nativeButton={false}
-								render={
-									<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
-										<Plus className="size-4 mr-2" />
-										Criar primeiro cardápio semanal
-									</Link>
-								}
-							/>
-						</div>
-					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Nome</TableHead>
-										<TableHead>Origem</TableHead>
-										<TableHead className="w-28 text-center">Preparações</TableHead>
-										<TableHead className="w-32 text-right">Ações</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{localTemplates.map((template) => (
-										<TableRow key={template.id}>
-											<TableCell className="text-subheading">{template.name}</TableCell>
-											<TableCell>
-												{template.base_template_id ? (
-													<Badge variant="secondary" className="text-xs gap-1 font-normal">
-														<GitFork className="size-3" />
-														Adaptado da SDAB
+									</TableHeader>
+									<TableBody>
+										{globalTemplates.map((template) => (
+											<TableRow key={template.id}>
+												<TableCell className="text-subheading">{template.name}</TableCell>
+												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
+												<TableCell className="text-center">
+													<Badge variant="secondary" className="font-mono text-xs">
+														{template.recipe_count || 0}
 													</Badge>
-												) : (
-													<span className="text-xs text-muted-foreground">Local</span>
+												</TableCell>
+												{canWrite && (
+													<TableCell className="text-right">
+														<Button
+															size="sm"
+															variant="outline"
+															nativeButton={false}
+															render={
+																<Link
+																	to="/kitchen/$kitchenId/weekly-menus/new"
+																	params={{ kitchenId: kitchenIdStr as string }}
+																	search={{ forkFrom: template.id }}
+																>
+																	<GitFork className="size-3.5 mr-1.5" />
+																	Adaptar
+																</Link>
+															}
+														/>
+													</TableCell>
 												)}
-											</TableCell>
-											<TableCell className="text-center">
-												<Badge variant="secondary" className="font-mono text-xs">
-													{template.recipe_count || 0}
-												</Badge>
-											</TableCell>
-											<TableCell className="text-right">
-												<div className="flex items-center justify-end gap-1">
-													<Tooltip>
-														<TooltipTrigger
-															render={
-																<Button
-																	size="icon"
-																	variant="ghost"
-																	nativeButton={false}
-																	render={
-																		<Link
-																			to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
-																			params={{
-																				kitchenId: kitchenIdStr as string,
-																				weeklyMenuId: template.id,
-																			}}
-																		>
-																			<Edit className="size-4" />
-																		</Link>
-																	}
-																/>
-															}
-														></TooltipTrigger>
-														<TooltipContent>Editar</TooltipContent>
-													</Tooltip>
-													<Tooltip>
-														<TooltipTrigger
-															render={
-																<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
-																	<Trash2 className="size-4 text-destructive" />
-																</Button>
-															}
-														></TooltipTrigger>
-														<TooltipContent>Remover</TooltipContent>
-													</Tooltip>
-												</div>
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
 						</div>
 					)}
+
+					{/* Cardápios Semanais Locais */}
+					<div>
+						<div className="flex items-center justify-between mb-3">
+							<div className="flex items-center gap-2">
+								<h2 className="text-subheading">Cardápios Semanais Locais</h2>
+								<Badge variant="default" className="text-xs">
+									Esta Cozinha
+								</Badge>
+							</div>
+						</div>
+
+						{isLoading ? (
+							<div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando cardápios semanais...</div>
+						) : localTemplates.length === 0 ? (
+							<div className="rounded-md border border-dashed p-10 text-center space-y-3">
+								<CalendarDays className="size-10 mx-auto text-muted-foreground" />
+								<p className="text-subheading text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
+								<p className="text-xs text-muted-foreground">
+									{canWrite ? "Crie do zero ou adapte um plano global da SDAB." : "Você tem acesso de leitura a esta cozinha."}
+								</p>
+								{canWrite && (
+									<Button
+										variant="outline"
+										size="sm"
+										className="mt-2"
+										nativeButton={false}
+										render={
+											<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
+												<Plus className="size-4 mr-2" />
+												Criar primeiro cardápio semanal
+											</Link>
+										}
+									/>
+								)}
+							</div>
+						) : (
+							<div className="rounded-md border">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Nome</TableHead>
+											<TableHead>Origem</TableHead>
+											<TableHead className="w-28 text-center">Preparações</TableHead>
+											{canWrite && <TableHead className="w-32 text-right">Ações</TableHead>}
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{localTemplates.map((template) => (
+											<TableRow key={template.id}>
+												<TableCell className="text-subheading">{template.name}</TableCell>
+												<TableCell>
+													{template.base_template_id ? (
+														<Badge variant="secondary" className="text-xs gap-1 font-normal">
+															<GitFork className="size-3" />
+															Adaptado da SDAB
+														</Badge>
+													) : (
+														<span className="text-xs text-muted-foreground">Local</span>
+													)}
+												</TableCell>
+												<TableCell className="text-center">
+													<Badge variant="secondary" className="font-mono text-xs">
+														{template.recipe_count || 0}
+													</Badge>
+												</TableCell>
+												{canWrite && (
+													<TableCell className="text-right">
+														<div className="flex items-center justify-end gap-1">
+															<Tooltip>
+																<TooltipTrigger
+																	render={
+																		<Button
+																			size="icon"
+																			variant="ghost"
+																			nativeButton={false}
+																			render={
+																				<Link
+																					to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
+																					params={{
+																						kitchenId: kitchenIdStr as string,
+																						weeklyMenuId: template.id,
+																					}}
+																				>
+																					<Edit className="size-4" />
+																				</Link>
+																			}
+																		/>
+																	}
+																></TooltipTrigger>
+																<TooltipContent>Editar</TooltipContent>
+															</Tooltip>
+															<Tooltip>
+																<TooltipTrigger
+																	render={
+																		<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
+																			<Trash2 className="size-4 text-destructive" />
+																		</Button>
+																	}
+																></TooltipTrigger>
+																<TooltipContent>Remover</TooltipContent>
+															</Tooltip>
+														</div>
+													</TableCell>
+												)}
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</div>
 				</div>
-			</div>
+			)}
 		</div>
 	)
 }

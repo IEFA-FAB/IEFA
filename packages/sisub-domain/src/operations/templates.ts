@@ -23,7 +23,7 @@ import {
 import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { requireAssetWriteForScope } from "../guards/asset-ownership.ts"
-import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
 import type {
 	ApplyEventTemplate,
@@ -120,7 +120,9 @@ export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTe
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
 	} else {
-		requirePermission(ctx, "kitchen", 1)
+		// Sem cozinha é o catálogo global — a tela da SDAB chega aqui sem ter cozinha nenhuma.
+		// Exigir `kitchen:1` trancava o usuário só-global fora da própria listagem de planos.
+		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
 	const rows = await runQuery("FETCH_FAILED", () =>
@@ -137,7 +139,9 @@ export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input:
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
 	} else {
-		requirePermission(ctx, "kitchen", 1)
+		// Sem cozinha é o catálogo global — a tela da SDAB chega aqui sem ter cozinha nenhuma.
+		// Exigir `kitchen:1` trancava o usuário só-global fora da própria listagem de planos.
+		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
 	const rows = await runQuery("FETCH_FAILED", () =>
@@ -165,7 +169,9 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 	if (row.kitchenId !== null) {
 		requireKitchen(ctx, 1, row.kitchenId)
 	} else {
-		requirePermission(ctx, "kitchen", 1)
+		// Template global: leitura liberada a quem tem cozinha OU catálogo global. Só `kitchen`
+		// deixava a SDAB sem abrir os próprios planos.
+		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
@@ -191,7 +197,9 @@ export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: Get
 	if (row.kitchenId !== null) {
 		requireKitchen(ctx, 1, row.kitchenId)
 	} else {
-		requirePermission(ctx, "kitchen", 1)
+		// Template global: leitura liberada a quem tem cozinha OU catálogo global. Só `kitchen`
+		// deixava a SDAB sem abrir os próprios planos.
+		requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	}
 
 	const items = toWire<TemplateItemFull[]>(row.menuTemplateItemsInKitchens, TEMPLATE_RELATIONS)
