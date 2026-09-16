@@ -249,7 +249,10 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 
 export function RecipeSelector({ open, onClose, kitchenId, selectedRecipeIds, onSelect, multiSelect = true }: RecipeSelectorProps) {
 	"use no memo"
-	const { data: recipes, isLoading } = useRecipes()
+	// Escopo da cozinha: a listagem sem `kitchen_id` volta SÓ com as globais, e o recorte
+	// abaixo (`kitchen_id === kitchenId`) nunca casava — a cozinha não conseguia escolher as
+	// próprias preparações para o cardápio.
+	const { data: recipes, isLoading } = useRecipes({ kitchen_id: kitchenId })
 
 	return (
 		<Dialog open={open} onOpenChange={onClose}>

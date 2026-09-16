@@ -13,9 +13,11 @@ import {
 } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Percent, Plus, X } from "lucide-react"
+import { ClipboardPaste, Copy, GripVertical, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
@@ -30,10 +32,30 @@ export type BoardItem = {
 	badge?: ReactNode
 	group: MenuItemGroup | null
 	sortOrder: number
+	/** Percentual do efetivo da refeição (ex.: 30% de 800 = 240 comensais). */
 	proportion: number | null
+	/** Quantidade direta de comensais da preparação. Excludente com `proportion`. */
+	headcount?: number | null
+	/** `id` do DOM para o localizar rolar até o item. */
+	anchorId?: string
+	/** Aparição corrente do localizar. */
+	highlighted?: boolean
 }
 
 type ColumnKey = MenuItemGroup | typeof UNGROUPED_KEY
+
+/**
+ * Como a demanda da preparação é dita: percentual do efetivo da refeição ou quantidade
+ * direta de pessoas. São EXCLUDENTES — a porcentagem só significa alguma coisa em cima do
+ * efetivo da refeição, e informar as duas fazia a porcentagem ser ignorada pela compra.
+ */
+export type DemandType = "proportion" | "headcount"
+
+export function demandTypeOf(item: Pick<BoardItem, "proportion" | "headcount">, fallback: DemandType): DemandType {
+	if (item.headcount != null) return "headcount"
+	if (item.proportion != null) return "proportion"
+	return fallback
+}
 
 /** Resultado de um rearranjo: cada item com seu grupo e ordem já reindexados. */
 export type BoardArrangement = { id: string; group: MenuItemGroup | null; sortOrder: number }[]
@@ -65,23 +87,50 @@ function columnsToArrangement(cols: Record<ColumnKey, string[]>): BoardArrangeme
 function SortableItem({
 	item,
 	onProportionChange,
+	onHeadcountChange,
 	onRemove,
-	renderExtra,
+	selectionMode,
+	selected,
+	onSelectChange,
+	allowHeadcount,
+	demandType,
+	onSwitchDemandType,
+	onCopy,
+	onPaste,
+	canPaste,
 }: {
 	item: BoardItem
 	onProportionChange: (id: string, value: number | null) => void
+	onHeadcountChange?: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
-	renderExtra?: (item: BoardItem) => ReactNode
+	selectionMode?: boolean
+	selected?: boolean
+	onSelectChange?: (checked: boolean) => void
+	allowHeadcount: boolean
+	demandType: DemandType
+	onSwitchDemandType: () => void
+	onCopy?: (id: string) => void
+	onPaste?: () => void
+	canPaste?: boolean
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
 
-	return (
+	const row = (
 		<div
 			ref={setNodeRef}
+			id={item.anchorId}
 			style={style}
-			className={cn("flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/30 hover:bg-muted/60 transition-colors", isDragging && "opacity-40")}
+			className={cn(
+				"flex items-center gap-2 px-2.5 py-2 rounded-md bg-muted/30 hover:bg-muted/60 transition-colors",
+				isDragging && "opacity-40",
+				selected && "bg-primary/10 hover:bg-primary/15",
+				item.highlighted && "ring-2 ring-ring"
+			)}
 		>
+			{selectionMode && (
+				<Checkbox className="shrink-0" checked={!!selected} onCheckedChange={(checked) => onSelectChange?.(checked)} aria-label={`Selecionar ${item.title}`} />
+			)}
 			<button
 				type="button"
 				className="shrink-0 text-muted-foreground/60 hover:text-foreground cursor-grab touch-none active:cursor-grabbing"
@@ -100,33 +149,69 @@ function SortableItem({
 				{item.subtitle && <p className="text-xs text-muted-foreground font-mono truncate">{item.subtitle}</p>}
 			</div>
 
-			{renderExtra?.(item)}
-
 			<div className="flex items-center gap-1 shrink-0">
 				<Tooltip>
-					<TooltipTrigger render={<span className="inline-flex" />}>
-						<Percent className="size-3 text-muted-foreground" />
+					<TooltipTrigger
+						render={
+							<Button
+								type="button"
+								size="icon-xs"
+								variant="ghost"
+								className="text-muted-foreground"
+								disabled={!allowHeadcount}
+								onClick={onSwitchDemandType}
+								aria-label={demandType === "headcount" ? "Medir por porcentagem do efetivo" : "Medir por número de pessoas"}
+							/>
+						}
+					>
+						{demandType === "headcount" ? <Users className="size-3" /> : <Percent className="size-3" />}
 					</TooltipTrigger>
-					<TooltipContent>Proporção recomendada de consumo (%)</TooltipContent>
+					<TooltipContent>
+						{demandType === "headcount"
+							? "Comensais desta preparação. Clique para medir por % do efetivo da refeição."
+							: allowHeadcount
+								? "% do efetivo da refeição. Clique para informar o número de pessoas."
+								: "% do efetivo da refeição (definido pela cozinha que adotar este plano)."}
+					</TooltipContent>
 				</Tooltip>
-				<Input
-					type="number"
-					min="0"
-					max="100"
-					step="1"
-					className="h-6 w-16 text-xs"
-					value={item.proportion ?? ""}
-					placeholder="%"
-					aria-label="Proporção recomendada de consumo (%)"
-					onChange={(e) => {
-						const raw = e.target.value
-						if (raw === "") return onProportionChange(item.id, null)
-						const parsed = Number.parseInt(raw, 10)
-						if (Number.isNaN(parsed)) return
-						onProportionChange(item.id, Math.max(0, Math.min(100, parsed)))
-					}}
-					onClick={(e) => e.stopPropagation()}
-				/>
+				{demandType === "headcount" ? (
+					<Input
+						type="number"
+						min="1"
+						step="1"
+						className="h-6 w-16 text-xs"
+						value={item.headcount ?? ""}
+						placeholder="pax"
+						aria-label="Comensais desta preparação"
+						onChange={(e) => {
+							const raw = e.target.value
+							if (raw === "") return onHeadcountChange?.(item.id, null)
+							const parsed = Number.parseInt(raw, 10)
+							if (Number.isNaN(parsed)) return
+							onHeadcountChange?.(item.id, Math.max(0, parsed))
+						}}
+						onClick={(e) => e.stopPropagation()}
+					/>
+				) : (
+					<Input
+						type="number"
+						min="0"
+						max="100"
+						step="1"
+						className="h-6 w-16 text-xs"
+						value={item.proportion ?? ""}
+						placeholder="%"
+						aria-label="Porcentagem do efetivo da refeição"
+						onChange={(e) => {
+							const raw = e.target.value
+							if (raw === "") return onProportionChange(item.id, null)
+							const parsed = Number.parseInt(raw, 10)
+							if (Number.isNaN(parsed)) return
+							onProportionChange(item.id, Math.max(0, Math.min(100, parsed)))
+						}}
+						onClick={(e) => e.stopPropagation()}
+					/>
+				)}
 			</div>
 
 			<Button
@@ -141,6 +226,27 @@ function SortableItem({
 			</Button>
 		</div>
 	)
+
+	// Botão direito na preparação: copiar/colar sem precisar entrar no modo de seleção.
+	return (
+		<ContextMenu>
+			<ContextMenuTrigger render={row} />
+			<ContextMenuContent>
+				<ContextMenuItem onClick={() => onCopy?.(item.id)} disabled={!onCopy}>
+					<Copy className="size-4" />
+					Copiar
+				</ContextMenuItem>
+				<ContextMenuItem onClick={() => onPaste?.()} disabled={!canPaste}>
+					<ClipboardPaste className="size-4" />
+					Colar aqui
+				</ContextMenuItem>
+				<ContextMenuItem onClick={() => onRemove(item.id)}>
+					<X className="size-4" />
+					Remover
+				</ContextMenuItem>
+			</ContextMenuContent>
+		</ContextMenu>
+	)
 }
 
 function GroupColumn({
@@ -150,8 +256,17 @@ function GroupColumn({
 	itemMap,
 	onAdd,
 	onProportionChange,
+	onHeadcountChange,
 	onRemove,
-	renderExtra,
+	selectionMode,
+	selectedIds,
+	onSelectChange,
+	allowHeadcount,
+	demandTypeOfItem,
+	onSwitchDemandType,
+	onCopy,
+	onPaste,
+	canPaste,
 }: {
 	columnKey: ColumnKey
 	label: string
@@ -159,8 +274,17 @@ function GroupColumn({
 	itemMap: Map<string, BoardItem>
 	onAdd?: (group: MenuItemGroup) => void
 	onProportionChange: (id: string, value: number | null) => void
+	onHeadcountChange?: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
-	renderExtra?: (item: BoardItem) => ReactNode
+	selectionMode?: boolean
+	selectedIds?: ReadonlySet<string>
+	onSelectChange?: (id: string, checked: boolean) => void
+	allowHeadcount: boolean
+	demandTypeOfItem: (item: BoardItem) => DemandType
+	onSwitchDemandType: (id: string) => void
+	onCopy?: (id: string) => void
+	onPaste?: () => void
+	canPaste?: boolean
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: `col:${columnKey}`, data: { isColumn: true, columnKey } })
 	const canAdd = onAdd && columnKey !== UNGROUPED_KEY
@@ -193,7 +317,24 @@ function GroupColumn({
 						itemIds.map((id) => {
 							const item = itemMap.get(id)
 							if (!item) return null
-							return <SortableItem key={id} item={item} onProportionChange={onProportionChange} onRemove={onRemove} renderExtra={renderExtra} />
+							return (
+								<SortableItem
+									key={id}
+									item={item}
+									onProportionChange={onProportionChange}
+									onHeadcountChange={onHeadcountChange}
+									onRemove={onRemove}
+									selectionMode={selectionMode}
+									selected={selectedIds?.has(id)}
+									onSelectChange={(checked) => onSelectChange?.(id, checked)}
+									allowHeadcount={allowHeadcount}
+									demandType={demandTypeOfItem(item)}
+									onSwitchDemandType={() => onSwitchDemandType(id)}
+									onCopy={onCopy}
+									onPaste={onPaste}
+									canPaste={canPaste}
+								/>
+							)
 						})
 					)}
 				</SortableContext>
@@ -213,16 +354,55 @@ export function MealGroupBoard({
 	onProportionChange,
 	onRemove,
 	onAdd,
-	renderExtra,
+	selectionMode,
+	selectedIds,
+	onSelectChange,
+	onHeadcountChange,
+	allowHeadcount = true,
+	defaultDemandType = "headcount",
+	onCopy,
+	onPaste,
+	canPaste,
 }: {
 	items: BoardItem[]
 	onArrange: (arrangement: BoardArrangement) => void
 	onProportionChange: (id: string, value: number | null) => void
 	onRemove: (id: string) => void
 	onAdd?: (group: MenuItemGroup) => void
-	renderExtra?: (item: BoardItem) => ReactNode
+	onHeadcountChange?: (id: string, value: number | null) => void
+	/** `false` no plano global, que não tem efetivo de refeição para a porcentagem morder. */
+	allowHeadcount?: boolean
+	/** Tipo dos itens que ainda não têm nem % nem pax — ajustável no editor. */
+	defaultDemandType?: DemandType
+	onCopy?: (id: string) => void
+	onPaste?: () => void
+	canPaste?: boolean
+	/** Seleção em massa (dia+refeição atravessados pela barra inferior do editor). */
+	selectionMode?: boolean
+	selectedIds?: ReadonlySet<string>
+	onSelectChange?: (id: string, checked: boolean) => void
 }) {
 	const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+
+	// Tipo escolhido à mão, por item. Sem isto, trocar o tipo de um item que JÁ tem valor
+	// só limpava o campo: com os dois valores nulos o tipo voltava a ser o padrão, e o
+	// número era perdido sem o usuário nunca alcançar o outro campo.
+	const [demandTypeById, setDemandTypeById] = useState<Record<string, DemandType>>({})
+
+	const resolveDemandType = (item: BoardItem): DemandType =>
+		allowHeadcount ? (demandTypeById[item.id] ?? demandTypeOf(item, defaultDemandType)) : "proportion"
+
+	/** Troca o tipo e zera o campo que fica para trás — os dois preenchidos é o estado que
+	 * fazia a porcentagem ser ignorada pela compra. */
+	const switchDemandType = (id: string) => {
+		if (!allowHeadcount) return
+		const item = itemMap.get(id)
+		if (!item) return
+		const next: DemandType = resolveDemandType(item) === "headcount" ? "proportion" : "headcount"
+		setDemandTypeById((prev) => ({ ...prev, [id]: next }))
+		if (next === "proportion") onHeadcountChange?.(id, null)
+		else onProportionChange(id, null)
+	}
 
 	// Estado local das colunas para permitir movimento cross-group durante o drag; ressincroniza
 	// com as props após cada commit (onArrange) ou edição externa.
@@ -346,8 +526,17 @@ export function MealGroupBoard({
 							itemMap={itemMap}
 							onAdd={onAdd}
 							onProportionChange={onProportionChange}
+							onHeadcountChange={onHeadcountChange}
 							onRemove={onRemove}
-							renderExtra={renderExtra}
+							selectionMode={selectionMode}
+							selectedIds={selectedIds}
+							onSelectChange={onSelectChange}
+							allowHeadcount={allowHeadcount}
+							demandTypeOfItem={resolveDemandType}
+							onSwitchDemandType={switchDemandType}
+							onCopy={onCopy}
+							onPaste={onPaste}
+							canPaste={canPaste}
 						/>
 					)
 				})}

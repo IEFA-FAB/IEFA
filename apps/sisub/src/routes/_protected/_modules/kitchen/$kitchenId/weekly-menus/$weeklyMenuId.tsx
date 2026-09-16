@@ -1,10 +1,13 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, CheckCircle2, Circle, GitFork, Loader2, Plus, Printer, Save, Users } from "lucide-react"
+import { Check, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
-import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
+import { type BoardArrangement, type BoardItem, type DemandType, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
+import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
+import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
+import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -15,12 +18,26 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
+import {
+	applyHeadcountToMeals,
+	copyMenuItems,
+	countHeadcountTargets,
+	type HeadcountPlan,
+	type MenuClipboardEntry,
+	menuItemKey,
+	pasteMenuItems,
+	removeMenuItems,
+	replaceMenuRecipe,
+	setItemHeadcount,
+} from "@/lib/menu-fill"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import type { TemplateItemDraft, TemplateMealDraft } from "@/types/domain/planning"
@@ -185,6 +202,8 @@ function weeklyMenuEditorReducer(state: WeeklyMenuEditorState, action: WeeklyMen
 	}
 }
 
+const ALL_WEEKDAYS = WEEKDAYS.map((d) => d.num)
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function WeeklyMenuEditorPage() {
@@ -194,7 +213,9 @@ function WeeklyMenuEditorPage() {
 
 	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
-	const { data: allRecipes } = useRecipes()
+	// Catálogo global + as preparações DESTA cozinha. Sem o escopo, a listagem volta só com
+	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
+	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
 	// Contexto da edição = a rota. Template global editado aqui vira cópia local desta
 	// cozinha; o global não é tocado. `menu_template` não é versionado, então a edição
 	// in-place de um global sobrescreveria o plano da FAB inteira sem histórico.
@@ -211,6 +232,23 @@ function WeeklyMenuEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	// O listener de atalho é montado uma vez; estes refs entregam o estado corrente a ele.
+	const selectedKeysRef = useRef<ReadonlySet<string>>(new Set())
+	const activeCellRef = useRef<{ day: number; mealTypeId: string } | null>(null)
+	const copyKeysRef = useRef<(keys: ReadonlySet<string>) => void>(() => {})
+	const pasteRef = useRef<(day: number, mealTypeId?: string) => void>(() => {})
+	// Seleção em massa: a chave atravessa dia e refeição, então a mesma preparação em dois
+	// dias são dois alvos distintos.
+	const [selectionMode, setSelectionMode] = useState(false)
+	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
+	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
+	const [headcountOpen, setHeadcountOpen] = useState(false)
+	// Área de transferência do cardápio: sobrevive à navegação na aba, então dá para copiar
+	// de um cardápio e colar em outro.
+	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>(`sisub:menu:clipboard:${kitchenId}`, [])
+	const [defaultDemandType, setDefaultDemandType] = usePersistentState<DemandType>("sisub:menu:demand-type", "headcount")
+	// Alvo do Ctrl+V: a última refeição em que o usuário mexeu.
+	const [activeCell, setActiveCell] = useState<{ day: number; mealTypeId: string } | null>(null)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
@@ -294,6 +332,40 @@ function WeeklyMenuEditorPage() {
 		}
 	}, [name, description, items, meals, initialized, willFork, editContext, autoSave, weeklyMenuId, contentSignature])
 
+	// O localizar troca a aba do dia; a rolagem só pode acontecer depois que a aba pintou.
+	useEffect(() => {
+		if (!highlightedKey) return
+		const frame = requestAnimationFrame(() => {
+			document.getElementById(highlightedKey)?.scrollIntoView({ block: "center", behavior: "smooth" })
+		})
+		const timer = setTimeout(() => setHighlightedKey(null), 2500)
+		return () => {
+			cancelAnimationFrame(frame)
+			clearTimeout(timer)
+		}
+	}, [highlightedKey])
+
+	// Ctrl+C copia a seleção, Ctrl+V cola na última refeição tocada. Campo de texto em foco
+	// fica de fora: ali o atalho é o do navegador, copiando o texto digitado.
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey || event.metaKey)) return
+			const target = event.target as HTMLElement | null
+			if (target?.closest("input, textarea, [contenteditable='true']")) return
+			const key = event.key.toLowerCase()
+			if (key === "c" && selectedKeysRef.current.size > 0) {
+				event.preventDefault()
+				copyKeysRef.current(selectedKeysRef.current)
+			}
+			if (key === "v" && activeCellRef.current) {
+				event.preventDefault()
+				pasteRef.current(activeCellRef.current.day, activeCellRef.current.mealTypeId)
+			}
+		}
+		window.addEventListener("keydown", onKeyDown)
+		return () => window.removeEventListener("keydown", onKeyDown)
+	}, [])
+
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
 		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
@@ -306,6 +378,9 @@ function WeeklyMenuEditorPage() {
 					title: recipe.name ?? item.recipe_id,
 					subtitle: recipe.rational_id ?? null,
 					badge: <RecipeVersionBadge outdated={outdatedById.get(item.recipe_id)} />,
+					anchorId: menuItemKey(item),
+					highlighted: highlightedKey === menuItemKey(item),
+					headcount: item.headcount_override ?? null,
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
 					proportion: item.recommended_proportion ?? null,
@@ -406,6 +481,64 @@ function WeeklyMenuEditorPage() {
 		? items.filter((i) => i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId).map((i) => i.recipe_id)
 		: []
 
+	const toggleSelection = (key: string, checked: boolean) => {
+		setSelectedKeys((prev) => {
+			const next = new Set(prev)
+			if (checked) next.add(key)
+			else next.delete(key)
+			return next
+		})
+	}
+
+	const clearSelection = () => setSelectedKeys(new Set())
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false)
+		clearSelection()
+	}
+
+	/** Quantitativo do auxiliador → efetivo BASE da refeição, em todos os dias da semana.
+	 * É o campo que alcança todas as preparações da refeição (`applyTemplate` deriva
+	 * `override ?? base`); escrever preparação por preparação faria o mesmo número virar
+	 * exceção em cada item. */
+	const handleApplyHeadcountPlan = (plan: HeadcountPlan, overwrite: boolean) => {
+		dispatch({ type: "SET_MEALS", value: applyHeadcountToMeals(meals, plan, { days: ALL_WEEKDAYS, overwrite }) })
+	}
+
+	const handleBulkHeadcount = (headcount: number | null) => {
+		dispatch({ type: "SET_ITEMS", value: setItemHeadcount(items, selectedKeys, headcount) })
+	}
+
+	const handleBulkRemove = () => {
+		dispatch({ type: "SET_ITEMS", value: removeMenuItems(items, selectedKeys) })
+		clearSelection()
+	}
+
+	const handleBulkReplace = (recipeId: string) => {
+		dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, selectedKeys, recipeId) })
+		clearSelection()
+	}
+
+	const handleCopyKeys = (keys: ReadonlySet<string>) => {
+		const entries = copyMenuItems(items, keys)
+		if (entries.length === 0) return
+		setClipboard(entries)
+		toast.success(`${entries.length} ${entries.length === 1 ? "preparação copiada" : "preparações copiadas"}`)
+	}
+
+	/** Cola na refeição indicada; sem refeição, cada preparação volta para a de origem (dia inteiro). */
+	const handlePaste = (day: number, mealTypeId?: string) => {
+		if (clipboard.length === 0) return
+		const result = pasteMenuItems(items, clipboard, { day, mealTypeId }, (draft) => ({
+			...draft,
+			item_group: draft.item_group as MenuItemGroup | null,
+		}))
+		dispatch({ type: "SET_ITEMS", value: result.items })
+		if (result.pasted === 0) toast.info("Estas preparações já estão nesta refeição")
+		else if (result.skipped > 0) toast.success(`${result.pasted} coladas · ${result.skipped} já estavam lá`)
+		else toast.success(`${result.pasted} ${result.pasted === 1 ? "preparação colada" : "preparações coladas"}`)
+	}
+
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
@@ -449,7 +582,13 @@ function WeeklyMenuEditorPage() {
 		)
 	}
 
+	selectedKeysRef.current = selectedKeys
+	activeCellRef.current = activeCell
+	copyKeysRef.current = handleCopyKeys
+	pasteRef.current = handlePaste
+
 	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
+	const mealTypeIds = (mealTypes ?? []).map((m) => m.id)
 	const totalRecipes = items.length
 	const daysWithContent = WEEKDAYS.filter((d) => items.some((i) => i.day_of_week === d.num)).length
 
@@ -594,8 +733,67 @@ function WeeklyMenuEditorPage() {
 						</CardContent>
 					</Card>
 
+					{/* Preenchimento: localizar, quantitativo por refeição e seleção em massa */}
+					<div className="flex flex-wrap items-center gap-2">
+						<MenuFindBar
+							items={items}
+							nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+							mealTypeOrder={mealTypeIds}
+							dayLabel={(day) => WEEKDAYS.find((d) => d.num === day)?.label ?? String(day)}
+							mealLabel={(mealTypeId) => mealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
+							kitchenId={kitchenId}
+							onGoTo={(match) => {
+								dispatch({ type: "SET_ACTIVE_TAB", value: String(match.item.day_of_week) })
+								setHighlightedKey(match.key)
+							}}
+							onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
+							onSelectMatches={(keys) => {
+								setSelectionMode(true)
+								setSelectedKeys(keys)
+							}}
+						/>
+						<Button type="button" variant="outline" size="sm" onClick={() => setHeadcountOpen(true)}>
+							<Users className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">Quantitativo</span>
+						</Button>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() => setDefaultDemandType(defaultDemandType === "headcount" ? "proportion" : "headcount")}
+									/>
+								}
+							>
+								{defaultDemandType === "headcount" ? <Users className="size-4 sm:mr-2" /> : <Percent className="size-4 sm:mr-2" />}
+								<span className="hidden sm:inline">{defaultDemandType === "headcount" ? "Pessoas" : "Porcentagem"}</span>
+							</TooltipTrigger>
+							<TooltipContent>
+								Como aparecem as preparações sem valor: {defaultDemandType === "headcount" ? "número de pessoas" : "% do efetivo da refeição"}. Cada preparação
+								pode trocar no próprio campo.
+							</TooltipContent>
+						</Tooltip>
+						<Button
+							type="button"
+							variant={selectionMode ? "default" : "outline"}
+							size="sm"
+							onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+						>
+							<ListChecks className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
+						</Button>
+					</div>
+
 					{/* Tabs: Visão Geral + dias */}
-					<Tabs value={activeTab} onValueChange={(v) => dispatch({ type: "SET_ACTIVE_TAB", value: v })}>
+					<Tabs
+						value={activeTab}
+						onValueChange={(v) => {
+							dispatch({ type: "SET_ACTIVE_TAB", value: v })
+							setActiveCell(null)
+						}}
+					>
 						<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
 							<TabsTrigger value="overview" className="gap-1.5">
 								<span>Visão Geral</span>
@@ -656,20 +854,33 @@ function WeeklyMenuEditorPage() {
 							<TabsContent key={day.num} value={String(day.num)} className="mt-4 space-y-3">
 								<div className="flex items-center justify-between px-1">
 									<h2 className="text-sm text-heading">{day.label}</h2>
-									<span className="text-xs text-muted-foreground">
-										{items.filter((i) => i.day_of_week === day.num).length} receita
-										{items.filter((i) => i.day_of_week === day.num).length !== 1 ? "s" : ""}
-									</span>
+									<div className="flex items-center gap-2">
+										<span className="text-xs text-muted-foreground">
+											{items.filter((i) => i.day_of_week === day.num).length} receita
+											{items.filter((i) => i.day_of_week === day.num).length !== 1 ? "s" : ""}
+										</span>
+										{clipboard.length > 0 && (
+											<Tooltip>
+												<TooltipTrigger render={<Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => handlePaste(day.num)} />}>
+													<ClipboardPaste className="size-3.5" />
+													Colar no dia ({clipboard.length})
+												</TooltipTrigger>
+												<TooltipContent>Cada preparação volta para a refeição de onde foi copiada.</TooltipContent>
+											</Tooltip>
+										)}
+									</div>
 								</div>
 
 								{mealTypes && mealTypes.length > 0 ? (
 									mealTypes.map((mealType) => {
 										const boardItems = getCellBoardItems(day.num, mealType.id)
-										const headcountByRecipe = new Map(
-											items.filter((i) => i.day_of_week === day.num && i.meal_type_id === mealType.id).map((i) => [i.recipe_id, i.headcount_override ?? null])
-										)
 										return (
-											<Card key={mealType.id} className="overflow-hidden p-0 gap-0">
+											<Card
+												key={mealType.id}
+												className="overflow-hidden p-0 gap-0"
+												onFocusCapture={() => setActiveCell({ day: day.num, mealTypeId: mealType.id })}
+												onMouseDown={() => setActiveCell({ day: day.num, mealTypeId: mealType.id })}
+											>
 												<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
 													<div className="flex items-center gap-2">
 														<span className="text-subheading">{mealType.name}</span>
@@ -694,6 +905,18 @@ function WeeklyMenuEditorPage() {
 																onChange={(e) => handleMealBaseChange(day.num, mealType.id, e.target.value ? Number.parseInt(e.target.value, 10) : null)}
 															/>
 														</div>
+														{clipboard.length > 0 && (
+															<Button
+																type="button"
+																size="sm"
+																variant="ghost"
+																className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+																onClick={() => handlePaste(day.num, mealType.id)}
+															>
+																<ClipboardPaste className="size-3.5" />
+																Colar ({clipboard.length})
+															</Button>
+														)}
 														<Button
 															type="button"
 															size="sm"
@@ -711,24 +934,26 @@ function WeeklyMenuEditorPage() {
 														items={boardItems}
 														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
+														onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}
+														defaultDemandType={defaultDemandType}
+														onCopy={(recipeId) =>
+															handleCopyKeys(new Set([menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })]))
+														}
+														onPaste={() => handlePaste(day.num, mealType.id)}
+														canPaste={clipboard.length > 0}
 														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
-														renderExtra={(item) => (
-															<div className="flex items-center gap-1 shrink-0" title="Comensais previstos desta preparação">
-																<Users className="size-3 text-muted-foreground" />
-																<Input
-																	type="number"
-																	min="1"
-																	className="h-6 w-16 text-xs"
-																	value={headcountByRecipe.get(item.id) ?? ""}
-																	placeholder="pax"
-																	onChange={(e) =>
-																		handleItemHeadcountChange(day.num, mealType.id, item.id, e.target.value ? Number.parseInt(e.target.value, 10) : null)
-																	}
-																	onClick={(e) => e.stopPropagation()}
-																/>
-															</div>
-														)}
+														selectionMode={selectionMode}
+														selectedIds={
+															new Set(
+																boardItems
+																	.map((boardItem) => boardItem.id)
+																	.filter((recipeId) => selectedKeys.has(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })))
+															)
+														}
+														onSelectChange={(recipeId, checked) =>
+															toggleSelection(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
+														}
 													/>
 												</div>
 											</Card>
@@ -743,6 +968,27 @@ function WeeklyMenuEditorPage() {
 						))}
 					</Tabs>
 				</div>
+
+				<MenuHeadcountDialog
+					open={headcountOpen}
+					onOpenChange={setHeadcountOpen}
+					mealTypes={mealTypes ?? []}
+					scope="meal-base"
+					countTargets={(plan, overwrite) => countHeadcountTargets(meals, plan, { days: ALL_WEEKDAYS, overwrite })}
+					onApply={handleApplyHeadcountPlan}
+				/>
+
+				{selectionMode && selectedKeys.size > 0 && (
+					<MenuSelectionBar
+						count={selectedKeys.size}
+						kitchenId={kitchenId}
+						onCopy={() => handleCopyKeys(selectedKeys)}
+						onSetHeadcount={handleBulkHeadcount}
+						onReplace={handleBulkReplace}
+						onRemove={handleBulkRemove}
+						onClear={clearSelection}
+					/>
+				)}
 
 				<RecipeSelector
 					open={selectorOpen}

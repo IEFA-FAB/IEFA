@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { OutdatedRecipe } from "@/lib/recipe-versions"
 
 /** Selo da versão do item quando ela não é a mais recente; nada quando já é. */
@@ -12,9 +13,13 @@ export function RecipeVersionBadge({ outdated }: { outdated: OutdatedRecipe | un
 	if (!outdated) return null
 	const renamed = outdated.latest.name !== outdated.current.name ? ` ("${outdated.latest.name}")` : ""
 	return (
-		<Badge variant="warning" className="tabular-nums" title={`Versão desatualizada — a mais recente é a v${outdated.latest.version}${renamed}`}>
-			v{outdated.current.version}
-		</Badge>
+		<Tooltip>
+			<TooltipTrigger render={<Badge variant="warning" className="tabular-nums" />}>v{outdated.current.version}</TooltipTrigger>
+			<TooltipContent>
+				Versão desatualizada — a mais recente é a v{outdated.latest.version}
+				{renamed}
+			</TooltipContent>
+		</Tooltip>
 	)
 }
 

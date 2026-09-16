@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CheckCircle2, Circle, Loader2, Plus, Printer, Save } from "lucide-react"
-import { useState } from "react"
+import { CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
+import { useEffect, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
+import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
+import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -13,11 +15,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
+import { copyMenuItems, type MenuClipboardEntry, menuItemKey, pasteMenuItems, removeMenuItems, replaceMenuRecipe, setItemHeadcount } from "@/lib/menu-fill"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
@@ -156,6 +161,12 @@ function GlobalPlanEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 	const [activeTab, setActiveTab] = useState("overview")
 	const [selectorOpen, setSelectorOpen] = useState(false)
+	const [selectionMode, setSelectionMode] = useState(false)
+	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
+	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
+	// Chave própria, separada da do cardápio da cozinha: colar aqui o que foi copiado lá
+	// traria preparação local para dentro de um plano que é da FAB inteira.
+	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>("sisub:weekly-plan:clipboard", [])
 	const [selectedCell, setSelectedCell] = useState<{
 		dayOfWeek: number
 		mealTypeId: string
@@ -178,6 +189,19 @@ function GlobalPlanEditorPage() {
 		setInitialized(true)
 	}
 
+	// O localizar troca a aba do dia; a rolagem só pode acontecer depois que a aba pintou.
+	useEffect(() => {
+		if (!highlightedKey) return
+		const frame = requestAnimationFrame(() => {
+			document.getElementById(highlightedKey)?.scrollIntoView({ block: "center", behavior: "smooth" })
+		})
+		const timer = setTimeout(() => setHighlightedKey(null), 2500)
+		return () => {
+			cancelAnimationFrame(frame)
+			clearTimeout(timer)
+		}
+	}, [highlightedKey])
+
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
 		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
@@ -190,6 +214,8 @@ function GlobalPlanEditorPage() {
 					title: recipe.name ?? item.recipe_id,
 					subtitle: recipe.rational_id ?? null,
 					badge: <RecipeVersionBadge outdated={outdatedById.get(item.recipe_id)} />,
+					anchorId: menuItemKey(item),
+					highlighted: highlightedKey === menuItemKey(item),
 					group: item.item_group ?? null,
 					sortOrder: item.sort_order ?? 0,
 					proportion: item.recommended_proportion ?? null,
@@ -247,6 +273,43 @@ function GlobalPlanEditorPage() {
 
 	const handleUpdateVersions = (replacements: Map<string, string>) => {
 		setItems(replaceRecipeVersions(items, replacements))
+	}
+
+	const toggleSelection = (key: string, checked: boolean) => {
+		setSelectedKeys((prev) => {
+			const next = new Set(prev)
+			if (checked) next.add(key)
+			else next.delete(key)
+			return next
+		})
+	}
+
+	const clearSelection = () => setSelectedKeys(new Set())
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false)
+		clearSelection()
+	}
+
+	const handleCopyKeys = (keys: ReadonlySet<string>) => {
+		const entries = copyMenuItems(items, keys)
+		if (entries.length === 0) return
+		setClipboard(entries)
+		toast.success(`${entries.length} ${entries.length === 1 ? "preparação copiada" : "preparações copiadas"}`)
+	}
+
+	const handlePaste = (day: number, mealTypeId?: string) => {
+		if (clipboard.length === 0) return
+		const result = pasteMenuItems(items, clipboard, { day, mealTypeId }, (draft) => ({
+			...draft,
+			item_group: draft.item_group as MenuItemGroup | null,
+			// O plano global não tem efetivo: comensais colados ficariam invisíveis aqui e ainda
+			// assim venceriam a porcentagem em toda cozinha que adotasse o plano.
+			headcount_override: null,
+		}))
+		setItems(result.items)
+		if (result.pasted === 0) toast.info("Estas preparações já estão nesta refeição")
+		else toast.success(`${result.pasted} ${result.pasted === 1 ? "preparação colada" : "preparações coladas"}`)
 	}
 
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
@@ -361,6 +424,37 @@ function GlobalPlanEditorPage() {
 						</CardContent>
 					</Card>
 
+					{/* Preenchimento: localizar e seleção em massa. Sem quantitativo: o plano global não
+					    carrega efetivo — cada unidade informa o dela no cardápio da cozinha. */}
+					<div className="flex flex-wrap items-center gap-2">
+						<MenuFindBar
+							items={items}
+							nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+							mealTypeOrder={(mealTypes ?? []).map((m) => m.id)}
+							dayLabel={(day) => WEEKDAYS.find((d) => d.num === day)?.label ?? String(day)}
+							mealLabel={(mealTypeId) => mealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
+							kitchenId={null}
+							onGoTo={(match) => {
+								setActiveTab(String(match.item.day_of_week))
+								setHighlightedKey(match.key)
+							}}
+							onReplaceAll={(keys, recipeId) => setItems(replaceMenuRecipe(items, keys, recipeId))}
+							onSelectMatches={(keys) => {
+								setSelectionMode(true)
+								setSelectedKeys(keys)
+							}}
+						/>
+						<Button
+							type="button"
+							variant={selectionMode ? "default" : "outline"}
+							size="sm"
+							onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+						>
+							<ListChecks className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
+						</Button>
+					</div>
+
 					{/* Tabs: Visão Geral + dias */}
 					<Tabs value={activeTab} onValueChange={setActiveTab}>
 						<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
@@ -443,16 +537,30 @@ function GlobalPlanEditorPage() {
 															</Badge>
 														)}
 													</div>
-													<Button
-														type="button"
-														size="sm"
-														variant="ghost"
-														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-														onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
-													>
-														<Plus className="size-3.5" />
-														Adicionar
-													</Button>
+													<div className="flex items-center gap-2">
+														{clipboard.length > 0 && (
+															<Button
+																type="button"
+																size="sm"
+																variant="ghost"
+																className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+																onClick={() => handlePaste(day.num, mealType.id)}
+															>
+																<ClipboardPaste className="size-3.5" />
+																Colar ({clipboard.length})
+															</Button>
+														)}
+														<Button
+															type="button"
+															size="sm"
+															variant="ghost"
+															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+															onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+														>
+															<Plus className="size-3.5" />
+															Adicionar
+														</Button>
+													</div>
 												</div>
 												<div className="p-3">
 													<MealGroupBoard
@@ -461,6 +569,25 @@ function GlobalPlanEditorPage() {
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
+														// Plano global não carrega efetivo: a demanda aqui só pode ser dita em % da refeição,
+														// e a cozinha que adotar o plano informa o efetivo dela.
+														allowHeadcount={false}
+														onCopy={(recipeId) =>
+															handleCopyKeys(new Set([menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })]))
+														}
+														onPaste={() => handlePaste(day.num, mealType.id)}
+														canPaste={clipboard.length > 0}
+														selectionMode={selectionMode}
+														selectedIds={
+															new Set(
+																boardItems
+																	.map((boardItem) => boardItem.id)
+																	.filter((recipeId) => selectedKeys.has(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })))
+															)
+														}
+														onSelectChange={(recipeId, checked) =>
+															toggleSelection(menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
+														}
 													/>
 												</div>
 											</Card>
@@ -475,6 +602,25 @@ function GlobalPlanEditorPage() {
 						))}
 					</Tabs>
 				</div>
+
+				{selectionMode && selectedKeys.size > 0 && (
+					<MenuSelectionBar
+						count={selectedKeys.size}
+						kitchenId={null}
+						onCopy={() => handleCopyKeys(selectedKeys)}
+						allowHeadcount={false}
+						onSetHeadcount={(headcount) => setItems(setItemHeadcount(items, selectedKeys, headcount))}
+						onReplace={(recipeId) => {
+							setItems(replaceMenuRecipe(items, selectedKeys, recipeId))
+							clearSelection()
+						}}
+						onRemove={() => {
+							setItems(removeMenuItems(items, selectedKeys))
+							clearSelection()
+						}}
+						onClear={clearSelection}
+					/>
+				)}
 
 				{/* RecipeSelector — kitchenId=null filtra apenas preparações globais */}
 				<RecipeSelector

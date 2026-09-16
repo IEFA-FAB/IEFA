@@ -1,11 +1,14 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { CalendarPlus, Check, GitFork, Loader2, Save } from "lucide-react"
+import { CalendarPlus, Check, GitFork, ListChecks, Loader2, Save, Users } from "lucide-react"
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
 import type { RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
 import { MealTypeSection } from "@/components/features/local/planning/MealTypeSection"
+import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
+import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
+import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -19,6 +22,15 @@ import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVer
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import {
+	applyHeadcountToItems,
+	countItemHeadcountTargets,
+	type HeadcountPlan,
+	menuItemKey,
+	removeMenuItems,
+	replaceMenuRecipe,
+	setItemHeadcount,
+} from "@/lib/menu-fill"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
@@ -111,7 +123,9 @@ function ExceptionEditorPage() {
 
 	const { data: template, isLoading: templateLoading } = useTemplate(exceptionId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
-	const { data: allRecipes } = useRecipes()
+	// Catálogo global + as preparações DESTA cozinha. Sem o escopo, a listagem volta só com
+	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
+	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
 	// Contexto da edição = a rota. Template global editado aqui vira cópia local desta
 	// cozinha; o global não é tocado. `menu_template` não é versionado, então a edição
 	// in-place de um global sobrescreveria o plano da FAB inteira sem histórico.
@@ -128,6 +142,10 @@ function ExceptionEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	const [selectionMode, setSelectionMode] = useState(false)
+	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
+	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
+	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const [applyOpen, setApplyOpen] = useState(false)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -200,6 +218,18 @@ function ExceptionEditorPage() {
 
 	// ── Helpers ────────────────────────────────────────────────────────────────
 
+	useEffect(() => {
+		if (!highlightedKey) return
+		const frame = requestAnimationFrame(() => {
+			document.getElementById(highlightedKey)?.scrollIntoView({ block: "center", behavior: "smooth" })
+		})
+		const timer = setTimeout(() => setHighlightedKey(null), 2500)
+		return () => {
+			cancelAnimationFrame(frame)
+			clearTimeout(timer)
+		}
+	}, [highlightedKey])
+
 	/** Retorna as preparações de um grupo com seus headcounts individuais. */
 	const getGroupItems = (mealTypeId: string): RecipeWithHeadcount[] => {
 		const groupItems = items.filter((i) => i.meal_type_id === mealTypeId)
@@ -213,6 +243,8 @@ function ExceptionEditorPage() {
 					rational_id: recipe.rational_id ?? null,
 					headcountOverride: item.headcount_override ?? null,
 					badge: <RecipeVersionBadge outdated={outdatedById.get(recipe.id)} />,
+					anchorId: menuItemKey(item),
+					highlighted: highlightedKey === menuItemKey(item),
 				},
 			]
 		})
@@ -249,6 +281,42 @@ function ExceptionEditorPage() {
 
 	const handleUpdateVersions = (replacements: Map<string, string>) => {
 		dispatch({ type: "SET_ITEMS", value: replaceRecipeVersions(items, replacements) })
+	}
+
+	const toggleSelection = (key: string, checked: boolean) => {
+		setSelectedKeys((prev) => {
+			const next = new Set(prev)
+			if (checked) next.add(key)
+			else next.delete(key)
+			return next
+		})
+	}
+
+	const clearSelection = () => setSelectedKeys(new Set())
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false)
+		clearSelection()
+	}
+
+	/** Sem efetivo base aqui (`menu_template_meal` é do cardápio semanal): o quantitativo do
+	 * auxiliador vai direto para o pax de cada preparação da refeição. */
+	const handleApplyHeadcountPlan = (plan: HeadcountPlan, overwrite: boolean) => {
+		dispatch({ type: "SET_ITEMS", value: applyHeadcountToItems(items, plan, { overwrite }) })
+	}
+
+	const handleBulkHeadcount = (headcount: number | null) => {
+		dispatch({ type: "SET_ITEMS", value: setItemHeadcount(items, selectedKeys, headcount) })
+	}
+
+	const handleBulkRemove = () => {
+		dispatch({ type: "SET_ITEMS", value: removeMenuItems(items, selectedKeys) })
+		clearSelection()
+	}
+
+	const handleBulkReplace = (recipeId: string) => {
+		dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, selectedKeys, recipeId) })
+		clearSelection()
 	}
 
 	const handleRemoveRecipe = (mealTypeId: string, recipeId: string) => {
@@ -445,6 +513,37 @@ function ExceptionEditorPage() {
 						</div>
 					)}
 
+					{/* Preenchimento: localizar, quantitativo por refeição e seleção em massa */}
+					<div className="flex flex-wrap items-center gap-2">
+						<MenuFindBar
+							items={items}
+							nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+							mealTypeOrder={(mealTypes ?? []).map((m) => m.id)}
+							dayLabel={null}
+							mealLabel={(mealTypeId) => mealTypes?.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
+							kitchenId={kitchenId}
+							onGoTo={(match) => setHighlightedKey(match.key)}
+							onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
+							onSelectMatches={(keys) => {
+								setSelectionMode(true)
+								setSelectedKeys(keys)
+							}}
+						/>
+						<Button type="button" variant="outline" size="sm" onClick={() => setHeadcountOpen(true)}>
+							<Users className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">Quantitativo</span>
+						</Button>
+						<Button
+							type="button"
+							variant={selectionMode ? "default" : "outline"}
+							size="sm"
+							onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+						>
+							<ListChecks className="size-4 sm:mr-2" />
+							<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
+						</Button>
+					</div>
+
 					{/* Grupos de preparações */}
 					{mealTypes && mealTypes.length > 0 ? (
 						<div className="space-y-3">
@@ -456,6 +555,11 @@ function ExceptionEditorPage() {
 									onOpenSelector={() => handleOpenSelector(mealType.id)}
 									onRemoveRecipe={(recipeId) => handleRemoveRecipe(mealType.id, recipeId)}
 									onItemHeadcountChange={(recipeId, value) => handleItemHeadcountChange(mealType.id, recipeId, value)}
+									selectionMode={selectionMode}
+									selectedIds={new Set(items.filter((i) => i.meal_type_id === mealType.id && selectedKeys.has(menuItemKey(i))).map((i) => i.recipe_id))}
+									onSelectChange={(recipeId, checked) =>
+										toggleSelection(menuItemKey({ day_of_week: EXCEPTION_DAY, meal_type_id: mealType.id, recipe_id: recipeId }), checked)
+									}
 								/>
 							))}
 						</div>
@@ -466,6 +570,26 @@ function ExceptionEditorPage() {
 						</div>
 					)}
 				</div>
+
+				<MenuHeadcountDialog
+					open={headcountOpen}
+					onOpenChange={setHeadcountOpen}
+					mealTypes={mealTypes ?? []}
+					scope="item-headcount"
+					countTargets={(plan, overwrite) => countItemHeadcountTargets(items, plan, { overwrite })}
+					onApply={handleApplyHeadcountPlan}
+				/>
+
+				{selectionMode && selectedKeys.size > 0 && (
+					<MenuSelectionBar
+						count={selectedKeys.size}
+						kitchenId={kitchenId}
+						onSetHeadcount={handleBulkHeadcount}
+						onReplace={handleBulkReplace}
+						onRemove={handleBulkRemove}
+						onClear={clearSelection}
+					/>
+				)}
 
 				<RecipeSelector
 					open={selectorOpen}
