@@ -229,7 +229,7 @@ export function useApplyTemplate() {
 	return useMutation({
 		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId, conflictMode }: ApplyTemplatePayload) =>
 			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId, conflictMode } }),
-		onSuccess: (result) => {
+		onSuccess: (result, variables) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			// itemsSkipped é contado por ocorrência (data×refeição), não por slot único do template.
@@ -238,8 +238,15 @@ export function useApplyTemplate() {
 			const preserved = result?.datesSkipped?.length ?? 0
 			const preservedNote = preserved > 0 ? ` Refeições já planejadas foram preservadas em ${preserved} ${preserved === 1 ? "dia" : "dias"}.` : ""
 			if ((result?.menusCreated ?? 0) === 0 && (result?.itemsCreated ?? 0) === 0) {
-				// Verde com "0 criados" dizia que deu certo sem dizer que nada mudou — e reaplicar
-				// depois de editar o cardápio, no modo Preservar, é exatamente esse caso.
+				// Verde com "0 criados" dizia que deu certo sem dizer o que aconteceu. O que aconteceu
+				// depende do modo: no Substituir o planejamento dos dias JÁ foi para a lixeira — dizer
+				// "nada mudou" ali mentiria justamente sobre a parte destrutiva.
+				if (variables.conflictMode === "replace") {
+					toast.warning(
+						`O planejamento desses dias foi para a Lixeira, mas o template não tem preparações para eles — os dias ficaram vazios. Restaure pela Lixeira se não era isso.${skippedNote}`
+					)
+					return
+				}
 				const reason =
 					preserved > 0
 						? `as refeições já estavam planejadas em ${preserved} ${preserved === 1 ? "dia" : "dias"} e foram preservadas`
