@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CheckCircle2, Circle, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
+import { CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
 import { useEffect, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
@@ -9,6 +9,7 @@ import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelec
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { toast } from "@/components/ui/toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,10 +19,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useRecipes } from "@/hooks/data/useRecipes"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
+import { copyMenuItems, type MenuClipboardEntry, menuItemKey, pasteMenuItems, removeMenuItems, replaceMenuRecipe, setItemHeadcount } from "@/lib/menu-fill"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
-import { menuItemKey, removeMenuItems, replaceMenuRecipe, setItemHeadcount } from "@/lib/menu-fill"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { TemplateItemDraft } from "@/types/domain/planning"
@@ -162,6 +164,9 @@ function GlobalPlanEditorPage() {
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
+	// Chave própria, separada da do cardápio da cozinha: colar aqui o que foi copiado lá
+	// traria preparação local para dentro de um plano que é da FAB inteira.
+	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>("sisub:weekly-plan:clipboard", [])
 	const [selectedCell, setSelectedCell] = useState<{
 		dayOfWeek: number
 		mealTypeId: string
@@ -284,6 +289,24 @@ function GlobalPlanEditorPage() {
 	const exitSelectionMode = () => {
 		setSelectionMode(false)
 		clearSelection()
+	}
+
+	const handleCopyKeys = (keys: ReadonlySet<string>) => {
+		const entries = copyMenuItems(items, keys)
+		if (entries.length === 0) return
+		setClipboard(entries)
+		toast.success(`${entries.length} ${entries.length === 1 ? "preparação copiada" : "preparações copiadas"}`)
+	}
+
+	const handlePaste = (day: number, mealTypeId?: string) => {
+		if (clipboard.length === 0) return
+		const result = pasteMenuItems(items, clipboard, { day, mealTypeId }, (draft) => ({
+			...draft,
+			item_group: draft.item_group as MenuItemGroup | null,
+		}))
+		setItems(result.items)
+		if (result.pasted === 0) toast.info("Estas preparações já estão nesta refeição")
+		else toast.success(`${result.pasted} ${result.pasted === 1 ? "preparação colada" : "preparações coladas"}`)
 	}
 
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
@@ -511,16 +534,30 @@ function GlobalPlanEditorPage() {
 															</Badge>
 														)}
 													</div>
-													<Button
-														type="button"
-														size="sm"
-														variant="ghost"
-														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-														onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
-													>
-														<Plus className="size-3.5" />
-														Adicionar
-													</Button>
+													<div className="flex items-center gap-2">
+														{clipboard.length > 0 && (
+															<Button
+																type="button"
+																size="sm"
+																variant="ghost"
+																className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+																onClick={() => handlePaste(day.num, mealType.id)}
+															>
+																<ClipboardPaste className="size-3.5" />
+																Colar ({clipboard.length})
+															</Button>
+														)}
+														<Button
+															type="button"
+															size="sm"
+															variant="ghost"
+															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+															onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+														>
+															<Plus className="size-3.5" />
+															Adicionar
+														</Button>
+													</div>
 												</div>
 												<div className="p-3">
 													<MealGroupBoard
@@ -529,6 +566,14 @@ function GlobalPlanEditorPage() {
 														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
 														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
+														// Plano global não carrega efetivo: a demanda aqui só pode ser dita em % da refeição,
+														// e a cozinha que adotar o plano informa o efetivo dela.
+														allowHeadcount={false}
+														onCopy={(recipeId) =>
+															handleCopyKeys(new Set([menuItemKey({ day_of_week: day.num, meal_type_id: mealType.id, recipe_id: recipeId })]))
+														}
+														onPaste={() => handlePaste(day.num, mealType.id)}
+														canPaste={clipboard.length > 0}
 														selectionMode={selectionMode}
 														selectedIds={
 															new Set(
@@ -559,6 +604,7 @@ function GlobalPlanEditorPage() {
 					<MenuSelectionBar
 						count={selectedKeys.size}
 						kitchenId={null}
+						onCopy={() => handleCopyKeys(selectedKeys)}
 						onSetHeadcount={(headcount) => setItems(setItemHeadcount(items, selectedKeys, headcount))}
 						onReplace={(recipeId) => {
 							setItems(replaceMenuRecipe(items, selectedKeys, recipeId))

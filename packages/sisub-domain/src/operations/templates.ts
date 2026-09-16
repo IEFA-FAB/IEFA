@@ -43,6 +43,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
+import { resolveItemDemand } from "./demand-math.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -747,8 +748,13 @@ export async function applyTemplate(
 				const recipeSnapshot = item.recipesInKitchen
 					? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 					: {}
-				// Porção planejada = override do item (exceção) senão o efetivo derivado da refeição.
-				const plannedPortion = item.headcountOverride ?? mealForecast
+				// Porção planejada: quantidade direta do item, senão a porcentagem sobre o efetivo
+				// da refeição, senão o efetivo cheio.
+				const plannedPortion = resolveItemDemand({
+					headcountOverride: item.headcountOverride,
+					baseHeadcount: mealForecast,
+					recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
+				})
 				menuItemRows.push({
 					dailyMenuId: menuId,
 					recipeOriginId: item.recipeId,

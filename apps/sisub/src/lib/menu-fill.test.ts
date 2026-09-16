@@ -2,12 +2,14 @@ import { describe, expect, test } from "vitest"
 import {
 	applyHeadcountToItems,
 	applyHeadcountToMeals,
+	copyMenuItems,
 	countHeadcountTargets,
 	countItemHeadcountTargets,
 	findMenuItems,
 	type MealHeadcountDraft,
 	type MenuDraftItem,
 	menuItemKey,
+	pasteMenuItems,
 	removeMenuItems,
 	replaceMenuRecipe,
 	setItemHeadcount,
@@ -184,5 +186,63 @@ describe("applyHeadcountToItems", () => {
 		expect(countItemHeadcountTargets(items, plan)).toBe(1)
 		expect(countItemHeadcountTargets(items, plan, { overwrite: true })).toBe(2)
 		expect(countItemHeadcountTargets(items, new Map([[ALMOCO, null]]))).toBe(0)
+	})
+})
+
+describe("copyMenuItems / pasteMenuItems", () => {
+	type FullItem = MenuDraftItem & { item_group: string | null; sort_order: number; recommended_proportion: number | null }
+	const full = (day: number, mealTypeId: string, recipeId: string, extra: Partial<FullItem> = {}): FullItem => ({
+		day_of_week: day,
+		meal_type_id: mealTypeId,
+		recipe_id: recipeId,
+		headcount_override: null,
+		item_group: "prato_principal",
+		sort_order: 0,
+		recommended_proportion: null,
+		...extra,
+	})
+	const makeItem = (draft: Omit<FullItem, "headcount_override"> & { headcount_override: number | null }): FullItem => draft
+
+	test("copia na ordem da lista, guardando grupo, pax, porcentagem e refeição de origem", () => {
+		const items = [full(1, ALMOCO, "arroz", { headcount_override: 120, recommended_proportion: 30 }), full(1, JANTAR, "sopa")]
+		const entries = copyMenuItems(items, new Set(items.map(menuItemKey)))
+		expect(entries).toEqual([
+			{ recipe_id: "arroz", item_group: "prato_principal", headcount_override: 120, recommended_proportion: 30, meal_type_id: ALMOCO },
+			{ recipe_id: "sopa", item_group: "prato_principal", headcount_override: null, recommended_proportion: null, meal_type_id: JANTAR },
+		])
+	})
+
+	test("cola numa refeição de destino, levando tudo para ela", () => {
+		const items = [full(1, ALMOCO, "arroz")]
+		const clipboard = copyMenuItems(items, new Set([menuItemKey(items[0])]))
+		const { items: next, pasted } = pasteMenuItems(items, clipboard, { day: 3, mealTypeId: JANTAR }, makeItem)
+		expect(pasted).toBe(1)
+		expect(next).toHaveLength(2)
+		expect(next[1]).toMatchObject({ day_of_week: 3, meal_type_id: JANTAR, recipe_id: "arroz" })
+	})
+
+	test("sem refeição de destino, cada preparação volta para a refeição de origem (colar o dia)", () => {
+		const items = [full(1, ALMOCO, "arroz"), full(1, JANTAR, "sopa")]
+		const clipboard = copyMenuItems(items, new Set(items.map(menuItemKey)))
+		const { items: next } = pasteMenuItems(items, clipboard, { day: 5 }, makeItem)
+		expect(next.filter((i) => i.day_of_week === 5).map((i) => [i.meal_type_id, i.recipe_id])).toEqual([
+			[ALMOCO, "arroz"],
+			[JANTAR, "sopa"],
+		])
+	})
+
+	test("preparação que já está na refeição de destino é pulada, não duplicada", () => {
+		const items = [full(1, ALMOCO, "arroz"), full(2, ALMOCO, "arroz")]
+		const clipboard = copyMenuItems(items, new Set([menuItemKey(items[0])]))
+		const { items: next, pasted, skipped } = pasteMenuItems(items, clipboard, { day: 2, mealTypeId: ALMOCO }, makeItem)
+		expect({ pasted, skipped }).toEqual({ pasted: 0, skipped: 1 })
+		expect(next).toHaveLength(2)
+	})
+
+	test("entra no fim do grupo, sem colidir com a ordem de quem já está lá", () => {
+		const items = [full(1, ALMOCO, "arroz", { sort_order: 0 }), full(1, ALMOCO, "feijao", { sort_order: 1 })]
+		const clipboard = copyMenuItems([full(9, JANTAR, "farofa")], new Set([menuItemKey(full(9, JANTAR, "farofa"))]))
+		const { items: next } = pasteMenuItems(items, clipboard, { day: 1, mealTypeId: ALMOCO }, makeItem)
+		expect(next[2]).toMatchObject({ recipe_id: "farofa", sort_order: 2 })
 	})
 })

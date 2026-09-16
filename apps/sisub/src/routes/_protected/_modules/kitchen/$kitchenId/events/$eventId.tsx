@@ -115,7 +115,9 @@ function EventEditorPage() {
 
 	const { data: template, isLoading: templateLoading } = useTemplate(eventId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
-	const { data: allRecipes } = useRecipes()
+	// Catálogo global + as preparações DESTA cozinha. Sem o escopo, a listagem volta só com
+	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
+	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
 	// Contexto da edição = a rota. Template global editado aqui vira cópia local desta
 	// cozinha; o global não é tocado. `menu_template` não é versionado, então a edição
 	// in-place de um global sobrescreveria o plano da FAB inteira sem histórico.

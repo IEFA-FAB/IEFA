@@ -1,4 +1,4 @@
-import { Eraser, Replace, Trash2, Users, X } from "lucide-react"
+import { Copy, Eraser, Replace, Trash2, Users, X } from "lucide-react"
 import { useState } from "react"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import {
@@ -31,6 +31,7 @@ export function MenuSelectionBar({
 	onReplace,
 	onRemove,
 	onClear,
+	onCopy,
 }: {
 	count: number
 	/** Escopo do seletor de preparação da substituição (null = catálogo global). */
@@ -39,6 +40,8 @@ export function MenuSelectionBar({
 	onReplace: (recipeId: string) => void
 	onRemove: () => void
 	onClear: () => void
+	/** Copia as selecionadas para colar em outro dia/refeição (Ctrl+C faz o mesmo). */
+	onCopy?: () => void
 }) {
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const [headcount, setHeadcount] = useState("")
@@ -60,6 +63,12 @@ export function MenuSelectionBar({
 
 					<div className="mx-1 h-5 w-px bg-border" />
 
+					{onCopy && (
+						<Button variant="ghost" size="sm" className="gap-1.5" onClick={onCopy}>
+							<Copy className="size-4" />
+							Copiar
+						</Button>
+					)}
 					<Button
 						variant="ghost"
 						size="sm"

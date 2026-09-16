@@ -80,7 +80,7 @@ export {
 	temperatureVerdict,
 } from "./conditioning.ts"
 export { getUnitDashboard, type UnitDashboardData } from "./dashboard.ts"
-export { scaleIngredientQuantity } from "./demand-math.ts"
+export { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 export type {
 	EquipmentModelRoleWire,
 	EquipmentModelWire,

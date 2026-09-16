@@ -216,3 +216,93 @@ export function countItemHeadcountTargets(items: readonly MenuDraftItem[], plan:
 		return item.headcount_override !== headcount
 	}).length
 }
+
+/** Uma preparação na área de transferência do cardápio. */
+export type MenuClipboardEntry = {
+	recipe_id: string
+	item_group: string | null
+	headcount_override: number | null
+	recommended_proportion: number | null
+	/** Refeição de origem — usada ao colar um dia inteiro, que preserva a refeição. */
+	meal_type_id: string
+}
+
+/** Copia os itens selecionados, na ordem de leitura do cardápio. */
+export function copyMenuItems<T extends MenuDraftItem & { item_group?: string | null; recommended_proportion?: number | null }>(
+	items: readonly T[],
+	keys: ReadonlySet<string>
+): MenuClipboardEntry[] {
+	return items
+		.filter((item) => keys.has(menuItemKey(item)))
+		.map((item) => ({
+			recipe_id: item.recipe_id,
+			item_group: item.item_group ?? null,
+			headcount_override: item.headcount_override ?? null,
+			recommended_proportion: item.recommended_proportion ?? null,
+			meal_type_id: item.meal_type_id,
+		}))
+}
+
+/** Próxima posição livre dentro de um grupo de uma célula (dia + refeição). */
+function nextSortOrder(
+	items: readonly { day_of_week: number; meal_type_id: string; item_group?: string | null; sort_order?: number }[],
+	day: number,
+	mealTypeId: string,
+	group: string | null
+): number {
+	const inGroup = items.filter((i) => i.day_of_week === day && i.meal_type_id === mealTypeId && (i.item_group ?? null) === group)
+	return inGroup.reduce((max, i) => Math.max(max, (i.sort_order ?? 0) + 1), 0)
+}
+
+type PasteTarget = { day: number; mealTypeId?: string }
+
+/**
+ * Cola a área de transferência no cardápio.
+ *
+ * Com `mealTypeId`, tudo cai naquela refeição; sem ele, cada preparação volta para a
+ * refeição de onde foi copiada — é o "colar o dia inteiro". Preparação que já está na
+ * refeição de destino é ignorada: repetir a mesma preparação na mesma refeição é a
+ * duplicata que some da edição e aparece na impressão.
+ */
+export function pasteMenuItems<T extends MenuDraftItem & { item_group?: string | null; sort_order?: number; recommended_proportion?: number | null }>(
+	items: readonly T[],
+	clipboard: readonly MenuClipboardEntry[],
+	{ day, mealTypeId }: PasteTarget,
+	makeItem: (draft: {
+		day_of_week: number
+		meal_type_id: string
+		recipe_id: string
+		item_group: string | null
+		sort_order: number
+		headcount_override: number | null
+		recommended_proportion: number | null
+	}) => T
+): { items: T[]; pasted: number; skipped: number } {
+	const result = [...items]
+	let pasted = 0
+	let skipped = 0
+
+	for (const entry of clipboard) {
+		const targetMeal = mealTypeId ?? entry.meal_type_id
+		const key = menuItemKey({ day_of_week: day, meal_type_id: targetMeal, recipe_id: entry.recipe_id })
+		if (result.some((item) => menuItemKey(item) === key)) {
+			skipped++
+			continue
+		}
+		const group = entry.item_group ?? null
+		result.push(
+			makeItem({
+				day_of_week: day,
+				meal_type_id: targetMeal,
+				recipe_id: entry.recipe_id,
+				item_group: group,
+				sort_order: nextSortOrder(result, day, targetMeal, group),
+				headcount_override: entry.headcount_override,
+				recommended_proportion: entry.recommended_proportion,
+			})
+		)
+		pasted++
+	}
+
+	return { items: result, pasted, skipped }
+}

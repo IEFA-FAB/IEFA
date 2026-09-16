@@ -58,7 +58,7 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { scaleIngredientQuantity } from "./demand-math.ts"
+import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 /** Janela legal padrão de validade da pesquisa de preço (IN SEGES 65/2021). */
@@ -175,7 +175,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 				columns: { id: true, templateType: true },
 				with: {
 					menuTemplateItemsInKitchens: {
-						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true },
+						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true },
 					},
 				},
 				where: inArray(menuTemplateInKitchen.id, uniqueTemplateIds),
@@ -256,9 +256,14 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 			const recipeData = item.recipeId ? recipeById.get(item.recipeId) : undefined
 			if (!recipeData) continue
 
-			// Exceção por-item (override) senão o efetivo base da refeição. Sem nenhum dos dois
-			// o item não tem efetivo dimensionável → não contribui para a compra.
-			const headcount = item.headcountOverride ?? baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null
+			// Quantidade direta do item, senão a porcentagem sobre o efetivo base da refeição,
+			// senão o efetivo cheio. Sem nenhum dos três o item não tem efetivo dimensionável
+			// → não contribui para a compra.
+			const headcount = resolveItemDemand({
+				headcountOverride: item.headcountOverride,
+				baseHeadcount: baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null,
+				recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
+			})
 			if (!headcount) continue
 
 			const portionYield = Number(recipeData.portionYield ?? 0)
