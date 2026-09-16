@@ -8,9 +8,9 @@ import type { MealTypeInfo } from "@/components/features/local/planning/MealType
 import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
 import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
-import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
+import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -260,6 +260,9 @@ function WeeklyMenuEditorPage() {
 	// —, e sem esta comparação ele regravaria, 1,5s depois, o fork recém-criado inteiro.
 	const savedSignatureRef = useRef<string | null>(null)
 	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items, meals })
+	// Lida pelo guarda de saída no momento da navegação, não na renderização.
+	const contentSignatureRef = useRef(contentSignature)
+	contentSignatureRef.current = contentSignature
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -1000,7 +1003,7 @@ function WeeklyMenuEditorPage() {
 					/>
 				)}
 
-				<UnsavedChangesGuard when={initialized && contentSignature !== savedSignatureRef.current} />
+				<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
 
 				<RecipeSelector
 					open={selectorOpen}

@@ -18,6 +18,7 @@ import {
 	getTrashItems,
 	listDeletedTemplates,
 	listTemplates,
+	restoreMenuItem,
 	restoreTemplate,
 	saveTemplateEdit,
 } from "@iefa/sisub-domain"
@@ -548,7 +549,16 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		await applyTemplate(db, ctx, { templateId, kitchenId, dates: [date], startDate: date, endDate: date, startDayOfWeek, conflictMode: "replace" })
 
 		const trash = await getTrashItems(db, ctx, { kitchenId })
-		expect(trash.some((t) => t.recipe_origin_id === manualRecipe)).toBe(true)
+		const trashed = trash.find((t) => t.recipe_origin_id === manualRecipe)
+		expect(trashed).toBeDefined()
+
+		// Restaurar depois do Substituir: já existe um menu ativo na mesma data/refeição (o que o
+		// template criou), então reativar o antigo violaria o índice único parcial. O item tem de
+		// voltar para o menu ativo — visível no dia.
+		await restoreMenuItem(db, ctx, { menuItemId: trashed?.id as string })
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as { menu_items: { recipe_origin_id: string | null }[] }[]
+		expect(details.length).toBe(1)
+		expect(details.flatMap((m) => m.menu_items).map((i) => i.recipe_origin_id)).toContain(manualRecipe)
 	})
 
 	test("sem conflictMode, o default preserva a refeição já planejada", async () => {

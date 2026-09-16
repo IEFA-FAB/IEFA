@@ -20,11 +20,15 @@ import {
  *
  * Cobre navegação interna (pelo roteador) e fechar/recarregar a aba (`enableBeforeUnload`).
  */
-export function UnsavedChangesGuard({ when, message }: { when: boolean; message?: string }) {
+export function UnsavedChangesGuard({ isDirty, message }: { isDirty: () => boolean; message?: string }) {
+	// Função, e não booleano: a decisão é tomada NO MOMENTO da navegação. Um booleano vindo da
+	// renderização chega atrasado — o save que forka um template global redireciona no mesmo
+	// tique em que grava, e o guarda ainda via "alterado"; e a assinatura inicial é gravada num
+	// ref, sem nova renderização, então logo após carregar a tela ele acusava alteração sem
+	// ninguém ter mexido.
 	const blocker = useBlocker({
-		shouldBlockFn: () => when,
-		enableBeforeUnload: () => when,
-		disabled: !when,
+		shouldBlockFn: () => isDirty(),
+		enableBeforeUnload: () => isDirty(),
 		withResolver: true,
 	})
 

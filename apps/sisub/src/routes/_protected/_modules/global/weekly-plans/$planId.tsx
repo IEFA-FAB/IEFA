@@ -6,9 +6,9 @@ import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
-import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
+import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -194,6 +194,9 @@ function GlobalPlanEditorPage() {
 	}
 
 	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items })
+	// Lida pelo guarda de saída no momento da navegação, não na renderização.
+	const contentSignatureRef = useRef(contentSignature)
+	contentSignatureRef.current = contentSignature
 
 	// O conteúdo recém-carregado já está gravado; só o que o usuário mexer conta como pendente.
 	useEffect(() => {
@@ -642,7 +645,7 @@ function GlobalPlanEditorPage() {
 					/>
 				)}
 
-				<UnsavedChangesGuard when={initialized && contentSignature !== savedSignatureRef.current} />
+				<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
 
 				{/* RecipeSelector — kitchenId=null filtra apenas preparações globais */}
 				<RecipeSelector
