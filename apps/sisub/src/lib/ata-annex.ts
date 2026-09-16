@@ -98,12 +98,20 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 const toNumber = (value: string | null): number | null => (value == null ? null : Number(value))
 
 /**
- * Linhas da ata publicada. Números vêm do snapshot; descrição adicional e descrição CATMAT vêm
- * do item vivo (o snapshot não as congela, e a descrição segue editável depois de publicar).
+ * Linhas da ata publicada. Quantidades, margem, ciclo e mínimo vêm do snapshot (congelados na
+ * publicação). Descrição adicional, descrição CATMAT e PREÇO vêm do item vivo: nenhum dos três é
+ * congelado, e o preço continua mudando depois de publicar (`updateAtaItemPrices` e a pesquisa de
+ * preço seguem valendo). Ler o preço do snapshot fazia o CSV e o valor máximo divergirem da tabela
+ * de itens da própria tela. O preço do snapshot fica só como reserva, para item sem linha viva.
  */
 export function buildSnapshotAnnexRows(
 	components: AtaSnapshotComponent[],
-	liveItems: Array<{ ingredient_id: string | null; item_description: string | null; catmat_item_descricao: string | null }> = []
+	liveItems: Array<{
+		ingredient_id: string | null
+		item_description: string | null
+		catmat_item_descricao: string | null
+		unit_price?: number | null
+	}> = []
 ): AtaAnnexRow[] {
 	const liveByIngredient = new Map(liveItems.filter((i) => i.ingredient_id).map((i) => [i.ingredient_id as string, i]))
 	return components.map((c, index) => {
@@ -132,7 +140,7 @@ export function buildSnapshotAnnexRows(
 			suggestedMinOrderQuantity: null,
 			minOrderQuantity: toNumber(c.min_order_quantity),
 			minOrderSource: null,
-			unitPrice: toNumber(c.unit_price),
+			unitPrice: live?.unit_price ?? toNumber(c.unit_price),
 			warnings: [],
 			choices: null,
 		}
