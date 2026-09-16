@@ -90,8 +90,22 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	) => {
 		const present = new Set((menu.menu_items ?? []).map((i) => i.recipe_origin_id))
 		const fresh = entries.filter((e) => !present.has(e.recipeId))
+		// Posição calculada AQUI, por grupo: os inserts saem em paralelo, e sem `sort_order` o
+		// servidor calcula "último + 1" para todos no mesmo instante — as preparações nasciam
+		// empatadas e a ordem copiada virava a ordem em que o banco devolve.
+		const nextInGroup = new Map<string | null, number>()
+		for (const item of menu.menu_items ?? []) {
+			const group = item.item_group ?? null
+			nextInGroup.set(group, Math.max(nextInGroup.get(group) ?? 0, (item.sort_order ?? 0) + 1))
+		}
+		const positions = fresh.map((e) => {
+			const group = e.itemGroup ?? null
+			const position = nextInGroup.get(group) ?? 0
+			nextInGroup.set(group, position + 1)
+			return position
+		})
 		const results = await Promise.allSettled(
-			fresh.map((e) =>
+			fresh.map((e, index) =>
 				addMenuItem({
 					daily_menu_id: menu.id,
 					recipe_origin_id: e.recipeId,
@@ -100,6 +114,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					planned_portion_quantity: menu.forecasted_headcount || null,
 					excluded_from_procurement: 0,
 					item_group: e.itemGroup ?? null,
+					sort_order: positions[index],
 					recommended_proportion: e.recommendedProportion ?? null,
 				})
 			)
