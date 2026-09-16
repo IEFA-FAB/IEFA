@@ -1,7 +1,7 @@
 import type { RecipeSummary } from "@iefa/sisub-domain"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ChefHat, Folder as FolderIcon, Globe, Search } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -21,6 +21,13 @@ interface RecipeSelectorProps {
 	selectedRecipeIds: string[]
 	onSelect: (recipeIds: string[]) => void
 	multiSelect?: boolean
+	/** Título/descrição de quem abre: "Selecionar Preparações" genérico escondia o que o confirmar faz. */
+	title?: string
+	description?: string
+	/** Conteúdo extra acima dos botões (ex.: outros dias onde repetir a seleção). */
+	footerSlot?: ReactNode
+	/** Permite confirmar sem nada marcado — é assim que se esvazia uma refeição pelo diálogo. */
+	allowEmpty?: boolean
 }
 
 interface RecipeSelectorContentProps {
@@ -31,6 +38,10 @@ interface RecipeSelectorContentProps {
 	multiSelect: boolean
 	recipes: RecipeSummary[] | undefined
 	isLoading: boolean
+	title?: string
+	description?: string
+	footerSlot?: ReactNode
+	allowEmpty?: boolean
 }
 
 /**
@@ -47,7 +58,19 @@ interface RecipeSelectorContentProps {
  * expand/collapse não é persistido, a busca abre tudo (`autoExpand`), e a linha entra em
  * `selectionMode` para o clique marcar em vez de navegar.
  */
-function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect, multiSelect, recipes, isLoading }: RecipeSelectorContentProps) {
+function RecipeSelectorContent({
+	onClose,
+	kitchenId,
+	selectedRecipeIds,
+	onSelect,
+	multiSelect,
+	recipes,
+	isLoading,
+	title,
+	description,
+	footerSlot,
+	allowEmpty,
+}: RecipeSelectorContentProps) {
 	const [searchQuery, setSearchQuery] = useState("")
 	const [debouncedQuery, setDebouncedQuery] = useState("")
 	const [tempSelected, setTempSelected] = useState<string[]>(selectedRecipeIds)
@@ -127,8 +150,10 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 	return (
 		<>
 			<DialogHeader>
-				<DialogTitle>Selecionar Preparações</DialogTitle>
-				<DialogDescription>{multiSelect ? "Selecione uma ou mais Preparações para adicionar ao template." : "Selecione uma Preparação."}</DialogDescription>
+				<DialogTitle>{title ?? "Selecionar Preparações"}</DialogTitle>
+				<DialogDescription>
+					{description ?? (multiSelect ? "Selecione uma ou mais Preparações para adicionar ao template." : "Selecione uma Preparação.")}
+				</DialogDescription>
 			</DialogHeader>
 
 			<div className="flex flex-wrap items-center gap-2">
@@ -223,6 +248,8 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 				)}
 			</div>
 
+			{footerSlot}
+
 			<DialogFooter className="flex items-center justify-between">
 				<div className="text-sm text-muted-foreground">
 					{selectedCount > 0 ? (
@@ -238,7 +265,7 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 					<Button type="button" variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>
-					<Button type="button" onClick={handleConfirm} disabled={selectedCount === 0}>
+					<Button type="button" onClick={handleConfirm} disabled={selectedCount === 0 && !allowEmpty}>
 						Confirmar ({selectedCount})
 					</Button>
 				</div>
@@ -247,7 +274,18 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 	)
 }
 
-export function RecipeSelector({ open, onClose, kitchenId, selectedRecipeIds, onSelect, multiSelect = true }: RecipeSelectorProps) {
+export function RecipeSelector({
+	open,
+	onClose,
+	kitchenId,
+	selectedRecipeIds,
+	onSelect,
+	multiSelect = true,
+	title,
+	description,
+	footerSlot,
+	allowEmpty,
+}: RecipeSelectorProps) {
 	"use no memo"
 	// Escopo da cozinha: a listagem sem `kitchen_id` volta SÓ com as globais, e o recorte
 	// abaixo (`kitchen_id === kitchenId`) nunca casava — a cozinha não conseguia escolher as
@@ -266,6 +304,10 @@ export function RecipeSelector({ open, onClose, kitchenId, selectedRecipeIds, on
 					multiSelect={multiSelect}
 					recipes={recipes}
 					isLoading={isLoading}
+					title={title}
+					description={description}
+					footerSlot={footerSlot}
+					allowEmpty={allowEmpty}
 				/>
 			</DialogContent>
 		</Dialog>

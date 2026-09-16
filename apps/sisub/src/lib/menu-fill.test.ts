@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 import {
 	applyHeadcountToItems,
 	applyHeadcountToMeals,
+	applyRecipeSelection,
 	copyMenuItems,
 	countHeadcountTargets,
 	countItemHeadcountTargets,
@@ -244,5 +245,55 @@ describe("copyMenuItems / pasteMenuItems", () => {
 		const clipboard = copyMenuItems([full(9, JANTAR, "farofa")], new Set([menuItemKey(full(9, JANTAR, "farofa"))]))
 		const { items: next } = pasteMenuItems(items, clipboard, { day: 1, mealTypeId: ALMOCO }, makeItem)
 		expect(next[2]).toMatchObject({ recipe_id: "farofa", sort_order: 2 })
+	})
+})
+
+describe("applyRecipeSelection", () => {
+	type Row = MenuDraftItem & { item_group: string | null; sort_order: number; recommended_proportion: number | null }
+	const row = (day: number, recipeId: string, group: string | null, sort: number, extra: Partial<Row> = {}): Row => ({
+		day_of_week: day,
+		meal_type_id: ALMOCO,
+		recipe_id: recipeId,
+		headcount_override: null,
+		item_group: group,
+		sort_order: sort,
+		recommended_proportion: null,
+		...extra,
+	})
+	const make = (d: Omit<Row, "headcount_override"> & { headcount_override: null }): Row => d
+
+	test("na origem, desmarcar remove e quem fica mantém seus atributos", () => {
+		const items = [row(1, "arroz", "prato_principal", 0, { headcount_override: 120 }), row(1, "feijao", "prato_principal", 1)]
+		const result = applyRecipeSelection(items, { day: 1, mealTypeId: ALMOCO, group: "prato_principal" }, ["arroz"], [], make)
+		expect(result).toEqual([items[0]])
+	})
+
+	test("esvaziar a refeição: nada marcado remove tudo da origem e só dela", () => {
+		const items = [row(1, "arroz", "prato_principal", 0), row(2, "arroz", "prato_principal", 0)]
+		const result = applyRecipeSelection(items, { day: 1, mealTypeId: ALMOCO, group: "prato_principal" }, [], [], make)
+		expect(result).toEqual([items[1]])
+	})
+
+	test("preparação nova entra no fim do GRUPO escolhido, não no fim da refeição", () => {
+		const items = [row(1, "arroz", "prato_principal", 0), row(1, "feijao", "prato_principal", 1)]
+		const result = applyRecipeSelection(items, { day: 1, mealTypeId: ALMOCO, group: "sobremesa" }, ["arroz", "feijao", "pudim"], [], make)
+		expect(result.find((i) => i.recipe_id === "pudim")).toMatchObject({ item_group: "sobremesa", sort_order: 0 })
+	})
+
+	test("outros dias só recebem o que falta — nunca perdem o que já tinham", () => {
+		const items = [row(1, "arroz", "prato_principal", 0), row(3, "feijao", "prato_principal", 0), row(3, "arroz", "prato_principal", 1)]
+		const result = applyRecipeSelection(items, { day: 1, mealTypeId: ALMOCO, group: "prato_principal" }, ["arroz", "farofa"], [2, 3], make)
+
+		const day2 = result.filter((i) => i.day_of_week === 2).map((i) => i.recipe_id)
+		const day3 = result.filter((i) => i.day_of_week === 3).map((i) => i.recipe_id)
+		expect(day2).toEqual(["arroz", "farofa"])
+		// Dia 3 mantém o feijão (não marcado) e ganha só a farofa, no fim do grupo.
+		expect(day3).toEqual(["feijao", "arroz", "farofa"])
+		expect(result.find((i) => i.day_of_week === 3 && i.recipe_id === "farofa")?.sort_order).toBe(2)
+	})
+
+	test("o próprio dia de origem na lista de extras não duplica", () => {
+		const result = applyRecipeSelection([], { day: 1, mealTypeId: ALMOCO, group: null }, ["arroz"], [1], make)
+		expect(result).toHaveLength(1)
 	})
 })

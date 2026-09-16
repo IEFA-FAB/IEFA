@@ -89,7 +89,8 @@ export function useCreateDailyMenu() {
 	})
 }
 
-export function useAddMenuItem() {
+/** `silent`: quem adiciona em lote dá um toast de resumo — N toasts verdes escondiam as falhas. */
+export function useAddMenuItem(options?: { silent?: boolean }) {
 	const queryClient = useQueryClient()
 
 	return useMutation({
@@ -111,15 +112,15 @@ export function useAddMenuItem() {
 			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
 			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
 			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
-			toast.success("Item adicionado ao cardápio!")
+			if (!options?.silent) toast.success("Item adicionado ao cardápio!")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao adicionar item: ${error.message}`)
+			if (!options?.silent) toast.error(`Erro ao adicionar item: ${error.message}`)
 		},
 	})
 }
 
-export function useUpdateDailyMenu() {
+export function useUpdateDailyMenu(options?: { silent?: boolean }) {
 	const queryClient = useQueryClient()
 
 	return useMutation({
@@ -145,10 +146,10 @@ export function useUpdateDailyMenu() {
 			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
 			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
 			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
-			toast.success("Cardápio atualizado!")
+			if (!options?.silent) toast.success("Cardápio atualizado!")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao atualizar cardápio: ${error.message}`)
+			if (!options?.silent) toast.error(`Erro ao atualizar cardápio: ${error.message}`)
 		},
 	})
 }
