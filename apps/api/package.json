@@ -19,22 +19,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/zod-openapi": "^1.6.2",
+    "@hono/zod-openapi": "^1.6.3",
     "@iefa/agent-web": "workspace:*",
     "@iefa/compras-api": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
-    "@scalar/hono-api-reference": "^0.12.0",
-    "@supabase/supabase-js": "^2.115.0",
+    "@scalar/hono-api-reference": "^0.12.1",
+    "@supabase/supabase-js": "^2.116.0",
     "fast-xml-parser": "^5.11.1",
     "fflate": "^0.8.3",
-    "hono": "^4.13.5",
+    "hono": "^4.13.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.2",
     "bun-types": "^1.4.0",
     "typescript": "^7.0.2"
   }

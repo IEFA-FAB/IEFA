@@ -12,13 +12,13 @@
     "./alpha": "./src/alpha-client.ts"
   },
   "dependencies": {
-    "hono": "^4.13.5"
+    "hono": "^4.13.7"
   },
   "devDependencies": {
     "@iefa/alpha": "workspace:*",
     "@iefa/api": "workspace:*",
     "@iefa/tsconfig": "workspace:*",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.2",
     "typescript": "^7.0.2"
   }
 }

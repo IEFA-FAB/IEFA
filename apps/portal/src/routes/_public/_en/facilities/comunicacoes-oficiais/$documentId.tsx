@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, type ErrorComponentProps, Link } from "@tanstack/react-router"
 import { DocumentEditor } from "@/components/comaer/DocumentEditor"
 import { Button } from "@/components/ui/button"
 import { fromPayload } from "@/lib/comaer/schema"
@@ -27,11 +27,14 @@ export const Route = createFileRoute("/_public/_en/facilities/comunicacoes-ofici
  * Sem isto o erro cai na moldura genérica do app, que imprime a mensagem do servidor num
  * bloco de código — e a pessoa lê o dialeto do PostgREST no lugar do próprio ofício.
  */
-function DocumentError({ error }: { error: Error }) {
+// `ErrorComponentProps`, não `{ error: Error }`: a partir do react-router 1.170.33 o tipo de
+// `errorComponent` passou a exigir exatamente estas props, e a assinatura escrita à mão deixou de
+// ser aceita (o erro cascateava e `useLoaderData` virava `undefined` no typecheck).
+function DocumentError({ error }: ErrorComponentProps) {
 	return (
 		<div className="max-w-2xl mx-auto px-4 py-16 flex flex-col gap-4">
 			<h1 className="text-headline text-balance">Não deu para abrir este documento</h1>
-			<p className="text-sm text-muted-foreground">{error.message || "A leitura falhou. O documento continua salvo."}</p>
+			<p className="text-sm text-muted-foreground">{(error instanceof Error && error.message) || "A leitura falhou. O documento continua salvo."}</p>
 			<div className="flex flex-wrap gap-2">
 				<Button type="button" variant="outline" size="sm" onClick={() => window.location.reload()}>
 					Tentar de novo
