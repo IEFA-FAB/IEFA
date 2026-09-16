@@ -9,18 +9,18 @@ import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelec
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { toast } from "@/components/ui/toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useRecipes } from "@/hooks/data/useRecipes"
-import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
 import { copyMenuItems, type MenuClipboardEntry, menuItemKey, pasteMenuItems, removeMenuItems, replaceMenuRecipe, setItemHeadcount } from "@/lib/menu-fill"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
@@ -303,6 +303,9 @@ function GlobalPlanEditorPage() {
 		const result = pasteMenuItems(items, clipboard, { day, mealTypeId }, (draft) => ({
 			...draft,
 			item_group: draft.item_group as MenuItemGroup | null,
+			// O plano global não tem efetivo: comensais colados ficariam invisíveis aqui e ainda
+			// assim venceriam a porcentagem em toda cozinha que adotasse o plano.
+			headcount_override: null,
 		}))
 		setItems(result.items)
 		if (result.pasted === 0) toast.info("Estas preparações já estão nesta refeição")
@@ -605,6 +608,7 @@ function GlobalPlanEditorPage() {
 						count={selectedKeys.size}
 						kitchenId={null}
 						onCopy={() => handleCopyKeys(selectedKeys)}
+						allowHeadcount={false}
 						onSetHeadcount={(headcount) => setItems(setItemHeadcount(items, selectedKeys, headcount))}
 						onReplace={(recipeId) => {
 							setItems(replaceMenuRecipe(items, selectedKeys, recipeId))

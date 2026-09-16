@@ -245,7 +245,7 @@ function WeeklyMenuEditorPage() {
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	// Área de transferência do cardápio: sobrevive à navegação na aba, então dá para copiar
 	// de um cardápio e colar em outro.
-	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>("sisub:menu:clipboard", [])
+	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>(`sisub:menu:clipboard:${kitchenId}`, [])
 	const [defaultDemandType, setDefaultDemandType] = usePersistentState<DemandType>("sisub:menu:demand-type", "headcount")
 	// Alvo do Ctrl+V: a última refeição em que o usuário mexeu.
 	const [activeCell, setActiveCell] = useState<{ day: number; mealTypeId: string } | null>(null)
@@ -787,7 +787,13 @@ function WeeklyMenuEditorPage() {
 					</div>
 
 					{/* Tabs: Visão Geral + dias */}
-					<Tabs value={activeTab} onValueChange={(v) => dispatch({ type: "SET_ACTIVE_TAB", value: v })}>
+					<Tabs
+						value={activeTab}
+						onValueChange={(v) => {
+							dispatch({ type: "SET_ACTIVE_TAB", value: v })
+							setActiveCell(null)
+						}}
+					>
 						<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
 							<TabsTrigger value="overview" className="gap-1.5">
 								<span>Visão Geral</span>

@@ -1,5 +1,5 @@
 import { Users } from "lucide-react"
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -50,13 +50,13 @@ export function MenuHeadcountDialog({
 
 	const targets = countTargets(plan, overwrite)
 
-	const handleOpenChange = (next: boolean) => {
-		if (next) {
-			setValues({})
-			setOverwrite(false)
-		}
-		onOpenChange(next)
-	}
+	// O pai abre pelo próprio estado, então `onOpenChange(true)` nunca chega aqui: sem este
+	// efeito o diálogo reabria com os números da aplicação anterior ainda nos campos.
+	useEffect(() => {
+		if (!open) return
+		setValues({})
+		setOverwrite(false)
+	}, [open])
 
 	const handleApply = () => {
 		onApply(plan, overwrite)
@@ -64,7 +64,7 @@ export function MenuHeadcountDialog({
 	}
 
 	return (
-		<Dialog open={open} onOpenChange={handleOpenChange}>
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">

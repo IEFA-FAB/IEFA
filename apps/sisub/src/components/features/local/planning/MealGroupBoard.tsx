@@ -93,7 +93,8 @@ function SortableItem({
 	selected,
 	onSelectChange,
 	allowHeadcount,
-	defaultDemandType,
+	demandType,
+	onSwitchDemandType,
 	onCopy,
 	onPaste,
 	canPaste,
@@ -106,26 +107,14 @@ function SortableItem({
 	selected?: boolean
 	onSelectChange?: (checked: boolean) => void
 	allowHeadcount: boolean
-	defaultDemandType: DemandType
+	demandType: DemandType
+	onSwitchDemandType: () => void
 	onCopy?: (id: string) => void
 	onPaste?: () => void
 	canPaste?: boolean
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
-	const demandType = allowHeadcount ? demandTypeOf(item, defaultDemandType) : "proportion"
-
-	// Trocar o tipo LIMPA o outro campo: manter os dois preenchidos é o estado que fazia a
-	// porcentagem virar letra morta na compra.
-	const switchDemandType = () => {
-		if (!allowHeadcount) return
-		if (demandType === "headcount") {
-			onHeadcountChange?.(item.id, null)
-		} else {
-			onProportionChange(item.id, null)
-			onHeadcountChange?.(item.id, null)
-		}
-	}
 
 	const row = (
 		<div
@@ -170,7 +159,7 @@ function SortableItem({
 								variant="ghost"
 								className="text-muted-foreground"
 								disabled={!allowHeadcount}
-								onClick={switchDemandType}
+								onClick={onSwitchDemandType}
 								aria-label={demandType === "headcount" ? "Medir por porcentagem do efetivo" : "Medir por número de pessoas"}
 							/>
 						}
@@ -273,7 +262,8 @@ function GroupColumn({
 	selectedIds,
 	onSelectChange,
 	allowHeadcount,
-	defaultDemandType,
+	demandTypeOfItem,
+	onSwitchDemandType,
 	onCopy,
 	onPaste,
 	canPaste,
@@ -290,7 +280,8 @@ function GroupColumn({
 	selectedIds?: ReadonlySet<string>
 	onSelectChange?: (id: string, checked: boolean) => void
 	allowHeadcount: boolean
-	defaultDemandType: DemandType
+	demandTypeOfItem: (item: BoardItem) => DemandType
+	onSwitchDemandType: (id: string) => void
 	onCopy?: (id: string) => void
 	onPaste?: () => void
 	canPaste?: boolean
@@ -337,7 +328,8 @@ function GroupColumn({
 									selected={selectedIds?.has(id)}
 									onSelectChange={(checked) => onSelectChange?.(id, checked)}
 									allowHeadcount={allowHeadcount}
-									defaultDemandType={defaultDemandType}
+									demandType={demandTypeOfItem(item)}
+									onSwitchDemandType={() => onSwitchDemandType(id)}
 									onCopy={onCopy}
 									onPaste={onPaste}
 									canPaste={canPaste}
@@ -391,6 +383,26 @@ export function MealGroupBoard({
 	onSelectChange?: (id: string, checked: boolean) => void
 }) {
 	const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+
+	// Tipo escolhido à mão, por item. Sem isto, trocar o tipo de um item que JÁ tem valor
+	// só limpava o campo: com os dois valores nulos o tipo voltava a ser o padrão, e o
+	// número era perdido sem o usuário nunca alcançar o outro campo.
+	const [demandTypeById, setDemandTypeById] = useState<Record<string, DemandType>>({})
+
+	const resolveDemandType = (item: BoardItem): DemandType =>
+		allowHeadcount ? (demandTypeById[item.id] ?? demandTypeOf(item, defaultDemandType)) : "proportion"
+
+	/** Troca o tipo e zera o campo que fica para trás — os dois preenchidos é o estado que
+	 * fazia a porcentagem ser ignorada pela compra. */
+	const switchDemandType = (id: string) => {
+		if (!allowHeadcount) return
+		const item = itemMap.get(id)
+		if (!item) return
+		const next: DemandType = resolveDemandType(item) === "headcount" ? "proportion" : "headcount"
+		setDemandTypeById((prev) => ({ ...prev, [id]: next }))
+		if (next === "proportion") onHeadcountChange?.(id, null)
+		else onProportionChange(id, null)
+	}
 
 	// Estado local das colunas para permitir movimento cross-group durante o drag; ressincroniza
 	// com as props após cada commit (onArrange) ou edição externa.
@@ -520,7 +532,8 @@ export function MealGroupBoard({
 							selectedIds={selectedIds}
 							onSelectChange={onSelectChange}
 							allowHeadcount={allowHeadcount}
-							defaultDemandType={defaultDemandType}
+							demandTypeOfItem={resolveDemandType}
+							onSwitchDemandType={switchDemandType}
 							onCopy={onCopy}
 							onPaste={onPaste}
 							canPaste={canPaste}

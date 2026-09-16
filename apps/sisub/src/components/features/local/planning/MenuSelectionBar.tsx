@@ -32,10 +32,14 @@ export function MenuSelectionBar({
 	onRemove,
 	onClear,
 	onCopy,
+	allowHeadcount = true,
 }: {
 	count: number
 	/** Escopo do seletor de preparação da substituição (null = catálogo global). */
 	kitchenId: number | null
+	/** `false` no plano global: lá não há efetivo de refeição, e gravar comensais criaria um
+	 * valor invisível naquele editor que ainda assim venceria a porcentagem do plano. */
+	allowHeadcount?: boolean
 	onSetHeadcount: (headcount: number | null) => void
 	onReplace: (recipeId: string) => void
 	onRemove: () => void
@@ -63,28 +67,32 @@ export function MenuSelectionBar({
 
 					<div className="mx-1 h-5 w-px bg-border" />
 
+					{allowHeadcount && (
+						<>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="gap-1.5"
+								onClick={() => {
+									setHeadcount("")
+									setHeadcountOpen(true)
+								}}
+							>
+								<Users className="size-4" />
+								Comensais
+							</Button>
+							<Button variant="ghost" size="sm" className="gap-1.5" onClick={() => onSetHeadcount(null)}>
+								<Eraser className="size-4" />
+								Limpar comensais
+							</Button>
+						</>
+					)}
 					{onCopy && (
 						<Button variant="ghost" size="sm" className="gap-1.5" onClick={onCopy}>
 							<Copy className="size-4" />
 							Copiar
 						</Button>
 					)}
-					<Button
-						variant="ghost"
-						size="sm"
-						className="gap-1.5"
-						onClick={() => {
-							setHeadcount("")
-							setHeadcountOpen(true)
-						}}
-					>
-						<Users className="size-4" />
-						Comensais
-					</Button>
-					<Button variant="ghost" size="sm" className="gap-1.5" onClick={() => onSetHeadcount(null)}>
-						<Eraser className="size-4" />
-						Limpar comensais
-					</Button>
 					<Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setReplaceOpen(true)}>
 						<Replace className="size-4" />
 						Substituir

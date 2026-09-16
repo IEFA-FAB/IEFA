@@ -70,6 +70,10 @@ export function MenuFindBar<T extends MenuDraftItem>({
 		setIndex(0)
 	}, [query])
 
+	// O índice só reinicia quando a BUSCA muda; digitar uma letra a mais encurta a lista e
+	// deixaria "5 de 2" na tela, com `current` indefinido.
+	const safeIndex = matches.length === 0 ? 0 : Math.min(index, matches.length - 1)
+
 	const goTo = (nextIndex: number) => {
 		if (matches.length === 0) return
 		const wrapped = (nextIndex + matches.length) % matches.length
@@ -85,7 +89,7 @@ export function MenuFindBar<T extends MenuDraftItem>({
 		}
 		if (event.key !== "Enter") return
 		event.preventDefault()
-		goTo(event.shiftKey ? index - 1 : index + 1)
+		goTo(event.shiftKey ? safeIndex - 1 : safeIndex + 1)
 	}
 
 	if (!open) {
@@ -97,7 +101,7 @@ export function MenuFindBar<T extends MenuDraftItem>({
 		)
 	}
 
-	const current = matches[index]
+	const current = matches[safeIndex]
 
 	return (
 		<>
@@ -118,13 +122,13 @@ export function MenuFindBar<T extends MenuDraftItem>({
 				</div>
 
 				<Badge variant={matches.length > 0 ? "secondary" : "outline"} className="tabular-nums">
-					{matches.length === 0 ? (query.trim() ? "nenhuma" : "—") : `${index + 1} de ${matches.length}`}
+					{matches.length === 0 ? (query.trim() ? "nenhuma" : "—") : `${safeIndex + 1} de ${matches.length}`}
 				</Badge>
 
 				<Tooltip>
 					<TooltipTrigger
 						render={
-							<Button type="button" variant="ghost" size="icon-sm" disabled={matches.length === 0} onClick={() => goTo(index - 1)} aria-label="Anterior" />
+							<Button type="button" variant="ghost" size="icon-sm" disabled={matches.length === 0} onClick={() => goTo(safeIndex - 1)} aria-label="Anterior" />
 						}
 					>
 						<ChevronUp className="size-4" />
@@ -134,7 +138,7 @@ export function MenuFindBar<T extends MenuDraftItem>({
 				<Tooltip>
 					<TooltipTrigger
 						render={
-							<Button type="button" variant="ghost" size="icon-sm" disabled={matches.length === 0} onClick={() => goTo(index + 1)} aria-label="Próxima" />
+							<Button type="button" variant="ghost" size="icon-sm" disabled={matches.length === 0} onClick={() => goTo(safeIndex + 1)} aria-label="Próxima" />
 						}
 					>
 						<ChevronDown className="size-4" />
@@ -172,7 +176,7 @@ export function MenuFindBar<T extends MenuDraftItem>({
 								key={match.key}
 								size="xs"
 								variant="default"
-								className={cn("cursor-pointer", matchIndex === index && "bg-muted")}
+								className={cn("cursor-pointer", matchIndex === safeIndex && "bg-muted")}
 								onClick={() => goTo(matchIndex)}
 							>
 								<ItemContent>
