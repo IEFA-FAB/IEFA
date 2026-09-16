@@ -195,9 +195,14 @@ const TABLE_SCHEMA: Record<string, string> = {
 	policy: "access_control",
 	policy_statement: "access_control",
 	user_policy_attachment: "access_control",
-	// procurement
+	// procurement. `procurement_list` e `kitchen_ata_draft` caíam no default `kitchen`: o probe
+	// do setupIntegration dava 42P01 e as suítes de ATA e de rascunho early-returnavam "passando".
 	purchase_item: "procurement",
 	purchase_item_ingredient: "procurement",
+	procurement_list: "procurement",
+	procurement_list_item: "procurement",
+	kitchen_ata_draft: "procurement",
+	kitchen_ata_draft_selection: "procurement",
 	// kitchen (default p/ o resto)
 }
 const schemaFor = (table: string): string => TABLE_SCHEMA[table] ?? "kitchen"
