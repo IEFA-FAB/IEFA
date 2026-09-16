@@ -6896,6 +6896,7 @@ export type Database = {
           ceafa_id: string | null
           correction_factor: number | null
           created_at: string
+          default_delivery_cycle: string | null
           deleted_at: string | null
           density_factor: number | null
           description: string | null
@@ -6910,6 +6911,7 @@ export type Database = {
           ceafa_id?: string | null
           correction_factor?: number | null
           created_at?: string
+          default_delivery_cycle?: string | null
           deleted_at?: string | null
           density_factor?: number | null
           description?: string | null
@@ -6924,6 +6926,7 @@ export type Database = {
           ceafa_id?: string | null
           correction_factor?: number | null
           created_at?: string
+          default_delivery_cycle?: string | null
           deleted_at?: string | null
           density_factor?: number | null
           description?: string | null
@@ -9801,6 +9804,8 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          margin_justification: string | null
+          max_margin_percent: number
           notes: string | null
           status: string
           title: string
@@ -9813,6 +9818,8 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          margin_justification?: string | null
+          max_margin_percent?: number
           notes?: string | null
           status?: string
           title: string
@@ -9825,6 +9832,8 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          margin_justification?: string | null
+          max_margin_percent?: number
           notes?: string | null
           status?: string
           title?: string
@@ -9841,6 +9850,7 @@ export type Database = {
           catmat_item_descricao: string | null
           computed_at: string | null
           conversion_factor: number | null
+          delivery_cycle: string | null
           folder_description: string | null
           folder_id: string | null
           id: string
@@ -9848,7 +9858,9 @@ export type Database = {
           ingredient_name: string
           item_description: string | null
           list_id: string
+          max_margin_percent: number | null
           measure_unit: string | null
+          min_order_quantity: number | null
           purchase_item_description: string | null
           purchase_item_id: string | null
           purchase_measure_unit: string | null
@@ -9861,6 +9873,7 @@ export type Database = {
           catmat_item_descricao?: string | null
           computed_at?: string | null
           conversion_factor?: number | null
+          delivery_cycle?: string | null
           folder_description?: string | null
           folder_id?: string | null
           id?: string
@@ -9868,7 +9881,9 @@ export type Database = {
           ingredient_name: string
           item_description?: string | null
           list_id: string
+          max_margin_percent?: number | null
           measure_unit?: string | null
+          min_order_quantity?: number | null
           purchase_item_description?: string | null
           purchase_item_id?: string | null
           purchase_measure_unit?: string | null
@@ -9881,6 +9896,7 @@ export type Database = {
           catmat_item_descricao?: string | null
           computed_at?: string | null
           conversion_factor?: number | null
+          delivery_cycle?: string | null
           folder_description?: string | null
           folder_id?: string | null
           id?: string
@@ -9888,7 +9904,9 @@ export type Database = {
           ingredient_name?: string
           item_description?: string | null
           list_id?: string
+          max_margin_percent?: number | null
           measure_unit?: string | null
+          min_order_quantity?: number | null
           purchase_item_description?: string | null
           purchase_item_id?: string | null
           purchase_measure_unit?: string | null
@@ -9985,12 +10003,16 @@ export type Database = {
         Row: {
           catmat_item_codigo: number | null
           computed_at: string
+          delivery_cycle: string | null
           folder_description: string | null
           id: string
           ingredient_id: string | null
           ingredient_name: string
           list_id: string
+          max_margin_percent: number | null
+          max_quantity: number | null
           measure_unit: string | null
+          min_order_quantity: number | null
           purchase_item_description: string | null
           purchase_item_id: string | null
           purchase_measure_unit: string | null
@@ -10002,12 +10024,16 @@ export type Database = {
         Insert: {
           catmat_item_codigo?: number | null
           computed_at?: string
+          delivery_cycle?: string | null
           folder_description?: string | null
           id?: string
           ingredient_id?: string | null
           ingredient_name: string
           list_id: string
+          max_margin_percent?: number | null
+          max_quantity?: number | null
           measure_unit?: string | null
+          min_order_quantity?: number | null
           purchase_item_description?: string | null
           purchase_item_id?: string | null
           purchase_measure_unit?: string | null
@@ -10019,12 +10045,16 @@ export type Database = {
         Update: {
           catmat_item_codigo?: number | null
           computed_at?: string
+          delivery_cycle?: string | null
           folder_description?: string | null
           id?: string
           ingredient_id?: string | null
           ingredient_name?: string
           list_id?: string
+          max_margin_percent?: number | null
+          max_quantity?: number | null
           measure_unit?: string | null
+          min_order_quantity?: number | null
           purchase_item_description?: string | null
           purchase_item_id?: string | null
           purchase_measure_unit?: string | null

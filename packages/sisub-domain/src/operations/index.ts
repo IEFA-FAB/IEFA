@@ -10,8 +10,33 @@ export {
 	updateAtaDraft,
 	updateAtaItemDescription,
 	updateAtaItemPrices,
+	updateAtaQuantityLimits,
 	updateAtaStatus,
 } from "./ata.ts"
+export {
+	computeAtaItemLimits,
+	computeMaxQuantity,
+	computeQuantityLimits,
+	countDeliveries,
+	DEFAULT_MAX_MARGIN_PERCENT,
+	DEFAULT_VALIDITY_MONTHS,
+	DELIVERY_CYCLE_LABELS,
+	DELIVERY_CYCLES,
+	type DeliveryCycle,
+	type DeliveryCycleSource,
+	isDeliveryCycle,
+	JUSTIFICATION_MARGIN_PERCENT,
+	MAX_MARGIN_PERCENT_LIMIT,
+	MIN_ORDER_SHARE_PERCENT,
+	type MinOrderSource,
+	QUANTITY_LIMIT_WARNING_LABELS,
+	type QuantityLimits,
+	type QuantityLimitWarning,
+	requiresMarginJustification,
+	resolveDeliveryCycle,
+	resolveMarginPercent,
+	TIGHT_MARGIN_PERCENT,
+} from "./ata-quantity-limits.ts"
 export {
 	type AuditTargetValue,
 	listSensitiveOperations,
@@ -225,6 +250,7 @@ export {
 	setIngredientNutritionReference,
 	updateFolder,
 	updateIngredient,
+	updateIngredientDeliveryCycle,
 	updateIngredientItem,
 } from "./ingredients.ts"
 export {

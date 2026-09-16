@@ -1,7 +1,8 @@
+import { isDeliveryCycle } from "@iefa/sisub-domain"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
-import type { ProcurementListItem } from "@/types/domain/ata"
+import type { AtaItemWithConservation } from "@/types/domain/ata"
 
-export function ataItemToNeed(item: ProcurementListItem): ProcurementNeed {
+export function ataItemToNeed(item: AtaItemWithConservation): ProcurementNeed {
 	return {
 		folder_id: item.folder_id,
 		folder_description: item.folder_description,
@@ -19,5 +20,10 @@ export function ataItemToNeed(item: ProcurementListItem): ProcurementNeed {
 		unit_price: item.unit_price !== null ? Number(item.unit_price) : null,
 		item_description: item.item_description ?? null,
 		ata_item_id: item.id,
+		conservation_class: item.conservation_class ?? null,
+		max_margin_percent: item.max_margin_percent ?? null,
+		ingredient_delivery_cycle: item.ingredient_delivery_cycle ?? null,
+		delivery_cycle: isDeliveryCycle(item.delivery_cycle) ? item.delivery_cycle : null,
+		min_order_quantity: item.min_order_quantity != null ? Number(item.min_order_quantity) : null,
 	}
 }

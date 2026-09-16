@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_MARGIN_PERCENT } from "@iefa/sisub-domain"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
@@ -6,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
+import { type AtaItemLimitsPatch, type AtaLimitSettingsPatch, AtaQuantityLimitsSection } from "@/components/features/local/ata/AtaQuantityLimitsSection"
 import { type AtaStep, AtaStepIndicator } from "@/components/features/local/ata/AtaStepIndicator"
 import { DraftImportBadge } from "@/components/features/local/ata/DraftImportBadge"
 import { KitchenTemplateSection } from "@/components/features/local/ata/KitchenTemplateSection"
@@ -17,10 +19,19 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { useAtaDraft, useCalculateAtaNeeds, useCreateAtaDraft, useFinalizeAtaDraft, useSaveAtaDraftItems, useUpdateAtaDraft } from "@/hooks/data/useAta"
+import {
+	useAtaDraft,
+	useCalculateAtaNeeds,
+	useCreateAtaDraft,
+	useFinalizeAtaDraft,
+	useSaveAtaDraftItems,
+	useUpdateAtaDraft,
+	useUpdateAtaQuantityLimits,
+} from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
+import { buildAnnexCsv, buildDraftAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
 import type { AtaWizardState, KitchenSelectionState, SelectionBucket, TemplateSelection } from "@/types/domain/ata"
@@ -123,6 +134,7 @@ function NewAtaPage() {
 	const { mutate: saveDraftItems, mutateAsync: saveDraftItemsAsync } = useSaveAtaDraftItems()
 	const { mutate: finalizeDraft, isPending: isFinalizing } = useFinalizeAtaDraft()
 	const { mutateAsync: calculateNeedsAsync, isPending: isCalculating } = useCalculateAtaNeeds()
+	const { mutate: updateQuantityLimits } = useUpdateAtaQuantityLimits()
 
 	const draftCreatedRef = useRef(false)
 	const draftRestoredRef = useRef(false)
@@ -138,6 +150,8 @@ function NewAtaPage() {
 	})
 
 	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
+	// Margem padrão e justificativa do anexo de quantitativos; a vigência vem do próprio wizard.
+	const [limitSettings, setLimitSettings] = useState<{ maxMarginPercent: number; marginJustification: string | null } | null>(null)
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
 	const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
@@ -172,6 +186,7 @@ function NewAtaPage() {
 		draftRestoredRef.current = true
 
 		const restoredValidity = (existingDraft as typeof existingDraft & { validity_months?: number | null }).validity_months ?? DEFAULT_VALIDITY_MONTHS
+		setLimitSettings({ maxMarginPercent: existingDraft.max_margin_percent, marginJustification: existingDraft.margin_justification })
 
 		setWizardState({
 			title: existingDraft.title === "Sem nome" ? "" : existingDraft.title,
@@ -366,10 +381,14 @@ function NewAtaPage() {
 		}, 800)
 	}
 
-	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
-		...item,
-		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
-	}))
+	const displayItems: ProcurementNeed[] = useMemo(
+		() =>
+			rawItems.map((item) => ({
+				...item,
+				unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
+			})),
+		[rawItems, priceOverrides]
+	)
 
 	const goToStep = (s: number, saveCurrent = false) => {
 		if (saveCurrent && draftId) {
@@ -397,11 +416,27 @@ function NewAtaPage() {
 		} catch {
 			return // error toast handled by useCalculateAtaNeeds
 		}
+		// Recalcular muda o ALVO, não as escolhas feitas sobre ele: o item que continua na lista
+		// mantém o id (e com ele a pesquisa de preço), a descrição adicional e os limites do anexo.
+		const previousByIngredient = new Map(savedItemsRef.current.map((item) => [item.ingredient_id, item]))
+		needs = needs.map((need) => {
+			const previous = previousByIngredient.get(need.ingredient_id)
+			if (!previous) return need
+			return {
+				...need,
+				ata_item_id: previous.ata_item_id ?? null,
+				item_description: previous.item_description ?? null,
+				max_margin_percent: previous.max_margin_percent ?? null,
+				// Ciclo já gravado na ata vence o padrão do insumo que o cálculo trouxe.
+				delivery_cycle: previous.delivery_cycle ?? need.delivery_cycle,
+				min_order_quantity: previous.min_order_quantity ?? null,
+			}
+		})
 		if (draftId) {
 			try {
 				const result = await saveDraftItemsAsync({ draftId, items: needs })
 				const idMap = new Map(result.savedIds.map((s) => [s.ingredientId, s.ataItemId]))
-				setSavedItems(needs.map((item) => ({ ...item, ata_item_id: idMap.get(item.ingredient_id) ?? null })))
+				setSavedItems(needs.map((item) => ({ ...item, ata_item_id: idMap.get(item.ingredient_id) ?? item.ata_item_id ?? null })))
 			} catch {
 				setSavedItems(needs) // fallback: proceed without ata_item_id
 			}
@@ -433,25 +468,50 @@ function NewAtaPage() {
 		)
 	}
 
+	const annexSettings = useMemo(
+		() => ({
+			validityMonths: wizardState.validityMonths,
+			maxMarginPercent: limitSettings?.maxMarginPercent ?? DEFAULT_MAX_MARGIN_PERCENT,
+			marginJustification: limitSettings?.marginJustification ?? null,
+		}),
+		[wizardState.validityMonths, limitSettings]
+	)
+	const annexRows = useMemo(() => buildDraftAnnexRows(displayItems, annexSettings), [displayItems, annexSettings])
+	const justificationMissing = annexRows.some((r) => r.warnings.includes("margin_requires_justification")) && !annexSettings.marginJustification?.trim()
+
 	const handleExportCSV = () => {
-		const headers = ["Categoria", "CATMAT", "Descrição CATMAT", "Descrição Adicional", "Produto", "Quantidade", "Unidade", "Preço Un.", "Total Est."]
-		const rows = displayItems.map((item) => [
-			item.folder_description || "Sem categoria",
-			item.catmat_item_codigo?.toString() || "",
-			item.catmat_item_descricao || "",
-			item.item_description || "",
-			item.ingredient_name,
-			item.total_quantity.toFixed(4),
-			item.measure_unit || "UN",
-			item.unit_price !== null ? item.unit_price.toFixed(4) : "",
-			item.unit_price !== null ? (item.total_quantity * item.unit_price).toFixed(2) : "",
-		])
-		const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
-		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-		const link = document.createElement("a")
-		link.href = URL.createObjectURL(blob)
-		link.download = `ata-${wizardState.title || "suprimentos"}-${new Date().toISOString().split("T")[0]}.csv`
-		link.click()
+		downloadCsv(
+			`anexo-quantitativos-${wizardState.title || "suprimentos"}-${new Date().toISOString().split("T")[0]}.csv`,
+			buildAnnexCsv(annexRows, annexSettings.marginJustification)
+		)
+	}
+
+	const handleLimitSettingsChange = (patch: AtaLimitSettingsPatch) => {
+		if (!draftId) return
+		setLimitSettings({
+			maxMarginPercent: patch.maxMarginPercent ?? annexSettings.maxMarginPercent,
+			marginJustification: patch.marginJustification !== undefined ? patch.marginJustification : annexSettings.marginJustification,
+		})
+		updateQuantityLimits({ ataId: draftId, ...patch })
+	}
+
+	const handleItemLimitsChange = (ataItemId: string, patch: AtaItemLimitsPatch) => {
+		if (!draftId) return
+		// Estado local primeiro: os saves de itens (descrição, preço) regravam a linha inteira
+		// a partir de savedItems, e não podem devolver a escolha antiga ao banco.
+		setSavedItems((prev) =>
+			prev.map((item) =>
+				item.ata_item_id === ataItemId
+					? {
+							...item,
+							...(patch.maxMarginPercent !== undefined && { max_margin_percent: patch.maxMarginPercent }),
+							...(patch.deliveryCycle !== undefined && { delivery_cycle: patch.deliveryCycle }),
+							...(patch.minOrderQuantity !== undefined && { min_order_quantity: patch.minOrderQuantity }),
+						}
+					: item
+			)
+		)
+		updateQuantityLimits({ ataId: draftId, items: [{ ataItemId, ...patch }] })
 	}
 
 	const hasAnySelection = kitchenSelections.some((ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0 || ks.exceptionSelections.length > 0)
@@ -742,6 +802,16 @@ function NewAtaPage() {
 							{/* Tabela de itens */}
 							<AtaItemsTable data={displayItems} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
 
+							{displayItems.length > 0 && (
+								<AtaQuantityLimitsSection
+									rows={annexRows}
+									settings={annexSettings}
+									editable
+									onSettingsChange={handleLimitSettingsChange}
+									onItemChange={handleItemLimitsChange}
+								/>
+							)}
+
 							{/* Ações finais */}
 							<div className="flex items-center justify-between pt-2">
 								<Button variant="outline" onClick={() => goToStep(4)} className="gap-2">
@@ -749,13 +819,18 @@ function NewAtaPage() {
 									Resumo
 								</Button>
 								<div className="flex items-center gap-3">
+									{justificationMissing && <span className="text-xs text-warning">Preencha a justificativa da margem no anexo</span>}
 									{displayItems.length > 0 && (
 										<Button variant="outline" onClick={handleExportCSV} className="gap-2">
 											<Download className="size-4" aria-hidden="true" />
 											Exportar CSV
 										</Button>
 									)}
-									<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isFinalizing} className="gap-2">
+									<Button
+										onClick={handleSave}
+										disabled={!wizardState.title.trim() || displayItems.length === 0 || isFinalizing || justificationMissing}
+										className="gap-2"
+									>
 										<Save className="size-4" aria-hidden="true" />
 										{isFinalizing ? "Salvando..." : "Salvar ata"}
 									</Button>
