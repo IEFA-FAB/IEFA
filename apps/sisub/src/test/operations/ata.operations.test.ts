@@ -19,6 +19,7 @@ import {
 	saveAtaDraftItems,
 	updateAtaDraft,
 	updateAtaItemDescription,
+	updateAtaQuantityLimits,
 	updateAtaStatus,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -295,5 +296,72 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		expect(details?.items[0].computed_at).toBeTruthy()
 		// Sem edição de cardápio posterior → não está defasado.
 		expect(details?.meta.is_stale).toBe(false)
+	})
+
+	test("anexo: margem acima de 50% trava a publicação até a justificativa única da ata; o snapshot congela os limites", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const ata = await createAta(db, ctx, {
+			unitId,
+			title: uid("[TEST] ATA "),
+			kitchenSelections: [],
+			items: [
+				{ ingredient_name: "Frango", total_quantity: 1200 },
+				{ ingredient_name: "Alface", total_quantity: 520 },
+			],
+		})
+		seeder.track("procurement_list", ata.id)
+
+		const draft = await fetchAtaDetails(db, ctx, { ataId: ata.id })
+		expect(draft?.max_margin_percent).toBe(20)
+		const frango = draft?.items.find((i) => i.ingredient_name === "Frango")
+		const alface = draft?.items.find((i) => i.ingredient_name === "Alface")
+		if (!frango || !alface) throw new Error("itens não persistidos")
+
+		await updateAtaQuantityLimits(db, ctx, {
+			ataId: ata.id,
+			items: [
+				{ ataItemId: frango.id, maxMarginPercent: 60 },
+				{ ataItemId: alface.id, deliveryCycle: "weekly", minOrderQuantity: 4 },
+			],
+		})
+
+		await expect(updateAtaStatus(db, ctx, { ataId: ata.id, status: "published" })).rejects.toThrow(/justificativa/i)
+
+		await updateAtaQuantityLimits(db, ctx, { ataId: ata.id, marginJustification: "Histórico de falha de entrega de proteína." })
+		await updateAtaStatus(db, ctx, { ataId: ata.id, status: "published" })
+
+		const published = await fetchAtaDetails(db, ctx, { ataId: ata.id })
+		const frozen = published?.meta.snapshot?.components ?? []
+		const frozenFrango = frozen.find((c) => c.ingredient_name === "Frango")
+		const frozenAlface = frozen.find((c) => c.ingredient_name === "Alface")
+		// 1200 × 1,6 = 1920; ciclo não gravado cai para mensal → 100/entrega → mínimo 50.
+		expect(Number(frozenFrango?.max_quantity)).toBe(1920)
+		expect(frozenFrango?.delivery_cycle).toBe("monthly")
+		expect(Number(frozenFrango?.min_order_quantity)).toBe(50)
+		// 520 × 1,2 = 624; semanal gravado; mínimo informado 4.
+		expect(Number(frozenAlface?.max_quantity)).toBe(624)
+		expect(frozenAlface?.delivery_cycle).toBe("weekly")
+		expect(Number(frozenAlface?.min_order_quantity)).toBe(4)
+
+		// Publicada: limites imutáveis.
+		await expect(updateAtaQuantityLimits(db, ctx, { ataId: ata.id, maxMarginPercent: 30 })).rejects.toThrow(/ATA_NOT_DRAFT|imutáveis/i)
+	})
+
+	test("anexo: item de outra ata não é atualizado pelo ajuste de limites", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const a = await createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [], items: [{ ingredient_name: "Arroz", total_quantity: 10 }] })
+		seeder.track("procurement_list", a.id)
+		const b = await createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [], items: [{ ingredient_name: "Feijão", total_quantity: 10 }] })
+		seeder.track("procurement_list", b.id)
+		const itemOfB = (await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]
+		if (!itemOfB) throw new Error("item não persistido")
+
+		await expect(updateAtaQuantityLimits(db, ctx, { ataId: a.id, items: [{ ataItemId: itemOfB.id, deliveryCycle: "weekly" }] })).rejects.toThrow(
+			/não pertence/i
+		)
+		const after = (await fetchAtaDetails(db, ctx, { ataId: b.id }))?.items[0]
+		expect(after?.delivery_cycle).toBeNull()
 	})
 })

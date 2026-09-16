@@ -63,10 +63,12 @@ import {
 	setIngredientNutrients,
 	setIngredientNutritionReference,
 	UpdateFolderSchema,
+	UpdateIngredientDeliveryCycleSchema,
 	UpdateIngredientItemSchema,
 	UpdateIngredientSchema,
 	updateFolder,
 	updateIngredient,
+	updateIngredientDeliveryCycle,
 	updateIngredientItem,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
@@ -216,6 +218,14 @@ export const deleteIngredientFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteIngredient(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+/** Ciclo de entrega padrão do insumo nas ATAs — grava só a coluna, fora do save completo. */
+export const updateIngredientDeliveryCycleFn = createServerFn({ method: "POST" })
+	.validator(UpdateIngredientDeliveryCycleSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return updateIngredientDeliveryCycle(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreIngredientFn = createServerFn({ method: "POST" })

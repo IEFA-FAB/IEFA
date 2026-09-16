@@ -29,10 +29,12 @@ import {
 	UpdateAtaDraftSchema,
 	UpdateAtaItemDescriptionSchema,
 	UpdateAtaItemPricesSchema,
+	UpdateAtaQuantityLimitsSchema,
 	UpdateAtaStatusSchema,
 	updateAtaDraft,
 	updateAtaItemDescription,
 	updateAtaItemPrices,
+	updateAtaQuantityLimits,
 	updateAtaStatus,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
@@ -138,6 +140,15 @@ export const updateAtaItemDescriptionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateAtaItemDescription(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// ─── Ajustar limites do anexo de quantitativos ───────────────────────────────
+
+export const updateAtaQuantityLimitsFn = createServerFn({ method: "POST" })
+	.validator(UpdateAtaQuantityLimitsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return updateAtaQuantityLimits(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────

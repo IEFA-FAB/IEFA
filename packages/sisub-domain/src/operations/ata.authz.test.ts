@@ -1,7 +1,7 @@
 /**
  * Contrato de autorização das operações de ATA.
  *
- * Estas dez operações recebiam `_ctx` e descartavam: o guard vivia só no `requireAuth()` do
+ * Estas operações recebiam `_ctx` e descartavam: o guard vivia só no `requireAuth()` do
  * server fn, então qualquer sessão autenticada — inclusive com `unit:2` de OUTRA OM — publicava,
  * arquivava, repreçava ou apagava a ATA de qualquer unidade. O teste fixa a barreira que faltava.
  *
@@ -23,6 +23,7 @@ import {
 	updateAtaDraft,
 	updateAtaItemDescription,
 	updateAtaItemPrices,
+	updateAtaQuantityLimits,
 	updateAtaStatus,
 } from "./ata.ts"
 
@@ -70,6 +71,7 @@ const BY_ID: [string, (db: SisubDb, c: UserContext) => Promise<unknown>][] = [
 	["updateAtaItemPrices", (db, c) => updateAtaItemPrices(db, c, { ataId: "list-1", items: [] } as never)],
 	["deleteAta", (db, c) => deleteAta(db, c, { ataId: "list-1" } as never)],
 	["updateAtaItemDescription", (db, c) => updateAtaItemDescription(db, c, { ataItemId: "item-1", description: "x" } as never)],
+	["updateAtaQuantityLimits", (db, c) => updateAtaQuantityLimits(db, c, { ataId: "list-1", maxMarginPercent: 30 } as never)],
 ]
 
 /** Operações que recebem a unidade de destino no próprio input. */

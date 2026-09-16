@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { DELIVERY_CYCLES } from "../operations/ata-quantity-limits.ts"
 import { CONSERVATION_CLASSES, PACKAGE_TYPES, TRANSPORT_REQUIREMENTS } from "../operations/conditioning.ts"
 import { KitchenIdSchema, UuidSchema } from "./common.ts"
 
@@ -144,6 +145,12 @@ export type FetchUnitDashboard = z.infer<typeof FetchUnitDashboardSchema>
 /** Vigência da ata em meses — espelha o CHECK de procurement_list.validity_months. */
 export const ValidityMonthsSchema = z.number().int().min(1).max(120)
 
+/** Margem da quantidade máxima sobre o alvo, em %. Mesmo intervalo do CHECK de 20260916134659. */
+export const MarginPercentSchema = z.number().int().min(0).max(100)
+
+/** Ciclo de entrega (semanal = perecível, mensal = não perecível). Mesmo vocabulário do CHECK de 20260916134659. */
+export const DeliveryCycleSchema = z.enum(DELIVERY_CYCLES)
+
 /**
  * Um bucket por regime de produção (kitchen.menu_template.template_type).
  * `repetitions` tem o mesmo significado nos três: quantas vezes o cardápio é
@@ -196,6 +203,11 @@ export const DraftItemSchema = z.object({
 	catmat_item_descricao: z.string().optional().nullable(),
 	unit_price: z.number().optional().nullable(),
 	item_description: z.string().optional().nullable(),
+	// Escolhas do anexo de quantitativos. Ausente = preserva o que está gravado (o save de
+	// itens reescreve a linha inteira); null = volta a herdar (margem da ata, mínimo sugerido).
+	max_margin_percent: MarginPercentSchema.optional().nullable(),
+	delivery_cycle: DeliveryCycleSchema.optional().nullable(),
+	min_order_quantity: z.number().positive().optional().nullable(),
 })
 export type DraftItem = z.infer<typeof DraftItemSchema>
 
@@ -287,6 +299,31 @@ export const UpdateAtaItemDescriptionSchema = z.object({
 	description: z.string().nullable(),
 })
 export type UpdateAtaItemDescription = z.infer<typeof UpdateAtaItemDescriptionSchema>
+
+/**
+ * Ajuste do anexo de quantitativos: margem padrão e justificativa da ata, escolhas por item.
+ * Só em rascunho — máxima e mínima entram no documento publicado e no snapshot congelado.
+ *
+ * Por item, `null` limpa a escolha (margem volta a herdar, mínimo volta ao sugerido) e
+ * ausente não mexe. O ciclo não aceita `null`: o que vale na ata é sempre gravado.
+ */
+export const UpdateAtaQuantityLimitsSchema = z.object({
+	ataId: UuidSchema,
+	maxMarginPercent: MarginPercentSchema.optional(),
+	marginJustification: z.string().max(4000).nullable().optional(),
+	items: z
+		.array(
+			z.object({
+				ataItemId: UuidSchema,
+				maxMarginPercent: MarginPercentSchema.nullable().optional(),
+				deliveryCycle: DeliveryCycleSchema.optional(),
+				minOrderQuantity: z.number().positive().nullable().optional(),
+			})
+		)
+		.max(2000)
+		.optional(),
+})
+export type UpdateAtaQuantityLimits = z.infer<typeof UpdateAtaQuantityLimitsSchema>
 
 export const DeleteAtaSchema = z.object({ ataId: z.string() })
 export type DeleteAta = z.infer<typeof DeleteAtaSchema>
