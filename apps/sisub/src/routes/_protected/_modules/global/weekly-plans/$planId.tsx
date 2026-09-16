@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { CheckCircle2, Circle, ClipboardPaste, ListChecks, Loader2, Plus, Printer, Save } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
+import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -164,6 +165,9 @@ function GlobalPlanEditorPage() {
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
+	// Sem auto-save aqui: o plano global só grava no botão Salvar, então a comparação abaixo é
+	// a única coisa que impede sair da tela e perder tudo.
+	const savedSignatureRef = useRef<string | null>(null)
 	// Chave própria, separada da do cardápio da cozinha: colar aqui o que foi copiado lá
 	// traria preparação local para dentro de um plano que é da FAB inteira.
 	const [clipboard, setClipboard] = usePersistentState<MenuClipboardEntry[]>("sisub:weekly-plan:clipboard", [])
@@ -188,6 +192,17 @@ function GlobalPlanEditorPage() {
 		)
 		setInitialized(true)
 	}
+
+	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items })
+	// Lida pelo guarda de saída no momento da navegação, não na renderização.
+	const contentSignatureRef = useRef(contentSignature)
+	contentSignatureRef.current = contentSignature
+
+	// O conteúdo recém-carregado já está gravado; só o que o usuário mexer conta como pendente.
+	useEffect(() => {
+		if (!initialized || savedSignatureRef.current !== null) return
+		savedSignatureRef.current = contentSignature
+	}, [initialized, contentSignature])
 
 	// O localizar troca a aba do dia; a rolagem só pode acontecer depois que a aba pintou.
 	useEffect(() => {
@@ -325,22 +340,30 @@ function GlobalPlanEditorPage() {
 	// escopo aqui é global sobre um plano global, então a edição é in-place e o id não muda.
 	const handleSave = () => {
 		if (!name.trim()) return
-		saveTemplate({
-			id: planId,
-			context: { scope: "global" },
-			updates: {
-				name: name.trim(),
-				description: description.trim() || null,
+		const signatureAtSave = contentSignature
+		saveTemplate(
+			{
+				id: planId,
+				context: { scope: "global" },
+				updates: {
+					name: name.trim(),
+					description: description.trim() || null,
+				},
+				items: items.map((i) => ({
+					day_of_week: i.day_of_week,
+					meal_type_id: i.meal_type_id,
+					recipe_id: i.recipe_id,
+					item_group: i.item_group ?? null,
+					sort_order: i.sort_order ?? 0,
+					recommended_proportion: i.recommended_proportion ?? null,
+				})),
 			},
-			items: items.map((i) => ({
-				day_of_week: i.day_of_week,
-				meal_type_id: i.meal_type_id,
-				recipe_id: i.recipe_id,
-				item_group: i.item_group ?? null,
-				sort_order: i.sort_order ?? 0,
-				recommended_proportion: i.recommended_proportion ?? null,
-			})),
-		})
+			{
+				onSuccess: () => {
+					savedSignatureRef.current = signatureAtSave
+				},
+			}
+		)
 	}
 
 	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
@@ -621,6 +644,8 @@ function GlobalPlanEditorPage() {
 						onClear={clearSelection}
 					/>
 				)}
+
+				<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
 
 				{/* RecipeSelector — kitchenId=null filtra apenas preparações globais */}
 				<RecipeSelector

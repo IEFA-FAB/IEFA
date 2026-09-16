@@ -110,8 +110,9 @@ export const restoreTemplateFn = createServerFn({ method: "POST" })
 		return restoreTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
-// applyTemplateFn: accepts targetDates[] for backward compat with frontend.
-// The domain operation works with startDate/endDate; we derive them from the sorted array.
+// applyTemplateFn: o frontend manda as datas ESCOLHIDAS. `startDate`/`endDate` seguem indo
+// (o domínio ainda os aceita como janela), mas quem determina o que é materializado — e, no
+// modo "replace", o que é apagado — é a lista `dates`.
 const ApplyTemplateFnSchema = z.object({
 	templateId: z.uuid(),
 	targetDates: z.array(z.string()).min(1),
@@ -137,6 +138,7 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 		return applyTemplate(getDb(), ctx, {
 			templateId: data.templateId,
 			kitchenId: data.kitchenId,
+			dates: sorted,
 			startDate: sorted[0],
 			endDate: sorted[sorted.length - 1],
 			startDayOfWeek: data.startDayOfWeek,

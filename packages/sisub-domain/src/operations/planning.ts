@@ -245,13 +245,66 @@ export async function restoreMenuItem(db: SisubDb, ctx: UserContext, input: Rest
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	await runQuery("RESTORE_FAILED", () =>
-		db
-			.update(menuItemsInKitchen)
-			.set({ deletedAt: null })
-			.where(eq(menuItemsInKitchen.id, input.menuItemId))
-			.then(() => undefined)
-	)
+	await db.transaction(async (tx) => {
+		const [row] = await runQuery("FETCH_FAILED", () =>
+			tx
+				.select({
+					dailyMenuId: menuItemsInKitchen.dailyMenuId,
+					menuDeletedAt: dailyMenuInKitchen.deletedAt,
+					serviceDate: dailyMenuInKitchen.serviceDate,
+					mealTypeId: dailyMenuInKitchen.mealTypeId,
+					menuKitchenId: dailyMenuInKitchen.kitchenId,
+				})
+				.from(menuItemsInKitchen)
+				.leftJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
+				.where(eq(menuItemsInKitchen.id, input.menuItemId))
+				.limit(1)
+		)
+
+		// Para onde o item volta. Se o menu dele está ativo, fica onde estava. Se caiu junto
+		// (aplicação com "Substituir"), há dois casos:
+		//   - já existe OUTRO menu ativo na mesma data/refeição/cozinha — o que o Substituir
+		//     criou. Reativar o antigo violaria `daily_menu_active_unique` e a restauração
+		//     inteira falharia; o item entra no menu ativo;
+		//   - não existe: o menu antigo é reativado. Sem isso o item restaurado ficaria
+		//     invisível, porque toda leitura do calendário filtra menu excluído.
+		let targetMenuId = row?.dailyMenuId ?? null
+		if (row?.dailyMenuId && row.menuDeletedAt != null && row.serviceDate && row.mealTypeId && row.menuKitchenId != null) {
+			const [active] = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ id: dailyMenuInKitchen.id })
+					.from(dailyMenuInKitchen)
+					.where(
+						and(
+							eq(dailyMenuInKitchen.serviceDate, row.serviceDate as string),
+							eq(dailyMenuInKitchen.mealTypeId, row.mealTypeId as string),
+							eq(dailyMenuInKitchen.kitchenId, row.menuKitchenId as number),
+							isNull(dailyMenuInKitchen.deletedAt)
+						)
+					)
+					.limit(1)
+			)
+			if (active) {
+				targetMenuId = active.id
+			} else {
+				await runQuery("RESTORE_FAILED", () =>
+					tx
+						.update(dailyMenuInKitchen)
+						.set({ deletedAt: null })
+						.where(eq(dailyMenuInKitchen.id, row.dailyMenuId as string))
+						.then(() => undefined)
+				)
+			}
+		}
+
+		await runQuery("RESTORE_FAILED", () =>
+			tx
+				.update(menuItemsInKitchen)
+				.set(targetMenuId ? { deletedAt: null, dailyMenuId: targetMenuId } : { deletedAt: null })
+				.where(eq(menuItemsInKitchen.id, input.menuItemId))
+				.then(() => undefined)
+		)
+	})
 }
 
 export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: UpdateHeadcount): Promise<DailyMenu[]> {

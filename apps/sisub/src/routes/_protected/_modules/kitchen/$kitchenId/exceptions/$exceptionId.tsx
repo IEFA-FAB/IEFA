@@ -11,6 +11,7 @@ import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHe
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
+import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -142,6 +143,9 @@ function ExceptionEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	// Conteúdo recém-carregado já conta como gravado. Sem esta marca, `savedSignatureRef`
+	// fica nulo e qualquer saída pareceria ter alteração pendente.
+	const loadedSignatureRef = useRef(false)
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
@@ -154,6 +158,9 @@ function ExceptionEditorPage() {
 	// —, e sem esta comparação ele regravaria, 1,5s depois, o fork recém-criado inteiro.
 	const savedSignatureRef = useRef<string | null>(null)
 	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), occurrences, items })
+	// Lida pelo guarda de saída no momento da navegação, não na renderização.
+	const contentSignatureRef = useRef(contentSignature)
+	contentSignatureRef.current = contentSignature
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -171,6 +178,12 @@ function ExceptionEditorPage() {
 		})
 		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized])
+
+	useEffect(() => {
+		if (!initialized || loadedSignatureRef.current) return
+		loadedSignatureRef.current = true
+		savedSignatureRef.current = contentSignature
+	}, [initialized, contentSignature])
 
 	useEffect(() => {
 		if (!initialized) return
@@ -590,6 +603,8 @@ function ExceptionEditorPage() {
 						onClear={clearSelection}
 					/>
 				)}
+
+				<UnsavedChangesGuard isDirty={() => savedSignatureRef.current !== null && contentSignatureRef.current !== savedSignatureRef.current} />
 
 				<RecipeSelector
 					open={selectorOpen}

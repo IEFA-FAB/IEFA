@@ -15,8 +15,10 @@ import {
 	forkTemplate,
 	getTemplate,
 	getTemplateItems,
+	getTrashItems,
 	listDeletedTemplates,
 	listTemplates,
+	restoreMenuItem,
 	restoreTemplate,
 	saveTemplateEdit,
 } from "@iefa/sisub-domain"
@@ -485,5 +487,102 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 			meals: { day_of_week: number; base_headcount: number | null }[]
 		}
 		expect(Number(full.meals.find((m) => m.day_of_week === 1)?.base_headcount)).toBe(200)
+	})
+
+	// ── Materialização: quais datas são tocadas, e o que acontece com o que já estava lá ──
+
+	test("applyTemplate com `dates` toca só as datas escolhidas — o dia do meio fica intacto", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+
+		const first = "2099-05-04"
+		const gap = "2099-05-05"
+		const last = "2099-05-06"
+		const js = new Date(`${first}T00:00:00Z`).getUTCDay()
+		const startDayOfWeek = js === 0 ? 7 : js
+
+		const templateId = await sd.seedTemplate({ kitchenId, templateType: "weekly" })
+		// Dia 1 do template cai em `first`; dia 3, em `last`.
+		await sd.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 50 })
+		await sd.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 3, headcountOverride: 50 })
+
+		// O dia do meio está planejado à mão e NÃO foi escolhido: tem de sobreviver ao replace.
+		const manualRecipe = await sd.seedRecipe({ kitchenId })
+		const { id: gapMenu } = await sd.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: gap })
+		await sd.seedMenuItem({ dailyMenuId: gapMenu, recipeId: manualRecipe, plannedPortionQuantity: 33 })
+
+		const result = await applyTemplate(db, ctx, {
+			templateId,
+			kitchenId,
+			dates: [first, last],
+			startDate: first,
+			endDate: last,
+			startDayOfWeek,
+			conflictMode: "replace",
+		})
+
+		expect(result.datesProcessed).toEqual([first, last])
+
+		const gapDetails = (await fetchDayDetails(db, ctx, { kitchenId, date: gap })) as unknown as { menu_items: { recipe_origin_id: string | null }[] }[]
+		expect(gapDetails.flatMap((m) => m.menu_items).map((i) => i.recipe_origin_id)).toEqual([manualRecipe])
+	})
+
+	test("replace manda os itens apagados para a lixeira, não só o menu do dia", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+
+		const date = "2099-05-11"
+		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
+		const startDayOfWeek = js === 0 ? 7 : js
+
+		const templateId = await sd.seedTemplate({ kitchenId, templateType: "weekly" })
+		await sd.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 50 })
+
+		const manualRecipe = await sd.seedRecipe({ kitchenId })
+		const { id: menuId } = await sd.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: date })
+		await sd.seedMenuItem({ dailyMenuId: menuId, recipeId: manualRecipe, plannedPortionQuantity: 77 })
+
+		await applyTemplate(db, ctx, { templateId, kitchenId, dates: [date], startDate: date, endDate: date, startDayOfWeek, conflictMode: "replace" })
+
+		const trash = await getTrashItems(db, ctx, { kitchenId })
+		const trashed = trash.find((t) => t.recipe_origin_id === manualRecipe)
+		expect(trashed).toBeDefined()
+
+		// Restaurar depois do Substituir: já existe um menu ativo na mesma data/refeição (o que o
+		// template criou), então reativar o antigo violaria o índice único parcial. O item tem de
+		// voltar para o menu ativo — visível no dia.
+		await restoreMenuItem(db, ctx, { menuItemId: trashed?.id as string })
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as { menu_items: { recipe_origin_id: string | null }[] }[]
+		expect(details.length).toBe(1)
+		expect(details.flatMap((m) => m.menu_items).map((i) => i.recipe_origin_id)).toContain(manualRecipe)
+	})
+
+	test("sem conflictMode, o default preserva a refeição já planejada", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+
+		const date = "2099-05-18"
+		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
+		const startDayOfWeek = js === 0 ? 7 : js
+
+		const templateId = await sd.seedTemplate({ kitchenId, templateType: "weekly" })
+		await sd.seedTemplateItem({ templateId, mealTypeId, recipeId, dayOfWeek: 1, headcountOverride: 50 })
+
+		const manualRecipe = await sd.seedRecipe({ kitchenId })
+		const { id: menuId } = await sd.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: date })
+		await sd.seedMenuItem({ dailyMenuId: menuId, recipeId: manualRecipe, plannedPortionQuantity: 77 })
+
+		// Sem `conflictMode`: o default é preservador, então o item manual continua no lugar.
+		const result = await applyTemplate(db, ctx, { templateId, kitchenId, dates: [date], startDate: date, endDate: date, startDayOfWeek })
+
+		expect(result.datesSkipped).toEqual([date])
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as { menu_items: { recipe_origin_id: string | null }[] }[]
+		expect(details.flatMap((m) => m.menu_items).map((i) => i.recipe_origin_id)).toEqual([manualRecipe])
 	})
 })

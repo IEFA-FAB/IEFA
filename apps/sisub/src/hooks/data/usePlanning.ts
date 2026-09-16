@@ -128,14 +128,15 @@ export function useUpdateDailyMenu() {
 			updates,
 		}: {
 			id: string
-			updates: Partial<{
-				forecasted_headcount: number | null
-			}>
+			// Positivo e obrigatório, igual ao schema do domínio. O `?? 1` que existia aqui
+			// transformava "limpei o campo para preencher depois" em "o dia tem 1 comensal",
+			// com toast de sucesso.
+			updates: { forecasted_headcount: number }
 		}) =>
 			updateDailyMenuFn({
 				data: {
 					dailyMenuId: id,
-					forecastedHeadcount: updates.forecasted_headcount ?? 1,
+					forecastedHeadcount: updates.forecasted_headcount,
 				},
 			}),
 		onSuccess: () => {

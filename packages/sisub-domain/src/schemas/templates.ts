@@ -115,9 +115,21 @@ export const ApplyTemplateSchema = z.object({
 	endDate: DateSchema,
 	startDayOfWeek: z.number().int().min(1).max(7),
 	/**
+	 * Datas EXATAS a materializar. Quando vem preenchido, `startDate`/`endDate` só delimitam
+	 * a janela — quem manda é esta lista.
+	 *
+	 * Existe porque o calendário deixa escolher dias soltos (ctrl+clique): colapsar a escolha
+	 * em intervalo fazia "aplicar no dia 3 e no dia 20" tocar os dezoito dias no meio, e no
+	 * modo "replace" isso APAGA o planejamento deles.
+	 */
+	dates: z.array(DateSchema).min(1).optional(),
+	/**
 	 * O que fazer com datas que já têm planejamento ativo:
-	 * - "replace" (default, comportamento histórico): soft-delete e re-materializa.
-	 * - "skip": preserva o dia como está (inclusive ajustes manuais) e só materializa os vazios.
+	 * - "skip" (default): preserva o dia como está (inclusive ajustes manuais) e só materializa os vazios.
+	 * - "replace": soft-delete do planejamento daquelas datas e re-materialização.
+	 *
+	 * O default é o preservador: o destrutivo tem de ser pedido. Antes era o contrário, e
+	 * qualquer chamador que esquecesse o campo apagava o dia do usuário.
 	 */
 	conflictMode: z.enum(["replace", "skip"]).optional(),
 })

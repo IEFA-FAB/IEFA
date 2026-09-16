@@ -260,7 +260,12 @@ export function PlanningBoard() {
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: true })}
+						onClick={() => {
+							// Sem isto o diálogo abria com a lista VAZIA: dizia "aos 0 dias
+							// selecionados" e o servidor recusava. A multisseleção não servia para nada.
+							dispatch({ type: "SET_TEMPLATE_TARGET_DATES", value: [...selectedDays].map((iso) => format(new Date(iso), "yyyy-MM-dd")).toSorted() })
+							dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: true })
+						}}
 						disabled={selectedDays.size === 0}
 						className="h-9"
 					>
