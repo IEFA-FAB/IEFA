@@ -20,19 +20,29 @@ export const Route = createFileRoute("/_protected/_modules/diner/menu")({
 
 const MEAL_ORDER = ["cafe", "almoco", "janta", "ceia"]
 
+/**
+ * `YYYY-MM-DD` da data no fuso LOCAL. `toISOString()` converte para UTC: em UTC-3, a partir das
+ * 21h o "hoje" do comensal já era amanhã — enquanto o rótulo, formatado em hora local, dizia hoje.
+ */
+function localISODate(d: Date): string {
+	const month = String(d.getMonth() + 1).padStart(2, "0")
+	const day = String(d.getDate()).padStart(2, "0")
+	return `${d.getFullYear()}-${month}-${day}`
+}
+
 /** Retorna os próximos N dias a partir de hoje (inclusive) como strings ISO */
 function getDateRange(daysAhead: number): string[] {
 	const dates: string[] = []
 	for (let i = 0; i < daysAhead; i++) {
 		const d = new Date()
 		d.setDate(d.getDate() + i)
-		dates.push(d.toISOString().split("T")[0])
+		dates.push(localISODate(d))
 	}
 	return dates
 }
 
 function todayISO(): string {
-	return new Date().toISOString().split("T")[0]
+	return localISODate(new Date())
 }
 
 function formatDateLabel(dateStr: string): string {

@@ -22,9 +22,11 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { toast } from "@/components/ui/toast"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
+import { useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems } from "@/lib/menu-item-groups"
+import { findOutdatedRecipes, indexLatestByLineage, type OutdatedRecipe, type RecipeVersionRef } from "@/lib/recipe-versions"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
 import { MenuHeadcountDialog } from "./MenuHeadcountDialog"
@@ -47,6 +49,23 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	const { data: mealTypes, isLoading: mealTypesLoading } = useMealTypes(kitchenId)
 
 	const isLoading = menusLoading || mealTypesLoading
+
+	// Fichas do dia em versão antiga. O dia congela a ficha na aplicação; `recipe_origin` traz a
+	// linha exata (com versão e linhagem), e o catálogo da cozinha diz qual é a vencedora.
+	const { data: catalog } = useRecipes({ kitchen_id: kitchenId })
+	const outdatedById = (() => {
+		const byId = new Map<string, RecipeVersionRef>()
+		const ids: string[] = []
+		for (const menu of dayMenus ?? []) {
+			for (const item of menu.menu_items ?? []) {
+				if (!item.recipe_origin) continue
+				byId.set(item.recipe_origin.id, item.recipe_origin)
+				ids.push(item.recipe_origin.id)
+			}
+		}
+		const outdated = findOutdatedRecipes(ids, byId, indexLatestByLineage(catalog ?? []))
+		return new Map<string, OutdatedRecipe>(outdated.map((o) => [o.current.id, o]))
+	})()
 
 	// Build meals dynamically based on meal types
 	const meals =
@@ -223,6 +242,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 									onCopyMeal={handleCopyMeal}
 									onPasteMeal={handlePasteMeal}
 									clipboardCount={clipboard.length}
+									outdatedById={outdatedById}
 								/>
 							))}
 						</Accordion>
@@ -295,6 +315,7 @@ function MealSection({
 	onCopyMeal,
 	onPasteMeal,
 	clipboardCount,
+	outdatedById,
 }: {
 	mealType: {
 		id: string
@@ -311,6 +332,7 @@ function MealSection({
 	onCopyMeal: (menu: DailyMenuWithItems) => void
 	onPasteMeal: (menu: DailyMenuWithItems) => void
 	clipboardCount: number
+	outdatedById: ReadonlyMap<string, OutdatedRecipe>
 }) {
 	const { mutate: createMenu, isPending: isCreating } = useCreateDailyMenu()
 	const { mutate: updateDailyMenu } = useUpdateDailyMenu()
@@ -442,7 +464,13 @@ function MealSection({
 											<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
 											<div className="grid gap-2">
 												{group.items.map((item) => (
-													<MenuItemCard key={item.id} item={item} onSubstitute={onSubstitute} onDelete={onDelete} />
+													<MenuItemCard
+														key={item.id}
+														item={item}
+														onSubstitute={onSubstitute}
+														onDelete={onDelete}
+														outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}
+													/>
 												))}
 											</div>
 										</div>

@@ -7,10 +7,14 @@ import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
+import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
+import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import { formatItemDemand } from "@/lib/menu-fill"
 import { menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
+import { describeRecipeVersion } from "@/lib/recipe-versions"
 import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
@@ -45,8 +49,11 @@ const WEEKDAYS = [
 
 type SignatureBlock = { name: string; role: string }
 
-/** Uma preparação dentro de uma célula (refeição × dia) da grade. */
-type CellEntry = { name: string; group: string | null; sortOrder: number; proportion: number | null }
+/**
+ * Uma preparação dentro de uma célula (refeição × dia) da grade. `demand` é a medida do item já
+ * formatada — "120 pax" ou "30%". Só a porcentagem saía, e o item medido em pessoas ficava em branco.
+ */
+type CellEntry = { name: string; group: string | null; sortOrder: number; demand: string | null }
 
 type PrintHeader = {
 	organization: string
@@ -128,6 +135,12 @@ interface WeeklyMenuPrintProps {
 export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPrintProps) {
 	const navigate = useNavigate()
 	const { data: template, isLoading } = useTemplate(templateId)
+
+	// Versão das fichas na lista de preparações: a cozinha produz pela folha, e uma ficha antiga
+	// saía idêntica a uma atual. O catálogo diz qual é a vencedora de cada linhagem.
+	const { data: catalog } = useRecipes({ kitchen_id: scope.kind === "kitchen" ? scope.kitchenId : null })
+	const recipeRefs = useMemo(() => (template?.items ?? []).flatMap((i) => (i.recipe_id ? [{ recipe_id: i.recipe_id }] : [])), [template])
+	const { outdatedById } = useTemplateRecipeVersions(template?.items, catalog, recipeRefs)
 
 	// Meal types: cozinha → genéricos + da cozinha; global → apenas genéricos
 	// (kitchen_id null). fetchMealTypesFn aceita null; o hook useMealTypes não.
@@ -242,7 +255,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 			name: itemRecipeName(item),
 			group: item.item_group ?? null,
 			sortOrder: item.sort_order ?? 0,
-			proportion: item.recommended_proportion ?? null,
+			demand: formatItemDemand(item),
 		})
 		cellIndex.set(key, list)
 	}
@@ -250,18 +263,28 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		list.sort((a, b) => menuItemGroupOrder(a.group) - menuItemGroupOrder(b.group) || a.sortOrder - b.sortOrder)
 	}
 
+	// Efetivo base por (dia + refeição): sai no topo da célula, para "30%" ter do que ser 30%.
+	const baseByCell = new Map((template.meals ?? []).map((m) => [`${m.day_of_week}:${m.meal_type_id}`, m.base_headcount]))
+
 	// Lista de preparações: receitas distintas com texto de preparo, ordenadas.
 	//
 	// Entra quem tem QUALQUER um dos dois campos. Filtrar só por `preparation_method`
 	// derrubava da lista impressa a ficha cujo texto foi todo para o pré-preparo — a
 	// preparação continuaria no cardápio e sumiria da folha que a cozinha lê.
-	const prepMap = new Map<string, { id: string; name: string; prePreparation: string | null; method: string | null }>()
+	const prepMap = new Map<string, { id: string; name: string; version: string; prePreparation: string | null; method: string | null }>()
 	for (const item of template.items) {
 		const r = item.recipe_origin
 		const method = r?.preparation_method?.trim() || null
 		const prePreparation = r?.pre_preparation_method?.trim() || null
 		if (!r || (!method && !prePreparation)) continue
-		if (!prepMap.has(r.id)) prepMap.set(r.id, { id: r.id, name: r.name?.trim() || "Preparação sem nome", prePreparation, method })
+		if (!prepMap.has(r.id))
+			prepMap.set(r.id, {
+				id: r.id,
+				name: r.name?.trim() || "Preparação sem nome",
+				version: describeRecipeVersion(r.version ?? 1, outdatedById.get(r.id)),
+				prePreparation,
+				method,
+			})
 	}
 	const preparations = Array.from(prepMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 
@@ -307,7 +330,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 			})
 			const rows = orderedMealTypes.map((mt) => ({
 				meal: mt.name ?? "",
-				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, proportion: e.proportion }))),
+				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, demand: e.demand }))),
+				bases: WEEKDAYS.map((d) => baseByCell.get(`${d.num}:${mt.id}`) ?? null),
 			}))
 			await docx.downloadCardapioDocx(
 				{
@@ -318,7 +342,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					signatures: header.signatures,
 					columns,
 					rows,
-					preparations: preparations.map((p) => ({ name: p.name, prePreparation: p.prePreparation, method: p.method })),
+					preparations: preparations.map((p) => ({ name: p.name, version: p.version, prePreparation: p.prePreparation, method: p.method })),
 				},
 				`${header.title} - ${template.name ?? "cardapio"}`
 			)
@@ -392,6 +416,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				dayColumns={dayColumns}
 				mealRows={mealRows}
 				cellIndex={cellIndex}
+				baseByCell={baseByCell}
 				preparations={preparations}
 				emptyMessage={emptyMessage}
 				onSignatureChange={setSignature}
@@ -419,6 +444,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 							dayColumns={dayColumns}
 							mealRows={mealRows}
 							cellIndex={cellIndex}
+							baseByCell={baseByCell}
 							preparations={preparations}
 							emptyMessage={emptyMessage}
 						/>
@@ -437,7 +463,9 @@ interface CardapioDocumentProps {
 	dayColumns: { num: number; label: string; dateLabel: string | null }[]
 	mealRows: { id: string; name: string }[]
 	cellIndex: Map<string, CellEntry[]>
-	preparations: { id: string; name: string; prePreparation: string | null; method: string | null }[]
+	/** Efetivo base por `dia:refeição`. */
+	baseByCell: Map<string, number | null>
+	preparations: { id: string; name: string; version: string; prePreparation: string | null; method: string | null }[]
 	emptyMessage: string
 	/** Só a cópia da tela edita; a de impressão renderiza texto estático. */
 	editable?: boolean
@@ -451,6 +479,7 @@ function CardapioDocument({
 	dayColumns,
 	mealRows,
 	cellIndex,
+	baseByCell,
 	preparations,
 	emptyMessage,
 	editable = false,
@@ -507,12 +536,14 @@ function CardapioDocument({
 								<th className="cardapio-meal-col">{mt.name.toUpperCase()}</th>
 								{dayColumns.map((d) => {
 									const entries = cellIndex.get(`${d.num}:${mt.id}`) ?? []
+									const base = baseByCell.get(`${d.num}:${mt.id}`) ?? null
 									return (
 										<td key={d.num} className={d.num >= 6 ? "cardapio-weekend" : undefined}>
+											{base != null && entries.length > 0 && <div className="cardapio-base">{base} pessoas</div>}
 											{entries.map((entry, i) => (
 												<div key={`${entry.name}-${i}`} className="cardapio-dish">
 													{entry.name.toUpperCase()}
-													{entry.proportion != null && <span className="cardapio-dish-prop"> {entry.proportion}%</span>}
+													{entry.demand && <span className="cardapio-dish-prop"> {entry.demand}</span>}
 												</div>
 											))}
 										</td>
@@ -537,7 +568,9 @@ function CardapioDocument({
 					<ul>
 						{preparations.map((p) => (
 							<li key={p.id}>
-								<span className="cardapio-prep-name">{p.name.toUpperCase()}</span>
+								<span className="cardapio-prep-name">
+									{p.name.toUpperCase()} ({p.version})
+								</span>
 								{" — "}
 								{p.prePreparation && (
 									<span className="cardapio-prep-method">
@@ -678,6 +711,7 @@ const PRINT_CSS = `
 .cardapio-weekend { background: #f4f4f4; }
 .cardapio-dish { font-size: 8px; }
 .cardapio-dish-prop { font-weight: 700; color: #333; }
+.cardapio-base { font-size: 7px; font-style: italic; color: #555; }
 .cardapio-dish + .cardapio-dish { border-top: 1px dotted #bbb; margin-top: 1px; padding-top: 1px; }
 .cardapio-empty { text-align: center; font-style: italic; padding: 12px; }
 .cardapio-preps { margin-top: 8px; }
