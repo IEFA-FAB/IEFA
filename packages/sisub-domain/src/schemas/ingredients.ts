@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { UuidSchema } from "./common.ts"
+import { DeliveryCycleSchema } from "./procurement.ts"
 
 /**
  * Escopo do grupo legado "Preparações" (SISUBWEB) dentro do catálogo de insumos.
@@ -77,6 +78,10 @@ export type DeleteIngredient = z.infer<typeof DeleteIngredientSchema>
 
 export const RestoreIngredientSchema = z.object({ id: UuidSchema })
 export type RestoreIngredient = z.infer<typeof RestoreIngredientSchema>
+
+/** Ciclo de entrega padrão do insumo nas ATAs. `null` = não classificado. */
+export const UpdateIngredientDeliveryCycleSchema = z.object({ id: UuidSchema, deliveryCycle: DeliveryCycleSchema.nullable() })
+export type UpdateIngredientDeliveryCycle = z.infer<typeof UpdateIngredientDeliveryCycleSchema>
 
 export const ListIngredientItemsSchema = z.object({
 	ingredientId: UuidSchema.optional(),

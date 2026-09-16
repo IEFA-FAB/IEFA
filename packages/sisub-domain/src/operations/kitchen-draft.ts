@@ -9,9 +9,9 @@
  * (`Erro ao ...: message`) preservadas (prefixo + mensagem do driver).
  */
 
-import { kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement, menuTemplateInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import type {
 	CreateKitchenDraft,
@@ -32,39 +32,93 @@ type DraftWithSelections = Draft & { selections: DraftSelectionWire[] }
 
 const DRAFT_RELATIONS: Record<string, string> = { kitchenAtaDraftSelectionInProcurements: "selections", menuTemplateInKitchen: "template" }
 
-// draft → selections[] → template{id,name,template_type}
-const DRAFT_WITH = {
-	kitchenAtaDraftSelectionInProcurements: { with: { menuTemplateInKitchen: { columns: { id: true, name: true, templateType: true } } } },
-} as const
+type DraftRow = typeof kitchenAtaDraftInProcurement.$inferSelect
+
+/**
+ * Pendura seleções → template nos rascunhos em queries SEPARADAS, juntadas em JS.
+ *
+ * A relational query aninhada (rascunho → seleções → template) gerava o alias
+ * `kitchenAtaDraftInProcurement_kitchenAtaDraftSelectionInProcurements` (69 chars): o Postgres
+ * trunca em NAMEDATALEN (63) e o SQL emitido segue citando o nome inteiro → 42703 `column
+ * ....template_id does not exist`. Toda leitura de rascunho quebrava — inclusive o aviso de
+ * rascunho pendente no wizard da ATA. É o mesmo bug que `fetchAtaDetails` já contornava.
+ * Chaves iguais às da relational query, para `DRAFT_RELATIONS` mapear o contrato de wire.
+ */
+async function attachSelections(db: SisubDb, drafts: DraftRow[], prefix: string): Promise<DraftWithSelections[]> {
+	if (drafts.length === 0) return []
+	const selections = await runQuery(
+		"FETCH_FAILED",
+		() =>
+			db
+				.select()
+				.from(kitchenAtaDraftSelectionInProcurement)
+				.where(
+					inArray(
+						kitchenAtaDraftSelectionInProcurement.draftId,
+						drafts.map((d) => d.id)
+					)
+				),
+		{ prefix }
+	)
+	const templateIds = [...new Set(selections.map((s) => s.templateId))]
+	const templates =
+		templateIds.length > 0
+			? await runQuery(
+					"FETCH_FAILED",
+					() =>
+						db
+							.select({ id: menuTemplateInKitchen.id, name: menuTemplateInKitchen.name, templateType: menuTemplateInKitchen.templateType })
+							.from(menuTemplateInKitchen)
+							.where(inArray(menuTemplateInKitchen.id, templateIds)),
+					{ prefix }
+				)
+			: []
+	const templateById = new Map(templates.map((t) => [t.id, t]))
+	return drafts.map((d) =>
+		toWire<DraftWithSelections>(
+			{
+				...d,
+				kitchenAtaDraftSelectionInProcurements: selections
+					.filter((s) => s.draftId === d.id)
+					.map((s) => ({ ...s, menuTemplateInKitchen: templateById.get(s.templateId) ?? null })),
+			},
+			DRAFT_RELATIONS
+		)
+	)
+}
 
 /** Lists all drafts for a kitchen with their template selections, ordered by creation date descending. */
 export async function fetchKitchenDrafts(db: SisubDb, _ctx: UserContext, input: FetchKitchenDrafts) {
+	const prefix = "Erro ao buscar rascunhos"
 	const drafts = await runQuery(
 		"FETCH_FAILED",
 		() =>
-			db.query.kitchenAtaDraftInProcurement.findMany({
-				with: DRAFT_WITH,
-				where: eq(kitchenAtaDraftInProcurement.kitchenId, input.kitchenId),
-				orderBy: (draft) => [desc(draft.createdAt)],
-			}),
-		{ prefix: "Erro ao buscar rascunhos" }
+			db
+				.select()
+				.from(kitchenAtaDraftInProcurement)
+				.where(eq(kitchenAtaDraftInProcurement.kitchenId, input.kitchenId))
+				.orderBy(desc(kitchenAtaDraftInProcurement.createdAt)),
+		{ prefix }
 	)
-	return drafts.map((d) => toWire<DraftWithSelections>(d, DRAFT_RELATIONS))
+	return attachSelections(db, drafts, prefix)
 }
 
 /** Returns the most recent "sent" draft for a kitchen (awaiting management action), or null if none exists. */
 export async function fetchPendingDraft(db: SisubDb, _ctx: UserContext, input: FetchPendingDraft) {
-	const draft = await runQuery(
+	const prefix = "Erro ao buscar rascunho pendente"
+	const drafts = await runQuery(
 		"FETCH_FAILED",
 		() =>
-			db.query.kitchenAtaDraftInProcurement.findFirst({
-				with: DRAFT_WITH,
-				where: (d, { and }) => and(eq(d.kitchenId, input.kitchenId), eq(d.status, "sent")),
-				orderBy: (d) => [desc(d.createdAt)],
-			}),
-		{ prefix: "Erro ao buscar rascunho pendente" }
+			db
+				.select()
+				.from(kitchenAtaDraftInProcurement)
+				.where(and(eq(kitchenAtaDraftInProcurement.kitchenId, input.kitchenId), eq(kitchenAtaDraftInProcurement.status, "sent")))
+				.orderBy(desc(kitchenAtaDraftInProcurement.createdAt))
+				.limit(1),
+		{ prefix }
 	)
-	return draft ? toWire<DraftWithSelections>(draft, DRAFT_RELATIONS) : null
+	const [draft] = await attachSelections(db, drafts, prefix)
+	return draft ?? null
 }
 
 /** Creates a draft with status "pending" and inserts its template selections (atômico). */

@@ -19,6 +19,7 @@
 
 import {
 	folderInKitchen,
+	ingredientInKitchen,
 	kitchenInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
@@ -32,6 +33,7 @@ import {
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
 	purchaseItemIngredientInProcurement,
+	purchaseItemInProcurement,
 	recipeIngredientsInKitchen,
 	recipesInKitchen,
 	type SisubDb,
@@ -52,12 +54,14 @@ import type {
 	UpdateAtaDraft,
 	UpdateAtaItemDescription,
 	UpdateAtaItemPrices,
+	UpdateAtaQuantityLimits,
 	UpdateAtaStatus,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { computeAtaItemLimits, type QuantityLimits, requiresMarginJustification, resolveDeliveryCycle } from "./ata-quantity-limits.ts"
 import { resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
@@ -110,6 +114,7 @@ type AtaSnapshotSelection = {
 	snapshot_source: string
 }
 type AtaSnapshotComponent = {
+	ingredient_id: string | null
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
@@ -120,6 +125,10 @@ type AtaSnapshotComponent = {
 	catmat_item_codigo: number | null
 	unit_price: string | null
 	snapshot_source: string
+	max_margin_percent: number | null
+	max_quantity: string | null
+	delivery_cycle: string | null
+	min_order_quantity: string | null
 }
 /** Metadados de integridade computados por request (não persistidos). */
 type AtaMeta = {
@@ -127,7 +136,9 @@ type AtaMeta = {
 	price_research: { oldest_research_at: string | null; validity_days: number; is_expired: boolean }
 	snapshot: { selections: AtaSnapshotSelection[]; components: AtaSnapshotComponent[] } | null
 }
-type AtaWithDetails = ProcurementList & { kitchens: AtaKitchenWire[]; items: ProcurementListItem[]; meta: AtaMeta }
+/** Item com o que decide o ciclo quando a ata ainda não gravou o seu: padrão do insumo e conservação. */
+type AtaItemWire = ProcurementListItem & { conservation_class: string | null; ingredient_delivery_cycle: string | null }
+type AtaWithDetails = ProcurementList & { kitchens: AtaKitchenWire[]; items: AtaItemWire[]; meta: AtaMeta }
 
 type ItemInsert = typeof procurementListItemInProcurement.$inferInsert
 
@@ -198,7 +209,9 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 							with: {
 								recipeIngredientsInKitchens: {
 									columns: { ingredientId: true, netQuantity: true },
-									with: { ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true, folderId: true } } },
+									with: {
+										ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true, folderId: true, defaultDeliveryCycle: true } },
+									},
 								},
 							},
 							where: inArray(recipesInKitchen.id, recipeIds),
@@ -240,6 +253,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 			id: string
 			description: string | null
 			measure_unit: string | null
+			default_delivery_cycle: string | null
 			folder_id: string | null
 			folder?: { id: string; description: string | null } | null
 		}
@@ -277,6 +291,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 					id: ingredientRaw.id,
 					description: ingredientRaw.description,
 					measure_unit: ingredientRaw.measureUnit,
+					default_delivery_cycle: ingredientRaw.defaultDeliveryCycle,
 					folder_id: ingredientRaw.folderId,
 					folder: folder ? { id: folder.id, description: folder.description } : null,
 				}
@@ -304,6 +319,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 		catmat_item_descricao: string | null
 		unit_price: number | null
 		conversion_factor: number
+		conservation_class: string | null
 	}
 	const ingredientToPurchaseItem = new Map<string, PurchaseItemLink>()
 
@@ -322,6 +338,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 								catmatItemCodigo: true,
 								catmatItemDescricao: true,
 								unitPrice: true,
+								conservationClass: true,
 								deletedAt: true,
 							},
 						},
@@ -342,6 +359,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 				catmat_item_descricao: pi.catmatItemDescricao,
 				unit_price: pi.unitPrice === null ? null : Number(pi.unitPrice),
 				conversion_factor: Number(link.conversionFactor),
+				conservation_class: pi.conservationClass,
 			})
 		}
 	}
@@ -365,6 +383,11 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 			catmat_item_descricao: pi?.catmat_item_descricao ?? null,
 			unit_price: pi?.unit_price ?? null,
 			item_description: null,
+			conservation_class: pi?.conservation_class ?? null,
+			ingredient_delivery_cycle: d.ingredient.default_delivery_cycle,
+			// O cálculo já decide o ciclo desta ata a partir do insumo; daqui em diante ele é
+			// escolha GRAVADA no item, e mudar o insumo não mexe na ata montada.
+			delivery_cycle: resolveDeliveryCycle({ ingredientCycle: d.ingredient.default_delivery_cycle, conservationClass: pi?.conservation_class }).cycle,
 		}
 	})
 
@@ -503,6 +526,11 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
 		unitPrice: item.unit_price == null ? null : String(item.unit_price),
 		itemDescription: item.item_description || null,
 		computedAt,
+		// Ausente não entra no payload: o update preserva a escolha gravada. Recalcular o alvo
+		// não pode apagar a margem ou o mínimo que alguém ajustou no item.
+		...(item.max_margin_percent !== undefined && { maxMarginPercent: item.max_margin_percent }),
+		...(item.delivery_cycle !== undefined && { deliveryCycle: item.delivery_cycle }),
+		...(item.min_order_quantity !== undefined && { minOrderQuantity: item.min_order_quantity == null ? null : String(item.min_order_quantity) }),
 	}
 }
 
@@ -924,13 +952,95 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 		{ prefix: "Erro ao buscar itens" }
 	)
 
+	const cycleContext = await fetchCycleContext(db, items)
 	const meta = await computeAtaMeta(db, ata.status, input.ataId, kitchens, items, ata.updatedAt ?? null)
 
 	return {
 		...toWire<ProcurementList>(ata),
 		kitchens: kitchens.map((k) => toWire<AtaKitchenWire>(k, DETAILS_RELATIONS)),
-		items: items.map((i) => toWire<ProcurementListItem>(i)),
+		items: items.map((i) => ({
+			...toWire<ProcurementListItem>(i),
+			conservation_class: (i.purchaseItemId ? cycleContext.conservationByPurchaseItem.get(i.purchaseItemId) : null) ?? null,
+			ingredient_delivery_cycle: (i.ingredientId ? cycleContext.cycleByIngredient.get(i.ingredientId) : null) ?? null,
+		})),
 		meta,
+	}
+}
+
+type CycleContext = { conservationByPurchaseItem: Map<string, string | null>; cycleByIngredient: Map<string, string | null> }
+
+/** Padrão de ciclo dos insumos e conservação dos itens de compra — o que decide o ciclo de item sem escolha gravada. */
+async function fetchCycleContext(
+	client: SisubDb | TxClient,
+	items: Array<{ purchaseItemId: string | null; ingredientId: string | null }>
+): Promise<CycleContext> {
+	const purchaseItemIds = [...new Set(items.map((i) => i.purchaseItemId).filter((id): id is string => id != null))]
+	const ingredientIds = [...new Set(items.map((i) => i.ingredientId).filter((id): id is string => id != null))]
+	const [purchaseItems, ingredients] = await Promise.all([
+		purchaseItemIds.length > 0
+			? runQuery(
+					"QUERY_FAILED",
+					() =>
+						client
+							.select({ id: purchaseItemInProcurement.id, conservationClass: purchaseItemInProcurement.conservationClass })
+							.from(purchaseItemInProcurement)
+							.where(inArray(purchaseItemInProcurement.id, purchaseItemIds)),
+					{ prefix: "Erro ao buscar conservação dos itens de compra" }
+				)
+			: Promise.resolve([]),
+		ingredientIds.length > 0
+			? runQuery(
+					"QUERY_FAILED",
+					() =>
+						client
+							.select({ id: ingredientInKitchen.id, defaultDeliveryCycle: ingredientInKitchen.defaultDeliveryCycle })
+							.from(ingredientInKitchen)
+							.where(inArray(ingredientInKitchen.id, ingredientIds)),
+					{ prefix: "Erro ao buscar ciclo de entrega dos insumos" }
+				)
+			: Promise.resolve([]),
+	])
+	return {
+		conservationByPurchaseItem: new Map(purchaseItems.map((r) => [r.id, r.conservationClass])),
+		cycleByIngredient: new Map(ingredients.map((r) => [r.id, r.defaultDeliveryCycle])),
+	}
+}
+
+type ListLimitsRow = { validityMonths: number | null; maxMarginPercent: number; marginJustification: string | null }
+type ItemRowFull = typeof procurementListItemInProcurement.$inferSelect
+
+/** Limites resolvidos de todos os itens de uma ata — mesma entrada para a trava de publicação e o snapshot. */
+async function loadAtaLimits(
+	tx: TxClient,
+	listId: string
+): Promise<{ list: ListLimitsRow | undefined; items: Array<{ item: ItemRowFull; limits: QuantityLimits }> }> {
+	const [list] = await tx
+		.select({
+			validityMonths: procurementListInProcurement.validityMonths,
+			maxMarginPercent: procurementListInProcurement.maxMarginPercent,
+			marginJustification: procurementListInProcurement.marginJustification,
+		})
+		.from(procurementListInProcurement)
+		.where(eq(procurementListInProcurement.id, listId))
+	const rows = await tx.select().from(procurementListItemInProcurement).where(eq(procurementListItemInProcurement.listId, listId))
+	const context = await fetchCycleContext(tx, rows)
+	return {
+		list,
+		items: rows.map((item) => ({
+			item,
+			limits: computeAtaItemLimits(
+				{
+					purchaseQuantity: item.purchaseQuantity == null ? null : Number(item.purchaseQuantity),
+					totalQuantity: Number(item.totalQuantity),
+					deliveryCycle: item.deliveryCycle,
+					ingredientDeliveryCycle: item.ingredientId ? context.cycleByIngredient.get(item.ingredientId) : null,
+					conservationClass: item.purchaseItemId ? context.conservationByPurchaseItem.get(item.purchaseItemId) : null,
+					maxMarginPercent: item.maxMarginPercent,
+					minOrderQuantity: item.minOrderQuantity == null ? null : Number(item.minOrderQuantity),
+				},
+				list ?? {}
+			),
+		})),
 	}
 }
 
@@ -1049,6 +1159,7 @@ async function computeAtaMeta(
 					snapshot_source: s.snapshotSource,
 				})),
 				components: components.map((c) => ({
+					ingredient_id: c.ingredientId,
 					ingredient_name: c.ingredientName,
 					folder_description: c.folderDescription,
 					measure_unit: c.measureUnit,
@@ -1059,6 +1170,10 @@ async function computeAtaMeta(
 					catmat_item_codigo: c.catmatItemCodigo,
 					unit_price: c.unitPrice,
 					snapshot_source: c.snapshotSource,
+					max_margin_percent: c.maxMarginPercent,
+					max_quantity: c.maxQuantity,
+					delivery_cycle: c.deliveryCycle,
+					min_order_quantity: c.minOrderQuantity,
 				})),
 			}
 		}
@@ -1114,11 +1229,12 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 		)
 	}
 
-	// Componentes (cópia imutável dos itens agregados).
-	const items = await tx.select().from(procurementListItemInProcurement).where(eq(procurementListItemInProcurement.listId, listId))
+	// Componentes (cópia imutável dos itens agregados), com os limites do anexo RESOLVIDOS:
+	// a ata publicada guarda o número que foi publicado, não a regra que o produziu.
+	const { items } = await loadAtaLimits(tx, listId)
 	if (items.length > 0) {
 		await tx.insert(procurementListSnapshotComponentInProcurement).values(
-			items.map((i) => ({
+			items.map(({ item: i, limits }) => ({
 				listId,
 				ingredientId: i.ingredientId,
 				ingredientName: i.ingredientName,
@@ -1133,6 +1249,10 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 				unitPrice: i.unitPrice,
 				snapshotSource: "native",
 				computedAt: i.computedAt ?? new Date().toISOString(),
+				maxMarginPercent: limits.marginPercent,
+				maxQuantity: String(limits.maxQuantity),
+				deliveryCycle: limits.deliveryCycle,
+				minOrderQuantity: String(limits.minOrderQuantity),
 			}))
 		)
 	}
@@ -1168,8 +1288,22 @@ export async function updateAtaStatus(db: SisubDb, ctx: UserContext, input: Upda
 			{ prefix: "Erro ao atualizar status" }
 		)
 
-		// Congela o snapshot ao sair do rascunho (publicar OU arquivar direto). Idempotente em republicação.
-		if (input.status !== "draft") {
+		// A justificativa da margem é exigida na PUBLICAÇÃO, uma vez por ata. Arquivar direto
+		// um rascunho não publica nada, então não cobra.
+		if (current === "draft" && input.status === "published") {
+			const { list, items } = await loadAtaLimits(tx, input.ataId)
+			if (requiresMarginJustification(items.map((i) => i.limits)) && !list?.marginJustification?.trim()) {
+				throw new DomainError(
+					"MARGIN_JUSTIFICATION_REQUIRED",
+					"Há itens com margem acima da referência: preencha a justificativa da margem no anexo de quantitativos antes de publicar."
+				)
+			}
+		}
+
+		// Congela o snapshot SÓ na saída do rascunho (publicar OU arquivar direto). Arquivar uma ata
+		// publicada não pode recongelar: recalcularia máxima, ciclo e mínimo com a regra e o insumo de
+		// hoje — e daria limites a atas publicadas antes do anexo existir.
+		if (current === "draft") {
 			await buildAtaSnapshot(tx, input.ataId)
 		}
 	})
@@ -1217,6 +1351,51 @@ export async function updateAtaItemDescription(db: SisubDb, ctx: UserContext, in
 				.returning({ id: procurementListItemInProcurement.id }),
 		{ prefix: "Erro ao atualizar descrição" }
 	)
+}
+
+// ─── Ajustar limites do anexo de quantitativos ───────────────────────────────
+
+/**
+ * Grava a margem padrão e a justificativa da ata e as escolhas por item (margem, ciclo,
+ * mínimo por pedido). Só em rascunho: publicar congela máxima e mínima no snapshot, e mexer
+ * depois divergiria o documento publicado do que o sistema mostra.
+ *
+ * O predicado de cada item amarra a ATA dona (`list_id`): um id de item de outra ata não
+ * é atualizado, e a contagem denuncia a divergência em vez de engolir.
+ */
+export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, input: UpdateAtaQuantityLimits): Promise<void> {
+	await authorizeAtaList(db, ctx, input.ataId)
+
+	await db.transaction(async (tx) => {
+		await assertDraftEditable(tx, input.ataId)
+
+		const listPatch: Partial<typeof procurementListInProcurement.$inferInsert> = {}
+		if (input.maxMarginPercent !== undefined) listPatch.maxMarginPercent = input.maxMarginPercent
+		if (input.marginJustification !== undefined) listPatch.marginJustification = input.marginJustification?.trim() || null
+		if (Object.keys(listPatch).length > 0) {
+			// Sem `updated_at`: limite não muda o alvo, então não pode marcar o cálculo como defasado.
+			await tx.update(procurementListInProcurement).set(listPatch).where(eq(procurementListInProcurement.id, input.ataId))
+		}
+
+		for (const item of input.items ?? []) {
+			const patch: Partial<ItemInsert> = {}
+			if (item.maxMarginPercent !== undefined) patch.maxMarginPercent = item.maxMarginPercent
+			if (item.deliveryCycle !== undefined) patch.deliveryCycle = item.deliveryCycle
+			if (item.minOrderQuantity !== undefined) patch.minOrderQuantity = item.minOrderQuantity == null ? null : String(item.minOrderQuantity)
+			if (Object.keys(patch).length === 0) continue
+			await mutateOrFail(
+				"UPDATE_FAILED",
+				`Erro ao ajustar limites: item ${item.ataItemId} não pertence à ata ${input.ataId}`,
+				() =>
+					tx
+						.update(procurementListItemInProcurement)
+						.set(patch)
+						.where(and(eq(procurementListItemInProcurement.id, item.ataItemId), eq(procurementListItemInProcurement.listId, input.ataId)))
+						.returning({ id: procurementListItemInProcurement.id }),
+				{ prefix: "Erro ao ajustar limites" }
+			)
+		}
+	})
 }
 
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────

@@ -631,6 +631,8 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 	rehydrationIndex: numeric("rehydration_index"),
 	// Preenchido ⇒ é preparação herdada do SISUBWEB, não insumo. Ver preparation-scope.ts.
 	preparationGroupId: uuid("preparation_group_id"),
+	// Ciclo de entrega padrão nas ATAs (weekly = perecível) — 20260916134659.
+	defaultDeliveryCycle: text("default_delivery_cycle"),
 }, (table) => [
 	index("ingredient_preparation_group_id_idx").using("btree", table.preparationGroupId.asc().nullsLast().op("uuid_ops")).where(sql`preparation_group_id IS NOT NULL`),
 	foreignKey({
@@ -961,6 +963,8 @@ export const procurementListInProcurement = procurement.table("procurement_list"
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	wizardStep: smallint("wizard_step"),
 	validityMonths: smallint("validity_months"),
+	maxMarginPercent: smallint("max_margin_percent").default(20).notNull(),
+	marginJustification: text("margin_justification"),
 }, (table) => [
 	index("idx_procurement_list_unit_status").using("btree", table.unitId.asc().nullsLast().op("int4_ops"), table.status.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
@@ -971,6 +975,7 @@ export const procurementListInProcurement = procurement.table("procurement_list"
 	check("procurement_ata_status_check", sql`status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])`),
 	check("procurement_list_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 5)`),
 	check("procurement_list_validity_months_check", sql`validity_months IS NULL OR (validity_months > 0 AND validity_months <= 120)`),
+	check("procurement_list_max_margin_percent_check", sql`(max_margin_percent >= 0) AND (max_margin_percent <= 100)`),
 ]);
 
 export const procurementListItemInProcurement = procurement.table("procurement_list_item", {
@@ -992,6 +997,9 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 	conversionFactor: numeric("conversion_factor", { precision: 12, scale:  6 }),
 	itemDescription: text("item_description"),
 	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
+	maxMarginPercent: smallint("max_margin_percent"),
+	deliveryCycle: text("delivery_cycle"),
+	minOrderQuantity: numeric("min_order_quantity", { precision: 14, scale:  4 }),
 }, (table) => [
 	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
 	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
@@ -1094,6 +1102,10 @@ export const procurementListSnapshotComponentInProcurement = procurement.table("
 	unitPrice: numeric("unit_price", { precision: 12, scale:  4 }),
 	snapshotSource: text("snapshot_source").default('native').notNull(),
 	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	maxMarginPercent: smallint("max_margin_percent"),
+	maxQuantity: numeric("max_quantity", { precision: 14, scale:  4 }),
+	deliveryCycle: text("delivery_cycle"),
+	minOrderQuantity: numeric("min_order_quantity", { precision: 14, scale:  4 }),
 }, (table) => [
 	index("idx_proc_snapshot_component_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({

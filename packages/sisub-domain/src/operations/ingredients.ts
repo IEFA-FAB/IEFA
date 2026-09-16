@@ -53,6 +53,7 @@ import type {
 	SetIngredientNutritionReference,
 	UpdateFolder,
 	UpdateIngredient,
+	UpdateIngredientDeliveryCycle,
 	UpdateIngredientItem,
 } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
@@ -303,6 +304,25 @@ export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: Re
 	requirePermission(ctx, "global", 2)
 	await mutateOrFail("RESTORE_FAILED", `ingredient ${input.id} not found`, () =>
 		db.update(ingredientInKitchen).set({ deletedAt: null }).where(eq(ingredientInKitchen.id, input.id)).returning({ id: ingredientInKitchen.id })
+	)
+}
+
+/**
+ * Ciclo de entrega padrão do insumo nas ATAs (semanal = perecível, mensal = não perecível).
+ *
+ * Operação própria, fora do `updateIngredient`: aquela reescreve a linha inteira a partir do
+ * payload do formulário e das ações em lote, e um campo que elas não conhecem seria zerado
+ * no primeiro save. Aqui só a coluna muda. O ciclo EFETIVO de cada ata fica gravado no item
+ * da ata; mudar o insumo vale para as próximas contas.
+ */
+export async function updateIngredientDeliveryCycle(db: SisubDb, ctx: UserContext, input: UpdateIngredientDeliveryCycle): Promise<void> {
+	requirePermission(ctx, "global", 2)
+	await mutateOrFail("UPDATE_FAILED", `ingredient ${input.id} not found`, () =>
+		db
+			.update(ingredientInKitchen)
+			.set({ defaultDeliveryCycle: input.deliveryCycle })
+			.where(and(eq(ingredientInKitchen.id, input.id), isNull(ingredientInKitchen.deletedAt)))
+			.returning({ id: ingredientInKitchen.id })
 	)
 }
 

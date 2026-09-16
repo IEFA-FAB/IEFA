@@ -7,6 +7,7 @@ import { requirePermission } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
 import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
+import { type AtaItemLimitsPatch, AtaQuantityLimitsSection } from "@/components/features/local/ata/AtaQuantityLimitsSection"
 import { type PriceResearchAuditIds, PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -16,9 +17,10 @@ import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useArpForAta } from "@/hooks/data/useArp"
-import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaQuantityLimits, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { useUnitSettings } from "@/hooks/data/useUnitSettings"
+import { type AtaAnnexSettings, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, downloadCsv } from "@/lib/ata-annex"
 import { ataItemToNeed } from "@/lib/ata-utils"
 import { queryKeys } from "@/lib/query-keys"
 import { updateAtaItemPricesFn } from "@/server/ata.fn"
@@ -55,6 +57,7 @@ function AtaDetailPage() {
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
 	const { mutate: updateItemDescription } = useUpdateAtaItemDescription()
+	const { mutate: updateQuantityLimits } = useUpdateAtaQuantityLimits()
 	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
 
 	// UASG da unidade para pré-preencher o modal de busca
@@ -65,29 +68,33 @@ function AtaDetailPage() {
 		updateItemDescription({ ataId, ataItemId, description })
 	}
 
+	const needs = useMemo(() => ata?.items.map(ataItemToNeed) ?? [], [ata?.items])
+
+	const annexSettings = useMemo<AtaAnnexSettings | null>(
+		() => (ata ? { validityMonths: ata.validity_months, maxMarginPercent: ata.max_margin_percent, marginJustification: ata.margin_justification } : null),
+		[ata]
+	)
+	// Rascunho calcula na hora; publicada mostra o que o snapshot congelou — nunca recalcula
+	// um documento publicado com a regra ou a conservação de hoje.
+	const annexRows = useMemo(() => {
+		if (!ata || !annexSettings) return []
+		if (ata.status === "draft") return buildDraftAnnexRows(needs, annexSettings)
+		return ata.meta.snapshot ? buildSnapshotAnnexRows(ata.meta.snapshot.components, ata.items) : []
+	}, [ata, needs, annexSettings])
+
 	const handleExportCSV = () => {
 		if (!ata) return
-		const headers = ["Categoria", "CATMAT", "Descrição CATMAT", "Descrição Adicional", "Produto", "Quantidade", "Unidade", "Preço Un.", "Total Est."]
-		const rows = ata.items.map((item) => [
-			item.folder_description || "Sem categoria",
-			item.catmat_item_codigo || "",
-			item.catmat_item_descricao || "",
-			item.item_description || "",
-			item.ingredient_name,
-			Number(item.total_quantity).toFixed(4),
-			item.measure_unit || "UN",
-			item.unit_price !== null ? Number(item.unit_price).toFixed(4) : "",
-			item.unit_price !== null ? (Number(item.total_quantity) * Number(item.unit_price)).toFixed(2) : "",
-		])
-		const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
-		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-		const link = document.createElement("a")
-		link.href = URL.createObjectURL(blob)
-		link.download = `ata-${ata.title}-${ata.created_at.split("T")[0]}.csv`
-		link.click()
+		downloadCsv(`anexo-quantitativos-${ata.title}-${ata.created_at.split("T")[0]}.csv`, buildAnnexCsv(annexRows, ata.margin_justification))
 	}
 
-	const needs = useMemo(() => ata?.items.map(ataItemToNeed) ?? [], [ata?.items])
+	// A trava real é do servidor na publicação; aqui só evita o clique que já sabemos que falha.
+	const justificationMissing =
+		ata?.status === "draft" && annexRows.some((r) => r.warnings.includes("margin_requires_justification")) && !ata.margin_justification?.trim()
+
+	const handleItemLimitsChange = (ataItemId: string, patch: AtaItemLimitsPatch) => {
+		if (!ataId) return
+		updateQuantityLimits({ ataId, items: [{ ataItemId, ...patch }] })
+	}
 	const {
 		start: runBulkResearch,
 		progress: bulkProgress,
@@ -190,7 +197,13 @@ function AtaDetailPage() {
 						Exportar CSV
 					</Button>
 					{ata.status === "draft" && (
-						<Button size="sm" onClick={() => updateStatus({ ataId: ata.id, status: "published" })} disabled={isUpdating} className="gap-2">
+						<Button
+							size="sm"
+							onClick={() => updateStatus({ ataId: ata.id, status: "published" })}
+							disabled={isUpdating || justificationMissing}
+							title={justificationMissing ? "Preencha a justificativa da margem no anexo de quantitativos" : undefined}
+							className="gap-2"
+						>
 							<Send className="size-4" aria-hidden="true" />
 							Publicar
 						</Button>
@@ -312,6 +325,16 @@ function AtaDetailPage() {
 
 			{/* Itens da Ata */}
 			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
+
+			{annexSettings && annexRows.length > 0 && (
+				<AtaQuantityLimitsSection
+					rows={annexRows}
+					settings={annexSettings}
+					editable={ata.status === "draft"}
+					onSettingsChange={(patch) => ataId && updateQuantityLimits({ ataId, ...patch })}
+					onItemChange={handleItemLimitsChange}
+				/>
+			)}
 
 			{/* ─── ARP & Empenhos ──────────────────────────────────────────── */}
 			<div className="space-y-3">

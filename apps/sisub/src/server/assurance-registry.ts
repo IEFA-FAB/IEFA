@@ -185,6 +185,7 @@ export const ASSURANCE_REGISTRY = {
 	updateAtaStatusFn: { require: "none" },
 	updateAtaItemPricesFn: { require: "none" },
 	updateAtaItemDescriptionFn: { require: "none" },
+	updateAtaQuantityLimitsFn: { require: "none" },
 	deleteAtaFn: { require: "none" },
 
 	// ── budget.fn.ts
@@ -265,6 +266,7 @@ export const ASSURANCE_REGISTRY = {
 	updateIngredientFn: { require: "none" },
 	deleteIngredientFn: { require: "none" },
 	restoreIngredientFn: { require: "none" },
+	updateIngredientDeliveryCycleFn: { require: "none" },
 	createIngredientItemFn: { require: "none" },
 	updateIngredientItemFn: { require: "none" },
 	deleteIngredientItemFn: { require: "none" },

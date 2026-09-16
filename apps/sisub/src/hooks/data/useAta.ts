@@ -14,6 +14,7 @@ import {
 	updateAtaDraftFn,
 	updateAtaItemDescriptionFn,
 	updateAtaItemPricesFn,
+	updateAtaQuantityLimitsFn,
 	updateAtaStatusFn,
 } from "@/server/ata.fn"
 import type { AtaWithDetails, AtaWizardState } from "@/types/domain/ata"
@@ -194,6 +195,22 @@ export function useUpdateAtaItemDescription() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(variables.ataId) })
 		},
 		onError: (error) => toast.error(`Erro ao atualizar descrição: ${error.message}`),
+	})
+}
+
+/**
+ * Ajuste do anexo de quantitativos. Invalida detalhe e rascunho: a mesma ATA é lida pelas
+ * duas chaves (tela de detalhe e wizard).
+ */
+export function useUpdateAtaQuantityLimits() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (data: Parameters<typeof updateAtaQuantityLimitsFn>[0]["data"]) => updateAtaQuantityLimitsFn({ data }),
+		onSuccess: (_, variables) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(variables.ataId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.draft(variables.ataId) })
+		},
+		onError: (error) => toast.error(`Erro ao ajustar limites: ${error.message}`),
 	})
 }
 

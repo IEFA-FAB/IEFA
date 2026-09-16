@@ -6,6 +6,8 @@ export type ProcurementList = Tables<"procurement_list">
 export type ProcurementListKitchen = Tables<"procurement_list_kitchen">
 export type ProcurementListSelection = Tables<"procurement_list_selection">
 export type ProcurementListItem = Tables<"procurement_list_item">
+/** Item como o detalhe da ATA devolve: com o padrão do insumo e a conservação, que decidem o ciclo não gravado. */
+export type AtaItemWithConservation = ProcurementListItem & { conservation_class?: string | null; ingredient_delivery_cycle?: string | null }
 
 export type KitchenAtaDraft = Tables<"kitchen_ata_draft">
 export type KitchenAtaDraftSelection = Tables<"kitchen_ata_draft_selection">
@@ -32,6 +34,7 @@ export interface AtaSnapshotSelection {
 }
 
 export interface AtaSnapshotComponent {
+	ingredient_id: string | null
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
@@ -42,6 +45,11 @@ export interface AtaSnapshotComponent {
 	catmat_item_codigo: number | null
 	unit_price: string | null
 	snapshot_source: string
+	/** Limites resolvidos na publicação; nulos em atas publicadas antes do anexo existir. */
+	max_margin_percent: number | null
+	max_quantity: string | null
+	delivery_cycle: string | null
+	min_order_quantity: string | null
 }
 
 /** Metadados de integridade computados por request (não persistidos). */
@@ -62,7 +70,7 @@ export interface AtaMeta {
 
 export interface AtaWithDetails extends ProcurementList {
 	kitchens: AtaKitchenWithDetails[]
-	items: ProcurementListItem[]
+	items: AtaItemWithConservation[]
 	meta: AtaMeta
 }
 
