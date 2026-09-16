@@ -674,16 +674,28 @@ export async function applyTemplate(
 	// parse UTC (`new Date("YYYY-MM-DD")`) com `getDay()`/`getDate()` locais, o que deslocava
 	// o dia da semana em servidores de offset negativo (ex.: Brasil UTC-3).
 	const allDates: string[] = []
-	for (let d = new Date(`${input.startDate}T00:00:00Z`); d <= new Date(`${input.endDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
-		allDates.push(d.toISOString().slice(0, 10))
+	if (input.dates && input.dates.length > 0) {
+		// Datas escolhidas a dedo (ctrl+clique no calendário): só elas são tocadas. Expandir
+		// entre a menor e a maior faria o "replace" apagar os dias do meio, que o usuário não
+		// escolheu — e o preview da tela lista só os escolhidos.
+		allDates.push(...new Set(input.dates))
+		allDates.sort()
+	} else {
+		for (let d = new Date(`${input.startDate}T00:00:00Z`); d <= new Date(`${input.endDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+			allDates.push(d.toISOString().slice(0, 10))
+		}
 	}
 
 	// conflictMode="skip": preserva CÉLULAS (dia + refeição) que já têm cardápio ativo
 	// (inclusive ajustes manuais do DayDrawer) e só materializa as vazias — um dia com
 	// só o Almoço planejado ainda recebe Café/Jantar do template. Grão de refeição, não
 	// de dia: pular o dia inteiro deixaria refeições vazias sem cardápio. Default
-	// "replace" mantém o comportamento histórico (soft-delete + re-materialização).
-	const conflictMode = input.conflictMode ?? "replace"
+	// "replace" faz soft-delete + re-materialização.
+	//
+	// O default é "skip": apagar o planejamento de alguém é ato pedido, não presumido. Com o
+	// default destrutivo, qualquer chamador que omitisse o campo — uma tool de IA, um script —
+	// levava junto os ajustes manuais do dia.
+	const conflictMode = input.conflictMode ?? "skip"
 	const occupiedCells = new Set<string>()
 	if (conflictMode === "skip") {
 		const occupiedRows = await runQuery("FETCH_FAILED", () =>
@@ -781,10 +793,32 @@ export async function applyTemplate(
 	// No skip não há delete algum: só inserimos em células vazias.
 	await db.transaction(async (tx) => {
 		if (conflictMode === "replace") {
+			const deletedAt = new Date().toISOString()
+			// Os ITENS caem junto, e não só o menu: a lixeira lista por `menu_items.deleted_at`,
+			// então apagar só o menu sumia com o dia inteiro sem deixar nada para restaurar — o
+			// usuário perdia ajustes manuais e lia "Nenhum item removido".
+			const doomedMenus = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ id: dailyMenuInKitchen.id })
+					.from(dailyMenuInKitchen)
+					.where(
+						and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt))
+					)
+			)
+			const doomedIds = doomedMenus.map((m) => m.id)
+			if (doomedIds.length > 0) {
+				await runQuery("DELETE_FAILED", () =>
+					tx
+						.update(menuItemsInKitchen)
+						.set({ deletedAt })
+						.where(and(inArray(menuItemsInKitchen.dailyMenuId, doomedIds), isNull(menuItemsInKitchen.deletedAt)))
+						.then(() => undefined)
+				)
+			}
 			await runQuery("DELETE_FAILED", () =>
 				tx
 					.update(dailyMenuInKitchen)
-					.set({ deletedAt: new Date().toISOString() })
+					.set({ deletedAt })
 					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
 					.then(() => undefined)
 			)

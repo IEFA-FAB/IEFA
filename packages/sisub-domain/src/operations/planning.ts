@@ -245,13 +245,32 @@ export async function restoreMenuItem(db: SisubDb, ctx: UserContext, input: Rest
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	await runQuery("RESTORE_FAILED", () =>
-		db
-			.update(menuItemsInKitchen)
-			.set({ deletedAt: null })
-			.where(eq(menuItemsInKitchen.id, input.menuItemId))
-			.then(() => undefined)
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuItemsInKitchen.findFirst({ columns: { dailyMenuId: true }, where: eq(menuItemsInKitchen.id, input.menuItemId) })
 	)
+
+	await db.transaction(async (tx) => {
+		await runQuery("RESTORE_FAILED", () =>
+			tx
+				.update(menuItemsInKitchen)
+				.set({ deletedAt: null })
+				.where(eq(menuItemsInKitchen.id, input.menuItemId))
+				.then(() => undefined)
+		)
+
+		// O menu do dia pode ter caído junto (aplicação com "Substituir"). Sem devolvê-lo, o
+		// item restaurado fica invisível: todas as leituras do calendário filtram menu excluído,
+		// e a tela diria "restaurado com sucesso" sem nada voltar.
+		if (row?.dailyMenuId) {
+			await runQuery("RESTORE_FAILED", () =>
+				tx
+					.update(dailyMenuInKitchen)
+					.set({ deletedAt: null })
+					.where(eq(dailyMenuInKitchen.id, row.dailyMenuId as string))
+					.then(() => undefined)
+			)
+		}
+	})
 }
 
 export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: UpdateHeadcount): Promise<DailyMenu[]> {

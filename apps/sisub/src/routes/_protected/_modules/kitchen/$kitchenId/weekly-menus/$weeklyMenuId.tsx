@@ -8,6 +8,7 @@ import type { MealTypeInfo } from "@/components/features/local/planning/MealType
 import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
 import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
+import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -232,6 +233,9 @@ function WeeklyMenuEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	// Conteúdo recém-carregado já conta como gravado. Sem esta marca, `savedSignatureRef`
+	// fica nulo e qualquer saída pareceria ter alteração pendente.
+	const loadedSignatureRef = useRef(false)
 	// O listener de atalho é montado uma vez; estes refs entregam o estado corrente a ele.
 	const selectedKeysRef = useRef<ReadonlySet<string>>(new Set())
 	const activeCellRef = useRef<{ day: number; mealTypeId: string } | null>(null)
@@ -283,6 +287,12 @@ function WeeklyMenuEditorPage() {
 		})
 		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized])
+
+	useEffect(() => {
+		if (!initialized || loadedSignatureRef.current) return
+		loadedSignatureRef.current = true
+		savedSignatureRef.current = contentSignature
+	}, [initialized, contentSignature])
 
 	useEffect(() => {
 		if (!initialized) return
@@ -989,6 +999,8 @@ function WeeklyMenuEditorPage() {
 						onClear={clearSelection}
 					/>
 				)}
+
+				<UnsavedChangesGuard when={initialized && contentSignature !== savedSignatureRef.current} />
 
 				<RecipeSelector
 					open={selectorOpen}

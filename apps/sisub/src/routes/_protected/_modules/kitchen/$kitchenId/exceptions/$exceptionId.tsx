@@ -9,6 +9,7 @@ import { MealTypeSection } from "@/components/features/local/planning/MealTypeSe
 import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
 import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
+import { UnsavedChangesGuard } from "@/components/features/local/planning/UnsavedChangesGuard"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -142,6 +143,9 @@ function ExceptionEditorPage() {
 	const { recipeById, outdated, outdatedById } = useTemplateRecipeVersions(template?.items, allRecipes, items)
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	// Conteúdo recém-carregado já conta como gravado. Sem esta marca, `savedSignatureRef`
+	// fica nulo e qualquer saída pareceria ter alteração pendente.
+	const loadedSignatureRef = useRef(false)
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(new Set())
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
@@ -171,6 +175,12 @@ function ExceptionEditorPage() {
 		})
 		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized])
+
+	useEffect(() => {
+		if (!initialized || loadedSignatureRef.current) return
+		loadedSignatureRef.current = true
+		savedSignatureRef.current = contentSignature
+	}, [initialized, contentSignature])
 
 	useEffect(() => {
 		if (!initialized) return
@@ -590,6 +600,8 @@ function ExceptionEditorPage() {
 						onClear={clearSelection}
 					/>
 				)}
+
+				<UnsavedChangesGuard when={initialized && contentSignature !== savedSignatureRef.current} />
 
 				<RecipeSelector
 					open={selectorOpen}

@@ -226,6 +226,13 @@ function MealSection({
 
 	const handleUpdateHeadcount = () => {
 		if (!menu) return
+		// Campo vazio (ou zero/negativo) não é um efetivo: devolve o valor gravado em vez de
+		// inventar um. Antes isto virava 1 comensal com aviso de sucesso.
+		if (headcount == null || !Number.isFinite(headcount) || headcount < 1) {
+			setHeadcount(serverHeadcount)
+			return
+		}
+		if (headcount === serverHeadcount) return
 		updateDailyMenu({
 			id: menu.id,
 			updates: { forecasted_headcount: headcount },

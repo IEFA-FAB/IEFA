@@ -261,13 +261,21 @@ const restoreTemplateTool: ToolDefinition = {
 const applyTemplateTool: ToolDefinition = {
 	schema: {
 		name: "apply_template",
-		description: `Aplica um template semanal a um intervalo de datas de uma cozinha.
-Para cada data entre startDate e endDate:
-  1. Soft-deletes os daily_menus existentes nessa data (para a cozinha)
-  2. Calcula qual dia do template corresponde à data (baseado em startDayOfWeek)
-  3. Cria novos daily_menus com os itens do template
+		description: `Aplica um template semanal a datas de uma cozinha.
 
-startDayOfWeek indica qual dia do template (1=seg … 7=dom) corresponde à startDate.
+Datas: informe \`dates\` com as datas exatas, ou \`startDate\`/\`endDate\` para o intervalo
+inteiro. Com \`dates\` preenchido, NENHUMA outra data é tocada.
+
+Para cada data:
+  1. Calcula qual dia do template corresponde à data (baseado em startDayOfWeek)
+  2. Cria daily_menus com os itens do template
+
+conflictMode decide o que fazer onde já existe planejamento:
+  - "skip" (default): preserva a refeição já planejada, incluindo ajustes manuais, e só
+    preenche as refeições vazias
+  - "replace": apaga o planejamento dessas datas (vai para a lixeira) e re-materializa
+
+startDayOfWeek indica qual dia do template (1=seg … 7=dom) corresponde à primeira data.
 
 O template deve ser global (SDAB) ou pertencer à mesma cozinha de destino.
 

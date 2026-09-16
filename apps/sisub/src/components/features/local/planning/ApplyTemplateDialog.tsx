@@ -148,7 +148,9 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 								>
 									<div>
 										<p className="text-subheading">Substituir</p>
-										<p className="text-xs text-muted-foreground">Apaga o planejamento atual desses dias e re-aplica o template.</p>
+										<p className="text-xs text-muted-foreground">
+											Apaga o planejamento dos dias listados acima — só eles — e re-aplica o template. O que sair vai para a Lixeira.
+										</p>
 									</div>
 								</Button>
 							</div>
