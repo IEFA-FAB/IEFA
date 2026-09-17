@@ -2136,6 +2136,7 @@ export type Database = {
           address_municipio: string | null
           address_numero: string | null
           address_uf: string | null
+          cnpj: string | null
           code: string
           display_name: string | null
           id: number
@@ -2152,6 +2153,7 @@ export type Database = {
           address_municipio?: string | null
           address_numero?: string | null
           address_uf?: string | null
+          cnpj?: string | null
           code: string
           display_name?: string | null
           id?: number
@@ -2168,6 +2170,7 @@ export type Database = {
           address_municipio?: string | null
           address_numero?: string | null
           address_uf?: string | null
+          cnpj?: string | null
           code?: string
           display_name?: string | null
           id?: number
@@ -5044,62 +5047,105 @@ export type Database = {
       nfe_document: {
         Row: {
           access_key: string
+          authenticity: Json | null
+          cancelled_reason: string | null
           created_at: string
           created_by: string | null
           dest_cnpj: string | null
+          dest_cpf: string | null
+          destination_confirmed: boolean
           id: string
           issued_at: string | null
           kitchen_id: number | null
+          protocol_number: string | null
+          purpose: string | null
+          referenced_keys: string[]
+          situation_checked_at: string | null
+          situation_checked_by: string | null
+          situation_result: string | null
           status: string
           supplier_cnpj: string | null
+          supplier_cpf: string | null
           supplier_name: string | null
           total_value: number | null
-          xml: string
+          unit_id: number | null
+          xml: string | null
         }
         Insert: {
           access_key: string
+          authenticity?: Json | null
+          cancelled_reason?: string | null
           created_at?: string
           created_by?: string | null
           dest_cnpj?: string | null
+          dest_cpf?: string | null
+          destination_confirmed?: boolean
           id?: string
           issued_at?: string | null
           kitchen_id?: number | null
+          protocol_number?: string | null
+          purpose?: string | null
+          referenced_keys?: string[]
+          situation_checked_at?: string | null
+          situation_checked_by?: string | null
+          situation_result?: string | null
           status?: string
           supplier_cnpj?: string | null
+          supplier_cpf?: string | null
           supplier_name?: string | null
           total_value?: number | null
-          xml: string
+          unit_id?: number | null
+          xml?: string | null
         }
         Update: {
           access_key?: string
+          authenticity?: Json | null
+          cancelled_reason?: string | null
           created_at?: string
           created_by?: string | null
           dest_cnpj?: string | null
+          dest_cpf?: string | null
+          destination_confirmed?: boolean
           id?: string
           issued_at?: string | null
           kitchen_id?: number | null
+          protocol_number?: string | null
+          purpose?: string | null
+          referenced_keys?: string[]
+          situation_checked_at?: string | null
+          situation_checked_by?: string | null
+          situation_result?: string | null
           status?: string
           supplier_cnpj?: string | null
+          supplier_cpf?: string | null
           supplier_name?: string | null
           total_value?: number | null
-          xml?: string
+          unit_id?: number | null
+          xml?: string | null
         }
         Relationships: []
       }
       nfe_item: {
         Row: {
+          acquisition_cost: number | null
           cest: string | null
           cfop: string | null
           commercial_qty: number | null
           commercial_unit: string | null
           created_at: string
           description: string | null
+          discount_value: number | null
           expiry_date: string | null
+          fcp_st_value: number | null
+          freight_value: number | null
           gtin: string | null
           gtin_trib: string | null
+          icms_st_value: number | null
           id: string
           ingredient_id: string | null
           ingredient_item_id: string | null
+          insurance_value: number | null
+          ipi_value: number | null
           lot_code: string | null
           lot_qty: number | null
           match_status: string
@@ -5108,24 +5154,35 @@ export type Database = {
           n_item: number
           ncm: string | null
           nfe_document_id: string
+          other_expenses_value: number | null
+          product_value: number | null
           purchase_item_id: string | null
           supplier_code: string | null
+          taxable_qty: number | null
+          taxable_unit: string | null
           unit_price: number | null
           updated_at: string
         }
         Insert: {
+          acquisition_cost?: number | null
           cest?: string | null
           cfop?: string | null
           commercial_qty?: number | null
           commercial_unit?: string | null
           created_at?: string
           description?: string | null
+          discount_value?: number | null
           expiry_date?: string | null
+          fcp_st_value?: number | null
+          freight_value?: number | null
           gtin?: string | null
           gtin_trib?: string | null
+          icms_st_value?: number | null
           id?: string
           ingredient_id?: string | null
           ingredient_item_id?: string | null
+          insurance_value?: number | null
+          ipi_value?: number | null
           lot_code?: string | null
           lot_qty?: number | null
           match_status?: string
@@ -5134,24 +5191,35 @@ export type Database = {
           n_item: number
           ncm?: string | null
           nfe_document_id: string
+          other_expenses_value?: number | null
+          product_value?: number | null
           purchase_item_id?: string | null
           supplier_code?: string | null
+          taxable_qty?: number | null
+          taxable_unit?: string | null
           unit_price?: number | null
           updated_at?: string
         }
         Update: {
+          acquisition_cost?: number | null
           cest?: string | null
           cfop?: string | null
           commercial_qty?: number | null
           commercial_unit?: string | null
           created_at?: string
           description?: string | null
+          discount_value?: number | null
           expiry_date?: string | null
+          fcp_st_value?: number | null
+          freight_value?: number | null
           gtin?: string | null
           gtin_trib?: string | null
+          icms_st_value?: number | null
           id?: string
           ingredient_id?: string | null
           ingredient_item_id?: string | null
+          insurance_value?: number | null
+          ipi_value?: number | null
           lot_code?: string | null
           lot_qty?: number | null
           match_status?: string
@@ -5160,8 +5228,12 @@ export type Database = {
           n_item?: number
           ncm?: string | null
           nfe_document_id?: string
+          other_expenses_value?: number | null
+          product_value?: number | null
           purchase_item_id?: string | null
           supplier_code?: string | null
+          taxable_qty?: number | null
+          taxable_unit?: string | null
           unit_price?: number | null
           updated_at?: string
         }
@@ -5768,9 +5840,9 @@ export type Database = {
           p_user: string
         }
         Returns: {
-          expiry_date: string
-          lot_id: string
-          short_code: string
+          new_expiry_date: string
+          new_lot_id: string
+          new_short_code: string
         }[]
       }
       suggest_purchase_items: {

@@ -5,6 +5,7 @@
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { computeNfeItemCosts } from "@iefa/sisub-domain"
 import { createClient } from "@supabase/supabase-js"
 import { secureCompare } from "../../lib/secure-compare.ts"
 import { NfeParseError, parseNfeXml } from "../../workers/nfe/parse.ts"
@@ -88,17 +89,59 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 			throw err
 		}
 
+		// Autenticidade ANTES de valor: esta nota vira custo de lote e lastro de
+		// liquidação. O comentário antigo do parser dizia "XML autorizado" e nada
+		// conferia — `<cStat>100</cStat>` digitado à mão passava.
+		const auth = parsed.authenticity
+		if (auth.problems.length > 0) {
+			return c.json({ error: `NF-e recusada: ${auth.problems.join("; ")}`, authenticity: auth }, 422)
+		}
+
 		const supabase = createSupabase()
+
+		// Destinatário → unidade. Nota de outra unidade não é erro: ela é gravada
+		// no lugar certo, e a cozinha que importou fica sabendo para onde foi.
+		const destTaxId = parsed.destCnpj ?? parsed.destCpf
+		let unitId: number | null = null
+		if (destTaxId) {
+			const { data: unit } = await supabase.from("units").select("id").eq("cnpj", destTaxId).maybeSingle()
+			unitId = unit ? Number(unit.id) : null
+		}
+
+		const costs = computeNfeItemCosts(
+			parsed.items.map((item) => ({
+				nItem: item.nItem,
+				productValue: item.productValue ?? (item.commercialQty ?? 0) * (item.unitPrice ?? 0),
+				discount: item.discount,
+				freight: item.freight,
+				insurance: item.insurance,
+				otherExpenses: item.otherExpenses,
+				ipi: item.ipi,
+				icmsSt: item.icmsSt,
+				fcpSt: item.fcpSt,
+			})),
+			parsed.totalValue
+		)
+		const costByItem = new Map(costs.items.map((item) => [item.nItem, item.totalCost]))
 
 		const { data: doc, error: docError } = await supabase
 			.from("nfe_document")
 			.insert({
 				access_key: parsed.accessKey,
 				supplier_cnpj: parsed.supplierCnpj,
+				supplier_cpf: parsed.supplierCpf,
 				supplier_name: parsed.supplierName,
 				dest_cnpj: parsed.destCnpj,
+				dest_cpf: parsed.destCpf,
+				unit_id: unitId,
+				destination_confirmed: unitId != null,
 				issued_at: parsed.issuedAt,
 				total_value: parsed.totalValue,
+				purpose: parsed.purpose,
+				referenced_keys: parsed.referencedKeys,
+				protocol_number: auth.protocolNumber,
+				authenticity: auth,
+				status: "available",
 				xml,
 				kitchen_id: kitchen_id ?? null,
 				created_by: created_by ?? null,
@@ -138,6 +181,17 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 			commercial_unit: item.commercialUnit,
 			commercial_qty: item.commercialQty,
 			unit_price: item.unitPrice,
+			taxable_unit: item.taxableUnit,
+			taxable_qty: item.taxableQty,
+			product_value: item.productValue,
+			discount_value: item.discount,
+			freight_value: item.freight,
+			insurance_value: item.insurance,
+			other_expenses_value: item.otherExpenses,
+			ipi_value: item.ipi,
+			icms_st_value: item.icmsSt,
+			fcp_st_value: item.fcpSt,
+			acquisition_cost: costByItem.get(item.nItem) ?? null,
 			lot_code: item.lotCode,
 			lot_qty: item.lotQty,
 			mfg_date: item.mfgDate,
@@ -152,7 +206,18 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 		}
 
 		console.log(`[nfe-admin] NF-e ${parsed.accessKey} importada: ${itemRows.length} itens`)
-		return c.json({ document_id: doc.id as string, access_key: parsed.accessKey, items_count: itemRows.length }, 201)
+		return c.json(
+			{
+				document_id: doc.id as string,
+				access_key: parsed.accessKey,
+				items_count: itemRows.length,
+				unit_id: unitId,
+				// diferença entre a soma dos itens e o vNF: dado da nota para o
+				// operador conferir, nunca "corrigido" em silêncio
+				invoice_difference: costs.invoiceDifference,
+			},
+			201
+		)
 	})
 
 	return nfeAdminRoutes

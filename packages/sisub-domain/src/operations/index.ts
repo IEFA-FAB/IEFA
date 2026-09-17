@@ -331,6 +331,7 @@ export {
 	recordMfaReset,
 	revokeRecoveryCodes,
 } from "./mfa-recovery.ts"
+export { computeNfeItemCosts, type NfeCostResult, type NfeItemCost, type NfeItemValues } from "./nfe-cost.ts"
 export {
 	type IngredientItemLink,
 	matchNfeItem,
