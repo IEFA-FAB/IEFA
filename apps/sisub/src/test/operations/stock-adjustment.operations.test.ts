@@ -125,6 +125,30 @@ describeIf("inventory stock adjustment (DB)", () => {
 					expect(thirdRow.status).toBe("posted")
 					expect(thirdRow.approval_exception_reason).toBe("Único nível 3 da cozinha")
 
+					// ── segregação ESTRITA não tem caminho de exceção ────────────────
+					// O ramo `strict` tinha a mesma guarda do `if` acima e nunca era
+					// alcançado: `strict` era byte a byte igual a `dual`, e o nível 3
+					// sozinho seguia se autoaprovando pela exceção.
+					await tx.savepoint(async (sp) => {
+						await sp`
+							insert into inventory.kitchen_stock_settings (kitchen_id, segregation)
+							values (${kitchenRow.id}, 'strict')
+							on conflict (kitchen_id) do update set segregation = 'strict'`
+						const [estrito] = await sp`
+							insert into inventory.stock_adjustment (kitchen_id, created_by, submitted_at)
+							values (${kitchenRow.id}, ${author.id}, now()) returning id`
+						await sp`
+							insert into inventory.stock_adjustment_item (adjustment_id, lot_id, direction, quantity, reason_code)
+							values (${estrito.id}, ${lot.id}, 'out', 1, 'theft')`
+						// `theft` sempre exige aprovação, e em `strict` nem a exceção passa
+						await expect(
+							sp.savepoint((inner) => inner`select * from inventory.post_stock_adjustment(${estrito.id}, ${author.id}, 'tentativa de exceção')`)
+						).rejects.toThrow(/Segregação estrita/)
+						// o savepoint que TERMINA sem erro é confirmado: devolve a cozinha
+						// ao regime `dual` para as asserções seguintes
+						await sp`update inventory.kitchen_stock_settings set segregation = 'dual' where kitchen_id = ${kitchenRow.id}`
+					})
+
 					// ── saída maior que o saldo do lote é recusada ───────────────────
 					const [tooBig] = await tx`
 						insert into inventory.stock_adjustment (kitchen_id, created_by, submitted_at)

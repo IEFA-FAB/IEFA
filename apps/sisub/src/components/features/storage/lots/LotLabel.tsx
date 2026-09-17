@@ -102,7 +102,9 @@ export function LotLabel({ lot }: { lot: LotLabelData }) {
 export function LotLabelSheet({ lots, width }: { lots: readonly LotLabelData[]; width: "58mm" | "80mm" | "a4" }) {
 	const style = width === "a4" ? { width: "48mm" } : { width }
 	return (
-		<div className={width === "a4" ? "grid grid-cols-2 gap-2 print:grid-cols-4" : "space-y-2"}>
+		// `data-print-region`: a impressão sai SÓ com as etiquetas. Sem isso,
+		// `window.print()` manda a tela inteira para a térmica de 58 mm.
+		<div data-print-region className={width === "a4" ? "grid grid-cols-2 gap-2 print:grid-cols-4" : "space-y-2"}>
 			{lots.map((lot) => (
 				<div key={lot.shortCode} style={style}>
 					<LotLabel lot={lot} />

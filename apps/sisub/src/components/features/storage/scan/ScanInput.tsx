@@ -3,6 +3,7 @@ import { Barcode, Camera, CheckCircle2, XCircle } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DEFAULT_TIMING, type ScannerTiming, useGlobalBarcodeCapture } from "@/hooks/ui/useBarcodeScanner"
 import { CameraScanDialog } from "./CameraScanDialog"
 
 /**
@@ -31,6 +32,17 @@ interface ScanInputProps {
 	/** Oferece a leitura por câmera (celular, notebook com webcam). */
 	allowCamera?: boolean
 	label?: string
+	/** Terminador calibrado da estação — só `tab` faz o Tab virar terminador. */
+	terminator?: "enter" | "tab" | "none"
+	/**
+	 * Calibração da estação. Alimenta a captura GLOBAL: quando o foco escapa do
+	 * campo (o operador clicou num botão, numa linha da tabela), a leitura ainda
+	 * chega aqui em vez de se perder. Sem isso, os parâmetros medidos na tela
+	 * "Testar leitor" eram gravados e nunca lidos.
+	 */
+	timing?: ScannerTiming
+	/** Desliga a captura global (duas telas de leitura abertas ao mesmo tempo). */
+	globalCapture?: boolean
 }
 
 export function ScanInput({
@@ -41,11 +53,17 @@ export function ScanInput({
 	autoFocus = true,
 	allowCamera = true,
 	label = "Código lido",
+	terminator = "enter",
+	timing = DEFAULT_TIMING,
+	globalCapture = true,
 }: ScanInputProps) {
 	const [value, setValue] = useState("")
 	const [status, setStatus] = useState<{ kind: "idle" } | { kind: "ok"; text: string } | { kind: "error"; text: string }>({ kind: "idle" })
 	const [cameraOpen, setCameraOpen] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
+
+	// leitura que chegou com o foco fora de campo editável
+	useGlobalBarcodeCapture({ onScan: (raw) => submit(raw), timing, enabled: globalCapture && !disabled })
 
 	function submit(raw: string) {
 		const trimmed = raw.trim()
@@ -80,11 +98,13 @@ export function ScanInput({
 							if (status.kind !== "idle") setStatus({ kind: "idle" })
 						}}
 						onKeyDown={(event) => {
-							if (event.key === "Enter" || (event.key === "Tab" && value.length > 0)) {
-								// terminador do leitor: não submete formulário nem pula foco
-								event.preventDefault()
-								submit(value)
-							}
+							// Enter é sempre terminador de leitura. Tab só quando a estação
+							// foi calibrada para um leitor que envia Tab: prender o Tab por
+							// padrão tira do teclado a única forma de sair do campo.
+							const isTerminator = event.key === "Enter" || (terminator === "tab" && event.key === "Tab" && value.length > 0)
+							if (!isTerminator) return
+							event.preventDefault()
+							submit(value)
 						}}
 					/>
 					{status.kind === "ok" && <CheckCircle2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-success" />}

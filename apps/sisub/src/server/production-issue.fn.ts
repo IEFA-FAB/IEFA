@@ -44,15 +44,31 @@ async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitc
 async function lotBalancesForIngredients(kitchenId: number, ingredientIds: string[]): Promise<Map<string, LotBalance[]>> {
 	const byIngredient = new Map<string, LotBalance[]>()
 	if (ingredientIds.length === 0) return byIngredient
-	const { data: rows } = await inventory()
+	const inv = inventory()
+	const { data: rows } = await inv
 		.from("v_stock_balance")
 		.select("ingredient_id, lot_id, expiry_date, balance")
 		.eq("kitchen_id", kitchenId)
 		.in("ingredient_id", ingredientIds)
+
+	// A view é a soma do ledger e não sabe de quarentena. A alocação no banco
+	// PULA lote em quarentena; contá-lo aqui faria a prévia dizer "tem saldo" e
+	// a baixa sair inteira como movimento sem lote — estoque negativo, e nenhum
+	// aviso na tela. A data de entrada vem junto porque lote sem validade entra
+	// na fila por ela, e não no fim.
+	const lotIds = [...new Set((rows ?? []).map((row: { lot_id: string | null }) => row.lot_id).filter(Boolean))] as string[]
+	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null }>()
+	if (lotIds.length > 0) {
+		const { data: lots } = await inv.from("stock_lot").select("id, quarantined_at, received_at").in("id", lotIds)
+		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
+	}
+
 	for (const row of rows ?? []) {
 		if (row.lot_id == null || Number(row.balance) <= 0) continue
+		const meta = lotMeta.get(row.lot_id)
+		if (meta?.quarantined_at != null) continue
 		const list = byIngredient.get(row.ingredient_id) ?? []
-		list.push({ lotId: row.lot_id, balance: Number(row.balance), expiryDate: row.expiry_date })
+		list.push({ lotId: row.lot_id, balance: Number(row.balance), expiryDate: row.expiry_date, receivedAt: meta?.received_at ?? null })
 		byIngredient.set(row.ingredient_id, list)
 	}
 	return byIngredient

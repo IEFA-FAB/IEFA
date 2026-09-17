@@ -2,7 +2,7 @@ import { NATURE_LABELS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON_
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, Check, ShieldAlert, SlidersHorizontal, Trash2, X } from "lucide-react"
 import { useState } from "react"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
 import { ScanInput } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -102,6 +102,11 @@ function AdjustmentsPage() {
 	const { balance, adjustments, quarantined, losses, scannerProfile, monthStart, today } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
+	// A rota abre no nível 2 (quem registra ajuste), mas aprovar, rejeitar e
+	// liberar quarentena são nível 3. Sem esta distinção a tela oferecia botões
+	// que o servidor recusa — e o operador aprende a desconfiar da tela.
+	const { can } = usePBAC()
+	const canApprove = can("storage", 3, { type: "kitchen", id: Number(kitchenId) })
 
 	const lots: LotOption[] = balance.flatMap((item) =>
 		item.lots
@@ -442,7 +447,7 @@ function AdjustmentsPage() {
 									)}
 									<span className="text-xs text-muted-foreground">{new Date(doc.created_at).toLocaleString("pt-BR")}</span>
 								</div>
-								{doc.status === "pending_approval" && (
+								{doc.status === "pending_approval" && canApprove && (
 									<div className="flex gap-2">
 										<Button
 											type="button"
@@ -468,6 +473,9 @@ function AdjustmentsPage() {
 									</div>
 								)}
 							</div>
+							{doc.status === "pending_approval" && !canApprove && (
+								<p className="mt-1 text-xs text-muted-foreground">Aguardando aprovação de um responsável nível 3 desta cozinha.</p>
+							)}
 							<ul className="mt-2 space-y-1 text-xs">
 								{doc.items.map((item: Record<string, unknown>) => (
 									<li key={String(item.id)}>

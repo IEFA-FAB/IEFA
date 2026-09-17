@@ -345,9 +345,33 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 			.eq("id", data.adjustmentItemId)
 		if (error) throw new Error(`Erro ao registrar a evidência: ${error.message}`)
 
-		// documento sem item pendente volta a "completo"
-		const { data: pending } = await inv.from("stock_adjustment_item").select("id").eq("adjustment_id", item.adjustment_id).is("evidence_reference", null)
-		if ((pending ?? []).length === 0) {
+		// Volta a "completo" pela MESMA regra que o marcou pendente: só os motivos
+		// de `EVIDENCE_REQUIRED` exigem evidência. Olhar `evidence_reference` de
+		// TODOS os itens deixava o documento pendente para sempre — basta uma
+		// linha de motivo que nunca precisou de evidência.
+		const { data: siblings } = await inv
+			.from("stock_adjustment_item")
+			.select("reason_code, direction, evidence_reference, measured_temperature_c, corrected_movement_id")
+			.eq("adjustment_id", item.adjustment_id)
+		const stillPending = evidencePending(
+			(
+				(siblings ?? []) as Array<{
+					reason_code: string
+					direction: string
+					evidence_reference: string | null
+					measured_temperature_c: number | null
+					corrected_movement_id: string | null
+				}>
+			).map((row) => ({
+				reasonCode: row.reason_code as AdjustmentItemInput["reasonCode"],
+				direction: row.direction as "in" | "out",
+				quantity: 1,
+				evidenceReference: row.evidence_reference ?? undefined,
+				measuredTemperatureC: row.measured_temperature_c ?? undefined,
+				correctedMovementId: row.corrected_movement_id ?? undefined,
+			}))
+		)
+		if (!stillPending) {
 			await inv.from("stock_adjustment").update({ evidence_status: "complete" }).eq("id", item.adjustment_id)
 		}
 		return { saved: true }
