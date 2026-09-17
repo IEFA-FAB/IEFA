@@ -16,6 +16,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | `alpha` | Bun + Hono + LangChain/LangGraph | Projeto α — IA aplicada a contratações públicas da FAB (Lei 14.133/21) |
 | `docs` | React 19 + TanStack Start + Nitro SSR + Fumadocs | Documentação interna |
 | `sisub-mcp` | Bun + MCP SDK | MCP server — acesso AI aos dados sisub (stdio/HTTP) |
+| `pdf` | BentoPDF upstream (nginx estático) | Ferramentas de PDF no navegador — mesclar, dividir, comprimir. Não é workspace: só `Dockerfile` (kind `dockerfile` no manifesto) |
 
 ## Packages
 

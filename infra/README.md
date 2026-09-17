@@ -20,7 +20,7 @@ infra/
   modules/service/  Reusable module: ECR + secret + task def + ECS service +
                     target group + host listener rule + task-SG ingress.
   <service>/        One thin stack per service — portal, sisub, api, rumaer,
-                    forms, 5s, docs, alpha, sisub-mcp. main.tf/variables.tf are
+                    forms, 5s, docs, alpha, sisub-mcp, pdf. main.tf/variables.tf are
                     identical; the service definition is in terraform.tfvars.
   scripts/          put-secret.sh, deploy-service.sh
 ```
@@ -81,7 +81,7 @@ as repository **Variables** (Settings → Secrets and variables → Actions → 
 | `ECR_REGISTRY` | foundation output |
 | `ECR_REPOSITORY_PREFIX` | foundation output |
 | `ECS_CLUSTER` | foundation output |
-| `*_HEALTH_URL` | public health URL per service (`API_HEALTH_URL`, `SISUB_HEALTH_URL`, `IEFA_HEALTH_URL`, `RUMAER_HEALTH_URL`, `FORMS_HEALTH_URL`, `FORMS_5S_HEALTH_URL`, `DOCS_HEALTH_URL`, `MCP_HEALTH_URL`) |
+| `*_HEALTH_URL` | public health URL per service (`API_HEALTH_URL`, `SISUB_HEALTH_URL`, `IEFA_HEALTH_URL`, `RUMAER_HEALTH_URL`, `FORMS_HEALTH_URL`, `FORMS_5S_HEALTH_URL`, `DOCS_HEALTH_URL`, `MCP_HEALTH_URL`, `PDF_HEALTH_URL`) |
 | `VITE_*` | client build args (baked into bundles) |
 
 Repository **Secrets** used only by CI checks / sourcemap upload (runtime secrets

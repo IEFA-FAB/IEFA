@@ -23,7 +23,12 @@ type App = {
 	title?: string
 	workspace?: string
 	path: string
-	kind?: "nitro" | "bun-bundle" | "bun-source"
+	/**
+	 * `dockerfile`: imagem de terceiro empacotada por um Dockerfile próprio em
+	 * `<path>/Dockerfile`, fora do monorepo Bun (sem workspace, sem estágio `deps`).
+	 * Não entra no Dockerfile raiz e o paths-filter só olha a própria pasta.
+	 */
+	kind?: "nitro" | "bun-bundle" | "bun-source" | "dockerfile"
 	port?: number
 	entry?: string
 	buildArgs: string[]
@@ -98,6 +103,8 @@ function packageDepsOf(workspaceName: string): string[] {
 }
 
 const deployableApps = manifest.apps.filter((a) => !a.aliasOf)
+/** Apps construídos a partir do Dockerfile raiz (o monorepo Bun). */
+const monorepoApps = deployableApps.filter((a) => a.kind !== "dockerfile")
 
 // ---------------------------------------------------------------------------
 // Dockerfile
@@ -220,7 +227,7 @@ function renderDockerfile() {
 		...workspaceDirs.map((dir) => `COPY ${dir}/package.json ./${dir}/`),
 		"RUN bun install --frozen-lockfile",
 		"",
-		...deployableApps.flatMap((app) => [dockerStage(app), ""]),
+		...monorepoApps.flatMap((app) => [dockerStage(app), ""]),
 	]
 	return `${parts.join("\n").trimEnd()}\n`
 }
@@ -275,6 +282,19 @@ function renderBake() {
 	)
 
 	for (const app of manifest.apps) {
+		if (app.kind === "dockerfile") {
+			lines.push(
+				`target "${app.key}" {`,
+				`  context = "${app.path}"`,
+				'  dockerfile = "Dockerfile"',
+				`  tags = ["\${REGISTRY}/\${REPOSITORY_PREFIX}/${app.key}:\${TAG}"]`,
+				`  cache-from = ["type=gha,scope=${app.key}"]`,
+				`  cache-to = ["type=gha,scope=${app.key},mode=max"]`,
+				"}",
+				""
+			)
+			continue
+		}
 		const stage = app.aliasOf ?? app.key
 		const args = {
 			...Object.fromEntries(app.buildArgs.map((a) => [a, a])),
@@ -304,18 +324,21 @@ function renderBake() {
 // .github/paths-filter.yml
 // ---------------------------------------------------------------------------
 
-/** Arquivos que reconstroem qualquer imagem, então disparam todos os apps. */
-const GLOBAL_TRIGGERS = [
-	"Dockerfile",
+/**
+ * Arquivos de orquestração do deploy: mudam o pipeline de qualquer app, inclusive
+ * os de kind `dockerfile`.
+ */
+const PIPELINE_TRIGGERS = [
 	"docker-bake.hcl",
 	"apps.manifest.json",
 	".github/paths-filter.yml",
 	".github/workflows/deploy.yml",
 	".github/workflows/_app-build.yml",
 	".github/workflows/_app-deploy.yml",
-	"package.json",
-	"turbo.json",
 ]
+
+/** Arquivos que reconstroem qualquer imagem do monorepo, então disparam todos os apps dele. */
+const GLOBAL_TRIGGERS = ["Dockerfile", ...PIPELINE_TRIGGERS, "package.json", "turbo.json"]
 
 function renderPathsFilter() {
 	const lines = [
@@ -329,7 +352,12 @@ function renderPathsFilter() {
 	for (const app of manifest.apps) {
 		const source = app.aliasOf ? manifest.apps.find((a) => a.key === app.aliasOf) : app
 		if (!source) throw new Error(`aliasOf inválido em ${app.key}`)
-		const paths = [`${source.path}/**`, ...packageDepsOf(source.workspace as string).map((d) => `${d}/**`), ...GLOBAL_TRIGGERS]
+		// Um app de kind `dockerfile` não usa o Dockerfile raiz, o bun.lock nem o turbo:
+		// redeployar a cada mudança neles reconstruiria a imagem à toa.
+		const paths =
+			source.kind === "dockerfile"
+				? [`${source.path}/**`, ...PIPELINE_TRIGGERS]
+				: [`${source.path}/**`, ...packageDepsOf(source.workspace as string).map((d) => `${d}/**`), ...GLOBAL_TRIGGERS]
 		// `filterKey` existe porque o deploy.yml lê `steps.filter.outputs.<key>` e alguns
 		// nomes históricos não batem com a chave do app (sisub-mcp é lido como `mcp`).
 		lines.push(`${app.filterKey ?? app.key.replaceAll("-", "_")}:`)

@@ -52,10 +52,16 @@ leem o `.sql`, não o banco, então continuariam verdes. Vigente hoje: **2.1.0**
 | api | `GET /legal`, `GET /legal/{doc_type}` | `info.contact` do OpenAPI | n/a (sem sessão) |
 | alpha | `GET /legal`, `GET /legal/{doc_type}` | — | n/a (sem sessão) |
 | docs | — | links externos para o Portal | n/a (sem sessão) |
+| pdf | — | — | n/a (não trata dado pessoal) |
 
 `docs` é o único app sem credencial de Supabase. Dar uma a ele só para renderizar
 dois documentos públicos ampliaria a superfície de credencial sem ganho — ele
 aponta para a versão canônica no Portal.
+
+`pdf` (BentoPDF) fica fora das três rotas porque não trata dado pessoal: todo
+processamento de PDF roda no navegador, o arquivo nunca chega ao servidor, e o app
+não usa cookie nem terceiro (WASM e OCR são servidos do próprio domínio). Ver
+`apps/pdf/README.md`. Se um dia ganhar login ou upload, passa a precisar delas.
 
 ## As duas declarações que abrem os documentos
 
