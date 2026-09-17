@@ -28,6 +28,12 @@ export interface StockLotBalanceRow {
 	expiry_date: string | null
 	balance: number
 	balance_value: number
+	/** Código da etiqueta interna — null no saldo sem lote (falta de alocação). */
+	short_code: string | null
+	location: string | null
+	use_first: boolean
+	quarantined: boolean
+	derivation: string | null
 }
 
 export interface StockBalanceItem {
@@ -39,6 +45,8 @@ export interface StockBalanceItem {
 	balanceValue: number
 	lots: StockLotBalanceRow[]
 	nextExpiry: string | null
+	/** Parte do saldo que está em quarentena — existe, mas não é alocável. */
+	quarantinedBalance: number
 }
 
 /** Nomes de itens (insumos + preparações congeladas) para exibição. */
@@ -66,6 +74,19 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		const { data: rows, error } = await inv.from("v_stock_balance").select("*").eq("kitchen_id", data.kitchenId)
 		if (error) throw new Error(`Erro ao consultar saldo: ${error.message}`)
 
+		// A view é a soma do ledger e não conhece o lote além do código: quarentena,
+		// etiqueta, local e "usar primeiro" vêm da tabela. Sem isso a tela mostra
+		// saldo de lote em quarentena como disponível — e ele não é alocável.
+		const lotIds = [...new Set((rows ?? []).map((row: { lot_id: string | null }) => row.lot_id).filter(Boolean))] as string[]
+		const lotMeta = new Map<
+			string,
+			{ short_code: string; location: string | null; use_first: boolean; quarantined_at: string | null; derivation: string | null }
+		>()
+		if (lotIds.length > 0) {
+			const { data: lots } = await inv.from("stock_lot").select("id, short_code, location, use_first, quarantined_at, derivation").in("id", lotIds)
+			for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
+		}
+
 		const byItem = new Map<string, StockBalanceItem>()
 		for (const row of rows ?? []) {
 			const key = row.ingredient_id ? `i:${row.ingredient_id}` : `f:${row.frozen_preparation_id}`
@@ -78,17 +99,25 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 				balanceValue: 0,
 				lots: [],
 				nextExpiry: null,
+				quarantinedBalance: 0,
 			}
 			item.balance += Number(row.balance ?? 0)
 			item.balanceValue += Number(row.balance_value ?? 0)
+			const meta = row.lot_id ? lotMeta.get(row.lot_id) : undefined
 			item.lots.push({
 				lot_id: row.lot_id,
 				lot_code: row.lot_code,
 				expiry_date: row.expiry_date,
 				balance: Number(row.balance ?? 0),
 				balance_value: Number(row.balance_value ?? 0),
+				short_code: meta?.short_code ?? null,
+				location: meta?.location ?? null,
+				use_first: meta?.use_first ?? false,
+				quarantined: meta?.quarantined_at != null,
+				derivation: meta?.derivation ?? null,
 			})
-			if (row.expiry_date && Number(row.balance ?? 0) > 0 && (item.nextExpiry == null || row.expiry_date < item.nextExpiry)) {
+			if (meta?.quarantined_at != null) item.quarantinedBalance += Number(row.balance ?? 0)
+			if (row.expiry_date && Number(row.balance ?? 0) > 0 && meta?.quarantined_at == null && (item.nextExpiry == null || row.expiry_date < item.nextExpiry)) {
 				item.nextExpiry = row.expiry_date
 			}
 			byItem.set(key, item)
