@@ -4290,6 +4290,56 @@ export type Database = {
           },
         ]
       }
+      gtin_alias: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          gtin: string
+          id: string
+          ingredient_item_id: string
+          kitchen_id: number | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          supplier_cnpj: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          gtin: string
+          id?: string
+          ingredient_item_id: string
+          kitchen_id?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          supplier_cnpj?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          gtin?: string
+          id?: string
+          ingredient_item_id?: string
+          kitchen_id?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          supplier_cnpj?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gtin_alias_ingredient_item_id_fkey"
+            columns: ["ingredient_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_barcode_review"
+            referencedColumns: ["ingredient_item_id"]
+          },
+        ]
+      }
       gtin_gpc_attribute: {
         Row: {
           attribute_code: string
@@ -4724,7 +4774,15 @@ export type Database = {
           created_by: string | null
           definitive_at: string | null
           definitive_by: string | null
+          definitive_designation_id: string | null
+          delivery_note_number: string | null
           empenho_id: string | null
+          fiscal_pending: boolean
+          fiscal_pending_value: number | null
+          fiscal_resolution: string | null
+          fiscal_resolution_reference: string | null
+          fiscal_resolved_at: string | null
+          fiscal_resolved_by: string | null
           id: string
           kitchen_id: number
           liquidacao_id: string | null
@@ -4732,6 +4790,8 @@ export type Database = {
           notes: string | null
           provisional_at: string | null
           provisional_by: string | null
+          provisional_designation_id: string | null
+          source: string
           status: string
           supply_order_id: string | null
         }
@@ -4740,7 +4800,15 @@ export type Database = {
           created_by?: string | null
           definitive_at?: string | null
           definitive_by?: string | null
+          definitive_designation_id?: string | null
+          delivery_note_number?: string | null
           empenho_id?: string | null
+          fiscal_pending?: boolean
+          fiscal_pending_value?: number | null
+          fiscal_resolution?: string | null
+          fiscal_resolution_reference?: string | null
+          fiscal_resolved_at?: string | null
+          fiscal_resolved_by?: string | null
           id?: string
           kitchen_id: number
           liquidacao_id?: string | null
@@ -4748,6 +4816,8 @@ export type Database = {
           notes?: string | null
           provisional_at?: string | null
           provisional_by?: string | null
+          provisional_designation_id?: string | null
+          source?: string
           status?: string
           supply_order_id?: string | null
         }
@@ -4756,7 +4826,15 @@ export type Database = {
           created_by?: string | null
           definitive_at?: string | null
           definitive_by?: string | null
+          definitive_designation_id?: string | null
+          delivery_note_number?: string | null
           empenho_id?: string | null
+          fiscal_pending?: boolean
+          fiscal_pending_value?: number | null
+          fiscal_resolution?: string | null
+          fiscal_resolution_reference?: string | null
+          fiscal_resolved_at?: string | null
+          fiscal_resolved_by?: string | null
           id?: string
           kitchen_id?: number
           liquidacao_id?: string | null
@@ -4764,6 +4842,8 @@ export type Database = {
           notes?: string | null
           provisional_at?: string | null
           provisional_by?: string | null
+          provisional_designation_id?: string | null
+          source?: string
           status?: string
           supply_order_id?: string | null
         }
@@ -5243,6 +5323,82 @@ export type Database = {
             columns: ["nfe_document_id"]
             isOneToOne: false
             referencedRelation: "nfe_document"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_scan_event: {
+        Row: {
+          client_event_id: string
+          created_at: string
+          created_by: string | null
+          expiry_date: string | null
+          gtin: string | null
+          id: string
+          lot_code: string | null
+          method: string
+          package_factor: number | null
+          quantity_base: number
+          raw_code: string | null
+          receipt_id: string
+          receipt_item_id: string | null
+          reversed_event_id: string | null
+          seq: number
+        }
+        Insert: {
+          client_event_id: string
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          gtin?: string | null
+          id?: string
+          lot_code?: string | null
+          method: string
+          package_factor?: number | null
+          quantity_base: number
+          raw_code?: string | null
+          receipt_id: string
+          receipt_item_id?: string | null
+          reversed_event_id?: string | null
+          seq?: number
+        }
+        Update: {
+          client_event_id?: string
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          gtin?: string | null
+          id?: string
+          lot_code?: string | null
+          method?: string
+          package_factor?: number | null
+          quantity_base?: number
+          raw_code?: string | null
+          receipt_id?: string
+          receipt_item_id?: string | null
+          reversed_event_id?: string | null
+          seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_scan_event_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipt"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_scan_event_receipt_item_id_fkey"
+            columns: ["receipt_item_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipt_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_scan_event_reversed_event_id_fkey"
+            columns: ["reversed_event_id"]
+            isOneToOne: false
+            referencedRelation: "receipt_scan_event"
             referencedColumns: ["id"]
           },
         ]
@@ -5770,6 +5926,15 @@ export type Database = {
         Returns: {
           movements: number
         }[]
+      }
+      find_designation: {
+        Args: {
+          p_empenho_id: string
+          p_person: string
+          p_roles: string[]
+          p_unit_id: number
+        }
+        Returns: string
       }
       kitchen_settings: {
         Args: { p_kitchen_id: number }
@@ -10099,6 +10264,62 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_designation: {
+        Row: {
+          arp_id: string | null
+          created_at: string
+          created_by: string | null
+          empenho_id: string | null
+          id: string
+          is_substitute: boolean
+          person_id: string
+          role: string
+          source: string
+          source_reference: string | null
+          unit_id: number
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          arp_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          empenho_id?: string | null
+          id?: string
+          is_substitute?: boolean
+          person_id: string
+          role: string
+          source: string
+          source_reference?: string | null
+          unit_id: number
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          arp_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          empenho_id?: string | null
+          id?: string
+          is_substitute?: boolean
+          person_id?: string
+          role?: string
+          source?: string
+          source_reference?: string | null
+          unit_id?: number
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_designation_arp_id_fkey"
+            columns: ["arp_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_arp"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kitchen_ata_draft: {
         Row: {
           created_at: string
@@ -10853,6 +11074,7 @@ export type Database = {
           package_net_content_unit: string | null
           package_type: string | null
           purchase_measure_unit: string | null
+          quantity_tolerance_pct: number
           storage_temp_max_c: number | null
           storage_temp_min_c: number | null
           transport_requirement: string | null
@@ -10880,6 +11102,7 @@ export type Database = {
           package_net_content_unit?: string | null
           package_type?: string | null
           purchase_measure_unit?: string | null
+          quantity_tolerance_pct?: number
           storage_temp_max_c?: number | null
           storage_temp_min_c?: number | null
           transport_requirement?: string | null
@@ -10907,6 +11130,7 @@ export type Database = {
           package_net_content_unit?: string | null
           package_type?: string | null
           purchase_measure_unit?: string | null
+          quantity_tolerance_pct?: number
           storage_temp_max_c?: number | null
           storage_temp_min_c?: number | null
           transport_requirement?: string | null
