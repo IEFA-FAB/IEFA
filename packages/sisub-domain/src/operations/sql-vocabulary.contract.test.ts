@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { MENU_ITEM_GROUPS } from "../schemas/common.ts"
 import {
@@ -26,7 +26,20 @@ import {
 } from "../schemas/equipment.ts"
 import { WORKFORCE_NOTE_KINDS, WORKFORCE_SURVEY_STATUSES } from "../schemas/workforce.ts"
 import { CATALOG_SCOPE_VALUES } from "./catalog-scope.ts"
-import { GOODS_RECEIPT_STATUSES, STOCK_INFLOW_TYPES, STOCK_MOVEMENT_TYPES, STOCK_OUTFLOW_TYPES, SUPPLY_ORDER_STATUSES } from "./inventory-vocabulary.ts"
+import {
+	GOODS_RECEIPT_STATUSES,
+	INFLOW_REASONS,
+	LOT_DERIVATIONS,
+	OUTFLOW_REASONS,
+	SEGREGATION_MODES,
+	STOCK_ADJUSTMENT_REASONS,
+	STOCK_ADJUSTMENT_STATUSES,
+	STOCK_INFLOW_TYPES,
+	STOCK_MOVEMENT_REASONS,
+	STOCK_MOVEMENT_TYPES,
+	STOCK_OUTFLOW_TYPES,
+	SUPPLY_ORDER_STATUSES,
+} from "./inventory-vocabulary.ts"
 
 const MIGRATIONS = join(import.meta.dir, "..", "..", "..", "database", "supabase", "migrations")
 
@@ -51,10 +64,63 @@ function checkValues(file: string, column: string, occurrence = 0): string[] {
 	return [...match[1].matchAll(/'([^']+)'/g)].map((value) => value[1]).sort()
 }
 
+/**
+ * Migrations em ordem de aplicação. O contrato precisa comparar o TypeScript
+ * com a definição VIGENTE, não com a primeira: `stock_movement.type` já foi
+ * redefinido (`drop constraint` + `add constraint`) e as triggers de custo já
+ * foram substituídas por `create or replace`. Um teste apontado para o arquivo
+ * original passa a validar um vocabulário revogado — e continua verde.
+ */
+function migrationsInOrder(): string[] {
+	return readdirSync(MIGRATIONS)
+		.filter((name) => name.endsWith(".sql"))
+		.sort()
+}
+
+/** Conteúdo (sem comentário) da ÚLTIMA migration que casa com o padrão. */
+function latestSqlWith(pattern: RegExp): { file: string; sql: string } {
+	let found: { file: string; sql: string } | null = null
+	for (const file of migrationsInOrder()) {
+		const sql = stripSqlComments(readFileSync(join(MIGRATIONS, file), "utf8"))
+		if (pattern.test(sql)) found = { file, sql }
+	}
+	if (!found) throw new Error(`nenhuma migration casa com ${pattern}`)
+	return found
+}
+
+/** Valores de um `... in ('a','b')` dentro de um trecho de SQL. */
+function valuesIn(sql: string, column: string, occurrence = 0): string[] {
+	const matches = [...sql.matchAll(new RegExp(`${column}\\s+in\\s*\\(([^)]*)\\)`, "gi"))]
+	const match = matches[occurrence]
+	if (!match) throw new Error(`\`${column}\` (ocorrência ${occurrence}) não encontrado — ${matches.length} ocorrência(s)`)
+	return [...match[1].matchAll(/'([^']+)'/g)].map((value) => value[1]).sort()
+}
+
+/** Corpo da definição vigente de uma função do schema `inventory`. */
+function latestFunctionBody(name: string): string {
+	const { sql } = latestSqlWith(new RegExp(`function\\s+inventory\\.${name}\\b`, "i"))
+	const start = sql.search(new RegExp(`function\\s+inventory\\.${name}\\b`, "i"))
+	// da assinatura até o fim do corpo: `$$;` ou `$function$;`
+	const rest = sql.slice(start)
+	const end = rest.search(/\$(?:function)?\$\s*;/)
+	return end === -1 ? rest : rest.slice(0, end)
+}
+
+/**
+ * Vocabulário VIGENTE de `stock_movement.type` — lido do `add constraint`
+ * nomeado, não da posição da lista no arquivo: as migrations de função repetem
+ * `type in (...)` várias vezes, e contar ocorrências quebraria a cada nova.
+ */
+function currentMovementTypes(): string[] {
+	const { sql } = latestSqlWith(/constraint stock_movement_type_check check \(type in \(/i)
+	const match = sql.match(/constraint stock_movement_type_check check \(type in \(([^)]*)\)/i)
+	if (!match) throw new Error("CHECK nomeado de stock_movement.type não encontrado")
+	return [...(match[1] as string).matchAll(/'([^']+)'/g)].map((value) => value[1] as string).sort()
+}
+
 const EQUIPAMENTO = "20260825120000_kitchen_equipment.sql"
 const CONDICAO = "20260827120000_kitchen_equipment_condition.sql"
 const EFETIVO = "20260827163000_workforce_matrix.sql"
-const ESTOQUE = "20260729160000_inventory_stock_core.sql"
 const RECEBIMENTO = "20260729170000_procurement_supply_order_goods_receipt.sql"
 
 const PARES: Array<{ nome: string; file: string; column: string; occurrence?: number; ts: readonly string[] }> = [
@@ -70,7 +136,6 @@ const PARES: Array<{ nome: string; file: string; column: string; occurrence?: nu
 	{ nome: "equipment_maintenance_log.kind", file: CONDICAO, column: "kind", occurrence: 1, ts: MAINTENANCE_LOG_KINDS },
 	{ nome: "workforce_note.kind", file: EFETIVO, column: "kind", ts: WORKFORCE_NOTE_KINDS },
 	{ nome: "workforce_survey.status", file: EFETIVO, column: "status", ts: WORKFORCE_SURVEY_STATUSES },
-	{ nome: "stock_movement.type", file: ESTOQUE, column: "type", occurrence: 0, ts: STOCK_MOVEMENT_TYPES },
 	{ nome: "supply_order.status", file: RECEBIMENTO, column: "status", occurrence: 0, ts: SUPPLY_ORDER_STATUSES },
 	{ nome: "goods_receipt.status", file: RECEBIMENTO, column: "status", occurrence: 1, ts: GOODS_RECEIPT_STATUSES },
 ]
@@ -130,30 +195,79 @@ describe("particionamento dos tipos de movimento no custeio", () => {
 	// depois. Por isso a exigência é de PARTIÇÃO: união completa e interseção
 	// vazia, que é o mesmo que dizer que a lista do BEFORE é exatamente o
 	// complemento da lista do AFTER.
-	// occurrence 0 = CHECK de stock_movement.type · 1 = lista de saídas do BEFORE ·
-	// 2 = lista de entradas do AFTER.
-	const SAIDAS_DO_BEFORE = 1
-	const ENTRADAS_DO_AFTER = 2
+	//
+	// As listas são lidas da definição VIGENTE de cada função, não do arquivo
+	// que a criou: as duas já foram substituídas por `create or replace`.
+	const saidasDoBefore = valuesIn(latestFunctionBody("stock_movement_costing_before"), "type", 0)
+	const entradasDoAfter = valuesIn(latestFunctionBody("stock_movement_costing_after"), "type", 0)
+	const todos = currentMovementTypes()
+
+	test("o vocabulário vigente do banco é o do domínio", () => {
+		expect(todos).toEqual([...STOCK_MOVEMENT_TYPES].sort())
+	})
 
 	test("entradas ∪ saídas cobrem exatamente o vocabulário de stock_movement.type", () => {
-		const todos = checkValues(ESTOQUE, "type", 0)
-		const saidas = checkValues(ESTOQUE, "type", SAIDAS_DO_BEFORE)
-		const entradas = checkValues(ESTOQUE, "type", ENTRADAS_DO_AFTER)
-		expect([...saidas, ...entradas].sort()).toEqual(todos)
+		expect([...saidasDoBefore, ...entradasDoAfter].sort()).toEqual(todos)
 	})
 
 	test("nenhum tipo é entrada e saída ao mesmo tempo", () => {
-		const saidas = new Set(checkValues(ESTOQUE, "type", SAIDAS_DO_BEFORE))
-		expect(checkValues(ESTOQUE, "type", ENTRADAS_DO_AFTER).filter((tipo) => saidas.has(tipo))).toEqual([])
+		const saidas = new Set(saidasDoBefore)
+		expect(entradasDoAfter.filter((tipo) => saidas.has(tipo))).toEqual([])
 	})
 
 	test("a lista de entradas do domínio é a MESMA que a trigger AFTER usa", () => {
 		// `stock-reports.fn.ts` decide entrada/saída em TypeScript. Divergir da
 		// trigger faz o relatório contar o oposto do que o ledger contabilizou.
-		expect(checkValues(ESTOQUE, "type", ENTRADAS_DO_AFTER)).toEqual([...STOCK_INFLOW_TYPES].sort())
+		expect(entradasDoAfter).toEqual([...STOCK_INFLOW_TYPES].sort())
+	})
+
+	test("a lista de saídas do domínio é a MESMA que a trigger BEFORE usa", () => {
+		expect(saidasDoBefore).toEqual([...STOCK_OUTFLOW_TYPES].sort())
 	})
 
 	test("as constantes do domínio espelham a mesma partição", () => {
 		expect([...STOCK_INFLOW_TYPES, ...STOCK_OUTFLOW_TYPES].sort()).toEqual([...STOCK_MOVEMENT_TYPES].sort())
+	})
+
+	test("a view de saldo e o fechamento mensal usam a MESMA lista de entradas", () => {
+		// A view soma `case when type in (...) then +q else -q`, e o fechamento
+		// repete a lista quatro vezes. Uma lista defasada faz a devolução de
+		// saída entrar no balancete como saída — e o RMA fecha errado.
+		const saldo = latestSqlWith(/create or replace view inventory\.v_stock_balance|create view inventory\.v_stock_balance/i)
+		expect(valuesIn(saldo.sql, "m\\.type", 0)).toEqual([...STOCK_INFLOW_TYPES].sort())
+
+		const fechamento = latestFunctionBody("close_month")
+		for (const occurrence of [0, 1, 2, 3]) {
+			expect(valuesIn(fechamento, "type", occurrence)).toEqual([...STOCK_INFLOW_TYPES].sort())
+		}
+	})
+})
+
+describe("motivos de ajuste", () => {
+	const REASONS = "20260917160000_inventory_operable_core.sql"
+
+	test("stock_movement.reason_code aceita exatamente os motivos do domínio", () => {
+		expect(checkValues(REASONS, "reason_code", 0)).toEqual([...STOCK_MOVEMENT_REASONS].sort())
+	})
+
+	test("stock_adjustment_item.reason_code aceita os motivos de ajuste (sem o descarte de sobra)", () => {
+		// ocorrência 3: 0 = coluna de stock_movement · 1 e 2 = CHECK de direção ·
+		// 3 = coluna de stock_adjustment_item
+		expect(checkValues(REASONS, "reason_code", 3)).toEqual([...STOCK_ADJUSTMENT_REASONS].sort())
+	})
+
+	test("entrada ∪ saída cobrem os motivos de ajuste, sem interseção", () => {
+		expect([...INFLOW_REASONS, ...OUTFLOW_REASONS].sort()).toEqual([...STOCK_ADJUSTMENT_REASONS].sort())
+		const entradas = new Set<string>(INFLOW_REASONS)
+		expect(OUTFLOW_REASONS.filter((reason) => entradas.has(reason))).toEqual([])
+	})
+
+	test("stock_adjustment.status espelha o domínio", () => {
+		expect(checkValues(REASONS, "status", 0)).toEqual([...STOCK_ADJUSTMENT_STATUSES].sort())
+	})
+
+	test("segregação e derivação de lote espelham o domínio", () => {
+		expect(checkValues(REASONS, "segregation")).toEqual([...SEGREGATION_MODES].sort())
+		expect(checkValues(REASONS, "derivation", 0)).toEqual([...LOT_DERIVATIONS].sort())
 	})
 })
