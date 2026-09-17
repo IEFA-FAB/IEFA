@@ -54,7 +54,7 @@ export function retrievalBudget(intent: AgentState["intent"]): number {
 }
 
 /**
- * Esgotar a busca manda ao chat geral — salvo se o turno já alucinou.
+ * Esgotar a busca manda ao chat geral — salvo se a busca estava fora do ar.
  *
  * O `no_basis` responde uma frase fixa ("não existe no RADA-e e não tenho certeza"). Com o
  * roteador consultando o corpus por padrão, terminar ali seria uma REGRESSÃO para a
@@ -62,39 +62,27 @@ export function retrievalBudget(intent: AgentState["intent"]): number {
  * compõe. O chat geral não é caminho livre — `composeNonRadaAnswer` exige fonte nomeada e,
  * sem ela, devolve a MESMA frase do `no_basis`. O piso é o mesmo; o teto, maior.
  *
- * A exceção é o turno que chegou aqui pelo laço do grader com rascunho não-ancorado: esse
- * termina no `no_basis`, porque uma alucinação já detectada não pode ser respondida em
- * texto livre. O `graderCondition` é o outro caminho para lá.
+ * Não há mais volta do grader por aqui: rascunho reprovado é revisado dentro do próprio
+ * grader (`gradeDraft`), então este nó só vê turno que ainda não gerou rascunho.
  */
 export function radaAgentCondition(state: AgentState): string {
 	if (state.has_sufficient_context) return "grader"
 	if (state.retrieval_halted || state.retrieval_iterations >= retrievalBudget(state.intent)) {
-		// Turno que já produziu rascunho não-ancorado NÃO ganha o chat geral: ele veio parar
-		// aqui pelo laço do grader, e responder em texto livre depois de uma alucinação
-		// detectada é exatamente o que o `no_basis` existe para impedir. Mesmo predicado que
-		// o `radaAgentNode` usa para reconhecer a retentativa de ancoragem.
-		const cameFromHallucination = state.grading_retries > 0 && state.grounding_check?.is_grounded === false
-		// Busca FORA DO AR também não: o chat geral responderia de memória do modelo uma
+		// Busca FORA DO AR não vai ao chat geral: ele responderia de memória do modelo uma
 		// pergunta sobre o regulamento, e o usuário leria isso como resposta normal. Corpus
 		// consultado e vazio é outra coisa — aí o chat geral responde, com a ressalva.
-		const searchWasBroken = state.retrieval_outcome === "unavailable"
-		return cameFromHallucination || searchWasBroken ? "no_basis" : "general_chat"
+		return state.retrieval_outcome === "unavailable" ? "no_basis" : "general_chat"
 	}
 	return "rada_agent"
 }
 
 /**
- * Rascunho ancorado segue para o sintetizador; rascunho com afirmação sem base
- * volta a recuperar, e só depois de esgotar as tentativas responde "sem base".
+ * Rascunho ancorado segue para o sintetizador; reprovado, termina no `no_basis`.
  *
- * O ramo de retentativa era `"synthesizer"`, o mesmo do caminho ancorado: o
- * grader marcava a alucinação e a resposta seguia igual, com o alvo
- * `rada_agent` declarado no grafo e inalcançável. O laço é limitado por
- * `grading_retries` aqui e por `retrieval_iterations` no `radaAgentCondition`.
+ * O grader já gastou a segunda chance antes de chegar aqui — revisou o rascunho contra os
+ * mesmos documentos e verificou de novo. Voltar à recuperação era o laço antigo, e ele
+ * trocava trechos que respondiam a pergunta por outros, com extrapolação nova.
  */
 export function graderCondition(state: AgentState): string {
-	const { grounding_check, grading_retries } = state
-	if (grounding_check?.is_grounded) return "synthesizer"
-	if (grading_retries >= 2) return "no_basis"
-	return "rada_agent"
+	return state.grounding_check?.is_grounded ? "synthesizer" : "no_basis"
 }

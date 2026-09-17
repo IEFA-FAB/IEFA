@@ -24,7 +24,7 @@ const workflow = new StateGraph(AgentStateAnnotation)
 	.addConditionalEdges("rada_agent", radaAgentCondition, {
 		grader: "grader",
 		// Corpus esgotado cai no chat geral, que compõe a resposta COM a ressalva de
-		// procedência — salvo quando o turno já alucinou, e aí termina no `no_basis`.
+		// procedência — salvo quando a busca estava fora do ar, e aí termina no `no_basis`.
 		general_chat: "general_chat",
 		no_basis: "no_basis",
 		rada_agent: "rada_agent",
@@ -32,7 +32,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
 	.addConditionalEdges("grader", graderCondition, {
 		synthesizer: "synthesizer",
 		no_basis: "no_basis",
-		rada_agent: "rada_agent",
 	})
 	.addEdge("synthesizer", END)
 	.addEdge("no_basis", END)

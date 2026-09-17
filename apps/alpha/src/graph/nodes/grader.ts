@@ -1,5 +1,6 @@
 import { invokeStructured, invokeText } from "../../lib/llm"
 import type { AgentState, GroundingCheck } from "../state"
+import { type GraderModel, gradeDraft } from "./draft-grading"
 
 const gradingSchema = {
 	name: "grading_result",
@@ -15,68 +16,12 @@ const gradingSchema = {
 	},
 }
 
-const DRAFT_SYSTEM_PROMPT = `Você é o ATLAS, assistente especializado em legislação aeronáutica.
-Gere um rascunho de resposta usando EXCLUSIVAMENTE os documentos fornecidos.
-Use citações inline no formato [¹], [²], etc.
-NUNCA afirme algo além do que está nos documentos.`
+const defaultModel: GraderModel = {
+	text: (messages) => invokeText(messages),
+	grade: (messages) => invokeStructured<GroundingCheck>(gradingSchema, messages),
+}
 
-const GRADING_SYSTEM_PROMPT = `Você é um verificador de alucinações em textos jurídico-aeronáuticos.
-Dado um rascunho e documentos de suporte, verifique cada afirmação do rascunho.
-Uma afirmação está "ancorada" se puder ser diretamente suportada por pelo menos um dos documentos fornecidos.`
-
-export async function graderNode(state: AgentState): Promise<Partial<AgentState>> {
-	const { retrieved_documents, messages, grading_retries } = state
-
-	const docsContext = retrieved_documents
-		.map((d, i) => {
-			// Só o que existe entra no rótulo. Documento sem dispositivo marcado rendia
-			// `[1] RADA-e Módulo G — , :`, que é ruído no prompt do verificador.
-			const device = [d.metadata.chapter, d.metadata.section, d.metadata.article].filter(Boolean).join(", ")
-			return `[${i + 1}] ${d.metadata.source}${device ? ` — ${device}` : ""}:\n${d.content}`
-		})
-		.join("\n\n")
-
-	// A pergunta resolvida contra o histórico, e não a última mensagem crua: o rascunho de
-	// "e o prazo?" sairia sem assunto, e o verificador o marcaria como não-ancorado — o
-	// pré-passe teria consertado a BUSCA e quebrado a geração no mesmo turno.
-	const userQuery =
-		state.search_query ||
-		messages
-			.filter((m) => m.type === "human")
-			.pop()
-			?.content?.toString() ||
-		""
-
-	// Gera o draft aqui mesmo, para só então verificar
-	const draft = await invokeText([
-		{ role: "system", content: DRAFT_SYSTEM_PROMPT },
-		{ role: "user", content: `DOCUMENTOS:\n${docsContext}\n\nPERGUNTA: ${userQuery}` },
-	])
-
-	const result = await invokeStructured<GroundingCheck>(gradingSchema, [
-		{ role: "system", content: GRADING_SYSTEM_PROMPT },
-		{
-			role: "user",
-			content: `DOCUMENTOS DE SUPORTE:\n${docsContext}\n\nRASCUNHO PARA VERIFICAR:\n${draft}`,
-		},
-	])
-
-	const grounding_check: GroundingCheck = {
-		is_grounded: result.is_grounded,
-		ungrounded_claims: result.ungrounded_claims ?? [],
-		confidence: Math.max(0, Math.min(1, result.confidence ?? 0)),
-	}
-
-	const newRetries = grounding_check.is_grounded ? grading_retries : grading_retries + 1
-	const updates: Partial<AgentState> = {
-		grounding_check,
-		grading_retries: newRetries,
-		generated_response_draft: draft,
-	}
-
-	if (!grounding_check.is_grounded && newRetries >= 2) {
-		updates.termination_reason = "hallucination_detected"
-	}
-
-	return updates
+/** Nó do grafo. Não aceita o modelo por parâmetro: o LangGraph passa `config` como segundo argumento. */
+export function graderNode(state: AgentState): Promise<Partial<AgentState>> {
+	return gradeDraft(state, defaultModel)
 }

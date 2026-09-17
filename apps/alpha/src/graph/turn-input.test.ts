@@ -15,10 +15,9 @@ const NOT_RESET: Record<string, string> = {
 	intent: "o roteador é o primeiro nó do turno e sempre o reescreve",
 	original_query: "escrito pelo roteador junto com o `intent`",
 	// Os quatro abaixo são `T | undefined`, e o LangGraph IGNORA chave com `undefined` no
-	// input: não há como zerá-los daqui. Quem os neutraliza é `grading_retries: 0` e
-	// `retrieval_iterations: 0`, que fecham os ramos que os leem antes de serem reescritos
-	// no turno. `retrieval_outcome` existe justamente por causa desta limitação.
-	grounding_check: "só é lido com `grading_retries > 0`, que é zerado; o grader reescreve antes",
+	// input: não há como zerá-los daqui. Quem os neutraliza é o nó que os reescreve antes
+	// de qualquer leitura no turno. `retrieval_outcome` existe justamente por causa desta limitação.
+	grounding_check: "só é lido pelo `graderCondition`, depois de o grader reescrevê-lo no turno",
 	generated_response_draft: "o grader reescreve antes de qualquer leitura",
 	termination_reason: "substituído por `retrieval_outcome`, que aceita `null` e reseta",
 	final_response: "todo nó terminal escreve o seu antes de a resposta ser montada",
