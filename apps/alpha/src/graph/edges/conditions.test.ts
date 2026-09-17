@@ -96,22 +96,6 @@ describe("radaAgentCondition", () => {
 		}
 	})
 
-	// Regressão: o laço do grader podia sair pelo ramo novo e responder em texto livre um
-	// turno cujo rascunho JÁ tinha sido marcado como não-ancorado.
-	it("routes an ungrounded turn to no_basis instead of general_chat when retrieval is exhausted", () => {
-		expect(
-			radaAgentCondition(
-				makeState({
-					intent: "LEGISLATION",
-					has_sufficient_context: false,
-					retrieval_iterations: 3,
-					grading_retries: 1,
-					grounding_check: { is_grounded: false, ungrounded_claims: ["x"], confidence: 0.2 },
-				})
-			)
-		).toBe("no_basis")
-	})
-
 	// Busca fora do ar não pode virar resposta de memória do modelo com cara de normal.
 	it("routes an unavailable search to no_basis, not to general_chat", () => {
 		expect(
@@ -208,72 +192,34 @@ describe("graderCondition", () => {
 		).toBe("synthesizer")
 	})
 
-	it("routes to synthesizer when grounded despite high retry count", () => {
+	// Passou depois da revisão dentro do grader.
+	it("routes to synthesizer when the revised draft is grounded", () => {
 		expect(
 			graderCondition(
 				makeState({
-					grounding_check: { is_grounded: true, ungrounded_claims: ["claim"], confidence: 0.7 },
-					grading_retries: 5,
+					grounding_check: { is_grounded: true, ungrounded_claims: [], confidence: 0.9 },
+					grading_retries: 1,
 				})
 			)
 		).toBe("synthesizer")
 	})
 
-	it("routes to no_basis when retries reach 2 and not grounded", () => {
-		expect(
-			graderCondition(
-				makeState({
-					grounding_check: { is_grounded: false, ungrounded_claims: ["claim"], confidence: 0.2 },
-					grading_retries: 2,
-				})
-			)
-		).toBe("no_basis")
-	})
-
-	it("routes to no_basis when retries exceed 2 and not grounded", () => {
-		expect(
-			graderCondition(
-				makeState({
-					grounding_check: { is_grounded: false, ungrounded_claims: ["claim"], confidence: 0.1 },
-					grading_retries: 5,
-				})
-			)
-		).toBe("no_basis")
-	})
-
-	it("retries retrieval when grounding_check is undefined and retries below max", () => {
-		expect(
-			graderCondition(
-				makeState({
-					grounding_check: undefined,
-					grading_retries: 0,
-				})
-			)
-		).toBe("rada_agent")
-	})
-
-	// Regressão: este ramo devolvia "synthesizer", o mesmo do caminho ancorado —
-	// o grader marcava a alucinação e a resposta seguia para o usuário igual.
-	it("retries retrieval when not grounded and retries below max", () => {
-		expect(
-			graderCondition(
-				makeState({
-					grounding_check: { is_grounded: false, ungrounded_claims: ["x"], confidence: 0.3 },
-					grading_retries: 1,
-				})
-			)
-		).toBe("rada_agent")
-	})
-
-	it("never returns synthesizer for an ungrounded draft", () => {
-		for (const grading_retries of [0, 1, 2, 3, 5]) {
+	// Regressão: reprovar voltava à recuperação com a consulta reformulada, que trocava os
+	// trechos que respondiam a pergunta por outros. A segunda chance agora é a revisão, dentro
+	// do grader — o que sai dele reprovado já a gastou.
+	it("never retries retrieval after grading", () => {
+		for (const grading_retries of [0, 1, 2, 5]) {
 			const route = graderCondition(
 				makeState({
 					grounding_check: { is_grounded: false, ungrounded_claims: ["x"], confidence: 0.1 },
 					grading_retries,
 				})
 			)
-			expect(route).not.toBe("synthesizer")
+			expect(route).toBe("no_basis")
 		}
+	})
+
+	it("routes to no_basis when grounding_check is missing", () => {
+		expect(graderCondition(makeState({ grounding_check: undefined }))).toBe("no_basis")
 	})
 })

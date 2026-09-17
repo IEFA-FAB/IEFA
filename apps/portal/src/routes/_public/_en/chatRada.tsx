@@ -294,6 +294,17 @@ function useHealthQuery() {
 			return failures === 0 ? HEALTH_OK_INTERVAL_MS : HEALTH_BACKOFF_MS[Math.min(failures - 1, HEALTH_BACKOFF_MS.length - 1)]
 		},
 		initialData: "loading" as const,
+		/**
+		 * A sonda É o teste de conectividade; não pode esperar o palpite do navegador.
+		 *
+		 * No modo padrão (`online`) o TanStack pausa a query quando o `onlineManager` acha
+		 * que a rede caiu, e só a retoma no evento `online`. Troca de rede ou suspensão com a
+		 * aba em segundo plano dispara `offline` — e, quando o `online` correspondente não
+		 * vem, toda sonda seguinte nasce `paused`: o dot fica no último `error` com o α no
+		 * ar, até o F5 reiniciar o manager. Reproduzido com a aba escondida: `navigator.onLine`
+		 * de volta a `true`, sonda parada por tempo indefinido.
+		 */
+		networkMode: "always",
 	})
 }
 

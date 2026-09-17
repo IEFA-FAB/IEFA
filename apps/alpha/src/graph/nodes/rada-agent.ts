@@ -60,19 +60,10 @@ async function reformulateOrGiveUp(query: string): Promise<string | undefined> {
 export async function radaAgentNode(state: AgentState): Promise<Partial<AgentState>> {
 	const iterations = state.retrieval_iterations
 
-	// Volta do grader com rascunho não-ancorado. Repetir a MESMA query devolve os MESMOS
-	// chunks, e o rascunho é gerado a temperatura 0: sem reformular, o laço queima duas
-	// chamadas de modelo para chegar ao mesmo `no_basis`. Quem muda o resultado é a query.
-	const isGroundingRetry = state.grading_retries > 0 && state.grounding_check?.is_grounded === false
 	// `search_query` é a pergunta já resolvida contra o histórico pelo pré-passe; a crua é o
 	// piso, para quando o pré-passe falhou ou não havia o que resolver.
 	const contextualQuery = state.search_query || state.original_query
-	const previousQuery = iterations === 0 ? contextualQuery : (state.reformulated_query ?? contextualQuery)
-	// `OrGiveUp` aqui pelo mesmo motivo do outro ponto de reformulação: uma falha do modelo
-	// não pode derrubar o turno. Sem reformulação a consulta não muda, e é `queryUnchanged`,
-	// no retorno de resultado vazio, que encerra o laço em vez de repetir bytes idênticos.
-	const retryQuery = isGroundingRetry ? await reformulateOrGiveUp(previousQuery) : undefined
-	const query = retryQuery ?? previousQuery
+	const query = iterations === 0 ? contextualQuery : (state.reformulated_query ?? contextualQuery)
 
 	let result: RADARetrieverOutput
 	try {
@@ -93,10 +84,7 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 			// O que não se repete é a MESMA consulta contra uma busca que funcionou e voltou
 			// vazia — essa é determinística, e é esse caso que `retrieval_halted` encerra.
 			retrieval_outcome: "unavailable",
-			...(retryQuery ? { reformulated_query: retryQuery } : {}),
-			// Numa retentativa de ancoragem a causa da run é o rascunho não-ancorado. Gravar
-			// a falha de busca aqui esconderia a alucinação do usuário e do `query_log`.
-			termination_reason: isGroundingRetry ? "hallucination_detected" : "retrieval_unavailable",
+			termination_reason: "retrieval_unavailable",
 		}
 	}
 
@@ -115,7 +103,6 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 			has_sufficient_context: true,
 			retrieval_iterations: newIterations,
 			retrieval_outcome: "found",
-			...(retryQuery ? { reformulated_query: retryQuery } : {}),
 		}
 	}
 
@@ -123,19 +110,8 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 	// resultado ninguém lê — o próximo nó é o chat geral, que responde da pergunta
 	// original. Pior: ela ficava fora do `try`, então uma falha do Bedrock derrubava o
 	// turno inteiro justamente quando a resposta de contingência já estava garantida.
-	// `!isGroundingRetry`: nessa volta quem reformula é o INÍCIO do próximo passe
-	// (`retryQuery`), com o mesmo modelo e o mesmo prompt. Calcular aqui também seria uma
-	// chamada paga cujo resultado ninguém busca. Se aquele passe não conseguir reformular,
-	// quem encerra o laço é `queryUnchanged`, abaixo.
-	const shouldReformulate = newIterations < retrievalBudget(state.intent) && !isGroundingRetry
+	const shouldReformulate = newIterations < retrievalBudget(state.intent)
 	const nextQuery = shouldReformulate ? await reformulateOrGiveUp(query) : undefined
-
-	// A consulta REALMENTE usada neste turno tem de sobreviver ao retorno, senão o
-	// `query_log` atribui à pergunta a reformulação da passagem anterior — o mesmo tipo de
-	// mentira que o reset de `reformulated_query` existe para impedir.
-	const queryToRecord = nextQuery ?? retryQuery
-
-	const queryUnchanged = isGroundingRetry ? !retryQuery : shouldReformulate && !nextQuery
 
 	return {
 		retrieved_documents: [],
@@ -146,18 +122,11 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 		// temperatura é 0 e a busca é determinística, então a repetição devolveria os mesmos
 		// zero documentos. Sinal próprio, e não `retrieval_iterations` inflado: o contador é
 		// telemetria, e uma tentativa registrada como três esconde exatamente esta falha.
-		//
-		// Vale para os DOIS pontos de reformulação. Na retentativa de ancoragem quem muda a
-		// consulta é o `retryQuery` do início do passe; se ele não veio, nada mudou, e o
-		// laço repetiria bytes idênticos até esgotar o orçamento.
-		...(queryUnchanged ? { retrieval_halted: true } : {}),
-		...(queryToRecord ? { reformulated_query: queryToRecord } : {}),
-		// Mesmo cuidado do `catch`: numa retentativa de ancoragem a causa do turno é a
-		// alucinação, e carimbar `no_documents_found` aqui a apagaria — inclusive escolhendo
-		// a mensagem errada no `no_basis`, que é para onde esse turno vai.
+		...(shouldReformulate && !nextQuery ? { retrieval_halted: true } : {}),
+		...(nextQuery ? { reformulated_query: nextQuery } : {}),
 		// Vale só para ESTE turno: `buildTurnInput` não consegue zerar `termination_reason`
 		// (o LangGraph ignora `undefined` no input), e quem diz ao chat geral que a busca
 		// aconteceu e voltou vazia é `retrieval_outcome`, não este campo.
-		termination_reason: isGroundingRetry ? "hallucination_detected" : "no_documents_found",
+		termination_reason: "no_documents_found",
 	}
 }

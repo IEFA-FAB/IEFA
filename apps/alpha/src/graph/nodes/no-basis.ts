@@ -22,10 +22,9 @@ const SEARCH_UNAVAILABLE =
 	"A consulta ao RADA-e está indisponível no momento, e por isso não há como responder com base no regulamento. Tente novamente em alguns minutos."
 
 export async function noBasisNode(state: AgentState): Promise<Partial<AgentState>> {
-	// A alucinação tem precedência: um turno pode ter as duas marcas — rascunho não-ancorado
-	// e, na volta seguinte, a busca fora do ar — e aí o que aconteceu de mais grave é o
-	// modelo ter afirmado o que os documentos não sustentam. Dizer "tente em alguns minutos"
-	// ali prometeria que a repetição resolve.
+	// A alucinação tem precedência: `retrieval_outcome` é do turno inteiro, e o rascunho só
+	// existe depois de uma busca que funcionou. Dizer "tente em alguns minutos" a quem teve
+	// o rascunho reprovado prometeria que a repetição resolve.
 	const wasUngrounded = state.termination_reason === "hallucination_detected"
 	const final_response = !wasUngrounded && state.retrieval_outcome === "unavailable" ? SEARCH_UNAVAILABLE : UNVERIFIABLE_DRAFT
 

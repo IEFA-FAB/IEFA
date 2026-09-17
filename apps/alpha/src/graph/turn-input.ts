@@ -15,8 +15,8 @@ import { HumanMessage } from "@langchain/core/messages"
  * (`retrieval_outcome`, que aceita `null`) em vez de um `termination_reason: undefined`.
  * `reformulated_query` é `string | null` pelo mesmo motivo — o `query_log` o lê em TODO
  * turno, então "não resetar" ali significa registrar a reformulação da pergunta anterior.
- * `grounding_check` e `generated_response_draft` seguem a limitação do `undefined`; quem os
- * protege é `grading_retries: 0`, que fecha os ramos que os leem antes de o grader reescrevê-los.
+ * `grounding_check` e `generated_response_draft` seguem a limitação do `undefined`; o grader
+ * reescreve os dois antes de qualquer leitura no turno.
  */
 export function buildTurnInput(message: string, session_id: string, user_id: string) {
 	return {
