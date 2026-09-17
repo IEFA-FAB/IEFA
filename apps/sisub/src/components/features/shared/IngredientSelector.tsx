@@ -9,14 +9,27 @@ import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import { cn } from "@/lib/cn"
 import type { Ingredient } from "@/types/domain/ingredients"
 
+/** Insumo que a lista de destino não aceita — o checkbox fica travado com o motivo ao lado. */
+interface ExcludedIngredient {
+	/** Motivo, exibido no fim da linha (ex.: "Já adicionado", "Insumo principal"). */
+	label: string
+	/**
+	 * `true` quando o insumo JÁ ESTÁ na lista de destino — aí o travado aparece marcado, porque
+	 * marcado é o que ele é. O insumo que está fora da lista e só não pode entrar (o principal,
+	 * na tela de substitutos) fica travado e DESMARCADO: marcá-lo diria que "Arroz" é substituto
+	 * de si mesmo.
+	 */
+	checked?: boolean
+}
+
 interface IngredientSelectorProps {
 	isOpen: boolean
 	onClose: () => void
 	title?: string
 	/** Recebe TODOS os insumos marcados, na ordem em que foram marcados. */
 	onSelect: (ingredients: Ingredient[]) => void
-	/** Insumos que não podem ser marcados (já estão na lista de destino) — marcados e travados. */
-	excludedIds?: ReadonlySet<string>
+	/** Insumos que a lista de destino não aceita, por id. */
+	excluded?: ReadonlyMap<string, ExcludedIngredient>
 	/** Rótulo do botão de confirmação, recebendo a quantidade marcada. */
 	confirmLabel?: (count: number) => string
 }
@@ -30,7 +43,7 @@ interface IngredientSelectorProps {
  * inteiro, e não só o id, ela sobrevive à troca do texto da busca: dá para buscar "feijão",
  * marcar dois, buscar "arroz", marcar mais um e confirmar os três juntos.
  */
-export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumos", onSelect, excludedIds, confirmLabel }: IngredientSelectorProps) {
+export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumos", onSelect, excluded, confirmLabel }: IngredientSelectorProps) {
 	"use no memo"
 	const [filterText, setFilterText] = useState("")
 	const [checked, setChecked] = useState<ReadonlyMap<string, Ingredient>>(new Map())
@@ -72,8 +85,37 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 	}
 
 	return (
-		<Dialog open={isOpen} onOpenChange={handleClose}>
-			<DialogContent className="max-w-full sm:max-w-3xl h-screen sm:h-[80vh] flex flex-col p-0 sm:p-6 gap-0 sm:gap-4">
+		<Dialog
+			open={isOpen}
+			onOpenChange={(open, details) => {
+				if (open) return
+				// Clique fora com marcação em andamento é acidente, não desistência: a confirmação
+				// agora é adiada, então um clique no vazio jogaria fora as doze marcas feitas em
+				// três buscas diferentes, sem aviso e sem desfazer. Esc e o X seguem fechando —
+				// são pedidos explícitos de sair.
+				if (details.reason === "outside-press" && checked.size > 0) {
+					details.cancel()
+					return
+				}
+				handleClose()
+			}}
+		>
+			<DialogContent
+				className="max-w-full sm:max-w-3xl h-screen sm:h-[80vh] flex flex-col p-0 sm:p-6 gap-0 sm:gap-4"
+				// Enter confirma de qualquer ponto do modal. Sem isto não havia caminho de teclado:
+				// o checkbox do Base UI não reage ao Enter e o input de busca está portalado para
+				// fora de qualquer `<form>`, então nada submetia; chegar ao botão pelo Tab exigiria
+				// atravessar o catálogo inteiro, já que a lista é virtualizada e monta a linha
+				// seguinte a cada foco.
+				onKeyDown={(event) => {
+					if (event.key !== "Enter" || event.defaultPrevented) return
+					// Botão focado age por si (Cancelar, limpar busca, fechar). O checkbox fica de
+					// fora da guarda: ele é um `<button>` que ignora o Enter, então ali o atalho vale.
+					if ((event.target as HTMLElement).closest('button:not([data-slot="checkbox"])')) return
+					event.preventDefault()
+					handleConfirm()
+				}}
+			>
 				<DialogHeader className="px-6 pt-6 sm:px-0 sm:pt-0">
 					<DialogTitle className="font-sans text-display md:text-2xl">{title}</DialogTitle>
 				</DialogHeader>
@@ -142,7 +184,7 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 									)
 
 									const ingredient = isProduct ? (node.data as Ingredient | undefined) : undefined
-									const isExcluded = ingredient != null && excludedIds?.has(ingredient.id) === true
+									const exclusion = ingredient ? excluded?.get(ingredient.id) : undefined
 
 									return (
 										<div
@@ -161,20 +203,20 @@ export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumo
 													htmlFor={`ingredient-pick-${ingredient.id}`}
 													className={cn(
 														"flex items-center gap-3 p-3 w-full h-full border-b border-border/50 transition-all duration-150",
-														isExcluded ? "text-muted-foreground" : "hover:bg-primary/5",
+														exclusion ? "text-muted-foreground" : "hover:bg-primary/5",
 														checked.has(ingredient.id) && "bg-primary/5"
 													)}
 													style={{ paddingLeft: `${node.level * 20 + 12}px` }}
 												>
 													<Checkbox
 														id={`ingredient-pick-${ingredient.id}`}
-														checked={isExcluded || checked.has(ingredient.id)}
-														disabled={isExcluded}
+														checked={exclusion ? exclusion.checked === true : checked.has(ingredient.id)}
+														disabled={exclusion != null}
 														onCheckedChange={() => toggle(ingredient)}
 													/>
 													{icon}
 													<span className="flex-1 font-sans text-sm text-subheading">{node.label}</span>
-													{isExcluded && <span className="ml-auto text-xs text-muted-foreground">Já adicionado</span>}
+													{exclusion && <span className="ml-auto text-xs text-muted-foreground">{exclusion.label}</span>}
 												</label>
 											) : (
 												// Pasta: estrutura da árvore, não é escolhível.

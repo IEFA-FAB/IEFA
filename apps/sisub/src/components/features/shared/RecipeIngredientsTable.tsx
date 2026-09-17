@@ -655,7 +655,12 @@ export function RecipeIngredientsTable({
 					// O insumo da própria linha não substitui a si mesmo, e o mesmo substituto não
 					// entra duas vezes: o índice único da tabela rejeitaria o segundo com um 23505
 					// sem mensagem, já depois de o usuário ter clicado em salvar.
-					excludedIds={new Set([...(openRow.ingredient_id ? [openRow.ingredient_id] : []), ...openRow.alternatives.map((alt) => alt.ingredient_id)])}
+					excluded={
+						new Map<string, { label: string; checked?: boolean }>([
+							...(openRow.ingredient_id ? [[openRow.ingredient_id, { label: "Insumo principal" }] as const] : []),
+							...openRow.alternatives.map((alt) => [alt.ingredient_id, { label: "Já adicionado", checked: true }] as const),
+						])
+					}
 					confirmLabel={(count) => (count <= 1 ? "Adicionar substituto" : `Adicionar ${count} substitutos`)}
 					onClose={() => setSubstituteFor(null)}
 					onSelect={(picked) => {
