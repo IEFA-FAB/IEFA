@@ -513,6 +513,9 @@ export const ASSURANCE_REGISTRY = {
 	// ── siafi-import.fn.ts
 	uploadSiafiReportFn: { require: "none" },
 
+	// ── scanner.fn.ts
+	saveScannerProfileFn: { require: "none" },
+
 	// ── stock-reports.fn.ts
 	closeMonthFn: { require: "none" },
 

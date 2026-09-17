@@ -45,6 +45,19 @@ export {
 	type SensitiveOperationLogRow,
 } from "./audit.ts"
 export {
+	type BarcodeConfig,
+	type BarcodeReading,
+	GS,
+	type Gs1Fields,
+	interpretBarcode,
+	LOT_LABEL_PATTERN,
+	type NfeAccessKey,
+	nfeKeyCheckDigit,
+	parseGs1,
+	parseGs1Date,
+	parseNfeAccessKey,
+} from "./barcode.ts"
+export {
 	type BudgetCreditSnapshot,
 	type BudgetProjection,
 	type CreditCheck,
@@ -78,6 +91,7 @@ export {
 	saveModuleChatMessage,
 	updateAnalyticsMessageChartType,
 } from "./chat-sessions.ts"
+export { cnpjRoot, formatCnpj, isValidCnpj, isValidCpf, normalizeCnpj } from "./cnpj.ts"
 export {
 	CONSERVATION_CLASSES,
 	CONSERVATION_LABELS,

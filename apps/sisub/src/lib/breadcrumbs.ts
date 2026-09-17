@@ -85,6 +85,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	counts: "Contagem Física",
 	reports: "Relatórios",
 	replenishment: "Reposição",
+	scanner: "Testar leitor",
 	// Sub-páginas
 	new: "Novo",
 	print: "Imprimir",

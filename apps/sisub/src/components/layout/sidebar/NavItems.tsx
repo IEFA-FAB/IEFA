@@ -3,6 +3,7 @@
 import {
 	Banknote,
 	BarChart3,
+	Barcode,
 	BookOpen,
 	Building2,
 	Calendar,
@@ -167,6 +168,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Contagem Física", url: "/storage/counts", icon: ClipboardCheck, minLevel: 3 },
 			{ title: "Relatórios MCASP", url: "/storage/reports", icon: FileSpreadsheet },
 			{ title: "Reposição (MRP)", url: "/storage/replenishment", icon: ShoppingBasket },
+			{ title: "Testar leitor", url: "/storage/scanner", icon: Barcode },
 		],
 	},
 	{
