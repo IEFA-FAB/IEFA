@@ -152,7 +152,7 @@ export interface RecipeEquipmentFitnessWire {
 const MODEL_NUMERIC_KEYS = new Set(["slot_capacity_liters", "power_kw", "width_cm", "depth_cm", "height_cm", "weight_kg"])
 const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters", "batch_portions"])
 
-const numOrNull = (n: number | null | undefined): string | null => (n != null ? String(n) : null)
+const numOrNull = (n: number | null | undefined): number | null => n ?? null
 
 // ── Catálogo: papéis ──────────────────────────────────────────────────────
 

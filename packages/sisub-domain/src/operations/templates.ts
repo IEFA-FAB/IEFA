@@ -216,7 +216,7 @@ function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (type
 		itemGroup: item.itemGroup ?? null,
 		// Fallback: preserva a ordem de chegada do array quando o cliente não informa sortOrder.
 		sortOrder: item.sortOrder ?? index,
-		recommendedProportion: item.recommendedProportion != null ? String(item.recommendedProportion) : null,
+		recommendedProportion: item.recommendedProportion ?? null,
 	}))
 }
 
@@ -779,7 +779,7 @@ export async function applyTemplate(
 					dailyMenuId: menuId,
 					recipeOriginId: item.recipeId,
 					recipe: recipeSnapshot,
-					plannedPortionQuantity: plannedPortion != null ? String(plannedPortion) : null,
+					plannedPortionQuantity: plannedPortion ?? null,
 					// Preserva grupo/ordem/proporção do template no cardápio materializado.
 					itemGroup: item.itemGroup,
 					sortOrder: item.sortOrder ?? 0,
@@ -967,7 +967,7 @@ export async function applyEventTemplate(
 						recipeOriginId: item.recipeId,
 						recipe: recipeSnapshot,
 						// Headcount por preparação (contrato de evento): sem fallback de refeição.
-						plannedPortionQuantity: item.headcountOverride != null ? String(item.headcountOverride) : null,
+						plannedPortionQuantity: item.headcountOverride ?? null,
 						itemGroup: item.itemGroup,
 						sortOrder: baseSort + index,
 						recommendedProportion: item.recommendedProportion,

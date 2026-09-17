@@ -428,7 +428,7 @@ export async function logMaintenance(db: SisubDb, ctx: UserContext, input: LogMa
 					performedOn: input.performedOn,
 					performedBy: ctx.userId,
 					provider: input.provider,
-					cost: input.cost != null ? String(input.cost) : null,
+					cost: input.cost ?? null,
 					notes: input.notes ?? null,
 				})
 				.returning()

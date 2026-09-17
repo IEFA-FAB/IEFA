@@ -263,7 +263,7 @@ export async function createIngredient(db: SisubDb, ctx: UserContext, input: Cre
 				description: input.description,
 				folderId: input.folderId,
 				measureUnit: input.measureUnit,
-				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				correctionFactor: input.correctionFactor ?? null,
 				ceafaId: input.ceafaId,
 			})
 			.returning()
@@ -280,7 +280,7 @@ export async function updateIngredient(db: SisubDb, ctx: UserContext, input: Upd
 				description: input.description,
 				folderId: input.folderId,
 				measureUnit: input.measureUnit,
-				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				correctionFactor: input.correctionFactor ?? null,
 				ceafaId: input.ceafaId,
 			})
 			.where(eq(ingredientInKitchen.id, input.id))
@@ -353,8 +353,8 @@ export async function createIngredientItem(db: SisubDb, ctx: UserContext, input:
 				description: input.description,
 				barcode: input.barcode,
 				purchaseMeasureUnit: input.purchaseMeasureUnit,
-				unitContentQuantity: input.unitContentQuantity != null ? String(input.unitContentQuantity) : null,
-				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				unitContentQuantity: input.unitContentQuantity ?? null,
+				correctionFactor: input.correctionFactor ?? null,
 				purchaseItemId: input.purchaseItemId,
 			})
 			.returning()
@@ -372,8 +372,8 @@ export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input:
 				description: input.description,
 				barcode: input.barcode,
 				purchaseMeasureUnit: input.purchaseMeasureUnit,
-				unitContentQuantity: input.unitContentQuantity != null ? String(input.unitContentQuantity) : null,
-				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				unitContentQuantity: input.unitContentQuantity ?? null,
+				correctionFactor: input.correctionFactor ?? null,
 				purchaseItemId: input.purchaseItemId,
 			})
 			.where(eq(ingredientItemInKitchen.id, input.id))
@@ -684,7 +684,7 @@ export async function replaceIngredientNutrients(
 
 	const toUpsert = nutrients
 		.filter((n) => n.nutrientValue != null && !Number.isNaN(n.nutrientValue))
-		.map((n) => ({ ingredientId, nutrientId: n.nutrientId, nutrientValue: String(n.nutrientValue), deletedAt: null }))
+		.map((n) => ({ ingredientId, nutrientId: n.nutrientId, nutrientValue: n.nutrientValue as number, deletedAt: null }))
 
 	if (toUpsert.length > 0) {
 		await tx

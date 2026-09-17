@@ -184,11 +184,11 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 				dailyMenuId: input.dailyMenuId,
 				recipeOriginId: input.recipeId,
 				recipe: recipeSnapshot,
-				...(input.plannedPortionQuantity != null && { plannedPortionQuantity: String(input.plannedPortionQuantity) }),
-				...(input.excludedFromProcurement != null && { excludedFromProcurement: String(input.excludedFromProcurement) }),
+				...(input.plannedPortionQuantity != null && { plannedPortionQuantity: input.plannedPortionQuantity }),
+				...(input.excludedFromProcurement != null && { excludedFromProcurement: input.excludedFromProcurement }),
 				itemGroup,
 				sortOrder,
-				recommendedProportion: input.recommendedProportion != null ? String(input.recommendedProportion) : null,
+				recommendedProportion: input.recommendedProportion ?? null,
 			})
 			.returning()
 	)
@@ -200,16 +200,15 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	requireKitchen(ctx, 2, kitchenId)
 
 	const updates: {
-		plannedPortionQuantity?: string
-		excludedFromProcurement?: string
+		plannedPortionQuantity?: number
+		excludedFromProcurement?: number
 		itemGroup?: string | null
 		sortOrder?: number
-		recommendedProportion?: string | null
+		recommendedProportion?: number | null
 	} = {}
-	if (input.plannedPortionQuantity != null) updates.plannedPortionQuantity = String(input.plannedPortionQuantity)
-	if (input.excludedFromProcurement != null) updates.excludedFromProcurement = String(input.excludedFromProcurement)
-	if (input.recommendedProportion !== undefined)
-		updates.recommendedProportion = input.recommendedProportion != null ? String(input.recommendedProportion) : null
+	if (input.plannedPortionQuantity != null) updates.plannedPortionQuantity = input.plannedPortionQuantity
+	if (input.excludedFromProcurement != null) updates.excludedFromProcurement = input.excludedFromProcurement
+	if (input.recommendedProportion !== undefined) updates.recommendedProportion = input.recommendedProportion ?? null
 
 	if (input.itemGroup !== undefined) {
 		updates.itemGroup = input.itemGroup

@@ -520,12 +520,12 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	const rows = ingredients.map((ing) => ({
 		recipeId,
 		ingredientId: ing.ingredientId,
-		netQuantity: String(ing.netQuantity),
+		netQuantity: ing.netQuantity,
 		isOptional: ing.isOptional,
 		priorityOrder: ing.priorityOrder,
 		// Fatores por ingrediente da preparação (opcionais): null = herda o insumo / vale 1.
-		correctionFactor: ing.correctionFactor != null ? String(ing.correctionFactor) : null,
-		rehydrationIndex: ing.rehydrationIndex != null ? String(ing.rehydrationIndex) : null,
+		correctionFactor: ing.correctionFactor ?? null,
+		rehydrationIndex: ing.rehydrationIndex ?? null,
 	}))
 	// INSERT ... RETURNING devolve as linhas na ordem de inserção — usado para mapear
 	// insumo antigo → novo no copy-forward do fluxo de produção.
@@ -556,7 +556,7 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
  * um clique repetido na tela em 23505 sem mensagem.
  */
 async function insertAlternatives(db: SisubDb, ingredients: NonNullable<CreateRecipe["ingredients"]>, inserted: { id: string }[]): Promise<void> {
-	const rows: { recipeIngredientId: string; ingredientId: string; netQuantity: string; priorityOrder: number }[] = []
+	const rows: { recipeIngredientId: string; ingredientId: string; netQuantity: number; priorityOrder: number }[] = []
 
 	ingredients.forEach((ing, index) => {
 		const line = inserted[index]
@@ -568,7 +568,7 @@ async function insertAlternatives(db: SisubDb, ingredients: NonNullable<CreateRe
 			rows.push({
 				recipeIngredientId: line.id,
 				ingredientId: alt.ingredientId,
-				netQuantity: String(alt.netQuantity),
+				netQuantity: alt.netQuantity,
 				priorityOrder: alt.priorityOrder,
 			})
 		}
@@ -612,13 +612,13 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 				name: input.name,
 				preparationMethod: input.preparationMethod ?? null,
 				prePreparationMethod: input.prePreparationMethod ?? null,
-				portionYield: String(input.portionYield),
+				portionYield: input.portionYield,
 				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
 				prePreparationTimeMinutes: input.prePreparationTimeMinutes ?? null,
 				cookingTimeMinutes: input.cookingTimeMinutes ?? null,
 				cookingMethod: input.cookingMethod?.trim() || null,
 				cookingTemperatureCelsius: input.cookingTemperatureCelsius ?? null,
-				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
+				cookingFactor: input.cookingFactor ?? null,
 				rationalId: input.rationalId ?? null,
 				kitchenId: input.kitchenId ?? null,
 				folderId: input.folderId ?? null,
@@ -761,13 +761,13 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 				name: input.name,
 				preparationMethod: input.preparationMethod ?? null,
 				prePreparationMethod: input.prePreparationMethod ?? null,
-				portionYield: String(input.portionYield),
+				portionYield: input.portionYield,
 				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
 				prePreparationTimeMinutes: input.prePreparationTimeMinutes ?? null,
 				cookingTimeMinutes: input.cookingTimeMinutes ?? null,
 				cookingMethod: input.cookingMethod?.trim() || null,
 				cookingTemperatureCelsius: input.cookingTemperatureCelsius ?? null,
-				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
+				cookingFactor: input.cookingFactor ?? null,
 				rationalId: input.rationalId ?? null,
 				kitchenId: targetKitchenId,
 				folderId,

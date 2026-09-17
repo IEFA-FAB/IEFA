@@ -36,7 +36,7 @@ type BoardItem = {
 	menuItem: {
 		id: string
 		recipe_origin_id: string | null
-		planned_portion_quantity: string | null
+		planned_portion_quantity: number | null
 		substitutions: Record<string, unknown> | null
 		recipe_origin: Record<string, unknown> | null
 		recipe_with_ingredients: Record<string, unknown> | null
@@ -230,11 +230,11 @@ export async function updateProductionTaskRecord(db: SisubDb, ctx: UserContext, 
 	const kitchenId = await resolveKitchenFromTask(db, input.taskId)
 	requireKitchenProduction(ctx, 1, kitchenId)
 
-	const updates: { updatedAt: string; producedQuantity?: string | null; leftoverQuantity?: string | null; notes?: string | null } = {
+	const updates: { updatedAt: string; producedQuantity?: number | null; leftoverQuantity?: number | null; notes?: string | null } = {
 		updatedAt: new Date().toISOString(),
 	}
-	if (input.producedQuantity !== undefined) updates.producedQuantity = input.producedQuantity != null ? String(input.producedQuantity) : null
-	if (input.leftoverQuantity !== undefined) updates.leftoverQuantity = input.leftoverQuantity != null ? String(input.leftoverQuantity) : null
+	if (input.producedQuantity !== undefined) updates.producedQuantity = input.producedQuantity ?? null
+	if (input.leftoverQuantity !== undefined) updates.leftoverQuantity = input.leftoverQuantity ?? null
 	if (input.notes !== undefined) updates.notes = input.notes
 
 	const row = await insertOneOrFail("UPDATE_FAILED", `production_task ${input.taskId} not found`, () =>
@@ -255,7 +255,7 @@ export async function adjustProductionPortions(db: SisubDb, ctx: UserContext, in
 	const row = await insertOneOrFail("UPDATE_FAILED", `menu_item ${input.menuItemId} not found`, () =>
 		db
 			.update(menuItemsInKitchen)
-			.set({ plannedPortionQuantity: String(input.plannedPortionQuantity) })
+			.set({ plannedPortionQuantity: input.plannedPortionQuantity })
 			.where(eq(menuItemsInKitchen.id, input.menuItemId))
 			.returning({ id: menuItemsInKitchen.id })
 	)

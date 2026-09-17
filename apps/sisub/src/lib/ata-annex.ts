@@ -95,8 +95,6 @@ export function buildDraftAnnexRows(items: ProcurementNeed[], settings: AtaAnnex
 	})
 }
 
-const toNumber = (value: string | null): number | null => (value == null ? null : Number(value))
-
 /**
  * Linhas da ata publicada. Quantidades, margem, ciclo e mínimo vêm do snapshot (congelados na
  * publicação). Descrição adicional, descrição CATMAT e PREÇO vêm do item vivo: nenhum dos três é
@@ -110,15 +108,15 @@ export function buildSnapshotAnnexRows(
 		ingredient_id: string | null
 		item_description: string | null
 		catmat_item_descricao: string | null
-		unit_price?: number | string | null
+		unit_price?: number | null
 	}> = []
 ): AtaAnnexRow[] {
 	const liveByIngredient = new Map(liveItems.filter((i) => i.ingredient_id).map((i) => [i.ingredient_id as string, i]))
 	return components.map((c, index) => {
 		const live = c.ingredient_id ? liveByIngredient.get(c.ingredient_id) : undefined
-		const purchaseQuantity = toNumber(c.purchase_quantity)
-		const targetQuantity = purchaseQuantity ?? Number(c.total_quantity)
-		const maxQuantity = toNumber(c.max_quantity)
+		const purchaseQuantity = c.purchase_quantity
+		const targetQuantity = purchaseQuantity ?? c.total_quantity
+		const maxQuantity = c.max_quantity
 		return {
 			key: `snapshot-${index}`,
 			ataItemId: null,
@@ -138,10 +136,9 @@ export function buildSnapshotAnnexRows(
 			deliveriesInValidity: null,
 			cycleConsumption: null,
 			suggestedMinOrderQuantity: null,
-			minOrderQuantity: toNumber(c.min_order_quantity),
+			minOrderQuantity: c.min_order_quantity,
 			minOrderSource: null,
-			// `Number(...)`: numeric chega STRING do Drizzle apesar do tipo gerado dizer number.
-			unitPrice: live?.unit_price != null ? Number(live.unit_price) : toNumber(c.unit_price),
+			unitPrice: live?.unit_price ?? c.unit_price,
 			warnings: [],
 			choices: null,
 		}

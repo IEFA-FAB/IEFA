@@ -38,18 +38,18 @@ export interface AtaSnapshotComponent {
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
-	total_quantity: string
+	total_quantity: number
 	purchase_item_description: string | null
 	purchase_measure_unit: string | null
-	purchase_quantity: string | null
+	purchase_quantity: number | null
 	catmat_item_codigo: number | null
-	unit_price: string | null
+	unit_price: number | null
 	snapshot_source: string
 	/** Limites resolvidos na publicação; nulos em atas publicadas antes do anexo existir. */
 	max_margin_percent: number | null
-	max_quantity: string | null
+	max_quantity: number | null
 	delivery_cycle: string | null
-	min_order_quantity: string | null
+	min_order_quantity: number | null
 }
 
 /** Metadados de integridade computados por request (não persistidos). */
