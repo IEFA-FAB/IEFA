@@ -1,43 +1,38 @@
+/**
+ * Suíte de INTEGRAÇÃO das rotas legadas de `/api/*` — bate no Supabase REAL.
+ *
+ * Mora fora de `src/` por dois motivos, e os dois são o mesmo defeito visto de ângulos
+ * diferentes:
+ *
+ * 1. Ela não é gate de PR. Enquanto rodava junto com os testes de unidade no `check-api`,
+ *    uma consulta lenta em produção virava vermelho no CI — e, por `needs:`, bloqueava
+ *    build e deploy de um app que nem foi tocado pelo diff.
+ * 2. `routes.auth.test.ts` fixa o env de `routes.ts` num dublê em loopback, e o Bun roda
+ *    todos os arquivos de teste de uma invocação no MESMO processo. Em `src/`, as duas
+ *    suítes disputariam o mesmo módulo já carregado. Em processos separados, não.
+ *
+ * Como rodar: `API_RUN_INTEGRATION=true bun run test:integration` em `apps/api`, com
+ * `API_SUPABASE_URL`, `API_SUPABASE_SERVICE_ROLE_KEY` e `ADMIN_SECRET` exportados.
+ * Sem a flag, tudo aqui fica em skip — isso é o esperado, não falha.
+ */
+
 import { describe, expect, test } from "bun:test"
-import { createClient } from "@supabase/supabase-js"
 
-// Integration tests — require real env vars: API_SUPABASE_URL, API_SUPABASE_SERVICE_ROLE_KEY
-// Tests are skipped automatically when env vars are not set.
+const RUN_INTEGRATION = process.env.API_RUN_INTEGRATION === "true"
 
-const hasEnv = !!process.env.API_SUPABASE_URL && !!process.env.API_SUPABASE_SERVICE_ROLE_KEY && !!process.env.ADMIN_SECRET
-
-async function canReachSupabase() {
-	if (!hasEnv) return false
-
-	const supabaseUrl = process.env.API_SUPABASE_URL
-	const serviceRoleKey = process.env.API_SUPABASE_SERVICE_ROLE_KEY
-
-	if (!supabaseUrl || !serviceRoleKey) return false
-
-	try {
-		const fetchWithTimeout = ((input: string | URL | Request, init?: RequestInit) =>
-			fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch
-
-		// opinions: sisub → core no split de schemas por domínio, core → kitchen na
-		// promoção do núcleo (20260901120400). A view de compatibilidade em core
-		// ainda responde, mas a sonda tem que bater na tabela real.
-		const supabase = createClient(supabaseUrl, serviceRoleKey, {
-			db: { schema: "kitchen" },
-			auth: { persistSession: false },
-			global: { fetch: fetchWithTimeout },
-		})
-
-		const { error } = await supabase.from("opinions").select("id").limit(1)
-		return !error
-	} catch {
-		return false
+// Faltar credencial com a flag LIGADA é erro, não skip: o pedido foi explícito, e um skip
+// silencioso aqui é a suíte que "passa" sem ter tocado em banco nenhum.
+if (RUN_INTEGRATION) {
+	const missing = ["API_SUPABASE_URL", "API_SUPABASE_SERVICE_ROLE_KEY", "ADMIN_SECRET"].filter((name) => !process.env[name])
+	if (missing.length > 0) {
+		throw new Error(`API_RUN_INTEGRATION=true exige as variáveis: ${missing.join(", ")}`)
 	}
 }
 
-const canRunIntegration = await canReachSupabase()
-
-// Dynamic import prevents module-level ZodError when env vars are absent
-const { api } = canRunIntegration ? await import("./routes") : { api: null as any }
+// Import DINÂMICO: `env.ts` valida na carga do módulo, e sem a flag não há credencial —
+// o estático derrubaria o arquivo em ZodError antes do primeiro skip.
+type RoutesModule = typeof import("../../src/api/routes.ts")
+const { api } = RUN_INTEGRATION ? await import("../../src/api/routes.ts") : ({ api: null } as unknown as RoutesModule)
 
 // As rotas com dado pessoal deixaram de ser anônimas; a suíte de integração passa a mandar
 // o segredo, senão ela testaria o 401 achando que testa o contrato de dados.
@@ -47,7 +42,7 @@ async function get(path: string) {
 	return { res, body: body as unknown[] }
 }
 
-describe.skipIf(!canRunIntegration)("Integration: GET /opinion", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /opinion", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/opinion?limit=10")
 		expect(res.status).toBe(200)
@@ -91,7 +86,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /opinion", () => {
 	})
 })
 
-describe.skipIf(!canRunIntegration)("Integration: GET /rancho_previsoes", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /rancho_previsoes", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/rancho_previsoes?limit=10")
 		expect(res.status).toBe(200)
@@ -136,7 +131,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /rancho_previsoes", () => 
 	})
 })
 
-describe.skipIf(!canRunIntegration)("Integration: GET /wherewhowhen", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /wherewhowhen", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/wherewhowhen?limit=10")
 		expect(res.status).toBe(200)
@@ -169,7 +164,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /wherewhowhen", () => {
 	})
 })
 
-describe.skipIf(!canRunIntegration)("Integration: GET /user-military-data", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /user-military-data", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/user-military-data?limit=10")
 		expect(res.status).toBe(200)
@@ -214,7 +209,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /user-military-data", () =
 	})
 })
 
-describe.skipIf(!canRunIntegration)("Integration: GET /user-data", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /user-data", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/user-data?limit=10")
 		expect(res.status).toBe(200)
@@ -248,7 +243,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /user-data", () => {
 	})
 })
 
-describe.skipIf(!canRunIntegration)("Integration: GET /units", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /units", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/units")
 		expect(res.status).toBe(200)
@@ -286,7 +281,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /units", () => {
 	})
 })
 
-describe.skipIf(!canRunIntegration)("Integration: GET /mess-halls", () => {
+describe.skipIf(!RUN_INTEGRATION)("Integration: GET /mess-halls", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/mess-halls")
 		expect(res.status).toBe(200)

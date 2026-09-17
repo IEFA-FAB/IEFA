@@ -6,32 +6,41 @@
  * com número de ordem, e `/rancho_previsoes` + `/wherewhowhen` o rastro de presença por
  * pessoa. Este teste é o que impede que voltem a ser públicas.
  *
- * O env é preenchido ANTES do import de `./routes.ts` porque `env.ts` valida na carga do
- * módulo; a URL aponta para uma porta fechada de propósito, então o handler que passar pelo
- * guard falha no fetch em vez de tocar em banco nenhum.
+ * É teste de UNIDADE e é HERMÉTICO: o PostgREST fica num dublê em loopback, SEMPRE — nunca
+ * em ambiente real, nem quando a máquina (ou o CI) tem credencial de produção exportada.
+ * A versão anterior só usava o dublê quando `API_SUPABASE_URL` estava ausente; no
+ * `check-api`, que injetava as credenciais de produção, os casos positivos saíam pela rede
+ * até o banco de produção e estouravam o timeout de 5 s sempre que a produção estava lenta.
+ * Vermelho intermitente sem relação com o diff, derrubando build e deploy por `needs:`.
+ *
+ * O preço dessa decisão é que este arquivo FIXA o env de `routes.ts` no processo (o módulo
+ * lê `env.ts` na carga). Por isso a suíte que precisa do ambiente real mora fora de `src/` —
+ * em `tests/integration/`, rodada por `bun run test:integration`, em outro processo.
  */
 
 import { afterAll, describe, expect, test } from "bun:test"
 
-// Bun roda TODOS os arquivos de teste no MESMO processo, e `routes.ts` fixa a URL do Supabase
-// na carga do módulo. Sobrescrever o env aqui sequestrava o `routes.test.ts` de integração:
-// ele importava o mesmo módulo já apontado para o dublê e pulava os 30 casos em silêncio.
-// Por isso o dublê SÓ entra quando não há ambiente real — com env de integração, este arquivo
-// usa o mesmo destino que os outros.
-const hasRealEnv = !!process.env.API_SUPABASE_URL && !!process.env.API_SUPABASE_SERVICE_ROLE_KEY
+/** Quantas requisições chegaram ao dublê — é o que prova que o guard deixou passar. */
+let upstreamHits = 0
 
 // PostgREST de mentira: responde `[]` a qualquer consulta. Sem ele o caso positivo do guard
-// dependeria de rede — e um handler pendurado em socket fechado transforma o contrato de
-// autorização num teste de timeout.
-const stub = hasRealEnv ? null : Bun.serve({ port: 0, fetch: () => new Response("[]", { headers: { "Content-Type": "application/json" } }) })
+// dependeria de rede — e um handler pendurado num socket remoto transforma o contrato de
+// autorização num teste de latência de terceiros.
+const stub = Bun.serve({
+	port: 0,
+	fetch: () => {
+		upstreamHits++
+		return new Response("[]", { headers: { "Content-Type": "application/json" } })
+	},
+})
 
-if (stub) {
-	process.env.API_SUPABASE_URL = `http://127.0.0.1:${stub.port}`
-	process.env.API_SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key"
-}
-process.env.ADMIN_SECRET ??= "test-admin-secret"
+// Atribuição INCONDICIONAL de propósito: credencial de produção no ambiente não pode mudar
+// para onde este teste aponta.
+process.env.API_SUPABASE_URL = `http://127.0.0.1:${stub.port}`
+process.env.API_SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key"
+process.env.ADMIN_SECRET = "test-admin-secret"
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET as string
+const ADMIN_SECRET = process.env.ADMIN_SECRET
 
 // Import DINÂMICO: `import` estático é içado acima das atribuições acima, e `env.ts` valida
 // na carga do módulo — com o estático o teste morria em ZodError antes de rodar.
@@ -42,6 +51,14 @@ const RESTRICTED = [...RESTRICTED_PATHS]
 
 /** Estrutura organizacional, não pessoa: segue pública. */
 const PUBLIC = ["/units", "/mess-halls"]
+
+describe("inventário das rotas protegidas", () => {
+	// Os casos abaixo derivam de `RESTRICTED_PATHS`; sem esta âncora, apagar uma rota da lista
+	// tiraria o guard dela E o teste dela no mesmo commit, deixando a suíte verde.
+	test("a lista do roteador cobre todas as rotas com dado pessoal", () => {
+		expect(new Set(RESTRICTED)).toEqual(new Set(["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"]))
+	})
+})
 
 describe("rotas com dado pessoal exigem x-admin-secret", () => {
 	test.each(RESTRICTED)("%s sem header devolve 401", async (path) => {
@@ -55,8 +72,18 @@ describe("rotas com dado pessoal exigem x-admin-secret", () => {
 	})
 
 	test.each(RESTRICTED)("%s com o segredo certo responde normalmente", async (path) => {
+		const before = upstreamHits
 		const res = await api.request(path, { headers: { "x-admin-secret": ADMIN_SECRET } })
 		expect(res.status).toBe(200)
+		// 200 sozinho não distingue "o guard deixou passar" de "alguém trocou o handler por um
+		// stub": o contador prova que a requisição chegou ao fim da cadeia.
+		expect(upstreamHits).toBeGreaterThan(before)
+	})
+
+	test("rota protegida não chega ao handler sem credencial", async () => {
+		const before = upstreamHits
+		await api.request("/user-military-data")
+		expect(upstreamHits).toBe(before)
 	})
 
 	test("o guard não vaza o corpo do erro", async () => {
@@ -78,5 +105,5 @@ describe("rotas de estrutura organizacional seguem públicas", () => {
 })
 
 afterAll(() => {
-	stub?.stop(true)
+	stub.stop(true)
 })
