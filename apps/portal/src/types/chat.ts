@@ -1,5 +1,3 @@
-export type HealthStatus = "loading" | "ok" | "error"
-
 export type ChatMessage = {
 	id: string
 	role: "user" | "assistant"
