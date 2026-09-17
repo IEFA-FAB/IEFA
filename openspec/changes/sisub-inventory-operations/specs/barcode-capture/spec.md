@@ -20,12 +20,16 @@ Quando o foco não estiver em campo editável, a tela SHALL reconhecer como leit
 - **WHEN** o leitor da estação não envia Enter e a calibração registrou término por timeout
 - **THEN** a leitura é processada após o intervalo configurado sem nova tecla
 
-### Requirement: Calibração do leitor por estação
-O sistema SHALL oferecer a tela "Testar leitor" que mostra texto bruto, intervalo medido entre teclas, código interpretado e identificadores GS1 extraídos, e SHALL salvar por estação (armazenamento local declarado na Política de Cookies) intervalo máximo, comprimento mínimo, terminador, prefixo, sufixo e substituto do separador GS.
+### Requirement: Calibração do leitor
+O sistema SHALL oferecer a tela "Testar leitor" que mostra texto bruto, intervalo medido entre teclas, código interpretado e identificadores GS1 extraídos, e SHALL persistir o perfil calibrado (intervalo máximo, comprimento mínimo, terminador, prefixo, sufixo e substituto do separador GS) **por usuário e cozinha no banco**. O perfil MUST NOT ser gravado em armazenamento do navegador: chave nova ali exige versão nova da Política de Cookies.
 
 #### Scenario: Calibração de leitor lento
 - **WHEN** o operador lê um código de teste com um leitor que emite teclas a 60 ms
-- **THEN** a tela propõe intervalo máximo acima do medido e salva ao confirmar
+- **THEN** a tela propõe intervalo máximo acima do medido e salva o perfil ao confirmar
+
+#### Scenario: Perfil segue o operador
+- **WHEN** o mesmo operador abre a conferência em outra máquina da cozinha
+- **THEN** o perfil calibrado por ele naquela cozinha é aplicado
 
 #### Scenario: Layout de teclado corrompendo GS1
 - **WHEN** a leitura de teste de uma etiqueta GS1-128 mostra o lote grudado na validade

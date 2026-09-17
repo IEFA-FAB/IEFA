@@ -368,9 +368,17 @@ Caminho principal: **campo de leitura sempre visível e focado** nas telas de le
 de captura global quando o foco não está em campo editável — desligado em buscas e inputs; os caracteres
 de uma rajada detectada fora de campo **são descartados**, não devolvidos. Parâmetros **medidos** na tela
 "Testar leitor" (intervalo entre teclas do leitor real, comprimento mínimo — EAN-8 e UPC-E têm 8 —,
-terminador ou timeout sem terminador) e salvos por estação; default inicial 80 ms, o valor atual do
-`GtinScannerField`. GS1: symbology identifier, `\x1D` e substitutos configuráveis. Câmera:
-`BarcodeDetector` ou `@zxing/browser` sob demanda (o `qr-scanner` atual só lê QR).
+terminador ou timeout sem terminador); default inicial 80 ms, o valor atual do `GtinScannerField`. GS1:
+symbology identifier, `\x1D` e substitutos configuráveis. Câmera: `BarcodeDetector` ou `@zxing/browser`
+sob demanda (o `qr-scanner` atual só lê QR).
+
+**O perfil calibrado é gravado no banco, por usuário × cozinha — não em `localStorage`.** A intenção
+original era "por estação", que é o recorte físico correto, mas chave nova de armazenamento local exige
+**versão nova da Política de Cookies** (linha nova em `iefa.legal_documents`, com ciência de todos os
+usuários) por um dado que é preferência de periférico. O preço não se justifica: quem opera uma estação
+é quase sempre a mesma pessoa, e o perfil no banco ainda atravessa troca de máquina e reinstalação de
+navegador. Se algum dia uma estação for compartilhada por operadores com leitores diferentes, a saída é
+um rótulo de estação escolhido na tela — e continua sem tocar no navegador.
 
 ### D18 — Configuração por cozinha
 

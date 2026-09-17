@@ -29,8 +29,8 @@ integração do sisub antes do PR.
 - [ ] 1.3 [sisub-domain] `cnpj.ts` e chave de acesso alfanuméricas (DV módulo 11 com ASCII − 48; CPF de emitente); testes com letras
 - [ ] 1.4 [sisub] Componente `ScanInput` (campo focado, Enter/Tab não submete, refoco após leitura)
 - [ ] 1.5 [sisub] Hook de captura global desligado em campo editável, parâmetros da calibração, término por timeout; testes com eventos sintéticos
-- [ ] 1.6 [sisub] Tela "Testar leitor" com medição de intervalo e salvamento por estação
-- [ ] 1.7 [legal-kit] Declarar a chave de `localStorage` do leitor no inventário da Política de Cookies (versão nova do documento = linha nova)
+- [ ] 1.6 [database] `inventory.scanner_profile` (usuário × cozinha) com os parâmetros calibrados
+- [ ] 1.7 [sisub] Tela "Testar leitor" com medição de intervalo, AIs lidos e gravação do perfil
 - [ ] 1.8 [sisub] Leitura por câmera: `BarcodeDetector` + `@zxing/browser` em import dinâmico; conferir CSP/`Permissions-Policy`
 - [ ] 1.9 [sisub] `GtinScannerField` passa a usar `ScanInput`; remover `burstKeys`; PR da Fase 1
 
@@ -126,7 +126,7 @@ integração do sisub antes do PR.
 - [ ] 6.9 [sisub] Folha de contagem com `ScanInput`, busca, lote novo e achado
 - [ ] 6.10 [sisub] Fila IndexedDB — gravação local e medição de desvio de relógio
 - [ ] 6.11 [sisub] Fila IndexedDB — reenvio ordenado idempotente e indicador de pendentes
-- [ ] 6.12 [legal-kit] Declarar o IndexedDB da contagem no inventário da Política de Cookies (entrada manual; o teste não o detecta)
+- [ ] 6.12 [legal-kit] Declarar o IndexedDB da contagem no inventário da Política de Cookies — versão nova do documento (linha nova em `iefa.legal_documents`), porque ali o armazenamento local é inevitável: é o que permite contar sem sinal
 - [ ] 6.13 [sisub] Revisão: diferenças, não contados, recontagem, aprovação e relatório de exceções; PR da Fase 6
 
 ## 7. A caminho e manifestação
