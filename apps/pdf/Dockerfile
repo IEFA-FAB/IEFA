@@ -120,7 +120,6 @@ LABEL org.opencontainers.image.source="https://github.com/IEFA-FAB/IEFA" \
 
 USER root
 RUN apk upgrade --no-cache
-USER nginx
 
 COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
 COPY --chown=nginx:nginx --from=wasm /wasm /usr/share/nginx/html/wasm
@@ -135,7 +134,9 @@ COPY --chown=nginx:nginx --chmod=755 --from=source /src/nginx-ipv6.sh /docker-en
 RUN printf 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n' \
       | tee -a /etc/nginx/security-headers.conf >> /etc/nginx/security-headers-docs.conf \
     && printf 'ok\n' > /usr/share/nginx/html/health \
-    && mkdir -p /etc/nginx/tmp
+    && mkdir -p /etc/nginx/tmp \
+    && chown nginx:nginx /usr/share/nginx/html/health /etc/nginx/tmp
+USER nginx
 
 ENV PORT=8080 \
     DISABLE_IPV6=true
