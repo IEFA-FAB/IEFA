@@ -181,6 +181,8 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Insumos", url: "/global/ingredients", icon: Wheat },
 			{ title: "Preparações", url: "/global/recipes", icon: UtensilsCrossed },
 			{ title: "Planos Semanais", url: "/global/weekly-plans", icon: CalendarDays },
+			{ title: "Eventos", url: "/global/events", icon: CalendarRange },
+			{ title: "Exceções", url: "/global/exceptions", icon: Sandwich },
 			{ title: "Equipamentos", url: "/global/equipment", icon: CookingPot, minLevel: 2 },
 			{ title: "Locais", url: "/global/places-manager", icon: MapPin, minLevel: 2 },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2 },

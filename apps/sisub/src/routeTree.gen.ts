@@ -76,6 +76,12 @@ import { Route as ProtectedModulesStorageIndexRouteImport } from './routes/_prot
 import { Route as ProtectedModulesStorageKitchenIdRouteRouteImport } from './routes/_protected/_modules/storage/$kitchenId/route'
 import { Route as ProtectedModulesUnitIndexRouteImport } from './routes/_protected/_modules/unit/index'
 import { Route as ProtectedModulesUnitUnitIdRouteRouteImport } from './routes/_protected/_modules/unit/$unitId/route'
+import { Route as ProtectedModulesGlobalEventsIndexRouteImport } from './routes/_protected/_modules/global/events/index'
+import { Route as ProtectedModulesGlobalEventsEventIdRouteImport } from './routes/_protected/_modules/global/events/$eventId'
+import { Route as ProtectedModulesGlobalEventsNewRouteImport } from './routes/_protected/_modules/global/events/new'
+import { Route as ProtectedModulesGlobalExceptionsIndexRouteImport } from './routes/_protected/_modules/global/exceptions/index'
+import { Route as ProtectedModulesGlobalExceptionsExceptionIdRouteImport } from './routes/_protected/_modules/global/exceptions/$exceptionId'
+import { Route as ProtectedModulesGlobalExceptionsNewRouteImport } from './routes/_protected/_modules/global/exceptions/new'
 import { Route as ProtectedModulesGlobalFrozenPreparationsIndexRouteImport } from './routes/_protected/_modules/global/frozen-preparations/index'
 import { Route as ProtectedModulesGlobalIngredientsIndexRouteImport } from './routes/_protected/_modules/global/ingredients/index'
 import { Route as ProtectedModulesGlobalIngredientsIngredientIdRouteImport } from './routes/_protected/_modules/global/ingredients/$ingredientId'
@@ -524,6 +530,42 @@ const ProtectedModulesUnitUnitIdRouteRoute =
   ProtectedModulesUnitUnitIdRouteRouteImport.update({
     id: '/unit/$unitId',
     path: '/unit/$unitId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalEventsIndexRoute =
+  ProtectedModulesGlobalEventsIndexRouteImport.update({
+    id: '/global/events/',
+    path: '/global/events/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalEventsEventIdRoute =
+  ProtectedModulesGlobalEventsEventIdRouteImport.update({
+    id: '/global/events/$eventId',
+    path: '/global/events/$eventId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalEventsNewRoute =
+  ProtectedModulesGlobalEventsNewRouteImport.update({
+    id: '/global/events/new',
+    path: '/global/events/new',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalExceptionsIndexRoute =
+  ProtectedModulesGlobalExceptionsIndexRouteImport.update({
+    id: '/global/exceptions/',
+    path: '/global/exceptions/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalExceptionsExceptionIdRoute =
+  ProtectedModulesGlobalExceptionsExceptionIdRouteImport.update({
+    id: '/global/exceptions/$exceptionId',
+    path: '/global/exceptions/$exceptionId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalExceptionsNewRoute =
+  ProtectedModulesGlobalExceptionsNewRouteImport.update({
+    id: '/global/exceptions/new',
+    path: '/global/exceptions/new',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesGlobalFrozenPreparationsIndexRoute =
@@ -1012,6 +1054,10 @@ export interface FileRoutesByFullPath {
   '/messhall/': typeof ProtectedModulesMesshallIndexRoute
   '/storage/': typeof ProtectedModulesStorageIndexRoute
   '/unit/': typeof ProtectedModulesUnitIndexRoute
+  '/global/events/$eventId': typeof ProtectedModulesGlobalEventsEventIdRoute
+  '/global/events/new': typeof ProtectedModulesGlobalEventsNewRoute
+  '/global/exceptions/$exceptionId': typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
+  '/global/exceptions/new': typeof ProtectedModulesGlobalExceptionsNewRoute
   '/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
@@ -1042,6 +1088,8 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
+  '/global/events/': typeof ProtectedModulesGlobalEventsIndexRoute
+  '/global/exceptions/': typeof ProtectedModulesGlobalExceptionsIndexRoute
   '/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -1141,6 +1189,10 @@ export interface FileRoutesByTo {
   '/messhall': typeof ProtectedModulesMesshallIndexRoute
   '/storage': typeof ProtectedModulesStorageIndexRoute
   '/unit': typeof ProtectedModulesUnitIndexRoute
+  '/global/events/$eventId': typeof ProtectedModulesGlobalEventsEventIdRoute
+  '/global/events/new': typeof ProtectedModulesGlobalEventsNewRoute
+  '/global/exceptions/$exceptionId': typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
+  '/global/exceptions/new': typeof ProtectedModulesGlobalExceptionsNewRoute
   '/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
@@ -1170,6 +1222,8 @@ export interface FileRoutesByTo {
   '/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
+  '/global/events': typeof ProtectedModulesGlobalEventsIndexRoute
+  '/global/exceptions': typeof ProtectedModulesGlobalExceptionsIndexRoute
   '/global/frozen-preparations': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes': typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -1278,6 +1332,10 @@ export interface FileRoutesById {
   '/_protected/_modules/messhall/': typeof ProtectedModulesMesshallIndexRoute
   '/_protected/_modules/storage/': typeof ProtectedModulesStorageIndexRoute
   '/_protected/_modules/unit/': typeof ProtectedModulesUnitIndexRoute
+  '/_protected/_modules/global/events/$eventId': typeof ProtectedModulesGlobalEventsEventIdRoute
+  '/_protected/_modules/global/events/new': typeof ProtectedModulesGlobalEventsNewRoute
+  '/_protected/_modules/global/exceptions/$exceptionId': typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
+  '/_protected/_modules/global/exceptions/new': typeof ProtectedModulesGlobalExceptionsNewRoute
   '/_protected/_modules/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/_protected/_modules/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/_protected/_modules/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
@@ -1308,6 +1366,8 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/reconciliation': typeof ProtectedModulesUnitUnitIdReconciliationRoute
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/_protected/_modules/unit/$unitId/siafi': typeof ProtectedModulesUnitUnitIdSiafiRoute
+  '/_protected/_modules/global/events/': typeof ProtectedModulesGlobalEventsIndexRoute
+  '/_protected/_modules/global/exceptions/': typeof ProtectedModulesGlobalExceptionsIndexRoute
   '/_protected/_modules/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/_protected/_modules/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/_protected/_modules/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -1415,6 +1475,10 @@ export interface FileRouteTypes {
     | '/messhall/'
     | '/storage/'
     | '/unit/'
+    | '/global/events/$eventId'
+    | '/global/events/new'
+    | '/global/exceptions/$exceptionId'
+    | '/global/exceptions/new'
     | '/global/ingredients/$ingredientId'
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
@@ -1445,6 +1509,8 @@ export interface FileRouteTypes {
     | '/unit/$unitId/reconciliation'
     | '/unit/$unitId/settings'
     | '/unit/$unitId/siafi'
+    | '/global/events/'
+    | '/global/exceptions/'
     | '/global/frozen-preparations/'
     | '/global/ingredients/'
     | '/global/recipes/'
@@ -1544,6 +1610,10 @@ export interface FileRouteTypes {
     | '/messhall'
     | '/storage'
     | '/unit'
+    | '/global/events/$eventId'
+    | '/global/events/new'
+    | '/global/exceptions/$exceptionId'
+    | '/global/exceptions/new'
     | '/global/ingredients/$ingredientId'
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
@@ -1573,6 +1643,8 @@ export interface FileRouteTypes {
     | '/unit/$unitId/reconciliation'
     | '/unit/$unitId/settings'
     | '/unit/$unitId/siafi'
+    | '/global/events'
+    | '/global/exceptions'
     | '/global/frozen-preparations'
     | '/global/ingredients'
     | '/global/recipes'
@@ -1680,6 +1752,10 @@ export interface FileRouteTypes {
     | '/_protected/_modules/messhall/'
     | '/_protected/_modules/storage/'
     | '/_protected/_modules/unit/'
+    | '/_protected/_modules/global/events/$eventId'
+    | '/_protected/_modules/global/events/new'
+    | '/_protected/_modules/global/exceptions/$exceptionId'
+    | '/_protected/_modules/global/exceptions/new'
     | '/_protected/_modules/global/ingredients/$ingredientId'
     | '/_protected/_modules/global/recipes/new'
     | '/_protected/_modules/global/weekly-plans/$planId'
@@ -1710,6 +1786,8 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/reconciliation'
     | '/_protected/_modules/unit/$unitId/settings'
     | '/_protected/_modules/unit/$unitId/siafi'
+    | '/_protected/_modules/global/events/'
+    | '/_protected/_modules/global/exceptions/'
     | '/_protected/_modules/global/frozen-preparations/'
     | '/_protected/_modules/global/ingredients/'
     | '/_protected/_modules/global/recipes/'
@@ -2232,6 +2310,48 @@ declare module '@tanstack/react-router' {
       path: '/unit/$unitId'
       fullPath: '/unit/$unitId'
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdRouteRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/events/': {
+      id: '/_protected/_modules/global/events/'
+      path: '/global/events'
+      fullPath: '/global/events/'
+      preLoaderRoute: typeof ProtectedModulesGlobalEventsIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/events/$eventId': {
+      id: '/_protected/_modules/global/events/$eventId'
+      path: '/global/events/$eventId'
+      fullPath: '/global/events/$eventId'
+      preLoaderRoute: typeof ProtectedModulesGlobalEventsEventIdRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/events/new': {
+      id: '/_protected/_modules/global/events/new'
+      path: '/global/events/new'
+      fullPath: '/global/events/new'
+      preLoaderRoute: typeof ProtectedModulesGlobalEventsNewRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/exceptions/': {
+      id: '/_protected/_modules/global/exceptions/'
+      path: '/global/exceptions'
+      fullPath: '/global/exceptions/'
+      preLoaderRoute: typeof ProtectedModulesGlobalExceptionsIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/exceptions/$exceptionId': {
+      id: '/_protected/_modules/global/exceptions/$exceptionId'
+      path: '/global/exceptions/$exceptionId'
+      fullPath: '/global/exceptions/$exceptionId'
+      preLoaderRoute: typeof ProtectedModulesGlobalExceptionsExceptionIdRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/exceptions/new': {
+      id: '/_protected/_modules/global/exceptions/new'
+      path: '/global/exceptions/new'
+      fullPath: '/global/exceptions/new'
+      preLoaderRoute: typeof ProtectedModulesGlobalExceptionsNewRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/global/frozen-preparations/': {
@@ -3051,10 +3171,16 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesMesshallIndexRoute: typeof ProtectedModulesMesshallIndexRoute
   ProtectedModulesStorageIndexRoute: typeof ProtectedModulesStorageIndexRoute
   ProtectedModulesUnitIndexRoute: typeof ProtectedModulesUnitIndexRoute
+  ProtectedModulesGlobalEventsEventIdRoute: typeof ProtectedModulesGlobalEventsEventIdRoute
+  ProtectedModulesGlobalEventsNewRoute: typeof ProtectedModulesGlobalEventsNewRoute
+  ProtectedModulesGlobalExceptionsExceptionIdRoute: typeof ProtectedModulesGlobalExceptionsExceptionIdRoute
+  ProtectedModulesGlobalExceptionsNewRoute: typeof ProtectedModulesGlobalExceptionsNewRoute
   ProtectedModulesGlobalIngredientsIngredientIdRoute: typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   ProtectedModulesGlobalRecipesNewRoute: typeof ProtectedModulesGlobalRecipesNewRoute
   ProtectedModulesGlobalWeeklyPlansPlanIdRoute: typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   ProtectedModulesGlobalWeeklyPlansNewRoute: typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  ProtectedModulesGlobalEventsIndexRoute: typeof ProtectedModulesGlobalEventsIndexRoute
+  ProtectedModulesGlobalExceptionsIndexRoute: typeof ProtectedModulesGlobalExceptionsIndexRoute
   ProtectedModulesGlobalFrozenPreparationsIndexRoute: typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   ProtectedModulesGlobalIngredientsIndexRoute: typeof ProtectedModulesGlobalIngredientsIndexRoute
   ProtectedModulesGlobalRecipesIndexRoute: typeof ProtectedModulesGlobalRecipesIndexRoute
@@ -3121,6 +3247,13 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesMesshallIndexRoute: ProtectedModulesMesshallIndexRoute,
   ProtectedModulesStorageIndexRoute: ProtectedModulesStorageIndexRoute,
   ProtectedModulesUnitIndexRoute: ProtectedModulesUnitIndexRoute,
+  ProtectedModulesGlobalEventsEventIdRoute:
+    ProtectedModulesGlobalEventsEventIdRoute,
+  ProtectedModulesGlobalEventsNewRoute: ProtectedModulesGlobalEventsNewRoute,
+  ProtectedModulesGlobalExceptionsExceptionIdRoute:
+    ProtectedModulesGlobalExceptionsExceptionIdRoute,
+  ProtectedModulesGlobalExceptionsNewRoute:
+    ProtectedModulesGlobalExceptionsNewRoute,
   ProtectedModulesGlobalIngredientsIngredientIdRoute:
     ProtectedModulesGlobalIngredientsIngredientIdRoute,
   ProtectedModulesGlobalRecipesNewRoute: ProtectedModulesGlobalRecipesNewRoute,
@@ -3128,6 +3261,10 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesGlobalWeeklyPlansPlanIdRoute,
   ProtectedModulesGlobalWeeklyPlansNewRoute:
     ProtectedModulesGlobalWeeklyPlansNewRoute,
+  ProtectedModulesGlobalEventsIndexRoute:
+    ProtectedModulesGlobalEventsIndexRoute,
+  ProtectedModulesGlobalExceptionsIndexRoute:
+    ProtectedModulesGlobalExceptionsIndexRoute,
   ProtectedModulesGlobalFrozenPreparationsIndexRoute:
     ProtectedModulesGlobalFrozenPreparationsIndexRoute,
   ProtectedModulesGlobalIngredientsIndexRoute:

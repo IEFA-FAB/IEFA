@@ -296,10 +296,18 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	// Fonte: template + itens juntos (uma query relacional).
 	const source = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateInKitchen.findFirst({
-			columns: { id: true, kitchenId: true, name: true, deletedAt: true, templateType: true },
+			columns: { id: true, kitchenId: true, name: true, deletedAt: true, templateType: true, expectedMonthlyOccurrences: true },
 			with: {
 				menuTemplateItemsInKitchens: {
-					columns: { dayOfWeek: true, mealTypeId: true, recipeId: true, itemGroup: true, sortOrder: true, recommendedProportion: true },
+					columns: {
+						dayOfWeek: true,
+						mealTypeId: true,
+						recipeId: true,
+						headcountOverride: true,
+						itemGroup: true,
+						sortOrder: true,
+						recommendedProportion: true,
+					},
 				},
 			},
 			where: eq(menuTemplateInKitchen.id, input.sourceTemplateId),
@@ -334,6 +342,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 					kitchenId: targetKitchenId,
 					baseTemplateId: input.sourceTemplateId,
 					templateType: source.templateType ?? "weekly",
+					// Exceção sem a recorrência vira 1 ocorrência no custeio da Ata.
+					expectedMonthlyOccurrences: source.expectedMonthlyOccurrences,
 				})
 				.returning()
 		)
@@ -345,6 +355,9 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				dayOfWeek: item.dayOfWeek,
 				mealTypeId: item.mealTypeId,
 				recipeId: item.recipeId,
+				// Evento e exceção não têm efetivo base: o pax mora no item. Descartá-lo
+				// entregava à cozinha uma adaptação do modelo global sem quantitativo nenhum.
+				headcountOverride: item.headcountOverride,
 				itemGroup: item.itemGroup,
 				sortOrder: item.sortOrder ?? 0,
 				recommendedProportion: item.recommendedProportion,
