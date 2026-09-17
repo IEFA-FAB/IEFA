@@ -89,9 +89,15 @@ export async function searchUsersByEmail(coreReadClient: AnySupabaseClient, emai
  *
  * Padrão update-first → insert → retry-em-23505 para ser seguro sob concorrência.
  * O select-then-insert simples tem corrida (dois admins simultâneos podem ambos ver
- * "não existe" e inserir). Não usamos upsert(onConflict) porque o PostgREST não infere
- * índice ÚNICO PARCIAL (o grant unscoped é garantido por índice parcial no DB). A
- * garantia dura fica no DB (índice único); a corrida perde com 23505 e reaplica como update.
+ * "não existe" e inserir). A garantia dura fica no DB; a corrida perde com 23505 e
+ * reaplica como update.
+ *
+ * Quem produz esse 23505 é `user_permissions_grant_uniq` — único sobre
+ * (user_id, module, mess_hall_id, kitchen_id, unit_id) com `nulls not distinct`
+ * (migração 20260917183328). Ele vale para QUALQUER módulo e QUALQUER escopo, e
+ * substituiu os dois índices parciais que cobriam só `rumaer` e o `sucont` legado —
+ * enquanto a garantia era parcial, `sucont-1/3/4`, os módulos do sisub e os do Projeto α
+ * gravavam duas linhas na corrida, e revogar uma deixava a outra concedendo.
  */
 export async function grantUnscopedModulePermission(
 	accessControlClient: AnySupabaseClient,
@@ -116,7 +122,7 @@ export async function grantUnscopedModulePermission(
 	if (updErr) throw new Error(updErr.message)
 	if (updated && updated.length > 0) return { ok: true }
 
-	// 2. não existia → insere (índice único parcial impede duplicata de fato)
+	// 2. não existia → insere (o índice único do DB impede a duplicata de fato)
 	const { error: insErr } = await accessControlClient
 		.from("user_permissions")
 		.insert({ user_id: params.userId, module: params.module, level: params.level, mess_hall_id: null, kitchen_id: null, unit_id: null })

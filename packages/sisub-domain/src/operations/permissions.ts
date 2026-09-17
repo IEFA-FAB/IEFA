@@ -28,7 +28,8 @@ import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../gu
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
-import { isExpired, mutateOrFail, notExpired, runQuery } from "../utils/index.ts"
+import { DomainError } from "../types/errors.ts"
+import { describeDriverError, isExpired, mutateOrFail, notExpired, runQuery, unwrapPgError } from "../utils/index.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
 
 /**
@@ -249,11 +250,29 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 	)
 }
 
+/**
+ * Violação de `user_permissions_grant_uniq` — o único sobre
+ * (user_id, module, mess_hall_id, kitchen_id, unit_id) com `nulls not distinct`
+ * (migração 20260917183328), que é o que impede DUAS concessões do mesmo módulo e
+ * escopo para a mesma pessoa.
+ */
+export function isDuplicateGrantViolation(error: unknown): boolean {
+	// O código real fica em `.cause` (DrizzleQueryError) — `unwrapPgError` o resgata.
+	const pg = unwrapPgError(error)
+	return pg.code === "23505" && (pg.constraint_name ?? "").startsWith("user_permissions_grant_uniq")
+}
+
 export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	await runQuery("INSERT_FAILED", () =>
-		db.insert(userPermissionsInAccessControl).values({
+	// Cru (sem runQuery): o 23505 precisa ser inspecionado antes de virar DomainError.
+	// Este insert é direto — não checa se já existe — e antes do índice ele simplesmente
+	// gravava a segunda linha: a pessoa passava a aparecer duas vezes na tela e revogar
+	// apagava só uma. Agora o banco recusa, e a recusa precisa dizer O QUE fazer, porque
+	// o caminho existe: `fetchUserPermissionsAdmin` devolve o grant que já está lá —
+	// inclusive o vencido, marcado `expired` — e editá-lo é como se renova o acesso.
+	try {
+		await db.insert(userPermissionsInAccessControl).values({
 			userId: input.userId,
 			module: input.module,
 			level: input.level,
@@ -262,7 +281,15 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 			unitId: input.unit_id ?? null,
 			expiresAt: input.expires_at ?? null,
 		})
-	)
+	} catch (e) {
+		if (isDuplicateGrantViolation(e)) {
+			throw new DomainError(
+				"PERMISSION_ALREADY_EXISTS",
+				`Já existe uma concessão de "${input.module}" para este usuário neste escopo. Edite a concessão existente em vez de criar outra — se ela estiver vencida, renove o prazo por ali.`
+			)
+		}
+		throw new DomainError("INSERT_FAILED", describeDriverError(e))
+	}
 	return { success: true as const }
 }
 
