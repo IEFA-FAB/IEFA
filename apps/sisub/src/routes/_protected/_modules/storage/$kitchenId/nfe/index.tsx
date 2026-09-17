@@ -1,18 +1,24 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { FileUp, FileX2 } from "lucide-react"
+import { FileUp, FileX2, ScanLine } from "lucide-react"
 import { useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { ScanInput } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { listNfeDocumentsFn, uploadNfeFn } from "@/server/nfe.fn"
+import { claimNfeForKitchenFn, createNfeFromAccessKeyFn, listNfeDocumentsFn, uploadNfeFn } from "@/server/nfe.fn"
+import { fetchScannerProfileFn } from "@/server/scanner.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nfe/")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
-	loader: ({ params }) => listNfeDocumentsFn({ data: { kitchenId: Number(params.kitchenId) } }),
+	loader: async ({ params }) => {
+		const kitchenId = Number(params.kitchenId)
+		const [documents, scannerProfile] = await Promise.all([listNfeDocumentsFn({ data: { kitchenId } }), fetchScannerProfileFn({ data: { kitchenId } })])
+		return { documents, scannerProfile }
+	},
 	component: NfeListPage,
 	head: () => ({
 		meta: [{ title: "Notas Fiscais — SISUB" }],
@@ -29,7 +35,7 @@ function fmtDate(iso: string | null): string {
 }
 
 function NfeListPage() {
-	const documents = Route.useLoaderData()
+	const { documents, scannerProfile } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const fileInput = useRef<HTMLInputElement>(null)
@@ -50,11 +56,34 @@ function NfeListPage() {
 		}
 	}
 
+	async function registerKey(accessKey: string) {
+		setUploading(true)
+		try {
+			const result = await createNfeFromAccessKeyFn({ data: { kitchenId: Number(kitchenId), accessKey } })
+			toast.success(result.created ? "Nota registrada pela chave do DANFE — o XML completa os itens quando chegar" : "Esta nota já estava registrada")
+			router.invalidate()
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Falha ao registrar a chave")
+		} finally {
+			setUploading(false)
+		}
+	}
+
+	async function claim(nfeDocumentId: string) {
+		try {
+			await claimNfeForKitchenFn({ data: { nfeDocumentId, kitchenId: Number(kitchenId) } })
+			toast.success("Nota assumida por esta cozinha")
+			router.invalidate()
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Falha ao assumir a nota")
+		}
+	}
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
 				title="Notas Fiscais (NF-e)"
-				description="Entrada de estoque nasce do XML da nota — importe, confira o matching item → insumo e resolva as pendências."
+				description="A nota entra pelo XML ou pela chave do DANFE que vem com a mercadoria. O XML completa os itens quando chegar."
 			>
 				<input
 					ref={fileInput}
@@ -73,11 +102,40 @@ function NfeListPage() {
 			</PageHeader>
 
 			<Card>
+				<CardHeader className="pb-2">
+					<CardTitle className="flex items-center gap-2 text-subheading">
+						<ScanLine className="size-4" />
+						Chave do DANFE
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-2 pt-0">
+					<p className="text-sm text-muted-foreground">
+						Sem certificado digital, a SEFAZ não entrega a nota ao sistema. A chave impressa no DANFE que veio com o caminhão é o que permite registrar a
+						entrega antes do XML — e ela já diz fornecedor, série e número.
+					</p>
+					<ScanInput
+						label="Chave de acesso"
+						placeholder="Leia o código de barras do DANFE ou digite os 44 caracteres…"
+						disabled={uploading}
+						config={{
+							prefix: scannerProfile.prefix ?? undefined,
+							suffix: scannerProfile.suffix ?? undefined,
+							gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
+						}}
+						onReading={(reading) => {
+							if (reading.kind === "nfe_access_key") registerKey(reading.accessKey.key)
+							else toast.error("Isto não é uma chave de acesso — leia o código de barras do DANFE")
+						}}
+					/>
+				</CardContent>
+			</Card>
+
+			<Card>
 				<CardContent className="pt-4">
 					{documents.length === 0 ? (
 						<div className="text-center py-10 text-muted-foreground">
 							<FileX2 className="size-8 mx-auto mb-2 opacity-50" />
-							<p className="text-sm">Nenhuma NF-e importada ainda. Importe o XML de uma nota autorizada.</p>
+							<p className="text-sm">Nenhuma NF-e ainda. Leia a chave do DANFE ou importe o XML de uma nota autorizada.</p>
 						</div>
 					) : (
 						<table className="w-full text-sm">
@@ -108,7 +166,19 @@ function NfeListPage() {
 											<td className="py-2.5 pr-3 text-xs text-right tabular-nums">{doc.total_value != null ? BRL.format(doc.total_value) : "—"}</td>
 											<td className="py-2.5 pr-3 text-xs text-center tabular-nums">{(counts.matched ?? 0) + pendentes}</td>
 											<td className="py-2.5 text-center">
-												{pendentes > 0 ? (
+												{doc.status === "announced" ? (
+													<Badge variant="outline" className="text-xs">
+														Aguardando XML
+													</Badge>
+												) : doc.status === "cancelled" ? (
+													<Badge variant="outline" className="text-xs text-destructive">
+														Cancelada
+													</Badge>
+												) : doc.kitchen_id == null ? (
+													<Button type="button" size="sm" variant="outline" onClick={() => claim(doc.id)}>
+														Assumir para esta cozinha
+													</Button>
+												) : pendentes > 0 ? (
 													<Badge variant="outline" className="text-xs text-warning">
 														{pendentes} pendente{pendentes > 1 ? "s" : ""}
 													</Badge>
