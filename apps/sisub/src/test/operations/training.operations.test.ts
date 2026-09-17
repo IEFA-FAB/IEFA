@@ -48,8 +48,9 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// ── Estoque ──
 	// O Conjunto Treino NÃO concede o módulo `storage`, então um treinando não consegue
 	// movimentar estoque na cozinha de treino e não há resíduo a limpar. Se algum dia o
-	// treino passar a cobrir estoque, estas entradas saem daqui e entram no reset — este
-	// teste é justamente o que vai forçar a decisão.
+	// treino passar a cobrir estoque, estas entradas saem daqui e entram no reset — e a
+	// premissa não fica só escrita: o teste logo abaixo ("as exclusões de estoque dependem
+	// de o Conjunto Treino não conceder storage") falha no dia em que a política mudar.
 	"inventory.goods_receipt": "estoque fora do escopo de treino — Conjunto Treino não concede o módulo storage",
 	"inventory.inventory_count": "estoque fora do escopo de treino",
 	"inventory.monthly_closing": "estoque fora do escopo de treino; fechamento contábil é imutável",
@@ -58,8 +59,24 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"inventory.stock_lot": "estoque fora do escopo de treino",
 	"inventory.stock_movement": "ledger append-only — não se apaga movimento de estoque",
 	"inventory.stock_policy": "parâmetro de reposição, não dado operacional de treino",
+	// Núcleo operável do estoque (migrations `inventory_scanner_profile` e
+	// `inventory_operable_core`, aplicadas em 2026-09-17). Mesma regra da família acima —
+	// sem o módulo `storage` no Conjunto Treino, nenhuma das três recebe linha vinda de
+	// treinamento. Cada uma tem, além disso, motivo PRÓPRIO para continuar fora do reset
+	// mesmo no dia em que o treino cobrir estoque:
+	"inventory.stock_adjustment":
+		"documento de ajuste é dado operacional de estoque, fora do escopo de treino; o movimento só nasce em `posted` e vai para o ledger append-only, que o reset não desfaz",
+	"inventory.kitchen_stock_settings":
+		"configuração da cozinha (tolerância, alçada, segregação), como stock_policy — sem linha valem os defaults, então apagar não 'limpa' nada e sim descalibra a cozinha sentinela",
+	"inventory.scanner_profile":
+		"calibração do leitor por usuário × cozinha — é preferência de dispositivo de quem opera, não dado gerado pelo treinamento; apagar tiraria a calibração do próprio instrutor, como em access_control.user_permissions",
 	"procurement.supply_order": "ordem de fornecimento é documento real de aquisição",
 }
+
+/** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */
+const STORAGE_MODULE = "storage"
+/** Política gerenciada do ambiente de treino (`apps/sisub/src/hooks/data/usePolicies.ts`). */
+const TRAINING_POLICY_NAME = "Conjunto Treino"
 
 describeSupabaseIntegration("training operations (integração)", () => {
 	let db: SisubDb | null = null
@@ -106,6 +123,35 @@ describeSupabaseIntegration("training operations (integração)", () => {
 		const uncovered = scoped.filter((t) => !covered.has(t))
 
 		expect(uncovered, `tabelas escopadas fora do reset e sem exclusão justificada: ${uncovered.join(", ")}`).toEqual([])
+	})
+
+	/**
+	 * A premissa do bloco de estoque, verificada.
+	 *
+	 * Todas as exclusões de `inventory` se apoiam num fato do banco: o Conjunto Treino não
+	 * concede `storage`, logo o treinando não gera linha lá. Enquanto isso era só comentário,
+	 * conceder o módulo à política deixaria o teste de completude VERDE com o estoque
+	 * acumulando resíduo entre turmas — exatamente o modo de falha silencioso que este arquivo
+	 * existe para impedir. Aqui a premissa falha alto quando deixar de ser verdade.
+	 */
+	test("as exclusões de estoque dependem de o Conjunto Treino não conceder storage", async () => {
+		if (!db) return
+
+		const rows = (await db.execute(sql`
+			select s.module
+			from access_control.policy_statement s
+			join access_control.policy p on p.id = s.policy_id
+			where p.name = ${TRAINING_POLICY_NAME} and p.deleted_at is null
+		`)) as unknown as Array<{ module: string }>
+
+		// Guarda contra query vazia passar como verde: a política existe e tem statements.
+		expect(rows.length).toBeGreaterThan(0)
+
+		const inventoryExclusions = Object.keys(RESET_EXCLUSIONS).filter((t) => t.startsWith("inventory."))
+		expect(
+			rows.some((r) => r.module === STORAGE_MODULE),
+			`o Conjunto Treino passou a conceder \`${STORAGE_MODULE}\`: as ${inventoryExclusions.length} exclusões de inventory perderam o fundamento e precisam virar passos de reset`
+		).toBe(false)
 	})
 
 	/**

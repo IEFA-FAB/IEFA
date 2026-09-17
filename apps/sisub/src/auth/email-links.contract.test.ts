@@ -1,6 +1,11 @@
 /**
  * Contrato dos destinos de link de e-mail do Supabase — em TODOS os apps que
- * dividem o projeto (sisub, portal, forms, rumaer, sucont).
+ * dividem o projeto (sisub, portal, forms, rumaer, sucont, contrate).
+ *
+ * A lista é varrida do disco: app novo com `src/auth/service.ts` entra sozinho nos
+ * `targets` e derruba a asserção de conjunto abaixo até ser declarado aqui. Foi o que
+ * aconteceu com o `contrate` — é o comportamento desejado, porque declarar o app é o
+ * momento de conferir se o caminho pedido está na allow-list de Redirect URLs do projeto.
  *
  * O template em uso é `{{ .ConfirmationURL }}`: o link passa por
  * `/auth/v1/verify` no Supabase, que valida o token e redireciona para o
@@ -77,8 +82,9 @@ describe("destinos de link de e-mail do Supabase", () => {
 		// Números exatos de propósito: um `>=` frouxo deixa a extração perder um
 		// caminho (basta um comentário crescer entre `redirectTo` e o template) sem
 		// que nada fique vermelho, e aí os casos abaixo testam menos do que parecem.
-		expect(new Set(targets.map((t) => t.app))).toEqual(new Set(["sisub", "portal", "rumaer", "forms", "sucont"]))
+		expect(new Set(targets.map((t) => t.app))).toEqual(new Set(["sisub", "portal", "rumaer", "forms", "sucont", "contrate"]))
 		expect(targets.map((t) => `${t.app}${t.path}`).sort()).toEqual([
+			"contrate/auth",
 			"forms/auth",
 			"portal/auth",
 			"rumaer/auth",
