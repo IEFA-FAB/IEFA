@@ -26,12 +26,14 @@ class Rollback extends Error {}
 
 const GTIN13 = "7891000315507"
 const GTIN14 = "07891000315507"
-const ACCESS_KEY = "35260712345678000199550010000098761000098765"
+// DV válido: o parser passou a conferir o dígito verificador da chave, e a
+// chave antiga do fixture não fechava
+const ACCESS_KEY = "35260712345678000199550010000098761000098769"
 
 const NFE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
 	<NFe><infNFe Id="NFe${ACCESS_KEY}" versao="4.00">
-		<ide><dhEmi>2026-07-25T09:00:00-03:00</dhEmi></ide>
+		<ide><dhEmi>2026-07-25T09:00:00-03:00</dhEmi><mod>55</mod><tpAmb>1</tpAmb><finNFe>1</finNFe></ide>
 		<emit><CNPJ>12345678000199</CNPJ><xNome>Fornecedor E2E LTDA</xNome></emit>
 		<dest><CNPJ>98765432000188</CNPJ></dest>
 		<det nItem="1"><prod>
@@ -42,8 +44,10 @@ const NFE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 			<rastro><nLote>L-E2E-1</nLote><qLote>50</qLote><dFab>2026-07-01</dFab><dVal>2027-07-01</dVal></rastro>
 		</prod></det>
 		<total><ICMSTot><vNF>1250.00</vNF></ICMSTot></total>
-	</infNFe></NFe>
-	<protNFe><infProt><chNFe>${ACCESS_KEY}</chNFe></infProt></protNFe>
+	</infNFe>
+	<Signature><SignedInfo><Reference><DigestValue>E2E-DIGEST</DigestValue></Reference></SignedInfo></Signature>
+	</NFe>
+	<protNFe><infProt><chNFe>${ACCESS_KEY}</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>135260000099999</nProt><digVal>E2E-DIGEST</digVal><tpAmb>1</tpAmb></infProt></protNFe>
 </nfeProc>`
 
 describeIf("inventory full cycle E2E (DB)", () => {

@@ -12,7 +12,7 @@
  * @migration 20260729150000_inventory_nfe
  */
 
-import { matchNfeItem, type NfeMatchCandidates } from "@iefa/sisub-domain"
+import { matchNfeItem, type NfeMatchCandidates, parseNfeAccessKey } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
@@ -66,6 +66,11 @@ export interface NfeDocumentRow {
 	total_value: number | null
 	status: string
 	created_at: string
+	/** Nula enquanto a nota é da UNIDADE e nenhuma cozinha a assumiu. */
+	kitchen_id?: number | null
+	unit_id?: number | null
+	destination_confirmed?: boolean
+	situation_result?: "authorized" | "cancelled" | "unknown" | null
 }
 
 interface IngredientItemLinkRow {
@@ -247,6 +252,144 @@ export const uploadNfeFn = createServerFn({ method: "POST" })
 		return { documentId: body.document_id, itemsCount: body.items_count ?? 0, matching }
 	})
 
+/** Unidade COMPRADORA da cozinha — é o CNPJ dela que aparece na nota. */
+async function purchaseUnitIdForKitchen(kitchenId: number): Promise<number | null> {
+	const { data: row } = await kitchen().from("kitchen").select("unit_id, purchase_unit_id").eq("id", kitchenId).maybeSingle()
+	const unitId = row?.purchase_unit_id ?? row?.unit_id
+	return unitId == null ? null : Number(unitId)
+}
+
+/**
+ * Entrada da nota pela CHAVE DE ACESSO, lida do código de barras do DANFE.
+ *
+ * Sem certificado digital não há como buscar a nota na SEFAZ, e o XML do
+ * fornecedor costuma chegar depois da mercadoria. A chave está impressa no
+ * DANFE que vem com o caminhão: ela cria a nota `announced` com emitente,
+ * série, número e mês de emissão — que é tudo o que a chave carrega — e o
+ * painel "A caminho" passa a saber que a nota existe.
+ *
+ * O destinatário NÃO está na chave. A nota herda a unidade de compra da cozinha
+ * onde foi lida, marcada como não confirmada, até o XML chegar.
+ */
+export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
+	.validator(z.object({ kitchenId: z.number().int().positive(), accessKey: z.string().min(44).max(60) }))
+	.handler(async ({ data }) => {
+		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const parsed = parseNfeAccessKey(data.accessKey)
+		if (!parsed) throw new Error("Chave de acesso inválida — confira o dígito verificador")
+
+		const inv = inventory()
+		const { data: existing } = await inv.from("nfe_document").select("id, status, kitchen_id").eq("access_key", parsed.key).maybeSingle()
+		if (existing) {
+			// nota já conhecida: assume para esta cozinha se ainda não tem dono
+			if (existing.kitchen_id == null) {
+				await inv.from("nfe_document").update({ kitchen_id: data.kitchenId }).eq("id", existing.id)
+			}
+			return { nfeDocumentId: existing.id as string, created: false, status: existing.status as string }
+		}
+
+		const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
+		// AAMM da chave → primeiro dia do mês de emissão. É uma aproximação
+		// deliberada: a chave não traz o dia, e inventar um é pior que assumir o
+		// mês, que é o que o painel usa para ordenar.
+		const issuedMonth = `20${parsed.yearMonth.slice(0, 2)}-${parsed.yearMonth.slice(2, 4)}-01`
+
+		const { data: doc, error } = await inv
+			.from("nfe_document")
+			.insert({
+				access_key: parsed.key,
+				supplier_cnpj: parsed.issuerTaxId,
+				status: "announced",
+				kitchen_id: data.kitchenId,
+				unit_id: unitId,
+				destination_confirmed: false,
+				issued_at: issuedMonth,
+				created_by: userId,
+			})
+			.select("id")
+			.single()
+		if (error || !doc) throw new Error(`Erro ao registrar a nota pela chave: ${error?.message}`)
+		return { nfeDocumentId: doc.id as string, created: true, status: "announced" }
+	})
+
+/**
+ * Registra a consulta de situação da nota feita no portal da SEFAZ.
+ *
+ * Sem coletor DF-e, esta é a única forma de saber que a nota foi CANCELADA
+ * depois de importada — e liquidar nota cancelada é pagamento sem documento
+ * hábil (Lei 4.320, art. 63). O recebimento definitivo e a liquidação exigem
+ * consulta recente.
+ */
+export const registerNfeSituationFn = createServerFn({ method: "POST" })
+	.validator(z.object({ nfeDocumentId: z.uuid(), result: z.enum(["authorized", "cancelled", "unknown"]), note: z.string().max(300).optional() }))
+	.handler(async ({ data }) => {
+		const { userId } = await requireStorageForDocument(2, data.nfeDocumentId)
+		const inv = inventory()
+		const update: Record<string, unknown> = {
+			situation_checked_at: new Date().toISOString(),
+			situation_checked_by: userId,
+			situation_result: data.result,
+		}
+		if (data.result === "cancelled") {
+			update.status = "cancelled"
+			update.cancelled_reason = data.note?.trim() || "Cancelada pelo emitente (consulta na SEFAZ)"
+		}
+		const { error } = await inv.from("nfe_document").update(update).eq("id", data.nfeDocumentId)
+		if (error) throw new Error(`Erro ao registrar a situação: ${error.message}`)
+		return { saved: true }
+	})
+
+/** Assume para esta cozinha uma nota endereçada à unidade de compra dela. */
+export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
+	.validator(z.object({ nfeDocumentId: z.uuid(), kitchenId: z.number().int().positive() }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(2, data.kitchenId)
+		const inv = inventory()
+		const { data: doc } = await inv.from("nfe_document").select("id, kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
+		if (!doc) throw new Error("NF-e não encontrada")
+		if (doc.kitchen_id != null && Number(doc.kitchen_id) !== data.kitchenId) throw new Error("NF-e já pertence a outra cozinha")
+
+		const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
+		// a nota é da UNIDADE: cozinha de outra unidade não pode assumi-la
+		if (doc.unit_id != null && unitId != null && Number(doc.unit_id) !== unitId) {
+			throw new Error("NF-e endereçada a outra unidade")
+		}
+
+		const { error } = await inv.from("nfe_document").update({ kitchen_id: data.kitchenId }).eq("id", data.nfeDocumentId)
+		if (error) throw new Error(`Erro ao assumir a nota: ${error.message}`)
+		return { claimed: true }
+	})
+
+/** Notas sem unidade resolvida — triagem do nível 3 global. */
+export const listUnassignedNfeFn = createServerFn({ method: "GET" })
+	.validator(z.object({ limit: z.number().int().min(1).max(100).default(50) }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(3, null)
+		const inv = inventory()
+		const {
+			data: docs,
+			count,
+			error,
+		} = await inv
+			.from("nfe_document")
+			.select("id, access_key, supplier_cnpj, supplier_name, dest_cnpj, issued_at, total_value, status, created_at", { count: "exact" })
+			.is("unit_id", null)
+			.order("created_at", { ascending: false })
+			.limit(data.limit)
+		if (error) throw new Error(`Erro ao listar notas em triagem: ${error.message}`)
+		return { documents: docs ?? [], total: count ?? (docs ?? []).length }
+	})
+
+/** Atribui manualmente a unidade de uma nota em triagem. */
+export const assignNfeUnitFn = createServerFn({ method: "POST" })
+	.validator(z.object({ nfeDocumentId: z.uuid(), unitId: z.number().int().positive() }))
+	.handler(async ({ data }) => {
+		await requireStorageForKitchen(3, null)
+		const { error } = await inventory().from("nfe_document").update({ unit_id: data.unitId, destination_confirmed: false }).eq("id", data.nfeDocumentId)
+		if (error) throw new Error(`Erro ao atribuir a unidade: ${error.message}`)
+		return { assigned: true }
+	})
+
 /** Re-runs matching for a document (e.g. after catalog/supplier-map growth). */
 export const runNfeMatchingFn = createServerFn({ method: "POST" })
 	.validator(z.object({ nfeDocumentId: z.uuid() }))
@@ -264,13 +407,19 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 
 		let query = inv
 			.from("nfe_document")
-			.select("id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at")
+			.select(
+				"id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at, kitchen_id, unit_id, destination_confirmed, situation_result"
+			)
 			.order("created_at", { ascending: false })
 			.limit(50)
-		// Só as notas DESTA cozinha. Antes vinham também as sem cozinha
-		// atribuída, o que mostrava (e deixava consumir) nota de outra unidade —
-		// a triagem de nota sem destinatário é do nível 3 global.
-		if (data.kitchenId != null) query = query.eq("kitchen_id", data.kitchenId)
+		// Nota desta cozinha MAIS nota endereçada à unidade de compra dela e ainda
+		// sem cozinha: a NF-e chega no CNPJ da OM, não da cozinha, e é um operador
+		// de uma das cozinhas da unidade que a assume. Nota sem unidade resolvida
+		// não entra aqui — ela fica na triagem do nível 3 global.
+		if (data.kitchenId != null) {
+			const unitId = await purchaseUnitIdForKitchen(data.kitchenId)
+			query = unitId != null ? query.or(`kitchen_id.eq.${data.kitchenId},and(unit_id.eq.${unitId},kitchen_id.is.null)`) : query.eq("kitchen_id", data.kitchenId)
+		}
 		const { data: docs, error } = await query
 		if (error) throw new Error(`Erro ao listar NF-e: ${error.message}`)
 		const documents = (docs ?? []) as NfeDocumentRow[]

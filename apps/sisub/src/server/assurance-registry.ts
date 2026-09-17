@@ -513,6 +513,12 @@ export const ASSURANCE_REGISTRY = {
 	// ── siafi-import.fn.ts
 	uploadSiafiReportFn: { require: "none" },
 
+	// ── nfe.fn.ts (entrada pela chave e situação da nota)
+	createNfeFromAccessKeyFn: { require: "none" },
+	registerNfeSituationFn: { require: "none" },
+	claimNfeForKitchenFn: { require: "none" },
+	assignNfeUnitFn: { require: "none" },
+
 	// ── scanner.fn.ts
 	saveScannerProfileFn: { require: "none" },
 
