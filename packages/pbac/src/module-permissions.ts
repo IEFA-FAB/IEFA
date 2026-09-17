@@ -92,12 +92,23 @@ export async function searchUsersByEmail(coreReadClient: AnySupabaseClient, emai
  * "não existe" e inserir). A garantia dura fica no DB; a corrida perde com 23505 e
  * reaplica como update.
  *
- * Quem produz esse 23505 é `user_permissions_grant_uniq` — único sobre
+ * Quem produz esse 23505 são `user_permissions_allow_uniq` (`level > 0`) e
+ * `user_permissions_deny_uniq` (`level <= 0`) — únicos sobre
  * (user_id, module, mess_hall_id, kitchen_id, unit_id) com `nulls not distinct`
- * (migração 20260917183328). Ele vale para QUALQUER módulo e QUALQUER escopo, e
- * substituiu os dois índices parciais que cobriam só `rumaer` e o `sucont` legado —
- * enquanto a garantia era parcial, `sucont-1/3/4`, os módulos do sisub e os do Projeto α
- * gravavam duas linhas na corrida, e revogar uma deixava a outra concedendo.
+ * (migração 20260917185655). Valem para QUALQUER módulo e QUALQUER escopo, e
+ * substituíram os dois parciais que cobriam só `rumaer` e o `sucont` legado — enquanto a
+ * garantia era por módulo, `sucont-1/3/4`, os módulos do sisub e os do Projeto α gravavam
+ * duas linhas na corrida, e revogar uma deixava a outra concedendo. São DOIS índices
+ * porque allow e deny coexistem na mesma chave de propósito: é o deny sobre allow, que
+ * `resolveEffectivePermissions` aplica por precedência.
+ *
+ * Interação conhecida, e por ora deliberada: o update abaixo NÃO filtra por nível. Se um
+ * dia existir um deny na mesma chave (hoje não existe nenhum na tabela, em módulo
+ * nenhum), ele casaria as duas linhas e tentaria pôr as duas em `level`, o que o índice
+ * de allow recusa — o grant falha com erro VISÍVEL em vez de apagar o deny em silêncio.
+ * Filtrar por `level > 0` inverteria o problema (o grant viraria no-op silencioso, com o
+ * deny seguindo em vigor), então a escolha entre as duas é decisão de produto, não de
+ * índice.
  */
 export async function grantUnscopedModulePermission(
 	accessControlClient: AnySupabaseClient,

@@ -1,6 +1,11 @@
 -- Unicidade GERAL do grant inline em `access_control.user_permissions` — qualquer
 -- módulo, qualquer escopo.
 --
+-- SUPERSEDIDA EM PARTE por 20260917185655: o índice único GERAL criado aqui impedia o
+-- deny (`level <= 0`) de coexistir com o allow na mesma chave, e a migração seguinte o
+-- troca por dois parciais (`user_permissions_allow_uniq` e `user_permissions_deny_uniq`).
+-- O diagnóstico e a consolidação abaixo continuam valendo; a forma do índice, não.
+--
 -- ## O defeito
 --
 -- `grantUnscopedModulePermission` (@iefa/pbac) concede com update-first → insert →
@@ -31,24 +36,41 @@
 -- no diálogo gravam duas linhas. Por isso a unicidade aqui é pela CHAVE INTEIRA, o
 -- escopo incluído, e não só pelo grant unscoped.
 --
--- ## A consolidação, e por que ela não mexe em quem pode o quê
+-- ## A consolidação: uma LINHA vence, não um conteúdo montado
 --
--- As duplicatas existentes colapsam numa linha só, a MAIS ANTIGA do grupo (o `id` dela
--- é o que as telas e a trilha de auditoria já citam). O conteúdo que sobra é escolhido
--- para preservar exatamente a decisão que `resolveEffectivePermissions` (@iefa/pbac) já
--- toma hoje sobre o grupo — ninguém ganha nem perde acesso ao rodar isto:
+-- As duplicatas colapsam numa linha só, e a linha que fica é eleita por ORDEM — `level`
+-- e `expires_at` saem sempre da MESMA linha vencedora. Isso é o ponto: agregar os dois
+-- campos de forma independente (o maior nível de uma linha, o prazo mais permissivo de
+-- outra) fabrica uma concessão que nunca existiu — (nível 1, sem prazo) somado a
+-- (nível 2, vence em outubro) viraria nível 2 PERMANENTE, escalada silenciosa; e um deny
+-- com prazo sobre um allow permanente viraria deny permanente.
 --
---   - `level` — se QUALQUER linha do grupo é deny (`level <= 0`), o deny sobrevive:
---     é a precedência de deny da resolução, e colapsar para o maior nível transformaria
---     uma negação vigente em concessão. Não havendo deny, sobrevive o MAIOR nível, que
---     é o que a resolução já emite (a fase 2 colapsa por módulo+escopo pelo maior
---     nível). Nenhum dos quatro grupos de hoje tem deny — o ramo existe pela
---     idempotência;
---   - `expires_at` — sobrevive o prazo mais LONGO (`null`, que é "nunca expira", vence
---     qualquer data; entre datas, a maior). Para um allow é o acesso que o usuário de
---     fato tem hoje; para um deny é a negação que de fato vigora. Nos dois casos a
---     escolha é a conservadora: a resolução ignora linha vencida, então encurtar o
---     prazo aqui revogaria em silêncio.
+-- A ordem, na íntegra, e o que cada chave protege:
+--
+--   1. DENY VIGENTE primeiro — é a decisão que está em vigor hoje; colapsar para o allow
+--      transformaria uma negação ativa em concessão. Deny já VENCIDO não entra aqui de
+--      propósito: vencido é ausente para a resolução, e deixá-lo vencer a eleição
+--      destruiria um allow vivo (é o caso que o teste "deny EXPIRADO deixa de negar"
+--      fixa);
+--   2. linha VIVA antes de linha vencida — a vencida não concede nem nega nada hoje;
+--   3. MAIOR nível — é o que a fase 2 da resolução já emite por (módulo, escopo);
+--   4. prazo mais LONGO (`null` = nunca expira vence qualquer data) — desempate entre
+--      linhas de mesmo nível;
+--   5. mais ANTIGA (`created_at`, `id`) — desempate estável, e mantém o `id` que as
+--      telas e a trilha de auditoria já citam quando as linhas são equivalentes.
+--
+-- Nota histórica, e é fato verificado, não suposição: a versão desta migração APLICADA
+-- em produção agregava `level` e `expires_at` de forma independente. Lá isso foi
+-- inofensivo porque no momento em que ela rodou a tabela não tinha NENHUMA linha com
+-- `expires_at` nem NENHUMA com `level <= 0` — os quatro grupos eram allows permanentes,
+-- e no único par de níveis diferentes (3 e 2) o nível maior já estava na linha mais
+-- antiga. A ordem acima elege exatamente as mesmas quatro linhas sobreviventes; a
+-- correção existe para quando este arquivo rodar em banco NOVO (local/staging).
+--
+-- Consequência conhecida de reproduzir o histórico: aqui o par allow + deny da mesma
+-- chave colapsa numa linha só, porque é isto que o índice geral criado logo abaixo
+-- exige. A migração seguinte (20260917185655) troca esse índice por dois parciais e
+-- devolve o par — em produção o caso não existiu (0 linhas com `level <= 0`).
 --
 -- ## `policy_statement` e `user_policy_attachment` — por que NÃO ganham índice aqui
 --
@@ -81,37 +103,39 @@
 -- índices de 2026-07 terem nascido parciais.
 
 -- ─── 1. Consolida as duplicatas existentes ───────────────────────────────────
--- Duas janelas de propósito: `w_ord` ordena para eleger o sobrevivente (`row_number`),
--- e `w_all` fica SEM `order by` para que os agregados enxerguem o grupo INTEIRO — uma
--- janela ordenada traz o frame default (até a linha corrente) e transformaria
--- `max(level)`/`bool_or(...)` em agregado corrente, elegendo o conteúdo errado.
+-- Nenhum `update`: a linha vencedora já CARREGA o nível e o prazo que devem sobreviver,
+-- porque ela é eleita pela ordem abaixo. Só as perdedoras são removidas.
+--
+-- Duas janelas de propósito: `w_ord` ordena para eleger (`row_number`), e `w_all` fica
+-- SEM `order by` para que `count(*)` enxergue o grupo INTEIRO — uma janela ordenada traz
+-- o frame default (até a linha corrente) e contaria errado.
+--
+-- `now()` é o do Postgres, e não um instante calculado em JS: é o mesmo relógio que a
+-- resolução usa para decidir o que está vencido.
 with grupo as (
 	select
 		id,
 		row_number() over w_ord as posicao,
-		count(*) over w_all as linhas,
-		min(level) over w_all as menor_nivel,
-		max(level) over w_all as maior_nivel,
-		bool_or(expires_at is null) over w_all as tem_permanente,
-		max(expires_at) over w_all as prazo_mais_longo
+		count(*) over w_all as linhas
 	from access_control.user_permissions
 	window
-		w_ord as (partition by user_id, module, mess_hall_id, kitchen_id, unit_id order by created_at asc, id asc),
+		w_ord as (
+			partition by user_id, module, mess_hall_id, kitchen_id, unit_id
+			order by
+				-- 1. deny VIGENTE decide hoje (deny vencido não, senão mataria um allow vivo)
+				(level <= 0 and (expires_at is null or expires_at > now())) desc,
+				-- 2. linha viva antes de linha vencida
+				(expires_at is null or expires_at > now()) desc,
+				-- 3. maior nível
+				level desc,
+				-- 4. prazo mais longo (`null` = nunca expira)
+				(expires_at is null) desc,
+				expires_at desc,
+				-- 5. desempate estável: a mais antiga
+				created_at asc,
+				id asc
+		),
 		w_all as (partition by user_id, module, mess_hall_id, kitchen_id, unit_id)
-),
--- CTE que modifica dados roda mesmo sem ser referenciada — é ela que aplica o conteúdo
--- consolidado na linha que fica, antes de o delete abaixo remover as demais. As duas
--- enxergam o MESMO snapshot e atuam sobre ids disjuntos (posicao = 1 × posicao > 1).
-sobrevivente as (
-	update access_control.user_permissions p
-	set
-		level = case when g.menor_nivel <= 0 then g.menor_nivel else g.maior_nivel end,
-		expires_at = case when g.tem_permanente then null else g.prazo_mais_longo end
-	from grupo g
-	where p.id = g.id
-		and g.linhas > 1
-		and g.posicao = 1
-	returning p.id
 )
 delete from access_control.user_permissions p
 using grupo g
