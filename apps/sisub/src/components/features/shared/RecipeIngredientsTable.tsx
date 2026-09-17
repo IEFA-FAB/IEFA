@@ -651,24 +651,33 @@ export function RecipeIngredientsTable({
 			{substituteFor != null && openRow && (
 				<IngredientSelector
 					isOpen
+					title={`Substitutos de ${openRow.ingredient_name}`}
+					// O insumo da própria linha não substitui a si mesmo, e o mesmo substituto não
+					// entra duas vezes: o índice único da tabela rejeitaria o segundo com um 23505
+					// sem mensagem, já depois de o usuário ter clicado em salvar.
+					excluded={
+						new Map<string, { label: string; checked?: boolean }>([
+							...(openRow.ingredient_id ? [[openRow.ingredient_id, { label: "Insumo principal" }] as const] : []),
+							...openRow.alternatives.map((alt) => [alt.ingredient_id, { label: "Já adicionado", checked: true }] as const),
+						])
+					}
+					confirmLabel={(count) => (count <= 1 ? "Adicionar substituto" : `Adicionar ${count} substitutos`)}
 					onClose={() => setSubstituteFor(null)}
-					onSelect={(ingredient) => {
-						// O insumo da própria linha não substitui a si mesmo, e o mesmo substituto não
-						// entra duas vezes: o índice único da tabela rejeitaria o segundo com um 23505
-						// sem mensagem, já depois de o usuário ter clicado em salvar.
-						if (ingredient.id === openRow.ingredient_id) return
-						if (openRow.alternatives.some((alt) => alt.ingredient_id === ingredient.id)) return
+					onSelect={(picked) => {
+						const taken = new Set([openRow.ingredient_id, ...openRow.alternatives.map((alt) => alt.ingredient_id)])
 						patch(substituteFor, {
 							alternatives: [
 								...openRow.alternatives,
-								{
-									ingredient_id: ingredient.id,
-									ingredient_name: ingredient.description ?? "",
-									measure_unit: ingredient.measure_unit ?? "UN",
-									// Nasce com a quantidade do principal: é o palpite certo na maioria dos
-									// casos e deixa explícito o que ajustar quando não é.
-									net_quantity: openRow.net_quantity,
-								},
+								...picked
+									.filter((ingredient) => !taken.has(ingredient.id))
+									.map((ingredient) => ({
+										ingredient_id: ingredient.id,
+										ingredient_name: ingredient.description ?? "",
+										measure_unit: ingredient.measure_unit ?? "UN",
+										// Nasce com a quantidade do principal: é o palpite certo na maioria dos
+										// casos e deixa explícito o que ajustar quando não é.
+										net_quantity: openRow.net_quantity,
+									})),
 							],
 						})
 					}}
