@@ -136,3 +136,84 @@ export type SegregationMode = (typeof SEGREGATION_MODES)[number]
 /** Derivação de lote: produto aberto, fracionado ou descongelado (RDC 216). */
 export const LOT_DERIVATIONS = ["opened", "portioned", "thawed"] as const
 export type LotDerivation = (typeof LOT_DERIVATIONS)[number]
+
+/**
+ * Rótulos em português dos tipos de movimento.
+ *
+ * Ficam aqui, e não na tela, porque o mesmo vocabulário aparece no painel, na
+ * ficha de almoxarifado, no relatório de perdas e no chat dos módulos — quatro
+ * cópias divergentes é o caminho curto para "Ajuste (entrada)" numa tela e
+ * "adjustment_in" na outra.
+ */
+export const STOCK_MOVEMENT_LABELS: Record<StockMovementType, string> = {
+	receipt: "Entrada (recebimento)",
+	production_issue: "Saída (produção)",
+	issue_return: "Devolução ao estoque",
+	leftover_return: "Retorno de sobra",
+	waste: "Descarte",
+	transfer_in: "Transferência (entrada)",
+	transfer_out: "Transferência (saída)",
+	lot_split_in: "Fracionamento (lote novo)",
+	lot_split_out: "Fracionamento (lote de origem)",
+	adjustment_in: "Ajuste (entrada)",
+	adjustment_out: "Ajuste (saída)",
+}
+
+/** Rótulos dos motivos de ajuste, na linguagem de quem opera o almoxarifado. */
+export const STOCK_ADJUSTMENT_REASON_LABELS: Record<StockAdjustmentReason, string> = {
+	expired: "Vencido",
+	spoiled: "Deteriorado",
+	damaged: "Avaria",
+	cold_chain_failure: "Falha de refrigeração",
+	sanitary_recall: "Recolhimento sanitário",
+	lost: "Extravio",
+	theft: "Furto ou roubo",
+	quality_sample: "Amostra para análise",
+	supplier_return: "Devolução ao fornecedor",
+	donation: "Doação",
+	entry_error_in: "Correção de lançamento (entrada)",
+	entry_error_out: "Correção de lançamento (saída)",
+	count_gain: "Sobra de inventário",
+	count_loss: "Falta de inventário",
+	found_stock: "Achado sem registro",
+	opening_balance: "Carga de abertura",
+}
+
+/**
+ * Natureza contábil por motivo — é o que separa perda de consumo e de valor em
+ * apuração. `lost`, `theft` e `cold_chain_failure` deixam o valor "em
+ * apuração": na administração pública, perda com indício de responsabilidade
+ * abre processo (IN SEDAP 205/88, item 10), e o sisub registra, não conduz.
+ */
+export const REASON_NATURE: Record<
+	StockAdjustmentReason,
+	"loss" | "under_investigation" | "consumption" | "cost_reduction" | "correction" | "inventory" | "donation" | "implantation"
+> = {
+	expired: "loss",
+	spoiled: "loss",
+	damaged: "loss",
+	cold_chain_failure: "under_investigation",
+	sanitary_recall: "loss",
+	lost: "under_investigation",
+	theft: "under_investigation",
+	quality_sample: "consumption",
+	supplier_return: "cost_reduction",
+	donation: "donation",
+	entry_error_in: "correction",
+	entry_error_out: "correction",
+	count_gain: "inventory",
+	count_loss: "inventory",
+	found_stock: "inventory",
+	opening_balance: "implantation",
+}
+
+export const NATURE_LABELS: Record<(typeof REASON_NATURE)[StockAdjustmentReason], string> = {
+	loss: "Perda",
+	under_investigation: "Em apuração",
+	consumption: "Consumo",
+	cost_reduction: "Redução de custo",
+	correction: "Correção",
+	inventory: "Inventário",
+	donation: "Doação",
+	implantation: "Implantação",
+}

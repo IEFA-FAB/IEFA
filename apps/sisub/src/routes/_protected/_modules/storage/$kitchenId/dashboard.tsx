@@ -1,9 +1,13 @@
+import { STOCK_MOVEMENT_LABELS, type StockMovementType } from "@iefa/sisub-domain"
 import { createFileRoute } from "@tanstack/react-router"
-import { ChevronDown, ChevronRight, PackageOpen, TriangleAlert } from "lucide-react"
+import { ChevronDown, ChevronRight, PackageOpen, Printer, Scissors, ShieldAlert, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { LotLabelSheet } from "@/components/features/storage/lots/LotLabel"
+import { SplitLotDialog } from "@/components/features/storage/lots/SplitLotDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchStockBalanceFn, fetchStockMovementsFn, type StockBalanceItem } from "@/server/stock.fn"
 
@@ -23,22 +27,21 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/da
 const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
-const MOVEMENT_LABEL: Record<string, string> = {
-	receipt: "Entrada (recebimento)",
-	production_issue: "Saída (produção)",
-	leftover_return: "Retorno de sobra",
-	waste: "Descarte",
-	transfer_in: "Transferência (entrada)",
-	transfer_out: "Transferência (saída)",
-	adjustment_in: "Ajuste (entrada)",
-	adjustment_out: "Ajuste (saída)",
-}
-
 function daysUntil(iso: string): number {
 	return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
 }
 
-function BalanceRow({ item }: { item: StockBalanceItem }) {
+type LotRow = StockBalanceItem["lots"][number]
+
+function BalanceRow({
+	item,
+	onPrint,
+	onSplit,
+}: {
+	item: StockBalanceItem
+	onPrint: (lot: LotRow, item: StockBalanceItem) => void
+	onSplit: (lot: LotRow, item: StockBalanceItem) => void
+}) {
 	const [expanded, setExpanded] = useState(false)
 	const expiring = item.nextExpiry != null && daysUntil(item.nextExpiry) <= 30
 
@@ -79,10 +82,35 @@ function BalanceRow({ item }: { item: StockBalanceItem }) {
 							{item.lots
 								.filter((lot) => lot.balance !== 0)
 								.map((lot) => (
-									<div key={lot.lot_id ?? "none"} className="flex items-center gap-3 text-xs py-0.5">
-										<code className="bg-muted px-1.5 rounded">{lot.lot_code ?? "sem lote"}</code>
+									<div key={lot.lot_id ?? "none"} className="flex flex-wrap items-center gap-3 py-0.5 text-xs">
+										<code className="rounded bg-muted px-1.5">{lot.lot_code ?? "sem lote"}</code>
+										{lot.short_code && <code className="text-muted-foreground">{lot.short_code}</code>}
 										<span className="tabular-nums">{NUM.format(lot.balance)}</span>
 										<span className="text-muted-foreground">{lot.expiry_date ? `val ${lot.expiry_date}` : "sem validade"}</span>
+										{lot.location && <span className="text-muted-foreground">{lot.location}</span>}
+										{lot.derivation && (
+											<Badge variant="outline" className="text-[10px]">
+												{{ opened: "aberto", portioned: "fracionado", thawed: "descongelado" }[lot.derivation] ?? lot.derivation}
+											</Badge>
+										)}
+										{lot.quarantined && (
+											<Badge variant="outline" className="text-[10px] text-warning">
+												<ShieldAlert className="mr-1 size-3" />
+												em quarentena — fora da alocação
+											</Badge>
+										)}
+										{lot.lot_id != null && lot.short_code != null && !lot.quarantined && (
+											<span className="flex gap-1">
+												<Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => onPrint(lot, item)}>
+													<Printer className="mr-1 size-3" />
+													Etiqueta
+												</Button>
+												<Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => onSplit(lot, item)}>
+													<Scissors className="mr-1 size-3" />
+													Fracionar
+												</Button>
+											</span>
+										)}
 									</div>
 								))}
 						</div>
@@ -95,11 +123,36 @@ function BalanceRow({ item }: { item: StockBalanceItem }) {
 
 function StockDashboardPage() {
 	const { balance, movements } = Route.useLoaderData()
+	// Etiqueta e fracionamento moram aqui porque é aqui que o operador vê o lote.
+	// Pedir para ele ir a outra tela para imprimir a etiqueta do lote que acabou
+	// de receber é o caminho para ninguém etiquetar nada.
+	const [label, setLabel] = useState<React.ComponentProps<typeof LotLabelSheet>["lots"][number] | null>(null)
+	const [splitting, setSplitting] = useState<React.ComponentProps<typeof SplitLotDialog>["lot"] | null>(null)
 	const expiringCount = balance.filter((i) => i.nextExpiry != null && daysUntil(i.nextExpiry) <= 30).length
 	const totalValue = balance.reduce((acc, i) => acc + i.balanceValue, 0)
 
 	return (
 		<div className="space-y-6">
+			{label && (
+				<Card className="print:border-0 print:shadow-none">
+					<CardHeader className="pb-2 print:hidden">
+						<CardTitle className="text-subheading">Etiqueta do lote</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-2">
+						<LotLabelSheet lots={[label]} width="58mm" />
+						<div className="flex gap-2 print:hidden">
+							<Button type="button" onClick={() => window.print()}>
+								<Printer className="mr-2 size-4" />
+								Imprimir
+							</Button>
+							<Button type="button" variant="ghost" onClick={() => setLabel(null)}>
+								Fechar
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			)}
+			{splitting && <SplitLotDialog lot={splitting} onClose={() => setSplitting(null)} />}
 			<PageHeader title="Painel de Estoque" description="Saldo por item e lote (FEFO), valorado a custo médio ponderado (MCASP)." />
 
 			<div className="grid gap-4 sm:grid-cols-3">
@@ -148,7 +201,32 @@ function StockDashboardPage() {
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{balance.map((item) => (
-									<BalanceRow key={item.ingredientId ?? item.frozenPreparationId ?? item.description} item={item} />
+									<BalanceRow
+										key={item.ingredientId ?? item.frozenPreparationId ?? item.description}
+										item={item}
+										onPrint={(lot, row) =>
+											setLabel({
+												shortCode: lot.short_code as string,
+												description: row.description,
+												lotCode: lot.lot_code,
+												expiryDate: lot.expiry_date,
+												location: lot.location,
+												derivation: lot.derivation as "opened" | "portioned" | "thawed" | null,
+												quantity: lot.balance,
+												measureUnit: row.measureUnit,
+											})
+										}
+										onSplit={(lot, row) =>
+											setSplitting({
+												id: lot.lot_id as string,
+												description: row.description,
+												lotCode: lot.lot_code,
+												balance: lot.balance,
+												measureUnit: row.measureUnit,
+												location: lot.location,
+											})
+										}
+									/>
 								))}
 							</tbody>
 						</table>
@@ -167,7 +245,7 @@ function StockDashboardPage() {
 						<div className="divide-y divide-border/50">
 							{movements.map((m: Record<string, unknown>) => (
 								<div key={String(m.id)} className="flex items-center gap-3 py-1.5 text-xs">
-									<span className="text-muted-foreground w-32 shrink-0">{MOVEMENT_LABEL[String(m.type)] ?? String(m.type)}</span>
+									<span className="text-muted-foreground w-32 shrink-0">{STOCK_MOVEMENT_LABELS[m.type as StockMovementType] ?? String(m.type)}</span>
 									<span className="truncate">{String(m.description)}</span>
 									<span className="ml-auto tabular-nums shrink-0">{NUM.format(Number(m.quantity))}</span>
 								</div>
