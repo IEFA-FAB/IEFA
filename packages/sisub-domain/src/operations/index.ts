@@ -468,6 +468,17 @@ export {
 	unitCostFromNfe,
 } from "./receiving-math.ts"
 export {
+	fiscalShortfallValue,
+	type LineProgress,
+	lineProgress,
+	matchScanToLine,
+	type ReceiptLineForScan,
+	type ScanMatch,
+	type ScanMatchSource,
+	suggestedMultiplier,
+	withinTolerance,
+} from "./receiving-scan.ts"
+export {
 	copyRecipeFlow,
 	createStepTemplate,
 	createUtensil,
