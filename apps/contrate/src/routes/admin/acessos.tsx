@@ -65,8 +65,13 @@ function grantLabel(grant: AlphaGrant): string {
 	return ALPHA_LEVEL_LABEL[grant.level] ?? `Nível ${grant.level}`
 }
 
+/**
+ * Chave de uma linha. O nome da política entra junto porque duas políticas podem
+ * emprestar o MESMO módulo à mesma pessoa — sem ele, as duas linhas nascem com a
+ * mesma chave de React e uma delas some da lista.
+ */
 function grantKey(grant: AlphaGrant): string {
-	return `${grant.source}:${grant.userId}:${grant.module}`
+	return `${grant.source}:${grant.userId}:${grant.module}:${grant.policyName ?? ""}`
 }
 
 function AcessosPage() {

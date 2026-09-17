@@ -140,18 +140,32 @@ export const listAlphaGrantsFn = createServerFn({ method: "GET" }).handler(async
 		.sort((a, b) => (a.email || a.userId).localeCompare(b.email || b.userId, "pt-BR") || a.module.localeCompare(b.module))
 })
 
+/** Chamadas simultâneas ao GoTrue na busca de e-mail — o suficiente para a lista não esperar em fila, sem abrir uma conexão por pessoa. */
+const AUTH_LOOKUP_CONCURRENCY = 5
+
 /**
  * E-mail pela API de administração do GoTrue, para quem ainda não tem linha em
  * `core.user_data` (a linha nasce no login do sisub). Só leitura.
+ *
+ * Em lotes, e não tudo de uma vez: um `Promise.all` sobre a lista inteira dispara uma
+ * requisição por pessoa faltante ao mesmo tempo, e é o GoTrue que paga — justo na tela
+ * que se abre depois de conceder acesso a muita gente.
  */
 async function fetchEmailsFromAuth(core: AnySupabaseClient, userIds: readonly string[]): Promise<Map<string, string>> {
-	const resolved = await Promise.all(
-		userIds.map(async (id) => {
-			const { data, error } = await core.auth.admin.getUserById(id)
-			return [id, error ? "" : (data.user?.email ?? "")] as const
-		})
-	)
-	return new Map(resolved.filter(([, email]) => email !== ""))
+	const found = new Map<string, string>()
+
+	for (let i = 0; i < userIds.length; i += AUTH_LOOKUP_CONCURRENCY) {
+		const batch = userIds.slice(i, i + AUTH_LOOKUP_CONCURRENCY)
+		const resolved = await Promise.all(
+			batch.map(async (id) => {
+				const { data, error } = await core.auth.admin.getUserById(id)
+				return [id, error ? "" : (data.user?.email ?? "")] as const
+			})
+		)
+		for (const [id, email] of resolved) if (email !== "") found.set(id, email)
+	}
+
+	return found
 }
 
 type PartialGrant = Omit<AlphaGrant, "email">

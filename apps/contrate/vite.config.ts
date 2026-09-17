@@ -83,7 +83,6 @@ export default defineConfig(() => ({
 			"@tanstack/react-router",
 			"@tanstack/react-query",
 			"@tanstack/react-table",
-			"motion",
 			"class-variance-authority",
 			"clsx",
 			"tailwind-merge",
