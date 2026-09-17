@@ -1,6 +1,6 @@
 // hooks/useAppsData.ts
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { getAppsFn } from "@/server/pregoeiro.fn"
+import { getAppsFn } from "@/server/apps.fn"
 import type { DbApp } from "@/types/domain"
 
 export const APPS_QUERY_KEY = "appsData"

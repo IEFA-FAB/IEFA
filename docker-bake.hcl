@@ -69,7 +69,7 @@ variable "VITE_SUCONT_SUPABASE_URL" {
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "alpha", "docs", "sisub-mcp", "5s", "pdf"]
+  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "contrate", "alpha", "docs", "sisub-mcp", "5s", "pdf"]
 }
 
 target "base" {
@@ -170,6 +170,18 @@ target "forms" {
     VITE_IEFA_SUPABASE_URL             = VITE_IEFA_SUPABASE_URL
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
     VITE_APP_TENANT                    = "forms"
+  }
+}
+
+target "contrate" {
+  inherits = ["base"]
+  target = "contrate"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/contrate:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=contrate"]
+  cache-to = ["type=gha,scope=contrate,mode=max"]
+  args = {
+    VITE_IEFA_SUPABASE_URL             = VITE_IEFA_SUPABASE_URL
+    VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
   }
 }
 

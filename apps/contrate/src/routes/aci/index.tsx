@@ -25,16 +25,6 @@ export const Route = createFileRoute("/aci/")({
 		// próprio. O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
 		void context.queryClient.query({ ...aciQueueQueryOptions(token), staleTime: "static" }).catch(() => {})
 	},
-	staticData: {
-		nav: {
-			title: "Plataforma ACI",
-			section: "Facilidades",
-			subtitle: "Fila de verificação de ETP/TR e parecer de conformidade",
-			keywords: ["aci", "conformidade", "etp", "tr", "parecer", "licitação", "alpha"],
-			access: "authenticated",
-			order: 23,
-		},
-	},
 	component: PainelPage,
 	head: () => ({ meta: [{ title: "Plataforma ACI" }] }),
 })

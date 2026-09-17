@@ -33,6 +33,10 @@
       "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
+    "apps/contrate": {
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
     "apps/sucont": {
       "entry": ["src/server.ts", "src/router.tsx", "routes/**/*.ts", "vite.config.ts"],
       "project": ["src/**/*.{ts,tsx}", "routes/**/*.ts"]

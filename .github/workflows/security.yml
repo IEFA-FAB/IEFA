@@ -81,6 +81,18 @@ jobs:
             --error \
             apps packages
 
+      # O `// nosemgrep: <regra>` é o mecanismo de exceção do repo, e o scan o respeita:
+      # o achado sai no SARIF com `suppressions: [{kind: inSource}]` em vez de sumir. O
+      # code scanning do GitHub ignora esse campo e abre o alerta assim mesmo — então o
+      # check "Opengrep OSS" ficava vermelho em endpoint público NOVO, enquanto o gate
+      # bloqueante (que respeita a supressão) passava. Duas leituras opostas do mesmo
+      # scan. Filtrar aqui alinha as duas: o que está suprimido no código não vira alerta.
+      - name: Drop suppressed findings from the SARIF
+        run: |
+          jq '.runs[].results |= map(select((.suppressions // []) | length == 0))' \
+            opengrep.sarif > opengrep.filtered.sarif
+          mv opengrep.filtered.sarif opengrep.sarif
+
       - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4.37.9

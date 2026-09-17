@@ -142,6 +142,25 @@ forms:
   - 'package.json'
   - 'turbo.json'
 
+contrate:
+  - 'apps/contrate/**'
+  - 'packages/agent-web/**'
+  - 'packages/auth-kit/**'
+  - 'packages/database/**'
+  - 'packages/legal-kit/**'
+  - 'packages/pbac/**'
+  - 'packages/supabase-kit/**'
+  - 'packages/tsconfig/**'
+  - 'Dockerfile'
+  - 'docker-bake.hcl'
+  - 'apps.manifest.json'
+  - '.github/paths-filter.yml'
+  - '.github/workflows/deploy.yml'
+  - '.github/workflows/_app-build.yml'
+  - '.github/workflows/_app-deploy.yml'
+  - 'package.json'
+  - 'turbo.json'
+
 alpha:
   - 'apps/alpha/**'
   - 'packages/agent-web/**'

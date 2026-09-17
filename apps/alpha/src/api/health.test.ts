@@ -34,6 +34,15 @@ describe("GET /health", () => {
 		expect(ALLOWED_ORIGINS).toContain(ORIGIN)
 	})
 
+	it("aceita o contrate, onde moram a Plataforma ACI e o console", async () => {
+		// Origem fora da lista cai em `ALLOWED_ORIGINS[0]`: o browser bloquearia em
+		// silêncio, com "Failed to fetch" e nenhum erro no α.
+		const contrate = "https://contrate.iefa.com.br"
+		const res = await appWith("ok").request("/health", { headers: { Origin: contrate } })
+
+		expect(res.headers.get("access-control-allow-origin")).toBe(contrate)
+	})
+
 	it("não toca no banco sem `deep` — é o caminho que o ALB consome", async () => {
 		let probed = false
 		const app = createHealthRoutes(async () => {

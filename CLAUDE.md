@@ -119,6 +119,7 @@ declara, pendências). O essencial:
 | `sisub` | Flat design | `0.5rem` genérico; primitivo `<Card>` usa `rounded-xl` (0.75rem) canônico | `apps/sisub/docs/STYLE_CONTRACT.md` |
 | `portal` | Pale Brutalism 2026 | **Zero radius** (`--radius: 0rem`) — nenhum `rounded-*` exceto pílulas explícitas | `apps/portal/STYLE_CONTRACT.md` |
 | `sucont` | Adota o sistema do `sisub` (flat técnico). Contrato próprio porque a dívida é própria: o app nasceu de 9 ferramentas portadas, cada uma com sua linguagem | `0.5rem` | `apps/sucont/STYLE_CONTRACT.md` |
+| `contrate` | Adota o sistema do `portal` (Pale Brutalism) sem variação — o app nasceu da extração do Projeto α de lá. Contrato próprio é CÓPIA: mudança de sistema visual se faz nos dois | **Zero radius** | `apps/contrate/STYLE_CONTRACT.md` |
 | `rumaer` | Institucional Aeronáutico (navy do RCA 35-2 + dourado ≤10%, sombra macia). **Não segue mais o Pale Brutalism do portal** — o contrato antigo foi substituído | `0.625rem` | `apps/rumaer/STYLE_CONTRACT.md` |
 
 ### Proibições globais (todos os apps)

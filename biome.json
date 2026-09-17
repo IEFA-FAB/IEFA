@@ -69,7 +69,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/sisub/src/**/*", "apps/portal/src/**/*", "apps/forms/src/**/*"],
+      "includes": ["apps/sisub/src/**/*", "apps/portal/src/**/*", "apps/forms/src/**/*", "apps/contrate/src/**/*"],
       "linter": {
         "rules": {
           "a11y": {

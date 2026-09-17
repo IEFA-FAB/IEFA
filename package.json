@@ -36,6 +36,7 @@
     "assignment-selection:dev": "bun --cwd ./apps/assignment-selection dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "forms:dev": "bun --cwd ./apps/forms dev",
+    "contrate:dev": "bun --cwd ./apps/contrate dev -- --port 3010",
     "5s:dev": "VITE_APP_TENANT=cinco-s bun --cwd ./apps/forms dev -- --port 3002",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",

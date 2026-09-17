@@ -95,7 +95,7 @@ O guard existe por um modo de falha específico: deixar passar uma inconformidad
 
 ## Console
 
-Rotas autenticadas em `/alpha/*` no portal, fora da navegação pública.
+Rotas autenticadas em `/alpha/*` no Contrate (`contrate.iefa.com.br`), visíveis na navegação só para o nível ACI. O portal redireciona os caminhos antigos com 301.
 
 | Rota | Para quê |
 |---|---|
@@ -107,7 +107,7 @@ Rotas autenticadas em `/alpha/*` no portal, fora da navegação pública.
 
 ## Plataforma ACI
 
-Etapa 1.8 do roteiro: a persona do analista sobre as etapas 1–7. Rotas autenticadas em `/aci/*`, para quem tem o módulo `alpha` do PBAC no nível 2 (Licitações) ou 3 (ACI); os demais veem a explicação e a quem pedir o perfil. Os grants ficam em `access_control.user_permissions`, como nos outros apps; gerir os acessos do α é o módulo `alpha-admin` (nível 3).
+Etapa 1.8 do roteiro: a persona do analista sobre as etapas 1–7. Rotas autenticadas em `/aci/*` no Contrate (`contrate.iefa.com.br`), para quem tem o módulo `alpha` do PBAC no nível 2 (Licitações) ou 3 (ACI); os demais veem a explicação e a quem pedir o perfil. Os grants ficam em `access_control.user_permissions`, como nos outros apps; gerir os acessos do α é o módulo `alpha-admin` (nível 3), pela tela `/admin/acessos` do Contrate.
 
 | Rota | Para quê |
 |---|---|
@@ -115,7 +115,7 @@ Etapa 1.8 do roteiro: a persona do analista sobre as etapas 1–7. Rotas autenti
 | `/aci/nova` | envio + extração, levando direto ao processo |
 | `/aci/processos/$id` | o processo: trilha de etapas, extração com o trecho de origem, achados com triagem (acatar / descartar com motivo) e parecer |
 | `/aci/relatorio/$runId` | relatório final imprimível, com download em Markdown |
-| `/aci/chats` | hub dos assistentes (ChatRADA disponível; ChatSistemasSEFA e ChatLicitaçõesSEFA planejados) e as conversas recentes |
+| — | o hub de chats (`/aci/chats`) saiu com a mudança para o Contrate: o ChatRADA ficou no portal, e a conversa aberta pelo hub dependia de `localStorage` do mesmo domínio |
 
 O que a plataforma acrescenta ao α:
 

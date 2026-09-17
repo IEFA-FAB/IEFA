@@ -18,6 +18,7 @@ COPY package.json bun.lock ./
 COPY apps/alpha/package.json ./apps/alpha/
 COPY apps/api/package.json ./apps/api/
 COPY apps/assignment-selection/package.json ./apps/assignment-selection/
+COPY apps/contrate/package.json ./apps/contrate/
 COPY apps/docs/package.json ./apps/docs/
 COPY apps/forms/package.json ./apps/forms/
 COPY apps/portal/package.json ./apps/portal/
@@ -315,6 +316,46 @@ FROM ${BUN_IMAGE} AS forms
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=forms-build /app/apps/forms/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
+USER bun
+EXPOSE 3000
+CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+
+# =============================================================================
+# CONTRATE (copiloto de aquisições — Projeto α)
+# =============================================================================
+FROM deps AS contrate-build
+ARG VITE_IEFA_SUPABASE_URL
+ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
+COPY packages/agent-web ./packages/agent-web
+COPY packages/auth-kit ./packages/auth-kit
+COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
+COPY packages/pbac ./packages/pbac
+COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
+COPY apps/contrate ./apps/contrate
+RUN rm -rf apps/contrate/.vite apps/contrate/.tanstack apps/contrate/node_modules/.vite
+RUN bun --filter='@iefa/contrate' run build
+RUN test -f apps/contrate/.output/server/index.mjs || \
+    (echo "❌ Build failed: output missing" && exit 1)
+
+# Confere que todo asset CSS/JS citado pelo bundle do servidor existe em public/.
+# Pega divergência de hash entre o build SSR e o do cliente ANTES da imagem subir.
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/contrate/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/contrate/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
+
+FROM ${BUN_IMAGE} AS contrate
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=contrate-build /app/apps/contrate/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000

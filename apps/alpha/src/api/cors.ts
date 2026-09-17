@@ -3,14 +3,15 @@ import { cors } from "hono/cors"
 /**
  * Origens que podem chamar o α pelo browser.
  *
- * O console e o ChatRADA vivem no portal, em domínio diferente do α, então toda
- * chamada é cross-origin — sem isto o browser bloqueia antes de sair o request,
+ * O ChatRADA vive no portal e a Plataforma ACI, o console e o Pregoeiro vivem no
+ * contrate — os dois em domínio diferente do α, então toda chamada é cross-origin — sem isto o browser bloqueia antes de sair o request,
  * e a tela mostra "Failed to fetch" sem nenhum erro do lado do servidor.
  * `credentials` fica desligado de propósito: a autenticação é por Bearer, não
  * por cookie.
  */
 export const ALLOWED_ORIGINS = [
 	"https://portal.iefa.com.br",
+	"https://contrate.iefa.com.br",
 	"https://iefa.com.br",
 	"https://www.iefa.com.br",
 	"http://localhost:3000",
