@@ -212,6 +212,28 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forkItems).toHaveLength(1)
 	})
 
+	test("forkTemplate de exceção global leva o pax de cada item e a recorrência mensal", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		// Modelo do catálogo global: sem efetivo base, o quantitativo mora no item.
+		const src = await createTemplate(db, ctx, {
+			name: uid("[TEST] Exceção global "),
+			templateType: "exception",
+			expectedMonthlyOccurrences: 30,
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 45 }],
+		})
+		trackTemplate(src.id)
+
+		const fork = await forkTemplate(db, ctx, { sourceTemplateId: src.id, targetKitchenId: kitchenId, newName: uid("[TEST] Exceção adaptada ") })
+		trackTemplate(fork.id)
+
+		expect(fork.kitchen_id).toBe(kitchenId)
+		expect(fork.template_type).toBe("exception")
+		expect(fork.expected_monthly_occurrences).toBe(30)
+		const forkItems = await getTemplateItems(db, ctx, { templateId: fork.id })
+		expect(forkItems.map((i) => i.headcount_override)).toEqual([45])
+	})
+
 	test("saveTemplateEdit forka template global editado no contexto de uma cozinha", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, recipeId } = await base()

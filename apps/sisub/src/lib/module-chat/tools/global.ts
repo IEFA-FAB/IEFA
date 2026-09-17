@@ -134,7 +134,8 @@ const getIngredient: ModuleToolDefinition = {
 
 const listMenuTemplates: ModuleToolDefinition = {
 	name: "list_menu_templates",
-	description: "Lista templates semanais globais (SDAB) com contagem de itens.",
+	description:
+		"Lista os modelos globais (SDAB) com contagem de itens: planos semanais, eventos e exceções — `template_type` distingue (weekly, event, exception).",
 	parameters: {
 		type: "object",
 		properties: {
