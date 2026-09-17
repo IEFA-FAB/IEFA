@@ -1062,20 +1062,25 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				<IngredientSelector
 					isOpen={selectorOpen}
 					onClose={() => setSelectorOpen(false)}
-					onSelect={(ingredient) => {
-						form.pushFieldValue("ingredients", {
-							ingredient_id: ingredient.id,
-							ingredient_name: ingredient.description ?? "",
-							measure_unit: ingredient.measure_unit ?? "UN",
-							folder_id: ingredient.folder_id ?? null,
-							net_quantity: 0,
-							is_optional: false,
-							priority_order: form.getFieldValue("ingredients").length + 1,
-							// Prefill dos fatores com o padrão do insumo (editável por preparação; vazio = 1).
-							correction_factor: ingredient.correction_factor ?? null,
-							rehydration_index: ingredient.rehydration_index ?? null,
-							alternatives: [],
-						})
+					confirmLabel={(count) => (count <= 1 ? "Adicionar insumo" : `Adicionar ${count} insumos`)}
+					onSelect={(picked) => {
+						// A ficha ACEITA o mesmo insumo duas vezes (duas etapas, dois pesos), então aqui
+						// não há lista de excluídos: quem já está na tabela pode ser marcado de novo.
+						for (const ingredient of picked) {
+							form.pushFieldValue("ingredients", {
+								ingredient_id: ingredient.id,
+								ingredient_name: ingredient.description ?? "",
+								measure_unit: ingredient.measure_unit ?? "UN",
+								folder_id: ingredient.folder_id ?? null,
+								net_quantity: 0,
+								is_optional: false,
+								priority_order: form.getFieldValue("ingredients").length + 1,
+								// Prefill dos fatores com o padrão do insumo (editável por preparação; vazio = 1).
+								correction_factor: ingredient.correction_factor ?? null,
+								rehydration_index: ingredient.rehydration_index ?? null,
+								alternatives: [],
+							})
+						}
 					}}
 				/>
 			)}

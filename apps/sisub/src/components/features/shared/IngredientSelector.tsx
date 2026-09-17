@@ -1,6 +1,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Loader2, Search, X } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
@@ -10,12 +12,28 @@ import type { Ingredient } from "@/types/domain/ingredients"
 interface IngredientSelectorProps {
 	isOpen: boolean
 	onClose: () => void
-	onSelect: (ingredient: Ingredient) => void
+	title?: string
+	/** Recebe TODOS os insumos marcados, na ordem em que foram marcados. */
+	onSelect: (ingredients: Ingredient[]) => void
+	/** Insumos que não podem ser marcados (já estão na lista de destino) — marcados e travados. */
+	excludedIds?: ReadonlySet<string>
+	/** Rótulo do botão de confirmação, recebendo a quantidade marcada. */
+	confirmLabel?: (count: number) => string
 }
 
-export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSelectorProps) {
+/**
+ * Escolha de insumos na árvore do catálogo — SEMPRE por checkbox, com confirmação no rodapé.
+ *
+ * A seleção era de um por vez e fechava o modal no clique: montar uma ficha com dez insumos,
+ * ou cadastrar cinco substitutos de uma linha, significava abrir, buscar e fechar o modal uma
+ * vez por item, refazendo a busca do zero a cada volta. Como a marcação guarda o insumo
+ * inteiro, e não só o id, ela sobrevive à troca do texto da busca: dá para buscar "feijão",
+ * marcar dois, buscar "arroz", marcar mais um e confirmar os três juntos.
+ */
+export function IngredientSelector({ isOpen, onClose, title = "Selecionar Insumos", onSelect, excludedIds, confirmLabel }: IngredientSelectorProps) {
 	"use no memo"
 	const [filterText, setFilterText] = useState("")
+	const [checked, setChecked] = useState<ReadonlyMap<string, Ingredient>>(new Map())
 	const { flatTree, error } = useIngredientsHierarchy(filterText)
 
 	// Virtualization — callback ref triggers re-render so virtualizer
@@ -33,11 +51,31 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 		setFilterText("")
 	}
 
+	const handleClose = () => {
+		setChecked(new Map())
+		onClose()
+	}
+
+	const toggle = (ingredient: Ingredient) => {
+		setChecked((prev) => {
+			const next = new Map(prev)
+			if (next.has(ingredient.id)) next.delete(ingredient.id)
+			else next.set(ingredient.id, ingredient)
+			return next
+		})
+	}
+
+	const handleConfirm = () => {
+		if (checked.size === 0) return
+		onSelect([...checked.values()])
+		handleClose()
+	}
+
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
+		<Dialog open={isOpen} onOpenChange={handleClose}>
 			<DialogContent className="max-w-full sm:max-w-3xl h-screen sm:h-[80vh] flex flex-col p-0 sm:p-6 gap-0 sm:gap-4">
 				<DialogHeader className="px-6 pt-6 sm:px-0 sm:pt-0">
-					<DialogTitle className="font-sans text-display md:text-2xl">Selecionar Insumo</DialogTitle>
+					<DialogTitle className="font-sans text-display md:text-2xl">{title}</DialogTitle>
 				</DialogHeader>
 
 				{/* Search Bar - Enhanced */}
@@ -91,6 +129,21 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 									const iconBg = node.type === "folder" ? "bg-warning/10 dark:bg-warning/20" : "bg-primary/10 dark:bg-primary/20"
 									const iconColor = node.type === "folder" ? "text-warning" : "text-primary"
 
+									const icon = (
+										<div
+											className={cn(
+												"flex items-center justify-center size-7 rounded-md mr-3 border border-border/30 transition-transform",
+												iconBg,
+												isProduct && "group-hover:scale-110"
+											)}
+										>
+											<span className={cn("text-base", iconColor)}>{node.type === "folder" ? "📁" : "📦"}</span>
+										</div>
+									)
+
+									const ingredient = isProduct ? (node.data as Ingredient | undefined) : undefined
+									const isExcluded = ingredient != null && excludedIds?.has(ingredient.id) === true
+
 									return (
 										<div
 											key={virtualRow.key}
@@ -103,54 +156,56 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 												transform: `translateY(${virtualRow.start}px)`,
 											}}
 										>
-											{/* Render Node for Selection */}
-											<button
-												type="button"
-												className={cn(
-													"flex items-center p-3 w-full text-left border-b border-border/50 transition-all duration-150",
-													isProduct ? "hover:bg-primary/5 cursor-pointer" : "cursor-default text-muted-foreground"
-												)}
-												style={{ paddingLeft: `${node.level * 20 + 12}px` }}
-												disabled={!isProduct}
-												onClick={() => {
-													if (isProduct && node.data) {
-														onSelect(node.data as Ingredient)
-														onClose()
-													}
-												}}
-												onKeyDown={(e) => {
-													if ((e.key === "Enter" || e.key === " ") && isProduct && node.data) {
-														e.preventDefault()
-														onSelect(node.data as Ingredient)
-														onClose()
-													}
-												}}
-											>
-												{/* Icon with background */}
-												<div
+											{ingredient ? (
+												<label
+													htmlFor={`ingredient-pick-${ingredient.id}`}
 													className={cn(
-														"flex items-center justify-center size-7 rounded-md mr-3 border border-border/30 transition-transform",
-														iconBg,
-														isProduct && "group-hover:scale-110"
+														"flex items-center gap-3 p-3 w-full h-full border-b border-border/50 transition-all duration-150",
+														isExcluded ? "text-muted-foreground" : "hover:bg-primary/5",
+														checked.has(ingredient.id) && "bg-primary/5"
 													)}
+													style={{ paddingLeft: `${node.level * 20 + 12}px` }}
 												>
-													<span className={cn("text-base", iconColor)}>{node.type === "folder" ? "📁" : "📦"}</span>
+													<Checkbox
+														id={`ingredient-pick-${ingredient.id}`}
+														checked={isExcluded || checked.has(ingredient.id)}
+														disabled={isExcluded}
+														onCheckedChange={() => toggle(ingredient)}
+													/>
+													{icon}
+													<span className="flex-1 font-sans text-sm text-subheading">{node.label}</span>
+													{isExcluded && <span className="ml-auto text-xs text-muted-foreground">Já adicionado</span>}
+												</label>
+											) : (
+												// Pasta: estrutura da árvore, não é escolhível.
+												<div
+													className="flex items-center p-3 w-full h-full border-b border-border/50 text-muted-foreground"
+													style={{ paddingLeft: `${node.level * 20 + 12}px` }}
+												>
+													{icon}
+													<span className="flex-1 font-sans text-sm">{node.label}</span>
 												</div>
-
-												<span className={cn("flex-1 font-sans text-sm", isProduct && "text-subheading")}>{node.label}</span>
-
-												{isProduct && (
-													<span className="ml-auto px-2.5 py-1 rounded-md text-xs font-mono bg-primary/10 text-primary border border-primary/20 transition-all opacity-0 group-hover:opacity-100">
-														Selecionar
-													</span>
-												)}
-											</button>
+											)}
 										</div>
 									)
 								})}
 							</div>
 						</div>
 					)}
+				</div>
+
+				<div className="flex items-center justify-between gap-3 px-6 pb-6 sm:px-0 sm:pb-0">
+					<span className="text-sm text-muted-foreground" aria-live="polite">
+						{checked.size === 0 ? "Nenhum insumo marcado" : checked.size === 1 ? "1 insumo marcado" : `${checked.size} insumos marcados`}
+					</span>
+					<div className="flex gap-2">
+						<Button type="button" variant="outline" onClick={handleClose}>
+							Cancelar
+						</Button>
+						<Button type="button" onClick={handleConfirm} disabled={checked.size === 0}>
+							{confirmLabel ? confirmLabel(checked.size) : "Adicionar"}
+						</Button>
+					</div>
 				</div>
 			</DialogContent>
 		</Dialog>
