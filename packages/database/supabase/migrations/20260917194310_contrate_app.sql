@@ -1,8 +1,11 @@
 -- Contrate (contrate.iefa.com.br) — a interface do Projeto α fora do portal.
 --
--- APLICAR SÓ DEPOIS DO SITE NO AR: o card da suíte aponta para o domínio novo, e
--- publicá-lo antes do DNS e do deploy leva quem clica a um host que não responde.
--- Idempotente.
+-- APLICADA em prod em 2026-09-17, depois do DNS e do deploy, via MCP `apply_migration`
+-- (versão remota 20260917194310) — o arquivo nasceu como 20260917200000 e foi renomeado
+-- para casar com a versão registrada; senão o próximo `db push` tentaria reaplicá-la.
+--
+-- A ordem importava: o card da suíte aponta para o domínio novo, e publicá-lo antes do DNS
+-- levaria quem clica a um host que não responde. Idempotente.
 --
 -- A unicidade dos grants `alpha`/`alpha-admin` NÃO mora aqui: ela virou regra geral de
 -- `user_permissions` (índice único sobre usuário + módulo + escopo, com `nulls not
