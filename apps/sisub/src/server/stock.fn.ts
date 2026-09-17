@@ -182,54 +182,35 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const inv = inventory()
 
-		let lot: { id: string; ingredient_id: string | null; frozen_preparation_id: string | null }
+		if (!data.lotId && (!data.newLot || (!data.newLot.ingredientId && !data.newLot.frozenPreparationId))) {
+			throw new Error("Informe um lote existente ou os dados do novo lote (com o item)")
+		}
+		// unidade canônica é checada aqui (fila de revisão é assunto da aplicação);
+		// o resto — lote travado, saldo conferido, movimento — acontece numa
+		// transação só no banco. Antes eram duas requests: lote criado numa,
+		// movimento na outra, e a falha da segunda deixava lote órfão.
+		await assertCanonicalUnit(data.newLot?.ingredientId ?? null)
 		if (data.lotId) {
-			const { data: existing, error } = await inv
-				.from("stock_lot")
-				.select("id, ingredient_id, frozen_preparation_id")
-				.eq("id", data.lotId)
-				.eq("kitchen_id", data.kitchenId)
-				.single()
-			if (error || !existing) throw new Error("Lote não encontrado")
-			lot = existing
-		} else {
-			if (!data.newLot || (!data.newLot.ingredientId && !data.newLot.frozenPreparationId)) {
-				throw new Error("Informe um lote existente ou os dados do novo lote (com o item)")
-			}
-			if (data.direction === "out") throw new Error("Saída exige lote existente")
-			await assertCanonicalUnit(data.newLot.ingredientId ?? null)
-			const lotCode = data.newLot.lotCode?.trim() || `SEM-LOTE-${new Date().toISOString().substring(0, 10)}`
-			const { data: created, error } = await inv
-				.from("stock_lot")
-				.insert({
-					kitchen_id: data.kitchenId,
-					ingredient_id: data.newLot.ingredientId ?? null,
-					frozen_preparation_id: data.newLot.frozenPreparationId ?? null,
-					lot_code: lotCode,
-					expiry_date: data.newLot.expiryDate ?? null,
-					unit_cost: data.newLot.unitCost ?? null,
-				})
-				.select("id, ingredient_id, frozen_preparation_id")
-				.single()
-			if (error || !created) throw new Error(`Erro ao criar lote: ${error?.message}`)
-			lot = created
+			const { data: existing } = await inv.from("stock_lot").select("ingredient_id").eq("id", data.lotId).eq("kitchen_id", data.kitchenId).maybeSingle()
+			if (!existing) throw new Error("Lote não encontrado")
+			await assertCanonicalUnit(existing.ingredient_id)
 		}
 
-		await assertCanonicalUnit(lot.ingredient_id)
-
-		const { error: moveError } = await inv.from("stock_movement").insert({
-			kitchen_id: data.kitchenId,
-			ingredient_id: lot.ingredient_id,
-			frozen_preparation_id: lot.frozen_preparation_id,
-			lot_id: lot.id,
-			type: data.direction === "in" ? "adjustment_in" : "adjustment_out",
-			quantity: data.quantity,
-			unit_cost: data.direction === "in" ? (data.newLot?.unitCost ?? null) : null,
-			justification: data.justification.trim(),
-			created_by: userId,
+		const { data: result, error } = await inv.rpc("adjust_stock", {
+			p_kitchen_id: data.kitchenId,
+			p_direction: data.direction,
+			p_quantity: data.quantity,
+			p_justification: data.justification,
+			p_user: userId,
+			p_lot_id: data.lotId ?? null,
+			p_ingredient_id: data.newLot?.ingredientId ?? null,
+			p_frozen_preparation_id: data.newLot?.frozenPreparationId ?? null,
+			p_lot_code: data.newLot?.lotCode ?? null,
+			p_expiry_date: data.newLot?.expiryDate ?? null,
+			p_unit_cost: data.newLot?.unitCost ?? null,
 		})
-		if (moveError) throw new Error(`Erro ao registrar ajuste: ${moveError.message}`)
-		return { lotId: lot.id }
+		if (error) throw new Error(`Erro ao registrar ajuste: ${error.message}`)
+		return { lotId: (result?.[0]?.lot_id ?? null) as string | null }
 	})
 
 /** Transferência atômica entre cozinhas (função SQL: par transfer_out/in). */

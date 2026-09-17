@@ -1,0 +1,45 @@
+##
+# O ledger de estoque só é escrito pelas funções SQL do módulo.
+#
+# Como as outras regras deste diretório, esta nasceu de bug real: a alocação de
+# lote vivia em TypeScript, lendo saldo FORA da transação. Duas baixas
+# simultâneas do mesmo lote validavam o mesmo saldo e ambas sacavam — o lote
+# ficava negativo, e o FEFO em memória ainda escolhia lote VENCIDO primeiro
+# (change sisub-inventory-operations, Fase 0).
+#
+# Escrever em `inventory.stock_movement`, `stock_lot` ou `stock_cost` por
+# PostgREST significa: sem lock dos lotes, sem recálculo de custo médio sob
+# trava, sem checagem de competência fechada. As server fns usam service role,
+# então RLS não segura nada — o gate é este, mais os triggers do banco.
+#
+# Caminho certo: `inv.rpc("register_production_issue" | "transfer_stock" |
+# "finalize_goods_receipt" | "confirm_inventory_count" | "register_leftover" |
+# "close_month", …)`.
+##
+rules:
+  - id: inventory-ledger-write-outside-rpc
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Escrita direta em tabela do ledger de estoque (`stock_movement`, `stock_lot`, `stock_cost`).
+      Use a função SQL do módulo via `.rpc(...)`: ela trava os lotes, recalcula o custo médio
+      (MCASP) sob trava, respeita `occurred_at` e a competência fechada, e grava o par de
+      movimentos das operações que exigem atomicidade. Insert por PostgREST pula tudo isso, e
+      service role não é barrado por RLS.
+    paths:
+      include:
+        - "apps/sisub/src/server/**/*.ts"
+        - "apps/api/src/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: $DB.from("stock_movement").insert(...)
+          - pattern: $DB.from("stock_movement").upsert(...)
+          - pattern: $DB.from("stock_movement").update(...)
+          - pattern: $DB.from("stock_movement").delete(...)
+          - pattern: $DB.from("stock_lot").insert(...)
+          - pattern: $DB.from("stock_lot").upsert(...)
+          - pattern: $DB.from("stock_cost").insert(...)
+          - pattern: $DB.from("stock_cost").update(...)
+          - pattern: $DB.from("stock_cost").upsert(...)

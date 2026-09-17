@@ -20,6 +20,7 @@
 import {
 	type ConservationClass,
 	divergesFromInvoice,
+	isReceiptEditable,
 	isTemperatureOutOfRange,
 	requiresDivergenceReason,
 	temperatureDivergenceReason,
@@ -49,7 +50,10 @@ async function requireOpenReceipt(receiptId: string, level: 2 | 3) {
 	const { data: receipt } = await inv.from("goods_receipt").select("id, status, kitchen_id").eq("id", receiptId).maybeSingle()
 	if (!receipt) throw new Error("Recebimento não encontrado")
 	const auth = await requireStorageForKitchen(level, Number(receipt.kitchen_id))
-	if (receipt.status === "definitive") throw new Error("Recebimento já efetivado — não pode ser alterado")
+	// `divergent` e `rejected` JÁ passaram pela efetivação (o ledger foi gravado
+	// ou o recebimento foi recusado): aceitar escrita neles mudava o termo e o
+	// valor sugerido de liquidação depois do fato. A UI já bloqueava; a API não.
+	if (!isReceiptEditable(receipt.status as string)) throw new Error("Recebimento já efetivado — não pode ser alterado")
 	return { receipt, ...auth }
 }
 
@@ -136,6 +140,21 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		if (resolvable.length === 0) {
 			throw new Error("Nenhum item da NF-e está vinculado a um insumo — resolva o matching antes de receber")
 		}
+		// Linha sem insumo resolvido SUMIA do recebimento (ia como `skipped`): o
+		// conferente recebia uma nota de 6 linhas com 5 na tela e nada dizia que a
+		// sexta existia. Enquanto a linha não casada não tem onde morar no
+		// recebimento (goods_receipt_item exige ingrediente XOR preparação), o
+		// caminho honesto é recusar apontando quais faltam.
+		const unresolved = (items ?? []).filter((item: { ingredient_id: string | null }) => item.ingredient_id == null)
+		if (unresolved.length > 0) {
+			const descriptions = unresolved
+				.slice(0, 5)
+				.map((item: { nfe_item_id?: string; id: string }) => item.id)
+				.join(", ")
+			throw new Error(
+				`${unresolved.length} item(ns) da NF-e ainda sem insumo vinculado — resolva o matching antes de receber (itens: ${descriptions}${unresolved.length > 5 ? "…" : ""})`
+			)
+		}
 
 		const { data: receipt, error } = await inv
 			.from("goods_receipt")
@@ -221,7 +240,9 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			}
 		}
 
-		return { receiptId: receipt.id as string, itemsCount: prepared.length, skipped: (items ?? []).length - prepared.length }
+		// `skipped` fica em zero por construção: nota com linha não casada não
+		// chega a criar recebimento.
+		return { receiptId: receipt.id as string, itemsCount: prepared.length, skipped: 0 }
 	})
 
 /** Conferência da LINHA: quantidade física + motivo de divergência. Lote é escrita à parte. */

@@ -87,20 +87,26 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: receipt } = await inv
-			.from("goods_receipt")
-			.select("id, kitchen_id, status, definitive_at, empenho_id, nfe_document_id, liquidacao_id")
-			.eq("id", data.receiptId)
-			.maybeSingle()
-		if (!receipt) throw new Error("Recebimento não encontrado")
+		// Só a cozinha do recebimento é lida antes do guard — o resto (valores,
+		// empenho, NF-e) fica atrás dele. Devolver "não encontrado" x "existe"
+		// para quem não tem escopo é um oráculo barato, mas é um oráculo.
+		const { data: receiptScope } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (!receiptScope) throw new Error("Recebimento não encontrado")
 
 		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
-		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
+		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receiptScope.kitchen_id).single()
 		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
 		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
 		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
 		if (unitId == null) throw new Error("Cozinha do recebimento não tem unidade vinculada")
 		await requireUnitScope(1, unitId)
+
+		const { data: receipt } = await inv
+			.from("goods_receipt")
+			.select("id, kitchen_id, status, definitive_at, empenho_id, nfe_document_id")
+			.eq("id", data.receiptId)
+			.maybeSingle()
+		if (!receipt) throw new Error("Recebimento não encontrado")
 
 		const { data: items } = await inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
 		// `suggestedLiquidationValue` fecha em centavo sem o viés do arredondamento
@@ -113,12 +119,18 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 			}))
 		)
 
+		// "já liquidado" é derivado do vínculo em finance.liquidacao — um
+		// recebimento aceita mais de uma NS (liquidação parcial).
+		const { data: liquidacoes } = await finance().from("liquidacao").select("id, valor").eq("goods_receipt_id", data.receiptId)
+		const jaLiquidadoValor = (liquidacoes ?? []).reduce((acc: number, row: { valor: number | string }) => acc + Number(row.valor), 0)
+
 		return {
 			unitId,
 			valorSugerido: valor,
 			empenhoId: receipt.empenho_id as string | null,
 			nfeDocumentId: receipt.nfe_document_id as string | null,
-			jaLiquidado: receipt.liquidacao_id != null,
+			jaLiquidado: (liquidacoes ?? []).length > 0,
+			jaLiquidadoValor,
 			definitivo: receipt.definitive_at != null,
 		}
 	})
@@ -168,10 +180,10 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 					throw new Error(`Erro ao registrar liquidação: ${error?.message}`)
 				}
 
-				// espelha o vínculo no recebimento (o estoque passa a saber que liquidou)
-				if (data.goodsReceiptId) {
-					await inventory().from("goods_receipt").update({ liquidacao_id: liquidacao.id }).eq("id", data.goodsReceiptId)
-				}
+				// O vínculo mora em finance.liquidacao.goods_receipt_id (N liquidações
+				// por recebimento). O espelho em goods_receipt.liquidacao_id era um
+				// update SEM checar unidade: a liquidação de uma unidade escrevia em
+				// recebimento de outra, e o erro era engolido.
 				return { liquidacaoId: liquidacao.id as string }
 			},
 			// O número da NS vai normalizado: é assim que ele foi gravado, e o log tem que
