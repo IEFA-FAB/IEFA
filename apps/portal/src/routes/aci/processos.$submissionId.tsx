@@ -23,7 +23,7 @@ import {
 	useRunCompliance,
 } from "@/lib/alpha/compliance"
 import { formatDateTime } from "@/lib/alpha/format"
-import { alphaRole, canDecide } from "@/lib/alpha/role"
+import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 import { extractionsQueryOptions, useRunExtraction } from "@/lib/alpha/submissions"
 
 export const Route = createFileRoute("/aci/processos/$submissionId")({
@@ -388,10 +388,10 @@ function ReviewTab({ run, submissionId, decider }: { run: ComplianceRun; submiss
 
 function ProcessoPage() {
 	const { submissionId } = Route.useParams()
-	const { user, session } = useAuth()
+	const { session } = useAuth()
 	const token = session?.access_token
 	const queryClient = useQueryClient()
-	const decider = canDecide(alphaRole(user))
+	const decider = useQuery(alphaAccessQueryOptions(token)).data?.can_decide ?? false
 
 	const detail = useQuery(processDetailQueryOptions(token, submissionId))
 	const runExtraction = useRunExtraction()

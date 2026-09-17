@@ -24,6 +24,8 @@
     "@iefa/ai-provider": "workspace:*",
     "@iefa/alpha-client": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
+    "@iefa/pbac": "workspace:*",
+    "@iefa/supabase-kit": "workspace:*",
     "@langchain/aws": "^1.4.5",
     "@langchain/core": "^1.2.9",
     "@langchain/langgraph": "^1.4.14",

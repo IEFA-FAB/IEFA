@@ -6,25 +6,18 @@
  * passa por aqui.
  *
  * **Allow-list, não deny-list.** A versão anterior negava apenas
- * `app_requisitante`; qualquer usuário sem `app_metadata.role` — que é o
+ * o requisitante; qualquer usuário sem perfil — que é o
  * estado de quem acabou de se cadastrar — passava direto e lia a submissão de
  * qualquer um. Só perfil explicitamente amplo tem acesso além do próprio.
  */
 
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "../db/supabase.ts"
-import type { AppRole } from "../middleware/auth.ts"
-
-/** Perfis que enxergam o fluxo inteiro, por definição de negócio. */
-const PERFIS_AMPLOS: ReadonlyArray<AppRole> = ["app_aci", "app_licitacoes"]
-
-export function hasBroadAccess(role: AppRole | undefined): boolean {
-	return role !== undefined && PERFIS_AMPLOS.includes(role)
-}
+import { type AlphaAccess, hasBroadAccess } from "../lib/alpha-access.ts"
 
 /** O usuário pode ler esta submissão? */
-export async function canReadSubmission(submissionId: string, user: User, role: AppRole | undefined): Promise<boolean> {
-	if (hasBroadAccess(role)) return true
+export async function canReadSubmission(submissionId: string, user: User, access: AlphaAccess): Promise<boolean> {
+	if (hasBroadAccess(access)) return true
 
 	const { data } = await supabase.from("submission").select("user_id").eq("id", submissionId).maybeSingle()
 
@@ -37,13 +30,13 @@ export async function canReadSubmission(submissionId: string, user: User, role: 
  *
  * A permissão é a da submissão de origem — o parecer não tem dono próprio.
  */
-export async function canReadComplianceRun(runId: string, user: User, role: AppRole | undefined): Promise<boolean> {
-	if (hasBroadAccess(role)) return true
+export async function canReadComplianceRun(runId: string, user: User, access: AlphaAccess): Promise<boolean> {
+	if (hasBroadAccess(access)) return true
 
 	const { data } = await supabase.from("compliance_run").select("submission_id").eq("id", runId).maybeSingle()
 	if (!data?.submission_id) return false
 
-	return canReadSubmission(data.submission_id, user, role)
+	return canReadSubmission(data.submission_id, user, access)
 }
 
 /**
