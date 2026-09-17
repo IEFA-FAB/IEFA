@@ -45,17 +45,27 @@
 -- (nível 2, vence em outubro) viraria nível 2 PERMANENTE, escalada silenciosa; e um deny
 -- com prazo sobre um allow permanente viraria deny permanente.
 --
--- A ordem, na íntegra, e o que cada chave protege:
+-- Antes da ordem, a PARTIÇÃO: ela inclui o SINAL do nível (`level > 0`). Allow e deny da
+-- mesma chave são grupos SEPARADOS, e cada um elege o seu sobrevivente — um deny vigente
+-- não elimina o allow que convive com ele. É o par que a migração seguinte
+-- (20260917185655) volta a permitir com os dois índices parciais; colapsá-lo aqui
+-- destruiria justamente o que ela restaura.
 --
---   1. DENY VIGENTE primeiro — é a decisão que está em vigor hoje; colapsar para o allow
---      transformaria uma negação ativa em concessão. Deny já VENCIDO não entra aqui de
---      propósito: vencido é ausente para a resolução, e deixá-lo vencer a eleição
---      destruiria um allow vivo (é o caso que o teste "deny EXPIRADO deixa de negar"
---      fixa);
---   2. linha VIVA antes de linha vencida — a vencida não concede nem nega nada hoje;
---   3. MAIOR nível — é o que a fase 2 da resolução já emite por (módulo, escopo);
---   4. prazo mais LONGO (`null` = nunca expira vence qualquer data) — desempate entre
---      linhas de mesmo nível;
+-- A ordem DENTRO de cada grupo, e o que cada chave protege:
+--
+--   1. linha VIVA antes de linha vencida — a vencida não concede nem nega nada hoje, e
+--      deixá-la vencer a eleição apagaria a linha que está em vigor (é o caso que o teste
+--      "deny EXPIRADO deixa de negar" fixa);
+--   2. linha PERMANENTE (`expires_at is null`) antes do maior nível — e esta ordem é
+--      deliberada. Entre uma elevação com prazo (nível 2 até outubro) e o acesso base
+--      permanente (nível 1 sem prazo), manter a elevação apagaria a linha que sustenta o
+--      acesso DEPOIS de outubro: quando o prazo vencesse, a pessoa perderia o módulo
+--      inteiro em vez de cair para a base — e, com o índice novo, o par não é recriável
+--      sozinho. Entre perder a elevação temporária e perder o acesso base, perder a
+--      elevação é o erro REVERSÍVEL (um administrador reconcede em um clique);
+--   3. MAIOR nível — desempate entre linhas de mesma permanência; é o que a fase 2 da
+--      resolução já emite por (módulo, escopo);
+--   4. prazo mais LONGO — desempate entre linhas com prazo;
 --   5. mais ANTIGA (`created_at`, `id`) — desempate estável, e mantém o `id` que as
 --      telas e a trilha de auditoria já citam quando as linhas são equivalentes.
 --
@@ -67,10 +77,15 @@
 -- antiga. A ordem acima elege exatamente as mesmas quatro linhas sobreviventes; a
 -- correção existe para quando este arquivo rodar em banco NOVO (local/staging).
 --
--- Consequência conhecida de reproduzir o histórico: aqui o par allow + deny da mesma
--- chave colapsa numa linha só, porque é isto que o índice geral criado logo abaixo
--- exige. A migração seguinte (20260917185655) troca esse índice por dois parciais e
--- devolve o par — em produção o caso não existiu (0 linhas com `level <= 0`).
+-- Consequência conhecida de reproduzir o histórico num banco que JÁ TEM dados: a
+-- consolidação preserva o par allow + deny (a partição separa os dois), mas o índice
+-- GERAL criado logo abaixo não o aceita — o `create unique index` falharia com 23505 e a
+-- migração pararia ali. É o comportamento preferível entre os dois possíveis: parar com
+-- erro visível é recuperável (a migração seguinte, 20260917185655, troca o índice pelos
+-- dois parciais e o par passa a caber), enquanto apagar o deny para caber no índice seria
+-- perda silenciosa de uma decisão de acesso explícita. Em banco NOVO a questão não se
+-- coloca — não há linha nenhuma neste ponto — e em produção não se colocou: 0 linhas com
+-- `level <= 0` quando esta migração rodou.
 --
 -- ## `policy_statement` e `user_policy_attachment` — por que NÃO ganham índice aqui
 --
@@ -120,22 +135,24 @@ with grupo as (
 	from access_control.user_permissions
 	window
 		w_ord as (
-			partition by user_id, module, mess_hall_id, kitchen_id, unit_id
+			-- A partição inclui o SINAL do nível: allow e deny são grupos separados, e cada
+			-- um mantém o seu — o deny não elimina o allow com que convive.
+			partition by user_id, module, mess_hall_id, kitchen_id, unit_id, (level > 0)
 			order by
-				-- 1. deny VIGENTE decide hoje (deny vencido não, senão mataria um allow vivo)
-				(level <= 0 and (expires_at is null or expires_at > now())) desc,
-				-- 2. linha viva antes de linha vencida
+				-- 1. linha viva antes de linha vencida
 				(expires_at is null or expires_at > now()) desc,
+				-- 2. PERMANENTE antes do maior nível: perder a elevação temporária é
+				--    reversível; perder o acesso base quando o prazo vencer, não
+				(expires_at is null) desc,
 				-- 3. maior nível
 				level desc,
-				-- 4. prazo mais longo (`null` = nunca expira)
-				(expires_at is null) desc,
+				-- 4. prazo mais longo, entre as que têm prazo
 				expires_at desc,
 				-- 5. desempate estável: a mais antiga
 				created_at asc,
 				id asc
 		),
-		w_all as (partition by user_id, module, mess_hall_id, kitchen_id, unit_id)
+		w_all as (partition by user_id, module, mess_hall_id, kitchen_id, unit_id, (level > 0))
 )
 delete from access_control.user_permissions p
 using grupo g

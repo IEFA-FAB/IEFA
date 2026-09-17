@@ -102,13 +102,17 @@ export async function searchUsersByEmail(coreReadClient: AnySupabaseClient, emai
  * porque allow e deny coexistem na mesma chave de propósito: é o deny sobre allow, que
  * `resolveEffectivePermissions` aplica por precedência.
  *
- * Interação conhecida, e por ora deliberada: o update abaixo NÃO filtra por nível. Se um
- * dia existir um deny na mesma chave (hoje não existe nenhum na tabela, em módulo
- * nenhum), ele casaria as duas linhas e tentaria pôr as duas em `level`, o que o índice
- * de allow recusa — o grant falha com erro VISÍVEL em vez de apagar o deny em silêncio.
- * Filtrar por `level > 0` inverteria o problema (o grant viraria no-op silencioso, com o
- * deny seguindo em vigor), então a escolha entre as duas é decisão de produto, não de
- * índice.
+ * Por isso o update casa SÓ `level > 0`: ele atualiza o allow, nunca o deny. Sem esse
+ * filtro, conceder a quem tem um deny na chave (e nenhum allow) casaria a linha do DENY e
+ * sobrescreveria `level`/`expires_at` nela — a negação sumiria em silêncio, com `ok` de
+ * volta, e ninguém saberia que uma decisão explícita foi apagada por um clique de
+ * concessão. Não casando allow nenhum, o passo 2 INSERE — e o insert convive com o deny,
+ * porque os dois índices são parciais.
+ *
+ * Consequência a conhecer: com um deny vigente na mesma chave, o grant fica gravado, mas
+ * o deny continua vencendo até ser revogado — a resolução aplica a precedência. É o
+ * comportamento desejado: destruir a negação seria pior, e o deny é visível e removível
+ * na tela de acessos.
  */
 export async function grantUnscopedModulePermission(
 	accessControlClient: AnySupabaseClient,
@@ -126,14 +130,17 @@ export async function grantUnscopedModulePermission(
 			.is("mess_hall_id", null)
 			.is("kitchen_id", null)
 			.is("unit_id", null)
+			// Só o ALLOW: o deny da mesma chave é outra decisão, e não é esta função que a revoga.
+			.gt("level", 0)
 			.select("id")
 
-	// 1. atualiza o grant existente, se houver
+	// 1. atualiza o ALLOW existente, se houver
 	const { data: updated, error: updErr } = await applyUpdate()
 	if (updErr) throw new Error(updErr.message)
 	if (updated && updated.length > 0) return { ok: true }
 
-	// 2. não existia → insere (o índice único do DB impede a duplicata de fato)
+	// 2. não havia allow → insere (o índice de allow impede a duplicata de fato; um deny
+	//    na mesma chave não atrapalha, porque os índices são parciais e ele fica de pé)
 	const { error: insErr } = await accessControlClient
 		.from("user_permissions")
 		.insert({ user_id: params.userId, module: params.module, level: params.level, mess_hall_id: null, kitchen_id: null, unit_id: null })
