@@ -48,6 +48,10 @@ on:
         description: "Force deploy sisub-mcp"
         type: boolean
         default: false
+      force_pdf:
+        description: "Force deploy pdf (BentoPDF)"
+        type: boolean
+        default: false
 
 # id-token: write → OIDC para assumir a role de deploy AWS (sem chaves estaticas).
 permissions:
@@ -72,6 +76,7 @@ jobs:
       alpha: ${{ steps.final.outputs.alpha }}
       5s: ${{ steps.final.outputs['5s'] }}
       mcp: ${{ steps.final.outputs.mcp }}
+      pdf: ${{ steps.final.outputs.pdf }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -96,6 +101,7 @@ jobs:
           FORCE_ALPHA: ${{ inputs.force_alpha }}
           FORCE_5S: ${{ inputs.force_5s }}
           FORCE_MCP: ${{ inputs.force_mcp }}
+          FORCE_PDF: ${{ inputs.force_pdf }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_RUMAER: ${{ steps.filter.outputs.rumaer }}
@@ -107,6 +113,7 @@ jobs:
           FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
           FILTER_5S: ${{ steps.filter.outputs['5s'] }}
           FILTER_MCP: ${{ steps.filter.outputs.mcp }}
+          FILTER_PDF: ${{ steps.filter.outputs.pdf }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
@@ -120,6 +127,7 @@ jobs:
             echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FORCE_5S"         >> $GITHUB_OUTPUT
             echo "mcp=$FORCE_MCP"       >> $GITHUB_OUTPUT
+            echo "pdf=$FORCE_PDF"       >> $GITHUB_OUTPUT
           else
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
             echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
@@ -132,6 +140,7 @@ jobs:
             echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FILTER_5S"         >> $GITHUB_OUTPUT
             echo "mcp=$FILTER_MCP"       >> $GITHUB_OUTPUT
+            echo "pdf=$FILTER_PDF"       >> $GITHUB_OUTPUT
           fi
 
   # ============================================================
@@ -867,3 +876,30 @@ jobs:
       service: alpha
       health_url: ${{ vars.ALPHA_HEALTH_URL }}
       concurrency_suffix: alpha
+
+  # ============================================================
+  # PDF / apps/pdf (BentoPDF)  ── build → deploy
+  # ============================================================
+  # Sem job de check: não há código nosso para lint/typecheck/teste — a imagem é o
+  # upstream do BentoPDF numa versão fixada (apps/pdf/Dockerfile). Também não
+  # depende de `warm-deps`: não usa o estágio `deps` do monorepo.
+  #
+  # O build é o mais lento do repo (npm ci + vite + páginas i18n + docs + WASM), por
+  # isso o timeout maior. O cache do bake (scope `pdf`) só é refeito quando o
+  # Dockerfile muda.
+  build-pdf:
+    needs: [changes]
+    if: needs.changes.outputs.pdf == 'true'
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      service: pdf
+      timeout_minutes: 40
+    secrets: inherit
+
+  deploy-pdf:
+    needs: [build-pdf]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      service: pdf
+      health_url: ${{ vars.PDF_HEALTH_URL }}
+      concurrency_suffix: pdf

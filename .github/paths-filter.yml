@@ -209,3 +209,12 @@ mcp:
   - '.github/workflows/_app-deploy.yml'
   - 'package.json'
   - 'turbo.json'
+
+pdf:
+  - 'apps/pdf/**'
+  - 'docker-bake.hcl'
+  - 'apps.manifest.json'
+  - '.github/paths-filter.yml'
+  - '.github/workflows/deploy.yml'
+  - '.github/workflows/_app-build.yml'
+  - '.github/workflows/_app-deploy.yml'

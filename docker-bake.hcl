@@ -69,7 +69,7 @@ variable "VITE_SUCONT_SUPABASE_URL" {
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "alpha", "docs", "sisub-mcp", "5s"]
+  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "alpha", "docs", "sisub-mcp", "5s", "pdf"]
 }
 
 target "base" {
@@ -208,4 +208,12 @@ target "5s" {
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
     VITE_APP_TENANT                    = "cinco-s"
   }
+}
+
+target "pdf" {
+  context = "apps/pdf"
+  dockerfile = "Dockerfile"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/pdf:${TAG}"]
+  cache-from = ["type=gha,scope=pdf"]
+  cache-to = ["type=gha,scope=pdf,mode=max"]
 }

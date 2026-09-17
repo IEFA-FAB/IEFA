@@ -19,6 +19,11 @@ on:
         required: false
         type: string
         default: ""
+      timeout_minutes:
+        description: "Timeout do job de build. O default cobre os apps do monorepo; o pdf (BentoPDF) passa mais"
+        required: false
+        type: number
+        default: 15
     outputs:
       tag:
         description: "Tag unica gerada para a imagem"
@@ -35,7 +40,7 @@ permissions:
 jobs:
   build:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
+    timeout-minutes: ${{ inputs.timeout_minutes }}
     permissions:
       id-token: write
       contents: read

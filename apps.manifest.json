@@ -137,6 +137,15 @@
       "path": "apps/forms",
       "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
       "buildArgDefaults": { "VITE_APP_TENANT": "cinco-s" }
+    },
+    {
+      "key": "pdf",
+      "title": "PDF — BentoPDF (ferramentas de PDF que rodam no navegador)",
+      "path": "apps/pdf",
+      "kind": "dockerfile",
+      "port": 8080,
+      "buildArgs": [],
+      "notes": "Upstream do BentoPDF (AGPL-3.0) sem modificação, em versão fixada, montado por apps/pdf/Dockerfile. Não é workspace Bun."
     }
   ]
 }

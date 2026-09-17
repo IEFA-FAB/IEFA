@@ -1,0 +1,23 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+# BentoPDF (apps/pdf): nginx serving static files. Every PDF operation runs in the
+# visitor's browser, so the task never processes a document — the smallest Fargate
+# size is enough regardless of how heavy the PDFs are.
+service_name      = "pdf"
+docker_target     = "pdf"
+container_port    = 8080
+cpu               = 256
+memory            = 512
+health_check_path = "/health"
+listener_priority = 210
+
+# The image takes no runtime configuration: every URL is baked in at build time.
+environment_variables = {}
+secret_names          = []
+
+hosts = ["pdf.iefa.com.br"]
