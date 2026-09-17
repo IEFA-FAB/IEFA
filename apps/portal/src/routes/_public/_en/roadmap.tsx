@@ -746,10 +746,10 @@ const APPS: AppEntry[] = [
 		slug: "alpha",
 		title: "Projeto α",
 		description:
-			"Plataforma de IA aplicada ao ciclo de contratações públicas da FAB (Lei 14.133/21). Módulos de RAG jurídico, extração estruturada, verificação de conformidade e copiloto integrado.",
+			"Plataforma de IA aplicada ao ciclo de contratações públicas da FAB (Lei 14.133/21). Módulos de RAG jurídico, extração estruturada, verificação de conformidade e copiloto integrado — a interface é o Contrate.",
 		stack: ["Bun", "Hono", "LangChain", "LangGraph"],
 		status: "active",
-		url: "https://alpha.iefa.com.br",
+		url: "https://contrate.iefa.com.br",
 	},
 	{
 		icon: Book,

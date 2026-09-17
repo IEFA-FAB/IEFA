@@ -4,7 +4,6 @@ import { SectionNav, type SectionNavLink } from "@/components/alpha/SectionNav"
 const LINKS: readonly SectionNavLink[] = [
 	{ to: "/aci", label: "Painel", exact: true },
 	{ to: "/aci/nova", label: "Nova análise" },
-	{ to: "/aci/chats", label: "Chats" },
 	{ to: "/alpha/fontes", label: "Console técnico" },
 ]
 

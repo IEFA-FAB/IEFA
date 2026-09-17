@@ -1,0 +1,91 @@
+import { safeRedirect } from "@iefa/auth-kit"
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
+import { z } from "zod"
+import { isPasswordRecovery, urlLooksLikeRecovery } from "@/auth/recovery-session"
+
+// `redirect` entra como `unknown` de propósito: o router coage search param numérico
+// (`?redirect=5` chega como number) e um `z.string()` derrubaria a rota inteira em vez
+// de ignorar o valor. O `safeRedirect` sanitiza aqui, no ponto por onde TODO consumidor
+// da rota passa — beforeLoad e tela —, então nenhum deles precisa lembrar do guard.
+const authSearchSchema = z.object({
+	redirect: z.unknown().optional().transform(safeRedirect),
+})
+
+export const Route = createFileRoute("/auth")({
+	validateSearch: authSearchSchema,
+	// Proteção inversa: quem já está autenticado não tem o que fazer aqui — EXCETO
+	// quem chegou por um link de recuperação. Essa sessão autentica, mas o usuário
+	// ainda vai digitar a senha nova; redirecioná-lo o deixaria dentro do app com a
+	// senha antiga e sem nenhuma mensagem.
+	beforeLoad: ({ context, search }) => {
+		if (context.auth.isAuthenticated && !isPasswordRecovery() && !urlLooksLikeRecovery()) {
+			throw redirect({ to: search.redirect || "/" })
+		}
+	},
+	component: AuthLayout,
+})
+
+function AuthLayout() {
+	return (
+		<div className="min-h-screen flex flex-col md:flex-row bg-background">
+			{/* ===== LEFT PANEL — BRAND (desktop only) ===== */}
+			<div className="hidden md:flex md:w-[460px] lg:w-[520px] shrink-0 flex-col justify-between border-r border-border p-12 bg-foreground text-background">
+				<Link to="/" className="inline-block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-background/50">
+					<img src="/favicon.svg" alt="IEFA" className="h-9 w-auto invert" />
+				</Link>
+
+				<div className="space-y-7">
+					<p className="text-background/40 font-medium uppercase" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+						Força Aérea Brasileira · IEFA
+					</p>
+
+					<h1
+						className="font-serif text-background leading-[1.04]"
+						style={{
+							fontSize: "clamp(2.75rem, 4vw, 3.75rem)",
+							fontWeight: 700,
+							letterSpacing: "-0.04em",
+						}}
+					>
+						Contratar
+						<br />
+						com
+						<br />
+						fundamento
+					</h1>
+
+					<p className="text-sm text-background/50 leading-relaxed max-w-[270px]">
+						Copiloto de aquisições da FAB — verificação de ETP e TR contra a Lei 14.133/21, com a palavra final do gestor.
+					</p>
+				</div>
+
+				<div className="space-y-4">
+					<div className="border-t border-background/15" />
+					<p className="text-background/30 font-medium uppercase" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+						Acesso exclusivo — @fab.mil.br
+					</p>
+				</div>
+			</div>
+
+			{/* ===== MOBILE HEADER ===== */}
+			<div className="md:hidden border-b border-border bg-foreground text-background px-6 py-4 flex items-center gap-3">
+				<Link to="/" className="inline-block">
+					<img src="/favicon.svg" alt="IEFA" className="h-7 w-auto invert" />
+				</Link>
+				<div>
+					<p className="text-sm font-semibold text-background leading-tight">Contrate</p>
+					<p className="text-background/45 font-medium uppercase" style={{ fontSize: "10px", letterSpacing: "0.08em" }}>
+						Força Aérea Brasileira
+					</p>
+				</div>
+			</div>
+
+			{/* ===== RIGHT PANEL — FORM ===== */}
+			<div className="flex-1 flex items-center justify-center p-6 md:p-12 lg:p-16">
+				<div className="w-full max-w-[420px]">
+					<Outlet />
+				</div>
+			</div>
+		</div>
+	)
+}

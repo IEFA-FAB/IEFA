@@ -1,29 +1,7 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { authQueryOptions } from "@/auth/service"
-import { AppLayout } from "@/components/AppLayout"
+import { createFileRoute } from "@tanstack/react-router"
+import { redirectToContrate } from "@/lib/contrate-redirect"
 
-/**
- * Console interno do Projeto α.
- *
- * Ferramenta de operação e calibração das fontes normativas e da verificação de
- * conformidade — não é a Plataforma ACI. Fica fora da navegação pública do
- * portal de propósito: `staticData.nav` não é declarado em nenhuma rota filha.
- */
+/** Mudou para o contrate — ver `lib/contrate-redirect.ts`. O `$` filho só existe para os caminhos fundos casarem aqui. */
 export const Route = createFileRoute("/alpha")({
-	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
-		if (!auth.isAuthenticated) {
-			throw redirect({ to: "/auth", search: { redirect: location.href } })
-		}
-		return { auth }
-	},
-	component: AlphaConsoleLayout,
+	beforeLoad: ({ location }) => redirectToContrate(location.pathname, location.searchStr),
 })
-
-function AlphaConsoleLayout() {
-	return (
-		<AppLayout>
-			<Outlet />
-		</AppLayout>
-	)
-}

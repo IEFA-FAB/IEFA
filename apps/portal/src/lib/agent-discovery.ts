@@ -97,18 +97,10 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
 		changefreq: "weekly",
 		priority: 0.8,
 	},
-	{
-		path: "/facilities/pregoeiro",
-		title: "Pregoeiro",
-		summary: "Biblioteca de frases e apoio ao pregoeiro em sessões públicas de licitação.",
-		section: "Facilidades",
-		changefreq: "monthly",
-		priority: 0.7,
-	},
 	// `/chatRada` NÃO entra aqui: passou a exigir sessão, e esta lista alimenta sitemap e
 	// llms.txt. Anunciar uma rota que redireciona para o login manda agente e buscador a uma
-	// página que eles não conseguem ler — mesmo motivo pelo qual `/alpha/*` nunca esteve
-	// nesta lista.
+	// página que eles não conseguem ler. A Plataforma ACI, o console do α e o Pregoeiro
+	// saíram do portal para `contrate.iefa.com.br`, que tem o próprio catálogo.
 	{
 		path: "/overseerDashboard",
 		title: "Overseer Dashboard",

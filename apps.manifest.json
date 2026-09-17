@@ -90,7 +90,18 @@
       "kind": "nitro",
       "port": 3000,
       "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
-      "buildArgDefaults": { "VITE_APP_TENANT": "forms" }
+      "buildArgDefaults": {
+        "VITE_APP_TENANT": "forms"
+      }
+    },
+    {
+      "key": "contrate",
+      "title": "CONTRATE (copiloto de aquisições — Projeto α)",
+      "workspace": "@iefa/contrate",
+      "path": "apps/contrate",
+      "kind": "nitro",
+      "port": 3000,
+      "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"]
     },
     {
       "key": "alpha",
@@ -101,7 +112,9 @@
       "port": 8000,
       "entry": "apps/alpha/src/index.ts",
       "buildArgs": [],
-      "runtimeEnv": { "PORT": "8000" },
+      "runtimeEnv": {
+        "PORT": "8000"
+      },
       "copyWorkspacesAtRuntime": true
     },
     {
@@ -112,7 +125,9 @@
       "kind": "nitro",
       "port": 3003,
       "runtimeFrom": "base",
-      "runtimeEnv": { "PORT": "3003" },
+      "runtimeEnv": {
+        "PORT": "3003"
+      },
       "outputAt": "apps/docs/.output",
       "buildArgs": []
     },
@@ -126,7 +141,10 @@
       "port": 3000,
       "entry": "apps/sisub-mcp/src/index.ts",
       "buildArgs": [],
-      "runtimeEnv": { "MCP_TRANSPORT": "http", "MCP_PORT": "3000" },
+      "runtimeEnv": {
+        "MCP_TRANSPORT": "http",
+        "MCP_PORT": "3000"
+      },
       "copyWorkspacesAtRuntime": true,
       "notes": "Roda o entrypoint TypeScript direto (sem bundle), então a imagem de runtime mantém node_modules + os packages de workspace que ele resolve por symlink."
     },
@@ -136,7 +154,9 @@
       "aliasOf": "forms",
       "path": "apps/forms",
       "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
-      "buildArgDefaults": { "VITE_APP_TENANT": "cinco-s" }
+      "buildArgDefaults": {
+        "VITE_APP_TENANT": "cinco-s"
+      }
     },
     {
       "key": "pdf",

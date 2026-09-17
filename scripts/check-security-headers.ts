@@ -18,7 +18,7 @@ import { join } from "node:path"
 
 const REPO_ROOT = join(import.meta.dir, "..")
 
-const SSR_APPS = ["sisub", "portal", "rumaer", "forms", "assignment-selection"] as const
+const SSR_APPS = ["sisub", "portal", "rumaer", "forms", "assignment-selection", "contrate"] as const
 
 const REQUIRED_HEADERS = ["strict-transport-security", "x-frame-options", "x-content-type-options", "referrer-policy", "permissions-policy"] as const
 

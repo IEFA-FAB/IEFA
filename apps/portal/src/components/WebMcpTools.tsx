@@ -2,7 +2,7 @@ import { useRouter } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { PUBLIC_PAGES } from "@/lib/agent-discovery"
 import { type CommandPaletteItem, rankCommandItem } from "@/lib/command-palette"
-import { getAppsFn } from "@/server/pregoeiro.fn"
+import { getAppsFn } from "@/server/apps.fn"
 import type { DbApp } from "@/types/domain"
 
 /**
@@ -67,7 +67,7 @@ export function WebMcpTools() {
 				inputSchema: {
 					type: "object",
 					properties: {
-						consulta: { type: "string", description: "Termo de busca, em português. Ex.: 'pregoeiro', 'política de inovação'." },
+						consulta: { type: "string", description: "Termo de busca, em português. Ex.: 'journal', 'política de inovação'." },
 					},
 					required: ["consulta"],
 				},
@@ -106,7 +106,7 @@ export function WebMcpTools() {
 				inputSchema: {
 					type: "object",
 					properties: {
-						caminho: { type: "string", description: "Caminho canônico iniciado por barra. Ex.: /facilities/pregoeiro" },
+						caminho: { type: "string", description: "Caminho canônico iniciado por barra. Ex.: /facilities/comunicacoes-oficiais" },
 					},
 					required: ["caminho"],
 				},

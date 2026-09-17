@@ -36,6 +36,10 @@ on:
         description: "Force deploy forms"
         type: boolean
         default: false
+      force_contrate:
+        description: "Force deploy contrate"
+        type: boolean
+        default: false
       force_5s:
         description: "Force deploy 5S"
         type: boolean
@@ -72,6 +76,7 @@ jobs:
       assignment_selection: ${{ steps.final.outputs.assignment_selection }}
       sisub: ${{ steps.final.outputs.sisub }}
       forms: ${{ steps.final.outputs.forms }}
+      contrate: ${{ steps.final.outputs.contrate }}
       docs: ${{ steps.final.outputs.docs }}
       alpha: ${{ steps.final.outputs.alpha }}
       5s: ${{ steps.final.outputs['5s'] }}
@@ -98,6 +103,7 @@ jobs:
           FORCE_SISUB: ${{ inputs.force_sisub }}
           FORCE_DOCS: ${{ inputs.force_docs }}
           FORCE_FORMS: ${{ inputs.force_forms }}
+          FORCE_CONTRATE: ${{ inputs.force_contrate }}
           FORCE_ALPHA: ${{ inputs.force_alpha }}
           FORCE_5S: ${{ inputs.force_5s }}
           FORCE_MCP: ${{ inputs.force_mcp }}
@@ -109,6 +115,7 @@ jobs:
           FILTER_ASSIGNMENT_SELECTION: ${{ steps.filter.outputs.assignment_selection }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
           FILTER_FORMS: ${{ steps.filter.outputs.forms }}
+          FILTER_CONTRATE: ${{ steps.filter.outputs.contrate }}
           FILTER_DOCS: ${{ steps.filter.outputs.docs }}
           FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
           FILTER_5S: ${{ steps.filter.outputs['5s'] }}
@@ -123,6 +130,7 @@ jobs:
             echo "assignment_selection=$FORCE_ASSIGNMENT_SELECTION" >> $GITHUB_OUTPUT
             echo "sisub=$FORCE_SISUB"   >> $GITHUB_OUTPUT
             echo "forms=$FORCE_FORMS"   >> $GITHUB_OUTPUT
+            echo "contrate=$FORCE_CONTRATE" >> $GITHUB_OUTPUT
             echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
             echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FORCE_5S"         >> $GITHUB_OUTPUT
@@ -136,6 +144,7 @@ jobs:
             echo "assignment_selection=$FILTER_ASSIGNMENT_SELECTION" >> $GITHUB_OUTPUT
             echo "sisub=$FILTER_SISUB"   >> $GITHUB_OUTPUT
             echo "forms=$FILTER_FORMS"   >> $GITHUB_OUTPUT
+            echo "contrate=$FILTER_CONTRATE" >> $GITHUB_OUTPUT
             echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
             echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FILTER_5S"         >> $GITHUB_OUTPUT
@@ -159,6 +168,7 @@ jobs:
       needs.changes.outputs.assignment_selection == 'true' ||
       needs.changes.outputs.sisub == 'true' ||
       needs.changes.outputs.forms == 'true' ||
+      needs.changes.outputs.contrate == 'true' ||
       needs.changes.outputs.docs == 'true' ||
       needs.changes.outputs.alpha == 'true' ||
       needs.changes.outputs['5s'] == 'true' ||
@@ -596,6 +606,57 @@ jobs:
       service: forms
       health_url: ${{ vars.FORMS_HEALTH_URL }}
       concurrency_suffix: forms
+
+  # ============================================================
+  # CONTRATE (copiloto de aquisições — Projeto α)  ── check → build → deploy
+  # ============================================================
+  # O deploy só serve depois do stack `infra/contrate` aplicado (chave `contrate` no
+  # TF_TFVARS_JSON), do secret `/iefa/prod/contrate` publicado pelo sync-secrets, do
+  # CNAME no Registro.br e de `https://contrate.iefa.com.br/auth` na allow-list de
+  # redirect do Supabase Auth.
+  check-contrate:
+    needs: [changes]
+    if: needs.changes.outputs.contrate == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint · types · tests
+        run: bunx turbo run lint typecheck test --filter=./apps/contrate
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+
+  build-contrate:
+    needs: [check-contrate, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      service: contrate
+      bake_set: |
+        contrate.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        contrate.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+    secrets: inherit
+
+  # `vars.CONTRATE_HEALTH_URL` ausente só pula a verificação de saúde.
+  deploy-contrate:
+    needs: [build-contrate]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      service: contrate
+      health_url: ${{ vars.CONTRATE_HEALTH_URL }}
+      concurrency_suffix: contrate
 
   # ============================================================
   # DOCS  ── check → build → deploy
