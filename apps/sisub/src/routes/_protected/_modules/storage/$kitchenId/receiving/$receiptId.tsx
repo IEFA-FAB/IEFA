@@ -14,8 +14,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, CheckCheck, ClipboardCheck, Plus, Printer, Thermometer, Trash2, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
-import { GtinScannerField } from "@/components/features/global/gtin/GtinScannerField"
-import { scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
+import { ScanConference } from "@/components/features/storage/receiving/ScanConference"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,7 +22,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { deleteReceiptLotFn, fetchReceiptFn, finalizeReceiptFn, setReceiptProvisionalFn, updateReceiptItemFn, upsertReceiptLotFn } from "@/server/receiving.fn"
+import {
+	deleteReceiptLotFn,
+	fetchReceiptFn,
+	finalizeReceiptFn,
+	listScanEventsFn,
+	resolveFiscalPendingFn,
+	setReceiptProvisionalFn,
+	updateReceiptItemFn,
+	upsertReceiptLotFn,
+} from "@/server/receiving.fn"
 import { fetchScannerProfileFn } from "@/server/scanner.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/receiving/$receiptId")({
@@ -31,11 +39,12 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/re
 	loader: async ({ params }) => {
 		// o perfil calibrado do leitor vem junto: sem prefixo/sufixo/substituto do
 		// GS, etiqueta GS1 lida nesta estação chega com lote e validade grudados
-		const [receipt, scannerProfile] = await Promise.all([
+		const [receipt, scannerProfile, scanEvents] = await Promise.all([
 			fetchReceiptFn({ data: { receiptId: params.receiptId } }),
 			fetchScannerProfileFn({ data: { kitchenId: Number(params.kitchenId) } }),
+			listScanEventsFn({ data: { receiptId: params.receiptId } }),
 		])
-		return { receipt, scannerProfile }
+		return { receipt, scannerProfile, scanEvents }
 	},
 	component: ReceiptDetailPage,
 	head: () => ({
@@ -251,7 +260,12 @@ function LotEditor({
 	)
 }
 
-function ItemCard({ item, editable, highlighted, onSaved }: { item: ReceiptItemRow; editable: boolean; highlighted: boolean; onSaved: () => void }) {
+/**
+ * Lote, validade e temperatura da linha. O destaque por leitura saiu daqui: a
+ * leitura agora vira evento, e o progresso "conferido × faturado" mora na
+ * conferência, onde o operador olha.
+ */
+function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable: boolean; onSaved: () => void }) {
 	const [qty, setQty] = useState(String(item.received_qty_base))
 	const [reason, setReason] = useState(item.divergence_reason ?? "")
 	const [addingLot, setAddingLot] = useState(false)
@@ -285,7 +299,7 @@ function ItemCard({ item, editable, highlighted, onSaved }: { item: ReceiptItemR
 	}
 
 	return (
-		<Card className={highlighted ? "bg-success/10" : undefined}>
+		<Card>
 			<CardContent className="pt-4 space-y-3">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
@@ -390,15 +404,13 @@ function ItemCard({ item, editable, highlighted, onSaved }: { item: ReceiptItemR
 }
 
 function ReceiptDetailPage() {
-	const { receipt, scannerProfile } = Route.useLoaderData()
+	const { receipt, scannerProfile, scanEvents } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
-	const [scannedGtin, setScannedGtin] = useState<string | null>(null)
 
 	const items: ReceiptItemRow[] = receipt.items
 	const editable = isReceiptEditable(receipt.status)
-	const scanMatch = scannedGtin != null && items.some((item) => item.gtin === scannedGtin)
 
 	async function toProvisional() {
 		setBusy(true)
@@ -484,29 +496,72 @@ function ReceiptDetailPage() {
 				</div>
 			)}
 
-			{editable && (
-				<Card className="print:hidden">
-					<CardContent className="pt-4 space-y-1.5">
-						<p className="text-label text-muted-foreground">Conferência por scanner — leia o código do produto físico:</p>
-						<GtinScannerField onScan={setScannedGtin} placeholder="Escaneie o GTIN do volume recebido…" {...scannerPropsFrom(scannerProfile)} />
-						{scannedGtin != null && (
-							<Badge variant={scanMatch ? "secondary" : "destructive"} className="text-xs">
-								{scanMatch ? `GTIN ${scannedGtin} consta na nota — item destacado` : `GTIN ${scannedGtin} NÃO consta nesta nota — não adicione sem conferir`}
-							</Badge>
-						)}
+			<ScanConference
+				receiptId={receipt.id}
+				editable={editable}
+				lines={items.map((item) => ({
+					id: item.id,
+					description: item.description,
+					measure_unit: item.measure_unit,
+					invoiced_qty_base: item.invoiced_qty_base,
+					received_qty_base: item.received_qty_base,
+					divergence_reason: item.divergence_reason,
+				}))}
+				events={scanEvents as never[]}
+				scannerConfig={{
+					prefix: scannerProfile.prefix ?? undefined,
+					suffix: scannerProfile.suffix ?? undefined,
+					gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
+				}}
+			/>
+
+			{receipt.fiscal_pending && (
+				<Card className="border-warning print:hidden">
+					<CardContent className="space-y-2 pt-4">
+						<p className="text-sm">
+							<strong>Pendência fiscal:</strong> chegou menos do que a nota faturou
+							{receipt.fiscal_pending_value != null && ` (R$ ${Number(receipt.fiscal_pending_value).toFixed(2)})`}. Carta de correção não altera quantidade nem
+							valor — resolva com NF-e de devolução do fornecedor, nota substituta ou glosa registrada. Até lá, este recebimento não é liquidável.
+						</p>
+						<div className="flex flex-wrap gap-2">
+							{(
+								[
+									["return_nfe", "NF-e de devolução"],
+									["replacement_nfe", "Nota substituta"],
+									["glosa", "Glosa"],
+								] as const
+							).map(([resolution, label]) => (
+								<Button
+									key={resolution}
+									type="button"
+									size="sm"
+									variant="outline"
+									disabled={busy}
+									onClick={async () => {
+										const reference = window.prompt(
+											resolution === "glosa" ? "Referência da glosa (processo/documento)" : "Chave de acesso da NF-e (44 caracteres)"
+										)
+										if (!reference) return
+										try {
+											await resolveFiscalPendingFn({ data: { receiptId: receipt.id, resolution, reference } })
+											toast.success("Pendência fiscal resolvida")
+											router.invalidate()
+										} catch (error) {
+											toast.error(error instanceof Error ? error.message : "Erro ao resolver a pendência")
+										}
+									}}
+								>
+									{label}
+								</Button>
+							))}
+						</div>
 					</CardContent>
 				</Card>
 			)}
 
 			<div className="space-y-4">
 				{items.map((item) => (
-					<ItemCard
-						key={item.id}
-						item={item}
-						editable={editable}
-						highlighted={scannedGtin != null && item.gtin === scannedGtin}
-						onSaved={() => router.invalidate()}
-					/>
+					<ItemCard key={item.id} item={item} editable={editable} onSaved={() => router.invalidate()} />
 				))}
 			</div>
 		</div>
