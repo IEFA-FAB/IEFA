@@ -1,9 +1,7 @@
 import { resolveUserPermissions, type UserPermission } from "@iefa/pbac"
-import { createServiceRoleClient } from "@iefa/supabase-kit"
 import type { Context, Next } from "hono"
 import { WWW_AUTHENTICATE } from "../api/agent-discovery.ts"
-import { supabase } from "../db/supabase.ts"
-import { env } from "../env.ts"
+import { accessControl, supabase } from "../db/supabase.ts"
 import { type AlphaAccess, type AlphaLevel, isAlphaDenied, resolveAlphaAccess } from "../lib/alpha-access.ts"
 
 /**
@@ -34,7 +32,6 @@ export async function authMiddleware(c: Context, next: Next) {
 	// silêncio e, pior, esconderia um deny.
 	let permissions: UserPermission[]
 	try {
-		const accessControl = createServiceRoleClient({ url: env.SUPABASE_URL, secretKey: env.SUPABASE_SERVICE_ROLE_KEY, schema: "access_control" })
 		permissions = await resolveUserPermissions(user.id, accessControl)
 	} catch (cause) {
 		console.error("[alpha] falha ao resolver permissões", cause)
