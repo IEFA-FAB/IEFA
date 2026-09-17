@@ -513,6 +513,13 @@ export const ASSURANCE_REGISTRY = {
 	// ── siafi-import.fn.ts
 	uploadSiafiReportFn: { require: "none" },
 
+	// ── issue.fn.ts (saída do dia)
+	openIssueRequestFn: { require: "none" },
+	issueStockFn: { require: "none" },
+	returnIssueFn: { require: "none" },
+	setVarianceReasonFn: { require: "none" },
+	closeIssueRequestFn: { require: "none" },
+
 	// ── nfe.fn.ts (entrada pela chave e situação da nota)
 	createNfeFromAccessKeyFn: { require: "none" },
 	registerNfeSituationFn: { require: "none" },
