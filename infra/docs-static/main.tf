@@ -15,7 +15,8 @@
 #      terraform apply → distribution answers on docs.iefa.com.br.
 #   4. Repoint the docs.iefa.com.br CNAME at Registro.br from the ALB to
 #      distribution_domain_name.
-#   5. cd ../docs && terraform destroy  → removes the now-idle ECS service.
+#   5. Destroy the old ECS stack. Done: its state was emptied and infra/docs was
+#      removed (2026-09-17), so CI no longer plans or applies it.
 #
 # Doing 5 only after 4 keeps the cutover free of downtime.
 

@@ -60,7 +60,9 @@ aponta para a versão canônica no Portal.
 
 `pdf` (BentoPDF) fica fora das três rotas porque não trata dado pessoal: todo
 processamento de PDF roda no navegador, o arquivo nunca chega ao servidor, e o app
-não usa cookie nem terceiro (WASM e OCR são servidos do próprio domínio). Ver
+não usa cookie (WASM e OCR são servidos do próprio domínio). A única saída para
+terceiro é iniciada pelo usuário: a assinatura digital consulta o servidor de
+carimbo de tempo e a cadeia do certificado que ele mesmo escolher. Ver
 `apps/pdf/README.md`. Se um dia ganhar login ou upload, passa a precisar delas.
 
 ## As duas declarações que abrem os documentos

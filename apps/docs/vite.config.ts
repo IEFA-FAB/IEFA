@@ -41,7 +41,7 @@ export default defineConfig({
 				routes: ["/", "/docs/", "/api/docs-index", "/api/search", "/llms.txt", "/llms-full.txt", "/sitemap.xml", "/robots.txt"],
 			},
 			// Cache-control aqui não vale mais nada: quem serve os arquivos é o
-			// CloudFront, e a política de cache vive na distribuição (infra/docs).
+			// CloudFront, e a política de cache vive na distribuição (infra/docs-static).
 		}),
 		react(),
 	],
