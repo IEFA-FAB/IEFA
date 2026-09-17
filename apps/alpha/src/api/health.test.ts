@@ -5,8 +5,8 @@ import { createHealthRoutes } from "./health.ts"
 
 const ORIGIN = "https://portal.iefa.com.br"
 
-function appWith(database: "ok" | "error") {
-	return createHealthRoutes(async () => database)
+function app() {
+	return createHealthRoutes()
 }
 
 describe("GET /health", () => {
@@ -14,7 +14,7 @@ describe("GET /health", () => {
 		// Regressão: o CORS ficava preso a `/api/v1/*` e esta rota vinha sem
 		// `Access-Control-Allow-Origin`. O ChatRADA lia a rejeição do `fetch` como
 		// serviço fora e desabilitava o envio com o α no ar.
-		const res = await appWith("ok").request("/health", { headers: { Origin: ORIGIN } })
+		const res = await app().request("/health", { headers: { Origin: ORIGIN } })
 
 		expect(res.headers.get("access-control-allow-origin")).toBe(ORIGIN)
 	})
@@ -22,7 +22,7 @@ describe("GET /health", () => {
 	it("leva o CORS junto ao ser montada, que é como o `index.ts` a usa", async () => {
 		// `app.route("/", createHealthRoutes(...))`: middleware de sub-app se perde em
 		// algumas composições, e o defeito só apareceria em produção.
-		const mounted = new Hono().route("/", appWith("ok"))
+		const mounted = new Hono().route("/", app())
 
 		const res = await mounted.request("/health", { headers: { Origin: ORIGIN } })
 
@@ -38,60 +38,15 @@ describe("GET /health", () => {
 		// Origem fora da lista cai em `ALLOWED_ORIGINS[0]`: o browser bloquearia em
 		// silêncio, com "Failed to fetch" e nenhum erro no α.
 		const contrate = "https://contrate.iefa.com.br"
-		const res = await appWith("ok").request("/health", { headers: { Origin: contrate } })
+		const res = await app().request("/health", { headers: { Origin: contrate } })
 
 		expect(res.headers.get("access-control-allow-origin")).toBe(contrate)
 	})
 
-	it("não toca no banco sem `deep` — é o caminho que o ALB consome", async () => {
-		let probed = false
-		const app = createHealthRoutes(async () => {
-			probed = true
-			return "ok"
-		})
-
-		const res = await app.request("/health")
+	it("responde o estado do processo, que é o que o ALB consome", async () => {
+		const res = await app().request("/health")
 
 		expect(res.status).toBe(200)
 		expect(await res.json()).toMatchObject({ status: "ok", service: "alpha" })
-		expect(probed).toBe(false)
-	})
-
-	it("com `deep=1` e banco no ar, declara a checagem que fez", async () => {
-		const res = await appWith("ok").request("/health?deep=1")
-
-		expect(res.status).toBe(200)
-		expect(await res.json()).toMatchObject({ status: "ok", checks: { database: "ok" } })
-	})
-
-	it("com `deep=1` e banco fora, responde 503 e diz por quê", async () => {
-		// O ponto do nível profundo: sem banco não há sessão para gravar nem trecho
-		// para recuperar, então "ok" seria uma promessa que o α não cumpre.
-		const res = await appWith("error").request("/health?deep=1")
-
-		expect(res.status).toBe(503)
-		expect(await res.json()).toMatchObject({ status: "degraded", reason: "database_unreachable", checks: { database: "error" } })
-	})
-
-	it("reaproveita a sonda dentro da janela — a rota é pública", async () => {
-		// `authMiddleware` só cobre `/api/v1/*`: sem a janela, qualquer um dispara uma
-		// consulta no Supabase compartilhado por requisição.
-		let probes = 0
-		const app = createHealthRoutes(async () => {
-			probes += 1
-			return "ok"
-		})
-
-		await app.request("/health?deep=1")
-		await app.request("/health?deep=1")
-		await app.request("/health?deep=1")
-
-		expect(probes).toBe(1)
-	})
-
-	it("ignora `deep` com qualquer outro valor", async () => {
-		const res = await appWith("error").request("/health?deep=true")
-
-		expect(res.status).toBe(200)
 	})
 })
