@@ -490,7 +490,9 @@ export {
 } from "./review-metrics.ts"
 export {
 	allocateFefo,
+	brasiliaToday,
 	type FefoAllocation,
+	type FefoOptions,
 	type FefoResult,
 	type LotBalance,
 	sortFefo,

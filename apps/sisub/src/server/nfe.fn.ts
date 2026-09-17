@@ -267,8 +267,10 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 			.select("id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at")
 			.order("created_at", { ascending: false })
 			.limit(50)
-		// notas da cozinha + notas ainda sem cozinha atribuída
-		if (data.kitchenId != null) query = query.or(`kitchen_id.eq.${data.kitchenId},kitchen_id.is.null`)
+		// Só as notas DESTA cozinha. Antes vinham também as sem cozinha
+		// atribuída, o que mostrava (e deixava consumir) nota de outra unidade —
+		// a triagem de nota sem destinatário é do nível 3 global.
+		if (data.kitchenId != null) query = query.eq("kitchen_id", data.kitchenId)
 		const { data: docs, error } = await query
 		if (error) throw new Error(`Erro ao listar NF-e: ${error.message}`)
 		const documents = (docs ?? []) as NfeDocumentRow[]

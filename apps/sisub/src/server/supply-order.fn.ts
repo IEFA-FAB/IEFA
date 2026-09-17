@@ -60,6 +60,38 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 		}))
 	})
 
+/**
+ * arp_item → purchase_item pelo código CATMAT. Devolve só o que resolve sem
+ * ambiguidade: dois itens de compra com o mesmo CATMAT significam que o elo
+ * não é conhecido, e gravar um deles seria inventar rastreabilidade.
+ */
+async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Promise<Map<string, string>> {
+	const resolved = new Map<string, string>()
+	const ids = [...new Set(arpItemIds)]
+	if (ids.length === 0) return resolved
+	const proc = procurement()
+
+	const { data: arpItems } = await proc.from("procurement_arp_item").select("id, catmat_item_codigo").in("id", ids)
+	const catmatByArpItem = new Map<string, string>()
+	for (const row of arpItems ?? []) {
+		if (row.catmat_item_codigo) catmatByArpItem.set(row.id as string, String(row.catmat_item_codigo))
+	}
+	const catmats = [...new Set(catmatByArpItem.values())]
+	if (catmats.length === 0) return resolved
+
+	const { data: purchaseItems } = await proc.from("purchase_item").select("id, catmat_item_codigo").in("catmat_item_codigo", catmats)
+	const byCatmat = new Map<string, string[]>()
+	for (const row of purchaseItems ?? []) {
+		const key = String(row.catmat_item_codigo)
+		byCatmat.set(key, [...(byCatmat.get(key) ?? []), row.id as string])
+	}
+	for (const [arpItemId, catmat] of catmatByArpItem) {
+		const candidates = byCatmat.get(catmat) ?? []
+		if (candidates.length === 1) resolved.set(arpItemId, candidates[0] as string)
+	}
+	return resolved
+}
+
 /** Emite uma OF contra um empenho. O trigger do banco garante soma ≤ empenhado. */
 export const createSupplyOrderFn = createServerFn({ method: "POST" })
 	.validator(
@@ -122,11 +154,17 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 			.single()
 		if (error || !order) throw new Error(`Erro ao emitir OF: ${error?.message}`)
 
+		// O MRP conta como "em trânsito" só o item que tem purchase_item_id: OF
+		// emitida pela tela gravava apenas arp_item_id, e o trânsito saía ZERO.
+		// O elo entre os dois é o CATMAT; ambíguo (mais de um item de compra com
+		// o mesmo código) fica nulo em vez de chutar.
+		const resolvedPurchaseItems = await resolvePurchaseItemsByArpItem(data.items.map((item) => item.arpItemId).filter((id): id is string => Boolean(id)))
+
 		const { error: itemsError } = await proc.from("supply_order_item").insert(
 			data.items.map((item) => ({
 				supply_order_id: order.id,
 				arp_item_id: item.arpItemId ?? null,
-				purchase_item_id: item.purchaseItemId ?? null,
+				purchase_item_id: item.purchaseItemId ?? (item.arpItemId ? (resolvedPurchaseItems.get(item.arpItemId) ?? null) : null),
 				ordered_qty: item.orderedQty,
 				unit_price: item.unitPrice ?? null,
 			}))

@@ -205,6 +205,9 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					const theoretical = computeTheoreticalConsumption(snapshot, 20)
 					expect(theoretical[0]?.quantity).toBe(10) // 5 × 20/10
 
+					// A alocação que VALE é a do banco (dentro da transação, com os
+					// lotes travados). A do domínio é a previsão mostrada ao operador:
+					// as duas têm que dar no mesmo lote, senão a tela mente.
 					const lots = await tx`
 						select lot_id, balance, expiry_date from inventory.v_stock_balance
 						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0`
@@ -213,19 +216,51 @@ describeIf("inventory full cycle E2E (DB)", () => {
 						theoretical[0]?.quantity ?? 0
 					)
 					expect(shortfall).toBe(0)
-					const movementsPayload = allocations.map((a) => ({
-						kitchen_id: kitchenA.id,
-						ingredient_id: ingredient.id,
-						lot_id: a.lotId,
-						quantity: a.quantity,
-						justification: null,
-					}))
-					const [issued] = await tx`select * from inventory.register_production_issue(${task.id}, ${tx.json(movementsPayload)}, null)`
+					const linesPayload = [
+						{
+							kitchen_id: kitchenA.id,
+							ingredient_id: ingredient.id,
+							quantity: theoretical[0]?.quantity ?? 0,
+							override_lot_id: null,
+							justification: null,
+						},
+					]
+					const [issued] = await tx`select * from inventory.register_production_issue(${task.id}, ${tx.json(linesPayload)}, null)`
 					expect(Number(issued.movements)).toBe(1)
+					const [issuedLot] = await tx`select lot_id from inventory.stock_movement where production_task_id = ${task.id} and type = 'production_issue'`
+					expect(issuedLot.lot_id).toBe(allocations[0]?.lotId)
 					// segunda confirmação da MESMA tarefa → bloqueada (lock + recheck)
-					await expect(
-						tx.savepoint((sp) => sp`select * from inventory.register_production_issue(${task.id}, ${tx.json(movementsPayload)}, null)`)
-					).rejects.toThrow(/já teve baixa/)
+					await expect(tx.savepoint((sp) => sp`select * from inventory.register_production_issue(${task.id}, ${tx.json(linesPayload)}, null)`)).rejects.toThrow(
+						/já teve baixa/
+					)
+					// lote VENCIDO não entra na alocação: com saldo só em lote vencido,
+					// a baixa cai inteira em "sem lote" em vez de consumir o vencido
+					await tx.savepoint(async (sp) => {
+						const [vencido] = await sp`
+							insert into kitchen.ingredient (description, measure_unit) values ('ARROZ VENCIDO E2E', 'KG') returning id`
+						const [lotVencido] = await sp`
+							insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, unit_cost)
+							values (${kitchenA.id}, ${vencido.id}, 'L-VENCIDO', (current_date - 1), 3) returning id`
+						await sp`
+							insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
+							values (${kitchenA.id}, ${vencido.id}, ${lotVencido.id}, 'receipt', 20, 3)`
+						// menu_item próprio: production_task tem UNIQUE(menu_item_id)
+						const [menuItemVencido] = await sp`
+							insert into kitchen.menu_items (daily_menu_id, recipe, planned_portion_quantity)
+							values (${dailyMenu.id}, ${sp.json(snapshot)}, 20) returning id`
+						const [taskVencido] = await sp`
+							insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
+							values (${kitchenA.id}, ${menuItemVencido.id}, '2026-07-30', 'DONE') returning id`
+						await sp`select * from inventory.register_production_issue(${taskVencido.id}, ${sp.json([
+							{ kitchen_id: kitchenA.id, ingredient_id: vencido.id, quantity: 4, override_lot_id: null, justification: null },
+						])}, null)`
+						const moves = await sp`
+							select lot_id, quantity from inventory.stock_movement
+							where production_task_id = ${taskVencido.id} and type = 'production_issue'`
+						expect(moves).toHaveLength(1)
+						expect(moves[0]?.lot_id).toBeNull()
+						expect(Number(moves[0]?.quantity)).toBe(4)
+					})
 					// saída valorada ao custo médio (2.5)
 					const [issueMove] =
 						await tx`select unit_cost, total_cost from inventory.stock_movement where production_task_id = ${task.id} and type = 'production_issue'`
@@ -252,6 +287,15 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					const [balB] = await tx`
 						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenB.id} and ingredient_id = ${ingredient.id}`
 					expect(Number(balB.b)).toBe(5)
+					// o que sai de A entra em B pelo MESMO valor: o destino entrava ao
+					// unit_cost do lote (informativo) e o valor se perdia no caminho
+					const transferPair = await tx`
+						select type, unit_cost, total_cost from inventory.stock_movement
+						where transfer_pair_id = (select transfer_pair_id from inventory.stock_movement where lot_id = ${lotA.lot_id} and type = 'transfer_out' order by created_at desc limit 1)`
+					const out = transferPair.find((row) => row.type === "transfer_out")
+					const into = transferPair.find((row) => row.type === "transfer_in")
+					expect(Number(into?.unit_cost)).toBe(Number(out?.unit_cost))
+					expect(Number(into?.total_cost)).toBe(Number(out?.total_cost))
 
 					// ════ Fase 3 — contagem física: 30 contados vs 33 no ledger ══════
 					// A: 48 recebidos (em DOIS lotes) − 10 produção − 5 transferidos = 33.
@@ -270,6 +314,30 @@ describeIf("inventory full cycle E2E (DB)", () => {
 						insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
 						values (${count.id}, ${saldos[0]?.lot_id}, 0), (${count.id}, ${saldos[1]?.lot_id}, 30)`
 					const [counted] = await tx`select * from inventory.confirm_inventory_count(${count.id}, null)`
+					// sobra de contagem entra ao CUSTO MÉDIO, não a R$ 0 — entrar a zero
+					// diluía o custo médio de todo o estoque do item. O savepoint é
+					// desfeito no fim (sentinela) para não mexer no saldo que as
+					// asserções seguintes conferem.
+					const ROLLBACK_SOBRA = "rollback-sobra"
+					await expect(
+						tx.savepoint(async (sp) => {
+							const [avgBefore] = await sp`
+								select avg_unit_cost from inventory.stock_cost where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
+							const [sobraCount] = await sp`insert into inventory.inventory_count (kitchen_id) values (${kitchenA.id}) returning id`
+							await sp`
+								insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
+								values (${sobraCount.id}, ${saldos[1]?.lot_id}, 32)`
+							await sp`select * from inventory.confirm_inventory_count(${sobraCount.id}, null)`
+							const [ajuste] = await sp`
+								select unit_cost from inventory.stock_movement
+								where inventory_count_id = ${sobraCount.id} and type = 'adjustment_in'`
+							expect(Number(ajuste.unit_cost)).toBe(Number(avgBefore.avg_unit_cost))
+							const [avgAfter] = await sp`
+								select avg_unit_cost from inventory.stock_cost where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
+							expect(Number(avgAfter.avg_unit_cost)).toBe(Number(avgBefore.avg_unit_cost))
+							throw new Error(ROLLBACK_SOBRA)
+						})
+					).rejects.toThrow(ROLLBACK_SOBRA)
 					// Um ajuste só: o lote conferido sem divergência não gera movimento.
 					expect(Number(counted.adjustments)).toBe(1)
 					const [balA] = await tx`

@@ -50,6 +50,57 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_recovery_code: {
+        Row: {
+          code_hash: string
+          created_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mfa_reset_log: {
+        Row: {
+          created_at: string
+          id: string
+          method: string
+          performed_by: string
+          reason: string | null
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          method: string
+          performed_by: string
+          reason?: string | null
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          method?: string
+          performed_by?: string
+          reason?: string | null
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       policy: {
         Row: {
           created_at: string
@@ -151,6 +202,33 @@ export type Database = {
           role?: "user" | "admin" | "superadmin" | null
           saram?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sensitive_operation_log: {
+        Row: {
+          actor_id: string
+          assurance: string
+          created_at: string
+          id: string
+          operation: string
+          target: Json | null
+        }
+        Insert: {
+          actor_id: string
+          assurance: string
+          created_at?: string
+          id?: string
+          operation: string
+          target?: Json | null
+        }
+        Update: {
+          actor_id?: string
+          assurance?: string
+          created_at?: string
+          id?: string
+          operation?: string
+          target?: Json | null
         }
         Relationships: []
       }
@@ -5157,6 +5235,7 @@ export type Database = {
           justification: string | null
           kitchen_id: number
           lot_id: string | null
+          occurred_at: string
           production_task_id: string | null
           quantity: number
           total_cost: number | null
@@ -5175,6 +5254,7 @@ export type Database = {
           justification?: string | null
           kitchen_id: number
           lot_id?: string | null
+          occurred_at?: string
           production_task_id?: string | null
           quantity: number
           total_cost?: number | null
@@ -5193,6 +5273,7 @@ export type Database = {
           justification?: string | null
           kitchen_id?: number
           lot_id?: string | null
+          occurred_at?: string
           production_task_id?: string | null
           quantity?: number
           total_cost?: number | null
@@ -5296,6 +5377,25 @@ export type Database = {
       }
     }
     Functions: {
+      adjust_stock: {
+        Args: {
+          p_direction: string
+          p_expiry_date?: string
+          p_frozen_preparation_id?: string
+          p_ingredient_id?: string
+          p_justification: string
+          p_kitchen_id: number
+          p_lot_code?: string
+          p_lot_id?: string
+          p_quantity: number
+          p_unit_cost?: number
+          p_user: string
+        }
+        Returns: {
+          lot_id: string
+          movement_id: string
+        }[]
+      }
       close_month: {
         Args: { p_competencia: string; p_kitchen_id: number; p_user: string }
         Returns: {
@@ -5332,7 +5432,7 @@ export type Database = {
         }[]
       }
       register_production_issue: {
-        Args: { p_movements: Json; p_task_id: string; p_user: string }
+        Args: { p_lines: Json; p_task_id: string; p_user: string }
         Returns: {
           movements: number
         }[]

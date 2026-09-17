@@ -10,7 +10,7 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
-import { allocateFefo, computeTheoreticalConsumption, type LotBalance, leftoverExpiryDate, type RecipeSnapshotForIssue } from "@iefa/sisub-domain"
+import { brasiliaToday, computeTheoreticalConsumption, type LotBalance, leftoverExpiryDate, type RecipeSnapshotForIssue } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
@@ -107,9 +107,11 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				data.kitchenId,
 				theoretical.map((t) => t.ingredientId)
 			)
+			const today = brasiliaToday()
 			const lines = theoretical.map((line) => {
 				const lots = balances.get(line.ingredientId) ?? []
-				const available = lots.reduce((acc, lot) => acc + lot.balance, 0)
+				// lote vencido não conta como disponível: ele não vai ser alocado
+				const available = lots.reduce((acc, lot) => (lot.expiryDate != null && lot.expiryDate < today ? acc : acc + lot.balance), 0)
 				return { ...line, available, sufficient: available >= line.quantity }
 			})
 			results.push({
@@ -152,56 +154,30 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 		// baixa só de produção CONCLUÍDA — task PENDING/IN_PROGRESS não desconta (review)
 		if (task.status !== "DONE") throw new Error(`Tarefa ainda não concluída (status ${task.status}) — conclua a produção antes da baixa`)
 
-		const balances = await lotBalancesForIngredients(
-			kitchenId,
-			data.items.map((item) => item.ingredientId)
-		)
+		const lines = data.items.map((item) => {
+			if (item.overrideLotId && !item.justification?.trim()) {
+				throw new Error("Override de lote (fora do FEFO) exige justificativa")
+			}
+			return {
+				kitchen_id: kitchenId,
+				ingredient_id: item.ingredientId,
+				quantity: item.quantity,
+				override_lot_id: item.overrideLotId ?? null,
+				justification: item.justification?.trim() || null,
+			}
+		})
 
-		const movements: Record<string, unknown>[] = []
-		for (const item of data.items) {
-			const lots = balances.get(item.ingredientId) ?? []
-			if (item.overrideLotId) {
-				if (!item.justification?.trim()) throw new Error("Override de lote (fora do FEFO) exige justificativa")
-				movements.push({
-					kitchen_id: kitchenId,
-					ingredient_id: item.ingredientId,
-					lot_id: item.overrideLotId,
-					quantity: item.quantity,
-					justification: item.justification.trim(),
-				})
-				continue
-			}
-			const { allocations, shortfall } = allocateFefo(lots, item.quantity)
-			for (const allocation of allocations) {
-				movements.push({
-					kitchen_id: kitchenId,
-					ingredient_id: item.ingredientId,
-					lot_id: allocation.lotId,
-					quantity: allocation.quantity,
-					justification: null,
-				})
-			}
-			if (shortfall > 0) {
-				// consumo real maior que o saldo em lotes: registra o excedente sem lote
-				movements.push({
-					kitchen_id: kitchenId,
-					ingredient_id: item.ingredientId,
-					lot_id: null,
-					quantity: shortfall,
-					justification: "Consumo além do saldo em lotes (estoque ficará negativo — verificar contagem)",
-				})
-			}
-		}
-
-		// efetivação atômica no banco: advisory lock por tarefa + recheck dentro
-		// da transação (review: confirmações concorrentes dobravam a baixa)
+		// efetivação atômica no banco: advisory lock por tarefa, recheck e
+		// ALOCAÇÃO dos lotes dentro da transação. Alocar aqui fora lia saldo sem
+		// lock — duas baixas simultâneas do mesmo lote o deixavam negativo — e o
+		// FEFO em memória escolhia lote vencido (review adversarial).
 		const { data: result, error } = await inv.rpc("register_production_issue", {
 			p_task_id: data.taskId,
-			p_movements: movements,
+			p_lines: lines,
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao registrar baixa: ${error.message}`)
-		return { movements: Number(result?.[0]?.movements ?? movements.length) }
+		return { movements: Number(result?.[0]?.movements ?? lines.length) }
 	})
 
 /** Sobra reaproveitável → lote de PREPARAÇÃO CONGELADA (validade = shelf_life_days). */
@@ -309,8 +285,10 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 			.select("ingredient_id, quantity")
 			.eq("kitchen_id", data.kitchenId)
 			.eq("type", "production_issue")
-			.gte("created_at", `${data.from}T00:00:00Z`)
-			.lte("created_at", `${data.to}T23:59:59Z`)
+			// o período é civil (Brasília): sem o offset, saída das 22:30 do
+			// último dia do mês caía no mês seguinte
+			.gte("occurred_at", `${data.from}T00:00:00-03:00`)
+			.lte("occurred_at", `${data.to}T23:59:59.999-03:00`)
 		for (const move of moves ?? []) {
 			if (move.ingredient_id == null) continue
 			real.set(move.ingredient_id, (real.get(move.ingredient_id) ?? 0) + Number(move.quantity))
