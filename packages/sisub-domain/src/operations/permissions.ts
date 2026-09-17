@@ -28,7 +28,8 @@ import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../gu
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
-import { isExpired, mutateOrFail, notExpired, runQuery } from "../utils/index.ts"
+import { DomainError } from "../types/errors.ts"
+import { describeDriverError, isExpired, mutateOrFail, notExpired, runQuery, unwrapPgError } from "../utils/index.ts"
 import { listUserPolicyPermissions } from "./policies.ts"
 
 /**
@@ -249,11 +250,34 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 	)
 }
 
+/**
+ * Violação da unicidade do grant inline: `user_permissions_allow_uniq` (`level > 0`) ou
+ * `user_permissions_deny_uniq` (`level <= 0`), os dois únicos parciais sobre
+ * (user_id, module, mess_hall_id, kitchen_id, unit_id) com `nulls not distinct`
+ * (migração 20260917185655). Juntos impedem DOIS allows — ou DOIS denies — do mesmo
+ * módulo e escopo para a mesma pessoa.
+ *
+ * São dois, e não um índice geral, porque allow e deny PODEM coexistir na mesma chave:
+ * é o deny sobre allow, que `resolveEffectivePermissions` resolve por precedência.
+ */
+export function isDuplicateGrantViolation(error: unknown): boolean {
+	// O código real fica em `.cause` (DrizzleQueryError) — `unwrapPgError` o resgata.
+	const pg = unwrapPgError(error)
+	const constraint = pg.constraint_name ?? ""
+	return pg.code === "23505" && (constraint === "user_permissions_allow_uniq" || constraint === "user_permissions_deny_uniq")
+}
+
 export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission, assurance: AssuranceRequirement = NO_ASSURANCE) {
 	requirePermission(ctx, "admin", 2)
 	requireAssurance(ctx, assurance)
-	await runQuery("INSERT_FAILED", () =>
-		db.insert(userPermissionsInAccessControl).values({
+	// Cru (sem runQuery): o 23505 precisa ser inspecionado antes de virar DomainError.
+	// Este insert é direto — não checa se já existe — e antes do índice ele simplesmente
+	// gravava a segunda linha: a pessoa passava a aparecer duas vezes na tela e revogar
+	// apagava só uma. Agora o banco recusa, e a recusa precisa dizer O QUE fazer, porque
+	// o caminho existe: `fetchUserPermissionsAdmin` devolve o grant que já está lá —
+	// inclusive o vencido, marcado `expired` — e editá-lo é como se renova o acesso.
+	try {
+		await db.insert(userPermissionsInAccessControl).values({
 			userId: input.userId,
 			module: input.module,
 			level: input.level,
@@ -262,7 +286,15 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 			unitId: input.unit_id ?? null,
 			expiresAt: input.expires_at ?? null,
 		})
-	)
+	} catch (e) {
+		if (isDuplicateGrantViolation(e)) {
+			throw new DomainError(
+				"PERMISSION_ALREADY_EXISTS",
+				`Já existe uma concessão de "${input.module}" para este usuário neste escopo. Edite a concessão existente em vez de criar outra — se ela estiver vencida, renove o prazo por ali.`
+			)
+		}
+		throw new DomainError("INSERT_FAILED", describeDriverError(e))
+	}
 	return { success: true as const }
 }
 
@@ -284,14 +316,33 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 	// O `user_id` volta da LINHA alterada, e não do input — que nem o traz. É ele que permite
 	// ao chamador reagir à mudança (a invalidação de códigos de recuperação quando a conta
 	// vira protegida, design.md D9) sem precisar confiar num id vindo do cliente.
-	const [row] = await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
-		db
+	//
+	// O update também colide: mudar o ESCOPO para um que o usuário já tem naquele módulo —
+	// ou cruzar a fronteira allow/deny pelo nível (2 → 0, que troca de índice) — viola a
+	// mesma unicidade que o insert. Sem tratamento, o administrador recebia no toast
+	// `UPDATE_FAILED: [23505] … Failed query: update …`: o SQL cru que a criação já não
+	// vaza. Cru (sem `mutateOrFail`) porque ele embrulha o erro em DomainError SEM `cause`,
+	// e aí o 23505 já não é mais inspecionável.
+	let rows: Array<{ id: string; userId: string }>
+	try {
+		rows = await db
 			.update(userPermissionsInAccessControl)
 			.set(updates)
 			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
 			.returning({ id: userPermissionsInAccessControl.id, userId: userPermissionsInAccessControl.userId })
-	)
-	return { success: true as const, user_id: row?.userId ?? null }
+	} catch (e) {
+		if (isDuplicateGrantViolation(e)) {
+			throw new DomainError(
+				"PERMISSION_ALREADY_EXISTS",
+				"Este usuário já tem outra concessão deste módulo neste escopo. Ajuste ou remova a outra concessão antes de mover esta para cá."
+			)
+		}
+		throw new DomainError("UPDATE_FAILED", describeDriverError(e))
+	}
+	// Mesmo contrato de `mutateOrFail`: WHERE que não casa é "não encontrado", não sucesso.
+	const row = rows[0]
+	if (!row) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
+	return { success: true as const, user_id: row.userId ?? null }
 }
 
 /**

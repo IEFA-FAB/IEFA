@@ -149,6 +149,10 @@ function createGrantStub(options: GrantStubOptions) {
 							filters.push(["is", column, value])
 							return builder
 						},
+						gt(column: string, value: unknown) {
+							filters.push(["gt", column, value])
+							return builder
+						},
 						select() {
 							return options.updateResults[calls.updates.length - 1] ?? { data: [], error: null }
 						},
@@ -179,7 +183,22 @@ describe("grantUnscopedModulePermission", () => {
 			["is", "mess_hall_id", null],
 			["is", "kitchen_id", null],
 			["is", "unit_id", null],
+			// O filtro que protege o deny: conceder atualiza o ALLOW, nunca a negação.
+			["gt", "level", 0],
 		])
+	})
+
+	test("com DENY na chave e nenhum allow, insere o allow ao lado em vez de sobrescrever a negação", async () => {
+		// O update filtra `level > 0`, então a linha de deny não casa: `data` vem vazio.
+		const { stub, calls } = createGrantStub({ updateResults: [{ data: [], error: null }] })
+
+		const result = await grantUnscopedModulePermission(stub as never, { module: "rumaer", userId: "u1", level: 2 })
+
+		expect(result).toEqual({ ok: true })
+		// Nenhum update efetivo, e o insert cria o allow — o deny continua de pé (índices
+		// parciais deixam os dois coexistir) e segue vencendo na resolução até ser revogado.
+		expect(calls.inserts).toEqual([{ user_id: "u1", module: "rumaer", level: 2, mess_hall_id: null, kitchen_id: null, unit_id: null }])
+		expect(calls.updates[0]?.filters).toContainEqual(["gt", "level", 0])
 	})
 
 	test("insere grant global explícito quando não existe", async () => {

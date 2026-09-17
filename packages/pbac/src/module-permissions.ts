@@ -89,9 +89,30 @@ export async function searchUsersByEmail(coreReadClient: AnySupabaseClient, emai
  *
  * Padrão update-first → insert → retry-em-23505 para ser seguro sob concorrência.
  * O select-then-insert simples tem corrida (dois admins simultâneos podem ambos ver
- * "não existe" e inserir). Não usamos upsert(onConflict) porque o PostgREST não infere
- * índice ÚNICO PARCIAL (o grant unscoped é garantido por índice parcial no DB). A
- * garantia dura fica no DB (índice único); a corrida perde com 23505 e reaplica como update.
+ * "não existe" e inserir). A garantia dura fica no DB; a corrida perde com 23505 e
+ * reaplica como update.
+ *
+ * Quem produz esse 23505 são `user_permissions_allow_uniq` (`level > 0`) e
+ * `user_permissions_deny_uniq` (`level <= 0`) — únicos sobre
+ * (user_id, module, mess_hall_id, kitchen_id, unit_id) com `nulls not distinct`
+ * (migração 20260917185655). Valem para QUALQUER módulo e QUALQUER escopo, e
+ * substituíram os dois parciais que cobriam só `rumaer` e o `sucont` legado — enquanto a
+ * garantia era por módulo, `sucont-1/3/4`, os módulos do sisub e os do Projeto α gravavam
+ * duas linhas na corrida, e revogar uma deixava a outra concedendo. São DOIS índices
+ * porque allow e deny coexistem na mesma chave de propósito: é o deny sobre allow, que
+ * `resolveEffectivePermissions` aplica por precedência.
+ *
+ * Por isso o update casa SÓ `level > 0`: ele atualiza o allow, nunca o deny. Sem esse
+ * filtro, conceder a quem tem um deny na chave (e nenhum allow) casaria a linha do DENY e
+ * sobrescreveria `level`/`expires_at` nela — a negação sumiria em silêncio, com `ok` de
+ * volta, e ninguém saberia que uma decisão explícita foi apagada por um clique de
+ * concessão. Não casando allow nenhum, o passo 2 INSERE — e o insert convive com o deny,
+ * porque os dois índices são parciais.
+ *
+ * Consequência a conhecer: com um deny vigente na mesma chave, o grant fica gravado, mas
+ * o deny continua vencendo até ser revogado — a resolução aplica a precedência. É o
+ * comportamento desejado: destruir a negação seria pior, e o deny é visível e removível
+ * na tela de acessos.
  */
 export async function grantUnscopedModulePermission(
 	accessControlClient: AnySupabaseClient,
@@ -109,14 +130,17 @@ export async function grantUnscopedModulePermission(
 			.is("mess_hall_id", null)
 			.is("kitchen_id", null)
 			.is("unit_id", null)
+			// Só o ALLOW: o deny da mesma chave é outra decisão, e não é esta função que a revoga.
+			.gt("level", 0)
 			.select("id")
 
-	// 1. atualiza o grant existente, se houver
+	// 1. atualiza o ALLOW existente, se houver
 	const { data: updated, error: updErr } = await applyUpdate()
 	if (updErr) throw new Error(updErr.message)
 	if (updated && updated.length > 0) return { ok: true }
 
-	// 2. não existia → insere (índice único parcial impede duplicata de fato)
+	// 2. não havia allow → insere (o índice de allow impede a duplicata de fato; um deny
+	//    na mesma chave não atrapalha, porque os índices são parciais e ele fica de pé)
 	const { error: insErr } = await accessControlClient
 		.from("user_permissions")
 		.insert({ user_id: params.userId, module: params.module, level: params.level, mess_hall_id: null, kitchen_id: null, unit_id: null })
