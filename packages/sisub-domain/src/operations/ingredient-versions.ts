@@ -409,7 +409,7 @@ export async function restoreIngredientVersion(
 					description: snap.ingredient.description,
 					folderId: snap.ingredient.folder_id,
 					measureUnit: snap.ingredient.measure_unit,
-					correctionFactor: snap.ingredient.correction_factor != null ? String(snap.ingredient.correction_factor) : null,
+					correctionFactor: snap.ingredient.correction_factor ?? null,
 					ceafaId: snap.ingredient.ceafa_id,
 				})
 				.where(eq(ingredientInKitchen.id, input.ingredientId))
@@ -470,8 +470,8 @@ export async function restoreIngredientVersion(
 					description: item.description,
 					barcode: item.barcode,
 					purchaseMeasureUnit: item.purchase_measure_unit,
-					unitContentQuantity: item.unit_content_quantity != null ? String(item.unit_content_quantity) : null,
-					correctionFactor: item.correction_factor != null ? String(item.correction_factor) : null,
+					unitContentQuantity: item.unit_content_quantity ?? null,
+					correctionFactor: item.correction_factor ?? null,
 					purchaseItemId: item.purchase_item_id,
 					deletedAt: null,
 				}
@@ -504,13 +504,13 @@ export async function restoreIngredientVersion(
 					.values({
 						purchaseItemId: link.purchase_item_id,
 						ingredientId: input.ingredientId,
-						conversionFactor: link.conversion_factor != null ? String(link.conversion_factor) : "1.0",
+						conversionFactor: link.conversion_factor ?? 1,
 						isDefault: link.is_default,
 					})
 					.onConflictDoUpdate({
 						target: [purchaseItemIngredientInProcurement.purchaseItemId, purchaseItemIngredientInProcurement.ingredientId],
 						set: {
-							conversionFactor: link.conversion_factor != null ? String(link.conversion_factor) : "1.0",
+							conversionFactor: link.conversion_factor ?? 1,
 							isDefault: link.is_default,
 						},
 					})

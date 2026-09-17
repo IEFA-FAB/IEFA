@@ -380,8 +380,10 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(principal).toBeDefined()
 		expect(guarnicao).toBeDefined()
 		expect(principal?.sort_order).toBe(0)
-		expect(Number(principal?.recommended_proportion)).toBe(70)
-		expect(Number(guarnicao?.recommended_proportion)).toBe(30)
+		// Sem `Number(...)`: a leitura tem que devolver number. String aqui é o que fazia o save
+		// do plano semanal reprovar cada item em `recommendedProportion`.
+		expect(principal?.recommended_proportion).toBe(70)
+		expect(guarnicao?.recommended_proportion).toBe(30)
 	})
 
 	test("applyTemplate propaga grupo/ordem/proporção para os menu_items", async () => {

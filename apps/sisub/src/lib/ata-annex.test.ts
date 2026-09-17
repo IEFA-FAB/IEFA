@@ -13,12 +13,12 @@ function component(overrides: Partial<AtaSnapshotComponent>): AtaSnapshotCompone
 		purchase_quantity: null,
 		purchase_measure_unit: null,
 		measure_unit: "KG",
-		total_quantity: "100",
+		total_quantity: 100,
 		max_margin_percent: 20,
-		max_quantity: "120",
+		max_quantity: 120,
 		delivery_cycle: "weekly",
-		min_order_quantity: "10",
-		unit_price: "10",
+		min_order_quantity: 10,
+		unit_price: 10,
 		...overrides,
 	} as AtaSnapshotComponent
 }
@@ -31,11 +31,8 @@ describe("buildSnapshotAnnexRows", () => {
 		expect(annexMaxValue(rows)).toBe(1440)
 	})
 
-	test("preço vivo em string (numeric do Drizzle) vira número e o CSV exporta", () => {
-		const rows = buildSnapshotAnnexRows(
-			[component({})],
-			[{ ingredient_id: "ing-1", item_description: null, catmat_item_descricao: null, unit_price: "12.5000" }]
-		)
+	test("preço vivo decimal chega ao CSV com 4 casas", () => {
+		const rows = buildSnapshotAnnexRows([component({})], [{ ingredient_id: "ing-1", item_description: null, catmat_item_descricao: null, unit_price: 12.5 }])
 		expect(rows[0]?.unitPrice).toBe(12.5)
 		expect(() => buildAnnexCsv(rows)).not.toThrow()
 		expect(buildAnnexCsv(rows)).toContain('"12.5000"')

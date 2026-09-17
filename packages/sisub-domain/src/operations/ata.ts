@@ -118,17 +118,17 @@ type AtaSnapshotComponent = {
 	ingredient_name: string
 	folder_description: string | null
 	measure_unit: string | null
-	total_quantity: string
+	total_quantity: number
 	purchase_item_description: string | null
 	purchase_measure_unit: string | null
-	purchase_quantity: string | null
+	purchase_quantity: number | null
 	catmat_item_codigo: number | null
-	unit_price: string | null
+	unit_price: number | null
 	snapshot_source: string
 	max_margin_percent: number | null
-	max_quantity: string | null
+	max_quantity: number | null
 	delivery_cycle: string | null
-	min_order_quantity: string | null
+	min_order_quantity: number | null
 }
 /** Metadados de integridade computados por request (não persistidos). */
 type AtaMeta = {
@@ -515,22 +515,22 @@ function buildItemPayload(item: DraftItem, draftId: string, computedAt: string):
 		folderId: item.folder_id || null,
 		folderDescription: item.folder_description || null,
 		measureUnit: item.measure_unit || null,
-		totalQuantity: String(item.total_quantity),
+		totalQuantity: item.total_quantity,
 		purchaseItemId: item.purchase_item_id || null,
 		purchaseItemDescription: item.purchase_item_description || null,
 		purchaseMeasureUnit: item.purchase_measure_unit || null,
-		purchaseQuantity: item.purchase_quantity == null ? null : String(item.purchase_quantity),
-		conversionFactor: item.conversion_factor == null ? null : String(item.conversion_factor),
+		purchaseQuantity: item.purchase_quantity ?? null,
+		conversionFactor: item.conversion_factor ?? null,
 		catmatItemCodigo: item.catmat_item_codigo ?? null,
 		catmatItemDescricao: item.catmat_item_descricao || null,
-		unitPrice: item.unit_price == null ? null : String(item.unit_price),
+		unitPrice: item.unit_price ?? null,
 		itemDescription: item.item_description || null,
 		computedAt,
 		// Ausente não entra no payload: o update preserva a escolha gravada. Recalcular o alvo
 		// não pode apagar a margem ou o mínimo que alguém ajustou no item.
 		...(item.max_margin_percent !== undefined && { maxMarginPercent: item.max_margin_percent }),
 		...(item.delivery_cycle !== undefined && { deliveryCycle: item.delivery_cycle }),
-		...(item.min_order_quantity !== undefined && { minOrderQuantity: item.min_order_quantity == null ? null : String(item.min_order_quantity) }),
+		...(item.min_order_quantity !== undefined && { minOrderQuantity: item.min_order_quantity ?? null }),
 	}
 }
 
@@ -1250,9 +1250,9 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 				snapshotSource: "native",
 				computedAt: i.computedAt ?? new Date().toISOString(),
 				maxMarginPercent: limits.marginPercent,
-				maxQuantity: String(limits.maxQuantity),
+				maxQuantity: limits.maxQuantity,
 				deliveryCycle: limits.deliveryCycle,
-				minOrderQuantity: String(limits.minOrderQuantity),
+				minOrderQuantity: limits.minOrderQuantity,
 			}))
 		)
 	}
@@ -1316,10 +1316,7 @@ export async function updateAtaItemPrices(db: SisubDb, ctx: UserContext, input: 
 
 	await db.transaction(async (tx) => {
 		for (const u of input.updates) {
-			await tx
-				.update(procurementListItemInProcurement)
-				.set({ unitPrice: String(u.price) })
-				.where(eq(procurementListItemInProcurement.id, u.ataItemId))
+			await tx.update(procurementListItemInProcurement).set({ unitPrice: u.price }).where(eq(procurementListItemInProcurement.id, u.ataItemId))
 		}
 
 		if (input.researchLinks?.length) {
@@ -1381,7 +1378,7 @@ export async function updateAtaQuantityLimits(db: SisubDb, ctx: UserContext, inp
 			const patch: Partial<ItemInsert> = {}
 			if (item.maxMarginPercent !== undefined) patch.maxMarginPercent = item.maxMarginPercent
 			if (item.deliveryCycle !== undefined) patch.deliveryCycle = item.deliveryCycle
-			if (item.minOrderQuantity !== undefined) patch.minOrderQuantity = item.minOrderQuantity == null ? null : String(item.minOrderQuantity)
+			if (item.minOrderQuantity !== undefined) patch.minOrderQuantity = item.minOrderQuantity ?? null
 			if (Object.keys(patch).length === 0) continue
 			await mutateOrFail(
 				"UPDATE_FAILED",

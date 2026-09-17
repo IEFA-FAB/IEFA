@@ -20,6 +20,12 @@
  *     5. View option `{"securityInvoker":"on"}` (string) → `{ securityInvoker: true }`.
  *     6. Empty-string default mis-escaped as `.default(')` → `.default("")` (both the
  *        `.notNull()` and the nullable variant).
+ *     7. Every `numeric(...)` gets `{ mode: "number" }` (and its string default becomes a
+ *        number). The pull emits the default string mode, so the driver's `"30"` reached
+ *        the app while the Supabase-generated contract said `number`. Each read path had
+ *        to remember a `Number()`/`toNumeric`; the ones that forgot sent the string back
+ *        into a `z.number()` validator (weekly plan save, day-menu item card). All
+ *        numeric columns here fit a double (money is `numeric(12,4)`).
  *   relations.ts
  *     7. Drop duplicate relation properties (redundant duplicate FK constraints in
  *        the DB emit identical relation keys → TS1117 "duplicate property").
@@ -97,6 +103,13 @@ async function patchSchema(src: string): Promise<string> {
 
 	// 6. empty-string default mis-escape (both `.notNull()` and nullable variants)
 	out = out.replace(/\.default\('\)/g, '.default("")')
+
+	// 7. numeric → mode "number" (idempotent: a config that already has `mode:` is left alone)
+	out = out.replace(/\bnumeric\((?:"([a-z0-9_]+)"(?:, )?)?(?:\{ (?![^}]*\bmode:)([^}]*?)\s*\})?\)((?:\.default\('-?[0-9.]+'\))?)/g, (_m, name, config, def) => {
+		const options = config ? `{ mode: "number", ${config.replace(/\s+/g, " ")} }` : '{ mode: "number" }'
+		const args = name ? `"${name}", ${options}` : options
+		return `numeric(${args})${def ? def.replace(/'/g, "") : ""}`
+	})
 
 	return out
 }

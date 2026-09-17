@@ -187,7 +187,7 @@ async function softDeleteFlow(tx: SisubDb, recipeId: string, now: string): Promi
 	)
 }
 
-const numOrNull = (n: number | null | undefined): string | null => (n != null ? String(n) : null)
+const numOrNull = (n: number | null | undefined): number | null => n ?? null
 
 /**
  * Replace transacional do fluxo de uma receita. Valida (ciclo, 1-final, XOR, fontes,
@@ -323,8 +323,8 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 		durationMinutes: number | null
 		canvasX: number
 		canvasY: number
-		recipeStepOutputInKitchens: { id: string; label: string | null; quantity: string | null; measureUnit: string | null; isFinal: boolean }[]
-		recipeStepInputInKitchens: { recipeIngredientId: string | null; sourceOutputId: string | null; quantity: string | null; measureUnit: string | null }[]
+		recipeStepOutputInKitchens: { id: string; label: string | null; quantity: number | null; measureUnit: string | null; isFinal: boolean }[]
+		recipeStepInputInKitchens: { recipeIngredientId: string | null; sourceOutputId: string | null; quantity: number | null; measureUnit: string | null }[]
 		recipeStepUtensilInKitchens: { utensilId: string }[]
 	}
 	const steps = srcSteps as unknown as RawSrcStep[]

@@ -73,7 +73,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 			})
 			.from(menuItemsInKitchen)
 			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
-			.where(and(...dailyMenuWhere, isNull(menuItemsInKitchen.deletedAt), eq(menuItemsInKitchen.excludedFromProcurement, "0")))
+			.where(and(...dailyMenuWhere, isNull(menuItemsInKitchen.deletedAt), eq(menuItemsInKitchen.excludedFromProcurement, 0)))
 	)
 
 	if (menuRows.length === 0) return []
