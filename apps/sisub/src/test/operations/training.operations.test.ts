@@ -71,6 +71,8 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"inventory.scanner_profile":
 		"calibração do leitor por usuário × cozinha — é preferência de dispositivo de quem opera, não dado gerado pelo treinamento; apagar tiraria a calibração do próprio instrutor, como em access_control.user_permissions",
 	"procurement.supply_order": "ordem de fornecimento é documento real de aquisição",
+	"procurement.contract_designation": "designação de fiscal/gestor é ato administrativo real, não dado de treino",
+	"gs1_integration.gtin_alias": "catálogo compartilhado (GTIN aprendido na conferência); não é dado operacional da cozinha de treino",
 }
 
 /** Módulo de estoque — a premissa que sustenta o bloco de exclusões de `inventory`. */

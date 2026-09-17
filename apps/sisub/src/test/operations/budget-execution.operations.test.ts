@@ -78,12 +78,17 @@ describeIf("budget execution chain (DB)", () => {
 
 					// ── liquidação vinculada ao recebimento definitivo ───────────────
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ ORC', 'KG') returning id`
+					// Os itens entram com o recebimento AINDA ABERTO e só então ele é
+					// efetivado. O banco recusa escrita em recebimento efetivado (o
+					// termo do art. 140 não muda depois de assinado), e a ordem inversa
+					// só funcionava porque essa trava não existia.
 					const [receipt] = await tx`
-						insert into inventory.goods_receipt (kitchen_id, empenho_id, status, definitive_at)
-						values (${kitchenRow.id}, ${empenho.id}, 'definitive', now()) returning id`
+						insert into inventory.goods_receipt (kitchen_id, empenho_id, status)
+						values (${kitchenRow.id}, ${empenho.id}, 'provisional') returning id`
 					await tx`
 						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
 						values (${receipt.id}, ${ingredient.id}, 100, 96, 100)`
+					await tx`update inventory.goods_receipt set status = 'definitive', definitive_at = now() where id = ${receipt.id}`
 
 					// físico × contábil: recebimento definitivo AINDA sem liquidação
 					const [pendencia] = await tx`
