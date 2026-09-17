@@ -28,6 +28,14 @@
  * - sucont-admin:        Administração do SUCONT (gerenciar grants dos módulos acima) —
  *                          sucont, unscoped/global. Usa level 3, o mesmo que o módulo
  *                          `sucont` único exigia antes do split: o backfill preserva o nível.
+ * - alpha:               Projeto α (copiloto de aquisições) — alpha, unscoped/global. Os perfis
+ *                          do negócio são aninhados e viram nível: 1 = requisitante,
+ *                          2 = licitações (enxerga o fluxo inteiro), 3 = ACI (triagem, parecer,
+ *                          curadoria de regras e fontes). Sem grant, o autenticado ainda usa o
+ *                          chat e envia o próprio documento; deny (0) fecha a API inteira.
+ * - alpha-admin:         Administração do α (gerenciar grants dos dois módulos) — level 3.
+ *                          Separado de `alpha` pelo mesmo motivo do `sucont-admin`: decidir
+ *                          parecer e conceder acesso são atribuições diferentes.
  *
  * As três divisões são módulos SEPARADOS, e não escopos de um módulo `sucont` único, porque
  * o escopo do PBAC é um id numérico de unidade/cozinha/refeitório — a divisão da SUCONT não
@@ -50,6 +58,8 @@ export type AppModule =
 	| "sucont-3"
 	| "sucont-4"
 	| "sucont-admin"
+	| "alpha"
+	| "alpha-admin"
 
 /**
  * Permissão individual de um usuário.

@@ -6,7 +6,7 @@
  * origem — aqui entra só a camada do analista sobre elas.
  *
  * Perfil: a fila é de quem enxerga o fluxo inteiro (`hasBroadAccess`). Triagem
- * e parecer são só `app_aci` — pelo desenho do projeto, o ACI é o único com
+ * e parecer exigem o nível ACI (`alpha` 3) — pelo desenho do projeto, o ACI é o único com
  * poder de aprovação final.
  *
  * Toda leitura confere `error`. Nesta camada, "sem dados" nunca é o fallback
@@ -23,12 +23,12 @@ import { buildQueue, DECISIONS, deriveStage, type QueueRow, type RunStatus, summ
 import { type FinalReport, type ReportDocument, type ReportFinding, type ReportReview, renderReportMarkdown, resolveFindings } from "../aci/report.ts"
 import { blockersByDecision, decisionBlockers, reviewSnapshot, type TriagedFinding } from "../aci/review.ts"
 import { supabase } from "../db/supabase.ts"
-import type { AppRole } from "../middleware/auth.ts"
-import { requireRole } from "../middleware/auth.ts"
-import { canReadComplianceRun, canReadSubmission, hasBroadAccess } from "./authorize.ts"
+import { ALPHA_LEVEL, type AlphaAccess, hasBroadAccess } from "../lib/alpha-access.ts"
+import { requireAlphaLevel } from "../middleware/auth.ts"
+import { canReadComplianceRun, canReadSubmission } from "./authorize.ts"
 import { FINDING_COLUMNS, REVIEW_COLUMNS, RUN_COLUMNS } from "./columns.ts"
 
-type Variables = { user: User; role: AppRole }
+type Variables = { user: User; access: AlphaAccess }
 
 /** Processos lidos para a fila. Acima disso a fila vira paginação, e ainda não é o caso. */
 const QUEUE_LIMIT = 200
@@ -64,11 +64,22 @@ async function loadTriagedFindings(runId: string): Promise<TriagedFinding[] | nu
 }
 
 export const aciRoutes = new Hono<{ Variables: Variables }>()
+	// GET /api/v1/me/access — o perfil do usuário, para a interface não oferecer o que
+	// vai devolver 403. A regra continua aqui: o cliente só lê o resultado.
+	.get("/api/v1/me/access", (c) => {
+		const access = c.get("access")
+		return c.json({
+			level: access.level,
+			can_see_all: hasBroadAccess(access),
+			can_decide: access.level >= ALPHA_LEVEL.ACI,
+			can_manage_access: access.canManageAccess,
+		})
+	})
 	// GET /api/v1/aci/queue — todos os processos, com etapa e o que pede atenção
 	.get("/api/v1/aci/queue", async (c) => {
 		// A fila é a visão de quem revisa. Requisitante tem a própria lista em
 		// `GET /submissions`; abrir a fila para ele seria expor o documento alheio.
-		if (!hasBroadAccess(c.get("role"))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!hasBroadAccess(c.get("access"))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		// Uma linha por submissão, agregada no banco — ver o comentário da RPC na
 		// migration: a versão em app transferia todos os achados e esbarrava no
@@ -91,7 +102,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 	.get("/api/v1/aci/processes/:id", async (c) => {
 		const id = c.req.param("id")
 
-		if (!(await canReadSubmission(id, c.get("user"), c.get("role")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!(await canReadSubmission(id, c.get("user"), c.get("access")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const { data: submission, error } = await supabase
 			.from("submission")
@@ -131,7 +142,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// PATCH /api/v1/compliance/findings/:id — triagem do analista
-	.patch("/api/v1/compliance/findings/:id", requireRole(["app_aci"]), zValidator("json", TriageBodySchema), async (c) => {
+	.patch("/api/v1/compliance/findings/:id", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", TriageBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { triage, note } = c.req.valid("json")
 		const user = c.get("user")
@@ -164,7 +175,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 	// emissão checaria AGORA (retrato atual e bloqueios por decisão)
 	.get("/api/v1/compliance/runs/:id/reviews", async (c) => {
 		const id = c.req.param("id")
-		if (!(await canReadComplianceRun(id, c.get("user"), c.get("role")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!(await canReadComplianceRun(id, c.get("user"), c.get("access")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const [reviews, findings] = await Promise.all([
 			supabase.from("compliance_review").select(REVIEW_COLUMNS).eq("run_id", id).order("created_at", { ascending: false }),
@@ -183,7 +194,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// POST /api/v1/compliance/runs/:id/reviews — emite o parecer (linha nova, nunca update)
-	.post("/api/v1/compliance/runs/:id/reviews", requireRole(["app_aci"]), zValidator("json", ReviewBodySchema), async (c) => {
+	.post("/api/v1/compliance/runs/:id/reviews", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", ReviewBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { decision, notes } = c.req.valid("json")
 		const user = c.get("user")
@@ -238,7 +249,7 @@ export const aciRoutes = new Hono<{ Variables: Variables }>()
 		const id = c.req.param("id")
 		const { format } = c.req.valid("query")
 
-		if (!(await canReadComplianceRun(id, c.get("user"), c.get("role")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
+		if (!(await canReadComplianceRun(id, c.get("user"), c.get("access")))) return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 
 		const { data: run, error } = await supabase.from("compliance_run").select(RUN_COLUMNS).eq("id", id).maybeSingle()
 		if (error) return failed(c, "RUN_LOOKUP_FAILED")

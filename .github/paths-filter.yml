@@ -149,6 +149,7 @@ alpha:
   - 'packages/alpha-client/**'
   - 'packages/database/**'
   - 'packages/legal-kit/**'
+  - 'packages/pbac/**'
   - 'packages/supabase-kit/**'
   - 'packages/tsconfig/**'
   - 'Dockerfile'

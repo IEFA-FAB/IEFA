@@ -1,39 +1,39 @@
 /**
  * Perfil do usuário no Projeto α.
  *
- * O α lê `app_metadata.role` do JWT (`middleware/auth.ts`); o portal lê o mesmo
- * campo do usuário da sessão para decidir o que mostrar. A regra de acesso
- * mora no α — aqui é só o que a tela precisa para não oferecer botão que vai
- * devolver 403.
+ * Vem do PBAC (módulos `alpha` e `alpha-admin` em `access_control.user_permissions`),
+ * resolvido pelo próprio α em `GET /api/v1/me/access`. O portal não lê permissão do
+ * banco nem da sessão: a regra de acesso mora no α, e aqui é só o que a tela precisa
+ * para não oferecer botão que vai devolver 403.
  */
 
-export type AlphaRole = "app_requisitante" | "app_licitacoes" | "app_aci"
+import { queryOptions } from "@tanstack/react-query"
+import { alphaRequest } from "./client"
 
-const ROLES: readonly AlphaRole[] = ["app_requisitante", "app_licitacoes", "app_aci"]
+export type AlphaLevel = 0 | 1 | 2 | 3
 
-/** Perfis que enxergam o fluxo inteiro — espelha `PERFIS_AMPLOS` do α. */
-const BROAD_ROLES: readonly AlphaRole[] = ["app_aci", "app_licitacoes"]
-
-type UserLike = { app_metadata?: Record<string, unknown> | null } | null | undefined
-
-/** `null` para usuário sem perfil ou com valor fora do conjunto — nunca um perfil suposto. */
-export function alphaRole(user: UserLike): AlphaRole | null {
-	const value = user?.app_metadata?.role
-	return typeof value === "string" && (ROLES as readonly string[]).includes(value) ? (value as AlphaRole) : null
+export type AlphaAccess = {
+	level: AlphaLevel
+	/** Licitações e ACI: a fila e os processos de todos os requisitantes. */
+	can_see_all: boolean
+	/** Só o ACI: triagem de achado e parecer. */
+	can_decide: boolean
+	/** `alpha-admin` 3: conceder e revogar os grants do α. */
+	can_manage_access: boolean
 }
 
-/** Pode abrir a fila da plataforma (todos os processos). */
-export function hasAciAccess(role: AlphaRole | null): boolean {
-	return role !== null && BROAD_ROLES.includes(role)
+export const LEVEL_LABEL: Record<AlphaLevel, string> = {
+	0: "sem perfil",
+	1: "Requisitante",
+	2: "Licitações",
+	3: "ACI",
 }
 
-/** Pode triar achado e emitir parecer — só o ACI, por desenho do projeto. */
-export function canDecide(role: AlphaRole | null): boolean {
-	return role === "app_aci"
-}
-
-export const ROLE_LABEL: Record<AlphaRole, string> = {
-	app_requisitante: "Requisitante",
-	app_licitacoes: "Licitações",
-	app_aci: "ACI",
+export function alphaAccessQueryOptions(token: string | undefined) {
+	return queryOptions({
+		queryKey: ["alpha", "me", "access"],
+		queryFn: () => alphaRequest<AlphaAccess>("/api/v1/me/access", token),
+		enabled: !!token,
+		staleTime: 60_000,
+	})
 }

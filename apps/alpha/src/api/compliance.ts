@@ -14,12 +14,12 @@ import { LegalRefResolver } from "../compliance/resolve-legal-ref.ts"
 import { runCompliance } from "../compliance/run.ts"
 import { applyCitationGuard, type ChecklistRule, judgeRule } from "../compliance/verify.ts"
 import { supabase } from "../db/supabase.ts"
-import type { AppRole } from "../middleware/auth.ts"
-import { requireRole } from "../middleware/auth.ts"
+import { ALPHA_LEVEL, type AlphaAccess } from "../lib/alpha-access.ts"
+import { requireAlphaLevel } from "../middleware/auth.ts"
 import { canReadComplianceRun, canReadSubmission, extractionBelongsToSubmission } from "./authorize.ts"
 import { FINDING_COLUMNS, RUN_COLUMNS } from "./columns.ts"
 
-type Variables = { user: User; role: AppRole }
+type Variables = { user: User; access: AlphaAccess }
 
 const RunBodySchema = z.object({
 	submission_id: z.uuid(),
@@ -41,7 +41,7 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	.post("/api/v1/compliance/runs", zValidator("json", RunBodySchema), async (c) => {
 		const { submission_id, extraction_id } = c.req.valid("json")
 
-		if (!(await canReadSubmission(submission_id, c.get("user"), c.get("role")))) {
+		if (!(await canReadSubmission(submission_id, c.get("user"), c.get("access")))) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 		// Extração de outra submissão produziria um parecer com trechos de um
@@ -62,7 +62,7 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	.get("/api/v1/compliance/runs/:id", async (c) => {
 		const id = c.req.param("id")
 
-		if (!(await canReadComplianceRun(id, c.get("user"), c.get("role")))) {
+		if (!(await canReadComplianceRun(id, c.get("user"), c.get("access")))) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
 
@@ -101,7 +101,7 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	// POST /api/v1/rules/:id/evaluate — testa uma regra isolada contra um trecho
 	// Avaliar regra dispara chamada de modelo com texto arbitrário do usuário:
 	// mesmo perfil que promove regra, para não virar um proxy de LLM aberto.
-	.post("/api/v1/rules/:id/evaluate", requireRole(["app_aci"]), zValidator("json", EvaluateBodySchema), async (c) => {
+	.post("/api/v1/rules/:id/evaluate", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", EvaluateBodySchema), async (c) => {
 		const id = c.req.param("id")
 		const { text, label } = c.req.valid("json")
 
@@ -129,7 +129,7 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 	})
 
 	// PATCH /api/v1/rules/:id — promoção e despromoção, sempre explícitas
-	.patch("/api/v1/rules/:id", requireRole(["app_aci"]), zValidator("json", RuleStatusSchema), async (c) => {
+	.patch("/api/v1/rules/:id", requireAlphaLevel(ALPHA_LEVEL.ACI), zValidator("json", RuleStatusSchema), async (c) => {
 		const id = c.req.param("id")
 		const { status } = c.req.valid("json")
 
