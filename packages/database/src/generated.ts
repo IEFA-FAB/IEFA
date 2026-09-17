@@ -5139,6 +5139,45 @@ export type Database = {
           },
         ]
       }
+      scanner_profile: {
+        Row: {
+          gs_substitute: string | null
+          idle_timeout_ms: number
+          kitchen_id: number
+          max_key_interval_ms: number
+          min_length: number
+          prefix: string | null
+          suffix: string | null
+          terminator: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          gs_substitute?: string | null
+          idle_timeout_ms?: number
+          kitchen_id: number
+          max_key_interval_ms?: number
+          min_length?: number
+          prefix?: string | null
+          suffix?: string | null
+          terminator?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          gs_substitute?: string | null
+          idle_timeout_ms?: number
+          kitchen_id?: number
+          max_key_interval_ms?: number
+          min_length?: number
+          prefix?: string | null
+          suffix?: string | null
+          terminator?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stock_cost: {
         Row: {
           avg_unit_cost: number

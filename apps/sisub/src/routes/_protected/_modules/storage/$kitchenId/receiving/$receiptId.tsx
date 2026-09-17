@@ -23,10 +23,19 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { deleteReceiptLotFn, fetchReceiptFn, finalizeReceiptFn, setReceiptProvisionalFn, updateReceiptItemFn, upsertReceiptLotFn } from "@/server/receiving.fn"
+import { fetchScannerProfileFn } from "@/server/scanner.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/receiving/$receiptId")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
-	loader: ({ params }) => fetchReceiptFn({ data: { receiptId: params.receiptId } }),
+	loader: async ({ params }) => {
+		// o perfil calibrado do leitor vem junto: sem prefixo/sufixo/substituto do
+		// GS, etiqueta GS1 lida nesta estação chega com lote e validade grudados
+		const [receipt, scannerProfile] = await Promise.all([
+			fetchReceiptFn({ data: { receiptId: params.receiptId } }),
+			fetchScannerProfileFn({ data: { kitchenId: Number(params.kitchenId) } }),
+		])
+		return { receipt, scannerProfile }
+	},
 	component: ReceiptDetailPage,
 	head: () => ({
 		meta: [{ title: "Estoque — Conferência de Recebimento" }],
@@ -380,7 +389,7 @@ function ItemCard({ item, editable, highlighted, onSaved }: { item: ReceiptItemR
 }
 
 function ReceiptDetailPage() {
-	const receipt = Route.useLoaderData()
+	const { receipt, scannerProfile } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const [busy, setBusy] = useState(false)
@@ -478,7 +487,15 @@ function ReceiptDetailPage() {
 				<Card className="print:hidden">
 					<CardContent className="pt-4 space-y-1.5">
 						<p className="text-label text-muted-foreground">Conferência por scanner — leia o código do produto físico:</p>
-						<GtinScannerField onScan={setScannedGtin} placeholder="Escaneie o GTIN do volume recebido…" />
+						<GtinScannerField
+							onScan={setScannedGtin}
+							placeholder="Escaneie o GTIN do volume recebido…"
+							config={{
+								prefix: scannerProfile.prefix ?? undefined,
+								suffix: scannerProfile.suffix ?? undefined,
+								gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
+							}}
+						/>
 						{scannedGtin != null && (
 							<Badge variant={scanMatch ? "secondary" : "destructive"} className="text-xs">
 								{scanMatch ? `GTIN ${scannedGtin} consta na nota — item destacado` : `GTIN ${scannedGtin} NÃO consta nesta nota — não adicione sem conferir`}
