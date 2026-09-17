@@ -4960,6 +4960,42 @@ export type Database = {
           },
         ]
       }
+      kitchen_stock_settings: {
+        Row: {
+          adjustment_approval_value: number
+          count_tolerance_pct: number
+          count_tolerance_value: number
+          issue_tolerance_floor_value: number
+          issue_tolerance_pct: number
+          kitchen_id: number
+          segregation: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          adjustment_approval_value?: number
+          count_tolerance_pct?: number
+          count_tolerance_value?: number
+          issue_tolerance_floor_value?: number
+          issue_tolerance_pct?: number
+          kitchen_id: number
+          segregation?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          adjustment_approval_value?: number
+          count_tolerance_pct?: number
+          count_tolerance_value?: number
+          issue_tolerance_floor_value?: number
+          issue_tolerance_pct?: number
+          kitchen_id?: number
+          segregation?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       monthly_closing: {
         Row: {
           balance_snapshot: Json
@@ -5178,6 +5214,189 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_adjustment: {
+        Row: {
+          approval_exception_reason: string | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          evidence_status: string
+          id: string
+          inventory_count_id: string | null
+          kitchen_id: number
+          notes: string | null
+          posted_value: number | null
+          rejection_reason: string | null
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          approval_exception_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence_status?: string
+          id?: string
+          inventory_count_id?: string | null
+          kitchen_id: number
+          notes?: string | null
+          posted_value?: number | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          approval_exception_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence_status?: string
+          id?: string
+          inventory_count_id?: string | null
+          kitchen_id?: number
+          notes?: string | null
+          posted_value?: number | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustment_inventory_count_id_fkey"
+            columns: ["inventory_count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_count"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_adjustment_attachment: {
+        Row: {
+          adjustment_id: string
+          byte_size: number | null
+          content_type: string | null
+          id: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          adjustment_id: string
+          byte_size?: number | null
+          content_type?: string | null
+          id?: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          adjustment_id?: string
+          byte_size?: number | null
+          content_type?: string | null
+          id?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustment_attachment_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "stock_adjustment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_adjustment_item: {
+        Row: {
+          adjustment_id: string
+          corrected_movement_id: string | null
+          direction: string
+          evidence_kind: string | null
+          evidence_reference: string | null
+          frozen_preparation_id: string | null
+          id: string
+          ingredient_id: string | null
+          investigation_reference: string | null
+          lot_id: string | null
+          measured_temperature_c: number | null
+          movement_id: string | null
+          note: string | null
+          quantity: number
+          reason_code: string
+          unit_cost: number | null
+        }
+        Insert: {
+          adjustment_id: string
+          corrected_movement_id?: string | null
+          direction: string
+          evidence_kind?: string | null
+          evidence_reference?: string | null
+          frozen_preparation_id?: string | null
+          id?: string
+          ingredient_id?: string | null
+          investigation_reference?: string | null
+          lot_id?: string | null
+          measured_temperature_c?: number | null
+          movement_id?: string | null
+          note?: string | null
+          quantity: number
+          reason_code: string
+          unit_cost?: number | null
+        }
+        Update: {
+          adjustment_id?: string
+          corrected_movement_id?: string | null
+          direction?: string
+          evidence_kind?: string | null
+          evidence_reference?: string | null
+          frozen_preparation_id?: string | null
+          id?: string
+          ingredient_id?: string | null
+          investigation_reference?: string | null
+          lot_id?: string | null
+          measured_temperature_c?: number | null
+          movement_id?: string | null
+          note?: string | null
+          quantity?: number
+          reason_code?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustment_item_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "stock_adjustment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustment_item_corrected_movement_id_fkey"
+            columns: ["corrected_movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movement"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustment_item_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "stock_lot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustment_item_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movement"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_cost: {
         Row: {
           avg_unit_cost: number
@@ -5209,6 +5428,7 @@ export type Database = {
         Row: {
           conservation_class: string | null
           created_at: string
+          derivation: string | null
           expiry_date: string | null
           frozen_preparation_id: string | null
           goods_receipt_item_id: string | null
@@ -5216,12 +5436,22 @@ export type Database = {
           id: string
           ingredient_id: string | null
           kitchen_id: number
+          location: string | null
           lot_code: string
+          opened_at: string | null
+          parent_lot_id: string | null
+          quarantine_reason: string | null
+          quarantined_at: string | null
+          quarantined_by: string | null
+          received_at: string
+          short_code: string
           unit_cost: number | null
+          use_first: boolean
         }
         Insert: {
           conservation_class?: string | null
           created_at?: string
+          derivation?: string | null
           expiry_date?: string | null
           frozen_preparation_id?: string | null
           goods_receipt_item_id?: string | null
@@ -5229,12 +5459,22 @@ export type Database = {
           id?: string
           ingredient_id?: string | null
           kitchen_id: number
+          location?: string | null
           lot_code: string
+          opened_at?: string | null
+          parent_lot_id?: string | null
+          quarantine_reason?: string | null
+          quarantined_at?: string | null
+          quarantined_by?: string | null
+          received_at?: string
+          short_code?: string
           unit_cost?: number | null
+          use_first?: boolean
         }
         Update: {
           conservation_class?: string | null
           created_at?: string
+          derivation?: string | null
           expiry_date?: string | null
           frozen_preparation_id?: string | null
           goods_receipt_item_id?: string | null
@@ -5242,8 +5482,17 @@ export type Database = {
           id?: string
           ingredient_id?: string | null
           kitchen_id?: number
+          location?: string | null
           lot_code?: string
+          opened_at?: string | null
+          parent_lot_id?: string | null
+          quarantine_reason?: string | null
+          quarantined_at?: string | null
+          quarantined_by?: string | null
+          received_at?: string
+          short_code?: string
           unit_cost?: number | null
+          use_first?: boolean
         }
         Relationships: [
           {
@@ -5258,6 +5507,13 @@ export type Database = {
             columns: ["goods_receipt_item_lot_id"]
             isOneToOne: false
             referencedRelation: "goods_receipt_item_lot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_parent_lot_id_fkey"
+            columns: ["parent_lot_id"]
+            isOneToOne: false
+            referencedRelation: "stock_lot"
             referencedColumns: ["id"]
           },
         ]
@@ -5277,6 +5533,7 @@ export type Database = {
           occurred_at: string
           production_task_id: string | null
           quantity: number
+          reason_code: string | null
           total_cost: number | null
           transfer_pair_id: string | null
           type: string
@@ -5296,6 +5553,7 @@ export type Database = {
           occurred_at?: string
           production_task_id?: string | null
           quantity: number
+          reason_code?: string | null
           total_cost?: number | null
           transfer_pair_id?: string | null
           type: string
@@ -5315,6 +5573,7 @@ export type Database = {
           occurred_at?: string
           production_task_id?: string | null
           quantity?: number
+          reason_code?: string | null
           total_cost?: number | null
           transfer_pair_id?: string | null
           type?: string
@@ -5416,25 +5675,11 @@ export type Database = {
       }
     }
     Functions: {
-      adjust_stock: {
-        Args: {
-          p_direction: string
-          p_expiry_date?: string
-          p_frozen_preparation_id?: string
-          p_ingredient_id?: string
-          p_justification: string
-          p_kitchen_id: number
-          p_lot_code?: string
-          p_lot_id?: string
-          p_quantity: number
-          p_unit_cost?: number
-          p_user: string
-        }
-        Returns: {
-          lot_id: string
-          movement_id: string
-        }[]
+      adjustment_requires_approval: {
+        Args: { p_adjustment_id: string }
+        Returns: boolean
       }
+      adjustment_value: { Args: { p_adjustment_id: string }; Returns: number }
       close_month: {
         Args: { p_competencia: string; p_kitchen_id: number; p_user: string }
         Returns: {
@@ -5453,6 +5698,43 @@ export type Database = {
         Returns: {
           movements: number
         }[]
+      }
+      kitchen_settings: {
+        Args: { p_kitchen_id: number }
+        Returns: {
+          adjustment_approval_value: number
+          count_tolerance_pct: number
+          count_tolerance_value: number
+          issue_tolerance_floor_value: number
+          issue_tolerance_pct: number
+          kitchen_id: number
+          segregation: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "kitchen_stock_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      lot_short_code: { Args: never; Returns: string }
+      mark_module_transaction: { Args: never; Returns: undefined }
+      post_stock_adjustment: {
+        Args: {
+          p_actor: string
+          p_adjustment_id: string
+          p_approval_exception_reason?: string
+        }
+        Returns: {
+          movements: number
+          value: number
+        }[]
+      }
+      reason_always_requires_approval: {
+        Args: { p_reason: string }
+        Returns: boolean
       }
       register_leftover: {
         Args: {
@@ -5474,6 +5756,21 @@ export type Database = {
         Args: { p_lines: Json; p_task_id: string; p_user: string }
         Returns: {
           movements: number
+        }[]
+      }
+      split_lot: {
+        Args: {
+          p_derivation: string
+          p_expiry_date?: string
+          p_location?: string
+          p_lot_id: string
+          p_quantity: number
+          p_user: string
+        }
+        Returns: {
+          expiry_date: string
+          lot_id: string
+          short_code: string
         }[]
       }
       suggest_purchase_items: {
@@ -7036,6 +7333,7 @@ export type Database = {
           correction_factor: number | null
           created_at: string
           default_delivery_cycle: string | null
+          default_shelf_life_days: number | null
           deleted_at: string | null
           density_factor: number | null
           description: string | null
@@ -7045,12 +7343,15 @@ export type Database = {
           measure_unit: string | null
           preparation_group_id: string | null
           rehydration_index: number | null
+          shelf_life_after_opening_days: number | null
+          shelf_life_after_thaw_days: number | null
         }
         Insert: {
           ceafa_id?: string | null
           correction_factor?: number | null
           created_at?: string
           default_delivery_cycle?: string | null
+          default_shelf_life_days?: number | null
           deleted_at?: string | null
           density_factor?: number | null
           description?: string | null
@@ -7060,12 +7361,15 @@ export type Database = {
           measure_unit?: string | null
           preparation_group_id?: string | null
           rehydration_index?: number | null
+          shelf_life_after_opening_days?: number | null
+          shelf_life_after_thaw_days?: number | null
         }
         Update: {
           ceafa_id?: string | null
           correction_factor?: number | null
           created_at?: string
           default_delivery_cycle?: string | null
+          default_shelf_life_days?: number | null
           deleted_at?: string | null
           density_factor?: number | null
           description?: string | null
@@ -7075,6 +7379,8 @@ export type Database = {
           measure_unit?: string | null
           preparation_group_id?: string | null
           rehydration_index?: number | null
+          shelf_life_after_opening_days?: number | null
+          shelf_life_after_thaw_days?: number | null
         }
         Relationships: [
           {

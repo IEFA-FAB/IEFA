@@ -21,7 +21,6 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-const core = () => getServerClient("core") as unknown as LooseClient
 
 export interface StockLotBalanceRow {
 	lot_id: string | null
@@ -132,86 +131,10 @@ export const fetchStockMovementsFn = createServerFn({ method: "GET" })
 		}))
 	})
 
-/**
- * Bloqueio da Fase 2a: ingrediente com unidade fora do catálogo canônico não
- * movimenta estoque — o erro aponta a fila de revisão.
- */
-async function assertCanonicalUnit(ingredientId: string | null) {
-	if (!ingredientId) return
-	const { data: ing } = await kitchen().from("ingredient").select("description, measure_unit").eq("id", ingredientId).single()
-	if (!ing?.measure_unit)
-		throw new Error(
-			`Insumo "${ing?.description ?? ingredientId}" sem unidade de medida — corrija na fila de revisão (/global/review-queues) antes de movimentar estoque`
-		)
-	const { data: unit } = await core().from("measure_unit").select("code").eq("code", ing.measure_unit).maybeSingle()
-	if (!unit) {
-		throw new Error(
-			`Insumo "${ing.description}" tem unidade "${ing.measure_unit}" fora do catálogo canônico — resolva na fila de revisão (/global/review-queues) antes de movimentar estoque`
-		)
-	}
-}
-
-/**
- * Ajuste manual (entrada ou saída) com justificativa obrigatória. Para entrada
- * sem lote existente, cria o lote (sintético SEM-LOTE-<data> quando não
- * informado).
- */
-export const createAdjustmentFn = createServerFn({ method: "POST" })
-	.validator(
-		z.object({
-			kitchenId: z.number().int().positive(),
-			direction: z.enum(["in", "out"]),
-			quantity: z.number().positive(),
-			justification: z.string().min(5, "Justificativa obrigatória (mínimo 5 caracteres)"),
-			lotId: z.uuid().optional(),
-			newLot: z
-				.object({
-					ingredientId: z.uuid().optional(),
-					frozenPreparationId: z.uuid().optional(),
-					lotCode: z.string().optional(),
-					expiryDate: z
-						.string()
-						.regex(/^\d{4}-\d{2}-\d{2}$/)
-						.optional(),
-					unitCost: z.number().nonnegative().optional(),
-				})
-				.optional(),
-		})
-	)
-	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
-		const inv = inventory()
-
-		if (!data.lotId && (!data.newLot || (!data.newLot.ingredientId && !data.newLot.frozenPreparationId))) {
-			throw new Error("Informe um lote existente ou os dados do novo lote (com o item)")
-		}
-		// unidade canônica é checada aqui (fila de revisão é assunto da aplicação);
-		// o resto — lote travado, saldo conferido, movimento — acontece numa
-		// transação só no banco. Antes eram duas requests: lote criado numa,
-		// movimento na outra, e a falha da segunda deixava lote órfão.
-		await assertCanonicalUnit(data.newLot?.ingredientId ?? null)
-		if (data.lotId) {
-			const { data: existing } = await inv.from("stock_lot").select("ingredient_id").eq("id", data.lotId).eq("kitchen_id", data.kitchenId).maybeSingle()
-			if (!existing) throw new Error("Lote não encontrado")
-			await assertCanonicalUnit(existing.ingredient_id)
-		}
-
-		const { data: result, error } = await inv.rpc("adjust_stock", {
-			p_kitchen_id: data.kitchenId,
-			p_direction: data.direction,
-			p_quantity: data.quantity,
-			p_justification: data.justification,
-			p_user: userId,
-			p_lot_id: data.lotId ?? null,
-			p_ingredient_id: data.newLot?.ingredientId ?? null,
-			p_frozen_preparation_id: data.newLot?.frozenPreparationId ?? null,
-			p_lot_code: data.newLot?.lotCode ?? null,
-			p_expiry_date: data.newLot?.expiryDate ?? null,
-			p_unit_cost: data.newLot?.unitCost ?? null,
-		})
-		if (error) throw new Error(`Erro ao registrar ajuste: ${error.message}`)
-		return { lotId: (result?.[0]?.lot_id ?? null) as string | null }
-	})
+// O ajuste manual saiu daqui: virou DOCUMENTO em `adjustment.fn.ts`, com motivo
+// tipado, alçada e segregação checadas no banco. O que existia aqui criava o
+// lote numa request e o movimento na outra — a falha da segunda deixava lote
+// órfão — e gravava só texto livre, que não vira relatório de perdas.
 
 /** Transferência atômica entre cozinhas (função SQL: par transfer_out/in). */
 export const createTransferFn = createServerFn({ method: "POST" })

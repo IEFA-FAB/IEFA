@@ -519,8 +519,20 @@ export const ASSURANCE_REGISTRY = {
 	// ── stock-reports.fn.ts
 	closeMonthFn: { require: "none" },
 
-	// ── stock.fn.ts
+	// ── adjustment.fn.ts
+	// Lançar ajuste e aprovar mexem em valor contábil, mas seguem `none` como o
+	// resto do módulo: a classificação existe e o registro sensível é gravado; o
+	// enforcement de MFA é decisão do change de garantia de identidade.
 	createAdjustmentFn: { require: "none" },
+	approveAdjustmentFn: { require: "none" },
+	rejectAdjustmentFn: { require: "none" },
+	completeAdjustmentEvidenceFn: { require: "none" },
+	quarantineLotFn: { require: "none" },
+	releaseQuarantineFn: { require: "none" },
+	splitLotFn: { require: "none" },
+	saveStockSettingsFn: { require: "none" },
+
+	// ── stock.fn.ts
 	createTransferFn: { require: "none" },
 	createInventoryCountFn: { require: "none" },
 	upsertCountItemFn: { require: "none" },
