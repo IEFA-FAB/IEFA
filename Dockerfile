@@ -329,6 +329,7 @@ COPY packages/ai-provider ./packages/ai-provider
 COPY packages/alpha-client ./packages/alpha-client
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
+COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/alpha ./apps/alpha
