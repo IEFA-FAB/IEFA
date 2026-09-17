@@ -49,14 +49,77 @@ const { api, RESTRICTED_PATHS } = await import("./routes.ts")
 /** Rotas com dado pessoal — a lista vem do roteador, não de uma cópia local que diverge. */
 const RESTRICTED = [...RESTRICTED_PATHS]
 
-/** Estrutura organizacional, não pessoa: segue pública. */
+/**
+ * Estrutura organizacional, não pessoa: segue pública.
+ *
+ * É uma allowlist, e é o que torna a classificação DEFAULT-DENY: rota registrada em
+ * `routes.ts` que não esteja nem aqui nem em `RESTRICTED_PATHS` derruba a suíte. Acrescentar
+ * um caminho a esta lista é uma decisão explícita, que aparece no diff e passa por revisão.
+ */
 const PUBLIC = ["/units", "/mess-halls"]
 
+/**
+ * Campos que identificam UMA PESSOA. Schema de resposta que exponha qualquer um deles é dado
+ * pessoal, e a rota tem que estar em `RESTRICTED_PATHS`.
+ *
+ * `id` de propósito fora da lista: `/units` também tem `id`, e `id` sozinho não diz de quem.
+ * `/user-data` é pego por `email` e `nrOrdem`, que dizem.
+ */
+const PERSONAL_DATA_FIELDS = ["userId", "user_id", "nrOrdem", "nrCpf", "cpf", "email", "nmGuerra", "nmPessoa", "sgPosto"]
+
+type ResponseSchema = { items?: { properties?: Record<string, unknown> } }
+type PathItem = { get?: { responses?: Record<string, { content?: Record<string, { schema?: ResponseSchema }> }> } }
+
+/** Campos do schema de resposta 200 de cada rota GET, lidos do documento OpenAPI do roteador. */
+function readResponseFields(): Map<string, string[]> {
+	const doc = api.getOpenAPIDocument({ openapi: "3.0.0", info: { title: "inventory-probe", version: "0" } })
+	const fields = new Map<string, string[]>()
+	for (const [path, item] of Object.entries(doc.paths as Record<string, PathItem>)) {
+		const schema = item.get?.responses?.["200"]?.content?.["application/json"]?.schema
+		const properties = schema?.items?.properties
+		if (properties) fields.set(path, Object.keys(properties))
+	}
+	return fields
+}
+
+/**
+ * Inventário DERIVADO de `routes.ts` — não de uma cópia fixa.
+ *
+ * Uma cópia fixa da lista pegaria a remoção de um caminho e deixaria passar a ADIÇÃO, que é
+ * justamente o modo de falha do #288: rota nova de dado pessoal registrada sem entrar na lista,
+ * servindo o efetivo nominal anonimamente. Duas redes independentes, as duas lidas do roteador:
+ * a projeção declarada no OpenAPI e a classificação de toda rota registrada.
+ */
 describe("inventário das rotas protegidas", () => {
-	// Os casos abaixo derivam de `RESTRICTED_PATHS`; sem esta âncora, apagar uma rota da lista
-	// tiraria o guard dela E o teste dela no mesmo commit, deixando a suíte verde.
-	test("a lista do roteador cobre todas as rotas com dado pessoal", () => {
-		expect(new Set(RESTRICTED)).toEqual(new Set(["/opinion", "/rancho_previsoes", "/wherewhowhen", "/user-military-data", "/user-data"]))
+	const responseFields = readResponseFields()
+
+	// Sem esta guarda, uma mudança na forma do documento (upgrade do @hono/zod-openapi, por
+	// exemplo) faria a extração devolver vazio e os dois casos abaixo passariam varrendo nada.
+	test("a varredura do OpenAPI enxerga a projeção de todas as rotas GET", () => {
+		const registered = api.routes.filter((route) => route.method === "GET").map((route) => route.path)
+		expect(new Set(responseFields.keys())).toEqual(new Set(registered))
+		for (const [path, fields] of responseFields) {
+			expect(fields.length, `rota ${path} sem campos legíveis no schema de resposta`).toBeGreaterThan(0)
+		}
+	})
+
+	test("toda rota que devolve dado pessoal está em RESTRICTED_PATHS", () => {
+		const leaking = [...responseFields]
+			.filter(([path]) => !RESTRICTED.includes(path as (typeof RESTRICTED_PATHS)[number]))
+			.map(([path, fields]) => ({ path, personal: fields.filter((field) => PERSONAL_DATA_FIELDS.includes(field)) }))
+			.filter((entry) => entry.personal.length > 0)
+		expect(leaking).toEqual([])
+	})
+
+	test("toda rota registrada está classificada como protegida ou como pública", () => {
+		const registered = api.routes.filter((route) => route.method === "GET").map((route) => route.path)
+		const classified = new Set<string>([...RESTRICTED, ...PUBLIC])
+		expect(registered.filter((path) => !classified.has(path))).toEqual([])
+	})
+
+	test("RESTRICTED_PATHS não lista caminho que o roteador não registra", () => {
+		const registered = new Set(api.routes.map((route) => route.path))
+		expect(RESTRICTED.filter((path) => !registered.has(path))).toEqual([])
 	})
 })
 

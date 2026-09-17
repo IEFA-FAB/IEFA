@@ -45,6 +45,7 @@
       "outputs": []
     },
     "test:integration": {
+      "cache": false,
       "outputs": [],
       "env": [
         "API_RUN_INTEGRATION",

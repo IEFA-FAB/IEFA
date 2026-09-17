@@ -1,0 +1,65 @@
+# ============================================================================
+# Integração de `apps/api` contra o Supabase REAL — sob demanda e semanal.
+#
+# Por que NÃO é gate de PR: os 30 casos aqui são GETs contra o banco de
+# produção, e latência de produção não é sinal sobre o diff. Enquanto rodavam
+# dentro do `check-api`, uma consulta lenta virava `timed out after 5000ms` e
+# bloqueava build e deploy de apps que o PR nem tocou (o motivo do #362).
+#
+# Por que também NÃO é só `workflow_dispatch`: suíte que depende de alguém
+# lembrar de rodar é suíte que apodrece. O `schedule` semanal é o que mantém o
+# contrato das rotas legadas vivo — se a projeção de `/user-military-data`
+# mudar no banco, a falha aparece na aba Actions na segunda seguinte, não seis
+# meses depois.
+#
+# Quem roda, e quando:
+#   - semanalmente, segunda 09:00 UTC (06:00 BRT), na `main`;
+#   - sob demanda, por qualquer mantenedor, em qualquer branch:
+#     Actions → "api integration (real db)" → Run workflow;
+#   - localmente, antes de mexer nas rotas legadas:
+#     `bun run api:test:integration` (exige as três variáveis no ambiente).
+#
+# Só leitura: a suíte é GET-only, não escreve no banco. Por isso não há
+# faxina de fixtures como no `integration.yml` do sisub.
+# ============================================================================
+name: api integration (real db)
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-integration-real-db
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    name: rotas legadas contra o banco real
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      # `API_RUN_INTEGRATION=true` sem credencial FALHA na carga do arquivo, de propósito:
+      # skip silencioso aqui é o run vazio que o repo já levou uma vez.
+      - name: Run integration suite
+        working-directory: apps/api
+        env:
+          API_RUN_INTEGRATION: "true"
+          API_SUPABASE_URL: ${{ vars.API_SUPABASE_URL }}
+          API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: bun run test:integration

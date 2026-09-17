@@ -13,7 +13,7 @@
     "sync:gpc": "bun scripts/run-gpc-import.ts",
     "match:catmat-products": "bun scripts/catmat-match-orchestrator.ts",
     "test": "bun test --no-env-file src",
-    "test:integration": "bun test --no-env-file tests/integration",
+    "test:integration": "bun test --no-env-file --timeout 30000 tests/integration",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",

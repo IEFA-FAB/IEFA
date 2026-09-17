@@ -35,6 +35,7 @@
     "rumaer:dev": "bun --cwd ./apps/rumaer dev",
     "assignment-selection:dev": "bun --cwd ./apps/assignment-selection dev",
     "api:dev": "bun --cwd ./apps/api dev",
+    "api:test:integration": "API_RUN_INTEGRATION=true turbo run test:integration --filter=@iefa/api",
     "forms:dev": "bun --cwd ./apps/forms dev",
     "contrate:dev": "bun --cwd ./apps/contrate dev -- --port 3010",
     "5s:dev": "VITE_APP_TENANT=cinco-s bun --cwd ./apps/forms dev -- --port 3002",

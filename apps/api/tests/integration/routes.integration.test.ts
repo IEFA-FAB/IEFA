@@ -11,9 +11,21 @@
  *    todos os arquivos de teste de uma invocação no MESMO processo. Em `src/`, as duas
  *    suítes disputariam o mesmo módulo já carregado. Em processos separados, não.
  *
- * Como rodar: `API_RUN_INTEGRATION=true bun run test:integration` em `apps/api`, com
- * `API_SUPABASE_URL`, `API_SUPABASE_SERVICE_ROLE_KEY` e `ADMIN_SECRET` exportados.
+ * Quem roda, e quando:
+ *   - `.github/workflows/api-integration.yml` — semanal (segunda 09:00 UTC) e sob demanda
+ *     por `workflow_dispatch`. O semanal é o que impede este arquivo de apodrecer agora que
+ *     ele saiu do gate de PR;
+ *   - localmente, `bun run api:test:integration` na raiz (ou `API_RUN_INTEGRATION=true bun
+ *     run test:integration` aqui em `apps/api`), com `API_SUPABASE_URL`,
+ *     `API_SUPABASE_SERVICE_ROLE_KEY` e `ADMIN_SECRET` no ambiente.
+ *
  * Sem a flag, tudo aqui fica em skip — isso é o esperado, não falha.
+ *
+ * O script roda com `--timeout 30000`, e não com os 5 s padrão do Bun: `/units` e
+ * `/mess-halls` não mandam `limit`, ou seja, exercitam de propósito o caminho do default de
+ * 100 000 do servidor — que é parte do contrato sob teste. Com 5 s, banco lento deixaria a
+ * suíte VERMELHA, e teríamos trocado o timeout no gate de PR por um timeout no run semanal.
+ * 30 s é folga para latência, curto o bastante para um pendurado de verdade ainda falhar.
  */
 
 import { describe, expect, test } from "bun:test"
