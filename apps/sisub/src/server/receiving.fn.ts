@@ -20,8 +20,12 @@
 import {
 	type ConservationClass,
 	divergesFromInvoice,
+	fiscalShortfallValue,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
+	matchScanToLine,
+	parseNfeAccessKey,
+	type ReceiptLineForScan,
 	requiresDivergenceReason,
 	temperatureDivergenceReason,
 	temperatureVerdict,
@@ -38,6 +42,7 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const procurement = () => getServerClient("procurement") as unknown as LooseClient
+const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
 
 const IsoDate = z
 	.string()
@@ -55,6 +60,13 @@ async function requireOpenReceipt(receiptId: string, level: 2 | 3) {
 	// valor sugerido de liquidação depois do fato. A UI já bloqueava; a API não.
 	if (!isReceiptEditable(receipt.status as string)) throw new Error("Recebimento já efetivado — não pode ser alterado")
 	return { receipt, ...auth }
+}
+
+/** Sobe da linha do item até o recebimento (o guard é por cozinha). */
+async function receiptIdForItem(receiptItemId: string): Promise<string> {
+	const { data: item } = await inventory().from("goods_receipt_item").select("receipt_id").eq("id", receiptItemId).maybeSingle()
+	if (!item) throw new Error("Linha do recebimento não encontrada")
+	return item.receipt_id as string
 }
 
 /** Sobe da linha do lote até o recebimento, para autorizar por cozinha. */
@@ -347,6 +359,78 @@ export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(`Erro ao remover lote: ${error.message}`)
 	})
 
+/**
+ * Competência para receber (Decreto 11.246/2022, art. 25).
+ *
+ * Nível de PBAC é pré-condição, não competência: o provisório é do FISCAL
+ * designado, o definitivo é do GESTOR do contrato ou de membro de comissão.
+ * Termo assinado por quem não tem competência vicia a liquidação apoiada nele.
+ *
+ * A designação pode vir de ato (boletim/portaria), do próprio empenho — caso
+ * comum — ou de ato permanente da OM para recebimento de gêneros, que é o que
+ * cobre a entrega sem contrato.
+ */
+async function requireDesignation(receiptId: string, userId: string, stage: "provisional" | "definitive"): Promise<string> {
+	const inv = inventory()
+	const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, empenho_id").eq("id", receiptId).maybeSingle()
+	if (!receipt) throw new Error("Recebimento não encontrado")
+
+	const kit = kitchen()
+	const { data: kitchenRow } = await kit.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receipt.kitchen_id).single()
+	const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
+	if (unitId == null) throw new Error("Cozinha sem unidade vinculada — não há como verificar a designação")
+
+	const roles =
+		stage === "provisional"
+			? ["technical_inspector", "administrative_inspector", "sectoral_inspector", "manager", "committee_member"]
+			: ["manager", "committee_member"]
+
+	const { data: designationId } = await inv.rpc("find_designation", {
+		p_person: userId,
+		p_unit_id: Number(unitId),
+		p_empenho_id: receipt.empenho_id ?? null,
+		p_roles: roles,
+	})
+	if (!designationId) {
+		throw new Error(
+			stage === "provisional"
+				? "Recebimento provisório exige designação vigente de fiscal (Decreto 11.246/2022, art. 25) — cadastre a designação na unidade"
+				: "Recebimento definitivo exige designação vigente de gestor do contrato ou de comissão (Decreto 11.246/2022, art. 25)"
+		)
+	}
+	return designationId as string
+}
+
+/**
+ * A nota ainda vale?
+ *
+ * Sem coletor DF-e não há como saber que o emitente cancelou a nota depois da
+ * importação — e efetivar (e depois liquidar) nota cancelada é pagamento sem
+ * documento hábil (Lei 4.320, art. 63). Por isso a consulta de situação, feita
+ * no portal da SEFAZ e registrada no sistema, precisa ser recente.
+ */
+const SITUATION_MAX_AGE_DAYS = 3
+
+async function assertInvoiceUsable(receiptId: string) {
+	const inv = inventory()
+	const { data: receipt } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
+	if (!receipt?.nfe_document_id) return // recebimento sem nota (guia, avulso)
+
+	const { data: doc } = await inv.from("nfe_document").select("status, situation_result, situation_checked_at").eq("id", receipt.nfe_document_id).maybeSingle()
+	if (!doc) return
+
+	if (doc.status === "cancelled" || doc.situation_result === "cancelled") {
+		throw new Error("NF-e cancelada pelo emitente — este recebimento não pode ser efetivado")
+	}
+	const checkedAt = doc.situation_checked_at ? new Date(doc.situation_checked_at).getTime() : null
+	const stale = checkedAt == null || Date.now() - checkedAt > SITUATION_MAX_AGE_DAYS * 86_400_000
+	if (stale) {
+		throw new Error(
+			`Consulte a situação da NF-e na SEFAZ e registre o resultado antes de efetivar (a consulta vale ${SITUATION_MAX_AGE_DAYS} dias) — nota cancelada não pode virar liquidação`
+		)
+	}
+}
+
 /** Estágio 1: recebimento provisório (não movimenta estoque). */
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid() }))
@@ -354,9 +438,15 @@ export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const { userId } = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
+		const designationId = await requireDesignation(data.receiptId, userId, "provisional")
 		const { error } = await inventory()
 			.from("goods_receipt")
-			.update({ status: "provisional", provisional_by: userId, provisional_at: new Date().toISOString() })
+			.update({
+				status: "provisional",
+				provisional_by: userId,
+				provisional_at: new Date().toISOString(),
+				provisional_designation_id: designationId,
+			})
 			.eq("id", data.receiptId)
 			.eq("status", "draft")
 		if (error) throw new Error(`Erro no recebimento provisório: ${error.message}`)
@@ -369,9 +459,32 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
-		const { data: result, error } = await inventory().rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
+		const designationId = await requireDesignation(data.receiptId, userId, "definitive")
+		await assertInvoiceUsable(data.receiptId)
+
+		const inv = inventory()
+		await inv.from("goods_receipt").update({ definitive_designation_id: designationId }).eq("id", data.receiptId)
+
+		const { data: result, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
 		if (error) throw new Error(`Efetivação falhou: ${error.message}`)
-		return { movements: Number(result?.[0]?.movements ?? 0) }
+
+		// Pendência fiscal: recebido a MENOR que o faturado deixa a nota dizendo
+		// 100 e o estoque 90. Carta de correção não altera quantidade nem valor
+		// (Ajuste SINIEF 07/05) — resolve-se por NF-e de devolução, nota
+		// substituta ou glosa registrada, e até lá o recebimento não é liquidável.
+		const { data: items } = await inv.from("goods_receipt_item").select("invoiced_qty_base, received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
+		const shortfall = fiscalShortfallValue(
+			((items ?? []) as Array<{ invoiced_qty_base: number | null; received_qty_base: number; unit_cost: number | null }>).map((item) => ({
+				invoicedQtyBase: item.invoiced_qty_base != null ? Number(item.invoiced_qty_base) : null,
+				receivedQtyBase: Number(item.received_qty_base),
+				unitCost: item.unit_cost != null ? Number(item.unit_cost) : null,
+			}))
+		)
+		if (shortfall > 0) {
+			await inv.from("goods_receipt").update({ fiscal_pending: true, fiscal_pending_value: shortfall }).eq("id", data.receiptId)
+		}
+
+		return { movements: Number(result?.[0]?.movements ?? 0), fiscalPendingValue: shortfall }
 	})
 
 /** Lista recebimentos da cozinha. */
@@ -451,4 +564,401 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 				lots: lotsByItem.get(item.id as string) ?? [],
 			})),
 		}
+	})
+
+// ────────────────────────────────────────────────────────────────────────────
+// Conferência por leitura
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Linhas do recebimento no formato que o casamento de leitura espera. */
+async function scanLinesFor(receiptId: string) {
+	const inv = inventory()
+	const kit = kitchen()
+	const { data: items } = await inv
+		.from("goods_receipt_item")
+		.select("id, nfe_item_id, ingredient_item_id, invoiced_qty_base, received_qty_base")
+		.eq("receipt_id", receiptId)
+	const rows = (items ?? []) as Array<{
+		id: string
+		nfe_item_id: string | null
+		ingredient_item_id: string | null
+		invoiced_qty_base: number | null
+		received_qty_base: number
+	}>
+	if (rows.length === 0) return []
+
+	// o que a NOTA declara (cEAN, cEANTrib, qCom, qTrib)
+	const nfeItemIds = rows.map((row) => row.nfe_item_id).filter((id): id is string => Boolean(id))
+	const nfeById = new Map<string, { gtin: string | null; gtin_trib: string | null; commercial_qty: number | null; taxable_qty: number | null }>()
+	if (nfeItemIds.length > 0) {
+		const { data: nfeItems } = await inv.from("nfe_item").select("id, gtin, gtin_trib, commercial_qty, taxable_qty").in("id", nfeItemIds)
+		for (const item of nfeItems ?? []) nfeById.set(item.id, item)
+	}
+
+	// o que o CATÁLOGO conhece: GTIN do SKU + aliases aprendidos na operação
+	const skuIds = rows.map((row) => row.ingredient_item_id).filter((id): id is string => Boolean(id))
+	const catalogByItem = new Map<string, string[]>()
+	const hierarchyByItem = new Map<string, string[]>()
+	if (skuIds.length > 0) {
+		const { data: skus } = await kit.from("ingredient_item").select("id, gtin").in("id", skuIds)
+		for (const sku of skus ?? []) {
+			if (sku.gtin) catalogByItem.set(sku.id, [sku.gtin])
+		}
+		const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
+		const { data: aliases } = await gs1.from("gtin_alias").select("gtin, ingredient_item_id, status").in("ingredient_item_id", skuIds).neq("status", "rejected")
+		for (const alias of aliases ?? []) {
+			catalogByItem.set(alias.ingredient_item_id, [...(catalogByItem.get(alias.ingredient_item_id) ?? []), alias.gtin])
+		}
+		// hierarquia de embalagem: caixa ↔ unidade do mesmo produto
+		const knownGtins = [...catalogByItem.values()].flat()
+		if (knownGtins.length > 0) {
+			const { data: hierarchy } = await gs1
+				.from("gtin")
+				.select("gtin, parent_gtin")
+				.or(`gtin.in.(${knownGtins.join(",")}),parent_gtin.in.(${knownGtins.join(",")})`)
+			const nodes = (hierarchy ?? []) as Array<{ gtin: string; parent_gtin: string | null }>
+			for (const [itemId, gtins] of catalogByItem) {
+				const related: string[] = []
+				for (const node of nodes) {
+					const isChildOfKnown = node.parent_gtin != null && gtins.includes(node.parent_gtin)
+					const isParentOfKnown = gtins.includes(node.gtin) && node.parent_gtin != null
+					if (isChildOfKnown && !gtins.includes(node.gtin)) related.push(node.gtin)
+					if (isParentOfKnown && node.parent_gtin != null && !gtins.includes(node.parent_gtin)) related.push(node.parent_gtin)
+				}
+				if (related.length > 0) hierarchyByItem.set(itemId, [...new Set(related)])
+			}
+		}
+	}
+
+	return rows.map((row) => {
+		const nfe = row.nfe_item_id ? nfeById.get(row.nfe_item_id) : undefined
+		return {
+			receiptItemId: row.id,
+			invoiceGtin: nfe?.gtin ?? null,
+			invoiceGtinTrib: nfe?.gtin_trib ?? null,
+			catalogGtins: row.ingredient_item_id ? (catalogByItem.get(row.ingredient_item_id) ?? []) : [],
+			hierarchyGtins: row.ingredient_item_id ? (hierarchyByItem.get(row.ingredient_item_id) ?? []) : [],
+			commercialQty: nfe?.commercial_qty != null ? Number(nfe.commercial_qty) : null,
+			taxableQty: nfe?.taxable_qty != null ? Number(nfe.taxable_qty) : null,
+			invoicedQtyBase: row.invoiced_qty_base != null ? Number(row.invoiced_qty_base) : null,
+			confirmedQtyBase: Number(row.received_qty_base),
+		} satisfies ReceiptLineForScan
+	})
+}
+
+/** Soma os eventos vivos (leitura menos estorno) e grava na linha. */
+async function syncConfirmedQuantity(receiptItemId: string) {
+	const inv = inventory()
+	const { data: events } = await inv.from("receipt_scan_event").select("id, method, quantity_base, reversed_event_id").eq("receipt_item_id", receiptItemId)
+	const rows = (events ?? []) as Array<{ id: string; method: string; quantity_base: number; reversed_event_id: string | null }>
+	const reversed = new Set(rows.filter((row) => row.method === "reversal").map((row) => row.reversed_event_id))
+	// sobrescrita (`typed`) zera o histórico anterior: é o operador dizendo o
+	// total, não somando mais uma embalagem
+	const lastTyped = rows.filter((row) => row.method === "typed" && !reversed.has(row.id)).at(-1)
+	const total = lastTyped
+		? Number(lastTyped.quantity_base)
+		: rows.filter((row) => row.method !== "reversal" && !reversed.has(row.id)).reduce((acc, row) => acc + Number(row.quantity_base), 0)
+
+	await inv
+		.from("goods_receipt_item")
+		.update({ received_qty_base: Number(total.toFixed(4)) })
+		.eq("id", receiptItemId)
+	return Number(total.toFixed(4))
+}
+
+/**
+ * Registra uma leitura na conferência.
+ *
+ * `clientEventId` vem do cliente e é único por recebimento: retry de rede com o
+ * leitor na mão é rotina, e sem ele a mesma caixa entra duas vezes.
+ */
+export const recordScanEventFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			receiptId: z.uuid(),
+			clientEventId: z.string().min(8).max(64),
+			rawCode: z.string().max(200),
+			gtin: z.string().max(14).optional(),
+			lotCode: z.string().max(40).optional(),
+			expiryDate: z
+				.string()
+				.regex(/^\d{4}-\d{2}-\d{2}$/)
+				.optional(),
+			/** "Ler uma e informar ×N": quantas embalagens esta leitura representa. */
+			multiplier: z.number().int().min(1).max(999).default(1),
+			method: z.enum(["scanner", "camera"]).default("scanner"),
+		})
+	)
+	.handler(async ({ data }) => {
+		const { receipt, userId } = await requireOpenReceipt(data.receiptId, 2)
+		const inv = inventory()
+
+		if (!data.gtin) throw new Error("Leitura sem GTIN — use a confirmação manual para item sem código")
+		const lines = await scanLinesFor(data.receiptId)
+		const match = matchScanToLine(data.gtin, lines)
+		if (!match) {
+			// o sistema NÃO adiciona linha que a nota não tem: quem decide é o
+			// operador (associar, registrar troca ou ignorar)
+			return { matched: false as const, receiptId: receipt.id as string, gtin: data.gtin }
+		}
+
+		const quantity = (match.quantityBase ?? 0) * data.multiplier
+		const { error } = await inv.from("receipt_scan_event").insert({
+			receipt_id: data.receiptId,
+			receipt_item_id: match.receiptItemId,
+			client_event_id: data.clientEventId,
+			method: data.method,
+			raw_code: data.rawCode,
+			gtin: data.gtin,
+			lot_code: data.lotCode ?? null,
+			expiry_date: data.expiryDate ?? null,
+			package_factor: match.packageFactor * data.multiplier,
+			quantity_base: quantity,
+			created_by: userId,
+		})
+		if (error) {
+			// mesma leitura reenviada: idempotente por construção
+			if (error.code === "23505") return { matched: true as const, receiptItemId: match.receiptItemId, duplicate: true as const, quantityBase: 0 }
+			throw new Error(`Erro ao registrar a leitura: ${error.message}`)
+		}
+
+		const total = await syncConfirmedQuantity(match.receiptItemId)
+		return {
+			matched: true as const,
+			receiptItemId: match.receiptItemId,
+			duplicate: false as const,
+			quantityBase: quantity,
+			confirmedQtyBase: total,
+			source: match.source,
+		}
+	})
+
+/** Confirmação manual de linha sem código (hortifrúti, granel, "SEM GTIN"). */
+export const confirmLineManuallyFn = createServerFn({ method: "POST" })
+	.validator(z.object({ receiptItemId: z.uuid(), clientEventId: z.string().min(8).max(64), quantityBase: z.number().min(0) }))
+	.handler(async ({ data }) => {
+		const receiptId = await receiptIdForItem(data.receiptItemId)
+		const { userId } = await requireOpenReceipt(receiptId, 2)
+		const { error } = await inventory().from("receipt_scan_event").insert({
+			receipt_id: receiptId,
+			receipt_item_id: data.receiptItemId,
+			client_event_id: data.clientEventId,
+			method: "manual_confirm",
+			quantity_base: data.quantityBase,
+			created_by: userId,
+		})
+		if (error && error.code !== "23505") throw new Error(`Erro ao confirmar a linha: ${error.message}`)
+		return { confirmedQtyBase: await syncConfirmedQuantity(data.receiptItemId) }
+	})
+
+/**
+ * "Aceitar conforme faturado": fecha de uma vez as linhas ainda não conferidas.
+ *
+ * Numa nota de 40 linhas com 3 exceções, exigir 40 confirmações é o que faz o
+ * conferente parar de conferir. As 37 restantes recebem o faturado, com evento
+ * `bulk_confirm` — o termo continua dizendo COMO cada linha foi conferida.
+ */
+export const bulkConfirmReceiptFn = createServerFn({ method: "POST" })
+	.validator(z.object({ receiptId: z.uuid(), clientEventId: z.string().min(8).max(64) }))
+	.handler(async ({ data }) => {
+		const { userId } = await requireOpenReceipt(data.receiptId, 2)
+		const inv = inventory()
+		const { data: items } = await inv.from("goods_receipt_item").select("id, invoiced_qty_base").eq("receipt_id", data.receiptId)
+		const { data: events } = await inv.from("receipt_scan_event").select("receipt_item_id").eq("receipt_id", data.receiptId)
+		const touched = new Set((events ?? []).map((event: { receipt_item_id: string | null }) => event.receipt_item_id))
+
+		const pending = ((items ?? []) as Array<{ id: string; invoiced_qty_base: number | null }>).filter(
+			(item) => !touched.has(item.id) && item.invoiced_qty_base != null
+		)
+		if (pending.length === 0) return { confirmed: 0 }
+
+		const { error } = await inv.from("receipt_scan_event").insert(
+			pending.map((item, index) => ({
+				receipt_id: data.receiptId,
+				receipt_item_id: item.id,
+				client_event_id: `${data.clientEventId}-${index}`,
+				method: "bulk_confirm",
+				quantity_base: item.invoiced_qty_base,
+				created_by: userId,
+			}))
+		)
+		if (error && error.code !== "23505") throw new Error(`Erro ao aceitar as linhas: ${error.message}`)
+		for (const item of pending) await syncConfirmedQuantity(item.id)
+		return { confirmed: pending.length }
+	})
+
+/** Desfaz uma leitura (estorno append-only — o histórico continua). */
+export const reverseScanEventFn = createServerFn({ method: "POST" })
+	.validator(z.object({ eventId: z.uuid(), clientEventId: z.string().min(8).max(64) }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: event } = await inv.from("receipt_scan_event").select("id, receipt_id, receipt_item_id, quantity_base").eq("id", data.eventId).maybeSingle()
+		if (!event) throw new Error("Leitura não encontrada")
+		const { userId } = await requireOpenReceipt(event.receipt_id, 2)
+
+		const { error } = await inv.from("receipt_scan_event").insert({
+			receipt_id: event.receipt_id,
+			receipt_item_id: event.receipt_item_id,
+			client_event_id: data.clientEventId,
+			method: "reversal",
+			quantity_base: 0,
+			reversed_event_id: event.id,
+			created_by: userId,
+		})
+		if (error) {
+			if (error.code === "23505") throw new Error("Esta leitura já foi desfeita")
+			throw new Error(`Erro ao desfazer a leitura: ${error.message}`)
+		}
+		return { confirmedQtyBase: event.receipt_item_id ? await syncConfirmedQuantity(event.receipt_item_id) : 0 }
+	})
+
+/**
+ * Associa um GTIN desconhecido à linha, aprendendo para as próximas notas.
+ *
+ * NÃO escreve em `ingredient_item.gtin`: a coluna é única, e sobrescrevê-la
+ * quebraria o casamento das notas antigas (embalagem nova não apaga a antiga).
+ * Vira alias, que vale já para esta cozinha e para notas do mesmo fornecedor, e
+ * entra na fila de revisão global.
+ */
+export const associateGtinToLineFn = createServerFn({ method: "POST" })
+	.validator(z.object({ receiptItemId: z.uuid(), gtin: z.string().regex(/^[0-9]{14}$/) }))
+	.handler(async ({ data }) => {
+		const receiptId = await receiptIdForItem(data.receiptItemId)
+		const { receipt, userId } = await requireOpenReceipt(receiptId, 2)
+		const inv = inventory()
+
+		const { data: item } = await inv.from("goods_receipt_item").select("ingredient_item_id").eq("id", data.receiptItemId).maybeSingle()
+		if (!item?.ingredient_item_id) throw new Error("Linha sem SKU vinculado — resolva o casamento do item antes de associar o código")
+
+		const { data: doc } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
+		let supplierCnpj: string | null = null
+		if (doc?.nfe_document_id) {
+			const { data: nfe } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", doc.nfe_document_id).maybeSingle()
+			supplierCnpj = nfe?.supplier_cnpj ?? null
+		}
+
+		const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
+		const { error } = await gs1.from("gtin_alias").upsert(
+			{
+				gtin: data.gtin,
+				ingredient_item_id: item.ingredient_item_id,
+				supplier_cnpj: supplierCnpj,
+				kitchen_id: Number(receipt.kitchen_id),
+				status: "pending",
+				created_by: userId,
+			},
+			{ onConflict: "gtin,ingredient_item_id" }
+		)
+		if (error) throw new Error(`Erro ao associar o código: ${error.message}`)
+		return { associated: true }
+	})
+
+/** Recusa de linha: quantidade aceita zero, com motivo. */
+export const refuseReceiptLineFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			receiptItemId: z.uuid(),
+			reason: z.enum(["damaged", "short_shelf_life", "out_of_spec", "temperature", "not_ordered", "other"]),
+			note: z.string().max(300).optional(),
+			replacementPromised: z.boolean().default(false),
+		})
+	)
+	.handler(async ({ data }) => {
+		const receiptId = await receiptIdForItem(data.receiptItemId)
+		await requireOpenReceipt(receiptId, 2)
+		const label = {
+			damaged: "Avaria",
+			short_shelf_life: "Validade insuficiente",
+			out_of_spec: "Fora da especificação",
+			temperature: "Temperatura fora da faixa",
+			not_ordered: "Não solicitado",
+			other: "Outro",
+		}[data.reason]
+		const { error } = await inventory()
+			.from("goods_receipt_item")
+			.update({
+				received_qty_base: 0,
+				divergence_reason: `Recusado: ${label}${data.note ? ` — ${data.note.trim()}` : ""}${data.replacementPromised ? " (reposição prometida)" : ""}`,
+			})
+			.eq("id", data.receiptItemId)
+		if (error) throw new Error(`Erro ao recusar a linha: ${error.message}`)
+		return { refused: true }
+	})
+
+/** Recusa do recebimento inteiro: nada entra, e a nota fica recusada. */
+export const refuseReceiptFn = createServerFn({ method: "POST" })
+	.validator(z.object({ receiptId: z.uuid(), reason: z.string().min(5).max(500) }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, status, nfe_document_id").eq("id", data.receiptId).maybeSingle()
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
+		if (!isReceiptEditable(receipt.status as string)) throw new Error("Recebimento já efetivado")
+		await requireDesignation(data.receiptId, userId, "definitive")
+
+		const { error } = await inv
+			.from("goods_receipt")
+			.update({ status: "rejected", notes: data.reason.trim(), definitive_by: userId, definitive_at: new Date().toISOString() })
+			.eq("id", data.receiptId)
+		if (error) throw new Error(`Erro ao recusar o recebimento: ${error.message}`)
+
+		if (receipt.nfe_document_id) {
+			await inv.from("nfe_document").update({ status: "refused" }).eq("id", receipt.nfe_document_id)
+		}
+		return { refused: true }
+	})
+
+/** Resolve a pendência fiscal do recebimento a menor. */
+export const resolveFiscalPendingFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			receiptId: z.uuid(),
+			resolution: z.enum(["return_nfe", "replacement_nfe", "glosa"]),
+			reference: z.string().min(3).max(200),
+		})
+	)
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, fiscal_pending").eq("id", data.receiptId).maybeSingle()
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
+		if (!receipt.fiscal_pending) throw new Error("Este recebimento não tem pendência fiscal")
+
+		// devolução e substituta são NOTAS: a referência é a chave de acesso
+		if (data.resolution !== "glosa" && !parseNfeAccessKey(data.reference)) {
+			throw new Error("Informe a chave de acesso (44 caracteres) da NF-e de devolução ou substituta")
+		}
+
+		const { error } = await inv
+			.from("goods_receipt")
+			.update({
+				fiscal_pending: false,
+				fiscal_resolution: data.resolution,
+				fiscal_resolution_reference: data.reference.trim(),
+				fiscal_resolved_at: new Date().toISOString(),
+				fiscal_resolved_by: userId,
+			})
+			.eq("id", data.receiptId)
+		if (error) throw new Error(`Erro ao resolver a pendência: ${error.message}`)
+		return { resolved: true }
+	})
+
+/** Eventos de conferência de um recebimento, para o histórico e o termo. */
+export const listScanEventsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ receiptId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		await requireStorageForKitchen(1, Number(receipt.kitchen_id))
+		const { data: events, error } = await inv
+			.from("receipt_scan_event")
+			.select(
+				"id, seq, receipt_item_id, method, raw_code, gtin, lot_code, expiry_date, package_factor, quantity_base, reversed_event_id, created_by, created_at"
+			)
+			.eq("receipt_id", data.receiptId)
+			.order("seq", { ascending: false })
+			.limit(200)
+		if (error) throw new Error(`Erro ao listar a conferência: ${error.message}`)
+		return events ?? []
 	})

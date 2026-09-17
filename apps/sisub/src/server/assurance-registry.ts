@@ -519,6 +519,16 @@ export const ASSURANCE_REGISTRY = {
 	claimNfeForKitchenFn: { require: "none" },
 	assignNfeUnitFn: { require: "none" },
 
+	// ── receiving.fn.ts (conferência por leitura, recusa, pendência fiscal)
+	recordScanEventFn: { require: "none" },
+	confirmLineManuallyFn: { require: "none" },
+	bulkConfirmReceiptFn: { require: "none" },
+	reverseScanEventFn: { require: "none" },
+	associateGtinToLineFn: { require: "none" },
+	refuseReceiptLineFn: { require: "none" },
+	refuseReceiptFn: { require: "none" },
+	resolveFiscalPendingFn: { require: "none" },
+
 	// ── scanner.fn.ts
 	saveScannerProfileFn: { require: "none" },
 
