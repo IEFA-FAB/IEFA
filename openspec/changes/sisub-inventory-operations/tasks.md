@@ -160,7 +160,7 @@ integração do sisub antes do PR.
 - [ ] 3.24 [sisub] Recusa de linha (reposição prometida) e de recebimento inteiro
 - [ ] 3.25 [database] Remover `goods_receipt.liquidacao_id`; ajustar `v_physical_accounting_reconciliation`
 - [ ] 3.26 [sisub] `createLiquidacaoFn`: validações do vínculo (unidade, status, empenho, situação da nota, pendência fiscal); testes de IDOR
-- [ ] 3.27 [sisub] "Registrar liquidação" pré-preenchida no recebimento; dias úteis desde o definitivo no painel
+- [ ] 3.27 [sisub] "Registrar liquidação" pré-preenchida no recebimento; dias úteis desde o recebimento da nota no painel (IN SEGES/ME 77/2022, art. 7º, I; §4º suspende na pendência fiscal)
 - [ ] 3.28 [sisub] Termo de recebimento com designação e exceções; PR da Fase 3
 
 ## 4. Saída do dia
@@ -182,7 +182,7 @@ integração do sisub antes do PR.
 
 ## 5. Vencimentos
 
-- [ ] 5.1 [database] `inventory.expiry_alert_policy` com resolução ingrediente → classe → global → default
+- [ ] 5.1 [database] `inventory.expiry_alert_policy` com resolução ingrediente na cozinha → classe na cozinha → ingrediente global → classe global → default
 - [ ] 5.2 [sisub] Fn de vencimentos por faixa com `limit` e `total`, fuso de Brasília, perecíveis sem validade
 - [ ] 5.3 [sisub] Tela "Vencimentos" com ações usar primeiro, transferir, quarentena, baixar
 - [ ] 5.4 [sisub] Tela de transferência sobre `transfer_stock` (hoje sem UI)

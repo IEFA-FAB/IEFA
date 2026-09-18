@@ -55,7 +55,8 @@ As fases estão ordenadas para **tirar o módulo do zero uso** o quanto antes (v
    tipado; quarentena de lote; **carga de abertura** por planilha ou catálogo; **etiqueta interna** de
    lote e ação **abrir/fracionar/descongelar** com validade derivada.
 4. **Fase 3 — Recebimento rápido, com ou sem NF-e**: origem `nfe | delivery_note | ad_hoc`; NF-e por XML ou
-   leitura do DANFE com validação real (cStat 100/150, assinatura, `digVal`, `tpAmb`, `mod`);
+   leitura do DANFE com coerência do arquivo (cStat 100/150, `digVal`, `tpAmb`, `mod`), consulta de
+   situação na SEFAZ antes do definitivo e, depois, assinatura XMLDSig com cadeia ICP-Brasil;
    conferência por leitura com "×N" e "aceitar conforme faturado"; item sem GTIN confirmado à mão;
    provisório completável depois; custo com desconto/frete/ST; pendência fiscal de recebimento a menor;
    **designação de fiscal e gestor** para provisório e definitivo; liquidação oferecida e validada.
@@ -117,7 +118,8 @@ As fases estão ordenadas para **tirar o módulo do zero uso** o quanto antes (v
 - **apps/sisub**: telas novas (Saída, Ajustes, Vencimentos, Abertura, Etiquetas, A caminho, Leitor);
   reescrita da conferência e da contagem; bloco de vencimentos no planejamento.
 - **apps/api**: validação de autenticidade da NF-e; coletor como task agendada separada (se Q1).
-- **legal-kit / LGPD**: chaves de `localStorage`/IndexedDB no inventário da Política de Cookies; fotos e
+- **legal-kit / LGPD**: banco IndexedDB da contagem offline no inventário da Política de Cookies (o perfil
+  do leitor vai para o banco, sem chave nova de `localStorage`); fotos e
   documentos de apuração como dado pessoal, com retenção, **antes** de entrar em uso.
 - **PBAC e designação**: `storage` 1 ler · 2 conferir, lançar saída, contar, ajuste até a alçada · 3
   aprovar. Provisório e definitivo exigem **designação** vigente além do PBAC.

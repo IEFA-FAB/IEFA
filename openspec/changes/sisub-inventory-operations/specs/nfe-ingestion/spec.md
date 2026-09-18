@@ -2,16 +2,20 @@
 
 ## ADDED Requirements
 
-### Requirement: Autenticidade da NF-e
-A importação SHALL aceitar apenas NF-e com `mod = 55`, `tpAmb = 1`, `protNFe/infProt/cStat` ∈ {100, 150}, `infProt/chNFe` igual ao `Id` de `infNFe`, `infProt/digVal` igual ao `DigestValue` da assinatura e assinatura XMLDSig válida com certificado ICP-Brasil. O resultado de cada verificação SHALL ser gravado na nota. `cStat = 150` SHALL ser aceito e sinalizado como autorização fora de prazo.
+### Requirement: Coerência e autenticidade da NF-e
+A importação SHALL aceitar apenas NF-e coerente: `mod = 55`, `tpAmb = 1`, `protNFe/infProt/cStat` ∈ {100, 150}, `infProt/chNFe` igual ao `Id` de `infNFe` e `infProt/digVal` igual ao `DigestValue` da assinatura. O resultado de cada verificação SHALL ser gravado na nota como **coerência do arquivo**, e MUST NOT ser apresentado como autenticidade: são valores lidos do próprio arquivo, sem recálculo, e não detectam adulteração deliberada. `cStat = 150` SHALL ser aceito e sinalizado como autorização fora de prazo. A autenticidade SHALL vir da validação XMLDSig com C14N e cadeia ICP-Brasil (tarefa 3.3) e, enquanto ela não existir, da consulta de situação na SEFAZ exigida antes do definitivo e da liquidação.
 
 #### Scenario: XML sem protocolo
 - **WHEN** o operador envia o XML de uma NF-e assinada mas sem `protNFe`
 - **THEN** o sistema rejeita informando que a nota não tem autorização e nada é persistido
 
-#### Scenario: cStat editado à mão
-- **WHEN** o XML traz `cStat = 100` mas o `digVal` do protocolo não corresponde à assinatura
+#### Scenario: Protocolo de outra nota
+- **WHEN** o XML traz `cStat = 100` mas o `digVal` do protocolo não corresponde à assinatura da nota
 - **THEN** o sistema rejeita informando que o protocolo não pertence a esta nota
+
+#### Scenario: cStat editado à mão não é pego pela coerência
+- **WHEN** o XML de uma nota denegada (`cStat = 110`) tem o `cStat` editado para 100, com o resto intacto
+- **THEN** a importação o aceita como coerente — `infProt` está fora do que a assinatura cobre — e a nota só é barrada pela consulta de situação na SEFAZ antes do definitivo (ou, quando existir, pela validação XMLDSig)
 
 #### Scenario: Nota de homologação
 - **WHEN** o XML traz `tpAmb = 2`

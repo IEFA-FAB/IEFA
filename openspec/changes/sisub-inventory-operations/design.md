@@ -116,10 +116,20 @@ Transparência (atraso).
 
 ### D2 — Autenticidade antes de valor
 
-A NF-e só vira base de lote e liquidação se: `mod = 55`; `tpAmb = 1`; `protNFe/infProt/cStat ∈ {100,
-150}` (150 = autorizada fora de prazo, válida, sinalizada); `infProt/chNFe` = `infNFe@Id`;
-`infProt/digVal` = `DigestValue` da assinatura; assinatura XMLDSig válida com certificado ICP-Brasil do
-emitente. O resultado da validação fica gravado na nota. Um `cStat` escrito à mão não passa.
+São duas camadas, e confundir uma com a outra foi o erro da primeira versão deste texto.
+
+**Coerência do arquivo (implementada).** `mod = 55`; `tpAmb = 1`; `protNFe/infProt/cStat ∈ {100, 150}`
+(150 = autorizada fora de prazo, válida, sinalizada); `infProt/chNFe` = `infNFe@Id`; `infProt/digVal` =
+`DigestValue` da assinatura. Tudo é lido do PRÓPRIO arquivo e nada é recalculado: pega erro, nota de
+homologação e protocolo colado de outra nota — e **não** pega adulteração deliberada. Um `cStat` editado
+de 110 (denegada) para 100 passa, porque `infProt` fica fora do que a assinatura da nota cobre; `vProd`
+ou `qCom` editados passam, porque o digest do `infNFe` não é recalculado (exige C14N). O resultado fica
+gravado na nota como coerência, nunca como "autêntica".
+
+**Autenticidade (pendente — tarefa 3.3).** Assinatura XMLDSig com C14N e cadeia ICP-Brasil do emitente.
+Até ela existir, a única verificação real da cadeia é a **consulta de situação na SEFAZ** abaixo, e por
+isso ela é exigida — autorizada e com no máximo 3 dias — antes de efetivar o definitivo e antes de
+registrar a liquidação.
 
 **Cancelamento posterior (110111).** Sem DF-e: antes de efetivar o definitivo e antes de registrar a
 liquidação, o operador registra a **consulta de situação** (data, autor, situação) no portal da SEFAZ —
@@ -229,10 +239,12 @@ dia no mês seguinte).
 
 A alocação sai do TypeScript e vai para as RPCs (`issue_stock`, `transfer_stock`, `post_stock_adjustment`):
 `select … from stock_lot where kitchen, item … order by id for update`, depois ordena por
-`use_first desc, expiry_date asc nulls last, received_at asc`, **ignorando** lote em quarentena e
-`expiry_date < hoje (Brasília)`. Lote sem validade concorre por **data de recebimento** (FIFO) com os
-demais — quando o item tem validade padrão (D5), a validade estimada é gravada no lote e ele entra no
-FEFO normal. Saldo insuficiente não bloqueia: a falta vira movimento sem lote **e** alerta ao nível 3 com
+`use_first desc, coalesce(expiry_date, data de recebimento em Brasília) asc, received_at asc, id asc`,
+**ignorando** lote em quarentena e `expiry_date < hoje (Brasília)`. Lote sem validade concorre pela
+**data de recebimento** no lugar da validade — não vai para o fim da fila (`nulls last` deixaria o lote
+sem data parado para sempre atrás de qualquer lote datado). A mesma ordem é a do `sortFefo` da prévia no
+TypeScript: prévia e alocação divergindo mostram um lote e baixam outro. Quando o item tem validade
+padrão (D5), a validade estimada é gravada no lote e ele entra no FEFO normal. Saldo insuficiente não bloqueia: a falta vira movimento sem lote **e** alerta ao nível 3 com
 regularização em até 7 dias (ajuste ou contagem). Toda emissão carrega `emission_id` UNIQUE gerado no
 clique.
 
@@ -355,8 +367,10 @@ Offline (IndexedDB) só na folha de contagem, com `client_event_id` idempotente.
 
 ### D16 — Vencimentos
 
-`expiry_alert_policy` resolvido por ingrediente da cozinha → classe da cozinha → classe global → default
-(resfriado 3, congelado 15, demais 30 dias). Faixas: **Vencido**, **Crítico** (≤ limite), **Atenção**
+`expiry_alert_policy` resolvido por ingrediente na cozinha → classe na cozinha → ingrediente global →
+classe global → default (resfriado 3, congelado 15, demais 30 dias). O ingrediente global entra antes da
+classe global: sem ele, "leite: 2 dias" cadastrado para a Força inteira seria ignorado em favor dos 3 da
+classe, sem aviso. A política global é da administração; a cozinha define e remove só a própria. Faixas: **Vencido**, **Crítico** (≤ limite), **Atenção**
 (≤ 2 × limite). Ações: usar primeiro, transferir, baixar (`expired`), quarentena (para avaliar
 `spoiled`, sem exigir foto de algo que ainda não estragou). Perecível sem validade listado à parte.
 Aviso: badge no menu e bloco no painel, calculados na leitura (o sisub não tem canal de notificação),
@@ -393,15 +407,20 @@ Vínculo único: `finance.liquidacao.goods_receipt_id` (N liquidações por rece
 `goods_receipt.liquidacao_id` é removida e a view de conciliação ajustada. `createLiquidacaoFn` valida
 unidade, status efetivado, empenho, pendência fiscal e **atestado de situação da nota** (D2); o `update`
 cego que hoje grava em recebimento de qualquer unidade some. Valor abaixo da nota exige glosa registrada;
-acima do recebido é aceito e sinalizado. Painel mostra **dias úteis desde o definitivo** contra o prazo de
-liquidação (IN SEGES/ME 77/2022, art. 7º). Liquidação é verificação do direito do credor (Lei 4.320,
+acima do recebido é aceito e sinalizado. Painel mostra os **dias úteis desde o recebimento da nota fiscal
+pela Administração** contra o prazo de liquidação — 10 dias úteis (IN SEGES/ME 77/2022, art. 7º, I). O
+termo inicial é a NOTA, não o definitivo: entrega sem nota ainda não conta prazo, e a nota semanal do pão
+começa a contar quando chega. O §2º reduz o prazo à metade nas contratações de valor até o limite que
+ele fixa, e o §4º exclui da contagem o tempo de saneamento da documentação fiscal — a pendência fiscal
+aberta suspende o relógio em vez de consumi-lo. Liquidação é verificação do direito do credor (Lei 4.320,
 art. 63): o sisub oferece e valida, nunca cria.
 
 ### D20 — LGPD e armazenamento local
 
-Chaves novas de `localStorage` (config do leitor) e o banco IndexedDB (fila de contagem) entram no
-inventário da Política de Cookies **antes** do uso — o teste de inventário não enxerga IndexedDB, então a
-entrada é manual e revisada. Fotos de evidência podem conter pessoas e documentos de apuração contêm
+O perfil do leitor vai para o banco (D17), então **nenhuma chave nova de `localStorage`**. O que resta
+no navegador é o banco IndexedDB da fila de contagem offline, que entra no inventário da Política de
+Cookies **antes** do uso — o teste de inventário não enxerga IndexedDB, então a entrada é manual e
+revisada. Fotos de evidência podem conter pessoas e documentos de apuração contêm
 dados de terceiros: bucket privado **sem policy de cliente**, autorização pelo registro no banco
 (`adjustment.kitchen_id`), upload por URL assinada de upload com tipo por magic bytes e limite de
 tamanho, remoção de EXIF/GPS, URL de leitura com TTL ≤ 300 s e não persistida, retenção definida e

@@ -3,11 +3,19 @@
 ## ADDED Requirements
 
 ### Requirement: Prazo de liquidação
-O painel de recebimentos efetivados sem liquidação SHALL mostrar os dias úteis decorridos desde o definitivo e alertar quando faltarem 3 dias úteis para o prazo de 10 dias úteis.
+O painel de recebimentos efetivados sem liquidação SHALL contar os dias úteis a partir do **recebimento da nota fiscal pela Administração** (IN SEGES/ME 77/2022, art. 7º, I — 10 dias úteis), e não a partir do definitivo, e SHALL alertar quando faltarem 3 dias úteis. Recebimento sem nota SHALL aparecer como "aguardando nota", sem prazo correndo. O tempo com pendência fiscal aberta SHALL ser excluído da contagem (art. 7º, §4º). A redução do §2º (prazo à metade para contratação de valor até o limite ali fixado) SHALL ser aplicada com o limite conferido no texto vigente da norma na implementação, nunca de memória.
 
 #### Scenario: Prazo se aproximando
-- **WHEN** um recebimento definitivo completou 7 dias úteis sem liquidação
+- **WHEN** a nota de um recebimento definitivo chegou há 7 dias úteis e não há liquidação
 - **THEN** ele aparece destacado com "3 dias úteis restantes"
+
+#### Scenario: Entrega sem nota não conta prazo
+- **WHEN** o pão foi recebido na segunda sem nota e a nota semanal chega na sexta
+- **THEN** o prazo começa a contar na sexta
+
+#### Scenario: Pendência fiscal suspende o prazo
+- **WHEN** a nota chegou há 6 dias úteis, dos quais 2 com pendência fiscal aberta
+- **THEN** o painel mostra 4 dias úteis consumidos
 
 ## MODIFIED Requirements
 
