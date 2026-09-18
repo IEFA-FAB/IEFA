@@ -346,8 +346,13 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		// APAGA o documento — como a falha nos itens —, senão ele fica encalhado em
 		// `draft`, sem ação nenhuma na tela, e o operador reenvia e nasce um segundo
 		// documento para a mesma perda.
+		// Desfaz o rascunho e lança. Se o próprio desfazer falhar, a mensagem DIZ
+		// que o rascunho ficou: calado, o operador lia só o primeiro erro, tentava
+		// de novo e deixava um documento encalhado em `draft` que tela nenhuma
+		// mostra.
 		const abandon = async (message: string): Promise<never> => {
-			await inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft")
+			const { error: deleteError } = await inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft")
+			if (deleteError) throw new Error(`${message} — e o rascunho ${doc.id} não pôde ser desfeito (${deleteError.message}); avise o nível 3`)
 			throw new Error(message)
 		}
 
