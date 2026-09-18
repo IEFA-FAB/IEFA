@@ -17,6 +17,8 @@ import {
 	useCreateSubmission,
 	useRunExtraction,
 } from "@/lib/alpha/submissions"
+import { unitsQueryOptions } from "@/lib/alpha/units"
+import { UnitSelect } from "./UnitSelect"
 
 const DOC_KINDS = ["ETP", "TR", "EDITAL"] as const
 
@@ -24,14 +26,19 @@ export type DocKind = (typeof DOC_KINDS)[number]
 
 export interface IntakeResult {
 	submissionId: string
+	/** A OM escolhida no envio — é ela que decide em que escopo o processo se abre. */
+	unitId: number
 	extraction: ExtractionResponse
 }
 
 /**
- * Formulário de envio + extração.
+ * Formulário de envio + extração — a tela "Enviar documento" do módulo Requisitante.
  *
- * Compartilhado entre o console (`/alpha/analise/nova`) e a plataforma
- * (`/aci/nova`): o que muda é o que cada tela faz com o resultado, não o envio.
+ * A OM é obrigatória e escolhida por quem envia, entre TODAS as OMs selecionáveis
+ * (`GET /api/v1/units`): enviar não exige papel, e quem elabora a contratação pode atribuí-la
+ * a outra OM (a apoiada pela sua, por exemplo). É a OM que decide quem mais enxerga o
+ * documento — os requisitantes, licitações e ACI que a cobrem. Parte da OM da URL, quando
+ * ela é uma OM (e não `todas`/`minhas`).
  *
  * São dois avisos porque são dois fatos: `onSubmitted` dispara assim que o
  * documento existe no α, e `onExtracted` só depois da extração. A extração
@@ -41,17 +48,22 @@ export interface IntakeResult {
  * parado em "enviado".
  */
 export function SubmissionIntakeForm({
+	defaultUnitId,
 	onSubmitted,
 	onExtracted,
 }: {
-	onSubmitted?: (submissionId: string) => void
+	defaultUnitId: number | null
+	onSubmitted?: (submission: { submissionId: string; unitId: number }) => void
 	onExtracted: (result: IntakeResult) => void
 }) {
 	const queryClient = useQueryClient()
+	const { session } = useAuth()
 	const fileRef = useRef<HTMLInputElement>(null)
+	const units = useQuery(unitsQueryOptions(session?.access_token))
 
 	const [docKind, setDocKind] = useState<DocKind>("TR")
 	const [objeto, setObjeto] = useState<ObjetoTipo | null>(null)
+	const [unitId, setUnitId] = useState<number | null>(defaultUnitId)
 
 	const createSubmission = useCreateSubmission()
 	const runExtraction = useRunExtraction()
@@ -60,21 +72,44 @@ export function SubmissionIntakeForm({
 		mutationFn: async () => {
 			const file = fileRef.current?.files?.[0]
 			if (!file) throw new Error("selecione um arquivo .docx ou .pdf")
+			if (unitId === null) throw new Error("selecione a OM do documento")
 
-			const submission = await createSubmission.mutateAsync({ file, doc_kind: docKind, objeto: objeto ?? undefined })
+			const submission = await createSubmission.mutateAsync({ file, doc_kind: docKind, objeto: objeto ?? undefined, unit_id: unitId })
 			// O processo já existe: a fila precisa saber disso mesmo que a extração
 			// falhe logo abaixo.
 			queryClient.invalidateQueries({ queryKey: ["alpha", "submissions"] })
 			queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"], refetchType: "none" })
-			onSubmitted?.(submission.id)
+			onSubmitted?.({ submissionId: submission.id, unitId })
 
 			const extraction = await runExtraction.mutateAsync(submission.id)
-			onExtracted({ submissionId: submission.id, extraction })
+			onExtracted({ submissionId: submission.id, unitId, extraction })
 		},
 	})
 
 	return (
 		<div className="border border-border p-4">
+			<div className="mb-4 flex flex-col">
+				<label htmlFor="alpha-unit" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
+					OM do documento
+				</label>
+				{units.isError ? (
+					<p className="flex items-center gap-2 text-sm">
+						<WarningTriangle className="size-4 shrink-0" aria-hidden="true" />
+						Não foi possível carregar as OMs: {(units.error as Error).message}
+					</p>
+				) : (
+					<UnitSelect
+						id="alpha-unit"
+						units={units.data ?? []}
+						value={unitId}
+						onChange={(value) => setUnitId(typeof value === "number" ? value : null)}
+						placeholder={units.isLoading ? "carregando as OMs…" : "selecione a OM"}
+						disabled={units.isLoading}
+					/>
+				)}
+				<p className="mt-1 text-muted-foreground text-xs">Quem responde pela OM escolhida — e a OM que a apoia — também vai enxergar o documento.</p>
+			</div>
+
 			<div className="flex flex-wrap items-end gap-4">
 				<div>
 					<label htmlFor="alpha-file" className="mb-1 block text-muted-foreground text-xs uppercase tracking-[0.1em]">
@@ -120,7 +155,7 @@ export function SubmissionIntakeForm({
 					</Select>
 				</div>
 
-				<Button onClick={() => upload.mutate()} disabled={upload.isPending}>
+				<Button onClick={() => upload.mutate()} disabled={upload.isPending || unitId === null}>
 					<CloudUpload className="size-4" />
 					{upload.isPending ? "extraindo…" : "enviar e extrair"}
 				</Button>

@@ -1,13 +1,11 @@
-import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, Lock, NavArrowDown } from "iconoir-react"
 import { Fragment } from "react"
 import { AppLayout } from "@/components/AppLayout"
 import { AcanthusAscii } from "@/components/home/AcanthusAscii"
 import { ModuleGrid } from "@/components/home/ModuleGrid"
+import { useModuleAccess } from "@/components/layout/useModuleAccess"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/useAuth"
-import { myAlphaPermissionsQueryOptions } from "@/lib/alpha/permissions"
 import { accessibleModules } from "@/lib/modules"
 
 export const Route = createFileRoute("/")({
@@ -67,8 +65,8 @@ function HomePage() {
 
 				<section id="modulos" aria-labelledby="modulos-titulo" className="scroll-mt-20 border-border border-t py-16 md:py-24">
 					<SectionHeading id="modulos-titulo" eyebrow="Módulos" title="Cada perfil tem o seu espaço">
-						O analista de controle interno, o pregoeiro e quem calibra o α fazem trabalhos diferentes. Cada módulo tem navegação própria, e ninguém precisa ler
-						o menu dos outros para achar o seu.
+						Quem envia o documento, o analista de controle interno, o pregoeiro e quem calibra o α fazem trabalhos diferentes. Cada módulo tem navegação própria
+						— e, onde o trabalho é de uma OM, a OM fica no endereço da página.
 					</SectionHeading>
 					<div className="mt-10">
 						<HomeModules />
@@ -79,18 +77,12 @@ function HomePage() {
 	)
 }
 
-function useHomeAccess() {
-	const { isAuthenticated } = useAuth()
-	// Mesma consulta da barra do AppLayout: o cache é compartilhado, não há segunda ida ao servidor.
-	const permissions = useQuery({ ...myAlphaPermissionsQueryOptions(), enabled: isAuthenticated })
-	// Falha na consulta não é "sem perfil": sem este sinal a tela ficaria presa em
-	// "Verificando acesso…" ou, pior, afirmaria um perfil que ninguém conferiu.
-	return { isAuthenticated, permissions: permissions.data, permissionsFailed: permissions.isError && permissions.data === undefined }
-}
-
 function HomeModules() {
-	const { isAuthenticated, permissions, permissionsFailed } = useHomeAccess()
-	return <ModuleGrid isAuthenticated={isAuthenticated} permissions={permissions} permissionsFailed={permissionsFailed} />
+	// Mesma consulta da barra dos módulos: o cache é compartilhado, não há segunda ida ao α.
+	// Falha na consulta não é "sem papel" (`accessFailed`): sem este sinal a tela ficaria
+	// presa em "Verificando acesso…" ou, pior, afirmaria um papel que ninguém conferiu.
+	const { isAuthenticated, access, accessFailed } = useModuleAccess()
+	return <ModuleGrid isAuthenticated={isAuthenticated} access={access} accessFailed={accessFailed} />
 }
 
 function Hero() {
@@ -155,7 +147,7 @@ function Hero() {
 const CTA_CLASS = "h-11 gap-2 px-5 text-base"
 
 function HeroCta() {
-	const { isAuthenticated, permissions, permissionsFailed } = useHomeAccess()
+	const { isAuthenticated, access, isPending } = useModuleAccess()
 
 	if (!isAuthenticated) {
 		return (
@@ -179,9 +171,9 @@ function HeroCta() {
 		)
 	}
 
-	// Antes dos grants chegarem, "Abrir Pregoeiro" seria uma promessa que muda sozinha
+	// Antes do perfil chegar, "Abrir Requisitante" seria uma promessa que muda sozinha
 	// meio segundo depois para quem é analista.
-	if (permissions === undefined && !permissionsFailed) {
+	if (isPending) {
 		return (
 			<Button size="lg" className={CTA_CLASS} disabled>
 				Verificando acesso…
@@ -189,9 +181,9 @@ function HeroCta() {
 		)
 	}
 
-	// `accessibleModules` sempre inclui o Pregoeiro (módulo aberto) — é o piso, e é
-	// também para onde vai quem teve a consulta de perfis falhando.
-	const [first] = accessibleModules(permissions ?? [])
+	// Com sessão, `accessibleModules` sempre inclui o Requisitante (só exige login) — é o
+	// piso, e é também para onde vai quem teve a consulta do perfil falhando.
+	const [first] = accessibleModules({ isAuthenticated, access })
 	if (!first) return null
 
 	return (
@@ -207,15 +199,13 @@ function HeroCta() {
 					</Link>
 				}
 			/>
-			{/* Enviar o próprio documento vale para qualquer autenticado, com ou sem perfil —
-			    e a tela mora no console, que o seletor só mostra ao nível ACI. Sem este
-			    atalho o requisitante não acharia onde enviar. */}
-			<Link
-				to="/alpha/analise/nova"
-				className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline"
-			>
-				Enviar um documento
-			</Link>
+			{/* Enviar documento vale para qualquer autenticado. Quando o primeiro módulo é outro
+			    (a fila, para quem revisa), o atalho leva ao Requisitante, onde o envio mora. */}
+			{first.id !== "requisitante" && (
+				<Link to="/requisitante" className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline">
+					Enviar um documento
+				</Link>
+			)}
 			<a href="#modulos" className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline">
 				Ver todos os módulos
 			</a>

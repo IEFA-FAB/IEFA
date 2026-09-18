@@ -1,8 +1,10 @@
 import { Link } from "@tanstack/react-router"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail, SidebarSeparator } from "@/components/ui/sidebar"
 import type { ContrateModule } from "@/lib/modules"
+import type { ScopeContext } from "@/lib/scope"
 import { ModuleNav } from "./ModuleNav"
 import { ModuleSwitcher } from "./ModuleSwitcher"
+import { ScopeSwitcher } from "./ScopeSwitcher"
 import { SidebarUser } from "./SidebarUser"
 
 const LEGAL_LINKS = [
@@ -44,19 +46,20 @@ function SidebarLegalLinks() {
 }
 
 /**
- * Barra lateral de um módulo: seletor no topo, navegação do módulo no meio, tema,
- * pessoa e documentos legais embaixo. Recolhe para trilho de ícones no desktop e
- * vira gaveta no celular.
+ * Barra lateral de um módulo: seletor de módulo no topo (e o de OM logo abaixo, nos módulos
+ * com escopo), navegação do módulo no meio, tema, pessoa e documentos legais embaixo.
+ * Recolhe para trilho de ícones no desktop e vira gaveta no celular.
  */
-export function AppSidebar({ module }: { module: ContrateModule }) {
+export function AppSidebar({ module, scope }: { module: ContrateModule; scope: ScopeContext | null }) {
 	return (
 		<Sidebar collapsible="icon" mobileTitle={`Menu — ${module.label}`} mobileDescription="Troca de módulo, telas do módulo e conta.">
 			<SidebarHeader className="border-sidebar-border border-b">
 				<ModuleSwitcher active={module} />
+				{scope ? <ScopeSwitcher module={module} scope={scope} /> : null}
 			</SidebarHeader>
 
 			<SidebarContent>
-				<ModuleNav module={module} />
+				<ModuleNav module={module} scope={scope} />
 			</SidebarContent>
 
 			<SidebarFooter>

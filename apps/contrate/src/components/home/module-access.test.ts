@@ -1,40 +1,63 @@
 import { describe, expect, test } from "bun:test"
-import type { UserPermission } from "@iefa/pbac"
-import { CONTRATE_MODULES, type ContrateModuleId } from "@/lib/modules"
-import { resolveModuleAccess } from "./module-access"
-
-const moduleById = (id: ContrateModuleId) => {
-	const found = CONTRATE_MODULES.find((m) => m.id === id)
-	if (!found) throw new Error(`módulo ${id} fora do registro`)
-	return found
-}
-
-const grant = (module: UserPermission["module"], level: number): UserPermission => ({ module, level, mess_hall_id: null, kitchen_id: null, unit_id: null })
+import { getModule } from "@/lib/modules"
+import { meAccess } from "@/test/access-fixture"
+import { describeModuleScope, resolveModuleAccess } from "./module-access"
 
 describe("resolveModuleAccess", () => {
 	test("módulo aberto é alcançável sem sessão", () => {
-		expect(resolveModuleAccess(moduleById("pregoeiro"), false, undefined)).toBe("open")
+		expect(resolveModuleAccess(getModule("pregoeiro"), false, undefined)).toBe("open")
 	})
 
-	test("módulo com grant, sem sessão, leva ao login", () => {
-		expect(resolveModuleAccess(moduleById("aci"), false, undefined)).toBe("sign-in")
+	test("módulo com papel, sem sessão, leva ao login", () => {
+		expect(resolveModuleAccess(getModule("aci"), false, undefined)).toBe("sign-in")
+		expect(resolveModuleAccess(getModule("requisitante"), false, undefined)).toBe("sign-in")
 	})
 
-	test("com sessão e grants ainda carregando, não promete nem nega", () => {
-		expect(resolveModuleAccess(moduleById("aci"), true, undefined)).toBe("checking")
+	// Enviar documento não exige papel: o Requisitante não espera (nem depende) do perfil do α.
+	test("Requisitante abre com sessão, mesmo sem perfil e com a consulta falhando", () => {
+		expect(resolveModuleAccess(getModule("requisitante"), true, undefined)).toBe("open")
+		expect(resolveModuleAccess(getModule("requisitante"), true, undefined, true)).toBe("open")
 	})
 
-	test("consulta de grants que falhou não vira 'sem perfil'", () => {
-		expect(resolveModuleAccess(moduleById("aci"), true, undefined, true)).toBe("unverified")
+	test("com sessão e perfil ainda carregando, não promete nem nega", () => {
+		expect(resolveModuleAccess(getModule("aci"), true, undefined)).toBe("checking")
 	})
 
-	// Os níveis vêm do registro, não daqui: o teste é da regra, não do número.
-	test("nível abaixo do exigido nega; nível suficiente abre", () => {
-		const aci = moduleById("aci")
-		if (!aci.requires) throw new Error("aci deveria exigir grant")
-		const { module, minLevel } = aci.requires
-		expect(resolveModuleAccess(aci, true, [grant(module, minLevel)])).toBe("open")
-		expect(resolveModuleAccess(aci, true, [grant(module, minLevel - 1)])).toBe("denied")
-		expect(resolveModuleAccess(aci, true, [])).toBe("denied")
+	test("consulta do perfil que falhou não vira 'sem papel'", () => {
+		expect(resolveModuleAccess(getModule("aci"), true, undefined, true)).toBe("unverified")
+	})
+
+	test("ACI: licitações ou ACI em alguma OM abre; requisitante sozinho não", () => {
+		const aci = getModule("aci")
+		expect(resolveModuleAccess(aci, true, meAccess({ procurement: [26] }))).toBe("open")
+		expect(resolveModuleAccess(aci, true, meAccess({ aci: [100] }))).toBe("open")
+		expect(resolveModuleAccess(aci, true, meAccess({ requester: "all" }))).toBe("denied")
+	})
+
+	test("Console α: só o ACI GLOBAL", () => {
+		const alpha = getModule("alpha")
+		expect(resolveModuleAccess(alpha, true, meAccess({ aci: "all" }))).toBe("open")
+		expect(resolveModuleAccess(alpha, true, meAccess({ aci: [26] }))).toBe("denied")
+	})
+
+	test("Acessos: administração em alguma OM", () => {
+		const admin = getModule("admin")
+		expect(resolveModuleAccess(admin, true, meAccess({ admin: [26] }))).toBe("open")
+		expect(resolveModuleAccess(admin, true, meAccess({ aci: "all" }))).toBe("denied")
+	})
+})
+
+describe("describeModuleScope", () => {
+	test("uma OM, várias, todas e as próprias", () => {
+		expect(describeModuleScope(getModule("aci"), meAccess({ procurement: [100] }), "open")).toBe("IAE")
+		expect(describeModuleScope(getModule("aci"), meAccess({ procurement: [26, 100, 101] }), "open")).toBe("3 OMs")
+		expect(describeModuleScope(getModule("aci"), meAccess({ aci: "all" }), "open")).toBe("Todas as OMs")
+		expect(describeModuleScope(getModule("requisitante"), meAccess(), "open")).toBe("Minhas submissões")
+	})
+
+	test("módulo sem OM, cartão que não abre ou perfil ausente: nada", () => {
+		expect(describeModuleScope(getModule("pregoeiro"), meAccess({ aci: "all" }), "open")).toBeNull()
+		expect(describeModuleScope(getModule("aci"), meAccess(), "denied")).toBeNull()
+		expect(describeModuleScope(getModule("requisitante"), undefined, "open")).toBeNull()
 	})
 })

@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
 import { Download, Printer, WarningTriangle } from "iconoir-react"
-import { AciNav } from "@/components/aci/AciNav"
+import type { ReactElement } from "react"
 import { StatGrid } from "@/components/aci/StatGrid"
+import { SectionHeader } from "@/components/alpha/SectionNav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
@@ -10,20 +10,8 @@ import { DECISION_LABEL, downloadReportMarkdown, type FinalReport, finalReportQu
 import { compareSeverity, type Finding } from "@/lib/alpha/compliance"
 import { formatDateTime } from "@/lib/alpha/format"
 
-export const Route = createFileRoute("/aci/relatorio/$runId")({
-	loader: ({ context, params }) => {
-		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
-		// no SSR uma chamada pendurada prenderia a resposta do documento.
-		if (typeof document === "undefined") return
-
-		const token = context.auth.session?.access_token
-		if (!token) return
-
-		void context.queryClient.query({ ...finalReportQueryOptions(token, params.runId), staleTime: "static" }).catch(() => {})
-	},
-	component: RelatorioPage,
-	head: () => ({ meta: [{ title: "Relatório final · Plataforma ACI" }] }),
-})
+/** O link de volta ao processo, montado pela rota — cada módulo tem o seu caminho. */
+export type ProcessLink = (submissionId: string) => ReactElement
 
 const CATEGORY_LABEL: Record<string, string> = {
 	ESTRUTURAL: "Estrutura",
@@ -200,8 +188,8 @@ function ReportBody({ report }: { report: FinalReport }) {
 	)
 }
 
-function RelatorioPage() {
-	const { runId } = Route.useParams()
+/** Relatório final de uma execução — o mesmo na Plataforma ACI e no módulo Requisitante. */
+export function ReportView({ runId, eyebrow, processLink }: { runId: string; eyebrow: string; processLink: ProcessLink }) {
 	const { session } = useAuth()
 	const token = session?.access_token
 	const report = useQuery(finalReportQueryOptions(token, runId))
@@ -209,18 +197,14 @@ function RelatorioPage() {
 
 	return (
 		<div>
-			<AciNav
+			<SectionHeader
+				eyebrow={eyebrow}
 				title="Relatório final"
 				subtitle="O que a máquina achou, o que o analista acatou ou descartou, e o parecer. Pronto para imprimir ou levar ao processo em Markdown."
 				actions={
 					<>
 						{report.data ? (
-							<Button
-								render={<Link to="/aci/processos/$submissionId" params={{ submissionId: report.data.submission.id }} />}
-								nativeButton={false}
-								size="sm"
-								variant="outline"
-							>
+							<Button render={processLink(report.data.submission.id)} nativeButton={false} size="sm" variant="outline">
 								voltar ao processo
 							</Button>
 						) : null}

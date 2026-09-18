@@ -15,7 +15,6 @@ import { NotFound } from "@/components/NotFound"
 import { readThemePreference, ThemeProvider } from "@/components/themeService"
 import { Toaster } from "@/components/ui/toast"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
-import { myAlphaPermissionsQueryOptions } from "@/lib/alpha/permissions"
 import { supabase } from "@/lib/supabase"
 // A folha entra pelo grafo de módulos, não por `?url`: assim quem emite o
 // <link> é o manifesto do build do cliente, que é o mesmo arquivo servido em
@@ -133,12 +132,11 @@ function AuthSync() {
 					isAuthenticated: false,
 					isLoading: false,
 				})
-				// As permissões são DA PESSOA e a chave não tem o id dela: guardadas por 30
-				// min, numa máquina compartilhada fariam o próximo a entrar herdar a navegação
-				// e o guard de `/admin/acessos` de quem saiu. O mesmo vale para o perfil que o
-				// α resolve. A regra segue no servidor — o que se evita aqui é a tela mentir.
-				queryClient.removeQueries({ queryKey: myAlphaPermissionsQueryOptions().queryKey })
-				queryClient.removeQueries({ queryKey: ["alpha", "me", "access"] })
+				// Tudo sob `["alpha"]` é DA PESSOA e a chave não tem o id dela: o perfil do α, as
+				// OMs que ela cobre, filas, processos, grants. Numa máquina compartilhada, o
+				// próximo a entrar herdaria a navegação e as listas de quem saiu. A regra segue
+				// no servidor — o que se evita aqui é a tela mentir.
+				queryClient.removeQueries({ queryKey: ["alpha"] })
 				router.invalidate()
 			}
 		})

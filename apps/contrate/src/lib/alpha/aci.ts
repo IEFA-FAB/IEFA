@@ -40,6 +40,8 @@ export type Triage = "acatado" | "descartado" | null
 export interface QueueSubmission {
 	id: string
 	user_id: string
+	/** OM a que o documento foi atribuído. Nula só em registro anterior ao escopo por OM. */
+	unit_id: number | null
 	filename: string
 	doc_kind: string
 	modalidade: string | null
@@ -115,6 +117,10 @@ export interface ExtractionSummary {
 
 export interface ProcessDetail {
 	submission: QueueSubmission & { mime_type: string }
+	/** A OM do processo — a mesma de `submission.unit_id`, no nível de cima. */
+	unit_id: number | null
+	/** Triagem e parecer: ACI que cobre a OM DESTE processo. Decidido no α; a tela não recalcula. */
+	can_decide: boolean
 	/** Derivada no α pela mesma função da fila. */
 	stage: Stage
 	extractions: ExtractionSummary[]
@@ -131,7 +137,15 @@ export interface ReportDocument {
 
 export interface FinalReport {
 	run: ComplianceRun
-	submission: { id: string; filename: string; doc_kind: string; modalidade: string | null; objeto: string | null; created_at: string }
+	submission: {
+		id: string
+		unit_id: number | null
+		filename: string
+		doc_kind: string
+		modalidade: string | null
+		objeto: string | null
+		created_at: string
+	}
 	extraction: { id: string; model: string; created_at: string } | null
 	model_document: ReportDocument | null
 	law_documents: ReportDocument[]
@@ -141,10 +155,14 @@ export interface FinalReport {
 	retriaged_after_review: number
 }
 
-export function aciQueueQueryOptions(token: string | undefined) {
+/**
+ * Fila das OMs cobertas. `unitId` recorta uma OM; `null` é a cobertura inteira — que só a
+ * rota `todas` pede, e só o papel global alcança (fora dele o α responde 403).
+ */
+export function aciQueueQueryOptions(token: string | undefined, unitId: number | null) {
 	return queryOptions({
-		queryKey: ["alpha", "aci", "queue"],
-		queryFn: () => alphaRequest<Queue>("/api/v1/aci/queue", token),
+		queryKey: ["alpha", "aci", "queue", unitId ?? "todas"],
+		queryFn: () => alphaRequest<Queue>(unitId === null ? "/api/v1/aci/queue" : `/api/v1/aci/queue?unit_id=${unitId}`, token),
 		staleTime: 15_000,
 	})
 }

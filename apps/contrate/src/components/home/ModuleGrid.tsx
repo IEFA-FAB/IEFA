@@ -1,9 +1,9 @@
-import type { UserPermission } from "@iefa/pbac"
+import type { MeAccess } from "@iefa/alpha-client/access"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, Lock } from "iconoir-react"
 import type { ReactNode } from "react"
 import { CONTRATE_MODULES, type ContrateModule } from "@/lib/modules"
-import { type ModuleAccess, resolveModuleAccess } from "./module-access"
+import { describeModuleScope, type ModuleAccess, resolveModuleAccess } from "./module-access"
 
 const CARD_BASE = "flex h-full flex-col border bg-card p-6"
 const CARD_INTERACTIVE =
@@ -11,26 +11,30 @@ const CARD_INTERACTIVE =
 
 export function ModuleGrid({
 	isAuthenticated,
-	permissions,
-	permissionsFailed,
+	access,
+	accessFailed,
 }: {
 	isAuthenticated: boolean
-	permissions: readonly UserPermission[] | undefined
-	permissionsFailed: boolean
+	/** Perfil do α; `undefined` enquanto chega (ou sem sessão). */
+	access: MeAccess | undefined
+	accessFailed: boolean
 }) {
 	return (
-		<ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-			{CONTRATE_MODULES.map((module) => (
-				<li key={module.id}>
-					<ModuleCard module={module} access={resolveModuleAccess(module, isAuthenticated, permissions, permissionsFailed)} />
-				</li>
-			))}
+		<ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			{CONTRATE_MODULES.map((module) => {
+				const moduleAccess = resolveModuleAccess(module, isAuthenticated, access, accessFailed)
+				return (
+					<li key={module.id}>
+						<ModuleCard module={module} access={moduleAccess} scope={describeModuleScope(module, access, moduleAccess)} />
+					</li>
+				)
+			})}
 		</ul>
 	)
 }
 
-function ModuleCard({ module, access }: { module: ContrateModule; access: ModuleAccess }) {
-	const body = <ModuleCardBody module={module} access={access} />
+function ModuleCard({ module, access, scope }: { module: ContrateModule; access: ModuleAccess; scope: string | null }) {
+	const body = <ModuleCardBody module={module} access={access} scope={scope} />
 
 	if (access === "open") {
 		return (
@@ -50,7 +54,7 @@ function ModuleCard({ module, access }: { module: ContrateModule; access: Module
 	return <div className={`${CARD_BASE} border-dashed border-border bg-transparent`}>{body}</div>
 }
 
-function ModuleCardBody({ module, access }: { module: ContrateModule; access: ModuleAccess }) {
+function ModuleCardBody({ module, access, scope }: { module: ContrateModule; access: ModuleAccess; scope: string | null }) {
 	const Icon = module.icon
 	const muted = access === "denied"
 
@@ -70,13 +74,13 @@ function ModuleCardBody({ module, access }: { module: ContrateModule; access: Mo
 			<p className="mt-2 flex-1 text-muted-foreground text-sm leading-relaxed">{module.description}</p>
 
 			<div className="mt-6 flex items-center justify-between gap-3 border-border border-t pt-4 text-sm">
-				<ModuleCardFooter module={module} access={access} />
+				<ModuleCardFooter module={module} access={access} scope={scope} />
 			</div>
 		</>
 	)
 }
 
-function ModuleCardFooter({ module, access }: { module: ContrateModule; access: ModuleAccess }): ReactNode {
+function ModuleCardFooter({ module, access, scope }: { module: ContrateModule; access: ModuleAccess; scope: string | null }): ReactNode {
 	switch (access) {
 		case "open":
 			return (
@@ -85,7 +89,8 @@ function ModuleCardFooter({ module, access }: { module: ContrateModule; access: 
 						Abrir
 						<ArrowRight className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transition-none" aria-hidden="true" />
 					</span>
-					{module.requires === null && <span className="font-mono text-label text-muted-foreground">Sem login</span>}
+					{module.gate.kind === "public" && <span className="font-mono text-label text-muted-foreground">Sem login</span>}
+					{scope && <span className="truncate font-mono text-label text-muted-foreground">{scope}</span>}
 				</>
 			)
 		case "sign-in":
@@ -99,7 +104,7 @@ function ModuleCardFooter({ module, access }: { module: ContrateModule; access: 
 			return (
 				<span className="inline-flex items-center gap-1.5 text-muted-foreground">
 					<Lock className="size-4" aria-hidden="true" />
-					Perfil não concedido · solicite acesso
+					Papel não concedido · solicite acesso
 				</span>
 			)
 		case "checking":

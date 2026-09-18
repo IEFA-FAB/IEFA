@@ -1,11 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
 import { Check, Page, Undo, WarningTriangle, Xmark } from "iconoir-react"
-import { useMemo, useState } from "react"
-import { AciNav } from "@/components/aci/AciNav"
+import { type ReactElement, useMemo, useState } from "react"
 import { StageStepper } from "@/components/aci/StageStepper"
 import { StatGrid } from "@/components/aci/StatGrid"
 import { FindingCard } from "@/components/alpha/FindingCard"
+import { SectionHeader } from "@/components/alpha/SectionNav"
 import { ExtractionFieldsView } from "@/components/alpha/SubmissionIntake"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,23 +22,10 @@ import {
 	useRunCompliance,
 } from "@/lib/alpha/compliance"
 import { formatDateTime } from "@/lib/alpha/format"
-import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 import { extractionsQueryOptions, useRunExtraction } from "@/lib/alpha/submissions"
 
-export const Route = createFileRoute("/aci/processos/$submissionId")({
-	loader: ({ context, params }) => {
-		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
-		// no SSR uma chamada pendurada prenderia a resposta do documento.
-		if (typeof document === "undefined") return
-
-		const token = context.auth.session?.access_token
-		if (!token) return
-
-		void context.queryClient.query({ ...processDetailQueryOptions(token, params.submissionId), staleTime: "static" }).catch(() => {})
-	},
-	component: ProcessoPage,
-	head: () => ({ meta: [{ title: "Processo · Plataforma ACI" }] }),
-})
+/** O link para o relatório final, montado pela rota — cada módulo tem o seu caminho. */
+export type ReportLink = (runId: string) => ReactElement
 
 type Tab = "achados" | "extracao" | "parecer"
 
@@ -221,7 +207,7 @@ function ExtractionTab({ submissionId }: { submissionId: string }) {
 	)
 }
 
-function ReviewTab({ run, submissionId, decider }: { run: ComplianceRun; submissionId: string; decider: boolean }) {
+function ReviewTab({ run, submissionId, decider, reportLink }: { run: ComplianceRun; submissionId: string; decider: boolean; reportLink: ReportLink }) {
 	const { session } = useAuth()
 	const reviews = useQuery(reviewsQueryOptions(session?.access_token, run.id))
 	const issue = useIssueReview()
@@ -253,7 +239,7 @@ function ReviewTab({ run, submissionId, decider }: { run: ComplianceRun; submiss
 						</div>
 						{current.notes ? <p className="mt-3 whitespace-pre-wrap text-sm">{current.notes}</p> : null}
 						<div className="mt-4">
-							<Button render={<Link to="/aci/relatorio/$runId" params={{ runId: run.id }} />} nativeButton={false} size="sm" variant="outline">
+							<Button render={reportLink(run.id)} nativeButton={false} size="sm" variant="outline">
 								<Page className="size-4" />
 								relatório final
 							</Button>
@@ -310,7 +296,7 @@ function ReviewTab({ run, submissionId, decider }: { run: ComplianceRun; submiss
 				) : null}
 
 				{!decider ? (
-					<p className="mt-4 text-muted-foreground text-sm">Só o perfil ACI emite parecer.</p>
+					<p className="mt-4 text-muted-foreground text-sm">Só o ACI que responde pela OM deste processo emite parecer.</p>
 				) : (
 					<div className="mt-4 space-y-3">
 						<div>
@@ -386,14 +372,21 @@ function ReviewTab({ run, submissionId, decider }: { run: ComplianceRun; submiss
 	)
 }
 
-function ProcessoPage() {
-	const { submissionId } = Route.useParams()
+/**
+ * Tela do processo: extração, verificação, triagem e parecer — a mesma na Plataforma ACI e no
+ * módulo Requisitante. O que muda entre os dois é só o caminho dos links, que vem da rota.
+ *
+ * Quem decide se a pessoa tria e emite parecer é o α, POR PROCESSO (`can_decide`: ACI que
+ * cobre a OM deste processo). O perfil geral não serve: ser ACI em uma OM não dá alçada
+ * sobre o processo de outra.
+ */
+export function ProcessView({ submissionId, eyebrow, reportLink }: { submissionId: string; eyebrow: string; reportLink: ReportLink }) {
 	const { session } = useAuth()
 	const token = session?.access_token
 	const queryClient = useQueryClient()
-	const decider = useQuery(alphaAccessQueryOptions(token)).data?.can_decide ?? false
 
 	const detail = useQuery(processDetailQueryOptions(token, submissionId))
+	const decider = detail.data?.can_decide ?? false
 	const runExtraction = useRunExtraction()
 	const runCompliance = useRunCompliance()
 
@@ -411,12 +404,14 @@ function ProcessoPage() {
 	const refresh = () => {
 		queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "process", submissionId] })
 		queryClient.invalidateQueries({ queryKey: ["alpha", "submissions", submissionId] })
+		queryClient.invalidateQueries({ queryKey: ["alpha", "submissions", "list"], refetchType: "none" })
 		queryClient.invalidateQueries({ queryKey: ["alpha", "aci", "queue"], refetchType: "none" })
 	}
 
 	return (
 		<div>
-			<AciNav
+			<SectionHeader
+				eyebrow={eyebrow}
 				title={submission?.filename ?? "Processo"}
 				subtitle={
 					submission
@@ -530,7 +525,9 @@ function ProcessoPage() {
 					) : null}
 
 					{tab === "achados" && selectedRun?.status === "succeeded" ? <FindingsTab run={selectedRun} submissionId={submissionId} decider={decider} /> : null}
-					{tab === "parecer" && selectedRun?.status === "succeeded" ? <ReviewTab run={selectedRun} submissionId={submissionId} decider={decider} /> : null}
+					{tab === "parecer" && selectedRun?.status === "succeeded" ? (
+						<ReviewTab run={selectedRun} submissionId={submissionId} decider={decider} reportLink={reportLink} />
+					) : null}
 				</>
 			) : null}
 		</div>

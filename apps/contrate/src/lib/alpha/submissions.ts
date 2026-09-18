@@ -76,8 +76,12 @@ export interface ExtractionResponse {
 
 export interface SubmissionResponse {
 	id: string
+	/** OM a que o documento foi atribuído. Nula só em registro anterior ao escopo por OM. */
+	unit_id: number | null
 	filename: string
 	doc_kind: string
+	modalidade: string | null
+	objeto: string | null
 	created_at: string
 }
 
@@ -105,10 +109,18 @@ export function extractionsQueryOptions(token: string | undefined, submissionId:
 	})
 }
 
-export function submissionsQueryOptions(token: string | undefined) {
+/**
+ * Submissões visíveis: as próprias MAIS as das OMs que o usuário cobre como requisitante,
+ * licitações ou ACI (o α decide). `unitId` recorta uma OM — fora da cobertura, o α devolve só
+ * as próprias daquela OM. `null` é sem recorte.
+ */
+export function submissionsQueryOptions(token: string | undefined, unitId: number | null) {
 	return queryOptions({
-		queryKey: ["alpha", "submissions"],
-		queryFn: async () => (await alphaRequest<{ submissions: SubmissionResponse[] }>("/api/v1/submissions", token)).submissions,
+		queryKey: ["alpha", "submissions", "list", unitId ?? "all"],
+		queryFn: async () =>
+			(await alphaRequest<{ submissions: SubmissionResponse[] }>(unitId === null ? "/api/v1/submissions" : `/api/v1/submissions?unit_id=${unitId}`, token))
+				.submissions,
+		staleTime: 15_000,
 	})
 }
 
@@ -116,10 +128,12 @@ export function useCreateSubmission() {
 	const { session } = useAuth()
 
 	return useMutation({
-		mutationFn: async ({ file, doc_kind, objeto }: { file: File; doc_kind: string; objeto?: string }) => {
+		mutationFn: async ({ file, doc_kind, objeto, unit_id }: { file: File; doc_kind: string; objeto?: string; unit_id: number }) => {
 			const form = new FormData()
 			form.append("file", file)
 			form.append("doc_kind", doc_kind)
+			// Obrigatória no α: é a OM que decide quem mais enxerga o documento.
+			form.append("unit_id", String(unit_id))
 			if (objeto) form.append("objeto", objeto)
 
 			return alphaRequest<SubmissionResponse>("/api/v1/submissions", session?.access_token, { method: "POST", body: form })

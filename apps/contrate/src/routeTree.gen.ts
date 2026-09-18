@@ -19,23 +19,38 @@ import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as PoliticaDeCookiesRouteImport } from './routes/politica-de-cookies'
 import { Route as PoliticaDePrivacidadeRouteImport } from './routes/politica-de-privacidade'
 import { Route as PregoeiroRouteRouteImport } from './routes/pregoeiro/route'
+import { Route as RequisitanteRouteRouteImport } from './routes/requisitante/route'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as AciIndexRouteImport } from './routes/aci/index'
+import { Route as AciUnitIdRouteRouteImport } from './routes/aci/$unitId/route'
 import { Route as AciNovaRouteImport } from './routes/aci/nova'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminUnitIdRouteRouteImport } from './routes/admin/$unitId/route'
 import { Route as AdminAcessosRouteImport } from './routes/admin/acessos'
 import { Route as AlphaBancadaRouteImport } from './routes/alpha/bancada'
 import { Route as AlphaFontesRouteImport } from './routes/alpha/fontes'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PregoeiroIndexRouteImport } from './routes/pregoeiro/index'
+import { Route as RequisitanteIndexRouteImport } from './routes/requisitante/index'
+import { Route as RequisitanteUnitIdRouteRouteImport } from './routes/requisitante/$unitId/route'
 import { Route as DotwellKnownAgentSkillsIndexDotjsonRouteImport } from './routes/[.]well-known.agent-skills.index[.]json'
+import { Route as AciUnitIdIndexRouteImport } from './routes/aci/$unitId/index'
 import { Route as AciProcessosSubmissionIdRouteImport } from './routes/aci/processos.$submissionId'
 import { Route as AciRelatorioRunIdRouteImport } from './routes/aci/relatorio.$runId'
+import { Route as AdminUnitIdIndexRouteImport } from './routes/admin/$unitId/index'
+import { Route as AdminUnitIdAcessosRouteImport } from './routes/admin/$unitId/acessos'
 import { Route as AlphaAnaliseRunIdRouteImport } from './routes/alpha/analise.$runId'
 import { Route as AlphaAnaliseNovaRouteImport } from './routes/alpha/analise.nova'
 import { Route as AlphaModelosIdRouteImport } from './routes/alpha/modelos.$id'
+import { Route as RequisitanteUnitIdIndexRouteImport } from './routes/requisitante/$unitId/index'
+import { Route as RequisitanteUnitIdNovaRouteImport } from './routes/requisitante/$unitId/nova'
 import { Route as DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport } from './routes/[.]well-known.agent-skills.$skill.SKILL[.]md'
+import { Route as AciUnitIdProcessosSubmissionIdRouteImport } from './routes/aci/$unitId/processos.$submissionId'
+import { Route as AciUnitIdRelatorioRunIdRouteImport } from './routes/aci/$unitId/relatorio.$runId'
+import { Route as RequisitanteUnitIdProcessosSubmissionIdRouteImport } from './routes/requisitante/$unitId/processos.$submissionId'
+import { Route as RequisitanteUnitIdRelatorioRunIdRouteImport } from './routes/requisitante/$unitId/relatorio.$runId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -87,6 +102,11 @@ const PregoeiroRouteRoute = PregoeiroRouteRouteImport.update({
   path: '/pregoeiro',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RequisitanteRouteRoute = RequisitanteRouteRouteImport.update({
+  id: '/requisitante',
+  path: '/requisitante',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
   id: '/robots.txt',
   path: '/robots.txt',
@@ -107,10 +127,25 @@ const AciIndexRoute = AciIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AciRouteRoute,
 } as any)
+const AciUnitIdRouteRoute = AciUnitIdRouteRouteImport.update({
+  id: '/$unitId',
+  path: '/$unitId',
+  getParentRoute: () => AciRouteRoute,
+} as any)
 const AciNovaRoute = AciNovaRouteImport.update({
   id: '/nova',
   path: '/nova',
   getParentRoute: () => AciRouteRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminUnitIdRouteRoute = AdminUnitIdRouteRouteImport.update({
+  id: '/$unitId',
+  path: '/$unitId',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAcessosRoute = AdminAcessosRouteImport.update({
   id: '/acessos',
@@ -137,12 +172,27 @@ const PregoeiroIndexRoute = PregoeiroIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PregoeiroRouteRoute,
 } as any)
+const RequisitanteIndexRoute = RequisitanteIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RequisitanteRouteRoute,
+} as any)
+const RequisitanteUnitIdRouteRoute = RequisitanteUnitIdRouteRouteImport.update({
+  id: '/$unitId',
+  path: '/$unitId',
+  getParentRoute: () => RequisitanteRouteRoute,
+} as any)
 const DotwellKnownAgentSkillsIndexDotjsonRoute =
   DotwellKnownAgentSkillsIndexDotjsonRouteImport.update({
     id: '/.well-known/agent-skills/index.json',
     path: '/.well-known/agent-skills/index.json',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AciUnitIdIndexRoute = AciUnitIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AciUnitIdRouteRoute,
+} as any)
 const AciProcessosSubmissionIdRoute =
   AciProcessosSubmissionIdRouteImport.update({
     id: '/processos/$submissionId',
@@ -153,6 +203,16 @@ const AciRelatorioRunIdRoute = AciRelatorioRunIdRouteImport.update({
   id: '/relatorio/$runId',
   path: '/relatorio/$runId',
   getParentRoute: () => AciRouteRoute,
+} as any)
+const AdminUnitIdIndexRoute = AdminUnitIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminUnitIdRouteRoute,
+} as any)
+const AdminUnitIdAcessosRoute = AdminUnitIdAcessosRouteImport.update({
+  id: '/acessos',
+  path: '/acessos',
+  getParentRoute: () => AdminUnitIdRouteRoute,
 } as any)
 const AlphaAnaliseRunIdRoute = AlphaAnaliseRunIdRouteImport.update({
   id: '/analise/$runId',
@@ -169,11 +229,44 @@ const AlphaModelosIdRoute = AlphaModelosIdRouteImport.update({
   path: '/modelos/$id',
   getParentRoute: () => AlphaRouteRoute,
 } as any)
+const RequisitanteUnitIdIndexRoute = RequisitanteUnitIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RequisitanteUnitIdRouteRoute,
+} as any)
+const RequisitanteUnitIdNovaRoute = RequisitanteUnitIdNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => RequisitanteUnitIdRouteRoute,
+} as any)
 const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
   DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport.update({
     id: '/.well-known/agent-skills/$skill/SKILL.md',
     path: '/.well-known/agent-skills/$skill/SKILL.md',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const AciUnitIdProcessosSubmissionIdRoute =
+  AciUnitIdProcessosSubmissionIdRouteImport.update({
+    id: '/processos/$submissionId',
+    path: '/processos/$submissionId',
+    getParentRoute: () => AciUnitIdRouteRoute,
+  } as any)
+const AciUnitIdRelatorioRunIdRoute = AciUnitIdRelatorioRunIdRouteImport.update({
+  id: '/relatorio/$runId',
+  path: '/relatorio/$runId',
+  getParentRoute: () => AciUnitIdRouteRoute,
+} as any)
+const RequisitanteUnitIdProcessosSubmissionIdRoute =
+  RequisitanteUnitIdProcessosSubmissionIdRouteImport.update({
+    id: '/processos/$submissionId',
+    path: '/processos/$submissionId',
+    getParentRoute: () => RequisitanteUnitIdRouteRoute,
+  } as any)
+const RequisitanteUnitIdRelatorioRunIdRoute =
+  RequisitanteUnitIdRelatorioRunIdRouteImport.update({
+    id: '/relatorio/$runId',
+    path: '/relatorio/$runId',
+    getParentRoute: () => RequisitanteUnitIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -183,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/pregoeiro': typeof PregoeiroRouteRouteWithChildren
+  '/requisitante': typeof RequisitanteRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/politica-de-cookies': typeof PoliticaDeCookiesRoute
@@ -190,24 +284,37 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
+  '/aci/$unitId': typeof AciUnitIdRouteRouteWithChildren
+  '/admin/$unitId': typeof AdminUnitIdRouteRouteWithChildren
+  '/requisitante/$unitId': typeof RequisitanteUnitIdRouteRouteWithChildren
   '/aci/nova': typeof AciNovaRoute
   '/admin/acessos': typeof AdminAcessosRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/aci/': typeof AciIndexRoute
+  '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/pregoeiro/': typeof PregoeiroIndexRoute
+  '/requisitante/': typeof RequisitanteIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/aci/processos/$submissionId': typeof AciProcessosSubmissionIdRoute
   '/aci/relatorio/$runId': typeof AciRelatorioRunIdRoute
+  '/admin/$unitId/acessos': typeof AdminUnitIdAcessosRoute
   '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
+  '/requisitante/$unitId/nova': typeof RequisitanteUnitIdNovaRoute
+  '/aci/$unitId/': typeof AciUnitIdIndexRoute
+  '/admin/$unitId/': typeof AdminUnitIdIndexRoute
+  '/requisitante/$unitId/': typeof RequisitanteUnitIdIndexRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/aci/$unitId/processos/$submissionId': typeof AciUnitIdProcessosSubmissionIdRoute
+  '/aci/$unitId/relatorio/$runId': typeof AciUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/processos/$submissionId': typeof RequisitanteUnitIdProcessosSubmissionIdRoute
+  '/requisitante/$unitId/relatorio/$runId': typeof RequisitanteUnitIdRelatorioRunIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -221,15 +328,26 @@ export interface FileRoutesByTo {
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/aci': typeof AciIndexRoute
+  '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
   '/pregoeiro': typeof PregoeiroIndexRoute
+  '/requisitante': typeof RequisitanteIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/aci/processos/$submissionId': typeof AciProcessosSubmissionIdRoute
   '/aci/relatorio/$runId': typeof AciRelatorioRunIdRoute
+  '/admin/$unitId/acessos': typeof AdminUnitIdAcessosRoute
   '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
+  '/requisitante/$unitId/nova': typeof RequisitanteUnitIdNovaRoute
+  '/aci/$unitId': typeof AciUnitIdIndexRoute
+  '/admin/$unitId': typeof AdminUnitIdIndexRoute
+  '/requisitante/$unitId': typeof RequisitanteUnitIdIndexRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/aci/$unitId/processos/$submissionId': typeof AciUnitIdProcessosSubmissionIdRoute
+  '/aci/$unitId/relatorio/$runId': typeof AciUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/processos/$submissionId': typeof RequisitanteUnitIdProcessosSubmissionIdRoute
+  '/requisitante/$unitId/relatorio/$runId': typeof RequisitanteUnitIdRelatorioRunIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -239,6 +357,7 @@ export interface FileRoutesById {
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/pregoeiro': typeof PregoeiroRouteRouteWithChildren
+  '/requisitante': typeof RequisitanteRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/politica-de-cookies': typeof PoliticaDeCookiesRoute
@@ -246,20 +365,34 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos-de-uso': typeof TermosDeUsoRoute
+  '/aci/$unitId': typeof AciUnitIdRouteRouteWithChildren
+  '/admin/$unitId': typeof AdminUnitIdRouteRouteWithChildren
+  '/requisitante/$unitId': typeof RequisitanteUnitIdRouteRouteWithChildren
   '/aci/nova': typeof AciNovaRoute
   '/admin/acessos': typeof AdminAcessosRoute
   '/alpha/bancada': typeof AlphaBancadaRoute
   '/alpha/fontes': typeof AlphaFontesRoute
   '/aci/': typeof AciIndexRoute
+  '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/pregoeiro/': typeof PregoeiroIndexRoute
+  '/requisitante/': typeof RequisitanteIndexRoute
   '/.well-known/agent-skills/index.json': typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   '/aci/processos/$submissionId': typeof AciProcessosSubmissionIdRoute
   '/aci/relatorio/$runId': typeof AciRelatorioRunIdRoute
+  '/admin/$unitId/acessos': typeof AdminUnitIdAcessosRoute
   '/alpha/analise/$runId': typeof AlphaAnaliseRunIdRoute
   '/alpha/analise/nova': typeof AlphaAnaliseNovaRoute
   '/alpha/modelos/$id': typeof AlphaModelosIdRoute
+  '/requisitante/$unitId/nova': typeof RequisitanteUnitIdNovaRoute
+  '/aci/$unitId/': typeof AciUnitIdIndexRoute
+  '/admin/$unitId/': typeof AdminUnitIdIndexRoute
+  '/requisitante/$unitId/': typeof RequisitanteUnitIdIndexRoute
   '/.well-known/agent-skills/$skill/SKILL.md': typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
+  '/aci/$unitId/processos/$submissionId': typeof AciUnitIdProcessosSubmissionIdRoute
+  '/aci/$unitId/relatorio/$runId': typeof AciUnitIdRelatorioRunIdRoute
+  '/requisitante/$unitId/processos/$submissionId': typeof RequisitanteUnitIdProcessosSubmissionIdRoute
+  '/requisitante/$unitId/relatorio/$runId': typeof RequisitanteUnitIdRelatorioRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -270,6 +403,7 @@ export interface FileRouteTypes {
     | '/alpha'
     | '/auth'
     | '/pregoeiro'
+    | '/requisitante'
     | '/health'
     | '/llms.txt'
     | '/politica-de-cookies'
@@ -277,24 +411,37 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/termos-de-uso'
+    | '/aci/$unitId'
+    | '/admin/$unitId'
+    | '/requisitante/$unitId'
     | '/aci/nova'
     | '/admin/acessos'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/aci/'
+    | '/admin/'
     | '/auth/'
     | '/pregoeiro/'
+    | '/requisitante/'
     | '/.well-known/agent-skills/index.json'
     | '/aci/processos/$submissionId'
     | '/aci/relatorio/$runId'
+    | '/admin/$unitId/acessos'
     | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
+    | '/requisitante/$unitId/nova'
+    | '/aci/$unitId/'
+    | '/admin/$unitId/'
+    | '/requisitante/$unitId/'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/aci/$unitId/processos/$submissionId'
+    | '/aci/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/processos/$submissionId'
+    | '/requisitante/$unitId/relatorio/$runId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/alpha'
     | '/health'
     | '/llms.txt'
@@ -308,15 +455,26 @@ export interface FileRouteTypes {
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/aci'
+    | '/admin'
     | '/auth'
     | '/pregoeiro'
+    | '/requisitante'
     | '/.well-known/agent-skills/index.json'
     | '/aci/processos/$submissionId'
     | '/aci/relatorio/$runId'
+    | '/admin/$unitId/acessos'
     | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
+    | '/requisitante/$unitId/nova'
+    | '/aci/$unitId'
+    | '/admin/$unitId'
+    | '/requisitante/$unitId'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/aci/$unitId/processos/$submissionId'
+    | '/aci/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/processos/$submissionId'
+    | '/requisitante/$unitId/relatorio/$runId'
   id:
     | '__root__'
     | '/'
@@ -325,6 +483,7 @@ export interface FileRouteTypes {
     | '/alpha'
     | '/auth'
     | '/pregoeiro'
+    | '/requisitante'
     | '/health'
     | '/llms.txt'
     | '/politica-de-cookies'
@@ -332,20 +491,34 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/termos-de-uso'
+    | '/aci/$unitId'
+    | '/admin/$unitId'
+    | '/requisitante/$unitId'
     | '/aci/nova'
     | '/admin/acessos'
     | '/alpha/bancada'
     | '/alpha/fontes'
     | '/aci/'
+    | '/admin/'
     | '/auth/'
     | '/pregoeiro/'
+    | '/requisitante/'
     | '/.well-known/agent-skills/index.json'
     | '/aci/processos/$submissionId'
     | '/aci/relatorio/$runId'
+    | '/admin/$unitId/acessos'
     | '/alpha/analise/$runId'
     | '/alpha/analise/nova'
     | '/alpha/modelos/$id'
+    | '/requisitante/$unitId/nova'
+    | '/aci/$unitId/'
+    | '/admin/$unitId/'
+    | '/requisitante/$unitId/'
     | '/.well-known/agent-skills/$skill/SKILL.md'
+    | '/aci/$unitId/processos/$submissionId'
+    | '/aci/$unitId/relatorio/$runId'
+    | '/requisitante/$unitId/processos/$submissionId'
+    | '/requisitante/$unitId/relatorio/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -355,6 +528,7 @@ export interface RootRouteChildren {
   AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   PregoeiroRouteRoute: typeof PregoeiroRouteRouteWithChildren
+  RequisitanteRouteRoute: typeof RequisitanteRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   PoliticaDeCookiesRoute: typeof PoliticaDeCookiesRoute
@@ -438,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PregoeiroRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/requisitante': {
+      id: '/requisitante'
+      path: '/requisitante'
+      fullPath: '/requisitante'
+      preLoaderRoute: typeof RequisitanteRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/robots.txt': {
       id: '/robots.txt'
       path: '/robots.txt'
@@ -466,12 +647,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AciIndexRouteImport
       parentRoute: typeof AciRouteRoute
     }
+    '/aci/$unitId': {
+      id: '/aci/$unitId'
+      path: '/$unitId'
+      fullPath: '/aci/$unitId'
+      preLoaderRoute: typeof AciUnitIdRouteRouteImport
+      parentRoute: typeof AciRouteRoute
+    }
     '/aci/nova': {
       id: '/aci/nova'
       path: '/nova'
       fullPath: '/aci/nova'
       preLoaderRoute: typeof AciNovaRouteImport
       parentRoute: typeof AciRouteRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/$unitId': {
+      id: '/admin/$unitId'
+      path: '/$unitId'
+      fullPath: '/admin/$unitId'
+      preLoaderRoute: typeof AdminUnitIdRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/acessos': {
       id: '/admin/acessos'
@@ -508,12 +710,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PregoeiroIndexRouteImport
       parentRoute: typeof PregoeiroRouteRoute
     }
+    '/requisitante/': {
+      id: '/requisitante/'
+      path: '/'
+      fullPath: '/requisitante/'
+      preLoaderRoute: typeof RequisitanteIndexRouteImport
+      parentRoute: typeof RequisitanteRouteRoute
+    }
+    '/requisitante/$unitId': {
+      id: '/requisitante/$unitId'
+      path: '/$unitId'
+      fullPath: '/requisitante/$unitId'
+      preLoaderRoute: typeof RequisitanteUnitIdRouteRouteImport
+      parentRoute: typeof RequisitanteRouteRoute
+    }
     '/.well-known/agent-skills/index.json': {
       id: '/.well-known/agent-skills/index.json'
       path: '/.well-known/agent-skills/index.json'
       fullPath: '/.well-known/agent-skills/index.json'
       preLoaderRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/aci/$unitId/': {
+      id: '/aci/$unitId/'
+      path: '/'
+      fullPath: '/aci/$unitId/'
+      preLoaderRoute: typeof AciUnitIdIndexRouteImport
+      parentRoute: typeof AciUnitIdRouteRoute
     }
     '/aci/processos/$submissionId': {
       id: '/aci/processos/$submissionId'
@@ -528,6 +751,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/aci/relatorio/$runId'
       preLoaderRoute: typeof AciRelatorioRunIdRouteImport
       parentRoute: typeof AciRouteRoute
+    }
+    '/admin/$unitId/': {
+      id: '/admin/$unitId/'
+      path: '/'
+      fullPath: '/admin/$unitId/'
+      preLoaderRoute: typeof AdminUnitIdIndexRouteImport
+      parentRoute: typeof AdminUnitIdRouteRoute
+    }
+    '/admin/$unitId/acessos': {
+      id: '/admin/$unitId/acessos'
+      path: '/acessos'
+      fullPath: '/admin/$unitId/acessos'
+      preLoaderRoute: typeof AdminUnitIdAcessosRouteImport
+      parentRoute: typeof AdminUnitIdRouteRoute
     }
     '/alpha/analise/$runId': {
       id: '/alpha/analise/$runId'
@@ -550,6 +787,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AlphaModelosIdRouteImport
       parentRoute: typeof AlphaRouteRoute
     }
+    '/requisitante/$unitId/': {
+      id: '/requisitante/$unitId/'
+      path: '/'
+      fullPath: '/requisitante/$unitId/'
+      preLoaderRoute: typeof RequisitanteUnitIdIndexRouteImport
+      parentRoute: typeof RequisitanteUnitIdRouteRoute
+    }
+    '/requisitante/$unitId/nova': {
+      id: '/requisitante/$unitId/nova'
+      path: '/nova'
+      fullPath: '/requisitante/$unitId/nova'
+      preLoaderRoute: typeof RequisitanteUnitIdNovaRouteImport
+      parentRoute: typeof RequisitanteUnitIdRouteRoute
+    }
     '/.well-known/agent-skills/$skill/SKILL.md': {
       id: '/.well-known/agent-skills/$skill/SKILL.md'
       path: '/.well-known/agent-skills/$skill/SKILL.md'
@@ -557,10 +808,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aci/$unitId/processos/$submissionId': {
+      id: '/aci/$unitId/processos/$submissionId'
+      path: '/processos/$submissionId'
+      fullPath: '/aci/$unitId/processos/$submissionId'
+      preLoaderRoute: typeof AciUnitIdProcessosSubmissionIdRouteImport
+      parentRoute: typeof AciUnitIdRouteRoute
+    }
+    '/aci/$unitId/relatorio/$runId': {
+      id: '/aci/$unitId/relatorio/$runId'
+      path: '/relatorio/$runId'
+      fullPath: '/aci/$unitId/relatorio/$runId'
+      preLoaderRoute: typeof AciUnitIdRelatorioRunIdRouteImport
+      parentRoute: typeof AciUnitIdRouteRoute
+    }
+    '/requisitante/$unitId/processos/$submissionId': {
+      id: '/requisitante/$unitId/processos/$submissionId'
+      path: '/processos/$submissionId'
+      fullPath: '/requisitante/$unitId/processos/$submissionId'
+      preLoaderRoute: typeof RequisitanteUnitIdProcessosSubmissionIdRouteImport
+      parentRoute: typeof RequisitanteUnitIdRouteRoute
+    }
+    '/requisitante/$unitId/relatorio/$runId': {
+      id: '/requisitante/$unitId/relatorio/$runId'
+      path: '/relatorio/$runId'
+      fullPath: '/requisitante/$unitId/relatorio/$runId'
+      preLoaderRoute: typeof RequisitanteUnitIdRelatorioRunIdRouteImport
+      parentRoute: typeof RequisitanteUnitIdRouteRoute
+    }
   }
 }
 
+interface AciUnitIdRouteRouteChildren {
+  AciUnitIdIndexRoute: typeof AciUnitIdIndexRoute
+  AciUnitIdProcessosSubmissionIdRoute: typeof AciUnitIdProcessosSubmissionIdRoute
+  AciUnitIdRelatorioRunIdRoute: typeof AciUnitIdRelatorioRunIdRoute
+}
+
+const AciUnitIdRouteRouteChildren: AciUnitIdRouteRouteChildren = {
+  AciUnitIdIndexRoute: AciUnitIdIndexRoute,
+  AciUnitIdProcessosSubmissionIdRoute: AciUnitIdProcessosSubmissionIdRoute,
+  AciUnitIdRelatorioRunIdRoute: AciUnitIdRelatorioRunIdRoute,
+}
+
+const AciUnitIdRouteRouteWithChildren = AciUnitIdRouteRoute._addFileChildren(
+  AciUnitIdRouteRouteChildren,
+)
+
 interface AciRouteRouteChildren {
+  AciUnitIdRouteRoute: typeof AciUnitIdRouteRouteWithChildren
   AciNovaRoute: typeof AciNovaRoute
   AciIndexRoute: typeof AciIndexRoute
   AciProcessosSubmissionIdRoute: typeof AciProcessosSubmissionIdRoute
@@ -568,6 +864,7 @@ interface AciRouteRouteChildren {
 }
 
 const AciRouteRouteChildren: AciRouteRouteChildren = {
+  AciUnitIdRouteRoute: AciUnitIdRouteRouteWithChildren,
   AciNovaRoute: AciNovaRoute,
   AciIndexRoute: AciIndexRoute,
   AciProcessosSubmissionIdRoute: AciProcessosSubmissionIdRoute,
@@ -578,12 +875,29 @@ const AciRouteRouteWithChildren = AciRouteRoute._addFileChildren(
   AciRouteRouteChildren,
 )
 
+interface AdminUnitIdRouteRouteChildren {
+  AdminUnitIdAcessosRoute: typeof AdminUnitIdAcessosRoute
+  AdminUnitIdIndexRoute: typeof AdminUnitIdIndexRoute
+}
+
+const AdminUnitIdRouteRouteChildren: AdminUnitIdRouteRouteChildren = {
+  AdminUnitIdAcessosRoute: AdminUnitIdAcessosRoute,
+  AdminUnitIdIndexRoute: AdminUnitIdIndexRoute,
+}
+
+const AdminUnitIdRouteRouteWithChildren =
+  AdminUnitIdRouteRoute._addFileChildren(AdminUnitIdRouteRouteChildren)
+
 interface AdminRouteRouteChildren {
+  AdminUnitIdRouteRoute: typeof AdminUnitIdRouteRouteWithChildren
   AdminAcessosRoute: typeof AdminAcessosRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminUnitIdRouteRoute: AdminUnitIdRouteRouteWithChildren,
   AdminAcessosRoute: AdminAcessosRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
@@ -634,6 +948,41 @@ const PregoeiroRouteRouteWithChildren = PregoeiroRouteRoute._addFileChildren(
   PregoeiroRouteRouteChildren,
 )
 
+interface RequisitanteUnitIdRouteRouteChildren {
+  RequisitanteUnitIdNovaRoute: typeof RequisitanteUnitIdNovaRoute
+  RequisitanteUnitIdIndexRoute: typeof RequisitanteUnitIdIndexRoute
+  RequisitanteUnitIdProcessosSubmissionIdRoute: typeof RequisitanteUnitIdProcessosSubmissionIdRoute
+  RequisitanteUnitIdRelatorioRunIdRoute: typeof RequisitanteUnitIdRelatorioRunIdRoute
+}
+
+const RequisitanteUnitIdRouteRouteChildren: RequisitanteUnitIdRouteRouteChildren =
+  {
+    RequisitanteUnitIdNovaRoute: RequisitanteUnitIdNovaRoute,
+    RequisitanteUnitIdIndexRoute: RequisitanteUnitIdIndexRoute,
+    RequisitanteUnitIdProcessosSubmissionIdRoute:
+      RequisitanteUnitIdProcessosSubmissionIdRoute,
+    RequisitanteUnitIdRelatorioRunIdRoute:
+      RequisitanteUnitIdRelatorioRunIdRoute,
+  }
+
+const RequisitanteUnitIdRouteRouteWithChildren =
+  RequisitanteUnitIdRouteRoute._addFileChildren(
+    RequisitanteUnitIdRouteRouteChildren,
+  )
+
+interface RequisitanteRouteRouteChildren {
+  RequisitanteUnitIdRouteRoute: typeof RequisitanteUnitIdRouteRouteWithChildren
+  RequisitanteIndexRoute: typeof RequisitanteIndexRoute
+}
+
+const RequisitanteRouteRouteChildren: RequisitanteRouteRouteChildren = {
+  RequisitanteUnitIdRouteRoute: RequisitanteUnitIdRouteRouteWithChildren,
+  RequisitanteIndexRoute: RequisitanteIndexRoute,
+}
+
+const RequisitanteRouteRouteWithChildren =
+  RequisitanteRouteRoute._addFileChildren(RequisitanteRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AciRouteRoute: AciRouteRouteWithChildren,
@@ -641,6 +990,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   PregoeiroRouteRoute: PregoeiroRouteRouteWithChildren,
+  RequisitanteRouteRoute: RequisitanteRouteRouteWithChildren,
   HealthRoute: HealthRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   PoliticaDeCookiesRoute: PoliticaDeCookiesRoute,

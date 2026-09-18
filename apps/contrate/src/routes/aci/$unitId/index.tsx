@@ -1,32 +1,29 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Plus, WarningTriangle } from "iconoir-react"
+import { WarningTriangle } from "iconoir-react"
 import { useMemo, useState } from "react"
 import { AciNav } from "@/components/aci/AciNav"
 import { StageBadge } from "@/components/aci/StageStepper"
 import { StatGrid } from "@/components/aci/StatGrid"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import { aciQueueQueryOptions, DECISION_LABEL, type QueueItem, STAGE_LABEL, STAGE_ORDER, type Stage } from "@/lib/alpha/aci"
 import { SEVERITY_ORDER } from "@/lib/alpha/compliance"
 import { formatDateTime } from "@/lib/alpha/format"
+import { alphaAccessQueryOptions } from "@/lib/alpha/role"
 
-export const Route = createFileRoute("/aci/")({
+export const Route = createFileRoute("/aci/$unitId/")({
+	// Só no cliente (a rota-mãe é `ssr: false`): `alphaRequest` fala com outro serviço.
 	loader: ({ context }) => {
-		// Só no cliente: `alphaRequest` fala com outro serviço e não tem timeout —
-		// no SSR uma chamada pendurada prenderia a resposta do documento.
-		if (typeof document === "undefined") return
-
 		const token = context.auth.session?.access_token
 		if (!token) return
 
 		// Dispara sem esperar: a tela usa `useQuery` e tem estado de carregamento
 		// próprio. O `.catch` deixa a falha no cache, para a tela exibir o próprio erro.
-		void context.queryClient.query({ ...aciQueueQueryOptions(token), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...aciQueueQueryOptions(token, context.scopeContext.unitId), staleTime: "static" }).catch(() => {})
 	},
 	component: PainelPage,
-	head: () => ({ meta: [{ title: "Plataforma ACI" }] }),
+	head: () => ({ meta: [{ title: "Fila · Plataforma ACI" }] }),
 })
 
 /** Data da última coisa que aconteceu no processo — o que ordena a atenção. */
@@ -60,15 +57,16 @@ function SeverityCounts({ item }: { item: QueueItem }) {
 	)
 }
 
-function QueueRow({ item }: { item: QueueItem }) {
+function QueueRow({ item, unitId, unitLabel }: { item: QueueItem; unitId: string; unitLabel: string | null }) {
 	return (
 		<tr className="border-border border-b last:border-b-0 hover:bg-muted/40">
 			<td className="px-3 py-3 align-top">
-				<Link to="/aci/processos/$submissionId" params={{ submissionId: item.submission.id }} className="block min-w-0 hover:underline">
+				<Link to="/aci/$unitId/processos/$submissionId" params={{ unitId, submissionId: item.submission.id }} className="block min-w-0 hover:underline">
 					<span className="block truncate font-medium text-sm">{item.submission.filename}</span>
 					<span className="block text-muted-foreground text-xs">
 						{item.submission.doc_kind}
 						{item.submission.objeto ? ` · ${item.submission.objeto}` : ""} · enviado {formatDateTime(item.submission.created_at)}
+						{unitLabel ? ` · ${unitLabel}` : ""}
 					</span>
 				</Link>
 			</td>
@@ -91,7 +89,18 @@ function QueueRow({ item }: { item: QueueItem }) {
 
 function PainelPage() {
 	const { session } = useAuth()
-	const queue = useQuery(aciQueueQueryOptions(session?.access_token))
+	const { scopeContext } = Route.useRouteContext()
+	const { unitId } = Route.useParams()
+	const queue = useQuery(aciQueueQueryOptions(session?.access_token, scopeContext.unitId))
+	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
+	// Na fila de mais de uma OM (`todas`), cada linha diz de que OM é o processo.
+	const unitCodes = useMemo(() => new Map((access.data?.units ?? []).map((unit) => [unit.id, unit.code])), [access.data])
+	const labelFor = (item: QueueItem) =>
+		scopeContext.kind === "unit"
+			? null
+			: item.submission.unit_id === null
+				? "sem OM"
+				: (unitCodes.get(item.submission.unit_id) ?? `OM ${item.submission.unit_id}`)
 	const [stageFilter, setStageFilter] = useState<Stage | "todas">("todas")
 
 	const items = useMemo(() => {
@@ -111,13 +120,12 @@ function PainelPage() {
 	return (
 		<div>
 			<AciNav
-				title="Painel do analista"
-				subtitle="Todos os processos submetidos ao α, em que etapa estão e o que pede decisão. A máquina aponta; o parecer é seu."
-				actions={
-					<Button render={<Link to="/aci/nova" />} nativeButton={false} size="sm">
-						<Plus className="size-4" />
-						nova análise
-					</Button>
+				scope={scopeContext.label}
+				title="Fila"
+				subtitle={
+					scopeContext.kind === "all"
+						? "Os processos de todas as OMs, em que etapa estão e o que pede decisão. A máquina aponta; o parecer é seu."
+						: `Os processos de ${scopeContext.label}, em que etapa estão e o que pede decisão. A máquina aponta; o parecer é seu.`
 				}
 			/>
 
@@ -172,12 +180,8 @@ function PainelPage() {
 
 					{queue.data.items.length === 0 ? (
 						<div className="border border-border p-8 text-center">
-							<p className="font-medium text-sm">Nenhum processo submetido ainda</p>
-							<p className="mt-1 text-muted-foreground text-sm">Envie um ETP ou TR para começar a fila.</p>
-							<Button render={<Link to="/aci/nova" />} nativeButton={false} size="sm" variant="outline" className="mt-4">
-								<Plus className="size-4" />
-								nova análise
-							</Button>
+							<p className="font-medium text-sm">Nenhum processo nesta OM ainda</p>
+							<p className="mt-1 text-muted-foreground text-sm">Os processos chegam pelo módulo Requisitante, quando alguém envia o ETP, o TR ou o edital.</p>
 						</div>
 					) : items.length === 0 ? (
 						<p className="border border-border p-8 text-center text-muted-foreground text-sm">Nenhum processo nesta etapa.</p>
@@ -195,7 +199,7 @@ function PainelPage() {
 								</thead>
 								<tbody>
 									{items.map((item) => (
-										<QueueRow key={item.submission.id} item={item} />
+										<QueueRow key={item.submission.id} item={item} unitId={unitId} unitLabel={labelFor(item)} />
 									))}
 								</tbody>
 							</table>
