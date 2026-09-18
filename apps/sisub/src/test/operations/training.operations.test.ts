@@ -77,6 +77,27 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// para documento inexistente. Mesma razão das demais tabelas de estoque.
 	"inventory.stock_issue_request": "requisição de saída é dado operacional de estoque, fora do escopo de treino, e seus movimentos ficam no ledger",
 	"procurement.contract_designation": "designação de fiscal/gestor é ato administrativo real, não dado de treino",
+	// ── Declaradas ANTES das migrations que as criam, de propósito ──────────────
+	// Este contrato é DEFAULT-DENY: ele varre o banco vivo e cobra que toda
+	// tabela escopada esteja declarada. Quando a migration é aplicada ao banco
+	// compartilhado antes de a declaração estar na `main`, TODA branch aberta de
+	// qualquer app passa a falhar no mesmo instante — aconteceu quatro vezes
+	// num único dia, e o remédio foi sempre um PR minúsculo como este, depois.
+	//
+	// Declarar antes é barato e é verde nos dois estados: a asserção compara o
+	// que EXISTE no banco contra o que está coberto, e cobertura a mais nunca
+	// sobra. Por isso a ordem certa é: declara, aplica, mergeia o recurso.
+	//
+	// `inventory.expiry_alert_policy` — migration 20260919120000 (Fase 5).
+	"inventory.expiry_alert_policy":
+		"antecedência do alerta de validade por item ou classe — parâmetro de operação da cozinha, como kitchen_stock_settings: sem linha valem os defaults, e apagar no reset descalibraria o alerta da cozinha sentinela",
+	// `inventory.count_scope_item` — migration 20260920120000 (Fase 6). O escopo
+	// materializado do inventário. Apagá-lo no reset deixaria os lançamentos da
+	// contagem apontando para um escopo que não existe mais, e o índice de
+	// sobreposição perderia a única linha que impede duas contagens sobre o
+	// mesmo item.
+	"inventory.count_scope_item":
+		"escopo materializado da contagem física — documento operacional de estoque, fora do escopo de treino, e seus lançamentos ficam no ledger",
 	"gs1_integration.gtin_alias": "catálogo compartilhado (GTIN aprendido na conferência); não é dado operacional da cozinha de treino",
 }
 
