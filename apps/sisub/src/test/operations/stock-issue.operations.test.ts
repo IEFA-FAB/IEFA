@@ -186,6 +186,16 @@ describeIf("stock issue request (DB)", () => {
 						)
 					).rejects.toThrow(/já foi usado para outra saída/)
 
+					// reenvio com MAIS de 4 casas é o MESMO pedido: grava 0.1235 e o
+					// replay compara no mesmo número (20260918230000), em vez de responder
+					// "outra saída" sobre uma saída já gravada
+					await tx`select * from inventory.issue_stock(${request.id}, ${feijao.id}, 0.12345, ${author.id}, 'emissao-r4-casas', null, null, null)`
+					const [casas] =
+						await tx`select * from inventory.issue_stock(${request.id}, ${feijao.id}, 0.12345, ${author.id}, 'emissao-r4-casas', null, null, null)`
+					expect(Number(casas.movements)).toBe(1)
+					const [{ q }] = await tx`select sum(quantity) as q from inventory.stock_movement where emission_id = 'emissao-r4-casas'`
+					expect(Number(q)).toBe(0.1235)
+
 					// devolução: o mesmo identificador com outro lote ou quantidade é recusado
 					await tx`select * from inventory.return_issue(${request.id}, ${lotA.id}, 2, ${author.id}, 'devolucao-r4-0001')`
 					await expect(

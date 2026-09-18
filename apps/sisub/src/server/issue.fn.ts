@@ -340,13 +340,24 @@ interface AdHocSummary {
 	destination: string | null
 }
 
+/**
+ * Quantidade de saída e devolução: no máximo 4 casas, que é o que
+ * `stock_movement.quantity` (numeric(14,4)) guarda. Com mais casas, o reenvio
+ * depois de um 502 comparava o número digitado com o gravado arredondado e era
+ * recusado como "outra saída" — e o operador lançava de novo.
+ */
+const ISSUE_QUANTITY = z
+	.number()
+	.positive()
+	.refine((value) => Number(value.toFixed(4)) === value, "Quantidade com no máximo 4 casas decimais")
+
 /** Emite a saída de um ingrediente. */
 export const issueStockFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			requestId: z.uuid(),
 			ingredientId: z.uuid(),
-			quantity: z.number().positive(),
+			quantity: ISSUE_QUANTITY,
 			emissionId: z.string().min(8).max(64),
 			overrideLotId: z.uuid().optional(),
 			justification: z.string().max(300).optional(),
@@ -392,7 +403,7 @@ export const issueStockFn = createServerFn({ method: "POST" })
 
 /** Devolve ao lote de origem o que saiu e não foi usado. */
 export const returnIssueFn = createServerFn({ method: "POST" })
-	.validator(z.object({ requestId: z.uuid(), lotId: z.uuid(), quantity: z.number().positive(), emissionId: z.string().min(8).max(64) }))
+	.validator(z.object({ requestId: z.uuid(), lotId: z.uuid(), quantity: ISSUE_QUANTITY, emissionId: z.string().min(8).max(64) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()

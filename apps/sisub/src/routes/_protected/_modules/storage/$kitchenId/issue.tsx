@@ -206,7 +206,9 @@ function DailyIssuePage() {
 		const lotId = scannedLot?.ingredientId === ingredientId ? scannedLot.lotId : null
 		// o identificador é do PEDIDO inteiro — insumo, quantidade E lote: trocar
 		// qualquer um é outra saída, e o banco recusa reaproveitar o identificador
-		const emissionKey = `${ingredientId}:${quantity}:${lotId ?? "auto"}`
+		// a requisição entra na chave: a tentativa não confirmada na avulsa A não
+		// pode emprestar o identificador para a avulsa B
+		const emissionKey = `${request.request.id}:${ingredientId}:${quantity}:${lotId ?? "auto"}`
 		const emissionId = emissionIdFor(emissionKey)
 		setBusy(true)
 		try {
@@ -655,7 +657,7 @@ function ReturnRow({
 					}
 					setReturning(true)
 					try {
-						const key = `${lotId}:${amount}`
+						const key = `${requestId}:${lotId}:${amount}`
 						const emissionId = emission?.key === key ? emission.id : crypto.randomUUID()
 						if (emission?.key !== key) setEmission({ key, id: emissionId })
 						const result = await returnIssueFn({ data: { requestId, lotId, quantity: amount, emissionId } })
