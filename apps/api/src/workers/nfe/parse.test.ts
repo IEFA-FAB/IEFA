@@ -220,7 +220,19 @@ describe("parseNfeXml — autenticidade", () => {
 		// Quando a validação XMLDSig com C14N existir (tarefa 3.3), este teste
 		// TEM de ser invertido, deliberadamente. Até lá, a única defesa é a
 		// consulta de situação na SEFAZ que o recebimento exige antes de efetivar.
-		const denegadaEditada = parseNfeXml(nfeXml(DET_COM_GTIN, { status: "100" }))
+		//
+		// O teste parte da nota denegada DE VERDADE e edita só o texto do `cStat`,
+		// que é o que um adulterador faria. Montar direto com `status: "100"`
+		// produziria uma nota autorizada comum e não provaria nada.
+		const denegada = nfeXml(DET_COM_GTIN, { status: "110" })
+		expect(parseNfeXml(denegada).authenticity.authorized).toBe(false)
+
+		const editada = denegada.replace("<cStat>110</cStat>", "<cStat>100</cStat>")
+		// a única diferença entre os dois arquivos é o cStat
+		expect(editada).not.toBe(denegada)
+		expect(editada.replace("<cStat>100</cStat>", "<cStat>110</cStat>")).toBe(denegada)
+
+		const denegadaEditada = parseNfeXml(editada)
 		expect(denegadaEditada.authenticity.authorized).toBe(true)
 		expect(denegadaEditada.authenticity.signatureDigestMatches).toBe(true)
 		expect(denegadaEditada.authenticity.problems).toEqual([])

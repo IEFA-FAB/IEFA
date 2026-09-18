@@ -37,6 +37,11 @@ export function invoiceSituationProblem(invoice: InvoiceSituation, now: number =
 export interface ReceiptForLiquidation {
 	/** Unidade COMPRADORA da cozinha do recebimento. */
 	unitId: number | null
+	/**
+	 * Lido só para o teste poder variar: a regra NÃO o consulta. Quem diz se a
+	 * entrega foi atestada é `definitiveAt`.
+	 */
+	status: string
 	/** Preenchido na efetivação — vale para `definitive` E para `divergent`. */
 	definitiveAt: string | null
 	nfeDocumentId: string | null
@@ -83,10 +88,22 @@ export function liquidationLinkProblems(input: LiquidationLinkInput, now: number
 		if (input.requestedNfeId != null && receipt.nfeDocumentId != null && input.requestedNfeId !== receipt.nfeDocumentId) {
 			problems.push("A NF-e informada não é a do recebimento")
 		}
+		// Recebimento SEM nota com uma nota informada na liquidação: a NS citaria
+		// um documento fiscal que ninguém conferiu contra a entrega. O vínculo
+		// nota↔entrega se faz no recebimento, onde os itens são casados — não aqui.
+		if (input.requestedNfeId != null && receipt.nfeDocumentId == null) {
+			problems.push("O recebimento não tem NF-e vinculada — vincule a nota ao recebimento antes de liquidar")
+		}
 	}
 
 	if (invoice) {
-		if (invoice.unitId != null && invoice.unitId !== input.unitId) problems.push("A NF-e não é desta unidade")
+		// Nota sem unidade (triagem, ou importada antes da coluna existir) só passa
+		// quando chega PELO recebimento, que já provou a unidade. Informada solta,
+		// `unitId` nulo pulava a checagem de unidade inteira.
+		const cameThroughReceipt = receipt?.nfeDocumentId != null && (input.requestedNfeId == null || input.requestedNfeId === receipt.nfeDocumentId)
+		if (invoice.unitId == null) {
+			if (!cameThroughReceipt) problems.push("A NF-e ainda não tem unidade atribuída — não pode sustentar liquidação")
+		} else if (invoice.unitId !== input.unitId) problems.push("A NF-e não é desta unidade")
 		const situation = invoiceSituationProblem(invoice, now)
 		if (situation) problems.push(situation)
 	}
