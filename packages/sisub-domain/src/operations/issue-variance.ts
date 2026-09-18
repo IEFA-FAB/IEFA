@@ -37,7 +37,11 @@ export interface IssueToleranceSettings {
 
 export interface IssueLineForVariance {
 	ingredientId: string
-	/** Sugestão congelada no fechamento. Null/0 = sem planejamento no dia. */
+	/**
+	 * Sugestão congelada no fechamento. `null` = o item NUNCA esteve no plano do
+	 * dia (lançado avulso). `0` = esteve e saiu (ou foi planejado com zero): a
+	 * linha só nasce da sugestão, então zero é "o plano disse nada disto".
+	 */
 	suggestedQty: number | null
 	/** Emitido menos devolvido. */
 	issuedNetQty: number
@@ -80,9 +84,14 @@ export function evaluateVariance(line: IssueLineForVariance, settings: IssueTole
 	const deltaPct = suggested > 0 ? Number(((Math.abs(delta) / suggested) * 100).toFixed(2)) : null
 
 	// Sem sugestão não há variância: a cozinha que não planeja no sisub não é
-	// obrigada a justificar o que o sistema nunca previu.
-	const hasSuggestion = suggested > 0
-	const overPct = deltaPct != null && deltaPct > settings.tolerancePct
+	// obrigada a justificar o que o sistema nunca previu. Mas "nunca previu" é
+	// `null`. Sugestão ZERO é o plano dizendo "nada disto" — o insumo saiu do
+	// cardápio depois de 40 KG terem saído do estoque —, e contar isso como "sem
+	// planejamento" fechava o dia sem justificativa para a saída inteira.
+	const hasSuggestion = line.suggestedQty != null
+	// contra zero, qualquer saída é desvio de 100 % ou mais: o percentual não
+	// tem denominador, e quem decide se é relevante é o piso em valor
+	const overPct = suggested > 0 ? deltaPct != null && deltaPct > settings.tolerancePct : delta !== 0
 	const overFloor = deltaValue > settings.toleranceFloorValue
 	// exige as DUAS condições: percentual grande em item barato é ruído, e
 	// valor grande dentro do percentual é o previsto para item caro
@@ -112,4 +121,20 @@ export function checkDayClosure(lines: readonly IssueLineForVariance[], settings
 	const verdicts = lines.map((line) => evaluateVariance(line, settings))
 	const pending = verdicts.filter((verdict) => verdict.requiresReason && !verdict.hasReason)
 	return { verdicts, pending, canClose: pending.length === 0 }
+}
+
+/**
+ * Forma canônica da sugestão de uma requisição — a MESMA string que
+ * `inventory.issue_suggestion_fingerprint` monta no banco: `ingrediente=qtd`
+ * com 4 casas, em ordem de ingrediente, separados por vírgula; nula vira vazio.
+ *
+ * O fechamento a manda junto com a contagem de movimentos: se a sugestão mudou
+ * entre o retrato de variância e a trava, o banco recusa. Só a contagem não
+ * enxergava "recalcular sugestão" no meio do fechamento.
+ */
+export function issueSuggestionFingerprint(rows: readonly { ingredientId: string; suggestedQty: number | string | null }[]): string {
+	return [...rows]
+		.sort((a, b) => (a.ingredientId < b.ingredientId ? -1 : a.ingredientId > b.ingredientId ? 1 : 0))
+		.map((row) => `${row.ingredientId}=${row.suggestedQty == null ? "" : Number(row.suggestedQty).toFixed(4)}`)
+		.join(",")
 }

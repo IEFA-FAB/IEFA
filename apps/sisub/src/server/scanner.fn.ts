@@ -102,6 +102,24 @@ export const saveScannerProfileFn = createServerFn({ method: "POST" })
 	})
 
 /**
+ * Entre os insumos para os quais um código aponta, o que tem lote nesta
+ * cozinha; sem nenhum com lote, o primeiro. Lista vazia → `undefined`.
+ */
+async function preferStocked(kitchenId: number, ingredientIds: readonly string[]): Promise<string | undefined> {
+	const unique = [...new Set(ingredientIds)]
+	if (unique.length <= 1) return unique[0]
+	const { data: lots, error } = await inventory()
+		.from("stock_lot")
+		.select("ingredient_id")
+		.eq("kitchen_id", kitchenId)
+		.in("ingredient_id", unique)
+		.is("quarantined_at", null)
+		.limit(1)
+	if (error) throw new Error(`Erro ao resolver o código lido: ${error.message}`)
+	return ((lots ?? [])[0]?.ingredient_id as string | undefined) ?? unique[0]
+}
+
+/**
  * Resolve uma leitura ao INSUMO da cozinha.
  *
  * A tela de saída lia o GTIN e respondia "informe a quantidade na linha do
@@ -134,14 +152,16 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 
 			if (data.lotShortCode) {
 				const inv = inventory()
-				const { data: lot } = await inv
+				const { data: lot, error: lotError } = await inv
 					.from("stock_lot")
 					.select("id, ingredient_id")
 					.eq("kitchen_id", data.kitchenId)
 					.eq("short_code", data.lotShortCode.toUpperCase())
 					.maybeSingle()
+				if (lotError) throw new Error(`Erro ao resolver a etiqueta lida: ${lotError.message}`)
 				if (!lot?.ingredient_id) return { ingredientId: null, lotId: (lot?.id as string) ?? null, description: null, matchedBy: null }
-				const { data: ingredient } = await kit.from("ingredient").select("description").eq("id", lot.ingredient_id).maybeSingle()
+				const { data: ingredient, error: ingredientError } = await kit.from("ingredient").select("description").eq("id", lot.ingredient_id).maybeSingle()
+				if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${ingredientError.message}`)
 				return { ingredientId: lot.ingredient_id as string, lotId: lot.id as string, description: ingredient?.description ?? null, matchedBy: "lot" }
 			}
 
@@ -151,15 +171,25 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 			// único, e dois SKUs com o mesmo código não são um erro — são o mesmo
 			// produto cadastrado por duas cozinhas antes da revisão global juntar
 			// os dois. Nenhuma das duas leituras usa `maybeSingle`.
+			//
+			// SKU apagado não conta: o código de um produto que saiu do catálogo
+			// resolvia para ele, e a embalagem na mão do operador era dita "sem saldo
+			// nesta cozinha". E, entre os insumos que o código aponta, ganha o que TEM
+			// lote nesta cozinha — pegar "o primeiro pela ordem do id" escolhia o
+			// insumo da outra cozinha.
 			const { data: skus, error: skuError } = await kit
 				.from("ingredient_item")
 				.select("ingredient_id")
 				.eq("gtin", data.gtin)
 				.not("ingredient_id", "is", null)
+				.is("deleted_at", null)
 				.order("ingredient_id", { ascending: true })
-				.limit(1)
+				.limit(50)
 			if (skuError) throw new Error(`Erro ao resolver o código lido: ${skuError.message}`)
-			let ingredientId = ((skus ?? [])[0]?.ingredient_id as string | undefined) ?? undefined
+			let ingredientId = await preferStocked(
+				data.kitchenId,
+				((skus ?? []) as Array<{ ingredient_id: string }>).map((row) => row.ingredient_id)
+			)
 			let matchedBy: "gtin" | "alias" = "gtin"
 
 			if (!ingredientId) {
@@ -182,14 +212,21 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 				if (aliasError) throw new Error(`Erro ao resolver o código lido: ${aliasError.message}`)
 				const alias = (aliases ?? [])[0]
 				if (alias?.ingredient_item_id) {
-					const { data: aliasItem } = await kit.from("ingredient_item").select("ingredient_id").eq("id", alias.ingredient_item_id).maybeSingle()
+					const { data: aliasItem, error: aliasItemError } = await kit
+						.from("ingredient_item")
+						.select("ingredient_id")
+						.eq("id", alias.ingredient_item_id)
+						.is("deleted_at", null)
+						.maybeSingle()
+					if (aliasItemError) throw new Error(`Erro ao resolver o código lido: ${aliasItemError.message}`)
 					ingredientId = (aliasItem?.ingredient_id as string | undefined) ?? undefined
 					matchedBy = "alias"
 				}
 			}
 
 			if (!ingredientId) return { ingredientId: null, lotId: null, description: null, matchedBy: null }
-			const { data: ingredient } = await kit.from("ingredient").select("description").eq("id", ingredientId).maybeSingle()
+			const { data: ingredient, error: ingredientError } = await kit.from("ingredient").select("description").eq("id", ingredientId).maybeSingle()
+			if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${ingredientError.message}`)
 			return { ingredientId, lotId: null, description: ingredient?.description ?? null, matchedBy }
 		}
 	)

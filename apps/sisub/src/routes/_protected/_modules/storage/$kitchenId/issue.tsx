@@ -45,6 +45,8 @@ import { fetchStockBalanceFn } from "@/server/stock.fn"
  */
 const searchSchema = z.object({
 	origin: z.enum(["production", "ad_hoc"]).catch("production").optional(),
+	/** Avulsa escolhida — pode haver várias no dia. */
+	requestId: z.uuid().optional().catch(undefined),
 })
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/issue")({
@@ -53,16 +55,16 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/is
 	// LEITURA PURA. Com `defaultPreload: "intent"`, passar o mouse no link da
 	// barra lateral chama o loader — e um loader que abre a requisição criava o
 	// documento do dia sem ninguém ter clicado em nada.
-	loaderDeps: ({ search }) => ({ origin: search.origin ?? "production" }),
+	loaderDeps: ({ search }) => ({ origin: search.origin ?? "production", requestId: search.requestId }),
 	loader: async ({ params, deps }) => {
 		const kitchenId = Number(params.kitchenId)
 		const [today, balance, scannerProfile] = await Promise.all([
-			fetchTodayIssueRequestFn({ data: { kitchenId, origin: deps.origin } }),
+			fetchTodayIssueRequestFn({ data: { kitchenId, origin: deps.origin, requestId: deps.origin === "ad_hoc" ? deps.requestId : undefined } }),
 			fetchStockBalanceFn({ data: { kitchenId } }),
 			fetchScannerProfileFn({ data: { kitchenId } }),
 		])
 		const request = today.requestId ? await fetchIssueRequestFn({ data: { requestId: today.requestId } }) : null
-		return { request, balance, scannerProfile, origin: deps.origin }
+		return { request, balance, scannerProfile, origin: deps.origin, adHocToday: today.adHocToday }
 	},
 	component: DailyIssuePage,
 	head: () => ({ meta: [{ title: "Estoque — Saída do dia" }] }),
@@ -72,7 +74,7 @@ const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 function DailyIssuePage() {
-	const { request, balance, scannerProfile, origin } = Route.useLoaderData()
+	const { request, balance, scannerProfile, origin, adHocToday } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const navigate = useNavigate()
@@ -86,6 +88,9 @@ function DailyIssuePage() {
 	const [extraIngredientId, setExtraIngredientId] = useState("")
 	// linha apontada pela última leitura — some assim que a saída é lançada
 	const [scannedIngredientId, setScannedIngredientId] = useState<string | null>(null)
+	// Lote lido na etiqueta: a saída daquele insumo sai DESSE lote, o que está
+	// na mão do operador — e não do que a alocação automática escolheria.
+	const [scannedLot, setScannedLot] = useState<{ ingredientId: string; lotId: string } | null>(null)
 	const [extraQuantity, setExtraQuantity] = useState("")
 
 	const open = request?.request.status === "open"
@@ -138,6 +143,8 @@ function DailyIssuePage() {
 			const ingredientId = found.ingredientId
 			const label = found.description ?? "insumo"
 			setScannedIngredientId(ingredientId)
+			// só a etiqueta de LOTE fixa o lote; o GTIN da embalagem não diz qual é
+			setScannedLot(found.matchedBy === "lot" && found.lotId ? { ingredientId, lotId: found.lotId } : null)
 			const inSuggestion = request?.lines.some((line) => line.ingredientId === ingredientId) ?? false
 			if (!inSuggestion) {
 				if (!stockByIngredient.has(ingredientId)) {
@@ -158,6 +165,29 @@ function DailyIssuePage() {
 		}
 	}
 
+	/** Cada avulsa é um documento novo; a tela passa a mostrar a que acabou de abrir. */
+	async function openAdHoc(purpose: string, destination: string) {
+		setBusy(true)
+		try {
+			const opened = await openIssueRequestFn({
+				data: { kitchenId: Number(kitchenId), origin: "ad_hoc", purpose, destination: destination.trim() || undefined },
+			})
+			toast.success("Saída avulsa aberta")
+			await navigate({ to: ".", search: { origin: "ad_hoc", requestId: opened.requestId } })
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Erro ao abrir a saída avulsa")
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	function promptAdHoc() {
+		const purpose = window.prompt("Motivo da saída avulsa (evento, apoio, instrução)")
+		if (!purpose?.trim()) return
+		const destination = window.prompt("Destino") ?? ""
+		openAdHoc(purpose, destination)
+	}
+
 	async function run(action: () => Promise<unknown>, success: string) {
 		setBusy(true)
 		try {
@@ -173,10 +203,22 @@ function DailyIssuePage() {
 
 	async function emit(ingredientId: string, quantity: number) {
 		if (!request) return
-		const emissionId = emissionIdFor(`${ingredientId}:${quantity}`)
+		const lotId = scannedLot?.ingredientId === ingredientId ? scannedLot.lotId : null
+		// o identificador é do PEDIDO inteiro — insumo, quantidade E lote: trocar
+		// qualquer um é outra saída, e o banco recusa reaproveitar o identificador
+		const emissionKey = `${ingredientId}:${quantity}:${lotId ?? "auto"}`
+		const emissionId = emissionIdFor(emissionKey)
 		setBusy(true)
 		try {
-			const result = await issueStockFn({ data: { requestId: request.request.id, ingredientId, quantity, emissionId } })
+			const result = await issueStockFn({
+				data: {
+					requestId: request.request.id,
+					ingredientId,
+					quantity,
+					emissionId,
+					...(lotId ? { overrideLotId: lotId, justification: "Lote lido na etiqueta pelo operador" } : {}),
+				},
+			})
 			// `withoutLot` é a parte que não coube em lote nenhum: ela vira movimento
 			// sem lote e estoque NEGATIVO até a contagem regularizar. Reportar isso
 			// como sucesso puro é o começo de um estoque que ninguém confia.
@@ -190,13 +232,14 @@ function DailyIssuePage() {
 			// só descarta o identificador DEPOIS do sucesso: enquanto a emissão não
 			// confirmou, repetir o clique tem de repetir o mesmo id
 			setEmissionIds((current) => {
-				const { [`${ingredientId}:${quantity}`]: _discarded, ...rest } = current
+				const { [emissionKey]: _discarded, ...rest } = current
 				return rest
 			})
 			setQuantities((current) => ({ ...current, [ingredientId]: "" }))
 			// a leitura terminou o trabalho dela: o destaque sai com a emissão, senão
 			// a próxima leitura aponta para uma linha e outra fica acesa
 			setScannedIngredientId(null)
+			setScannedLot(null)
 			await router.invalidate()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Erro na saída")
@@ -221,22 +264,13 @@ function DailyIssuePage() {
 								disabled={busy}
 								onClick={() => {
 									if (origin === "ad_hoc") {
-										const purpose = window.prompt("Motivo da saída avulsa (evento, apoio, instrução)")
-										if (!purpose?.trim()) return
-										const destination = window.prompt("Destino") ?? ""
-										run(
-											() =>
-												openIssueRequestFn({
-													data: { kitchenId: Number(kitchenId), origin: "ad_hoc", purpose, destination: destination.trim() || undefined },
-												}),
-											"Saída avulsa aberta"
-										)
+										promptAdHoc()
 										return
 									}
 									run(() => openIssueRequestFn({ data: { kitchenId: Number(kitchenId), origin: "production" } }), "Requisição do dia aberta")
 								}}
 							>
-								{origin === "ad_hoc" ? "Abrir saída avulsa de hoje" : "Abrir a requisição de hoje"}
+								{origin === "ad_hoc" ? "Abrir uma saída avulsa" : "Abrir a requisição de hoje"}
 							</Button>
 							<Button type="button" variant="ghost" onClick={() => navigate({ to: ".", search: { origin: origin === "ad_hoc" ? "production" : "ad_hoc" } })}>
 								{origin === "ad_hoc" ? "Ver a saída da produção" : "Saída avulsa (evento, apoio)"}
@@ -271,6 +305,29 @@ function DailyIssuePage() {
 					<Badge variant="secondary">{request.request.status === "closed" ? "Fechado" : "Fechado sem justificativa"}</Badge>
 				)}
 			</PageHeader>
+
+			{origin === "ad_hoc" && (
+				<div className="flex flex-wrap items-center gap-2 text-xs">
+					{adHocToday.length > 1 && <span className="text-muted-foreground">Avulsas de hoje:</span>}
+					{adHocToday.length > 1 &&
+						adHocToday.map((row) => (
+							<Button
+								key={row.id}
+								type="button"
+								size="sm"
+								variant={row.id === request.request.id ? "secondary" : "ghost"}
+								className="h-7"
+								onClick={() => navigate({ to: ".", search: { origin: "ad_hoc", requestId: row.id } })}
+							>
+								{row.purpose ?? "sem motivo"}
+								{row.status === "open" ? "" : " (fechada)"}
+							</Button>
+						))}
+					<Button type="button" size="sm" variant="outline" className="h-7" disabled={busy} onClick={promptAdHoc}>
+						Nova saída avulsa
+					</Button>
+				</div>
+			)}
 
 			{pending.length > 0 && (
 				<Card className="border-warning">
@@ -548,7 +605,10 @@ function ReturnRow({
 	const [lotId, setLotId] = useState("")
 	// mesmo raciocínio da emissão: o identificador sobrevive ao erro, para que a
 	// segunda tentativa depois de um 502 seja a MESMA devolução
-	const [emissionId, setEmissionId] = useState(() => crypto.randomUUID())
+	// …e é do PEDIDO: trocar o lote ou a quantidade é outra devolução. Mantido
+	// com o mesmo identificador, o retry devolvia calado a devolução anterior
+	// (2 KG do lote A) enquanto a tela dizia "3 devolvido".
+	const [emission, setEmission] = useState<{ key: string; id: string } | null>(null)
 	// Trava o botão enquanto a devolução viaja: dois cliques eram duas chamadas
 	// com o mesmo identificador, e o operador via sucesso e erro juntos.
 	const [returning, setReturning] = useState(false)
@@ -595,11 +655,14 @@ function ReturnRow({
 					}
 					setReturning(true)
 					try {
+						const key = `${lotId}:${amount}`
+						const emissionId = emission?.key === key ? emission.id : crypto.randomUUID()
+						if (emission?.key !== key) setEmission({ key, id: emissionId })
 						const result = await returnIssueFn({ data: { requestId, lotId, quantity: amount, emissionId } })
 						toast.success(`${description}: ${NUM.format(amount)} devolvido a ${BRL.format(result.unitCost)}/un`)
 						setQuantity("")
 						setLotId("")
-						setEmissionId(crypto.randomUUID())
+						setEmission(null)
 						onDone()
 					} catch (error) {
 						toast.error(error instanceof Error ? error.message : "Erro ao devolver")

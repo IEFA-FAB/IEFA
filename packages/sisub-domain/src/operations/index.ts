@@ -309,6 +309,7 @@ export {
 	type IssueLineForVariance,
 	type IssueToleranceSettings,
 	type IssueVarianceReason,
+	issueSuggestionFingerprint,
 	roundToIssuePackage,
 	type VarianceVerdict,
 } from "./issue-variance.ts"

@@ -21,6 +21,7 @@ import {
 	computeTheoreticalConsumption,
 	ISSUE_VARIANCE_REASONS,
 	type IssueLineForVariance,
+	issueSuggestionFingerprint,
 	type RecipeSnapshotForIssue,
 	roundToIssuePackage,
 } from "@iefa/sisub-domain"
@@ -91,17 +92,26 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 			"id",
 			taskList.map((task) => task.menu_item_id)
 		)
+		// Prato e refeição REMOVIDOS do cardápio (soft-delete) não geram sugestão:
+		// o quadro de produção já os esconde, e contá-los aqui fazia o dia pedir
+		// motivo para a "falta" de algo que ninguém vai cozinhar.
+		.is("deleted_at", null)
 	if (menuError) throw new Error(`Erro ao carregar o cardápio do dia: ${menuError.message}`)
 
 	const dailyMenuIds = [...new Set((menuItems ?? []).map((item: { daily_menu_id: string | null }) => item.daily_menu_id).filter(Boolean))] as string[]
 	const mealTypeByMenu = new Map<string, string | null>()
 	if (dailyMenuIds.length > 0) {
-		const { data: dailyMenus, error: menuTypeError } = await kit.from("daily_menu").select("id, meal_type_id").in("id", dailyMenuIds)
+		const { data: dailyMenus, error: menuTypeError } = await kit.from("daily_menu").select("id, meal_type_id").in("id", dailyMenuIds).is("deleted_at", null)
 		if (menuTypeError) throw new Error(`Erro ao carregar as refeições do dia: ${menuTypeError.message}`)
 		for (const menu of dailyMenus ?? []) mealTypeByMenu.set(menu.id, menu.meal_type_id ?? null)
 	}
 
-	const menuById = new Map((menuItems ?? []).map((item: { id: string }) => [item.id, item]))
+	// prato de uma refeição removida sai junto com ela
+	const menuById = new Map(
+		((menuItems ?? []) as Array<{ id: string; daily_menu_id: string | null }>)
+			.filter((item) => item.daily_menu_id == null || mealTypeByMenu.has(item.daily_menu_id))
+			.map((item) => [item.id, item])
+	)
 
 	const totals = new Map<string, { quantity: number; mealTypeId: string | null }>()
 	for (const task of taskList) {
@@ -129,10 +139,14 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 	if (totals.size === 0) return { lines: [], taskIds: taskList.map((task) => task.id) }
 
 	// fator de correção e embalagem de saída vêm do insumo
-	const { data: ingredients } = await kit
+	// Erro aqui NÃO pode passar calado: sem os dados do insumo a sugestão era
+	// gravada sem fator de correção e sem arredondar na embalagem, e a tela não
+	// dizia nada.
+	const { data: ingredients, error: ingredientError } = await kit
 		.from("ingredient")
 		.select("id, description, measure_unit, correction_factor, issue_package_quantity")
 		.in("id", [...totals.keys()])
+	if (ingredientError) throw new Error(`Erro ao carregar os dados dos insumos: ${ingredientError.message}`)
 	type IngredientMeta = { id: string; description: string; correction_factor: number | null; issue_package_quantity: number | null }
 	const metaById = new Map(((ingredients ?? []) as IngredientMeta[]).map((row) => [row.id, row]))
 
@@ -177,38 +191,49 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 			throw new Error("Saída avulsa exige destino e motivo")
 		}
 
-		// Abrir a requisição do dia é check-then-act sobre
-		// `unique (kitchen_id, issue_date, origin)`: dois operadores entrando na
-		// tela ao mesmo tempo — o normal, na troca de turno — não veem linha
-		// nenhuma, os dois inserem, e o segundo toma 23505 com "Erro ao abrir a
-		// requisição" na cara. Quem resolve a corrida é o índice, não o `select`:
-		// o insert ignora o conflito e, quando ele acontece, a leitura seguinte
-		// devolve a linha que o outro acabou de criar.
-		const readRequest = async () =>
-			(await inv
+		const values = {
+			kitchen_id: data.kitchenId,
+			issue_date: issueDate,
+			origin: data.origin,
+			destination: data.destination?.trim() || null,
+			purpose: data.purpose?.trim() || null,
+			authorization_reference: data.authorizationReference?.trim() || null,
+			created_by: userId,
+		}
+
+		// Saída AVULSA: cada abertura é um documento novo. Pode haver várias no dia
+		// (o apoio da manhã e o evento da noite), cada uma com o seu motivo e o seu
+		// destino — reusar a primeira calada perdia os dois.
+		if (data.origin === "ad_hoc") {
+			const { data: created, error } = await inv.from("stock_issue_request").insert(values).select("id").single()
+			if (error || !created) throw new Error(`Erro ao abrir a saída avulsa: ${error?.message}`)
+			return { requestId: created.id as string, reopened: false as const, suggested: 0 }
+		}
+
+		// A da PRODUÇÃO é uma por dia, e abri-la é check-then-act sobre o índice
+		// único parcial `(kitchen_id, issue_date) where origin = 'production'`: dois
+		// operadores entrando na tela ao mesmo tempo — o normal, na troca de turno —
+		// não veem linha nenhuma, os dois inserem, e o segundo toma 23505. Quem
+		// resolve a corrida é o índice: o 23505 vira a leitura da linha que o outro
+		// acabou de criar. (Não é `upsert(onConflict)`: o índice é PARCIAL, e o
+		// Postgres não o infere de uma lista de colunas — daria 42P10.)
+		const readRequest = async () => {
+			const { data: row, error } = await inv
 				.from("stock_issue_request")
 				.select("id, status")
 				.eq("kitchen_id", data.kitchenId)
 				.eq("issue_date", issueDate)
-				.eq("origin", data.origin)
-				.maybeSingle()) as { data: { id: string; status: string } | null }
+				.eq("origin", "production")
+				.maybeSingle()
+			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${error.message}`)
+			return row as { id: string; status: string } | null
+		}
 
-		let { data: existing } = await readRequest()
+		let existing = await readRequest()
 		if (!existing) {
-			const { error } = await inv.from("stock_issue_request").upsert(
-				{
-					kitchen_id: data.kitchenId,
-					issue_date: issueDate,
-					origin: data.origin,
-					destination: data.destination?.trim() || null,
-					purpose: data.purpose?.trim() || null,
-					authorization_reference: data.authorizationReference?.trim() || null,
-					created_by: userId,
-				},
-				{ onConflict: "kitchen_id,issue_date,origin", ignoreDuplicates: true }
-			)
-			if (error) throw new Error(`Erro ao abrir a requisição: ${error.message}`)
-			;({ data: existing } = await readRequest())
+			const { error } = await inv.from("stock_issue_request").insert(values)
+			if (error && error.code !== "23505") throw new Error(`Erro ao abrir a requisição: ${error.message}`)
+			existing = await readRequest()
 			if (!existing) throw new Error("Erro ao abrir a requisição do dia")
 		}
 
@@ -216,8 +241,6 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		if (existing.status !== "open") {
 			return { requestId, reopened: false as const, suggested: 0 }
 		}
-
-		if (data.origin === "ad_hoc") return { requestId, reopened: false as const, suggested: 0 }
 
 		// Enquanto aberta, a sugestão acompanha o planejamento: o efetivo muda.
 		// O conflito é por (requisição, ingrediente) e NÃO inclui a refeição: em
@@ -270,19 +293,52 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 				.regex(/^\d{4}-\d{2}-\d{2}$/)
 				.optional(),
 			origin: z.enum(["production", "ad_hoc"]).default("production"),
+			/** Avulsa escolhida na tela; sem ela, a avulsa ABERTA mais recente do dia. */
+			requestId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: row } = await inventory()
+		const issueDate = data.issueDate ?? brasiliaToday()
+		if (data.origin === "production") {
+			const { data: row, error } = await inventory()
+				.from("stock_issue_request")
+				.select("id")
+				.eq("kitchen_id", data.kitchenId)
+				.eq("issue_date", issueDate)
+				.eq("origin", "production")
+				.maybeSingle()
+			if (error) throw new Error(`Erro ao carregar a requisição do dia: ${error.message}`)
+			return { requestId: (row?.id as string | undefined) ?? null, adHocToday: [] as AdHocSummary[] }
+		}
+
+		// Avulsas do dia: podem ser várias. A tela mostra a escolhida, ou a aberta
+		// mais recente, e lista as outras para trocar.
+		const { data: rows, error } = await inventory()
 			.from("stock_issue_request")
-			.select("id")
+			.select("id, status, purpose, destination, created_at")
 			.eq("kitchen_id", data.kitchenId)
-			.eq("issue_date", data.issueDate ?? brasiliaToday())
-			.eq("origin", data.origin)
-			.maybeSingle()
-		return { requestId: (row?.id as string | undefined) ?? null }
+			.eq("issue_date", issueDate)
+			.eq("origin", "ad_hoc")
+			.order("created_at", { ascending: false })
+			.limit(50)
+		if (error) throw new Error(`Erro ao carregar as saídas avulsas do dia: ${error.message}`)
+		const adHocToday = ((rows ?? []) as Array<{ id: string; status: string; purpose: string | null; destination: string | null }>).map((row) => ({
+			id: row.id,
+			status: row.status,
+			purpose: row.purpose,
+			destination: row.destination,
+		}))
+		const chosen = data.requestId ? adHocToday.find((row) => row.id === data.requestId) : adHocToday.find((row) => row.status === "open")
+		return { requestId: chosen?.id ?? null, adHocToday }
 	})
+
+interface AdHocSummary {
+	id: string
+	status: string
+	purpose: string | null
+	destination: string | null
+}
 
 /** Emite a saída de um ingrediente. */
 export const issueStockFn = createServerFn({ method: "POST" })
@@ -299,15 +355,20 @@ export const issueStockFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
-		if (request.status !== "open") throw new Error("Requisição já fechada — abra a do dia atual")
+		// A recusa de dia fechado é do `issue_stock`, DEPOIS de reconhecer o retry.
+		// Recusar aqui antes cortava o retry de uma saída que passou pouco antes do
+		// fechamento: a tela mandava abrir a requisição do dia seguinte, o operador
+		// lançava de novo lá, e o estoque saía duas vezes.
 
 		// lote escolhido à mão: justificativa sempre; se vencido, nível 3
 		if (data.overrideLotId) {
 			if (!data.justification?.trim()) throw new Error("Escolher o lote fora da ordem exige justificativa")
-			const { data: lot } = await inv.from("stock_lot").select("expiry_date, quarantined_at").eq("id", data.overrideLotId).maybeSingle()
+			const { data: lot, error: lotError } = await inv.from("stock_lot").select("expiry_date, quarantined_at").eq("id", data.overrideLotId).maybeSingle()
+			if (lotError) throw new Error(`Erro ao conferir o lote: ${lotError.message}`)
 			if (lot?.quarantined_at) throw new Error("Lote em quarentena não sai para produção")
 			if (lot?.expiry_date && lot.expiry_date < brasiliaToday()) {
 				await requireStorageForKitchen(3, Number(request.kitchen_id))
@@ -334,7 +395,8 @@ export const returnIssueFn = createServerFn({ method: "POST" })
 	.validator(z.object({ requestId: z.uuid(), lotId: z.uuid(), quantity: z.number().positive(), emissionId: z.string().min(8).max(64) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 
@@ -480,7 +542,8 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 	.validator(z.object({ requestId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 		if (request.status !== "open") throw new Error("Requisição já fechada")
@@ -495,6 +558,19 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 			.select("id", { count: "exact", head: true })
 			.eq("issue_request_id", data.requestId)
 		if (countError) throw new Error(`Erro ao conferir os movimentos do dia: ${countError.message}`)
+		// E a SUGESTÃO, também antes do retrato: "recalcular" no meio do fechamento
+		// não muda a contagem, mas muda o número contra o qual a tolerância é medida.
+		const { data: seenItems, error: seenItemsError } = await inv
+			.from("stock_issue_request_item")
+			.select("ingredient_id, suggested_qty")
+			.eq("request_id", data.requestId)
+		if (seenItemsError) throw new Error(`Erro ao conferir a sugestão do dia: ${seenItemsError.message}`)
+		const seenSuggestions = issueSuggestionFingerprint(
+			((seenItems ?? []) as Array<{ ingredient_id: string; suggested_qty: number | string | null }>).map((row) => ({
+				ingredientId: row.ingredient_id,
+				suggestedQty: row.suggested_qty,
+			}))
+		)
 
 		const state = await fetchIssueRequestFn({ data: { requestId: data.requestId } })
 		if (!state.canClose) {
@@ -508,6 +584,7 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 			p_request_id: data.requestId,
 			p_user: userId,
 			p_seen_movements: seenMovements ?? 0,
+			p_seen_suggestions: seenSuggestions,
 		})
 		if (error) throw new Error(`Erro ao fechar o dia: ${error.message}`)
 		return { closed: true }

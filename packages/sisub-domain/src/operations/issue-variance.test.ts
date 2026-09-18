@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { checkDayClosure, evaluateVariance, type IssueToleranceSettings, roundToIssuePackage } from "./issue-variance.ts"
+import { checkDayClosure, evaluateVariance, type IssueToleranceSettings, issueSuggestionFingerprint, roundToIssuePackage } from "./issue-variance.ts"
 
 const SETTINGS: IssueToleranceSettings = { tolerancePct: 10, toleranceFloorValue: 20 }
 
@@ -57,10 +57,24 @@ describe("evaluateVariance", () => {
 	})
 
 	test("item lançado fora da sugestão do dia também fica sem exigência", () => {
-		// ele não foi previsto: cobrar motivo por isso é cobrar explicação de
-		// algo que o planejamento nunca disse
-		const verdict = evaluateVariance({ ingredientId: "cebola", suggestedQty: 0, issuedNetQty: 5, unitCost: 4 }, SETTINGS)
+		// ele não foi previsto (sem linha de sugestão = `null`): cobrar motivo por
+		// isso é cobrar explicação de algo que o planejamento nunca disse
+		const verdict = evaluateVariance({ ingredientId: "cebola", suggestedQty: null, issuedNetQty: 5, unitCost: 4 }, SETTINGS)
 		expect(verdict.requiresReason).toBe(false)
+	})
+
+	test("item que SAIU do plano depois de sair do estoque exige motivo", () => {
+		// 40 KG de carne saíram; a carne saiu do cardápio e a sugestão foi zerada.
+		// Zero não é "sem planejamento": é o plano dizendo que nada disto era devido
+		const verdict = evaluateVariance({ ingredientId: "carne", suggestedQty: 0, issuedNetQty: 40, unitCost: 35 }, SETTINGS)
+		expect(verdict.requiresReason).toBe(true)
+		expect(verdict.deltaPct).toBeNull()
+	})
+
+	test("zerado sem nada emitido não pede motivo, e o piso segue valendo contra zero", () => {
+		expect(evaluateVariance({ ingredientId: "carne", suggestedQty: 0, issuedNetQty: 0, unitCost: 35 }, SETTINGS).requiresReason).toBe(false)
+		// saída pequena de item barato contra zero fica abaixo do piso
+		expect(evaluateVariance({ ingredientId: "sal", suggestedQty: 0, issuedNetQty: 0.2, unitCost: 2 }, SETTINGS).requiresReason).toBe(false)
 	})
 })
 
@@ -102,5 +116,21 @@ describe("checkDayClosure", () => {
 	test("dia sem planejamento nenhum fecha sem pedir nada", () => {
 		const check = checkDayClosure([{ ingredientId: "feijao", suggestedQty: null, issuedNetQty: 30, unitCost: 8 }], SETTINGS)
 		expect(check.canClose).toBe(true)
+	})
+})
+
+describe("issueSuggestionFingerprint", () => {
+	test("ordena por ingrediente, 4 casas, nula vazia", () => {
+		expect(
+			issueSuggestionFingerprint([
+				{ ingredientId: "b", suggestedQty: 12.5 },
+				{ ingredientId: "a", suggestedQty: null },
+				{ ingredientId: "c", suggestedQty: "0" },
+			])
+		).toBe("a=,b=12.5000,c=0.0000")
+	})
+
+	test("requisição sem linhas é a string vazia, como no banco", () => {
+		expect(issueSuggestionFingerprint([])).toBe("")
 	})
 })
