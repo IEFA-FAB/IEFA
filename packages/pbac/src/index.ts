@@ -19,9 +19,11 @@ export { hasAnyPermission, hasPermission } from "./has-permission.ts"
  */
 export { decodeJwtPayload, readSubject } from "./jwt-claims.ts"
 export {
+	grantModulePermission,
 	grantUnscopedModulePermission,
 	myModulePermissionsQueryConfig,
 	resolveModulePermissions,
+	revokeModulePermission,
 	searchUsersByEmail,
 	type UserEmailSearchRow,
 } from "./module-permissions.ts"
@@ -29,3 +31,18 @@ export { type ModuleScopes, resolveModuleScopes, type ScopeAxis } from "./module
 export { type AssuranceReachability, isProtectedAccount } from "./protected-account.ts"
 export { NOT_EXPIRED, resolveUserPermissions } from "./resolve-permissions.ts"
 export type { AppModule, CredentialOrigin, PermissionScope, UserContext, UserPermission } from "./types.ts"
+export {
+	assertGrantable,
+	assertNotSelf,
+	coversUnit,
+	expandSupportCoverage,
+	fetchUnitSupportGraph,
+	GrantNotAllowedError,
+	type GrantRefusal,
+	isEmptyCoverage,
+	needsSupportGraph,
+	resolveModuleUnitCoverage,
+	type UnitCoverage,
+	type UnitSupportEdge,
+	unionCoverage,
+} from "./unit-coverage.ts"

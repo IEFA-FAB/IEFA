@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { grantUnscopedModulePermission, myModulePermissionsQueryConfig, resolveModulePermissions, searchUsersByEmail } from "./module-permissions.ts"
+import {
+	grantModulePermission,
+	grantUnscopedModulePermission,
+	myModulePermissionsQueryConfig,
+	resolveModulePermissions,
+	revokeModulePermission,
+	searchUsersByEmail,
+} from "./module-permissions.ts"
 import type { UserPermission } from "./types.ts"
 
 // ---------------------------------------------------------------------------
@@ -229,5 +236,119 @@ describe("grantUnscopedModulePermission", () => {
 		const { stub } = createGrantStub({ updateResults: [{ data: [], error: null }], insertError: { message: "boom", code: "XX000" } })
 
 		await expect(grantUnscopedModulePermission(stub as never, { module: "sucont-4", userId: "u1", level: 1 })).rejects.toThrow("boom")
+	})
+})
+
+// ---------------------------------------------------------------------------
+// grantModulePermission (escopo de unidade)
+// ---------------------------------------------------------------------------
+
+describe("grantModulePermission", () => {
+	test("grant escopado casa a unidade por IGUALDADE e insere com o unit_id", async () => {
+		const { stub, calls } = createGrantStub({ updateResults: [{ data: [], error: null }] })
+
+		const result = await grantModulePermission(stub as never, { module: "alpha-aci", userId: "u1", level: 1, unitId: 26 })
+
+		expect(result).toEqual({ ok: true })
+		expect(calls.updates[0]?.filters).toEqual([
+			["eq", "user_id", "u1"],
+			["eq", "module", "alpha-aci"],
+			["is", "mess_hall_id", null],
+			["is", "kitchen_id", null],
+			// `is(unit_id, null)` aqui atualizaria o grant GLOBAL do usuário em vez do da OM.
+			["eq", "unit_id", 26],
+			["gt", "level", 0],
+		])
+		expect(calls.inserts).toEqual([{ user_id: "u1", module: "alpha-aci", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: 26 }])
+	})
+
+	test("unitId nulo é o grant global — mesmos filtros do atalho unscoped", async () => {
+		const scoped = createGrantStub({ updateResults: [{ data: [{ id: "p1" }], error: null }] })
+		const unscoped = createGrantStub({ updateResults: [{ data: [{ id: "p1" }], error: null }] })
+
+		await grantModulePermission(scoped.stub as never, { module: "alpha-admin", userId: "u1", level: 3, unitId: null })
+		await grantUnscopedModulePermission(unscoped.stub as never, { module: "alpha-admin", userId: "u1", level: 3 })
+
+		expect(scoped.calls.updates[0]?.filters).toEqual(unscoped.calls.updates[0]?.filters ?? [])
+		expect(scoped.calls.updates[0]?.filters).toContainEqual(["is", "unit_id", null])
+	})
+
+	test("corrida 23505 no grant escopado reaplica como update na MESMA unidade", async () => {
+		const { stub, calls } = createGrantStub({
+			updateResults: [
+				{ data: [], error: null },
+				{ data: [{ id: "p1" }], error: null },
+			],
+			insertError: { message: "duplicate key", code: "23505" },
+		})
+
+		await grantModulePermission(stub as never, { module: "alpha-requester", userId: "u1", level: 1, unitId: 7 })
+
+		expect(calls.updates).toHaveLength(2)
+		expect(calls.updates[1]?.filters).toContainEqual(["eq", "unit_id", 7])
+	})
+})
+
+// ---------------------------------------------------------------------------
+// revokeModulePermission
+// ---------------------------------------------------------------------------
+
+function createRevokeStub(result: { data: Array<{ id: string }> | null; error: { message: string } | null }) {
+	const filters: Array<[string, string, unknown]> = []
+	const stub = {
+		from(table: string) {
+			expect(table).toBe("user_permissions")
+			return {
+				delete() {
+					const builder = {
+						eq(column: string, value: unknown) {
+							filters.push(["eq", column, value])
+							return builder
+						},
+						is(column: string, value: unknown) {
+							filters.push(["is", column, value])
+							return builder
+						},
+						select() {
+							return result
+						},
+					}
+					return builder
+				},
+			}
+		},
+	}
+	return { stub, filters }
+}
+
+describe("revokeModulePermission", () => {
+	test("revoga só a chave pedida — a OM por igualdade, nunca as outras do usuário", async () => {
+		const { stub, filters } = createRevokeStub({ data: [{ id: "p1" }], error: null })
+
+		const result = await revokeModulePermission(stub as never, { module: "alpha-procurement", userId: "u1", unitId: 26 })
+
+		expect(result).toEqual({ removed: 1 })
+		expect(filters).toEqual([
+			["eq", "user_id", "u1"],
+			["eq", "module", "alpha-procurement"],
+			["is", "mess_hall_id", null],
+			["is", "kitchen_id", null],
+			["eq", "unit_id", 26],
+		])
+	})
+
+	test("global casa `unit_id is null`, e zero linhas volta como zero (não como sucesso inventado)", async () => {
+		const { stub, filters } = createRevokeStub({ data: [], error: null })
+
+		const result = await revokeModulePermission(stub as never, { module: "alpha-admin", userId: "u1", unitId: null })
+
+		expect(result).toEqual({ removed: 0 })
+		expect(filters).toContainEqual(["is", "unit_id", null])
+	})
+
+	test("propaga o erro do delete", async () => {
+		const { stub } = createRevokeStub({ data: null, error: { message: "boom" } })
+
+		await expect(revokeModulePermission(stub as never, { module: "alpha-aci", userId: "u1", unitId: 1 })).rejects.toThrow("boom")
 	})
 })
