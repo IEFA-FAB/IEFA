@@ -413,8 +413,13 @@ const SITUATION_MAX_AGE_DAYS = 3
 
 async function assertInvoiceUsable(receiptId: string) {
 	const inv = inventory()
-	const { data: receipt } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
-	if (!receipt?.nfe_document_id) return // recebimento sem nota (guia, avulso)
+	const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
+	// Esta é a ÚNICA trava de autenticidade da cadeia. Se a leitura falha e o
+	// erro some, `receipt` vem vazio, o `return` abaixo trata a falha como
+	// "recebimento sem nota" — e a nota nunca confirmada é efetivada.
+	if (receiptError) throw new Error(`Erro ao conferir a nota do recebimento: ${receiptError.message}`)
+	if (!receipt) throw new Error("Recebimento não encontrado")
+	if (!receipt.nfe_document_id) return // recebimento sem nota (guia, avulso)
 
 	const { data: doc, error: docError } = await inv
 		.from("nfe_document")
