@@ -1,37 +1,19 @@
-import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-export interface SectionNavLink {
-	to: string
-	label: string
-	/** Só marca ativo no caminho exato — para o item raiz de uma seção. */
-	exact?: boolean
-}
-
 /**
- * Cabeçalho de seção do Projeto α — console e Plataforma ACI.
+ * Cabeçalho de página dos módulos do Projeto α — console e Plataforma ACI.
  *
- * Aba ativa é marcada por sublinhado de 2px na base — não por faixa lateral
- * colorida, proibida no monorepo, nem por cantos arredondados, proibidos no
- * portal (`STYLE_CONTRACT.md`). Uma implementação só: as duas seções têm o
- * mesmo contrato visual e mudá-lo em duas cópias é como elas divergem.
+ * Já foi também a fileira de abas da seção. Saiu quando a navegação passou para a
+ * barra lateral (`components/layout`): as mesmas telas em dois lugares, com dois
+ * critérios de "ativo", é como os dois acabam discordando. Aqui fica o que é da
+ * PÁGINA — eyebrow, título, subtítulo e as ações dela.
+ *
+ * O nome do arquivo ficou pela história; o componente é `SectionHeader`.
  */
-export function SectionNav({
-	eyebrow,
-	title,
-	subtitle,
-	links,
-	actions,
-}: {
-	eyebrow: string
-	title: string
-	subtitle?: string
-	links: readonly SectionNavLink[]
-	actions?: ReactNode
-}) {
+export function SectionHeader({ eyebrow, title, subtitle, actions }: { eyebrow: string; title: string; subtitle?: string; actions?: ReactNode }) {
 	return (
-		<header className="mb-8 border-border border-b print:hidden">
-			<p className="mb-2 text-muted-foreground text-xs uppercase tracking-[0.12em]">{eyebrow}</p>
+		<header className="mb-8 border-border border-b pb-6 print:hidden">
+			<p className="text-label mb-2 text-muted-foreground">{eyebrow}</p>
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
 					<h1 className="font-semibold text-3xl tracking-tighter">{title}</h1>
@@ -39,20 +21,6 @@ export function SectionNav({
 				</div>
 				{actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
 			</div>
-
-			<nav className="-mb-px mt-6 flex gap-6">
-				{links.map((link) => (
-					<Link
-						key={link.to}
-						to={link.to}
-						activeOptions={{ exact: link.exact ?? false }}
-						className="border-transparent border-b-2 pb-3 text-sm transition-colors hover:text-foreground data-[status=active]:border-foreground data-[status=active]:font-medium"
-						activeProps={{ "data-status": "active" }}
-					>
-						{link.label}
-					</Link>
-				))}
-			</nav>
 		</header>
 	)
 }

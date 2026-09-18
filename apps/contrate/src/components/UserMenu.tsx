@@ -1,26 +1,15 @@
 import { Link } from "@tanstack/react-router"
 import { LogOut } from "iconoir-react"
+import { getUserIdentity } from "@/components/layout/user-identity"
 import { useAuth } from "@/hooks/useAuth"
 import { Button } from "./ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
-function getInitials(nameOrEmail?: string) {
-	if (!nameOrEmail) return "US"
-	const name = nameOrEmail.split("@")[0]
-	const parts = name
-		.trim()
-		.split(/\s+/)
-		.filter((p) => p.length > 0)
-	if (parts.length === 0) return "US"
-	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-	return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
-function getFirstName(displayName: string): string {
-	if (displayName.includes("@")) return displayName.split("@")[0] ?? displayName
-	return displayName.split(/\s+/)[0] ?? displayName
-}
-
+/**
+ * Conta no cabeçalho das páginas fora dos módulos (home, login, legais). Dentro de
+ * um módulo a mesma pessoa aparece no rodapé da barra lateral (`SidebarUser`); os
+ * dois leem nome e iniciais de `getUserIdentity`.
+ */
 export function UserMenu() {
 	const {
 		user,
@@ -28,16 +17,7 @@ export function UserMenu() {
 		actions: { signOut },
 	} = useAuth()
 
-	const meta = (user?.user_metadata ?? {}) as {
-		name?: string
-		full_name?: string
-		display_name?: string
-		first_name?: string
-	}
-	const email = user?.email ?? ""
-	const displayName = meta.display_name || meta.first_name || meta.name || meta.full_name || email || "Usuário"
-	const initials = getInitials(displayName)
-	const firstName = getFirstName(displayName)
+	const { displayName, firstName, initials, email } = getUserIdentity(user)
 
 	if (!isAuthenticated) {
 		return <Button nativeButton={false} render={<Link to="/auth">Entrar</Link>} variant="outline" size="sm" />
@@ -47,7 +27,7 @@ export function UserMenu() {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
-					<Button variant="ghost" size="sm" className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground gap-2 px-2">
+					<Button variant="ghost" size="sm" className="data-popup-open:bg-accent data-popup-open:text-accent-foreground gap-2 px-2">
 						{/* Iniciais em mono — único identificador visual */}
 						<span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{initials}</span>
 						{/* Primeiro nome — oculto em mobile */}

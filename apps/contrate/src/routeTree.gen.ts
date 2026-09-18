@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AciRouteRouteImport } from './routes/aci/route'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AlphaRouteRouteImport } from './routes/alpha/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as HealthRouteImport } from './routes/health'
@@ -44,6 +45,11 @@ const IndexRoute = IndexRouteImport.update({
 const AciRouteRoute = AciRouteRouteImport.update({
   id: '/aci',
   path: '/aci',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlphaRouteRoute = AlphaRouteRouteImport.update({
@@ -107,9 +113,9 @@ const AciNovaRoute = AciNovaRouteImport.update({
   getParentRoute: () => AciRouteRoute,
 } as any)
 const AdminAcessosRoute = AdminAcessosRouteImport.update({
-  id: '/admin/acessos',
-  path: '/admin/acessos',
-  getParentRoute: () => rootRouteImport,
+  id: '/acessos',
+  path: '/acessos',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AlphaBancadaRoute = AlphaBancadaRouteImport.update({
   id: '/bancada',
@@ -173,6 +179,7 @@ const DotwellKnownAgentSkillsSkillSKILLDotmdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aci': typeof AciRouteRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/pregoeiro': typeof PregoeiroRouteRouteWithChildren
@@ -200,6 +207,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/aci': typeof AciRouteRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/alpha': typeof AlphaRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/pregoeiro': typeof PregoeiroRouteRouteWithChildren
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/aci'
+    | '/admin'
     | '/alpha'
     | '/auth'
     | '/pregoeiro'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/alpha'
     | '/health'
     | '/llms.txt'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/aci'
+    | '/admin'
     | '/alpha'
     | '/auth'
     | '/pregoeiro'
@@ -339,6 +351,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AciRouteRoute: typeof AciRouteRouteWithChildren
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AlphaRouteRoute: typeof AlphaRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   PregoeiroRouteRoute: typeof PregoeiroRouteRouteWithChildren
@@ -349,7 +362,6 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermosDeUsoRoute: typeof TermosDeUsoRoute
-  AdminAcessosRoute: typeof AdminAcessosRoute
   DotwellKnownAgentSkillsIndexDotjsonRoute: typeof DotwellKnownAgentSkillsIndexDotjsonRoute
   DotwellKnownAgentSkillsSkillSKILLDotmdRoute: typeof DotwellKnownAgentSkillsSkillSKILLDotmdRoute
 }
@@ -368,6 +380,13 @@ declare module '@tanstack/react-router' {
       path: '/aci'
       fullPath: '/aci'
       preLoaderRoute: typeof AciRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alpha': {
@@ -456,10 +475,10 @@ declare module '@tanstack/react-router' {
     }
     '/admin/acessos': {
       id: '/admin/acessos'
-      path: '/admin/acessos'
+      path: '/acessos'
       fullPath: '/admin/acessos'
       preLoaderRoute: typeof AdminAcessosRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/alpha/bancada': {
       id: '/alpha/bancada'
@@ -559,6 +578,18 @@ const AciRouteRouteWithChildren = AciRouteRoute._addFileChildren(
   AciRouteRouteChildren,
 )
 
+interface AdminRouteRouteChildren {
+  AdminAcessosRoute: typeof AdminAcessosRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminAcessosRoute: AdminAcessosRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 interface AlphaRouteRouteChildren {
   AlphaBancadaRoute: typeof AlphaBancadaRoute
   AlphaFontesRoute: typeof AlphaFontesRoute
@@ -606,6 +637,7 @@ const PregoeiroRouteRouteWithChildren = PregoeiroRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AciRouteRoute: AciRouteRouteWithChildren,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   AlphaRouteRoute: AlphaRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   PregoeiroRouteRoute: PregoeiroRouteRouteWithChildren,
@@ -616,7 +648,6 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermosDeUsoRoute: TermosDeUsoRoute,
-  AdminAcessosRoute: AdminAcessosRoute,
   DotwellKnownAgentSkillsIndexDotjsonRoute:
     DotwellKnownAgentSkillsIndexDotjsonRoute,
   DotwellKnownAgentSkillsSkillSKILLDotmdRoute:

@@ -1,6 +1,14 @@
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowRight } from "iconoir-react"
+import { ArrowRight, Lock, NavArrowDown } from "iconoir-react"
+import { Fragment } from "react"
 import { AppLayout } from "@/components/AppLayout"
+import { AcanthusAscii } from "@/components/home/AcanthusAscii"
+import { ModuleGrid } from "@/components/home/ModuleGrid"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/useAuth"
+import { myAlphaPermissionsQueryOptions } from "@/lib/alpha/permissions"
+import { accessibleModules } from "@/lib/modules"
 
 export const Route = createFileRoute("/")({
 	head: () => ({
@@ -8,92 +16,235 @@ export const Route = createFileRoute("/")({
 			{ title: "Contrate — copiloto de aquisições da FAB" },
 			{
 				name: "description",
-				content: "Verificação de ETP e TR contra a Lei 14.133/21, fila de conformidade para o controle interno e apoio à condução do pregão.",
+				content:
+					"Verificação de ETP e TR contra a Lei 14.133/21 e as normas do COMAER, fila de conformidade para o controle interno e apoio à condução do pregão. A máquina aponta; a palavra final é do gestor.",
 			},
 		],
 	}),
 	component: HomePage,
 })
 
-const TOOLS = [
-	{
-		to: "/aci",
-		eyebrow: "Controle interno",
-		title: "Plataforma ACI",
-		body: "Fila dos processos em verificação, triagem de cada achado e parecer de conformidade com relatório final.",
-	},
-	{
-		to: "/alpha/analise/nova",
-		eyebrow: "Requisitante",
-		title: "Verificar um documento",
-		body: "Envie o ETP ou o TR, confira os campos extraídos e rode a verificação contra as regras vigentes.",
-	},
-	{
-		to: "/pregoeiro",
-		eyebrow: "Sessão pública",
-		title: "Facilidades do Pregoeiro",
-		body: "Biblioteca de frases por fase do pregão, com as suas preferências salvas.",
-	},
+/** Quem age em cada etapa é o que o leitor precisa saber — por isso o `actor` vem antes do texto. */
+const STEPS = [
+	{ n: "01", actor: "Requisitante", title: "Envio", body: "O requisitante envia o ETP ou o TR da contratação." },
+	{ n: "02", actor: "Requisitante", title: "Extração", body: "O α lê os campos do documento, e quem enviou confere cada um antes de seguir." },
+	{ n: "03", actor: "Projeto α", title: "Verificação", body: "Cada regra que dispara aponta o dispositivo da norma que fundamenta o achado." },
+	{ n: "04", actor: "Controle interno", title: "Parecer", body: "O ACI acata ou descarta cada achado e emite o parecer de conformidade." },
 ] as const
 
-const STEPS = [
-	{ n: "01", title: "Envio", body: "O requisitante envia o documento da contratação." },
-	{ n: "02", title: "Extração", body: "Os campos do ETP/TR são lidos e conferidos por quem enviou." },
-	{ n: "03", title: "Verificação", body: "Cada regra aponta o dispositivo da norma que fundamenta o achado." },
-	{ n: "04", title: "Parecer", body: "O ACI acata ou descarta cada achado e emite o parecer." },
-] as const
+// A folha só aparece no miolo da caixa: a elipse encosta nas quatro bordas e some
+// antes delas, então o texto que avança sobre a caixa nunca disputa com o desenho.
+const ACANTHUS_MASK = "radial-gradient(closest-side, black 68%, transparent 100%)"
 
 function HomePage() {
 	return (
 		<AppLayout>
-			<div className="flex flex-col gap-16">
-				<section className="flex flex-col gap-6 border-b border-border pb-12">
-					<p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">IEFA · Projeto α</p>
-					<h1 className="max-w-3xl font-semibold text-4xl tracking-tighter md:text-6xl">Copiloto de aquisições da FAB</h1>
-					<p className="max-w-2xl text-lg text-muted-foreground">
-						Verificação de Estudo Técnico Preliminar e Termo de Referência contra a Lei 14.133/21 e as normas do COMAER. A máquina aponta e fundamenta; a
-						palavra final é do gestor.
-					</p>
-				</section>
+			<div className="flex flex-col">
+				<Hero />
 
-				<section aria-labelledby="ferramentas" className="flex flex-col gap-6">
-					<h2 id="ferramentas" className="font-semibold text-2xl tracking-tight">
-						Ferramentas
-					</h2>
-					<ul className="grid grid-cols-1 gap-4 md:grid-cols-3">
-						{TOOLS.map((tool) => (
-							<li key={tool.to}>
-								<Link
-									to={tool.to}
-									className="group flex h-full flex-col gap-3 border border-border p-6 transition-all hover:-translate-x-1 hover:-translate-y-1 hover:border-foreground hover:shadow-[4px_4px_0_0_var(--foreground)]"
-								>
-									<span className="text-muted-foreground text-xs uppercase tracking-wider">{tool.eyebrow}</span>
-									<span className="font-semibold text-xl tracking-tight">{tool.title}</span>
-									<span className="flex-1 text-muted-foreground text-sm">{tool.body}</span>
-									<span className="inline-flex items-center gap-1 font-medium text-sm">
-										Abrir <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-									</span>
-								</Link>
-							</li>
-						))}
-					</ul>
-				</section>
-
-				<section aria-labelledby="como-funciona" className="flex flex-col gap-6">
-					<h2 id="como-funciona" className="font-semibold text-2xl tracking-tight">
-						Como funciona a verificação
-					</h2>
-					<ol className="grid grid-cols-1 border border-border sm:grid-cols-2 lg:grid-cols-4">
+				<section id="como-funciona" aria-labelledby="como-funciona-titulo" className="scroll-mt-20 border-border border-t py-16 md:py-24">
+					<SectionHeading id="como-funciona-titulo" eyebrow="A verificação" title="Do documento ao parecer, em quatro etapas">
+						A máquina lê e confere; quem assina decide. Nenhum achado vira parecer sem passar pelo analista.
+					</SectionHeading>
+					<ol className="mt-10 grid grid-cols-1 border border-border sm:grid-cols-2 lg:grid-cols-4">
 						{STEPS.map((step) => (
-							<li key={step.n} className="flex flex-col gap-2 border-border border-b p-6 last:border-b-0 sm:border-r lg:border-b-0 lg:last:border-r-0">
-								<span className="font-mono text-muted-foreground text-xs">{step.n}</span>
-								<span className="font-semibold tracking-tight">{step.title}</span>
-								<span className="text-muted-foreground text-sm">{step.body}</span>
+							<li
+								key={step.n}
+								className="flex flex-col gap-3 border-border border-b p-6 last:border-b-0 sm:odd:border-r lg:border-r lg:border-b-0 sm:[&:nth-child(n+3)]:border-b-0 lg:last:border-r-0"
+							>
+								<div className="flex items-baseline justify-between gap-3">
+									<span className="font-mono text-muted-foreground text-sm tabular-nums">{step.n}</span>
+									<span className="font-mono text-label text-muted-foreground">
+										<LabelText text={step.actor} />
+									</span>
+								</div>
+								<h3 className="mt-4 font-semibold text-lg tracking-tight">{step.title}</h3>
+								<p className="text-muted-foreground text-sm leading-relaxed">{step.body}</p>
 							</li>
 						))}
 					</ol>
 				</section>
+
+				<section id="modulos" aria-labelledby="modulos-titulo" className="scroll-mt-20 border-border border-t py-16 md:py-24">
+					<SectionHeading id="modulos-titulo" eyebrow="Módulos" title="Cada perfil tem o seu espaço">
+						O analista de controle interno, o pregoeiro e quem calibra o α fazem trabalhos diferentes. Cada módulo tem navegação própria, e ninguém precisa ler
+						o menu dos outros para achar o seu.
+					</SectionHeading>
+					<div className="mt-10">
+						<HomeModules />
+					</div>
+				</section>
 			</div>
 		</AppLayout>
 	)
+}
+
+function useHomeAccess() {
+	const { isAuthenticated } = useAuth()
+	// Mesma consulta da barra do AppLayout: o cache é compartilhado, não há segunda ida ao servidor.
+	const permissions = useQuery({ ...myAlphaPermissionsQueryOptions(), enabled: isAuthenticated })
+	// Falha na consulta não é "sem perfil": sem este sinal a tela ficaria presa em
+	// "Verificando acesso…" ou, pior, afirmaria um perfil que ninguém conferiu.
+	return { isAuthenticated, permissions: permissions.data, permissionsFailed: permissions.isError && permissions.data === undefined }
+}
+
+function HomeModules() {
+	const { isAuthenticated, permissions, permissionsFailed } = useHomeAccess()
+	return <ModuleGrid isAuthenticated={isAuthenticated} permissions={permissions} permissionsFailed={permissionsFailed} />
+}
+
+function Hero() {
+	return (
+		<section
+			aria-labelledby="home-titulo"
+			// Primeira dobra inteira: 100svh menos o cabeçalho (h-14) e o respiro de topo do AppLayout.
+			className="relative flex min-h-[calc(100svh-3.5rem-2rem)] flex-col md:min-h-[calc(100svh-3.5rem-2.5rem)]"
+		>
+			<div
+				aria-hidden="true"
+				className="relative order-2 h-[38svh] min-h-64 w-full lg:absolute lg:inset-y-0 lg:right-0 lg:order-none lg:h-auto lg:w-[48%] xl:w-[56%]"
+				style={{ maskImage: ACANTHUS_MASK, WebkitMaskImage: ACANTHUS_MASK }}
+			>
+				<AcanthusAscii />
+			</div>
+
+			<div className="relative order-1 flex flex-1 flex-col justify-center py-8 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-700 lg:max-w-[50%] lg:py-16">
+				<p className="font-mono text-label text-muted-foreground">
+					<LabelText text="IEFA · Projeto α · Força Aérea Brasileira" />
+				</p>
+
+				{/* Escala do `.text-display`, mas mais contida no desktop: a coluna de texto divide a
+				    largura com a folha, e "A máquina aponta." precisa caber numa linha só. */}
+				<h1
+					id="home-titulo"
+					className="mt-6 text-balance font-bold text-[length:clamp(2.5rem,6vw,4.5rem)] leading-[1.05] tracking-[-0.04em] md:mt-8 lg:text-[length:clamp(2.5rem,4.6vw,4.5rem)]"
+				>
+					A máquina aponta.
+					<span className="block font-normal font-serif italic tracking-[-0.03em]">O gestor decide.</span>
+				</h1>
+
+				<p className="mt-6 max-w-[34rem] text-lg text-muted-foreground leading-relaxed md:mt-8">
+					O Contrate verifica o Estudo Técnico Preliminar e o Termo de Referência contra a Lei 14.133/21 e as normas do COMAER. Cada achado cita o dispositivo
+					que o fundamenta; acatar ou descartar é de quem assina.
+				</p>
+
+				<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4 md:mt-10">
+					<HeroCta />
+				</div>
+			</div>
+
+			<div className="relative order-3 flex items-center justify-between gap-4 border-border border-t pt-4 pb-2">
+				<button
+					type="button"
+					onClick={() =>
+						document
+							.getElementById("como-funciona")
+							?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+					}
+					className="inline-flex items-center gap-2 font-mono text-label text-muted-foreground transition-colors hover:text-foreground"
+				>
+					<NavArrowDown className="size-4 motion-safe:animate-bounce" aria-hidden="true" />
+					Como funciona
+				</button>
+				<p className="hidden font-mono text-label text-muted-foreground sm:block">Folha de acanto — símbolo da Intendência</p>
+			</div>
+		</section>
+	)
+}
+
+const CTA_CLASS = "h-11 gap-2 px-5 text-base"
+
+function HeroCta() {
+	const { isAuthenticated, permissions, permissionsFailed } = useHomeAccess()
+
+	if (!isAuthenticated) {
+		return (
+			<>
+				<Button
+					size="lg"
+					className={CTA_CLASS}
+					nativeButton={false}
+					render={
+						<Link to="/auth">
+							Entrar
+							<ArrowRight className="size-4" aria-hidden="true" />
+						</Link>
+					}
+				/>
+				<span className="inline-flex items-center gap-1.5 font-mono text-muted-foreground text-xs">
+					<Lock className="size-3.5" aria-hidden="true" />
+					Acesso restrito ao efetivo autorizado
+				</span>
+			</>
+		)
+	}
+
+	// Antes dos grants chegarem, "Abrir Pregoeiro" seria uma promessa que muda sozinha
+	// meio segundo depois para quem é analista.
+	if (permissions === undefined && !permissionsFailed) {
+		return (
+			<Button size="lg" className={CTA_CLASS} disabled>
+				Verificando acesso…
+			</Button>
+		)
+	}
+
+	// `accessibleModules` sempre inclui o Pregoeiro (módulo aberto) — é o piso, e é
+	// também para onde vai quem teve a consulta de perfis falhando.
+	const [first] = accessibleModules(permissions ?? [])
+	if (!first) return null
+
+	return (
+		<>
+			<Button
+				size="lg"
+				className={CTA_CLASS}
+				nativeButton={false}
+				render={
+					<Link to={first.home}>
+						Abrir {first.label}
+						<ArrowRight className="size-4" aria-hidden="true" />
+					</Link>
+				}
+			/>
+			{/* Enviar o próprio documento vale para qualquer autenticado, com ou sem perfil —
+			    e a tela mora no console, que o seletor só mostra ao nível ACI. Sem este
+			    atalho o requisitante não acharia onde enviar. */}
+			<Link
+				to="/alpha/analise/nova"
+				className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline"
+			>
+				Enviar um documento
+			</Link>
+			<a href="#modulos" className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline">
+				Ver todos os módulos
+			</a>
+		</>
+	)
+}
+
+function SectionHeading({ id, eyebrow, title, children }: { id: string; eyebrow: string; title: string; children: React.ReactNode }) {
+	return (
+		<div className="flex max-w-2xl flex-col gap-4">
+			<p className="font-mono text-label text-muted-foreground">{eyebrow}</p>
+			<h2 id={id} className="text-balance text-headline">
+				{title}
+			</h2>
+			<p className="text-muted-foreground leading-relaxed">{children}</p>
+		</div>
+	)
+}
+
+/**
+ * Texto de rótulo em caixa alta que preserva o α. Com `uppercase` ele vira "Α" (alfa
+ * maiúsculo), indistinguível de um A latino — "PROJETO A".
+ */
+function LabelText({ text }: { text: string }) {
+	const parts = text.split("α")
+	return parts.map((part, i) => (
+		<Fragment key={i}>
+			{part}
+			{i < parts.length - 1 && <span className="normal-case">α</span>}
+		</Fragment>
+	))
 }

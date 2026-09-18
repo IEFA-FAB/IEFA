@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { Lock } from "iconoir-react"
 import { authQueryOptions } from "@/auth/service"
-import { AppLayout } from "@/components/AppLayout"
+import { ModuleShell } from "@/components/layout/ModuleShell"
 import { useAuth } from "@/hooks/useAuth"
 import { type AlphaLevel, alphaAccessQueryOptions, LEVEL_LABEL } from "@/lib/alpha/role"
 
@@ -57,20 +57,22 @@ function AciLayout() {
 	const { session } = useAuth()
 	const access = useQuery(alphaAccessQueryOptions(session?.access_token))
 
+	// A casca sai em todos os estados: enquanto o perfil é conferido (ou se a
+	// conferência falha) a barra já está ali, e o seletor segue levando a outro módulo.
 	if (access.isPending) {
 		return (
-			<AppLayout>
+			<ModuleShell moduleId="aci">
 				<p className="text-muted-foreground text-sm">Conferindo seu perfil…</p>
-			</AppLayout>
+			</ModuleShell>
 		)
 	}
 	if (access.isError) {
 		return (
-			<AppLayout>
+			<ModuleShell moduleId="aci">
 				<p className="text-sm">Não foi possível conferir seu perfil no Projeto α: {access.error.message}</p>
-			</AppLayout>
+			</ModuleShell>
 		)
 	}
 
-	return <AppLayout>{access.data.can_see_all ? <Outlet /> : <AccessDenied level={access.data.level} />}</AppLayout>
+	return <ModuleShell moduleId="aci">{access.data.can_see_all ? <Outlet /> : <AccessDenied level={access.data.level} />}</ModuleShell>
 }
