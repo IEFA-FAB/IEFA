@@ -41,6 +41,7 @@ import {
 	SlidersHorizontal,
 	Star,
 	Trash2,
+	Truck,
 	User,
 	Users,
 	UtensilsCrossed,
@@ -163,6 +164,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		// URLs base — AppShell substitui por /storage/{id}/... quando dentro de um escopo
 		items: [
 			{ title: "Painel", url: "/storage/dashboard", icon: LayoutDashboard },
+			{ title: "A caminho", url: "/storage/incoming", icon: Truck },
 			{ title: "Notas Fiscais (NF-e)", url: "/storage/nfe", icon: FileText },
 			{ title: "Ordens de Fornecimento", url: "/storage/supply-orders", icon: ShoppingCart, minLevel: 2 },
 			{ title: "Recebimentos", url: "/storage/receiving", icon: PackageCheck },
