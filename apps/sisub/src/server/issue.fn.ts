@@ -37,11 +37,14 @@ const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
 
 /** Tolerâncias da cozinha, com os defaults do banco. */
 async function toleranceFor(kitchenId: number) {
-	const { data: row } = await inventory()
+	const { data: row, error } = await inventory()
 		.from("kitchen_stock_settings")
 		.select("issue_tolerance_pct, issue_tolerance_floor_value")
 		.eq("kitchen_id", kitchenId)
 		.maybeSingle()
+	// Sem linha valem os defaults — mas leitura que FALHA não é "sem linha": cair
+	// no default aqui trocaria a tolerância da cozinha pela de fábrica em silêncio.
+	if (error) throw new Error(`Erro ao carregar a tolerância da cozinha: ${error.message}`)
 	return {
 		tolerancePct: Number(row?.issue_tolerance_pct ?? 10),
 		toleranceFloorValue: Number(row?.issue_tolerance_floor_value ?? 20),
@@ -234,6 +237,20 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 			)
 			if (upsertError) throw new Error(`Erro ao gravar a sugestão do dia: ${upsertError.message}`)
 		}
+
+		// Insumo que SAIU do planejamento desde o último cálculo fica com sugestão
+		// ZERO — inclusive quando o plano esvaziou de vez, que antes não gravava
+		// nada. Sem isto a sugestão antiga continuava valendo: o item contava como
+		// 100% de falta e o dia não fechava sem motivo para algo que nem estava mais
+		// planejado. Zerar, e não apagar, porque um motivo já registrado na linha
+		// segue sendo o registro do que aconteceu — e, se o item já saiu do estoque,
+		// a variância contra zero é real e o motivo é devido.
+		const planned = lines.map((line) => line.ingredientId)
+		let stale = inv.from("stock_issue_request_item").update({ suggested_qty: 0 }).eq("request_id", requestId)
+		if (planned.length > 0) stale = stale.not("ingredient_id", "in", `(${planned.join(",")})`)
+		const { error: staleError } = await stale
+		if (staleError) throw new Error(`Erro ao atualizar os itens que saíram do planejamento: ${staleError.message}`)
+
 		return { requestId, reopened: false as const, suggested: lines.length }
 	})
 
@@ -338,15 +355,19 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const kit = kitchen()
-		const { data: request } = await inv
+		const { data: request, error: requestError } = await inv
 			.from("stock_issue_request")
 			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at")
 			.eq("id", data.requestId)
 			.maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		await requireStorageForKitchen(1, Number(request.kitchen_id))
 
-		const [{ data: items }, { data: movements }, settings] = await Promise.all([
+		// Este retrato decide se o dia FECHA. Leitura que falha e vira lista vazia
+		// faz toda linha parecer não planejada, nenhum motivo é exigido — e
+		// `closeIssueRequestFn`, que monta o retrato por aqui, fecha o dia.
+		const [{ data: items, error: itemsError }, { data: movements, error: movementsError }, settings] = await Promise.all([
 			inv
 				.from("stock_issue_request_item")
 				.select("id, ingredient_id, meal_type_id, suggested_qty, variance_reason, variance_note")
@@ -354,6 +375,8 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 			inv.from("stock_movement").select("ingredient_id, lot_id, type, quantity, unit_cost").eq("issue_request_id", data.requestId),
 			toleranceFor(Number(request.kitchen_id)),
 		])
+		if (itemsError) throw new Error(`Erro ao carregar os itens do dia: ${itemsError.message}`)
+		if (movementsError) throw new Error(`Erro ao carregar as saídas do dia: ${movementsError.message}`)
 
 		const issued = new Map<string, number>()
 		const returned = new Map<string, number>()
@@ -379,11 +402,13 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		// desvio dava zero, o piso nunca era ultrapassado — e o dia fechava com
 		// falta de 100% sem uma linha de justificativa.
 		if (ingredientIds.length > 0) {
-			const { data: averages } = await inv
+			const { data: averages, error: averagesError } = await inv
 				.from("stock_cost")
 				.select("ingredient_id, avg_unit_cost")
 				.eq("kitchen_id", Number(request.kitchen_id))
 				.in("ingredient_id", ingredientIds)
+			// sem custo, o valor do desvio dá zero e o piso nunca é passado
+			if (averagesError) throw new Error(`Erro ao carregar os custos: ${averagesError.message}`)
 			for (const row of (averages ?? []) as Array<{ ingredient_id: string | null; avg_unit_cost: number | null }>) {
 				if (row.ingredient_id == null) continue
 				if (!costs.has(row.ingredient_id) && row.avg_unit_cost != null) costs.set(row.ingredient_id, Number(row.avg_unit_cost))
@@ -427,10 +452,16 @@ export const setVarianceReasonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ itemId: z.uuid(), reason: z.enum(ISSUE_VARIANCE_REASONS), note: z.string().max(300).optional() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: item } = await inv.from("stock_issue_request_item").select("request_id").eq("id", data.itemId).maybeSingle()
+		const { data: item, error: itemError } = await inv.from("stock_issue_request_item").select("request_id").eq("id", data.itemId).maybeSingle()
+		if (itemError) throw new Error(`Erro ao carregar a linha: ${itemError.message}`)
 		if (!item) throw new Error("Linha não encontrada")
-		const { data: request } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", item.request_id).maybeSingle()
-		await requireStorageForKitchen(2, Number(request?.kitchen_id))
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", item.request_id).maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${requestError.message}`)
+		if (!request) throw new Error("Requisição não encontrada")
+		await requireStorageForKitchen(2, Number(request.kitchen_id))
+		// Dia fechado é dia fechado: a variância foi julgada no fechamento contra
+		// estes motivos, e trocá-los depois reescreveria o que foi aceito.
+		if (request.status !== "open") throw new Error("A requisição já foi fechada — o motivo registrado no fechamento é o que vale")
 
 		if (data.reason === "other" && !data.note?.trim()) throw new Error('Motivo "outro" exige a explicação')
 		const { error } = await inv

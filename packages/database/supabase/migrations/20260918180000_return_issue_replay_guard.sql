@@ -44,11 +44,22 @@ begin
   -- devolução ficou de fora, e é o mesmo dinheiro indo para o outro lado.
   if p_emission_id is null or length(p_emission_id) < 8 then raise exception 'Devolução sem identificador de emissão'; end if;
 
+  select * into v_request from inventory.stock_issue_request where id = p_request_id for update;
+  if not found then raise exception 'Requisição não encontrada'; end if;
+
   -- Retry da MESMA devolução devolve o que já foi feito, sem repor de novo.
   -- Sem esta guarda o retry batia no índice único e voltava como violação de
   -- constraint: o almoxarife lia "erro", concluía que a devolução não passou e
   -- lançava outra — aí sim repondo duas vezes, agora com dois identificadores
   -- diferentes e nada para impedir. Espelha a guarda de `issue_stock`.
+  --
+  -- A guarda vem DEPOIS da trava da requisição, e não antes. Antes da trava,
+  -- dois cliques com o mesmo identificador passavam os dois pela checagem, e
+  -- o segundo morria no índice único — o defeito que esta migration existe
+  -- para fechar. Depois da trava, o segundo espera o primeiro e encontra a
+  -- devolução dele. E vem ANTES da recusa de dia fechado: o retry de uma
+  -- devolução que já passou devolve o resultado dela, mesmo que o dia tenha
+  -- fechado entre as duas chamadas.
   select id, unit_cost into v_id, v_cost
     from inventory.stock_movement
     where emission_id = p_emission_id and type = 'issue_return'
@@ -58,8 +69,6 @@ begin
     return;
   end if;
 
-  select * into v_request from inventory.stock_issue_request where id = p_request_id for update;
-  if not found then raise exception 'Requisição não encontrada'; end if;
   -- dia fechado é dia fechado: a variância foi medida e justificada contra o
   -- emitido líquido daquele momento, e devolver depois a reescreveria
   if v_request.status <> 'open' then raise exception 'Requisição já fechada — a devolução tem de ser lançada antes do fechamento do dia'; end if;

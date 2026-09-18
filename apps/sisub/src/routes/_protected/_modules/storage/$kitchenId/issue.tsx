@@ -476,6 +476,7 @@ function DailyIssuePage() {
 										ingredientId={line.ingredientId}
 										description={line.description}
 										busy={busy}
+										version={line.issuedNetQty}
 										onDone={() => router.invalidate()}
 									/>
 								)}
@@ -532,12 +533,15 @@ function ReturnRow({
 	ingredientId,
 	description,
 	busy,
+	version,
 	onDone,
 }: {
 	requestId: string
 	ingredientId: string
 	description: string
 	busy: boolean
+	/** Muda a cada saída ou devolução da linha — refaz a lista de lotes devolvíveis. */
+	version: number
 	onDone: () => void
 }) {
 	const [quantity, setQuantity] = useState("")
@@ -545,8 +549,14 @@ function ReturnRow({
 	// mesmo raciocínio da emissão: o identificador sobrevive ao erro, para que a
 	// segunda tentativa depois de um 502 seja a MESMA devolução
 	const [emissionId, setEmissionId] = useState(() => crypto.randomUUID())
+	// Trava o botão enquanto a devolução viaja: dois cliques eram duas chamadas
+	// com o mesmo identificador, e o operador via sucesso e erro juntos.
+	const [returning, setReturning] = useState(false)
 	const { data: returnable } = useQuery({
-		queryKey: ["returnable-lots", requestId, ingredientId],
+		// A versão da requisição entra na chave. `router.invalidate()` não toca o
+		// cache do React Query: sem isto a lista não enxergava o lote de uma saída
+		// nova nem o saldo que uma devolução parcial já consumiu.
+		queryKey: ["returnable-lots", requestId, ingredientId, version],
 		queryFn: () => fetchReturnableLotsFn({ data: { requestId, ingredientId } }),
 	})
 	const lots = returnable?.lots ?? []
@@ -576,13 +586,14 @@ function ReturnRow({
 				size="sm"
 				variant="ghost"
 				className="h-7"
-				disabled={busy || !quantity || !lotId}
+				disabled={busy || returning || !quantity || !lotId}
 				onClick={async () => {
 					const amount = Number(quantity.replace(",", "."))
 					if (!Number.isFinite(amount) || amount <= 0) {
 						toast.error("Informe a quantidade")
 						return
 					}
+					setReturning(true)
 					try {
 						const result = await returnIssueFn({ data: { requestId, lotId, quantity: amount, emissionId } })
 						toast.success(`${description}: ${NUM.format(amount)} devolvido a ${BRL.format(result.unitCost)}/un`)
@@ -592,6 +603,8 @@ function ReturnRow({
 						onDone()
 					} catch (error) {
 						toast.error(error instanceof Error ? error.message : "Erro ao devolver")
+					} finally {
+						setReturning(false)
 					}
 				}}
 			>

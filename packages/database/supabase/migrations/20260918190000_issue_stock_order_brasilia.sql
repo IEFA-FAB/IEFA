@@ -62,6 +62,19 @@ begin
       for update;
     if not found then raise exception 'Lote não pertence à cozinha/ingrediente da requisição'; end if;
 
+    -- Lote escolhido à mão também tem de TER o saldo. Sem isto a escolha
+    -- explícita tirava a quantidade inteira do lote, deixava-o negativo e a tela
+    -- reportava sucesso limpo — a alocação automática, ao contrário, põe o que
+    -- falta num movimento sem lote e avisa.
+    select coalesce(sum(case when m.type in ('receipt','issue_return','leftover_return','transfer_in','lot_split_in','adjustment_in')
+                             then m.quantity else -m.quantity end), 0)
+      into v_take
+      from inventory.stock_movement m
+     where m.lot_id = p_override_lot_id;
+    if v_take < p_quantity then
+      raise exception 'O lote escolhido tem % de saldo, menos que os % pedidos — escolha outro lote ou deixe a alocação automática', v_take, p_quantity;
+    end if;
+
     insert into inventory.stock_movement
       (kitchen_id, ingredient_id, lot_id, type, quantity, justification, issue_request_id, emission_id, production_task_id, created_by)
     values

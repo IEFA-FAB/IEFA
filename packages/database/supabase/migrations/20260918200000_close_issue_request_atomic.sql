@@ -66,3 +66,36 @@ comment on function inventory.close_issue_request is
   'Fecha a requisição do dia sob trava, recusando se algum movimento entrou depois do retrato de variância que o servidor conferiu.';
 
 revoke all on function inventory.close_issue_request(uuid, uuid, int) from anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- A linha da requisição só muda com a requisição ABERTA
+-- ----------------------------------------------------------------------------
+--
+-- "Recalcular sugestão" e "registrar motivo" liam o status e depois gravavam
+-- nas linhas. Entre as duas coisas o dia podia fechar — e aí a sugestão já
+-- CONGELADA de um dia fechado era reescrita, e a variância do mês passava a ser
+-- medida contra um número que não era o do fechamento.
+--
+-- A regra mora aqui, e não só na server fn: `for share` na requisição espera o
+-- `for update` do fechamento, então a escrita ou acontece antes dele ou é
+-- recusada depois. O próprio fechamento congela as linhas ANTES de gravar
+-- `closed`, com a requisição ainda aberta — por isso passa.
+create function inventory.issue_item_requires_open_request() returns trigger
+language plpgsql as $$
+declare
+  v_status text;
+begin
+  select status into v_status
+    from inventory.stock_issue_request
+   where id = coalesce(new.request_id, old.request_id)
+   for share;
+  if v_status is distinct from 'open' then
+    raise exception 'A requisição do dia já foi fechada — as linhas dela não mudam mais';
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger issue_item_requires_open_request
+  before insert or update or delete on inventory.stock_issue_request_item
+  for each row execute function inventory.issue_item_requires_open_request();
