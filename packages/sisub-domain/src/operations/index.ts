@@ -269,6 +269,10 @@ export {
 } from "./ingredients.ts"
 export {
 	EDITABLE_RECEIPT_STATUSES,
+	EXPIRY_BAND_LABELS,
+	EXPIRY_BANDS,
+	EXPIRY_DEFAULT_ALERT_DAYS,
+	type ExpiryBand,
 	GOODS_RECEIPT_STATUSES,
 	type GoodsReceiptStatus,
 	INFLOW_REASONS,

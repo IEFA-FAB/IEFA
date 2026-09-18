@@ -1,5 +1,5 @@
 import { STOCK_MOVEMENT_LABELS, type StockMovementType } from "@iefa/sisub-domain"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { ChevronDown, ChevronRight, PackageOpen, Printer, Scissors, ShieldAlert, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
@@ -9,14 +9,19 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { fetchExpirySummaryFn } from "@/server/expiry.fn"
 import { fetchStockBalanceFn, fetchStockMovementsFn, type StockBalanceItem } from "@/server/stock.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/dashboard")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
 	loader: async ({ params }) => {
 		const kitchenId = Number(params.kitchenId)
-		const [balance, movements] = await Promise.all([fetchStockBalanceFn({ data: { kitchenId } }), fetchStockMovementsFn({ data: { kitchenId, limit: 20 } })])
-		return { balance, movements }
+		const [balance, movements, expiry] = await Promise.all([
+			fetchStockBalanceFn({ data: { kitchenId } }),
+			fetchStockMovementsFn({ data: { kitchenId, limit: 20 } }),
+			fetchExpirySummaryFn({ data: { kitchenId } }),
+		])
+		return { balance, movements, expiry, kitchenId }
 	},
 	component: StockDashboardPage,
 	head: () => ({
@@ -122,13 +127,12 @@ function BalanceRow({
 }
 
 function StockDashboardPage() {
-	const { balance, movements } = Route.useLoaderData()
+	const { balance, movements, expiry, kitchenId } = Route.useLoaderData()
 	// Etiqueta e fracionamento moram aqui porque é aqui que o operador vê o lote.
 	// Pedir para ele ir a outra tela para imprimir a etiqueta do lote que acabou
 	// de receber é o caminho para ninguém etiquetar nada.
 	const [label, setLabel] = useState<React.ComponentProps<typeof LotLabelSheet>["lots"][number] | null>(null)
 	const [splitting, setSplitting] = useState<React.ComponentProps<typeof SplitLotDialog>["lot"] | null>(null)
-	const expiringCount = balance.filter((i) => i.nextExpiry != null && daysUntil(i.nextExpiry) <= 30).length
 	const totalValue = balance.reduce((acc, i) => acc + i.balanceValue, 0)
 
 	return (
@@ -168,12 +172,24 @@ function StockDashboardPage() {
 						<p className="text-heading tabular-nums">{BRL.format(totalValue)}</p>
 					</CardContent>
 				</Card>
+				{/*
+				 * Antes este bloco contava "vencendo em 30 dias" no cliente, com 30
+				 * fixo para TUDO. Trinta dias é folga demais para o feijão e tarde
+				 * demais para o leite pasteurizado: o cartão ficava permanentemente
+				 * aceso por causa do seco e calado sobre o resfriado, que é o que de
+				 * fato estraga. Agora o número vem do limite da cozinha, item a item.
+				 */}
 				<Card>
 					<CardContent className="pt-4">
-						<p className="text-label text-muted-foreground">Vencendo em 30 dias</p>
-						<p suppressHydrationWarning className={`text-heading tabular-nums ${expiringCount > 0 ? "text-warning" : ""}`}>
-							{expiringCount}
+						<p className="text-label text-muted-foreground">Vencido + crítico</p>
+						<p className={`text-heading tabular-nums ${expiry.urgentLots > 0 ? "text-warning" : ""}`}>{expiry.urgentLots}</p>
+						<p className="text-xs text-muted-foreground">
+							{BRL.format(expiry.valueAtRisk)} em risco
+							{expiry.noExpiryLots > 0 && ` · ${expiry.noExpiryLots} perecível(is) sem validade`}
 						</p>
+						<Link to="/storage/$kitchenId/expiry" params={{ kitchenId: String(kitchenId) }} className="mt-1 inline-block text-xs text-primary underline">
+							Ver vencimentos
+						</Link>
 					</CardContent>
 				</Card>
 			</div>
