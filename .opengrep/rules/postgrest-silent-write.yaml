@@ -1,0 +1,80 @@
+##
+# Escrita por PostgREST cujo `error` ninguém lê.
+#
+# Como as outras regras deste diretório, esta nasceu de bug real — de três, no
+# mesmo dia (change sisub-inventory-operations):
+#
+#   - `computeSuggestion` pedia uma coluna que não existe. O PostgREST devolveu
+#     erro, o erro foi descartado, e a sugestão do dia voltava SEMPRE vazia: o
+#     recurso inteiro de variância, justificativa e fechamento nasceu inerte em
+#     produção, sem nenhum sinal na tela;
+#   - o lançamento de ajuste que falhava deixava o documento encalhado em
+#     `draft`, e a recuperação que o movia para `pending_approval` não conferia
+#     o próprio erro;
+#   - o `upsert` da sugestão do dia não lia o erro, e a tela mostrava "0 itens"
+#     tanto para "não há produção planejada" quanto para "a gravação falhou".
+#
+# LEITURA com erro descartado devolve lista vazia, o que já é ruim. ESCRITA com
+# erro descartado é pior, e é o caso desta regra: o `insert` não insere, o
+# `update` não atualiza — porque o filtro não casou nada, porque a coluna não
+# existe, porque um CHECK recusou — e a função devolve SUCESSO. O operador lê
+# "salvo", o dado não mudou, e não há erro em lugar nenhum.
+#
+# Caminho certo, e é uma linha:
+#
+#     const { error } = await inv.from("t").update({ … }).eq("id", id)
+#     if (error) throw new Error(`Erro ao …: ${error.message}`)
+#
+# Quando a escrita é deliberadamente best-effort (limpeza oportunista, telemetria),
+# ponha `// nosemgrep: postgrest-write-error-discarded` com o motivo na linha
+# anterior — a exceção fica ao lado de quem a lê.
+#
+# É a OUTRA METADE de `query-empty-default-swallows-error`, em `domain-authz.yaml`:
+# aquela pega a LEITURA no cliente que cai no estado vazio e afirma que não há
+# dados; esta pega a ESCRITA no servidor que não escreve e afirma que salvou. Nas
+# duas, o defeito não é a falha — é a falha virar silêncio.
+##
+rules:
+  - id: postgrest-write-error-discarded
+    languages: [typescript]
+    # WARNING, e não ERROR, por decisão consciente: a regra encontra 56 sítios já
+    # existentes no monorepo inteiro (portal, alpha, api, sucont, assignment-selection
+    # e sisub), e vários são best-effort legítimo — o `delete` de rollback depois de
+    # um insert que falhou, por exemplo. Subir isso a ERROR bloquearia todo PR do
+    # repo até alguém triar os 56, e o `security.yml` já prevê exatamente este caso:
+    # o SARIF leva TODAS as severidades para a aba Security, e o gate bloqueante roda
+    # só sobre ERROR, "assim uma regra advisory nova não precisa de triagem
+    # retroativa do repo inteiro para poder existir".
+    #
+    # O valor imediato é sobre CÓDIGO NOVO: quem escrever a próxima escrita sem
+    # tratar o erro vê o aviso no PR. Promover a ERROR depois da triagem é mudar
+    # uma palavra.
+    severity: WARNING
+    message: >-
+      Escrita PostgREST (`insert`/`update`/`upsert`/`delete`) sem ler o `error`. Se o filtro não
+      casar nada, se a coluna não existir ou se um CHECK recusar, a escrita NÃO acontece e a
+      função devolve sucesso — a tela diz "salvo" e o dado não mudou. Destruture `{ error }` e
+      trate-o. Best-effort de propósito: `// nosemgrep: postgrest-write-error-discarded` com o
+      motivo na linha anterior.
+    paths:
+      include:
+        - "apps/*/src/server/**/*.ts"
+        - "apps/*/src/api/**/*.ts"
+        - "packages/sisub-domain/src/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.contract.test.ts"
+    patterns:
+      # Sem `await` no padrão de propósito: a chamada real vem encadeada
+      # (`.update({…}).eq("id", id).select("x")`), e `await $DB.from($T).update(...)`
+      # só casaria quando o `update` fosse a ÚLTIMA chamada da cadeia — que é
+      # justamente o caso raro.
+      - pattern-either:
+          - pattern: $DB.from($T).insert(...)
+          - pattern: $DB.from($T).update(...)
+          - pattern: $DB.from($T).upsert(...)
+          - pattern: $DB.from($T).delete(...)
+      - pattern-not-inside: |
+          const { ..., error, ... } = $X
+      - pattern-not-inside: |
+          const { ..., error: $E, ... } = $X
