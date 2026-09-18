@@ -214,7 +214,7 @@ end;
 $$;
 
 comment on function access_control.change_module_permission(uuid, text, text, uuid, text, integer, bigint, bigint, bigint, timestamptz, text) is
-	'Concede (upsert na partição allow OU deny) ou revoga (a chave inteira) um grant inline e grava a linha em sensitive_operation_log na MESMA transação. SECURITY INVOKER, só service_role; o ator (p_actor) tem de ser a sessão — a garantia é do app. Ver 20260918210000.';
+	'Concede (upsert na partição allow OU deny) ou revoga (a chave inteira) um grant inline e grava a linha em sensitive_operation_log na MESMA transação. SECURITY INVOKER, só service_role; o ator (p_actor) tem de ser a sessão — a garantia é do app. Ver 20260918130335.';
 
 -- Só a service role executa: é quem os apps usam no servidor, depois do guard de
 -- administração. `anon`/`authenticated` alcançariam a função pelo `/rest/v1/rpc` se o

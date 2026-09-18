@@ -284,6 +284,11 @@ describe("GET /api/v1/submissions", () => {
 		expect(await ids([grant("alpha-requester", 1, IAE)], `?unit_id=${GAP_RJ}`)).toEqual(["mine-rj"])
 		expect(await ids([grant("alpha-requester", 1, IAE)], `?unit_id=${IAE}`)).toEqual(["colleague-iae"])
 	})
+
+	test("?mine=true: só as próprias, mesmo com papel que cobre OMs (escopo `minhas` do contrate)", async () => {
+		expect(await ids([grant("alpha-procurement", 1, GAP_SJ)], "?mine=true")).toEqual(["mine-rj"])
+		expect(await ids([grant("alpha-requester", 1, null)], "?mine=true")).toEqual(["mine-rj"])
+	})
 })
 
 describe("POST /api/v1/submissions", () => {

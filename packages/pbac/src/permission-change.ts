@@ -1,7 +1,7 @@
 /**
  * Conceder e revogar grant inline COM auditoria — atômico, numa transação do banco.
  *
- * Chama `access_control.change_module_permission` (migration 20260918210000), que grava o
+ * Chama `access_control.change_module_permission` (migration 20260918130335), que grava o
  * grant (ou apaga a chave) e a linha de `access_control.sensitive_operation_log` na MESMA
  * transação: ou os dois entram, ou nenhum. Gravar o log pelo app depois da escrita deixava
  * duas janelas — o log falhar com o grant já confirmado, e o beneficiário usar o acesso

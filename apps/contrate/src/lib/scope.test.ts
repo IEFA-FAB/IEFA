@@ -24,11 +24,11 @@ describe("buildScopeOptions", () => {
 
 	test("vazia: nada, ou só `minhas` quando o módulo oferece", () => {
 		expect(buildScopeOptions([], UNITS)).toEqual([])
-		expect(buildScopeOptions([], UNITS, { personalWhenEmpty: true }).map((option) => option.id)).toEqual([PERSONAL_SCOPE])
+		expect(buildScopeOptions([], UNITS, { personal: true }).map((option) => option.id)).toEqual([PERSONAL_SCOPE])
 	})
 
-	test("quem tem OM não recebe `minhas`", () => {
-		expect(buildScopeOptions([26], UNITS, { personalWhenEmpty: true }).map((option) => option.id)).toEqual(["26"])
+	test("quem tem OM também recebe `minhas`, no fim: o envio pode ser para OM fora da cobertura", () => {
+		expect(buildScopeOptions([26], UNITS, { personal: true }).map((option) => option.id)).toEqual(["26", PERSONAL_SCOPE])
 	})
 })
 
@@ -51,7 +51,7 @@ describe("resolveScopeParam", () => {
 
 	test("`minhas` só onde é oferecido", () => {
 		expect(resolveScopeParam(PERSONAL_SCOPE, scoped)).toBeNull()
-		expect(resolveScopeParam(PERSONAL_SCOPE, buildScopeOptions([], UNITS, { personalWhenEmpty: true }))?.kind).toBe("personal")
+		expect(resolveScopeParam(PERSONAL_SCOPE, buildScopeOptions([], UNITS, { personal: true }))?.kind).toBe("personal")
 	})
 
 	test("só a forma canônica: sem zero à esquerda, espaço ou texto", () => {
@@ -71,7 +71,7 @@ describe("pickScopeForUnit", () => {
 	})
 
 	test("sem cobertura mas com `minhas`: `minhas`", () => {
-		expect(pickScopeForUnit(buildScopeOptions([], UNITS, { personalWhenEmpty: true }), 26)?.id).toBe(PERSONAL_SCOPE)
+		expect(pickScopeForUnit(buildScopeOptions([], UNITS, { personal: true }), 26)?.id).toBe(PERSONAL_SCOPE)
 	})
 
 	test("OM fora da cobertura, sem `todas` nem `minhas`: null", () => {
@@ -85,7 +85,7 @@ describe("describeScope", () => {
 		expect(describeScope(buildScopeOptions([26], UNITS))).toBe("GAP-SJ")
 		expect(describeScope(buildScopeOptions([26, 100, 101], UNITS))).toBe("3 OMs")
 		expect(describeScope(buildScopeOptions("all", UNITS))).toBe("Todas as OMs")
-		expect(describeScope(buildScopeOptions([], UNITS, { personalWhenEmpty: true }))).toBe("Minhas submissões")
+		expect(describeScope(buildScopeOptions([], UNITS, { personal: true }))).toBe("Minhas submissões")
 		expect(describeScope([])).toBeNull()
 	})
 })

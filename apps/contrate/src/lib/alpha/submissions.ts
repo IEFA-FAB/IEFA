@@ -114,12 +114,17 @@ export function extractionsQueryOptions(token: string | undefined, submissionId:
  * licitações ou ACI (o α decide). `unitId` recorta uma OM — fora da cobertura, o α devolve só
  * as próprias daquela OM. `null` é sem recorte.
  */
-export function submissionsQueryOptions(token: string | undefined, unitId: number | null) {
+/**
+ * A lista do escopo: a OM (`unit`), tudo o que o papel alcança (`all`) ou só o que a própria
+ * pessoa enviou (`personal` — `?mine=true`; sem o filtro o α devolveria também as OMs que ela
+ * cobre, e a lista "minhas" mostraria os documentos dos colegas).
+ */
+export function submissionsQueryOptions(token: string | undefined, scope: { kind: "unit" | "all" | "personal"; unitId: number | null }) {
+	const path =
+		scope.kind === "personal" ? "/api/v1/submissions?mine=true" : scope.unitId === null ? "/api/v1/submissions" : `/api/v1/submissions?unit_id=${scope.unitId}`
 	return queryOptions({
-		queryKey: ["alpha", "submissions", "list", unitId ?? "all"],
-		queryFn: async () =>
-			(await alphaRequest<{ submissions: SubmissionResponse[] }>(unitId === null ? "/api/v1/submissions" : `/api/v1/submissions?unit_id=${unitId}`, token))
-				.submissions,
+		queryKey: ["alpha", "submissions", "list", scope.kind, scope.unitId ?? "all"],
+		queryFn: async () => (await alphaRequest<{ submissions: SubmissionResponse[] }>(path, token)).submissions,
 		staleTime: 15_000,
 	})
 }

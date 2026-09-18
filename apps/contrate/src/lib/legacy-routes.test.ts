@@ -19,7 +19,7 @@ describe("resolveLegacyProcessPath", () => {
 		expect(resolveLegacyProcessPath(meAccess(), 26, "processos", "abc")).toBe("/requisitante/minhas/processos/abc")
 	})
 
-	test("nenhum escopo serve: o hub do Requisitante", () => {
-		expect(resolveLegacyProcessPath(meAccess({ requester: [10] }), 26, "processos", "abc")).toBe("/requisitante")
+	test("OM fora da cobertura do requisitante: `minhas` (pode ser o envio dele para outra OM)", () => {
+		expect(resolveLegacyProcessPath(meAccess({ requester: [10] }), 26, "processos", "abc")).toBe("/requisitante/minhas/processos/abc")
 	})
 })

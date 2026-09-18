@@ -18,7 +18,7 @@ export const Route = createFileRoute("/requisitante/$unitId/")({
 		const token = context.auth.session?.access_token
 		if (!token) return
 
-		void context.queryClient.query({ ...submissionsQueryOptions(token, context.scopeContext.unitId), staleTime: "static" }).catch(() => {})
+		void context.queryClient.query({ ...submissionsQueryOptions(token, context.scopeContext), staleTime: "static" }).catch(() => {})
 	},
 	component: ProcessosPage,
 	head: () => ({ meta: [{ title: "Processos · Requisitante" }] }),
@@ -35,7 +35,7 @@ function ProcessosPage() {
 	const token = session?.access_token
 	const { unitId } = Route.useParams()
 	const { scopeContext } = Route.useRouteContext()
-	const submissions = useQuery(submissionsQueryOptions(token, scopeContext.unitId))
+	const submissions = useQuery(submissionsQueryOptions(token, scopeContext))
 	const units = useQuery(unitsQueryOptions(token))
 	const unitCodes = useMemo(() => new Map((units.data ?? []).map((unit) => [unit.id, unit.code])), [units.data])
 	// Numa OM só, a coluna repetiria a mesma sigla em todas as linhas.

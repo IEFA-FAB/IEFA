@@ -53,8 +53,8 @@ export type ModuleGate = { kind: "public" } | { kind: "authenticated" } | { kind
 export interface ModuleScope {
 	/** As OMs em que o módulo abre, a partir do perfil do α. */
 	coverage: (access: MeAccess) => UnitSet
-	/** Oferece `minhas` a quem não tem OM nenhuma no papel (só o Requisitante). */
-	personalWhenEmpty?: boolean
+	/** Oferece `minhas` a quem não é global no papel (só o Requisitante): o que a pessoa enviou. */
+	personal?: boolean
 	/** Entrada do módulo DENTRO de uma OM — para onde leva a troca de OM. */
 	index: string
 }
@@ -114,7 +114,7 @@ export const CONTRATE_MODULES: readonly ContrateModule[] = [
 		// Qualquer sessão: enviar documento não exige papel. O papel de requisitante só
 		// amplia o que se ENXERGA — todas as submissões das OMs que ele cobre.
 		gate: { kind: "authenticated" },
-		scope: { coverage: (access) => access.roles.requester, personalWhenEmpty: true, index: "/requisitante/$unitId" },
+		scope: { coverage: (access) => access.roles.requester, personal: true, index: "/requisitante/$unitId" },
 		nav: [
 			{ to: "/requisitante/$unitId", label: "Processos", icon: MultiplePages, exact: true },
 			{ to: "/requisitante/$unitId/nova", label: "Enviar documento", icon: CloudUpload },
@@ -219,7 +219,7 @@ export function accessibleModules(viewer: Viewer): ContrateModule[] {
 /** As OMs em que o módulo abre para este perfil. Vazio em módulo sem escopo. */
 export function moduleScopeOptions(module: ContrateModule, access: MeAccess): ScopeOption[] {
 	if (!module.scope) return []
-	return buildScopeOptions(module.scope.coverage(access), access.units, { personalWhenEmpty: module.scope.personalWhenEmpty })
+	return buildScopeOptions(module.scope.coverage(access), access.units, { personal: module.scope.personal })
 }
 
 /**

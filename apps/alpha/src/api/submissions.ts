@@ -37,6 +37,9 @@ const SubmissionFormSchema = z.object({
 
 const SubmissionListQuerySchema = z.object({
 	unit_id: z.coerce.number().int().nonnegative().optional(),
+	// Só as que a própria pessoa enviou — o escopo "minhas" do contrate. Sem isto, quem cobre
+	// uma OM veria ali os documentos dos colegas rotulados como seus.
+	mine: z.enum(["true", "false"]).optional(),
 })
 
 const SUBMISSION_COLUMNS = "id, unit_id, filename, doc_kind, modalidade, objeto, created_at"
@@ -115,11 +118,14 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 	.get("/api/v1/submissions", zValidator("query", SubmissionListQuerySchema), async (c) => {
 		const user = c.get("user")
 		const coverage = unitsFor(c.get("access"), ...READER_ROLES)
-		const { unit_id } = c.req.valid("query")
+		const { unit_id, mine } = c.req.valid("query")
 
 		let query = supabase.from("submission").select(SUBMISSION_COLUMNS).order("created_at", { ascending: false }).limit(50)
 
-		if (unit_id !== undefined) {
+		if (mine === "true") {
+			query = query.eq("user_id", user.id)
+			if (unit_id !== undefined) query = query.eq("unit_id", unit_id)
+		} else if (unit_id !== undefined) {
 			query = query.eq("unit_id", unit_id)
 			if (!coversUnit(coverage, unit_id)) query = query.eq("user_id", user.id)
 		} else if (coverage !== "all") {

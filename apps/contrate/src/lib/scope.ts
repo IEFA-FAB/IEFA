@@ -9,8 +9,9 @@
  * O segmento aceita três formas:
  *   - o id numérico de uma OM da cobertura do papel;
  *   - `todas`, só para quem tem o papel GLOBAL — sem recorte de OM;
- *   - `minhas`, só no módulo Requisitante e só para quem não tem papel lá — os documentos
- *     que a própria pessoa enviou (enviar não exige papel).
+ *   - `minhas`, só no módulo Requisitante e para quem não é global lá — os documentos que
+ *     a própria pessoa enviou (enviar não exige papel, e a OM do envio pode estar fora da
+ *     cobertura dela: sem `minhas`, o documento enviado sumiria das listas de quem o enviou).
  * Qualquer outro valor é devolvido ao hub do módulo.
  *
  * Tudo aqui é PURO: a cobertura chega pronta do α (`/me/access`, já expandida pela
@@ -87,16 +88,16 @@ const byLabel = (left: ScopeOption, right: ScopeOption) => left.label.localeComp
  * - cobertura `"all"` → `todas` primeiro, depois cada OM de `units` (a lista inteira: para o
  *   papel global o α devolve todas as OMs em `/me/access`);
  * - lista → uma opção por OM, na ordem da sigla;
- * - vazia → nada, ou só `minhas` quando o módulo a oferece (`personalWhenEmpty`).
+ * - lista (vazia ou não) → mais `minhas` no fim, quando o módulo a oferece (`personal`). O
+ *   global dispensa: `todas` já inclui o que ele enviou.
  */
-export function buildScopeOptions(coverage: UnitSet, units: readonly UnitLike[], { personalWhenEmpty = false } = {}): ScopeOption[] {
+export function buildScopeOptions(coverage: UnitSet, units: readonly UnitLike[], { personal = false } = {}): ScopeOption[] {
 	const byId = new Map(units.map((unit) => [unit.id, unit]))
 
 	if (coverage === "all") return [ALL_UNITS_OPTION, ...units.map((unit) => unitOption(unit.id, unit)).sort(byLabel)]
 
 	const options = [...new Set(coverage)].map((id) => unitOption(id, byId.get(id))).sort(byLabel)
-	if (options.length === 0 && personalWhenEmpty) return [PERSONAL_OPTION]
-	return options
+	return personal ? [...options, PERSONAL_OPTION] : options
 }
 
 /**
@@ -127,10 +128,8 @@ export function pickScopeForUnit(options: readonly ScopeOption[], unitId: number
 /** Resumo do escopo para o cartão da home: "GAP-SJ", "3 OMs", "Todas as OMs". `null` sem opção. */
 export function describeScope(options: readonly ScopeOption[]): string | null {
 	if (options.some((option) => option.kind === "all")) return ALL_UNITS_OPTION.label
-	if (options.some((option) => option.kind === "personal")) return PERSONAL_OPTION.label
-
 	const units = options.filter((option) => option.kind === "unit")
-	if (units.length === 0) return null
+	if (units.length === 0) return options.some((option) => option.kind === "personal") ? PERSONAL_OPTION.label : null
 	if (units.length === 1) return units[0]?.label ?? null
 	return `${units.length} OMs`
 }
