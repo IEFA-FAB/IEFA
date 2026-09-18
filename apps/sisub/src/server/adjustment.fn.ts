@@ -159,12 +159,23 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 		.select("policy_id, module, level, kitchen_id, unit_id, mess_hall_id")
 		.eq("module", "storage")
 		.or(inScope)
+		// Só o que decide aprovação: nível 3 (quem aprova) e deny (nível ≤ 0, que
+		// anula). Uma política de nível baixo anexada a milhares de usuários
+		// empurraria a leitura de anexos para além do teto de 1000 linhas, e o
+		// único nível 3 real poderia sumir do resultado calado.
+		.or("level.gte.3,level.lte.0")
 	if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${statementError.message}`)
 	const statementRows = (statements ?? []) as Array<Omit<PermissionRow, "user_id"> & { policy_id: string }>
 	const storagePolicyIds = [...new Set(statementRows.map((row) => row.policy_id))]
 
 	const [inlineResult, attachmentResult, liveResult] = await Promise.all([
-		ac.from("user_permissions").select("user_id, module, level, kitchen_id, unit_id, mess_hall_id").eq("module", "storage").or(inScope).or(NOT_EXPIRED),
+		ac
+			.from("user_permissions")
+			.select("user_id, module, level, kitchen_id, unit_id, mess_hall_id")
+			.eq("module", "storage")
+			.or(inScope)
+			.or("level.gte.3,level.lte.0")
+			.or(NOT_EXPIRED),
 		storagePolicyIds.length > 0
 			? ac.from("user_policy_attachment").select("user_id, policy_id").in("policy_id", storagePolicyIds).or(NOT_EXPIRED)
 			: Promise.resolve({ data: [], error: null }),
@@ -353,7 +364,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		if (factError) await abandon(`Erro ao registrar a alçada do ajuste: ${factError.message}`)
 		if (requires === true) {
 			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
-			if (pendingError) throw new Error(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
+			if (pendingError) await abandon(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
 			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0, postFailure: null as string | null }
 		}
 
