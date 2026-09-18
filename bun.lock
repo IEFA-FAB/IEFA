@@ -550,6 +550,7 @@
       "dependencies": {
         "@langchain/core": "^1.2.9",
         "@langchain/openai": "^1.5.11",
+        "zod": "^4.5.4",
       },
       "devDependencies": {
         "@iefa/tsconfig": "workspace:*",
