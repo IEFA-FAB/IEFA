@@ -14,9 +14,11 @@
  * @migration 20260919120000_expiry_alert_policy
  */
 
+import { hasAnyPermission } from "@iefa/pbac"
 import { brasiliaToday, CONSERVATION_CLASSES, EXPIRY_BANDS, type ExpiryBand } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -101,11 +103,15 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const describe = new Map<string, { description: string; measureUnit: string | null }>()
 		if (ingredientIds.length > 0) {
-			const { data: ingredients } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+			const { data: ingredients, error: ingredientError } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+			// sem o nome, todo lote vira "(item sem cadastro)" — parece defeito de
+			// catálogo, e é falha de leitura
+			if (ingredientError) throw new Error(`Erro ao carregar os insumos: ${ingredientError.message}`)
 			for (const row of ingredients ?? []) describe.set(row.id, { description: row.description, measureUnit: row.measure_unit })
 		}
 		if (frozenIds.length > 0) {
-			const { data: frozen } = await kit.from("frozen_preparation").select("id, description").in("id", frozenIds)
+			const { data: frozen, error: frozenError } = await kit.from("frozen_preparation").select("id, description").in("id", frozenIds)
+			if (frozenError) throw new Error(`Erro ao carregar as preparações: ${frozenError.message}`)
 			for (const row of frozen ?? []) describe.set(row.id, { description: row.description, measureUnit: null })
 		}
 
@@ -113,14 +119,20 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		// faixa com o botão habilitado, e o segundo clique criava uma SEGUNDA baixa
 		// do saldo inteiro — aprovar as duas tentaria baixar o lote duas vezes.
 		const pendingLots = new Set<string>()
-		const lotIds = all.map((row) => row.lot_id)
+		//
+		// Só os lotes VENCIDOS entram na consulta — são os únicos com "Baixar" —,
+		// o que mantém a lista de ids na URL do tamanho da faixa urgente, e não do
+		// estoque inteiro. E só `pending_approval` conta: rascunho é transitório, e
+		// um rascunho que sobrou de lançamento que falhou marcava o lote como
+		// pendente para sempre, sem que ninguém pudesse aprová-lo.
+		const lotIds = all.filter((row) => row.band === "expired").map((row) => row.lot_id)
 		if (lotIds.length > 0) {
 			const { data: pending, error: pendingError } = await inventory()
 				.from("stock_adjustment_item")
 				.select("lot_id, stock_adjustment!inner(status)")
 				.in("lot_id", lotIds)
 				.eq("direction", "out")
-				.in("stock_adjustment.status", ["draft", "pending_approval"])
+				.eq("stock_adjustment.status", "pending_approval")
 			if (pendingError) throw new Error(`Erro ao conferir baixas pendentes: ${pendingError.message}`)
 			for (const row of (pending ?? []) as Array<{ lot_id: string | null }>) if (row.lot_id) pendingLots.add(row.lot_id)
 		}
@@ -186,7 +198,14 @@ export const fetchExpirySummaryFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: rows, error } = await inventory().from("v_lot_expiry").select("band, balance_value").eq("kitchen_id", data.kitchenId)
+		// Só as faixas que o resumo soma. Ler todo lote com saldo — inclusive a
+		// faixa `ok`, que é a maioria — levava cozinha grande ao teto de 1000 linhas
+		// do PostgREST, e o cartão mostrava menos vencido e menos risco do que há.
+		const { data: rows, error } = await inventory()
+			.from("v_lot_expiry")
+			.select("band, balance_value")
+			.eq("kitchen_id", data.kitchenId)
+			.in("band", ["expired", "critical", "no_expiry"])
 		if (error) throw new Error(`Erro ao resumir os vencimentos: ${error.message}`)
 
 		let urgentLots = 0
@@ -248,7 +267,8 @@ export const fetchExpiryPoliciesFn = createServerFn({ method: "GET" })
 		const ingredientIds = [...new Set(all.map((row) => row.ingredient_id).filter(Boolean))] as string[]
 		const names = new Map<string, string>()
 		if (ingredientIds.length > 0) {
-			const { data: ingredients } = await kitchen().from("ingredient").select("id, description").in("id", ingredientIds)
+			const { data: ingredients, error: ingredientError } = await kitchen().from("ingredient").select("id, description").in("id", ingredientIds)
+			if (ingredientError) throw new Error(`Erro ao carregar os insumos: ${ingredientError.message}`)
 			for (const row of ingredients ?? []) names.set(row.id, row.description)
 		}
 
@@ -346,13 +366,30 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
 			kitchenId: z.number().int().positive(),
+			/** Início do período na tela (ISO date). O corte efetivo é o mais tarde entre ele e hoje. */
+			from: z
+				.string()
+				.regex(/^\d{4}-\d{2}-\d{2}$/)
+				.optional(),
 			/** Fim do período planejado (ISO date), inclusive. */
 			until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 			limit: z.number().int().min(1).max(100).default(30),
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		// O bloco mora no PLANEJAMENTO, que é do módulo `kitchen`: a nutricionista
+		// que planeja o cardápio nem sempre tem acesso ao estoque. Exigir `storage`
+		// dava erro para ela — e o bloco some em erro, exatamente como se nada
+		// estivesse vencendo. Lê quem tem `kitchen` ou `storage` nesta cozinha.
+		const ctx = await requireAuth()
+		if (!hasAnyPermission(ctx.permissions, ["kitchen", "storage"], 1, { type: "kitchen", id: data.kitchenId })) {
+			throw new Error("Requer acesso à cozinha ou ao estoque desta cozinha")
+		}
+		// Olhando um mês FUTURO, o corte começa no início dele: lote que estraga
+		// semanas antes do mês nem chega a ele, e sugeri-lo para aquele cardápio
+		// é sugerir comida que não vai existir. No passado, o corte é hoje.
+		const today = brasiliaToday()
+		const from = data.from && data.from > today ? data.from : today
 		const { data: rows, error } = await inventory()
 			.from("v_lot_expiry")
 			.select("ingredient_id, frozen_preparation_id, expiry_date, balance, balance_value, quarantined_at")
@@ -362,7 +399,7 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 			// "aproveite no cardápio", e olhando um mês passado o bloco listava só
 			// estoque vencido — sugerindo servir comida vencida. Vencido é assunto
 			// da tela de vencimentos (baixar), nunca do planejamento.
-			.gte("expiry_date", brasiliaToday())
+			.gte("expiry_date", from)
 			.lte("expiry_date", data.until)
 		if (error) throw new Error(`Erro ao carregar os vencimentos do período: ${error.message}`)
 
@@ -401,11 +438,13 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 			const ingredientIds = [...byItem.values()].map((item) => item.ingredientId).filter(Boolean) as string[]
 			const frozenIds = [...byItem.values()].map((item) => item.frozenPreparationId).filter(Boolean) as string[]
 			if (ingredientIds.length > 0) {
-				const { data: ingredients } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+				const { data: ingredients, error: ingredientError } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+				if (ingredientError) throw new Error(`Erro ao carregar os insumos: ${ingredientError.message}`)
 				for (const row of ingredients ?? []) describe.set(row.id, { description: row.description, measureUnit: row.measure_unit })
 			}
 			if (frozenIds.length > 0) {
-				const { data: frozen } = await kit.from("frozen_preparation").select("id, description").in("id", frozenIds)
+				const { data: frozen, error: frozenError } = await kit.from("frozen_preparation").select("id, description").in("id", frozenIds)
+				if (frozenError) throw new Error(`Erro ao carregar as preparações: ${frozenError.message}`)
 				for (const row of frozen ?? []) describe.set(row.id, { description: row.description, measureUnit: null })
 			}
 		}

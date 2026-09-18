@@ -369,7 +369,9 @@ export function PlanningBoard() {
 			 * O período é o do calendário na tela (inclui a semana que transborda o
 			 * mês), e não o mês civil: é o que a nutricionista está de fato olhando.
 			 */}
-			{Number.isInteger(kitchenId) && kitchenId > 0 && <ExpiringInPeriod kitchenId={kitchenId} until={format(endDate, "yyyy-MM-dd")} />}
+			{Number.isInteger(kitchenId) && kitchenId > 0 && (
+				<ExpiringInPeriod kitchenId={kitchenId} from={format(startDate, "yyyy-MM-dd")} until={format(endDate, "yyyy-MM-dd")} />
+			)}
 
 			<DayDrawer open={isDrawerOpen} onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })} date={selectedDay} kitchenId={kitchenId} />
 

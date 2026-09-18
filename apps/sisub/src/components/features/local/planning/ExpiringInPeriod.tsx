@@ -14,13 +14,22 @@ import { fetchExpiringInPeriodFn } from "@/server/expiry.fn"
  * tela é ruído que ensina a nutricionista a não olhar para aquele canto — e aí
  * ela também não olha no dia em que há 12 KG de iogurte vencendo na quarta.
  */
-export function ExpiringInPeriod({ kitchenId, until }: { kitchenId: number; until: string }) {
-	const { data } = useQuery({
-		queryKey: ["expiring-in-period", kitchenId, until],
-		queryFn: () => fetchExpiringInPeriodFn({ data: { kitchenId, until } }),
+export function ExpiringInPeriod({ kitchenId, from, until }: { kitchenId: number; from: string; until: string }) {
+	const { data, error } = useQuery({
+		queryKey: ["expiring-in-period", kitchenId, from, until],
+		queryFn: () => fetchExpiringInPeriodFn({ data: { kitchenId, from, until } }),
 		enabled: Number.isInteger(kitchenId) && kitchenId > 0,
 	})
 
+	// Falha NÃO é "nada vencendo": calar aqui faria a nutricionista planejar a
+	// semana achando que não há o que aproveitar.
+	if (error) {
+		return (
+			<Card>
+				<CardContent className="pt-4 text-sm text-muted-foreground">Não foi possível carregar o que vence no período: {error.message}</CardContent>
+			</Card>
+		)
+	}
 	if (!data || data.items.length === 0) return null
 
 	const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 })
