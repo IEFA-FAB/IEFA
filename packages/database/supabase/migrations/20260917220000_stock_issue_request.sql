@@ -257,6 +257,9 @@ begin
 
   select * into v_request from inventory.stock_issue_request where id = p_request_id for update;
   if not found then raise exception 'Requisição não encontrada'; end if;
+  -- dia fechado é dia fechado: a variância foi medida e justificada contra o
+  -- emitido líquido daquele momento, e devolver depois a reescreveria
+  if v_request.status <> 'open' then raise exception 'Requisição já fechada — a devolução tem de ser lançada antes do fechamento do dia'; end if;
 
   select * into v_lot from inventory.stock_lot where id = p_lot_id for update;
   if not found then raise exception 'Lote não encontrado'; end if;

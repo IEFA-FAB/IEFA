@@ -43,16 +43,20 @@ describeIf("stock issue request (DB)", () => {
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE SAIDA', 'KG') returning id`
 					const [author] = await tx`select id from auth.users limit 1`
 
-					// três lotes: um vencido, um sem validade recebido antes, um válido
+					// Três lotes: um vencido, um sem validade recebido antes, um válido.
+					// A validade é medida na data civil de Brasília, como a função faz:
+					// `current_date` é UTC e entre 21h e meia-noite em São Paulo já está
+					// no dia seguinte — `current_date - 1` seria o HOJE de Brasília e o
+					// lote "vencido" entraria na alocação, conforme a hora do dia.
 					const [vencido] = await tx`
 						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${ingredient.id}, 'L-VENC', (current_date - 1), now() - interval '10 days') returning id`
+						values (${kitchenRow.id}, ${ingredient.id}, 'L-VENC', ((now() at time zone 'America/Sao_Paulo')::date - 1), now() - interval '10 days') returning id`
 					const [semValidade] = await tx`
 						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
 						values (${kitchenRow.id}, ${ingredient.id}, 'L-SEM-VAL', null, now() - interval '5 days') returning id`
 					const [valido] = await tx`
 						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${ingredient.id}, 'L-VALIDO', (current_date + 30), now() - interval '1 day') returning id`
+						values (${kitchenRow.id}, ${ingredient.id}, 'L-VALIDO', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '1 day') returning id`
 					for (const lot of [vencido, semValidade, valido]) {
 						await tx`
 							insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)

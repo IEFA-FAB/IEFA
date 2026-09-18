@@ -77,10 +77,6 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// para documento inexistente. Mesma razão das demais tabelas de estoque.
 	"inventory.stock_issue_request": "requisição de saída é dado operacional de estoque, fora do escopo de treino, e seus movimentos ficam no ledger",
 	"procurement.contract_designation": "designação de fiscal/gestor é ato administrativo real, não dado de treino",
-	// A requisição de saída é o documento que puxa o movimento; o ledger é
-	// append-only e o reset não o desfaz, então apagar a requisição deixaria
-	// movimento órfão apontando para documento inexistente.
-	"inventory.stock_issue_request": "requisição de saída é dado operacional de estoque, fora do escopo de treino, e seus movimentos ficam no ledger",
 	"gs1_integration.gtin_alias": "catálogo compartilhado (GTIN aprendido na conferência); não é dado operacional da cozinha de treino",
 	// `alpha.submission` — migration 20260918123000 (OM da submissão do Projeto α). Declarada
 	// DEPOIS de aplicada, por erro de ordem; este PR é o remédio. O α é outro app: o Conjunto
