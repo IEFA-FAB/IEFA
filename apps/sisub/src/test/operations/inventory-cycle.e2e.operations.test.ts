@@ -238,13 +238,18 @@ describeIf("inventory full cycle E2E (DB)", () => {
 						/já teve baixa/
 					)
 					// lote VENCIDO não entra na alocação: com saldo só em lote vencido,
-					// a baixa cai inteira em "sem lote" em vez de consumir o vencido
+					// a baixa cai inteira em "sem lote" em vez de consumir o vencido.
+					// O vencimento é medido na data civil de Brasília, igual à função —
+					// `current_date` é UTC, e entre 21h e meia-noite em São Paulo ele já
+					// está no dia seguinte: `current_date - 1` seria o HOJE de Brasília,
+					// e o lote "vencido" entraria na alocação. O teste rodava conforme a
+					// hora do dia.
 					await tx.savepoint(async (sp) => {
 						const [vencido] = await sp`
 							insert into kitchen.ingredient (description, measure_unit) values ('ARROZ VENCIDO E2E', 'KG') returning id`
 						const [lotVencido] = await sp`
 							insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, unit_cost)
-							values (${kitchenA.id}, ${vencido.id}, 'L-VENCIDO', (current_date - 1), 3) returning id`
+							values (${kitchenA.id}, ${vencido.id}, 'L-VENCIDO', ((now() at time zone 'America/Sao_Paulo')::date - 1), 3) returning id`
 						await sp`
 							insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
 							values (${kitchenA.id}, ${vencido.id}, ${lotVencido.id}, 'receipt', 20, 3)`

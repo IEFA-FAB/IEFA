@@ -205,9 +205,16 @@ describeIf("inventory stock adjustment (DB)", () => {
 						where kitchen_id = ${kitchenRow.id} and ingredient_id = ${ingredient.id}`
 					expect(Number(afterReturn.b)).toBe(Number(beforeReturn.b) + 3)
 
-					// e o fechamento conta a devolução do mesmo lado que a view
+					// e o fechamento conta a devolução do mesmo lado que a view.
+					// A competência vem da data civil de Brasília porque é assim que
+					// `close_month` mede "competência futura": com `current_date` (UTC),
+					// no dia 30 às 21h em São Paulo o teste pediria o mês SEGUINTE e
+					// tomaria a exceção.
 					const [closing] = await tx`
-						select * from inventory.close_month(${kitchenRow.id}, date_trunc('month', current_date)::date, ${author.id})`
+						select * from inventory.close_month(
+							${kitchenRow.id},
+							date_trunc('month', (now() at time zone 'America/Sao_Paulo'))::date,
+							${author.id})`
 					const [closingRow] = await tx`select closing_value from inventory.monthly_closing where id = ${closing.closing_id}`
 					const [ledgerValue] = await tx`
 						select coalesce(sum(case when type in ('receipt','issue_return','leftover_return','transfer_in','lot_split_in','adjustment_in')
