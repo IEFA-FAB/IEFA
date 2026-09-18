@@ -37,9 +37,17 @@
  *    do mesmo `from`, e resolver isso exigiria ler as FKs;
  *  - `.rpc(...)`: argumento de função, não coluna;
  *  - `.eq("col", …)` e amigos: só a lista do `select` é conferida;
- *  - valores de `.in("status", [...])` são conferidos só onde o teste de
- *    `incoming` os declara — generalizar isso exigiria saber qual coluna tem
- *    CHECK de lista.
+ *  - CHECK escrito com `in (...)`, com `~` ou com função: só `= ANY (ARRAY[…])`
+ *    é lido. Melhor ignorar do que inferir errado;
+ *  - `enum` do Postgres: não existe nenhum no schema hoje, e se algum dia
+ *    existir esta consulta deixa de vê-lo — aí é `pg_type`/`pg_enum`;
+ *  - filtro cujo lado direito é variável: não dá para julgar estaticamente, e
+ *    insistir nisso é o caminho do falso positivo. Fica na lista impressa;
+ *  - `supabase.schema("finance").from(…)`, que não passa pelo `getServerClient`
+ *    mapeado aqui (um caso, em `arp.fn.ts`);
+ *  - builder reatribuído (`query = query.in(…)`), que separa o filtro do `from`
+ *    que lhe daria tabela (`pncp-pca.fn.ts`). Casar isso exigiria seguir a
+ *    variável, e o ganho não paga a chance de errar.
  */
 
 import { readdirSync, readFileSync } from "node:fs"
@@ -67,6 +75,23 @@ interface Selection {
 	columns: string[]
 	line: number
 }
+
+interface Filter {
+	file: string
+	schema: string
+	table: string
+	column: string
+	values: string[]
+}
+
+/** `.eq("col", "literal")` e `.neq(...)` — só o lado direito LITERAL. */
+const EQ_FILTER = /\.(?:eq|neq)\(\s*"(\w+)"\s*,\s*"([^"]*)"\s*\)/g
+/** `.in("col", ["a", "b"])` com os valores escritos ali. */
+const IN_FILTER = /\.in\(\s*"(\w+)"\s*,\s*\[([^\]]*)\]\s*\)/g
+/** `.eq("col", variavel)` — registrado como não coberto, nunca julgado. */
+const NON_LITERAL_FILTER = /\.(?:eq|neq)\(\s*"(\w+)"\s*,\s*(?!")[^),]+\)/g
+
+const filters: Filter[] = []
 
 /** Seleções que o teste declara não conseguir ler, com o motivo. */
 const UNREADABLE: string[] = []
@@ -100,11 +125,31 @@ function collectSelections(): Selection[] {
 			const after = source.slice(match.index + match[0].length)
 			const nextFrom = after.search(/\.from\(\s*"/)
 			const chain = nextFrom === -1 ? after : after.slice(0, nextFrom)
-			const select = chain.match(/\.select\(\s*("([^"]*)"|`|\w)/)
-			if (!select) continue
-
 			const line = source.slice(0, match.index).split("\n").length
 			const where = `${name}:${line}`
+
+			// Os filtros são coletados ANTES do `select`, e de propósito: um
+			// `.from("x").update({…}).eq("status", "draft")` não tem `select`
+			// nenhum e mesmo assim filtra por valor. Coletá-los depois do
+			// early-return perdia justamente as escritas condicionais, que são as
+			// que mais doem quando o filtro não casa: o `update` não atualiza nada
+			// e devolve sucesso.
+			for (const filter of chain.matchAll(EQ_FILTER)) {
+				filters.push({ file: where, schema, table, column: filter[1] as string, values: [filter[2] as string] })
+			}
+			for (const filter of chain.matchAll(IN_FILTER)) {
+				const values = [...(filter[2] as string).matchAll(/"([^"]*)"/g)].map((value) => value[1] as string)
+				if (values.length === 0) continue
+				filters.push({ file: where, schema, table, column: filter[1] as string, values })
+			}
+			for (const filter of chain.matchAll(NON_LITERAL_FILTER)) {
+				// filtro por variável não dá para julgar estaticamente, e insistir
+				// nele é o caminho do falso positivo
+				UNREADABLE.push(`${where} ${schema}.${table}.${filter[1]}: filtro por variável`)
+			}
+
+			const select = chain.match(/\.select\(\s*("([^"]*)"|`|\w)/)
+			if (!select) continue
 
 			if (select[2] == null) {
 				// template string ou variável — não há literal para conferir
@@ -195,6 +240,71 @@ describeIf("seleções PostgREST × schema real", () => {
 			problems,
 			"seleção PostgREST apontando para coluna que não existe. O erro é DESCARTADO em runtime e a tela mostra lista vazia sem avisar — confira o nome no banco."
 		).toEqual([])
+	})
+
+	test("todo valor filtrado existe no domínio da coluna", async () => {
+		// O domínio vem do CATÁLOGO, sem heurística: CHECK de UMA coluna cuja
+		// definição é `= ANY (ARRAY[...])`. Adivinhar por nome ("coluna chamada
+		// status") erra nos dois sentidos — perderia `segregation`, `scope` e
+		// `conservation_class`, e inventaria CHECK onde não há. Guard que erra em
+		// código correto acaba desligado, e aí não guarda nada.
+		//
+		// `array_length(c.conkey, 1) = 1` é essencial: CHECK multi-coluna, como o
+		// XOR `(a is null) <> (b is null)` que este repo usa, não define domínio
+		// de valor e daria falso positivo.
+		const rows = (await sql`
+			select n.nspname as schema, t.relname as table_name, a.attname as column_name,
+			       pg_get_constraintdef(c.oid) as definition
+			  from pg_constraint c
+			  join pg_class t on t.oid = c.conrelid
+			  join pg_namespace n on n.oid = t.relnamespace
+			  join unnest(c.conkey) as k(attnum) on true
+			  join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum
+			 where c.contype = 'c'
+			   and array_length(c.conkey, 1) = 1
+			   and pg_get_constraintdef(c.oid) ilike '%= ANY (ARRAY%'`) as unknown as Array<{
+			schema: string
+			table_name: string
+			column_name: string
+			definition: string
+		}>
+		expect(rows.length, "nenhuma coluna com domínio de valor: a consulta ao catálogo quebrou").toBeGreaterThan(50)
+
+		const domainByColumn = new Map<string, string[]>()
+		for (const row of rows) {
+			const allowed = [...row.definition.matchAll(/'([^']*)'::text/g)].map((match) => match[1] as string)
+			if (allowed.length > 0) domainByColumn.set(`${row.schema}.${row.table_name}.${row.column_name}`, allowed)
+		}
+
+		const problems: string[] = []
+		for (const filter of filters) {
+			const domain = domainByColumn.get(`${filter.schema}.${filter.table}.${filter.column}`)
+			// coluna sem CHECK de lista não tem domínio a conferir — e inferir um
+			// seria exatamente o falso positivo que este teste evita
+			if (!domain) continue
+			const unknown = filter.values.filter((value) => !domain.includes(value))
+			if (unknown.length > 0) {
+				problems.push(
+					`${filter.file} — ${filter.schema}.${filter.table}.${filter.column} não aceita ${unknown.map((value) => `"${value}"`).join(", ")} (aceita: ${domain.join(", ")})`
+				)
+			}
+		}
+
+		expect(
+			problems,
+			"filtro por valor fora do domínio da coluna. Isso NÃO dá erro em runtime: o filtro simplesmente não casa nada e a tela mostra lista vazia."
+		).toEqual([])
+	})
+
+	test("a varredura encontra filtros com valor literal", () => {
+		const withDomain = new Set(filters.map((filter) => `${filter.schema}.${filter.table}`))
+		// 16 hoje, de ~20 filtros literais no código. Os 4 que faltam são dois
+		// padrões conhecidos, listados no cabeçalho: `supabase.schema("x").from(…)`
+		// e builder reatribuído (`query = query.in(…)`), que separa o filtro do
+		// `from` que lhe dá tabela. O piso fica abaixo do real, com folga para
+		// refactor legítimo e alto o bastante para acusar regex quebrada.
+		expect(filters.length, "quase nenhum filtro literal encontrado: a regex de filtro provavelmente parou de casar").toBeGreaterThan(10)
+		expect(withDomain.size, "os filtros vieram todos da mesma tabela: o casamento com o `from` quebrou").toBeGreaterThan(5)
 	})
 
 	test("o que a varredura não consegue ler fica visível, e não escondido", () => {
