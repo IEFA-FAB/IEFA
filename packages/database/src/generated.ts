@@ -1034,6 +1034,7 @@ export type Database = {
           modalidade: string | null
           objeto: string | null
           storage_path: string
+          unit_id: number | null
           user_id: string
         }
         Insert: {
@@ -1045,6 +1046,7 @@ export type Database = {
           modalidade?: string | null
           objeto?: string | null
           storage_path: string
+          unit_id?: number | null
           user_id: string
         }
         Update: {
@@ -1056,6 +1058,7 @@ export type Database = {
           modalidade?: string | null
           objeto?: string | null
           storage_path?: string
+          unit_id?: number | null
           user_id?: string
         }
         Relationships: []
@@ -1066,7 +1069,7 @@ export type Database = {
     }
     Functions: {
       aci_queue: {
-        Args: { p_limit?: number }
+        Args: { p_limit?: number; p_unit_ids?: number[] }
         Returns: {
           discarded_findings: number
           doc_kind: string
@@ -1086,6 +1089,7 @@ export type Database = {
           run_status: string
           submission_id: string
           submitted_at: string
+          unit_id: number
           user_id: string
         }[]
       }
@@ -2142,6 +2146,7 @@ export type Database = {
           id: number
           is_training: boolean
           parent_unit_id: number | null
+          supporting_unit_id: number | null
           type: Database["sisub"]["Enums"]["unit_type"] | null
           uasg: string | null
         }
@@ -2159,6 +2164,7 @@ export type Database = {
           id?: number
           is_training?: boolean
           parent_unit_id?: number | null
+          supporting_unit_id?: number | null
           type?: Database["sisub"]["Enums"]["unit_type"] | null
           uasg?: string | null
         }
@@ -2176,6 +2182,7 @@ export type Database = {
           id?: number
           is_training?: boolean
           parent_unit_id?: number | null
+          supporting_unit_id?: number | null
           type?: Database["sisub"]["Enums"]["unit_type"] | null
           uasg?: string | null
         }
@@ -2183,6 +2190,13 @@ export type Database = {
           {
             foreignKeyName: "units_parent_unit_id_fkey"
             columns: ["parent_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_supporting_unit_id_fkey"
+            columns: ["supporting_unit_id"]
             isOneToOne: false
             referencedRelation: "units"
             referencedColumns: ["id"]
