@@ -173,9 +173,15 @@ function AdjustmentsPage() {
 					],
 				},
 			})
-			toast.success(
-				result.status === "posted" ? "Ajuste lançado" : "Ajuste registrado e aguardando aprovação — se o lote está comprometido, ponha-o em quarentena agora"
-			)
+			if (result.postFailure) {
+				// o documento foi registrado e está na fila — dizer isso é o que impede
+				// o operador de lançar a mesma perda uma segunda vez
+				toast.warning(`Ajuste registrado e enviado para aprovação: o lançamento automático falhou (${result.postFailure}). Não lance de novo.`)
+			} else {
+				toast.success(
+					result.status === "posted" ? "Ajuste lançado" : "Ajuste registrado e aguardando aprovação — se o lote está comprometido, ponha-o em quarentena agora"
+				)
+			}
 			setQuantity("")
 			setNote("")
 			setEvidence("")

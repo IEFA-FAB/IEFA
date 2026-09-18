@@ -1,9 +1,10 @@
 import { type BarcodeConfig, type BarcodeReading, interpretBarcode } from "@iefa/sisub-domain"
 import { Barcode, Camera, CheckCircle2, XCircle } from "lucide-react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DEFAULT_TIMING, type ScannerTiming, useGlobalBarcodeCapture } from "@/hooks/ui/useBarcodeScanner"
+import { type FieldRhythm, IDLE_RHYTHM, looksScanned, nextFieldRhythm, tabEndsScan } from "@/lib/scanner-burst"
 import { CameraScanDialog } from "./CameraScanDialog"
 
 /**
@@ -61,11 +62,30 @@ export function ScanInput({
 	const [status, setStatus] = useState<{ kind: "idle" } | { kind: "ok"; text: string } | { kind: "error"; text: string }>({ kind: "idle" })
 	const [cameraOpen, setCameraOpen] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
+	// Ritmo das teclas DENTRO do campo. É o que separa o leitor da mão: o leitor
+	// despeja o código em rajada, mais rápido do que qualquer digitação. Sem
+	// medir isso, o campo só sabia o que a calibração dizia — e quem nunca
+	// calibrou a estação (o caso normal no primeiro dia) perdia o leitor que
+	// termina com Tab, e o leitor sem terminador nunca submetia.
+	const burstRef = useRef<FieldRhythm>(IDLE_RHYTHM)
+	const valueRef = useRef("")
+	const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+	useEffect(
+		() => () => {
+			if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+		},
+		[]
+	)
 
 	// leitura que chegou com o foco fora de campo editável
 	useGlobalBarcodeCapture({ onScan: (raw) => submit(raw), timing, enabled: globalCapture && !disabled })
 
 	function submit(raw: string) {
+		if (idleTimerRef.current) {
+			clearTimeout(idleTimerRef.current)
+			idleTimerRef.current = null
+		}
+		burstRef.current = IDLE_RHYTHM
 		const trimmed = raw.trim()
 		if (trimmed === "") return
 		const reading = interpretBarcode(trimmed, config)
@@ -75,6 +95,7 @@ export function ScanInput({
 		}
 		setStatus({ kind: "ok", text: describeReading(reading) })
 		setValue("")
+		valueRef.current = ""
 		onReading(reading)
 		inputRef.current?.focus()
 	}
@@ -95,14 +116,30 @@ export function ScanInput({
 						aria-invalid={status.kind === "error"}
 						onChange={(event) => {
 							setValue(event.target.value)
+							valueRef.current = event.target.value
 							if (status.kind !== "idle") setStatus({ kind: "idle" })
 						}}
 						onKeyDown={(event) => {
-							// Enter é sempre terminador de leitura. Tab só quando a estação
-							// foi calibrada para um leitor que envia Tab: prender o Tab por
-							// padrão tira do teclado a única forma de sair do campo.
-							const isTerminator = event.key === "Enter" || (terminator === "tab" && event.key === "Tab" && value.length > 0)
-							if (!isTerminator) return
+							if (event.key.length === 1) {
+								burstRef.current = nextFieldRhythm(burstRef.current, performance.now(), value.length === 0, timing.maxKeyIntervalMs)
+
+								// Leitor sem terminador: a leitura fecha quando as teclas
+								// param. Só em rajada — digitação humana nunca é submetida
+								// sozinha no meio da palavra.
+								if (terminator === "none") {
+									if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+									idleTimerRef.current = setTimeout(() => {
+										idleTimerRef.current = null
+										if (looksScanned(burstRef.current, valueRef.current, timing.minLength)) submit(valueRef.current)
+									}, timing.idleTimeoutMs)
+								}
+								return
+							}
+
+							// Enter é sempre terminador; o Tab, só quando é o leitor terminando
+							// o código (ver `tabEndsScan`)
+							const endsByTab = event.key === "Tab" && tabEndsScan(terminator, burstRef.current, value, timing.minLength)
+							if (event.key !== "Enter" && !endsByTab) return
 							event.preventDefault()
 							submit(value)
 						}}

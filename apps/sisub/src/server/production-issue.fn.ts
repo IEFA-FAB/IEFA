@@ -64,7 +64,11 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	const lotIds = [...new Set((rows ?? []).map((row: { lot_id: string | null }) => row.lot_id).filter(Boolean))] as string[]
 	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
 	if (lotIds.length > 0) {
-		const { data: lots } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
+		const { data: lots, error: lotError } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
+		// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
+		// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
+		// existe para fechar, de volta e calado.
+		if (lotError) throw new Error(`Erro ao carregar os lotes: ${lotError.message}`)
 		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
 	}
 

@@ -1,28 +1,32 @@
 -- ============================================================================
--- FEFO: a ordem da alocação no banco passa a ser a mesma da prévia na tela
+-- FEFO: lote sem validade entra na fila pela data de entrada, em Brasília
 -- ============================================================================
 --
 -- `inventory.register_production_issue` ordenava por
 --   `l.use_first desc, l.expiry_date asc nulls last, l.received_at asc, l.id asc`
--- enquanto `sortFefo` (@iefa/sisub-domain) ordena o lote sem validade pela
--- data de entrada, na fila junto com os demais. Divergiam em dois pontos:
+-- e isso tinha dois defeitos de comportamento:
 --
---  1. lote sem validade: o banco mandava para o FIM, o domínio para a posição
---     FIFO. O hortifrúti, que quase nunca tem validade na nota, era o caso
---     comum — apodrecia na câmara enquanto a tela dizia que sairia primeiro;
---  2. a data de entrada era lida em UTC, e o vencimento é data civil.
+--  1. lote SEM validade ia para o FIM da fila. O hortifrúti, que quase nunca
+--     traz validade na nota, era o caso comum — e apodrecia na câmara enquanto
+--     lotes que venciam daqui a meses saíam antes dele;
+--  2. a data de entrada, quando usada, era lida em UTC; o vencimento é data
+--     civil de Brasília.
 --
--- A prévia mostrada ao operador é a promessa; a alocação dentro da transação
--- é o que acontece. Quando divergem, a tela mente — e o operador confirma uma
--- baixa achando que sai um lote quando sai outro.
+-- Agora a chave é `coalesce(validade, dia da entrada em Brasília)`, e o empate
+-- sai pela entrada mais antiga (`received_at`) antes do `id`.
+--
+-- Uma versão anterior desta migration justificava a mudança como "igualar a
+-- prévia da tela" e tirava o `received_at` do desempate para bater com
+-- `sortFefo`. A revisão mostrou que nenhuma tela chama `sortFefo`: o argumento
+-- era oco, e o custo era real — lotes de mesma validade saindo em ordem de
+-- UUID em vez da entrada mais antiga. O desempate voltou.
 --
 -- Só a cláusula `order by` muda. A exclusão de lote vencido e de lote em
 -- quarentena, o travamento dos lotes e o movimento sem lote quando falta saldo
 -- seguem iguais.
 --
--- `inventory.issue_stock` tem o mesmo resíduo de fuso, e é corrigida na
--- 20260918190000, junto da migration que a CRIA: `create or replace` sobre
--- função que ainda não existe quebra banco limpo.
+-- `inventory.issue_stock` recebe a mesma ordem na migration que acompanha o
+-- código da saída do dia (20260918190000), porque é lá que ela é usada.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION inventory.register_production_issue(p_task_id uuid, p_lines jsonb, p_user uuid)
@@ -100,8 +104,10 @@ begin
     -- casta no fuso da sessão (UTC): o lote recebido às 22h entrava na fila
     -- como se fosse do dia seguinte.
     --
-    -- `l.id` no fim porque sem ele dois lotes de mesma validade saem em ordem
-    -- arbitrária do planner, e a prévia acerta ou erra conforme o plano.
+    -- Empate de validade sai pela ENTRADA mais antiga (`received_at`, o
+    -- instante, e não só o dia): dois lotes de arroz com a mesma validade, o
+    -- que chegou primeiro sai primeiro. `l.id` só desempata o que resta, para
+    -- a ordem não depender do plano do banco.
     for v_lot in
       select l.id,
              coalesce(sum(case when m.type in ('receipt','issue_return','leftover_return','transfer_in','lot_split_in','adjustment_in')
@@ -117,6 +123,7 @@ begin
                                  then m.quantity else -m.quantity end), 0) > 0
         order by l.use_first desc,
                  coalesce(l.expiry_date, (l.received_at at time zone 'America/Sao_Paulo')::date) asc,
+                 l.received_at asc,
                  l.id asc
     loop
       exit when v_remaining <= 0;

@@ -125,7 +125,17 @@ describe("sortFefo", () => {
 		expect(sorted.map((l) => l.lotId)).toEqual(["a", "b", "c"])
 	})
 
-	test("empate de validade desempata pelo lote, não pela ordem de chegada", () => {
+	test("empate de validade: a entrada mais antiga sai primeiro, mesmo com id maior", () => {
+		// o arroz que chegou antes sai antes; sem isto, lotes de mesma validade
+		// saíam em ordem de UUID
+		const sorted = sortFefo([
+			{ lotId: "a", expiryDate: "2026-08-01", receivedAt: "2026-07-10T10:00:00Z" },
+			{ lotId: "z", expiryDate: "2026-08-01", receivedAt: "2026-07-01T10:00:00Z" },
+		])
+		expect(sorted.map((l) => l.lotId)).toEqual(["z", "a"])
+	})
+
+	test("empate de validade e de entrada desempata pelo lote, não pela ordem de chegada", () => {
 		// a ordem em que as linhas voltam do PostgREST não é garantida: sem o
 		// desempate a prévia escolhia um lote e a baixa outro, conforme o plano
 		const lots = [

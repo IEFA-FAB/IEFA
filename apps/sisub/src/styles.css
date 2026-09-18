@@ -646,6 +646,19 @@
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+    /* O diálogo de fracionamento é `position: fixed` com transform de
+     * centralização: sem desfazer os dois, a etiqueta impressa dele saía no
+     * MEIO da página, gastando bobina térmica acima dela. */
+    position: static !important;
+    transform: none !important;
+    inset: auto !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  body:has([data-print-region]) [data-print-region] {
+    position: static !important;
+    transform: none !important;
   }
 
   body:has([data-print-region]) [data-print-region] {

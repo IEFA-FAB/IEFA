@@ -15,7 +15,7 @@
  * @migration 20260917160000_inventory_operable_core
  */
 
-import { hasPermission, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
+import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -127,8 +127,10 @@ function evidencePending(items: readonly AdjustmentItemInput[]): boolean {
  *    vindo de política;
  *  • `resolveEffectivePermissions` para a precedência de deny, que não é
  *    ausência: um `level <= 0` de QUALQUER origem anula os allows que cobre;
- *  • `hasPermission` para o escopo, que não é "kitchen_id igual ou tudo nulo":
- *    permissão de UNIDADE alcança as cozinhas dela, e essa regra mora no PBAC.
+ *  • `hasPermission` para o escopo, com a MESMA regra que o guard da própria
+ *    server fn aplica — permissão global ou escopada nesta cozinha. Se o PBAC
+ *    passar a fazer permissão de unidade alcançar as cozinhas dela, esta
+ *    função acompanha sozinha, em vez de divergir do guard.
  */
 async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boolean> {
 	type PermissionRow = {
@@ -140,39 +142,50 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 		mess_hall_id: number | null
 	}
 	const ac = accessControl()
-	const nowIso = new Date().toISOString()
-	const notExpired = `expires_at.is.null,expires_at.gt.${nowIso}`
+	// Vencimento pelo relógio do BANCO (`NOT_EXPIRED` usa `now()` do Postgres),
+	// como o `@iefa/pbac` faz de propósito: container com relógio adiantado
+	// concederia acesso já vencido.
+	//
+	// E as leituras são recortadas em `storage` e nesta cozinha (ou sem escopo de
+	// cozinha). Ler a `user_permissions` inteira batia no teto de 1000 linhas do
+	// PostgREST: um aprovador real podia sumir do conjunto, calado, e o autor
+	// passava a gravar "único nível 3 da cozinha" — uma exceção falsa num
+	// documento contábil. Recortar por módulo é seguro para a precedência de deny,
+	// que é por módulo.
+	const inScope = `kitchen_id.eq.${kitchenId},kitchen_id.is.null`
 
-	const [inlineResult, attachmentResult] = await Promise.all([
-		ac.from("user_permissions").select("user_id, module, level, kitchen_id, unit_id, mess_hall_id").or(notExpired),
-		ac.from("user_policy_attachment").select("user_id, policy_id").or(notExpired),
+	const { data: statements, error: statementError } = await ac
+		.from("policy_statement")
+		.select("policy_id, module, level, kitchen_id, unit_id, mess_hall_id")
+		.eq("module", "storage")
+		.or(inScope)
+	if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${statementError.message}`)
+	const statementRows = (statements ?? []) as Array<Omit<PermissionRow, "user_id"> & { policy_id: string }>
+	const storagePolicyIds = [...new Set(statementRows.map((row) => row.policy_id))]
+
+	const [inlineResult, attachmentResult, liveResult] = await Promise.all([
+		ac.from("user_permissions").select("user_id, module, level, kitchen_id, unit_id, mess_hall_id").eq("module", "storage").or(inScope).or(NOT_EXPIRED),
+		storagePolicyIds.length > 0
+			? ac.from("user_policy_attachment").select("user_id, policy_id").in("policy_id", storagePolicyIds).or(NOT_EXPIRED)
+			: Promise.resolve({ data: [], error: null }),
+		storagePolicyIds.length > 0 ? ac.from("policy").select("id").in("id", storagePolicyIds).is("deleted_at", null) : Promise.resolve({ data: [], error: null }),
 	])
 	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${inlineResult.error.message}`)
 	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${attachmentResult.error.message}`)
+	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${liveResult.error.message}`)
 
-	const attachments = (attachmentResult.data ?? []) as Array<{ user_id: string; policy_id: string }>
+	const live = new Set(((liveResult.data ?? []) as Array<{ id: string }>).map((row) => row.id))
+	const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
+	for (const row of statementRows) {
+		if (!live.has(row.policy_id)) continue
+		const list = byPolicy.get(row.policy_id) ?? []
+		list.push(row)
+		byPolicy.set(row.policy_id, list)
+	}
 	const policyRows: PermissionRow[] = []
-	if (attachments.length > 0) {
-		const policyIds = [...new Set(attachments.map((row) => row.policy_id))]
-		const [{ data: livePolicies, error: policyError }, { data: statements, error: statementError }] = await Promise.all([
-			ac.from("policy").select("id").in("id", policyIds).is("deleted_at", null),
-			ac.from("policy_statement").select("policy_id, module, level, kitchen_id, unit_id, mess_hall_id").in("policy_id", policyIds),
-		])
-		if (policyError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${policyError.message}`)
-		if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${statementError.message}`)
-
-		const live = new Set(((livePolicies ?? []) as Array<{ id: string }>).map((row) => row.id))
-		const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
-		for (const row of (statements ?? []) as Array<Omit<PermissionRow, "user_id"> & { policy_id: string }>) {
-			if (!live.has(row.policy_id)) continue
-			const list = byPolicy.get(row.policy_id) ?? []
-			list.push(row)
-			byPolicy.set(row.policy_id, list)
-		}
-		for (const attachment of attachments) {
-			for (const statement of byPolicy.get(attachment.policy_id) ?? []) {
-				policyRows.push({ ...statement, user_id: attachment.user_id })
-			}
+	for (const attachment of (attachmentResult.data ?? []) as Array<{ user_id: string; policy_id: string }>) {
+		for (const statement of byPolicy.get(attachment.policy_id) ?? []) {
+			policyRows.push({ ...statement, user_id: attachment.user_id })
 		}
 	}
 
@@ -320,8 +333,9 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 
 		const { data: requires } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
 		if (requires === true) {
-			await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
-			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0 }
+			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
+			if (pendingError) throw new Error(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
+			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0, postFailure: null as string | null }
 		}
 
 		const { data: posted, error: postError } = await inv.rpc("post_stock_adjustment", {
@@ -353,9 +367,24 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 					`Erro ao lançar o ajuste: ${postError.message}. O documento ficou em rascunho e não foi para a fila de aprovação (${recoveryError.message})`
 				)
 			}
-			throw new Error(`Erro ao lançar o ajuste: ${postError.message}`)
+			// Recuperação deu certo: o documento EXISTE, na fila de aprovação. Isto é
+			// resultado, não erro. Lançar erro aqui fazia a tela manter o formulário
+			// preenchido e não atualizar a lista — o operador tentava de novo, nascia
+			// um segundo documento pendente para a MESMA perda, e um aprovador podia
+			// aprovar os dois, tirando o estoque duas vezes.
+			return {
+				adjustmentId: doc.id as string,
+				status: "pending_approval" as const,
+				movements: 0,
+				postFailure: postError.message as string | null,
+			}
 		}
-		return { adjustmentId: doc.id as string, status: "posted" as const, movements: Number(posted?.[0]?.movements ?? 0) }
+		return {
+			adjustmentId: doc.id as string,
+			status: "posted" as const,
+			movements: Number(posted?.[0]?.movements ?? 0),
+			postFailure: null as string | null,
+		}
 	})
 
 /** Aprova e lança o ajuste pendente. Segregação conforme a cozinha. */
@@ -371,8 +400,16 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 		// Quem aprova ≠ quem lançou. Mas se NÃO existe outro nível 3 na cozinha, a
 		// operação segue com a exceção registrada: travar a cozinha no fim de
 		// semana não é controle, é convite ao contorno — e a exceção vira relatório.
+		// A segregação só vale para documento que EXIGE aprovação. Um ajuste pequeno
+		// chega aqui quando o lançamento automático falhou e ele foi para a fila
+		// só para não encalhar: aplicar a regra de autoaprovação a ele ou barrava
+		// o autor sem motivo, ou gravava uma exceção de aprovação que nunca
+		// precisou acontecer.
+		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
+		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+
 		let exceptionReason: string | null = null
-		if (doc.created_by === userId) {
+		if (requires === true && doc.created_by === userId) {
 			if (await hasOtherApprover(Number(doc.kitchen_id), userId)) {
 				throw new Error("Segregação de funções: quem lançou o ajuste não pode aprová-lo — há outro responsável nível 3 nesta cozinha")
 			}
@@ -447,10 +484,14 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 		// de `EVIDENCE_REQUIRED` exigem evidência. Olhar `evidence_reference` de
 		// TODOS os itens deixava o documento pendente para sempre — basta uma
 		// linha de motivo que nunca precisou de evidência.
-		const { data: siblings } = await inv
+		const { data: siblings, error: siblingsError } = await inv
 			.from("stock_adjustment_item")
 			.select("reason_code, direction, evidence_reference, measured_temperature_c, corrected_movement_id")
 			.eq("adjustment_id", item.adjustment_id)
+		// Sem os irmãos não há como saber se ainda falta evidência. Ignorar o erro
+		// fazia `[]` passar por "nada pendente" e o documento virava `complete`
+		// com evidência faltando — o contrário do que a flag afirma.
+		if (siblingsError) throw new Error(`Erro ao conferir a evidência dos demais itens: ${siblingsError.message}`)
 		const stillPending = evidencePending(
 			(
 				(siblings ?? []) as Array<{

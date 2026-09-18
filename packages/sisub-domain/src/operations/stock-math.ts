@@ -58,20 +58,16 @@ export function brasiliaDate(instant: string): string {
 }
 
 /**
- * Espelha `order by l.use_first desc, l.expiry_date asc nulls last,
- * l.received_at asc, l.id asc` da alocação no banco. Fora de ordem, os quatro
- * critérios, a prévia mostra um lote e a baixa consome outro.
+ * Mesma ordem da alocação no banco: `use_first desc, coalesce(validade, dia da
+ * entrada em Brasília) asc, received_at asc, id asc`.
  *
- *  • "usar primeiro" (painel de vencimentos) FURA a fila — é o único jeito de
- *    o operador mandar sair o lote aberto antes do lote de validade menor;
+ *  • "usar primeiro" (painel de vencimentos) FURA a fila;
  *  • depois a validade asc;
- *  • lote sem validade usa `receivedAt` como validade presumida, entrando na
+ *  • lote sem validade usa o dia da entrada como validade presumida, e entra na
  *    fila junto com os demais (FIFO) em vez de ir para o fim;
- *  • sem nenhum dos dois, fim da fila;
- *  • `lotId` desempata por último. A ordem em que as linhas chegam do
- *    PostgREST não é garantida, e sort estável sobre entrada instável ainda é
- *    saída instável: sem este critério dois lotes de mesma validade trocavam
- *    de lugar entre a prévia e a baixa.
+ *  • empate de validade: a ENTRADA mais antiga sai primeiro;
+ *  • `lotId` desempata o resto, para a ordem não depender de como as linhas
+ *    chegaram.
  */
 export function sortFefo<T extends { expiryDate: string | null; receivedAt?: string | null; useFirst?: boolean | null; lotId?: string }>(
 	lots: readonly T[]
@@ -86,6 +82,10 @@ export function sortFefo<T extends { expiryDate: string | null; receivedAt?: str
 			if (kb == null) return -1
 			return ka < kb ? -1 : 1
 		}
+		// empate de validade: a entrada mais antiga sai primeiro, como no banco
+		const ra = a.receivedAt ? new Date(a.receivedAt).getTime() : Number.POSITIVE_INFINITY
+		const rb = b.receivedAt ? new Date(b.receivedAt).getTime() : Number.POSITIVE_INFINITY
+		if (ra !== rb) return ra < rb ? -1 : 1
 		const ia = a.lotId ?? ""
 		const ib = b.lotId ?? ""
 		return ia < ib ? -1 : ia > ib ? 1 : 0
