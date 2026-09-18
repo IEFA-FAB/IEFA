@@ -47,6 +47,8 @@ describeIf("inventory stock adjustment (DB)", () => {
 					const [ingredient] =
 						await tx`insert into kitchen.ingredient (description, measure_unit, shelf_life_after_thaw_days) values ('FRANGO TESTE AJUSTE', 'KG', 2) returning id`
 					const [author] = await tx`select id from auth.users limit 1`
+					// autor sem ajuste lançado na janela de 24 h deste teste
+					const [outroAutor] = await tx`select id from auth.users where id <> ${author.id} limit 1`
 					const [lot] = await tx`
 						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, unit_cost)
 						values (${kitchenRow.id}, ${ingredient.id}, 'L-ADJ-1', (current_date + 60), 10) returning id, short_code`
@@ -124,6 +126,38 @@ describeIf("inventory stock adjustment (DB)", () => {
 					const [thirdRow] = await tx`select status, approval_exception_reason from inventory.stock_adjustment where id = ${third.id}`
 					expect(thirdRow.status).toBe("posted")
 					expect(thirdRow.approval_exception_reason).toBe("Único nível 3 da cozinha")
+
+					// ── a exigência de aprovação é MONOTÔNICA ───────────────────────
+					// Dois ajustes do mesmo autor, criados quase juntos: na criação a
+					// regra não via nenhum dos dois lançado, então os dois foram marcados
+					// "sem aprovação". Confiar só nesse fato deixava os dois passarem;
+					// o lançamento reavalia a regra sob trava e recusa o segundo.
+					await tx
+						.savepoint(async (sp) => {
+							const [tolerancia] = await sp`select adjustment_approval_value as v from inventory.kitchen_settings(${kitchenRow.id})`
+							const [custo] = await sp`select unit_cost from inventory.stock_lot where id = ${lot.id}`
+							// cada um fica abaixo da alçada; somados, passam dela
+							const quantidade = Math.floor((Number(tolerancia.v) * 0.6) / Number(custo.unit_cost))
+							const docs: string[] = []
+							for (const tag of ["a", "b"]) {
+								const [doc] = await sp`
+									insert into inventory.stock_adjustment (kitchen_id, created_by, submitted_at, approval_required)
+									values (${kitchenRow.id}, ${outroAutor.id}, now(), false) returning id`
+								await sp`
+									insert into inventory.stock_adjustment_item (adjustment_id, lot_id, direction, quantity, reason_code, note)
+									values (${doc.id}, ${lot.id}, 'out', ${quantidade}, 'spoiled', ${`concorrente ${tag}`})`
+								docs.push(doc.id as string)
+							}
+							await sp`select * from inventory.post_stock_adjustment(${docs[0]}, ${outroAutor.id}, null)`
+							await expect(sp.savepoint((inner) => inner`select * from inventory.post_stock_adjustment(${docs[1]}, ${outroAutor.id}, null)`)).rejects.toThrow(
+								/aprovador diferente do autor/
+							)
+							// savepoint que TERMINA sem erro é confirmado: a sentinela desfaz
+							throw new Rollback()
+						})
+						.catch((err: unknown) => {
+							if (!(err instanceof Rollback)) throw err
+						})
 
 					// ── segregação ESTRITA não tem caminho de exceção ────────────────
 					// O ramo `strict` tinha a mesma guarda do `if` acima e nunca era

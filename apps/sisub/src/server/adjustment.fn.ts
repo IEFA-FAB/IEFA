@@ -331,16 +331,26 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			throw new Error(`Erro nos itens do ajuste: ${itemsError.message}`)
 		}
 
+		// Documento e itens já existem daqui para baixo. Falha antes do lançamento
+		// APAGA o documento — como a falha nos itens —, senão ele fica encalhado em
+		// `draft`, sem ação nenhuma na tela, e o operador reenvia e nasce um segundo
+		// documento para a mesma perda.
+		const abandon = async (message: string): Promise<never> => {
+			await inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft")
+			throw new Error(message)
+		}
+
 		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
-		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
-		// O FATO fica gravado agora e nunca é recalculado: a regra é viva (soma 24 h
-		// do autor contra a alçada atual), e consultá-la na aprovação deixava o
-		// autor esperar um dia, ou subir a alçada, e aprovar sozinho.
+		if (requiresError) await abandon(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		// O FATO fica gravado agora. A exigência é monotônica — o lançamento ainda
+		// reavalia a regra sob trava e soma o que surgiu depois (inclusive outro
+		// ajuste do mesmo autor criado ao mesmo tempo) —, mas o fato gravado impede
+		// que esperar 24 h, ou subir a alçada, desfaça a exigência.
 		const { error: factError } = await inv
 			.from("stock_adjustment")
 			.update({ approval_required: requires === true })
 			.eq("id", doc.id)
-		if (factError) throw new Error(`Erro ao registrar a alçada do ajuste: ${factError.message}`)
+		if (factError) await abandon(`Erro ao registrar a alçada do ajuste: ${factError.message}`)
 		if (requires === true) {
 			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
 			if (pendingError) throw new Error(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
@@ -364,6 +374,11 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// aprovador tem sobre o que aconteceu na prateleira.
 			const failureNote = `Lançamento automático falhou: ${postError.message}`
 			const operatorNote = data.notes?.trim()
+			// Se o lançamento caiu porque a regra, reavaliada sob trava, passou a
+			// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
+			// para a fila COM a exigência gravada — monotônica: depois de 24 h ela
+			// não some sozinha.
+			const { data: nowRequires } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
 			// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
 			// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
 			// justamente para cortar resposta lenta — e aí o documento já está
@@ -371,7 +386,11 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// segunda vez.
 			const { data: moved, error: recoveryError } = await inv
 				.from("stock_adjustment")
-				.update({ status: "pending_approval", notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote })
+				.update({
+					status: "pending_approval",
+					notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote,
+					...(nowRequires === true ? { approval_required: true } : {}),
+				})
 				.eq("id", doc.id)
 				.eq("status", "draft")
 				.select("id")
@@ -431,17 +450,15 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 		// Quem aprova ≠ quem lançou. Mas se NÃO existe outro nível 3 na cozinha, a
 		// operação segue com a exceção registrada: travar a cozinha no fim de
 		// semana não é controle, é convite ao contorno — e a exceção vira relatório.
-		// A segregação só vale para documento que EXIGE aprovação — e isso é FATO
-		// gravado na criação, lido aqui, nunca recalculado. Recalcular a regra
-		// viva (24 h do autor contra a alçada ATUAL) deixava o autor esperar um
-		// dia, ou subir a alçada, e aprovar sozinho o que precisava de segunda
-		// pessoa. Documento anterior ao fato cai na regra, como antes.
-		let requires = doc.approval_required as boolean | null
-		if (requires == null) {
-			const { data: live, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
-			if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
-			requires = live === true
-		}
+		// A segregação só vale para documento que EXIGE aprovação, e a exigência é
+		// MONOTÔNICA: fato gravado na criação OU regra reavaliada agora. Só a regra
+		// deixava o autor escapar esperando 24 h ou subindo a alçada; só o fato
+		// deixava escapar dois ajustes criados ao mesmo tempo. O banco aplica a
+		// mesma conta no lançamento, sob trava — esta aqui decide a exceção e a
+		// mensagem, não a segurança.
+		const { data: live, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
+		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		const requires = doc.approval_required === true || live === true
 
 		let exceptionReason: string | null = null
 		if (requires === true && doc.created_by === userId) {
