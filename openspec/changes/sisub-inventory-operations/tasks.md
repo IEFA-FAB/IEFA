@@ -10,9 +10,11 @@
 | 3 — Recebimento rápido | #363, #364 | mergeado |
 | — correções de revisão das fases 0–3 | #367 | aberto |
 | 4 — Saída do dia | #366 | aberto, empilhado no #367 |
-| 5 — Vencimentos | #372 | aberto |
-| 6 — Inventário | — | não começou |
-| 7 — A caminho e manifestação | — | não começou |
+| — contrato de reset, antes das migrations | #373 | **mergeado** |
+| 5 — Vencimentos | #372 | aberto; migration `20260919120000` **aplicada** |
+| 6 — Inventário | #374 | aberto, empilhado no #366; migrations `20260920120000` e `20260920140000` **aplicadas** |
+| 7 — A caminho | #375 | aberto (primeira metade: o painel) |
+| 7 — manifestação e caixa postal | — | não começou (7.2, 7.3, 7.5, 7.6) |
 | 7b — Coletor DF-e | — | **parado**: não há certificado (Q1) |
 | 8 — Piloto | — | não começou |
 
@@ -43,6 +45,38 @@ apesar da fase correspondente já ter mergeado, e portanto precisa de PR própri
   relatório de variância.
 - **5.7, 5.8** — espelho do SILOMS. Parado de propósito: o formato de ingestão é
   desconhecido (Q7). Vai depois da conversa com o pessoal do SILOMS, que é a 8.7.
+- **6.10 a 6.12** — fila IndexedDB da contagem offline. O domínio está pronto
+  (`resolveCountedAt`, `movedDuringSync`, `lineQuantity`) e o servidor já aceita
+  lote idempotente de lançamentos, que é a metade difícil. Falta a fila no
+  navegador — e ela **exige versão nova da Política de Cookies antes do uso**
+  (linha nova em `iefa.legal_documents`, nunca `UPDATE`).
+- **Comissão em contagem `annual` / `responsibility_transfer`** — a spec manda
+  seguir a comissão designada sem exceção; a capability existe, o vínculo não.
+- **7.2, 7.3, 7.5, 7.6** — confirmação do vínculo sugerido, conversão da OF para
+  unidade base, registro manual de manifestação e importação em lote de XML.
+
+## A ordem de aplicação de migration, que mudou no meio do caminho
+
+Estabelecida em 2026-09-18, depois de migration aplicada adiantado quebrar
+branch de outro app **quatro vezes num dia**:
+
+> A suíte da `main` tem de passar contra o banco compartilhado em TODO instante.
+> Logo: qualquer mudança no banco compartilhado é precedida, na `main`, pela
+> mudança de teste/contrato que deixa a `main` verde tanto no estado velho
+> quanto no novo.
+
+Na prática, três passos: **declara → aplica → mergeia o recurso**. O passo 1 é
+um PR minúsculo só de contrato (#373 é o exemplo); o passo 3 traz o teste de
+integração no MESMO PR do código, porque o banco já tem o objeto.
+
+Um critério anterior — "migration aditiva pode ser aplicada adiantada" — foi
+descartado: `inventory_scanner_profile` e `inventory_operable_core` eram
+puramente aditivas e derrubaram o `check-sisub` do mesmo jeito, porque o
+contrato de reset de treino é default-deny e varre o banco vivo.
+
+O invariante também **converte big-bang em expand/contract por construção**:
+"verde antes e depois" é logicamente incompatível com derrubar objeto em uso.
+Foi o que impediu a Fase 6 de dropar `inventory_count_item` no mesmo PR.
 
 Ordem pensada para tirar o módulo do zero uso: o piloto começa depois da Fase 4. Cada fase é um PR (ou
 trem) e depende das anteriores. Em **toda** fase: classificar as server fns novas no
