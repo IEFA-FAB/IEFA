@@ -43,7 +43,7 @@ O sistema SHALL permitir leitura de EAN-8, EAN-13, UPC-A, UPC-E, ITF-14, CODE-12
 - **THEN** o leitor alternativo é carregado nesse momento e a leitura produz o mesmo resultado
 
 ### Requirement: Interpretação da leitura
-Toda leitura SHALL ser interpretada por função pura de `@iefa/sisub-domain` que devolve um de: `gtin` (GTIN-8/12/13/14 com dígito verificador válido, normalizado a 14 dígitos); `gs1` (identificadores de aplicação, no mínimo 01, 02, 10, 15, 17, 30, 37 e 310n–315n, com datas AAMMDD convertidas, dia `00` como último dia do mês, e peso com a casa decimal do `n`); `lot_label` (etiqueta interna de lote do sisub); `nfe_access_key` (44 caracteres, posições 7–20 alfanuméricas, DV módulo 11 com valor ASCII − 48); ou `unknown` com motivo.
+Toda leitura SHALL ser interpretada por função pura de `@iefa/sisub-domain` que devolve um de: `gtin` (GTIN-8/12/13/14 com dígito verificador válido, normalizado a 14 dígitos; UPC-E expandido a UPC-A antes da normalização — quando a câmera informa o formato `upc_e`, sempre; quando a leitura vem do leitor de teclado, 8 dígitos são EAN-8 se o dígito verificador confere e, senão, tentativa de expansão UPC-E com número de sistema 0 ou 1, validada pelo dígito do UPC-A); `gs1` (identificadores de aplicação, no mínimo 01, 02, 10, 15, 17, 30, 37 e 310n–315n, com datas AAMMDD convertidas, dia `00` como último dia do mês, e peso com a casa decimal do `n`); `lot_label` (etiqueta interna de lote do sisub); `nfe_access_key` (44 caracteres, posições 7–20 alfanuméricas, DV módulo 11 com valor ASCII − 48); ou `unknown` com motivo.
 
 #### Scenario: Etiqueta GS1 com lote e validade
 - **WHEN** a leitura é `]C101078912345678951726033110L4521`
@@ -56,6 +56,10 @@ Toda leitura SHALL ser interpretada por função pura de `@iefa/sisub-domain` qu
 #### Scenario: Chave de acesso com CNPJ alfanumérico
 - **WHEN** a leitura é uma chave de 44 caracteres com letras nas posições do CNPJ e DV válido
 - **THEN** o resultado é `nfe_access_key` com UF, AAMM de emissão, CNPJ do emitente, modelo, série e número
+
+#### Scenario: UPC-E pela câmera
+- **WHEN** a câmera lê `04252614` informando o formato `upc_e`
+- **THEN** o resultado é `gtin` com o UPC-A expandido `042100005264`, normalizado a `00042100005264`
 
 #### Scenario: GTIN com dígito errado
 - **WHEN** a leitura é um EAN-13 com dígito verificador inválido

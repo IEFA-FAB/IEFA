@@ -14,7 +14,7 @@ Uma contagem SHALL ter tipo `annual`, `responsibility_transfer`, `eventual` ou `
 - **THEN** o sistema recusa indicando a contagem que conflita
 
 ### Requirement: Contagem cega
-Por padrão, enquanto a contagem estiver em `counting`, quem tem nível 2 MUST NOT obter saldo, diferença ou valor dos itens do escopo — nem na folha nem em qualquer outra leitura de saldo da cozinha. Nível 3 SHALL poder abrir contagem não cega, registrando a escolha.
+Por padrão, enquanto a contagem estiver em `counting`, quem tem nível 2 MUST NOT obter saldo, diferença ou valor dos itens do escopo na folha, nas leituras da contagem, no painel e nos relatórios de estoque. As telas de **operação** (saída e ajuste) continuam mostrando saldo e lotes: a cozinha não para durante a contagem, e sem o saldo o operador não escolhe lote. A cegueira protege contra o viés de confirmação — quem conta copiar o número do sistema —, não contra quem decide procurar o saldo numa tela de operação; a defesa contra isso é a recontagem por outra pessoa acima da tolerância e a segregação (D7). Nível 3 SHALL poder abrir contagem não cega, registrando a escolha.
 
 #### Scenario: Operador contando
 - **WHEN** um operador nível 2 abre a folha de uma contagem cega
@@ -23,6 +23,10 @@ Por padrão, enquanto a contagem estiver em `counting`, quem tem nível 2 MUST N
 #### Scenario: Consulta de saldo durante a contagem
 - **WHEN** esse operador abre o painel de estoque durante a contagem
 - **THEN** os itens do escopo aparecem sem saldo
+
+#### Scenario: Saída durante a contagem
+- **WHEN** esse operador lança a saída do dia de um item do escopo durante a contagem
+- **THEN** a tela de saída mostra os lotes e saldos necessários para alocar, e o movimento entra no fechamento da contagem pela regra de movimentos durante a contagem
 
 ### Requirement: Lançamentos por lote e por item, com leitura
 Cada lançamento SHALL identificar item e, quando possível, lote; SHALL aceitar lote novo encontrado (com validade) e item fora da folha ("achado", que entra no escopo). A folha SHALL aceitar leitura de GTIN (soma o conteúdo da embalagem ao item), GS1 com lote e etiqueta interna (somam ao lote). Várias pessoas SHALL poder contar ao mesmo tempo; lançamentos da mesma linha SHALL ser somados, com sobrescrita explícita disponível. Cada lançamento SHALL ter identificador gerado no cliente, único. Linha "sem lote" de um item SHALL ser comparada com o saldo sem lote somado ao dos lotes do item não contados individualmente.

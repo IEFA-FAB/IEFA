@@ -3,14 +3,14 @@
 ## MODIFIED Requirements
 
 ### Requirement: Necessidade líquida
-O sistema SHALL calcular, por cozinha×ingrediente e horizonte de planejamento, a necessidade líquida: demanda bruta dos cardápios planejados (via `scaleIngredientQuantity`) **corrigida por `correction_factor` e `rehydration_index`** (herança: override da receita → valor do ingrediente → 1), menos saldo disponível (excluindo lotes em quarentena e vencidos), menos quantidades em trânsito (OFs enviadas e não recebidas, convertidas à unidade base). Saldo gravado sem lote SHALL reduzir o disponível. A demanda de tarefa do horizonte já atendida por saída emitida SHALL sair da demanda bruta — e o emitido MUST NOT ser descontado do disponível outra vez: o saldo já caiu na emissão, e descontar dos dois lados compraria duas vezes o mesmo insumo. Lote que vence dentro do horizonte SHALL contar como disponível apenas contra a demanda de tarefas com data anterior ao vencimento dele; excluí-lo inteiro mandaria comprar o que está na prateleira e ainda serve à primeira metade do horizonte. As fórmulas existentes de ATA (`calculateAtaNeeds`) MUST permanecer inalteradas.
+O sistema SHALL calcular, por cozinha×ingrediente e horizonte de planejamento, a necessidade líquida: demanda bruta dos cardápios planejados (via `scaleIngredientQuantity`) **corrigida por `correction_factor` e `rehydration_index`** (herança: override da receita → valor do ingrediente → 1), menos saldo disponível (excluindo lotes em quarentena e vencidos), menos quantidades em trânsito (OFs enviadas e não recebidas, convertidas à unidade base). Saldo gravado sem lote SHALL reduzir o disponível. A demanda de tarefa do horizonte já atendida por saída emitida SHALL sair da demanda bruta — e o emitido MUST NOT ser descontado do disponível outra vez: o saldo já caiu na emissão, e descontar dos dois lados compraria duas vezes o mesmo insumo. Lote que vence dentro do horizonte SHALL contar como disponível apenas contra a demanda de tarefas com data até o dia do vencimento, inclusive — a saída usa o lote no próprio dia do vencimento; excluí-lo inteiro mandaria comprar o que está na prateleira e ainda serve à primeira metade do horizonte. As fórmulas existentes de ATA (`calculateAtaNeeds`) MUST permanecer inalteradas.
 
 #### Scenario: Abatimento de estoque e trânsito
 - **WHEN** a demanda bruta corrigida é 100 KG, há 30 KG em estoque válido e 20 KG em OF enviada
 - **THEN** a necessidade líquida é 50 KG
 
 #### Scenario: Lote vencendo dentro do horizonte
-- **WHEN** 10 KG do saldo vencem no 5º dia de um horizonte de 14 e a demanda das tarefas até o 4º dia é 6 KG
+- **WHEN** 10 KG do saldo vencem no 5º dia de um horizonte de 14 e a demanda das tarefas até o 5º dia, inclusive, é 6 KG
 - **THEN** 6 KG desse lote contam como disponíveis, os outros 4 KG não contam, e o sistema sinaliza o lote para consumo prioritário
 
 #### Scenario: Requisição já emitida

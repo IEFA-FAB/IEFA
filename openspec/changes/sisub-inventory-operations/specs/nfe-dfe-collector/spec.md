@@ -23,7 +23,7 @@ O coletor SHALL consultar em sequência de NSU, SHALL aguardar no mínimo 60 min
 - **THEN** a próxima consulta daquela raiz só ocorre após 60 minutos
 
 ### Requirement: Distribuição e manifestação
-O coletor SHALL registrar `resNFe` como nota `announced` e `procNFe` como `available` (sujeita à autenticidade), distribuindo por unidade pelo destinatário; SHALL emitir `210210` automaticamente para notas de unidades cadastradas quando configurado; e SHALL aplicar eventos de cancelamento distribuídos à nota. As manifestações `210200`, `210220` e `210240` SHALL ser oferecidas ao operador (definitivo, nota não reconhecida, recusa total), nunca emitidas sem ação humana, com alerta quando o prazo de 180 dias da autorização estiver a menos de 15 dias.
+O coletor SHALL registrar `resNFe` como nota `announced` e `procNFe` como `available` (sujeita à verificação de coerência e à consulta de situação), distribuindo por unidade pelo destinatário; SHALL emitir `210210` automaticamente para notas de unidades cadastradas quando configurado; e SHALL aplicar eventos de cancelamento distribuídos à nota. As manifestações `210200`, `210220` e `210240` SHALL ser oferecidas ao operador (definitivo, nota não reconhecida, recusa total), nunca emitidas sem ação humana, com alerta quando o prazo de 180 dias da autorização estiver a menos de 15 dias.
 
 #### Scenario: Nota emitida antes da entrega
 - **WHEN** o fornecedor emite NF-e contra o CNPJ da unidade às 08:00

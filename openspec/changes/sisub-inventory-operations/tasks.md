@@ -28,8 +28,9 @@ apesar da fase correspondente já ter mergeado, e portanto precisa de PR própri
 - **2.12, 2.13, 2.14** — documento de abertura de saldo (planilha, folha do catálogo,
   sugestão de custo). Sem ele, a cozinha nova começa com estoque zerado e o primeiro
   inventário vira uma montanha de `found_stock`.
-- **3.3** — validação XMLDSig com cadeia ICP-Brasil. Hoje a autenticidade confere
-  `mod`, `tpAmb`, `cStat`, `chNFe` e `digVal`, que é bem menos do que assinatura.
+- **3.3** — validação XMLDSig com cadeia ICP-Brasil. Hoje o parser confere só a
+  coerência do arquivo (`mod`, `tpAmb`, `cStat`, `chNFe`, `digVal`) — isso não é
+  autenticidade, e a única verificação real até lá é a consulta de situação na SEFAZ.
 - **3.17–3.20** — eventos de conferência na tela (×N, estorno, sobrescrita com
   `based_on_seq`) e o diálogo "não consta na nota". O domínio (`receiving-scan.ts`) e as
   RPCs existem; a tela de conferência que os consome, não.
@@ -90,7 +91,7 @@ integração do sisub antes do PR.
 - [ ] 0.3 [database] AFTER de custo: entrada sobre saldo ≤ 0 define a média como o custo da entrada
 - [ ] 0.4 [database] `transfer_stock`: lote de origem `for update`, `transfer_in` ao `unit_cost` do `transfer_out`
 - [ ] 0.5 [sisub-domain] Testes de operação: sobra sem custo não dilui; transferência preserva valor; entradas concorrentes equivalem a ordem sequencial; saldo negativo
-- [ ] 0.6 [database] `register_production_issue` aloca lotes dentro da função com `for update` ordenado por id, ignora vencido (Brasília), sem validade por data de recebimento; remover alocação em TS de `confirmIssueFn`
+- [ ] 0.6 [database] `register_production_issue` aloca lotes dentro da função com `for update` ordenado por id, ignora vencido (Brasília), lote sem validade concorre pela data de recebimento no lugar da validade (não depois dos datados); remover alocação em TS de `confirmIssueFn`
 - [ ] 0.7 [database] `stock_movement.occurred_at` (default `now()`); `close_month`, `stock_movement_period_lock` e `v_stock_balance` por `occurred_at` em `America/Sao_Paulo`; teste do movimento às 22:30 do último dia
 - [ ] 0.8 [sisub] `fetchVarianceFn` com limites de mês em Brasília
 - [ ] 0.9 [database] Trigger de imutabilidade em `goods_receipt_item` e `goods_receipt_item_lot` (`for share` do recebimento, recusa com `definitive_at` preenchido); `requireOpenReceipt` usa `isReceiptEditable`; esconder "Efetivar" fora de `provisional`
@@ -137,7 +138,7 @@ integração do sisub antes do PR.
 - [ ] 3.1 [database] `core.units.cnpj` alfanumérico com função de DV e unique parcial; cadastro na administração de unidades
 - [ ] 3.2 [api] Validação de `mod`, `tpAmb`, `cStat ∈ {100,150}`, `chNFe`, `digVal`
 - [ ] 3.3 [api] Validação XMLDSig com cadeia ICP-Brasil; testes com XML adulterado
-- [ ] 3.4 [api] Persistir `uTrib`, `qTrib`, componentes de valor, `finNFe`, referenciadas, resultado da autenticidade; completar nota `announced`
+- [ ] 3.4 [api] Persistir `uTrib`, `qTrib`, componentes de valor, `finNFe`, referenciadas, resultado da coerência do arquivo; completar nota `announced`
 - [ ] 3.5 [sisub-domain] `nfe-cost.ts`: custo por item com rateio e invariante Σ = `vNF`
 - [ ] 3.6 [database] `nfe_document.status` gravado + view de estado derivado; `unit_id`; "destinatário não confirmado"
 - [ ] 3.7 [sisub] Destinatário → unidade → cozinhas da unidade; assumir nota; triagem global
@@ -178,7 +179,7 @@ integração do sisub antes do PR.
 - [ ] 4.11 [sisub] Tela "Saída" — devolução e fechamento do dia com motivos
 - [ ] 4.12 [sisub] Pós-`DONE` abre requisição do dia; descarte de sobra com `production_leftover_discard`; remover `register_production_issue`
 - [ ] 4.13 [sisub] Relatório de variância com sugestão congelada, motivos, avulsas e `closed_unexplained`
-- [ ] 4.14 [sisub] MRP: disponível exclui quarentena, desconta emitido de requisição aberta e saldo sem lote; PR da Fase 4
+- [ ] 4.14 [sisub] MRP: disponível exclui quarentena e vencido e desconta saldo sem lote; demanda já atendida por saída emitida sai da demanda bruta (nunca do disponível); lote que vence no horizonte conta até o dia do vencimento; PR da Fase 4
 
 ## 5. Vencimentos
 

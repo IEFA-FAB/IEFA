@@ -18,7 +18,7 @@ O sistema SHALL manter, por cozinha e data de retirada, uma requisição de saí
 - **THEN** a requisição aceita saídas sem sugestão, sem variância e sem motivo
 
 ### Requirement: Emissões livres e motivo no fechamento
-Emissões SHALL ser livres ao longo do dia (a menor, a maior, fora da sugestão). No fechamento, o sistema MUST exigir motivo ∈ `headcount_change | production_loss | yield_difference | recipe_substitution | portion_adjustment | other` (texto obrigatório para `other`) apenas para linhas com sugestão maior que zero cujo desvio entre sugerido e emitido líquido exceda a tolerância percentual **e** o piso absoluto da cozinha (default 10 % e R$ 20 ou uma embalagem). Requisição não fechada até 23:59 no fuso de Brasília SHALL ser fechada como `closed_unexplained` e listada em pendências.
+Emissões SHALL ser livres ao longo do dia (a menor, a maior, fora da sugestão). No fechamento, o sistema MUST exigir motivo ∈ `headcount_change | production_loss | yield_difference | recipe_substitution | portion_adjustment | other` (texto obrigatório para `other`) apenas para linhas com sugestão maior que zero cujo desvio entre sugerido e emitido líquido exceda a tolerância percentual **e** o piso absoluto da cozinha (default 10 % e R$ 20 ou uma embalagem). Requisição não fechada até 23:59 no fuso de Brasília SHALL ser fechada automaticamente: como `closed_unexplained`, listada em pendências, quando alguma linha exigiria motivo e não o tem; como `closed` quando nenhuma exigiria — inclusive a requisição sem sugestão da cozinha que não planeja no sisub, que de outro modo geraria uma pendência falsa todo dia.
 
 #### Scenario: Saída a maior por aumento de efetivo
 - **WHEN** a sugestão de arroz é 40 KG, o almoxarife emite 48 KG e fecha o dia
@@ -31,6 +31,10 @@ Emissões SHALL ser livres ao longo do dia (a menor, a maior, fora da sugestão)
 #### Scenario: Dia não fechado
 - **WHEN** a requisição com linha fora da tolerância não é fechada até 23:59
 - **THEN** ela fica `closed_unexplained` e aparece em pendências da cozinha
+
+#### Scenario: Dia sem planejamento não vira pendência
+- **WHEN** a requisição de uma cozinha sem tarefas no dia, só com saídas avulsas, não é fechada até 23:59
+- **THEN** ela fica `closed` e não aparece em pendências
 
 ### Requirement: Três modos de lançar a saída
 Na mesma requisição, o operador SHALL poder lançar quantidades editando a lista sugerida, lendo códigos (GTIN resolve o ingrediente e soma o conteúdo da embalagem com alocação automática; GS1 com lote ou etiqueta interna usa aquele lote) e buscando ingrediente, com saldo e lotes visíveis. Os lotes alocados SHALL ser exibidos antes da confirmação. Cada emissão SHALL carregar identificador gerado no cliente, único, de modo que reenvio não gere segunda saída.
@@ -79,7 +83,7 @@ A saída de estoque para produção SHALL ser registrada pela requisição de sa
 - **THEN** movimentos `production_issue` são criados na unidade base, vinculados à requisição
 
 ### Requirement: Consumo FEFO por lote
-A alocação SHALL ocorrer dentro da transação que grava a saída, com os lotes do item travados, na ordem: lotes marcados "usar primeiro"; validade crescente; sem validade por data de recebimento. Lotes em quarentena e lotes com validade anterior à data da saída (fuso de Brasília) MUST ser ignorados. Saldo insuficiente MUST NOT bloquear a saída: a parte não coberta SHALL ser gravada sem lote e alertada ao nível 3 para regularização em até 7 dias. O operador SHALL poder escolher outro lote com justificativa; escolher lote vencido MUST exigir nível 3 e justificativa.
+A alocação SHALL ocorrer dentro da transação que grava a saída, com os lotes do item travados, na ordem: lotes marcados "usar primeiro"; validade crescente, com o lote sem validade concorrendo pela data de recebimento **no lugar** da validade — e não depois de todos os lotes datados; empate por data de recebimento e, por fim, identificador. Lotes em quarentena e lotes com validade anterior à data da saída (fuso de Brasília) MUST ser ignorados. Saldo insuficiente MUST NOT bloquear a saída: a parte não coberta SHALL ser gravada sem lote e alertada ao nível 3 para regularização em até 7 dias. O operador SHALL poder escolher outro lote com justificativa; escolher lote vencido MUST exigir nível 3 e justificativa.
 
 #### Scenario: Consumo atravessando lotes
 - **WHEN** a saída é de 30 KG e o lote válido mais próximo do vencimento tem 20 KG

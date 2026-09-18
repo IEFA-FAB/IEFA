@@ -48,11 +48,11 @@ O operador SHALL poder ler ou digitar a chave de acesso. O sistema SHALL criar a
 - **THEN** a nota aparece em "A caminho" da própria cozinha como anunciada, "aguardando XML"
 
 #### Scenario: XML chega depois
-- **WHEN** o XML dessa chave é enviado e passa na autenticidade
+- **WHEN** o XML dessa chave é enviado e passa na verificação de coerência
 - **THEN** a mesma nota passa a `available` com itens e o matching roda
 
 ### Requirement: Ciclo de vida da NF-e
-A NF-e SHALL expor `announced | available | in_receipt | received | liquidated | cancelled | refused`. `announced`, `available`, `cancelled` e `refused` SHALL ser gravados; `in_receipt` (recebimento não efetivado), `received` (recebimento `definitive` ou `divergent`) e `liquidated` (soma das liquidações vinculadas ≥ valor recebido) SHALL ser derivados. Nota `cancelled` MUST NOT iniciar recebimento nem receber liquidação.
+A NF-e SHALL expor `announced | available | in_receipt | received | liquidated | cancelled | refused`. `announced`, `available`, `cancelled` e `refused` SHALL ser gravados; `in_receipt` (recebimento não efetivado), `received` (recebimento `definitive` ou `divergent`) e `liquidated` (soma das liquidações vinculadas **mais as glosas registradas** ≥ valor recebido) SHALL ser derivados. Sem as glosas na conta, a nota com multa por atraso — glosa que não é de quantidade — nunca chegaria a `liquidated` e ficaria para sempre no painel de prazo de liquidação. Nota `cancelled` MUST NOT iniciar recebimento nem receber liquidação.
 
 #### Scenario: Nota recebida com divergência
 - **WHEN** o recebimento vinculado é efetivado como `divergent`
@@ -79,7 +79,7 @@ O custo unitário de cada item SHALL ser (`vProd − vDesc + vFrete + vSeg + vOu
 ## MODIFIED Requirements
 
 ### Requirement: Importação de XML de NF-e
-O sistema SHALL importar XML de NF-e (layout 4.0) via upload proxiado por `apps/api`, persistindo `inventory.nfe_document` (chave de acesso de 44 caracteres UNIQUE, CNPJ ou CPF e nome do emitente, destinatário, unidade destinatária resolvida, `dhEmi`, valor total, finalidade `finNFe`, notas referenciadas, protocolo, resultado da verificação de autenticidade, XML íntegro) e `inventory.nfe_item` por `det` (`nItem`, `cProd`, `xProd`, `cEAN`, `cEANTrib`, NCM, CEST, CFOP, `uCom`, `qCom`, `vUnCom`, `uTrib`, `qTrib`, componentes de valor do item e grupo `rastro` quando presente). Chave já existente em `announced` SHALL ser completada; em qualquer outro estado, rejeitada como duplicada.
+O sistema SHALL importar XML de NF-e (layout 4.0) via upload proxiado por `apps/api`, persistindo `inventory.nfe_document` (chave de acesso de 44 caracteres UNIQUE, CNPJ ou CPF e nome do emitente, destinatário, unidade destinatária resolvida, `dhEmi`, valor total, finalidade `finNFe`, notas referenciadas, protocolo, resultado da verificação de coerência do arquivo, XML íntegro) e `inventory.nfe_item` por `det` (`nItem`, `cProd`, `xProd`, `cEAN`, `cEANTrib`, NCM, CEST, CFOP, `uCom`, `qCom`, `vUnCom`, `uTrib`, `qTrib`, componentes de valor do item e grupo `rastro` quando presente). Chave já existente em `announced` SHALL ser completada; em qualquer outro estado, rejeitada como duplicada.
 
 #### Scenario: Importação válida
 - **WHEN** o operador envia um XML de NF-e autorizada com 5 itens

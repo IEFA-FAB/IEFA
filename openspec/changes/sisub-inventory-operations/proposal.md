@@ -94,7 +94,7 @@ As fases estão ordenadas para **tirar o módulo do zero uso** o quanto antes (v
 
 ### Modified Capabilities
 
-- `nfe-ingestion`: validação de autenticidade, entrada pela chave, ciclo de vida, custo por item.
+- `nfe-ingestion`: coerência do arquivo (autenticidade só com XMLDSig), entrada pela chave, ciclo de vida, custo por item.
 - `goods-receipt`: origens sem NF-e, conferência por leitura, recusa, pendência fiscal, imutabilidade,
   competência designada.
 - `expense-liquidation`: vínculo validado, glosa, prazo.
@@ -102,7 +102,8 @@ As fases estão ordenadas para **tirar o módulo do zero uso** o quanto antes (v
 - `stock-ledger`: tipos e `occurred_at`, valoração, transferência, lote em quarentena.
 - `stock-accounting-mcasp`: competência por `occurred_at` no fuso de Brasília; rótulo gerencial;
   exportação por motivo.
-- `stock-replenishment-mrp`: disponível exclui quarentena e vencido; considera requisições em rascunho.
+- `stock-replenishment-mrp`: disponível exclui quarentena e vencido; demanda já atendida por saída emitida sai
+  da demanda bruta, sem descontar o emitido do disponível outra vez.
 - `gtin-gs1-catalog`: GTIN aprendido no recebimento vira alias pendente de revisão, sem sobrescrever o catálogo.
 
 ## Impact
@@ -117,7 +118,7 @@ As fases estão ordenadas para **tirar o módulo do zero uso** o quanto antes (v
   `receiving-scan.ts`, `nfe-cost.ts`, com teste de contrato do vocabulário SQL.
 - **apps/sisub**: telas novas (Saída, Ajustes, Vencimentos, Abertura, Etiquetas, A caminho, Leitor);
   reescrita da conferência e da contagem; bloco de vencimentos no planejamento.
-- **apps/api**: validação de autenticidade da NF-e; coletor como task agendada separada (se Q1).
+- **apps/api**: coerência do arquivo da NF-e e, depois, assinatura XMLDSig; coletor como task agendada separada (se Q1).
 - **legal-kit / LGPD**: banco IndexedDB da contagem offline no inventário da Política de Cookies (o perfil
   do leitor vai para o banco, sem chave nova de `localStorage`); fotos e
   documentos de apuração como dado pessoal, com retenção, **antes** de entrar em uso.
