@@ -18,7 +18,7 @@ import {
 	vUserIdentityInCore,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, asc, count, eq } from "drizzle-orm"
+import { and, asc, count, eq, or } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { requireMessHall, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -56,6 +56,22 @@ function trainingFilter(column: PgColumn, input?: ListPlaces) {
 	return input?.includeTraining ? undefined : eq(column, false)
 }
 
+/**
+ * Só as unidades COMPRADORAS (`type = 'purchase'`) — mais a sentinela de treino, quando
+ * pedida.
+ *
+ * `core.units` deixou de ser só a lista das compradoras do sisub: o Projeto α cadastra as
+ * OMs APOIADAS (IAE, DCTA, IEFA…) como `consumption`, sem cozinha, sem refeitório e sem
+ * UASG, para escopar acesso por OM (20260918…_alpha_role_modules_unit_scope). Este é o
+ * seletor de unidade do sisub inteiro (módulo Unidade, Análises da Unidade, escopo de
+ * permissão) — sem o filtro, as apoiadas apareceriam ali como unidades vazias. A sentinela
+ * de treino é `consumption` também, e entra pelo `or` quando o chamador a pede.
+ */
+function unitListFilter(input?: ListPlaces) {
+	const purchase = eq(unitsInCore.type, "purchase")
+	return input?.includeTraining ? or(purchase, eq(unitsInCore.isTraining, true)) : and(purchase, eq(unitsInCore.isTraining, false))
+}
+
 export async function listUnits(
 	db: SisubDb,
 	_ctx: UserContext,
@@ -64,7 +80,7 @@ export async function listUnits(
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.unitsInCore.findMany({
 			columns: { id: true, code: true, displayName: true },
-			where: trainingFilter(unitsInCore.isTraining, input),
+			where: unitListFilter(input),
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		})
 	)
