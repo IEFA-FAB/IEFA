@@ -2,7 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { FileUp, FileX2, ScanLine } from "lucide-react"
 import { useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
-import { ScanInput } from "@/components/features/storage/scan/ScanInput"
+import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -117,11 +117,7 @@ function NfeListPage() {
 						label="Chave de acesso"
 						placeholder="Leia o código de barras do DANFE ou digite os 44 caracteres…"
 						disabled={uploading}
-						config={{
-							prefix: scannerProfile.prefix ?? undefined,
-							suffix: scannerProfile.suffix ?? undefined,
-							gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
-						}}
+						{...scannerPropsFrom(scannerProfile)}
 						onReading={(reading) => {
 							if (reading.kind === "nfe_access_key") registerKey(reading.accessKey.key)
 							else toast.error("Isto não é uma chave de acesso — leia o código de barras do DANFE")

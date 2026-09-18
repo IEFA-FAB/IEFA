@@ -112,6 +112,50 @@ describe("sortFefo", () => {
 		])
 		expect(sorted.map((l) => l.expiryDate ?? l.receivedAt)).toEqual(["2026-04-01T10:00:00Z", "2026-05-01T10:00:00Z", "2026-06-01"])
 	})
+
+	test("'usar primeiro' fura a fila, mesmo com validade maior", () => {
+		// o lote já aberto tem que sair antes do fechado de validade menor —
+		// é a única alavanca que o operador tem sobre a fila, e o banco ordena
+		// por `use_first desc` ANTES da validade
+		const sorted = sortFefo([
+			{ lotId: "b", expiryDate: "2026-08-01", useFirst: false },
+			{ lotId: "a", expiryDate: "2026-12-01", useFirst: true },
+			{ lotId: "c", expiryDate: "2026-09-01", useFirst: false },
+		])
+		expect(sorted.map((l) => l.lotId)).toEqual(["a", "b", "c"])
+	})
+
+	test("empate de validade: a entrada mais antiga sai primeiro, mesmo com id maior", () => {
+		// o arroz que chegou antes sai antes; sem isto, lotes de mesma validade
+		// saíam em ordem de UUID
+		const sorted = sortFefo([
+			{ lotId: "a", expiryDate: "2026-08-01", receivedAt: "2026-07-10T10:00:00Z" },
+			{ lotId: "z", expiryDate: "2026-08-01", receivedAt: "2026-07-01T10:00:00Z" },
+		])
+		expect(sorted.map((l) => l.lotId)).toEqual(["z", "a"])
+	})
+
+	test("empate de validade e de entrada desempata pelo lote, não pela ordem de chegada", () => {
+		// a ordem em que as linhas voltam do PostgREST não é garantida: sem o
+		// desempate a prévia escolhia um lote e a baixa outro, conforme o plano
+		const lots = [
+			{ lotId: "z", expiryDate: "2026-08-01" },
+			{ lotId: "a", expiryDate: "2026-08-01" },
+			{ lotId: "m", expiryDate: "2026-08-01" },
+		]
+		expect(sortFefo(lots).map((l) => l.lotId)).toEqual(["a", "m", "z"])
+		expect(sortFefo([...lots].reverse()).map((l) => l.lotId)).toEqual(["a", "m", "z"])
+	})
+
+	test("a entrada é lida na data civil de Brasília", () => {
+		// 18/09 00:30 UTC é 17/09 em Brasília: o lote recebido nessa hora entra
+		// na fila ANTES do que venceu no dia 18, não depois
+		const sorted = sortFefo([
+			{ lotId: "vence-18", expiryDate: "2026-09-18" },
+			{ lotId: "entrou-17-a-noite", expiryDate: null, receivedAt: "2026-09-18T00:30:00Z" },
+		])
+		expect(sorted.map((l) => l.lotId)).toEqual(["entrou-17-a-noite", "vence-18"])
+	})
 })
 
 describe("sufficiency", () => {

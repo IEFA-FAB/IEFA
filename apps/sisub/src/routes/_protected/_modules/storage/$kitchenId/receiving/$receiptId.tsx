@@ -15,6 +15,7 @@ import { ArrowLeft, CheckCheck, ClipboardCheck, Plus, Printer, Thermometer, Tras
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { GtinScannerField } from "@/components/features/global/gtin/GtinScannerField"
+import { scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -487,15 +488,7 @@ function ReceiptDetailPage() {
 				<Card className="print:hidden">
 					<CardContent className="pt-4 space-y-1.5">
 						<p className="text-label text-muted-foreground">Conferência por scanner — leia o código do produto físico:</p>
-						<GtinScannerField
-							onScan={setScannedGtin}
-							placeholder="Escaneie o GTIN do volume recebido…"
-							config={{
-								prefix: scannerProfile.prefix ?? undefined,
-								suffix: scannerProfile.suffix ?? undefined,
-								gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
-							}}
-						/>
+						<GtinScannerField onScan={setScannedGtin} placeholder="Escaneie o GTIN do volume recebido…" {...scannerPropsFrom(scannerProfile)} />
 						{scannedGtin != null && (
 							<Badge variant={scanMatch ? "secondary" : "destructive"} className="text-xs">
 								{scanMatch ? `GTIN ${scannedGtin} consta na nota — item destacado` : `GTIN ${scannedGtin} NÃO consta nesta nota — não adicione sem conferir`}

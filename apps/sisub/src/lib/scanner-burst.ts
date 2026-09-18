@@ -85,3 +85,39 @@ export function isStale(state: BurstState, now: number, config: BurstConfig): bo
 	if (state.buffer === "" || state.lastKeyAt === 0) return false
 	return now - state.lastKeyAt > Math.max(config.idleTimeoutMs * 8, 1000)
 }
+
+/**
+ * Ritmo das teclas DENTRO de um campo de leitura focado.
+ *
+ * A captura global acima só age fora de campo editável; no campo focado (onde
+ * a tela põe o operador) quem decide é isto. É o que separa o leitor da mão: o
+ * leitor despeja o código em rajada, mais rápido que qualquer digitação.
+ */
+export interface FieldRhythm {
+	lastAt: number
+	/** Todas as teclas até aqui chegaram dentro do intervalo de leitor. */
+	fast: boolean
+}
+
+export const IDLE_RHYTHM: FieldRhythm = { lastAt: 0, fast: false }
+
+/** Atualiza o ritmo com uma tecla imprimível. Campo vazio abre rajada nova. */
+export function nextFieldRhythm(rhythm: FieldRhythm, now: number, fieldWasEmpty: boolean, maxKeyIntervalMs: number): FieldRhythm {
+	if (fieldWasEmpty || rhythm.lastAt === 0) return { lastAt: now, fast: true }
+	return { lastAt: now, fast: rhythm.fast && now - rhythm.lastAt <= maxKeyIntervalMs }
+}
+
+/** O conteúdo do campo chegou em rajada e tem tamanho de leitura? */
+export function looksScanned(rhythm: FieldRhythm, value: string, minLength: number): boolean {
+	return rhythm.fast && value.length >= minLength
+}
+
+/**
+ * Tab termina a leitura quando a estação foi calibrada para ele OU quando o que
+ * está no campo chegou em rajada de leitor. Digitado à mão, o Tab continua
+ * movendo o foco — prendê-lo sempre tiraria do teclado a única forma de sair.
+ */
+export function tabEndsScan(terminator: "enter" | "tab" | "none", rhythm: FieldRhythm, value: string, minLength: number): boolean {
+	if (value.length === 0) return false
+	return terminator === "tab" || looksScanned(rhythm, value, minLength)
+}

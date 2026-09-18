@@ -1,5 +1,6 @@
 import { type BarcodeConfig, parseGtin } from "@iefa/sisub-domain"
 import { ScanInput } from "@/components/features/storage/scan/ScanInput"
+import type { ScannerTiming } from "@/hooks/ui/useBarcodeScanner"
 
 /**
  * Campo de leitura de GTIN.
@@ -22,9 +23,21 @@ interface GtinScannerFieldProps {
 	disabled?: boolean
 	config?: BarcodeConfig
 	allowCamera?: boolean
+	/** Terminador e tempos calibrados da estação (tela "Testar leitor"). */
+	terminator?: "enter" | "tab" | "none"
+	timing?: ScannerTiming
 }
 
-export function GtinScannerField({ onScan, placeholder = "Escaneie ou digite o GTIN…", autoFocus, disabled, config, allowCamera }: GtinScannerFieldProps) {
+export function GtinScannerField({
+	onScan,
+	placeholder = "Escaneie ou digite o GTIN…",
+	autoFocus,
+	disabled,
+	config,
+	allowCamera,
+	terminator,
+	timing,
+}: GtinScannerFieldProps) {
 	return (
 		<ScanInput
 			label="GTIN"
@@ -33,6 +46,8 @@ export function GtinScannerField({ onScan, placeholder = "Escaneie ou digite o G
 			disabled={disabled}
 			config={config}
 			allowCamera={allowCamera}
+			terminator={terminator}
+			timing={timing}
 			onReading={(reading) => {
 				if (reading.kind === "gtin") {
 					onScan(reading.gtin)

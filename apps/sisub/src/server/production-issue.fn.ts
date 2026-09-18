@@ -44,15 +44,55 @@ async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitc
 async function lotBalancesForIngredients(kitchenId: number, ingredientIds: string[]): Promise<Map<string, LotBalance[]>> {
 	const byIngredient = new Map<string, LotBalance[]>()
 	if (ingredientIds.length === 0) return byIngredient
-	const { data: rows } = await inventory()
+	const inv = inventory()
+	const { data: rows } = await inv
 		.from("v_stock_balance")
 		.select("ingredient_id, lot_id, expiry_date, balance")
 		.eq("kitchen_id", kitchenId)
 		.in("ingredient_id", ingredientIds)
+
+	// A view é a soma do ledger e não conhece o lote: nem quarentena, nem
+	// entrada, nem "usar primeiro". Os três campos decidem a alocação no banco,
+	// e a prévia sem eles mostra outro lote:
+	//  • quarentena — a alocação PULA o lote, e contá-lo aqui faria a tela dizer
+	//    "tem saldo" enquanto a baixa sai inteira como movimento sem lote:
+	//    estoque negativo, sem nenhum aviso;
+	//  • entrada — lote sem validade entra na fila por ela, e não no fim;
+	//  • "usar primeiro" — o lote marcado no painel de vencimentos FURA a fila,
+	//    e é o único jeito de o operador mandar sair o lote já aberto antes do
+	//    lote de validade menor.
+	// Só lote COM saldo. A view traz todo lote que a cozinha já teve, inclusive os
+	// vazios; em alguns meses seriam centenas de ids num `.in(...)` via GET, a URL
+	// estoura, e a leitura — que agora lança erro — derrubaria a tela inteira.
+	const lotIds = [
+		...new Set(
+			(rows ?? [])
+				.filter((row: { lot_id: string | null; balance: number | string }) => row.lot_id != null && Number(row.balance) > 0)
+				.map((row: { lot_id: string }) => row.lot_id)
+		),
+	] as string[]
+	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
+	if (lotIds.length > 0) {
+		const { data: lots, error: lotError } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
+		// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
+		// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
+		// existe para fechar, de volta e calado.
+		if (lotError) throw new Error(`Erro ao carregar os lotes: ${lotError.message}`)
+		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
+	}
+
 	for (const row of rows ?? []) {
 		if (row.lot_id == null || Number(row.balance) <= 0) continue
+		const meta = lotMeta.get(row.lot_id)
+		if (meta?.quarantined_at != null) continue
 		const list = byIngredient.get(row.ingredient_id) ?? []
-		list.push({ lotId: row.lot_id, balance: Number(row.balance), expiryDate: row.expiry_date })
+		list.push({
+			lotId: row.lot_id,
+			balance: Number(row.balance),
+			expiryDate: row.expiry_date,
+			receivedAt: meta?.received_at ?? null,
+			useFirst: meta?.use_first ?? false,
+		})
 		byIngredient.set(row.ingredient_id, list)
 	}
 	return byIngredient

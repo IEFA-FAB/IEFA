@@ -25,6 +25,8 @@ export interface LotBalance {
 	expiryDate: string | null
 	/** Entrada do lote (ISO date/timestamp) — desempata e ordena o lote sem validade. */
 	receivedAt?: string | null
+	/** Marcado "usar primeiro" no painel de vencimentos — fura a fila, como no banco. */
+	useFirst?: boolean | null
 }
 
 export interface FefoAllocation {
@@ -44,19 +46,49 @@ export function brasiliaToday(now: Date = new Date()): string {
 }
 
 /**
- * Ordena por validade asc; lote sem validade usa `receivedAt` como validade
- * presumida para ficar na fila junto com os demais (FIFO), e sem nenhum dos
- * dois vai para o fim. Empate estável pela ordem de entrada.
+ * Data civil de Brasília de um instante ISO. A entrada do lote chega como
+ * timestamp UTC; cortar os 10 primeiros caracteres dava a data UTC, que entre
+ * 21h e a meia-noite em São Paulo já é o dia seguinte — e o lote recebido hoje
+ * à noite entrava na fila como se fosse de amanhã.
  */
-export function sortFefo<T extends { expiryDate: string | null; receivedAt?: string | null }>(lots: readonly T[]): T[] {
-	const key = (lot: T) => lot.expiryDate ?? (lot.receivedAt ? lot.receivedAt.slice(0, 10) : null)
+export function brasiliaDate(instant: string): string {
+	if (instant.length === 10) return instant
+	const parsed = new Date(instant)
+	return Number.isNaN(parsed.getTime()) ? instant.slice(0, 10) : brasiliaToday(parsed)
+}
+
+/**
+ * Mesma ordem da alocação no banco: `use_first desc, coalesce(validade, dia da
+ * entrada em Brasília) asc, received_at asc, id asc`.
+ *
+ *  • "usar primeiro" (painel de vencimentos) FURA a fila;
+ *  • depois a validade asc;
+ *  • lote sem validade usa o dia da entrada como validade presumida, e entra na
+ *    fila junto com os demais (FIFO) em vez de ir para o fim;
+ *  • empate de validade: a ENTRADA mais antiga sai primeiro;
+ *  • `lotId` desempata o resto, para a ordem não depender de como as linhas
+ *    chegaram.
+ */
+export function sortFefo<T extends { expiryDate: string | null; receivedAt?: string | null; useFirst?: boolean | null; lotId?: string }>(
+	lots: readonly T[]
+): T[] {
+	const key = (lot: T) => lot.expiryDate ?? (lot.receivedAt ? brasiliaDate(lot.receivedAt) : null)
 	return [...lots].sort((a, b) => {
+		if (Boolean(a.useFirst) !== Boolean(b.useFirst)) return a.useFirst ? -1 : 1
 		const ka = key(a)
 		const kb = key(b)
-		if (ka == null && kb == null) return 0
-		if (ka == null) return 1
-		if (kb == null) return -1
-		return ka < kb ? -1 : ka > kb ? 1 : 0
+		if (ka !== kb) {
+			if (ka == null) return 1
+			if (kb == null) return -1
+			return ka < kb ? -1 : 1
+		}
+		// empate de validade: a entrada mais antiga sai primeiro, como no banco
+		const ra = a.receivedAt ? new Date(a.receivedAt).getTime() : Number.POSITIVE_INFINITY
+		const rb = b.receivedAt ? new Date(b.receivedAt).getTime() : Number.POSITIVE_INFINITY
+		if (ra !== rb) return ra < rb ? -1 : 1
+		const ia = a.lotId ?? ""
+		const ib = b.lotId ?? ""
+		return ia < ib ? -1 : ia > ib ? 1 : 0
 	})
 }
 

@@ -2,8 +2,8 @@ import { NATURE_LABELS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON_
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, Check, ShieldAlert, SlidersHorizontal, Trash2, X } from "lucide-react"
 import { useState } from "react"
-import { requirePermission } from "@/auth/pbac"
-import { ScanInput } from "@/components/features/storage/scan/ScanInput"
+import { requirePermission, usePBAC } from "@/auth/pbac"
+import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -102,6 +102,11 @@ function AdjustmentsPage() {
 	const { balance, adjustments, quarantined, losses, scannerProfile, monthStart, today } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
 	const router = useRouter()
+	// A rota abre no nível 2 (quem registra ajuste), mas aprovar, rejeitar e
+	// liberar quarentena são nível 3. Sem esta distinção a tela oferecia botões
+	// que o servidor recusa — e o operador aprende a desconfiar da tela.
+	const { can } = usePBAC()
+	const canApprove = can("storage", 3, { type: "kitchen", id: Number(kitchenId) })
 
 	const lots: LotOption[] = balance.flatMap((item) =>
 		item.lots
@@ -168,9 +173,15 @@ function AdjustmentsPage() {
 					],
 				},
 			})
-			toast.success(
-				result.status === "posted" ? "Ajuste lançado" : "Ajuste registrado e aguardando aprovação — se o lote está comprometido, ponha-o em quarentena agora"
-			)
+			if (result.postFailure) {
+				// o documento foi registrado e está na fila — dizer isso é o que impede
+				// o operador de lançar a mesma perda uma segunda vez
+				toast.warning(`Ajuste registrado e enviado para aprovação: o lançamento automático falhou (${result.postFailure}). Não lance de novo.`)
+			} else {
+				toast.success(
+					result.status === "posted" ? "Ajuste lançado" : "Ajuste registrado e aguardando aprovação — se o lote está comprometido, ponha-o em quarentena agora"
+				)
+			}
 			setQuantity("")
 			setNote("")
 			setEvidence("")
@@ -234,17 +245,25 @@ function AdjustmentsPage() {
 									>
 										Baixar
 									</Button>
-									<Button
-										type="button"
-										size="sm"
-										variant="ghost"
-										disabled={busy}
-										onClick={() =>
-											run(() => releaseQuarantineFn({ data: { lotId: lot.id, reason: "Problema não confirmado na avaliação" } }), "Quarentena liberada")
-										}
-									>
-										Liberar
-									</Button>
+									{/*
+									 * Liberar quarentena é nível 3, como aprovar e rejeitar:
+									 * `releaseQuarantineFn` exige 3. O botão estava fora do gate
+									 * e o nível 2 o via — clicava e tomava erro de permissão num
+									 * lote que ele mesmo tinha acabado de reter.
+									 */}
+									{canApprove && (
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											disabled={busy}
+											onClick={() =>
+												run(() => releaseQuarantineFn({ data: { lotId: lot.id, reason: "Problema não confirmado na avaliação" } }), "Quarentena liberada")
+											}
+										>
+											Liberar
+										</Button>
+									)}
 								</div>
 							</div>
 						))}
@@ -263,11 +282,7 @@ function AdjustmentsPage() {
 					<ScanInput
 						label="Etiqueta do lote"
 						placeholder="Leia a etiqueta do lote…"
-						config={{
-							prefix: scannerProfile.prefix ?? undefined,
-							suffix: scannerProfile.suffix ?? undefined,
-							gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
-						}}
+						{...scannerPropsFrom(scannerProfile)}
 						onReading={(reading) => {
 							if (reading.kind === "lot_label") selectByReading(reading.lotShortCode)
 							else toast.error("Leia a etiqueta interna do lote (o GTIN identifica o produto, não o lote)")
@@ -396,7 +411,14 @@ function AdjustmentsPage() {
 														Em apuração
 													</Badge>
 												) : (
-													NATURE_LABELS[REASON_NATURE[line.reasonCode as StockAdjustmentReason] ?? "loss"]
+													/*
+													 * A natureza vem do SERVIDOR, que é quem calcula o total.
+													 * Recalculá-la aqui com um `?? "loss"` próprio fazia a
+													 * tabela dizer "Perda" numa linha que o total deixava de
+													 * fora — o descarte de sobra de produção é consumo — e o
+													 * leitor não tinha como saber qual dos dois estava certo.
+													 */
+													(NATURE_LABELS[line.nature as keyof typeof NATURE_LABELS] ?? line.nature)
 												)}
 											</TableCell>
 											<TableCell className="text-right tabular-nums">{NUM.format(line.quantity)}</TableCell>
@@ -442,7 +464,7 @@ function AdjustmentsPage() {
 									)}
 									<span className="text-xs text-muted-foreground">{new Date(doc.created_at).toLocaleString("pt-BR")}</span>
 								</div>
-								{doc.status === "pending_approval" && (
+								{doc.status === "pending_approval" && canApprove && (
 									<div className="flex gap-2">
 										<Button
 											type="button"
@@ -468,6 +490,9 @@ function AdjustmentsPage() {
 									</div>
 								)}
 							</div>
+							{doc.status === "pending_approval" && !canApprove && (
+								<p className="mt-1 text-xs text-muted-foreground">Aguardando aprovação de um responsável nível 3 desta cozinha.</p>
+							)}
 							<ul className="mt-2 space-y-1 text-xs">
 								{doc.items.map((item: Record<string, unknown>) => (
 									<li key={String(item.id)}>

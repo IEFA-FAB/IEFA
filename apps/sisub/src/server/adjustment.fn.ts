@@ -15,7 +15,8 @@
  * @migration 20260917160000_inventory_operable_core
  */
 
-import { INFLOW_REASONS, OUTFLOW_REASONS, STOCK_ADJUSTMENT_REASONS } from "@iefa/sisub-domain"
+import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
+import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -112,23 +113,112 @@ function evidencePending(items: readonly AdjustmentItemInput[]): boolean {
 	})
 }
 
-/** Existe outro nível 3 de `storage` nesta cozinha, além do ator? */
+/**
+ * Existe outro nível 3 de `storage` nesta cozinha, além do ator?
+ *
+ * A resposta decide se a exceção "único nível 3 da cozinha" pode ser gravada.
+ * Errá-la para MAIS é gravar uma justificativa falsa num documento contábil;
+ * errá-la para MENOS trava a cozinha. Por isso a pergunta é respondida pelo
+ * mesmo motor que autoriza o resto do app, e não por uma leitura própria:
+ *
+ *  • as DUAS origens do modelo — grants inline (`user_permissions`) e
+ *    statements de política anexada. Ler só a primeira tornava invisível tanto
+ *    o aprovador concedido por política (o "Conjunto Treino") quanto o deny
+ *    vindo de política;
+ *  • `resolveEffectivePermissions` para a precedência de deny, que não é
+ *    ausência: um `level <= 0` de QUALQUER origem anula os allows que cobre;
+ *  • `hasPermission` para o escopo, com a MESMA regra que o guard da própria
+ *    server fn aplica — permissão global ou escopada nesta cozinha. Se o PBAC
+ *    passar a fazer permissão de unidade alcançar as cozinhas dela, esta
+ *    função acompanha sozinha, em vez de divergir do guard.
+ */
 async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boolean> {
-	const { data } = await accessControl()
-		.from("user_permissions")
-		.select("user_id, level, kitchen_id, unit_id, mess_hall_id, expires_at")
+	type PermissionRow = {
+		user_id: string
+		module: string
+		level: number
+		kitchen_id: number | null
+		unit_id: number | null
+		mess_hall_id: number | null
+	}
+	const ac = accessControl()
+	// Vencimento pelo relógio do BANCO (`NOT_EXPIRED` usa `now()` do Postgres),
+	// como o `@iefa/pbac` faz de propósito: container com relógio adiantado
+	// concederia acesso já vencido.
+	//
+	// E as leituras são recortadas em `storage` e nesta cozinha (ou sem escopo de
+	// cozinha). Ler a `user_permissions` inteira batia no teto de 1000 linhas do
+	// PostgREST: um aprovador real podia sumir do conjunto, calado, e o autor
+	// passava a gravar "único nível 3 da cozinha" — uma exceção falsa num
+	// documento contábil. Recortar por módulo é seguro para a precedência de deny,
+	// que é por módulo.
+	const inScope = `kitchen_id.eq.${kitchenId},kitchen_id.is.null`
+
+	const { data: statements, error: statementError } = await ac
+		.from("policy_statement")
+		.select("policy_id, module, level, kitchen_id, unit_id, mess_hall_id")
 		.eq("module", "storage")
-		.gte("level", 3)
-	const now = Date.now()
-	return (data ?? []).some(
-		(row: { user_id: string; kitchen_id: number | null; unit_id: number | null; mess_hall_id: number | null; expires_at: string | null }) => {
-			if (row.user_id === actorId) return false
-			if (row.expires_at != null && new Date(row.expires_at).getTime() <= now) return false
-			// permissão global ou escopada NESTA cozinha
-			const globalGrant = row.kitchen_id == null && row.unit_id == null && row.mess_hall_id == null
-			return globalGrant || Number(row.kitchen_id) === kitchenId
+		.or(inScope)
+		// Só o que decide aprovação: nível 3 (quem aprova) e deny (nível ≤ 0, que
+		// anula). Uma política de nível baixo anexada a milhares de usuários
+		// empurraria a leitura de anexos para além do teto de 1000 linhas, e o
+		// único nível 3 real poderia sumir do resultado calado.
+		.or("level.gte.3,level.lte.0")
+	if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${statementError.message}`)
+	const statementRows = (statements ?? []) as Array<Omit<PermissionRow, "user_id"> & { policy_id: string }>
+	const storagePolicyIds = [...new Set(statementRows.map((row) => row.policy_id))]
+
+	const [inlineResult, attachmentResult, liveResult] = await Promise.all([
+		ac
+			.from("user_permissions")
+			.select("user_id, module, level, kitchen_id, unit_id, mess_hall_id")
+			.eq("module", "storage")
+			.or(inScope)
+			.or("level.gte.3,level.lte.0")
+			.or(NOT_EXPIRED),
+		storagePolicyIds.length > 0
+			? ac.from("user_policy_attachment").select("user_id, policy_id").in("policy_id", storagePolicyIds).or(NOT_EXPIRED)
+			: Promise.resolve({ data: [], error: null }),
+		storagePolicyIds.length > 0 ? ac.from("policy").select("id").in("id", storagePolicyIds).is("deleted_at", null) : Promise.resolve({ data: [], error: null }),
+	])
+	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${inlineResult.error.message}`)
+	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${attachmentResult.error.message}`)
+	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${liveResult.error.message}`)
+
+	const live = new Set(((liveResult.data ?? []) as Array<{ id: string }>).map((row) => row.id))
+	const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
+	for (const row of statementRows) {
+		if (!live.has(row.policy_id)) continue
+		const list = byPolicy.get(row.policy_id) ?? []
+		list.push(row)
+		byPolicy.set(row.policy_id, list)
+	}
+	const policyRows: PermissionRow[] = []
+	for (const attachment of (attachmentResult.data ?? []) as Array<{ user_id: string; policy_id: string }>) {
+		for (const statement of byPolicy.get(attachment.policy_id) ?? []) {
+			policyRows.push({ ...statement, user_id: attachment.user_id })
 		}
-	)
+	}
+
+	const group = (rows: PermissionRow[]) => {
+		const map = new Map<string, UserPermission[]>()
+		for (const { user_id, ...permission } of rows) {
+			const list = map.get(user_id) ?? []
+			list.push(permission as UserPermission)
+			map.set(user_id, list)
+		}
+		return map
+	}
+	const inlineByUser = group((inlineResult.data ?? []) as PermissionRow[])
+	const policyByUser = group(policyRows)
+
+	const candidates = new Set([...inlineByUser.keys(), ...policyByUser.keys()])
+	candidates.delete(actorId)
+	for (const userId of candidates) {
+		const effective = resolveEffectivePermissions(inlineByUser.get(userId) ?? [], policyByUser.get(userId) ?? [])
+		if (hasPermission(effective, "storage", 3, { type: "kitchen", id: kitchenId })) return true
+	}
+	return false
 }
 
 export const fetchStockSettingsFn = createServerFn({ method: "GET" })
@@ -252,10 +342,30 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			throw new Error(`Erro nos itens do ajuste: ${itemsError.message}`)
 		}
 
-		const { data: requires } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+		// Documento e itens já existem daqui para baixo. Falha antes do lançamento
+		// APAGA o documento — como a falha nos itens —, senão ele fica encalhado em
+		// `draft`, sem ação nenhuma na tela, e o operador reenvia e nasce um segundo
+		// documento para a mesma perda.
+		const abandon = async (message: string): Promise<never> => {
+			await inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft")
+			throw new Error(message)
+		}
+
+		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+		if (requiresError) await abandon(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		// O FATO fica gravado agora. A exigência é monotônica — o lançamento ainda
+		// reavalia a regra sob trava e soma o que surgiu depois (inclusive outro
+		// ajuste do mesmo autor criado ao mesmo tempo) —, mas o fato gravado impede
+		// que esperar 24 h, ou subir a alçada, desfaça a exigência.
+		const { error: factError } = await inv
+			.from("stock_adjustment")
+			.update({ approval_required: requires === true })
+			.eq("id", doc.id)
+		if (factError) await abandon(`Erro ao registrar a alçada do ajuste: ${factError.message}`)
 		if (requires === true) {
-			await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
-			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0 }
+			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
+			if (pendingError) await abandon(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
+			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0, postFailure: null as string | null }
 		}
 
 		const { data: posted, error: postError } = await inv.rpc("post_stock_adjustment", {
@@ -263,8 +373,74 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			p_actor: userId,
 			p_approval_exception_reason: null,
 		})
-		if (postError) throw new Error(`Erro ao lançar o ajuste: ${postError.message}`)
-		return { adjustmentId: doc.id as string, status: "posted" as const, movements: Number(posted?.[0]?.movements ?? 0) }
+		if (postError) {
+			// O documento não pode ficar encalhado em `draft`: a tela não oferece
+			// ação nenhuma para ele, e o ajuste vira invisível. Falhou o lançamento
+			// (saldo insuficiente, lote de outra cozinha), vai para aprovação com o
+			// motivo — de onde dá para rejeitar ou corrigir.
+			//
+			// A falha é ACRESCENTADA à observação, nunca escrita por cima: o que o
+			// operador digitou é o que explica o ajuste para quem vai aprová-lo, e
+			// trocá-lo por uma mensagem técnica apaga a única informação que o
+			// aprovador tem sobre o que aconteceu na prateleira.
+			const failureNote = `Lançamento automático falhou: ${postError.message}`
+			const operatorNote = data.notes?.trim()
+			// Se o lançamento caiu porque a regra, reavaliada sob trava, passou a
+			// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
+			// para a fila COM a exigência gravada — monotônica: depois de 24 h ela
+			// não some sozinha.
+			const { data: nowRequires } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+			// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
+			// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
+			// justamente para cortar resposta lenta — e aí o documento já está
+			// `posted`: devolvê-lo à fila faria o aprovador lançar os movimentos uma
+			// segunda vez.
+			const { data: moved, error: recoveryError } = await inv
+				.from("stock_adjustment")
+				.update({
+					status: "pending_approval",
+					notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote,
+					...(nowRequires === true ? { approval_required: true } : {}),
+				})
+				.eq("id", doc.id)
+				.eq("status", "draft")
+				.select("id")
+			// e se a própria recuperação falhar, o usuário precisa saber que o
+			// documento ficou em `draft` — senão ele procura na fila de aprovação
+			// um ajuste que não está lá
+			if (recoveryError) {
+				throw new Error(
+					`Erro ao lançar o ajuste: ${postError.message}. O documento ficou em rascunho e não foi para a fila de aprovação (${recoveryError.message})`
+				)
+			}
+			if ((moved ?? []).length === 0) {
+				const { data: current, error: currentError } = await inv.from("stock_adjustment").select("status").eq("id", doc.id).maybeSingle()
+				if (currentError) throw new Error(`Erro ao conferir o ajuste depois da falha: ${currentError.message}`)
+				if (current?.status === "posted") {
+					// a resposta falhou, o lançamento não: é sucesso, e dizer outra coisa
+					// convidaria o operador a lançar a mesma perda de novo
+					return { adjustmentId: doc.id as string, status: "posted" as const, movements: 0, postFailure: null as string | null }
+				}
+				throw new Error(`Erro ao lançar o ajuste: ${postError.message}. O documento está em "${current?.status ?? "desconhecido"}"`)
+			}
+			// Recuperação deu certo: o documento EXISTE, na fila de aprovação. Isto é
+			// resultado, não erro. Lançar erro aqui fazia a tela manter o formulário
+			// preenchido e não atualizar a lista — o operador tentava de novo, nascia
+			// um segundo documento pendente para a MESMA perda, e um aprovador podia
+			// aprovar os dois, tirando o estoque duas vezes.
+			return {
+				adjustmentId: doc.id as string,
+				status: "pending_approval" as const,
+				movements: 0,
+				postFailure: postError.message as string | null,
+			}
+		}
+		return {
+			adjustmentId: doc.id as string,
+			status: "posted" as const,
+			movements: Number(posted?.[0]?.movements ?? 0),
+			postFailure: null as string | null,
+		}
 	})
 
 /** Aprova e lança o ajuste pendente. Segregação conforme a cozinha. */
@@ -272,7 +448,12 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ adjustmentId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: doc } = await inv.from("stock_adjustment").select("kitchen_id, status, created_by").eq("id", data.adjustmentId).maybeSingle()
+		const { data: doc, error: docError } = await inv
+			.from("stock_adjustment")
+			.select("kitchen_id, status, created_by, approval_required")
+			.eq("id", data.adjustmentId)
+			.maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar o ajuste: ${docError.message}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
 		if (doc.status !== "pending_approval") throw new Error(`Ajuste em "${doc.status}" não está aguardando aprovação`)
@@ -280,8 +461,18 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 		// Quem aprova ≠ quem lançou. Mas se NÃO existe outro nível 3 na cozinha, a
 		// operação segue com a exceção registrada: travar a cozinha no fim de
 		// semana não é controle, é convite ao contorno — e a exceção vira relatório.
+		// A segregação só vale para documento que EXIGE aprovação, e a exigência é
+		// MONOTÔNICA: fato gravado na criação OU regra reavaliada agora. Só a regra
+		// deixava o autor escapar esperando 24 h ou subindo a alçada; só o fato
+		// deixava escapar dois ajustes criados ao mesmo tempo. O banco aplica a
+		// mesma conta no lançamento, sob trava — esta aqui decide a exceção e a
+		// mensagem, não a segurança.
+		const { data: live, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
+		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		const requires = doc.approval_required === true || live === true
+
 		let exceptionReason: string | null = null
-		if (doc.created_by === userId) {
+		if (requires === true && doc.created_by === userId) {
 			if (await hasOtherApprover(Number(doc.kitchen_id), userId)) {
 				throw new Error("Segregação de funções: quem lançou o ajuste não pode aprová-lo — há outro responsável nível 3 nesta cozinha")
 			}
@@ -306,11 +497,18 @@ export const rejectAdjustmentFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
 		if (doc.status === "posted") throw new Error("Ajuste já lançado")
 
-		const { error } = await inv
+		// Condicionado ao estado que foi conferido: entre a leitura acima e esta
+		// escrita, outro aprovador pode ter LANÇADO o documento. Sem a condição, um
+		// ajuste com movimentos no ledger virava "rejeitado" — o estoque mudou e o
+		// documento diz que não.
+		const { data: changed, error } = await inv
 			.from("stock_adjustment")
 			.update({ status: "rejected", decided_by: userId, decided_at: new Date().toISOString(), rejection_reason: data.reason.trim() })
 			.eq("id", data.adjustmentId)
+			.in("status", ["draft", "pending_approval"])
+			.select("id")
 		if (error) throw new Error(`Erro ao rejeitar o ajuste: ${error.message}`)
+		if ((changed ?? []).length === 0) throw new Error("O ajuste mudou de estado enquanto era rejeitado — recarregue e confira")
 		return { rejected: true }
 	})
 
@@ -322,6 +520,11 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 			evidenceKind: z.enum(["photo", "term", "report", "process", "nfe_key", "temperature", "other"]),
 			evidenceReference: z.string().min(1).max(200),
 			investigationReference: z.string().max(200).optional(),
+			// `cold_chain_failure` fecha com a TEMPERATURA e `entry_error_*` com o
+			// movimento corrigido — não com uma referência em texto. Sem estes dois
+			// campos, esses ajustes ficavam pendentes de evidência para sempre.
+			measuredTemperatureC: z.number().optional(),
+			correctedMovementId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -341,13 +544,43 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 				evidence_kind: data.evidenceKind,
 				evidence_reference: data.evidenceReference.trim(),
 				investigation_reference: data.investigationReference?.trim() || null,
+				...(data.measuredTemperatureC != null ? { measured_temperature_c: data.measuredTemperatureC } : {}),
+				...(data.correctedMovementId ? { corrected_movement_id: data.correctedMovementId } : {}),
 			})
 			.eq("id", data.adjustmentItemId)
 		if (error) throw new Error(`Erro ao registrar a evidência: ${error.message}`)
 
-		// documento sem item pendente volta a "completo"
-		const { data: pending } = await inv.from("stock_adjustment_item").select("id").eq("adjustment_id", item.adjustment_id).is("evidence_reference", null)
-		if ((pending ?? []).length === 0) {
+		// Volta a "completo" pela MESMA regra que o marcou pendente: só os motivos
+		// de `EVIDENCE_REQUIRED` exigem evidência. Olhar `evidence_reference` de
+		// TODOS os itens deixava o documento pendente para sempre — basta uma
+		// linha de motivo que nunca precisou de evidência.
+		const { data: siblings, error: siblingsError } = await inv
+			.from("stock_adjustment_item")
+			.select("reason_code, direction, evidence_reference, measured_temperature_c, corrected_movement_id")
+			.eq("adjustment_id", item.adjustment_id)
+		// Sem os irmãos não há como saber se ainda falta evidência. Ignorar o erro
+		// fazia `[]` passar por "nada pendente" e o documento virava `complete`
+		// com evidência faltando — o contrário do que a flag afirma.
+		if (siblingsError) throw new Error(`Erro ao conferir a evidência dos demais itens: ${siblingsError.message}`)
+		const stillPending = evidencePending(
+			(
+				(siblings ?? []) as Array<{
+					reason_code: string
+					direction: string
+					evidence_reference: string | null
+					measured_temperature_c: number | null
+					corrected_movement_id: string | null
+				}>
+			).map((row) => ({
+				reasonCode: row.reason_code as AdjustmentItemInput["reasonCode"],
+				direction: row.direction as "in" | "out",
+				quantity: 1,
+				evidenceReference: row.evidence_reference ?? undefined,
+				measuredTemperatureC: row.measured_temperature_c ?? undefined,
+				correctedMovementId: row.corrected_movement_id ?? undefined,
+			}))
+		)
+		if (!stillPending) {
 			await inv.from("stock_adjustment").update({ evidence_status: "complete" }).eq("id", item.adjustment_id)
 		}
 		return { saved: true }
@@ -371,6 +604,9 @@ export const quarantineLotFn = createServerFn({ method: "POST" })
 			.from("stock_lot")
 			.update({ quarantined_at: new Date().toISOString(), quarantined_by: userId, quarantine_reason: data.reason.trim() })
 			.eq("id", data.lotId)
+			// só quem ainda não está: duas pessoas pondo o mesmo lote em quarentena
+			// não podem trocar o autor e o motivo registrados pela primeira
+			.is("quarantined_at", null)
 		if (error) throw new Error(`Erro ao pôr o lote em quarentena: ${error.message}`)
 		return { quarantined: true }
 	})
@@ -509,14 +745,32 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 
 		const UNDER_INVESTIGATION = new Set(["lost", "theft", "cold_chain_failure"])
 		const lines = [...byReason.entries()]
-			.map(([reasonCode, totals]) => ({ reasonCode, ...totals, underInvestigation: UNDER_INVESTIGATION.has(reasonCode) }))
+			.map(([reasonCode, totals]) => ({
+				reasonCode,
+				...totals,
+				// a natureza vem do domínio, e não de um fallback: o descarte de sobra
+				// de produção é CONSUMO, e ser rotulado "Perda" por omissão inflava o
+				// desperdício da cozinha com o que ela serviu
+				nature: (REASON_NATURE[reasonCode as StockAdjustmentReason] ?? "consumption") as string,
+				underInvestigation: UNDER_INVESTIGATION.has(reasonCode),
+			}))
 			.sort((a, b) => b.value - a.value)
 
+		// O total é de PERDA, e leva DOIS filtros porque natureza sozinha não
+		// separa entrada de saída:
+		//  • `loss` e `under_investigation` — estragou, venceu, quebrou, sumiu;
+		//  • `inventory` SÓ na saída. `count_loss` é falta apurada em contagem e é
+		//    perda; `count_gain` e `found_stock` têm a MESMA natureza e são
+		//    entrada. Sem o filtro de direção, ou a falta de inventário ficava
+		//    fora do total (uma linha de R$ 800 sob "Total: R$ 0,00") ou a sobra
+		//    de inventário entrava somando como se fosse prejuízo;
+		//  • o resto fica de fora: consumo, devolução a fornecedor, doação,
+		//    correção de lançamento e implantação de saldo não são perda.
+		const LOSS_NATURES = new Set(["loss", "under_investigation", "inventory"])
+		const OUTFLOW = new Set<string>(OUTFLOW_REASONS)
 		return {
 			lines,
-			// `opening_balance` é implantação de saldo, não perda nem ganho: contá-lo
-			// aqui inventaria uma variação aumentativa que nunca existiu
-			totalValue: lines.filter((line) => line.reasonCode !== "opening_balance").reduce((acc, line) => acc + line.value, 0),
+			totalValue: lines.filter((line) => LOSS_NATURES.has(line.nature) && OUTFLOW.has(line.reasonCode)).reduce((acc, line) => acc + line.value, 0),
 			underInvestigationValue: lines.filter((line) => line.underInvestigation).reduce((acc, line) => acc + line.value, 0),
 		}
 	})

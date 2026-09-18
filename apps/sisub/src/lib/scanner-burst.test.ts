@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "vitest"
-import { type BurstConfig, closeOnIdle, EMPTY_BURST, feedKey, isStale } from "@/lib/scanner-burst"
+import { type BurstConfig, closeOnIdle, EMPTY_BURST, feedKey, IDLE_RHYTHM, isStale, looksScanned, nextFieldRhythm, tabEndsScan } from "@/lib/scanner-burst"
 
 const CONFIG: BurstConfig = { maxKeyIntervalMs: 80, minLength: 8, terminator: "enter", idleTimeoutMs: 120 }
 
@@ -120,5 +120,61 @@ describe("isStale", () => {
 
 	test("buffer vazio nunca é obsoleto", () => {
 		expect(isStale(EMPTY_BURST, 99_999, CONFIG)).toBe(false)
+	})
+})
+
+describe("ritmo dentro do campo focado", () => {
+	const MAX = 80
+	const MIN = 8
+
+	function type(text: string, intervalMs: number) {
+		let rhythm = IDLE_RHYTHM
+		let value = ""
+		let now = 1000
+		for (const char of text) {
+			rhythm = nextFieldRhythm(rhythm, now, value.length === 0, MAX)
+			value += char
+			now += intervalMs
+		}
+		return { rhythm, value }
+	}
+
+	test("leitor sem calibração: Tab no fim da rajada termina a leitura", () => {
+		// o caso do primeiro dia — ninguém calibrou a estação, o default é Enter,
+		// e o leitor manda Tab. Antes, o Tab movia o foco e o código se perdia.
+		const { rhythm, value } = type("7891234567895", 5)
+		expect(tabEndsScan("enter", rhythm, value, MIN)).toBe(true)
+	})
+
+	test("digitação à mão: Tab continua movendo o foco", () => {
+		const { rhythm, value } = type("7891234567895", 250)
+		expect(tabEndsScan("enter", rhythm, value, MIN)).toBe(false)
+	})
+
+	test("uma pausa no meio quebra a rajada", () => {
+		let rhythm = IDLE_RHYTHM
+		rhythm = nextFieldRhythm(rhythm, 1000, true, MAX)
+		rhythm = nextFieldRhythm(rhythm, 1005, false, MAX)
+		rhythm = nextFieldRhythm(rhythm, 1400, false, MAX)
+		expect(rhythm.fast).toBe(false)
+	})
+
+	test("estação calibrada para Tab aceita Tab mesmo sem rajada", () => {
+		const { rhythm, value } = type("123", 250)
+		expect(tabEndsScan("tab", rhythm, value, MIN)).toBe(true)
+	})
+
+	test("campo vazio nunca termina por Tab", () => {
+		expect(tabEndsScan("tab", IDLE_RHYTHM, "", MIN)).toBe(false)
+	})
+
+	test("rajada curta demais não é leitura — protege o terminador 'none'", () => {
+		const { rhythm, value } = type("123", 5)
+		expect(looksScanned(rhythm, value, MIN)).toBe(false)
+	})
+
+	test("rajada longa é leitura, e é o que o terminador 'none' submete ao parar", () => {
+		const { rhythm, value } = type("LOT7K2M9QX4", 5)
+		expect(looksScanned(rhythm, value, MIN)).toBe(true)
 	})
 })
