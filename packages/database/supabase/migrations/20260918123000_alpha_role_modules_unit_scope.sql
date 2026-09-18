@@ -1,7 +1,7 @@
 -- Projeto α: um módulo PBAC por PAPEL, cada grant escopado por OM, e a hierarquia de APOIO
 -- entre OMs que decide o alcance desse escopo.
 --
--- NÃO APLICADA. Ordem de deploy: esta migration → α (apps/alpha) → contrate. O α novo lê os
+-- Aplicada em 2026-09-18, antes do merge. Ordem de deploy: esta migration → α (apps/alpha) → contrate. O α novo lê os
 -- módulos `alpha-*` e `submission.unit_id`; subir antes da migration derrubaria a fila (a
 -- RPC nova não existe) e deixaria todo ACI sem papel.
 --
