@@ -15,6 +15,7 @@ import { competenciaFromDate, normalizeNsNumber, resolvePurchaseUnitId, roundToC
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
+import { type LiquidationLinkInput, liquidationLinkProblems, type ReceiptForLiquidation } from "@/lib/invoice-gate"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -150,48 +151,59 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
  * que não é de gênero alimentício. O que não pode é CITAR um recebimento ou uma
  * nota que não sustentam o pagamento.
  */
-async function assertLiquidationLinks(unitId: number, goodsReceiptId: string | undefined, nfeDocumentId: string | undefined): Promise<string | null> {
+async function assertLiquidationLinks(
+	unitId: number,
+	empenhoId: string,
+	goodsReceiptId: string | undefined,
+	nfeDocumentId: string | undefined
+): Promise<string | null> {
 	const inv = inventory()
+	let receipt: ReceiptForLiquidation | null = null
 	let nfeId = nfeDocumentId ?? null
 
 	if (goodsReceiptId) {
-		const { data: receipt, error } = await inv.from("goods_receipt").select("id, kitchen_id, status, nfe_document_id").eq("id", goodsReceiptId).maybeSingle()
+		const { data: row, error } = await inv
+			.from("goods_receipt")
+			.select("id, kitchen_id, definitive_at, nfe_document_id, empenho_id, fiscal_pending")
+			.eq("id", goodsReceiptId)
+			.maybeSingle()
 		if (error) throw new Error(`Erro ao conferir o recebimento: ${error.message}`)
-		if (!receipt) throw new Error("Recebimento não encontrado")
+		if (!row) throw new Error("Recebimento não encontrado")
 
 		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
-		const { data: kitchenRow, error: kitchenError } = await kitchenDb
-			.from("kitchen")
-			.select("unit_id, purchase_unit_id")
-			.eq("id", receipt.kitchen_id)
-			.maybeSingle()
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", row.kitchen_id).maybeSingle()
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha do recebimento: ${kitchenError.message}`)
-		const receiptUnit = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
-		if (receiptUnit !== unitId) throw new Error("O recebimento não é desta unidade")
 
-		// Lei 4.320, art. 63: a liquidação verifica o direito do credor com base na
-		// ENTREGA. Recebimento provisório ainda não atesta nada.
-		if (receipt.status !== "definitive") throw new Error("Só recebimento DEFINITIVO sustenta liquidação")
-
-		if (nfeId != null && receipt.nfe_document_id != null && nfeId !== receipt.nfe_document_id) {
-			throw new Error("A NF-e informada não é a do recebimento")
+		receipt = {
+			unitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
+			definitiveAt: row.definitive_at,
+			nfeDocumentId: row.nfe_document_id,
+			empenhoId: row.empenho_id,
+			fiscalPending: row.fiscal_pending === true,
 		}
-		nfeId = nfeId ?? (receipt.nfe_document_id as string | null)
+		nfeId = nfeId ?? (row.nfe_document_id as string | null)
 	}
 
+	let invoice: LiquidationLinkInput["invoice"] = null
 	if (nfeId != null) {
-		const { data: doc, error } = await inv.from("nfe_document").select("id, unit_id, status, situation_result").eq("id", nfeId).maybeSingle()
+		const { data: doc, error } = await inv
+			.from("nfe_document")
+			.select("id, unit_id, status, situation_result, situation_checked_at")
+			.eq("id", nfeId)
+			.maybeSingle()
 		if (error) throw new Error(`Erro ao conferir a NF-e: ${error.message}`)
 		if (!doc) throw new Error("NF-e não encontrada")
-		if (doc.unit_id != null && Number(doc.unit_id) !== unitId) throw new Error("A NF-e não é desta unidade")
-		if (doc.status === "cancelled" || doc.situation_result === "cancelled") throw new Error("NF-e cancelada não sustenta liquidação")
-		// A mesma regra da efetivação: só a situação AUTORIZADA, conferida no portal
-		// da SEFAZ, libera. É a única autenticidade que a cadeia tem hoje.
-		if (doc.situation_result !== "authorized") {
-			throw new Error("Confirme na SEFAZ que a NF-e está AUTORIZADA e registre o resultado antes de liquidar")
+		invoice = {
+			unitId: doc.unit_id == null ? null : Number(doc.unit_id),
+			status: doc.status,
+			situationResult: doc.situation_result,
+			situationCheckedAt: doc.situation_checked_at,
 		}
 	}
 
+	// A regra é pura e testada em `invoice-gate.ts`; aqui só se lê do banco.
+	const problems = liquidationLinkProblems({ unitId, empenhoId, receipt, requestedNfeId: nfeDocumentId ?? null, invoice })
+	if (problems.length > 0) throw new Error(problems.join("; "))
 	return nfeId
 }
 
@@ -212,7 +224,7 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 		const ctx = await requireUnitScope(2, data.unitId)
 		const { userId } = ctx
 		const fin = finance()
-		const nfeDocumentId = await assertLiquidationLinks(data.unitId, data.goodsReceiptId, data.nfeDocumentId)
+		const nfeDocumentId = await assertLiquidationLinks(data.unitId, data.empenhoId, data.goodsReceiptId, data.nfeDocumentId)
 
 		return withSensitiveAudit(
 			"createLiquidacaoFn",
