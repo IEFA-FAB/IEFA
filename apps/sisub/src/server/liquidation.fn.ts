@@ -136,6 +136,65 @@ export const suggestLiquidationFromReceiptFn = createServerFn({ method: "GET" })
 	})
 
 /** Registra a NS. O banco garante que não excede o empenho vigente. */
+/**
+ * O vínculo da liquidação com recebimento e NF-e, conferido NO BANCO.
+ *
+ * `createLiquidacaoFn` gravava os ids que vinham no corpo da requisição sem
+ * conferir nada: nem a unidade, nem se o recebimento foi efetivado, nem a
+ * situação da nota. Era a SEGUNDA porta até o pagamento — a efetivação passa
+ * pela consulta de situação na SEFAZ, a liquidação não passava. Uma nota
+ * DENEGADA com `cStat` editado para 100, que o parser aceita (ele só confere a
+ * coerência do arquivo), virava NS por aqui.
+ *
+ * Liquidação sem recebimento e sem nota segue permitida: é o caso do empenho
+ * que não é de gênero alimentício. O que não pode é CITAR um recebimento ou uma
+ * nota que não sustentam o pagamento.
+ */
+async function assertLiquidationLinks(unitId: number, goodsReceiptId: string | undefined, nfeDocumentId: string | undefined): Promise<string | null> {
+	const inv = inventory()
+	let nfeId = nfeDocumentId ?? null
+
+	if (goodsReceiptId) {
+		const { data: receipt, error } = await inv.from("goods_receipt").select("id, kitchen_id, status, nfe_document_id").eq("id", goodsReceiptId).maybeSingle()
+		if (error) throw new Error(`Erro ao conferir o recebimento: ${error.message}`)
+		if (!receipt) throw new Error("Recebimento não encontrado")
+
+		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb
+			.from("kitchen")
+			.select("unit_id, purchase_unit_id")
+			.eq("id", receipt.kitchen_id)
+			.maybeSingle()
+		if (kitchenError) throw new Error(`Erro ao conferir a cozinha do recebimento: ${kitchenError.message}`)
+		const receiptUnit = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
+		if (receiptUnit !== unitId) throw new Error("O recebimento não é desta unidade")
+
+		// Lei 4.320, art. 63: a liquidação verifica o direito do credor com base na
+		// ENTREGA. Recebimento provisório ainda não atesta nada.
+		if (receipt.status !== "definitive") throw new Error("Só recebimento DEFINITIVO sustenta liquidação")
+
+		if (nfeId != null && receipt.nfe_document_id != null && nfeId !== receipt.nfe_document_id) {
+			throw new Error("A NF-e informada não é a do recebimento")
+		}
+		nfeId = nfeId ?? (receipt.nfe_document_id as string | null)
+	}
+
+	if (nfeId != null) {
+		const { data: doc, error } = await inv.from("nfe_document").select("id, unit_id, status, situation_result").eq("id", nfeId).maybeSingle()
+		if (error) throw new Error(`Erro ao conferir a NF-e: ${error.message}`)
+		if (!doc) throw new Error("NF-e não encontrada")
+		if (doc.unit_id != null && Number(doc.unit_id) !== unitId) throw new Error("A NF-e não é desta unidade")
+		if (doc.status === "cancelled" || doc.situation_result === "cancelled") throw new Error("NF-e cancelada não sustenta liquidação")
+		// A mesma regra da efetivação: só a situação AUTORIZADA, conferida no portal
+		// da SEFAZ, libera. É a única autenticidade que a cadeia tem hoje.
+		if (doc.situation_result !== "authorized") {
+			throw new Error("Confirme na SEFAZ que a NF-e está AUTORIZADA e registre o resultado antes de liquidar")
+		}
+	}
+
+	return nfeId
+}
+
 export const createLiquidacaoFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
@@ -153,6 +212,7 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 		const ctx = await requireUnitScope(2, data.unitId)
 		const { userId } = ctx
 		const fin = finance()
+		const nfeDocumentId = await assertLiquidationLinks(data.unitId, data.goodsReceiptId, data.nfeDocumentId)
 
 		return withSensitiveAudit(
 			"createLiquidacaoFn",
@@ -168,7 +228,8 @@ export const createLiquidacaoFn = createServerFn({ method: "POST" })
 						valor: data.valor,
 						competencia: competenciaFromDate(data.data),
 						goods_receipt_id: data.goodsReceiptId ?? null,
-						nfe_document_id: data.nfeDocumentId ?? null,
+						// a nota do recebimento, conferida — nunca a do corpo da requisição sem checagem
+						nfe_document_id: nfeDocumentId,
 						observacao: data.observacao?.trim() || null,
 						created_by: userId,
 					})
