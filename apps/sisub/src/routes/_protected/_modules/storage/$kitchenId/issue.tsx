@@ -1,6 +1,7 @@
 import { ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianceReason } from "@iefa/sisub-domain"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
-import { CalendarDays, CheckCircle2, PackageMinus, Undo2 } from "lucide-react"
+import { CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -16,6 +17,7 @@ import { toast } from "@/components/ui/toast"
 import {
 	closeIssueRequestFn,
 	fetchIssueRequestFn,
+	fetchReturnableLotsFn,
 	fetchTodayIssueRequestFn,
 	issueStockFn,
 	openIssueRequestFn,
@@ -106,7 +108,10 @@ function DailyIssuePage() {
 				{
 					description: item.description,
 					measureUnit: item.measureUnit,
-					available: item.balance - item.quarantinedBalance,
+					// Vencido sai da conta junto com a quarentena: a alocação pula os
+					// dois. Descontar só um oferecia saldo que `issue_stock` nunca
+					// tocaria, e a baixa saía inteira como movimento sem lote.
+					available: item.balance - item.quarantinedBalance - item.expiredBalance,
 					gtins: [] as string[],
 				},
 			])
@@ -171,8 +176,17 @@ function DailyIssuePage() {
 		const emissionId = emissionIdFor(`${ingredientId}:${quantity}`)
 		setBusy(true)
 		try {
-			await issueStockFn({ data: { requestId: request.request.id, ingredientId, quantity, emissionId } })
-			toast.success(`Saída de ${NUM.format(quantity)} registrada`)
+			const result = await issueStockFn({ data: { requestId: request.request.id, ingredientId, quantity, emissionId } })
+			// `withoutLot` é a parte que não coube em lote nenhum: ela vira movimento
+			// sem lote e estoque NEGATIVO até a contagem regularizar. Reportar isso
+			// como sucesso puro é o começo de um estoque que ninguém confia.
+			if (result.withoutLot > 0) {
+				toast.warning(
+					`Saída de ${NUM.format(quantity)} registrada, mas ${NUM.format(result.withoutLot)} saiu SEM LOTE: não havia saldo em lote válido. Regularize na contagem.`
+				)
+			} else {
+				toast.success(`Saída de ${NUM.format(quantity)} registrada`)
+			}
 			// só descarta o identificador DEPOIS do sucesso: enquanto a emissão não
 			// confirmou, repetir o clique tem de repetir o mesmo id
 			setEmissionIds((current) => {
@@ -323,12 +337,39 @@ function DailyIssuePage() {
 					<CardTitle className="flex items-center gap-2 text-subheading">
 						<CalendarDays className="size-4" />
 						Itens do dia
+						{open && origin === "production" && (
+							/*
+							 * A sugestão é escrita quando a requisição é aberta. Quem abre o
+							 * documento ANTES de a produção lançar as tarefas do dia — o que
+							 * é o normal em cozinha que planeja de manhã — fica com zero
+							 * linhas sugeridas para sempre, e o portão de variância,
+							 * justificativa e fechamento nasce vazio sem nenhum sinal na
+							 * tela. Este botão é a única forma de recalcular.
+							 */
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								className="ml-auto"
+								disabled={busy}
+								onClick={() =>
+									run(
+										() => openIssueRequestFn({ data: { kitchenId: Number(kitchenId), origin: "production" } }),
+										"Sugestão recalculada com o planejamento de agora"
+									)
+								}
+							>
+								<RefreshCw className="mr-1 size-3.5" />
+								Recalcular sugestão
+							</Button>
+						)}
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-2">
 					{request.lines.length === 0 && (
 						<p className="text-sm text-muted-foreground">
-							Nenhuma produção planejada para hoje. A saída pode ser lançada mesmo assim, no campo abaixo — sem planejamento, não há variância a justificar.
+							Nenhuma produção planejada para este dia — ou a requisição foi aberta antes de a produção lançar as tarefas. "Recalcular sugestão" busca o
+							planejamento de agora. A saída pode ser lançada mesmo sem sugestão, no campo abaixo; sem planejamento não há variância a justificar.
 						</p>
 					)}
 
@@ -430,7 +471,13 @@ function DailyIssuePage() {
 								</div>
 
 								{open && line.issuedNetQty > 0 && (
-									<ReturnRow requestId={request.request.id} description={line.description} busy={busy} onDone={() => router.invalidate()} />
+									<ReturnRow
+										requestId={request.request.id}
+										ingredientId={line.ingredientId}
+										description={line.description}
+										busy={busy}
+										onDone={() => router.invalidate()}
+									/>
 								)}
 
 								{line.requiresReason && line.itemId && (
@@ -470,20 +517,60 @@ function DailyIssuePage() {
 	)
 }
 
-/** Devolução do que saiu e não foi usado — volta ao lote de origem. */
-function ReturnRow({ requestId, description, busy, onDone }: { requestId: string; description: string; busy: boolean; onDone: () => void }) {
+/**
+ * Devolução do que saiu e não foi usado — volta ao lote de origem.
+ *
+ * O lote vem de uma LISTA dos que esta requisição emitiu deste insumo, e não
+ * de um campo de texto. O campo aceitava um UUID digitado à mão, e a tela
+ * nunca mostrou um: o operador colava um identificador de outro lugar e a
+ * devolução caía em outro insumo enquanto o aviso nomeava a linha atual. O
+ * banco impede devolver mais do que saiu, mas não impede devolver no item
+ * errado — e esse erro só apareceria na contagem, semanas depois.
+ */
+function ReturnRow({
+	requestId,
+	ingredientId,
+	description,
+	busy,
+	onDone,
+}: {
+	requestId: string
+	ingredientId: string
+	description: string
+	busy: boolean
+	onDone: () => void
+}) {
 	const [quantity, setQuantity] = useState("")
 	const [lotId, setLotId] = useState("")
 	// mesmo raciocínio da emissão: o identificador sobrevive ao erro, para que a
 	// segunda tentativa depois de um 502 seja a MESMA devolução
 	const [emissionId, setEmissionId] = useState(() => crypto.randomUUID())
+	const { data: returnable } = useQuery({
+		queryKey: ["returnable-lots", requestId, ingredientId],
+		queryFn: () => fetchReturnableLotsFn({ data: { requestId, ingredientId } }),
+	})
+	const lots = returnable?.lots ?? []
+
+	if (lots.length === 0) return null
 
 	return (
 		<div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
 			<Undo2 className="size-3.5 text-muted-foreground" />
 			<span className="text-muted-foreground">Devolver ao estoque</span>
 			<Input className="h-7 w-24" inputMode="decimal" placeholder="qtd" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-			<Input className="h-7 w-72 font-mono" placeholder="id do lote de origem" value={lotId} onChange={(event) => setLotId(event.target.value)} />
+			<Select value={lotId || null} onValueChange={(value) => setLotId(value ?? "")}>
+				<SelectTrigger className="h-7 w-72">
+					<SelectValue>{lots.find((lot) => lot.lotId === lotId)?.label ?? "Lote de origem"}</SelectValue>
+				</SelectTrigger>
+				<SelectContent>
+					{lots.map((lot) => (
+						<SelectItem key={lot.lotId} value={lot.lotId}>
+							{lot.label} · saiu {NUM.format(lot.returnable)}
+							{lot.expiryDate ? ` · vence ${lot.expiryDate}` : ""}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
 			<Button
 				type="button"
 				size="sm"

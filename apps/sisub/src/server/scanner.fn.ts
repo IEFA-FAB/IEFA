@@ -147,13 +147,40 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 
 			if (!data.gtin) return { ingredientId: null, lotId: null, description: null, matchedBy: null }
 
-			const { data: sku } = await kit.from("ingredient_item").select("ingredient_id").eq("gtin", data.gtin).maybeSingle()
-			let ingredientId = (sku?.ingredient_id as string | undefined) ?? undefined
+			// O GTIN do catálogo também pode repetir: `ingredient_item.gtin` não é
+			// único, e dois SKUs com o mesmo código não são um erro — são o mesmo
+			// produto cadastrado por duas cozinhas antes da revisão global juntar
+			// os dois. Nenhuma das duas leituras usa `maybeSingle`.
+			const { data: skus, error: skuError } = await kit
+				.from("ingredient_item")
+				.select("ingredient_id")
+				.eq("gtin", data.gtin)
+				.not("ingredient_id", "is", null)
+				.order("ingredient_id", { ascending: true })
+				.limit(1)
+			if (skuError) throw new Error(`Erro ao resolver o código lido: ${skuError.message}`)
+			let ingredientId = ((skus ?? [])[0]?.ingredient_id as string | undefined) ?? undefined
 			let matchedBy: "gtin" | "alias" = "gtin"
 
 			if (!ingredientId) {
+				// `gtin_alias` tem chave única `(gtin, ingredient_item_id)`, ou seja,
+				// o MESMO GTIN pode ter mais de um apelido — é o caso do fornecedor
+				// que manda o código da caixa para dois SKUs parecidos. Com
+				// `maybeSingle` isso virava PGRST116, o erro era descartado e a
+				// leitura respondia "não está no catálogo" justamente para os
+				// códigos que a tabela de apelidos existe para resolver.
 				const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
-				const { data: alias } = await gs1.from("gtin_alias").select("ingredient_item_id").eq("gtin", data.gtin).neq("status", "rejected").maybeSingle()
+				const { data: aliases, error: aliasError } = await gs1
+					.from("gtin_alias")
+					.select("ingredient_item_id, status")
+					.eq("gtin", data.gtin)
+					.neq("status", "rejected")
+					// apelido já aprovado ganha do pendente: 'approved' < 'pending'
+					.order("status", { ascending: true })
+					.order("ingredient_item_id", { ascending: true })
+					.limit(1)
+				if (aliasError) throw new Error(`Erro ao resolver o código lido: ${aliasError.message}`)
+				const alias = (aliases ?? [])[0]
 				if (alias?.ingredient_item_id) {
 					const { data: aliasItem } = await kit.from("ingredient_item").select("ingredient_id").eq("id", alias.ingredient_item_id).maybeSingle()
 					ingredientId = (aliasItem?.ingredient_id as string | undefined) ?? undefined

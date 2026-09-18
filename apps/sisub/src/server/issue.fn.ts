@@ -165,9 +165,12 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const issueDate = data.issueDate ?? brasiliaToday()
 
-		if (data.origin === "ad_hoc" && !data.purpose?.trim()) {
-			// saída avulsa sem destino é saída sem dono: ela não tem cardápio para
-			// explicá-la depois
+		if (data.origin === "ad_hoc" && (!data.purpose?.trim() || !data.destination?.trim())) {
+			// Saída avulsa sem destino é saída sem dono: não há cardápio para
+			// explicá-la depois. A guarda conferia só o motivo enquanto a mensagem
+			// cobrava os dois, e o destino vazio ia para o banco como `null` —
+			// calado, e justamente no documento que existe para responder "para
+			// onde foi".
 			throw new Error("Saída avulsa exige destino e motivo")
 		}
 
@@ -451,16 +454,30 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
 		if (request.status !== "open") throw new Error("Requisição já fechada")
 
+		// Contagem ANTES do retrato: é ela que o banco vai reconferir sob trava.
+		// Entre montar o retrato e gravar `closed` cabe uma emissão inteira — o
+		// almoxarife retira mais 30 KG enquanto o gestor confirma o fechamento, a
+		// linha passa da tolerância e o dia fecharia sem a justificativa que
+		// aquela emissão exigiria.
+		const { count: seenMovements, error: countError } = await inv
+			.from("stock_movement")
+			.select("id", { count: "exact", head: true })
+			.eq("issue_request_id", data.requestId)
+		if (countError) throw new Error(`Erro ao conferir os movimentos do dia: ${countError.message}`)
+
 		const state = await fetchIssueRequestFn({ data: { requestId: data.requestId } })
 		if (!state.canClose) {
 			const pending = state.lines.filter((line) => line.requiresReason && !line.hasReason).map((line) => line.description)
 			throw new Error(`Informe o motivo do desvio antes de fechar: ${pending.join(", ")}`)
 		}
 
-		const now = new Date().toISOString()
-		// a sugestão vira o número contra o qual a variância do mês é medida
-		await inv.from("stock_issue_request_item").update({ suggested_frozen_at: now }).eq("request_id", data.requestId).is("suggested_frozen_at", null)
-		const { error } = await inv.from("stock_issue_request").update({ status: "closed", closed_by: userId, closed_at: now }).eq("id", data.requestId)
+		// A matemática da tolerância fica no domínio, onde é testada; o banco
+		// confere o que só ele pode: que nada entrou no meio.
+		const { error } = await inv.rpc("close_issue_request", {
+			p_request_id: data.requestId,
+			p_user: userId,
+			p_seen_movements: seenMovements ?? 0,
+		})
 		if (error) throw new Error(`Erro ao fechar o dia: ${error.message}`)
 		return { closed: true }
 	})
@@ -482,4 +499,53 @@ export const listIssueRequestsFn = createServerFn({ method: "GET" })
 			.limit(data.limit)
 		if (error) throw new Error(`Erro ao listar requisições: ${error.message}`)
 		return { requests: rows ?? [], total: count ?? (rows ?? []).length }
+	})
+
+/**
+ * Lotes que ESTA requisição emitiu deste insumo, com o que ainda cabe devolver.
+ *
+ * A tela pedia o id do lote digitado à mão, e nunca mostrou um: o operador
+ * colava um UUID de outro lugar e a devolução caía em OUTRO insumo enquanto o
+ * aviso na tela nomeava a linha atual. O banco impede devolver mais do que
+ * saiu — mas não impede devolver no insumo errado, e o erro só apareceria na
+ * contagem, semanas depois.
+ */
+export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ requestId: z.uuid(), ingredientId: z.uuid() }))
+	.handler(async ({ data }) => {
+		const inv = inventory()
+		const { data: request } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		if (!request) throw new Error("Requisição não encontrada")
+		await requireStorageForKitchen(1, Number(request.kitchen_id))
+
+		const { data: moves, error } = await inv
+			.from("stock_movement")
+			.select("lot_id, type, quantity")
+			.eq("issue_request_id", data.requestId)
+			.eq("ingredient_id", data.ingredientId)
+			.in("type", ["production_issue", "issue_return"])
+		if (error) throw new Error(`Erro ao carregar os lotes emitidos: ${error.message}`)
+
+		const net = new Map<string, number>()
+		for (const move of (moves ?? []) as Array<{ lot_id: string | null; type: string; quantity: number }>) {
+			// o movimento SEM lote é o saldo que faltou na emissão; não há lote
+			// para devolver, e oferecê-lo criaria estoque do nada
+			if (!move.lot_id) continue
+			const signed = move.type === "production_issue" ? Number(move.quantity) : -Number(move.quantity)
+			net.set(move.lot_id, (net.get(move.lot_id) ?? 0) + signed)
+		}
+
+		const lotIds = [...net.entries()].filter(([, quantity]) => quantity > 0).map(([lotId]) => lotId)
+		if (lotIds.length === 0) return { lots: [] }
+		const { data: lots } = await inv.from("stock_lot").select("id, short_code, lot_code, expiry_date").in("id", lotIds)
+		return {
+			lots: ((lots ?? []) as Array<{ id: string; short_code: string | null; lot_code: string | null; expiry_date: string | null }>)
+				.map((lot) => ({
+					lotId: lot.id,
+					label: lot.short_code ?? lot.lot_code ?? lot.id.slice(0, 8),
+					expiryDate: lot.expiry_date,
+					returnable: net.get(lot.id) ?? 0,
+				}))
+				.sort((a, b) => b.returnable - a.returnable),
+		}
 	})
