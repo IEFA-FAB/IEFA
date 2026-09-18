@@ -204,11 +204,26 @@ describe("parseNfeXml — autenticidade", () => {
 	})
 
 	test("protocolo de outra nota é detectado pelo digest", () => {
-		// é o caso do `cStat` editado à mão: o protocolo vem de uma nota real,
-		// mas o digest não fecha com a assinatura DESTA nota
+		// o protocolo vem de uma nota real, mas o digest não fecha com a
+		// assinatura DESTA nota
 		const parsed = parseNfeXml(nfeXml(DET_COM_GTIN, { protocolDigest: "DIGEST-DE-OUTRA-NOTA" }))
 		expect(parsed.authenticity.signatureDigestMatches).toBe(false)
-		expect(parsed.authenticity.problems.join(" ")).toContain("adulterado")
+		expect(parsed.authenticity.problems.join(" ")).toContain("não é desta nota")
+	})
+
+	test("LIMITAÇÃO CONHECIDA: `cStat` editado à mão PASSA — isto não é autenticidade", () => {
+		// Este teste fixa uma fraqueza de propósito, para que ela não possa ser
+		// esquecida nem "consertada" por comentário. Uma nota DENEGADA (110)
+		// editada para 100 mantém os dois digests iguais — `infProt` fica fora do
+		// que a assinatura da nota cobre — e passa em todas as checagens.
+		//
+		// Quando a validação XMLDSig com C14N existir (tarefa 3.3), este teste
+		// TEM de ser invertido, deliberadamente. Até lá, a única defesa é a
+		// consulta de situação na SEFAZ que o recebimento exige antes de efetivar.
+		const denegadaEditada = parseNfeXml(nfeXml(DET_COM_GTIN, { status: "100" }))
+		expect(denegadaEditada.authenticity.authorized).toBe(true)
+		expect(denegadaEditada.authenticity.signatureDigestMatches).toBe(true)
+		expect(denegadaEditada.authenticity.problems).toEqual([])
 	})
 
 	test("chave do protocolo diferente da chave da nota", () => {

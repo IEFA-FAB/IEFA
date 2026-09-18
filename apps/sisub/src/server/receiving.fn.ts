@@ -34,6 +34,7 @@ import {
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -409,26 +410,33 @@ async function requireDesignation(receiptId: string, userId: string, stage: "pro
  * documento hábil (Lei 4.320, art. 63). Por isso a consulta de situação, feita
  * no portal da SEFAZ e registrada no sistema, precisa ser recente.
  */
-const SITUATION_MAX_AGE_DAYS = 3
-
 async function assertInvoiceUsable(receiptId: string) {
 	const inv = inventory()
-	const { data: receipt } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
-	if (!receipt?.nfe_document_id) return // recebimento sem nota (guia, avulso)
+	const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
+	// Esta é a ÚNICA trava de autenticidade da cadeia. Se a leitura falha e o
+	// erro some, `receipt` vem vazio e a falha passaria por "recebimento sem
+	// nota" — e a nota nunca confirmada seria efetivada.
+	if (receiptError) throw new Error(`Erro ao conferir a nota do recebimento: ${receiptError.message}`)
+	if (!receipt) throw new Error("Recebimento não encontrado")
+	if (!receipt.nfe_document_id) return // recebimento sem nota (guia, avulso)
 
-	const { data: doc } = await inv.from("nfe_document").select("status, situation_result, situation_checked_at").eq("id", receipt.nfe_document_id).maybeSingle()
-	if (!doc) return
+	const { data: doc, error: docError } = await inv
+		.from("nfe_document")
+		.select("status, situation_result, situation_checked_at")
+		.eq("id", receipt.nfe_document_id)
+		.maybeSingle()
+	if (docError) throw new Error(`Erro ao conferir a situação da NF-e: ${docError.message}`)
+	// recebimento que aponta para nota que não se encontra NÃO é recebimento sem
+	// nota: antes, este caso passava calado pela trava
+	if (!doc) throw new Error("A NF-e deste recebimento não foi encontrada")
 
-	if (doc.status === "cancelled" || doc.situation_result === "cancelled") {
-		throw new Error("NF-e cancelada pelo emitente — este recebimento não pode ser efetivado")
-	}
-	const checkedAt = doc.situation_checked_at ? new Date(doc.situation_checked_at).getTime() : null
-	const stale = checkedAt == null || Date.now() - checkedAt > SITUATION_MAX_AGE_DAYS * 86_400_000
-	if (stale) {
-		throw new Error(
-			`Consulte a situação da NF-e na SEFAZ e registre o resultado antes de efetivar (a consulta vale ${SITUATION_MAX_AGE_DAYS} dias) — nota cancelada não pode virar liquidação`
-		)
-	}
+	// A MESMA regra da liquidação, de um lugar só (`invoice-gate.ts`).
+	const problem = invoiceSituationProblem({
+		status: doc.status,
+		situationResult: doc.situation_result,
+		situationCheckedAt: doc.situation_checked_at,
+	})
+	if (problem) throw new Error(problem)
 }
 
 /** Estágio 1: recebimento provisório (não movimenta estoque). */
