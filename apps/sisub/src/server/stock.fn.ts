@@ -11,6 +11,7 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
+import { hasPermission, type UserContext } from "@iefa/pbac"
 import { brasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -79,11 +80,24 @@ async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<StockBalanceItem[]> => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
 
 		const { data: rows, error } = await inv.from("v_stock_balance").select("*").eq("kitchen_id", data.kitchenId)
 		if (error) throw new Error(`Erro ao consultar saldo: ${error.message}`)
+
+		// Contagem cega alcança TODA leitura de saldo, e não só a folha.
+		//
+		// Esconder o número na folha e deixá-lo no painel de estoque não é
+		// contagem cega: é um clique a mais. O operador abre a outra tela, lê o
+		// esperado e volta para "confirmar" — que é exatamente o que a cegueira
+		// existe para impedir, porque contagem que confirma o sistema não acha
+		// erro nenhum.
+		//
+		// Quem revisa e aprova (nível 3) continua vendo: é ele que compara. E a
+		// ocultação acaba quando a coleta encerra, senão a revisão não teria como
+		// ser conferida.
+		const hidden = await hiddenByBlindCount(data.kitchenId, ctx)
 
 		// A view é a soma do ledger e não conhece o lote além do código: quarentena,
 		// etiqueta, local e "usar primeiro" vêm da tabela. Sem isso a tela mostra
@@ -147,8 +161,37 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 			item.measureUnit = meta?.measureUnit ?? null
 			item.lots.sort((a, b) => ((a.expiry_date ?? "9999") < (b.expiry_date ?? "9999") ? -1 : 1))
 		}
-		return [...byItem.values()].sort((a, b) => a.description.localeCompare(b.description, "pt-BR"))
+		const visible = [...byItem.values()].filter((item) => !hidden.has(item.ingredientId ?? item.frozenPreparationId ?? ""))
+		return visible.sort((a, b) => a.description.localeCompare(b.description, "pt-BR"))
 	})
+
+/**
+ * Itens que uma contagem cega em andamento esconde deste usuário.
+ *
+ * Vazio quando não há contagem cega em coleta, ou quando o usuário é nível 3
+ * na cozinha. Uma consulta a mais no caminho do painel, e ela só sai do
+ * caminho quando a cozinha está contando — que é quando o número importa.
+ */
+async function hiddenByBlindCount(kitchenId: number, ctx: UserContext): Promise<Set<string>> {
+	if (hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })) return new Set()
+
+	const inv = inventory()
+	const { data: counts } = await inv
+		.from("inventory_count")
+		.select("id")
+		.eq("kitchen_id", kitchenId)
+		.eq("blind", true)
+		.in("status", ["draft", "counting", "recount"])
+	const countIds = ((counts ?? []) as Array<{ id: string }>).map((row) => row.id)
+	if (countIds.length === 0) return new Set()
+
+	const { data: scope } = await inv.from("count_scope_item").select("ingredient_id, frozen_preparation_id").in("count_id", countIds)
+	return new Set(
+		((scope ?? []) as Array<{ ingredient_id: string | null; frozen_preparation_id: string | null }>).map(
+			(row) => row.ingredient_id ?? row.frozen_preparation_id ?? ""
+		)
+	)
+}
 
 /** Movimentos recentes de uma cozinha (com descrição do item). */
 export const fetchStockMovementsFn = createServerFn({ method: "GET" })
@@ -199,66 +242,13 @@ export const createTransferFn = createServerFn({ method: "POST" })
 
 // ─── Contagem física ─────────────────────────────────────────────────────────
 
-export const createInventoryCountFn = createServerFn({ method: "POST" })
-	.validator(z.object({ kitchenId: z.number().int().positive(), notes: z.string().optional() }))
-	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
-		const { data: count, error } = await inventory()
-			.from("inventory_count")
-			.insert({ kitchen_id: data.kitchenId, notes: data.notes?.trim() || null, created_by: userId })
-			.select("id")
-			.single()
-		if (error || !count) throw new Error(`Erro ao criar contagem: ${error?.message}`)
-		return { countId: count.id as string }
-	})
-
-export const upsertCountItemFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.uuid(), lotId: z.uuid(), countedQty: z.number().nonnegative() }))
-	.handler(async ({ data }) => {
-		const inv = inventory()
-		const { data: count } = await inv.from("inventory_count").select("kitchen_id, status").eq("id", data.countId).maybeSingle()
-		if (!count) throw new Error("Contagem não encontrada")
-		await requireStorageForKitchen(3, Number(count.kitchen_id))
-		if (count.status !== "draft") throw new Error("Contagem já confirmada")
-		// lote precisa pertencer à cozinha da contagem (o confirm também valida no SQL)
-		const { data: lot } = await inv.from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
-		if (!lot || Number(lot.kitchen_id) !== Number(count.kitchen_id)) throw new Error("Lote não pertence à cozinha desta contagem")
-		const { error } = await inv
-			.from("inventory_count_item")
-			.upsert({ count_id: data.countId, lot_id: data.lotId, counted_qty: data.countedQty }, { onConflict: "count_id,lot_id" })
-		if (error) throw new Error(`Erro ao registrar contagem do lote: ${error.message}`)
-	})
-
-/** Confirmação atômica: divergências viram ajustes vinculados à contagem. */
-export const confirmInventoryCountFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.uuid() }))
-	.handler(async ({ data }) => {
-		const { data: count } = await inventory().from("inventory_count").select("kitchen_id").eq("id", data.countId).maybeSingle()
-		if (!count) throw new Error("Contagem não encontrada")
-		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
-		const { data: result, error } = await inventory().rpc("confirm_inventory_count", { p_count_id: data.countId, p_user: userId })
-		if (error) throw new Error(`Confirmação falhou: ${error.message}`)
-		return { adjustments: Number(result?.[0]?.adjustments ?? 0) }
-	})
-
-export const fetchInventoryCountsFn = createServerFn({ method: "GET" })
-	.validator(z.object({ kitchenId: z.number().int().positive() }))
-	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
-		const inv = inventory()
-		const { data: counts, error } = await inv
-			.from("inventory_count")
-			.select("id, status, notes, created_at, confirmed_at")
-			.eq("kitchen_id", data.kitchenId)
-			.order("created_at", { ascending: false })
-			.limit(20)
-		if (error) throw new Error(`Erro ao listar contagens: ${error.message}`)
-
-		const draft = (counts ?? []).find((c: { status: string }) => c.status === "draft")
-		let draftItems: { lot_id: string; counted_qty: number }[] = []
-		if (draft) {
-			const { data: items } = await inv.from("inventory_count_item").select("lot_id, counted_qty").eq("count_id", draft.id)
-			draftItems = items ?? []
-		}
-		return { counts: counts ?? [], draftItems }
-	})
+// ── A contagem física mudou de casa ────────────────────────────────────────
+// `createInventoryCountFn`, `upsertCountItemFn`, `confirmInventoryCountFn` e
+// `fetchInventoryCountsFn` viviam aqui e sumiram: a contagem deixou de ser uma
+// folha plana de lote × quantidade e virou documento com escopo, cegueira,
+// rodadas e aprovação por quem não contou. O caminho novo é `count.fn.ts`.
+//
+// A tabela `inventory_count_item` e a função `confirm_inventory_count`
+// continuam no banco, sem nenhum chamador, e saem na migration de limpeza —
+// derrubá-las junto quebraria toda branch aberta que as referencia no mesmo
+// instante em que a migration alcançasse o banco compartilhado.
