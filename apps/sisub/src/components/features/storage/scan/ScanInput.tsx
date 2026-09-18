@@ -131,6 +131,39 @@ export function ScanInput({
 	)
 }
 
+/**
+ * Perfil calibrado → props do `ScanInput`.
+ *
+ * Existe para que nenhuma tela esqueça de repassar a calibração. Sem ela, o
+ * leitor configurado para terminar com Tab não submetia nada e os parâmetros
+ * medidos na tela "Testar leitor" ficavam gravados e nunca lidos — que era
+ * exatamente o defeito que a calibração deveria ter resolvido.
+ */
+export function scannerPropsFrom(profile: {
+	prefix: string | null
+	suffix: string | null
+	gsSubstitute: string | null
+	terminator: "enter" | "tab" | "none"
+	maxKeyIntervalMs: number
+	minLength: number
+	idleTimeoutMs: number
+}): Pick<ScanInputProps, "config" | "terminator" | "timing"> {
+	return {
+		config: {
+			prefix: profile.prefix ?? undefined,
+			suffix: profile.suffix ?? undefined,
+			gsSubstitute: profile.gsSubstitute ?? undefined,
+		},
+		terminator: profile.terminator,
+		timing: {
+			maxKeyIntervalMs: profile.maxKeyIntervalMs,
+			minLength: profile.minLength,
+			terminator: profile.terminator,
+			idleTimeoutMs: profile.idleTimeoutMs,
+		},
+	}
+}
+
 /** Texto curto do que foi lido — o operador precisa saber o que o sistema entendeu. */
 export function describeReading(reading: BarcodeReading): string {
 	switch (reading.kind) {

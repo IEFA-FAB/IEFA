@@ -613,28 +613,33 @@
  * térmica de 58 mm isso vira um rolo de papel com o painel de estoque inteiro,
  * e a etiqueta sai em algum lugar no meio.
  *
- * Marcando o contêiner da etiqueta com `data-print-region`, a impressão passa a
- * conter só ela: tudo o mais é escondido e a região é promovida ao topo da
- * página. Sem a marcação, a impressão segue o comportamento normal (é o que o
- * termo de recebimento usa, que imprime a página inteira de propósito).
+ * A primeira tentativa escondia `body > *` e tentava reexibir a região da
+ * etiqueta — que fica aninhada FUNDO dentro da raiz do app. `display: none` no
+ * ancestral não se desfaz no descendente: o resultado era página em BRANCO,
+ * que é pior do que imprimir demais.
+ *
+ * A regra certa usa `visibility`, que é herdada e PODE ser revertida no
+ * descendente: tudo some, a região da etiqueta volta a aparecer e é promovida
+ * ao topo da página. Sem `[data-print-region]` na página, nada disso vale — é
+ * o caso do termo de recebimento, que imprime a página inteira de propósito.
  */
 @media print {
-  body:has([data-print-region]) > * {
-    display: none !important;
+  body:has([data-print-region]) * {
+    visibility: hidden;
   }
 
-  body:has([data-print-region]) [data-print-region] {
-    display: block !important;
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    padding: 0;
-  }
-
-  /* a etiqueta e seus ancestrais precisam voltar a aparecer */
   body:has([data-print-region]) [data-print-region],
   body:has([data-print-region]) [data-print-region] * {
     visibility: visible;
+  }
+
+  body:has([data-print-region]) [data-print-region] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
   }
 
   /* nenhuma etiqueta parte no meio entre duas páginas */

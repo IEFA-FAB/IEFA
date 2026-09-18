@@ -15,7 +15,7 @@
  * @migration 20260917160000_inventory_operable_core
  */
 
-import { INFLOW_REASONS, OUTFLOW_REASONS, STOCK_ADJUSTMENT_REASONS } from "@iefa/sisub-domain"
+import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -112,23 +112,35 @@ function evidencePending(items: readonly AdjustmentItemInput[]): boolean {
 	})
 }
 
-/** Existe outro nível 3 de `storage` nesta cozinha, além do ator? */
+/**
+ * Existe outro nível 3 de `storage` nesta cozinha, além do ator?
+ *
+ * Lê allow E deny. `level <= 0` é NEGAÇÃO, e o PBAC do repo dá precedência a
+ * ela: filtrar só `level >= 3` "encontrava" um aprovador que na verdade está
+ * negado, e o único aprovador de verdade ficava travado pela segregação sem
+ * conseguir lançar nada.
+ */
 async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boolean> {
+	type PermissionRow = {
+		user_id: string
+		level: number
+		kitchen_id: number | null
+		unit_id: number | null
+		mess_hall_id: number | null
+		expires_at: string | null
+	}
 	const { data } = await accessControl()
 		.from("user_permissions")
 		.select("user_id, level, kitchen_id, unit_id, mess_hall_id, expires_at")
 		.eq("module", "storage")
-		.gte("level", 3)
+
 	const now = Date.now()
-	return (data ?? []).some(
-		(row: { user_id: string; kitchen_id: number | null; unit_id: number | null; mess_hall_id: number | null; expires_at: string | null }) => {
-			if (row.user_id === actorId) return false
-			if (row.expires_at != null && new Date(row.expires_at).getTime() <= now) return false
-			// permissão global ou escopada NESTA cozinha
-			const globalGrant = row.kitchen_id == null && row.unit_id == null && row.mess_hall_id == null
-			return globalGrant || Number(row.kitchen_id) === kitchenId
-		}
-	)
+	const rows = ((data ?? []) as PermissionRow[]).filter((row) => row.expires_at == null || new Date(row.expires_at).getTime() > now)
+	// permissão global ou escopada NESTA cozinha
+	const inScope = (row: PermissionRow) => (row.kitchen_id == null && row.unit_id == null && row.mess_hall_id == null) || Number(row.kitchen_id) === kitchenId
+
+	const denied = new Set(rows.filter((row) => row.level <= 0 && inScope(row)).map((row) => row.user_id))
+	return rows.some((row) => row.user_id !== actorId && row.level >= 3 && inScope(row) && !denied.has(row.user_id))
 }
 
 export const fetchStockSettingsFn = createServerFn({ method: "GET" })
@@ -263,7 +275,17 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			p_actor: userId,
 			p_approval_exception_reason: null,
 		})
-		if (postError) throw new Error(`Erro ao lançar o ajuste: ${postError.message}`)
+		if (postError) {
+			// O documento não pode ficar encalhado em `draft`: a tela não oferece
+			// ação nenhuma para ele, e o ajuste vira invisível. Falhou o lançamento
+			// (saldo insuficiente, lote de outra cozinha), vai para aprovação com o
+			// motivo — de onde dá para rejeitar ou corrigir.
+			await inv
+				.from("stock_adjustment")
+				.update({ status: "pending_approval", notes: `Lançamento automático falhou: ${postError.message}` })
+				.eq("id", doc.id)
+			throw new Error(`Erro ao lançar o ajuste: ${postError.message}`)
+		}
 		return { adjustmentId: doc.id as string, status: "posted" as const, movements: Number(posted?.[0]?.movements ?? 0) }
 	})
 
@@ -322,6 +344,11 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 			evidenceKind: z.enum(["photo", "term", "report", "process", "nfe_key", "temperature", "other"]),
 			evidenceReference: z.string().min(1).max(200),
 			investigationReference: z.string().max(200).optional(),
+			// `cold_chain_failure` fecha com a TEMPERATURA e `entry_error_*` com o
+			// movimento corrigido — não com uma referência em texto. Sem estes dois
+			// campos, esses ajustes ficavam pendentes de evidência para sempre.
+			measuredTemperatureC: z.number().optional(),
+			correctedMovementId: z.uuid().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -341,6 +368,8 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 				evidence_kind: data.evidenceKind,
 				evidence_reference: data.evidenceReference.trim(),
 				investigation_reference: data.investigationReference?.trim() || null,
+				...(data.measuredTemperatureC != null ? { measured_temperature_c: data.measuredTemperatureC } : {}),
+				...(data.correctedMovementId ? { corrected_movement_id: data.correctedMovementId } : {}),
 			})
 			.eq("id", data.adjustmentItemId)
 		if (error) throw new Error(`Erro ao registrar a evidência: ${error.message}`)
@@ -533,14 +562,24 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 
 		const UNDER_INVESTIGATION = new Set(["lost", "theft", "cold_chain_failure"])
 		const lines = [...byReason.entries()]
-			.map(([reasonCode, totals]) => ({ reasonCode, ...totals, underInvestigation: UNDER_INVESTIGATION.has(reasonCode) }))
+			.map(([reasonCode, totals]) => ({
+				reasonCode,
+				...totals,
+				// a natureza vem do domínio, e não de um fallback: o descarte de sobra
+				// de produção é CONSUMO, e ser rotulado "Perda" por omissão inflava o
+				// desperdício da cozinha com o que ela serviu
+				nature: (REASON_NATURE[reasonCode as StockAdjustmentReason] ?? "consumption") as string,
+				underInvestigation: UNDER_INVESTIGATION.has(reasonCode),
+			}))
 			.sort((a, b) => b.value - a.value)
 
+		// O total é de PERDA. Motivo de ENTRADA (sobra de inventário, achado,
+		// correção para mais) e implantação de saldo aumentam estoque; somá-los
+		// aqui inflava um "total de perdas" com o que entrou.
+		const LOSS_NATURES = new Set(["loss", "under_investigation"])
 		return {
 			lines,
-			// `opening_balance` é implantação de saldo, não perda nem ganho: contá-lo
-			// aqui inventaria uma variação aumentativa que nunca existiu
-			totalValue: lines.filter((line) => line.reasonCode !== "opening_balance").reduce((acc, line) => acc + line.value, 0),
+			totalValue: lines.filter((line) => LOSS_NATURES.has(line.nature)).reduce((acc, line) => acc + line.value, 0),
 			underInvestigationValue: lines.filter((line) => line.underInvestigation).reduce((acc, line) => acc + line.value, 0),
 		}
 	})

@@ -3,7 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, Check, ShieldAlert, SlidersHorizontal, Trash2, X } from "lucide-react"
 import { useState } from "react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
-import { ScanInput } from "@/components/features/storage/scan/ScanInput"
+import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -268,11 +268,7 @@ function AdjustmentsPage() {
 					<ScanInput
 						label="Etiqueta do lote"
 						placeholder="Leia a etiqueta do lote…"
-						config={{
-							prefix: scannerProfile.prefix ?? undefined,
-							suffix: scannerProfile.suffix ?? undefined,
-							gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
-						}}
+						{...scannerPropsFrom(scannerProfile)}
 						onReading={(reading) => {
 							if (reading.kind === "lot_label") selectByReading(reading.lotShortCode)
 							else toast.error("Leia a etiqueta interna do lote (o GTIN identifica o produto, não o lote)")
