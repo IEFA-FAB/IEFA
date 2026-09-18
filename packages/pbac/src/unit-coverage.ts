@@ -149,8 +149,12 @@ export async function fetchUnitSupportGraph(coreClient: AnySupabaseClient): Prom
 
 /** Por que a concessão foi recusada. */
 export type GrantRefusal =
-	/** Ninguém altera o próprio acesso. */
+	/** Ninguém altera o próprio acesso (`assertNotSelf`, dos apps sem administração escopada). */
 	| "SELF"
+	/** Administrador de OM alterando o próprio acesso — só o global pode. */
+	| "SELF_REQUIRES_GLOBAL_ADMIN"
+	/** Revogar a própria administração — nem o global: trancaria o ator para fora da tela. */
+	| "SELF_LOCKOUT"
 	/** Grant global (`unit_id` nulo) só por administrador global. */
 	| "GLOBAL_REQUIRES_GLOBAL_ADMIN"
 	/** A OM do grant está fora do que o administrador cobre. */
@@ -158,6 +162,8 @@ export type GrantRefusal =
 
 const REFUSAL_MESSAGE: Record<GrantRefusal, string> = {
 	SELF: "Você não pode alterar o próprio acesso. Peça a outro administrador.",
+	SELF_REQUIRES_GLOBAL_ADMIN: "Só um administrador global altera o próprio acesso. Peça a outro administrador.",
+	SELF_LOCKOUT: "Você não pode revogar a própria administração de acessos. Peça a outro administrador.",
 	GLOBAL_REQUIRES_GLOBAL_ADMIN: "Só um administrador global concede ou revoga acesso sem OM (global).",
 	OUTSIDE_COVERAGE: "Esta OM está fora da sua administração — você só concede acesso na sua OM e nas que ela apoia.",
 }
@@ -190,19 +196,33 @@ export function assertNotSelf(actorId: string, targetUserId: string): void {
 /**
  * Política de administração ESCOPADA: o administrador pode conceder ou revogar este grant?
  *
- *   - nunca sobre si mesmo;
- *   - administrador global (`"all"`) concede qualquer coisa, inclusive grant global;
+ *   - administrador global (`"all"`) concede e revoga qualquer coisa, inclusive grant global
+ *     e inclusive sobre SI MESMO (decisão do mantenedor, 2026-09-18) — com uma exceção:
+ *     ninguém revoga a própria administração (`revokesAdministration` sobre si mesmo), que o trancaria
+ *     para fora da tela (e, se ele for o último, trancaria todo mundo, com conserto só por
+ *     SQL);
  *   - administrador de OM concede SÓ na própria OM e nas que ela apoia (a cobertura, já
- *     expandida) — nunca grant global, nunca fora dela, nunca na apoiadora da própria OM.
+ *     expandida) — nunca grant global, nunca fora dela, nunca na apoiadora da própria OM, e
+ *     NUNCA sobre si mesmo.
+ *
+ * A mudança sobre si mesmo não é invisível: quem grava o grant é quem grava a auditoria
+ * (`changeModulePermission`, numa transação), e o log registra ator e alvo iguais como
+ * qualquer outra concessão.
  *
  * Vale para qualquer papel do app, inclusive o de administrador: o administrador do GAP-SJ
  * pode fazer um administrador do IAE, e o do IAE não pode fazer um do GAP-SJ.
  *
  * `coverage` é a cobertura do módulo de ADMINISTRAÇÃO do ator, resolvida pelo app com a
- * mesma expansão de apoio que decide o resto do acesso.
+ * mesma expansão de apoio que decide o resto do acesso. `revokesAdministration` é o app
+ * que sabe: `true` quando a operação é revogar o grant do módulo de administração.
  */
-export function assertGrantable(admin: { actorId: string; coverage: UnitCoverage }, target: { userId: string; unitId: number | null }): void {
-	assertNotSelf(admin.actorId, target.userId)
+export function assertGrantable(
+	admin: { actorId: string; coverage: UnitCoverage },
+	target: { userId: string; unitId: number | null; revokesAdministration?: boolean }
+): void {
+	const isSelf = admin.actorId === target.userId
+	if (isSelf && target.revokesAdministration) throw new GrantNotAllowedError("SELF_LOCKOUT")
+	if (isSelf && admin.coverage !== "all") throw new GrantNotAllowedError("SELF_REQUIRES_GLOBAL_ADMIN")
 	if (admin.coverage === "all") return
 	if (target.unitId === null) throw new GrantNotAllowedError("GLOBAL_REQUIRES_GLOBAL_ADMIN")
 	if (!coversUnit(admin.coverage, target.unitId)) throw new GrantNotAllowedError("OUTSIDE_COVERAGE")

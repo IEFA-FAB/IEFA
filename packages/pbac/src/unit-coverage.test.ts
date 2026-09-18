@@ -162,9 +162,25 @@ describe("assertGrantable", () => {
 		expect(refusal(() => assertGrantable(apoiadaAdmin, { userId: OTHER, unitId: DCTA }))).toBe("OUTSIDE_COVERAGE")
 	})
 
-	test("sobre si mesmo: recusado — inclusive para o admin global", () => {
-		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: "all" }, { userId: ADMIN, unitId: GAP_SJ }))).toBe("SELF")
-		expect(refusal(() => assertGrantable(scopedAdmin, { userId: ADMIN, unitId: IAE }))).toBe("SELF")
+	test("admin global sobre si mesmo: permitido, em qualquer OM e no global", () => {
+		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: "all" }, { userId: ADMIN, unitId: GAP_SJ }))).toBeNull()
+		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: "all" }, { userId: ADMIN, unitId: null }))).toBeNull()
+	})
+
+	test("admin escopado sobre si mesmo: recusado, mesmo dentro da cobertura", () => {
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: ADMIN, unitId: IAE }))).toBe("SELF_REQUIRES_GLOBAL_ADMIN")
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: ADMIN, unitId: GAP_SJ }))).toBe("SELF_REQUIRES_GLOBAL_ADMIN")
+	})
+
+	test("revogar a própria administração: recusado — inclusive para o admin global", () => {
+		expect(refusal(() => assertGrantable({ actorId: ADMIN, coverage: "all" }, { userId: ADMIN, unitId: null, revokesAdministration: true }))).toBe(
+			"SELF_LOCKOUT"
+		)
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: ADMIN, unitId: GAP_SJ, revokesAdministration: true }))).toBe("SELF_LOCKOUT")
+	})
+
+	test("revogar a administração de OUTRO não é trava de si mesmo", () => {
+		expect(refusal(() => assertGrantable(scopedAdmin, { userId: OTHER, unitId: IAE, revokesAdministration: true }))).toBeNull()
 	})
 
 	test("sem cobertura nenhuma (não é admin): recusado", () => {
