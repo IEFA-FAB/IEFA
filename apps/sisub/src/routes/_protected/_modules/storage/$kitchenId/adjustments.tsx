@@ -239,17 +239,25 @@ function AdjustmentsPage() {
 									>
 										Baixar
 									</Button>
-									<Button
-										type="button"
-										size="sm"
-										variant="ghost"
-										disabled={busy}
-										onClick={() =>
-											run(() => releaseQuarantineFn({ data: { lotId: lot.id, reason: "Problema não confirmado na avaliação" } }), "Quarentena liberada")
-										}
-									>
-										Liberar
-									</Button>
+									{/*
+									 * Liberar quarentena é nível 3, como aprovar e rejeitar:
+									 * `releaseQuarantineFn` exige 3. O botão estava fora do gate
+									 * e o nível 2 o via — clicava e tomava erro de permissão num
+									 * lote que ele mesmo tinha acabado de reter.
+									 */}
+									{canApprove && (
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											disabled={busy}
+											onClick={() =>
+												run(() => releaseQuarantineFn({ data: { lotId: lot.id, reason: "Problema não confirmado na avaliação" } }), "Quarentena liberada")
+											}
+										>
+											Liberar
+										</Button>
+									)}
 								</div>
 							</div>
 						))}
@@ -397,7 +405,14 @@ function AdjustmentsPage() {
 														Em apuração
 													</Badge>
 												) : (
-													NATURE_LABELS[REASON_NATURE[line.reasonCode as StockAdjustmentReason] ?? "loss"]
+													/*
+													 * A natureza vem do SERVIDOR, que é quem calcula o total.
+													 * Recalculá-la aqui com um `?? "loss"` próprio fazia a
+													 * tabela dizer "Perda" numa linha que o total deixava de
+													 * fora — o descarte de sobra de produção é consumo — e o
+													 * leitor não tinha como saber qual dos dois estava certo.
+													 */
+													(NATURE_LABELS[line.nature as keyof typeof NATURE_LABELS] ?? line.nature)
 												)}
 											</TableCell>
 											<TableCell className="text-right tabular-nums">{NUM.format(line.quantity)}</TableCell>

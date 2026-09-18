@@ -613,31 +613,42 @@
  * térmica de 58 mm isso vira um rolo de papel com o painel de estoque inteiro,
  * e a etiqueta sai em algum lugar no meio.
  *
- * A primeira tentativa escondia `body > *` e tentava reexibir a região da
- * etiqueta — que fica aninhada FUNDO dentro da raiz do app. `display: none` no
- * ancestral não se desfaz no descendente: o resultado era página em BRANCO,
- * que é pior do que imprimir demais.
+ * Duas tentativas erradas antes desta, e as duas falham de formas diferentes:
  *
- * A regra certa usa `visibility`, que é herdada e PODE ser revertida no
- * descendente: tudo some, a região da etiqueta volta a aparecer e é promovida
- * ao topo da página. Sem `[data-print-region]` na página, nada disso vale — é
- * o caso do termo de recebimento, que imprime a página inteira de propósito.
+ *  1. esconder `body > *` e reexibir a região — que fica aninhada FUNDO dentro
+ *     da raiz do app. `display: none` no ancestral não se desfaz no
+ *     descendente: página em BRANCO;
+ *  2. `visibility: hidden` em tudo e `visible` na região. A etiqueta aparece,
+ *     mas `visibility` PRESERVA O LAYOUT: a tela escondida continua ocupando
+ *     espaço e continua paginando, então sai a etiqueta na página 1 seguida de
+ *     quantas páginas em branco a tela ocupava. Em bobina contínua de 58 mm
+ *     isso é o mesmo rolo de papel de antes.
+ *
+ * A regra certa tira do layout tudo que NÃO está no caminho da região:
+ * `display: none` em todo elemento que não é a região, não está dentro dela e
+ * não a contém. Os ancestrais — reconhecidos por `:has([data-print-region])` —
+ * sobrevivem e são neutralizados (sem margem, sem borda, sem altura fixa, sem
+ * `overflow` que recorte), de modo que colapsam em torno da etiqueta. Sem
+ * `[data-print-region]` na página nada disso vale: é o caso do termo de
+ * recebimento, que imprime a página inteira de propósito.
  */
 @media print {
-  body:has([data-print-region]) * {
-    visibility: hidden;
+  body:has([data-print-region]) *:not(:has([data-print-region])):not([data-print-region]):not([data-print-region] *) {
+    display: none !important;
   }
 
-  body:has([data-print-region]) [data-print-region],
-  body:has([data-print-region]) [data-print-region] * {
-    visibility: visible;
+  /* o caminho até a etiqueta sobrevive, mas sem contribuir com layout nenhum */
+  body:has([data-print-region]) *:has([data-print-region]) {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   body:has([data-print-region]) [data-print-region] {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
     margin: 0;
     padding: 0;
   }

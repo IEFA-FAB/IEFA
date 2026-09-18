@@ -52,10 +52,25 @@ begin
 
   if v_requires and v_doc.created_by is not distinct from p_actor then
     if v_settings.segregation = 'strict' then
-      -- em `strict` não há caminho de exceção: o ajuste espera a segunda pessoa
+      -- Em `strict` não há caminho de exceção: o ajuste espera a segunda pessoa.
+      --
+      -- A mensagem muda quando o documento veio de uma CONTAGEM, e não é
+      -- detalhe: `confirm_inventory_count` cria o ajuste derivado com
+      -- `created_by` = quem abriu a contagem e o lança aqui. Quem contou e
+      -- tenta confirmar sozinho uma divergência acima da alçada é exatamente o
+      -- que o `strict` recusa — mas a mensagem genérica falava de "o ajuste",
+      -- um documento que o operador nunca criou e não encontra em tela
+      -- nenhuma. O caminho existe e a mensagem passa a dizer qual é: outro
+      -- nível 3 confirma a contagem.
+      if v_doc.inventory_count_id is not null then
+        raise exception 'Segregação estrita nesta cozinha: a contagem tem divergência acima da alçada e quem a registrou não pode confirmá-la. Peça a confirmação a outro nível 3 de estoque';
+      end if;
       raise exception 'Segregação estrita nesta cozinha: quem lançou o ajuste não pode aprová-lo, nem com exceção registrada';
     end if;
     if p_approval_exception_reason is null then
+      if v_doc.inventory_count_id is not null then
+        raise exception 'Contagem com divergência acima da alçada precisa ser confirmada por alguém diferente de quem a registrou';
+      end if;
       raise exception 'Ajuste acima da alçada (ou de motivo que sempre exige aprovação) precisa de aprovador diferente do autor';
     end if;
   end if;

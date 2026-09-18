@@ -15,6 +15,7 @@
  * @migration 20260917160000_inventory_operable_core
  */
 
+import { hasPermission, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -115,32 +116,85 @@ function evidencePending(items: readonly AdjustmentItemInput[]): boolean {
 /**
  * Existe outro nível 3 de `storage` nesta cozinha, além do ator?
  *
- * Lê allow E deny. `level <= 0` é NEGAÇÃO, e o PBAC do repo dá precedência a
- * ela: filtrar só `level >= 3` "encontrava" um aprovador que na verdade está
- * negado, e o único aprovador de verdade ficava travado pela segregação sem
- * conseguir lançar nada.
+ * A resposta decide se a exceção "único nível 3 da cozinha" pode ser gravada.
+ * Errá-la para MAIS é gravar uma justificativa falsa num documento contábil;
+ * errá-la para MENOS trava a cozinha. Por isso a pergunta é respondida pelo
+ * mesmo motor que autoriza o resto do app, e não por uma leitura própria:
+ *
+ *  • as DUAS origens do modelo — grants inline (`user_permissions`) e
+ *    statements de política anexada. Ler só a primeira tornava invisível tanto
+ *    o aprovador concedido por política (o "Conjunto Treino") quanto o deny
+ *    vindo de política;
+ *  • `resolveEffectivePermissions` para a precedência de deny, que não é
+ *    ausência: um `level <= 0` de QUALQUER origem anula os allows que cobre;
+ *  • `hasPermission` para o escopo, que não é "kitchen_id igual ou tudo nulo":
+ *    permissão de UNIDADE alcança as cozinhas dela, e essa regra mora no PBAC.
  */
 async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boolean> {
 	type PermissionRow = {
 		user_id: string
+		module: string
 		level: number
 		kitchen_id: number | null
 		unit_id: number | null
 		mess_hall_id: number | null
-		expires_at: string | null
 	}
-	const { data } = await accessControl()
-		.from("user_permissions")
-		.select("user_id, level, kitchen_id, unit_id, mess_hall_id, expires_at")
-		.eq("module", "storage")
+	const ac = accessControl()
+	const nowIso = new Date().toISOString()
+	const notExpired = `expires_at.is.null,expires_at.gt.${nowIso}`
 
-	const now = Date.now()
-	const rows = ((data ?? []) as PermissionRow[]).filter((row) => row.expires_at == null || new Date(row.expires_at).getTime() > now)
-	// permissão global ou escopada NESTA cozinha
-	const inScope = (row: PermissionRow) => (row.kitchen_id == null && row.unit_id == null && row.mess_hall_id == null) || Number(row.kitchen_id) === kitchenId
+	const [inlineResult, attachmentResult] = await Promise.all([
+		ac.from("user_permissions").select("user_id, module, level, kitchen_id, unit_id, mess_hall_id").or(notExpired),
+		ac.from("user_policy_attachment").select("user_id, policy_id").or(notExpired),
+	])
+	if (inlineResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${inlineResult.error.message}`)
+	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${attachmentResult.error.message}`)
 
-	const denied = new Set(rows.filter((row) => row.level <= 0 && inScope(row)).map((row) => row.user_id))
-	return rows.some((row) => row.user_id !== actorId && row.level >= 3 && inScope(row) && !denied.has(row.user_id))
+	const attachments = (attachmentResult.data ?? []) as Array<{ user_id: string; policy_id: string }>
+	const policyRows: PermissionRow[] = []
+	if (attachments.length > 0) {
+		const policyIds = [...new Set(attachments.map((row) => row.policy_id))]
+		const [{ data: livePolicies, error: policyError }, { data: statements, error: statementError }] = await Promise.all([
+			ac.from("policy").select("id").in("id", policyIds).is("deleted_at", null),
+			ac.from("policy_statement").select("policy_id, module, level, kitchen_id, unit_id, mess_hall_id").in("policy_id", policyIds),
+		])
+		if (policyError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${policyError.message}`)
+		if (statementError) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${statementError.message}`)
+
+		const live = new Set(((livePolicies ?? []) as Array<{ id: string }>).map((row) => row.id))
+		const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
+		for (const row of (statements ?? []) as Array<Omit<PermissionRow, "user_id"> & { policy_id: string }>) {
+			if (!live.has(row.policy_id)) continue
+			const list = byPolicy.get(row.policy_id) ?? []
+			list.push(row)
+			byPolicy.set(row.policy_id, list)
+		}
+		for (const attachment of attachments) {
+			for (const statement of byPolicy.get(attachment.policy_id) ?? []) {
+				policyRows.push({ ...statement, user_id: attachment.user_id })
+			}
+		}
+	}
+
+	const group = (rows: PermissionRow[]) => {
+		const map = new Map<string, UserPermission[]>()
+		for (const { user_id, ...permission } of rows) {
+			const list = map.get(user_id) ?? []
+			list.push(permission as UserPermission)
+			map.set(user_id, list)
+		}
+		return map
+	}
+	const inlineByUser = group((inlineResult.data ?? []) as PermissionRow[])
+	const policyByUser = group(policyRows)
+
+	const candidates = new Set([...inlineByUser.keys(), ...policyByUser.keys()])
+	candidates.delete(actorId)
+	for (const userId of candidates) {
+		const effective = resolveEffectivePermissions(inlineByUser.get(userId) ?? [], policyByUser.get(userId) ?? [])
+		if (hasPermission(effective, "storage", 3, { type: "kitchen", id: kitchenId })) return true
+	}
+	return false
 }
 
 export const fetchStockSettingsFn = createServerFn({ method: "GET" })
@@ -280,10 +334,25 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// ação nenhuma para ele, e o ajuste vira invisível. Falhou o lançamento
 			// (saldo insuficiente, lote de outra cozinha), vai para aprovação com o
 			// motivo — de onde dá para rejeitar ou corrigir.
-			await inv
+			//
+			// A falha é ACRESCENTADA à observação, nunca escrita por cima: o que o
+			// operador digitou é o que explica o ajuste para quem vai aprová-lo, e
+			// trocá-lo por uma mensagem técnica apaga a única informação que o
+			// aprovador tem sobre o que aconteceu na prateleira.
+			const failureNote = `Lançamento automático falhou: ${postError.message}`
+			const operatorNote = data.notes?.trim()
+			const { error: recoveryError } = await inv
 				.from("stock_adjustment")
-				.update({ status: "pending_approval", notes: `Lançamento automático falhou: ${postError.message}` })
+				.update({ status: "pending_approval", notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote })
 				.eq("id", doc.id)
+			// e se a própria recuperação falhar, o usuário precisa saber que o
+			// documento ficou em `draft` — senão ele procura na fila de aprovação
+			// um ajuste que não está lá
+			if (recoveryError) {
+				throw new Error(
+					`Erro ao lançar o ajuste: ${postError.message}. O documento ficou em rascunho e não foi para a fila de aprovação (${recoveryError.message})`
+				)
+			}
 			throw new Error(`Erro ao lançar o ajuste: ${postError.message}`)
 		}
 		return { adjustmentId: doc.id as string, status: "posted" as const, movements: Number(posted?.[0]?.movements ?? 0) }
@@ -573,13 +642,21 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 			}))
 			.sort((a, b) => b.value - a.value)
 
-		// O total é de PERDA. Motivo de ENTRADA (sobra de inventário, achado,
-		// correção para mais) e implantação de saldo aumentam estoque; somá-los
-		// aqui inflava um "total de perdas" com o que entrou.
-		const LOSS_NATURES = new Set(["loss", "under_investigation"])
+		// O total é de PERDA, e leva DOIS filtros porque natureza sozinha não
+		// separa entrada de saída:
+		//  • `loss` e `under_investigation` — estragou, venceu, quebrou, sumiu;
+		//  • `inventory` SÓ na saída. `count_loss` é falta apurada em contagem e é
+		//    perda; `count_gain` e `found_stock` têm a MESMA natureza e são
+		//    entrada. Sem o filtro de direção, ou a falta de inventário ficava
+		//    fora do total (uma linha de R$ 800 sob "Total: R$ 0,00") ou a sobra
+		//    de inventário entrava somando como se fosse prejuízo;
+		//  • o resto fica de fora: consumo, devolução a fornecedor, doação,
+		//    correção de lançamento e implantação de saldo não são perda.
+		const LOSS_NATURES = new Set(["loss", "under_investigation", "inventory"])
+		const OUTFLOW = new Set<string>(OUTFLOW_REASONS)
 		return {
 			lines,
-			totalValue: lines.filter((line) => LOSS_NATURES.has(line.nature)).reduce((acc, line) => acc + line.value, 0),
+			totalValue: lines.filter((line) => LOSS_NATURES.has(line.nature) && OUTFLOW.has(line.reasonCode)).reduce((acc, line) => acc + line.value, 0),
 			underInvestigationValue: lines.filter((line) => line.underInvestigation).reduce((acc, line) => acc + line.value, 0),
 		}
 	})

@@ -144,6 +144,46 @@ describeIf("inventory stock adjustment (DB)", () => {
 						await expect(
 							sp.savepoint((inner) => inner`select * from inventory.post_stock_adjustment(${estrito.id}, ${author.id}, 'tentativa de exceção')`)
 						).rejects.toThrow(/Segregação estrita/)
+						// ── a contagem física passa pelo MESMO portão ─────────────────
+						// `confirm_inventory_count` cria o ajuste derivado com
+						// `created_by` = quem abriu a contagem e o lança por aqui. Em
+						// `strict`, quem contou não confirma sozinho uma divergência
+						// acima da alçada — e isso é o controle funcionando, não um
+						// beco: OUTRO nível 3 confirma. Se o caminho alternativo não
+						// existisse, a cozinha estrita ficaria sem inventário nenhum.
+						const [outro] = await sp`select id from auth.users where id <> ${author.id} limit 1`
+						const [contagem] = await sp`
+							insert into inventory.inventory_count (kitchen_id, created_by, status)
+							values (${kitchenRow.id}, ${author.id}, 'draft') returning id`
+						// contado MUITO abaixo do ledger: a divergência tem de passar da
+						// alçada, senão a contagem nem chega ao portão da segregação
+						await sp`
+							insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
+							values (${contagem.id}, ${lot.id}, 0)`
+						await expect(sp.savepoint((inner) => inner`select * from inventory.confirm_inventory_count(${contagem.id}, ${author.id})`)).rejects.toThrow(
+							/Segregação estrita/
+						)
+						// sem um segundo usuário a metade de baixo do teste não provaria
+						// nada, e passaria em silêncio — é o verde vazio de sempre
+						expect(outro?.id).toBeTruthy()
+						{
+							// Savepoint que TERMINA sem erro é confirmado — e confirmar a
+							// contagem lança o ajuste derivado, que zera o lote e derruba
+							// as asserções seguintes. A sentinela desfaz o efeito e deixa
+							// só a prova de que o caminho existe.
+							const rolled = await sp
+								.savepoint(async (inner) => {
+									const [confirmada] = await inner`select * from inventory.confirm_inventory_count(${contagem.id}, ${outro.id})`
+									expect(Number(confirmada.adjustments)).toBeGreaterThan(0)
+									throw new Rollback()
+								})
+								.catch((err: unknown) => {
+									if (err instanceof Rollback) return "rolled-back"
+									throw err
+								})
+							expect(rolled).toBe("rolled-back")
+						}
+
 						// o savepoint que TERMINA sem erro é confirmado: devolve a cozinha
 						// ao regime `dual` para as asserções seguintes
 						await sp`update inventory.kitchen_stock_settings set segregation = 'dual' where kitchen_id = ${kitchenRow.id}`

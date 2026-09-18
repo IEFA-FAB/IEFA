@@ -51,6 +51,17 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 	const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const onScanRef = useRef(onScan)
 	onScanRef.current = onScan
+	// `timing` também por ref, e pelo mesmo motivo que `onScan`: todo ponto de
+	// chamada monta o objeto no render (`{...scannerPropsFrom(profile)}`), então
+	// a identidade muda a cada render. Com ele nas dependências o listener era
+	// removido e recriado no meio da rajada do leitor: o buffer parcial e o
+	// timer de fechamento por ociosidade iam junto, o Enter final deixava de ser
+	// barrado e a leitura sumia sem nenhum aviso na tela.
+	//
+	// Pela ref, recalibrar o leitor passa a valer na tecla seguinte — que é o
+	// que se quer — sem derrubar a captura.
+	const timingRef = useRef(timing)
+	timingRef.current = timing
 
 	useEffect(() => {
 		if (!enabled) return
@@ -67,10 +78,11 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			// já trata a própria leitura
 			if (isEditableTarget(event.target)) return
 
+			const currentTiming = timingRef.current
 			const now = performance.now()
-			if (isStale(stateRef.current, now, timing)) stateRef.current = EMPTY_BURST
+			if (isStale(stateRef.current, now, currentTiming)) stateRef.current = EMPTY_BURST
 
-			const outcome = feedKey(stateRef.current, { key: event.key, timestamp: now, withModifier: event.ctrlKey || event.metaKey || event.altKey }, timing)
+			const outcome = feedKey(stateRef.current, { key: event.key, timestamp: now, withModifier: event.ctrlKey || event.metaKey || event.altKey }, currentTiming)
 			stateRef.current = outcome.state
 
 			if (outcome.action === "emit") {
@@ -90,14 +102,14 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			}
 
 			clearTimer()
-			if (timing.terminator === "none") {
+			if (currentTiming.terminator === "none") {
 				// leitor sem terminador: a leitura fecha quando as teclas param
 				idleTimerRef.current = setTimeout(() => {
-					const value = closeOnIdle(stateRef.current, timing)
+					const value = closeOnIdle(stateRef.current, timingRef.current)
 					stateRef.current = EMPTY_BURST
 					idleTimerRef.current = null
 					if (value) onScanRef.current(value)
-				}, timing.idleTimeoutMs)
+				}, currentTiming.idleTimeoutMs)
 			}
 		}
 
@@ -108,5 +120,5 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			clearTimer()
 			stateRef.current = EMPTY_BURST
 		}
-	}, [enabled, timing])
+	}, [enabled])
 }
