@@ -32,7 +32,7 @@ const SELECTIONS: Array<{ label: string; table: string; columns: string }> = [
 	{
 		label: "recebimentos da cozinha",
 		table: "inventory.goods_receipt",
-		columns: "id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at, definitive_at",
+		columns: "id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at, definitive_at, kitchen_id",
 	},
 	{ label: "unidade compradora da cozinha", table: "kitchen.kitchen", columns: "unit_id, purchase_unit_id" },
 	{

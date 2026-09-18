@@ -129,18 +129,24 @@ function IncomingPage() {
 											 * numa lista — que é o trabalho que o painel existe para
 											 * poupar.
 											 */}
-											{row.nfeDocumentId ? (
-												<Link
-													to="/storage/$kitchenId/nfe/$nfeId"
-													params={{ kitchenId: String(kitchenId), nfeId: row.nfeDocumentId }}
-													className="text-primary underline"
-												>
+											{row.unclaimedNote ? (
+												// A nota sem cozinha só se assume na LISTA de notas; o
+												// detalhe dela exige permissão global enquanto não tem dona
+												<Link to="/storage/$kitchenId/nfe" params={{ kitchenId: String(kitchenId) }} className="text-primary underline">
 													{row.nextAction}
 												</Link>
 											) : row.goodsReceiptId ? (
 												<Link
 													to="/storage/$kitchenId/receiving/$receiptId"
 													params={{ kitchenId: String(kitchenId), receiptId: row.goodsReceiptId }}
+													className="text-primary underline"
+												>
+													{row.nextAction}
+												</Link>
+											) : row.nfeDocumentId ? (
+												<Link
+													to="/storage/$kitchenId/nfe/$nfeId"
+													params={{ kitchenId: String(kitchenId), nfeId: row.nfeDocumentId }}
 													className="text-primary underline"
 												>
 													{row.nextAction}
