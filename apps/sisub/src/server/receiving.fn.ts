@@ -416,11 +416,25 @@ async function assertInvoiceUsable(receiptId: string) {
 	const { data: receipt } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
 	if (!receipt?.nfe_document_id) return // recebimento sem nota (guia, avulso)
 
-	const { data: doc } = await inv.from("nfe_document").select("status, situation_result, situation_checked_at").eq("id", receipt.nfe_document_id).maybeSingle()
+	const { data: doc, error: docError } = await inv
+		.from("nfe_document")
+		.select("status, situation_result, situation_checked_at")
+		.eq("id", receipt.nfe_document_id)
+		.maybeSingle()
+	if (docError) throw new Error(`Erro ao conferir a situação da NF-e: ${docError.message}`)
 	if (!doc) return
 
 	if (doc.status === "cancelled" || doc.situation_result === "cancelled") {
 		throw new Error("NF-e cancelada pelo emitente — este recebimento não pode ser efetivado")
+	}
+	// Esta consulta é, hoje, a ÚNICA checagem de autenticidade da nota em toda a
+	// cadeia: o parser só confere a coerência do próprio arquivo, e um `cStat`
+	// editado de denegada para autorizada passa por ele. Aceitar `unknown` aqui
+	// deixava a cadeia sem autenticidade nenhuma — a nota adulterada entrava,
+	// era efetivada e virava liquidação. Só a situação AUTORIZADA, conferida no
+	// portal da SEFAZ, libera.
+	if (doc.situation_result !== "authorized") {
+		throw new Error("Confirme na SEFAZ que a NF-e está AUTORIZADA e registre o resultado antes de efetivar — situação desconhecida não libera o recebimento")
 	}
 	const checkedAt = doc.situation_checked_at ? new Date(doc.situation_checked_at).getTime() : null
 	const stale = checkedAt == null || Date.now() - checkedAt > SITUATION_MAX_AGE_DAYS * 86_400_000

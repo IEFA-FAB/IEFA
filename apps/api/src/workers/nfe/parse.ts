@@ -6,12 +6,17 @@
  * NCM/CEST/CFOP, uCom/qCom/vUnCom, componentes de valor e o grupo <rastro>).
  *
  * Regras:
- *  - **Autenticidade é verificada, não presumida.** O comentário antigo dizia
- *    "XML autorizado" e nada checava: `protNFe` era usado apenas como fonte
- *    alternativa da chave. Um `<cStat>100</cStat>` digitado à mão passava, e
- *    esse XML virava base de valor de lote e de liquidação. Agora conferimos
- *    modelo, ambiente, situação, correspondência de chave e o digest do
- *    protocolo contra a assinatura.
+ *  - **Coerência do arquivo, NÃO autenticidade.** Conferimos modelo, ambiente,
+ *    `cStat`, correspondência de chave entre protocolo e nota, e se o `digVal`
+ *    do protocolo bate com o `DigestValue` da assinatura. Tudo isso é lido do
+ *    PRÓPRIO arquivo e nada é recalculado: pega erro, nota de homologação e
+ *    protocolo colado de outra nota — e NÃO pega adulteração deliberada. Um
+ *    `cStat` editado de 110 (denegada) para 100 passa, porque `infProt` fica
+ *    fora do que a assinatura da nota cobre; `vProd` ou `qCom` editados passam,
+ *    porque o digest do `infNFe` não é recalculado (isso exige C14N).
+ *    Autenticidade de verdade é a validação XMLDSig com C14N e cadeia
+ *    ICP-Brasil (tarefa 3.3, pendente) — e, até ela existir, a consulta de
+ *    situação na SEFAZ que o recebimento exige antes da efetivação.
  *  - `cStat` aceito é 100 (autorizada) **e 150** (autorizada fora de prazo, que
  *    é válida — recusá-la recusaria nota boa).
  *  - Chave e CNPJ podem ser **alfanuméricos** (NT 2025.001); o emitente pode
@@ -60,14 +65,24 @@ export interface ParsedNfeItem {
 }
 
 /**
- * Resultado da verificação de autenticidade. Cada campo é uma checagem
- * independente, gravada na nota: o operador precisa saber O QUE foi conferido.
+ * Checagens de COERÊNCIA do arquivo, gravadas na nota: o operador precisa
+ * saber O QUE foi conferido — e o que não foi.
+ *
+ * O nome do tipo é histórico; o conteúdo não é autenticidade. Nenhum campo
+ * aqui é resultado de criptografia: todos comparam textos do mesmo XML.
  *
  * `signatureDigestMatches` compara o `digVal` do protocolo com o
- * `DigestValue` da assinatura da nota. É a checagem que pega `cStat` editado à
- * mão e protocolo colado de outra nota. A validação criptográfica completa da
- * assinatura (canonicalização C14N + cadeia ICP-Brasil) NÃO é feita aqui: sem
- * C14N o resultado seria "verificado" mentiroso, e isso é pior que a ausência.
+ * `DigestValue` da assinatura da nota, os dois lidos como texto. Pega protocolo
+ * de OUTRA nota colado neste arquivo. NÃO pega:
+ *  - `cStat` editado à mão: fica em `infProt`, fora do que a assinatura da nota
+ *    cobre, e nenhum dos dois digests muda;
+ *  - valor ou quantidade editados: o digest do `infNFe` não é recalculado.
+ *
+ * Uma versão anterior deste comentário afirmava que esta checagem pegava
+ * `cStat` editado — e o critério que o próprio comentário estabelecia ("sem
+ * C14N o resultado seria 'verificado' mentiroso, e isso é pior que a
+ * ausência") valia contra ele. A validação real (XMLDSig com C14N + cadeia
+ * ICP-Brasil) é a tarefa 3.3.
  */
 export interface NfeAuthenticity {
 	hasProtocol: boolean
@@ -265,7 +280,7 @@ function checkAuthenticity(anyDoc: any, infNfe: any, nfe: any, accessKey: string
 	if (!signaturePresent) problems.push("XML sem assinatura digital")
 	const signatureDigestMatches = digest != null && signatureDigest != null && digest === signatureDigest
 	if (hasProtocol && signaturePresent && !signatureDigestMatches) {
-		problems.push("O digest do protocolo não corresponde à assinatura da nota — protocolo de outra nota ou XML adulterado")
+		problems.push("O digest do protocolo não corresponde ao da assinatura da nota — o protocolo não é desta nota")
 	}
 
 	return {
