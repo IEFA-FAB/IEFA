@@ -331,7 +331,16 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			throw new Error(`Erro nos itens do ajuste: ${itemsError.message}`)
 		}
 
-		const { data: requires } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		// O FATO fica gravado agora e nunca é recalculado: a regra é viva (soma 24 h
+		// do autor contra a alçada atual), e consultá-la na aprovação deixava o
+		// autor esperar um dia, ou subir a alçada, e aprovar sozinho.
+		const { error: factError } = await inv
+			.from("stock_adjustment")
+			.update({ approval_required: requires === true })
+			.eq("id", doc.id)
+		if (factError) throw new Error(`Erro ao registrar a alçada do ajuste: ${factError.message}`)
 		if (requires === true) {
 			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
 			if (pendingError) throw new Error(`Erro ao enviar o ajuste para aprovação: ${pendingError.message}`)
@@ -355,10 +364,17 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// aprovador tem sobre o que aconteceu na prateleira.
 			const failureNote = `Lançamento automático falhou: ${postError.message}`
 			const operatorNote = data.notes?.trim()
-			const { error: recoveryError } = await inv
+			// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
+			// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
+			// justamente para cortar resposta lenta — e aí o documento já está
+			// `posted`: devolvê-lo à fila faria o aprovador lançar os movimentos uma
+			// segunda vez.
+			const { data: moved, error: recoveryError } = await inv
 				.from("stock_adjustment")
 				.update({ status: "pending_approval", notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote })
 				.eq("id", doc.id)
+				.eq("status", "draft")
+				.select("id")
 			// e se a própria recuperação falhar, o usuário precisa saber que o
 			// documento ficou em `draft` — senão ele procura na fila de aprovação
 			// um ajuste que não está lá
@@ -366,6 +382,16 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 				throw new Error(
 					`Erro ao lançar o ajuste: ${postError.message}. O documento ficou em rascunho e não foi para a fila de aprovação (${recoveryError.message})`
 				)
+			}
+			if ((moved ?? []).length === 0) {
+				const { data: current, error: currentError } = await inv.from("stock_adjustment").select("status").eq("id", doc.id).maybeSingle()
+				if (currentError) throw new Error(`Erro ao conferir o ajuste depois da falha: ${currentError.message}`)
+				if (current?.status === "posted") {
+					// a resposta falhou, o lançamento não: é sucesso, e dizer outra coisa
+					// convidaria o operador a lançar a mesma perda de novo
+					return { adjustmentId: doc.id as string, status: "posted" as const, movements: 0, postFailure: null as string | null }
+				}
+				throw new Error(`Erro ao lançar o ajuste: ${postError.message}. O documento está em "${current?.status ?? "desconhecido"}"`)
 			}
 			// Recuperação deu certo: o documento EXISTE, na fila de aprovação. Isto é
 			// resultado, não erro. Lançar erro aqui fazia a tela manter o formulário
@@ -392,7 +418,12 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ adjustmentId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: doc } = await inv.from("stock_adjustment").select("kitchen_id, status, created_by").eq("id", data.adjustmentId).maybeSingle()
+		const { data: doc, error: docError } = await inv
+			.from("stock_adjustment")
+			.select("kitchen_id, status, created_by, approval_required")
+			.eq("id", data.adjustmentId)
+			.maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar o ajuste: ${docError.message}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
 		if (doc.status !== "pending_approval") throw new Error(`Ajuste em "${doc.status}" não está aguardando aprovação`)
@@ -400,13 +431,17 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 		// Quem aprova ≠ quem lançou. Mas se NÃO existe outro nível 3 na cozinha, a
 		// operação segue com a exceção registrada: travar a cozinha no fim de
 		// semana não é controle, é convite ao contorno — e a exceção vira relatório.
-		// A segregação só vale para documento que EXIGE aprovação. Um ajuste pequeno
-		// chega aqui quando o lançamento automático falhou e ele foi para a fila
-		// só para não encalhar: aplicar a regra de autoaprovação a ele ou barrava
-		// o autor sem motivo, ou gravava uma exceção de aprovação que nunca
-		// precisou acontecer.
-		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
-		if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+		// A segregação só vale para documento que EXIGE aprovação — e isso é FATO
+		// gravado na criação, lido aqui, nunca recalculado. Recalcular a regra
+		// viva (24 h do autor contra a alçada ATUAL) deixava o autor esperar um
+		// dia, ou subir a alçada, e aprovar sozinho o que precisava de segunda
+		// pessoa. Documento anterior ao fato cai na regra, como antes.
+		let requires = doc.approval_required as boolean | null
+		if (requires == null) {
+			const { data: live, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: data.adjustmentId })
+			if (requiresError) throw new Error(`Erro ao conferir a alçada do ajuste: ${requiresError.message}`)
+			requires = live === true
+		}
 
 		let exceptionReason: string | null = null
 		if (requires === true && doc.created_by === userId) {
@@ -434,11 +469,18 @@ export const rejectAdjustmentFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
 		if (doc.status === "posted") throw new Error("Ajuste já lançado")
 
-		const { error } = await inv
+		// Condicionado ao estado que foi conferido: entre a leitura acima e esta
+		// escrita, outro aprovador pode ter LANÇADO o documento. Sem a condição, um
+		// ajuste com movimentos no ledger virava "rejeitado" — o estoque mudou e o
+		// documento diz que não.
+		const { data: changed, error } = await inv
 			.from("stock_adjustment")
 			.update({ status: "rejected", decided_by: userId, decided_at: new Date().toISOString(), rejection_reason: data.reason.trim() })
 			.eq("id", data.adjustmentId)
+			.in("status", ["draft", "pending_approval"])
+			.select("id")
 		if (error) throw new Error(`Erro ao rejeitar o ajuste: ${error.message}`)
+		if ((changed ?? []).length === 0) throw new Error("O ajuste mudou de estado enquanto era rejeitado — recarregue e confira")
 		return { rejected: true }
 	})
 
@@ -534,6 +576,9 @@ export const quarantineLotFn = createServerFn({ method: "POST" })
 			.from("stock_lot")
 			.update({ quarantined_at: new Date().toISOString(), quarantined_by: userId, quarantine_reason: data.reason.trim() })
 			.eq("id", data.lotId)
+			// só quem ainda não está: duas pessoas pondo o mesmo lote em quarentena
+			// não podem trocar o autor e o motivo registrados pela primeira
+			.is("quarantined_at", null)
 		if (error) throw new Error(`Erro ao pôr o lote em quarentena: ${error.message}`)
 		return { quarantined: true }
 	})

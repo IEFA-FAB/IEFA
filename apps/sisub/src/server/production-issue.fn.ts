@@ -61,7 +61,16 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	//  • "usar primeiro" — o lote marcado no painel de vencimentos FURA a fila,
 	//    e é o único jeito de o operador mandar sair o lote já aberto antes do
 	//    lote de validade menor.
-	const lotIds = [...new Set((rows ?? []).map((row: { lot_id: string | null }) => row.lot_id).filter(Boolean))] as string[]
+	// Só lote COM saldo. A view traz todo lote que a cozinha já teve, inclusive os
+	// vazios; em alguns meses seriam centenas de ids num `.in(...)` via GET, a URL
+	// estoura, e a leitura — que agora lança erro — derrubaria a tela inteira.
+	const lotIds = [
+		...new Set(
+			(rows ?? [])
+				.filter((row: { lot_id: string | null; balance: number | string }) => row.lot_id != null && Number(row.balance) > 0)
+				.map((row: { lot_id: string }) => row.lot_id)
+		),
+	] as string[]
 	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
 	if (lotIds.length > 0) {
 		const { data: lots, error: lotError } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
