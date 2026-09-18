@@ -1,0 +1,59 @@
+##
+# Invariantes de autorização do Projeto α (apps/alpha) — escopo por OM.
+#
+# O α autoriza por quatro módulos PBAC de papel (`alpha-requester`, `alpha-procurement`,
+# `alpha-aci`, `alpha-admin`), cada grant escopado por OM e expandido pela hierarquia de
+# APOIO (`core.units.supporting_unit_id`): grant no GAP-SJ cobre IAE, DCTA e IEFA. A
+# cobertura é resolvida UMA vez por request (`lib/alpha-access.ts`) — e as duas regras
+# abaixo impedem as rotas de contorná-la.
+#
+# Nasceram do modelo anterior: um módulo `alpha` por nível, sem escopo, em que triagem e
+# parecer conferiam o NÍVEL do usuário e nunca de quem era o processo — o ACI de qualquer
+# OM decidia o processo de qualquer outra.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: alpha-aci-queue-without-units
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Chamada de `aci_queue` sem `p_unit_ids`. Sem o argumento a RPC devolve a fila da FAB
+      inteira — o default `null` é "sem recorte", e só o papel GLOBAL pode pedi-lo. Passe a
+      cobertura resolvida (`unitsFor(access, "procurement", "aci")`): `null` só quando ela é
+      "all" e não há filtro; a lista explícita em qualquer outro caso.
+    paths:
+      include:
+        - "apps/alpha/src/**"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern: $CLIENT.rpc("aci_queue", ...)
+      - pattern-not: '$CLIENT.rpc("aci_queue", {..., p_unit_ids: $UNITS, ...})'
+      - pattern-not: '$CLIENT.rpc("aci_queue", {..., p_unit_ids, ...})'
+
+  - id: alpha-route-raw-permission-check
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Rota do α conferindo módulo `alpha*` direto no PBAC. `hasPermission(..., "alpha-aci")`
+      responde "tem o papel em ALGUMA OM" — ignora a OM do processo e a hierarquia de apoio,
+      e foi exatamente assim que triagem e parecer deixaram o ACI de uma OM decidir o processo
+      de outra. Use os helpers de `lib/alpha-access.ts` sobre o `access` do request
+      (`requireRole`, `unitsFor`, `coversUnit`, `decideSubmissionRead`,
+      `decideSubmissionReview`) ou os de `api/authorize.ts`, que leem a OM da linha persistida.
+    paths:
+      include:
+        - "apps/alpha/src/api/**"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: $FN($PERMS, $MODULE, ...)
+          - pattern: $FN($PERMS, [..., $MODULE, ...], ...)
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(hasPermission|hasAnyPermission|requirePermission|requireAnyPermission|resolveModuleScopes|resolveModuleUnitCoverage)$
+      - metavariable-regex:
+          metavariable: $MODULE
+          regex: ^["'`]alpha
