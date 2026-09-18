@@ -51,15 +51,20 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 		.eq("kitchen_id", kitchenId)
 		.in("ingredient_id", ingredientIds)
 
-	// A view é a soma do ledger e não sabe de quarentena. A alocação no banco
-	// PULA lote em quarentena; contá-lo aqui faria a prévia dizer "tem saldo" e
-	// a baixa sair inteira como movimento sem lote — estoque negativo, e nenhum
-	// aviso na tela. A data de entrada vem junto porque lote sem validade entra
-	// na fila por ela, e não no fim.
+	// A view é a soma do ledger e não conhece o lote: nem quarentena, nem
+	// entrada, nem "usar primeiro". Os três campos decidem a alocação no banco,
+	// e a prévia sem eles mostra outro lote:
+	//  • quarentena — a alocação PULA o lote, e contá-lo aqui faria a tela dizer
+	//    "tem saldo" enquanto a baixa sai inteira como movimento sem lote:
+	//    estoque negativo, sem nenhum aviso;
+	//  • entrada — lote sem validade entra na fila por ela, e não no fim;
+	//  • "usar primeiro" — o lote marcado no painel de vencimentos FURA a fila,
+	//    e é o único jeito de o operador mandar sair o lote já aberto antes do
+	//    lote de validade menor.
 	const lotIds = [...new Set((rows ?? []).map((row: { lot_id: string | null }) => row.lot_id).filter(Boolean))] as string[]
-	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null }>()
+	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
 	if (lotIds.length > 0) {
-		const { data: lots } = await inv.from("stock_lot").select("id, quarantined_at, received_at").in("id", lotIds)
+		const { data: lots } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
 		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
 	}
 
@@ -68,7 +73,13 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 		const meta = lotMeta.get(row.lot_id)
 		if (meta?.quarantined_at != null) continue
 		const list = byIngredient.get(row.ingredient_id) ?? []
-		list.push({ lotId: row.lot_id, balance: Number(row.balance), expiryDate: row.expiry_date, receivedAt: meta?.received_at ?? null })
+		list.push({
+			lotId: row.lot_id,
+			balance: Number(row.balance),
+			expiryDate: row.expiry_date,
+			receivedAt: meta?.received_at ?? null,
+			useFirst: meta?.use_first ?? false,
+		})
 		byIngredient.set(row.ingredient_id, list)
 	}
 	return byIngredient

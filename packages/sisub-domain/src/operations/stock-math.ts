@@ -25,6 +25,8 @@ export interface LotBalance {
 	expiryDate: string | null
 	/** Entrada do lote (ISO date/timestamp) — desempata e ordena o lote sem validade. */
 	receivedAt?: string | null
+	/** Marcado "usar primeiro" no painel de vencimentos — fura a fila, como no banco. */
+	useFirst?: boolean | null
 }
 
 export interface FefoAllocation {
@@ -44,19 +46,49 @@ export function brasiliaToday(now: Date = new Date()): string {
 }
 
 /**
- * Ordena por validade asc; lote sem validade usa `receivedAt` como validade
- * presumida para ficar na fila junto com os demais (FIFO), e sem nenhum dos
- * dois vai para o fim. Empate estável pela ordem de entrada.
+ * Data civil de Brasília de um instante ISO. A entrada do lote chega como
+ * timestamp UTC; cortar os 10 primeiros caracteres dava a data UTC, que entre
+ * 21h e a meia-noite em São Paulo já é o dia seguinte — e o lote recebido hoje
+ * à noite entrava na fila como se fosse de amanhã.
  */
-export function sortFefo<T extends { expiryDate: string | null; receivedAt?: string | null }>(lots: readonly T[]): T[] {
-	const key = (lot: T) => lot.expiryDate ?? (lot.receivedAt ? lot.receivedAt.slice(0, 10) : null)
+export function brasiliaDate(instant: string): string {
+	if (instant.length === 10) return instant
+	const parsed = new Date(instant)
+	return Number.isNaN(parsed.getTime()) ? instant.slice(0, 10) : brasiliaToday(parsed)
+}
+
+/**
+ * Espelha `order by l.use_first desc, l.expiry_date asc nulls last,
+ * l.received_at asc, l.id asc` da alocação no banco. Fora de ordem, os quatro
+ * critérios, a prévia mostra um lote e a baixa consome outro.
+ *
+ *  • "usar primeiro" (painel de vencimentos) FURA a fila — é o único jeito de
+ *    o operador mandar sair o lote aberto antes do lote de validade menor;
+ *  • depois a validade asc;
+ *  • lote sem validade usa `receivedAt` como validade presumida, entrando na
+ *    fila junto com os demais (FIFO) em vez de ir para o fim;
+ *  • sem nenhum dos dois, fim da fila;
+ *  • `lotId` desempata por último. A ordem em que as linhas chegam do
+ *    PostgREST não é garantida, e sort estável sobre entrada instável ainda é
+ *    saída instável: sem este critério dois lotes de mesma validade trocavam
+ *    de lugar entre a prévia e a baixa.
+ */
+export function sortFefo<T extends { expiryDate: string | null; receivedAt?: string | null; useFirst?: boolean | null; lotId?: string }>(
+	lots: readonly T[]
+): T[] {
+	const key = (lot: T) => lot.expiryDate ?? (lot.receivedAt ? brasiliaDate(lot.receivedAt) : null)
 	return [...lots].sort((a, b) => {
+		if (Boolean(a.useFirst) !== Boolean(b.useFirst)) return a.useFirst ? -1 : 1
 		const ka = key(a)
 		const kb = key(b)
-		if (ka == null && kb == null) return 0
-		if (ka == null) return 1
-		if (kb == null) return -1
-		return ka < kb ? -1 : ka > kb ? 1 : 0
+		if (ka !== kb) {
+			if (ka == null) return 1
+			if (kb == null) return -1
+			return ka < kb ? -1 : 1
+		}
+		const ia = a.lotId ?? ""
+		const ib = b.lotId ?? ""
+		return ia < ib ? -1 : ia > ib ? 1 : 0
 	})
 }
 

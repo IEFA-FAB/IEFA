@@ -532,6 +532,7 @@ export {
 } from "./review-metrics.ts"
 export {
 	allocateFefo,
+	brasiliaDate,
 	brasiliaToday,
 	type FefoAllocation,
 	type FefoOptions,
