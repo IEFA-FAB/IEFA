@@ -1,6 +1,7 @@
 import { AIMessage } from "@langchain/core/messages"
 import { invokeText } from "../../lib/llm"
 import type { AgentState } from "../state"
+import { buildVerifiedAnswer } from "./verified-answer"
 
 const SYSTEM_PROMPT = `Você é o ATLAS, assistente especializado em legislação aeronáutica.
 Responda usando EXCLUSIVAMENTE os documentos fornecidos, usando o rascunho como base.
@@ -12,6 +13,10 @@ NUNCA afirme algo além do que está nos documentos.`
 
 export async function synthesizerNode(state: AgentState): Promise<Partial<AgentState>> {
 	const { retrieved_documents, generated_response_draft, messages } = state
+
+	// Rascunho revisado não paga uma terceira geração — o corte do SSE não cabe.
+	const withoutGeneration = buildVerifiedAnswer(state)
+	if (withoutGeneration) return withoutGeneration
 
 	const docsContext = retrieved_documents.map((d, i) => `[${i + 1}] ${d.content}`).join("\n\n")
 

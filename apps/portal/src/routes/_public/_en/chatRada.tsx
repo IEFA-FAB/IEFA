@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, NavArrowLeft, Plus, Refresh, Send, Sparks, User, WarningCircle } from "iconoir-react"
+import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, NavArrowLeft, Plus, Send, Sparks, User, WarningCircle } from "iconoir-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
@@ -23,8 +23,7 @@ import {
 	sendMessage,
 } from "@/lib/alpha/chat"
 import { clearSessionId, loadSessionId, saveSessionId } from "@/lib/alpha/chat-session"
-import { fetchAlphaHealth } from "@/lib/alpha/client"
-import type { ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
+import type { ChatMessage, RemoteMessage, SessionSummary } from "@/types/chat"
 
 /* =========================
    Constantes
@@ -34,7 +33,6 @@ const USE_STREAM = true
 
 // Query keys centralizados
 const QUERY_KEYS = {
-	health: ["health"] as const,
 	sessions: (userId: string | null) => ["sessions", userId] as const,
 	sessionMessages: (userId: string | null, sessionId: string | null) => ["sessionMessages", userId, sessionId] as const,
 }
@@ -45,18 +43,6 @@ const QUERY_KEYS = {
 
 function cn(...xs: Array<string | false | null | undefined>) {
 	return xs.filter(Boolean).join(" ")
-}
-
-function StatusDot({ status }: { status: HealthStatus }) {
-	const color = status === "ok" ? "bg-emerald-500" : status === "loading" ? "bg-amber-400" : "bg-rose-500"
-	const pulse = status === "loading" ? "animate-pulse" : ""
-	return <span className={`inline-block h-2 w-2 rounded-full ${color} ${pulse}`} aria-hidden="true" />
-}
-
-function prettyStatusText(status: HealthStatus) {
-	if (status === "ok") return "Online"
-	if (status === "loading") return "Conectando…"
-	return "Offline"
 }
 
 /* === Helpers de referências === */
@@ -264,50 +250,6 @@ function useRagClient(token: string | undefined) {
    Queries (TanStack Query)
 ========================= */
 
-/** Backoff enquanto o α está fora: Fibonacci em ms, teto de 30 s. */
-const HEALTH_BACKOFF_MS = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 30000]
-
-/** Ritmo com o α no ar. A sonda toca o banco; de 1 em 1 segundo seria carga sem pergunta. */
-const HEALTH_OK_INTERVAL_MS = 30_000
-
-function useHealthQuery() {
-	/**
-	 * Falhas seguidas, em ref e não em state.
-	 *
-	 * O contador só decide o próximo intervalo, e mantê-lo em state re-renderizaria
-	 * a conversa inteira a cada sonda. O `useEffect` que fazia isso antes dependia
-	 * de `isFetched`, que vira `true` na primeira resposta e nunca mais muda: o
-	 * contador parava em 1 e o backoff congelava em 2 s — para sempre, no ar ou
-	 * fora dele. Eram 30 requisições por minuto, por aba aberta.
-	 */
-	const consecutiveFailures = useRef(0)
-
-	return useQuery({
-		queryKey: QUERY_KEYS.health,
-		queryFn: async () => {
-			const status = await fetchAlphaHealth()
-			consecutiveFailures.current = status === "ok" ? 0 : consecutiveFailures.current + 1
-			return status
-		},
-		refetchInterval: () => {
-			const failures = consecutiveFailures.current
-			return failures === 0 ? HEALTH_OK_INTERVAL_MS : HEALTH_BACKOFF_MS[Math.min(failures - 1, HEALTH_BACKOFF_MS.length - 1)]
-		},
-		initialData: "loading" as const,
-		/**
-		 * A sonda É o teste de conectividade; não pode esperar o palpite do navegador.
-		 *
-		 * No modo padrão (`online`) o TanStack pausa a query quando o `onlineManager` acha
-		 * que a rede caiu, e só a retoma no evento `online`. Troca de rede ou suspensão com a
-		 * aba em segundo plano dispara `offline` — e, quando o `online` correspondente não
-		 * vem, toda sonda seguinte nasce `paused`: o dot fica no último `error` com o α no
-		 * ar, até o F5 reiniciar o manager. Reproduzido com a aba escondida: `navigator.onLine`
-		 * de volta a `true`, sonda parada por tempo indefinido.
-		 */
-		networkMode: "always",
-	})
-}
-
 function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: boolean, userId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessions(userId),
@@ -508,10 +450,6 @@ function ChatRada() {
 	// O α valida o JWT a cada request; o token vem da sessão corrente, nunca memoizado.
 	const client = useRagClient(session?.access_token)
 	const queryClient = useQueryClient()
-
-	const healthQuery = useHealthQuery()
-	const health: HealthStatus = healthQuery.data ?? "loading"
-	const checkHealth = () => healthQuery.refetch()
 
 	const { data: sessions = [] } = useSessionsQuery(client, isLoggedIn, userId)
 
@@ -773,10 +711,6 @@ function ChatRada() {
 						<Sparks className="h-4 w-4 text-primary" aria-hidden="true" />
 						<span className="text-sm font-semibold tracking-tight">Chat RADA</span>
 					</div>
-					<div className="flex items-center gap-1.5">
-						<StatusDot status={health} />
-						<span className="text-xs text-muted-foreground">{prettyStatusText(health)}</span>
-					</div>
 				</div>
 
 				{/* New conversation */}
@@ -879,18 +813,9 @@ function ChatRada() {
 					</div>
 
 					<div className="flex items-center gap-1.5">
-						<div className="hidden sm:flex items-center gap-1.5 border border-border px-2 py-1 text-xs text-muted-foreground">
-							<StatusDot status={health} />
-							<span>{prettyStatusText(health)}</span>
-						</div>
-
 						{isLoggedIn && sessionId && (
 							<span className="hidden lg:inline border border-border px-2 py-1 text-[11px] text-muted-foreground font-mono">{sessionId.slice(0, 8)}…</span>
 						)}
-
-						<Button variant="ghost" size="sm" onClick={checkHealth} className="h-8 w-8 p-0" title="Atualizar status" aria-label="Atualizar status">
-							<Refresh className="h-4 w-4" />
-						</Button>
 					</div>
 				</header>
 
@@ -981,14 +906,7 @@ function ChatRada() {
 									aria-label="Caixa de texto da mensagem"
 								/>
 							</div>
-							<Button
-								onClick={onSubmit}
-								disabled={sending || !input.trim() || health !== "ok"}
-								size="sm"
-								className="shrink-0 h-11 w-11 p-0"
-								title={health !== "ok" ? "Serviço indisponível" : "Enviar"}
-								aria-label="Enviar"
-							>
+							<Button onClick={onSubmit} disabled={sending || !input.trim()} size="sm" className="shrink-0 h-11 w-11 p-0" title="Enviar" aria-label="Enviar">
 								<Send className="h-4 w-4" />
 							</Button>
 						</div>
@@ -998,12 +916,6 @@ function ChatRada() {
 								<kbd className="px-1.5 py-0.5 border border-border font-mono text-[10px] bg-muted">Enter</kbd> para enviar ·{" "}
 								<kbd className="px-1.5 py-0.5 border border-border font-mono text-[10px] bg-muted">Shift + Enter</kbd> para quebra
 							</span>
-							{health !== "ok" && (
-								<span className="text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5">
-									<WarningCircle className="h-3.5 w-3.5" aria-hidden="true" />
-									Serviço indisponível
-								</span>
-							)}
 						</div>
 					</div>
 				</div>
