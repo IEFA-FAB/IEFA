@@ -71,6 +71,11 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"inventory.scanner_profile":
 		"calibração do leitor por usuário × cozinha — é preferência de dispositivo de quem opera, não dado gerado pelo treinamento; apagar tiraria a calibração do próprio instrutor, como em access_control.user_permissions",
 	"procurement.supply_order": "ordem de fornecimento é documento real de aquisição",
+	// `inventory.stock_issue_request` (migration 20260917220000, já aplicada em
+	// produção). A requisição é o documento que puxa o movimento de saída, e o
+	// ledger é append-only: apagá-la no reset deixaria movimento órfão apontando
+	// para documento inexistente. Mesma razão das demais tabelas de estoque.
+	"inventory.stock_issue_request": "requisição de saída é dado operacional de estoque, fora do escopo de treino, e seus movimentos ficam no ledger",
 	"procurement.contract_designation": "designação de fiscal/gestor é ato administrativo real, não dado de treino",
 	"gs1_integration.gtin_alias": "catálogo compartilhado (GTIN aprendido na conferência); não é dado operacional da cozinha de treino",
 }
