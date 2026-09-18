@@ -110,6 +110,21 @@ describeIf("inventory count (DB)", () => {
 						/não a aprova/
 					)
 
+					// ── produção concluída espera a requisição da PRODUÇÃO fechada ───
+					// (20260920150000) uma avulsa fechada no mesmo dia não basta: ela não
+					// diz nada sobre o que o cardápio consumiu
+					const hoje = tx`(now() at time zone 'America/Sao_Paulo')::date`
+					const [prato] = await tx`insert into kitchen.menu_items default values returning id`
+					await tx`insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
+						values (${kitchenRow.id}, ${prato.id}, ${hoje}, 'DONE')`
+					await tx`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, purpose, destination, status, closed_at, created_by)
+						values (${kitchenRow.id}, ${hoje}, 'ad_hoc', 'apoio', 'ala', 'closed', now(), ${autor.id})`
+					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${aberta.count_id}, ${outro.id}, null)`)).rejects.toThrow(
+						/sem a requisição do dia fechada/
+					)
+					await tx`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, status, closed_at, created_by)
+						values (${kitchenRow.id}, ${hoje}, 'production', 'closed', now(), ${autor.id})`
+
 					// ── aprovação por outra pessoa lança o ajuste ────────────────────
 					const [aprovada] = await tx`select * from inventory.approve_inventory_count(${aberta.count_id}, ${outro.id}, null)`
 					// só o óleo diverge: o arroz bate com o saldo do instante em que foi contado
