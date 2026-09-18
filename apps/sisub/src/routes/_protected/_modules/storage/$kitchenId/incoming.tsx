@@ -129,18 +129,24 @@ function IncomingPage() {
 											 * numa lista — que é o trabalho que o painel existe para
 											 * poupar.
 											 */}
-											{row.unclaimedNote ? (
-												// A nota sem cozinha só se assume na LISTA de notas; o
-												// detalhe dela exige permissão global enquanto não tem dona
-												<Link to="/storage/$kitchenId/nfe" params={{ kitchenId: String(kitchenId) }} className="text-primary underline">
-													{row.nextAction}
-												</Link>
-											) : row.goodsReceiptId ? (
+											{/*
+											 * O recebimento em andamento vence tudo: criar o recebimento
+											 * não reivindica a nota, então a nota sem cozinha com
+											 * recebimento aberto diz "Concluir o recebimento" — e o
+											 * atalho tem de levar a ele, não à lista de notas.
+											 */}
+											{row.goodsReceiptId ? (
 												<Link
 													to="/storage/$kitchenId/receiving/$receiptId"
 													params={{ kitchenId: String(kitchenId), receiptId: row.goodsReceiptId }}
 													className="text-primary underline"
 												>
+													{row.nextAction}
+												</Link>
+											) : row.unclaimedNote ? (
+												// A nota sem cozinha só se assume na LISTA de notas; o
+												// detalhe dela exige permissão global enquanto não tem dona
+												<Link to="/storage/$kitchenId/nfe" params={{ kitchenId: String(kitchenId) }} className="text-primary underline">
 													{row.nextAction}
 												</Link>
 											) : row.nfeDocumentId ? (

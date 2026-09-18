@@ -40,7 +40,7 @@ const SELECTIONS: Array<{ label: string; table: string; columns: string }> = [
 		table: "inventory.nfe_document",
 		columns: "id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, kitchen_id, unit_id",
 	},
-	{ label: "itens da nota", table: "inventory.nfe_item", columns: "nfe_document_id, ingredient_item_id" },
+	{ label: "itens da nota", table: "inventory.nfe_item", columns: "id, nfe_document_id, ingredient_item_id" },
 ]
 
 /** Os valores usados em `.in("status", [...])`, que precisam existir no CHECK. */
