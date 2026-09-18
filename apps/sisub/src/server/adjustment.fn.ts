@@ -32,8 +32,16 @@ const core = () => getServerClient("core") as unknown as LooseClient
 /**
  * Bloqueio da Fase 2a: ingrediente com unidade fora do catálogo canônico não
  * movimenta estoque — o erro aponta a fila de revisão.
+ *
+ * NÃO exportada de propósito: só os handlers deste arquivo a chamam, e é o
+ * `export` que a mantém viva no pacote do CLIENTE. Os corpos de `createServerFn`
+ * são removidos do bundle do browser, mas uma função exportada ao lado deles não
+ * é — e, como esta fala com o banco por `getServerClient`, o build morre em
+ * `[import-protection] Import denied in client environment`. Se um dia outro
+ * módulo do servidor precisar dela, mova para um `*.server.ts` em vez de exportar
+ * daqui.
  */
-export async function assertCanonicalUnit(ingredientId: string | null) {
+async function assertCanonicalUnit(ingredientId: string | null) {
 	if (!ingredientId) return
 	const { data: ing } = await kitchen().from("ingredient").select("description, measure_unit").eq("id", ingredientId).single()
 	if (!ing?.measure_unit)
