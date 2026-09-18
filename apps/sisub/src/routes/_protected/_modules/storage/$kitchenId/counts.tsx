@@ -458,20 +458,50 @@ function CountsPage() {
 								<TableHead>Escopo</TableHead>
 								<TableHead>Rodada</TableHead>
 								<TableHead>Estado</TableHead>
+								<TableHead>Segregação</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{list.counts.map((count: { id: string; competencia: string; type: string; scope: string; round: number; status: string; blind: boolean }) => (
-								<TableRow key={count.id}>
-									<TableCell className="text-xs">{count.competencia}</TableCell>
-									<TableCell className="text-xs">{TYPE_LABELS[count.type] ?? count.type}</TableCell>
-									<TableCell className="text-xs">{SCOPE_LABELS[count.scope] ?? count.scope}</TableCell>
-									<TableCell className="text-xs">{count.round}</TableCell>
-									<TableCell className="text-xs">
-										<Badge variant="secondary">{STATUS_LABELS[count.status] ?? count.status}</Badge>
-									</TableCell>
-								</TableRow>
-							))}
+							{list.counts.map(
+								(count: {
+									id: string
+									competencia: string
+									type: string
+									scope: string
+									round: number
+									status: string
+									blind: boolean
+									approved_at: string | null
+									approved_by_own_entry: boolean
+								}) => (
+									<TableRow key={count.id}>
+										<TableCell className="text-xs">{count.competencia}</TableCell>
+										<TableCell className="text-xs">{TYPE_LABELS[count.type] ?? count.type}</TableCell>
+										<TableCell className="text-xs">{SCOPE_LABELS[count.scope] ?? count.scope}</TableCell>
+										<TableCell className="text-xs">{count.round}</TableCell>
+										<TableCell className="text-xs">
+											<Badge variant="secondary">{STATUS_LABELS[count.status] ?? count.status}</Badge>
+										</TableCell>
+										<TableCell className="text-xs">
+											{/*
+											 * Em `dual`, quem lançou pode aprovar — e isso fica gravado.
+											 * Sem esta coluna, a contagem aprovada pelo próprio lançador
+											 * seria indistinguível da que passou por duas pessoas, e a
+											 * auditoria não teria como separar as duas.
+											 */}
+											{count.approved_by_own_entry ? (
+												<Badge variant="outline" className="text-warning">
+													aprovada pelo próprio lançador
+												</Badge>
+											) : count.approved_at ? (
+												"segregada"
+											) : (
+												"—"
+											)}
+										</TableCell>
+									</TableRow>
+								)
+							)}
 						</TableBody>
 					</Table>
 					{list.total > list.counts.length && (

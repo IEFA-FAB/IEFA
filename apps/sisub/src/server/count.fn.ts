@@ -48,7 +48,9 @@ export const listInventoryCountsFn = createServerFn({ method: "GET" })
 			error,
 		} = await inventory()
 			.from("inventory_count")
-			.select("id, status, type, scope, blind, round, competencia, created_at, expires_at, approved_at, adjustment_id", { count: "exact" })
+			.select("id, status, type, scope, blind, round, competencia, created_at, expires_at, approved_at, adjustment_id, approved_by_own_entry", {
+				count: "exact",
+			})
 			.eq("kitchen_id", data.kitchenId)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
@@ -119,7 +121,9 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		const inv = inventory()
 		const { data: count } = await inv
 			.from("inventory_count")
-			.select("id, kitchen_id, status, type, scope, blind, round, competencia, created_at, expires_at, created_by, approved_at, approval_exception_reason")
+			.select(
+				"id, kitchen_id, status, type, scope, blind, round, competencia, created_at, expires_at, created_by, approved_at, approval_exception_reason, approved_by, approved_by_own_entry"
+			)
 			.eq("id", data.countId)
 			.maybeSingle()
 		if (!count) throw new Error("Contagem não encontrada")

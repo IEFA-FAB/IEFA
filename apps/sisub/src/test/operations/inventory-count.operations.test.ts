@@ -131,10 +131,31 @@ describeIf("inventory count (DB)", () => {
 					const [saldoArroz] = await tx`select balance from inventory.v_stock_balance where lot_id = ${lotArroz.id}`
 					expect(Number(saldoArroz.balance)).toBe(40)
 
-					const [documento] = await tx`select status, adjustment_id, approved_by from inventory.inventory_count where id = ${aberta.count_id}`
+					const [documento] = await tx`
+						select status, adjustment_id, approved_by, approved_by_own_entry
+						  from inventory.inventory_count where id = ${aberta.count_id}`
 					expect(documento.status).toBe("approved")
 					expect(documento.adjustment_id).not.toBeNull()
 					expect(documento.approved_by).toBe(outro.id)
+					// `outro` lançou ('ev-b'), e em `dual` isso é permitido — mas fica
+					// GRAVADO. Sem a marca, o lançador aprovando o próprio lançamento
+					// seria indistinguível de uma aprovação com segregação de verdade, e
+					// numa auditoria daqui a um ano ninguém separaria os dois casos.
+					expect(documento.approved_by_own_entry).toBe(true)
+
+					// ── e quem não lançou aprova SEM a marca ─────────────────────────
+					const [terceiro] = await tx`
+						select id from auth.users where id <> ${autor.id} and id <> ${outro.id} limit 1`
+					expect(terceiro?.id).toBeTruthy()
+					const [limpa] = await tx`
+						select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
+							${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${autor.id})`
+					await tx`
+						insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
+						values (${limpa.count_id}, ${lotArroz.id}, 40, 'ev-d', ${outro.id}, now() - interval '30 minutes')`
+					await tx`select * from inventory.approve_inventory_count(${limpa.count_id}, ${terceiro.id}, null)`
+					const [comSegregacao] = await tx`select approved_by_own_entry from inventory.inventory_count where id = ${limpa.count_id}`
+					expect(comSegregacao.approved_by_own_entry).toBe(false)
 
 					// ── encerrada, o escopo é liberado para a próxima ────────────────
 					const [seguinte] = await tx`
