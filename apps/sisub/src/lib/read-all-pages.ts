@@ -18,15 +18,25 @@ export const IN_CHUNK_SIZE = 100
 
 type PageResult = PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
 
-/** Lê todas as páginas de uma consulta; erro em qualquer página lança. */
+/**
+ * Lê todas as páginas de uma consulta; erro em qualquer página lança.
+ *
+ * Para na página VAZIA e avança pelo que veio, não pelo tamanho pedido. Parar
+ * na página "menor que o pedido" só estaria certo com `max_rows` do PostgREST
+ * ≥ `pageSize` — e essa é configuração da API, invisível pelo banco. Com
+ * `max_rows` menor, toda página vem menor, o laço parava na primeira e o
+ * helper cortava calado, que é o defeito que ele existe para impedir. Custa uma
+ * requisição a mais no fim.
+ */
 export async function readAllPages<T>(what: string, page: (from: number, to: number) => PageResult, pageSize = PAGE_SIZE): Promise<T[]> {
 	const rows: T[] = []
-	for (let from = 0; ; from += pageSize) {
+	for (let from = 0; ; ) {
 		const { data, error } = await page(from, from + pageSize - 1)
 		if (error) throw new Error(`Erro ao carregar ${what}: ${error.message}`)
 		const batch = (data ?? []) as T[]
+		if (batch.length === 0) return rows
 		rows.push(...batch)
-		if (batch.length < pageSize) return rows
+		from += batch.length
 	}
 }
 
