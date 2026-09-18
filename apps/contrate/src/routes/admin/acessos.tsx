@@ -4,7 +4,6 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Search, Trash, UserPlus, WarningTriangle } from "iconoir-react"
 import { useState } from "react"
-import { AppLayout } from "@/components/AppLayout"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -91,33 +90,31 @@ function AcessosPage() {
 	})
 
 	return (
-		<AppLayout>
-			<div className="flex flex-col gap-10">
-				<header className="flex flex-col gap-2">
-					<h1 className="font-semibold text-3xl tracking-tighter">Acessos</h1>
-					<p className="max-w-2xl text-muted-foreground text-sm">
-						Quem usa o copiloto e em que perfil. Os perfis são aninhados: Licitações faz tudo o que o Requisitante faz, e o ACI tudo o que Licitações faz. Sem
-						perfil, a pessoa ainda envia o próprio documento.
-					</p>
-				</header>
+		<div className="flex flex-col gap-10">
+			<header className="flex flex-col gap-2">
+				<h1 className="font-semibold text-3xl tracking-tighter">Acessos</h1>
+				<p className="max-w-2xl text-muted-foreground text-sm">
+					Quem usa o copiloto e em que perfil. Os perfis são aninhados: Licitações faz tudo o que o Requisitante faz, e o ACI tudo o que Licitações faz. Sem
+					perfil, a pessoa ainda envia o próprio documento.
+				</p>
+			</header>
 
-				<section aria-labelledby="quem-tem-acesso" className="flex flex-col gap-4">
-					<h2 id="quem-tem-acesso" className="font-semibold text-xl tracking-tight">
-						Quem tem acesso
-					</h2>
-					<GrantsList
-						grants={grants.data}
-						isLoading={grants.isLoading}
-						error={grants.error}
-						currentUserId={currentUserId}
-						onRevoke={(grant) => revoke.mutate(grant)}
-						revokingKey={revoke.isPending && revoke.variables ? grantKey(revoke.variables) : null}
-					/>
-				</section>
+			<section aria-labelledby="quem-tem-acesso" className="flex flex-col gap-4">
+				<h2 id="quem-tem-acesso" className="font-semibold text-xl tracking-tight">
+					Quem tem acesso
+				</h2>
+				<GrantsList
+					grants={grants.data}
+					isLoading={grants.isLoading}
+					error={grants.error}
+					currentUserId={currentUserId}
+					onRevoke={(grant) => revoke.mutate(grant)}
+					revokingKey={revoke.isPending && revoke.variables ? grantKey(revoke.variables) : null}
+				/>
+			</section>
 
-				<GrantAccess currentUserId={currentUserId} onGranted={invalidate} />
-			</div>
-		</AppLayout>
+			<GrantAccess currentUserId={currentUserId} onGranted={invalidate} />
+		</div>
 	)
 }
 

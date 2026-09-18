@@ -3,13 +3,13 @@ import { authQueryOptions } from "@/auth/service"
 import { ModuleShell } from "@/components/layout/ModuleShell"
 
 /**
- * Console interno do Projeto α.
+ * Módulo de administração de acessos do Projeto α.
  *
- * Ferramenta de operação e calibração das fontes normativas e da verificação de
- * conformidade — não é a Plataforma ACI. É um módulo à parte no seletor, e só para
- * quem calibra (nível ACI): a navegação da ACI não aponta para cá, nem esta para lá.
+ * Aqui mora só o guard de SESSÃO, o mesmo da ACI e do console. O de PERMISSÃO
+ * (`alpha-admin`) fica em cada tela, porque é ela que sabe o que exige — e quem
+ * decide de verdade é `requireAlphaAdmin`, no servidor.
  */
-export const Route = createFileRoute("/alpha")({
+export const Route = createFileRoute("/admin")({
 	beforeLoad: async ({ context, location }) => {
 		const auth = await context.queryClient.query({ ...authQueryOptions(), staleTime: "static" })
 		if (!auth.isAuthenticated) {
@@ -17,13 +17,9 @@ export const Route = createFileRoute("/alpha")({
 		}
 		return { auth }
 	},
-	component: AlphaConsoleLayout,
-})
-
-function AlphaConsoleLayout() {
-	return (
-		<ModuleShell moduleId="alpha">
+	component: () => (
+		<ModuleShell moduleId="admin">
 			<Outlet />
 		</ModuleShell>
-	)
-}
+	),
+})

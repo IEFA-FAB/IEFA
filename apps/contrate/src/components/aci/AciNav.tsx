@@ -1,18 +1,11 @@
 import type { ReactNode } from "react"
-import { SectionNav, type SectionNavLink } from "@/components/alpha/SectionNav"
-
-const LINKS: readonly SectionNavLink[] = [
-	{ to: "/aci", label: "Painel", exact: true },
-	{ to: "/aci/nova", label: "Nova análise" },
-	{ to: "/alpha/fontes", label: "Console técnico" },
-]
+import { SectionHeader } from "@/components/alpha/SectionNav"
 
 /**
- * Cabeçalho da Plataforma ACI.
- *
- * "Console técnico" leva ao `/alpha/*` — a calibração continua lá, fora do
- * fluxo do analista.
+ * Cabeçalho das telas da Plataforma ACI. As telas da ACI estão na barra lateral do
+ * módulo; o console técnico (`/alpha/*`) é outro módulo, alcançado pelo seletor —
+ * daqui não sai link para ele.
  */
 export function AciNav({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
-	return <SectionNav eyebrow="Projeto α · Plataforma ACI" title={title} subtitle={subtitle} links={LINKS} actions={actions} />
+	return <SectionHeader eyebrow="Projeto α · Plataforma ACI" title={title} subtitle={subtitle} actions={actions} />
 }
