@@ -74,6 +74,17 @@ rules:
           - pattern: $DB.from($T).update(...)
           - pattern: $DB.from($T).upsert(...)
           - pattern: $DB.from($T).delete(...)
+      # A escrita tem de estar DENTRO de um `await`. Sem isto, a regra acusava o
+      # builder guardado em variável — `let query = inv.from(…).update(…)`,
+      # depois `query = query.eq(…)`, e só então `const { error } = await query`
+      # —, onde o erro É lido, só que noutra instrução que nenhuma análise
+      # estrutural liga a esta sem seguir a variável.
+      #
+      # Achei isso rodando a própria regra contra o código que eu tinha acabado
+      # de escrever (`acceptNotCountedFn`). Guard que reprova código correto
+      # acaba desligado, e aí não guarda nada. O preço é perder o builder cujo
+      # erro TAMBÉM é descartado; é o lado certo do qual errar.
+      - pattern-inside: await $AWAITED
       - pattern-not-inside: |
           const { ..., error, ... } = $X
       - pattern-not-inside: |
