@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertTriangle, FileText, PackageCheck, Truck } from "lucide-react"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +41,10 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 
 function IncomingPage() {
 	const { incoming, kitchenId } = Route.useLoaderData()
+	// o painel abre com nível 1, mas a tela das ordens exige 2: o atalho para
+	// ela só aparece para quem vai conseguir abri-la
+	const { can } = usePBAC()
+	const canOpenSupplyOrders = can("storage", 2, { type: "kitchen", id: kitchenId })
 
 	return (
 		<div className="space-y-4">
@@ -126,7 +130,11 @@ function IncomingPage() {
 											 * poupar.
 											 */}
 											{row.nfeDocumentId ? (
-												<Link to="/storage/$kitchenId/nfe" params={{ kitchenId: String(kitchenId) }} className="text-primary underline">
+												<Link
+													to="/storage/$kitchenId/nfe/$nfeId"
+													params={{ kitchenId: String(kitchenId), nfeId: row.nfeDocumentId }}
+													className="text-primary underline"
+												>
 													{row.nextAction}
 												</Link>
 											) : row.goodsReceiptId ? (
@@ -137,7 +145,7 @@ function IncomingPage() {
 												>
 													{row.nextAction}
 												</Link>
-											) : row.supplyOrderId ? (
+											) : row.supplyOrderId && canOpenSupplyOrders ? (
 												<Link to="/storage/$kitchenId/supply-orders" params={{ kitchenId: String(kitchenId) }} className="text-primary underline">
 													{row.nextAction}
 												</Link>

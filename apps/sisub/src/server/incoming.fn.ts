@@ -26,6 +26,7 @@
  */
 
 import { brasiliaToday } from "@iefa/sisub-domain"
+import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -74,6 +75,17 @@ function daysLateFrom(expected: string | null, today = brasiliaToday()): number 
 	return diff > 0 ? diff : 0
 }
 
+/** Unidade COMPRADORA da cozinha — quem empenha e a quem a nota é enviada. */
+async function purchaseUnitOf(kitchenId: number): Promise<number | null> {
+	const { data: row, error } = await (getServerClient("kitchen") as unknown as LooseClient)
+		.from("kitchen")
+		.select("unit_id, purchase_unit_id")
+		.eq("id", kitchenId)
+		.maybeSingle()
+	if (error) throw new Error(`Erro ao carregar a cozinha: ${error.message}`)
+	return resolvePurchaseUnitId({ unitId: row?.unit_id ?? null, purchaseUnitId: row?.purchase_unit_id ?? null })
+}
+
 export const fetchIncomingFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
@@ -103,26 +115,38 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		const empenhoIds = [...new Set(orderRows.map((order) => order.empenho_id).filter(Boolean))]
 		const empenhoById = new Map<string, { numero_empenho: string | null; favorecido_nome: string | null; favorecido_cnpj: string | null }>()
 		if (empenhoIds.length > 0) {
-			const { data: empenhos } = await finance().from("empenho").select("id, numero_empenho, favorecido_nome, favorecido_cnpj").in("id", empenhoIds)
+			const { data: empenhos, error: empenhoError } = await finance()
+				.from("empenho")
+				.select("id, numero_empenho, favorecido_nome, favorecido_cnpj")
+				.in("id", empenhoIds)
+			if (empenhoError) throw new Error(`Erro ao carregar os empenhos: ${empenhoError.message}`)
 			for (const row of empenhos ?? []) empenhoById.set(row.id, row)
 		}
 
 		// recebimentos já efetivados por OF, para saber o que ainda falta
-		const { data: receiptsByOrder } = await inv
+		// Erro aqui NÃO pode virar lista vazia: sem os recebimentos, some a seção
+		// inteira de entregas sem nota E o filtro que esconde o que já chegou —
+		// e o painel passa a mostrar como "a caminho" o que já está na prateleira.
+		const { data: receiptsByOrder, error: receiptError } = await inv
 			.from("goods_receipt")
-			.select("id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at")
+			.select("id, supply_order_id, status, definitive_at, nfe_document_id, source, delivery_note_number, created_at")
 			.eq("kitchen_id", data.kitchenId)
+		if (receiptError) throw new Error(`Erro ao carregar os recebimentos: ${receiptError.message}`)
 		type Receipt = {
 			id: string
 			supply_order_id: string | null
 			status: string
+			definitive_at: string | null
 			nfe_document_id: string | null
 			source: string | null
 			delivery_note_number: string | null
 			created_at: string
 		}
 		const receiptRows = (receiptsByOrder ?? []) as Receipt[]
-		const definitiveByOrder = new Set(receiptRows.filter((r) => r.status === "definitive" && r.supply_order_id).map((r) => r.supply_order_id as string))
+		// Efetivado é `definitive_at`, e não `status = definitive`: recebimento com
+		// item divergente fica em `divergent` e é entrega atestada do mesmo jeito.
+		// Pelo status, ele continuaria "a caminho" para sempre.
+		const definitiveByOrder = new Set(receiptRows.filter((r) => r.definitive_at != null && r.supply_order_id).map((r) => r.supply_order_id as string))
 
 		for (const order of orderRows) {
 			// OF totalmente recebida sai da lista mesmo que o status não tenha
@@ -149,10 +173,17 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		}
 
 		// ── (b) NF-e sem recebimento efetivado ───────────────────────────────────
+		// Nota da cozinha E nota enviada à UNIDADE compradora que nenhuma cozinha
+		// reivindicou ainda (`kitchen_id` nulo). Estas são justamente as "prestes a
+		// chegar via NF-e": só `kitchen_id` fazia o painel dizer que não há nada
+		// pendente quando há.
+		const purchaseUnit = await purchaseUnitOf(data.kitchenId)
+		const scope =
+			purchaseUnit == null ? `kitchen_id.eq.${data.kitchenId}` : `kitchen_id.eq.${data.kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
 		const { data: notes, error: noteError } = await inv
 			.from("nfe_document")
-			.select("id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result")
-			.eq("kitchen_id", data.kitchenId)
+			.select("id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, kitchen_id")
+			.or(scope)
 			// Os estados em que a nota ainda representa algo a chegar ou a resolver.
 			// `received` já virou recebimento; `cancelled` e `refused` não vêm. Não
 			// existe `review` nesta coluna — o CHECK do banco é a lista de valores,
@@ -169,19 +200,21 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 			total_value: number | null
 			status: string
 			situation_result: string | null
+			kitchen_id: number | null
 		}
 		const noteRows = (notes ?? []) as Note[]
-		const definitiveByNote = new Set(receiptRows.filter((r) => r.status === "definitive" && r.nfe_document_id).map((r) => r.nfe_document_id as string))
+		const definitiveByNote = new Set(receiptRows.filter((r) => r.definitive_at != null && r.nfe_document_id).map((r) => r.nfe_document_id as string))
 		// itens ainda não casados, para dizer QUANTOS faltam em vez de "resolver"
 		const pendingByNote = new Map<string, number>()
 		if (noteRows.length > 0) {
-			const { data: items } = await inv
+			const { data: items, error: itemError } = await inv
 				.from("nfe_item")
 				.select("nfe_document_id, ingredient_item_id")
 				.in(
 					"nfe_document_id",
 					noteRows.map((note) => note.id)
 				)
+			if (itemError) throw new Error(`Erro ao carregar os itens das notas: ${itemError.message}`)
 			for (const item of (items ?? []) as Array<{ nfe_document_id: string; ingredient_item_id: string | null }>) {
 				if (item.ingredient_item_id == null) pendingByNote.set(item.nfe_document_id, (pendingByNote.get(item.nfe_document_id) ?? 0) + 1)
 			}
@@ -199,16 +232,27 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 				supplierDocument: note.supplier_cnpj ?? note.supplier_cpf,
 				reference: note.access_key ? `NF-e ${note.access_key.slice(25, 34)}` : "NF-e sem chave",
 				referenceDate: note.issued_at?.slice(0, 10) ?? null,
-				daysLate: daysLateFrom(note.issued_at?.slice(0, 10) ?? null, today),
+				// NF-e não tem data ESPERADA — só a de emissão. Contar atraso a partir
+				// dela dava "1 dia de atraso" a toda nota de ontem, inflava o contador
+				// e passava nota comum à frente de OF realmente atrasada.
+				daysLate: 0,
 				value: note.total_value == null ? null : Number(note.total_value),
-				summary: cancelled ? "Cancelada na SEFAZ" : note.status === "announced" ? "Anunciada pela chave, XML não recebido" : "Nota disponível",
+				summary: cancelled
+					? "Cancelada na SEFAZ"
+					: note.kitchen_id == null
+						? "Enviada à unidade, ainda sem cozinha"
+						: note.status === "announced"
+							? "Anunciada pela chave, XML não recebido"
+							: "Nota disponível",
 				nextAction: cancelled
 					? "Não receber — confirme com o fornecedor"
-					: note.status === "announced"
-						? "Importar o XML da nota"
-						: pending > 0
-							? `Casar ${pending} ${pending === 1 ? "item" : "itens"}`
-							: "Registrar o recebimento",
+					: note.kitchen_id == null
+						? "Assumir a nota para esta cozinha"
+						: note.status === "announced"
+							? "Importar o XML da nota"
+							: pending > 0
+								? `Casar ${pending} ${pending === 1 ? "item" : "itens"}`
+								: "Registrar o recebimento",
 				supplyOrderId: null,
 				nfeDocumentId: note.id,
 				goodsReceiptId: null,
@@ -218,12 +262,25 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// ── (c) entrega sem nota ─────────────────────────────────────────────────
 		// O pão chega todo dia e é faturado na sexta. Cada entrega é real e não
 		// tem documento fiscal ainda — some do painel se a lista for só de notas.
+		//
+		// Três cortes, e cada um fecha uma forma de a lista crescer para sempre:
+		//  • só entrega de COMPRA (com ordem de fornecimento) espera nota. A mesma
+		//    origem `delivery_note` cobre a remessa de depósito e o apoio de outra
+		//    OM, que nunca terão NF-e de fornecedor — e ficavam "aguardando a nota"
+		//    eternamente;
+		//  • rascunho não entra: ainda não é entrega, e aparecia como "Entregue";
+		//  • só os últimos 45 dias: a nota semanal do pão chega em dias; entrega de
+		//    mês e meio atrás sem nota é pendência para a revisão fiscal, não algo
+		//    "a caminho".
+		const horizon = new Date(Date.now() - 45 * 86_400_000).toISOString()
 		for (const receipt of receiptRows) {
 			if (receipt.nfe_document_id != null) continue
 			if (receipt.source === "nfe") continue
+			if (receipt.supply_order_id == null) continue
 			// `goods_receipt.status` não tem `cancelled`: os valores são draft,
 			// provisional, definitive, divergent e rejected
-			if (receipt.status === "rejected") continue
+			if (receipt.status === "rejected" || receipt.status === "draft") continue
+			if (receipt.created_at < horizon) continue
 			rows.push({
 				key: `sem-nota:${receipt.id}`,
 				kind: "delivery_without_invoice",
@@ -276,15 +333,23 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(2, data.kitchenId)
 		const inv = inventory()
-		const { data: note } = await inv
+		const { data: note, error: noteError } = await inv
 			.from("nfe_document")
 			.select("id, kitchen_id, unit_id, supplier_cnpj, supplier_cpf, total_value")
 			.eq("id", data.nfeDocumentId)
 			.maybeSingle()
+		if (noteError) throw new Error(`Erro ao carregar a nota: ${noteError.message}`)
 		if (!note) throw new Error("Nota não encontrada")
-		// a nota tem de ser DESTA cozinha: sem esta linha, qualquer id de nota
-		// devolveria os empenhos da unidade de quem perguntou
-		if (Number(note.kitchen_id) !== data.kitchenId) throw new Error("Nota não pertence a esta cozinha")
+		// A nota tem de ser desta cozinha — OU da unidade compradora dela, ainda
+		// não reivindicada. Recusar a não reivindicada lançava erro justamente na
+		// nota que o painel manda "assumir". E o empenho é da unidade COMPRADORA
+		// da cozinha, não do `unit_id` da nota, que é nulo nas notas importadas
+		// antes de a coluna existir — e `.eq("unit_id", null)` nem é filtro válido.
+		const purchaseUnit = await purchaseUnitOf(data.kitchenId)
+		const ownKitchen = note.kitchen_id != null && Number(note.kitchen_id) === data.kitchenId
+		const unclaimedForUnit = note.kitchen_id == null && note.unit_id != null && Number(note.unit_id) === purchaseUnit
+		if (!ownKitchen && !unclaimedForUnit) throw new Error("Nota não pertence a esta cozinha")
+		if (purchaseUnit == null) throw new Error("A cozinha não tem unidade compradora vinculada")
 
 		// `finance.empenho` não guarda CPF de favorecido. Emitente pessoa física
 		// não casa com empenho nenhum, e DIZER isso é melhor do que devolver lista
@@ -303,7 +368,7 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 			.from("empenho")
 			.select("id, numero_empenho, favorecido_nome, unit_id")
 			.eq("favorecido_cnpj", note.supplier_cnpj)
-			.eq("unit_id", note.unit_id)
+			.eq("unit_id", purchaseUnit)
 		if (empenhoError) throw new Error(`Erro ao buscar empenhos do fornecedor: ${empenhoError.message}`)
 		type Empenho = { id: string; numero_empenho: string | null; favorecido_nome: string | null }
 		const candidates = (empenhos ?? []) as Empenho[]
@@ -313,37 +378,72 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 		// número, e as duas divergiriam na primeira anulação.
 		const balanceById = new Map<string, number>()
 		if (candidates.length > 0) {
-			const { data: balances } = await fin
+			const { data: balances, error: balanceError } = await fin
 				.from("v_empenho_saldo")
 				.select("empenho_id, saldo_a_liquidar")
 				.in(
 					"empenho_id",
 					candidates.map((row) => row.id)
 				)
+			// sem saldo lido, todo empenho some da sugestão — e a tela diria que não
+			// há empenho com saldo para este fornecedor
+			if (balanceError) throw new Error(`Erro ao carregar o saldo dos empenhos: ${balanceError.message}`)
 			for (const row of (balances ?? []) as Array<{ empenho_id: string; saldo_a_liquidar: number }>) {
 				balanceById.set(row.empenho_id, Number(row.saldo_a_liquidar))
 			}
 		}
 		const withBalance = candidates.filter((row) => (balanceById.get(row.id) ?? 0) > 0)
 
-		const { data: orders } = await procurement()
+		const { data: orders, error: orderError } = await procurement()
 			.from("supply_order")
 			.select("id, empenho_id, number, expected_delivery, status")
 			.eq("kitchen_id", data.kitchenId)
 			.in("status", ["sent", "partially_received"])
+		if (orderError) throw new Error(`Erro ao carregar as ordens de fornecimento: ${orderError.message}`)
 		const openOrders = ((orders ?? []) as Array<{ id: string; empenho_id: string }>).filter((order) =>
 			withBalance.some((empenho) => empenho.id === order.empenho_id)
 		)
 
-		// entregas sem nota do mesmo fornecedor: é a nota semanal fechando as
-		// entregas diárias, e é o caso do pão
-		const { data: receipts } = await inv
-			.from("goods_receipt")
-			.select("id, delivery_note_number, created_at, status")
-			.eq("kitchen_id", data.kitchenId)
-			.is("nfe_document_id", null)
-			.neq("source", "nfe")
-			.neq("status", "rejected")
+		// Entregas sem nota DO MESMO FORNECEDOR — é a nota semanal fechando as
+		// entregas diárias do pão. O fornecedor de uma entrega é o favorecido do
+		// empenho da OF dela; entrega de OF de outro empenho não entra. Antes
+		// voltava toda entrega sem nota da cozinha, e a tela convidava a ligar a
+		// entrega de um fornecedor à nota de outro. A OF pode já estar recebida
+		// por inteiro (a semana do pão fechou) e o empenho, sem saldo: por isso o
+		// conjunto aqui é toda OF da cozinha num empenho deste fornecedor, não só
+		// as abertas acima.
+		let supplierOrderIds: string[] = []
+		if (candidates.length > 0) {
+			const { data: supplierOrders, error: supplierOrderError } = await procurement()
+				.from("supply_order")
+				.select("id")
+				.eq("kitchen_id", data.kitchenId)
+				.in(
+					"empenho_id",
+					candidates.map((row) => row.id)
+				)
+			if (supplierOrderError) throw new Error(`Erro ao carregar as ordens do fornecedor: ${supplierOrderError.message}`)
+			supplierOrderIds = ((supplierOrders ?? []) as Array<{ id: string }>).map((order) => order.id)
+		}
+		let receipts: Array<{
+			id: string
+			delivery_note_number: string | null
+			created_at: string
+			status: string
+			supply_order_id: string
+		}> = []
+		if (supplierOrderIds.length > 0) {
+			const { data: rows, error: receiptError } = await inv
+				.from("goods_receipt")
+				.select("id, delivery_note_number, created_at, status, supply_order_id")
+				.eq("kitchen_id", data.kitchenId)
+				.in("supply_order_id", supplierOrderIds)
+				.is("nfe_document_id", null)
+				.neq("source", "nfe")
+				.not("status", "in", "(rejected,draft)")
+			if (receiptError) throw new Error(`Erro ao carregar as entregas sem nota: ${receiptError.message}`)
+			receipts = (rows ?? []) as typeof receipts
+		}
 
 		return {
 			empenhos: withBalance.map((row) => ({
@@ -353,7 +453,7 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 				balance: balanceById.get(row.id) ?? 0,
 			})),
 			supplyOrders: openOrders,
-			deliveriesWithoutInvoice: receipts ?? [],
+			deliveriesWithoutInvoice: receipts,
 			note: null as string | null,
 		}
 	})

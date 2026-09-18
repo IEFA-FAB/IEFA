@@ -32,8 +32,9 @@ const SELECTIONS: Array<{ label: string; table: string; columns: string }> = [
 	{
 		label: "recebimentos da cozinha",
 		table: "inventory.goods_receipt",
-		columns: "id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at",
+		columns: "id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at, definitive_at",
 	},
+	{ label: "unidade compradora da cozinha", table: "kitchen.kitchen", columns: "unit_id, purchase_unit_id" },
 	{
 		label: "notas em aberto",
 		table: "inventory.nfe_document",
@@ -51,7 +52,7 @@ const STATUS_FILTERS: Array<{ label: string; table: string; column: string; valu
 		column: "status",
 		values: ["announced", "imported", "available", "matched", "divergent"],
 	},
-	{ label: "recebimento recusado", table: "inventory.goods_receipt", column: "status", values: ["rejected", "provisional", "definitive"] },
+	{ label: "recebimento recusado", table: "inventory.goods_receipt", column: "status", values: ["rejected", "provisional", "definitive", "draft"] },
 	{ label: "situação da nota", table: "inventory.nfe_document", column: "situation_result", values: ["cancelled"] },
 ]
 
