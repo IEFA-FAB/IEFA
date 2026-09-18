@@ -5,24 +5,51 @@
  * trechos literais dele. Toda rota que devolve submissão, extração ou parecer
  * passa por aqui.
  *
- * **Allow-list, não deny-list.** A versão anterior negava apenas
- * o requisitante; qualquer usuário sem perfil — que é o
- * estado de quem acabou de se cadastrar — passava direto e lia a submissão de
- * qualquer um. Só perfil explicitamente amplo tem acesso além do próprio.
+ * **Allow-list, não deny-list.** Lê o autor e quem tem papel de leitura na OM da submissão
+ * (requisitante, licitações ou ACI que a cobrem pela hierarquia de apoio). Usuário sem papel
+ * — o estado de quem acabou de se cadastrar — só lê o que ele mesmo enviou.
+ *
+ * A decisão é pura (`decideSubmissionRead`/`decideSubmissionReview`, em `alpha-access.ts`);
+ * aqui mora só a leitura do dono e da OM, sempre a partir da linha persistida — nunca do que
+ * o cliente mandou.
+ *
+ * Falha de leitura NEGA (e fica no log): responder "pode" por não ter conseguido conferir
+ * seria abrir o documento de outra OM por instabilidade do banco.
  */
 
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "../db/supabase.ts"
-import { type AlphaAccess, hasBroadAccess } from "../lib/alpha-access.ts"
+import { type AlphaAccess, decideSubmissionRead, decideSubmissionReview, READER_ROLES, type SubmissionOwnership, unitsFor } from "../lib/alpha-access.ts"
+
+/** Autor e OM da submissão, ou `null` se não existe (ou não pôde ser lida). */
+async function loadSubmissionOwnership(submissionId: string): Promise<SubmissionOwnership | null> {
+	const { data, error } = await supabase.from("submission").select("user_id, unit_id").eq("id", submissionId).maybeSingle()
+	if (error) {
+		console.error(`[authorize] submissão ${submissionId} não lida: ${error.message}`)
+		return null
+	}
+	return (data as SubmissionOwnership | null) ?? null
+}
+
+/** Submissão de origem de uma execução de conformidade — o parecer não tem dono próprio. */
+async function loadRunSubmissionId(runId: string): Promise<string | null> {
+	const { data, error } = await supabase.from("compliance_run").select("submission_id").eq("id", runId).maybeSingle()
+	if (error) {
+		console.error(`[authorize] execução ${runId} não lida: ${error.message}`)
+		return null
+	}
+	return (data?.submission_id as string | undefined) ?? null
+}
 
 /** O usuário pode ler esta submissão? */
 export async function canReadSubmission(submissionId: string, user: User, access: AlphaAccess): Promise<boolean> {
-	if (hasBroadAccess(access)) return true
+	// Papel global de leitura alcança tudo: não há o que conferir, e a rota devolve 404 se
+	// a submissão não existir.
+	if (unitsFor(access, ...READER_ROLES) === "all") return true
 
-	const { data } = await supabase.from("submission").select("user_id").eq("id", submissionId).maybeSingle()
-
-	// Submissão inexistente não é autorizada aqui: a rota devolve 404 depois.
-	return data?.user_id === user.id
+	const ownership = await loadSubmissionOwnership(submissionId)
+	// Submissão inexistente não é autorizada aqui: 403, sem revelar se o id existe.
+	return ownership !== null && decideSubmissionRead(access, user.id, ownership)
 }
 
 /**
@@ -31,12 +58,44 @@ export async function canReadSubmission(submissionId: string, user: User, access
  * A permissão é a da submissão de origem — o parecer não tem dono próprio.
  */
 export async function canReadComplianceRun(runId: string, user: User, access: AlphaAccess): Promise<boolean> {
-	if (hasBroadAccess(access)) return true
+	if (unitsFor(access, ...READER_ROLES) === "all") return true
 
-	const { data } = await supabase.from("compliance_run").select("submission_id").eq("id", runId).maybeSingle()
-	if (!data?.submission_id) return false
+	const submissionId = await loadRunSubmissionId(runId)
+	if (!submissionId) return false
 
-	return canReadSubmission(data.submission_id, user, access)
+	return canReadSubmission(submissionId, user, access)
+}
+
+/**
+ * O usuário pode triar e emitir parecer nesta execução? Só o ACI que cobre a OM da
+ * submissão de origem.
+ *
+ * Antes do escopo por OM, triagem e parecer só conferiam o NÍVEL do usuário — nunca de quem
+ * era o processo. Com os papéis escopados, isso deixaria o ACI de uma OM decidir o processo
+ * de qualquer outra.
+ */
+export async function canReviewComplianceRun(runId: string, access: AlphaAccess): Promise<boolean> {
+	if (access.roles.aci === "all") return true
+
+	const submissionId = await loadRunSubmissionId(runId)
+	if (!submissionId) return false
+
+	const ownership = await loadSubmissionOwnership(submissionId)
+	return ownership !== null && decideSubmissionReview(access, ownership)
+}
+
+/** O usuário pode triar este achado? A regra é a da execução a que ele pertence. */
+export async function canTriageFinding(findingId: string, access: AlphaAccess): Promise<boolean> {
+	if (access.roles.aci === "all") return true
+
+	const { data, error } = await supabase.from("compliance_finding").select("run_id").eq("id", findingId).maybeSingle()
+	if (error) {
+		console.error(`[authorize] achado ${findingId} não lido: ${error.message}`)
+		return false
+	}
+	if (!data?.run_id) return false
+
+	return canReviewComplianceRun(data.run_id as string, access)
 }
 
 /**

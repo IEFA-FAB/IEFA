@@ -23,3 +23,9 @@ export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE
  * inclusive por turno de chat, onde a conexão fica aberta por minutos.
  */
 export const accessControl = createServiceRoleClient({ url: env.SUPABASE_URL, secretKey: env.SUPABASE_SERVICE_ROLE_KEY, schema: "access_control" })
+
+/**
+ * Cliente do schema `core` — só leitura de `core.units`: o grafo de apoio que expande o
+ * escopo por OM e o seletor de OM do envio. Singleton pelo mesmo motivo do de cima.
+ */
+export const core = createServiceRoleClient({ url: env.SUPABASE_URL, secretKey: env.SUPABASE_SERVICE_ROLE_KEY, schema: "core" })
