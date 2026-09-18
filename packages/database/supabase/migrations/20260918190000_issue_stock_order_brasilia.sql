@@ -2,20 +2,19 @@
 -- FEFO: `issue_stock` lê a data de entrada na data civil de Brasília
 -- ============================================================================
 --
--- Complementa a 20260918160000, que fez o mesmo em
--- `inventory.register_production_issue`. Mora AQUI, e não lá, porque
--- `issue_stock` e a tabela `stock_issue_request` que ela lê nascem na
--- 20260917220000 desta mesma branch: em banco limpo, um `create or replace`
--- na migration anterior apontaria para relação inexistente.
+-- Mesma correção da 20260918160000, na outra função de saída. Mora aqui, e não
+-- lá, porque `issue_stock` e a tabela `stock_issue_request` que ela lê nascem
+-- na 20260917220000, que acompanha este código: um `create or replace` numa
+-- migration anterior apontaria, em banco limpo, para relação inexistente.
 --
--- Duas correções, as duas de divergência entre a prévia mostrada na tela e a
--- alocação que o banco executa:
+-- `received_at::date` castava no fuso da SESSÃO, que é UTC — o lote recebido
+-- às 22h entrava na fila como se fosse de amanhã. Agora a chave é
+-- `coalesce(validade, dia da entrada em Brasília)`, com empate pela entrada
+-- mais antiga e depois pelo id: a MESMA ordem das duas funções de saída.
 --
---  1. `received_at::date` castava no fuso da SESSÃO, que é UTC. O lote
---     recebido às 22h entrava na fila como se fosse de amanhã;
---  2. o desempate era `l.received_at asc, l.id asc`, enquanto
---     `register_production_issue` e `sortFefo` desempatam só por id. Dois
---     lotes de mesma validade saíam em ordens diferentes conforme o caminho.
+-- Uma versão anterior desta migration tirava o `received_at` do desempate
+-- para bater com `sortFefo`, que não tem chamador no app. Voltou, pelo mesmo
+-- motivo registrado na 20260918160000.
 --
 -- Só a cláusula `order by` muda.
 -- ============================================================================
@@ -98,14 +97,11 @@ begin
       -- no fuso da SESSÃO, que é UTC: o lote recebido às 22h entrava na fila
       -- como se fosse de amanhã, e passava na frente do que chegou de manhã.
       --
-      -- O desempate final é `l.id`, e só ele. Havia um `l.received_at asc`
-      -- antes do id aqui que `register_production_issue` e `sortFefo` não têm:
-      -- dois lotes de mesma validade saíam em ordens DIFERENTES conforme o
-      -- caminho, que é exatamente a divergência entre prévia e baixa que esta
-      -- migration existe para acabar. A ordenação por entrada continua, com a
-      -- granularidade de DIA, dentro do `coalesce` acima.
+      -- Empate de validade sai pela ENTRADA mais antiga, e só então pelo id —
+      -- a mesma ordem de `register_production_issue` (20260918160000).
       order by l.use_first desc,
                coalesce(l.expiry_date, (l.received_at at time zone 'America/Sao_Paulo')::date) asc,
+               l.received_at asc,
                l.id asc
   loop
     exit when v_remaining <= 0;
