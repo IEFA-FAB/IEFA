@@ -1,5 +1,49 @@
 # Tasks: sisub-inventory-operations
 
+## Status da entrega (2026-09-18)
+
+| Fase | PR | Estado |
+|---|---|---|
+| 0 — Corrigir antes de operar | #355 | mergeado |
+| 1 — Leitor de código de barras | #356 | mergeado |
+| 2 — Núcleo do estoque operável | #357, #358 | mergeado |
+| 3 — Recebimento rápido | #363, #364 | mergeado |
+| — correções de revisão das fases 0–3 | #367 | aberto |
+| 4 — Saída do dia | #366 | aberto, empilhado no #367 |
+| 5 — Vencimentos | #372 | aberto |
+| 6 — Inventário | — | não começou |
+| 7 — A caminho e manifestação | — | não começou |
+| 7b — Coletor DF-e | — | **parado**: não há certificado (Q1) |
+| 8 — Piloto | — | não começou |
+
+**As caixas abaixo não foram marcadas em massa.** Fase mergeada não garante que cada
+subtarefa dela tenha entrado — e marcar por inferência é pior do que não marcar, porque
+some com o item da lista de quem revisa. O que está confirmado como **NÃO entregue**,
+apesar da fase correspondente já ter mergeado, e portanto precisa de PR próprio:
+
+- **2.7, 2.8, 2.9** — bucket privado de evidências, upload por URL assinada e o registro
+  no `LGPD.md`. O ajuste grava `evidence_reference` em texto; não há anexo de arquivo.
+- **2.12, 2.13, 2.14** — documento de abertura de saldo (planilha, folha do catálogo,
+  sugestão de custo). Sem ele, a cozinha nova começa com estoque zerado e o primeiro
+  inventário vira uma montanha de `found_stock`.
+- **3.3** — validação XMLDSig com cadeia ICP-Brasil. Hoje a autenticidade confere
+  `mod`, `tpAmb`, `cStat`, `chNFe` e `digVal`, que é bem menos do que assinatura.
+- **3.17–3.20** — eventos de conferência na tela (×N, estorno, sobrescrita com
+  `based_on_seq`) e o diálogo "não consta na nota". O domínio (`receiving-scan.ts`) e as
+  RPCs existem; a tela de conferência que os consome, não.
+- **3.22** — recebimento sem NF-e. A coluna `goods_receipt.source` já aceita
+  `delivery_note` e `ad_hoc`; nenhuma server fn cria recebimento por esses caminhos.
+- **3.24** — recusa de linha e de recebimento inteiro.
+- **3.25** — remover `goods_receipt.liquidacao_id`; a coluna segue em uso.
+- **3.27, 3.28** — "Registrar liquidação" pré-preenchida, dias úteis no painel e o termo
+  de recebimento com designação.
+- **4.8** — fechamento automático `closed_unexplained` às 23:59 de Brasília. O status
+  existe no banco; nada o aplica.
+- **4.12, 4.13** — pós-`DONE` abrindo a requisição do dia, descarte de sobra e o
+  relatório de variância.
+- **5.7, 5.8** — espelho do SILOMS. Parado de propósito: o formato de ingestão é
+  desconhecido (Q7). Vai depois da conversa com o pessoal do SILOMS, que é a 8.7.
+
 Ordem pensada para tirar o módulo do zero uso: o piloto começa depois da Fase 4. Cada fase é um PR (ou
 trem) e depende das anteriores. Em **toda** fase: classificar as server fns novas no
 `assurance-registry` (o contrato é exaustivo e reprova a suíte), `bun run check` + `bun run test` +

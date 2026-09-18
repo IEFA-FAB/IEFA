@@ -3,11 +3,21 @@
 ## ADDED Requirements
 
 ### Requirement: Limite de alerta por item ou classe
-O sistema SHALL resolver o limite de alerta de validade (dias) de um lote nesta ordem: política do ingrediente na cozinha; política da classe de conservação na cozinha; política global da classe; default (resfriado 3, congelado 15, demais 30).
+O sistema SHALL resolver o limite de alerta de validade (dias) de um lote nesta ordem: política do ingrediente na cozinha; política da classe de conservação na cozinha; política do ingrediente global; política da classe global; default (resfriado 3, congelado 15, demais 30).
+
+A política global é da administração: a cozinha SHALL definir e remover apenas a própria.
 
 #### Scenario: Limite por item
 - **WHEN** a cozinha define 2 dias para leite e 3 para a classe resfriado
 - **THEN** o lote de leite usa 2 dias e o de queijo usa 3
+
+#### Scenario: Política global por ingrediente
+- **WHEN** existe política global de 2 dias para leite e a cozinha não definiu nada para ele
+- **THEN** o lote de leite dessa cozinha usa 2 dias, e não o default da classe
+
+#### Scenario: Cozinha não reescreve o default da Força
+- **WHEN** o nível 3 da cozinha tenta remover uma política global pela tela de vencimentos
+- **THEN** a operação é recusada
 
 ### Requirement: Painel de vencimentos por faixa
 O sistema SHALL listar lotes com saldo positivo em três faixas — **Vencido** (validade anterior a hoje), **Crítico** (até o limite) e **Atenção** (até o dobro do limite) — com item, lote, local, validade, dias restantes, quantidade, valor a custo médio e total por faixa, calculados no fuso `America/Sao_Paulo`. Lote sem validade MUST NOT aparecer como vencido e SHALL ser listado à parte quando a classe for resfriado ou congelado. A lista SHALL ter limite e devolver o total.
