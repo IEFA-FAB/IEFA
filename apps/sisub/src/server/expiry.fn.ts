@@ -14,7 +14,7 @@
  * @migration 20260919120000_expiry_alert_policy
  */
 
-import { CONSERVATION_CLASSES, EXPIRY_BANDS, type ExpiryBand } from "@iefa/sisub-domain"
+import { brasiliaToday, CONSERVATION_CLASSES, EXPIRY_BANDS, type ExpiryBand } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -43,6 +43,8 @@ export interface ExpiryLotRow {
 	balanceValue: number
 	useFirst: boolean
 	quarantined: boolean
+	/** Já existe baixa deste lote aguardando aprovação — não se lança outra. */
+	pendingWriteOff: boolean
 	band: ExpiryBand
 }
 
@@ -107,6 +109,22 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 			for (const row of frozen ?? []) describe.set(row.id, { description: row.description, measureUnit: null })
 		}
 
+		// Baixa pendente de aprovação: sem esta marca, o lote vencido continuava na
+		// faixa com o botão habilitado, e o segundo clique criava uma SEGUNDA baixa
+		// do saldo inteiro — aprovar as duas tentaria baixar o lote duas vezes.
+		const pendingLots = new Set<string>()
+		const lotIds = all.map((row) => row.lot_id)
+		if (lotIds.length > 0) {
+			const { data: pending, error: pendingError } = await inventory()
+				.from("stock_adjustment_item")
+				.select("lot_id, stock_adjustment!inner(status)")
+				.in("lot_id", lotIds)
+				.eq("direction", "out")
+				.in("stock_adjustment.status", ["draft", "pending_approval"])
+			if (pendingError) throw new Error(`Erro ao conferir baixas pendentes: ${pendingError.message}`)
+			for (const row of (pending ?? []) as Array<{ lot_id: string | null }>) if (row.lot_id) pendingLots.add(row.lot_id)
+		}
+
 		const BAND_ORDER: Record<ExpiryBand, number> = { expired: 0, critical: 1, warning: 2, no_expiry: 3 }
 		const mapped: ExpiryLotRow[] = all
 			.map((row) => {
@@ -129,6 +147,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 					balanceValue: Number(row.balance_value),
 					useFirst: Boolean(row.use_first),
 					quarantined: row.quarantined_at != null,
+					pendingWriteOff: pendingLots.has(row.lot_id),
 					band: row.band,
 				}
 			})
@@ -266,19 +285,33 @@ export const saveExpiryPolicyFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const inv = inventory()
-		const target = data.ingredientId ? { ingredient_id: data.ingredientId } : { conservation_class: data.conservationClass }
-		const { error } = await inv.from("expiry_alert_policy").upsert(
-			{
+		// NÃO é `upsert(onConflict)`: os índices únicos desta tabela são de
+		// EXPRESSÃO (`coalesce(kitchen_id, 0)`), e o Postgres não casa nome de
+		// coluna com índice de expressão — todo save devolvia 42P10 e nenhuma
+		// cozinha conseguia gravar política. Atualiza; se não havia linha, insere;
+		// se outra pessoa inseriu no meio (23505), atualiza de novo.
+		const values = { alert_days: data.alertDays, notes: data.notes?.trim() || null, updated_at: new Date().toISOString() }
+		const matching = () => {
+			const query = inv.from("expiry_alert_policy").update(values).eq("kitchen_id", data.kitchenId)
+			return data.ingredientId ? query.eq("ingredient_id", data.ingredientId) : query.eq("conservation_class", data.conservationClass)
+		}
+
+		const { data: updated, error: updateError } = await matching().select("id")
+		if (updateError) throw new Error(`Erro ao salvar a política de vencimento: ${updateError.message}`)
+		if ((updated ?? []).length === 0) {
+			const { error: insertError } = await inv.from("expiry_alert_policy").insert({
 				kitchen_id: data.kitchenId,
-				...target,
-				alert_days: data.alertDays,
-				notes: data.notes?.trim() || null,
+				...(data.ingredientId ? { ingredient_id: data.ingredientId } : { conservation_class: data.conservationClass }),
+				...values,
 				created_by: userId,
-				updated_at: new Date().toISOString(),
-			},
-			{ onConflict: data.ingredientId ? "kitchen_id,ingredient_id" : "kitchen_id,conservation_class" }
-		)
-		if (error) throw new Error(`Erro ao salvar a política de vencimento: ${error.message}`)
+			})
+			if (insertError?.code === "23505") {
+				const { error: retryError } = await matching()
+				if (retryError) throw new Error(`Erro ao salvar a política de vencimento: ${retryError.message}`)
+			} else if (insertError) {
+				throw new Error(`Erro ao salvar a política de vencimento: ${insertError.message}`)
+			}
+		}
 		return { saved: true }
 	})
 
@@ -325,6 +358,11 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 			.select("ingredient_id, frozen_preparation_id, expiry_date, balance, balance_value, quarantined_at")
 			.eq("kitchen_id", data.kitchenId)
 			.not("expiry_date", "is", null)
+			// Limite de BAIXO também: lote já vencido e ainda não baixado aparecia em
+			// "aproveite no cardápio", e olhando um mês passado o bloco listava só
+			// estoque vencido — sugerindo servir comida vencida. Vencido é assunto
+			// da tela de vencimentos (baixar), nunca do planejamento.
+			.gte("expiry_date", brasiliaToday())
 			.lte("expiry_date", data.until)
 		if (error) throw new Error(`Erro ao carregar os vencimentos do período: ${error.message}`)
 

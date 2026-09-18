@@ -76,14 +76,25 @@ function ExpiryPage() {
 	const [policyClass, setPolicyClass] = useState<ConservationClass | "">("")
 	const [policyDays, setPolicyDays] = useState("")
 
-	async function run(action: () => Promise<unknown>, success: string) {
+	/**
+	 * Roda a ação e diz se deu certo. Quem limpa formulário depois TEM de olhar o
+	 * retorno: antes, o erro aparecia e o formulário se fechava e se limpava
+	 * assim mesmo, e o operador tinha de reabrir e redigitar tudo.
+	 *
+	 * `success` pode ser uma função do resultado — a mesma ação às vezes lança,
+	 * às vezes só registra e manda para aprovação, e as duas coisas não se
+	 * anunciam com a mesma frase.
+	 */
+	async function run<T>(action: () => Promise<T>, success: string | ((result: T) => string)): Promise<boolean> {
 		setBusy(true)
 		try {
-			await action()
-			toast.success(success)
+			const result = await action()
+			toast.success(typeof success === "function" ? success(result) : success)
 			await router.invalidate()
+			return true
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Erro na ação")
+			return false
 		} finally {
 			setBusy(false)
 		}
@@ -245,7 +256,10 @@ function ExpiryPage() {
 															type="button"
 															size="sm"
 															variant="destructive"
-															disabled={busy}
+															// baixa já registrada e esperando aprovação: um segundo clique
+															// criaria outra baixa do saldo inteiro do mesmo lote
+															disabled={busy || lot.pendingWriteOff}
+															title={lot.pendingWriteOff ? "Baixa deste lote aguardando aprovação" : undefined}
 															onClick={() =>
 																run(
 																	() =>
@@ -263,12 +277,18 @@ function ExpiryPage() {
 																				],
 																			},
 																		}),
-																	"Baixa lançada"
+																	// Acima da alçada o ajuste NÃO lança: vai para aprovação.
+																	// Dizer "baixa lançada" aí fazia a tela afirmar sucesso
+																	// onde o saldo não mudou.
+																	(result) =>
+																		result.status === "posted"
+																			? "Baixa lançada"
+																			: "Baixa registrada e enviada para aprovação — o lote segue no saldo até alguém aprovar"
 																)
 															}
 														>
 															<Trash2 className="mr-1 size-3" />
-															Baixar
+															{lot.pendingWriteOff ? "Baixa pendente" : "Baixar"}
 														</Button>
 													)}
 												</div>
@@ -333,7 +353,8 @@ function ExpiryPage() {
 									toast.error("Informe a quantidade")
 									return
 								}
-								await run(() => createTransferFn({ data: { lotId: transferLot.lotId, toKitchenId, quantity } }), "Transferência registrada")
+								const ok = await run(() => createTransferFn({ data: { lotId: transferLot.lotId, toKitchenId, quantity } }), "Transferência registrada")
+								if (!ok) return
 								setTransferLot(null)
 								setTransferKitchenId("")
 								setTransferQuantity("")
@@ -387,8 +408,8 @@ function ExpiryPage() {
 									return
 								}
 								if (!policyClass) return
-								await run(() => saveExpiryPolicyFn({ data: { kitchenId, conservationClass: policyClass, alertDays } }), "Política salva")
-								setPolicyDays("")
+								const ok = await run(() => saveExpiryPolicyFn({ data: { kitchenId, conservationClass: policyClass, alertDays } }), "Política salva")
+								if (ok) setPolicyDays("")
 							}}
 						>
 							Salvar
