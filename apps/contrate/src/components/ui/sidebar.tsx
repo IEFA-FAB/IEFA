@@ -25,12 +25,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
  *   difuso.
  *
  * Herdado dos dois apps: sem Radix (o `asChild` vira `render` do Base UI, que é o
- * que deixa o item virar um `<Link>` sem aninhar botão em âncora) e estado em
- * cookie legível no SSR, para a barra já sair do servidor aberta ou recolhida.
+ * que deixa o item virar um `<Link>` sem aninhar botão em âncora).
+ *
+ * Diferente dos dois, a escolha aberta/recolhida NÃO é gravada em cookie: o
+ * `sidebar_state` não consta da Política de Cookies para o contrate, e cookie novo
+ * só entra em uso depois de entrar no inventário (ver `LGPD.md`). Até lá a barra
+ * abre expandida a cada carga de página.
  */
 
-export const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -54,17 +56,6 @@ function useSidebar() {
 		throw new Error("useSidebar precisa estar dentro de um SidebarProvider.")
 	}
 	return context
-}
-
-/** Grava a escolha. Cookie bloqueado (iframe sandboxed) não vira erro: a barra só não lembra. */
-function persistSidebarState(open: boolean) {
-	try {
-		const secure = window.location.protocol === "https:" ? "; secure" : ""
-		// biome-ignore lint/suspicious/noDocumentCookie: o estado da barra precisa sobreviver ao F5 e ser legível no SSR; a CookieStore API não existe no Safari nem no Firefox.
-		document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; samesite=lax${secure}`
-	} catch {
-		// sem cookie, sem memória — a barra segue funcionando
-	}
 }
 
 function SidebarProvider({
@@ -93,7 +84,6 @@ function SidebarProvider({
 			} else {
 				_setOpen(openState)
 			}
-			persistSidebarState(openState)
 		},
 		[setOpenProp, open]
 	)

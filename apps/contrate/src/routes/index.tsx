@@ -207,6 +207,15 @@ function HeroCta() {
 					</Link>
 				}
 			/>
+			{/* Enviar o próprio documento vale para qualquer autenticado, com ou sem perfil —
+			    e a tela mora no console, que o seletor só mostra ao nível ACI. Sem este
+			    atalho o requisitante não acharia onde enviar. */}
+			<Link
+				to="/alpha/analise/nova"
+				className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline"
+			>
+				Enviar um documento
+			</Link>
 			<a href="#modulos" className="font-mono text-muted-foreground text-xs underline-offset-4 transition-colors hover:text-foreground hover:underline">
 				Ver todos os módulos
 			</a>

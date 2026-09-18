@@ -140,7 +140,7 @@ function OpenModuleLink() {
 			aria-label={`Abrir ${target.label}`}
 			render={
 				<Link to={target.home}>
-					Abrir<span className="hidden sm:inline">{target.label}</span>
+					Abrir<span className="hidden sm:inline"> {target.label}</span>
 				</Link>
 			}
 		/>

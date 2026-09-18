@@ -7,7 +7,6 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { CONTRATE_MODULES, type ContrateModule, type ContrateModuleId } from "@/lib/modules"
 import { AppSidebar } from "./AppSidebar"
 import { findActiveNavItem, normalizePath } from "./ModuleNav"
-import { readSidebarOpen } from "./sidebar-state"
 
 /**
  * Casca dos módulos (`/aci`, `/alpha`, `/pregoeiro`, `/admin`) — a mesma arquitetura
@@ -17,15 +16,15 @@ import { readSidebarOpen } from "./sidebar-state"
  * A home, o login e as páginas legais NÃO usam esta casca: ficam no `AppLayout`,
  * que é a porta de entrada e não mostra o miolo dos módulos.
  *
- * Cada rota de módulo monta a sua casca, então trocar de módulo remonta a barra.
- * O estado aberto/recolhido não se perde nisso: ele vem do cookie a cada montagem.
+ * Cada rota de módulo monta a sua casca, então trocar de módulo remonta a barra e
+ * ela volta expandida — o estado não é gravado em cookie (ver `ui/sidebar.tsx`).
  */
 export function ModuleShell({ moduleId, children }: { moduleId: ContrateModuleId; children: ReactNode }) {
 	const module = CONTRATE_MODULES.find((m) => m.id === moduleId)
 	if (!module) throw new Error(`Módulo desconhecido: ${moduleId}`)
 
 	return (
-		<SidebarProvider defaultOpen={readSidebarOpen()}>
+		<SidebarProvider>
 			<a
 				href="#conteudo"
 				className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100 bg-primary px-3 py-2 text-primary-foreground text-sm"
