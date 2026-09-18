@@ -61,7 +61,7 @@ function trainingFilter(column: PgColumn, input?: ListPlaces) {
  * pedida.
  *
  * `core.units` deixou de ser só a lista das compradoras do sisub: o Projeto α cadastra as
- * OMs APOIADAS (IAE, DCTA, IEFA…) como `consumption`, sem cozinha, sem refeitório e sem
+ * OMs APOIADAS (IAE, DCTA, IEFA-SJ…) como `consumption`, sem cozinha, sem refeitório e sem
  * UASG, para escopar acesso por OM (20260918…_alpha_role_modules_unit_scope). Este é o
  * seletor de unidade do sisub inteiro (módulo Unidade, Análises da Unidade, escopo de
  * permissão) — sem o filtro, as apoiadas apareceriam ali como unidades vazias. A sentinela

@@ -32,7 +32,7 @@ begin;
 -- ─── 1. Hierarquia de APOIO em core.units ────────────────────────────────────
 -- `parent_unit_id` (20260827163000) é a cadeia de COMANDO — ELO → COMAR → FAB — e alimenta o
 -- rollup regional do sisub. Apoio é outra relação: o GAP-SJ conduz as licitações do IAE, do
--- DCTA e do IEFA, que não são subordinados dele. Sobrecarregar `parent_unit_id` misturaria as
+-- DCTA e do escritório do IEFA em SJ, que não são subordinados dele. Sobrecarregar `parent_unit_id` misturaria as
 -- duas e quebraria o rollup; daí a coluna própria.
 --
 -- Coluna, e não tabela de junção: uma OM tem UMA apoiadora (o GAP da guarnição, que é a UASG
@@ -77,7 +77,7 @@ select v.code, v.display_name, 'consumption'::sisub.unit_type, false, gap.id
 from (values
 	('IAE',  'IAE'),   -- Instituto de Aeronáutica e Espaço
 	('DCTA', 'DCTA'),  -- Departamento de Ciência e Tecnologia Aeroespacial
-	('IEFA', 'IEFA')   -- Instituto de Economia, Finanças e Administração da Aeronáutica
+	('IEFA-SJ', 'IEFA-SJ')  -- Escritório do IEFA em São José dos Campos (a sede não é apoiada pelo GAP-SJ)
 ) as v (code, display_name)
 join core.units gap on gap.code = 'GAP-SJ'
 on conflict (code) do nothing;

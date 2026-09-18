@@ -51,9 +51,9 @@
  *
  *                        Nos quatro, o escopo desce pela HIERARQUIA DE APOIO
  *                        (`core.units.supporting_unit_id`, ver `unit-coverage.ts`): grant na
- *                        apoiadora (GAP-SJ) cobre as apoiadas (IAE, DCTA, IEFA); o inverso não.
+ *                        apoiadora (GAP-SJ) cobre as apoiadas (IAE, DCTA, IEFA-SJ); o inverso não.
  *                        Papéis são módulos, e não níveis de um só, porque o escopo é por papel:
- *                        a mesma pessoa pode ser Licitações no GAP-SJ e Requisitante no IEFA.
+ *                        a mesma pessoa pode ser Licitações no GAP-SJ e Requisitante no IEFA-SJ.
  *
  * As três divisões são módulos SEPARADOS, e não escopos de um módulo `sucont` único, porque
  * o escopo do PBAC é um id numérico de unidade/cozinha/refeitório — a divisão da SUCONT não

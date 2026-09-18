@@ -6,7 +6,7 @@
  *
  * `core.units.parent_unit_id` é a cadeia de COMANDO (ELO → COMAR → FAB) e serve ao rollup
  * regional do sisub. A relação que decide alcance de acesso é outra: a de APOIO
- * (`core.units.supporting_unit_id`). O GAP-SJ apoia o IAE, o DCTA e o IEFA — conduz as
+ * (`core.units.supporting_unit_id`). O GAP-SJ apoia o IAE, o DCTA e o IEFA-SJ — conduz as
  * licitações deles —, então quem trabalha no GAP-SJ precisa enxergar o fluxo dessas OMs.
  * O inverso NÃO vale: o IAE não enxerga o que é do GAP-SJ nem das outras apoiadas.
  *

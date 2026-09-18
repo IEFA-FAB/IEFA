@@ -13,7 +13,7 @@ import {
 	unionCoverage,
 } from "./unit-coverage.ts"
 
-// GAP-SJ (26) apoia IAE (100), DCTA (101) e IEFA (102). GAP-RJ (10) não apoia ninguém.
+// GAP-SJ (26) apoia IAE (100), DCTA (101) e IEFA-SJ (102). GAP-RJ (10) não apoia ninguém.
 // Um nível a mais (103, apoiada pelo IAE) prova a transitividade.
 const GAP_SJ = 26
 const GAP_RJ = 10
