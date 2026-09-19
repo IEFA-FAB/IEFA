@@ -208,9 +208,10 @@ describe("server function auth contract", () => {
 	 * aqui porque nomeia AUTORIA: é quem lançou o registro, e deixá-lo vir do cliente
 	 * permite atribuir a ação a outra pessoa mesmo com a permissão correta. `actorId` está
 	 * aqui porque nomeia o ALVO de uma consulta de auditoria: quem filtra o registro de
-	 * operações sensíveis por ator está lendo o histórico de outra pessoa.
+	 * operações sensíveis por ator está lendo o histórico de outra pessoa. `targetUserId` é o
+	 * mesmo caso pelo outro lado: filtrar o registro pela pessoa cujo acesso mudou.
 	 */
-	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|actorId|actor_id|email|nrOrdem|nr_ordem)\b/g
+	const IDENTITY_FIELD = /\b(userId|user_id|userIds|user_ids|adminId|admin_id|actorId|actor_id|targetUserId|target_user_id|email|nrOrdem|nr_ordem)\b/g
 
 	/**
 	 * Fns em que um usuário age legitimamente sobre OUTRO. Cada entrada precisa do motivo, e
@@ -230,7 +231,10 @@ describe("server function auth contract", () => {
 		fetchEffectivePermissionsFn: "policies.fn — console de políticas: permissões efetivas de terceiro, com origem",
 		attachPolicyFn: "policies.fn — administrador anexa uma política a terceiro",
 		detachPolicyFn: "policies.fn — administrador desanexa uma política de terceiro",
-		listSensitiveOperationsFn: "audit.fn — registro de operações sensíveis filtrado por ator; a fn exige `admin` nível 3, e a operation repete o guard",
+		listSensitiveOperationsFn:
+			"audit.fn — registro de operações sensíveis filtrado por ator ou por alvo; a fn exige `admin` nível 3, e a operation repete o guard",
+		getUserMfaStatusFn: "mfa-admin.fn — o administrador consulta o segundo fator de terceiro antes de removê-lo; exige `admin` nível 3",
+		resetUserMfaFn: "mfa-admin.fn — remoção de MFA de terceiro (último recurso, MFA-RECOVERY.md); exige `admin` nível 3 e garantia `fresh`",
 	}
 
 	/**
