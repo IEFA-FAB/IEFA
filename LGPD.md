@@ -36,8 +36,12 @@ migration que já entrou na `main`. `user_legal_acceptances.document_id` é FK
 ciência dela, e apagar a linha falha. Mesmo com a migration ainda não aplicada em
 produção, editá-la no lugar faria o número nomear dois textos — quem já a tivesse
 rodado localmente nunca receberia o novo (`ON CONFLICT … DO NOTHING`), e os testes
-leem o `.sql`, não o banco, então continuariam verdes. Vigente hoje: **2.1.0**
-(cookies **1.1.0**), em `20260817120000_legal_documents_v2_1.sql`.
+leem o `.sql`, não o banco, então continuariam verdes. Vigente no repositório:
+**Termos e Privacidade 2.2.0, Cookies 1.3.0**, em
+`20260921120000_legal_documents_v2_2.sql`, **aplicada em produção em 2026-09-19**
+(vigência nessa data; substitui 2.1.0 / cookies 1.2.0 de
+`20260907120000_legal_documents_cookies_v1_2.sql`). A 2.2.0 existe porque o
+Contrate foi ao ar sem constar de documento nenhum.
 
 ## Cobertura por app
 
@@ -49,6 +53,7 @@ leem o `.sql`, não o banco, então continuariam verdes. Vigente hoje: **2.1.0**
 | rumaer | `_public/*` | rodapé do `AppLayout` | sim |
 | sucont | raiz | rodapé da sidebar do `HubLayout` + tela de login | sim |
 | assignment-selection | raiz | rodapé fixo no `__root` (cobre o telão público) | sim |
+| contrate | raiz | rodapé do `AppLayout` + rodapé da sidebar do `ModuleShell` | sim (`AppLayout` e `ModuleShell`) |
 | api | `GET /legal`, `GET /legal/{doc_type}` | `info.contact` do OpenAPI | n/a (sem sessão) |
 | alpha | `GET /legal`, `GET /legal/{doc_type}` | — | n/a (sem sessão) |
 | docs | — | links externos para o Portal | n/a (sem sessão) |
@@ -108,9 +113,22 @@ consulta por agente em vez de ler a página.
 
 - **Novo app com dado pessoal**: `@iefa/legal-kit` na dependência, `legal.fn.ts`
   copiando o do app mais próximo, três rotas, link no rodapé. Se tiver sessão,
-  monte também o aviso de ciência.
+  monte também o aviso de ciência. O app entra também na lista de sistemas
+  cobertos (seção 1 dos Termos, seção 2 da Privacidade) e no `APP_NAMES` de
+  `cookie-inventory.test.ts` — foi por faltar isso que o Contrate rodou sob
+  documentos que não o nomeavam.
 - **Novo cookie ou novo destinatário de dado**: entra no inventário da seção 3 da
-  Política de Cookies **antes** de entrar em uso.
+  Política de Cookies **antes** de entrar em uso. O guard
+  (`packages/legal-kit/src/cookie-inventory.test.ts`) varre `apps/*/src` e
+  `packages/*/src`, inclusive chave montada em template, e exige que a linha da
+  chave **nomeie o app** que a grava — chave já inventariada num app novo não
+  passa mais em silêncio. Chave declarada em package (o `auth_rate_limit` do
+  `@iefa/auth-kit`) é atribuída a todo app que importa, como valor, o export que
+  chega até ela (`cookie-inventory-scan.ts` segue o grafo de import do package até
+  o `exports` do `package.json`): quem adota o `useLoginRateLimiter` precisa estar
+  na linha, quem só importa `safeRedirect` ou um tipo do mesmo package não. O que
+  ele não vê é armazenamento feito por dependência de terceiro (o `theme` do
+  Fumadocs na Documentação, o identificador do Faro): esse entra à mão.
 - **Nova versão de documento**: migration nova com `effective_date` posterior. O
   aviso de ciência reaparece sozinho para todo mundo.
 
