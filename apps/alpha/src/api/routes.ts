@@ -10,6 +10,7 @@ import { GRAPH_INVOKE_CONFIG, graph } from "../graph"
 import { buildTurnInput } from "../graph/turn-input.ts"
 import type { AlphaAccess } from "../lib/alpha-access.ts"
 import { messageText } from "../lib/message-text.ts"
+import { redactCloudIdentifiers } from "../lib/redact.ts"
 import { authMiddleware } from "../middleware/auth"
 import { requireRole } from "../middleware/require-role.ts"
 import { embedDocuments } from "../sources/embeddings"
@@ -19,6 +20,7 @@ import type { NormativeSourceRow } from "../sources/types"
 import { accessRoutes } from "./access.ts"
 import { aciRoutes } from "./aci.ts"
 import { canAccessSession } from "./authorize"
+import { requestBodyLimit } from "./body-limits.ts"
 import { complianceRoutes } from "./compliance"
 import { browserCors } from "./cors.ts"
 import { submissionRoutes } from "./submissions"
@@ -48,8 +50,15 @@ const MAX_SESSIONS = 50
 
 // ─── Schemas de input ─────────────────────────────────────────────────────────
 
+/**
+ * Teto da pergunta do chat. Ela entra inteira no prompt, na reformulação e em
+ * `query_log.original_query`: sem teto, um corpo de megabytes virava custo de modelo e
+ * linha gigante no log. Uma pergunta real cabe folgada.
+ */
+export const MAX_MESSAGE_CHARS = 8_000
+
 const MessageBodySchema = z.object({
-	message: z.string().min(1),
+	message: z.string().min(1).max(MAX_MESSAGE_CHARS),
 })
 
 const SourceDocumentsQuerySchema = z.object({
@@ -229,6 +238,7 @@ async function logQuery(session_id: string, user_id: string, query: string, stat
 
 const app = new Hono<{ Variables: AppVariables }>()
 	.use("/api/v1/*", browserCors)
+	.use("/api/v1/*", requestBodyLimit)
 	.use("/api/v1/*", authMiddleware)
 	// Perfil por OM (`/me/access`) e o seletor de OM do envio (`/units`).
 	.route("/", accessRoutes)
@@ -525,11 +535,14 @@ const app = new Hono<{ Variables: AppVariables }>()
 			return c.json({ ...report, limit_applied: effectiveLimit })
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
+			// O detalhe fica no registro da fonte e no log; a resposta leva só o código — erro
+			// de Bedrock (AccessDenied) traz o ARN da role da task no texto.
+			console.error(`[sources] coleta de ${source.id} falhou:`, error)
 			await supabase
 				.from("normative_source")
-				.update({ last_checked_at: new Date().toISOString(), last_error: message.slice(0, 500) })
+				.update({ last_checked_at: new Date().toISOString(), last_error: redactCloudIdentifiers(message).slice(0, 500) })
 				.eq("id", source.id)
-			return c.json({ error: "Bad Gateway", code: "SOURCE_REFRESH_FAILED", message }, 502)
+			return c.json({ error: "Bad Gateway", code: "SOURCE_REFRESH_FAILED", message: "falha na coleta da fonte" }, 502)
 		}
 	})
 

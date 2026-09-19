@@ -41,6 +41,7 @@ const EVENT_LABELS: Record<string, string> = {
 	reviewer_invited: "Revisor convidado",
 	review_completed: "Parecer recebido",
 	published: "Artigo publicado",
+	editor_note: "Nota do editor",
 }
 
 function ArticleDetailEditor() {

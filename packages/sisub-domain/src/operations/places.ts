@@ -32,8 +32,7 @@ import type {
 	UpdateEntityInput,
 } from "../schemas/places.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
-import { describeDriverError, runQuery, toWire } from "../utils/index.ts"
+import { driverFailure, runQuery, toWire } from "../utils/index.ts"
 
 type Unit = Tables<"units">
 type Kitchen = Tables<"kitchen">
@@ -177,7 +176,7 @@ export async function applyPlacesDiff(db: SisubDb, ctx: UserContext, input: Appl
 						.where(eq(messHallsInKitchen.id, BigInt(diff.recordId)))
 				}
 			} catch (e) {
-				throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${describeDriverError(e)}`)
+				throw driverFailure("UPDATE_FAILED", e, `Falha ao atualizar ${diff.table} (id ${diff.recordId})`, `Falha ao atualizar ${diff.table}`)
 			}
 		})
 	)

@@ -1,7 +1,16 @@
 import type { Context, MiddlewareHandler } from "hono"
 import { z } from "zod"
 import supabase from "../lib/supabase.js"
-import { clampLimit, commaListToArray, dayBounds, type OrderRule, parseOrderParam } from "./query-params.ts"
+import {
+	clampLimit,
+	commaListToArray,
+	dayBounds,
+	escapeLikePattern,
+	MAX_ORDER_RULES,
+	type OrderRule,
+	parseSortableOrderParam,
+	projectedColumns,
+} from "./query-params.ts"
 
 export type ApiConfig = {
 	table: string
@@ -16,6 +25,8 @@ export type ApiConfig = {
 	maxLimit?: number
 	cacheControl?: string
 	corsOrigin?: string
+	/** Colunas aceitas no `?order=`. Padrão: as da projeção (`select`) — ver `projectedColumns`. */
+	sortableColumns?: readonly string[]
 }
 
 // Schema de erro para respostas
@@ -39,6 +50,7 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 		cacheControl = "public, max-age=300",
 		corsOrigin = "*",
 	} = config
+	const sortableColumns = config.sortableColumns ?? projectedColumns(select)
 
 	// Middleware para cache-control e CORS
 	const setDefaultHeaders: MiddlewareHandler = async (c, next) => {
@@ -63,6 +75,21 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			// Validação básica dos parâmetros
 			const limit = clampLimit(sp.get("limit"), defaultLimit, maxLimit)
 
+			// Ordenação conferida ANTES de montar a query: coluna fora da allow-list é 400, não
+			// um oráculo — ordenar por coluna não publicada revela a comparação pela ordem.
+			const orderFromParam = parseSortableOrderParam(sp.get("order"), sortableColumns)
+			if (!orderFromParam.ok) {
+				return c.json(
+					{
+						error:
+							orderFromParam.reason === "too-many-rules"
+								? `A ordenação aceita no máximo ${MAX_ORDER_RULES} colunas`
+								: `Colunas permitidas: ${sortableColumns.join(", ")}`,
+					},
+					400
+				)
+			}
+
 			// Inicia query
 			let query = supabase.schema(schema).from(table).select(select).limit(limit)
 
@@ -70,7 +97,8 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			for (const [param, column] of Object.entries(mapParams)) {
 				const ilikeVal = sp.get(`${param}_ilike`)
 				if (ilikeVal) {
-					query = query.ilike(column, `%${ilikeVal}%`)
+					// "Contém" sem sintaxe escondida: `%` e `_` do cliente são literais.
+					query = query.ilike(column, `%${escapeLikePattern(ilikeVal)}%`)
 					continue
 				}
 				const rawVal = sp.get(param)
@@ -117,8 +145,7 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			}
 
 			// Ordenação
-			const orderFromParam = parseOrderParam(sp.get("order"))
-			const finalOrder = orderFromParam.length ? orderFromParam : defaultOrder
+			const finalOrder: OrderRule[] = orderFromParam.order.length ? orderFromParam.order : defaultOrder
 			for (const ord of finalOrder) {
 				if (!ord.column) continue
 				query = query.order(ord.column, { ascending: ord.ascending ?? true })

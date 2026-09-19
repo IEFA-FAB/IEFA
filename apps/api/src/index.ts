@@ -1,5 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
+import type { Context } from "hono"
+import { getConnInfo } from "hono/bun"
 import { cors } from "hono/cors"
 import { registerAgentDiscovery } from "./api/agent-discovery.ts"
 import { catalogRoutes } from "./api/routes/catalog.ts"
@@ -11,26 +13,57 @@ import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { pncpPcaAdminRoutes } from "./api/routes/pncp-pca-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
 import { siafiAdminRoutes } from "./api/routes/siafi-admin.ts"
-import { api } from "./api/routes.js"
+import { api, RESTRICTED_PATHS } from "./api/routes.js"
 import { env } from "./env.ts"
+import { adminAttemptGuard, clientIpFromForwardedFor, FailedAttemptLimiter, isAdminSecretPath, UNKNOWN_ORIGIN } from "./lib/admin-attempt-limit.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
 import { startNutritionReferenceSyncWorker } from "./workers/nutrition-reference-sync/index.ts"
 
+/**
+ * Segredo curto é adivinhável mesmo com o freio abaixo. Não derruba o boot — o valor de
+ * produção é o que é, e trocar o requisito quebraria o deploy —, mas fica visível no log.
+ */
+const RECOMMENDED_ADMIN_SECRET_LENGTH = 32
+if (env.ADMIN_SECRET.length < RECOMMENDED_ADMIN_SECRET_LENGTH) {
+	console.warn(
+		`[admin-auth] ADMIN_SECRET tem ${env.ADMIN_SECRET.length} caracteres; o recomendado é ${RECOMMENDED_ADMIN_SECRET_LENGTH} ou mais (ex.: \`openssl rand -hex 32\`).`
+	)
+}
+
 const app = new OpenAPIHono()
 
-// CORS para rotas públicas da API
-app.use(
-	"/api/*",
-	cors({
-		origin: "*",
-		allowMethods: ["GET", "OPTIONS"],
-		// `x-admin-secret` entra aqui porque as rotas de dado pessoal sob `/api/*` passaram a
-		// exigi-lo: sem o header na allow-list, o preflight barra qualquer consumidor de outra
-		// origem antes mesmo de o guard rodar.
-		allowHeaders: ["Content-Type", "x-admin-secret"],
-		maxAge: 300,
-	})
-)
+/**
+ * IP do cliente: o valor da DIREITA do `X-Forwarded-For` (o que o ALB acrescentou); sem o
+ * cabeçalho — acesso direto, em dev —, o endereço do socket.
+ */
+function clientIp(c: Context): string {
+	const forwarded = clientIpFromForwardedFor(c.req.header("x-forwarded-for"))
+	if (forwarded) return forwarded
+	try {
+		return getConnInfo(c).remote.address ?? UNKNOWN_ORIGIN
+	} catch {
+		return UNKNOWN_ORIGIN
+	}
+}
+
+// Freio de tentativas erradas de `x-admin-secret` — antes de qualquer guard de rota.
+app.use("/api/*", adminAttemptGuard({ limiter: new FailedAttemptLimiter(), restrictedPaths: RESTRICTED_PATHS, clientIp }))
+
+/**
+ * CORS para as rotas PÚBLICAS da API.
+ *
+ * As rotas que exigem `x-admin-secret` (dado pessoal e `/api/admin/*`) ficam FORA do CORS:
+ * `origin: "*"` com o header na allow-list convidava qualquer página a mandar o segredo
+ * de dentro do browser de quem o tivesse. Os consumidores legítimos são servidor a servidor
+ * (sisub, jobs), que não passam por CORS; a documentação em `/` é da mesma origem.
+ */
+const publicCors = cors({
+	origin: "*",
+	allowMethods: ["GET", "OPTIONS"],
+	allowHeaders: ["Content-Type"],
+	maxAge: 300,
+})
+app.use("/api/*", (c, next) => (isAdminSecretPath(c.req.path, RESTRICTED_PATHS) ? next() : publicCors(c, next)))
 
 // CORS para os documentos legais: são públicos por contrato e precisam ser
 // legíveis por um agente rodando em outra origem, igual às rotas de /api/*.
@@ -40,17 +73,6 @@ app.use(
 		origin: "*",
 		allowMethods: ["GET", "OPTIONS"],
 		allowHeaders: ["Content-Type"],
-		maxAge: 300,
-	})
-)
-
-// CORS para rotas admin (permite POST + header de autenticação)
-app.use(
-	"/api/admin/*",
-	cors({
-		origin: "*",
-		allowMethods: ["GET", "POST", "OPTIONS"],
-		allowHeaders: ["Content-Type", "x-admin-secret"],
 		maxAge: 300,
 	})
 )

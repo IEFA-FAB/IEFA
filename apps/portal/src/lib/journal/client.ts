@@ -53,6 +53,7 @@ import {
 	upsertUserProfileFn,
 } from "@/server/journal-data.fn"
 import { getSignedDownloadUrlFn, getSignedUploadUrlFn } from "@/server/journal-storage.fn"
+import { ALLOWED_EXTENSIONS, CONTENT_TYPE_BY_EXTENSION, SUBMISSIONS_BUCKET } from "./storage-paths"
 import type {
 	Article,
 	ArticleAuthor,
@@ -66,6 +67,7 @@ import type {
 	ReviewAssignment,
 	UserProfile,
 } from "./types"
+import type { ArticleAuthorInsertInput, ArticleVersionInsertInput, ReviewAssignmentInsertInput, ReviewInsertInput } from "./write-schemas"
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
@@ -74,15 +76,15 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 }
 
 export async function createUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
-	return (await createUserProfileFn({ data: profile as Record<string, unknown> })) as UserProfile
+	return (await createUserProfileFn({ data: profile })) as UserProfile
 }
 
 export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
-	return (await updateUserProfileFn({ data: { userId, updates: updates as Record<string, unknown> } })) as UserProfile
+	return (await updateUserProfileFn({ data: { userId, updates: updates } })) as UserProfile
 }
 
 export async function upsertUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
-	return (await upsertUserProfileFn({ data: profile as Record<string, unknown> })) as UserProfile
+	return (await upsertUserProfileFn({ data: profile })) as UserProfile
 }
 
 // ─── Articles ─────────────────────────────────────────────────────────────────
@@ -104,11 +106,11 @@ export async function getUserActiveDraft(userId: string): Promise<{ article: Art
 }
 
 export async function createArticle(article: Partial<Article>): Promise<Article> {
-	return (await createArticleFn({ data: article as Record<string, unknown> })) as Article
+	return (await createArticleFn({ data: article })) as Article
 }
 
 export async function updateArticle(articleId: string, updates: Partial<Article>): Promise<Article> {
-	return (await updateArticleFn({ data: { articleId, updates: updates as Record<string, unknown> } })) as Article
+	return (await updateArticleFn({ data: { articleId, updates: updates } })) as Article
 }
 
 export async function deleteArticle(articleId: string): Promise<Article> {
@@ -122,7 +124,7 @@ export async function decideArticle(articleId: string, decision: ArticleDecision
 }
 
 export async function createSubmission(data: CreateSubmissionInput): Promise<Article> {
-	return (await createSubmissionFn({ data: data as unknown as Record<string, unknown> })) as Article
+	return (await createSubmissionFn({ data })) as Article
 }
 
 // ─── Article Authors ──────────────────────────────────────────────────────────
@@ -131,12 +133,12 @@ export async function getArticleAuthors(articleId: string): Promise<ArticleAutho
 	return (await getArticleAuthorsFn({ data: { articleId } })) as ArticleAuthor[]
 }
 
-export async function createArticleAuthors(authors: Partial<ArticleAuthor>[]): Promise<ArticleAuthor[]> {
-	return (await createArticleAuthorsFn({ data: authors as Record<string, unknown>[] })) as ArticleAuthor[]
+export async function createArticleAuthors(authors: ArticleAuthorInsertInput[]): Promise<ArticleAuthor[]> {
+	return (await createArticleAuthorsFn({ data: authors })) as ArticleAuthor[]
 }
 
 export async function updateArticleAuthor(authorId: string, updates: Partial<ArticleAuthor>): Promise<ArticleAuthor> {
-	return (await updateArticleAuthorFn({ data: { authorId, updates: updates as Record<string, unknown> } })) as ArticleAuthor
+	return (await updateArticleAuthorFn({ data: { authorId, updates: updates } })) as ArticleAuthor
 }
 
 export async function deleteArticleAuthor(authorId: string): Promise<void> {
@@ -153,8 +155,8 @@ export async function getArticleVersions(articleId: string): Promise<ArticleVers
 	return (await getArticleVersionsFn({ data: { articleId } })) as ArticleVersion[]
 }
 
-export async function createArticleVersion(version: Partial<ArticleVersion>): Promise<ArticleVersion> {
-	return (await createArticleVersionFn({ data: version as Record<string, unknown> })) as ArticleVersion
+export async function createArticleVersion(version: ArticleVersionInsertInput): Promise<ArticleVersion> {
+	return (await createArticleVersionFn({ data: version })) as ArticleVersion
 }
 
 export async function getLatestArticleVersion(articleId: string): Promise<ArticleVersion> {
@@ -227,12 +229,12 @@ export async function getReviewAssignmentByToken(token: string): Promise<ReviewA
 	return (await getReviewAssignmentByTokenFn({ data: { token } })) as ReviewAssignment
 }
 
-export async function createReviewAssignment(assignment: Partial<ReviewAssignment>): Promise<ReviewAssignment> {
-	return (await createReviewAssignmentFn({ data: assignment as Record<string, unknown> })) as ReviewAssignment
+export async function createReviewAssignment(assignment: ReviewAssignmentInsertInput): Promise<ReviewAssignment> {
+	return (await createReviewAssignmentFn({ data: assignment })) as ReviewAssignment
 }
 
 export async function updateReviewAssignment(assignmentId: string, updates: Partial<ReviewAssignment>): Promise<ReviewAssignment> {
-	return (await updateReviewAssignmentFn({ data: { assignmentId, updates: updates as Record<string, unknown> } })) as ReviewAssignment
+	return (await updateReviewAssignmentFn({ data: { assignmentId, updates: updates } })) as ReviewAssignment
 }
 
 export async function acceptReviewInvitation(token: string) {
@@ -296,20 +298,20 @@ export async function getArticleEvents(articleId: string): Promise<ArticleEvent[
 	return (await getArticleEventsFn({ data: { articleId } })) as ArticleEvent[]
 }
 
-export async function createReview(review: Partial<Review>): Promise<Review> {
-	return (await createReviewFn({ data: review as Record<string, unknown> })) as Review
+export async function createReview(review: ReviewInsertInput): Promise<Review> {
+	return (await createReviewFn({ data: review })) as Review
 }
 
 export async function updateReview(reviewId: string, updates: Partial<Review>): Promise<Review> {
-	return (await updateReviewFn({ data: { reviewId, updates: updates as Record<string, unknown> } })) as Review
+	return (await updateReviewFn({ data: { reviewId, updates: updates } })) as Review
 }
 
 export async function submitReview(assignmentId: string, reviewData: Partial<Review>) {
-	return submitReviewFn({ data: { assignmentId, reviewData: reviewData as Record<string, unknown> } })
+	return submitReviewFn({ data: { assignmentId, reviewData: reviewData } })
 }
 
 export async function saveReviewDraft(assignmentId: string, reviewData: Partial<Review>) {
-	return saveReviewDraftFn({ data: { assignmentId, reviewData: reviewData as Record<string, unknown> } })
+	return saveReviewDraftFn({ data: { assignmentId, reviewData: reviewData } })
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -329,7 +331,7 @@ export async function getJournalSettings(): Promise<JournalSettings> {
 }
 
 export async function updateJournalSettings(updates: Partial<JournalSettings>): Promise<JournalSettings> {
-	return (await updateJournalSettingsFn({ data: updates as Record<string, unknown> })) as JournalSettings
+	return (await updateJournalSettingsFn({ data: updates })) as JournalSettings
 }
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
@@ -346,13 +348,21 @@ export async function uploadArticleFile(
 	fileType: "manuscript" | "source" | "supplementary",
 	index?: number
 ): Promise<string> {
-	const fileExt = file.name.split(".").pop()
+	// Extensão em minúsculas: o servidor só assina caminho com extensão da lista do tipo
+	// (storage-paths.ts), e `Artigo.PDF` é o mesmo PDF.
+	const fileExt = (file.name.split(".").pop() ?? "").toLowerCase()
+	if (!ALLOWED_EXTENSIONS[fileType].includes(fileExt)) {
+		throw new Error(`Tipo de arquivo não permitido (.${fileExt}). Aceitos: ${ALLOWED_EXTENSIONS[fileType].map((ext) => `.${ext}`).join(", ")}.`)
+	}
 	const fileName = fileType === "supplementary" && index !== undefined ? `supplementary_${index}.${fileExt}` : `${fileType}.${fileExt}`
 	const filePath = `${articleId}/v${versionNumber}/${fileName}`
 
 	const { token } = await getSignedUploadUrlFn({ data: { filePath } })
 
-	const { data, error } = await supabase.storage.from("journal-submissions").uploadToSignedUrl(filePath, token, file, { cacheControl: "3600", upsert: true })
+	// Content-Type pela extensão, não o `file.type` do navegador (que o usuário controla).
+	const { data, error } = await supabase.storage
+		.from(SUBMISSIONS_BUCKET)
+		.uploadToSignedUrl(filePath, token, file, { cacheControl: "3600", upsert: true, contentType: CONTENT_TYPE_BY_EXTENSION[fileExt] })
 
 	if (error) throw error
 	return data.path

@@ -4,7 +4,7 @@
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/useAuth"
-import { alphaRequest } from "./client"
+import { alphaPath, alphaRequest } from "./client"
 
 export type Severity = "BLOQUEANTE" | "GRAVE" | "MEDIA" | "INFORMATIVA"
 
@@ -80,7 +80,7 @@ export interface RuleEvaluation {
 export function complianceRunQueryOptions(token: string | undefined, runId: string) {
 	return queryOptions({
 		queryKey: ["alpha", "compliance", runId],
-		queryFn: () => alphaRequest<{ run: ComplianceRun; findings: Finding[] }>(`/api/v1/compliance/runs/${runId}`, token),
+		queryFn: () => alphaRequest<{ run: ComplianceRun; findings: Finding[] }>(alphaPath`/api/v1/compliance/runs/${runId}`, token),
 		// A execução só muda por triagem, e a triagem já atualiza este cache. Sem
 		// isto o padrão do portal é 0 e a tela refaz a busca a cada montagem e a
 		// cada volta do foco — o relatório é a chamada mais cara do α.
@@ -91,7 +91,7 @@ export function complianceRunQueryOptions(token: string | undefined, runId: stri
 export function rulesQueryOptions(token: string | undefined, status?: Rule["status"]) {
 	return queryOptions({
 		queryKey: ["alpha", "rules", status ?? "all"],
-		queryFn: async () => (await alphaRequest<{ rules: Rule[] }>(`/api/v1/rules${status ? `?status=${status}` : ""}`, token)).rules,
+		queryFn: async () => (await alphaRequest<{ rules: Rule[] }>(status ? alphaPath`/api/v1/rules?status=${status}` : "/api/v1/rules", token)).rules,
 	})
 }
 
@@ -109,7 +109,7 @@ export function useEvaluateRule() {
 
 	return useMutation({
 		mutationFn: ({ ruleId, text }: { ruleId: string; text: string }) =>
-			alphaRequest<RuleEvaluation>(`/api/v1/rules/${ruleId}/evaluate`, session?.access_token, { method: "POST", body: JSON.stringify({ text }) }),
+			alphaRequest<RuleEvaluation>(alphaPath`/api/v1/rules/${ruleId}/evaluate`, session?.access_token, { method: "POST", body: JSON.stringify({ text }) }),
 	})
 }
 
@@ -119,7 +119,7 @@ export function useSetRuleStatus() {
 
 	return useMutation({
 		mutationFn: ({ ruleId, status }: { ruleId: string; status: Rule["status"] }) =>
-			alphaRequest<Rule>(`/api/v1/rules/${ruleId}`, session?.access_token, { method: "PATCH", body: JSON.stringify({ status }) }),
+			alphaRequest<Rule>(alphaPath`/api/v1/rules/${ruleId}`, session?.access_token, { method: "PATCH", body: JSON.stringify({ status }) }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["alpha", "rules"] })
 		},

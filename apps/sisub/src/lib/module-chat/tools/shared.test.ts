@@ -81,6 +81,21 @@ describe("module-chat permission helpers", () => {
 		expect(getMaxLevel(permissions, "kitchen", 9)).toBe(0)
 		expect(getMaxLevel(permissions, "unit", 99)).toBe(3)
 	})
+
+	test("getMaxLevel aplica deny (level 0) como hasPermission", () => {
+		const permissions = [
+			permission({ module: "kitchen", level: 2, kitchen_id: null }),
+			permission({ module: "kitchen", level: 0, kitchen_id: 7 }),
+			permission({ module: "unit", level: 2, unit_id: 3 }),
+			permission({ module: "unit", level: 0, unit_id: null }),
+		]
+
+		// Deny escopado recorta o allow sem escopo só naquela cozinha.
+		expect(getMaxLevel(permissions, "kitchen", 7)).toBe(0)
+		expect(getMaxLevel(permissions, "kitchen", 8)).toBe(2)
+		// Deny sem escopo derruba o módulo inteiro.
+		expect(getMaxLevel(permissions, "unit", 3)).toBe(0)
+	})
 })
 
 describe("module-chat validation helpers", () => {

@@ -45,7 +45,11 @@ const triggerRoute = createRoute({
 			content: {
 				"application/json": {
 					schema: z.object({
-						cnpj: z.string().length(14).optional(),
+						// Só dígitos: o CNPJ vira segmento de caminho na URL do PNCP (`/orgaos/{cnpj}/pca`).
+						cnpj: z
+							.string()
+							.regex(/^\d{14}$/, "CNPJ com 14 dígitos, sem pontuação")
+							.optional(),
 						anos: z.array(z.number().int().min(2020).max(2100)).min(1).max(5).optional(),
 					}),
 				},

@@ -9,8 +9,9 @@
 
 import { kitchenInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
+import { hasAnyPermission } from "@iefa/pbac"
 import { asc, eq } from "drizzle-orm"
-import { requireKitchen } from "../guards/require-permission.ts"
+import { requireAnyPermission, requireKitchen } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
@@ -43,6 +44,37 @@ export async function listKitchens(db: SisubDb, _ctx: UserContext): Promise<Kitc
 		})
 	)
 	return rows.map((r) => toWire<KitchenWithUnit>(r, KITCHEN_RELATIONS))
+}
+
+/** Módulos que dão acesso ao TRABALHO de uma cozinha (planejar, produzir). */
+const KITCHEN_WORK_MODULES = ["kitchen", "kitchen-production"] as const
+
+/** Linha enxuta de cozinha para quem vai escolher uma: id, nome, tipo e unidade. */
+export type AccessibleKitchen = { id: number; display_name: string | null; type: string | null; unit_id: number | null; unit: UnitRef | null }
+
+/**
+ * Cozinhas em que o chamador TRABALHA — `kitchen:1` ou `kitchen-production:1` escopado a
+ * ela (ou sem escopo, que vale para todas).
+ *
+ * Existe para as ferramentas de IA (`list_kitchens` do chat e do MCP). `listKitchens` é
+ * referência para montar seletor (o admin `global` escolhe escopo de permissão sem ter
+ * cozinha nenhuma) e por isso descarta o contexto; exposto a um modelo, porém, devolvia a
+ * lista inteira da FAB a qualquer credencial — inclusive a quem a descrição da tool dizia
+ * exigir `kitchen:1`.
+ */
+export async function listAccessibleKitchens(db: SisubDb, ctx: UserContext): Promise<AccessibleKitchen[]> {
+	requireAnyPermission(ctx, KITCHEN_WORK_MODULES, 1)
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.kitchenInKitchen.findMany({
+			columns: { id: true, displayName: true, type: true, unitId: true },
+			with: { unitsInCore_unitId: { columns: { id: true, displayName: true, code: true } } },
+			orderBy: (kitchen, { asc }) => [asc(kitchen.id)],
+		})
+	)
+	return rows
+		.filter((r) => hasAnyPermission(ctx.permissions, KITCHEN_WORK_MODULES, 1, { type: "kitchen", id: r.id }))
+		.map((r) => toWire<AccessibleKitchen>(r, KITCHEN_RELATIONS))
 }
 
 export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {

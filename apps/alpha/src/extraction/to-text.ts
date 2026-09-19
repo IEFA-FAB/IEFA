@@ -31,6 +31,25 @@ export interface PdfSubmissionText extends SubmissionText {
 	pages: string[]
 }
 
+/**
+ * Teto de páginas de PDF lidas por padrão.
+ *
+ * O pdf.js monta o texto página a página, e o custo cresce com elas: sem teto, um PDF
+ * enviado com milhares de páginas (vazias, que comprimem a quase nada) prende o processo
+ * por minutos. Um ETP/TR/edital real fica muito abaixo disso. Quem lê PDF de origem
+ * confiável e maior (o coletor do RADA-e) passa o teto explicitamente.
+ */
+export const MAX_PDF_PAGES = 500
+
+export class PdfTooLargeError extends Error {
+	readonly pages: number
+	constructor(pages: number, maxPages: number) {
+		super(`PDF com ${pages} páginas excede o limite de ${maxPages}`)
+		this.name = "PdfTooLargeError"
+		this.pages = pages
+	}
+}
+
 /** `Heading1`, `Ttulo1`, `Heading 2`. */
 const HEADING_STYLE = /^(?:heading|titulo|ttulo|t[íi]tulo)\s*(\d)/i
 
@@ -104,13 +123,15 @@ export function docxToSubmissionText(bytes: Uint8Array): SubmissionText {
 	}
 }
 
-export async function pdfToSubmissionText(bytes: Uint8Array): Promise<PdfSubmissionText> {
+export async function pdfToSubmissionText(bytes: Uint8Array, options: { maxPages?: number } = {}): Promise<PdfSubmissionText> {
+	const maxPages = options.maxPages ?? MAX_PDF_PAGES
 	// A cópia não é desperdício: o pdf.js TRANSFERE o ArrayBuffer para o worker, e o
 	// buffer do chamador volta destacado, com `byteLength` 0. Quem reaproveitasse os
 	// bytes depois de converter — para calcular hash, gravar em storage ou tentar OCR —
 	// receberia vazio, sem erro nenhum. Isolar aqui custa uma cópia e vale por todos os
 	// chamadores, presentes e futuros.
 	const pdf = await getDocumentProxy(bytes.slice())
+	if (pdf.numPages > maxPages) throw new PdfTooLargeError(pdf.numPages, maxPages)
 	// `mergePages: false` porque a fronteira de página é informação, não formatação: é
 	// o que permite reconhecer cabeçalho e rodapé (ver `ingest/print-artifacts.ts`). O
 	// `text` daqui segue idêntico ao de antes — o `mergePages` do unpdf junta as páginas

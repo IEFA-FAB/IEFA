@@ -5,6 +5,7 @@ import { useCallback, useMemo } from "react"
 import { z } from "zod"
 import { authActions } from "#/auth/service"
 import { AuthScreen } from "#/auth/view/AuthScreen"
+import { resolveSameOriginDestination } from "#/lib/safe-url"
 import { supabase } from "#/lib/supabase"
 
 const authSearchSchema = z.object({
@@ -59,11 +60,14 @@ function AuthPage() {
 	// Navegação dura para o destino: garante um SSR novo que lê o cookie de sessão
 	// recém-gravado (evita a corrida entre o refetch da auth query e o guard do
 	// beforeLoad, que às vezes prendia o usuário em /auth). Mesmo padrão do login antigo.
+	// O destino é resolvido de novo contra a própria origem ANTES do `assign`: o sink
+	// não confia só no `safeRedirect` da validação da rota — destino que sair da origem
+	// vira "/".
 	const handleNavigate = useCallback(
 		async (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => {
 			if (options.to) {
 				queryClient.clear()
-				window.location.assign(options.to)
+				window.location.assign(resolveSameOriginDestination(options.to, window.location.origin))
 				return
 			}
 			await router.navigate(options as Parameters<typeof router.navigate>[0])

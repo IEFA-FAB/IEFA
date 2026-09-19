@@ -292,9 +292,9 @@ describe("GET /api/v1/submissions", () => {
 })
 
 describe("POST /api/v1/submissions", () => {
-	function form(fields: Record<string, string>) {
+	function form(fields: Record<string, string>, filename = "tr.pdf") {
 		const data = new FormData()
-		data.set("file", new File([new Uint8Array([1, 2, 3])], "tr.pdf", { type: "application/pdf" }))
+		data.set("file", new File([new Uint8Array([1, 2, 3])], filename, { type: "application/pdf" }))
 		data.set("doc_kind", "TR")
 		for (const [key, value] of Object.entries(fields)) data.set(key, value)
 		return { method: "POST", body: data }
@@ -307,6 +307,17 @@ describe("POST /api/v1/submissions", () => {
 		expect(state.writes).toEqual([
 			expect.objectContaining({ table: "submission", verb: "insert", payload: expect.objectContaining({ user_id: ME, unit_id: IAE }) }),
 		])
+	})
+
+	test("o nome enviado não entra no caminho do Storage — `..` não sai do prefixo do usuário", async () => {
+		// O storage-js não codifica o caminho e o `fetch` normaliza `..`: com o nome no caminho,
+		// este upload gravava em OUTRO bucket, com a chave de serviço.
+		const res = await appAs([]).request("/api/v1/submissions", form({ unit_id: String(IAE) }, "/../../../outro-bucket/x.pdf"))
+
+		expect(res.status).toBe(201)
+		expect(storageCalls).toHaveLength(1)
+		expect(storageCalls[0]).toMatch(/^upload:me\/[0-9a-f-]{36}\.pdf$/)
+		expect(state.writes[0]?.payload).toEqual(expect.objectContaining({ filename: "x.pdf", storage_path: storageCalls[0]?.slice("upload:".length) }))
 	})
 
 	test("sem OM: 400 do validador, nada enviado ao Storage", async () => {

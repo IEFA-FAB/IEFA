@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm"
 import { authQueryOptions } from "@/auth/service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ModelImagePlaceholder } from "@/components/ui/markdown"
 import { useAuth } from "@/hooks/useAuth"
 import type { ChatAnswer, ChatSessionSummary } from "@/lib/alpha/chat"
 import {
@@ -397,6 +398,9 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 								ol: (props: any) => <ol {...props} className="list-decimal pl-5 my-2 text-sm leading-relaxed" />,
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
 								code: (props: any) => <code {...props} className="bg-muted/70 px-1.5 py-0.5 border border-border text-xs" />,
+								// Resposta de modelo: `![](url)` seria buscado sem clique — canal de
+								// exfiltração. Vira texto (ver components/ui/markdown.tsx).
+								img: ({ alt }) => <ModelImagePlaceholder alt={alt} />,
 							}}
 						>
 							{displayMarkdown}

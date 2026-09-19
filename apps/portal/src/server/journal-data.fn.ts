@@ -9,12 +9,13 @@ import { GrantNotAllowedError } from "@iefa/pbac"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import {
+	type ArticleAccess,
 	assertRoleChangeAllowed,
 	forbidden,
 	getRequestUserId,
 	isEditor,
 	requireArticleAccess,
-	requireArticleOwnerOrEditor,
+	requireArticleWriteAccess,
 	requireEditor,
 	requireSelf,
 	requireUserId,
@@ -22,9 +23,27 @@ import {
 import { PORTAL_URL, sendJournalEmail, type TemplateName } from "@/lib/journal/email.server"
 import { assertJournalRoleChangeAllowed, planProfileSave, toJournalRoleError } from "@/lib/journal/role-change"
 import type { UserRole } from "@/lib/journal/types"
+import { isPathOfArticle } from "@/lib/journal/storage-paths"
+import {
+	ArticleAuthorInsertSchema,
+	ArticleAuthorUpdateSchema,
+	ArticleEventDataSchema,
+	ArticleVersionInsertSchema,
+	AuthorArticleFieldsSchema,
+	EditorArticleUpdateSchema,
+	editorOnlyArticleKeys,
+	JournalSettingsUpdateSchema,
+	MANUAL_ARTICLE_EVENT_TYPES,
+	ReviewAssignmentInsertSchema,
+	ReviewAssignmentUpdateSchema,
+	ReviewContentSchema,
+	ReviewInsertSchema,
+	UserProfileFieldsSchema,
+} from "@/lib/journal/write-schemas"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
-const looseRecord = z.record(z.string(), z.unknown())
+// Todo payload de escrita tem schema próprio em write-schemas.ts: o antigo
+// `z.record(z.string(), z.unknown())` repassava qualquer coluna ao client service-role.
 
 // ─── Server-side auth helpers ─────────────────────────────────────────────────
 // Server functions são endpoints HTTP crus: o `beforeLoad` das rotas NÃO os
@@ -33,11 +52,28 @@ const looseRecord = z.record(z.string(), z.unknown())
 // (requireUserId/requireEditor/requireSelf/…) vivem em @/lib/auth.server; os
 // específicos do fluxo editorial ficam abaixo.
 
-// Garante que o chamador é o revisor designado do assignment (dono do parecer).
+// Garante que o chamador é o revisor designado do assignment (dono do parecer) e que o
+// convite está ACEITO — a mesma condição do `canSubmitReviewFn`. Sem o status, o revisor
+// reescrevia (inclusive a recomendação) um parecer já concluído, depois da decisão.
 async function requireAssignedReviewer(assignmentId: string): Promise<void> {
 	const userId = await requireUserId()
-	const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id").eq("id", assignmentId).maybeSingle()
+	const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id, status").eq("id", assignmentId).maybeSingle()
 	if (!assignment || assignment.reviewer_id !== userId) forbidden("Você não é o revisor designado deste parecer.")
+	if (assignment.status !== "accepted") forbidden("Este parecer não pode mais ser alterado.")
+}
+
+/**
+ * E-mail de coautor é dado pessoal: sai para editor e para o próprio submissor. Leitor
+ * público de artigo publicado (inclusive anônimo) e revisor recebem a linha sem ele.
+ */
+function projectAuthorsForAccess<T>(authors: T, access: ArticleAccess): T {
+	if (access.isEditor || access.isSubmitter) return authors
+	if (!Array.isArray(authors)) return authors
+	return authors.map((author) => {
+		if (!author || typeof author !== "object") return author
+		const { email: _email, ...rest } = author as Record<string, unknown>
+		return rest
+	}) as T
 }
 
 // Leitura de dados do assignment: permitida ao revisor designado ou a editores.
@@ -109,7 +145,7 @@ async function saveJournalProfile(actorId: string, targetUserId: string, mode: "
 // `id` vem da sessão: um perfil só pode ser criado para si mesmo, e trocar o papel exige
 // editor (senão é auto-promoção a editor). Campos e papel numa transação só.
 export const createUserProfileFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(UserProfileFieldsSchema)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		return saveJournalProfile(userId, userId, "insert", data)
@@ -119,7 +155,7 @@ export const createUserProfileFn = createServerFn({ method: "POST" })
 // autorizada antes de qualquer escrita e gravada junto com os campos, auditada.
 // nosemgrep: server-fn-user-id-from-client
 export const updateUserProfileFn = createServerFn({ method: "POST" })
-	.validator(z.object({ userId: z.string(), updates: looseRecord }))
+	.validator(z.object({ userId: z.string(), updates: UserProfileFieldsSchema }))
 	.handler(async ({ data }) => {
 		// Editor edita qualquer perfil (moderação/atribuição de papel); os demais, só o próprio.
 		const userId = await requireUserId()
@@ -128,7 +164,7 @@ export const updateUserProfileFn = createServerFn({ method: "POST" })
 	})
 
 export const upsertUserProfileFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(UserProfileFieldsSchema)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		return saveJournalProfile(userId, userId, "upsert", data)
@@ -177,7 +213,7 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 		// Server fn = endpoint HTTP cru (o `beforeLoad` da rota não protege) e o
 		// client é service-role (bypassa RLS). Sem este gate, qualquer UUID de
 		// artigo retornaria metadados completos a qualquer chamador (IDOR).
-		const { isEditor: callerIsEditor } = await requireArticleAccess(data.articleId)
+		const access = await requireArticleAccess(data.articleId)
 
 		// A função vive no schema `journal` (journal.get_article_details), então
 		// precisa do client com schema journal — o client "public" resolve para
@@ -192,12 +228,15 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 		// isso no payload que chega ao autor quebra o duplo-cego, mesmo que a UI
 		// não renderize. Só editores recebem `reviews`; o autor lê os pareceres
 		// liberados via getAuthorArticleReviewsFn (apenas campos seguros).
-		if (callerIsEditor) return result
+		// Os coautores também passam pela projeção: sem ela, qualquer anônimo lia o e-mail
+		// de todos os autores de um artigo publicado.
+		if (access.isEditor) return result
 		// `typeof [] === "object"` é true: sem o guard de array, um payload em set
 		// (RETURNS SETOF / wrapper do client) escaparia a redação silenciosamente.
 		if (result && typeof result === "object" && !Array.isArray(result)) {
 			const clone = { ...(result as Record<string, unknown>) }
 			delete clone.reviews
+			clone.authors = projectAuthorsForAccess(clone.authors, access)
 			return clone
 		}
 		return result
@@ -236,32 +275,44 @@ export const getUserActiveDraftFn = createServerFn({ method: "GET" })
 	})
 
 // `submitter_id` vem da sessão: o autor de uma submissão não é escolhido pelo cliente.
+// Artigo novo nasce rascunho; o resto do fluxo editorial tem fn própria.
 export const createArticleFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(AuthorArticleFieldsSchema)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const { data: result, error } = await getJournalServerClient()
 			.from("articles")
-			.insert({ ...data, submitter_id: userId })
+			.insert({ ...data, submitter_id: userId, status: "draft" })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+/**
+ * Editor: metadados + fluxo editorial (status, DOI, fascículo — é o que o Kanban usa).
+ * Autor: só metadados, e só com o artigo em rascunho/aguardando revisão. Chave editorial
+ * vinda de autor é 403, não descarte silencioso: o cliente que manda `status` está errado.
+ */
 export const updateArticleFn = createServerFn({ method: "POST" })
-	.validator(z.object({ articleId: z.string(), updates: looseRecord }))
+	.validator(z.object({ articleId: z.string(), updates: EditorArticleUpdateSchema }))
 	.handler(async ({ data }) => {
-		await requireArticleOwnerOrEditor(data.articleId)
+		const { isEditor: callerIsEditor } = await requireArticleWriteAccess(data.articleId)
+		if (!callerIsEditor) {
+			const denied = editorOnlyArticleKeys(data.updates)
+			if (denied.length > 0) forbidden(`Somente editores alteram: ${denied.join(", ")}.`)
+		}
 		const { data: result, error } = await getJournalServerClient().from("articles").update(data.updates).eq("id", data.articleId).select().single()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+// Autor remove só o que ainda é dele para mexer (rascunho/aguardando revisão): o soft
+// delete tira o artigo de `published_articles`, e despublicar é decisão do editor.
 export const deleteArticleFn = createServerFn({ method: "POST" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		await requireArticleOwnerOrEditor(data.articleId)
+		await requireArticleWriteAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("articles")
 			.update({ deleted_at: new Date().toISOString() })
@@ -273,7 +324,7 @@ export const deleteArticleFn = createServerFn({ method: "POST" })
 	})
 
 export const createSubmissionFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(AuthorArticleFieldsSchema)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const db = getJournalServerClient()
@@ -294,14 +345,14 @@ export const createSubmissionFn = createServerFn({ method: "POST" })
 export const getArticleAuthorsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		await requireArticleAccess(data.articleId)
+		const access = await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_authors")
 			.select("*")
 			.eq("article_id", data.articleId)
 			.order("author_order", { ascending: true })
 		if (error) throw new Error(error.message)
-		return result
+		return projectAuthorsForAccess(result, access)
 	})
 
 /**
@@ -310,11 +361,10 @@ export const getArticleAuthorsFn = createServerFn({ method: "GET" })
  * bastava inserir com o article_id alheio para se declarar coautor de qualquer manuscrito.
  */
 export const createArticleAuthorsFn = createServerFn({ method: "POST" })
-	.validator(z.array(looseRecord))
+	.validator(z.array(ArticleAuthorInsertSchema).min(1))
 	.handler(async ({ data }) => {
-		const articleIds = [...new Set(data.map((row) => row.article_id).filter((id): id is string => typeof id === "string"))]
-		if (articleIds.length === 0) forbidden("article_id é obrigatório em cada autor.")
-		for (const articleId of articleIds) await requireArticleOwnerOrEditor(articleId)
+		const articleIds = [...new Set(data.map((row) => row.article_id))]
+		for (const articleId of articleIds) await requireArticleWriteAccess(articleId)
 
 		const { data: result, error } = await getJournalServerClient().from("article_authors").insert(data).select()
 		if (error) throw new Error(error.message)
@@ -325,11 +375,13 @@ export const createArticleAuthorsFn = createServerFn({ method: "POST" })
 async function requireAuthorRowAccess(authorId: string): Promise<void> {
 	const { data: row } = await getJournalServerClient().from("article_authors").select("article_id").eq("id", authorId).maybeSingle()
 	if (!row?.article_id) forbidden("Autor não encontrado.")
-	await requireArticleOwnerOrEditor(row.article_id as string)
+	await requireArticleWriteAccess(row.article_id as string)
 }
 
+// `updates` não aceita `article_id`: mover a linha para outro artigo era se declarar
+// coautor de manuscrito alheio depois de passar pela checagem do artigo próprio.
 export const updateArticleAuthorFn = createServerFn({ method: "POST" })
-	.validator(z.object({ authorId: z.string(), updates: looseRecord }))
+	.validator(z.object({ authorId: z.string(), updates: ArticleAuthorUpdateSchema }))
 	.handler(async ({ data }) => {
 		await requireAuthorRowAccess(data.authorId)
 		const { data: result, error } = await getJournalServerClient().from("article_authors").update(data.updates).eq("id", data.authorId).select().single()
@@ -348,7 +400,7 @@ export const deleteArticleAuthorFn = createServerFn({ method: "POST" })
 export const deleteArticleAuthorsByArticleIdFn = createServerFn({ method: "POST" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		await requireArticleOwnerOrEditor(data.articleId)
+		await requireArticleWriteAccess(data.articleId)
 		const { error } = await getJournalServerClient().from("article_authors").delete().eq("article_id", data.articleId)
 		if (error) throw new Error(error.message)
 	})
@@ -369,13 +421,21 @@ export const getArticleVersionsFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+// `uploaded_by` vem da sessão (o payload não o aceita) e os caminhos têm de estar sob o
+// prefixo do próprio artigo — senão a versão apontava para o arquivo de outro manuscrito.
 export const createArticleVersionFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(ArticleVersionInsertSchema)
 	.handler(async ({ data }) => {
-		const articleId = typeof data.article_id === "string" ? data.article_id : null
-		if (!articleId) forbidden("article_id é obrigatório.")
-		await requireArticleOwnerOrEditor(articleId)
-		const { data: result, error } = await getJournalServerClient().from("article_versions").insert(data).select().single()
+		const { userId, isEditor: callerIsEditor } = await requireArticleWriteAccess(data.article_id)
+		const paths = [data.pdf_path, data.source_path, ...(data.supplementary_paths ?? [])].filter((path): path is string => !!path)
+		if (paths.some((path) => !isPathOfArticle(data.article_id, path))) forbidden("Arquivo fora do diretório do artigo.")
+		// `notes` é anotação do editor sobre a versão.
+		const { notes, ...fields } = data
+		const { data: result, error } = await getJournalServerClient()
+			.from("article_versions")
+			.insert({ ...fields, ...(callerIsEditor ? { notes } : {}), uploaded_by: userId })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -482,7 +542,7 @@ export const getReviewAssignmentByTokenFn = createServerFn({ method: "GET" })
 
 // Designar revisor é ato editorial — e `invited_by` vem da sessão.
 export const createReviewAssignmentFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(ReviewAssignmentInsertSchema)
 	.handler(async ({ data }) => {
 		const editorId = await requireEditor()
 		const { data: result, error } = await getJournalServerClient()
@@ -495,7 +555,7 @@ export const createReviewAssignmentFn = createServerFn({ method: "POST" })
 	})
 
 export const updateReviewAssignmentFn = createServerFn({ method: "POST" })
-	.validator(z.object({ assignmentId: z.string(), updates: looseRecord }))
+	.validator(z.object({ assignmentId: z.string(), updates: ReviewAssignmentUpdateSchema }))
 	.handler(async ({ data }) => {
 		await requireEditor()
 		const { data: result, error } = await getJournalServerClient().from("review_assignments").update(data.updates).eq("id", data.assignmentId).select().single()
@@ -503,21 +563,32 @@ export const updateReviewAssignmentFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+const INVITATION_UNAVAILABLE = "Convite inválido, expirado ou já respondido."
+
 /**
  * Token-autenticada, como `getReviewAssignmentByTokenFn`: aceitar/recusar acontece a
  * partir do link do e-mail, antes de qualquer login.
+ *
+ * O token é de USO ÚNICO: a transição só acontece a partir de `invited` e dentro do
+ * prazo, e o filtro está no próprio UPDATE (atômico — dois cliques simultâneos não
+ * passam os dois). Antes, o mesmo link reabria um convite recusado, "aceitava" de novo
+ * um parecer concluído (voltando o assignment para `accepted`) ou revertia o aceite.
  */
 // nosemgrep: server-fn-missing-auth-guard
 export const acceptReviewInvitationFn = createServerFn({ method: "POST" })
-	.validator(z.object({ token: z.string() }))
+	.validator(z.object({ token: z.string().min(1) }))
 	.handler(async ({ data }) => {
+		const now = new Date().toISOString()
 		const { data: result, error } = await getJournalServerClient()
 			.from("review_assignments")
-			.update({ status: "accepted", responded_at: new Date().toISOString() })
+			.update({ status: "accepted", responded_at: now })
 			.eq("invitation_token", data.token)
+			.eq("status", "invited")
+			.gte("due_date", now)
 			.select()
-			.single()
+			.maybeSingle()
 		if (error) throw new Error(error.message)
+		if (!result) throw new Error(INVITATION_UNAVAILABLE)
 		return result
 	})
 
@@ -526,7 +597,7 @@ export const acceptReviewInvitationFn = createServerFn({ method: "POST" })
  */
 // nosemgrep: server-fn-missing-auth-guard
 export const declineReviewInvitationFn = createServerFn({ method: "POST" })
-	.validator(z.object({ token: z.string(), reason: z.string().optional() }))
+	.validator(z.object({ token: z.string().min(1), reason: z.string().max(2000).optional() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("review_assignments")
@@ -536,9 +607,11 @@ export const declineReviewInvitationFn = createServerFn({ method: "POST" })
 				decline_reason: data.reason ?? null,
 			})
 			.eq("invitation_token", data.token)
+			.eq("status", "invited")
 			.select()
-			.single()
+			.maybeSingle()
 		if (error) throw new Error(error.message)
+		if (!result) throw new Error(INVITATION_UNAVAILABLE)
 		return result
 	})
 
@@ -578,18 +651,21 @@ export const getArticleReviewsFn = createServerFn({ method: "GET" })
  * porta genérica e ficam restritas ao revisor designado do assignment informado.
  */
 export const createReviewFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(ReviewInsertSchema)
 	.handler(async ({ data }) => {
-		const assignmentId = typeof data.assignment_id === "string" ? data.assignment_id : null
-		if (!assignmentId) forbidden("assignment_id é obrigatório.")
-		await requireAssignedReviewer(assignmentId)
-		const { data: result, error } = await getJournalServerClient().from("reviews").insert(data).select().single()
+		await requireAssignedReviewer(data.assignment_id)
+		const { assignment_id: assignmentId, ...content } = data
+		const { data: result, error } = await getJournalServerClient()
+			.from("reviews")
+			.insert({ ...content, assignment_id: assignmentId, is_draft: true })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
 export const updateReviewFn = createServerFn({ method: "POST" })
-	.validator(z.object({ reviewId: z.string(), updates: looseRecord }))
+	.validator(z.object({ reviewId: z.string(), updates: ReviewContentSchema }))
 	.handler(async ({ data }) => {
 		const { data: row } = await getJournalServerClient().from("reviews").select("assignment_id").eq("id", data.reviewId).maybeSingle()
 		if (!row?.assignment_id) forbidden("Parecer não encontrado.")
@@ -601,17 +677,19 @@ export const updateReviewFn = createServerFn({ method: "POST" })
 
 // Grava a review do assignment (update se já existir, insert caso contrário).
 // reviews.assignment_id não é UNIQUE, então upsert por PK duplicaria linhas — daí o select-then-write.
-async function writeReview(assignmentId: string, fields: Record<string, unknown>) {
+// `assignment_id` vai DEPOIS do spread: é o id autorizado, e o conteúdo não o sobrescreve.
+type ReviewContent = z.infer<typeof ReviewContentSchema>
+async function writeReview(assignmentId: string, fields: ReviewContent & { is_draft: boolean; submitted_at?: string }) {
 	const db = getJournalServerClient()
 	const { data: existing } = await db.from("reviews").select("id").eq("assignment_id", assignmentId).maybeSingle()
-	const query = existing ? db.from("reviews").update(fields).eq("id", existing.id) : db.from("reviews").insert({ assignment_id: assignmentId, ...fields })
+	const query = existing ? db.from("reviews").update(fields).eq("id", existing.id) : db.from("reviews").insert({ ...fields, assignment_id: assignmentId })
 	const { data: review, error } = await query.select().single()
 	if (error) throw new Error(error.message)
 	return review
 }
 
 export const submitReviewFn = createServerFn({ method: "POST" })
-	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
+	.validator(z.object({ assignmentId: z.string(), reviewData: ReviewContentSchema }))
 	.handler(async ({ data }) => {
 		await requireAssignedReviewer(data.assignmentId)
 		const db = getJournalServerClient()
@@ -635,7 +713,7 @@ export const submitReviewFn = createServerFn({ method: "POST" })
 			article_id: assignment.article_id,
 			user_id: assignment.reviewer_id,
 			event_type: "review_completed",
-			event_data: { recommendation: (data.reviewData as { recommendation?: string }).recommendation ?? null },
+			event_data: { recommendation: data.reviewData.recommendation ?? null },
 		})
 
 		return review
@@ -643,7 +721,7 @@ export const submitReviewFn = createServerFn({ method: "POST" })
 
 // Salva rascunho (is_draft) sem completar o assignment — pode ser chamado várias vezes.
 export const saveReviewDraftFn = createServerFn({ method: "POST" })
-	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
+	.validator(z.object({ assignmentId: z.string(), reviewData: ReviewContentSchema }))
 	.handler(async ({ data }) => {
 		await requireAssignedReviewer(data.assignmentId)
 		return writeReview(data.assignmentId, { ...data.reviewData, is_draft: true })
@@ -681,19 +759,24 @@ export const markNotificationAsReadFn = createServerFn({ method: "POST" })
 
 // ─── Journal Settings ─────────────────────────────────────────────────────────
 
+// Colunas listadas, sem `*`: a tabela guarda as credenciais do Crossref
+// (`crossref_username`/`crossref_password`), e este endpoint responde a anônimo.
+const PUBLIC_SETTINGS_COLUMNS =
+	"id, journal_name_pt, journal_name_en, issn_print, issn_online, publisher, doi_prefix, crossref_test_mode, default_review_deadline_days, min_reviewers_required, enable_double_blind, from_email, from_name, created_at, updated_at"
+
 /**
  * Configuração pública da revista (escopo, normas, prazos) — renderizada nas páginas
  * abertas do journal, antes de qualquer login.
  */
 // nosemgrep: server-fn-missing-auth-guard
 export const getJournalSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getJournalServerClient().from("journal_settings").select("*").limit(1).single()
+	const { data, error } = await getJournalServerClient().from("journal_settings").select(PUBLIC_SETTINGS_COLUMNS).limit(1).single()
 	if (error) throw new Error(error.message)
 	return data
 })
 
 export const updateJournalSettingsFn = createServerFn({ method: "POST" })
-	.validator(looseRecord)
+	.validator(JournalSettingsUpdateSchema)
 	.handler(async ({ data }) => {
 		// Inclui min_reviewers_required, que é o piso da decisão editorial de aceite.
 		await requireEditor()
@@ -710,7 +793,7 @@ export const updateJournalSettingsFn = createServerFn({ method: "POST" })
 export const loadDraftFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		await requireArticleAccess(data.articleId)
+		const access = await requireArticleAccess(data.articleId)
 		const db = getJournalServerClient()
 		const { data: article, error: articleError } = await db.from("articles").select("*").eq("id", data.articleId).single()
 		if (articleError) throw new Error(articleError.message)
@@ -720,7 +803,7 @@ export const loadDraftFn = createServerFn({ method: "GET" })
 			.eq("article_id", data.articleId)
 			.order("author_order", { ascending: true })
 		if (authorsError) throw new Error(authorsError.message)
-		return { article, authors: authors ?? [] }
+		return { article, authors: projectAuthorsForAccess(authors ?? [], access) }
 	})
 
 // Um check de permissão avaliado sobre um `userId` escolhido pelo cliente responde
@@ -735,18 +818,20 @@ export const canEditArticleFn = createServerFn({ method: "GET" })
 	})
 
 // `user_id` do evento vem da sessão: a timeline editorial é registro de auditoria, e
-// um autor de evento escolhido pelo cliente permite forjar quem fez o quê.
+// um autor de evento escolhido pelo cliente permite forjar quem fez o quê. Pelo mesmo
+// motivo o tipo é fechado e o registro manual é do editor: com `eventType` livre, o
+// autor gravava "review_completed"/"status_changed" na timeline do próprio artigo.
 export const createArticleEventFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			articleId: z.string(),
 			userId: z.string(),
-			eventType: z.string(),
-			eventData: looseRecord.optional(),
+			eventType: z.enum(MANUAL_ARTICLE_EVENT_TYPES),
+			eventData: ArticleEventDataSchema.optional(),
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireArticleOwnerOrEditor(data.articleId)
+		const userId = await requireEditor()
 		const { error } = await getJournalServerClient()
 			.from("article_events")
 			.insert({
@@ -1112,6 +1197,8 @@ export const resubmitRevisionFn = createServerFn({ method: "POST" })
 		const { data: article } = await db.from("articles").select("submitter_id, status").eq("id", data.articleId).single()
 		if (!article || article.submitter_id !== userId) forbidden("Você não tem acesso a este artigo.")
 		if (article.status !== "revision_requested") throw new Error("A submissão não está aguardando revisão do autor.")
+		const paths = [data.pdfPath, data.sourcePath].filter((path): path is string => !!path)
+		if (paths.some((path) => !isPathOfArticle(data.articleId, path))) forbidden("Arquivo fora do diretório do artigo.")
 
 		const { data: last } = await db
 			.from("article_versions")
@@ -1130,6 +1217,8 @@ export const resubmitRevisionFn = createServerFn({ method: "POST" })
 				version_label: `Revisão ${nextVersion - 1}`,
 				pdf_path: data.pdfPath,
 				source_path: data.sourcePath ?? null,
+				// NOT NULL na tabela: sem ele toda re-submissão morria no insert.
+				uploaded_by: userId,
 			})
 			.select()
 			.single()

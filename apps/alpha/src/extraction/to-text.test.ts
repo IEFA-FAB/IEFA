@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { pdfToSubmissionText } from "./to-text.ts"
+import { PdfTooLargeError, pdfToSubmissionText } from "./to-text.ts"
 
 /**
  * PDF mínimo válido, montado à mão: uma página com uma linha de texto. Serve para
@@ -58,5 +58,11 @@ describe("pdfToSubmissionText", () => {
 		const second = await pdfToSubmissionText(bytes)
 
 		expect(second.text).toBe(first.text)
+	})
+
+	it("recusa PDF acima do teto de páginas antes de extrair o texto", async () => {
+		// Página vazia comprime a quase nada: sem teto, milhares delas num upload pequeno
+		// prendiam o processo montando texto página a página.
+		await expect(pdfToSubmissionText(minimalPdf(), { maxPages: 0 })).rejects.toBeInstanceOf(PdfTooLargeError)
 	})
 })

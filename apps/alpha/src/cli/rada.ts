@@ -252,7 +252,9 @@ async function build(noOcr: boolean): Promise<void> {
 			continue
 		}
 
-		const extracted = await pdfToSubmissionText(bytes)
+		// Sem teto de páginas: o PDF vem do sítio do RADA-e, não de upload, e um módulo
+		// grande não pode ser recusado pelo limite pensado para documento enviado.
+		const extracted = await pdfToSubmissionText(bytes, { maxPages: Number.POSITIVE_INFINITY })
 		let pages = extracted.pages
 		let viaOcr = false
 

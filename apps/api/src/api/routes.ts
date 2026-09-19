@@ -118,7 +118,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				name: "order",
 				in: "query" as const,
 				schema: { type: "string" },
-				description: "Ordenação: coluna:asc/desc",
+				description: "Ordenação: coluna:asc/desc, só por colunas da resposta (no máximo 3)",
 			},
 		],
 		responses: {
@@ -127,6 +127,14 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				content: {
 					"application/json": {
 						schema: z.array(config.responseSchema),
+					},
+				},
+			},
+			400: {
+				description: "Parâmetro inválido — ordenação por coluna fora da resposta, ou colunas demais",
+				content: {
+					"application/json": {
+						schema: ErrorSchema,
 					},
 				},
 			},

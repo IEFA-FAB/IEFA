@@ -9,7 +9,8 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireSelf } from "@/lib/auth.server"
+import { forbidden, requireSelf, requireSubmitterArticle } from "@/lib/auth.server"
+import { isPathOfArticle } from "@/lib/journal/storage-paths"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 // ─── Shared schemas ───────────────────────────────────────────────────────────
@@ -61,16 +62,24 @@ export const saveDraftFn = createServerFn({ method: "POST" })
 		let id: string
 
 		if (articleId) {
-			// Update existing draft — only non-undefined fields
-			const { error } = await supabase
+			// Dono + rascunho ANTES de qualquer escrita. O `.eq("submitter_id")` do update
+			// sozinho não bastava: com artigo alheio o update casava zero linhas, sem erro, e
+			// a troca de autores logo abaixo apagava e regravava os coautores do artigo de outro.
+			await requireSubmitterArticle(articleId, ["draft"])
+			const { data: updated, error } = await supabase
 				.from("articles")
 				.update({
 					...fields,
 				})
 				.eq("id", articleId)
 				.eq("submitter_id", userId)
+				.eq("status", "draft")
+				.select("id")
+				.maybeSingle()
 
 			if (error) throw new Error(`saveDraft update: ${error.message}`)
+			// Submetido entre a checagem e o update: nada foi gravado, e os autores também não serão.
+			if (!updated) forbidden("O rascunho não pode mais ser alterado.")
 			id = articleId
 		} else {
 			// Create new draft
@@ -140,6 +149,11 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
 		// para que ninguém submeta, versione ou assine um manuscrito em nome de outro.
 		await requireSelf(data.userId)
 		const { articleId, userId, pdfPath, sourcePath, supplementaryPaths } = data
+		// A versão 1 é a do rascunho: só o submissor mexe nela, e só antes de submeter —
+		// sem isso qualquer sessão trocava o `pdf_path` do manuscrito de outro autor.
+		await requireSubmitterArticle(articleId, ["draft"])
+		const paths = [pdfPath, sourcePath, ...(supplementaryPaths ?? [])].filter((path): path is string => !!path)
+		if (paths.some((path) => !isPathOfArticle(articleId, path))) forbidden("Arquivo fora do diretório do artigo.")
 
 		// Check if version 1 already exists
 		const { data: existing } = await supabase.from("article_versions").select("id").eq("article_id", articleId).eq("version_number", 1).maybeSingle()
@@ -206,8 +220,13 @@ export const submitArticleFn = createServerFn({ method: "POST" })
 		// para que ninguém submeta, versione ou assine um manuscrito em nome de outro.
 		await requireSelf(data.userId)
 		const { articleId, userId, authors, has_ethics_approval, ethics_approval, ...fields } = data
+		// Só o submissor, e só a partir do rascunho: antes, qualquer sessão reescrevia e
+		// "submetia" qualquer artigo (inclusive um publicado, que voltava para a fila). A
+		// re-submissão de revisão tem fluxo próprio (`resubmitRevisionFn`).
+		await requireSubmitterArticle(articleId, ["draft"])
 
-		// Promote article to submitted
+		// Promote article to submitted — o filtro de dono/status no próprio UPDATE fecha a
+		// corrida com outra aba submetendo o mesmo rascunho.
 		const { data: article, error: articleError } = await supabase
 			.from("articles")
 			.update({
@@ -217,10 +236,13 @@ export const submitArticleFn = createServerFn({ method: "POST" })
 				submitted_at: new Date().toISOString(),
 			})
 			.eq("id", articleId)
+			.eq("submitter_id", userId)
+			.eq("status", "draft")
 			.select("id, submission_number")
-			.single()
+			.maybeSingle()
 
 		if (articleError) throw new Error(`submitArticle update: ${articleError.message}`)
+		if (!article) forbidden("A submissão já foi enviada ou não está mais em rascunho.")
 
 		// Replace authors
 		await supabase.from("article_authors").delete().eq("article_id", articleId)

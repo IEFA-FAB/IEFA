@@ -16,6 +16,7 @@
  */
 
 import type { AnalysisRun, GeneratedMessage } from "@iefa/database/sucont"
+import { forbidden } from "@iefa/pbac/start"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { applyMessageNumber, balanceGrainKey, dedupeBalanceGrain } from "#/auditor/services/dataProcessor"
@@ -57,6 +58,24 @@ const toPeriodDate = (period: string) => `${period}-01`
 const toPeriodMonth = (date: string) => date.slice(0, 7)
 
 const round2 = (value: number) => Math.round((Number(value) || 0) * 100) / 100
+
+type SucontServerClient = ReturnType<typeof getSucontServerClient>
+
+/**
+ * A rodada tem de ser do auditor E de quem a abriu.
+ *
+ * `runId` chega do cliente: sem esta checagem qualquer editor da SUCONT-4 reescrevia
+ * `records_count`/`summary` de uma rodada alheia — inclusive de OUTRA ferramenta, já
+ * que `analysis_run` é compartilhada — e carimbava saldos com a proveniência dela. No
+ * fluxo da tela o id é sempre o que `startAuditorRunFn` acabou de devolver ao
+ * próprio usuário, então nada legítimo cai aqui.
+ */
+async function requireOwnAuditorRun(client: SucontServerClient, runId: string, userId: string) {
+	const { data: run, error } = await client.from("analysis_run").select("tool, created_by, summary").eq("id", runId).maybeSingle()
+	if (error) throw new Error(error.message)
+	if (run?.tool !== "auditor" || run.created_by !== userId) forbidden("Rodada não encontrada ou aberta por outro usuário.")
+	return run
+}
 
 const grainKey = balanceGrainKey
 
@@ -143,6 +162,7 @@ export const saveAuditorBalancesFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<SaveBalancesResult> => {
 		const ctx = await requireEditor()
 		const client = getSucontServerClient()
+		if (data.runId) await requireOwnAuditorRun(client, data.runId, ctx.userId)
 
 		// Deduplica pelo grão ANTES de qualquer coisa — senão o Postgres aborta o lote
 		// inteiro com 21000. A regra vive em dataProcessor porque é pura e tem teste.
@@ -365,13 +385,12 @@ export const finalizeAuditorRunFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ ok: true }> => {
-		await requireEditor()
+		const ctx = await requireEditor()
 		const client = getSucontServerClient()
 
-		const { data: run, error: readError } = await client.from("analysis_run").select("summary").eq("id", data.runId).single()
-		if (readError) throw new Error(readError.message)
+		const run = await requireOwnAuditorRun(client, data.runId, ctx.userId)
 
-		const summary = { ...((run?.summary as Record<string, unknown> | null) ?? {}), status: data.status, error: data.error ?? null }
+		const summary = { ...((run.summary as Record<string, unknown> | null) ?? {}), status: data.status, error: data.error ?? null }
 
 		const { error } = await client
 			.from("analysis_run")

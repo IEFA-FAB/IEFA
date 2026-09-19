@@ -28,7 +28,7 @@ import { requireAnyPermission, requirePermission } from "../guards/require-permi
 import type { CreateStepTemplate, CreateUtensil, FetchRecipeFlow, ListStepTemplates, ListUtensils, SaveRecipeFlow } from "../schemas/recipe-flow.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
+import { containsPattern, insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 import { type DeclaredIngredient, type IngredientBalance, validateFlow } from "../utils/recipe-flow-graph.ts"
 import { remapRequirementStepBindings } from "./equipment.ts"
 
@@ -434,7 +434,7 @@ export async function listStepTemplates(db: SisubDb, ctx: UserContext, input: Li
 	} else {
 		conditions.push(isNull(stepTemplateInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(stepTemplateInKitchen.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(stepTemplateInKitchen.name, containsPattern(input.search)))
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.stepTemplateInKitchen.findMany({
@@ -490,7 +490,7 @@ export async function listUtensils(db: SisubDb, ctx: UserContext, input: ListUte
 	} else {
 		conditions.push(isNull(utensilInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(utensilInKitchen.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(utensilInKitchen.name, containsPattern(input.search)))
 
 	const rows = await runQuery("FETCH_FAILED", () => db.query.utensilInKitchen.findMany({ where: and(...conditions), orderBy: (t, { asc }) => [asc(t.name)] }))
 	return rows.map((r) => toWire<UtensilWire>(r, FLOW_RELATIONS))

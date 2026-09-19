@@ -94,6 +94,20 @@ export function parseOrderParam(v: string | null | undefined): OrderRule[] {
 		})
 }
 
+/**
+ * Colunas que a projeção (`select`) publica, sem aspas: `'id, "userId"'` → `["id", "userId"]`.
+ *
+ * É a allow-list padrão do `order` nas rotas do factory: ordenar por coluna FORA da projeção
+ * é ler um dado que a rota decidiu não publicar — a ordem das linhas revela a comparação.
+ * Item com embed, alias ou cast (`a:b`, `x(y)`, `c::text`) não entra: só coluna simples.
+ */
+export function projectedColumns(select: string): string[] {
+	return select
+		.split(",")
+		.map((item) => item.trim().replace(/^"(.*)"$/, "$1"))
+		.filter((item) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(item))
+}
+
 export function dayBounds(dateStr: string) {
 	const start = `${dateStr}T00:00:00.000`
 	const end = `${dateStr}T23:59:59.999`

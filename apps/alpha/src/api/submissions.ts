@@ -15,12 +15,36 @@ import { core, supabase } from "../db/supabase.ts"
 import { extractContratacao } from "../extraction/extract.ts"
 import { toSubmissionText } from "../extraction/to-text.ts"
 import { type AlphaAccess, coversUnit, READER_ROLES, unitsFor } from "../lib/alpha-access.ts"
+import { TextCache } from "../lib/text-cache.ts"
 import { canReadSubmission } from "./authorize.ts"
 import { SUBMISSION_BUCKET } from "./submission-bucket.ts"
+import { buildSubmissionStoragePath, MAX_SUBMISSION_BYTES, SUBMISSION_EXTENSIONS, sanitizeSubmissionFilename } from "./submission-file.ts"
 
-const ACCEPTED_MIME = new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/pdf"])
+const ACCEPTED_MIME = [...SUBMISSION_EXTENSIONS.keys()]
 
-const MAX_BYTES = 25 * 1024 * 1024
+const MAX_BYTES = MAX_SUBMISSION_BYTES
+
+/** Texto já extraído, por `storage_path` — ver `lib/text-cache.ts`. ~16 MB de texto no pior caso. */
+const submissionTexts = new TextCache(32, 8 * 1024 * 1024)
+
+/**
+ * Texto do documento: do cache, ou baixado e extraído. `null` = o download falhou.
+ * Erro de extração (arquivo corrompido, PDF acima do teto de páginas) propaga.
+ */
+async function loadSubmissionText(storagePath: string, mimeType: string): Promise<string | null> {
+	const cached = submissionTexts.get(storagePath)
+	if (cached !== undefined) return cached
+
+	const { data: download, error } = await supabase.storage.from(SUBMISSION_BUCKET).download(storagePath)
+	if (error || !download) {
+		if (error) console.error(`[submissions] download de ${JSON.stringify(storagePath)} falhou: ${error.message}`)
+		return null
+	}
+
+	const { text } = await toSubmissionText(new Uint8Array(await download.arrayBuffer()), mimeType)
+	submissionTexts.set(storagePath, text)
+	return text
+}
 
 const SubmissionFormSchema = z.object({
 	file: z.instanceof(File),
@@ -60,8 +84,10 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 
 		const { file, doc_kind, modalidade, objeto, unit_id } = c.req.valid("form")
 
-		if (!ACCEPTED_MIME.has(file.type)) {
-			return c.json({ error: "Unsupported Media Type", code: "UNSUPPORTED_FORMAT", accepted: [...ACCEPTED_MIME] }, 415)
+		// O caminho sai do MIME validado — nunca do nome enviado (ver `submission-file.ts`).
+		const storagePath = buildSubmissionStoragePath(user.id, file.type)
+		if (!storagePath) {
+			return c.json({ error: "Unsupported Media Type", code: "UNSUPPORTED_FORMAT", accepted: ACCEPTED_MIME }, 415)
 		}
 		if (file.size > MAX_BYTES) {
 			return c.json({ error: "Payload Too Large", code: "FILE_TOO_LARGE", max_bytes: MAX_BYTES }, 413)
@@ -75,17 +101,20 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		if (!unit || unit.is_training) return c.json({ error: "Unprocessable Entity", code: "UNIT_NOT_FOUND", message: "OM inexistente" }, 422)
 
 		const bytes = new Uint8Array(await file.arrayBuffer())
-		const storagePath = `${user.id}/${crypto.randomUUID()}-${file.name}`
 
 		const { error: uploadError } = await supabase.storage.from(SUBMISSION_BUCKET).upload(storagePath, bytes, { contentType: file.type, upsert: false })
-		if (uploadError) return c.json({ error: "Internal Server Error", code: "UPLOAD_FAILED", message: uploadError.message }, 500)
+		if (uploadError) {
+			// O detalhe do Storage (bucket, caminho, política) fica no log — o cliente recebe só o código.
+			console.error(`[submissions] upload de ${storagePath} falhou: ${uploadError.message}`)
+			return c.json({ error: "Internal Server Error", code: "UPLOAD_FAILED", message: "falha ao gravar o arquivo" }, 500)
+		}
 
 		const { data, error } = await supabase
 			.from("submission")
 			.insert({
 				user_id: user.id,
 				unit_id,
-				filename: file.name,
+				filename: sanitizeSubmissionFilename(file.name, file.type),
 				mime_type: file.type,
 				storage_path: storagePath,
 				doc_kind,
@@ -151,11 +180,9 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		if (error) return c.json({ error: "Internal Server Error", code: "SUBMISSION_LOOKUP_FAILED" }, 500)
 		if (!submission) return c.json({ error: "Not Found", code: "SUBMISSION_NOT_FOUND" }, 404)
 
-		const { data: download, error: downloadError } = await supabase.storage.from(SUBMISSION_BUCKET).download(submission.storage_path)
-		if (downloadError || !download) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
-
 		try {
-			const { text } = await toSubmissionText(new Uint8Array(await download.arrayBuffer()), submission.mime_type)
+			const text = await loadSubmissionText(submission.storage_path, submission.mime_type)
+			if (text === null) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
 			const result = await extractContratacao(text, submission.doc_kind)
 
 			const { data: extraction, error: insertError } = await supabase
@@ -180,8 +207,9 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 				201
 			)
 		} catch (extractionError) {
-			const message = extractionError instanceof Error ? extractionError.message : String(extractionError)
-			return c.json({ error: "Bad Gateway", code: "EXTRACTION_FAILED", message }, 502)
+			// A mensagem do provider pode trazer ARN de role, região e id de modelo — fica no log.
+			console.error(`[submissions] extração da submissão ${id} falhou:`, extractionError)
+			return c.json({ error: "Bad Gateway", code: "EXTRACTION_FAILED", message: "falha na extração do documento" }, 502)
 		}
 	})
 
@@ -214,9 +242,12 @@ export const submissionRoutes = new Hono<{ Variables: Variables }>()
 		const { data: submission } = await supabase.from("submission").select("storage_path, mime_type").eq("id", id).maybeSingle()
 		if (!submission) return c.json({ error: "Not Found", code: "SUBMISSION_NOT_FOUND" }, 404)
 
-		const { data: download } = await supabase.storage.from(SUBMISSION_BUCKET).download(submission.storage_path)
-		if (!download) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
-
-		const { text } = await toSubmissionText(new Uint8Array(await download.arrayBuffer()), submission.mime_type)
-		return c.json({ submission_id: id, text })
+		try {
+			const text = await loadSubmissionText(submission.storage_path, submission.mime_type)
+			if (text === null) return c.json({ error: "Internal Server Error", code: "DOWNLOAD_FAILED" }, 500)
+			return c.json({ submission_id: id, text })
+		} catch (extractionError) {
+			console.error(`[submissions] texto da submissão ${id} não extraído:`, extractionError)
+			return c.json({ error: "Unprocessable Entity", code: "TEXT_EXTRACTION_FAILED", message: "não foi possível ler o documento" }, 422)
+		}
 	})

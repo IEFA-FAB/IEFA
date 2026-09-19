@@ -33,7 +33,7 @@ interface ProfileFormProps {
 	userEmail?: string | null
 }
 
-export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
+export function ProfileForm({ profile, userEmail }: ProfileFormProps) {
 	const [isSaving, setIsSaving] = useState(false)
 	const [message, setMessage] = useState<{
 		type: "success" | "error"
@@ -76,15 +76,16 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							.filter(Boolean)
 					: []
 
+				// Sem `id` (vem da sessão) e sem `role`: o papel é do editor, e mandá-lo aqui —
+				// mesmo igual ao atual — faz o servidor recusar o upsert de quem não é editor.
+				// Perfil novo nasce `author` pelo default da coluna; o existente mantém o seu.
 				await upsertProfile.mutateAsync({
-					id: userId,
 					full_name: value.full_name,
 					affiliation: value.affiliation || null,
 					orcid: value.orcid || null,
 					bio: value.bio || null,
 					expertise: expertiseArray.length > 0 ? expertiseArray : null,
 					email_notifications: value.email_notifications,
-					role: profile?.role || "author", // Keep existing role or default to author
 				})
 
 				setMessage({

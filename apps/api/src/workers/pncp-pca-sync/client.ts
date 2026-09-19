@@ -53,6 +53,17 @@ export interface FetchPcaOptions {
 	retryDelaysMs?: readonly number[]
 }
 
+/**
+ * URL do CSV do PCA. O CNPJ e o ano são conferidos e codificados aqui, e não só na rota:
+ * interpolado cru, um `cnpj` como `../../outra/rota` reescrevia o caminho da chamada que o
+ * servidor faz ao PNCP.
+ */
+export function buildPcaCsvUrl(cnpj: string, ano: number): string {
+	if (!/^\d{14}$/.test(cnpj)) throw new RangeError("CNPJ inválido: esperados 14 dígitos")
+	if (!Number.isInteger(ano)) throw new RangeError("ano inválido")
+	return `${BASE_URL}/orgaos/${encodeURIComponent(cnpj)}/pca/${encodeURIComponent(String(ano))}/csv`
+}
+
 export interface PcaCsvResponse {
 	/** `null` quando a origem respondeu 204: o órgão não tem plano naquele ano. */
 	content: string | null
@@ -69,7 +80,7 @@ export interface PcaCsvResponse {
 export async function fetchPcaCsv(cnpj: string, ano: number, opts: FetchPcaOptions = {}): Promise<PcaCsvResponse> {
 	const delays = opts.retryDelaysMs ?? RETRY_BASE_DELAYS_MS
 	const maxAttempts = delays.length + 1
-	const url = `${BASE_URL}/orgaos/${cnpj}/pca/${ano}/csv`
+	const url = buildPcaCsvUrl(cnpj, ano)
 	let lastError: PncpUnavailableError | null = null
 
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {

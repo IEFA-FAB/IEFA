@@ -6,7 +6,7 @@
 import type { Database } from "@iefa/database"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { hasPermission } from "@iefa/pbac"
-import type { UserContext } from "@iefa/sisub-domain"
+import { QueryFailedError, type UserContext } from "@iefa/sisub-domain"
 import { dropUnexpectedNulls, enforcePayloadBudget } from "@iefa/sisub-domain/agent"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { ServerTool } from "@tanstack/ai"
@@ -84,29 +84,30 @@ export function requireUnitPermission(ctx: ToolContext, minLevel: number, scope?
 }
 
 /**
- * Gets the max permission level for a given module + optional scope.
+ * Maior nível do usuário num módulo (+ escopo opcional) — decide QUAIS tools o modelo recebe.
+ *
+ * O conjunto efetivo de permissões (`resolveUserPermissions`) traz os denies junto (`level 0`),
+ * e aqui eles valem como em `hasPermission`: deny sem escopo zera o módulo; deny escopado zera
+ * a consulta daquele escopo, mesmo contra um allow sem escopo. Sem isso, o allow global de
+ * quem teve a cozinha 7 negada ainda entregava ao modelo as tools de escrita nela.
  */
 export function getMaxLevel(permissions: UserPermission[], module: AppModule, scopeId?: number): number {
 	const scopeType = module === "kitchen" ? "kitchen" : module === "unit" ? "unit" : undefined
+	const isUnscoped = (p: UserPermission) => p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null
+	const matchesScope = (p: UserPermission) =>
+		scopeType != null && scopeId != null && (scopeType === "kitchen" ? p.kitchen_id === scopeId : p.unit_id === scopeId)
+
+	const ofModule = permissions.filter((p) => p.module === module)
+	for (const deny of ofModule) {
+		if (deny.level > 0) continue
+		if (isUnscoped(deny) || matchesScope(deny)) return 0
+	}
 
 	let maxLevel = 0
-	for (const p of permissions) {
-		if (p.module !== module) continue
+	for (const p of ofModule) {
+		if (p.level <= 0) continue
 
-		const isGlobal = p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null
-		if (isGlobal) {
-			maxLevel = Math.max(maxLevel, p.level)
-			continue
-		}
-
-		if (!scopeType || scopeId == null) {
-			maxLevel = Math.max(maxLevel, p.level)
-			continue
-		}
-
-		if (scopeType === "kitchen" && p.kitchen_id === scopeId) {
-			maxLevel = Math.max(maxLevel, p.level)
-		} else if (scopeType === "unit" && p.unit_id === scopeId) {
+		if (isUnscoped(p) || !scopeType || scopeId == null || matchesScope(p)) {
 			maxLevel = Math.max(maxLevel, p.level)
 		}
 	}
@@ -218,7 +219,17 @@ export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerToo
 		// Modelo manda `null` no lugar de omitir campo opcional. Onde o schema não previu
 		// isso, `null` é ausência — sem esta linha `safeInt(null)` viraria `0` calado.
 		const input = dropUnexpectedNulls(args as Record<string, unknown>, def.parameters)
-		const result = await def.handler(input, ctx)
+		const result = await def.handler(input, ctx).catch((error: unknown) => {
+			// Falha de banco vinda do domínio: a `message` traz SQL e parâmetros, e o texto do
+			// erro de tool volta INTEIRO para o modelo (que pode repeti-lo ao usuário). O
+			// diagnóstico fica no log; o modelo lê a mensagem pública.
+			if (error instanceof QueryFailedError) {
+				// biome-ignore lint/suspicious/noConsole: server-side error logging
+				console.error(`[module-chat:${def.name}]`, error.message)
+				throw new Error(error.publicMessage)
+			}
+			throw error
+		})
 		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
 
 		// Mesma rede de segurança do servidor MCP: falhar aqui devolve um erro de tool

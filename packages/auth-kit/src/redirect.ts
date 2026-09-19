@@ -15,7 +15,21 @@
  * ("/recipes/a%2Fb") continua passando — só o começo é que importa.
  */
 function looksInternal(value: string): boolean {
-	return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")
+	if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return false
+	// O parser de URL do navegador DESCARTA TAB/LF/CR em qualquer posição: "/\t/evil.com"
+	// passava pelas checagens acima e virava "//evil.com" no `window.location.assign`.
+	// Caractere de controle e barra invertida não têm uso legítimo num caminho
+	// de redirect — recusar qualquer um é mais simples do que prever o que o parser apaga.
+	for (const char of value) {
+		const code = char.charCodeAt(0)
+		if (code < 0x20 || code === 0x7f || char === "\\") return false
+	}
+	// Última palavra fica com o parser: o caminho tem de resolver para a própria origem.
+	try {
+		return new URL(value, "https://internal.invalid").origin === "https://internal.invalid"
+	} catch {
+		return false
+	}
 }
 
 /** `true` só para caminho interno — no valor cru e no decodificado. */

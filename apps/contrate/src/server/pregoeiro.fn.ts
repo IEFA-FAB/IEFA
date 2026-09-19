@@ -11,6 +11,7 @@ import type { Json, TablesInsert } from "@iefa/database/generated"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { forbidden, requireSelf, requireUserId } from "@/lib/auth.server"
+import { FacilityPayloadSchema, FacilityUpdateSchema } from "@/lib/pregoeiro-facility"
 import { getIefaServerClient } from "@/lib/supabase.server"
 
 // ─── Pregoeiro Preferences ────────────────────────────────────────────────────
@@ -65,28 +66,23 @@ export const upsertPreferencesFn = createServerFn({ method: "POST" })
 
 // ─── Facilities Pregoeiro (frases) ────────────────────────────────────────────
 
-const FacilityPayloadSchema = z.object({
-	phase: z.string(),
-	title: z.string(),
-	content: z.string(),
-	tags: z.array(z.string()).nullable(),
-	owner_id: z.string().nullable(),
-	default: z.boolean().nullable().optional(),
-})
-
 export const updateFacilityFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			id: z.string(),
 			ownerId: z.string(),
-			payload: FacilityPayloadSchema,
+			// Só o conteúdo: `owner_id` e `default` não são editáveis por aqui (ver o schema).
+			payload: FacilityUpdateSchema,
 		})
 	)
 	.handler(async ({ data }) => {
 		// O `eq("owner_id")` é a autorização da linha — por isso ele tem de vir da sessão,
 		// não do payload (senão basta informar o owner alheio para editar a frase dele).
 		const userId = await requireSelf(data.ownerId)
-		const { error } = await getIefaServerClient().from("facilities_pregoeiro").update(data.payload).eq("id", data.id).eq("owner_id", userId)
+		// Colunas nomeadas uma a uma, e não o payload espalhado: coluna nova no schema não
+		// vira campo gravável pela edição sem alguém decidir isso aqui.
+		const { phase, title, content, tags } = data.payload
+		const { error } = await getIefaServerClient().from("facilities_pregoeiro").update({ phase, title, content, tags }).eq("id", data.id).eq("owner_id", userId)
 		if (error) throw new Error(error.message)
 	})
 

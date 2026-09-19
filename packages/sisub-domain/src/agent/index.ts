@@ -56,3 +56,5 @@ export {
 	AgentListRecipesSchema,
 	AgentRecipeEquipmentSchema,
 } from "./schemas.ts"
+export type { AgentApplyTemplate, AgentApplyTemplateResult } from "./templates.ts"
+export { AGENT_APPLY_TEMPLATE_MAX_DATES, AgentApplyTemplateSchema, agentApplyTemplate } from "./templates.ts"

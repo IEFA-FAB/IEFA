@@ -383,11 +383,25 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 			temperature_ack_at: outOfRange ? new Date().toISOString() : null,
 		}
 
-		const query = data.lotId ? inv.from("goods_receipt_item_lot").update(payload).eq("id", data.lotId) : inv.from("goods_receipt_item_lot").insert(payload)
-		const { error } = await query
-		if (error) {
-			if (error.code === "23505") throw new Error(`Lote "${data.lotCode}" já lançado nesta linha`)
-			throw new Error(`Erro ao gravar lote: ${error.message}`)
+		const lotError = (error: { code?: string; message: string }): Error =>
+			error.code === "23505" ? new Error(`Lote "${data.lotCode}" já lançado nesta linha`) : new Error(`Erro ao gravar lote: ${error.message}`)
+
+		if (data.lotId) {
+			// O lote é localizado pelo PAR (lote, linha) — a mesma amarração do delete abaixo. A
+			// autorização acima vale para `receiptItemId`; filtrar só por `lotId` deixava quem
+			// tem um recebimento aberto reescrever (e mover para a sua linha) o lote de qualquer
+			// outro recebimento, de qualquer cozinha, só sabendo o UUID.
+			const { data: updated, error } = await inv
+				.from("goods_receipt_item_lot")
+				.update(payload)
+				.eq("id", data.lotId)
+				.eq("receipt_item_id", data.receiptItemId)
+				.select("id")
+			if (error) throw lotError(error)
+			if (!updated || updated.length === 0) throw new Error("Lote não encontrado nesta linha do recebimento")
+		} else {
+			const { error } = await inv.from("goods_receipt_item_lot").insert(payload)
+			if (error) throw lotError(error)
 		}
 		return { verdict, outOfRange }
 	})

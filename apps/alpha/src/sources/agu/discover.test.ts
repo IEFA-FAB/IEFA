@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test"
-import { collectItemsFromHtml, MIN_EXPECTED_MODELS, UNVERSIONED_LABEL } from "./discover.ts"
+import { describe, expect, spyOn, test } from "bun:test"
+import { collectItemsFromHtml, fetchFromAgu, isAllowedAguUrl, MIN_EXPECTED_MODELS, UNVERSIONED_LABEL } from "./discover.ts"
 import { parseVersionFromUrl, stripVersionFromUrl } from "./version.ts"
 
 const BASE_URL = "https://www.gov.br/agu/pt-br/composicao/cgu/cgu/modelos/licitacoesecontratos/14133"
@@ -104,5 +104,41 @@ describe("título extraído do HTML", () => {
 		expect(report.items).toHaveLength(1)
 		expect(report.items[0].title).not.toContain("<")
 		expect(report.items[0].title).not.toContain(">")
+	})
+})
+
+describe("hosts permitidos", () => {
+	test("link de .docx para fora da AGU não vira item — fica relatado", () => {
+		const html = [
+			'<a href="https://www.gov.br/agu/x/modelo-abr-26.docx">Modelo</a>',
+			'<a href="http://169.254.169.254/latest/meta-data/x.docx">Metadata</a>',
+			'<a href="https://evil.example/agu/modelo-abr-26.docx">Fora</a>',
+			'<a href="https://www.gov.br.evil.example/modelo-abr-26.docx">Parecido</a>',
+		].join("")
+		const report = collectItemsFromHtml([{ url: "https://www.gov.br/agu/x", html }], "https://www.gov.br/agu")
+
+		expect(report.items.map((item) => item.fetch_url)).toEqual(["https://www.gov.br/agu/x/modelo-abr-26.docx"])
+		expect(report.offHost).toHaveLength(3)
+	})
+
+	test("isAllowedAguUrl exige https e host exato", () => {
+		expect(isAllowedAguUrl("https://www.gov.br/agu/a.docx")).toBe(true)
+		expect(isAllowedAguUrl("http://www.gov.br/agu/a.docx")).toBe(false)
+		expect(isAllowedAguUrl("https://user@www.gov.br/agu/a.docx")).toBe(false)
+		expect(isAllowedAguUrl("/agu/a.docx")).toBe(false)
+	})
+
+	test("redirecionamento para fora da AGU é recusado, não seguido", async () => {
+		const calls: string[] = []
+		const fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async (input: string | URL | Request) => {
+			calls.push(String(input))
+			return new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } })
+		}) as typeof fetch)
+		try {
+			await expect(fetchFromAgu("https://www.gov.br/agu/a.docx")).rejects.toThrow(/host fora da lista/)
+			expect(calls).toEqual(["https://www.gov.br/agu/a.docx"])
+		} finally {
+			fetchSpy.mockRestore()
+		}
 	})
 })

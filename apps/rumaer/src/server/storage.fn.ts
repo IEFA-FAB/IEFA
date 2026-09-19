@@ -15,6 +15,14 @@ import { getRumaerServerClient } from "@/lib/supabase.server"
 const BUCKET = "rumaer-uniforms"
 
 /**
+ * Validade da URL assinada de download, em segundos. O endpoint é público: sem teto,
+ * quem chama pede `expiresIn` de anos e fica com um link permanente para a imagem —
+ * que continua valendo mesmo depois de a imagem sair do catálogo.
+ */
+const SIGNED_URL_DEFAULT_SECONDS = 3600
+const SIGNED_URL_MAX_SECONDS = 3600
+
+/**
  * O download é público de propósito (a app é uma consulta aberta de uniformes), mas
  * assinar QUALQUER caminho que chegue no payload transforma isto num oráculo de
  * assinatura para o bucket inteiro — inclusive rascunhos ainda não publicados e
@@ -36,12 +44,12 @@ async function assertKnownImagePath(imagePath: string): Promise<void> {
 // Download público, porém restrito a imagens catalogadas — ver assertKnownImagePath.
 // nosemgrep: server-fn-missing-auth-guard
 export const getSignedImageUrlFn = createServerFn({ method: "GET" })
-	.validator(z.object({ imagePath: z.string().min(1), expiresIn: z.number().optional() }))
+	.validator(z.object({ imagePath: z.string().min(1), expiresIn: z.number().int().min(60).max(SIGNED_URL_MAX_SECONDS).optional() }))
 	.handler(async ({ data }): Promise<string> => {
 		await assertKnownImagePath(data.imagePath)
 		const { data: result, error } = await getRumaerServerClient()
 			.storage.from(BUCKET)
-			.createSignedUrl(data.imagePath, data.expiresIn ?? 3600)
+			.createSignedUrl(data.imagePath, data.expiresIn ?? SIGNED_URL_DEFAULT_SECONDS)
 		if (error) throw new Error(error.message)
 		return result.signedUrl
 	})
@@ -99,7 +107,7 @@ export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
 		const unique = [...byPath.keys()]
 		if (unique.length === 0) return []
 
-		const { data: signed, error: signError } = await supabase.storage.from(BUCKET).createSignedUrls(unique, 3600)
+		const { data: signed, error: signError } = await supabase.storage.from(BUCKET).createSignedUrls(unique, SIGNED_URL_DEFAULT_SECONDS)
 		if (signError) throw new Error(signError.message)
 
 		const images: UniformPreviewImage[] = []

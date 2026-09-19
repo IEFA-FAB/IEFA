@@ -53,8 +53,9 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 		try {
 			return c.json(await runCompliance(submission_id, extraction_id), 201)
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			return c.json({ error: "Bad Gateway", code: "COMPLIANCE_RUN_FAILED", message }, 502)
+			// Erro de provider traz ARN de role, região e id de modelo — fica no log, não na resposta.
+			console.error(`[compliance] execução da submissão ${submission_id} falhou:`, error)
+			return c.json({ error: "Bad Gateway", code: "COMPLIANCE_RUN_FAILED", message: "falha na verificação de conformidade" }, 502)
 		}
 	})
 
@@ -124,8 +125,8 @@ export const complianceRoutes = new Hono<{ Variables: Variables }>()
 
 			return c.json({ rule_id: id, verdict, guard })
 		} catch (evaluationError) {
-			const message = evaluationError instanceof Error ? evaluationError.message : String(evaluationError)
-			return c.json({ error: "Bad Gateway", code: "RULE_EVALUATION_FAILED", message }, 502)
+			console.error(`[compliance] avaliação da regra ${rule.id} falhou:`, evaluationError)
+			return c.json({ error: "Bad Gateway", code: "RULE_EVALUATION_FAILED", message: "falha na avaliação da regra" }, 502)
 		}
 	})
 

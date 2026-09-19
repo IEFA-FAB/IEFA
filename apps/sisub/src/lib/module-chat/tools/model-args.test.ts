@@ -36,7 +36,16 @@ function ctx(permissions: UserPermission[] = []): ToolContext {
 	}
 }
 
-type JsonProp = { type?: unknown; format?: string; enum?: unknown[]; anyOf?: { type?: unknown }[]; oneOf?: { type?: unknown }[] }
+type JsonProp = {
+	type?: unknown
+	format?: string
+	pattern?: string
+	enum?: unknown[]
+	anyOf?: { type?: unknown }[]
+	oneOf?: { type?: unknown }[]
+	items?: JsonProp
+	minItems?: number
+}
 type JsonSchema = { properties?: Record<string, JsonProp>; required?: string[] }
 type JsonSchemaNode = JsonProp & { properties?: Record<string, JsonSchemaNode>; items?: JsonSchemaNode; required?: string[] }
 
@@ -58,7 +67,9 @@ function sampleFor(prop: JsonProp): unknown {
 		case "boolean":
 			return true
 		case "array":
-			return []
+			// Array obrigatório com mínimo (`targetDates` de `apply_template`) recebe itens
+			// plausíveis — vazio seria rejeitado pelo contrato, não pelo tratamento de `null`.
+			return Array.from({ length: prop.minItems ?? 0 }, () => sampleFor(prop.items ?? {}))
 		case "object":
 			return {}
 		default:

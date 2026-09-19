@@ -13,6 +13,7 @@
 
 import {
 	dailyMenuInKitchen,
+	mealTypeInKitchen,
 	menuItemsInKitchen,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
@@ -206,6 +207,54 @@ export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: Get
 	return items.sort(compareTemplateItems)
 }
 
+/**
+ * Um template só referencia receita e tipo de refeição do PRÓPRIO escopo: globais (servem a
+ * qualquer um) ou da mesma cozinha do template. Template global, então, só aceita globais.
+ *
+ * Sem isto a escrita confiava nos ids que chegavam no input: um `kitchen:2` da cozinha A
+ * gravava no próprio template a receita local da cozinha B — e `get_template_items` /
+ * `applyTemplate` passavam a entregar a ficha de B (inclusive o snapshot com ingredientes)
+ * a quem só tem A. A FK não pega isso: ela só confere que o id existe.
+ *
+ * Mesma regra que `validateRecipeAccess` aplica ao item de cardápio.
+ */
+async function assertTemplateContentInScope(
+	db: SisubDb,
+	templateKitchenId: number | null,
+	items: readonly TemplateItem[] | undefined,
+	meals: readonly TemplateMeal[] | undefined
+): Promise<void> {
+	const recipeIds = [...new Set((items ?? []).map((i) => i.recipeId))]
+	const mealTypeIds = [...new Set([...(items ?? []).map((i) => i.mealTypeId), ...(meals ?? []).map((m) => m.mealTypeId)])]
+
+	const [recipes, mealTypes] = await Promise.all([
+		recipeIds.length > 0
+			? runQuery("FETCH_FAILED", () =>
+					db.select({ id: recipesInKitchen.id, kitchenId: recipesInKitchen.kitchenId }).from(recipesInKitchen).where(inArray(recipesInKitchen.id, recipeIds))
+				)
+			: Promise.resolve([]),
+		mealTypeIds.length > 0
+			? runQuery("FETCH_FAILED", () =>
+					db
+						.select({ id: mealTypeInKitchen.id, kitchenId: mealTypeInKitchen.kitchenId })
+						.from(mealTypeInKitchen)
+						.where(inArray(mealTypeInKitchen.id, mealTypeIds))
+				)
+			: Promise.resolve([]),
+	])
+
+	const inScope = (kitchenId: number | null) => kitchenId === null || kitchenId === templateKitchenId
+	const recipeOwner = new Map(recipes.map((r) => [r.id, r.kitchenId]))
+	for (const id of recipeIds) {
+		// Mesmo erro para "não existe" e "é de outra cozinha": sondar id não distingue os dois.
+		if (!recipeOwner.has(id) || !inScope(recipeOwner.get(id) ?? null)) throw new NotFoundError("recipe", id)
+	}
+	const mealTypeOwner = new Map(mealTypes.map((m) => [m.id, m.kitchenId]))
+	for (const id of mealTypeIds) {
+		if (!mealTypeOwner.has(id) || !inScope(mealTypeOwner.get(id) ?? null)) throw new NotFoundError("meal_type", id)
+	}
+}
+
 function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInKitchen.$inferInsert)[] {
 	return items.map((item, index) => ({
 		menuTemplateId: templateId,
@@ -235,6 +284,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 
 	const items = input.items ?? []
 	const meals = input.meals ?? []
+	await assertTemplateContentInScope(db, input.kitchenId ?? null, items, meals)
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -488,6 +538,11 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 	}
 
 	requireAssetWriteForScope(ctx, targetKitchenId)
+
+	// O escopo do template que será GRAVADO: o local in-place mantém a cozinha dele; o global
+	// editado pela SDAB fica global; o fork nasce na cozinha do contexto. Nos três casos,
+	// `targetKitchenId` (o mismatch com um local foi recusado acima).
+	await assertTemplateContentInScope(db, targetKitchenId, input.items, input.meals)
 
 	// Template local, ou template global editado pela própria SDAB: edição in-place.
 	if (source.kitchen_id !== null || targetKitchenId === null) {

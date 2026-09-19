@@ -7,20 +7,32 @@
  * REGRA `/**` (a única que cobre todo request de página).
  *
  * Escopo: apps SSR servidos pelo próprio runtime Nitro. Fora dele de propósito:
- *   - sucont  — sem bloco routeRules (dívida separada);
  *   - docs    — estático em S3/CloudFront, headers vivem na distribuição (infra).
  *
- * Não valida CSP: ela precisa da própria mudança testada por app (script inline
- * de tema, Faro, Supabase, endpoints do Grafana) e não entrou na baseline.
+ * CSP: a baseline cobre só as diretivas que não tocam script/estilo/imagem
+ * (`frame-ancestors`, `base-uri`, `object-src`, `form-action`) — o gate cobra essas
+ * quatro. `script-src`/`img-src`/`connect-src` precisam da própria mudança testada
+ * por app (script inline do TanStack Start e de tema, Faro, Supabase, imagem
+ * externa) e não entraram.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 const REPO_ROOT = join(import.meta.dir, "..")
 
-const SSR_APPS = ["sisub", "portal", "rumaer", "forms", "assignment-selection", "contrate"] as const
+const SSR_APPS = ["sisub", "portal", "rumaer", "forms", "assignment-selection", "contrate", "sucont"] as const
 
-const REQUIRED_HEADERS = ["strict-transport-security", "x-frame-options", "x-content-type-options", "referrer-policy", "permissions-policy"] as const
+const REQUIRED_HEADERS = [
+	"strict-transport-security",
+	"x-frame-options",
+	"x-content-type-options",
+	"referrer-policy",
+	"permissions-policy",
+	"content-security-policy",
+] as const
+
+/** Diretivas que a CSP da baseline tem de carregar — as que não quebram script, estilo nem imagem. */
+const REQUIRED_CSP_DIRECTIVES = ["frame-ancestors 'self'", "base-uri 'self'", "object-src 'none'", "form-action 'self'"] as const
 
 /**
  * Extrai o corpo `{...}` da route rule `/**` por casamento de chaves a partir da
@@ -63,6 +75,13 @@ for (const app of SSR_APPS) {
 	const missing = REQUIRED_HEADERS.filter((h) => !body.includes(`"${h}"`))
 	if (missing.length > 0) {
 		failures.push(`${app}: headers de segurança ausentes na route rule "/**": ${missing.join(", ")}`)
+	}
+	const csp = /"content-security-policy":\s*"([^"]*)"/.exec(body)?.[1]
+	if (csp !== undefined) {
+		const missingDirectives = REQUIRED_CSP_DIRECTIVES.filter((d) => !csp.includes(d))
+		if (missingDirectives.length > 0) {
+			failures.push(`${app}: CSP da route rule "/**" sem as diretivas: ${missingDirectives.join("; ")}`)
+		}
 	}
 }
 

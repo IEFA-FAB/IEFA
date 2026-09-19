@@ -13,6 +13,7 @@ import { isInflow } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { assertNoBlindCountHides, hiddenByBlindCount } from "@/lib/blind-count.server"
+import { csvRow } from "@/lib/csv"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -210,25 +211,29 @@ export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 			}
 		}
 
-		const esc = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`
-		const lines = [["catmat_codigo", "catmat_descricao", "item", "unidade", "saldo_inicial", "entradas", "saidas", "saldo_final", "valor_final"].join(";")]
+		// `csvRow` neutraliza fórmula além de escapar aspas: descrição de CATMAT e de item são
+		// texto de sistema externo/usuário, e a planilha executaria um `=` no início.
+		const lines = [csvRow(["catmat_codigo", "catmat_descricao", "item", "unidade", "saldo_inicial", "entradas", "saidas", "saldo_final", "valor_final"], ";")]
 		// itens COM catmat primeiro; sem catmat em seção separada no fim (spec)
 		const withCatmat = balancete.filter((row) => row.ingredientId != null && catmatByIngredient.get(row.ingredientId)?.codigo != null)
 		const withoutCatmat = balancete.filter((row) => !(row.ingredientId != null && catmatByIngredient.get(row.ingredientId)?.codigo != null))
 		for (const row of [...withCatmat, ...withoutCatmat]) {
 			const catmat = row.ingredientId ? catmatByIngredient.get(row.ingredientId) : null
 			lines.push(
-				[
-					catmat?.codigo ?? "",
-					esc(catmat?.descricao ?? (catmat?.codigo == null ? "SEM CATMAT" : "")),
-					esc(row.description),
-					row.measureUnit ?? "",
-					row.openQty.toFixed(4),
-					row.inQty.toFixed(4),
-					row.outQty.toFixed(4),
-					row.finalQty.toFixed(4),
-					row.finalVal.toFixed(4),
-				].join(";")
+				csvRow(
+					[
+						catmat?.codigo ?? "",
+						catmat?.descricao ?? (catmat?.codigo == null ? "SEM CATMAT" : ""),
+						row.description,
+						row.measureUnit ?? "",
+						row.openQty.toFixed(4),
+						row.inQty.toFixed(4),
+						row.outQty.toFixed(4),
+						row.finalQty.toFixed(4),
+						row.finalVal.toFixed(4),
+					],
+					";"
+				)
 			)
 		}
 		return lines.join("\n")

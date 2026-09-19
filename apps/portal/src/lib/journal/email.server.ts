@@ -13,6 +13,7 @@
 import { LEGAL_CONTACT_EMAIL } from "@iefa/legal-kit/contact"
 import { createClient } from "@supabase/supabase-js"
 import { envServer } from "@/lib/env.server"
+import { renderHtmlTemplate, renderSubjectTemplate } from "./email-render"
 
 /**
  * Nomes que existem em `journal.email_templates` (semeados em
@@ -27,11 +28,6 @@ function journalDb() {
 		db: { schema: "journal" },
 		auth: { persistSession: false },
 	})
-}
-
-/** Substituição simples de {{chave}} pelos valores fornecidos. */
-function render(template: string, vars: Record<string, string>): string {
-	return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key) => vars[key] ?? "")
 }
 
 // Defaults apontam para endereços que existem. O anterior remetia de
@@ -69,8 +65,10 @@ export async function sendJournalEmail(input: SendJournalEmailInput): Promise<bo
 
 		const lang = input.lang ?? "pt"
 		const vars = { app_url: PORTAL_URL, ...(input.vars ?? {}) }
-		const subject = render(lang === "en" ? (template.subject_en ?? template.subject_pt) : template.subject_pt, vars)
-		const body = render(lang === "en" ? (template.body_en ?? template.body_pt) : template.body_pt, vars)
+		// Os valores vêm de texto digitado pelo autor (título, resumo, nome): escapados antes
+		// de entrar no `html:` — ver email-render.ts.
+		const subject = renderSubjectTemplate(lang === "en" ? (template.subject_en ?? template.subject_pt) : template.subject_pt, vars)
+		const body = renderHtmlTemplate(lang === "en" ? (template.body_en ?? template.body_pt) : template.body_pt, vars)
 
 		const res = await fetch("https://api.resend.com/emails", {
 			method: "POST",

@@ -594,12 +594,22 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db
 			.from("questionnaire_response")
-			.select("respondent_id, status")
+			.select("respondent_id, status, questionnaire_id")
 			.eq("id", questionnaire_response_id)
 			.single()
 		if (sessionError) throw new Error(sessionError.message)
 		if (session.respondent_id !== user.id || session.status !== "draft") {
 			throw new Error("Sem permissão para alterar esta resposta")
+		}
+
+		// A pergunta tem de ser do questionário desta sessão. Sem isto a resposta de
+		// um questionário carregava linhas de perguntas de outro — que apareciam na
+		// versão enviada e em qualquer leitura que junte `response` por pergunta.
+		const { data: question, error: questionError } = await db.from("question").select("section_id").eq("id", question_id).maybeSingle()
+		if (questionError) throw new Error(questionError.message)
+		const questionQuestionnaireId = question ? await getQuestionnaireIdBySectionId(db, question.section_id) : null
+		if (questionQuestionnaireId !== session.questionnaire_id) {
+			throw new Error("Pergunta não pertence a este questionário")
 		}
 
 		const { data, error } = await db

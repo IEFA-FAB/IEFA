@@ -69,7 +69,7 @@ import {
 	resolveUnitRoleIds,
 	selectConcurrentRequirements,
 } from "../utils/equipment-matching.ts"
-import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
+import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
 import { computeStepLevels, type FlowGraphStep } from "../utils/recipe-flow-graph.ts"
 import { type EquipmentIssueWire, loadKitchenIssues } from "./equipment-maintenance.ts"
 
@@ -166,7 +166,7 @@ export async function listEquipmentRoles(db: SisubDb, ctx: UserContext, input: L
 
 	const filters: SQL[] = [isNull(equipmentRoleInKitchen.deletedAt)]
 	if (input.category != null) filters.push(eq(equipmentRoleInKitchen.category, input.category))
-	if (input.search) filters.push(ilike(equipmentRoleInKitchen.name, `%${input.search}%`))
+	if (input.search) filters.push(ilike(equipmentRoleInKitchen.name, containsPattern(input.search)))
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
@@ -332,7 +332,7 @@ export async function listEquipmentModels(db: SisubDb, ctx: UserContext, input: 
 			? or(isNull(equipmentModelInKitchen.kitchenId), eq(equipmentModelInKitchen.kitchenId, input.kitchenId))
 			: isNull(equipmentModelInKitchen.kitchenId)
 	const filters: (SQL | undefined)[] = [isNull(equipmentModelInKitchen.deletedAt), scope]
-	if (input.search) filters.push(ilike(equipmentModelInKitchen.name, `%${input.search}%`))
+	if (input.search) filters.push(ilike(equipmentModelInKitchen.name, containsPattern(input.search)))
 
 	if (input.roleId != null) {
 		const withRole = await runQuery("FETCH_FAILED", () =>

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useMfaOverview, useVerifyMfaChallenge } from "@/hooks/data/useMfa"
 import { MFA_AVAILABLE } from "@/lib/assurance/mfa-availability"
 import { readableMfaError, verificationCodeErrorMessage } from "@/lib/mfa-messages"
+import { sameOriginDestination } from "@/lib/same-origin-destination"
 
 /**
  * Segundo passo do login: o código de 6 dígitos do aplicativo autenticador.
@@ -44,7 +45,10 @@ function ChallengePage() {
 
 	const factors = overview?.factors ?? []
 	const factorId = selectedFactorId ?? factors[0]?.id ?? null
-	const destination = search.redirect || "/hub"
+	// Segunda trava no sumidouro: `location.assign` aceita qualquer origem, então o destino é
+	// resolvido contra a origem atual e só vale se continuar nela. Função, e não constante do
+	// render: a página também renderiza no servidor, onde não há `window`.
+	const goToDestination = () => window.location.assign(sameOriginDestination(search.redirect, window.location.origin))
 
 	const handleSubmit = async (event: React.FormEvent) => {
 		event.preventDefault()
@@ -55,7 +59,7 @@ function ChallengePage() {
 			// Navegação de página INTEIRA, e não `navigate()`: a verificação emitiu tokens novos
 			// nos cookies, e o client do navegador ainda tem a sessão antiga em memória. Só um
 			// boot novo o faz reler os cookies.
-			window.location.assign(destination)
+			goToDestination()
 		} catch (caught) {
 			const attempts = failedAttempts + 1
 			setFailedAttempts(attempts)
@@ -91,7 +95,7 @@ function ChallengePage() {
 					{!isLoading && !overviewError && factors.length === 0 && (
 						<div className="space-y-4">
 							<p className="text-body text-muted-foreground">Nenhum dispositivo de verificação está cadastrado nesta conta.</p>
-							<Button onClick={() => window.location.assign(destination)}>Continuar</Button>
+							<Button onClick={goToDestination}>Continuar</Button>
 						</div>
 					)}
 
