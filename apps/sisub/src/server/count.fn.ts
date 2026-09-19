@@ -107,6 +107,12 @@ interface CountSheetLine {
 	needsRecount: boolean | null
 	found: boolean
 	notCountedAccepted: boolean
+	/**
+	 * A linha é DESTA rodada. Numa recontagem, a folha mostra também as linhas
+	 * que ficaram com a rodada anterior (é o conjunto que a aprovação lança),
+	 * mas elas não aceitam lançamento, marcação nem recontagem daqui.
+	 */
+	ownRound: boolean
 }
 
 type CountLineRow = {
@@ -151,6 +157,13 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 
 		const finished = ["approved", "rejected", "expired"].includes(String(count.status))
 		const isManager = hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })
+		// A rodada SUBSTITUÍDA pela recontagem não se abre para o nível 2 enquanto
+		// a recontagem corre: ali estão as quantidades que a rodada anterior deu —
+		// e, se ela não era cega, o saldo — e a recontagem é cega justamente para
+		// quem reconta não confirmar o número de antes.
+		if (count.status === "recount" && !isManager) {
+			throw new Error("Esta rodada foi substituída pela recontagem e fica disponível ao nível 3 até o fim da contagem")
+		}
 		const reveal = !count.blind || finished || isManager
 
 		const rows = await readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
@@ -255,6 +268,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 				needsRecount: verdict?.needsRecount ?? null,
 				found: scopeItem?.found ?? false,
 				notCountedAccepted: row.accepted_not_counted,
+				ownRound: row.owner_count_id === data.countId,
 			}
 		})
 
@@ -264,7 +278,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 			reveal,
 			lines,
 			scopeItems: scope.length,
-			notCounted: lines.filter((line) => line.entries === 0 && !line.notCountedAccepted).length,
+			notCounted: lines.filter((line) => line.ownRound && line.entries === 0 && !line.notCountedAccepted).length,
 		}
 	})
 
@@ -426,11 +440,16 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 		if (!count) throw new Error("Contagem não encontrada")
 		await requireStorageForKitchen(3, Number(count.kitchen_id))
 
-		let query = inv.from("count_scope_item").update({ not_counted_accepted: data.accepted }).eq("count_id", data.countId)
-		query = data.ingredientId ? query.eq("ingredient_id", data.ingredientId) : query.eq("frozen_preparation_id", data.frozenPreparationId)
-		const { data: updated, error } = await query.select("id")
+		// pela função do banco: ela trava a CONTAGEM antes da linha do escopo, a
+		// ordem de todo o resto; o UPDATE direto invertia e dava deadlock com a
+		// aprovação
+		const { error } = await inv.rpc("set_not_counted_accepted", {
+			p_count_id: data.countId,
+			p_ingredient_id: data.ingredientId ?? null,
+			p_frozen_preparation_id: data.frozenPreparationId ?? null,
+			p_accepted: data.accepted,
+		})
 		if (error) throw new Error(`Erro ao marcar o item: ${error.message}`)
-		if ((updated ?? []).length === 0) throw new Error("O item não está no escopo desta contagem")
 		return { accepted: data.accepted }
 	})
 
@@ -462,7 +481,16 @@ export const reviewInventoryCountFn = createServerFn({ method: "POST" })
  * anterior em `recount` sem filha, e dois cliques abriam duas filhas.
  */
 export const openRecountFn = createServerFn({ method: "POST" })
-	.validator(z.object({ countId: z.uuid(), ingredientIds: z.array(z.uuid()).min(1).max(500) }))
+	.validator(
+		z
+			.object({
+				countId: z.uuid(),
+				ingredientIds: z.array(z.uuid()).max(500).default([]),
+				// preparação congelada divergente também se reconta — ficava de fora
+				frozenPreparationIds: z.array(z.uuid()).max(500).default([]),
+			})
+			.refine((value) => value.ingredientIds.length + value.frozenPreparationIds.length > 0, { message: "Escolha os itens a recontar" })
+	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id, round").eq("id", data.countId).maybeSingle()
@@ -473,6 +501,7 @@ export const openRecountFn = createServerFn({ method: "POST" })
 		const { data: created, error } = await inv.rpc("open_recount", {
 			p_count_id: data.countId,
 			p_ingredient_ids: [...new Set(data.ingredientIds)],
+			p_frozen_preparation_ids: [...new Set(data.frozenPreparationIds)],
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao abrir a recontagem: ${error.message}`)

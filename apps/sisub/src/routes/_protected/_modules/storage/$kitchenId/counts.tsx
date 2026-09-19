@@ -152,7 +152,8 @@ function CountsPage() {
 	const open = sheet?.count.status === "counting"
 	const scannedInScope = scanned != null && (sheet?.lines ?? []).some((line) => line.ingredientId === scanned.ingredientId)
 	const inReview = sheet?.count.status === "review"
-	const divergent = (sheet?.lines ?? []).filter((line) => line.needsRecount === true)
+	// só as linhas DESTA rodada se recontam; as da rodada anterior já ficaram decididas
+	const divergent = (sheet?.lines ?? []).filter((line) => line.ownRound && line.needsRecount === true)
 
 	return (
 		<div className="space-y-4">
@@ -363,9 +364,14 @@ function CountsPage() {
 													achado
 												</Badge>
 											)}
-											{line.entries === 0 && (
+											{line.ownRound && line.entries === 0 && (
 												<Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
-													não contado
+													{line.notCountedAccepted ? "aceito como não contado" : "não contado"}
+												</Badge>
+											)}
+											{!line.ownRound && (
+												<Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
+													rodada anterior
 												</Badge>
 											)}
 										</TableCell>
@@ -382,7 +388,8 @@ function CountsPage() {
 												{line.difference == null ? "—" : NUM.format(line.difference)}
 											</TableCell>
 										)}
-										{open && (
+										{open && !line.ownRound && <TableCell />}
+										{open && line.ownRound && (
 											<TableCell>
 												<div className="flex items-center gap-1">
 													<Input
@@ -439,6 +446,7 @@ function CountsPage() {
 													data: {
 														countId: sheet.count.id,
 														ingredientIds: [...new Set(divergent.map((line) => line.ingredientId).filter(Boolean))] as string[],
+														frozenPreparationIds: [...new Set(divergent.map((line) => line.frozenPreparationId).filter(Boolean))] as string[],
 													},
 												}),
 											`Recontagem aberta com ${divergent.length} linha(s)`
@@ -494,7 +502,7 @@ function CountsPage() {
 								</p>
 								<div className="flex flex-wrap gap-1">
 									{sheet.lines
-										.filter((line) => line.entries === 0 && line.ingredientId)
+										.filter((line) => line.ownRound && line.entries === 0)
 										.map((line) => (
 											<Button
 												key={line.key}
@@ -506,7 +514,12 @@ function CountsPage() {
 													run(
 														() =>
 															acceptNotCountedFn({
-																data: { countId: sheet.count.id, ingredientId: line.ingredientId as string, accepted: !line.notCountedAccepted },
+																data: {
+																	countId: sheet.count.id,
+																	ingredientId: line.ingredientId ?? undefined,
+																	frozenPreparationId: line.ingredientId ? undefined : (line.frozenPreparationId ?? undefined),
+																	accepted: !line.notCountedAccepted,
+																},
 															}),
 														line.notCountedAccepted ? "Marcação removida" : "Item aceito como não contado"
 													)

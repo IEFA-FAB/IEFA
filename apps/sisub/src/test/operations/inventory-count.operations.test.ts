@@ -248,6 +248,9 @@ describeIf("inventory count (DB)", () => {
 					const arrozL2 = await lote(arroz.id, "ARZ-L2", 5, "2030-01-20")
 					const feijaoL1 = await lote(feijao.id, "FEI-L1", 8, "2030-02-01")
 					const salL1 = await lote(sal.id, "SAL-L1", 3, "2030-03-01")
+					// lote de feijão em QUARENTENA, que venceria antes: a falta não sai dele
+					const feijaoQ = await lote(feijao.id, "FEI-Q", 5, "2029-12-01")
+					await tx`update inventory.stock_lot set quarantined_at = now(), quarantine_reason = 'suspeito' where id = ${feijaoQ}`
 					const vizinho = await lote(arroz.id, "VIZ-L1", 4, "2030-01-01", outraCozinha.id)
 
 					const [c] = await tx`
@@ -291,7 +294,7 @@ describeIf("inventory count (DB)", () => {
 					// feijão: contado a menor, SEM lote (8 no ledger, 6 na prateleira)
 					await lancar("fei-solto", { ingredient: feijao.id }, 6)
 					// sal: ninguém contou — aceito como não contado
-					await tx`update inventory.count_scope_item set not_counted_accepted = true where count_id = ${c.count_id} and ingredient_id = ${sal.id}`
+					await tx`select inventory.set_not_counted_accepted(${c.count_id}, ${sal.id}, null, true)`
 
 					const linhas = await tx`select * from inventory.count_lines(${c.count_id})`
 					const arrozSolto = linhas.find((row) => row.ingredient_id === arroz.id && row.lot_id == null)
@@ -301,13 +304,19 @@ describeIf("inventory count (DB)", () => {
 
 					// ── rodada 2: o feijão é recontado; o arroz fica da rodada 1 ─────
 					await tx`update inventory.inventory_count set status = 'review' where id = ${c.count_id}`
-					const [{ open_recount: filha }] = await tx`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], ${abre})`
+					// o milho (achado) ficou sem lançamento e sem decisão: a recontagem não abre
+					await expect(tx.savepoint((sp) => sp`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], '{}'::uuid[], ${abre})`)).rejects.toThrow(
+						/sem lançamento e sem decisão/
+					)
+					await tx`select inventory.set_not_counted_accepted(${c.count_id}, ${milho.id}, null, true)`
+					const [{ open_recount: filha }] = await tx`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], '{}'::uuid[], ${abre})`
 					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${filha}`
 					// a rodada anterior não aceita mais lançamento nem aprovação
 					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${c.count_id}, ${aprova}, null)`)).rejects.toThrow(
 						/não está aguardando aprovação/
 					)
-					await lancar("fei-r2", { ingredient: feijao.id }, 7, filha)
+					// o monte de feijão, com o lote em quarentena junto: 7 + 5
+					await lancar("fei-r2", { ingredient: feijao.id }, 12, filha)
 					await tx`update inventory.inventory_count set status = 'review' where id = ${filha}`
 
 					// ── strict: quem contou na rodada 1 não aprova a rodada 2 ────────
@@ -345,6 +354,34 @@ describeIf("inventory count (DB)", () => {
 								values (${filha}, ${arrozL1}, 1, 'tarde', ${conta})`
 						)
 					).rejects.toThrow(/não aceita lançamento/)
+
+					// a quarentena ficou intocada: a falta não soltou o lote suspeito
+					const [quarentena] = await tx`select quarantined_at from inventory.stock_lot where id = ${feijaoQ}`
+					expect(quarentena.quarantined_at).not.toBeNull()
+
+					// ── a rodada anterior vence com a cadeia, não sozinha ────────────
+					const [v1] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
+						${tx.json({ ingredient_ids: [sal.id] })}, true, null, ${abre})`
+					await tx`update inventory.inventory_count set status = 'review' where id = ${v1.count_id}`
+					await tx`select inventory.set_not_counted_accepted(${v1.count_id}, ${sal.id}, null, true)`
+					await tx`update inventory.count_scope_item set not_counted_accepted = false where count_id = ${v1.count_id}`
+					const [{ open_recount: v2 }] = await tx`select inventory.open_recount(${v1.count_id}, ${[sal.id]}::uuid[], '{}'::uuid[], ${abre})`
+					// a mãe "venceu" no relógio, mas a recontagem dela vive: ela segue esperando
+					await tx`update inventory.inventory_count set expires_at = now() - interval '1 minute' where id = ${v1.count_id}`
+					// abrir outra contagem é o que dispara a expiração; ela é rejeitada logo
+					// em seguida para não segurar o arroz nos passos seguintes
+					const [gatilho] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
+						${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${abre})`
+					await tx`select inventory.reject_inventory_count(${gatilho.count_id}, ${aprova}, 'só dispara a expiração')`
+					const [maeViva] = await tx`select status from inventory.inventory_count where id = ${v1.count_id}`
+					expect(maeViva.status).toBe("recount")
+					// vence a recontagem: a mãe vence junto
+					await tx`update inventory.inventory_count set expires_at = now() - interval '1 minute' where id = ${v2}`
+					const [gatilho2] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
+						${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${abre})`
+					await tx`select inventory.reject_inventory_count(${gatilho2.count_id}, ${aprova}, 'só dispara a expiração')`
+					const cadeia = await tx`select status from inventory.inventory_count where id in (${v1.count_id}, ${v2})`
+					expect(cadeia.every((row) => row.status === "expired")).toBe(true)
 
 					// ── achado que está em OUTRA contagem aberta ─────────────────────
 					const [a] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
