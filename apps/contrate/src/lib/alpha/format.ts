@@ -13,3 +13,19 @@ export function formatDateTime(value: string | null | undefined, empty = "—"):
 	const date = new Date(value)
 	return Number.isNaN(date.getTime()) ? empty : DATE_TIME.format(date)
 }
+
+const DATE_ONLY = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" })
+
+/** Só a data, no mesmo fuso: prazo de acesso, "vence em". */
+export function formatDate(value: string | null | undefined, empty = "—"): string {
+	if (!value) return empty
+	const date = new Date(value)
+	return Number.isNaN(date.getTime()) ? empty : DATE_ONLY.format(date)
+}
+
+const COUNT = new Intl.NumberFormat("pt-BR")
+
+/** Contagem com separador de milhar: "1.024". */
+export function formatCount(value: number): string {
+	return COUNT.format(value)
+}
