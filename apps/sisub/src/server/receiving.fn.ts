@@ -316,6 +316,8 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 				quantityBase: data.receivedQtyBase,
 				userId,
 				divergenceReason: reason,
+				// a checagem acima é a resposta rápida; esta, sob a trava, é a que vale
+				expectedTotal: baseline,
 			})
 			return
 		}
@@ -751,6 +753,8 @@ async function recordReceiptEvent(event: {
 	reversedEventId?: string | null
 	/** Gravado na linha na mesma transação do evento (e só se o evento entrou). */
 	divergenceReason?: string | null
+	/** Recusa o evento se a linha não estiver mais com este total (checado sob a trava). */
+	expectedTotal?: number | null
 }): Promise<{ duplicate: boolean; total: number }> {
 	const { data, error } = await inventory().rpc("record_receipt_event", {
 		p_receipt_id: event.receiptId,
@@ -766,6 +770,7 @@ async function recordReceiptEvent(event: {
 		p_package_factor: event.packageFactor ?? null,
 		p_reversed_event_id: event.reversedEventId ?? null,
 		p_divergence_reason: event.divergenceReason ?? null,
+		p_expected_total: event.expectedTotal ?? null,
 	})
 	if (error) throw new Error(`Erro ao registrar a conferência: ${error.message}`)
 	const row = (data ?? [])[0] as { duplicate: boolean; total: number } | undefined

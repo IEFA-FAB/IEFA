@@ -285,12 +285,13 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 						quantity: number,
 						lotCode: string | null = null,
 						reversedEventId: string | null = null,
-						reason: string | null = null
+						reason: string | null = null,
+						expectedTotal: number | null = null
 					) => {
 						const [row] = await tx`
 							select * from inventory.record_receipt_event(
 								${receipt.id}::uuid, ${itemId}::uuid, ${clientEventId}::text, ${method}::text, ${quantity}::numeric, null::uuid,
-								null::text, null::text, ${lotCode}::text, ${lotCode ? "2027-05-31" : null}::date, null::numeric, ${reversedEventId}::uuid, ${reason}::text)`
+								null::text, null::text, ${lotCode}::text, ${lotCode ? "2027-05-31" : null}::date, null::numeric, ${reversedEventId}::uuid, ${reason}::text, ${expectedTotal}::numeric)`
 						return { duplicate: row.duplicate as boolean, eventId: row.event_id as string | null, total: Number(row.total) }
 					}
 					const lotsOf = async (itemId: string) => {
@@ -360,6 +361,31 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					expect(await lineOf(e)).toEqual({ received: 10, reason: null })
 					expect(await lotsOf(e)).toEqual({ "CX-1": 10 })
 
+					// ── F: o SEM-LOTE do sistema não conta como divisão do operador (20260921180000) ──
+					const [nfeItemF] = await tx`
+						insert into inventory.nfe_item (nfe_document_id, n_item, lot_code, expiry_date)
+						values (${nfe.id}, 3, 'NF-F', '2027-02-28') returning id`
+					const f = await line(100, nfeItemF.id)
+					await tx`insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base, unit_cost)
+						values (${f}, 'NF-F', '2027-02-28', 100, 2)`
+					await record(f, "atom-f-1", "scanner", 50, "NF-F")
+					const loose = await record(f, "atom-f-2", "scanner", 50)
+					expect(Object.values(await lotsOf(f)).reduce((sum, qty) => sum + qty, 0)).toBe(100)
+					await record(f, "atom-f-3", "reversal", 0, null, loose.eventId)
+					// total informado com a quantidade que a tela mostrava: a linha está em 50
+					await expect(
+						tx.savepoint(
+							(sp) => sp`
+						select * from inventory.record_receipt_event(
+							${receipt.id}::uuid, ${f}::uuid, 'atom-f-x', 'typed', 100::numeric, null::uuid,
+							null, null, null, null, null, null, null, 100::numeric)`
+						)
+					).rejects.toThrow(/mudou enquanto você editava/)
+					expect((await record(f, "atom-f-4", "typed", 100, null, null, null, 50)).total).toBe(100)
+					const lotsF = await lotsOf(f)
+					expect(lotsF["NF-F"]).toBe(100)
+					expect(Object.values(lotsF).reduce((sum, qty) => sum + qty, 0)).toBe(100)
+
 					// ── efetivação: falta sem motivo é recusada DENTRO da função ──
 					await record(c, "atom-c-1", "typed", 4)
 					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
@@ -368,8 +394,8 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					)
 					await tx`update inventory.goods_receipt_item set divergence_reason = 'Falta de 1 KG' where id = ${c}`
 					const [finalized] = await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
-					// A (lote da nota), B, C, D (dois lotes) e E; o lote zerado OUTRO-L não vira estoque
-					expect(Number(finalized.movements)).toBe(6)
+					// A (lote da nota), B, C, D (dois lotes), E e F; os lotes zerados não viram estoque
+					expect(Number(finalized.movements)).toBe(7)
 					const zeroStock = await tx`select 1 from inventory.stock_lot where goods_receipt_item_id = ${a} and lot_code = 'OUTRO-L'`
 					expect(zeroStock).toHaveLength(0)
 					const [status] = await tx`select status from inventory.goods_receipt where id = ${receipt.id}`
