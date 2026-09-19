@@ -117,8 +117,8 @@ export async function withAudit<T>({ operation, record, run, target }: WithAudit
  * classificação. Operação classificada `"none"` que mexe em acesso (revogar/apagar a própria
  * chave MCP) é registrada com `session`: a coluna só aceita os dois graus, e mudança de acesso
  * é registrada SEMPRE — quem decide se o log existe não é o grau, é o fato de o acesso mudar.
- * Por isso a tela de auditoria NÃO lê "sessão elevada" desse `session`: ela tira a exigência
- * do registro (`describeRequirement`, `lib/audit-log/requirement-label.ts`).
+ * Por isso a tela de auditoria nunca lê "sessão elevada" num `session` gravado — só `fresh`
+ * afirma elevação (`describeRequirement`, `lib/audit-log/requirement-label.ts`).
  *
  * @throws {Error} se `operation` não estiver no registro — ANTES de qualquer escrita.
  */
