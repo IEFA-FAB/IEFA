@@ -301,6 +301,19 @@ export {
 	type SupplyOrderStatus,
 } from "./inventory-vocabulary.ts"
 export {
+	type CloseDayCheck,
+	checkDayClosure,
+	evaluateVariance,
+	ISSUE_VARIANCE_REASON_LABELS,
+	ISSUE_VARIANCE_REASONS,
+	type IssueLineForVariance,
+	type IssueToleranceSettings,
+	type IssueVarianceReason,
+	issueSuggestionFingerprint,
+	roundToIssuePackage,
+	type VarianceVerdict,
+} from "./issue-variance.ts"
+export {
 	createKitchenDraft,
 	deleteKitchenDraft,
 	fetchKitchenDrafts,

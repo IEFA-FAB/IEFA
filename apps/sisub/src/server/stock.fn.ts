@@ -11,6 +11,7 @@
  * @migration 20260729160000_inventory_stock_core
  */
 
+import { brasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -47,6 +48,16 @@ export interface StockBalanceItem {
 	nextExpiry: string | null
 	/** Parte do saldo que está em quarentena — existe, mas não é alocável. */
 	quarantinedBalance: number
+	/**
+	 * Saldo preso em lote VENCIDO.
+	 *
+	 * A alocação de saída pula lote vencido, exatamente como pula quarentena.
+	 * Uma tela que desconta só a quarentena oferece saldo que o banco nunca vai
+	 * tocar: o operador pede 20 KG, existem 20 KG "disponíveis" todos vencidos,
+	 * e a baixa sai inteira como movimento sem lote — estoque negativo, sem
+	 * nenhum aviso.
+	 */
+	expiredBalance: number
 }
 
 /** Nomes de itens (insumos + preparações congeladas) para exibição. */
@@ -100,6 +111,7 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 				lots: [],
 				nextExpiry: null,
 				quarantinedBalance: 0,
+				expiredBalance: 0,
 			}
 			item.balance += Number(row.balance ?? 0)
 			item.balanceValue += Number(row.balance_value ?? 0)
@@ -117,6 +129,8 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 				derivation: meta?.derivation ?? null,
 			})
 			if (meta?.quarantined_at != null) item.quarantinedBalance += Number(row.balance ?? 0)
+			// vencido na data civil de Brasília, como a alocação mede
+			else if (row.expiry_date != null && row.expiry_date < brasiliaToday()) item.expiredBalance += Number(row.balance ?? 0)
 			if (row.expiry_date && Number(row.balance ?? 0) > 0 && meta?.quarantined_at == null && (item.nextExpiry == null || row.expiry_date < item.nextExpiry)) {
 				item.nextExpiry = row.expiry_date
 			}

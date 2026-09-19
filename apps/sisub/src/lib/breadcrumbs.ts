@@ -89,6 +89,7 @@ export const SEGMENT_PT: Record<string, string> = {
 	adjustments: "Ajustes",
 	incoming: "A caminho",
 	expiry: "Vencimentos",
+	issue: "Saída do dia",
 	// Sub-páginas
 	new: "Novo",
 	print: "Imprimir",
