@@ -20,7 +20,6 @@
 import {
 	type ConservationClass,
 	divergesFromInvoice,
-	fiscalShortfallValue,
 	isReceiptEditable,
 	isTemperatureOutOfRange,
 	matchScanToLine,
@@ -471,7 +470,9 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 		await assertInvoiceUsable(data.receiptId)
 
 		const inv = inventory()
-		await inv.from("goods_receipt").update({ definitive_designation_id: designationId }).eq("id", data.receiptId)
+		// sem a designação gravada, o termo sairia sem quem efetivou
+		const { error: designationError } = await inv.from("goods_receipt").update({ definitive_designation_id: designationId }).eq("id", data.receiptId)
+		if (designationError) throw new Error(`Erro ao registrar a designação: ${designationError.message}`)
 
 		const { data: result, error } = await inv.rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
 		if (error) throw new Error(`Efetivação falhou: ${error.message}`)
@@ -480,17 +481,15 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 		// 100 e o estoque 90. Carta de correção não altera quantidade nem valor
 		// (Ajuste SINIEF 07/05) — resolve-se por NF-e de devolução, nota
 		// substituta ou glosa registrada, e até lá o recebimento não é liquidável.
-		const { data: items } = await inv.from("goods_receipt_item").select("invoiced_qty_base, received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
-		const shortfall = fiscalShortfallValue(
-			((items ?? []) as Array<{ invoiced_qty_base: number | null; received_qty_base: number; unit_cost: number | null }>).map((item) => ({
-				invoicedQtyBase: item.invoiced_qty_base != null ? Number(item.invoiced_qty_base) : null,
-				receivedQtyBase: Number(item.received_qty_base),
-				unitCost: item.unit_cost != null ? Number(item.unit_cost) : null,
-			}))
-		)
-		if (shortfall > 0) {
-			await inv.from("goods_receipt").update({ fiscal_pending: true, fiscal_pending_value: shortfall }).eq("id", data.receiptId)
-		}
+		// Quem grava é `finalize_goods_receipt`, na mesma transação da efetivação
+		// (migration 20260918210000); aqui só se lê para avisar o operador.
+		const { data: finalized, error: readError } = await inv
+			.from("goods_receipt")
+			.select("fiscal_pending, fiscal_pending_value")
+			.eq("id", data.receiptId)
+			.single()
+		if (readError) throw new Error(`Recebimento efetivado, mas não foi possível ler a pendência fiscal: ${readError.message}`)
+		const shortfall = finalized.fiscal_pending ? Number(finalized.fiscal_pending_value ?? 0) : 0
 
 		return { movements: Number(result?.[0]?.movements ?? 0), fiscalPendingValue: shortfall }
 	})

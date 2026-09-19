@@ -107,4 +107,53 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 				})
 		).resolves.toBe("rolled-back")
 	}, 30_000)
+
+	test("recebido a MENOR que o faturado sai efetivado JÁ com a pendência fiscal — na mesma transação", async () => {
+		// Antes de 20260918210000 a pendência era gravada pelo servidor DEPOIS da
+		// RPC: entre os dois comandos o recebimento estava efetivado e liquidável.
+		// Aqui a função sozinha tem de deixá-lo pendente.
+		await expect(
+			sql
+				.begin(async (tx) => {
+					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-FISC', 'unit teste fiscal') returning id`
+					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha fiscal') returning id`
+					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE FISC', 'KG') returning id`
+
+					const finalize = async (lines: Array<{ invoiced: number | null; received: number; cost: number | null }>) => {
+						const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+						for (const line of lines) {
+							await tx`
+								insert into inventory.goods_receipt_item
+									(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+								values (${receipt.id}, ${ingredient.id}, ${line.invoiced}, ${line.received}, ${line.cost})`
+						}
+						await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
+						await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
+						const [row] = await tx`select fiscal_pending, fiscal_pending_value, definitive_at from inventory.goods_receipt where id = ${receipt.id}`
+						return row
+					}
+
+					// falta de 2 × 2,50 = 5,00; a SOBRA da segunda linha não compensa;
+					// linha sem quantidade faturada não entra
+					const short = await finalize([
+						{ invoiced: 10, received: 8, cost: 2.5 },
+						{ invoiced: 5, received: 6, cost: 3 },
+						{ invoiced: null, received: 4, cost: 1 },
+					])
+					expect(short.definitive_at).not.toBeNull()
+					expect(short.fiscal_pending).toBe(true)
+					expect(Number(short.fiscal_pending_value)).toBe(5)
+
+					// entregue inteiro: nenhuma pendência
+					const whole = await finalize([{ invoiced: 10, received: 10, cost: 2.5 }])
+					expect(whole.fiscal_pending).toBe(false)
+
+					throw new Rollback()
+				})
+				.catch((err) => {
+					if (err instanceof Rollback) return "rolled-back"
+					throw err
+				})
+		).resolves.toBe("rolled-back")
+	}, 30_000)
 })

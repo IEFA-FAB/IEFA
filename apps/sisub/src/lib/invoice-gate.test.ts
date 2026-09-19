@@ -40,6 +40,7 @@ describe("invoiceSituationProblem — a única autenticidade que a cadeia tem ho
 describe("liquidationLinkProblems — a segunda porta", () => {
 	const recebimento = {
 		unitId: 7,
+		status: "definitive",
 		definitiveAt: "2026-09-15T10:00:00Z",
 		nfeDocumentId: "nfe-1",
 		empenhoId: "emp-A",
@@ -54,11 +55,30 @@ describe("liquidationLinkProblems — a segunda porta", () => {
 	test("recebimento DIVERGENTE efetivado continua liquidável", () => {
 		// `finalize_goods_receipt` grava `divergent` com `definitive_at`: ler o status
 		// em vez do instante recusava todos eles, e antes deste PR eles liquidavam
-		expect(liquidationLinkProblems({ ...base, receipt: { ...recebimento, definitiveAt: "2026-09-15T10:00:00Z" } }, NOW)).toEqual([])
+		expect(liquidationLinkProblems({ ...base, receipt: { ...recebimento, status: "divergent" } }, NOW)).toEqual([])
 	})
 
-	test("recebimento não efetivado não sustenta liquidação", () => {
+	test("recebimento não efetivado não sustenta liquidação, qualquer que seja o status", () => {
+		expect(liquidationLinkProblems({ ...base, receipt: { ...recebimento, status: "provisional", definitiveAt: null } }, NOW).join()).toMatch(/EFETIVADO/)
+		// o status sozinho não atesta nada: sem o instante da efetivação, bloqueia
 		expect(liquidationLinkProblems({ ...base, receipt: { ...recebimento, definitiveAt: null } }, NOW).join()).toMatch(/EFETIVADO/)
+	})
+
+	test("recebimento sem nota não aceita nota informada na liquidação", () => {
+		const semNota = { ...recebimento, nfeDocumentId: null }
+		expect(liquidationLinkProblems({ ...base, receipt: semNota, requestedNfeId: "nfe-9", invoice: { ...autorizada, unitId: 7 } }, NOW).join()).toMatch(
+			/não tem NF-e vinculada/
+		)
+		// sem nota nenhuma, a entrega sem NF-e segue liquidável (o pão antes da nota não chega aqui: não há NS sem nota)
+		expect(liquidationLinkProblems({ ...base, receipt: semNota, requestedNfeId: null, invoice: null }, NOW)).toEqual([])
+	})
+
+	test("nota sem unidade só passa quando vem pelo recebimento", () => {
+		const semUnidade = { ...autorizada, unitId: null }
+		expect(liquidationLinkProblems({ ...base, invoice: semUnidade }, NOW)).toEqual([])
+		expect(liquidationLinkProblems({ unitId: 7, empenhoId: "emp-A", receipt: null, requestedNfeId: "nfe-9", invoice: semUnidade }, NOW).join()).toMatch(
+			/não tem unidade atribuída/
+		)
 	})
 
 	test("a mesma entrega não paga dois empenhos", () => {

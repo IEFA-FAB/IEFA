@@ -164,7 +164,7 @@ async function assertLiquidationLinks(
 	if (goodsReceiptId) {
 		const { data: row, error } = await inv
 			.from("goods_receipt")
-			.select("id, kitchen_id, definitive_at, nfe_document_id, empenho_id, fiscal_pending")
+			.select("id, kitchen_id, status, definitive_at, nfe_document_id, empenho_id, fiscal_pending")
 			.eq("id", goodsReceiptId)
 			.maybeSingle()
 		if (error) throw new Error(`Erro ao conferir o recebimento: ${error.message}`)
@@ -176,6 +176,7 @@ async function assertLiquidationLinks(
 
 		receipt = {
 			unitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
+			status: row.status,
 			definitiveAt: row.definitive_at,
 			nfeDocumentId: row.nfe_document_id,
 			empenhoId: row.empenho_id,

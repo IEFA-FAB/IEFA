@@ -102,21 +102,26 @@ export const saveScannerProfileFn = createServerFn({ method: "POST" })
 	})
 
 /**
- * Entre os insumos para os quais um código aponta, o que tem lote nesta
- * cozinha; sem nenhum com lote, o primeiro. Lista vazia → `undefined`.
+ * Entre os insumos para os quais um código aponta, o que tem SALDO nesta
+ * cozinha (o maior); sem nenhum com saldo, o primeiro. Lista vazia → `undefined`.
  */
 async function preferStocked(kitchenId: number, ingredientIds: readonly string[]): Promise<string | undefined> {
 	const unique = [...new Set(ingredientIds)]
 	if (unique.length <= 1) return unique[0]
-	const { data: lots, error } = await inventory()
-		.from("stock_lot")
-		.select("ingredient_id")
+	// O que tem SALDO aqui, e o de maior saldo quando são vários — e a escolha é
+	// determinística. Um lote qualquer, sem ordem, escolhia ora um ora outro, e
+	// o lote vazio ou antigo contava como "tem estoque".
+	const { data: stocked, error } = await inventory()
+		.from("v_stock_balance")
+		.select("ingredient_id, balance")
 		.eq("kitchen_id", kitchenId)
 		.in("ingredient_id", unique)
-		.is("quarantined_at", null)
+		.gt("balance", 0)
+		.order("balance", { ascending: false })
+		.order("ingredient_id", { ascending: true })
 		.limit(1)
 	if (error) throw new Error(`Erro ao resolver o código lido: ${error.message}`)
-	return ((lots ?? [])[0]?.ingredient_id as string | undefined) ?? unique[0]
+	return ((stocked ?? [])[0]?.ingredient_id as string | undefined) ?? unique[0]
 }
 
 /**
