@@ -2,7 +2,7 @@
 -- Limpeza do Projeto α depois do escopo por OM (20260918123000): o módulo `alpha` de nível
 -- único é CONVERTIDO nos papéis e some, e a OM da submissão passa a ser obrigatória no banco.
 --
--- DECLARADA, NÃO APLICADA. Ordem: aplicar ANTES do merge do PR que tira `"alpha"` do
+-- APLICADA em 2026-09-19, antes do merge. Ordem: aplicar ANTES do merge do PR que tira `"alpha"` do
 -- `AppModule` — o código novo trata `submission.unit_id` como sempre preenchido. O código
 -- antigo segue funcionando depois dela: nada lê as linhas `alpha`, e o α já exige a OM no
 -- envio desde o #383.

@@ -2,7 +2,7 @@
 -- Bloquear (ou desbloquear) uma pessoa em VÁRIOS módulos de uma vez, numa transação só,
 -- com uma linha de auditoria por módulo alterado.
 --
--- DECLARADA, NÃO APLICADA. Ordem: aplicar ANTES do merge do código que a chama (o botão
+-- APLICADA em 2026-09-19, antes do merge. Ordem: aplicar ANTES do merge do código que a chama (o botão
 -- "Bloquear no copiloto" do contrate) — sem ela o PostgREST responde PGRST202 e o botão
 -- falha, sem estrago. Nada existente depende dela.
 --
