@@ -182,13 +182,15 @@ chave publicável (papéis `anon`/`authenticated`) está no bundle de todo app. 
   `CLIENT_EXECUTE_ALLOWLIST` de `packages/database/scripts/audit-rls.ts`, com o motivo.
 - **Schemas: cliente só alcança o que o navegador lê** (desde `20260920230000`). `anon`/`authenticated`
   têm USAGE apenas em `assignment_selection` (Realtime do telão), `kitchen` (só `authenticated`,
-  Realtime do sisub) e `public` (USAGE de PUBLIC, da plataforma). Tabela nova para o navegador exige
-  entrar na `CLIENT_SCHEMA_ALLOWLIST` do mesmo arquivo — e, se for Realtime, na publicação
-  `supabase_realtime`. Todo o resto é do servidor (`service_role`).
+  Realtime do sisub) e `public` (USAGE de PUBLIC, da plataforma), e só leem (SELECT) as seis tabelas da
+  publicação `supabase_realtime`. Tabela nova para o navegador exige entrar na `CLIENT_TABLE_ALLOWLIST`
+  (e, schema novo, na `CLIENT_SCHEMA_ALLOWLIST`) do mesmo arquivo, com o motivo — e, se for Realtime,
+  na publicação. Todo o resto é do servidor (`service_role`).
 - **Gate**: `bun --filter @iefa/database audit:rls` roda no job `gate` do `integration.yml` (toda
   migration passa por ele e é aplicada antes do merge) e falha em função executável por cliente,
   função que o `service_role` não executa, default que faça função nova nascer aberta, USAGE de
-  cliente fora da allowlist, grant de tabela a cliente sem USAGE, RLS desligada alcançável e
+  cliente fora da allowlist, grant de tabela a cliente fora da allowlist (ou além de SELECT, ou sem
+  USAGE), RLS desligada alcançável e
   SECURITY DEFINER sem `search_path` ou exposta.
 
 ## Commands

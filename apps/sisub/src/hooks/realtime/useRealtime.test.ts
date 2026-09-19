@@ -12,11 +12,16 @@ const supabaseEnv = getSupabaseTestEnv({ requireAnonKey: true })
 type SisubServiceClient = ReturnType<typeof createSisubServiceClient>
 type RealtimeTestClient = SisubServiceClient
 
-async function canReachSupabase() {
+/**
+ * `recipes` mora em `kitchen` desde a divisão do schema. Com o client apontando para
+ * `sisub`, a checagem falhava e o bloco de policies inteiro se pulava calado — o teste
+ * que prova que o Realtime do sisub lê as tabelas não provava nada.
+ */
+async function canReachSupabase(schema: "sisub" | "kitchen" = "sisub") {
 	if (!supabaseEnv) return false
 	try {
 		const sb = createSisubReachabilityClient(supabaseEnv)
-		const { error } = await sb.from("recipes").select("id").limit(1)
+		const { error } = await sb.schema(schema).from("recipes").select("id").limit(1)
 		return !error
 	} catch {
 		return false
@@ -96,7 +101,7 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 	const REALTIME_TABLES = ["daily_menu", "menu_items", "recipes"] as const
 
 	beforeAll(async () => {
-		reachable = await canReachSupabase()
+		reachable = await canReachSupabase("kitchen")
 		if (!reachable || !supabaseEnv) return
 		adminClient = createSisubServiceClient(supabaseEnv, { requestTimeoutMs: 5_000 })
 		testUser = await createTestUser(adminClient)
@@ -111,7 +116,7 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 		test(`authenticated client can SELECT from ${table}`, async () => {
 			if (!reachable || !testUser) return
 
-			const { error } = await testUser.client.from(table).select("*").limit(1)
+			const { error } = await testUser.client.schema("kitchen").from(table).select("*").limit(1)
 			expect(error).toBeNull()
 		})
 	}
@@ -121,7 +126,8 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 
 		const anonClient = createSisubAnonClient({ ...supabaseEnv, anonKey: supabaseEnv.anonKey })
 
-		const { data, error } = await anonClient.from("recipes").select("*").limit(1)
+		// desde 20260920230000 o anon nem alcança o schema `kitchen`: o bloqueio vem antes da RLS
+		const { data, error } = await anonClient.schema("kitchen").from("recipes").select("*").limit(1)
 
 		const blocked = error !== null || (data !== null && Array.isArray(data) && data.length === 0)
 		expect(blocked).toBe(true)

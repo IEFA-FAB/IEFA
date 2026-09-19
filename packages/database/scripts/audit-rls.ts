@@ -19,6 +19,7 @@
  *   ERRO   default_acl_client_execute default de privilégios que faz função NOVA nascer executável por cliente
  *   ERRO   client_schema_usage   anon/authenticated com USAGE num schema fora da CLIENT_SCHEMA_ALLOWLIST
  *   ERRO   client_table_grant_latent grant de tabela a cliente num schema que ele não alcança
+ *   ERRO   client_table_grant    grant de tabela/view a cliente fora da CLIENT_TABLE_ALLOWLIST (ou além de SELECT)
  *   AVISO  view_secdef_no_grant  view sem security_invoker, mas sem GRANT de cliente hoje
  *   AVISO  secdef_execute_latent EXECUTE de cliente numa SECURITY DEFINER de schema sem USAGE
  *   AVISO  rls_no_policy         RLS ligada e nenhuma policy → deny-all (ok se for só service-role)
@@ -551,6 +552,61 @@ const CLIENT_SCHEMA_ALLOWLIST: Record<string, { roles: ("anon" | "authenticated"
 	},
 }
 
+/**
+ * Tabelas e views que o NAVEGADOR lê, com os papéis. A allowlist de schema sozinha não
+ * basta: dentro de `kitchen` ou `assignment_selection`, um `grant select` novo a cliente
+ * (com policy `using (true)`) passaria sem erro. Só SELECT — escrita de cliente não
+ * existe em app nenhum. Realtime novo entra aqui E na publicação `supabase_realtime`.
+ */
+const CLIENT_TABLE_ALLOWLIST: Record<string, ("anon" | "authenticated")[]> = {
+	"kitchen.daily_menu": ["authenticated"],
+	"kitchen.menu_items": ["authenticated"],
+	"kitchen.recipes": ["authenticated"],
+	"assignment_selection.edition": ["anon", "authenticated"],
+	"assignment_selection.person": ["anon", "authenticated"],
+	"assignment_selection.vacancy": ["anon", "authenticated"],
+	// view security_invoker sobre as três acima; não expõe nada além delas
+	"assignment_selection.vacancy_status": ["anon", "authenticated"],
+}
+
+async function auditClientTableGrants(schemas: string[]): Promise<Finding[]> {
+	const rows = await sql<{ object: string; role: "anon" | "authenticated"; privs: string[] }[]>`
+		select
+			n.nspname || '.' || c.relname as object,
+			r as role,
+			array(
+				select priv from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) priv
+				where has_table_privilege(r, c.oid, priv)
+			) as privs
+		from pg_class c
+		join pg_namespace n on n.oid = c.relnamespace
+		cross join unnest(array['anon', 'authenticated']) r
+		where n.nspname = any(${schemas})
+			and c.relkind in ('r', 'p', 'v', 'm', 'f')
+			-- sem USAGE é o lint 'client_table_grant_latent'
+			and has_schema_privilege(r, n.oid, 'USAGE')
+			and (has_table_privilege(r, c.oid, 'SELECT') or has_table_privilege(r, c.oid, 'INSERT')
+				or has_table_privilege(r, c.oid, 'UPDATE') or has_table_privilege(r, c.oid, 'DELETE')
+				or has_table_privilege(r, c.oid, 'TRUNCATE'))
+		order by 1, 2
+	`
+	return rows.flatMap((r): Finding[] => {
+		const allowed = CLIENT_TABLE_ALLOWLIST[r.object]?.includes(r.role) ?? false
+		const beyondSelect = r.privs.filter((priv) => priv !== "SELECT")
+		if (allowed && beyondSelect.length === 0) return []
+		return [
+			{
+				severity: "error",
+				lint: "client_table_grant",
+				object: r.object,
+				detail: allowed
+					? `${r.role} tem [${beyondSelect.join(",")}] além de SELECT — o navegador só lê; revogue`
+					: `${r.role} tem [${r.privs.join(",")}] e a tabela/view não está na CLIENT_TABLE_ALLOWLIST — o navegador não a lê; revogue, ou justifique na allowlist (e, se for Realtime, na publicação)`,
+			},
+		]
+	})
+}
+
 async function auditClientSchemaUsage(schemas: string[]): Promise<Finding[]> {
 	const rows = await sql<{ schema: string; role: "anon" | "authenticated"; table_grants: number }[]>`
 		select
@@ -616,6 +672,7 @@ async function main() {
 			auditServiceRoleExecute(schemas),
 			auditDefaultAcl(schemas),
 			auditClientSchemaUsage(schemas),
+			auditClientTableGrants(schemas),
 		])
 	).flat()
 
